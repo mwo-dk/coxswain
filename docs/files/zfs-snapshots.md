@@ -215,4 +215,4 @@ environments themselves are in the sidebar and **Alt+F1**
 ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 
 ---
-[← Previous: Finding duplicates](duplicates.md) · [Next: Customising →](../customise/README.md)
+[← Previous: Finding duplicates](duplicates.md) · [Next: Make PDF searchable →](searchable-pdf.md)

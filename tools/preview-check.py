@@ -38,9 +38,10 @@ def png(path):
     path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 8, 8, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
 
 
-def pdf(path):
+def pdf(path, words=True):
     objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 100] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>"]
-    text = b"BT /F1 18 Tf 20 50 Td (Rocket) Tj ET"
+    # Without words: a page with a box drawn on it, as a scan has no text either.
+    text = b"BT /F1 18 Tf 20 50 Td (Rocket) Tj ET" if words else b"10 10 100 50 re S"
     objs.append(f"<< /Length {len(text)} >>\nstream\n{text.decode()}\nendstream")
     objs.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     out, offsets = b"%PDF-1.4\n", []
@@ -87,6 +88,9 @@ def files(d):
                                 '<mxCell id="2" value="Lift-off $$x^2$$" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell>'
                                 '</root></mxGraphModel></diagram></mxfile>')
     (d / "l.md").write_text("# Orbit\n\nEnergy: $E = mc^2$\n\n$$\\int_0^1 x\\,dx$$\n")
+    pdf(d / "n.pdf", words=False)
+    (d / "o.ps").write_text("%!PS\n/Helvetica findfont 24 scalefont setfont\n72 700 moveto (Rocket) show\nshowpage\n")
+    (d / "p.d2").write_text("tank -> valve -> engine\n")
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -103,6 +107,12 @@ def files(d):
         # With maths, which draw.io's viewer cannot load here: the diagram must still show.
         "drawio": ("m.drawio", ".drawio svg", "Lift-off", 20),
         "provenance": ("k.provenance.json", ".prov .flow", "matches the file here", 10),
+        # A PDF without text: the line that offers Make PDF searchable.
+        "scan": ("n.pdf", "p.more", "looks like a scan", 10),
+        # Ghostscript, installed (as on the machines this runs on) or in a container.
+        "ps": ("o.ps", "iframe", "", 20),
+        # No d2 here and Kroki's image not pulled: its note (the first pull, or what is missing).
+        "d2": ("p.d2", "p.more", "", 10),
     }
 
 

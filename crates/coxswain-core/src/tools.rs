@@ -389,7 +389,7 @@ impl Manager {
 
 /// The line that installs `program` with `manager`, for the user to copy and run: Coxswain never
 /// runs it. `program` is what Coxswain looks for: `tesseract`, `pdftoppm`, `soffice`, `latex`,
-/// `plantuml`, `pandoc`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
+/// `plantuml`, `pandoc`, `ocrmypdf`, `gs` (Ghostscript), `typst`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
 /// (video and sound) and `cjk-font` (Japanese and Korean letters). `None` when that manager has no
 /// package for it; the hint then says where to get it.
 pub fn install_line(program: &str, manager: Manager) -> Option<String> {
@@ -450,6 +450,24 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         // 7-Zip, which reads disk images (`disk_image`); p7zip where the system has no other.
         "7z" => [
             "7-zip", "7-zip", "p7zip", "", "7zip", "7zip", "7zip", "7zip", "sevenzip", "7zip.7zip",
+        ],
+        "ocrmypdf" => [
+            "", "", "", "", "ocrmypdf", "ocrmypdf", "ocrmypdf", "", "ocrmypdf", "",
+        ],
+        "gs" => [
+            "ghostscript10",
+            "ghostscript-agpl",
+            "ghostscript",
+            "",
+            "ghostscript",
+            "ghostscript",
+            "ghostscript",
+            "ghostscript",
+            "ghostscript",
+            "ArtifexSoftware.GhostScript",
+        ],
+        "typst" => [
+            "typst", "", "", "", "typst", "", "typst", "typst", "typst", "Typst.Typst",
         ],
         "pandoc" => [
             "hs-pandoc",

@@ -136,14 +136,14 @@ mindmap
 |---|---|
 | [The preview pane](previews/README.md) | Opening and closing it, what it shows, the switches, every format with its page, keys; desktop-only and why |
 | [Text and code](previews/text-and-code.md) | Highlighted code, logs, hex dumps, the git diff (File / Diff), Markdown with Mermaid and math |
-| [Documents: PDF, Word, EPUB, notebooks, mail, calendars](previews/documents.md) | PDF, Word .docx, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, calendars and contacts |
+| [Documents: PDF, Word, EPUB, notebooks, mail, calendars](previews/documents.md) | PDF (and the line offering to make a scan searchable), Word .docx, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, Typst, PostScript, XPS, calendars and contacts |
 | [HTML pages, sandboxed](previews/html.md) | HTML files shown as sandboxed pages: what is allowed and blocked, scripts, the network, Rendered / Source |
-| [PowerPoint and Office: quick view and LibreOffice's exact view](previews/office.md) | PowerPoint quick view drawn in the app, LibreOffice's exact view after it, and every other Office format |
+| [PowerPoint and Office: quick view and LibreOffice's exact view](previews/office.md) | PowerPoint quick view drawn in the app, LibreOffice's exact view after it, every other Office format, old ones (Works, Write, WordPerfect, Lotus 1-2-3, StarOffice, AbiWord, iWork) and Windows clip art (WMF, EMF); LibreOffice installed or Gotenberg's image |
 | [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists, Coxswain's own index.bin and search.db |
 | [Cryptography bills of materials](previews/bom.md) | CycloneDX CBOMs as a rated tree or sunburst, with filters and a compare of two scans, in both apps |
 | [Build provenance](previews/provenance.md) | SLSA and in-toto provenance as inputs → build → outputs: who signed, do the files here match, is the commit in your checkout, two builds compared; in both apps |
 | [Media and files: pictures, video, audio, fonts, archives, folders](previews/media.md) | Pictures, video, audio, fonts, archives listed (and files inside archives), folders, facts under a file |
-| [Diagrams: draw.io, Mermaid, Graphviz and PlantUML](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview |
+| [Diagrams: draw.io, Mermaid, Graphviz, PlantUML, D2 and more](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview; D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](previews/latex.md) | LaTeX: which file is the document, the project, the engine, building by itself, another engine when one fails, errors |
 | [Previews made by tools](previews/tools.md) | The engine buttons, how rendering works, the preview cache and Clear, [preview] |
 | [Containers](previews/containers.md) | Podman or docker: what a container may do, what each image gives and costs, pulling and removing images, keeping them up to date, images in Settings |
@@ -169,6 +169,7 @@ mindmap
 | [Properties and permissions](files/properties.md) | Properties (Alt+Enter, both apps): size, dates, owner, permissions and read-only; ZFS dataset, FreeBSD package, file flags (chflags) |
 | [Finding duplicates](files/duplicates.md) | Files and whole folders, across disks, safe removal to the trash |
 | [ZFS snapshots as folders](files/zfs-snapshots.md) | Alt+Z: a dataset's snapshots, newest first, browsed read-only; diff against now, F5 copies back; the ZFS line in the footer |
+| [Make PDF searchable (Alt+P)](files/searchable-pdf.md) | A copy of a scanned PDF with its words in it (`name.searchable.pdf`), by OCRmyPDF installed or in its container; never over the original; progress and Stop; both apps |
 
 ## [Customising](customise/README.md)
 

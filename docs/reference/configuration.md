@@ -220,7 +220,8 @@ since vectors of two models cannot be compared.
 ## `[preview]`
 
 Previews made by tools, in the desktop app ([Previews made by tools](../previews/tools.md),
-[Containers](../previews/containers.md), [LaTeX projects](../previews/latex.md)).
+[Containers](../previews/containers.md), [LaTeX projects](../previews/latex.md)), and the
+OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
@@ -230,15 +231,23 @@ Previews made by tools, in the desktop app ([Previews made by tools](../previews
 | `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
 | `images.plantuml` | string | `"docker.io/plantuml/plantuml:latest"` | The PlantUML image |
 | `images.pandoc` | string | `"docker.io/pandoc/core:latest"` | The pandoc image, for reStructuredText |
-| `images.libreoffice` | string | `""` | No official image; set one you trust that has `soffice` |
+| `images.libreoffice` | string | `"docker.io/gotenberg/gotenberg:8-libreoffice"` | Gotenberg's LibreOffice image (about 440 MB to download, 1 GB on disk); one you set must have `soffice` |
+| `images.kroki` | string | `"docker.io/yuzutech/kroki:latest"` | Kroki's image, for D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield (about 1.2 GB, 2.8 GB on disk) |
+| `images.typst` | string | `"ghcr.io/typst/typst:latest"` | Typst's image (about 29 MB, 65 MB on disk) |
+| `images.ghostscript` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For PostScript; OCRmyPDF's image, which has Ghostscript (`gs` is run as its entry point) |
+| `images.ocrmypdf` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For Make PDF searchable, in both apps (about 310 MB, 850 MB on disk); its entry point must be `ocrmypdf` |
 | `images.duckdb` | string | `""` | No official image; set one whose entry point is `duckdb` |
+| `images.gxps` | string | `""` | No image has GhostXPS; set one with `gxps` for XPS files |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
 | `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview used for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
-defaults. The tool names are `latex`, `libreoffice`, `plantuml`, `pandoc` and `duckdb`.
+defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
+`gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf` and each diagram kind of Kroki's image (`d2`,
+`ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`,
+`bytefield`), which share `images.kroki`.
 
 ## `[gui]`
 

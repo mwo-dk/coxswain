@@ -104,6 +104,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Alt+Z** | ZFS snapshots | `snapshots` | The snapshots of the folder's ZFS dataset, as folders ([ZFS snapshots](../files/zfs-snapshots.md)) | The same |
 | – | File flags | `flags` | Properties, where the flags are ticked ([File flags](../files/properties.md#zfs-packages-and-file-flags)) | A line to edit your file's user flags |
 | – | Files of this package | `package` | The files of the FreeBSD package the file belongs to ([Packages](../files/properties.md#zfs-packages-and-file-flags)) | The same |
+| **Alt+P** | Make PDF searchable | `searchable_pdf` | A copy of each marked PDF with its words in it, by OCRmyPDF; the key again stops it ([Make PDF searchable](../files/searchable-pdf.md)) | The same |
 
 ### Archives
 

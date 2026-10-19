@@ -32,6 +32,7 @@ folder; **Ctrl+E** extracts it.*
 | [Properties and permissions](properties.md) | Sizes, dates, owner, and changing the permission bits |
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
 | [ZFS snapshots as folders](zfs-snapshots.md) | **Alt+Z**: a dataset's snapshots browsed read-only, a file compared with now, copied back with **F5** |
+| [Make PDF searchable (Alt+P)](searchable-pdf.md) | A copy of a scanned PDF with its words in it, by OCRmyPDF, installed or in a container; next to the original, never over it |
 
 ## Keys at a glance
 
@@ -57,6 +58,7 @@ folder; **Ctrl+E** extracts it.*
 | *F9 → File flags* | in Properties | yes | Your own [file flags](properties.md#zfs-packages-and-file-flags) (FreeBSD, macOS) |
 | *F9 → Files of this package* | yes | yes | The files of the [package](properties.md#zfs-packages-and-file-flags) a file belongs to (FreeBSD) |
 | **Ctrl+D** | yes | no | [Find duplicates](duplicates.md) |
+| **Alt+P** | yes | yes | [Make PDF searchable](searchable-pdf.md): a copy with the words of a scan in it |
 
 Every key can be changed ([Changing keys](../customise/keys.md)). In the terminal app a key that
 only the desktop app has says so on the status line: *Batch rename is available in the desktop

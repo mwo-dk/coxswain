@@ -330,6 +330,8 @@ def base_version(base: str | None) -> str | None:
 NEEDS_HARDWARE = {
     "previews-tools-settings.png": "containers, which must not run in the sandbox",
     "previews-container-pull.png": "podman pulling an image, which must not run in the sandbox",
+    "searchable-pdf.png": "containers, which must not run in the sandbox",
+    "previews-d2.png": "containers, which must not run in the sandbox",
     "files-properties-zfs.png": "a FreeBSD desktop with ZFS",
     "tui-zfs-snapshots.png": "FreeBSD with ZFS snapshots (the picture there shows the key bar before 12 Settings)",
     "freebsd-sidebar-be.png": "a FreeBSD desktop with a ZFS root, boot environments and jails",

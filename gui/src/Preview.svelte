@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -266,6 +266,25 @@
   });
 
   const days = (secs) => Math.round(secs / 86400);
+
+  // A PDF with no text on its pages (a scan): the pane offers to make it searchable. Looked at
+  // once the PDF has been shown a second, up to 15 MB (searchable::scanned), and each answer kept
+  // for that file as it is (path, size, date), so walking through a folder reads none.
+  let scanned = $state("");
+  const scans = new Map();
+  $effect(() => {
+    const cur = e;
+    scanned = "";
+    if (kind !== "pdf" || !cur || cur.size > 15e6) return;
+    const id = `${cur.path}\0${cur.size}\0${cur.modified}`;
+    if (scans.has(id)) return void (scanned = scans.get(id) ? cur.path : "");
+    const timer = setTimeout(async () => {
+      const is = await invoke("pdf_scanned", { path: cur.path }).catch(() => false);
+      scans.set(id, is);
+      if (is && e?.path === cur.path) scanned = cur.path;
+    }, 1000);
+    return () => clearTimeout(timer);
+  });
 
   // Previews made by an external tool (convert.rs): pick an engine, render, show the cached result.
   let conv = $state(null);
@@ -627,10 +646,12 @@
           </div>
         {:else if !conv.engines.some((x) => x.available)}
           <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = ui.cfg.installs[{ libreoffice: "soffice" }[conv.tool] ?? conv.tool]}
+          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs" }[conv.tool] ?? conv.tool]}
+          {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
-          <p class="more">{#if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
-            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "previews" })}>{t("preview.settings")}</button></p>
+          <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
+          <p class="more">{#if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
+            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews" })}>{t("preview.settings")}</button></p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>
@@ -677,6 +698,8 @@
       {:else if kind === "audio"}
         <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata"></audio></div>
       {:else if kind === "pdf"}
+        <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
+        <p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>
         <iframe class="pdf" src={convertFileSrc(e.path) + "#zoom=page-width"} title={e.name}></iframe>
       {:else if kind === "disk_image"}
         {#if disk?.error}

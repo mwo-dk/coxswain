@@ -1,4 +1,5 @@
-//! Previews made by external tools: LaTeX, LibreOffice, PlantUML, pandoc and DuckDB.
+//! Previews made by external tools: LaTeX, Typst, LibreOffice, Ghostscript, PlantUML, the
+//! diagram programs of Kroki's image (D2, ditaa, svgbob …), pandoc and DuckDB.
 //!
 //! Each tool runs either from a local install or from a container image (podman or docker),
 //! chosen per `[preview]` in the config and by the buttons in the preview pane. Results go to
@@ -23,11 +24,39 @@ type Res<T> = Result<T, String>;
 /// The tools, with the local programs that can do the job, best first.
 const TOOLS: &[(&str, &[&str])] = &[
     ("latex", &["latexmk", "tectonic", "pdflatex"]),
+    ("typst", &["typst"]),
     ("libreoffice", &["soffice", "libreoffice"]),
+    ("ghostscript", &["gs", "gswin64c"]),
+    // GhostXPS, Ghostscript's interpreter of XPS.
+    ("gxps", &["gxps"]),
     ("plantuml", &["plantuml"]),
     ("pandoc", &["pandoc"]),
     ("duckdb", &["duckdb"]),
+    // Kroki's image has them all (`images::KROKI`); these four are packaged on their own too.
+    ("d2", &["d2"]),
+    ("svgbob", &["svgbob"]),
+    ("pikchr", &["pikchr"]),
+    ("erd", &["erd"]),
 ];
+
+/// How each diagram program of Kroki's image draws its kind: the program and its arguments,
+/// reading the diagram on standard input and writing SVG to standard output.
+fn kroki(tool: &str) -> Option<&'static [&'static str]> {
+    Some(match tool {
+        "d2" => &["d2", "-", "-"],
+        "ditaa" => &["ditaa", "--svg", "-", "-"],
+        "svgbob" => &["svgbob"],
+        "pikchr" => &["pikchr", "--svg-only", "-"],
+        "nomnoml" => &["nomnoml"],
+        "wavedrom" => &["wavedrom"],
+        "vega" => &["vega", "--spec-format=default"],
+        "vegalite" => &["vega", "--spec-format=lite"],
+        "dbml" => &["dbml"],
+        "erd" => &["erd", "-f", "svg"],
+        "bytefield" => &["bytefield"],
+        _ => return None,
+    })
+}
 
 use coxswain_core::tools::{container_runtime as runtime, image_size, which};
 
@@ -70,9 +99,10 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     } else {
         local.truncate(1);
     }
-    let image = cfg.images.get(tool).cloned().unwrap_or_default();
+    let key = coxswain_core::images::key(tool);
+    let image = cfg.images.get(key).cloned().unwrap_or_default();
     let container = match (runtime(cfg), image.is_empty()) {
-        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => tool), needs_pull: false },
+        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => key), needs_pull: false },
         (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false },
         (Some((rt, path)), false) => {
             let pulled = image_size(&path, &image).is_some();
@@ -124,9 +154,11 @@ fn cache_dir(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<PathBuf>
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), tool, engine).hash(&mut h);
-    if tool == "latex" {
-        // A chapter, a picture or the bibliography changed: that is a new document too.
-        latex::newest(main).hash(&mut h);
+    // A chapter, a picture or the bibliography changed: that is a new document too.
+    match tool {
+        "latex" => latex::newest(main, latex::READ).hash(&mut h),
+        "typst" => latex::newest(main, TYPST_READ).hash(&mut h),
+        _ => {}
     }
     let dir = previews_dir()?.join(format!("{:016x}", h.finish()));
     Ok(dir)
@@ -137,8 +169,9 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
     match tool {
         "latex" => ("pdf", out.join(path.with_extension("pdf").file_name().unwrap_or_default())),
-        "libreoffice" => ("pdf", out.join(format!("{stem}.pdf"))),
+        "libreoffice" | "typst" | "ghostscript" | "gxps" => ("pdf", out.join(format!("{stem}.pdf"))),
         "plantuml" => ("svg", out.join("diagram.svg")),
+        t if kroki(t).is_some() => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
         _ => ("json", out.join("tables.json")),
     }
@@ -329,42 +362,61 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         if rt != which_one {
             return Err(t!("convert.not_available", "program" => which_one));
         }
-        let image = cfg.images.get(tool).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => tool))?;
+        let key = coxswain_core::images::key(tool);
+        let image = cfg.images.get(key).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => key))?;
         if image_size(&rt_path, image).is_none() {
             pull(&rt_path, image)?;
         }
         USED.lock().unwrap().insert(image.clone());
         let container_name = format!("coxswain-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
-        let mut c = coxswain_core::tools::command(&rt_path);
-        c.args(["run", "--rm", "--network=none", "--security-opt", "label=disable", "--name", &container_name]);
-        // LaTeX sees its whole project, so `../figures/plot.pdf` is found; the rest only their folder.
-        let mount = if tool == "latex" { latex::project(path) } else { dir.to_path_buf() };
+        // LaTeX and Typst see their whole project, so `../figures/plot.pdf` is found; the rest only their folder.
+        let mount = match tool {
+            "latex" => latex::project(path),
+            "typst" => typst_root(path),
+            _ => dir.to_path_buf(),
+        };
         let workdir = Path::new("/src").join(dir.strip_prefix(&mount).unwrap_or(Path::new("")));
-        c.arg("-v").arg(format!("{}:/src:ro", mount.display())).arg("-v").arg(format!("{}:/out", out.display()));
-        #[cfg(unix)]
-        if rt == "docker" {
-            // Rootful docker would leave root-owned files in the cache.
-            use std::os::unix::fs::MetadataExt;
-            let m = std::fs::metadata(out).map_err(|e| e.to_string())?;
-            c.arg("--user").arg(format!("{}:{}", m.uid(), m.gid()));
-        }
+        let at = |p: &Path| Path::new("/src").join(p.strip_prefix(&mount).unwrap_or(p)).to_string_lossy().replace('\\', "/");
+        let mut c = coxswain_core::images::sealed(rt, &rt_path, &container_name, &mount, Some(out));
         c.arg("-w").arg(workdir.to_string_lossy().replace('\\', "/"));
         let stdin = match tool {
             "latex" => {
                 c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-norc", "-outdir=/out", &name]);
                 None
             }
+            "typst" => {
+                let pdf = format!("/out/{}", file.file_name().unwrap_or_default().to_string_lossy());
+                c.args([image.as_str(), "compile", "--root", "/src", &at(path), &pdf]);
+                None
+            }
             "libreoffice" => {
-                c.args([image.as_str(), "soffice", "--headless", "--convert-to", "pdf", "--outdir", "/out", &format!("/src/{name}")]);
+                // A profile in the container's /tmp: run as you (docker, rootful podman), its
+                // own user's home is not there to write one in.
+                c.args(["-e", "HOME=/tmp", image.as_str(), "soffice", "-env:UserInstallation=file:///tmp/lo", "--headless", "--convert-to", "pdf", "--outdir", "/out", &format!("/src/{name}")]);
+                None
+            }
+            "ghostscript" => {
+                let pdf = format!("-sOutputFile=/out/{}", file.file_name().unwrap_or_default().to_string_lossy());
+                c.args(["--entrypoint", "gs", image.as_str()]).args(ghostscript(path)).args([&pdf, &format!("/src/{name}")]);
+                None
+            }
+            "gxps" => {
+                let pdf = format!("-sOutputFile=/out/{}", file.file_name().unwrap_or_default().to_string_lossy());
+                c.args(["--entrypoint", "gxps", image.as_str()]).args(ghostscript(Path::new("x.xps"))).args([&pdf, &format!("/src/{name}")]);
                 None
             }
             // The official images' entry points are the tools themselves.
             "plantuml" => {
-                c.args(["-e", "PLANTUML_SECURITY_PROFILE=ALLOWLIST", "-e", "JAVA_TOOL_OPTIONS=-Dplantuml.allowlist.path=/src", "-i", image, "-tsvg", "-pipe"]);
+                c.args(["-e", "PLANTUML_SECURITY_PROFILE=ALLOWLIST", "-e", "JAVA_TOOL_OPTIONS=-Dplantuml.allowlist.path=/src", image, "-tsvg", "-pipe"]);
                 Some(path)
             }
             "pandoc" => {
-                c.args(["-i", image, "--sandbox", "-f", "rst", "-t", "html5"]);
+                c.args([image, "--sandbox", "-f", "rst", "-t", "html5"]);
+                Some(path)
+            }
+            t if kroki(t).is_some() => {
+                let argv = kroki(t).unwrap_or_default();
+                c.args(["--entrypoint", argv[0], image.as_str()]).args(&argv[1..]);
                 Some(path)
             }
             _ => {
@@ -421,6 +473,16 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             c.args(["-tsvg", "-pipe"]);
             return capture(c, Some(path), timeout, file, None);
         }
+        ("typst", _) => {
+            c.arg("compile").arg("--root").arg(typst_root(path)).arg(path).arg(file);
+        }
+        ("ghostscript" | "gxps", _) => {
+            c.args(ghostscript(path)).arg(format!("-sOutputFile={}", file.display())).arg(path);
+        }
+        (t, _) if kroki(t).is_some() => {
+            c.args(&kroki(t).unwrap_or_default()[1..]);
+            return capture(c, Some(path), timeout, file, None);
+        }
         ("pandoc", _) => {
             // --sandbox: no includes of files and nothing from the web.
             c.args(["--sandbox", "-f", "rst", "-t", "html5"]);
@@ -432,6 +494,28 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         }
     }
     wait(c, timeout, None)
+}
+
+/// Ghostscript's options for a PostScript file into a PDF. `-dSAFER` above all: PostScript is a
+/// programming language, and without it a file could read and write files of yours.
+fn ghostscript(path: &Path) -> Vec<&'static str> {
+    let mut v = vec!["-dSAFER", "-dBATCH", "-dNOPAUSE", "-dQUIET", "-sDEVICE=pdfwrite"];
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("eps")) {
+        // A picture: the page is its bounding box, not a sheet of A4 around it.
+        v.push("-dEPSCrop");
+    }
+    v
+}
+
+/// What a Typst build reads, for when its preview is made again: sources, data and pictures.
+// ponytail: by extension, under the document's folder (as for LaTeX); `../` files and other
+// kinds are not watched, Build again picks them up.
+const TYPST_READ: &[&str] = &["typ", "bib", "yml", "yaml", "toml", "json", "csv", "xml", "txt", "png", "jpg", "jpeg", "gif", "svg", "webp", "pdf", "otf", "ttf"];
+
+/// What a Typst document may read (`--root`): the git repository it is in, else its folder.
+fn typst_root(path: &Path) -> PathBuf {
+    let dir = path.parent().unwrap_or(Path::new("."));
+    dir.ancestors().find(|d| d.join(".git").exists()).unwrap_or(dir).to_path_buf()
 }
 
 const DUCKDB_SQL: &str = "SELECT schema_name, table_name, estimated_size AS rows, column_count AS columns FROM duckdb_tables() ORDER BY 1, 2";
@@ -502,12 +586,12 @@ mod latex {
 
     /// What a build reads: sources, styles, bibliographies, pictures and data for plots.
     // ponytail: by extension; a document that inputs another kind is rebuilt with Build.
-    const READ: &[&str] = &["tex", "ltx", "sty", "cls", "clo", "def", "cfg", "dtx", "bib", "bst", "bbx", "cbx", "png", "jpg", "jpeg", "pdf", "eps", "svg", "tikz", "pgf", "csv", "dat"];
+    pub const READ: &[&str] = &["tex", "ltx", "sty", "cls", "clo", "def", "cfg", "dtx", "bib", "bst", "bbx", "cbx", "png", "jpg", "jpeg", "pdf", "eps", "svg", "tikz", "pgf", "csv", "dat"];
 
     /// When anything a build reads in the document's folder last changed. Other files there
     /// (a database a preview opened, an editor's backup) are not part of it: with them, the
     /// preview was made again every time.
-    pub fn newest(main: &Path) -> Option<std::time::SystemTime> {
+    pub fn newest(main: &Path, read: &[&str]) -> Option<std::time::SystemTime> {
         // ponytail: the document's folder and below, 5000 files at most; pictures in `../figures`
         // are not watched, press Build again after changing the opened file for those.
         let mut stack = vec![main.parent()?.to_path_buf()];
@@ -524,7 +608,7 @@ mod latex {
                 }
                 if m.is_dir() {
                     stack.push(p);
-                } else if p.extension().is_some_and(|x| READ.iter().any(|r| x.eq_ignore_ascii_case(r))) {
+                } else if p.extension().is_some_and(|x| read.iter().any(|r| x.eq_ignore_ascii_case(r))) {
                     newest = newest.max(m.modified().ok());
                 }
             }
@@ -621,13 +705,13 @@ mod latex {
             assert_eq!(engine_flag(&d.join("book/main.tex")), "-pdflua");
             std::fs::remove_file(d.join("book/mybook.sty")).unwrap();
             assert_eq!(engine_flag(&d.join("book/main.tex")), "-pdf");
-            let before = newest(&main).unwrap();
+            let before = newest(&main, READ).unwrap();
             let later = before + std::time::Duration::from_secs(60);
             std::fs::File::options().write(true).open(d.join("paper/chapters/intro.tex")).unwrap().set_modified(later).unwrap();
-            assert_eq!(newest(&main), Some(later), "a chapter changed");
+            assert_eq!(newest(&main, READ), Some(later), "a chapter changed");
             std::fs::write(d.join("paper/data.db-shm"), "").unwrap();
             std::fs::File::options().write(true).open(d.join("paper/data.db-shm")).unwrap().set_modified(later + std::time::Duration::from_secs(60)).unwrap();
-            assert_eq!(newest(&main), Some(later), "a file the build does not read changes nothing");
+            assert_eq!(newest(&main, READ), Some(later), "a file the build does not read changes nothing");
 
             std::fs::create_dir_all(d.join(".git")).unwrap();
             assert_eq!(project(&d.join("paper/chapters/intro.tex")), d, "the repository");
@@ -637,48 +721,7 @@ mod latex {
 }
 
 
-/// The last progress line of every pull under way, by image, for the GUI to show.
-static PULLING: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
-
-/// Pull (or update) `image`, streaming its progress into `PULLING`. Not covered by the
-/// timeout: images can be gigabytes. Two windows pulling the same image at once are fine, the
-/// runtime shares one download.
-fn pull(rt: &Path, image: &str) -> Res<()> {
-    PULLING.lock().unwrap().insert(image.to_string(), String::new());
-    let result = (|| {
-        let mut child = coxswain_core::tools::command(rt).args(["pull", image]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
-        // docker reports on stdout, podman on stderr; errors come on stderr.
-        let (out, err) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
-        let name = image.to_string();
-        let t = std::thread::spawn(move || follow(out, &name));
-        let last_err = follow(err, image);
-        let _ = t.join();
-        let status = child.wait().map_err(|e| e.to_string())?;
-        if status.success() { Ok(()) } else { Err(t!("convert.pull_failed", "image" => image, "error" => last_err)) }
-    })();
-    PULLING.lock().unwrap().remove(image);
-    result
-}
-
-/// Keep the latest line (progress bars redraw with `\r`) of `r` in `PULLING` for `image`;
-/// returns the last one.
-fn follow(mut r: impl Read, image: &str) -> String {
-    let (mut buf, mut acc, mut last) = ([0u8; 4096], String::new(), String::new());
-    loop {
-        let n = match r.read(&mut buf) {
-            Ok(0) | Err(_) => break,
-            Ok(n) => n,
-        };
-        acc.push_str(&String::from_utf8_lossy(&buf[..n]));
-        let Some(i) = acc.rfind(['\n', '\r']) else { continue };
-        if let Some(line) = acc[..i].rsplit(['\n', '\r']).map(str::trim).find(|l| !l.is_empty()) {
-            last = line.to_string();
-            PULLING.lock().unwrap().insert(image.to_string(), last.clone());
-        }
-        acc.drain(..=i);
-    }
-    last
-}
+use coxswain_core::images::pull;
 
 #[derive(Serialize)]
 pub struct Image {
@@ -698,7 +741,7 @@ pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
     let cfg = ctx.cfg().preview.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let (_, rt) = runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
-        let pulling = PULLING.lock().unwrap().clone();
+        let pulling = coxswain_core::images::pulling();
         Ok(cfg
             .images
             .iter()
@@ -732,7 +775,141 @@ pub async fn remove_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> R
 /// The latest progress line of every pull under way, by image.
 #[tauri::command]
 pub fn pull_progress() -> BTreeMap<String, String> {
-    PULLING.lock().unwrap().clone()
+    coxswain_core::images::pulling()
+}
+
+/// *Make PDF searchable* (`coxswain_core::searchable`): what it would do with `paths`, for the
+/// question before it. `paths` are the PDFs among what was picked.
+#[derive(Serialize)]
+pub struct SearchablePlan {
+    pdfs: Vec<PathBuf>,
+    /// The name of the copy each one gets.
+    targets: Vec<String>,
+    /// Which program runs, and the first pull with its size.
+    about: String,
+    pull: bool,
+    /// Why it cannot run here: what to install or which setting to change.
+    missing: Option<String>,
+}
+
+#[tauri::command]
+pub async fn searchable_plan(paths: Vec<PathBuf>, ctx: tauri::State<'_, crate::Ctx>) -> Res<SearchablePlan> {
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        // A PDF only in the cloud is not fetched to be read: it is left out.
+        let pdfs: Vec<PathBuf> = paths.into_iter().filter(|p| coxswain_core::searchable::is_pdf(p) && crate::here(p).is_ok() && p.is_file()).collect();
+        let targets = pdfs.iter().map(|p| coxswain_core::searchable::target(p).file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        let (about, pull, missing) = match coxswain_core::searchable::how(&cfg) {
+            Ok(how) => {
+                let (about, pull) = coxswain_core::searchable::about(&how);
+                (about, pull, None)
+            }
+            Err(e) => (String::new(), false, Some(e)),
+        };
+        SearchablePlan { pdfs, targets, about, pull, missing }
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// How far a *Make PDF searchable* run is, for the status line.
+#[derive(Serialize, Clone, Default)]
+pub struct SearchableProgress {
+    /// The PDF being worked on, counted from 0, of `all`.
+    at: usize,
+    all: usize,
+    name: String,
+    /// What OCRmyPDF (or the pull) said last.
+    line: String,
+}
+
+static SEARCHABLE: Mutex<Option<SearchableProgress>> = Mutex::new(None);
+static SEARCHABLE_STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Make each of `paths` searchable, one after the other; one at a time in the app. The copies
+/// made, and what failed (`path: why`, one per line).
+#[tauri::command]
+pub async fn searchable_run(paths: Vec<PathBuf>, ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<PathBuf>> {
+    use std::sync::atomic::Ordering;
+    for p in &paths {
+        crate::here(p)?;
+    }
+    let cfg = ctx.cfg().preview.clone();
+    {
+        let mut s = SEARCHABLE.lock().unwrap();
+        if s.is_some() {
+            return Err(t!("searchable.busy_already"));
+        }
+        *s = Some(SearchableProgress { all: paths.len(), ..Default::default() });
+    }
+    SEARCHABLE_STOP.store(false, Ordering::Relaxed);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let set = |f: &dyn Fn(&mut SearchableProgress)| {
+            if let Some(p) = SEARCHABLE.lock().unwrap().as_mut() {
+                f(p)
+            }
+        };
+        let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        let done = coxswain_core::searchable::run_all(&cfg, &paths, &SEARCHABLE_STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
+            let line = match said {
+                coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default())),
+                coxswain_core::searchable::Said::Line(l) => l.to_string(),
+            };
+            set(&|p| p.line = line.clone());
+        });
+        // The image was used only when the container ran, not the installed program.
+        if let Ok(coxswain_core::searchable::How::Container { image, .. }) = coxswain_core::searchable::how(&cfg) {
+            USED.lock().unwrap().insert(image);
+        }
+        // Done here, on this thread, so an app that is ending sees it (`searchable_end`).
+        *SEARCHABLE.lock().unwrap() = None;
+        let (mut made, mut failed) = (vec![], vec![]);
+        for (i, r) in done.into_iter().enumerate() {
+            match r {
+                Ok(p) => made.push(p),
+                Err(e) => failed.push(format!("{}: {e}", names.get(i).cloned().unwrap_or_default())),
+            }
+        }
+        if failed.is_empty() { Ok(made) } else { Err(failed.join("\n")) }
+    })
+    .await
+    .map_err(|e| e.to_string());
+    *SEARCHABLE.lock().unwrap() = None;
+    let used = std::mem::take(&mut *USED.lock().unwrap());
+    if !used.is_empty() {
+        let now = coxswain_core::fs::now();
+        let _ = ctx.edit(|st| used.iter().for_each(|i| coxswain_core::images::used(st, i, now)));
+    }
+    result?
+}
+
+#[tauri::command]
+pub fn searchable_progress() -> Option<SearchableProgress> {
+    SEARCHABLE.lock().unwrap().clone()
+}
+
+/// Stop the run under way: the PDF being worked on gets no copy, the rest are not started.
+#[tauri::command]
+pub fn searchable_stop() {
+    SEARCHABLE_STOP.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Stop the run under way and wait for it, ten seconds at most: the app is ending.
+pub fn searchable_end() {
+    searchable_stop();
+    for _ in 0..100 {
+        if SEARCHABLE.lock().unwrap().is_none() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// Has the PDF no text on its pages (a scan)? The preview then offers *Make PDF searchable*.
+#[tauri::command]
+pub async fn pdf_scanned(path: PathBuf) -> bool {
+    // A PDF only in the cloud is not downloaded to be looked at.
+    crate::here(&path).is_ok() && tauri::async_runtime::spawn_blocking(move || coxswain_core::searchable::scanned(&path)).await.unwrap_or(false)
 }
 
 /// Run to completion within `timeout`; on timeout kill it (and its container).
@@ -830,6 +1007,20 @@ mod tests {
     }
 
     #[test]
+    fn typst_previews_are_made_again_when_an_included_file_changes() {
+        let d = std::env::temp_dir().join(format!("coxswain-typst-cache-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("chapters")).unwrap();
+        let main = d.join("main.typ");
+        std::fs::write(&main, "#include \"chapters/one.typ\"\n").unwrap();
+        std::fs::write(d.join("chapters/one.typ"), "= One\n").unwrap();
+        let before = cache_dir(&main, &main, "typst", "local:typst").unwrap();
+        let later = std::time::SystemTime::now() + Duration::from_secs(60);
+        std::fs::File::options().write(true).open(d.join("chapters/one.typ")).unwrap().set_modified(later).unwrap();
+        assert_ne!(cache_dir(&main, &main, "typst", "local:typst").unwrap(), before, "a chapter changed");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
     fn tail_reads_to_the_end_and_keeps_the_last_part() {
         let said = "x".repeat(300 * 1024) + "\nthe error\n";
         let kept = tail(said.as_bytes());
@@ -846,11 +1037,6 @@ mod tests {
         assert!(last_lines("\n \n", 3).is_none());
     }
 
-    #[test]
-    fn follow_keeps_last_complete_line() {
-        assert_eq!(follow("one\ntwo\rthree".as_bytes(), "t"), "two");
-        assert_eq!(PULLING.lock().unwrap().get("t").map(String::as_str), Some("two"));
-    }
 
     /// Needs podman and the network: `cargo test -- --ignored real_pull`.
     #[test]
@@ -860,7 +1046,7 @@ mod tests {
         let image = "docker.io/library/alpine:latest";
         pull(&rt, image).unwrap();
         assert!(image_size(&rt, image).is_some());
-        assert!(PULLING.lock().unwrap().is_empty());
+        assert!(coxswain_core::images::pulling().is_empty());
         assert!(pull(&rt, "docker.io/library/no-such-image-coxswain:1").is_err());
     }
 
@@ -916,6 +1102,39 @@ mod tests {
         run(&cfg, "libreoffice", "local:soffice", &d.join("note.rtf"), &d.join("out3"), &pdf3).unwrap();
         assert!(std::fs::read(&pdf3).unwrap().starts_with(b"%PDF"));
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Needs podman (a `podman` first on PATH may add a store of its own) and the network:
+    /// `COXSWAIN_FILES=<folder> cargo test -p coxswain-gui -- --ignored real_new_images --nocapture`.
+    /// The folder holds a.d2, a.ditaa, a.bob, a.pikchr, a.nomnoml, a.wavedrom, a.vl, a.dbml,
+    /// a.vg, a.er, a.bytefield, report.doc, notes.ps, patch.eps, plan.typ, clip.wmf, clip.emf,
+    /// report.fodt, a.puml and a.rst; each is made in its
+    /// container as the preview would, and the time and size of each result printed.
+    #[test]
+    #[ignore]
+    fn real_new_images() {
+        let src = PathBuf::from(std::env::var("COXSWAIN_FILES").expect("COXSWAIN_FILES"));
+        let mut cfg = PreviewConfig { prefer: "container".into(), ..Default::default() };
+        cfg.container = "podman".into();
+        let files = [
+            ("a.d2", "d2"), ("a.ditaa", "ditaa"), ("a.bob", "svgbob"), ("a.pikchr", "pikchr"), ("a.nomnoml", "nomnoml"),
+            ("a.wavedrom", "wavedrom"), ("a.vl", "vegalite"), ("a.vg", "vega"), ("a.dbml", "dbml"), ("a.er", "erd"), ("a.bytefield", "bytefield"),
+            ("report.doc", "libreoffice"), ("notes.ps", "ghostscript"), ("patch.eps", "ghostscript"), ("plan.typ", "typst"),
+            ("clip.wmf", "libreoffice"), ("clip.emf", "libreoffice"), ("report.fodt", "libreoffice"), ("a.puml", "plantuml"), ("a.rst", "pandoc"),
+        ];
+        for (name, tool) in files {
+            let path = src.join(name);
+            let out = std::env::temp_dir().join(format!("coxswain-real-new-{}-{name}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&out);
+            std::fs::create_dir_all(&out).unwrap();
+            let (kind, file) = output(tool, &path, &out);
+            let start = std::time::Instant::now();
+            run(&cfg, tool, "container:podman", &path, &out, &file).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let bytes = std::fs::read(&file).unwrap();
+            assert!(match kind { "pdf" => bytes.starts_with(b"%PDF"), "svg" => String::from_utf8_lossy(&bytes).contains("<svg"), _ => !bytes.is_empty() }, "{name}");
+            eprintln!("{name:12} {tool:12} {kind} {:>7} bytes {:>6} ms", bytes.len(), start.elapsed().as_millis());
+            std::fs::remove_dir_all(out).unwrap();
+        }
     }
 
     /// Fills the preview cache for screenshots, as a click on Build would:

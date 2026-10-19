@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -307,6 +307,7 @@
     new_branch: () => newBranch(),
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
+    searchable_pdf: () => makeSearchable(),
     switch_panel: () => ui.dual && (ui.activePane ^= 1),
     mark: () => {
       toggleMark(tab(), tab().cursor);
@@ -716,6 +717,12 @@
     <label class="cmdline">
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
       <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
+      {#if ui.searchable}
+        {@const s = ui.searchable}
+        <!-- Make PDF searchable under way: which one, for how long, what OCRmyPDF said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "searchable.busy_of" : "searchable.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" title={ui.cfg.actions.searchable_pdf?.[1] ?? ""} disabled={s.stopping} onclick={stopSearchable}>{t("searchable.stop")}</button>
+      {/if}
       {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}
         <span class="notice">

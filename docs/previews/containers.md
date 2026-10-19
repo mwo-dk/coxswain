@@ -3,8 +3,11 @@
 # Containers
 
 When a tool a preview needs is not installed, Coxswain can run it from a container image with
-podman or docker: the TeX Live image builds any LaTeX document, the PlantUML and pandoc images
-draw diagrams and reStructuredText. A container gets no network and sees your files read-only.
+podman or docker: the TeX Live image builds any LaTeX document, Typst's builds Typst, Gotenberg's
+LibreOffice turns office files and clip art into PDFs, Kroki's draws D2, ditaa and ten more
+diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText, and OCRmyPDF's
+makes scanned PDFs searchable and has the Ghostscript that shows PostScript. A container gets no
+network and sees your files read-only. Nothing is downloaded until you click.
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
 
@@ -54,8 +57,24 @@ a little larger or smaller.
 | `docker.io/texlive/texlive:latest-medium` | The same, with fewer packages: a document that loads a rare one fails | about 960 MB | about 2.2 GB | As above |
 | `docker.io/plantuml/plantuml:latest` (default for PlantUML) | `.puml` and `.plantuml` diagrams drawn as the picture the preview shows | about 141 MB | about 353 MB | Java starts for each diagram: a second or two |
 | `docker.io/pandoc/core:latest` (default for pandoc) | `.rst` files shown as a formatted page | about 57 MB | about 246 MB | Light: under a second for most documents |
-| one you set for LibreOffice | Word, PowerPoint, Visio and OpenDocument files turned into the PDF the preview shows | depends on the image | depends on the image | LibreOffice starts for each document: a few seconds |
+| `docker.io/gotenberg/gotenberg:8-libreoffice` (default for LibreOffice) | Word, Works, Write, WordPerfect, Lotus 1-2-3, PowerPoint, Visio, OpenDocument and other older office files, and Windows clip art (`.wmf`, `.emf`), turned into the PDF the preview shows ([Office](office.md)) | about 440 MB | about 1 GB | LibreOffice starts for each document: a second or two of processor time |
+| `ghcr.io/typst/typst:latest` (default for Typst) | `.typ` documents built into the PDF the preview shows ([Typst](documents.md#typst)) | about 29 MB | about 65 MB | Light: a fraction of a second for most documents |
+| `docker.io/yuzutech/kroki:latest` (default for Kroki's diagram kinds) | D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield diagrams drawn as the picture the preview shows ([Diagrams](diagrams.md#d2-ditaa-svgbob-and-the-others)) | about 1.2 GB | about 2.8 GB | Light: each diagram takes well under a second; the image is large because it holds the programs of two dozen kinds |
+| `docker.io/jbarlow83/ocrmypdf-alpine:latest` (default for OCRmyPDF and for Ghostscript) | [Make PDF searchable](../files/searchable-pdf.md), and PostScript (`.ps`, `.eps`) shown as a PDF with its Ghostscript ([PostScript and XPS](documents.md#postscript-and-xps)): one pull for both | about 310 MB | about 850 MB | OCR: about a second of processor time per page, only when you ask; PostScript: under a second |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
+| one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
+
+Where each image comes from, and why it is the one:
+
+| Image | Made by | Licence of what runs in it | Kept up to date |
+|---|---|---|---|
+| `gotenberg/gotenberg:8-libreoffice` | The Gotenberg project; Coxswain runs only the LibreOffice in it, never Gotenberg's server | LibreOffice MPL-2.0, Gotenberg MIT | A new build every few weeks; LibreOffice publishes no image of its own |
+| `yuzutech/kroki:latest` | The Kroki project; Coxswain runs the diagram programs in it one per call, never Kroki's server | MIT (Kroki), each program its own (D2 MPL-2.0, svgbob and Pikchr MIT or 0BSD, …) | Every few weeks |
+| `jbarlow83/ocrmypdf-alpine:latest` | OCRmyPDF's author, with each release | OCRmyPDF MPL-2.0, Tesseract Apache-2.0, Ghostscript AGPL-3.0 | With every OCRmyPDF release (weekly in 2026) |
+| `ghcr.io/typst/typst:latest` | The Typst project | Apache-2.0 | With every Typst release |
+
+The programs run as separate programs in their containers; Coxswain ships none of their code, so
+Ghostscript's AGPL does not reach it.
 
 In Settings the line under each image reads, for the default LaTeX one: *Builds LaTeX documents
 (.tex, .ltx) into the PDF the preview shows, with TeX Live's packages and fonts. About 2.8 GB to
@@ -74,14 +93,19 @@ Every run is `podman run` (or `docker run`) with:
 | `-v <folder>:/src:ro` | The file's folder, read-only: nothing in it can be changed. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found |
 | `-v <cache>:/out` | A fresh folder in the preview cache, the only place it can write |
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
-| `--user <you>` (docker on Linux and macOS) | Rootful docker would leave root-owned files in the cache |
+| `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
+| `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
 | `--name coxswain-preview-<hash>` | So a run past the timeout can be killed |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
-`soffice --headless --convert-to pdf --outdir /out` for LibreOffice, the PlantUML and pandoc
-images' own entry points reading the file on standard input (`-tsvg -pipe`, `-f rst -t
-html5`), and `duckdb -readonly -json` for DuckDB. LaTeX runs without `-shell-escape`, so a
-document cannot run commands.
+`typst compile --root /src` for Typst, `soffice -env:UserInstallation=file:///tmp/lo --headless --convert-to pdf --outdir /out`
+for LibreOffice, `gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite` for PostScript (`--entrypoint gs`),
+`ocrmypdf --skip-text -l <languages>` for [Make PDF searchable](../files/searchable-pdf.md), the
+PlantUML and pandoc images' own entry points reading the file on standard input (`-tsvg -pipe`,
+`-f rst -t html5`), Kroki's programs one per call, reading the diagram on standard input
+(`--entrypoint d2` with `- -`, `ditaa --svg - -`, `svgbob`, `pikchr --svg-only -`, …), and
+`duckdb -readonly -json` for DuckDB. LaTeX runs without `-shell-escape`, so a document cannot run
+commands. No container ever starts a server or opens a port: each run does one file and ends.
 
 A run longer than the timeout (120 s by default) is stopped and its container killed. Pulling
 the image is not counted.
@@ -122,7 +146,7 @@ default), **Weekly** or **Monthly**.
   also take untagged images of yours that have nothing to do with it. A copy that cannot be
   removed, because a container still uses it or another name points at it, stays; nothing is
   said and it is not tried again.
-- **Where it goes:** the registry in the image's name, `docker.io` for the defaults.
+- **Where it goes:** the registry in the image's name, `docker.io` for the defaults, `ghcr.io` for Typst's.
   *Settings → Privacy and updates → What can leave this machine* then says *Container images for
   previews, when pulled and each week to keep them up to date* (or *each month*), with the
   registry.
@@ -162,21 +186,31 @@ default.
 | *LaTeX image* | `[preview.images] latex` | `"docker.io/texlive/texlive:latest"` |
 | – | `[preview.images] plantuml` | `"docker.io/plantuml/plantuml:latest"` |
 | – | `[preview.images] pandoc` | `"docker.io/pandoc/core:latest"` |
-| – | `[preview.images] libreoffice` | `""` (none) |
+| – | `[preview.images] libreoffice` | `"docker.io/gotenberg/gotenberg:8-libreoffice"` |
+| – | `[preview.images] kroki` | `"docker.io/yuzutech/kroki:latest"` |
+| – | `[preview.images] typst` | `"ghcr.io/typst/typst:latest"` |
+| – | `[preview.images] ghostscript` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
+| – | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
 | – | `[preview.images] duckdb` | `""` (none) |
+| – | `[preview.images] gxps` | `""` (none) |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 
-An empty image means that tool never uses a container. LibreOffice and DuckDB have no official
-images. If you set one, it must provide the command Coxswain runs: `soffice` for LibreOffice;
-for DuckDB, the image's entry point must be `duckdb` itself.
+An empty image means that tool never uses a container. DuckDB and GhostXPS have no image
+Coxswain picks for you. An image you set must provide the command Coxswain runs: `soffice` for
+LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH` (Coxswain sets
+`--entrypoint`), `ocrmypdf` as the entry point for OCRmyPDF, Kroki's program names (`d2`,
+`ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
+`PATH` for Kroki, and `duckdb` as the entry point for DuckDB.
 
 ## In the terminal app
 
-The terminal app starts no containers: it has no previews to make. Its `config.toml` is the
-same file, so the `[preview]` section is simply not used there. Its **F12** → *Previews* still
+The terminal app makes no previews, so it starts no preview containers. The one container it
+runs is OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), the same
+way as the desktop app: asked first, with the first pull and its size. Its `config.toml` is the
+same file: of the `[preview]` section it uses the runtime, `prefer` and the OCRmyPDF image. Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
@@ -241,10 +275,29 @@ there.
 No. Containers run with `--security-opt label=disable`, so no `:z` relabelling is ever done
 to your folders.
 
-#### Why are LibreOffice and DuckDB not offered as containers?
+#### Why Gotenberg's image for LibreOffice?
 
-Neither project publishes an official image, and Coxswain will not pick an unofficial one for
-you. Set one you trust under `[preview.images]`.
+LibreOffice publishes no image of its own. Gotenberg's `8-libreoffice` is the most used one with
+a current LibreOffice, rebuilt every few weeks, and small for what it holds (about 440 MB).
+Coxswain runs only `soffice` in it, once per file, with no network; Gotenberg's own server never
+starts.
+
+#### Why is DuckDB not offered as a container?
+
+DuckDB publishes no image, and Coxswain will not pick an unofficial one for you. Set one you
+trust under `[preview.images] duckdb`.
+
+#### Kroki's image is 1.2 GB. Do I need it for one D2 file?
+
+No: an installed `d2` (or `svgbob`, `pikchr`, `erd`) is used first. The image holds the programs
+of all the kinds at once, so it is pulled only when you click **Render** on one with no program
+installed, after the note says how big it is.
+
+#### Does a container run a server?
+
+No. Kroki and Gotenberg are servers by design, but Coxswain runs only the programs inside their
+images, one per file: the container starts, makes the picture or PDF, and is removed. No port is
+opened.
 
 ---
 [← Previous: Previews made by tools](tools.md) · [Next: Safety, speed and limits →](safety.md)

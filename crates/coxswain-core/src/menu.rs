@@ -41,6 +41,8 @@ pub struct Subject {
     /// Of the files, the disk images that would open like folders if that option were on (0
     /// while it is on).
     pub disk_images: usize,
+    /// Of the files, the PDFs (*Make PDF searchable*).
+    pub pdfs: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -97,6 +99,7 @@ impl Action {
             Pack => n > 0 && disk,
             Extract => s.archives > 0 && disk,
             DiskImages => s.disk_images > 0 && disk,
+            SearchablePdf => s.pdfs > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
@@ -176,6 +179,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("in_disk_image", &[("copy", Action::Copy)]),
     ("disk_image", &[("menu", Action::ActionMenu)]),
     ("archive", &[("extract", Action::Extract)]),
+    ("pdf", &[("key", Action::SearchablePdf)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -208,6 +212,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "in_archive" => s.place == Place::Archive && s.files > 0,
         "in_disk_image" => s.place == Place::DiskImage && s.files > 0,
         "disk_image" => disk && s.single() && s.disk_images == 1,
+        "pdf" => disk && s.pdfs > 0,
         "archive" => disk && s.single() && s.archives == 1,
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,

@@ -446,7 +446,11 @@ impl Store {
     }
 
     /// Files found without text are read again when an installed program can now read their
-    /// kind (`exts`, e.g. tesseract for pictures), or no longer can.
+    /// kind (`exts`, e.g. tesseract for pictures), or no longer can. A kind that a program can
+    /// read now and could not before is read again whole, text and vectors, as another reader
+    /// now reads it (Ghostscript a PostScript file that was read as plain text); only the files
+    /// of that kind. A kind no program reads any more keeps what was read of it: the program
+    /// may only be missing from `PATH` for a while.
     fn tools_changed(&self, exts: &[&str]) -> rusqlite::Result<()> {
         let now = exts.join(",");
         let db = self.db.lock().unwrap();
@@ -463,11 +467,20 @@ impl Store {
             .chain(now.split(','))
             .filter(|e| !e.is_empty())
             .collect();
+        let (was, is): (Vec<&str>, Vec<&str>) = (before.split(',').collect(), now.split(',').collect());
         for ext in kinds {
-            db.execute(
-                "UPDATE files SET has_text = NULL WHERE has_text = 0 AND lower(path) LIKE ?1",
-                [format!("%.{ext}")],
-            )?;
+            let pattern = format!("%.{ext}");
+            if is.contains(&ext) && !was.contains(&ext) {
+                db.execute(
+                    "UPDATE files SET has_text = NULL, embedded = NULL WHERE lower(path) LIKE ?1",
+                    [&pattern],
+                )?;
+            } else {
+                db.execute(
+                    "UPDATE files SET has_text = NULL WHERE has_text = 0 AND lower(path) LIKE ?1",
+                    [&pattern],
+                )?;
+            }
         }
         db.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES ('tools', ?1)",
@@ -480,11 +493,15 @@ impl Store {
     /// and the rest of the store stays. `(tag, ends)`: the tag names what changed, the ends
     /// are those of the files' names (`.md`, `/Makefile`).
     fn readers_changed<S: AsRef<str>>(&self, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
+        self.reader_changed("readers", tag, ends)
+    }
+
+    /// `readers_changed` for one reader, under its own `key` in the store, so a change to it
+    /// reads only its own files again.
+    fn reader_changed<S: AsRef<str>>(&self, key: &str, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
         let db = self.db.lock().unwrap();
         let before: String = db
-            .query_row("SELECT value FROM meta WHERE key = 'readers'", [], |r| {
-                r.get(0)
-            })
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
             .unwrap_or_default();
         if before == tag {
             return Ok(());
@@ -496,8 +513,8 @@ impl Store {
             )?;
         }
         db.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES ('readers', ?1)",
-            [tag],
+            "INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)",
+            [key, tag],
         )?;
         Ok(())
     }
@@ -1997,6 +2014,8 @@ fn scan_for(
     .collect();
     ends.extend(crate::code::endings());
     store.readers_changed("code-1", &ends)?;
+    // PostScript has a reader of its own (Ghostscript, else plain text): read once again.
+    store.reader_changed("readers.postscript", "1", &[".ps", ".eps"])?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
@@ -3504,7 +3523,6 @@ mod tests {
             "tesseract came"
         );
         store.tools_changed(&["png", "jpg"]).unwrap();
-
         // A reader that learnt more: its files are read again over the text they had. Before
         // 1.26.4 the old text made every scan fail there, and no file got its vectors after.
         let id = store.unread_disk(0, 1000).unwrap()[0].0;
@@ -3514,6 +3532,29 @@ mod tests {
         store.read(&[(id, Some("new words".into()))]).unwrap();
         assert_eq!(store.search("new", None, 10).total, 1);
         assert_eq!(store.search("old", None, 10).total, 0);
+        // A kind read as plain text before (PostScript) that Ghostscript now reads: read again,
+        // though it had text; the other kinds stay.
+        store.apply(&[], &[("/h/notes.ps".into(), 1, 1, false)], &[], false, None).unwrap();
+        let ps = store.unread_disk(0, 1000).unwrap()[0].0;
+        store.read(&[(ps, Some("%!PS moveto show".into()))]).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"]).unwrap();
+        assert_eq!(
+            store.unread_disk(0, 1000).unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(),
+            ["/h/notes.ps"],
+            "Ghostscript came"
+        );
+        store.read(&[(ps, Some("launch notes".into()))]).unwrap();
+        // Ghostscript gone from PATH for a while: what it read stays.
+        store.tools_changed(&["png", "jpg"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "a program that went keeps what it read");
+        assert_eq!(store.search("launch", None, 10).total, 1);
+        // The PostScript reader's own version: its files once again, the others not.
+        store.reader_changed("readers.postscript", "1", &[".ps", ".eps"]).unwrap();
+        assert_eq!(store.unread_disk(0, 1000).unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(), ["/h/notes.ps"]);
+        store.read(&[(ps, Some("launch notes".into()))]).unwrap();
+        store.reader_changed("readers.postscript", "1", &[".ps", ".eps"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "once");
+
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -79,14 +79,14 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | Page | What it covers |
 |---|---|
 | [Text and code](text-and-code.md) | Highlighted code, logs, hex dumps, the git diff, Markdown with Mermaid and math |
-| [Documents](documents.md) | PDF, Word `.docx`, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, calendars and contacts |
+| [Documents](documents.md) | PDF (with *Make PDF searchable* on a scan), Word `.docx`, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, Typst, PostScript, XPS, calendars and contacts |
 | [HTML pages, sandboxed](html.md) | `.html` files shown as a browser shows them, with no script and nothing from the web |
-| [PowerPoint and Office](office.md) | Slides drawn in the app at once, LibreOffice's exact view after, and every other Office format |
+| [PowerPoint and Office](office.md) | Slides drawn in the app at once, LibreOffice's exact view after, every other Office format, the old ones (Works, Write, WordPerfect, Lotus 1-2-3) and Windows clip art |
 | [Data](data.md) | JSON, YAML and TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
 | [Cryptography bills of materials](bom.md) | CycloneDX CBOMs as a rated tree or sunburst, filters, Found in, comparing two scans; the terminal app's own viewer |
 | [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file |
-| [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML |
+| [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz, PlantUML, and D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
 | [Previews made by tools](tools.md) | The engine buttons, rendering, the preview cache and clearing it, `[preview]` |
 | [Containers](containers.md) | podman or docker, what a container may do, what each image gives and costs, pulling, updating and removing images |
@@ -101,10 +101,12 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | Binary files | Hex dump | [Text and code](text-and-code.md#formats) |
 | `.md` `.markdown` | Rendered, with Mermaid and math | [Text and code](text-and-code.md#markdown) |
 | `.html` `.htm` `.xhtml` | The page, sandboxed | [HTML](html.md) |
-| `.pdf` | Pages, zoom, fitted to the width | [Documents](documents.md#formats) |
+| `.pdf` | Pages, zoom, fitted to the width; a scan offered to be made searchable | [Documents](documents.md#formats), [Make PDF searchable](../files/searchable-pdf.md) |
+| `.typ` | PDF built by Typst | [Documents](documents.md#typst) |
+| `.ps` `.eps`, `.xps` `.oxps` | PDF made by Ghostscript, GhostXPS | [Documents](documents.md#postscript-and-xps) |
 | `.docx`, `.epub`, `.ipynb`, `.eml`, `.adoc`, `.rst`, `.ics`, `.vcf` | Document, book, notebook, mail, cards | [Documents](documents.md#formats) |
 | `.pptx` `.pptm` `.ppsx` `.potx` | Slides at once, exact view after | [Office](office.md) |
-| `.doc` `.odt` `.rtf` `.ppt` `.odp` `.vsdx` and more | PDF made by LibreOffice | [Office](office.md#formats) |
+| `.doc` `.odt` `.rtf` `.ppt` `.odp` `.vsdx`, `.wps` `.wri` `.wpd` `.wk1` `.123`, `.wmf` `.emf` and more | PDF made by LibreOffice | [Office](office.md#formats) |
 | `.json` `.yaml` `.toml`, `.jsonl` | Tree, table | [Data](data.md#formats) |
 | `.csv` `.tsv` `.xlsx` `.xls` `.ods` | Table, a button per sheet | [Data](data.md#formats) |
 | `.db` `.sqlite`, `.parquet`, `.duckdb` | Tables, rows, schema | [Data](data.md#formats) |
@@ -113,7 +115,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |
 | `.zip` `.7z` `.tar.*` and other archives | The files inside | [Media](media.md#archives) |
-| `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml` | Diagrams | [Diagrams](diagrams.md) |
+| `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml`, `.d2` `.ditaa` `.bob` `.pikchr` `.nomnoml` `.wavedrom` `.vg` `.vl` `.dbml` `.er` `.bytefield` | Diagrams | [Diagrams](diagrams.md) |
 | `.tex` `.ltx` | PDF built by LaTeX | [LaTeX](latex.md) |
 
 ## Keys at a glance
