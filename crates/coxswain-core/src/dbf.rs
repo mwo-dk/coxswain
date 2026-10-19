@@ -141,10 +141,16 @@ pub fn open(path: &Path) -> Option<(File, Table)> {
     }
     // A shapefile names its code page in a `.cpg` file beside it.
     let cpg_path = path.with_extension("cpg");
-    let cpg = (!crate::cloud::unasked(&cpg_path))
-        .then(|| std::fs::read_to_string(&cpg_path).ok())
-        .flatten()
-        .and_then(|s| Encoding::for_label(s.trim().as_bytes()));
+    // A regular file only (never a pipe that would wait), and only its first bytes: a label is short.
+    let cpg = (!crate::cloud::unasked(&cpg_path)
+        && std::fs::metadata(&cpg_path).is_ok_and(|m| m.is_file()))
+    .then(|| {
+        use std::io::Read;
+        let mut label = Vec::new();
+        File::open(&cpg_path).and_then(|f| f.take(64).read_to_end(&mut label)).ok()?;
+        Encoding::for_label(String::from_utf8_lossy(&label).trim().as_bytes())
+    })
+    .flatten();
     let (code_page, decode) = match cpg {
         Some(e) => (e.name(), Decode::Other(e)),
         None => code_page(h[29]),
