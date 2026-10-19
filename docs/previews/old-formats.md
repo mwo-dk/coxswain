@@ -149,7 +149,8 @@ These two readers are new, so the [search store](../search/settings.md) reads ev
 ## In the terminal app
 
 A terminal has only character cells, so no picture is drawn. **Properties** (**Alt+Enter**)
-lists the facts of every kind above, and **F3** shows them in the built-in viewer: a picture's facts with *A terminal
+lists the facts of every kind above, and **F3** shows them in the built-in viewer, titled with
+the file's name and its format (*boing.iff · Amiga IFF ILBM*): a picture's facts with *A terminal
 cannot draw it: the desktop app's preview shows the picture.*, a module's facts and sample
 names, an Outlook message's headers, attachments and text, a dBase table's fields and records.
 **Enter** opens a mailbox or a comic like a folder, as in the desktop app, and opens any other

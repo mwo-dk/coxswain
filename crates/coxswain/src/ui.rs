@@ -420,6 +420,14 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
     Rect { x: area.x + (area.width - w) / 2, y: area.y + (area.height - h) / 2, width: w, height: h }
 }
 
+/// A box of `w` columns, as tall as `p` wraps in it plus `extra` rows (the frame, a gap, the
+/// keys), at most the screen: a translated text is never cut off.
+fn text_box(full: Rect, w: u16, p: &Paragraph, extra: u16) -> Rect {
+    let w = w.min(full.width);
+    let h = (p.line_count(w.saturating_sub(2)) as u16).saturating_add(extra);
+    centered(full, w, h)
+}
+
 pub(crate) fn frame(f: &mut Frame, app: &App, area: Rect, title: &str) -> Rect {
     let t = &app.theme;
     let bg = sty(&t.dialog);
@@ -462,22 +470,24 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 Some(Dialog::Confirm { .. }) => t!("common.delete"),
                 _ => t!("verb.switch"),
             };
-            let inner = frame(f, app, centered(full, 60, 6), title);
-            let [a, _, b] = Layout::vertical([Constraint::Length(2), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
-            f.render_widget(Paragraph::new(text.as_str()).centered().wrap(Wrap { trim: true }), a);
+            let p = Paragraph::new(text.as_str()).centered().wrap(Wrap { trim: true });
+            let inner = frame(f, app, text_box(full, 60, &p, 4), title);
+            let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
         Dialog::Searchable { title, text, .. } => {
-            let inner = frame(f, app, centered(full, 64, 9), title);
-            let [a, _, b] = Layout::vertical([Constraint::Length(5), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
-            f.render_widget(Paragraph::new(text.as_str()).wrap(Wrap { trim: true }), a);
+            let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
+            let inner = frame(f, app, text_box(full, 64, &p, 4), title);
+            let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&t!("searchable.go"))).centered(), b);
         }
         Dialog::Message { title, text } => {
-            let h = (text.lines().count() as u16 + 5).min(full.height);
-            let inner = frame(f, app, centered(full, 76, h), title);
+            let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
+            let inner = frame(f, app, text_box(full, 76, &p, 4), title);
             let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
-            f.render_widget(Paragraph::new(text.as_str()).wrap(Wrap { trim: false }), body);
+            f.render_widget(p, body);
             f.render_widget(Paragraph::new(t!("dialog.keys_one", "verb" => t!("common.close"))).centered(), key);
         }
         Dialog::Help { scroll } => {
@@ -919,6 +929,46 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The Make PDF searchable question, and the other text dialogs, show their last sentence
+    /// however long it wraps, in English, German and Finnish, narrow and wide.
+    #[test]
+    fn text_dialogs_show_their_last_line() {
+        use coxswain_core::helper::Client;
+        let d = std::env::temp_dir().join(format!("coxswain-test-dialog-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cfg = coxswain_core::config::Config { check_updates: false, ..Default::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        for lang in ["en-GB", "de", "fi"] {
+            // From the catalogue, not the process's language, which other tests share.
+            let cat = coxswain_core::i18n::catalogue(lang);
+            let tr = |k: &str| cat[k].as_str().unwrap().to_string();
+            let image = "docker.io/jbarlow83/ocrmypdf-alpine:latest";
+            let text = format!(
+                "{} {} {}.",
+                tr("searchable.confirm_one").replace("{target}", "Jahresbericht 2025 eingescannt.searchable.pdf").replace("{name}", "Jahresbericht 2025 eingescannt.pdf"),
+                tr("searchable.runs_container").replace("{runtime}", "podman").replace("{image}", image),
+                tr("convert.first_run_pulls_large").replace("{image}", image).replace("{size}", "180 MB"),
+            );
+            for kind in 0..3 {
+                for w in [80, 140] {
+                    let (title, text) = ("t".to_string(), text.clone());
+                    app.dialog = Some(match kind {
+                        0 => Dialog::Searchable { title, text, pdfs: vec![] },
+                        1 => Dialog::Confirm { title, text, paths: vec![], forever: false },
+                        _ => Dialog::Message { title, text },
+                    });
+                    let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, 30)).unwrap();
+                    term.draw(|f| draw(f, &mut app)).unwrap();
+                    let buf = term.backend().buffer();
+                    let screen: String = (0..buf.area.height).map(|y| (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect::<String>() + "\n").collect();
+                    assert!(screen.contains("MB)."), "{lang}, dialog {kind} at {w}:\n{screen}");
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(d);
+    }
 
     #[test]
     fn find_makes_lines_only_for_the_rows_in_sight() {

@@ -93,6 +93,18 @@
     });
   });
 
+  // The window's table takes the keys when it opens (Alt+K), as the other list dialogs do; in
+  // the preview pane the panels keep them until it is clicked.
+  $effect(() => {
+    if (full && listEl) listEl.focus();
+  });
+
+  /** Back from a game to the table, which takes the keys. */
+  function back() {
+    game = null;
+    setTimeout(() => listEl?.focus(), 0);
+  }
+
   // A Find hit: that game, at once.
   $effect(() => {
     const want = ui.chessAt;
@@ -236,7 +248,7 @@
     else if (e.key === "n") letters = !letters;
     else if (e.key === "PageDown" && format === "pgn") nextGame(1);
     else if (e.key === "PageUp" && format === "pgn") nextGame(-1);
-    else if (e.key === "Escape" && format === "pgn" && game) game = null;
+    else if (e.key === "Escape" && format === "pgn" && game) back();
     else return;
     e.preventDefault();
     e.stopPropagation();
@@ -306,7 +318,7 @@
           {#each Array(64) as _, i (i)}{@render square(i)}{/each}
         </svg>
         <div class="bar">
-          {#if format === "pgn"}<button title={t("chess.back_tip")} onclick={() => (game = null)}>{t("chess.back")}</button>{/if}
+          {#if format === "pgn"}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
           <button class="icon" title={t("chess.start_tip")} aria-label={t("chess.start_tip")} onclick={() => step("start")}>|◀</button>
           <button class="icon" title={t("chess.prev_tip")} aria-label={t("chess.prev_tip")} onclick={() => step("prev")}>◀</button>
           <button class="icon" title={t("chess.next_tip")} aria-label={t("chess.next_tip")} onclick={() => step("next")}>▶</button>
