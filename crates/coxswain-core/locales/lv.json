@@ -2594,6 +2594,7 @@
  "status.showing": "Rāda: {name}",
  "status.trashed": "Pārvietots uz atkritni: {what}",
  "status.update": "Pieejama Coxswain {version}: {how}",
+ "status.update_lags": "Pieejama Coxswain {version}: {how} ({channel} to var saņemt dažas dienas vēlāk; vai laidienu lapa)",
  "syntax.both": "abi vārdi",
  "syntax.case": "reģistrjutīgs",
  "syntax.either": "viens vai otrs",

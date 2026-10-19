@@ -721,9 +721,11 @@
         >{"\u{f013}"} {t("settings.title")}{#if newsCount}<span class="badge">{newsCount}</span>{/if}</button>
       {#if update}
         <!-- With a package manager, the command upgrades; the page still has the release notes. -->
-        <button class="update" title={update[1] ? t("app.update_how", { how: update[1] }) : t("app.update_releases")}
+        <!-- A channel that lags (WinGet, Flathub, Termux, nixpkgs) may not have it yet: the text says so. -->
+        <button class="update" title={update[1] ? t("app.update_how", { how: update[1].cmd }) : t("app.update_releases")}
           onclick={() => invoke("open_path", { path: "https://github.com/mwo-dk/coxswain/releases/latest" })}>
-          {update[1] ? t("status.update", { version: update[0], how: update[1] }) : t("app.update_available", { version: update[0] })}
+          {!update[1] ? t("app.update_available", { version: update[0] })
+            : t(update[1].lags ? "status.update_lags" : "status.update", { version: update[0], how: update[1].cmd, channel: update[1].lags })}
         </button>
       {/if}
     </label>

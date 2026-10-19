@@ -2594,6 +2594,7 @@
  "status.showing": "{name} מוצג",
  "status.trashed": "{what} הועבר לסל המיחזור",
  "status.update": "Coxswain {version} זמין: {how}",
+ "status.update_lags": "Coxswain {version} זמין: {how} (ייתכן שיגיע אל {channel} כמה ימים מאוחר יותר; או דף הגרסאות)",
  "syntax.both": "שתי המילים",
  "syntax.case": "תלוי רישיות",
  "syntax.either": "אחת מהן",

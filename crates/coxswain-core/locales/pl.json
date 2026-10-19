@@ -2650,6 +2650,7 @@
  "status.showing": "Wyświetlanie {name}",
  "status.trashed": "Przeniesiono {what} do Kosza",
  "status.update": "Dostępny jest Coxswain {version}: {how}",
+ "status.update_lags": "Dostępny jest Coxswain {version}: {how} (do {channel} może trafić kilka dni później; albo strona wydań)",
  "syntax.both": "oba słowa",
  "syntax.case": "z rozróżnianiem wielkości liter",
  "syntax.either": "jedno lub drugie",

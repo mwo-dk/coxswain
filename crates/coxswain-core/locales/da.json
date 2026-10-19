@@ -2538,6 +2538,7 @@
  "status.showing": "Viser {name}",
  "status.trashed": "Flyttede {what} til papirkurven",
  "status.update": "Coxswain {version} er tilgængelig: {how}",
+ "status.update_lags": "Coxswain {version} er tilgængelig: {how} (den kan nå {channel} nogle dage senere; ellers udgivelsessiden)",
  "syntax.both": "begge ord",
  "syntax.case": "forskel på store/små bogstaver",
  "syntax.either": "et af dem",

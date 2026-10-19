@@ -1904,7 +1904,7 @@ async fn add_user_command(ctx: tauri::State<'_, Ctx>) -> Res<()> {
 /// A newer release, if the (daily, cached) check found one, and the command that upgrades this
 /// copy. The network call runs outside the state lock so other commands are not held up.
 #[tauri::command]
-async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<&'static str>)>> {
+async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<coxswain_core::update::Upgrade>)>> {
     use coxswain_core::update;
     if !ctx.cfg().check_updates {
         return Ok(None);

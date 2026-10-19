@@ -2650,6 +2650,7 @@
  "status.showing": "Показано {name}",
  "status.trashed": "{what} переміщено в Кошик",
  "status.update": "Доступна версія Coxswain {version}: {how}",
+ "status.update_lags": "Доступна версія Coxswain {version}: {how} (до {channel} вона може дійти на кілька днів пізніше; або сторінка випусків)",
  "syntax.both": "обидва слова",
  "syntax.case": "з урахуванням регістру",
  "syntax.either": "будь-яке",

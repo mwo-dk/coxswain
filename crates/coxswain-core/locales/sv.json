@@ -2538,6 +2538,7 @@
  "status.showing": "Visar {name}",
  "status.trashed": "Flyttade {what} till papperskorgen",
  "status.update": "Coxswain {version} finns tillgänglig: {how}",
+ "status.update_lags": "Coxswain {version} finns tillgänglig: {how} (den kan nå {channel} några dagar senare; eller sidan med versioner)",
  "syntax.both": "båda orden",
  "syntax.case": "skiftlägeskänslig",
  "syntax.either": "något av dem",

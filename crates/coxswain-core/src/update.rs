@@ -89,11 +89,30 @@ pub fn check() -> Option<String> {
     available(&st)
 }
 
+/// How this copy upgrades: the command, and whether its channel gets a release later than
+/// GitHub does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Upgrade {
+    pub cmd: &'static str,
+    /// The channel (WinGet, Flathub, Termux, nixpkgs) that takes a release days after GitHub,
+    /// so its command may find nothing new yet; `None` when it has the release at once.
+    pub lags: Option<&'static str>,
+}
+
+impl Upgrade {
+    const fn now(cmd: &'static str) -> Self {
+        Self { cmd, lags: None }
+    }
+    const fn later(cmd: &'static str, channel: &'static str) -> Self {
+        Self { cmd, lags: Some(channel) }
+    }
+}
+
 /// The command that upgrades this copy, from where it is installed. `None` means it came
 /// from the releases page (or a source build), so that is where the new version is.
-pub fn upgrade_hint() -> Option<&'static str> {
+pub fn upgrade_hint() -> Option<Upgrade> {
     if crate::tools::flatpak().is_some() {
-        return Some(FLATPAK_UPDATE);
+        return Some(Upgrade::later(FLATPAK_UPDATE, "Flathub"));
     }
     // Inside an AppImage the executable is in a temporary mount; $APPIMAGE is the file itself.
     let exe = std::env::var_os("APPIMAGE")
@@ -104,7 +123,8 @@ pub fn upgrade_hint() -> Option<&'static str> {
     let cask = ["/opt/homebrew", "/usr/local"]
         .iter()
         .any(|p| Path::new(p).join("Caskroom/coxswain-gui").is_dir());
-    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask).or(SCRIPT_UPDATE)
+    hint_for(&exe.to_string_lossy(), cfg!(target_os = "macos") && cask)
+        .or(SCRIPT_UPDATE.map(Upgrade::now))
 }
 
 /// A Flatpak updates with the others; this is the one for Coxswain alone.
@@ -128,21 +148,25 @@ pub const SCRIPT_UPDATE: Option<&str> = if cfg!(target_os = "freebsd") {
     None
 };
 
-fn hint_for(exe: &str, mac_cask: bool) -> Option<&'static str> {
+fn hint_for(exe: &str, mac_cask: bool) -> Option<Upgrade> {
     let p = exe.replace('\\', "/").to_lowercase();
     Some(
         if p.contains("/caskroom/") || (mac_cask && p.contains("/applications/coxswain.app/")) {
-            "brew upgrade --cask coxswain-gui"
+            Upgrade::now("brew upgrade --cask coxswain-gui")
         } else if p.contains("/cellar/") {
-            "brew upgrade coxswain"
+            Upgrade::now("brew upgrade coxswain")
+        } else if p.starts_with("/nix/store/") {
+            // From the flake it is current; nixpkgs' copy follows a few days later.
+            Upgrade::later("nix profile upgrade coxswain", "nixpkgs")
         } else if p.contains("/com.termux/files/usr/bin/") {
-            "pkg upgrade coxswain"
+            Upgrade::later("pkg upgrade coxswain", "Termux")
         } else if p.contains("/.cargo/bin/") {
-            "cargo install --locked coxswain"
+            Upgrade::now("cargo install --locked coxswain")
         } else if p.contains("/microsoft/winget/packages/mwo-dk.coxswain.terminal_") {
             // WinGet unpacks the terminal app's zip under its Packages folder. The desktop installer
-            // lands where a download would, so it gets the releases page.
-            "winget upgrade mwo-dk.Coxswain.Terminal"
+            // lands where a download would, so it gets the releases page. Each version waits for
+            // WinGet's moderators.
+            Upgrade::later("winget upgrade mwo-dk.Coxswain.Terminal", "WinGet")
         } else {
             return None;
         },
@@ -181,7 +205,7 @@ mod tests {
 
     #[test]
     fn update_hint_follows_the_install_source() {
-        let h = |p| hint_for(p, false);
+        let h = |p| hint_for(p, false).map(|u| u.cmd);
         assert_eq!(
             h("/home/linuxbrew/.linuxbrew/Cellar/coxswain/1.2.0/bin/coxswain"),
             Some("brew upgrade coxswain")
@@ -200,7 +224,8 @@ mod tests {
             hint_for(
                 "/Applications/Coxswain.app/Contents/MacOS/coxswain-gui",
                 true
-            ),
+            )
+            .map(|u| u.cmd),
             Some("brew upgrade --cask coxswain-gui")
         );
         assert_eq!(
@@ -236,5 +261,29 @@ mod tests {
             Some("cargo install --locked coxswain")
         );
         assert_eq!(h("/home/me/Downloads/Coxswain_1.2.0_amd64.AppImage"), None);
+    }
+
+    #[test]
+    fn update_hint_knows_nix_and_which_channels_lag() {
+        let lags = |p| hint_for(p, false).and_then(|u| u.lags);
+        assert_eq!(
+            hint_for("/nix/store/abc123-coxswain-2.31.0/bin/coxswain", false),
+            Some(Upgrade::later("nix profile upgrade coxswain", "nixpkgs"))
+        );
+        // Only the store itself: a folder named nix elsewhere is no Nix install.
+        assert_eq!(hint_for("/home/me/nix/store/bin/coxswain", false), None);
+        assert_eq!(lags("/data/data/com.termux/files/usr/bin/coxswain"), Some("Termux"));
+        assert_eq!(
+            lags(r"C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\mwo-dk.Coxswain.Terminal_Microsoft.Winget.Source_8wekyb3d8bbwe\coxswain.exe"),
+            Some("WinGet")
+        );
+        // Our own tap, crates.io and the install scripts have a release as soon as GitHub does.
+        for p in [
+            "/opt/homebrew/Cellar/coxswain/1.2.0/bin/coxswain",
+            "/home/linuxbrew/.linuxbrew/Caskroom/coxswain-gui/1.2.0/Coxswain.AppImage",
+            "/home/me/.cargo/bin/coxswain",
+        ] {
+            assert!(hint_for(p, false).is_some_and(|u| u.lags.is_none()), "{p}");
+        }
     }
 }

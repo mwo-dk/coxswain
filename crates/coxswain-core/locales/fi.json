@@ -2538,6 +2538,7 @@
  "status.showing": "Näytetään: {name}",
  "status.trashed": "Siirretty roskakoriin: {what}",
  "status.update": "Coxswain {version} on saatavilla: {how}",
+ "status.update_lags": "Coxswain {version} on saatavilla: {how} ({channel} voi saada sen muutamaa päivää myöhemmin; tai julkaisusivu)",
  "syntax.both": "molemmat sanat",
  "syntax.case": "kirjainkoko huomioidaan",
  "syntax.either": "jompikumpi",

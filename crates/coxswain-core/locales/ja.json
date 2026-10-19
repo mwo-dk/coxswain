@@ -2482,6 +2482,7 @@
  "status.showing": "{name} を表示中",
  "status.trashed": "{what} をごみ箱に移動しました",
  "status.update": "Coxswain {version} が利用できます: {how}",
+ "status.update_lags": "Coxswain {version} が利用できます: {how}（{channel} に届くのは数日後のことがあります。リリースページからも入手できます）",
  "syntax.both": "両方の語",
  "syntax.case": "大文字と小文字を区別",
  "syntax.either": "どちらか",

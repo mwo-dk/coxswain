@@ -2507,8 +2507,11 @@ impl App {
         self.follow_hint();
         self.follow_facts();
         if let Ok(v) = self.update_rx.try_recv() {
-            let how = coxswain_core::update::upgrade_hint().unwrap_or(coxswain_core::update::RELEASES_URL);
-            self.status = Some(t!("status.update", "version" => v, "how" => how));
+            use coxswain_core::update::{upgrade_hint, Upgrade, RELEASES_URL};
+            self.status = Some(match upgrade_hint() {
+                Some(Upgrade { cmd, lags: Some(channel) }) => t!("status.update_lags", "version" => v, "how" => cmd, "channel" => channel),
+                up => t!("status.update", "version" => v, "how" => up.map_or(RELEASES_URL, |u| u.cmd)),
+            });
         }
         while let Ok((dir, folder, bytes)) = self.sizes_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {

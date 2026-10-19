@@ -2594,6 +2594,7 @@
  "status.showing": "Rodoma: {name}",
  "status.trashed": "Perkelta į šiukšlinę: {what}",
  "status.update": "Galima Coxswain {version}: {how}",
+ "status.update_lags": "Galima Coxswain {version}: {how} (į {channel} gali patekti po kelių dienų; arba leidimų puslapis)",
  "syntax.both": "abu žodžiai",
  "syntax.case": "skiria raidžių dydį",
  "syntax.either": "bet kuris",

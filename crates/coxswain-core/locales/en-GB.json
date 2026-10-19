@@ -2538,6 +2538,7 @@
  "status.showing": "Showing {name}",
  "status.trashed": "Moved {what} to the bin",
  "status.update": "Coxswain {version} is available: {how}",
+ "status.update_lags": "Coxswain {version} is available: {how} (it can reach {channel} a few days later; or the release page)",
  "syntax.both": "both words",
  "syntax.case": "case-sensitive",
  "syntax.either": "either",

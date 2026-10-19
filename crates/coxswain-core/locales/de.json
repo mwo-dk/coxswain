@@ -2538,6 +2538,7 @@
  "status.showing": "{name} wird angezeigt",
  "status.trashed": "{what} in den Papierkorb verschoben",
  "status.update": "Coxswain {version} ist verfügbar: {how}",
+ "status.update_lags": "Coxswain {version} ist verfügbar: {how} (bei {channel} kann es einige Tage später ankommen; sonst die Release-Seite)",
  "syntax.both": "beide Wörter",
  "syntax.case": "Groß-/Kleinschreibung beachten",
  "syntax.either": "eines von beiden",

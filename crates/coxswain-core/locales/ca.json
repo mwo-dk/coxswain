@@ -2594,6 +2594,7 @@
  "status.showing": "Es mostra {name}",
  "status.trashed": "S'ha mogut {what} a la paperera",
  "status.update": "Hi ha disponible el Coxswain {version}: {how}",
+ "status.update_lags": "Hi ha disponible el Coxswain {version}: {how} (pot arribar a {channel} uns dies més tard; o la pàgina de versions)",
  "syntax.both": "les dues paraules",
  "syntax.case": "distingeix majúscules",
  "syntax.either": "qualsevol de les dues",
