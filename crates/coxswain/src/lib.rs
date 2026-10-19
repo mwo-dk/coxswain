@@ -1084,7 +1084,11 @@ impl App {
                 // path.
                 let places = coxswain_core::bsd::places();
                 let phone = coxswain_core::termux::storage();
-                let clouds = coxswain_core::clouds::places();
+                // A hung cloud mount must not hang the app: the list comes without them.
+                let clouds = coxswain_core::clouds::places_within(Duration::from_millis(300)).unwrap_or_else(|| {
+                    self.status = Some(t!("clouds.slow"));
+                    vec![]
+                });
                 if places.is_empty() && phone.is_empty() && clouds.is_empty() {
                     return self.goto_prompt(side);
                 }
@@ -1560,7 +1564,8 @@ impl App {
         };
         let repo = coxswain_core::git_config::repo_name(&dir);
         let labels = [self.key_label(Action::Edit), self.key_label(Action::Copy), self.key_label(Action::GitTool)];
-        let hint = coxswain_core::menu::once("git_config_show", &self.cfg);
+        // How a hidden secret is shown: said the first few times one is there.
+        let hint = entries.iter().any(|e| e.hidden.is_some()) && coxswain_core::menu::once("git_config_show", &self.cfg);
         let v = git_config::Viewer::new(entries, repo, labels, hint);
         self.dialog = Some(Dialog::GitConfig(Box::new(v)));
     }

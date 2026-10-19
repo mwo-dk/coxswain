@@ -16,6 +16,12 @@ struct Shared {
     kq: kqueue::Watcher,
 }
 
+/// The kqueue, also after a thread panicked holding it: the queue itself is still whole, and
+/// watching must not stop without a word.
+fn lock(shared: &Mutex<Shared>) -> std::sync::MutexGuard<'_, Shared> {
+    shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
 pub struct KqueueWatcher {
     shared: Arc<Mutex<Shared>>,
     stop: Arc<AtomicBool>,
@@ -28,7 +34,7 @@ const FLAGS: FilterFlag = FilterFlag::NOTE_WRITE
 
 impl KqueueWatcher {
     fn wait(shared: Arc<Mutex<Shared>>, stop: Arc<AtomicBool>, mut handler: Box<dyn EventHandler>) {
-        let fd = shared.lock().map(|s| s.kq.as_raw_fd()).unwrap_or(-1);
+        let fd = lock(&shared).kq.as_raw_fd();
         while !stop.load(Ordering::Relaxed) {
             // Wait outside the lock, so watches can be added meanwhile.
             let mut p = libc::pollfd {
@@ -38,7 +44,7 @@ impl KqueueWatcher {
             };
             // SAFETY: one pollfd, owned here.
             unsafe { libc::poll(&mut p, 1, 500) };
-            let Ok(mut s) = shared.lock() else { break };
+            let mut s = lock(&shared);
             let mut fired = vec![];
             while let Some(ev) = s.kq.poll(None) {
                 if let (Ident::Filename(_, name), EventData::Vnode(v)) = (ev.ident, ev.data) {
@@ -81,41 +87,33 @@ impl notify::Watcher for KqueueWatcher {
 
     /// Watches the folder `path` itself, never what is below it, whatever `_mode` says.
     fn watch(&mut self, path: &Path, _mode: RecursiveMode) -> notify::Result<()> {
-        let mut s = self
-            .shared
-            .lock()
-            .map_err(|_| notify::Error::generic("poisoned"))?;
+        let mut s = lock(&self.shared);
         add(&mut s, path)?;
         s.kq.watch().map_err(notify::Error::io)
     }
 
     /// Many folders, handed to the kernel in one call at `commit` (each `watch` hands it all).
     fn paths_mut<'me>(&'me mut self) -> Box<dyn notify::PathsMut + 'me> {
-        struct Batch<'a>(Option<std::sync::MutexGuard<'a, Shared>>);
+        struct Batch<'a>(std::sync::MutexGuard<'a, Shared>);
         impl notify::PathsMut for Batch<'_> {
             fn add(&mut self, path: &Path, _mode: RecursiveMode) -> notify::Result<()> {
-                self.0.as_mut().map_or(Ok(()), |s| add(s, path))
+                add(&mut self.0, path)
             }
             fn remove(&mut self, path: &Path) -> notify::Result<()> {
-                self.0.as_mut().map_or(Ok(()), |s| {
-                    s.kq.remove_filename(path, EventFilter::EVFILT_VNODE)
-                        .map_err(|_| notify::Error::watch_not_found())
-                })
+                self.0
+                    .kq
+                    .remove_filename(path, EventFilter::EVFILT_VNODE)
+                    .map_err(|_| notify::Error::watch_not_found())
             }
             fn commit(mut self: Box<Self>) -> notify::Result<()> {
-                self.0
-                    .take()
-                    .map_or(Ok(()), |mut s| s.kq.watch().map_err(notify::Error::io))
+                self.0.kq.watch().map_err(notify::Error::io)
             }
         }
-        Box::new(Batch(self.shared.lock().ok()))
+        Box::new(Batch(lock(&self.shared)))
     }
 
     fn unwatch(&mut self, path: &Path) -> notify::Result<()> {
-        let mut s = self
-            .shared
-            .lock()
-            .map_err(|_| notify::Error::generic("poisoned"))?;
+        let mut s = lock(&self.shared);
         s.kq.remove_filename(path, EventFilter::EVFILT_VNODE)
             .map_err(|_| notify::Error::watch_not_found())
     }

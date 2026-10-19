@@ -354,6 +354,7 @@
  "cli.unknown_value": "valor desconegut {value} per a {option}: accepta {values}",
  "cloud.online_only": "només en línia, no baixat",
  "clouds.goto": "Núvol: {name}",
+ "clouds.slow": "Les carpetes del núvol no han respost a temps i no surten a la llista: potser un muntatge del núvol s'ha penjat",
  "columns.empty": "Carpeta buida",
  "common.apply": "Aplica",
  "common.cancel": "Cancel·la",

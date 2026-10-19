@@ -338,6 +338,7 @@
  "cli.unknown_value": "tundmatu väärtus {value} võtmele {option}: lubatud on {values}",
  "cloud.online_only": "ainult võrgus, pole alla laaditud",
  "clouds.goto": "Pilv: {name}",
+ "clouds.slow": "Pilvekaustad ei vastanud õigel ajal, seega pole neid loendis: mõni pilve haakimine võib rippuda",
  "columns.empty": "Tühi kaust",
  "common.apply": "Rakenda",
  "common.cancel": "Loobu",

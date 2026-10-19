@@ -1281,20 +1281,11 @@ pub(crate) fn unthink(piece: &str, thinking: &mut bool) -> String {
     }
 }
 
-/// A server's URL as an error names it: without the `user:password@` a URL may carry, which
-/// would otherwise show in the status line and in Settings.
+/// A server's URL as an error names it: without the `user:password@` a URL may carry, or a
+/// query or fragment (a token may be there), which would otherwise show in the status line and
+/// in Settings.
 pub(crate) fn shown(url: &str) -> String {
-    match url.split_once("://") {
-        Some((scheme, rest))
-            if rest
-                .split(['/', '?', '#'])
-                .next()
-                .is_some_and(|host| host.contains('@')) =>
-        {
-            format!("{scheme}://{}", &rest[rest.find('@').unwrap() + 1..])
-        }
-        _ => url.to_string(),
-    }
+    crate::git::without_credentials(url)
 }
 
 /// TLS that trusts the system's certificate store, as the update check does, so a proxy that
@@ -1951,7 +1942,11 @@ mod tests {
             shown("http://me:hunter2@host:11434/v1"),
             "http://host:11434/v1"
         );
-        assert_eq!(shown("http://host/x?u=a@b"), "http://host/x?u=a@b");
+        assert_eq!(shown("http://host/x?u=a@b"), "http://host/x");
+        assert_eq!(
+            shown("http://ada:p@ss@host:11434/v1?key=x"),
+            "http://host:11434/v1"
+        );
         assert_eq!(shown("not a url"), "not a url");
         let (url, server) = one_answer("401 Unauthorized", "{\"error\":\"who?\"}");
         let url = url.replace("http://", "http://me:hunter2@");

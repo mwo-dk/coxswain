@@ -1300,12 +1300,7 @@ impl Service {
                             // One batch: kqueue hands every watch to the kernel on each `watch`.
                             let budget = claim_folders();
                             let dirs = folders_to_watch(&roots, &exclude, budget);
-                            left = budget - dirs.len();
-                            let mut batch = w.paths_mut();
-                            for dir in dirs {
-                                let _ = batch.add(&dir, RecursiveMode::NonRecursive);
-                            }
-                            let _ = batch.commit();
+                            left = budget - watch_folders(w, &dirs);
                         }
                         // Ready once the watcher is in place, so nothing made meanwhile is missed.
                         self.state.store(State::Ready as u8, Ordering::Relaxed);
@@ -1361,15 +1356,19 @@ impl Service {
             if !dirty.is_empty() {
                 // The disk is read under a read lock: searches go on meanwhile.
                 let mut looked = self.index.read().unwrap().look(&dirty);
-                let new_dirs = std::mem::take(&mut looked.new_dirs);
+                let mut new_dirs = std::mem::take(&mut looked.new_dirs);
                 self.index.write().unwrap().apply(looked);
                 // A folder made since the watcher started is watched too, with what is below
-                // it, and read once more for what came into it before its watch did.
-                if let Some(w) = watcher.as_mut()
-                    && watch_new(w, &new_dirs, &roots, &exclude, &mut left)
-                {
+                // it, and read once more for what came into it before its watch did. A folder
+                // made in it meanwhile is found by that read, and watched in turn.
+                for _ in 0..8 {
+                    let Some(w) = watcher.as_mut() else { break };
+                    if new_dirs.is_empty() || !watch_new(w, &new_dirs, &roots, &exclude, &mut left) {
+                        break;
+                    }
                     let again: HashSet<PathBuf> = new_dirs.into_iter().collect();
-                    let looked = self.index.read().unwrap().look(&again);
+                    let mut looked = self.index.read().unwrap().look(&again);
+                    new_dirs = std::mem::take(&mut looked.new_dirs);
                     self.index.write().unwrap().apply(looked);
                 }
                 self.listeners
@@ -1399,14 +1398,9 @@ fn watch_new(
 ) -> bool {
     use notify::{RecursiveMode, Watcher};
     if BY_FOLDER {
-        let dirs = folders_to_watch(new_dirs, exclude, *left);
-        *left -= dirs.len();
-        let mut batch = w.paths_mut();
-        for dir in &dirs {
-            let _ = batch.add(dir, RecursiveMode::NonRecursive);
-        }
-        let _ = batch.commit();
-        return !dirs.is_empty();
+        let watched = watch_folders(w, &folders_to_watch(new_dirs, exclude, *left));
+        *left -= watched;
+        return watched > 0;
     }
     let mut any = false;
     for d in new_dirs.iter().filter(|d| {
@@ -1417,6 +1411,34 @@ fn watch_new(
         any |= w.watch(d, RecursiveMode::Recursive).is_ok();
     }
     any
+}
+
+/// Watch `dirs` one by one, handed to the kernel together: how many are watched. One that
+/// cannot be (out of descriptors, gone meanwhile) costs nothing of the budget; the first such
+/// failure is said in helper.log, as it means changes there wait for the hourly rebuild.
+fn watch_folders(w: &mut crate::DirWatcher, dirs: &[PathBuf]) -> usize {
+    use notify::{RecursiveMode, Watcher};
+    let mut batch = w.paths_mut();
+    let mut watched = 0;
+    for dir in dirs {
+        match batch.add(dir, RecursiveMode::NonRecursive) {
+            Ok(()) => watched += 1,
+            Err(e) => not_watched(&e),
+        }
+    }
+    if let Err(e) = batch.commit() {
+        not_watched(&e);
+    }
+    watched
+}
+
+fn not_watched(e: &notify::Error) {
+    static TOLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if crate::helper::SERVING.load(Ordering::Relaxed) && !TOLD.swap(true, Ordering::Relaxed) {
+        crate::helper::note_once(format!(
+            "a folder is not watched, its changes show at the hourly rebuild (said once): {e}"
+        ));
+    }
 }
 
 /// The file watcher is kqueue, which needs an open descriptor per watched path, or illumos's

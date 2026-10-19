@@ -338,6 +338,7 @@
  "cli.unknown_value": "tuntematon arvo {value} valitsimelle {option}: se hyväksyy {values}",
  "cloud.online_only": "vain verkossa, ei ladattu",
  "clouds.goto": "Pilvi: {name}",
+ "clouds.slow": "Pilvikansiot eivät vastanneet ajoissa, joten ne puuttuvat luettelosta: jokin pilviliitos voi olla jumissa",
  "columns.empty": "Tyhjä kansio",
  "common.apply": "Käytä",
  "common.cancel": "Peruuta",

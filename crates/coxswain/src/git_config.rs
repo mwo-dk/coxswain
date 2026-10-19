@@ -73,7 +73,7 @@ impl Viewer {
                 None => t!("gitconfig.title_outside"),
             },
             outside: repo.is_none(),
-            hint: hint && entries.iter().any(|e| e.hidden.is_some()),
+            hint,
             entries,
             rows,
             shown: HashSet::new(),

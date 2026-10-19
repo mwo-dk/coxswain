@@ -354,6 +354,7 @@
  "cli.unknown_value": "ערך לא מוכר {value} עבור {option}: הערכים האפשריים הם {values}",
  "cloud.online_only": "מקוון בלבד, לא הורד",
  "clouds.goto": "ענן: {name}",
+ "clouds.slow": "תיקיות הענן לא ענו בזמן, ולכן אינן ברשימה: ייתכן שעיגון ענן תקוע",
  "columns.empty": "תיקייה ריקה",
  "common.apply": "החלה",
  "common.cancel": "ביטול",

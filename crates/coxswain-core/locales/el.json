@@ -338,6 +338,7 @@
  "cli.unknown_value": "άγνωστη τιμή {value} για {option}: δέχεται {values}",
  "cloud.online_only": "μόνο online, δεν έχει γίνει λήψη",
  "clouds.goto": "Cloud: {name}",
+ "clouds.slow": "Οι φάκελοι cloud δεν απάντησαν εγκαίρως, γι' αυτό δεν είναι στη λίστα: ίσως μια προσάρτηση cloud έχει κολλήσει",
  "columns.empty": "Κενός φάκελος",
  "common.apply": "Εφαρμογή",
  "common.cancel": "Άκυρο",
