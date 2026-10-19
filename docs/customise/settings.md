@@ -120,7 +120,7 @@ is read when an app starts again.
 | *Finding files* | The search level (*Names and text* …), then one line each for words, meaning and Ask, with what needs saying (*Paused while the machine runs on its battery.*) | Clicking the name opens the area |
 | *Previews* | How previews are made: *An installed program, else a container* … | Opens Previews |
 | *Looks* | The theme and the language: *Cyber · English (United Kingdom)* | Opens Looks |
-| *Privacy and updates* | What can leave this machine and where to, one line each (*The update check, once a day → api.github.com*), or *Nothing leaves this machine.* | Opens Privacy and updates |
+| *Privacy and updates* | What can leave this machine and where to, one line each (*The update check, at start and then once a day → api.github.com*), or *Nothing leaves this machine.* | Opens Privacy and updates |
 | **Set up…** | | Opens the [setup guide](../search/setup.md) for words, meaning and Ask |
 | **Show the guide again** | *The first-run guide: the two panels, how far Find looks, looks and privacy.* | Opens the [first-run guide](../panels/first-run.md) at its first step |
 | *What's new* | *For you*: the tips, each with **Show me** and **Dismiss**; then the versions you have not read, and *Earlier versions: N* folded | **Show me** opens the tip's area. Once *What's new* is in sight, the versions count as read and the count on the gear goes |
@@ -219,7 +219,7 @@ active pane, made first when it is not there yet ([Scripts](../commands/scripts.
 
 | Part | Does | Key |
 |---|---|---|
-| *Check for a new version* | Once a day Coxswain asks GitHub for the newest version number ([Update checks](../reference/updates.md)) | `check_updates` |
+| *Check for a new version* | When it starts, then once a day while it is open, Coxswain asks GitHub for the newest version number ([Update checks](../reference/updates.md)) | `check_updates` |
 | *What can leave this machine* | Built from your settings as they are: the update check → `api.github.com`; the built-in model while it is not downloaded → `huggingface.co`; the text of your files → the model server; your questions → the chat model's server; files only online → your cloud services; container images → their registries. A server on this machine says *(this machine)* | |
 | *Disk use* | Every place Coxswain keeps things, with its size, what clearing costs, **Show in panel** and **Clear**, the built-in models, what Coxswain caused outside its folder, and *Clear everything that can be built again*; click the heading (with the total beside it) to open it, or `--settings=disk` ([Disk use](../reference/disk-use.md)) | |
 | *Where things are kept* | Settings, state, cache, name index, what was read, the built-in model, previews and looks inside archives, each path with **Show in panel** (the list `coxswain --paths` prints; [Where things are kept](../reference/where-things-are-kept.md)) | |

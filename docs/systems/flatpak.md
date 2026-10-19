@@ -46,7 +46,7 @@ A Flatpak gets only what its manifest asks for. Coxswain asks for these:
 |---|---|
 | `--filesystem=host` | A file manager works on all your files: the panels, copy and move, the trash, Find, previews. Without it every folder would need a portal dialog first |
 | `--talk-name=org.freedesktop.Flatpak` | `flatpak-spawn --host`: your editor, shell commands, scripts and the programs previews use run on the host ([next section](#your-programs-run-on-the-host)) |
-| `--share=network` | The daily [update check](../reference/updates.md) (it can be turned off) and, when you turn them on, the model download and a server for [search by meaning](../search/meaning.md). Nothing else goes out ([Privacy](../reference/privacy.md)) |
+| `--share=network` | The [update check](../reference/updates.md) (it can be turned off) and, when you turn them on, the model download and a server for [search by meaning](../search/meaning.md). Nothing else goes out ([Privacy](../reference/privacy.md)) |
 | `--socket=wayland`, `--socket=fallback-x11`, `--device=dri`, `--share=ipc` | The window, drawn on the GPU |
 | `--socket=pulseaudio` | Sound and video in the preview pane |
 

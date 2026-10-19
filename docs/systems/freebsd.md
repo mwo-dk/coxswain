@@ -305,7 +305,7 @@ port you built and installed is a package like any other.
 
 ## Updating
 
-Both apps check once a day for a newer release, and say so with the command to update
+Both apps check for a newer release when they start, then once a day while open, and say so with the command to update
 ([Update checks](../reference/updates.md)). On FreeBSD that command is the install line again:
 
 ```sh

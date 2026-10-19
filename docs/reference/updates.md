@@ -2,7 +2,8 @@
 
 # Update checks
 
-Once a day, each app asks GitHub whether a newer release exists, and tells you when it does,
+When it starts, and then once a day while it is open, each app asks GitHub whether a newer
+release exists, and tells you when it does,
 with the command that upgrades your copy. Nothing is downloaded or installed by itself.
 
 ![The desktop app (Cyber): at the right end of the command line row, next to Settings, the button Coxswain X.Y.Z is available, naming the newer version](../screenshots/reference-update.png)
@@ -38,11 +39,9 @@ version*, or `check_updates = false` in `config.toml`.
 - It waits at most 5 seconds. Offline, or with GitHub unreachable, it simply finds nothing and
   says nothing.
 - It uses the system's certificate store, so it works behind a company proxy that inspects TLS.
-- The time of the check and the answer are kept in `state.json`, so several windows and the
-  terminal app ask once a day between them.
-- The desktop app looks again every hour while it is open (and asks GitHub only when a day has
-  passed), so a window left open for weeks still hears of a release. The terminal app checks
-  once, when it starts.
+- Each app asks once when it starts. After that it looks every hour and asks GitHub again only
+  when a day has passed since the last answer, kept in `state.json` and shared by every window
+  and both apps; so a window or terminal left open for weeks still hears of a release.
 - Only a higher `major.minor.patch` counts as newer.
 
 ## What you see
@@ -93,8 +92,8 @@ version whose notice you saw is `seen_version`. None of these are for editing.
 
 ## In the terminal app
 
-It checks once at start, on a thread of its own, so a slow network never holds up the panels.
-The answer shows in the status line; there is no button and nothing to click. The same
+It checks when it starts, then once a day while it is open, on a thread of its own, so a slow
+network never holds up the panels. The answer shows in the status line, once for each new version; there is no button and nothing to click. The same
 `check_updates` key turns it off.
 
 ## Questions
@@ -119,7 +118,8 @@ again. `coxswain --version` shows the version you now have.
 #### It never tells me about updates.
 
 Check that `check_updates` is not `false`, and that the machine can reach `api.github.com`. The
-check runs at most once a day, so a release out an hour ago may show tomorrow.
+app asks when it starts, then once a day while it is open, so a release out an hour ago shows
+when you next start it, or at the latest a day later.
 
 #### What does the check send?
 

@@ -97,7 +97,7 @@ the defaults; an old `roots` or `exclude` in `[search]` is ignored, like any unk
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
 | `right_click` | string | `"mark"` | A right-click on a row: `"mark"` marks it (Norton Commander), `"menu"` opens the [action menu](../panels/action-menu.md); Ctrl+right-click does the other in the desktop app | Both |
 | `hints` | bool | `true` | One short hint on the status line that fits what is under the cursor, each shown three times ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | Both |
-| `check_updates` | bool | `true` | Look for a newer release once a day ([Update checks](updates.md)) | Both |
+| `check_updates` | bool | `true` | Look for a newer release when the app starts, then once a day while it is open ([Update checks](updates.md)) | Both |
 
 ## Glyphs
 

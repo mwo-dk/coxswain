@@ -191,7 +191,7 @@ mindmap
 | [Command-line flags](reference/command-line-flags.md) | Every flag of coxswain and coxswain-gui: folders, --paths, --dump-config, --config-path, --meaning, --index-service, --settings, --duplicates, --index-helper, exit status |
 | [Configuration: every key](reference/configuration.md) | Config.toml: every key with type, default and reader; which Settings item writes it; what has no key |
 | [Privacy: what stays, what can leave](reference/privacy.md) | What stays on your machine, every case where something can leave it, and how to stop it |
-| [Update checks](reference/updates.md) | The daily update check: what it sends, what each app shows, the upgrade command, turning it off |
+| [Update checks](reference/updates.md) | The update check: what it sends, what each app shows, the upgrade command, turning it off |
 | [Where things are kept](reference/where-things-are-kept.md) | Config, state and cache folders on each system, every file in them, what is safe to delete, removing everything |
 | [Disk use](reference/disk-use.md) | Settings → Privacy and updates → Disk use and coxswain --disk: each place's size, where, what clearing costs, Clear; Tectonic's cache and container images Coxswain caused; clear everything that is built again |
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |

@@ -259,7 +259,7 @@ package, which almost every phone of the last years uses; the recipe builds for 
 
 #### Is anything sent from the phone?
 
-No more than on any other system: the daily update check,
+No more than on any other system: the update check,
 which can be turned off ([Privacy](../reference/privacy.md)).
 
 

@@ -164,7 +164,7 @@ Boot environments (`beadm`) and zones are not listed; that is FreeBSD's `bectl` 
 
 ## Updating and uninstalling
 
-Both apps check once a day for a newer release and name the command to update
+Both apps check for a newer release when they start, then once a day while open, and name the command to update
 ([Update checks](../reference/updates.md)). On illumos that is the install line again:
 
 ```sh
