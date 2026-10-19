@@ -61,7 +61,7 @@ The `.deb` and `.rpm` add *Coxswain* to the applications menu and `coxswain-gui`
 For the terminal app, unpack the archive and put `coxswain` and `cox` on your `PATH`
 (`~/.local/bin`, for example).
 
-Both apps check once a day for a newer release and name the file to get
+Both apps check for a newer release when they start, then once a day while open, and name the file to get
 ([Update checks](../reference/updates.md)).
 
 ## Raspberry Pi

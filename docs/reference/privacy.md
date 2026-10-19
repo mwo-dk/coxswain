@@ -73,7 +73,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 
 | When | What goes where | Who starts it | To stop it |
 |---|---|---|---|
-| **Update check**, once a day | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/X.Y.Z` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
+| **Update check**, when the app starts, then once a day while it is open | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/X.Y.Z` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
 | **Model download**, once | The three files of multilingual-e5-small (about 465 MB) from `huggingface.co` | You: *Download the model* in Settings, or `coxswain --meaning on` | Do not turn search by meaning on, or use a server |
 | **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to my-server to be read for meaning.* |
 | **Chat model download**, once | The Qwen3 model and its tokenizer (1.0 GB, or 2.3 GB for the 4B one) from `huggingface.co` | You: *Download … and use* in Settings or the guide, or `coxswain --meaning ask builtin:qwen3-1.7b` | Use a chat model on a server, or none |
@@ -109,7 +109,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 
 | Settings | Key | Default | Network when |
 |---|---|---|---|
-| *Privacy and updates* → *Check for a new version* | `check_updates` | `true` | On: once a day, to GitHub |
+| *Privacy and updates* → *Check for a new version* | `check_updates` | `true` | On: when the app starts, then once a day while it is open, to GitHub |
 | *Finding files* → *Details* → *Meaning* → *Made by* | `[search] meaning_engine` | `"builtin"` | `"ollama"` or `"openai"` with a remote `meaning_url` |
 | *Finding files* → *Details* → *Meaning* → *Server* | `[search] meaning_url` | `""` | Not `localhost` |
 | *Finding files* → *Details* → *Meaning* → *API key from the environment variable* | `[search] meaning_key_env` | `""` | The key is sent to the saved server only (unencrypted over `http://`), and never stored in `config.toml` |
@@ -118,9 +118,9 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 
 ## In the terminal app
 
-The same, with one difference: the terminal app's update check runs once when it starts (the
-result shared with the desktop app through `state.json`). `check_updates = false` turns it off in
-both.
+The same. The terminal app's update check also runs when it starts, then once a day while it is
+open (the result shared with the desktop app through `state.json`). `check_updates = false` turns
+it off in both.
 
 ## Questions
 

@@ -656,9 +656,17 @@ impl App {
         let (list_tx, list_rx) = mpsc::channel();
         let (search_tx, search_rx) = searcher(index.clone());
         if cfg.check_updates {
+            // When it starts, then every hour (a request only once a day): each new version once.
             std::thread::spawn(move || {
-                if let Some(v) = coxswain_core::update::check() {
-                    let _ = update_tx.send(v);
+                let mut told = String::new();
+                loop {
+                    if let Some(v) = coxswain_core::update::check().filter(|v| *v != told) {
+                        if update_tx.send(v.clone()).is_err() {
+                            return;
+                        }
+                        told = v;
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(3600));
                 }
             });
         }

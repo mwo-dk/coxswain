@@ -1,6 +1,8 @@
-//! The built-in version, and a once-a-day check for a newer release on GitHub.
+//! The built-in version, and a check for a newer release on GitHub: when the app starts, then
+//! once a day while it runs.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::state::AppState;
@@ -53,12 +55,16 @@ pub fn fetch_latest() -> Option<String> {
     Some(v["tag_name"].as_str()?.trim_start_matches('v').to_string())
 }
 
-/// Has a day passed since the last check?
+/// Has this run of the app asked yet? Each start asks once, then once a day while it runs.
+static ASKED: AtomicBool = AtomicBool::new(false);
+
+/// Is a check due: the app has just started, or a day has passed since the last one.
 pub fn due(st: &AppState) -> bool {
-    crate::fs::now().saturating_sub(st.update_checked) >= DAY
+    !ASKED.load(Ordering::Relaxed) || crate::fs::now().saturating_sub(st.update_checked) >= DAY
 }
 
 pub fn record(st: &mut AppState, latest: String) {
+    ASKED.store(true, Ordering::Relaxed);
     st.latest_version = latest;
     st.update_checked = crate::fs::now();
 }
@@ -69,6 +75,8 @@ pub fn available(st: &AppState) -> Option<String> {
 }
 
 /// For callers without their own state handling (the TUI): load, check if due, save.
+/// The terminal app calls it when it starts and then every hour, so a session left open for days
+/// still hears.
 /// Blocks for up to 5 s, so run it on a thread. Offline just means "no news".
 pub fn check() -> Option<String> {
     let mut st = AppState::load();
@@ -156,6 +164,19 @@ mod tests {
         assert!(!is_newer("1.0.0", "garbage"));
         assert!(is_newer("1.0.0", "1.1.0-rc.1"));
         assert!(parse(VERSION).is_some());
+    }
+
+    // ASKED is process-wide, so only what holds after a record() is checked: never whether a
+    // fresh run is due, which another test's record() may already have settled.
+    #[test]
+    fn update_due_after_asking_once_a_day() {
+        let mut st = AppState::default();
+        record(&mut st, "1.0.0".into());
+        assert!(!due(&st), "asked just now");
+        st.update_checked = crate::fs::now() - DAY + 60;
+        assert!(!due(&st), "less than a day ago");
+        st.update_checked = crate::fs::now() - DAY;
+        assert!(due(&st), "a day ago");
     }
 
     #[test]
