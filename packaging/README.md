@@ -1,7 +1,7 @@
 # Package managers
 
 `release.yml` publishes each release to these, once their secret is set, right after the GitHub
-release in the same run. Each step is tried again on a passing fault (`retry.sh`: an HTTP 5xx or
+release in the same run; WinGet is the exception, filed once a week by `winget.yml` (below). Each step is tried again on a passing fault (`retry.sh`: an HTTP 5xx or
 429, a lost blob; five tries, a longer wait each time); a channel that still fails turns the run
 red with an error naming it. Without the secret the job just leaves a notice.
 
@@ -43,8 +43,8 @@ static musl archive and the `.deb` (with apt, started on a virtual display) on L
 ARM64, and `cargo install coxswain` in Termux. It checks the version each prints, the manual page
 and the service file, the release's files against `release-assets.sh` and every checksum against
 `SHA256SUMS`, and every channel: both crates on crates.io, the version in the Homebrew formula and
-cask, an open or merged winget-pkgs pull request for each package WinGet lists
-(`winget-listed.sh`), and the Release run's `freebsd-port` artifact. It runs after every Release
+cask, for each package WinGet lists (`winget-listed.sh`) an open or merged winget-pkgs pull
+request for a release no more than 8 days old or newer (WinGet is filed weekly), and the Release run's `freebsd-port` artifact. It runs after every Release
 run, whatever its result (it finds nothing to check when the run published nothing), and by hand
 (*Actions → Release check → Run workflow*, a tag or `latest`). Nothing waits for it: a red run
 means a release that does not install or a channel without it, to be fixed at once.
@@ -60,8 +60,12 @@ match the list exactly.
 `gh secret set CARGO_REGISTRY_TOKEN -R mwo-dk/coxswain`.
 
 **WinGet:** the first version of each package was submitted by hand (microsoft/winget-pkgs
-#446561 and #446560); the release job only adds later versions, and says so and skips while a
-package is not listed yet. Make a classic token at <https://github.com/settings/tokens> with the
+#446561 and #446560); `winget.yml` only adds later versions, and says so and skips while a
+package is not listed yet. It runs on Mondays at 06:00 UTC (and by hand: *Actions → WinGet → Run
+workflow*) and files only the newest release, one pull request per package, then closes our
+older open pull requests for that package with "Superseded by #N". WinGet's moderators review
+every pull request by hand, and one per release (several a day at times) stalled them; so WinGet
+may be up to a week behind the GitHub release. Make a classic token at <https://github.com/settings/tokens> with the
 `public_repo` scope, from the account that owns the fork `mwo-dk/winget-pkgs`, then
 `gh secret set WINGET_TOKEN -R mwo-dk/coxswain`. Every new package version is reviewed by
 Microsoft before it is listed, usually within a day.

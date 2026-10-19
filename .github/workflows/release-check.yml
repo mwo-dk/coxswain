@@ -2,7 +2,8 @@ name: Release check
 
 # A published release, installed the way a user installs it: from its published downloads, with
 # the install scripts of that tag, on each system they are for, and then started; and every
-# channel checked for its version: crates.io, the Homebrew tap, WinGet, the FreeBSD port.
+# channel checked for its version: crates.io, the Homebrew tap, the FreeBSD port, and WinGet
+# within its week (winget.yml files the newest release there weekly).
 # Nothing waits for this workflow; a red run here is a release to fix at once. packaging/README.md.
 #
 # It runs when a Release run ends, whatever its result (a channel may have failed), and checks the
@@ -122,21 +123,46 @@ jobs:
             fi
           done
           exit $bad
+      # WinGet is filed once a week by winget.yml, with the newest release only, so the version
+      # just released may have no pull request yet. The rule: take the newest version of the
+      # package with an open or merged pull request; the oldest release after it is the one
+      # waiting longest. A weekly run has passed once it waits more than 8 days, and that run
+      # files the newest release, so it (or a newer one) should have a pull request by then.
       - name: WinGet
         if: ${{ !cancelled() }}
+        env:
+          # The account that files our pull requests: anyone can open one with the same title.
+          WINGET_AUTHOR: ${{ github.repository_owner }}
         run: |
+          set -o pipefail
           bad=0
+          now=$(date +%s)
+          releases=$(gh release list -R "$REPO" --exclude-drafts --exclude-pre-releases --limit 100 --json tagName,publishedAt -q '.[] | "\(.tagName) \(.publishedAt)"')
           for id in mwo-dk.Coxswain.Terminal mwo-dk.Coxswain; do
             listed=0; packaging/winget-listed.sh "$id" || listed=$?
             case $listed in
               1) echo "::notice title=WinGet::$id is not listed on WinGet yet: no pull request expected."; continue ;;
               2) echo "::error title=WinGet::could not tell whether $id is listed"; bad=1; continue ;;
             esac
-            for _ in $(seq 20); do
-              packaging/winget-listed.sh "$id" "$VER" && { echo "$id $VER: pull request open or merged"; continue 2; }
-              sleep 30
-            done
-            echo "::error title=WinGet::no open or merged winget-pkgs pull request for $id $VER"; bad=1
+            if ! filed=$(gh pr list -R microsoft/winget-pkgs --state all --author "$WINGET_AUTHOR" --search "$id version in:title" --limit 100 --json title,state \
+                -q '.[] | select(.state != "CLOSED") | .title' |
+                sed -nE "s/^(New|Add|Update) version: ${id//./\\.} version ([0-9][^ ]*)$/\2/p" | sort -V | tail -1); then
+              echo "::error title=WinGet::could not read winget-pkgs' pull requests for $id"; bad=1; continue
+            fi
+            # The oldest release newer than the newest one filed: the one waiting longest.
+            waiting=$(while read -r tag at; do
+              if [ "${tag#v}" != "$filed" ] && [ "$(printf '%s\n' "${filed:-0}" "${tag#v}" | sort -V | tail -1)" = "${tag#v}" ]; then echo "$tag $at"; fi
+            done <<<"$releases" | tail -1)
+            if [ -z "$waiting" ]; then
+              echo "$id $filed: pull request open or merged, the newest release"; continue
+            fi
+            read -r tag at <<<"$waiting"
+            days=$(( (now - $(date -d "$at" +%s)) / 86400 ))
+            if [ "$days" -gt 8 ]; then
+              echo "::error title=WinGet::$id: newest pull request is for ${filed:-no version}, but $tag has waited $days days for one (filed weekly by winget.yml)"; bad=1
+            else
+              echo "::notice title=WinGet::$id: newest pull request is for ${filed:-no version}; $tag and later wait for winget.yml's weekly run ($days days so far)"
+            fi
           done
           exit $bad
       - name: FreeBSD port

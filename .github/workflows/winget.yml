@@ -1,0 +1,104 @@
+name: WinGet
+
+# Once a week, the newest release goes to WinGet: one pull request to microsoft/winget-pkgs for
+# mwo-dk.Coxswain and one for mwo-dk.Coxswain.Terminal, by Komac (pinned, checked by its SHA-256).
+# Not one per release: WinGet's moderators review every pull request by hand, and several a day
+# stalled them. Our older pull requests still open for a package are closed as superseded by the
+# newest one, so a package never has more than one open. release-check.yml holds the lag to a week.
+#
+# Only updates: the first version of each package is submitted by hand, and until Microsoft has
+# listed it the run says so and skips it. A version that has its pull request (open or merged)
+# is not filed again. Needs WINGET_TOKEN: a classic token with public_repo, from the account whose
+# fork of winget-pkgs the pull requests come from (packaging/README.md).
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
+  workflow_dispatch: # by hand: files the newest release now, if it has no pull request yet
+
+permissions:
+  contents: read
+
+concurrency:
+  group: winget
+  cancel-in-progress: false
+
+jobs:
+  winget:
+    if: github.repository == 'mwo-dk/coxswain'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - if: env.WINGET_TOKEN == ''
+        run: echo "::notice::WINGET_TOKEN is not set, so WinGet is not updated. See packaging/README.md."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.WINGET_TOKEN != ''
+        with:
+          persist-credentials: false
+      - name: Open winget-pkgs pull requests, close the ones they supersede
+        if: env.WINGET_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -o pipefail
+          TAG=$(gh release view -R "$REPO" --json tagName -q .tagName)
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Not a release tag: $TAG"; exit 1; }
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          packaging/retry.sh curl -fsSL -o komac.tar.gz https://github.com/russellbanks/Komac/releases/download/v2.16.0/komac-2.16.0-x86_64-unknown-linux-gnu.tar.gz
+          echo "7d2707fa6210f2789a3702de49fbd150b736dbf426ee0b9bc8e098736f9fd82d  komac.tar.gz" | sha256sum -c -
+          tar xzf komac.tar.gz komac
+          v="${TAG#v}"
+          base="https://github.com/$REPO/releases/download/$TAG"
+          notes="https://github.com/$REPO/releases/tag/$TAG"
+          me=$(GH_TOKEN="$WINGET_TOKEN" gh api user -q .login)
+          # The number of our open or merged pull request for $id $v, from winget-pkgs' search. Only
+          # ours: anyone can open one with the same title.
+          pr_of() {
+            gh pr list -R microsoft/winget-pkgs --state all --author "$me" --search "$1 version $2 in:title" --json number,title,state \
+              -q '.[] | select(.state != "CLOSED") | "\(.number)\t\(.title)"' |
+              awk -F '\t' -v t="$1 version $2" '$2 ~ /^(New|Add|Update) version: / && substr($2, index($2, ": ") + 2) == t { print $1; exit }'
+          }
+          update() {
+            id="$1"; shift
+            rm -f komac.log
+            # Listed: winget-pkgs has a manifest folder for one of its versions.
+            listed=0; packaging/winget-listed.sh "$id" || listed=$?
+            case $listed in
+              1) echo "::notice::$id is not on WinGet yet; its first version waits for Microsoft's review."; return 0 ;;
+              2) return 1 ;;
+            esac
+            has=0; packaging/winget-listed.sh "$id" "$v" "$me" || has=$?
+            case $has in
+              0) echo "$id $v has its pull request already" ;;
+              1) packaging/retry.sh ./komac update "$id" --version "$v" --urls "$@" --release-notes-url "$notes" --submit --token "$WINGET_TOKEN" | tee komac.log || return 1 ;;
+              *) return 1 ;;
+            esac
+            # The new pull request's number: from Komac's output, or from the search once it has it.
+            n=$(grep -oE 'github\.com/microsoft/winget-pkgs/pull/[0-9]+' komac.log 2>/dev/null | head -1 | sed 's,.*/,,') || true
+            for _ in $(seq 20); do
+              [ -n "$n" ] && break
+              n=$(pr_of "$id" "$v"); [ -n "$n" ] || sleep 30
+            done
+            [ -n "$n" ] || { echo "::error::no pull request found for $id $v"; return 1; }
+            echo "$id $v: microsoft/winget-pkgs#$n"
+            # Ours, still open, for an older version of this package: superseded.
+            gh pr list -R microsoft/winget-pkgs --state open --author "$me" --search "$id version in:title" --limit 100 \
+              --json number,title -q '.[] | "\(.number)\t\(.title)"' |
+            while IFS=$'\t' read -r num title; do
+              [[ "$title" =~ ^(New|Add|Update)\ version:\ (.+)\ version\ ([0-9][^ ]*)$ ]] || continue
+              [ "${BASH_REMATCH[2]}" = "$id" ] && [ "$num" != "$n" ] || continue
+              old="${BASH_REMATCH[3]}"
+              [ "$old" != "$v" ] && [ "$(printf '%s\n' "$old" "$v" | sort -V | head -1)" = "$old" ] || continue
+              echo "Closing microsoft/winget-pkgs#$num ($id $old), superseded by #$n"
+              GH_TOKEN="$WINGET_TOKEN" packaging/retry.sh gh pr close "$num" -R microsoft/winget-pkgs --comment "Superseded by #$n ($id $v)." || exit 1
+            done || return 1
+          }
+          # Komac takes each installer's architecture from the file: x64 and Windows on ARM.
+          bad=0
+          update mwo-dk.Coxswain "$base/Coxswain_${v}_x64-setup.exe" "$base/Coxswain_${v}_arm64-setup.exe" || bad=1
+          update mwo-dk.Coxswain.Terminal "$base/coxswain-terminal-$TAG-x86_64-pc-windows-msvc.zip" "$base/coxswain-terminal-$TAG-aarch64-pc-windows-msvc.zip" || bad=1
+          exit $bad
+      - if: failure()
+        run: echo "::error title=Channel failed::WinGet, ${TAG:-the newest release}"
