@@ -2594,6 +2594,7 @@
  "status.showing": "Visualizzazione di {name}",
  "status.trashed": "{what} spostato nel cestino",
  "status.update": "È disponibile Coxswain {version}: {how}",
+ "status.update_lags": "È disponibile Coxswain {version}: {how} (può arrivare su {channel} qualche giorno dopo; oppure la pagina delle versioni)",
  "syntax.both": "entrambe le parole",
  "syntax.case": "maiuscole/minuscole",
  "syntax.either": "l’una o l’altra",

@@ -2594,6 +2594,7 @@
  "status.showing": "Zobrazuje se {name}",
  "status.trashed": "Přesunuto do koše: {what}",
  "status.update": "Je k dispozici Coxswain {version}: {how}",
+ "status.update_lags": "Je k dispozici Coxswain {version}: {how} (do {channel} se může dostat o pár dní později; nebo stránka vydání)",
  "syntax.both": "obě slova",
  "syntax.case": "rozlišovat velikost písmen",
  "syntax.either": "jedno nebo druhé",

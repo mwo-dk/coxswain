@@ -2538,6 +2538,7 @@
  "status.showing": "Kuvatakse: {name}",
  "status.trashed": "Teisaldatud prügikasti: {what}",
  "status.update": "Coxswain {version} on saadaval: {how}",
+ "status.update_lags": "Coxswain {version} on saadaval: {how} ({channel} võib selle saada mõne päeva pärast; või väljalasete leht)",
  "syntax.both": "mõlemad sõnad",
  "syntax.case": "tõstutundlik",
  "syntax.either": "üks või teine",

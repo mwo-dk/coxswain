@@ -2538,6 +2538,7 @@
  "status.showing": "Erakusten: {name}",
  "status.trashed": "Zakarrontzira botata: {what}",
  "status.update": "Coxswain {version} eskuragarri dago: {how}",
+ "status.update_lags": "Coxswain {version} eskuragarri dago: {how} ({channel}-era egun batzuk geroago irits daiteke; edo bertsioen orria)",
  "syntax.both": "bi hitzak",
  "syntax.case": "maiuskulak/minuskulak bereizten ditu",
  "syntax.either": "bata edo bestea",

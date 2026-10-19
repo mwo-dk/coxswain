@@ -2594,6 +2594,7 @@
  "status.showing": "Affichage de {name}",
  "status.trashed": "{what} placé dans la corbeille",
  "status.update": "Coxswain {version} est disponible : {how}",
+ "status.update_lags": "Coxswain {version} est disponible : {how} (il peut arriver sur {channel} quelques jours plus tard ; sinon la page des versions)",
  "syntax.both": "les deux mots",
  "syntax.case": "respecter la casse",
  "syntax.either": "l’un ou l’autre",

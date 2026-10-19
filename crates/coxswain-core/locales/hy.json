@@ -2538,6 +2538,7 @@
  "status.showing": "Ցուցադրվում է՝ {name}",
  "status.trashed": "Աղբարկղ տեղափոխվեց՝ {what}",
  "status.update": "Հասանելի է Coxswain {version}-ը․ {how}",
+ "status.update_lags": "Հասանելի է Coxswain {version}-ը․ {how} ({channel} կարող է հասնել մի քանի օր անց, կամ՝ թողարկումների էջը)",
  "syntax.both": "երկու բառն էլ",
  "syntax.case": "մեծատառ/փոքրատառի տարբերությամբ",
  "syntax.either": "կամ մեկը, կամ մյուսը",

@@ -105,10 +105,11 @@ search by meaning links nixpkgs' oniguruma rather than building its own copy.
 - `nix profile upgrade coxswain` (or the index `nix profile list` shows) for a profile install.
 - `nix flake update coxswain` and a rebuild for NixOS and Home Manager.
 
-The once-a-day update check cannot tell a Nix install from a download, so its notice points at
-the releases page. Update with the commands above instead, or turn the check off with
-`check_updates = false` in `config.toml` (Settings → *Privacy and updates* → *Check for a new
-version*); see [Update checks](../reference/updates.md).
+The once-a-day update check sees that the program runs from `/nix/store/` and names
+`nix profile upgrade coxswain`, adding that nixpkgs can have it a few days later (the flake has
+it at once). For NixOS or Home Manager, update the flake input and rebuild instead. To turn the
+check off: `check_updates = false` in `config.toml` (Settings → *Privacy and updates* → *Check
+for a new version*); see [Update checks](../reference/updates.md).
 
 ## nixpkgs and the flake
 

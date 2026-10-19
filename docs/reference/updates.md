@@ -49,6 +49,7 @@ version*, or `check_updates = false` in `config.toml`.
 | | Desktop app | Terminal app |
 |---|---|---|
 | Newer version, installed by a package manager | A button at the right of the command line: *Coxswain X.Y.Z is available: brew upgrade coxswain*. Its tooltip: *Upgrade with: brew upgrade coxswain. Click for the release notes.* | The status line: `Coxswain X.Y.Z is available: brew upgrade coxswain` |
+| Newer version, from a channel that takes a release later (WinGet, Flathub, Termux, nixpkgs) | *Coxswain X.Y.Z is available: winget upgrade mwo-dk.Coxswain.Terminal (it can reach WinGet a few days later; or the release page)*; tooltip and click as above | The status line, the same text |
 | Newer version, installed from a download | *Coxswain X.Y.Z is available*, tooltip *Open the releases page* | `Coxswain X.Y.Z is available: https://github.com/mwo-dk/coxswain/releases/latest` |
 | Click | Opens the release page in your browser | – |
 | How long | Until you update; it has no `×` | Until the status line shows something else |
@@ -72,7 +73,13 @@ It is worked out from where the program is installed:
 | Homebrew formula (the terminal app) | `brew upgrade coxswain` |
 | Homebrew cask (the desktop app) | `brew upgrade --cask coxswain-gui` |
 | WinGet, the terminal app (`mwo-dk.Coxswain.Terminal`) | `winget upgrade mwo-dk.Coxswain.Terminal` |
+| Nix (the program runs from `/nix/store/`) | `nix profile upgrade coxswain`; for the flake as an input of a NixOS or Home Manager config, update the input and rebuild ([Nix](../systems/nix.md#updating)) |
 | A download, `.deb`, `.rpm`, AppImage, the Windows installer, a source build | None: it points to the [releases page](https://github.com/mwo-dk/coxswain/releases/latest) |
+
+The notice asks GitHub, and some channels get a release days after it: WinGet (a new version
+is filed at most once a week and waits for Microsoft's moderators), Flathub, Termux's repository
+and nixpkgs. For those the notice adds *it can reach … a few days later; or the release page*.
+Our Homebrew tap, crates.io (cargo), the Nix flake and the install scripts have it at once.
 
 The Windows desktop installer lands where a download would, so it gets the releases page too.
 Its WinGet package, `mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
@@ -111,6 +118,15 @@ It could not tell a package manager from where the program runs: a download, a `
 AppImage, or the Windows desktop installer, which lands in the same folder whether you ran it
 yourself or, once its WinGet package is listed, WinGet did. Update it the way you installed it:
 download the new release, or run your package manager's upgrade.
+
+#### The command finds no new version.
+
+Your channel does not have it yet: WinGet, Flathub, Termux and nixpkgs take a release a few days
+after GitHub, and the notice says so (*it can reach WinGet a few days later*). Run the command
+again in a few days, or take the new version from the
+[release page](https://github.com/mwo-dk/coxswain/releases/latest) now; the desktop app's
+button opens it. With Nix, a profile installed from the flake (`github:mwo-dk/coxswain`) has it
+at once; one from nixpkgs waits for nixpkgs.
 
 #### I updated, but it still says a newer version is available.
 

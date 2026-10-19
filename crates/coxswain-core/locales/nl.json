@@ -2538,6 +2538,7 @@
  "status.showing": "{name} wordt getoond",
  "status.trashed": "{what} naar de prullenbak verplaatst",
  "status.update": "Coxswain {version} is beschikbaar: {how}",
+ "status.update_lags": "Coxswain {version} is beschikbaar: {how} ({channel} kan het een paar dagen later krijgen; of de releasepagina)",
  "syntax.both": "beide woorden",
  "syntax.case": "hoofdlettergevoelig",
  "syntax.either": "een van beide",

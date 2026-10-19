@@ -2594,6 +2594,7 @@
  "status.showing": "Se muestra {name}",
  "status.trashed": "Se movió {what} a la papelera",
  "status.update": "Coxswain {version} está disponible: {how}",
+ "status.update_lags": "Coxswain {version} está disponible: {how} (puede llegar a {channel} unos días después; o la página de versiones)",
  "syntax.both": "las dos palabras",
  "syntax.case": "distingue mayúsculas",
  "syntax.either": "cualquiera de las dos",

@@ -2538,6 +2538,7 @@
  "status.showing": "نمایش {name}",
  "status.trashed": "{what} به سطل زباله منتقل شد",
  "status.update": "Coxswain {version} در دسترس است: {how}",
+ "status.update_lags": "Coxswain {version} در دسترس است: {how} (ممکن است چند روز بعد به {channel} برسد؛ یا صفحه‌ی انتشارها)",
  "syntax.both": "هر دو واژه",
  "syntax.case": "حساس به کوچکی و بزرگی حروف",
  "syntax.either": "یکی از دو",

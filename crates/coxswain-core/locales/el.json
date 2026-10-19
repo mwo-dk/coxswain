@@ -2538,6 +2538,7 @@
  "status.showing": "Εμφάνιση: {name}",
  "status.trashed": "Μετακινήθηκε στον Κάδο Ανακύκλωσης: {what}",
  "status.update": "Το Coxswain {version} είναι διαθέσιμο: {how}",
+ "status.update_lags": "Το Coxswain {version} είναι διαθέσιμο: {how} (μπορεί να φτάσει στο {channel} λίγες μέρες αργότερα· ή η σελίδα εκδόσεων)",
  "syntax.both": "και οι δύο λέξεις",
  "syntax.case": "διάκριση πεζών-κεφαλαίων",
  "syntax.either": "ή το ένα ή το άλλο",

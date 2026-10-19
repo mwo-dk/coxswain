@@ -2538,6 +2538,7 @@
  "status.showing": "ნაჩვენებია: {name}",
  "status.trashed": "სანაგვეში გადავიდა: {what}",
  "status.update": "ხელმისაწვდომია Coxswain {version}: {how}",
+ "status.update_lags": "ხელმისაწვდომია Coxswain {version}: {how} ({channel}-ში შეიძლება რამდენიმე დღით გვიან მოხვდეს; ან ვერსიების გვერდი)",
  "syntax.both": "ორივე სიტყვა",
  "syntax.case": "რეგისტრის გათვალისწინებით",
  "syntax.either": "რომელიმე",

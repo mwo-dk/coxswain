@@ -132,7 +132,8 @@ flatpak update
 ```
 
 or only Coxswain with `flatpak update io.github.mwo_dk.Coxswain`, which is the command the
-update notice shows at the right of the command line. GNOME Software and Discover then update it
+update notice shows at the right of the command line, with a note that Flathub can have a release
+a few days after GitHub ([Update checks](../reference/updates.md#the-command-finds-no-new-version)). GNOME Software and Discover then update it
 on their own schedule.
 
 ## Uninstalling
