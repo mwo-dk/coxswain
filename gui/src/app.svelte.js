@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, setArchiveEndings, setDiskEndings, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -41,6 +41,8 @@ export const ui = $state({
   previewEngine: {},
   /** One modal at a time: { kind, ... } */
   modal: null,
+  /** A game to show on the board when its PGN file is previewed (a Find hit): { path, index }. */
+  chessAt: null,
   /** Settings → What's new: the notices not dismissed, and the versions not read. */
   news: { notices: [], unread: [] },
   favorites: [],
@@ -689,6 +691,7 @@ export function subject(tb = tab()) {
     archives: files.filter((x) => isArchive(x.name) || (ui.cfg.settings.disk_images && (diskSure(x.name) || diskSeen.has(x.path)))).length,
     disk_images: ui.cfg.settings.disk_images ? 0 : files.filter((x) => diskSure(x.name) || diskSeen.has(x.path)).length,
     pdfs: files.filter((x) => /\.pdf$/i.test(x.name)).length,
+    chess: files.filter((x) => chessFormat(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

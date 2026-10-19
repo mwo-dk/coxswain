@@ -160,6 +160,7 @@ pub const FEATURES: &[Feature] = &[
     ),
     f("cbom", "previews/bom.md", &[View]),
     f("provenance", "previews/provenance.md", &[View]),
+    f("chess", "previews/chess.md", &[Chess, View]),
     f(
         "preview_media",
         "previews/media.md",

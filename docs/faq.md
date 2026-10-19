@@ -155,6 +155,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why does a video not play?** The webview lacks the codec; on Linux install the GStreamer plugins. [Answer](previews/media.md#why-does-a-video-not-play)
 - **How do I get the old F3 back for a BOM in the terminal app?** Press F3 (or `s`) again in the viewer, or set `bom_viewer = false`. [Answer](previews/bom.md#how-do-i-get-the-old-f3-back-in-the-terminal-app)
 - **Does a ✓ in the provenance view mean the file is safe?** No: it means the file here is the one the provenance names; the provenance itself is not verified. [Answer](previews/provenance.md#does-a--mean-the-file-is-safe)
+- **Can I play chess against an engine?** Not yet: Coxswain shows PGN games and EPD/FEN positions on a board, but does not play or analyse. [Answer](previews/chess.md#can-i-play-against-an-engine)
+- **Does it read ChessBase files?** Not yet: export them to PGN. [Answer](previews/chess.md#does-it-read-chessbase-files)
 - **Why is the source commit "not in your checkout"?** Coxswain never fetches; run `git fetch` in your checkout. [Answer](previews/provenance.md#why-is-my-commit-not-in-your-checkout)
 - **Why does search.db not show its tables like other databases?** It is Coxswain's own store: its preview says what it holds instead (files read by kind, vectors, errors, size per part); a copy is shown the same way. [Answer](previews/data.md#why-does-searchdb-not-show-its-tables-like-other-databases)
 

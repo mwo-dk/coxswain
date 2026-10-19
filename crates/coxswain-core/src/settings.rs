@@ -200,6 +200,8 @@ pub const OPTIONS: &[Opt] = &[
     ),
     opt("image_prune", &["preview", "image_prune"], Previews, &[]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
+    opt("chess_notation", &["chess", "notation"], Previews, &[]),
+    opt("chess_board", &["chess", "board"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),

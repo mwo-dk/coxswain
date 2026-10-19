@@ -142,6 +142,7 @@ mindmap
 | [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists, Coxswain's own index.bin and search.db |
 | [Cryptography bills of materials](previews/bom.md) | CycloneDX CBOMs as a rated tree or sunburst, with filters and a compare of two scans, in both apps |
 | [Build provenance](previews/provenance.md) | SLSA and in-toto provenance as inputs → build → outputs: who signed, do the files here match, is the commit in your checkout, two builds compared; in both apps |
+| [Chess games](previews/chess.md) | PGN files (also .pgn.gz, .pgn.zst) as a table of games to filter and sort, a game on a board with its moves, variations and comments (Alt+K, F3 in the terminal app), EPD and FEN positions, figurines or letters, the board's colours, Find by player or opening, [chess] |
 | [Media and files: pictures, video, audio, fonts, archives, folders](previews/media.md) | Pictures, video, audio, fonts, archives listed (and files inside archives), folders, facts under a file |
 | [Diagrams: draw.io, Mermaid, Graphviz, PlantUML, D2 and more](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview; D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](previews/latex.md) | LaTeX: which file is the document, the project, the engine, building by itself, another engine when one fails, errors |

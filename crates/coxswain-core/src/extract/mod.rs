@@ -39,6 +39,10 @@ type Reader = fn(&Path, u64) -> Option<String>;
 
 /// The reader for a file name, by its extension. `None`: read it as plain text.
 fn reader(path: &Path) -> Option<Reader> {
+    // A PGN file, packed too: a line per game, its players, event, opening and result.
+    if crate::chess::format(path) == Some(crate::chess::Format::Pgn) {
+        return Some(|path, _| crate::chess::games::search_text(path, MAX_TEXT));
+    }
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
     Some(match ext.as_str() {
         "pdf" => |path, max| pdf::text(path, max).or_else(|| installed::scanned_pdf(path)),
@@ -68,7 +72,9 @@ fn reader(path: &Path) -> Option<Reader> {
 /// and a blank line between its parts. None for a file only in the cloud, unless the settings
 /// read those: reading it would download it.
 pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
-    if size == 0 || size > max || crate::cloud::keep_out(path) {
+    // A PGN file of any size: its reader stops after a line per game for MAX_TEXT bytes.
+    let pgn = crate::chess::format(path) == Some(crate::chess::Format::Pgn);
+    if size == 0 || (size > max && !pgn) || crate::cloud::keep_out(path) {
         return None;
     }
     let text = match reader(path) {

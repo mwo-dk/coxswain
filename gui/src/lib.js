@@ -371,9 +371,18 @@ export const LOCKED = "locked: a password is needed";
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
+/** A chess file by its name: "pgn" (also packed), "epd" (EPD and FEN), or "" (`chess::format`). */
+export function chessFormat(name) {
+  const n = name.toLowerCase();
+  if (/\.pgn(\.gz|\.zst)?$/.test(n)) return "pgn";
+  if (/\.(epd|fen)$/.test(n)) return "epd";
+  return "";
+}
+
 export function previewKind(item) {
   if (!item) return "none";
   if (item.is_dir) return "folder";
+  if (chessFormat(item.name)) return "chess";
   if (isProvenanceName(item.name)) return "provenance";
   if (isBomName(item.name)) return "bom";
   if (isArchive(item.name)) return "archive";

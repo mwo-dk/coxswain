@@ -131,6 +131,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Alt+S** | Switch to branch | `switch_branch` | In the list of branches: switch to the one under the cursor, after asking ([Switching](git-branches.md#switching-to-a-branch)) | The same |
 | **Alt+W** | Git worktrees | `worktrees` | The repository's worktrees ([Worktrees](git-branches.md#worktrees)) | The same |
 | **Alt+G** | Open in your git tool | `git_tool` | The repository in your own git tool, for commit, push and pull: a terminal tool in a terminal window, a desktop client in its own ([Open in your git tool](git.md#open-in-your-git-tool)) | A terminal tool runs in this terminal, in place of the panels |
+| **Alt+K** | Open games | `chess` | A PGN file's games, an EPD or FEN file's positions, in a window ([Chess games](../previews/chess.md)) | The same, full screen; **F3** too |
 | **Alt+C** | Git config | `git_config` | The git config as git uses it here: each value with its scope and file, secrets hidden ([Git config](git-config.md)) | The same, full screen |
 | – | New branch here | `new_branch` | A new branch from the one under the cursor, or from the current commit, switched to ([A new branch](git-branches.md#a-new-branch)) | The same |
 

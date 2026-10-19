@@ -5,6 +5,7 @@
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
+  import ChessView from "./ChessView.svelte";
   import CopyLine from "./CopyLine.svelte";
   import DiskNext from "./DiskNext.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
@@ -526,7 +527,7 @@
     </header>
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="body" class:flush={(kind === "bom" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
+    <div class="body" class:flush={(kind === "bom" || kind === "chess" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
@@ -559,6 +560,8 @@
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
         <BomView path={e.path} />
+      {:else if kind === "chess"}
+        <ChessView path={e.path} />
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} />
       {:else if kind === "provenance" && !source}

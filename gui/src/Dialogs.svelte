@@ -4,7 +4,7 @@
   import { tick, untrack } from "svelte";
   import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
-  import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
+  import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import { KINDS, prefix, nextKind, step } from "./find.js";
   import DiskNext from "./DiskNext.svelte";
@@ -35,7 +35,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -211,6 +211,14 @@
     // A commit: its folder as it was then.
     if (isHistory(h.path)) return cd(tb, h.path);
     await showInTab(tb, h.path);
+    // A game in a PGN file: that game, on the board in the preview.
+    if (h.snippet && chessFormat(basename(h.path)) === "pgn") {
+      const index = await invoke("chess_hit", { path: h.path, snippet: h.snippet });
+      if (index != null) {
+        ui.chessAt = { path: h.path, index };
+        ui.showPreview = true;
+      }
+    }
   }
 
   // ------------------------------------------------------------ batch rename
@@ -429,6 +437,7 @@
         return true;
       }
       case "bom":
+      case "chess":
       case "settings":
       case "dupes":
       case "setup":
@@ -449,7 +458,7 @@
 <!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
 {#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
 
-{#if ui.modal && !["dupes", "settings", "bom"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom", "chess"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>

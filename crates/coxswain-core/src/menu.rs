@@ -43,6 +43,8 @@ pub struct Subject {
     pub disk_images: usize,
     /// Of the files, the PDFs (*Make PDF searchable*).
     pub pdfs: usize,
+    /// Of the files, chess games or positions (`chess::format`).
+    pub chess: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -110,6 +112,7 @@ impl Action {
             Package => s.packages && disk && s.single() && s.files == 1,
             Tag => n > 0 && disk,
             Notes => disk,
+            Chess => s.single() && s.chess == 1 && matches!(s.place, Place::Disk | Place::Archive),
             Worktrees | GitTool | GitConfig => s.git && disk,
             // Find, anywhere; duplicates among the folders, or in this one.
             Search | SearchText | Ask => true,
@@ -161,6 +164,8 @@ pub const TIMES: u32 = 3;
 /// The hints, the first that fits and is not used up showing: its id (its text is `hint.<id>`)
 /// and the actions its text names, by placeholder.
 const HINTS: &[(&str, &[(&str, Action)])] = &[
+    // Before the general ones: a chess file is rare, and what to press on it is not guessed.
+    ("chess", &[("key", Action::Chess)]),
     ("menu", &[("key", Action::ActionMenu)]),
     ("find", &[("key", Action::Search)]),
     ("features", &[("key", Action::Help)]),
@@ -214,6 +219,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "disk_image" => disk && s.single() && s.disk_images == 1,
         "pdf" => disk && s.pdfs > 0,
         "archive" => disk && s.single() && s.archives == 1,
+        "chess" => disk && s.single() && s.chess == 1,
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),

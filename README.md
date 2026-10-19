@@ -33,6 +33,7 @@ folders, shows git in every panel, and keeps everything on your machine.
 - **Builds what needs building:** LaTeX, Office, PlantUML and Graphviz previews, with your tools or a sealed container. [LaTeX](docs/previews/latex.md) · [Tools](docs/previews/tools.md)
 - **Reads cryptography bills of materials:** a CycloneDX CBOM as a rated tree or sunburst, compared with last month's scan, in both apps. [CBOMs](docs/previews/bom.md)
 - **Reads build provenance:** SLSA and in-toto files as inputs → build → outputs, with who signed them, whether the files here are the ones built, and whether the commit is in your checkout, in both apps. [Build provenance](docs/previews/provenance.md)
+- **Reads chess games:** a PGN file (packed too) as a table of games to filter by player, opening, result, year and rating, fast with millions of games; each game on a board in the theme's colours with its moves in figurines, variations and comments; EPD and FEN positions; Find finds games by player or opening. In both apps. [Chess games](docs/previews/chess.md)
 - **Archives are folders:** zip, 7z and tar (gz, bz2, xz, zst): go in, preview, copy, move, rename, pack, with passwords to open them and to lock new zips and 7z (AES-256). [Archives](docs/files/archives.md)
 - **Git in every panel:** branch, ahead and behind, counts, a glyph per file, and who last committed it and when; the git config as git uses it, secrets hidden. [Git](docs/panels/git.md), [Git config](docs/panels/git-config.md)
 - **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
@@ -48,6 +49,8 @@ folders, shows git in every panel, and keeps everything on your machine.
 | [The terminal app](docs/reference/terminal-app.md) | [The desktop app in Cyber](docs/customise/themes.md) |
 | ![The preview pane: Markdown with a Mermaid diagram and math, a notebook, a spreadsheet, a Word document and a font](docs/screenshots/gui-previews.png) | ![A tar.gz archive open like a folder](docs/screenshots/gui-archive.png) |
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |
+| ![Morphy's Opera Game in the desktop app at 15.Bxd7+: the board in Cyber's greens, the moves beside it in figurines with a variation in brackets](docs/screenshots/gui-chess.png) | ![The terminal app's chess view: the board in Unicode pieces on blue squares, the moves beside it](docs/screenshots/tui-chess.png) |
+| [Chess games](docs/previews/chess.md) | [Chess in the terminal app](docs/previews/chess.md#a-game-on-the-board) |
 
 ## Smart search: names, words, meaning and answers
 

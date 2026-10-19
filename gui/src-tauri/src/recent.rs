@@ -19,6 +19,11 @@ impl<T> Recent<T> {
         Recent(Mutex::new(Vec::new()))
     }
 
+    /// Lets go of what was read of `path`.
+    pub fn forget(&self, path: &Path) {
+        self.0.lock().unwrap().retain(|(p, ..)| p != path);
+    }
+
     /// What `path` holds: kept, when the file has not changed and `fits` takes it, else `load`ed.
     pub fn get(&self, path: &Path, fits: impl Fn(&T) -> bool, load: impl FnOnce() -> Result<T, String>) -> Result<Arc<T>, String> {
         let modified = std::fs::metadata(path).and_then(|m| m.modified()).ok();

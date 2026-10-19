@@ -5,7 +5,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, globRe, quote, isArchive, diskName, packFormat, LOCKED, inside } from "./lib.js";
+  import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -15,6 +15,7 @@
   import Duplicates from "./Duplicates.svelte";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
+  import ChessView from "./ChessView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
@@ -308,6 +309,11 @@
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
     searchable_pdf: () => makeSearchable(),
+    chess: () => {
+      const e = item(tab());
+      if (e && !e.is_dir && chessFormat(e.name)) ui.modal = { kind: "chess", path: e.path };
+      else ui.status = t("chess.not_chess");
+    },
     switch_panel: () => ui.dual && (ui.activePane ^= 1),
     mark: () => {
       toggleMark(tab(), tab().cursor);
@@ -606,7 +612,7 @@
     // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
     const field = e.target.closest?.("textarea, input:not(.cmd)");
     // The BOM tree has keys of its own; what it leaves (function keys, Tab) still works here.
-    if (e.target.closest?.(".bom-keys") && !/^F\d+$/.test(k)) return;
+    if (e.target.closest?.(".bom-keys, .chess-keys") && !/^F\d+$/.test(k)) return;
     // Copy/cut/paste, select-all and undo of text in the command line stay native.
     if (["clip_copy", "clip_cut", "paste", "mark_all", "undo"].includes(ui.cfg.keymap[k]) && e.target.closest?.(".cmd") && ui.cmd) return;
     if (field && k === "Esc") return field.blur();
@@ -757,6 +763,7 @@
 <Dialogs bind:this={dialogs} />
 {#if ui.modal?.kind === "dupes"}<Duplicates />{/if}
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
+{#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}
