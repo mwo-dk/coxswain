@@ -153,7 +153,7 @@ pub(crate) fn own_language() -> &'static str {
     match own.split(['-', '_']).next().unwrap_or("") {
         "da" => "dan",
         "sv" => "swe",
-        "nb" | "no" => "nor",
+        "nb" | "nn" | "no" => "nor",
         "fi" => "fin",
         "et" => "est",
         "lv" => "lav",

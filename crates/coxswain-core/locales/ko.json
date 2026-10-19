@@ -1122,7 +1122,7 @@
  "feature.languages.q2": "시스템이 미국 영어인데 Coxswain이 colour와 trash를 쓰는 이유는?",
  "feature.languages.q3": "다시 시스템을 따르게 하려면?",
  "feature.languages.title": "언어",
- "feature.languages.what": "두 앱은 하나의 설정으로 29개 언어를 씁니다. 기본적으로 Coxswain은 시스템 언어를 따릅니다.",
+ "feature.languages.what": "두 앱은 하나의 설정으로 31개 언어를 씁니다. 기본적으로 Coxswain은 시스템 언어를 따릅니다.",
  "feature.latex.a1": "\\documentclass가 없는 파일은 LaTeX 편집기처럼 그것을 포함하는 문서를 빌드합니다: % !TEX root 줄이 가리키는 문서, 또는 그 파일을 가리키는 가까운 문서.",
  "feature.latex.a2": "latexmk이 PDF를 만들지 못해서(여기서는 패키지가 없음) 준비된 다음 엔진을 시도했고 성공했습니다. 패키지를 설치하거나 tectonic 단추를 고르세요.",
  "feature.latex.a3": "-shell-escape가 필요한데, 이는 문서가 이 컴퓨터에서 프로그램을 실행하게 합니다. Coxswain은 절대 이를 넘기지 않으므로 어떤 문서도 명령을 실행할 수 없습니다.",

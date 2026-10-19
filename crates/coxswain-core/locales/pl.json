@@ -1224,7 +1224,7 @@
  "feature.languages.q2": "Mój system jest po angielsku (USA). Dlaczego Coxswain pisze colour, ale trash?",
  "feature.languages.q3": "Jak wrócić do języka systemu?",
  "feature.languages.title": "Języki",
- "feature.languages.what": "Obie aplikacje mówią w 29 językach z jednego ustawienia; domyślnie Coxswain stosuje język Twojego systemu.",
+ "feature.languages.what": "Obie aplikacje mówią w 31 językach z jednego ustawienia; domyślnie Coxswain stosuje język Twojego systemu.",
  "feature.latex.a1": "Plik bez \\documentclass buduje dokument, który go dołącza, jak zrobiłby to edytor LaTeX: ten wskazany w wierszu % !TEX root albo pobliski, który go wymienia.",
  "feature.latex.a2": "latexmk nie zdołał zrobić PDF-a (tu brak pakietu), więc spróbowano następnego gotowego silnika i się udało. Zainstaluj pakiet albo wybierz przycisk tectonic.",
  "feature.latex.a3": "Wymaga -shell-escape, które pozwala dokumentowi uruchamiać programy na Twoim komputerze. Coxswain nigdy go nie przekazuje, więc żaden dokument nie może uruchomić polecenia.",

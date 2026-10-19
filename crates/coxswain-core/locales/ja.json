@@ -1122,7 +1122,7 @@
  "feature.languages.q2": "システムは米国英語なのに、Coxswain が colour と言いながら trash と言うのはなぜですか？",
  "feature.languages.q3": "システムに合わせる設定に戻すには？",
  "feature.languages.title": "言語",
- "feature.languages.what": "両方のアプリが 1 つの設定で 29 の言語を話します。既定ではシステムの言語に従います。",
+ "feature.languages.what": "両方のアプリが 1 つの設定で 31 の言語を話します。既定ではシステムの言語に従います。",
  "feature.latex.a1": "\\documentclass のないファイルでは、LaTeX エディターと同じく、それを取り込む文書を作成します: % !TEX root の行が示す文書か、近くにあってそのファイルを指す文書です。",
  "feature.latex.a2": "latexmk が PDF を作れなかったため (この例ではパッケージ不足)、次に使えるエンジンが試されて成功しました。パッケージをインストールするか、tectonic のボタンを選んでください。",
  "feature.latex.a3": "minted には、文書がマシン上でプログラムを実行できる -shell-escape が必要です。Coxswain はこれを渡さないので、どの文書もコマンドを実行できません。",
