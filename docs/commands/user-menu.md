@@ -194,6 +194,7 @@ there and the desktop app's `editor` (or the default application) here.
 apps now: **Ctrl+G** opens the history of the file or folder under the cursor as folders, one
 per commit, with each commit's diff in the preview ([Git history as folders](../panels/git-history.md));
 **Alt+B** lists the branches and **Alt+W** the worktrees ([Git branches](../panels/git-branches.md));
+**Alt+C** shows the git config ([Git config](../panels/git-config.md));
 the git line at the bottom of the panel shows the branch and what changed ([Git in the panels](../panels/git.md)).
 *git status* stays, as `s`, inside a repository. To have the others back, add them yourself:
 **F2**, **+**, then for example `command = "git log --oneline --graph --decorate -50"`.

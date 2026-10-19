@@ -101,7 +101,7 @@ impl Action {
             Package => s.packages && disk && s.single() && s.files == 1,
             Tag => n > 0 && disk,
             Notes => disk,
-            Worktrees | GitTool => s.git && disk,
+            Worktrees | GitTool | GitConfig => s.git && disk,
             // Find, anywhere; duplicates among the folders, or in this one.
             Search | SearchText | Ask => true,
             Duplicates => disk && (s.folders > 0 || n == 0),

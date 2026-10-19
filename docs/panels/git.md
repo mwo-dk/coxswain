@@ -10,6 +10,7 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 [Git history as folders](git-history.md); **Alt+B** the branches and **Alt+W** the worktrees:
 [Git branches and worktrees](git-branches.md). Commit, push and pull are for your own git tool:
 **Alt+G** opens it in the repository ([Open in your git tool](#open-in-your-git-tool)).
+**Alt+C** shows the git config as git uses it, read-only: [Git config](git-config.md).
 
 ![The desktop app in a repository: the git line in the pane's footer, glyphs next to changed files](../screenshots/gui-details.png)
 *`src` carries the pencil of a modified file inside it, `target` the crossed-out eye of an ignored folder, `TODO.txt` the question mark of an untracked file. The footer reads `master ↑1` and the counts.*
@@ -44,7 +45,9 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
    worktrees ([Git branches and worktrees](git-branches.md)).
 6. Press **Alt+G** to commit, push or pull in your own git tool
    ([Open in your git tool](#open-in-your-git-tool)).
-7. Press **F2** for the user menu's git commands (see below).
+7. Press **Alt+C** to see the git config as git uses it here, secrets hidden
+   ([Git config](git-config.md)).
+8. Press **F2** for the user menu's git commands (see below).
 
 It needs `git` on your `PATH`. Coxswain reads: it runs `git status` (with
 `GIT_OPTIONAL_LOCKS=0`, so it never takes a lock that could get in the way of your own git
@@ -61,7 +64,7 @@ flowchart LR
         r2["Upstream: ahead, behind"]
         r3["Last fetch and remote"]
         r4["Last commit per file"]
-        r5["History, branches, worktrees"]
+        r5["History, branches, worktrees, config"]
     end
     subgraph writes["Coxswain writes, when you ask"]
         w1["Switch branch: Alt+S"]
@@ -133,7 +136,7 @@ its URL (`https://token@host/…`) are left out; the user of an ssh address (`gi
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| The repository you are in | Hover the git line in the pane's footer: the tooltip lists the repository's folder, the upstream, the last fetch and the remote, then *Click for the branches* and *Alt+G: open in your git tool* | Put the cursor on `..` (where it is when a folder opens): the line under the panel reads `..  Upstream: origin/master, 1 ahead, 0 behind · Last fetch: … · Remote: …` |
+| The repository you are in | Hover the git line in the pane's footer: the tooltip lists the repository's folder, the upstream, the last fetch and the remote, then *Click for the branches*, *Alt+C: the git config* and *Alt+G: open in your git tool*; a right-click opens the git line's menu: Git branches, Git worktrees, Git config, Open in your git tool | Put the cursor on `..` (where it is when a folder opens): the line under the panel reads `..  Upstream: origin/master, 1 ahead, 0 behind · Last fetch: … · Remote: …` |
 | A repository's folder in the list (a project in `~/projects`, a submodule, a repository inside another) | Hover its row (any view): the tooltip has its git line, upstream, last fetch and remote | Put the cursor on it: the line under the panel reads `rocket  git: master ^1 ~1 · Upstream: … · Last fetch: … · Remote: …` |
 
 They are read only when you point at them, on a thread of their own: never for every folder of
@@ -226,7 +229,8 @@ there. A tab whose folder is in a repository shows the git icon instead of the f
 
 Coxswain shows version control and writes to a repository only to switch branch or make a new
 one. Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
-config) is a handoff: **Alt+G** (*Open in your git tool*) opens the repository in your own git
+config) is a handoff. The config itself can be looked at: **Alt+C** shows it as git uses it,
+read-only ([Git config](git-config.md)). For the rest, **Alt+G** (*Open in your git tool*) opens the repository in your own git
 tool, in the repository's top folder, wherever in it the panel is.
 
 | | Terminal app | Desktop app |
@@ -296,6 +300,7 @@ and **Alt+B** (branches). Other git commands can be added as your own entries (*
 | The branches', the worktrees' and the switch's keys | `branches`, `worktrees`, `switch_branch` in `[keys]` | `Alt+B`, `Alt+W`, `Alt+S` |
 | *Settings → Behaviour → Git tool* | `[git] tool` (a tool's name or a command; empty: the first installed) | `""` |
 | *Open in your git tool* | `git_tool` in `[keys]` | `Alt+G` |
+| *Git config* | `git_config` in `[keys]` | `Alt+C` |
 
 See [Glyphs and fonts](../customise/glyphs-and-fonts.md) and [Your own theme](../customise/own-theme.md).
 
@@ -306,7 +311,8 @@ name). The last commit of the entry under the cursor is in the line under the pa
 [upstream, remote and last fetch](#upstream-remote-and-last-fetch) too when the cursor is on
 `..` or on a repository's folder, and
 **Ctrl+G** opens the [history](git-history.md). **Alt+G** runs a terminal git tool right
-there, in place of the panels ([Open in your git tool](#open-in-your-git-tool)). No diff, no list of repositories and no git icon on tabs, since it has no preview pane,
+there, in place of the panels ([Open in your git tool](#open-in-your-git-tool)), and **Alt+C**
+shows the git config full screen ([Git config](git-config.md#in-the-terminal-app)). No diff, no list of repositories and no git icon on tabs, since it has no preview pane,
 sidebar or tabs; the user menu's `git diff (file)` shows the diff instead.
 
 ## Questions
@@ -401,7 +407,8 @@ repository's facts: hover the git line, or go to `..`.
 #### Can Coxswain commit or stage?
 
 No. It switches branches and makes new ones when you ask ([Git branches and
-worktrees](git-branches.md)), and otherwise only reads. **Alt+G** opens your own git tool
+worktrees](git-branches.md)), and otherwise only reads; even the config (**Alt+C**) is shown
+read-only ([Git config](git-config.md)). **Alt+G** opens your own git tool
 (lazygit, gitui, tig or a desktop client) in the repository for the rest
 ([Open in your git tool](#open-in-your-git-tool)). Single commands can also go in the
 [user menu](../commands/user-menu.md) (**F2**) or a [script](../commands/scripts.md).

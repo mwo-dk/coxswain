@@ -161,6 +161,11 @@ mkdir -p "$d/Backups/read-only" && chmod 555 "$d/Backups/read-only"
 
 # No "new version" notice in the pictures.
 mkdir -p "$d/.config/coxswain" && printf 'check_updates = false\n' > "$d/.config/coxswain/config.toml"
+# A git config of the demo user's own, for the Git config view (Alt+C): an include, a password
+# it hides, and an email the repository sets again.
+printf '[user]\n\tname = Demo User\n\temail = demo@example.com\n[init]\n\tdefaultBranch = master\n[sendemail]\n\tsmtpServer = smtp.example.com\n\tsmtpPass = launch-day-42\n[include]\n\tpath = .gitconfig-aliases\n' > "$d/.gitconfig"
+printf '[alias]\n\tst = status --short\n\tlg = log --oneline --graph\n' > "$d/.gitconfig-aliases"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$d/projects/rocket" config user.email demo@rocket.example.org
 # Build provenance for a release in Downloads: built from the commit before HEAD, named in a
 # GitHub remote that is never fetched (projects/rocket in the other pane finds the checkout).
 # One archive matches, one was changed after the build, one is missing, and an image.

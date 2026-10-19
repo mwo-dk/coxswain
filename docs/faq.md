@@ -46,6 +46,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I get back an old version of a file?** Ctrl+G on it, Enter on the commit, F5 on the file. [Answer](panels/git-history.md#how-do-i-get-back-an-old-version-of-a-file)
 - **Why does a file say "older" in Last commit?** It has not changed in the newest 5000 commits of its folder, where the walk stops; Ctrl+G shows when. [Answer](panels/git.md#why-does-a-file-say-older-in-last-commit)
 - **How do I commit, push or pull?** Alt+G opens the repository in your own git tool (lazygit, gitui, tig or a desktop client), or a terminal there when none is installed. [Answer](panels/git.md#open-in-your-git-tool)
+- **Where does a git setting come from?** Alt+C shows the git config as git uses it here: each value with its scope and file, values set earlier dimmed, passwords hidden. [Answer](panels/git-config.md#where-does-this-value-come-from)
 - **How do I switch to another branch?** Alt+B lists the branches; Alt+S on one, then Enter. [Answer](panels/git-branches.md#how-do-i-switch-to-another-branch)
 - **Why did the switch say my changes would be overwritten?** A file you changed differs between the branches; git refuses, and so does Coxswain. Commit or stash first. [Answer](panels/git-branches.md#why-did-the-switch-say-my-changes-would-be-overwritten)
 - **What does "merging" on the git line mean?** git is in the middle of a merge (or rebase, cherry-pick, revert, bisect); finish or abort it. [Answer](panels/git.md#what-does-merging-or-rebasing-on-the-git-line-mean)

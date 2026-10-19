@@ -82,6 +82,7 @@ pub const FEATURES: &[Feature] = &[
         "panels/git-branches.md",
         &[Branches, SwitchBranch, Worktrees, NewBranch],
     ),
+    f("git_config", "panels/git-config.md", &[GitConfig, GitTool]),
     f("mouse", "panels/mouse.md", &[]),
     f("command_list", "panels/command-list.md", &[Menu, Help]),
     f("features", "panels/features.md", &[Help, Features]),

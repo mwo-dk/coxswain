@@ -58,6 +58,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Folder sizes in the Size column, and on `..` the size of the folder above once known | [Folder sizes](../panels/folder-sizes.md) |
 | The git line, a glyph per file, and the last commit of the entry under the cursor in the info line; on `..` the upstream (ahead, behind), the last fetch and the remote, and on a repository's folder its own | [Git in the panels](../panels/git.md), [Upstream, remote and last fetch](../panels/git.md#upstream-remote-and-last-fetch) |
 | Open in your git tool (**Alt+G**): lazygit, gitui or tig in place of the panels, or your desktop client, to commit, push or pull | [Open in your git tool](../panels/git.md#open-in-your-git-tool) |
+| The git config as git uses it (**Alt+C**), full screen: each value with its scope and file, secrets hidden until **Enter** | [Git config](../panels/git-config.md#in-the-terminal-app) |
 | Git history as folders (**Ctrl+G**): the commits of a file or folder, the files as they were, **F3** and **F5** on them | [Git history in the terminal app](#git-history-in-the-terminal-app) |
 | Git branches (**Alt+B**) and worktrees (**Alt+W**): a branch's files, switching (**Alt+S**), new branches | [Git branches and worktrees](../panels/git-branches.md#in-the-terminal-app) |
 | ZFS snapshots as folders (**Alt+Z**), the diff of a file against now (**Enter**), copied back with **F5**; the dataset in the panel's bottom border | [ZFS snapshots as folders](../files/zfs-snapshots.md#in-the-terminal-app) |

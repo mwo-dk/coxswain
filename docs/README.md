@@ -69,9 +69,10 @@ mindmap
 | [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O; in the terminal app the last output, with *Panels hidden · any key brings them back*), the splitter |
 | [Views: details, columns, thumbnails](panels/views.md) | Details, Miller columns, thumbnails, the columns menu, the age chip |
 | [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, the size on `..` once known, measuring again, switching off |
-| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), upstream, remote and last fetch (the git line's tooltip, the terminal app's info line on `..`, a repository folder's own on hover), file glyphs, the last commit per file, the diff, recent repositories, Open in your git tool (Alt+G), user menu commands |
+| [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), upstream, remote and last fetch (the git line's tooltip, the terminal app's info line on `..`, a repository folder's own on hover), file glyphs, the last commit per file, the diff, recent repositories, Open in your git tool (Alt+G), the git config (Alt+C), user menu commands |
 | [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
+| [Git config](panels/git-config.md) | Alt+C, the config as git uses it: each value with its scope and file, values set earlier dimmed, secrets hidden until shown, F4 opens a line's file, copying a line, read-only |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
 | [The command list (F9) and Help (F1)](panels/command-list.md) | The command list (F9) and Help (F1) |
 | [Features and questions (F1)](panels/features.md) | Help's second tab: every feature by area with its keys and two or three questions answered, the filter (diacritics ignored), Show me (its page on GitHub, only when pressed), F1 in a dialog, the terminal app's Tab and Enter |

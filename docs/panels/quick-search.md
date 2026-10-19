@@ -47,7 +47,7 @@ There is no button for it, so both apps say it where you look:
 
 None. Quick search starts on any **Alt** key that is not bound to an action; the keys bound by
 default are **Alt+T** (`tag`), **Alt+N** (`notes`), **Alt+V** (`toggle_view`), **Alt+O**
-(`same_dir`), **Alt+B** (`branches`), **Alt+W** (`worktrees`), **Alt+S** (`switch_branch`), **Alt+G** (`git_tool`),
+(`same_dir`), **Alt+B** (`branches`), **Alt+W** (`worktrees`), **Alt+S** (`switch_branch`), **Alt+G** (`git_tool`), **Alt+C** (`git_config`),
 **Alt+Z** (`snapshots`), **Alt+.** (`toggle_hidden`) and the Alt+F-keys. To free one, unbind its action:
 `[keys] tag = []` ([Changing keys](../customise/keys.md)).
 

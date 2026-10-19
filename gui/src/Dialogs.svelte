@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf } from "./app.svelte.js";
+  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -343,6 +343,30 @@
     return true;
   }
 
+  // ------------------------------------------------------------ git config
+
+  /** An entry's value as it shows: its secret only when shown; a bare key is true. */
+  const gcValue = (m, i) => (m.shown[i] ? m.entries[i].value : (m.entries[i].hidden ?? m.entries[i].value)) ?? "true";
+  /** Where it comes from: its scope (included, set earlier) and its file. */
+  const gcScope = (e) => [t(`gitconfig.scope_${e.scope}`), e.included && t("gitconfig.included"), e.earlier && t("gitconfig.earlier")].filter(Boolean).join(" · ");
+  function gcShow(m, i) {
+    if (m.entries[i]?.hidden != null) m.shown[i] = !m.shown[i];
+  }
+  /** The line to copy: hidden, unless its secret is shown (`Entry::copy` in core). */
+  function gcCopy(m, i) {
+    const e = m.entries[i];
+    if (!e) return;
+    const text = m.shown[i] ? (e.value == null ? e.key : `${e.key}=${e.value}`) : e.line;
+    invoke("copy_text", { text }).then(() => (ui.status = t("gitconfig.copied", { line: e.line })), (err) => (ui.status = String(err)));
+  }
+  /** Its file in the editor; a value from the command line or a blob has none. */
+  function gcEdit(m, i) {
+    const e = m.entries[i];
+    if (!e) return;
+    if (e.file) invoke("edit_path", { path: e.file }).catch((err) => (ui.status = String(err)));
+    else ui.status = t("gitconfig.no_file", { origin: e.origin });
+  }
+
   /** Keys while a modal is open. */
   export function handleKey(e, k) {
     const m = ui.modal;
@@ -376,6 +400,19 @@
         else return false;
         return true;
       }
+      case "gitconfig":
+        if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
+        else if (k === "Down") m.cursor = Math.min(m.entries.length - 1, m.cursor + 1);
+        else if (k === "PageUp") m.cursor = Math.max(0, m.cursor - 15);
+        else if (k === "PageDown") m.cursor = Math.min(m.entries.length - 1, m.cursor + 15);
+        else if (k === "Home") m.cursor = 0;
+        else if (k === "End") m.cursor = Math.max(0, m.entries.length - 1);
+        else if (k === "Enter") gcShow(m, m.cursor);
+        else if (act === "edit") gcEdit(m, m.cursor);
+        else if (act === "clip_copy") gcCopy(m, m.cursor);
+        else if (act === "git_tool") (close(), gitTool());
+        else return false;
+        return true;
       case "props":
         if (k === "Enter") savePerms();
         else return false;
@@ -538,6 +575,32 @@
             <li class="none">{t("dialogs.no_matches")}</li>
           {/each}
         </ul>
+      {:else if m.kind === "gitconfig"}
+        <!-- The git config as git uses it: read-only; changed in the user's own git tool. -->
+        <h2>{m.repo ? t("gitconfig.title", { repo: m.repo }) : t("gitconfig.title_outside")}</h2>
+        <p class="meta">{t("gitconfig.about")}{#if !m.repo} {t("gitconfig.outside")}{/if}</p>
+        {#if m.hint}<p class="meta">{t("hint.git_config_show", { key: "Enter" })}</p>{/if}
+        <ul class="gclist" bind:this={listEl} style:--nw={`${Math.min(24, Math.max(4, ...m.entries.map((e) => e.name.length)))}ch`}>
+          {#each m.entries as e, i (i)}
+            {#if e.section !== m.entries[i - 1]?.section}<li class="head">[{e.section}]</li>{/if}
+            <li class="row" class:cursor={i === m.cursor} class:earlier={e.earlier} onmouseenter={() => (m.cursor = i)}>
+              <span class="name">{e.name}</span>
+              <span class="value" title={e.hidden == null || m.shown[i] ? e.value : ""}>{gcValue(m, i)}</span>
+              <span class="from" title={e.file ?? e.origin}>{gcScope(e)}</span>
+              <!-- The file's end is what tells it apart: cut at its start. -->
+              <span class="file" title={e.file ?? e.origin}><bdi>{e.file ?? e.origin}</bdi></span>
+              <span class="acts">
+                {#if e.hidden != null}<button class="link" onclick={() => gcShow(m, i)}>{m.shown[i] ? t("gitconfig.hide") : t("gitconfig.show")}</button>{/if}
+                <button class="link" onclick={() => gcCopy(m, i)}>{t("common.copy")}</button>
+                <button class="link" disabled={!e.file} title={e.file ? "" : t("gitconfig.no_file", { origin: e.origin })} onclick={() => gcEdit(m, i)}>{t("gitconfig.edit")}</button>
+              </span>
+            </li>
+          {:else}
+            <li class="none">{t("gitconfig.empty")}</li>
+          {/each}
+        </ul>
+        <p class="meta">{t("gitconfig.change", { key: ui.cfg.actions.git_tool?.[1] || "F9" })} <button class="link" onclick={() => (close(), gitTool())}>{t("action.git_tool")}</button></p>
+        <p class="keys">{t("gitconfig.keys", { edit: ui.cfg.actions.edit?.[1] ?? "", copy: ui.cfg.actions.clip_copy?.[1] ?? "", tool: ui.cfg.actions.git_tool?.[1] ?? "" })}</p>
       {:else if m.kind === "search"}
         {@const answer = answering(m)}
         {@const question = prefix(m.query).rest.trim()}
@@ -822,6 +885,64 @@
   }
   .dialog.menu {
     width: min(520px, 92vw);
+  }
+  .dialog.gitconfig {
+    width: min(1000px, 92vw);
+  }
+  .gclist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    min-height: 0;
+  }
+  .gclist li.head {
+    padding: 10px 10px 2px;
+    font-weight: 600;
+    color: var(--directory-fg);
+  }
+  .gclist .row {
+    display: grid;
+    grid-template-columns: var(--nw) minmax(0, 1fr) max-content minmax(0, 18em) max-content;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 10px;
+    border-radius: var(--r);
+    white-space: nowrap;
+  }
+  .gclist .row.cursor {
+    background: var(--cursor-bg);
+    color: var(--cursor-fg);
+  }
+  .gclist .row.earlier {
+    opacity: 0.55;
+  }
+  .gclist .name,
+  .gclist .value {
+    font-family: var(--mono-font), var(--scripts);
+  }
+  .gclist .name,
+  .gclist .value,
+  .gclist .file {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .gclist .from,
+  .gclist .file {
+    font-size: 0.85em;
+  }
+  .gclist .file {
+    direction: rtl;
+    text-align: left;
+  }
+  .gclist .acts {
+    display: flex;
+    gap: 8px;
+    justify-content: end;
+    font-size: 0.85em;
+  }
+  .gclist li.none {
+    padding: 10px;
   }
   h2 {
     margin: 0;

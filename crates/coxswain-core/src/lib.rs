@@ -18,6 +18,7 @@ pub mod find;
 pub mod flags;
 pub mod fs;
 pub mod git;
+pub mod git_config;
 pub mod guide;
 pub mod handoff;
 pub mod helper;

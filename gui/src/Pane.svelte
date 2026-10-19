@@ -150,7 +150,7 @@
     <!-- On ZFS: the dataset and its space; a click lists the snapshots. -->
     {#if zfsLine}<button class="zfs-line" title={`${t.zfs.mountpoint}\n${tr("zfs.footer_tip", { key: ui.cfg.actions.snapshots?.[1] ?? "" })}`} onclick={() => openSnapshots(t)}>{zfsLine}</button>{/if}
     <!-- The git line: a click shows the branches; hovered, the upstream, remote and last fetch. -->
-    {#if t.git}<button class="git-prompt" title={[t.git.root, ...(ui.facts[t.git.root]?.slice(1) ?? []), tr("branches.line_tip"), tr("gittool.line_tip", { key: ui.cfg.actions.git_tool?.[1] || "F9" })].join("\n")} onmouseenter={() => gitFacts(t.git.root)} onclick={() => openGitView(false, t)} oncontextmenu={(ev) => (ev.preventDefault(), gitMenu(t))}>{t.git.prompt}</button>{/if}
+    {#if t.git}<button class="git-prompt" title={[t.git.root, ...(ui.facts[t.git.root]?.slice(1) ?? []), tr("branches.line_tip"), tr("gitconfig.line_tip", { key: ui.cfg.actions.git_config?.[1] || "F9" }), tr("gittool.line_tip", { key: ui.cfg.actions.git_tool?.[1] || "F9" })].join("\n")} onmouseenter={() => gitFacts(t.git.root)} onclick={() => openGitView(false, t)} oncontextmenu={(ev) => (ev.preventDefault(), gitMenu(t))}>{t.git.prompt}</button>{/if}
   </footer>
 </section>
 
