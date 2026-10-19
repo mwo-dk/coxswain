@@ -23,6 +23,7 @@ pub mod handoff;
 pub mod helper;
 pub mod history;
 pub mod i18n;
+pub mod images;
 pub mod icons;
 pub mod index;
 #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]

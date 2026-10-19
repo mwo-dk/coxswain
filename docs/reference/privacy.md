@@ -26,7 +26,8 @@ To keep everything on this machine:
    a new version*, or `check_updates = false` in `config.toml`.
 2. For search by meaning, use the built-in model (`coxswain --meaning builtin`) or a server on
    this machine (`localhost`). Downloading the built-in model is the one request it makes, once.
-3. Leave `[preview] container = "off"` if you do not want podman or docker to pull images.
+3. Leave `[preview] container = "off"` if you do not want podman or docker to pull images, and
+   *Settings → Previews → Keep images up to date* on **Off** (the default).
 
 With those, nothing leaves the machine. Previews load nothing from the web, not even a picture a
 Markdown file links: the app's own content security policy allows only the app and your disk.
@@ -78,7 +79,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 | **Chat model download**, once | The Qwen3 model and its tokenizer (1.0 GB, or 2.3 GB for the 4B one) from `huggingface.co` | You: *Download … and use* in Settings or the guide, or `coxswain --meaning ask builtin:qwen3-1.7b` | Use a chat model on a server, or none |
 | **Ask** | With the [built-in chat model](../search/ask-builtin.md): nothing. Otherwise the question, the questions and answers before it in this Find, and the excerpts of the closest files with their paths (for a question about the folder as a whole also its README, project files, folder tree and docs index), as much as `ask_context` holds, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: asking in Find (**Ctrl+Enter** / **Alt+Enter**, or **Enter** on the *Ask* row) ([Ask](../search/ask.md)). With Find's scope on a folder, only excerpts of that folder are sent | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
-| **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. Never by itself | `[preview] container = "off"` |
+| **Container images** | podman or docker downloads the image from its registry (`docker.io`) | You: the first build or render with a container, or *Pull* in Settings. By itself only when you turn on *Keep images up to date* (weekly or monthly, the desktop app, the images already pulled) | `[preview] container = "off"`, or *Keep images up to date* → **Off** ([Containers](../previews/containers.md#keeping-images-up-to-date)) |
 | **Links you click** | The release notes, a docs page under *Settings → Overview → What's new* (on GitHub), a feature's page from **Show me** in [Features and questions](../panels/features.md), a web link in a rendered Markdown or AsciiDoc file: each opens in your browser. *What's new* itself is built into the app | You | – |
 
 On a machine with search by meaning on the built-in model, Coxswain also asks
@@ -101,7 +102,8 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 - An update found by the check shows as a button in the desktop app and a line in the terminal
   app's status line: [Update checks](updates.md#what-you-see).
 - Nothing shows for requests that do not happen: there is no "sending data" indicator because
-  nothing is sent in the background apart from the update check.
+  nothing is sent in the background apart from the update check, and the image updates when you
+  turned them on.
 
 ## Settings and config.toml
 
@@ -112,6 +114,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 | *Finding files* → *Details* → *Meaning* → *Server* | `[search] meaning_url` | `""` | Not `localhost` |
 | *Finding files* → *Details* → *Meaning* → *API key from the environment variable* | `[search] meaning_key_env` | `""` | The key is sent to the saved server only (unencrypted over `http://`), and never stored in `config.toml` |
 | *Previews* → *Container runtime* | `[preview] container` | `"auto"` | Pulling an image, when you ask |
+| *Previews* → *Keep images up to date* | `[preview] image_updates` | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled, from their registry |
 
 ## In the terminal app
 
@@ -123,8 +126,8 @@ both.
 
 #### Does anything leave my machine?
 
-Only what the table above lists. With update checks off and search by meaning either off or on
-the built-in model (after its one download), nothing does. A picture a Markdown file links on
+Only what the table above lists. With update checks and image updates off, and search by meaning
+either off or on the built-in model (after its one download), nothing does. A picture a Markdown file links on
 the web stays an empty box in the preview; the webview itself is held to the app and your disk,
 so no preview of any kind can reach out.
 

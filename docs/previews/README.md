@@ -89,7 +89,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
 | [Previews made by tools](tools.md) | The engine buttons, rendering, the preview cache and clearing it, `[preview]` |
-| [Containers](containers.md) | podman or docker, what a container may do, pulling and removing images |
+| [Containers](containers.md) | podman or docker, what a container may do, what each image gives and costs, pulling, updating and removing images |
 | [Safety, speed and limits](safety.md) | What a preview can never do, what loads when, and every size limit |
 
 ## Every format, and its page

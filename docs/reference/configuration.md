@@ -226,13 +226,15 @@ Previews made by tools, in the desktop app ([Previews made by tools](../previews
 | `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container; `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
 | `prefer_tool` | table | `{}` | Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }` |
 | `container` | string | `"auto"` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, or `"off"` for no containers |
-| `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 5 GB; `:latest-medium` about 2 GB) |
+| `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
 | `images.plantuml` | string | `"docker.io/plantuml/plantuml:latest"` | The PlantUML image |
 | `images.pandoc` | string | `"docker.io/pandoc/core:latest"` | The pandoc image, for reStructuredText |
 | `images.libreoffice` | string | `""` | No official image; set one you trust that has `soffice` |
 | `images.duckdb` | string | `""` | No official image; set one whose entry point is `duckdb` |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
+| `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
+| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview used for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names are `latex`, `libreoffice`, `plantuml`, `pandoc` and `duckdb`.
@@ -312,6 +314,8 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Container runtime* | `preview_container` | `[preview] container` |
 | | *LaTeX image* | `latex_image` | `[preview] images.latex` |
 | | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
+| | *Keep images up to date* | `image_updates` | `[preview] image_updates` |
+| | *Remove images not used for 90 days* | `image_prune` | `[preview] image_prune` |
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |

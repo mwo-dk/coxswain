@@ -1452,6 +1452,11 @@ pub struct PreviewConfig {
     /// Build a LaTeX document by itself when it is shown and its sources changed, instead of
     /// waiting for *Build PDF*.
     pub latex_auto: bool,
+    /// Keep the pulled images up to date: "off", "weekly" or "monthly". The desktop app pulls
+    /// them in the background, never on battery, and removes each replaced copy by its id.
+    pub image_updates: String,
+    /// Remove an image of `images` that no preview used for 90 days (desktop app).
+    pub image_prune: bool,
 }
 
 impl Default for PreviewConfig {
@@ -1471,6 +1476,8 @@ impl Default for PreviewConfig {
             images: images.map(|(k, v)| (k.to_string(), v.to_string())).into_iter().collect(),
             timeout: 120,
             latex_auto: true,
+            image_updates: "off".into(),
+            image_prune: false,
         }
     }
 }

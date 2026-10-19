@@ -47,7 +47,7 @@ system; this page is about the room they take and getting it back.
 | `helper.log` | When the search helper started and left, and what failed | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
-| A container image | The image of `[preview] images` for LaTeX, PlantUML, pandoc … | Pulled again the next time a preview needs it | Only when ticked |
+| A container image | The image of `[preview] images` for LaTeX, PlantUML, pandoc …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
 
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
@@ -93,7 +93,9 @@ Coxswain lists only what it caused, matched exactly:
 - **Container images** named in `[preview] images` (by default
   `docker.io/texlive/texlive:latest`, `docker.io/plantuml/plantuml:latest`,
   `docker.io/pandoc/core:latest`) that podman or docker has. Other images, even ones that look
-  alike, are not listed.
+  alike, are not listed. *Remove images not used for 90 days* in *Settings → Previews* removes
+  these by itself when no preview used one for that long, and *Keep images up to date* removes
+  the copy an update replaced ([Containers](../previews/containers.md#keeping-images-up-to-date)).
 
 Nothing outside is cleared by *Clear everything* unless its box is ticked, and every clear shows
 the exact path or image name before the second click.

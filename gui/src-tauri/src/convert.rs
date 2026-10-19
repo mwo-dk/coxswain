@@ -83,8 +83,8 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
                 available: true,
                 note: if pulled {
                     t!("convert.runs_offline", "image" => image)
-                } else if tool == "latex" {
-                    t!("convert.first_run_pulls_large", "image" => image, "size" => "5 GB")
+                } else if let Some(size) = coxswain_core::images::download(&image) {
+                    t!("convert.first_run_pulls_large", "image" => image, "size" => size)
                 } else {
                     t!("convert.first_run_pulls", "image" => image)
                 },
@@ -150,7 +150,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
 pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: bool, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<Converted>> {
     crate::here(&path)?;
     let cfg = ctx.cfg().preview.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         // A chapter builds its document, not itself.
         let main = if tool == "latex" { latex::main_file(&path) } else { path.clone() };
         let out = cache_dir(&path, &main, &tool, &engine)?;
@@ -202,7 +202,61 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         }
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    // The images it ran in were used now: what *Remove images not used for 90 days* goes by.
+    let used = std::mem::take(&mut *USED.lock().unwrap());
+    if !used.is_empty() {
+        let now = coxswain_core::fs::now();
+        let _ = ctx.edit(|st| used.iter().for_each(|i| coxswain_core::images::used(st, i, now)));
+    }
+    result
+}
+
+/// The images previews ran in since `convert` last wrote them into the state.
+static USED: Mutex<std::collections::BTreeSet<String>> = Mutex::new(std::collections::BTreeSet::new());
+
+/// While the app runs: once an hour, the pulled images are updated when
+/// `[preview] image_updates` says a round is due, and those no preview used for 90 days are
+/// removed when `image_prune` is on. Never on battery, never with containers off; the state
+/// is not locked over a pull.
+pub fn keep(app: tauri::AppHandle) {
+    use coxswain_core::images;
+    use tauri::Manager;
+    std::thread::spawn(move || {
+        // Not in the first minutes: the app is starting, and a short run needs none of it.
+        let mut wait = 600;
+        loop {
+            std::thread::sleep(Duration::from_secs(wait));
+            wait = 3600;
+            let ctx = app.state::<crate::Ctx>();
+            let cfg = ctx.cfg().preview.clone();
+            // No runtime, or containers off.
+            let Some((_, rt)) = runtime(&cfg) else { continue };
+            if coxswain_core::machine::on_battery() {
+                continue;
+            }
+            let now = coxswain_core::fs::now();
+            if ctx.state.lock().is_ok_and(|st| images::update_due(&cfg, &st, now)) {
+                // A pull that fails (offline) leaves the round due, so the next hour tries again.
+                if images::pulled(&cfg, &rt).iter().all(|i| images::update(&rt, i, || pull(&rt, i)).is_ok()) {
+                    let _ = ctx.edit(|st| st.images_checked = now);
+                }
+            }
+            if cfg.image_prune {
+                let pulled = images::pulled(&cfg, &rt);
+                let stale = ctx.edit_if(|st| {
+                    let before = st.images_used.len();
+                    let stale = images::stale(st, &pulled, now);
+                    (stale, st.images_used.len() != before)
+                });
+                for image in stale.unwrap_or_default() {
+                    if images::remove(&rt, &image).is_ok() {
+                        let _ = ctx.edit(|st| st.images_used.remove(&image));
+                    }
+                }
+            }
+        }
+    });
 }
 
 fn previews_dir() -> Res<PathBuf> {
@@ -279,6 +333,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         if image_size(&rt_path, image).is_none() {
             pull(&rt_path, image)?;
         }
+        USED.lock().unwrap().insert(image.clone());
         let container_name = format!("coxswain-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
         let mut c = coxswain_core::tools::command(&rt_path);
         c.args(["run", "--rm", "--network=none", "--security-opt", "label=disable", "--name", &container_name]);
@@ -633,6 +688,8 @@ pub struct Image {
     size: Option<u64>,
     /// The latest progress line while it is being pulled.
     pulling: Option<String>,
+    /// What it gives, its size and what it costs (`images::about`).
+    about: Option<String>,
 }
 
 /// Every configured image and whether the runtime has it, for Settings.
@@ -646,7 +703,7 @@ pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
             .images
             .iter()
             .filter(|(_, image)| !image.is_empty())
-            .map(|(tool, image)| Image { tool: tool.clone(), image: image.clone(), size: image_size(&rt, image), pulling: pulling.get(image).cloned() })
+            .map(|(tool, image)| Image { tool: tool.clone(), image: image.clone(), size: image_size(&rt, image), pulling: pulling.get(image).cloned(), about: coxswain_core::images::about(tool, image) })
             .collect())
     })
     .await

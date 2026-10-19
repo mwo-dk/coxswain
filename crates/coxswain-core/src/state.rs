@@ -40,6 +40,10 @@ pub struct AppState {
     pub migrated: Vec<String>,
     /// How often each hint on the status line was shown (`menu::hint`).
     pub hints_shown: BTreeMap<String, u32>,
+    /// Unix time of the last round of container image updates (`images`).
+    pub images_checked: u64,
+    /// Container image -> Unix time a preview last ran in it (`images::stale`).
+    pub images_used: BTreeMap<String, u64>,
     /// The file is there but could not be read (no permission, say): it is never saved over.
     #[serde(skip)]
     pub unreadable: bool,
@@ -65,6 +69,8 @@ impl Default for AppState {
             guide_seen: false,
             migrated: vec![],
             hints_shown: BTreeMap::new(),
+            images_checked: 0,
+            images_used: BTreeMap::new(),
             unreadable: false,
         }
     }
