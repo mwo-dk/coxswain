@@ -195,8 +195,9 @@ fn heading(key: &str) -> (String, String) {
 }
 
 /// The key and the value as shown while hidden, each None when it has nothing to hide: the
-/// password of a URL's user, an `http.*.extraHeader`'s value (its name stays), and the value
-/// of a key whose last part names a password, a token, a secret or a credential.
+/// user and password of an http(s) URL (the password of any other), an `http.*.extraHeader`'s
+/// value (its name stays), the value of a key whose last part names a password, a token, a
+/// secret, a credential, a PAT or a bearer, and a `credential.helper` shell line holding one.
 pub fn hide(key: &str, value: Option<&str>) -> (Option<String>, Option<String>) {
     let key_hidden = hide_urls(key);
     let Some(value) = value else {
@@ -214,6 +215,8 @@ pub fn hide(key: &str, value: Option<&str>) -> (Option<String>, Option<String>) 
         "apikey",
         "credential",
         "credentials",
+        "pat",
+        "bearer",
     ]
     .iter()
     .any(|s| last.ends_with(s));
@@ -226,9 +229,10 @@ pub fn hide(key: &str, value: Option<&str>) -> (Option<String>, Option<String>) 
         })
     } else if lower.starts_with("credential.") && last == "helper" && value.starts_with('!') && {
         let v = value.to_ascii_lowercase();
-        ["password", "token", "secret"]
+        ["password", "token", "secret", "--pat", "bearer"]
             .iter()
             .any(|s| v.contains(s))
+            || token_like(value)
     } {
         // A helper written out as a shell line that holds the secret itself.
         Some(HIDDEN.to_string())
@@ -238,18 +242,43 @@ pub fn hide(key: &str, value: Option<&str>) -> (Option<String>, Option<String>) 
     (key_hidden, hidden)
 }
 
-/// `s` with the password of every URL in it hidden (`https://ada:••••@host`), the user too when
-/// it is the only part over http (`https://••••@host`, a token), and a query's tokens
-/// (`?access_token=••••`). None when there is none.
+/// A query key that names a secret: `access_token`, `sig`, `jwt`, `pat` (not `path`).
+fn secret_param(k: &str) -> bool {
+    let k = k.to_ascii_lowercase();
+    [
+        "token", "secret", "pass", "key", "sig", "auth", "jwt", "ticket",
+    ]
+    .iter()
+    .any(|s| k.contains(s))
+        || k.ends_with("pat")
+}
+
+/// A word in a shell line that looks like a token: 20 or more letters, digits, `_` or `-`,
+/// with both letters and digits (`ghp_…`, a PAT).
+fn token_like(line: &str) -> bool {
+    line.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '-'))
+        .any(|w| {
+            w.len() >= 20
+                && w.bytes().any(|b| b.is_ascii_digit())
+                && w.bytes().any(|b| b.is_ascii_alphabetic())
+        })
+}
+
+/// `s` with the user and password of every http(s) URL in it hidden (`https://••••@host`: a
+/// token may stand as the user too), the password of any other (`ftp://ada:••••@host`), and a
+/// query's tokens (`?access_token=••••`). None when there is none.
 fn hide_urls(s: &str) -> Option<String> {
     let mut out = String::new();
     let mut rest = s;
     let mut changed = false;
     while let Some(at) = rest.find("://") {
+        // The scheme is the ASCII run right before `://`; what precedes it may be any character.
         let scheme_start = rest[..at]
-            .rfind(|c: char| !(c.is_ascii_alphanumeric() || "+-.".contains(c)))
-            .map_or(0, |i| i + 1);
+            .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || "+-.".contains(c))
+            .len();
         let scheme = rest[scheme_start..at].to_ascii_lowercase();
+        // In a key (`url.https://…`) the section comes before it, joined by a dot.
+        let http = matches!(scheme.rsplit('.').next(), Some("http" | "https"));
         out.push_str(&rest[..at + 3]);
         rest = &rest[at + 3..];
         let end = rest
@@ -261,11 +290,12 @@ fn hide_urls(s: &str) -> Option<String> {
             Some(i) => {
                 let auth = &url[..i];
                 match auth.split_once(':') {
+                    // Over http a token may be the user as well as the password: all of it goes.
+                    _ if http => out.push_str(HIDDEN),
                     Some((user, _)) => out.push_str(&format!("{user}:{HIDDEN}")),
-                    None if scheme == "http" || scheme == "https" => out.push_str(HIDDEN),
                     None => out.push_str(auth),
                 }
-                changed |= auth.contains(':') || scheme == "http" || scheme == "https";
+                changed |= http || auth.contains(':');
                 &url[i..]
             }
             None => url,
@@ -277,11 +307,7 @@ fn hide_urls(s: &str) -> Option<String> {
                 let params: Vec<String> = query
                     .split('&')
                     .map(|p| match p.split_once('=') {
-                        Some((k, _))
-                            if ["token", "secret", "pass", "key", "sig", "auth"]
-                                .iter()
-                                .any(|s| k.to_ascii_lowercase().contains(s)) =>
-                        {
+                        Some((k, _)) if secret_param(k) => {
                             changed = true;
                             format!("{k}={HIDDEN}")
                         }
@@ -308,7 +334,7 @@ mod tests {
         let some = |s: &str| Some(s.to_string());
         assert_eq!(
             h("remote.origin.url", "https://ada:s3cret@example.org/r.git"),
-            some("https://ada:••••@example.org/r.git")
+            some("https://••••@example.org/r.git")
         );
         assert_eq!(
             h("remote.origin.url", "https://ghp_abc@github.com/a/b"),
@@ -346,9 +372,112 @@ mod tests {
         // A password in the key itself (`url.<base>.insteadOf`).
         assert_eq!(
             hide("url.https://u:p@h/.insteadof", Some("gh:")).0,
-            some("url.https://u:••••@h/.insteadof")
+            some("url.https://••••@h/.insteadof")
         );
         assert_eq!(hide("core.bare", None), (None, None));
+    }
+
+    /// A character of more than one byte right before `://` once cut a character in two.
+    #[test]
+    fn git_config_hides_urls_after_any_character() {
+        for c in ["“", "”", "«", "»", "中", "é", "€"] {
+            let v = format!("!xdg-open {c}https://ada:pw@example.org/{c}");
+            let (_, h) = hide("alias.web", Some(&v));
+            assert_eq!(
+                h,
+                Some(format!("!xdg-open {c}https://••••@example.org/{c}")),
+                "{c}"
+            );
+            let k = format!("url.{c}https://u:p@h/.insteadof");
+            assert_eq!(
+                hide(&k, Some("gh:")).0,
+                Some(format!("url.{c}https://••••@h/.insteadof"))
+            );
+            // No secret: nothing hidden, and no panic.
+            assert_eq!(hide("alias.web", Some(&format!("{c}https://h/"))).1, None);
+            assert_eq!(hide("alias.web", Some(&format!("{c}://h/"))).1, None);
+        }
+    }
+
+    #[test]
+    fn git_config_hides_a_token_used_as_the_user() {
+        let h = |v: &str| hide("remote.origin.url", Some(v)).1;
+        for v in [
+            "https://ghp_TOKEN123:x-oauth-basic@github.com/a/b",
+            "https://PAT123:@dev.azure.com/o/p/_git/r",
+            "https://TOKEN123:x-token-auth@bitbucket.org/a/b",
+            "https://ghp_TOKEN123@github.com/a/b",
+        ] {
+            let shown = h(v).unwrap();
+            assert!(
+                !shown.contains("TOKEN123") && !shown.contains("PAT123"),
+                "{shown}"
+            );
+            let e = &parse(
+                &z(&[
+                    "local",
+                    "file:/r/.git/config",
+                    &format!("remote.origin.url\n{v}"),
+                ]),
+                Path::new("/r"),
+            )[0];
+            for hidden in [&e.line, &e.copy(false), &e.section, &e.name] {
+                assert!(
+                    !hidden.contains("TOKEN123") && !hidden.contains("PAT123"),
+                    "{hidden}"
+                );
+            }
+        }
+        // Over another scheme the user stays: it is no token.
+        assert_eq!(
+            h("ftp://ada:pw@host/f"),
+            Some("ftp://ada:••••@host/f".to_string())
+        );
+        // The key itself, with its line and heading.
+        let e = &parse(
+            &z(&[
+                "global",
+                "file:/h/.gitconfig",
+                "url.https://ghp_TOKEN123:x@github.com/.insteadof\ngh:",
+            ]),
+            Path::new("/h"),
+        )[0];
+        for hidden in [&e.line, &e.copy(false), &e.section, &e.name] {
+            assert!(!hidden.contains("TOKEN123"), "{hidden}");
+        }
+        assert!(e.copy(true).contains("TOKEN123"));
+    }
+
+    #[test]
+    fn git_config_hides_more_kinds_of_tokens() {
+        let h = |k: &str, v: &str| hide(k, Some(v)).1;
+        let some = |s: &str| Some(s.to_string());
+        assert_eq!(
+            h(
+                "remote.o.url",
+                "https://h/r?jwt=a&ticket=b&pat=c&path=d&gitlab_pat=e"
+            ),
+            some("https://h/r?jwt=••••&ticket=••••&pat=••••&path=d&gitlab_pat=••••")
+        );
+        for k in ["azure.pat", "x.devopsPat", "y.bearer"] {
+            assert_eq!(h(k, "v"), some("••••"), "{k}");
+        }
+        assert_eq!(h("core.hooksPath", "/h"), None);
+        for v in [
+            "!f() { echo password=$(cat ~/.pat); }; f",
+            "!my-helper --pat abc",
+            "!f() { echo bearer; }; f",
+            "!f() { echo \"protocol=https\"; echo ghp_a1b2c3d4e5f6g7h8i9j0; }; f",
+        ] {
+            assert_eq!(h("credential.helper", v), some("••••"), "{v}");
+        }
+        for v in [
+            "!gh auth git-credential",
+            "manager",
+            "!git-credential-manager-core get",
+        ] {
+            assert_eq!(h("credential.helper", v), None, "{v}");
+        }
     }
 
     fn z(parts: &[&str]) -> Vec<u8> {
@@ -420,8 +549,8 @@ mod tests {
         let cmd = &v[6];
         assert_eq!((cmd.scope.as_str(), cmd.file.as_ref()), ("command", None));
         let url = &v[5];
-        assert_eq!(url.hidden.as_deref(), Some("https://u:••••@h/r"));
-        assert_eq!(url.copy(false), "remote.origin.url=https://u:••••@h/r");
+        assert_eq!(url.hidden.as_deref(), Some("https://••••@h/r"));
+        assert_eq!(url.copy(false), "remote.origin.url=https://••••@h/r");
         assert_eq!(url.copy(true), "remote.origin.url=https://u:pw@h/r");
         assert_eq!(v[0].copy(false), "core.bare");
     }

@@ -111,8 +111,9 @@ default), **Weekly** or **Monthly**.
 - **When:** the desktop app looks once an hour while it runs (the first time ten minutes after
   it starts). When a week or a month has passed since the last round, it runs `podman pull`
   (or `docker pull`) for each of those images, in the background. Not on battery, and not with
-  *Container runtime → No containers*. A pull that fails (no network) leaves the round due, so
-  the next hour tries again.
+  *Container runtime → No containers*. Each image is tried, even after one fails. When every
+  pull fails (no network), the round stays due and the next hour tries again; when only some
+  fail, the round is done and those wait for the next one.
 - **What you see:** nothing pops up. While it pulls, *Settings → Previews → Container images*
   shows the runtime's progress line under that image, as for **Pull**, and the image's
   **Pull** and **Remove** wait.

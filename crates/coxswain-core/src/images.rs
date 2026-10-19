@@ -157,10 +157,31 @@ pub fn update(
 ) -> Result<(), String> {
     let old = id(rt, image);
     pull()?;
-    if let Some(old) = old.filter(|o| id(rt, image).as_ref() != Some(o)) {
+    if let Some(old) = replaced(old, id(rt, image)) {
         let _ = remove(rt, &old);
     }
     Ok(())
+}
+
+/// A round of updates: every image in `images` is tried, each with `pull`. Done when there was
+/// none or at least one pull worked; when all fail (offline) it stays due for the next hour,
+/// and one image that always fails does not make the others pull every hour.
+pub fn update_round(
+    rt: &Path,
+    images: &[String],
+    pull: impl Fn(&str) -> Result<(), String>,
+) -> bool {
+    let ok: Vec<bool> = images
+        .iter()
+        .map(|i| update(rt, i, || pull(i)).is_ok())
+        .collect();
+    ok.is_empty() || ok.contains(&true)
+}
+
+/// The copy a pull replaced: the old id, only when a new copy with another id is there. A new
+/// id that cannot be read keeps the old one, which may be the only copy.
+fn replaced(old: Option<String>, new: Option<String>) -> Option<String> {
+    old.filter(|o| new.is_some_and(|n| &n != o))
 }
 
 #[cfg(test)]
@@ -202,6 +223,45 @@ mod tests {
         );
         assert_eq!(stale(&mut st, &pulled, now + 89 * DAY), ["a", "b"]);
         assert_eq!(stale(&mut st, &pulled, now + 90 * DAY), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn images_update_removes_the_old_copy_only_when_a_new_one_is_there() {
+        let s = |x: &str| Some(x.to_string());
+        assert_eq!(replaced(s("old"), s("new")), s("old"));
+        assert_eq!(replaced(s("old"), s("old")), None, "nothing new pulled");
+        assert_eq!(
+            replaced(s("old"), None),
+            None,
+            "the new id unread: keep the old"
+        );
+        assert_eq!(replaced(None, s("new")), None);
+    }
+
+    #[test]
+    fn images_update_round_tries_every_image() {
+        // No runtime there: no id is read, so nothing is removed.
+        let rt = Path::new("/nonexistent/coxswain-test-runtime");
+        let images = ["a", "bad", "c"].map(String::from);
+        let tried = std::cell::RefCell::new(vec![]);
+        let pull = |i: &str| {
+            tried.borrow_mut().push(i.to_string());
+            if i == "bad" { Err("no".into()) } else { Ok(()) }
+        };
+        assert!(
+            update_round(rt, &images, pull),
+            "one failing image ends the round"
+        );
+        assert_eq!(
+            *tried.borrow(),
+            images,
+            "the one after a failure is tried too"
+        );
+        assert!(
+            !update_round(rt, &images, |_| Err("offline".into())),
+            "all failing: still due"
+        );
+        assert!(update_round(rt, &[], |_| Err("never".into())));
     }
 
     #[test]
