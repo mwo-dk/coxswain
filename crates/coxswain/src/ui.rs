@@ -625,10 +625,15 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
         s
     };
     let header_fg = sty(&t.header).fg.unwrap_or(Color::Reset);
-    let block: Vec<Vec<Line>> = rows
+    // The cursor's row in sight; only the rows that fit are made into lines.
+    let height = list.height as usize;
+    let Some(Dialog::Search { cursor: at, offset, .. }) = &mut app.dialog else { return };
+    *at = cursor;
+    let shown_rows = in_sight(&rows, offset, cursor, height);
+    let lines: Vec<Line> = rows[shown_rows.clone()]
         .iter()
-        .enumerate()
-        .map(|(i, row)| {
+        .zip(shown_rows)
+        .flat_map(|(row, i)| {
             let base = if i == cursor { sty(&t.dialog_input) } else { dstyle(&t) };
             match row {
                 Row::Ask { off: None } => vec![Line::from(Span::styled(fit(&format!(" ? {}", t!("find.ask_row", "query" => question.trim())), width), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))))],
@@ -662,17 +667,34 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
                 }
             }
         })
+        .take(height)
         .collect();
-    // The cursor's row in sight.
-    let height = list.height as usize;
-    let Some(Dialog::Search { cursor: at, offset, .. }) = &mut app.dialog else { return };
-    *at = cursor;
+    f.render_widget(Paragraph::new(lines), list);
+}
+
+/// How many lines a row of Find takes: a hit with a passage two, every other row one.
+fn row_lines(row: &coxswain_core::find::Row) -> usize {
+    match row {
+        coxswain_core::find::Row::Hit { hit, .. } if hit.snippet.is_some() => 2,
+        _ => 1,
+    }
+}
+
+/// Moves `offset` so the cursor's row is in sight in `height` lines, and gives the rows from
+/// there that fit (the last one may be cut).
+fn in_sight(rows: &[coxswain_core::find::Row], offset: &mut usize, cursor: usize, height: usize) -> std::ops::Range<usize> {
     *offset = (*offset).min(cursor);
-    while *offset < cursor && block[*offset..=cursor].iter().map(Vec::len).sum::<usize>() > height {
+    let mut used: usize = rows[*offset..=cursor].iter().map(row_lines).sum();
+    while *offset < cursor && used > height {
+        used -= row_lines(&rows[*offset]);
         *offset += 1;
     }
-    let lines: Vec<Line> = block.into_iter().skip(*offset).flatten().take(height).collect();
-    f.render_widget(Paragraph::new(lines), list);
+    let (mut end, mut used) = (*offset, 0);
+    while end < rows.len() && used < height {
+        used += row_lines(&rows[end]);
+        end += 1;
+    }
+    *offset..end
 }
 
 /// Find file's name syntax and prefixes (F1 in Find, and in Help).
@@ -881,6 +903,26 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn find_makes_lines_only_for_the_rows_in_sight() {
+        use coxswain_core::find::{GroupId, Row};
+        use coxswain_core::index::Hit;
+        let hit = |i: usize| Row::Hit {
+            group: GroupId::Names,
+            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None },
+        };
+        let rows: Vec<Row> = (0..10_000).map(hit).collect();
+        let mut offset = 0;
+        // At the top: rows of 2, 1, 2, 1 … lines fill 10 lines with 7 rows (the last one cut).
+        assert_eq!(in_sight(&rows, &mut offset, 0, 10), 0..7);
+        // The cursor far down: the offset follows it, and only a few rows are made.
+        let r = in_sight(&rows, &mut offset, 9_999, 10);
+        assert_eq!(offset, 9_993);
+        assert_eq!(r, 9_993..10_000);
+        // Back up: the offset comes back to the cursor.
+        assert_eq!(in_sight(&rows, &mut offset, 5_000, 10), 5_000..5_007);
+    }
 
     #[test]
     fn features_wrap_to_the_width_and_mark_the_cursor() {

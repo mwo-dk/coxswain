@@ -354,6 +354,7 @@
  "cli.unknown_value": "valor desconocido {value} para {option}: acepta {values}",
  "cloud.online_only": "solo en línea, no descargado",
  "clouds.goto": "Nube: {name}",
+ "clouds.slow": "Las carpetas de la nube no respondieron a tiempo, así que no están en la lista: puede que un montaje de la nube esté colgado",
  "columns.empty": "Carpeta vacía",
  "common.apply": "Aplicar",
  "common.cancel": "Cancelar",

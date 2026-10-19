@@ -338,6 +338,7 @@
  "cli.unknown_value": "مقدار ناشناخته {value} برای {option}: مقدارهای ممکن {values}",
  "cloud.online_only": "فقط آنلاین، دانلودنشده",
  "clouds.goto": "ابر: {name}",
+ "clouds.slow": "پوشه‌های ابری به‌موقع پاسخ ندادند، پس در فهرست نیستند: شاید یک اتصال ابری گیر کرده باشد",
  "columns.empty": "پوشه‌ی خالی",
  "common.apply": "اعمال",
  "common.cancel": "لغو",

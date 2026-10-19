@@ -338,6 +338,7 @@
  "cli.unknown_value": "okänt värde {value} för {option}: det tar {values}",
  "cloud.online_only": "bara online, inte hämtad",
  "clouds.goto": "Moln: {name}",
+ "clouds.slow": "Molnmapparna svarade inte i tid och finns därför inte i listan: en molnmontering kanske hänger",
  "columns.empty": "Tom mapp",
  "common.apply": "Verkställ",
  "common.cancel": "Avbryt",

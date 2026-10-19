@@ -354,6 +354,7 @@
  "cli.unknown_value": "nežinoma reikšmė {value} parinkčiai {option}: galimos {values}",
  "cloud.online_only": "tik internete, neatsisiųsta",
  "clouds.goto": "Debesis: {name}",
+ "clouds.slow": "Debesies aplankai neatsakė laiku, todėl jų sąraše nėra: galbūt pakibo debesies prijungimas",
  "columns.empty": "Tuščias aplankas",
  "common.apply": "Taikyti",
  "common.cancel": "Atšaukti",

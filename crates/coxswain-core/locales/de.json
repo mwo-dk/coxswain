@@ -338,6 +338,7 @@
  "cli.unknown_value": "unbekannter Wert {value} für {option}: erlaubt sind {values}",
  "cloud.online_only": "nur online, nicht heruntergeladen",
  "clouds.goto": "Cloud: {name}",
+ "clouds.slow": "Die Cloud-Ordner haben nicht rechtzeitig geantwortet und fehlen in der Liste: vielleicht hängt ein Cloud-Mount",
  "columns.empty": "Leerer Ordner",
  "common.apply": "Anwenden",
  "common.cancel": "Abbrechen",

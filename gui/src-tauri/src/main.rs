@@ -574,10 +574,11 @@ async fn bsd_places() -> Res<Vec<coxswain_core::bsd::Place>> {
 }
 
 /// The cloud accounts on this machine, for the sidebar. Read again with the disks: a cloud
-/// mounted meanwhile shows up.
+/// mounted meanwhile shows up. None while a hung cloud mount keeps the last look from coming
+/// back, so the 30 s refresh does not pile up threads stuck on it.
 #[tauri::command]
 async fn clouds() -> Res<Vec<coxswain_core::bsd::Place>> {
-    blocking(|| Ok(coxswain_core::clouds::places())).await
+    blocking(|| Ok(coxswain_core::clouds::places_within(std::time::Duration::from_secs(5)).unwrap_or_default())).await
 }
 
 // ---------------------------------------------------------------- sidebar
@@ -1749,17 +1750,29 @@ fn watch_dirs(dirs: Vec<PathBuf>, ctx: tauri::State<Ctx>) -> Res<()> {
     Ok(())
 }
 
-/// Emit `dir-changed` with the watched folders that changed, at most every 250 ms.
+/// Emit `dir-changed` with the watched folders that changed, once 250 ms pass without a change,
+/// and at most every 2 s while changes keep coming (`fs::Settle`, as the terminal app does).
 fn start_watcher(app: &tauri::AppHandle) -> Option<coxswain_core::DirWatcher> {
     use notify::Watcher;
+    use std::sync::mpsc::RecvTimeoutError;
     let (tx, rx) = std::sync::mpsc::channel::<notify::Result<notify::Event>>();
     let watcher = coxswain_core::DirWatcher::new(tx, notify::Config::default()).ok()?;
     let app = app.clone();
     std::thread::spawn(move || {
-        while let Ok(first) = rx.recv() {
-            std::thread::sleep(std::time::Duration::from_millis(250));
-            let events = std::iter::once(first).chain(rx.try_iter());
-            let paths: Vec<PathBuf> = events.flatten().filter(|e| !e.kind.is_access()).flat_map(|e| e.paths).collect();
+        let mut settle = coxswain_core::fs::Settle::default();
+        loop {
+            let first = match rx.recv_timeout(std::time::Duration::from_millis(250)) {
+                Ok(e) => Some(e),
+                Err(RecvTimeoutError::Timeout) => None,
+                Err(RecvTimeoutError::Disconnected) => break,
+            };
+            let events = first.into_iter().chain(rx.try_iter());
+            let now = std::time::Instant::now();
+            settle.add(events.flatten().filter(|e| !e.kind.is_access()).flat_map(|e| e.paths).collect(), now);
+            let paths = settle.take(now);
+            if paths.is_empty() {
+                continue;
+            }
             paths.iter().for_each(|p| app.state::<Ctx>().sizer.forget(p));
             let watched = app.state::<Ctx>().watched.lock().map(|w| w.clone()).unwrap_or_default();
             let changed: Vec<&PathBuf> = watched.iter().filter(|d| paths.iter().any(|p| p == *d || p.parent() == Some(d.as_path()))).collect();

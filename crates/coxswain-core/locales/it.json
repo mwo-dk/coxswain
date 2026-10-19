@@ -354,6 +354,7 @@
  "cli.unknown_value": "valore sconosciuto {value} per {option}: accetta {values}",
  "cloud.online_only": "solo online, non scaricato",
  "clouds.goto": "Cloud: {name}",
+ "clouds.slow": "Le cartelle cloud non hanno risposto in tempo, quindi non sono nell'elenco: forse un mount cloud è bloccato",
  "columns.empty": "Cartella vuota",
  "common.apply": "Applica",
  "common.cancel": "Annulla",

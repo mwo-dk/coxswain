@@ -370,6 +370,7 @@
  "cli.unknown_value": "невідоме значення {value} для {option}: можливі {values}",
  "cloud.online_only": "лише онлайн, не завантажено",
  "clouds.goto": "Хмара: {name}",
+ "clouds.slow": "Хмарні теки не відповіли вчасно, тому їх немає в списку: можливо, зависло підключення хмари",
  "columns.empty": "Порожня папка",
  "common.apply": "Застосувати",
  "common.cancel": "Скасувати",

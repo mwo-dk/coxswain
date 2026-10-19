@@ -121,11 +121,11 @@ already walk the tree.
 
 #### Do the panels follow changes on disk?
 
-Yes. The desktop app watches every folder open in a tab and reads it again within a quarter of
-a second of a change. The terminal app watches the folders of its two panels and their
-repository's `.git`, and reads a panel again once the changes have settled (a quarter of a second
-without another, or every two seconds while they keep coming); the git line follows. Both also
-read again after their own operations and on **Ctrl+R** (*Refresh*).
+Yes. The desktop app watches every folder open in a tab, the terminal app the folders of its two
+panels and their repository's `.git`. Both read a folder again once the changes have settled (a
+quarter of a second without another, or every two seconds while they keep coming, as during a
+build or a copy); in the terminal app the git line follows. Both also read again after their own
+operations and on **Ctrl+R** (*Refresh*).
 
 #### Which folder does a relative path start from?
 

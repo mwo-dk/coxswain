@@ -5,6 +5,33 @@
 
 use crate::bsd::Place;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+/// `places`, or none when it takes longer than `wait`: a FUSE mount whose server has gone
+/// (rclone, sshfs, gvfs) can hang every look at its folder, and a list of clouds must not hang
+/// the app with it. A look still hanging is not started again: none until it is back.
+pub fn places_within(wait: Duration) -> Option<Vec<Place>> {
+    static LOOKING: AtomicBool = AtomicBool::new(false);
+    within(&LOOKING, wait, places)
+}
+
+fn within<T: Send + 'static>(
+    busy: &'static AtomicBool,
+    wait: Duration,
+    look: fn() -> T,
+) -> Option<T> {
+    if busy.swap(true, Ordering::AcqRel) {
+        return None;
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let found = look();
+        busy.store(false, Ordering::Release);
+        let _ = tx.send(found);
+    });
+    rx.recv_timeout(wait).ok()
+}
 
 /// The cloud accounts, as places of kind `cloud`, sorted by name, each folder once.
 pub fn places() -> Vec<Place> {
@@ -329,6 +356,17 @@ mod reg {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_hanging_look_gives_up_and_is_not_started_twice() {
+        static BUSY: AtomicBool = AtomicBool::new(false);
+        let slow = || std::thread::sleep(Duration::from_millis(600));
+        assert_eq!(within(&BUSY, Duration::from_millis(50), slow), None, "gave up");
+        assert_eq!(within(&BUSY, Duration::from_secs(5), || ()), None, "the first still looks");
+        std::thread::sleep(Duration::from_millis(900));
+        assert_eq!(within(&BUSY, Duration::from_secs(5), || 7), Some(7), "back once it is done");
+        assert!(places_within(Duration::from_secs(30)).is_some());
+    }
 
     #[test]
     fn cloud_storage_folders_are_named_by_service_and_account() {

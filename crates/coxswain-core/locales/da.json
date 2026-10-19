@@ -338,6 +338,7 @@
  "cli.unknown_value": "ukendt værdi {value} for {option}: den tager {values}",
  "cloud.online_only": "kun online, ikke hentet",
  "clouds.goto": "Sky: {name}",
+ "clouds.slow": "Skymapperne svarede ikke i tide, så de er ikke med: en skymontering hænger måske",
  "columns.empty": "Tom mappe",
  "common.apply": "Anvend",
  "common.cancel": "Annuller",

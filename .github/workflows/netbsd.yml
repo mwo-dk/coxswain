@@ -24,6 +24,7 @@ on:
       - "crates/coxswain-core/src/tools.rs"
       - "crates/coxswain-core/src/update.rs"
       - "crates/coxswain-core/src/cloud.rs"
+      - "crates/coxswain-core/src/clouds.rs"
       - "crates/coxswain-core/src/setup.rs"
       - "crates/coxswain-core/src/menu.rs"
       - "crates/coxswain-core/src/config.rs"

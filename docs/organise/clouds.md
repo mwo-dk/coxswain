@@ -56,7 +56,8 @@ sorted by name.
 - Terminal app: **Alt+F1** and **Alt+F2** open a list instead of the *Go to folder* line when
   there is something to list (a cloud, a boot environment or jail on FreeBSD, the phone's
   folders in Termux). *Type a path…* at the top gives the line. The list is read each time you
-  open it.
+  open it. When the cloud folders do not answer within a moment (a mount whose server has gone),
+  the list opens without them; see [the question below](#why-does-altf1-say-the-clouds-did-not-answer).
 
 ## Settings and config.toml
 
@@ -81,6 +82,17 @@ Its sync app must keep a folder on this machine, and Coxswain must know where th
 list. On Linux, mount it with rclone (`rclone mount remote: ~/remote`) or add it in GNOME's
 *Online Accounts*; it shows up within half a minute in the desktop app, and the next time you
 press **Alt+F1** in the terminal app.
+
+#### Why does Alt+F1 say the clouds did not answer?
+
+A cloud mount stopped answering: an rclone, sshfs or gvfs mount whose server, network or
+program has gone can make every look at its folder wait without end. **Alt+F1** and **Alt+F2**
+in the terminal app wait at most a third of a second for the clouds, then open the list without
+them, and the status line says *Cloud folders did not answer in time, so they are not listed*
+(only *Go to folder* opens when nothing else is listed). The desktop app's sidebar leaves the
+*Clouds* section out while the mount hangs. Both list the clouds again once the mount answers:
+unmount the hung one (`umount` on FreeBSD, `fusermount -u ~/remote` on Linux) or bring its
+server back.
 
 #### Does Coxswain log in to my cloud or download anything?
 

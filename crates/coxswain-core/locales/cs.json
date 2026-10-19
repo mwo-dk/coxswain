@@ -354,6 +354,7 @@
  "cli.unknown_value": "neznámá hodnota {value} pro {option}: přijímá {values}",
  "cloud.online_only": "jen online, nestaženo",
  "clouds.goto": "Cloud: {name}",
+ "clouds.slow": "Cloudové složky neodpověděly včas, proto nejsou v seznamu: některé připojení cloudu možná visí",
  "columns.empty": "Prázdná složka",
  "common.apply": "Použít",
  "common.cancel": "Zrušit",
