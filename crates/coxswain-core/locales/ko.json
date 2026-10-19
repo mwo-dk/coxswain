@@ -321,6 +321,7 @@
  "chess.black_to_move": "흑 차례",
  "chess.board": "체스판",
  "chess.cannot_play": "{move}을(를) 둘 수 없습니다: 그 변화의 포지션이 거기서 끝납니다",
+ "chess.capped": "처음 {n}개 대국만: 파일에 Coxswain이 읽는 것보다 많은 대국이 있습니다",
  "chess.close": "닫기 (Esc)",
  "chess.col_black": "흑",
  "chess.col_date": "날짜",

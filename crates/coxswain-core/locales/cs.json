@@ -353,6 +353,7 @@
  "chess.black_to_move": "Černý je na tahu",
  "chess.board": "Šachovnice",
  "chess.cannot_play": "{move} nelze zahrát: pozice jeho řádku tam končí",
+ "chess.capped": "jen prvních {n} partií: soubor má víc, než Coxswain načte",
  "chess.close": "Zavřít (Esc)",
  "chess.col_black": "Černý",
  "chess.col_date": "Datum",

@@ -337,6 +337,7 @@
  "chess.black_to_move": "Musta siirtää",
  "chess.board": "Shakkilauta",
  "chess.cannot_play": "Siirtoa {move} ei voitu pelata: sen linjan asemat loppuvat siihen",
+ "chess.capped": "vain ensimmäiset {n} peliä: tiedostossa on enemmän kuin Coxswain lukee",
  "chess.close": "Sulje (Esc)",
  "chess.col_black": "Musta",
  "chess.col_date": "Päivä",

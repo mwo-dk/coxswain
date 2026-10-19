@@ -337,6 +337,7 @@
  "chess.black_to_move": "Svart vid draget",
  "chess.board": "Schackbräde",
  "chess.cannot_play": "{move} kunde inte spelas: positionerna i dess variant tar slut där",
+ "chess.capped": "bara de första {n} partierna: filen har fler än Coxswain läser",
  "chess.close": "Stäng (Esc)",
  "chess.col_black": "Svart",
  "chess.col_date": "Datum",

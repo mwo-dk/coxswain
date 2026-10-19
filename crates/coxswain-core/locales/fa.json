@@ -337,6 +337,7 @@
  "chess.black_to_move": "نوبت سیاه",
  "chess.board": "صفحه‌ی شطرنج",
  "chess.cannot_play": "{move} بازی نشد: موقعیت‌های این خط همان‌جا تمام می‌شوند",
+ "chess.capped": "فقط {n} بازی نخست: فایل بیش از آنچه Coxswain می‌خواند بازی دارد",
  "chess.close": "بستن (Esc)",
  "chess.col_black": "سیاه",
  "chess.col_date": "تاریخ",

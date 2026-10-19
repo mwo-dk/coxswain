@@ -136,7 +136,11 @@ further. Find finds only those; the table always has them all.
 | `.pgn.gz`, `.pgn.zst` | The same, packed with gzip or Zstandard |
 | `.epd`, `.fen` | Positions, one a line |
 
-Broken games are skipped or read as far as they go; nothing in a file can stop the app.
+Broken games are skipped or read as far as they go; nothing in a file can stop the app. A file
+takes no more than the table can hold: the first 10,000,000 games, 256 MB of names (players,
+events, openings), and a packed file unpacked to no more than 64 GB. Past that, the line above
+the table adds *the first 10000000 games only: the file has more than Coxswain reads*. One game
+is read up to 16 MB, a line up to 1 MB and a tag up to 4 KB.
 Chess960 games with a `FEN` tag are read; ChessBase (`.cbh`, `.cbv`) and other databases are
 not.
 

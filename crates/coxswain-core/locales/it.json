@@ -353,6 +353,7 @@
  "chess.black_to_move": "Muove il Nero",
  "chess.board": "Scacchiera",
  "chess.cannot_play": "{move} non si può giocare: le posizioni della sua linea si fermano lì",
+ "chess.capped": "solo le prime {n} partite: il file ne ha più di quante Coxswain ne legga",
  "chess.close": "Chiudi (Esc)",
  "chess.col_black": "Nero",
  "chess.col_date": "Data",

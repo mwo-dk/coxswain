@@ -337,6 +337,7 @@
  "chess.black_to_move": "Käib must",
  "chess.board": "Malelaud",
  "chess.cannot_play": "Käiku {move} ei saanud teha: selle variandi positsioonid lõpevad seal",
+ "chess.capped": "ainult esimesed {n} partiid: failis on rohkem, kui Coxswain loeb",
  "chess.close": "Sulge (Esc)",
  "chess.col_black": "Must",
  "chess.col_date": "Kuupäev",

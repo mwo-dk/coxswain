@@ -353,6 +353,7 @@
  "chess.black_to_move": "Juguen les negres",
  "chess.board": "Tauler d'escacs",
  "chess.cannot_play": "No s'ha pogut jugar {move}: les posicions de la seva línia acaben aquí",
+ "chess.capped": "només les primeres {n} partides: el fitxer en té més de les que llegeix Coxswain",
  "chess.close": "Tanca (Esc)",
  "chess.col_black": "Negres",
  "chess.col_date": "Data",

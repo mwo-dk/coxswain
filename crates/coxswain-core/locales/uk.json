@@ -369,6 +369,7 @@
  "chess.black_to_move": "Хід чорних",
  "chess.board": "Шахівниця",
  "chess.cannot_play": "Хід {move} неможливо зіграти: позиції його варіанта там закінчуються",
+ "chess.capped": "лише перші {n} партій: у файлі їх більше, ніж читає Coxswain",
  "chess.close": "Закрити (Esc)",
  "chess.col_black": "Чорні",
  "chess.col_date": "Дата",

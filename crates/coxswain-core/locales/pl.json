@@ -369,6 +369,7 @@
  "chess.black_to_move": "Ruch czarnych",
  "chess.board": "Szachownica",
  "chess.cannot_play": "Nie można zagrać {move}: pozycje jego wariantu urywają się tam",
+ "chess.capped": "tylko pierwsze {n} partii: plik ma ich więcej, niż Coxswain wczytuje",
  "chess.close": "Zamknij (Esc)",
  "chess.col_black": "Czarne",
  "chess.col_date": "Data",

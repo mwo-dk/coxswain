@@ -433,6 +433,9 @@ impl Viewer {
             let pct = (p.read * 100).checked_div(p.size).unwrap_or(0);
             state = format!("{state} · {}", t!("chess.reading", "percent" => pct));
         }
+        if p.capped {
+            state = format!("{state} · {}", t!("chess.capped", "n" => p.games));
+        }
         if let Some(e) = &p.error {
             state = format!("{state} · {e}");
         }

@@ -337,6 +337,7 @@
  "chess.black_to_move": "Zwart is aan zet",
  "chess.board": "Schaakbord",
  "chess.cannot_play": "{move} kon niet gespeeld worden: de stellingen van die variant houden daar op",
+ "chess.capped": "alleen de eerste {n} partijen: het bestand heeft er meer dan Coxswain leest",
  "chess.close": "Sluiten (Esc)",
  "chess.col_black": "Zwart",
  "chess.col_date": "Datum",

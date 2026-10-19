@@ -353,6 +353,7 @@
  "chess.black_to_move": "Melnie kārtējā gājienā",
  "chess.board": "Šaha galdiņš",
  "chess.cannot_play": "{move} nevar nospēlēt: tā varianta pozīcijas tur beidzas",
+ "chess.capped": "tikai pirmās {n} partijas: failā ir vairāk, nekā Coxswain nolasa",
  "chess.close": "Aizvērt (Esc)",
  "chess.col_black": "Melnie",
  "chess.col_date": "Datums",

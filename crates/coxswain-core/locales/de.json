@@ -337,6 +337,7 @@
  "chess.black_to_move": "Schwarz am Zug",
  "chess.board": "Schachbrett",
  "chess.cannot_play": "{move} ließ sich nicht spielen: Die Stellungen seiner Zugfolge enden dort",
+ "chess.capped": "nur die ersten {n} Partien: die Datei hat mehr, als Coxswain liest",
  "chess.close": "Schließen (Esc)",
  "chess.col_black": "Schwarz",
  "chess.col_date": "Datum",

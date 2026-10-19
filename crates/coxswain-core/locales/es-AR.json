@@ -353,6 +353,7 @@
  "chess.black_to_move": "Juegan las negras",
  "chess.board": "Tablero de ajedrez",
  "chess.cannot_play": "No se pudo jugar {move}: las posiciones de su línea terminan ahí",
+ "chess.capped": "solo las primeras {n} partidas: el archivo tiene más de las que lee Coxswain",
  "chess.close": "Cerrar (Esc)",
  "chess.col_black": "Negras",
  "chess.col_date": "Fecha",

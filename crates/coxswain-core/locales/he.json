@@ -353,6 +353,7 @@
  "chess.black_to_move": "תור השחור",
  "chess.board": "לוח שחמט",
  "chess.cannot_play": "לא ניתן היה לשחק את {move}: העמדות של קו המשחק שלו נגמרות שם",
+ "chess.capped": "רק {n} המשחקים הראשונים: בקובץ יש יותר ממה ש-Coxswain קורא",
  "chess.close": "סגירה (Esc)",
  "chess.col_black": "שחור",
  "chess.col_date": "תאריך",

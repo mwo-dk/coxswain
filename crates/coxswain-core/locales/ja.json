@@ -321,6 +321,7 @@
  "chess.black_to_move": "黒番",
  "chess.board": "チェス盤",
  "chess.cannot_play": "{move} は指せません：その変化の局面がそこで途切れています",
+ "chess.capped": "最初の {n} 局のみ：ファイルには Coxswain が読み込む数より多くの対局があります",
  "chess.close": "閉じる (Esc)",
  "chess.col_black": "黒",
  "chess.col_date": "日付",

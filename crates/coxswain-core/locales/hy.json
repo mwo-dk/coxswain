@@ -337,6 +337,7 @@
  "chess.black_to_move": "Սևերի քայլն է",
  "chess.board": "Շախմատի տախտակ",
  "chess.cannot_play": "{move}-ը հնարավոր չէ խաղալ. նրա տողի դիրքերն այնտեղ ավարտվում են",
+ "chess.capped": "միայն առաջին {n} պարտիաները. ֆայլում ավելին կա, քան Coxswain-ը կարդում է",
  "chess.close": "Փակել (Esc)",
  "chess.col_black": "Սև",
  "chess.col_date": "Ամսաթիվ",

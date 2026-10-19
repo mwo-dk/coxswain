@@ -337,6 +337,7 @@
  "chess.black_to_move": "Beltzak mugitzen du",
  "chess.board": "Xake-taula",
  "chess.cannot_play": "{move} ezin izan da jokatu: bere lerroko posizioak hor amaitzen dira",
+ "chess.capped": "lehen {n} partidak bakarrik: fitxategiak Coxswainek irakurtzen dituenak baino gehiago ditu",
  "chess.close": "Itxi (Esc)",
  "chess.col_black": "Beltzak",
  "chess.col_date": "Data",

@@ -337,6 +337,7 @@
  "chess.black_to_move": "Sort er i trækket",
  "chess.board": "Skakbræt",
  "chess.cannot_play": "{move} kunne ikke spilles: stillingerne i dens linje ender der",
+ "chess.capped": "kun de første {n} partier: filen har flere, end Coxswain læser",
  "chess.close": "Luk (Esc)",
  "chess.col_black": "Sort",
  "chess.col_date": "Dato",

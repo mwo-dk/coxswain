@@ -247,19 +247,38 @@ fn pack(path: &Path) -> Pack {
     }
 }
 
-/// The file's text, unpacked as it is read; `read` counts the file's own bytes.
-fn reader(path: &Path, read: Arc<AtomicU64>) -> io::Result<Box<dyn Read + Send>> {
+/// What one file may cost: a file of endless tiny games, or a small packed file that unpacks
+/// to terabytes, stops here, with the games read so far and a note saying so.
+#[derive(Clone, Copy, Debug)]
+pub struct Limits {
+    /// Games in the table (48 bytes each).
+    pub games: usize,
+    /// Bytes of the names kept (players, events, openings), with what keeping each costs.
+    pub names: usize,
+    /// Bytes a packed file is unpacked to, at most.
+    pub unpacked: u64,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Limits { games: 10_000_000, names: 256 << 20, unpacked: 64 << 30 }
+    }
+}
+
+/// The file's text, unpacked as it is read (up to `unpacked` bytes); `read` counts the file's
+/// own bytes.
+fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dyn Read + Send>> {
     let f = BufReader::new(Counted { inner: File::open(path)?, read });
     Ok(match pack(path) {
         Pack::None => Box::new(f),
-        Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f)),
-        Pack::Zst => Box::new(ruzstd::decoding::StreamingDecoder::new(f).map_err(io::Error::other)?),
+        Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f).take(unpacked)),
+        Pack::Zst => Box::new(ruzstd::decoding::StreamingDecoder::new(f).map_err(io::Error::other)?.take(unpacked)),
     })
 }
 
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    let r = reader(path, Arc::default())?;
+    let r = reader(path, Arc::default(), Limits::default().unpacked)?;
     scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), each)
 }
 
@@ -289,6 +308,8 @@ struct Shared {
     recs: Vec<Rec>,
     strings: Vec<Box<str>>,
     done: bool,
+    /// Stopped at `Limits`: the table has the games read until then.
+    capped: bool,
     error: Option<String>,
 }
 
@@ -356,7 +377,7 @@ impl Source {
         // ponytail: a packed file is unpacked from its start for a game before the last one
         // read; seek points every few MB would make going back cheap, if it is ever slow.
         if self.open.as_ref().is_none_or(|(_, at)| *at > offset) {
-            self.open = Some((reader(&self.path, Arc::default())?, 0));
+            self.open = Some((reader(&self.path, Arc::default(), Limits::default().unpacked)?, 0));
         }
         let (r, at) = self.open.as_mut().expect("opened above");
         io::copy(&mut r.take(offset - *at), &mut io::sink())?;
@@ -386,6 +407,8 @@ pub struct Progress {
     /// Bytes of the file read, of its size.
     pub read: u64,
     pub size: u64,
+    /// Stopped at a limit (`Limits`): only the first `games` games are in the table.
+    pub capped: bool,
     pub error: Option<String>,
 }
 
@@ -477,19 +500,28 @@ impl Drop for Library {
 impl Library {
     /// Starts reading the file's games, on a thread of its own.
     pub fn open(path: &Path) -> io::Result<Library> {
+        Library::open_with(path, Limits::default())
+    }
+
+    /// `open`, with limits of its own.
+    pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
         let size = std::fs::metadata(path)?.len();
         let read = Arc::new(AtomicU64::new(0));
-        let r = reader(path, read.clone())?;
+        let r = reader(path, read.clone(), limits.unpacked)?;
+        // What the packed file unpacked to: at the limit, the rest of it was left.
+        let unpacked = Arc::new(AtomicU64::new(0));
+        let packed = pack(path) != Pack::None;
+        let r: Box<dyn Read + Send> = Box::new(Counted { inner: r, read: unpacked.clone() });
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (sh, st) = (shared.clone(), stop.clone());
-        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st))?;
+        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked))?;
         Ok(Library { path: path.to_path_buf(), shared, read, size, stop, source: Mutex::new(Source { path: path.to_path_buf(), open: None }) })
     }
 
     pub fn progress(&self) -> Progress {
         let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-        Progress { games: s.recs.len(), done: s.done, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, error: s.error.clone() }
+        Progress { games: s.recs.len(), done: s.done, capped: s.capped, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, error: s.error.clone() }
     }
 
     /// The games that `q` lets through, in its order: their indices (from 0).
@@ -603,12 +635,16 @@ impl Library {
 }
 
 /// The pass over the games: their records, handed over in batches so the table fills.
-fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool) {
+/// `cut`: the packed file was unpacked as far as the limits allow.
+fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, limits: Limits, cut: impl Fn() -> bool) {
+    // What the names cost so far: their bytes, twice (the list and the lookup), and the rest.
+    let mut names = 0usize;
+    let (mut games, mut capped) = (0usize, false);
     let mut ids: HashMap<Box<str>, u32> = HashMap::new();
     let mut fresh: Vec<Box<str>> = vec![];
     let mut batch: Vec<Rec> = vec![];
     let mut base = 0u32;
-    let intern = |s: &str, ids: &mut HashMap<Box<str>, u32>, fresh: &mut Vec<Box<str>>, base: u32| -> u32 {
+    let intern = |s: &str, ids: &mut HashMap<Box<str>, u32>, fresh: &mut Vec<Box<str>>, base: u32, names: &mut usize| -> u32 {
         let s = s.trim();
         if s.is_empty() || s == "?" {
             return u32::MAX;
@@ -617,6 +653,7 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool) {
             return id;
         }
         let id = base + fresh.len() as u32;
+        *names += 2 * s.len() + 64;
         ids.insert(s.into(), id);
         fresh.push(s.into());
         id
@@ -629,14 +666,19 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool) {
     };
     let mut last = std::time::Instant::now();
     let res = scan(BufReader::with_capacity(1 << 16, r), stop, |h| {
+        if games >= limits.games || names >= limits.names {
+            capped = true;
+            return false;
+        }
+        games += 1;
         let (eco, opening) = h.opening();
         let rec = Rec {
             offset: h.offset,
             len: h.len.min(MAX_GAME as u64) as u32,
-            white: intern(h.tag(WHITE), &mut ids, &mut fresh, base),
-            black: intern(h.tag(BLACK), &mut ids, &mut fresh, base),
-            event: intern(h.tag(EVENT), &mut ids, &mut fresh, base),
-            opening: intern(&opening, &mut ids, &mut fresh, base),
+            white: intern(h.tag(WHITE), &mut ids, &mut fresh, base, &mut names),
+            black: intern(h.tag(BLACK), &mut ids, &mut fresh, base, &mut names),
+            event: intern(h.tag(EVENT), &mut ids, &mut fresh, base, &mut names),
+            opening: intern(&opening, &mut ids, &mut fresh, base, &mut names),
             date: date_code(h.tag(DATE)),
             white_elo: h.tag(WHITE_ELO).parse().unwrap_or(0),
             black_elo: h.tag(BLACK_ELO).parse().unwrap_or(0),
@@ -654,6 +696,7 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool) {
     flush(&mut batch, &mut fresh, &mut base);
     let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
     s.done = true;
+    s.capped = capped || cut();
     if let Err(e) = res {
         s.error = Some(e.to_string());
     }
@@ -858,6 +901,36 @@ mod tests {
         let mut r = io::Cursor::new(vec![b'y'; 3 * MAX_LINE]);
         assert_eq!(read_line(&mut r, &mut line).unwrap(), 3 * MAX_LINE);
         assert_eq!(line.len(), MAX_LINE);
+    }
+
+    /// A small packed file of endless tiny games stops at the limits, with what it read.
+    #[test]
+    fn limits_stop_endless_games() {
+        let mut zst = vec![];
+        let mut gz = flate2::write::GzEncoder::new(&mut zst, flate2::Compression::fast());
+        for i in 0..50_000 {
+            write!(gz, "[White \"p{i}\"]\n1.e4 *\n").unwrap();
+        }
+        gz.finish().unwrap();
+        let d = tempdir::Dir::new();
+        let p = d.0.join("tiny.pgn.gz");
+        std::fs::write(&p, &zst).unwrap();
+        let wait = |l: &Library| {
+            while !l.progress().done {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            l.progress()
+        };
+        let full = Limits::default();
+        let p1 = wait(&Library::open_with(&p, Limits { games: 1000, ..full }).unwrap());
+        assert_eq!((p1.games, p1.capped), (1000, true));
+        let p2 = wait(&Library::open_with(&p, Limits { names: 64 * 1024, ..full }).unwrap());
+        assert!(p2.capped && p2.games < 1000, "{p2:?}");
+        // Unpacked no further than allowed: about 20 bytes a game.
+        let p3 = wait(&Library::open_with(&p, Limits { unpacked: 20_000, ..full }).unwrap());
+        assert!(p3.games < 1100 && p3.capped, "{p3:?}");
+        let p4 = wait(&Library::open(&p).unwrap());
+        assert_eq!((p4.games, p4.capped), (50_000, false));
     }
 
     #[test]

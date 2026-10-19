@@ -337,6 +337,7 @@
  "chess.black_to_move": "შავების სვლაა",
  "chess.board": "საჭადრაკო დაფა",
  "chess.cannot_play": "{move} ვერ ითამაშება: მისი ხაზის პოზიციები იქ წყდება",
+ "chess.capped": "მხოლოდ პირველი {n} პარტია: ფაილში უფრო მეტია, ვიდრე Coxswain კითხულობს",
  "chess.close": "დახურვა (Esc)",
  "chess.col_black": "შავი",
  "chess.col_date": "თარიღი",

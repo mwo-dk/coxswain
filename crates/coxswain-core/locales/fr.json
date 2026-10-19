@@ -353,6 +353,7 @@
  "chess.black_to_move": "Les Noirs jouent",
  "chess.board": "Échiquier",
  "chess.cannot_play": "{move} n’a pas pu être joué : les positions de sa ligne s’arrêtent là",
+ "chess.capped": "les {n} premières parties seulement : le fichier en contient plus que Coxswain n’en lit",
  "chess.close": "Fermer (Esc)",
  "chess.col_black": "Noirs",
  "chess.col_date": "Date",

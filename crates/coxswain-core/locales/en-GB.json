@@ -337,6 +337,7 @@
  "chess.black_to_move": "Black to move",
  "chess.board": "Chess board",
  "chess.cannot_play": "{move} could not be played: the positions of its line stop there",
+ "chess.capped": "the first {n} games only: the file has more than Coxswain reads",
  "chess.close": "Close (Esc)",
  "chess.col_black": "Black",
  "chess.col_date": "Date",

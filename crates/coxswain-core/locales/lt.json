@@ -353,6 +353,7 @@
  "chess.black_to_move": "Juodųjų ėjimas",
  "chess.board": "Šachmatų lenta",
  "chess.cannot_play": "{move} negalima sužaisti: jo linijos pozicijos čia baigiasi",
+ "chess.capped": "tik pirmosios {n} partijos: faile jų daugiau, nei Coxswain nuskaito",
  "chess.close": "Uždaryti (Esc)",
  "chess.col_black": "Juodieji",
  "chess.col_date": "Data",
