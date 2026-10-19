@@ -414,6 +414,34 @@ impl Viewer {
         self.top = (self.top as isize + by).clamp(0, n.saturating_sub(1) as isize) as usize;
     }
 
+    /// The far end of a batch of lines for `find`, starting at `from` and going towards `limit`
+    /// (`forward`, or backwards): at most 4096 lines, and at most `READ_AT_ONCE` bytes counting
+    /// each line to `LONGEST_READ`, but always one line.
+    fn batch(&self, from: usize, forward: bool, limit: usize) -> usize {
+        const LINES: usize = 4096;
+        let Body::File { index, .. } = &self.body else {
+            return if forward { (from + LINES).min(limit) } else { from.saturating_sub(LINES).max(limit) };
+        };
+        let s = index.starts.lock().unwrap();
+        let len = |i: usize| match (s.get(i), s.get(i + 1)) {
+            (Some(a), Some(b)) => (b - a).min(LONGEST_READ),
+            _ => 0,
+        };
+        let (mut at, mut bytes) = (from, 0u64);
+        loop {
+            let next = if forward { at + 1 } else { at.wrapping_sub(1) };
+            let line = if forward { at } else { next };
+            if (forward && at >= limit) || (!forward && at <= limit) || from.abs_diff(at) >= LINES {
+                return at;
+            }
+            bytes += len(line);
+            if bytes > READ_AT_ONCE && at != from {
+                return at;
+            }
+            at = next;
+        }
+    }
+
     /// The next line (or the one before, `back`) after the screen's first with the search on
     /// it, case aside. The disk is read a megabyte at a time, so a big file takes a moment.
     fn find(&mut self, back: bool) {
@@ -423,24 +451,25 @@ impl Viewer {
         let q = self.query.to_lowercase();
         let (n, done) = self.count();
         // A new search starts at the screen's first line; `n` and `N` go on from the hit.
-        let order: Box<dyn Iterator<Item = usize>> = match (self.found, back) {
-            (Some(f), false) => Box::new(f + 1..n),
-            (None, false) => Box::new(self.top..n),
-            (f, true) => Box::new((0..f.unwrap_or(self.top)).rev()),
+        let (mut a, mut b) = match (self.found, back) {
+            (Some(f), false) => (f + 1, n),
+            (None, false) => (self.top, n),
+            (f, true) => (0, f.unwrap_or(self.top)),
         };
-        // A few thousand lines at a time, each read to a megabyte at most.
-        const CHUNK: usize = 4096;
-        let order: Vec<usize> = order.collect();
-        for part in order.chunks(CHUNK) {
-            let (lo, hi) = (*part.iter().min().unwrap(), *part.iter().max().unwrap() + 1);
+        // Lines in batches of at most a few thousand and a few megabytes (each line read to a
+        // megabyte at most), from the search's start onwards, or backwards for `N`.
+        while a < b {
+            let (lo, hi) = if back { (self.batch(b, false, a), b) } else { (a, self.batch(a, true, b)) };
             let lines = self.lines(lo, hi, LONGEST_READ);
-            let hit = part.iter().copied().find(|&i| lines.get(i - lo).is_some_and(|l| l.to_lowercase().contains(&q)));
+            let has = |i: usize| lines.get(i - lo).is_some_and(|l| l.to_lowercase().contains(&q));
+            let hit = if back { (lo..hi).rev().find(|&i| has(i)) } else { (lo..hi).find(|&i| has(i)) };
             if let Some(i) = hit {
                 self.found = Some(i);
                 self.top = i.saturating_sub(self.page / 3);
                 self.said = None;
                 return;
             }
+            if back { b = lo } else { a = hi }
         }
         self.said = Some(if done { t!("viewer.not_found", "text" => &self.query) } else { t!("viewer.still_reading") });
     }
@@ -831,6 +860,29 @@ mod tests {
             assert_eq!(v.syntax.map(|s| s.name.as_str()), grammar, "{name}");
         }
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn search_reads_long_lines_a_few_megabytes_at_a_time() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-search-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        // Twelve lines of two megabytes and a short one with the word: each batch holds at most
+        // a few lines, not thousands of megabyte-long ones.
+        let p = d.join("wide.log");
+        let mut body: String = (0..12).map(|_| "y".repeat(2 << 20) + "\n").collect();
+        body.push_str("needle here\n");
+        std::fs::write(&p, body).unwrap();
+        let mut v = Viewer::open(&p, ["F4", "F3"]).unwrap();
+        wait(&v);
+        assert!(v.batch(0, true, 13) <= 5, "at most READ_AT_ONCE bytes a batch");
+        assert!(v.batch(13, false, 0) >= 8, "backwards too");
+        assert_eq!(v.batch(0, true, 0), 0);
+        v.query = "NEEDLE".into();
+        v.find(false);
+        assert_eq!(v.found, Some(12));
+        v.find(true);
+        assert_eq!(v.found, Some(12), "nothing before it");
+        std::fs::remove_dir_all(&d).ok();
     }
 
     #[test]
