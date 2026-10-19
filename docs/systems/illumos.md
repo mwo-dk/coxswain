@@ -139,7 +139,7 @@ Everything in [ZFS snapshots as folders](../files/zfs-snapshots.md) works on ill
 | What | Where |
 |---|---|
 | A folder's snapshots | **Alt+Z** on it: newest first, each a read-only folder as it was (`.zfs/snapshot`) |
-| How a file differs now | **Enter** on a file inside a snapshot shows the diff in your pager |
+| How a file differs now | **Enter** on a file inside a snapshot shows the diff in the built-in viewer |
 | A file back | **F5** copies it out of the snapshot to the other panel; **F4**, **F6**, **F7** and **F8** are refused in a snapshot |
 | The dataset | The panel's bottom border: `rpool/export/home/alice · 1.52x · 12.3 GB used · 88.1 GB free` |
 | ZFS facts | **Alt+Enter** (Properties): dataset, mountpoint, compression and ratio, used, available, referenced, quota, refquota, snapshots |

@@ -102,8 +102,8 @@ Each change is written to `config.toml` as you make it, **keeping your comments 
 only that one value changes, in place, or it is added under its table. If the file does not
 exist yet, it is created with only what you changed. A change that would make the file invalid
 is refused rather than saved: the file on disk is never replaced by one that does not parse.
-Emptying *Editor* or *Viewer* takes the key out of the file, so `$EDITOR` or `$PAGER` applies
-again.
+Emptying *Editor* or *Viewer* takes the key out of the file, so `$EDITOR` or the built-in
+viewer applies again.
 
 The desktop app uses the new value at once: a new language redraws every text, a new theme
 repaints the window, a new font, size or row height re-lays the rows. A change to anything the
@@ -194,7 +194,7 @@ Opening this area asks the container runtime which images it has.
 | *Last commit of each file* | The *Last commit* column and the preview's *Last commit* ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
 | *Git tool* | Where **Alt+G** (*Open in your git tool*) goes, for commit, push and pull. *Automatic* (empty) takes the first installed of lazygit, gitui, tig and the desktop clients, else a terminal; the list shows the tools installed here, and a command of your own goes in too, `%d` being the repository ([Open in your git tool](../panels/git.md#open-in-your-git-tool)) | `[git] tool` |
 | *Editor* | The program **F4** opens a file in. Empty: the system's choice in the desktop app, `$VISUAL` or `$EDITOR` in the terminal app ([View and edit](../commands/view-and-edit.md)) | `editor` |
-| *Viewer (terminal app)* | The program **F3** shows a file in, in the terminal app. Empty: `$PAGER`, else `less` | `viewer` |
+| *Viewer (terminal app)* | The program **F3** shows a file in, in the terminal app. Empty: the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer), which highlights code; **p** there hands the file to `$PAGER`, else `less` | `viewer` |
 | *CBOM viewer on F3 (terminal app)* | **F3** on a CycloneDX bill of materials opens the CBOM viewer ([CBOM viewer](../previews/bom.md)) | `bom_viewer` |
 | *Provenance viewer on F3 (terminal app)* | **F3** on build provenance (SLSA, in-toto, a Sigstore bundle) opens the provenance viewer ([Build provenance](../previews/provenance.md)) | `provenance_viewer` |
 

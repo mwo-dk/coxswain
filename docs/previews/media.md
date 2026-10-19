@@ -31,7 +31,7 @@ program is built for.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in the built-in viewer |
 | **Enter** | Opens the file in its program; goes into a folder or archive | The same |
 | **Ctrl+E** | Extracts the archive into the other panel | The same |
 

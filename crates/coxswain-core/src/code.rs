@@ -58,25 +58,39 @@ const NAMES: &[&str] = &[
 const SLASH: &[&str] = &[
     "rs", "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "m", "mm", "java", "kt", "kts",
     "scala", "sc", "swift", "go", "cs", "fs", "fsx", "dart", "zig", "groovy", "gradle", "proto",
-    "d", "sol", "v", "glsl", "hlsl", "wgsl", "cu",
+    "d", "sol", "v", "glsl", "hlsl", "wgsl", "cu", "sv", "svh", "vh", "ino", "pde", "scad", "hx",
+    "vala", "dts", "zon", "frag", "vert", "as", "sbt", "fsi",
 ];
 const SLASH_QUOTE: &[&str] = &[
     "js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts", "svelte", "vue", "php", "json", "jsonc",
-    "json5", "css", "scss", "less",
+    "json5", "css", "scss", "less", "rexx", "rex", "pli", "pl1", "prg",
 ];
 const HASH: &[&str] = &[
     "py", "pyi", "rb", "sh", "bash", "zsh", "fish", "ksh", "pl", "pm", "r", "jl", "ex", "exs",
     "nim", "cr", "tcl", "ps1", "psm1", "yaml", "yml", "toml", "ini", "cfg", "conf", "cmake", "nix",
-    "mk", "coffee", "gd", "awk", "sed", "rake", "gemspec", "podspec", "tf", "hcl",
+    "mk", "coffee", "gd", "awk", "sed", "rake", "gemspec", "podspec", "tf", "hcl", "tk", "nims",
+    "psd1",
 ];
 const DASH: &[&str] = &[
-    "sql", "lua", "hs", "lhs", "elm", "ada", "adb", "ads", "vhd", "vhdl", "purs",
+    "sql", "lua", "hs", "lhs", "elm", "ada", "adb", "ads", "vhd", "vhdl", "purs", "applescript",
 ];
 const SEMI: &[&str] = &[
     "lisp", "lsp", "el", "clj", "cljs", "cljc", "edn", "scm", "ss", "rkt", "fnl", "asm", "s",
+    "ahk", "cl", "nasm",
 ];
 const OTHER: &[&str] = &[
-    "erl", "hrl", "ml", "mli", "vb", "bas", "f90", "f", "pas", "pp",
+    "erl", "hrl", "ml", "mli", "vb", "bas", "f90", "f", "pas", "pp", "cob", "cbl", "cpy", "for",
+    "f77", "f95", "f03", "f08", "ftn", "dpr", "lpr", "dpk", "bi", "bat", "cmd", "mod", "def", "st",
+    "pro", "sml", "sig", "inc", "vbs",
+];
+
+/// The extensions read as code since the store's `readers.code` reader 2: only their files are
+/// read again, once, in a store made before.
+pub(crate) const SINCE_CODE_1: &[&str] = &[
+    "sv", "svh", "vh", "ino", "pde", "scad", "hx", "vala", "dts", "zon", "frag", "vert", "as",
+    "sbt", "fsi", "rexx", "rex", "pli", "pl1", "prg", "tk", "nims", "psd1", "applescript", "ahk",
+    "cl", "nasm", "cob", "cbl", "cpy", "for", "f77", "f95", "f03", "f08", "ftn", "dpr", "lpr",
+    "dpk", "bi", "bat", "cmd", "mod", "def", "st", "pro", "sml", "sig", "inc", "vbs",
 ];
 
 /// The ends of the names of files of code, for the store to read them again: `.rs`, `/Makefile`.
@@ -162,6 +176,343 @@ pub fn is_source(path: &str) -> bool {
 /// Whether a file is code (or a project or configuration file), read with its lines kept.
 pub fn is_code(path: &str) -> bool {
     lang(path).is_some()
+}
+
+/// The grammar each file is highlighted with in both apps, by extension: highlight.js's name of
+/// it (and of the five grammars the desktop app adds: cobol, zig, svelte, terraform, solidity),
+/// which the terminal app looks up among its own. An extension two languages share (`.mod`,
+/// `.pro`, `.v`, `.s`, `.inc`, `.m`, `.pl`, `.pp`, `.fs`, `.bas`, `.def`, `.cl`) is decided by
+/// what the file says, in `sniff`.
+const LANGUAGES: &[(&str, &str)] = &[
+    ("actionscript", "as"),
+    ("ada", "ada adb ads"),
+    ("applescript", "applescript"),
+    ("arduino", "ino"),
+    ("asciidoc", "adoc asciidoc"),
+    ("autohotkey", "ahk"),
+    ("autoit", "au3"),
+    ("awk", "awk"),
+    ("bash", "sh bash zsh ksh fish"),
+    ("brainfuck", "bf"),
+    ("c", "c"),
+    ("capnproto", "capnp"),
+    ("clojure", "clj cljs cljc edn"),
+    ("cmake", "cmake"),
+    ("cobol", "cob cbl cpy cobol"),
+    ("coffeescript", "coffee cson"),
+    ("cpp", "cc cpp cxx c++ hpp hh hxx h++ h cu"),
+    ("crystal", "cr"),
+    ("csharp", "cs csx"),
+    ("css", "css"),
+    ("d", "d"),
+    ("dart", "dart"),
+    ("delphi", "pas dpr dpk lpr dfm"),
+    ("diff", "diff patch"),
+    ("django", "jinja j2"),
+    ("dns", "zone"),
+    ("dockerfile", "dockerfile containerfile"),
+    ("dos", "bat cmd"),
+    ("dts", "dts dtsi"),
+    ("elixir", "ex exs"),
+    ("elm", "elm"),
+    ("erb", "erb"),
+    ("erlang", "erl hrl"),
+    ("fortran", "f for f77 f90 f95 f03 f08 ftn fpp"),
+    ("fsharp", "fsx fsi"),
+    ("gcode", "gcode"),
+    ("gherkin", "feature"),
+    ("glsl", "glsl vert frag geom comp"),
+    ("go", "go"),
+    ("gradle", "gradle"),
+    ("graphql", "graphql gql"),
+    ("groovy", "groovy gvy"),
+    ("haml", "haml"),
+    ("handlebars", "hbs handlebars"),
+    ("haskell", "hs lhs"),
+    ("haxe", "hx"),
+    ("http", "http"),
+    ("ini", "ini cfg toml"),
+    ("java", "java"),
+    ("javascript", "js jsx mjs cjs"),
+    ("json", "json jsonc json5 geojson ipynb"),
+    ("julia", "jl"),
+    ("kotlin", "kt kts"),
+    ("latex", "tex ltx sty"),
+    ("less", "less"),
+    ("lisp", "lisp lsp el"),
+    ("llvm", "ll"),
+    ("lua", "lua"),
+    ("makefile", "mk mak make"),
+    ("markdown", "md markdown mdx"),
+    ("mathematica", "wl"),
+    ("nim", "nim nims"),
+    ("nix", "nix"),
+    ("nsis", "nsi nsh"),
+    ("objectivec", "mm"),
+    ("ocaml", "ml mli"),
+    ("openscad", "scad"),
+    ("perl", "pm"),
+    ("php", "php phtml"),
+    ("plaintext", "txt text"),
+    ("powershell", "ps1 psm1 psd1"),
+    ("processing", "pde"),
+    ("properties", "properties"),
+    ("protobuf", "proto"),
+    ("purebasic", "pb pbi"),
+    ("python", "py pyi pyw"),
+    ("qml", "qml"),
+    ("r", "r"),
+    ("reasonml", "re rei"),
+    ("ruby", "rb rake gemspec podspec ru"),
+    ("rust", "rs"),
+    ("sas", "sas"),
+    ("scala", "scala sc sbt"),
+    ("scheme", "scm ss sld rkt"),
+    ("scilab", "sci sce"),
+    ("scss", "scss"),
+    ("smali", "smali"),
+    ("smalltalk", "st"),
+    ("sml", "sml sig"),
+    ("solidity", "sol"),
+    ("sql", "sql"),
+    ("stata", "ado"),
+    ("stylus", "styl"),
+    ("svelte", "svelte"),
+    ("swift", "swift"),
+    ("tcl", "tcl tk"),
+    ("terraform", "tf tfvars hcl"),
+    ("thrift", "thrift"),
+    ("twig", "twig"),
+    ("typescript", "ts tsx mts cts"),
+    ("vala", "vala"),
+    ("vbnet", "vb bi"),
+    ("vbscript", "vbs"),
+    ("verilog", "sv svh vh"),
+    ("vhdl", "vhd vhdl"),
+    ("vim", "vim"),
+    ("wasm", "wat wast"),
+    ("x86asm", "asm nasm"),
+    ("xml", "xml xsd xsl xslt svg plist rss atom xaml csproj vbproj fsproj vcxproj props targets resx wsdl kml gpx vue"),
+    ("xquery", "xq xquery"),
+    ("yaml", "yaml yml"),
+    ("zig", "zig zon"),
+];
+
+/// Files known by their whole name, and the grammar for each.
+const LANGUAGE_NAMES: &[(&str, &str)] = &[
+    ("Makefile", "makefile"),
+    ("makefile", "makefile"),
+    ("GNUmakefile", "makefile"),
+    ("Justfile", "makefile"),
+    ("justfile", "makefile"),
+    ("Dockerfile", "dockerfile"),
+    ("Containerfile", "dockerfile"),
+    ("CMakeLists.txt", "cmake"),
+    ("Rakefile", "ruby"),
+    ("Gemfile", "ruby"),
+    ("Vagrantfile", "ruby"),
+    ("BUILD", "python"),
+    ("WORKSPACE", "python"),
+    ("meson.build", "python"),
+    ("PKGBUILD", "bash"),
+    ("APKBUILD", "bash"),
+    (".bashrc", "bash"),
+    (".bash_profile", "bash"),
+    (".profile", "bash"),
+    (".zshrc", "bash"),
+    (".vimrc", "vim"),
+    (".gitconfig", "ini"),
+    (".editorconfig", "ini"),
+    (".htaccess", "apache"),
+    ("nginx.conf", "nginx"),
+    ("go.mod", "plaintext"),
+    ("go.sum", "plaintext"),
+];
+
+/// Interpreters a `#!` line names, and their grammar.
+const SHEBANGS: &[(&str, &str)] = &[
+    ("python", "python"),
+    ("node", "javascript"),
+    ("deno", "typescript"),
+    ("bash", "bash"),
+    ("sh", "bash"),
+    ("zsh", "bash"),
+    ("ksh", "bash"),
+    ("dash", "bash"),
+    ("fish", "bash"),
+    ("perl", "perl"),
+    ("ruby", "ruby"),
+    ("php", "php"),
+    ("lua", "lua"),
+    ("tclsh", "tcl"),
+    ("wish", "tcl"),
+    ("Rscript", "r"),
+    ("awk", "awk"),
+    ("gawk", "awk"),
+    ("pwsh", "powershell"),
+    ("julia", "julia"),
+    ("elixir", "elixir"),
+    ("escript", "erlang"),
+    ("runhaskell", "haskell"),
+    ("ocaml", "ocaml"),
+    ("make", "makefile"),
+];
+
+/// The grammar a file is highlighted with, in both apps: by its name, its extension (what the
+/// text says, where two languages share one), then its first line (`#!`, `<?xml`, `<?php`).
+/// `head` is the start of its text. `None`: no grammar is known, and the desktop app guesses
+/// among the ones it has loaded.
+pub fn language(path: &str, head: &str) -> Option<&'static str> {
+    let name = path.rsplit(['/', '\\']).next().unwrap_or(path);
+    if let Some((_, l)) = LANGUAGE_NAMES.iter().find(|(n, _)| *n == name) {
+        return Some(l);
+    }
+    let ext = name
+        .rsplit_once('.')
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    if let Some(l) = sniff(&ext, head) {
+        return l;
+    }
+    if !ext.is_empty()
+        && let Some((l, _)) = LANGUAGES
+            .iter()
+            .find(|(_, exts)| exts.split(' ').any(|e| e == ext))
+    {
+        return Some(l);
+    }
+    first_line(head)
+}
+
+/// The extensions two languages share, which `sniff` decides by the text.
+pub const SHARED: &[&str] = &["mod", "def", "pro", "v", "s", "inc", "m", "pl", "pp", "fs", "bas", "cl"];
+
+/// The grammars `sniff` can name besides those in `LANGUAGES`.
+const SNIFFED: &[&str] = &["armasm", "mipsasm", "basic", "coq", "prolog", "puppet", "matlab"];
+
+/// Every grammar `language` can name, once each: the apps check they have them all.
+pub fn languages() -> Vec<&'static str> {
+    let mut all: Vec<&str> = LANGUAGES
+        .iter()
+        .map(|(l, _)| *l)
+        .chain(LANGUAGE_NAMES.iter().chain(SHEBANGS).map(|(_, l)| *l))
+        .chain(SNIFFED.iter().copied())
+        .collect();
+    all.sort_unstable();
+    all.dedup();
+    all
+}
+
+/// The grammar of an extension two languages share, by what the text says: `Some(None)` when
+/// it is neither (a Qt project's `.pro`, a module-definition `.def`).
+fn sniff(ext: &str, head: &str) -> Option<Option<&'static str>> {
+    let has = |words: &[&str]| words.iter().any(|w| head.contains(w));
+    let starts = |words: &[&str]| {
+        head.lines()
+            .any(|l| words.iter().any(|w| l.trim_start().starts_with(w)))
+    };
+    Some(match ext {
+        // Modula-2 (Pascal's grammar is the nearest) or Go's module list.
+        "mod" | "def" => has(&["MODULE "]).then_some("delphi"),
+        // Prolog, or a Qt project (qmake).
+        "pro" => (!has(&["SOURCES", "HEADERS", "QT +=", "TEMPLATE", "CONFIG +="])
+            && has(&[":-", "?-"]))
+        .then_some("prolog"),
+        // Coq's proofs, or Verilog.
+        "v" => Some(if has(&["Theorem ", "Lemma ", "Proof.", "Qed.", "Require Import", "Inductive "]) {
+            "coq"
+        } else {
+            "verilog"
+        }),
+        // GNU assembler: ARM, MIPS or x86.
+        "s" => Some(
+            if has(&["%eax", "%rax", "%rsp", "%esp", "movl", "movq", "pushq", " rax", " eax", " rsp", " rbp", " esp", " ebp", "qword", "dword"]) {
+                "x86asm"
+            } else if has(&["$sp", "$ra", "addiu", "$t0", "$a0", "syscall"]) {
+                "mipsasm"
+            } else if has(&["ldr ", "str ", "bl ", "bx ", " x0", " r0", " w0", "adrp", ".arm", ".thumb"]) {
+                "armasm"
+            } else {
+                "x86asm"
+            },
+        ),
+        // A PHP include, Pascal's, or assembly's.
+        "inc" => {
+            if has(&["<?php", "<?="]) {
+                Some("php")
+            } else if has(&["procedure ", "function ", "begin", "PROCEDURE ", "BEGIN"]) {
+                Some("delphi")
+            } else if has(&["mov ", "MOV ", "db ", "equ ", "EQU ", "%define", "%macro"]) {
+                Some("x86asm")
+            } else {
+                None
+            }
+        }
+        // Objective-C or MATLAB.
+        "m" => Some(if has(&["@interface", "@implementation", "#import", "#include", "@end"]) {
+            "objectivec"
+        } else if starts(&["function ", "%", "end"]) || has(&["disp(", "zeros(", "fprintf("]) {
+            "matlab"
+        } else {
+            "objectivec"
+        }),
+        // Perl or Prolog.
+        "pl" => Some(
+            if !has(&["use strict", "my $", "sub ", "#!/"]) && starts(&[":-"]) || has(&[":- module", ":- use_module"]) {
+                "prolog"
+            } else {
+                "perl"
+            },
+        ),
+        // Free Pascal or Puppet.
+        "pp" => Some(if has(&["unit ", "program ", "begin", "procedure ", "uses ", "UNIT ", "PROGRAM "]) {
+            "delphi"
+        } else {
+            "puppet"
+        }),
+        // F# or a GLSL fragment shader.
+        "fs" => Some(if has(&["#version", "gl_FragColor", "uniform ", "void main"]) {
+            "glsl"
+        } else {
+            "fsharp"
+        }),
+        // Line-numbered BASIC, or Visual Basic and its kin (QuickBASIC, FreeBASIC).
+        "bas" => Some(if head.lines().filter(|l| !l.trim().is_empty()).take(5).all(|l| l.trim_start().starts_with(|c: char| c.is_ascii_digit())) && !head.trim().is_empty() {
+            "basic"
+        } else {
+            "vbnet"
+        }),
+        // Common Lisp or OpenCL.
+        "cl" => Some(if has(&["__kernel", "kernel void", "__global"]) {
+            "c"
+        } else {
+            "lisp"
+        }),
+        // A shell script's own name, or one with none.
+        _ => return None,
+    })
+}
+
+/// A grammar by the first line: `#!/usr/bin/env python3`, `<?xml`, `<?php`, `<!DOCTYPE html>`.
+fn first_line(head: &str) -> Option<&'static str> {
+    let line = head.trim_start_matches('\u{feff}').lines().next()?.trim();
+    if let Some(rest) = line.strip_prefix("#!") {
+        let mut words = rest.split_whitespace();
+        let mut prog = words.next()?.rsplit('/').next()?;
+        if prog == "env" {
+            prog = words.find(|w| !w.starts_with('-'))?;
+        }
+        let prog = prog.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
+        return SHEBANGS.iter().find(|(p, _)| *p == prog).map(|(_, l)| *l);
+    }
+    let lower = line.to_ascii_lowercase();
+    if lower.starts_with("<?php") {
+        Some("php")
+    } else if lower.starts_with("<?xml") || lower.starts_with("<!doctype html") || lower.starts_with("<html") {
+        Some("xml")
+    } else {
+        None
+    }
 }
 
 /// One line of code: where it starts, how deep it is in brackets before it, its indentation.
@@ -1656,5 +2007,46 @@ mod tests {
         assert!(map(&d, 120, &[]).len() <= 120);
         assert!(map(&d.join("src"), 10_000, &[]).is_empty(), "no project");
         std::fs::remove_dir_all(d).unwrap();
+    }
+    #[test]
+    fn a_file_gets_its_grammar_by_name_extension_text_and_first_line() {
+        let l = |path: &str, head: &str| language(path, head);
+        assert_eq!(l("/src/PAYROLL.CBL", "       IDENTIFICATION DIVISION."), Some("cobol"));
+        assert_eq!(l("orbit.f77", "      PROGRAM ORBIT"), Some("fortran"));
+        assert_eq!(l("a/Makefile", ""), Some("makefile"));
+        assert_eq!(l("go.mod", "module example.com/x"), Some("plaintext"));
+        assert_eq!(l("Coroutines.mod", "MODULE Coroutines;\nBEGIN\nEND Coroutines."), Some("delphi"));
+        assert_eq!(l("strange.mod", "nothing to say"), None);
+        assert_eq!(l("family.pro", ":- dynamic parent/2.\nparent(tom, bob)."), Some("prolog"));
+        assert_eq!(l("app.pro", "QT += widgets\nSOURCES += main.cpp"), None);
+        assert_eq!(l("adder.v", "module adder(input a, output b);\nendmodule"), Some("verilog"));
+        assert_eq!(l("Nat.v", "Require Import Arith.\nTheorem plus_0 : forall n, n + 0 = n.\nProof. Qed."), Some("coq"));
+        assert_eq!(l("boot.s", "_start:\n    ldr x0, =msg\n    bl puts"), Some("armasm"));
+        assert_eq!(l("boot.s", "    movq %rsp, %rbp"), Some("x86asm"));
+        assert_eq!(l("boot.s", "    .intel_syntax noprefix\n    mov rax, 60\n    syscall"), Some("x86asm"), "Intel syntax");
+        assert_eq!(l("lib.inc", "<?php echo 1;"), Some("php"));
+        assert_eq!(l("rules.pl", ":- initialization(main).\nmain :- write(hi)."), Some("prolog"));
+        assert_eq!(l("tool.pl", "use strict;\nmy $x = 1;"), Some("perl"));
+        assert_eq!(l("old.bas", "10 PRINT \"HI\"\n20 GOTO 10"), Some("basic"));
+        assert_eq!(l("form.bas", "Sub Main()\nEnd Sub"), Some("vbnet"));
+        assert_eq!(l("light.fs", "#version 330\nvoid main() {}"), Some("glsl"));
+        assert_eq!(l("Prog.fs", "let x = 1"), Some("fsharp"));
+        assert_eq!(l("run", "#!/usr/bin/env -S python3 -u\nprint(1)"), Some("python"));
+        assert_eq!(l("run", "#!/bin/sh\necho"), Some("bash"));
+        assert_eq!(l("feed", "<?xml version=\"1.0\"?>"), Some("xml"));
+        assert_eq!(l("notes", "just words"), None);
+        for e in SHARED {
+            assert!(sniff(e, "").is_some(), "{e} is sniffed");
+        }
+        let all = languages();
+        assert!(all.contains(&"cobol") && all.contains(&"coq") && !all.contains(&"rexx"));
+    }
+
+    #[test]
+    fn the_endings_new_in_code_2_are_all_code() {
+        let all = endings();
+        for e in SINCE_CODE_1 {
+            assert!(all.contains(&format!(".{e}")), "{e}");
+        }
     }
 }

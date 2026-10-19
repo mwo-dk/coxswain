@@ -38,7 +38,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
    in). Go into folders as usual.
 4. On a file: the desktop app's preview pane (**Space**, or **F3**) shows it as it was, and
    **Diff** at its top what that commit changed in it. The terminal app's **F3** opens it in
-   your pager.
+   the built-in viewer.
 5. **F5** copies the file or folder under the cursor, as it was then, to the other panel.
    **F5** on a commit in the list copies the whole folder at that commit, named
    `src-a1b2c3d`. The files and folders copied out get the commit's date, not today's.
@@ -61,7 +61,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 |---|---|
 | **Enter** | On a commit or folder: in. On a file: the status line says *This is the file as it was at that commit: F3 shows it, F5 copies it out* |
 | **Backspace**, `..` | Up: to the commits, then to the folder on disk |
-| **F3** | Desktop app: the preview pane, with *File / Diff*. Terminal app: your pager, on a copy of the file |
+| **F3** | Desktop app: the preview pane, with *File / Diff*. Terminal app: the built-in viewer, on a copy of the file |
 | **F5** | Copies out, as it was then. Never over an existing file |
 | **F4**, **F6**, **F7**, **F8** | Refused: *A history is read-only: F5 copies a file or folder out of it* |
 | **Ctrl+G** | The status line says history is for files and folders on disk: you are in one already |
@@ -109,7 +109,7 @@ the terminal app ([Notices and what's new](notices.md)).
 
 Everything above works the same, keys included; the differences are in
 [The terminal app](../reference/terminal-app.md#git-history-in-the-terminal-app): the title says
-`[history]` or `[commit a1b2c3d]`, and **F3** opens a copy in your pager instead of the preview
+`[history]` or `[commit a1b2c3d]`, and **F3** opens a copy in the built-in viewer instead of the preview
 pane. A long list of commits is read on a thread: the status line says *Working on …* until it
 is there, and the keys keep working meanwhile.
 

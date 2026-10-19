@@ -82,7 +82,7 @@ the `zfs` command TrueNAS has:
 | What | How |
 |---|---|
 | A dataset's snapshots | `cd` into a share (`/mnt/tank/media`), put the cursor on a folder, **Alt+Z**: the snapshots your periodic snapshot tasks made (`auto-2026-10-06_00-00` …), newest first |
-| A file as it was | **Enter** on a snapshot, then into its folders; **F3** shows a file in your pager |
+| A file as it was | **Enter** on a snapshot, then into its folders; **F3** shows a file in the built-in viewer |
 | What changed | **Enter** on a file inside a snapshot: its diff against now |
 | A file back | **F5** copies it out of the snapshot to the other panel |
 | The dataset | The panel's bottom border: `tank/media · 1.02x · 3.1 TB used · 1.4 TB free`; **Alt+Enter** for compression, quota and the number of snapshots |

@@ -29,7 +29,7 @@ terminal app hands the terminal to the program, the desktop app collects its out
 | **Ctrl+Enter**, **Ctrl+J** | Adds the name under the cursor to the line | Same | *Path to command line* |
 | **Ctrl+O** | One pane or two | Shows the last command's output | *Panels on/off* |
 | **F2** | *Scripts* menu: `[[user_menu]]` and script files | *User menu*: `[[user_menu]]` | *Menu* |
-| **F3** | Shows or hides the preview pane | Opens the file in the viewer (`less`) | *View* |
+| **F3** | Shows or hides the preview pane | Opens the file in the built-in viewer | *View* |
 | **F4** | Opens the file in `editor`, else its default application | Opens the file in the editor (`vi`) | *Edit* |
 
 Every key can be changed under `[keys]` ([Changing keys](../customise/keys.md)).

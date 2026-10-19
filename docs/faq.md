@@ -79,6 +79,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **My script is in the F2 menu but nothing happens.** The error is in the output (desktop app: the status line or the preview pane); usually the program on its #! line is not installed. [Answer](commands/scripts.md#my-script-is-in-the-menu-but-nothing-happens)
 - **F4 in the desktop app does nothing, though editor = "hx" works in the terminal.** The desktop app has no terminal for a terminal editor; set a windowed editor or use $EDITOR for the terminal app. [Answer](commands/view-and-edit.md#f4-in-the-desktop-app-does-nothing-though-editor--hx-works-in-the-terminal-app)
 - **Enter on a file does nothing, and there is no error.** The opener started but found no application for the type; set a default in your system settings. [Answer](commands/opening-files.md#enter-on-a-file-does-nothing-and-there-is-no-error)
+- **How do I get `less` back on F3 in the terminal app?** Set `viewer = "less"` in `config.toml` (Settings → Behaviour → Viewer), or press **p** in the built-in viewer for one file. [Answer](commands/view-and-edit.md#how-do-i-get-less-or-my-own-pager-back-on-f3)
 
 ## Search
 
@@ -138,6 +139,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 - **How do I close the preview with the mouse?** Click the × at the right of the preview's header (*Close the preview (Esc)*); Esc, Space and F3 close it too. [Answer](previews/README.md#opening-and-closing-it)
 - **Space types a space instead of opening the preview.** The command line has text, so Space belongs to it; press Esc to clear it, or use F3. [Answer](previews/text-and-code.md#space-types-a-space-in-the-command-line-instead-of-opening-the-preview)
+- **Which languages are highlighted?** About 200 in both apps, old ones too (COBOL, Fortran, Pascal, BASIC, assembly, VHDL, Verilog); the terminal app shows COBOL, PowerShell and Visual Basic plain. [Answer](previews/text-and-code.md#which-languages-are-highlighted)
 - **Why does an HTML page look broken or empty in the preview?** No script runs and nothing comes from the web, on purpose; Enter opens it in your browser. [Answer](previews/html.md#why-does-the-page-look-broken-or-empty)
 - **Do I need LibreOffice to see a PowerPoint deck?** No, the slides are drawn in the app at once; LibreOffice only adds the exact view. [Answer](previews/office.md#do-i-need-libreoffice-to-see-a-powerpoint-deck)
 - **Why is a Word `.doc` file not shown?** `.doc` needs LibreOffice (installed or as an image); `.docx` needs nothing. [Answer](previews/office.md#why-is-a-word-doc-file-not-shown)

@@ -1539,22 +1539,19 @@ fn read_text_of(path: &Path, max: usize) -> Res<(String, bool, bool)> {
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
     f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
     let truncated = len > buf.len() as u64;
-    if buf.iter().take(8192).any(|&b| b == 0) {
-        // A hex dump of the first 64 KB: four thousand lines are plenty to see what a file is.
-        let hex = buf
-            .chunks(16)
-            .take(HEX_LINES)
-            .enumerate()
-            .map(|(i, c)| {
-                let h: String = c.iter().map(|b| format!("{b:02x} ")).collect();
-                let a: String = c.iter().map(|&b| if b.is_ascii_graphic() || b == b' ' { b as char } else { '.' }).collect();
-                format!("{:08x}  {h:<48} {a}", i * 16)
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        return Ok((hex, len > (HEX_LINES * 16) as u64, true));
+    // UTF-8, UTF-16 by its mark, else Latin-1; no text: a hex dump of the first 64 KB, four
+    // thousand lines are plenty to see what a file is.
+    match coxswain_core::view::decode(&buf) {
+        Some(text) => Ok((text, truncated, false)),
+        None => Ok((coxswain_core::view::hex(&buf, HEX_LINES).join("\n"), len > (HEX_LINES * 16) as u64, true)),
     }
-    Ok((String::from_utf8_lossy(&buf).into_owned(), truncated, false))
+}
+
+/// The grammar a file's text is highlighted with (`code::language`): by its name, then what
+/// `head`, the start of its text, says.
+#[tauri::command]
+fn code_language(path: String, head: String) -> Option<&'static str> {
+    coxswain_core::code::language(&path, &head)
 }
 
 // ---------------------------------------------------------------- archives
@@ -2105,7 +2102,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
-            read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
+            read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, dupes_scan,

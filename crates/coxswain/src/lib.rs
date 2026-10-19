@@ -7,6 +7,7 @@ mod guide;
 mod settings;
 mod setup;
 mod ui;
+mod viewer;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
@@ -387,6 +388,9 @@ pub enum Dialog {
     Provenance(Box<provenance::Viewer>),
     /// The git config, full screen (Alt+C).
     GitConfig(Box<git_config::Viewer>),
+    /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
+    /// (a BOM's source), shown again when it closes.
+    View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
     /// Settings, full screen (F12, F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
@@ -415,10 +419,16 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Bom(_) => "cbom",
         Dialog::Provenance(_) => "provenance",
         Dialog::GitConfig(_) => "git_config",
+        Dialog::View { .. } => "view_and_edit",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
     })
+}
+
+/// The pager the built-in viewer hands a file to: `$PAGER`, else less (more on Windows).
+fn pager() -> String {
+    std::env::var("PAGER").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| if cfg!(windows) { "more".into() } else { "less".into() })
 }
 
 /// An error under `title` (what could not be done): its cause in one line, the raw text under
@@ -1762,12 +1772,39 @@ impl App {
     }
 
     fn view_or_edit(&mut self, a: Action, file: &Path) {
-        let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
-        let prog = if a == Action::View {
-            self.cfg.viewer.clone().or_else(|| env("PAGER")).unwrap_or_else(|| if cfg!(windows) { "more".into() } else { "less".into() })
-        } else {
-            self.editor()
-        };
+        if a == Action::View && self.cfg.viewer.is_none() {
+            return self.view_in(file, None);
+        }
+        let prog = if a == Action::View { self.cfg.viewer.clone().unwrap_or_else(pager) } else { self.editor() };
+        self.run_on(&prog, file);
+    }
+
+    /// `file` in the built-in viewer; `back` is shown again when it closes.
+    fn view_in(&mut self, file: &Path, back: Option<Box<Dialog>>) {
+        let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
+        match viewer::Viewer::open(file, labels) {
+            Ok(v) => self.dialog = Some(Dialog::View { v: Box::new(v), back }),
+            Err(e) => {
+                self.status = Some(format!("{}: {e}", file.display()));
+                self.dialog = back.map(|b| *b);
+            }
+        }
+    }
+
+    /// A viewer's source (F3 in the BOM or provenance viewer): in the viewer, `back` shown
+    /// again after it.
+    fn source(&mut self, file: &Path, back: Dialog) {
+        match self.cfg.viewer.clone() {
+            Some(prog) => {
+                self.run_on(&prog, file);
+                self.dialog = Some(back);
+            }
+            None => self.view_in(file, Some(Box::new(back))),
+        }
+    }
+
+    /// `prog` run on `file`, in the file's folder, with the panels hidden meanwhile.
+    fn run_on(&mut self, prog: &str, file: &Path) {
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut line = Line::default();
         line.cmd = format!("{prog} {}", line.word(&file.to_string_lossy()));
@@ -2486,8 +2523,8 @@ impl App {
                 bom::Outcome::Stay => self.dialog = Some(Dialog::Bom(v)),
                 bom::Outcome::Close => {}
                 bom::Outcome::Source => {
-                    self.view_or_edit(Action::View, &v.path.clone());
-                    self.dialog = Some(Dialog::Bom(v));
+                    let path = v.path.clone();
+                    self.source(&path, Dialog::Bom(v));
                 }
                 bom::Outcome::Reveal(file) => {
                     self.reveal(&file);
@@ -2499,6 +2536,16 @@ impl App {
                     }
                     self.dialog = Some(Dialog::Bom(v));
                 }
+            },
+            Dialog::View { mut v, back } => match v.key(key, action) {
+                viewer::Outcome::Stay => self.dialog = Some(Dialog::View { v, back }),
+                viewer::Outcome::Close => self.dialog = back.map(|b| *b),
+                // Back to the BOM or provenance it was opened from, once the editor ends.
+                viewer::Outcome::Edit(file) => {
+                    self.view_or_edit(Action::Edit, &file);
+                    self.dialog = back.map(|b| *b);
+                }
+                viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),
             },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
@@ -2519,8 +2566,8 @@ impl App {
                 provenance::Outcome::Stay => self.dialog = Some(Dialog::Provenance(v)),
                 provenance::Outcome::Close => {}
                 provenance::Outcome::Source => {
-                    self.view_or_edit(Action::View, &v.path.clone());
-                    self.dialog = Some(Dialog::Provenance(v));
+                    let path = v.path.clone();
+                    self.source(&path, Dialog::Provenance(v));
                 }
                 provenance::Outcome::Reveal(file) => {
                     self.reveal(&file);
@@ -2566,6 +2613,14 @@ impl App {
 
     fn on_mouse(&mut self, m: MouseEvent) {
         self.hint_stale = true;
+        if let Some(Dialog::View { v, .. }) = &mut self.dialog {
+            match m.kind {
+                MouseEventKind::ScrollUp => v.scroll(-3),
+                MouseEventKind::ScrollDown => v.scroll(3),
+                _ => {}
+            }
+            return;
+        }
         let Some(side) = (0..2).find(|&i| self.areas[i].contains((m.column, m.row).into())) else { return };
         if self.dialog.is_some() {
             return;

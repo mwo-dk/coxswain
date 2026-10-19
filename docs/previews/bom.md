@@ -49,7 +49,7 @@ window, with the details beside the tree.
   Enter in. Filters apply here too.
 
 **Terminal app.** **F3** on a BOM opens the viewer full screen; **F3** there (or `s`) shows the
-source in your pager, as F3 did before. `bom_viewer = false` in the config keeps the pager.
+source in the built-in viewer, as F3 does on any file. `bom_viewer = false` in the config shows the source straight away.
 
 | Key | Does |
 |---|---|
@@ -145,7 +145,7 @@ above it. A renewed certificate therefore counts as rated better, not as removed
 
 | Where | Key | Default | Does |
 |---|---|---|---|
-| `config.toml`, top level; Settings → *Behaviour* (both apps) → *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `true` | The terminal app's **F3** on a BOM opens the BOM viewer; `false` opens the pager as for any file |
+| `config.toml`, top level; Settings → *Behaviour* (both apps) → *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `true` | The terminal app's **F3** on a BOM opens the BOM viewer; `false` opens the built-in viewer as for any file |
 
 The desktop app itself has no setting for it: the preview pane always shows a BOM, and the
 **Tree / Sunburst / Source** switch remembers your choice. See also
@@ -188,8 +188,8 @@ holds CNSA 2.0 and the dates on which ratings change, so a profile and year choi
 
 #### How do I get the old F3 back in the terminal app?
 
-In the viewer, **F3** again (or `s`) opens the BOM in your pager, as F3 did before. Quitting
-the pager brings you back to the viewer, and **Esc** to the panels. To make F3 always open the pager, set `bom_viewer = false` in
+In the viewer, **F3** again (or `s`) shows the BOM's source in the built-in viewer, as F3 does on
+any file. **Esc** there brings you back to the BOM viewer, and **Esc** again to the panels. To make F3 always show the source, set `bom_viewer = false` in
 `config.toml`.
 
 #### Does it read SPDX files, or the vulnerabilities in an SBOM?

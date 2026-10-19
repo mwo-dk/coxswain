@@ -30,7 +30,7 @@ certificates as the facts that matter, with expiry coloured.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in your pager; a database or Parquet file as its tables and first rows |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in the built-in viewer; a database or Parquet file as its tables and first rows |
 | **Enter** | Opens the file in its program | The same |
 
 ## Formats
@@ -95,11 +95,11 @@ delete it like any file.
 The store is opened read-only (SQLite's own read-only mode), so nothing is written to it, its
 write-ahead log or the helper's work, while you look; the index file is only read.
 
-In the terminal app, **F3** on either file pages the same in your pager, then *Settings at this:
+In the terminal app, **F3** on either file shows the same in the built-in viewer, then *Settings at this:
 F9 → Disk use, or coxswain --settings=disk* and, for the one in use, *Clear it: Delete on its row
 there, or coxswain --disk clear index*.
 
-![The terminal app's pager with index.bin: Coxswain's name index, Entries, Inside archives, Built, Size, Where, Folders indexed, Folders with the most entries, Left out, then Settings at this: F9 → Disk use, or coxswain --settings=disk and Clear it: Delete on its row there, or coxswain --disk clear index](../screenshots/tui-index-bin.png)
+![The terminal app's built-in viewer with index.bin.txt in Classic blue: line numbers, Coxswain's name index, Entries, Inside archives, Built, Size, Where, Folders indexed (/home/demo), Folders with the most entries, Left out, then Settings at this: F9 → Disk use, or coxswain --settings=disk, and the key line at the bottom](../screenshots/tui-index-bin.png)
 
 ## Settings and config.toml
 
@@ -109,7 +109,7 @@ container, as DuckDB has no official image) and the rest of [`[preview]`](tools.
 ## In the terminal app
 
 No preview pane (tables and trees are drawn by the desktop app's webview). **F3** shows the text
-of JSON, YAML, TOML, CSV and PEM files in your pager; Coxswain's own `index.bin` and
+of JSON, YAML, TOML, CSV and PEM files in the built-in viewer; Coxswain's own `index.bin` and
 `search.db` as [what they hold](#coxswains-own-index-and-store). On a SQLite database (`.db`, `.sqlite`,
 `.sqlite3`, `.db3`) it pages its tables instead: each with its row count, its `CREATE` statement
 and its first 20 rows as aligned columns. On a Parquet file: its row count, its columns with their

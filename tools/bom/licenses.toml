@@ -52,6 +52,23 @@ crate = "ring"
 crate_files = ["LICENSE", "LICENSE-other-bits", "LICENSE-BoringSSL", "third_party/fiat/LICENSE"]
 
 [[bundled]]
+name = "Syntax definitions of the terminal app's viewer"
+what = "About 200 Sublime Text grammars (bat's, curated by two-face), compiled into the terminal app by the crate two-face 0.5.2+bat-0.26.1 and read by syntect. Each keeps its own licence (MIT, Apache-2.0, BSD and others), listed in two-face's acknowledgements below. Update tools/bom/licenses/two-face-syntaxes.md with the two-face version."
+license = "MIT OR Apache-2.0 (two-face); the grammars' own licences, listed"
+source = "https://codeberg.org/CosmicHarper/two-face/src/tag/v0.5.2+bat-0.26.1/generated/acknowledgements_full.md"
+file = "tools/bom/licenses/two-face-syntaxes.md"
+crate = "two-face"
+crate_files = ["LICENSE-MIT", "LICENSE-APACHE"]
+
+[[bundled]]
+name = "syntect"
+what = "The terminal app's highlighting engine, which reads the grammars above (crate syntect)."
+license = "MIT"
+source = "https://github.com/trishume/syntect"
+crate = "syntect"
+crate_files = ["LICENSE.txt"]
+
+[[bundled]]
 name = "SQLite"
 what = "Compiled into both apps by the Rust crate libsqlite3-sys (feature \"bundled\")."
 license = "public domain"
