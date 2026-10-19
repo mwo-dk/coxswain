@@ -5,7 +5,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, globRe, quote, isArchive, packFormat, LOCKED, inside } from "./lib.js";
+  import { invoke, keyString, basename, parent, globRe, quote, isArchive, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -284,7 +284,7 @@
 
   /** In a ZFS snapshot (or its list) nothing changes, nor in a package's list of files: said at
    *  once, not after a prompt. */
-  const readOnly = () => (tab().snapshot || tab().package ? ((ui.status = t(tab().snapshot ? "zfs.read_only" : "pkg.read_only")), true) : false);
+  const readOnly = () => (tab().snapshot || tab().package || tab().diskImage ? ((ui.status = t(tab().snapshot ? "zfs.read_only" : tab().package ? "pkg.read_only" : "disk_image.read_only")), true) : false);
 
   const actions = {
     quit: () => getCurrentWindow().close(),
@@ -432,7 +432,7 @@
       ui.status = "";
     },
     extract: () => {
-      const paths = targets().filter((p) => isArchive(basename(p)));
+      const paths = targets().filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))));
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
@@ -542,6 +542,14 @@
     duplicates: () => (ui.modal = { kind: "dupes" }),
     settings: () => (ui.modal = { kind: "settings" }),
     disk_use: () => (ui.modal = { kind: "settings", section: "disk" }),
+    disk_images: async () => {
+      try {
+        ui.cfg = await invoke("save_settings", { changes: { disk_images: true } });
+        ui.status = t("disk_image.turned_on");
+      } catch (err) {
+        ui.status = String(err);
+      }
+    },
     back: () => goBack(),
     forward: () => goForward(),
   };

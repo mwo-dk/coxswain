@@ -304,6 +304,18 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("tesseract", text, Some("search"))
         });
     }
+    // Disk images open like folders, but no 7-Zip reads them: what to install. Once.
+    if cfg.archive.disk_images && crate::disk_image::seven_zip().is_none() {
+        let copy = crate::tools::install("7z");
+        let text = match &copy {
+            Some(line) => t!("disk_image.next_install", "command" => line),
+            None => t!("disk_image.next_install_get"),
+        };
+        all.push(Notice {
+            copy,
+            ..Notice::new("7zip", text, Some("disk_images"))
+        });
+    }
     all.retain(|n| !seen(&n.id));
     all
 }

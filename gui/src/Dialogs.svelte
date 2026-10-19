@@ -7,6 +7,7 @@
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import { KINDS, prefix, nextKind, step } from "./find.js";
+  import DiskNext from "./DiskNext.svelte";
 
   let input = $state();
   let listEl = $state();
@@ -767,6 +768,7 @@
             <dt>{t("props.package")}</dt>
             <dd>{p.package} <button class="link" onclick={() => { const path = p.path; close(); openPackage(tab(), path); }}>{t("action.package")}</button></dd>
           {/if}
+          {#each p.disk_image ?? [] as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
           {#if p.zfs}
             {@const z = p.zfs}
             <dt>{t("props.dataset")}</dt><dd>{z.dataset}</dd>
@@ -781,6 +783,7 @@
             {/if}
           {/if}
         </dl>
+        {#if p.disk_next}<DiskNext next={p.disk_next} onsettings={close} />{/if}
         {#if m.error}<p class="err">{m.error}</p>{/if}
         <div class="buttons">
           <button class="primary" onclick={savePerms}>{t("common.apply")}</button>

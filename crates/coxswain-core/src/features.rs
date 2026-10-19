@@ -223,6 +223,11 @@ pub const FEATURES: &[Feature] = &[
         &[Pack, Extract],
     ),
     f(
+        "disk_images",
+        "files/disk-images.md",
+        &[Open, Copy, DiskImages, ActionMenu, Settings],
+    ),
+    f(
         "properties",
         "files/properties.md",
         &[Properties, Flags, Package],

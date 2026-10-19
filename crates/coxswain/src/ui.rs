@@ -165,7 +165,11 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // So is a history, with the commit looked into.
     let place = p.place.as_ref().map_or(&Place::Plain, |(_, pl)| pl);
     let dir = match place {
-        Place::Archive => format!("{} [{}]", p.dir.to_string_lossy(), t!("archive.badge")),
+        // A disk image (CHM, CBR) says it is read-only instead.
+        Place::Archive => {
+            let ro = coxswain_core::archive::split(&p.dir).is_some_and(|(a, _)| coxswain_core::archive::is_disk_image(&a));
+            format!("{} [{}]", p.dir.to_string_lossy(), if ro { t!("dialogs.readonly") } else { t!("archive.badge") })
+        }
         Place::History(at) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
             (None, coxswain_core::history::View::History) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
@@ -950,7 +954,8 @@ mod tests {
 
 /// Properties of a file or folder, as lines of text: the basics, then ZFS, the package and the
 /// flags where the system has them. `snapshots_key` lists the snapshots.
-pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str) -> String {
+/// `disk_next`: what can be done next with a disk image (`disk_image::next_line`).
+pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str, disk_next: &str) -> String {
     let mut v: Vec<(String, String)> = vec![];
     let mut add = |k: &str, val: String| v.push((t!(k), val));
     add("dialogs.location", p.path.parent().map_or(String::new(), |d| d.display().to_string()));
@@ -991,6 +996,9 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str) -> S
     if let Some(f) = &p.flags {
         add("props.flags", if f.set.is_empty() { t!("props.flags_none") } else { f.set.join(", ") });
     }
+    for (k, val) in p.disk_image.iter().flatten() {
+        v.push((k.clone(), val.clone()));
+    }
     let w = v.iter().map(|(k, _)| k.width()).max().unwrap_or(0);
     let mut out: Vec<String> = v.iter().map(|(k, val)| format!("{k}{} {val}", " ".repeat(w - k.width()))).collect();
     if let Some(f) = &p.flags {
@@ -1001,6 +1009,11 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str) -> S
         if f.can_set && !f.user.is_empty() {
             out.push(t!("props.flags_change_tui"));
         }
+    }
+    if p.disk_image.is_some() {
+        out.push(String::new());
+        // Wrapped here: the dialog is as tall as the lines it is given.
+        out.extend(wrap(disk_next, 74));
     }
     out.join("\n")
 }

@@ -184,6 +184,9 @@ struct UiConfig {
     pack_formats: &'static [coxswain_core::archive::PackFormat],
     /// Every archive ending, and those of archives that take a password (`archive::endings`).
     archive_endings: (Vec<&'static str>, Vec<&'static str>),
+    /// Every ending a disk image may have (`disk_image::endings`): `.vhd` and `.img` are checked
+    /// with `disk_image_facts` before they are taken for one.
+    disk_endings: Vec<&'static str>,
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
@@ -256,6 +259,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         media_missing: coxswain_core::tools::media_missing(),
         pack_formats: coxswain_core::archive::PACK_FORMATS,
         archive_endings: coxswain_core::archive::endings(),
+        disk_endings: coxswain_core::disk_image::endings(),
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
@@ -361,6 +365,8 @@ struct Listing {
     /// The archive the folder is inside, and whether something in it is locked.
     archive: Option<PathBuf>,
     locked: bool,
+    /// That archive is a disk image: read-only.
+    disk_image: bool,
     /// The history the folder is in.
     history: Option<HistoryInfo>,
     /// The ZFS snapshot the folder is in, or the list of snapshots it is.
@@ -414,7 +420,8 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
     let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, history: in_history, snapshot, package })
+    let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::is_disk_image);
+    Ok(Listing { has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
 }
 
 /// What a folder holds, for its preview: only the counts, not the panel's listing.
@@ -1582,6 +1589,42 @@ async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Opt
     job(&ctx, Op::Extract, paths, resolve(&base, &dest), password).await
 }
 
+/// A disk image's facts for the preview, as lines, what can be done with it next, and whether
+/// it opens like a folder now. `None`: no disk image (VHDL source named `.vhd`, any `.img`).
+#[derive(Serialize)]
+struct DiskFacts {
+    lines: Vec<(String, String)>,
+    next: coxswain_core::disk_image::Next,
+    opens: bool,
+    /// Its header was read as a format known here (an `.iso` may be one 7-Zip still reads).
+    known: bool,
+}
+
+#[tauri::command]
+async fn disk_image_facts(path: PathBuf) -> Res<Option<DiskFacts>> {
+    crate::here(&path)?;
+    blocking(move || {
+        let facts = coxswain_core::disk_image::facts(&path);
+        // A .vhd or .img that is none is no disk image (VHDL source); an .iso, .chm … still is.
+        if facts.is_none() && !coxswain_core::disk_image::sure(&path) {
+            return Ok(None);
+        }
+        Ok(Some(DiskFacts {
+            known: facts.is_some(),
+            lines: facts.as_ref().map(coxswain_core::disk_image::lines).unwrap_or_default(),
+            next: coxswain_core::disk_image::next(),
+            opens: coxswain_core::archive::opens(&path),
+        }))
+    })
+    .await
+}
+
+/// Whether the file at `path` opens like a folder: an archive, or a disk image while that is on.
+#[tauri::command(async)]
+fn opens_as_folder(path: PathBuf) -> bool {
+    coxswain_core::archive::opens(&path)
+}
+
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
 #[tauri::command(async)]
 fn archive_password(path: PathBuf, password: String) {
@@ -1978,6 +2021,7 @@ fn main() {
         Config::default()
     });
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
+    coxswain_core::disk_image::set_open(cfg.archive.disk_images);
     // Over ssh, or on a console: GTK cannot start, and would say so with a panic.
     #[cfg(all(unix, not(target_os = "macos")))]
     if ["DISPLAY", "WAYLAND_DISPLAY", "GDK_BACKEND"].iter().all(|v| std::env::var_os(v).is_none_or(|x| x.is_empty())) {
@@ -2061,7 +2105,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
-            read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, cloud_fetch, properties, set_flags, set_permissions,
+            read_text, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, dupes_scan,
@@ -2142,7 +2186,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, history: None, snapshot: None, package: None, packages: false };
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, history: None, snapshot: None, package: None, packages: false };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

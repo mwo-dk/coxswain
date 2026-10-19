@@ -247,6 +247,8 @@ actions! {
     // Archives, the most used first.
     Extract = "extract", "Extract archive", Archives, ["Ctrl+E"];
     Pack = "pack", "Pack into an archive", Archives, ["Alt+F5"];
+    // Turns on `[archive] disk_images`: from F9 and the action menu on a disk image.
+    DiskImages = "disk_images", "Open disk images like folders", Archives, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1672,6 +1674,16 @@ pub struct Config {
     pub preview: PreviewConfig,
     pub gui: GuiConfig,
     pub git: GitConfig,
+    pub archive: ArchiveConfig,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ArchiveConfig {
+    /// Open disk images (.iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim, a raw .img) like
+    /// folders, read-only, with an installed 7-Zip. Off: Enter on one does what it does with
+    /// any file; the preview shows its facts either way.
+    pub disk_images: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1716,6 +1728,7 @@ impl Default for Config {
             preview: PreviewConfig::default(),
             gui: GuiConfig::default(),
             git: GitConfig::default(),
+            archive: ArchiveConfig::default(),
         };
         c.fill_defaults();
         c

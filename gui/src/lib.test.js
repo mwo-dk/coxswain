@@ -45,6 +45,14 @@ test("archive endings: the core's lists, the longest ending first", async () => 
   assert.ok(takesPassword("x.ZIP") && !takesPassword("x.tar"));
 });
 
+test("disk images: by name, .vhd and .img only once their content says so", async () => {
+  const { setDiskEndings, diskName, diskSure } = await pick("endingOf", "disk", "setDiskEndings", "diskName", "diskSure");
+  setDiskEndings([".dmg", ".iso", ".chm", ".cbr", ".vhd", ".img"]);
+  assert.ok(diskName("Mac.DMG") && diskSure("Mac.DMG") && diskSure("a.cbr"));
+  assert.ok(diskName("blink.vhd") && !diskSure("blink.vhd") && !diskSure("sd.IMG"));
+  assert.ok(!diskName("notes.txt"));
+});
+
 test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async () => {
   const { natord, sortItems } = await pick("isDigit", "byPoint", "natord", "sortItems");
   assert.ok(natord("file2", "file10") < 0);

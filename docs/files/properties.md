@@ -141,4 +141,4 @@ Its window (**Alt+Enter**) only shows the facts. Change permissions on the comma
 ([In the terminal app](#in-the-terminal-app)).
 
 ---
-[← Previous: Passwords for encrypted zip and 7z](archive-passwords.md) · [Next: Finding duplicates →](duplicates.md)
+[← Previous: Disk images, CHM help files and CBR comics](disk-images.md) · [Next: Finding duplicates →](duplicates.md)

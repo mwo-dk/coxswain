@@ -314,6 +314,15 @@ const endingOf = (list, name) => {
 };
 
 export const isArchive = (name) => !!endingOf(archive.all, name);
+/** The endings a disk image may have (`disk_image::endings`), set once the config has come.
+ *  `.vhd` (VHDL too) and `.img` are disk images only when their content says so. */
+const disk = { all: [] };
+export const setDiskEndings = (all) => (disk.all = all);
+export const diskName = (name) => !!endingOf(disk.all, name);
+/** A disk image by its name alone. */
+export const diskSure = (name) => diskName(name) && !/\.(vhd|img)$/i.test(name);
+/** The `.vhd` and `.img` files the preview found to be disk images (`disk_image_facts`). */
+export const diskSeen = new Set();
 /** `name` with its archive ending (.tar.gz whole) swapped for `ending`, or `ending` added. */
 export const withEnding = (name, ending) => name.slice(0, name.length - (endingOf(archive.all, name)?.length ?? 0)) + ending;
 /** The pack format (of `formats`, from the core) whose ending `name` has, if any. */
@@ -345,6 +354,8 @@ export function previewKind(item) {
   if (isProvenanceName(item.name)) return "provenance";
   if (isBomName(item.name)) return "bom";
   if (isArchive(item.name)) return "archive";
+  // A .vhd or .img that turns out to be none is shown as text instead (Preview).
+  if (diskName(item.name)) return "disk_image";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";
   if (FONT.includes(ext)) return "font";
