@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Šio parametrai: F9 → Disko naudojimas arba coxswain --settings=disk",
  "disk.report.size": "Dydis",
  "disk.report.store_title": "Coxswain paieškos saugykla",
+ "disk.report.vectors_changing": "Besikeičiantys failai (vektoriai po 5 minučių be pakeitimų)",
  "disk.report.vectors_waiting": "Failai, laukiantys vektorių",
  "disk.report.waiting": "Laukia skaitymo",
  "disk.store.cost": "perskaitoma iš naujo savaime, perpus lėčiau; iki tol Ieškoti randa failuose mažiau žodžių",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Klausti",
  "find.kind_in_files": "Failuose",
  "find.kind_names": "Pavadinimai",
+ "find.meaning_changing": {
+  "one": "{n} failas keičiasi",
+  "few": "{n} failai keičiasi",
+  "other": "{n} failų keičiasi"
+ },
  "find.meaning_for": "prasmė {n} failų",
  "find.meaning_of": "prasmė {n} iš {total} failų ({percent} %)",
  "find.more": "Dar {n}: Enter parodo visus",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "Serveris {host} neatsako. Ar jis veikia?",
  "settings.status.failed": "Sustojo: {why}",
  "settings.status.meaning": "Prasmė",
+ "settings.status.meaning_changing": {
+  "one": "{n} failas keičiasi: vektorius gaus, kai 5 minutes nesikeis.",
+  "few": "{n} failai keičiasi: kiekvienas gaus vektorius, kai 5 minutes nesikeis.",
+  "other": "{n} failų keičiasi: kiekvienas gaus vektorius, kai 5 minutes nesikeis."
+ },
  "settings.status.meaning_left": "Apie {time}, kol bus apdoroti visi failai.",
  "settings.status.meaning_off": "Failai apie jūsų žodžius nerandami.",
  "settings.status.meaning_ready": "{done} iš {total} failų · {by}",

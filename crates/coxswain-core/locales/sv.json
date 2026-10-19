@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Inställningar för detta: F9 → Diskanvändning, eller coxswain --settings=disk",
  "disk.report.size": "Storlek",
  "disk.report.store_title": "Coxswains sökdatabas",
+ "disk.report.vectors_changing": "Filer som ändras (vektorer efter 5 minuter oförändrade)",
  "disk.report.vectors_waiting": "Filer som väntar på vektorer",
  "disk.report.waiting": "Väntar på att läsas",
  "disk.store.cost": "läses in igen av sig självt, i halv fart; tills dess hittar Hitta färre ord i filer",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Fråga",
  "find.kind_in_files": "I filer",
  "find.kind_names": "Namn",
+ "find.meaning_changing": {
+  "one": "{n} fil ändras",
+  "other": "{n} filer ändras"
+ },
  "find.meaning_for": "betydelse för {n}",
  "find.meaning_of": "betydelse för {n} av {total} ({percent} %)",
  "find.more": "{n} till: Enter visar alla",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "Servern på {host} svarar inte. Är den igång?",
  "settings.status.failed": "Den stannade: {why}",
  "settings.status.meaning": "Betydelse",
+ "settings.status.meaning_changing": {
+  "one": "{n} fil ändras: den får sina vektorer när den har varit oförändrad i 5 minuter.",
+  "other": "{n} filer ändras: var och en får sina vektorer när den har varit oförändrad i 5 minuter."
+ },
  "settings.status.meaning_left": "Ungefär {time} tills alla filer är klara.",
  "settings.status.meaning_off": "Filer om dina ord hittas inte.",
  "settings.status.meaning_ready": "{done} av {total} filer · {by}",

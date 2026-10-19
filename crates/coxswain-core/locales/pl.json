@@ -576,6 +576,7 @@
  "disk.report.settings_tui": "Ustawienia przy tym: F9 → Użycie dysku albo coxswain --settings=disk",
  "disk.report.size": "Rozmiar",
  "disk.report.store_title": "Magazyn wyszukiwania Coxswain",
+ "disk.report.vectors_changing": "Pliki, które się zmieniają (wektory po 5 minutach bez zmian)",
  "disk.report.vectors_waiting": "Pliki czekające na wektory",
  "disk.report.waiting": "Czekające na odczyt",
  "disk.store.cost": "odczytywany ponownie sam, z połową szybkości; do tego czasu Znajdź znajduje mniej słów w plikach",
@@ -1602,6 +1603,12 @@
  "find.kind_ask": "Zapytaj",
  "find.kind_in_files": "W plikach",
  "find.kind_names": "Nazwy",
+ "find.meaning_changing": {
+  "one": "{n} plik się zmienia",
+  "few": "{n} pliki się zmieniają",
+  "many": "{n} plików się zmienia",
+  "other": "{n} pliku się zmienia"
+ },
  "find.meaning_for": "znaczenie dla {n}",
  "find.meaning_of": "znaczenie dla {n} z {total} ({percent} %)",
  "find.more": "Jeszcze {n}: Enter pokazuje wszystkie",
@@ -2519,6 +2526,12 @@
  "settings.status.down": "Serwer na {host} nie odpowiada. Czy działa?",
  "settings.status.failed": "Zatrzymało się: {why}",
  "settings.status.meaning": "Znaczenie",
+ "settings.status.meaning_changing": {
+  "one": "{n} plik się zmienia: dostanie wektory, gdy przez 5 minut pozostanie bez zmian.",
+  "few": "{n} pliki się zmieniają: każdy dostanie wektory, gdy przez 5 minut pozostanie bez zmian.",
+  "many": "{n} plików się zmienia: każdy dostanie wektory, gdy przez 5 minut pozostanie bez zmian.",
+  "other": "{n} pliku się zmienia: każdy dostanie wektory, gdy przez 5 minut pozostanie bez zmian."
+ },
  "settings.status.meaning_left": "Około {time}, aż wszystkie pliki będą gotowe.",
  "settings.status.meaning_off": "Pliki o Twoich słowach nie są znajdowane.",
  "settings.status.meaning_ready": "{done} z {total} plików · {by}",

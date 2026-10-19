@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Configuración de esto: F9 → Uso del disco, o coxswain --settings=disk",
  "disk.report.size": "Tamaño",
  "disk.report.store_title": "El almacén de búsqueda de Coxswain",
+ "disk.report.vectors_changing": "Archivos que cambian (vectores tras 5 minutos sin cambios)",
  "disk.report.vectors_waiting": "Archivos esperando vectores",
  "disk.report.waiting": "Esperando para leerse",
  "disk.store.cost": "se vuelve a leer solo, a media velocidad; mientras tanto Buscar encuentra menos palabras en los archivos",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Preguntar",
  "find.kind_in_files": "En archivos",
  "find.kind_names": "Nombres",
+ "find.meaning_changing": {
+  "one": "{n} archivo cambia",
+  "many": "{n} de archivos cambian",
+  "other": "{n} archivos cambian"
+ },
  "find.meaning_for": "significado de {n}",
  "find.meaning_of": "significado de {n} de {total} ({percent} %)",
  "find.more": "{n} más: Enter los muestra todos",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "El servidor en {host} no responde. ¿Está corriendo?",
  "settings.status.failed": "Se detuvo: {why}",
  "settings.status.meaning": "Significado",
+ "settings.status.meaning_changing": {
+  "one": "{n} archivo cambia: recibe sus vectores cuando lleva 5 minutos sin cambios.",
+  "many": "{n} de archivos cambian: cada uno recibe sus vectores cuando lleva 5 minutos sin cambios.",
+  "other": "{n} archivos cambian: cada uno recibe sus vectores cuando lleva 5 minutos sin cambios."
+ },
  "settings.status.meaning_left": "Falta alrededor de {time} hasta que estén todos los archivos.",
  "settings.status.meaning_off": "No se encuentran archivos sobre tus palabras.",
  "settings.status.meaning_ready": "{done} de {total} archivos · {by}",

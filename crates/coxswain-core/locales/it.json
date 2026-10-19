@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Impostazioni di questo: F9 → Spazio su disco, oppure coxswain --settings=disk",
  "disk.report.size": "Dimensione",
  "disk.report.store_title": "Il database di ricerca di Coxswain",
+ "disk.report.vectors_changing": "File che cambiano (vettori dopo 5 minuti senza modifiche)",
  "disk.report.vectors_waiting": "File in attesa di vettori",
  "disk.report.waiting": "In attesa di lettura",
  "disk.store.cost": "riletto da solo, a metà velocità; fino ad allora Trova trova meno parole nei file",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Chiedi",
  "find.kind_in_files": "Nei file",
  "find.kind_names": "Nomi",
+ "find.meaning_changing": {
+  "one": "{n} file cambia",
+  "many": "{n} di file cambiano",
+  "other": "{n} file cambiano"
+ },
  "find.meaning_for": "significato per {n}",
  "find.meaning_of": "significato per {n} di {total} ({percent} %)",
  "find.more": "Altri {n}: Invio li mostra tutti",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "Il server su {host} non risponde. È avviato?",
  "settings.status.failed": "Si è fermato: {why}",
  "settings.status.meaning": "Significato",
+ "settings.status.meaning_changing": {
+  "one": "{n} file cambia: riceverà i suoi vettori quando sarà rimasto invariato per 5 minuti.",
+  "many": "{n} di file cambiano: ognuno riceverà i suoi vettori quando sarà rimasto invariato per 5 minuti.",
+  "other": "{n} file cambiano: ognuno riceverà i suoi vettori quando sarà rimasto invariato per 5 minuti."
+ },
  "settings.status.meaning_left": "Circa {time} prima che tutti i file siano pronti.",
  "settings.status.meaning_off": "I file che parlano delle tue parole non vengono trovati.",
  "settings.status.meaning_ready": "{done} di {total} file · {by}",

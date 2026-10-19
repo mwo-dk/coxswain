@@ -556,6 +556,7 @@
  "disk.report.settings_tui": "Nastavení u tohoto: F9 → Využití disku, nebo coxswain --settings=disk",
  "disk.report.size": "Velikost",
  "disk.report.store_title": "Úložiště hledání Coxswainu",
+ "disk.report.vectors_changing": "Soubory, které se mění (vektory po 5 minutách beze změny)",
  "disk.report.vectors_waiting": "Soubory čekající na vektory",
  "disk.report.waiting": "Čeká na přečtení",
  "disk.store.cost": "znovu se přečte samo, poloviční rychlostí; do té doby Najít najde v souborech méně slov",
@@ -1571,6 +1572,11 @@
  "find.kind_ask": "Dotaz",
  "find.kind_in_files": "V souborech",
  "find.kind_names": "Názvy",
+ "find.meaning_changing": {
+  "one": "{n} soubor se mění",
+  "few": "{n} soubory se mění",
+  "other": "{n} souborů se mění"
+ },
  "find.meaning_for": "význam pro {n}",
  "find.meaning_of": "význam pro {n} z {total} ({percent} %)",
  "find.more": "Další {n}: Enter ukáže všechny",
@@ -2463,6 +2469,11 @@
  "settings.status.down": "Server na {host} neodpovídá. Běží?",
  "settings.status.failed": "Zastavilo se: {why}",
  "settings.status.meaning": "Význam",
+ "settings.status.meaning_changing": {
+  "one": "{n} soubor se mění: vektory dostane, až bude 5 minut beze změny.",
+  "few": "{n} soubory se mění: každý dostane vektory, až bude 5 minut beze změny.",
+  "other": "{n} souborů se mění: každý dostane vektory, až bude 5 minut beze změny."
+ },
  "settings.status.meaning_left": "Asi {time}, než bude hotový každý soubor.",
  "settings.status.meaning_off": "Soubory o vašich slovech se nehledají.",
  "settings.status.meaning_ready": "{done} z {total} souborů · {by}",

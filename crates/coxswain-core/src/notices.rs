@@ -436,6 +436,7 @@ mod tests {
             meaning: false,
             meaning_pending: 0,
             meaning_done: 0,
+            meaning_changing: 0,
             meaning_passages: 0,
             meaning_renewing: 0,
             meaning_ms_per_passage: 0,

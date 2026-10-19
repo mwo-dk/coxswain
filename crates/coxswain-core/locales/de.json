@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Einstellungen dazu: F9 → Speicherbelegung, oder coxswain --settings=disk",
  "disk.report.size": "Größe",
  "disk.report.store_title": "Suchspeicher von Coxswain",
+ "disk.report.vectors_changing": "Dateien, die sich ändern (Vektoren nach 5 Minuten ohne Änderung)",
  "disk.report.vectors_waiting": "Dateien, die auf Vektoren warten",
  "disk.report.waiting": "Warten aufs Lesen",
  "disk.store.cost": "wird von selbst neu gelesen, mit halber Geschwindigkeit; bis dahin findet Suchen weniger Wörter in Dateien",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Fragen",
  "find.kind_in_files": "In Dateien",
  "find.kind_names": "Namen",
+ "find.meaning_changing": {
+  "one": "{n} Datei ändert sich",
+  "other": "{n} Dateien ändern sich"
+ },
  "find.meaning_for": "Bedeutung für {n}",
  "find.meaning_of": "Bedeutung für {n} von {total} ({percent} %)",
  "find.more": "{n} weitere: Enter zeigt alle",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "Der Server auf {host} antwortet nicht. Läuft er?",
  "settings.status.failed": "Es ist stehen geblieben: {why}",
  "settings.status.meaning": "Bedeutung",
+ "settings.status.meaning_changing": {
+  "one": "{n} Datei ändert sich: Sie bekommt ihre Vektoren, sobald sie 5 Minuten lang unverändert ist.",
+  "other": "{n} Dateien ändern sich: Jede bekommt ihre Vektoren, sobald sie 5 Minuten lang unverändert ist."
+ },
  "settings.status.meaning_left": "Noch etwa {time}, bis jede Datei fertig ist.",
  "settings.status.meaning_off": "Dateien über Ihre Wörter werden nicht gefunden.",
  "settings.status.meaning_ready": "{done} von {total} Dateien · {by}",

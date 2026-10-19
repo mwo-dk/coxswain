@@ -134,6 +134,8 @@ fn search_quality() {
     };
     let store = Store::open(&d.join("search.db")).unwrap();
     store.set_engine(coxswain_core::meaning::Engine::from_config(&cfg));
+    // Files written just now get their vectors at once.
+    store.quiet.store(0, std::sync::atomic::Ordering::Relaxed);
     store.hurry.store(true, Ordering::Relaxed);
     let started = std::time::Instant::now();
     store::scan(&store, &cfg, &AtomicBool::new(false)).unwrap();

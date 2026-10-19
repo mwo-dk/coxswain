@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Honen ezarpenak: F9 → Diskoaren erabilera, edo coxswain --settings=disk",
  "disk.report.size": "Tamaina",
  "disk.report.store_title": "Coxswain-en bilaketa-biltegia",
+ "disk.report.vectors_changing": "Aldatzen ari diren fitxategiak (bektoreak 5 minutuz aldatu gabe egon ondoren)",
  "disk.report.vectors_waiting": "Bektoreen zain dauden fitxategiak",
  "disk.report.waiting": "Irakurtzeko zain",
  "disk.store.cost": "berez irakurtzen da berriro, abiadura erdian; bitartean Bilatu-k hitz gutxiago aurkitzen ditu fitxategietan",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Galdetu",
  "find.kind_in_files": "Fitxategietan",
  "find.kind_names": "Izenak",
+ "find.meaning_changing": {
+  "one": "Fitxategi {n} aldatzen ari da",
+  "other": "{n} fitxategi aldatzen ari dira"
+ },
  "find.meaning_for": "{n} fitxategiren esanahia",
  "find.meaning_of": "{total}tik {n} fitxategiren esanahia ({percent} %)",
  "find.more": "{n} gehiago: Sartu teklak denak erakusten ditu",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "{host} zerbitzariak ez du erantzuten. Martxan al dago?",
  "settings.status.failed": "Gelditu egin da: {why}",
  "settings.status.meaning": "Esanahia",
+ "settings.status.meaning_changing": {
+  "one": "Fitxategi {n} aldatzen ari da: bere bektoreak jasoko ditu 5 minutuz aldatu gabe dagoenean.",
+  "other": "{n} fitxategi aldatzen ari dira: bakoitzak bere bektoreak jasoko ditu 5 minutuz aldatu gabe dagoenean."
+ },
  "settings.status.meaning_left": "{time} inguru fitxategi guztiak egin arte.",
  "settings.status.meaning_off": "Ez dira zure hitzei buruzko fitxategiak aurkitzen.",
  "settings.status.meaning_ready": "{done}/{total} fitxategi · {by}",

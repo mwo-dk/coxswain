@@ -601,6 +601,7 @@ fn store_report(path: &Path, bytes: u64, f: crate::store::Facts) -> Report {
             },
         ),
         (t!("disk.report.vectors_waiting"), count(f.vectors_waiting)),
+        (t!("disk.report.vectors_changing"), count(f.vectors_changing)),
     ];
     let parts = f
         .parts

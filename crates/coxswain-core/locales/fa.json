@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "تنظیمات در همین‌جا: F9 ← مصرف دیسک، یا coxswain --settings=disk",
  "disk.report.size": "اندازه",
  "disk.report.store_title": "انباره‌ی جست‌وجوی Coxswain",
+ "disk.report.vectors_changing": "فایل‌های در حال تغییر (بردارها پس از ۵ دقیقه بدون تغییر)",
  "disk.report.vectors_waiting": "فایل‌های در انتظار بردار",
  "disk.report.waiting": "در انتظار خوانده شدن",
  "disk.store.cost": "خودش دوباره خوانده می‌شود، با نصف سرعت؛ تا آن موقع جست‌وجو واژه‌های کمتری را در فایل‌ها می‌یابد",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "پرسش",
  "find.kind_in_files": "در فایل‌ها",
  "find.kind_names": "نام‌ها",
+ "find.meaning_changing": {
+  "one": "{n} فایل در حال تغییر",
+  "other": "{n} فایل در حال تغییر"
+ },
  "find.meaning_for": "معنا برای {n}",
  "find.meaning_of": "معنا برای {n} از {total} ({percent} %)",
  "find.more": "{n} مورد دیگر: Enter همه را نشان می‌دهد",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "سرور در {host} پاسخ نمی‌دهد. آیا در حال اجراست؟",
  "settings.status.failed": "متوقف شد: {why}",
  "settings.status.meaning": "معنا",
+ "settings.status.meaning_changing": {
+  "one": "{n} فایل در حال تغییر است: وقتی ۵ دقیقه بدون تغییر بماند، بردارهایش را می‌گیرد.",
+  "other": "{n} فایل در حال تغییرند: هر کدام وقتی ۵ دقیقه بدون تغییر بماند، بردارهایش را می‌گیرد."
+ },
  "settings.status.meaning_left": "حدود {time} تا پایان همه‌ی فایل‌ها.",
  "settings.status.meaning_off": "فایل‌هایی که درباره‌ی واژه‌های شما هستند یافت نمی‌شوند.",
  "settings.status.meaning_ready": "{done} از {total} فایل · {by}",

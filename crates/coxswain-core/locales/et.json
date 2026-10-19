@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Selle sätted: F9 → Kettakasutus või coxswain --settings=disk",
  "disk.report.size": "Suurus",
  "disk.report.store_title": "Coxswaini otsingu andmebaas",
+ "disk.report.vectors_changing": "Muutuvad failid (vektorid pärast 5 minutit muutmata)",
  "disk.report.vectors_waiting": "Vektoreid ootavad failid",
  "disk.report.waiting": "Ootavad lugemist",
  "disk.store.cost": "loetakse ise uuesti, poole kiirusega; seni leiab Otsi failidest vähem sõnu",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Küsi",
  "find.kind_in_files": "Failides",
  "find.kind_names": "Nimed",
+ "find.meaning_changing": {
+  "one": "{n} fail muutub",
+  "other": "{n} faili muutuvad"
+ },
  "find.meaning_for": "tähendus {n} failil",
  "find.meaning_of": "tähendus {n} failil {total}-st ({percent} %)",
  "find.more": "{n} veel: Enter näitab kõiki",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "Server {host} ei vasta. Kas see töötab?",
  "settings.status.failed": "See peatus: {why}",
  "settings.status.meaning": "Tähendus",
+ "settings.status.meaning_changing": {
+  "one": "{n} fail muutub: see saab vektorid, kui on olnud 5 minutit muutmata.",
+  "other": "{n} faili muutuvad: igaüks saab vektorid, kui on olnud 5 minutit muutmata."
+ },
  "settings.status.meaning_left": "Umbes {time}, kuni kõik failid on valmis.",
  "settings.status.meaning_off": "Sinu sõnade teemal faile ei leita.",
  "settings.status.meaning_ready": "{done} / {total} faili · {by}",

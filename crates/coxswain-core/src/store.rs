@@ -8,7 +8,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -51,6 +51,11 @@ fn below(dir: &str) -> (String, String) {
 const VERSION: i32 = 6;
 /// A snippet marks the words it found with these; the apps turn them into a highlight.
 pub const MARK: (char, char) = ('\u{1}', '\u{2}');
+/// Seconds a file stays unchanged before it gets its vectors: one an app keeps saving
+/// (`~/.claude.json`, a browser's session) is found by its words at once, and counted as
+/// changing, not as to go, until it has been quiet this long. A date in the future is
+/// changing until it is this far past.
+pub const QUIET: u64 = 300;
 
 pub struct Store {
     db: Mutex<Connection>,
@@ -90,6 +95,8 @@ pub struct Store {
     /// ones; and how long a passage takes, in milliseconds, as measured, for the time left.
     pub renewing: AtomicUsize,
     pub ms_per_passage: AtomicUsize,
+    /// `QUIET`, which the tests and evaluations set to 0 for files they have just written.
+    pub quiet: AtomicU64,
     /// The clouds the walks came upon (files only in the cloud): (name, folder).
     clouds: Mutex<Vec<(String, PathBuf)>>,
     /// How many files' text a search by meaning read, for the tests: per store, so tests that
@@ -292,6 +299,7 @@ impl Store {
             path: path.to_path_buf(),
             renewing: AtomicUsize::new(renewing),
             ms_per_passage: AtomicUsize::new(0),
+            quiet: AtomicU64::new(if cfg!(test) { 0 } else { QUIET }),
             clouds: Mutex::default(),
             #[cfg(test)]
             bodies_read: AtomicUsize::new(0),
@@ -1049,14 +1057,29 @@ impl Store {
         Ok(())
     }
 
-    /// Files with text whose passages have no vectors yet, and files that have them.
+    /// The latest `modified` of a file quiet enough for its vectors.
+    fn quiet_since(&self) -> i64 {
+        quiet_since(self.quiet.load(Ordering::Relaxed))
+    }
+
+    /// Files with text, quiet, whose passages have no vectors yet, and files that have them.
     pub fn meaning_counts(&self) -> (usize, usize) {
         let db = self.db.lock().unwrap();
         let count = |q: &str| db.query_row(q, [], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize;
         (
-            count("SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL"),
+            db.query_row(TO_GO, [self.quiet_since()], |r| r.get::<_, i64>(0))
+                .unwrap_or(0) as usize,
             count("SELECT count(*) FROM files WHERE embedded = 1"),
         )
+    }
+
+    /// Files with text still to get their vectors that changed within `quiet`.
+    pub fn meaning_changing(&self) -> usize {
+        self.db
+            .lock()
+            .unwrap()
+            .query_row(CHANGING, [self.quiet_since()], |r| r.get::<_, i64>(0))
+            .unwrap_or(0) as usize
     }
 
     /// Passages that have their vectors.
@@ -1068,16 +1091,18 @@ impl Store {
             .unwrap_or(0) as usize
     }
 
-    /// Up to `n` files still to get their vectors, the last changed first: (id, path, text).
+    /// Up to `n` quiet files still to get their vectors, the last changed first: (id, path, text).
     fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, String)>> {
         let db = self.db.lock().unwrap();
         // The files first, by `files_unembedded`, then their text: joined before the limit, the
         // text of every file still to go was read for each few (2 s a time with 300,000).
         let mut q = db.prepare(
-            "SELECT f.id, f.path, coalesce(t.body, '') FROM (SELECT id, path, modified FROM files WHERE has_text = 1 AND embedded IS NULL ORDER BY modified DESC LIMIT ?1) f
+            "SELECT f.id, f.path, coalesce(t.body, '') FROM (SELECT id, path, modified FROM files WHERE has_text = 1 AND embedded IS NULL AND modified <= ?2 ORDER BY modified DESC LIMIT ?1) f
              LEFT JOIN text t ON t.rowid = f.id ORDER BY f.modified DESC",
         )?;
-        let rows = q.query_map([n as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        let rows = q.query_map([n as i64, self.quiet_since()], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?;
         rows.collect()
     }
 
@@ -1546,6 +1571,8 @@ pub struct Facts {
     pub passages: usize,
     pub with_vectors: usize,
     pub vectors_waiting: usize,
+    /// Files waiting that changed within `QUIET`: they get theirs once quiet.
+    pub vectors_changing: usize,
     pub model: String,
     /// The latest errors, newest first: when, the file, what.
     pub errors: Vec<(u64, Option<String>, String)>,
@@ -1553,6 +1580,18 @@ pub struct Facts {
     pub parts: Vec<(&'static str, u64)>,
     /// When a file was last read, in seconds since 1970.
     pub read_at: Option<u64>,
+}
+
+/// The files still to get their vectors, by `files_unembedded`: quiet since `?1` (to go), or
+/// changed after it (changing).
+const TO_GO: &str =
+    "SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL AND modified <= ?1";
+const CHANGING: &str =
+    "SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL AND modified > ?1";
+
+/// The latest `modified` of a file unchanged for `quiet` seconds now.
+fn quiet_since(quiet: u64) -> i64 {
+    crate::fs::now().saturating_sub(quiet) as i64
 }
 
 /// The facts of the store in `path`, opened read-only: an error when it is no search store.
@@ -1607,8 +1646,12 @@ pub fn facts(path: &Path) -> Result<Facts, String> {
     };
     // Vectors wait only where a model made some, or is set to.
     if !f.model.is_empty() {
-        f.vectors_waiting =
-            count("SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL");
+        let since = quiet_since(QUIET);
+        let count = |q: &str| {
+            db.query_row(q, [since], |r| r.get::<_, i64>(0))
+                .unwrap_or(0) as usize
+        };
+        (f.vectors_waiting, f.vectors_changing) = (count(TO_GO), count(CHANGING));
     }
     let mut kinds: HashMap<String, usize> = HashMap::new();
     if let Ok(mut q) =
@@ -2078,7 +2121,7 @@ fn hash(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::R
 /// files at a time, resting as long as the work took, never on battery unless *Index now*.
 /// `true` when stopped at `until` with files still to go.
 // ponytail: files the watcher brings get theirs in the next slice, or at the next scan within
-// ten minutes; the text is searchable by its words at once.
+// ten minutes, once quiet (`QUIET`); the text is searchable by its words at once.
 fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::Result<bool> {
     use crate::meaning::NoVectors;
     let Some(engine) = store.engine() else {
@@ -4187,6 +4230,58 @@ mod tests {
             "another model: the old vectors went"
         );
         assert!(store.meaning_error.lock().unwrap().is_some());
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file an app keeps saving is found by its words at once and counted as changing, not
+    /// as to go; it gets its vectors once unchanged for `QUIET`, and a new change, or a date
+    /// in the future, makes it changing again.
+    #[test]
+    fn a_changing_file_gets_its_vectors_once_quiet() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-quiet-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        let file = d.join("home").join("session.json");
+        std::fs::write(&file, "zebra quartz ").unwrap();
+        let cfg = SearchConfig {
+            text_roots: vec![d.join("home")],
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        let go = AtomicBool::new(false);
+        let store = Store::open(&d.join("search.db")).unwrap();
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.quiet.store(QUIET, Ordering::Relaxed);
+        let state = |s: &Store| (s.meaning_counts(), s.meaning_changing());
+        let date = |s: &Store, at: i64| {
+            s.db.lock()
+                .unwrap()
+                .execute("UPDATE files SET modified = ?1", [at])
+                .unwrap()
+        };
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.search("zebra", None, 10).total, 1, "its words at once");
+        assert_eq!(state(&store), ((0, 0), 1), "changing, not to go");
+        assert!(store.unembedded(8).unwrap().is_empty());
+        assert!(!has_backlog(&store).unwrap());
+
+        // Five minutes on.
+        date(&store, quiet_since(QUIET));
+        assert_eq!(state(&store), ((1, 0), 0), "quiet: to go");
+        assert_eq!(store.unembedded(8).unwrap().len(), 1);
+        embed(&store, &go, None).unwrap();
+        assert_eq!(state(&store), ((0, 1), 0), "it has its vectors");
+
+        std::fs::write(&file, "zebra quartz orbit ").unwrap();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(state(&store), ((0, 0), 1), "saved again: changing again");
+
+        date(&store, crate::fs::now() as i64 + 3600);
+        assert_eq!(state(&store), ((0, 0), 1), "a date in the future is changing");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "პარამეტრები ამისთვის: F9 → დისკის გამოყენება, ან coxswain --settings=disk",
  "disk.report.size": "ზომა",
  "disk.report.store_title": "Coxswain-ის ძებნის საცავი",
+ "disk.report.vectors_changing": "ცვალებადი ფაილები (ვექტორები 5 წუთი უცვლელობის შემდეგ)",
  "disk.report.vectors_waiting": "ვექტორებს მომლოდინე ფაილები",
  "disk.report.waiting": "წაკითხვას ელოდება",
  "disk.store.cost": "თავისით ხელახლა წაიკითხება, ნახევარი სიჩქარით; მანამდე ძებნა ფაილებში ნაკლებ სიტყვას პოულობს",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "შეკითხვა",
  "find.kind_in_files": "ფაილებში",
  "find.kind_names": "სახელები",
+ "find.meaning_changing": {
+  "one": "{n} ფაილი იცვლება",
+  "other": "{n} ფაილი იცვლება"
+ },
  "find.meaning_for": "აზრი: {n}",
  "find.meaning_of": "აზრი: {n} / {total} ({percent} %)",
  "find.more": "კიდევ {n}: Enter ყველას აჩვენებს",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "სერვერი მისამართზე {host} არ პასუხობს. გაშვებულია?",
  "settings.status.failed": "შეჩერდა: {why}",
  "settings.status.meaning": "აზრი",
+ "settings.status.meaning_changing": {
+  "one": "{n} ფაილი იცვლება: ვექტორებს მიიღებს, როცა 5 წუთი უცვლელი დარჩება.",
+  "other": "{n} ფაილი იცვლება: თითოეული ვექტორებს მიიღებს, როცა 5 წუთი უცვლელი დარჩება."
+ },
  "settings.status.meaning_left": "ყველა ფაილის დასრულებამდე დაახლოებით {time}.",
  "settings.status.meaning_off": "ფაილები, რომლებიც თქვენს სიტყვებს ეხება, არ მოიძებნება.",
  "settings.status.meaning_ready": "{done} / {total} ფაილი · {by}",

@@ -536,6 +536,7 @@
  "disk.report.settings_tui": "Indstillinger ved dette: F9 → Diskforbrug, eller coxswain --settings=disk",
  "disk.report.size": "Størrelse",
  "disk.report.store_title": "Coxswains søgedatabase",
+ "disk.report.vectors_changing": "Filer, der ændres (vektorer efter 5 minutter uændret)",
  "disk.report.vectors_waiting": "Filer, der venter på vektorer",
  "disk.report.waiting": "Venter på at blive læst",
  "disk.store.cost": "læses igen af sig selv, med halv fart; indtil da finder Find færre ord i filer",
@@ -1540,6 +1541,10 @@
  "find.kind_ask": "Spørg",
  "find.kind_in_files": "I filer",
  "find.kind_names": "Navne",
+ "find.meaning_changing": {
+  "one": "{n} fil ændres",
+  "other": "{n} filer ændres"
+ },
  "find.meaning_for": "betydning for {n}",
  "find.meaning_of": "betydning for {n} af {total} ({percent} %)",
  "find.more": "{n} mere: Enter viser dem alle",
@@ -2407,6 +2412,10 @@
  "settings.status.down": "Serveren på {host} svarer ikke. Kører den?",
  "settings.status.failed": "Den stoppede: {why}",
  "settings.status.meaning": "Betydning",
+ "settings.status.meaning_changing": {
+  "one": "{n} fil ændres: den får sine vektorer, når den har været uændret i 5 minutter.",
+  "other": "{n} filer ændres: hver får sine vektorer, når den har været uændret i 5 minutter."
+ },
  "settings.status.meaning_left": "Cirka {time}, til alle filer er færdige.",
  "settings.status.meaning_off": "Filer om dine ord findes ikke.",
  "settings.status.meaning_ready": "{done} af {total} filer · {by}",
