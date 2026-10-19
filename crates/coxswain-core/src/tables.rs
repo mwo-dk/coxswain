@@ -1,5 +1,6 @@
 //! Files that hold tables, as both apps show them: a SQLite database's tables with their row
-//! counts, schema and first rows, and a Parquet file's columns and first rows. F3 in the
+//! counts, schema and first rows, a dBase table's fields and first records, and a Parquet
+//! file's columns and first rows. F3 in the
 //! terminal app pages them as text; the desktop app's preview draws the same.
 
 use std::fs::File;
@@ -147,13 +148,48 @@ pub fn parquet(path: &Path, rows: usize) -> Result<Parquet, String> {
     Ok((count, schema, sample))
 }
 
+/// A dBase table (`dbf`) as a table of its own: its fields as the schema, then the field
+/// names and its first `rows` records.
+pub fn dbf(path: &Path, rows: usize) -> Result<Vec<Table>, String> {
+    let (mut f, t) = crate::dbf::open(path).ok_or_else(|| crate::t!("dbf.not_a_table"))?;
+    let mut sample = vec![t.fields.iter().map(|f| cell(&f.name)).collect::<Vec<_>>()];
+    sample.extend(
+        t.rows(&mut f, rows)
+            .into_iter()
+            .map(|r| r.iter().map(|c| cell(c)).collect()),
+    );
+    Ok(vec![Table {
+        name: path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        kind: "table".into(),
+        rows: Some(t.records),
+        sql: t.schema(),
+        sample,
+    }])
+}
+
+/// The tables of a SQLite database or a dBase table, by its ending.
+pub fn of(path: &Path, rows: usize) -> Result<Vec<Table>, String> {
+    if path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("dbf"))
+    {
+        dbf(path, rows)
+    } else {
+        sqlite(path, rows)
+    }
+}
+
 /// Whether F3 shows this file as tables.
 pub fn is_tables(path: &Path) -> bool {
     let ext = path
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    ["db", "sqlite", "sqlite3", "db3", "parquet", "pq"].contains(&ext.as_str())
+    ["db", "sqlite", "sqlite3", "db3", "parquet", "pq", "dbf"].contains(&ext.as_str())
 }
 
 /// Rows as aligned columns of text.
@@ -212,7 +248,7 @@ pub fn as_text(path: &Path) -> Result<String, String> {
         return Ok(out);
     }
     let mut out = String::new();
-    for t in sqlite(path, ROWS)? {
+    for t in of(path, ROWS)? {
         let rows = t
             .rows
             .map(|n| crate::tn!("preview.rows", n))

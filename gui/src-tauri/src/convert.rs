@@ -150,7 +150,12 @@ pub struct Converted {
 }
 
 /// Where the result for `path` goes; `main` is the document it builds (`latex::main_file`).
-fn cache_dir(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
+pub(crate) fn cache_dir(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
+    Ok(previews_dir()?.join(cache_name(path, main, tool, engine)?))
+}
+
+/// The name of `cache_dir`'s folder: a hash of the file as it is now and how it is made.
+pub(crate) fn cache_name(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<String> {
     let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), tool, engine).hash(&mut h);
@@ -160,8 +165,7 @@ fn cache_dir(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<PathBuf>
         "typst" => latex::newest(main, TYPST_READ).hash(&mut h),
         _ => {}
     }
-    let dir = previews_dir()?.join(format!("{:016x}", h.finish()));
-    Ok(dir)
+    Ok(format!("{:016x}", h.finish()))
 }
 
 /// What each tool produces, and where.
@@ -292,7 +296,7 @@ pub fn keep(app: tauri::AppHandle) {
     });
 }
 
-fn previews_dir() -> Res<PathBuf> {
+pub(crate) fn previews_dir() -> Res<PathBuf> {
     Ok(dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("previews"))
 }
 

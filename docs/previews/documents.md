@@ -40,6 +40,7 @@ one without starting the program it belongs to.
 | `.docx` | Headings, paragraphs, lists, tables and embedded pictures | [mammoth](https://github.com/mwilliamson/mammoth.js) |
 | `.epub` | The book's title and its first chapter with real text (covers and title pages are skipped) | Read in Rust |
 | `.ipynb` | Markdown cells, highlighted code with its `In [n]` number, and outputs: text, errors, tables, PNG and SVG plots | marked, highlight.js |
+| `.msg`, `.mbox` | An Outlook message as an `.eml` is shown; a mailbox lists its messages and opens like a folder of them | Built in: [Old pictures and files](old-formats.md#outlook-messages) |
 | `.eml` | *Subject*, *From*, *To*, *Date*, *Attachments* with sizes, and the text of the message: every text part, HTML made plain, and of a plain and an HTML form the one a mail program shows, as the search reads it | Read in Rust, with [mail-parser](https://crates.io/crates/mail-parser) for the headers |
 | `.adoc`, `.asciidoc` | Headings, lists, tables, admonitions, table of contents | [Asciidoctor.js](https://asciidoctor.org/), in secure mode (no file includes) |
 | `.rst`, `.rest` | reStructuredText as HTML | pandoc, installed or in a container ([Previews made by tools](tools.md)) |

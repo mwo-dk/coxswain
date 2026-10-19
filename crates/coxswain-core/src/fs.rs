@@ -346,7 +346,7 @@ pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
 
 /// Case-insensitive natural order: "file2" < "file10". No allocation: a sort of 100,000
 /// names calls this two million times.
-fn natord(a: &str, b: &str) -> std::cmp::Ordering {
+pub(crate) fn natord(a: &str, b: &str) -> std::cmp::Ordering {
     let (mut a, mut b) = (a, b);
     loop {
         let (Some(x), Some(y)) = (a.chars().next(), b.chars().next()) else {
@@ -493,7 +493,7 @@ fn writable(path: &Path) -> io::Result<()> {
     // Inside a disk image nothing is made, changed or taken out (the image itself is a file).
     if !path.exists()
         && crate::archive::split(path)
-            .is_some_and(|(image, inner)| !inner.is_empty() && crate::archive::is_disk_image(&image))
+            .is_some_and(|(image, inner)| !inner.is_empty() && crate::archive::read_only(&image))
     {
         return denied("disk_image.read_only");
     }
@@ -524,7 +524,7 @@ fn copy_out_or_in(
         return crate::history::copy_out(&at, dst);
     }
     if let Some((archive, inner)) = into_archive(dst) {
-        if crate::archive::is_disk_image(&archive) {
+        if crate::archive::read_only(&archive) {
             return Err(crate::disk_image::read_only());
         }
         let name = src
@@ -951,6 +951,9 @@ pub struct Props {
     /// with it next.
     pub disk_image: Option<Vec<(String, String)>>,
     pub disk_next: Option<crate::disk_image::Next>,
+    /// What an old picture, a tracker module, a mailbox, a comic or a dBase table holds
+    /// (`facts::of`), as (label, value) lines.
+    pub facts: Option<Vec<(String, String)>>,
 }
 
 /// Properties of `path`: a folder's size is a walk of it, and the facts run `zfs` and `pkg`,
@@ -1009,6 +1012,7 @@ pub fn properties(path: &Path) -> io::Result<Props> {
             crate::bsd::package_of(path)
         },
         flags: crate::flags::read(path),
+        facts: (meta.is_file() && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
         disk_image: disk.as_ref().map(crate::disk_image::lines),
         disk_next: disk.map(|_| crate::disk_image::next()),
         path: path.to_path_buf(),

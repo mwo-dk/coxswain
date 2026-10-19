@@ -91,6 +91,22 @@ def files(d):
     pdf(d / "n.pdf", words=False)
     (d / "o.ps").write_text("%!PS\n/Helvetica findfont 24 scalefont setfont\n72 700 moveto (Rocket) show\nshowpage\n")
     (d / "p.d2").write_text("tank -> valve -> engine\n")
+    # Old files, as the demo home has them (docs/screenshots/demo-old.py).
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("demo_old", REPO / "docs/screenshots/demo-old.py")
+    old = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(old)
+    old.boing(d / "q.iff")
+    old.comic(d / "r.cbz", [d / "h.png", d / "h.png"])
+    old.dbf(d / "s.dbf")
+    old.module(d / "t.mod")
+    old.mailbox(d / "u.mbox")
+    # A TIFF of two pages of 2×1 grey pixels.
+    def page(at, nxt, v):
+        entries = [(256, 3, 1, 2), (257, 3, 1, 1), (258, 3, 1, 8), (259, 3, 1, 1), (262, 3, 1, 1), (273, 4, 1, at + 2 + 8 * 12 + 4), (278, 3, 1, 1), (279, 4, 1, 2)]
+        return struct.pack("<H", 8) + b"".join(struct.pack("<HHII", *e) for e in entries) + struct.pack("<I", nxt) + bytes([v, v])
+    second = 8 + len(page(8, 0, 0))
+    (d / "v.tif").write_bytes(b"II*\0" + struct.pack("<I", 8) + page(8, second, 40) + page(second, 0, 200))
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -113,6 +129,14 @@ def files(d):
         "ps": ("o.ps", "iframe", "", 20),
         # No d2 here and Kroki's image not pulled: its note (the first pull, or what is missing).
         "d2": ("p.d2", "p.more", "", 10),
+        # Old pictures and files: drawn as a PNG by the core, a comic's page, a dBase table,
+        # tracker music's sample names, a mailbox's messages, a TIFF's pages.
+        "iff": ("q.iff", ".media img", "", 10),
+        "cbz": ("r.cbz", ".media img", "", 10),
+        "dbf": ("s.dbf", "table.db", "Vostok", 10),
+        "mod": ("t.mod", "ul.archive", "greetings to the crew", 10),
+        "mbox": ("u.mbox", "ul.archive", "Go for launch", 10),
+        "tif": ("v.tif", ".pager", "2", 10),
     }
 
 

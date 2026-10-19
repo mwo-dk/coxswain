@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -227,6 +227,78 @@
         (err) => ({ error: String(err) }),
       );
       if (e?.path === cur.path) backend = r;
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+
+  // An old picture (TIFF, TGA, Amiga IFF, PCX, Photoshop, JPEG XL, …): a PNG the core makes and
+  // the cache keeps, page by page (a TIFF has pages). One that is none after all (a .hdr of
+  // another program) is shown as text.
+  let pic = $state(null);
+  let picAt = $state({ path: "", page: 0 });
+  const picPage = $derived(picAt.path === e?.path ? picAt.page : 0);
+  $effect(() => {
+    const cur = e;
+    const page = picPage;
+    if (untrack(() => pic?.path !== cur?.path)) pic = null;
+    if (kind !== "picture") return;
+    const timer = setTimeout(async () => {
+      const r = await invoke("old_picture", { path: cur.path, page, side: 2048 }).catch((err) => ({ error: String(err) }));
+      if (e?.path !== cur.path) return;
+      if (r === null) return void (sniffed = { path: cur.path, kind: "text" });
+      pic = { ...r, path: cur.path };
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+
+  // A comic (.cbz): its pages one by one, each copied out of it when shown.
+  let comic = $state(null);
+  let comicAt = $state({ path: "", page: 0 });
+  const comicPage = $derived(comicAt.path === e?.path ? comicAt.page : 0);
+  let comicShown = $state(null);
+  $effect(() => {
+    const cur = e;
+    comic = null;
+    comicShown = null;
+    if (kind !== "comic") return;
+    const timer = setTimeout(async () => {
+      const r = await invoke("comic_pages", { path: cur.path }).then(
+        (pages) => ({ path: cur.path, pages }),
+        (err) => ({ path: cur.path, pages: [], error: String(err) }),
+      );
+      if (e?.path === cur.path) comic = r;
+    }, 80);
+    return () => clearTimeout(timer);
+  });
+  $effect(() => {
+    const c = comic;
+    const n = comicPage;
+    if (!c?.pages.length) return;
+    const inner = c.pages[Math.min(n, c.pages.length - 1)];
+    const timer = setTimeout(async () => {
+      try {
+        let file = await invoke("archive_peek", { path: `${c.path}/${inner}` });
+        if (isOldPicture(inner)) file = (await invoke("old_picture", { path: file, page: 0, side: 2048 }))?.file ?? file;
+        if (comic === c) comicShown = { inner, file };
+      } catch (err) {
+        if (comic === c) comicShown = { inner, error: String(err) };
+      }
+    }, 60);
+    return () => clearTimeout(timer);
+  });
+
+  // Tracker music: its instruments' and samples' names (its facts come with the others). A
+  // .mod that is Modula-2 source is shown as text.
+  let tracker = $state(null);
+  $effect(() => {
+    const cur = e;
+    tracker = null;
+    if (kind !== "tracker") return;
+    const timer = setTimeout(async () => {
+      const r = await invoke("module_names", { path: cur.path }).catch(() => null);
+      if (e?.path !== cur.path) return;
+      if (r === null) return void (sniffed = { path: cur.path, kind: "text" });
+      tracker = { names: r };
     }, 80);
     return () => clearTimeout(timer);
   });
@@ -472,6 +544,15 @@
   </div>
 {/snippet}
 
+<!-- Page n of count, with the buttons before and after: a TIFF's pages, a comic's. -->
+{#snippet pager(n, count, go)}
+  <div class="pager" role="group" aria-label={t("facts.pages")}>
+    <button class="render" disabled={n <= 0} title={t("preview.previous_page")} aria-label={t("preview.previous_page")} onclick={() => go(n - 1)}>‹</button>
+    <span>{t("preview.page_of", { n: num(n + 1), count: num(count) })}</span>
+    <button class="render" disabled={n >= count - 1} title={t("preview.next_page")} aria-label={t("preview.next_page")} onclick={() => go(n + 1)}>›</button>
+  </div>
+{/snippet}
+
 <!-- Closes the preview, as Esc does. -->
 {#snippet closer()}
   <button class="close" title={t("preview.close", { key: "Esc" })} aria-label={t("preview.close", { key: "Esc" })} onclick={() => (ui.showPreview = false)}>×</button>
@@ -691,6 +772,36 @@
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
+      {:else if kind === "picture"}
+        {#if pic?.error}
+          <p class="more">{pic.error}</p>
+        {:else if pic}
+          {#if pic.pages > 1}{@render pager(picPage, pic.pages, (p) => (picAt = { path: e.path, page: p }))}{/if}
+          <div class="media checker"><img src={convertFileSrc(pic.file)} alt={e.name} /></div>
+        {/if}
+      {:else if kind === "comic"}
+        {#if comic?.error}
+          <p class="more">{comic.error}</p>
+        {:else if comic && !comic.pages.length}
+          <p class="more">{t("preview.comic_empty")}</p>
+        {:else if comic}
+          {@const n = Math.min(comicPage, comic.pages.length - 1)}
+          {@render pager(n, comic.pages.length, (p) => (comicAt = { path: e.path, page: p }))}
+          {#if comicShown?.error}
+            <p class="more">{comicShown.error}</p>
+          {:else if comicShown}
+            <div class="media checker"><img src={convertFileSrc(comicShown.file)} alt={comicShown.inner} /></div>
+          {/if}
+          <p class="more">{t("preview.comic_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
+        {/if}
+      {:else if kind === "tracker"}
+        <p class="more">{t("preview.tracker", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
+        {#if tracker?.names.length}
+          <h3>{t("facts.sample_names")}</h3>
+          <ul class="archive mono">
+            {#each tracker.names as n, i (i)}<li><span>{n}</span></li>{/each}
+          </ul>
+        {/if}
       {:else if (kind === "video" || kind === "audio") && ui.cfg.media_missing}
         <!-- Showing a player without GStreamer's plugins would take the whole page down. -->
         <p class="more">{ui.cfg.media_missing} <button class="link" onclick={() => invoke("open_path", { path: e.path })}>{t("preview.media_open")}</button></p>
@@ -735,6 +846,8 @@
         {:else if archive?.error}
           <p class="more">{archive.error}</p>
         {:else if archive}
+          <!-- A mailbox opens like a folder of its messages, read-only. -->
+          {#if /\.mbox$/i.test(e.name)}<p class="more">{t("disk_image.next_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
           <p class="more">{tn(archive.more ? "preview.archive_more" : "preview.archive", archive.entries.length)}</p>
           <ul class="archive mono">
             {#each archive.entries as a (a.name)}
@@ -962,6 +1075,14 @@
     max-width: 100%;
     max-height: 60vh;
     border-radius: var(--r);
+  }
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-variant-numeric: tabular-nums;
   }
   .pdf {
     width: 100%;

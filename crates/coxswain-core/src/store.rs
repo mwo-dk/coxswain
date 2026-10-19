@@ -2022,6 +2022,8 @@ fn scan_for(
     store.reader_changed("readers.code", "2", &added)?;
     // PGN files: a line per game (players, event, site, date, opening, result), read once again.
     store.reader_changed("readers.pgn", "1", &crate::chess::PGN_ENDINGS)?;
+    // Outlook messages and dBase tables have readers of their own: read once again.
+    store.reader_changed("readers.msg-dbf", "1", &[".msg", ".dbf"])?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;

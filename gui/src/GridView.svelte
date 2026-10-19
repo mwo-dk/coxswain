@@ -3,7 +3,7 @@
   // (handled in App, which reads the column count from `data-cols`).
   import { untrack } from "svelte";
   import { openItem, toggleMark, dragOut, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
+  import { invoke, convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
   import { ui } from "./app.svelte.js";
   import { t as tr } from "./i18n.svelte.js";
 
@@ -62,6 +62,10 @@
   }
 </script>
 
+{#snippet icon(e)}
+  <span class="icon" class:dir={e.is_dir} style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
+{/snippet}
+
 <div
   class="grid"
   bind:this={grid}
@@ -99,8 +103,15 @@
           <!-- A picture only in the cloud is not drawn: that would download it. -->
           {#if previewKind(e) === "image" && !e.online}
             <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
+          {:else if previewKind(e) === "picture" && !e.online}
+            <!-- An old picture: a small PNG the core makes once and keeps (old_picture). -->
+            {#await invoke("old_picture", { path: e.path, page: 0, side: 256 }) then r}
+              {#if r}<img src={convertFileSrc(r.file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+            {:catch}
+              {@render icon(e)}
+            {/await}
           {:else}
-            <span class="icon" class:dir={e.is_dir} style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
+            {@render icon(e)}
           {/if}
         </div>
         <span class="label">

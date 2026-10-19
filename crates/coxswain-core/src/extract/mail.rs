@@ -109,6 +109,72 @@ fn add(to: &mut String, text: &str, most: usize) {
     to.push('\n');
 }
 
+/// One message of a mailbox, for opening the mailbox like a folder: where its bytes are (from
+/// after the line that parts it from the one before), and its date, sender and subject.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Listed {
+    pub start: u64,
+    pub len: u64,
+    /// Seconds since 1970; 0 when it has no date.
+    pub secs: i64,
+    pub from: String,
+    pub subject: String,
+}
+
+/// The messages of the mailbox at `path`, the first `MAX_MESSAGES`: the file is read once, a
+/// piece at a time, for the lines that start messages, and then the headers of each.
+pub fn mailbox(path: &Path) -> std::io::Result<Vec<Listed>> {
+    use std::io::{Seek, SeekFrom};
+    static START: LazyLock<Regex> =
+        LazyLock::new(|| pattern(r"(?m-u)^From .*\d\d:\d\d.*[ +-]\d{4}[ \t\r]*$"));
+    const PIECE: usize = 8 << 20;
+    let mut f = std::fs::File::open(path)?;
+    let total = f.metadata()?.len();
+    let (mut starts, mut buf, mut base, mut eof) = (vec![], Vec::with_capacity(PIECE), 0u64, false);
+    while !eof && starts.len() <= MAX_MESSAGES {
+        let had = buf.len();
+        buf.resize(had + PIECE, 0);
+        let n = f.read(&mut buf[had..])?;
+        buf.truncate(had + n);
+        eof = n == 0;
+        // Only whole lines are looked at; the rest waits for the next piece.
+        let upto = if eof { buf.len() } else { memchr::memrchr(b'\n', &buf).map_or(0, |i| i + 1) };
+        for m in START.find_iter(&buf[..upto]) {
+            starts.push(base + m.start() as u64);
+        }
+        // A line longer than two pieces starts no message.
+        let upto = if upto == 0 && buf.len() > 2 * PIECE { buf.len() } else { upto };
+        buf.drain(..upto);
+        base += upto as u64;
+    }
+    // Mail before the first "From " line (an .eml named .mbox) is a message too.
+    if starts.first() != Some(&0) {
+        let mut head = [0u8; 4096];
+        f.seek(SeekFrom::Start(0))?;
+        let n = f.read(&mut head)?;
+        let first = starts.first().map_or(n, |&s| (s as usize).min(n));
+        if !head[..first].trim_ascii().is_empty() {
+            starts.insert(0, 0);
+        }
+    }
+    starts.truncate(MAX_MESSAGES);
+    let mut out = Vec::with_capacity(starts.len());
+    let mut head = vec![0u8; 64 * 1024];
+    for (i, &at) in starts.iter().enumerate() {
+        let end = starts.get(i + 1).copied().unwrap_or(total).min(total);
+        f.seek(SeekFrom::Start(at))?;
+        let n = f.read(&mut head[..(end.saturating_sub(at) as usize).min(64 * 1024)])?;
+        let raw = &head[..n];
+        // The bytes after the line that parts the messages.
+        let skip = if raw.starts_with(b"From ") { memchr(b'\n', raw).map_or(raw.len(), |e| e + 1) } else { 0 };
+        let (kept, _) = split(&raw[skip..]);
+        let h = headers(&kept);
+        let from = h.from.split(" <").next().unwrap_or_default().trim_matches('"').to_string();
+        out.push(Listed { start: at + skip as u64, len: end.saturating_sub(at + skip as u64), secs: h.secs, from, subject: h.subject });
+    }
+    Ok(out)
+}
+
 /// The first message of a file, for a preview: its headers one by one, its body and its
 /// attachments, read as `text` reads it.
 pub struct Summary {
@@ -121,8 +187,12 @@ pub struct Summary {
     pub attachments: Vec<(Option<String>, usize)>,
 }
 
-/// The first message of the file, or `None` when it holds more than `max` or no message.
+/// The first message of the file, or `None` when it holds more than `max` or no message. An
+/// Outlook `.msg` is read by `msg`.
 pub fn summary(path: &Path, max: u64) -> Option<Summary> {
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
+        return super::msg::summary(path);
+    }
     let (bytes, mailbox) = read(path, max)?;
     let raw = start(&bytes);
     let raw = if mailbox {
@@ -339,6 +409,8 @@ struct Head {
     from: String,
     to: String,
     date: String,
+    /// The date as seconds since 1970; 0 without one.
+    secs: i64,
     /// The content type in small letters, as "text/html"; empty when there is none.
     kind: String,
     boundary: Option<String>,
@@ -389,11 +461,9 @@ fn parsed(head: &str) -> Head {
             .join("; "),
         None => String::new(),
     };
-    let date = mail
-        .date()
-        .filter(|d| d.is_valid())
-        .map(|d| d.to_rfc822())
-        .unwrap_or_default();
+    let valid = mail.date().filter(|d| d.is_valid());
+    let date = valid.map(|d| d.to_rfc822()).unwrap_or_default();
+    let secs = valid.map_or(0, |d| d.to_timestamp());
     let (subject, from, to) = (
         mail.subject().unwrap_or_default().to_string(),
         who(mail.from()),
@@ -412,6 +482,7 @@ fn parsed(head: &str) -> Head {
         from,
         to,
         date,
+        secs,
         kind: kind
             .map(|k| {
                 format!("{}/{}", k.ctype(), k.subtype().unwrap_or_default()).to_ascii_lowercase()
@@ -559,7 +630,7 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
 /// line of text, the comments, style sheets, scripts and title left out, and the entities
 /// resolved. It forgives what a browser forgives: a comment ends at the first "-->", "<"
 /// begins a tag only before a letter, and ">" inside the quotes of an attribute ends none.
-fn plain(html: &str) -> String {
+pub(crate) fn plain(html: &str) -> String {
     const INLINE: [&str; 32] = [
         "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "cite", "code", "del", "dfn", "em",
         "font", "i", "ins", "kbd", "mark", "nobr", "q", "s", "samp", "small", "span", "strike",

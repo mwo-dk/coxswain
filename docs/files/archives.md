@@ -69,6 +69,11 @@ program is needed.
 | 7z | `.7z` | yes | yes (LZMA2) | AES to read and when packing; also locked file names |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
+| Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
+| Mailbox | `.mbox`: one `.eml` file a message | yes | no: read-only | none |
+
+A comic and a mailbox open like folders, but search does not look into them as archives: a
+mailbox is read as mail ([Old pictures and files](../previews/old-formats.md#mailboxes)).
 
 Endings are recognised in any case (`.ZIP`). A file is taken for an archive by its name only.
 

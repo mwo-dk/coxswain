@@ -176,7 +176,7 @@ impl Text {
 }
 
 /// The text of a document, or of as much of it as is there. `None` when it is not one.
-fn read(rtf: &[u8]) -> Option<String> {
+pub(crate) fn read(rtf: &[u8]) -> Option<String> {
     if !rtf.starts_with(b"{\\rtf") {
         return None;
     }

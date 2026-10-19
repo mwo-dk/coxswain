@@ -169,7 +169,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let dir = match place {
         // A disk image (CHM, CBR) says it is read-only instead.
         Place::Archive => {
-            let ro = coxswain_core::archive::split(&p.dir).is_some_and(|(a, _)| coxswain_core::archive::is_disk_image(&a));
+            let ro = coxswain_core::archive::split(&p.dir).is_some_and(|(a, _)| coxswain_core::archive::read_only(&a));
             format!("{} [{}]", p.dir.to_string_lossy(), if ro { t!("dialogs.readonly") } else { t!("archive.badge") })
         }
         Place::History(at) => match (&at.commit, at.view) {
@@ -1006,7 +1006,7 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str, disk
     if let Some(f) = &p.flags {
         add("props.flags", if f.set.is_empty() { t!("props.flags_none") } else { f.set.join(", ") });
     }
-    for (k, val) in p.disk_image.iter().flatten() {
+    for (k, val) in p.disk_image.iter().chain(&p.facts).flatten() {
         v.push((k.clone(), val.clone()));
     }
     let w = v.iter().map(|(k, _)| k.width()).max().unwrap_or(0);
