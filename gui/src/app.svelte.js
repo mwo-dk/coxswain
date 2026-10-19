@@ -385,8 +385,19 @@ export async function gitTool(tb = tab()) {
   reloadAll();
 }
 
+/** The git config as git uses it in the tab's folder (outside a repository: system and global),
+ *  read now, in a dialog: each value with its scope and file, secrets hidden until Show. */
+export async function openGitConfig(tb = tab()) {
+  try {
+    const [repo, entries, hint] = await invoke("git_config", { dir: tb.dir });
+    ui.modal = { kind: "gitconfig", feature: "git_config", repo, entries, hint, shown: {}, cursor: 0 };
+  } catch (err) {
+    ui.status = String(err);
+  }
+}
+
 /** The git line's menu (a right-click on it): the repository's branches and worktrees, and
- *  the handoff to the user's git tool, each with its key. */
+ *  config, and the handoff to the user's git tool, each with its key. */
 export function gitMenu(tb = tab()) {
   const entry = (n, run) => ({ key: ui.cfg.actions[n]?.[1] ?? "", label: actionLabel(n), run });
   ui.modal = {
@@ -396,7 +407,7 @@ export function gitMenu(tb = tab()) {
     direct: false,
     filter: "",
     cursor: 0,
-    items: [entry("branches", () => openGitView(false, tb)), entry("worktrees", () => openGitView(true, tb)), entry("git_tool", () => gitTool(tb))],
+    items: [entry("branches", () => openGitView(false, tb)), entry("worktrees", () => openGitView(true, tb)), entry("git_config", () => openGitConfig(tb)), entry("git_tool", () => gitTool(tb))],
   };
 }
 

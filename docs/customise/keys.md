@@ -120,7 +120,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `features` | none | `mark_all` | **Ctrl+A** |
 | `undo` | **Ctrl+Z** | `action_menu` | **Shift+F10**, **Menu** |
 | `rename` | **Shift+F6** | `disk_use` | none |
-| `git_tool` | **Alt+G** | | |
+| `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.

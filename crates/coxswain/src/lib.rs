@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod bom;
+mod git_config;
 mod provenance;
 mod guide;
 mod settings;
@@ -376,6 +377,8 @@ pub enum Dialog {
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
+    /// The git config, full screen (Alt+C).
+    GitConfig(Box<git_config::Viewer>),
     /// Settings, full screen (F12, F9 → Settings, `--settings`).
     Settings(Box<settings::Settings>),
     /// The first-run guide, full screen (the first start, F1 → G, Settings → Overview).
@@ -402,6 +405,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Search { .. } => "find_file",
         Dialog::Bom(_) => "cbom",
         Dialog::Provenance(_) => "provenance",
+        Dialog::GitConfig(_) => "git_config",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
@@ -1032,6 +1036,7 @@ impl App {
             Action::SwitchBranch => self.switch_branch(),
             Action::NewBranch => self.new_branch(),
             Action::GitTool => self.git_tool(),
+            Action::GitConfig => self.git_config(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -1534,6 +1539,22 @@ impl App {
                 self.reload();
             }
         }
+    }
+
+    /// The git config as git uses it in the panel's folder, read now, full screen. Outside a
+    /// repository: the system and global config.
+    fn git_config(&mut self) {
+        let p = self.panel();
+        let dir = history::split(&p.dir).map_or_else(|| p.dir.clone(), |at| at.base);
+        let entries = match coxswain_core::git_config::read(&dir) {
+            Ok(v) => v,
+            Err(e) => return self.dialog = Some(failure(t!("action.git_config"), &e)),
+        };
+        let repo = coxswain_core::git_config::repo_name(&dir);
+        let labels = [self.key_label(Action::Edit), self.key_label(Action::Copy), self.key_label(Action::GitTool)];
+        let hint = coxswain_core::menu::once("git_config_show", &self.cfg);
+        let v = git_config::Viewer::new(entries, repo, labels, hint);
+        self.dialog = Some(Dialog::GitConfig(Box::new(v)));
     }
 
     /// What git said, on the status line; when it refused, in a dialog under `title` (what could
@@ -2285,6 +2306,21 @@ impl App {
                         None => v.cannot_compare(t!("tui.bom.no_other")),
                     }
                     self.dialog = Some(Dialog::Bom(v));
+                }
+            },
+            Dialog::GitConfig(mut v) => match v.key(key, action) {
+                git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
+                git_config::Outcome::Close => {}
+                git_config::Outcome::Edit(file) => self.view_or_edit(Action::Edit, &file),
+                git_config::Outcome::Copy(line) => {
+                    guide::copy(&line);
+                    self.status = Some(t!("gitconfig.copied", "line" => line));
+                    self.dialog = Some(Dialog::GitConfig(v));
+                }
+                git_config::Outcome::Tool => self.git_tool(),
+                git_config::Outcome::Say(said) => {
+                    self.status = Some(said);
+                    self.dialog = Some(Dialog::GitConfig(v));
                 }
             },
             Dialog::Provenance(mut v) => match v.key(key, action == Some(Action::Quit)) {

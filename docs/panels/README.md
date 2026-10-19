@@ -28,6 +28,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Git in the panels](git.md) | The git line with the upstream, last fetch and remote, glyphs per file, the last commit per file, the diff, recent repositories, **Alt+G** to open your git tool |
 | [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits, the files as they were, their diff, copying an old version out |
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
+| [Git config](git-config.md) | **Alt+C**: the git config as git uses it, each value with its scope and file, secrets hidden; read-only |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
 | [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the keys by group |
 | [Features and questions (F1)](features.md) | Help's second tab: every feature with its keys and two or three questions answered, a filter, **Show me** for its page, **F1** in a dialog |
@@ -72,6 +73,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+V** | Yes | – | Details, columns, thumbnails |
 | **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
+| **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |
 | **Alt+G** | Yes | Yes | [Open in your git tool](git.md#open-in-your-git-tool): commit, push or pull in lazygit, gitui, tig or your desktop client |
 | **Ctrl+,**, **F12** | Settings | Settings, full screen (most terminals pass only **F12** on: *12 Settings* on the F-key bar) | [Settings](../customise/settings.md) |
 | **Shift+F10**, **Menu** | Yes, also the **⋯** on a row and Ctrl+right-click | Yes | [What can I do with this?](action-menu.md): the actions that fit |

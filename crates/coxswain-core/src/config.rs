@@ -260,6 +260,8 @@ actions! {
     NewBranch = "new_branch", "New branch here", Git, [];
     // Commit, push, pull and the rest: in the user's own tool (`handoff`).
     GitTool = "git_tool", "Open in your git tool", Git, ["Alt+G"];
+    // The config as git uses it, read-only (`git_config`): changed in the user's own tool.
+    GitConfig = "git_config", "Git config", Git, ["Alt+C"];
     // Viewing and editing, the most used first.
     View = "view", "View", Viewing, ["F3"];
     Edit = "edit", "Edit", Viewing, ["F4"];

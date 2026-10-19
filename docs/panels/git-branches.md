@@ -35,7 +35,8 @@ worktrees, and **Enter** on one opens its folder. Both apps do this.
 
 1. In a folder of a git work tree, press **Alt+B**. It is in **F9** as *Git branches* too; in
    the desktop app, a click on the git line in the pane's footer does the same, and the
-   preview pane has *Git branches* and *Git worktrees* buttons under *Git*.
+   preview pane has *Git branches* and *Git worktrees* buttons under *Git* (with *Git config*
+   and *Open in your git tool* next to them).
 2. The pane lists the branches: the local ones by name, then the remote-tracking ones
    (`origin∕main`). The one you are on starts with `*`.
 3. **Enter** on a branch: its files as they are at its last commit. Preview a file, see what
@@ -205,4 +206,4 @@ It is bound to *Git branches*. Set `branches = []` in `[keys]` to give it back t
 or start the quick search with another letter.
 
 ---
-[← Previous: Git history as folders](git-history.md) · [Next: The mouse →](mouse.md)
+[← Previous: Git history as folders](git-history.md) · [Next: Git config →](git-config.md)

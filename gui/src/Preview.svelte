@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -734,6 +734,7 @@
             <dd><button class="link" onclick={() => openHistory()}>{"\u{f1da}"} {t("history.open", { name: e.name })}</button> <kbd>{ui.cfg.actions.history?.[1] ?? ""}</kbd></dd>
             <dd><button class="link" onclick={() => openGitView()}>{"\u{e725}"} {t("action.branches")}</button> <kbd>{ui.cfg.actions.branches?.[1] ?? ""}</kbd> · <button class="link" onclick={() => openGitView(true)}>{t("action.worktrees")}</button> <kbd>{ui.cfg.actions.worktrees?.[1] ?? ""}</kbd>
               <!-- Commit, push, pull: the handoff to the user's own git tool. -->
+              · <button class="link" onclick={() => openGitConfig()}>{t("action.git_config")}</button> <kbd>{ui.cfg.actions.git_config?.[1] ?? ""}</kbd>
               · <button class="link" onclick={() => gitTool()}>{t("action.git_tool")}</button> <kbd>{ui.cfg.actions.git_tool?.[1] ?? ""}</kbd></dd>
           {/if}
           {#if pane.history?.view === "branches" && !pane.history.commit}
