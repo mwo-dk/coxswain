@@ -192,6 +192,13 @@ pub const OPTIONS: &[Opt] = &[
         &[Disk, Network],
     ),
     opt("latex_auto", &["preview", "latex_auto"], Previews, &[Cpu]),
+    opt(
+        "image_updates",
+        &["preview", "image_updates"],
+        Previews,
+        &[Network, Disk],
+    ),
+    opt("image_prune", &["preview", "image_prune"], Previews, &[]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
@@ -765,14 +772,19 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
         hosts.sort();
         hosts.dedup();
         if !hosts.is_empty() {
-            v.push(out("settings.out.images", &hosts.join(", "), false));
+            let what = match crate::images::every(&cfg.preview.image_updates) {
+                Some(7) => "settings.out.images_weekly",
+                Some(_) => "settings.out.images_monthly",
+                None => "settings.out.images",
+            };
+            v.push(out(what, &hosts.join(", "), false));
         }
     }
     v
 }
 
 /// The registry a container image comes from: `docker.io` unless its name starts with one.
-fn registry(image: &str) -> &str {
+pub(crate) fn registry(image: &str) -> &str {
     match image.split_once('/') {
         Some((first, _)) if first.contains(['.', ':']) || first == "localhost" => first,
         _ => "docker.io",
@@ -1167,6 +1179,18 @@ mod tests {
         cfg.preview.container = "off".into();
         cfg.search.meaning = false;
         assert!(outbound(&cfg).is_empty());
+        cfg.preview.container = "auto".into();
+        cfg.preview.image_updates = "weekly".into();
+        assert_eq!(
+            outbound(&cfg),
+            [Out {
+                what: t!("settings.out.images_weekly"),
+                to: "docker.io".into(),
+                local: false
+            }],
+            "keeping images up to date names the registry"
+        );
+        cfg.preview.container = "off".into();
         cfg.check_updates = true;
         cfg.search.meaning = true;
         cfg.search.meaning_engine = "openai".into();

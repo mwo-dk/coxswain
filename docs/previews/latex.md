@@ -83,7 +83,7 @@ default, `latex_auto = true`):
 - A change in a subfolder (a chapter in `chapters/` while the cursor is on `main.tex`) is found
   the next time the file is shown: move off it and back.
 - It never starts by itself while the container's image still has to be pulled: the button
-  then says **Build PDF**, with *First run pulls docker.io/texlive/texlive:latest (about 5 GB)*.
+  then says **Build PDF**, with *First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)*.
 
 Untick it (`latex_auto = false`) and a document waits for **Build PDF**; a PDF built before
 still shows at once.
@@ -127,7 +127,7 @@ five lines after it; for tectonic, which keeps no log, what it said without its 
 | Settings item | config.toml | Type, default |
 |---|---|---|
 | *Build LaTeX by itself* | `[preview] latex_auto` | Boolean, `true` |
-| *LaTeX image* | `[preview.images] latex` | String, `"docker.io/texlive/texlive:latest"` (about 5 GB; `:latest-medium` is about 2 GB) |
+| *LaTeX image* | `[preview.images] latex` | String, `"docker.io/texlive/texlive:latest"` (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
 | *How previews are made* | `[preview] prefer` (or `[preview.prefer_tool] latex`) | `"auto"`, `"local"`, `"container"`; `"auto"` |
 | *Timeout (seconds)* | `[preview] timeout` | 10 to 3600, `120` |
 | *Previews made so far* → **Clear** | – | Empties the preview cache, so every PDF is built again |

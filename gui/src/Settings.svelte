@@ -834,6 +834,7 @@
               {#each images as im (im.image)}
                 <div class="image">
                   <span class="mono" title={im.tool}>{im.image}</span>
+                  {#if im.about}<p class="hint about">{im.about}</p>{/if}
                   <small class="hint">{imageStatus(im)}</small>
                   <button disabled={im.pulling != null} onclick={() => imageAction("pull_image", im)}>{t("settings.pull")}</button>
                   <button disabled={im.pulling != null || im.size == null} onclick={() => imageAction("remove_image", im)}>{t("common.remove")}</button>
@@ -842,6 +843,8 @@
             </div>
           </div>
         {/if}
+        {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
+        {@render check("image_prune")}
         <p class="hint">{t("settings.previews_more")}</p>
       {:else if area === "looks"}
         <!-- ------------------------------------------------ Looks -->
@@ -1363,6 +1366,10 @@
   .image span {
     grid-column: 1 / -1;
     overflow-wrap: anywhere;
+  }
+  .image .about {
+    grid-column: 1 / -1;
+    margin: 0;
   }
   .image small {
     overflow: hidden;

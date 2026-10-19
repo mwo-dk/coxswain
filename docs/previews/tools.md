@@ -11,7 +11,7 @@ kept in a cache, so each file is made once.
 *The engine buttons at the top of a tool preview: here the installed `plantuml` is used; the container is greyed, as there is no podman or docker to run it.*
 
 ![Settings, Previews: How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each Not pulled with Pull and Remove](../screenshots/previews-tools-settings.png)
-<!-- screenshot: previews-tools-settings.png: desktop app, Cyber theme, Settings open at Previews (the area list on the left with Previews chosen): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each with Pull and Remove -->
+<!-- screenshot: previews-tools-settings.png: desktop app, Cyber theme, Settings open at Previews (the area list on the left with Previews chosen): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, Container images, each with the line that says what it gives, its size and cost, and Pull and Remove, then Keep images up to date and Remove images not used for 90 days -->
 
 ## Contents
 
@@ -29,7 +29,7 @@ kept in a cache, so each file is made once.
 
 | Files | Tool | Installed programs it looks for | Container image (default) | Result | Runs by itself |
 |---|---|---|---|---|---|
-| `.tex`, `.ltx` | LaTeX ([LaTeX projects](latex.md)) | `latexmk`, `tectonic`, `pdflatex` | `docker.io/texlive/texlive:latest` (about 5 GB) | PDF | After 0.8 s, when `latex_auto` is on |
+| `.tex`, `.ltx` | LaTeX ([LaTeX projects](latex.md)) | `latexmk`, `tectonic`, `pdflatex` | `docker.io/texlive/texlive:latest` (about 2.8 GB to download, 5.9 GB on disk) | PDF | After 0.8 s, when `latex_auto` is on |
 | `.doc` `.docm` `.dotx` `.odt` `.ott` `.rtf` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` | LibreOffice ([Office](office.md)) | `soffice`, `libreoffice` (also its usual macOS and Windows install folders) | none; set one you trust | PDF | After 0.6 s |
 | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | PlantUML ([Diagrams](diagrams.md)) | `plantuml` | `docker.io/plantuml/plantuml:latest` | SVG | At once |
 | `.rst`, `.rest` | pandoc ([Documents](documents.md)) | `pandoc` | `docker.io/pandoc/core:latest` | HTML | At once |
@@ -96,7 +96,7 @@ things are kept](../reference/where-things-are-kept.md).
 |---|---|
 | **Build PDF** / **Render** / **Read tables** | Waiting for a click; the engine's note is under it |
 | *Runs docker.io/pandoc/core:latest without network access* | The container's image is here |
-| *First run pulls docker.io/texlive/texlive:latest (about 5 GB)* | The first click downloads the image |
+| *First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)* | The first click downloads the image |
 | *Rendering with soffice…* | Running |
 | *Pulling docker.io/texlive/texlive:latest…* and a progress line | Downloading the image |
 | *soffice is not installed. No image for libreoffice: set [preview.images] libreoffice in the config. Install the program, or let a container make this preview.*, then *Install it:* with the line for this system and **Copy**, and a **Settings → Previews** button | No engine can run: neither an installed program nor a container ([below](#installing-what-is-missing)) |
@@ -143,12 +143,14 @@ prefer = "auto"          # "auto" (installed program first, else container), "lo
 container = "auto"       # "auto" (podman, else docker), "podman", "docker", "off"
 timeout = 120            # seconds per conversion; pulling is not counted
 latex_auto = true        # build LaTeX by itself when shown and changed
+image_updates = "off"    # "weekly", "monthly": the desktop app pulls the pulled images again
+image_prune = false      # remove an image no preview used for 90 days
 
 [preview.prefer_tool]    # per tool, overrides prefer
 libreoffice = "local"
 
 [preview.images]         # "" means that tool never uses a container
-latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 2 GB
+latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 960 MB to download
 plantuml = "docker.io/plantuml/plantuml:latest"
 pandoc = "docker.io/pandoc/core:latest"
 libreoffice = ""
@@ -163,7 +165,9 @@ duckdb = ""
 | *Build LaTeX by itself* | `latex_auto` | on |
 | *Timeout (seconds)* | `timeout` | 10 to 3600, `120` |
 | *Previews made so far* | – | The cache size, **Clear** |
-| *Container images* | `images.*` | Each image with **Pull** and **Remove** ([Containers](containers.md)) |
+| *Container images* | `images.*` | Each image with what it gives, its size and cost, **Pull** and **Remove** ([Containers](containers.md)) |
+| *Keep images up to date* | `image_updates` | *Off* (`off`, default), *Weekly* (`weekly`), *Monthly* (`monthly`) ([Containers](containers.md#keeping-images-up-to-date)) |
+| *Remove images not used for 90 days* | `image_prune` | off ([Containers](containers.md#removing-unused-images)) |
 
 Setting one image keeps the others' defaults. `prefer_tool` and the other images are set in
 `config.toml` only. Every key: [Configuration](../reference/configuration.md#preview).

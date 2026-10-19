@@ -43,7 +43,7 @@ sentences](../search/diagrams.md).)
 - **Graphviz:** the graph as SVG; a syntax error shows Graphviz's message.
 - **PlantUML:** the engine buttons, then the SVG on white. PlantUML runs by itself as soon as
   the file is shown, unless its image has to be pulled first: then **Render**, with *First run
-  pulls docker.io/plantuml/plantuml:latest* under it.
+  pulls docker.io/plantuml/plantuml:latest (about 141 MB)* under it.
 
 ## Settings and config.toml
 

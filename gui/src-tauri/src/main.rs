@@ -2025,6 +2025,7 @@ fn main() {
         .setup(|app| {
             *app.state::<Ctx>().watcher.lock().expect("fresh lock") = start_watcher(app.handle());
             let _ = app.state::<Ctx>().app.set(app.handle().clone());
+            convert::keep(app.handle().clone());
             // The window from the config, made here so that it gets its navigation guard.
             let window = app.config().app.windows.first().cloned().ok_or("no window in the config")?;
             tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?.on_navigation(local).build()?;

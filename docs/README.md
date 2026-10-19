@@ -145,7 +145,7 @@ mindmap
 | [Diagrams: draw.io, Mermaid, Graphviz and PlantUML](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview |
 | [LaTeX projects](previews/latex.md) | LaTeX: which file is the document, the project, the engine, building by itself, another engine when one fails, errors |
 | [Previews made by tools](previews/tools.md) | The engine buttons, how rendering works, the preview cache and Clear, [preview] |
-| [Containers](previews/containers.md) | Podman or docker: what a container may do, pulling and removing images, images in Settings |
+| [Containers](previews/containers.md) | Podman or docker: what a container may do, what each image gives and costs, pulling and removing images, keeping them up to date, images in Settings |
 | [Safety, speed and limits](previews/safety.md) | What a preview never does, what reaches the network, speed, and every size limit |
 
 ## [Files](files/README.md)

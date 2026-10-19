@@ -67,13 +67,15 @@ open it outside the pane:
   stays an empty box, and no preview can report that it was opened. A web link you click in a
   rendered file opens in your browser.
 - **Download a tool by itself.** Pulling a container image, the one big download, waits for a
-  click, and the engine button says what will be pulled beforehand.
+  click, and the engine button says what will be pulled, and how big it is, beforehand. Only
+  *Keep images up to date* in *Settings → Previews*, when you turn it on, pulls again by itself,
+  and only the images you already pulled ([Keeping images up to date](containers.md#keeping-images-up-to-date)).
 
 ### What does reach the network
 
 | What | When |
 |---|---|
-| Pulling a container image | After your click on the engine or **Pull** |
+| Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on (desktop app, not on battery) |
 | tectonic's package bundle | When tectonic builds a document; tectonic's own design |
 
 Nothing else: every library (Mermaid, KaTeX, SheetJS, draw.io's viewer, Graphviz, …) ships inside

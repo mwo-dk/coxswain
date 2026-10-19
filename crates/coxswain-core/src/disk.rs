@@ -176,7 +176,8 @@ fn image_items(cfg: &PreviewConfig) -> Vec<Item> {
             Some(Item {
                 id: format!("image:{image}"),
                 name: image.clone(),
-                what: t!("disk.image.what", "tool" => tool, "runtime" => name),
+                what: crate::images::about(tool, image)
+                    .unwrap_or_else(|| t!("disk.image.what", "tool" => tool, "runtime" => name)),
                 cost: t!("disk.image.cost"),
                 bytes,
                 paths: vec![],
@@ -302,19 +303,7 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
             let image = item.id.trim_start_matches("image:");
             let (_, rt) = crate::tools::container_runtime(&cfg.preview)
                 .ok_or_else(crate::tools::no_runtime)?;
-            let out = crate::tools::command(&rt)
-                .args(["image", "rm", image])
-                .stdin(std::process::Stdio::null())
-                .output()
-                .map_err(|e| e.to_string())?;
-            if !out.status.success() {
-                return Err(String::from_utf8_lossy(&out.stderr)
-                    .lines()
-                    .rev()
-                    .find(|l| !l.trim().is_empty())
-                    .unwrap_or_default()
-                    .to_string());
-            }
+            crate::images::remove(&rt, image)?;
             return Ok(item.bytes);
         }
     }
