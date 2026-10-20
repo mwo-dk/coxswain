@@ -360,10 +360,20 @@ mod tests {
     #[test]
     fn a_hanging_look_gives_up_and_is_not_started_twice() {
         static BUSY: AtomicBool = AtomicBool::new(false);
-        let slow = || std::thread::sleep(Duration::from_millis(600));
+        // The look hangs until it is let go, so a slow machine cannot make it finish in time.
+        static GO: AtomicBool = AtomicBool::new(false);
+        let slow = || {
+            while !GO.load(std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        };
         assert_eq!(within(&BUSY, Duration::from_millis(50), slow), None, "gave up");
         assert_eq!(within(&BUSY, Duration::from_secs(5), || ()), None, "the first still looks");
-        std::thread::sleep(Duration::from_millis(900));
+        GO.store(true, std::sync::atomic::Ordering::SeqCst);
+        let until = std::time::Instant::now() + Duration::from_secs(30);
+        while BUSY.load(std::sync::atomic::Ordering::SeqCst) && std::time::Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         assert_eq!(within(&BUSY, Duration::from_secs(5), || 7), Some(7), "back once it is done");
         assert!(places_within(Duration::from_secs(30)).is_some());
     }
