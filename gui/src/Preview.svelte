@@ -492,7 +492,11 @@
 
   async function saveNote() {
     if (!noteDir) return;
-    await invoke("set_note", { dir: noteDir, text: note });
+    try {
+      await invoke("set_note", { dir: noteDir, text: note });
+    } catch (e) {
+      return void (ui.status = String(e));
+    }
     const tb = tab();
     if (tb.dir === noteDir) tb.hasNotes = !!note.trim();
   }

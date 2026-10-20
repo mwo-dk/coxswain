@@ -114,21 +114,24 @@
     }
   });
 
+  let rowsSeq = 0;
   async function fetchRows() {
     if (format !== "pgn") return;
     const p = path;
+    const seq = ++rowsSeq;
     const n = Math.ceil(height / ROW) + 20;
     const from = Math.max(0, Math.floor((listEl?.scrollTop ?? 0) / ROW) - 10);
     try {
       const r = await invoke("chess_rows", { path: p, query: $state.snapshot(query), offset: from, limit: n });
-      if (p !== path) return;
+      // An answer to an older scroll or filter that came in late: a newer one is on its way.
+      if (p !== path || seq !== rowsSeq) return;
       progress = r.progress;
       total = r.total;
       rows = r.rows;
       first = from;
       error = r.progress.error ?? "";
     } catch (e) {
-      error = String(e);
+      if (seq === rowsSeq) error = String(e);
     }
   }
 
@@ -145,8 +148,10 @@
 
   const visible = $derived(rows);
 
+  // One request a frame, however many scroll events it brings.
+  let scrollFrame = 0;
   function onscroll() {
-    fetchRows();
+    if (!scrollFrame) scrollFrame = requestAnimationFrame(() => ((scrollFrame = 0), fetchRows()));
   }
 
   function sortBy(col) {
