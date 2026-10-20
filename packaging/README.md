@@ -51,11 +51,15 @@ run, whatever its result (it finds nothing to check when the run published nothi
 (*Actions → Release check → Run workflow*, a tag or `latest`). Nothing waits for it: a red run
 means a release that does not install or a channel without it, to be fixed at once.
 
-`release-assets.sh` lists every file a release carries, from `release.yml`'s build matrices. A new
+`release-assets.sh` lists every file a release carries, from `release.yml`'s build matrices, and a
+`.sha256` for each installer and archive (the `verify` job writes the desktop installers' ones). A new
 build target goes into both; the Release run's `verify` job refuses to publish a draft that does not
 match the list exactly.
 
-`taps/generate.sh` writes the Homebrew formula and cask from a release's `.sha256` assets.
+`taps/generate.sh` writes the Homebrew formula and cask from a release's `SHA256SUMS`; the
+Saturday rehearsal audits both (`brew audit`).
+
+`release-pr.py` makes the release pull request's changes; `release-pr.yml` runs it on Sundays.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the
 `publish-new` and `publish-update` scopes, then

@@ -1,0 +1,75 @@
+name: Nightly
+
+# Every system's workflow on master, at night, when master changed since the last nightly run
+# that passed: a push to master runs only what its pull request ran (release.yml), so a fault on
+# a system no pull request started shows up the next morning. Not when master's head is a
+# release, whose Release run tested every system already. By hand: always.
+on:
+  schedule:
+    - cron: "17 2 * * *" # 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  changed:
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.c.outputs.run }}
+    steps:
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          last=$(gh run list -R "$REPO" --workflow nightly.yml --branch master --status success --limit 1 --json headSha -q '.[0].headSha // empty')
+          released=$(gh api "repos/$REPO/releases?per_page=5" -q "[.[] | select(.draft == false and .target_commitish == \"$GITHUB_SHA\")][0].tag_name // empty")
+          if [ "$EVENT" = schedule ] && [ "$last" = "$GITHUB_SHA" ]; then
+            echo "::notice title=Nothing new::master is still ${GITHUB_SHA:0:8}, tested by the last nightly run."; echo run=false >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = schedule ] && [ -n "$released" ]; then
+            echo "::notice title=Nothing new::master is $released, whose Release run tested every system."; echo run=false >> "$GITHUB_OUTPUT"
+          else
+            echo run=true >> "$GITHUB_OUTPUT"
+          fi
+
+  freebsd:
+    name: FreeBSD
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/freebsd.yml
+  netbsd:
+    name: NetBSD
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/netbsd.yml
+  openbsd:
+    name: OpenBSD
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/openbsd.yml
+  illumos:
+    name: illumos
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/illumos.yml
+  termux:
+    name: Termux
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/termux.yml
+  flatpak:
+    name: Flatpak
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/flatpak.yml
+  nix:
+    name: Nix
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    uses: ./.github/workflows/nix.yml

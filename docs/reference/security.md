@@ -28,6 +28,7 @@ how to report a problem in Coxswain itself. What Coxswain sends over the network
 | Crates from unknown registries or git | `cargo deny check sources` | Same |
 | Known vulnerabilities in npm packages | `npm audit --audit-level=high` in `gui/` | Same |
 | Builds and tests on Linux, macOS and Windows, and the static musl build | `cargo test`, `cargo clippy`, `svelte-check`, Vite | Every pull request, and every push to `master` as part of its Release run |
+| The other systems: FreeBSD, NetBSD, OpenBSD and illumos in virtual machines, Termux, Flatpak, Nix | Each system's own workflow | A pull request that changes what goes into it, every night when `master` changed, and every release |
 
 The weekly run matters: an advisory published after the last change would otherwise go unseen
 until someone touched the code. A failing check blocks the pull request; a failing weekly run
@@ -82,16 +83,21 @@ Each is updated by hand (Netron by changing the version and SHA-256 in `build.mj
 ## The release pipeline
 
 - **Never a partial release.** One *Release* run per push to this repository's `master` (or by
-  hand from `master`) runs CI and every system's workflow (FreeBSD, NetBSD, OpenBSD, illumos,
-  Termux, Flatpak, Nix) as parts of itself. Only when all of them pass, and the version in
-  `Cargo.toml` has no release yet, does it make a draft and build every platform. A pull request,
-  also one from a fork whose branch is named `master`, never starts one; a push without a new
-  version only runs the tests.
+  hand from `master`). When the version in `Cargo.toml` has no release yet, it runs CI and every
+  system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) as parts of
+  itself, and only when all of them pass does it make a draft and build every platform. A pull
+  request, also one from a fork whose branch is named `master`, never starts one; a push without
+  a new version runs only the tests its pull request ran, and every system is tested again each
+  night that `master` changed.
+- **A rehearsal the day before.** On Saturdays, when changes wait for Sunday's release, the
+  Release run builds that release in full from a branch of its own: every file, checked against
+  the list below, the crates packaged and built as crates.io would, the Homebrew formula and cask
+  audited. It publishes nothing, makes no tag, and deletes its draft and branch.
 - **Every file, or none.** Before publishing, the `verify` job checks the draft against the full
   list of files the build matrices make (`packaging/release-assets.sh`: every desktop installer
   for each system and processor, every terminal archive, the FreeBSD and OpenBSD desktop
-  archives, the bills of materials and the licence notices), every archive's `.sha256` against
-  the archive, and one `SHA256SUMS` naming every file. Any gap fails the run with an error naming
+  archives, the bills of materials and the licence notices), every installer's and archive's
+  `.sha256` against the file, and one `SHA256SUMS` naming every file. Any gap fails the run with an error naming
   what is missing, and the draft is deleted, so no half-made release is ever published or left
   behind. Two commits with the same version never release it twice: the draft says which run
   makes it, and a second run leaves it to that one.

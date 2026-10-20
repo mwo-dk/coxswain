@@ -1,19 +1,28 @@
 name: Release
 
-# One run for each push to master: it tests every system and, when the version in Cargo.toml has
-# no release yet, builds every platform, checks that every file is there, publishes the GitHub
+# One run for each push to master. When the version in Cargo.toml has no release yet, it tests
+# every system, builds every platform, checks that every file is there, publishes the GitHub
 # Release (which creates the tag) and updates crates.io, Homebrew and the FreeBSD port. WinGet is
 # not updated here: winget.yml files the newest release there once a week.
+# A push without a new version runs only what its pull request ran: CI, and each system whose
+# pull-request `paths` the push touches (.github/changed-systems.py). nightly.yml runs every
+# system at night when master changed.
 # To release, merge a release pull request: it bumps `version` in Cargo.toml and moves the
-# changelog's Unreleased rows into the version's row (CLAUDE.md). A push without a new version
-# only tests.
+# changelog.d/ rows into the version's row (CLAUDE.md); release-pr.yml opens it on Sundays.
+#
+# Saturdays (and by hand with `rehearsal`), when changelog.d/ has rows: a rehearsal of
+# tomorrow's release. The draft job makes the release pull request's changes
+# (packaging/release-pr.py) on a branch of their own, rehearsal/vX.Y.Z, and everything runs as
+# for a release, to the draft checked against every file; then `cargo publish --dry-run` and
+# `brew audit` of the formula and cask, and nothing is published: the draft and the branch are
+# deleted, no tag is made.
 #
 #   version ─┬─ test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos,
 #            │  test-termux, test-flatpak, test-nix          (the systems' own workflows, in parallel)
 #            └─ draft ── boms ── desktop, terminal, freebsd, other-unix ── verify ── publish
-#                                                                                  ├─ crates, taps,
-#                                                                                  │  freebsd-port, aur
-#                                                     (anything failed: discard) ──┘
+#                                                                            │     ├─ crates, taps,
+#                                                         (rehearsal) rehearse ─┤     │  freebsd-port, aur
+#                                       (anything failed, or a rehearsal: discard) ──┘
 #
 # Never a partial release: every system and every file, or nothing. A failed test stops the run
 # before the draft; a missing file stops it before publishing, and the draft is deleted. A
@@ -22,7 +31,14 @@ name: Release
 on:
   push:
     branches: [master]
+  schedule:
+    - cron: "17 6 * * 6" # Saturdays, 06:17 UTC: the rehearsal
   workflow_dispatch: # again by hand, from master: tests everything again and releases what is missing
+    inputs:
+      rehearsal:
+        description: Rehearse the next release instead (publishes nothing)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,14 +51,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Cheap, and first: whether this version still needs a release. Releases only from this
-  # repository's master.
+  # Cheap, and first: whether this version still needs a release, and what this run tests.
+  # Releases only from this repository's master.
   version:
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.v.outputs.tag }}
       sha: ${{ steps.v.outputs.sha }}
       release: ${{ steps.v.outputs.release }}
+      rehearsal: ${{ steps.v.outputs.rehearsal }}
+      ci: ${{ steps.sys.outputs.ci }}
+      freebsd: ${{ steps.sys.outputs.freebsd }}
+      netbsd: ${{ steps.sys.outputs.netbsd }}
+      openbsd: ${{ steps.sys.outputs.openbsd }}
+      illumos: ${{ steps.sys.outputs.illumos }}
+      termux: ${{ steps.sys.outputs.termux }}
+      flatpak: ${{ steps.sys.outputs.flatpak }}
+      nix: ${{ steps.sys.outputs.nix }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -53,17 +78,26 @@ jobs:
         env:
           REF: ${{ github.ref }}
           REPO: ${{ github.repository }}
+          REHEARSAL: ${{ github.event_name == 'schedule' || inputs.rehearsal == true }}
         run: |
           version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad version '$version' in Cargo.toml"; exit 1; }
-          tag="v$version"
-          { echo "tag=$tag"; echo "sha=$(git rev-parse HEAD)"; } >> "$GITHUB_OUTPUT"
+          { echo "tag=v$version"; echo "sha=$(git rev-parse HEAD)"; echo rehearsal=false; } >> "$GITHUB_OUTPUT"
           if [ "$REPO" != mwo-dk/coxswain ] || [ "$REF" != refs/heads/master ]; then
             echo "Not this repository's master: only the tests run."; echo release=false >> "$GITHUB_OUTPUT"; exit 0
           fi
+          if [ "$REHEARSAL" = true ]; then
+            # The version tomorrow's release pull request makes; exit 2: no rows, nothing to rehearse.
+            next=$(python3 packaging/release-pr.py --next) || {
+              echo "::notice title=No rehearsal::changelog.d/ has no rows: nothing to release tomorrow."
+              { echo release=false; echo none=true; } >> "$GITHUB_OUTPUT"; exit 0; }
+            echo "::notice title=Rehearsal::v$next, as tomorrow's release pull request makes it. Nothing is published."
+            { echo "tag=v$next"; echo release=true; echo rehearsal=true; } >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          tag="v$version"
           if draft="$(gh release view "$tag" --json isDraft -q .isDraft 2>err)"; then
             if [ "$draft" = false ]; then
-              echo "::notice title=Tests only::$tag is released already: this run only tests."
+              echo "::notice title=Tests only::$tag is released already: this run tests what its pull request tested."
               echo release=false >> "$GITHUB_OUTPUT"; exit 0
             fi
           elif ! grep -q "release not found" err; then
@@ -71,31 +105,66 @@ jobs:
           fi
           echo "::notice title=Release::$tag has no release yet: once every system passes, this run releases it."
           echo release=true >> "$GITHUB_OUTPUT"
+      # A release or a rehearsal tests every system; a push without a new version only CI and the
+      # systems its files would have started on a pull request; no rehearsal, nothing.
+      - id: sys
+        env:
+          RELEASE: ${{ steps.v.outputs.release }}
+          NONE: ${{ steps.v.outputs.none }}
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$NONE" = true ]; then
+            echo ci=false >> "$GITHUB_OUTPUT"
+          elif [ "$RELEASE" = true ] || [ "$EVENT" != push ]; then
+            printf '%s=true\n' ci freebsd netbsd openbsd illumos termux flatpak nix >> "$GITHUB_OUTPUT"
+          else
+            echo ci=true >> "$GITHUB_OUTPUT"
+            git fetch -q --depth=1 origin "$BEFORE" || true # gone (a forced push): every system runs
+            python3 .github/changed-systems.py "$BEFORE" HEAD | tee -a "$GITHUB_OUTPUT"
+          fi
 
   # Every system's own workflow, as part of this run. Pull requests run them by themselves.
+  # A release and a rehearsal need every one to pass (the draft job checks).
   test-ci:
     name: CI
+    needs: version
+    if: needs.version.outputs.ci == 'true'
     uses: ./.github/workflows/ci.yml
   test-freebsd:
     name: FreeBSD
+    needs: version
+    if: needs.version.outputs.freebsd == 'true'
     uses: ./.github/workflows/freebsd.yml
   test-netbsd:
     name: NetBSD
+    needs: version
+    if: needs.version.outputs.netbsd == 'true'
     uses: ./.github/workflows/netbsd.yml
   test-openbsd:
     name: OpenBSD
+    needs: version
+    if: needs.version.outputs.openbsd == 'true'
     uses: ./.github/workflows/openbsd.yml
   test-illumos:
     name: illumos
+    needs: version
+    if: needs.version.outputs.illumos == 'true'
     uses: ./.github/workflows/illumos.yml
   test-termux:
     name: Termux
+    needs: version
+    if: needs.version.outputs.termux == 'true'
     uses: ./.github/workflows/termux.yml
   test-flatpak:
     name: Flatpak
+    needs: version
+    if: needs.version.outputs.flatpak == 'true'
     uses: ./.github/workflows/flatpak.yml
   test-nix:
     name: Nix
+    needs: version
+    if: needs.version.outputs.nix == 'true'
     uses: ./.github/workflows/nix.yml
 
   # The gate, then the draft. One release run for a version at a time: a second run for the same
@@ -113,11 +182,10 @@ jobs:
     outputs:
       id: ${{ steps.create.outputs.id }}
       tag: ${{ needs.version.outputs.tag }}
-      sha: ${{ needs.version.outputs.sha }}
+      sha: ${{ steps.create.outputs.sha }}
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.version.outputs.tag }}
-      SHA: ${{ needs.version.outputs.sha }}
     steps:
       - name: Every system passed
         env:
@@ -132,10 +200,23 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.version.outputs.sha }}
-      - id: create
+      # A rehearsal builds what tomorrow's release pull request makes: its changes, committed on
+      # rehearsal/vX.Y.Z (deleted again by `discard`). GITHUB_TOKEN's push starts no workflow.
+      - id: stage
+        if: needs.version.outputs.rehearsal == 'true'
         env:
           REPO: ${{ github.repository }}
         run: |
+          [ "$(python3 packaging/release-pr.py)" = "${TAG#v}" ] || { echo "::error::release-pr.py did not make $TAG"; exit 1; }
+          git -c user.name="Coxswain rehearsal" -c user.email="rehearsal@invalid" commit -qam "Rehearsal of $TAG"
+          git push -q "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/rehearsal/$TAG"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - id: create
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.stage.outputs.sha || needs.version.outputs.sha }}
+        run: |
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           # The draft says which run makes it, in a comment of its notes.
           if info="$(gh release view "$TAG" --json isDraft,body 2>err)"; then
             if [ "$(jq -r .isDraft <<<"$info")" = false ]; then
@@ -515,7 +596,7 @@ jobs:
   # one SHA256SUMS over all of them, or no release: on any gap this fails, says what is missing,
   # and `discard` deletes the draft.
   verify:
-    needs: [draft, boms, desktop, terminal, freebsd, other-unix]
+    needs: [version, draft, boms, desktop, terminal, freebsd, other-unix]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -539,6 +620,14 @@ jobs:
       - name: Every file, and its checksums
         run: |
           packaging/retry.sh gh release download "$TAG" --repo "$REPO" -D assets --clobber
+          # tauri-action uploads the desktop installers without a .sha256: each gets its own here,
+          # from the file in the draft, as the archives have theirs.
+          made=()
+          for f in assets/Coxswain[_-]*; do
+            case "$f" in *.sha256) continue ;; esac
+            [ -e "$f.sha256" ] || { (cd assets && sha256sum "${f#assets/}" > "${f#assets/}.sha256"); made+=("$f.sha256"); }
+          done
+          [ ${#made[@]} = 0 ] || packaging/retry.sh gh release upload --clobber "$TAG" --repo "$REPO" "${made[@]}"
           packaging/release-assets.sh "$TAG" assets
           # One SHA256SUMS over every download, the desktop installers included, so a download can
           # be checked against what this run uploaded.
@@ -555,14 +644,16 @@ jobs:
             { echo "::error title=$TAG is not complete::SHA256SUMS does not name every file (above)"; exit 1; }
       # Signed provenance: which commit and workflow built each download, verifiable with
       # `gh attestation verify <file> --repo mwo-dk/coxswain`. The release goes out without it
-      # when the attestation service is down.
+      # when the attestation service is down. A rehearsal attests nothing.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: needs.version.outputs.rehearsal != 'true'
         continue-on-error: true
         with:
           subject-path: assets/*
 
   publish:
-    needs: [draft, verify]
+    needs: [version, draft, verify]
+    if: needs.version.outputs.rehearsal != 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -581,23 +672,70 @@ jobs:
           newest="$(printf '%s\n' "$latest" "$TAG" | sort -V | tail -1)"
           packaging/retry.sh gh release edit "$TAG" --repo "$REPO" --draft=false --latest="$([ "$newest" = "$TAG" ] && echo true || echo false)"
 
+  # The rehearsal's channels, as far as they can go without publishing: both crates packaged and
+  # built as crates.io would (core and app together, so the app finds the unpublished core), and
+  # the Homebrew formula and cask written from the draft's SHA256SUMS and audited.
+  rehearse:
+    needs: [version, draft, verify]
+    if: needs.version.outputs.rehearsal == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # reads the draft
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.draft.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.draft.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - name: crates.io
+        run: cargo publish --dry-run --locked -p coxswain-core -p coxswain
+      - name: Homebrew
+        if: ${{ !cancelled() }}
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ANALYTICS: 1
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          brew tap-new --no-git rehearsal/check
+          dir="$(brew --repository rehearsal/check)"
+          packaging/retry.sh packaging/taps/generate.sh "$TAG" "$dir"
+          brew audit --formula rehearsal/check/coxswain
+          brew audit --cask rehearsal/check/coxswain-gui
+
   # Anything between the draft and publishing failed, or the run was cancelled: the draft this
   # run made goes, so no half-made release is left behind. A run by hand starts again cleanly.
+  # A rehearsal's draft and branch always go.
   discard:
-    needs: [draft, boms, desktop, terminal, freebsd, other-unix, verify, publish]
-    if: always() && needs.draft.outputs.id != '' && needs.publish.result != 'success'
+    needs: [version, draft, boms, desktop, terminal, freebsd, other-unix, verify, rehearse, publish]
+    if: always() && (needs.version.outputs.rehearsal == 'true' || (needs.draft.outputs.id != '' && needs.publish.result != 'success'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.draft.outputs.tag }}
+      TAG: ${{ needs.version.outputs.tag }}
       REPO: ${{ github.repository }}
       NEEDS: ${{ toJSON(needs) }}
+      REHEARSAL: ${{ needs.version.outputs.rehearsal }}
     steps:
       - run: |
-          failed=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key) (\(.value.result))"' <<<"$NEEDS" | xargs)
-          echo "::error title=No release::$TAG is not released: $failed. Its draft is deleted."
+          if [ "$REHEARSAL" = true ]; then
+            failed=$(jq -r 'to_entries[] | select(.key != "publish" and .value.result != "success") | "\(.key) (\(.value.result))"' <<<"$NEEDS" | xargs)
+            if [ -n "$failed" ]; then
+              echo "::error title=Rehearsal failed::$TAG would not be released: $failed."
+            else
+              echo "::notice title=Rehearsal passed::$TAG: every file built and checked, the crates and the tap ready. Nothing was published."
+            fi
+            gh api -X DELETE "repos/$REPO/git/refs/heads/rehearsal/$TAG" 2>/dev/null || true
+          else
+            failed=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key) (\(.value.result))"' <<<"$NEEDS" | xargs)
+            echo "::error title=No release::$TAG is not released: $failed. Its draft is deleted."
+          fi
           info="$(gh release view "$TAG" --repo "$REPO" --json isDraft,body)" || exit 0
           if [ "$(jq -r .isDraft <<<"$info")" = true ] &&
              jq -r .body <<<"$info" | grep -qx "<!-- release run $GITHUB_RUN_ID -->"; then
@@ -760,7 +898,7 @@ jobs:
           git config --global user.email michael.w.olesen@gmail.com
           packaging/retry.sh git clone -q "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/homebrew-coxswain.git"
           # A higher version released meanwhile by another run stays.
-          have="$(sed -n 's/^ *version "\(.*\)"/\1/p' homebrew-coxswain/Formula/coxswain.rb | head -1)"
+          have="$(sed -n -e 's/^ *version "\(.*\)"/\1/p' -e 's|.*/releases/download/v\([0-9.]*\)/.*|\1|p' homebrew-coxswain/Formula/coxswain.rb | head -1)"
           if [ "$(printf '%s\n' "${have:-0}" "${TAG#v}" | sort -V | tail -1)" != "${TAG#v}" ]; then
             echo "::notice::homebrew-coxswain has $have already, higher than ${TAG#v}: left as it is."; exit 0
           fi

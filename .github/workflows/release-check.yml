@@ -114,7 +114,7 @@ jobs:
         run: |
           bad=0
           for f in Formula/coxswain.rb Casks/coxswain-gui.rb; do
-            got=$(gh api "repos/mwo-dk/homebrew-coxswain/contents/$f" -H "Accept: application/vnd.github.raw" | sed -n 's/^ *version "\(.*\)"/\1/p' | head -1)
+            got=$(gh api "repos/mwo-dk/homebrew-coxswain/contents/$f" -H "Accept: application/vnd.github.raw" | sed -n -e 's/^ *version "\(.*\)"/\1/p' -e 's|.*/releases/download/v\([0-9.]*\)/.*|\1|p' | head -1)
             # A higher version, released meanwhile, is fine too.
             if [ -n "$got" ] && [ "$(printf '%s\n' "$got" "$VER" | sort -V | head -1)" = "$VER" ]; then
               echo "$f: $got"
