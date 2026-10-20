@@ -103,7 +103,7 @@ if [ "$UNINSTALL" = 1 ]; then
     as_root rm -f /usr/local/etc/rc.d/coxswain_index
     info "If rc.conf turns the helper on, remove those lines too: sysrc -x coxswain_index_enable coxswain_index_user"
   fi
-  rm -f "$HOME/.config/autostart/coxswain-index.desktop"
+  rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/autostart/coxswain-index.desktop"
   info "Your settings and the search store stay: ~/.config/coxswain and ~/.cache/coxswain."
   info "Remove them too with: rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain"
   exit 0
