@@ -4,7 +4,9 @@
   // to scripts alone: no origin, so no storage, no app calls and no reach into this page, and
   // a policy that allows no connection. The model's bytes go to it by message; so do the files
   // it names next to the model (weights, external data), and only from the model's own folder.
-  import { invoke, basename, parent } from "./lib.js";
+  // Nothing comes back but "drawn" or an error: no link it asks for is opened, so nothing it
+  // was handed can leave the machine.
+  import { basename, parent } from "./lib.js";
   import { bytes } from "./renderers.js";
   import { t } from "./i18n.svelte.js";
 
@@ -18,6 +20,8 @@
   const scheme = getComputedStyle(document.documentElement).colorScheme.includes("dark") ? "dark" : "light";
   let error = $state("");
   let shown = $state(false);
+  /** Files next to the model handed over so far: a model needs a few (weights, external data). */
+  let handed = 0;
 
   const sep = $derived(path.includes("\\") && !path.includes("/") ? "\\" : "/");
   const folder = $derived(dir ? path : parent(path));
@@ -47,6 +51,7 @@
     const at = inside(name);
     try {
       if (!at) throw new Error(t("netron.outside"));
+      if (++handed > 64) throw new Error("too many files");
       const b = await bytes(at, MAX);
       send({ id, bytes: b }, [b]);
     } catch (err) {
@@ -61,7 +66,6 @@
     else if (m.shown) shown = true;
     else if (typeof m.error === "string") error = m.error;
     else if (typeof m.fetch === "string" && Number.isInteger(m.id)) answer(m.id, m.fetch);
-    else if (typeof m.url === "string" && /^https?:\/\//i.test(m.url)) invoke("open_path", { path: m.url });
   }
 </script>
 

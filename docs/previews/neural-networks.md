@@ -24,7 +24,7 @@ from the file.
 ## Using it
 
 **Desktop app.** Put the cursor on a model and open the preview pane (**Space** or **F3**). At
-the top of the pane are the model's facts; under them Netron draws the graph, a box for each
+the top of the pane are the model's facts (the first four inputs and outputs, and how many more); under them Netron draws the graph, a box for each
 node with arrows from inputs to outputs. Netron's own buttons sit at the bottom left of the
 graph: zoom in, zoom out, the model's properties and the properties of the graph shown. Click
 a node for its attributes and weights in Netron's side panel; the wheel scrolls, **Ctrl** with
@@ -37,7 +37,7 @@ graph:
 
 | Key | What you see |
 |---|---|
-| **F3** | The facts card in the viewer, titled with the format: the facts, then every input and output on a line of its own with its shape, then the operators by how often they are used, and the line *A terminal cannot draw the graph: the desktop app's preview draws it with Netron.* |
+| **F3** | The facts card in the viewer, titled with the format: the facts, then each input and output on a line of its own with its shape (up to 64 of each, then how many more), then up to 40 operators by how often they are used, and the line *A terminal cannot draw the graph: the desktop app's preview draws it with Netron.* A Core ML package is a folder: **F3** does not open it, **Alt+Enter** shows its facts. |
 | **Alt+Enter** | Properties: the file's size and dates, then the same facts, each on one line (the first four inputs and outputs, and how many more) |
 
 *View* (**F3**) and *Properties* (**Alt+Enter**) are in the action menu (**Shift+F10**) and the
@@ -92,15 +92,18 @@ a model to ONNX to see it here. GGUF and safetensors files are not drawn either.
 - **Netron runs in a frame of its own.** It is sandboxed to scripts alone: no origin, so it
   cannot reach the app, its files or its storage. Its policy allows no connection of any kind,
   so it cannot fetch or send anything. The app hands it the model's bytes, and the files the
-  model names next to it (weights, external data), only from inside the model's folder.
+  model names next to it (weights, external data), only from inside the model's folder and at
+  most 64 of them. Nothing comes back from the frame but "drawn" or an error, and no link it asks
+  for is opened.
 - **What is in the bundle.** `gui/public/vendor/netron` is Netron 9.3.2 (MIT), made by
   `gui/netron/build.mjs` from the release's source with a checked SHA-256: Netron's own view
   and the readers of these four formats, with Coxswain's host in place of Netron's browser
   host. Netron's telemetry, its update check, its Python and pickle readers and every other
-  format are not in it; the build fails if they are. Its licence is in the
+  format are left out (each resolves to an empty stub); the build fails if the telemetry's
+  addresses or the PyTorch or pickle readers end up in it anyway. Its licence is in the
   [bills of materials](../reference/bills-of-materials.md).
-- **Size.** A model up to 512 MB is drawn; a bigger one shows the facts and *Netron cannot draw
-  it:* with the reason.
+- **Size.** A model up to 512 MiB is drawn, and each file next to it that it reads may be up to
+  512 MiB too; a bigger one shows the facts and *Netron cannot draw it:* with the reason.
 
 ## Questions
 
@@ -116,7 +119,7 @@ Python, so Coxswain leaves them out. Export the model to ONNX (`torch.onnx.expor
 
 #### How do I see a model's inputs in the terminal app?
 
-Press **F3** on the file for its facts card, with every input and output on a line of its own,
+Press **F3** on the file for its facts card, with each input and output on a line of its own,
 or **Alt+Enter** for the short facts in Properties.
 
 #### Why does the graph not follow the theme?
@@ -132,8 +135,9 @@ does not read those for the count. Netron's node properties show each weight's s
 
 #### Does the desktop app send the model anywhere?
 
-No. Netron is in the app, and its frame may not connect anywhere. Links in Netron's side panel
-(an operator's documentation) open in your browser only when you click them.
+No. Netron is in the app, its frame may not connect anywhere, and the app opens no link for it:
+the links in Netron's side panel (an operator's documentation) do nothing, so nothing the frame
+was handed can leave the machine.
 
 ---
 [← Previous: Chess games](chess.md) · [Next: Media and files →](media.md)

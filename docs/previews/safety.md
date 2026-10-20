@@ -106,7 +106,7 @@ the app, and previews of every kind are blocked from the web.
 | Parquet | 500 MB | *Too large to preview* |
 | A file read whole through the app's file protocol | 512 MiB | Refused; video and audio are read in pieces |
 | draw.io | 32 MB | Cut off, does not parse |
-| A neural network model drawn by Netron, and each file next to it that it reads | 512 MB | *Netron cannot draw it:* and the reason; the facts still show |
+| A neural network model drawn by Netron, and each file next to it that it reads | 512 MiB | *Netron cannot draw it:* and the reason; the facts still show |
 | E-mail text | 200,000 characters | – |
 | Tool runs | `[preview] timeout`, 120 s | *Stopped after 120 s (the timeout in [preview])* |
 

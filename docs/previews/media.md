@@ -44,7 +44,7 @@ program is built for.
 | Video: `mp4 webm mkv mov m4v ogv` | A player |
 | Audio: `mp3 flac wav ogg m4a opus aac` | A player, plus its tags |
 | Fonts: `.ttf`, `.otf`, `.woff`, `.woff2` | *The quick brown fox jumps over the lazy dog* and *Sphinx of black quartz, judge my vow* in large sizes, the alphabet, digits and signs, and *Æble, øl og å — Grüße — ﬁ ﬂ — “quotes” — €£¥* |
-| Folders | *Contents* (folders and files), *Files here* (their size), *Newest*, *Total size* (or **Calculate**), and the *Git* line of a repository |
+| Folders | *Contents* (folders and files), *Files here* (their size), *Newest*, *Total size* (or **Calculate**), and the *Git* line of a repository; a Core ML package (`.mlpackage`) shows its model instead ([Neural network models](neural-networks.md)) |
 | Archives | The files inside; see [below](#archives) |
 
 Whether video and audio play depends on the codecs of your system's webview: WebKitGTK with

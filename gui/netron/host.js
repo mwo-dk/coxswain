@@ -76,9 +76,9 @@ class Host {
     const data = new Uint8Array(bytes);
     return encoding ? new TextDecoder(encoding).decode(data) : new base.BinaryStream(data);
   }
-  openURL(url) {
-    if (/^https?:\/\//.test(url)) tell({ url });
-  }
+  // Links (an operator's documentation) are not followed: a page opened for the frame could
+  // carry what it was handed off the machine.
+  openURL() {}
   exception(error) { console.error(error); }
   event() {}
   update() {}

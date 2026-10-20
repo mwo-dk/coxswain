@@ -1257,7 +1257,7 @@
  "feature.names.what": "Every file and folder on the machine is in a name index, found by name in milliseconds, with nothing to set up.",
  "feature.neural_networks.a1": "No. It reads the file's structure only: no pickle is read, no code in the model runs, and Netron's frame has no network.",
  "feature.neural_networks.a2": "PyTorch files are Python pickles, and TorchScript holds code: reading them means running Python, so Coxswain leaves them out. Export the model to ONNX to see it.",
- "feature.neural_networks.a3": "Press {view} on the file for its facts card with every input and output, or {properties} for the short facts.",
+ "feature.neural_networks.a3": "Press {view} on the file for its facts card, with each input and output on a line of its own, or {properties} for the short facts.",
  "feature.neural_networks.q1": "Does Coxswain run the model?",
  "feature.neural_networks.q2": "Why is my PyTorch .pt file not shown?",
  "feature.neural_networks.q3": "How do I see a model's inputs in the terminal app?",
