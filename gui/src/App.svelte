@@ -330,6 +330,7 @@
     convert_geodata: () => convertMedia(2),
     export_model: () => convertMedia(3),
     convert_ebook: () => convertEbook(),
+    export_kicad: () => convertMedia(4),
     chess: async () => {
       const e = item(tab());
       const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));

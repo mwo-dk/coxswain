@@ -114,6 +114,7 @@ The terminal app needs no packages.
 | `ImageMagick` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) | Optional; the same |
 | `gdal` | Maps and facts of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files, [Convert geodata](../previews/geodata.md#convert-geodata) | Optional; the same |
 | `openscad` | Pictures of OpenSCAD models, [Export 3D model](../previews/openscad.md#export-3d-model) | Optional; the same |
+| `kicad` | KiCad schematics and boards in the preview, [Export from KiCad](../previews/kicad.md#export-from-kicad) | Optional; the same |
 | `poppler-utils` | The same for scanned PDFs | Optional, with `tesseract` |
 | `libreoffice` | Search older Office files | Optional |
 | `pandoc` | Previews of formats it converts | Optional |

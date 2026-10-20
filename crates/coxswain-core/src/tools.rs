@@ -18,6 +18,9 @@ fn extra_paths(program: &str) -> Vec<PathBuf> {
         "7z" if cfg!(windows) => &[r"C:\Program Files\7-Zip\7z.exe"],
         // Its installer adds nothing to PATH; `openscad.com` is the one for the command line.
         "openscad" if cfg!(windows) => &[r"C:\Program Files\OpenSCAD\openscad.com", r"C:\Program Files\OpenSCAD (Nightly)\openscad.com"],
+        // KiCad's installers put kicad-cli on no PATH either.
+        "kicad-cli" if cfg!(windows) => &[r"C:\Program Files\KiCad\9.0\bin\kicad-cli.exe"],
+        "kicad-cli" if cfg!(target_os = "macos") => &["/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"],
         "openscad" if cfg!(target_os = "macos") => &["/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"],
         _ => &[],
     };
@@ -492,6 +495,10 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         // GDAL's programs, for geodata (`geo`); OmniOS and winget have none.
         "gdalinfo" => [
             "gdal", "gdal", "gdal", "", "gdal", "gdal-bin", "gdal", "gdal", "gdal", "",
+        ],
+        // KiCad's kicad-cli, for schematics and boards (`kicad`); OmniOS has none.
+        "kicad-cli" => [
+            "kicad", "kicad", "kicad", "", "kicad", "kicad", "kicad", "kicad", "--cask kicad", "KiCad.KiCad",
         ],
         // OpenSCAD, for models (`scad`); OmniOS has none, Homebrew's is a cask.
         "openscad" => [

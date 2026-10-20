@@ -172,4 +172,4 @@ Not yet: the picture is one fixed view. Open the model in OpenSCAD (**Enter**), 
 your slicer.
 
 ---
-[← Previous: Geodata](geodata.md) · [Next: Previews made by tools →](tools.md)
+[← Previous: Geodata](geodata.md) · [Next: KiCad →](kicad.md)

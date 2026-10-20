@@ -276,6 +276,8 @@ actions! {
     // calibre: an e-book as EPUB, AZW3 or PDF, next to it (`ebook`). No key of its own: the
     // action menu and the preview offer it.
     ConvertEbook = "convert_ebook", "Convert e-book", Files, [];
+    // kicad-cli: PDF, SVG, a bill of materials, Gerbers of a schematic or board (`kicad`).
+    ExportKicad = "export_kicad", "Export from KiCad", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1528,6 +1530,8 @@ impl Default for PreviewConfig {
             ("gdal", "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"),
             // OpenSCAD's own build of a dated snapshot, pinned by its digest (`scad`): its last
             // release (2021.01) has no Manifold, which renders in a second what took minutes.
+            // KiCad's own image of its newest release (amd64 only), pinned by its digest (`kicad`).
+            ("kicad", "docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729"),
             ("openscad", "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"),
             // LinuxServer.io's calibre, pinned to the release tested (`ebook`); calibre
             // publishes no image of its own.

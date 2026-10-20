@@ -3,7 +3,7 @@
 # Previews made by tools
 
 Some formats need a real program: a TeX distribution, Typst, LibreOffice, Ghostscript, PlantUML,
-D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick, GDAL, OpenSCAD, and
+D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, and
 calibre for [e-books](ebooks.md) when turned on.
 Coxswain uses one that is installed, or runs it in a [container](containers.md) (podman or
 docker), so nothing has to be installed for a preview you only need now and then. Results are
@@ -48,6 +48,7 @@ kept in a cache, so each file is made once.
 | `.gpkg` `.shp` `.geojson` `.kml`, and GeoTIFF the picture reader cannot draw | GDAL (`gdal`, [Geodata](geodata.md)) | `gdalinfo` (and `ogrinfo`, `ogr2ogr`, `gdal_translate` beside it) | `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, pinned (about 40 MB to download, 98 MB on disk) | SVG map | At once |
 | `.scad` | OpenSCAD (`openscad`, [OpenSCAD models](openscad.md)) | `openscad` | `docker.io/openscad/openscad:trixie.2026-10-19`, pinned (about 241 MB to download, 635 MB on disk) | A picture of the part (an SVG outline of a flat model) | At once |
 | `.mobi` `.azw` `.azw3` `.fb2` `.lit` | calibre ([E-books](ebooks.md), only with *E-books with calibre* on) | `ebook-convert`, `ebook-meta` | `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (about 1.3 GB to download, 3.6 GB on disk) | Cover, title, authors and first chapter | After 0.4 s |
+| `.kicad_sch`, `.kicad_pcb` | KiCad (`kicad`; `kicad_thumb` for thumbnails, [KiCad](kicad.md)) | `kicad-cli` | `docker.io/kicad/kicad:9.0.9`, pinned (about 476 MB to download, 1.7 GB on disk; amd64 only) | PDF of the sheets or layers | At once |
 
 "Runs by itself" never includes a container whose image is not pulled yet: a download waits for
 your click.
@@ -186,6 +187,7 @@ imagemagick = "docker.io/dstmodders/imagemagick:latest"  # GIMP and other pictur
 gdal = "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"  # geodata
 openscad = "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"  # models
 calibre = "docker.io/linuxserver/calibre:9.16.0@sha256:…"   # e-books
+kicad = "docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729"  # schematics, boards
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -216,7 +218,8 @@ open the result with **Enter**. The tools it does run are OCRmyPDF, for
 [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md), GDAL for
 [Convert geodata](geodata.md#convert-geodata), OpenSCAD for
-[Export 3D model](openscad.md#export-3d-model), calibre for [e-books](ebooks.md) (**F3** on a
+[Export 3D model](openscad.md#export-3d-model), kicad-cli for
+[Export from KiCad](kicad.md#export-from-kicad), calibre for [e-books](ebooks.md) (**F3** on a
 book, *Convert e-book*), and ffprobe and GDAL for a video's and
 geodata's facts in **Properties**, with the same images and preferences; of `[preview]` it
 also reads `ebooks`.
@@ -267,4 +270,4 @@ In the preview cache ([above](#the-preview-cache)). Copy it from there, or bette
 yourself; the cache is emptied by **Clear** and its folders are named by hashes.
 
 ---
-[← Previous: OpenSCAD models](openscad.md) · [Next: Containers →](containers.md)
+[← Previous: KiCad](kicad.md) · [Next: Containers →](containers.md)

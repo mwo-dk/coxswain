@@ -53,6 +53,10 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("gdal", &["gdalinfo"]),
     // OpenSCAD (`coxswain_core::scad`): a model drawn from its STL.
     ("openscad", &["openscad"]),
+    // KiCad (`coxswain_core::kicad`): a schematic's sheets or a board's layers as a PDF; the
+    // thumbnail is a schematic's first sheet or the board in 3D.
+    ("kicad", &["kicad-cli"]),
+    ("kicad_thumb", &["kicad-cli"]),
 ];
 
 /// The media previews, and what each makes.
@@ -65,6 +69,8 @@ fn media_op(tool: &str) -> Option<coxswain_core::media::Op> {
         // GDAL's map of geodata (`coxswain_core::geo`).
         "gdal" => Op::Map,
         "openscad" => Op::Model,
+        "kicad" => Op::Board,
+        "kicad_thumb" => Op::BoardThumb,
         _ => return None,
     })
 }
@@ -226,6 +232,8 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
         "pandoc" => ("html", out.join("doc.html")),
         "gdal" => ("svg", out.join("map.svg")),
         "openscad" => ("svg", out.join("model.svg")),
+        "kicad" => ("pdf", out.join("kicad.pdf")),
+        "kicad_thumb" => ("svg", out.join("thumb.svg")),
         t if media_op(t).is_some() => ("png", out.join("out.png")),
         "calibre" => ("ebook", out.join("out.epub")),
         _ => ("json", out.join("tables.json")),
@@ -608,6 +616,7 @@ fn media_how(cfg: &PreviewConfig, tool: &str, kind: &str, which_one: &str) -> Re
         "ffmpeg" => Program::Ffmpeg,
         "gdalinfo" => Program::Gdal,
         "openscad" => Program::Openscad,
+        "kicad-cli" => Program::Kicad,
         _ => Program::Magick,
     };
     Ok(How::Local { program, path })

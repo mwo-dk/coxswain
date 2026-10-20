@@ -65,6 +65,7 @@ folder; **Ctrl+E** extracts it.*
 | **Alt+P** | yes | yes | [Make PDF searchable](searchable-pdf.md): a copy with the words of a scan in it |
 | *Shift+F10*, *F9 → Convert video or audio* | yes | yes | [Convert video or audio](convert-media.md): MP4, MP3, FLAC, the sound, a clip |
 | *Shift+F10*, *F9 → Convert or edit pictures* | yes | yes | [Convert or edit pictures](edit-pictures.md): JPEG, PNG, WebP, smaller, without the location, turned |
+| *Shift+F10*, *F9 → Export from KiCad* | yes | yes | [Export from KiCad](../previews/kicad.md#export-from-kicad): PDF, SVG, a bill of materials, Gerbers |
 | *Shift+F10*, *F9 → Export 3D model* | yes | yes | [Export 3D model](../previews/openscad.md#export-3d-model): STL or 3MF of an OpenSCAD model |
 | *Shift+F10*, *F9 → Convert geodata* | yes | yes | [Convert geodata](../previews/geodata.md#convert-geodata): GeoPackage, GeoJSON, a shapefile, KML, GPX, COG, PNG |
 

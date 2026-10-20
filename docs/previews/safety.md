@@ -48,8 +48,8 @@ open it outside the pane:
 - **Write next to your files.** Tool results, LaTeX's auxiliary files and LibreOffice's profile
   go to the cache folder. Containers see your folders read-only. The only things that write are
   extracting an archive, when you press **Ctrl+E**, and Make PDF searchable, Convert video or
-  audio, Convert or edit pictures, Convert geodata and Export 3D model, a new file next to the
-  original, when you confirm.
+  audio, Convert or edit pictures, Convert geodata, Export 3D model and Export from KiCad, a new file
+  next to the original, when you confirm.
 - **Change a database.** SQLite and DuckDB files are opened read-only; counting SQLite rows
   stops after two and a half seconds for the whole database.
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
@@ -64,7 +64,7 @@ open it outside the pane:
   address or another file, and writes no `.aux.xml` beside it; OpenSCAD has no way to write files
   or run programs from a model. In
   their containers ffmpeg, ImageMagick and GDAL see the one file (GDAL a shapefile's folder,
-  as a shapefile is several files), OpenSCAD its model's folder, on a read-only root with no capabilities and bounded
+  as a shapefile is several files), OpenSCAD and KiCad their file's folder, on a read-only root with no capabilities and bounded
   memory.
 - **Run what a repository names.** A folder may be a repository someone else made (a
   download, an unpacked archive), and its `.git/config` can name programs. The git line, the

@@ -59,6 +59,8 @@ pub struct Subject {
     pub local_models: usize,
     /// Of the files, e-books calibre reads (`ebook::is_ebook`).
     pub ebooks: usize,
+    /// Of the files, KiCad schematics and boards (`kicad::is_kicad`).
+    pub kicad: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -124,6 +126,7 @@ impl Action {
             ConvertGeodata => s.geo > 0 && disk,
             ExportModel => s.models > 0 && disk,
             ConvertEbook => s.ebooks > 0 && disk,
+            ExportKicad => s.kicad > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
@@ -217,6 +220,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("geo", &[("menu", Action::ActionMenu)]),
     ("scad", &[("menu", Action::ActionMenu)]),
     ("ebook", &[("menu", Action::ActionMenu)]),
+    ("kicad", &[("menu", Action::ActionMenu)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -255,6 +259,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "geo" => disk && s.geo > 0,
         "scad" => disk && s.models > 0,
         "ebook" => disk && s.ebooks > 0,
+        "kicad" => disk && s.kicad > 0,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
         "image" => disk && s.single() && s.images == 1,

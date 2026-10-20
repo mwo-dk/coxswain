@@ -235,7 +235,8 @@ OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both app
 and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md) in both apps, and GDAL for
 [geodata](../previews/geodata.md)'s facts and Convert geodata, and OpenSCAD for
-[Export 3D model](../previews/openscad.md#export-3d-model), and calibre for
+[Export 3D model](../previews/openscad.md#export-3d-model), kicad-cli for
+[Export from KiCad](../previews/kicad.md#export-from-kicad), and calibre for
 [e-books](../previews/ebooks.md), in both apps, and Apache Tika's image for
 [`[search] tika`](../search/tika.md).
 
@@ -258,6 +259,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.ffmpeg` | string | `"docker.io/mwader/static-ffmpeg:latest"` | A static ffmpeg and ffprobe (about 126 MB, 315 MB on disk), for video and sound previews, video thumbnails, facts, HEIC photos and Convert video or audio; one you set must have `/ffmpeg` and `/ffprobe` |
 | `images.imagemagick` | string | `"docker.io/dstmodders/imagemagick:latest"` | ImageMagick 7 (about 60 MB, 152 MB on disk), for GIMP and other pictures only it reads and Convert or edit pictures; first for ImageMagick under `"auto"`; one you set must have `magick` on its `PATH` |
 | `images.gdal` | string | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` | GDAL's small Alpine image, pinned to its digest (about 40 MB, 98 MB on disk), for geodata's maps, thumbnails and facts and Convert geodata ([Geodata](../previews/geodata.md)); one you set must have GDAL's programs on its `PATH` |
+| `images.kicad` | string | `"docker.io/kicad/kicad:9.0.9@sha256:e638…"` | KiCad's image of its release, pinned to its digest (about 476 MB, 1.7 GB on disk; amd64 only), for KiCad's previews and Export from KiCad ([KiCad](../previews/kicad.md)); one you set must have `kicad-cli` on its `PATH` |
 | `images.openscad` | string | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` | OpenSCAD's image of a dated snapshot, pinned to its digest (about 241 MB, 635 MB on disk), for models' pictures and Export 3D model ([OpenSCAD models](../previews/openscad.md)); one you set must have `openscad` on its `PATH` |
 | `images.calibre` | string | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` | calibre, for [e-books](../previews/ebooks.md) in both apps (about 1.3 GB, 3.6 GB on disk), pinned by its digest; one you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` |
 | `ebooks` | bool | `false` | [E-books with calibre](../previews/ebooks.md): previews, text for search and *Convert e-book* for MOBI, AZW, AZW3, FB2, LIT and PDB books, in both apps; changing it restarts the search helper |
@@ -269,7 +271,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
 `gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf`, `ffmpeg`, `waveform`, `heif` (these three
-share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal`, `openscad`, `calibre` and each diagram kind of Kroki's image (`d2`,
+share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal`, `openscad`, `kicad`, `kicad_thumb` (shares `images.kicad`), `calibre` and each diagram kind of Kroki's image (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`,
 `bytefield`), which share `images.kroki`.
 

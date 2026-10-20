@@ -40,6 +40,7 @@ pub mod images;
 pub mod local_models;
 pub mod icons;
 pub mod index;
+pub mod kicad;
 #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 mod kq;
 pub mod machine;
