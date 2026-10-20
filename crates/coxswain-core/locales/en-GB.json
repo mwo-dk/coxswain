@@ -150,6 +150,7 @@
   "one": "{n} message could not be copied out; the others were.",
   "other": "{n} messages could not be copied out; the others were."
  },
+ "archive.overlapping": "The files of this zip share their packed bytes, so it would unpack to far more than it holds: it may be made to fill the disk. One file of it can still be copied out",
  "archive.pack_confirm": "The password again:",
  "archive.pack_hide_names": "Hide the file names too",
  "archive.pack_mismatch": "The passwords do not match",

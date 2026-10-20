@@ -150,6 +150,7 @@
   "one": "{n} melding kunne ikke kopieres ut; de andre ble det.",
   "other": "{n} meldinger kunne ikke kopieres ut; de andre ble det."
  },
+ "archive.overlapping": "Filene i denne zip-en deler de pakkede bytene sine, så den ville pakkes ut til langt mer enn den inneholder: den kan være laget for å fylle disken. Én fil fra den kan fortsatt kopieres ut",
  "archive.pack_confirm": "Passordet en gang til:",
  "archive.pack_hide_names": "Skjul filnavnene også",
  "archive.pack_mismatch": "Passordene er ikke like",

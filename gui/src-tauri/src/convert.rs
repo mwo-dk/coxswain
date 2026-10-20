@@ -545,12 +545,18 @@ mod latex {
     use std::path::{Path, PathBuf};
 
     fn head(path: &Path) -> String {
+        text(path, 64 * 1024)
+    }
+
+    /// The first `max` bytes of a file, as text: a file in Latin-1, or one cut in the middle of
+    /// a character, keeps the rest of its text.
+    fn text(path: &Path, max: u64) -> String {
         use std::io::Read;
-        let mut s = String::new();
+        let mut b = vec![];
         if let Ok(f) = std::fs::File::open(path) {
-            let _ = f.take(64 * 1024).read_to_string(&mut s);
+            let _ = f.take(max).read_to_end(&mut b);
         }
-        s
+        String::from_utf8_lossy(&b).into_owned()
     }
 
     /// `% !TEX key = value` in the first lines, as TeXShop, TeXstudio and LaTeX Workshop read it.
@@ -601,7 +607,7 @@ mod latex {
             .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten().map(|e| e.path()))
             .filter(|p| p.extension().is_some_and(|x| x == "tex" || x == "ltx") && p != path)
             .find(|p| {
-                let t = std::fs::read_to_string(p).unwrap_or_default();
+                let t = text(p, 4 << 20);
                 t.contains("\\documentclass") && t.contains(&stem)
             })
             .unwrap_or_else(|| path.to_path_buf())
@@ -614,7 +620,7 @@ mod latex {
         if let Some(repo) = dir.ancestors().find(|d| d.join(".git").exists()) {
             return repo.to_path_buf();
         }
-        let text = std::fs::read_to_string(main).unwrap_or_default();
+        let text = text(main, 4 << 20);
         let depth = text.split(|c: char| c == '{' || c == ',' || c.is_whitespace()).map(|arg| arg.matches("../").count()).max().unwrap_or(0).min(3);
         let home = std::env::home_dir();
         dir.ancestors().take(depth + 1).take_while(|d| d.parent().is_some() && Some(*d) != home.as_deref()).last().unwrap_or(dir).to_path_buf()
@@ -724,6 +730,10 @@ mod latex {
             std::fs::write(d.join("paper/chapters/method.tex"), "%!TEX root = ../main.tex\n\\section{Method}\n").unwrap();
 
             assert_eq!(main_file(&main), main);
+            // A document of its own in Latin-1 (its name in main.tex too): not taken for a part.
+            let latin = d.join("paper/plot.tex");
+            std::fs::write(&latin, [&b"% K\xf8benhavn\n"[..], b"\\documentclass{article}\n"].concat()).unwrap();
+            assert_eq!(main_file(&latin), latin);
             assert_eq!(main_file(&d.join("paper/chapters/intro.tex")), main, "found by who includes it");
             assert_eq!(main_file(&d.join("paper/chapters/method.tex")), std::fs::canonicalize(&main).unwrap(), "found by its magic comment");
             let outside = std::env::temp_dir().join(format!("coxswain-latex-outside-{}.tex", std::process::id()));

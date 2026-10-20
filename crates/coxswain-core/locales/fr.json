@@ -154,6 +154,7 @@
   "many": "{n} de messages n’ont pas pu être copiés ; les autres l’ont été.",
   "other": "{n} messages n’ont pas pu être copiés ; les autres l’ont été."
  },
+ "archive.overlapping": "Les fichiers de ce zip partagent leurs octets compressés : il se décompresserait en bien plus que ce qu’il contient et peut avoir été fait pour remplir le disque. Un seul de ses fichiers peut encore être copié",
  "archive.pack_confirm": "Le mot de passe à nouveau :",
  "archive.pack_hide_names": "Masquer aussi les noms des fichiers",
  "archive.pack_mismatch": "Les mots de passe ne correspondent pas",

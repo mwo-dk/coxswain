@@ -460,7 +460,11 @@ fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::Archiv
         ));
     }
     file.seek(io::SeekFrom::Start(0))?;
-    sevenz_rust2::ArchiveReader::new(file, pw).map_err(seven_error)
+    let mut r = sevenz_rust2::ArchiveReader::new(file, pw).map_err(seven_error)?;
+    // One thread: with more, the crate unpacks each LZMA2 run between two resets whole into
+    // memory, and a few hundred kilobytes of one can unpack to gigabytes.
+    r.set_thread_count(1);
+    Ok(r)
 }
 
 /// The most a 7z's packed list of contents may unpack to: it is unpacked whole, into memory,
@@ -688,10 +692,16 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     r.map(|_| to)
 }
 
+/// The permission bits an archive cannot give what comes out of it: write for the group and
+/// for everyone else (a script anyone may change, a folder anyone may put files in), as tar
+/// does for a user who is not root.
+const NOT_SHARED: u32 = 0o022;
+
 /// A tar's files, hard links and folders into `to`, as `tar::Archive::unpack` does, its
 /// folders last so a read-only one does not keep out what is in it. Symbolic links (which may
 /// point anywhere, and need a right of their own on Windows) and devices are left out.
 fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()> {
+    tar.set_mask(NOT_SHARED);
     // Long paths on Windows: `\\?\` in front, as the crate does.
     let to = &to.canonicalize().unwrap_or_else(|_| to.to_path_buf());
     let mut dirs = vec![];
@@ -1230,7 +1240,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     // The copy has the date of the file in the archive (else the archive's), so what is made
     // from it and kept by its date (a LaTeX or LibreOffice preview) is found again next time.
     let when = if it.modified > 0 {
-        Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(it.modified))
+        Some(crate::fs::epoch(it.modified))
     } else {
         std::fs::metadata(&archive).and_then(|m| m.modified()).ok()
     };
@@ -1444,6 +1454,16 @@ fn copy_entries(
     if k == Kind::Zip {
         let mut z =
             zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
+        // Files that share their packed bytes unpack to many times the zip (a few kilobytes to
+        // gigabytes): one file of such a zip may come out, not a folder of them.
+        if (inner.is_empty() || z.index_for_name(inner).is_none())
+            && z.has_overlapping_files().map_err(io::Error::other)?
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                crate::t!("archive.overlapping"),
+            ));
+        }
         for i in 0..z.len() {
             let (name, dir, encrypted, mode) = {
                 let e = z.by_index_raw(i).map_err(io::Error::other)?;
@@ -1489,7 +1509,7 @@ fn copy_entries(
             if let Some(m) = mode.filter(|m| m & 0o111 != 0) {
                 std::fs::set_permissions(
                     &path,
-                    std::os::unix::fs::PermissionsExt::from_mode(m & 0o777),
+                    std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
                 )?;
             }
             #[cfg(not(unix))]
@@ -2233,6 +2253,117 @@ mod tests {
         let name = message_name(0, 3, &long);
         assert!(name.len() <= 3 + 1 + 100 + 4 && !name.contains('\u{202e}'), "{name}");
         assert!(is_comic(Path::new("a.CBZ")) && !is_comic(&mbox));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_zip_whose_files_share_their_bytes_is_not_unpacked_whole() {
+        // Two names for one packed file: twice its size out of one copy of it (Fifield's zip
+        // bomb takes thousands, a few kilobytes to gigabytes).
+        let d = crate::pictures::tests::folder("overlap");
+        let data = vec![0u8; 1 << 16];
+        let packed = {
+            let mut e = flate2::write::DeflateEncoder::new(vec![], flate2::Compression::best());
+            e.write_all(&data).unwrap();
+            e.finish().unwrap()
+        };
+        let crc = {
+            let mut h = flate2::Crc::new();
+            h.update(&data);
+            h.sum()
+        };
+        let mut z = vec![];
+        let le16 = |v: &mut Vec<u8>, x: u16| v.extend_from_slice(&x.to_le_bytes());
+        let le32 = |v: &mut Vec<u8>, x: u32| v.extend_from_slice(&x.to_le_bytes());
+        le32(&mut z, 0x0403_4b50);
+        for x in [20, 0, 8, 0, 0] {
+            le16(&mut z, x);
+        }
+        for x in [crc, packed.len() as u32, data.len() as u32] {
+            le32(&mut z, x);
+        }
+        le16(&mut z, 1);
+        le16(&mut z, 0);
+        z.push(b'a');
+        z.extend_from_slice(&packed);
+        let dir = z.len() as u32;
+        for name in [b'a', b'b'] {
+            le32(&mut z, 0x0201_4b50);
+            for x in [20, 20, 0, 8, 0, 0] {
+                le16(&mut z, x);
+            }
+            for x in [crc, packed.len() as u32, data.len() as u32] {
+                le32(&mut z, x);
+            }
+            for x in [1, 0, 0, 0, 0] {
+                le16(&mut z, x);
+            }
+            le32(&mut z, 0);
+            le32(&mut z, 0);
+            z.push(name);
+        }
+        let dir_len = z.len() as u32 - dir;
+        le32(&mut z, 0x0605_4b50);
+        for x in [0, 0, 2, 2] {
+            le16(&mut z, x);
+        }
+        le32(&mut z, dir_len);
+        le32(&mut z, dir);
+        le16(&mut z, 0);
+        let zip = d.join("bomb.zip");
+        std::fs::write(&zip, &z).unwrap();
+        assert_eq!(list(&zip, 10).unwrap().0.len(), 2, "listed as it is");
+        let err = extract(&zip, &d).unwrap_err();
+        assert_eq!(err.to_string(), crate::t!("archive.overlapping"));
+        assert!(!d.join("bomb").exists(), "nothing left behind");
+        // One file of it comes out.
+        let one = copy_out(&zip, "b", &d, None, false).unwrap();
+        assert_eq!(std::fs::read(one).unwrap(), data);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nothing_comes_out_writable_by_others() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::pictures::tests::folder("modes");
+        let mut b = tar::Builder::new(vec![]);
+        for (name, mode, kind) in [("d", 0o777, tar::EntryType::Directory), ("d/run.sh", 0o4777, tar::EntryType::Regular)] {
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(kind);
+            h.set_mode(mode);
+            h.set_size(u64::from(kind == tar::EntryType::Regular));
+            b.append_data(&mut h, name, &b"x"[..u64::from(kind == tar::EntryType::Regular) as usize]).unwrap();
+        }
+        std::fs::write(d.join("a.tar"), b.into_inner().unwrap()).unwrap();
+        let zip = d.join("b.zip");
+        let mut z = zip::ZipWriter::new(File::create(&zip).unwrap());
+        z.start_file("run.sh", zip::write::SimpleFileOptions::default().unix_permissions(0o4777)).unwrap();
+        z.write_all(b"x").unwrap();
+        z.finish().unwrap();
+        let mode = |p: PathBuf| std::fs::metadata(p).unwrap().permissions().mode() & 0o7777;
+        let t = extract(&d.join("a.tar"), &d).unwrap();
+        assert_eq!((mode(t.join("d")), mode(t.join("d/run.sh"))), (0o755, 0o755));
+        let z = extract(&zip, &d).unwrap();
+        assert_eq!(mode(z.join("run.sh")), 0o755);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn an_entry_dated_past_any_clock_is_listed_looked_at_and_extracted() {
+        let d = crate::pictures::tests::folder("far-future");
+        let mut b = tar::Builder::new(vec![]);
+        let mut h = tar::Header::new_gnu();
+        h.set_mtime(u64::MAX);
+        h.set_size(2);
+        h.set_mode(0o644);
+        b.append_data(&mut h, "later.txt", &b"hi"[..]).unwrap();
+        let tar = d.join("later.tar");
+        std::fs::write(&tar, b.into_inner().unwrap()).unwrap();
+        let (list, _) = list(&tar, 10).unwrap();
+        let _ = crate::i18n::date_time(list[0].modified);
+        assert_eq!(std::fs::read(peek(&tar.join("later.txt")).unwrap()).unwrap(), b"hi");
+        assert!(extract(&tar, &d).unwrap().join("later.txt").is_file());
         std::fs::remove_dir_all(d).unwrap();
     }
 

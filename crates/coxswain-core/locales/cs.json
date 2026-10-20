@@ -154,6 +154,7 @@
   "few": "{n} zprávy se nepodařilo zkopírovat; ostatní ano.",
   "other": "{n} zpráv se nepodařilo zkopírovat; ostatní ano."
  },
+ "archive.overlapping": "Soubory tohoto zipu sdílejí své zabalené bajty, takže by se rozbalil na mnohem víc, než obsahuje: může být vytvořen k zaplnění disku. Jeden jeho soubor lze stále zkopírovat",
  "archive.pack_confirm": "Heslo znovu:",
  "archive.pack_hide_names": "Skrýt i názvy souborů",
  "archive.pack_mismatch": "Hesla se neshodují",

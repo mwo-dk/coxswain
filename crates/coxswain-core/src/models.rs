@@ -84,7 +84,7 @@ impl Entry {
 
 /// The date of `secs` since 1970, here.
 fn date(secs: u64) -> String {
-    let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
+    let t = crate::fs::epoch(secs);
     chrono::DateTime::<chrono::Local>::from(t)
         .format("%Y-%m-%d")
         .to_string()

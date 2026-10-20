@@ -150,6 +150,7 @@
   "one": "{n} sõnumit ei saanud välja kopeerida; teised said.",
   "other": "{n} sõnumit ei saanud välja kopeerida; teised said."
  },
+ "archive.overlapping": "Selle zipi failid jagavad oma pakitud baite, nii et see pakiks lahti palju rohkem, kui sisaldab: see võib olla tehtud ketta täitmiseks. Ühe faili saab sellest siiski välja kopeerida",
  "archive.pack_confirm": "Parool uuesti:",
  "archive.pack_hide_names": "Peida ka failinimed",
  "archive.pack_mismatch": "Paroolid ei kattu",

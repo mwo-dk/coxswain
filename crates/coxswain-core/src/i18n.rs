@@ -147,7 +147,7 @@ pub fn date(secs: u64) -> String {
 }
 
 fn local(secs: u64, format: &str) -> String {
-    let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
+    let t = crate::fs::epoch(secs);
     digits(
         chrono::DateTime::<chrono::Local>::from(t)
             .format(format)

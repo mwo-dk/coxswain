@@ -150,6 +150,7 @@
   "one": "{n} viestiä ei voitu kopioida ulos; muut kopioitiin.",
   "other": "{n} viestiä ei voitu kopioida ulos; muut kopioitiin."
  },
+ "archive.overlapping": "Tämän zipin tiedostot jakavat pakatut tavunsa, joten se purkautuisi paljon suuremmaksi kuin mitä se sisältää: se voi olla tehty täyttämään levy. Yhden sen tiedoston voi silti kopioida ulos",
  "archive.pack_confirm": "Salasana uudelleen:",
  "archive.pack_hide_names": "Piilota myös tiedostonimet",
  "archive.pack_mismatch": "Salasanat eivät täsmää",

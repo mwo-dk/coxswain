@@ -154,6 +154,7 @@
   "many": "No s'han pogut copiar {n} de missatges; els altres sí.",
   "other": "No s'han pogut copiar {n} missatges; els altres sí."
  },
+ "archive.overlapping": "Els fitxers d'aquest zip comparteixen els bytes comprimits, així que es desempaquetaria en molt més del que conté: pot estar fet per omplir el disc. Encara se'n pot copiar un fitxer",
  "archive.pack_confirm": "La contrasenya de nou:",
  "archive.pack_hide_names": "Amaga també els noms dels fitxers",
  "archive.pack_mismatch": "Les contrasenyes no coincideixen",

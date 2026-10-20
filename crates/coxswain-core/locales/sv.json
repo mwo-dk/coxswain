@@ -150,6 +150,7 @@
   "one": "{n} meddelande kunde inte kopieras ut; de andra kopierades.",
   "other": "{n} meddelanden kunde inte kopieras ut; de andra kopierades."
  },
+ "archive.overlapping": "Filerna i den här zip-filen delar sina packade byte, så den skulle packas upp till långt mer än den innehåller: den kan vara gjord för att fylla disken. En enskild fil ur den kan fortfarande kopieras ut",
  "archive.pack_confirm": "Lösenordet igen:",
  "archive.pack_hide_names": "Dölj filnamnen också",
  "archive.pack_mismatch": "Lösenorden stämmer inte överens",
