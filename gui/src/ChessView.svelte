@@ -611,6 +611,14 @@
     font-family: var(--font);
     font-weight: bold;
   }
+  /* The theme's colours, not the system's grey buttons (WebKitGTK draws them in GTK's). */
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
   .bar {
     display: flex;
     flex-wrap: wrap;
