@@ -100,7 +100,7 @@ case "$OS" in
     PKG_INSTALL="pkg_add" PKG_HINT="pkg_add"
     SERVICE=coxswain_index SERVICE_AT=/etc/rc.d/coxswain_index
     DESKTOP_PKGS="webkitgtk41"
-    GOOD_PKGS="xdg-utils gstreamer1-plugins-good"
+    GOOD_PKGS="xdg-utils gst-plugins-good"
     OPTIONAL="tesseract poppler-utils libreoffice"
     installed() { pkg_info -q -e "$1-*" 2>/dev/null; }
     ;;

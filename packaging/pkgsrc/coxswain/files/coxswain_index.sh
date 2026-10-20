@@ -41,4 +41,5 @@ coxswain_index_start()
 }
 
 load_rc_config $name
+: ${coxswain_index:=NO}
 run_rc_command "$1"

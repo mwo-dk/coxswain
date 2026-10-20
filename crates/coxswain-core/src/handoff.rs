@@ -634,7 +634,6 @@ mod tests {
     #[test]
     fn handoff_commands_per_terminal_and_system() {
         let f = Fake::new("terms", &["tig", "gnome-terminal", "wt"]);
-        let repo = f.repo.to_string_lossy().into_owned();
         let h = f.plan("linux", "", &f.repo, false, X).unwrap();
         assert_eq!(h.run, spawn("gnome-terminal", &["--", "tig"]));
         let own = [("DISPLAY", ":0"), ("TERMINAL", "wezterm"), ("SHELL", "sh")];
