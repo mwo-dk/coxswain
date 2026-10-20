@@ -374,7 +374,8 @@ impl Editor {
         let [body, info, foot] = Layout::vertical([Constraint::Min(1), Constraint::Length(1), Constraint::Length(foot_h)]).areas(inner);
         let h = (body.height as usize).max(1);
         self.page = h;
-        let gutter = count.to_string().len() + 1;
+        // A space either side of the line numbers, so they never touch the frame.
+        let gutter = count.to_string().len() + 2;
         let w = (body.width as usize).saturating_sub(gutter).max(1);
         // The cursor on the screen: the text scrolled to it.
         let cur = self.buf.cursor;
@@ -383,6 +384,8 @@ impl Editor {
         } else if cur.line >= self.top + h {
             self.top = cur.line + 1 - h;
         }
+        // No empty screen under the last line while there are lines above to show.
+        self.top = self.top.min(count.saturating_sub(h));
         let cx = Editor::column(&self.buf.lines[cur.line], cur.col);
         if cx < self.left {
             self.left = cx.saturating_sub(8);
@@ -429,7 +432,7 @@ impl Editor {
                 cells.push((' ', marked));
             }
             let shown = cells.iter().skip(self.left).take(w).filter(|(c, _)| *c != '\0');
-            let mut spans = vec![Span::styled(format!("{:>width$} ", no + 1, width = gutter - 1), if no == cur.line { base } else { dim })];
+            let mut spans = vec![Span::styled(format!(" {:>width$} ", no + 1, width = gutter - 2), if no == cur.line { base } else { dim })];
             spans.extend(shown.map(|(c, s)| Span::styled(c.to_string(), *s)));
             rows.push(Line::from(spans));
         }
