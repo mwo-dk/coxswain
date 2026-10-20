@@ -250,7 +250,7 @@ static N: AtomicUsize = AtomicUsize::new(0);
 
 /// The lines `child` writes to its standard error, as they come; progress bars that redraw
 /// with `\r` count as lines.
-fn follow(child: &mut Child) -> mpsc::Receiver<String> {
+pub(crate) fn follow(child: &mut Child) -> mpsc::Receiver<String> {
     let (tx, rx) = mpsc::channel();
     if let Some(mut err) = child.stderr.take() {
         std::thread::spawn(move || {
@@ -277,12 +277,17 @@ fn follow(child: &mut Child) -> mpsc::Receiver<String> {
 }
 
 /// A folder of its own in the cache for one run, removed when dropped.
-struct Scratch(PathBuf);
+pub(crate) struct Scratch(pub(crate) PathBuf);
 
 impl Scratch {
     fn new() -> Result<Scratch, String> {
+        Scratch::named("ocr")
+    }
+
+    /// A folder of its own under the cache's `coxswain/<kind>`.
+    pub(crate) fn named(kind: &str) -> Result<Scratch, String> {
         let base = crate::dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?;
-        let ocr = base.join("coxswain").join("ocr");
+        let ocr = base.join("coxswain").join(kind);
         // What a run of an app that was killed left behind, a day on (a run may take hours).
         for e in std::fs::read_dir(&ocr).into_iter().flatten().flatten() {
             if e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().is_ok_and(|a| a > Duration::from_secs(24 * 3600))) {

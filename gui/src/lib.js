@@ -278,6 +278,23 @@ const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"]
 const OLD = new Set();
 export const setPictureEndings = (all) => (OLD.clear(), all.forEach((x) => OLD.add(x)));
 export const isOldPicture = (name) => OLD.has(name.split(".").pop().toLowerCase());
+/** What ffmpeg and ImageMagick show (`media::endings`): an ending's kind (`video_other`,
+ *  `audio_other`, `heif`, `magick`, `raw`), and what each action takes. Set once the config
+ *  has come. */
+const MEDIA = new Map();
+const MEDIA_TAKES = { media: new Set(), pictures: new Set() };
+export function setMediaEndings(all) {
+  MEDIA.clear();
+  for (const kind of ["video_other", "audio_other", "heif", "magick", "raw"]) for (const x of all[kind] ?? []) MEDIA.set(x, kind);
+  MEDIA_TAKES.media = new Set(["video", "video_other", "audio", "audio_other"].flatMap((k) => all[k] ?? []));
+  MEDIA_TAKES.pictures = new Set(all.pictures ?? []);
+}
+const endingOfName = (name) => (name.includes(".") ? name.split(".").pop().toLowerCase() : "");
+/** A video or a song *Convert video or audio* takes; a picture *Convert or edit pictures* takes. */
+export const isMedia = (name) => MEDIA_TAKES.media.has(endingOfName(name));
+export const isEditable = (name) => MEDIA_TAKES.pictures.has(endingOfName(name));
+/** The media preview a kind gets its picture from (convert.rs `TOOLS`), for thumbnails. */
+export const MEDIA_TOOL = { video: "ffmpeg", video_other: "ffmpeg", audio: "waveform", audio_other: "waveform", heif: "heif", magick: "imagemagick", raw: "raw" };
 /** Tracker music: facts and sample names, no playback. */
 const TRACKER = ["mod", "xm", "s3m", "it"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
@@ -331,6 +348,13 @@ export const CONVERTER = {
   plantuml: { tool: "plantuml", auto: true, verb: "convert.render" },
   ...Object.fromEntries(["d2", "ditaa", "svgbob", "pikchr", "nomnoml", "wavedrom", "vega", "vegalite", "dbml", "erd", "bytefield"].map((k) => [k, { tool: k, auto: true, verb: "convert.render" }])),
   rst: { tool: "pandoc", auto: true, verb: "convert.render" },
+  // ffmpeg and ImageMagick (`media`): a frame of a video no web view plays, a song's waveform,
+  // HEIC, GIMP and RAW photos.
+  video_other: { tool: "ffmpeg", auto: true, verb: "convert.render" },
+  audio_other: { tool: "waveform", auto: true, verb: "convert.render" },
+  heif: { tool: "heif", auto: true, verb: "convert.render" },
+  magick: { tool: "imagemagick", auto: true, verb: "convert.render" },
+  raw: { tool: "raw", auto: true, verb: "convert.render" },
   duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
@@ -415,6 +439,7 @@ export function previewKind(item) {
   const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", msg: "mail", dbf: "sqlite", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
   if (special[ext]) return special[ext];
   if (CONVERTED[ext]) return CONVERTED[ext];
+  if (MEDIA.has(ext)) return MEDIA.get(ext);
   if (IMAGE.includes(ext)) return "image";
   // A .hdr or .mod that is none (another program's header, Modula-2) is shown as text (Preview).
   if (OLD.has(ext)) return "picture";

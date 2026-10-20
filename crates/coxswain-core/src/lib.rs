@@ -37,6 +37,7 @@ pub mod index;
 mod kq;
 pub mod machine;
 pub mod meaning;
+pub mod media;
 pub mod menu;
 pub mod migrate;
 pub mod models;

@@ -146,7 +146,7 @@ mindmap
 | [Chess games](previews/chess.md) | PGN files (also .pgn.gz, .pgn.zst) as a table of games to filter and sort, a game on a board with its moves, variations and comments (Alt+K, F3 in the terminal app), EPD and FEN positions, Polyglot opening books' moves for each position, figurines or letters, the board's colours, Find by player or opening, [chess] |
 | [Go games](previews/go.md) | SGF files as a list of games (players, ranks, komi, handicap, result), a game on a board with its captures, variations and comments (Alt+K, F3 in the terminal app), Find by player or event |
 | [Neural network models](previews/neural-networks.md) | ONNX, TensorFlow Lite, Core ML (also .mlpackage) and Keras models: format, producer, operator set, inputs and outputs with shapes, nodes and parameters in both apps (F3 and Alt+Enter in the terminal app); the graph drawn by Netron in the desktop app, offline and sandboxed; no pickles, no PyTorch |
-| [Media and files: pictures, video, audio, fonts, archives, folders](previews/media.md) | Pictures, video, audio, fonts, archives listed (and files inside archives), folders, facts under a file |
+| [Media and files: pictures, video, audio, fonts, archives, folders](previews/media.md) | Pictures, video, audio, fonts, archives listed (and files inside archives), folders, facts under a file; with ffmpeg and ImageMagick the video and sound the player cannot play, HEIC, GIMP and RAW photos, video thumbnails |
 | [Old pictures and files](previews/old-formats.md) | TIFF with its pages, TGA, Netpbm, DDS, HDR, OpenEXR, QOI, JPEG XL, Amiga IFF, PCX, XPM, XBM and Photoshop pictures; CBZ comics page by page, mailboxes opened as folders of messages, Outlook .msg, dBase tables, tracker music facts; in both apps |
 | [Diagrams: draw.io, Mermaid, Graphviz, PlantUML, D2 and more](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview; D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](previews/latex.md) | LaTeX: which file is the document, the project, the engine, building by itself, another engine when one fails, errors |
@@ -175,6 +175,8 @@ mindmap
 | [Finding duplicates](files/duplicates.md) | Files and whole folders, across disks, safe removal to the trash |
 | [ZFS snapshots as folders](files/zfs-snapshots.md) | Alt+Z: a dataset's snapshots, newest first, browsed read-only; diff against now, F5 copies back; the ZFS line in the footer |
 | [Make PDF searchable (Alt+P)](files/searchable-pdf.md) | A copy of a scanned PDF with its words in it (`name.searchable.pdf`), by OCRmyPDF installed or in its container; never over the original; progress and Stop; both apps |
+| [Convert video or audio](files/convert-media.md) | MP4, MP3 or FLAC copies of videos and songs, their sound, a clip, by ffmpeg installed or in its container; next to the original, never over it; progress and Stop; both apps |
+| [Convert or edit pictures](files/edit-pictures.md) | JPEG, PNG or WebP copies of photos, smaller, without the location, turned, by ImageMagick in its sealed container or installed under a policy; next to the original; both apps |
 
 ## [Customising](customise/README.md)
 

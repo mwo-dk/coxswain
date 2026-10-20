@@ -520,12 +520,13 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
-        Dialog::Searchable { title, text, .. } => {
+        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. }) => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);
             let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
             f.render_widget(p, a);
-            f.render_widget(Paragraph::new(keys(&t!("searchable.go"))).centered(), b);
+            let verb = if matches!(d, Dialog::Media { .. }) { t!("media.go") } else { t!("searchable.go") };
+            f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
         Dialog::Message { title, text } => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });

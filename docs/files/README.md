@@ -33,6 +33,8 @@ folder; **Ctrl+E** extracts it.*
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
 | [ZFS snapshots as folders](zfs-snapshots.md) | **Alt+Z**: a dataset's snapshots browsed read-only, a file compared with now, copied back with **F5** |
 | [Make PDF searchable (Alt+P)](searchable-pdf.md) | A copy of a scanned PDF with its words in it, by OCRmyPDF, installed or in a container; next to the original, never over it |
+| [Convert video or audio](convert-media.md) | MP4, MP3 or FLAC copies, the sound alone or a clip, by ffmpeg; next to the original, never over it |
+| [Convert or edit pictures](edit-pictures.md) | JPEG, PNG or WebP copies, smaller, without the location, turned, by ImageMagick; next to the original, never over it |
 
 ## Keys at a glance
 
@@ -59,6 +61,8 @@ folder; **Ctrl+E** extracts it.*
 | *F9 → Files of this package* | yes | yes | The files of the [package](properties.md#zfs-packages-and-file-flags) a file belongs to (FreeBSD) |
 | **Ctrl+D** | yes | no | [Find duplicates](duplicates.md) |
 | **Alt+P** | yes | yes | [Make PDF searchable](searchable-pdf.md): a copy with the words of a scan in it |
+| *Shift+F10*, *F9 → Convert video or audio* | yes | yes | [Convert video or audio](convert-media.md): MP4, MP3, FLAC, the sound, a clip |
+| *Shift+F10*, *F9 → Convert or edit pictures* | yes | yes | [Convert or edit pictures](edit-pictures.md): JPEG, PNG, WebP, smaller, without the location, turned |
 
 Every key can be changed ([Changing keys](../customise/keys.md)). In the terminal app a key that
 only the desktop app has says so on the status line: *Batch rename is available in the desktop

@@ -155,7 +155,7 @@ Opening this area asks the container runtime which images it has.
 | Option | Does | Key |
 |---|---|---|
 | A red line at the top | When neither podman nor docker answers | |
-| *How previews are made* | *An installed program, else a container* (`"auto"`), *Installed programs only* (`"local"`), *Containers, even when a program is installed* (`"container"`) | `[preview] prefer` |
+| *How previews are made* | *An installed program, else a container* (`"auto"`; ImageMagick's container comes first once pulled), *Installed programs only* (`"local"`), *Containers, even when a program is installed* (`"container"`) | `[preview] prefer` |
 | *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
 | *LaTeX image* | `docker.io/texlive/texlive:latest` by default; about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB | `[preview] images.latex` |
 | *Build LaTeX by itself* | Off: LaTeX waits for **Build PDF** ([LaTeX projects](../previews/latex.md)) | `[preview] latex_auto` |

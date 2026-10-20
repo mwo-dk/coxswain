@@ -3,7 +3,7 @@
 # Previews made by tools
 
 Some formats need a real program: a TeX distribution, Typst, LibreOffice, Ghostscript, PlantUML,
-D2 and the other diagram programs, pandoc, DuckDB.
+D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick.
 Coxswain uses one that is installed, or runs it in a [container](containers.md) (podman or
 docker), so nothing has to be installed for a preview you only need now and then. Results are
 kept in a cache, so each file is made once.
@@ -39,6 +39,11 @@ kept in a cache, so each file is made once.
 | `.d2` `.ditaa` `.bob` `.svgbob` `.pikchr` `.nomnoml` `.noml` `.wavedrom` `.vg` `.vega` `.vl` `.vegalite` `.dbml` `.er` `.erd` `.bytefield` | Kroki's programs ([Diagrams](diagrams.md#d2-ditaa-svgbob-and-the-others)) | `d2`, `svgbob`, `pikchr`, `erd` for theirs; none for the others | `docker.io/yuzutech/kroki:latest` (about 1.2 GB to download, 2.8 GB on disk) | SVG | At once |
 | `.rst`, `.rest` | pandoc ([Documents](documents.md)) | `pandoc` | `docker.io/pandoc/core:latest` | HTML | At once |
 | `.duckdb`, `.ddb` | DuckDB ([Data](data.md)) | `duckdb` | none; set one you trust | Tables, row estimates, column counts | At once |
+| `.avi` `.wmv` `.mpg` and the other videos the player cannot play, and every video's thumbnail and poster | ffmpeg ([Media](media.md#video-and-sound-with-ffmpeg)) | `ffmpeg` | `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk) | PNG of a frame | At once |
+| `.wma` `.ape` `.ac3` and the other sound the player cannot play, and the waveform above a player | ffmpeg (`waveform`) | `ffmpeg` | The same | PNG of the waveform | At once |
+| `.heic`, `.heif` | ImageMagick or ffmpeg (`heif`, [Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)) | `magick`, `ffmpeg` | ffmpeg's | PNG | At once |
+| `.xcf` `.dpx` `.cin` `.fits` `.sgi` `.sun` `.xwd` `.pict` `.miff` `.wbmp` | ImageMagick (`imagemagick`) | `magick` | `docker.io/dstmodders/imagemagick:latest` (about 60 MB to download, 152 MB on disk), first once pulled | PNG | At once |
+| `.dng` `.cr2` `.nef` `.arw` and other RAW photos | ImageMagick with LibRaw (`raw`) | `magick` | none: no image reads RAW | PNG | At once |
 
 "Runs by itself" never includes a container whose image is not pulled yet: a download waits for
 your click.
@@ -67,8 +72,9 @@ your click.
    installed*). The container is greyed with *No image for duckdb: set [preview.images] duckdb
    in the config* or *Neither podman nor docker is installed*.
 2. **The default.** Without a pick of yours, the first available engine is used, in the order
-   `prefer` gives: `auto` puts installed programs first and the container last; `local` never
-   defaults to a container; `container` puts it first.
+   `prefer` gives: `auto` puts installed programs first and the container last (ImageMagick:
+   its container first once its image is pulled, as it reads files from anywhere); `local`
+   never defaults to a container; `container` puts it first.
 3. **Waiting a moment.** A tool starts only once the file has stayed under the cursor for a
    moment, so moving through a folder does not start one per file.
 4. **Running.** The preview says *Rendering with latexmk…*. Programs run in the file's folder;
@@ -169,6 +175,8 @@ ghostscript = "docker.io/jbarlow83/ocrmypdf-alpine:latest"
 ocrmypdf = "docker.io/jbarlow83/ocrmypdf-alpine:latest"   # Make PDF searchable
 duckdb = ""
 gxps = ""
+ffmpeg = "docker.io/mwader/static-ffmpeg:latest"          # video, sound, HEIC
+imagemagick = "docker.io/dstmodders/imagemagick:latest"  # GIMP and other pictures, conversions
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -188,14 +196,16 @@ Setting one image keeps the others' defaults. `prefer_tool` and the other images
 
 ## In the terminal app
 
-The terminal app has no preview pane, so it runs none of these tools; the `[preview]` section is
-the desktop app's. The terminal app's Settings (**F12** → *Previews*) change it all the same, for
+The terminal app has no preview pane, so it makes none of these previews; the `[preview]`
+section is mostly the desktop app's. The terminal app's Settings (**F12** → *Previews*) change it all the same, for
 the desktop app. Run the
 tool yourself on the command line (`latexmk -pdf`, `typst compile`, `soffice --headless
 --convert-to pdf`, `gs -dSAFER -sDEVICE=pdfwrite`, `plantuml`, `d2`, `pandoc`, `duckdb`) and
-open the result with **Enter**. The one tool it does run is OCRmyPDF, for
-[Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), with the same images and
-preferences.
+open the result with **Enter**. The tools it does run are OCRmyPDF, for
+[Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), ffmpeg and ImageMagick, for
+[Convert video or audio](../files/convert-media.md) and
+[Convert or edit pictures](../files/edit-pictures.md), and ffprobe for a video's facts in
+**Properties**, with the same images and preferences.
 
 ## Questions
 

@@ -230,11 +230,13 @@ since vectors of two models cannot be compared.
 
 Previews made by tools, in the desktop app ([Previews made by tools](../previews/tools.md),
 [Containers](../previews/containers.md), [LaTeX projects](../previews/latex.md)), and the
-OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both apps.
+OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both apps, and ffmpeg
+and ImageMagick for [Convert video or audio](../files/convert-media.md) and
+[Convert or edit pictures](../files/edit-pictures.md) in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container; `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
+| `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container (ImageMagick: its container first); `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
 | `prefer_tool` | table | `{}` | Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }` |
 | `container` | string | `"auto"` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, or `"off"` for no containers |
 | `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
@@ -247,6 +249,8 @@ OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both app
 | `images.ocrmypdf` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For Make PDF searchable, in both apps (about 310 MB, 850 MB on disk); its entry point must be `ocrmypdf` |
 | `images.duckdb` | string | `""` | No official image; set one whose entry point is `duckdb` |
 | `images.gxps` | string | `""` | No image has GhostXPS; set one with `gxps` for XPS files |
+| `images.ffmpeg` | string | `"docker.io/mwader/static-ffmpeg:latest"` | A static ffmpeg and ffprobe (about 126 MB, 315 MB on disk), for video and sound previews, video thumbnails, facts, HEIC photos and Convert video or audio; one you set must have `/ffmpeg` and `/ffprobe` |
+| `images.imagemagick` | string | `"docker.io/dstmodders/imagemagick:latest"` | ImageMagick 7 (about 60 MB, 152 MB on disk), for GIMP and other pictures only it reads and Convert or edit pictures; first for ImageMagick under `"auto"`; one you set must have `magick` on its `PATH` |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
@@ -254,7 +258,8 @@ OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both app
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
-`gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf` and each diagram kind of Kroki's image (`d2`,
+`gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf`, `ffmpeg`, `waveform`, `heif` (these three
+share `images.ffmpeg`), `imagemagick`, `raw` (no image) and each diagram kind of Kroki's image (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`,
 `bytefield`), which share `images.kroki`.
 

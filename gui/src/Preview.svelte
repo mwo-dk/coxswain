@@ -1,8 +1,8 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -334,6 +334,20 @@
     ownClearing = false;
     ownSaid = await invoke("disk_clear", { id: own.item, models: false, outside: false }).catch((err) => String(err));
   }
+
+  // A song's waveform above its player, a video's frame as the player's poster: made by ffmpeg
+  // when it runs without a pull (installed, or its image there), else none.
+  let still = $state(null);
+  $effect(() => {
+    const cur = e;
+    still = null;
+    if ((kind !== "audio" && kind !== "video") || !cur || online || inside) return;
+    const timer = setTimeout(async () => {
+      const file = await invoke("media_thumbnail", { path: cur.path, tool: kind === "audio" ? "waveform" : "ffmpeg" }).catch(() => null);
+      if (file && e?.path === cur.path) still = { path: cur.path, file };
+    }, 200);
+    return () => clearTimeout(timer);
+  });
 
   // Facts under any file: photo EXIF, audio tags, what an executable is built for.
   let facts = $state([]);
@@ -755,7 +769,7 @@
           </div>
         {:else if !conv.engines.some((x) => x.available)}
           <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs" }[conv.tool] ?? conv.tool]}
+          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs", waveform: "ffmpeg", heif: "magick", imagemagick: "magick", raw: "magick" }[conv.tool] ?? conv.tool]}
           {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
           <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
@@ -774,6 +788,10 @@
           {#if conv.result.instead}<p class="more">{conv.result.instead}</p>{/if}
           {#if conv.result.note}<details class="note"><summary>{t("preview.built_with_errors")}</summary><pre class="mono">{conv.result.note}</pre></details>{/if}
           <iframe class="pdf" src={convertFileSrc(conv.result.file) + "#zoom=page-width"} title={e.name}></iframe>
+        {:else if conv.result?.kind === "png"}
+          <!-- ffmpeg's frame or waveform, or a photo ImageMagick or ffmpeg drew (`media`). -->
+          {#if kind === "video_other" || kind === "audio_other"}<p class="more">{t(kind === "video_other" ? "media.frame_note" : "media.wave_note", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
+          <div class="media" class:checker={!["video_other", "audio_other"].includes(kind)}><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
         {:else if conv.result?.kind === "svg"}
           <div class="media svg"><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
         {:else if conv.result?.kind === "html"}
@@ -832,10 +850,12 @@
       {:else if kind === "video"}
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
-          <video src={convertFileSrc(e.path)} controls preload="metadata"></video>
+          <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
+          <video src={convertFileSrc(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (sniffed = { path: e.path, kind: "video_other" })}></video>
         </div>
       {:else if kind === "audio"}
-        <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata"></audio></div>
+        {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
+        <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata" onerror={() => (sniffed = { path: e.path, kind: "audio_other" })}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
         <p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>
@@ -951,6 +971,12 @@
             <dd><button class="link" onclick={() => switchBranch()}>{t("action.switch_branch")}</button> <kbd>{ui.cfg.actions.switch_branch?.[1] ?? ""}</kbd> · <button class="link" onclick={() => newBranch()}>{t("action.new_branch")}</button></dd>
           {/if}
         </dl>
+      {/if}
+      {#if !e.is_dir && !inside && !pane.snapshot && !pane.package && (isMedia(e.name) || isEditable(e.name))}
+        <!-- ffmpeg's and ImageMagick's work on it: offered under every video, song and photo. -->
+        {@const edit = isEditable(e.name)}
+        {@const act = edit ? "edit_pictures" : "convert_media"}
+        <p class="more"><button class="render" onclick={() => convertMedia(edit ? 1 : 0, [e.path])}>{t(`action.${act}`)}</button>{#if ui.cfg.actions[act]?.[1]} <kbd>{ui.cfg.actions[act][1]}</kbd>{/if}</p>
       {/if}
       {#if facts.length && kind !== "netron"}
         <dl class="facts extra">
@@ -1101,6 +1127,11 @@
     max-width: 100%;
     max-height: 60vh;
     border-radius: var(--r);
+  }
+  /* A song's waveform: as wide as the pane, low, above its player. */
+  .media.wave img {
+    width: 100%;
+    max-height: 120px;
   }
   .pager {
     display: flex;

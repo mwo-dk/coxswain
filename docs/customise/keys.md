@@ -121,7 +121,8 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `undo` | **Ctrl+Z** | `action_menu` | **Shift+F10**, **Menu** |
 | `rename` | **Shift+F6** | `disk_use` | none |
 | `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
-| `searchable_pdf` | **Alt+P** | | |
+| `searchable_pdf` | **Alt+P** | `convert_media` | none |
+| `edit_pictures` | none | | |
 | `chess` | **Alt+K** | | |
 | `space_view` | **Alt+U** | | |
 

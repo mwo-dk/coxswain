@@ -5,9 +5,11 @@
 When a tool a preview needs is not installed, Coxswain can run it from a container image with
 podman or docker: the TeX Live image builds any LaTeX document, Typst's builds Typst, Gotenberg's
 LibreOffice turns office files and clip art into PDFs, Kroki's draws D2, ditaa and ten more
-diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText, and OCRmyPDF's
-makes scanned PDFs searchable and has the Ghostscript that shows PostScript. A container gets no
-network and sees your files read-only. Nothing is downloaded until you click.
+diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText, OCRmyPDF's
+makes scanned PDFs searchable and has the Ghostscript that shows PostScript, ffmpeg's shows and
+converts video and sound and HEIC photos, and ImageMagick's shows GIMP pictures and converts and
+edits photos. A container gets no network and sees your files read-only. Nothing is downloaded
+until you click.
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
 
@@ -61,6 +63,8 @@ a little larger or smaller.
 | `ghcr.io/typst/typst:latest` (default for Typst) | `.typ` documents built into the PDF the preview shows ([Typst](documents.md#typst)) | about 29 MB | about 65 MB | Light: a fraction of a second for most documents |
 | `docker.io/yuzutech/kroki:latest` (default for Kroki's diagram kinds) | D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield diagrams drawn as the picture the preview shows ([Diagrams](diagrams.md#d2-ditaa-svgbob-and-the-others)) | about 1.2 GB | about 2.8 GB | Light: each diagram takes well under a second; the image is large because it holds the programs of two dozen kinds |
 | `docker.io/jbarlow83/ocrmypdf-alpine:latest` (default for OCRmyPDF and for Ghostscript) | [Make PDF searchable](../files/searchable-pdf.md), and PostScript (`.ps`, `.eps`) shown as a PDF with its Ghostscript ([PostScript and XPS](documents.md#postscript-and-xps)): one pull for both | about 310 MB | about 850 MB | OCR: about a second of processor time per page, only when you ask; PostScript: under a second |
+| `docker.io/mwader/static-ffmpeg:latest` (default for ffmpeg) | Videos and sound the app's player cannot play shown as a frame or a waveform, HEIC photos, a frame as each video's thumbnail and poster, a waveform above each song's player, the facts of videos (length, size, codecs, tracks) ([Media](media.md#video-and-sound-with-ffmpeg)), and [Convert video or audio](../files/convert-media.md) | about 126 MB | about 315 MB | Previews: well under a second each. An MP4 keeps the processor busy for a while, often about as long as the video plays; only when you ask |
+| `docker.io/dstmodders/imagemagick:latest` (default for ImageMagick) | GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md); no HEIC or RAW photos (its build has no reader for them) | about 60 MB | about 152 MB | Light: a second or two per picture |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -72,6 +76,8 @@ Where each image comes from, and why it is the one:
 | `yuzutech/kroki:latest` | The Kroki project; Coxswain runs the diagram programs in it one per call, never Kroki's server | MIT (Kroki), each program its own (D2 MPL-2.0, svgbob and Pikchr MIT or 0BSD, …) | Every few weeks |
 | `jbarlow83/ocrmypdf-alpine:latest` | OCRmyPDF's author, with each release | OCRmyPDF MPL-2.0, Tesseract Apache-2.0, Ghostscript AGPL-3.0 | With every OCRmyPDF release (weekly in 2026) |
 | `ghcr.io/typst/typst:latest` | The Typst project | Apache-2.0 | With every Typst release |
+| `mwader/static-ffmpeg:latest` | Mattias Wadman's static builds of ffmpeg and ffprobe, the most used of their kind; Coxswain runs `/ffmpeg` and `/ffprobe` in it | ffmpeg GPL-2.0-or-later (with x264 and the other libraries built in), the build scripts MIT | With every ffmpeg release, and when a library in it changes (a new build every few days in 2026) |
+| `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
 Ghostscript's AGPL does not reach it.
@@ -90,12 +96,13 @@ Every run is `podman run` (or `docker run`) with:
 |---|---|
 | `--rm` | The container is removed when it ends |
 | `--network=none` | No network: a document cannot fetch or send anything |
-| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found |
-| `--mount type=bind,source=<cache>,target=/out` | A fresh folder in the preview cache, the only place it can write |
+| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found. ffmpeg and ImageMagick get the one file only (`--mount type=bind,source=<file>,target=/src/in.<ending>,readonly`) |
+| `--mount type=bind,source=<cache>,target=/out` | A fresh folder in the preview cache, the only place it can write; for the conversions a fresh folder under `~/.cache/coxswain/media/`; ffprobe's run has none |
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
 | `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
-| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed |
+| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's and ImageMagick's runs) |
+| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg and ImageMagick) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
 `typst compile --root /src` for Typst, `soffice -env:UserInstallation=file:///tmp/lo --headless --convert-to pdf --outdir /out`
@@ -104,10 +111,15 @@ for LibreOffice, `gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite` for PostScript
 PlantUML and pandoc images' own entry points reading the file on standard input (`-tsvg -pipe`,
 `-f rst -t html5`), Kroki's programs one per call, reading the diagram on standard input
 (`--entrypoint d2` with `- -`, `ditaa --svg - -`, `svgbob`, `pikchr --svg-only -`, …), and
-`duckdb -readonly -json` for DuckDB. LaTeX runs without `-shell-escape`, so a document cannot run
-commands. No container ever starts a server or opens a port: each run does one file and ends.
+`duckdb -readonly -json` for DuckDB, `/ffmpeg` and `/ffprobe` with `-protocol_whitelist file`
+and `-format_whitelist` (real media formats only) for ffmpeg, and `magick` under Coxswain's
+policy (`MAGICK_CONFIGURE_PATH`: no helper programs, picture formats only, bounded memory and
+time) for ImageMagick. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
+read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
+`-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
 
-A run longer than the timeout (120 s by default) is stopped and its container killed. Pulling
+A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
+searchable, Convert video or audio and Convert or edit pictures have none: **Stop** ends them. Pulling
 the image is not counted.
 
 ## Pulling and removing images
@@ -194,6 +206,8 @@ default.
 | – | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
 | – | `[preview.images] duckdb` | `""` (none) |
 | – | `[preview.images] gxps` | `""` (none) |
+| – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"` |
+| – | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"` |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
@@ -204,14 +218,19 @@ Coxswain picks for you. An image you set must provide the command Coxswain runs:
 LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH` (Coxswain sets
 `--entrypoint`), `ocrmypdf` as the entry point for OCRmyPDF, Kroki's program names (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
-`PATH` for Kroki, and `duckdb` as the entry point for DuckDB.
+`PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
+and `magick` on its `PATH` for ImageMagick.
 
 ## In the terminal app
 
-The terminal app makes no previews, so it starts no preview containers. The one container it
-runs is OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), the same
-way as the desktop app: asked first, with the first pull and its size. Its `config.toml` is the
-same file: of the `[preview]` section it uses the runtime, `prefer` and the OCRmyPDF image. Its **F12** → *Previews* still
+The terminal app makes no previews, so it starts no preview containers. The containers it
+runs are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
+ffmpeg's and ImageMagick's, for [Convert video or audio](../files/convert-media.md) and
+[Convert or edit pictures](../files/edit-pictures.md), the same way as the desktop app: asked
+first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a video's facts
+with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it. Its
+`config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
+`prefer_tool` and the OCRmyPDF, ffmpeg and ImageMagick images. Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
@@ -298,6 +317,29 @@ trust under `[preview.images] duckdb`.
 No: an installed `d2` (or `svgbob`, `pikchr`, `erd`) is used first. The image holds the programs
 of all the kinds at once, so it is pulled only when you click **Render** on one with no program
 installed, after the note says how big it is.
+
+#### Why that ffmpeg image?
+
+FFmpeg publishes no image of its own. `mwader/static-ffmpeg` is the most used static build: one
+ffmpeg and one ffprobe with the common codecs built in (H.264, H.265, VP9, AV1, Opus, MP3 and
+more), no shell or other programs beside them, rebuilt with each release. It is small for what
+it holds (about 126 MB). An installed ffmpeg is used first all the same.
+
+#### Why does ImageMagick's image not show my HEIC photos?
+
+No well-kept ImageMagick image has libheif with its HEVC decoder in 2026; `dstmodders/imagemagick`
+follows every ImageMagick release but is built without it, and without LibRaw for RAW photos.
+So HEIC photos are shown by ffmpeg (installed or its image), and RAW photos by an installed
+ImageMagick with LibRaw; [Convert or edit pictures](../files/edit-pictures.md) hands both to an
+installed ImageMagick when there is one.
+
+#### Why is ImageMagick's container used before an installed ImageMagick?
+
+ImageMagick reads hundreds of formats, and a picture made to attack one of them is a real risk
+with files from elsewhere. In its container it has no network and sees only the one file. An
+installed one is used when the image is not pulled or cannot read the file, under a policy that
+allows picture formats only. For ffmpeg the installed one comes first, as it is usually the
+better build for your machine.
 
 #### Does a container run a server?
 
