@@ -192,6 +192,19 @@ pub fn is_tables(path: &Path) -> bool {
     ["db", "sqlite", "sqlite3", "db3", "parquet", "pq", "dbf"].contains(&ext.as_str())
 }
 
+/// The format of a file `is_tables` names, for the viewer's title.
+pub fn format(path: &Path) -> &'static str {
+    let ext = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    match ext.as_str() {
+        "parquet" | "pq" => "Parquet",
+        "dbf" => "dBase",
+        _ => "SQLite",
+    }
+}
+
 /// Rows as aligned columns of text.
 fn grid(rows: &[Vec<String>]) -> String {
     let width = |i: usize| {

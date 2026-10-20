@@ -64,8 +64,9 @@ terminal app: **/** player, **o** opening, **r** cycles the result, **y** years 
 
 ![The table of games in the desktop app's window: the filter fields above, three games of the 1850s with their players, result, date, event, ECO code and opening](../screenshots/gui-chess-games.png)
 
-**Opening a game.** Desktop: **Enter** or a double-click (click the table first so it has the
-keys). Terminal: **Enter**.
+**Opening a game.** Desktop: **Enter** or a double-click. In the window (**Alt+K**) the table has
+the keys at once, and again after **Esc** or *Back* from a game; in the preview pane click the
+table first. Terminal: **Enter**.
 
 ## A game on the board
 

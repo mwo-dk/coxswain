@@ -577,7 +577,8 @@ pub fn family(ext: &str) -> Family {
             Family::Archive,
             &[
                 "zip", "gz", "tgz", "xz", "txz", "zst", "7z", "rar", "tar", "bz2", "tbz", "lz",
-                "lz4", "lzma", "cab", "jar", "war", "apk", "whl", "crate", "nupkg",
+                "lz4", "lzma", "cab", "jar", "war", "apk", "whl", "crate", "nupkg", "tbz2", "tzst",
+                "vsix",
             ],
         ),
         (
@@ -585,7 +586,9 @@ pub fn family(ext: &str) -> Family {
             &[
                 "pdf", "doc", "docx", "odt", "rtf", "txt", "md", "epub", "xls", "xlsx", "ods",
                 "ppt", "pptx", "odp", "pages", "numbers", "key", "tex", "rst", "adoc", "eml",
-                "mbox", "djvu", "mobi", "azw3", "html", "htm",
+                "mbox", "djvu", "mobi", "azw3", "html", "htm", "msg", "ps", "eps", "xps", "oxps",
+                "typ", "chm", "cbz", "cbr", "cb7", "cbt", "pgn", "epd", "fen", "wmf", "emf", "docm", "dotx", "ott", "ppsx",
+                "potx", "otp", "fodt", "fods", "fodp", "fodg", "cdr", "pmd",
             ],
         ),
         (
@@ -596,6 +599,10 @@ pub fn family(ext: &str) -> Family {
                 "lua", "sh", "bash", "zsh", "fish", "ps1", "pl", "hs", "ml", "ex", "exs", "erl",
                 "clj", "scala", "dart", "zig", "nim", "r", "jl", "m", "mm", "toml", "yaml", "yml",
                 "ipynb", "map", "pyc", "class", "rlib", "rmeta", "d", "o", "obj", "pdb", "lock",
+                // Diagrams, drawn from their source.
+                "d2", "ditaa", "bob", "svgbob", "pikchr", "nomnoml", "noml", "wavedrom", "vg", "vega",
+                "vl", "vegalite", "dbml", "er", "erd", "bytefield", "puml", "plantuml", "pu", "iuml",
+                "wsd", "mmd", "drawio", "dio",
             ],
         ),
         (
@@ -603,7 +610,7 @@ pub fn family(ext: &str) -> Family {
             &[
                 "db", "sqlite", "sqlite3", "json", "jsonl", "ndjson", "csv", "tsv", "parquet",
                 "xml", "duckdb", "arrow", "feather", "h5", "hdf5", "npy", "npz", "pkl", "bin",
-                "dat", "log", "gguf", "safetensors", "onnx", "pt", "ckpt", "idx", "pack",
+                "dat", "log", "gguf", "safetensors", "onnx", "pt", "ckpt", "idx", "pack", "dbf", "ddb",
             ],
         ),
         (
@@ -617,14 +624,31 @@ pub fn family(ext: &str) -> Family {
             Family::Disk,
             &[
                 "iso", "img", "qcow2", "vmdk", "vdi", "vhd", "vhdx", "dmg", "raw", "ova", "wim",
-                "sparseimage",
+                "sparseimage", "qcow",
             ],
         ),
     ];
-    KINDS
-        .iter()
-        .find(|(_, exts)| exts.contains(&ext))
-        .map_or(Family::Other, |(f, _)| *f)
+    if let Some((f, _)) = KINDS.iter().find(|(_, exts)| exts.contains(&ext)) {
+        return *f;
+    }
+    // The rest Coxswain knows by their readers' own lists, so a new one lands in its family.
+    let name = format!("x.{ext}");
+    let path = std::path::Path::new(&name);
+    if crate::pictures::named(path) {
+        Family::Image
+    } else if crate::music::named(path) {
+        Family::Audio
+    } else if crate::extract::installed::OFFICE.contains(&ext) {
+        Family::Document
+    } else if crate::archive::is_archive(path) {
+        Family::Archive
+    } else if crate::disk_image::named(path) {
+        Family::Disk
+    } else if crate::code::is_code(&name) {
+        Family::Code
+    } else {
+        Family::Other
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
@@ -742,6 +766,36 @@ pub fn squarify(areas: &[f64], r: Rect) -> Vec<Rect> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every ending Coxswain reads lands in a family, the old formats too: none is "Other".
+    #[test]
+    fn known_endings_have_a_family() {
+        let want = [
+            ("iff", Family::Image), ("tiff", Family::Image), ("tga", Family::Image), ("pcx", Family::Image),
+            ("xpm", Family::Image), ("xbm", Family::Image), ("psd", Family::Image), ("jxl", Family::Image),
+            ("exr", Family::Image), ("hdr", Family::Image), ("dds", Family::Image), ("qoi", Family::Image),
+            ("pbm", Family::Image), ("cbz", Family::Document), ("cbr", Family::Document), ("mbox", Family::Document),
+            ("msg", Family::Document), ("dbf", Family::Data), ("mod", Family::Audio), ("xm", Family::Audio),
+            ("s3m", Family::Audio), ("it", Family::Audio), ("iso", Family::Disk), ("dmg", Family::Disk),
+            ("vhd", Family::Disk), ("vhdx", Family::Disk), ("vmdk", Family::Disk), ("qcow2", Family::Disk),
+            ("vdi", Family::Disk), ("wim", Family::Disk), ("pgn", Family::Document), ("fen", Family::Document),
+            ("typ", Family::Document), ("eps", Family::Document), ("wpd", Family::Document), ("d2", Family::Code),
+            ("cob", Family::Code), ("tbz2", Family::Archive),
+        ];
+        for (ext, f) in want {
+            assert_eq!(family(ext), f, "{ext}");
+        }
+        let lists = [
+            crate::pictures::endings(),
+            crate::disk_image::endings(),
+            crate::archive::endings().0,
+            crate::extract::installed::OFFICE.to_vec(),
+        ];
+        for e in lists.concat() {
+            let e = e.rsplit('.').next().unwrap();
+            assert_ne!(family(e), Family::Other, "{e}");
+        }
+    }
 
     fn area(r: &Rect) -> f64 {
         r.w as f64 * r.h as f64

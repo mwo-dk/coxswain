@@ -52,16 +52,22 @@ fn lines(facts: &[(String, String)]) -> String {
 /// message: its facts (and a module's sample names, a message's headers, text and
 /// attachments) as text. `None`: the file is none of these, the viewer shows it as it is.
 pub fn as_text(path: &Path) -> Option<String> {
+    text_and_format(path).map(|(text, _)| text)
+}
+
+/// `as_text`, and the file's format for the viewer's title ("Amiga IFF ILBM").
+fn text_and_format(path: &Path) -> Option<(String, String)> {
     if crate::cloud::unasked(path) {
         return None;
     }
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     if crate::pictures::named(path) {
         let f = crate::pictures::facts(path)?;
-        return Some(format!("{name}\n\n{}\n{}\n", lines(&f), t!("facts.picture_tui")));
+        return Some((format!("{name}\n\n{}\n{}\n", lines(&f), t!("facts.picture_tui")), f[0].1.clone()));
     }
     if crate::music::named(path) {
         let m = crate::music::read(path)?;
+        let format = m.format.clone();
         let mut out = format!("{name}\n\n{}", lines(&crate::music::facts(&m)));
         if !m.names.is_empty() {
             out += &format!("\n{}\n", t!("facts.sample_names"));
@@ -69,7 +75,7 @@ pub fn as_text(path: &Path) -> Option<String> {
                 out += &format!("  {n}\n");
             }
         }
-        return Some(out);
+        return Some((out, format));
     }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;
@@ -83,20 +89,21 @@ pub fn as_text(path: &Path) -> Option<String> {
             let label = if i == 0 { t!("preview.attachments") } else { String::new() };
             head.push((label, format!("{} ({})", n.clone().unwrap_or_else(|| t!("facts.unnamed")), crate::settings::human(*size as u64))));
         }
-        return Some(format!("{}\n{}\n", lines(&head), m.text));
+        return Some((format!("{}\n{}\n", lines(&head), m.text), "Outlook MSG".into()));
     }
     None
 }
 
-/// `as_text` in a file of the cache, for the viewer: F3. `None` as `as_text`.
-pub fn text_copy(path: &Path) -> Option<Result<PathBuf, String>> {
-    let text = as_text(path)?;
+/// `as_text` in a file of the cache, for the viewer: F3, with the file's format for its title.
+/// `None` as `as_text`.
+pub fn text_copy(path: &Path) -> Option<Result<(PathBuf, String), String>> {
+    let (text, format) = text_and_format(path)?;
     Some((|| {
         let to = crate::archive::peek_folder()
             .map_err(|e| e.to_string())?
             .join(format!("{}.txt", path.file_name().unwrap_or_default().to_string_lossy()));
         std::fs::write(&to, text).map_err(|e| e.to_string())?;
-        Ok(to)
+        Ok((to, format))
     })())
 }
 
@@ -120,6 +127,8 @@ mod tests {
         let p = d.join("x.pcx");
         std::fs::write(&p, crate::pictures::pcx::tests::pcx8(2, 2, &[1, 2, 3, 4])).unwrap();
         assert!(as_text(&p).unwrap().contains("PCX"));
+        // F3's title names the format, not "plain text".
+        assert!(text_and_format(&p).unwrap().1.contains("PCX"));
         let dbf = d.join("fleet.dbf");
         std::fs::write(&dbf, crate::dbf::tests::table(&[(b"Ada", "1.00", "20261019", true)])).unwrap();
         assert_eq!(of(&dbf).unwrap()[1].1, "1");

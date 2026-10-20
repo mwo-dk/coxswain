@@ -169,6 +169,9 @@ struct Point {
 pub struct Viewer {
     pub path: PathBuf,
     title: String,
+    /// What the title calls the text, for a text copy of another file (its format); else the
+    /// highlighting's language, or plain text.
+    kind: Option<String>,
     body: Body,
     encoding: Encoding,
     syntax: Option<&'static SyntaxReference>,
@@ -232,6 +235,7 @@ impl Viewer {
         let [edit, view] = labels;
         Ok(Viewer {
             title: path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()),
+            kind: None,
             path: path.to_path_buf(),
             body,
             encoding,
@@ -254,6 +258,13 @@ impl Viewer {
             page: 20,
             key_line: t!("viewer.keys", "edit" => edit, "view" => view),
         })
+    }
+
+    /// A text copy shown as the file it was made of: its name and format in the title.
+    pub fn made_of(mut self, of: &Path, kind: String) -> Viewer {
+        self.title = of.file_name().map_or_else(|| of.display().to_string(), |n| n.to_string_lossy().into_owned());
+        self.kind = Some(kind);
+        self
     }
 
     /// Lines known so far, and whether that is all of them.
@@ -550,7 +561,7 @@ impl Viewer {
         let bg = base.bg.unwrap_or(Color::Reset);
         let dim = faint(theme).bg(bg);
         let (count, done) = self.count();
-        let grammar = self.syntax.map_or_else(|| t!("viewer.plain"), |s| s.name.clone());
+        let grammar = self.kind.clone().unwrap_or_else(|| self.syntax.map_or_else(|| t!("viewer.plain"), |s| s.name.clone()));
         let encoding = match self.encoding {
             Encoding::Utf8 => "UTF-8",
             Encoding::Latin1 => "Windows-1252",
@@ -835,6 +846,11 @@ mod tests {
     fn binary_shows_as_hex_utf16_as_text_and_old_languages_get_their_grammar() {
         let d = std::env::temp_dir().join(format!("coxswain-viewer-kinds-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
+        // A text copy of an old picture: titled with the picture's name and format.
+        std::fs::write(d.join("boing.iff.txt"), "boing.iff\n").unwrap();
+        let mut v = Viewer::open(&d.join("boing.iff.txt"), ["F4", "F3"]).unwrap().made_of(Path::new("/x/boing.iff"), "Amiga IFF ILBM".into());
+        let s = screen(&mut v, 80, 4);
+        assert!(s.contains(" boing.iff · Amiga IFF ILBM · ") && !s.contains("boing.iff.txt ·"), "{s}");
         std::fs::write(d.join("a.bin"), b"MZ\0\x01hello").unwrap();
         let v = Viewer::open(&d.join("a.bin"), ["F4", "F3"]).unwrap();
         assert_eq!(v.encoding, Encoding::Binary);

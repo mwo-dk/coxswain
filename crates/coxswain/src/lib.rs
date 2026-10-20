@@ -1248,7 +1248,7 @@ impl App {
                         && let Some(r) = coxswain_core::disk::describe(&e)
                     {
                         match coxswain_core::disk::text_copy(&e, &r) {
-                            Ok(text) => return self.view_or_edit(a, &text),
+                            Ok(text) => return self.view_copy(&text, &e, r.title.clone()),
                             Err(err) => self.status = Some(err),
                         }
                     }
@@ -1257,14 +1257,14 @@ impl App {
                         && let Some(r) = coxswain_core::facts::text_copy(&e)
                     {
                         match r {
-                            Ok(text) => return self.view_or_edit(a, &text),
+                            Ok((text, format)) => return self.view_copy(&text, &e, format),
                             Err(err) => self.status = Some(err),
                         }
                     }
                     // A database, a dBase table or a Parquet file: its tables and first rows, as text.
                     if a == Action::View && coxswain_core::tables::is_tables(&e) {
                         match coxswain_core::tables::text_copy(&e) {
-                            Ok(text) => return self.view_or_edit(a, &text),
+                            Ok(text) => return self.view_copy(&text, &e, coxswain_core::tables::format(&e).into()),
                             // Not a database after all: the pager shows it as it is.
                             Err(err) => self.status = Some(err),
                         }
@@ -1828,6 +1828,19 @@ impl App {
         }
         let prog = if a == Action::View { self.cfg.viewer.clone().unwrap_or_else(pager) } else { self.editor() };
         self.run_on(&prog, file);
+    }
+
+    /// F3 on `of`, shown as `copy`, the text made of it: in the built-in viewer titled with
+    /// `of`'s name and `kind`, its format (never "plain text").
+    fn view_copy(&mut self, copy: &Path, of: &Path, kind: String) {
+        if self.cfg.viewer.is_some() {
+            return self.view_or_edit(Action::View, copy);
+        }
+        let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
+        match viewer::Viewer::open(copy, labels) {
+            Ok(v) => self.dialog = Some(Dialog::View { v: Box::new(v.made_of(of, kind)), back: None }),
+            Err(e) => self.status = Some(format!("{}: {e}", copy.display())),
+        }
     }
 
     /// `file` in the built-in viewer; `back` is shown again when it closes.

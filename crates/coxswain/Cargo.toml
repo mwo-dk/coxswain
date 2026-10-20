@@ -27,7 +27,7 @@ test = false
 
 [dependencies]
 coxswain-core.workspace = true
-ratatui = { version = "0.30", default-features = false, features = ["crossterm", "layout-cache", "underline-color"] }
+ratatui = { version = "0.30", default-features = false, features = ["crossterm", "layout-cache", "underline-color", "unstable-rendered-line-info"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 unicode-width = "0.2"
 unicode-normalization = "0.1.25"
