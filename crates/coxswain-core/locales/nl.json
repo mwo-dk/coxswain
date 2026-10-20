@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "Nieuw: zoeken op betekenis vindt bestanden over je woorden, in elke taal: coxswain --meaning on",
  "notice.migrate_failed": "config.toml kon niet voor 2.0 worden bijgewerkt ({path}: {why}). Hernoem deze sleutels zelf: {changes}.",
  "notice.migrated": "Coxswain 2.0 heeft sleutels in config.toml hernoemd, je opmerkingen zijn bewaard: {changes}.",
+ "notice.unknown_actions": "config.toml geeft toetsen aan acties die deze versie niet kent, dus die worden overgeslagen: {names}. Een nieuwere Coxswain kent ze; controleer anders de spelling.",
  "notice.script_font": "Er is geen lettertype voor {language} geïnstalleerd, dus de letters kunnen als vakjes verschijnen. Installeer er een, bijvoorbeeld {fonts}.",
  "notice.search_error": "Zoeken in bestanden is gestopt: {why}",
  "notice.termux_api": "In Termux: pkg install termux-api en de app Termux:API zetten gekopieerde regels op het klembord van Android en laten de zoekhulp weten wanneer de telefoon op de accu draait",

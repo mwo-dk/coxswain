@@ -294,7 +294,7 @@ fn serve_here() -> io::Result<()> {
         crate::tools::login_path();
     }
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
-    let search = Config::load().map(|c| c.search).unwrap_or_default();
+    let search = Config::load_search();
     // First, or the store cannot be made on a machine that has no cache folder yet.
     std::fs::create_dir_all(&dir)?;
     // A store locked for a moment (a helper still leaving, a compaction) is waited for, up to

@@ -57,7 +57,7 @@ fn turn_on(key: &str) {
 }
 
 fn search() -> SearchConfig {
-    Config::load().map(|c| c.search).unwrap_or_default()
+    Config::load_search()
 }
 
 /// Run `work` while a progress line shows how far `p` is.

@@ -3211,7 +3211,7 @@ fn index_service(on: Option<&str>) {
         eprintln!("coxswain: {e}");
         std::process::exit(1)
     }
-    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+    Client::start(&Config::load_search()).restart();
 }
 
 /// A command line option that could not be done: why, and the exit code.
@@ -3248,7 +3248,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
     };
     // Another model for the vectors reads every file's meaning again: said, and asked, first.
     let confirm = |change: &dyn Fn(&mut coxswain_core::config::SearchConfig)| {
-        let old = Config::load().map(|c| c.search).unwrap_or_default();
+        let old = Config::load_search();
         let mut new = old.clone();
         change(&mut new);
         let st = Client::start(&old).status();
@@ -3280,7 +3280,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         Some("server") => {
             let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
             confirm(&|c| (c.meaning_engine, c.meaning_url, c.meaning_model) = ("openai".into(), url.clone(), model.clone()));
-            let key = meaning::key_of(&Config::load().map(|c| c.search).unwrap_or_default());
+            let key = meaning::key_of(&Config::load_search());
             meaning::server_models(true, url, key.as_deref()).unwrap_or_else(|e| fail(e));
             save("meaning_engine", "openai");
             save("meaning_url", url);
@@ -3305,7 +3305,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         // The model's speed on a few passages, and what the files to go take at it; another
         // server is tried without a change: `--meaning bench http://my-server:8000/api/v1 <model>`.
         Some("bench") => {
-            let saved = Config::load().map(|c| c.search).unwrap_or_default();
+            let saved = Config::load_search();
             let mut cfg = saved.clone();
             if let (Some(url), Some(model)) = (rest.first(), rest.get(1)) {
                 (cfg.meaning_engine, cfg.meaning_url, cfg.meaning_model) = ("openai".into(), url.clone(), model.clone());
@@ -3329,7 +3329,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 if coxswain_core::chat::of(&Config::load().map(|c| c.search.ask_model).unwrap_or_default()).is_some() {
                     save("ask_model", "");
                 }
-                let helper = Client::start(&Config::load().map(|c| c.search).unwrap_or_default());
+                let helper = Client::start(&Config::load_search());
                 for m in coxswain_core::chat::MODELS {
                     m.remove(&helper).unwrap_or_else(|e| fail(e.to_string()));
                 }
@@ -3342,7 +3342,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 }
                 return save("ask_model", model);
             }
-            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let search = Config::load_search();
             let openai = search.meaning_engine == "openai";
             let url = if search.meaning_engine == "builtin" { "" } else { search.meaning_url.as_str() };
             let have = meaning::server_models(openai, url, meaning::key_of(&search).as_deref()).unwrap_or_else(|e| fail(e));
@@ -3360,7 +3360,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return save("ask_model", model);
         }
         _ => {
-            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let search = Config::load_search();
             let on = search.meaning && (search.meaning_engine != "builtin" || meaning::installed());
             println!("{}", if on { "on" } else { "off" });
             // The built-in model: on the GPU (Metal) or on the CPU, and why.
@@ -3370,7 +3370,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return;
         }
     }
-    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+    Client::start(&Config::load_search()).restart();
 }
 
 /// The options, and the values each takes after it (none: it takes none, or any words).

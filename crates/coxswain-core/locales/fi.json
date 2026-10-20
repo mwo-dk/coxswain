@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "Uutta: merkityshaku löytää sanojasi käsittelevät tiedostot, millä kielellä tahansa: coxswain --meaning on",
  "notice.migrate_failed": "config.toml-tiedostoa ei voitu päivittää versioon 2.0 ({path}: {why}). Nimeä nämä avaimet itse uudelleen: {changes}.",
  "notice.migrated": "Coxswain 2.0 nimesi config.toml-tiedoston avaimia uudelleen, kommenttisi säilyivät: {changes}.",
+ "notice.unknown_actions": "config.toml antaa näppäimiä toiminnoille, joita tämä versio ei tunne, joten ne jätetään pois: {names}. Uudempi Coxswain tuntee ne; muuten tarkista kirjoitusasu.",
  "notice.script_font": "Kielelle {language} ei ole asennettu fonttia, joten kirjaimet voivat näkyä laatikkoina. Asenna jokin, esimerkiksi {fonts}.",
  "notice.search_error": "Haku tiedostojen sisältä on pysähtynyt: {why}",
  "notice.termux_api": "Termuxissa: pkg install termux-api ja Termux:API-sovellus vievät kopioidut rivit Androidin leikepöydälle ja kertovat hakuapurille, kun puhelin käy akulla",

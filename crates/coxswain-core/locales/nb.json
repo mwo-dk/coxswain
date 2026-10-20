@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "Nytt: søk etter mening finner filer som handler om ordene dine, på alle språk: coxswain --meaning on",
  "notice.migrate_failed": "config.toml kunne ikke oppdateres for 2.0 ({path}: {why}). Gi disse nøklene nytt navn selv: {changes}.",
  "notice.migrated": "Coxswain 2.0 ga nøkler i config.toml nye navn, og kommentarene dine er beholdt: {changes}.",
+ "notice.unknown_actions": "config.toml gir taster til handlinger denne versjonen ikke kjenner, så de utelates: {names}. En nyere Coxswain kjenner dem; ellers sjekk stavemåten.",
  "notice.script_font": "Ingen skrift for {language} er installert, så tegnene kan vises som bokser. Installer en, for eksempel {fonts}.",
  "notice.search_error": "Søk inne i filer har stoppet: {why}",
  "notice.termux_api": "I Termux: pkg install termux-api og appen Termux:API legger kopierte linjer på Androids utklippstavle og forteller søkehjelperen når telefonen går på batteri",

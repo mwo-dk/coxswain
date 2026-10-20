@@ -2066,6 +2066,7 @@
  "notice.meaning_tui": "Нове: пошук за змістом знаходить файли про ваші слова, будь-якою мовою: coxswain --meaning on",
  "notice.migrate_failed": "Не вдалося оновити config.toml для 2.0 ({path}: {why}). Перейменуйте ці ключі самі: {changes}.",
  "notice.migrated": "Coxswain 2.0 перейменував ключі в config.toml, ваші коментарі збережено: {changes}.",
+ "notice.unknown_actions": "config.toml призначає клавіші діям, яких ця версія не знає, тому їх пропущено: {names}. Новіший Coxswain їх знає; інакше перевірте написання.",
  "notice.script_font": "Для мови {language} не встановлено шрифту, тож літери можуть показуватися квадратиками. Встановіть якийсь, наприклад {fonts}.",
  "notice.search_error": "Пошук у файлах зупинився: {why}",
  "notice.termux_api": "У Termux: pkg install termux-api і застосунок Termux:API кладуть скопійовані рядки в буфер обміну Android і кажуть помічнику пошуку, коли телефон працює від батареї",

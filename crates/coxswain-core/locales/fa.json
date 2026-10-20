@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "تازه: جست‌وجو بر اساس معنا فایل‌هایی را می‌یابد که درباره‌ی واژه‌های شما هستند، به هر زبانی: coxswain --meaning on",
  "notice.migrate_failed": "config.toml برای 2.0 به‌روز نشد ({path}: {why}). این کلیدها را خودتان تغییر نام دهید: {changes}.",
  "notice.migrated": "Coxswain 2.0 نام کلیدهایی را در config.toml تغییر داد و توضیحات شما را نگه داشت: {changes}.",
+ "notice.unknown_actions": "config.toml به کارهایی کلید داده است که این نسخه آن‌ها را نمی‌شناسد، پس کنار گذاشته می‌شوند: {names}. نسخهٔ تازه‌تر Coxswain آن‌ها را می‌شناسد؛ وگرنه املای آن‌ها را بررسی کنید.",
  "notice.script_font": "هیچ قلمی برای {language} نصب نیست، پس حروف آن ممکن است به شکل مربع نمایش داده شوند. یکی نصب کنید، مثلاً {fonts}.",
  "notice.search_error": "جست‌وجو درون فایل‌ها متوقف شده است: {why}",
  "notice.termux_api": "در Termux: با pkg install termux-api و برنامهٔ Termux:API خط‌های کپی‌شده به کلیپ‌بورد اندروید می‌روند و یاری‌گر جست‌وجو می‌فهمد کی گوشی با باتری کار می‌کند",

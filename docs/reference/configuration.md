@@ -39,8 +39,8 @@ app reads it and which Settings item writes it.
 | Made by | You, either app's [Settings](../customise/settings.md), or the `coxswain --meaning` flags ([Command-line flags](command-line-flags.md#--meaning)). Settings and the flags write single values and keep your comments and layout |
 | Read by | Each app when it starts, and after each change made in its own Settings, which it applies at once; the [search helper](../search/helper.md) when it starts (`[search]`), which Settings restarts after a change to it. A change made in the other app, or by hand, is read at the next start |
 
-**Mistakes.** A file that is not valid TOML, a value of the wrong type (`show_hidden = "yes"`),
-an unknown action in `[keys]` or a key name that does not exist (`"Ctlr+P"`) is refused:
+**Mistakes.** A file that is not valid TOML, a value of the wrong type (`show_hidden = "yes"`)
+or a key name that does not exist (`"Ctlr+P"`) is refused:
 
 - The terminal app does not start and says why: `coxswain: config: …` or
   `coxswain: unknown key 'Ctlr+P'` (exit status 2).
@@ -49,6 +49,14 @@ an unknown action in `[keys]` or a key name that does not exist (`"Ctlr+P"`) is 
 - The desktop app starts with every default and prints `coxswain: config: …; using defaults`
   on the terminal it was started from.
 - Settings never write a file that would be refused: a change that would break it is not saved.
+- The [search helper](../search/helper.md) reads `[search]` even when the rest of the file is
+  refused, so a key bound twice does not make it read the folders you left out.
+
+**An action this version does not know** in `[keys]`, from a newer Coxswain (a config shared
+between machines, or a version gone back to) or misspelt, is left out and stays in the file,
+and both apps start. A notice names it once: *config.toml gives keys to actions this version
+does not know, so they are left out: chess*. In the terminal app it is on the status line, in
+the desktop app under *Settings → What's new*.
 
 An unknown top-level or table key (a typo such as `show_hiden = false`) is ignored without a word.
 
@@ -79,8 +87,8 @@ is rewritten where the link points.
 the app prints on the terminal it was started from which keys to rename by hand:
 `coxswain: config.toml could not be updated for 2.0 (…/config.toml: Permission denied (os error 13)). Rename these keys
 yourself: [keys] mkdir → new_folder.` The old names are not read any more: an old action name in
-`[keys]` is an unknown action, so the terminal app does not start and the desktop app starts with
-the defaults; an old `roots` or `exclude` in `[search]` is ignored, like any unknown key.
+`[keys]` is an action this version does not know, left out with a notice; an old `roots` or
+`exclude` in `[search]` is ignored, like any unknown key.
 
 ## Top-level keys
 
@@ -436,6 +444,14 @@ It renamed seven keys to the words the apps use (`mkdir` → `new_folder`, `[sea
 `name_roots`, and stops (terminal) or uses the defaults (desktop) on `new_folder`. Update every
 machine to 2.0, or keep the `[keys]` you change on the 1.x machines out of the shared file.
 
+#### I share one config.toml between machines with different versions. Is that safe?
+
+Yes. An older version ignores a setting it does not know, and leaves out a key given to an action
+it does not know, with a notice that names it; the file keeps both for the newer one. Releases
+before 2.32.2 did not leave such an action out: the terminal app stopped with `unknown variant`
+and the desktop app started with the defaults. Settings in either app change only the line they
+write, so nothing the other version set is lost.
+
 #### I edited `config.toml` and nothing changed.
 
 Both apps read it when they start: quit (**F10**) and start again. A change made in an app's own
@@ -454,9 +470,10 @@ only what you change.
 
 #### I misspelt a key and Coxswain said nothing.
 
-Only mistakes that make the file unreadable are refused: bad TOML, a wrong type, an unknown action
-or key name in `[keys]`. A misspelt setting name such as `show_hiden` is ignored and the default
-stays. Compare with `coxswain --dump-config`.
+Only mistakes that make the file unreadable are refused: bad TOML, a wrong type, an unknown key
+name in `[keys]`. A misspelt action in `[keys]` is left out with a notice that names it. A
+misspelt setting name such as `show_hiden` is ignored and the default stays. Compare with
+`coxswain --dump-config`.
 
 #### Will Settings mess up my comments?
 

@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "Uus: otsing tähenduse järgi leiab failid sinu sõnade kohta, mis tahes keeles: coxswain --meaning on",
  "notice.migrate_failed": "config.toml-i ei saanud versiooni 2.0 jaoks uuendada ({path}: {why}). Nimeta need võtmed ise ümber: {changes}.",
  "notice.migrated": "Coxswain 2.0 nimetas config.toml-is võtmed ümber, sinu kommentaarid jäid alles: {changes}.",
+ "notice.unknown_actions": "config.toml määrab klahve toimingutele, mida see versioon ei tunne, seega jäetakse need välja: {names}. Uuem Coxswain tunneb neid; muidu kontrolli kirjapilti.",
  "notice.script_font": "Keele {language} jaoks pole fonti paigaldatud, nii et tähed võivad paista kastidena. Paigalda mõni, näiteks {fonts}.",
  "notice.search_error": "Failide sisust otsimine on seiskunud: {why}",
  "notice.termux_api": "Termuxis: pkg install termux-api ja rakendus Termux:API panevad kopeeritud read Androidi lõikelauale ja ütlevad otsinguabilisele, kui telefon töötab akult",

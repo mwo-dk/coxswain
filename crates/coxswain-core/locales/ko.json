@@ -1958,6 +1958,7 @@
  "notice.meaning_tui": "새 기능: 의미 검색은 입력한 단어에 관한 파일을 언어에 상관없이 찾습니다: coxswain --meaning on",
  "notice.migrate_failed": "2.0용으로 config.toml을 업데이트하지 못했습니다 ({path}: {why}). 다음 키 이름을 직접 바꾸세요: {changes}.",
  "notice.migrated": "Coxswain 2.0에서 config.toml의 키 이름을 바꿨습니다(주석 유지): {changes}.",
+ "notice.unknown_actions": "config.toml이 이 버전이 모르는 동작에 키를 지정하고 있어 제외했습니다: {names}. 더 새로운 Coxswain은 이를 압니다. 그렇지 않다면 철자를 확인하세요.",
  "notice.script_font": "{language} 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. {fonts} 등을 설치하세요.",
  "notice.search_error": "파일 내용 검색이 중지되었습니다: {why}",
  "notice.termux_api": "Termux에서: pkg install termux-api와 Termux:API 앱을 설치하면 복사한 줄이 Android 클립보드에 들어가고, 휴대폰이 배터리로 동작할 때 검색 도우미에 알려 줍니다",

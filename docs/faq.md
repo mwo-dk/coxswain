@@ -257,7 +257,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 ## Coming from 1.x
 
 - **Coxswain 2.0 changed my config.toml: what happened?** On its first start it renamed seven keys to the words the apps use (`mkdir` → `new_folder`, `select_group` → `mark_group`, `[search] exclude` → `name_exclude` …), once, keeping your values, comments and order; a notice lists what it changed. [Answer](reference/configuration.md#coxswain-20-changed-my-configtoml-what-happened)
-- **My `[keys] mkdir` stopped working.** It is `new_folder` since 2.0; an old name typed in after the first start is an unknown action. [Answer](customise/keys.md#my-keys-mkdir-stopped-working-in-20-why)
+- **My `[keys] mkdir` stopped working.** It is `new_folder` since 2.0; an old name typed in after the first start is left out, and a notice names it. [Answer](customise/keys.md#my-keys-mkdir-stopped-working-in-20-why)
 - **Why does `--settings=meaning` open the Overview now?** 2.0 takes only an area or an option's name: use `--settings=search_meaning` (and `ask_model`, `overview`, `search_cloud` for 1.x's `ask`, `news`, `cloud`). [Answer](customise/settings.md#why-does---settingsmeaning-open-the-overview-now)
 
 ---

@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "Neu: Die Suche nach Bedeutung findet Dateien über Ihre Wörter, in jeder Sprache: coxswain --meaning on",
  "notice.migrate_failed": "config.toml konnte nicht für 2.0 aktualisiert werden ({path}: {why}). Benennen Sie diese Schlüssel selbst um: {changes}.",
  "notice.migrated": "Coxswain 2.0 hat Schlüssel in config.toml umbenannt, Ihre Kommentare blieben erhalten: {changes}.",
+ "notice.unknown_actions": "config.toml weist Aktionen Tasten zu, die diese Version nicht kennt; sie werden ausgelassen: {names}. Ein neueres Coxswain kennt sie, sonst prüfen Sie die Schreibweise.",
  "notice.script_font": "Für {language} ist keine Schrift installiert, darum erscheinen die Buchstaben vielleicht als Kästchen. Installieren Sie eine, zum Beispiel {fonts}.",
  "notice.search_error": "Die Suche in Dateien ist stehen geblieben: {why}",
  "notice.termux_api": "In Termux: pkg install termux-api und die App Termux:API legen kopierte Zeilen in die Android-Zwischenablage und sagen dem Suchhelfer, wann das Telefon im Akkubetrieb läuft",

@@ -214,8 +214,9 @@ on its terminal. Check the spelling against [Key names](#key-names).
 `unselect_group`, `invert_selection` are `mark_group`, `unmark_group`, `invert_marks`. The
 first start of 2.0 renames them in `config.toml` itself and says so in a notice (*Coxswain 2.0
 renamed keys in config.toml, your comments kept: [keys] mkdir → new_folder*). If you typed the
-old name in after that, or copied an old config over, the terminal app refuses to start and
-the desktop app uses the defaults: write the new name. The table is in
+old name in after that, or copied an old config over, it is left out and a notice names it
+(*config.toml gives keys to actions this version does not know, so they are left out:
+mkdir*): write the new name. The table is in
 [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 #### I had both `mkdir` and `new_folder`. Which one stayed?

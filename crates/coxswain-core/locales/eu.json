@@ -1994,6 +1994,7 @@
  "notice.meaning_tui": "Berria: esanahiaren araberako bilaketak zure hitzei buruzko fitxategiak aurkitzen ditu: coxswain --meaning on",
  "notice.migrate_failed": "Ezin izan da config.toml 2.0rako eguneratu ({path}: {why}). Aldatu zuk zeuk gako hauen izenak: {changes}.",
  "notice.migrated": "Coxswain 2.0k config.toml-eko gakoen izenak aldatu ditu, zure iruzkinak gordeta: {changes}.",
+ "notice.unknown_actions": "config.toml-ek bertsio honek ezagutzen ez dituen ekintzei ematen dizkie teklak, eta kanpoan uzten dira: {names}. Coxswain berriago batek ezagutzen ditu; bestela, egiaztatu idazkera.",
  "notice.script_font": "Ez dago {language} hizkuntzarako letra-tiporik instalatuta, eta letrak laukitxo gisa ager daitezke. Instalatu bat, adibidez {fonts}.",
  "notice.search_error": "Fitxategien barruko bilaketa gelditu da: {why}",
  "notice.termux_api": "Termux-en: pkg install termux-api eta Termux:API aplikazioak kopiatutako lerroak Android-en arbelean jartzen dituzte eta bilaketa-laguntzaileari esaten diote telefonoa bateriarekin dabilenean",
