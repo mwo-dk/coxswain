@@ -16,6 +16,7 @@ builds it. It shows at the bottom of the preview pane whenever you look at that 
    folder you are in.
 2. Press **Alt+N**, or pick *Folder notes* in the command list (**F9**). The
    [preview pane](../previews/README.md) opens if it was closed, and the cursor is in the notes field.
+   Opening the pane with **Space** or **F3** leaves the cursor in the panel.
 3. Type. Lines, blank lines and any script work; text is written in the direction you type,
    so Hebrew and English notes both read correctly.
 4. Leave the field: press **Esc**, or click anywhere else. That saves the note.

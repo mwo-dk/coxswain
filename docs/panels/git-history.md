@@ -63,7 +63,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 | **Backspace**, `..` | Up: to the commits, then to the folder on disk |
 | **F3** | Desktop app: the preview pane, with *File / Diff*. Terminal app: the built-in viewer, on a copy of the file |
 | **F5** | Copies out, as it was then. Never over an existing file |
-| **F4**, **F6**, **F7**, **F8** | Refused: *A history is read-only: F5 copies a file or folder out of it* |
+| **F4**, **F6**, **Shift+F6**, **F7**, **F8**, **Shift+F8** (desktop app also **Ctrl+X**, **Ctrl+V**, **Ctrl+M**) | Refused at once, before any question: the status line says *A history is read-only — F5 copies a file or folder out of it* |
 | **Ctrl+G** | The status line says history is for files and folders on disk: you are in one already |
 | Find | Works as anywhere; *In this folder* searches names on disk, not in the history |
 

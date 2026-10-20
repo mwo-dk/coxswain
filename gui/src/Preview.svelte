@@ -11,7 +11,7 @@
     import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
-  let { output = null, onclearoutput, notesFocus = 0 } = $props();
+  let { output = null, onclearoutput, notesFocus = false, onnotesfocused } = $props();
 
   const pane = $derived(tab());
   const raw = $derived(item(pane));
@@ -486,8 +486,13 @@
     );
     return () => (live = false);
   });
+  // Alt+N asks for the notes once: the field takes the focus and the request is spent, so it
+  // is not taken again each time the preview pane opens or the field is drawn anew.
   $effect(() => {
-    if (notesFocus) noteArea?.focus();
+    if (notesFocus && noteArea) {
+      noteArea.focus();
+      onnotesfocused?.();
+    }
   });
 
   async function saveNote() {

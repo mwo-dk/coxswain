@@ -1291,6 +1291,10 @@ impl App {
                     self.view_or_edit(a, &e);
                 }
             }
+            // In a git history nothing changes either: said at once, not after a prompt.
+            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if history::split(&self.panel().dir).is_some() && !self.panel().dir.is_dir() => {
+                self.status = Some(t!("history.read_only"));
+            }
             // In a ZFS snapshot (or its list) nothing changes: said at once, not after a prompt.
             Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::zfs::is_read_only(&self.panel().dir) => {
                 self.status = Some(t!("zfs.read_only"));
@@ -3979,6 +3983,36 @@ mod tests {
         app.listed(dir, keep, r);
         assert!(!app.panels[0].entries.is_empty(), "the commit is listed");
         assert_eq!(app.status, why, "the reason stays on the status line");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// In a commit of a history, F6, F7, F8 and Shift+F8 are refused at once, before any prompt.
+    #[test]
+    fn a_history_refuses_changes_before_asking() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-history-ro-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "a").unwrap();
+        let git = |args: &[&str]| coxswain_core::tools::command("git").arg("-C").arg(&d).args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]).args(args).output();
+        let made = git(&["init", "-q"]).is_ok_and(|o| o.status.success()) && git(&["add", "."]).is_ok_and(|o| o.status.success()) && git(&["commit", "-q", "-m", "one"]).is_ok_and(|o| o.status.success());
+        if !made {
+            return println!("no git");
+        }
+        let hash = String::from_utf8(git(&["rev-parse", "HEAD"]).unwrap().stdout).unwrap();
+        let commit = history::path(&d, Some(hash.trim()));
+        let mut app = app(d.clone(), d.clone());
+        app.cd(0, commit.clone());
+        while app.panels[0].dir != commit || app.panels[0].entries.iter().all(|e| e.name != "a.txt") {
+            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            app.listed(dir, keep, r);
+        }
+        app.panels[0].cursor = app.panels[0].entries.iter().position(|e| e.name == "a.txt").unwrap();
+        for a in [Action::Move, Action::Rename, Action::NewFolder, Action::Delete, Action::DeleteForever] {
+            app.status = None;
+            app.act(a);
+            assert!(app.dialog.is_none(), "{a:?} asked first");
+            assert_eq!(app.status.as_deref(), Some(t!("history.read_only").as_ref()), "{a:?}");
+        }
         let _ = std::fs::remove_dir_all(d);
     }
 

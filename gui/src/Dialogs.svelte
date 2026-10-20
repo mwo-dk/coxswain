@@ -55,7 +55,7 @@
     const m = ui.modal;
     if (m?.kind !== "help" || m.tab !== "features") return;
     const query = m.filter ?? "";
-    invoke("features", { query }).then((list) => ui.modal === m && m.filter === query && (m.list = list), () => {});
+    invoke("features", { query }).then((list) => ui.modal === m && (m.filter ?? "") === query && (m.list = list), () => {});
   });
 
   /** "Show me": the feature's page on GitHub, in the browser. */
