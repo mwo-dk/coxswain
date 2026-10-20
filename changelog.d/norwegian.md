@@ -1,1 +1,0 @@
-| **Two new languages, 31 in all: *Norsk (bokmål)* and *Norsk (nynorsk)*.** Under *Nordic and Baltic* with the Norwegian flag, marked *new*. A system set to `nb_NO` or plain `no` gets Bokmål and `nn_NO` gets Nynorsk, where Norwegian used to get Danish. Text recognition reads Norwegian in both. | [Languages](customise/languages.md#the-languages) |

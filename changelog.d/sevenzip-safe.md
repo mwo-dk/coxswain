@@ -1,1 +1,0 @@
-| **Copying a folder out of a disk image is safe with any 7-Zip.** A whole folder comes out at once only when the installed 7-Zip names itself as version 21 or later; any other or unclear 7-Zip copies file by file, so no link inside an image can ever be made. | [Disk images](files/disk-images.md) |
