@@ -118,7 +118,8 @@ the image is not counted.
   size), and while it downloads the preview shows
   *Pulling docker.io/texlive/texlive:latest…* with the runtime's own progress line.
 - Once pulled, the note says *Runs docker.io/texlive/texlive:latest without network access*.
-- **Settings lists the images** under *Container images*: each with what it gives, its size and
+- **Settings lists the images** under *Container images*, each once (OCRmyPDF's, which also
+  shows PostScript, is one row): each with what it gives, its size and
   cost ([The images](#the-images)), *Pulled, 5.9 GB* or *Not pulled* (the progress line while
   pulling), **Pull** to download it ahead of time or update it to the newest, and **Remove** to
   free the space.

@@ -780,6 +780,13 @@ pub struct Image {
     about: Option<String>,
 }
 
+/// The images of `[preview.images]` that are set, each once with the first tool that names
+/// it: OCRmyPDF's serves Ghostscript too, and Settings keys its rows by image.
+fn listed(images: &BTreeMap<String, String>) -> impl Iterator<Item = (&String, &String)> {
+    let mut seen = std::collections::HashSet::new();
+    images.iter().filter(move |(_, image)| !image.is_empty() && seen.insert(image.as_str()))
+}
+
 /// Every configured image and whether the runtime has it, for Settings.
 #[tauri::command]
 pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
@@ -787,10 +794,7 @@ pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
     tauri::async_runtime::spawn_blocking(move || {
         let (_, rt) = runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
         let pulling = coxswain_core::images::pulling();
-        Ok(cfg
-            .images
-            .iter()
-            .filter(|(_, image)| !image.is_empty())
+        Ok(listed(&cfg.images)
             .map(|(tool, image)| Image { tool: tool.clone(), image: image.clone(), size: image_size(&rt, image), pulling: pulling.get(image).cloned(), about: coxswain_core::images::about(tool, image) })
             .collect())
     })
@@ -1084,6 +1088,15 @@ mod tests {
 
 
     /// Needs podman and the network: `cargo test -- --ignored real_pull`.
+    #[test]
+    fn settings_lists_each_image_once() {
+        let cfg = PreviewConfig::default();
+        let images: Vec<&String> = listed(&cfg.images).map(|(_, i)| i).collect();
+        let once: std::collections::HashSet<_> = images.iter().collect();
+        assert_eq!(images.len(), once.len(), "{images:?}");
+        assert!(images.iter().any(|i| i.contains("ocrmypdf")));
+    }
+
     #[test]
     #[ignore]
     fn real_pull_streams_progress() {

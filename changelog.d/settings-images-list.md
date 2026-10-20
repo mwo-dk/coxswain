@@ -1,0 +1,1 @@
+| **The container images list in Settings is back.** *Settings → Previews → Container images*, with what each image gives, its size, **Pull** and **Remove**, shows again in the desktop app; with the default images, where OCRmyPDF's image also serves Ghostscript, the whole list was missing. | [Containers](previews/containers.md#pulling-and-removing-images) |
