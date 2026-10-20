@@ -2207,6 +2207,7 @@ const USAGE: &str = "coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open i
 The terminal app, coxswain, has the rest: coxswain --help";
 
 fn main() {
+    coxswain_core::sizes::deep_stacks();
     coxswain_core::tools::flatpak_tmp();
     // Started by an app, not by hand: hold the file name index for all of them. No window.
     if std::env::args_os().nth(1).is_some_and(|a| a == helper::ARG) {

@@ -2969,6 +2969,7 @@
  "viewer.plain": "platte tekst",
  "viewer.plain_big": "Boven 16 MB: zonder kleuren getoond.",
  "viewer.search": "Zoeken",
+ "viewer.searching": "Zoeken naar {text}: {pct}% · Esc stopt",
  "viewer.still_reading": "Nog niet gevonden: het bestand wordt nog gelezen",
  "worktrees.badge": "worktrees",
  "worktrees.badge_of": "worktrees van {name}",

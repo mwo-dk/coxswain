@@ -302,8 +302,11 @@ impl Viewer {
         // In half-cells, which are near square: a cell is about twice as tall as wide.
         let area = SRect { x: 0.0, y: 0.0, w: w as f32, h: h as f32 * 2.0 };
         let tiles = t.layout(self.zoom, area, &Opts { pad: 0.0, head: 2.0, min_area: 2.0 });
-        let types = t.types(self.zoom);
-        let largest = t.largest(self.zoom, LARGEST);
+        // The lists hang on the zoom alone: a resize keeps them.
+        let (types, largest) = match self.laid.take() {
+            Some(l) if l.zoom == self.zoom => (l.types, l.largest),
+            _ => (t.types(self.zoom), t.largest(self.zoom, LARGEST)),
+        };
         self.rows = [self.rows[0].min(types.len().saturating_sub(1)), self.rows[1].min(largest.len().saturating_sub(1))];
         self.laid = Some(Laid { size: (w, h), zoom: self.zoom, tiles, types, largest });
         if self.tile().is_none() {
@@ -342,7 +345,8 @@ impl Viewer {
         f.render_widget(Clear, area);
         let inner = block.inner(area);
         f.render_widget(block, area);
-        if inner.height < 6 || inner.width < 20 {
+        // The map takes 20 columns and its gap one: what is left is the side's.
+        if inner.height < 6 || inner.width < 22 {
             return;
         }
         let w = inner.width as usize;
@@ -503,7 +507,7 @@ impl Viewer {
                 let rel = t.path(id).strip_prefix(t.path(self.zoom)).map(|p| p.display().to_string()).unwrap_or_default();
                 (t.family(id).colour(), format!(" {size}{}", crate::ui::fit_left(&rel, w.saturating_sub(size.len() + 3))))
             };
-            let line = Line::from(vec![ratatui::text::Span::styled("■", style.fg(col_of(rgb_hex(swatch)))), ratatui::text::Span::styled(fit(&text, w - 1), style)]);
+            let line = Line::from(vec![ratatui::text::Span::styled("■", style.fg(col_of(rgb_hex(swatch)))), ratatui::text::Span::styled(fit(&text, w.saturating_sub(1)), style)]);
             f.render_widget(Paragraph::new(line), at);
         }
     }
@@ -600,6 +604,11 @@ mod tests {
         fs::remove_file(d.join("film.mkv")).unwrap();
         v.gone(&d.join("film.mkv"));
         assert_eq!(v.tree.as_ref().unwrap().node(space::ROOT).size, 4000);
+        // Narrow terminals: drawn without a panic, at every width from 20 columns to 30.
+        for w in 20..=30 {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, 12)).unwrap();
+            term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        }
         assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
         fs::remove_dir_all(d).unwrap();
     }

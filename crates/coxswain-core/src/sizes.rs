@@ -128,9 +128,24 @@ pub(crate) fn not_on_disk(path: &Path) -> bool {
             .any(|p| path.starts_with(p))
 }
 
+/// The shared threads with room for deep folders: the name index's scan and the size walks
+/// take a frame of their thread's stack per folder level, and rayon's 2 MiB overflowed at
+/// about 1,900 nested folders. Called first thing by each app; later calls do nothing.
+pub fn deep_stacks() {
+    let _ = rayon::ThreadPoolBuilder::new().stack_size(64 << 20).build_global();
+}
+
 /// Symlinks are counted, not followed; unreadable parts, and other apps' data on a Mac below
 /// `path` (`crate::fs::protected`), are skipped.
 pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
+    walk_at(path, stop, 0)
+}
+
+/// Folders this deep and below are walked by one thread, in a loop: the parallel walk takes a
+/// frame of its thread's stack per level, and thousands of nested folders would overflow it.
+const DEEP: usize = 32;
+
+fn walk_at(path: &Path, stop: &AtomicBool, depth: usize) -> Option<Size> {
     if stop.load(Ordering::Relaxed) {
         return None;
     }
@@ -140,6 +155,9 @@ pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
     if !meta.is_dir() {
         return Some((meta.len(), 1));
     }
+    if depth >= DEEP {
+        return walk_flat(path, stop);
+    }
     let Ok(rd) = crate::fs::read_dir(path) else {
         return Some((0, 0));
     };
@@ -148,10 +166,29 @@ pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
         .par_iter()
         .map(|de| match de.file_type() {
             Ok(t) if t.is_dir() && crate::fs::protected(&de.path()) => Some((0, 0)),
-            Ok(t) if t.is_dir() => walk(&de.path(), stop),
+            Ok(t) if t.is_dir() => walk_at(&de.path(), stop, depth + 1),
             _ => Some((de.metadata().map_or(0, |m| m.len()), 1)),
         })
         .try_reduce(|| (0, 0), |a, b| Some((a.0 + b.0, a.1 + b.1)))
+}
+
+/// The folder `path` and everything below it, with a list of folders still to read rather
+/// than a frame per level.
+fn walk_flat(path: &Path, stop: &AtomicBool) -> Option<Size> {
+    let (mut total, mut todo) = ((0, 0), vec![path.to_path_buf()]);
+    while let Some(dir) = todo.pop() {
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        for de in crate::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            match de.file_type() {
+                Ok(t) if t.is_dir() && crate::fs::protected(&de.path()) => {}
+                Ok(t) if t.is_dir() => todo.push(de.path()),
+                _ => total = (total.0 + de.metadata().map_or(0, |m| m.len()), total.1 + 1),
+            }
+        }
+    }
+    Some(total)
 }
 
 #[cfg(test)]

@@ -2969,6 +2969,7 @@
  "viewer.plain": "απλό κείμενο",
  "viewer.plain_big": "Πάνω από 16 MB: εμφανίζεται χωρίς χρώματα.",
  "viewer.search": "Αναζήτηση",
+ "viewer.searching": "Αναζήτηση για {text}: {pct}% · Το Esc σταματά",
  "viewer.still_reading": "Δεν βρέθηκε ακόμη: το αρχείο διαβάζεται ακόμη",
  "worktrees.badge": "δέντρα εργασίας",
  "worktrees.badge_of": "δέντρα εργασίας του {name}",

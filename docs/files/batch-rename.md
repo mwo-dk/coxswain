@@ -17,7 +17,7 @@ counter. Every new name is shown before anything changes, and conflicts are caug
 | Field | Does |
 |---|---|
 | *Find (regex)* | A regular expression ([Rust syntax](https://docs.rs/regex/latest/regex/#syntax)), e.g. `IMG_(\d+)` |
-| *Replace with* | The new text: `$1` or `${name}` for groups, `{n}` for the entry's number in the list (from 1), `{n:3}` for the number padded to three digits (`001`) |
+| *Replace with* | The new text: `$1` or `${name}` for groups, `{n}` for the entry's number in the list (from 1), `{n:3}` for the number padded to three digits (`001`), up to 20 |
 | *Ignore case* | Letters match in either case |
 | *Replace all matches* | Every match in the name, not only the first |
 | *Include extension* | Match the whole name; unticked, only the part before the extension is matched and the extension is kept |

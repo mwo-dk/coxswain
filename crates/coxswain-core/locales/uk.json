@@ -3101,6 +3101,7 @@
  "viewer.plain": "звичайний текст",
  "viewer.plain_big": "Понад 16 MB: показано без кольорів.",
  "viewer.search": "Пошук",
+ "viewer.searching": "Пошук {text}: {pct}% · Esc зупиняє",
  "viewer.still_reading": "Ще не знайдено: файл ще читається",
  "worktrees.badge": "робочі дерева",
  "worktrees.badge_of": "робочі дерева {name}",

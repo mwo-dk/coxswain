@@ -2969,6 +2969,7 @@
  "viewer.plain": "pelkkä teksti",
  "viewer.plain_big": "Yli 16 Mt: näytetään ilman värejä.",
  "viewer.search": "Hae",
+ "viewer.searching": "Etsitään {text}: {pct} % · Esc pysäyttää",
  "viewer.still_reading": "Ei vielä löytynyt: tiedostoa luetaan yhä",
  "worktrees.badge": "työpuut",
  "worktrees.badge_of": "kohteen {name} työpuut",

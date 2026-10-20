@@ -3035,6 +3035,7 @@
  "viewer.plain": "vienkāršs teksts",
  "viewer.plain_big": "Virs 16 MB: rādīts bez krāsām.",
  "viewer.search": "Meklēt",
+ "viewer.searching": "Meklē {text}: {pct}% · Esc aptur",
  "viewer.still_reading": "Vēl nav atrasts: fails vēl tiek lasīts",
  "worktrees.badge": "darba koki",
  "worktrees.badge_of": "{name} darba koki",

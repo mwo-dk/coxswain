@@ -3101,6 +3101,7 @@
  "viewer.plain": "zwykły tekst",
  "viewer.plain_big": "Ponad 16 MB: pokazany bez kolorów.",
  "viewer.search": "Szukaj",
+ "viewer.searching": "Szukanie {text}: {pct}% · Esc przerywa",
  "viewer.still_reading": "Jeszcze nie znaleziono: plik jest wciąż odczytywany",
  "worktrees.badge": "drzewa robocze",
  "worktrees.badge_of": "drzewa robocze {name}",

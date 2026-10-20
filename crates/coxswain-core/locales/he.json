@@ -3035,6 +3035,7 @@
  "viewer.plain": "טקסט פשוט",
  "viewer.plain_big": "מעל 16 MB: מוצג בלי צבעים.",
  "viewer.search": "חיפוש",
+ "viewer.searching": "מחפש את {text}: {pct}% · Esc עוצר",
  "viewer.still_reading": "עדיין לא נמצא: הקובץ עדיין נקרא",
  "worktrees.badge": "עצי עבודה",
  "worktrees.badge_of": "עצי העבודה של {name}",

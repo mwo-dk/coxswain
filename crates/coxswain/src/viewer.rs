@@ -166,6 +166,16 @@ struct Point {
     scopes: ScopeStack,
 }
 
+/// A search going on: the lines `a..b` still to look through (from the end for `back`), of
+/// `from`, the whole stretch.
+struct Seek {
+    q: String,
+    a: usize,
+    b: usize,
+    back: bool,
+    from: (usize, usize),
+}
+
 pub struct Viewer {
     pub path: PathBuf,
     title: String,
@@ -190,6 +200,8 @@ pub struct Viewer {
     /// The last search, and the line it was found on.
     query: String,
     found: Option<usize>,
+    /// A search still going on.
+    seek: Option<Seek>,
     said: Option<String>,
     /// Rows of text on the screen, as last drawn: what PgUp and PgDn move.
     page: usize,
@@ -250,6 +262,7 @@ impl Viewer {
             typing: None,
             query: String::new(),
             found: None,
+            seek: None,
             said: if cut {
                 Some(t!("viewer.first_part"))
             } else {
@@ -453,35 +466,56 @@ impl Viewer {
         }
     }
 
-    /// The next line (or the one before, `back`) after the screen's first with the search on
-    /// it, case aside. The disk is read a megabyte at a time, so a big file takes a moment.
+    /// Start a search for the next line (or the one before, `back`) after the screen's first
+    /// with the search on it, case aside. It goes on a batch at a time in `poll`, so a big file
+    /// never holds the screen still, and Esc stops it.
     fn find(&mut self, back: bool) {
         if self.query.is_empty() {
             return;
         }
-        let q = self.query.to_lowercase();
-        let (n, done) = self.count();
+        let (n, _) = self.count();
         // A new search starts at the screen's first line; `n` and `N` go on from the hit.
-        let (mut a, mut b) = match (self.found, back) {
+        let (a, b) = match (self.found, back) {
             (Some(f), false) => (f + 1, n),
             (None, false) => (self.top, n),
             (f, true) => (0, f.unwrap_or(self.top)),
         };
-        // Lines in batches of at most a few thousand and a few megabytes (each line read to a
-        // megabyte at most), from the search's start onwards, or backwards for `N`.
-        while a < b {
-            let (lo, hi) = if back { (self.batch(b, false, a), b) } else { (a, self.batch(a, true, b)) };
+        self.seek = Some(Seek { q: self.query.to_lowercase(), a, b, back, from: (a, b) });
+        self.poll();
+    }
+
+    /// Whether a search is still going on, so the screen is drawn again soon.
+    pub fn busy(&self) -> bool {
+        self.seek.is_some()
+    }
+
+    /// The search going on, for a few dozen milliseconds: lines in batches of at most a few
+    /// thousand and a few megabytes (each line read to a megabyte at most), from the search's
+    /// start onwards, or backwards for `N`.
+    pub fn poll(&mut self) {
+        let Some(mut s) = self.seek.take() else { return };
+        let until = std::time::Instant::now() + std::time::Duration::from_millis(40);
+        while s.a < s.b {
+            let (lo, hi) = if s.back { (self.batch(s.b, false, s.a), s.b) } else { (s.a, self.batch(s.a, true, s.b)) };
             let lines = self.lines(lo, hi, LONGEST_READ);
-            let has = |i: usize| lines.get(i - lo).is_some_and(|l| l.to_lowercase().contains(&q));
-            let hit = if back { (lo..hi).rev().find(|&i| has(i)) } else { (lo..hi).find(|&i| has(i)) };
+            let has = |i: usize| lines.get(i - lo).is_some_and(|l| l.to_lowercase().contains(&s.q));
+            let hit = if s.back { (lo..hi).rev().find(|&i| has(i)) } else { (lo..hi).find(|&i| has(i)) };
             if let Some(i) = hit {
                 self.found = Some(i);
                 self.top = i.saturating_sub(self.page / 3);
                 self.said = None;
                 return;
             }
-            if back { b = lo } else { a = hi }
+            if s.back { s.b = lo } else { s.a = hi }
+            if std::time::Instant::now() >= until && s.a < s.b {
+                let (a, b) = s.from;
+                let pct = 100 * (b - a - (s.b - s.a)) / (b - a).max(1);
+                self.said = Some(t!("viewer.searching", "text" => &self.query, "pct" => pct));
+                self.seek = Some(s);
+                return;
+            }
         }
+        let (_, done) = self.count();
         self.said = Some(if done { t!("viewer.not_found", "text" => &self.query) } else { t!("viewer.still_reading") });
     }
 
@@ -517,6 +551,12 @@ impl Viewer {
             }
             return Outcome::Stay;
         }
+        // Esc stops a search going on, rather than close the file.
+        if key.code == KeyCode::Esc && self.seek.take().is_some() {
+            self.said = None;
+            return Outcome::Stay;
+        }
+        self.seek = None;
         self.said = None;
         let ch = match key.code {
             KeyCode::Char(c) if !key.ctrl && !key.alt => Some(c),
@@ -609,10 +649,14 @@ impl Viewer {
             let mut cells: Vec<(char, Style)> = vec![];
             let text: String = pieces.iter().map(|(_, s)| s.as_str()).collect();
             let marks = marked(&text, &q);
-            let mut at = 0;
+            // Marks and characters both go left to right: one cursor walks the marks.
+            let (mut at, mut m) = (0, 0);
             for (slot, s) in &pieces {
                 for c in s.chars() {
-                    let style = if marks.iter().any(|(a, b)| (*a..*b).contains(&at)) { hit } else { token(*slot) };
+                    while marks.get(m).is_some_and(|&(_, b)| b <= at) {
+                        m += 1;
+                    }
+                    let style = if marks.get(m).is_some_and(|&(a, _)| a <= at) { hit } else { token(*slot) };
                     at += c.len_utf8();
                     match c {
                         '\t' => {
@@ -792,6 +836,31 @@ mod tests {
         }
     }
 
+    /// The search to its end, as the event loop's ticks take it.
+    fn finish(v: &mut Viewer) {
+        while v.busy() {
+            v.poll();
+        }
+    }
+
+    #[test]
+    fn every_hit_on_a_line_is_marked_and_nothing_between() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-marks-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("hits.txt");
+        std::fs::write(&p, "ab-ab-ab\n").unwrap();
+        let mut v = Viewer::open(&p, ["F4", "F3"]).unwrap();
+        wait(&v);
+        v.query = "ab".into();
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(30, 5)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let hit = sty(&Theme::default().cursor);
+        let row: String = term.backend().buffer().content.iter().filter(|c| c.style().bg == hit.bg && c.style().fg == hit.fg).map(|c| c.symbol()).collect();
+        assert_eq!(row, "ababab");
+        drop(v);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
     fn screen(v: &mut Viewer, w: u16, h: u16) -> String {
         let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
@@ -895,9 +964,17 @@ mod tests {
         assert_eq!(v.batch(0, true, 0), 0);
         v.query = "NEEDLE".into();
         v.find(false);
+        finish(&mut v);
         assert_eq!(v.found, Some(12));
         v.find(true);
+        finish(&mut v);
         assert_eq!(v.found, Some(12), "nothing before it");
+        // Esc stops a search going on and leaves the file open.
+        v.seek = Some(Seek { q: "x".into(), a: 0, b: 13, back: false, from: (0, 13) });
+        assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Stay));
+        assert!(!v.busy());
+        assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
+        drop(v);
         std::fs::remove_dir_all(&d).ok();
     }
 

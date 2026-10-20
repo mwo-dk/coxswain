@@ -3035,6 +3035,7 @@
  "viewer.plain": "texte brut",
  "viewer.plain_big": "Plus de 16 Mo : affiché sans couleurs.",
  "viewer.search": "Rechercher",
+ "viewer.searching": "Recherche de {text} : {pct} % · Échap arrête",
  "viewer.still_reading": "Pas encore trouvé : le fichier est encore en cours de lecture",
  "worktrees.badge": "worktrees",
  "worktrees.badge_of": "worktrees de {name}",

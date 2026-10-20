@@ -2940,6 +2940,7 @@
  "viewer.plain": "متن ساده",
  "viewer.plain_big": "بیش از ۱۶ MB: بدون رنگ نشان داده می‌شود.",
  "viewer.search": "جست‌وجو",
+ "viewer.searching": "در حال جستجوی {text}: {pct}٪ · Esc متوقف می‌کند",
  "viewer.still_reading": "هنوز پیدا نشد: فایل هنوز در حال خوانده شدن است",
  "worktrees.badge": "درخت‌های کاری",
  "worktrees.badge_of": "درخت‌های کاری {name}",

@@ -3035,6 +3035,7 @@
  "viewer.plain": "testo semplice",
  "viewer.plain_big": "Oltre 16 MB: mostrato senza colori.",
  "viewer.search": "Cerca",
+ "viewer.searching": "Ricerca di {text}: {pct}% · Esc interrompe",
  "viewer.still_reading": "Non ancora trovato: il file è ancora in lettura",
  "worktrees.badge": "worktree",
  "worktrees.badge_of": "worktree di {name}",

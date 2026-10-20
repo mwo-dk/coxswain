@@ -2915,6 +2915,9 @@ impl App {
         if let Some(Dialog::Chess(v)) = &mut self.dialog {
             v.poll();
         }
+        if let Some(Dialog::View { v, .. }) = &mut self.dialog {
+            v.poll();
+        }
         if let Some(r) = self.props_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.props_rx = None;
             if self.status.as_deref() == Some(t!("app.reading_properties").as_str()) {
@@ -3104,7 +3107,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             None => {}
         }
         // Quicker while a search or an answer is out, so it shows as soon as it comes.
-        let waiting = app.search_got != app.search_gen || app.ask_rx.is_some() || app.ask_check_rx.is_some();
+        let waiting = app.search_got != app.search_gen
+            || app.ask_rx.is_some()
+            || app.ask_check_rx.is_some()
+            || matches!(&app.dialog, Some(Dialog::View { v, .. }) if v.busy());
         if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
             match event::read()? {
                 Event::Key(k) => app.on_key(k),
@@ -3552,6 +3558,7 @@ fn disk(rest: &[String]) {
 
 /// The program, under both its names (`coxswain` and `cox`).
 pub fn main() {
+    coxswain_core::sizes::deep_stacks();
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     // `--settings[=area|option] [LEFT] [RIGHT]`: start with Settings open, there.
     let open_settings = args.first().and_then(|a| a.strip_prefix("--settings")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());

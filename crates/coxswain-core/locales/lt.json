@@ -3035,6 +3035,7 @@
  "viewer.plain": "paprastas tekstas",
  "viewer.plain_big": "Daugiau nei 16 MB: rodoma be spalvų.",
  "viewer.search": "Ieškoti",
+ "viewer.searching": "Ieškoma {text}: {pct} % · Esc sustabdo",
  "viewer.still_reading": "Kol kas nerasta: failas dar skaitomas",
  "worktrees.badge": "darbo medžiai",
  "worktrees.badge_of": "{name} darbo medžiai",

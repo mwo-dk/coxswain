@@ -57,13 +57,15 @@ said; the key line at the bottom lists the keys.
 | **w** | Wrap long lines on and off |
 | **p** | Hand the file to your pager: `$PAGER`, else `less` (`more` on Windows) |
 | **F4** | Edit the file |
-| **Esc**, **F3**, **F10** | Close; the panels come back |
+| **Esc**, **F3**, **F10** | Close; the panels come back. While a search is still going, **Esc** stops it instead |
 
 What it reads:
 
 - **Any size.** A thread finds where each line starts and only the lines on the screen are read
   from the disk, so a 50 MB log opens at once (the title says *lines so far* until the end is
-  reached). Search reads ahead a few thousand lines at a time. Over 16 MB the text shows
+  reached). Search reads ahead a few thousand lines at a time, between redraws: on a big file
+  the status line says *Searching for error: 40% · Esc stops*, the keys still work, and **Esc**
+  stops it. Over 16 MB the text shows
   without colours (*Over 16 MB: shown without colours.*), and a line over 4,000 characters (a
   minified file) is shown plain.
 - **Encodings.** UTF-8, UTF-16 with its byte order mark, and Windows-1252 when the start of
@@ -184,7 +186,9 @@ which would let a file send commands to it. `less -R` shows them: press **p** (w
 
 No. It keeps where each line starts (8 bytes a line: 5 MB for a 50 MB log of 600,000 lines)
 and reads only the lines on the screen. Opening such a log takes a few milliseconds, the end of
-it is there within a tenth of a second, and a search through all of it about 30 ms.
+it is there within a tenth of a second, and a search through all of it about 30 ms. A search
+through many gigabytes goes on while the screen is drawn, its share done on the status line,
+and **Esc** stops it.
 
 #### F3 and F4 do nothing on a folder.
 

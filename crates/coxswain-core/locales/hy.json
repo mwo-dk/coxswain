@@ -2940,6 +2940,7 @@
  "viewer.plain": "պարզ տեքստ",
  "viewer.plain_big": "16 ՄԲ-ից ավելի՝ ցույց է տրվում առանց գույների։",
  "viewer.search": "Որոնում",
+ "viewer.searching": "Որոնվում է {text}՝ {pct}% · Esc-ը կանգնեցնում է",
  "viewer.still_reading": "Դեռ չի գտնվել՝ ֆայլը դեռ կարդացվում է",
  "worktrees.badge": "աշխատանքային ծառեր",
  "worktrees.badge_of": "{name}-ի աշխատանքային ծառերը",

@@ -94,7 +94,7 @@ pub(super) fn decode(b: &[u8]) -> Result<RgbaImage, String> {
     // The sections before the picture, each a length and its bytes.
     let mut at = 26usize;
     let take = |at: &mut usize, n: usize| -> Option<usize> {
-        let v = b.get(*at..*at + n)?.iter().fold(0usize, |v, x| v.saturating_mul(256).saturating_add(usize::from(*x)));
+        let v = b.get(*at..at.checked_add(n)?)?.iter().fold(0usize, |v, x| v.saturating_mul(256).saturating_add(usize::from(*x)));
         *at += n;
         Some(v)
     };
