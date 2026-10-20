@@ -545,12 +545,12 @@ mod latex {
     use std::path::{Path, PathBuf};
 
     fn head(path: &Path) -> String {
-        text(path, 64 * 1024)
+        start(path, 64 * 1024)
     }
 
     /// The first `max` bytes of a file, as text: a file in Latin-1, or one cut in the middle of
     /// a character, keeps the rest of its text.
-    fn text(path: &Path, max: u64) -> String {
+    fn start(path: &Path, max: u64) -> String {
         use std::io::Read;
         let mut b = vec![];
         if let Ok(f) = std::fs::File::open(path) {
@@ -607,7 +607,7 @@ mod latex {
             .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten().map(|e| e.path()))
             .filter(|p| p.extension().is_some_and(|x| x == "tex" || x == "ltx") && p != path)
             .find(|p| {
-                let t = text(p, 4 << 20);
+                let t = start(p, 4 << 20);
                 t.contains("\\documentclass") && t.contains(&stem)
             })
             .unwrap_or_else(|| path.to_path_buf())
@@ -620,7 +620,7 @@ mod latex {
         if let Some(repo) = dir.ancestors().find(|d| d.join(".git").exists()) {
             return repo.to_path_buf();
         }
-        let text = text(main, 4 << 20);
+        let text = start(main, 4 << 20);
         let depth = text.split(|c: char| c == '{' || c == ',' || c.is_whitespace()).map(|arg| arg.matches("../").count()).max().unwrap_or(0).min(3);
         let home = std::env::home_dir();
         dir.ancestors().take(depth + 1).take_while(|d| d.parent().is_some() && Some(*d) != home.as_deref()).last().unwrap_or(dir).to_path_buf()

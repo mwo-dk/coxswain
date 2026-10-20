@@ -1454,17 +1454,20 @@ fn copy_entries(
     if k == Kind::Zip {
         let mut z =
             zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
+        // One file asked for: that entry alone, never the entries below a folder of its name.
+        let one = (!inner.is_empty())
+            .then(|| z.index_for_name(inner))
+            .flatten()
+            .filter(|&i| z.by_index_raw(i).is_ok_and(|e| !e.is_dir()));
         // Files that share their packed bytes unpack to many times the zip (a few kilobytes to
         // gigabytes): one file of such a zip may come out, not a folder of them.
-        if (inner.is_empty() || z.index_for_name(inner).is_none())
-            && z.has_overlapping_files().map_err(io::Error::other)?
-        {
+        if one.is_none() && z.has_overlapping_files().map_err(io::Error::other)? {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 crate::t!("archive.overlapping"),
             ));
         }
-        for i in 0..z.len() {
+        for i in one.map_or(0..z.len(), |i| i..i + 1) {
             let (name, dir, encrypted, mode) = {
                 let e = z.by_index_raw(i).map_err(io::Error::other)?;
                 (
@@ -2287,7 +2290,7 @@ mod tests {
         z.push(b'a');
         z.extend_from_slice(&packed);
         let dir = z.len() as u32;
-        for name in [b'a', b'b'] {
+        for name in [&b"a"[..], b"b", b"b/c", b"f/x"] {
             le32(&mut z, 0x0201_4b50);
             for x in [20, 20, 0, 8, 0, 0] {
                 le16(&mut z, x);
@@ -2295,16 +2298,16 @@ mod tests {
             for x in [crc, packed.len() as u32, data.len() as u32] {
                 le32(&mut z, x);
             }
-            for x in [1, 0, 0, 0, 0] {
+            for x in [name.len() as u16, 0, 0, 0, 0] {
                 le16(&mut z, x);
             }
             le32(&mut z, 0);
             le32(&mut z, 0);
-            z.push(name);
+            z.extend_from_slice(name);
         }
         let dir_len = z.len() as u32 - dir;
         le32(&mut z, 0x0605_4b50);
-        for x in [0, 0, 2, 2] {
+        for x in [0, 0, 4, 4] {
             le16(&mut z, x);
         }
         le32(&mut z, dir_len);
@@ -2312,13 +2315,19 @@ mod tests {
         le16(&mut z, 0);
         let zip = d.join("bomb.zip");
         std::fs::write(&zip, &z).unwrap();
-        assert_eq!(list(&zip, 10).unwrap().0.len(), 2, "listed as it is");
+        assert_eq!(list(&zip, 10).unwrap().0.len(), 4, "listed as it is");
         let err = extract(&zip, &d).unwrap_err();
         assert_eq!(err.to_string(), crate::t!("archive.overlapping"));
         assert!(!d.join("bomb").exists(), "nothing left behind");
-        // One file of it comes out.
+        // One file of it comes out, and only that one: not the entries named as below it.
         let one = copy_out(&zip, "b", &d, None, false).unwrap();
-        assert_eq!(std::fs::read(one).unwrap(), data);
+        assert_eq!(std::fs::read(&one).unwrap(), data);
+        std::fs::remove_file(one).unwrap();
+        assert_eq!(copy_out(&zip, "b/c", &d, None, false).map(|p| p.is_file()).ok(), Some(true));
+        // A folder of it does not.
+        let err = copy_out(&zip, "f", &d, None, false).unwrap_err();
+        assert_eq!(err.to_string(), crate::t!("archive.overlapping"));
+        assert!(!d.join("f").exists());
         std::fs::remove_dir_all(d).unwrap();
     }
 
