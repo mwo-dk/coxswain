@@ -65,7 +65,8 @@ What it reads:
   from the disk, so a 50 MB log opens at once (the title says *lines so far* until the end is
   reached). Search reads ahead a few thousand lines at a time, between redraws: on a big file
   the status line says *Searching for error: 40% · Esc stops*, the keys still work, and **Esc**
-  stops it. Over 16 MB the text shows
+  stops it. A search started while the title still says *lines so far* goes on over the lines
+  as they are found, rather than stopping at those found then. Over 16 MB the text shows
   without colours (*Over 16 MB: shown without colours.*), and a line over 4,000 characters (a
   minified file) is shown plain.
 - **Encodings.** UTF-8, UTF-16 with its byte order mark, and Windows-1252 when the start of
