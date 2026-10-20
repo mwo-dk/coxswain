@@ -101,7 +101,7 @@ Every run is `podman run` (or `docker run`) with:
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
 | `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
-| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed |
+| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's and ImageMagick's runs) |
 | `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg and ImageMagick) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
@@ -118,7 +118,8 @@ time) for ImageMagick. ffmpeg and ImageMagick see one file only, not its folder:
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
 `-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
 
-A run longer than the timeout (120 s by default) is stopped and its container killed. Pulling
+A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
+searchable, Convert video or audio and Convert or edit pictures have none: **Stop** ends them. Pulling
 the image is not counted.
 
 ## Pulling and removing images
@@ -227,8 +228,9 @@ runs are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Al
 ffmpeg's and ImageMagick's, for [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md), the same way as the desktop app: asked
 first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a video's facts
-with ffprobe in ffmpeg's image when it is pulled, never pulling it. Its `config.toml` is the
-same file: of the `[preview]` section it uses the runtime, `prefer` and the OCRmyPDF image. Its **F12** → *Previews* still
+with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it. Its
+`config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
+`prefer_tool` and the OCRmyPDF, ffmpeg and ImageMagick images. Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.

@@ -104,7 +104,7 @@ video or audio** button ([Convert video or audio](../files/convert-media.md)).
 | Files | Drawn by |
 |---|---|
 | HEIC and HEIF (`heic`, `heif`), the iPhone's photos | An installed ImageMagick or ffmpeg, else ffmpeg's image (no ImageMagick image reads them) |
-| GIMP (`xcf`, its layers merged), DPX and Cineon (`dpx`, `cin`), FITS (`fits`, `fts`), SGI, Sun raster, XWD, PICT, MIFF, WBMP | ImageMagick's image first (`docker.io/dstmodders/imagemagick:latest`, about 60 MB), else an installed ImageMagick |
+| GIMP (`xcf`, its layers merged), DPX and Cineon (`dpx`, `cin`), FITS (`fits`, `fts`), SGI, Sun raster, XWD, PICT, MIFF, WBMP | ImageMagick's image first once it is pulled (`docker.io/dstmodders/imagemagick:latest`, about 60 MB); before that, an installed ImageMagick |
 | RAW photos (`dng cr2 cr3 crw nef nrw arw srf sr2 orf rw2 raf pef srw x3f erf kdc dcr mrw 3fr iiq rwl`) | An installed ImageMagick with LibRaw only: no image reads them |
 
 Each is drawn into a PNG at most 2,048 pixels on its longest side, turned upright as the camera
@@ -145,6 +145,9 @@ Under the preview, some files get a short list:
   [Old pictures and files](old-formats.md#formats).
 - **Neural network models:** their format, producer, inputs and outputs with shapes, nodes and
   parameters, shown above Netron's graph; see [Neural network models](neural-networks.md#the-facts).
+- **Videos, and sound the tags reader does not know:** *Format*, *Length*, *Size in pixels*,
+  *Video* (codec and frames a second), *Sound* (each track), *Subtitles* and *Bitrate*, by
+  ffprobe ([Video and sound with ffmpeg](#video-and-sound-with-ffmpeg)).
 - **Programs and libraries:** the platform and CPU they are built for (*Linux/Unix ELF 64-bit*,
   *Windows PE*, *macOS Mach-O*, *macOS universal*; x86, x86-64, ARM, ARM64, RISC-V and more)
   and what they are (program, windowed or console program, shared library, object file).
@@ -153,7 +156,11 @@ Under the preview, some files get a short list:
 
 - The picture, scaled down to fit and never up; an SVG drawn as a picture (its scripts never
   run).
-- The player's own controls.
+- The player's own controls; with ffmpeg a frame of the video on the player before it plays,
+  and a song's waveform above it.
+- A video or song the player cannot play: ffmpeg's frame or waveform, with the line that says
+  so; HEIC, GIMP and RAW photos on the checkerboard. Under every video, song and picture, the
+  **Convert video or audio** or **Convert or edit pictures** button.
 - The facts as a two-column list under the preview.
 - An archive that cannot be read shows why, in place of the list.
 
@@ -164,7 +171,7 @@ Previews* like every [previews made by tools](tools.md):
 
 | Settings → Previews | config.toml | Default |
 |---|---|---|
-| *How previews are made* | `[preview] prefer`, `[preview.prefer_tool] ffmpeg`, `heif`, `imagemagick`, `raw` | `"auto"`: an installed ffmpeg first; ImageMagick's image first once it is pulled |
+| *How previews are made* | `[preview] prefer`, `[preview.prefer_tool] ffmpeg`, `waveform`, `heif`, `imagemagick`, `raw` | `"auto"`: an installed ffmpeg first; ImageMagick's image first once it is pulled |
 | *Container images* | `[preview.images] ffmpeg`, `imagemagick` | `"docker.io/mwader/static-ffmpeg:latest"`, `"docker.io/dstmodders/imagemagick:latest"` |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 
@@ -185,8 +192,10 @@ app. Archives work as in the desktop app:
 
 #### Why does a video not play?
 
-The webview lacks the codec. On Linux, install the GStreamer plugins for it (for example
-`gst-plugins-good`, `gst-plugins-bad`, `gst-libav`). **Enter** plays it in your media player.
+The webview lacks the codec. With ffmpeg (installed or its image) the preview shows a frame of
+it instead, and *Convert video or audio* → *To MP4* makes a copy that plays here. On Linux, the
+GStreamer plugins (for example `gst-plugins-good`, `gst-plugins-bad`, `gst-libav`) add codecs.
+**Enter** plays it in your media player.
 
 #### Why does an AVI show a still picture instead of playing?
 

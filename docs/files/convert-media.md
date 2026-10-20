@@ -7,7 +7,7 @@ original: an MP4 that plays everywhere, an MP3 or a FLAC of its sound, its sound
 or a clip of it. [ffmpeg](https://ffmpeg.org/) does the work, as installed or from its container
 image. The original is never changed and nothing is ever written over. Both apps.
 
-![The desktop app in the Cyber theme with launch.avi under the cursor in Videos: the preview shows a frame of the video under the line "A frame of the video: the app's player cannot play this kind…", its facts Format AVI, Length 0:06, Size in pixels 1280 × 720, Video mpeg4, 25 fps, Sound mp2, mono, and the menu Convert video or audio is open with To MP4 (H.264 and AAC), To MP3, To FLAC, Its sound only, as it is and A clip…, numbered 1 to 5](../screenshots/convert-media.png)
+![The desktop app in the Cyber theme with launch.avi under the cursor in Videos: the preview shows a frame of the video under the line "A frame of the video: the app's player cannot play this kind…", its facts Format AVI (Audio Video Interleaved), Length 0:06, Size in pixels 1280 × 720, Video mpeg4, 25 fps, Sound mp2, mono, and the menu Convert video or audio is open with To MP4 (H.264 and AAC), To MP3, To FLAC, Its sound only, as it is and A clip…, numbered 1 to 5](../screenshots/convert-media.png)
 *An AVI the player cannot play: ffmpeg's frame, its facts, and what Convert video or audio makes of it.*
 
 ## Contents

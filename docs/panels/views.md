@@ -112,8 +112,9 @@ do in each view.
 
 #### Why is my photo folder slow in thumbnails?
 
-Thumbnails are the pictures themselves, decoded at full size by the webview; there is no
-thumbnail cache. A folder of large photos takes a moment, and tiles load as they scroll into
+Thumbnails of pictures are the pictures themselves, decoded at full size by the webview; only
+videos and HEIC, GIMP and RAW photos get a small picture, made once by ffmpeg or ImageMagick and
+kept in the preview cache. A folder of large photos takes a moment, and tiles load as they scroll into
 sight. Only the rows of tiles on screen are in the page, so a folder of 100,000 files opens in
 thumbnails as quickly as in details.
 

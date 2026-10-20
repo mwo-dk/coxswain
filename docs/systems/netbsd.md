@@ -98,6 +98,8 @@ The terminal app needs no packages. What adds to it, from pkgsrc with `pkgin ins
 | `poppler-utils` | The same for scanned PDFs |
 | `libreoffice` | Search older Office files |
 | `pandoc-cli` | Previews of formats it converts, in the desktop app |
+| `ffmpeg7` | Videos and sound the player cannot play, video facts, [Convert video or audio](../files/convert-media.md); containers do not run here |
+| `ImageMagick` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) |
 | `git` | Git status, history and branches in the panels |
 | `xdg-utils` | `xdg-open`, which opens a file in its program |
 

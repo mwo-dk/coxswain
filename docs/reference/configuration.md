@@ -236,7 +236,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container; `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
+| `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container (ImageMagick: its container first); `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
 | `prefer_tool` | table | `{}` | Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }` |
 | `container` | string | `"auto"` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, or `"off"` for no containers |
 | `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |

@@ -25,7 +25,7 @@ details; *Settings → Previews → Use* can put the container first, or leave i
 flowchart TD
   file[The file under the cursor] --> own{A reader built<br/>into the app?}
   own -->|yes: code, PDF, pictures,<br/>spreadsheets, …| shown[Shown at once]
-  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB| tool{The program<br/>installed?}
+  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick| tool{The program<br/>installed?}
   tool -->|yes| run[It runs; the result<br/>is cached]
   tool -->|no| box{podman or docker,<br/>and an image?}
   box -->|yes| cont[It runs in a container<br/>with no network;<br/>a first pull waits for a click]
@@ -90,7 +90,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Chess games](chess.md) | PGN files as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; Polyglot opening books' moves; both apps, the terminal app full screen |
 | [Go games](go.md) | SGF files as a list of games, each on a board stepped through with its captures, variations and comments; both apps, the terminal app full screen |
 | [Neural network models](neural-networks.md) | ONNX, TensorFlow Lite, Core ML and Keras models: inputs, outputs, nodes and parameters in both apps; the graph drawn by Netron, offline, in the desktop app |
-| [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file |
+| [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file; with ffmpeg and ImageMagick the video and sound the player cannot play, HEIC, GIMP and RAW photos, video thumbnails |
 | [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz, PlantUML, and D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
