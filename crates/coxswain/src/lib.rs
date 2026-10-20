@@ -261,6 +261,7 @@ impl Panel {
             pictures: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_picture(&e.path)).count(),
             // By name, as the desktop app counts: a GeoTIFF is reached from F9 (and its preview).
             geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
+            models: list.iter().filter(|e| !e.is_dir && coxswain_core::scad::is_model(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -1222,6 +1223,7 @@ impl App {
             Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
             Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
             Action::ConvertGeodata => self.media_menu(coxswain_core::media::Program::Gdal),
+            Action::ExportModel => self.media_menu(coxswain_core::media::Program::Openscad),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1925,8 +1927,8 @@ impl App {
         });
     }
 
-    /// *Convert video or audio* (ffmpeg), *Convert or edit pictures* (ImageMagick) or *Convert
-    /// geodata* (GDAL) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
+    /// *Convert video or audio* (ffmpeg), *Convert or edit pictures* (ImageMagick), *Convert
+    /// geodata* (GDAL) or *Export 3D model* (OpenSCAD) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
     /// from a menu. While one runs, the action stops it.
     fn media_menu(&mut self, program: coxswain_core::media::Program) {
         use coxswain_core::media::Op;

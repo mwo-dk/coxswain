@@ -271,6 +271,8 @@ actions! {
     EditPictures = "edit_pictures", "Convert or edit pictures", Files, [];
     // GDAL: GeoPackage, GeoJSON, a shapefile, KML, GPX; a GeoTIFF as COG or PNG (`geo`).
     ConvertGeodata = "convert_geodata", "Convert geodata", Files, [];
+    // OpenSCAD: an STL or 3MF of a .scad model (`scad`).
+    ExportModel = "export_model", "Export 3D model", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1514,6 +1516,9 @@ impl Default for PreviewConfig {
             ("imagemagick", "docker.io/dstmodders/imagemagick:latest"),
             // GDAL's small Alpine build, pinned to a release by its digest (`geo`).
             ("gdal", "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"),
+            // OpenSCAD's own build of a dated snapshot, pinned by its digest (`scad`): its last
+            // release (2021.01) has no Manifold, which renders in a second what took minutes.
+            ("openscad", "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"),
         ];
         PreviewConfig {
             prefer: "auto".into(),

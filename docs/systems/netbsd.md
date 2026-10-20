@@ -101,6 +101,7 @@ The terminal app needs no packages. What adds to it, from pkgsrc with `pkgin ins
 | `ffmpeg7` | Videos and sound the player cannot play, video facts, [Convert video or audio](../files/convert-media.md); containers do not run here |
 | `ImageMagick` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) |
 | `gdal` | Maps and facts of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files, [Convert geodata](../previews/geodata.md#convert-geodata) |
+| `openscad` | Pictures of OpenSCAD models, [Export 3D model](../previews/openscad.md#export-3d-model) |
 | `git` | Git status, history and branches in the panels |
 | `xdg-utils` | `xdg-open`, which opens a file in its program |
 

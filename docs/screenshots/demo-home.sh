@@ -455,6 +455,33 @@ wpt = '<wpt lat="69.302" lon="16.046"><name>Pad A</name></wpt>\n'
 trk = "".join(f'<trkpt lat="{la:.5f}" lon="{lo:.5f}"><time>2026-06-21T05:{i:02d}:00Z</time></trkpt>\n' for i, (la, lo) in enumerate(pts))
 open(sys.argv[1], "w").write(head + wpt + '<trk><name>Round the range</name><trkseg>\n' + trk + "</trkseg></trk>\n</gpx>\n")
 EOF
+# An OpenSCAD model, for its picture and Export 3D model (docs/previews/openscad.md): the
+# engine's bell on its mount, the bell's sizes in a file of their own.
+mkdir -p "$d/Documents/Models"
+printf '// The bell, in millimetres.\nthroat = 10;\nexit = 24;\nlength = 40;\nwall = 2;\n' > "$d/Documents/Models/sizes.scad"
+cat > "$d/Documents/Models/engine-bell.scad" <<'EOF'
+// The engine's bell on its mount, six bolt holes round it.
+include <sizes.scad>
+$fn = 96;
+
+module bell() {
+  difference() {
+    cylinder(h = length, r1 = throat + wall, r2 = exit + wall);
+    translate([0, 0, -1]) cylinder(h = length + 2, r1 = throat, r2 = exit);
+  }
+}
+
+module mount() {
+  difference() {
+    cylinder(h = 8, r = throat + 8);
+    translate([0, 0, -1]) cylinder(h = 10, r = throat);
+    for (a = [0 : 60 : 300]) rotate(a) translate([throat + 5, 0, -1]) cylinder(h = 10, r = 1.6);
+  }
+}
+
+mount();
+translate([0, 0, 8]) bell();
+EOF
 # For Space (Alt+U): sizes of every kind, so the treemap has something to show. Sparse files:
 # they take no room on the disk, but their length is what Space and the folder sizes count.
 mkdir -p "$d/Videos/Flight 7" "$d/Music/Night Drive" "$d/Music/Podcasts" "$d/Pictures/Raw" "$d/VMs" "$d/Documents/Scans" "$d/projects/rocket/target/debug/deps"

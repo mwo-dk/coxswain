@@ -51,6 +51,8 @@ pub struct Subject {
     pub pictures: usize,
     /// Of the files, geodata by its name (`geo::is_vector`, and TIFF, which GDAL is asked about).
     pub geo: usize,
+    /// Of the files, OpenSCAD models (`scad::is_model`).
+    pub models: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -114,6 +116,7 @@ impl Action {
             ConvertMedia => s.media > 0 && disk,
             EditPictures => s.pictures > 0 && disk,
             ConvertGeodata => s.geo > 0 && disk,
+            ExportModel => s.models > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
@@ -202,6 +205,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("pdf", &[("key", Action::SearchablePdf)]),
     ("media", &[("menu", Action::ActionMenu)]),
     ("geo", &[("menu", Action::ActionMenu)]),
+    ("scad", &[("menu", Action::ActionMenu)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -237,6 +241,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "pdf" => disk && s.pdfs > 0,
         "media" => disk && s.media + s.pictures > 0,
         "geo" => disk && s.geo > 0,
+        "scad" => disk && s.models > 0,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
         "folder" => disk && s.single() && s.folders == 1,

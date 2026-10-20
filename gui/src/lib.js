@@ -294,7 +294,7 @@ const endingOfName = (name) => (name.includes(".") ? name.split(".").pop().toLow
 export const isMedia = (name) => MEDIA_TAKES.media.has(endingOfName(name));
 export const isEditable = (name) => MEDIA_TAKES.pictures.has(endingOfName(name));
 /** The media preview a kind gets its picture from (convert.rs `TOOLS`), for thumbnails. */
-export const MEDIA_TOOL = { video: "ffmpeg", video_other: "ffmpeg", audio: "waveform", audio_other: "waveform", heif: "heif", magick: "imagemagick", raw: "raw", geo: "gdal" };
+export const MEDIA_TOOL = { video: "ffmpeg", video_other: "ffmpeg", audio: "waveform", audio_other: "waveform", heif: "heif", magick: "imagemagick", raw: "raw", geo: "gdal", scad: "openscad" };
 /** Geodata (`geo::endings`): the vector endings, a map by GDAL (a GPX file's drawn without
  *  it); TIFF is geodata only when GDAL finds it is a GeoTIFF. Set once the config has come. */
 const GEO = new Set();
@@ -303,6 +303,8 @@ export const setGeoEndings = (all) => (GEO.clear(), (all.vector ?? []).forEach((
 export const isGeo = (name) => GEO.has(endingOfName(name)) || /\.tiff?$/i.test(name);
 /** GeoJSON, KML and GPX are text: their preview shows the map or the source. */
 export const isGeoText = (name) => /\.(geojson|kml|gpx)$/i.test(name);
+/** An OpenSCAD model: *Export 3D model* takes it; its preview shows the model or the source. */
+export const isScad = (name) => /\.scad$/i.test(name);
 /** Tracker music: facts and sample names, no playback. */
 const TRACKER = ["mod", "xm", "s3m", "it"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
@@ -314,6 +316,8 @@ const CONVERTED = Object.fromEntries(
   Object.entries({
     graphviz: "dot gv",
     asciidoc: "adoc asciidoc",
+    // OpenSCAD models, drawn from what OpenSCAD makes of them (convert.rs `openscad`).
+    scad: "scad",
     parquet: "parquet pq",
     latex: "tex ltx",
     typst: "typ",
@@ -365,6 +369,8 @@ export const CONVERTER = {
   raw: { tool: "raw", auto: true, verb: "convert.render" },
   // GDAL's map of geodata's own shapes (`geo`).
   geo: { tool: "gdal", auto: true, verb: "convert.render" },
+  // OpenSCAD's model, drawn from its STL (`scad`).
+  scad: { tool: "openscad", auto: true, verb: "convert.render" },
   duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];

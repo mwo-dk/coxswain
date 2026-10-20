@@ -206,11 +206,7 @@ pub(crate) fn map(run: &mut Run, path: &Path) -> Result<String, String> {
             run.go("gdal_translate", &picture_args(&r, driver(path).unwrap_or("GTiff"), &input, &png).iter().map(String::as_str).collect::<Vec<_>>())?;
             let bytes = std::fs::read(run.scratch.join("map.png")).map_err(|e| e.to_string())?;
             let (w, h) = image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format().ok().and_then(|r| r.into_dimensions().ok()).ok_or_else(|| t!("geo.unreadable"))?;
-            use base64::Engine;
-            Ok(format!(
-                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\"><image width=\"{w}\" height=\"{h}\" href=\"data:image/png;base64,{}\"/></svg>",
-                base64::engine::general_purpose::STANDARD.encode(bytes)
-            ))
+            Ok(crate::media::png_in_svg(&bytes, w, h))
         }
     }
 }

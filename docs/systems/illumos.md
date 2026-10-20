@@ -162,7 +162,7 @@ Boot environments (`beadm`) and zones are not listed; that is FreeBSD's `bectl` 
 | Battery | `kstat -p acpi_drv:0:power`: a `system power` of `battery` means on battery, and the helper pauses ([Battery](../search/battery.md)). Servers have no such kstat and count as on mains. Not yet tried on a laptop |
 | Memory in the setup guide | `sysconf(_SC_PHYS_PAGES)` |
 | Removable disks | Known by their path only ([Removable disks](../search/removable-disks.md)) |
-| Installing tools | Hints say `pkg install …` where OmniOS has a package (`ooce/application/texlive` for LaTeX, `compress/7zip` for disk images, `ooce/application/tig`, `ooce/multimedia/ffmpeg` for ffmpeg); Tesseract, Poppler, LibreOffice, ImageMagick and GDAL have none in OmniOS's repositories |
+| Installing tools | Hints say `pkg install …` where OmniOS has a package (`ooce/application/texlive` for LaTeX, `compress/7zip` for disk images, `ooce/application/tig`, `ooce/multimedia/ffmpeg` for ffmpeg); Tesseract, Poppler, LibreOffice, ImageMagick, GDAL and OpenSCAD have none in OmniOS's repositories |
 | The update notice | Names the install line ([Updating](#updating-and-uninstalling)) |
 
 ## Updating and uninstalling
