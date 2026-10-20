@@ -3171,7 +3171,7 @@ fn languages() {
             println!("{}", t!(group));
         }
         let current = if l.code == i18n::language() { format!("  ({})", t!("app.current")) } else { String::new() };
-        let new = if l.new { format!("  {}", t!("news.new")) } else { String::new() };
+        let new = if l.new() { format!("  {}", t!("news.new")) } else { String::new() };
         println!("  {:<6} {}{new}{current}", l.code, l.name);
     }
     println!("\nlanguage = \"…\" in {}", Config::path().map(|p| p.display().to_string()).unwrap_or_else(|| "config.toml".into()));

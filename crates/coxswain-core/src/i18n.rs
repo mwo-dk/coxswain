@@ -20,8 +20,25 @@ pub struct Language {
     pub flag: &'static str,
     /// The region it is listed under: a `language.group.*` key.
     pub group: &'static str,
-    /// A fresh translation: marked in the list, with a way to help improve it.
-    pub new: bool,
+    /// A fresh translation, until this day (`YYYY-MM-DD`, four weekly releases after its first):
+    /// marked in the list, with a way to help improve it. Sent to the desktop app as `new`.
+    #[serde(rename = "new", serialize_with = "new_now")]
+    pub new_until: Option<&'static str>,
+}
+
+impl Language {
+    /// Whether it is still marked as a fresh translation today.
+    pub fn new(&self) -> bool {
+        still_new(&self.new_until)
+    }
+}
+
+fn still_new(until: &Option<&'static str>) -> bool {
+    until.is_some_and(|day| chrono::Utc::now().format("%Y-%m-%d").to_string().as_str() < day)
+}
+
+fn new_now<S: serde::Serializer>(until: &Option<&'static str>, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_bool(still_new(until))
 }
 
 const fn lang(
@@ -29,92 +46,104 @@ const fn lang(
     name: &'static str,
     flag: &'static str,
     group: &'static str,
-    new: bool,
+    new_until: Option<&'static str>,
 ) -> Language {
     Language {
         code,
         name,
         flag,
         group,
-        new,
+        new_until,
     }
 }
 
 /// Every language, by region and by its own name within one: the list both apps show.
 pub const LANGUAGES: &[Language] = &[
-    lang("da", "Dansk", "dk", "language.group.nordic", false),
-    lang("et", "Eesti", "ee", "language.group.nordic", false),
-    lang("lv", "Latviešu", "lv", "language.group.nordic", false),
-    lang("lt", "Lietuvių", "lt", "language.group.nordic", false),
-    lang("nb", "Norsk (bokmål)", "no", "language.group.nordic", true),
-    lang("nn", "Norsk (nynorsk)", "no", "language.group.nordic", true),
-    lang("fi", "Suomi", "fi", "language.group.nordic", false),
-    lang("sv", "Svenska", "se", "language.group.nordic", false),
-    lang("ca", "Català", "es-ct", "language.group.western", false),
-    lang("de", "Deutsch", "de", "language.group.western", false),
+    lang("da", "Dansk", "dk", "language.group.nordic", None),
+    lang("et", "Eesti", "ee", "language.group.nordic", None),
+    lang("lv", "Latviešu", "lv", "language.group.nordic", None),
+    lang("lt", "Lietuvių", "lt", "language.group.nordic", None),
+    lang(
+        "nb",
+        "Norsk (bokmål)",
+        "no",
+        "language.group.nordic",
+        Some("2026-11-15"),
+    ),
+    lang(
+        "nn",
+        "Norsk (nynorsk)",
+        "no",
+        "language.group.nordic",
+        Some("2026-11-15"),
+    ),
+    lang("fi", "Suomi", "fi", "language.group.nordic", None),
+    lang("sv", "Svenska", "se", "language.group.nordic", None),
+    lang("ca", "Català", "es-ct", "language.group.western", None),
+    lang("de", "Deutsch", "de", "language.group.western", None),
     lang(
         "de-AT",
         "Deutsch (Österreich)",
         "at",
         "language.group.western",
-        false,
+        None,
     ),
     lang(
         "de-CH",
         "Deutsch (Schweiz)",
         "ch",
         "language.group.western",
-        false,
+        None,
     ),
     lang(
         "en-GB",
         "English (United Kingdom)",
         "gb",
         "language.group.western",
-        false,
+        None,
     ),
-    lang("eu", "Euskara", "es-pv", "language.group.western", false),
-    lang("fr", "Français", "fr", "language.group.western", false),
-    lang("it", "Italiano", "it", "language.group.western", false),
-    lang("nl", "Nederlands", "nl", "language.group.western", false),
-    lang("cs", "Čeština", "cz", "language.group.central", true),
-    lang("pl", "Polski", "pl", "language.group.central", true),
-    lang("uk", "Українська", "ua", "language.group.central", true),
-    lang("el", "Ελληνικά", "gr", "language.group.mediterranean", true),
-    lang("he", "עברית", "il", "language.group.middle_east", false),
-    lang("fa", "فارسی", "derafsh", "language.group.middle_east", true),
-    lang("hy", "Հայերեն", "am", "language.group.caucasus", true),
-    lang("ka", "ქართული", "ge", "language.group.caucasus", true),
+    lang("eu", "Euskara", "es-pv", "language.group.western", None),
+    lang("fr", "Français", "fr", "language.group.western", None),
+    lang("it", "Italiano", "it", "language.group.western", None),
+    lang("nl", "Nederlands", "nl", "language.group.western", None),
+    lang("cs", "Čeština", "cz", "language.group.central", None),
+    lang("pl", "Polski", "pl", "language.group.central", None),
+    lang("uk", "Українська", "ua", "language.group.central", None),
+    lang("el", "Ελληνικά", "gr", "language.group.mediterranean", None),
+    lang("he", "עברית", "il", "language.group.middle_east", None),
+    lang("fa", "فارسی", "derafsh", "language.group.middle_east", None),
+    lang("hy", "Հայերեն", "am", "language.group.caucasus", None),
+    lang("ka", "ქართული", "ge", "language.group.caucasus", None),
     lang(
         "en-CA",
         "English (Canada)",
         "ca",
         "language.group.americas",
-        false,
+        None,
     ),
     lang(
         "es-AR",
         "Español (Argentina)",
         "ar",
         "language.group.americas",
-        false,
+        None,
     ),
     lang(
         "en-AU",
         "English (Australia)",
         "au",
         "language.group.asia",
-        false,
+        None,
     ),
     lang(
         "en-NZ",
         "English (New Zealand)",
         "nz",
         "language.group.asia",
-        false,
+        None,
     ),
-    lang("ja", "日本語", "jp", "language.group.asia", true),
-    lang("ko", "한국어", "kr", "language.group.asia", true),
+    lang("ja", "日本語", "jp", "language.group.asia", None),
+    lang("ko", "한국어", "kr", "language.group.asia", None),
 ];
 
 /// The language `code` (one of `LANGUAGES`).
@@ -506,6 +535,22 @@ macro_rules! tn {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn i18n_new_marks_end_on_their_day() {
+        for l in LANGUAGES {
+            if let Some(day) = l.new_until {
+                assert!(
+                    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").is_ok(),
+                    "{}: {day}",
+                    l.code
+                );
+            }
+        }
+        assert!(still_new(&Some("9999-12-31")));
+        assert!(!still_new(&Some("2000-01-01")));
+        assert!(!still_new(&None));
+    }
 
     #[test]
     fn i18n_nearest_language() {

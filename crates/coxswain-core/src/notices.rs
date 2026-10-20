@@ -275,7 +275,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         });
     }
     // A new translation in use: where to suggest a better word.
-    if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {
+    if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new()) {
         let text = if terminal {
             t!("notice.language_new_tui", "language" => l.name)
         } else {

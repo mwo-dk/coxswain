@@ -50,28 +50,29 @@ Both apps list them by region, and by their own name within a region:
 | <img src="../flags/it.svg" width="24" alt=""> | Italiano | `it` |
 | <img src="../flags/nl.svg" width="24" alt=""> | Nederlands | `nl` |
 | | **Central and Eastern Europe** | |
-| <img src="../flags/cz.svg" width="24" alt=""> | Čeština (Czech) *(new)* | `cs` |
-| <img src="../flags/pl.svg" width="24" alt=""> | Polski (Polish) *(new)* | `pl` |
-| <img src="../flags/ua.svg" width="24" alt=""> | Українська (Ukrainian) *(new)* | `uk` |
+| <img src="../flags/cz.svg" width="24" alt=""> | Čeština (Czech) | `cs` |
+| <img src="../flags/pl.svg" width="24" alt=""> | Polski (Polish) | `pl` |
+| <img src="../flags/ua.svg" width="24" alt=""> | Українська (Ukrainian) | `uk` |
 | | **Eastern Mediterranean** | |
-| <img src="../flags/gr.svg" width="24" alt=""> | Ελληνικά (Greek) *(new)* | `el` |
+| <img src="../flags/gr.svg" width="24" alt=""> | Ελληνικά (Greek) | `el` |
 | | **The Middle East** | |
 | <img src="../flags/il.svg" width="24" alt=""> | עברית (Hebrew) | `he` |
-| <img src="../flags/derafsh.svg" width="24" alt=""> | فارسی (Persian) *(new)* | `fa` |
+| <img src="../flags/derafsh.svg" width="24" alt=""> | فارسی (Persian) | `fa` |
 | | **The Caucasus** | |
-| <img src="../flags/am.svg" width="24" alt=""> | Հայերեն (Armenian) *(new)* | `hy` |
-| <img src="../flags/ge.svg" width="24" alt=""> | ქართული (Georgian) *(new)* | `ka` |
+| <img src="../flags/am.svg" width="24" alt=""> | Հայերեն (Armenian) | `hy` |
+| <img src="../flags/ge.svg" width="24" alt=""> | ქართული (Georgian) | `ka` |
 | | **The Americas** | |
 | <img src="../flags/ca.svg" width="24" alt=""> | English (Canada) | `en-CA` |
 | <img src="../flags/ar.svg" width="24" alt=""> | Español (Argentina) | `es-AR` |
 | | **Asia and the Pacific** | |
 | <img src="../flags/au.svg" width="24" alt=""> | English (Australia) | `en-AU` |
 | <img src="../flags/nz.svg" width="24" alt=""> | English (New Zealand) | `en-NZ` |
-| <img src="../flags/jp.svg" width="24" alt=""> | 日本語 (Japanese) *(new)* | `ja` |
-| <img src="../flags/kr.svg" width="24" alt=""> | 한국어 (Korean) *(new)* | `ko` |
+| <img src="../flags/jp.svg" width="24" alt=""> | 日本語 (Japanese) | `ja` |
+| <img src="../flags/kr.svg" width="24" alt=""> | 한국어 (Korean) | `ko` |
 
 The ones marked *new* are fresh translations that no native speaker has checked yet: Settings
-marks them *new*, and [Improving a translation](#improving-a-translation) says how to help.
+marks them *new* for about a month, four weekly releases after the one that brought them, and
+[Improving a translation](#improving-a-translation) says how to help.
 
 Persian has no state flag here: it is spoken in Iran, Afghanistan and Tajikistan, so it shows
 a historical banner instead, the Derafsh Shahbaz, the Achaemenid falcon (a gold falcon with
@@ -299,28 +300,23 @@ Swiss Standard German has no *ß*: a system locale `de_CH` (or `de_LI`, or Swiss
 picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and „quotes“ pick
 *Deutsch* in Settings → *Looks* → *Language*, or set `language = "de"`.
 
-#### Polish, Czech, Ukrainian or Greek reads oddly in places. Why?
+#### Polish, Czech, Ukrainian, Greek, Persian, Armenian, Georgian, Japanese or Korean reads oddly in places. Why?
 
-These are new, marked *new* in Settings (and so are Japanese and Korean), and have not been read by a native speaker yet.
-Coxswain shows the notice "*Polski is a new translation…*" once (under Settings → *Overview* →
-*What's new* in both apps; the terminal app also says it in the status line) to say so. A better word is
-very welcome: see [Improving a translation](#improving-a-translation).
+These translations have not been read by a native speaker yet. While a translation is new (about
+a month, four weekly releases), Settings marks it *new* and Coxswain shows the notice
+"*Polski is a new translation…*" once (under Settings → *Overview* → *What's new* in both apps;
+the terminal app also says it in the status line). The mark goes when the month is over, not
+because someone checked it. A better word is very welcome: see
+[Improving a translation](#improving-a-translation).
 
 #### My system is Norwegian. Do I get Bokmål or Nynorsk?
 
 The one your system names: `nb_NO` (or `nb`) gives *Norsk (bokmål)*, `nn_NO` (or `nn`) gives
 *Norsk (nynorsk)*. A system that says only `no` or `no_NO` gets Bokmål, the one most Norwegians
 write. To pick the other, choose it in Settings → *Looks* → *Language*, or set
-`language = "nn"` (or `"nb"`) in `config.toml`. Both are new and marked *new* in Settings; a
-native reader's corrections are very welcome (see
+`language = "nn"` (or `"nb"`) in `config.toml`. Both are new and marked *new* in Settings until
+15 November 2026; a native reader's corrections are very welcome (see
 [Improving a translation](#improving-a-translation)).
-
-#### Persian, Armenian or Georgian is new. Who checked it?
-
-No native speaker yet: all three are marked *new* in Settings, and Coxswain says once
-"*فارسی is a new translation…*" (under *Settings → Overview → What's new* in both apps, and in
-the status line of the terminal app). A better word is very welcome; see
-[Improving a translation](#improving-a-translation).
 
 #### Why does Persian have a falcon and not a flag?
 
