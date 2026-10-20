@@ -515,7 +515,15 @@ impl Viewer {
                 return;
             }
         }
-        let (_, done) = self.count();
+        let (n, done) = self.count();
+        // The lines are still being found (a big file just opened): the search goes on over
+        // them as they come, rather than stopping at the ones found so far.
+        if !s.back && (!done || s.b < n) {
+            (s.b, s.from.1) = (n, n);
+            self.said = Some(t!("viewer.still_reading"));
+            self.seek = Some(s);
+            return;
+        }
         self.said = Some(if done { t!("viewer.not_found", "text" => &self.query) } else { t!("viewer.still_reading") });
     }
 
@@ -945,6 +953,36 @@ mod tests {
             assert_eq!(v.syntax.map(|s| s.name.as_str()), grammar, "{name}");
         }
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A search started while the lines are still being found (a big file just opened) goes
+    /// on over the lines that come, instead of stopping at *Not found yet*.
+    #[test]
+    fn a_search_goes_on_while_the_lines_are_found() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-follow-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("big.log");
+        let body: String = (0..500).map(|i| if i == 480 { "the needle\n".to_string() } else { format!("line {i}\n") }).collect();
+        std::fs::write(&p, body).unwrap();
+        let mut v = Viewer::open(&p, ["F4", "F3"]).unwrap();
+        wait(&v);
+        // As it is a moment after opening: ten lines found, the rest still to come.
+        let Body::File { index, .. } = &v.body else { panic!() };
+        let all = std::mem::take(&mut *index.starts.lock().unwrap());
+        *index.starts.lock().unwrap() = all[..11].to_vec();
+        index.done.store(false, Ordering::Relaxed);
+        v.query = "needle".into();
+        v.find(false);
+        v.poll();
+        assert!(v.busy(), "still searching");
+        assert_eq!((v.found, v.said.as_deref()), (None, Some(t!("viewer.still_reading").as_str())));
+        let Body::File { index, .. } = &v.body else { panic!() };
+        *index.starts.lock().unwrap() = all;
+        index.done.store(true, Ordering::Relaxed);
+        finish(&mut v);
+        assert_eq!(v.found, Some(480), "found once its line is");
+        drop(v);
+        std::fs::remove_dir_all(&d).ok();
     }
 
     #[test]
