@@ -151,6 +151,9 @@ Under the preview, some files get a short list:
 - **Container images** (a `docker save` or `podman save` tar, an OCI layout's `index.json`):
   *Format*, *Tags*, *Platform*, *Created*, *Layers*, *Total size*, *Entrypoint*, *Command*,
   *Environment*, *Exposed ports*, *Labels*; see [Container images](../files/container-images.md#what-you-see).
+- **Local models:** *Model*, *Format*, *Architecture*, *Parameters*, *Quantisation*, *Context
+  length*, *Layers*, *Memory to load* and *On this machine*; a PyTorch pickle only says it is not
+  opened. See [Your local models](../files/local-models.md#the-facts).
 - **Programs and libraries:** the platform and CPU they are built for (*Linux/Unix ELF 64-bit*,
   *Windows PE*, *macOS Mach-O*, *macOS universal*; x86, x86-64, ARM, ARM64, RISC-V and more)
   and what they are (program, windowed or console program, shared library, object file).

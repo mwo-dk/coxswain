@@ -249,6 +249,13 @@ pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
         return Some(vec![(t!("facts.format"), t!("local_models.pickle"))]);
     }
     let known = path.parent().and_then(|d| name_in(d, name));
+    // A Hugging Face blob of a pickle: named by the file that links to it, never opened.
+    if known.as_deref().is_some_and(|k| {
+        let k = k.to_ascii_lowercase();
+        [".pt", ".pth", ".ckpt", ".bin"].iter().any(|e| k.ends_with(e))
+    }) {
+        return Some(vec![(t!("facts.format"), t!("local_models.pickle"))]);
+    }
     let m = if name.ends_with(".safetensors.index.json") {
         sharded(path)?
     } else if ext.is_empty() || ext == "gguf" || ext == "safetensors" {
@@ -339,10 +346,11 @@ impl Model {
         let tensor_bytes = self.tensors.iter().try_fold(0u64, |a, t| a.checked_add(t.3?));
         let weights = tensor_bytes.filter(|&b| b > 0).unwrap_or(self.file_bytes);
         if weights > 0 {
-            let kv = self.kv_per_token.map(|k| k.saturating_mul(self.context.unwrap_or(CONTEXT).min(CONTEXT)));
+            let tokens = self.context.unwrap_or(CONTEXT).min(CONTEXT);
+            let kv = self.kv_per_token.map(|k| k.saturating_mul(tokens));
             let need = weights.saturating_add(kv.unwrap_or(0));
             let val = match kv {
-                Some(_) => t!("local_models.memory_context", "size" => crate::settings::human(need), "tokens" => CONTEXT),
+                Some(_) => t!("local_models.memory_context", "size" => crate::settings::human(need), "tokens" => tokens),
                 None => t!("local_models.memory_value", "size" => crate::settings::human(need)),
             };
             v.push((t!("local_models.memory"), val));
@@ -1033,9 +1041,15 @@ pub(crate) mod tests {
         std::fs::write(repo.join("blobs/f00d"), safetensors_bytes()).unwrap();
         #[cfg(unix)]
         std::os::unix::fs::symlink("../../blobs/f00d", repo.join("snapshots/abc123/model.safetensors")).unwrap();
+        std::fs::write(repo.join("blobs/beef"), b"\x80\x02c__builtin__\neval\n").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("../../blobs/beef", repo.join("snapshots/abc123/pytorch_model.bin")).unwrap();
         assert_eq!(names(&hub).unwrap()["models--Qwen--Qwen3-0.6B"], "Qwen/Qwen3-0.6B");
         #[cfg(unix)]
         assert_eq!(names(&repo.join("blobs")).unwrap()["f00d"], "Qwen/Qwen3-0.6B · model.safetensors");
+        // A pickle's blob, named by its link, is never opened.
+        #[cfg(unix)]
+        assert_eq!(facts(&repo.join("blobs/beef")).unwrap()[0].1, t!("local_models.pickle"));
         // A blob without an ending is still read by its header.
         assert_eq!(val(&facts(&repo.join("blobs/f00d")).unwrap(), "local_models.tensors"), Some("2"));
         assert!(names(&d).is_none());

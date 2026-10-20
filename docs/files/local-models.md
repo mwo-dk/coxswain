@@ -30,7 +30,8 @@ machine. Nothing is renamed, nothing is sent anywhere, and only a file's header 
    the Hugging Face cache `~/.cache/huggingface/hub` (or where `HF_HUB_CACHE` or `HF_HOME`
    puts it), or LM Studio's `~/.lmstudio/models`.
 2. Each blob shows the model it is in front of its own name: `llama3.2:3b [sha256-dde5…]` in the
-   terminal app, `llama3.2:3b sha256-dde5…` (the hash dimmed) in the desktop app. A Hugging Face
+   terminal app, `llama3.2:3b sha256-dde5…` in the desktop app's details view (the hash dimmed); the columns
+   and thumbnail views show only the model's name. A Hugging Face
    folder shows `Qwen/Qwen3-0.6B`.
 3. Put the cursor on a model file. The desktop app's preview pane shows its facts under the
    preview; **Alt+Enter** (Properties) shows them in both apps. The first few times, the status
@@ -39,7 +40,7 @@ machine. Nothing is renamed, nothing is sent anywhere, and only a file's header 
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Names | Beside each name, in every view | Beside each name |
+| Names | Beside each name in the details view; in place of it in columns and thumbnails | Beside each name, the hash in `[ ]` |
 | Facts | Preview pane, and Properties (**Alt+Enter**) | Properties (**Alt+Enter**) |
 | Space | Rectangles and *Largest files* named by model | The same |
 
@@ -68,7 +69,7 @@ each one is a link to a blob, and the facts are those of the file behind the lin
 |---|---|---|
 | Model | The name from the store, when it is in one | The same |
 | Format | `GGUF v3` | `safetensors`, or *safetensors, in shards* for a `model.safetensors.index.json` |
-| Name, architecture | `general.name`, `general.architecture` | The header's `name`, when it has one |
+| Name, architecture | `general.name`, `general.architecture` | `__metadata__`'s `name`, when it has one |
 | Shards | | How many, or *2 of 4 here* while a download is not done |
 | Parameters | The tensors' elements added up, in billions or millions | The same |
 | Quantisation | `general.file_type`: `Q4_K_M`, `Q8_0`, `F16` … | |
@@ -90,7 +91,8 @@ the file holds, or more than these limits, is not read further. ONNX files show 
 ## Memory, and whether it fits
 
 *Memory to load* is the weights (the tensors' bytes) and, for a GGUF, the cache of keys and
-values for 4,096 tokens of context, what Ollama and llama.cpp start with: *about 2.4 GB, with 4096
+values for 4,096 tokens of context (fewer when the model's own context is shorter), what Ollama
+and llama.cpp start with: *about 2.4 GB, with 4096
 tokens of context*. A longer context takes more.
 
 *On this machine* compares that with the graphics card and the memory, found the same way as
@@ -102,11 +104,13 @@ for [the setup guide's model choice](../search/setup.md#what-to-use-on-your-mach
 | *fits in memory (32 GB), not on the graphics card (…, 8 GB)* | Too big for the card, it runs on the processor, slower |
 | *fits in memory (32 GB)* | No card with memory of its own (Apple silicon shares its memory) |
 | *more than this machine's memory (16 GB)* | It will not load, or only very slowly |
+| *the memory of this machine is not known* | The machine's memory could not be read |
 
 ## PyTorch pickles are not opened
 
 A `.pt`, `.pth`, `.ckpt` or PyTorch `.bin` (`pytorch_model.bin`, or a `.bin` in a Hugging Face
-snapshot) is a Python pickle, and reading one can run code. Coxswain names it,
+snapshot, and its blob in the repository's `blobs/`) is a Python pickle, and reading one can run
+code. Coxswain names it,
 *PyTorch pickle — not opened (opening one can run code)*, and never parses or loads it. Prefer
 the safetensors or GGUF file of the same model.
 
@@ -123,7 +127,8 @@ tooltip has the blob's path). The line under the map names the model and the pat
 
 The names and the facts are the same: the panel shows `llama3.2:3b [sha256-…]`, and
 **Alt+Enter** opens Properties with the facts under the file's own (a later line of the
-tensor list has no label of its own). The terminal app has no preview pane.
+tensor list has no label of its own). The terminal app has no preview pane; **F3** shows a model
+file as hex in the built-in viewer, as any binary file.
 
 ![The terminal app with Ollama's blobs in the left panel, each named by its model (qwen3:0.6b · chat template [sha256-0…], llama3.2:3b [sha256-925b2ca…]) and the Hugging Face cache in the right one (bartowski/SmolLM2-360M-Instruct-GGUF and the others); Properties is open on llama3.2:3b's weights with the same facts as the desktop app, from Model llama3.2:3b to On this machine fits in memory (32 GB)](../screenshots/tui-local-models.png)
 *Properties (**Alt+Enter**) on a blob, and the Hugging Face cache by name in the other panel.*
@@ -157,8 +162,8 @@ a shorter one less. For safetensors only the weights are counted.
 
 #### My graphics card is not named. Why?
 
-The card is found by `nvidia-smi`, by the kernel's list of devices on Linux, and by `pciconf` on
-FreeBSD. Without a card it found, *On this machine* compares with the memory alone.
+The card is found by `pciconf` on FreeBSD, by the kernel's list of devices on Linux, and by
+`nvidia-smi` for an NVIDIA card on any system. Without a card it found, *On this machine* compares with the memory alone.
 
 #### Why are some blobs not named?
 

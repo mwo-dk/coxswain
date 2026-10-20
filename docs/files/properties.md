@@ -43,6 +43,7 @@ The dialog is titled with the entry's name.
 | *Owner* | The user and group by name, as `ls -l` shows them, then their ids: `demo:demo · uid 1000, gid 1000` (the BSDs, illumos, Linux, macOS). An id with no name stays a number |
 | *Permissions* | An octal field, `644`, with `rw-r--r--` next to it, updated as you type (the BSDs, Linux, macOS) |
 | *Attributes* | *Read-only* (Windows) |
+| What it holds | For an old picture, a module, a mailbox, a comic, a dBase table, a disk image or a local model, its facts ([Old pictures and files](../previews/old-formats.md), [Your local models](local-models.md#the-facts)) |
 
 A value that is not octal says *Permissions are 3 or 4 octal digits, e.g. 644* under the list,
 and nothing is changed. After *Apply* the dialog closes and the pane is read again.
@@ -89,8 +90,9 @@ None. The keys are `properties` (**Alt+Enter**), `flags` and `package` (no key o
 
 **Alt+Enter** (or *F9 → Properties*) opens a window with the same facts as text: location,
 type, size, modified, owner, permissions, and the ZFS, package and flag lines; for an old
-picture, a tracker module, a mailbox, a comic, a dBase table or a container image also what it
-holds ([Old pictures and files](../previews/old-formats.md), [Container images](container-images.md#what-you-see)),
+picture, a tracker module, a mailbox, a comic, a dBase table, a container image or a local model
+also what it holds ([Old pictures and files](../previews/old-formats.md), [Container images](container-images.md#what-you-see),
+[Your local models](local-models.md#the-facts)),
 and for a neural network model (a Core ML package folder too) its format, inputs, outputs, nodes
 and parameters ([Neural network models](../previews/neural-networks.md)), and for a video (or a song the tags reader does not know) its format, length, size in pixels
 and tracks, by an installed ffprobe or ffmpeg's pulled image
