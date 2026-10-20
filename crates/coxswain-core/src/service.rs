@@ -111,7 +111,7 @@ fn file() -> Option<PathBuf> {
 
 /// The file that registers `exe` as the helper; in the Flatpak `flatpak`, that app.
 fn unit(exe: &Path, flatpak: Option<&str>) -> String {
-    let exe = exe.display();
+    let exe = exe.display().to_string();
     if let Some(id) = flatpak {
         format!(
             "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
@@ -129,7 +129,7 @@ fn unit(exe: &Path, flatpak: Option<&str>) -> String {
   <key>Label</key><string>{LABEL}</string>
   <key>AssociatedBundleIdentifiers</key><string>dk.mwo.coxswain</string>
   <key>ProgramArguments</key>
-  <array><string>{exe}</string><string>{}</string><string>{STAY}</string></array>
+  <array><string>{}</string><string>{}</string><string>{STAY}</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
   <key>StandardErrorPath</key><string>{log}</string>
@@ -138,21 +138,24 @@ fn unit(exe: &Path, flatpak: Option<&str>) -> String {
 </dict>
 </plist>
 "#,
+            xml(&exe),
             crate::helper::ARG,
-            log = crate::helper::log().unwrap_or_default().display(),
+            log = xml(&crate::helper::log().unwrap_or_default().display().to_string()),
         )
     } else if autostart() {
         format!(
             "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
-             [Desktop Entry]\nType=Application\nName=Coxswain file index\nExec=\"{exe}\" {} {STAY}\nNoDisplay=true\nTerminal=false\n",
+             [Desktop Entry]\nType=Application\nName=Coxswain file index\nExec=\"{}\" {} {STAY}\nNoDisplay=true\nTerminal=false\n",
+            desktop(&exe),
             crate::helper::ARG
         )
     } else {
         format!(
             "# Written by Coxswain (Settings → Finding files → Background reading → Start with my session).\n\
              [Unit]\nDescription=Coxswain's file index\nStartLimitIntervalSec=0\n\n\
-             [Service]\nExecStart=\"{exe}\" {} {STAY}\nRestart=on-failure\nRestartSec=1\nNice=10\nIOSchedulingClass=idle\n\n\
+             [Service]\nExecStart=\"{}\" {} {STAY}\nRestart=on-failure\nRestartSec=1\nNice=10\nIOSchedulingClass=idle\n\n\
              [Install]\nWantedBy=default.target\n",
+            systemd(&exe),
             crate::helper::ARG
         )
     }
@@ -199,7 +202,51 @@ fn exe_in(text: &str) -> Option<PathBuf> {
     } else {
         ("ExecStart=\"", "\"")
     };
-    Some(PathBuf::from(text.split_once(open)?.1.split_once(close)?.0))
+    let rest = text.split_once(open)?.1;
+    if cfg!(target_os = "macos") {
+        let s = rest.split_once(close)?.0;
+        return Some(PathBuf::from(s.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")));
+    }
+    if cfg!(windows) {
+        return Some(PathBuf::from(rest.split_once(close)?.0));
+    }
+    // The desktop entry's string escape (`\\` for `\`) goes first.
+    let line = rest.lines().next()?;
+    let line = if autostart() { line.replace("\\\\", "\\") } else { line.to_string() };
+    // Up to the closing quote, a backslash taking the next character as it is.
+    let (mut out, mut chars) = (String::new(), line.chars());
+    loop {
+        match chars.next()? {
+            '\\' => out.push(chars.next()?),
+            '"' => break,
+            c => out.push(c),
+        }
+    }
+    let out = out.replace("%%", "%");
+    Some(PathBuf::from(if autostart() { out } else { out.replace("$$", "$") }))
+}
+
+/// Text for a plist's `<string>`.
+fn xml(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+/// A path for a quoted `ExecStart` argument: systemd's escapes, `%` and `$` doubled.
+fn systemd(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"").replace('%', "%%").replace('$', "$$")
+}
+
+/// A path for a quoted `Exec` argument (the desktop entry spec): `"`, `` ` ``, `$` and `\` take
+/// a backslash, `%` is doubled, then the string's own escape doubles each backslash.
+fn desktop(s: &str) -> String {
+    let mut q = String::new();
+    for c in s.chars() {
+        if matches!(c, '"' | '`' | '$' | '\\') {
+            q.push('\\');
+        }
+        q.push(c);
+    }
+    q.replace('%', "%%").replace('\\', "\\\\")
 }
 
 #[cfg(windows)]
@@ -409,6 +456,26 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A path with `&`, `%`, `$`, quotes and spaces is written escaped and read back as it is.
+    #[test]
+    fn odd_paths_are_escaped() {
+        let exe = Path::new("/opt/A & B/100% \"$x\" `y` \\z/coxswain-gui");
+        let text = unit(exe, None);
+        if !cfg!(windows) {
+            assert_eq!(exe_in(&text).as_deref(), Some(exe), "{text}");
+        }
+        if cfg!(target_os = "macos") {
+            assert!(text.contains("/opt/A &amp; B/100% "));
+        } else if !cfg!(windows) && autostart() {
+            assert!(text.contains(r#"Exec="/opt/A & B/100%% \\"\\$x\\" \\`y\\` \\\\z/coxswain-gui""#), "{text}");
+        } else if !cfg!(windows) {
+            assert!(text.contains(r#"ExecStart="/opt/A & B/100%% \"$$x\" `y` \\z/coxswain-gui""#), "{text}");
+        }
+        assert_eq!(desktop("a%b"), "a%%b");
+        assert_eq!(systemd("a%b c"), "a%%b c");
+        assert_eq!(xml("a&<b>"), "a&amp;&lt;b&gt;");
     }
 
     #[test]

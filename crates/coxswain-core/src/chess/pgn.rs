@@ -575,8 +575,10 @@ pub fn parse(text: &str) -> Game {
                             (white, number)
                         }
                     };
+                    // A null move (`--`, or `Z0`): the turn passes, shown as `--`.
+                    let null = san == "--" || san == "Z0";
                     let mut node = Node {
-                        san: san.to_string(),
+                        san: if null { "--".into() } else { san.to_string() },
                         parent: cur,
                         white,
                         number,
@@ -586,7 +588,13 @@ pub fn parse(text: &str) -> Game {
                         ..Node::default()
                     };
                     let mut after = None;
-                    if let Some(b) = prev.as_ref() {
+                    if let Some(b) = prev.as_ref()
+                        && null
+                        && let Some(nb) = b.null_move()
+                    {
+                        node.fen = Some(nb.to_string());
+                        after = Some(nb);
+                    } else if let Some(b) = prev.as_ref() {
                         match san_move(b, san) {
                             Some(mv) => {
                                 let (from, to) = shown_squares(b, mv);
@@ -723,6 +731,19 @@ mod tests {
         let g = parse("[SetUp \"1\"]\n[FEN \"4k3/8/8/8/8/8/4P3/4K3 b - - 0 40\"]\n40...Kd7 41.e4 *");
         assert_eq!(g.error, None);
         assert_eq!((g.nodes[0].white, g.nodes[0].number, g.nodes[1].number), (false, 40, 41));
+    }
+
+    #[test]
+    fn a_null_move_passes_the_turn() {
+        for null in ["--", "Z0"] {
+            let g = parse(&format!("1.e4 {null} 2.d4 d5 *"));
+            assert_eq!(g.error, None, "{null}");
+            assert_eq!(g.main_line().len(), 4);
+            assert_eq!(g.nodes[1].san, "--");
+            assert!(g.nodes[3].fen.is_some(), "the replay goes on");
+        }
+        // In check a turn cannot pass.
+        assert!(parse("1.f3 e5 2.g4 Qh4+ 3.-- *").error.is_some());
     }
 
     #[test]

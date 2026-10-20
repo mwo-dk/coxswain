@@ -1613,7 +1613,7 @@ mod tests {
     fn kqueue_watches_folders_only_shallowest_first() {
         let d = tree("kq");
         let all = folders_to_watch(
-            &[d.clone()],
+            std::slice::from_ref(&d),
             &[d.join("skip").to_string_lossy().into_owned(), "ui".into()],
             usize::MAX,
         );
@@ -1623,10 +1623,10 @@ mod tests {
         assert_eq!(all[0], d);
         assert!(all.contains(&d.join("docs")) && all.contains(&d.join("src")));
         assert_eq!(
-            folders_to_watch(&[d.clone()], &[], usize::MAX).last(),
+            folders_to_watch(std::slice::from_ref(&d), &[], usize::MAX).last(),
             Some(&d.join("src/ui"))
         );
-        assert_eq!(folders_to_watch(&[d.clone()], &[], 2).len(), 2);
+        assert_eq!(folders_to_watch(std::slice::from_ref(&d), &[], 2).len(), 2);
         fs::remove_dir_all(d).unwrap();
     }
 
@@ -1667,7 +1667,7 @@ mod tests {
     #[test]
     fn index_query_syntax() {
         let d = tree("q");
-        let ix = Index::build(&[d.clone()], &["skip".into()], None, None);
+        let ix = Index::build(std::slice::from_ref(&d), &["skip".into()], None, None);
         assert_eq!(names(&ix, "main"), ["main.rs"]);
         assert_eq!(names(&ix, "MAIN"), ["main.rs"]);
         assert_eq!(names(&ix, "case: MAIN"), Vec::<String>::new());
@@ -1765,7 +1765,7 @@ mod tests {
     #[test]
     fn index_refresh_and_persist() {
         let d = tree("r");
-        let mut ix = Index::build(&[d.clone()], &[], None, None);
+        let mut ix = Index::build(std::slice::from_ref(&d), &[], None, None);
         fs::remove_file(d.join("src/lib.rs")).unwrap();
         fs::remove_dir_all(d.join("docs")).unwrap();
         fs::create_dir_all(d.join("src/new/deep")).unwrap();

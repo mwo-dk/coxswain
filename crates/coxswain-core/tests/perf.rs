@@ -115,7 +115,7 @@ fn perf_find_file_1m() {
     let d = tree(1000, 1000);
     let before = rss_mb();
     let t = Instant::now();
-    let ix = Index::build(&[d.clone()], &[], None, None);
+    let ix = Index::build(std::slice::from_ref(&d), &[], None, None);
     println!(
         "index build 1M names: {:.0} ms ({} names, +{:.0} MB)",
         ms(t),
@@ -196,7 +196,7 @@ fn home_with_zip(n: usize) -> (PathBuf, PathBuf) {
         )
         .unwrap();
     }
-    coxswain_core::archive::create(&zip, &[src.clone()]).unwrap();
+    coxswain_core::archive::create(&zip, std::slice::from_ref(&src)).unwrap();
     std::fs::remove_dir_all(&src).unwrap();
     std::fs::write(d.join(".done"), b"").unwrap();
     (d, zip)
@@ -393,7 +393,7 @@ fn home_with_caches() -> PathBuf {
         }
     }
     let first = d.join("home/projects/a0.zip");
-    coxswain_core::archive::create(&first, &[src.clone()]).unwrap();
+    coxswain_core::archive::create(&first, std::slice::from_ref(&src)).unwrap();
     let places = (0..20)
         .map(|i| format!("projects/a{i}.zip"))
         .chain((0..300).map(|i| format!("Library/Caches/pkgs/c{i}.zip")))
