@@ -11,7 +11,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 use std::str::FromStr;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 
 pub(crate) fn sty(s: &config::Style) -> Style {
     // `#rrggbb`, what the themes write, read directly: `Color::from_str` tries the colour
@@ -40,6 +40,20 @@ pub(crate) fn printable(s: &str) -> std::borrow::Cow<'_, str> {
         s.chars().map(|c| if c.is_control() { '?' } else { c }).collect::<String>().into()
     } else {
         s.into()
+    }
+}
+
+/// The columns a text takes in a terminal: the sum of its letters', each in a cell of its own,
+/// as the terminal and ratatui place them. `UnicodeWidthStr` counts Arabic lam-alef as one
+/// column (a ligature), which pushed a Persian "بالاتر" one column past its border.
+// ponytail: letters, not grapheme clusters; an emoji with a variation selector may differ.
+pub(crate) trait Cols {
+    fn width(&self) -> usize;
+}
+
+impl Cols for str {
+    fn width(&self) -> usize {
+        self.chars().map(|c| c.width().unwrap_or(0)).sum()
     }
 }
 
@@ -439,23 +453,59 @@ fn keybar(f: &mut Frame, app: &App, area: Rect) {
     // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
     let fkey = |n| app.keymap.get(&Key::new(KeyCode::F(n), false, false, false));
     let keys: Vec<u8> = (1..=12u8).filter(|&n| n <= 10 || fkey(n).is_some()).collect();
-    let slot = area.width as usize / keys.len();
+    // The keymap, so the bar names the action the key runs when two share it.
+    // Norton Commander's short words where the plain ones do not fit: RenMov, Mkdir, PullDn.
+    let labels: Vec<String> = keys
+        .iter()
+        .map(|&n| {
+            fkey(n).map_or(String::new(), |a| match a {
+                Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
+                a => a.label(),
+            })
+        })
+        .collect();
+    let nums: Vec<String> = keys.iter().map(|n| n.to_string()).collect();
+    let widths = keybar_widths(&nums.iter().map(|n| n.len()).collect::<Vec<_>>(), &labels.iter().map(|l| l.width()).collect::<Vec<_>>(), area.width as usize);
     let mut spans = vec![];
-    for (i, &n) in keys.iter().enumerate() {
-        // The keymap, so the bar names the action the key runs when two share it.
-        // Norton Commander's short words where the plain ones do not fit: RenMov, Mkdir, PullDn.
-        let label = fkey(n).map_or(String::new(), |a| match a {
-            Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
-            a => a.label(),
-        });
-        let num = n.to_string();
-        // The last slot takes what is left over, so "12Settings" fits in 80 columns.
-        let w = if i + 1 == keys.len() { area.width as usize - slot * i } else { slot };
-        let lw = w.saturating_sub(num.len());
+    for ((num, label), lw) in nums.into_iter().zip(&labels).zip(widths) {
         spans.push(Span::styled(num, sty(&t.keybar_num)));
-        spans.push(Span::styled(fit(&label, lw), sty(&t.keybar_label)));
+        spans.push(Span::styled(fit(label, lw), sty(&t.keybar_label)));
     }
     f.render_widget(Paragraph::new(Line::from(spans)).style(sty(&t.keybar_num)), area);
+}
+
+/// The columns each F-key label gets: even slots, as in NC, when every label fits in its own
+/// (the last slot takes what is left over, so "12Settings" fits in 80 columns). When one does
+/// not, as in most languages at 80 columns, short labels lend their spare room to long ones,
+/// so only the longest are cut.
+fn keybar_widths(nums: &[usize], labels: &[usize], width: usize) -> Vec<usize> {
+    let k = nums.len().max(1);
+    let slot = width / k;
+    let even: Vec<usize> = (0..nums.len()).map(|i| if i + 1 == k { width - slot * i } else { slot }.saturating_sub(nums[i])).collect();
+    if labels.iter().zip(&even).all(|(l, e)| l <= e) {
+        return even;
+    }
+    let avail = width.saturating_sub(nums.iter().sum());
+    // The largest cap that fits, then what is left makes whole the labels it cut least.
+    let mut cap = labels.iter().copied().max().unwrap_or(0);
+    while cap > 0 && labels.iter().map(|&l| l.min(cap)).sum::<usize>() > avail {
+        cap -= 1;
+    }
+    let mut out: Vec<usize> = labels.iter().map(|&l| l.min(cap)).collect();
+    let mut spare = avail - out.iter().sum::<usize>();
+    let mut cut: Vec<usize> = (0..out.len()).filter(|&i| out[i] < labels[i]).collect();
+    cut.sort_by_key(|&i| labels[i] - out[i]);
+    for i in cut {
+        let more = (labels[i] - out[i]).min(spare);
+        out[i] += more;
+        spare -= more;
+    }
+    // Any room still over pads the labels evenly, from the left.
+    let n = out.len();
+    for i in 0..spare {
+        out[i % n] += 1;
+    }
+    out
 }
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
@@ -878,7 +928,10 @@ fn wrap(s: &str, width: usize) -> Vec<String> {
     let (mut out, mut line, mut w) = (vec![], String::new(), 0);
     for word in s.split_inclusive(' ') {
         let ww = word.trim_end().width();
-        if w + ww > width && w > 0 {
+        // Japanese and Korean break between any two letters, so a word with wide letters
+        // flows on from where the line is rather than starting a line of its own.
+        let wide = word.chars().any(|c| c.width() == Some(2));
+        if w + ww > width && w > 0 && !wide {
             out.push(std::mem::take(&mut line).trim_end().to_string());
             w = 0;
         }
@@ -1045,9 +1098,36 @@ mod tests {
     }
 
     #[test]
+    fn persian_lam_alef_takes_two_columns() {
+        assert_eq!("بالاتر".width(), 6);
+        assert_eq!(fit("بالاتر", 8).width(), 8);
+        assert_eq!("日本".width(), 4);
+    }
+
+    #[test]
+    fn keybar_lends_room_to_long_labels() {
+        let nums = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2];
+        // British English fits: even slots of 7, the last one 10.
+        let en = [4, 4, 4, 4, 4, 6, 5, 6, 6, 4, 8];
+        assert_eq!(keybar_widths(&nums, &en, 80), [6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 8]);
+        // German does not: Hilfe Menü Ansicht Bearbeit. Kopieren RenMov Mkdir Löschen PullDn
+        // Beenden Einstellungen. Only the longest are cut, and the bar still fills 80 columns.
+        let de = [5, 4, 7, 9, 8, 6, 5, 7, 6, 7, 13];
+        let w = keybar_widths(&nums, &de, 80);
+        assert_eq!(w.iter().sum::<usize>() + nums.iter().sum::<usize>(), 80);
+        let cut = w.iter().zip(&de).filter(|(w, l)| w < l).count();
+        assert!(cut <= 3, "{w:?}");
+        // Too narrow for anything: no panic, nothing wider than the bar.
+        assert!(keybar_widths(&nums, &de, 10).iter().sum::<usize>() <= 10);
+    }
+
+    #[test]
     fn features_wrap_to_the_width_and_mark_the_cursor() {
         assert_eq!(wrap("one two three four", 9), ["one two", "three", "four"]);
         assert!(wrap("日本語のテキストはスペースがない", 10).iter().all(|l| l.width() <= 10));
+        // A Latin word in Japanese does not leave the line before it short.
+        let ja = wrap("はい。F1 を押し、デスクトップアプリでは「ガイドを再表示」を押します", 20);
+        assert!(ja[0].width() >= 18 && ja.iter().all(|l| l.width() <= 20), "{ja:?}");
         let list = coxswain_core::features::list(&config::Config::default(), "", false);
         let (lines, at) = feature_lines(&list, 2, true, 60, &config::Theme::nc());
         assert!(lines[at].to_string().contains(&list[2].title), "{}", lines[at]);

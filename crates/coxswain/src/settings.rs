@@ -17,7 +17,7 @@ use serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
-use unicode_width::UnicodeWidthStr;
+use crate::ui::Cols;
 
 /// The areas, in the order of the list on the left.
 pub const AREAS: [Area; 7] = Area::ALL;
@@ -1183,8 +1183,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     let mark = if s.service { "[x]" } else { "[ ]" };
                     lines.push(Line::from(Span::styled(fit(&format!(" {mark} {}", t!("setup.service_on")), w), st)));
                 }
-                // A path keeps its tail, the informative part.
-                // A path keeps its tail; a sentence (what a version brought) its start.
+                // A path keeps its tail, the informative part; a sentence (what a version brought)
+                // keeps its start.
                 Row::Info(label, value, _) if Path::new(value).is_absolute() || value.starts_with('~') => lines.push(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
                 Row::Info(label, value, _) => lines.push(pair(&format!(" {label}"), value, st)),
                 Row::Go(area, value) => lines.push(Line::from(vec![Span::styled(fit(&format!(" {}", area.label()), aw.max(14)), if here { selected } else { head }), Span::styled(fit(value, w.saturating_sub(aw.max(14))), st)])),

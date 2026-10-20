@@ -114,7 +114,7 @@
             {@render icon(e)}
           {/if}
         </div>
-        <span class="label">
+        <span class="label" dir="auto">
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span> {/if}{e.name}
         </span>
         {#if e.name !== ".."}<button class="more" tabindex="-1" title="{tr('action.action_menu')} ({ui.cfg.actions.action_menu?.[1] ?? ''})" aria-label={tr("action.action_menu")} onclick={(ev) => rowMenu(ev, t, i, onfocus)} ondblclick={(ev) => ev.stopPropagation()}>⋯</button>{/if}
@@ -195,7 +195,6 @@
   .label {
     width: 100%;
     text-align: center;
-    unicode-bidi: plaintext;
     font-size: 0.9em;
     overflow: hidden;
     text-overflow: ellipsis;

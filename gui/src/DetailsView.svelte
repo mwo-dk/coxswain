@@ -127,7 +127,7 @@
       >
         <span class="name">
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
-          <span class="label">{e.name}</span>
+          <span class="label" dir="auto">{e.name}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
           {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
@@ -257,11 +257,13 @@
   .more:hover {
     border-color: currentColor;
   }
-  /* A name goes the way its first letter does: ".git" stays ".git" under a right-to-left language. */
+  /* A name goes the way its first letter does (dir="auto"): ".git" stays ".git" under a
+     right-to-left language, and a long one keeps its start and ends in …; it is aligned as
+     the column is. */
   .label {
     overflow: hidden;
     text-overflow: ellipsis;
-    unicode-bidi: plaintext;
+    text-align: match-parent;
   }
   .icon {
     font-family: var(--icon-font);
