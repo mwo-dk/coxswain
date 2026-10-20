@@ -172,8 +172,7 @@ pub struct Looked {
 
 impl Index {
     pub fn default_roots() -> Vec<PathBuf> {
-        // Tests index their own home, not the whole machine: that read every disk and, deep
-        // enough, overflowed the stacks of the walk's threads in a debug build.
+        // Tests index their own home, not the whole machine.
         if cfg!(any(test, feature = "test-home")) {
             crate::dirs::home_dir().into_iter().collect()
         } else if cfg!(windows) {
@@ -242,18 +241,31 @@ impl Index {
 
     /// `dir` and below, `look` when the archives in it are looked into.
     fn scan(&self, dir: &Path, before: Option<&Index>, look: bool) -> Vec<Scanned> {
+        self.scan_at(dir, before, look, 0)
+    }
+
+    /// `scan` at `depth` below a root. From `sizes::DEEP` levels down one thread goes on alone:
+    /// each parallel level nests rayon's frames, and those of the jobs it takes while it waits,
+    /// on its worker's stack, and a deep tree overflowed it.
+    fn scan_at(&self, dir: &Path, before: Option<&Index>, look: bool, depth: usize) -> Vec<Scanned> {
         let mut out = self.scan_one(dir);
-        out.par_iter_mut()
-            .filter(|s| s.is_dir || look && crate::archive::is_archive(Path::new(&s.name)))
-            .for_each(|s| {
-                let path = dir.join(&s.name);
-                if s.is_dir {
-                    let look = self.looks_below(&path, look);
-                    s.children = self.scan(&path, before, look);
-                } else {
-                    Index::open_up(&path, s, before);
-                }
-            });
+        let one = |s: &mut Scanned| {
+            let path = dir.join(&s.name);
+            if s.is_dir {
+                let look = self.looks_below(&path, look);
+                s.children = self.scan_at(&path, before, look, depth + 1);
+            } else {
+                Index::open_up(&path, s, before);
+            }
+        };
+        let wanted = |s: &&mut Scanned| {
+            s.is_dir || look && crate::archive::is_archive(Path::new(&s.name))
+        };
+        if depth >= crate::sizes::DEEP {
+            out.iter_mut().filter(wanted).for_each(one);
+        } else {
+            out.par_iter_mut().filter(wanted).for_each(one);
+        }
         out
     }
 
@@ -2073,6 +2085,24 @@ mod tests {
                 rest.display()
             );
         }
+    }
+
+    /// A tree thousands of folders deep is walked whole without overflowing a thread's stack:
+    /// below `sizes::DEEP` levels one thread goes on alone.
+    #[test]
+    fn index_walks_a_very_deep_tree() {
+        let d = crate::fs::Scratch::named("index-deep");
+        let mut at = d.to_path_buf();
+        for i in 0..1500 {
+            at.push("d");
+            if i % 50 == 0 {
+                fs::create_dir_all(&at).unwrap();
+            }
+        }
+        fs::create_dir_all(&at).unwrap();
+        fs::write(at.join("bottom.txt"), "").unwrap();
+        let ix = Index::build(&[d.to_path_buf()], &[], None, None);
+        assert!(ix.len() > 1500, "{}", ix.len());
     }
 
     #[test]
