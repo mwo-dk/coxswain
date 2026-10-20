@@ -768,6 +768,7 @@
         <!-- A conversion under way: which file, for how long, how far ffmpeg is or what it said last. -->
         <span class="status" title={s.line}>{t(s.all > 1 ? "media.busy_of" : "media.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
         <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopMedia}>{t("searchable.stop")}</button>
+      {/if}
       {#if ui.ebook}
         {@const s = ui.ebook}
         <!-- Convert e-book under way: which one, for how long, what calibre said last. -->
