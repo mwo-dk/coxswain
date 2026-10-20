@@ -172,7 +172,11 @@ pub struct Looked {
 
 impl Index {
     pub fn default_roots() -> Vec<PathBuf> {
-        if cfg!(windows) {
+        // Tests index their own home, not the whole machine: that read every disk and, deep
+        // enough, overflowed the stacks of the walk's threads in a debug build.
+        if cfg!(any(test, feature = "test-home")) {
+            crate::dirs::home_dir().into_iter().collect()
+        } else if cfg!(windows) {
             (b'A'..=b'Z')
                 .map(|d| PathBuf::from(format!("{}:\\", d as char)))
                 .filter(|p| p.exists())
@@ -399,7 +403,7 @@ impl Index {
     }
 
     fn find_home(&mut self) {
-        self.home = std::env::home_dir()
+        self.home = crate::dirs::home_dir()
             .and_then(|h| self.find_dir(&h))
             .map(|(id, _)| id);
     }
@@ -2046,6 +2050,9 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn index_leaves_other_apps_data_alone() {
+        // The real ~/Library, only listed: what is tested is that its protected folders stay
+        // unopened, which a test home cannot show.
+        #[allow(clippy::disallowed_methods)]
         let lib = std::env::home_dir().unwrap().join("Library");
         let ix = Index::build(std::slice::from_ref(&lib), &[], None, None);
         assert!(ix.len() > 1, "~/Library is listed");

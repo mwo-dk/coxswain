@@ -1972,7 +1972,7 @@ impl App {
         // `cd` has to change our own directory, so it is built in.
         if t == "cd" || t.starts_with("cd ") {
             let arg = t[2..].trim().trim_matches(['"', '\'']);
-            let target = if arg.is_empty() { std::env::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
+            let target = if arg.is_empty() { coxswain_core::dirs::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
             if target.is_dir() {
                 self.cd(self.active, std::fs::canonicalize(&target).unwrap_or(target));
             } else {
@@ -3776,6 +3776,18 @@ pub(crate) fn test_index(cfg: &Config) -> Arc<Client> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The app's tests keep their config, state and caches in a home of their own in the
+    /// temporary folder (`coxswain-core`'s `test-home`), never the developer's own.
+    #[test]
+    fn tests_never_reach_the_real_home() {
+        let mut all = coxswain_core::config::Config::paths();
+        all.push(("home", coxswain_core::dirs::home_dir()));
+        for (what, path) in all {
+            let path = path.unwrap_or_else(|| panic!("{what}: none"));
+            assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
+        }
+    }
 
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
     #[test]

@@ -227,7 +227,7 @@ pub fn flatpak_tmp() {
     if flatpak().is_none() {
         return;
     }
-    if let Some(d) = dirs::cache_dir()
+    if let Some(d) = crate::dirs::cache_dir()
         .map(|d| d.join("tmp"))
         .filter(|d| std::fs::create_dir_all(d).is_ok())
     {
@@ -278,7 +278,7 @@ pub fn media_missing() -> Option<String> {
                 .collect()
             }
         });
-    let local = dirs::data_dir().map(|d| d.join("gstreamer-1.0/plugins"));
+    let local = crate::dirs::data_dir().map(|d| d.join("gstreamer-1.0/plugins"));
     let dirs: Vec<PathBuf> = vars(&["GST_PLUGIN_PATH_1_0", "GST_PLUGIN_PATH"])
         .unwrap_or_default()
         .into_iter()
@@ -595,7 +595,7 @@ pub fn nerd_font() -> Option<bool> {
         let dirs: Vec<PathBuf> = if cfg!(windows) {
             [
                 std::env::var_os("WINDIR").map(|w| PathBuf::from(w).join("Fonts")),
-                dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts")),
+                crate::dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts")),
             ]
             .into_iter()
             .flatten()
@@ -603,7 +603,7 @@ pub fn nerd_font() -> Option<bool> {
         } else {
             [
                 Some(PathBuf::from("/Library/Fonts")),
-                dirs::home_dir().map(|h| h.join("Library/Fonts")),
+                crate::dirs::home_dir().map(|h| h.join("Library/Fonts")),
             ]
             .into_iter()
             .flatten()

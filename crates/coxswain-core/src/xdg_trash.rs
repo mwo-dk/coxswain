@@ -18,11 +18,7 @@ use std::path::{Path, PathBuf};
 
 /// `$XDG_DATA_HOME/Trash`, else `~/.local/share/Trash`.
 pub fn dir() -> Option<PathBuf> {
-    std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .filter(|p| p.is_absolute())
-        .or_else(|| std::env::home_dir().map(|h| h.join(".local/share")))
-        .map(|d| d.join("Trash"))
+    crate::dirs::data_dir().map(|d| d.join("Trash"))
 }
 
 /// Whether `path` is on the trash's filesystem, so it can be renamed in.

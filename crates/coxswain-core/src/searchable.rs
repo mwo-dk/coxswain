@@ -281,7 +281,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Result<Scratch, String> {
-        let base = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?;
+        let base = crate::dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?;
         let ocr = base.join("coxswain").join("ocr");
         // What a run of an app that was killed left behind, a day on (a run may take hours).
         for e in std::fs::read_dir(&ocr).into_iter().flatten().flatten() {

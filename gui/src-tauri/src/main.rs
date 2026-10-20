@@ -259,7 +259,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         levels: coxswain_core::settings::Level::ALL.iter().map(|l| (*l, l.costs())).collect(),
         config_path: Config::path(),
         gui: cfg.gui.clone(),
-        home: std::env::home_dir().unwrap_or_default(),
+        home: coxswain_core::dirs::home_dir().unwrap_or_default(),
         sep: std::path::MAIN_SEPARATOR,
         version: coxswain_core::update::VERSION,
         media_missing: coxswain_core::tools::media_missing(),
@@ -608,7 +608,7 @@ struct Place {
 fn places() -> Vec<Place> {
     let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: coxswain_core::t!(name), path, icon });
     [
-        p("place.home", dirs::home_dir(), "\u{f015}"),
+        p("place.home", coxswain_core::dirs::home_dir(), "\u{f015}"),
         p("place.desktop", dirs::desktop_dir(), "\u{f108}"),
         p("place.documents", dirs::document_dir(), "\u{f0219}"),
         p("place.downloads", dirs::download_dir(), "\u{f019}"),
@@ -2246,7 +2246,7 @@ fn main() {
         coxswain_core::tools::login_path();
     }
     // Launched from a desktop menu the cwd is usually `/`; home is a better start.
-    let home = std::env::home_dir().unwrap_or_default();
+    let home = coxswain_core::dirs::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     // A folder's name need not be Unicode; the options are.
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
@@ -2335,6 +2335,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The app's tests keep their config, state and caches in a home of their own in the
+    /// temporary folder (`coxswain-core`'s `test-home`), never the developer's own.
+    #[test]
+    fn tests_never_reach_the_real_home() {
+        let mut all = coxswain_core::config::Config::paths();
+        all.push(("home", coxswain_core::dirs::home_dir()));
+        for (what, path) in all {
+            let path = path.unwrap_or_else(|| panic!("{what}: none"));
+            assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
+        }
+    }
 
     #[test]
     fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {

@@ -171,7 +171,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         });
     }
     // Home is on ZFS: its snapshots are a key away.
-    if !seen("zfs") && std::env::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
+    if !seen("zfs") && crate::dirs::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
         let key = cfg
             .key_for(crate::config::Action::Snapshots)
             .unwrap_or("F9");

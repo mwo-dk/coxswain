@@ -258,7 +258,7 @@ const LIBREOFFICE_SETTINGS: [&str; 5] = [
 /// A LibreOffice profile folder named `name` in the cache, as the `file:` URL its
 /// `-env:UserInstallation` wants, with `LIBREOFFICE_SETTINGS` in place.
 pub fn libreoffice_profile(name: &str) -> Option<String> {
-    let profile = dirs::cache_dir()?.join("coxswain").join(name);
+    let profile = crate::dirs::cache_dir()?.join("coxswain").join(name);
     lock_profile(&profile)?;
     Some(file_url(&profile.to_string_lossy()))
 }

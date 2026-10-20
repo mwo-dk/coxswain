@@ -30,7 +30,7 @@ pub fn storage() -> Vec<(String, PathBuf)> {
     if !active() {
         return vec![];
     }
-    let Some(dir) = std::env::home_dir().map(|h| h.join("storage")) else {
+    let Some(dir) = crate::dirs::home_dir().map(|h| h.join("storage")) else {
         return vec![];
     };
     storage_in(&dir)
@@ -51,7 +51,7 @@ fn storage_in(dir: &Path) -> Vec<(String, PathBuf)> {
 
 /// Whether the phone's folders still wait for `termux-setup-storage`.
 pub fn storage_missing() -> bool {
-    active() && std::env::home_dir().is_some_and(|h| !h.join("storage").exists())
+    active() && crate::dirs::home_dir().is_some_and(|h| !h.join("storage").exists())
 }
 
 /// Whether the Termux:API commands (clipboard, battery) are missing.
