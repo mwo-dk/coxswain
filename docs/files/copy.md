@@ -127,7 +127,7 @@ your home folder. The folder has to exist unless you copy a single item (see abo
 #### Does copying keep dates and permissions?
 
 A file's permission bits and modification date are kept (the copy is made with the system's
-file copy, and dated as the original). Folders get the time of copying. Symbolic links stay
+file copy, and dated as the original). A file copied out of an archive keeps the date it has in the archive. Folders get the time of copying. Symbolic links stay
 links.
 
 #### Can I copy files into a zip?

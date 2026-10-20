@@ -753,6 +753,12 @@ pub fn split(path: &Path) -> Option<(PathBuf, String)> {
     None
 }
 
+/// Seconds since the Unix epoch of a 7z entry's modified time (0: none). Counted here: a time
+/// past what the system's clock holds must not panic.
+fn seven_secs(e: &sevenz_rust2::ArchiveEntry) -> u64 {
+    (u64::from(e.last_modified_date) / 10_000_000).saturating_sub(11_644_473_600)
+}
+
 /// Seconds since the Unix epoch of a zip's date and time, which is local time without a zone
 /// (as zip tools write it); a time that does not exist (a clock change) takes the one after.
 fn unix(t: zip::DateTime) -> u64 {
@@ -876,9 +882,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
         let r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
         for f in r.archive().files.iter().take(max) {
-            // Counted here: a time past what the system's clock holds must not panic.
-            let modified =
-                (u64::from(f.last_modified_date) / 10_000_000).saturating_sub(11_644_473_600);
+            let modified = seven_secs(f);
             out.push(Item {
                 name: f.name.replace('\\', "/").trim_end_matches('/').to_string(),
                 size: f.size,
@@ -1374,20 +1378,22 @@ fn copy_entries(
         Ok(())
     };
     let left = std::cell::Cell::new(how.limit);
-    let write = |path: &Path, from: &mut dyn Read| -> io::Result<()> {
+    // `secs`: the entry's modified time, which the file out of the archive keeps (0: none).
+    let write = |path: &Path, from: &mut dyn Read, secs: u64| -> io::Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let n = io::copy(
-            &mut from.take(left.get().saturating_add(1)),
-            &mut File::create_new(path)?,
-        )?;
+        let mut f = File::create_new(path)?;
+        let n = io::copy(&mut from.take(left.get().saturating_add(1)), &mut f)?;
         if n > left.get() {
             return Err(too_large(
                 &path.file_name().unwrap_or_default().to_string_lossy(),
             ));
         }
         left.set(left.get() - n);
+        if secs > 0 {
+            let _ = f.set_modified(crate::fs::epoch(secs));
+        }
         Ok(())
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
@@ -1406,7 +1412,7 @@ fn copy_entries(
             let Some(path) = place(&name) else { continue };
             *any = true;
             f.seek(io::SeekFrom::Start(m.start))?;
-            match write(&path, &mut (&mut f).take(m.len)) {
+            match write(&path, &mut (&mut f).take(m.len), m.secs.max(0) as u64) {
                 Err(e) if inner.is_empty() => {
                     let _ = (e, std::fs::remove_file(&path));
                     skipped += 1;
@@ -1427,7 +1433,7 @@ fn copy_entries(
         if let Some(it) = file {
             *any = true;
             let path = place(&it.name).ok_or_else(|| io::Error::other(crate::t!("disk_image.read_only")))?;
-            return crate::disk_image::read_file(archive, inner, it.size, &mut |r| write(&path, r));
+            return crate::disk_image::read_file(archive, inner, it.size, &mut |r| write(&path, r, it.modified));
         }
         if !inner.is_empty() && !all.iter().any(|it| it.name.starts_with(&prefix)) {
             return Ok(());
@@ -1468,7 +1474,7 @@ fn copy_entries(
             ));
         }
         for i in one.map_or(0..z.len(), |i| i..i + 1) {
-            let (name, dir, encrypted, mode) = {
+            let (name, dir, encrypted, mode, secs) = {
                 let e = z.by_index_raw(i).map_err(io::Error::other)?;
                 (
                     e.name()
@@ -1478,6 +1484,7 @@ fn copy_entries(
                     e.is_dir(),
                     e.encrypted(),
                     e.unix_mode(),
+                    e.last_modified().map_or(0, unix),
                 )
             };
             let Some(path) = place(&name) else {
@@ -1504,7 +1511,7 @@ fn copy_entries(
                 left: size,
                 failed: false,
             };
-            if let Err(err) = write(&path, &mut from) {
+            if let Err(err) = write(&path, &mut from, secs) {
                 return Err(copy_error(err, &from, encrypted));
             }
             // A script stays one; nothing but the permission bits is taken.
@@ -1547,7 +1554,7 @@ fn copy_entries(
             let done = if e.is_directory {
                 std::fs::create_dir_all(&path)
             } else {
-                write(&path, &mut from)
+                write(&path, &mut from, seven_secs(e))
             };
             if let Err(err) = done {
                 failed = Some(copy_error(err, &from, locked));
@@ -1572,7 +1579,8 @@ fn copy_entries(
             if t.is_dir() {
                 std::fs::create_dir_all(&path)?;
             } else if t.is_file() {
-                write(&path, e)?;
+                let secs = e.header().mtime().unwrap_or(0);
+                write(&path, e, secs)?;
                 // The one file asked for is out: nothing after it is unpacked.
                 if name == inner {
                     return Ok(false);
@@ -1608,6 +1616,12 @@ fn zip_time(secs: u64) -> zip::DateTime {
         l.second() as u8,
     )
     .unwrap_or_default()
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 fn modified(path: &Path) -> u64 {
@@ -1759,8 +1773,9 @@ fn rewrite(
                 .compression_method(zip::CompressionMethod::Deflated);
             for (name, new) in add {
                 match new {
+                    // Dated now, as the tar's are: a zip's default is 1980.
                     New::Dir => w
-                        .add_directory(format!("{name}/"), opts)
+                        .add_directory(format!("{name}/"), opts.last_modified_time(zip_time(now_secs())))
                         .map_err(io::Error::other)?,
                     New::File(path) => {
                         let opts = opts.last_modified_time(zip_time(modified(path)));
@@ -1835,7 +1850,13 @@ fn rewrite(
             for (name, new) in add {
                 match new {
                     New::Dir => w.push_archive_entry::<File>(
-                        sevenz_rust2::ArchiveEntry::new_directory(name),
+                        {
+                            let mut d = sevenz_rust2::ArchiveEntry::new_directory(name);
+                            if let Ok(t) = sevenz_rust2::NtTime::try_from(std::time::SystemTime::now()) {
+                                (d.last_modified_date, d.has_last_modified_date) = (t, true);
+                            }
+                            d
+                        },
                         None,
                     ),
                     New::File(path) => w.push_archive_entry(
@@ -1876,11 +1897,7 @@ fn rewrite(
                         h.set_entry_type(tar::EntryType::Directory);
                         h.set_mode(0o755);
                         h.set_size(0);
-                        h.set_mtime(
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .map_or(0, |d| d.as_secs()),
-                        );
+                        h.set_mtime(now_secs());
                         b.append_data(&mut h, name, io::empty())?;
                     }
                     New::File(path) => b.append_path_with_name(path, name)?,
@@ -3638,6 +3655,36 @@ mod tests {
         assert!(first.is_empty() && more);
         assert!(cached(&image, stamp(&image).unwrap()).is_some(), "kept after a preview of none");
         crate::disk_image::FORCE.with(|f| f.set(false));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// What comes out of an archive keeps the date it has in it (zip, 7z, tar), and a folder
+    /// made inside one is dated now, not 1980.
+    #[test]
+    fn dates_survive_extracting_and_new_folders_are_dated_now() {
+        let d = crate::pictures::tests::folder("archive-dates");
+        let src = d.join("old.txt");
+        std::fs::write(&src, b"old").unwrap();
+        let then = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+        File::options().write(true).open(&src).unwrap().set_modified(then).unwrap();
+        let now = now_secs();
+        for ending in ["zip", "7z", "tar.gz"] {
+            let a = d.join(format!("a.{ending}"));
+            create(&a, std::slice::from_ref(&src)).unwrap();
+            let out = extract(&a, &d.join(format!("out-{}", ending.replace('.', "-")))).unwrap();
+            let got = std::fs::metadata(out.join("old.txt")).unwrap().modified().unwrap();
+            let off = got.duration_since(then).unwrap_or_else(|e| e.duration());
+            // A zip keeps local time to two seconds.
+            assert!(off.as_secs() <= 2, "{ending}: {got:?}");
+            let one = d.join(format!("one-{}.txt", ending.replace('.', "-")));
+            copy_out(&a, "old.txt", &one, None, false).unwrap();
+            let got = std::fs::metadata(&one).unwrap().modified().unwrap();
+            assert!(got.duration_since(then).unwrap_or_else(|e| e.duration()).as_secs() <= 2, "{ending} F5");
+            mkdir(&a, "new", None).unwrap();
+            let (all, _) = list(&a, 100).unwrap();
+            let new = all.iter().find(|e| e.name == "new").unwrap();
+            assert!(new.is_dir && new.modified + 120 >= now, "{ending}: new folder dated {}", new.modified);
+        }
         let _ = std::fs::remove_dir_all(&d);
     }
 }
