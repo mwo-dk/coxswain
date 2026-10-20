@@ -86,7 +86,8 @@ their headers are read too and the facts are those of the whole model.
 Only the header is read: a GGUF's keys and tensor list (up to 256 MB of header, a few
 megabytes in practice), a safetensors file's JSON header (up to the format's own 100 MB). Every
 length, count and offset in it is checked before it is used, and a header that claims more than
-the file holds, or more than these limits, is not read further. ONNX files show no facts yet.
+the file holds, or more than these limits, is not read further. ONNX, TensorFlow Lite, Core ML and Keras models have
+[a page of their own](../previews/neural-networks.md), with their graph.
 
 ## Memory, and whether it fits
 
