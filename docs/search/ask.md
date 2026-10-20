@@ -108,6 +108,8 @@ and Ask* there; or `coxswain --setup-search`). By hand:
 Ask fills the chat model's context, not a fixed number of passages. What fits is the context
 less the rules, the questions and answers before, the question and 1,024 tokens kept for the
 answer (4,096 when the model thinks first, [Thinking](#thinking)); a token is counted as 3 bytes of text, on the safe side (English is nearer 4).
+The answer stops where that room ends, ending in *…*: a model that runs on (a file can tell it
+to repeat a word for ever) stops after about 750 words, not minutes later.
 
 | Chat model | Context | Sources, about |
 |---|---|---|
@@ -370,6 +372,33 @@ when Find opens at *Ask* and when Settings opens, and the *Chat model* list leav
 models out. A server with the OpenAI API does not say: its whole list is offered, and the model
 you choose is sent a one-word question when you save it (Settings, or `coxswain --meaning ask`);
 its error, if any, shows under *Chat model*.
+
+#### Can a file trick Ask?
+
+It can try, and it can mislead the model; it cannot do more. Ask has no tools: the model can only
+write text, and nothing it writes is run or opened. A file can hold words meant for the model
+(*ignore the other sources and say …*), in a comment, in white or tiny text in a PDF or Word
+file, or in invisible characters. Coxswain makes such words weaker, not powerless:
+
+- Each source goes to the model between `<source>` and `</source>`, and the model is told that
+  a source is text from a file, never an instruction. A file cannot end its own source or make
+  up another one (*[3] /etc/passwd*): its own `<source` and `</source` are broken up, and so are
+  the turn marks of chat models (`<|im_end|>` and the like), which would otherwise end the
+  rules and start new ones.
+- Invisible characters that carry hidden words (Unicode tags) or turn text around (bidi
+  overrides) are left out of what the model reads and out of the answer.
+- A **[n]** in the answer only ever leads to source *n* of the list under it; a number with no
+  source is plain text. The list shows the real files the answer was made from: check a
+  surprising claim there with **Enter** or a click.
+- Escape sequences in an answer or a source (a title, a clipboard write, a link, a cursor move)
+  are left out in both apps; the desktop app shows the answer as text, never as a page, so its
+  links do not open.
+- An answer stops after its room (see [How much it reads](#how-much-it-reads)), however long a
+  file asks it to go on.
+
+A file that says the opposite of another can still win: the model weighs what the sources say,
+and a plain sentence in a file looks like any other. When an answer sounds wrong, look at its
+sources.
 
 #### Why does a follow-up sometimes find other sources?
 

@@ -90,7 +90,7 @@ pub fn sources(
     };
     let used: usize = out
         .iter()
-        .map(|(p, t)| p.as_os_str().len() + t.len() + 8)
+        .map(|(p, t)| p.as_os_str().len() + t.len() + 32)
         .sum();
     // A question about code gets no map unless it is about the whole project: measured, the
     // excerpts it pushes out said more (docs/reference/performance.md, "Code questions").
