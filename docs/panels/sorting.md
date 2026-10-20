@@ -84,7 +84,11 @@ order among themselves.
 
 #### Ctrl+F3 does nothing in my terminal. Why?
 
-Some terminals do not send Ctrl with function keys, or keep them for themselves. Pick the
+Some terminals do not send Ctrl with function keys, or keep them for themselves. And in the
+terminal app **Ctrl+F3** never arrives from xterm and the terminals that copy it (GNOME
+Terminal, Konsole, tmux …): they send it as the very sequence a terminal uses to report where
+its cursor is, and the terminal library reads it as that. **Ctrl+F4** to **Ctrl+F6** are not
+affected. Pick the
 order from the command list instead (**F9**, type `sort`), or bind other keys:
 `[keys] sort_time = ["Ctrl+F5", "Ctrl+Q"]` ([Changing keys](../customise/keys.md)).
 
