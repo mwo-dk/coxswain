@@ -3665,6 +3665,23 @@ fn git_sides(panels: &[Panel; 2], paths: &[PathBuf]) -> Vec<usize> {
         .collect()
 }
 
+/// A folder of a test's own, empty: panels on the shared temp folder would measure, and an
+/// index would walk, everything other programs keep there.
+#[cfg(test)]
+pub(crate) fn test_dir(name: &str) -> PathBuf {
+    let d = std::env::temp_dir().join(format!("coxswain-test-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    d
+}
+
+/// The app's own index for a test (no helper): over an empty folder, not the whole disk, and
+/// kept in no cache file.
+#[cfg(test)]
+pub(crate) fn test_index(cfg: &Config) -> Arc<Client> {
+    let search = coxswain_core::config::SearchConfig { roots: vec![test_dir("index")], watch: false, ..cfg.search.clone() };
+    Client::with(None, &search, |_| {})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3672,7 +3689,7 @@ mod tests {
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
     #[test]
     fn unknown_options_and_folders_are_said() {
-        let cwd = std::env::temp_dir();
+        let cwd = crate::test_dir("panels");
         let check = |a: &[&str]| check_args(&a.iter().map(|s| s.to_string()).collect::<Vec<_>>(), &cwd);
         let e = check(&["--model"]).unwrap_err();
         assert!(e.contains("--model") && e.contains("--models?") && e.contains("--help"), "{e}");
@@ -3716,7 +3733,7 @@ mod tests {
     /// An app on two folders, with its own index (no helper) and no update check.
     fn app(left: PathBuf, right: PathBuf) -> App {
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
     }
 
@@ -3907,7 +3924,7 @@ mod tests {
     /// hung on a dead network mount).
     #[test]
     fn a_second_quit_leaves_a_hung_job() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (_tx, rx) = mpsc::channel();
         app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
@@ -3921,7 +3938,7 @@ mod tests {
     /// Quit while Make PDF searchable runs stops it and waits for it to end.
     #[test]
     fn quit_stops_make_pdf_searchable_and_waits() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         let (tx, rx) = mpsc::channel();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -3938,7 +3955,7 @@ mod tests {
     /// can still quit.
     #[test]
     fn a_job_whose_thread_died_is_let_go() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (tx, rx) = mpsc::channel();
         tx.send(JobMsg::At(0)).unwrap();
@@ -3984,7 +4001,7 @@ mod tests {
 
     #[test]
     fn find_keys_switch_kind_scope_and_view() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         let k = |c: KeyCode, ctrl: bool, alt: bool, shift: bool| Key::new(c, ctrl, alt, shift);
         let state = |app: &App| match &app.dialog {
@@ -4031,7 +4048,7 @@ mod tests {
 
     #[test]
     fn tab_in_the_pack_prompt_swaps_the_format() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         app.input("Pack", String::new(), "/x/rocket.zip".into(), Prompt::Pack(vec![]));
         let value = |app: &App| match &app.dialog {
@@ -4128,9 +4145,9 @@ mod panel_tests {
     #[test]
     fn finds_cursor_past_the_rows_is_brought_back() {
         use ratatui::backend::TestBackend;
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
         let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
         let mut found = Found::default();
@@ -4148,9 +4165,9 @@ mod panel_tests {
     #[test]
     fn a_menu_on_a_tiny_terminal_draws() {
         use ratatui::backend::TestBackend;
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d, index).unwrap();
         let items = vec![MenuItem { key: "1".into(), label: "One".into(), run: MenuRun::Say(String::new()), group: None }];
         app.dialog = Some(Dialog::Menu { title: "M".into(), filter: String::new(), items, cursor: 0, direct: false, feature: "" });
@@ -4248,7 +4265,7 @@ mod wide_letters {
         for lang in ["ja", "ko"] {
             coxswain_core::i18n::set_language(lang);
             let cfg = Config { check_updates: false, ..Config::default() };
-            let index = Client::with(None, &cfg.search, |_| {});
+            let index = crate::test_index(&cfg);
             let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
             app.panels[0].toggle_mark(1);
             let s = draw(&mut app);

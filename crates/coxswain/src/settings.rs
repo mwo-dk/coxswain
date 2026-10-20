@@ -1419,13 +1419,12 @@ fn chat_list(groups: Vec<coxswain_core::setup::AskGroup>, looked: bool) -> Vec<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use coxswain_core::helper::Client;
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
 
     fn app(dir: &std::path::Path) -> App {
         let cfg = Config { check_updates: false, language: "en-GB".into(), ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         App::with_index(cfg, dir.to_path_buf(), dir.to_path_buf(), index).unwrap()
     }
 
@@ -1459,7 +1458,7 @@ mod tests {
     /// The themes stand under their groups' headings, your own last; the next one skips a heading.
     #[test]
     fn themes_are_listed_by_group() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.cfg.themes.insert("mine".into(), Theme::nc());
         let o = cs::find("tui_theme").unwrap();
@@ -1474,7 +1473,7 @@ mod tests {
     /// Ask's list opens on the same row by Enter and by Space, and no move stops on a heading.
     #[test]
     fn asks_list_opens_and_moves_on_models() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.cfg.search.ask_model = String::new();
         app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "ask_model"))));
@@ -1507,7 +1506,7 @@ mod tests {
     /// that saves a setting or deletes one forgets them.
     #[test]
     fn a_key_keeps_the_models_read() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "search"))));
         screen(&mut app, 100, 40);
@@ -1625,7 +1624,7 @@ mod tests {
 
     #[test]
     fn the_levels_and_steps_are_rows_of_finding_files() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let app = app(&d);
         let s = Settings::open(&app, "search");
         let rows = rows(&app, &s);
