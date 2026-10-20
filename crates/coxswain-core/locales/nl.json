@@ -699,6 +699,7 @@
   "one": "{n} duplicaat naar de prullenbak verplaatst",
   "other": "{n} duplicaten naar de prullenbak verplaatst"
  },
+ "edit.not_found": "{name} is niet gevonden: installeer het, of geef je editor op in Instellingen → Gedrag → Editor",
  "err.bom.invalid_json": "Dit bestand is geen geldige JSON (regel {line}): {message}",
  "err.bom.invalid_xml": "Dit bestand is geen geldige XML (regel {line}): {message}",
  "err.bom.no_node": "Dit knooppunt staat niet meer in de BOM",

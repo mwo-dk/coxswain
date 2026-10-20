@@ -730,6 +730,7 @@
   "one": "{n} doublon placé dans la corbeille",
   "other": "{n} doublons placés dans la corbeille"
  },
+ "edit.not_found": "{name} est introuvable : installez-le, ou indiquez votre éditeur dans Réglages → Comportement → Éditeur",
  "err.bom.invalid_json": "Ce fichier n’est pas un JSON valide (ligne {line}) : {message}",
  "err.bom.invalid_xml": "Ce fichier n’est pas un XML valide (ligne {line}) : {message}",
  "err.bom.no_node": "Ce nœud n’est plus dans le BOM",

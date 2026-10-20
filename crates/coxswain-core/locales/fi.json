@@ -699,6 +699,7 @@
   "one": "{n} kaksoiskappale siirretty roskakoriin",
   "other": "{n} kaksoiskappaletta siirretty roskakoriin"
  },
+ "edit.not_found": "{name} ei löytynyt: asenna se tai anna editorisi kohdassa Asetukset → Toiminta → Editori",
  "err.bom.invalid_json": "Tämä tiedosto ei ole kelvollista JSONia (rivi {line}): {message}",
  "err.bom.invalid_xml": "Tämä tiedosto ei ole kelvollista XML:ää (rivi {line}): {message}",
  "err.bom.no_node": "Tätä solmua ei ole enää BOMissa",

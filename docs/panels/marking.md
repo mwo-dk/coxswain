@@ -118,10 +118,10 @@ tabs in the desktop app keeps each tab's marks.
 The columns view marks with Ctrl-click (Cmd-click on a Mac) only. Right-click marks in the
 details and thumbnails views, and in the terminal app.
 
-#### Does `?` match a letter like "æ" in the terminal app?
+#### Does `?` match a letter like "æ"?
 
-In the desktop app yes. In the terminal app `?` matches one byte, so a letter outside ASCII
-needs `??` or `*`.
+Yes, in both apps: `?` is one letter, whatever its script, so `?.txt` marks `ø.txt` and
+`日.txt` as well as `a.txt`.
 
 ---
 [← Previous: Quick search](quick-search.md) · [Next: Sorting and hidden files →](sorting.md)

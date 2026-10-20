@@ -699,6 +699,7 @@
   "one": "Flytta {n} duplikat til papirkorga",
   "other": "Flytta {n} duplikat til papirkorga"
  },
+ "edit.not_found": "{name} vart ikkje funne: installer det, eller oppgje redigeringsprogrammet ditt i Innstillingar → Åtferd → Redigeringsprogram",
  "err.bom.invalid_json": "Denne fila er ikkje gyldig JSON (linje {line}): {message}",
  "err.bom.invalid_xml": "Denne fila er ikkje gyldig XML (linje {line}): {message}",
  "err.bom.no_node": "Denne noden finst ikkje lenger i BOM-en",

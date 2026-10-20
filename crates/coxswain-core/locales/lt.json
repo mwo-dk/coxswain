@@ -730,6 +730,7 @@
   "one": "Į šiukšlinę perkeltas {n} dublikatas",
   "other": "Į šiukšlinę perkelta {n} dublikatų"
  },
+ "edit.not_found": "{name} nerasta: įdiekite arba nurodykite savo redaktorių skiltyje Nustatymai → Elgsena → Redaktorius",
  "err.bom.invalid_json": "Šis failas nėra tinkamas JSON (eilutė {line}): {message}",
  "err.bom.invalid_xml": "Šis failas nėra tinkamas XML (eilutė {line}): {message}",
  "err.bom.no_node": "Šio mazgo BOM nebėra",

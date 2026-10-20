@@ -699,6 +699,7 @@
   "one": "Bikoiztu {n} zakarrontzira bota da",
   "other": "{n} bikoiztu zakarrontzira bota dira"
  },
+ "edit.not_found": "Ez da {name} aurkitu: instalatu, edo adierazi zure editorea Ezarpenak → Portaera → Editorea atalean",
  "err.bom.invalid_json": "Fitxategi hau ez da baliozko JSON (lerroa: {line}): {message}",
  "err.bom.invalid_xml": "Fitxategi hau ez da baliozko XML (lerroa: {line}): {message}",
  "err.bom.no_node": "Nodo hau jada ez dago BOMean",

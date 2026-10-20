@@ -90,6 +90,11 @@ two folders. The desktop app tints the pane, marks the archive's name in the pat
 shows an *archive* badge (*archive, locked* for one with a password); the terminal app puts
 `[archive]` after the path in the top border. See [Archives as folders](../files/archives.md).
 
+**A name with a control character** in it (a newline, a tab, an escape, which some programs
+leave in names): the terminal app shows each as `?`, as `ls` does, in the panel, the info line
+and the dialogs, so the columns stay straight and nothing in a name can talk to the terminal.
+The file keeps its real name; **Shift+F6** renames it.
+
 **A folder that cannot be read** (it was deleted, or you may not open it): the panel goes up
 to the nearest folder it can list. The terminal app shows the error in red on the info line;
 the desktop app shows it above the list or in the status line.

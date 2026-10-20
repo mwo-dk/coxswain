@@ -668,6 +668,7 @@
  "dupes.trashed": {
   "other": "{n} 個の重複をごみ箱に移動しました"
  },
+ "edit.not_found": "{name} が見つかりません: インストールするか、設定 → 動作 → エディター でエディターを指定してください",
  "err.bom.invalid_json": "このファイルは正しい JSON ではありません ({line} 行目): {message}",
  "err.bom.invalid_xml": "このファイルは正しい XML ではありません ({line} 行目): {message}",
  "err.bom.no_node": "このノードは BOM にもうありません",

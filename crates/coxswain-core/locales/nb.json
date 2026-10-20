@@ -699,6 +699,7 @@
   "one": "Flyttet {n} duplikat til papirkurven",
   "other": "Flyttet {n} duplikater til papirkurven"
  },
+ "edit.not_found": "{name} ble ikke funnet: installer det, eller oppgi redigeringsprogrammet ditt i Innstillinger → Virkemåte → Redigeringsprogram",
  "err.bom.invalid_json": "Denne filen er ikke gyldig JSON (linje {line}): {message}",
  "err.bom.invalid_xml": "Denne filen er ikke gyldig XML (linje {line}): {message}",
  "err.bom.no_node": "Denne noden finnes ikke lenger i BOM-en",

@@ -730,6 +730,7 @@
   "other": "Uz atkritni pārvietoti {n} dublikāti",
   "zero": "Uz atkritni pārvietoti {n} dublikāti"
  },
+ "edit.not_found": "{name} netika atrasts: instalējiet to vai norādiet savu redaktoru sadaļā Iestatījumi → Uzvedība → Redaktors",
  "err.bom.invalid_json": "Šis fails nav derīgs JSON (rinda {line}): {message}",
  "err.bom.invalid_xml": "Šis fails nav derīgs XML (rinda {line}): {message}",
  "err.bom.no_node": "Šī mezgla BOM vairs nav",

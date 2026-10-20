@@ -730,6 +730,7 @@
   "one": "S'ha mogut {n} duplicat a la paperera",
   "other": "S'han mogut {n} duplicats a la paperera"
  },
+ "edit.not_found": "No s’ha trobat {name}: instal·la’l, o indica el teu editor a Configuració → Comportament → Editor",
  "err.bom.invalid_json": "Aquest fitxer no és JSON vàlid (línia {line}): {message}",
  "err.bom.invalid_xml": "Aquest fitxer no és XML vàlid (línia {line}): {message}",
  "err.bom.no_node": "Aquest node ja no és al BOM",

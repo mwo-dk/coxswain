@@ -730,6 +730,7 @@
   "one": "Se movió {n} duplicado a la papelera",
   "other": "Se movieron {n} duplicados a la papelera"
  },
+ "edit.not_found": "No se encontró {name}: instalalo, o indicá tu editor en Configuración → Comportamiento → Editor",
  "err.bom.invalid_json": "Este archivo no es JSON válido (línea {line}): {message}",
  "err.bom.invalid_xml": "Este archivo no es XML válido (línea {line}): {message}",
  "err.bom.no_node": "Este nodo ya no está en el BOM",

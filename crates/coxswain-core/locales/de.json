@@ -699,6 +699,7 @@
   "one": "{n} Duplikat in den Papierkorb verschoben",
   "other": "{n} Duplikate in den Papierkorb verschoben"
  },
+ "edit.not_found": "{name} wurde nicht gefunden: installieren Sie es, oder geben Sie Ihren Editor unter Einstellungen → Verhalten → Editor an",
  "err.bom.invalid_json": "Diese Datei ist kein gültiges JSON (Zeile {line}): {message}",
  "err.bom.invalid_xml": "Diese Datei ist kein gültiges XML (Zeile {line}): {message}",
  "err.bom.no_node": "Dieser Knoten ist nicht mehr in der BOM",
