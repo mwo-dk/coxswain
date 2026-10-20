@@ -7,7 +7,7 @@ with the colours of the viewer, line numbers, undo, find and replace, and go to 
 the quick change: a line in a config file, a typo in a README, a value in a `.env` file,
 without leaving the panels. **F4** still starts your own editor
 ([View and edit](view-and-edit.md)); in the terminal app, when no editor is set at all, **F4**
-opens this one too, rather than `vi`.
+opens this one too, rather than whichever of `vi`, `nano` and the like is installed.
 
 <!-- screenshot: editor-tui.png: the terminal app's built-in editor in Classic blue on src/engine.rs in ~/projects/rocket: line numbers, a selected word, the title naming engine.rs, Rust, UTF-8, LF and the line count with "modified", the line under the text saying Line 12, column 9, and the key line at the bottom -->
 <!-- screenshot: editor-gui.png: the desktop app's editor window in Cyber over the panels on src/engine.rs: Save, Search, Replace and Go to line buttons at the top, highlighted code with line numbers, the find bar open at the bottom with "fuel" typed -->
