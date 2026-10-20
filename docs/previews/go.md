@@ -44,7 +44,7 @@ A file of more than one game opens on its list; a file of one game opens on its 
 | **#** | The game's place in the file |
 | **Black**, **White** and their **Rank** | The players and their ranks (`PB`, `PW`, `BR`, `WR`); Black first, who plays first |
 | **Result** | As the file writes it: `B+R` (Black won by resignation), `W+3.5`, `0` (a draw) … |
-| **Date**, **Event** | `DT`; `EV` with the game's own name (`GN`) |
+| **Event**, **Date** | `EV` with the game's own name (`GN`); `DT` |
 | **Board** | `19`, `13`, `9`, or `19×13` for one that is not square |
 | **Komi**, **Handicap** | `KM` and `HA` |
 | **Moves** | How many moves the main line has |
@@ -59,7 +59,7 @@ The board shows the position after the move you are on. Stones are black and whi
 stone played has a ring in the desktop app and is ◉ in the terminal app. The star points are
 drawn on 9×9, 13×13 and 19×19 boards (and other square ones from 7×7). Columns are lettered A to
 T without I, rows numbered from the bottom, as Go players write them (`Q16`); a board wider than
-25 columns is numbered both ways.
+25 columns numbers its columns too (`27-3`).
 
 Beside the board: the players with their ranks and the result, the game's name, event, round,
 place and date, the board size, komi, handicap and rules, *Game 2 of 7*, then the move you are
@@ -86,12 +86,12 @@ without taking anything. With a handicap set up, White plays first.
 ## Variations and comments
 
 Where more than one move goes on from the position, the board marks them **A**, **B**, … in red
-on their points, and *Variations: A 38 ○ R3, B 38 ○ Q4* lists them. **→** follows the first,
+on their points, and *Variations:* lists them, *A 38 ○ R3, B 38 ○ Q4* in the terminal app, a button for each in the desktop app. **→** follows the first,
 the main line. On a move that has others instead of it, *Variation 2 of 3* says so, and **↓**
 and **↑** go from one to the next. In the desktop app a click on a variation in the list
 shows it.
 
-![A life-and-death problem in the desktop app: set-up stones in the top-left corner, the three first moves marked A, B and C in red on their points, and Variations: A 1 ● C19, B 1 ● D19, C 1 ● B17 beside the board, under the comment Elementary](../screenshots/gui-go-variations.png)
+![A life-and-death problem in the desktop app: set-up stones in the top-left corner, the three first moves marked A, B and C in red on their points, and Variations: with the buttons A 1 ● C19, B 1 ● D19 and C 1 ● B17 beside the board, under the comment Elementary](../screenshots/gui-go-variations.png)
 
 A node's comment (`C`) is shown under the facts, in italics, with its line breaks; its name
 (`N`), such as *Correct* or *Joseki A*, in bold above it.
@@ -105,7 +105,8 @@ on the board in the preview pane, in the terminal app in the Go view. The moves 
 are not in the store.
 
 A store made before this release reads every `.sgf` file again once, for this: only `.sgf`
-files, nothing else.
+files, nothing else. An SGF file larger than *Largest file read (MB)* (`[search]
+text_max_size`) is not read for Find; of a smaller one the store keeps up to 4 MB of lines.
 
 ## Files it reads
 
@@ -118,8 +119,8 @@ board in a file (triangles, labels, territory) are not shown.
 
 Broken games are read as far as they go; nothing in a file can stop the app, and no nesting of
 variations, however deep, can run it out of stack. A file is read up to 64 MB and its first
-100,000 games are listed (past that the line above the list adds *the first 100000 games only:
-the file has more than Coxswain reads*); one game is read up to 250,000 moves with its
+100,000 games are listed (past 100,000 games or 64 MB the line above the list adds *the first … games only: the
+file has more than Coxswain reads*); one game is read up to 250,000 moves with its
 variations and 250,000 set-up stones, a comment up to 64 KB; past that the line above the
 board says *Only the first … moves and variations: the game has more than Coxswain reads*.
 

@@ -159,7 +159,7 @@ impl Viewer {
         let name = (rest * 30 / 100).max(6);
         let event = rest.saturating_sub(2 * name).max(4);
         let row = |cells: [String; 12]| -> String {
-            let widths = [fixed[0], name, fixed[1], name, fixed[2], fixed[3], fixed[4], event, fixed[5], fixed[6], fixed[7], fixed[8]];
+            let widths = [fixed[0], name, fixed[1], name, fixed[2], fixed[3], event, fixed[4], fixed[5], fixed[6], fixed[7], fixed[8]];
             cells.iter().zip(widths).map(|(c, cw)| fit(c, cw)).collect::<Vec<_>>().join(" ")
         };
         let head = row([
@@ -169,8 +169,8 @@ impl Viewer {
             t!("chess.col_white"),
             t!("go.col_rank"),
             t!("chess.col_result"),
-            t!("chess.col_date"),
             t!("chess.col_event"),
+            t!("chess.col_date"),
             t!("go.col_size"),
             t!("go.col_komi"),
             t!("go.col_handicap"),
@@ -196,8 +196,8 @@ impl Viewer {
                 g.white.clone(),
                 g.white_rank.clone(),
                 g.result.clone(),
-                g.date.clone(),
                 event,
+                g.date.clone(),
                 g.size(),
                 g.komi.clone(),
                 g.handicap.clone(),

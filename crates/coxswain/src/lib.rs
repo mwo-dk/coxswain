@@ -254,7 +254,8 @@ impl Panel {
             archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
             disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
             pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
-            chess: list.iter().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).count(),
+            // Only one file's bytes are read: the action menu offers Open games on a single file.
+            chess: list.iter().filter(|e| !e.is_dir && if list.len() == 1 { coxswain_core::chess::sniff(&e.path).is_some() } else { coxswain_core::chess::format(&e.path).is_some() }).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,

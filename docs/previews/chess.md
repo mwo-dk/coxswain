@@ -110,10 +110,10 @@ or *Black to move* under it. A line that is no position says so.
 
 A Polyglot book (`.bin`) holds the moves of an opening repertoire: for each position, the moves
 to play and how often (their weight). Engines and GUIs such as Cute Chess, Arena, Scid and
-BanksiaGUI read and write them; lichess and others offer books to download.
+BanksiaGUI read and write them, and many chess sites and engine authors offer books to download.
 
 **On a game's board.** When there is a book, a line above the moves lists its moves for the
-position on the board, the heaviest first, each with its share of the weights: *Book
+position on the board, the eight heaviest, the heaviest first, each with its share of the weights: *Book
 gm2600.bin: e4 45 % · d4 35 % · ♘f3 12 % · c4 8 %*. A position the book does not know says
 *Book gm2600.bin: no moves for this position*. The moves follow the notation (figurines or
 letters). It works on EPD and FEN positions too.
@@ -126,7 +126,7 @@ Without either, no line is shown.
 **A book on its own.** The preview of a `.bin` file that is a Polyglot book (desktop), and
 **F3** or **Alt+K** on it (both apps, *Open games* in the action menu), show the board at the
 start position and the book's moves for it: each with its share in per cent, its weight, and
-its *learn* value when the book has one. *Polyglot opening book · 182,443 entries* says how big
+its *learn* value when the book has one. *Polyglot opening book · 182443 entries* says how big
 it is. Play a move to see the book's moves after it:
 
 | Key | Desktop app | Terminal app |
@@ -134,7 +134,7 @@ it is. Play a move to see the book's moves after it:
 | A click on a move | Plays it | – |
 | **↑** / **↓** | – | Choose a move |
 | **Enter** or **→** | **→** plays the first move (click the board first) | Plays the chosen move |
-| **←** | Back one move | The same |
+| **←** | Back one move | The same (**Backspace** too) |
 | **Home** | Back to the start position | The same |
 | **f**, **n** | Flip, notation | The same |
 | **Esc** | Closes the window | Closes the view |
@@ -144,7 +144,7 @@ it is. Play a move to see the book's moves after it:
 ![The terminal app with a Polyglot book open (F3 on openings.bin) after 1.e4: the board, Polyglot opening book · 12 entries, the book's four replies c5, e5, e6 and c6 with their shares and weights, c5 chosen, and the key line](../screenshots/tui-chess-book.png)
 
 A `.bin` file is taken for a book when its length is a whole number of 16-byte entries, its
-first and last entries are in key order and their moves are moves; any other `.bin` file
+first and last 64 entries are in key order and their moves are moves (it reads a few KB); any other `.bin` file
 (firmware, a disk image) shows as before. A book is never loaded: each position's moves are
 found by a binary search, about 20 reads of the file, so a book of gigabytes costs no memory.
 Moves the book has for a position that cannot be played there (another position with the same
@@ -222,8 +222,8 @@ planned.
 
 #### Does it read ChessBase files?
 
-Not yet: PGN (also packed as `.pgn.gz` or `.pgn.zst`), EPD and FEN. Export ChessBase games to
-PGN to read them here.
+Not yet: PGN (also packed as `.pgn.gz` or `.pgn.zst`), EPD, FEN and Polyglot books, and Go
+games in SGF ([Go games](go.md)). Export ChessBase games to PGN to read them here.
 
 #### How do I see moves in my own language's letters?
 
