@@ -88,7 +88,7 @@ Under `[search]`:
 |---|---|---|---|
 | `text_roots` | list of paths | `[]` (your home folder) | *Folders → Folders read* |
 | `names_only` | list of paths | `[]` | *Folders → Names only* |
-| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | *Folders → Left out everywhere* |
+| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "obj", "vendor", "__pycache__", "Trash"]` | *Folders → Left out everywhere* |
 | `text_max_size` | bytes | `20971520` | *What is read → Largest file read (MB)* |
 
 `text_exclude` replaces the default list, so repeat what you want to keep:
@@ -97,7 +97,7 @@ Under `[search]`:
 [search]
 text_roots = ["/home/me", "/mnt/data"]
 names_only = ["/home/me/Mail"]
-text_exclude = ["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash", "Mail", "*.log"]
+text_exclude = ["node_modules", "target", "build", "dist", "out", "obj", "vendor", "__pycache__", "Trash", "Mail", "*.log"]
 text_max_size = 52428800   # 50 MB
 ```
 

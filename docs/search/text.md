@@ -93,7 +93,7 @@ the watcher missed.
 |---|---|---|---|
 | `text` | bool | `true` | *What is read → Words inside files* |
 | `text_roots` | list of paths | `[]` (your home folder) | *Folders → Folders read* |
-| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "vendor", "__pycache__", "Trash"]` | *Folders → Left out everywhere*: folder names and file patterns left out, wherever they are |
+| `text_exclude` | list of strings | `["node_modules", "target", "build", "dist", "out", "obj", "vendor", "__pycache__", "Trash"]` | *Folders → Left out everywhere*: folder names and file patterns left out, wherever they are |
 | `names_only` | list of paths | `[]` | *Folders → Names only* |
 | `text_max_size` | bytes | `20971520` (20 MB) | *What is read → Largest file read (MB)*: larger files are not read |
 | `archives` | bool | `true` | *What is read → Look inside archives*: the files in zip, 7z and tar archives are read too ([Inside archives](archives.md)) |
