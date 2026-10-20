@@ -105,6 +105,7 @@ pub const FEATURES: &[Feature] = &[
     f("user_menu", "commands/user-menu.md", &[UserMenu]),
     f("scripts", "commands/scripts.md", &[UserMenu]),
     f("view_and_edit", "commands/view-and-edit.md", &[View, Edit]),
+    f("editor", "commands/editor.md", &[EditHere, Edit]),
     f("opening_files", "commands/opening-files.md", &[Open]),
     // search
     f("search_setup", "search/setup.md", &[Settings]),

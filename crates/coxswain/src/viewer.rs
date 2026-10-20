@@ -48,7 +48,7 @@ const MOST_LINES: usize = 20_000_000;
 const READ_AT_ONCE: u64 = 4 << 20;
 
 /// syntect's grammars and two-face's (about 200 languages), read once, on the first F3.
-fn syntaxes() -> &'static SyntaxSet {
+pub(crate) fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
     SET.get_or_init(two_face::syntax::extra_newlines)
 }
@@ -100,14 +100,14 @@ pub fn syntax_for(path: &Path, head: &str) -> Option<&'static SyntaxReference> {
 }
 
 /// A line in pieces, each with the theme slot it is coloured with.
-type Pieces = Vec<(Option<&'static str>, String)>;
+pub(crate) type Pieces = Vec<(Option<&'static str>, String)>;
 
 /// What the viewer wants done after a key.
 pub enum Outcome {
     Stay,
     Close,
-    /// Close, and open the file in the editor.
-    Edit(PathBuf),
+    /// Close, and open the file in the editor (`Edit`) or the built-in one (`EditHere`).
+    Edit(PathBuf, Action),
     /// Close, and open the file in the pager (`$PAGER`, else less).
     Pager(PathBuf),
 }
@@ -161,9 +161,46 @@ enum Typing {
 
 /// Highlighting's state before a line: the grammar's, and the scopes open there.
 #[derive(Clone)]
-struct Point {
+pub(crate) struct Point {
     parse: ParseState,
     scopes: ScopeStack,
+}
+
+impl Point {
+    /// Before the first line.
+    pub(crate) fn new(syntax: &SyntaxReference) -> Point {
+        Point { parse: ParseState::new(syntax), scopes: ScopeStack::new() }
+    }
+}
+
+/// The theme slot each scope takes, looked up once.
+pub(crate) type Slots = HashMap<Scope, Option<&'static str>>;
+
+/// One line's pieces, from `point`, which moves past it.
+pub(crate) fn paint(point: &mut Point, line: &str, slots: &mut Slots) -> Pieces {
+    if line.len() > LONGEST_HIGHLIGHTED {
+        return vec![(None, line.to_owned())];
+    }
+    let ss = syntaxes();
+    let with_end = format!("{line}\n");
+    let Ok(ops) = point.parse.parse_line(&with_end, ss) else {
+        return vec![(None, line.to_owned())];
+    };
+    let mut out = vec![];
+    let mut from = 0;
+    // The slot of the innermost scope open that has one.
+    let mut slot = |scopes: &ScopeStack| {
+        scopes.as_slice().iter().rev().find_map(|s| *slots.entry(*s).or_insert_with(|| coxswain_core::view::slot_of_scope(&s.build_string())))
+    };
+    for (at, op) in ops.into_iter().chain([(line.len(), syntect::parsing::ScopeStackOp::Noop)]) {
+        let at = at.min(line.len());
+        if at > from {
+            out.push((slot(&point.scopes), line[from..at].to_owned()));
+            from = at;
+        }
+        let _ = point.scopes.apply(&op);
+    }
+    out
 }
 
 /// A search going on: the lines `a..b` still to look through (from the end for `back`), of
@@ -187,8 +224,7 @@ pub struct Viewer {
     syntax: Option<&'static SyntaxReference>,
     /// Points highlighting has passed, every `STEP` lines from the start: index i is line i·STEP.
     points: Vec<Point>,
-    /// The theme slot each scope takes, looked up once.
-    slots: HashMap<Scope, Option<&'static str>>,
+    slots: Slots,
     /// The lines last drawn, highlighted: (first, count, lines known then) and per line its
     /// pieces.
     shown: Option<((usize, usize, usize), Vec<Pieces>)>,
@@ -251,7 +287,7 @@ impl Viewer {
             path: path.to_path_buf(),
             body,
             encoding,
-            points: syntax.map(|s| vec![Point { parse: ParseState::new(s), scopes: ScopeStack::new() }]).unwrap_or_default(),
+            points: syntax.map(|s| vec![Point::new(s)]).unwrap_or_default(),
             syntax,
             slots: HashMap::new(),
             shown: None,
@@ -383,7 +419,7 @@ impl Viewer {
             (kept * STEP, self.points[kept].clone(), true)
         } else {
             let from = a.saturating_sub(STEP);
-            (from, Point { parse: ParseState::new(syntax), scopes: ScopeStack::new() }, false)
+            (from, Point::new(syntax), false)
         };
         // Lines above the screen only lead up to it: a line too long to highlight is not read whole.
         let mut text = self.lines(at, a, LONGEST_HIGHLIGHTED as u64 + 1);
@@ -393,7 +429,7 @@ impl Viewer {
             if exact && at % STEP == 0 && at / STEP == self.points.len() {
                 self.points.push(point.clone());
             }
-            let pieces = self.paint(&mut point, &line);
+            let pieces = paint(&mut point, &line, &mut self.slots);
             if at >= a {
                 out.push(pieces);
             }
@@ -403,34 +439,6 @@ impl Viewer {
         out
     }
 
-    /// One line's pieces, from `point`, which moves past it.
-    fn paint(&mut self, point: &mut Point, line: &str) -> Pieces {
-        if line.len() > LONGEST_HIGHLIGHTED {
-            return vec![(None, line.to_owned())];
-        }
-        let ss = syntaxes();
-        let with_end = format!("{line}\n");
-        let Ok(ops) = point.parse.parse_line(&with_end, ss) else {
-            return vec![(None, line.to_owned())];
-        };
-        let mut out = vec![];
-        let mut from = 0;
-        for (at, op) in ops.into_iter().chain([(line.len(), syntect::parsing::ScopeStackOp::Noop)]) {
-            let at = at.min(line.len());
-            if at > from {
-                let slot = self.slot(&point.scopes);
-                out.push((slot, line[from..at].to_owned()));
-                from = at;
-            }
-            let _ = point.scopes.apply(&op);
-        }
-        out
-    }
-
-    /// The slot of the innermost scope open that has one.
-    fn slot(&mut self, scopes: &ScopeStack) -> Option<&'static str> {
-        scopes.as_slice().iter().rev().find_map(|s| *self.slots.entry(*s).or_insert_with(|| coxswain_core::view::slot_of_scope(&s.build_string())))
-    }
 
     /// Scroll by `by` lines (the mouse wheel, the arrows).
     pub fn scroll(&mut self, by: isize) {
@@ -574,7 +582,7 @@ impl Viewer {
         match (key.code, ch) {
             (KeyCode::Esc, _) => return Outcome::Close,
             _ if matches!(action, Some(Action::Quit | Action::View)) => return Outcome::Close,
-            _ if action == Some(Action::Edit) => return Outcome::Edit(self.path.clone()),
+            _ if matches!(action, Some(Action::Edit | Action::EditHere)) => return Outcome::Edit(self.path.clone(), action.unwrap()),
             (KeyCode::Up, _) => self.scroll(-1),
             (KeyCode::Down, _) | (KeyCode::Enter, _) => self.scroll(1),
             (KeyCode::PageUp, _) => self.scroll(-page),
@@ -912,7 +920,7 @@ mod tests {
         assert!(s.contains("501     last·[31m line"), "{s}");
         assert!(!s.contains('\x1b'));
         // Esc closes, F4 edits, p hands it to the pager.
-        assert!(matches!(v.key(key(KeyCode::F(4)), Some(Action::Edit)), Outcome::Edit(_)));
+        assert!(matches!(v.key(key(KeyCode::F(4)), Some(Action::Edit)), Outcome::Edit(_, Action::Edit)));
         assert!(matches!(v.key(key(KeyCode::Char('p')), None), Outcome::Pager(_)));
         assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
         drop(v);

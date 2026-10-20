@@ -122,7 +122,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `rename` | **Shift+F6** | `disk_use` | none |
 | `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
 | `searchable_pdf` | **Alt+P** | | |
-| `chess` | **Alt+K** | | |
+| `chess` | **Alt+K** | `edit_here` | **Shift+F4** |
 | `space_view` | **Alt+U** | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
@@ -174,8 +174,8 @@ your system opens `.toml` files with. When the file has no `[keys]` yet, an empt
 table with a commented example is written at its end first, so there is a place to start.
 
 In the terminal app, Settings → *Keys* starts with the row *Change keys in config.toml, under
-[keys]*: **Enter** on it opens your editor (`editor`, `$VISUAL`, `$EDITOR`, else `vi` or
-Notepad) at `[keys]`, and Settings comes back when you quit the editor.
+[keys]*: **Enter** on it opens your editor (`editor`, `$VISUAL`, `$EDITOR`, else the
+[built-in editor](../commands/editor.md)) at `[keys]`, and Settings comes back when you quit the editor.
 
 ## In the terminal app
 

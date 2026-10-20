@@ -96,4 +96,4 @@ The program is still running, or it has ended and waits at `-- press Enter --`. 
 If the program itself waits for input, answer it or end it first.
 
 ---
-[← Previous: View and edit, F3 and F4](view-and-edit.md) · [Next: Search →](../search/README.md)
+[← Previous: The built-in editor, Shift+F4](editor.md) · [Next: Search →](../search/README.md)

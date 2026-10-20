@@ -17,6 +17,7 @@
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
+  import Editor from "./Editor.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
@@ -382,6 +383,15 @@
       if (tab().history) return void (ui.status = t("history.read_only"));
       if (tab().snapshot) return void (ui.status = t("zfs.read_only"));
       invoke("edit_path", { path: e.path }).catch((err) => (ui.status = String(err)));
+    },
+    // The built-in editor, whatever F4 starts.
+    edit_here: () => {
+      const e = item();
+      if (!e || e.is_dir) return;
+      if (tab().archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tab().archive) }));
+      if (tab().history) return void (ui.status = t("history.read_only"));
+      if (tab().snapshot) return void (ui.status = t("zfs.read_only"));
+      ui.modal = { kind: "editor", path: e.path };
     },
     copy: () => transfer(false),
     move: () => readOnly() || transfer(true),
@@ -774,6 +784,7 @@
 {#if ui.modal?.kind === "space"}<Space />{/if}
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
+{#if ui.modal?.kind === "editor"}{#key ui.modal}<Editor />{/key}{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}

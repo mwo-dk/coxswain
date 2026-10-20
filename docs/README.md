@@ -25,6 +25,7 @@ mindmap
       Command line
       User menu F2 and scripts
       View F3, edit F4
+      Built-in editor Shift+F4
     Search
       Find: names, text, meaning
       Ask your files
@@ -101,6 +102,7 @@ mindmap
 | [The user menu, F2](commands/user-menu.md) | The user menu (F2): the built-in entries per system (terminal, SHA-256, git status), Add your own command, [[user_menu]], %f %d %s %%, wait, when, entries to copy |
 | [Scripts](commands/scripts.md) | The scripts folder, run from F2 in both apps with the marked files as arguments |
 | [View and edit, F3 and F4](commands/view-and-edit.md) | View and edit (F3, F4): viewer, editor, $PAGER, $VISUAL, $EDITOR, the preview pane in the desktop app |
+| [The built-in editor, Shift+F4](commands/editor.md) | Editing inside Coxswain in both apps: keys, find and replace, undo, go to line, saving with the file's encoding, line endings and permissions, a file changed on the disk meanwhile |
 | [Opening files](commands/opening-files.md) | Enter and double-click on folders, archives, programs and files, default applications |
 
 ## [Search](search/README.md)

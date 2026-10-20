@@ -97,7 +97,8 @@ action's name. The **F9** list and **F1** help leave them out.
 | | Terminal app | Desktop app |
 |---|---|---|
 | **F3** | Opens the file in the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer), highlighted, with search and go to line (`viewer` in the config runs another program) | The preview pane on or off |
-| **F4** | `editor`, `$VISUAL`, `$EDITOR` or `vi` (`notepad` on Windows), in the terminal | `editor` without a terminal, or the default application |
+| **F4** | `editor`, `$VISUAL` or `$EDITOR`, in the terminal; else the [built-in editor](../commands/editor.md) | `editor` without a terminal, or the default application |
+| **Shift+F4** | The [built-in editor](../commands/editor.md), full screen | The built-in editor, in a window |
 | **Ctrl+O** | Shows the terminal with the last command's output, *Panels hidden · any key brings them back* under it; any key comes back ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) | One pane or two |
 | **Enter** on a program | Runs it in the panel's folder and waits for Enter | Hands it to the desktop |
 | **Enter** on another file | Opens it in its default application | Opens it in its default application |

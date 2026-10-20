@@ -15,6 +15,7 @@ pub mod dbf;
 pub mod disk;
 pub mod disk_image;
 pub mod dupes;
+pub mod edit;
 pub mod extract;
 pub mod facts;
 pub mod features;

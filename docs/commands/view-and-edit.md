@@ -6,7 +6,8 @@
 terminal app **F3** opens the [built-in viewer](#the-built-in-viewer), full screen and
 highlighted, and **F4** starts your editor in the terminal. In the desktop app **F3**
 is the [preview pane](../previews/README.md), which shows far more than a pager can, and **F4**
-starts your editor or the file's default application.
+starts your editor or the file's default application. **Shift+F4** edits the file in
+Coxswain's own [built-in editor](editor.md), in both apps.
 
 ![The desktop app with the preview pane open at the right: the cursor is on launch-report.pdf in Documents and the pane shows its first page, Launch report, with the PDF toolbar above it and the empty notes field under it](../screenshots/gui-pdf.png)
 *In the desktop app **F3** shows and hides the preview pane, here on a PDF.*
@@ -30,7 +31,7 @@ starts your editor or the file's default application.
 | Key | Terminal app | Desktop app |
 |---|---|---|
 | **F3** | Opens the file in the [built-in viewer](#the-built-in-viewer), full screen. With `viewer` set in the config, runs that program instead; the panels step aside until it ends | Shows or hides the [preview pane](../previews/README.md). When the pane shows command output, **F3** switches it back to the file preview |
-| **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else the first installed of `vi`, `vim`, `nvim`, `nano`, `micro`, `hx`, `emacs` (`notepad` on Windows). The panels step aside until it ends; an editor that is not installed is said in the status line instead: *nano was not found: install it, or name your editor in Settings → Behaviour → Editor* | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
+| **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else the [built-in editor](editor.md). Your own editor gets the whole terminal until it ends; one that is not installed is said in the status line instead: *nano was not found: install it, or name your editor in Settings → Behaviour → Editor* | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
 | **F4** in [Find](../search/find-file.md) | Edits the hit under the cursor; the search stays open | Same |
 | **F3** in Find | Views the hit under the cursor | — (**Enter** goes to the hit; the preview shows it there) |
 
@@ -169,10 +170,10 @@ a viewer from the desktop app, add it to the [user menu](user-menu.md): `command
 
 #### Which editor and which viewer does the terminal app use?
 
-For **F4**, the first that is set: `editor` in `config.toml`, then `$VISUAL`, then `$EDITOR`,
-then the first of `vi`, `vim`, `nvim`, `nano`, `micro`, `hx` and `emacs` that is installed
-(`notepad` on Windows). One that is not there is named in the status line, *… was not found:
-install it, or name your editor in Settings → Behaviour → Editor*, and nothing runs. **F3** uses the built-in viewer unless `viewer` names a
+For **F4**, the first that is set: `editor` in `config.toml`, then `$VISUAL`, then `$EDITOR`;
+with none of them, the [built-in editor](editor.md). One that is set but not there is named in the
+status line, *… was not found: install it, or name your editor in Settings → Behaviour → Editor*,
+and nothing runs. **F3** uses the built-in viewer unless `viewer` names a
 program; **p** in the viewer hands the file to `$PAGER`, else `less` (`more` on Windows).
 
 #### How do I get `less` (or my own pager) back on F3?
@@ -220,4 +221,4 @@ No. The editor starts for the hit under the cursor and the search stays as it wa
 edit several hits in a row. **Enter** goes to the hit's folder instead.
 
 ---
-[← Previous: Scripts](scripts.md) · [Next: Opening files →](opening-files.md)
+[← Previous: Scripts](scripts.md) · [Next: The built-in editor, Shift+F4 →](editor.md)
