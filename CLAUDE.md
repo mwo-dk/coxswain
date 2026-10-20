@@ -96,7 +96,9 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Texts in every language.** User-facing strings go through `t!` / `t()` with keys in
   `crates/coxswain-core/locales/*.json`, translated into all of them (`en-AU`, `en-CA`, `en-NZ`,
   `de-AT` and `de-CH` only differ where they must; `de-CH` gets `de` with ss for ß by itself);
-  the i18n test fails on a missing key.
+  the i18n test fails on a missing key. A new language is marked new in `i18n::LANGUAGES`
+  (`Some("YYYY-MM-DD")`): the Sunday of the fourth weekly release after the one that brings it,
+  when the mark goes by itself.
 - **Nothing hidden.** Every capability can be found without reading the docs, in both apps:
   - it is reachable from something visible: the action menu (**Shift+F10**,
     `coxswain_core::menu`), the F9 command list, a button or a menu, not only by a key;
