@@ -2903,6 +2903,7 @@
  "viewer.plain": "プレーンテキスト",
  "viewer.plain_big": "16 MB を超えるため色なしで表示しています。",
  "viewer.search": "検索",
+ "viewer.searching": "{text} を検索中: {pct}% · Esc で中止",
  "viewer.still_reading": "まだ見つかりません: ファイルを読み込み中です",
  "worktrees.badge": "ワークツリー",
  "worktrees.badge_of": "{name} のワークツリー",

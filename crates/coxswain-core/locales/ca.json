@@ -3035,6 +3035,7 @@
  "viewer.plain": "text pla",
  "viewer.plain_big": "Més de 16 MB: es mostra sense colors.",
  "viewer.search": "Cerca",
+ "viewer.searching": "Cercant {text}: {pct}% · Esc atura",
  "viewer.still_reading": "Encara no s'ha trobat: el fitxer encara s'està llegint",
  "worktrees.badge": "worktrees",
  "worktrees.badge_of": "worktrees de {name}",

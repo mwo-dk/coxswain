@@ -156,25 +156,31 @@ impl Tree {
         Some(tree)
     }
 
-    /// `f` and what is in it, `f` under `parent`; its id.
-    fn add(&mut self, f: Found, parent: u32) -> u32 {
-        let id = self.nodes.len() as u32;
-        self.nodes.push(Node {
-            name: f.name,
-            parent,
-            size: f.size,
-            files: f.files,
-            dir: f.kids.is_some(),
-            mount: f.mount,
-            mounts: f.mounts,
-            kids: vec![],
-        });
-        if let Some(mut kids) = f.kids {
-            kids.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
-            let ids = kids.into_iter().map(|k| self.add(k, id)).collect();
-            self.nodes[id as usize].kids = ids;
+    /// `top` and what is in it, as the tree's first node. Ids go depth first, each folder's
+    /// biggest first; a list of what is still to add, not a frame per level, so thousands of
+    /// nested folders fit any thread's stack.
+    fn add(&mut self, top: Found, parent: u32) {
+        let mut todo = vec![(top, parent)];
+        while let Some((f, parent)) = todo.pop() {
+            let id = self.nodes.len() as u32;
+            if id != ROOT {
+                self.nodes[parent as usize].kids.push(id);
+            }
+            self.nodes.push(Node {
+                name: f.name,
+                parent,
+                size: f.size,
+                files: f.files,
+                dir: f.kids.is_some(),
+                mount: f.mount,
+                mounts: f.mounts,
+                kids: vec![],
+            });
+            if let Some(mut kids) = f.kids {
+                kids.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
+                todo.extend(kids.into_iter().rev().map(|k| (k, id)));
+            }
         }
-        id
     }
 
     pub fn node(&self, id: u32) -> &Node {
@@ -402,7 +408,14 @@ fn pool() -> &'static rayon::ThreadPool {
     static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
     POOL.get_or_init(|| {
         let n = std::thread::available_parallelism().map_or(2, |n| n.get()).max(2);
-        rayon::ThreadPoolBuilder::new().num_threads(n).thread_name(|i| format!("coxswain-space-{i}")).build().expect("a thread pool")
+        // A frame per folder level: 64 MiB holds tens of thousands of nested folders, deeper
+        // than any path a system opens; 2 MiB, the default, overflowed at about 1,900.
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .stack_size(64 << 20)
+            .thread_name(|i| format!("coxswain-space-{i}"))
+            .build()
+            .expect("a thread pool")
     })
 }
 
@@ -766,6 +779,24 @@ pub fn squarify(areas: &[f64], r: Rect) -> Vec<Rect> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 1,900 folders, each in the one before, overflowed the walks' 2 MiB stacks. Linux only:
+    /// the path is near 4 KB, more than other systems open.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn thousands_of_nested_folders_are_measured() {
+        let d = std::env::temp_dir().join(format!("coxswain-space-deep-{}", std::process::id()));
+        let deep = (0..1900).fold(d.clone(), |p, _| p.join("d"));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&deep).unwrap();
+        fs::write(deep.join("f"), [0u8; 7]).unwrap();
+        let tree = Tree::scan(&d, &Progress::default()).unwrap();
+        assert_eq!((tree.node(ROOT).size, tree.node(ROOT).files), (7, 1));
+        assert_eq!(tree.path((tree.nodes.len() - 1) as u32), deep.join("f"));
+        assert_eq!(crate::sizes::walk(&d, &AtomicBool::new(false)), Some((7, 1)));
+        drop(tree);
+        fs::remove_dir_all(&d).unwrap();
+    }
 
     /// Every ending Coxswain reads lands in a family, the old formats too: none is "Other".
     #[test]

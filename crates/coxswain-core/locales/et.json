@@ -2969,6 +2969,7 @@
  "viewer.plain": "lihttekst",
  "viewer.plain_big": "Üle 16 MB: näidatakse ilma värvideta.",
  "viewer.search": "Otsi",
+ "viewer.searching": "Otsin {text}: {pct}% · Esc peatab",
  "viewer.still_reading": "Veel ei leitud: faili alles loetakse",
  "worktrees.badge": "töökoopiad",
  "worktrees.badge_of": "{name} töökoopiad",

@@ -24,7 +24,7 @@ pub struct Planned {
 /// Compute new names for `selected`. `existing` is every name in the directory.
 ///
 /// `replacement` supports regex groups (`$1`, `${name}`) and a counter: `{n}` is the
-/// 1-based position in `selected`, `{n:3}` zero-pads it to 3 digits.
+/// 1-based position in `selected`, `{n:3}` zero-pads it to 3 digits (20 at most).
 /// Conflicts: an empty result, a path separator, two files mapping to the same name, or a
 /// name taken by a file that is not itself being renamed away.
 pub fn plan(
@@ -45,7 +45,8 @@ pub fn plan(
         .enumerate()
         .map(|(i, from)| {
             let rep = counter.replace_all(replacement, |c: &regex::Captures| {
-                let w = c.get(1).map_or(0, |m| m.as_str().parse().unwrap_or(0));
+                // At most 20 digits: `{n:999999999}` would pad each name to a gigabyte.
+                let w = c.get(1).map_or(0, |m| m.as_str().parse().unwrap_or(0)).min(20);
                 format!("{:0w$}", i + 1)
             });
             // `$2_x` would mean a group named "2_x"; users mean group 2, so brace it.
@@ -203,6 +204,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(tos(&p), ["b_a_01.txt", "d_c_02.txt"]);
+        // A width past 20 digits is 20, not a gigabyte of zeros.
+        let p = plan(&names, &names, ".*", "{n:999999999}", Flags::default()).unwrap();
+        assert_eq!(tos(&p)[0], format!("{:020}.txt", 1));
         let p = plan(
             &s(&["aaa.md"]),
             &s(&["aaa.md"]),

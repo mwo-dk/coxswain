@@ -2969,6 +2969,7 @@
  "viewer.plain": "testu arrunta",
  "viewer.plain_big": "16 MB baino gehiago: kolorerik gabe erakusten da.",
  "viewer.search": "Bilatu",
+ "viewer.searching": "{text} bilatzen: % {pct} · Esc-ek gelditzen du",
  "viewer.still_reading": "Oraindik ez da aurkitu: fitxategia irakurtzen ari da oraindik",
  "worktrees.badge": "lan-zuhaitzak",
  "worktrees.badge_of": "{name}(r)en lan-zuhaitzak",

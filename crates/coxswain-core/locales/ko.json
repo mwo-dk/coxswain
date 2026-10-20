@@ -2903,6 +2903,7 @@
  "viewer.plain": "일반 텍스트",
  "viewer.plain_big": "16 MB 초과: 색 없이 표시합니다.",
  "viewer.search": "검색",
+ "viewer.searching": "{text} 찾는 중: {pct}% · Esc로 중지",
  "viewer.still_reading": "아직 찾지 못함: 파일을 아직 읽는 중입니다",
  "worktrees.badge": "작업 트리",
  "worktrees.badge_of": "{name}의 작업 트리",

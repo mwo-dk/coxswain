@@ -2969,6 +2969,7 @@
  "viewer.plain": "ren text",
  "viewer.plain_big": "Över 16 MB: visas utan färger.",
  "viewer.search": "Sök",
+ "viewer.searching": "Söker efter {text}: {pct} % · Esc stoppar",
  "viewer.still_reading": "Inte hittat än: filen läses fortfarande",
  "worktrees.badge": "worktrees",
  "worktrees.badge_of": "worktrees i {name}",

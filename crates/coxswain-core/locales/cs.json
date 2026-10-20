@@ -3035,6 +3035,7 @@
  "viewer.plain": "prostý text",
  "viewer.plain_big": "Nad 16 MB: zobrazeno bez barev.",
  "viewer.search": "Hledat",
+ "viewer.searching": "Hledá se {text}: {pct} % · Esc zastaví",
  "viewer.still_reading": "Zatím nenalezeno: soubor se ještě čte",
  "worktrees.badge": "pracovní stromy",
  "worktrees.badge_of": "pracovní stromy {name}",

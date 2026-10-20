@@ -2940,6 +2940,7 @@
  "viewer.plain": "უბრალო ტექსტი",
  "viewer.plain_big": "16 MB-ზე მეტი: ნაჩვენებია ფერების გარეშე.",
  "viewer.search": "ძებნა",
+ "viewer.searching": "ვეძებ {text}: {pct}% · Esc აჩერებს",
  "viewer.still_reading": "ჯერ ვერ მოიძებნა: ფაილი ჯერ კიდევ იკითხება",
  "worktrees.badge": "სამუშაო ხეები",
  "worktrees.badge_of": "სამუშაო ხეები: {name}",

@@ -2980,6 +2980,7 @@
  "viewer.plain": "plain text",
  "viewer.plain_big": "Over 16 MB: shown without colours.",
  "viewer.search": "Search",
+ "viewer.searching": "Searching for {text}: {pct}% · Esc stops",
  "viewer.still_reading": "Not found yet: the file is still being read",
  "worktrees.badge": "worktrees",
  "worktrees.badge_of": "worktrees of {name}",
