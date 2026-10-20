@@ -90,8 +90,8 @@ Every run is `podman run` (or `docker run`) with:
 |---|---|
 | `--rm` | The container is removed when it ends |
 | `--network=none` | No network: a document cannot fetch or send anything |
-| `-v <folder>:/src:ro` | The file's folder, read-only: nothing in it can be changed. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found |
-| `-v <cache>:/out` | A fresh folder in the preview cache, the only place it can write |
+| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found |
+| `--mount type=bind,source=<cache>,target=/out` | A fresh folder in the preview cache, the only place it can write |
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
 | `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
@@ -158,9 +158,9 @@ default), **Weekly** or **Monthly**.
 *Settings → Previews → Remove images not used for 90 days* (`[preview] image_prune`), off by
 default.
 
-- The desktop app notes, in `state.json`, when a preview last ran in each image. Once an hour
-  (not on battery) it removes a pulled image of `[preview.images]` that no preview used for 90
-  days, by name, as **Remove** does.
+- Both apps note, in `state.json`, when a preview or [Make PDF searchable](../files/searchable-pdf.md)
+  last ran in each image. Once an hour (not on battery) the desktop app removes a pulled image
+  of `[preview.images]` that neither used for 90 days, by name, as **Remove** does.
 - An image with no use noted yet, such as one pulled before you turned the option on, counts as
   used on the day the app first looks, so turning it on never removes all of them at once.
 - The next preview that needs a removed image says *First run pulls …* again and waits for your
@@ -250,7 +250,7 @@ are safe.
 
 #### Why did an image disappear?
 
-*Remove images not used for 90 days* is on, and no preview used it for that long. The next
+*Remove images not used for 90 days* is on, and neither a preview nor Make PDF searchable used it for that long. The next
 preview that needs it says *First run pulls …* and waits for a click. Turn the option off in
 *Settings → Previews* to keep every image.
 
@@ -258,6 +258,11 @@ preview that needs it says *First run pulls …* and waits for a click. Turn the
 
 No. An image with no use noted yet counts as used on the day the app first looks, so nothing
 goes for 90 days unless a preview ran in it longer ago than that.
+
+#### A preview in a folder with a `:` in its name failed with *incorrect volume format*.
+
+Older versions mounted the folder with `-v`, which splits at every `:`. The folder is now
+mounted with `--mount`, which takes any name, with `,` and `"` too. Press **Try again**.
 
 #### Why is my home folder not visible to the container?
 
