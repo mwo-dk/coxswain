@@ -235,7 +235,8 @@ OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both app
 and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md) in both apps, and GDAL for
 [geodata](../previews/geodata.md)'s facts and Convert geodata, and OpenSCAD for
-[Export 3D model](../previews/openscad.md#export-3d-model), in both apps, and Apache Tika's image for
+[Export 3D model](../previews/openscad.md#export-3d-model), and calibre for
+[e-books](../previews/ebooks.md), in both apps, and Apache Tika's image for
 [`[search] tika`](../search/tika.md).
 
 | Key | Type | Default | Does |

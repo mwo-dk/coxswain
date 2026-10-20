@@ -889,7 +889,8 @@ export function subject(tb = tab()) {
     images: files.filter((x) => ociIndex(tb, x)).length,
     // `local_models::is_model`: a model file by its ending, or a blob of a model store.
     local_models: files.filter((x) => /\.(gguf|safetensors|pt|pth|ckpt)$|\.safetensors\.index\.json$|^pytorch_model.*\.bin$/i.test(x.name) || (tb.models?.[x.name] && /^sha256-/.test(x.name))).length,
-    ebooks: files.filter((x) => /\.(mobi|azw3?|fb2|lit|pdb)$/i.test(x.name)).length,
+    // A .pdb is an e-book only by its header (a debugging database otherwise): F9 offers it.
+    ebooks: files.filter((x) => /\.(mobi|azw3?|fb2|lit)$/i.test(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

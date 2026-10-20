@@ -47,7 +47,7 @@ turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings → *Previews*, with *Container images*, *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image and the two image options, for the desktop app (no *Container images* list, no pulling; Apache Tika's image is pulled by the search helper when [its option](../search/tika.md) is ticked) |
+| **Ctrl+,** | Settings → *Previews*, with *Container images*, *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image, *E-books with calibre* and the two image options, for the desktop app (no *Container images* list, no pulling) |
 
 ## The images
 
@@ -135,13 +135,18 @@ Apache Tika's is the one server, for search: it listens only inside its containe
 network, no folder of yours and no port on your machine, and stops itself when idle
 ([What the container may do](../search/tika.md#what-the-container-may-do)).
 
+calibre's runs for [e-books](ebooks.md) are held tighter still: no mounts at all, the book on
+standard input, `sh -c` running `ebook-convert` and `ebook-meta` as nobody, with the same limits
+as ffmpeg's and ImageMagick's ([How calibre runs](ebooks.md#how-calibre-runs)).
+
 A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
 searchable, Convert video or audio, Convert or edit pictures, Convert geodata and Export 3D model have none: **Stop** ends them. Pulling
 the image is not counted.
 
 ## Pulling and removing images
 
-- **The first run pulls the image,** and only after a click. The engine button's note says so
+- **The first run pulls the image,** and only after a click (calibre's also when you turn on
+  [e-books](ebooks.md) with text search on). The engine button's note says so
   beforehand (*First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)*, or *First run
   pulls docker.io/plantuml/plantuml:latest (about 141 MB)*; an image you set yourself shows no
   size), and while it downloads the preview shows
@@ -245,8 +250,8 @@ LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH`
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
 `PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
 `magick` on its `PATH` for ImageMagick, GDAL's programs on its `PATH` for GDAL, `openscad`
-on its `PATH` for OpenSCAD, and for Tika an `apache/tika` server image (`java` and Tika's jars
-in `/opt/tika-server`).
+on its `PATH` for OpenSCAD, `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` for
+calibre, and for Tika an `apache/tika` server image (`java` and Tika's jars in `/opt/tika-server`).
 
 ## In the terminal app
 

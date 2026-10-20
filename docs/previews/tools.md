@@ -3,7 +3,8 @@
 # Previews made by tools
 
 Some formats need a real program: a TeX distribution, Typst, LibreOffice, Ghostscript, PlantUML,
-D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick, GDAL, OpenSCAD.
+D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick, GDAL, OpenSCAD, and
+calibre for [e-books](ebooks.md) when turned on.
 Coxswain uses one that is installed, or runs it in a [container](containers.md) (podman or
 docker), so nothing has to be installed for a preview you only need now and then. Results are
 kept in a cache, so each file is made once.
@@ -46,6 +47,7 @@ kept in a cache, so each file is made once.
 | `.dng` `.cr2` `.nef` `.arw` and other RAW photos | ImageMagick with LibRaw (`raw`) | `magick` | none: no image reads RAW | PNG | At once |
 | `.gpkg` `.shp` `.geojson` `.kml`, and GeoTIFF the picture reader cannot draw | GDAL (`gdal`, [Geodata](geodata.md)) | `gdalinfo` (and `ogrinfo`, `ogr2ogr`, `gdal_translate` beside it) | `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, pinned (about 40 MB to download, 98 MB on disk) | SVG map | At once |
 | `.scad` | OpenSCAD (`openscad`, [OpenSCAD models](openscad.md)) | `openscad` | `docker.io/openscad/openscad:trixie.2026-10-19`, pinned (about 241 MB to download, 635 MB on disk) | A picture of the part (an SVG outline of a flat model) | At once |
+| `.mobi` `.azw` `.azw3` `.fb2` `.lit` | calibre ([E-books](ebooks.md), only with *E-books with calibre* on) | `ebook-convert`, `ebook-meta` | `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (about 1.3 GB to download, 3.6 GB on disk) | Cover, title, authors and first chapter | After 0.4 s |
 
 "Runs by itself" never includes a container whose image is not pulled yet: a download waits for
 your click.
@@ -150,7 +152,8 @@ install svgbob_cli`, …): Coxswain has no line for them. Where the table says *
 DuckDB and GhostXPS everywhere, the pane says instead: *plantuml has no
 package here: get it from its website and put it on PATH.* The programs Coxswain reads with (for
 search: tesseract, pdftoppm, LibreOffice) have their own table in
-[Scans, pictures and older Office files](../search/scans.md#installing-what-is-missing).
+[Scans, pictures and older Office files](../search/scans.md#installing-what-is-missing), and
+calibre its lines in [E-books](ebooks.md#what-it-needs).
 
 ## Settings and config.toml
 
@@ -162,6 +165,7 @@ timeout = 120            # seconds per conversion; pulling is not counted
 latex_auto = true        # build LaTeX by itself when shown and changed
 image_updates = "off"    # "weekly", "monthly": the desktop app pulls the pulled images again
 image_prune = false      # remove an image no preview used for 90 days
+ebooks = false           # e-books through calibre: previews, search, Convert e-book
 
 [preview.prefer_tool]    # per tool, overrides prefer
 libreoffice = "local"
@@ -181,6 +185,7 @@ ffmpeg = "docker.io/mwader/static-ffmpeg:latest"          # video, sound, HEIC
 imagemagick = "docker.io/dstmodders/imagemagick:latest"  # GIMP and other pictures, conversions
 gdal = "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"  # geodata
 openscad = "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"  # models
+calibre = "docker.io/linuxserver/calibre:9.16.0@sha256:…"   # e-books
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -211,8 +216,10 @@ open the result with **Enter**. The tools it does run are OCRmyPDF, for
 [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md), GDAL for
 [Convert geodata](geodata.md#convert-geodata), OpenSCAD for
-[Export 3D model](openscad.md#export-3d-model), and ffprobe and GDAL for a video's and
-geodata's facts in **Properties**, with the same images and preferences.
+[Export 3D model](openscad.md#export-3d-model), calibre for [e-books](ebooks.md) (**F3** on a
+book, *Convert e-book*), and ffprobe and GDAL for a video's and
+geodata's facts in **Properties**, with the same images and preferences; of `[preview]` it
+also reads `ebooks`.
 
 ## Questions
 

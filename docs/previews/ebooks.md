@@ -41,7 +41,7 @@ It is off by default: the image is large. Both apps; the cover is the desktop ap
 ![Settings in the desktop app at Previews: the option E-books with calibre ticked, with its badges disk space, processor time and downloads, and the line under it naming the formats, the image's size and that books locked with DRM are left alone](../screenshots/ebook-settings.png)
 
 While it is off, a book's preview says *E-books are turned off: Settings → Previews → E-books
-with calibre* with a **Settings** button that opens Settings at the option, and **F3** in the
+with calibre* with a **Settings → Previews** button that opens Settings at the option, and **F3** in the
 terminal app shows the file as it is, with the same line on the status line.
 
 ## What it needs
@@ -51,8 +51,8 @@ One of these, tried in the order of *Settings → Previews → How previews are 
 
 | Way | What runs | Systems |
 |---|---|---|
-| calibre installed | `ebook-convert` and `ebook-meta`, at the lowest priority | FreeBSD: `pkg install calibre`; Linux: `sudo pacman -S calibre`, `sudo apt install calibre`, `sudo dnf install calibre`, `sudo zypper install calibre`; macOS: `brew install --cask calibre`; Windows: `winget install calibre.calibre`; elsewhere from [calibre's site](https://calibre-ebook.com/download) |
-| Its container | podman or docker runs `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest, with no network and none of your folders ([How calibre runs](#how-calibre-runs)) | Linux, macOS and Windows with podman or docker. Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install calibre there instead |
+| calibre installed | `ebook-convert` and `ebook-meta`, at the lowest priority | FreeBSD: `pkg install calibre`; Linux: `sudo pacman -S calibre`, `sudo apt install calibre`, `sudo dnf install calibre`, `sudo zypper install calibre`; macOS: `brew install --cask calibre`; Windows: `winget install --id calibre.calibre -e`; elsewhere from [calibre's site](https://calibre-ebook.com/download) |
+| Its container | podman or docker runs `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest, with no network and none of your folders ([How calibre runs](#how-calibre-runs)) | Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install calibre there instead. Linux, macOS and Windows with podman or docker |
 
 The image is about 1.3 GB to download and 3.6 GB on disk, so it is pulled only when you said so:
 by turning the option on with text search on, by **Pull** in *Settings → Previews → Container
@@ -63,7 +63,8 @@ arm64, GPL-3.0 like calibre. calibre publishes no image of its own; the smaller 
 Hub are kept by single people and fall behind. Coxswain uses only the calibre in it, never the
 desktop the image is made to serve.
 
-With neither, the preview's engine buttons are greyed out and the pane says what to install,
+With the option on and neither calibre nor podman or docker there, a notice says so once on the
+status line, with the install line and **Copy**. With neither, the preview's engine buttons are greyed out and the pane says what to install,
 with **Copy**; *Convert e-book* says *E-books need calibre. Install it (sudo apt install
 calibre), or run it in a container: …* and what keeps the container from running.
 
@@ -107,8 +108,11 @@ so) is still read for search, converted, and shown by **F3** in the terminal app
 ![The question Convert e-book in the desktop app over the Books folder: Writes the-rocket-garden.pdf next to the-rocket-garden.fb2, made by calibre. the-rocket-garden.fb2 itself is not changed. Books locked with DRM are left alone. It runs the installed calibre. With the buttons Convert and Cancel](../screenshots/ebook-convert.png)
 
 The new file is never written over anything: when `name.epub` is there already, it is
-`name 2.epub`. A book already in the format picked is left out (an `.azw3` offers EPUB and PDF).
-*Convert e-book* has no key of its own: give it one under `[keys]` in `config.toml`
+`name 2.epub`. A book already in the format picked is left out: AZW3 picked for an `.azw3` makes
+nothing for it. In the desktop app the action menu offers it on `.pdb` files only through **F9**,
+since `.pdb` is also a debugging database; the header decides.
+The first few times the cursor is on a book, the status line hints *Shift+F10 / Menu → Convert
+e-book makes it an EPUB, AZW3 or PDF*. *Convert e-book* has no key of its own: give it one under `[keys]` in `config.toml`
 (`convert_ebook = "Alt+…"`, a free one) if you use it often.
 
 | Key | Desktop app | Terminal app |
@@ -159,8 +163,10 @@ limits as ffmpeg's and ImageMagick's and no mounts at all:
 | `--user 65534:65534`, `-e HOME=/tmp` | As nobody |
 | no `--mount`, no `-v` | None of your folders: the book goes in on standard input as `/tmp/in.<ending>`, so its name is never an argument, and what calibre made comes back on standard output as a tar of `out.<format>`, `cover.jpg` and `meta.txt`, each with a size limit (768 MB for a book, 32 MB for a cover); anything else in it is ignored |
 
-The book may be 256 MB at most. A run longer than the timeout (`[preview] timeout`, 10 minutes
-at least for a conversion) is stopped and its container killed.
+A preview or conversion takes a book of 256 MB at most; the search reads books up to
+`[search] text_max_size` (20 MB by default). A run longer than the timeout (`[preview] timeout`
+for a preview, 10 minutes at least for a conversion, 5 minutes for reading a book for search) is
+stopped and its container killed.
 
 ## Settings and config.toml
 
@@ -224,7 +230,7 @@ They have readers built into Coxswain, which need nothing: EPUB in [Documents](d
 #### Does anything leave my machine?
 
 Only the image, downloaded from Docker Hub when you allowed it; *Settings → Privacy and updates →
-What can leave this machine* names Docker Hub. calibre runs with no network, and an installed
+What can leave this machine* names `docker.io`. calibre runs with no network, and an installed
 calibre reads and writes only here.
 
 ---

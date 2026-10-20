@@ -52,7 +52,8 @@ machine. Its port and a random token are in `index.addr`, a file only you can re
 users of the machine cannot ask it anything.
 
 Reading your documents for search is done by Coxswain itself, with no network. Installed
-programs it may use (tesseract, pdftoppm, LibreOffice) run locally and write only into a
+programs it may use (tesseract, pdftoppm, LibreOffice, and calibre for e-books, installed or in a
+container with `--network=none`) run locally and write only into a
 temporary folder that is removed afterwards. Containers for previews run with `--network=none`.
 Files copied out of an archive on the way to another archive pass through a temporary folder of
 their own, removed afterwards.

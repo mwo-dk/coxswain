@@ -5,7 +5,7 @@
 The desktop app's preview pane shows the file or folder under the cursor and follows it as you
 move: over 60 kinds of file, from code and Markdown to web pages, spreadsheets, databases,
 e-books, certificates, slides and LaTeX. Most are drawn by libraries built into the app; a few
-need a real program (LaTeX, LibreOffice, PlantUML, pandoc, DuckDB, ffmpeg, ImageMagick), which Coxswain runs from
+need a real program (LaTeX, LibreOffice, PlantUML, pandoc, DuckDB, ffmpeg, ImageMagick, calibre for e-books), which Coxswain runs from
 your install or from a network-less container.
 
 ![Five previews side by side: Markdown with a Mermaid flow chart and a typeset formula, a Jupyter notebook with its code and a plot, a spreadsheet, a Word document and a font sample, all in the Cyber theme](../screenshots/gui-previews.png)
@@ -25,7 +25,7 @@ details; *Settings → Previews → Use* can put the container first, or leave i
 flowchart TD
   file[The file under the cursor] --> own{A reader built<br/>into the app?}
   own -->|yes: code, PDF, pictures,<br/>spreadsheets, …| shown[Shown at once]
-  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick,<br/>GDAL, OpenSCAD| tool{The program<br/>installed?}
+  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick,<br/>GDAL, OpenSCAD, calibre| tool{The program<br/>installed?}
   tool -->|yes| run[It runs; the result<br/>is cached]
   tool -->|no| box{podman or docker,<br/>and an image?}
   box -->|yes| cont[It runs in a container<br/>with no network;<br/>a first pull waits for a click]

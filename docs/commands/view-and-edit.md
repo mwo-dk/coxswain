@@ -141,6 +141,8 @@ away. **F3** on a chess or Go file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen
 ([Chess games](../previews/chess.md), [Go games](../previews/go.md)), and on a neural network
 model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: format, inputs
 and outputs with shapes, operators ([Neural network models](../previews/neural-networks.md)).
+**F3** on a MOBI, Kindle, FictionBook, LIT or Palm book shows its title, authors and text, made by
+calibre, when *E-books with calibre* is on ([E-books](../previews/ebooks.md#in-the-terminal-app)).
 
 ## Questions
 

@@ -808,7 +808,7 @@
           {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
           <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
-          <p class="more">{#if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
+          <p class="more">{#if conv.tool === "calibre" && !ui.cfg.settings.ebooks}<!-- Only turned off: nothing to install. -->{:else if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
             <button class="render" onclick={() => (ui.modal = { kind: "settings", section: conv.tool === "calibre" && !ui.cfg.settings.ebooks ? "ebooks" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews" })}>{t("preview.settings")}</button></p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>

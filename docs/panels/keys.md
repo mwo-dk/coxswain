@@ -110,6 +110,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | – | Convert geodata | `convert_geodata` | GeoPackage, GeoJSON, shapefile, KML or GPX copies of the marked geodata, a COG or PNG of a GeoTIFF, by GDAL; again while it runs, stops it ([Geodata](../previews/geodata.md#convert-geodata)) | The same |
 | – | Export 3D model | `export_model` | STL or 3MF copies of the marked OpenSCAD models, by OpenSCAD; again while it runs, stops it ([OpenSCAD models](../previews/openscad.md#export-3d-model)) | The same |
 | – | Convert or edit pictures | `edit_pictures` | JPEG, PNG or WebP copies of the marked pictures, smaller, without the location or turned, by ImageMagick; again while it runs, stops it ([Convert or edit pictures](../files/edit-pictures.md)) | The same |
+| – | Convert e-book | `convert_ebook` | The marked e-books (or the one under the cursor) as EPUB, AZW3 or PDF next to them, by calibre; again while it runs, stops it ([E-books](../previews/ebooks.md)) | The same |
 
 ### Archives
 
