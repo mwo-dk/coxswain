@@ -1,1 +1,0 @@
-| **Searching a file of very long lines in the terminal viewer stays small.** Search reads a few megabytes at a time however long the lines are, instead of up to thousands of megabyte-long lines at once. | [View and edit](commands/view-and-edit.md#the-built-in-viewer) |
