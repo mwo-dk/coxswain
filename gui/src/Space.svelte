@@ -255,7 +255,7 @@
   });
   $effect(() => {
     cursor;
-    drawCursor();
+    untrack(drawCursor);
     const r = view?.tiles[cursor];
     if (!r) return void (info = null);
     invoke("space_info", { id: r.id }).then((i) => view?.tiles[cursor] === r && (info = i ? { path: i[0], dir: i[1], tile: r } : null));

@@ -261,7 +261,7 @@
   async function setTag(color) {
     const m = ui.modal;
     close();
-    await invoke("set_tags", { paths: m.paths, color });
+    await invoke("set_tags", { paths: m.paths, color }).catch((e) => (ui.status = String(e)));
     load(tab());
   }
 
@@ -346,7 +346,7 @@
     else if (k === "Up" || k === "Down" || k === "PageUp" || k === "PageDown") m.cursor = step(rows, m.cursor, { Up: -1, Down: 1, PageUp: -15, PageDown: 15 }[k]);
     else if (act === "edit") {
       const p = answer ? src[m.cursor] : rows[m.cursor]?.row === "hit" && !rows[m.cursor].hit.is_dir ? rows[m.cursor].hit.path : null;
-      if (p && !isHistory(p)) invoke("edit_path", { path: p });
+      if (p && !isHistory(p)) invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
     } else if (k === "Delete" && rows[m.cursor]?.dismiss && e.target?.selectionStart === m.query.length) dismissRow(m, rows[m.cursor]);
     else return false;
     return true;

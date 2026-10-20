@@ -431,6 +431,11 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         return if stdin.is_some() { capture(c, stdin, timeout, file, Some((&rt_path, &container_name))) } else { wait(c, timeout, Some((&rt_path, &container_name))) };
     }
 
+    // Only a program of this tool's own list: the page names it, and a name outside the list
+    // would run whatever is on the PATH under that name.
+    if !TOOLS.iter().any(|(t, p)| *t == tool && p.contains(&which_one)) {
+        return Err(t!("convert.unknown_engine"));
+    }
     let program = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
     let mut c = coxswain_core::tools::command(&program);
     c.current_dir(dir);

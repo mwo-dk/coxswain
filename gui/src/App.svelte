@@ -62,11 +62,18 @@
     (e) => (ui.status = String(e)),
   );
 
-  // Save the session a moment after anything in it changes.
+  // Save the session a moment after anything in it changes; a failure is told once, until a
+  // save works again.
+  let saveFailed = false;
+  const saveSession = (session) =>
+    invoke("save_session", { session }).then(
+      () => (saveFailed = false),
+      (e) => saveFailed || ((saveFailed = true), (ui.status = String(e))),
+    );
   $effect(() => {
     if (!ready) return;
     const snap = JSON.stringify(snapshot());
-    const timer = setTimeout(() => invoke("save_session", { session: JSON.parse(snap) }), 600);
+    const timer = setTimeout(() => saveSession(JSON.parse(snap)), 600);
     return () => clearTimeout(timer);
   });
 
@@ -76,7 +83,7 @@
   const gitDir = (t) => t.git && `${t.git.root}${ui.cfg.sep}.git`;
   $effect(() => {
     if (!ready) return;
-    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, gitDir(t)]).filter(Boolean))] });
+    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, gitDir(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
   });
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
