@@ -116,7 +116,8 @@ files are still to go, and *· 2 files changing* while files changed in the last
   within ten minutes; their words are searchable at once. Until then they count as *changing*,
   not as to go: a file an app saves every few seconds (`~/.claude.json`, a browser's session)
   would otherwise get new vectors over and over and never let the count reach 0. A file whose
-  date is in the future counts as changing until that date is five minutes past. A
+  date is in the future (a clock that was wrong when it was saved) counts as changing until a
+  later scan finds it unchanged, size and date, and is then to go. A
   long backlog (the first vectors on a big home folder, hours on the processor) stops every
   minute to read what you saved meanwhile, so a saved file is found by its words within a
   minute even then.

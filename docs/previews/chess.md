@@ -127,13 +127,14 @@ A store made before this release reads every PGN file again once, for this: only
 `.pgn.gz` and `.pgn.zst` files, nothing else. A PGN file is read for Find whatever its size
 (*Largest file read (MB)*, `[search] text_max_size`, does not apply to it), but the store keeps
 4 MB of lines of it: about the first 40,000 games of a big file, read from its start and no
-further. Find finds only those; the table always has them all.
+further, and of a packed file no more than 1 GB unpacked. Find finds only those; the table
+always has them all.
 
 ## Files it reads
 
 | Ending | What |
 |---|---|
-| `.pgn` | Games, in PGN: tags, moves in SAN, variations, comments in `{ }` and after `;`, NAGs (`$1` … `$255`), results. Files in Windows-1252 (old Latin-1 files) are read too |
+| `.pgn` | Games, in PGN: tags, moves in SAN, variations, comments in `{ }` and after `;`, NAGs (`$1` … `$255`), null moves (`--` or `Z0`, shown as `--`: the other side moves next), results. Files in Windows-1252 (old Latin-1 files) and files that start with a byte order mark are read too |
 | `.pgn.gz`, `.pgn.zst` | The same, packed with gzip or Zstandard |
 | `.epd`, `.fen` | Positions, one a line |
 
@@ -181,8 +182,8 @@ letters follow the app's language (*Settings → Looks → Language*).
 
 #### Why does a game stop showing positions halfway?
 
-A move in the file cannot be played from the position before it, usually a typing error. The
-line above the board names it; the moves after it are listed, without a board.
+A move in the file cannot be played from the position before it, usually a typing error, or
+a null move (`--`) while in check. The line above the board names it; the moves after it are listed, without a board.
 
 #### How fast is a big file?
 

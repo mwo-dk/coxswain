@@ -274,6 +274,11 @@ impl Store {
         if db.prepare("SELECT cloud FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN cloud INTEGER")?;
         }
+        // A file dated in the future came later: `settled` is the date it had when a scan found
+        // it unchanged since the one before, so it counts as quiet while that date stays.
+        if db.prepare("SELECT settled FROM files LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE files ADD COLUMN settled INTEGER")?;
+        }
         // The files still to get their vectors, newest first, without a look at the rest.
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_unembedded ON files(modified) WHERE has_text = 1 AND embedded IS NULL")?;
         // The files still to be read, so that a burst of changes does not scan every row.
@@ -504,7 +509,9 @@ impl Store {
         let before: String = db
             .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
             .unwrap_or_default();
-        if before == tag {
+        // A newer Coxswain read these files with a newer reader: an older one leaves them be.
+        let newer = matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b);
+        if before == tag || newer {
             return Ok(());
         }
         for end in ends {
@@ -711,7 +718,7 @@ impl Store {
             }
             tx.prepare_cached(
                 "INSERT INTO files(path, size, modified, has_text, cloud) VALUES (?1, ?2, ?3, NULL, ?4)
-                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, cloud = excluded.cloud",
+                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, cloud = excluded.cloud, settled = NULL",
             )?
             .execute(params![path, *size as i64, modified, cloud.then_some(1)])?;
         }
@@ -1080,6 +1087,20 @@ impl Store {
         quiet_since(self.quiet.load(Ordering::Relaxed))
     }
 
+    /// Files dated in the future that a walk found unchanged: quiet while they keep that date.
+    fn settle(&self, files: &[(String, i64)]) -> rusqlite::Result<()> {
+        if files.is_empty() {
+            return Ok(());
+        }
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        for (path, at) in files {
+            tx.prepare_cached("UPDATE files SET settled = ?2 WHERE path = ?1 AND modified = ?2")?
+                .execute(params![path, at])?;
+        }
+        tx.commit()
+    }
+
     /// Files with text, quiet, whose passages have no vectors yet, and files that have them.
     pub fn meaning_counts(&self) -> (usize, usize) {
         let db = self.db.lock().unwrap();
@@ -1115,7 +1136,7 @@ impl Store {
         // The files first, by `files_unembedded`, then their text: joined before the limit, the
         // text of every file still to go was read for each few (2 s a time with 300,000).
         let mut q = db.prepare(
-            "SELECT f.id, f.path, coalesce(t.body, '') FROM (SELECT id, path, modified FROM files WHERE has_text = 1 AND embedded IS NULL AND modified <= ?2 ORDER BY modified DESC LIMIT ?1) f
+            "SELECT f.id, f.path, coalesce(t.body, '') FROM (SELECT id, path, modified FROM files WHERE has_text = 1 AND embedded IS NULL AND (modified <= ?2 OR settled = modified) ORDER BY modified DESC LIMIT ?1) f
              LEFT JOIN text t ON t.rowid = f.id ORDER BY f.modified DESC",
         )?;
         let rows = q.query_map([n as i64, self.quiet_since()], |r| {
@@ -1600,12 +1621,12 @@ pub struct Facts {
     pub read_at: Option<u64>,
 }
 
-/// The files still to get their vectors, by `files_unembedded`: quiet since `?1` (to go), or
-/// changed after it (changing).
+/// The files still to get their vectors, by `files_unembedded`: quiet since `?1` or dated in
+/// the future and unchanged across two scans (to go), or changed after it (changing).
 const TO_GO: &str =
-    "SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL AND modified <= ?1";
+    "SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL AND (modified <= ?1 OR settled = modified)";
 const CHANGING: &str =
-    "SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL AND modified > ?1";
+    "SELECT count(*) FROM files WHERE has_text = 1 AND embedded IS NULL AND modified > ?1 AND settled IS NOT modified";
 
 /// The latest `modified` of a file unchanged for `quiet` seconds now.
 fn quiet_since(quiet: u64) -> i64 {
@@ -1849,6 +1870,8 @@ struct Walk {
     skipped: Vec<(String, Size)>,
     /// Folders that are git work trees (they hold a `.git`).
     repos: Vec<PathBuf>,
+    /// Files dated in the future and unchanged since the last walk: (path, date).
+    settled: Vec<(String, i64)>,
 }
 
 /// Whether the file `meta` describes is only in the cloud and the settings leave it there: it is
@@ -1915,7 +1938,13 @@ fn walk(
             let cloud = left_in_cloud(store, &meta, &path);
             // Roots may overlap: a file met twice still matches its row.
             match known.get_mut(text) {
-                Some((k, seen)) if *k == (meta.len(), modified, cloud) => *seen = true,
+                Some((k, seen)) if *k == (meta.len(), modified, cloud) => {
+                    *seen = true;
+                    // A date in the future never gets quiet by itself: unchanged is quiet.
+                    if modified > now() as i64 {
+                        found.settled.push((text.to_string(), modified));
+                    }
+                }
                 Some((_, seen)) => {
                     *seen = true;
                     found
@@ -2017,7 +2046,7 @@ fn scan_for(
     store.readers_changed("code-1", &ends)?;
     // PostScript has a reader of its own (Ghostscript, else plain text): read once again.
     store.reader_changed("readers.postscript", "1", &[".ps", ".eps"])?;
-    // Code in more languages (2.36): only the files with the endings new then are read again.
+    // Code in more languages (2.32): only the files with the endings new then are read again.
     let added: Vec<String> = crate::code::SINCE_CODE_1.iter().map(|e| format!(".{e}")).collect();
     store.reader_changed("readers.code", "2", &added)?;
     // PGN files: a line per game (players, event, site, date, opening, result), read once again.
@@ -2050,6 +2079,7 @@ fn scan_for(
         true,
         cfg.archives.then_some(&roots[..]),
     )?;
+    store.settle(&found.settled)?;
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
         return Ok(false);
@@ -3608,6 +3638,14 @@ mod tests {
         assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "once");
         store.readers_changed("test-2", &[".png"]).unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "the old tag untouched");
+        // A newer app wrote a higher version: this one reads nothing again and keeps its tag.
+        store.reader_changed("readers.code", "3", &[".png"]).unwrap();
+        store.read(&[(id, Some("new words".into()))]).unwrap();
+        store.reader_changed("readers.code", "2", &[".png"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "an older reader leaves a newer one's work");
+        let tag: String = store.db.lock().unwrap()
+            .query_row("SELECT value FROM meta WHERE key = 'readers.code'", [], |r| r.get(0)).unwrap();
+        assert_eq!(tag, "3");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -4376,6 +4414,13 @@ mod tests {
 
         date(&store, crate::fs::now() as i64 + 3600);
         assert_eq!(state(&store), ((0, 0), 1), "a date in the future is changing");
+        // Dated in the future on disk too: unchanged at the next scan, it is quiet.
+        let ahead = std::time::SystemTime::now() + Duration::from_secs(7200);
+        std::fs::File::options().write(true).open(&file).unwrap().set_modified(ahead).unwrap();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(state(&store), ((0, 0), 1), "first seen with that date: changing");
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(state(&store), ((0, 1), 0), "unchanged since: quiet, and the scan gave it its vectors");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

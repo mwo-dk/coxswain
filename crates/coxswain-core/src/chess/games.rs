@@ -128,7 +128,12 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(
     let mut at = 0u64;
     let (mut has_tags, mut has_moves, mut in_brace, mut depth) = (false, false, false, 0u32);
     loop {
-        let n = read_line(&mut r, &mut line)?;
+        let mut n = read_line(&mut r, &mut line)?;
+        // A byte order mark before the first tag is no part of the game.
+        if at == 0 && line.starts_with(b"\xEF\xBB\xBF") {
+            line.drain(..3);
+            (at, n) = (3, n - 3);
+        }
         // An unclosed `{` ends at the next game's first tag, at the start of a line.
         if in_brace && line.starts_with(b"[Event \"") {
             in_brace = false;
@@ -278,7 +283,8 @@ fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dy
 
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    let r = reader(path, Arc::default(), Limits::default().unpacked)?;
+    // The search store reads every PGN file: 1 GiB unpacked of each is plenty.
+    let r = reader(path, Arc::default(), 1 << 30)?;
     scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), each)
 }
 
@@ -823,6 +829,20 @@ mod tests {
                 let _ = std::fs::remove_dir_all(&self.0);
             }
         }
+    }
+
+    #[test]
+    fn a_byte_order_mark_is_no_game() {
+        let text = format!("\u{feff}{TWO}");
+        let mut events = vec![];
+        scan(text.as_bytes(), &AtomicBool::new(false), |h| {
+            events.push((h.offset, h.tags[EVENT].clone()));
+            true
+        })
+        .unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].0, 3, "the game starts after the mark");
+        assert!(!events[0].1.is_empty(), "its Event kept");
     }
 
     #[test]
