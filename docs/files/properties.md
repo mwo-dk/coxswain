@@ -82,8 +82,7 @@ type, size, modified, owner, permissions, and the ZFS, package and flag lines; f
 picture, a tracker module, a mailbox, a comic or a dBase table also what it holds
 ([Old pictures and files](../previews/old-formats.md)), and for a neural network model (a Core ML
 package folder too) its format, inputs, outputs, nodes and parameters
-([Neural network models](../previews/neural-networks.md)).,
-and for a video (or a song the tags reader does not know) its format, length, size in pixels
+([Neural network models](../previews/neural-networks.md)), and for a video (or a song the tags reader does not know) its format, length, size in pixels
 and tracks, by an installed ffprobe or ffmpeg's pulled image
 ([Media](../previews/media.md#video-and-sound-with-ffmpeg)). A folder's size
 is measured on a thread; the status line says *Reading properties…* meanwhile. Any key closes
