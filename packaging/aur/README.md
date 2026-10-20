@@ -8,7 +8,9 @@ run `makepkg -si` in `packaging/aur/coxswain` (from source) or `packaging/aur/co
 - **`coxswain`** builds from the tagged source.
 - **`coxswain-bin`** repackages the release's prebuilt Linux binaries.
 
-`release.yml` bumps `pkgver`, updates checksums and pushes both to the AUR after each release.
+In a clone, `pkgver` is the version in the clone's `Cargo.toml`, so `makepkg -si` fetches that
+release. `release.yml` writes the released version into `pkgver`, updates checksums and pushes
+both to the AUR after each release.
 It needs a one-time setup:
 
 1. Have an account at <https://aur.archlinux.org>.

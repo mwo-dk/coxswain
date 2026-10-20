@@ -30,8 +30,8 @@ FROM=
 UNINSTALL=0
 
 usage() {
-  if [ -f "$0" ]; then sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
-  else echo "See https://github.com/$REPO/blob/master/docs/reference/README.md"; fi
+  if [ -f "$0" ]; then sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  else echo "See https://github.com/$REPO/blob/master/docs/systems/README.md"; fi
 }
 
 while [ $# -gt 0 ]; do
