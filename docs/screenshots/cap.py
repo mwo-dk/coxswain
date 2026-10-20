@@ -217,7 +217,9 @@ class Desktop:
         for combo in combos:
             *mods, k = combo.split("+") if combo != "+" else ["+"]
             m = sum(MODS[x] for x in mods)
-            key, code, vk = NAMED.get(k) or (k, f"Key{k.upper()}" if k.isalpha() else "", ord(k.upper()))
+            # Only letters and digits share their character's code as a virtual key: `.` is 46,
+            # which is Delete, `-` Insert and `(` Down. Other characters go as text with none.
+            key, code, vk = NAMED.get(k) or (k, f"Key{k.upper()}" if k.isalpha() else "", ord(k.upper()) if k.isascii() and k.isalnum() else 0)
             text = {"Enter": "\r"}.get(key, key if len(key) == 1 and not (m & 3) else "")
             for x in mods:
                 self.call("Input.dispatchKeyEvent", type="rawKeyDown", key=x if x != "Ctrl" else "Control", modifiers=m)
