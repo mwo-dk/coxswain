@@ -767,8 +767,12 @@ proc quit_logs {} {
   set h [open "$logs/quit-$f.txt" w]
   catch {puts $h "app (pid $pid):\n[exec ps -o pid,ppid,pgid,stat,etime,command -p $pid]"} e1
   catch {puts $h "\nholding the terminal ($spawn_out(slave,name)):\n[exec lsof -w $spawn_out(slave,name)]"} e2
+  catch {puts $h "\nterminal mode (icanon or echo here means raw mode was lost):\n[exec stty -a < $spawn_out(slave,name)]"} e4
   catch {puts $h "\nits children:\n[exec sh -c "ps -axo pid,ppid,pgid,stat,etime,command | awk -v p=$pid 'NR==1 || \$2==p || \$3==p'"]"} e3
   close $h
+  # The screen as it is now, after Esc and F10 (save keeps the last screen a step waited for).
+  wait_for {\u0000never} 3
+  save "$tname after F10"
   if {$pid > 0} { catch {exec sample $pid 3 -file "$logs/quit-$f-sample.txt" 2>/dev/null} }
 }
 proc result {st name ms detail} {
