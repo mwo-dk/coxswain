@@ -293,12 +293,13 @@ Read by both apps when they start, and by each after a change in its own Setting
 
 ## `[chess]`
 
-How [chess games](../previews/chess.md) are shown, in both apps.
+How [chess games](../previews/chess.md) and [Go games](../previews/go.md) are shown, in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `notation` | string | `"figurines"` | `"figurines"` writes moves as ♘f3; `"letters"` in the piece letters of the app's language (Nf3 in English, Sf3 in German). The files keep English SAN |
-| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board |
+| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board; the wood of [Go boards](../previews/go.md) too |
+| `book` | string | `""` | A Polyglot opening book (`.bin`) whose moves the board shows for each position (`~` is the home folder, a relative path starts from the game file's folder). Empty: the first book in the game file's own folder ([Opening books](../previews/chess.md#opening-books)) |
 
 ## What has no key
 
@@ -355,6 +356,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
 | | *Move notation* | `chess_notation` | `[chess] notation` |
 | | *Chess board* | `chess_board` | `[chess] board` |
+| | *Opening book* | `chess_book` | `[chess] book` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

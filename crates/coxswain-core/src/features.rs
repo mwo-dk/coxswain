@@ -162,6 +162,7 @@ pub const FEATURES: &[Feature] = &[
     f("cbom", "previews/bom.md", &[View]),
     f("provenance", "previews/provenance.md", &[View]),
     f("chess", "previews/chess.md", &[Chess, View]),
+    f("go", "previews/go.md", &[Chess, View]),
     f(
         "neural_networks",
         "previews/neural-networks.md",

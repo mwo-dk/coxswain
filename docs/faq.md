@@ -165,6 +165,9 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Does it read ChessBase files?** Not yet: export them to PGN. [Answer](previews/chess.md#does-it-read-chessbase-files)
 - **Does Coxswain run a neural network model to show it?** No: it reads the file's structure only, reads no pickle, and Netron's frame has no network. [Answer](previews/neural-networks.md#does-coxswain-run-the-model)
 - **Why is my PyTorch `.pt` file not drawn?** It is a Python pickle (TorchScript holds code): export the model to ONNX to see it. [Answer](previews/neural-networks.md#why-is-my-pytorch-pt-file-not-shown)
+- **Why does the opening book line not show?** No Polyglot book was found: name one in *Settings → Previews → Opening book*, or put it next to the PGN file. [Answer](previews/chess.md#why-does-the-book-line-not-show)
+- **Does it score a Go game?** No: it plays the moves of the SGF file, takes off captured stones and shows the file's result. [Answer](previews/go.md#does-it-score-the-game-or-check-the-rules)
+- **Why are the names in a Chinese, Japanese or Korean SGF file garbled?** The file is in another charset than it says; add `CA[GB2312]` (or the right one). [Answer](previews/go.md#why-are-the-names-in-a-chinese-japanese-or-korean-file-garbled)
 - **Why is the source commit "not in your checkout"?** Coxswain never fetches; run `git fetch` in your checkout. [Answer](previews/provenance.md#why-is-my-commit-not-in-your-checkout)
 - **Why does search.db not show its tables like other databases?** It is Coxswain's own store: its preview says what it holds instead (files read by kind, vectors, errors, size per part); a copy is shown the same way. [Answer](previews/data.md#why-does-searchdb-not-show-its-tables-like-other-databases)
 

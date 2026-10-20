@@ -43,6 +43,10 @@ export const ui = $state({
   modal: null,
   /** A game to show on the board when its PGN file is previewed (a Find hit): { path, index }. */
   chessAt: null,
+  /** A Find hit's game in an SGF file: { path, index }, for GoView. */
+  goAt: null,
+  /** The last .bin file the preview found to be a Polyglot book, for the action menu. */
+  book: "",
   /** Settings → What's new: the notices not dismissed, and the versions not read. */
   news: { notices: [], unread: [] },
   favorites: [],
@@ -701,7 +705,7 @@ export function subject(tb = tab()) {
     archives: files.filter((x) => isArchive(x.name) || (ui.cfg.settings.disk_images && (diskSure(x.name) || diskSeen.has(x.path)))).length,
     disk_images: ui.cfg.settings.disk_images ? 0 : files.filter((x) => diskSure(x.name) || diskSeen.has(x.path)).length,
     pdfs: files.filter((x) => /\.pdf$/i.test(x.name)).length,
-    chess: files.filter((x) => chessFormat(x.name)).length,
+    chess: files.filter((x) => chessFormat(x.name) || x.path === ui.book).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

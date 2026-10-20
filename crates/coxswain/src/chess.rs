@@ -3,6 +3,7 @@
 //! its moves beside it, variations and comments in place. An EPD or FEN file: its positions.
 //! Reading and playing out are coxswain-core's `chess`; the desktop app shows the same.
 
+use coxswain_core::chess::polyglot::{self, BookMove};
 use coxswain_core::chess::{self, Format, Library, Notation, Position, Query, Sort, Token};
 use coxswain_core::config::{Action, Key, KeyCode, Theme};
 use coxswain_core::t;
@@ -67,6 +68,14 @@ pub struct Viewer {
     notation: Notation,
     board: [Color; 2],
     said: Option<String>,
+    /// The opening book whose moves are shown (`polyglot::find`), and the last position's.
+    book: Option<PathBuf>,
+    book_moves: Option<(String, Vec<BookMove>)>,
+    /// The file is a book: its moves are played on the board from the start, `line` the
+    /// positions before, `pick` the move chosen.
+    book_only: bool,
+    line: Vec<String>,
+    pick: usize,
 }
 
 fn rgb(hex: &str) -> Color {
@@ -131,9 +140,19 @@ impl Viewer {
             reading: None,
             hit: None,
             want: None,
+            book: polyglot::find(path, &cfg.chess.book),
+            book_moves: None,
+            book_only: false,
+            line: vec![],
+            pick: 0,
         };
-        match chess::format(path) {
+        match chess::sniff(path) {
             Some(Format::Pgn) => v.lib = Some(Arc::new(Library::open(path)?)),
+            Some(Format::Book) => {
+                v.book_only = true;
+                let game = chess::Game { start: chess::pgn::START.to_string(), ..Default::default() };
+                v.open = Some(Open { index: 0, layout: vec![], game, at: None });
+            }
             _ => {
                 v.positions = chess::read_positions(path)?;
                 v.show_position(0);
@@ -304,7 +323,53 @@ impl Viewer {
         Outcome::Stay
     }
 
+    /// The book's moves for `fen`, read once per position.
+    fn book_moves(&mut self, fen: &str) -> &[BookMove] {
+        if self.book_moves.as_ref().is_none_or(|(f, _)| f != fen) {
+            let moves = self.book.as_deref().map(|b| polyglot::moves_at(b, fen)).unwrap_or_default();
+            self.book_moves = Some((fen.to_string(), moves));
+        }
+        &self.book_moves.as_ref().expect("set above").1
+    }
+
+    /// A key in a book of its own: its moves are chosen and played.
+    fn book_key(&mut self, key: Key) -> Outcome {
+        let Some(fen) = self.open.as_ref().map(|o| o.game.start.clone()) else { return Outcome::Close };
+        let n = self.book_moves(&fen).len();
+        let mut to = None;
+        match key.code {
+            KeyCode::Esc => return Outcome::Close,
+            KeyCode::Down => self.pick = (self.pick + 1).min(n.saturating_sub(1)),
+            KeyCode::Up => self.pick = self.pick.saturating_sub(1),
+            KeyCode::Enter | KeyCode::Right => {
+                let pick = self.pick;
+                if let Some(m) = self.book_moves(&fen).get(pick) {
+                    to = Some(m.fen.clone());
+                    self.line.push(fen);
+                }
+            }
+            KeyCode::Left | KeyCode::Backspace => to = self.line.pop(),
+            KeyCode::Home => {
+                to = self.line.first().cloned();
+                self.line.clear();
+            }
+            KeyCode::Char('f') => self.flip = !self.flip,
+            KeyCode::Char('n') => {
+                self.notation = if self.notation == Notation::Figurines { Notation::Letters } else { Notation::Figurines };
+            }
+            _ => {}
+        }
+        if let (Some(fen), Some(o)) = (to, self.open.as_mut()) {
+            o.game.start = fen;
+            self.pick = 0;
+        }
+        Outcome::Stay
+    }
+
     fn game_key(&mut self, key: Key) -> Outcome {
+        if self.book_only {
+            return self.book_key(key);
+        }
         let epd = self.lib.is_none();
         if epd {
             let i = self.open.as_ref().map_or(0, |o| o.index as usize);
@@ -393,7 +458,9 @@ impl Viewer {
         let said = Rect { y: inner.bottom() - 2, height: 1, ..inner };
         let body = Rect { height: inner.height - 2, ..inner };
         let w = inner.width as usize;
-        let keys = if self.open.is_some() {
+        let keys = if self.book_only {
+            t!("chess.keys_book")
+        } else if self.open.is_some() {
             if self.lib.is_some() { t!("chess.keys_game") } else { t!("chess.keys_position") }
         } else {
             t!("chess.keys_list")
@@ -526,6 +593,15 @@ impl Viewer {
         let bg = base.bg.unwrap_or(Color::Reset);
         let dim = faint(theme).bg(bg);
         let Some(o) = &self.open else { return };
+        let now = match o.at {
+            Some(n) => o.game.nodes[n as usize].fen.clone(),
+            None => Some(o.game.start.clone()),
+        };
+        let book: Vec<BookMove> = match &now {
+            Some(fen) if self.book.is_some() => self.book_moves(fen).to_vec(),
+            _ => vec![],
+        };
+        let Some(o) = &self.open else { return };
         let g = &o.game;
         // The board: as big as fits, a square twice as wide as high.
         let cell_h = ((area.height.saturating_sub(2)) / 8).clamp(1, 2);
@@ -598,11 +674,40 @@ impl Viewer {
             head.push(Line::styled(fit(&about, w), dim));
             let total = self.lib.as_ref().map_or(0, |l| l.progress().games);
             head.push(Line::styled(fit(&t!("chess.game_of", "n" => o.index + 1, "total" => total), w), dim));
+        } else if self.book_only {
+            let entries = polyglot::Book::open(&self.path).map_or(0, |b| b.entries());
+            head.push(Line::styled(fit(&t!("chess.book_entries", "n" => entries), w), base.add_modifier(Modifier::BOLD)));
         } else {
             head.push(Line::styled(fit(&t!("chess.position_of", "n" => o.index + 1, "total" => self.positions.len()), w), base.add_modifier(Modifier::BOLD)));
         }
-        head.push(Line::from(""));
         let pieces = chess::pieces(self.notation);
+        // The book's moves for this position: a list to choose from in a book of its own, a
+        // line under the game's heading otherwise.
+        let book_name = self.book.as_ref().and_then(|b| b.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if self.book_only {
+            head.push(Line::from(""));
+            if book.is_empty() {
+                head.push(Line::styled(fit(&t!("chess.book_none"), w), dim));
+            }
+            for (k, m) in book.iter().enumerate() {
+                let learn = if m.learn > 0 { format!("  {}", t!("chess.book_learn", "n" => m.learn)) } else { String::new() };
+                let text = format!("{:<8} {:>5.1} %  {:>5}{learn}", chess::show_san(&m.san, &pieces), m.share, m.weight);
+                let style = if k == self.pick { sty(&theme.dialog_input) } else { base };
+                head.push(Line::styled(fit(&text, w), style));
+            }
+            f.render_widget(Paragraph::new(head), right);
+            return;
+        }
+        if self.book.is_some() {
+            let text = if book.is_empty() {
+                t!("chess.book_out", "name" => book_name)
+            } else {
+                let list: Vec<String> = book.iter().take(8).map(|m| format!("{} {:.0} %", chess::show_san(&m.san, &pieces), m.share)).collect();
+                t!("chess.book", "name" => book_name, "moves" => list.join(" · "))
+            };
+            head.push(Line::styled(fit(&text, w), dim));
+        }
+        head.push(Line::from(""));
         // The moves, word by word, wrapped; the line with the move shown is kept in view.
         let mut words: Vec<(String, Style, bool)> = vec![];
         for tok in &o.layout {
@@ -733,6 +838,57 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
         assert_eq!(v.open.as_ref().map(|o| o.index), Some(1));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_book_played_through() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-book-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        // Two moves from the start, one after 1.e4: (key, from, to, weight).
+        let zobrist = |fen: &str| polyglot::key(&chess::pgn::board(fen).unwrap());
+        let sq = |s: &str| (s.as_bytes()[0] - b'a') as u16 | (((s.as_bytes()[1] - b'1') as u16) << 3);
+        let start = zobrist(chess::pgn::START);
+        let e4 = zobrist("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
+        let mut entries = vec![(start, "e2", "e4", 3u16), (start, "d2", "d4", 1), (e4, "c7", "c5", 1)];
+        entries.sort_by_key(|e| e.0);
+        let mut bytes = vec![];
+        for (k, from, to, w) in entries {
+            bytes.extend(k.to_be_bytes());
+            bytes.extend((sq(to) | (sq(from) << 6)).to_be_bytes());
+            bytes.extend(w.to_be_bytes());
+            bytes.extend(0u32.to_be_bytes());
+        }
+        let book = d.join("book.bin");
+        std::fs::write(&book, bytes).unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&book, &cfg, &Theme::default()).unwrap();
+        let screen = |v: &mut Viewer| {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+            term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+            term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>()
+        };
+        let s = screen(&mut v);
+        assert!(s.contains("e4") && s.contains("75.0 %") && s.contains("d4"), "{s}");
+        v.key(key(KeyCode::Enter), None);
+        assert!(screen(&mut v).contains("c5"));
+        v.key(key(KeyCode::Left), None);
+        assert!(screen(&mut v).contains("75.0 %"));
+        // A game next to the book: its moves under the heading.
+        let pgn = d.join("g.pgn");
+        std::fs::write(&pgn, "[White \"A\"]\n\n1.e4 c5 *\n").unwrap();
+        let mut v = Viewer::open(&pgn, &cfg, &Theme::default()).unwrap();
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let s = screen(&mut v);
+        assert!(s.contains("book.bin") && s.contains("e4 75 %"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

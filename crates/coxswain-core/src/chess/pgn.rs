@@ -457,6 +457,74 @@ pub fn san_move(b: &Board, san: &str) -> Option<Move> {
     (count == 1).then_some(found).flatten()
 }
 
+/// A legal move on `b` in English SAN, as a book writes it: `Nbd2`, `exd5`, `O-O`, `e8=Q+`.
+pub fn san(b: &Board, mv: Move) -> String {
+    let piece = b.piece_on(mv.from).unwrap_or(Piece::Pawn);
+    let mut out = String::new();
+    if piece == Piece::King && b.color_on(mv.to) == b.color_on(mv.from) {
+        out.push_str(if mv.to.file() > mv.from.file() { "O-O" } else { "O-O-O" });
+    } else {
+        let capture = b.color_on(mv.to).is_some() || (piece == Piece::Pawn && mv.from.file() != mv.to.file());
+        if piece == Piece::Pawn {
+            if capture {
+                out.push(char::from(b'a' + mv.from.file() as u8));
+            }
+        } else {
+            out.push(match piece {
+                Piece::Knight => 'N',
+                Piece::Bishop => 'B',
+                Piece::Rook => 'R',
+                Piece::Queen => 'Q',
+                _ => 'K',
+            });
+            // Other pieces of its kind that reach the square: its file, else its rank, else both.
+            let mut others = vec![];
+            b.generate_moves_for(b.colored_pieces(b.side_to_move(), piece), |moves| {
+                for m in moves {
+                    if m.to == mv.to && m.from != mv.from {
+                        others.push(m.from);
+                    }
+                }
+                false
+            });
+            if !others.is_empty() {
+                let file = !others.iter().any(|s| s.file() == mv.from.file());
+                let rank = !others.iter().any(|s| s.rank() == mv.from.rank());
+                if file || !rank {
+                    out.push(char::from(b'a' + mv.from.file() as u8));
+                }
+                if !file {
+                    out.push(char::from(b'1' + mv.from.rank() as u8));
+                }
+            }
+        }
+        if capture {
+            out.push('x');
+        }
+        out.push_str(&mv.to.to_string());
+        if let Some(p) = mv.promotion {
+            out.push('=');
+            out.push(match p {
+                Piece::Knight => 'N',
+                Piece::Bishop => 'B',
+                Piece::Rook => 'R',
+                _ => 'Q',
+            });
+        }
+    }
+    let mut after = b.clone();
+    after.play_unchecked(mv);
+    if !after.checkers().is_empty() {
+        let mut any = false;
+        after.generate_moves(|_| {
+            any = true;
+            true
+        });
+        out.push(if any { '+' } else { '#' });
+    }
+    out
+}
+
 /// The square a move ends on as the eye sees it: castling goes to the king's square, not its
 /// rook's (cozy-chess's notation).
 fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
@@ -782,6 +850,38 @@ mod tests {
         // A tag value no longer than MAX_TAG.
         let long = format!("[White \"{}\"]", "x".repeat(100_000));
         assert_eq!(tag_pair(&long).unwrap().1.len(), MAX_TAG);
+    }
+
+    #[test]
+    fn moves_written_in_san() {
+        let all = |fen: &str| -> Vec<String> {
+            let b = board(fen).unwrap();
+            let mut v = vec![];
+            b.generate_moves(|ms| {
+                for m in ms {
+                    v.push(san(&b, m));
+                }
+                false
+            });
+            // Every move written reads back as itself.
+            for s in &v {
+                let m = san_move(&b, s).unwrap_or_else(|| panic!("{s} on {fen}"));
+                assert_eq!(&san(&b, m), s);
+            }
+            v
+        };
+        assert!(all(START).contains(&"Nf3".to_string()));
+        let v = all("4k3/8/8/8/8/8/8/1N2KN2 w - - 0 1");
+        assert!(v.contains(&"Nbd2".into()) && v.contains(&"Nfd2".into()));
+        let v = all("8/P5k1/8/8/8/8/8/R3K2R w KQ - 0 1");
+        assert!(v.contains(&"a8=Q".into()) && v.contains(&"O-O".into()) && v.contains(&"O-O-O".into()));
+        let v = all("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 1");
+        assert!(v.contains(&"Qxf7#".into()));
+        let v = all("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3");
+        assert!(v.contains(&"exf6".into()));
+        // Rooks on one file: the rank tells them apart.
+        let v = all("4k3/8/R7/8/8/8/R7/4K3 w - - 0 1");
+        assert!(v.contains(&"R6a4".into()) && v.contains(&"R2a4".into()));
     }
 
     #[test]

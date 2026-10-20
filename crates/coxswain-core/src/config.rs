@@ -1720,11 +1720,14 @@ pub struct ChessConfig {
     /// The board's colours: `theme` (from the theme's own), or a tournament board, `green` or
     /// `brown`.
     pub board: String,
+    /// A Polyglot opening book (`.bin`) whose moves the board shows for each position. Empty:
+    /// the first book in the game file's own folder, if it has one.
+    pub book: String,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into() }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new() }
     }
 }
 

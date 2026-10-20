@@ -7,6 +7,7 @@
 pub mod games;
 pub mod openings;
 pub mod pgn;
+pub mod polyglot;
 
 pub use games::{Library, Progress, Query, Row, Sort};
 pub use pgn::{Game, Node, Token};
@@ -24,6 +25,10 @@ pub enum Format {
     Pgn,
     /// Positions, one a line: `.epd`, `.fen`.
     Epd,
+    /// Go games: `.sgf` (`crate::go`), shown by the same action.
+    Sgf,
+    /// A Polyglot opening book (`polyglot`): a `.bin` file that is one, by its bytes.
+    Book,
 }
 
 /// The chess file `path` is, by its name.
@@ -33,9 +38,17 @@ pub fn format(path: &Path) -> Option<Format> {
         Some(Format::Pgn)
     } else if n.ends_with(".epd") || n.ends_with(".fen") {
         Some(Format::Epd)
+    } else if n.ends_with(".sgf") {
+        Some(Format::Sgf)
     } else {
         None
     }
+}
+
+/// The games file `path` is: `format`, and for a `.bin` file, whether its bytes are a
+/// Polyglot book's. It reads the file, so it is for one file the user is on, not a listing.
+pub fn sniff(path: &Path) -> Option<Format> {
+    format(path).or_else(|| polyglot::is_book(path).then_some(Format::Book))
 }
 
 /// The file endings of PGN files, for the search store.

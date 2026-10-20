@@ -123,3 +123,33 @@ pub async fn chess_positions(path: PathBuf) -> Res<Vec<Position>> {
 pub async fn chess_hit(path: PathBuf, snippet: String) -> Option<u32> {
     tauri::async_runtime::spawn_blocking(move || chess::games::game_of_hit(&path, &snippet)).await.ok().flatten()
 }
+
+#[derive(Serialize)]
+pub struct BookView {
+    /// The book's file name.
+    name: String,
+    entries: u64,
+    moves: Vec<chess::polyglot::BookMove>,
+}
+
+/// The opening book's moves for the position `fen` of a game in the file at `path`: the file
+/// itself when it is a book, else the book Settings names or the first one next to the file.
+#[tauri::command]
+pub async fn chess_book(path: PathBuf, fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<BookView>> {
+    let configured = ctx.cfg().chess.book.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::here(&path)?;
+        let Some(book) = chess::polyglot::find(&path, &configured) else { return Ok(None) };
+        let entries = chess::polyglot::Book::open(&book).map_or(0, |b| b.entries());
+        let name = book.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        Ok(Some(BookView { name, entries, moves: chess::polyglot::moves_at(&book, &fen) }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Whether the file is a Polyglot opening book (`chess::sniff`), for the preview.
+#[tauri::command]
+pub async fn chess_is_book(path: PathBuf) -> bool {
+    tauri::async_runtime::spawn_blocking(move || chess::polyglot::is_book(&path)).await.unwrap_or(false)
+}

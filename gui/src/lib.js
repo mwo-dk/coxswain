@@ -379,11 +379,13 @@ export const LOCKED = "locked: a password is needed";
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
-/** A chess file by its name: "pgn" (also packed), "epd" (EPD and FEN), or "" (`chess::format`). */
+/** A games file by its name: "pgn" (also packed), "epd" (EPD and FEN), "sgf" (Go), or ""
+ *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
 export function chessFormat(name) {
   const n = name.toLowerCase();
   if (/\.pgn(\.gz|\.zst)?$/.test(n)) return "pgn";
   if (/\.(epd|fen)$/.test(n)) return "epd";
+  if (n.endsWith(".sgf")) return "sgf";
   return "";
 }
 
@@ -394,7 +396,7 @@ export function previewKind(item) {
   if (!item) return "none";
   if (isModel(item)) return "netron";
   if (item.is_dir) return "folder";
-  if (chessFormat(item.name)) return "chess";
+  if (chessFormat(item.name)) return chessFormat(item.name) === "sgf" ? "go" : "chess";
   if (isProvenanceName(item.name)) return "provenance";
   if (isBomName(item.name)) return "bom";
   // A comic is a zip of pictures: shown page by page (Enter still opens it like a folder).
