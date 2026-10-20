@@ -185,8 +185,8 @@ MEASURE = """(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // The preview pane: F3 shows it.
   if (!document.querySelector(".preview")) { key("F3"); await sleep(500); }
-  for (let i = 0; i < 30 && title() !== name; i++) { key("ArrowUp"); await sleep(5); }
-  for (let i = 0; i < 30 && title() !== name; i++) { key("ArrowDown"); await sleep(5); }
+  for (let i = 0; i < 80 && title() !== name; i++) { key("ArrowUp"); await sleep(5); }
+  for (let i = 0; i < 80 && title() !== name; i++) { key("ArrowDown"); await sleep(5); }
   if (title() !== name) return "not reached: " + (title() ?? "no preview pane") + " " + document.body.innerText.slice(0, 200);
   key("ArrowUp"); await sleep(300);
   const t0 = performance.now(); key("ArrowDown");
