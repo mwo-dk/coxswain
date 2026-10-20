@@ -7,12 +7,13 @@
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
   import NetronView from "./NetronView.svelte";
+  import GoView from "./GoView.svelte";
   import CopyLine from "./CopyLine.svelte";
   import DiskNext from "./DiskNext.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
-  let { output = null, onclearoutput, notesFocus = 0 } = $props();
+  let { output = null, onclearoutput, notesFocus = false, onnotesfocused } = $props();
 
   const pane = $derived(tab());
   const raw = $derived(item(pane));
@@ -126,6 +127,13 @@
           const d = await invoke("git_diff", { path: inHistory ? raw.path : cur.path });
           const h = d ? await highlightOff(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
           if (e?.path === cur.path) h == null ? (text = d) : (html = h);
+          return;
+        }
+        // A Polyglot opening book: its moves on a board (ChessView), unless the source is asked for.
+        if (k === "text" && !src && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
+          if (e?.path !== cur.path) return;
+          ui.book = cur.path;
+          sniffed = { path: cur.path, kind: "chess" };
           return;
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
@@ -487,8 +495,13 @@
     );
     return () => (live = false);
   });
+  // Alt+N asks for the notes once: the field takes the focus and the request is spent, so it
+  // is not taken again each time the preview pane opens or the field is drawn anew.
   $effect(() => {
-    if (notesFocus) noteArea?.focus();
+    if (notesFocus && noteArea) {
+      noteArea.focus();
+      onnotesfocused?.();
+    }
   });
 
   async function saveNote() {
@@ -613,7 +626,7 @@
     </header>
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="body" class:flush={(kind === "bom" || kind === "chess" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
+    <div class="body" class:flush={(kind === "bom" || kind === "chess" || kind === "go" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
@@ -652,6 +665,8 @@
         <!-- The model's facts first, then its graph. -->
         {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
         {#key e.path}<NetronView path={e.path} dir={e.is_dir} />{/key}
+      {:else if kind === "go"}
+        <GoView path={e.path} />
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} />
       {:else if kind === "provenance" && !source}

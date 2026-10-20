@@ -158,15 +158,16 @@ impl Entry {
     ) -> io::Result<Entry> {
         let lmeta = lmeta?;
         let is_symlink = lmeta.file_type().is_symlink();
-        // Follow links for type and size; a dangling link stays a plain entry.
-        let meta = if is_symlink {
-            fs::metadata(&path).unwrap_or(lmeta)
-        } else {
-            lmeta
+        // Follow links for type and size; a dangling link stays a plain entry, and never a
+        // program: its own mode (0777) says nothing about what it would run.
+        let (meta, dangling) = match is_symlink.then(|| fs::metadata(&path)) {
+            Some(Ok(m)) => (m, false),
+            Some(Err(_)) => (lmeta, true),
+            None => (lmeta, false),
         };
         Ok(Entry {
             hidden: name.starts_with('.') || is_hidden_attr(&meta),
-            is_exec: !meta.is_dir() && is_exec(&meta, &name),
+            is_exec: !dangling && !meta.is_dir() && is_exec(&meta, &name),
             is_dir: meta.is_dir(),
             is_symlink,
             size: if meta.is_dir() { 0 } else { meta.len() },
@@ -927,7 +928,7 @@ pub fn protected(path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+        if let Some(home) = HOME.get_or_init(crate::dirs::home_dir) {
             return protected_in(home, path);
         }
     }
@@ -946,7 +947,7 @@ pub fn protected_for_space(path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+        if let Some(home) = HOME.get_or_init(crate::dirs::home_dir) {
             return protected_for_space_in(home, path);
         }
     }
@@ -1268,7 +1269,7 @@ pub fn percent_decode(bytes: &[u8]) -> Vec<u8> {
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
     let p = match s.strip_prefix('~') {
-        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => std::env::home_dir()
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => crate::dirs::home_dir()
             .unwrap_or_default()
             .join(rest.trim_start_matches(['/', '\\'])),
         _ => PathBuf::from(s),
@@ -1414,6 +1415,26 @@ mod tests {
 
     use super::*;
 
+    /// A link to nothing (or to itself) is never a program: Enter would try to run it.
+    #[cfg(unix)]
+    #[test]
+    fn dangling_and_looping_links_are_no_programs() {
+        let d = std::env::temp_dir().join(format!("coxswain-dangling-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        std::os::unix::fs::symlink("/nonexistent", d.join("gone")).unwrap();
+        std::os::unix::fs::symlink("loop2", d.join("loop1")).unwrap();
+        std::os::unix::fs::symlink("loop1", d.join("loop2")).unwrap();
+        fs::write(d.join("run.sh"), b"#!/bin/sh\n").unwrap();
+        fs::set_permissions(d.join("run.sh"), std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+        std::os::unix::fs::symlink("run.sh", d.join("run-link")).unwrap();
+        let all = list(&d, true).unwrap();
+        let exec = |n: &str| all.iter().find(|e| e.name == n).unwrap().is_exec;
+        assert!(!exec("gone") && !exec("loop1") && !exec("loop2"));
+        assert!(exec("run.sh") && exec("run-link"), "a link to a program is one");
+        let _ = fs::remove_dir_all(&d);
+    }
+
     #[test]
     fn summary_counts_folders_files_and_bytes() {
         let d = std::env::temp_dir().join(format!("coxswain-summary-{}", std::process::id()));
@@ -1500,7 +1521,7 @@ mod tests {
         }
         assert_eq!(
             protected(Path::new("/Users/me/Library/Containers")),
-            cfg!(target_os = "macos") && std::env::home_dir().as_deref() == Some(home)
+            cfg!(target_os = "macos") && crate::dirs::home_dir().as_deref() == Some(home)
         );
     }
 
@@ -1621,7 +1642,7 @@ mod tests {
         let base = Path::new("/base");
         assert_eq!(resolve(base, " sub/x "), PathBuf::from("/base/sub/x"));
         assert_eq!(resolve(base, "/abs"), PathBuf::from("/abs"));
-        let home = std::env::home_dir().unwrap_or_default();
+        let home = crate::dirs::home_dir().unwrap_or_default();
         assert_eq!(resolve(base, "~"), home);
         assert_eq!(resolve(base, "~/x"), home.join("x"));
         assert_eq!(resolve(base, "~x"), PathBuf::from("/base/~x"));

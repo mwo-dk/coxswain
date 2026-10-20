@@ -197,7 +197,7 @@ pub struct Status {
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
 pub fn folder() -> Option<PathBuf> {
-    Some(dirs::cache_dir()?.join("coxswain"))
+    Some(crate::dirs::cache_dir()?.join("coxswain"))
 }
 
 /// Whether a helper runs now: it holds `index.lock` for as long as it does.

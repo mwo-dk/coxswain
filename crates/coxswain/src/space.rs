@@ -316,7 +316,7 @@ impl Viewer {
 
     /// `path` shown from the folder Space was opened on: `~/projects/rocket`.
     fn shown(&self, path: &Path) -> String {
-        let home = std::env::home_dir().unwrap_or_default();
+        let home = coxswain_core::dirs::home_dir().unwrap_or_default();
         match path.strip_prefix(&home) {
             Ok(rest) if !home.as_os_str().is_empty() => format!("~{}{}", std::path::MAIN_SEPARATOR, rest.display()).trim_end_matches(std::path::MAIN_SEPARATOR).to_string(),
             _ => path.display().to_string(),

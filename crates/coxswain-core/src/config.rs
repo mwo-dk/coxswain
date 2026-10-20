@@ -1722,11 +1722,14 @@ pub struct ChessConfig {
     /// The board's colours: `theme` (from the theme's own), or a tournament board, `green` or
     /// `brown`.
     pub board: String,
+    /// A Polyglot opening book (`.bin`) whose moves the board shows for each position. Empty:
+    /// the first book in the game file's own folder, if it has one.
+    pub book: String,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into() }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new() }
     }
 }
 
@@ -1799,7 +1802,7 @@ fn delivered(key: &str) -> bool {
 
 impl Config {
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
+        Some(crate::dirs::config_dir()?.join("coxswain").join("config.toml"))
     }
 
     /// config.toml ready to be opened at `[keys]` (Settings → Keys): its path and the line
@@ -1817,8 +1820,8 @@ impl Config {
             ("name index", crate::index::Index::cache_path()),
             ("search store", crate::store::Store::path()),
             ("models", crate::models::folder()),
-            ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
-            ("archive looks", dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
+            ("previews", crate::dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
+            ("archive looks", crate::dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
         ]
     }
 

@@ -18,6 +18,7 @@
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
   import Editor from "./Editor.svelte";
+  import GoView from "./GoView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
@@ -28,7 +29,7 @@
   let main = $state();
   /** Command/script output shown in the preview pane. */
   let output = $state(null);
-  let notesFocus = $state(0);
+  let notesFocus = $state(false);
   let ready = $state(false);
 
   let update = $state(null);
@@ -292,9 +293,14 @@
     );
   }
 
-  /** In a ZFS snapshot (or its list) nothing changes, nor in a package's list of files: said at
-   *  once, not after a prompt. */
-  const readOnly = () => (tab().snapshot || tab().package || tab().diskImage ? ((ui.status = t(tab().snapshot ? "zfs.read_only" : tab().package ? "pkg.read_only" : "disk_image.read_only")), true) : false);
+  /** In a git history, a ZFS snapshot (or its list) nothing changes, nor in a package's list of
+   *  files or a disk image: said at once, not after a prompt. */
+  const readOnly = () => {
+    const tb = tab();
+    const key = tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : null;
+    if (key) ui.status = t(key);
+    return !!key;
+  };
 
   const actions = {
     quit: () => getCurrentWindow().close(),
@@ -318,9 +324,10 @@
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
     searchable_pdf: () => makeSearchable(),
-    chess: () => {
+    chess: async () => {
       const e = item(tab());
-      if (e && !e.is_dir && chessFormat(e.name)) ui.modal = { kind: "chess", path: e.path };
+      const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
+      if (e && !e.is_dir && (chessFormat(e.name) || book)) ui.modal = { kind: chessFormat(e.name) === "sgf" ? "go" : "chess", path: e.path };
       else ui.status = t("chess.not_chess");
     },
     space_view: () => openSpace(),
@@ -433,8 +440,9 @@
     },
     delete_forever: () => readOnly() || remove(true),
     clip_copy: () => clip(false),
-    clip_cut: () => clip(true),
+    clip_cut: () => readOnly() || clip(true),
     paste: async () => {
+      if (readOnly()) return;
       const dir = tab().dir;
       try {
         const [n, moved] = await invoke("paste", { dir });
@@ -549,6 +557,7 @@
       ui.status = "";
     },
     batch_rename: () => {
+      if (readOnly()) return;
       const t = tab();
       const names = (t.marked.size ? t.items.filter((e) => t.marked.has(e.path)) : t.items.filter((e) => e.name !== "..")).map((e) => e.name);
       if (!names.length) return;
@@ -562,7 +571,7 @@
     notes: () => {
       output = null;
       ui.showPreview = true;
-      notesFocus++;
+      notesFocus = true;
     },
     columns: () => columnMenu(),
     duplicates: () => (ui.modal = { kind: "dupes" }),
@@ -734,7 +743,7 @@
       {#if ui.showPreview}
         <Splitter onmove={(dx) => (ui.previewW = clamp(ui.previewW - dx, 240, 900))} />
         <div class="side" style:width="min({ui.previewW}px, 60vw)">
-          <Preview {output} {notesFocus} onclearoutput={() => (output = null)} />
+          <Preview {output} {notesFocus} onnotesfocused={() => (notesFocus = false)} onclearoutput={() => (output = null)} />
         </div>
       {/if}
     </div>
@@ -785,6 +794,7 @@
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "editor"}{#key ui.modal}<Editor />{/key}{/if}
+{#if ui.modal?.kind === "go"}<GoView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}

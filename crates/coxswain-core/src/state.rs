@@ -85,7 +85,7 @@ const RECENT_MAX: usize = 12;
 
 impl AppState {
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::data_dir()?.join("coxswain").join("state.json"))
+        Some(crate::dirs::data_dir()?.join("coxswain").join("state.json"))
     }
 
     /// Missing file = defaults. A corrupt file (not JSON, not UTF-8) is moved aside to

@@ -26,13 +26,14 @@ d_arm=$(sum "Coxswain_${version}_aarch64.dmg")
 d_x64=$(sum "Coxswain_${version}_x64.dmg")
 d_appimage=$(sum "Coxswain_${version}_amd64.AppImage")
 
+# No `version` line in the formula: Homebrew reads it from the URLs, and `brew audit` calls one
+# redundant. Readers take it from the first release URL (taps job, release-check.yml).
 mkdir -p "$brew/Formula"
 url() { echo "$base/coxswain-terminal-$tag-$1.tar.gz"; }
 cat > "$brew/Formula/coxswain.rb" <<RUBY
 class Coxswain < Formula
   desc "$desc"
   homepage "$repo"
-  version "$version"
   license "MIT"
 
   on_macos do

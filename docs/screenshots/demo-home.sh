@@ -365,6 +365,73 @@ Bxf3 5.Qxf3 dxe5 6.Bc4 Nf6 7.Qb3 Qe7 8.Nc3 c6 9.Bg5 b5 $2 10.Nxb5! cxb5 11.Bxb5+
 EOF
 printf '%s\n' 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - bm Qxf7#; id "Scholar'"'"'s mate";' \
   '6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - bm Rd8#; id "Back rank";' > "$d/Documents/Chess/mates.epd"
+# A tiny Polyglot opening book made for the demo (four positions, weights made up), for Opening
+# books (docs/previews/chess.md#opening-books): next to the games, so their board shows its moves.
+printf '\x08\x44\x93\x1a\x6e\xf4\xb9\xa0\x01\x5a\x00\x0a\x00\x00\x00\x00\x08\x44\x93\x1a\x6e\xf4\xb9\xa0\x01\x95\x00\x5a\x00\x00\x00\x00\x46\x3b\x96\x18\x16\x91\xfc\x9c\x01\x95\x00\x0c\x00\x00\x00\x00\x46\x3b\x96\x18\x16\x91\xfc\x9c\x02\x9a\x00\x08\x00\x00\x00\x00\x46\x3b\x96\x18\x16\x91\xfc\x9c\x02\xdb\x00\x23\x00\x00\x00\x00\x46\x3b\x96\x18\x16\x91\xfc\x9c\x03\x1c\x00\x2d\x00\x00\x00\x00\x82\x3c\x9b\x50\xfd\x11\x41\x96\x0c\xa2\x00\x2d\x00\x00\x00\x00\x82\x3c\x9b\x50\xfd\x11\x41\x96\x0c\xaa\x00\x05\x00\x00\x00\x00\x82\x3c\x9b\x50\xfd\x11\x41\x96\x0d\x24\x00\x28\x00\x00\x00\x00\x82\x3c\x9b\x50\xfd\x11\x41\x96\x0d\x2c\x00\x0a\x00\x00\x00\x00\x83\x0e\xb9\xb2\x07\x58\xd1\xde\x0c\xe3\x00\x32\x00\x00\x00\x00\x83\x0e\xb9\xb2\x07\x58\xd1\xde\x0f\xad\x00\x32\x00\x00\x00\x00' > "$d/Documents/Chess/openings.bin"
+# Go: the ear-reddening game of 1846 (public domain; its moves as sgf-render's tests have them,
+# MIT), a 9×9 study in variations and a life-and-death problem from the same tests, for Go
+# games (docs/previews/go.md).
+mkdir -p "$d/Documents/Go"
+cat > "$d/Documents/Go/classics.sgf" <<'EOF'
+(;GM[1]FF[4]CA[UTF-8]SZ[19]GN[The ear-reddening game]PB[Honinbo Shusaku]BR[4d]PW[Gennan Inseki]WR[8d]DT[1846]KM[0]RE[B+2]
+;B[qd];W[dc];B[pq];W[oc];B[cp];W[cf];B[ep];W[qo];B[pe];W[np]
+;B[po];W[pp];B[op];W[qp];B[oq];W[oo];B[pn];W[qq];B[nq];W[on]
+;B[pm];W[om];B[pl];W[mp];B[mq];W[ol];B[pk];W[lq];B[lr];W[kr]
+;B[lp];W[kq];B[qr];W[rr];B[rs];W[mr];B[nr];W[pr];B[ps];W[qs]
+;B[no];W[mo];B[qr];W[rm];B[rl];W[qs];B[lo];W[mn];B[qr];W[qm]
+;B[or];W[ql];B[qj];W[rj];B[ri];W[rk];B[ln];W[mm];B[qi];W[rq]
+;B[jn];W[ls];B[ns];W[gq];B[go];W[ck];B[kc];W[ic];B[pc];W[nj]
+;B[ke];W[og];B[oh];W[pb];B[qb];W[ng];B[mi];W[mj];B[nd];W[ph]
+;B[qg];W[pg];B[hq];W[hr];B[ir];W[iq];B[hp];W[jr];B[fc];W[lc]
+;B[ld];W[mc];B[lb];W[mb];B[md];W[qf];B[pf];W[qh];B[rg];W[rh]
+;B[sh];W[rf];B[sg];W[pj];B[pi];W[oi];B[oj];W[ni];B[qk];W[ok]
+;B[qe];W[kb];B[jb];W[ka];B[jc];W[ob];B[ja];W[la];B[db];W[cc]
+;B[fe];W[cn];B[gr];W[is];B[fq];W[io];B[ji]C[The ear-reddening move. A physician watching the game saw Gennan's ears turn red, and knew he was shaken.];W[eb];B[fb];W[eg]
+;B[dj];W[dk];B[ej];W[cj];B[dh];W[ij];B[hm];W[gj];B[eh];W[fl]
+;B[fg];W[er];B[dm];W[fn];B[dn];W[gn];B[jj];W[jk];B[kk];W[ii]
+;B[ik];W[jl];B[kl];W[il];B[jh];W[co];B[do];W[ih];B[hn];W[hl]
+;B[bl];W[dg];B[gh];W[ch];B[ig];W[ec];B[cr];W[fd];B[gd];W[ed]
+;B[gc];W[bk];B[cm];W[gs];B[gp];W[li];B[kg];W[in];B[lj];W[lg]
+;B[gm];W[jf];B[jg];W[im];B[fm];W[kf];B[lf];W[mf];B[le];W[gf]
+;B[hf];W[ff];B[gg];W[lk];B[kj];W[km];B[lm];W[ll];B[jm];W[ge]
+;B[he];W[ef];B[ea];W[cb];B[fr];W[fs];B[dr];W[qa];B[ra];W[pa]
+;B[rb];W[da];B[gi];W[fj];B[fi];W[fa];B[ga];W[gl];B[ek];W[em]
+;B[ho];W[el];B[en];W[jo];B[kn];W[ci];B[lh];W[mh];B[mg];W[di]
+;B[ei];W[lg];B[qn];W[rn];B[re];W[sl];B[mg];W[bm];B[am];W[lg]
+;B[eq];W[es];B[mg];W[ha];B[gb];W[lg];B[ds];W[hs];B[mg];W[sj]
+;B[si];W[lg];B[sr];W[sq];B[mg];W[hd];B[hb];W[lg];B[ro];W[so]
+;B[mg];W[ss];B[qs];W[lg];B[sn];W[rp];B[mg];W[cl];B[bn];W[lg]
+;B[ml];W[mk];B[mg];W[pj];B[sf];W[lg];B[nn];W[nl];B[mg];W[ib]
+;B[ia];W[lg];B[nc];W[nb];B[mg];W[jd];B[kd];W[lg];B[ma];W[na]
+;B[mg];W[qc];B[rc];W[lg];B[js];W[ks];B[mg];W[hc];B[id];W[lg]
+;B[fk];W[hj];B[mg];W[hh];B[hg];W[lg];B[gk];W[hk];B[mg];W[ak]
+;B[lg];W[al];B[bm];W[nf];B[od];W[ki];B[ms];W[kp];B[ip];W[jp]
+;B[lr];W[oj];B[mr];W[ea];B[sr])
+
+(;GM[1]FF[4]
+CA[UTF-8]
+SZ[9]
+KM[6.5]
+GN[A study in variations]
+;B[ee];W[ec]
+(;B[eg];W[eh];B[dh]
+(;W[cd];B[gd];W[fh])
+(;W[gd];B[fh]))
+(;B[fc];W[fb]
+(;B[fd]
+(;W[gb]
+(;B[eg])
+(;B[dg])
+(;B[ce]))
+(;W[eg]
+(;B[gb])
+(;B[fg];W[fh])))
+(;B[gc])
+(;B[eg]))
+)
+
+(;GM[1]FF[4]SZ[19]HA[0]KM[0]GN[Life and death, elementary]AB[ab][bb][db][eb][cc][cd]AW[fa][cb][fb][dc][ec][fc][ad][dd][be][ce]C[Elementary](;B[ca];W[ea];B[bd];W[ac];B[da]C[Correct.])(;B[da]WV[];W[bc];B[ca]C[Wrong.])(;B[bc]WV[];W[ea];B[ca];W[da]C[Wrong.]))
+EOF
 # For Space (Alt+U): sizes of every kind, so the treemap has something to show. Sparse files:
 # they take no room on the disk, but their length is what Space and the folder sizes count.
 mkdir -p "$d/Videos/Flight 7" "$d/Music/Night Drive" "$d/Music/Podcasts" "$d/Pictures/Raw" "$d/VMs" "$d/Documents/Scans" "$d/projects/rocket/target/debug/deps"

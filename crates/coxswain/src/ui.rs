@@ -144,6 +144,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::View { v, .. }) => v.draw(f, &theme),
         Some(Dialog::Edit { e, .. }) => e.draw(f, &theme),
         Some(Dialog::Chess(v)) => v.draw(f, &theme),
+        Some(Dialog::Go(v)) => v.draw(f, &theme),
         Some(Dialog::Space(v)) => v.draw(f, &theme),
         Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
         Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
@@ -588,7 +589,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Chess(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Chess(_) | Dialog::Go(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 

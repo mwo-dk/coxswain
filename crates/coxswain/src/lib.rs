@@ -2,6 +2,7 @@
 
 mod bom;
 mod chess;
+mod go;
 mod git_config;
 mod provenance;
 mod guide;
@@ -254,7 +255,8 @@ impl Panel {
             archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
             disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
             pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
-            chess: list.iter().filter(|e| !e.is_dir && coxswain_core::chess::format(&e.path).is_some()).count(),
+            // Only one file's bytes are read: the action menu offers Open games on a single file.
+            chess: list.iter().filter(|e| !e.is_dir && if list.len() == 1 { coxswain_core::chess::sniff(&e.path).is_some() } else { coxswain_core::chess::format(&e.path).is_some() }).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -404,6 +406,8 @@ pub enum Dialog {
     Edit { e: Box<editor::Editor>, back: Option<Box<Dialog>> },
     /// A PGN file's games, an EPD or FEN file's positions, full screen (F3, Alt+K).
     Chess(Box<chess::Viewer>),
+    /// An SGF file's Go games, full screen (F3, Alt+K).
+    Go(Box<go::Viewer>),
     /// Where the space goes, full screen (Alt+U).
     Space(Box<space::Viewer>),
     /// Settings, full screen (F12, F9 → Settings, `--settings`).
@@ -437,6 +441,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::View { .. } => "view_and_edit",
         Dialog::Edit { .. } => "editor",
         Dialog::Chess(_) => "chess",
+        Dialog::Go(_) => "go",
         Dialog::Space(_) => "space",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
@@ -1181,7 +1186,7 @@ impl App {
             Action::GitConfig => self.git_config(),
             Action::SearchablePdf => self.searchable_pdf(),
             Action::Chess => {
-                if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::format(&e.path).is_some()).map(|e| e.path.clone()) {
+                if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
                 } else {
                     self.status = Some(t!("chess.not_chess"));
@@ -1336,7 +1341,7 @@ impl App {
                             Err(err) => self.status = Some(err.to_string()),
                         }
                     }
-                    if a == Action::View && coxswain_core::chess::format(&e).is_some() {
+                    if a == Action::View && coxswain_core::chess::sniff(&e).is_some() {
                         return self.chess(&e, None);
                     }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
@@ -1720,6 +1725,17 @@ impl App {
     /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
     /// FEN file's positions.
     fn chess(&mut self, path: &Path, hit: Option<String>) {
+        if coxswain_core::chess::format(path) == Some(coxswain_core::chess::Format::Sgf) {
+            return match go::Viewer::open(path, &self.cfg, &self.theme) {
+                Ok(mut v) => {
+                    if let Some(i) = hit.and_then(|s| coxswain_core::go::game_of_hit(path, &s)) {
+                        v.show(i as usize);
+                    }
+                    self.dialog = Some(Dialog::Go(Box::new(v)));
+                }
+                Err(e) => self.status = Some(e.to_string()),
+            };
+        }
         match chess::Viewer::open(path, &self.cfg, &self.theme) {
             Ok(mut v) => {
                 if let Some(snippet) = hit {
@@ -2002,7 +2018,7 @@ impl App {
         // `cd` has to change our own directory, so it is built in.
         if t == "cd" || t.starts_with("cd ") {
             let arg = t[2..].trim().trim_matches(['"', '\'']);
-            let target = if arg.is_empty() { std::env::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
+            let target = if arg.is_empty() { coxswain_core::dirs::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
             if target.is_dir() {
                 self.cd(self.active, std::fs::canonicalize(&target).unwrap_or(target));
             } else {
@@ -2569,7 +2585,7 @@ impl App {
                         }
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
-                            if coxswain_core::chess::format(&hit.path) == Some(coxswain_core::chess::Format::Pgn)
+                            if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf))
                                 && let Some(snippet) = hit.snippet.clone()
                             {
                                 let path = hit.path.clone();
@@ -2777,6 +2793,10 @@ impl App {
             },
             Dialog::Chess(mut v) => match v.key(key, action) {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Chess(v)),
+                chess::Outcome::Close => {}
+            },
+            Dialog::Go(mut v) => match v.key(key, action) {
+                chess::Outcome::Stay => self.dialog = Some(Dialog::Go(v)),
                 chess::Outcome::Close => {}
             },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
@@ -3853,6 +3873,18 @@ pub(crate) fn test_index(cfg: &Config) -> Arc<Client> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The app's tests keep their config, state and caches in a home of their own in the
+    /// temporary folder (`coxswain-core`'s `test-home`), never the developer's own.
+    #[test]
+    fn tests_never_reach_the_real_home() {
+        let mut all = coxswain_core::config::Config::paths();
+        all.push(("home", coxswain_core::dirs::home_dir()));
+        for (what, path) in all {
+            let path = path.unwrap_or_else(|| panic!("{what}: none"));
+            assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
+        }
+    }
 
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
     #[test]

@@ -297,7 +297,7 @@ pub fn keep(app: tauri::AppHandle) {
 }
 
 pub(crate) fn previews_dir() -> Res<PathBuf> {
-    Ok(dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("previews"))
+    Ok(coxswain_core::dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?.join("coxswain").join("previews"))
 }
 
 /// Bytes the previews made so far take in the cache.
@@ -622,7 +622,7 @@ mod latex {
         }
         let text = start(main, 4 << 20);
         let depth = text.split(|c: char| c == '{' || c == ',' || c.is_whitespace()).map(|arg| arg.matches("../").count()).max().unwrap_or(0).min(3);
-        let home = std::env::home_dir();
+        let home = coxswain_core::dirs::home_dir();
         dir.ancestors().take(depth + 1).take_while(|d| d.parent().is_some() && Some(*d) != home.as_deref()).last().unwrap_or(dir).to_path_buf()
     }
 
@@ -662,7 +662,7 @@ mod latex {
     /// project could run anything while it is looked at. Only the user's own rc files count.
     pub fn own_rc(c: &mut std::process::Command) {
         c.arg("-norc");
-        let home = std::env::home_dir().unwrap_or_default();
+        let home = coxswain_core::dirs::home_dir().unwrap_or_default();
         for rc in [home.join(".latexmkrc"), home.join("latexmkrc"), home.join(".config/latexmk/latexmkrc")] {
             if rc.is_file() {
                 c.arg("-r").arg(rc);

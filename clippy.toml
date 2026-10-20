@@ -1,0 +1,11 @@
+# The user's folders are found through `coxswain_core::dirs`, which gives tests a home of their
+# own; called directly, a test reads and writes the developer's own config and data.
+disallowed-methods = [
+    { path = "dirs::home_dir", reason = "use coxswain_core::dirs" },
+    { path = "dirs::config_dir", reason = "use coxswain_core::dirs" },
+    { path = "dirs::data_dir", reason = "use coxswain_core::dirs" },
+    { path = "dirs::data_local_dir", reason = "use coxswain_core::dirs" },
+    { path = "dirs::cache_dir", reason = "use coxswain_core::dirs" },
+    { path = "dirs::preference_dir", reason = "use coxswain_core::dirs" },
+    { path = "std::env::home_dir", reason = "use coxswain_core::dirs" },
+]

@@ -48,7 +48,7 @@ pub fn packages_here(dir: &Path) -> bool {
     if !cfg!(target_os = "freebsd") {
         return false;
     }
-    let home = std::env::home_dir();
+    let home = crate::dirs::home_dir();
     !["/tmp", "/var/tmp", "/home", "/usr/home", "/mnt", "/media"]
         .iter()
         .map(Path::new)

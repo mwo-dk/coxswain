@@ -35,7 +35,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -55,7 +55,7 @@
     const m = ui.modal;
     if (m?.kind !== "help" || m.tab !== "features") return;
     const query = m.filter ?? "";
-    invoke("features", { query }).then((list) => ui.modal === m && m.filter === query && (m.list = list), () => {});
+    invoke("features", { query }).then((list) => ui.modal === m && (m.filter ?? "") === query && (m.list = list), () => {});
   });
 
   /** "Show me": the feature's page on GitHub, in the browser. */
@@ -216,6 +216,14 @@
       const index = await invoke("chess_hit", { path: h.path, snippet: h.snippet });
       if (index != null) {
         ui.chessAt = { path: h.path, index };
+        ui.showPreview = true;
+      }
+    }
+    // A game in an SGF file: the same.
+    if (h.snippet && chessFormat(basename(h.path)) === "sgf") {
+      const index = await invoke("go_hit", { path: h.path, snippet: h.snippet });
+      if (index != null) {
+        ui.goAt = { path: h.path, index };
         ui.showPreview = true;
       }
     }
@@ -443,6 +451,7 @@
       }
       case "bom":
       case "chess":
+      case "go":
       case "settings":
       case "dupes":
       case "setup":
@@ -463,7 +472,7 @@
 <!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
 {#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
 
-{#if ui.modal && !["dupes", "settings", "bom", "chess", "space", "editor"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space", "editor"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>

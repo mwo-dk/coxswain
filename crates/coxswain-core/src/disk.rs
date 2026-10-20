@@ -372,7 +372,7 @@ fn tectonic_caches() -> Vec<PathBuf> {
     if let Some(d) = std::env::var_os("TECTONIC_CACHE_DIR").filter(|d| !d.is_empty()) {
         return vec![d.into()];
     }
-    let Some(base) = dirs::cache_dir() else {
+    let Some(base) = crate::dirs::cache_dir() else {
         return vec![];
     };
     // Newer tectonic names it in lower case; Windows has the project's folder around it.

@@ -288,7 +288,7 @@ fn look(at: &str) -> Option<PathBuf> {
     }
     let mut s = at.to_string();
     if let Some(rest) = s.strip_prefix("~/") {
-        s = std::env::home_dir()?
+        s = crate::dirs::home_dir()?
             .join(rest)
             .to_string_lossy()
             .into_owned();

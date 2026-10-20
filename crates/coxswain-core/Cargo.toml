@@ -10,6 +10,11 @@ keywords.workspace = true
 categories.workspace = true
 description = "The shared core of Coxswain, the two-panel file manager: file operations with undo, archives, previews and text from documents, search by name, text and meaning, git, ZFS, config, themes and translations"
 
+[features]
+# For the apps' tests only (their dev-dependency turns it on): the home, config, data and
+# cache folders lie in the temporary folder, never the developer's own (`dirs`).
+test-home = []
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "1"

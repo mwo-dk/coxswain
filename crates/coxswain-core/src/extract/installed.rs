@@ -258,14 +258,14 @@ const LIBREOFFICE_SETTINGS: [&str; 5] = [
 /// A LibreOffice profile folder named `name` in the cache, as the `file:` URL its
 /// `-env:UserInstallation` wants, with `LIBREOFFICE_SETTINGS` in place.
 pub fn libreoffice_profile(name: &str) -> Option<String> {
-    let profile = dirs::cache_dir()?.join("coxswain").join(name);
+    let profile = crate::dirs::cache_dir()?.join("coxswain").join(name);
     lock_profile(&profile)?;
     Some(file_url(&profile.to_string_lossy()))
 }
 
 /// A folder as a `file:` URL: a space, `#`, `%` or a letter beyond ASCII in it percent-encoded,
 /// as in `C:\Users\John Doe`, which LibreOffice would not take as it is.
-fn file_url(path: &str) -> String {
+pub(crate) fn file_url(path: &str) -> String {
     let mut url = String::from("file:///");
     for b in path.replace('\\', "/").trim_start_matches('/').bytes() {
         if b.is_ascii_alphanumeric() || b"-_.~/:".contains(&b) {
