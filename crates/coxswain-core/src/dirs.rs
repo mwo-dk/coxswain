@@ -69,12 +69,22 @@ mod tests {
             ("cache dir", super::cache_dir()),
             ("preference dir", super::preference_dir()),
         ];
+        // The search store (Find duplicates opens it too), the index, models and previews.
         all.extend(crate::config::Config::paths());
+        for sub in ["peek", "provenance"] {
+            all.push((sub, crate::archive::run_folder(sub, false).ok()));
+        }
         #[cfg(unix)]
         all.push(("trash", crate::xdg_trash::dir()));
         for (what, path) in all {
             let path = path.unwrap_or_else(|| panic!("{what}: none"));
             assert!(path.starts_with(&tmp), "{what}: {}", path.display());
         }
+        let profile = crate::extract::installed::libreoffice_profile("test-home-profile");
+        let tmp_url = crate::extract::installed::file_url(&tmp.to_string_lossy());
+        assert!(
+            profile.as_ref().is_some_and(|p| p.starts_with(&tmp_url)),
+            "{profile:?}"
+        );
     }
 }

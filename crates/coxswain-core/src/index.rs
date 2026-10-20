@@ -2050,10 +2050,11 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[test]
     fn index_leaves_other_apps_data_alone() {
-        // The real ~/Library, only listed: what is tested is that its protected folders stay
-        // unopened, which a test home cannot show.
-        #[allow(clippy::disallowed_methods)]
-        let lib = std::env::home_dir().unwrap().join("Library");
+        // The test home's ~/Library, filled as a Mac's is.
+        let lib = crate::dirs::home_dir().unwrap().join("Library");
+        for d in ["Containers/com.x/Data", "Caches/app/blobs", "Mail/V10/box", "CloudStorage/a/b"] {
+            fs::create_dir_all(lib.join(d)).unwrap();
+        }
         let ix = Index::build(std::slice::from_ref(&lib), &[], None, None);
         assert!(ix.len() > 1, "~/Library is listed");
         for id in 0..ix.nodes.len() as u32 {
