@@ -107,8 +107,9 @@ See [Changing keys](../customise/keys.md).
 The same keys, with three differences: **Enter** runs programs itself; **Alt+F1** and
 **Alt+F2** open a small dialog instead of a path bar; and there is no **Ctrl+L**, no path bar
 to click, no history (**Alt+Left**) and no sidebar, because the terminal app has one folder
-per panel and no tabs. It reads its panels again after its own operations, after a command, and on
-**Ctrl+R**, not when something outside changes a folder.
+per panel and no tabs. Like the desktop app it follows changes on disk by itself: a file another
+program writes, copies in or deletes shows or goes within a second (see the questions); it also
+reads its panels again after its own operations, after a command, and on **Ctrl+R**.
 
 ## Questions
 
