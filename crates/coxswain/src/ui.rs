@@ -63,6 +63,21 @@ fn right(s: &str, w: usize) -> String {
     fit(&format!("{}{s}", " ".repeat(w.saturating_sub(s.width()))), w)
 }
 
+/// `s` for the middle of a border `w` wide whose ends hold `left` and `right` columns of titles:
+/// cut so that, centred, it stays clear of both (the git line on ZFS keeps its branch); none
+/// when too little is left to say anything.
+fn centred_between(s: &str, w: usize, left: usize, right: usize) -> Option<String> {
+    // The corners, both ends' titles as wide as the wider one, and the spaces around `s`.
+    let room = w.saturating_sub(2 + 2 * left.max(right) + 2);
+    if s.width() <= room {
+        Some(s.to_string())
+    } else if room >= 12 {
+        Some(fit(s, room).trim_end().to_string())
+    } else {
+        None
+    }
+}
+
 /// Keep the tail of a path, which is the informative part.
 pub(crate) fn fit_left(s: &str, w: usize) -> String {
     if s.width() <= w {
@@ -196,8 +211,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         .border_style(border)
         .style(base)
         .title(Line::from(Span::styled(format!(" {} ", fit_left(&dir, area.width.saturating_sub(6) as usize)), title_style)).centered());
+    let mut git_w = 0;
     if let Some(g) = &p.git {
         let prompt = g.prompt(&app.glyphs);
+        git_w = prompt.width() + 2;
         block = block.title_bottom(Line::from(Span::styled(format!(" {prompt} "), sty(&t.git_branch))).left_aligned());
     }
     let sort = match p.sort {
@@ -209,8 +226,8 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     };
     let sort = if p.reverse { sort.to_uppercase() } else { sort.to_string() };
     // On ZFS: the dataset, its compression ratio and its space, between the git line and the sort.
-    if let Some(z) = &p.zfs {
-        block = block.title_bottom(Line::from(Span::styled(format!(" {} ", crate::App::zfs_line(z)), border)).centered());
+    if let Some(z) = p.zfs.as_ref().and_then(|z| centred_between(&crate::App::zfs_line(z), area.width as usize, git_w, sort.width() + 2)) {
+        block = block.title_bottom(Line::from(Span::styled(format!(" {z} "), border)).centered());
     }
     block = block.title_bottom(Line::from(Span::styled(format!(" {sort} "), border)).right_aligned());
     let inner = block.inner(area);
@@ -929,6 +946,17 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// On ZFS in a git repository, the dataset line is cut before it covers the branch.
+    #[test]
+    fn zfs_line_leaves_the_git_branch_and_the_sort_alone() {
+        let z = "rpool/home/alice · 2.48x · 3670M used · 12G free";
+        assert_eq!(centred_between(z, 120, 13, 3).as_deref(), Some(z));
+        let cut = centred_between(z, 60, 13, 3).unwrap();
+        assert!(cut.ends_with('…') && cut.width() <= 60 - 2 - 26 - 2, "{cut}");
+        assert_eq!(centred_between(z, 60, 0, 3).as_deref(), Some(z), "without git it fits");
+        assert_eq!(centred_between(z, 30, 13, 3), None);
+    }
 
     /// The Make PDF searchable question, and the other text dialogs, show their last sentence
     /// however long it wraps, in English, German and Finnish, narrow and wide.

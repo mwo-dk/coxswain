@@ -127,8 +127,8 @@ installed, Homebrew on a Mac and `winget` on Windows.
 | System | LibreOffice | LaTeX | Typst | Ghostscript | PlantUML | pandoc |
 |---|---|---|---|---|---|---|
 | FreeBSD | `pkg install libreoffice` | `pkg install texlive-full` | `pkg install typst` | `pkg install ghostscript10` | `pkg install plantuml` | `pkg install hs-pandoc` |
-| NetBSD (`pkgin`) | `pkgin install libreoffice` | none | none | `pkgin install ghostscript-agpl` | none | `pkgin install pandoc-cli` |
-| OpenBSD (`pkg_add`) | `pkg_add libreoffice` | `pkg_add texlive_texmf-full` | none | `pkg_add ghostscript` | none | `pkg_add pandoc` |
+| NetBSD (`pkgin`) | `pkgin install libreoffice` | none | `pkgin install typst` | `pkgin install ghostscript-agpl` | none | `pkgin install pandoc-cli` |
+| OpenBSD (`pkg_add`) | `pkg_add libreoffice` | `pkg_add texlive_texmf-full` | `pkg_add typst` | `pkg_add ghostscript` | none | `pkg_add pandoc` |
 | illumos (`pkg`) | none | `pkg install ooce/application/texlive` | none | none | none | none |
 | Arch (`pacman`) | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S typst` | `sudo pacman -S ghostscript` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` |
 | Debian, Ubuntu (`apt`) | `sudo apt install libreoffice` | `sudo apt install texlive-latex-extra latexmk` | none | `sudo apt install ghostscript` | `sudo apt install plantuml` | `sudo apt install pandoc` |
