@@ -710,6 +710,8 @@
  "err.move_into_itself": "Kansiota ei voi siirtää itsensä sisään",
  "err.epub_no_rootfile": "Tässä EPUB-kirjassa ei ole juuritiedostoa",
  "err.exists": "{path} on jo olemassa",
+ "err.special_file": "{path} on putki, pistoke tai laite, jota ei kopioida",
+ "err.not_packable": "{path} on linkki, putki tai laite, jonka arkisto jättää pois, joten mitään ei siirretty",
  "err.is_folder": "{name} on kansio",
  "err.key_twice": "{key} on annettu sekä toiminnolle {a} että {b} config.toml-tiedoston osassa [keys]",
  "err.no_application": "Mikään sovellus ei avaa tämäntyyppistä tiedostoa",

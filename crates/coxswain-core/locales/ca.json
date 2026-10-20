@@ -741,6 +741,8 @@
  "err.move_into_itself": "Una carpeta no es pot moure dins d’ella mateixa",
  "err.epub_no_rootfile": "Aquest llibre EPUB no té fitxer arrel",
  "err.exists": "{path} ja existeix",
+ "err.special_file": "{path} és una canonada, un sòcol o un dispositiu, que no es copia",
+ "err.not_packable": "{path} és un enllaç, una canonada o un dispositiu, que un arxiu deixa fora, així que no s'ha mogut res",
  "err.is_folder": "{name} és una carpeta",
  "err.key_twice": "{key} està assignada alhora a {a} i a {b} a [keys] de config.toml",
  "err.no_application": "Cap aplicació obre aquest tipus de fitxer",

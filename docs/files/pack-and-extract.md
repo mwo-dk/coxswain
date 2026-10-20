@@ -135,7 +135,9 @@ locked with AES-256, and a 7z's contents too (and its names, with *Hide the file
 
 **Extracting** never writes over anything: if the folder named after the archive is already
 there, it stops with `… exists`. Entries that would land outside the new folder (`../`, absolute
-paths) are not written, and a tar whose name records are made to fill the memory is refused
+paths) are not written, nor are a tar's symbolic links and devices (a link could point
+anywhere; its files, hard links and folders come out), nor on Windows names that are devices
+there (`NUL`, `CON`, `COM1` …), and a tar whose name records are made to fill the memory is refused
 (`a name in this tar is too long`). If extracting fails half-way, the new folder is removed again.
 
 ## Settings and config.toml

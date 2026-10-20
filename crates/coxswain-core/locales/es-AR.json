@@ -741,6 +741,8 @@
  "err.move_into_itself": "Una carpeta no se puede mover dentro de sí misma",
  "err.epub_no_rootfile": "Este libro EPUB no tiene archivo raíz",
  "err.exists": "{path} ya existe",
+ "err.special_file": "{path} es una tubería, un socket o un dispositivo, que no se copia",
+ "err.not_packable": "{path} es un enlace, una tubería o un dispositivo, que un archivo comprimido deja afuera, así que no se movió nada",
  "err.is_folder": "{name} es una carpeta",
  "err.key_twice": "{key} está asignada a {a} y a {b} a la vez en [keys] de config.toml",
  "err.no_application": "Ninguna aplicación abre este tipo de archivo",

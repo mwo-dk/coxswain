@@ -741,6 +741,8 @@
  "err.move_into_itself": "Una cartella non può essere spostata dentro sé stessa",
  "err.epub_no_rootfile": "Questo libro EPUB non ha un file radice",
  "err.exists": "{path} esiste già",
+ "err.special_file": "{path} è una pipe, un socket o un dispositivo, che non viene copiato",
+ "err.not_packable": "{path} è un collegamento, una pipe o un dispositivo, che un archivio tralascia, quindi non è stato spostato nulla",
  "err.is_folder": "{name} è una cartella",
  "err.key_twice": "{key} è assegnato sia a {a} sia a {b} in [keys] di config.toml",
  "err.no_application": "Nessuna applicazione apre questo tipo di file",

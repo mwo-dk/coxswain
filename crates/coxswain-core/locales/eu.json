@@ -710,6 +710,8 @@
  "err.move_into_itself": "Karpeta bat ezin da bere barrura eraman",
  "err.epub_no_rootfile": "EPUB liburu honek ez du erro-fitxategirik",
  "err.exists": "{path} badago jada",
+ "err.special_file": "{path} hodi, socket edo gailu bat da, eta ez da kopiatzen",
+ "err.not_packable": "{path} esteka, hodi edo gailu bat da, eta artxiboak kanpoan uzten du; beraz, ez da ezer mugitu",
  "err.is_folder": "{name} karpeta bat da",
  "err.key_twice": "{key} {a} eta {b} ekintzei emanda dago config.toml-eko [keys] atalean",
  "err.no_application": "Ez dago fitxategi mota hau irekitzen duen aplikaziorik",

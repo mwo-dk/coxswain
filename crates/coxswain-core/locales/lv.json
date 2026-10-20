@@ -741,6 +741,8 @@
  "err.move_into_itself": "Mapi nevar pārvietot pašā sevī",
  "err.epub_no_rootfile": "Šai EPUB grāmatai nav saknes faila",
  "err.exists": "{path} jau ir",
+ "err.special_file": "{path} ir kanāls, ligzda vai ierīce, ko nekopē",
+ "err.not_packable": "{path} ir saite, kanāls vai ierīce, ko arhīvs izlaiž, tāpēc nekas netika pārvietots",
  "err.is_folder": "{name} ir mape",
  "err.key_twice": "{key} config.toml sadaļā [keys] piešķirts gan {a}, gan {b}",
  "err.no_application": "Neviena lietotne neatver šāda veida failu",

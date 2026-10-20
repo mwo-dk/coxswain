@@ -912,7 +912,7 @@ fn one_by_one(image: &Path, inner: &str, entries: &[Entry], stage: &Path) -> io:
     for e in entries.iter().filter(|e| !e.link && (inner.is_empty() || e.name == inner || e.name.starts_with(&prefix))) {
         let mut at = stage.to_path_buf();
         for part in e.name.split('/') {
-            if part.is_empty() || part == "." || part == ".." || (cfg!(windows) && part.contains([':', '\\'])) {
+            if part.is_empty() || part == "." || part == ".." || (cfg!(windows) && (part.contains([':', '\\']) || crate::archive::device(part))) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, crate::t!("err.not_in_the_archive", "name" => e.name)));
             }
             at.push(part);

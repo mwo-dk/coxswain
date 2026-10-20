@@ -741,6 +741,8 @@
  "err.move_into_itself": "Un dossier ne peut pas être déplacé dans lui-même",
  "err.epub_no_rootfile": "Ce livre EPUB n’a pas de fichier racine",
  "err.exists": "{path} existe déjà",
+ "err.special_file": "{path} est un tube, une socket ou un périphérique, qui n'est pas copié",
+ "err.not_packable": "{path} est un lien, un tube ou un périphérique, qu'une archive laisse de côté : rien n'a été déplacé",
  "err.is_folder": "{name} est un dossier",
  "err.key_twice": "{key} est attribuée à la fois à {a} et à {b} dans [keys] de config.toml",
  "err.no_application": "Aucune application n’ouvre ce type de fichier",

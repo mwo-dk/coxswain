@@ -431,7 +431,7 @@ fn out_of_archive(src: &Path) -> Option<(PathBuf, String)> {
 pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
-    fn new() -> io::Result<Scratch> {
+    pub(crate) fn new() -> io::Result<Scratch> {
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!(
             "coxswain-archive-{}-{}",
@@ -584,7 +584,37 @@ fn inside(to: &Path, dir: &Path) -> bool {
     real(to).starts_with(real(dir))
 }
 
+/// `src` to `to`. A folder that is not there yet is made under a passing name beside it and
+/// gets its name when complete, so a copy that fails half way leaves nothing and can be tried
+/// again; one that is there is merged into, file by file.
 fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
+    if !fs::symlink_metadata(src)?.is_dir() || fs::symlink_metadata(to).is_ok() {
+        return copy_entry(src, to);
+    }
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let tmp = to.with_file_name(format!(
+        ".{}.coxswain-tmp-{}-{}",
+        to.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id(),
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let r = copy_entry(src, &tmp).and_then(|()| {
+        // Never onto one that came meanwhile: rename would take an empty folder's place.
+        if fs::symlink_metadata(to).is_ok() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                crate::t!("err.exists", "path" => to.display()),
+            ));
+        }
+        fs::rename(&tmp, to)
+    });
+    if r.is_err() {
+        let _ = fs::remove_dir_all(&tmp);
+    }
+    r
+}
+
+fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
     let ft = fs::symlink_metadata(src)?.file_type();
     if ft.is_symlink() {
         let link = fs::read_link(src)?;
@@ -601,9 +631,12 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         fs::create_dir_all(to)?;
         for de in fs::read_dir(src)? {
             let de = de?;
-            copy_tree(&de.path(), &to.join(de.file_name()))?;
+            copy_entry(&de.path(), &to.join(de.file_name()))?;
         }
         Ok(())
+    } else if !ft.is_file() {
+        // A pipe would wait for a writer for ever; a device would be read without end.
+        Err(special(src))
     } else if fs::symlink_metadata(to).is_ok() {
         // Never overwrite: copying a file onto itself would truncate it.
         // ponytail: no overwrite prompt yet; delete the target first.
@@ -614,9 +647,40 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
     } else {
         // Not there before (above): a copy that fails half way (a full disk) leaves nothing,
         // so trying again is not refused as "exists".
-        fs::copy(src, to).map(drop).inspect_err(|_| {
+        fs::copy(src, to).inspect_err(|_| {
             let _ = fs::remove_file(to);
-        })
+        })?;
+        // The original's date (Windows and macOS copy it themselves). As the owner, a file
+        // open for reading may be dated, a read-only one too.
+        #[cfg(unix)]
+        let _ = fs::metadata(src)
+            .and_then(|m| m.modified())
+            .and_then(|t| fs::File::open(to)?.set_modified(t));
+        Ok(())
+    }
+}
+
+/// The error for a pipe, a socket or a device, which are not copied or moved.
+fn special(path: &Path) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::Unsupported,
+        crate::t!("err.special_file", "path" => path.display()),
+    )
+}
+
+/// Refused when anything in `src` cannot go into an archive (a link, a pipe, a device): an
+/// archive leaves those out, and a move would then delete what it never packed.
+fn packable(src: &Path) -> io::Result<()> {
+    let ft = fs::symlink_metadata(src)?.file_type();
+    if ft.is_dir() {
+        fs::read_dir(src)?.try_for_each(|de| packable(&de?.path()))
+    } else if ft.is_file() {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            crate::t!("err.not_packable", "path" => src.display()),
+        ))
     }
 }
 
@@ -653,6 +717,7 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
             Ok(to)
         }
         (None, Some(_)) => {
+            packable(src)?;
             let to = copy_locked(src, dst, password)?;
             delete(src)?;
             Ok(to)
@@ -1691,6 +1756,36 @@ mod tests {
         assert!(!kept.exists());
         delete(&d.join("moved")).unwrap();
         assert!(!d.join("moved").exists());
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fs_copy_refuses_pipes_keeps_dates_and_a_move_into_an_archive_keeps_links() {
+        use std::os::unix::ffi::OsStrExt;
+        let d = tmp("special");
+        mkdir(&d.join("src")).unwrap();
+        fs::write(d.join("src/real.txt"), "x").unwrap();
+        let old = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        fs::File::open(d.join("src/real.txt")).unwrap().set_modified(old).unwrap();
+        let pipe = std::ffi::CString::new(d.join("src/pipe").as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(pipe.as_ptr(), 0o600) }, 0);
+        // A pipe is refused, not waited on for ever; the folder it is in leaves nothing behind,
+        // so trying again is not refused as "exists".
+        let err = |r: io::Result<PathBuf>| r.unwrap_err().kind();
+        assert_eq!(err(copy(&d.join("src/pipe"), &d)), io::ErrorKind::Unsupported);
+        assert_eq!(err(copy(&d.join("src"), &d.join("out"))), io::ErrorKind::Unsupported);
+        assert_eq!(fs::read_dir(&d).unwrap().count(), 1, "no copy, no passing name");
+        fs::remove_file(d.join("src/pipe")).unwrap();
+        copy(&d.join("src"), &d.join("out")).unwrap();
+        assert_eq!(fs::metadata(d.join("out/real.txt")).unwrap().modified().unwrap(), old);
+        // Moved into a zip, a link the zip would leave out stops the move before anything is
+        // deleted.
+        std::os::unix::fs::symlink("real.txt", d.join("src/lnk")).unwrap();
+        crate::archive::create(&d.join("a.zip"), &[d.join("out/real.txt")]).unwrap();
+        assert_eq!(err(rename(&d.join("src"), &d.join("a.zip"))), io::ErrorKind::Unsupported);
+        assert!(fs::symlink_metadata(d.join("src/lnk")).unwrap().is_symlink());
+        assert!(d.join("src/real.txt").exists());
         fs::remove_dir_all(d).unwrap();
     }
 

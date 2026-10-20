@@ -741,6 +741,8 @@
  "err.move_into_itself": "Aplanko negalima perkelti į jį patį",
  "err.epub_no_rootfile": "Šioje EPUB knygoje nėra šakninio failo",
  "err.exists": "{path} jau yra",
+ "err.special_file": "{path} yra kanalas, lizdas arba įrenginys, kuris nekopijuojamas",
+ "err.not_packable": "{path} yra nuoroda, kanalas arba įrenginys, kurį archyvas praleidžia, todėl niekas nebuvo perkelta",
  "err.is_folder": "{name} yra aplankas",
  "err.key_twice": "{key} config.toml skiltyje [keys] priskirtas ir {a}, ir {b}",
  "err.no_application": "Jokia programa neatidaro tokio tipo failo",

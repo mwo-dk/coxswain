@@ -710,6 +710,8 @@
  "err.move_into_itself": "Een map kan niet naar zichzelf worden verplaatst",
  "err.epub_no_rootfile": "Dit EPUB-boek heeft geen rootbestand",
  "err.exists": "{path} bestaat al",
+ "err.special_file": "{path} is een pipe, socket of apparaat, dat niet wordt gekopieerd",
+ "err.not_packable": "{path} is een koppeling, pipe of apparaat, dat een archief weglaat, dus er is niets verplaatst",
  "err.is_folder": "{name} is een map",
  "err.key_twice": "{key} is in [keys] van config.toml aan zowel {a} als {b} gegeven",
  "err.no_application": "Geen programma opent dit soort bestand",

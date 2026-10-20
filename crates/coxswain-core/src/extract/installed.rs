@@ -85,25 +85,6 @@ pub fn postscript(path: &Path, max: u64) -> Option<String> {
     Some(String::from_utf8_lossy(&out).into_owned())
 }
 
-/// A folder of its own for one run, removed when dropped.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn new() -> Option<Scratch> {
-        static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("coxswain-extract-{}-{n}", std::process::id()));
-        std::fs::create_dir_all(&dir).ok()?;
-        Some(Scratch(dir))
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
 /// tesseract's languages: English and the language Coxswain is set to (the system's, when it
 /// is set to "auto") when installed, else what is. Read once: the search helper reads no
 /// catalogue, so the setting is read from config.toml here.
@@ -206,9 +187,9 @@ pub fn picture(path: &Path, _max: u64) -> Option<String> {
 /// The words on the pages of a PDF that has pictures of pages instead of text.
 pub fn scanned_pdf(path: &Path) -> Option<String> {
     let (pdftoppm, tesseract) = (program("pdftoppm")?, program("tesseract")?);
-    let scratch = Scratch::new()?;
+    let scratch = crate::fs::Scratch::new().ok()?;
     let last = MAX_PAGES.to_string();
-    let prefix = scratch.0.join("page");
+    let prefix = scratch.join("page");
     let args = [
         OsStr::new("-r"),
         OsStr::new("200"),
@@ -220,7 +201,7 @@ pub fn scanned_pdf(path: &Path) -> Option<String> {
         prefix.as_os_str(),
     ];
     tools::output(&pdftoppm, &args, TIMEOUT, 1024)?;
-    let mut pages: Vec<PathBuf> = std::fs::read_dir(&scratch.0)
+    let mut pages: Vec<PathBuf> = std::fs::read_dir(&*scratch)
         .ok()?
         .flatten()
         .map(|e| e.path())
@@ -233,7 +214,7 @@ pub fn scanned_pdf(path: &Path) -> Option<String> {
 /// An older Office file or a drawing, made into a PDF by LibreOffice and read as one.
 pub fn office(path: &Path, max: u64) -> Option<String> {
     let soffice = program("soffice")?;
-    let scratch = Scratch::new()?;
+    let scratch = crate::fs::Scratch::new().ok()?;
     // A profile of its own, so neither a running LibreOffice nor a preview being made holds it.
     let url = format!(
         "-env:UserInstallation={}",
@@ -246,11 +227,11 @@ pub fn office(path: &Path, max: u64) -> Option<String> {
         OsStr::new("--convert-to"),
         OsStr::new("pdf"),
         OsStr::new("--outdir"),
-        scratch.0.as_os_str(),
+        scratch.as_os_str(),
         path.as_os_str(),
     ];
     tools::output(&soffice, &args, TIMEOUT, 64 * 1024)?;
-    let pdf = std::fs::read_dir(&scratch.0)
+    let pdf = std::fs::read_dir(&*scratch)
         .ok()?
         .flatten()
         .map(|e| e.path())

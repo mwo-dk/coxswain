@@ -203,6 +203,12 @@ and text* up).
 Yes: plug the disk in, and it appears under *Look in* with the other drives. Tick both and scan.
 Then *Mark all but the one under* your home folder marks the copies on the backup.
 
+#### I ticked a folder and a folder inside it. Is each file counted twice?
+
+No. A folder inside another one you ticked (or the same folder reached by another path, a link,
+or on Windows another case) is scanned once, as part of the outer one, so a file is never shown
+as its own duplicate.
+
 #### Why does a folder with one different file not show as a duplicate?
 
 A folder group needs every file in both folders to match. The files that do match still show as

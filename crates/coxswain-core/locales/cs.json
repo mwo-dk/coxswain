@@ -741,6 +741,8 @@
  "err.move_into_itself": "Složku nelze přesunout do sebe samé",
  "err.epub_no_rootfile": "Tato kniha EPUB nemá kořenový soubor",
  "err.exists": "{path} existuje",
+ "err.special_file": "{path} je roura, soket nebo zařízení, které se nekopíruje",
+ "err.not_packable": "{path} je odkaz, roura nebo zařízení, které archiv vynechá, takže se nic nepřesunulo",
  "err.is_folder": "{name} je složka",
  "err.key_twice": "{key} je v [keys] souboru config.toml přiřazena k {a} i k {b}",
  "err.no_application": "Tento druh souboru neotevírá žádná aplikace",

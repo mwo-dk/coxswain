@@ -465,7 +465,10 @@ fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::Archiv
 
 /// The most a 7z's packed list of contents may unpack to: it is unpacked whole, into memory,
 /// before anything is read, so a few bytes that unpack to gigabytes would take as much.
-const SEVEN_HEADER_MAX: u64 = 64 << 20;
+/// The crate also makes room for every file the list names before reading them, over a
+/// hundred bytes each, however few bytes the list gives each: 16 MB still lets a real one name
+/// well over 100,000 files.
+const SEVEN_HEADER_MAX: u64 = 16 << 20;
 
 /// What a 7z's packed list of contents (its encoded header) says it unpacks to, the largest of
 /// its streams; 0 when it is not packed. Read from the archive's own bytes, before opening it.
@@ -650,17 +653,22 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
             |e| name.len() - e.len(),
         );
     let to = dest_dir.join(&name[..stem_len]);
-    if to.exists() {
-        return Err(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            format!("{} exists", to.display()),
-        ));
+    std::fs::create_dir_all(dest_dir)?;
+    // Made here, never one that is there (a link to elsewhere included).
+    match std::fs::create_dir(&to) {
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("{} exists", to.display()),
+            ));
+        }
+        r => r?,
     }
-    std::fs::create_dir_all(&to)?;
     // A 7z or a zip is read once (a locked one with the password): no links made, nothing
-    // sized by what the archive claims. A tar as the crate unpacks it, which keeps it inside;
-    // its names are read first (from the last look, when it was browsed), since the crate
-    // would read a crafted long-name record whole, however large: `TAR_META` at most.
+    // sized by what the archive claims. A tar's files and folders as the crate unpacks them,
+    // which keeps them inside; its names are read first (from the last look, when it was
+    // browsed), since the crate would read a crafted long-name record whole, however large:
+    // `TAR_META` at most.
     let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox) {
         copy_out_with(
             path,
@@ -671,13 +679,39 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
         )
         .map(drop)
     } else {
-        items(path).and_then(|_| tar_reader(path, k)?.unpack(&to))
+        items(path).and_then(|_| unpack_tar(tar_reader(path, k)?, &to))
     };
     // A mailbox some messages of which could not come out keeps the others.
     if r.is_err() && !(k == Kind::Mbox && std::fs::read_dir(&to).is_ok_and(|mut d| d.next().is_some())) {
         let _ = std::fs::remove_dir_all(&to);
     }
     r.map(|_| to)
+}
+
+/// A tar's files, hard links and folders into `to`, as `tar::Archive::unpack` does, its
+/// folders last so a read-only one does not keep out what is in it. Symbolic links (which may
+/// point anywhere, and need a right of their own on Windows) and devices are left out.
+fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()> {
+    // Long paths on Windows: `\\?\` in front, as the crate does.
+    let to = &to.canonicalize().unwrap_or_else(|_| to.to_path_buf());
+    let mut dirs = vec![];
+    for e in tar.entries()? {
+        let mut e = e?;
+        let t = e.header().entry_type();
+        if cfg!(windows) && e.path().is_ok_and(|p| p.iter().any(|c| device(&c.to_string_lossy()))) {
+            continue;
+        }
+        if t.is_dir() {
+            dirs.push(e);
+        } else if t.is_file() || t.is_gnu_sparse() || t.is_hard_link() {
+            e.unpack_in(to)?;
+        }
+    }
+    dirs.sort_by(|a, b| b.path_bytes().cmp(&a.path_bytes()));
+    for mut d in dirs {
+        d.unpack_in(to)?;
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------- inside an archive
@@ -890,8 +924,18 @@ fn streamed(archive: &Path) -> bool {
 fn sound(name: &str) -> bool {
     name.split('/').count() <= 64
         && name.split('/').all(|p| {
-            !p.is_empty() && p != "." && p != ".." && !(cfg!(windows) && p.contains([':', '\\']))
+            !p.is_empty() && p != "." && p != ".." && !(cfg!(windows) && (p.contains([':', '\\']) || device(p)))
         })
+}
+
+/// Whether `part` is one of Windows' device names (`NUL`, `CON`, `COM1` …, with any ending):
+/// a file of that name there is the device, not a file.
+pub(crate) fn device(part: &str) -> bool {
+    let stem = part.split('.').next().unwrap_or_default().trim_end().to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
 /// What search may know of `archive` (`size` bytes) by name: its first `SEARCH_ENTRIES`
@@ -1302,7 +1346,7 @@ fn copy_entries(
         };
         let mut p = to.to_path_buf();
         for part in rest.split('/').filter(|p| !p.is_empty()) {
-            if part == ".." || (cfg!(windows) && part.contains(['\\', ':'])) {
+            if part == ".." || (cfg!(windows) && (part.contains(['\\', ':']) || device(part))) {
                 return None;
             }
             p.push(part);
@@ -1326,7 +1370,7 @@ fn copy_entries(
         }
         let n = io::copy(
             &mut from.take(left.get().saturating_add(1)),
-            &mut File::create(path)?,
+            &mut File::create_new(path)?,
         )?;
         if n > left.get() {
             return Err(too_large(
@@ -2371,6 +2415,11 @@ mod tests {
         assert!(crate::fs::rename(&tp.join("dir"), &d.join("out")).is_err());
         assert!(!d.join("out/dir").exists(), "nothing half moved");
         assert_eq!(list(&tp, 10).unwrap().0.len(), 2, "the archive kept both");
+        // Extracted, the link is left out (it could point anywhere) and the file comes.
+        let got = extract(&tp, &d).unwrap();
+        assert_eq!(std::fs::read(got.join("dir/a.txt")).unwrap(), b"a");
+        assert!(std::fs::symlink_metadata(got.join("dir/link")).is_err());
+        std::fs::remove_dir_all(got).unwrap();
 
         // A long name stays whole when the tar is written anew.
         let long = format!("deep/{}/file.txt", "x".repeat(150));
@@ -3182,7 +3231,7 @@ mod tests {
             1 << 31
         );
         let err = list(&p, 10).unwrap_err().to_string();
-        assert!(err.contains("2048") && err.contains("64"), "{err}");
+        assert!(err.contains("2048") && err.contains("16 MB"), "{err}");
         assert!(peek(&p.join("a.txt")).is_err() && search_entries(&p, bomb.len() as u64).is_none());
         // Real ones, their headers packed, and locked with their names: read as before.
         for i in 0..200 {

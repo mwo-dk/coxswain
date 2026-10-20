@@ -741,6 +741,8 @@
  "err.move_into_itself": "אי אפשר להעביר תיקייה לתוך עצמה",
  "err.epub_no_rootfile": "לספר EPUB זה אין קובץ שורש",
  "err.exists": "{path} כבר קיים",
+ "err.special_file": "{path} הוא צינור, שקע או התקן, שאינו מועתק",
+ "err.not_packable": "{path} הוא קישור, צינור או התקן, שארכיון משמיט, ולכן דבר לא הועבר",
  "err.is_folder": "{name} היא תיקייה",
  "err.key_twice": "{key} מוקצה גם ל־{a} וגם ל־{b} ב־[keys] של config.toml",
  "err.no_application": "אין יישום שפותח קבצים מסוג זה",

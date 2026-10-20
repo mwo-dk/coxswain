@@ -217,6 +217,30 @@ fn split<K: std::hash::Hash + Eq + Send>(
 }
 
 pub fn scan(opts: &Options, p: &Progress) -> Report {
+    // A root inside another (or the same, by another path) is walked once: a file listed twice
+    // would be its own duplicate, and deleting "the other copy" would delete the only one.
+    // Compared as the system resolves them (links, case on Windows), kept as given.
+    let real: Vec<PathBuf> = opts
+        .roots
+        .iter()
+        .map(|r| fs::canonicalize(r).unwrap_or_else(|_| r.clone()))
+        .collect();
+    let roots = opts
+        .roots
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| {
+            !real
+                .iter()
+                .enumerate()
+                .any(|(j, q)| j != i && real[i].starts_with(q) && (real[i] != *q || j < i))
+        })
+        .map(|(_, r)| r.clone())
+        .collect();
+    let opts = &Options {
+        roots,
+        ..opts.clone()
+    };
     let mut all = vec![];
     for root in &opts.roots {
         walk(root, opts, p, &mut all);
@@ -551,6 +575,28 @@ mod tests {
         );
         crate::cloud::pretend(&d.join("other/copy.txt"), false);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn dupes_overlapping_roots_list_a_file_once() {
+        let d = crate::fs::Scratch::named("dupes-overlap");
+        fs::create_dir_all(d.join("a/b")).unwrap();
+        fs::write(d.join("a/b/only.txt"), b"one file, given twice").unwrap();
+        for roots in [
+            vec![d.join("a"), d.join("a/b")],
+            vec![d.join("a/b"), d.join("a")],
+            vec![d.join("a"), d.join("a")],
+            vec![d.join("a"), d.join("a/b/../b")],
+        ] {
+            let r = scan(
+                &Options {
+                    roots: roots.clone(),
+                    ..Default::default()
+                },
+                &Progress::default(),
+            );
+            assert!(r.groups.is_empty() && r.folders.is_empty(), "{roots:?}: {r:?}");
+        }
     }
 
     #[test]

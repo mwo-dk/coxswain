@@ -137,7 +137,7 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | One file inside | 20 MB (`text_max_size`) | Its name is found, its text is not read |
 | Read out of one archive | 128 MB | The files after that are found by name only |
 | How deep | 64 folders | Deeper entries, and entries named with `..`, are left out |
-| A 7z's packed list of contents | 64 MB, unpacked | The 7z is not opened, here or as a folder: *This 7z's list of contents unpacks to … MB, more than the 64 MB Coxswain opens*. The list is unpacked into memory before anything else, so a crafted 7z could otherwise fill it |
+| A 7z's packed list of contents | 16 MB, unpacked | The 7z is not opened, here or as a folder: *This 7z's list of contents unpacks to … MB, more than the 16 MB Coxswain opens*. The list is unpacked into memory before anything else, so a crafted 7z could otherwise fill it |
 
 - **An archive inside an archive** is not looked into: the inner one is found by its name.
 - **Folder sizes and Duplicates** see an archive as the one file it is on disk; its contents are
@@ -202,8 +202,8 @@ entries found by name.
 
 #### Why does a 7z say its list of contents is too big?
 
-Its list of contents is packed, and says it unpacks to more than 64 MB. A 7z unpacks that list
-into memory before anything else, and a real one takes a few hundred kilobytes even for tens of
+Its list of contents is packed, and says it unpacks to more than 16 MB. A 7z unpacks that list
+into memory before anything else and makes room for every file it names, and a real one takes a few hundred kilobytes even for tens of
 thousands of files, so Coxswain does not open it: not as a folder, not in a preview, not in
 search. Open it with 7-Zip if you trust where it came from.
 

@@ -166,9 +166,11 @@ through an installed 7-Zip instead, read-only, like a disk image
   ([Inside archives](../search/archives.md)). Pack (**Alt+F5**) takes files on
   disk, not entries of another archive.
 - **Symbolic links** on disk are left out when added to an archive, since what they point at may
-  be anywhere. When copying out of a tar, links and special entries are skipped; **Ctrl+E**
-  extracts them. A move (**F6**) out of an archive with such an entry is refused before
-  anything is taken out, so nothing is lost. Links in a zip come out as small files that hold
+  be anywhere. A move (**F6**) into an archive of a folder that holds one (or a pipe or a
+  device) is refused before anything is added, so nothing is deleted that did not go in. When
+  copying out of a tar, links and special entries are skipped, and **Ctrl+E** leaves out its
+  symbolic links and devices too (hard links come out). A move (**F6**) out of an archive with
+  such an entry is refused before anything is taken out, so nothing is lost. Links in a zip come out as small files that hold
   the target, never as links.
 - **Changing a locked archive:** in a zip, locked files stay locked, and files you add are
   locked with its password (AES-256). A locked 7z that you change is written anew locked with
