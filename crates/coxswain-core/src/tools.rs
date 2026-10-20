@@ -485,7 +485,7 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         "gst-good" => [
             "gstreamer1-plugins-good",
             "gst-plugins1-good",
-            "gstreamer1-plugins-good",
+            "gst-plugins-good",
             "",
             "",
             "",
@@ -507,10 +507,11 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "",
         ],
         // A git tool, for the notice when "Open in your git tool" finds none.
+        // OpenBSD has no package of lazygit or tig.
         "lazygit" => [
             "lazygit",
             "lazygit",
-            "lazygit",
+            "",
             "",
             "lazygit",
             "lazygit",
@@ -520,7 +521,7 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "JesseDuffield.lazygit",
         ],
         "tig" => [
-            "tig", "tig", "tig", "", "tig", "tig", "tig", "tig", "tig", "",
+            "tig", "tig", "", "", "tig", "tig", "tig", "tig", "tig", "",
         ],
         "nerd-font" => [
             "nerd-fonts",
@@ -893,6 +894,11 @@ mod tests {
             install_line("gst-good", Manager::Pkg).as_deref(),
             Some("pkg install gstreamer1-plugins-good")
         );
+        assert_eq!(
+            install_line("gst-good", Manager::PkgAdd).as_deref(),
+            Some("pkg_add gst-plugins-good")
+        );
+        assert_eq!(install_line("tig", Manager::PkgAdd), None);
         assert_eq!(
             install_line("gst-good", Manager::Apt),
             None,
