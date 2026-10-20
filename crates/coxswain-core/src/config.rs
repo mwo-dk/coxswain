@@ -140,6 +140,16 @@ pub fn written(k: &str) -> String {
 
 // ---------------------------------------------------------------- actions
 
+/// `[keys]` without the actions this version does not know: a config.toml a newer Coxswain
+/// wrote (or one shared with it) still starts this one, and the file keeps them for that one.
+fn known_actions<'de, D: serde::Deserializer<'de>>(d: D) -> Result<BTreeMap<Action, Vec<String>>, D::Error> {
+    let keys = BTreeMap::<String, Vec<String>>::deserialize(d)?;
+    Ok(keys
+        .into_iter()
+        .filter_map(|(name, keys)| Some((*Action::ALL.iter().find(|a| a.name() == name)?, keys)))
+        .collect())
+}
+
 macro_rules! actions {
     ($($variant:ident = $name:literal, $label:literal, $group:ident, [$($key:literal),*];)*) => {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize)]
@@ -1682,7 +1692,9 @@ pub struct Config {
     pub hints: bool,
     /// Look for a newer release on GitHub at startup (at most once a day).
     pub check_updates: bool,
-    /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it.
+    /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it. An action
+    /// this version does not know (a newer one's, in a config shared with it) is left out.
+    #[serde(deserialize_with = "known_actions")]
     pub keys: BTreeMap<Action, Vec<String>>,
     pub themes: BTreeMap<String, Theme>,
     /// F2's entries. None (no `[[user_menu]]`): the built-in ones (`user_menu::entries`).
@@ -1693,6 +1705,10 @@ pub struct Config {
     pub git: GitConfig,
     pub archive: ArchiveConfig,
     pub chess: ChessConfig,
+    /// The names in `[keys]` that are no action of this version, left out (`keys`): a notice
+    /// names them.
+    #[serde(skip)]
+    pub unknown_actions: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1765,6 +1781,7 @@ impl Default for Config {
             git: GitConfig::default(),
             archive: ArchiveConfig::default(),
             chess: ChessConfig::default(),
+            unknown_actions: vec![],
         };
         c.fill_defaults();
         c
@@ -1810,6 +1827,28 @@ impl Config {
             Some(Err(e)) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("config: {e}")),
             _ => Ok(Config::default()),
         }
+    }
+
+    /// The search settings, for the helper above all. A mistake elsewhere in the file (a key
+    /// bound twice) leaves `[search]` as the user set it: the defaults would read the folders
+    /// left out and the archives turned off, and read them again once the mistake is fixed.
+    pub fn load_search() -> SearchConfig {
+        let text = Config::path().and_then(|p| std::fs::read_to_string(p).ok());
+        Config::search_of(text.as_deref().unwrap_or_default())
+    }
+
+    /// `load_search` of the text of a config.toml.
+    fn search_of(text: &str) -> SearchConfig {
+        #[derive(Deserialize, Default)]
+        #[serde(default)]
+        struct Search {
+            search: SearchConfig,
+        }
+        Config::parse(text).map(|c| c.search).unwrap_or_else(|_| {
+            let search = toml::from_str::<Search>(text).map(|s| s.search).unwrap_or_default();
+            crate::cloud::follow(&search);
+            search
+        })
     }
 
     /// `text` (a config.toml) with the value at `keys` (`["search", "meaning"]`) set, its
@@ -1875,6 +1914,11 @@ impl Config {
 
     pub fn parse(text: &str) -> Result<Config, String> {
         let mut c: Config = toml::from_str(text).map_err(|e| format!("config: {e}"))?;
+        if let Ok(doc) = text.parse::<toml::Table>()
+            && let Some(keys) = doc.get("keys").and_then(toml::Value::as_table)
+        {
+            c.unknown_actions = keys.keys().filter(|n| !Action::ALL.iter().any(|a| a.name() == *n)).cloned().collect();
+        }
         c.fill_defaults();
         c.keymap()?;
         crate::cloud::follow(&c.search);
@@ -2182,6 +2226,17 @@ mod tests {
         assert_eq!(c.theme().panel.fg, "#ffffff");
         assert_eq!(c.theme().cursor, Theme::nc().cursor);
         assert!(Config::parse("[keys]\nquit = [\"Hyper+Q\"]").is_err());
+        // A config.toml of a newer version, with an action this one does not know: it starts,
+        // with the rest of the settings.
+        let newer = Config::parse("theme = \"mc\"\n[keys]\nlater_action = [\"Alt+Shift+K\"]\nquit = [\"Ctrl+Q\"]\n[search]\nmax_results = 7\n").unwrap();
+        assert_eq!((newer.theme.as_str(), newer.search.max_results), ("mc", 7));
+        assert_eq!(newer.keymap().unwrap()[&"Ctrl+Q".parse().unwrap()], Action::Quit);
+        assert_eq!(newer.unknown_actions, ["later_action"]);
+        // A key bound twice: the helper still reads with the user's search settings.
+        let twice = "[keys]\nquit = [\"F5\"]\ncopy = [\"F5\"]\n[search]\narchives = false\ntext_exclude = [\"secret\"]\n";
+        assert!(Config::parse(twice).is_err());
+        let search = Config::search_of(twice);
+        assert_eq!((search.archives, search.text_exclude.as_slice()), (false, ["secret".to_string()].as_slice()));
     }
 
     #[test]

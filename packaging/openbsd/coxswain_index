@@ -21,7 +21,10 @@ rc_reload=NO
 
 rc_pre() {
 	if [ "${daemon_user}" = _coxswain_unset ]; then
-		echo "Name the user whose files are indexed: rcctl set coxswain_index user alice" >&2
+		# rcctl shows only "(failed)": what is missing goes to syslog (/var/log/daemon) as well.
+		_msg="Name the user whose files are indexed: rcctl set coxswain_index user alice"
+		logger -p daemon.err -t coxswain_index "${_msg}"
+		echo "${_msg}" >&2
 		return 1
 	fi
 }

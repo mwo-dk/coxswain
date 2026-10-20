@@ -69,14 +69,15 @@ parent (candle, tauri, pdf-extract) moves.
 
 ## The bundled viewers
 
-Two renderers are not npm packages but files kept in the repository:
+Three renderers are not npm packages but files kept in the repository:
 
 | Viewer | Where | Version | Notes |
 |---|---|---|---|
 | draw.io viewer | `gui/public/vendor/drawio/` | tag `v32.0.2` of [jgraph/drawio](https://github.com/jgraph/drawio), unmodified | Every path it would take from diagrams.net (shape libraries, styles, the image proxy, maths) is pointed at a local folder that does not exist, so it fetches nothing. Diagrams that use draw.io's extra shape libraries show those shapes as plain boxes. |
+| Netron | `gui/public/vendor/netron/` | tag `v9.3.2` of [lutzroeder/netron](https://github.com/lutzroeder/netron), its source archive's SHA-256 checked | Made by `gui/netron/build.mjs`: Netron's view and its ONNX, TensorFlow Lite, Core ML and Keras readers, unmodified, bundled with Coxswain's own host in place of Netron's browser host; its telemetry class is cut out, and its Python, pickle and other readers are left out (the build fails if the PyTorch or pickle readers or the telemetry end up in it). It runs in a frame sandboxed to scripts, with no origin and a policy that allows no connection ([Neural network models](../previews/neural-networks.md#safety)). |
 | SheetJS Community Edition | `gui/vendor/xlsx-0.20.3.tgz` | 0.20.3 | The last version on npm is 0.18, so the package is kept as a file and installed from it. |
 
-Both are updated by hand; the README next to each says the tag it came from.
+Each is updated by hand (Netron by changing the version and SHA-256 in `build.mjs` and running it); the README next to each says the tag it came from.
 
 ## The release pipeline
 

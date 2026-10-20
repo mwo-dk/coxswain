@@ -65,6 +65,11 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             Some("keys"),
         ));
     }
+    // Actions in [keys] this version does not know (a newer one's, or a typo): left out, once.
+    if !cfg.unknown_actions.is_empty() {
+        let names = cfg.unknown_actions.join(", ");
+        all.push(Notice::new(format!("unknown-actions:{names}"), t!("notice.unknown_actions", "names" => names), Some("keys")));
+    }
     // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
     if let Some(why) = &status.error {
         all.push(Notice::new(

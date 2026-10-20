@@ -20,7 +20,7 @@
     </dependency>
     <!-- Refuses to start as nobody (uid 60001): the user is named first. -->
     <exec_method type="method" name="start" timeout_seconds="60"
-      exec='/usr/bin/id | /usr/bin/grep uid=60001 >/dev/null &amp;&amp; { echo Name the user first: svccfg -s @SMF_PREFIX@/@SMF_NAME@ setprop start/user = astring: alice >&amp;2; exit 1; }; @PREFIX@/bin/coxswain --index-helper --stay &amp;'>
+      exec='/usr/bin/id | /usr/bin/grep uid=60001 >/dev/null &amp;&amp; { echo Name the user first: svccfg -s @SMF_PREFIX@/@SMF_NAME@ setprop start/user = astring: alice, then svcadm refresh and svcadm clear it >&amp;2; exit 1; }; @PREFIX@/bin/coxswain --index-helper --stay &amp;'>
       <method_context>
         <method_credential user="nobody" group=":default"/>
       </method_context>

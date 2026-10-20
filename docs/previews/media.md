@@ -44,7 +44,7 @@ program is built for.
 | Video: `mp4 webm mkv mov m4v ogv` | A player |
 | Audio: `mp3 flac wav ogg m4a opus aac` | A player, plus its tags |
 | Fonts: `.ttf`, `.otf`, `.woff`, `.woff2` | *The quick brown fox jumps over the lazy dog* and *Sphinx of black quartz, judge my vow* in large sizes, the alphabet, digits and signs, and *Æble, øl og å — Grüße — ﬁ ﬂ — “quotes” — €£¥* |
-| Folders | *Contents* (folders and files), *Files here* (their size), *Newest*, *Total size* (or **Calculate**), and the *Git* line of a repository |
+| Folders | *Contents* (folders and files), *Files here* (their size), *Newest*, *Total size* (or **Calculate**), and the *Git* line of a repository; a Core ML package (`.mlpackage`) shows its model instead ([Neural network models](neural-networks.md)) |
 | Archives | The files inside; see [below](#archives) |
 
 Whether video and audio play depends on the codecs of your system's webview: WebKitGTK with
@@ -84,6 +84,8 @@ Under the preview, some files get a short list:
 - **Old pictures, comics, mailboxes, dBase tables and tracker music:** their format, size in
   pixels, colours, pages and layers, messages, records and fields, channels and samples; see
   [Old pictures and files](old-formats.md#formats).
+- **Neural network models:** their format, producer, inputs and outputs with shapes, nodes and
+  parameters, shown above Netron's graph; see [Neural network models](neural-networks.md#the-facts).
 - **Programs and libraries:** the platform and CPU they are built for (*Linux/Unix ELF 64-bit*,
   *Windows PE*, *macOS Mach-O*, *macOS universal*; x86, x86-64, ARM, ARM64, RISC-V and more)
   and what they are (program, windowed or console program, shared library, object file).
@@ -161,4 +163,4 @@ Measuring a big folder reads every file under it. With folder sizes on in the co
 appears by itself; otherwise **Calculate** measures this one.
 
 ---
-[← Previous: Chess games](chess.md) · [Next: Old pictures and files →](old-formats.md)
+[← Previous: Neural network models](neural-networks.md) · [Next: Old pictures and files →](old-formats.md)

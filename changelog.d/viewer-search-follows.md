@@ -1,0 +1,1 @@
+| **The terminal app's viewer finds what is far down a big file it has just opened.** A search started while the viewer was still finding the lines stopped with *Not found yet: the file is still being read*; it now goes on over the lines as they are found. | [View and edit](commands/view-and-edit.md#the-built-in-viewer) |

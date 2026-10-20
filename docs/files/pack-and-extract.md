@@ -148,8 +148,8 @@ session.
 
 ## In the terminal app
 
-The same keys, formats and texts. The target prompt reads *Pack "photos" into (Tab: .zip, .7z,
-.tar.gz, …):*. **Tab** swaps the name's ending for the next format's (`.zip`, `.7z`, `.tar`,
+The same keys, formats and texts. The target prompt is a box titled *Pack "photos"* (or *Pack 3
+items*) with the field *To (Tab: .zip, .7z, .tar.gz, …):*. **Tab** swaps the name's ending for the next format's (`.zip`, `.7z`, `.tar`,
 `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`, then `.zip` again), **Shift+Tab** for the previous
 one, and the status line shows the format's hint. **Ctrl+U** clears the field. For a zip or 7z target, the
 target prompt is followed by a password prompt (stars; **Enter** alone packs without one) and,

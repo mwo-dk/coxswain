@@ -30,7 +30,7 @@ starts your editor or the file's default application.
 | Key | Terminal app | Desktop app |
 |---|---|---|
 | **F3** | Opens the file in the [built-in viewer](#the-built-in-viewer), full screen. With `viewer` set in the config, runs that program instead; the panels step aside until it ends | Shows or hides the [preview pane](../previews/README.md). When the pane shows command output, **F3** switches it back to the file preview |
-| **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad` on Windows). The panels step aside until it ends | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
+| **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else the first installed of `vi`, `vim`, `nvim`, `nano`, `micro`, `hx`, `emacs` (`notepad` on Windows). The panels step aside until it ends; an editor that is not installed is said in the status line instead: *nano was not found: install it, or name your editor in Settings → Behaviour → Editor* | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
 | **F4** in [Find](../search/find-file.md) | Edits the hit under the cursor; the search stays open | Same |
 | **F3** in Find | Views the hit under the cursor | — (**Enter** goes to the hit; the preview shows it there) |
 
@@ -65,7 +65,8 @@ What it reads:
   from the disk, so a 50 MB log opens at once (the title says *lines so far* until the end is
   reached). Search reads ahead a few thousand lines at a time, between redraws: on a big file
   the status line says *Searching for error: 40% · Esc stops*, the keys still work, and **Esc**
-  stops it. Over 16 MB the text shows
+  stops it. A search started while the title still says *lines so far* goes on over the lines
+  as they are found, rather than stopping at those found then. Over 16 MB the text shows
   without colours (*Over 16 MB: shown without colours.*), and a line over 4,000 characters (a
   minified file) is shown plain.
 - **Encodings.** UTF-8, UTF-16 with its byte order mark, and Windows-1252 when the start of
@@ -135,7 +136,9 @@ Two exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
 the built-in viewer (or in `viewer`'s program), and **Esc** there goes back to the BOM or the
 provenance; `bom_viewer = false` or `provenance_viewer = false` makes F3 show the source straight
 away. **F3** on a chess file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`) opens its
-games or positions full screen ([Chess games](../previews/chess.md)).
+games or positions full screen ([Chess games](../previews/chess.md)), and on a neural network
+model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: format, inputs
+and outputs with shapes, operators ([Neural network models](../previews/neural-networks.md)).
 
 ## Questions
 
@@ -167,7 +170,9 @@ a viewer from the desktop app, add it to the [user menu](user-menu.md): `command
 #### Which editor and which viewer does the terminal app use?
 
 For **F4**, the first that is set: `editor` in `config.toml`, then `$VISUAL`, then `$EDITOR`,
-then `vi` (`notepad` on Windows). **F3** uses the built-in viewer unless `viewer` names a
+then the first of `vi`, `vim`, `nvim`, `nano`, `micro`, `hx` and `emacs` that is installed
+(`notepad` on Windows). One that is not there is named in the status line, *… was not found:
+install it, or name your editor in Settings → Behaviour → Editor*, and nothing runs. **F3** uses the built-in viewer unless `viewer` names a
 program; **p** in the viewer hands the file to `$PAGER`, else `less` (`more` on Windows).
 
 #### How do I get `less` (or my own pager) back on F3?

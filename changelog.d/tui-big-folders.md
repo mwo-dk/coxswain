@@ -1,0 +1,1 @@
+| **The terminal app no longer freezes on a huge folder.** A folder that takes longer than a moment to read (hundreds of thousands of files) is read in the background: the panel shows `..`, the status line says it is being read, and the keys keep working. | [Performance](reference/performance.md#the-terminal-app) |

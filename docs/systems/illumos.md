@@ -115,6 +115,9 @@ svcs -p application/coxswain-index
 ```
 
 Until a user is named it refuses to start (it would run as `nobody`), and `svcs -x` says why.
+Enabled before a user was named, it is left in *maintenance*: name the user as above, then
+`pfexec svcadm refresh application/coxswain-index` and `pfexec svcadm clear application/coxswain-index`
+start it.
 What the helper says goes to the service's log: `svcs -L application/coxswain-index`.
 `svcadm disable application/coxswain-index` stops it.
 
@@ -141,7 +144,7 @@ Everything in [ZFS snapshots as folders](../files/zfs-snapshots.md) works on ill
 | A folder's snapshots | **Alt+Z** on it: newest first, each a read-only folder as it was (`.zfs/snapshot`) |
 | How a file differs now | **Enter** on a file inside a snapshot shows the diff in the built-in viewer |
 | A file back | **F5** copies it out of the snapshot to the other panel; **F4**, **F6**, **F7** and **F8** are refused in a snapshot |
-| The dataset | The panel's bottom border: `rpool/export/home/alice · 1.52x · 12.3 GB used · 88.1 GB free` |
+| The dataset | The panel's bottom border: `rpool/export/home/alice · 1.52x · 12G used · 88G free` (sizes under 100 MB in bytes) |
 | ZFS facts | **Alt+Enter** (Properties): dataset, mountpoint, compression and ratio, used, available, referenced, quota, refquota, snapshots |
 
 The dataset of a folder comes from `/etc/mnttab`. The diff uses GNU diff

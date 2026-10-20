@@ -63,7 +63,7 @@ them, and in each group the most used action first:
 | Archives | Extract archive, Pack into an archive |
 | Search | Find, Find in files, Ask your files, Find duplicates |
 | Git | Git history, Git branches, Switch to branch, Git worktrees, New branch here, Open in your git tool, Git config |
-| Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes |
+| Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes, Open games |
 | App | Help, Features and questions, Commands (this list), Settings, Disk use, Quit |
 
 [Every default key](keys.md) has the same tables, with each key.

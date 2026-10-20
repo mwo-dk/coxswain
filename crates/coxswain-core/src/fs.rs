@@ -91,6 +91,12 @@ pub fn secs(t: io::Result<std::time::SystemTime>) -> Option<u64> {
     Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs())
 }
 
+/// The moment `secs` seconds after 1970, as far as the year 9999. An archive, an index or a
+/// commit may say any number, and past that adding it to 1970 or showing it as a date panics.
+pub fn epoch(secs: u64) -> std::time::SystemTime {
+    std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs.min(253_402_300_799))
+}
+
 /// Now, in seconds since 1970.
 pub fn now() -> u64 {
     secs(Ok(std::time::SystemTime::now())).unwrap_or(0)
@@ -1138,7 +1144,7 @@ pub fn properties(path: &Path) -> io::Result<Props> {
             crate::bsd::package_of(path)
         },
         flags: crate::flags::read(path),
-        facts: (meta.is_file() && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
+        facts: ((meta.is_file() || crate::neural::named(path)) && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
         disk_image: disk.as_ref().map(crate::disk_image::lines),
         disk_next: disk.map(|_| crate::disk_image::next()),
         path: path.to_path_buf(),

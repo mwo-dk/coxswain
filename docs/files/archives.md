@@ -180,6 +180,13 @@ through an installed 7-Zip instead, read-only, like a disk image
   quick after that. A multi-gigabyte `.tar.xz` is still slow to open; extract it instead.
 - **No overwriting:** a name that already exists inside, or at the target outside, is refused
   with `… exists`, as between folders.
+- **Permissions that come out:** a file or folder from a zip or a tar keeps its executable bit,
+  never write for the group or for everyone else, and never set-user-ID: a script from an
+  archive cannot be changed by other users of the machine.
+- **Zip bombs:** a zip whose files share their packed bytes (a few kilobytes that would unpack to
+  gigabytes) is not extracted, nor a folder of it, with a message that says so; one file of it can
+  still be copied out with **F5**. A 7z is unpacked as it is read, so one that unpacks to
+  gigabytes takes the disk space it says, not the memory.
 
 ## Settings and config.toml
 

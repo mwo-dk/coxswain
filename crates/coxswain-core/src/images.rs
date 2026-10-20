@@ -66,12 +66,20 @@ pub const KROKI: &[&str] = &[
 pub fn sealed(rt: &str, rt_path: &Path, name: &str, src: &Path, out: Option<&Path>) -> Command {
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
-    c.arg("-v").arg(format!("{}:/src:ro", src.display()));
+    c.arg("--mount").arg(bind(src, "/src", true));
     if let Some(out) = out {
-        c.arg("-v").arg(format!("{}:/out", out.display()));
+        c.arg("--mount").arg(bind(out, "/out", false));
     }
     c.args(user(rt == "podman" && rootless(rt_path), out.unwrap_or(src)));
     c
+}
+
+/// `--mount` of the folder `host` at `at`: not `-v`, which splits at every `:`, so a folder
+/// named `10:30` would not mount. The source is one quoted CSV field, as
+/// podman and docker read it, so a `,` or `"` in the path stays in it.
+fn bind(host: &Path, at: &str, ro: bool) -> String {
+    let src = host.display().to_string().replace('"', "\"\"");
+    format!("type=bind,\"source={src}\",target={at}{}", if ro { ",readonly" } else { "" })
 }
 
 /// The `--user` (and `HOME`) options of `sealed`.
@@ -438,6 +446,12 @@ mod tests {
     }
 
     #[test]
+    fn images_mount_folders_with_colons_commas_and_quotes() {
+        assert_eq!(bind(Path::new("/m/10:30, \"x\""), "/src", true), "type=bind,\"source=/m/10:30, \"\"x\"\"\",target=/src,readonly");
+        assert_eq!(bind(Path::new("/c"), "/out", false), "type=bind,\"source=/c\",target=/out");
+    }
+
+    #[test]
     fn follow_keeps_last_complete_line() {
         assert_eq!(follow("one\ntwo\rthree".as_bytes(), "t"), "two");
         assert_eq!(pulling().get("t").map(String::as_str), Some("two"));
@@ -449,7 +463,7 @@ mod tests {
         assert_eq!(key("latex"), "latex");
         let c = sealed("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a"), Some(Path::new("/b")));
         let args: Vec<String> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
-        for want in ["--network=none", "/a:/src:ro", "/b:/out"] {
+        for want in ["--network=none", "type=bind,\"source=/a\",target=/src,readonly", "type=bind,\"source=/b\",target=/out"] {
             assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
         }
         assert_eq!(user(true, Path::new("/")), ["--user", "0:0"], "rootless podman: you are its root");

@@ -78,7 +78,7 @@ open it outside the pane:
 | Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on (desktop app, not on battery) |
 | tectonic's package bundle | When tectonic builds a document; tectonic's own design |
 
-Nothing else: every library (Mermaid, KaTeX, SheetJS, draw.io's viewer, Graphviz, …) ships inside
+Nothing else: every library (Mermaid, KaTeX, SheetJS, draw.io's viewer, Netron, Graphviz, …) ships inside
 the app, and previews of every kind are blocked from the web.
 
 ## Speed
@@ -87,7 +87,7 @@ the app, and previews of every kind are blocked from the web.
   smooth; facts come after 120 ms.
 - Tools wait longer: LibreOffice 0.6 s, LaTeX 0.8 s, others 0.15 s.
 - The libraries behind the heavier previews (Mermaid, KaTeX, SheetJS, mammoth, the YAML and TOML
-  parsers, Graphviz, Asciidoctor, hyparquet, pptx-to-html, draw.io) load the first time a file
+  parsers, Graphviz, Asciidoctor, hyparquet, pptx-to-html, draw.io, Netron) load the first time a file
   needs them, so they add nothing to startup.
 - Tool results come from the [preview cache](tools.md#the-preview-cache) after the first run.
 
@@ -106,6 +106,7 @@ the app, and previews of every kind are blocked from the web.
 | Parquet | 500 MB | *Too large to preview* |
 | A file read whole through the app's file protocol | 512 MiB | Refused; video and audio are read in pieces |
 | draw.io | 32 MB | Cut off, does not parse |
+| A neural network model drawn by Netron, and each file next to it that it reads | 512 MiB | *Netron cannot draw it:* and the reason; the facts still show |
 | E-mail text | 200,000 characters | – |
 | Tool runs | `[preview] timeout`, 120 s | *Stopped after 120 s (the timeout in [preview])* |
 

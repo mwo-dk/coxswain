@@ -568,10 +568,14 @@ pub struct App {
     searchable_plan: Option<mpsc::Receiver<SearchablePlan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
-    /// A history's commits, listed on a thread (git can take seconds): the folder, the name
+    /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
+    /// not read within `list_wait` (a million files take seconds too). The folder, the name
     /// to put the cursor on, the listing.
     list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     list_rx: mpsc::Receiver<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
+    /// How long a key waits for a folder to be listed before the panel shows it as being read
+    /// and the keys go on.
+    list_wait: Duration,
     last_click: Option<(Instant, u16, u16)>,
     /// Properties being read on a thread.
     props_rx: Option<mpsc::Receiver<Result<bfs::Props, String>>>,
@@ -778,6 +782,8 @@ impl App {
             undo: Default::default(),
             list_tx,
             list_rx,
+            // Tests list small folders and look at them at once, on machines that can be slow.
+            list_wait: if cfg!(test) { Duration::from_secs(10) } else { Duration::from_millis(150) },
             last_click: None,
             props_rx: None,
             watch: Default::default(),
@@ -935,20 +941,44 @@ impl App {
         self.hint_stale = true;
         let h = self.show_hidden;
         let p = &mut self.panels[side];
-        if !virtual_list(&p.dir) {
-            p.load(h);
-            if let Some(n) = select {
-                p.select_name(&n);
-            }
-            return;
-        }
         let keep = select.or_else(|| p.current().map(|e| e.name.clone()));
         let (dir, tx) = (p.dir.clone(), self.list_tx.clone());
-        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
+        // The keys wait no longer than `list_wait` for a folder on disk: one of a million files
+        // is said to be read meanwhile, and measured once it is listed.
+        let virtual_dir = virtual_list(&dir);
+        let d = dir.clone();
+        let k = keep.clone();
         std::thread::spawn(move || {
-            let r = bfs::list(&dir, h);
-            let _ = tx.send((dir, keep, r));
+            let r = bfs::list(&d, h);
+            let _ = tx.send((d, k, r));
         });
+        if !virtual_dir {
+            let until = Instant::now() + self.list_wait;
+            while let Ok((d, k, r)) = self.list_rx.recv_timeout(until.saturating_duration_since(Instant::now())) {
+                if d != dir {
+                    self.listed(d, k, r);
+                } else if r.is_err() {
+                    // Walking up keeps the reason, as a locked archive's password asks by it.
+                    let p = &mut self.panels[side];
+                    p.load(h);
+                    if let Some(n) = keep {
+                        p.select_name(&n);
+                    }
+                    return;
+                } else {
+                    return self.listed(d, k, r);
+                }
+            }
+        }
+        // Meanwhile `..` leads out of a folder entered.
+        let p = &mut self.panels[side];
+        if !virtual_dir
+            && p.entries.is_empty()
+            && let Some(up) = dir.parent()
+        {
+            p.entries.push(Entry { name: "..".into(), path: up.to_path_buf(), is_dir: true, ..Entry::default() });
+        }
+        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
     }
 
     /// A listing from the thread, for the panels still showing its folder. One that failed
@@ -969,6 +999,10 @@ impl App {
                     (p.entries, p.link) = (v.clone(), None);
                     p.error = None;
                     p.fill(keep.clone());
+                    // Listed after its key had gone on: its folders measured now.
+                    if !virtual_list(&dir) && self.panels[side].sizes.is_empty() {
+                        self.measure(side);
+                    }
                 }
                 Err(e) => {
                     p.error = Some(e.to_string());
@@ -992,7 +1026,7 @@ impl App {
 
     fn describe(paths: &[PathBuf]) -> String {
         match paths {
-            [one] => format!("\"{}\"", one.file_name().unwrap_or_default().to_string_lossy()),
+            [one] => format!("\"{}\"", ui::printable(&one.file_name().unwrap_or_default().to_string_lossy())),
             _ => tn!("items", paths.len()),
         }
     }
@@ -1291,8 +1325,8 @@ impl App {
                     self.view_or_edit(a, &e);
                 }
             }
-            // In a git history nothing changes either: said at once, not after a prompt.
-            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if history::split(&self.panel().dir).is_some() && !self.panel().dir.is_dir() => {
+            // Nor in a git history: its commits and their files are as they were.
+            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if history::is_history(&self.panel().dir) => {
                 self.status = Some(t!("history.read_only"));
             }
             // In a ZFS snapshot (or its list) nothing changes: said at once, not after a prompt.
@@ -1434,6 +1468,13 @@ impl App {
         match coxswain_core::fs::open_default(Path::new(url)) {
             Ok(()) => t!("features.opened", "url" => url),
             Err(_) => t!("features.copied", "url" => url),
+        }
+    }
+
+    /// A password that did not open the archive, asked for again: the box says so.
+    fn asked_again(&mut self) {
+        if let Some(Dialog::Input { label, prompt: Prompt::Peek(_) | Prompt::Unlock(..), .. }) = &mut self.dialog {
+            *label = t!("archive.locked_again");
         }
     }
 
@@ -1780,6 +1821,13 @@ impl App {
             return;
         };
         let s = self.searchable.take().expect("a run");
+        // The image was used: what *Remove images not used for 90 days* goes by, which the
+        // desktop app does; the installed program uses none.
+        if let Ok(coxswain_core::searchable::How::Container { image, .. }) = coxswain_core::searchable::how(&self.cfg.preview) {
+            let mut st = coxswain_core::state::AppState::load();
+            coxswain_core::images::used(&mut st, &image, coxswain_core::fs::now());
+            let _ = st.save();
+        }
         let stopped = s.stop.load(std::sync::atomic::Ordering::Relaxed);
         let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(s.names.iter()).partition(|(r, _)| r.is_ok());
         let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).collect();
@@ -1822,6 +1870,9 @@ impl App {
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
     pub fn edit_at(&mut self, file: &Path, line: usize) {
+        if let Some(prog) = self.editor_missing() {
+            return self.status = Some(t!("edit.not_found", "name" => prog));
+        }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         self.run = Some(Run::Shell { line: config::edit_command(&self.editor(), file, line), typed: false, dir, wait: false });
     }
@@ -1829,6 +1880,10 @@ impl App {
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         if a == Action::View && self.cfg.viewer.is_none() {
             return self.view_in(file, None);
+        }
+        // Said in the status line: the shell's own "not found" would flash by unread.
+        if a == Action::Edit && let Some(prog) = self.editor_missing() {
+            return self.status = Some(t!("edit.not_found", "name" => prog));
         }
         let prog = if a == Action::View { self.cfg.viewer.clone().unwrap_or_else(pager) } else { self.editor() };
         self.run_on(&prog, file);
@@ -1881,7 +1936,26 @@ impl App {
 
     fn editor(&self) -> String {
         let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
-        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| if cfg!(windows) { "notepad".into() } else { "vi".into() })
+        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| {
+            // Not every system has vi (Arch, some containers): the first editor installed.
+            let found = ["vi", "vim", "nvim", "nano", "micro", "hx", "emacs"].into_iter().find(|e| coxswain_core::tools::which(e).is_some());
+            if cfg!(windows) { "notepad".into() } else { found.unwrap_or("vi").into() }
+        })
+    }
+
+    /// The editor's program when it is plainly not there: a bare name not on the PATH, or a
+    /// path to nothing. A command with `$` or `~` is the shell's to read, and left to it.
+    fn editor_missing(&self) -> Option<String> {
+        let editor = self.editor();
+        let prog = editor.split_whitespace().next()?.to_string();
+        let gone = if prog.contains(['$', '~', '"', '\'']) {
+            false
+        } else if prog.contains(std::path::MAIN_SEPARATOR) || prog.contains('/') {
+            !Path::new(&prog).exists()
+        } else {
+            coxswain_core::tools::which(&prog).is_none()
+        };
+        gone.then_some(prog)
     }
 
     /// F2's last entry: config.toml in the editor at `[[user_menu]]`, an example there first.
@@ -2112,12 +2186,14 @@ impl App {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.peek(path);
+                self.asked_again();
             }
             Prompt::Unlock(side, dir) => {
                 if let Some((archive, _)) = coxswain_core::archive::split(&dir) {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.cd(side, dir);
+                self.asked_again();
             }
             Prompt::Rename(_) if value.trim().is_empty() => {}
             Prompt::Rename(src) => {
@@ -2176,11 +2252,12 @@ impl App {
                 });
             }
             Prompt::Mark(sel) => {
-                let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
+                // By letters, not bytes: `?` is one "æ" or "日", as in the desktop app.
+                let pats: Vec<Vec<char>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().chars().collect()).collect();
                 let p = self.panel_mut();
                 for e in p.entries.iter().filter(|e| !e.is_dir) {
-                    let name = e.name.to_lowercase();
-                    if pats.iter().any(|g| index::glob(g, name.as_bytes())) {
+                    let name: Vec<char> = e.name.to_lowercase().chars().collect();
+                    if pats.iter().any(|g| index::glob(g, &name)) {
                         if sel {
                             p.marked.insert(e.path.clone());
                         } else {
@@ -2503,7 +2580,12 @@ impl App {
                                 _ => None,
                             }
                         };
+                        // The built-in viewer covers Find, which comes back when it closes.
                         if let Some(path) = path {
+                            if action == Some(Action::View) && self.cfg.viewer.is_none() {
+                                let back = Dialog::Search { query, chip, here, found, cursor, offset, show };
+                                return self.view_in(&path, Some(Box::new(back)));
+                            }
                             self.view_or_edit(action.unwrap(), &path);
                         }
                     }
@@ -2514,6 +2596,11 @@ impl App {
                     (KeyCode::PageUp, _) => cursor = find::step(&rows, cursor, -10),
                     (KeyCode::PageDown, _) => cursor = find::step(&rows, cursor, 10),
                     (KeyCode::Backspace, _) => requery = query.pop().is_some() && !answer,
+                    // Ctrl+U clears the field, as in every prompt.
+                    (KeyCode::Char('u'), None) if key.ctrl => {
+                        requery = !query.is_empty() && !answer;
+                        query.clear();
+                    }
                     (_, Some(c)) => {
                         query.push(c);
                         requery = show != Show::Answer;
@@ -3215,7 +3302,7 @@ fn index_service(on: Option<&str>) {
         eprintln!("coxswain: {e}");
         std::process::exit(1)
     }
-    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+    Client::start(&Config::load_search()).restart();
 }
 
 /// A command line option that could not be done: why, and the exit code.
@@ -3252,7 +3339,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
     };
     // Another model for the vectors reads every file's meaning again: said, and asked, first.
     let confirm = |change: &dyn Fn(&mut coxswain_core::config::SearchConfig)| {
-        let old = Config::load().map(|c| c.search).unwrap_or_default();
+        let old = Config::load_search();
         let mut new = old.clone();
         change(&mut new);
         let st = Client::start(&old).status();
@@ -3284,7 +3371,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         Some("server") => {
             let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
             confirm(&|c| (c.meaning_engine, c.meaning_url, c.meaning_model) = ("openai".into(), url.clone(), model.clone()));
-            let key = meaning::key_of(&Config::load().map(|c| c.search).unwrap_or_default());
+            let key = meaning::key_of(&Config::load_search());
             meaning::server_models(true, url, key.as_deref()).unwrap_or_else(|e| fail(e));
             save("meaning_engine", "openai");
             save("meaning_url", url);
@@ -3309,7 +3396,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         // The model's speed on a few passages, and what the files to go take at it; another
         // server is tried without a change: `--meaning bench http://my-server:8000/api/v1 <model>`.
         Some("bench") => {
-            let saved = Config::load().map(|c| c.search).unwrap_or_default();
+            let saved = Config::load_search();
             let mut cfg = saved.clone();
             if let (Some(url), Some(model)) = (rest.first(), rest.get(1)) {
                 (cfg.meaning_engine, cfg.meaning_url, cfg.meaning_model) = ("openai".into(), url.clone(), model.clone());
@@ -3333,7 +3420,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 if coxswain_core::chat::of(&Config::load().map(|c| c.search.ask_model).unwrap_or_default()).is_some() {
                     save("ask_model", "");
                 }
-                let helper = Client::start(&Config::load().map(|c| c.search).unwrap_or_default());
+                let helper = Client::start(&Config::load_search());
                 for m in coxswain_core::chat::MODELS {
                     m.remove(&helper).unwrap_or_else(|e| fail(e.to_string()));
                 }
@@ -3346,7 +3433,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 }
                 return save("ask_model", model);
             }
-            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let search = Config::load_search();
             let openai = search.meaning_engine == "openai";
             let url = if search.meaning_engine == "builtin" { "" } else { search.meaning_url.as_str() };
             let have = meaning::server_models(openai, url, meaning::key_of(&search).as_deref()).unwrap_or_else(|e| fail(e));
@@ -3364,7 +3451,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return save("ask_model", model);
         }
         _ => {
-            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let search = Config::load_search();
             let on = search.meaning && (search.meaning_engine != "builtin" || meaning::installed());
             println!("{}", if on { "on" } else { "off" });
             // The built-in model: on the GPU (Metal) or on the CPU, and why.
@@ -3374,7 +3461,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return;
         }
     }
-    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+    Client::start(&Config::load_search()).restart();
 }
 
 /// The options, and the values each takes after it (none: it takes none, or any words).
@@ -3669,6 +3756,23 @@ fn git_sides(panels: &[Panel; 2], paths: &[PathBuf]) -> Vec<usize> {
         .collect()
 }
 
+/// A folder of a test's own, empty: panels on the shared temp folder would measure, and an
+/// index would walk, everything other programs keep there.
+#[cfg(test)]
+pub(crate) fn test_dir(name: &str) -> PathBuf {
+    let d = std::env::temp_dir().join(format!("coxswain-test-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    d
+}
+
+/// The app's own index for a test (no helper): over an empty folder, not the whole disk, and
+/// kept in no cache file.
+#[cfg(test)]
+pub(crate) fn test_index(cfg: &Config) -> Arc<Client> {
+    let search = coxswain_core::config::SearchConfig { roots: vec![test_dir("index")], watch: false, ..cfg.search.clone() };
+    Client::with(None, &search, |_| {})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3676,7 +3780,7 @@ mod tests {
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
     #[test]
     fn unknown_options_and_folders_are_said() {
-        let cwd = std::env::temp_dir();
+        let cwd = crate::test_dir("panels");
         let check = |a: &[&str]| check_args(&a.iter().map(|s| s.to_string()).collect::<Vec<_>>(), &cwd);
         let e = check(&["--model"]).unwrap_err();
         assert!(e.contains("--model") && e.contains("--models?") && e.contains("--help"), "{e}");
@@ -3720,8 +3824,64 @@ mod tests {
     /// An app on two folders, with its own index (no helper) and no update check.
     fn app(left: PathBuf, right: PathBuf) -> App {
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    /// The user-test round's terminal fixes: Find's F3 and Ctrl+U, a history refusing changes
+    /// at once, `?` as one letter, a wrong password said, an editor that is not there.
+    #[test]
+    fn find_views_a_hit_a_history_refuses_and_a_missing_editor_is_said() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-usertest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["ø.txt", "ab.txt", "a.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        let mut app = app(d.clone(), d.clone());
+        let k = |c: KeyCode, ctrl: bool| Key::new(c, ctrl, false, false);
+        // F3 on a hit: the built-in viewer, and Find again after it.
+        let mut found = Found::default();
+        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None }];
+        found.names.total = 1;
+        let cursor = app.find_rows("a", Kind::All, &found).iter().position(|r| matches!(r, Row::Hit { .. })).unwrap();
+        app.dialog = Some(Dialog::Search { query: "a".into(), chip: Kind::All, here: false, found, cursor, offset: 0, show: Show::List });
+        app.dialog_key(k(KeyCode::F(3), false));
+        let Some(Dialog::View { back: Some(back), .. }) = &app.dialog else { panic!("not viewed") };
+        assert!(matches!(**back, Dialog::Search { .. }));
+        app.dialog_key(k(KeyCode::Esc, false));
+        // Ctrl+U clears Find's field.
+        assert!(matches!(&app.dialog, Some(Dialog::Search { query, .. }) if query == "a"), "back at Find");
+        app.dialog_key(k(KeyCode::Char('u'), true));
+        assert!(matches!(&app.dialog, Some(Dialog::Search { query, .. }) if query.is_empty()));
+        app.dialog = None;
+        // `?` is one letter, also outside ASCII.
+        app.submit(Prompt::Mark(true), "?.txt".into());
+        let marked: Vec<String> = app.panels[0].marked.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(marked.len(), 2, "{marked:?}");
+        assert!(marked.contains(&"ø.txt".to_string()) && marked.contains(&"a.txt".to_string()));
+        app.panels[0].clear_marks();
+        // In a history, F8, F7, F6 say read-only at once: no question first.
+        app.panels[0].dir = d.join("@history");
+        for a in [Action::Delete, Action::DeleteForever, Action::NewFolder, Action::Move, Action::Rename] {
+            app.act(a);
+            assert!(app.dialog.is_none(), "{a:?} asked");
+            assert_eq!(app.status.as_deref(), Some(t!("history.read_only").as_str()), "{a:?}");
+        }
+        app.panels[0].dir = d.clone();
+        // A password that did not open it: the box says so.
+        app.dialog = Some(Dialog::Input { title: String::new(), label: t!("archive.locked_label"), value: String::new(), prompt: Prompt::Peek(d.join("x.zip").join("a")) });
+        app.asked_again();
+        assert!(matches!(&app.dialog, Some(Dialog::Input { label, .. }) if *label == t!("archive.locked_again")));
+        app.dialog = None;
+        // An editor that is not installed: the status line names it, nothing runs.
+        app.cfg.editor = Some("no-such-editor-coxswain --wait".into());
+        let at = app.panels[0].entries.iter().position(|e| e.name == "a.txt").unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::Edit);
+        assert!(app.run.is_none());
+        assert!(app.status.as_deref().is_some_and(|s| s.contains("no-such-editor-coxswain")), "{:?}", app.status);
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
@@ -3887,6 +4047,27 @@ mod tests {
         let _ = std::fs::remove_dir_all(d);
     }
 
+    /// A folder not listed within `list_wait` (a million files) does not hold the keys: the
+    /// panel shows `..` and the status line says it is being read, until the listing comes.
+    #[test]
+    fn a_slow_folder_is_listed_on_a_thread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-slow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("big/inner")).unwrap();
+        std::fs::write(d.join("big/a.txt"), "a").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        app.list_wait = Duration::ZERO;
+        app.cd(0, d.join("big"));
+        let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&app), [".."], "only the way out while it is read");
+        assert!(app.status.is_some(), "the status line says it is being read");
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert_eq!(names(&app), ["..", "inner", "a.txt"]);
+        assert!(app.status.is_none(), "and no longer says so");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
     #[test]
     fn a_history_is_listed_on_a_thread_and_walks_up_when_there_is_none() {
         let d = std::env::temp_dir().join(format!("coxswain-test-hist-{}", std::process::id()));
@@ -3911,7 +4092,7 @@ mod tests {
     /// hung on a dead network mount).
     #[test]
     fn a_second_quit_leaves_a_hung_job() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (_tx, rx) = mpsc::channel();
         app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
@@ -3925,7 +4106,7 @@ mod tests {
     /// Quit while Make PDF searchable runs stops it and waits for it to end.
     #[test]
     fn quit_stops_make_pdf_searchable_and_waits() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         let (tx, rx) = mpsc::channel();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -3942,7 +4123,7 @@ mod tests {
     /// can still quit.
     #[test]
     fn a_job_whose_thread_died_is_let_go() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (tx, rx) = mpsc::channel();
         tx.send(JobMsg::At(0)).unwrap();
@@ -3986,39 +4167,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(d);
     }
 
-    /// In a commit of a history, F6, F7, F8 and Shift+F8 are refused at once, before any prompt.
-    #[test]
-    fn a_history_refuses_changes_before_asking() {
-        let d = std::env::temp_dir().join(format!("coxswain-test-history-ro-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&d);
-        std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(d.join("a.txt"), "a").unwrap();
-        let git = |args: &[&str]| coxswain_core::tools::command("git").arg("-C").arg(&d).args(["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]).args(args).output();
-        let made = git(&["init", "-q"]).is_ok_and(|o| o.status.success()) && git(&["add", "."]).is_ok_and(|o| o.status.success()) && git(&["commit", "-q", "-m", "one"]).is_ok_and(|o| o.status.success());
-        if !made {
-            return println!("no git");
-        }
-        let hash = String::from_utf8(git(&["rev-parse", "HEAD"]).unwrap().stdout).unwrap();
-        let commit = history::path(&d, Some(hash.trim()));
-        let mut app = app(d.clone(), d.clone());
-        app.cd(0, commit.clone());
-        while app.panels[0].dir != commit || app.panels[0].entries.iter().all(|e| e.name != "a.txt") {
-            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
-            app.listed(dir, keep, r);
-        }
-        app.panels[0].cursor = app.panels[0].entries.iter().position(|e| e.name == "a.txt").unwrap();
-        for a in [Action::Move, Action::Rename, Action::NewFolder, Action::Delete, Action::DeleteForever] {
-            app.status = None;
-            app.act(a);
-            assert!(app.dialog.is_none(), "{a:?} asked first");
-            assert_eq!(app.status.as_deref(), Some(t!("history.read_only").as_ref()), "{a:?}");
-        }
-        let _ = std::fs::remove_dir_all(d);
-    }
-
     #[test]
     fn find_keys_switch_kind_scope_and_view() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         let k = |c: KeyCode, ctrl: bool, alt: bool, shift: bool| Key::new(c, ctrl, alt, shift);
         let state = |app: &App| match &app.dialog {
@@ -4065,7 +4216,7 @@ mod tests {
 
     #[test]
     fn tab_in_the_pack_prompt_swaps_the_format() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         app.input("Pack", String::new(), "/x/rocket.zip".into(), Prompt::Pack(vec![]));
         let value = |app: &App| match &app.dialog {
@@ -4162,9 +4313,9 @@ mod panel_tests {
     #[test]
     fn finds_cursor_past_the_rows_is_brought_back() {
         use ratatui::backend::TestBackend;
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
         let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
         let mut found = Found::default();
@@ -4182,9 +4333,9 @@ mod panel_tests {
     #[test]
     fn a_menu_on_a_tiny_terminal_draws() {
         use ratatui::backend::TestBackend;
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d, index).unwrap();
         let items = vec![MenuItem { key: "1".into(), label: "One".into(), run: MenuRun::Say(String::new()), group: None }];
         app.dialog = Some(Dialog::Menu { title: "M".into(), filter: String::new(), items, cursor: 0, direct: false, feature: "" });
@@ -4260,6 +4411,34 @@ mod wide_letters {
         }
     }
 
+    /// A name with a newline, a tab or an escape in it is drawn with `?` there: the bars stay
+    /// straight, and no control character reaches the terminal.
+    #[cfg(unix)]
+    #[test]
+    fn control_characters_in_names_never_reach_the_terminal() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-ctrl-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["new\nline.txt", "tab\there.txt", "esc\u{1b}]2;x\u{7}.txt", "plain.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let s = draw(&mut app);
+        same_columns(&s, "│", 2..18);
+        assert!(s.iter().flatten().all(|c| !c.chars().any(char::is_control)));
+        assert!(s.iter().any(|r| r.concat().contains("new?line.txt")), "shown as ls shows it");
+        // The delete question names it the same way, on one line.
+        let at = app.panels[0].entries.iter().position(|e| e.name.starts_with("new")).unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::Delete);
+        let s = draw(&mut app);
+        assert!(s.iter().any(|r| r.concat().contains("\"new?line.txt\"")));
+        assert!(s.iter().flatten().all(|c| !c.chars().any(char::is_control)));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn japanese_and_korean_line_up() {
         // The language is the whole process's: the check runs in a process of its own, so
@@ -4282,7 +4461,7 @@ mod wide_letters {
         for lang in ["ja", "ko"] {
             coxswain_core::i18n::set_language(lang);
             let cfg = Config { check_updates: false, ..Config::default() };
-            let index = Client::with(None, &cfg.search, |_| {});
+            let index = crate::test_index(&cfg);
             let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
             app.panels[0].toggle_mark(1);
             let s = draw(&mut app);

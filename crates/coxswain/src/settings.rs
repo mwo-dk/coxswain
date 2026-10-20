@@ -14,7 +14,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::Frame;
 use serde_json::{Map, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 use unicode_width::UnicodeWidthStr;
@@ -1184,7 +1184,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(Span::styled(fit(&format!(" {mark} {}", t!("setup.service_on")), w), st)));
                 }
                 // A path keeps its tail, the informative part.
-                Row::Info(label, value, _) if value.contains(std::path::MAIN_SEPARATOR) => lines.push(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
+                // A path keeps its tail; a sentence (what a version brought) its start.
+                Row::Info(label, value, _) if Path::new(value).is_absolute() || value.starts_with('~') => lines.push(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
                 Row::Info(label, value, _) => lines.push(pair(&format!(" {label}"), value, st)),
                 Row::Go(area, value) => lines.push(Line::from(vec![Span::styled(fit(&format!(" {}", area.label()), aw.max(14)), if here { selected } else { head }), Span::styled(fit(value, w.saturating_sub(aw.max(14))), st)])),
                 Row::Notice(n) => lines.push(Line::from(Span::styled(fit(&format!(" • {}", n.text), w), st))),
@@ -1419,13 +1420,12 @@ fn chat_list(groups: Vec<coxswain_core::setup::AskGroup>, looked: bool) -> Vec<(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use coxswain_core::helper::Client;
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
 
     fn app(dir: &std::path::Path) -> App {
         let cfg = Config { check_updates: false, language: "en-GB".into(), ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         App::with_index(cfg, dir.to_path_buf(), dir.to_path_buf(), index).unwrap()
     }
 
@@ -1459,7 +1459,7 @@ mod tests {
     /// The themes stand under their groups' headings, your own last; the next one skips a heading.
     #[test]
     fn themes_are_listed_by_group() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.cfg.themes.insert("mine".into(), Theme::nc());
         let o = cs::find("tui_theme").unwrap();
@@ -1474,7 +1474,7 @@ mod tests {
     /// Ask's list opens on the same row by Enter and by Space, and no move stops on a heading.
     #[test]
     fn asks_list_opens_and_moves_on_models() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.cfg.search.ask_model = String::new();
         app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "ask_model"))));
@@ -1507,7 +1507,7 @@ mod tests {
     /// that saves a setting or deletes one forgets them.
     #[test]
     fn a_key_keeps_the_models_read() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "search"))));
         screen(&mut app, 100, 40);
@@ -1625,7 +1625,7 @@ mod tests {
 
     #[test]
     fn the_levels_and_steps_are_rows_of_finding_files() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let app = app(&d);
         let s = Settings::open(&app, "search");
         let rows = rows(&app, &s);

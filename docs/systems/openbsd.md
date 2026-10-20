@@ -143,7 +143,8 @@ doas rcctl start coxswain_index
 rcctl check coxswain_index
 ```
 
-Until a user is set it refuses to start and says how to set one. `doas rcctl disable
+Until a user is set it refuses to start: `rcctl` shows *coxswain_index(failed)*, and
+`/var/log/daemon` says how to set one. `doas rcctl disable
 coxswain_index` turns it off again. One script serves one user; for a second, copy it as
 `/etc/rc.d/coxswain_index_bob`.
 
@@ -165,7 +166,7 @@ OpenBSD's defaults are strict, on purpose. What touches Coxswain:
 | Limit | Default | What Coxswain does |
 |---|---|---|
 | Open files per process (`openfiles-cur` in `login.conf`) | 512 for users (1024 at most); 128 for daemons | The helper raises its own limit to the class's maximum, and watches at most three quarters of it in folders, less 64 for reading files: about 700 folders. Folders past those are read again at the hourly rebuild |
-| Memory per process (`datasize-cur`) | 1.5 GB for the `default` and `staff` classes | Enough for the apps and the helper. The built-in models for search by meaning and Ask are large: if they stop with *out of memory*, raise `datasize-cur` in your class (`staff` allows `ulimit -d unlimited`) |
+| Memory per process (`datasize-cur`) | 1.5 GB for the `default` and `staff` classes | Enough for the apps and the helper. The built-in models for search by meaning and Ask are large: if they stop with *out of memory*, raise `datasize-cur` in your class (`staff` allows `ulimit -d $(ulimit -Hd)`) |
 | `kern.maxfiles` | 7030 for the whole system | The watch budget above keeps the helper well under it |
 
 For a large home folder, more open files help the helper notice changes at once. In
@@ -224,7 +225,8 @@ cargo build --release --locked -p coxswain-gui
 ```
 
 The build needs Rust 1.93 or later, for both apps (OpenBSD 7.9 has 1.94.1). If linking stops with *out of
-memory*, raise the data size first: `ulimit -d unlimited` in a `staff` login.
+memory*, raise the data size first: `ulimit -d $(ulimit -Hd)` in a `staff` login (ksh refuses
+`unlimited`, which is more than the hard limit).
 
 ## The desktop app: what experimental means
 
@@ -261,7 +263,7 @@ class with more open files, or leaving large trees out of the index (`name_exclu
 #### Search by meaning says it is out of memory
 
 The built-in model and its work can need more
-than the 1.5 GB a process gets by default: `ulimit -d unlimited` in a `staff` login, or
+than the 1.5 GB a process gets by default: `ulimit -d $(ulimit -Hd)` in a `staff` login, or
 `datasize-cur` raised in `login.conf`. A model server elsewhere needs no memory here
 ([Servers](../search/servers.md)).
 

@@ -294,7 +294,7 @@ fn serve_here() -> io::Result<()> {
         crate::tools::login_path();
     }
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
-    let search = Config::load().map(|c| c.search).unwrap_or_default();
+    let search = Config::load_search();
     // First, or the store cannot be made on a machine that has no cache folder yet.
     std::fs::create_dir_all(&dir)?;
     // A store locked for a moment (a helper still leaving, a compaction) is waited for, up to
@@ -343,7 +343,7 @@ fn serve_here() -> io::Result<()> {
         OURS,
         &dir,
         linger,
-        move || Service::start(&search),
+        move || Service::start(&search, crate::index::Index::cache_path()),
         store.map(|s| (s, cfg)),
     )
 }
@@ -1041,7 +1041,9 @@ impl Client {
     }
 
     fn own(&self) -> &Arc<Service> {
-        self.own.get_or_init(|| Service::start(&self.search))
+        self.own.get_or_init(|| {
+            Service::start(&self.search, self.dir.as_ref().map(|d| d.join("index.bin")))
+        })
     }
 
     /// The app's own index, started when no helper can be reached: not for one that is
@@ -1321,8 +1323,8 @@ mod tests {
                     &dir,
                     linger,
                     {
-                        let s = search.clone();
-                        move || Service::start(&s)
+                        let (s, cache) = (search.clone(), dir.join("index.bin"));
+                        move || Service::start(&s, Some(cache.clone()))
                     },
                     Some((store, search)),
                 )
@@ -1368,8 +1370,8 @@ mod tests {
                 &dir,
                 Duration::from_secs(5),
                 {
-                    let s = s.clone();
-                    move || Service::start(&s)
+                    let (s, cache) = (s.clone(), dir.join("index.bin"));
+                    move || Service::start(&s, Some(cache.clone()))
                 },
                 Some((store, s)),
             )
