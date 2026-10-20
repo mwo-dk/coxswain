@@ -202,4 +202,4 @@ Previews*, or set `latex_auto = false` under `[preview]`. Documents then wait fo
 **Build PDF**.
 
 ---
-[← Previous: Diagrams](diagrams.md) · [Next: Previews made by tools →](tools.md)
+[← Previous: Diagrams](diagrams.md) · [Next: Geodata →](geodata.md)

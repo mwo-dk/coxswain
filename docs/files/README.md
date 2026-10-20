@@ -63,6 +63,7 @@ folder; **Ctrl+E** extracts it.*
 | **Alt+P** | yes | yes | [Make PDF searchable](searchable-pdf.md): a copy with the words of a scan in it |
 | *Shift+F10*, *F9 → Convert video or audio* | yes | yes | [Convert video or audio](convert-media.md): MP4, MP3, FLAC, the sound, a clip |
 | *Shift+F10*, *F9 → Convert or edit pictures* | yes | yes | [Convert or edit pictures](edit-pictures.md): JPEG, PNG, WebP, smaller, without the location, turned |
+| *Shift+F10*, *F9 → Convert geodata* | yes | yes | [Convert geodata](../previews/geodata.md#convert-geodata): GeoPackage, GeoJSON, a shapefile, KML, GPX, COG, PNG |
 
 Every key can be changed ([Changing keys](../customise/keys.md)). In the terminal app a key that
 only the desktop app has says so on the status line: *Batch rename is available in the desktop

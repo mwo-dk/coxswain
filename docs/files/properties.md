@@ -4,7 +4,8 @@
 
 **Alt+Enter** shows what a file or folder is: its size, dates, owner and permissions, and where
 the system has them, its ZFS dataset, the FreeBSD package it belongs to and its file flags;
-for an old picture or a video also what it holds (a video's length, size and tracks). In
+for an old picture, a video or geodata also what it holds (a video's length, size and tracks;
+a map's layers, coordinate system and extent, a GPX track's length and time). In
 the desktop app you can change the permission bits there (on Windows the read-only flag) and
 your own file flags; the terminal app shows the same facts in a window of text.
 
@@ -93,7 +94,9 @@ picture, a tracker module, a mailbox, a comic or a dBase table also what it hold
 package folder too) its format, inputs, outputs, nodes and parameters
 ([Neural network models](../previews/neural-networks.md)), and for a video (or a song the tags reader does not know) its format, length, size in pixels
 and tracks, by an installed ffprobe or ffmpeg's pulled image
-([Media](../previews/media.md#video-and-sound-with-ffmpeg)). A folder's size
+([Media](../previews/media.md#video-and-sound-with-ffmpeg)), and for
+geodata its layers, coordinate system and extent by GDAL, a GPX file's tracks without it
+([Geodata](../previews/geodata.md#the-facts)). A folder's size
 is measured on a thread; the status line says *Reading properties…* meanwhile. Any key closes
 it. Nothing is changed there; instead:
 

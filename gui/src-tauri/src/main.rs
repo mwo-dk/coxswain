@@ -199,7 +199,9 @@ struct UiConfig {
     media_endings: BTreeMap<&'static str, Vec<&'static str>>,
     /// What *Convert video or audio* and *Convert or edit pictures* offer, in their order, as
     /// `media::Op::id`s; `clip:…` and `resize:…` ask for their values.
-    media_ops: [Vec<String>; 2],
+    media_ops: [Vec<String>; 3],
+    /// Geodata's endings (`geo::endings`): `vector`, and `raster` (TIFF, geodata when GDAL says so).
+    geo_endings: BTreeMap<&'static str, Vec<&'static str>>,
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
@@ -275,7 +277,8 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         disk_endings: coxswain_core::disk_image::endings(),
         picture_endings: coxswain_core::pictures::endings(),
         media_endings: coxswain_core::media::endings(),
-        media_ops: [coxswain_core::media::Program::Ffmpeg, coxswain_core::media::Program::Magick].map(|p| coxswain_core::media::Op::menu(p).iter().map(|o| o.id()).collect()),
+        media_ops: coxswain_core::media::Program::ALL.map(|p| coxswain_core::media::Op::menu(p).iter().map(|o| o.id()).collect()),
+        geo_endings: coxswain_core::geo::endings(),
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
@@ -283,7 +286,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
-        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
+        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 
@@ -2328,7 +2331,7 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, dupes_scan,
+            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
         ])
         .build(tauri::generate_context!())

@@ -48,7 +48,8 @@ open it outside the pane:
 - **Write next to your files.** Tool results, LaTeX's auxiliary files and LibreOffice's profile
   go to the cache folder. Containers see your folders read-only. The only things that write are
   extracting an archive, when you press **Ctrl+E**, and Make PDF searchable, Convert video or
-  audio and Convert or edit pictures, a new file next to the original, when you confirm.
+  audio, Convert or edit pictures and Convert geodata, a new file next to the original, when you
+  confirm.
 - **Change a database.** SQLite and DuckDB files are opened read-only; counting SQLite rows
   stops after two and a half seconds for the whole database.
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
@@ -58,8 +59,11 @@ open it outside the pane:
   macros off (macro security "very high" behind that) and links never updated, so a document
   neither runs its macros nor fetches what it links. ffmpeg reads real media formats only
   (`-protocol_whitelist file`, `-format_whitelist`), so no playlist in a file reaches another
-  file; ImageMagick runs under Coxswain's policy (picture formats only, no helper programs). In
-  their containers both see the one file, on a read-only root with no capabilities and bounded
+  file; ImageMagick runs under Coxswain's policy (picture formats only, no helper programs);
+  GDAL reads with the one driver of the file's kind (`-if`), so a file cannot point it at an
+  address or another file, and writes no `.aux.xml` beside it. In
+  their containers ffmpeg, ImageMagick and GDAL see the one file (GDAL a shapefile's folder,
+  as a shapefile is several files), on a read-only root with no capabilities and bounded
   memory.
 - **Run what a repository names.** A folder may be a repository someone else made (a
   download, an unpacked archive), and its `.git/config` can name programs. The git line, the
@@ -113,7 +117,11 @@ the app, and previews of every kind are blocked from the web.
 | draw.io | 32 MB | Cut off, does not parse |
 | A neural network model drawn by Netron, and each file next to it that it reads | 512 MiB | *Netron cannot draw it:* and the reason; the facts still show |
 | E-mail text | 200,000 characters | – |
-| Tool runs | `[preview] timeout`, 120 s | *Stopped after 120 s (the timeout in [preview])* |
+| Tool runs | `[preview] timeout`, 120 s, for all the steps of one preview together | *Stopped after 120 s (the timeout in [preview])* |
+| A tool's own output kept (GDAL's descriptions and the like) | 4 MB | The rest is read and dropped |
+| [Geodata](geodata.md) maps | 8 layers, 50,000 features a layer, 400,000 points in all, 64 MB of a layer's shapes | The rest is left out of the map; past 64 MB, *Too many shapes to draw* |
+| GPX files read by Coxswain | 64 MB, 400,000 points | *Too many shapes to draw*; past the points, the rest is left out |
+| GDAL's facts of a file | 20 s | No facts |
 
 ## Settings and config.toml
 

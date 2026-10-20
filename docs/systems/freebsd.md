@@ -126,6 +126,7 @@ The terminal app needs no packages: it links only against the base system's libr
 | `libreoffice` | Search older Office files: `.doc`, `.ppt`, Visio and others | Optional |
 | `ffmpeg` | Videos and sound the player cannot play, video thumbnails and facts, HEIC photos, [Convert video or audio](../files/convert-media.md) | Optional; containers do not run here, so this is the way |
 | `ImageMagick7` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) | Optional; the same |
+| `gdal` | Maps and facts of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files, [Convert geodata](../previews/geodata.md#convert-geodata) | Optional; the same |
 | `git` | Git status, history and branches in the panels | Optional; most machines have it |
 | `ollama` | A model server for search by meaning and Ask | Optional ([below](#search-by-meaning-and-ask)) |
 

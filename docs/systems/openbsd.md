@@ -112,6 +112,7 @@ The terminal app needs no packages.
 | `tesseract` | Search the words in scans and pictures | Optional ([Scans and pictures](../search/scans.md)) |
 | `ffmpeg` | Videos and sound the player cannot play, video facts, [Convert video or audio](../files/convert-media.md) | Optional; containers do not run here, so this is the way |
 | `ImageMagick` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) | Optional; the same |
+| `gdal` | Maps and facts of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files, [Convert geodata](../previews/geodata.md#convert-geodata) | Optional; the same |
 | `poppler-utils` | The same for scanned PDFs | Optional, with `tesseract` |
 | `libreoffice` | Search older Office files | Optional |
 | `pandoc` | Previews of formats it converts | Optional |

@@ -120,6 +120,12 @@ def files(d):
         media["avi"] = ("w.avi", ".media img", "", 30)
     if shutil.which("magick") and run("magick", "-size", "64x48", "plasma:", "x.heic"):
         media["heic"] = ("x.heic", ".media img", "", 30)
+    # Geodata: a GPX walk, drawn by the core; a GeoJSON, drawn by an installed GDAL, else the note
+    # that says what is missing (its container is never pulled without a click).
+    (d / "y.gpx").write_text('<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg><trkpt lat="55.0" lon="12.0"/><trkpt lat="55.1" lon="12.2"/></trkseg></trk></gpx>')
+    (d / "z.geojson").write_text('{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[[12,55],[12.2,55.1]]}}]}')
+    media["gpx"] = ("y.gpx", ".media img", "", 10)
+    media["geojson"] = ("z.geojson", ".media img" if shutil.which("gdalinfo") else "p.more", "", 30)
     return media | {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),

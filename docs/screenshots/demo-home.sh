@@ -432,6 +432,29 @@ GN[A study in variations]
 
 (;GM[1]FF[4]SZ[19]HA[0]KM[0]GN[Life and death, elementary]AB[ab][bb][db][eb][cc][cd]AW[fa][cb][fb][dc][ec][fc][ad][dd][be][ce]C[Elementary](;B[ca];W[ea];B[bd];W[ac];B[da]C[Correct.])(;B[da]WV[];W[bc];B[ca]C[Wrong.])(;B[bc]WV[];W[ea];B[ca];W[da]C[Wrong.]))
 EOF
+# Geodata, for the maps and facts (docs/previews/geodata.md): a made-up launch range by the sea
+# as GeoJSON (its area, the road and the pads) and a walk round it as GPX, with times.
+mkdir -p "$d/Documents/Maps"
+cat > "$d/Documents/Maps/launch-range.geojson" <<'EOF'
+{"type":"FeatureCollection","name":"launch-range","features":[
+{"type":"Feature","properties":{"name":"Range","kind":"area"},"geometry":{"type":"Polygon","coordinates":[[[16.000,69.280],[16.030,69.276],[16.052,69.285],[16.058,69.300],[16.040,69.312],[16.012,69.310],[15.995,69.297],[16.000,69.280]],[[16.020,69.292],[16.030,69.292],[16.030,69.298],[16.020,69.298],[16.020,69.292]]]}},
+{"type":"Feature","properties":{"name":"Shore","kind":"water"},"geometry":{"type":"Polygon","coordinates":[[[16.058,69.270],[16.090,69.270],[16.090,69.320],[16.050,69.320],[16.062,69.300],[16.058,69.270]]]}},
+{"type":"Feature","properties":{"name":"Range road","kind":"road"},"geometry":{"type":"LineString","coordinates":[[15.980,69.274],[15.998,69.283],[16.010,69.288],[16.024,69.290],[16.036,69.294],[16.046,69.302]]}},
+{"type":"Feature","properties":{"name":"Pad A","kind":"pad"},"geometry":{"type":"Point","coordinates":[16.046,69.302]}},
+{"type":"Feature","properties":{"name":"Pad B","kind":"pad"},"geometry":{"type":"Point","coordinates":[16.038,69.307]}},
+{"type":"Feature","properties":{"name":"Control","kind":"building"},"geometry":{"type":"Point","coordinates":[16.010,69.288]}}]}
+EOF
+python3 - "$d/Documents/Maps/range-walk.gpx" <<'EOF'
+import math, sys
+pts = []
+for i in range(48):
+    a = i / 47 * 2 * math.pi
+    pts.append((69.293 + 0.009 * math.sin(a) + 0.001 * math.sin(5 * a), 16.024 + 0.022 * math.cos(a)))
+head = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="demo" xmlns="http://www.topografix.com/GPX/1/1">\n'
+wpt = '<wpt lat="69.302" lon="16.046"><name>Pad A</name></wpt>\n'
+trk = "".join(f'<trkpt lat="{la:.5f}" lon="{lo:.5f}"><time>2026-06-21T05:{i:02d}:00Z</time></trkpt>\n' for i, (la, lo) in enumerate(pts))
+open(sys.argv[1], "w").write(head + wpt + '<trk><name>Round the range</name><trkseg>\n' + trk + "</trkseg></trk>\n</gpx>\n")
+EOF
 # For Space (Alt+U): sizes of every kind, so the treemap has something to show. Sparse files:
 # they take no room on the disk, but their length is what Space and the folder sizes count.
 mkdir -p "$d/Videos/Flight 7" "$d/Music/Night Drive" "$d/Music/Podcasts" "$d/Pictures/Raw" "$d/VMs" "$d/Documents/Scans" "$d/projects/rocket/target/debug/deps"

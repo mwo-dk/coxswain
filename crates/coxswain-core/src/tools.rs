@@ -482,6 +482,10 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "ffmpeg",
             "Gyan.FFmpeg",
         ],
+        // GDAL's programs, for geodata (`geo`); OmniOS and winget have none.
+        "gdalinfo" => [
+            "gdal", "gdal", "gdal", "", "gdal", "gdal-bin", "gdal", "gdal", "gdal", "",
+        ],
         // ImageMagick 7 (`magick`), for pictures (`media`).
         "magick" => [
             "ImageMagick7",

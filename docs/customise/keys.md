@@ -122,7 +122,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `rename` | **Shift+F6** | `disk_use` | none |
 | `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
 | `searchable_pdf` | **Alt+P** | `convert_media` | none |
-| `edit_pictures` | none | | |
+| `edit_pictures` | none | `convert_geodata` | none |
 | `chess` | **Alt+K** | | |
 | `space_view` | **Alt+U** | | |
 

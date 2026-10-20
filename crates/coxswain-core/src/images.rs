@@ -33,9 +33,10 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("ghcr.io/typst/typst:latest", 29, 65),
     ("docker.io/mwader/static-ffmpeg:latest", 126, 315),
     ("docker.io/dstmodders/imagemagick:latest", 60, 152),
+    ("ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253", 40, 98),
 ];
 
-const TOOLS: [&str; 12] = [
+const TOOLS: [&str; 13] = [
     "latex",
     "libreoffice",
     "plantuml",
@@ -48,6 +49,7 @@ const TOOLS: [&str; 12] = [
     "gxps",
     "ffmpeg",
     "imagemagick",
+    "gdal",
 ];
 
 /// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image, a
@@ -225,6 +227,11 @@ fn follow(mut r: impl Read, image: &str) -> String {
         acc.drain(..=i);
     }
     last
+}
+
+/// An image's name as texts show it: without the digest it is pinned to (`…@sha256:…`).
+pub fn short(image: &str) -> &str {
+    image.split('@').next().unwrap_or(image)
 }
 
 /// Megabytes as "2.8 GB" or "141 MB".

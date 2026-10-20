@@ -3,7 +3,7 @@
 # Previews made by tools
 
 Some formats need a real program: a TeX distribution, Typst, LibreOffice, Ghostscript, PlantUML,
-D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick.
+D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick, GDAL.
 Coxswain uses one that is installed, or runs it in a [container](containers.md) (podman or
 docker), so nothing has to be installed for a preview you only need now and then. Results are
 kept in a cache, so each file is made once.
@@ -44,6 +44,7 @@ kept in a cache, so each file is made once.
 | `.heic`, `.heif` | ImageMagick or ffmpeg (`heif`, [Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)) | `magick`, `ffmpeg` | ffmpeg's | PNG | At once |
 | `.xcf` `.dpx` `.cin` `.fits` `.sgi` `.sun` `.xwd` `.pict` `.miff` `.wbmp` | ImageMagick (`imagemagick`) | `magick` | `docker.io/dstmodders/imagemagick:latest` (about 60 MB to download, 152 MB on disk), first once pulled | PNG | At once |
 | `.dng` `.cr2` `.nef` `.arw` and other RAW photos | ImageMagick with LibRaw (`raw`) | `magick` | none: no image reads RAW | PNG | At once |
+| `.gpkg` `.shp` `.geojson` `.kml`, and GeoTIFF the picture reader cannot draw | GDAL (`gdal`, [Geodata](geodata.md)) | `gdalinfo` (and `ogrinfo`, `ogr2ogr`, `gdal_translate` beside it) | `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, pinned (about 40 MB to download, 98 MB on disk) | SVG map | At once |
 
 "Runs by itself" never includes a container whose image is not pulled yet: a download waits for
 your click.
@@ -177,6 +178,7 @@ duckdb = ""
 gxps = ""
 ffmpeg = "docker.io/mwader/static-ffmpeg:latest"          # video, sound, HEIC
 imagemagick = "docker.io/dstmodders/imagemagick:latest"  # GIMP and other pictures, conversions
+gdal = "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"  # geodata
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -204,8 +206,9 @@ tool yourself on the command line (`latexmk -pdf`, `typst compile`, `soffice --h
 open the result with **Enter**. The tools it does run are OCRmyPDF, for
 [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), ffmpeg and ImageMagick, for
 [Convert video or audio](../files/convert-media.md) and
-[Convert or edit pictures](../files/edit-pictures.md), and ffprobe for a video's facts in
-**Properties**, with the same images and preferences.
+[Convert or edit pictures](../files/edit-pictures.md), GDAL for
+[Convert geodata](geodata.md#convert-geodata), and ffprobe and GDAL for a video's and
+geodata's facts in **Properties**, with the same images and preferences.
 
 ## Questions
 
@@ -253,4 +256,4 @@ In the preview cache ([above](#the-preview-cache)). Copy it from there, or bette
 yourself; the cache is emptied by **Clear** and its folders are named by hashes.
 
 ---
-[← Previous: LaTeX projects](latex.md) · [Next: Containers →](containers.md)
+[← Previous: Geodata](geodata.md) · [Next: Containers →](containers.md)

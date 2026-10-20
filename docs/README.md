@@ -150,6 +150,7 @@ mindmap
 | [Old pictures and files](previews/old-formats.md) | TIFF with its pages, TGA, Netpbm, DDS, HDR, OpenEXR, QOI, JPEG XL, Amiga IFF, PCX, XPM, XBM and Photoshop pictures; CBZ comics page by page, mailboxes opened as folders of messages, Outlook .msg, dBase tables, tracker music facts; in both apps |
 | [Diagrams: draw.io, Mermaid, Graphviz, PlantUML, D2 and more](previews/diagrams.md) | Draw.io, Mermaid, Graphviz and PlantUML in the preview; D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](previews/latex.md) | LaTeX: which file is the document, the project, the engine, building by itself, another engine when one fails, errors |
+| [Geodata: maps, facts and Convert geodata](previews/geodata.md) | GeoPackage, shapefiles, GeoJSON, KML, GPX and GeoTIFF as a map of their own shapes, their layers, coordinate system and extent, a GPX track's length and time; Convert geodata to GeoPackage, GeoJSON, a shapefile, KML, GPX, COG or PNG; by GDAL installed or in its container; both apps |
 | [Previews made by tools](previews/tools.md) | The engine buttons, how rendering works, the preview cache and Clear, [preview] |
 | [Containers](previews/containers.md) | Podman or docker: what a container may do, what each image gives and costs, pulling and removing images, keeping them up to date, images in Settings |
 | [Safety, speed and limits](previews/safety.md) | What a preview never does, what reaches the network, speed, and every size limit |

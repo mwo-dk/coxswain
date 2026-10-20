@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -454,19 +454,20 @@ export function stopSearchable() {
   invoke("searchable_stop");
 }
 
-/** *Convert video or audio* (`program` 0, ffmpeg) or *Convert or edit pictures* (1, ImageMagick)
- *  on the files among `paths` it takes (`coxswain_core::media`): what to make of them from a
+/** *Convert video or audio* (`program` 0, ffmpeg), *Convert or edit pictures* (1, ImageMagick)
+ *  or *Convert geodata* (2, GDAL) on the files among `paths` it takes (`coxswain_core::media`): what to make of them from a
  *  menu, a clip's times or a size asked next, then the question (what it writes, which program
  *  runs, the first pull and its size), then the run, the status line saying how far it is with
  *  a Stop button. The action again while it runs stops it. */
 export function convertMedia(program, paths = targets()) {
-  const action = program ? "edit_pictures" : "convert_media";
+  const action = ["convert_media", "edit_pictures", "convert_geodata"][program];
+  const none = () => (ui.status = t(["media.none_media", "media.none_pictures", "geo.none"][program]));
   if (ui.media) return stopMedia();
-  const files = paths.filter((p) => (program ? isEditable : isMedia)(basename(p)));
-  if (!files.length) return void (ui.status = t(program ? "media.none_pictures" : "media.none_media"));
+  const files = paths.filter((p) => [isMedia, isEditable, isGeo][program](basename(p)));
+  if (!files.length) return void none();
   const label = (id) => {
     const [base, value] = id.split(":");
-    return t(`media.op.${base}`, { degrees: value });
+    return base === "geo" ? t(`geo.to.${value}`) : t(`media.op.${base}`, { degrees: value });
   };
   const choose = (id) => {
     const [base] = id.split(":");
@@ -489,7 +490,7 @@ export function convertMedia(program, paths = targets()) {
     } catch (err) {
       return void (ui.status = String(err));
     }
-    if (!plan.files.length) return void (ui.status = t(program ? "media.none_pictures" : "media.none_media"));
+    if (!plan.files.length) return void none();
     if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: action });
     ui.modal = { kind: "confirm", title, text: plan.about, ok: t("media.go"), safe: true, run: () => runMedia(plan.files, op, action), feature: action };
   };
@@ -681,6 +682,7 @@ export async function init() {
   setDiskEndings(ui.cfg.disk_endings);
   setPictureEndings(ui.cfg.picture_endings);
   setMediaEndings(ui.cfg.media_endings);
+  setGeoEndings(ui.cfg.geo_endings);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
@@ -788,6 +790,8 @@ export function subject(tb = tab()) {
     chess: files.filter((x) => chessFormat(x.name) || x.path === ui.book).length,
     media: files.filter((x) => isMedia(x.name)).length,
     pictures: files.filter((x) => isEditable(x.name)).length,
+    // By name: a TIFF, geodata only when it is a GeoTIFF, offers it in its preview instead.
+    geo: files.filter((x) => isGeo(x.name) && !/\.tiff?$/i.test(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,
