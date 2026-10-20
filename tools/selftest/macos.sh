@@ -754,9 +754,16 @@ proc quit_app {} {
   set t [clock milliseconds]
   send -- $key(F10)
   set timeout [expr {int(10 * $::scale)}]
+  set again 0
   expect {
-    eof { catch {wait}; set ::pid 0; lappend parts [format "F10 quits %.1f s" [expr {([clock milliseconds] - $t) / 1000.0}]] }
-    timeout { quit_logs; error "F10 did not end the app within 10 s: hung? (who holds its terminal: logs/quit-*.txt)" }
+    eof { catch {wait}; set ::pid 0; lappend parts [format "F10 quits %.1f s%s" [expr {([clock milliseconds] - $t) / 1000.0}] [expr {$again ? " (the second F10)" : ""}]] }
+    timeout {
+      # An app still busy when Esc came reads Esc and F10 in one go, and an Esc right before
+      # an escape sequence takes its first byte (crossterm), so F10 arrives as the text "[21~".
+      # One more F10 on its own tells that from a hang.
+      if {!$again} { set again 1; send -- $key(F10); exp_continue }
+      quit_logs; error "F10 did not end the app within 10 s, twice: hung? (who holds its terminal: logs/quit-*.txt)"
+    }
   }
 }
 # Why a quit did not end: whether the app still runs (and where it waits), and what else holds its
