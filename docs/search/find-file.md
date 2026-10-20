@@ -168,7 +168,8 @@ No key was added or taken: inside Find, keys go by **action**, so your own bindi
 | **Enter** | — | Go to the hit; on the *Ask* row, ask; on *N more*, show the group alone; on a row that says what is missing, take its step |
 | **Ctrl+Enter** (desktop), **Alt+Enter** (terminal) | — | Ask the text in the field, from any row; when Ask is not set up, the answer's place says what it needs |
 | **Up** / **Down**, **PageUp** / **PageDown** | — | Move over the rows (15 at a time in the desktop app, 10 in the terminal app); headings are skipped |
-| **F3** | — | View the hit (terminal app; in the desktop app Find covers the preview) |
+| **F3** | — | View the hit in the built-in viewer; **Esc** there comes back to Find (terminal app; in the desktop app Find covers the preview) |
+| **Ctrl+U** | — | Clear the field (terminal app) |
 | **F4** | — | Edit the hit or source in your editor; Find stays open |
 | **F1** | — | The name syntax and the prefixes, in place of the list; **F1** or **Esc** again for the list |
 | **Delete** | — | On a tip (*Find files about your words too…*, *Ask your files a question…*): never show it again. The desktop app also has **×** at its right |

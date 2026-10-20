@@ -33,8 +33,19 @@ pub(crate) fn sty(s: &config::Style) -> Style {
     out
 }
 
+/// `s` with each control character (a newline, a tab, an escape in a file's name) as `?`, as
+/// `ls` shows them: printed, they would move the cursor or talk to the terminal.
+pub(crate) fn printable(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.chars().any(char::is_control) {
+        s.chars().map(|c| if c.is_control() { '?' } else { c }).collect::<String>().into()
+    } else {
+        s.into()
+    }
+}
+
 /// Cut to `w` columns, marking the cut with `…`; pad to exactly `w`.
 pub(crate) fn fit(s: &str, w: usize) -> String {
+    let s = &*printable(s);
     if s.width() <= w {
         return format!("{s}{}", " ".repeat(w - s.width()));
     }
@@ -54,6 +65,7 @@ pub(crate) fn fit(s: &str, w: usize) -> String {
 
 /// `s` centred in `w` columns, by display width: a CJK letter takes two, which `{:^w$}` miscounts.
 fn center(s: &str, w: usize) -> String {
+    let s = &*printable(s);
     let gap = w.saturating_sub(s.width());
     format!("{}{s}{}", " ".repeat(gap / 2), " ".repeat(gap - gap / 2))
 }
@@ -65,6 +77,7 @@ fn right(s: &str, w: usize) -> String {
 
 /// Keep the tail of a path, which is the informative part.
 pub(crate) fn fit_left(s: &str, w: usize) -> String {
+    let s = &*printable(s);
     if s.width() <= w {
         return s.to_string();
     }
@@ -120,6 +133,15 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
         Some(_) => dialog(f, app),
         None => {}
+    }
+    // Whatever was drawn without `fit` (a dialog's text, an error): no control character
+    // reaches the terminal, where it would move the cursor or start an escape sequence. Drawn
+    // as taking no room, it rides along in the cell before it; taken out, the row stays even.
+    for cell in f.buffer_mut().content.iter_mut() {
+        if cell.symbol().chars().any(char::is_control) {
+            let clean: String = cell.symbol().chars().filter(|c| !c.is_control()).collect();
+            cell.set_symbol(if clean.is_empty() { " " } else { &clean });
+        }
     }
 }
 
@@ -353,6 +375,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         if let Some((_, Some(target))) = p.link.as_ref().filter(|(at, _)| e.is_symlink && *at == e.path) {
             name = format!("{name} -> {}", target.display());
         }
+        // A narrow panel keeps room for the name: the facts on the right give way first, from
+        // their start, so the size at their end stays.
+        let keep = name.width().min(w / 2);
+        let right = if right.width() + keep > w { fit_left(&right, w.saturating_sub(keep)) } else { right };
         Line::from(vec![Span::styled(fit(&name, w.saturating_sub(right.width())), base), Span::styled(right, base)])
     } else {
         Line::default()

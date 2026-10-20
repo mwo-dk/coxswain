@@ -992,7 +992,7 @@ impl App {
 
     fn describe(paths: &[PathBuf]) -> String {
         match paths {
-            [one] => format!("\"{}\"", one.file_name().unwrap_or_default().to_string_lossy()),
+            [one] => format!("\"{}\"", ui::printable(&one.file_name().unwrap_or_default().to_string_lossy())),
             _ => tn!("items", paths.len()),
         }
     }
@@ -1291,6 +1291,10 @@ impl App {
                     self.view_or_edit(a, &e);
                 }
             }
+            // Nor in a git history: its commits and their files are as they were.
+            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if history::is_history(&self.panel().dir) => {
+                self.status = Some(t!("history.read_only"));
+            }
             // In a ZFS snapshot (or its list) nothing changes: said at once, not after a prompt.
             Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::zfs::is_read_only(&self.panel().dir) => {
                 self.status = Some(t!("zfs.read_only"));
@@ -1430,6 +1434,13 @@ impl App {
         match coxswain_core::fs::open_default(Path::new(url)) {
             Ok(()) => t!("features.opened", "url" => url),
             Err(_) => t!("features.copied", "url" => url),
+        }
+    }
+
+    /// A password that did not open the archive, asked for again: the box says so.
+    fn asked_again(&mut self) {
+        if let Some(Dialog::Input { label, prompt: Prompt::Peek(_) | Prompt::Unlock(..), .. }) = &mut self.dialog {
+            *label = t!("archive.locked_again");
         }
     }
 
@@ -1818,6 +1829,9 @@ impl App {
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
     pub fn edit_at(&mut self, file: &Path, line: usize) {
+        if let Some(prog) = self.editor_missing() {
+            return self.status = Some(t!("edit.not_found", "name" => prog));
+        }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         self.run = Some(Run::Shell { line: config::edit_command(&self.editor(), file, line), typed: false, dir, wait: false });
     }
@@ -1825,6 +1839,10 @@ impl App {
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         if a == Action::View && self.cfg.viewer.is_none() {
             return self.view_in(file, None);
+        }
+        // Said in the status line: the shell's own "not found" would flash by unread.
+        if a == Action::Edit && let Some(prog) = self.editor_missing() {
+            return self.status = Some(t!("edit.not_found", "name" => prog));
         }
         let prog = if a == Action::View { self.cfg.viewer.clone().unwrap_or_else(pager) } else { self.editor() };
         self.run_on(&prog, file);
@@ -1877,7 +1895,26 @@ impl App {
 
     fn editor(&self) -> String {
         let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
-        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| if cfg!(windows) { "notepad".into() } else { "vi".into() })
+        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| {
+            // Not every system has vi (Arch, some containers): the first editor installed.
+            let found = ["vi", "vim", "nvim", "nano", "micro", "hx", "emacs"].into_iter().find(|e| coxswain_core::tools::which(e).is_some());
+            if cfg!(windows) { "notepad".into() } else { found.unwrap_or("vi").into() }
+        })
+    }
+
+    /// The editor's program when it is plainly not there: a bare name not on the PATH, or a
+    /// path to nothing. A command with `$` or `~` is the shell's to read, and left to it.
+    fn editor_missing(&self) -> Option<String> {
+        let editor = self.editor();
+        let prog = editor.split_whitespace().next()?.to_string();
+        let gone = if prog.contains(['$', '~', '"', '\'']) {
+            false
+        } else if prog.contains(std::path::MAIN_SEPARATOR) || prog.contains('/') {
+            !Path::new(&prog).exists()
+        } else {
+            coxswain_core::tools::which(&prog).is_none()
+        };
+        gone.then_some(prog)
     }
 
     /// F2's last entry: config.toml in the editor at `[[user_menu]]`, an example there first.
@@ -2108,12 +2145,14 @@ impl App {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.peek(path);
+                self.asked_again();
             }
             Prompt::Unlock(side, dir) => {
                 if let Some((archive, _)) = coxswain_core::archive::split(&dir) {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.cd(side, dir);
+                self.asked_again();
             }
             Prompt::Rename(_) if value.trim().is_empty() => {}
             Prompt::Rename(src) => {
@@ -2172,11 +2211,12 @@ impl App {
                 });
             }
             Prompt::Mark(sel) => {
-                let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
+                // By letters, not bytes: `?` is one "æ" or "日", as in the desktop app.
+                let pats: Vec<Vec<char>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().chars().collect()).collect();
                 let p = self.panel_mut();
                 for e in p.entries.iter().filter(|e| !e.is_dir) {
-                    let name = e.name.to_lowercase();
-                    if pats.iter().any(|g| index::glob(g, name.as_bytes())) {
+                    let name: Vec<char> = e.name.to_lowercase().chars().collect();
+                    if pats.iter().any(|g| index::glob(g, &name)) {
                         if sel {
                             p.marked.insert(e.path.clone());
                         } else {
@@ -2499,7 +2539,12 @@ impl App {
                                 _ => None,
                             }
                         };
+                        // The built-in viewer covers Find, which comes back when it closes.
                         if let Some(path) = path {
+                            if action == Some(Action::View) && self.cfg.viewer.is_none() {
+                                let back = Dialog::Search { query, chip, here, found, cursor, offset, show };
+                                return self.view_in(&path, Some(Box::new(back)));
+                            }
                             self.view_or_edit(action.unwrap(), &path);
                         }
                     }
@@ -2510,6 +2555,11 @@ impl App {
                     (KeyCode::PageUp, _) => cursor = find::step(&rows, cursor, -10),
                     (KeyCode::PageDown, _) => cursor = find::step(&rows, cursor, 10),
                     (KeyCode::Backspace, _) => requery = query.pop().is_some() && !answer,
+                    // Ctrl+U clears the field, as in every prompt.
+                    (KeyCode::Char('u'), None) if key.ctrl => {
+                        requery = !query.is_empty() && !answer;
+                        query.clear();
+                    }
                     (_, Some(c)) => {
                         query.push(c);
                         requery = show != Show::Answer;
@@ -3720,6 +3770,62 @@ mod tests {
         App::with_index(cfg, left, right, index).unwrap()
     }
 
+    /// The user-test round's terminal fixes: Find's F3 and Ctrl+U, a history refusing changes
+    /// at once, `?` as one letter, a wrong password said, an editor that is not there.
+    #[test]
+    fn find_views_a_hit_a_history_refuses_and_a_missing_editor_is_said() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-usertest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["ø.txt", "ab.txt", "a.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        let mut app = app(d.clone(), d.clone());
+        let k = |c: KeyCode, ctrl: bool| Key::new(c, ctrl, false, false);
+        // F3 on a hit: the built-in viewer, and Find again after it.
+        let mut found = Found::default();
+        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None }];
+        found.names.total = 1;
+        let cursor = app.find_rows("a", Kind::All, &found).iter().position(|r| matches!(r, Row::Hit { .. })).unwrap();
+        app.dialog = Some(Dialog::Search { query: "a".into(), chip: Kind::All, here: false, found, cursor, offset: 0, show: Show::List });
+        app.dialog_key(k(KeyCode::F(3), false));
+        let Some(Dialog::View { back: Some(back), .. }) = &app.dialog else { panic!("not viewed") };
+        assert!(matches!(**back, Dialog::Search { .. }));
+        app.dialog_key(k(KeyCode::Esc, false));
+        // Ctrl+U clears Find's field.
+        assert!(matches!(&app.dialog, Some(Dialog::Search { query, .. }) if query == "a"), "back at Find");
+        app.dialog_key(k(KeyCode::Char('u'), true));
+        assert!(matches!(&app.dialog, Some(Dialog::Search { query, .. }) if query.is_empty()));
+        app.dialog = None;
+        // `?` is one letter, also outside ASCII.
+        app.submit(Prompt::Mark(true), "?.txt".into());
+        let marked: Vec<String> = app.panels[0].marked.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(marked.len(), 2, "{marked:?}");
+        assert!(marked.contains(&"ø.txt".to_string()) && marked.contains(&"a.txt".to_string()));
+        app.panels[0].clear_marks();
+        // In a history, F8, F7, F6 say read-only at once: no question first.
+        app.panels[0].dir = d.join("@history");
+        for a in [Action::Delete, Action::DeleteForever, Action::NewFolder, Action::Move, Action::Rename] {
+            app.act(a);
+            assert!(app.dialog.is_none(), "{a:?} asked");
+            assert_eq!(app.status.as_deref(), Some(t!("history.read_only").as_str()), "{a:?}");
+        }
+        app.panels[0].dir = d.clone();
+        // A password that did not open it: the box says so.
+        app.dialog = Some(Dialog::Input { title: String::new(), label: t!("archive.locked_label"), value: String::new(), prompt: Prompt::Peek(d.join("x.zip").join("a")) });
+        app.asked_again();
+        assert!(matches!(&app.dialog, Some(Dialog::Input { label, .. }) if *label == t!("archive.locked_again")));
+        app.dialog = None;
+        // An editor that is not installed: the status line names it, nothing runs.
+        app.cfg.editor = Some("no-such-editor-coxswain --wait".into());
+        let at = app.panels[0].entries.iter().position(|e| e.name == "a.txt").unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::Edit);
+        assert!(app.run.is_none());
+        assert!(app.status.as_deref().is_some_and(|s| s.contains("no-such-editor-coxswain")), "{:?}", app.status);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn quick_search_finds_a_decomposed_name() {
         use unicode_normalization::UnicodeNormalization;
@@ -4224,6 +4330,34 @@ mod wide_letters {
         for y in rows {
             assert_eq!(at(&screen[y], c), want, "row {y}: {}", screen[y].concat());
         }
+    }
+
+    /// A name with a newline, a tab or an escape in it is drawn with `?` there: the bars stay
+    /// straight, and no control character reaches the terminal.
+    #[cfg(unix)]
+    #[test]
+    fn control_characters_in_names_never_reach_the_terminal() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-ctrl-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["new\nline.txt", "tab\there.txt", "esc\u{1b}]2;x\u{7}.txt", "plain.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let s = draw(&mut app);
+        same_columns(&s, "│", 2..18);
+        assert!(s.iter().flatten().all(|c| !c.chars().any(char::is_control)));
+        assert!(s.iter().any(|r| r.concat().contains("new?line.txt")), "shown as ls shows it");
+        // The delete question names it the same way, on one line.
+        let at = app.panels[0].entries.iter().position(|e| e.name.starts_with("new")).unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::Delete);
+        let s = draw(&mut app);
+        assert!(s.iter().any(|r| r.concat().contains("\"new?line.txt\"")));
+        assert!(s.iter().flatten().all(|c| !c.chars().any(char::is_control)));
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

@@ -698,6 +698,7 @@
   "one": "Moved {n} duplicate to the bin",
   "other": "Moved {n} duplicates to the bin"
  },
+ "edit.not_found": "{name} was not found: install it, or name your editor in Settings → Behaviour → Editor",
  "err.bom.invalid_json": "This file isn't valid JSON (line {line}): {message}",
  "err.bom.invalid_xml": "This file isn't valid XML (line {line}): {message}",
  "err.bom.no_node": "This node is no longer in the BOM",

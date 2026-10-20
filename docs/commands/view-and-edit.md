@@ -30,7 +30,7 @@ starts your editor or the file's default application.
 | Key | Terminal app | Desktop app |
 |---|---|---|
 | **F3** | Opens the file in the [built-in viewer](#the-built-in-viewer), full screen. With `viewer` set in the config, runs that program instead; the panels step aside until it ends | Shows or hides the [preview pane](../previews/README.md). When the pane shows command output, **F3** switches it back to the file preview |
-| **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad` on Windows). The panels step aside until it ends | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
+| **F4** | Opens the file in your editor: `editor` from the config, else `$VISUAL`, else `$EDITOR`, else the first installed of `vi`, `vim`, `nvim`, `nano`, `micro`, `hx`, `emacs` (`notepad` on Windows). The panels step aside until it ends; an editor that is not installed is said in the status line instead: *nano was not found: install it, or name your editor in Settings → Behaviour → Editor* | Starts `editor` from the config with the file, in the background; without `editor`, opens the file in its default application, as **Enter** does |
 | **F4** in [Find](../search/find-file.md) | Edits the hit under the cursor; the search stays open | Same |
 | **F3** in Find | Views the hit under the cursor | — (**Enter** goes to the hit; the preview shows it there) |
 
@@ -167,7 +167,9 @@ a viewer from the desktop app, add it to the [user menu](user-menu.md): `command
 #### Which editor and which viewer does the terminal app use?
 
 For **F4**, the first that is set: `editor` in `config.toml`, then `$VISUAL`, then `$EDITOR`,
-then `vi` (`notepad` on Windows). **F3** uses the built-in viewer unless `viewer` names a
+then the first of `vi`, `vim`, `nvim`, `nano`, `micro`, `hx` and `emacs` that is installed
+(`notepad` on Windows). One that is not there is named in the status line, *… was not found:
+install it, or name your editor in Settings → Behaviour → Editor*, and nothing runs. **F3** uses the built-in viewer unless `viewer` names a
 program; **p** in the viewer hands the file to `$PAGER`, else `less` (`more` on Windows).
 
 #### How do I get `less` (or my own pager) back on F3?

@@ -14,7 +14,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Wrap};
 use ratatui::Frame;
 use serde_json::{Map, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 use unicode_width::UnicodeWidthStr;
@@ -1184,7 +1184,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(Span::styled(fit(&format!(" {mark} {}", t!("setup.service_on")), w), st)));
                 }
                 // A path keeps its tail, the informative part.
-                Row::Info(label, value, _) if value.contains(std::path::MAIN_SEPARATOR) => lines.push(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
+                // A path keeps its tail; a sentence (what a version brought) its start.
+                Row::Info(label, value, _) if Path::new(value).is_absolute() || value.starts_with('~') => lines.push(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
                 Row::Info(label, value, _) => lines.push(pair(&format!(" {label}"), value, st)),
                 Row::Go(area, value) => lines.push(Line::from(vec![Span::styled(fit(&format!(" {}", area.label()), aw.max(14)), if here { selected } else { head }), Span::styled(fit(value, w.saturating_sub(aw.max(14))), st)])),
                 Row::Notice(n) => lines.push(Line::from(Span::styled(fit(&format!(" • {}", n.text), w), st))),

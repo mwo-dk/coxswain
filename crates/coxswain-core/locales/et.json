@@ -698,6 +698,7 @@
   "one": "{n} duplikaat teisaldati prügikasti",
   "other": "{n} duplikaati teisaldati prügikasti"
  },
+ "edit.not_found": "{name} ei leitud: paigalda see või määra oma redaktor jaotises Seaded → Käitumine → Redaktor",
  "err.bom.invalid_json": "See fail pole korrektne JSON (rida {line}): {message}",
  "err.bom.invalid_xml": "See fail pole korrektne XML (rida {line}): {message}",
  "err.bom.no_node": "Seda sõlme pole enam BOM-is",

@@ -698,6 +698,7 @@
   "one": "Flyttade {n} dubblett till papperskorgen",
   "other": "Flyttade {n} dubbletter till papperskorgen"
  },
+ "edit.not_found": "{name} hittades inte: installera det, eller ange din redigerare i Inställningar → Beteende → Redigerare",
  "err.bom.invalid_json": "Den här filen är inte giltig JSON (rad {line}): {message}",
  "err.bom.invalid_xml": "Den här filen är inte giltig XML (rad {line}): {message}",
  "err.bom.no_node": "Den här noden finns inte längre i BOM:en",

@@ -729,6 +729,7 @@
   "one": "{n} duplicato spostato nel cestino",
   "other": "{n} duplicati spostati nel cestino"
  },
+ "edit.not_found": "{name} non trovato: installalo, o indica il tuo editor in Impostazioni → Comportamento → Editor",
  "err.bom.invalid_json": "Questo file non è JSON valido (riga {line}): {message}",
  "err.bom.invalid_xml": "Questo file non è XML valido (riga {line}): {message}",
  "err.bom.no_node": "Questo nodo non è più nel BOM",

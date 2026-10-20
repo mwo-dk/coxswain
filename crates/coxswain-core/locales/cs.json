@@ -729,6 +729,7 @@
   "one": "Do koše přesunut {n} duplikát",
   "other": "Do koše přesunuto {n} duplikátů"
  },
+ "edit.not_found": "{name} nebyl nalezen: nainstalujte jej, nebo zadejte svůj editor v Nastavení → Chování → Editor",
  "err.bom.invalid_json": "Tento soubor není platný JSON (řádek {line}): {message}",
  "err.bom.invalid_xml": "Tento soubor není platné XML (řádek {line}): {message}",
  "err.bom.no_node": "Tento uzel už v BOM není",

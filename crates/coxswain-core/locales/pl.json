@@ -760,6 +760,7 @@
   "one": "Przeniesiono {n} duplikat do Kosza",
   "other": "Przeniesiono {n} duplikatu do Kosza"
  },
+ "edit.not_found": "Nie znaleziono {name}: zainstaluj je albo podaj swój edytor w Ustawienia → Zachowanie → Edytor",
  "err.bom.invalid_json": "Ten plik nie jest poprawnym JSON (wiersz {line}): {message}",
  "err.bom.invalid_xml": "Ten plik nie jest poprawnym XML (wiersz {line}): {message}",
  "err.bom.no_node": "Tego węzła nie ma już w BOM",
