@@ -1776,6 +1776,13 @@ impl App {
             return;
         };
         let s = self.searchable.take().expect("a run");
+        // The image was used: what *Remove images not used for 90 days* goes by, which the
+        // desktop app does; the installed program uses none.
+        if let Ok(coxswain_core::searchable::How::Container { image, .. }) = coxswain_core::searchable::how(&self.cfg.preview) {
+            let mut st = coxswain_core::state::AppState::load();
+            coxswain_core::images::used(&mut st, &image, coxswain_core::fs::now());
+            let _ = st.save();
+        }
         let stopped = s.stop.load(std::sync::atomic::Ordering::Relaxed);
         let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(s.names.iter()).partition(|(r, _)| r.is_ok());
         let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).collect();

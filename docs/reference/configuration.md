@@ -242,7 +242,7 @@ OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both app
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
-| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview used for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
+| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview or Make PDF searchable used for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
