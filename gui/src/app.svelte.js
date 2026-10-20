@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -22,6 +22,9 @@ export const ui = $state({
   status: "",
   /** A *Make PDF searchable* run under way: which PDF of how many, and what it said last. */
   searchable: null,
+  /** A *Convert video or audio* or *Convert or edit pictures* run under way, as `searchable`,
+   *  with the action that stops it. */
+  media: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -451,6 +454,82 @@ export function stopSearchable() {
   invoke("searchable_stop");
 }
 
+/** *Convert video or audio* (`program` 0, ffmpeg) or *Convert or edit pictures* (1, ImageMagick)
+ *  on the files among `paths` it takes (`coxswain_core::media`): what to make of them from a
+ *  menu, a clip's times or a size asked next, then the question (what it writes, which program
+ *  runs, the first pull and its size), then the run, the status line saying how far it is with
+ *  a Stop button. The action again while it runs stops it. */
+export function convertMedia(program, paths = targets()) {
+  const action = program ? "edit_pictures" : "convert_media";
+  if (ui.media) return stopMedia();
+  const files = paths.filter((p) => (program ? isEditable : isMedia)(basename(p)));
+  if (!files.length) return void (ui.status = t(program ? "media.none_pictures" : "media.none_media"));
+  const label = (id) => {
+    const [base, value] = id.split(":");
+    return t(`media.op.${base}`, { degrees: value });
+  };
+  const choose = (id) => {
+    const [base] = id.split(":");
+    if (base === "clip") return void (ui.modal = { kind: "input", feature: action, title: label(id), label: t("media.clip_label"), value: "0:00 0:30", ok: t("common.apply"), run: (v) => clip(v) });
+    if (base === "resize") return void (ui.modal = { kind: "input", feature: action, title: label(id), label: t("media.resize_label"), value: id.split(":")[1], ok: t("common.apply"), run: (v) => (/^\s*\d+\s*$/.test(v) ? ask(`resize:${v.trim()}`, label(id)) : (ui.status = t("media.resize_bad"))) });
+    ask(id, label(id));
+  };
+  // `1:30 0:45`: the start and the length, as seconds, m:ss or h:mm:ss (`media::clip`).
+  const clip = (v) => {
+    const secs = (s) => (/^\d+(:\d+){0,2}$/.test(s) ? s.split(":").reduce((a, p) => a * 60 + Number(p), 0) : NaN);
+    const [a, b, more] = v.trim().split(/\s+/);
+    const [start, length] = [secs(a ?? ""), secs(b ?? "")];
+    if (more !== undefined || !(start >= 0) || !(length > 0)) return void (ui.status = t("media.clip_bad"));
+    ask(`clip:${start}:${length}`, label("clip"));
+  };
+  const ask = async (op, title) => {
+    let plan;
+    try {
+      plan = await invoke("media_plan", { paths: files, op });
+    } catch (err) {
+      return void (ui.status = String(err));
+    }
+    if (!plan.files.length) return void (ui.status = t(program ? "media.none_pictures" : "media.none_media"));
+    if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: action });
+    ui.modal = { kind: "confirm", title, text: plan.about, ok: t("media.go"), safe: true, run: () => runMedia(plan.files, op, action), feature: action };
+  };
+  ui.modal = {
+    kind: "menu",
+    feature: action,
+    title: actionLabel(action),
+    direct: true,
+    filter: "",
+    cursor: 0,
+    items: ui.cfg.media_ops[program].map((id, i) => ({ key: String(i + 1), label: label(id), run: () => choose(id) })),
+  };
+}
+
+async function runMedia(files, op, action) {
+  ui.media = { at: 0, all: files.length, name: basename(files[0]), line: "", started: Date.now(), now: Date.now(), stopping: false, action };
+  const poll = setInterval(async () => {
+    const p = await invoke("media_progress").catch(() => null);
+    if (p && ui.media) Object.assign(ui.media, p, { now: Date.now() });
+  }, 500);
+  try {
+    const made = await invoke("media_run", { paths: files, op });
+    ui.status = made.length === 1 ? t("media.done_one", { name: basename(made[0]) }) : t("media.done_many", { n: made.length });
+  } catch (err) {
+    if (ui.media?.stopping) ui.status = t("media.stopped");
+    else ui.modal = failure(t("media.failed"), err);
+  } finally {
+    clearInterval(poll);
+    ui.media = null;
+    await reloadAll();
+  }
+}
+
+/** Stop the conversion under way. */
+export function stopMedia() {
+  if (!ui.media) return;
+  ui.media.stopping = true;
+  invoke("media_stop");
+}
+
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
  *  full window. Only folders on a disk. */
 export function openSpace(tb = tab(), dir) {
@@ -601,6 +680,7 @@ export async function init() {
   setArchiveEndings(ui.cfg.archive_endings);
   setDiskEndings(ui.cfg.disk_endings);
   setPictureEndings(ui.cfg.picture_endings);
+  setMediaEndings(ui.cfg.media_endings);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
@@ -706,6 +786,8 @@ export function subject(tb = tab()) {
     disk_images: ui.cfg.settings.disk_images ? 0 : files.filter((x) => diskSure(x.name) || diskSeen.has(x.path)).length,
     pdfs: files.filter((x) => /\.pdf$/i.test(x.name)).length,
     chess: files.filter((x) => chessFormat(x.name) || x.path === ui.book).length,
+    media: files.filter((x) => isMedia(x.name)).length,
+    pictures: files.filter((x) => isEditable(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

@@ -124,6 +124,8 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.bin` (a Polyglot book) | The board at the start, the book's moves with their weights | [Chess games](chess.md#opening-books) |
 | `.sgf` | A list of Go games, a game on a board with its stones and variations | [Go games](go.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |
+| `.avi` `.wmv` `.mpg` `.wma` `.ape` and other video and sound the player cannot play | A frame of the video, the waveform, their facts, by ffmpeg | [Media](media.md#video-and-sound-with-ffmpeg) |
+| `.heic` `.xcf` and RAW photos (`.dng` `.cr2` `.nef` …) | The picture, by ImageMagick or ffmpeg | [Media](media.md#photos-only-imagemagick-or-ffmpeg-reads) |
 | `.tif` `.tga` `.dds` `.hdr` `.exr` `.qoi` `.jxl` `.iff` `.lbm` `.pcx` `.xpm` `.xbm` `.psd` and Netpbm | The picture, a TIFF page by page | [Old pictures and files](old-formats.md#pictures) |
 | `.cbz`, `.mbox`, `.msg`, `.dbf` | Comic pages, messages, a mail, a table | [Old pictures and files](old-formats.md#formats) |
 | `.mod` `.xm` `.s3m` `.it` | Tracker music: its samples and facts | [Old pictures and files](old-formats.md#tracker-music) |

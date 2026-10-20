@@ -1,5 +1,7 @@
 //! Previews made by external tools: LaTeX, Typst, LibreOffice, Ghostscript, PlantUML, the
-//! diagram programs of Kroki's image (D2, ditaa, svgbob …), pandoc and DuckDB.
+//! diagram programs of Kroki's image (D2, ditaa, svgbob …), pandoc, DuckDB, and ffmpeg and
+//! ImageMagick (`coxswain_core::media`: a video's frame, a song's waveform, HEIC, GIMP and RAW
+//! photos, and their thumbnails).
 //!
 //! Each tool runs either from a local install or from a container image (podman or docker),
 //! chosen per `[preview]` in the config and by the buttons in the preview pane. Results go to
@@ -37,7 +39,26 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("svgbob", &["svgbob"]),
     ("pikchr", &["pikchr"]),
     ("erd", &["erd"]),
+    // ffmpeg and ImageMagick (`coxswain_core::media`): a video's frame, a song's waveform, HEIC
+    // photos (either program, else ffmpeg's image), GIMP and the other pictures only ImageMagick
+    // reads, and RAW photos (an installed ImageMagick with LibRaw: no image reads them).
+    ("ffmpeg", &["ffmpeg"]),
+    ("waveform", &["ffmpeg"]),
+    ("heif", &["magick", "ffmpeg"]),
+    ("imagemagick", &["magick"]),
+    ("raw", &["magick"]),
 ];
+
+/// The media previews, and what each makes.
+fn media_op(tool: &str) -> Option<coxswain_core::media::Op> {
+    use coxswain_core::media::Op;
+    Some(match tool {
+        "ffmpeg" => Op::Frame,
+        "waveform" => Op::Waveform,
+        "heif" | "imagemagick" | "raw" => Op::Picture,
+        _ => return None,
+    })
+}
 
 /// How each diagram program of Kroki's image draws its kind: the program and its arguments,
 /// reading the diagram on standard input and writing SVG to standard output.
@@ -123,6 +144,8 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
         }
     };
     let pref = cfg.prefer_tool.get(tool).unwrap_or(&cfg.prefer).as_str();
+    // ImageMagick runs in its container first, once its image is there (`media::how`).
+    let pref = if pref == "auto" && key == coxswain_core::media::MAGICK && container.available && !container.needs_pull { "container" } else { pref };
     let mut out = if pref == "container" { vec![container.clone()] } else { vec![] };
     out.extend(local);
     if pref != "container" {
@@ -177,6 +200,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
         "plantuml" => ("svg", out.join("diagram.svg")),
         t if kroki(t).is_some() => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
+        t if media_op(t).is_some() => ("png", out.join("out.png")),
         _ => ("json", out.join("tables.json")),
     }
 }
@@ -197,7 +221,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         let done = |file: PathBuf| -> Res<Option<Converted>> {
             let (note, instead) = (said("note.txt"), said("instead.txt"));
             Ok(Some(match kind {
-                "pdf" | "svg" => Converted { kind, file: Some(file), text: None, note, instead },
+                "pdf" | "svg" | "png" => Converted { kind, file: Some(file), text: None, note, instead },
                 _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note, instead },
             }))
         };
@@ -366,6 +390,13 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
     let plain = latex::shell_safe(&name);
     let timeout = Duration::from_secs(cfg.timeout.max(10));
     let (kind, which_one) = engine.split_once(':').ok_or_else(|| t!("convert.unknown_engine"))?;
+    if let Some(op) = media_op(tool) {
+        let how = media_how(cfg, tool, kind, which_one)?;
+        if let coxswain_core::media::How::Container { image, .. } = &how {
+            USED.lock().unwrap().insert(image.clone());
+        }
+        return coxswain_core::media::preview(&how, &op, path, file, timeout);
+    }
 
     if kind == "container" {
         let (rt, rt_path) = runtime(cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
@@ -513,6 +544,27 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         }
     }
     wait(c, timeout, None)
+}
+
+/// How a media preview runs with the engine `kind:which_one` (`local:magick`,
+/// `container:podman`): only a program of the tool's own list, or the runtime set.
+fn media_how(cfg: &PreviewConfig, tool: &str, kind: &str, which_one: &str) -> Res<coxswain_core::media::How> {
+    use coxswain_core::media::{How, Program};
+    let key = coxswain_core::images::key(tool);
+    if kind == "container" {
+        let (rt, path) = runtime(cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
+        if rt != which_one {
+            return Err(t!("convert.not_available", "program" => which_one));
+        }
+        let image = cfg.images.get(key).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => key))?;
+        let program = if key == coxswain_core::media::FFMPEG { Program::Ffmpeg } else { Program::Magick };
+        return Ok(How::Container { program, rt, path, image: image.clone() });
+    }
+    if !TOOLS.iter().any(|(t, p)| *t == tool && p.contains(&which_one)) {
+        return Err(t!("convert.unknown_engine"));
+    }
+    let path = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
+    Ok(How::Local { program: if which_one == "ffmpeg" { Program::Ffmpeg } else { Program::Magick }, path })
 }
 
 /// Ghostscript's options for a PostScript file into a PDF. `-dSAFER` above all: PostScript is a
@@ -1224,5 +1276,153 @@ mod tests {
             Err(_) => run(&PreviewConfig::default(), tool, engine, &path, &out, &file).unwrap(),
         }
         assert!(file.is_file());
+    }
+}
+
+// ---------------------------------------------------------------- ffmpeg and ImageMagick
+
+/// A media preview made without asking (`tool` as in `TOOLS`): with the first engine that runs
+/// without a pull, else none; the preview's own picture when that was made with it. For the
+/// thumbnails and a song's waveform under its player. One at a time.
+#[tauri::command]
+pub async fn media_thumbnail(path: PathBuf, tool: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<PathBuf>> {
+    static ONE: Mutex<()> = Mutex::new(());
+    crate::here(&path)?;
+    if media_op(&tool).is_none() || coxswain_core::cloud::unasked(&path) {
+        return Ok(None);
+    }
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(eng) = engines(&cfg, &tool).into_iter().find(|e| e.available && !e.needs_pull) else { return Ok(None) };
+        let out = cache_dir(&path, &path, &tool, &eng.id)?;
+        let (_, file) = output(&tool, &path, &out);
+        if file.is_file() {
+            return Ok(Some(file));
+        }
+        let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+        if file.is_file() {
+            return Ok(Some(file));
+        }
+        std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        build(&cfg, &tool, &eng.id, &path, &out, &file, None).map(|_| file.is_file().then_some(file))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// *Convert video or audio* or *Convert or edit pictures*: what `op` would do with `paths`, for
+/// the question before it. `files` are those of `paths` it takes.
+#[derive(Serialize)]
+pub struct MediaPlan {
+    files: Vec<PathBuf>,
+    /// What it writes, which program runs, and the first pull with its size.
+    about: String,
+    pull: bool,
+    /// Why it cannot run here: what to install or which setting to change.
+    missing: Option<String>,
+}
+
+#[tauri::command]
+pub async fn media_plan(paths: Vec<PathBuf>, op: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<MediaPlan> {
+    use coxswain_core::media;
+    let op = media::Op::parse(&op).ok_or_else(|| t!("convert.unknown_engine"))?;
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        // A file only in the cloud is not fetched to be read: it is left out.
+        let files: Vec<PathBuf> = paths.into_iter().filter(|p| op.takes(p) && crate::here(p).is_ok() && p.is_file()).collect();
+        let (about, pull, missing) = match media::how(&cfg, op.program()) {
+            Ok(how) => {
+                let (about, pull) = media::about(&how);
+                (format!("{} {about}", media::confirm(&op, &files)), pull, None)
+            }
+            Err(e) => (String::new(), false, Some(e)),
+        };
+        MediaPlan { files, about, pull, missing }
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+static MEDIA: Mutex<Option<SearchableProgress>> = Mutex::new(None);
+static MEDIA_STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Do `op` on each of `paths`, one after the other, one run at a time in the app: the files
+/// made, or what failed (`name: why`, one per line).
+#[tauri::command]
+pub async fn media_run(paths: Vec<PathBuf>, op: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<PathBuf>> {
+    use coxswain_core::media::{self, Said};
+    use std::sync::atomic::Ordering;
+    let op = media::Op::parse(&op).ok_or_else(|| t!("convert.unknown_engine"))?;
+    for p in &paths {
+        crate::here(p)?;
+    }
+    let cfg = ctx.cfg().preview.clone();
+    {
+        let mut s = MEDIA.lock().unwrap();
+        if s.is_some() {
+            return Err(t!("media.busy_already"));
+        }
+        *s = Some(SearchableProgress { all: paths.len(), ..Default::default() });
+    }
+    MEDIA_STOP.store(false, Ordering::Relaxed);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let set = |f: &dyn Fn(&mut SearchableProgress)| {
+            if let Some(p) = MEDIA.lock().unwrap().as_mut() {
+                f(p)
+            }
+        };
+        let tool = if op.program() == media::Program::Ffmpeg { media::FFMPEG } else { media::MAGICK };
+        let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        let done = media::run_all(&cfg, &op, &paths, &MEDIA_STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
+            let line = match said {
+                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(tool).cloned().unwrap_or_default())),
+                Said::Percent(n) => format!("{n} %"),
+                Said::Line(l) => l.to_string(),
+            };
+            set(&|p| p.line = line.clone());
+        });
+        if let Ok(media::How::Container { image, .. }) = media::how(&cfg, op.program()) {
+            USED.lock().unwrap().insert(image);
+        }
+        *MEDIA.lock().unwrap() = None;
+        let (mut made, mut failed) = (vec![], vec![]);
+        for (i, r) in done.into_iter().enumerate() {
+            match r {
+                Ok(p) => made.push(p),
+                Err(e) => failed.push(format!("{}: {e}", names.get(i).cloned().unwrap_or_default())),
+            }
+        }
+        if failed.is_empty() { Ok(made) } else { Err(failed.join("\n")) }
+    })
+    .await
+    .map_err(|e| e.to_string());
+    *MEDIA.lock().unwrap() = None;
+    let used = std::mem::take(&mut *USED.lock().unwrap());
+    if !used.is_empty() {
+        let now = coxswain_core::fs::now();
+        let _ = ctx.edit(|st| used.iter().for_each(|i| coxswain_core::images::used(st, i, now)));
+    }
+    result?
+}
+
+#[tauri::command]
+pub fn media_progress() -> Option<SearchableProgress> {
+    MEDIA.lock().unwrap().clone()
+}
+
+/// Stop the run under way: the file being worked on gets no result, the rest are not started.
+#[tauri::command]
+pub fn media_stop() {
+    MEDIA_STOP.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Stop the run under way and wait for it, ten seconds at most: the app is ending.
+pub fn media_end() {
+    media_stop();
+    for _ in 0..100 {
+        if MEDIA.lock().unwrap().is_none() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
 }

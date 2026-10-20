@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, openSpace, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, openSpace, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -323,6 +323,8 @@
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
     searchable_pdf: () => makeSearchable(),
+    convert_media: () => convertMedia(0),
+    edit_pictures: () => convertMedia(1),
     chess: async () => {
       const e = item(tab());
       const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
@@ -746,6 +748,12 @@
         <!-- Make PDF searchable under way: which one, for how long, what OCRmyPDF said last. -->
         <span class="status" title={s.line}>{t(s.all > 1 ? "searchable.busy_of" : "searchable.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
         <button class="update" title={ui.cfg.actions.searchable_pdf?.[1] ?? ""} disabled={s.stopping} onclick={stopSearchable}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.media}
+        {@const s = ui.media}
+        <!-- A conversion under way: which file, for how long, how far ffmpeg is or what it said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "media.busy_of" : "media.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopMedia}>{t("searchable.stop")}</button>
       {/if}
       {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}

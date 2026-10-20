@@ -469,6 +469,32 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         "typst" => [
             "typst", "typst", "typst", "", "typst", "", "typst", "typst", "typst", "Typst.Typst",
         ],
+        // ffmpeg and ffprobe, for video and sound (`media`); Fedora's is ffmpeg-free.
+        "ffmpeg" => [
+            "ffmpeg",
+            "ffmpeg7",
+            "ffmpeg",
+            "ooce/multimedia/ffmpeg",
+            "ffmpeg",
+            "ffmpeg",
+            "ffmpeg-free",
+            "ffmpeg",
+            "ffmpeg",
+            "Gyan.FFmpeg",
+        ],
+        // ImageMagick 7 (`magick`), for pictures (`media`).
+        "magick" => [
+            "ImageMagick7",
+            "ImageMagick",
+            "ImageMagick",
+            "",
+            "imagemagick",
+            "imagemagick",
+            "ImageMagick",
+            "ImageMagick",
+            "imagemagick",
+            "ImageMagick.ImageMagick",
+        ],
         "pandoc" => [
             "hs-pandoc",
             "pandoc-cli",

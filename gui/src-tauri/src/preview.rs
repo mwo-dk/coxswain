@@ -265,10 +265,11 @@ pub async fn plist_xml(path: PathBuf) -> Res<String> {
 /// target and kind for executables. Empty for anything else, and for a file only in the cloud:
 /// reading it would download it.
 #[tauri::command]
-pub async fn file_facts(path: PathBuf) -> Vec<(String, String)> {
+pub async fn file_facts(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Result<Vec<(String, String)>, ()> {
     if coxswain_core::cloud::unasked(&path) {
-        return vec![];
+        return Ok(vec![]);
     }
+    let cfg = ctx.cfg().preview.clone();
     let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
         // An old picture, a module, a mailbox, a comic, a dBase table (`facts::of`), then the rest.
@@ -276,13 +277,15 @@ pub async fn file_facts(path: PathBuf) -> Vec<(String, String)> {
         out.extend(match ext.as_str() {
             "jpg" | "jpeg" | "tif" | "tiff" | "heic" | "heif" | "png" | "webp" | "avif" | "dng" => exif_facts(&path),
             "mp3" | "flac" | "ogg" | "opus" | "m4a" | "aac" | "wav" | "aiff" | "wv" | "ape" => audio_facts(&path),
+            // A video, or a song of a kind the tags reader does not know: ffprobe's facts.
+            _ if out.is_empty() && coxswain_core::media::is_media(&path) => coxswain_core::media::facts(&cfg, &path),
             _ if out.is_empty() => binary_facts(&path),
             _ => vec![],
         });
         out
     })
     .await
-    .unwrap_or_default()
+    .or(Ok(vec![]))
 }
 
 fn exif_facts(path: &Path) -> Vec<(String, String)> {

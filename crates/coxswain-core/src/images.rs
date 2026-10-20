@@ -31,9 +31,11 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("docker.io/yuzutech/kroki:latest", 1200, 2830),
     ("docker.io/jbarlow83/ocrmypdf-alpine:latest", 310, 850),
     ("ghcr.io/typst/typst:latest", 29, 65),
+    ("docker.io/mwader/static-ffmpeg:latest", 126, 315),
+    ("docker.io/dstmodders/imagemagick:latest", 60, 152),
 ];
 
-const TOOLS: [&str; 10] = [
+const TOOLS: [&str; 12] = [
     "latex",
     "libreoffice",
     "plantuml",
@@ -44,11 +46,18 @@ const TOOLS: [&str; 10] = [
     "ghostscript",
     "ocrmypdf",
     "gxps",
+    "ffmpeg",
+    "imagemagick",
 ];
 
-/// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image.
+/// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image, a
+/// video's frame, a song's waveform and HEIC photos ffmpeg's.
 pub fn key(tool: &str) -> &str {
-    if KROKI.contains(&tool) { "kroki" } else { tool }
+    match tool {
+        t if KROKI.contains(&t) => "kroki",
+        "waveform" | "heif" => "ffmpeg",
+        t => t,
+    }
 }
 
 /// The diagram kinds whose programs Kroki's image has, each drawn from standard input to SVG.
@@ -77,9 +86,39 @@ pub fn sealed(rt: &str, rt_path: &Path, name: &str, src: &Path, out: Option<&Pat
 /// `--mount` of the folder `host` at `at`: not `-v`, which splits at every `:`, so a folder
 /// named `10:30` would not mount. The source is one quoted CSV field, as
 /// podman and docker read it, so a `,` or `"` in the path stays in it.
-fn bind(host: &Path, at: &str, ro: bool) -> String {
+pub(crate) fn bind(host: &Path, at: &str, ro: bool) -> String {
     let src = host.display().to_string().replace('"', "\"\"");
     format!("type=bind,\"source={src}\",target={at}{}", if ro { ",readonly" } else { "" })
+}
+
+/// The options that hold ffmpeg's and ImageMagick's containers tighter than `sealed`: a
+/// read-only root with a small `/tmp` in memory, bounded memory and processes, no
+/// capabilities, no gaining of privileges. `label=disable` stays, as in `sealed`: relabelling
+/// (`:Z`) would change the SELinux label of the user's own file.
+pub const TIGHT: &[&str] = &[
+    "--read-only",
+    "--tmpfs",
+    "/tmp:rw,size=1g",
+    "--memory=3g",
+    "--pids-limit=256",
+    "--cap-drop=ALL",
+    "--security-opt",
+    "no-new-privileges",
+];
+
+/// `sealed`, seeing one file only: `file`, read-only at `at` (`/src/in.heic`), instead of a
+/// folder at /src, with `TIGHT`'s limits. Nothing else of its folder is there to be read, and
+/// `out` is the only place it can write.
+pub fn sealed_file(rt: &str, rt_path: &Path, name: &str, file: &Path, at: &str, out: Option<&Path>) -> Command {
+    let mut c = crate::tools::command(rt_path);
+    c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
+    c.args(TIGHT);
+    c.arg("--mount").arg(bind(file, at, true));
+    if let Some(out) = out {
+        c.arg("--mount").arg(bind(out, "/out", false));
+    }
+    c.args(user(rt == "podman" && rootless(rt_path), out.unwrap_or(file)));
+    c
 }
 
 /// The `--user` (and `HOME`) options of `sealed`.
@@ -461,6 +500,15 @@ mod tests {
     fn images_diagram_kinds_share_krokis() {
         assert_eq!(key("d2"), "kroki");
         assert_eq!(key("latex"), "latex");
+        assert_eq!((key("waveform"), key("heif"), key("raw")), ("ffmpeg", "ffmpeg", "raw"));
+        let one = sealed_file("docker", Path::new("/nonexistent/docker"), "n", Path::new("/home/me/-x.heic"), "/src/in.heic", None);
+        let args: Vec<String> = one.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(args.iter().any(|a| a == "type=bind,\"source=/home/me/-x.heic\",target=/src/in.heic,readonly") && args.contains(&"--network=none".to_string()), "{args:?}");
+        assert!(!args.iter().any(|a| a.contains("target=/src,")), "only the one file");
+        for want in ["--rm", "--network=none", "--read-only", "/tmp:rw,size=1g", "--memory=3g", "--pids-limit=256", "--cap-drop=ALL", "no-new-privileges"] {
+            assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
+        }
+        assert_eq!(args.iter().filter(|a| a.starts_with("type=bind") && !a.ends_with(",readonly")).count(), 0, "no writable mount without an output folder");
         let c = sealed("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a"), Some(Path::new("/b")));
         let args: Vec<String> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
         for want in ["--network=none", "type=bind,\"source=/a\",target=/src,readonly", "type=bind,\"source=/b\",target=/out"] {

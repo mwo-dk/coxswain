@@ -112,7 +112,15 @@ def files(d):
     models = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(models)
     models.write(d)
-    return {
+    # A video no web view plays and a HEIC photo, made by an installed ffmpeg and ImageMagick.
+    run = lambda *a: subprocess.run(a, cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    media = {}
+    if shutil.which("ffmpeg") and run("ffmpeg", "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240", "-c:v", "mpeg4", "w.avi"):
+        # ffmpeg's frame of it, installed or in its container.
+        media["avi"] = ("w.avi", ".media img", "", 30)
+    if shutil.which("magick") and run("magick", "-size", "64x48", "plasma:", "x.heic"):
+        media["heic"] = ("x.heic", ".media img", "", 30)
+    return media | {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
         "db": ("c.db", "table.db", "launch", 10),

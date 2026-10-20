@@ -35,4 +35,4 @@ through each part, with the keys and the exact `config.toml` lines.
 key with its default. Every key is listed in [Configuration: every key](../reference/configuration.md).
 
 ---
-[← Previous: Make PDF searchable](../files/searchable-pdf.md) · [Next: The Settings window →](settings.md)
+[← Previous: Convert or edit pictures](../files/edit-pictures.md) · [Next: The Settings window →](settings.md)
