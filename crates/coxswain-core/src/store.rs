@@ -456,17 +456,26 @@ impl Store {
     /// now reads it (Ghostscript a PostScript file that was read as plain text); only the files
     /// of that kind. A kind no program reads any more keeps what was read of it: the program
     /// may only be missing from `PATH` for a while.
-    fn tools_changed(&self, exts: &[&str]) -> rusqlite::Result<()> {
+    ///
+    /// `known` are the kinds this app can read with a program at all. The list is kept under
+    /// `tools.2`, which apps before 2.32.2 leave alone (they write a shorter `tools`): a kind
+    /// missing only because an older or newer app wrote the list, not because its program was
+    /// missing, is not read again, so going back and forth between versions reads nothing again.
+    fn tools_changed(&self, exts: &[&str], known: &[&str]) -> rusqlite::Result<()> {
         let now = exts.join(",");
         let db = self.db.lock().unwrap();
-        let before: String = db
-            .query_row("SELECT value FROM meta WHERE key = 'tools'", [], |r| {
-                r.get(0)
-            })
-            .unwrap_or_default();
-        if before == now {
+        let meta = |key: &str| -> Option<String> {
+            db.query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0)).ok()
+        };
+        // Written by this app or a later one; else the list of an app from before (`tools`).
+        let ours = meta("tools.2");
+        let before = ours.clone().or_else(|| meta("tools")).unwrap_or_default();
+        let knew = ours.and(meta("tools.known")).unwrap_or_default();
+        let now_known = known.join(",");
+        if before == now && knew == now_known {
             return Ok(());
         }
+        let knew: Vec<&str> = knew.split(',').filter(|e| !e.is_empty()).collect();
         let kinds: Vec<&str> = before
             .split(',')
             .chain(now.split(','))
@@ -475,7 +484,10 @@ impl Store {
         let (was, is): (Vec<&str>, Vec<&str>) = (before.split(',').collect(), now.split(',').collect());
         for ext in kinds {
             let pattern = format!("%.{ext}");
-            if is.contains(&ext) && !was.contains(&ext) {
+            // New to the list: its program came, or the app that wrote the list did not know
+            // the kind (then a reader's own version in `reader_changed` says what to read).
+            let came = knew.is_empty() || knew.contains(&ext);
+            if is.contains(&ext) && !was.contains(&ext) && came {
                 db.execute(
                     "UPDATE files SET has_text = NULL, embedded = NULL WHERE lower(path) LIKE ?1",
                     [&pattern],
@@ -487,10 +499,10 @@ impl Store {
                 )?;
             }
         }
-        db.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES ('tools', ?1)",
-            [now],
-        )?;
+        // `tools` too, for the apps from before.
+        for (key, value) in [("tools", &now), ("tools.2", &now), ("tools.known", &now_known)] {
+            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, value])?;
+        }
         Ok(())
     }
 
@@ -2033,7 +2045,7 @@ fn scan_for(
 ) -> rusqlite::Result<bool> {
     let began = now();
     let (roots, offline) = place(store, cfg)?;
-    store.tools_changed(&crate::extract::installed::extensions())?;
+    store.tools_changed(&crate::extract::installed::extensions(), &crate::extract::installed::kinds())?;
     // Diagrams got a sentence per arrow; code keeps its indentation and blank lines.
     let mut ends: Vec<String> = [
         "drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd",
@@ -3554,6 +3566,7 @@ mod tests {
 
     #[test]
     fn store_reads_again_what_a_new_program_can_read() {
+        const KNOWN: &[&str] = &["png", "jpg", "ps"];
         let d = std::env::temp_dir().join(format!("coxswain-store-tools-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let store = Store::open(&d.join("search.db")).unwrap();
@@ -3580,12 +3593,12 @@ mod tests {
             )
             .unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty());
-        store.tools_changed(&[]).unwrap();
+        store.tools_changed(&[], KNOWN).unwrap();
         assert!(
             store.unread_disk(0, 1000).unwrap().is_empty(),
             "nothing new"
         );
-        store.tools_changed(&["png", "jpg"]).unwrap();
+        store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         assert_eq!(
             store
                 .unread_disk(0, 1000)
@@ -3596,7 +3609,7 @@ mod tests {
             ["/h/scan.PNG"],
             "tesseract came"
         );
-        store.tools_changed(&["png", "jpg"]).unwrap();
+        store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         // A reader that learnt more: its files are read again over the text they had. Before
         // 1.26.4 the old text made every scan fail there, and no file got its vectors after.
         let id = store.unread_disk(0, 1000).unwrap()[0].0;
@@ -3611,7 +3624,7 @@ mod tests {
         store.apply(&[], &[("/h/notes.ps".into(), 1, 1, false)], &[], false, None).unwrap();
         let ps = store.unread_disk(0, 1000).unwrap()[0].0;
         store.read(&[(ps, Some("%!PS moveto show".into()))]).unwrap();
-        store.tools_changed(&["png", "jpg", "ps"]).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
         assert_eq!(
             store.unread_disk(0, 1000).unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(),
             ["/h/notes.ps"],
@@ -3619,9 +3632,22 @@ mod tests {
         );
         store.read(&[(ps, Some("launch notes".into()))]).unwrap();
         // Ghostscript gone from PATH for a while: what it read stays.
-        store.tools_changed(&["png", "jpg"]).unwrap();
+        store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "a program that went keeps what it read");
         assert_eq!(store.search("launch", None, 10).total, 1);
+        // Ghostscript back, then an app from before 2.32.2 (that knew no PostScript reader)
+        // writes its shorter list: coming back to this one reads nothing again.
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        store.read(&[(ps, Some("launch notes".into()))]).unwrap();
+        store.db.lock().unwrap().execute("UPDATE meta SET value = 'png,jpg' WHERE key = 'tools'", []).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "an older app's list costs nothing");
+        // A newer app knew a kind this one does not: its list leaves this one's work alone,
+        // and the way back reads nothing again either.
+        store.tools_changed(&["png", "jpg", "ps", "xyz"], &["png", "jpg", "ps", "xyz"]).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        store.tools_changed(&["png", "jpg", "ps", "xyz"], &["png", "jpg", "ps", "xyz"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "back and forth reads nothing again");
         // The PostScript reader's own version: its files once again, the others not.
         store.reader_changed("readers.postscript", "1", &[".ps", ".eps"]).unwrap();
         assert_eq!(store.unread_disk(0, 1000).unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(), ["/h/notes.ps"]);

@@ -134,6 +134,13 @@ minutes, or make any change under *Settings → Finding files*. With the helper 
 your session, untick and tick *Start with my session* under *Details → Background reading* (or run
 `coxswain --index-service off` and `on`). The ✓ in Settings shows it was found.
 
+#### I went back to an older Coxswain and forward again. Are files read again?
+
+No. When a program comes (Ghostscript, LibreOffice, tesseract), the files it reads are read
+again once, text and meaning. The helper keeps its own list of the programs it found in the
+store, which older versions leave alone, so a kind an older version did not know is not taken
+for a program that came, and going back and forth reads nothing again.
+
 #### Why are my holiday photos not read?
 
 A JPEG whose EXIF names the camera maker is a photo, and photos are skipped on purpose: they seldom
