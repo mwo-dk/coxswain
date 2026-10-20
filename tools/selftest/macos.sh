@@ -480,6 +480,9 @@ check_signatures() {
   if [ -n "$BIN" ]; then
     if codesign --verify --strict "$BIN" 2>"$LOGS/codesign-term.log"; then
       result PASS "terminal app: signature valid" "$(codesign -dv "$BIN" 2>&1 | grep -E '^Signature=|^Authority=' | head -1)"
+    elif [ "$(uname -m)" = x86_64 ] && grep -q "not signed at all" "$LOGS/codesign-term.log"; then
+      # The linker signs arm64 binaries (ad hoc) by itself, not Intel ones; those run unsigned.
+      result NOTE "terminal app: signature" "none on Intel, which needs none to run"
     else
       result FAIL "terminal app: signature valid" "$(tail -1 "$LOGS/codesign-term.log")"
     fi
@@ -647,7 +650,7 @@ array set key [list F1 "\033OP" F3 "\033OR" F5 "\033\[15~" F6 "\033\[17~" F7 "\0
   F10 "\033\[21~" F12 "\033\[24~" S-F8 "\033\[19;2~" M-F7 "\033\[18;3~" M-Enter "\033\r" \
   Enter "\r" Esc "\033" Tab "\t" Down "\033\[B" Space " " C-z "\032" C-g "\007" \
   M-c "\033c" M-b "\033b" M-k "\033k"]
-set raw ""; set screen ""; set pid 0
+set raw ""; set screen ""; set pid 0; set tname "first start"
 
 proc strip {s} {
   regsub -all {\u001b\[[0-9;]*[HfABCDGd]} $s " " s
@@ -753,8 +756,20 @@ proc quit_app {} {
   set timeout [expr {int(10 * $::scale)}]
   expect {
     eof { catch {wait}; set ::pid 0; lappend parts [format "F10 quits %.1f s" [expr {([clock milliseconds] - $t) / 1000.0}]] }
-    timeout { error "F10 did not end the app within 10 s: hung?" }
+    timeout { quit_logs; error "F10 did not end the app within 10 s: hung? (who holds its terminal: logs/quit-*.txt)" }
   }
+}
+# Why a quit did not end: whether the app still runs (and where it waits), and what else holds its
+# terminal open, since expect sees the end only when the last holder lets go.
+proc quit_logs {} {
+  global spawn_out logs pid tname
+  regsub -all {[^A-Za-z0-9]+} $tname - f
+  set h [open "$logs/quit-$f.txt" w]
+  catch {puts $h "app (pid $pid):\n[exec ps -o pid,ppid,pgid,stat,etime,command -p $pid]"} e1
+  catch {puts $h "\nholding the terminal ($spawn_out(slave,name)):\n[exec lsof -w $spawn_out(slave,name)]"} e2
+  catch {puts $h "\nits children:\n[exec sh -c "ps -axo pid,ppid,pgid,stat,etime,command | awk -v p=$pid 'NR==1 || \$2==p || \$3==p'"]"} e3
+  close $h
+  if {$pid > 0} { catch {exec sample $pid 3 -file "$logs/quit-$f-sample.txt" 2>/dev/null} }
 }
 proc result {st name ms detail} {
   global res
@@ -765,7 +780,8 @@ proc result {st name ms detail} {
 # "Not in a git repository", so the git tests wait for the branch in the panel's frame first.
 # a test: start on FILE, run BODY, quit with F10
 proc t {name file body} {
-  global parts right
+  global parts right tname
+  set tname $name
   set parts {}
   set t0 [clock milliseconds]
   if {[catch {
