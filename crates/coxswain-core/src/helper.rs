@@ -909,6 +909,8 @@ impl Client {
         sources: &[(PathBuf, String)],
         mut piece: impl FnMut(&str) -> bool,
     ) -> Result<(), String> {
+        // Both apps show what the model says as it is: never an escape a terminal obeys.
+        let mut piece = |text: &str| piece(&crate::meaning::printable(text));
         let line = (crate::chat::of(&cfg.ask_model).is_some() && self.own.get().is_none())
             .then(|| self.connect())
             .flatten();

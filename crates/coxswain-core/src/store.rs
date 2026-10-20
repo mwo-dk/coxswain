@@ -1313,7 +1313,7 @@ impl Store {
         let mut seen = HashSet::new();
         let mut out = vec![];
         for (rank, (path, all, hits)) in files.into_iter().enumerate() {
-            let header = path.as_os_str().len() + 8;
+            let header = path.as_os_str().len() + 32;
             let mut taken: Vec<usize> = vec![];
             for &n in hits.iter().take(4usize.saturating_sub(rank).max(1)) {
                 // With its neighbours if they fit, else alone.
