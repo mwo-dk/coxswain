@@ -29,6 +29,13 @@ source = "https://github.com/jgraph/drawio"
 file = "gui/public/vendor/drawio/LICENSE"
 
 [[bundled]]
+name = "Netron"
+what = "gui/public/vendor/netron: Netron v9.3.2's view, graph layout (its port of dagre) and ONNX, TensorFlow Lite, Core ML and Keras readers with their operator descriptions, unmodified but for its telemetry class cut out, bundled by gui/netron/build.mjs with Coxswain's host; index.html and grapher.css are Netron's."
+license = "MIT"
+source = "https://github.com/lutzroeder/netron"
+file = "gui/public/vendor/netron/LICENSE"
+
+[[bundled]]
 name = "chess-art, Celtic pieces"
 what = "gui/public/vendor/chess-pieces/*.svg, the Celtic set of maurimo/chess-art in its white and black colours, the Inkscape metadata taken out."
 license = "MIT"

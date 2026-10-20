@@ -79,7 +79,9 @@ None. The keys are `properties` (**Alt+Enter**), `flags` and `package` (no key o
 **Alt+Enter** (or *F9 → Properties*) opens a window with the same facts as text: location,
 type, size, modified, owner, permissions, and the ZFS, package and flag lines; for an old
 picture, a tracker module, a mailbox, a comic or a dBase table also what it holds
-([Old pictures and files](../previews/old-formats.md)). A folder's size
+([Old pictures and files](../previews/old-formats.md)), and for a neural network model (a Core ML
+package folder too) its format, inputs, outputs, nodes and parameters
+([Neural network models](../previews/neural-networks.md)). A folder's size
 is measured on a thread; the status line says *Reading properties…* meanwhile. Any key closes
 it. Nothing is changed there; instead:
 

@@ -163,6 +163,11 @@ pub const FEATURES: &[Feature] = &[
     f("provenance", "previews/provenance.md", &[View]),
     f("chess", "previews/chess.md", &[Chess, View]),
     f(
+        "neural_networks",
+        "previews/neural-networks.md",
+        &[TogglePreview, View, Properties],
+    ),
+    f(
         "preview_media",
         "previews/media.md",
         &[TogglePreview, View, Open, Extract],

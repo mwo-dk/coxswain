@@ -39,6 +39,7 @@ pub mod menu;
 pub mod migrate;
 pub mod models;
 pub mod music;
+pub mod neural;
 pub mod notices;
 pub mod pictures;
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]

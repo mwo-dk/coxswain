@@ -92,3 +92,13 @@ test("inside: the folder itself and below it, not a sibling that starts the same
   assert.ok(inside("C:\\x\\y", "C:\\", "\\"));
   assert.ok(!inside("C:\\xy", "C:\\x", "\\"));
 });
+
+test("isModel: model files, and a Core ML package only as a folder", async () => {
+  const { isModel } = await pick("isModel");
+  assert.ok(isModel({ name: "net.onnx", is_dir: false }));
+  assert.ok(isModel({ name: "Lander.TFLITE", is_dir: false }));
+  assert.ok(isModel({ name: "Thrust.mlpackage", is_dir: true }));
+  assert.ok(!isModel({ name: "Thrust.mlpackage", is_dir: false }));
+  assert.ok(!isModel({ name: "weights.pt", is_dir: false }));
+  assert.ok(!isModel({ name: "onnx", is_dir: true }));
+});

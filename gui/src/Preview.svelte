@@ -6,6 +6,7 @@
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
+  import NetronView from "./NetronView.svelte";
   import CopyLine from "./CopyLine.svelte";
   import DiskNext from "./DiskNext.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
@@ -331,7 +332,7 @@
   $effect(() => {
     const cur = e;
     facts = [];
-    if (!cur || cur.is_dir || online) return;
+    if (!cur || (cur.is_dir && kind !== "netron") || online) return;
     const timer = setTimeout(async () => {
       const f = await invoke("file_facts", { path: cur.path }).catch(() => []);
       if (e?.path === cur.path) facts = f;
@@ -647,6 +648,10 @@
         <BomView path={e.path} />
       {:else if kind === "chess"}
         <ChessView path={e.path} />
+      {:else if kind === "netron"}
+        <!-- The model's facts first, then its graph. -->
+        {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
+        {#key e.path}<NetronView path={e.path} dir={e.is_dir} />{/key}
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} />
       {:else if kind === "provenance" && !source}
@@ -932,7 +937,7 @@
           {/if}
         </dl>
       {/if}
-      {#if facts.length}
+      {#if facts.length && kind !== "netron"}
         <dl class="facts extra">
           {#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
         </dl>

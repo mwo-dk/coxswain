@@ -3,6 +3,7 @@
 //! many pages a comic, a dBase table's records and fields. The desktop app shows them under
 //! the preview, the terminal app in Properties (**Alt+Enter**); F3 in the terminal app pages
 //! them as text (`text_copy`), with a module's sample names and an Outlook message's text.
+//! A neural network model's facts come from `neural`.
 
 use std::path::{Path, PathBuf};
 
@@ -11,7 +12,14 @@ use crate::t;
 /// The facts of `path` as (label, value) lines; `None` for a file of none of these kinds, and
 /// for one only in the cloud (reading it would download it).
 pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
-    if crate::cloud::unasked(path) || !path.is_file() {
+    if crate::cloud::unasked(path) {
+        return None;
+    }
+    // A model; a Core ML package is a folder.
+    if crate::neural::named(path) {
+        return crate::neural::read(path).map(|m| crate::neural::facts(&m));
+    }
+    if !path.is_file() {
         return None;
     }
     if crate::pictures::named(path) {
@@ -76,6 +84,10 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
             }
         }
         return Some((out, format));
+    }
+    if crate::neural::named(path) {
+        let m = crate::neural::read(path)?;
+        return Some((crate::neural::text(&name, &m), m.format.clone()));
     }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;
