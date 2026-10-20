@@ -592,13 +592,28 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         return copy_entry(src, to);
     }
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let tmp = to.with_file_name(format!(
-        ".{}.coxswain-tmp-{}-{}",
-        to.file_name().unwrap_or_default().to_string_lossy(),
-        std::process::id(),
-        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    ));
-    let r = copy_entry(src, &tmp).and_then(|()| {
+    // Made here, never one that is there (nor a link to one): the destination may be shared.
+    let mut tries = 0;
+    let tmp = loop {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.subsec_nanos());
+        let tmp = to.with_file_name(format!(
+            ".{}.coxswain-tmp-{}-{}-{nanos:x}",
+            to.file_name().unwrap_or_default().to_string_lossy(),
+            std::process::id(),
+            N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        match fs::create_dir(&tmp) {
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists && tries < 8 => tries += 1,
+            r => break r.map(|()| tmp)?,
+        }
+    };
+    let r = (|| {
+        for de in fs::read_dir(src)? {
+            let de = de?;
+            copy_entry(&de.path(), &tmp.join(de.file_name()))?;
+        }
         // Never onto one that came meanwhile: rename would take an empty folder's place.
         if fs::symlink_metadata(to).is_ok() {
             return Err(io::Error::new(
@@ -607,7 +622,7 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
             ));
         }
         fs::rename(&tmp, to)
-    });
+    })();
     if r.is_err() {
         let _ = fs::remove_dir_all(&tmp);
     }
