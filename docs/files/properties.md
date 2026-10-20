@@ -10,6 +10,15 @@ your own file flags; the terminal app shows the same facts in a window of text.
 
 ![The Properties dialog of deploy.sh: Location /home/demo/projects/rocket, Type File, Size 69 B, Created, Modified and Accessed, Owner demo:demo · uid 1000, gid 1000, Permissions 755 with rwxr-xr-x next to it, Flags none, Apply and Close](../screenshots/files-properties.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [ZFS, packages and file flags](#zfs-packages-and-file-flags)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 1. Put the cursor on a file or folder (not `..`; in the terminal app `..` means the folder you
