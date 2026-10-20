@@ -575,7 +575,7 @@ fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     }
     // The files and folders get the commit's time, as they were then; not the time they were
     // copied out.
-    let when = std::time::UNIX_EPOCH + std::time::Duration::from_secs(show(&at.base, rev)?.time);
+    let when = crate::fs::epoch(show(&at.base, rev)?.time);
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
     c.args(["cat-file", "--batch"]);

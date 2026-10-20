@@ -154,6 +154,7 @@
   "few": "Nepavyko nukopijuoti {n} laiškų; kiti nukopijuoti.",
   "other": "Nepavyko nukopijuoti {n} laiškų; kiti nukopijuoti."
  },
+ "archive.overlapping": "Šio zip failai dalijasi suspaustais baitais, todėl jis išsiskleistų į daug daugiau, nei talpina: jis gali būti sukurtas diskui užpildyti. Vieną jo failą vis tiek galima nukopijuoti",
  "archive.pack_confirm": "Slaptažodis dar kartą:",
  "archive.pack_hide_names": "Paslėpti ir failų pavadinimus",
  "archive.pack_mismatch": "Slaptažodžiai nesutampa",

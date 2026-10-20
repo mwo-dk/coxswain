@@ -150,6 +150,7 @@
   "one": "{n} Nachricht konnte nicht herauskopiert werden; die übrigen schon.",
   "other": "{n} Nachrichten konnten nicht herauskopiert werden; die übrigen schon."
  },
+ "archive.overlapping": "Die Dateien dieses Zip teilen sich ihre gepackten Bytes, es würde also zu weit mehr entpackt, als es enthält: Es könnte gebaut sein, um die Festplatte zu füllen. Eine einzelne Datei daraus lässt sich weiterhin herauskopieren",
  "archive.pack_confirm": "Das Passwort noch einmal:",
  "archive.pack_hide_names": "Auch die Dateinamen verbergen",
  "archive.pack_mismatch": "Die Passwörter stimmen nicht überein",

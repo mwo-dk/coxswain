@@ -150,6 +150,7 @@
   "one": "{n} besked kunne ikke kopieres ud; de andre blev.",
   "other": "{n} beskeder kunne ikke kopieres ud; de andre blev."
  },
+ "archive.overlapping": "Filerne i denne zip deler deres pakkede bytes, så den ville pakkes ud til langt mere, end den fylder: den kan være lavet til at fylde disken. En enkelt fil fra den kan stadig kopieres ud",
  "archive.pack_confirm": "Adgangskoden igen:",
  "archive.pack_hide_names": "Skjul også filnavnene",
  "archive.pack_mismatch": "Adgangskoderne er ikke ens",

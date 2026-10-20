@@ -154,6 +154,7 @@
   "one": "{n} ziņojumu neizdevās izkopēt; pārējie izkopēti.",
   "other": "{n} ziņojumus neizdevās izkopēt; pārējie izkopēti."
  },
+ "archive.overlapping": "Šī zip faili koplieto savus saspiestos baitus, tāpēc tas izpakotos daudz lielāks, nekā satur: tas var būt veidots, lai piepildītu disku. Vienu tā failu joprojām var izkopēt",
  "archive.pack_confirm": "Parole vēlreiz:",
  "archive.pack_hide_names": "Paslēpt arī failu nosaukumus",
  "archive.pack_mismatch": "Paroles nesakrīt",

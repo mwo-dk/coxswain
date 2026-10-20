@@ -154,6 +154,7 @@
   "many": "No se pudieron copiar {n} de mensajes; los demás sí.",
   "other": "No se pudieron copiar {n} mensajes; los demás sí."
  },
+ "archive.overlapping": "Los archivos de este zip comparten sus bytes comprimidos, así que se descomprimiría en mucho más de lo que contiene: puede estar hecho para llenar el disco. Todavía se puede copiar un archivo suyo",
  "archive.pack_confirm": "La contraseña de nuevo:",
  "archive.pack_hide_names": "Ocultar también los nombres de los archivos",
  "archive.pack_mismatch": "Las contraseñas no coinciden",

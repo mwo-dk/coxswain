@@ -146,6 +146,7 @@
  "archive.messages_skipped": {
   "other": "{n} 件のメッセージをコピーできませんでした。ほかはコピーしました。"
  },
+ "archive.overlapping": "この zip のファイルは圧縮されたバイトを共有しているため、中身よりはるかに大きく展開されます。ディスクを埋めるために作られたものかもしれません。ファイルを 1 つずつならコピーできます",
  "archive.pack_confirm": "パスワードをもう一度:",
  "archive.pack_hide_names": "ファイル名も隠す",
  "archive.pack_mismatch": "パスワードが一致しません",

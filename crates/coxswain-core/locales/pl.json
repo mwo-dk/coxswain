@@ -158,6 +158,7 @@
   "many": "Nie udało się skopiować {n} wiadomości; pozostałe tak.",
   "other": "Nie udało się skopiować {n} wiadomości; pozostałe tak."
  },
+ "archive.overlapping": "Pliki tego zipa współdzielą spakowane bajty, więc rozpakowałby się do znacznie więcej, niż zawiera: może być zrobiony, by zapełnić dysk. Pojedynczy plik nadal można z niego skopiować",
  "archive.pack_confirm": "Hasło jeszcze raz:",
  "archive.pack_hide_names": "Ukryj także nazwy plików",
  "archive.pack_mismatch": "Hasła nie są zgodne",
