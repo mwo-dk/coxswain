@@ -449,7 +449,7 @@
  "details.git.modified": "ændret",
  "details.git.renamed": "omdøbt",
  "details.git.untracked": "ikke sporet",
- "details.git_staged": "{kind} (staged)",
+ "details.git_staged": "{kind} (i indekset)",
  "details.head_tip": "Højreklik for kolonner og mappestørrelser",
  "details.online": "Kun online: ikke hentet",
  "dialog.copy": "Kopiér {what}",

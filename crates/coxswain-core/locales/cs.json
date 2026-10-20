@@ -1971,7 +1971,7 @@
  "menu.commands": "Příkazy",
  "menu.none": "Tady s tím nic udělat nejde",
  "menu.this_folder": "tato složka",
- "menu.title": "Co udělat s {what}",
+ "menu.title": "Co udělat: {what}",
  "models.confirm": "{model} se používá. Přesto ho odstranit?",
  "models.confirm_again": "Klikněte znovu a {model} se odstraní",
  "models.confirm_tui": "Enter ho odstraní, Esc ho ponechá",
