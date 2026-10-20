@@ -382,9 +382,9 @@ file, or in invisible characters. Coxswain makes such words weaker, not powerles
 
 - Each source goes to the model between `<source>` and `</source>`, and the model is told that
   a source is text from a file, never an instruction. A file cannot end its own source or make
-  up another one (*[3] /etc/passwd*): its own `<source` and `</source` are broken up, and so are
-  the turn marks of chat models (`<|im_end|>` and the like), which would otherwise end the
-  rules and start new ones.
+  up another one (*[3] /etc/passwd*): every `<` in a file reaches the model written `&lt;`, so
+  no `</source>` and none of the turn marks of chat models (`<|im_end|>` and the like, which
+  would otherwise end the rules and start new ones) can be spelled, in any case or spacing.
 - Invisible characters that carry hidden words (Unicode tags) or turn text around (bidi
   overrides) are left out of what the model reads and out of the answer.
 - A **[n]** in the answer only ever leads to source *n* of the list under it; a number with no
