@@ -789,7 +789,7 @@
  "facts.artist": "אמן",
  "facts.bin.bundle": "חבילה",
  "facts.bin.console": "תוכנית (מסוף)",
- "facts.bin.core_dump": "core dump",
+ "facts.bin.core_dump": "תמונת זיכרון",
  "facts.bin.dll": "ספרייה (DLL)",
  "facts.bin.dylib": "ספרייה דינמית",
  "facts.bin.object": "קובץ אובייקט",

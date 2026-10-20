@@ -450,7 +450,7 @@
  "details.git.modified": "endra",
  "details.git.renamed": "omdøypt",
  "details.git.untracked": "ikkje spora",
- "details.git_staged": "{kind} (staged)",
+ "details.git_staged": "{kind} (i indeksen)",
  "details.head_tip": "Høgreklikk for kolonnar og mappestorleikar",
  "details.online": "Berre på nett: ikkje lasta ned",
  "dialog.copy": "Kopier {what}",

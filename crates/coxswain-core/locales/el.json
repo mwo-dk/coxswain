@@ -758,7 +758,7 @@
  "facts.artist": "Καλλιτέχνης",
  "facts.bin.bundle": "πακέτο (bundle)",
  "facts.bin.console": "πρόγραμμα (κονσόλα)",
- "facts.bin.core_dump": "core dump",
+ "facts.bin.core_dump": "αποτύπωμα μνήμης",
  "facts.bin.dll": "βιβλιοθήκη (DLL)",
  "facts.bin.dylib": "δυναμική βιβλιοθήκη",
  "facts.bin.object": "αρχείο αντικειμένου",
