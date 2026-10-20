@@ -507,3 +507,28 @@ for f in "$d/Videos/Flight 7"/* "$d/Videos/countdown.mkv" "$d/Videos/pad-tour.we
   "$d/Backups/site-2026.tar.zst" "$d/Documents/Scans"/* "$d/projects/rocket/target/debug/deps"/* "$d/Documents/fuel-log.sqlite"; do
   printf '%s' "${f#"$d"/}" | dd of="$f" conv=notrunc status=none
 done
+
+# An e-book calibre reads (FictionBook is XML, so it is written here), with a cover, for the
+# e-book previews (docs/previews/ebooks.md).
+mkdir -p "$d/Documents/Books"
+magick -size 600x900 gradient:'#0b2545'-'#13315c' -font "$(fc-match -f '%{file}' sans:bold)" -fill '#eef4ed' -pointsize 64 -gravity north \
+  -annotate +0+260 'The Rocket' -annotate +0+340 'Garden' -fill '#f4a259' -pointsize 34 -annotate +0+700 'Ada Lovelace' "$d/Documents/Books/cover.png"
+python3 - "$d/Documents/Books" <<'PY'
+import base64, sys
+d = sys.argv[1]
+cover = base64.b64encode(open(f"{d}/cover.png", "rb").read()).decode()
+chapters = [
+    ("Launch window", "The rocket garden lay quiet before the launch window opened. Fuel budgets were checked twice, and the tower crew walked the gantry one last time while the sun came up behind the pad. Nobody spoke much; the countdown clock did the talking, one red second after another, and the engineers watched their screens for the small numbers that mattered."),
+    ("Orbit", "In orbit the crew counted stars and wrote letters home about the blue planet below, its oceans bright in the morning light. The capsule turned slowly, and every ninety minutes the sun rose again over a horizon thin as paper."),
+    ("Return", "The capsule came home over the sea, its parachutes opening like flowers above the waves. The recovery ship was already there, and the first thing the crew asked for was a cup of real coffee."),
+]
+body = "".join(f"<section><title><p>Chapter {i + 1}: {t}</p></title><p>{p}</p></section>" for i, (t, p) in enumerate(chapters))
+open(f"{d}/the-rocket-garden.fb2", "w").write(f"""<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+<description><title-info><genre>sf</genre><author><first-name>Ada</first-name><last-name>Lovelace</last-name></author><book-title>The Rocket Garden</book-title><coverpage><image l:href="#cover.png"/></coverpage><lang>en</lang></title-info></description>
+<body>{body}</body>
+<binary id="cover.png" content-type="image/png">{cover}</binary>
+</FictionBook>
+""")
+PY
+rm "$d/Documents/Books/cover.png"

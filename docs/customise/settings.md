@@ -160,6 +160,7 @@ Opening this area asks the container runtime which images it has.
 | *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
 | *LaTeX image* | `docker.io/texlive/texlive:latest` by default; about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB | `[preview] images.latex` |
 | *Build LaTeX by itself* | Off: LaTeX waits for **Build PDF** ([LaTeX projects](../previews/latex.md)) | `[preview] latex_auto` |
+| *E-books with calibre* | Off by default. On: previews, text for search and *Convert e-book* for MOBI, Kindle, FictionBook, LIT and Palm books, by calibre installed or its 1.3 GB image ([E-books](../previews/ebooks.md)) | `[preview] ebooks` |
 | *Timeout (seconds)* | 10 to 3600; pulling an image is not counted | `[preview] timeout` |
 | *Previews made so far* | *… in the cache; made again when a source changes*, and **Clear** | |
 | *Container images* | Each image with a line that says what it gives, its size and what it costs ([The images](../previews/containers.md#the-images)), *Pulled, 5.9 GB* or *Not pulled*, **Pull** (also updates; its progress shows in place) and **Remove** ([Containers](../previews/containers.md)) | |

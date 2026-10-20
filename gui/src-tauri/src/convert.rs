@@ -34,6 +34,8 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("plantuml", &["plantuml"]),
     ("pandoc", &["pandoc"]),
     ("duckdb", &["duckdb"]),
+    // E-books: calibre, when `[preview] ebooks` is on (`coxswain_core::ebook`).
+    ("calibre", &["ebook-convert"]),
     // Kroki's image has them all (`images::KROKI`); these four are packaged on their own too.
     ("d2", &["d2"]),
     ("svgbob", &["svgbob"]),
@@ -109,6 +111,10 @@ pub async fn preview_engines(tool: String, ctx: tauri::State<'_, crate::Ctx>) ->
 }
 
 fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
+    // E-books are off until Settings turns them on: nothing runs, the pane says where.
+    if tool == coxswain_core::ebook::TOOL && !cfg.ebooks {
+        return vec![Engine { id: "local:ebook-convert".into(), label: "calibre".into(), available: false, note: t!("ebook.off"), needs_pull: false }];
+    }
     let programs = TOOLS.iter().find(|(t, _)| *t == tool).map_or(&[][..], |(_, p)| *p);
     let mut local: Vec<Engine> = programs
         .iter()
@@ -177,6 +183,17 @@ pub struct Converted {
     note: Option<String>,
     /// Which engine made it, when the one picked could not.
     instead: Option<String>,
+    /// An e-book's title, authors and first chapter (`file` is its cover).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    book: Option<Book>,
+}
+
+#[derive(Serialize)]
+struct Book {
+    title: String,
+    authors: String,
+    /// The first chapter with real text, as XHTML body content. The UI sanitizes it.
+    html: Option<String>,
 }
 
 /// Where the result for `path` goes; `main` is the document it builds (`latex::main_file`).
@@ -210,6 +227,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
         "gdal" => ("svg", out.join("map.svg")),
         "openscad" => ("svg", out.join("model.svg")),
         t if media_op(t).is_some() => ("png", out.join("out.png")),
+        "calibre" => ("ebook", out.join("out.epub")),
         _ => ("json", out.join("tables.json")),
     }
 }
@@ -230,8 +248,13 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         let done = |file: PathBuf| -> Res<Option<Converted>> {
             let (note, instead) = (said("note.txt"), said("instead.txt"));
             Ok(Some(match kind {
-                "pdf" | "svg" | "png" => Converted { kind, file: Some(file), text: None, note, instead },
-                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note, instead },
+                "pdf" | "svg" | "png" => Converted { kind, file: Some(file), text: None, note, instead, book: None },
+                "ebook" => {
+                    let p = coxswain_core::ebook::shown(&out).ok_or_else(|| t!("convert.no_result"))?;
+                    let html = coxswain_core::extract::book::first_chapter(&p.epub).and_then(|(_, html)| html);
+                    Converted { kind, file: p.cover, text: None, note, instead, book: Some(Book { title: p.title, authors: p.authors, html }) }
+                }
+                _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note, instead, book: None },
             }))
         };
         if file.is_file() {
@@ -283,7 +306,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
 }
 
 /// The images previews ran in since `convert` last wrote them into the state.
-static USED: Mutex<std::collections::BTreeSet<String>> = Mutex::new(std::collections::BTreeSet::new());
+pub(crate) static USED: Mutex<std::collections::BTreeSet<String>> = Mutex::new(std::collections::BTreeSet::new());
 
 /// While the app runs: once an hour, the pulled images are updated when
 /// `[preview] image_updates` says a round is due, and those no preview used for 90 days are
@@ -418,6 +441,10 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             pull(&rt_path, image)?;
         }
         USED.lock().unwrap().insert(image.clone());
+        if tool == coxswain_core::ebook::TOOL {
+            let how = coxswain_core::ebook::How::Container { rt, path: rt_path, image: image.clone() };
+            return coxswain_core::ebook::preview(&how, path, out, timeout, &mut |_| {}).map(drop);
+        }
         let container_name = format!("coxswain-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
         // LaTeX and Typst see their whole project, so `../figures/plot.pdf` is found; the rest only their folder.
         let mount = match tool {
@@ -531,6 +558,10 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             c.env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST").env("JAVA_TOOL_OPTIONS", format!("{java}-Dplantuml.allowlist.path=\"{}\"", dir.display()));
             c.args(["-tsvg", "-pipe"]);
             return capture(c, Some(path), timeout, file, None);
+        }
+        ("calibre", _) => {
+            let how = coxswain_core::ebook::How::Local { convert: program, meta: which("ebook-meta") };
+            return coxswain_core::ebook::preview(&how, path, out, timeout, &mut |_| {}).map(drop);
         }
         ("typst", _) => {
             c.arg("compile").arg("--root").arg(typst_root(path)).arg(path).arg(file);

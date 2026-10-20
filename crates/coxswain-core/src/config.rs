@@ -273,6 +273,9 @@ actions! {
     ConvertGeodata = "convert_geodata", "Convert geodata", Files, [];
     // OpenSCAD: an STL or 3MF of a .scad model (`scad`).
     ExportModel = "export_model", "Export 3D model", Files, [];
+    // calibre: an e-book as EPUB, AZW3 or PDF, next to it (`ebook`). No key of its own: the
+    // action menu and the preview offer it.
+    ConvertEbook = "convert_ebook", "Convert e-book", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1490,6 +1493,9 @@ pub struct PreviewConfig {
     pub image_updates: String,
     /// Remove an image of `images` that no preview used for 90 days (desktop app).
     pub image_prune: bool,
+    /// E-books calibre reads (MOBI, Kindle, FictionBook, LIT, Palm): previews, their text for
+    /// search, and *Convert e-book*; an installed calibre first, else `images.calibre`.
+    pub ebooks: bool,
 }
 
 impl Default for PreviewConfig {
@@ -1521,6 +1527,9 @@ impl Default for PreviewConfig {
             // OpenSCAD's own build of a dated snapshot, pinned by its digest (`scad`): its last
             // release (2021.01) has no Manifold, which renders in a second what took minutes.
             ("openscad", "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"),
+            // LinuxServer.io's calibre, pinned to the release tested (`ebook`); calibre
+            // publishes no image of its own.
+            ("calibre", crate::ebook::IMAGE),
         ];
         PreviewConfig {
             prefer: "auto".into(),
@@ -1531,6 +1540,7 @@ impl Default for PreviewConfig {
             latex_auto: true,
             image_updates: "off".into(),
             image_prune: false,
+            ebooks: false,
         }
     }
 }

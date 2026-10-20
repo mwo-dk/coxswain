@@ -9,9 +9,10 @@ diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText
 makes scanned PDFs searchable and has the Ghostscript that shows PostScript, ffmpeg's shows and
 converts video and sound and HEIC photos, ImageMagick's shows GIMP pictures and converts and
 edits photos, GDAL's draws and converts geodata, and OpenSCAD's makes models into pictures, STL
-and 3MF. Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on.
-A container gets no network and sees your files read-only. Nothing is downloaded
-until you click.
+and 3MF. Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on,
+and calibre's reads [e-books](ebooks.md) when you turn them on. A container gets no network and
+sees your files read-only. Nothing is downloaded until you click, except calibre's image, which
+turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md#turning-it-on)).
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
 
@@ -70,6 +71,7 @@ a little larger or smaller.
 | `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (default for GDAL, pinned to its digest) | A map of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files from their own shapes, with thumbnails, their layers, coordinate system and extent ([Geodata](geodata.md)), and Convert geodata | about 40 MB | about 98 MB | Light: under a second per file for most; a large GeoPackage or GeoTIFF takes a few seconds |
 | `docker.io/openscad/openscad:trixie.2026-10-19` (default for OpenSCAD, pinned to its digest) | A picture of each `.scad` model's part, with thumbnails ([OpenSCAD models](openscad.md)), and Export 3D model as STL or 3MF | about 241 MB | about 635 MB | Light to heavy: most models take a second with Manifold; a large one with many curves keeps the processor busy for a while |
 | `docker.io/apache/tika:4.1.0` (pinned to its digest, for [Read other formats with Apache Tika](../search/tika.md)) | The words of OneNote, XPS, CHM, Outlook data files, MHTML, Hangul and Access files for Find, and of older Office files when LibreOffice is not installed | about 190 MB | about 440 MB | Its server runs only while such files are read and stops after 5 idle minutes: about 350 MB of memory, a fraction of a second of processor time per file |
+| `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (default for calibre, only with [E-books with calibre](ebooks.md) on) | MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books shown with their cover, title, authors and first pages, their words in Find, and *Convert e-book* to EPUB, AZW3 or PDF | about 1.3 GB | about 3.6 GB | A second or two of processor time per book, a few more for a PDF; reading a library for search runs in the background at the lowest priority |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -86,6 +88,7 @@ Where each image comes from, and why it is the one:
 | `openscad/openscad:trixie.2026-10-19` | The OpenSCAD project's own image of a dated snapshot (its last release, 2021.01, has no Manifold and no image of its own worth taking). Pinned to its digest: a Coxswain release moves it on | OpenSCAD GPL-2.0-or-later, the libraries in it theirs (CGAL GPL-3.0-or-later, Manifold Apache-2.0, Qt LGPL-3.0 …) | A snapshot every week in 2026 |
 | `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
 | `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
+| `linuxserver/calibre:9.16.0` | [LinuxServer.io](https://www.linuxserver.io/), an organisation that rebuilds it for every calibre release, for amd64 and arm64; calibre publishes no image of its own. Coxswain runs only calibre's `ebook-convert` and `ebook-meta` in it, never the desktop it serves, and more tightly than the others ([How calibre runs](ebooks.md#how-calibre-runs)) | calibre GPL-3.0, the image's own files GPL-3.0 | Weekly; Coxswain pins the release it was tested with, and a newer Coxswain moves the pin |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
 Ghostscript's AGPL does not reach it.
@@ -229,6 +232,7 @@ default.
 | – | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` (pinned) |
 | – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
 | – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
+| – | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` ([E-books](ebooks.md)) |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
@@ -251,12 +255,13 @@ it through the search helper when [Read other formats with Apache Tika](../searc
 The containers it runs itself are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
 ffmpeg's, ImageMagick's, GDAL's and OpenSCAD's, for [Convert video or audio](../files/convert-media.md),
 [Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)
-and [Export 3D model](openscad.md#export-3d-model), the same way as the desktop app: asked
+and [Export 3D model](openscad.md#export-3d-model), and calibre's, for [e-books](ebooks.md)
+(**F3** on a book, *Convert e-book*), the same way as the desktop app: asked
 first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a video's facts
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`prefer_tool` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL and OpenSCAD images (and its helper `images.tika`). Its **F12** → *Previews* still
+`prefer_tool`, `ebooks` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD and calibre images (and its helper `images.tika`). Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.

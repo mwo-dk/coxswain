@@ -258,6 +258,8 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.imagemagick` | string | `"docker.io/dstmodders/imagemagick:latest"` | ImageMagick 7 (about 60 MB, 152 MB on disk), for GIMP and other pictures only it reads and Convert or edit pictures; first for ImageMagick under `"auto"`; one you set must have `magick` on its `PATH` |
 | `images.gdal` | string | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` | GDAL's small Alpine image, pinned to its digest (about 40 MB, 98 MB on disk), for geodata's maps, thumbnails and facts and Convert geodata ([Geodata](../previews/geodata.md)); one you set must have GDAL's programs on its `PATH` |
 | `images.openscad` | string | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` | OpenSCAD's image of a dated snapshot, pinned to its digest (about 241 MB, 635 MB on disk), for models' pictures and Export 3D model ([OpenSCAD models](../previews/openscad.md)); one you set must have `openscad` on its `PATH` |
+| `images.calibre` | string | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` | calibre, for [e-books](../previews/ebooks.md) in both apps (about 1.3 GB, 3.6 GB on disk), pinned by its digest; one you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` |
+| `ebooks` | bool | `false` | [E-books with calibre](../previews/ebooks.md): previews, text for search and *Convert e-book* for MOBI, AZW, AZW3, FB2, LIT and PDB books, in both apps; changing it restarts the search helper |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
@@ -266,7 +268,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
 `gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf`, `ffmpeg`, `waveform`, `heif` (these three
-share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal`, `openscad` and each diagram kind of Kroki's image (`d2`,
+share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal`, `openscad`, `calibre` and each diagram kind of Kroki's image (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`,
 `bytefield`), which share `images.kroki`.
 
@@ -364,6 +366,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Container runtime* | `preview_container` | `[preview] container` |
 | | *LaTeX image* | `latex_image` | `[preview] images.latex` |
 | | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
+| | *E-books with calibre* | `ebooks` | `[preview] ebooks` |
 | | *Keep images up to date* | `image_updates` | `[preview] image_updates` |
 | | *Remove images not used for 90 days* | `image_prune` | `[preview] image_prune` |
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |

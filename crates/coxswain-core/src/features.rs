@@ -181,6 +181,11 @@ pub const FEATURES: &[Feature] = &[
         &[TogglePreview, View, Properties, Open, Copy],
     ),
     f(
+        "ebooks",
+        "previews/ebooks.md",
+        &[ConvertEbook, ActionMenu, TogglePreview, View, Settings],
+    ),
+    f(
         "preview_diagrams",
         "previews/diagrams.md",
         &[TogglePreview, View, Open, Settings],

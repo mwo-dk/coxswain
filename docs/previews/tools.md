@@ -189,6 +189,7 @@ openscad = "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f
 | *Container runtime* | `container` | *podman, else docker* (`auto`, default), podman, docker, *No containers* (`off`) |
 | *LaTeX image* | `images.latex` | `docker.io/texlive/texlive:latest` |
 | *Build LaTeX by itself* | `latex_auto` | on |
+| *E-books with calibre* | `ebooks` | off ([E-books](ebooks.md)) |
 | *Timeout (seconds)* | `timeout` | 10 to 3600, `120` |
 | *Previews made so far* | – | The cache size, **Clear** |
 | *Container images* | `images.*` | Each image with what it gives, its size and cost, **Pull** and **Remove** ([Containers](containers.md)) |

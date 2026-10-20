@@ -26,6 +26,7 @@ mod chess;
 mod go;
 mod provenance;
 mod convert;
+mod ebook;
 mod preview;
 mod recent;
 
@@ -286,7 +287,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
-        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "openscad", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
+        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "openscad", "calibre", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 
@@ -2372,17 +2373,18 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, dupes_scan,
+            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
         ])
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")
-        // The last window closed: a Make PDF searchable run, or a conversion, is stopped and
+        // The last window closed: a Make PDF searchable run, a conversion or Convert e-book is stopped and
         // waited for, so its container is killed and its scratch folder removed.
         .run(|_, event| {
             if let tauri::RunEvent::Exit = event {
                 convert::searchable_end();
                 convert::media_end();
+                ebook::end();
             }
         });
 }

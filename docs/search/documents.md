@@ -37,6 +37,9 @@ Older formats (`.doc`, `.ppt`, Publisher, Visio, Apple's `.pages` and `.key`) an
 pictures need a program you install: see [Scans, pictures and older Office files](scans.md), or
 Apache Tika in a container when you turn it on. OneNote, XPS, CHM, Outlook `.pst` and `.ost`,
 MHTML, Hangul and Access files are read only with Tika ([Other formats with Apache Tika](tika.md)).
+MOBI, Kindle (`.azw`, `.azw3`), FictionBook, LIT and Palm e-books are read through calibre when
+you turn on *Settings → Previews → E-books with calibre*: their title, authors and chapters
+([E-books](../previews/ebooks.md#search)).
 
 ## What you see
 
