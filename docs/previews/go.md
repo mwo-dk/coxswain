@@ -120,7 +120,8 @@ Broken games are read as far as they go; nothing in a file can stop the app, and
 variations, however deep, can run it out of stack. A file is read up to 64 MB and its first
 100,000 games are listed (past that the line above the list adds *the first 100000 games only:
 the file has more than Coxswain reads*); one game is read up to 250,000 moves with its
-variations, a comment up to 64 KB.
+variations and 250,000 set-up stones, a comment up to 64 KB; past that the line above the
+board says *Only the first … moves and variations: the game has more than Coxswain reads*.
 
 ## Settings and config.toml
 

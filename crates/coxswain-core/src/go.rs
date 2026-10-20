@@ -18,6 +18,9 @@ pub const MAX_GAMES: usize = 100_000;
 /// The most nodes (moves and set-up positions) of one game with its variations: a big joseki
 /// dictionary has about 100,000.
 pub const MAX_NODES: usize = 250_000;
+/// The most set-up points (`AB`, `AW`, `AE`) of one game with its variations: a rectangle
+/// such as `AB[aa:ss]` is many, and a made-up file can repeat it on every node.
+pub const MAX_SETUP: usize = 250_000;
 /// The longest text kept of one property (a comment).
 pub const MAX_TEXT: usize = 64 << 10;
 /// The largest board SGF allows.
@@ -335,7 +338,9 @@ pub struct Node {
     /// The nodes after it: the first continues its line, the others are variations.
     pub children: Vec<u32>,
     pub mv: Option<Move>,
-    /// Stones put on the board (1 black, 2 white) or taken off (0), before the move.
+    /// Stones put on the board (1 black, 2 white) or taken off (0), before the move. Kept for
+    /// `Game::position`, not sent to the desktop app.
+    #[serde(skip)]
     pub setup: Vec<(u8, u8, u8)>,
     pub comment: String,
     /// The node's own name (`N`).
@@ -355,7 +360,7 @@ pub struct Game {
     pub info: Info,
     /// The first node is the game's start: node 0.
     pub nodes: Vec<Node>,
-    /// Stopped at `MAX_NODES`: the rest of the game is not read.
+    /// Stopped at `MAX_NODES` or `MAX_SETUP`: the rest of the game is not read.
     pub capped: bool,
 }
 
@@ -368,6 +373,7 @@ pub fn parse(b: &[u8]) -> Game {
     let mut cur: Option<u32> = None;
     let mut stack: Vec<Option<u32>> = vec![];
     let mut started = false;
+    let mut setup = 0usize;
     for (_, tok) in lex(b) {
         match tok {
             Tok::Open => {
@@ -426,8 +432,11 @@ pub fn parse(b: &[u8]) -> Game {
                             let (Some(a), Some(z)) = (a, z) else { continue };
                             for x in a.0.min(z.0)..=a.0.max(z.0).min(w.saturating_sub(1)) {
                                 for y in a.1.min(z.1)..=a.1.max(z.1).min(h.saturating_sub(1)) {
-                                    if n.setup.len() < w as usize * h as usize {
+                                    if setup >= MAX_SETUP {
+                                        g.capped = true;
+                                    } else if n.setup.len() < w as usize * h as usize {
                                         n.setup.push((colour, x, y));
+                                        setup += 1;
                                     }
                                 }
                             }
@@ -817,6 +826,18 @@ mod tests {
             .unwrap()
             .join()
             .unwrap();
+    }
+
+    /// Big set-up rectangles on every node: no more than `MAX_SETUP` points kept, fast.
+    #[test]
+    fn set_up_rectangles_are_capped() {
+        let t = format!("(;SZ[52]{})", ";AB[aa:ZZ]AW[aa:ZZ]".repeat(10_000));
+        let start = std::time::Instant::now();
+        let g = parse(t.as_bytes());
+        assert!(g.capped);
+        assert!(g.nodes.iter().map(|n| n.setup.len()).sum::<usize>() <= MAX_SETUP);
+        let _ = g.position(g.end_of_line(0));
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(2)));
     }
 
     #[test]
