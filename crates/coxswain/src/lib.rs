@@ -568,10 +568,14 @@ pub struct App {
     searchable_plan: Option<mpsc::Receiver<SearchablePlan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
-    /// A history's commits, listed on a thread (git can take seconds): the folder, the name
+    /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
+    /// not read within `list_wait` (a million files take seconds too). The folder, the name
     /// to put the cursor on, the listing.
     list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     list_rx: mpsc::Receiver<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
+    /// How long a key waits for a folder to be listed before the panel shows it as being read
+    /// and the keys go on.
+    list_wait: Duration,
     last_click: Option<(Instant, u16, u16)>,
     /// Properties being read on a thread.
     props_rx: Option<mpsc::Receiver<Result<bfs::Props, String>>>,
@@ -778,6 +782,8 @@ impl App {
             undo: Default::default(),
             list_tx,
             list_rx,
+            // Tests list small folders and look at them at once, on machines that can be slow.
+            list_wait: if cfg!(test) { Duration::from_secs(10) } else { Duration::from_millis(150) },
             last_click: None,
             props_rx: None,
             watch: Default::default(),
@@ -935,20 +941,44 @@ impl App {
         self.hint_stale = true;
         let h = self.show_hidden;
         let p = &mut self.panels[side];
-        if !virtual_list(&p.dir) {
-            p.load(h);
-            if let Some(n) = select {
-                p.select_name(&n);
-            }
-            return;
-        }
         let keep = select.or_else(|| p.current().map(|e| e.name.clone()));
         let (dir, tx) = (p.dir.clone(), self.list_tx.clone());
-        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
+        // The keys wait no longer than `list_wait` for a folder on disk: one of a million files
+        // is said to be read meanwhile, and measured once it is listed.
+        let virtual_dir = virtual_list(&dir);
+        let d = dir.clone();
+        let k = keep.clone();
         std::thread::spawn(move || {
-            let r = bfs::list(&dir, h);
-            let _ = tx.send((dir, keep, r));
+            let r = bfs::list(&d, h);
+            let _ = tx.send((d, k, r));
         });
+        if !virtual_dir {
+            let until = Instant::now() + self.list_wait;
+            while let Ok((d, k, r)) = self.list_rx.recv_timeout(until.saturating_duration_since(Instant::now())) {
+                if d != dir {
+                    self.listed(d, k, r);
+                } else if r.is_err() {
+                    // Walking up keeps the reason, as a locked archive's password asks by it.
+                    let p = &mut self.panels[side];
+                    p.load(h);
+                    if let Some(n) = keep {
+                        p.select_name(&n);
+                    }
+                    return;
+                } else {
+                    return self.listed(d, k, r);
+                }
+            }
+        }
+        // Meanwhile `..` leads out of a folder entered.
+        let p = &mut self.panels[side];
+        if !virtual_dir
+            && p.entries.is_empty()
+            && let Some(up) = dir.parent()
+        {
+            p.entries.push(Entry { name: "..".into(), path: up.to_path_buf(), is_dir: true, ..Entry::default() });
+        }
+        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
     }
 
     /// A listing from the thread, for the panels still showing its folder. One that failed
@@ -969,6 +999,10 @@ impl App {
                     (p.entries, p.link) = (v.clone(), None);
                     p.error = None;
                     p.fill(keep.clone());
+                    // Listed after its key had gone on: its folders measured now.
+                    if !virtual_list(&dir) && self.panels[side].sizes.is_empty() {
+                        self.measure(side);
+                    }
                 }
                 Err(e) => {
                     p.error = Some(e.to_string());
@@ -3880,6 +3914,27 @@ mod tests {
         app.git_busy.lock().unwrap().insert(d.join("a"), false);
         app.refresh_git(&[0]);
         assert_eq!(app.git_busy.lock().unwrap().get(&d.join("a")), Some(&true));
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A folder not listed within `list_wait` (a million files) does not hold the keys: the
+    /// panel shows `..` and the status line says it is being read, until the listing comes.
+    #[test]
+    fn a_slow_folder_is_listed_on_a_thread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-slow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("big/inner")).unwrap();
+        std::fs::write(d.join("big/a.txt"), "a").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        app.list_wait = Duration::ZERO;
+        app.cd(0, d.join("big"));
+        let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&app), [".."], "only the way out while it is read");
+        assert!(app.status.is_some(), "the status line says it is being read");
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert_eq!(names(&app), ["..", "inner", "a.txt"]);
+        assert!(app.status.is_none(), "and no longer says so");
         let _ = std::fs::remove_dir_all(d);
     }
 
