@@ -524,21 +524,43 @@ mod tests {
     /// run that had started before it came.
     #[test]
     fn git_runs_at_once_are_shared() {
-        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
         use std::time::Duration;
         static RUNS: Shared<u32> = Shared::new();
         static COUNT: AtomicU32 = AtomicU32::new(0);
+        static STARTED: AtomicU32 = AtomicU32::new(0);
+        static ARRIVED: AtomicU32 = AtomicU32::new(0);
+        // The first run waits until it is let go, so a slow machine cannot end it before the
+        // three later callers have come.
+        static GO: AtomicBool = AtomicBool::new(false);
         let key = Path::new("/repo");
-        // Long enough that the three later callers have come before the second run ends,
-        // even on a slow virtual machine.
         let slow = || {
-            std::thread::sleep(Duration::from_millis(1500));
+            STARTED.fetch_add(1, Ordering::SeqCst);
+            while !GO.load(Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
             COUNT.fetch_add(1, Ordering::SeqCst) + 1
+        };
+        let until = |n: &AtomicU32, want: u32| {
+            while n.load(Ordering::SeqCst) < want {
+                std::thread::sleep(Duration::from_millis(10));
+            }
         };
         std::thread::scope(|s| {
             let first = s.spawn(|| RUNS.run(key, slow));
-            std::thread::sleep(Duration::from_millis(100));
-            let later: Vec<_> = (0..3).map(|_| s.spawn(|| RUNS.run(key, slow))).collect();
+            until(&STARTED, 1);
+            let later: Vec<_> = (0..3)
+                .map(|_| {
+                    s.spawn(|| {
+                        ARRIVED.fetch_add(1, Ordering::SeqCst);
+                        RUNS.run(key, slow)
+                    })
+                })
+                .collect();
+            until(&ARRIVED, 3);
+            // From counting in to waiting in `run` is a few instructions.
+            std::thread::sleep(Duration::from_millis(300));
+            GO.store(true, Ordering::SeqCst);
             assert_eq!(first.join().unwrap(), 1);
             for l in later {
                 assert_eq!(l.join().unwrap(), 2);
