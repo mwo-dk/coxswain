@@ -2029,6 +2029,7 @@
  "notice.meaning_tui": "Nouveau : la recherche par le sens trouve les fichiers sur vos mots, dans toutes les langues : coxswain --meaning on",
  "notice.migrate_failed": "config.toml n’a pas pu être mis à jour pour la 2.0 ({path} : {why}). Renommez vous-même ces clés : {changes}.",
  "notice.migrated": "Coxswain 2.0 a renommé des clés dans config.toml, en gardant vos commentaires : {changes}.",
+ "notice.unknown_actions": "config.toml attribue des touches à des actions que cette version ne connaît pas ; elles sont ignorées : {names}. Une version plus récente de Coxswain les connaît ; sinon, vérifiez l'orthographe.",
  "notice.script_font": "Aucune police pour {language} n’est installée : ses lettres risquent de s’afficher sous forme de carrés. Installez-en une, par exemple {fonts}.",
  "notice.search_error": "La recherche dans les fichiers s'est arrêtée : {why}",
  "notice.termux_api": "Dans Termux : pkg install termux-api et l'application Termux:API mettent les lignes copiées dans le presse-papiers d'Android et signalent à l'assistant de recherche quand le téléphone est sur batterie",

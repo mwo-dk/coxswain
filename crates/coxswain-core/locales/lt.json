@@ -2029,6 +2029,7 @@
  "notice.meaning_tui": "Nauja: paieška pagal prasmę randa failus apie jūsų žodžius bet kuria kalba: coxswain --meaning on",
  "notice.migrate_failed": "Nepavyko atnaujinti config.toml 2.0 versijai ({path}: {why}). Pervardykite šiuos raktus patys: {changes}.",
  "notice.migrated": "Coxswain 2.0 pervardijo raktus config.toml faile, jūsų komentarai išsaugoti: {changes}.",
+ "notice.unknown_actions": "config.toml priskiria klavišus veiksmams, kurių ši versija nežino, todėl jie praleidžiami: {names}. Naujesnė Coxswain versija juos žino; kitaip patikrinkite rašybą.",
  "notice.script_font": "Kalbai {language} neįdiegtas joks šriftas, todėl raidės gali būti rodomos kaip langeliai. Įdiekite kurį nors, pavyzdžiui, {fonts}.",
  "notice.search_error": "Paieška failuose sustojo: {why}",
  "notice.termux_api": "Termux: pkg install termux-api ir programėlė Termux:API deda nukopijuotas eilutes į Android iškarpinę ir praneša paieškos pagalbininkui, kai telefonas veikia iš baterijos",

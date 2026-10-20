@@ -2065,6 +2065,7 @@
  "notice.meaning_tui": "Nowość: wyszukiwanie według znaczenia znajduje pliki o tym, co wpisujesz, w dowolnym języku: coxswain --meaning on",
  "notice.migrate_failed": "Nie udało się zaktualizować config.toml do wersji 2.0 ({path}: {why}). Zmień nazwy tych kluczy samodzielnie: {changes}.",
  "notice.migrated": "Coxswain 2.0 zmienił nazwy kluczy w config.toml, zachowując Twoje komentarze: {changes}.",
+ "notice.unknown_actions": "config.toml przypisuje klawisze akcjom, których ta wersja nie zna, więc zostały pominięte: {names}. Nowszy Coxswain je zna; w przeciwnym razie sprawdź pisownię.",
  "notice.script_font": "Nie zainstalowano czcionki dla języka {language}, więc litery mogą wyglądać jak kwadraty. Zainstaluj jakąś, na przykład {fonts}.",
  "notice.search_error": "Wyszukiwanie w plikach zatrzymało się: {why}",
  "notice.termux_api": "W Termuksie: pkg install termux-api i aplikacja Termux:API wstawiają skopiowane wiersze do schowka Androida i informują pomocnika wyszukiwania, gdy telefon działa na baterii",

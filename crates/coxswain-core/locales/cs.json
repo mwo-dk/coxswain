@@ -2029,6 +2029,7 @@
  "notice.meaning_tui": "Nové: hledání podle významu najde soubory o vašich slovech, v jakémkoli jazyce: coxswain --meaning on",
  "notice.migrate_failed": "config.toml nešlo aktualizovat pro 2.0 ({path}: {why}). Přejmenujte tyto klíče sami: {changes}.",
  "notice.migrated": "Coxswain 2.0 přejmenoval klíče v config.toml, vaše komentáře zůstaly: {changes}.",
+ "notice.unknown_actions": "config.toml přiřazuje klávesy akcím, které tato verze nezná, a proto jsou vynechány: {names}. Novější Coxswain je zná; jinak zkontrolujte pravopis.",
  "notice.script_font": "Pro {language} není nainstalováno žádné písmo, takže se písmena mohou zobrazit jako čtverečky. Nainstalujte nějaké, například {fonts}.",
  "notice.search_error": "Hledání v souborech se zastavilo: {why}",
  "notice.termux_api": "V Termuxu: pkg install termux-api a aplikace Termux:API vkládají zkopírované řádky do schránky Androidu a dávají pomocníkovi hledání vědět, když telefon běží na baterii",

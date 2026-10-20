@@ -2029,6 +2029,7 @@
  "notice.meaning_tui": "Jaunums: meklēšana pēc nozīmes atrod failus par jūsu vārdiem jebkurā valodā: coxswain --meaning on",
  "notice.migrate_failed": "config.toml nevarēja atjaunināt uz 2.0 ({path}: {why}). Pārdēvējiet šīs atslēgas paši: {changes}.",
  "notice.migrated": "Coxswain 2.0 pārdēvēja atslēgas failā config.toml, jūsu komentāri saglabāti: {changes}.",
+ "notice.unknown_actions": "config.toml piešķir taustiņus darbībām, kuras šī versija nezina, tāpēc tās tiek izlaistas: {names}. Jaunāka Coxswain versija tās zina; citādi pārbaudiet rakstību.",
  "notice.script_font": "Valodai {language} nav instalēta fonta, tāpēc burti var izskatīties kā kvadrātiņi. Instalējiet kādu, piemēram, {fonts}.",
  "notice.search_error": "Meklēšana failos ir apstājusies: {why}",
  "notice.termux_api": "Termux: pkg install termux-api un lietotne Termux:API ievieto kopētās rindas Android starpliktuvē un paziņo meklēšanas palīgam, kad tālrunis darbojas ar akumulatoru",

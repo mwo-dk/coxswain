@@ -2029,6 +2029,7 @@
  "notice.meaning_tui": "Nou: la cerca pel significat troba fitxers sobre les teves paraules, en qualsevol llengua: coxswain --meaning on",
  "notice.migrate_failed": "No s'ha pogut actualitzar config.toml per a la 2.0 ({path}: {why}). Canvieu el nom d'aquestes claus vosaltres mateixos: {changes}.",
  "notice.migrated": "Coxswain 2.0 ha canviat el nom de claus a config.toml i ha conservat els vostres comentaris: {changes}.",
+ "notice.unknown_actions": "config.toml assigna tecles a accions que aquesta versió no coneix, i s'ometen: {names}. Una versió més nova de Coxswain les coneix; si no, reviseu-ne l'ortografia.",
  "notice.script_font": "No hi ha cap tipus de lletra per a {language} instal·lat, i les lletres es poden veure com a quadrets. Instal·leu-ne un, per exemple {fonts}.",
  "notice.search_error": "La cerca dins dels fitxers s'ha aturat: {why}",
  "notice.termux_api": "A Termux: pkg install termux-api i l'aplicació Termux:API posen les línies copiades al porta-retalls d'Android i avisen l'assistent de cerca quan el telèfon va amb bateria",

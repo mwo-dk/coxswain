@@ -1993,6 +1993,7 @@
  "notice.meaning_tui": "New: search by meaning finds files about your words, in any language: coxswain --meaning on",
  "notice.migrate_failed": "config.toml could not be updated for 2.0 ({path}: {why}). Rename these keys yourself: {changes}.",
  "notice.migrated": "Coxswain 2.0 renamed keys in config.toml, your comments kept: {changes}.",
+ "notice.unknown_actions": "config.toml gives keys to actions this version does not know, so they are left out: {names}. A newer Coxswain knows them; otherwise check the spelling.",
  "notice.script_font": "No font for {language} is installed, so its letters may show as boxes. Install one, for example {fonts}.",
  "notice.search_error": "Search inside files has stopped: {why}",
  "notice.termux_api": "In Termux: pkg install termux-api and the Termux:API app put copied lines on Android's clipboard and tell the search helper when the phone runs on its battery",

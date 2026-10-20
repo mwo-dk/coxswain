@@ -116,9 +116,10 @@ max_results = 500
 
     #[test]
     fn migrate_a_config_of_1x_once_with_its_comments() {
-        assert!(
-            crate::config::Config::parse(OLD).is_err(),
-            "2.0 does not read the old action names"
+        assert_eq!(
+            crate::config::Config::parse(OLD).unwrap().keys[&crate::config::Action::MarkGroup],
+            ["+"],
+            "2.0 does not know the old action names"
         );
         let (new, said) = rewrite(OLD).unwrap().unwrap();
         assert_eq!(
