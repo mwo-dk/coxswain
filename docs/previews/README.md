@@ -5,7 +5,7 @@
 The desktop app's preview pane shows the file or folder under the cursor and follows it as you
 move: over 60 kinds of file, from code and Markdown to web pages, spreadsheets, databases,
 e-books, certificates, slides and LaTeX. Most are drawn by libraries built into the app; a few
-need a real program (LaTeX, LibreOffice, PlantUML, pandoc, DuckDB), which Coxswain runs from
+need a real program (LaTeX, LibreOffice, PlantUML, pandoc, DuckDB, ffmpeg, ImageMagick), which Coxswain runs from
 your install or from a network-less container.
 
 ![Five previews side by side: Markdown with a Mermaid flow chart and a typeset formula, a Jupyter notebook with its code and a plot, a spreadsheet, a Word document and a font sample, all in the Cyber theme](../screenshots/gui-previews.png)
@@ -31,6 +31,13 @@ flowchart TD
   box -->|yes| cont[It runs in a container<br/>with no network;<br/>a first pull waits for a click]
   box -->|no| none[A greyed button and the<br/>line that installs it, with Copy]
 ```
+
+## Contents
+
+- [Opening and closing it](#opening-and-closing-it)
+- [What the pane shows](#what-the-pane-shows)
+- [Every format, and its page](#every-format-and-its-page)
+- [Keys at a glance](#keys-at-a-glance)
 
 ## Opening and closing it
 
