@@ -94,6 +94,8 @@ tank/home/demo · 1.06x · 50.0 KB used · 1.7 GB free
 tank/home/demo · 1.06x · 50.0 KB of 500 MB          (with a quota)
 ```
 
+In the terminal app the git line shares that border: where both do not fit, the dataset line is
+cut short (`tank/home/demo · 1.06x · 51…`) so the branch stays readable.
 In the desktop app, hover it for the mountpoint; a click lists the snapshots. **Alt+Enter**
 (Properties) shows more: the dataset, its mountpoint, compression, used, available and
 referenced space, quota and refquota, and how many snapshots it has

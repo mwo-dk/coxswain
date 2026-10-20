@@ -52,7 +52,7 @@ One of these, tried in the order of *Settings → Previews → How previews are 
 
 | Way | What runs | Systems |
 |---|---|---|
-| OCRmyPDF installed | `ocrmypdf --skip-text -l <languages> in.pdf out.pdf`, at the lowest priority | Linux: `sudo pacman -S ocrmypdf`, `sudo apt install ocrmypdf`, `sudo dnf install ocrmypdf`; macOS: `brew install ocrmypdf`; on FreeBSD, the other BSDs, illumos and Windows get it from [its site](https://ocrmypdf.readthedocs.io/en/latest/installation.html) (pip) |
+| OCRmyPDF installed | `ocrmypdf --skip-text -l <languages> in.pdf out.pdf`, at the lowest priority | Linux: `sudo pacman -S ocrmypdf`, `sudo apt install ocrmypdf`, `sudo dnf install ocrmypdf`; macOS: `brew install ocrmypdf`; OpenBSD: `pkg_add ocrmypdf`; on FreeBSD, NetBSD, illumos and Windows get it from [its site](https://ocrmypdf.readthedocs.io/en/latest/installation.html) (pip) |
 | Its container | podman or docker runs `docker.io/jbarlow83/ocrmypdf-alpine:latest`, OCRmyPDF's own image (MPL-2.0, updated by its author with every release), with no network and the PDF's folder read-only ([What a container may do](../previews/containers.md#what-a-container-may-do)) | Linux, macOS and Windows with podman or docker. Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install OCRmyPDF there instead |
 
 The image is about 310 MB to download and 850 MB on disk. It is pulled only after the question

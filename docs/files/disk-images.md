@@ -113,7 +113,7 @@ An installed 7-Zip (`7zz`, or `7z`). Coxswain looks for it on `PATH`, and on Win
 | FreeBSD | `pkg install 7-zip` |
 | NetBSD | `pkgin install 7-zip` |
 | OpenBSD | `pkg_add p7zip` |
-| illumos | 7-Zip from your distribution's packages, or from [7-zip.org](https://www.7-zip.org) |
+| illumos | `pkg install compress/7zip` (OmniOS), or 7-Zip from [7-zip.org](https://www.7-zip.org) |
 | Linux | `sudo pacman -S 7zip` (Arch), `sudo apt install 7zip` (Debian, Ubuntu), `sudo dnf install 7zip` (Fedora), `sudo zypper install 7zip` (openSUSE) |
 | macOS | `brew install sevenzip` |
 | Windows | `winget install 7zip.7zip` |

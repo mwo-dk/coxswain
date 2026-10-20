@@ -449,10 +449,10 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         ],
         // 7-Zip, which reads disk images (`disk_image`); p7zip where the system has no other.
         "7z" => [
-            "7-zip", "7-zip", "p7zip", "", "7zip", "7zip", "7zip", "7zip", "sevenzip", "7zip.7zip",
+            "7-zip", "7-zip", "p7zip", "compress/7zip", "7zip", "7zip", "7zip", "7zip", "sevenzip", "7zip.7zip",
         ],
         "ocrmypdf" => [
-            "", "", "", "", "ocrmypdf", "ocrmypdf", "ocrmypdf", "", "ocrmypdf", "",
+            "", "", "ocrmypdf", "", "ocrmypdf", "ocrmypdf", "ocrmypdf", "", "ocrmypdf", "",
         ],
         "gs" => [
             "ghostscript10",
@@ -467,7 +467,7 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "ArtifexSoftware.GhostScript",
         ],
         "typst" => [
-            "typst", "", "", "", "typst", "", "typst", "typst", "typst", "Typst.Typst",
+            "typst", "typst", "typst", "", "typst", "", "typst", "typst", "typst", "Typst.Typst",
         ],
         "pandoc" => [
             "hs-pandoc",
@@ -521,7 +521,7 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "JesseDuffield.lazygit",
         ],
         "tig" => [
-            "tig", "tig", "", "", "tig", "tig", "tig", "tig", "tig", "",
+            "tig", "tig", "", "ooce/application/tig", "tig", "tig", "tig", "tig", "tig", "",
         ],
         "nerd-font" => [
             "nerd-fonts",
@@ -899,6 +899,12 @@ mod tests {
             Some("pkg_add gst-plugins-good")
         );
         assert_eq!(install_line("tig", Manager::PkgAdd), None);
+        // OmniOS: 7-Zip in its core repository, tig in omnios-extra; OpenBSD and NetBSD: Typst.
+        assert_eq!(install_line("7z", Manager::Ips).as_deref(), Some("pkg install compress/7zip"));
+        assert_eq!(install_line("tig", Manager::Ips).as_deref(), Some("pkg install ooce/application/tig"));
+        assert_eq!(install_line("typst", Manager::PkgAdd).as_deref(), Some("pkg_add typst"));
+        assert_eq!(install_line("typst", Manager::Pkgin).as_deref(), Some("pkgin install typst"));
+        assert_eq!(install_line("ocrmypdf", Manager::PkgAdd).as_deref(), Some("pkg_add ocrmypdf"));
         assert_eq!(
             install_line("gst-good", Manager::Apt),
             None,
