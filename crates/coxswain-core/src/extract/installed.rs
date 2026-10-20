@@ -44,6 +44,11 @@ fn program(name: &str) -> Option<PathBuf> {
     tools::which(name).or_else(|| (name == "gs").then(|| tools::which("gswin64c")).flatten())
 }
 
+/// Every kind `extensions` can name, whatever is installed.
+pub fn kinds() -> Vec<&'static str> {
+    [PICTURES, &["pdf"], OFFICE, POSTSCRIPT].concat()
+}
+
 /// The extensions installed programs read now: they are read again when that changes.
 pub fn extensions() -> Vec<&'static str> {
     let mut v = vec![];
