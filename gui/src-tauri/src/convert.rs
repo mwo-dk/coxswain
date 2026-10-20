@@ -361,6 +361,9 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
     // The document as a path, never a bare name: TeX tools read a name starting with `-` as an
     // option, and latexmk runs `-pdflatex=COMMAND` through the shell.
     let doc = format!("./{name}");
+    // latexmk hands the name to the shell in double quotes: a name with `$`, a backquote and the
+    // like is built by the engine itself, which uses no shell.
+    let plain = latex::shell_safe(&name);
     let timeout = Duration::from_secs(cfg.timeout.max(10));
     let (kind, which_one) = engine.split_once(':').ok_or_else(|| t!("convert.unknown_engine"))?;
 
@@ -387,8 +390,12 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         let mut c = coxswain_core::images::sealed(rt, &rt_path, &container_name, &mount, Some(out));
         c.arg("-w").arg(workdir.to_string_lossy().replace('\\', "/"));
         let stdin = match tool {
-            "latex" => {
+            "latex" if plain => {
                 c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-norc", "-outdir=/out", &doc]);
+                None
+            }
+            "latex" => {
+                c.args([image.as_str(), latex::engine(flag.unwrap_or_else(|| latex::engine_flag(path))), "-interaction=nonstopmode", "-halt-on-error", "-output-directory=/out", &doc]);
                 None
             }
             "typst" => {
@@ -438,7 +445,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
     let mut c = coxswain_core::tools::command(&program);
     c.current_dir(dir);
     match (tool, which_one) {
-        ("latex", "latexmk") => {
+        ("latex", "latexmk") if plain => {
             // No -halt-on-error: past a first error LaTeX usually still makes the PDF.
             c.args([flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode"]).arg(format!("-outdir={}", out.display()));
             latex::own_rc(&mut c);
@@ -453,15 +460,15 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             return done;
         }
         ("latex", _) => {
-            // A document that asks for XeLaTeX or LuaLaTeX gets it when TeX Live has it.
-            let wanted = match flag.unwrap_or_else(|| latex::engine_flag(path)) {
-                "-pdfxe" => which("xelatex"),
-                "-pdflua" => which("lualatex"),
-                _ => None,
-            };
+            // A document that asks for XeLaTeX or LuaLaTeX gets it when TeX Live has it; latexmk
+            // with a name it would hand to the shell gets the engine itself.
+            let engine = latex::engine(flag.unwrap_or_else(|| latex::engine_flag(path)));
+            let wanted = which(engine).or_else(|| if which_one == "latexmk" { which("pdflatex") } else { None });
             if let Some(other) = wanted {
                 c = coxswain_core::tools::command(&other);
                 c.current_dir(dir);
+            } else if which_one == "latexmk" {
+                return Err(t!("convert.not_installed", "program" => engine));
             }
             c.args(["-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-output-directory={}", out.display())).arg(&doc);
         }
@@ -551,6 +558,20 @@ mod latex {
         })
     }
 
+    /// Whether latexmk can be given this file name: it puts it in double quotes on a shell line.
+    pub fn shell_safe(name: &str) -> bool {
+        !name.chars().any(|c| c.is_control() || "$`\"\\'%;&|<>*?!#~{}".contains(c))
+    }
+
+    /// The engine latexmk's flag stands for.
+    pub fn engine(flag: &str) -> &'static str {
+        match flag {
+            "-pdfxe" => "xelatex",
+            "-pdflua" => "lualatex",
+            _ => "pdflatex",
+        }
+    }
+
     /// The document `path` belongs to: itself, the file its `% !TEX root` names, or for a
     /// file without `\documentclass` the document nearby that includes it.
     pub fn main_file(path: &Path) -> PathBuf {
@@ -560,7 +581,7 @@ mod latex {
         if let Some(root) = magic(&text, "root") {
             let within = std::fs::canonicalize(project(path));
             if let (Ok(p), Ok(within)) = (std::fs::canonicalize(dir.join(root)), within) {
-                if p.is_file() && p.starts_with(&within) {
+                if p.is_file() && p.starts_with(&within) && p.extension().is_some_and(|x| x == "tex" || x == "ltx") {
                     return p;
                 }
             }
@@ -706,6 +727,10 @@ mod latex {
             assert_eq!(main_file(&d.join("paper/chapters/evil.tex")), d.join("paper/chapters/evil.tex"), "a root outside the project is not taken");
             std::fs::remove_file(&outside).unwrap();
             assert_eq!(project(&main), d, "one `../` up");
+            assert!(shell_safe("Kapitel 2 (udkast).tex"));
+            for bad in ["$(id).tex", "`id`.tex", "a\"b.tex", "a\\b.tex", "50%.tex"] {
+                assert!(!shell_safe(bad), "{bad}");
+            }
             assert_eq!(engine_flag(&main), "-pdfxe");
             assert_eq!(engine_flag(&d.join("paper/chapters/intro.tex")), "-pdf");
             // No magic comment: the packages tell, also from the document's own style file.
