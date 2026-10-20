@@ -1186,13 +1186,14 @@ pub enum State {
 }
 
 impl Service {
-    pub fn start(cfg: &SearchConfig) -> Arc<Service> {
+    /// `cache`: the file the index is kept in between starts, the helper's folder's
+    /// `index.bin` (`Index::cache_path`); a test's own, never the user's.
+    pub fn start(cfg: &SearchConfig, cache: Option<PathBuf>) -> Arc<Service> {
         let roots = if cfg.roots.is_empty() {
             Index::default_roots()
         } else {
             cfg.roots.clone()
         };
-        let cache = Index::cache_path();
         let cached = cache
             .as_deref()
             .and_then(|p| Index::load(p).ok())

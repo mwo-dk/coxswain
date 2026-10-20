@@ -934,11 +934,10 @@ mod tests {
     /// however long it wraps, in English, German and Finnish, narrow and wide.
     #[test]
     fn text_dialogs_show_their_last_line() {
-        use coxswain_core::helper::Client;
         let d = std::env::temp_dir().join(format!("coxswain-test-dialog-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let cfg = coxswain_core::config::Config { check_updates: false, ..Default::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
         for lang in ["en-GB", "de", "fi"] {
             // From the catalogue, not the process's language, which other tests share.
