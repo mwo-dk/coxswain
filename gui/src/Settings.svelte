@@ -845,6 +845,7 @@
         {/if}
         {@render choice("chess_notation", [["figurines", t("settings.chess_figurines")], ["letters", t("settings.chess_letters")]])}
         {@render choice("chess_board", [["theme", t("settings.chess_board_theme")], ["green", t("settings.chess_board_green")], ["brown", t("settings.chess_board_brown")]])}
+        {@render text("chess_book", t("settings.chess_book_auto"))}
         {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
         {@render check("image_prune")}
         <p class="hint">{t("settings.previews_more")}</p>

@@ -16,7 +16,9 @@
 
   let { path, full = false } = $props();
 
-  const format = $derived(chessFormat(basename(path)));
+  // A .bin file comes here only when it is a Polyglot opening book (Preview, chess_is_book).
+  const format = $derived(/\.bin$/i.test(path) ? "book" : chessFormat(basename(path)));
+  const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   const ROW = 24;
   const COLUMNS = [
     ["number", "#"],
@@ -52,6 +54,10 @@
   let posAt = $state(0);
   let boardEl = $state();
   let movesEl = $state();
+  // The opening book's moves for the position shown (chess_book), and in a book of its own
+  // the positions before the one shown.
+  let book = $state(null);
+  let bookLine = $state([]);
 
   $effect(() => {
     const theme = ui.theme;
@@ -84,7 +90,10 @@
       cursor = 0;
       first = 0;
       if (listEl) listEl.scrollTop = 0;
-      if (chessFormat(basename(p)) === "epd") {
+      bookLine = [];
+      if (/\.bin$/i.test(p)) {
+        game = { game: { start: START, nodes: [], roots: [], tags: [], result: "" }, layout: [], index: 0 };
+      } else if (chessFormat(basename(p)) === "epd") {
         invoke("chess_positions", { path: p }).then(
           (v) => p === path && ((positions = v), showPosition(0)),
           (e) => (error = String(e)),
@@ -200,6 +209,26 @@
   }
   const board = $derived(squares(fen));
 
+  // The book's moves, again for each position.
+  let bookSeq = 0;
+  $effect(() => {
+    const f = fen;
+    const p = path;
+    void ui.cfg;
+    const s = ++bookSeq;
+    if (!f) return void (book = null);
+    invoke("chess_book", { path: p, fen: f }).then(
+      (b) => s === bookSeq && (book = b),
+      () => {},
+    );
+  });
+
+  /** A book's move played: its position on the board, the one before kept for ←. */
+  function playBook(m) {
+    bookLine.push(game.game.start);
+    game.game.start = m.fen;
+  }
+
   /** A move as shown, in pieces: [text, figurine] (`chess::show_san`). */
   function show(san) {
     const out = [];
@@ -218,6 +247,12 @@
     if (!game) return;
     const g = game.game;
     const sibs = (n) => (nodes[n].parent == null ? g.roots : nodes[nodes[n].parent].children);
+    if (format === "book") {
+      if (to === "prev" && bookLine.length) game.game.start = bookLine.pop();
+      else if (to === "start" && bookLine.length) (game.game.start = bookLine[0]), (bookLine = []);
+      else if (to === "next" && book?.moves.length) playBook(book.moves[0]);
+      return;
+    }
     if (format === "epd") {
       if (to === "next") showPosition(Math.min(positions.length - 1, posAt + 1));
       else if (to === "prev") showPosition(Math.max(0, posAt - 1));
@@ -339,8 +374,27 @@
           <p class="players"><b>{known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>
           <p class="meta">{[known(tag("Event")), known(tag("Site")), known(tag("Date")), [tag("ECO"), tag("Opening")].join(" ").trim()].filter(Boolean).join(" · ")}</p>
           <p class="meta">{t("chess.game_of", { n: game.index + 1, total: progress?.games ?? "" })}</p>
+        {:else if format === "book"}
+          <p class="players"><b>{t("chess.book_entries", { n: book?.entries ?? "" })}</b></p>
         {:else}
           <p class="players"><b>{t("chess.position_of", { n: posAt + 1, total: positions.length })}</b></p>
+        {/if}
+        {#if book && format === "book"}
+          {#if !book.moves.length}<p class="meta">{t("chess.book_none")}</p>{/if}
+          <table class="book">
+            <tbody>
+              {#each book.moves as m (m.uci)}
+                <tr>
+                  <td><button class="mv" title={t("chess.book_play_tip")} onclick={() => playBook(m)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button></td>
+                  <td class="n">{m.share.toFixed(1)} %</td>
+                  <td class="n">{m.weight}</td>
+                  <td class="meta">{m.learn ? t("chess.book_learn", { n: m.learn }) : ""}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {:else if book}
+          <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
         {/if}
         <p class="text">
           {#each game.layout as tok, i (i)}
@@ -358,7 +412,7 @@
             {/if}
           {/each}
         </p>
-        <p class="meta keys">{format === "pgn" ? t("chess.keys_game_gui") : t("chess.keys_position_gui")}</p>
+        <p class="meta keys">{format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
   {:else if format === "pgn"}
@@ -632,5 +686,12 @@
   }
   .keys {
     margin-top: 6px;
+  }
+  .book {
+    border-collapse: collapse;
+    margin-block: 4px;
+  }
+  .book td {
+    padding: 0 8px 0 0;
   }
 </style>

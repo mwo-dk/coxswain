@@ -17,6 +17,7 @@
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
+  import GoView from "./GoView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
@@ -317,9 +318,10 @@
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
     searchable_pdf: () => makeSearchable(),
-    chess: () => {
+    chess: async () => {
       const e = item(tab());
-      if (e && !e.is_dir && chessFormat(e.name)) ui.modal = { kind: "chess", path: e.path };
+      const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
+      if (e && !e.is_dir && (chessFormat(e.name) || book)) ui.modal = { kind: chessFormat(e.name) === "sgf" ? "go" : "chess", path: e.path };
       else ui.status = t("chess.not_chess");
     },
     space_view: () => openSpace(),
@@ -774,6 +776,7 @@
 {#if ui.modal?.kind === "space"}<Space />{/if}
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
+{#if ui.modal?.kind === "go"}<GoView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}

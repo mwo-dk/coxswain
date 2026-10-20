@@ -23,6 +23,7 @@ pub mod flags;
 pub mod fs;
 pub mod git;
 pub mod git_config;
+pub mod go;
 pub mod guide;
 pub mod handoff;
 pub mod helper;

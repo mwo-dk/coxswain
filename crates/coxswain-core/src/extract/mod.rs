@@ -55,6 +55,7 @@ fn reader(path: &Path) -> Option<Reader> {
         "eml" | "mbox" => mail::text,
         "msg" => msg::text,
         "dbf" => crate::dbf::search_text,
+        "sgf" => |path, _| crate::go::search_text(path, MAX_TEXT),
         "rtf" => rtf::text,
         // Diagrams as text: their words, and a sentence per arrow.
         "mmd" | "mermaid" => |path, max| plain::text(path, max).map(diagram::mermaid),

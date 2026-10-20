@@ -752,47 +752,72 @@ fn words(text: &str) -> Vec<(String, bool)> {
     out
 }
 
-/// The game a Find hit in a PGN file is about, by its snippet: its index, from 0.
+/// The game a Find hit is about, from the lines of a file's games (`search_text`) fed in
+/// order, by its snippet: PGN files here, SGF files in `go`.
 ///
-/// The store keeps a line per game (`search_text`) and its snippet is a run of words around
-/// the ones found, often across the lines of neighbouring games, its line breaks gone. So the
-/// snippet's words are looked for as a run in the file's games, one after the other; the game
-/// of the first word found is the one. When no run matches (a reader that changed the text),
-/// the game whose line has the found words and most of the others.
-pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
-    let want = words(snippet);
-    if want.is_empty() {
-        return None;
+/// The store keeps a line per game and its snippet is a run of words around the ones found,
+/// often across the lines of neighbouring games, its line breaks gone. So the snippet's words
+/// are looked for as a run in the games' lines, one after the other; the game of the first
+/// word found is the one. When no run matches (a reader that changed the text), the game whose
+/// line has the found words and most of the others.
+pub struct Hit {
+    want: Vec<(String, bool)>,
+    first: usize,
+    found: Vec<String>,
+    /// The last words fed, each with its game, as many as the snippet has.
+    window: std::collections::VecDeque<(String, u32)>,
+    n: u32,
+    hit: Option<u32>,
+    best: (usize, Option<u32>),
+}
+
+impl Hit {
+    /// None for a snippet without words.
+    pub fn new(snippet: &str) -> Option<Hit> {
+        let want = words(snippet);
+        if want.is_empty() {
+            return None;
+        }
+        let first = want.iter().position(|w| w.1).unwrap_or(0);
+        let found = want.iter().filter(|w| w.1).map(|w| w.0.clone()).collect();
+        Some(Hit { want, first, found, window: Default::default(), n: 0, hit: None, best: (0, None) })
     }
-    let first = want.iter().position(|w| w.1).unwrap_or(0);
-    let found: Vec<&str> = want.iter().filter(|w| w.1).map(|w| w.0.as_str()).collect();
-    // The last words of the file, each with its game, as many as the snippet has.
-    let mut window: std::collections::VecDeque<(String, u32)> = std::collections::VecDeque::new();
-    let (mut n, mut hit, mut best) = (0u32, None, (0usize, None));
-    scan_file(path, |h| {
-        let line: Vec<String> = words(&h.line()).into_iter().map(|w| w.0).collect();
+
+    /// The next game's line; false once the game is found.
+    pub fn feed(&mut self, line: &str) -> bool {
+        let line: Vec<String> = words(line).into_iter().map(|w| w.0).collect();
         // The fallback's score: the found words all here, then as many of the others.
-        if found.iter().all(|f| line.iter().any(|w| w == f)) {
-            let score = 1 + want.iter().filter(|w| line.contains(&w.0)).count();
-            if score > best.0 {
-                best = (score, Some(n));
+        if self.found.iter().all(|f| line.iter().any(|w| w == f)) {
+            let score = 1 + self.want.iter().filter(|w| line.contains(&w.0)).count();
+            if score > self.best.0 {
+                self.best = (score, Some(self.n));
             }
         }
         for w in line {
-            window.push_back((w, n));
-            if window.len() > want.len() {
-                window.pop_front();
+            self.window.push_back((w, self.n));
+            if self.window.len() > self.want.len() {
+                self.window.pop_front();
             }
-            if window.len() == want.len() && window.iter().zip(&want).all(|(a, b)| a.0 == b.0) {
-                hit = Some(window[first].1);
+            if self.window.len() == self.want.len() && self.window.iter().zip(&self.want).all(|(a, b)| a.0 == b.0) {
+                self.hit = Some(self.window[self.first].1);
                 return false;
             }
         }
-        n += 1;
+        self.n += 1;
         true
-    })
-    .ok()?;
-    hit.or(best.1)
+    }
+
+    /// The game found, from 0.
+    pub fn found(&self) -> Option<u32> {
+        self.hit.or(self.best.1)
+    }
+}
+
+/// The game a Find hit in a PGN file is about, by its snippet (`Hit`): its index, from 0.
+pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
+    let mut hit = Hit::new(snippet)?;
+    scan_file(path, |h| hit.feed(&h.line())).ok()?;
+    hit.found()
 }
 
 #[cfg(test)]

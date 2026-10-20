@@ -102,3 +102,12 @@ test("isModel: model files, and a Core ML package only as a folder", async () =>
   assert.ok(!isModel({ name: "weights.pt", is_dir: false }));
   assert.ok(!isModel({ name: "onnx", is_dir: true }));
 });
+
+test("games files by their names", async () => {
+  const { chessFormat } = await pick("chessFormat");
+  assert.equal(chessFormat("Games.PGN.zst"), "pgn");
+  assert.equal(chessFormat("mates.fen"), "epd");
+  assert.equal(chessFormat("Shusaku.SGF"), "sgf");
+  // A Polyglot book is known by its bytes, not its name.
+  assert.equal(chessFormat("book.bin"), "");
+});
