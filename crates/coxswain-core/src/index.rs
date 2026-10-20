@@ -2092,17 +2092,16 @@ mod tests {
     #[test]
     fn index_walks_a_very_deep_tree() {
         let d = crate::fs::Scratch::named("index-deep");
+        // As deep as the system's longest path allows, up to 1500 levels (illumos and the Macs
+        // stop near 500, Windows far sooner).
         let mut at = d.to_path_buf();
-        for i in 0..1500 {
+        let mut deep = 0;
+        while deep < 1500 && fs::create_dir(at.join("d")).is_ok() {
             at.push("d");
-            if i % 50 == 0 {
-                fs::create_dir_all(&at).unwrap();
-            }
+            deep += 1;
         }
-        fs::create_dir_all(&at).unwrap();
-        fs::write(at.join("bottom.txt"), "").unwrap();
         let ix = Index::build(&[d.to_path_buf()], &[], None, None);
-        assert!(ix.len() > 1500, "{}", ix.len());
+        assert!(ix.len() > deep, "{} of {deep}", ix.len());
     }
 
     #[test]
