@@ -287,14 +287,16 @@ struct Model {
     context: Option<u64>,
     template: Option<String>,
     licence: Option<String>,
-    /// Name, parameters, dtype, bytes (`None` where the dtype's size is not known).
-    tensors: Vec<(String, u64, String, Option<u64>)>,
+    tensors: Vec<Tensor>,
     /// The weights' bytes when the tensors' do not add up (an unknown dtype): the file's.
     file_bytes: u64,
     /// Bytes of the cache of keys and values per token, for the memory to load.
     kv_per_token: Option<u64>,
     shards: Option<(usize, usize)>,
 }
+
+/// A tensor: name, parameters, dtype, bytes (`None` where the dtype's size is not known).
+type Tensor = (String, u64, String, Option<u64>);
 
 /// Tokens of context the memory to load counts: what Ollama and llama.cpp start with.
 const CONTEXT: u64 = 4096;
@@ -745,7 +747,7 @@ fn st_size(dtype: &str) -> Option<u64> {
 }
 
 /// The tensors of a header, each checked against the data it has.
-fn st_tensors(h: &serde_json::Map<String, serde_json::Value>, data: u64) -> Res<Vec<(String, u64, String, Option<u64>)>> {
+fn st_tensors(h: &serde_json::Map<String, serde_json::Value>, data: u64) -> Res<Vec<Tensor>> {
     if h.len() as u64 > MAX_TENSORS {
         return Err("too many");
     }
