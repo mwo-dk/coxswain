@@ -335,7 +335,7 @@
   {@const y = Math.floor(i / 8)}
   <rect {x} {y} width="1" height="1" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 1 : 0] : "#888"} />
   {#if lit}<rect {x} {y} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
-  {#if p}<image href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} x={x + 0.04} y={y + 0.04} width="0.92" height="0.92" />{/if}
+  {#if p}<image href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} {x} {y} width="1" height="1" />{/if}
   {#if y === 7}<text x={x + 0.94} y={y + 0.95} class="coord" text-anchor="end" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{"abcdefgh"[file]}</text>{/if}
   {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
 {/snippet}

@@ -159,7 +159,10 @@ Polish (with H for the queen). The files themselves keep English letters, as PGN
 
 The board's colours come from the theme: Cyber's greens, Classic blue's blues. *Tournament,
 green* and *Tournament, brown* give the usual club boards. The desktop app draws the pieces
-from the *Celtic* set of Maurizio Monge's chess-art (MIT); the terminal app uses the chess
+as pictures: white pieces with a black outline and black pieces, clear around them so the
+squares show through, the same on every theme. They are Uray M. János's set after Colin M.L.
+Burnett's Wikimedia chess pieces, under CC BY-SA 3.0
+([licence](../../gui/public/vendor/chess-pieces/LICENSE)); the rest of Coxswain is MIT. The terminal app uses the chess
 characters of your font (♚ ♛ ♜ ♝ ♞ ♟), white and black, on coloured squares.
 
 ## Finding games

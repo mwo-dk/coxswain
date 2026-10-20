@@ -36,10 +36,10 @@ source = "https://github.com/lutzroeder/netron"
 file = "gui/public/vendor/netron/LICENSE"
 
 [[bundled]]
-name = "chess-art, Celtic pieces"
-what = "gui/public/vendor/chess-pieces/*.svg, the Celtic set of maurimo/chess-art in its white and black colours, the Inkscape metadata taken out."
-license = "MIT"
-source = "https://github.com/maurimo/chess-art"
+name = "Chess pieces of Uray M. János"
+what = "gui/public/vendor/chess-pieces/*.svg, Uray M. János's set after Colin M.L. Burnett's Wikimedia chess pieces, renamed, the DOCTYPE and inner comments taken out, the drawings and attribution kept."
+license = "CC-BY-SA-3.0"
+source = "https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces"
 file = "gui/public/vendor/chess-pieces/LICENSE"
 
 [[bundled]]
