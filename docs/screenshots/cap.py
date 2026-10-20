@@ -36,6 +36,11 @@ import websocket
 HERE = Path(__file__).resolve().parent
 SANDBOX = HERE / "sandbox.sh"
 RUNTIME = Path(tempfile.gettempdir()) / f"coxswain-cap-{os.getuid()}"
+# Chromium talks only to this machine: no host name resolves but 127.0.0.1, and its own
+# background calls (sync, updates, push messaging, metrics) are off.
+OFFLINE = ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1", "--disable-background-networking",
+           "--disable-component-update", "--disable-sync", "--disable-domain-reliability", "--disable-breakpad",
+           "--no-pings", "--no-first-run", "--no-default-browser-check", "--metrics-recording-only"]
 
 
 def _env(**extra):
@@ -122,7 +127,7 @@ class Desktop:
         # The page first, so the display has its size before the window opens.
         w, h = self.size
         self.profile = tempfile.mkdtemp(prefix="cap-chromium-")
-        self.procs.append(subprocess.Popen(["chromium", "--headless=new", "--no-sandbox", "--hide-scrollbars", f"--user-data-dir={self.profile}", f"--window-size={w + 400},{h + 450}",
+        self.procs.append(subprocess.Popen(["chromium", "--headless=new", *OFFLINE, "--no-sandbox", "--hide-scrollbars", f"--user-data-dir={self.profile}", f"--window-size={w + 400},{h + 450}",
                                             f"--remote-debugging-port={self.debug}", f"http://127.0.0.1:{self.port}/"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True))
         for _ in range(50):
             try:
@@ -399,7 +404,7 @@ def render(screens, outs, cols, rows):
     """tmux `capture-pane -p -e -N` text as pictures of the terminal."""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch(executable_path=shutil.which("chromium"), args=["--headless=new"])
+        b = p.chromium.launch(executable_path=shutil.which("chromium"), args=["--headless=new", *OFFLINE])
         pg = b.new_page(viewport={"width": 2400, "height": 1400})
         for s, o in zip(screens, outs):
             pg.set_content(page(s, cols, rows))
