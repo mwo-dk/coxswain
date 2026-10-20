@@ -710,6 +710,8 @@
  "err.move_into_itself": "Ei mappe kan ikkje flyttast inn i seg sjølv",
  "err.epub_no_rootfile": "Denne EPUB-boka har inga rotfil",
  "err.exists": "{path} finst allereie",
+ "err.special_file": "{path} er eit røyr, ein sokkel eller ei eining, som ikkje vert kopiert",
+ "err.not_packable": "{path} er ei lenkje, eit røyr eller ei eining, som eit arkiv utelèt, så ingenting vart flytt",
  "err.is_folder": "{name} er ei mappe",
  "err.key_twice": "{key} er gitt til både {a} og {b} under [keys] i config.toml",
  "err.no_application": "Ingen program opnar denne filtypen",

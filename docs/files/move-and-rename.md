@@ -97,6 +97,13 @@ new name. The archive is written anew with the new name; see
 No. A move into an archive adds the files to it and then deletes the originals for good, as a
 move between disks does. Copy with **F5** if you want to keep them.
 
+#### Why was my folder not moved into the archive?
+
+It holds a symbolic link, a pipe or a device, which an archive leaves out. Moving it would
+delete what never went in, so the move is refused before anything is added or deleted:
+*Could not move …*, with `… is a link, a pipe or a device, which an archive leaves out, so
+nothing was moved`. Copy it with **F5** instead (the links are left out, the originals stay).
+
 #### Can I undo a move or rename?
 
 Yes: **Ctrl+Z**, in both apps, right after it or later in the same run, while nothing has

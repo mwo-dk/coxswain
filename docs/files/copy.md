@@ -46,7 +46,11 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
   still running: Coxswain quits when it is done. F10 again quits now and leaves it half done.*:
   a second **F10** leaves at once, for a copy stuck on a network disk that no longer answers.
 - Folders are copied with everything in them. Symbolic links are copied as links, not as what
-  they point at.
+  they point at. Pipes, sockets and devices are not copied (`… is a pipe, a socket or a device,
+  which is not copied`): a pipe would wait for ever.
+- A new folder is copied under a passing name beside the target (`.photos.coxswain-tmp-…`) and
+  gets its name only when it is complete, so a copy that fails half way leaves nothing behind
+  and can simply be tried again. A move to another disk copies the same way.
 - **Nothing is ever written over.** A file that already exists at the target is an error
   (`/home/me/b/a.txt exists`), and a folder cannot be copied into itself (*A folder cannot be
   copied into itself*), also not through a link to the same place (on FreeBSD `/home` is a
@@ -122,8 +126,9 @@ your home folder. The folder has to exist unless you copy a single item (see abo
 
 #### Does copying keep dates and permissions?
 
-A file's permission bits are kept (the copy is made with the system's file copy). The
-modification date of the copy is the time of copying on most systems. Symbolic links stay links.
+A file's permission bits and modification date are kept (the copy is made with the system's
+file copy, and dated as the original). Folders get the time of copying. Symbolic links stay
+links.
 
 #### Can I copy files into a zip?
 

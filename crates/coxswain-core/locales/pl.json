@@ -772,6 +772,8 @@
  "err.move_into_itself": "Folderu nie można przenieść do niego samego",
  "err.epub_no_rootfile": "Ta książka EPUB nie ma pliku głównego",
  "err.exists": "{path} już istnieje",
+ "err.special_file": "{path} to potok, gniazdo lub urządzenie, którego się nie kopiuje",
+ "err.not_packable": "{path} to dowiązanie, potok lub urządzenie, które archiwum pomija, więc nic nie zostało przeniesione",
  "err.is_folder": "{name} to folder",
  "err.key_twice": "{key} jest w [keys] pliku config.toml przypisany zarówno do {a}, jak i do {b}",
  "err.no_application": "Żadna aplikacja nie otwiera tego rodzaju plików",

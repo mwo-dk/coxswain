@@ -710,6 +710,8 @@
  "err.move_into_itself": "یک پوشه را نمی‌توان درون خودش جابه‌جا کرد",
  "err.epub_no_rootfile": "این کتاب EPUB فایل ریشه ندارد",
  "err.exists": "{path} وجود دارد",
+ "err.special_file": "{path} یک لوله، سوکت یا دستگاه است که کپی نمی‌شود",
+ "err.not_packable": "{path} یک پیوند، لوله یا دستگاه است که بایگانی آن را کنار می‌گذارد، پس چیزی جابه‌جا نشد",
  "err.is_folder": "{name} یک پوشه است",
  "err.key_twice": "{key} در [keys] فایل config.toml هم به {a} و هم به {b} داده شده است",
  "err.no_application": "هیچ برنامه‌ای این نوع فایل را باز نمی‌کند",

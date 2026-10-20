@@ -710,6 +710,8 @@
  "err.move_into_itself": "Թղթապանակը չի կարելի տեղափոխել իր մեջ",
  "err.epub_no_rootfile": "Այս EPUB գիրքը արմատային ֆայլ չունի",
  "err.exists": "{path}-ը արդեն կա",
+ "err.special_file": "{path}-ը խողովակ, սոքեթ կամ սարք է, որը չի պատճենվում",
+ "err.not_packable": "{path}-ը հղում, խողովակ կամ սարք է, որը արխիվը բաց է թողնում, ուստի ոչինչ չի տեղափոխվել",
  "err.is_folder": "{name}-ը թղթապանակ է",
  "err.key_twice": "{key}-ը config.toml-ի [keys]-ում տրված է և՛ {a}-ին, և՛ {b}-ին",
  "err.no_application": "Ոչ մի ծրագիր չի բացում այս տեսակի ֆայլը",

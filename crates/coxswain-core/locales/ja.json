@@ -679,6 +679,8 @@
  "err.move_into_itself": "フォルダーをそれ自身の中に移動することはできません",
  "err.epub_no_rootfile": "この EPUB にはルートファイルがありません",
  "err.exists": "{path} は既にあります",
+ "err.special_file": "{path} はパイプ、ソケット、デバイスのいずれかで、コピーされません",
+ "err.not_packable": "{path} はリンク、パイプ、デバイスのいずれかで、アーカイブには入らないため、何も移動していません",
  "err.is_folder": "{name} はフォルダーです",
  "err.key_twice": "config.toml の [keys] で {key} が {a} と {b} の両方に割り当てられています",
  "err.no_application": "この種類のファイルを開くアプリケーションがありません",

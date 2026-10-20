@@ -710,6 +710,8 @@
  "err.move_into_itself": "A folder cannot be moved into itself",
  "err.epub_no_rootfile": "This EPUB book has no root file",
  "err.exists": "{path} exists",
+ "err.special_file": "{path} is a pipe, a socket or a device, which is not copied",
+ "err.not_packable": "{path} is a link, a pipe or a device, which an archive leaves out, so nothing was moved",
  "err.is_folder": "{name} is a folder",
  "err.key_twice": "{key} is given to both {a} and {b} in [keys] of config.toml",
  "err.no_application": "No application opens this kind of file",
