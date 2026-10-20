@@ -358,6 +358,9 @@ fn run(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, f
 fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path, file: &Path, flag: Option<&'static str>) -> Res<()> {
     let dir = path.parent().ok_or_else(|| t!("err.no_folder"))?;
     let name = path.file_name().ok_or_else(|| t!("err.no_file_name"))?.to_string_lossy().into_owned();
+    // The document as a path, never a bare name: TeX tools read a name starting with `-` as an
+    // option, and latexmk runs `-pdflatex=COMMAND` through the shell.
+    let doc = format!("./{name}");
     let timeout = Duration::from_secs(cfg.timeout.max(10));
     let (kind, which_one) = engine.split_once(':').ok_or_else(|| t!("convert.unknown_engine"))?;
 
@@ -385,7 +388,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         c.arg("-w").arg(workdir.to_string_lossy().replace('\\', "/"));
         let stdin = match tool {
             "latex" => {
-                c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-norc", "-outdir=/out", &name]);
+                c.args([image.as_str(), "latexmk", flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode", "-norc", "-outdir=/out", &doc]);
                 None
             }
             "typst" => {
@@ -439,11 +442,11 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             // No -halt-on-error: past a first error LaTeX usually still makes the PDF.
             c.args([flag.unwrap_or_else(|| latex::engine_flag(path)), "-interaction=nonstopmode"]).arg(format!("-outdir={}", out.display()));
             latex::own_rc(&mut c);
-            c.arg(&name);
+            c.arg(&doc);
         }
         // Its cache, when this run makes it, is Coxswain's doing: Disk use lists it.
         ("latex", "tectonic") => {
-            c.arg("--outdir").arg(out).arg(&name);
+            c.arg("--outdir").arg(out).arg(&doc);
             let absent = coxswain_core::disk::tectonic_absent();
             let done = wait(c, timeout, None);
             coxswain_core::disk::note_made(&absent);
@@ -460,7 +463,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
                 c = coxswain_core::tools::command(&other);
                 c.current_dir(dir);
             }
-            c.args(["-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-output-directory={}", out.display())).arg(&name);
+            c.args(["-interaction=nonstopmode", "-halt-on-error"]).arg(format!("-output-directory={}", out.display())).arg(&doc);
         }
         ("libreoffice", _) => {
             // Its own profile, so a running LibreOffice does not swallow the conversion, with
@@ -553,10 +556,13 @@ mod latex {
     pub fn main_file(path: &Path) -> PathBuf {
         let text = head(path);
         let dir = path.parent().unwrap_or(Path::new("."));
+        // Only a root inside the project: `% !TEX root = /etc/x` or `../../..` builds nothing there.
         if let Some(root) = magic(&text, "root") {
-            let p = dir.join(root);
-            if p.is_file() {
-                return std::fs::canonicalize(&p).unwrap_or(p);
+            let within = std::fs::canonicalize(project(path));
+            if let (Ok(p), Ok(within)) = (std::fs::canonicalize(dir.join(root)), within) {
+                if p.is_file() && p.starts_with(&within) {
+                    return p;
+                }
             }
         }
         if text.contains("\\documentclass") {
@@ -694,6 +700,11 @@ mod latex {
             assert_eq!(main_file(&main), main);
             assert_eq!(main_file(&d.join("paper/chapters/intro.tex")), main, "found by who includes it");
             assert_eq!(main_file(&d.join("paper/chapters/method.tex")), std::fs::canonicalize(&main).unwrap(), "found by its magic comment");
+            let outside = std::env::temp_dir().join(format!("coxswain-latex-outside-{}.tex", std::process::id()));
+            std::fs::write(&outside, "\\documentclass{article}\n").unwrap();
+            std::fs::write(d.join("paper/chapters/evil.tex"), format!("%!TEX root = {}\n", outside.display())).unwrap();
+            assert_eq!(main_file(&d.join("paper/chapters/evil.tex")), d.join("paper/chapters/evil.tex"), "a root outside the project is not taken");
+            std::fs::remove_file(&outside).unwrap();
             assert_eq!(project(&main), d, "one `../` up");
             assert_eq!(engine_flag(&main), "-pdfxe");
             assert_eq!(engine_flag(&d.join("paper/chapters/intro.tex")), "-pdf");

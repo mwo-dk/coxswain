@@ -44,7 +44,7 @@ errors, and tries another engine when one cannot build the document.
 
 | | |
 |---|---|
-| **The document** | The file named by `% !TEX root = ../main.tex` in its first 20 lines; else the file itself if it has a `\documentclass`; else a document in its folder, or up to two folders above, that has a `\documentclass` and names the file |
+| **The document** | The file named by `% !TEX root = ../main.tex` in its first 20 lines, when it is inside the project (below); else the file itself if it has a `\documentclass`; else a document in its folder, or up to two folders above, that has a `\documentclass` and names the file |
 | **The project** | The git repository the document is in; without one, as far up as the document's own `../` paths reach (three folders at most, never your home folder). A container sees this folder, read-only, and builds from the document's folder, so `\includegraphics{../figures/plot}` works |
 | **The engine** | `% !TEX program = xelatex` or `lualatex` (also `% !TeX TS-program = …`) in the first 20 lines. Without that, what the document and the `.sty` and `.cls` files next to it load: `fontspec`, `unicode-math`, `polyglossia`, `xeCJK`, `xltxtra`, `mathspec` or `\setmainfont` mean XeLaTeX; `luacode`, `luatexja`, `luaotfload`, `luatexbase` or `\directlua` LuaLaTeX. pdfLaTeX otherwise |
 | **A fresh build** | Whenever a file in the document's folder or below has changed: a chapter, a picture, the bibliography (hidden files and folders do not count; 5,000 files at most are looked at) |
