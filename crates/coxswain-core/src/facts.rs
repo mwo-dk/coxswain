@@ -1,6 +1,7 @@
 //! What old files hold, said the same way in both apps: an old picture's format, size and
 //! colours, a tracker module's channels and samples, how many messages a mailbox has, how
-//! many pages a comic, a dBase table's records and fields. The desktop app shows them under
+//! many pages a comic, a dBase table's records and fields, what a local model holds
+//! (`local_models::facts`). The desktop app shows them under
 //! the preview, the terminal app in Properties (**Alt+Enter**); F3 in the terminal app pages
 //! them as text (`text_copy`), with a module's sample names and an Outlook message's text.
 //! A neural network model's facts come from `neural`.
@@ -30,6 +31,9 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     }
     if crate::archive::is_image(path) {
         return crate::container_image::facts(path);
+    }
+    if let Some(f) = crate::local_models::facts(path) {
+        return Some(f);
     }
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     match ext.as_str() {

@@ -232,6 +232,8 @@ export async function load(t, dir = t.dir, focus) {
     t.snapshot = r.snapshot;
     t.package = r.package;
     t.packages = r.packages;
+    // In a model store's folder: the model each entry is, shown beside its name.
+    t.models = r.models ?? null;
     t.hasNotes = r.has_notes;
     t.error = null;
     // Inside an archive a folder's size comes with the listing; there is nothing to measure. A
@@ -817,6 +819,8 @@ export function subject(tb = tab()) {
     geo: files.filter((x) => isGeo(x.name) && !/\.tiff?$/i.test(x.name)).length,
     models: files.filter((x) => isScad(x.name)).length,
     images: files.filter((x) => ociIndex(tb, x)).length,
+    // `local_models::is_model`: a model file by its ending, or a blob of a model store.
+    local_models: files.filter((x) => /\.(gguf|safetensors|pt|pth|ckpt)$|\.safetensors\.index\.json$|^pytorch_model.*\.bin$/i.test(x.name) || (tb.models?.[x.name] && /^sha256-/.test(x.name))).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

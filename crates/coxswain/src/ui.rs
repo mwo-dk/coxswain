@@ -205,6 +205,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let p = &mut app.panels[side];
     if p.place.as_ref().is_none_or(|(d, _)| *d != p.dir) {
         p.place = Some((p.dir.clone(), Place::of(&p.dir)));
+        p.models = Some((p.dir.clone(), coxswain_core::local_models::names(&p.dir)));
     }
     if let Some(e) = p.current().filter(|e| e.is_symlink)
         && p.link.as_ref().is_none_or(|(at, _)| *at != e.path)
@@ -353,6 +354,11 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             format!("  {}", e.name)
         } else {
             format!("{} {}", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name)
+        };
+        // In a model store: the model it is, before the hashed name.
+        let name = match p.models.as_ref().and_then(|(_, m)| m.as_ref()).and_then(|m| m.get(&e.name)) {
+            Some(m) => format!("{} {m} [{}]", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name),
+            None => name,
         };
         let name = &name;
         let sz = if let Some(n) = p.sizes.get(&e.path) {

@@ -55,6 +55,8 @@ pub struct Subject {
     pub models: usize,
     /// Of the files, the `index.json` of an OCI image layout (`container_image::layout_index`).
     pub images: usize,
+    /// Of the files, local models (`local_models::is_model`): their facts are in Properties.
+    pub local_models: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -186,6 +188,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     // Before the general ones: a chess file is rare, and what to press on it is not guessed.
     ("chess", &[("key", Action::Chess)]),
     ("image", &[("key", Action::Open)]),
+    ("local_model", &[("key", Action::Properties)]),
     ("menu", &[("key", Action::ActionMenu)]),
     ("space", &[("key", Action::SpaceView)]),
     ("find", &[("key", Action::Search)]),
@@ -248,6 +251,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
         "image" => disk && s.single() && s.images == 1,
+        "local_model" => disk && s.single() && s.local_models == 1,
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),

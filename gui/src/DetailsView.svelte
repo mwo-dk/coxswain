@@ -127,7 +127,8 @@
       >
         <span class="name">
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
-          <span class="label" dir="auto">{e.name}</span>
+          <!-- In a model store: the model it is, then its hashed name (`local_models::names`). -->
+          <span class="label" dir="auto">{#if t.models?.[e.name]}{t.models[e.name]} <span class="hash">{e.name}</span>{:else}{e.name}{/if}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
           {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
@@ -264,6 +265,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: match-parent;
+  }
+  .hash {
+    opacity: 0.6;
+    font-size: 0.9em;
   }
   .icon {
     font-family: var(--icon-font);

@@ -60,8 +60,14 @@
    *  or model. */
   const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && (isGeoText(e.name) || isScad(e.name)));
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );
+  /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
+   *  store gives it (`local_models::names`), as its own name says nothing. */
+  function storeModel(f) {
+    const m = f && !f.is_dir && pane.models?.[f.name];
+    return !!m && (!m.includes(" · ") || /\.(gguf|safetensors)$|pytorch_model.*\.bin$/i.test(m));
+  }
   let text = $state("");
   let html = $state("");
   let truncated = $state(false);
@@ -1011,7 +1017,7 @@
       {/if}
       {#if facts.length && kind !== "netron"}
         <dl class="facts extra">
-          {#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
+          {#each facts as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}
         </dl>
       {/if}
     </div>

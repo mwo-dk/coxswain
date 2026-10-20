@@ -112,6 +112,10 @@ def files(d):
     models = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(models)
     models.write(d)
+    # A local model: a GGUF header with one key and one tensor, its facts in place of a hex dump.
+    s = lambda t: struct.pack("<Q", len(t)) + t.encode()
+    (d / "lm.gguf").write_bytes(b"GGUF" + struct.pack("<IQQ", 3, 1, 1) + s("general.architecture") + struct.pack("<I", 8) + s("llama")
+                               + s("token_embd.weight") + struct.pack("<IQQIQ", 2, 64, 100, 1, 0) + bytes(12800))
     # A video no web view plays and a HEIC photo, made by an installed ffmpeg and ImageMagick.
     run = lambda *a: subprocess.run(a, cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
     media = {}
@@ -167,6 +171,7 @@ def files(d):
         "mlmodel": ("Thrust.mlmodel", ".netron[data-shown]", "", 30),
         "mlpackage": ("Thrust.mlpackage", ".netron[data-shown]", "", 30),
         "keras": ("lander.keras", ".netron[data-shown]", "", 30),
+        "gguf": ("lm.gguf", "dl.facts", "GGUF v3", 10),
     }
 
 

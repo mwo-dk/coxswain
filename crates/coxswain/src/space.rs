@@ -471,7 +471,7 @@ impl Viewer {
                 continue;
             }
             let room = ((r.x + r.w).floor() as usize).min(w).saturating_sub(col + 1);
-            let label = if tile.kind == Kind::Mount { t!("space.other_disk", "name" => n.label()) } else { format!("{} {}", n.label(), human(n.size)) };
+            let label = if tile.kind == Kind::Mount { t!("space.other_disk", "name" => n.label()) } else { format!("{} {}", t.label(tile.id), human(n.size)) };
             let label = if tile.kind == Kind::Folder { format!("{} {}", '\u{f07b}', label) } else { label };
             let back = px[(2 * row).min(h - 1) * w + col];
             let fg = if luma(back) > 140.0 { Color::Black } else { Color::White };
@@ -505,6 +505,8 @@ impl Viewer {
                 let id = laid.largest[k];
                 let size = format!("{:>9} ", human(t.node(id).size));
                 let rel = t.path(id).strip_prefix(t.path(self.zoom)).map(|p| p.display().to_string()).unwrap_or_default();
+                // A model store's blob: the model it is (the line under the map has its path).
+                let rel = if t.label(id) != t.node(id).label() { t.label(id).into_owned() } else { rel };
                 (t.family(id).colour(), format!(" {size}{}", crate::ui::fit_left(&rel, w.saturating_sub(size.len() + 3))))
             };
             let line = Line::from(vec![ratatui::text::Span::styled("■", style.fg(col_of(rgb_hex(swatch)))), ratatui::text::Span::styled(fit(&text, w.saturating_sub(1)), style)]);
@@ -519,7 +521,8 @@ fn describe(t: &Tree, id: u32) -> String {
     let ext = t.ext(id);
     let kind = t.family(id).label();
     let kind = if ext.is_empty() { kind } else { format!("{kind} (.{ext})") };
-    format!("{}  ·  {}  ·  {kind}", t.path(id).display(), human(n.size))
+    let model = if t.label(id) != n.label() { format!("{}  ·  ", t.label(id)) } else { String::new() };
+    format!("{model}{}  ·  {}  ·  {kind}", t.path(id).display(), human(n.size))
 }
 
 type Rgb = (u8, u8, u8);

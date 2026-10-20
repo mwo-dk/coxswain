@@ -198,4 +198,4 @@ No. Coxswain never writes into a container image: **F5** copies files out, and a
 renaming, deleting or making folders inside it is refused.
 
 ---
-[← Previous: Disk images, CHM help files and CBR comics](disk-images.md) · [Next: Properties and permissions →](properties.md)
+[← Previous: Disk images, CHM help files and CBR comics](disk-images.md) · [Next: Your local models, by name →](local-models.md)

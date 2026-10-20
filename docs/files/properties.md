@@ -160,4 +160,4 @@ Its window (**Alt+Enter**) only shows the facts. Change permissions on the comma
 ([In the terminal app](#in-the-terminal-app)).
 
 ---
-[← Previous: Container images](container-images.md) · [Next: Finding duplicates →](duplicates.md)
+[← Previous: Your local models, by name](local-models.md) · [Next: Finding duplicates →](duplicates.md)

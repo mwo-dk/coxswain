@@ -245,6 +245,11 @@ pub const FEATURES: &[Feature] = &[
         &[Open, Copy, DiskImages, ActionMenu, Settings],
     ),
     f(
+        "local_models",
+        "files/local-models.md",
+        &[Properties, TogglePreview, SpaceView],
+    ),
+    f(
         "properties",
         "files/properties.md",
         &[Properties, Flags, Package],

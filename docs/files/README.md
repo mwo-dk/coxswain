@@ -30,6 +30,7 @@ folder; **Ctrl+E** extracts it.*
 | [Passwords for encrypted zip and 7z](archive-passwords.md) | The password question, and how long Coxswain keeps a password |
 | [Disk images, CHM help files and CBR comics](disk-images.md) | An image's facts in the preview; with the option on, **Enter** opens .iso, .dmg, .vhd, .vmdk, .qcow2, .chm and .cbr like folders, read-only, through 7-Zip |
 | [Container images](container-images.md) | **Enter** opens a `docker save` / `podman save` tar or an OCI image layout as one read-only folder of its merged layers; its tags, platforms and layers in the preview |
+| [Your local models, by name](local-models.md) | Ollama's sha256 blobs and the Hugging Face cache named by model; a GGUF's or safetensors file's facts, the memory it needs and whether it fits |
 | [Properties and permissions](properties.md) | Sizes, dates, owner, and changing the permission bits |
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
 | [ZFS snapshots as folders](zfs-snapshots.md) | **Alt+Z**: a dataset's snapshots browsed read-only, a file compared with now, copied back with **F5** |
