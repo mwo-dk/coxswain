@@ -269,6 +269,8 @@ fi
 # Old files: an Amiga IFF picture, a comic of the pictures above, a dBase table, a tracker
 # module and a mailbox (Python's own library only).
 (cd "$d" && python3 "$here/demo-old.py")
+# Neural network models: ONNX, TensorFlow Lite, Core ML (a file and a package) and Keras.
+python3 "$here/demo-models.py" "$d/projects/vision"
 # A web page saved from the web: its own stylesheet beside it, its pictures still on the web.
 printf 'body { font-family: serif; margin: 2rem; background: #fdf6e3; color: #333; }\nh1 { color: #b58900; }\nimg { width: 240px; height: 140px; border: 1px solid #ccc; }\n' > "$d/Downloads/launch-news.css"
 cat > "$d/Downloads/launch-news.html" <<'EOF'

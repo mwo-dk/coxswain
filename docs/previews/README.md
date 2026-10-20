@@ -88,6 +88,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Cryptography bills of materials](bom.md) | CycloneDX CBOMs as a rated tree or sunburst, filters, Found in, comparing two scans; the terminal app's own viewer |
 | [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
 | [Chess games](chess.md) | PGN files as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; both apps, the terminal app full screen |
+| [Neural network models](neural-networks.md) | ONNX, TensorFlow Lite, Core ML and Keras models: inputs, outputs, nodes and parameters in both apps; the graph drawn by Netron, offline, in the desktop app |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file |
 | [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz, PlantUML, and D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, DBML, erd and bytefield by their programs or Kroki's image |
@@ -115,6 +116,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.csv` `.tsv` `.xlsx` `.xls` `.ods` | Table, a button per sheet | [Data](data.md#formats) |
 | `.db` `.sqlite`, `.parquet`, `.duckdb` | Tables, rows, schema | [Data](data.md#formats) |
 | `.pem` `.crt` `.cer` `.der`, `.plist` | Certificate facts, XML | [Data](data.md#formats) |
+| `.onnx` `.tflite` `.mlmodel` `.mlpackage` `.keras` `.h5` | The model's facts and its graph, drawn by Netron | [Neural network models](neural-networks.md) |
 | `.cdx.json` `.cdx.xml` `.cbom.json`, CycloneDX JSON/XML | Rated tree, sunburst, compare | [Cryptography bills of materials](bom.md) |
 | `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
 | `.pgn` `.pgn.gz` `.pgn.zst` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |

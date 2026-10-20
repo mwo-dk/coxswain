@@ -1138,7 +1138,7 @@ pub fn properties(path: &Path) -> io::Result<Props> {
             crate::bsd::package_of(path)
         },
         flags: crate::flags::read(path),
-        facts: (meta.is_file() && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
+        facts: ((meta.is_file() || crate::neural::named(path)) && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
         disk_image: disk.as_ref().map(crate::disk_image::lines),
         disk_next: disk.map(|_| crate::disk_image::next()),
         path: path.to_path_buf(),

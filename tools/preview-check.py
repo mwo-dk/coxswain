@@ -107,6 +107,11 @@ def files(d):
         return struct.pack("<H", 8) + b"".join(struct.pack("<HHII", *e) for e in entries) + struct.pack("<I", nxt) + bytes([v, v])
     second = 8 + len(page(8, 0, 0))
     (d / "v.tif").write_bytes(b"II*\0" + struct.pack("<I", 8) + page(8, second, 40) + page(second, 0, 200))
+    # Neural network models, as the demo home has them (docs/screenshots/demo-models.py).
+    spec = importlib.util.spec_from_file_location("demo_models", REPO / "docs/screenshots/demo-models.py")
+    models = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(models)
+    models.write(d)
     return {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
@@ -137,6 +142,14 @@ def files(d):
         "mod": ("t.mod", "ul.archive", "greetings to the crew", 10),
         "mbox": ("u.mbox", "ul.archive", "Go for launch", 10),
         "tif": ("v.tif", ".pager", "2", 10),
+        # Models: the core's facts, and Netron's graph drawn in its sandboxed frame (it says so
+        # by message once it is drawn).
+        "onnx_facts": ("rocket-vision.onnx", "dl.facts dd", "float32[batch,3,32,32]", 10),
+        "onnx": ("rocket-vision.onnx", ".netron[data-shown]", "", 30),
+        "tflite": ("lander.tflite", ".netron[data-shown]", "", 30),
+        "mlmodel": ("Thrust.mlmodel", ".netron[data-shown]", "", 30),
+        "mlpackage": ("Thrust.mlpackage", ".netron[data-shown]", "", 30),
+        "keras": ("lander.keras", ".netron[data-shown]", "", 30),
     }
 
 

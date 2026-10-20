@@ -1,0 +1,4 @@
+Netron 9.3.2 (https://github.com/lutzroeder/netron, tag v9.3.2, source archive SHA-256 6e3f0f334f7d033de58293cebe6d39e2d495cba13fcc9842447c18635de9855b),
+MIT licence, see LICENSE. Made by gui/netron/build.mjs: netron.js bundles Coxswain's host (gui/netron/host.js)
+with Netron's unmodified modules for ONNX, TensorFlow Lite, Core ML and Keras; index.html and grapher.css are
+Netron's, index.html with its script line, version and Content-Security-Policy changed.

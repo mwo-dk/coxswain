@@ -135,7 +135,9 @@ Two exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
 the built-in viewer (or in `viewer`'s program), and **Esc** there goes back to the BOM or the
 provenance; `bom_viewer = false` or `provenance_viewer = false` makes F3 show the source straight
 away. **F3** on a chess file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`) opens its
-games or positions full screen ([Chess games](../previews/chess.md)).
+games or positions full screen ([Chess games](../previews/chess.md)), and on a neural network
+model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: format, inputs
+and outputs with shapes, operators ([Neural network models](../previews/neural-networks.md)).
 
 ## Questions
 

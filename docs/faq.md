@@ -163,6 +163,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Does a ✓ in the provenance view mean the file is safe?** No: it means the file here is the one the provenance names; the provenance itself is not verified. [Answer](previews/provenance.md#does-a--mean-the-file-is-safe)
 - **Can I play chess against an engine?** Not yet: Coxswain shows PGN games and EPD/FEN positions on a board, but does not play or analyse. [Answer](previews/chess.md#can-i-play-against-an-engine)
 - **Does it read ChessBase files?** Not yet: export them to PGN. [Answer](previews/chess.md#does-it-read-chessbase-files)
+- **Does Coxswain run a neural network model to show it?** No: it reads the file's structure only, reads no pickle, and Netron's frame has no network. [Answer](previews/neural-networks.md#does-coxswain-run-the-model)
+- **Why is my PyTorch `.pt` file not drawn?** It is a Python pickle (TorchScript holds code): export the model to ONNX to see it. [Answer](previews/neural-networks.md#why-is-my-pytorch-pt-file-not-shown)
 - **Why is the source commit "not in your checkout"?** Coxswain never fetches; run `git fetch` in your checkout. [Answer](previews/provenance.md#why-is-my-commit-not-in-your-checkout)
 - **Why does search.db not show its tables like other databases?** It is Coxswain's own store: its preview says what it holds instead (files read by kind, vectors, errors, size per part); a copy is shown the same way. [Answer](previews/data.md#why-does-searchdb-not-show-its-tables-like-other-databases)
 

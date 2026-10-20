@@ -197,4 +197,4 @@ From the game's own `Opening` tag when it has one; else from lichess's table of 
 by the game's first moves; else by its ECO code.
 
 ---
-[← Previous: Build provenance](provenance.md) · [Next: Media and files →](media.md)
+[← Previous: Build provenance](provenance.md) · [Next: Neural network models →](neural-networks.md)

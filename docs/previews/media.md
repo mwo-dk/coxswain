@@ -84,6 +84,8 @@ Under the preview, some files get a short list:
 - **Old pictures, comics, mailboxes, dBase tables and tracker music:** their format, size in
   pixels, colours, pages and layers, messages, records and fields, channels and samples; see
   [Old pictures and files](old-formats.md#formats).
+- **Neural network models:** their format, producer, inputs and outputs with shapes, nodes and
+  parameters, shown above Netron's graph; see [Neural network models](neural-networks.md#the-facts).
 - **Programs and libraries:** the platform and CPU they are built for (*Linux/Unix ELF 64-bit*,
   *Windows PE*, *macOS Mach-O*, *macOS universal*; x86, x86-64, ARM, ARM64, RISC-V and more)
   and what they are (program, windowed or console program, shared library, object file).
@@ -161,4 +163,4 @@ Measuring a big folder reads every file under it. With folder sizes on in the co
 appears by itself; otherwise **Calculate** measures this one.
 
 ---
-[← Previous: Chess games](chess.md) · [Next: Old pictures and files →](old-formats.md)
+[← Previous: Neural network models](neural-networks.md) · [Next: Old pictures and files →](old-formats.md)
