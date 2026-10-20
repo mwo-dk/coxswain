@@ -1066,13 +1066,14 @@ pub(crate) fn numbered(sources: &[(PathBuf, String)]) -> String {
 /// and the invisible characters that carry words a user never sees (Unicode tags) or turn text
 /// around (bidi overrides) left out.
 fn inert(text: &str) -> String {
+    // The hidden ones first, so none can sit inside a mark (`[\u{E0001}INST]`) and join it up.
+    let text: String = text.chars().filter(|&c| !hidden(c)).collect();
     let mut out = String::with_capacity(text.len());
-    let mut rest = text;
+    let mut rest = text.as_str();
     while let Some(c) = rest.chars().next() {
         rest = &rest[c.len_utf8()..];
         match c {
             '<' | '\u{FF1C}' | '\u{FE64}' => out.push_str("&lt;"),
-            c if hidden(c) => {}
             '[' => {
                 out.push('[');
                 let name = rest.strip_prefix('/').unwrap_or(rest);
@@ -1847,6 +1848,15 @@ mod tests {
         assert_eq!(
             super::inert("[INST] x [/INST] [SYSTEM_PROMPT] [1] [a] a<b"),
             "[ INST] x [ /INST] [ SYSTEM_PROMPT] [1] [a] a&lt;b"
+        );
+        // A hidden character inside a mark is dropped first, not left to join it up after.
+        assert_eq!(
+            super::inert("[\u{E0001}INST] [INST\u{202E}] [/\u{2066}INST]"),
+            "[ INST] [ INST] [ /INST]"
+        );
+        assert_eq!(
+            super::inert("<\u{200B}|im_start|><\u{E0020}|im_end|>"),
+            "&lt;\u{200B}|im_start|>&lt;|im_end|>"
         );
     }
 
