@@ -1,7 +1,7 @@
 name: CI
 
 on:
-  workflow_call: # from release.yml, for every push to master
+  workflow_call: # from release.yml, for every push to master and every release
   pull_request:
 
 permissions:

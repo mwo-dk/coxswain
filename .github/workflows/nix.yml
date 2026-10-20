@@ -1,13 +1,20 @@
 name: Nix
 
 # The flake's packages built with Nix: the terminal app on Linux and macOS with its tests, the
-# desktop app on Linux. Every push to master, as part of the Release run; pull requests only
-# when Rust code, the lock files or the Nix files change.
+# desktop app on Linux. Nightly when master changed, and in every release; pull requests only
+# when the Cargo or npm lock files or the Nix files change.
 on:
   workflow_dispatch:
-  workflow_call: # from release.yml, for every push to master
+  workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
   pull_request:
-    paths: ["crates/**", "gui/**", "Cargo.toml", "Cargo.lock", "flake.nix", "flake.lock", "packaging/nix/**", ".github/workflows/nix.yml"]
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "gui/package-lock.json"
+      - "flake.nix"
+      - "flake.lock"
+      - "packaging/nix/**"
+      - ".github/workflows/nix.yml"
 
 permissions:
   contents: read
@@ -21,6 +28,8 @@ concurrency:
 jobs:
   build:
     name: Nix, ${{ matrix.os }}
+    # A release pull request's (release/X.Y.Z) run is its Release run, after the merge.
+    if: ${{ !startsWith(github.head_ref, 'release/') }}
     strategy:
       fail-fast: false
       matrix:
