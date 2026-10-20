@@ -233,7 +233,7 @@ pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
 /// folder. It runs once in each process too: other work on the processor while it ran makes
 /// one measurement slow, and the quickest is the processor's own.
 fn speed() -> Option<f64> {
-    let file = dirs::data_dir().map(|d| d.join("coxswain").join("chat-speed.txt"));
+    let file = crate::dirs::data_dir().map(|d| d.join("coxswain").join("chat-speed.txt"));
     // A debug build is far slower: its result is kept apart.
     let key = format!(
         "{} × {} · {}{}",

@@ -143,7 +143,7 @@ pub(crate) fn walk(path: &Path, stop: &AtomicBool) -> Option<Size> {
 
 /// Folders this deep and below are walked by one thread, in a loop: the parallel walk takes a
 /// frame of its thread's stack per level, and thousands of nested folders would overflow it.
-const DEEP: usize = 32;
+pub(crate) const DEEP: usize = 32;
 
 fn walk_at(path: &Path, stop: &AtomicBool, depth: usize) -> Option<Size> {
     if stop.load(Ordering::Relaxed) {

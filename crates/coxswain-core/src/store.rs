@@ -1764,7 +1764,7 @@ pub fn facts(path: &Path) -> Result<Facts, String> {
 /// The folders whose text is kept: the ones in the config, or the home folder.
 pub(crate) fn roots(cfg: &SearchConfig) -> Vec<PathBuf> {
     if cfg.text_roots.is_empty() {
-        std::env::home_dir().into_iter().collect()
+        crate::dirs::home_dir().into_iter().collect()
     } else {
         cfg.text_roots.clone()
     }
@@ -1822,8 +1822,8 @@ pub(crate) fn cache_folder(dir: &Path) -> bool {
     ];
     static AT: std::sync::OnceLock<Vec<PathBuf>> = std::sync::OnceLock::new();
     let at = AT.get_or_init(|| {
-        let home = std::env::home_dir().unwrap_or_default();
-        let mut v: Vec<PathBuf> = [dirs::cache_dir(), dirs::data_dir(), dirs::data_local_dir()]
+        let home = crate::dirs::home_dir().unwrap_or_default();
+        let mut v: Vec<PathBuf> = [crate::dirs::cache_dir(), crate::dirs::data_dir(), crate::dirs::data_local_dir()]
             .into_iter()
             .flatten()
             .collect();
@@ -3313,7 +3313,7 @@ mod tests {
         ] {
             assert_eq!(in_cache(Path::new(path), &roots), cached, "{path}");
         }
-        let cache = dirs::cache_dir().unwrap();
+        let cache = crate::dirs::cache_dir().unwrap();
         assert!(
             in_cache(&cache.join("a.zip"), std::slice::from_ref(&cache)),
             "a folder read that is one"

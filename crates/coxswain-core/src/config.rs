@@ -1800,7 +1800,7 @@ fn delivered(key: &str) -> bool {
 
 impl Config {
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
+        Some(crate::dirs::config_dir()?.join("coxswain").join("config.toml"))
     }
 
     /// config.toml ready to be opened at `[keys]` (Settings → Keys): its path and the line
@@ -1818,8 +1818,8 @@ impl Config {
             ("name index", crate::index::Index::cache_path()),
             ("search store", crate::store::Store::path()),
             ("models", crate::models::folder()),
-            ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
-            ("archive looks", dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
+            ("previews", crate::dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
+            ("archive looks", crate::dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
         ]
     }
 

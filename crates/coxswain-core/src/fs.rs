@@ -928,7 +928,7 @@ pub fn protected(path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+        if let Some(home) = HOME.get_or_init(crate::dirs::home_dir) {
             return protected_in(home, path);
         }
     }
@@ -947,7 +947,7 @@ pub fn protected_for_space(path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+        if let Some(home) = HOME.get_or_init(crate::dirs::home_dir) {
             return protected_for_space_in(home, path);
         }
     }
@@ -1269,7 +1269,7 @@ pub fn percent_decode(bytes: &[u8]) -> Vec<u8> {
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
     let p = match s.strip_prefix('~') {
-        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => std::env::home_dir()
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => crate::dirs::home_dir()
             .unwrap_or_default()
             .join(rest.trim_start_matches(['/', '\\'])),
         _ => PathBuf::from(s),
@@ -1521,7 +1521,7 @@ mod tests {
         }
         assert_eq!(
             protected(Path::new("/Users/me/Library/Containers")),
-            cfg!(target_os = "macos") && std::env::home_dir().as_deref() == Some(home)
+            cfg!(target_os = "macos") && crate::dirs::home_dir().as_deref() == Some(home)
         );
     }
 
@@ -1642,7 +1642,7 @@ mod tests {
         let base = Path::new("/base");
         assert_eq!(resolve(base, " sub/x "), PathBuf::from("/base/sub/x"));
         assert_eq!(resolve(base, "/abs"), PathBuf::from("/abs"));
-        let home = std::env::home_dir().unwrap_or_default();
+        let home = crate::dirs::home_dir().unwrap_or_default();
         assert_eq!(resolve(base, "~"), home);
         assert_eq!(resolve(base, "~/x"), home.join("x"));
         assert_eq!(resolve(base, "~x"), PathBuf::from("/base/~x"));
