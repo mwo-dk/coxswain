@@ -9,7 +9,9 @@ and **Alt+B** the bookmarks and branches, as folders. **Alt+S** switches to a bo
 branch and *New branch here* makes a bookmark, as for git; nothing else is written. Both apps do
 this, through the `hg` program you have installed.
 
-<!-- screenshot: hg-line.png: the desktop app (Cyber) in a Mercurial repository: the pane footer reads hg main with one modified file; the file marked modified -->
+![The desktop app (Cyber) in ~/projects/glider, a Mercurial repository: src marked modified, NOTES.txt unknown, and at the right of the pane's footer the line hg main with one modified and one unknown file](../screenshots/hg-line.png)
+
+![The terminal app in Classic blue: glider on the left with the line hg main and its counts in the panel's bottom border, rocket on the right with its git line](../screenshots/tui-hg-line.png)
 
 ## Contents
 
@@ -33,6 +35,8 @@ this, through the `hg` program you have installed.
    The active bookmark (or, with none active, the working folder's branch) has `*` before it.
    **Enter** on one shows its files.
 
+   ![The desktop app's glider/@branches: * main · Add the wing, stable · Start the glider, default · Add the wing, each with its age](../screenshots/hg-branches.png)
+
 *Git history*, *Git branches*, *Switch to branch* and *New branch here* are in **F9**, in the
 action menu (**Shift+F10**) and in the git line's menu (a right-click on the line in the desktop
 app) for a Mercurial repository too.
@@ -41,14 +45,16 @@ app) for a Mercurial repository too.
 
 | Where | What |
 |---|---|
-| The line (desktop app: the pane footer; terminal app: in the panel's bottom border) | `hg:` in ASCII glyphs (or the branch glyph and `hg` with Nerd Font glyphs), the active bookmark or else the branch, then the counts as on the [git line](git.md#the-git-line): `+` added, `~` modified, `-` removed or missing, `?` unknown, `!` unresolved, `=` when clean; `· merging`, `· rebasing`, `· cherry-picking` (a graft) or `· bisecting` while one is under way |
+| The line (desktop app: the pane footer; terminal app: in the panel's bottom border) | `hg:` in ASCII glyphs (or the branch glyph and `hg` with Nerd Font glyphs), the active bookmark or else the branch, then the counts as on the [git line](git.md#the-git-line): `+` added, `~` modified, `-` removed or missing, `?` unknown, `!` unresolved (during a merge, rebase or graft), `=` when clean; `· merging`, `· rebasing`, `· cherry-picking` (a graft) or `· bisecting` while one is under way |
 | Each entry | The glyph of its change, as for git |
 | **Ctrl+G** | The commits, each named by its short id and the first line of its description |
 | **Alt+B** | The bookmarks and branches, each with the first line of its commit's description |
 
 A file's history goes on past its renames (`hg log --follow`); a folder's is its path as it is.
 There is no upstream, ahead or behind: Mercurial keeps no record of a remote branch to count from.
-The *Last commit* column is git's and does not show in a Mercurial repository.
+The *Last commit* column and Find's [commit search](../search/history.md) are git's: they do not
+cover a Mercurial repository. **F5** out of a commit keeps each file's executable bit and links,
+and gives everything the commit's time.
 
 ## Switching and new bookmarks
 
@@ -67,14 +73,20 @@ make named branches: `hg branch` does.
 Coxswain runs `hg` with `HGRCSKIPREPO=1` and `HGPLAIN=1`: the repository's own `.hg/hgrc` is
 never read, so its hooks and extensions never run, whoever made the repository; your own
 Mercurial config and the system's still hold. Where a repository's own config turns on
-extensions or filters (`[extensions]`, `[encode]`, `[decode]`), a switch could write files
-differently from hg itself, so Coxswain refuses it: *switch with hg itself*.
+extensions or filters (`[extensions]`, `[encode]`, `[decode]`, an `%include`), or the repository
+shares another's store, a switch could write files differently from hg itself, so Coxswain
+refuses it: *switch with hg itself*. A switch never fetches subrepositories
+(`subrepos.allowed=false`).
 
 ## What it needs
 
-The `hg` program on your `PATH`. Without it, a notice says so once and the line stays empty.
-Coxswain does not install Mercurial; your system's package manager does (`mercurial` in most).
-A folder inside a git or Jujutsu repository shows that one first.
+The `hg` program, Mercurial 5.4 or later, on your `PATH`. Without it (or with an older one), a
+notice says so once and the line stays empty; where the `.hg` sits inside a git work tree, git's
+line shows instead. Coxswain does not install Mercurial; your system's package manager does
+(`mercurial` in most). The nearest repository above a folder is the one shown: a `.hg` inside a
+git work tree is shown as Mercurial, and a folder with both `.hg` and `.git` (or `.jj`) as git (or
+Jujutsu). A repository that needs the largefiles or lfs extension, which only its own config
+turns on, shows no line: hg refuses it without that config.
 
 ## In the terminal app
 
@@ -85,8 +97,8 @@ there is no git line to right-click, so use **F9** or **Shift+F10** for the acti
 
 #### Why does a Mercurial repository show no line?
 
-hg is not installed (a notice says so once), or the folder is inside a git or Jujutsu
-repository, which is shown first.
+hg is not installed or older than 5.4 (a notice says so once), the folder has a `.git` or `.jj`
+next to its `.hg` (shown as git or Jujutsu), or the repository needs largefiles or lfs.
 
 #### What does a switch do with my changes?
 
@@ -104,7 +116,7 @@ Bookmarks are what Mercurial users move between, as git users move between branc
 branch is part of every commit made on it and cannot be undone simply; make one with `hg branch`
 when you want it.
 
-#### Why is there no Open in your git tool for Mercurial?
+#### Which tool does Alt+G open in a Mercurial repository?
 
 **Alt+G** opens your tool in the repository too. Git tools such as lazygit do not read
 Mercurial; name a Mercurial tool as a command in *Settings → Behaviour → Git tool* (`%d` is the

@@ -2,7 +2,8 @@
 
 # Git history in search
 
-Find searches the history of your git repositories as well as your files: the message of
+Find searches the history of your git repositories (and of Jujutsu ones with `.git` next to
+`.jj`; not of [Mercurial](../panels/mercurial.md) ones) as well as your files: the message of
 every commit, who wrote it, and the paths it changed. Type `fuel valve` in Find and
 the commit *Fix the fuel valve* is found under *History*, marked as a commit; **Enter** opens the repository as
 it was at that commit. With [search by meaning](meaning.md) on, commits about your words are

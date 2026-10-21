@@ -5,6 +5,7 @@
 //! Mercurial through its `hg` CLI, never with the repository's own `.hg/hgrc` (its hooks and
 //! extensions would run).
 
+use std::collections::HashSet;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -392,17 +393,48 @@ fn hg(dir: &Path) -> Command {
     c.current_dir(dir)
         .env("HGPLAIN", "1")
         .env("HGRCSKIPREPO", "1")
+        .env("HGENCODING", "utf-8")
         .arg("--noninteractive")
         .stdin(Stdio::null());
     c
 }
 
+/// Whether `hg` runs here and is new enough to leave a repository's own config unread
+/// (`HGRCSKIPREPO`, Mercurial 5.4): an older one is as good as missing.
 fn hg_here() -> bool {
-    let here = crate::user_menu::installed("hg");
+    static NEW: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let here = crate::user_menu::installed("hg")
+        && *NEW.get_or_init(|| {
+            let out = crate::tools::command("hg")
+                .args(["--version", "--quiet"])
+                .current_dir(std::env::temp_dir())
+                .env("HGPLAIN", "1")
+                .stdin(Stdio::null())
+                .output();
+            let text = out.map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+            hg_new_enough(&text)
+        });
     if !here {
         HG_MISSING.store(true, Ordering::Relaxed);
     }
     here
+}
+
+/// `hg --version --quiet` (`Mercurial Distributed SCM (version 6.7.2)`) names 5.4 or later.
+fn hg_new_enough(text: &str) -> bool {
+    let v = text.split("version ").nth(1).unwrap_or_default();
+    let mut n = v.split(|c: char| !c.is_ascii_digit()).filter_map(|x| x.parse::<u32>().ok());
+    (n.next().unwrap_or(0), n.next().unwrap_or(0)) >= (5, 4)
+}
+
+/// A commit by its id or the start of it: `id()`, so a prefix of digits is never taken for a
+/// local revision number.
+fn hg_rev(rev: &str) -> String {
+    if rev.bytes().all(|b| b.is_ascii_hexdigit()) {
+        format!("id({rev})")
+    } else {
+        rev.to_string()
+    }
 }
 
 /// A Mercurial pattern for exactly the path `rel` (from the root): `path:` takes no globs.
@@ -501,7 +533,11 @@ fn hg_operation(dot: &Path) -> Option<&'static str> {
 /// config, so it leaves writing files to hg itself.
 fn hg_writes_files_safely(root: &Path) -> io::Result<()> {
     let cfg = std::fs::read_to_string(root.join(".hg/hgrc")).unwrap_or_default();
-    let own = cfg.lines().any(|l| {
+    let requires = std::fs::read_to_string(root.join(".hg/requires")).unwrap_or_default();
+    let own = cfg.lines().any(|l| l.trim_start().starts_with("%include"))
+        || requires.lines().any(|l| matches!(l.trim(), "largefiles" | "lfs"))
+        || root.join(".hg/sharedpath").exists()
+        || cfg.lines().any(|l| {
         matches!(
             l.trim().trim_start_matches('[').trim_end_matches(']'),
             "extensions" | "encode" | "decode"
@@ -522,7 +558,8 @@ impl Vcs for Hg {
     fn status(&self, dir: &Path) -> Option<Status> {
         let root = hg_root(dir)?;
         if !hg_here() {
-            return None;
+            // A `.hg` inside a git work tree (a fixture, a vendored copy): git's line, as before.
+            return Status::read_git(dir);
         }
         let out = crate::history::run({
             let mut c = hg(&root);
@@ -547,7 +584,7 @@ impl Vcs for Hg {
             (true, true) => "default".into(),
         };
         s.operation = hg_operation(&dot);
-        if s.operation == Some("merge") {
+        if dot.join("merge/state2").exists() {
             let unresolved = crate::history::run({
                 let mut c = hg(&root);
                 c.args(["resolve", "--list"]);
@@ -556,6 +593,10 @@ impl Vcs for Hg {
             .unwrap_or_default();
             for line in String::from_utf8_lossy(&unresolved).lines() {
                 if let Some(path) = line.strip_prefix("U ") {
+                    // `hg status` said `M` for it: a conflict only.
+                    if st.files.get(&root.join(path)).is_some_and(|f| f.kind == Kind::Modified) {
+                        st.summary.modified = st.summary.modified.saturating_sub(1);
+                    }
                     mark(&mut st, &root, path, Kind::Conflict, false);
                 }
             }
@@ -565,15 +606,17 @@ impl Vcs for Hg {
 
     fn log(&self, base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
         if !hg_here() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, crate::t!("notice.hg_missing")));
+            return Git.log(base, spec, max);
         }
-        let mut c = hg(base);
+        let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
+        let rel = from_root(&root, base, if spec == "." { "" } else { spec });
+        let mut c = hg(&root);
         c.args(["log", "-T", HG_LOG, "-l", &(max + 1).to_string()]);
         // A file's history goes on past its renames; a folder's is its path as it is.
         if base.join(spec).is_file() {
-            c.args(["--follow", "--", spec]);
+            c.args(["--follow", "--", &hg_path(&rel)]);
         } else {
-            c.args(["-r", "reverse(::.)", "--", spec]);
+            c.args(["-r", "reverse(::.)", "--", &hg_path(&rel)]);
         }
         let mut out = vec![];
         let cut = crate::history::records(c, 0, |rec| {
@@ -587,7 +630,7 @@ impl Vcs for Hg {
 
     fn branches(&self, dir: &Path) -> io::Result<Vec<Branch>> {
         if !hg_here() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, crate::t!("notice.hg_missing")));
+            return Git.branches(dir);
         }
         let root = hg_root(dir).unwrap_or_else(|| dir.to_path_buf());
         let tail = r"\x1f{node}\x1f{date|hgdate}\x1f{author|person}\x1f{desc|firstline}\n";
@@ -625,7 +668,8 @@ impl Vcs for Hg {
         // `--check`: refused while anything is changed, never merged into or thrown away. By
         // its name: a bookmark becomes the active one, a named branch goes to its head.
         let mut c = hg(&root);
-        c.args(["update", "--check", "-r", &b.name]);
+        // Never a subrepository fetched from wherever `.hgsub` names.
+        c.args(["--config", "subrepos.allowed=false", "update", "--check", "-r", &b.name]);
         said(c)?;
         Ok(crate::t!("vcs.hg_switched", "name" => b.name))
     }
@@ -643,7 +687,8 @@ impl Vcs for Hg {
                 crate::t!("vcs.hg_bad_name", "name" => name),
             ));
         }
-        if let Some(from) = from.filter(|e| *e != "..") {
+        let in_list = crate::history::split(dir).is_some_and(|at| at.view == crate::history::View::Branches && at.commit.is_none());
+        if let Some(from) = from.filter(|e| *e != ".." && in_list) {
             self.switch(dir, from)?;
         }
         let mut c = hg(&root);
@@ -654,7 +699,7 @@ impl Vcs for Hg {
 
     fn show(&self, base: &Path, rev: &str) -> io::Result<Commit> {
         let mut c = hg(base);
-        c.args(["log", "-r", rev, "-T", HG_LOG]);
+        c.args(["log", "-r", &hg_rev(rev), "-T", HG_LOG]);
         hg_commit(crate::history::run(c)?.split(|&b| b == 0).next().unwrap_or_default())
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("no commit {rev}")))
     }
@@ -663,7 +708,7 @@ impl Vcs for Hg {
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let rel = from_root(&root, base, inner);
         let mut c = hg(&root);
-        c.args(["files", "-r", rev, "-T", r"{size}\x1f{flags}\x1f{path}\0", "--", &hg_path(&rel)]);
+        c.args(["files", "-r", &hg_rev(rev), "-T", r"{size}\x1f{flags}\x1f{path}\0", "--", &hg_path(&rel)]);
         let prefix = if rel.is_empty() { String::new() } else { format!("{rel}/") };
         let mut out: Vec<(String, &'static str, u64)> = vec![];
         let mut dirs = std::collections::BTreeSet::new();
@@ -696,81 +741,99 @@ impl Vcs for Hg {
     fn read(&self, base: &Path, rev: &str, inner: &str, max: usize) -> io::Result<(Vec<u8>, bool)> {
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let mut c = hg(&root);
-        c.args(["cat", "-r", rev, "--", &hg_path(&from_root(&root, base, inner))]);
+        c.args(["cat", "-r", &hg_rev(rev), "--", &hg_path(&from_root(&root, base, inner))]);
         crate::history::read_out(c, max)
     }
 
     fn diff(&self, base: &Path, rev: &str, inner: &str) -> io::Result<Vec<u8>> {
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let mut c = hg(&root);
-        c.args(["diff", "--git", "-c", rev, "--", &hg_path(&from_root(&root, base, inner))]);
+        c.args(["diff", "--git", "-c", &hg_rev(rev), "--", &hg_path(&from_root(&root, base, inner))]);
         crate::history::run(c)
     }
 
     fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
         let root = hg_root(&at.base).ok_or_else(|| io::Error::other("no repository"))?;
         let rel = from_root(&root, &at.base, &at.inner);
-        // Into a folder of its own next to `to` (one file system: a rename moves it), then
-        // what was asked for moved to `to`.
-        let parent = to.parent().ok_or_else(|| io::Error::other("no folder"))?;
-        let tmp = parent.join(format!(".coxswain-copy-{}", std::process::id()));
-        std::fs::create_dir(&tmp)?;
-        let r = (|| {
-            let mut c = hg(&root);
-            c.arg("cat")
-                .arg("-r")
-                .arg(rev)
-                .arg("-o")
-                .arg(tmp.join("%p"))
-                .args(["--", &hg_path(&rel)]);
-            crate::history::run(c)?;
-            let got = tmp.join(&rel);
-            if std::fs::symlink_metadata(&got).is_err() {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    crate::t!("history.not_in_commit", "path" => if at.inner.is_empty() { "." } else { &at.inner }, "rev" => rev),
-                ));
-            }
-            // Never a repository made where the copy lands, whatever the commit holds.
-            remove_repos(&got)?;
-            let when = crate::fs::epoch(self.show(&at.base, rev)?.time);
-            set_times(&got, when);
-            std::fs::rename(&got, to)
-        })();
-        let _ = std::fs::remove_dir_all(&tmp);
-        r
-    }
-}
-
-/// `.git`, `.hg` and `.jj` folders below `p` removed.
-fn remove_repos(p: &Path) -> io::Result<()> {
-    if !p.is_dir() {
-        return Ok(());
-    }
-    for e in std::fs::read_dir(p)? {
-        let e = e?;
-        let name = e.file_name().to_string_lossy().to_lowercase();
-        if matches!(name.trim_end_matches(['.', ' ']), ".git" | ".hg" | ".jj" | "git~1") {
-            if e.file_type()?.is_dir() {
-                std::fs::remove_dir_all(e.path())?;
+        let rev = hg_rev(rev);
+        let mut c = hg(&root);
+        c.args(["files", "-r", &rev, "-T", r"{flags}\x1f{path}\0", "--", &hg_path(&rel)]);
+        let listed = crate::history::run(c)?;
+        let mut files = vec![];
+        for rec in listed.split(|&b| b == 0) {
+            let rec = String::from_utf8_lossy(rec);
+            let Some((flags, path)) = rec.split_once('\x1f') else { continue };
+            let rest = if path == rel {
+                ""
+            } else if rel.is_empty() {
+                path
             } else {
-                std::fs::remove_file(e.path())?;
+                match path.strip_prefix(&format!("{rel}/")) {
+                    Some(r) => r,
+                    None => continue,
+                }
+            };
+            // Never outside `to`, and never a repository made there, whatever the commit holds
+            // (as `git_write_tree` refuses them).
+            let normal = Path::new(rest).components().all(|c| matches!(c, std::path::Component::Normal(_)));
+            let repo = |s: &str| {
+                let s = s.trim_end_matches(['.', ' ']).to_ascii_lowercase();
+                matches!(s.as_str(), ".git" | ".hg" | ".jj" | "git~1")
+            };
+            if !normal || rest.contains('\\') || rest.split('/').any(|s| matches!(s, "." | "..") || repo(s)) {
+                continue;
             }
-        } else if e.file_type()?.is_dir() {
-            remove_repos(&e.path())?;
+            files.push((flags.to_string(), path.to_string(), if rest.is_empty() { to.to_path_buf() } else { to.join(rest) }));
         }
-    }
-    Ok(())
-}
-
-/// The commit's time on `p` and everything below it, folders last.
-fn set_times(p: &Path, when: std::time::SystemTime) {
-    if p.is_dir() {
-        for e in std::fs::read_dir(p).into_iter().flatten().flatten() {
-            set_times(&e.path(), when);
+        if files.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                crate::t!("history.not_in_commit", "path" => if at.inner.is_empty() { "." } else { &at.inner }, "rev" => &rev),
+            ));
         }
+        let when = crate::fs::epoch(self.show(&at.base, &rev)?.time);
+        let mut links = vec![];
+        for (flags, path, dst) in &files {
+            if let Some(dir) = dst.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let mut c = hg(&root);
+            c.args(["cat", "-r", &rev, "--", &hg_path(path)]);
+            let bytes = crate::history::run(c)?;
+            if flags.contains('l') {
+                // Links last: a file listed after one must not be written through it.
+                links.push((String::from_utf8_lossy(&bytes).into_owned(), dst));
+                continue;
+            }
+            let mut f = std::fs::File::create_new(dst)?;
+            io::Write::write_all(&mut f, &bytes)?;
+            let _ = f.set_modified(when);
+            #[cfg(unix)]
+            if flags.contains('x') {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(dst, std::fs::Permissions::from_mode(0o755))?;
+            }
+        }
+        for (target, dst) in links {
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(&target, dst)?;
+            #[cfg(not(unix))]
+            std::fs::write(dst, &target)?;
+        }
+        // Folders last: writing into one sets its time to now.
+        let dirs: HashSet<&Path> = files
+            .iter()
+            .flat_map(|(_, _, dst)| dst.ancestors().skip(1).take_while(|d| d.starts_with(to)))
+            .collect();
+        for dir in dirs {
+            let mut o = std::fs::OpenOptions::new();
+            o.read(true);
+            #[cfg(windows)]
+            std::os::windows::fs::OpenOptionsExt::custom_flags(o.write(true), 0x0200_0000); // FILE_FLAG_BACKUP_SEMANTICS: a folder
+            let _ = o.open(dir).and_then(|f| f.set_modified(when));
+        }
+        Ok(())
     }
-    let _ = std::fs::File::open(p).and_then(|f| f.set_modified(when));
 }
 
 /// hg's message, or its complaint as the error.
@@ -955,6 +1018,9 @@ mod tests {
         assert_eq!(names, ["main", "default", "stable"]);
         assert!(b[0].current && !b[1].current && !b[2].current);
         assert_eq!(b[2].time, 18);
+        assert!(hg_new_enough("Mercurial Distributed SCM (version 6.7.2)\n"));
+        assert!(!hg_new_enough("Mercurial Distributed SCM (version 5.3)\n") && !hg_new_enough(""));
+        assert_eq!((hg_rev("012345678901"), hg_rev("main")), ("id(012345678901)".into(), "main".into()));
     }
 
     /// A Mercurial repository made with the hg CLI and a fake home: the line, the history, a
