@@ -7,8 +7,8 @@ podman or docker: the TeX Live image builds any LaTeX document, Typst's builds T
 LibreOffice turns office files and clip art into PDFs, Kroki's draws D2, ditaa and ten more
 diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText, OCRmyPDF's
 makes scanned PDFs searchable and has the Ghostscript that shows PostScript, ffmpeg's shows and
-converts video and sound and HEIC photos, and ImageMagick's shows GIMP pictures and converts and
-edits photos. A container gets no network and sees your files read-only. Nothing is downloaded
+converts video and sound and HEIC photos, ImageMagick's shows GIMP pictures and converts and
+edits photos, and GDAL's draws and converts geodata. A container gets no network and sees your files read-only. Nothing is downloaded
 until you click.
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
@@ -65,6 +65,7 @@ a little larger or smaller.
 | `docker.io/jbarlow83/ocrmypdf-alpine:latest` (default for OCRmyPDF and for Ghostscript) | [Make PDF searchable](../files/searchable-pdf.md), and PostScript (`.ps`, `.eps`) shown as a PDF with its Ghostscript ([PostScript and XPS](documents.md#postscript-and-xps)): one pull for both | about 310 MB | about 850 MB | OCR: about a second of processor time per page, only when you ask; PostScript: under a second |
 | `docker.io/mwader/static-ffmpeg:latest` (default for ffmpeg) | Videos and sound the app's player cannot play shown as a frame or a waveform, HEIC photos, a frame as each video's thumbnail and poster, a waveform above each song's player, the facts of videos (length, size, codecs, tracks) ([Media](media.md#video-and-sound-with-ffmpeg)), and [Convert video or audio](../files/convert-media.md) | about 126 MB | about 315 MB | Previews: well under a second each. An MP4 keeps the processor busy for a while, often about as long as the video plays; only when you ask |
 | `docker.io/dstmodders/imagemagick:latest` (default for ImageMagick) | GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md); no HEIC or RAW photos (its build has no reader for them) | about 60 MB | about 152 MB | Light: a second or two per picture |
+| `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (default for GDAL, pinned to its digest) | A map of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files from their own shapes, with thumbnails, their layers, coordinate system and extent ([Geodata](geodata.md)), and Convert geodata | about 40 MB | about 98 MB | Light: under a second per file for most; a large GeoPackage or GeoTIFF takes a few seconds |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -77,6 +78,7 @@ Where each image comes from, and why it is the one:
 | `jbarlow83/ocrmypdf-alpine:latest` | OCRmyPDF's author, with each release | OCRmyPDF MPL-2.0, Tesseract Apache-2.0, Ghostscript AGPL-3.0 | With every OCRmyPDF release (weekly in 2026) |
 | `ghcr.io/typst/typst:latest` | The Typst project | Apache-2.0 | With every Typst release |
 | `mwader/static-ffmpeg:latest` | Mattias Wadman's static builds of ffmpeg and ffprobe, the most used of their kind; Coxswain runs `/ffmpeg` and `/ffprobe` in it | ffmpeg GPL-2.0-or-later (with x264 and the other libraries built in), the build scripts MIT | With every ffmpeg release, and when a library in it changes (a new build every few days in 2026) |
+| `osgeo/gdal:alpine-small-3.13.3` | The GDAL project's own images, built with each release; the small Alpine one has the drivers Coxswain uses and PROJ. Pinned to its digest: a Coxswain release moves it on | GDAL MIT, PROJ MIT, the libraries in it theirs (SQLite public domain, libtiff, libgeotiff, expat …) | With every GDAL release (every few weeks in 2026) |
 | `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
@@ -96,13 +98,13 @@ Every run is `podman run` (or `docker run`) with:
 |---|---|
 | `--rm` | The container is removed when it ends |
 | `--network=none` | No network: a document cannot fetch or send anything |
-| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found. ffmpeg and ImageMagick get the one file only (`--mount type=bind,source=<file>,target=/src/in.<ending>,readonly`) |
+| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found. ffmpeg and ImageMagick get the one file only (`--mount type=bind,source=<file>,target=/src/in.<ending>,readonly`); GDAL too, as `/src/<name>` (a name with other signs than letters, digits, `.`, `_` and `-` made plain, with an `f` before it), but a shapefile's whole folder, since a shapefile is several files side by side |
 | `--mount type=bind,source=<cache>,target=/out` | A fresh folder in the preview cache, the only place it can write; for the conversions a fresh folder under `~/.cache/coxswain/media/`; ffprobe's run has none |
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
 | `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
-| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's and ImageMagick's runs) |
-| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg and ImageMagick) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
+| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's, ImageMagick's and GDAL's runs) |
+| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg, ImageMagick and GDAL) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
 `typst compile --root /src` for Typst, `soffice -env:UserInstallation=file:///tmp/lo --headless --convert-to pdf --outdir /out`
@@ -114,12 +116,13 @@ PlantUML and pandoc images' own entry points reading the file on standard input 
 `duckdb -readonly -json` for DuckDB, `/ffmpeg` and `/ffprobe` with `-protocol_whitelist file`
 and `-format_whitelist` (real media formats only) for ffmpeg, and `magick` under Coxswain's
 policy (`MAGICK_CONFIGURE_PATH`: no helper programs, picture formats only, bounded memory and
-time) for ImageMagick. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
+time) for ImageMagick, and `gdalinfo`, `ogrinfo`, `ogr2ogr` and `gdal_translate` for GDAL, each
+held to the driver of the file's kind (`-if GPKG`, `-if GTiff` …) with `GDAL_PAM_ENABLED=NO`. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
 `-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
 
 A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
-searchable, Convert video or audio and Convert or edit pictures have none: **Stop** ends them. Pulling
+searchable, Convert video or audio, Convert or edit pictures and Convert geodata have none: **Stop** ends them. Pulling
 the image is not counted.
 
 ## Pulling and removing images
@@ -208,6 +211,7 @@ default.
 | – | `[preview.images] gxps` | `""` (none) |
 | – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"` |
 | – | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"` |
+| – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
@@ -219,18 +223,19 @@ LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH`
 `--entrypoint`), `ocrmypdf` as the entry point for OCRmyPDF, Kroki's program names (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
 `PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
-and `magick` on its `PATH` for ImageMagick.
+`magick` on its `PATH` for ImageMagick, and GDAL's programs on its `PATH` for GDAL.
 
 ## In the terminal app
 
 The terminal app makes no previews, so it starts no preview containers. The containers it
 runs are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
-ffmpeg's and ImageMagick's, for [Convert video or audio](../files/convert-media.md) and
-[Convert or edit pictures](../files/edit-pictures.md), the same way as the desktop app: asked
+ffmpeg's, ImageMagick's and GDAL's, for [Convert video or audio](../files/convert-media.md),
+[Convert or edit pictures](../files/edit-pictures.md) and [Convert geodata](geodata.md#convert-geodata), the same way as the desktop app: asked
 first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a video's facts
-with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it. Its
+with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
+geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`prefer_tool` and the OCRmyPDF, ffmpeg and ImageMagick images. Its **F12** → *Previews* still
+`prefer_tool` and the OCRmyPDF, ffmpeg, ImageMagick and GDAL images. Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
@@ -332,6 +337,14 @@ follows every ImageMagick release but is built without it, and without LibRaw fo
 So HEIC photos are shown by ffmpeg (installed or its image), and RAW photos by an installed
 ImageMagick with LibRaw; [Convert or edit pictures](../files/edit-pictures.md) hands both to an
 installed ImageMagick when there is one.
+
+#### Why is GDAL's image pinned to one version?
+
+GDAL's images are its own, made by the GDAL project with each release; the small Alpine one is
+about 40 MB and has every driver the [geodata](geodata.md) previews use. Coxswain names it by
+its digest, so the maps and conversions stay the same until a Coxswain release moves it on,
+after it has been tried. *Keep images up to date* leaves a pinned image as it is; set
+`[preview.images] gdal = "ghcr.io/osgeo/gdal:alpine-small-latest"` to follow GDAL's newest.
 
 #### Why is ImageMagick's container used before an installed ImageMagick?
 

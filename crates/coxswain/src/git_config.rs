@@ -13,7 +13,7 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use unicode_width::UnicodeWidthStr;
+use crate::ui::Cols;
 
 use crate::bom::faint;
 use crate::ui::{fit, fit_left, sty};

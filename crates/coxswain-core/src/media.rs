@@ -102,19 +102,68 @@ pub fn endings() -> std::collections::BTreeMap<&'static str, Vec<&'static str>> 
 pub enum Program {
     Ffmpeg,
     Magick,
+    /// GDAL, for geodata (`geo`).
+    Gdal,
 }
 
 impl Program {
-    fn tool(self) -> &'static str {
+    /// The programs whose work the actions offer, in the desktop app's order of `media_ops`.
+    pub const ALL: [Program; 3] = [Program::Ffmpeg, Program::Magick, Program::Gdal];
+
+    /// The action that runs it on files, and its feature in F1.
+    pub fn action(self) -> crate::config::Action {
+        use crate::config::Action;
+        match self {
+            Program::Ffmpeg => Action::ConvertMedia,
+            Program::Magick => Action::EditPictures,
+            Program::Gdal => Action::ConvertGeodata,
+        }
+    }
+    pub fn feature(self) -> &'static str {
+        match self {
+            Program::Ffmpeg => "convert_media",
+            Program::Magick => "edit_pictures",
+            Program::Gdal => "geodata",
+        }
+    }
+    /// The status line when none of the files is one it takes.
+    pub fn none(self) -> String {
+        t!(match self {
+            Program::Ffmpeg => "media.none_media",
+            Program::Magick => "media.none_pictures",
+            Program::Gdal => "geo.none",
+        })
+    }
+
+    /// Its image's name under `[preview.images]`.
+    pub fn tool(self) -> &'static str {
         match self {
             Program::Ffmpeg => FFMPEG,
             Program::Magick => MAGICK,
+            Program::Gdal => crate::geo::GDAL,
         }
     }
+    /// What is looked for on the PATH: GDAL's programs are installed together.
     fn local(self) -> &'static str {
         match self {
             Program::Ffmpeg => "ffmpeg",
             Program::Magick => "magick",
+            Program::Gdal => "gdalinfo",
+        }
+    }
+    fn name(self) -> &'static str {
+        match self {
+            Program::Ffmpeg => "ffmpeg",
+            Program::Magick => "ImageMagick",
+            Program::Gdal => "GDAL",
+        }
+    }
+    /// The texts of `missing`: what to get it from, and what needs it.
+    fn needs(self) -> (&'static str, &'static str) {
+        match self {
+            Program::Ffmpeg => ("media.install_ffmpeg", "media.needs_ffmpeg"),
+            Program::Magick => ("media.install_magick", "media.needs_magick"),
+            Program::Gdal => ("geo.install_gdal", "geo.needs_gdal"),
         }
     }
 }
@@ -158,7 +207,7 @@ pub fn how(cfg: &PreviewConfig, program: Program) -> Result<How, String> {
 fn missing(cfg: &PreviewConfig, pref: &str, program: Program, image: bool) -> String {
     let install = match crate::tools::install(program.local()) {
         Some(line) => t!("searchable.install_line", "line" => line),
-        None => t!(if program == Program::Ffmpeg { "media.install_ffmpeg" } else { "media.install_magick" }),
+        None => t!(program.needs().0),
     };
     let container = if pref == "local" {
         t!("searchable.prefer_local")
@@ -169,24 +218,25 @@ fn missing(cfg: &PreviewConfig, pref: &str, program: Program, image: bool) -> St
     } else {
         crate::tools::no_runtime()
     };
-    let needs = if program == Program::Ffmpeg { "media.needs_ffmpeg" } else { "media.needs_magick" };
-    format!("{} {install} {container}", t!(needs))
+    format!("{} {install} {container}", t!(program.needs().1))
 }
 
 /// What a run does, for the question before it: which program, and the first pull with its
 /// size when the image is not there yet. The bool: a pull it makes.
 pub fn about(how: &How) -> (String, bool) {
-    let name = if how.program() == Program::Ffmpeg { "ffmpeg" } else { "ImageMagick" };
+    let name = how.program().name();
     match how {
         How::Local { .. } => (t!("media.runs_local", "program" => name), false),
         How::Container { rt, path, image, .. } => {
-            let runs = t!("media.runs_container", "program" => name, "runtime" => *rt, "image" => image.as_str());
+            // GDAL sees the file's folder (a shapefile is several files), the others the file alone.
+            let key = if how.program() == Program::Gdal { "geo.runs_container" } else { "media.runs_container" };
+            let runs = t!(key, "program" => name, "runtime" => *rt, "image" => crate::images::short(image));
             if crate::tools::image_size(path, image).is_some() {
                 return (runs, false);
             }
             let pull = match crate::images::download(image) {
-                Some(size) => t!("convert.first_run_pulls_large", "image" => image.as_str(), "size" => size),
-                None => t!("convert.first_run_pulls", "image" => image.as_str()),
+                Some(size) => t!("convert.first_run_pulls_large", "image" => crate::images::short(image), "size" => size),
+                None => t!("convert.first_run_pulls", "image" => crate::images::short(image)),
             };
             (format!("{runs} {pull}."), true)
         }
@@ -220,6 +270,9 @@ pub enum Op {
     NoLocation,
     /// Turned clockwise by 90, 180 or 270 degrees.
     Rotate(u16),
+    /// GDAL: the preview's map, and *Convert geodata*.
+    Map,
+    Geo(crate::geo::To),
 }
 
 impl Op {
@@ -227,6 +280,7 @@ impl Op {
     pub fn program(&self) -> Program {
         match self {
             Op::Frame | Op::Waveform | Op::Mp4 | Op::Mp3 | Op::Flac | Op::Audio | Op::Clip { .. } => Program::Ffmpeg,
+            Op::Map | Op::Geo(_) => Program::Gdal,
             _ => Program::Magick,
         }
     }
@@ -236,6 +290,7 @@ impl Op {
         match program {
             Program::Ffmpeg => vec![Op::Mp4, Op::Mp3, Op::Flac, Op::Audio, Op::Clip { start: 0, length: 30 }],
             Program::Magick => vec![Op::Jpeg, Op::Png, Op::Webp, Op::Resize(1600), Op::NoLocation, Op::Rotate(90), Op::Rotate(270), Op::Rotate(180)],
+            Program::Gdal => crate::geo::To::ALL.map(Op::Geo).to_vec(),
         }
     }
 
@@ -243,6 +298,7 @@ impl Op {
     pub fn label(&self) -> String {
         match self {
             Op::Rotate(d) => t!("media.op.rotate", "degrees" => d),
+            Op::Geo(to) => crate::i18n::tr(&format!("geo.to.{}", to.id()), &[]),
             _ => crate::i18n::tr(&format!("media.op.{}", self.id().split(':').next().unwrap_or_default()), &[]),
         }
     }
@@ -264,6 +320,8 @@ impl Op {
             Op::Resize(n) => format!("resize:{n}"),
             Op::NoLocation => "no_location".into(),
             Op::Rotate(d) => format!("rotate:{d}"),
+            Op::Map => "map".into(),
+            Op::Geo(to) => format!("geo:{}", to.id()),
         }
     }
 
@@ -286,6 +344,7 @@ impl Op {
             "resize" => Op::Resize(p.next()?.parse().ok().filter(|n| (16..=32768).contains(n))?),
             "no_location" => Op::NoLocation,
             "rotate" => Op::Rotate(p.next()?.parse().ok().filter(|d| [90, 180, 270].contains(d))?),
+            "geo" => Op::Geo(crate::geo::To::parse(p.next()?)?),
             _ => return None,
         };
         p.next().is_none().then_some(op)
@@ -296,6 +355,10 @@ impl Op {
         match self.program() {
             Program::Ffmpeg => is_media(path),
             Program::Magick => is_picture(path),
+            Program::Gdal => match self {
+                Op::Geo(to) => to.takes(path),
+                _ => crate::geo::is_geo(path),
+            },
         }
     }
 
@@ -318,6 +381,8 @@ impl Op {
         let keep = || if WRITES.contains(&own.as_str()) { own.clone() } else if among(path, &[HEIF, RAW, &["jpg", "jpeg"]]) { "jpg".into() } else { "png".into() };
         match self {
             Op::Frame | Op::Waveform | Op::Picture | Op::Png => "png".into(),
+            Op::Map => "svg".into(),
+            Op::Geo(to) => to.result_ending().into(),
             Op::Mp4 => "mp4".into(),
             Op::Mp3 => "mp3".into(),
             Op::Flac => "flac".into(),
@@ -442,6 +507,8 @@ fn args(program: Program, op: &Op, input: &str, output: &str, src: &Path) -> Vec
             a.push(output.into());
             a
         }
+        // GDAL's runs are `geo`'s.
+        Program::Gdal => vec![],
     }
 }
 
@@ -482,78 +549,54 @@ pub enum Said<'a> {
 
 static N: AtomicUsize = AtomicUsize::new(0);
 
-/// Make `op` of `path` into `scratch` with `how`: the file it wrote there. Stopped by `stop`;
-/// past `timeout` (previews), killed. `seconds`: the file's length, for ffmpeg's percent.
-#[allow(clippy::too_many_arguments)]
-fn make(
-    how: &How,
-    op: &Op,
-    path: &Path,
-    scratch: &Path,
-    ext: &str,
-    seconds: Option<f64>,
+/// A name of its own for a container, so a run that is stopped can be killed.
+fn container_name() -> String {
+    format!("coxswain-media-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed))
+}
+
+/// The image of a container `how`, pulled when it is not there yet; `stop` ends the pull.
+fn pulled(how: &How, stop: &AtomicBool, said: &mut dyn FnMut(Said)) -> Result<(), String> {
+    let How::Container { path: rt_path, image, .. } = how else { return Ok(()) };
+    if crate::tools::image_size(rt_path, image).is_some() {
+        return Ok(());
+    }
+    // Stop ends the pull too: it runs on a scoped thread that watches `stop`.
+    std::thread::scope(|scope| {
+        let puller = scope.spawn(|| crate::images::pull_until(rt_path, image, stop));
+        while !puller.is_finished() {
+            if let Some(line) = crate::images::pulling().get(image.as_str()) {
+                said(Said::Pulling(line));
+            }
+            std::thread::sleep(Duration::from_millis(300));
+        }
+        puller.join().map_err(|_| t!("convert.failed", "status" => "pull"))?
+    })
+}
+
+/// Run `c`, a container named `kill` when it is one: what it writes on its standard error goes
+/// to `said` as it comes (ffmpeg's `-progress` lines as a percent of `seconds`), and its
+/// standard output is kept, at most `keep` bytes. Stopped by `stop`; past `timeout`, killed.
+/// When it fails, the last lines it wrote say why.
+fn watch(
+    c: std::process::Command,
+    kill: Option<(PathBuf, String)>,
     stop: &AtomicBool,
     timeout: Option<Duration>,
+    seconds: Option<f64>,
     said: &mut dyn FnMut(Said),
-) -> Result<PathBuf, String> {
-    let name = inner_name(path);
-    let out_name = format!("out.{ext}");
-    let out = scratch.join(&out_name);
-    let mut kill = None;
-    let c = match how {
-        How::Local { program: Program::Ffmpeg, path: program } => {
-            let mut c = crate::tools::low(program);
-            let input = format!("file:{}", std::path::absolute(path).map_err(|e| e.to_string())?.display());
-            c.args(args(Program::Ffmpeg, op, &input, &format!("file:{}", out.display()), path));
-            c
-        }
-        How::Local { program: Program::Magick, path: program } => {
-            // A link to the file (a copy where none can be made) named `in.<ending>`.
-            let linked = scratch.join(&name);
-            if std::fs::hard_link(path, &linked).is_err() {
-                std::fs::copy(path, &linked).map_err(|e| format!("{}: {e}", path.display()))?;
-            }
-            let mut c = crate::tools::low(program);
-            c.current_dir(scratch).env("MAGICK_CONFIGURE_PATH", policy_dir()?);
-            c.args(args(Program::Magick, op, &name, &out_name, path));
-            c
-        }
-        How::Container { program, rt, path: rt_path, image } => {
-            if crate::tools::image_size(rt_path, image).is_none() {
-                // Stop ends the pull too: it runs on a scoped thread that watches `stop`.
-                std::thread::scope(|scope| {
-                    let puller = scope.spawn(|| crate::images::pull_until(rt_path, image, stop));
-                    while !puller.is_finished() {
-                        if let Some(line) = crate::images::pulling().get(image.as_str()) {
-                            said(Said::Pulling(line));
-                        }
-                        std::thread::sleep(Duration::from_millis(300));
-                    }
-                    puller.join().map_err(|_| t!("convert.failed", "status" => "pull"))?
-                })?;
-            }
-            let container = format!("coxswain-media-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
-            let at = format!("/src/{name}");
-            let mut c = crate::images::sealed_file(rt, rt_path, &container, path, &at, Some(scratch));
-            match program {
-                Program::Ffmpeg => {
-                    c.args(["--entrypoint", "/ffmpeg", image.as_str()]);
-                    c.args(args(Program::Ffmpeg, op, &format!("file:{at}"), &format!("file:/out/{out_name}"), path));
-                }
-                Program::Magick => {
-                    // The same policy as for an installed one, read-only beside the file.
-                    c.arg("--mount").arg(crate::images::bind(&policy_dir()?, "/policy", true));
-                    c.args(["-e", "MAGICK_CONFIGURE_PATH=/policy", "-w", "/out", "--entrypoint", "magick", image.as_str()]);
-                    c.args(args(Program::Magick, op, &at, &format!("/out/{out_name}"), path));
-                }
-            }
-            kill = Some((rt_path.clone(), container));
-            c
-        }
-    };
+    keep: u64,
+) -> Result<Vec<u8>, String> {
     let mut c = crate::tools::hosted(c);
-    let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let mut child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let lines = crate::searchable::follow(&mut child);
+    let mut so = child.stdout.take().ok_or("stdout")?;
+    let reader = std::thread::spawn(move || {
+        let mut b = vec![];
+        let _ = std::io::Read::read_to_end(&mut std::io::Read::take(&mut so, keep), &mut b);
+        // What is past `keep` is read and dropped, so the program is never held up writing it.
+        let _ = std::io::copy(&mut so, &mut std::io::sink());
+        b
+    });
     let (mut last, start) = (Vec::<String>::new(), Instant::now());
     let note = |l: String, said: &mut dyn FnMut(Said), last: &mut Vec<String>| {
         // ffmpeg's `-progress` lines are `key=value`; the rest is what it has to say.
@@ -590,24 +633,185 @@ fn make(
     while let Ok(l) = lines.try_recv() {
         note(l, said, &mut last);
     }
-    if !status.success() || !out.is_file() {
-        let tail = last.iter().rev().take(6).rev().cloned().collect::<Vec<_>>().join("\n");
-        return Err(if tail.contains("NoDecodeDelegate") || tail.contains("no decode delegate") {
-            format!("{}\n{tail}", t!("media.cannot_read", "ending" => ending(path)))
-        } else if tail.is_empty() {
-            t!("convert.failed", "status" => status)
-        } else {
-            tail
-        });
+    let out = reader.join().unwrap_or_default();
+    if status.success() {
+        return Ok(out);
     }
-    Ok(out)
+    let tail = last.iter().rev().take(6).rev().cloned().collect::<Vec<_>>().join("\n");
+    Err(if tail.is_empty() { t!("convert.failed", "status" => status) } else { tail })
 }
 
-/// A preview of `path` (`Op::Frame`, `Waveform` or `Picture`) made with `how` into `file`, a
-/// PNG, within `timeout`.
+/// Make `op` of `path` into `scratch` with `how`: the file it wrote there. Stopped by `stop`;
+/// past `timeout` (previews), killed. `seconds`: the file's length, for ffmpeg's percent.
+#[allow(clippy::too_many_arguments)]
+fn make(
+    how: &How,
+    op: &Op,
+    path: &Path,
+    scratch: &Path,
+    ext: &str,
+    seconds: Option<f64>,
+    stop: &AtomicBool,
+    timeout: Option<Duration>,
+    said: &mut dyn FnMut(Said),
+) -> Result<PathBuf, String> {
+    let name = inner_name(path);
+    let out_name = format!("out.{ext}");
+    let out = scratch.join(&out_name);
+    if how.program() == Program::Gdal {
+        in_folder(how, path, scratch, stop, timeout, said, crate::geo::ENV, |run| match op {
+            Op::Geo(to) => crate::geo::convert(run, path, *to, &out_name),
+            _ => std::fs::write(&out, crate::geo::map(run, path)?).map_err(|e| e.to_string()),
+        })?;
+        return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
+    }
+    pulled(how, stop, said)?;
+    let mut kill = None;
+    let c = match how {
+        How::Local { program: Program::Ffmpeg, path: program } => {
+            let mut c = crate::tools::low(program);
+            let input = format!("file:{}", std::path::absolute(path).map_err(|e| e.to_string())?.display());
+            c.args(args(Program::Ffmpeg, op, &input, &format!("file:{}", out.display()), path));
+            c
+        }
+        How::Local { path: program, .. } => {
+            // A link to the file (a copy where none can be made) named `in.<ending>`.
+            let linked = scratch.join(&name);
+            if std::fs::hard_link(path, &linked).is_err() {
+                std::fs::copy(path, &linked).map_err(|e| format!("{}: {e}", path.display()))?;
+            }
+            let mut c = crate::tools::low(program);
+            c.current_dir(scratch).env("MAGICK_CONFIGURE_PATH", policy_dir()?);
+            c.args(args(Program::Magick, op, &name, &out_name, path));
+            c
+        }
+        How::Container { program, rt, path: rt_path, image } => {
+            let container = container_name();
+            let at = format!("/src/{name}");
+            let mut c = crate::images::sealed_file(rt, rt_path, &container, path, &at, Some(scratch));
+            match program {
+                Program::Ffmpeg => {
+                    c.args(["--entrypoint", "/ffmpeg", image.as_str()]);
+                    c.args(args(Program::Ffmpeg, op, &format!("file:{at}"), &format!("file:/out/{out_name}"), path));
+                }
+                _ => {
+                    // The same policy as for an installed one, read-only beside the file.
+                    c.arg("--mount").arg(crate::images::bind(&policy_dir()?, "/policy", true));
+                    c.args(["-e", "MAGICK_CONFIGURE_PATH=/policy", "-w", "/out", "--entrypoint", "magick", image.as_str()]);
+                    c.args(args(Program::Magick, op, &at, &format!("/out/{out_name}"), path));
+                }
+            }
+            kill = Some((rt_path.clone(), container));
+            c
+        }
+    };
+    watch(c, kill, stop, timeout, seconds, said, 0).map_err(|tail| {
+        if tail.contains("NoDecodeDelegate") || tail.contains("no decode delegate") {
+            format!("{}\n{tail}", t!("media.cannot_read", "ending" => ending(path)))
+        } else {
+            tail
+        }
+    })?;
+    if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) }
+}
+
+/// What `in_folder`'s programs may write on their standard output, kept.
+const KEEP: u64 = 4 << 20;
+
+pub(crate) type Exec<'a> = dyn FnMut(&str, &[String]) -> Result<Vec<u8>, String> + 'a;
+
+/// How the steps of `in_folder` reach their program: `exec(program, args)` runs it (installed,
+/// or in the image) and gives what it wrote on its standard output, at most `KEEP`; `input` is
+/// the file as the program sees it, `out` the scratch folder as it sees it, and `scratch` that
+/// folder here.
+pub(crate) struct Run<'a> {
+    pub exec: &'a mut Exec<'a>,
+    pub input: String,
+    pub out: String,
+    pub scratch: &'a Path,
+}
+
+impl Run<'_> {
+    pub fn go(&mut self, program: &str, args: &[&str]) -> Result<Vec<u8>, String> {
+        (self.exec)(program, &args.iter().map(|a| a.to_string()).collect::<Vec<_>>())
+    }
+
+    pub fn out(&self, name: &str) -> String {
+        format!("{}/{name}", self.out)
+    }
+}
+
+/// `steps` on `path`, each program they name run by `how`: installed, with `env`; or in the
+/// image, which sees the file's folder read-only (a shapefile is several files side by side, a
+/// model includes others beside it) and writes only into `scratch`, held as tightly as
+/// ffmpeg's and ImageMagick's, without network. For GDAL, OpenSCAD and KiCad.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn in_folder<R>(
+    how: &How,
+    path: &Path,
+    scratch: &Path,
+    stop: &AtomicBool,
+    timeout: Option<Duration>,
+    said: &mut dyn FnMut(Said),
+    env: &[(&str, &str)],
+    steps: impl FnOnce(&mut Run) -> Result<R, String>,
+) -> Result<R, String> {
+    pulled(how, stop, said)?;
+    let abs = std::path::absolute(path).map_err(|e| e.to_string())?;
+    let dir = abs.parent().ok_or_else(|| t!("err.no_folder"))?.to_path_buf();
+    // The folder only for the kinds made of files side by side; the others see their one file,
+    // under a name of letters, digits, `.`, `_` and `-` that starts with none of the signs.
+    let whole = matches!(abs.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref(), Some("shp" | "scad" | "kicad_sch" | "kicad_pcb"));
+    // ponytail: a name that is no UTF-8 reaches the container changed, and is not found there.
+    let file = abs.file_name().ok_or_else(|| t!("err.no_file_name"))?.to_string_lossy().into_owned();
+    let alone: String = file.chars().map(|c| if c.is_ascii_alphanumeric() || "._-".contains(c) { c } else { '_' }).collect();
+    // A plain name stays as it is (GeoJSON names its layer after it); any other gets an `f`.
+    let alone = if alone == file && !file.starts_with('-') { format!("/src/{alone}") } else { format!("/src/f{alone}") };
+    let (input, out) = match how {
+        How::Local { .. } => (abs.display().to_string(), scratch.display().to_string()),
+        How::Container { .. } if whole => (format!("/src/{file}"), "/out".to_string()),
+        How::Container { .. } => (alone.clone(), "/out".to_string()),
+    };
+    // One time limit for all the steps of a preview, not one for each.
+    let deadline = timeout.map(|t| Instant::now() + t);
+    let mut exec = |program: &str, args: &[String]| -> Result<Vec<u8>, String> {
+        let left = deadline.map(|d| d.saturating_duration_since(Instant::now()));
+        if left.is_some_and(|l| l.is_zero()) {
+            return Err(t!("convert.timed_out", "seconds" => timeout.unwrap_or_default().as_secs()));
+        }
+        let (c, kill) = match how {
+            How::Local { .. } => {
+                let p = crate::tools::which(program).ok_or_else(|| t!("convert.not_installed", "program" => program))?;
+                let mut c = crate::tools::low(&p);
+                c.args(args).envs(env.iter().copied());
+                (c, None)
+            }
+            How::Container { rt, path: rt_path, image, .. } => {
+                let name = container_name();
+                let mut c = if whole {
+                    let mut c = crate::images::sealed(rt, rt_path, &name, &dir, Some(scratch));
+                    c.args(crate::images::TIGHT);
+                    c
+                } else {
+                    crate::images::sealed_file(rt, rt_path, &name, &abs, &alone, Some(scratch))
+                };
+                for (k, v) in env {
+                    c.arg("-e").arg(format!("{k}={v}"));
+                }
+                c.args(["--entrypoint", program, image.as_str()]).args(args);
+                (c, Some((rt_path.clone(), name)))
+            }
+        };
+        watch(c, kill, stop, left, None, &mut *said, KEEP)
+    };
+    steps(&mut Run { exec: &mut exec, input, out, scratch })
+}
+
+/// A preview of `path` (`Op::Frame`, `Waveform` or `Picture`, a PNG; `Map`, an SVG) made with
+/// `how` into `file`, within `timeout`.
 pub fn preview(how: &How, op: &Op, path: &Path, file: &Path, timeout: Duration) -> Result<(), String> {
     let scratch = crate::searchable::Scratch::named("media")?;
-    let made = make(how, op, path, &scratch.0, "png", None, &AtomicBool::new(false), Some(timeout), &mut |_| {})?;
+    let made = make(how, op, path, &scratch.0, &op.result_ending(path, None), None, &AtomicBool::new(false), Some(timeout), &mut |_| {})?;
     std::fs::copy(made, file).map(drop).map_err(|e| e.to_string())
 }
 
@@ -848,6 +1052,13 @@ pub fn facts_of(p: &Probe) -> Vec<(String, String)> {
 pub fn with_facts(mut p: crate::fs::Props, cfg: &PreviewConfig, path: &Path) -> crate::fs::Props {
     if p.facts.is_none() && is_media(path) {
         p.facts = Some(facts(cfg, path)).filter(|f| !f.is_empty());
+    }
+    // Geodata's, by GDAL (`geo`); a GeoTIFF's after the picture's own.
+    if crate::geo::is_geo(path) {
+        let geo = crate::geo::facts(cfg, path);
+        if !geo.is_empty() {
+            crate::geo::merge(p.facts.get_or_insert_with(Vec::new), geo);
+        }
     }
     p
 }

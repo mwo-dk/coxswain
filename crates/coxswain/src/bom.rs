@@ -18,7 +18,7 @@ use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use unicode_width::UnicodeWidthStr;
+use crate::ui::Cols;
 
 use crate::ui::{fit, sty};
 

@@ -259,6 +259,8 @@ impl Panel {
             chess: list.iter().filter(|e| !e.is_dir && if list.len() == 1 { coxswain_core::chess::sniff(&e.path).is_some() } else { coxswain_core::chess::format(&e.path).is_some() }).count(),
             media: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_media(&e.path)).count(),
             pictures: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_picture(&e.path)).count(),
+            // By name, as the desktop app counts: a GeoTIFF is reached from F9 (and its preview).
+            geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -672,10 +674,10 @@ type MediaPlan = (coxswain_core::media::Op, Vec<PathBuf>, Result<String, String>
 
 /// The feature (F1) and the action of ffmpeg's and ImageMagick's work.
 fn media_feature(p: coxswain_core::media::Program) -> &'static str {
-    if p == coxswain_core::media::Program::Ffmpeg { "convert_media" } else { "edit_pictures" }
+    p.feature()
 }
 fn media_action(p: coxswain_core::media::Program) -> Action {
-    if p == coxswain_core::media::Program::Ffmpeg { Action::ConvertMedia } else { Action::EditPictures }
+    p.action()
 }
 
 enum SearchableMsg {
@@ -1100,10 +1102,7 @@ impl App {
         if self.dialog.is_some() {
             return self.dialog_key(key);
         }
-        let plain_char = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let plain_char = typed(&key);
         // Quick search: Alt+letter starts it; further letters extend it.
         if let Some(q) = &mut self.quick {
             match (key.code, plain_char) {
@@ -1222,6 +1221,7 @@ impl App {
             Action::SearchablePdf => self.searchable_pdf(),
             Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
             Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
+            Action::ConvertGeodata => self.media_menu(coxswain_core::media::Program::Gdal),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1925,20 +1925,20 @@ impl App {
         });
     }
 
-    /// *Convert video or audio* (ffmpeg) or *Convert or edit pictures* (ImageMagick) on the files
-    /// among the marked entries (or the one under the cursor) it takes: what to make of them,
+    /// *Convert video or audio* (ffmpeg), *Convert or edit pictures* (ImageMagick) or *Convert
+    /// geodata* (GDAL) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
     /// from a menu. While one runs, the action stops it.
     fn media_menu(&mut self, program: coxswain_core::media::Program) {
-        use coxswain_core::media::{self, Op, Program};
+        use coxswain_core::media::Op;
         if let Some((s, _)) = &self.media {
             s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
             return self.status = Some(t!("media.stopping"));
         }
-        let takes = |p: &PathBuf| if program == Program::Ffmpeg { media::is_media(p) } else { media::is_picture(p) };
+        let takes = |p: &PathBuf| Op::menu(program).iter().any(|o| o.takes(p));
         // A file only in the cloud is left out: it is not downloaded to be read.
         let files: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| takes(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
         if files.is_empty() {
-            return self.status = Some(t!(if program == Program::Ffmpeg { "media.none_media" } else { "media.none_pictures" }));
+            return self.status = Some(program.none());
         }
         let items = Op::menu(program)
             .into_iter()
@@ -1963,6 +1963,11 @@ impl App {
     /// The question, worked out on a thread (asking podman for the image takes a moment).
     fn media_ask(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
         use coxswain_core::media;
+        // Only the files this choice takes (a bill of materials of a schematic, not a board).
+        let files: Vec<PathBuf> = files.into_iter().filter(|p| op.takes(p)).collect();
+        if files.is_empty() {
+            return self.status = Some(op.program().none());
+        }
         let (tx, rx) = mpsc::channel();
         let cfg = self.cfg.preview.clone();
         std::thread::spawn(move || {
@@ -1993,10 +1998,10 @@ impl App {
         let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), files.clone());
         std::thread::spawn(move || {
             let (said, at) = (tx.clone(), tx.clone());
-            let image = if op.program() == media::Program::Ffmpeg { media::FFMPEG } else { media::MAGICK };
+            let image = op.program().tool();
             let done = media::run_all(&cfg, &op, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
                 let line = match s {
-                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(image).cloned().unwrap_or_default())),
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(image).cloned().unwrap_or_default()))),
                     Said::Percent(p) => format!("{p} %"),
                     Said::Line(l) => l.to_string(),
                 };
@@ -2652,10 +2657,7 @@ impl App {
 
     fn dialog_key(&mut self, key: Key) {
         let action = self.keymap.get(&key).copied();
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let ch = typed(&key);
         let esc = key.code == KeyCode::Esc || action == Some(Action::Quit);
         let Some(dialog) = self.dialog.take() else { return };
         // F1 in a dialog: Features, at what it is about; Esc comes back.
@@ -3355,6 +3357,17 @@ impl App {
         }
         // Last, so a notice it shows is not written over in the same round.
         self.tell();
+    }
+}
+
+/// The letter a key types, if it types one. Alt Gr letters (@ { \ € on German and Nordic
+/// keyboards, ą ł on Polish) come from Windows terminals as Ctrl+Alt with the letter itself,
+/// which is never one of the plain letters or digits a Ctrl+Alt shortcut uses.
+fn typed(key: &Key) -> Option<char> {
+    match key.code {
+        KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
+        KeyCode::Char(c) if key.ctrl && key.alt && !c.is_ascii_alphanumeric() && !c.is_control() => Some(c),
+        _ => None,
     }
 }
 
@@ -4077,6 +4090,18 @@ mod tests {
             let path = path.unwrap_or_else(|| panic!("{what}: none"));
             assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
         }
+    }
+
+    /// Alt Gr letters arrive as Ctrl+Alt from Windows terminals and are typed; Ctrl+Alt with a
+    /// plain letter stays a shortcut.
+    #[test]
+    fn alt_gr_letters_are_typed() {
+        let k = |c, ctrl, alt| Key::new(KeyCode::Char(c), ctrl, alt, false);
+        assert_eq!(typed(&k('@', true, true)), Some('@'));
+        assert_eq!(typed(&k('ą', true, true)), Some('ą'));
+        assert_eq!(typed(&k('a', true, true)), None);
+        assert_eq!(typed(&k('@', true, false)), None);
+        assert_eq!(typed(&k('x', false, false)), Some('x'));
     }
 
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.

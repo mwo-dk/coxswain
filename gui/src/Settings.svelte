@@ -1085,6 +1085,9 @@
     border-color: transparent;
     text-align: start;
     padding: 6px 10px;
+    /* One long word ("Previsualitzacions", "Forhåndsvisninger") breaks rather than spill out
+       of a narrow window's list. */
+    overflow-wrap: anywhere;
   }
   .area.on {
     border-color: var(--accent-bg);

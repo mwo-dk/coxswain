@@ -49,7 +49,7 @@ details.
 |---|---|
 | Details | One row per entry: icon, name, colour tag, git glyph, then Type, Size, Modified with its age chip and, in a git repository, Last commit; Files and Created on request ([The columns menu](#the-columns-menu)) |
 | Columns | Up to two parent folders, the current folder, and a peek into the folder under the cursor (*Empty folder* when there is nothing in it). The folder you are in is highlighted in its parent's column; folders end in a `›` |
-| Thumbnails | A grid of tiles, at least 112 pixels wide: pictures show themselves, videos a frame and HEIC, GIMP and RAW photos their picture (by ffmpeg or ImageMagick, [Media](../previews/media.md#video-and-sound-with-ffmpeg), when one runs without a pull), other files and folders their icon; the colour tag is a dot before the name |
+| Thumbnails | A grid of tiles, at least 112 pixels wide: pictures show themselves, videos a frame and HEIC, GIMP and RAW photos their picture (by ffmpeg or ImageMagick, [Media](../previews/media.md#video-and-sound-with-ffmpeg), when one runs without a pull), geodata its map ([Geodata](../previews/geodata.md#the-map)), other files and folders their icon; the colour tag is a dot before the name |
 
 In the columns view, a click on an entry in a parent column or in the peek column goes to
 that folder with the cursor on the entry.
@@ -114,7 +114,7 @@ do in each view.
 
 Thumbnails of pictures are the pictures themselves, decoded at full size by the webview; only
 videos and HEIC, GIMP and RAW photos get a small picture, made once by ffmpeg or ImageMagick and
-kept in the preview cache. A folder of large photos takes a moment, and tiles load as they scroll into
+kept in the preview cache, and geodata its map, made once by GDAL (a GPX file's by Coxswain). A folder of large photos takes a moment, and tiles load as they scroll into
 sight. Only the rows of tiles on screen are in the page, so a folder of 100,000 files opens in
 thumbnails as quickly as in details.
 

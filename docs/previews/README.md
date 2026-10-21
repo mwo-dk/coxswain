@@ -25,7 +25,7 @@ details; *Settings → Previews → Use* can put the container first, or leave i
 flowchart TD
   file[The file under the cursor] --> own{A reader built<br/>into the app?}
   own -->|yes: code, PDF, pictures,<br/>spreadsheets, …| shown[Shown at once]
-  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick| tool{The program<br/>installed?}
+  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick, GDAL| tool{The program<br/>installed?}
   tool -->|yes| run[It runs; the result<br/>is cached]
   tool -->|no| box{podman or docker,<br/>and an image?}
   box -->|yes| cont[It runs in a container<br/>with no network;<br/>a first pull waits for a click]
@@ -101,6 +101,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz, PlantUML, and D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
+| [Geodata](geodata.md) | GeoPackage, shapefiles, GeoJSON, KML, GPX and GeoTIFF as a map of their own shapes with their facts, a GPX track's length and time, and Convert geodata, by GDAL |
 | [Previews made by tools](tools.md) | The engine buttons, rendering, the preview cache and clearing it, `[preview]` |
 | [Containers](containers.md) | podman or docker, what a container may do, what each image gives and costs, pulling, updating and removing images |
 | [Safety, speed and limits](safety.md) | What a preview can never do, what loads when, and every size limit |
@@ -139,6 +140,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.zip` `.7z` `.tar.*` and other archives | The files inside | [Media](media.md#archives) |
 | `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml`, `.d2` `.ditaa` `.bob` `.pikchr` `.nomnoml` `.wavedrom` `.vg` `.vl` `.dbml` `.er` `.bytefield` | Diagrams | [Diagrams](diagrams.md) |
 | `.tex` `.ltx` | PDF built by LaTeX | [LaTeX](latex.md) |
+| `.gpkg` `.shp` `.geojson` `.kml` `.gpx`, GeoTIFF | A map of the file's own shapes, its layers, coordinate system and extent; a GPX track's length and time | [Geodata](geodata.md) |
 
 ## Keys at a glance
 

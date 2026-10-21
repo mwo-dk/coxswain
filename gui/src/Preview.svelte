@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -56,8 +56,10 @@
   const online = $derived(!!raw?.online && !raw.is_dir && !fetched.includes(raw.path));
   /** A JSON (Lines) or XML file whose first bytes turned out to be a BOM's or provenance's: { path, kind }. */
   let sniffed = $state({ path: "", kind: "" });
+  /** GeoJSON, KML and GPX with Source chosen: their text instead of their map. */
+  const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && isGeoText(e.name));
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : previewKind(e),
   );
   let text = $state("");
   let html = $state("");
@@ -362,6 +364,25 @@
     return () => clearTimeout(timer);
   });
 
+  // A GPX file's map: drawn by the core without GDAL (gpx_map), kept in the preview cache.
+  let gpxMap = $state(null);
+  $effect(() => {
+    const cur = e;
+    gpxMap = null;
+    if (kind !== "gpx" || !cur) return;
+    const timer = setTimeout(async () => {
+      const file = await invoke("gpx_map", { path: cur.path }).catch((err) => ({ error: String(err) }));
+      if (e?.path === cur.path) gpxMap = { path: cur.path, file };
+    }, 120);
+    return () => clearTimeout(timer);
+  });
+  /** A TIFF whose facts name a coordinate system is a GeoTIFF: *Convert geodata* takes it. */
+  const geoTiff = $derived(!!e && /\.tiff?$/i.test(e.name) && facts.some(([k]) => k === t("geo.crs")));
+  // A GeoTIFF of heights or measurements the picture reader cannot draw: GDAL's map of it instead.
+  $effect(() => {
+    if (kind === "picture" && pic?.error && geoTiff && e) sniffed = { path: e.path, kind: "geo" };
+  });
+
   const days = (secs) => Math.round(secs / 86400);
 
   // A PDF with no text on its pages (a scan): the pane offers to make it searchable. Looked at
@@ -415,7 +436,7 @@
     const id = setInterval(async () => {
       const p = await invoke("pull_progress").catch(() => ({}));
       const [image, line] = Object.entries(p)[0] ?? [];
-      pulling = image ? `${t("convert.pulling", { image })} ${line ?? ""}` : "";
+      pulling = image ? `${t("convert.pulling", { image: image.split("@")[0] })} ${line ?? ""}` : "";
     }, 500);
     return () => clearInterval(id);
   });
@@ -630,6 +651,12 @@
           <button class:on={statement} onclick={() => (ui.previewSource = "statement")}>{t("provenance.statement")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
+      {:else if !diffing && (geoSource || ((kind === "geo" || kind === "gpx") && isGeoText(e.name)))}
+        <!-- GeoJSON, KML, GPX: the map of their shapes, or their text. -->
+        <div class="modes" role="group" aria-label={t("preview.show")}>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{t("geo.map")}</button>
+          <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
+        </div>
       {:else if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
         <div class="modes" role="group" aria-label={t("preview.show")}>
           <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
@@ -769,7 +796,7 @@
           </div>
         {:else if !conv.engines.some((x) => x.available)}
           <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs", waveform: "ffmpeg", heif: "magick", imagemagick: "magick", raw: "magick" }[conv.tool] ?? conv.tool]}
+          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs", waveform: "ffmpeg", heif: "magick", imagemagick: "magick", raw: "magick", gdal: "gdalinfo" }[conv.tool] ?? conv.tool]}
           {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
           <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
@@ -847,6 +874,8 @@
       {:else if (kind === "video" || kind === "audio") && ui.cfg.media_missing}
         <!-- Showing a player without GStreamer's plugins would take the whole page down. -->
         <p class="more">{ui.cfg.media_missing} <button class="link" onclick={() => invoke("open_path", { path: e.path })}>{t("preview.media_open")}</button></p>
+      {:else if kind === "gpx"}
+        {#if gpxMap?.file?.error}<p class="more">{gpxMap.file.error}</p>{:else if gpxMap?.file}<div class="media svg"><img src={convertFileSrc(gpxMap.file)} alt={e.name} /></div>{/if}
       {:else if kind === "video"}
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
@@ -972,11 +1001,11 @@
           {/if}
         </dl>
       {/if}
-      {#if !e.is_dir && !inside && !pane.snapshot && !pane.package && (isMedia(e.name) || isEditable(e.name))}
-        <!-- ffmpeg's and ImageMagick's work on it: offered under every video, song and photo. -->
-        {@const edit = isEditable(e.name)}
-        {@const act = edit ? "edit_pictures" : "convert_media"}
-        <p class="more"><button class="render" onclick={() => convertMedia(edit ? 1 : 0, [e.path])}>{t(`action.${act}`)}</button>{#if ui.cfg.actions[act]?.[1]} <kbd>{ui.cfg.actions[act][1]}</kbd>{/if}</p>
+      {#if !e.is_dir && !inside && !pane.snapshot && !pane.package && (isMedia(e.name) || isEditable(e.name) || kind === "geo" || kind === "gpx" || geoSource || geoTiff)}
+        <!-- ffmpeg's, ImageMagick's and GDAL's work on it: offered under every video, song, photo and geodata. -->
+        {@const program = kind === "geo" || kind === "gpx" || geoSource || geoTiff ? 2 : isEditable(e.name) ? 1 : 0}
+        {@const act = ["convert_media", "edit_pictures", "convert_geodata"][program]}
+        <p class="more"><button class="render" onclick={() => convertMedia(program, [e.path])}>{t(`action.${act}`)}</button>{#if ui.cfg.actions[act]?.[1]} <kbd>{ui.cfg.actions[act][1]}</kbd>{/if}</p>
       {/if}
       {#if facts.length && kind !== "netron"}
         <dl class="facts extra">

@@ -166,6 +166,8 @@ Not translated:
 - file and folder names, and the names of your favourite groups;
 - error texts that come from the operating system, which are in the system's own language;
 - the names of programs and formats (Ollama, LibreOffice, PDF).
+- *What's new* in Settings → *Overview*, which shows the changelog as it is written, in British
+  English.
 
 ## Capitals in Greek
 
@@ -205,7 +207,7 @@ Both are written in letters that take two columns in a terminal and need a font 
   method commits go to quick search once it is started.
 - **The terminal app** measures every text by the columns it takes, not by its letters: the
   column titles, sizes and the marked line are centred and cut to their columns, the F-key bar
-  keeps ten slots, and Find and the dialogs keep their frames. Your terminal needs a font with
+  shares its width out by label, and Find and the dialogs keep their frames. Your terminal needs a font with
   these letters (most terminals fall back to one by themselves).
 
 ## Persian, Armenian and Georgian
@@ -367,6 +369,12 @@ yet. Press Enter once more to run the dialog. Esc likewise drops the composed wo
 Keys are written the same everywhere (Ctrl, Alt, F5), so a key in `config.toml` means the same
 in every language, and the names match what is printed on most keyboards.
 
+#### Can I type Alt Gr letters (@, {, €, ą) in Find, rename and the command line?
+
+Yes, in both apps, on any keyboard layout. A Windows terminal sends an Alt Gr letter as
+**Ctrl+Alt** with the letter; the terminal app types it, and keeps **Ctrl+Alt** with a plain
+letter or digit for shortcuts.
+
 #### Does the language change what Find reads in pictures?
 
 Yes: [text recognition](../search/scans.md) reads English and your system's language, when
@@ -375,9 +383,12 @@ languages whatever you pick: a query in English finds a Danish document.
 
 #### The F-key bar in my language is cut short. Is that a mistake?
 
-Labels on the F-key bar must fit about nine characters, so some are abbreviated. The terminal
-app keeps Norton Commander's "RenMov", "Mkdir" and "PullDn" in English on purpose; the desktop
-app says "Move", "New folder" and "Commands". A better short word is welcome; see
+In the terminal app at 80 columns, eleven F-keys share the bar: about six columns a label (nine
+at 120). When a label does not fit its slot, short labels lend their spare room to long ones, so
+only the longest are cut, marked with *…*; a wider window shows them whole. The terminal app
+keeps Norton Commander's "RenMov", "Mkdir" and "PullDn" in English on purpose (Persian,
+Armenian and Georgian have short words of their own); the desktop app says "Move", "New folder"
+and "Commands". A better short word is welcome; see
 [Improving a translation](#improving-a-translation).
 
 ## Improving a translation

@@ -269,6 +269,8 @@ actions! {
     ConvertMedia = "convert_media", "Convert video or audio", Files, [];
     // ImageMagick: JPEG, PNG, WebP, smaller, without the location, turned (`media`).
     EditPictures = "edit_pictures", "Convert or edit pictures", Files, [];
+    // GDAL: GeoPackage, GeoJSON, a shapefile, KML, GPX; a GeoTIFF as COG or PNG (`geo`).
+    ConvertGeodata = "convert_geodata", "Convert geodata", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1510,6 +1512,8 @@ impl Default for PreviewConfig {
             ("ffmpeg", "docker.io/mwader/static-ffmpeg:latest"),
             // ImageMagick 7, the newest patch release on Alpine (`media`).
             ("imagemagick", "docker.io/dstmodders/imagemagick:latest"),
+            // GDAL's small Alpine build, pinned to a release by its digest (`geo`).
+            ("gdal", "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"),
         ];
         PreviewConfig {
             prefer: "auto".into(),

@@ -21,7 +21,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use syntect::parsing::{ParseState, Scope, ScopeStack, SyntaxReference, SyntaxSet};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use crate::ui::Cols;
+use unicode_width::UnicodeWidthChar;
 
 use crate::bom::faint;
 use crate::ui::{fit, sty};

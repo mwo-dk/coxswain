@@ -47,6 +47,8 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("heif", &["magick", "ffmpeg"]),
     ("imagemagick", &["magick"]),
     ("raw", &["magick"]),
+    // GDAL (`coxswain_core::geo`): its programs come together; gdalinfo stands for them.
+    ("gdal", &["gdalinfo"]),
 ];
 
 /// The media previews, and what each makes.
@@ -56,6 +58,8 @@ fn media_op(tool: &str) -> Option<coxswain_core::media::Op> {
         "ffmpeg" => Op::Frame,
         "waveform" => Op::Waveform,
         "heif" | "imagemagick" | "raw" => Op::Picture,
+        // GDAL's map of geodata (`coxswain_core::geo`).
+        "gdal" => Op::Map,
         _ => return None,
     })
 }
@@ -127,17 +131,17 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
         (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false },
         (Some((rt, path)), false) => {
             let pulled = image_size(&path, &image).is_some();
-            let short = image.rsplit('/').next().unwrap_or(&image).to_string();
+            let short = coxswain_core::images::short(&image).rsplit('/').next().unwrap_or(&image).to_string();
             Engine {
                 id: format!("container:{rt}"),
                 label: format!("{rt} {short}"),
                 available: true,
                 note: if pulled {
-                    t!("convert.runs_offline", "image" => image)
+                    t!("convert.runs_offline", "image" => coxswain_core::images::short(&image))
                 } else if let Some(size) = coxswain_core::images::download(&image) {
-                    t!("convert.first_run_pulls_large", "image" => image, "size" => size)
+                    t!("convert.first_run_pulls_large", "image" => coxswain_core::images::short(&image), "size" => size)
                 } else {
-                    t!("convert.first_run_pulls", "image" => image)
+                    t!("convert.first_run_pulls", "image" => coxswain_core::images::short(&image))
                 },
                 needs_pull: !pulled,
             }
@@ -200,6 +204,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
         "plantuml" => ("svg", out.join("diagram.svg")),
         t if kroki(t).is_some() => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
+        "gdal" => ("svg", out.join("map.svg")),
         t if media_op(t).is_some() => ("png", out.join("out.png")),
         _ => ("json", out.join("tables.json")),
     }
@@ -557,14 +562,19 @@ fn media_how(cfg: &PreviewConfig, tool: &str, kind: &str, which_one: &str) -> Re
             return Err(t!("convert.not_available", "program" => which_one));
         }
         let image = cfg.images.get(key).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => key))?;
-        let program = if key == coxswain_core::media::FFMPEG { Program::Ffmpeg } else { Program::Magick };
+        let program = Program::ALL.into_iter().find(|p| p.tool() == key).unwrap_or(Program::Magick);
         return Ok(How::Container { program, rt, path, image: image.clone() });
     }
     if !TOOLS.iter().any(|(t, p)| *t == tool && p.contains(&which_one)) {
         return Err(t!("convert.unknown_engine"));
     }
     let path = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
-    Ok(How::Local { program: if which_one == "ffmpeg" { Program::Ffmpeg } else { Program::Magick }, path })
+    let program = match which_one {
+        "ffmpeg" => Program::Ffmpeg,
+        "gdalinfo" => Program::Gdal,
+        _ => Program::Magick,
+    };
+    Ok(How::Local { program, path })
 }
 
 /// Ghostscript's options for a PostScript file into a PDF. `-dSAFER` above all: PostScript is a
@@ -1371,11 +1381,11 @@ pub async fn media_run(paths: Vec<PathBuf>, op: String, ctx: tauri::State<'_, cr
                 f(p)
             }
         };
-        let tool = if op.program() == media::Program::Ffmpeg { media::FFMPEG } else { media::MAGICK };
+        let tool = op.program().tool();
         let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
         let done = media::run_all(&cfg, &op, &paths, &MEDIA_STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
             let line = match said {
-                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(tool).cloned().unwrap_or_default())),
+                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(tool).cloned().unwrap_or_default()))),
                 Said::Percent(n) => format!("{n} %"),
                 Said::Line(l) => l.to_string(),
             };
@@ -1425,4 +1435,25 @@ pub fn media_end() {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+/// A GPX file's map, drawn without GDAL (`coxswain_core::geo::gpx_map`), kept in the preview
+/// cache like the others; for its preview and its thumbnail.
+#[tauri::command]
+pub async fn gpx_map(path: PathBuf) -> Res<Option<PathBuf>> {
+    crate::here(&path)?;
+    if coxswain_core::cloud::unasked(&path) {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let out = cache_dir(&path, &path, "gpx", "coxswain")?;
+        let file = out.join("map.svg");
+        if !file.is_file() {
+            std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+            std::fs::write(&file, coxswain_core::geo::gpx_map(&path)?).map_err(|e| e.to_string())?;
+        }
+        Ok(Some(file))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

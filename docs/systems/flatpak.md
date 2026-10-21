@@ -67,7 +67,7 @@ runs on the host instead, through `flatpak-spawn --host`, so it is your program 
 | [The user menu](../commands/user-menu.md) and [scripts](../commands/scripts.md) | **F2** | On the host, in the active panel's folder, with the marked files as arguments |
 | Deleting to the trash | **F8** | `gio trash` on the host, so the files land in your desktop's trash; the Flatpak's own data folder would hold a trash nothing shows |
 | Opening a file | **Enter**, **F3** → *Open in its app* | The desktop's portal, which opens the default application or asks which one |
-| tesseract, pdftoppm, LibreOffice, pandoc, LaTeX, PlantUML, ffmpeg, ImageMagick, podman or docker, duckdb | Previews, Find inside files, the conversions | On the host when they are installed in `/usr/bin` or `/usr/local/bin` there, at the lowest priority, and stopped with Coxswain when they run past their time limit |
+| tesseract, pdftoppm, LibreOffice, pandoc, LaTeX, PlantUML, ffmpeg, ImageMagick, GDAL, podman or docker, duckdb | Previews, Find inside files, the conversions | On the host when they are installed in `/usr/bin` or `/usr/local/bin` there, at the lowest priority, and stopped with Coxswain when they run past their time limit |
 | git | The panels' status, **History**, branches | Inside the sandbox: Coxswain bundles it, so the settings that keep a repository's own config from running programs still hold |
 
 A preview tool installed somewhere else (Homebrew, `~/.local/bin`) is not found from the

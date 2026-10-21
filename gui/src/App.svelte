@@ -326,6 +326,7 @@
     searchable_pdf: () => makeSearchable(),
     convert_media: () => convertMedia(0),
     edit_pictures: () => convertMedia(1),
+    convert_geodata: () => convertMedia(2),
     chess: async () => {
       const e = item(tab());
       const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
@@ -788,7 +789,7 @@
     </label>
     <nav class="keybar" aria-label={t("app.fkeys")}>
       {#each fkeys as f (f.n)}
-        <button disabled={!f.act} onclick={() => f.act && actions[f.act]()}><kbd>F{f.n}</kbd><span>{f.label}</span></button>
+        <button disabled={!f.act} title={f.label} onclick={() => f.act && actions[f.act]()}><kbd>F{f.n}</kbd><span>{f.label}</span></button>
       {/each}
     </nav>
   </div>
@@ -930,6 +931,11 @@
   .keybar button:disabled {
     opacity: 0.4;
     cursor: default;
+  }
+  /* A label longer than its tenth of the bar ends in …, whole in the tooltip. */
+  .keybar span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .keybar kbd {
     font-family: var(--mono-font), var(--scripts);

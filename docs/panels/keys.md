@@ -107,6 +107,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | – | Files of this package | `package` | The files of the FreeBSD package the file belongs to ([Packages](../files/properties.md#zfs-packages-and-file-flags)) | The same |
 | **Alt+P** | Make PDF searchable | `searchable_pdf` | A copy of each marked PDF with its words in it, by OCRmyPDF; the key again stops it ([Make PDF searchable](../files/searchable-pdf.md)) | The same |
 | – | Convert video or audio | `convert_media` | MP4, MP3 or FLAC copies of the marked videos and songs, their sound or a clip, by ffmpeg; again while it runs, stops it ([Convert video or audio](../files/convert-media.md)) | The same |
+| – | Convert geodata | `convert_geodata` | GeoPackage, GeoJSON, shapefile, KML or GPX copies of the marked geodata, a COG or PNG of a GeoTIFF, by GDAL; again while it runs, stops it ([Geodata](../previews/geodata.md#convert-geodata)) | The same |
 | – | Convert or edit pictures | `edit_pictures` | JPEG, PNG or WebP copies of the marked pictures, smaller, without the location or turned, by ImageMagick; again while it runs, stops it ([Convert or edit pictures](../files/edit-pictures.md)) | The same |
 
 ### Archives
