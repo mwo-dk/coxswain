@@ -9,9 +9,9 @@ new PGN** writes the game up to there with your line into a new file next to it.
 **chess engine** (Stockfish, or any UCI engine) can show its **best lines and evaluation** for the
 position on the board. Both apps have it.
 
-<!-- screenshot: gui-chess-play.png: desktop app, Cyber: the Opera Game at 15…Nxd7 with a line played on (16.Rd1 …), the line under the moves with Save as new PGN and Clear, Engine on with three lines and their evaluations above the moves -->
+![The Opera Game in the desktop app with a line played on from 15…Nxd7: 16.Qxe6+ fxe6 17.Rxd7 under the moves as Your line, with Save as new PGN and Clear; Engine on, Stockfish 17.1 at depth 21 above the moves with its three best lines for Black, −4.55, +5.25 and +5.29](../screenshots/gui-chess-play.png)
 
-<!-- screenshot: tui-chess-play.png: terminal app, Classic blue: the Opera Game with the move list open after m (Play a move: ♘…, the chosen move tinted on the board), the key line below -->
+![The terminal app at 15…Nxd7 of the Opera Game: the engine's three lines (#2 with ♕b8+, +3.76, +3.27) above, Play a move with qx typed, the queen's moves listed and ♕a3 chosen and tinted on the board, the key line below](../screenshots/tui-chess-play.png)
 
 - [Playing a move](#playing-a-move)
 - [Your line](#your-line)

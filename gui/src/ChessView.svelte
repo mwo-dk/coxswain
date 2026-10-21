@@ -344,7 +344,7 @@
 
   /** A move's number as written: "12." for White's, "12…" for Black's when it starts a line. */
   const numbered = (m, first) => (m.white ? `${m.number}.` : first ? `${m.number}…` : "");
-  const baseName = $derived(played?.base == null ? t("chess.line_start") : `${nodes[played.base].number}${nodes[played.base].white ? "." : "…"}${nodes[played.base].san}`);
+  const baseName = $derived(played?.base == null ? t("chess.line_start") : `${nodes[played.base].number}${nodes[played.base].white ? "." : "…"}${show(nodes[played.base].san).map(([x]) => x).join("")}`);
 
   /** A book's move played: its position on the board, the one before kept for ←. */
   function playBook(m) {

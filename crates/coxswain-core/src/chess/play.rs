@@ -213,15 +213,20 @@ fn eval_text(cp: Option<i32>, mate: Option<i32>) -> String {
     }
 }
 
-/// The engine to ask: the one `[chess] engine` names (`~` is the home folder), else
-/// `stockfish` on PATH. None: none is installed.
+/// The engine to ask: the one `[chess] engine` names, else `stockfish` on PATH. None: none is
+/// installed. A bare name is looked for on PATH only, never in the working folder (often the
+/// folder being browsed, where a downloaded file could be named `stockfish`); a path is one
+/// with a separator, `~` the home folder, and a relative one starts from the home folder.
 pub fn engine(configured: &str) -> Option<PathBuf> {
     let c = configured.trim();
     if c.is_empty() {
         return crate::tools::which("stockfish");
     }
-    let p = crate::fs::resolve(Path::new(""), c);
-    if p.is_file() { Some(p) } else { crate::tools::which(c) }
+    if !c.starts_with('~') && !c.contains(['/', '\\']) {
+        return crate::tools::which(c);
+    }
+    let p = crate::fs::resolve(&crate::dirs::home_dir().unwrap_or_default(), c);
+    p.is_file().then_some(p)
 }
 
 /// The line that installs Stockfish here, if Coxswain knows one.
@@ -414,6 +419,12 @@ mod tests {
         assert_eq!((two.mate, two.eval.as_str(), two.moves[0].as_str()), (Some(4), "#4", "c5"));
         assert!(analyse(&p, fen, 100, 1, &|| true).is_err());
         assert_eq!(engine(&p.to_string_lossy()), Some(p.clone()));
+        // A bare name is looked for on PATH only, never as a file in the working folder.
+        let bare = format!("coxswain-test-engine-{}", std::process::id());
+        std::fs::write(&bare, "").ok();
+        let found = engine(&bare);
+        std::fs::remove_file(&bare).ok();
+        assert_eq!(found, None);
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

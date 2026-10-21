@@ -11,7 +11,7 @@ files and never changes them: you can [play on from any position and ask an inst
 engine](chess-play.md), and your moves are saved only as a new file when you ask. Go games (SGF)
 and draughts games (PDN) have pages of their own: [Go games](go.md), [Draughts games](draughts.md).
 
-<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/chess.png"><img src="../screenshots/chess.gif" alt="Morphy's Opera Game of 1858 in the desktop app's preview pane: the board in the Cyber theme's greens, the moves beside it in figurines, the moves stepped through with the right arrow key until the mate on d8"></picture>
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/chess.png"><img src="../screenshots/chess.gif" alt="Morphy's Opera Game of 1858 in the desktop app's chess window: the board in the Cyber theme's greens, the moves beside it in figurines, the moves stepped through with the right arrow key until the mate on d8"></picture>
 
 ![The terminal app's game view: the board on blue squares, its pieces drawn from block characters, white with a dark outline, the moves beside it in figurines with a variation in brackets, the key line below](../screenshots/tui-chess.png)
 
