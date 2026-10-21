@@ -192,4 +192,4 @@ No. The image is the one without tesseract; pictures and scans are read by an in
 tesseract ([Scans, pictures and older Office files](scans.md)).
 
 ---
-[← Previous: Scans, pictures and older Office files](scans.md) · [Next: Diagrams read as sentences →](diagrams.md)
+[← Previous: Scans, pictures and older Office files](scans.md) · [Next: Transcripts of speech →](transcripts.md)

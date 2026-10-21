@@ -188,6 +188,8 @@ gdal = "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf3
 openscad = "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"  # models
 calibre = "docker.io/linuxserver/calibre:9.16.0@sha256:…"   # e-books
 kicad = "docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729"  # schematics, boards
+tika = "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4"  # Read other formats with Apache Tika
+whisper = "ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af"  # Transcribe speech, when no whisper.cpp is installed
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -222,7 +224,9 @@ open the result with **Enter**. The tools it does run are OCRmyPDF, for
 [Export from KiCad](kicad.md#export-from-kicad), calibre for [e-books](ebooks.md) (**F3** on a
 book, *Convert e-book*), and ffprobe and GDAL for a video's and
 geodata's facts in **Properties**, with the same images and preferences; of `[preview]` it
-also reads `ebooks`.
+also reads `ebooks`; and the search helper runs Apache Tika's and whisper.cpp's for it when
+[Read other formats with Apache Tika](../search/tika.md) or
+[Transcribe speech with Whisper](../search/transcripts.md) is on.
 
 ## Questions
 

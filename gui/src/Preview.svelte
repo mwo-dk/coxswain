@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia, resortSoon, convertEbook } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -389,6 +389,24 @@
   $effect(() => {
     if (kind === "picture" && pic?.error && geoTiff && e) sniffed = { path: e.path, kind: "geo" };
   });
+  // A recording's transcript (Transcribe speech, `transcribe`): asked of the search helper, and
+  // again every few seconds while it is waiting or under way.
+  let heard = $state(null);
+  $effect(() => {
+    const cur = e;
+    heard = null;
+    if (!cur || cur.is_dir || online || !isSpeech(cur.name) || pane.archive) return;
+    let timer;
+    const ask = async () => {
+      const tr = await invoke("transcript", { path: cur.path }).catch(() => null);
+      if (e?.path !== cur.path) return;
+      heard = tr;
+      if (tr && !tr.finished && !tr.failed) timer = setTimeout(ask, 3000);
+    };
+    timer = setTimeout(ask, 150);
+    return () => clearTimeout(timer);
+  });
+  const clock = (s) => (s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`);
 
   const days = (secs) => Math.round(secs / 86400);
 
@@ -1027,6 +1045,23 @@
         {@const act = ["convert_media", "edit_pictures", "convert_geodata", "export_model", "export_kicad"][program]}
         <p class="more"><button class="render" onclick={() => convertMedia(program, [e.path])}>{t(`action.${act}`)}</button>{#if ui.cfg.actions[act]?.[1]} <kbd>{ui.cfg.actions[act][1]}</kbd>{/if}</p>
       {/if}
+      {#if e && !e.is_dir && isSpeech(e.name) && !pane.archive}
+        <!-- Its transcript, or Transcribe speech: done, under way, waiting, or given up. -->
+        <section class="transcript">
+          <h3>{t("whisper.transcript")}</h3>
+          {#if heard?.failed}
+            <p class="more err">{t("whisper.failed", { why: heard.text })}</p>
+          {:else if heard && !heard.finished}
+            <p class="more">{heard.place ? t("whisper.waiting", { n: heard.place }) : t("whisper.so_far", { time: clock(heard.done) })}</p>
+          {/if}
+          {#if heard?.text && !heard.failed}
+            <pre class="transcript-text">{heard.text}</pre>
+          {/if}
+          {#if !heard || heard.failed}
+            <p class="more"><button class="render" onclick={() => transcribe([e.path])}>{t("action.transcribe")}</button> <kbd>{ui.cfg.actions.transcribe?.[1] ?? ""}</kbd></p>
+          {/if}
+        </section>
+      {/if}
       {#if facts.length && kind !== "netron"}
         <dl class="facts extra">
           {#each facts as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}
@@ -1493,6 +1528,12 @@
   }
   .hex {
     font-size: 0.8em;
+  }
+  .transcript-text {
+    white-space: pre-wrap;
+    font-family: var(--mono-font, monospace);
+    max-height: 24em;
+    overflow: auto;
   }
   .more {
     color: var(--hidden-fg);

@@ -255,7 +255,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));
-             CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);",
+             CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS transcripts(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, length INTEGER, done INTEGER NOT NULL DEFAULT 0, text TEXT NOT NULL DEFAULT '', finished INTEGER NOT NULL DEFAULT 0, asked INTEGER NOT NULL);",
         )?;
         // Search by meaning came later: a store from before gets the column, and keeps its text.
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
@@ -376,6 +377,8 @@ impl Store {
     }
 
     /// Forget everything; the store fills again from the start.
+    /// Transcripts stay: they are made only on request, and each comes back as its file's text
+    /// when the file is read again.
     pub fn clear(&self) -> rusqlite::Result<()> {
         *self.walked.lock().unwrap() = None;
         self.cleared.store(true, Ordering::SeqCst);
@@ -2440,6 +2443,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                         None
                     } else {
                         crate::extract::text_of(Path::new(path), *size, cfg.text_max_size)
+                            .or_else(|| store.transcript_of(*id))
                     },
                 )
             })
@@ -2818,6 +2822,166 @@ pub fn keep_current(
 
 /// How long hashes and vectors go on before what the watcher saw is followed.
 const SLICE: Duration = Duration::from_secs(60);
+
+/// A file waiting to be transcribed: where it is, how long it plays when known, and the
+/// seconds of it done.
+pub(crate) struct Waiting {
+    pub path: String,
+    pub length: Option<u64>,
+    pub done: u64,
+}
+
+/// A file's size and modification time, as the store keeps them.
+pub(crate) fn meta_of(meta: &std::fs::Metadata) -> (u64, i64) {
+    (meta.len(), secs(meta))
+}
+
+/// Transcripts (`transcribe`): kept by path with the size and time of the file they were made
+/// of; `finished` is 0 while waiting or under way, 1 when done, 2 when given up.
+impl Store {
+    /// Ask for `files` to be transcribed: those not done yet, or changed since. How many.
+    pub fn transcribe_ask(&self, files: &[PathBuf]) -> rusqlite::Result<usize> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        let mut n = 0;
+        for f in files {
+            let (Some(path), Ok(meta)) = (key(f), std::fs::metadata(f)) else { continue };
+            let (size, modified) = meta_of(&meta);
+            let kept: Option<(u64, i64, i64)> = tx
+                .query_row("SELECT size, modified, finished FROM transcripts WHERE path = ?1", [&path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?, r.get(2)?)))
+                .ok();
+            if kept.is_some_and(|(s, m, f)| s == size && m == modified && f != 2) {
+                continue;
+            }
+            tx.execute(
+                "INSERT OR REPLACE INTO transcripts(path, size, modified, asked) VALUES (?1, ?2, ?3, ?4)",
+                params![path, size as i64, modified, now() as i64],
+            )?;
+            n += 1;
+        }
+        tx.commit()?;
+        Ok(n)
+    }
+
+    /// The next file to work on: the one under way, else the one asked for first.
+    pub(crate) fn transcript_next(&self) -> rusqlite::Result<Option<Waiting>> {
+        let db = self.db.lock().unwrap();
+        let r = db.query_row(
+            "SELECT path, length, done FROM transcripts WHERE finished = 0 ORDER BY done = 0, asked, path LIMIT 1",
+            [],
+            |r| Ok(Waiting { path: r.get(0)?, length: r.get::<_, Option<i64>>(1)?.map(|l| l as u64), done: r.get::<_, i64>(2)? as u64 }),
+        );
+        match r {
+            Ok(w) => Ok(Some(w)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// A part of `path` transcribed, up to `done` seconds; `meta` is the file as it is now. A
+    /// file that changed since its first part is begun again. Done, its text is the file's
+    /// text in the store when the store reads the file, at once.
+    pub(crate) fn transcript_part(&self, path: &str, meta: (u64, i64), length: Option<u64>, done: u64, text: &str, finished: bool) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let kept: Option<(u64, i64, String)> = db
+            .query_row("SELECT size, modified, text FROM transcripts WHERE path = ?1 AND finished = 0", [path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?, r.get(2)?)))
+            .ok();
+        let Some((size, modified, before)) = kept else { return Ok(()) };
+        if (size, modified) != meta {
+            db.execute("UPDATE transcripts SET size = ?2, modified = ?3, length = NULL, done = 0, text = '' WHERE path = ?1", params![path, meta.0 as i64, meta.1])?;
+            return Ok(());
+        }
+        let mut all = before;
+        if !all.is_empty() && !text.is_empty() {
+            all.push('\n');
+        }
+        crate::extract::push_within(&mut all, text, crate::extract::MAX_TEXT);
+        db.execute(
+            "UPDATE transcripts SET length = ?2, done = ?3, text = ?4, finished = ?5 WHERE path = ?1",
+            params![path, length.map(|l| l as i64), done as i64, all, finished as i64],
+        )?;
+        let row: Option<i64> = db
+            .query_row("SELECT id FROM files WHERE path = ?1 AND size = ?2 AND modified = ?3", params![path, meta.0 as i64, meta.1], |r| r.get(0))
+            .ok();
+        drop(db);
+        if finished && let Some(id) = row {
+            let text = crate::extract::tidy(&all);
+            self.read(&[(id, (!text.trim().is_empty()).then_some(text))])?;
+            self.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
+        }
+        Ok(())
+    }
+
+    /// `path` could not be transcribed: given up, with why, until it is asked for again.
+    pub(crate) fn transcript_failed(&self, path: &str, why: &str) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("UPDATE transcripts SET finished = 2, text = ?2 WHERE path = ?1", params![path, why])?;
+        Ok(())
+    }
+
+    /// `path` is gone from the disk.
+    pub(crate) fn transcript_gone(&self, path: &str) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("DELETE FROM transcripts WHERE path = ?1", [path])?;
+        Ok(())
+    }
+
+    /// Every file waiting is let go; the transcripts done stay.
+    pub fn transcribe_stop(&self) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("DELETE FROM transcripts WHERE finished = 0", [])?;
+        Ok(())
+    }
+
+    /// Files waiting, done and given up, and the seconds of sound left of those waiting whose
+    /// length is known.
+    pub(crate) fn transcript_counts(&self) -> rusqlite::Result<(usize, usize, usize, u64)> {
+        self.db.lock().unwrap().query_row(
+            "SELECT count(*) FILTER (WHERE finished = 0), count(*) FILTER (WHERE finished = 1), count(*) FILTER (WHERE finished = 2), coalesce(sum(max(length - done, 0)) FILTER (WHERE finished = 0), 0) FROM transcripts",
+            [],
+            |r| Ok((r.get::<_, i64>(0)? as usize, r.get::<_, i64>(1)? as usize, r.get::<_, i64>(2)? as usize, r.get::<_, i64>(3)? as u64)),
+        )
+    }
+
+    /// Seconds of work a second of sound took here, last measured.
+    pub(crate) fn transcribe_rate(&self) -> Option<f64> {
+        self.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = 'whisper_rate'", [], |r| r.get::<_, String>(0)).ok()?.parse().ok()
+    }
+
+    /// A part took `rate` seconds of work a second of sound: kept, evened with the last.
+    pub(crate) fn transcribe_measured(&self, rate: f64) -> rusqlite::Result<()> {
+        let rate = self.transcribe_rate().map_or(rate, |r| (r + rate) / 2.0);
+        self.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('whisper_rate', ?1)", [rate.to_string()])?;
+        Ok(())
+    }
+
+    /// The transcript of `path`, done or under way, for the preview.
+    pub fn transcript(&self, path: &Path) -> Option<crate::transcribe::Transcript> {
+        let path = key(path)?;
+        let db = self.db.lock().unwrap();
+        let (text, finished, done, length, asked): (String, i64, i64, Option<i64>, i64) = db
+            .query_row("SELECT text, finished, done, length, asked FROM transcripts WHERE path = ?1", [&path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .ok()?;
+        let place = (finished == 0).then(|| {
+            db.query_row("SELECT count(*) FROM transcripts WHERE finished = 0 AND done = 0 AND (asked < ?1 OR (asked = ?1 AND path < ?2))", params![asked, path], |r| r.get::<_, i64>(0))
+                .unwrap_or(0) as usize
+                + db.query_row("SELECT count(*) FROM transcripts WHERE finished = 0 AND done > 0 AND path != ?1", [&path], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize
+        });
+        Some(crate::transcribe::Transcript { text, finished: finished == 1, failed: finished == 2, done: done as u64, length: length.map(|l| l as u64), place: place.map(|p| if done > 0 { 0 } else { p + 1 }) })
+    }
+
+    /// The transcript of the file of row `id`, when it was made of the file as it is; a file
+    /// that changed since is transcribed again (it was asked for once).
+    fn transcript_of(&self, id: i64) -> Option<String> {
+        let db = self.db.lock().unwrap();
+        let (path, size, modified): (String, i64, i64) = db.query_row("SELECT path, size, modified FROM files WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).ok()?;
+        let (tsize, tmod, finished, text): (i64, i64, i64, String) = db
+            .query_row("SELECT size, modified, finished, text FROM transcripts WHERE path = ?1", [&path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .ok()?;
+        if (tsize, tmod) != (size, modified) {
+            let _ = db.execute("UPDATE transcripts SET size = ?2, modified = ?3, length = NULL, done = 0, text = '', finished = 0 WHERE path = ?1", params![path, size, modified]);
+            return None;
+        }
+        (finished == 1 && !text.trim().is_empty()).then_some(text)
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -617,6 +617,13 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
+        Dialog::Transcribe { title, text, .. } => {
+            let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
+            let inner = frame(f, app, text_box(full, 64, &p, 4), title);
+            let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, a);
+            f.render_widget(Paragraph::new(keys(&t!("whisper.go"))).centered(), b);
+        }
         d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. }) => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);

@@ -63,7 +63,8 @@ Nothing of its own while it works. Signs of it:
 
 - **One for all.** The helper is the app itself, started with `--index-helper`. It holds the
   [name index](names.md), reads [text](text.md), makes [vectors](meaning.md), and keeps
-  [folder sizes](../panels/folder-sizes.md) and the hashes for [Duplicates](../files/duplicates.md).
+  [folder sizes](../panels/folder-sizes.md) and the hashes for [Duplicates](../files/duplicates.md),
+  and [transcribes](transcripts.md) the recordings you choose.
 - **Private.** The apps talk to it over a local connection (a loopback TCP port). Its port and a
   random token are in a file only you can read (`index.addr` in the cache folder); a connection
   without the token is dropped.

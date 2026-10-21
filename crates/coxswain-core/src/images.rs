@@ -38,9 +38,11 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729", 476, 1710),
     ("docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b", 241, 635),
     (crate::ebook::IMAGE, 1300, 3640),
+    ("ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af", 505, 1140),
 ];
 
-const TOOLS: [&str; 17] = [
+const TOOLS: [&str; 18] = [
+    "whisper",
     "tika",
     "latex",
     "libreoffice",
@@ -123,7 +125,7 @@ pub const TIGHT: &[&str] = &[
 pub fn sealed_file(rt: &str, rt_path: &Path, name: &str, file: &Path, at: &str, out: Option<&Path>) -> Command {
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
-    c.args(TIGHT);
+    c.args(tight(rt_path));
     c.arg("--mount").arg(bind(file, at, true));
     if let Some(out) = out {
         c.arg("--mount").arg(bind(out, "/out", false));
@@ -163,6 +165,20 @@ fn rootless(rt: &Path) -> bool {
     })
 }
 
+/// What `bounds_work` found, by runtime and image.
+static BOUNDS: Mutex<BTreeMap<(PathBuf, String), bool>> = Mutex::new(BTreeMap::new());
+
+/// `TIGHT`, less its memory and process bounds where a probe (`bounds_work`) found that `rt`
+/// cannot keep them; all of it while nothing says so.
+pub fn tight(rt: &Path) -> Vec<&'static str> {
+    let off = BOUNDS.lock().unwrap().iter().any(|((r, _), ok)| r == rt && !ok);
+    TIGHT
+        .iter()
+        .copied()
+        .filter(|a| !off || !(a.starts_with("--memory") || a.starts_with("--pids-limit")))
+        .collect()
+}
+
 /// Whether the runtime at `rt` can bound a container's memory and processes (`--memory`,
 /// `--pids-limit`): a rootless podman whose cgroup controllers are not delegated cannot. Found
 /// by a container of `image` that only runs `true` with both bounds, never from what a real run
@@ -170,9 +186,8 @@ fn rootless(rt: &Path) -> bool {
 /// probe that the runtime refused for want of those controllers turns the bounds off; any other
 /// failure (the image not pulled yet, a hiccup) keeps them on and is asked again next time.
 pub fn bounds_work(rt: &Path, image: &str) -> bool {
-    static KNOWN: Mutex<BTreeMap<(PathBuf, String), bool>> = Mutex::new(BTreeMap::new());
     let key = (rt.to_path_buf(), image.to_string());
-    if let Some(k) = KNOWN.lock().unwrap().get(&key) {
+    if let Some(k) = BOUNDS.lock().unwrap().get(&key) {
         return *k;
     }
     let out = crate::tools::capture(
@@ -190,7 +205,7 @@ pub fn bounds_work(rt: &Path, image: &str) -> bool {
             if !ok {
                 note(rt);
             }
-            KNOWN.lock().unwrap().insert(key, ok);
+            BOUNDS.lock().unwrap().insert(key, ok);
             ok
         }
         None => true,

@@ -95,6 +95,20 @@ enum Request {
     },
     /// Let the built-in chat model go now, freeing its memory.
     Unload,
+    /// Transcribe these files (folders: the files with speech in them), in the background.
+    Transcribe {
+        paths: Vec<PathBuf>,
+    },
+    /// Pause transcribing, or go on; `stop`: let every file waiting go.
+    TranscribePause {
+        pause: bool,
+        #[serde(default)]
+        stop: bool,
+    },
+    /// The transcript of a file, done or under way.
+    Transcript {
+        path: PathBuf,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -127,6 +141,13 @@ enum Reply {
     /// The answer is complete, or why there is none.
     Answered {
         error: Option<String>,
+    },
+    /// Files taken in to be transcribed.
+    Transcribing {
+        files: usize,
+    },
+    Transcript {
+        transcript: Option<crate::transcribe::Transcript>,
     },
 }
 
@@ -193,6 +214,9 @@ pub struct Status {
     /// Apache Tika, when `[search] tika` is on: pulling its image, ready, or why not.
     #[serde(default)]
     pub tika: Option<crate::extract::tika::State>,
+    /// Transcripts, when `[search] whisper` is on: how many wait, are done, how far.
+    #[serde(default)]
+    pub transcripts: Option<crate::transcribe::Status>,
     /// The helper is this newer version, which this app cannot talk to: it indexes by itself
     /// until it is restarted. Never sent by a helper.
     #[serde(default)]
@@ -299,6 +323,9 @@ fn serve_here() -> io::Result<()> {
     }
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
     let search = Config::load_search();
+    // The rest of the settings for transcripts (their model, how whisper.cpp runs), its
+    // `[search]` the one kept even when the rest is refused.
+    let config = Config { search: search.clone(), ..Config::load().unwrap_or_default() };
     // First, or the store cannot be made on a machine that has no cache folder yet.
     std::fs::create_dir_all(&dir)?;
     // A store locked for a moment (a helper still leaving, a compaction) is waited for, up to
@@ -345,6 +372,10 @@ fn serve_here() -> io::Result<()> {
     // books it reads are read at once.
     if let Some(s) = store.clone() {
         crate::ebook::prepare(move || s.hurry.store(true, Ordering::Relaxed));
+    }
+    // Transcripts, when they are turned on: what was asked for, in the background.
+    if let Some(s) = store.clone() {
+        std::thread::spawn(move || crate::transcribe::work(s, config, Arc::new(AtomicBool::new(false))));
     }
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
@@ -666,6 +697,22 @@ fn answer(
             Request::Size { path } => Reply::Size {
                 size: store.and_then(|s| s.size(&path)),
             },
+            Request::Transcribe { paths } => {
+                let files = crate::transcribe::survey(&paths).files;
+                Reply::Transcribing {
+                    files: store.map_or(Ok(0), |s| s.transcribe_ask(&files)).map_err(io::Error::other)?,
+                }
+            }
+            Request::TranscribePause { pause, stop } => {
+                crate::transcribe::pause(pause);
+                if stop {
+                    store.map(Store::transcribe_stop).transpose().map_err(io::Error::other)?;
+                }
+                Reply::Done
+            }
+            Request::Transcript { path } => Reply::Transcript {
+                transcript: store.and_then(|s| s.transcript(&path)),
+            },
             Request::IndexNow => {
                 store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
                 *counted.lock().unwrap() = None;
@@ -744,6 +791,7 @@ fn answer(
                     tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
                     tika: store.and(crate::extract::tika::state()),
+                    transcripts: store.and_then(crate::transcribe::status),
                     outdated: None,
                 }
             }),
@@ -973,6 +1021,29 @@ impl Client {
     /// Read the backlog of the files' text at full speed.
     pub fn index_now(&self) {
         self.ask(&Request::IndexNow);
+    }
+
+    /// Transcribe `paths` in the helper's background: how many files were taken in, or None
+    /// when no helper answers (transcribing needs it).
+    pub fn transcribe(&self, paths: &[PathBuf]) -> Option<usize> {
+        match self.ask(&Request::Transcribe { paths: paths.to_vec() }) {
+            Some(Reply::Transcribing { files }) => Some(files),
+            _ => None,
+        }
+    }
+
+    /// Pause transcribing or go on; `stop` lets every file waiting go.
+    pub fn transcribe_pause(&self, pause: bool, stop: bool) {
+        self.ask(&Request::TranscribePause { pause, stop });
+        *self.status.lock().unwrap() = None;
+    }
+
+    /// The transcript of `path`, done or under way.
+    pub fn transcript(&self, path: &Path) -> Option<crate::transcribe::Transcript> {
+        match self.ask(&Request::Transcript { path: path.to_path_buf() }) {
+            Some(Reply::Transcript { transcript }) => transcript,
+            _ => None,
+        }
     }
 
     /// Empty the search store; the helper fills it again.

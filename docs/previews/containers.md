@@ -73,6 +73,7 @@ a little larger or smaller.
 | `docker.io/apache/tika:4.1.0` (pinned to its digest, for [Read other formats with Apache Tika](../search/tika.md)) | The words of OneNote, XPS, CHM, Outlook data files, MHTML, Hangul and Access files for Find, and of older Office files when LibreOffice is not installed | about 190 MB | about 440 MB | Its server runs only while such files are read and stops after 5 idle minutes: about 350 MB of memory, a fraction of a second of processor time per file |
 | `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (default for calibre, only with [E-books with calibre](ebooks.md) on) | MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books shown with their cover, title, authors and first pages, their words in Find, and *Convert e-book* to EPUB, AZW3 or PDF | about 1.3 GB | about 3.6 GB | A second or two of processor time per book, a few more for a PDF; reading a library for search runs in the background at the lowest priority |
 | `docker.io/kicad/kicad:9.0.9` (default for KiCad, pinned to its digest; amd64 only) | KiCad schematics and boards shown as PDF, with thumbnails ([KiCad](kicad.md)), and Export from KiCad: PDF, SVG, a bill of materials, Gerbers | about 476 MB | about 1.7 GB | Light: a second or two per schematic or board; the download is the cost |
+| `ghcr.io/ggml-org/whisper.cpp:main` (pinned to its digest, for [Transcripts of speech](../search/transcripts.md)) | The speech of recordings and videos you choose, written down for Find and the preview, when no whisper.cpp is installed | about 505 MB | about 1.1 GB | Only while it transcribes: half the processor, about 10 minutes for an hour of sound with the small model on a recent processor |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -91,6 +92,7 @@ Where each image comes from, and why it is the one:
 | `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
 | `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
 | `linuxserver/calibre:9.16.0` | [LinuxServer.io](https://www.linuxserver.io/), an organisation that rebuilds it for every calibre release, for amd64 and arm64; calibre publishes no image of its own. Coxswain runs only calibre's `ebook-convert` and `ebook-meta` in it, never the desktop it serves, and more tightly than the others ([How calibre runs](ebooks.md#how-calibre-runs)) | calibre GPL-3.0, the image's own files GPL-3.0 | Weekly; Coxswain pins the release it was tested with, and a newer Coxswain moves the pin |
+| `ghcr.io/ggml-org/whisper.cpp:main` | The whisper.cpp project (ggml-org), built from every change; pinned to one build by its digest: a Coxswain release moves it on | MIT (whisper.cpp), ffmpeg LGPL/GPL | Daily; 64-bit Intel and AMD only |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
 Ghostscript's AGPL does not reach it.
@@ -242,6 +244,7 @@ default.
 | – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
 | – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
 | – | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` ([E-books](ebooks.md)) |
+| – | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5…"` (pinned) ([Transcripts of speech](../search/transcripts.md)) |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
@@ -255,12 +258,13 @@ LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH`
 `PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
 `magick` on its `PATH` for ImageMagick, GDAL's programs on its `PATH` for GDAL, `openscad`
 on its `PATH` for OpenSCAD, `kicad-cli` on its `PATH` for KiCad, `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` for
-calibre, and for Tika an `apache/tika` server image (`java` and Tika's jars in `/opt/tika-server`).
+calibre, for Whisper `ffmpeg`, `whisper-cli` and `sh` on its `PATH`, and for Tika an `apache/tika` server image (`java` and Tika's jars in `/opt/tika-server`).
 
 ## In the terminal app
 
-The terminal app makes no previews, so it starts no preview containers. Apache Tika's runs for
-it through the search helper when [Read other formats with Apache Tika](../search/tika.md) is on.
+The terminal app makes no previews, so it starts no preview containers. Apache Tika's and whisper.cpp's run
+for it through the search helper when [Read other formats with Apache Tika](../search/tika.md) or
+[Transcribe speech with Whisper](../search/transcripts.md) is on.
 The containers it runs itself are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
 ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's, for [Convert video or audio](../files/convert-media.md),
 [Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)

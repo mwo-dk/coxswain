@@ -97,7 +97,7 @@ fn configured(cfg: &Config) -> Option<Result<Tika, State>> {
 fn name() -> String {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    dirs::cache_dir().hash(&mut h);
+    crate::dirs::cache_dir().hash(&mut h);
     format!("coxswain-tika-{:08x}", h.finish() as u32)
 }
 

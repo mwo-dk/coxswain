@@ -314,6 +314,8 @@ impl Panel {
                 Some(c) => coxswain_core::space::worth_it(&c.path, self.sizes.get(&c.path).copied()),
                 None => coxswain_core::space::worth_it(&self.dir, None),
             },
+            speech: list.iter().filter(|e| !e.is_dir && coxswain_core::transcribe::is_speech(&e.path)).count(),
+            whisper: false,
         }
     }
 
@@ -453,6 +455,9 @@ pub enum Dialog {
     /// Make `op` of `files`? `text` says what it writes, which program runs and what a first
     /// run pulls.
     Media { title: String, text: String, op: coxswain_core::media::Op, files: Vec<PathBuf> },
+    /// Transcribe `files`? `text` says how much sound, how long it takes here, and what it
+    /// fetches first.
+    Transcribe { title: String, text: String, files: Vec<PathBuf> },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
@@ -499,6 +504,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Media { op, .. } => media_feature(op.program()),
         Dialog::Ebook { .. } => "ebooks",
+        Dialog::Transcribe { .. } => "transcripts",
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -670,6 +676,9 @@ pub struct App {
     ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
     /// Checksums being made or checked, on their thread.
     work: Option<Work>,
+    /// *Transcribe speech*'s question being worked out on a thread (the lengths of the
+    /// recordings are read): the files and the dialog's text.
+    transcribe_plan: Option<mpsc::Receiver<(Vec<PathBuf>, String)>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
@@ -924,6 +933,7 @@ impl App {
             ebook: None,
             ebook_plan: None,
             work: None,
+            transcribe_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1347,6 +1357,7 @@ impl App {
                 Some(e) => self.sums_verify(e.path.clone()),
                 None => self.status = Some(t!("sums.no_list")),
             },
+            Action::Transcribe => self.transcribe(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1511,6 +1522,16 @@ impl App {
                             Err(err) => self.status = Some(err.to_string()),
                         }
                     }
+                    // A recording with its transcript: the transcript, as text.
+                    if a == Action::View
+                        && coxswain_core::transcribe::is_speech(&e)
+                        && let Some(tr) = self.index.transcript(&e).filter(|t| !t.text.is_empty())
+                    {
+                        match coxswain_core::transcribe::text_copy(&e, &tr) {
+                            Ok(copy) => return self.view_copy(&copy, &e, t!("whisper.transcript")),
+                            Err(err) => self.status = Some(err),
+                        }
+                    }
                     if a == Action::View && coxswain_core::chess::sniff(&e).is_some() {
                         return self.chess(&e, None);
                     }
@@ -1641,7 +1662,7 @@ impl App {
     /// The actions that fit the marked entries (or the one under the cursor), under their
     /// headings, each with its key: Enter runs one, Esc closes.
     fn action_menu(&mut self) {
-        let s = self.panel().subject();
+        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, ..self.panel().subject() };
         let mut items = vec![];
         for (g, acts) in coxswain_core::menu::actions(&s, false) {
             let group = g.label();
@@ -1982,6 +2003,35 @@ impl App {
             let _ = tx.send((pdfs, plan));
         });
         self.searchable_plan = Some(rx);
+    }
+
+    /// *Transcribe speech* on the marked entries (or the one under the cursor): with
+    /// transcribing off, how to turn it on; else the question, once the lengths are read.
+    fn transcribe(&mut self) {
+        let title = t!("action.transcribe");
+        if !self.cfg.search.whisper || !self.cfg.search.text {
+            let text = t!("whisper.off_tui", "key" => self.key_label(Action::Settings));
+            return self.dialog = Some(Dialog::Message { title, text });
+        }
+        let paths: Vec<PathBuf> = self.panel().targets();
+        let (tx, rx) = mpsc::channel();
+        let (cfg, rate) = (self.cfg.clone(), self.index.status().transcripts.and_then(|t| t.rate));
+        std::thread::spawn(move || {
+            let survey = coxswain_core::transcribe::survey(&paths);
+            let text = coxswain_core::transcribe::plan_text(&cfg, &survey, rate);
+            let _ = tx.send((survey.files, text));
+        });
+        self.status = Some(t!("common.loading"));
+        self.transcribe_plan = Some(rx);
+    }
+
+    fn poll_transcribe_plan(&mut self) {
+        let Some(rx) = &self.transcribe_plan else { return };
+        let Ok((files, text)) = rx.try_recv() else { return };
+        self.transcribe_plan = None;
+        self.status = None;
+        let title = t!("action.transcribe");
+        self.dialog = Some(if files.is_empty() { Dialog::Message { title, text: t!("whisper.none") } } else { Dialog::Transcribe { title, text, files } });
     }
 
     /// The question worked out: the dialog, or what is missing with the key of Settings.
@@ -2991,6 +3041,16 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Ebook { title, text, to, books }),
             },
+            Dialog::Transcribe { title, text, files } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
+                    self.status = Some(match self.index.transcribe(&files) {
+                        Some(n) => t!("whisper.taken", "n" => n, "key" => self.key_label(Action::Settings)),
+                        None => t!("whisper.no_helper"),
+                    });
+                }
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Transcribe { title, text, files }),
+            },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -3487,7 +3547,7 @@ impl App {
             return;
         }
         self.hint_stale = false;
-        let s = self.panel().subject();
+        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, ..self.panel().subject() };
         if self.hint_for.as_ref() == Some(&s) {
             return;
         }
@@ -3622,6 +3682,7 @@ impl App {
         self.poll_ebook();
         self.poll_ebook_plan();
         self.poll_work();
+        self.poll_transcribe_plan();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
