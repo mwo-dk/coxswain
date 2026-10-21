@@ -85,7 +85,10 @@ jobs:
           custom-shell-name: vmsh
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf webkit-gtk41 nerd-fonts-Symbols
+            # pkgin can end with errors after upgrading what the image holds (pcre2, glib2): show
+            # them, then the same line again installs what is left, or fails for real.
+            p="rust pkgconf webkit-gtk41 nerd-fonts-Symbols"
+            pkgin -y install $p || { cat /var/db/pkgin/pkg_install-err.log; pkgin -y install $p; }
           run: |
             set -e
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
