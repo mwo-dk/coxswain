@@ -1645,7 +1645,7 @@
  "feature.properties.q2": "Endrer det filene i en mappe når jeg endrer tillatelsene til mappen?",
  "feature.properties.q3": "Hvordan endrer jeg tillatelser i terminalappen?",
  "feature.properties.title": "Egenskaper og tillatelser",
- "feature.properties.what": "{properties} viser størrelse, datoer, eier, tillatelser, ZFS-datasett, pakke og flagg for en fil; skrivebordsappen kan endre dem.",
+ "feature.properties.what": "{properties} viser størrelse, datoer, eier, tillatelser, ZFS-datasett, pakke og flagg for en fil, og hva en lokal modell inneholder og om den får plass på denne maskinen; skrivebordsappen kan endre dem.",
  "feature.provenance.a1": "Nei. Det betyr at en fil her har den digesten opphavet oppgir. Coxswain verifiserer ikke signaturen, så visningen sier Ikke verifisert; bruk slsa-verifier eller gh attestation verify.",
  "feature.provenance.a2": "Coxswain henter aldri. Kjør git fetch i utsjekken din og flytt markøren bort fra opphavet og tilbake, eller åpne det andre panelet i utsjekken din.",
  "feature.provenance.a3": "Den letes etter med navnet opphavet oppgir, i mappen til opphavet og i det andre panelets mappe. En fil som har fått nytt navn etter byggingen, blir ikke funnet.",
@@ -2127,7 +2127,7 @@
  "help.syntax": "Søk (Everything-syntaks):",
  "help.tagline": "Coxswain {version} — den ved roret som får jobben gjort.",
  "help.title": "Hjelp",
- "help.viewer": "{view} viser filen i det innebygde visningsprogrammet, uthevet i temaets farger: / søker, n og N går til neste og forrige treff, g går til en linje, l og w slår linjenumre og linjebryting av og på, p sender filen til pageren din, {edit} redigerer den. viewer i config.toml angir et annet program for {view}.",
+ "help.viewer": "{view} viser filen i det innebygde visningsprogrammet, uthevet i temaets farger: / søker, n og N går til neste og forrige treff, g går til en linje, l og w slår linjenumre og linjebryting av og på, p sender filen til pageren din, h på et faktakort viser selve filen, {edit} redigerer den. viewer i config.toml angir et annet program for {view}.",
  "hint.archive": "Enter åpner det som en mappe · {extract} pakker det ut",
  "hint.branches": "{switch} bytter til grenen under markøren",
  "hint.chess": "{key} åpner partiene: en tabell, deretter et brett med hvert trekk",
@@ -3361,6 +3361,7 @@
  "viewer.first_part": "Viser de første 16 MB.",
  "viewer.go_to_line": "Gå til linje",
  "viewer.keys": "↑↓ PgUp PgDn Home End flytt · / eller F7 søk · n N neste, forrige · g gå til linje · l linjenumre · w linjebryting · p pageren din · {edit} rediger · Esc eller {view} lukk",
+ "viewer.keys_original": "h selve filen",
  "viewer.lines": {
   "one": "{n} linje",
   "other": "{n} linjer"

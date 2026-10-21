@@ -1645,7 +1645,7 @@
  "feature.properties.q2": "Ændrer det filerne i en mappe, når jeg ændrer mappens tilladelser?",
  "feature.properties.q3": "Hvordan ændrer jeg tilladelser i terminalprogrammet?",
  "feature.properties.title": "Egenskaber og tilladelser",
- "feature.properties.what": "{properties} viser en fils størrelse, datoer, ejer, tilladelser, ZFS-dataset, pakke og flag; skrivebordsprogrammet kan ændre dem.",
+ "feature.properties.what": "{properties} viser en fils størrelse, datoer, ejer, tilladelser, ZFS-dataset, pakke og flag, og hvad en lokal model indeholder, og om den passer til denne maskine; skrivebordsprogrammet kan ændre dem.",
  "feature.provenance.a1": "Nej. Det betyder, at en fil her har den hashværdi, proveniensen nævner. Coxswain verificerer ikke signaturen, så visningen siger Ikke verificeret; brug slsa-verifier eller gh attestation verify.",
  "feature.provenance.a2": "Coxswain henter aldrig. Kør git fetch i din arbejdskopi, og flyt markøren væk fra proveniensen og tilbage, eller åbn det andet panel i din arbejdskopi.",
  "feature.provenance.a3": "Den søges efter det navn, proveniensen angiver, i dens mappe og i det andet panels. En fil, der er omdøbt efter buildet, findes ikke.",
@@ -2127,7 +2127,7 @@
  "help.syntax": "Find (Everything-syntaks):",
  "help.tagline": "Coxswain {version} — styrmanden, der får arbejdet gjort.",
  "help.title": "Hjælp",
- "help.viewer": "{view} viser filen i den indbyggede fremviser, fremhævet i temaets farver: / søger, n og N går til den næste og den forrige, g går til en linje, l og w slår linjenumre og ombrydning til og fra, p giver den til din pager, {edit} redigerer den. viewer i config.toml angiver et andet program til {view}.",
+ "help.viewer": "{view} viser filen i den indbyggede fremviser, fremhævet i temaets farver: / søger, n og N går til den næste og den forrige, g går til en linje, l og w slår linjenumre og ombrydning til og fra, p giver den til din pager, h på et faktakort viser selve filen, {edit} redigerer den. viewer i config.toml angiver et andet program til {view}.",
  "hint.archive": "Enter åbner det som en mappe · {extract} pakker det ud",
  "hint.branches": "{switch} skifter til grenen under markøren",
  "hint.chess": "{key} åbner partierne: en tabel, derefter et bræt med hvert træk",
@@ -3361,6 +3361,7 @@
  "viewer.first_part": "Viser de første 16 MB.",
  "viewer.go_to_line": "Gå til linje",
  "viewer.keys": "↑↓ PgUp PgDn Home End flyt · / eller F7 søg · n N næste, forrige · g gå til linje · l linjenumre · w ombrydning · p din pager · {edit} rediger · Esc eller {view} luk",
+ "viewer.keys_original": "h selve filen",
  "viewer.lines": {
   "one": "{n} linje",
   "other": "{n} linjer"

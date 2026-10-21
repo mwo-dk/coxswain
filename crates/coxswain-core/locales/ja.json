@@ -1602,7 +1602,7 @@
  "feature.properties.q2": "フォルダーのアクセス権を変えると、中のファイルも変わりますか？",
  "feature.properties.q3": "ターミナルアプリでアクセス権を変えるには？",
  "feature.properties.title": "プロパティとアクセス権",
- "feature.properties.what": "{properties} はファイルのサイズ、日時、所有者、アクセス権、ZFS データセット、パッケージ、フラグを表示します。デスクトップアプリでは変更もできます。",
+ "feature.properties.what": "{properties} はファイルのサイズ、日時、所有者、アクセス権、ZFS データセット、パッケージ、フラグを表示し、ローカルモデルの中身とこのマシンに収まるかどうかも示します。デスクトップアプリでは変更もできます。",
  "feature.provenance.a1": "いいえ。ここにあるファイルが来歴の示すダイジェストを持つという意味です。Coxswain は署名を検証しないので、表示は「未検証」になります。slsa-verifier か gh attestation verify を使ってください。",
  "feature.provenance.a2": "Coxswain は fetch しません。チェックアウトで git fetch を実行し、来歴から一度離れて戻るか、もう一方のパネルでチェックアウトを開いてください。",
  "feature.provenance.a3": "来歴にある名前で、そのフォルダーともう一方のパネルのフォルダーを探します。ビルド後に名前を変えたファイルは見つかりません。",
@@ -2083,7 +2083,7 @@
  "help.syntax": "検索 (Everything の構文):",
  "help.tagline": "Coxswain {version} — 仕事をやり遂げる舵手。",
  "help.title": "ヘルプ",
- "help.viewer": "{view} は内蔵ビューアーでファイルをテーマの色で強調表示します。/ で検索、n と N で次と前へ、g で行へ移動、l と w で行番号と折り返しのオン/オフ、p でお使いのページャーに渡し、{edit} で編集します。config.toml の viewer で {view} に別のプログラムを指定できます。",
+ "help.viewer": "{view} は内蔵ビューアーでファイルをテーマの色で強調表示します。/ で検索、n と N で次と前へ、g で行へ移動、l と w で行番号と折り返しのオン/オフ、p でお使いのページャーに渡し、情報カードでは h でファイルそのものを表示し、{edit} で編集します。config.toml の viewer で {view} に別のプログラムを指定できます。",
  "hint.archive": "Enter でフォルダーのように開く · {extract} で展開",
  "hint.branches": "{switch} でカーソル位置のブランチに切り替え",
  "hint.chess": "{key} で対局を開く：一覧、そして全手を見られる盤",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "最初の 16 MB を表示しています。",
  "viewer.go_to_line": "行へ移動",
  "viewer.keys": "↑↓ PgUp PgDn Home End 移動 · / または F7 検索 · n N 次、前 · g 行へ移動 · l 行番号 · w 折り返し · p お使いのページャー · {edit} 編集 · Esc または {view} 閉じる",
+ "viewer.keys_original": "h ファイルそのもの",
  "viewer.lines": {
   "other": "{n} 行"
  },

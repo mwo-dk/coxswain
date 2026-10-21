@@ -32,7 +32,8 @@ and in the terminal app in **Properties** (**Alt+Enter**) and **F3**.
 2. Desktop app: press **Space** or **F3**; the preview pane shows the picture, the comic's page,
    the message or the table, and the facts under it.
 3. Terminal app: press **Alt+Enter** for **Properties**, which lists the facts, or **F3**, which
-   shows them (and a module's sample names, a message's text) in its built-in viewer.
+   shows them (and a module's sample names, a message's text) in its built-in viewer; **h**
+   there shows the file itself.
 4. A mailbox or a comic: **Enter** opens it like a folder, in both apps.
 
 | Key | Desktop app | Terminal app |

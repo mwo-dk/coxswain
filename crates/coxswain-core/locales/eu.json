@@ -1645,7 +1645,7 @@
  "feature.properties.q2": "Karpeta baten baimenak aldatzeak barruko fitxategiak aldatzen ditu?",
  "feature.properties.q3": "Nola aldatu baimenak terminal-aplikazioan?",
  "feature.properties.title": "Propietateak eta baimenak",
- "feature.properties.what": "{properties} teklak fitxategi baten tamaina, datak, jabea, baimenak, ZFS dataset-a, paketea eta banderak erakusten ditu; mahaigaineko aplikazioak alda ditzake.",
+ "feature.properties.what": "{properties} teklak fitxategi baten tamaina, datak, jabea, baimenak, ZFS dataset-a, paketea eta banderak erakusten ditu, baita eredu lokal batek zer duen eta makina honetan sartzen den ere; mahaigaineko aplikazioak alda ditzake.",
  "feature.provenance.a1": "Ez. Esan nahi du hemengo fitxategi batek jatorriak izendatzen duen hasha duela. Coxswain-ek ez du sinadura egiaztatzen, beraz ikuspegiak Egiaztatu gabea dio; erabili slsa-verifier edo gh attestation verify.",
  "feature.provenance.a2": "Coxswain-ek ez du inoiz ezer ekartzen. Exekutatu git fetch zure kopia lokalean eta irten jatorritik eta itzuli, edo ireki beste panela zure kopia lokalean.",
  "feature.provenance.a3": "Jatorriak ematen duen izenarekin bilatzen da, bere karpetan eta beste panelekoan. Eraikuntzaren ondoren berrizendatutako fitxategi bat ez da aurkitzen.",
@@ -2127,7 +2127,7 @@
  "help.syntax": "Bilatu (Everything sintaxia):",
  "help.tagline": "Coxswain {version} — lana egiten duen lemazaina.",
  "help.title": "Laguntza",
- "help.viewer": "{view} teklak fitxategia ikustaile integratuan erakusten du, gaiaren koloreekin nabarmenduta: / teklak bilatzen du, n eta N hurrengora eta aurrekora doaz, g lerro batera doa, l eta w lerro-zenbakiak eta lerro-jauzia aktibatzen eta desaktibatzen dituzte, p teklak zure orrikatzaileari pasatzen dio, {edit} teklak editatzen du. config.toml fitxategiko viewer aukerak beste programa bat izendatzen du {view} teklarako.",
+ "help.viewer": "{view} teklak fitxategia ikustaile integratuan erakusten du, gaiaren koloreekin nabarmenduta: / teklak bilatzen du, n eta N hurrengora eta aurrekora doaz, g lerro batera doa, l eta w lerro-zenbakiak eta lerro-jauzia aktibatzen eta desaktibatzen dituzte, p teklak zure orrikatzaileari pasatzen dio, datu-txartel batean h teklak fitxategia bera erakusten du, {edit} teklak editatzen du. config.toml fitxategiko viewer aukerak beste programa bat izendatzen du {view} teklarako.",
  "hint.archive": "Sartu: karpeta bat bezala irekitzen du · {extract}: erauzten du",
  "hint.branches": "{switch}: kurtsorearen azpiko adarrera aldatzen da",
  "hint.chess": "{key} teklak bere partidak irekitzen ditu: taula bat, gero jokaldi guztiak dituen xake-taula",
@@ -3361,6 +3361,7 @@
  "viewer.first_part": "Lehen 16 MBak erakusten dira.",
  "viewer.go_to_line": "Joan lerrora",
  "viewer.keys": "↑↓ PgUp PgDn Home End mugitu · / edo F7 bilatu · n N hurrengoa, aurrekoa · g joan lerrora · l lerro-zenbakiak · w lerro-jauzia · p zure orrikatzailea · {edit} editatu · Esc edo {view} itxi",
+ "viewer.keys_original": "h fitxategia bera",
  "viewer.lines": {
   "one": "Lerro {n}",
   "other": "{n} lerro"

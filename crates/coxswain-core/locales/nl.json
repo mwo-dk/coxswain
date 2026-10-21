@@ -1645,7 +1645,7 @@
  "feature.properties.q2": "Wijzigt het wijzigen van de rechten van een map de bestanden erin?",
  "feature.properties.q3": "Hoe wijzig ik rechten in de terminal-app?",
  "feature.properties.title": "Eigenschappen en rechten",
- "feature.properties.what": "{properties} toont de grootte, datums, eigenaar, rechten, ZFS-dataset, pakket en vlaggen van een bestand; de desktop-app kan ze wijzigen.",
+ "feature.properties.what": "{properties} toont de grootte, datums, eigenaar, rechten, ZFS-dataset, pakket en vlaggen van een bestand, en wat een lokaal model bevat en of het op deze machine past; de desktop-app kan ze wijzigen.",
  "feature.provenance.a1": "Nee. Het betekent dat een bestand hier de digest heeft die de herkomst noemt. Coxswain controleert de handtekening niet, dus de weergave zegt Niet geverifieerd; gebruik slsa-verifier of gh attestation verify.",
  "feature.provenance.a2": "Coxswain doet nooit een fetch. Voer git fetch uit in je werkmap en ga van de herkomst af en er weer naartoe, of open het andere paneel in je werkmap.",
  "feature.provenance.a3": "Het wordt gezocht op de naam die de herkomst geeft, in de eigen map en die van het andere paneel. Een bestand dat na de build hernoemd is, wordt niet gevonden.",
@@ -2127,7 +2127,7 @@
  "help.syntax": "Zoeken (syntaxis van Everything):",
  "help.tagline": "Coxswain {version} — de stuurman die het werk gedaan krijgt.",
  "help.title": "Help",
- "help.viewer": "{view} toont het bestand in de ingebouwde viewer, gemarkeerd in de kleuren van het thema: / zoekt, n en N gaan naar de volgende en de vorige, g gaat naar een regel, l en w zetten regelnummers en terugloop aan en uit, p geeft het aan je pager, {edit} bewerkt het. viewer in config.toml noemt een ander programma voor {view}.",
+ "help.viewer": "{view} toont het bestand in de ingebouwde viewer, gemarkeerd in de kleuren van het thema: / zoekt, n en N gaan naar de volgende en de vorige, g gaat naar een regel, l en w zetten regelnummers en terugloop aan en uit, p geeft het aan je pager, h op een feitenkaart toont het bestand zelf, {edit} bewerkt het. viewer in config.toml noemt een ander programma voor {view}.",
  "hint.archive": "Enter opent het als een map · {extract} pakt het uit",
  "hint.branches": "{switch} schakelt naar de branch onder de cursor",
  "hint.chess": "{key} opent de partijen: een tabel, dan een bord met elke zet",
@@ -3361,6 +3361,7 @@
  "viewer.first_part": "De eerste 16 MB wordt getoond.",
  "viewer.go_to_line": "Ga naar regel",
  "viewer.keys": "↑↓ PgUp PgDn Home End bewegen · / of F7 zoeken · n N volgende, vorige · g ga naar regel · l regelnummers · w terugloop · p je pager · {edit} bewerken · Esc of {view} sluiten",
+ "viewer.keys_original": "h het bestand zelf",
  "viewer.lines": {
   "one": "{n} regel",
   "other": "{n} regels"

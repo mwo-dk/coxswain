@@ -373,9 +373,20 @@ pub fn run(
     let syntax = shape(q) == Shape::Syntax;
     if matches!(kind, Kind::All | Kind::Names) {
         let r = names(q, rows);
+        // Local models by the model they are: a blob's own name is a hash (`local_models`).
+        let models = if syntax {
+            vec![]
+        } else {
+            crate::local_models::find(q, scope, rows)
+        };
+        let new = models.len();
+        let rest: Vec<Hit> = r.hits.into_iter().filter(|h| !models.iter().any(|m| m.path == h.path)).collect();
+        let mut hits = models;
+        hits.extend(rest);
+        hits.truncate(rows.max(new));
         found.names = Group {
-            hits: r.hits,
-            total: r.total,
+            hits,
+            total: r.total + new,
         };
     }
     if kind == Kind::Names || kind == Kind::All && syntax {

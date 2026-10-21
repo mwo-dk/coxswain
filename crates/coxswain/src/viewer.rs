@@ -111,6 +111,8 @@ pub enum Outcome {
     Edit(PathBuf, Action),
     /// Close, and open the file in the pager (`$PAGER`, else less).
     Pager(PathBuf),
+    /// Show the file a text copy was made of as it is (`made_of`), this one again after it.
+    Original(PathBuf),
 }
 
 /// What the file is read as.
@@ -220,6 +222,8 @@ pub struct Viewer {
     /// What the title calls the text, for a text copy of another file (its format); else the
     /// highlighting's language, or plain text.
     kind: Option<String>,
+    /// A text copy's file (`made_of`): **h** shows it as it is, a hex dump for a binary one.
+    original: Option<PathBuf>,
     body: Body,
     encoding: Encoding,
     syntax: Option<&'static SyntaxReference>,
@@ -285,6 +289,7 @@ impl Viewer {
         Ok(Viewer {
             title: path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()),
             kind: None,
+            original: None,
             path: path.to_path_buf(),
             body,
             encoding,
@@ -314,6 +319,8 @@ impl Viewer {
     pub fn made_of(mut self, of: &Path, kind: String) -> Viewer {
         self.title = of.file_name().map_or_else(|| of.display().to_string(), |n| n.to_string_lossy().into_owned());
         self.kind = Some(kind);
+        self.original = Some(of.to_path_buf());
+        self.key_line = format!("{} · {}", t!("viewer.keys_original"), self.key_line);
         self
     }
 
@@ -607,6 +614,7 @@ impl Viewer {
                 self.left = 0;
             }
             (_, Some('p')) => return Outcome::Pager(self.path.clone()),
+            (_, Some('h')) if self.original.is_some() => return Outcome::Original(self.original.clone().unwrap_or_default()),
             _ => {}
         }
         Outcome::Stay
@@ -937,6 +945,9 @@ mod tests {
         let mut v = Viewer::open(&d.join("boing.iff.txt"), ["F4", "F3"]).unwrap().made_of(Path::new("/x/boing.iff"), "Amiga IFF ILBM".into());
         let s = screen(&mut v, 80, 4);
         assert!(s.contains(" boing.iff · Amiga IFF ILBM · ") && !s.contains("boing.iff.txt ·"), "{s}");
+        // h: the file the card was made of, as it is; the key line says so.
+        assert!(v.key_line.starts_with(&t!("viewer.keys_original")));
+        assert!(matches!(v.key(key(KeyCode::Char('h')), None), Outcome::Original(p) if p == Path::new("/x/boing.iff")));
         std::fs::write(d.join("a.bin"), b"MZ\0\x01hello").unwrap();
         let v = Viewer::open(&d.join("a.bin"), ["F4", "F3"]).unwrap();
         assert_eq!(v.encoding, Encoding::Binary);

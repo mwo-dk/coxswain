@@ -96,6 +96,15 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
         let m = crate::neural::read(path)?;
         return Some((crate::neural::text(&name, &m), m.format.clone()));
     }
+    // A local model: its card, and a GGUF's chat template in full (the card folds it).
+    if let Some((f, template)) = crate::local_models::read(path) {
+        let format = f.iter().find(|(k, _)| *k == t!("facts.format")).map_or_else(String::new, |(_, v)| v.clone());
+        let mut out = format!("{name}\n\n{}", lines(&f));
+        if let Some(t) = template {
+            out += &format!("\n{}\n\n{}\n", t!("local_models.chat_template"), t.chars().take(200_000).collect::<String>());
+        }
+        return Some((out, format));
+    }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;
         let mut head = vec![

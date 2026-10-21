@@ -24,7 +24,9 @@ For names in this folder only, switch the scope with **Ctrl+F** inside Find (bel
 The *Names* group: its heading counts them (*5 of 128*; in *All* the first five show, *123 more:
 Enter shows them all* follows). Each hit is a name and its folder. A name that is your whole
 query (`launch` for *launch*, in any case) comes first, then what is in your home folder, then
-the rest. Under the list: *1,402,311
+the rest. A [local model](../files/local-models.md#can-i-find-a-model-by-its-name) in Ollama's
+store or the Hugging Face cache is also found by its model's name (`llama3.2:3b`), shown under
+the hit; those come first. Under the list: *1,402,311
 files indexed*. While the first index is built, ` · building index…` is added and hits come in as
 the walk goes.
 
