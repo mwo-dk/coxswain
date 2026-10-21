@@ -8,8 +8,9 @@
 //! - never panic, never loop without end, never read or build more than its limits allow;
 //! - no network, no other programs, nothing written anywhere.
 //!
-//! The one exception is `installed`: programs the user has installed (OCR, LibreOffice), run
-//! at low priority with a time limit, for what no reader here can get.
+//! The exceptions are `installed`: programs the user has installed (OCR, LibreOffice), run
+//! at low priority with a time limit, for what no reader here can get; and `tika`, Apache Tika
+//! in a container without network, when the user turns it on.
 //!
 //! `text_of` also catches a panic from a reader (they lean on other people's parsers) and
 //! cuts the text at `MAX_TEXT`.
@@ -28,6 +29,7 @@ pub mod plain;
 pub mod rtf;
 pub mod sheet;
 pub mod slides;
+pub mod tika;
 pub mod word;
 
 /// The most text kept of one file. A book is about 1 MB; past this it is a data dump.
@@ -65,7 +67,11 @@ fn reader(path: &Path) -> Option<Reader> {
         }
         "md" | "markdown" | "mdx" => |path, max| plain::text(path, max).map(diagram::markdown),
         e if installed::PICTURES.contains(&e) => installed::picture,
-        e if installed::OFFICE.contains(&e) => installed::office,
+        // LibreOffice first, else Apache Tika when it is turned on.
+        e if installed::OFFICE.contains(&e) => {
+            |path, max| installed::office(path, max).or_else(|| tika::text(path, max))
+        }
+        e if tika::FORMATS.contains(&e) => tika::text,
         e if installed::POSTSCRIPT.contains(&e) => installed::postscript,
         _ => return None,
     })

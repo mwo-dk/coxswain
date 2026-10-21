@@ -25,7 +25,7 @@ pub const AREAS: [Area; 7] = Area::ALL;
 /// Finding files' details, by group: its heading, the name `--settings=<name>` opens it at, and
 /// its options. A test checks that every option of the area is in one.
 const GROUPS: &[(&str, &str, &[&str])] = &[
-    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "text_max_size", "max_results"]),
+    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "search_tika", "text_max_size", "max_results"]),
     ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
     ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device"]),
     ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),

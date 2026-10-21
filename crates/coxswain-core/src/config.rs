@@ -1506,6 +1506,8 @@ impl Default for PreviewConfig {
             // OCRmyPDF's own image, which has Ghostscript too: one pull for both.
             ("ocrmypdf", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
             ("ghostscript", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
+            // Apache Tika's own server image, for `[search] tika`, pinned to a release by its digest.
+            ("tika", "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4"),
             // No official image; set one you trust (see docs/previews/containers.md).
             ("duckdb", ""),
             // GhostXPS: in none of the images above, and no project publishes one.
@@ -1605,6 +1607,9 @@ pub struct SearchConfig {
     pub cloud: String,
     /// Folders in the cloud whose files are read even so: a cloud mount on Linux, say.
     pub cloud_read: Vec<PathBuf>,
+    /// Read the formats no reader here knows (OneNote, XPS, CHM, Outlook data files …) with
+    /// Apache Tika, in a container without network (`[preview.images] tika`).
+    pub tika: bool,
 }
 
 /// The trees the kernel makes up, never indexed: Linux's `/proc`, `/sys`, `/dev` and `/run`;
@@ -1646,6 +1651,7 @@ impl Default for SearchConfig {
             history: true,
             cloud: "local-only".into(),
             cloud_read: vec![],
+            tika: false,
         }
     }
 }

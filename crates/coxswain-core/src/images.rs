@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
@@ -23,6 +23,7 @@ pub const UNUSED_DAYS: u64 = 90;
 
 /// Megabytes to download and on disk of the default images, measured (amd64, 2026-10).
 const SIZES: &[(&str, u32, u32)] = &[
+    ("docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4", 190, 440),
     ("docker.io/texlive/texlive:latest", 2800, 5900),
     ("docker.io/texlive/texlive:latest-medium", 960, 2200),
     ("docker.io/plantuml/plantuml:latest", 141, 353),
@@ -37,7 +38,8 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b", 241, 635),
 ];
 
-const TOOLS: [&str; 14] = [
+const TOOLS: [&str; 15] = [
+    "tika",
     "latex",
     "libreoffice",
     "plantuml",
@@ -154,6 +156,56 @@ fn rootless(rt: &Path) -> bool {
             .map(|o| String::from_utf8_lossy(&o.stdout).trim() != "false")
             .unwrap_or(true)
     })
+}
+
+/// Whether the runtime at `rt` can bound a container's memory and processes (`--memory`,
+/// `--pids-limit`): a rootless podman whose cgroup controllers are not delegated cannot. Found
+/// by a container of `image` that only runs `true` with both bounds, never from what a real run
+/// printed (a file's name or a decoder's words could say anything). It fails closed: only a
+/// probe that the runtime refused for want of those controllers turns the bounds off; any other
+/// failure (the image not pulled yet, a hiccup) keeps them on and is asked again next time.
+pub fn bounds_work(rt: &Path, image: &str) -> bool {
+    static KNOWN: Mutex<BTreeMap<(PathBuf, String), bool>> = Mutex::new(BTreeMap::new());
+    let key = (rt.to_path_buf(), image.to_string());
+    if let Some(k) = KNOWN.lock().unwrap().get(&key) {
+        return *k;
+    }
+    let out = crate::tools::capture(
+        {
+            let mut c = crate::tools::command(rt);
+            c.args(["run", "--rm", "--pull=never", "--network=none", "--memory=64m", "--pids-limit=16", "--entrypoint", "true", image]);
+            c
+        },
+        std::time::Duration::from_secs(60),
+        4096,
+    );
+    let said = out.ok().and_then(|o| bounds_said(o.status.success(), &String::from_utf8_lossy(&o.stderr)));
+    match said {
+        Some(ok) => {
+            if !ok {
+                note(rt);
+            }
+            KNOWN.lock().unwrap().insert(key, ok);
+            ok
+        }
+        None => true,
+    }
+}
+
+fn note(rt: &Path) {
+    crate::helper::note(format_args!("{}: no memory and process bounds for containers here", rt.display()));
+}
+
+/// What a probe of `bounds_work` says: it ran (they work), it was refused for want of the
+/// controllers (they do not), or it failed some other way (not known: None). Its output is the
+/// runtime's alone: the probe runs `true`, with nothing of the user's in it.
+fn bounds_said(ran: bool, stderr: &str) -> Option<bool> {
+    if ran {
+        return Some(true);
+    }
+    let e = stderr.to_lowercase();
+    (["cgroup", "memory.max", "pids.max", "controller"].iter().any(|w| e.contains(w)) && !e.contains("image not known") && !e.contains("no such image"))
+        .then_some(false)
 }
 
 /// The last progress line of every pull under way, by image, for the apps to show.
@@ -497,6 +549,15 @@ mod tests {
     fn images_mount_folders_with_colons_commas_and_quotes() {
         assert_eq!(bind(Path::new("/m/10:30, \"x\""), "/src", true), "type=bind,\"source=/m/10:30, \"\"x\"\"\",target=/src,readonly");
         assert_eq!(bind(Path::new("/c"), "/out", false), "type=bind,\"source=/c\",target=/out");
+    }
+
+    #[test]
+    fn images_bounds_stay_on_unless_the_runtime_lacks_them() {
+        assert_eq!(bounds_said(true, ""), Some(true));
+        assert_eq!(bounds_said(false, "Error: crun: opening file `memory.max` for writing: No such file or directory: OCI runtime attempted to invoke a command that was not found"), Some(false));
+        assert_eq!(bounds_said(false, "Error: docker.io/apache/tika:latest: image not known"), None, "not pulled yet: unknown, bounds stay on");
+        assert_eq!(bounds_said(false, "Error: cannot connect to Podman"), None);
+        assert_eq!(bounds_said(false, ""), None);
     }
 
     #[test]

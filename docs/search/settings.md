@@ -41,6 +41,7 @@ key: `name_exclude`, `archives`, `cloud`.
 | *Names* | *Files on this machine: 912 330*, or *Still counting … so far* while the [name index](names.md) is built | |
 | *Words* | *Files read: 31 208 · waiting: 412 · 1.1 GB on disk*; on battery *Paused while the machine runs on its battery.*; an error in red (*Reading stopped: …*). Off: *Find looks at names only.* No helper: *Not running* | **Read now** (the backlog at full speed, on battery too) · **Turn on** · **Start it** |
 | *Meaning* | *8 120 of 31 208 files · the built-in model on the CPU* or *· bge-m3 at localhost:11434*; *About 3 hours until every file is done.*; a server that does not answer: *The server at localhost:11434 does not answer. Is it running?* | **Set up…** when off or failing |
+| *Tika* (only while *Read other formats with Apache Tika* is on) | *Downloading docker.io/apache/tika:4.1.0…* with the progress line; *Reads OneNote, XPS, CHM, Outlook files and more*; *Off* with, in red, *Needs podman or docker, which run its Linux image; on FreeBSD, the other BSDs and illumos it cannot run.* or *It stopped: …*; no helper: *Not running* ([Other formats with Apache Tika](tika.md)) | |
 | *Ask* | *qwen3:8b at localhost:11434* or *Qwen3 1.7B, built in*, or *Ask needs meaning first.* / *No chat model chosen yet.* | **Try it**: *It answered: the first word came after 0.4 s.* · **Set up…** |
 
 ## The levels
@@ -70,6 +71,7 @@ Six groups: *What is read* (open at first), *Folders*, *Meaning*, *Ask*, *Built-
 | | *Git history* | `history` | bool, `true` | The newest 2000 commits of each repository in the folders read ([Git history in search](history.md)) |
 | | *Read files that are only online* | `cloud` | `"local-only"` or `"all"`, `"local-only"` | Off: files only in OneDrive, Dropbox, Google Drive, Proton Drive or iCloud are found by name, never read or downloaded ([Cloud files](cloud-files.md)) |
 | | *Cloud folders read anyway* | `cloud_read` | list, `[]` | The clouds found, each with **Read its files**, and folders added ([Cloud files](cloud-files.md)) |
+| | *Read other formats with Apache Tika (container)* | `tika` | bool, `false` | OneNote, XPS, CHM, Outlook data files and more, read by Apache Tika in a container without network; pulls its image (about 190 MB) when ticked ([Other formats with Apache Tika](tika.md)) |
 | | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*; a missing one with the line that installs it and **Copy** ([Installing what is missing](scans.md#installing-what-is-missing)) |
 | | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only |
 | | *Most hits* | `max_results` | number, `10000` | The most rows Find lists for one kind of hit |

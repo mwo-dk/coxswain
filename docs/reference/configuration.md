@@ -208,6 +208,7 @@ flags start a new one.
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
 | `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
 | `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
+| `tika` | bool | `false` | Read OneNote, XPS, CHM, Outlook data files and other formats no reader here knows with Apache Tika, in a container without network; pulls `images.tika` (about 190 MB) when turned on ([Other formats with Apache Tika](../search/tika.md)) |
 | `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read; a PGN file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games)); an SGF file only within this limit ([Go games](../previews/go.md#finding-games)) |
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches and programs' folders too, for their names ([Which archives](../search/archives.md#which-archives)) |
@@ -234,13 +235,14 @@ OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both app
 and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md) in both apps, and GDAL for
 [geodata](../previews/geodata.md)'s facts and Convert geodata, and OpenSCAD for
-[Export 3D model](../previews/openscad.md#export-3d-model), in both apps.
+[Export 3D model](../previews/openscad.md#export-3d-model), in both apps, and Apache Tika's image for
+[`[search] tika`](../search/tika.md).
 
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container (ImageMagick: its container first); `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
 | `prefer_tool` | table | `{}` | Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }` |
-| `container` | string | `"auto"` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, or `"off"` for no containers |
+| `container` | string | `"auto"` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, or `"off"` for no containers (Tika is off then too) |
 | `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
 | `images.plantuml` | string | `"docker.io/plantuml/plantuml:latest"` | The PlantUML image |
 | `images.pandoc` | string | `"docker.io/pandoc/core:latest"` | The pandoc image, for reStructuredText |
@@ -250,6 +252,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.ghostscript` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For PostScript; OCRmyPDF's image, which has Ghostscript (`gs` is run as its entry point) |
 | `images.ocrmypdf` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For Make PDF searchable, in both apps (about 310 MB, 850 MB on disk); its entry point must be `ocrmypdf` |
 | `images.duckdb` | string | `""` | No official image; set one whose entry point is `duckdb` |
+| `images.tika` | string | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` | Apache Tika's server image, for `[search] tika` (about 190 MB, 440 MB on disk); one you set must be an `apache/tika` server image. Pinned to its digest |
 | `images.gxps` | string | `""` | No image has GhostXPS; set one with `gxps` for XPS files |
 | `images.ffmpeg` | string | `"docker.io/mwader/static-ffmpeg:latest"` | A static ffmpeg and ffprobe (about 126 MB, 315 MB on disk), for video and sound previews, video thumbnails, facts, HEIC photos and Convert video or audio; one you set must have `/ffmpeg` and `/ffprobe` |
 | `images.imagemagick` | string | `"docker.io/dstmodders/imagemagick:latest"` | ImageMagick 7 (about 60 MB, 152 MB on disk), for GIMP and other pictures only it reads and Convert or edit pictures; first for ImageMagick under `"auto"`; one you set must have `magick` on its `PATH` |
@@ -258,7 +261,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
-| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview or Make PDF searchable used for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
+| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview or Make PDF searchable used (nor Apache Tika read a file with) for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
@@ -338,6 +341,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Git history* | `search_history` | `[search] history` |
 | | *Read files that are only online* | `search_cloud` | `[search] cloud` |
 | | *Cloud folders read anyway* | `cloud_read` | `[search] cloud_read` |
+| | *Read other formats with Apache Tika (container)* | `search_tika` | `[search] tika` |
 | | *Largest file read (MB)* | `text_max_size` | `[search] text_max_size` |
 | | *Most hits* | `max_results` | `[search] max_results` |
 | | *Programs that read more* |  | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |

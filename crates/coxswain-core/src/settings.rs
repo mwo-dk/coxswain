@@ -151,6 +151,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("search_history", &["search", "history"], Search, &[Disk]),
     opt("search_cloud", &["search", "cloud"], Search, &[Network]),
     opt("cloud_read", &["search", "cloud_read"], Search, &[Network]),
+    opt("search_tika", &["search", "tika"], Search, &[Disk, Cpu, Network]),
     opt("text_max_size", &["search", "text_max_size"], Search, &[]),
     opt("max_results", &["search", "max_results"], Search, &[]),
     opt("text_roots", &["search", "text_roots"], Search, &[]),
@@ -449,6 +450,8 @@ pub enum Part {
     Text,
     Meaning,
     Ask,
+    /// Apache Tika, for other formats: only while it is turned on.
+    Tika,
 }
 
 /// The one step a status line offers.
@@ -722,7 +725,32 @@ pub fn status(
     if s.meaning && st.meaning_error.is_none() {
         meaning.poor = poor.iter().find(|p| !p.ask).cloned();
     }
-    vec![names, text, meaning, ask]
+    let mut lines = vec![names, text, meaning, ask];
+    if s.tika && s.text {
+        use crate::extract::tika::State;
+        let image = crate::images::short(&crate::config::PreviewConfig::default().images["tika"]).to_string();
+        let mut tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
+        match st.tika.as_ref().filter(|_| helper) {
+            None => {}
+            Some(State::Ready) => tika.text = t!("settings.status.tika_ready"),
+            Some(State::Pulling(progress)) => {
+                tika.text = t!("settings.status.tika_pulling", "image" => image);
+                tika.note = (!progress.is_empty()).then(|| progress.clone());
+            }
+            Some(State::NoRuntime) => {
+                tika.text = t!("settings.status.off");
+                tika.note = Some(t!("settings.status.tika_no_runtime"));
+                tika.bad = true;
+            }
+            Some(State::Failed(why)) => {
+                tika.text = t!("settings.status.off");
+                tika.note = Some(t!("settings.status.failed", "why" => why));
+                tika.bad = true;
+            }
+        }
+        lines.push(tika);
+    }
+    lines
 }
 
 // ---------------------------------------------------------------- privacy
@@ -772,6 +800,12 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
             &t!("settings.out.cloud_where"),
             false,
         ));
+    }
+    if s.tika && s.text && cfg.preview.container != "off" {
+        let image = cfg.preview.images.get("tika").map_or("", String::as_str);
+        if !image.is_empty() {
+            v.push(out("settings.out.tika", registry(image), false));
+        }
     }
     if cfg.preview.prefer != "local" && cfg.preview.container != "off" {
         let mut hosts: Vec<&str> = cfg
@@ -1027,6 +1061,7 @@ mod tests {
             chat_loaded: None,
             error: Some("stalled".into()),
             clouds: vec![("OneDrive".into(), "/c".into())],
+            tika: None,
             outdated: None,
         };
         let mut state = crate::state::AppState::default();
@@ -1101,6 +1136,7 @@ mod tests {
             roots: vec![],
             tools: vec![],
             clouds: vec![],
+            tika: None,
             outdated: None,
         };
         s.text = true;

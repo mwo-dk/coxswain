@@ -74,7 +74,7 @@ not searched.* with *Read this folder too* ([all states](find-file.md#when-somet
 | **Where** | `search.db` in Coxswain's cache folder, readable by you alone ([Where things are kept](../reference/where-things-are-kept.md)) |
 
 Coxswain reads the documents itself, starting no other program (except the
-[optional ones](scans.md) you install), and no reader touches the network. A file that cannot be
+[optional ones](scans.md) you install, and [Apache Tika's container](tika.md) when you turn it on), and no reader touches the network. A file that cannot be
 read (damaged, locked, not what its name says) is marked as without text and tried again when it
 changes.
 
