@@ -511,6 +511,14 @@ Only the rows on screen
 exist in the page; a cursor move changes two of them and scrolls. The preview waits 80 ms
 after the last move before it reads anything.
 
+#### Why is the program file so large?
+
+It carries its readers with it, so nothing has to be installed for a preview: about 200
+languages for colouring code, readers for PDF, Office files, e-mail, archives and pictures
+(JPEG XL, EXR, TIFF …), a search store, and the built-in model's code for search by meaning. The
+released programs have no symbol table, which keeps the terminal app about 11 % and the desktop
+app about 13 % smaller; the memory they use while running is not affected by any of it.
+
 #### Can I keep working while the terminal app copies?
 
 Yes: the copy runs on a thread, the
