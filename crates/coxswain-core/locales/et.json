@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Otsi uut versiooni",
  "setting.check_updates.hint": "Käivitumisel ja siis kord päevas, kuni see on avatud, küsib Coxswain GitHubilt uusima versiooni numbrit. Midagi muud ei saadeta.",
  "setting.chess_board": "Malelaud",
- "setting.chess_board.hint": "Male, kabe, xiangqi ja go laudade värvid: kujundusest või turniirilaud rohelise või pruunina.",
+ "setting.chess_board.hint": "Male, kabe, xiangqi, šõgi ja go laudade värvid: kujundusest või turniirilaud rohelise või pruunina.",
  "setting.chess_pieces": "Mängunupud terminalis",
  "setting.chess_pieces.hint": "Kuidas terminalirakendus malendeid joonistab: plokkmärkidest nii peenelt, kui terminal neid joonistab, või üks figuriin ruudu kohta väikesel laual.",
  "setting.chess_book": "Avangute raamat",

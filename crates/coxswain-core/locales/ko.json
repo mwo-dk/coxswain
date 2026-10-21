@@ -2803,7 +2803,7 @@
  "setting.check_updates": "새 버전 확인",
  "setting.check_updates.hint": "시작할 때, 그리고 열려 있는 동안 하루에 한 번 Coxswain이 GitHub에 최신 버전 번호를 묻습니다. 다른 것은 보내지 않습니다.",
  "setting.chess_board": "체스판",
- "setting.chess_board.hint": "체스, 드래프트, 샹치, 바둑 판의 색: 테마에 따르거나, 녹색 또는 갈색 토너먼트 판.",
+ "setting.chess_board.hint": "체스, 드래프트, 샹치, 쇼기, 바둑 판의 색: 테마에 따르거나, 녹색 또는 갈색 토너먼트 판.",
  "setting.chess_pieces": "터미널의 게임 말",
  "setting.chess_pieces.hint": "터미널 앱이 체스 말을 그리는 방식: 블록 문자로 터미널이 그리는 만큼 섬세하게, 또는 작은 판에 칸마다 피규린 하나로.",
  "setting.chess_book": "오프닝 북",

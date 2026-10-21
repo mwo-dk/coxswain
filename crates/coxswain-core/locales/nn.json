@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Sjå etter ein ny versjon",
  "setting.check_updates.hint": "Når Coxswain startar, og så éin gong om dagen medan programmet er ope, spør det GitHub om det nyaste versjonsnummeret. Ingenting anna blir sendt.",
  "setting.chess_board": "Sjakkbrett",
- "setting.chess_board.hint": "Fargane på bretta for sjakk, dam, xiangqi og go: frå temaet, eller eit turneringsbrett i grønt eller brunt.",
+ "setting.chess_board.hint": "Fargane på bretta for sjakk, dam, xiangqi, shogi og go: frå temaet, eller eit turneringsbrett i grønt eller brunt.",
  "setting.chess_pieces": "Spelebrikker i terminalen",
  "setting.chess_pieces.hint": "Korleis terminalappen teiknar sjakkbrikker: av blokkteikn, så fint som terminalen teiknar dei, eller éin figurin per felt på eit lite brett.",
  "setting.chess_book": "Opningsbok",

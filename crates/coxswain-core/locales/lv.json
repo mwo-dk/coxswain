@@ -2941,7 +2941,7 @@
  "setting.check_updates": "Pārbaudīt, vai ir jauna versija",
  "setting.check_updates.hint": "Palaižot un pēc tam reizi dienā, kamēr ir atvērts, Coxswain vaicā GitHub jaunākās versijas numuru. Nekas cits netiek sūtīts.",
  "setting.chess_board": "Šaha galdiņš",
- "setting.chess_board.hint": "Šaha, dambretes, sjanci un go galdiņu krāsas: no tēmas vai turnīra galdiņš zaļā vai brūnā.",
+ "setting.chess_board.hint": "Šaha, dambretes, sjanci, šogi un go galdiņu krāsas: no tēmas vai turnīra galdiņš zaļā vai brūnā.",
  "setting.chess_pieces": "Spēles kauliņi terminālī",
  "setting.chess_pieces.hint": "Kā termināļa lietotne zīmē šaha figūras: no bloku rakstzīmēm tik smalki, cik terminālis tās zīmē, vai pa vienai figūriņai lauciņā uz mazas galdiņa.",
  "setting.chess_book": "Atklātņu grāmata",

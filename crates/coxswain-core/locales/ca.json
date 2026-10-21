@@ -2941,7 +2941,7 @@
  "setting.check_updates": "Comprova si hi ha una versió nova",
  "setting.check_updates.hint": "En iniciar-se, i després un cop al dia mentre és obert, el Coxswain pregunta a GitHub el número de la versió més nova. No s'envia res més.",
  "setting.chess_board": "Tauler d'escacs",
- "setting.chess_board.hint": "Els colors dels taulers d'escacs, dames, xiangqi i go: del tema, o un tauler de torneig en verd o marró.",
+ "setting.chess_board.hint": "Els colors dels taulers d'escacs, dames, xiangqi, shogi i go: del tema, o un tauler de torneig en verd o marró.",
  "setting.chess_pieces": "Peces de joc al terminal",
  "setting.chess_pieces.hint": "Com l'app de terminal dibuixa les peces d'escacs: amb caràcters de bloc, tan fins com el terminal els dibuixa, o una figureta per casella en un tauler petit.",
  "setting.chess_book": "Llibre d'obertures",

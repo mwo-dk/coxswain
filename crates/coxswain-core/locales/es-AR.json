@@ -2941,7 +2941,7 @@
  "setting.check_updates": "Buscar una versión nueva",
  "setting.check_updates.hint": "Al iniciarse, y después una vez por día mientras está abierto, Coxswain le pregunta a GitHub el número de la versión más nueva. No se envía nada más.",
  "setting.chess_board": "Tablero de ajedrez",
- "setting.chess_board.hint": "Los colores de los tableros de ajedrez, damas, xiangqi y go: los del tema, o un tablero de torneo en verde o marrón.",
+ "setting.chess_board.hint": "Los colores de los tableros de ajedrez, damas, xiangqi, shogi y go: los del tema, o un tablero de torneo en verde o marrón.",
  "setting.chess_pieces": "Piezas de juego en la terminal",
  "setting.chess_pieces.hint": "Cómo la app de terminal dibuja las piezas de ajedrez: con caracteres de bloque, tan finos como la terminal los dibuja, o una figurina por casilla en un tablero chico.",
  "setting.chess_book": "Libro de aperturas",

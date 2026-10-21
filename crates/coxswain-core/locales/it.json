@@ -2941,7 +2941,7 @@
  "setting.check_updates": "Cerca una nuova versione",
  "setting.check_updates.hint": "All’avvio e poi una volta al giorno finché è aperto, Coxswain chiede a GitHub il numero della versione più recente. Non viene inviato nient’altro.",
  "setting.chess_board": "Scacchiera",
- "setting.chess_board.hint": "I colori delle scacchiere per scacchi, dama, xiangqi e go: dal tema, o una scacchiera da torneo verde o marrone.",
+ "setting.chess_board.hint": "I colori delle scacchiere per scacchi, dama, xiangqi, shogi e go: dal tema, o una scacchiera da torneo verde o marrone.",
  "setting.chess_pieces": "Pezzi di gioco nel terminale",
  "setting.chess_pieces.hint": "Come l'app da terminale disegna i pezzi degli scacchi: con caratteri a blocchi, fini quanto il terminale li disegna, o una figurina per casa su una scacchiera piccola.",
  "setting.chess_book": "Libro di aperture",

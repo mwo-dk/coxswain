@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Check for a new version",
  "setting.check_updates.hint": "When it starts, then once a day while it is open, Coxswain asks GitHub for the newest version number. Nothing else is sent.",
  "setting.chess_board": "Chess board",
- "setting.chess_board.hint": "The colours of the boards for chess, draughts, xiangqi and Go: from the theme, or a tournament board in green or brown.",
+ "setting.chess_board.hint": "The colours of the boards for chess, draughts, xiangqi, shogi and Go: from the theme, or a tournament board in green or brown.",
  "setting.chess_pieces": "Game pieces in the terminal",
  "setting.chess_pieces.hint": "How the terminal app draws chess pieces: from block characters, as fine as the terminal draws them, or one figurine a square on a small board.",
  "setting.chess_book": "Opening book",

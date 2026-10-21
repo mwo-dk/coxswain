@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Søg efter en ny version",
  "setting.check_updates.hint": "Når Coxswain starter og derefter én gang om dagen, mens den er åben, spørger den GitHub om det nyeste versionsnummer. Intet andet sendes.",
  "setting.chess_board": "Skakbræt",
- "setting.chess_board.hint": "Farverne på brætterne til skak, dam, xiangqi og go: fra temaet, eller et turneringsbræt i grønt eller brunt.",
+ "setting.chess_board.hint": "Farverne på brætterne til skak, dam, xiangqi, shogi og go: fra temaet, eller et turneringsbræt i grønt eller brunt.",
  "setting.chess_pieces": "Spillebrikker i terminalen",
  "setting.chess_pieces.hint": "Sådan tegner terminalappen skakbrikker: af blokketegn, så fint som terminalen tegner dem, eller én figurin pr. felt på et lille bræt.",
  "setting.chess_book": "Åbningsbog",

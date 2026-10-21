@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Nach einer neuen Version suchen",
  "setting.check_updates.hint": "Beim Start und dann einmal täglich, solange es läuft, fragt Coxswain bei GitHub nach der neuesten Versionsnummer. Sonst wird nichts gesendet.",
  "setting.chess_board": "Schachbrett",
- "setting.chess_board.hint": "Die Farben der Bretter für Schach, Dame, Xiangqi und Go: vom Design, oder ein Turnierbrett in Grün oder Braun.",
+ "setting.chess_board.hint": "Die Farben der Bretter für Schach, Dame, Xiangqi, Shogi und Go: vom Design, oder ein Turnierbrett in Grün oder Braun.",
  "setting.chess_pieces": "Spielfiguren im Terminal",
  "setting.chess_pieces.hint": "Wie die Terminal-App Schachfiguren zeichnet: aus Blockzeichen, so fein das Terminal sie zeichnet, oder eine Figurine je Feld auf einem kleinen Brett.",
  "setting.chess_book": "Eröffnungsbuch",

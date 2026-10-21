@@ -2803,7 +2803,7 @@
  "setting.check_updates": "新しいバージョンを確認",
  "setting.check_updates.hint": "起動時と、その後は開いている間 1 日 1 回、Coxswain は GitHub に最新のバージョン番号を問い合わせます。ほかには何も送りません。",
  "setting.chess_board": "チェス盤",
- "setting.chess_board.hint": "チェス、ドラフツ、シャンチー、囲碁の盤の色：テーマに合わせる、または緑か茶色のトーナメント盤。",
+ "setting.chess_board.hint": "チェス、ドラフツ、シャンチー、将棋、囲碁の盤の色：テーマに合わせる、または緑か茶色のトーナメント盤。",
  "setting.chess_pieces": "ターミナルの駒",
  "setting.chess_pieces.hint": "ターミナル版がチェスの駒をどう描くか：ブロック文字で、ターミナルが描ける細かさで、または小さな盤に1マス1つのフィギュリンで。",
  "setting.chess_book": "定跡書",

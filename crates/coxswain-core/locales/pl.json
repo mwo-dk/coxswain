@@ -3010,7 +3010,7 @@
  "setting.check_updates": "Sprawdzaj, czy jest nowa wersja",
  "setting.check_updates.hint": "Przy uruchomieniu, a potem raz dziennie, dopóki jest otwarty, Coxswain pyta GitHub o numer najnowszej wersji. Nic innego nie jest wysyłane.",
  "setting.chess_board": "Szachownica",
- "setting.chess_board.hint": "Kolory plansz do szachów, warcabów, xiangqi i go: z motywu albo turniejowa plansza w zieleni lub brązie.",
+ "setting.chess_board.hint": "Kolory plansz do szachów, warcabów, xiangqi, shōgi i go: z motywu albo turniejowa plansza w zieleni lub brązie.",
  "setting.chess_pieces": "Bierki w terminalu",
  "setting.chess_pieces.hint": "Jak aplikacja terminalowa rysuje bierki szachowe: ze znaków blokowych, tak drobnych, jak terminal je rysuje, albo jedną figurynką na pole na małej szachownicy.",
  "setting.chess_book": "Książka debiutowa",

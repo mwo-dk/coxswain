@@ -2941,7 +2941,7 @@
  "setting.check_updates": "Tikrinti, ar yra nauja versija",
  "setting.check_updates.hint": "Paleidus, o paskui kartą per dieną, kol atidaryta, Coxswain paklausia GitHub naujausios versijos numerio. Nieko daugiau nesiunčiama.",
  "setting.chess_board": "Šachmatų lenta",
- "setting.chess_board.hint": "Šachmatų, šaškių, siangči ir go lentų spalvos: iš temos arba turnyrinė lenta, žalia ar ruda.",
+ "setting.chess_board.hint": "Šachmatų, šaškių, siangči, šogi ir go lentų spalvos: iš temos arba turnyrinė lenta, žalia ar ruda.",
  "setting.chess_pieces": "Žaidimo figūros terminale",
  "setting.chess_pieces.hint": "Kaip terminalo programa piešia šachmatų figūras: iš blokinių simbolių, tokių smulkių, kokius terminalas piešia, arba po vieną figūrėlę langelyje ant mažos lentos.",
  "setting.chess_book": "Debiutų knyga",

@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Tarkista uusi versio",
  "setting.check_updates.hint": "Käynnistyessään ja sitten kerran päivässä auki ollessaan Coxswain kysyy GitHubilta uusimman version numeron. Mitään muuta ei lähetetä.",
  "setting.chess_board": "Shakkilauta",
- "setting.chess_board.hint": "Shakki-, tammi-, xiangqi- ja go-lautojen värit: teemasta, tai turnauslauta vihreänä tai ruskeana.",
+ "setting.chess_board.hint": "Shakki-, tammi-, xiangqi-, shogi- ja go-lautojen värit: teemasta, tai turnauslauta vihreänä tai ruskeana.",
  "setting.chess_pieces": "Pelinappulat päätteessä",
  "setting.chess_pieces.hint": "Miten pääteohjelma piirtää shakkinappulat: lohkomerkeistä niin tarkasti kuin pääte ne piirtää, tai yksi figuriini ruutua kohden pienellä laudalla.",
  "setting.chess_book": "Avauskirja",

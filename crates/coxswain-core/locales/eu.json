@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Bilatu bertsio berria",
  "setting.check_updates.hint": "Abiaraztean, eta gero egunean behin irekita dagoen bitartean, Coxswain-ek bertsio berrienaren zenbakia galdetzen dio GitHub-i. Ez da beste ezer bidaltzen.",
  "setting.chess_board": "Xake-taula",
- "setting.chess_board.hint": "Xake, dama, xiangqi eta go taulen koloreak: gaitik, edo txapelketa-taula berdea edo marroia.",
+ "setting.chess_board.hint": "Xake, dama, xiangqi, shogi eta go taulen koloreak: gaitik, edo txapelketa-taula berdea edo marroia.",
  "setting.chess_pieces": "Joko-piezak terminalean",
  "setting.chess_pieces.hint": "Terminaleko aplikazioak xake-piezak nola marrazten dituen: bloke-karaktereekin, terminalak marrazten dituen bezain fin, edo figurina bat lauki bakoitzeko taula txiki batean.",
  "setting.chess_book": "Irekiera-liburua",

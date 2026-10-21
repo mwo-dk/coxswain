@@ -2872,7 +2872,7 @@
  "setting.check_updates": "Op een nieuwe versie controleren",
  "setting.check_updates.hint": "Bij het starten en daarna één keer per dag zolang het open is vraagt Coxswain GitHub naar het nieuwste versienummer. Verder wordt er niets verstuurd.",
  "setting.chess_board": "Schaakbord",
- "setting.chess_board.hint": "De kleuren van de borden voor schaken, dammen, xiangqi en go: van het thema, of een toernooibord in groen of bruin.",
+ "setting.chess_board.hint": "De kleuren van de borden voor schaken, dammen, xiangqi, shogi en go: van het thema, of een toernooibord in groen of bruin.",
  "setting.chess_pieces": "Spelstukken in de terminal",
  "setting.chess_pieces.hint": "Hoe de terminal-app schaakstukken tekent: uit bloktekens, zo fijn als de terminal ze tekent, of één figurine per veld op een klein bord.",
  "setting.chess_book": "Openingsboek",
