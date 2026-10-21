@@ -9,8 +9,9 @@
 //! - no network, no other programs, nothing written anywhere.
 //!
 //! The exceptions are `installed`: programs the user has installed (OCR, LibreOffice), run
-//! at low priority with a time limit, for what no reader here can get; and `tika`, Apache Tika
-//! in a container without network, when the user turns it on.
+//! at low priority with a time limit, for what no reader here can get; `tika`, Apache Tika
+//! in a container without network, when the user turns it on; and calibre (`crate::ebook`),
+//! installed or in a container without network, when the user turns e-books on.
 //!
 //! `text_of` also catches a panic from a reader (they lean on other people's parsers) and
 //! cuts the text at `MAX_TEXT`.
@@ -73,6 +74,8 @@ fn reader(path: &Path) -> Option<Reader> {
         }
         e if tika::FORMATS.contains(&e) => tika::text,
         e if installed::POSTSCRIPT.contains(&e) => installed::postscript,
+        // E-books calibre reads, when `[preview] ebooks` is on (`ebook`).
+        e if crate::ebook::FORMATS.contains(&e) => crate::ebook::text,
         _ => return None,
     })
 }

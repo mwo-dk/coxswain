@@ -5,7 +5,7 @@
 The desktop app's preview pane shows the file or folder under the cursor and follows it as you
 move: over 60 kinds of file, from code and Markdown to web pages, spreadsheets, databases,
 e-books, certificates, slides and LaTeX. Most are drawn by libraries built into the app; a few
-need a real program (LaTeX, LibreOffice, PlantUML, pandoc, DuckDB, ffmpeg, ImageMagick), which Coxswain runs from
+need a real program (LaTeX, LibreOffice, PlantUML, pandoc, DuckDB, ffmpeg, ImageMagick, calibre for e-books), which Coxswain runs from
 your install or from a network-less container.
 
 ![Five previews side by side: Markdown with a Mermaid flow chart and a typeset formula, a Jupyter notebook with its code and a plot, a spreadsheet, a Word document and a font sample, all in the Cyber theme](../screenshots/gui-previews.png)
@@ -25,7 +25,7 @@ details; *Settings → Previews → Use* can put the container first, or leave i
 flowchart TD
   file[The file under the cursor] --> own{A reader built<br/>into the app?}
   own -->|yes: code, PDF, pictures,<br/>spreadsheets, …| shown[Shown at once]
-  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick,<br/>GDAL, OpenSCAD| tool{The program<br/>installed?}
+  own -->|no: LaTeX, LibreOffice,<br/>PlantUML, pandoc, DuckDB,<br/>ffmpeg, ImageMagick,<br/>GDAL, OpenSCAD, calibre| tool{The program<br/>installed?}
   tool -->|yes| run[It runs; the result<br/>is cached]
   tool -->|no| box{podman or docker,<br/>and an image?}
   box -->|yes| cont[It runs in a container<br/>with no network;<br/>a first pull waits for a click]
@@ -99,6 +99,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Neural network models](neural-networks.md) | ONNX, TensorFlow Lite, Core ML and Keras models: inputs, outputs, nodes and parameters in both apps; the graph drawn by Netron, offline, in the desktop app |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file; with ffmpeg and ImageMagick the video and sound the player cannot play, HEIC, GIMP and RAW photos, video thumbnails |
 | [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
+| [E-books](ebooks.md) | MOBI, Kindle, FictionBook, LIT and Palm books through calibre: cover, title, authors, first pages, Find, Convert e-book; opt-in |
 | [Diagrams](diagrams.md) | draw.io, Mermaid, Graphviz, PlantUML, and D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, DBML, erd and bytefield by their programs or Kroki's image |
 | [LaTeX projects](latex.md) | Which file is the document, which engine, building by itself, another engine when one fails |
 | [Geodata](geodata.md) | GeoPackage, shapefiles, GeoJSON, KML, GPX and GeoTIFF as a map of their own shapes with their facts, a GPX track's length and time, and Convert geodata, by GDAL |
@@ -139,6 +140,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.tif` `.tga` `.dds` `.hdr` `.exr` `.qoi` `.jxl` `.iff` `.lbm` `.pcx` `.xpm` `.xbm` `.psd` and Netpbm | The picture, a TIFF page by page | [Old pictures and files](old-formats.md#pictures) |
 | `.cbz`, `.mbox`, `.msg`, `.dbf` | Comic pages, messages, a mail, a table | [Old pictures and files](old-formats.md#formats) |
 | `.mod` `.xm` `.s3m` `.it` | Tracker music: its samples and facts | [Old pictures and files](old-formats.md#tracker-music) |
+| `.mobi` `.azw` `.azw3` `.fb2` `.lit` | Cover, title, authors and first pages, by calibre (opt-in) | [E-books](ebooks.md) |
 | `.zip` `.7z` `.tar.*` and other archives | The files inside | [Media](media.md#archives) |
 | `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml`, `.d2` `.ditaa` `.bob` `.pikchr` `.nomnoml` `.wavedrom` `.vg` `.vl` `.dbml` `.er` `.bytefield` | Diagrams | [Diagrams](diagrams.md) |
 | `.tex` `.ltx` | PDF built by LaTeX | [LaTeX](latex.md) |

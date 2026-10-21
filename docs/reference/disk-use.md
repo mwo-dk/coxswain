@@ -40,14 +40,14 @@ system; this page is about the room they take and getting it back.
 |---|---|---|---|
 | `search.db` (with `-wal`, `-shm`) | The search store: the text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors | It is read again on its own, at half speed; until then Find finds fewer words in files, and search by meaning has to make its vectors again | Yes |
 | `index.bin` | The name index, saved so Find has every name at once when the helper starts | Built again on its own: Find by name waits a few minutes on a large disk | Yes |
-| `previews/` | PDFs, SVGs and pages made by LaTeX, LibreOffice, PlantUML and pandoc | Made again the next time each file is shown | Yes |
+| `previews/` | PDFs, SVGs and pages made by LaTeX, LibreOffice, PlantUML and pandoc, and the EPUBs and covers calibre made of e-books | Made again the next time each file is shown | Yes |
 | `peek/` | Files copied out of archives to be previewed or viewed | Copied again the next time | Yes |
 | `inside-…/` | Left-overs of the search helper reading files inside archives; shown only when there are some | Nothing. A folder a running helper is using now is kept | Yes |
 | `libreoffice-profile/` (and `libreoffice-index-profile/`) | LibreOffice's own profiles for previews and for reading old Office files | Made again the next time LibreOffice runs | Yes |
 | `helper.log` | When the search helper started and left, and what failed | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
-| A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
+| A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, calibre …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
 
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
@@ -95,7 +95,7 @@ Coxswain lists only what it caused, matched exactly:
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
   `docker.io/yuzutech/kroki:latest`, `ghcr.io/typst/typst:latest`,
   `docker.io/jbarlow83/ocrmypdf-alpine:latest`, listed once though OCRmyPDF and Ghostscript
-  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3` `docker.io/openscad/openscad:trixie.2026-10-19` and `docker.io/apache/tika:4.1.0`) that podman or docker has. Other images, even ones that look
+  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3` `docker.io/openscad/openscad:trixie.2026-10-19`, `docker.io/apache/tika:4.1.0` and calibre's `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest) that podman or docker has. Other images,
   alike, are not listed. *Remove images not used for 90 days* in *Settings → Previews* removes
   these by itself when no preview used one (nor Apache Tika read a file with it) for that long, and *Keep images up to date* removes
   the copy an update replaced ([Containers](../previews/containers.md#keeping-images-up-to-date)).

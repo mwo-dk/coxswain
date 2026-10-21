@@ -3,6 +3,7 @@
 mod bom;
 mod chess;
 mod go;
+mod ebook;
 mod git_config;
 mod provenance;
 mod guide;
@@ -300,6 +301,7 @@ impl Panel {
             models: list.iter().filter(|e| !e.is_dir && coxswain_core::scad::is_model(&e.path)).count(),
             images: list.iter().filter(|e| !e.is_dir && coxswain_core::container_image::layout_index(&e.path)).count(),
             local_models: list.iter().filter(|e| !e.is_dir && coxswain_core::local_models::is_model(&e.path)).count(),
+            ebooks: list.iter().filter(|e| !e.is_dir && coxswain_core::ebook::is_ebook(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -405,6 +407,8 @@ pub enum MenuRun {
     Say(String),
     /// What *Convert video or audio* or *Convert or edit pictures* makes of these files.
     Media(coxswain_core::media::Op, Vec<PathBuf>),
+    /// *Convert e-book*: these books into this format (`coxswain_core::ebook::TO`).
+    Ebook(&'static str, Vec<PathBuf>),
 }
 
 pub struct MenuItem {
@@ -450,6 +454,9 @@ pub enum Dialog {
     Provenance(Box<provenance::Viewer>),
     /// The git config, full screen (Alt+C).
     GitConfig(Box<git_config::Viewer>),
+    /// Convert `books` into `to`, or (`None`) pull calibre's image to view the book? `text` says
+    /// what it writes, which calibre runs and what a first run pulls.
+    Ebook { title: String, text: String, to: Option<&'static str>, books: Vec<PathBuf> },
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
@@ -487,6 +494,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Confirm { .. } => "delete",
         Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Media { op, .. } => media_feature(op.program()),
+        Dialog::Ebook { .. } => "ebooks",
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -651,6 +659,10 @@ pub struct App {
     /// time, and the action that started it (which stops it); the question being worked out.
     media: Option<(Searchable, Action)>,
     media_plan: Option<mpsc::Receiver<MediaPlan>>,
+    /// calibre on its thread (`ebook`), one run at a time: converting books into a format, or
+    /// (`None`) making one's text for the viewer; and its question being worked out.
+    ebook: Option<(Searchable, Option<&'static str>, Vec<PathBuf>)>,
+    ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
@@ -884,6 +896,8 @@ impl App {
             searchable_plan: None,
             media: None,
             media_plan: None,
+            ebook: None,
+            ebook_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1235,7 +1249,7 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some()) => (self.job, self.searchable, self.media) = (None, None, None),
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some()) => (self.job, self.searchable, self.media, self.ebook) = (None, None, None, None),
             Action::Quit => {
                 self.quit = true;
                 // Make PDF searchable is stopped, and waited for: its container is killed,
@@ -1247,7 +1261,11 @@ impl App {
                 if let Some((s, _)) = &self.media {
                     s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() {
+                // So is calibre: its container killed, nothing half made left beside the book.
+                if let Some((s, ..)) = &self.ebook {
+                    s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1289,6 +1307,7 @@ impl App {
             Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
             Action::ConvertGeodata => self.media_menu(coxswain_core::media::Program::Gdal),
             Action::ExportModel => self.media_menu(coxswain_core::media::Program::Openscad),
+            Action::ConvertEbook => self.ebook_menu(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1418,6 +1437,14 @@ impl App {
                             Ok(text) => return self.view_copy(&text, &e, r.title.clone()),
                             Err(err) => self.status = Some(err),
                         }
+                    }
+                    // An e-book calibre reads, when e-books are on: its title, authors and text.
+                    if a == Action::View && coxswain_core::ebook::is_ebook(&e) {
+                        if self.cfg.preview.ebooks {
+                            return self.ebook_view(e);
+                        }
+                        // Off: shown as it is, and where to turn its text on.
+                        self.status = Some(format!("{} ({})", t!("ebook.off"), t!("searchable.settings_key", "key" => self.key_label(Action::Settings))));
                     }
                     // An old picture, a tracker module, an Outlook message: what it holds, as text.
                     if a == Action::View
@@ -2773,6 +2800,11 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Media { title, text, op, files }),
             },
+            Dialog::Ebook { title, text, to, books } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.ebook_start(to, books),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Ebook { title, text, to, books }),
+            },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -2978,6 +3010,7 @@ impl App {
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
                     Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
+                    Some(MenuRun::Ebook(to, books)) => self.ebook_ask(Some(to), books.clone()),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -3396,6 +3429,8 @@ impl App {
         self.poll_searchable_plan();
         self.poll_media();
         self.poll_media_plan();
+        self.poll_ebook();
+        self.poll_ebook_plan();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -3541,7 +3576,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() {
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
             Some(Run::Shell { line, typed, dir, wait }) => {

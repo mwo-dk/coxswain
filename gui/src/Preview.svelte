@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia, resortSoon } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia, resortSoon, convertEbook } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -808,8 +808,8 @@
           {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
           <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
-          <p class="more">{#if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
-            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews" })}>{t("preview.settings")}</button></p>
+          <p class="more">{#if conv.tool === "calibre" && !ui.cfg.settings.ebooks}<!-- Only turned off: nothing to install. -->{:else if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
+            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: conv.tool === "calibre" && !ui.cfg.settings.ebooks ? "ebooks" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews" })}>{t("preview.settings")}</button></p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>
@@ -833,6 +833,18 @@
           <article class="markdown">{@html clean(conv.result.text)}</article>
         {:else if conv.result?.kind === "json"}
           {@render grid(jsonTable(conv.result.text))}
+        {:else if conv.result?.kind === "ebook"}
+          {@const b = conv.result.book}
+          <!-- calibre's EPUB of the book: its cover, title and authors, then its first chapter. -->
+          <div class="ebook">
+            {#if conv.result.file}<img class="cover" src={convertFileSrc(conv.result.file)} alt={t("preview.cover", { name: b.title || e.name })} />{/if}
+            <div>
+              {#if b.title}<h2 class="book">{b.title}</h2>{/if}
+              {#if b.authors}<p class="more">{b.authors}</p>{/if}
+              <p class="more"><button class="render" onclick={() => convertEbook([e.path])}>{t("action.convert_ebook")}</button></p>
+            </div>
+          </div>
+          {#if b.html}<article class="markdown">{@html clean(b.html)}</article>{:else}<p class="more">{t("err.no_readable_chapter")}</p>{/if}
         {/if}
       {:else if rich?.parquet}
         <p class="more">{t("preview.parquet_summary", { rows: tn("preview.rows", rich.parquet.rows), columns: tn("preview.columns", rich.parquet.schema.length) })}</p>
@@ -1373,6 +1385,17 @@
   .book {
     margin: 0 0 8px;
     font-size: 1.1em;
+  }
+  .ebook {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .ebook .cover {
+    max-width: 40%;
+    max-height: 280px;
+    box-shadow: 0 1px 6px #0006;
   }
   .cert {
     margin-bottom: 14px;

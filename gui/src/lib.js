@@ -327,6 +327,8 @@ const CONVERTED = Object.fromEntries(
     rst: "rst rest",
     drawio: "drawio dio",
     duckdb: "duckdb ddb",
+    // E-books calibre reads (`ebook`); a .pdb is one only by its header, so it is not here.
+    ebook: "mobi azw azw3 fb2 lit",
   }).flatMap(([kind, exts]) => exts.split(" ").map((e) => [e, kind])),
 );
 
@@ -356,6 +358,8 @@ export const CONVERTER = {
   // OpenSCAD's model, drawn from its STL (`scad`).
   scad: { tool: "openscad", auto: true, verb: "convert.render" },
   duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
+  // calibre makes the book an EPUB in a second or two, once it has stayed selected a moment.
+  ebook: { tool: "calibre", auto: true, wait: 400, verb: "convert.render" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 

@@ -197,4 +197,4 @@ shows its size and **Clear** empties it ([Previews made by tools](tools.md)). A 
 changes gets a new one.
 
 ---
-[← Previous: Media and files](media.md) · [Next: Diagrams →](diagrams.md)
+[← Previous: Media and files](media.md) · [Next: E-books →](ebooks.md)

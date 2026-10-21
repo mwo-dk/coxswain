@@ -107,6 +107,7 @@ def files(d):
         return struct.pack("<H", 8) + b"".join(struct.pack("<HHII", *e) for e in entries) + struct.pack("<I", nxt) + bytes([v, v])
     second = 8 + len(page(8, 0, 0))
     (d / "v.tif").write_bytes(b"II*\0" + struct.pack("<I", 8) + page(8, second, 40) + page(second, 0, 200))
+    (d / "w.fb2").write_text('<?xml version="1.0"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><body><p>Rocket</p></body></FictionBook>')
     # Neural network models, as the demo home has them (docs/screenshots/demo-models.py).
     spec = importlib.util.spec_from_file_location("demo_models", REPO / "docs/screenshots/demo-models.py")
     models = importlib.util.module_from_spec(spec)
@@ -163,6 +164,8 @@ def files(d):
         "mod": ("t.mod", "ul.archive", "greetings to the crew", 10),
         "mbox": ("u.mbox", "ul.archive", "Go for launch", 10),
         "tif": ("v.tif", ".pager", "2", 10),
+        # An e-book, with e-books off (as by default): where to turn calibre on.
+        "fb2": ("w.fb2", "p.more", "E-books", 10),
         # Models: the core's facts, and Netron's graph drawn in its sandboxed frame (it says so
         # by message once it is drawn).
         "onnx_facts": ("rocket-vision.onnx", "dl.facts dd", "float32[batch,3,32,32]", 10),
@@ -182,8 +185,8 @@ MEASURE = """(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // The preview pane: F3 shows it.
   if (!document.querySelector(".preview")) { key("F3"); await sleep(500); }
-  for (let i = 0; i < 30 && title() !== name; i++) { key("ArrowUp"); await sleep(5); }
-  for (let i = 0; i < 30 && title() !== name; i++) { key("ArrowDown"); await sleep(5); }
+  for (let i = 0; i < 80 && title() !== name; i++) { key("ArrowUp"); await sleep(5); }
+  for (let i = 0; i < 80 && title() !== name; i++) { key("ArrowDown"); await sleep(5); }
   if (title() !== name) return "not reached: " + (title() ?? "no preview pane") + " " + document.body.innerText.slice(0, 200);
   key("ArrowUp"); await sleep(300);
   const t0 = performance.now(); key("ArrowDown");

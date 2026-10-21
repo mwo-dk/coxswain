@@ -341,6 +341,11 @@ fn serve_here() -> io::Result<()> {
     if let Some(s) = store.clone() {
         crate::extract::tika::prepare(move || s.hurry.store(true, Ordering::Relaxed));
     }
+    // calibre's image, when e-books are turned on and it is not pulled yet: once there, the
+    // books it reads are read at once.
+    if let Some(s) = store.clone() {
+        crate::ebook::prepare(move || s.hurry.store(true, Ordering::Relaxed));
+    }
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
     let linger = if std::env::args().any(|a| a == crate::service::STAY) {

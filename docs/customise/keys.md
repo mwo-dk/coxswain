@@ -125,6 +125,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `edit_pictures` | none | `convert_geodata` | none |
 | `export_model` | none | `history_all` | **Alt+A** |
 | `chess` | **Alt+K** | `edit_here` | **Shift+F4** |
+| `convert_ebook` | none | | |
 | `space_view` | **Alt+U** | | |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it

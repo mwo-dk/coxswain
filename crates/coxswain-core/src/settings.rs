@@ -103,10 +103,10 @@ impl Opt {
         crate::i18n::tr(&format!("setting.{}.hint", self.name), &[])
     }
 
-    /// The `[search]` options the helper reads when it starts: a change restarts it. Ask's are
-    /// read by the app itself.
+    /// The `[search]` options the helper reads when it starts, and `[preview] ebooks` (calibre
+    /// reads e-books for the search): a change restarts it. Ask's are read by the app itself.
     pub fn restarts_helper(&self) -> bool {
-        self.path[0] == "search" && !self.name.starts_with("ask_")
+        (self.path[0] == "search" && !self.name.starts_with("ask_")) || self.name == "ebooks"
     }
 
     /// Optional in config.toml: empty means the key is taken out (the default applies).
@@ -200,6 +200,7 @@ pub const OPTIONS: &[Opt] = &[
         &[Network, Disk],
     ),
     opt("image_prune", &["preview", "image_prune"], Previews, &[]),
+    opt("ebooks", &["preview", "ebooks"], Previews, &[Disk, Cpu, Network]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
     opt("chess_notation", &["chess", "notation"], Previews, &[]),
     opt("chess_board", &["chess", "board"], Previews, &[]),

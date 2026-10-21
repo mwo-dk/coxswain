@@ -148,7 +148,8 @@ program; **F3** opens it in the built-in viewer, which is useful for `.eml`, `.i
 
 The pane is for a quick look. It skips the cover and title pages and shows the first chapter
 that has real text, so you see what the book is about. Press **Enter** to read it in your
-e-book reader.
+e-book reader. MOBI, Kindle, FictionBook, LIT and Palm books are shown the same way through
+calibre, with their cover too, once you turn that on ([E-books](ebooks.md)).
 
 #### Why does a PostScript file need Ghostscript?
 

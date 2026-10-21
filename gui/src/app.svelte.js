@@ -25,6 +25,8 @@ export const ui = $state({
   /** A *Convert video or audio* or *Convert or edit pictures* run under way, as `searchable`,
    *  with the action that stops it. */
   media: null,
+  /** A *Convert e-book* run under way: which book of how many, and what calibre said last. */
+  ebook: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -538,11 +540,61 @@ async function runMedia(files, op, action) {
   }
 }
 
+/** *Convert e-book* (`coxswain_core::ebook`): the books among `paths` made into EPUB, AZW3 or
+ *  PDF by calibre, next to each. The format from a menu, then the question (what it writes,
+ *  which calibre runs, the first pull and its size), then the run, the status line saying how
+ *  far it is with a Stop button. One run at a time; the action again stops it. */
+export function convertEbook(paths = targets()) {
+  if (ui.ebook) return stopEbook();
+  const items = ["epub", "azw3", "pdf"].map((to, i) => ({ key: String(i + 1), label: t(`ebook.to_${to}`), run: () => planEbook(paths, to) }));
+  ui.modal = { kind: "menu", feature: "ebooks", title: t("action.convert_ebook"), direct: true, filter: "", cursor: 0, items };
+}
+
+async function planEbook(paths, to) {
+  let plan;
+  try {
+    plan = await invoke("ebook_plan", { paths, to });
+  } catch (err) {
+    return void (ui.status = String(err));
+  }
+  const title = t("action.convert_ebook");
+  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.ebooks ? (ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews") : "ebooks", feature: "ebooks" });
+  if (!plan.books.length) return void (ui.status = t("ebook.none"));
+  const what = plan.books.length === 1 ? t("ebook.confirm_one", { name: basename(plan.books[0]), target: plan.targets[0] }) : t("ebook.confirm_many", { n: plan.books.length, format: to.toUpperCase() });
+  ui.modal = { kind: "confirm", title, text: `${what} ${t("ebook.no_drm")} ${plan.about}`, ok: t("ebook.go"), safe: true, run: () => runEbook(plan.books, to), feature: "ebooks" };
+}
+
+async function runEbook(books, to) {
+  ui.ebook = { at: 0, all: books.length, name: basename(books[0]), line: "", started: Date.now(), now: Date.now(), stopping: false };
+  const poll = setInterval(async () => {
+    const p = await invoke("ebook_progress").catch(() => null);
+    if (p && ui.ebook) Object.assign(ui.ebook, p, { now: Date.now() });
+  }, 500);
+  try {
+    const made = await invoke("ebook_run", { paths: books, to });
+    ui.status = made.length === 1 ? t("ebook.done_one", { name: basename(made[0]) }) : t("ebook.done_many", { n: made.length });
+  } catch (err) {
+    if (ui.ebook?.stopping) ui.status = t("ebook.stopped");
+    else ui.modal = failure(t("ebook.failed"), err);
+  } finally {
+    clearInterval(poll);
+    ui.ebook = null;
+    await reloadAll();
+  }
+}
+
 /** Stop the conversion under way. */
 export function stopMedia() {
   if (!ui.media) return;
   ui.media.stopping = true;
   invoke("media_stop");
+}
+
+/** Stop the *Convert e-book* run under way. */
+export function stopEbook() {
+  if (!ui.ebook) return;
+  ui.ebook.stopping = true;
+  invoke("ebook_stop");
 }
 
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
@@ -844,6 +896,8 @@ export function subject(tb = tab()) {
     images: files.filter((x) => ociIndex(tb, x)).length,
     // `local_models::is_model`: a model file by its ending, or a blob of a model store.
     local_models: files.filter((x) => /\.(gguf|safetensors|pt|pth|ckpt)$|\.safetensors\.index\.json$|^pytorch_model.*\.bin$/i.test(x.name) || (tb.models?.[x.name] && /^sha256-/.test(x.name))).length,
+    // A .pdb is an e-book only by its header (a debugging database otherwise): F9 offers it.
+    ebooks: files.filter((x) => /\.(mobi|azw3?|fb2|lit)$/i.test(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

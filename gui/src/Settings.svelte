@@ -820,6 +820,7 @@
         {@render choice("preview_container", [["auto", t("settings.container_auto")], ["podman", "podman"], ["docker", "docker"], ["off", t("settings.container_off")]])}
         {@render text("latex_image")}
         {@render check("latex_auto")}
+        {@render check("ebooks")}
         {@render num("preview_timeout", 10, 3600)}
         <div class="opt">
           <span class="lab">{t("settings.preview_cache")}</span>

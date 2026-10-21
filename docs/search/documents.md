@@ -4,7 +4,8 @@
 
 [Text in files](text.md) reads more than plain text: PDFs, Word and OpenDocument files,
 spreadsheets, slides, mail, books, notebooks and diagrams. Coxswain reads all of these itself,
-in pure Rust, starting no other program, so a search finds the words in them like the words in
+in pure Rust, starting no other program (but calibre for [e-books](../previews/ebooks.md#search),
+when you turn them on), so a search finds the words in them like the words in
 code.
 
 ![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](../screenshots/search-find-groups.png)
@@ -37,6 +38,9 @@ Older formats (`.doc`, `.ppt`, Publisher, Visio, Apple's `.pages` and `.key`) an
 pictures need a program you install: see [Scans, pictures and older Office files](scans.md), or
 Apache Tika in a container when you turn it on. OneNote, XPS, CHM, Outlook `.pst` and `.ost`,
 MHTML, Hangul and Access files are read only with Tika ([Other formats with Apache Tika](tika.md)).
+MOBI, Kindle (`.azw`, `.azw3`), FictionBook, LIT and Palm e-books are read through calibre when
+you turn on *Settings → Previews → E-books with calibre*: their title, authors and chapters
+([E-books](../previews/ebooks.md#search)).
 
 ## What you see
 
@@ -115,7 +119,8 @@ long one. Its words are also cut at 4 MB of text.
 #### Does opening a document for search change it, or start Word?
 
 No. The readers only read, in Coxswain itself, and touch no network. Only the optional programs of
-[Scans](scans.md) are started, and only when installed.
+[Scans](scans.md) are started, and only when installed, and calibre for
+[e-books](../previews/ebooks.md#search) when you turn them on.
 
 #### A file that failed to read: is it tried again?
 

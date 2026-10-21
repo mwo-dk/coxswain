@@ -2109,8 +2109,9 @@ fn scan_for(
     let began = now();
     let (roots, offline) = place(store, cfg)?;
     let tika = crate::extract::tika::extensions();
-    let tools: Vec<&str> = crate::extract::installed::extensions().into_iter().chain(tika.iter().copied()).collect();
-    let known: Vec<&str> = crate::extract::installed::kinds().into_iter().chain(crate::extract::tika::FORMATS.iter().copied()).collect();
+    let ebooks = crate::ebook::extensions();
+    let tools: Vec<&str> = crate::extract::installed::extensions().into_iter().chain(tika.iter().copied()).chain(ebooks.iter().copied()).collect();
+    let known: Vec<&str> = crate::extract::installed::kinds().into_iter().chain(crate::extract::tika::FORMATS.iter().copied()).chain(crate::ebook::FORMATS.iter().copied()).collect();
     store.tools_changed(&tools, &known)?;
     // Diagrams got a sentence per arrow; code keeps its indentation and blank lines.
     let mut ends: Vec<String> = [
@@ -2143,6 +2144,12 @@ fn scan_for(
     // they are read and their passages made again, once.
     store.reader_dropped("readers.pdf", "1", &[".pdf"])?;
     store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"])?;
+    // E-books through calibre, once they are turned on and calibre can run: a version of their
+    // own, so a change to what it gets reads only these books again. Nothing while it is off.
+    if !ebooks.is_empty() {
+        let ends: Vec<String> = ebooks.iter().map(|e| format!(".{e}")).collect();
+        store.reader_changed("readers.ebooks", crate::ebook::READER, &ends)?;
+    }
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;

@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, convertEbook, stopEbook, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -329,6 +329,7 @@
     edit_pictures: () => convertMedia(1),
     convert_geodata: () => convertMedia(2),
     export_model: () => convertMedia(3),
+    convert_ebook: () => convertEbook(),
     chess: async () => {
       const e = item(tab());
       const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
@@ -768,6 +769,12 @@
         <!-- A conversion under way: which file, for how long, how far ffmpeg is or what it said last. -->
         <span class="status" title={s.line}>{t(s.all > 1 ? "media.busy_of" : "media.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
         <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopMedia}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.ebook}
+        {@const s = ui.ebook}
+        <!-- Convert e-book under way: which one, for how long, what calibre said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "ebook.busy_of" : "ebook.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" disabled={s.stopping} onclick={stopEbook}>{t("searchable.stop")}</button>
       {/if}
       {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}

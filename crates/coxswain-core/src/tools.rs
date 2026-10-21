@@ -457,6 +457,10 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         "ocrmypdf" => [
             "", "", "ocrmypdf", "", "ocrmypdf", "ocrmypdf", "ocrmypdf", "", "ocrmypdf", "",
         ],
+        // calibre's ebook-convert (`ebook`).
+        "calibre" => [
+            "calibre", "", "", "", "calibre", "calibre", "calibre", "calibre", "--cask calibre", "calibre.calibre",
+        ],
         "gs" => [
             "ghostscript10",
             "ghostscript-agpl",
