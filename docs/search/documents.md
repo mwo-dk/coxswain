@@ -72,13 +72,18 @@ Check that it is `.docx` (or `.odt` …), not the older `.doc`: that one needs
 No: what a document hides from whoever reads it is not found by its words, not found by its
 meaning and never given to [Ask](ask.md) as a source. Left out are:
 
-- in Word (`.docx` `.docm` `.dotx`), runs marked *Hidden* (Font → Hidden, `w:vanish`);
-- in OpenDocument (`.odt` `.ott`), text whose style says it is not shown, and hidden sections;
-- in a PDF, text drawn invisibly (render mode 3 or 7), text smaller than 2 points, and white
-  text on a page where nothing was painted under it.
+- in Word (`.docx` `.docm` `.dotx`), text marked *Hidden* (Font → Hidden, `w:vanish`), on the
+  text itself, by its character or paragraph style (or a style that one is based on) or by the
+  document's defaults; text marked *not hidden* on itself stays;
+- in OpenDocument (`.odt` `.ott`), text whose style (or the style it is based on) says it is
+  not shown, and hidden sections;
+- in a PDF, text drawn invisibly (render mode 3 or 7), wholly transparent text, text smaller
+  than 2 points, and white text (in any colour space whose white is known) where nothing was
+  painted on the page before it, forms included.
 
-Invisible text over a scanned picture is kept: it is the scan's words, which an OCR program put
-there. Hidden text set by a Word *style* (rather than on the text itself) is still read. After the
+Invisible text over a scanned picture drawn before it is kept: it is the scan's words, which an
+OCR program put there. A very long PDF is looked through for hidden text for a third of its
+reading time; pages after that are read as they are drawn. After the
 update that brought this, every PDF and Word file is read again once, and its passages for search
 by meaning are made again; until a file is read, its old text is not found at all. Find's footer
 shows the files still to go.
