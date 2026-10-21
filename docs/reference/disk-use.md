@@ -47,7 +47,7 @@ system; this page is about the room they take and getting it back.
 | `helper.log` | When the search helper started and left, and what failed | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
-| A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
+| A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
 
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
@@ -95,7 +95,7 @@ Coxswain lists only what it caused, matched exactly:
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
   `docker.io/yuzutech/kroki:latest`, `ghcr.io/typst/typst:latest`,
   `docker.io/jbarlow83/ocrmypdf-alpine:latest`, listed once though OCRmyPDF and Ghostscript
-  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest` and `ghcr.io/osgeo/gdal:alpine-small-3.13.3`) that podman or docker has. Other images, even ones that look
+  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3` and `docker.io/openscad/openscad:trixie.2026-10-19`) that podman or docker has. Other images, even ones that look
   alike, are not listed. *Remove images not used for 90 days* in *Settings → Previews* removes
   these by itself when no preview used one for that long, and *Keep images up to date* removes
   the copy an update replaced ([Containers](../previews/containers.md#keeping-images-up-to-date)).

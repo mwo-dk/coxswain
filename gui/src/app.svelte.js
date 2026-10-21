@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -454,20 +454,20 @@ export function stopSearchable() {
   invoke("searchable_stop");
 }
 
-/** *Convert video or audio* (`program` 0, ffmpeg), *Convert or edit pictures* (1, ImageMagick)
- *  or *Convert geodata* (2, GDAL) on the files among `paths` it takes (`coxswain_core::media`): what to make of them from a
+/** *Convert video or audio* (`program` 0, ffmpeg), *Convert or edit pictures* (1, ImageMagick),
+ *  *Convert geodata* (2, GDAL) or *Export 3D model* (3, OpenSCAD) on the files among `paths` it takes (`coxswain_core::media`): what to make of them from a
  *  menu, a clip's times or a size asked next, then the question (what it writes, which program
  *  runs, the first pull and its size), then the run, the status line saying how far it is with
  *  a Stop button. The action again while it runs stops it. */
 export function convertMedia(program, paths = targets()) {
-  const action = ["convert_media", "edit_pictures", "convert_geodata"][program];
-  const none = () => (ui.status = t(["media.none_media", "media.none_pictures", "geo.none"][program]));
+  const action = ["convert_media", "edit_pictures", "convert_geodata", "export_model"][program];
+  const none = () => (ui.status = t(["media.none_media", "media.none_pictures", "geo.none", "scad.none"][program]));
   if (ui.media) return stopMedia();
-  const files = paths.filter((p) => [isMedia, isEditable, isGeo][program](basename(p)));
+  const files = paths.filter((p) => [isMedia, isEditable, isGeo, isScad][program](basename(p)));
   if (!files.length) return void none();
   const label = (id) => {
     const [base, value] = id.split(":");
-    return base === "geo" ? t(`geo.to.${value}`) : t(`media.op.${base}`, { degrees: value });
+    return base === "geo" ? t(`geo.to.${value}`) : base === "stl" || base === "3mf" ? t(`scad.op.${base}`) : t(`media.op.${base}`, { degrees: value });
   };
   const choose = (id) => {
     const [base] = id.split(":");
@@ -792,6 +792,7 @@ export function subject(tb = tab()) {
     pictures: files.filter((x) => isEditable(x.name)).length,
     // By name: a TIFF, geodata only when it is a GeoTIFF, offers it in its preview instead.
     geo: files.filter((x) => isGeo(x.name) && !/\.tiff?$/i.test(x.name)).length,
+    models: files.filter((x) => isScad(x.name)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

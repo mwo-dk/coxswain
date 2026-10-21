@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -56,8 +56,9 @@
   const online = $derived(!!raw?.online && !raw.is_dir && !fetched.includes(raw.path));
   /** A JSON (Lines) or XML file whose first bytes turned out to be a BOM's or provenance's: { path, kind }. */
   let sniffed = $state({ path: "", kind: "" });
-  /** GeoJSON, KML and GPX with Source chosen: their text instead of their map. */
-  const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && isGeoText(e.name));
+  /** GeoJSON, KML, GPX and OpenSCAD models with Source chosen: their text instead of their map
+   *  or model. */
+  const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && (isGeoText(e.name) || isScad(e.name)));
   const kind = $derived(
     output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : previewKind(e),
   );
@@ -651,10 +652,10 @@
           <button class:on={statement} onclick={() => (ui.previewSource = "statement")}>{t("provenance.statement")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
-      {:else if !diffing && (geoSource || ((kind === "geo" || kind === "gpx") && isGeoText(e.name)))}
-        <!-- GeoJSON, KML, GPX: the map of their shapes, or their text. -->
+      {:else if !diffing && (geoSource || ((kind === "geo" || kind === "gpx") && isGeoText(e.name)) || kind === "scad")}
+        <!-- GeoJSON, KML, GPX: the map of their shapes, or their text; a model, or its code. -->
         <div class="modes" role="group" aria-label={t("preview.show")}>
-          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{t("geo.map")}</button>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{isScad(e.name) ? t("preview.rendered") : t("geo.map")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
       {:else if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
@@ -796,7 +797,7 @@
           </div>
         {:else if !conv.engines.some((x) => x.available)}
           <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs", waveform: "ffmpeg", heif: "magick", imagemagick: "magick", raw: "magick", gdal: "gdalinfo" }[conv.tool] ?? conv.tool]}
+          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs", waveform: "ffmpeg", heif: "magick", imagemagick: "magick", raw: "magick", gdal: "gdalinfo", openscad: "openscad" }[conv.tool] ?? conv.tool]}
           {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
           <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
@@ -1001,10 +1002,10 @@
           {/if}
         </dl>
       {/if}
-      {#if !e.is_dir && !inside && !pane.snapshot && !pane.package && (isMedia(e.name) || isEditable(e.name) || kind === "geo" || kind === "gpx" || geoSource || geoTiff)}
-        <!-- ffmpeg's, ImageMagick's and GDAL's work on it: offered under every video, song, photo and geodata. -->
-        {@const program = kind === "geo" || kind === "gpx" || geoSource || geoTiff ? 2 : isEditable(e.name) ? 1 : 0}
-        {@const act = ["convert_media", "edit_pictures", "convert_geodata"][program]}
+      {#if !e.is_dir && !inside && !pane.snapshot && !pane.package && (isMedia(e.name) || isEditable(e.name) || isScad(e.name) || kind === "geo" || kind === "gpx" || geoSource || geoTiff)}
+        <!-- ffmpeg's, ImageMagick's, GDAL's and OpenSCAD's work on it: offered under every video, song, photo, geodata and model. -->
+        {@const program = isScad(e.name) ? 3 : kind === "geo" || kind === "gpx" || geoSource || geoTiff ? 2 : isEditable(e.name) ? 1 : 0}
+        {@const act = ["convert_media", "edit_pictures", "convert_geodata", "export_model"][program]}
         <p class="more"><button class="render" onclick={() => convertMedia(program, [e.path])}>{t(`action.${act}`)}</button>{#if ui.cfg.actions[act]?.[1]} <kbd>{ui.cfg.actions[act][1]}</kbd>{/if}</p>
       {/if}
       {#if facts.length && kind !== "netron"}

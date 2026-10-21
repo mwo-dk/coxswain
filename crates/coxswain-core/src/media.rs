@@ -104,11 +104,13 @@ pub enum Program {
     Magick,
     /// GDAL, for geodata (`geo`).
     Gdal,
+    /// OpenSCAD, for models (`scad`).
+    Openscad,
 }
 
 impl Program {
     /// The programs whose work the actions offer, in the desktop app's order of `media_ops`.
-    pub const ALL: [Program; 3] = [Program::Ffmpeg, Program::Magick, Program::Gdal];
+    pub const ALL: [Program; 4] = [Program::Ffmpeg, Program::Magick, Program::Gdal, Program::Openscad];
 
     /// The action that runs it on files, and its feature in F1.
     pub fn action(self) -> crate::config::Action {
@@ -117,6 +119,7 @@ impl Program {
             Program::Ffmpeg => Action::ConvertMedia,
             Program::Magick => Action::EditPictures,
             Program::Gdal => Action::ConvertGeodata,
+            Program::Openscad => Action::ExportModel,
         }
     }
     pub fn feature(self) -> &'static str {
@@ -124,6 +127,7 @@ impl Program {
             Program::Ffmpeg => "convert_media",
             Program::Magick => "edit_pictures",
             Program::Gdal => "geodata",
+            Program::Openscad => "openscad",
         }
     }
     /// The status line when none of the files is one it takes.
@@ -132,6 +136,7 @@ impl Program {
             Program::Ffmpeg => "media.none_media",
             Program::Magick => "media.none_pictures",
             Program::Gdal => "geo.none",
+            Program::Openscad => "scad.none",
         })
     }
 
@@ -141,6 +146,7 @@ impl Program {
             Program::Ffmpeg => FFMPEG,
             Program::Magick => MAGICK,
             Program::Gdal => crate::geo::GDAL,
+            Program::Openscad => crate::scad::OPENSCAD,
         }
     }
     /// What is looked for on the PATH: GDAL's programs are installed together.
@@ -149,6 +155,7 @@ impl Program {
             Program::Ffmpeg => "ffmpeg",
             Program::Magick => "magick",
             Program::Gdal => "gdalinfo",
+            Program::Openscad => "openscad",
         }
     }
     fn name(self) -> &'static str {
@@ -156,6 +163,7 @@ impl Program {
             Program::Ffmpeg => "ffmpeg",
             Program::Magick => "ImageMagick",
             Program::Gdal => "GDAL",
+            Program::Openscad => "OpenSCAD",
         }
     }
     /// The texts of `missing`: what to get it from, and what needs it.
@@ -164,6 +172,7 @@ impl Program {
             Program::Ffmpeg => ("media.install_ffmpeg", "media.needs_ffmpeg"),
             Program::Magick => ("media.install_magick", "media.needs_magick"),
             Program::Gdal => ("geo.install_gdal", "geo.needs_gdal"),
+            Program::Openscad => ("scad.install", "scad.needs"),
         }
     }
 }
@@ -229,7 +238,7 @@ pub fn about(how: &How) -> (String, bool) {
         How::Local { .. } => (t!("media.runs_local", "program" => name), false),
         How::Container { rt, path, image, .. } => {
             // GDAL sees the file's folder (a shapefile is several files), the others the file alone.
-            let key = if how.program() == Program::Gdal { "geo.runs_container" } else { "media.runs_container" };
+            let key = if matches!(how.program(), Program::Gdal | Program::Openscad) { "geo.runs_container" } else { "media.runs_container" };
             let runs = t!(key, "program" => name, "runtime" => *rt, "image" => crate::images::short(image));
             if crate::tools::image_size(path, image).is_some() {
                 return (runs, false);
@@ -273,6 +282,10 @@ pub enum Op {
     /// GDAL: the preview's map, and *Convert geodata*.
     Map,
     Geo(crate::geo::To),
+    /// OpenSCAD: the preview's picture, and *Export 3D model* as STL or 3MF.
+    Model,
+    Stl,
+    ThreeMf,
 }
 
 impl Op {
@@ -281,6 +294,7 @@ impl Op {
         match self {
             Op::Frame | Op::Waveform | Op::Mp4 | Op::Mp3 | Op::Flac | Op::Audio | Op::Clip { .. } => Program::Ffmpeg,
             Op::Map | Op::Geo(_) => Program::Gdal,
+            Op::Model | Op::Stl | Op::ThreeMf => Program::Openscad,
             _ => Program::Magick,
         }
     }
@@ -291,6 +305,7 @@ impl Op {
             Program::Ffmpeg => vec![Op::Mp4, Op::Mp3, Op::Flac, Op::Audio, Op::Clip { start: 0, length: 30 }],
             Program::Magick => vec![Op::Jpeg, Op::Png, Op::Webp, Op::Resize(1600), Op::NoLocation, Op::Rotate(90), Op::Rotate(270), Op::Rotate(180)],
             Program::Gdal => crate::geo::To::ALL.map(Op::Geo).to_vec(),
+            Program::Openscad => vec![Op::Stl, Op::ThreeMf],
         }
     }
 
@@ -299,6 +314,8 @@ impl Op {
         match self {
             Op::Rotate(d) => t!("media.op.rotate", "degrees" => d),
             Op::Geo(to) => crate::i18n::tr(&format!("geo.to.{}", to.id()), &[]),
+            Op::Stl => t!("scad.op.stl"),
+            Op::ThreeMf => t!("scad.op.3mf"),
             _ => crate::i18n::tr(&format!("media.op.{}", self.id().split(':').next().unwrap_or_default()), &[]),
         }
     }
@@ -322,6 +339,9 @@ impl Op {
             Op::Rotate(d) => format!("rotate:{d}"),
             Op::Map => "map".into(),
             Op::Geo(to) => format!("geo:{}", to.id()),
+            Op::Model => "model".into(),
+            Op::Stl => "stl".into(),
+            Op::ThreeMf => "3mf".into(),
         }
     }
 
@@ -345,6 +365,8 @@ impl Op {
             "no_location" => Op::NoLocation,
             "rotate" => Op::Rotate(p.next()?.parse().ok().filter(|d| [90, 180, 270].contains(d))?),
             "geo" => Op::Geo(crate::geo::To::parse(p.next()?)?),
+            "stl" => Op::Stl,
+            "3mf" => Op::ThreeMf,
             _ => return None,
         };
         p.next().is_none().then_some(op)
@@ -359,6 +381,7 @@ impl Op {
                 Op::Geo(to) => to.takes(path),
                 _ => crate::geo::is_geo(path),
             },
+            Program::Openscad => crate::scad::is_model(path),
         }
     }
 
@@ -381,7 +404,9 @@ impl Op {
         let keep = || if WRITES.contains(&own.as_str()) { own.clone() } else if among(path, &[HEIF, RAW, &["jpg", "jpeg"]]) { "jpg".into() } else { "png".into() };
         match self {
             Op::Frame | Op::Waveform | Op::Picture | Op::Png => "png".into(),
-            Op::Map => "svg".into(),
+            Op::Map | Op::Model => "svg".into(),
+            Op::Stl => "stl".into(),
+            Op::ThreeMf => "3mf".into(),
             Op::Geo(to) => to.result_ending().into(),
             Op::Mp4 => "mp4".into(),
             Op::Mp3 => "mp3".into(),
@@ -507,8 +532,8 @@ fn args(program: Program, op: &Op, input: &str, output: &str, src: &Path) -> Vec
             a.push(output.into());
             a
         }
-        // GDAL's runs are `geo`'s.
-        Program::Gdal => vec![],
+        // GDAL's and OpenSCAD's runs are `geo`'s and `scad`'s.
+        Program::Gdal | Program::Openscad => vec![],
     }
 }
 
@@ -665,6 +690,14 @@ fn make(
         })?;
         return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
     }
+    if how.program() == Program::Openscad {
+        let manifold = crate::scad::manifold(how);
+        in_folder(how, path, scratch, stop, timeout, said, &[], |run| match op {
+            Op::Model => std::fs::write(&out, crate::scad::picture_of(run, manifold)?).map_err(|e| e.to_string()),
+            _ => crate::scad::export(run, op == &Op::Stl, &out_name, manifold),
+        })?;
+        return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
+    }
     pulled(how, stop, said)?;
     let mut kill = None;
     let c = match how {
@@ -713,6 +746,15 @@ fn make(
         }
     })?;
     if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) }
+}
+
+/// A PNG picture `w` × `h` as an SVG one, so a preview's result is one kind of file.
+pub(crate) fn png_in_svg(png: &[u8], w: u32, h: u32) -> String {
+    use base64::Engine;
+    format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\"><image width=\"{w}\" height=\"{h}\" href=\"data:image/png;base64,{}\"/></svg>",
+        base64::engine::general_purpose::STANDARD.encode(png)
+    )
 }
 
 /// What `in_folder`'s programs may write on their standard output, kept.

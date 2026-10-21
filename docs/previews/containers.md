@@ -8,7 +8,8 @@ LibreOffice turns office files and clip art into PDFs, Kroki's draws D2, ditaa a
 diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText, OCRmyPDF's
 makes scanned PDFs searchable and has the Ghostscript that shows PostScript, ffmpeg's shows and
 converts video and sound and HEIC photos, ImageMagick's shows GIMP pictures and converts and
-edits photos, and GDAL's draws and converts geodata. A container gets no network and sees your files read-only. Nothing is downloaded
+edits photos, GDAL's draws and converts geodata, and OpenSCAD's makes models into pictures, STL
+and 3MF. A container gets no network and sees your files read-only. Nothing is downloaded
 until you click.
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
@@ -66,6 +67,7 @@ a little larger or smaller.
 | `docker.io/mwader/static-ffmpeg:latest` (default for ffmpeg) | Videos and sound the app's player cannot play shown as a frame or a waveform, HEIC photos, a frame as each video's thumbnail and poster, a waveform above each song's player, the facts of videos (length, size, codecs, tracks) ([Media](media.md#video-and-sound-with-ffmpeg)), and [Convert video or audio](../files/convert-media.md) | about 126 MB | about 315 MB | Previews: well under a second each. An MP4 keeps the processor busy for a while, often about as long as the video plays; only when you ask |
 | `docker.io/dstmodders/imagemagick:latest` (default for ImageMagick) | GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md); no HEIC or RAW photos (its build has no reader for them) | about 60 MB | about 152 MB | Light: a second or two per picture |
 | `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (default for GDAL, pinned to its digest) | A map of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files from their own shapes, with thumbnails, their layers, coordinate system and extent ([Geodata](geodata.md)), and Convert geodata | about 40 MB | about 98 MB | Light: under a second per file for most; a large GeoPackage or GeoTIFF takes a few seconds |
+| `docker.io/openscad/openscad:trixie.2026-10-19` (default for OpenSCAD, pinned to its digest) | A picture of each `.scad` model's part, with thumbnails ([OpenSCAD models](openscad.md)), and Export 3D model as STL or 3MF | about 241 MB | about 635 MB | Light to heavy: most models take a second with Manifold; a large one with many curves keeps the processor busy for a while |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -79,6 +81,7 @@ Where each image comes from, and why it is the one:
 | `ghcr.io/typst/typst:latest` | The Typst project | Apache-2.0 | With every Typst release |
 | `mwader/static-ffmpeg:latest` | Mattias Wadman's static builds of ffmpeg and ffprobe, the most used of their kind; Coxswain runs `/ffmpeg` and `/ffprobe` in it | ffmpeg GPL-2.0-or-later (with x264 and the other libraries built in), the build scripts MIT | With every ffmpeg release, and when a library in it changes (a new build every few days in 2026) |
 | `osgeo/gdal:alpine-small-3.13.3` | The GDAL project's own images, built with each release; the small Alpine one has the drivers Coxswain uses and PROJ. Pinned to its digest: a Coxswain release moves it on | GDAL MIT, PROJ MIT, the libraries in it theirs (SQLite public domain, libtiff, libgeotiff, expat …) | With every GDAL release (every few weeks in 2026) |
+| `openscad/openscad:trixie.2026-10-19` | The OpenSCAD project's own image of a dated snapshot (its last release, 2021.01, has no Manifold and no image of its own worth taking). Pinned to its digest: a Coxswain release moves it on | OpenSCAD GPL-2.0-or-later, the libraries in it theirs (CGAL GPL-3.0-or-later, Manifold Apache-2.0, Qt LGPL-3.0 …) | A snapshot every week in 2026 |
 | `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
@@ -98,13 +101,13 @@ Every run is `podman run` (or `docker run`) with:
 |---|---|
 | `--rm` | The container is removed when it ends |
 | `--network=none` | No network: a document cannot fetch or send anything |
-| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found. ffmpeg and ImageMagick get the one file only (`--mount type=bind,source=<file>,target=/src/in.<ending>,readonly`); GDAL too, as `/src/<name>` (a name with other signs than letters, digits, `.`, `_` and `-` made plain, with an `f` before it), but a shapefile's whole folder, since a shapefile is several files side by side |
+| `--mount type=bind,source=<folder>,target=/src,readonly` | The file's folder, read-only: nothing in it can be changed. A folder whose name has a `:` (*Meeting 10:30*) mounts too, which `-v` could not do. For LaTeX, the whole [project](latex.md#what-coxswain-works-out), so chapters, pictures and the bibliography are found. ffmpeg and ImageMagick get the one file only (`--mount type=bind,source=<file>,target=/src/in.<ending>,readonly`); GDAL too, as `/src/<name>` (a name with other signs than letters, digits, `.`, `_` and `-` made plain, with an `f` before it), but a shapefile's whole folder, since a shapefile is several files side by side; OpenSCAD the model's folder, since a model includes others beside it |
 | `--mount type=bind,source=<cache>,target=/out` | A fresh folder in the preview cache, the only place it can write; for the conversions a fresh folder under `~/.cache/coxswain/media/`; ffprobe's run has none |
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
 | `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
-| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's, ImageMagick's and GDAL's runs) |
-| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg, ImageMagick and GDAL) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
+| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's, ImageMagick's, GDAL's and OpenSCAD's runs) |
+| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg, ImageMagick, GDAL and OpenSCAD) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
 `typst compile --root /src` for Typst, `soffice -env:UserInstallation=file:///tmp/lo --headless --convert-to pdf --outdir /out`
@@ -117,12 +120,13 @@ PlantUML and pandoc images' own entry points reading the file on standard input 
 and `-format_whitelist` (real media formats only) for ffmpeg, and `magick` under Coxswain's
 policy (`MAGICK_CONFIGURE_PATH`: no helper programs, picture formats only, bounded memory and
 time) for ImageMagick, and `gdalinfo`, `ogrinfo`, `ogr2ogr` and `gdal_translate` for GDAL, each
-held to the driver of the file's kind (`-if GPKG`, `-if GTiff` …) with `GDAL_PAM_ENABLED=NO`. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
+held to the driver of the file's kind (`-if GPKG`, `-if GTiff` …) with `GDAL_PAM_ENABLED=NO`,
+and `openscad -o /out/… --export-format binstl --backend=manifold` for OpenSCAD. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
 `-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
 
 A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
-searchable, Convert video or audio, Convert or edit pictures and Convert geodata have none: **Stop** ends them. Pulling
+searchable, Convert video or audio, Convert or edit pictures, Convert geodata and Export 3D model have none: **Stop** ends them. Pulling
 the image is not counted.
 
 ## Pulling and removing images
@@ -211,6 +215,7 @@ default.
 | – | `[preview.images] gxps` | `""` (none) |
 | – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"` |
 | – | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"` |
+| – | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` (pinned) |
 | – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
@@ -223,19 +228,21 @@ LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH`
 `--entrypoint`), `ocrmypdf` as the entry point for OCRmyPDF, Kroki's program names (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
 `PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
-`magick` on its `PATH` for ImageMagick, and GDAL's programs on its `PATH` for GDAL.
+`magick` on its `PATH` for ImageMagick, GDAL's programs on its `PATH` for GDAL, and `openscad`
+on its `PATH` for OpenSCAD.
 
 ## In the terminal app
 
 The terminal app makes no previews, so it starts no preview containers. The containers it
 runs are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
-ffmpeg's, ImageMagick's and GDAL's, for [Convert video or audio](../files/convert-media.md),
-[Convert or edit pictures](../files/edit-pictures.md) and [Convert geodata](geodata.md#convert-geodata), the same way as the desktop app: asked
+ffmpeg's, ImageMagick's, GDAL's and OpenSCAD's, for [Convert video or audio](../files/convert-media.md),
+[Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)
+and [Export 3D model](openscad.md#export-3d-model), the same way as the desktop app: asked
 first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a video's facts
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`prefer_tool` and the OCRmyPDF, ffmpeg, ImageMagick and GDAL images. Its **F12** → *Previews* still
+`prefer_tool` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL and OpenSCAD images. Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.

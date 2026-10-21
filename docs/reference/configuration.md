@@ -233,7 +233,8 @@ Previews made by tools, in the desktop app ([Previews made by tools](../previews
 OCRmyPDF that [Make PDF searchable](../files/searchable-pdf.md) runs in both apps, and ffmpeg
 and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md) in both apps, and GDAL for
-[geodata](../previews/geodata.md)'s facts and Convert geodata in both apps.
+[geodata](../previews/geodata.md)'s facts and Convert geodata, and OpenSCAD for
+[Export 3D model](../previews/openscad.md#export-3d-model), in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
@@ -253,6 +254,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.ffmpeg` | string | `"docker.io/mwader/static-ffmpeg:latest"` | A static ffmpeg and ffprobe (about 126 MB, 315 MB on disk), for video and sound previews, video thumbnails, facts, HEIC photos and Convert video or audio; one you set must have `/ffmpeg` and `/ffprobe` |
 | `images.imagemagick` | string | `"docker.io/dstmodders/imagemagick:latest"` | ImageMagick 7 (about 60 MB, 152 MB on disk), for GIMP and other pictures only it reads and Convert or edit pictures; first for ImageMagick under `"auto"`; one you set must have `magick` on its `PATH` |
 | `images.gdal` | string | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` | GDAL's small Alpine image, pinned to its digest (about 40 MB, 98 MB on disk), for geodata's maps, thumbnails and facts and Convert geodata ([Geodata](../previews/geodata.md)); one you set must have GDAL's programs on its `PATH` |
+| `images.openscad` | string | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` | OpenSCAD's image of a dated snapshot, pinned to its digest (about 241 MB, 635 MB on disk), for models' pictures and Export 3D model ([OpenSCAD models](../previews/openscad.md)); one you set must have `openscad` on its `PATH` |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
@@ -261,7 +263,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
 `gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf`, `ffmpeg`, `waveform`, `heif` (these three
-share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal` and each diagram kind of Kroki's image (`d2`,
+share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal`, `openscad` and each diagram kind of Kroki's image (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`,
 `bytefield`), which share `images.kroki`.
 

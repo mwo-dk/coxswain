@@ -327,6 +327,7 @@
     convert_media: () => convertMedia(0),
     edit_pictures: () => convertMedia(1),
     convert_geodata: () => convertMedia(2),
+    export_model: () => convertMedia(3),
     chess: async () => {
       const e = item(tab());
       const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));

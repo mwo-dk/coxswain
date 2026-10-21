@@ -108,6 +108,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Alt+P** | Make PDF searchable | `searchable_pdf` | A copy of each marked PDF with its words in it, by OCRmyPDF; the key again stops it ([Make PDF searchable](../files/searchable-pdf.md)) | The same |
 | – | Convert video or audio | `convert_media` | MP4, MP3 or FLAC copies of the marked videos and songs, their sound or a clip, by ffmpeg; again while it runs, stops it ([Convert video or audio](../files/convert-media.md)) | The same |
 | – | Convert geodata | `convert_geodata` | GeoPackage, GeoJSON, shapefile, KML or GPX copies of the marked geodata, a COG or PNG of a GeoTIFF, by GDAL; again while it runs, stops it ([Geodata](../previews/geodata.md#convert-geodata)) | The same |
+| – | Export 3D model | `export_model` | STL or 3MF copies of the marked OpenSCAD models, by OpenSCAD; again while it runs, stops it ([OpenSCAD models](../previews/openscad.md#export-3d-model)) | The same |
 | – | Convert or edit pictures | `edit_pictures` | JPEG, PNG or WebP copies of the marked pictures, smaller, without the location or turned, by ImageMagick; again while it runs, stops it ([Convert or edit pictures](../files/edit-pictures.md)) | The same |
 
 ### Archives

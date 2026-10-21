@@ -51,6 +51,7 @@ pub mod pictures;
 mod ports;
 pub mod provenance;
 pub mod rename;
+pub mod scad;
 pub mod searchable;
 pub mod service;
 pub mod settings;

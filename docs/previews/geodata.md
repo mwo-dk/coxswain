@@ -232,4 +232,4 @@ No: a terminal shows text. **Properties** (**Alt+Enter**) gives the facts, a GPX
 length and time too, and *Convert geodata* works the same as in the desktop app.
 
 ---
-[← Previous: LaTeX projects](latex.md) · [Next: Previews made by tools →](tools.md)
+[← Previous: LaTeX projects](latex.md) · [Next: OpenSCAD models →](openscad.md)

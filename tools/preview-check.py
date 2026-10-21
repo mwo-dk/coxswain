@@ -126,6 +126,9 @@ def files(d):
     (d / "z.geojson").write_text('{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[[12,55],[12.2,55.1]]}}]}')
     media["gpx"] = ("y.gpx", ".media img", "", 10)
     media["geojson"] = ("z.geojson", ".media img" if shutil.which("gdalinfo") else "p.more", "", 30)
+    # An OpenSCAD model: drawn from an installed OpenSCAD's STL, else the note.
+    (d / "za.scad").write_text("difference() { cube(20, center = true); sphere(13); }\n")
+    media["scad"] = ("za.scad", ".media img" if shutil.which("openscad") else "p.more", "", 60)
     return media | {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),

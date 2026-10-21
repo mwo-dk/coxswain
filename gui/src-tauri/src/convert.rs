@@ -49,6 +49,8 @@ const TOOLS: &[(&str, &[&str])] = &[
     ("raw", &["magick"]),
     // GDAL (`coxswain_core::geo`): its programs come together; gdalinfo stands for them.
     ("gdal", &["gdalinfo"]),
+    // OpenSCAD (`coxswain_core::scad`): a model drawn from its STL.
+    ("openscad", &["openscad"]),
 ];
 
 /// The media previews, and what each makes.
@@ -60,6 +62,7 @@ fn media_op(tool: &str) -> Option<coxswain_core::media::Op> {
         "heif" | "imagemagick" | "raw" => Op::Picture,
         // GDAL's map of geodata (`coxswain_core::geo`).
         "gdal" => Op::Map,
+        "openscad" => Op::Model,
         _ => return None,
     })
 }
@@ -205,6 +208,7 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
         t if kroki(t).is_some() => ("svg", out.join("diagram.svg")),
         "pandoc" => ("html", out.join("doc.html")),
         "gdal" => ("svg", out.join("map.svg")),
+        "openscad" => ("svg", out.join("model.svg")),
         t if media_op(t).is_some() => ("png", out.join("out.png")),
         _ => ("json", out.join("tables.json")),
     }
@@ -572,6 +576,7 @@ fn media_how(cfg: &PreviewConfig, tool: &str, kind: &str, which_one: &str) -> Re
     let program = match which_one {
         "ffmpeg" => Program::Ffmpeg,
         "gdalinfo" => Program::Gdal,
+        "openscad" => Program::Openscad,
         _ => Program::Magick,
     };
     Ok(How::Local { program, path })

@@ -16,6 +16,9 @@ fn extra_paths(program: &str) -> Vec<PathBuf> {
         "soffice" if cfg!(windows) => &[r"C:\Program Files\LibreOffice\program\soffice.exe"],
         "tesseract" if cfg!(windows) => &[r"C:\Program Files\Tesseract-OCR\tesseract.exe"],
         "7z" if cfg!(windows) => &[r"C:\Program Files\7-Zip\7z.exe"],
+        // Its installer adds nothing to PATH; `openscad.com` is the one for the command line.
+        "openscad" if cfg!(windows) => &[r"C:\Program Files\OpenSCAD\openscad.com", r"C:\Program Files\OpenSCAD (Nightly)\openscad.com"],
+        "openscad" if cfg!(target_os = "macos") => &["/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"],
         _ => &[],
     };
     v.iter().map(PathBuf::from).collect()
@@ -485,6 +488,10 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         // GDAL's programs, for geodata (`geo`); OmniOS and winget have none.
         "gdalinfo" => [
             "gdal", "gdal", "gdal", "", "gdal", "gdal-bin", "gdal", "gdal", "gdal", "",
+        ],
+        // OpenSCAD, for models (`scad`); OmniOS has none, Homebrew's is a cask.
+        "openscad" => [
+            "openscad", "openscad", "openscad", "", "openscad", "openscad", "openscad", "openscad", "--cask openscad", "OpenSCAD.OpenSCAD",
         ],
         // ImageMagick 7 (`magick`), for pictures (`media`).
         "magick" => [

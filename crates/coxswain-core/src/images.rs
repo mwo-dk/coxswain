@@ -34,9 +34,10 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("docker.io/mwader/static-ffmpeg:latest", 126, 315),
     ("docker.io/dstmodders/imagemagick:latest", 60, 152),
     ("ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253", 40, 98),
+    ("docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b", 241, 635),
 ];
 
-const TOOLS: [&str; 13] = [
+const TOOLS: [&str; 14] = [
     "latex",
     "libreoffice",
     "plantuml",
@@ -50,6 +51,7 @@ const TOOLS: [&str; 13] = [
     "ffmpeg",
     "imagemagick",
     "gdal",
+    "openscad",
 ];
 
 /// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image, a
