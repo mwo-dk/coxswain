@@ -247,6 +247,10 @@ process namespace: stopping it stops all it started, the search helper too. See 
 - Keys may be sent (`wtype`) only to the sandbox window, and only after checking that it has
   the focus. Never type into other windows, and never stop Coxswain processes by name: stop the
   sandbox's own processes.
+- **Stop only what you started, by its own PID.** Save `$!` (or use `timeout`) and kill that
+  PID. Never `kill -- -PGID` or `kill 0`, never `pkill`/`killall`/`pgrep … | kill` by name or
+  pattern, and never `rm -rf` or `find … -exec rm` over a folder others share: a group or pattern
+  kill once reached the owner's compositor and ended the whole desktop session.
 - Cyber for the desktop app, Classic blue (NC) for the terminal app.
 
 **Pictures stay current.** A PR that changes what a screen shows retakes the pictures and GIFs
