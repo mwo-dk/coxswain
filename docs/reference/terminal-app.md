@@ -248,6 +248,10 @@ helper with the new settings.
 - **Mouse reporting** for clicks and the wheel. While Coxswain has the mouse, most terminals
   select text with **Shift** held down.
 - **Right-to-left text** only for Hebrew: Konsole, or GNOME Terminal with bidi on.
+- **Keys sent as escape sequences** (F1 to F12, the arrows, Home, End), as every terminal
+  sends them. A key pressed right after **Esc**, while the app was busy, can arrive in the same
+  read as the Esc (macOS Terminal does this): the app puts it back together, so **Esc** then
+  **F10** quits rather than typing `[21~`.
 
 ## Questions
 

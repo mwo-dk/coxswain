@@ -12,6 +12,7 @@ mod space;
 mod ui;
 mod viewer;
 mod editor;
+mod split_escape;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
@@ -3572,11 +3573,22 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             || app.ask_check_rx.is_some()
             || matches!(&app.dialog, Some(Dialog::View { v, .. }) if v.busy());
         if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
-            match event::read()? {
-                Event::Key(k) => app.on_key(k),
-                Event::Mouse(m) => app.on_mouse(m),
-                Event::Paste(text) => app.on_paste(&text),
-                _ => {}
+            let first = event::read()?;
+            // An Esc read in one go with the key after it took that key's Esc too (crossterm):
+            // the key is put back together rather than typed as its letters.
+            let rest = match &first {
+                Event::Key(k) if k.code == CK::Esc && k.kind == KeyEventKind::Press && k.modifiers.is_empty() => {
+                    split_escape::after_esc(|| event::poll(Duration::ZERO).unwrap_or(false).then(event::read).and_then(Result::ok))
+                }
+                _ => Vec::new(),
+            };
+            for e in std::iter::once(first).chain(rest) {
+                match e {
+                    Event::Key(k) => app.on_key(k),
+                    Event::Mouse(m) => app.on_mouse(m),
+                    Event::Paste(text) => app.on_paste(&text),
+                    _ => {}
+                }
             }
         }
         app.tick(&mut state);
