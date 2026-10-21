@@ -2090,7 +2090,7 @@
  "help.syntax": "Buscar (sintaxis de Everything):",
  "help.tagline": "Coxswain {version}: el timonel que saca el trabajo adelante.",
  "help.title": "Ayuda",
- "help.viewer": "{view} muestra el archivo en el visor integrado, resaltado con los colores del tema: / busca, n y N van al siguiente y al anterior, g va a una línea, l y w activan y desactivan los números de línea y el ajuste de línea, p se lo pasa a tu pager, {edit} lo edita. viewer en config.toml indica otro programa para {view}.",
+ "help.viewer": "{view} muestra el archivo en el visor integrado, resaltado con los colores del tema: / busca, n y N van al siguiente y al anterior, g va a una línea, l y w activan y desactivan los números de línea y el ajuste de línea, p se lo pasa a tu pager, h en una ficha muestra el archivo en sí, {edit} lo edita. viewer en config.toml indica otro programa para {view}.",
  "hint.archive": "Enter lo abre como una carpeta · {extract} lo extrae",
  "hint.branches": "{switch} cambia a la rama bajo el cursor",
  "hint.chess": "{key} abre sus partidas: una tabla y después un tablero con cada jugada",

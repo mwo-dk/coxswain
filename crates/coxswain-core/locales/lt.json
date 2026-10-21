@@ -2090,7 +2090,7 @@
  "help.syntax": "Ieškoti (Everything sintaksė):",
  "help.tagline": "Coxswain {version} – vairininkas, kuris atlieka darbą.",
  "help.title": "Žinynas",
- "help.viewer": "{view} parodo failą įtaisytoje žiūryklėje, paryškintą temos spalvomis: / ieško, n ir N pereina prie kito ir ankstesnio, g pereina į eilutę, l ir w įjungia ir išjungia eilučių numerius ir laužymą, p perduoda failą jūsų puslapiavimo programai, {edit} jį taiso. viewer config.toml faile nurodo kitą programą {view}.",
+ "help.viewer": "{view} parodo failą įtaisytoje žiūryklėje, paryškintą temos spalvomis: / ieško, n ir N pereina prie kito ir ankstesnio, g pereina į eilutę, l ir w įjungia ir išjungia eilučių numerius ir laužymą, p perduoda failą jūsų puslapiavimo programai, h duomenų kortelėje parodo patį failą, {edit} jį taiso. viewer config.toml faile nurodo kitą programą {view}.",
  "hint.archive": "Enter atveria jį kaip aplanką · {extract} išskleidžia",
  "hint.branches": "{switch} perjungia į šaką po žymekliu",
  "hint.chess": "{key} atidaro jo partijas: lentelė, tada lenta su visais ėjimais",

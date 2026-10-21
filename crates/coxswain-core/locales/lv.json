@@ -2090,7 +2090,7 @@
  "help.syntax": "Meklēt (Everything sintakse):",
  "help.tagline": "Coxswain {version} — stūrmanis, kas padara darbu.",
  "help.title": "Palīdzība",
- "help.viewer": "{view} parāda failu iebūvētajā skatītājā, iekrāsotu motīva krāsās: / meklē, n un N pāriet uz nākamo un iepriekšējo, g pāriet uz rindu, l un w ieslēdz un izslēdz rindu numurus un aplaušanu, p nodod failu jūsu lapotājam, {edit} to rediģē. viewer failā config.toml norāda citu programmu darbībai {view}.",
+ "help.viewer": "{view} parāda failu iebūvētajā skatītājā, iekrāsotu motīva krāsās: / meklē, n un N pāriet uz nākamo un iepriekšējo, g pāriet uz rindu, l un w ieslēdz un izslēdz rindu numurus un aplaušanu, p nodod failu jūsu lapotājam, h faktu kartītē parāda pašu failu, {edit} to rediģē. viewer failā config.toml norāda citu programmu darbībai {view}.",
  "hint.archive": "Enter atver to kā mapi · {extract} izpako",
  "hint.branches": "{switch} pārslēdz uz zaru zem kursora",
  "hint.chess": "{key} atver tā partijas: tabulu, tad galdiņu ar katru gājienu",

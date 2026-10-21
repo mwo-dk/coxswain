@@ -2053,7 +2053,7 @@
  "help.syntax": "Otsi (Everything'i süntaks):",
  "help.tagline": "Coxswain {version} — tüürimees, kes töö ära teeb.",
  "help.title": "Abi",
- "help.viewer": "{view} näitab faili sisseehitatud vaaturis kujunduse värvides esiletõstetuna: / otsib, n ja N lähevad järgmise ja eelmise juurde, g läheb reale, l ja w lülitavad reanumbrid ja reamurdmise sisse ja välja, p annab selle sinu lehitsejale, {edit} muudab seda. viewer failis config.toml nimetab klahvile {view} teise programmi.",
+ "help.viewer": "{view} näitab faili sisseehitatud vaaturis kujunduse värvides esiletõstetuna: / otsib, n ja N lähevad järgmise ja eelmise juurde, g läheb reale, l ja w lülitavad reanumbrid ja reamurdmise sisse ja välja, p annab selle sinu lehitsejale, h andmekaardil näitab faili ennast, {edit} muudab seda. viewer failis config.toml nimetab klahvile {view} teise programmi.",
  "hint.archive": "Enter avab selle nagu kausta · {extract} pakib selle lahti",
  "hint.branches": "{switch} lülitub kursori all olevale harule",
  "hint.chess": "{key} avab selle partiid: tabel, siis laud kõigi käikudega",

@@ -2016,7 +2016,7 @@
  "help.syntax": "検索 (Everything の構文):",
  "help.tagline": "Coxswain {version} — 仕事をやり遂げる舵手。",
  "help.title": "ヘルプ",
- "help.viewer": "{view} は内蔵ビューアーでファイルをテーマの色で強調表示します。/ で検索、n と N で次と前へ、g で行へ移動、l と w で行番号と折り返しのオン/オフ、p でお使いのページャーに渡し、{edit} で編集します。config.toml の viewer で {view} に別のプログラムを指定できます。",
+ "help.viewer": "{view} は内蔵ビューアーでファイルをテーマの色で強調表示します。/ で検索、n と N で次と前へ、g で行へ移動、l と w で行番号と折り返しのオン/オフ、p でお使いのページャーに渡し、情報カードでは h でファイルそのものを表示し、{edit} で編集します。config.toml の viewer で {view} に別のプログラムを指定できます。",
  "hint.archive": "Enter でフォルダーのように開く · {extract} で展開",
  "hint.branches": "{switch} でカーソル位置のブランチに切り替え",
  "hint.chess": "{key} で対局を開く：一覧、そして全手を見られる盤",

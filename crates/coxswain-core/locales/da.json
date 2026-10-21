@@ -2053,7 +2053,7 @@
  "help.syntax": "Find (Everything-syntaks):",
  "help.tagline": "Coxswain {version} — styrmanden, der får arbejdet gjort.",
  "help.title": "Hjælp",
- "help.viewer": "{view} viser filen i den indbyggede fremviser, fremhævet i temaets farver: / søger, n og N går til den næste og den forrige, g går til en linje, l og w slår linjenumre og ombrydning til og fra, p giver den til din pager, {edit} redigerer den. viewer i config.toml angiver et andet program til {view}.",
+ "help.viewer": "{view} viser filen i den indbyggede fremviser, fremhævet i temaets farver: / søger, n og N går til den næste og den forrige, g går til en linje, l og w slår linjenumre og ombrydning til og fra, p giver den til din pager, h på et faktakort viser selve filen, {edit} redigerer den. viewer i config.toml angiver et andet program til {view}.",
  "hint.archive": "Enter åbner det som en mappe · {extract} pakker det ud",
  "hint.branches": "{switch} skifter til grenen under markøren",
  "hint.chess": "{key} åbner partierne: en tabel, derefter et bræt med hvert træk",

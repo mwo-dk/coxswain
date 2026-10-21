@@ -2090,7 +2090,7 @@
  "help.syntax": "Cerca (sintaxi de l'Everything):",
  "help.tagline": "Coxswain {version}: el timoner que fa la feina.",
  "help.title": "Ajuda",
- "help.viewer": "{view} mostra el fitxer al visor integrat, ressaltat amb els colors del tema: / cerca, n i N van al següent i a l'anterior, g va a una línia, l i w activen i desactiven els números de línia i l'ajust de línia, p el passa al vostre paginador, {edit} l'edita. viewer a config.toml indica un altre programa per a {view}.",
+ "help.viewer": "{view} mostra el fitxer al visor integrat, ressaltat amb els colors del tema: / cerca, n i N van al següent i a l'anterior, g va a una línia, l i w activen i desactiven els números de línia i l'ajust de línia, p el passa al vostre paginador, h en una fitxa de dades mostra el fitxer mateix, {edit} l'edita. viewer a config.toml indica un altre programa per a {view}.",
  "hint.archive": "Retorn l'obre com una carpeta · {extract} l'extreu",
  "hint.branches": "{switch} canvia a la branca sota el cursor",
  "hint.chess": "{key} n'obre les partides: una taula i després un tauler amb cada jugada",

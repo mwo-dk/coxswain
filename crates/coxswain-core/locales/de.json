@@ -2053,7 +2053,7 @@
  "help.syntax": "Suchen (Syntax von Everything):",
  "help.tagline": "Coxswain {version} — der Steuermann, der die Arbeit erledigt.",
  "help.title": "Hilfe",
- "help.viewer": "{view} zeigt die Datei im eingebauten Betrachter, hervorgehoben in den Farben des Designs: / sucht, n und N gehen zum nächsten und zum vorigen Treffer, g geht zu einer Zeile, l und w schalten Zeilennummern und Umbruch ein und aus, p übergibt sie an Ihren Pager, {edit} bearbeitet sie. viewer in config.toml nennt ein anderes Programm für {view}.",
+ "help.viewer": "{view} zeigt die Datei im eingebauten Betrachter, hervorgehoben in den Farben des Designs: / sucht, n und N gehen zum nächsten und zum vorigen Treffer, g geht zu einer Zeile, l und w schalten Zeilennummern und Umbruch ein und aus, p übergibt sie an Ihren Pager, h auf einer Faktenkarte zeigt die Datei selbst, {edit} bearbeitet sie. viewer in config.toml nennt ein anderes Programm für {view}.",
  "hint.archive": "Enter öffnet es wie einen Ordner · {extract} entpackt es",
  "hint.branches": "{switch} wechselt zum Branch unter dem Cursor",
  "hint.chess": "{key} öffnet die Partien: eine Tabelle, dann ein Brett mit jedem Zug",

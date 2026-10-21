@@ -2053,7 +2053,7 @@
  "help.syntax": "Hitta (Everything-syntax):",
  "help.tagline": "Coxswain {version} — styrmannen som får jobbet gjort.",
  "help.title": "Hjälp",
- "help.viewer": "{view} visar filen i den inbyggda visaren, markerad i temats färger: / söker, n och N går till nästa och föregående, g går till en rad, l och w slår på och av radnummer och radbrytning, p lämnar den till din pager, {edit} redigerar den. viewer i config.toml anger ett annat program för {view}.",
+ "help.viewer": "{view} visar filen i den inbyggda visaren, markerad i temats färger: / söker, n och N går till nästa och föregående, g går till en rad, l och w slår på och av radnummer och radbrytning, p lämnar den till din pager, h på ett faktakort visar själva filen, {edit} redigerar den. viewer i config.toml anger ett annat program för {view}.",
  "hint.archive": "Enter öppnar det som en mapp · {extract} packar upp det",
  "hint.branches": "{switch} byter till grenen under markören",
  "hint.chess": "{key} öppnar dess partier: en tabell, sedan ett bräde med varje drag",

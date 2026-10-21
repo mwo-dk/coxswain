@@ -2090,7 +2090,7 @@
  "help.syntax": "Najít (syntaxe Everything):",
  "help.tagline": "Coxswain {version} — kormidelník, který práci dotáhne.",
  "help.title": "Nápověda",
- "help.viewer": "{view} zobrazí soubor ve vestavěném prohlížeči, zvýrazněný v barvách motivu: / hledá, n a N přejdou na další a předchozí, g přejde na řádek, l a w zapínají a vypínají čísla řádků a zalamování, p ho předá vašemu pageru, {edit} ho upraví. viewer v config.toml určuje jiný program pro {view}.",
+ "help.viewer": "{view} zobrazí soubor ve vestavěném prohlížeči, zvýrazněný v barvách motivu: / hledá, n a N přejdou na další a předchozí, g přejde na řádek, l a w zapínají a vypínají čísla řádků a zalamování, p ho předá vašemu pageru, h na kartě údajů ukáže samotný soubor, {edit} ho upraví. viewer v config.toml určuje jiný program pro {view}.",
  "hint.archive": "Enter ho otevře jako složku · {extract} ho rozbalí",
  "hint.branches": "{switch} přepne na větev pod kurzorem",
  "hint.chess": "{key} otevře partie: tabulku, pak šachovnici se všemi tahy",

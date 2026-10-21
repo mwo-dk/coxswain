@@ -2053,7 +2053,7 @@
  "help.syntax": "Søk (Everything-syntaks):",
  "help.tagline": "Coxswain {version} — den ved roret som får jobben gjort.",
  "help.title": "Hjelp",
- "help.viewer": "{view} viser fila i det innebygde visingsprogrammet, utheva i fargane til temaet: / søkjer, n og N går til neste og førre treff, g går til ei linje, l og w slår linjenummer og linjebryting av og på, p gir fila til sidevisingsprogrammet ditt, {edit} redigerer ho. viewer i config.toml nemner eit anna program for {view}.",
+ "help.viewer": "{view} viser fila i det innebygde visingsprogrammet, utheva i fargane til temaet: / søkjer, n og N går til neste og førre treff, g går til ei linje, l og w slår linjenummer og linjebryting av og på, p gir fila til sidevisingsprogrammet ditt, h på eit faktakort viser sjølve fila, {edit} redigerer ho. viewer i config.toml nemner eit anna program for {view}.",
  "hint.archive": "Enter opnar det som ei mappe · {extract} pakkar det ut",
  "hint.branches": "{switch} byter til greina under markøren",
  "hint.chess": "{key} opnar partia: ein tabell, så eit brett med kvart trekk",

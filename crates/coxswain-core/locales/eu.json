@@ -2053,7 +2053,7 @@
  "help.syntax": "Bilatu (Everything sintaxia):",
  "help.tagline": "Coxswain {version} — lana egiten duen lemazaina.",
  "help.title": "Laguntza",
- "help.viewer": "{view} teklak fitxategia ikustaile integratuan erakusten du, gaiaren koloreekin nabarmenduta: / teklak bilatzen du, n eta N hurrengora eta aurrekora doaz, g lerro batera doa, l eta w lerro-zenbakiak eta lerro-jauzia aktibatzen eta desaktibatzen dituzte, p teklak zure orrikatzaileari pasatzen dio, {edit} teklak editatzen du. config.toml fitxategiko viewer aukerak beste programa bat izendatzen du {view} teklarako.",
+ "help.viewer": "{view} teklak fitxategia ikustaile integratuan erakusten du, gaiaren koloreekin nabarmenduta: / teklak bilatzen du, n eta N hurrengora eta aurrekora doaz, g lerro batera doa, l eta w lerro-zenbakiak eta lerro-jauzia aktibatzen eta desaktibatzen dituzte, p teklak zure orrikatzaileari pasatzen dio, datu-txartel batean h teklak fitxategia bera erakusten du, {edit} teklak editatzen du. config.toml fitxategiko viewer aukerak beste programa bat izendatzen du {view} teklarako.",
  "hint.archive": "Sartu: karpeta bat bezala irekitzen du · {extract}: erauzten du",
  "hint.branches": "{switch}: kurtsorearen azpiko adarrera aldatzen da",
  "hint.chess": "{key} teklak bere partidak irekitzen ditu: taula bat, gero jokaldi guztiak dituen xake-taula",

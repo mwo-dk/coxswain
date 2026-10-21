@@ -2053,7 +2053,7 @@
  "help.syntax": "Etsi (Everything-syntaksi):",
  "help.tagline": "Coxswain {version} — perämies, joka hoitaa työt.",
  "help.title": "Ohje",
- "help.viewer": "{view} näyttää tiedoston sisäisessä katseluohjelmassa teeman väreillä korostettuna: / hakee, n ja N siirtyvät seuraavaan ja edelliseen, g siirtyy riville, l ja w kytkevät rivinumerot ja rivityksen päälle ja pois, p antaa sen sivuttimellesi, {edit} muokkaa sitä. viewer config.toml-tiedostossa nimeää toisen ohjelman näppäimelle {view}.",
+ "help.viewer": "{view} näyttää tiedoston sisäisessä katseluohjelmassa teeman väreillä korostettuna: / hakee, n ja N siirtyvät seuraavaan ja edelliseen, g siirtyy riville, l ja w kytkevät rivinumerot ja rivityksen päälle ja pois, p antaa sen sivuttimellesi, h tietokortilla näyttää itse tiedoston, {edit} muokkaa sitä. viewer config.toml-tiedostossa nimeää toisen ohjelman näppäimelle {view}.",
  "hint.archive": "Enter avaa sen kuin kansion · {extract} purkaa sen",
  "hint.branches": "{switch} vaihtaa kohdistimen alla olevaan haaraan",
  "hint.chess": "{key} avaa sen pelit: ensin taulukko, sitten lauta kaikkine siirtoineen",
