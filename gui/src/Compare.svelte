@@ -307,7 +307,7 @@
   {/if}
   <footer>
     <span class="said">{said}</span>
-    <span class="keys">{t("compare.keys_gui")}</span>
+    {#if kind === "text" || kind === "document"}<span class="keys">{t("compare.keys_gui")}</span>{/if}
   </footer>
 </div>
 
@@ -465,6 +465,9 @@
   }
   .row.added mark {
     background: color-mix(in srgb, var(--git-added-fg) 45%, transparent);
+  }
+  .hex span {
+    margin-right: 0.6ch;
   }
   .hex {
     padding: 0 12px;
