@@ -9,9 +9,9 @@ its squares numbered, stepped through move by move: the pieces a capture takes g
 that reaches the far row becomes a king. Both apps have it. Coxswain only reads: it does not
 play or check a game.
 
-![International draughts in the desktop app's window (Alt+K): a 10×10 board in the Cyber theme's colours, white and black men with a king crowned, the empty dark squares numbered, the last move's squares tinted, beside it the players, event, International draughts, 10×10 and the moves with a variation in brackets](../screenshots/gui-draughts.png)
+![International draughts in the desktop app's window (Alt+K): a 10×10 board in the Cyber theme's colours, white and black men, the empty dark squares numbered, the squares of Black's capture 21x32x41 tinted, beside it the players, event, International draughts, 10×10 and the moves with that capture highlighted, a comment in italics and a variation in brackets](../screenshots/gui-draughts.png)
 
-![The terminal app's draughts view in Classic blue: the same game on a board of coloured squares, men drawn ● and kings ♚ in white and black, square numbers on the empty dark squares, the moves beside it and the key line below](../screenshots/tui-draughts.png)
+![The terminal app's draughts view in Classic blue: an English draughts game on an 8×8 board of coloured squares, men drawn ● and a king ♚ in white and black, square numbers on the empty dark squares, the move 12-16 highlighted among the moves beside it, English draughts (checkers), 8×8 above them, and the key line below](../screenshots/tui-draughts.png)
 
 - [Using it](#using-it)
 - [The table of games](#the-table-of-games)
@@ -102,14 +102,16 @@ line above the board says *… could not be played*.
 |---|---|---|---|
 | International (`GameType "20"`, PDN's default) | 10×10, squares 1–50 | White | Men capture forwards and backwards; kings move and capture any distance along a diagonal |
 | English draughts, checkers (`GameType "21"`) | 8×8, squares 1–32 | Black | Men move and capture forwards only; kings one square at a time |
-| Russian, Brazilian, Pool (`23`, `25`, `26`) | 8×8 | White (Pool: Black) | As international; in Russian draughts a man crowned in a capture captures on as a king |
+| Pool, Russian, Brazilian (`23`, `25`, `26`) | 8×8 | White (Pool: Black) | As international; in Russian draughts a man crowned in a capture captures on as a king |
 | Canadian (`27`) | 12×12 | White | As international |
-| Others (Italian, Spanish, Czech, …) | 8×8, or the size their tag gives | White | Moves as written; a capture takes the pieces of the other side between the squares written |
+| Others (Italian, Spanish, Czech, …) | 8×8, or the size their tag gives | White | As English draughts (men forwards only, kings one square) |
 
 The `GameType` tag may give more: `20,W,10,10,N2,0` names who starts (`W` or `B`) and the
-board's width and height, from 4 to 12. A file without the tag is read as English draughts when
-its first move starts on a square up to 20 (Black's men in English draughts) or its `FEN` tag
-names no square past 32, else as international draughts.
+board's width and height, even, from 4 to 12. A capture the rules of a variant other than
+international and English draughts do not find takes the pieces of the other side between the
+squares written. A file without the tag is read by its `FEN` tag when it has one (English
+draughts when it names no square past 32); else as English draughts when its first move starts
+on a square up to 20 (Black's men in English draughts), else as international draughts.
 
 A game may start from a position of its own: `[FEN "W:W31,32,K46:B1-5,K10"]` (who moves, then
 each side's squares, a king's with `K`, runs as `1-5`). Squares written as letters and numbers
@@ -130,12 +132,13 @@ file however large it is.
 
 | Ending | What |
 |---|---|
-| `.pdn` | Draughts games in PDN: tags in brackets, moves with numbers, comments in `{}` and after `;`, variations in `()`, `!` `?` and `$1` … annotations, results `2-0` `0-2` `1-1` `1-0` `0-1` `1/2-1/2` `*`. Text in UTF-8, else Windows-1252 |
+| `.pdn` | Draughts games in PDN: tags in brackets, moves with numbers, comments in `{}` and after `;`, variations in `()`, `!` `?` and `$1` … annotations, results `2-0` `0-2` `1-1` `0-0` `1-0` `0-1` `1/2-1/2` `*`. Text in UTF-8, else Windows-1252 |
 
 What cannot be read is skipped; nothing in a file can stop the app, and no nesting of
 variations, however deep, can run it out of stack: variations deeper than 64 are skipped, a game
-is read up to 50,000 moves with its variations, and one capture is looked for along at most
-20,000 paths.
+is read up to 50,000 moves with its variations, one capture is looked for in at most 20,000
+steps and all the captures of a game together in at most 2,000,000; past that a capture is not
+played, and its line stops.
 
 ## Settings and config.toml
 

@@ -1052,7 +1052,7 @@
  "feature.change_keys.title": "Teklak aldatzea",
  "feature.change_keys.what": "config.toml fitxategiko [keys] taulak edozein ekintzari beste tekla batzuk, tekla gehiago edo bat ere ez ematen dizkio, berdin bi aplikazioetan.",
  "feature.chess.a1": "Oraindik ez: Coxswain-ek partidak eta posizioak erakusten ditu, baina ez ditu aztertzen. Motor bat planifikatuta dago.",
- "feature.chess.a2": "Oraindik ez: PGN (.pgn.gz edo .pgn.zst gisa paketatuta ere), EPD, FEN eta Polyglot liburuak, eta go partidak SGF-n. Esportatu ChessBase partidak PGN-ra hemen irakurtzeko.",
+ "feature.chess.a2": "Oraindik ez: PGN (.pgn.gz edo .pgn.zst gisa paketatuta ere), EPD, FEN eta Polyglot liburuak, eta go partidak SGF-n eta dama-partidak PDN-n. Esportatu ChessBase partidak PGN-ra hemen irakurtzeko.",
  "feature.chess.a3": "Ezarpenak → Aurrebistak → Jokaldien idazkera: figurinak, edo zure hizkuntzako letrak. Fitxategiek letra ingelesak mantentzen dituzte.",
  "feature.chess.q1": "Motor baten aurka jokatu al dezaket?",
  "feature.chess.q2": "ChessBase fitxategiak irakurtzen al ditu?",

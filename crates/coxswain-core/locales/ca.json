@@ -1088,7 +1088,7 @@
  "feature.change_keys.title": "Canviar les tecles",
  "feature.change_keys.what": "La taula [keys] de config.toml dona a qualsevol acció altres tecles, més tecles o cap, igual a les dues aplicacions.",
  "feature.chess.a1": "Encara no: Coxswain mostra partides i posicions, però no les analitza. Hi ha un motor previst.",
- "feature.chess.a2": "Encara no: PGN (també empaquetat com a .pgn.gz o .pgn.zst), EPD, FEN i llibres Polyglot, i partides de go en SGF. Exporteu les partides de ChessBase a PGN per llegir-les aquí.",
+ "feature.chess.a2": "Encara no: PGN (també empaquetat com a .pgn.gz o .pgn.zst), EPD, FEN i llibres Polyglot, i partides de go en SGF, i partides de dames en PDN. Exporteu les partides de ChessBase a PGN per llegir-les aquí.",
  "feature.chess.a3": "Paràmetres → Previsualitzacions → Notació de les jugades: figurins, o les lletres de la vostra llengua. Els fitxers conserven les lletres angleses.",
  "feature.chess.q1": "Puc jugar contra un motor?",
  "feature.chess.q2": "Llegeix fitxers de ChessBase?",

@@ -5,8 +5,13 @@
 //! there and move one square in English draughts, a capture of several pieces goes on from
 //! square to square. Reading only: nothing is played or checked beyond what showing it needs.
 //!
-//! Any text at all is read without a panic and without recursion; a capture is looked for
-//! along at most `MAX_SEARCH` paths.
+//! Any text at all is read without a panic and without recursion. A capture is looked for
+//! along at most `MAX_SEARCH` steps, and all the captures of one game together along at most
+//! `MAX_GAME_SEARCH`: past that, a capture is not played (its line stops), however the game
+//! was made up. The captures of a position are worked out once (`Draughts::cache`).
+
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 
 use crate::chess::pgn::{self, Game, Rules, Word};
 
@@ -15,6 +20,10 @@ pub const ENDINGS: [&str; 1] = [".pdn"];
 /// The most capture paths looked at for one move: a king among many pieces can have a great
 /// many, a real move a handful.
 pub const MAX_SEARCH: usize = 20_000;
+/// The most capture steps of one game with its variations: a real game needs a few thousand.
+pub const MAX_GAME_SEARCH: usize = 2_000_000;
+/// The positions whose captures are kept, per game.
+const MAX_CACHED: usize = 4096;
 /// The largest board read (Canadian draughts is 12×12).
 pub const MAX_SIZE: u8 = 12;
 
@@ -45,7 +54,7 @@ impl Variant {
         let mut v = match kind {
             20 => INTERNATIONAL,
             21 => ENGLISH,
-            // Russian, Brazilian, Pool: flying kings, men capturing backwards, on 8×8.
+            // Pool, Russian, Brazilian: flying kings, men capturing backwards, on 8×8.
             23 | 25 | 26 => Variant { kind, width: 8, height: 8, black_first: kind == 23, ..INTERNATIONAL },
             27 => Variant { kind, width: 12, height: 12, ..INTERNATIONAL },
             // Italian, Spanish, Portuguese, Czech and the rest: 8×8, men forward only.
@@ -112,7 +121,8 @@ impl Variant {
     /// bottom), on a dark square.
     fn parse_square(&self, s: &str) -> Option<usize> {
         let s = s.trim();
-        if s.is_empty() || s.len() > 3 {
+        // Bytes are looked at one by one below: anything but ASCII is no square.
+        if s.is_empty() || s.len() > 3 || !s.is_ascii() {
             return None;
         }
         if s.bytes().all(|b| b.is_ascii_digit()) {
@@ -267,18 +277,26 @@ impl Board {
     }
 
     /// Every capture the piece on `from` can make, each as the squares it lands on (from
-    /// first) and the pieces it takes. At most `MAX_SEARCH` paths are looked at.
-    fn captures(&self, from: usize) -> Vec<(Vec<usize>, Vec<usize>)> {
+    /// first) and the pieces it takes. Each step (a path taken off or put on the stack) draws
+    /// on `budget`: at most `MAX_SEARCH` of them here, and None when the budget runs out.
+    fn captures(&self, from: usize, budget: &Cell<usize>) -> Option<Vec<(Vec<usize>, Vec<usize>)>> {
         let piece = self.cells[from];
         let me = white(piece);
         let mut out = vec![];
         // (where it is, still a man, landed on, taken)
         let mut stack = vec![(from, !king(piece), vec![from], vec![])];
         let mut looked = 0;
-        while let Some((at, man, path, taken)) = stack.pop() {
+        let mut step = || {
             looked += 1;
-            if looked > MAX_SEARCH {
-                break;
+            let left = budget.get();
+            budget.set(left.saturating_sub(1));
+            (left > 0).then_some(looked <= MAX_SEARCH)
+        };
+        while let Some((at, man, path, taken)) = stack.pop() {
+            match step() {
+                None => return None,
+                Some(false) => break,
+                Some(true) => {}
             }
             let free = |c: usize| self.cells[c] == 0 || c == from;
             let foe = |c: usize| self.cells[c] != 0 && c != from && white(self.cells[c]) != me && !taken.contains(&c);
@@ -335,14 +353,20 @@ impl Board {
                     out.push((path, taken));
                     continue;
                 }
+                // Every path put on the stack counts too: the stack never outgrows the steps.
+                match step() {
+                    None => return None,
+                    Some(false) => continue,
+                    Some(true) => {}
+                }
                 stack.push((land, man && !(crowned && self.v.kind == 25), path, taken));
             }
         }
-        out
+        Some(out)
     }
 
     /// `mv` (`32-28`, `28x19x10`, `28x10`, `c3-d4`) played: None when it cannot be.
-    fn play(&self, mv: &str) -> Option<(Board, usize, usize)> {
+    fn play(&self, mv: &str, rules: &Draughts) -> Option<(Board, usize, usize)> {
         let capture = mv.contains(['x', 'X', ':']);
         let squares: Vec<usize> = mv.split(['-', 'x', 'X', ':']).map(|s| self.v.parse_square(s)).collect::<Option<_>>()?;
         let (&from, &to) = (squares.first()?, squares.last()?);
@@ -356,7 +380,8 @@ impl Board {
         let step = (fx - tx).abs() == 1 && (fy - ty).abs() == 1;
         // A capture by the squares it lands on, the one taking the most when several fit.
         let found = if capture || !step {
-            self.captures(from)
+            rules
+                .captures(self, from)?
                 .into_iter()
                 .filter(|(path, _)| {
                     path.last() == Some(&to) && {
@@ -468,8 +493,32 @@ fn first_move(moves: &str) -> Option<&str> {
     None
 }
 
-/// Draughts, as `pgn::parse_with` plays it out.
-pub(crate) struct Draughts;
+/// Draughts, as `pgn::parse_with` plays it out: one per game, with its search budget and the
+/// captures of the positions met so far.
+pub(crate) struct Draughts {
+    budget: Cell<usize>,
+    cache: RefCell<HashMap<(Vec<u8>, usize), Vec<(Vec<usize>, Vec<usize>)>>>,
+}
+
+impl Draughts {
+    fn new() -> Draughts {
+        Draughts { budget: Cell::new(MAX_GAME_SEARCH), cache: RefCell::default() }
+    }
+
+    /// `Board::captures`, once per position and square.
+    fn captures(&self, b: &Board, from: usize) -> Option<Vec<(Vec<usize>, Vec<usize>)>> {
+        let key = (b.cells.clone(), from);
+        if let Some(c) = self.cache.borrow().get(&key) {
+            return Some(c.clone());
+        }
+        let found = b.captures(from, &self.budget)?;
+        let mut cache = self.cache.borrow_mut();
+        if cache.len() < MAX_CACHED {
+            cache.insert(key, found.clone());
+        }
+        Some(found)
+    }
+}
 
 impl Rules for Draughts {
     type Board = Board;
@@ -491,7 +540,7 @@ impl Rules for Draughts {
     }
 
     fn play(&self, b: &Board, mv: &str) -> Option<(Board, String, Option<u8>, Option<u8>)> {
-        let (nb, from, to) = b.play(mv)?;
+        let (nb, from, to) = b.play(mv, self)?;
         let fen = nb.fen();
         Some((nb, fen, Some(from as u8), Some(to as u8)))
     }
@@ -500,7 +549,7 @@ impl Rules for Draughts {
 /// A PDN game's text, read and played out. `Node::white` is the first player's move (Black's
 /// in English draughts); `fen` is `Board::fen`, `from` and `to` cells (`x + y × width`).
 pub fn parse(text: &str) -> Game {
-    pgn::parse_with(text, &Draughts)
+    pgn::parse_with(text, &Draughts::new())
 }
 
 /// The variant of a game read by `parse`.
@@ -680,7 +729,7 @@ mod tests {
     /// Hostile text: any bytes, deep variations, many moves, a capture with countless paths.
     #[test]
     fn whatever_the_text() {
-        for t in ["", "[", "[GameType \"20,W,0,0\"]", "[FEN \"W:W1-99999999:B\"]\n1. 1-6", "1. 99-1", "((((", "1. 32x1x2x3x4x5", "[GameType \"255,X,12,12\"]\n1. 1-2", "1. a1-zz9", "[FEN \"::::K:W,,K\"]"] {
+        for t in ["", "[", "[GameType \"20,W,0,0\"]", "[FEN \"W:W1-99999999:B\"]\n1. 1-6", "1. 99-1", "((((", "1. 32x1x2x3x4x5", "[GameType \"255,X,12,12\"]\n1. 1-2", "1. a1-zz9", "[FEN \"::::K:W,,K\"]", "[FEN \"W:Wé5:B1\"]\n1. é5-1", "[FEN \"W:W\u{1F600},K\u{e9}:B\u{3042}1\"]", "1. \u{e9}5x10"] {
             let g = parse(t);
             let _ = variant(&g);
             for n in &g.nodes {
@@ -705,15 +754,17 @@ mod tests {
         let v = INTERNATIONAL;
         let b = Board::from_fen(v, &fen).unwrap();
         let start = std::time::Instant::now();
-        let paths = b.captures(v.cell(46).unwrap());
+        let paths = b.captures(v.cell(46).unwrap(), &Cell::new(usize::MAX)).unwrap();
         assert!(paths.len() <= MAX_SEARCH);
+        // An empty budget: no capture at all.
+        assert!(b.captures(v.cell(46).unwrap(), &Cell::new(0)).is_none());
         assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(2)));
         // And a 12×12 board full of pieces: still bounded.
         let v = Variant::of(&[("GameType".into(), "27".into())], None);
         let mut b = Board::start(v);
         b.cells.iter_mut().filter(|c| **c == WM).take(1).for_each(|c| *c = WK);
         for c in 0..b.cells.len() {
-            let _ = b.captures(c);
+            let _ = b.captures(c, &Cell::new(MAX_SEARCH));
         }
     }
 
@@ -739,5 +790,30 @@ mod tests {
         let (o, c) = crate::store::MARK;
         assert_eq!(crate::chess::games::game_of_hit(&p, &format!("{o}Dora{c}")), Some(1));
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A game made up to cost: thousands of variations, each a capture by a flying king among
+    /// pieces with countless paths. It is read fast, its search held to the game's budget.
+    #[test]
+    fn crafted_captures_cost_little() {
+        let blacks: Vec<String> = (7..=44).filter(|n| n % 3 == 0).map(|n| n.to_string()).collect();
+        let mut text = format!("[GameType \"20\"]\n[FEN \"W:WK46,K50:B{}\"]\n\n1. 46x5 ", blacks.join(","));
+        for k in 0..5000 {
+            // Other kings' captures too, so that not every one is the same position.
+            text.push_str(if k % 2 == 0 { "(1. 46x5) " } else { "(1. 50x1) " });
+        }
+        let start = std::time::Instant::now();
+        let g = std::thread::Builder::new().stack_size(256 * 1024).spawn(move || parse(&text)).unwrap().join().unwrap();
+        assert!(g.nodes.len() > 5000);
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(3)), "{:?}", start.elapsed());
+        // Without the cache, the budget alone ends it: each position new.
+        let r = Draughts::new();
+        let b = Board::from_fen(INTERNATIONAL, &format!("W:WK46:B{}", blacks.join(","))).unwrap();
+        let c = INTERNATIONAL.cell(46).unwrap();
+        let mut n = 0;
+        while b.captures(c, &r.budget).is_some() {
+            n += 1;
+        }
+        assert!(n > 0 && r.budget.get() == 0);
     }
 }

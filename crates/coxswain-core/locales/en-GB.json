@@ -1024,7 +1024,7 @@
  "feature.change_keys.title": "Changing keys",
  "feature.change_keys.what": "The [keys] table in config.toml gives any action other keys, more keys, or none, the same in both apps.",
  "feature.chess.a1": "Not yet: Coxswain shows games and positions but does not analyse them. An engine is planned.",
- "feature.chess.a2": "Not yet: PGN (also packed as .pgn.gz or .pgn.zst), EPD, FEN and Polyglot books, and Go games in SGF. Export ChessBase games to PGN to read them here.",
+ "feature.chess.a2": "Not yet: PGN (also packed as .pgn.gz or .pgn.zst), EPD, FEN and Polyglot books, and Go games in SGF, and draughts games in PDN. Export ChessBase games to PGN to read them here.",
  "feature.chess.a3": "Settings → Previews → Move notation: figurines, or the letters of your language. The files keep English letters.",
  "feature.chess.q1": "Can I play against an engine?",
  "feature.chess.q2": "Does it read ChessBase files?",

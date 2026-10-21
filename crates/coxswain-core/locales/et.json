@@ -1052,7 +1052,7 @@
  "feature.change_keys.title": "Klahvide muutmine",
  "feature.change_keys.what": "Failis config.toml olev tabel [keys] annab igale toimingule teised klahvid, rohkem klahve või mitte ühtegi, mõlemas rakenduses ühtmoodi.",
  "feature.chess.a1": "Veel mitte: Coxswain näitab partiisid ja positsioone, aga ei analüüsi neid. Mootor on plaanis.",
- "feature.chess.a2": "Veel mitte: PGN (ka pakituna kui .pgn.gz või .pgn.zst), EPD, FEN ja Polyglot raamatud ning go partiid SGF-is. Ekspordi ChessBase'i partiid PGN-i, et neid siin lugeda.",
+ "feature.chess.a2": "Veel mitte: PGN (ka pakituna kui .pgn.gz või .pgn.zst), EPD, FEN ja Polyglot raamatud ning go partiid SGF-is ning kabepartiid PDN-is. Ekspordi ChessBase'i partiid PGN-i, et neid siin lugeda.",
  "feature.chess.a3": "Sätted → Eelvaated → Käikude kirjaviis: figuurid või sinu keele tähed. Failides jäävad inglise tähed.",
  "feature.chess.q1": "Kas ma saan mängida mootori vastu?",
  "feature.chess.q2": "Kas see loeb ChessBase'i faile?",

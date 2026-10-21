@@ -1124,7 +1124,7 @@
  "feature.change_keys.title": "Zmiana klawiszy",
  "feature.change_keys.what": "Tabela [keys] w config.toml daje każdemu działaniu inne klawisze, więcej klawiszy albo żadnego, tak samo w obu aplikacjach.",
  "feature.chess.a1": "Jeszcze nie: Coxswain pokazuje partie i pozycje, ale ich nie analizuje. Silnik jest w planach.",
- "feature.chess.a2": "Jeszcze nie: PGN (także spakowany jako .pgn.gz lub .pgn.zst), EPD, FEN i książki Polyglot oraz partie go w SGF. Wyeksportuj partie z ChessBase do PGN, aby je tu czytać.",
+ "feature.chess.a2": "Jeszcze nie: PGN (także spakowany jako .pgn.gz lub .pgn.zst), EPD, FEN i książki Polyglot oraz partie go w SGF i partie warcabów w PDN. Wyeksportuj partie z ChessBase do PGN, aby je tu czytać.",
  "feature.chess.a3": "Ustawienia → Podglądy → Notacja ruchów: figurki albo litery Twojego języka. Pliki zachowują angielskie litery.",
  "feature.chess.q1": "Czy mogę grać z silnikiem?",
  "feature.chess.q2": "Czy czyta pliki ChessBase?",

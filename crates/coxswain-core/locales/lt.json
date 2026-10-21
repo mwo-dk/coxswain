@@ -1088,7 +1088,7 @@
  "feature.change_keys.title": "Klavišų keitimas",
  "feature.change_keys.what": "config.toml lentelė [keys] bet kuriam veiksmui suteikia kitus klavišus, daugiau klavišų arba jokio – abiejose programose vienodai.",
  "feature.chess.a1": "Kol kas ne: Coxswain rodo partijas ir pozicijas, bet jų neanalizuoja. Variklis planuojamas.",
- "feature.chess.a2": "Kol kas ne: PGN (taip pat supakuotus kaip .pgn.gz ar .pgn.zst), EPD, FEN ir Polyglot knygas bei go partijas SGF formatu. ChessBase partijas eksportuokite į PGN, kad galėtumėte jas čia skaityti.",
+ "feature.chess.a2": "Kol kas ne: PGN (taip pat supakuotus kaip .pgn.gz ar .pgn.zst), EPD, FEN ir Polyglot knygas bei go partijas SGF formatu ir šaškių partijas PDN formatu. ChessBase partijas eksportuokite į PGN, kad galėtumėte jas čia skaityti.",
  "feature.chess.a3": "Parametrai → Peržiūros → Ėjimų žymėjimas: figūrėlės arba jūsų kalbos raidės. Failuose lieka anglų kalbos raidės.",
  "feature.chess.q1": "Ar galiu žaisti prieš variklį?",
  "feature.chess.q2": "Ar skaito ChessBase failus?",

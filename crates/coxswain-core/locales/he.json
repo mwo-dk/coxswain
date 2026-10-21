@@ -1088,7 +1088,7 @@
  "feature.change_keys.title": "שינוי מקשים",
  "feature.change_keys.what": "הטבלה [keys] ב־config.toml נותנת לכל פעולה מקשים אחרים, מקשים נוספים או אף מקש, אותו דבר בשני היישומים.",
  "feature.chess.a1": "עדיין לא: Coxswain מציג משחקים ועמדות אבל לא מנתח אותם. מנוע מתוכנן.",
- "feature.chess.a2": "עדיין לא: PGN (גם ארוז כ-.pgn.gz או .pgn.zst), EPD‏, FEN וספרי Polyglot, ומשחקי גו ב-SGF. ייצאו משחקי ChessBase ל-PGN כדי לקרוא אותם כאן.",
+ "feature.chess.a2": "עדיין לא: PGN (גם ארוז כ-.pgn.gz או .pgn.zst), EPD‏, FEN וספרי Polyglot, ומשחקי גו ב-SGF ומשחקי דמקה ב-PDN. ייצאו משחקי ChessBase ל-PGN כדי לקרוא אותם כאן.",
  "feature.chess.a3": "הגדרות ← תצוגות מקדימות ← סימון מהלכים: דמויות, או אותיות השפה שלכם. הקבצים שומרים על אותיות אנגליות.",
  "feature.chess.q1": "אפשר לשחק נגד מנוע?",
  "feature.chess.q2": "האם הוא קורא קבצי ChessBase?",

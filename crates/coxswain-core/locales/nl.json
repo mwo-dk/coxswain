@@ -1052,7 +1052,7 @@
  "feature.change_keys.title": "Toetsen wijzigen",
  "feature.change_keys.what": "De tabel [keys] in config.toml geeft elke actie andere toetsen, meer toetsen of geen, in beide apps hetzelfde.",
  "feature.chess.a1": "Nog niet: Coxswain toont partijen en stellingen maar analyseert ze niet. Een engine staat gepland.",
- "feature.chess.a2": "Nog niet: PGN (ook ingepakt als .pgn.gz of .pgn.zst), EPD, FEN en Polyglot-boeken, en go-partijen in SGF. Exporteer ChessBase-partijen naar PGN om ze hier te lezen.",
+ "feature.chess.a2": "Nog niet: PGN (ook ingepakt als .pgn.gz of .pgn.zst), EPD, FEN en Polyglot-boeken, en go-partijen in SGF en dampartijen in PDN. Exporteer ChessBase-partijen naar PGN om ze hier te lezen.",
  "feature.chess.a3": "Instellingen → Voorvertoningen → Zetnotatie: figuurtjes, of de letters van je taal. De bestanden houden Engelse letters.",
  "feature.chess.q1": "Kan ik tegen een engine spelen?",
  "feature.chess.q2": "Leest het ChessBase-bestanden?",

@@ -305,7 +305,7 @@ Read by both apps when they start, and by each after a change in its own Setting
 
 ## `[chess]`
 
-How [chess games](../previews/chess.md) and [Go games](../previews/go.md) are shown, in both apps.
+How [chess games](../previews/chess.md), [Go games](../previews/go.md) and [draughts games](../previews/draughts.md) are shown, in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|

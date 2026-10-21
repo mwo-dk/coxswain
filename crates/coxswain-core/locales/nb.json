@@ -1052,7 +1052,7 @@
  "feature.change_keys.title": "Endre taster",
  "feature.change_keys.what": "Tabellen [keys] i config.toml gir enhver handling andre taster, flere taster eller ingen, likt i begge appene.",
  "feature.chess.a1": "Ikke ennå: Coxswain viser partier og stillinger, men analyserer dem ikke. En sjakkmotor er planlagt.",
- "feature.chess.a2": "Ikke ennå: PGN (også pakket som .pgn.gz eller .pgn.zst), EPD, FEN og Polyglot-bøker, og go-partier i SGF. Eksporter ChessBase-partier til PGN for å lese dem her.",
+ "feature.chess.a2": "Ikke ennå: PGN (også pakket som .pgn.gz eller .pgn.zst), EPD, FEN og Polyglot-bøker, og go-partier i SGF og dampartier i PDN. Eksporter ChessBase-partier til PGN for å lese dem her.",
  "feature.chess.a3": "Innstillinger → Forhåndsvisninger → Trekknotasjon: figurer, eller bokstavene i ditt språk. Filene beholder engelske bokstaver.",
  "feature.chess.q1": "Kan jeg spille mot en sjakkmotor?",
  "feature.chess.q2": "Leser den ChessBase-filer?",

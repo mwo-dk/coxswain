@@ -1052,7 +1052,7 @@
  "feature.change_keys.title": "Näppäinten muuttaminen",
  "feature.change_keys.what": "config.toml-tiedoston [keys]-taulukko antaa mille tahansa toiminnolle muut näppäimet, lisää näppäimiä tai ei yhtään, samoin molemmissa sovelluksissa.",
  "feature.chess.a1": "Ei vielä: Coxswain näyttää pelit ja asemat mutta ei analysoi niitä. Shakkimoottori on suunnitteilla.",
- "feature.chess.a2": "Ei vielä: PGN (myös pakattuna .pgn.gz- tai .pgn.zst-tiedostona), EPD, FEN ja Polyglot-kirjat sekä go-pelit SGF-muodossa. Vie ChessBase-pelit PGN:ksi lukeaksesi ne täällä.",
+ "feature.chess.a2": "Ei vielä: PGN (myös pakattuna .pgn.gz- tai .pgn.zst-tiedostona), EPD, FEN ja Polyglot-kirjat sekä go-pelit SGF-muodossa ja tammipelit PDN-muodossa. Vie ChessBase-pelit PGN:ksi lukeaksesi ne täällä.",
  "feature.chess.a3": "Asetukset → Esikatselut → Siirtojen merkintätapa: figuurit tai oman kielesi kirjaimet. Tiedostoissa säilyvät englanninkieliset kirjaimet.",
  "feature.chess.q1": "Voinko pelata shakkimoottoria vastaan?",
  "feature.chess.q2": "Lukeeko se ChessBase-tiedostoja?",

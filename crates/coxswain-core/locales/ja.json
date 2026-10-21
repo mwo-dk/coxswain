@@ -1016,7 +1016,7 @@
  "feature.change_keys.title": "キーの変更",
  "feature.change_keys.what": "config.toml の [keys] で、どの操作にも別のキー、追加のキーを割り当てたり、キーを外したりできます。両方のアプリで同じです。",
  "feature.chess.a1": "まだありません：Coxswain は対局と局面を表示しますが、分析はしません。エンジンは計画中です。",
- "feature.chess.a2": "まだ対応していません：PGN（.pgn.gz や .pgn.zst に圧縮されたものも）、EPD、FEN、Polyglot 定跡書、SGF の囲碁の棋譜に対応しています。ChessBase の対局は PGN に書き出すとここで読めます。",
+ "feature.chess.a2": "まだ対応していません：PGN（.pgn.gz や .pgn.zst に圧縮されたものも）、EPD、FEN、Polyglot 定跡書、SGF の囲碁の棋譜、PDN のドラフツの棋譜に対応しています。ChessBase の対局は PGN に書き出すとここで読めます。",
  "feature.chess.a3": "設定 → プレビュー → 指し手の表記：駒の図柄、またはお使いの言語の文字。ファイルには英語の文字のまま残ります。",
  "feature.chess.q1": "エンジンと対局できますか？",
  "feature.chess.q2": "ChessBase のファイルを読めますか？",

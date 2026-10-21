@@ -1052,7 +1052,7 @@
  "feature.change_keys.title": "Ändra tangenter",
  "feature.change_keys.what": "Tabellen [keys] i config.toml ger vilken åtgärd som helst andra tangenter, fler tangenter eller inga, likadant i båda apparna.",
  "feature.chess.a1": "Inte än: Coxswain visar partier och positioner men analyserar dem inte. En motor är planerad.",
- "feature.chess.a2": "Inte än: PGN (även packad som .pgn.gz eller .pgn.zst), EPD, FEN och Polyglot-böcker, och go-partier i SGF. Exportera ChessBase-partier till PGN för att läsa dem här.",
+ "feature.chess.a2": "Inte än: PGN (även packad som .pgn.gz eller .pgn.zst), EPD, FEN och Polyglot-böcker, och go-partier i SGF och dampartier i PDN. Exportera ChessBase-partier till PGN för att läsa dem här.",
  "feature.chess.a3": "Inställningar → Förhandsvisningar → Draganotation: figurer, eller bokstäverna i ditt språk. Filerna behåller engelska bokstäver.",
  "feature.chess.q1": "Kan jag spela mot en motor?",
  "feature.chess.q2": "Läser det ChessBase-filer?",

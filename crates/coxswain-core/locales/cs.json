@@ -1088,7 +1088,7 @@
  "feature.change_keys.title": "Změna kláves",
  "feature.change_keys.what": "Tabulka [keys] v config.toml dá každé akci jiné klávesy, další klávesy, nebo žádné, v obou aplikacích stejně.",
  "feature.chess.a1": "Zatím ne: Coxswain partie a pozice zobrazuje, ale neanalyzuje je. Šachový program je v plánu.",
- "feature.chess.a2": "Zatím ne: PGN (i zabalené jako .pgn.gz nebo .pgn.zst), EPD, FEN a knihy Polyglot a partie go v SGF. Partie z ChessBase exportujte do PGN a přečtěte je tady.",
+ "feature.chess.a2": "Zatím ne: PGN (i zabalené jako .pgn.gz nebo .pgn.zst), EPD, FEN a knihy Polyglot a partie go v SGF a partie dámy v PDN. Partie z ChessBase exportujte do PGN a přečtěte je tady.",
  "feature.chess.a3": "Nastavení → Náhledy → Zápis tahů: figurky, nebo písmena vašeho jazyka. Soubory si ponechávají anglická písmena.",
  "feature.chess.q1": "Mohu hrát proti šachovému programu?",
  "feature.chess.q2": "Čte soubory ChessBase?",
