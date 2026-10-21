@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, sortItems, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -259,6 +259,7 @@ export async function load(t, dir = t.dir, focus) {
     t.error = locked ? tr("archive.locked_title") : String(e);
     return false;
   }
+  resortSoon(t);
   if (ui.autoSizes) measureFolders(t);
   // On ZFS: the dataset, its compression and space, for the footer.
   invoke("zfs_facts", { dir: t.dir }).then((z) => t.dir === dir && (t.zfs = z), () => {});
@@ -633,10 +634,28 @@ export async function measureFolders(t, paths) {
       if (!r) continue;
       t.sizes[p] = r[0];
       t.counts[p] = r[1];
+      resortSoon(t);
     }
   } finally {
     if (!paths && measuring.get(t) === dir) measuring.delete(t);
   }
+}
+
+/** Sorted by size: the folders measured since the listing (which sorted them by name) go to
+ *  their place, the cursor on the same entry. A quarter second after the first arrival, so a
+ *  folder of thousands is sorted four times a second at most. */
+const resorting = new WeakSet();
+export function resortSoon(t) {
+  if (t.sort !== "size" || resorting.has(t)) return;
+  resorting.add(t);
+  setTimeout(() => {
+    resorting.delete(t);
+    // A history, a list of snapshots, an archive or a package keeps the backend's order.
+    if (t.sort !== "size" || t.archive || t.history || (t.snapshot && !t.snapshot.snapshot) || t.package) return;
+    const at = t.items[t.cursor]?.path;
+    t.items = sortItems(t.items, "size", t.reverse, t.sizes);
+    t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
+  }, 250);
 }
 
 export const reloadAll = () => Promise.all(visibleTabs().map((t) => load(t)));

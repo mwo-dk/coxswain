@@ -315,7 +315,14 @@ pub enum SortKey {
 /// first, and in git's order where two have the same time: its names start with commit ids,
 /// which would put it in a random order.
 /// The branches and the worktrees keep git's order: local branches before remote ones.
-pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
+/// By size a folder goes by its measured size (`measured`; inside an archive its listed one), and comes after the others, by name, while that is not known.
+pub fn sort_in(
+    dir: &Path,
+    entries: &mut [Entry],
+    key: SortKey,
+    reverse: bool,
+    measured: &std::collections::HashMap<PathBuf, u64>,
+) {
     if crate::history::split(dir)
         .is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History)
     {
@@ -331,20 +338,48 @@ pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
                 .then(if reverse { ord.reverse() } else { ord })
         });
     } else {
-        sort(entries, key, reverse);
+        let listed = crate::archive::split(dir).is_some();
+        sort_sized(entries, key, reverse, |e| {
+            if !e.is_dir || listed {
+                Some(e.size)
+            } else {
+                measured.get(&e.path).copied()
+            }
+        });
     }
 }
 
+/// `sort` with no folder measured: by size, folders in name order.
 pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
+    sort_sized(entries, key, reverse, |e| (!e.is_dir).then_some(e.size));
+}
+
+/// `size` is what a sort by size goes by; `None` (a folder not measured) after the rest.
+fn sort_sized(
+    entries: &mut [Entry],
+    key: SortKey,
+    reverse: bool,
+    size: impl Fn(&Entry) -> Option<u64>,
+) {
     entries.sort_by(|a, b| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
             let name = || natord(&a.name, &b.name);
+            let sizes = (key == SortKey::Size).then(|| (size(a), size(b)));
+            if let Some((x, y)) = sizes
+                && (x.is_none() || y.is_none())
+            {
+                // Not measured yet, or folder sizes off: last, by name, whichever way round.
+                return x.is_none().cmp(&y.is_none()).then_with(name);
+            }
             let ord = match key {
                 SortKey::Name | SortKey::Commit => name(),
                 SortKey::Ext => natord(a.ext(), b.ext()).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
-                SortKey::Size => b.size.cmp(&a.size).then_with(name),
+                SortKey::Size => {
+                    let (x, y) = sizes.unwrap_or_default();
+                    y.cmp(&x).then_with(name)
+                }
             };
             if reverse { ord.reverse() } else { ord }
         })
@@ -1673,6 +1708,50 @@ mod tests {
     }
 
     #[test]
+    fn by_size_folders_go_by_their_measured_size() {
+        let e = |name: &str, is_dir: bool, size: u64| Entry {
+            name: name.into(),
+            path: PathBuf::from("/d").join(name),
+            is_dir,
+            size,
+            ..Entry::default()
+        };
+        // A folder's own entry size (4096 on ext4) says nothing about what is in it.
+        let all = [
+            e("..", true, 4096),
+            e("one", true, 4096),
+            e("fifty", true, 4096),
+            e("five-g", true, 4096),
+            e("b-new", true, 9999),
+            e("a-new", true, 0),
+            e("x.txt", false, 10),
+            e("y.txt", false, 20),
+        ];
+        let measured: std::collections::HashMap<PathBuf, u64> = [("one", 1 << 20), ("fifty", 50 << 20), ("five-g", 5 << 30)]
+            .map(|(n, b)| (PathBuf::from("/d").join(n), b))
+            .into();
+        let order = |measured: &std::collections::HashMap<PathBuf, u64>, reverse: bool| {
+            let mut v = all.to_vec();
+            sort_in(Path::new("/d"), &mut v, SortKey::Size, reverse, measured);
+            v.iter().map(|e| e.name.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(order(&measured, false), ["..", "five-g", "fifty", "one", "a-new", "b-new", "y.txt", "x.txt"], "unmeasured after, by name");
+        assert_eq!(order(&measured, true), ["..", "one", "fifty", "five-g", "a-new", "b-new", "x.txt", "y.txt"], "unmeasured last either way");
+        // Folder sizes off: nothing measured, folders by name, never by their entry size.
+        assert_eq!(order(&Default::default(), false), ["..", "a-new", "b-new", "fifty", "five-g", "one", "y.txt", "x.txt"]);
+        let mut v = all.to_vec();
+        sort(&mut v, SortKey::Size, false);
+        assert_eq!(v[1].name, "a-new");
+        // Inside an archive a folder's listed size is its real one.
+        let d = tmp("size-sort");
+        fs::write(d.join("a.zip"), "").unwrap();
+        let mut v = all.to_vec();
+        sort_in(&d.join("a.zip"), &mut v, SortKey::Size, false, &Default::default());
+        assert_eq!(v[1].name, "b-new");
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
     fn a_list_of_commits_stays_newest_first() {
         let e = |name: &str, modified: u64| Entry {
             name: name.into(),
@@ -1703,7 +1782,7 @@ mod tests {
             SortKey::Commit,
         ] {
             let mut v = git.to_vec();
-            sort_in(Path::new("/r/src/main.rs/@history"), &mut v, key, false);
+            sort_in(Path::new("/r/src/main.rs/@history"), &mut v, key, false, &Default::default());
             assert_eq!(order(&v), ["..", "f0", "a1", "be", "0d"], "{key:?}");
         }
         let mut v = git.to_vec();
@@ -1712,11 +1791,12 @@ mod tests {
             &mut v,
             SortKey::Name,
             true,
+            &Default::default(),
         );
         assert_eq!(order(&v), ["..", "be", "0d", "a1", "f0"]);
         // Anywhere else, as asked.
         let mut v = git.to_vec();
-        sort_in(Path::new("/r/src"), &mut v, SortKey::Name, false);
+        sort_in(Path::new("/r/src"), &mut v, SortKey::Name, false, &Default::default());
         assert_eq!(order(&v), ["..", "0d", "a1", "be", "f0"]);
     }
 

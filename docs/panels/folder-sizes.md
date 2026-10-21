@@ -43,7 +43,7 @@ first start; see [Renamed in 2.0](../reference/configuration.md#renamed-in-20)).
 | Measured | The size in the Size column | The size in the Size column; with the *Files* column on, the number of files inside, all levels down |
 | While measuring on request | – | Status line: `Measuring 12 folders…` |
 | The `..` row (the folder above) | Its size in place of `UP--DIR` when it is already known, else `UP--DIR` | Its size when it is already known, else an empty Size cell |
-| Marked folders | Not counted in `… in 3 marked` | Counted in `3 marked (…)` once measured |
+| Marked folders | Counted in `… in 3 marked` once measured | Counted in `3 marked (…)` once measured |
 
 ## Where the sizes come from
 
@@ -156,8 +156,10 @@ walk takes long; switch measuring off while you work there.
 
 #### Can I sort by folder size?
 
-No. **Ctrl+F6** sorts files by size; folders keep name order among themselves
-([Sorting](sorting.md#why-are-folders-not-sorted-by-their-size)).
+Yes: **Ctrl+F6** (or the *Size* header in the desktop app) sorts folders by their measured
+size, largest first, before the files. Folders not measured yet come after the measured ones,
+by name, and move to their place as their sizes arrive
+([Sorting](sorting.md#do-folders-sort-by-their-size)).
 
 #### My `dir_sizes` key stopped working in 2.0. Why?
 

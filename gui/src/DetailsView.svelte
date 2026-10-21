@@ -64,7 +64,7 @@
     // snapshots, an archive or a package has an order of its own, which the backend keeps.
     if (t.history || t.snapshot || t.archive || t.package || [HISTORY, SNAPSHOTS].includes(basename(t.dir))) return load(t);
     const at = t.items[t.cursor]?.path;
-    t.items = k === "commit" && t.last ? byLast(t.items, t.last, t.reverse) : sortItems(t.items, k, t.reverse);
+    t.items = k === "commit" && t.last ? byLast(t.items, t.last, t.reverse) : sortItems(t.items, k, t.reverse, t.sizes);
     t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
   }
   const arrow = (k) => (t.sort === k ? (t.reverse ? "\u{f0de}" : "\u{f0dd}") : "");
