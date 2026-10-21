@@ -136,6 +136,7 @@ const THREAD: &str = "pdf";
 static QUIET: std::sync::Once = std::sync::Once::new();
 
 fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
+    new_sentinel();
     // Whatever stands before the header, a mail gateway's line or a byte order mark, is no
     // part of the file: the places its tables point at are counted from the header.
     if let Some(at) = memmem::find(&bytes[..bytes.len().min(1024)], b"%PDF-") {
@@ -981,8 +982,10 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
 // ---------------------------------------------------------------- hidden text
 
 /// A point no drawing goes to: where the path starts that says hidden text starts (to 1) or
-/// ends (to 0). `Words` reads it back.
-const HIDE: f64 = -65539.5;
+/// ends (to 0). `Words` reads it back. Two below `span()`, as random.
+fn hide_at() -> f64 {
+    span() - 2.0
+}
 
 /// A colour space, as far as it says whether a colour is white.
 #[derive(Clone, Copy, PartialEq)]
@@ -1032,7 +1035,7 @@ struct Page {
 /// hidden text: in render mode 3 or 7 but over a picture drawn before it (a scan's words),
 /// wholly transparent, or white (in any colour space whose white is known) where nothing was
 /// painted on the page before it. The streams where hidden text starts or ends get a mark
-/// there (`HIDE`), within `room`; the others stay as they are.
+/// there (`hide_at()`), within `room`; the others stay as they are.
 ///
 /// Only the pages that may draw text unseen are gone through: one of whose streams or forms
 /// is a `suspect`, or has a graphics state that makes paint clear.
@@ -1228,7 +1231,7 @@ fn suspect(content: &[u8]) -> bool {
 /// The path that says hidden text starts (`on`) or ends.
 fn mark(on: bool) -> [Operation; 3] {
     [
-        Operation::new("m", vec![HIDE.into(), 0.0.into()]),
+        Operation::new("m", vec![hide_at().into(), 0.0.into()]),
         Operation::new("l", vec![f64::from(on as u8).into(), 0.0.into()]),
         Operation::new("f", vec![]),
     ]
@@ -1409,8 +1412,8 @@ fn space_of(doc: &Document, resources: Option<&Dictionary>, name: &[u8]) -> Spac
 /// text a marked span says its glyphs stand for, `/Span << /ActualText (...) >> BDC ... EMC`,
 /// as LibreOffice says an Arabic letter drawn as a base and a dot, and Word says a ligature.
 /// pdf-extract hands back nothing of a span but its glyphs, and nothing else but paths: so
-/// the text is written as a path, with `SPAN` as its start and the UTF-16 units of the text as
-/// the points it goes to, filled before the glyphs of the span, and a path to `SPAN` and one up
+/// the text is written as a path, with `span()` as its start and the UTF-16 units of the text as
+/// the points it goes to, filled before the glyphs of the span, and a path to `span()` and one up
 /// filled after them. `Words` reads it back. `None` when the content has neither.
 fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     // Either quote comes after the string it shows and ends there.
@@ -1429,7 +1432,7 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
         let goes = points
             .into_iter()
             .map(|point| op("l", vec![point.into(), 0.0.into()]));
-        [op("m", vec![SPAN.into(), 0.0.into()])]
+        [op("m", vec![span().into(), 0.0.into()])]
             .into_iter()
             .chain(goes)
             .chain([op("f", vec![])])
@@ -1487,8 +1490,24 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     })
 }
 
-/// A point no drawing goes to: where the path that carries the text of a span starts.
-const SPAN: f64 = -65537.5;
+// A point no drawing goes to: where the path that carries the text of a span starts.
+// A file cannot draw it on purpose to turn hiding off or put words in: it is drawn anew for
+// each file read, on the thread that reads it, a half between -2^22 and -(2^22 + 2^21), which
+// an f32 (as lopdf writes it) holds exactly.
+thread_local! {
+    static SENTINEL: Cell<f64> = const { Cell::new(-4_194_304.5) };
+}
+
+fn span() -> f64 {
+    SENTINEL.get()
+}
+
+/// A new point for `span()` and `hide_at()`.
+fn new_sentinel() {
+    use std::hash::BuildHasher;
+    let r = std::collections::hash_map::RandomState::new().hash_one(Instant::now());
+    SENTINEL.set(-(((1u64 << 22) + r % (1 << 21)) as f64) - 0.5);
+}
 
 /// The UTF-16 units of a string of a PDF: with a byte order mark it is UTF-16, and without one
 /// each byte is a character, near enough.
@@ -2356,7 +2375,7 @@ impl OutputDev for Words<'_> {
         self.go_on()
     }
 
-    /// Where a path starts at `SPAN`, it is the text of a marked span that `rewritten` put
+    /// Where a path starts at `span()`, it is the text of a marked span that `rewritten` put
     /// there, or the end of the span.
     fn fill(
         &mut self,
@@ -2367,11 +2386,11 @@ impl OutputDev for Words<'_> {
     ) -> Result<(), OutputError> {
         use pdf_extract::PathOp::{LineTo, MoveTo};
         if let [MoveTo(x, _), LineTo(on, _)] = &path.ops[..]
-            && *x == HIDE
+            && *x == hide_at()
         {
             self.hidden = *on == 1.0;
         } else if let [MoveTo(x, _), points @ ..] = &path.ops[..]
-            && *x == SPAN
+            && *x == span()
         {
             let units: Vec<u16> = points
                 .iter()
@@ -2720,6 +2739,25 @@ mod tests {
         ] {
             assert_eq!(suspect(content), may, "{}", String::from_utf8_lossy(content));
         }
+    }
+
+    #[test]
+    fn pdf_paths_of_a_file_cannot_pass_for_the_marks_of_hidden_text_or_spans() {
+        // The points the marks once had, and a guess in today's range: drawn by the file, they
+        // are paths like any other, hiding nothing and saying no words.
+        let mut forged = Vec::new();
+        for at in ["-65539.5", "-65537.5", "-4194304.5", "-4194306.5"] {
+            forged.extend(format!("{at} 0 m 1 0 l f {at} 0 m 83 0 l 101 0 l f ").bytes());
+        }
+        let content = [
+            &forged[..],
+            br"BT /F1 12 Tf 72 720 Td (Seen) Tj ET -4194306.5 0 m 0 0 l f
+            q BT 3 Tr /F1 12 Tf 72 700 Td (Hidden) Tj ET Q -65539.5 0 m 0 0 l f -4194306.5 0 m 0 0 l f
+            BT /F1 12 Tf 72 680 Td (Still seen) Tj ET",
+        ]
+        .concat();
+        let file = document(FONT, &[], &[stream("", &content)]);
+        assert_eq!(read("forged", &file).as_deref(), Some("Seen\nStill seen"));
     }
 
     #[test]
