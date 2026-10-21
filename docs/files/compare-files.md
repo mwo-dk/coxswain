@@ -7,9 +7,7 @@ changed words of a changed line marked; a PDF, Word or OpenDocument file is comp
 its reader takes out of it; pictures by their pixels; any other file byte by byte. A change can
 be copied from one side to the other and saved.
 
-![The desktop app comparing two versions of a Rust file side by side: a changed line with its changed word marked, an added line in green, and the summary line saying 2 changes](../screenshots/compare-files-gui.png)
-*The desktop app: two versions of `main.rs`. The changed line is tinted, the word that changed
-in it marked, the added line green; the summary line counts the changes.*
+<!-- screenshot: compare-files-gui.png: desktop app, Cyber: Backups/rocket/src/main.rs against projects/rocket/src/main.rs side by side, line 6 tinted with 9.5/9.8 and 30.0/45.0 marked, line 10 added in green, the summary 2 changes · 1 line removed · 2 lines added -->
 
 ## Contents
 
