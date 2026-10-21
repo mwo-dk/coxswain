@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Xiangqi: red 炮, a character on a disc.
+	Drawn for Coxswain's author's games project and given to Coxswain under its MIT
+	licence; restyled to sit beside the chess set: 45×45, black lines 1.5 wide, a soft
+	shading.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+	<defs><radialGradient id="g" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="#FBF3E2"/><stop offset="1" stop-color="#E6D3AE"/></radialGradient></defs>
+	<circle cx="22.5" cy="22.5" r="20" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+	<circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#8a2626" stroke-width="1"/>
+	<text x="22.5" y="22.5" font-size="24" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="'Noto Serif CJK TC', 'Noto Sans CJK TC', 'Noto Sans CJK SC', 'Source Han Sans', 'PingFang TC', 'Microsoft JhengHei', serif" fill="#8a2626">炮</text>
+</svg>

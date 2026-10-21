@@ -407,8 +407,8 @@
   <text x="6" y="4.68" class="river" text-anchor="middle" fill={ink}>漢 界</text>
 {/snippet}
 
-<!-- A xiangqi piece: a disc with its character, Red's in red, Black's in black; the last
-     move's points ringed. -->
+<!-- A xiangqi piece: a disc with its character, Red's in red, Black's in black (drawn for
+     Coxswain, vendor/game-pieces); the last move's points ringed. -->
 {#snippet xqPiece(p, i)}
   {@const c = flip ? 89 - i : i}
   {@const x = i % 9}
@@ -416,10 +416,7 @@
   {@const lit = last && (last.from === c || last.to === c)}
   {#if lit}<circle cx={x} cy={y} r="0.47" fill="rgb(246 224 90 / 0.55)" />{/if}
   {#if p}
-    {@const red = p === p.toUpperCase()}
-    <circle cx={x} cy={y} r="0.42" fill="#f3e2bd" stroke={red ? "#b3141d" : "#1a1a1a"} stroke-width="0.05" />
-    <circle cx={x} cy={y} r="0.34" fill="none" stroke={red ? "#b3141d" : "#1a1a1a"} stroke-width="0.02" />
-    <text x={x} y={y + 0.17} class="xqp" text-anchor="middle" fill={red ? "#b3141d" : "#1a1a1a"}>{XQ[p]}</text>
+    <image href={`vendor/game-pieces/xiangqi-${p === p.toUpperCase() ? "r" : "b"}${p.toLowerCase()}.svg`} x={x - 0.46} y={y - 0.46} width="0.92" height="0.92" />
   {/if}
 {/snippet}
 
@@ -719,11 +716,6 @@
   }
   .board:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-bg);
-  }
-  .xqp {
-    font-size: 0.5px;
-    font-family: "Noto Serif CJK SC", "Noto Sans CJK SC", "Source Han Serif", "WenQuanYi Micro Hei", "PingFang SC", "Microsoft YaHei", serif;
-    font-weight: bold;
   }
   .river {
     font-size: 0.55px;
