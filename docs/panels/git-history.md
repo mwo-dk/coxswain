@@ -125,8 +125,8 @@ folder.
   (`..` at its top) is the longest one; a single file's is usually short.
 - **Four seconds** at most for git to answer a list, so a huge repository stays usable; a file
   that changed rarely in a very long history may then show fewer commits than it has.
-- **Renames are followed** for a file: its history goes on past the commits that renamed it
-  (`git log --follow`). A folder's history is the folder's path as it is.
+- **Renames are followed** for a file on its branch: its history goes on past the commits that
+  renamed it (`git log --follow`); its history of all branches (**Alt+A**) is not. A folder's history is the folder's path as it is.
 - **Merge commits** are listed only when the merge itself changed it, as `git log` does.
 - **Submodules** show as empty entries; their own history is in their own folder.
 - **Read-only:** nothing is ever written to the repository. It runs `git log`, `git ls-tree`,
@@ -145,7 +145,8 @@ folder.
 
 The first time you open a folder of a repository, you are told that the history is there and
 which key opens it: under *Settings → Overview → What's new* in the desktop app, once in the status line in
-the terminal app ([Notices and what's new](notices.md)).
+the terminal app ([Notices and what's new](notices.md)). Inside a history, the status line says a
+few times that **Alt+A** shows every branch's commits in the graph, and again this branch's alone.
 
 ## In the terminal app
 
@@ -197,8 +198,9 @@ Press **Ctrl+G** on `..` at the top of the repository, then **Enter** on a commi
 
 #### Does a file's history go past a rename?
 
-Yes: a file's history is `git log --follow`, so the commits from before it got its name are
-listed too. A folder's history follows the folder's path as it is; the commit that renamed a
+Yes, on this branch: a file's history is `git log --follow`, so the commits from before it got
+its name are listed too. Its history of all branches (**Alt+A**) follows the file's path as it
+is, so it stops at the rename. A folder's history follows the folder's path as it is; the commit that renamed a
 file is in the history of the folder it was in.
 
 #### Why do I not see all commits?

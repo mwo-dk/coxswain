@@ -72,7 +72,7 @@ mindmap
 | [Folder sizes](panels/folder-sizes.md) | Where they come from, how fresh, the size on `..` once known, measuring again, switching off |
 | [Space: where the space goes](panels/space.md) | Alt+U, a treemap of a folder or a drive: every file a rectangle by its size, coloured by kind, the bytes by type, the largest files, zoom, Delete from there; both apps |
 | [Git in the panels](panels/git.md) | The git line (worktree, detached HEAD, merge or rebase under way), upstream, remote and last fetch (the git line's tooltip, the terminal app's info line on `..`, a repository folder's own on hover), file glyphs, the last commit per file, the diff, recent repositories, Open in your git tool (Alt+G), the git config (Alt+C), user menu commands |
-| [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder, the files at a commit, preview and diff, F3, F5, read-only, limits |
+| [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder with their graph, Alt+A all branches, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
 | [Git config](panels/git-config.md) | Alt+C, the config as git uses it: each value with its scope and file, values set earlier dimmed, secrets hidden until shown, F4 opens a line's file, copying a line, read-only |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
