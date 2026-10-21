@@ -35,6 +35,11 @@ for good.
 | Pack | **Alt+F5** | Moves the new archive to the trash | the archive is unchanged |
 | Extract | **Ctrl+E** | Moves the folder it made to the trash | the folder and everything in it are unchanged |
 
+A stopped operation ([Stopping it](copy.md#stopping-it)) is undone as far as it went: the
+items copied, extracted or trashed before the Stop, a folder copied or extracted in part, and
+for a move across disks each file and folder that went over, after which the folders it made
+there are removed once empty. A stopped pack made nothing, so there is nothing to undo.
+
 Never undone:
 
 - **Shift+F8** and **Shift+Delete**, deleting for good. The question says so: *Permanently delete

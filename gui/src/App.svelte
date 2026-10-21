@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, makeChecksums, verifyChecksums, stopWork, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, convertMedia, stopMedia, makeChecksums, verifyChecksums, stopWork, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -201,9 +201,11 @@
    *  A failure is shown under `fail`, which says what could not be done. */
   async function op(start, ok, what, fail, password = null, only = null) {
     ui.status = t("status.busy", { what });
+    const ended = watchJob(ui.status);
     try {
-      await (typeof start === "function" ? start(password, only) : start);
-      await refreshUndo(ok);
+      // Stopped: how far it got, instead of done.
+      const stopped = await (typeof start === "function" ? start(password, only) : start);
+      await refreshUndo(typeof stopped === "string" ? stopped : ok);
     } catch (e) {
       // What went well of it can be undone.
       refreshUndo();
@@ -227,6 +229,8 @@
       ui.status = "";
       // A title made from how many failed: one line each.
       ui.modal = failure(typeof fail === "function" ? fail(lines.length) : fail, e);
+    } finally {
+      ended();
     }
     for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
     await reloadAll();
@@ -243,6 +247,9 @@
     prompt(t(isMove ? "dialog.move" : "dialog.copy", { what }), t("dialog.to"), dest, t(isMove ? "verb.move" : "verb.copy"), (d) => {
       if (d.trim()) transferTo(paths, tab().dir, d, isMove, what);
     }, isMove ? "move_and_rename" : "copy");
+    // Into an archive it is written anew beside itself: the dialog says when room may be short.
+    const m = ui.modal;
+    if (otherTab().archive) invoke("pack_room", { paths, base: tab().dir, dest }).then((room) => room && ui.modal === m && (m.room = room), () => {});
   }
 
   async function remove(forever) {
@@ -558,6 +565,8 @@
           if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, failTitle("pack", paths, what));
         },
       };
+      const m = ui.modal;
+      invoke("pack_room", { paths, base: tab().dir, dest: m.value }).then((room) => room && ui.modal === m && (m.room = room), () => {});
     },
     user_menu: async () => {
       const tb = tab();
@@ -701,6 +710,11 @@
       if (dialogs.handleKey(e, k)) e.preventDefault();
       return;
     }
+    // Esc on the progress bar (its Stop has the focus): the file operation stops.
+    if (k === "Esc" && e.target.closest?.(".job")) {
+      e.preventDefault();
+      return stopJob();
+    }
     // Typing in notes, the path bar or another field: leave it alone, except that Esc
     // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
     const field = e.target.closest?.("textarea, input:not(.cmd)");
@@ -821,6 +835,15 @@
         <!-- Make PDF searchable under way: which one, for how long, what OCRmyPDF said last. -->
         <span class="status" title={s.line}>{t(s.all > 1 ? "searchable.busy_of" : "searchable.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
         <button class="update" title={ui.cfg.actions.searchable_pdf?.[1] ?? ""} disabled={s.stopping} onclick={stopSearchable}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.job}
+        {@const j = ui.job}
+        <!-- A file operation under way: the item it is on, a bar of how far, and Stop (Esc stops too while it has the focus). -->
+        <span class="job">
+          <span class="status">{t(j.all > 1 ? "status.busy_of" : "status.busy", { what: j.name, n: j.at + 1, all: j.all })}{j.stopping ? ` · ${t("searchable.stopping")}` : ""}</span>
+          <progress max={Math.max(j.all, 1)} value={j.at} aria-label={t("status.busy", { what: j.name })}></progress>
+          <button class="update" title={t("searchable.stop_key", { key: "Esc" })} disabled={j.stopping} onclick={stopJob}>{t("searchable.stop")}</button>
+        </span>
       {/if}
       {#if ui.media}
         {@const s = ui.media}

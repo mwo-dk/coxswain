@@ -286,6 +286,7 @@
  "archive.preview_locked": "This file is locked with a password.",
  "archive.preview_opening": "Opening it from {archive}…",
  "archive.preview_unlock": "Enter the password",
+ "archive.room_short": "Space may be short: {free} free here, and this may need {need}, as the archive is written beside the old one first",
  "archive.too_large": "{name} is too large to look at here: copy it out of the archive to open it",
  "ask.builtin_estimate": "On this processor: about {seconds} s to the first word, then {words} words a second",
  "ask.builtin_missing": "{model} is not downloaded yet: download it in Settings under Ask, or in Set up…",
@@ -909,6 +910,7 @@
  "err.not_packable": "{path} is a link, a pipe or a device, which an archive leaves out, so nothing was moved",
  "err.is_folder": "{name} is a folder",
  "err.key_twice": "{key} is given to both {a} and {b} in [keys] of config.toml",
+ "err.move_check": "{path} changed while it was moved, or its copy came out short, so it stays where it was",
  "err.no_application": "No application opens this kind of file",
  "err.no_cache_folder": "No cache folder",
  "err.no_certificate": "No certificate in this PEM file",
@@ -1238,10 +1240,10 @@
  "feature.convert_media.title": "Convert video or audio",
  "feature.convert_media.what": "Makes an MP4, MP3 or FLAC copy of a video or a song, takes its sound out or cuts a clip, with ffmpeg, next to the original.",
  "feature.copy.a1": "Coxswain never overwrites. Delete the old one first ({delete}), or copy under another name by typing it into the target.",
- "feature.copy.a2": "The cause line leaves the path out to stay short. Unfold Details in the desktop app, or read below Details: in the terminal app.",
+ "feature.copy.a2": "Yes: Esc on the progress line in the terminal app, Stop (or Esc) in the desktop app. The file it was on is removed, what was copied stays, and {undo} takes that away.",
  "feature.copy.a3": "Type the new name, or a path ending in it, into the target. When that path does not exist, the file is copied under that name.",
  "feature.copy.q1": "How do I overwrite a file that exists?",
- "feature.copy.q2": "The error says only Permission denied. Which file?",
+ "feature.copy.q2": "Can I stop a copy that is running?",
  "feature.copy.q3": "How do I copy a file and give the copy a new name?",
  "feature.copy.title": "Copy",
  "feature.copy.what": "{copy} copies the marked files, or the one under the cursor, to the other panel's folder or a path you type.",
@@ -1511,10 +1513,10 @@
  "feature.mouse.what": "Click to move, double-click to open, right-click to mark; the desktop app adds dragging and resizing.",
  "feature.move_and_rename.a1": "Something of that name is already in the target folder, and Coxswain never writes over it. Rename one of them first, or move the other one out of the way.",
  "feature.move_and_rename.a2": "No. A move into an archive adds the files to it and then deletes the originals for good. Copy with {copy} if you want to keep them.",
- "feature.move_and_rename.a3": "Yes: {undo}, in both apps, right after it or later in the same run, while nothing has changed the file since.",
+ "feature.move_and_rename.a3": "Each file is in one place: those moved are on the other disk, the rest where they were, and the one it was on keeps its original. {undo} moves back the ones that went.",
  "feature.move_and_rename.q1": "Why did my move fail with exists?",
  "feature.move_and_rename.q2": "I moved files into a zip. Are the originals in the bin?",
- "feature.move_and_rename.q3": "Can I undo a move or rename?",
+ "feature.move_and_rename.q3": "I stopped a move to another disk. Where are my files?",
  "feature.move_and_rename.title": "Move and rename",
  "feature.move_and_rename.what": "{move} moves the marked files to another folder, or renames one when you type a new name; {rename} renames in place.",
  "feature.moving.a1": "That is Norton Commander's way. Rebind them to the parent folder and open actions if you prefer; in the desktop app's columns view they already walk the tree.",
@@ -3333,6 +3335,31 @@
  "status.trashed": "Moved {what} to the bin",
  "status.update": "Coxswain {version} is available: {how}",
  "status.update_lags": "Coxswain {version} is available: {how} (it can reach {channel} a few days later; or the release page)",
+ "stop.done.copy": {
+  "one": "Stopped: {n} of {all} copied",
+  "other": "Stopped: {n} of {all} copied"
+ },
+ "stop.done.delete": {
+  "one": "Stopped: {n} of {all} deleted",
+  "other": "Stopped: {n} of {all} deleted"
+ },
+ "stop.done.extract": {
+  "one": "Stopped: {n} of {all} extracted",
+  "other": "Stopped: {n} of {all} extracted"
+ },
+ "stop.done.move": {
+  "one": "Stopped: {n} of {all} moved",
+  "other": "Stopped: {n} of {all} moved"
+ },
+ "stop.done.pack": {
+  "one": "Stopped: {n} of {all} packed",
+  "other": "Stopped: {n} of {all} packed"
+ },
+ "stop.done.trash": {
+  "one": "Stopped: {n} of {all} moved to the bin",
+  "other": "Stopped: {n} of {all} moved to the bin"
+ },
+ "stop.stopped": "Stopped",
  "syntax.both": "both words",
  "syntax.case": "case-sensitive",
  "syntax.either": "either",

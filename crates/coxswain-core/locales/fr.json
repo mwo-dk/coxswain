@@ -322,6 +322,7 @@
  "archive.preview_locked": "Ce fichier est verrouillé par un mot de passe.",
  "archive.preview_opening": "Ouverture depuis {archive}…",
  "archive.preview_unlock": "Saisir le mot de passe",
+ "archive.room_short": "La place pourrait manquer : {free} libres ici, et il faudra peut-être {need}, car l’archive est d’abord écrite à côté de l’ancienne",
  "archive.too_large": "{name} est trop volumineux pour être affiché ici : copiez-le hors de l’archive pour l’ouvrir",
  "ask.builtin_estimate": "Sur ce processeur : environ {seconds} s jusqu'au premier mot, puis {words} mots par seconde",
  "ask.builtin_missing": "{model} n’est pas encore téléchargé : téléchargez-le dans Réglages, sous Demander, ou dans Configurer…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} est un lien, un tube ou un périphérique, qu'une archive laisse de côté : rien n'a été déplacé",
  "err.is_folder": "{name} est un dossier",
  "err.key_twice": "{key} est attribuée à la fois à {a} et à {b} dans [keys] de config.toml",
+ "err.move_check": "{path} a changé pendant le déplacement, ou sa copie est trop courte : il reste où il était",
  "err.no_application": "Aucune application n’ouvre ce type de fichier",
  "err.no_cache_folder": "Aucun dossier de cache",
  "err.no_certificate": "Aucun certificat dans ce fichier PEM",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Convertir vidéo ou audio",
  "feature.convert_media.what": "Fait avec ffmpeg une copie MP4, MP3 ou FLAC d’une vidéo ou d’un morceau, en extrait le son ou coupe un extrait, à côté de l’original.",
  "feature.copy.a1": "Coxswain n’écrase jamais. Supprimez d’abord l’ancien ({delete}), ou copiez sous un autre nom en le tapant dans la destination.",
- "feature.copy.a2": "La ligne de cause omet le chemin pour rester courte. Dépliez Détails dans l’app de bureau, ou lisez sous Détails : dans l’app de terminal.",
+ "feature.copy.a2": "Oui : Échap sur la ligne de progression dans l’app de terminal, Arrêter (ou Échap) dans l’app de bureau. Le fichier en cours est supprimé, ce qui est copié reste, et {undo} l’enlève.",
  "feature.copy.a3": "Tapez le nouveau nom, ou un chemin qui se termine par lui, dans la destination. Quand ce chemin n’existe pas, le fichier est copié sous ce nom.",
  "feature.copy.q1": "Comment écraser un fichier qui existe ?",
- "feature.copy.q2": "L’erreur dit seulement Permission denied. Quel fichier ?",
+ "feature.copy.q2": "Puis-je arrêter une copie en cours ?",
  "feature.copy.q3": "Comment copier un fichier et donner un nouveau nom à la copie ?",
  "feature.copy.title": "Copier",
  "feature.copy.what": "{copy} copie les fichiers marqués, ou celui sous le curseur, dans le dossier de l’autre panneau ou vers un chemin que vous tapez.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Cliquez pour vous déplacer, double-cliquez pour ouvrir, clic droit pour marquer ; l’app de bureau ajoute le glisser et le redimensionnement.",
  "feature.move_and_rename.a1": "Quelque chose de ce nom se trouve déjà dans le dossier de destination, et Coxswain n’écrit jamais par-dessus. Renommez d’abord l’un des deux, ou déplacez l’autre ailleurs.",
  "feature.move_and_rename.a2": "Non. Un déplacement dans une archive y ajoute les fichiers puis supprime définitivement les originaux. Copiez avec {copy} si vous voulez les garder.",
- "feature.move_and_rename.a3": "Oui : {undo}, dans les deux apps, juste après ou plus tard dans la même session, tant que rien n’a modifié le fichier depuis.",
+ "feature.move_and_rename.a3": "Chaque fichier est à un seul endroit : les déplacés sur l’autre disque, les autres où ils étaient, et celui en cours garde son original. {undo} ramène ceux qui sont partis.",
  "feature.move_and_rename.q1": "Pourquoi mon déplacement a-t-il échoué avec « existe déjà » ?",
  "feature.move_and_rename.q2": "J’ai déplacé des fichiers dans un zip. Les originaux sont-ils dans la corbeille ?",
- "feature.move_and_rename.q3": "Puis-je annuler un déplacement ou un renommage ?",
+ "feature.move_and_rename.q3": "J’ai arrêté un déplacement vers un autre disque. Où sont mes fichiers ?",
  "feature.move_and_rename.title": "Déplacer et renommer",
  "feature.move_and_rename.what": "{move} déplace les fichiers marqués vers un autre dossier, ou en renomme un quand vous tapez un nouveau nom ; {rename} renomme sur place.",
  "feature.moving.a1": "C’est la façon de Norton Commander. Attribuez-leur plutôt les actions Dossier parent et Ouvrir si vous préférez ; dans la vue colonnes de l’app de bureau, elles parcourent déjà l’arborescence.",
@@ -3404,6 +3406,37 @@
  "status.trashed": "{what} placé dans la corbeille",
  "status.update": "Coxswain {version} est disponible : {how}",
  "status.update_lags": "Coxswain {version} est disponible : {how} (il peut arriver sur {channel} quelques jours plus tard ; sinon la page des versions)",
+ "stop.done.copy": {
+  "many": "Arrêté : {n} sur {all} copiés",
+  "one": "Arrêté : {n} sur {all} copié",
+  "other": "Arrêté : {n} sur {all} copiés"
+ },
+ "stop.done.delete": {
+  "many": "Arrêté : {n} sur {all} supprimés",
+  "one": "Arrêté : {n} sur {all} supprimé",
+  "other": "Arrêté : {n} sur {all} supprimés"
+ },
+ "stop.done.extract": {
+  "many": "Arrêté : {n} sur {all} extraits",
+  "one": "Arrêté : {n} sur {all} extrait",
+  "other": "Arrêté : {n} sur {all} extraits"
+ },
+ "stop.done.move": {
+  "many": "Arrêté : {n} sur {all} déplacés",
+  "one": "Arrêté : {n} sur {all} déplacé",
+  "other": "Arrêté : {n} sur {all} déplacés"
+ },
+ "stop.done.pack": {
+  "many": "Arrêté : {n} sur {all} compressés",
+  "one": "Arrêté : {n} sur {all} compressé",
+  "other": "Arrêté : {n} sur {all} compressés"
+ },
+ "stop.done.trash": {
+  "many": "Arrêté : {n} sur {all} placés dans la corbeille",
+  "one": "Arrêté : {n} sur {all} placé dans la corbeille",
+  "other": "Arrêté : {n} sur {all} placés dans la corbeille"
+ },
+ "stop.stopped": "Arrêté",
  "syntax.both": "les deux mots",
  "syntax.case": "respecter la casse",
  "syntax.either": "l’un ou l’autre",

@@ -64,6 +64,11 @@ pub struct Ctx {
     asking: Arc<std::sync::atomic::AtomicU64>,
     /// What Ctrl+Z undoes, the newest last; for this run.
     undo: Mutex<History>,
+    /// The Stop of the file operations started since the last Stop: the one running and those
+    /// waiting their turn, which a Stop keeps from starting. Replaced by each Stop.
+    job_stop: Mutex<Arc<std::sync::atomic::AtomicBool>>,
+    /// File operations run one at a time, in the order they were asked for.
+    job_turn: tauri::async_runtime::Mutex<()>,
     /// The app, set at start: what tells the window that sizes changed.
     app: std::sync::OnceLock<tauri::AppHandle>,
 }
@@ -1495,21 +1500,76 @@ fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
 
+/// How far the file operation under way is, for its progress bar: the item it is on, of how
+/// many, its name, how many wait their turn behind it, and whether Stop was pressed.
+#[derive(Clone, Default, serde::Serialize)]
+struct JobProgress {
+    at: usize,
+    all: usize,
+    name: String,
+    waiting: usize,
+    stopping: bool,
+    #[serde(skip)]
+    stop: Arc<std::sync::atomic::AtomicBool>,
+}
+
+static JOB: Mutex<Option<JobProgress>> = Mutex::new(None);
+static WAITING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// `op` on `paths` (to `dst`), as both apps run it, on a blocking thread: a big copy must not
-/// hold one of the async runtime's few workers. The folders it changes are forgotten while it
-/// runs and measured again after, what can be undone goes into the history, and failures come
-/// back as one message.
-async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Option<String>) -> Res<()> {
+/// hold one of the async runtime's few workers. One at a time: one asked for while another runs
+/// waits its turn. The folders it changes are forgotten while it runs and measured again after,
+/// what can be undone goes into the history, and failures come back as one message. Stopped
+/// (`job_stop`), the line that says how far it got; one that waited is not started.
+async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Option<String>) -> Res<Option<String>> {
+    use std::sync::atomic::Ordering;
+    let stop = ctx.job_stop.lock().map_err(|e| e.to_string())?.clone();
+    WAITING.fetch_add(1, Ordering::SeqCst);
+    let turn = ctx.job_turn.lock().await;
+    WAITING.fetch_sub(1, Ordering::SeqCst);
+    if stop.load(Ordering::SeqCst) {
+        return Ok(Some(coxswain_core::undo::stopped_line(op, 0, paths.len())));
+    }
     let touched = op.touches(&paths, &dst);
     touched.iter().for_each(|p| ctx.sizer.forget(p));
-    let (failed, rec) = tauri::async_runtime::spawn_blocking(move || coxswain_core::undo::run(op, &paths, &dst, password.as_deref(), |_| {}))
-        .await
-        .map_err(|e| e.to_string())?;
+    let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+    *JOB.lock().map_err(|e| e.to_string())? = Some(JobProgress { all: paths.len(), name: names.first().cloned().unwrap_or_default(), stop: stop.clone(), ..Default::default() });
+    let ran = tauri::async_runtime::spawn_blocking(move || {
+        coxswain_core::undo::run(op, &paths, &dst, password.as_deref(), &stop, |i| {
+            if let Some(p) = JOB.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+                (p.at, p.name) = (i, names.get(i).cloned().unwrap_or_default());
+            }
+        })
+    })
+    .await;
+    *JOB.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    drop(turn);
+    let ran = ran.map_err(|e| e.to_string())?;
     ctx.changed(&touched);
-    ctx.remember(rec);
-    // One line for each item that failed: the page counts them for the title.
-    let errors: Vec<String> = failed.iter().map(|(p, e)| format!("{}: {}", p.display(), e.to_string().replace('\n', " "))).collect();
-    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+    ctx.remember(ran.rec);
+    // One line for each item that failed: the page counts them for the title. Stopped as well,
+    // the failures are said; stopped alone, how far it got.
+    let errors: Vec<String> = ran.failed.iter().map(|(p, e)| format!("{}: {}", p.display(), e.to_string().replace('\n', " "))).collect();
+    if errors.is_empty() { Ok(ran.stopped) } else { Err(errors.join("\n")) }
+}
+
+/// The file operation under way, for its progress bar; `None` when none runs.
+#[tauri::command]
+fn job_progress() -> Option<JobProgress> {
+    let mut p = JOB.lock().unwrap_or_else(|e| e.into_inner()).clone()?;
+    p.waiting = WAITING.load(std::sync::atomic::Ordering::SeqCst);
+    p.stopping = p.stop.load(std::sync::atomic::Ordering::SeqCst);
+    Some(p)
+}
+
+/// Stop: the file operation under way stops (the file it is on removed, what is done kept),
+/// and those waiting their turn are not started. Operations asked for after it run.
+#[tauri::command]
+fn job_stop(ctx: tauri::State<Ctx>) -> Res<()> {
+    let mut stop = ctx.job_stop.lock().map_err(|e| e.to_string())?;
+    stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    *stop = Arc::default();
+    Ok(())
 }
 
 /// Run `op` on every source, as an operation that can be undone (on a blocking thread, like
@@ -1814,12 +1874,21 @@ async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
 /// locked with `password` if one is given (a 7z's names too with `hide_names`). The password
 /// is kept in memory for this run only.
 #[tauri::command]
-async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
+async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     let to = resolve(&base, &dest);
-    job(&ctx, Op::Pack { hide_names }, paths, to.clone(), password).await?;
+    let stopped = job(&ctx, Op::Pack { hide_names }, paths, to, password).await?;
     // The format is suggested next time, in both apps.
     ctx.edit_if(|st| ((), coxswain_core::archive::remember_format(st, &dest)))?;
-    Ok(to)
+    Ok(stopped)
+}
+
+/// What the pack dialog, or a copy into an archive, says when the disk may be short of room:
+/// the archive (`dest`, named relative to `base`) is written beside itself first.
+#[tauri::command]
+async fn pack_room(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Option<String> {
+    let to = resolve(&base, &dest);
+    let archive = coxswain_core::archive::split(&to).map_or(to, |(a, _)| a);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::short_of_room(&archive, &paths)).await.ok().flatten()
 }
 
 // ---------------------------------------------------------------- properties
@@ -2493,6 +2562,8 @@ fn main() {
         _ => {}
     }
     coxswain_core::fs::lock_down();
+    // What a write of an archive cut short by a crash left beside it.
+    std::thread::spawn(coxswain_core::archive::clean_stale);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
         eprintln!("coxswain: {e}");
@@ -2566,6 +2637,8 @@ fn main() {
         measuring: Mutex::default(),
         asking: Arc::default(),
         undo: Mutex::default(),
+        job_stop: Mutex::default(),
+        job_turn: tauri::async_runtime::Mutex::new(()),
         app: std::sync::OnceLock::new(),
     };
     tauri::Builder::default()
@@ -2590,7 +2663,7 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::preview_tools, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, dupes_scan,
+            job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models,
         ])
         .build(tauri::generate_context!())

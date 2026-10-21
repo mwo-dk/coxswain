@@ -322,6 +322,7 @@
  "archive.preview_locked": "Šis fails ir aizslēgts ar paroli.",
  "archive.preview_opening": "Atver no {archive}…",
  "archive.preview_unlock": "Ievadiet paroli",
+ "archive.room_short": "Vietas var pietrūkt: šeit brīvi {free}, bet var vajadzēt {need}, jo arhīvs vispirms tiek rakstīts blakus vecajam",
  "archive.too_large": "{name} ir pārāk liels, lai to skatītu šeit: nokopējiet to ārā no arhīva, lai atvērtu",
  "ask.builtin_estimate": "Šajā procesorā: apmēram {seconds} s līdz pirmajam vārdam, tad {words} vārdi sekundē",
  "ask.builtin_missing": "{model} vēl nav lejupielādēts: lejupielādējiet to sadaļā Iestatījumi › Jautāt vai Iestatīt…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} ir saite, kanāls vai ierīce, ko arhīvs izlaiž, tāpēc nekas netika pārvietots",
  "err.is_folder": "{name} ir mape",
  "err.key_twice": "{key} config.toml sadaļā [keys] piešķirts gan {a}, gan {b}",
+ "err.move_check": "{path} mainījās pārvietošanas laikā vai tā kopija iznāca īsāka, tāpēc tas paliek, kur bija",
  "err.no_application": "Neviena lietotne neatver šāda veida failu",
  "err.no_cache_folder": "Nav kešatmiņas mapes",
  "err.no_certificate": "Šajā PEM failā nav sertifikāta",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Konvertēt video vai audio",
  "feature.convert_media.what": "Ar ffmpeg blakus oriģinālam izveido video vai dziesmas MP4, MP3 vai FLAC kopiju, izņem tās skaņu vai izgriež fragmentu.",
  "feature.copy.a1": "Coxswain nekad nepārraksta. Vispirms izdzēsiet veco ({delete}) vai kopējiet ar citu nosaukumu, ierakstot to mērķī.",
- "feature.copy.a2": "Cēloņa rindā ceļš izlaists, lai tā būtu īsa. Darbvirsmas lietotnē izvērsiet Sīkāk, termināļa lietotnē lasiet zem Sīkāk:.",
+ "feature.copy.a2": "Jā: Esc progresa rindā termināļa lietotnē, Apturēt (vai Esc) darbvirsmas lietotnē. Fails, pie kura strādāja, tiek noņemts, nokopētais paliek, un {undo} to noņem.",
  "feature.copy.a3": "Ierakstiet mērķī jauno nosaukumu vai ceļu, kas ar to beidzas. Ja šāda ceļa nav, fails tiek nokopēts ar šo nosaukumu.",
  "feature.copy.q1": "Kā pārrakstīt failu, kas jau eksistē?",
- "feature.copy.q2": "Kļūda saka tikai Permission denied. Kurš fails?",
+ "feature.copy.q2": "Vai varu apturēt kopēšanu, kas notiek?",
  "feature.copy.q3": "Kā nokopēt failu un dot kopijai jaunu nosaukumu?",
  "feature.copy.title": "Kopēt",
  "feature.copy.what": "{copy} kopē atzīmētos failus vai to, kas ir zem kursora, uz otra paneļa mapi vai ierakstītu ceļu.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Klikšķis pārvieto, dubultklikšķis atver, labais klikšķis atzīmē; darbvirsmas lietotnē var arī vilkt un mainīt izmērus.",
  "feature.move_and_rename.a1": "Mērķa mapē jau ir kaut kas ar tādu nosaukumu, un Coxswain to nekad nepārraksta. Vispirms pārdēvējiet vienu no tiem vai pārvietojiet otru prom.",
  "feature.move_and_rename.a2": "Nē. Pārvietošana arhīvā pievieno failus tam un tad oriģinālus izdzēš neatgriezeniski. Kopējiet ar {copy}, ja gribat tos paturēt.",
- "feature.move_and_rename.a3": "Jā: {undo} abās lietotnēs, uzreiz pēc tam vai vēlāk tajā pašā palaišanas reizē, ja kopš tā laika nekas failu nav mainījis.",
+ "feature.move_and_rename.a3": "Katrs fails ir vienā vietā: pārvietotie otrā diskā, pārējie, kur bija, un tas, pie kura strādāja, patur oriģinālu. {undo} atgriež pārvietotos.",
  "feature.move_and_rename.q1": "Kāpēc pārvietošana neizdevās ar „jau ir“?",
  "feature.move_and_rename.q2": "Pārvietoju failus zip arhīvā. Vai oriģināli ir atkritnē?",
- "feature.move_and_rename.q3": "Vai var atsaukt pārvietošanu vai pārdēvēšanu?",
+ "feature.move_and_rename.q3": "Es apturēju pārvietošanu uz citu disku. Kur ir mani faili?",
  "feature.move_and_rename.title": "Pārvietot un pārdēvēt",
  "feature.move_and_rename.what": "{move} pārvieto atzīmētos failus uz citu mapi vai pārdēvē vienu, ja ierakstāt jaunu nosaukumu; {rename} pārdēvē turpat.",
  "feature.moving.a1": "Tā ir Norton Commander pieeja. Ja vēlaties, piesaistiet tos darbībām Vecākmape un Atvērt; darbvirsmas lietotnes kolonnu skatā tie jau staigā pa koku.",
@@ -3404,6 +3406,37 @@
  "status.trashed": "Pārvietots uz atkritni: {what}",
  "status.update": "Pieejama Coxswain {version}: {how}",
  "status.update_lags": "Pieejama Coxswain {version}: {how} ({channel} to var saņemt dažas dienas vēlāk; vai laidienu lapa)",
+ "stop.done.copy": {
+  "one": "Apturēts: nokopēti {n} no {all}",
+  "other": "Apturēts: nokopēti {n} no {all}",
+  "zero": "Apturēts: nokopēti {n} no {all}"
+ },
+ "stop.done.delete": {
+  "one": "Apturēts: izdzēsti {n} no {all}",
+  "other": "Apturēts: izdzēsti {n} no {all}",
+  "zero": "Apturēts: izdzēsti {n} no {all}"
+ },
+ "stop.done.extract": {
+  "one": "Apturēts: izpakoti {n} no {all}",
+  "other": "Apturēts: izpakoti {n} no {all}",
+  "zero": "Apturēts: izpakoti {n} no {all}"
+ },
+ "stop.done.move": {
+  "one": "Apturēts: pārvietoti {n} no {all}",
+  "other": "Apturēts: pārvietoti {n} no {all}",
+  "zero": "Apturēts: pārvietoti {n} no {all}"
+ },
+ "stop.done.pack": {
+  "one": "Apturēts: iepakoti {n} no {all}",
+  "other": "Apturēts: iepakoti {n} no {all}",
+  "zero": "Apturēts: iepakoti {n} no {all}"
+ },
+ "stop.done.trash": {
+  "one": "Apturēts: uz atkritni pārvietoti {n} no {all}",
+  "other": "Apturēts: uz atkritni pārvietoti {n} no {all}",
+  "zero": "Apturēts: uz atkritni pārvietoti {n} no {all}"
+ },
+ "stop.stopped": "Apturēts",
  "syntax.both": "abi vārdi",
  "syntax.case": "reģistrjutīgs",
  "syntax.either": "viens vai otrs",

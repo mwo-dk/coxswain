@@ -598,8 +598,12 @@ fn dialog(f: &mut Frame, app: &mut App) {
     match app.dialog.as_ref().unwrap() {
         Dialog::Input { title, label, value, prompt } => {
             let inner = frame(f, app, centered(full, (label.width() as u16 + 4).clamp(70, 110), 6), title);
-            let [a, b, _, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
+            let [a, b, note, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
             f.render_widget(Paragraph::new(label.as_str()), a);
+            // That the disk may be short of room for an archive written anew.
+            if let (Some(n), crate::Prompt::Pack(_) | crate::Prompt::Copy(_) | crate::Prompt::Move(_)) = (&app.input_note, prompt) {
+                f.render_widget(Paragraph::new(fit(n, note.width as usize)).style(sty(&app.theme.git_conflict)), note);
+            }
             // A password shows as stars.
             let shown = if matches!(prompt, crate::Prompt::Password(..) | crate::Prompt::Unlock(..) | crate::Prompt::Peek(..) | crate::Prompt::PackPassword(..) | crate::Prompt::PackConfirm(..)) { "*".repeat(value.chars().count()) } else { value.clone() };
             input_line(f, app, b, &shown);

@@ -116,5 +116,12 @@ question.
 
 No. The link itself is removed (or moved to the trash); the file or folder it points at stays.
 
+#### Can I stop a delete?
+
+Yes, between items: **Esc** on the progress line in the terminal app, **Stop** (or **Esc** on
+it) in the desktop app. The item it is on goes to the trash (or is deleted) as a whole, the
+rest stay, and the status line says `Stopped: 2 of 5 moved to the bin`; **Ctrl+Z** brings back
+from the trash the ones that went ([Stopping it](copy.md#stopping-it)).
+
 ---
 [← Previous: New folder (F7)](new-folder.md) · [Next: Undo (Ctrl+Z) →](undo.md)

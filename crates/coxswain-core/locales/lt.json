@@ -322,6 +322,7 @@
  "archive.preview_locked": "Šis failas užrakintas slaptažodžiu.",
  "archive.preview_opening": "Atveriama iš {archive}…",
  "archive.preview_unlock": "Įveskite slaptažodį",
+ "archive.room_short": "Vietos gali pritrūkti: čia laisva {free}, o gali prireikti {need}, nes archyvas pirma rašomas šalia senojo",
  "archive.too_large": "{name} per didelis, kad būtų galima peržiūrėti čia: nukopijuokite jį iš archyvo, kad atidarytumėte",
  "ask.builtin_estimate": "Šiame procesoriuje: apie {seconds} s iki pirmojo žodžio, tada {words} žodžio per sekundę",
  "ask.builtin_missing": "{model} dar neatsisiųstas: atsisiųskite jį skiltyje Parametrai › Klausti arba Nustatyti…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} yra nuoroda, kanalas arba įrenginys, kurį archyvas praleidžia, todėl niekas nebuvo perkelta",
  "err.is_folder": "{name} yra aplankas",
  "err.key_twice": "{key} config.toml skiltyje [keys] priskirtas ir {a}, ir {b}",
+ "err.move_check": "{path} pasikeitė perkeliant arba jo kopija išėjo trumpesnė, todėl jis lieka, kur buvo",
  "err.no_application": "Jokia programa neatidaro tokio tipo failo",
  "err.no_cache_folder": "Nėra podėlio aplanko",
  "err.no_certificate": "Šiame PEM faile nėra sertifikato",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Konvertuoti vaizdo įrašą ar garsą",
  "feature.convert_media.what": "Su ffmpeg šalia originalo padaro vaizdo įrašo ar dainos MP4, MP3 ar FLAC kopiją, ištraukia jo garsą arba iškerpa ištrauką.",
  "feature.copy.a1": "Coxswain niekada neperrašo. Pirmiausia pašalinkite senąjį ({delete}) arba kopijuokite kitu pavadinimu, įvesdami jį į tikslą.",
- "feature.copy.a2": "Priežasties eilutėje kelias praleidžiamas, kad ji būtų trumpa. Darbalaukio programoje išskleiskite Išsamiau, terminalo programoje skaitykite po Išsamiau:.",
+ "feature.copy.a2": "Taip: Esc eigos eilutėje terminalo programoje, Stabdyti (arba Esc) darbalaukio programoje. Failas, prie kurio buvo dirbama, pašalinamas, kas nukopijuota, lieka, o {undo} tai pašalina.",
  "feature.copy.a3": "Įveskite naują pavadinimą arba juo besibaigiantį kelią į tikslą. Kai toks kelias neegzistuoja, failas nukopijuojamas tuo pavadinimu.",
  "feature.copy.q1": "Kaip perrašyti esamą failą?",
- "feature.copy.q2": "Klaidoje parašyta tik Permission denied. Kuris failas?",
+ "feature.copy.q2": "Ar galiu sustabdyti vykstantį kopijavimą?",
  "feature.copy.q3": "Kaip nukopijuoti failą ir suteikti kopijai naują pavadinimą?",
  "feature.copy.title": "Kopijuoti",
  "feature.copy.what": "{copy} nukopijuoja pažymėtus failus arba tą, kuris po žymekliu, į kito skydelio aplanką arba įvestą kelią.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Spustelėkite, kad judėtumėte, dukart – kad atvertumėte, dešiniuoju – kad pažymėtumėte; darbalaukio programa prideda vilkimą ir dydžio keitimą.",
  "feature.move_and_rename.a1": "Tikslo aplanke jau yra kažkas tokiu pavadinimu, o Coxswain niekada to neperrašo. Pirmiausia pervardykite vieną iš jų arba patraukite kitą.",
  "feature.move_and_rename.a2": "Ne. Perkeliant į archyvą failai į jį pridedami, o originalai pašalinami visam laikui. Jei norite juos išsaugoti, kopijuokite su {copy}.",
- "feature.move_and_rename.a3": "Taip: {undo}, abiejose programose, iškart po to arba vėliau tame pačiame paleidime, kol niekas nepakeitė failo.",
+ "feature.move_and_rename.a3": "Kiekvienas failas yra vienoje vietoje: perkelti – kitame diske, kiti – ten, kur buvo, o tas, kuris buvo perkeliamas, išlaiko originalą. {undo} grąžina perkeltuosius.",
  "feature.move_and_rename.q1": "Kodėl perkėlimas nepavyko su klaida „jau yra“?",
  "feature.move_and_rename.q2": "Perkėliau failus į zip. Ar originalai šiukšlinėje?",
- "feature.move_and_rename.q3": "Ar galiu atšaukti perkėlimą ar pervardijimą?",
+ "feature.move_and_rename.q3": "Sustabdžiau perkėlimą į kitą diską. Kur mano failai?",
  "feature.move_and_rename.title": "Perkelti ir pervardyti",
  "feature.move_and_rename.what": "{move} perkelia pažymėtus failus į kitą aplanką arba pervardija vieną, kai įvedate naują pavadinimą; {rename} pervardija vietoje.",
  "feature.moving.a1": "Taip daro Norton Commander. Jei norite, priskirkite juos aukštesnio aplanko ir atvėrimo veiksmams; darbalaukio programos stulpelių rodinyje jie jau vaikšto medžiu.",
@@ -3404,6 +3406,37 @@
  "status.trashed": "Perkelta į šiukšlinę: {what}",
  "status.update": "Galima Coxswain {version}: {how}",
  "status.update_lags": "Galima Coxswain {version}: {how} (į {channel} gali patekti po kelių dienų; arba leidimų puslapis)",
+ "stop.done.copy": {
+  "few": "Sustabdyta: nukopijuota {n} iš {all}",
+  "one": "Sustabdyta: nukopijuota {n} iš {all}",
+  "other": "Sustabdyta: nukopijuota {n} iš {all}"
+ },
+ "stop.done.delete": {
+  "few": "Sustabdyta: pašalinta {n} iš {all}",
+  "one": "Sustabdyta: pašalinta {n} iš {all}",
+  "other": "Sustabdyta: pašalinta {n} iš {all}"
+ },
+ "stop.done.extract": {
+  "few": "Sustabdyta: išskleista {n} iš {all}",
+  "one": "Sustabdyta: išskleista {n} iš {all}",
+  "other": "Sustabdyta: išskleista {n} iš {all}"
+ },
+ "stop.done.move": {
+  "few": "Sustabdyta: perkelta {n} iš {all}",
+  "one": "Sustabdyta: perkelta {n} iš {all}",
+  "other": "Sustabdyta: perkelta {n} iš {all}"
+ },
+ "stop.done.pack": {
+  "few": "Sustabdyta: supakuota {n} iš {all}",
+  "one": "Sustabdyta: supakuota {n} iš {all}",
+  "other": "Sustabdyta: supakuota {n} iš {all}"
+ },
+ "stop.done.trash": {
+  "few": "Sustabdyta: į šiukšlinę perkelta {n} iš {all}",
+  "one": "Sustabdyta: į šiukšlinę perkelta {n} iš {all}",
+  "other": "Sustabdyta: į šiukšlinę perkelta {n} iš {all}"
+ },
+ "stop.stopped": "Sustabdyta",
  "syntax.both": "abu žodžiai",
  "syntax.case": "skiria raidžių dydį",
  "syntax.either": "bet kuris",

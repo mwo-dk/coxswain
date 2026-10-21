@@ -317,6 +317,7 @@
  "archive.preview_locked": "Diese Datei ist mit einem Passwort gesperrt.",
  "archive.preview_opening": "Wird aus {archive} geöffnet…",
  "archive.preview_unlock": "Passwort eingeben",
+ "archive.room_short": "Der Platz könnte knapp werden: Hier sind {free} frei, nötig sind vielleicht {need}, da das Archiv zuerst neben dem alten geschrieben wird",
  "archive.too_large": "{name} ist zu groß, um hier angesehen zu werden: kopieren Sie es aus dem Archiv, um es zu öffnen",
  "ask.builtin_estimate": "Auf diesem Prozessor: etwa {seconds} s bis zum ersten Wort, dann {words} Wörter pro Sekunde",
  "ask.builtin_missing": "{model} ist noch nicht heruntergeladen: Laden Sie es in den Einstellungen unter Fragen oder unter Einrichten… herunter",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} ist ein Link, eine Pipe oder ein Gerät, das ein Archiv auslässt, daher wurde nichts verschoben",
  "err.is_folder": "{name} ist ein Ordner",
  "err.key_twice": "{key} ist in [keys] von config.toml sowohl {a} als auch {b} zugewiesen",
+ "err.move_check": "{path} hat sich beim Verschieben geändert, oder die Kopie ist zu kurz: Es bleibt, wo es war",
  "err.no_application": "Keine Anwendung öffnet diese Art von Datei",
  "err.no_cache_folder": "Kein Cache-Ordner",
  "err.no_certificate": "Kein Zertifikat in dieser PEM-Datei",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Video oder Audio umwandeln",
  "feature.convert_media.what": "Macht mit ffmpeg eine MP4-, MP3- oder FLAC-Kopie eines Videos oder eines Songs, nimmt den Ton heraus oder schneidet einen Ausschnitt, neben dem Original.",
  "feature.copy.a1": "Coxswain überschreibt nie. Löschen Sie zuerst die alte ({delete}), oder kopieren Sie unter einem anderen Namen, indem Sie ihn ins Ziel tippen.",
- "feature.copy.a2": "Die Ursachenzeile lässt den Pfad weg, um kurz zu bleiben. Klappen Sie in der Desktop-App „Details“ auf, oder lesen Sie in der Terminal-App unter „Details:“ nach.",
+ "feature.copy.a2": "Ja: Esc in der Fortschrittszeile der Terminal-App, Anhalten (oder Esc) in der Desktop-App. Die Datei, an der es gerade war, wird entfernt, das schon Kopierte bleibt, und {undo} nimmt es wieder weg.",
  "feature.copy.a3": "Tippen Sie den neuen Namen oder einen Pfad, der auf ihn endet, ins Ziel. Gibt es diesen Pfad nicht, wird die Datei unter diesem Namen kopiert.",
  "feature.copy.q1": "Wie überschreibe ich eine vorhandene Datei?",
- "feature.copy.q2": "Der Fehler sagt nur Permission denied. Welche Datei?",
+ "feature.copy.q2": "Kann ich ein laufendes Kopieren anhalten?",
  "feature.copy.q3": "Wie kopiere ich eine Datei und gebe der Kopie einen neuen Namen?",
  "feature.copy.title": "Kopieren",
  "feature.copy.what": "{copy} kopiert die markierten Dateien oder die unter dem Cursor in den Ordner des anderen Fensters oder an einen eingetippten Pfad.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klicken bewegt, Doppelklick öffnet, Rechtsklick markiert; die Desktop-App kann außerdem ziehen und Größen ändern.",
  "feature.move_and_rename.a1": "Im Zielordner gibt es schon etwas mit diesem Namen, und Coxswain überschreibt es nie. Benennen Sie zuerst eines davon um, oder schaffen Sie das andere aus dem Weg.",
  "feature.move_and_rename.a2": "Nein. Ein Verschieben in ein Archiv fügt die Dateien hinzu und löscht dann die Originale endgültig. Kopieren Sie mit {copy}, wenn Sie sie behalten wollen.",
- "feature.move_and_rename.a3": "Ja: {undo}, in beiden Apps, gleich danach oder später im selben Lauf, solange nichts die Datei seitdem geändert hat.",
+ "feature.move_and_rename.a3": "Jede Datei ist an einem Ort: die verschobenen auf dem anderen Laufwerk, die übrigen, wo sie waren, und die gerade bearbeitete behält ihr Original. {undo} holt die verschobenen zurück.",
  "feature.move_and_rename.q1": "Warum ist mein Verschieben mit „existiert bereits“ fehlgeschlagen?",
  "feature.move_and_rename.q2": "Ich habe Dateien in ein Zip verschoben. Sind die Originale im Papierkorb?",
- "feature.move_and_rename.q3": "Kann ich ein Verschieben oder Umbenennen rückgängig machen?",
+ "feature.move_and_rename.q3": "Ich habe ein Verschieben auf ein anderes Laufwerk angehalten. Wo sind meine Dateien?",
  "feature.move_and_rename.title": "Verschieben und umbenennen",
  "feature.move_and_rename.what": "{move} verschiebt die markierten Dateien in einen anderen Ordner oder benennt eine um, wenn Sie einen neuen Namen tippen; {rename} benennt an Ort und Stelle um.",
  "feature.moving.a1": "So macht es der Norton Commander. Belegen Sie sie mit den Aktionen Übergeordneter Ordner und Öffnen, wenn Ihnen das lieber ist; in der Spaltenansicht der Desktop-App gehen sie schon durch den Baum.",
@@ -3333,6 +3335,31 @@
  "status.trashed": "{what} in den Papierkorb verschoben",
  "status.update": "Coxswain {version} ist verfügbar: {how}",
  "status.update_lags": "Coxswain {version} ist verfügbar: {how} (bei {channel} kann es einige Tage später ankommen; sonst die Release-Seite)",
+ "stop.done.copy": {
+  "one": "Angehalten: {n} von {all} kopiert",
+  "other": "Angehalten: {n} von {all} kopiert"
+ },
+ "stop.done.delete": {
+  "one": "Angehalten: {n} von {all} gelöscht",
+  "other": "Angehalten: {n} von {all} gelöscht"
+ },
+ "stop.done.extract": {
+  "one": "Angehalten: {n} von {all} entpackt",
+  "other": "Angehalten: {n} von {all} entpackt"
+ },
+ "stop.done.move": {
+  "one": "Angehalten: {n} von {all} verschoben",
+  "other": "Angehalten: {n} von {all} verschoben"
+ },
+ "stop.done.pack": {
+  "one": "Angehalten: {n} von {all} gepackt",
+  "other": "Angehalten: {n} von {all} gepackt"
+ },
+ "stop.done.trash": {
+  "one": "Angehalten: {n} von {all} in den Papierkorb verschoben",
+  "other": "Angehalten: {n} von {all} in den Papierkorb verschoben"
+ },
+ "stop.stopped": "Angehalten",
  "syntax.both": "beide Wörter",
  "syntax.case": "Groß-/Kleinschreibung beachten",
  "syntax.either": "eines von beiden",

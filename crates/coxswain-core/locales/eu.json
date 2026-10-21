@@ -317,6 +317,7 @@
  "archive.preview_locked": "Fitxategi hau pasahitz batekin blokeatuta dago.",
  "archive.preview_opening": "{archive}(e)tik irekitzen…",
  "archive.preview_unlock": "Idatzi pasahitza",
+ "archive.room_short": "Lekua falta daiteke: hemen {free} daude libre, eta {need} behar izan daitezke, artxiboa zaharraren ondoan idazten baita lehenik",
  "archive.too_large": "{name} handiegia da hemen ikusteko: kopiatu artxibotik kanpora irekitzeko",
  "ask.builtin_estimate": "Prozesadore honetan: {seconds} s inguru lehen hitzera arte, gero {words} hitz segundoko",
  "ask.builtin_missing": "{model} ez da oraindik deskargatu: deskargatu Ezarpenak atalean, Galdetu azpian, edo Konfiguratu… atalean",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} esteka, hodi edo gailu bat da, eta artxiboak kanpoan uzten du; beraz, ez da ezer mugitu",
  "err.is_folder": "{name} karpeta bat da",
  "err.key_twice": "{key} {a} eta {b} ekintzei emanda dago config.toml-eko [keys] atalean",
+ "err.move_check": "{path} aldatu egin da mugitzen ari zela, edo kopia laburregia da; dagoen tokian geratzen da",
  "err.no_application": "Ez dago fitxategi mota hau irekitzen duen aplikaziorik",
  "err.no_cache_folder": "Ez dago cache-karpetarik",
  "err.no_certificate": "PEM fitxategi honetan ez dago ziurtagiririk",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Bihurtu bideoa edo audioa",
  "feature.convert_media.what": "Bideo edo abesti baten MP4, MP3 edo FLAC kopia bat egiten du, soinua ateratzen dio edo zati bat mozten du, ffmpeg-ekin, jatorrizkoaren ondoan.",
  "feature.copy.a1": "Coxswain-ek ez du inoiz gainidazten. Ezabatu zaharra lehenik ({delete}), edo kopiatu beste izen batekin helmugan idatzita.",
- "feature.copy.a2": "Arrazoiaren lerroak bidea uzten du kanpoan laburra izateko. Zabaldu Xehetasunak mahaigaineko aplikazioan, edo irakurri Xehetasunak: azpian terminal-aplikazioan.",
+ "feature.copy.a2": "Bai: Esc aurrerapen-lerroan terminal-aplikazioan, Gelditu (edo Esc) mahaigaineko aplikazioan. Lantzen ari zen fitxategia kentzen da, kopiatutakoa geratzen da, eta {undo}-k kentzen du.",
  "feature.copy.a3": "Idatzi izen berria, edo hartan amaitzen den bide bat, helmugan. Bide hori ez badago, fitxategia izen horrekin kopiatzen da.",
  "feature.copy.q1": "Nola gainidatzi lehendik dagoen fitxategi bat?",
- "feature.copy.q2": "Erroreak «Permission denied» bakarrik dio. Zein fitxategi?",
+ "feature.copy.q2": "Gelditu al dezaket abian den kopia bat?",
  "feature.copy.q3": "Nola kopiatu fitxategi bat eta kopiari izen berri bat eman?",
  "feature.copy.title": "Kopiatu",
  "feature.copy.what": "{copy} teklak markatutako fitxategiak, edo kurtsorearen azpikoa, beste panelaren karpetara edo idazten duzun bide batera kopiatzen ditu.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klik mugitzeko, klik bikoitza irekitzeko, eskuineko klika markatzeko; mahaigaineko aplikazioak arrastatzea eta tamaina aldatzea gehitzen ditu.",
  "feature.move_and_rename.a1": "Izen bereko zerbait dago jada helmugako karpetan, eta Coxswain-ek ez du inoiz haren gainean idazten. Berrizendatu horietako bat lehenik, edo mugitu bestea bidetik.",
  "feature.move_and_rename.a2": "Ez. Artxibo batera mugitzeak fitxategiak hartara gehitzen ditu eta gero jatorrizkoak betiko ezabatzen ditu. Kopiatu {copy} teklarekin mantendu nahi badituzu.",
- "feature.move_and_rename.a3": "Bai: {undo}, bi aplikazioetan, berehala edo geroago exekuzio berean, ordutik ezerk fitxategia aldatu ez duen bitartean.",
+ "feature.move_and_rename.a3": "Fitxategi bakoitza toki bakarrean dago: mugitutakoak beste diskoan, gainerakoak zeuden tokian, eta lantzen ari zenak jatorrizkoa gordetzen du. {undo}-k mugitutakoak itzultzen ditu.",
  "feature.move_and_rename.q1": "Zergatik egin du huts nire mugimenduak «badago jada» mezuarekin?",
  "feature.move_and_rename.q2": "Fitxategiak zip batera mugitu ditut. Jatorrizkoak zakarrontzian daude?",
- "feature.move_and_rename.q3": "Desegin dezaket mugimendu edo berrizendatze bat?",
+ "feature.move_and_rename.q3": "Beste disko baterako mugimendu bat gelditu dut. Non daude nire fitxategiak?",
  "feature.move_and_rename.title": "Mugitu eta berrizendatu",
  "feature.move_and_rename.what": "{move} teklak markatutako fitxategiak beste karpeta batera mugitzen ditu, edo bat berrizendatzen du izen berri bat idaztean; {rename} teklak bere lekuan berrizendatzen du.",
  "feature.moving.a1": "Hori da Norton Commander-en modua. Esleitu berriro Karpeta gurasoa eta Ireki ekintzetara nahiago baduzu; mahaigaineko aplikazioaren zutabe-ikuspegian jada zuhaitzean zehar mugitzen dira.",
@@ -3333,6 +3335,31 @@
  "status.trashed": "Zakarrontzira botata: {what}",
  "status.update": "Coxswain {version} eskuragarri dago: {how}",
  "status.update_lags": "Coxswain {version} eskuragarri dago: {how} ({channel}-era egun batzuk geroago irits daiteke; edo bertsioen orria)",
+ "stop.done.copy": {
+  "one": "Geldituta: {all}(e)tik {n} kopiatuta",
+  "other": "Geldituta: {all}(e)tik {n} kopiatuta"
+ },
+ "stop.done.delete": {
+  "one": "Geldituta: {all}(e)tik {n} ezabatuta",
+  "other": "Geldituta: {all}(e)tik {n} ezabatuta"
+ },
+ "stop.done.extract": {
+  "one": "Geldituta: {all}(e)tik {n} erauzita",
+  "other": "Geldituta: {all}(e)tik {n} erauzita"
+ },
+ "stop.done.move": {
+  "one": "Geldituta: {all}(e)tik {n} mugituta",
+  "other": "Geldituta: {all}(e)tik {n} mugituta"
+ },
+ "stop.done.pack": {
+  "one": "Geldituta: {all}(e)tik {n} paketatuta",
+  "other": "Geldituta: {all}(e)tik {n} paketatuta"
+ },
+ "stop.done.trash": {
+  "one": "Geldituta: {all}(e)tik {n} zakarrontzira botata",
+  "other": "Geldituta: {all}(e)tik {n} zakarrontzira botata"
+ },
+ "stop.stopped": "Geldituta",
  "syntax.both": "bi hitzak",
  "syntax.case": "maiuskulak/minuskulak bereizten ditu",
  "syntax.either": "bata edo bestea",

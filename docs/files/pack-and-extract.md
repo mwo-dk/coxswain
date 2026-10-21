@@ -215,5 +215,23 @@ add them to an archive that already exists, open both archives and copy across w
 A folder of the archive's name is already in the target. Rename or remove it, or extract into
 another folder.
 
+#### Can I stop packing or extracting?
+
+Yes: **Esc** on the progress line in the terminal app, **Stop** (or **Esc** on it) in the
+desktop app, answered within a second also inside a large file
+([Stopping it](copy.md#stopping-it)). A stopped pack leaves nothing: the archive is written
+into a `.coxswain-tmp` file beside it, which is removed, and an archive you were adding to is
+exactly as it was ([What changes, and how safely](archives.md#what-changes-and-how-safely)). A
+stopped extract keeps the folder with what came out whole; the file it was on is removed. The
+status line says `Stopped: 0 of 3 packed` or `Stopped: 1 of 2 extracted`, and **Ctrl+Z** moves
+an extracted folder to the trash.
+
+#### Why does the pack dialog say space may be short?
+
+The disk has less free space than the archive may need: a new archive is written beside its
+final place first, and adding to one that is there makes a second copy of it while it is written.
+The dialog counts the files' full size, so a well-compressed archive may still fit. You can go
+ahead; if the disk fills up, the half-written file is removed and nothing else changes.
+
 ---
 [← Previous: Archives as folders](archives.md) · [Next: Passwords for encrypted zip and 7z →](archive-passwords.md)

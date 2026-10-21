@@ -327,6 +327,7 @@
  "archive.preview_locked": "Ten plik jest zablokowany hasłem.",
  "archive.preview_opening": "Otwieranie z {archive}…",
  "archive.preview_unlock": "Podaj hasło",
+ "archive.room_short": "Może zabraknąć miejsca: wolne jest tu {free}, a może być potrzebne {need}, bo archiwum jest najpierw zapisywane obok starego",
  "archive.too_large": "{name} jest za duży, by go tu obejrzeć: skopiuj go z archiwum, aby go otworzyć",
  "ask.builtin_estimate": "Na tym procesorze: około {seconds} s do pierwszego słowa, potem {words} słowa na sekundę",
  "ask.builtin_missing": "{model} nie jest jeszcze pobrany: pobierz go w Ustawienia, w sekcji Zapytaj, albo w Skonfiguruj…",
@@ -1008,6 +1009,7 @@
  "err.not_packable": "{path} to dowiązanie, potok lub urządzenie, które archiwum pomija, więc nic nie zostało przeniesione",
  "err.is_folder": "{name} to folder",
  "err.key_twice": "{key} jest w [keys] pliku config.toml przypisany zarówno do {a}, jak i do {b}",
+ "err.move_check": "{path} zmienił się podczas przenoszenia albo jego kopia wyszła krótsza, więc zostaje tam, gdzie był",
  "err.no_application": "Żadna aplikacja nie otwiera tego rodzaju plików",
  "err.no_cache_folder": "Brak folderu pamięci podręcznej",
  "err.no_certificate": "Brak certyfikatu w tym pliku PEM",
@@ -1355,10 +1357,10 @@
  "feature.convert_media.title": "Konwertuj wideo lub dźwięk",
  "feature.convert_media.what": "Robi za pomocą ffmpeg kopię MP4, MP3 lub FLAC filmu lub utworu, wyciąga jego dźwięk albo wycina fragment, obok oryginału.",
  "feature.copy.a1": "Coxswain nigdy nie nadpisuje. Najpierw usuń stary plik ({delete}) albo skopiuj pod inną nazwą, wpisując ją w polu celu.",
- "feature.copy.a2": "Wiersz przyczyny pomija ścieżkę, żeby był krótki. Rozwiń Szczegóły w aplikacji desktopowej albo przeczytaj tekst pod „Szczegóły:” w aplikacji terminalowej.",
+ "feature.copy.a2": "Tak: Esc w wierszu postępu w aplikacji terminalowej, Zatrzymaj (albo Esc) w aplikacji desktopowej. Plik, nad którym pracował, jest usuwany, skopiowane zostaje, a {undo} je zabiera.",
  "feature.copy.a3": "Wpisz nową nazwę albo ścieżkę, która się nią kończy, w polu celu. Gdy ta ścieżka nie istnieje, plik jest kopiowany pod tą nazwą.",
  "feature.copy.q1": "Jak nadpisać istniejący plik?",
- "feature.copy.q2": "Błąd mówi tylko Permission denied. Który plik?",
+ "feature.copy.q2": "Czy mogę zatrzymać trwające kopiowanie?",
  "feature.copy.q3": "Jak skopiować plik i nadać kopii nową nazwę?",
  "feature.copy.title": "Kopiuj",
  "feature.copy.what": "{copy} kopiuje zaznaczone pliki albo ten pod kursorem do folderu drugiego panelu lub do wpisanej ścieżki.",
@@ -1628,10 +1630,10 @@
  "feature.mouse.what": "Kliknięcie przesuwa kursor, dwuklik otwiera, prawy przycisk zaznacza; aplikacja desktopowa dodaje przeciąganie i zmianę rozmiaru.",
  "feature.move_and_rename.a1": "W folderze docelowym jest już coś o tej nazwie, a Coxswain nigdy tego nie nadpisuje. Najpierw zmień nazwę jednego z nich albo usuń drugie z drogi.",
  "feature.move_and_rename.a2": "Nie. Przeniesienie do archiwum dodaje do niego pliki, a potem trwale usuwa oryginały. Jeśli chcesz je zachować, kopiuj przez {copy}.",
- "feature.move_and_rename.a3": "Tak: {undo}, w obu aplikacjach, zaraz potem lub później w tym samym uruchomieniu, o ile nic od tego czasu nie zmieniło pliku.",
+ "feature.move_and_rename.a3": "Każdy plik jest w jednym miejscu: przeniesione na drugim dysku, reszta tam, gdzie była, a ten w trakcie zachowuje oryginał. {undo} przenosi przeniesione z powrotem.",
  "feature.move_and_rename.q1": "Dlaczego przeniesienie nie powiodło się z komunikatem „już istnieje”?",
  "feature.move_and_rename.q2": "Przeniosłem pliki do zipa. Czy oryginały są w Koszu?",
- "feature.move_and_rename.q3": "Czy mogę cofnąć przeniesienie lub zmianę nazwy?",
+ "feature.move_and_rename.q3": "Zatrzymałem przenoszenie na inny dysk. Gdzie są moje pliki?",
  "feature.move_and_rename.title": "Przenoszenie i zmiana nazwy",
  "feature.move_and_rename.what": "{move} przenosi zaznaczone pliki do innego folderu albo zmienia nazwę jednego, gdy wpiszesz nową; {rename} zmienia nazwę na miejscu.",
  "feature.moving.a1": "Tak robi Norton Commander. Jeśli wolisz, przypisz je do działań Folder nadrzędny i Otwórz; w widoku kolumn aplikacji desktopowej już chodzą po drzewie.",
@@ -3475,6 +3477,43 @@
  "status.trashed": "Przeniesiono {what} do Kosza",
  "status.update": "Dostępny jest Coxswain {version}: {how}",
  "status.update_lags": "Dostępny jest Coxswain {version}: {how} (do {channel} może trafić kilka dni później; albo strona wydań)",
+ "stop.done.copy": {
+  "few": "Zatrzymano: skopiowano {n} z {all}",
+  "many": "Zatrzymano: skopiowano {n} z {all}",
+  "one": "Zatrzymano: skopiowano {n} z {all}",
+  "other": "Zatrzymano: skopiowano {n} z {all}"
+ },
+ "stop.done.delete": {
+  "few": "Zatrzymano: usunięto {n} z {all}",
+  "many": "Zatrzymano: usunięto {n} z {all}",
+  "one": "Zatrzymano: usunięto {n} z {all}",
+  "other": "Zatrzymano: usunięto {n} z {all}"
+ },
+ "stop.done.extract": {
+  "few": "Zatrzymano: rozpakowano {n} z {all}",
+  "many": "Zatrzymano: rozpakowano {n} z {all}",
+  "one": "Zatrzymano: rozpakowano {n} z {all}",
+  "other": "Zatrzymano: rozpakowano {n} z {all}"
+ },
+ "stop.done.move": {
+  "few": "Zatrzymano: przeniesiono {n} z {all}",
+  "many": "Zatrzymano: przeniesiono {n} z {all}",
+  "one": "Zatrzymano: przeniesiono {n} z {all}",
+  "other": "Zatrzymano: przeniesiono {n} z {all}"
+ },
+ "stop.done.pack": {
+  "few": "Zatrzymano: spakowano {n} z {all}",
+  "many": "Zatrzymano: spakowano {n} z {all}",
+  "one": "Zatrzymano: spakowano {n} z {all}",
+  "other": "Zatrzymano: spakowano {n} z {all}"
+ },
+ "stop.done.trash": {
+  "few": "Zatrzymano: przeniesiono do Kosza {n} z {all}",
+  "many": "Zatrzymano: przeniesiono do Kosza {n} z {all}",
+  "one": "Zatrzymano: przeniesiono do Kosza {n} z {all}",
+  "other": "Zatrzymano: przeniesiono do Kosza {n} z {all}"
+ },
+ "stop.stopped": "Zatrzymano",
  "syntax.both": "oba słowa",
  "syntax.case": "z rozróżnianiem wielkości liter",
  "syntax.either": "jedno lub drugie",

@@ -322,6 +322,7 @@
  "archive.preview_locked": "Aquest fitxer està blocat amb una contrasenya.",
  "archive.preview_opening": "S'està obrint des de {archive}…",
  "archive.preview_unlock": "Introduïu la contrasenya",
+ "archive.room_short": "Potser no hi ha prou espai: aquí hi ha {free} lliures i potser en calen {need}, perquè l'arxiu s'escriu primer al costat de l'antic",
  "archive.too_large": "{name} és massa gran per veure’l aquí: copieu-lo fora de l’arxiu per obrir-lo",
  "ask.builtin_estimate": "En aquest processador: uns {seconds} s fins a la primera paraula, després {words} paraules per segon",
  "ask.builtin_missing": "{model} encara no s'ha baixat: baixeu-lo a Paràmetres, a Pregunta, o a Configura…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} és un enllaç, una canonada o un dispositiu, que un arxiu deixa fora, així que no s'ha mogut res",
  "err.is_folder": "{name} és una carpeta",
  "err.key_twice": "{key} està assignada alhora a {a} i a {b} a [keys] de config.toml",
+ "err.move_check": "{path} ha canviat mentre es movia, o la còpia ha quedat curta: es queda on era",
  "err.no_application": "Cap aplicació obre aquest tipus de fitxer",
  "err.no_cache_folder": "No hi ha carpeta de memòria cau",
  "err.no_certificate": "No hi ha cap certificat en aquest fitxer PEM",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Converteix vídeo o àudio",
  "feature.convert_media.what": "Fa una còpia MP4, MP3 o FLAC d'un vídeo o d'una cançó, n'extreu el so o en talla un fragment, amb ffmpeg, al costat de l'original.",
  "feature.copy.a1": "El Coxswain no sobreescriu mai. Suprimiu primer l'antic ({delete}), o copieu-lo amb un altre nom escrivint-lo a la destinació.",
- "feature.copy.a2": "La línia de la causa omet el camí per ser curta. Desplegueu Detalls a l'aplicació d'escriptori, o llegiu sota Detalls: a l'aplicació de terminal.",
+ "feature.copy.a2": "Sí: Esc a la línia del progrés a l'aplicació de terminal, Atura (o Esc) a l'aplicació d'escriptori. El fitxer en què era s'elimina, el que ja s'ha copiat es queda, i {undo} ho treu.",
  "feature.copy.a3": "Escriviu el nom nou, o un camí que hi acabi, a la destinació. Quan aquest camí no existeix, el fitxer es copia amb aquest nom.",
  "feature.copy.q1": "Com sobreescric un fitxer que ja existeix?",
- "feature.copy.q2": "L'error només diu Permission denied. Quin fitxer?",
+ "feature.copy.q2": "Puc aturar una còpia en curs?",
  "feature.copy.q3": "Com copio un fitxer i dono un nom nou a la còpia?",
  "feature.copy.title": "Copia",
  "feature.copy.what": "{copy} copia els fitxers marcats, o el que és sota el cursor, a la carpeta de l'altre plafó o a un camí que escriviu.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Feu clic per moure-us, doble clic per obrir, clic dret per marcar; l'aplicació d'escriptori hi afegeix arrossegar i redimensionar.",
  "feature.move_and_rename.a1": "A la carpeta de destinació ja hi ha alguna cosa amb aquest nom, i el Coxswain no hi escriu mai al damunt. Primer canvieu el nom d'un dels dos, o aparteu l'altre.",
  "feature.move_and_rename.a2": "No. Moure a dins d'un arxiu hi afegeix els fitxers i després suprimeix els originals permanentment. Copieu amb {copy} si els voleu conservar.",
- "feature.move_and_rename.a3": "Sí: {undo}, a les dues aplicacions, just després o més tard en la mateixa execució, mentre res no hagi canviat el fitxer des d'aleshores.",
+ "feature.move_and_rename.a3": "Cada fitxer és en un sol lloc: els moguts, a l'altre disc; la resta, on eren; i el que s'estava movent conserva l'original. {undo} torna enrere els que s'han mogut.",
  "feature.move_and_rename.q1": "Per què el moviment ha fallat amb «ja existeix»?",
  "feature.move_and_rename.q2": "He mogut fitxers a dins d'un zip. Els originals són a la paperera?",
- "feature.move_and_rename.q3": "Puc desfer un moviment o un canvi de nom?",
+ "feature.move_and_rename.q3": "He aturat un moviment a un altre disc. On són els meus fitxers?",
  "feature.move_and_rename.title": "Moure i canviar el nom",
  "feature.move_and_rename.what": "{move} mou els fitxers marcats a una altra carpeta, o en canvia el nom quan escriviu un nom nou; {rename} canvia el nom al mateix lloc.",
  "feature.moving.a1": "És la manera del Norton Commander. Assigneu-les a les accions de carpeta superior i d'obrir si ho preferiu; a la vista de columnes de l'aplicació d'escriptori ja recorren l'arbre.",
@@ -3404,6 +3406,37 @@
  "status.trashed": "S'ha mogut {what} a la paperera",
  "status.update": "Hi ha disponible el Coxswain {version}: {how}",
  "status.update_lags": "Hi ha disponible el Coxswain {version}: {how} (pot arribar a {channel} uns dies més tard; o la pàgina de versions)",
+ "stop.done.copy": {
+  "many": "Aturat: {n} de {all} copiats",
+  "one": "Aturat: {n} de {all} copiat",
+  "other": "Aturat: {n} de {all} copiats"
+ },
+ "stop.done.delete": {
+  "many": "Aturat: {n} de {all} suprimits",
+  "one": "Aturat: {n} de {all} suprimit",
+  "other": "Aturat: {n} de {all} suprimits"
+ },
+ "stop.done.extract": {
+  "many": "Aturat: {n} de {all} extrets",
+  "one": "Aturat: {n} de {all} extret",
+  "other": "Aturat: {n} de {all} extrets"
+ },
+ "stop.done.move": {
+  "many": "Aturat: {n} de {all} moguts",
+  "one": "Aturat: {n} de {all} mogut",
+  "other": "Aturat: {n} de {all} moguts"
+ },
+ "stop.done.pack": {
+  "many": "Aturat: {n} de {all} empaquetats",
+  "one": "Aturat: {n} de {all} empaquetat",
+  "other": "Aturat: {n} de {all} empaquetats"
+ },
+ "stop.done.trash": {
+  "many": "Aturat: {n} de {all} moguts a la paperera",
+  "one": "Aturat: {n} de {all} mogut a la paperera",
+  "other": "Aturat: {n} de {all} moguts a la paperera"
+ },
+ "stop.stopped": "Aturat",
  "syntax.both": "les dues paraules",
  "syntax.case": "distingeix majúscules",
  "syntax.either": "qualsevol de les dues",

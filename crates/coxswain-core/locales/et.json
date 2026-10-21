@@ -317,6 +317,7 @@
  "archive.preview_locked": "Fail on lukustatud parooliga.",
  "archive.preview_opening": "Avan arhiivist {archive}…",
  "archive.preview_unlock": "Sisesta parool",
+ "archive.room_short": "Ruumi võib jääda väheks: siin on vaba {free} ja vaja võib minna {need}, sest arhiiv kirjutatakse esmalt vana kõrvale",
  "archive.too_large": "{name} on siin vaatamiseks liiga suur: kopeeri see arhiivist välja, et see avada",
  "ask.builtin_estimate": "Sellel protsessoril: umbes {seconds} s esimese sõnani, siis {words} sõna sekundis",
  "ask.builtin_missing": "{model} pole veel alla laaditud: laadi see alla jaotises Sätted › Küsi või Seadista…",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} on link, toru või seade, mille arhiiv välja jätab, seega midagi ei teisaldatud",
  "err.is_folder": "{name} on kaust",
  "err.key_twice": "{key} on failis config.toml jaotises [keys] antud nii toimingule {a} kui ka {b}",
+ "err.move_check": "{path} muutus teisaldamise ajal või jäi selle koopia lühemaks, nii et see jääb oma kohale",
  "err.no_application": "Ükski rakendus ei ava seda tüüpi faili",
  "err.no_cache_folder": "Vahemälu kausta pole",
  "err.no_certificate": "Selles PEM-failis pole sertifikaati",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Teisenda video või heli",
  "feature.convert_media.what": "Teeb ffmpeg-iga videost või loost MP4-, MP3- või FLAC-koopia, võtab sellest heli välja või lõikab klipi, originaali kõrvale.",
  "feature.copy.a1": "Coxswain ei kirjuta kunagi üle. Kustuta kõigepealt vana ({delete}) või kopeeri teise nimega, kirjutades selle sihtkohta.",
- "feature.copy.a2": "Põhjuse rida jätab lühiduse huvides tee välja. Ava töölauarakenduses Üksikasjad või loe terminalirakenduses rea Üksikasjad: alt.",
+ "feature.copy.a2": "Jah: Esc edenemise real terminalirakenduses, Peata (või Esc) töölauarakenduses. Fail, mille juures see oli, eemaldatakse, kopeeritu jääb ja {undo} võtab selle ära.",
  "feature.copy.a3": "Kirjuta sihtkohta uus nimi või sellega lõppev tee. Kui seda teed pole olemas, kopeeritakse fail selle nimega.",
  "feature.copy.q1": "Kuidas olemasolevat faili üle kirjutada?",
- "feature.copy.q2": "Veateade ütleb ainult Permission denied. Milline fail?",
+ "feature.copy.q2": "Kas saan käimasoleva kopeerimise peatada?",
  "feature.copy.q3": "Kuidas faili kopeerida ja koopiale uus nimi anda?",
  "feature.copy.title": "Kopeeri",
  "feature.copy.what": "{copy} kopeerib märgitud failid või kursori all oleva faili teise paneeli kausta või sisestatud teele.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klõpsa liikumiseks, topeltklõpsa avamiseks, paremklõpsa märkimiseks; töölauarakendus lisab lohistamise ja suuruse muutmise.",
  "feature.move_and_rename.a1": "Sihtkaustas on juba selle nimega asi ja Coxswain ei kirjuta seda kunagi üle. Nimeta üks neist kõigepealt ümber või teisalda teine eest ära.",
  "feature.move_and_rename.a2": "Ei. Arhiivi teisaldamine lisab failid sinna ja kustutab siis originaalid jäädavalt. Kopeeri klahviga {copy}, kui tahad need alles jätta.",
- "feature.move_and_rename.a3": "Jah: {undo}, mõlemas rakenduses, kohe pärast või hiljem samal käivitusel, kui miski pole faili vahepeal muutnud.",
+ "feature.move_and_rename.a3": "Iga fail on ühes kohas: teisaldatud teisel kettal, ülejäänud oma kohal ja pooleli jäänul jääb alles originaal. {undo} toob teisaldatud tagasi.",
  "feature.move_and_rename.q1": "Miks nurjus mu teisaldamine teatega „on juba olemas“?",
  "feature.move_and_rename.q2": "Teisaldasin failid zip-faili. Kas originaalid on prügikastis?",
- "feature.move_and_rename.q3": "Kas saan teisaldamise või ümbernimetamise tagasi võtta?",
+ "feature.move_and_rename.q3": "Peatasin teisaldamise teisele kettale. Kus mu failid on?",
  "feature.move_and_rename.title": "Teisalda ja nimeta ümber",
  "feature.move_and_rename.what": "{move} teisaldab märgitud failid teise kausta või nimetab ühe ümber, kui tipid uue nime; {rename} nimetab ümber kohapeal.",
  "feature.moving.a1": "See on Norton Commanderi viis. Soovi korral seo need ümber ülemkausta ja avamise toimingutele; töölauarakenduse veergude vaates liiguvad need juba puus.",
@@ -3333,6 +3335,31 @@
  "status.trashed": "Teisaldatud prügikasti: {what}",
  "status.update": "Coxswain {version} on saadaval: {how}",
  "status.update_lags": "Coxswain {version} on saadaval: {how} ({channel} võib selle saada mõne päeva pärast; või väljalasete leht)",
+ "stop.done.copy": {
+  "one": "Peatatud: kopeeritud {n}/{all}",
+  "other": "Peatatud: kopeeritud {n}/{all}"
+ },
+ "stop.done.delete": {
+  "one": "Peatatud: kustutatud {n}/{all}",
+  "other": "Peatatud: kustutatud {n}/{all}"
+ },
+ "stop.done.extract": {
+  "one": "Peatatud: lahti pakitud {n}/{all}",
+  "other": "Peatatud: lahti pakitud {n}/{all}"
+ },
+ "stop.done.move": {
+  "one": "Peatatud: teisaldatud {n}/{all}",
+  "other": "Peatatud: teisaldatud {n}/{all}"
+ },
+ "stop.done.pack": {
+  "one": "Peatatud: pakitud {n}/{all}",
+  "other": "Peatatud: pakitud {n}/{all}"
+ },
+ "stop.done.trash": {
+  "one": "Peatatud: prügikasti teisaldatud {n}/{all}",
+  "other": "Peatatud: prügikasti teisaldatud {n}/{all}"
+ },
+ "stop.stopped": "Peatatud",
  "syntax.both": "mõlemad sõnad",
  "syntax.case": "tõstutundlik",
  "syntax.either": "üks või teine",

@@ -317,6 +317,7 @@
  "archive.preview_locked": "Tiedosto on lukittu salasanalla.",
  "archive.preview_opening": "Avataan arkistosta {archive}…",
  "archive.preview_unlock": "Anna salasana",
+ "archive.room_short": "Tila voi loppua: täällä on vapaana {free}, ja tähän voidaan tarvita {need}, koska arkisto kirjoitetaan ensin vanhan viereen",
  "archive.too_large": "{name} on liian suuri katsottavaksi tässä: kopioi se ulos arkistosta avataksesi sen",
  "ask.builtin_estimate": "Tällä suorittimella: noin {seconds} s ensimmäiseen sanaan, sitten {words} sanaa sekunnissa",
  "ask.builtin_missing": "{model} ei ole vielä ladattu: lataa se kohdassa Asetukset › Kysy tai kohdassa Ota käyttöön…",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} on linkki, putki tai laite, jonka arkisto jättää pois, joten mitään ei siirretty",
  "err.is_folder": "{name} on kansio",
  "err.key_twice": "{key} on annettu sekä toiminnolle {a} että {b} config.toml-tiedoston osassa [keys]",
+ "err.move_check": "{path} muuttui siirron aikana tai sen kopio jäi lyhyeksi, joten se jää paikalleen",
  "err.no_application": "Mikään sovellus ei avaa tämäntyyppistä tiedostoa",
  "err.no_cache_folder": "Välimuistikansiota ei ole",
  "err.no_certificate": "Tässä PEM-tiedostossa ei ole varmennetta",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Muunna video tai ääni",
  "feature.convert_media.what": "Tekee ffmpegillä videosta tai kappaleesta MP4-, MP3- tai FLAC-kopion, ottaa sen äänen erikseen tai leikkaa leikkeen, alkuperäisen viereen.",
  "feature.copy.a1": "Coxswain ei koskaan kirjoita yli. Poista vanha ensin ({delete}) tai kopioi toisella nimellä kirjoittamalla se kohteeseen.",
- "feature.copy.a2": "Syyrivi jättää polun pois pysyäkseen lyhyenä. Avaa Tiedot työpöytäsovelluksessa tai lue kohdan Tiedot: alta päätesovelluksessa.",
+ "feature.copy.a2": "Kyllä: Esc edistymisrivillä päätesovelluksessa, Pysäytä (tai Esc) työpöytäsovelluksessa. Kesken ollut tiedosto poistetaan, kopioitu jää, ja {undo} vie sen pois.",
  "feature.copy.a3": "Kirjoita kohteeseen uusi nimi tai siihen päättyvä polku. Kun polkua ei ole olemassa, tiedosto kopioidaan sillä nimellä.",
  "feature.copy.q1": "Miten kirjoitan olemassa olevan tiedoston yli?",
- "feature.copy.q2": "Virhe sanoo vain Permission denied. Mikä tiedosto?",
+ "feature.copy.q2": "Voinko pysäyttää käynnissä olevan kopioinnin?",
  "feature.copy.q3": "Miten kopioin tiedoston ja annan kopiolle uuden nimen?",
  "feature.copy.title": "Kopioi",
  "feature.copy.what": "{copy} kopioi merkityt tiedostot, tai kohdistimen alla olevan, toisen paneelin kansioon tai kirjoittamaasi polkuun.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Napsauta siirtyäksesi, kaksoisnapsauta avataksesi, kakkospainike merkitsee; työpöytäsovellus lisää vetämisen ja koon muuttamisen.",
  "feature.move_and_rename.a1": "Kohdekansiossa on jo jotain sillä nimellä, eikä Coxswain koskaan kirjoita sen yli. Nimeä toinen niistä ensin uudelleen tai siirrä toinen pois tieltä.",
  "feature.move_and_rename.a2": "Ei. Arkistoon siirtäminen lisää tiedostot siihen ja poistaa sitten alkuperäiset pysyvästi. Kopioi näppäimellä {copy}, jos haluat säilyttää ne.",
- "feature.move_and_rename.a3": "Kyllä: {undo}, molemmissa sovelluksissa, heti sen jälkeen tai myöhemmin samalla käyttökerralla, kunhan mikään ei ole sen jälkeen muuttanut tiedostoa.",
+ "feature.move_and_rename.a3": "Jokainen tiedosto on yhdessä paikassa: siirretyt toisella levyllä, muut paikoillaan, ja kesken olleella on yhä alkuperäinen. {undo} siirtää siirretyt takaisin.",
  "feature.move_and_rename.q1": "Miksi siirto epäonnistui ilmoituksella ”on jo olemassa”?",
  "feature.move_and_rename.q2": "Siirsin tiedostoja zipiin. Ovatko alkuperäiset roskakorissa?",
- "feature.move_and_rename.q3": "Voinko kumota siirron tai uudelleennimeämisen?",
+ "feature.move_and_rename.q3": "Pysäytin siirron toiselle levylle. Missä tiedostoni ovat?",
  "feature.move_and_rename.title": "Siirrä ja nimeä uudelleen",
  "feature.move_and_rename.what": "{move} siirtää merkityt tiedostot toiseen kansioon tai nimeää yhden uudelleen, kun kirjoitat uuden nimen; {rename} nimeää uudelleen paikallaan.",
  "feature.moving.a1": "Se on Norton Commanderin tapa. Määritä ne halutessasi yläkansio- ja avaa-toiminnoille; työpöytäsovelluksen sarakenäkymässä ne kulkevat jo puussa.",
@@ -3333,6 +3335,31 @@
  "status.trashed": "Siirretty roskakoriin: {what}",
  "status.update": "Coxswain {version} on saatavilla: {how}",
  "status.update_lags": "Coxswain {version} on saatavilla: {how} ({channel} voi saada sen muutamaa päivää myöhemmin; tai julkaisusivu)",
+ "stop.done.copy": {
+  "one": "Pysäytetty: {n}/{all} kopioitu",
+  "other": "Pysäytetty: {n}/{all} kopioitu"
+ },
+ "stop.done.delete": {
+  "one": "Pysäytetty: {n}/{all} poistettu",
+  "other": "Pysäytetty: {n}/{all} poistettu"
+ },
+ "stop.done.extract": {
+  "one": "Pysäytetty: {n}/{all} purettu",
+  "other": "Pysäytetty: {n}/{all} purettu"
+ },
+ "stop.done.move": {
+  "one": "Pysäytetty: {n}/{all} siirretty",
+  "other": "Pysäytetty: {n}/{all} siirretty"
+ },
+ "stop.done.pack": {
+  "one": "Pysäytetty: {n}/{all} pakattu",
+  "other": "Pysäytetty: {n}/{all} pakattu"
+ },
+ "stop.done.trash": {
+  "one": "Pysäytetty: {n}/{all} siirretty roskakoriin",
+  "other": "Pysäytetty: {n}/{all} siirretty roskakoriin"
+ },
+ "stop.stopped": "Pysäytetty",
  "syntax.both": "molemmat sanat",
  "syntax.case": "kirjainkoko huomioidaan",
  "syntax.either": "jompikumpi",

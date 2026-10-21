@@ -322,6 +322,7 @@
  "archive.preview_locked": "Tento soubor je zamčený heslem.",
  "archive.preview_opening": "Otevírá se z {archive}…",
  "archive.preview_unlock": "Zadat heslo",
+ "archive.room_short": "Místo může dojít: zde je volných {free} a může být potřeba {need}, protože archiv se nejdřív zapisuje vedle starého",
  "archive.too_large": "{name} je příliš velký, aby se dal zobrazit zde: zkopírujte jej z archivu, abyste jej otevřeli",
  "ask.builtin_estimate": "Na tomto procesoru: asi {seconds} s do prvního slova, pak {words} slova za sekundu",
  "ask.builtin_missing": "{model} ještě není stažený: stáhněte ho v Nastavení pod Dotaz, nebo v Nastavit…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} je odkaz, roura nebo zařízení, které archiv vynechá, takže se nic nepřesunulo",
  "err.is_folder": "{name} je složka",
  "err.key_twice": "{key} je v [keys] souboru config.toml přiřazena k {a} i k {b}",
+ "err.move_check": "{path} se během přesunu změnil, nebo je jeho kopie kratší, takže zůstává, kde byl",
  "err.no_application": "Tento druh souboru neotevírá žádná aplikace",
  "err.no_cache_folder": "Žádná složka mezipaměti",
  "err.no_certificate": "V tomto souboru PEM není žádný certifikát",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Převést video nebo zvuk",
  "feature.convert_media.what": "Udělá kopii videa nebo skladby v MP4, MP3 nebo FLAC, vytáhne z ní zvuk nebo vystřihne úsek, pomocí ffmpeg, vedle originálu.",
  "feature.copy.a1": "Coxswain nikdy nepřepisuje. Nejdřív odstraňte starý ({delete}), nebo kopírujte pod jiným názvem tak, že ho napíšete do cíle.",
- "feature.copy.a2": "Řádek s příčinou vynechává cestu, aby byl krátký. V desktopové aplikaci rozbalte Podrobnosti, v terminálové aplikaci čtěte pod Podrobnosti:.",
+ "feature.copy.a2": "Ano: Esc na řádku průběhu v terminálové aplikaci, Zastavit (nebo Esc) v desktopové aplikaci. Soubor, na kterém bylo, se odstraní, co je zkopírováno, zůstane, a {undo} to odebere.",
  "feature.copy.a3": "Napište do cíle nový název, nebo cestu, která jím končí. Když ta cesta neexistuje, soubor se zkopíruje pod tímto názvem.",
  "feature.copy.q1": "Jak přepíšu soubor, který existuje?",
- "feature.copy.q2": "Chyba říká jen Permission denied. Který soubor?",
+ "feature.copy.q2": "Mohu zastavit probíhající kopírování?",
  "feature.copy.q3": "Jak zkopíruji soubor a dám kopii nový název?",
  "feature.copy.title": "Kopírovat",
  "feature.copy.what": "{copy} zkopíruje označené soubory, nebo ten pod kurzorem, do složky druhého panelu nebo na cestu, kterou napíšete.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Kliknutí přesouvá, dvojklik otevírá, pravé tlačítko označuje; desktopová aplikace přidává přetahování a změnu velikosti.",
  "feature.move_and_rename.a1": "V cílové složce už je něco toho názvu a Coxswain to nikdy nepřepíše. Nejdřív jedno z nich přejmenujte, nebo to druhé přesuňte z cesty.",
  "feature.move_and_rename.a2": "Ne. Přesun do archivu do něj soubory přidá a originály pak trvale odstraní. Chcete-li je zachovat, kopírujte klávesou {copy}.",
- "feature.move_and_rename.a3": "Ano: {undo}, v obou aplikacích, hned potom nebo později za stejného běhu, pokud soubor od té doby nic nezměnilo.",
+ "feature.move_and_rename.a3": "Každý soubor je na jednom místě: přesunuté na druhém disku, ostatní tam, kde byly, a ten rozpracovaný si nechá originál. {undo} vrátí ty přesunuté.",
  "feature.move_and_rename.q1": "Proč můj přesun selhal s „existuje“?",
  "feature.move_and_rename.q2": "Přesunul jsem soubory do zipu. Jsou originály v koši?",
- "feature.move_and_rename.q3": "Dá se přesun nebo přejmenování vrátit?",
+ "feature.move_and_rename.q3": "Zastavil jsem přesun na jiný disk. Kde jsou moje soubory?",
  "feature.move_and_rename.title": "Přesunout a přejmenovat",
  "feature.move_and_rename.what": "{move} přesune označené soubory do jiné složky, nebo jeden přejmenuje, když napíšete nový název; {rename} přejmenuje na místě.",
  "feature.moving.a1": "Tak to dělá Norton Commander. Pokud chcete, přeřaďte je na akce Nadřazená složka a Otevřít; v zobrazení sloupců desktopové aplikace už stromem chodí.",
@@ -3404,6 +3406,37 @@
  "status.trashed": "Přesunuto do koše: {what}",
  "status.update": "Je k dispozici Coxswain {version}: {how}",
  "status.update_lags": "Je k dispozici Coxswain {version}: {how} (do {channel} se může dostat o pár dní později; nebo stránka vydání)",
+ "stop.done.copy": {
+  "few": "Zastaveno: zkopírováno {n} z {all}",
+  "one": "Zastaveno: zkopírováno {n} z {all}",
+  "other": "Zastaveno: zkopírováno {n} z {all}"
+ },
+ "stop.done.delete": {
+  "few": "Zastaveno: odstraněno {n} z {all}",
+  "one": "Zastaveno: odstraněno {n} z {all}",
+  "other": "Zastaveno: odstraněno {n} z {all}"
+ },
+ "stop.done.extract": {
+  "few": "Zastaveno: rozbaleno {n} z {all}",
+  "one": "Zastaveno: rozbaleno {n} z {all}",
+  "other": "Zastaveno: rozbaleno {n} z {all}"
+ },
+ "stop.done.move": {
+  "few": "Zastaveno: přesunuto {n} z {all}",
+  "one": "Zastaveno: přesunuto {n} z {all}",
+  "other": "Zastaveno: přesunuto {n} z {all}"
+ },
+ "stop.done.pack": {
+  "few": "Zastaveno: zabaleno {n} z {all}",
+  "one": "Zastaveno: zabaleno {n} z {all}",
+  "other": "Zastaveno: zabaleno {n} z {all}"
+ },
+ "stop.done.trash": {
+  "few": "Zastaveno: do koše přesunuto {n} z {all}",
+  "one": "Zastaveno: do koše přesunuto {n} z {all}",
+  "other": "Zastaveno: do koše přesunuto {n} z {all}"
+ },
+ "stop.stopped": "Zastaveno",
  "syntax.both": "obě slova",
  "syntax.case": "rozlišovat velikost písmen",
  "syntax.either": "jedno nebo druhé",
