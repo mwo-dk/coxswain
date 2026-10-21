@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+kirjain hyppää nimeen: kirjoita, miten se alkaa",
  "hint.space": "{key} näyttää, mihin tila täällä menee, jokainen tiedosto suorakulmiona kokonsa mukaan",
  "hint.zfs": "{snapshots} näyttää tämän kansion ZFS-tilannevedokset",
- "history.badge": "historia",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "kohteen {name} historia",
  "history.commit_in": "commit repositoriossa {repo}",

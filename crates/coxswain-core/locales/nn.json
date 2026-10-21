@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+bokstav hoppar til eit namn: skriv korleis det startar",
  "hint.space": "{key} viser kvar plassen går her, kvar fil som eit rektangel etter storleiken",
  "hint.zfs": "{snapshots} viser ZFS-augneblinksbileta av denne mappa",
- "history.badge": "historikk",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historikk for {name}",
  "history.commit_in": "commit i {repo}",

@@ -2042,7 +2042,6 @@
  "hint.quick": "Alt+글자로 이름으로 이동: 이름의 시작을 입력하세요",
  "hint.space": "{key} 키로 여기서 공간이 어디에 쓰이는지 봅니다. 파일마다 크기에 따른 사각형입니다",
  "hint.zfs": "{snapshots} 이 폴더의 ZFS 스냅샷 보기",
- "history.badge": "기록",
  "history.badge_at": "커밋 {commit}",
  "history.badge_of": "{name}의 기록",
  "history.commit_in": "{repo}의 커밋",

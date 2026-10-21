@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+ასო გადადის სახელზე: აკრიფეთ, როგორ იწყება",
  "hint.space": "{key} აჩვენებს, სად მიდის ადგილი აქ, თითოეული ფაილი მართკუთხედის სახით მისი ზომით",
  "hint.zfs": "{snapshots} აჩვენებს ამ საქაღალდის ZFS სნეპშოტებს",
- "history.badge": "ისტორია",
  "history.badge_at": "კომიტი {commit}",
  "history.badge_of": "ისტორია: {name}",
  "history.commit_in": "კომიტი რეპოზიტორიაში {repo}",

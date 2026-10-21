@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+písmeno skočí na název: napište, jak začíná",
  "hint.space": "{key} ukáže, kam tady mizí místo, každý soubor jako obdélník podle velikosti",
  "hint.zfs": "{snapshots} ukáže snímky ZFS této složky",
- "history.badge": "historie",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historie {name}",
  "history.commit_in": "commit v {repo}",

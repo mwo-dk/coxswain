@@ -146,7 +146,12 @@ pub fn boxes(row: &Row, lanes: u16) -> String {
     let span = |a: u16, b: u16, cell: &mut Vec<u8>| {
         let (a, b) = (a as usize * 2, b as usize * 2);
         let (lo, hi) = (a.min(b), a.max(b));
-        for (i, c) in cell.iter_mut().enumerate().take(hi.min(n.saturating_sub(1)) + 1).skip(lo) {
+        for (i, c) in cell
+            .iter_mut()
+            .enumerate()
+            .take(hi.min(n.saturating_sub(1)) + 1)
+            .skip(lo)
+        {
             if i > lo {
                 *c |= L;
             }
@@ -211,7 +216,9 @@ mod tests {
         let mut l = Layout::new(Arc::new(commits));
         let rows = l.rows(0, n).to_vec();
         let w = rows.iter().map(Row::width).max().unwrap_or(1);
-        rows.iter().map(|r| boxes(r, w).trim_end().to_string()).collect()
+        rows.iter()
+            .map(|r| boxes(r, w).trim_end().to_string())
+            .collect()
     }
 
     #[test]
@@ -261,6 +268,10 @@ mod tests {
         // A window at the far end of 100,000 commits.
         let t = std::time::Instant::now();
         assert_eq!(l.rows(99_950, 100_000).len(), 50);
-        assert!(t.elapsed() < std::time::Duration::from_secs(2), "{:?}", t.elapsed());
+        assert!(
+            t.elapsed() < std::time::Duration::from_secs(2),
+            "{:?}",
+            t.elapsed()
+        );
     }
 }

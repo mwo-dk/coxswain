@@ -9,11 +9,11 @@ shows the files as they were then, as read-only folders: move around, preview a 
 the commit changed in it, view it with **F3** and copy an old version out with **F5**.
 **Backspace** leads back up to the commits, then to the folder on disk. Both apps do this.
 
-![The desktop app's left pane in ~/projects/rocket/src/engine.rs/@history, tinted, with the badge history of engine.rs at the end of the path bar: the commits 6ba7e53 Fix the fuel valve and 6ec9366 Add the engine, each with its date and, under Last commit, its author (Ada, Demo User)](../screenshots/git-history-commits.png)
+![The desktop app's left pane in ~/projects/rocket/@history, tinted, with the badge history of rocket and the buttons This branch (filled in) and All branches at the end of the path bar: the commits from e466d9e Document the build down to f9539fc Cargo project, each with its age, the graph at their start (one lane, and a second for 0f36dbd Check the wind, which the merge aca4a13 brought in), and the labels HEAD -> master, origin/master and origin/HEAD on their tips](../screenshots/git-history-commits.png)
 
 ![Inside commit 6ba7e53 (the badge commit 6ba7e53 at the end of the path bar): engine.rs under the cursor and the preview pane on Diff, showing the line that commit changed in it, and its last commit by Ada](../screenshots/git-history-file.png)
 
-![The terminal app in Classic blue (NC): the left panel titled /home/demo/projects/rocket/src/engine.rs/@history [history] with the commits 30c86cf Fix the fuel valve and 776e5fa Add the engine, the cursor on the first, and the info line 30c86cf 2026-10-17 14:52 Ada](../screenshots/tui-git-history.png)
+![The terminal app in Classic blue (NC): the left panel titled …ket/@history [this branch's history · Alt+A: all branches] with the commits newest first, each after its graph in box-drawing characters (the merge aca4a13 as ●─╮, the commit it brought in on a second lane, the fork as ●─╯), the tips' names in brackets: (HEAD -> master), (origin/master, origin/HEAD)](../screenshots/tui-git-history.png)
 
 ## Contents
 
@@ -54,7 +54,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 |---|---|---|
 | The pane | Tinted, as inside an archive | – |
 | The path | `…/main.rs/@history/a1b2c3d4e5f6/…`, the `@history` part marked | The same path in the panel's title |
-| A badge | *history of main.rs* in the list; *commit a1b2c3d* inside a commit (hover it for the full id, author, date and subject) | `[history]`, `[commit a1b2c3d]` after the title |
+| A badge | *history of main.rs* in the list, with the buttons *This branch* and *All branches* beside it; *commit a1b2c3d* inside a commit (hover it for the full id, author, date and subject) | `[this branch's history · Alt+A: all branches]` (or `[every branch's history · Alt+A: this branch]`), `[commit a1b2c3d]` after the title |
 | A commit in the list | Its short id and subject as the name, the commit's date in *Modified*, its author in *Last commit* | Short id and subject, the date in *Modified*; id, date and author in the info line |
 | A file at a commit | Its size then, the commit's date; *Last commit* as of that commit | The same; the info line shows its last commit as of then |
 
@@ -65,7 +65,8 @@ line up to the commits made on top of it and down to the one it was made on. A m
 lines going down, one to each parent; where a branch split off, two lines meet. A commit that
 is the tip of a branch or a tag carries its name: `HEAD -> main`, `origin/main`, `tag: v1.0`.
 The commits come in an order that keeps every commit below the ones made on top of it, and
-otherwise newest first, as `git log --date-order` has them.
+otherwise newest first, as `git log --date-order` has them. The list keeps this order however the pane is sorted, so
+the lines always join the right rows.
 
 | What | Desktop app | Terminal app |
 |---|---|---|
@@ -74,6 +75,10 @@ otherwise newest first, as `git log --date-order` has them.
 | A branch's or tag's name | A small label before the subject; HEAD's filled in | In brackets before the id: `(HEAD -> main, origin/main)` |
 | Where | The *Details* view (**Alt+V**); not in *Columns* or *Thumbnails* | Every history list |
 | How wide | 12 lanes at most; more are cut off at the right | A third of the name column at most |
+
+![The desktop app's history of rocket with All branches filled in next to the badge and @all in the path bar: feature/engine 3071f59 Add the throttle on top, then HEAD -> master e466d9e Document the build, and below them the merge and the wind check on its own lane](../screenshots/git-graph-all.png)
+
+![The terminal app's panel titled …ket/@history/@all [every branch's history · Alt+A: this branch]: (feature/engine) 3071f59 Add the throttle above (HEAD -> master) e466d9e Document the build, then the merge ●─╮ and 0f36dbd Check the wind on the second lane](../screenshots/tui-git-graph-all.png)
 
 **This branch or all branches.** A history first lists what the branch you are on reached:
 `HEAD`'s commits. **Alt+A** (*History of all branches*) lists the commits of every local and
@@ -146,7 +151,7 @@ the terminal app ([Notices and what's new](notices.md)).
 
 Everything above works the same, keys included; the differences are in
 [The terminal app](../reference/terminal-app.md#git-history-in-the-terminal-app): the title says
-`[history]` or `[commit a1b2c3d]`, and **F3** opens a copy in the built-in viewer instead of the preview
+`[this branch's history · Alt+A: all branches]` or `[commit a1b2c3d]`, the graph is drawn in box-drawing characters, and **F3** opens a copy in the built-in viewer instead of the preview
 pane. A long list of commits is read on a thread: the status line says *Working on …* until it
 is there, and the keys keep working meanwhile.
 

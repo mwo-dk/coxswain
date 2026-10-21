@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+lettre saute à un nom : tapez son début",
  "hint.space": "{key} montre où va l'espace ici, chaque fichier en rectangle selon sa taille",
  "hint.zfs": "{snapshots} affiche les instantanés ZFS de ce dossier",
- "history.badge": "historique",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historique de {name}",
  "history.commit_in": "commit dans {repo}",

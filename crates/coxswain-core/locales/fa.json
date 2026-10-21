@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+حرف به یک نام می‌پرد: آغاز آن را تایپ کنید",
  "hint.space": "{key} نشان می‌دهد فضا اینجا کجا می‌رود، هر فایل یک مستطیل به اندازه‌ی خودش",
  "hint.zfs": "{snapshots} اسنپ‌شات‌های ZFS این پوشه را نشان می‌دهد",
- "history.badge": "تاریخچه",
  "history.badge_at": "کامیت {commit}",
  "history.badge_of": "تاریخچه‌ی {name}",
  "history.commit_in": "کامیت در {repo}",

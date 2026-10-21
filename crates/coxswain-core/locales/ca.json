@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+lletra salta a un nom: escriviu com comença",
  "hint.space": "{key} mostra on va l'espai aquí, cada fitxer com a rectangle segons la mida",
  "hint.zfs": "{snapshots} mostra les instantànies ZFS d'aquesta carpeta",
- "history.badge": "historial",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historial de {name}",
  "history.commit_in": "commit a {repo}",

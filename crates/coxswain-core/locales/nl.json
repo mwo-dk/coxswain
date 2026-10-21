@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+letter springt naar een naam: typ hoe die begint",
  "hint.space": "{key} toont waar de ruimte hier blijft, elk bestand als rechthoek naar grootte",
  "hint.zfs": "{snapshots} toont de ZFS-snapshots van deze map",
- "history.badge": "geschiedenis",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "geschiedenis van {name}",
  "history.commit_in": "commit in {repo}",

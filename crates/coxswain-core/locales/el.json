@@ -2079,7 +2079,6 @@
  "hint.quick": "Το Alt+γράμμα πηγαίνει σε ένα όνομα: πληκτρολογήστε πώς αρχίζει",
  "hint.space": "{key} δείχνει πού πηγαίνει ο χώρος εδώ, κάθε αρχείο ως ορθογώνιο ανάλογα με το μέγεθός του",
  "hint.zfs": "Το {snapshots} δείχνει τα στιγμιότυπα ZFS αυτού του φακέλου",
- "history.badge": "ιστορικό",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "ιστορικό του {name}",
  "history.commit_in": "commit στο {repo}",

@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+տառը թռչում է անվանը՝ մուտքագրեք, թե ինչպես է այն սկսվում",
  "hint.space": "{key}-ը ցույց է տալիս, թե որտեղ է գնում տարածքն այստեղ. յուրաքանչյուր ֆայլ ուղղանկյուն է՝ ըստ չափի",
  "hint.zfs": "{snapshots}՝ ցույց է տալիս այս թղթապանակի ZFS ակնթարթապատկերները",
- "history.badge": "պատմություն",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "{name}-ի պատմությունը",
  "history.commit_in": "commit {repo}-ում",

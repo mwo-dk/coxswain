@@ -113,7 +113,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | Marked size | Files only: `4.2 MB in 3 marked` | Measured folders count too |
 | Find, **F3** | Views the hit in the built-in viewer | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |
-| In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
+| In a git history | The panel title ends in `[this branch's history · Alt+A: all branches]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
 | The F-key bar | Norton Commander's labels: *RenMov*, *Mkdir*, *PullDn* | *Move*, *New folder*, *Commands* |

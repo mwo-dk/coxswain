@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+burts pārlec uz nosaukumu: rakstiet, kā tas sākas",
  "hint.space": "{key} parāda, kur šeit paliek vieta, katrs fails kā taisnstūris pēc izmēra",
  "hint.zfs": "{snapshots} parāda šīs mapes ZFS momentuzņēmumus",
- "history.badge": "vēsture",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "{name} vēsture",
  "history.commit_in": "commit repozitorijā {repo}",

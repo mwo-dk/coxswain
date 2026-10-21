@@ -2153,7 +2153,6 @@
  "hint.quick": "Alt+litera skacze do nazwy: wpisz, jak się zaczyna",
  "hint.space": "{key} pokazuje, gdzie idzie tu miejsce, każdy plik jako prostokąt wielkości pliku",
  "hint.zfs": "{snapshots} pokazuje migawki ZFS tego folderu",
- "history.badge": "historia",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historia {name}",
  "history.commit_in": "commit w {repo}",

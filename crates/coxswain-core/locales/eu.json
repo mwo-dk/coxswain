@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+letra izen batera jauzi egiten du: idatzi nola hasten den",
  "hint.space": "{key}-k espazioa hemen nora doan erakusten du, fitxategi bakoitza laukizuzen gisa bere tamainaren arabera",
  "hint.zfs": "{snapshots}: karpeta honen ZFS snapshot-ak erakusten ditu",
- "history.badge": "historia",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "{name}(r)en historia",
  "history.commit_in": "commita {repo} biltegian",

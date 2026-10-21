@@ -2153,7 +2153,6 @@
  "hint.quick": "Alt+літера переходить до назви: введіть, як вона починається",
  "hint.space": "{key} показує, куди тут іде місце, кожен файл прямокутником за розміром",
  "hint.zfs": "{snapshots} показує знімки ZFS цієї папки",
- "history.badge": "історія",
  "history.badge_at": "коміт {commit}",
  "history.badge_of": "історія {name}",
  "history.commit_in": "коміт у {repo}",

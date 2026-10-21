@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+letter jumps to a name: type how it starts",
  "hint.space": "{key} shows where the space goes here, every file as a rectangle by its size",
  "hint.zfs": "{snapshots} shows the ZFS snapshots of this folder",
- "history.badge": "history",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "history of {name}",
  "history.commit_in": "commit in {repo}",

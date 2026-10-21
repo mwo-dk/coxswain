@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+אות קופץ לשם: הקלידו איך הוא מתחיל",
  "hint.space": "{key} מציג לאן הולך המקום כאן, כל קובץ כמלבן לפי גודלו",
  "hint.zfs": "{snapshots} מציג את תמונות המצב של ZFS של התיקייה הזו",
- "history.badge": "היסטוריה",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "ההיסטוריה של {name}",
  "history.commit_in": "commit ב-{repo}",

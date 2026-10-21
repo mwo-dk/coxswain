@@ -2042,7 +2042,6 @@
  "hint.quick": "Alt+文字で名前へ移動: 名前の先頭を入力",
  "hint.space": "{key} でここの容量の使われ方を表示します。ファイルは大きさに応じた四角形です",
  "hint.zfs": "{snapshots} でこのフォルダーの ZFS スナップショットを表示",
- "history.badge": "履歴",
  "history.badge_at": "コミット {commit}",
  "history.badge_of": "{name} の履歴",
  "history.commit_in": "{repo} のコミット",
