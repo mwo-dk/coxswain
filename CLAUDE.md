@@ -36,7 +36,9 @@ These rules hold for every contributor and every Claude session in this reposito
   `gui/package-lock.json` change. Big shared files with a small platform branch (`lib.rs`,
   `config.rs`, `fs.rs`, `index.rs` …) are left to the nightly run. A new file that is mostly
   `cfg(target_os = …)` code for those systems goes into their workflows' `paths`. A release pull
-  request (branch `release/X.Y.Z`) starts none of them: its Release run tests every system. The
+  request (branch `release/X.Y.Z`) starts none of them: its Release run tests every system. CI on
+  a pull request runs Linux, macOS and Windows on x64 (macOS on Apple Silicon); the ARM machines
+  (`ubuntu-24.04-arm`, `windows-11-arm`) run only on pushes to `master` and in Release runs. The
   only required check is *CI result*. Branches need not be up to date with `master`: master's
   own runs catch clashes.
 - **Feature and fix PRs do not bump the version.** A user-visible change adds its changelog row as a

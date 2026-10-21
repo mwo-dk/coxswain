@@ -45,8 +45,10 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
+      # The ARM machines run on every push to master and every release (called from release.yml),
+      # not on pull requests. A skipped matrix entry is simply absent, so "CI result" is unaffected.
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04", "macos-latest", "windows-latest"]' || '["ubuntu-24.04", "ubuntu-24.04-arm", "macos-latest", "windows-latest", "windows-11-arm"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
