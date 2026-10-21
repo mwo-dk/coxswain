@@ -224,7 +224,7 @@ fn written(sente: bool, to: usize, same: bool, p: Piece, drop: bool, promote: bo
 /// A number written in kanji (一 … 九, 十 …) or digits, full-width too.
 fn number(s: &str) -> Option<u32> {
     let mut n = 0u32;
-    let mut any = false;
+    let (mut any, mut tens) = (false, false);
     for c in s.chars() {
         let d = match c {
             '一' => 1,
@@ -237,7 +237,8 @@ fn number(s: &str) -> Option<u32> {
             '八' => 8,
             '九' => 9,
             '十' => {
-                n = n.max(1) * 10;
+                n = n.max(1).saturating_mul(10).min(100_000);
+                tens = true;
                 any = true;
                 continue;
             }
@@ -246,7 +247,9 @@ fn number(s: &str) -> Option<u32> {
                 None => break,
             },
         };
-        n = if n >= 10 && n % 10 == 0 { n + d } else { n.saturating_mul(10).saturating_add(d) }.min(100_000);
+        // After 十 a digit adds (十二 is 12); else digits run on (５００ is 500).
+        n = if tens { n + d } else { n.saturating_mul(10).saturating_add(d) }.min(100_000);
+        tens = false;
         any = true;
     }
     any.then_some(n)
@@ -381,8 +384,9 @@ impl Reading {
 /// A KIF game read and played out.
 fn kif(text: &str) -> Game {
     let mut r = Reading::new();
-    // The lines read so far, each as its nodes in order; the one being read.
-    let mut lines_read: Vec<Vec<u32>> = vec![vec![]];
+    // The lines read so far, each as its last node (its moves are found by walking back from
+    // it, so a line costs no more than its own moves); the one being read.
+    let mut tips: Vec<Option<u32>> = vec![None];
     let mut line = 0usize;
     let mut at: Option<u32> = None;
     let mut stopped = false;
@@ -404,15 +408,18 @@ fn kif(text: &str) -> Game {
         }
         if let Some(rest) = t.strip_prefix("変化：").or_else(|| t.strip_prefix("変化:")) {
             // A variation from move N: the latest line that reached move N - 1 goes on there.
-            let n = number(rest).unwrap_or(1) as usize;
-            if lines_read.len() >= MAX_BRANCHES {
+            let n = number(rest).unwrap_or(1).saturating_sub(1);
+            if tips.len() >= MAX_BRANCHES || r.g.nodes.len() >= crate::chess::pgn::MAX_MOVES {
                 break;
             }
-            let base = lines_read.iter().rev().find(|v| v.len() + 1 >= n).cloned().unwrap_or_default();
-            let keep: Vec<u32> = base.into_iter().take(n.saturating_sub(1)).collect();
-            at = keep.last().copied();
-            lines_read.push(keep);
-            line = lines_read.len() - 1;
+            let reached = |t: &Option<u32>| t.map_or(0, |t| r.g.nodes[t as usize].number);
+            let mut from = tips.iter().rev().find(|t| reached(t) >= n).copied().flatten();
+            while let Some(f) = from.filter(|&f| r.g.nodes[f as usize].number > n) {
+                from = r.g.nodes[f as usize].parent;
+            }
+            at = from;
+            tips.push(at);
+            line = tips.len() - 1;
             stopped = false;
             continue;
         }
@@ -475,7 +482,7 @@ fn kif(text: &str) -> Game {
         match kif_move(&mv, r.board(at), at.map(|a| r.g.nodes[a as usize].to.unwrap_or(0) as usize)) {
             KifMove::Move { from, to, kind, promote, same } => match r.add(at, from, to, kind, promote, same) {
                 Some(id) => {
-                    lines_read[line].push(id);
+                    tips[line] = Some(id);
                     at = Some(id);
                 }
                 None => {
@@ -776,7 +783,8 @@ pub fn parse(text: &str, format: Format) -> Game {
 }
 
 /// The games of a file's bytes, each as its byte range: CSA files can hold several, cut at a
-/// line of `/` (a byte Shift_JIS never uses inside a character); a KIF file is one game.
+/// line of `/` (a byte Shift_JIS never uses inside a character); a KIF file is one game. The
+/// table reads files as they stream by (`chess::games`); this is for a text in memory.
 pub fn split(b: &[u8], format: Format) -> Vec<(usize, usize)> {
     if format != Format::Csa {
         return vec![(0, b.len())];
@@ -800,11 +808,6 @@ pub fn split(b: &[u8], format: Format) -> Vec<(usize, usize)> {
         out.push((start, b.len()));
     }
     out
-}
-
-/// The games of a shogi file's bytes, each as its range and its game read in full.
-pub(crate) fn games(b: &[u8], format: Format) -> impl Iterator<Item = ((usize, usize), Game)> + '_ {
-    split(b, format).into_iter().map(move |(a, z)| ((a, z), parse(&decode(&b[a..z]), format)))
 }
 
 /// The shogi format of a file name: `Kif` or `Csa`.
@@ -891,6 +894,8 @@ mod tests {
         assert_eq!(hands[0], vec![('金', 2), ('歩', 3)]);
         assert_eq!(number("十二"), Some(12));
         assert_eq!(number("１８"), Some(18));
+        assert_eq!(number("500手"), Some(500));
+        assert_eq!(number("二十三"), Some(23));
     }
 
     #[test]
@@ -915,8 +920,58 @@ mod tests {
         assert!(g.nodes.len() <= MAX_BRANCHES + 1);
         let long = format!("PI\n+\n{}", "+5958OU\n-5152OU\n+5859OU\n-5251OU\n".repeat(crate::chess::pgn::MAX_MOVES));
         assert_eq!(parse(&long, Format::Csa).nodes.len(), crate::chess::pgn::MAX_MOVES);
+        // Ten thousand variations branching at move 500: each walks back from its line's end, none
+        // copies the moves before it; the whole is read fast.
+        let mut t = String::from("   1 ５八玉(59)\n   2 ５二玉(51)\n");
+        for k in 3..=500u32 {
+            let mv = match k % 4 {
+                3 => "５九玉(58)",
+                0 => "５一玉(52)",
+                1 => "５八玉(59)",
+                _ => "５二玉(51)",
+            };
+            t.push_str(&format!("   {k} {mv}\n"));
+        }
+        for _ in 0..10_000 {
+            t.push_str("変化：500手\n   500 ４二玉(52)\n");
+        }
+        let start = std::time::Instant::now();
+        let g = parse(&t, Format::Kif);
+        assert_eq!(g.error, None);
+        assert!(g.nodes.len() < 500 + MAX_BRANCHES + 1);
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(3)), "{:?}", start.elapsed());
         // Thousands of games: listed up to MAX_GAMES.
         let games = "+7776FU\n/\n".repeat(MAX_GAMES + 10);
         assert_eq!(split(games.as_bytes(), Format::Csa).len(), MAX_GAMES);
+    }
+
+    #[test]
+    fn files_in_the_table_and_found() {
+        let d = std::env::temp_dir().join(format!("coxswain-shogi-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        // A KIF file in Shift_JIS, as Kifu for Windows writes them.
+        let kif = d.join("g.kif");
+        std::fs::write(&kif, encoding_rs::SHIFT_JIS.encode(KIF).0).unwrap();
+        let csa = d.join("g.csa");
+        std::fs::write(&csa, "N+Habu\nN-Sato\nPI\n+\n+7776FU\n%TORYO\n/\nN+Kato\nN-Oyama\nPI\n+\n+2726FU\n-8384FU\n").unwrap();
+        for (p, games, first) in [(&kif, 1, "羽生"), (&csa, 2, "Habu")] {
+            let lib = crate::chess::Library::open(p).unwrap();
+            while !lib.progress().done {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            assert_eq!(lib.progress().games, games);
+            assert_eq!(lib.row(0).unwrap().white, first);
+            assert_eq!(lib.game(games as u32 - 1).unwrap().error, None);
+        }
+        let lib = crate::chess::Library::open(&csa).unwrap();
+        while !lib.progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert_eq!((lib.row(1).unwrap().black.as_str(), lib.row(1).unwrap().moves), ("Oyama", 1));
+        let text = crate::extract::text_of(&kif, 1000, 1 << 20).unwrap();
+        assert!(text.contains("羽生 – 佐藤"), "{text}");
+        let (o, c) = crate::store::MARK;
+        assert_eq!(crate::chess::games::game_of_hit(&csa, &format!("{o}Oyama{c}")), Some(1));
+        std::fs::remove_dir_all(&d).unwrap();
     }
 }

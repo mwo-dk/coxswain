@@ -130,7 +130,7 @@ fn read_line(r: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<usize> {
 /// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's.
 pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     if matches!(format, super::Format::Kif | super::Format::Csa) {
-        return scan_shogi(r, format, each);
+        return scan_shogi(&mut r, stop, format, each);
     }
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
     let mut line = Vec::new();
@@ -188,24 +188,47 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format
     }
 }
 
-/// The games of a KIF or CSA file (`crate::shogi`): its first `MAX_GAME` bytes, each game read
-/// in full for its tags and moves.
-fn scan_shogi(r: impl Read, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    let mut b = vec![];
-    r.take(MAX_GAME as u64).read_to_end(&mut b)?;
-    for ((a, z), g) in crate::shogi::games(&b, format) {
-        let mut head = Head { offset: a as u64, len: (z - a) as u64, tags: Default::default(), plies: g.main_line().len() as u32, sans: vec![], format };
+/// The games of a KIF or CSA file (`crate::shogi`), read as they stream by: a CSA file's games
+/// end at a line of `/`, a KIF file is one game. Each game is read in full for its tags and
+/// moves, up to `MAX_GAME` bytes of it.
+fn scan_shogi(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let (mut game, mut line) = (Vec::new(), Vec::new());
+    let (mut at, mut start) = (0u64, 0u64);
+    let mut emit = |game: &mut Vec<u8>, start: u64, end: u64| -> bool {
+        let keep = game.iter().any(|c| !c.is_ascii_whitespace());
+        let g = crate::shogi::parse(&crate::shogi::decode(game), format);
+        game.clear();
+        if !keep {
+            return true;
+        }
+        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.main_line().len() as u32, sans: vec![], format };
         for (k, v) in &g.tags {
             if let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(k)) {
                 head.tags[i] = v.clone();
             }
         }
         head.tags[RESULT] = g.result.clone();
-        if !each(&head) {
-            break;
+        each(&head)
+    };
+    loop {
+        let n = read_line(&mut r, &mut line)?;
+        if n == 0 {
+            emit(&mut game, start, at);
+            return Ok(());
         }
+        if format == super::Format::Csa && line.trim_ascii() == b"/" {
+            if !emit(&mut game, start, at) || stop.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            at += n as u64;
+            start = at;
+            continue;
+        }
+        if game.len() + line.len() <= MAX_GAME as usize {
+            game.extend_from_slice(&line);
+        }
+        at += n as u64;
     }
-    Ok(())
 }
 
 /// A line of movetext: counts the main line's moves and keeps the first few.
