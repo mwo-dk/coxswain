@@ -1543,7 +1543,7 @@
  "feature.properties.q2": "Does changing a folder's permissions change the files in it?",
  "feature.properties.q3": "How do I change permissions in the terminal app?",
  "feature.properties.title": "Properties and permissions",
- "feature.properties.what": "{properties} shows a file's size, dates, owner, permissions, ZFS dataset, package and flags; the desktop app can change them.",
+ "feature.properties.what": "{properties} shows a file's size, dates, owner, permissions, ZFS dataset, package and flags, and what a local model holds and whether it fits this machine; the desktop app can change them.",
  "feature.provenance.a1": "No. It means a file here has the digest the provenance names. Coxswain does not verify the signature, so the view says Not verified; use slsa-verifier or gh attestation verify.",
  "feature.provenance.a2": "Coxswain never fetches. Run git fetch in your checkout and move off the provenance and back on, or open the other pane in your checkout.",
  "feature.provenance.a3": "It is looked for by the name the provenance gives, in its folder and the other pane's. A file renamed after the build is not found.",
@@ -3299,6 +3299,7 @@
  "viewer.first_part": "Showing the first 16 MB.",
  "viewer.go_to_line": "Go to line",
  "viewer.keys": "↑↓ PgUp PgDn Home End move · / or F7 search · n N next, back · g go to line · l line numbers · w wrap · p your pager · {edit} edit · Esc or {view} close",
+ "viewer.keys_original": "h the file itself",
  "viewer.lines": {
   "one": "{n} line",
   "other": "{n} lines"

@@ -1571,7 +1571,7 @@
  "feature.properties.q2": "Ändert das Ändern der Berechtigungen eines Ordners die Dateien darin?",
  "feature.properties.q3": "Wie ändere ich Berechtigungen in der Terminal-App?",
  "feature.properties.title": "Eigenschaften und Berechtigungen",
- "feature.properties.what": "{properties} zeigt Größe, Daten, Besitzer, Berechtigungen, ZFS-Dataset, Paket und Flags einer Datei; die Desktop-App kann sie ändern.",
+ "feature.properties.what": "{properties} zeigt Größe, Daten, Besitzer, Berechtigungen, ZFS-Dataset, Paket und Flags einer Datei, und was ein lokales Modell enthält und ob es auf diesen Rechner passt; die Desktop-App kann sie ändern.",
  "feature.provenance.a1": "Nein. Es heißt, dass eine Datei hier die Prüfsumme hat, die die Provenienz nennt. Coxswain prüft die Signatur nicht, also sagt die Ansicht „Nicht verifiziert“; nutzen Sie slsa-verifier oder gh attestation verify.",
  "feature.provenance.a2": "Coxswain führt nie fetch aus. Führen Sie git fetch in Ihrer Arbeitskopie aus und gehen Sie von der Provenienz weg und wieder darauf, oder öffnen Sie das andere Fenster in Ihrer Arbeitskopie.",
  "feature.provenance.a3": "Sie wird unter dem Namen gesucht, den die Provenienz angibt, in ihrem Ordner und dem des anderen Fensters. Eine nach dem Build umbenannte Datei wird nicht gefunden.",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "Die ersten 16 MB werden gezeigt.",
  "viewer.go_to_line": "Gehe zu Zeile",
  "viewer.keys": "↑↓ PgUp PgDn Home End bewegen · / oder F7 suchen · n N nächster, voriger · g zu Zeile · l Zeilennummern · w Umbruch · p Ihr Pager · {edit} bearbeiten · Esc oder {view} schließen",
+ "viewer.keys_original": "h die Datei selbst",
  "viewer.lines": {
   "one": "{n} Zeile",
   "other": "{n} Zeilen"

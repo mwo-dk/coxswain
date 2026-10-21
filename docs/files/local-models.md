@@ -128,8 +128,13 @@ tooltip has the blob's path). The line under the map names the model and the pat
 
 The names and the facts are the same: the panel shows `llama3.2:3b [sha256-…]`, and
 **Alt+Enter** opens Properties with the facts under the file's own (a later line of the
-tensor list has no label of its own). The terminal app has no preview pane; **F3** shows a model
-file as hex in the built-in viewer, as any binary file.
+tensor list has no label of its own). The terminal app has no preview pane: **F3** shows the same
+facts in the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer), with a GGUF's
+chat template in full under them, and **h** there shows the file itself as a hex dump (**Esc**
+comes back to the facts).
+
+![The terminal app's built-in viewer titled sha256-925b… · GGUF v3: the facts of llama3.2:3b from Model to On this machine, then Chat template and the whole template below; the key line starts with h the file itself](../screenshots/tui-local-models-f3.png)
+*F3 on a blob: its facts, the chat template in full, and **h** for the bytes.*
 
 ![The terminal app with Ollama's blobs in the left panel, each named by its model (qwen3:0.6b · chat template [sha256-0…], llama3.2:3b [sha256-925b2ca…]) and the Hugging Face cache in the right one (bartowski/SmolLM2-360M-Instruct-GGUF and the others); Properties is open on llama3.2:3b's weights with the same facts as the desktop app, from Model llama3.2:3b to On this machine fits in memory (32 GB)](../screenshots/tui-local-models.png)
 *Properties (**Alt+Enter**) on a blob, and the Hugging Face cache by name in the other panel.*
@@ -174,8 +179,20 @@ kind of leftover.
 
 #### Can I find a model by its name?
 
-Not yet: Find (**Alt+F7**, **Ctrl+F**) searches the files' own names. Open the store's folder and the names
-are there.
+Yes. Find (**Alt+F7**, **Ctrl+F**) puts a blob whose model has every word you typed in its
+*Names* group, first, with the model's name marked under it: `llama 3b` finds `llama3.2:3b`'s
+weights. It looks in Ollama's store (`~/.ollama/models`, `OLLAMA_MODELS`,
+`/usr/share/ollama/.ollama/models`) and the Hugging Face cache, by the same names the panels show,
+read from the manifests and links; no model file is read for it. A query with
+[name syntax](../search/name-syntax.md) (`ext:gguf`) matches the files' own names only.
+
+![Find in the desktop app with llama 3b typed: the Names group lists five sha256 blobs of Ollama's store, each with its model marked under it: llama3.2:3b first, then llama3.2:1b, llama3.2:3b · chat template, the licence, the configuration and the parameters](../screenshots/gui-local-models-find.png)
+
+#### How do I see a model file's bytes in the terminal app?
+
+**F3** shows its facts; **h** in the viewer shows the file itself as a hex dump, and **Esc** goes
+back to the facts. The same **h** works on every facts card **F3** shows (an old picture, a
+tracker module, a neural network model).
 
 ---
 [← Previous: Container images](container-images.md) · [Next: Properties and permissions →](properties.md)

@@ -57,6 +57,7 @@ said; the key line at the bottom lists the keys.
 | **l** | Line numbers on and off |
 | **w** | Wrap long lines on and off |
 | **p** | Hand the file to your pager: `$PAGER`, else `less` (`more` on Windows) |
+| **h** | On a facts card (an old picture, a module, a [local model](../files/local-models.md#in-the-terminal-app), a neural network model): the file itself, a hex dump for a binary one; **Esc** comes back to the card |
 | **F4** | Edit the file |
 | **Esc**, **F3**, **F10** | Close; the panels come back. While a search is still going, **Esc** stops it instead |
 

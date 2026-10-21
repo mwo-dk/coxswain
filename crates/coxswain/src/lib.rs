@@ -3036,6 +3036,8 @@ impl App {
                     }
                 }
                 viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),
+                // A facts card's file as it is (hex for a model); Esc comes back to the card.
+                viewer::Outcome::Original(file) => self.view_in(&file, Some(Box::new(Dialog::View { v, back }))),
             },
             Dialog::Edit { mut e, back } => match e.key(key, action) {
                 editor::Outcome::Stay => self.dialog = Some(Dialog::Edit { e, back }),

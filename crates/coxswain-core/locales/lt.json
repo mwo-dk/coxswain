@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "Ar pakeitus aplanko teises pasikeičia jame esantys failai?",
  "feature.properties.q3": "Kaip pakeisti teises terminalo programoje?",
  "feature.properties.title": "Ypatybės ir teisės",
- "feature.properties.what": "{properties} parodo failo dydį, datas, savininką, teises, ZFS duomenų rinkinį, paketą ir vėliavėles; darbalaukio programa gali juos keisti.",
+ "feature.properties.what": "{properties} parodo failo dydį, datas, savininką, teises, ZFS duomenų rinkinį, paketą ir vėliavėles, taip pat ką turi vietinis modelis ir ar jis tilps šiame kompiuteryje; darbalaukio programa gali juos keisti.",
  "feature.provenance.a1": "Ne. Tai reiškia, kad čia esantis failas turi kilmėje nurodytą santrauką. Coxswain netikrina parašo, todėl rodinys rašo Nepatikrinta; naudokite slsa-verifier arba gh attestation verify.",
  "feature.provenance.a2": "Coxswain niekada nedaro fetch. Savo darbinėje kopijoje paleiskite git fetch ir išeikite iš kilmės bei grįžkite arba kitą sritį atverkite savo darbinėje kopijoje.",
  "feature.provenance.a3": "Jo ieškoma pagal kilmėje nurodytą pavadinimą, jos aplanke ir kitos srities aplanke. Po surinkimo pervardytas failas nerandamas.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "Rodomi pirmi 16 MB.",
  "viewer.go_to_line": "Eiti į eilutę",
  "viewer.keys": "↑↓ PgUp PgDn Home End judėti · / arba F7 ieškoti · n N kitas, ankstesnis · g eiti į eilutę · l eilučių numeriai · w laužymas · p jūsų puslapiavimo programa · {edit} taisyti · Esc arba {view} uždaryti",
+ "viewer.keys_original": "h pats failas",
  "viewer.lines": {
   "one": "{n} eilutė",
   "few": "{n} eilutės",

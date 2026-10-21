@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "Changer les permissions d’un dossier change-t-il celles des fichiers qu’il contient ?",
  "feature.properties.q3": "Comment changer les permissions dans l’app de terminal ?",
  "feature.properties.title": "Propriétés et permissions",
- "feature.properties.what": "{properties} montre la taille, les dates, le propriétaire, les permissions, le dataset ZFS, le paquet et les drapeaux d’un fichier ; l’app de bureau peut les changer.",
+ "feature.properties.what": "{properties} montre la taille, les dates, le propriétaire, les permissions, le dataset ZFS, le paquet et les drapeaux d’un fichier, et ce que contient un modèle local et s’il tient sur cette machine ; l’app de bureau peut les changer.",
  "feature.provenance.a1": "Non. Il signifie qu’un fichier d’ici a l’empreinte que nomme la provenance. Coxswain ne vérifie pas la signature, la vue dit donc Non vérifié ; utilisez slsa-verifier ou gh attestation verify.",
  "feature.provenance.a2": "Coxswain ne télécharge jamais rien. Lancez git fetch dans votre copie de travail, quittez la provenance puis revenez-y, ou ouvrez l’autre panneau dans votre copie de travail.",
  "feature.provenance.a3": "Il est cherché sous le nom que donne la provenance, dans son dossier et dans celui de l’autre panneau. Un fichier renommé après le build n’est pas trouvé.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "Affichage des 16 premiers Mo.",
  "viewer.go_to_line": "Aller à la ligne",
  "viewer.keys": "↑↓ PgUp PgDn Home End se déplacer · / ou F7 rechercher · n N suivant, précédent · g aller à la ligne · l numéros de ligne · w retour à la ligne · p votre pager · {edit} modifier · Esc ou {view} fermer",
+ "viewer.keys_original": "h le fichier lui-même",
  "viewer.lines": {
   "one": "{n} ligne",
   "many": "{n} lignes",

@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "Vai mapes atļauju maiņa maina tajā esošos failus?",
  "feature.properties.q3": "Kā mainīt atļaujas termināļa lietotnē?",
  "feature.properties.title": "Rekvizīti un atļaujas",
- "feature.properties.what": "{properties} rāda faila lielumu, datumus, īpašnieku, atļaujas, ZFS datu kopu, pakotni un karodziņus; darbvirsmas lietotne tos var mainīt.",
+ "feature.properties.what": "{properties} rāda faila lielumu, datumus, īpašnieku, atļaujas, ZFS datu kopu, pakotni un karodziņus, kā arī to, ko satur lokāls modelis un vai tas ietilpst šajā datorā; darbvirsmas lietotne tos var mainīt.",
  "feature.provenance.a1": "Nē. Tas nozīmē, ka šeit esošajam failam ir izcelsmē nosauktā jaucējvērtība. Coxswain parakstu nepārbauda, tāpēc skats saka Nav pārbaudīts; izmantojiet slsa-verifier vai gh attestation verify.",
  "feature.provenance.a2": "Coxswain nekad neveic fetch. Palaidiet git fetch savā darba kokā un pārvietojieties prom no izcelsmes faila un atpakaļ, vai atveriet otru rūti savā darba kokā.",
  "feature.provenance.a3": "Tas tiek meklēts pēc nosaukuma, ko dod izcelsme, tā mapē un otras rūts mapē. Fails, kas pārdēvēts pēc būvējuma, netiek atrasts.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "Rāda pirmos 16 MB.",
  "viewer.go_to_line": "Pāriet uz rindu",
  "viewer.keys": "↑↓ PgUp PgDn Home End pārvietoties · / vai F7 meklēt · n N nākamais, iepriekšējais · g uz rindu · l rindu numuri · w aplaušana · p jūsu lapotājs · {edit} rediģēt · Esc vai {view} aizvērt",
+ "viewer.keys_original": "h pats fails",
  "viewer.lines": {
   "zero": "{n} rindu",
   "one": "{n} rinda",

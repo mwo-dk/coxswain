@@ -223,6 +223,63 @@ fn manifest_layers(path: &Path) -> Vec<(String, String)> {
     out
 }
 
+/// The stores Find looks in by name: Ollama's blobs (`~/.ollama/models`, `OLLAMA_MODELS`, the
+/// system service's) and the Hugging Face cache, those that are there.
+fn stores() -> Vec<PathBuf> {
+    let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let home = crate::dirs::home_dir();
+    let mut v: Vec<PathBuf> = [
+        env("OLLAMA_MODELS").map(|p| p.join("blobs")),
+        home.as_ref().map(|h| h.join(".ollama/models/blobs")),
+        Some(PathBuf::from("/usr/share/ollama/.ollama/models/blobs")),
+        env("HF_HUB_CACHE"),
+        env("HF_HOME").map(|p| p.join("hub")),
+        home.as_ref().map(|h| h.join(".cache/huggingface/hub")),
+    ]
+    .into_iter()
+    .flatten()
+    .filter(|p| p.is_dir())
+    .collect();
+    v.dedup();
+    v
+}
+
+/// Find's names group by the model a store's blob or folder is: every word of `query` in its
+/// name (`names`), case aside, below `scope`. Only the stores' manifests and links are read,
+/// never a model file. The weights first, then the other parts; the hit's snippet names the model.
+pub fn find(query: &str, scope: Option<&Path>, max: usize) -> Vec<crate::index::Hit> {
+    find_in(&stores(), query, scope, max)
+}
+
+fn find_in(stores: &[PathBuf], query: &str, scope: Option<&Path>, max: usize) -> Vec<crate::index::Hit> {
+    let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+    if words.is_empty() {
+        return vec![];
+    }
+    let mut hits: Vec<(bool, String, PathBuf, bool)> = vec![];
+    for dir in stores {
+        let Some(n) = names(dir) else { continue };
+        for (file, label) in n.iter() {
+            let low = label.to_lowercase();
+            let path = dir.join(file);
+            if words.iter().all(|w| low.contains(w.as_str())) && scope.is_none_or(|s| path.starts_with(s)) {
+                hits.push((label.contains(" · "), label.clone(), path, false));
+            }
+        }
+    }
+    hits.sort();
+    hits.dedup_by(|a, b| a.2 == b.2);
+    hits.into_iter()
+        .take(max)
+        .map(|(_, label, path, _)| crate::index::Hit {
+            is_dir: path.is_dir(),
+            path,
+            snippet: Some(format!("{}{label}{}", crate::store::MARK.0, crate::store::MARK.1)),
+            similar: None,
+        })
+        .collect()
+}
+
 // ---------------------------------------------------------------- facts
 
 /// Whether `path` is a model file whose facts `facts` gives (or a pickle it names): by its
@@ -243,10 +300,15 @@ fn pickle_bin(path: &Path, name: &str) -> bool {
 /// The facts of a model file as (label, value) lines; `None` for a file that is none. A
 /// continued list (the tensors) has an empty label on its later lines.
 pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
+    read(path).map(|(f, _)| f)
+}
+
+/// `facts`, and a GGUF's chat template in full, for the terminal app's F3 (`facts::as_text`).
+pub(crate) fn read(path: &Path) -> Option<(Vec<(String, String)>, Option<String>)> {
     let name = path.file_name()?.to_str()?;
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     if matches!(ext.as_str(), "pt" | "pth" | "ckpt") || pickle_bin(path, name) {
-        return Some(vec![(t!("facts.format"), t!("local_models.pickle"))]);
+        return Some((vec![(t!("facts.format"), t!("local_models.pickle"))], None));
     }
     let known = path.parent().and_then(|d| name_in(d, name));
     // A Hugging Face blob of a pickle: named by the file that links to it, never opened.
@@ -254,7 +316,7 @@ pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
         let k = k.to_ascii_lowercase();
         [".pt", ".pth", ".ckpt", ".bin"].iter().any(|e| k.ends_with(e))
     }) {
-        return Some(vec![(t!("facts.format"), t!("local_models.pickle"))]);
+        return Some((vec![(t!("facts.format"), t!("local_models.pickle"))], None));
     }
     let m = if name.ends_with(".safetensors.index.json") {
         sharded(path)?
@@ -279,7 +341,7 @@ pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
         out.push((t!("local_models.model"), k));
     }
     out.extend(m.lines());
-    Some(out)
+    Some((out, m.template))
 }
 
 /// What a header said, whichever format.
@@ -1050,6 +1112,17 @@ pub(crate) mod tests {
         // A pickle's blob, named by its link, is never opened.
         #[cfg(unix)]
         assert_eq!(facts(&repo.join("blobs/beef")).unwrap()[0].1, t!("local_models.pickle"));
+        // Find, by the model's name: every word, the weights before the other parts, in scope.
+        let hits = find_in(&[blobs.clone(), hub.clone()], "LLAMA 3b", None, 10);
+        assert_eq!(hits[0].path, blobs.join("sha256-aaa"));
+        assert!(hits[0].snippet.as_deref().unwrap().contains("llama3.2:3b"));
+        assert!(hits.iter().any(|h| h.path == blobs.join("sha256-bbb")));
+        assert_eq!(find_in(&[hub.clone()], "qwen3-0.6b", None, 10)[0].path, repo);
+        assert!(find_in(&[blobs.clone()], "llama", Some(&hub), 10).is_empty());
+        assert!(find_in(&[blobs.clone()], "mistral", None, 10).is_empty());
+        // F3's text: the card, and the chat template in full.
+        let text = crate::facts::as_text(&blobs.join("sha256-aaa")).unwrap();
+        assert!(text.contains("GGUF v3") && text.contains("{{ m.content }}"), "{text}");
         // A blob without an ending is still read by its header.
         assert_eq!(val(&facts(&repo.join("blobs/f00d")).unwrap(), "local_models.tensors"), Some("2"));
         assert!(names(&d).is_none());

@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "Změní změna oprávnění složky i soubory v ní?",
  "feature.properties.q3": "Jak v terminálové aplikaci změním oprávnění?",
  "feature.properties.title": "Vlastnosti a oprávnění",
- "feature.properties.what": "{properties} ukáže velikost souboru, data, vlastníka, oprávnění, dataset ZFS, balíček a příznaky; desktopová aplikace je umí měnit.",
+ "feature.properties.what": "{properties} ukáže velikost souboru, data, vlastníka, oprávnění, dataset ZFS, balíček a příznaky a také co obsahuje lokální model a zda se vejde do tohoto počítače; desktopová aplikace je umí měnit.",
  "feature.provenance.a1": "Ne. Znamená to, že soubor zde má otisk, který původ uvádí. Coxswain podpis neověřuje, proto zobrazení říká Neověřeno; použijte slsa-verifier nebo gh attestation verify.",
  "feature.provenance.a2": "Coxswain nikdy nedělá fetch. Spusťte git fetch ve své pracovní kopii a odejděte z původu a vraťte se, nebo otevřete druhý panel ve své pracovní kopii.",
  "feature.provenance.a3": "Hledá se podle názvu, který původ uvádí, v jeho složce a ve složce druhého panelu. Soubor přejmenovaný po sestavení se nenajde.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "Zobrazeno prvních 16 MB.",
  "viewer.go_to_line": "Přejít na řádek",
  "viewer.keys": "↑↓ PgUp PgDn Home End pohyb · / nebo F7 hledat · n N další, předchozí · g přejít na řádek · l čísla řádků · w zalamování · p váš pager · {edit} upravit · Esc nebo {view} zavřít",
+ "viewer.keys_original": "h samotný soubor",
  "viewer.lines": {
   "one": "{n} řádek",
   "few": "{n} řádky",

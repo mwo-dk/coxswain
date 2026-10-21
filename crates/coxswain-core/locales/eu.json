@@ -1571,7 +1571,7 @@
  "feature.properties.q2": "Karpeta baten baimenak aldatzeak barruko fitxategiak aldatzen ditu?",
  "feature.properties.q3": "Nola aldatu baimenak terminal-aplikazioan?",
  "feature.properties.title": "Propietateak eta baimenak",
- "feature.properties.what": "{properties} teklak fitxategi baten tamaina, datak, jabea, baimenak, ZFS dataset-a, paketea eta banderak erakusten ditu; mahaigaineko aplikazioak alda ditzake.",
+ "feature.properties.what": "{properties} teklak fitxategi baten tamaina, datak, jabea, baimenak, ZFS dataset-a, paketea eta banderak erakusten ditu, baita eredu lokal batek zer duen eta makina honetan sartzen den ere; mahaigaineko aplikazioak alda ditzake.",
  "feature.provenance.a1": "Ez. Esan nahi du hemengo fitxategi batek jatorriak izendatzen duen hasha duela. Coxswain-ek ez du sinadura egiaztatzen, beraz ikuspegiak Egiaztatu gabea dio; erabili slsa-verifier edo gh attestation verify.",
  "feature.provenance.a2": "Coxswain-ek ez du inoiz ezer ekartzen. Exekutatu git fetch zure kopia lokalean eta irten jatorritik eta itzuli, edo ireki beste panela zure kopia lokalean.",
  "feature.provenance.a3": "Jatorriak ematen duen izenarekin bilatzen da, bere karpetan eta beste panelekoan. Eraikuntzaren ondoren berrizendatutako fitxategi bat ez da aurkitzen.",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "Lehen 16 MBak erakusten dira.",
  "viewer.go_to_line": "Joan lerrora",
  "viewer.keys": "↑↓ PgUp PgDn Home End mugitu · / edo F7 bilatu · n N hurrengoa, aurrekoa · g joan lerrora · l lerro-zenbakiak · w lerro-jauzia · p zure orrikatzailea · {edit} editatu · Esc edo {view} itxi",
+ "viewer.keys_original": "h fitxategia bera",
  "viewer.lines": {
   "one": "Lerro {n}",
   "other": "{n} lerro"

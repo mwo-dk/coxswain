@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "Canviar els permisos d'una carpeta canvia els dels fitxers que conté?",
  "feature.properties.q3": "Com canvio els permisos a l'aplicació de terminal?",
  "feature.properties.title": "Propietats i permisos",
- "feature.properties.what": "{properties} mostra la mida, les dates, el propietari, els permisos, el conjunt de dades ZFS, el paquet i els indicadors d'un fitxer; l'aplicació d'escriptori els pot canviar.",
+ "feature.properties.what": "{properties} mostra la mida, les dates, el propietari, els permisos, el conjunt de dades ZFS, el paquet i els indicadors d'un fitxer, i què conté un model local i si hi cap en aquest ordinador; l'aplicació d'escriptori els pot canviar.",
  "feature.provenance.a1": "No. Vol dir que un fitxer d'aquí té el resum que indica la procedència. El Coxswain no verifica la signatura, així que la vista diu No verificat; feu servir slsa-verifier o gh attestation verify.",
  "feature.provenance.a2": "El Coxswain no fa mai fetch. Executeu git fetch a la vostra còpia de treball i sortiu de la procedència i torneu-hi, o obriu l'altre plafó a la vostra còpia de treball.",
  "feature.provenance.a3": "Es busca pel nom que dona la procedència, a la seva carpeta i a la de l'altre plafó. Un fitxer al qual s'ha canviat el nom després de la compilació no es troba.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "Es mostren els primers 16 MB.",
  "viewer.go_to_line": "Ves a la línia",
  "viewer.keys": "↑↓ PgUp PgDn Home End moure · / o F7 cercar · n N següent, anterior · g anar a la línia · l números de línia · w ajust de línia · p el vostre paginador · {edit} editar · Esc o {view} tancar",
+ "viewer.keys_original": "h el fitxer mateix",
  "viewer.lines": {
   "one": "{n} línia",
   "many": "{n} de línies",

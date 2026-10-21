@@ -1571,7 +1571,7 @@
  "feature.properties.q2": "Ändrar en mapps behörigheter filerna i den?",
  "feature.properties.q3": "Hur ändrar jag behörigheter i terminalappen?",
  "feature.properties.title": "Egenskaper och behörigheter",
- "feature.properties.what": "{properties} visar en fils storlek, datum, ägare, behörigheter, ZFS-dataset, paket och flaggor; skrivbordsappen kan ändra dem.",
+ "feature.properties.what": "{properties} visar en fils storlek, datum, ägare, behörigheter, ZFS-dataset, paket och flaggor, och vad en lokal modell innehåller och om den får plats på den här datorn; skrivbordsappen kan ändra dem.",
  "feature.provenance.a1": "Nej. Den betyder att en fil här har den kontrollsumma som härkomsten anger. Coxswain verifierar inte signaturen, så vyn säger Inte verifierat; använd slsa-verifier eller gh attestation verify.",
  "feature.provenance.a2": "Coxswain gör aldrig fetch. Kör git fetch i din arbetskopia och gå bort från härkomsten och tillbaka, eller öppna den andra panelen i din arbetskopia.",
  "feature.provenance.a3": "Den letas efter med namnet som härkomsten anger, i dess mapp och i den andra panelens. En fil som bytt namn efter bygget hittas inte.",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "Visar de första 16 MB.",
  "viewer.go_to_line": "Gå till rad",
  "viewer.keys": "↑↓ PgUp PgDn Home End flytta · / eller F7 sök · n N nästa, föregående · g gå till rad · l radnummer · w radbrytning · p din pager · {edit} redigera · Esc eller {view} stäng",
+ "viewer.keys_original": "h själva filen",
  "viewer.lines": {
   "one": "{n} rad",
   "other": "{n} rader"

@@ -791,7 +791,11 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
                     // The words found stand out; a passage close in meaning is in italics.
                     let mut passage = vec![Span::styled("   ", dim)];
                     let rest = if h.similar.is_some() { dim.add_modifier(Modifier::ITALIC) } else { dim };
-                    for (n, part) in fit(snippet, width.saturating_sub(3)).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
+                    // The marks are control characters, which `fit` prints as `?`: carried through
+                    // it as private-use characters instead.
+                    let (a, b) = coxswain_core::store::MARK;
+                    let marked = snippet.replace(a, "\u{e000}").replace(b, "\u{e001}");
+                    for (n, part) in fit(&marked, width.saturating_sub(3)).split(['\u{e000}', '\u{e001}']).enumerate() {
                         passage.push(Span::styled(part.to_string(), if n % 2 == 1 { dstyle(&t).patch(hit_style) } else { rest }));
                     }
                     vec![file, Line::from(passage)]

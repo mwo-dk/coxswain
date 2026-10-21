@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "¿Cambiar los permisos de una carpeta cambia los de los archivos que tiene?",
  "feature.properties.q3": "¿Cómo cambio los permisos en la app de terminal?",
  "feature.properties.title": "Propiedades y permisos",
- "feature.properties.what": "{properties} muestra el tamaño, las fechas, el propietario, los permisos, el dataset de ZFS, el paquete y los flags de un archivo; la app de escritorio puede cambiarlos.",
+ "feature.properties.what": "{properties} muestra el tamaño, las fechas, el propietario, los permisos, el dataset de ZFS, el paquete y los flags de un archivo, y qué tiene un modelo local y si entra en esta máquina; la app de escritorio puede cambiarlos.",
  "feature.provenance.a1": "No. Significa que un archivo de acá tiene el hash que indica la procedencia. Coxswain no verifica la firma, así que la vista dice Sin verificar; usá slsa-verifier o gh attestation verify.",
  "feature.provenance.a2": "Coxswain nunca descarga nada. Ejecutá git fetch en tu copia local y salí de la procedencia y volvé a entrar, o abrí el otro panel en tu copia local.",
  "feature.provenance.a3": "Se busca por el nombre que da la procedencia, en su carpeta y en la del otro panel. Un archivo al que se le cambió el nombre después de la compilación no se encuentra.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "Se muestran los primeros 16 MB.",
  "viewer.go_to_line": "Ir a la línea",
  "viewer.keys": "↑↓ PgUp PgDn Home End moverse · / o F7 buscar · n N siguiente, anterior · g ir a la línea · l números de línea · w ajuste de línea · p tu pager · {edit} editar · Esc o {view} cerrar",
+ "viewer.keys_original": "h el archivo en sí",
  "viewer.lines": {
   "one": "{n} línea",
   "many": "{n} líneas",

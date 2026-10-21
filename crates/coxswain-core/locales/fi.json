@@ -1571,7 +1571,7 @@
  "feature.properties.q2": "Muuttaako kansion käyttöoikeuksien muuttaminen sen tiedostot?",
  "feature.properties.q3": "Miten muutan käyttöoikeuksia päätesovelluksessa?",
  "feature.properties.title": "Ominaisuudet ja käyttöoikeudet",
- "feature.properties.what": "{properties} näyttää tiedoston koon, päivämäärät, omistajan, käyttöoikeudet, ZFS-tietojoukon, paketin ja liput; työpöytäsovellus voi muuttaa niitä.",
+ "feature.properties.what": "{properties} näyttää tiedoston koon, päivämäärät, omistajan, käyttöoikeudet, ZFS-tietojoukon, paketin ja liput sekä sen, mitä paikallinen malli sisältää ja mahtuuko se tähän koneeseen; työpöytäsovellus voi muuttaa niitä.",
  "feature.provenance.a1": "Ei. Se tarkoittaa, että täällä olevalla tiedostolla on alkuperätiedon nimeämä tiiviste. Coxswain ei tarkista allekirjoitusta, joten näkymä sanoo Ei tarkistettu; käytä slsa-verifieriä tai komentoa gh attestation verify.",
  "feature.provenance.a2": "Coxswain ei koskaan nouda mitään. Aja työkopiossasi git fetch ja siirry pois alkuperätiedosta ja takaisin, tai avaa toinen ruutu työkopiossasi.",
  "feature.provenance.a3": "Sitä etsitään alkuperätiedon antamalla nimellä sen kansiosta ja toisen ruudun kansiosta. Koonnin jälkeen uudelleen nimettyä tiedostoa ei löydy.",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "Näytetään ensimmäiset 16 Mt.",
  "viewer.go_to_line": "Siirry riville",
  "viewer.keys": "↑↓ PgUp PgDn Home End liiku · / tai F7 hae · n N seuraava, edellinen · g siirry riville · l rivinumerot · w rivitys · p sivuttimesi · {edit} muokkaa · Esc tai {view} sulje",
+ "viewer.keys_original": "h itse tiedosto",
  "viewer.lines": {
   "one": "{n} rivi",
   "other": "{n} riviä"

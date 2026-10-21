@@ -1643,7 +1643,7 @@
  "feature.properties.q2": "Czy zmiana uprawnień folderu zmienia pliki w nim?",
  "feature.properties.q3": "Jak zmienić uprawnienia w aplikacji terminalowej?",
  "feature.properties.title": "Właściwości i uprawnienia",
- "feature.properties.what": "{properties} pokazuje rozmiar pliku, daty, właściciela, uprawnienia, zbiór danych ZFS, pakiet i flagi; aplikacja desktopowa umie je zmieniać.",
+ "feature.properties.what": "{properties} pokazuje rozmiar pliku, daty, właściciela, uprawnienia, zbiór danych ZFS, pakiet i flagi, a także co zawiera lokalny model i czy zmieści się na tym komputerze; aplikacja desktopowa umie je zmieniać.",
  "feature.provenance.a1": "Nie. Oznacza, że plik tutaj ma skrót podany w danych o pochodzeniu. Coxswain nie weryfikuje podpisu, więc widok pisze „Niezweryfikowane”; użyj slsa-verifier lub gh attestation verify.",
  "feature.provenance.a2": "Coxswain nigdy nie pobiera. Uruchom git fetch w swoim checkoucie i przejdź z pliku pochodzenia gdzie indziej i z powrotem albo otwórz drugi panel w swoim checkoucie.",
  "feature.provenance.a3": "Jest szukany pod nazwą podaną w danych o pochodzeniu, w ich folderze i w folderze drugiego panelu. Plik, którego nazwę zmieniono po kompilacji, nie zostanie znaleziony.",
@@ -3420,6 +3420,7 @@
  "viewer.first_part": "Pokazano pierwsze 16 MB.",
  "viewer.go_to_line": "Idź do wiersza",
  "viewer.keys": "↑↓ PgUp PgDn Home End ruch · / lub F7 szukaj · n N następny, poprzedni · g idź do wiersza · l numery wierszy · w zawijanie · p Twój pager · {edit} edytuj · Esc lub {view} zamknij",
+ "viewer.keys_original": "h sam plik",
  "viewer.lines": {
   "one": "{n} wiersz",
   "few": "{n} wiersze",

@@ -1535,7 +1535,7 @@
  "feature.properties.q2": "폴더 권한을 바꾸면 안의 파일도 바뀌나요?",
  "feature.properties.q3": "터미널 앱에서 권한을 바꾸려면?",
  "feature.properties.title": "속성과 권한",
- "feature.properties.what": "{properties}는 파일의 크기, 날짜, 소유자, 권한, ZFS 데이터셋, 패키지, 플래그를 보여 줍니다. 데스크톱 앱에서는 바꿀 수 있습니다.",
+ "feature.properties.what": "{properties}는 파일의 크기, 날짜, 소유자, 권한, ZFS 데이터셋, 패키지, 플래그를 보여 주고, 로컬 모델이 무엇을 담고 있는지와 이 컴퓨터에 맞는지도 보여 줍니다. 데스크톱 앱에서는 바꿀 수 있습니다.",
  "feature.provenance.a1": "아니요. 여기 있는 파일이 출처에 적힌 다이제스트를 가졌다는 뜻입니다. Coxswain은 서명을 검증하지 않으므로 보기에 검증 안 됨이라고 나옵니다. slsa-verifier나 gh attestation verify를 쓰세요.",
  "feature.provenance.a2": "Coxswain은 절대 fetch하지 않습니다. 체크아웃에서 git fetch를 실행하고 출처에서 커서를 뗐다가 다시 두거나, 다른 패널을 체크아웃에서 여세요.",
  "feature.provenance.a3": "출처가 주는 이름으로, 그 폴더와 다른 패널의 폴더에서 찾습니다. 빌드 뒤에 이름이 바뀐 파일은 찾지 못합니다.",
@@ -3222,6 +3222,7 @@
  "viewer.first_part": "처음 16 MB를 보여 줍니다.",
  "viewer.go_to_line": "줄로 이동",
  "viewer.keys": "↑↓ PgUp PgDn Home End 이동 · / 또는 F7 검색 · n N 다음, 이전 · g 줄로 이동 · l 줄 번호 · w 줄 바꿈 · p 페이저 · {edit} 편집 · Esc 또는 {view} 닫기",
+ "viewer.keys_original": "h 파일 자체",
  "viewer.lines": {
   "other": "{n}줄"
  },

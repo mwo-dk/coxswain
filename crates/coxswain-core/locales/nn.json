@@ -1571,7 +1571,7 @@
  "feature.properties.q2": "Endrar det filene i ei mappe når eg endrar løyva til mappa?",
  "feature.properties.q3": "Korleis endrar eg løyve i terminalappen?",
  "feature.properties.title": "Eigenskapar og løyve",
- "feature.properties.what": "{properties} viser storleik, datoar, eigar, løyve, ZFS-datasett, pakke og flagg for ei fil; skrivebordsappen kan endre dei.",
+ "feature.properties.what": "{properties} viser storleik, datoar, eigar, løyve, ZFS-datasett, pakke og flagg for ei fil, og kva ein lokal modell inneheld og om han får plass på denne maskina; skrivebordsappen kan endre dei.",
  "feature.provenance.a1": "Nei. Det tyder at ei fil her har den digesten opphavet oppgir. Coxswain verifiserer ikkje signaturen, så visinga seier Ikkje verifisert; bruk slsa-verifier eller gh attestation verify.",
  "feature.provenance.a2": "Coxswain hentar aldri. Køyr git fetch i utsjekken din og flytt markøren bort frå opphavet og tilbake, eller opne det andre panelet i utsjekken din.",
  "feature.provenance.a3": "Coxswain leitar etter fila med namnet opphavet oppgir, i mappa til opphavet og i mappa til det andre panelet. Ei fil som har fått nytt namn etter bygginga, blir ikkje funnen.",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "Viser dei første 16 MB.",
  "viewer.go_to_line": "Gå til linje",
  "viewer.keys": "↑↓ PgUp PgDn Home End flytt · / eller F7 søk · n N neste, førre · g gå til linje · l linjenummer · w linjebryting · p sidevisingsprogram · {edit} rediger · Esc eller {view} lukk",
+ "viewer.keys_original": "h sjølve fila",
  "viewer.lines": {
   "one": "{n} linje",
   "other": "{n} linjer"

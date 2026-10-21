@@ -1571,7 +1571,7 @@
  "feature.properties.q2": "Kas kausta õiguste muutmine muudab selles olevaid faile?",
  "feature.properties.q3": "Kuidas muuta õigusi terminalirakenduses?",
  "feature.properties.title": "Atribuudid ja õigused",
- "feature.properties.what": "{properties} näitab faili suurust, kuupäevi, omanikku, õigusi, ZFS-i andmestikku, paketti ja lippe; töölauarakendus saab neid muuta.",
+ "feature.properties.what": "{properties} näitab faili suurust, kuupäevi, omanikku, õigusi, ZFS-i andmestikku, paketti ja lippe ning seda, mida kohalik mudel sisaldab ja kas see sellesse masinasse mahub; töölauarakendus saab neid muuta.",
  "feature.provenance.a1": "Ei. See tähendab, et siinsel failil on räsi, mille päritolu nimetab. Coxswain ei kontrolli allkirja, seega ütleb vaade Kontrollimata; kasuta slsa-verifier'it või gh attestation verify.",
  "feature.provenance.a2": "Coxswain ei too kunagi midagi. Käivita oma kohalikus koopias git fetch ja liigu päritolult ära ja tagasi või ava teine paan oma kohalikus koopias.",
  "feature.provenance.a3": "Seda otsitakse nime järgi, mille päritolu annab, selle kaustast ja teise paani kaustast. Pärast koostamist ümber nimetatud faili ei leita.",
@@ -3288,6 +3288,7 @@
  "viewer.first_part": "Näidatakse esimesi 16 MB.",
  "viewer.go_to_line": "Mine reale",
  "viewer.keys": "↑↓ PgUp PgDn Home End liigu · / või F7 otsi · n N järgmine, eelmine · g mine reale · l reanumbrid · w murdmine · p sinu lehitseja · {edit} muuda · Esc või {view} sulge",
+ "viewer.keys_original": "h fail ise",
  "viewer.lines": {
   "one": "{n} rida",
   "other": "{n} rida"

@@ -1607,7 +1607,7 @@
  "feature.properties.q2": "האם שינוי ההרשאות של תיקייה משנה את הקבצים שבה?",
  "feature.properties.q3": "איך משנים הרשאות ביישום הטרמינל?",
  "feature.properties.title": "מאפיינים והרשאות",
- "feature.properties.what": "{properties} מציג את הגודל, התאריכים, הבעלים, ההרשאות, ה־dataset של ZFS, החבילה והדגלים של קובץ; היישום השולחני יכול לשנות אותם.",
+ "feature.properties.what": "{properties} מציג את הגודל, התאריכים, הבעלים, ההרשאות, ה־dataset של ZFS, החבילה והדגלים של קובץ, וגם מה מכיל מודל מקומי והאם הוא נכנס במחשב הזה; היישום השולחני יכול לשנות אותם.",
  "feature.provenance.a1": "לא. זה אומר שלקובץ כאן יש ה־digest שמוצא הבנייה מציין. Coxswain לא מאמת את החתימה, ולכן התצוגה אומרת לא אומת; השתמשו ב־slsa-verifier או ב־gh attestation verify.",
  "feature.provenance.a2": "Coxswain אף פעם לא מבצע fetch. הריצו git fetch בעותק העבודה שלכם וצאו מקובץ מוצא הבנייה וחזרו אליו, או פתחו את החלונית השנייה בעותק העבודה שלכם.",
  "feature.provenance.a3": "מחפשים אותו לפי השם שמוצא הבנייה נותן, בתיקייה שלו ובזו של החלונית השנייה. קובץ ששמו שונה אחרי הבנייה לא נמצא.",
@@ -3354,6 +3354,7 @@
  "viewer.first_part": "מוצגים 16 ה־MB הראשונים.",
  "viewer.go_to_line": "מעבר לשורה",
  "viewer.keys": "↑↓ PgUp PgDn Home End תנועה · / או F7 חיפוש · n N הבא, הקודם · g מעבר לשורה · l מספרי שורות · w גלישת שורות · p ה־pager שלכם · {edit} עריכה · Esc או {view} סגירה",
+ "viewer.keys_original": "h הקובץ עצמו",
  "viewer.lines": {
   "one": "{n} שורה",
   "two": "{n} שורות",
