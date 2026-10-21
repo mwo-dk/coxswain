@@ -6,7 +6,7 @@
   import { onDestroy, tick } from "svelte";
   import { ui, reloadAll } from "./app.svelte.js";
   import { invoke, convertFileSrc, basename, isOldPicture } from "./lib.js";
-  import { t } from "./i18n.svelte.js";
+  import { t, tn } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
 
   const m = ui.modal;
@@ -237,18 +237,18 @@
       <span class="error">{st.error}</span>
     {:else if st.summary}
       {@const s = st.summary}
-      {s.changes ? `${t("compare.changes", { n: s.changes })} · ${t("compare.removed", { n: s.removed })} · ${t("compare.added", { n: s.added })}` : t("compare.same_text")}
+      {s.changes ? `${tn("compare.changes", s.changes)} · ${tn("compare.removed", s.removed)} · ${tn("compare.added", s.added)}` : t("compare.same_text")}
       {#if s.kind === "document"} · {t("compare.by_text")}{/if}
       {#if s.encoding[0] !== s.encoding[1] || s.crlf[0] !== s.crlf[1]} · {s.encoding[0]} {s.crlf[0] ? "CRLF" : "LF"} ↔ {s.encoding[1]} {s.crlf[1] ? "CRLF" : "LF"}{/if}
       {#if s.cut} · {t("compare.cut")}{/if}
     {:else if st.count}
       {@const c = st.count}
-      {c.finished && !c.differ ? t("compare.same") : t("compare.bytes_differ", { n: c.differ })}
+      {c.finished && !c.differ ? t("compare.same") : tn("compare.bytes_differ", c.differ)}
       {#if c.finished && c.differ} · {t("compare.first_at", { offset: "0x" + c.first.toString(16) })}{/if}
       {#if !c.finished} · {t("compare.counting", { percent: Math.floor((100 * c.done) / Math.max(1, ...st.len)) })}{/if}
     {:else if st.pictures}
       {@const p = st.pictures}
-      {p.differ == null ? t("compare.pictures_sizes") : p.differ ? t("compare.pictures_differ", { n: p.differ }) : t("compare.pictures_same")}
+      {p.differ == null ? t("compare.pictures_sizes") : p.differ ? tn("compare.pictures_differ", p.differ) : t("compare.pictures_same")}
       · {p.left.width} × {p.left.height} ↔ {p.right.width} × {p.right.height}
     {/if}
   </p>
