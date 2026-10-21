@@ -387,6 +387,8 @@ struct Listing {
     locked: bool,
     /// That archive is a disk image: read-only.
     disk_image: bool,
+    /// Inside an archive inside another: read-only, looked into from a copy in the cache.
+    nested: bool,
     /// That archive is a container image: its first tag (`container_image::title`).
     image: Option<String>,
     /// The history the folder is in.
@@ -449,8 +451,9 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
     let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
+    let nested = archive.is_some() && coxswain_core::archive::nested_dir(&dir);
     let image = archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title);
-    Ok(Listing { image, has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
+    Ok(Listing { nested, image, has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
 }
 
 /// Each name's place in the language's alphabet (`collate`), for the page's own sorting: the
@@ -2418,6 +2421,7 @@ fn main() {
                 convert::searchable_end();
                 convert::media_end();
                 ebook::end();
+                coxswain_core::archive::clean_up();
             }
         });
 }
@@ -2505,7 +2509,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, image: None, history: None, snapshot: None, package: None, packages: false, models: None };
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, nested: false, image: None, history: None, snapshot: None, package: None, packages: false, models: None };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

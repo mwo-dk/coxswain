@@ -271,6 +271,8 @@
   "one": "{n} sõnumit ei saanud välja kopeerida; teised said.",
   "other": "{n} sõnumit ei saanud välja kopeerida; teised said."
  },
+ "archive.nested_read_only": "Kirjutuskaitstud: see on arhiiv arhiivi sees, avatud koopiast. Selle muutmiseks kopeerige sisemine arhiiv F5-ga välja",
+ "archive.nested_too_deep": "Arhiivid arhiivides avanevad kuni {depth} taseme sügavuseni: kopeerige see F5-ga välja, et seda avada",
  "archive.overlapping": "Selle zipi failid jagavad oma pakitud baite, nii et see pakiks lahti palju rohkem, kui sisaldab: see võib olla tehtud ketta täitmiseks. Ühe faili saab sellest siiski välja kopeerida",
  "archive.pack_confirm": "Parool uuesti:",
  "archive.pack_hide_names": "Peida ka failinimed",

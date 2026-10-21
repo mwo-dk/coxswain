@@ -276,6 +276,8 @@
   "many": "Non è stato possibile copiare {n} di messaggi; gli altri sì.",
   "other": "Non è stato possibile copiare {n} messaggi; gli altri sì."
  },
+ "archive.nested_read_only": "Sola lettura: è un archivio dentro un archivio, aperto da una copia. Copia fuori l'archivio interno con F5 per modificarlo",
+ "archive.nested_too_deep": "Gli archivi dentro archivi si aprono fino a {depth} livelli: copia fuori questo con F5 per aprirlo",
  "archive.overlapping": "I file di questo zip condividono i loro byte compressi, quindi si estrarrebbe in molto più di quanto contiene: potrebbe essere fatto per riempire il disco. Un singolo file si può ancora copiare fuori",
  "archive.pack_confirm": "Di nuovo la password:",
  "archive.pack_hide_names": "Nascondi anche i nomi dei file",

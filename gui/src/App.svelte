@@ -311,7 +311,7 @@
    *  files or a disk image: said at once, not after a prompt. */
   const readOnly = () => {
     const tb = tab();
-    const key = tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : null;
+    const key = tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : tb.nested ? "archive.nested_read_only" : null;
     if (key) ui.status = t(key);
     return !!key;
   };

@@ -240,6 +240,8 @@
   "one": "{n} message could not be copied out; the others were.",
   "other": "{n} messages could not be copied out; the others were."
  },
+ "archive.nested_read_only": "Read-only: this is an archive inside an archive, opened from a copy. Copy the inner archive out with F5 to change it",
+ "archive.nested_too_deep": "Archives inside archives open no deeper than {depth} levels: copy this one out with F5 to open it",
  "archive.overlapping": "The files of this zip share their packed bytes, so it would unpack to far more than it holds: it may be made to fill the disk. One file of it can still be copied out",
  "archive.pack_confirm": "The password again:",
  "archive.pack_hide_names": "Hide the file names too",

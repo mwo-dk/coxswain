@@ -276,6 +276,8 @@
   "few": "Nepavyko nukopijuoti {n} laiškų; kiti nukopijuoti.",
   "other": "Nepavyko nukopijuoti {n} laiškų; kiti nukopijuoti."
  },
+ "archive.nested_read_only": "Tik skaityti: tai archyvas archyve, atvertas iš kopijos. Norėdami jį keisti, nukopijuokite vidinį archyvą su F5",
+ "archive.nested_too_deep": "Archyvai archyvuose atveriami iki {depth} lygių: nukopijuokite šį su F5, kad jį atvertumėte",
  "archive.overlapping": "Šio zip failai dalijasi suspaustais baitais, todėl jis išsiskleistų į daug daugiau, nei talpina: jis gali būti sukurtas diskui užpildyti. Vieną jo failą vis tiek galima nukopijuoti",
  "archive.pack_confirm": "Slaptažodis dar kartą:",
  "archive.pack_hide_names": "Paslėpti ir failų pavadinimus",

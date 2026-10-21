@@ -271,6 +271,8 @@
   "one": "{n} melding kunne ikkje kopierast ut; dei andre vart det.",
   "other": "{n} meldingar kunne ikkje kopierast ut; dei andre vart det."
  },
+ "archive.nested_read_only": "Skriveverna: dette er eit arkiv i eit arkiv, opna frå ein kopi. Kopier det indre arkivet ut med F5 for å endre det",
+ "archive.nested_too_deep": "Arkiv i arkiv blir opna høgst {depth} nivå ned: kopier dette ut med F5 for å opne det",
  "archive.overlapping": "Filene i denne zip-en deler dei pakka bytane sine, så han ville pakkast ut til langt meir enn han inneheld: han kan vere laga for å fylle disken. Éi fil frå han kan framleis kopierast ut",
  "archive.pack_confirm": "Passordet ein gong til:",
  "archive.pack_hide_names": "Skjul filnamna òg",

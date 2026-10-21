@@ -71,7 +71,7 @@ mod tests {
         ];
         // The search store (Find duplicates opens it too), the index, models and previews.
         all.extend(crate::config::Config::paths());
-        for sub in ["peek", "provenance"] {
+        for sub in ["peek", "nested", "provenance"] {
             all.push((sub, crate::archive::run_folder(sub, false).ok()));
         }
         #[cfg(unix)]

@@ -153,8 +153,15 @@ through an installed 7-Zip instead, read-only, like a disk image
 
 ## Limits
 
-- **An archive inside an archive** is not opened: **Enter** on it says, like on any file inside,
-  that **F5** copies it out. Copy it out first, then open it.
+- **An archive inside an archive** opens like the outer one: **Enter** on `mid.zip` inside
+  `outer.zip` shows its files, and so on, eight archives deep. Each inner archive is copied once
+  into the cache folder (`coxswain/nested/`, readable by you alone) and looked into there, so it
+  takes disk space as large as it unpacks to (16 GB at most, counted as it comes out), never
+  memory. It is **read-only**: the badge (desktop app) and the panel title (terminal app) say
+  *Read-only*, and **F6**, **F7**, **F8**, **Shift+F6** and copies into it say on the status line
+  that it is an archive inside an archive. Copy it out with **F5** to change it. The copies stay
+  while the archive outside them does not change; past eight the oldest goes, and all go when the
+  app ends.
 - **Files inside are previewed and viewed from a copy**, not opened or edited: **Enter** and
   **F4** say on the status line that **F5** copies the file out, since changes to a copy would be
   lost. The copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
@@ -268,9 +275,11 @@ system opens `.rar` files with.
 The desktop app tints the pane, marks the archive's name in the path and shows the *archive*
 badge; the terminal app adds `[archive]` to the panel title.
 
-#### Why does an archive inside an archive look empty?
+#### Can I open an archive inside an archive?
 
-Coxswain opens one level of archive. Copy the inner archive out with **F5**, then open it.
+Yes: **Enter** on it, as on any archive, up to eight inside each other. It is copied once into the
+cache folder and opened from there, read-only: copy it out with **F5** to change it
+([Limits](#limits)).
 
 ---
 [← Previous: Batch rename (Ctrl+M)](batch-rename.md) · [Next: Pack and extract →](pack-and-extract.md)

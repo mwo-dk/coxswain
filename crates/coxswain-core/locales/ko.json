@@ -266,6 +266,8 @@
  "archive.messages_skipped": {
   "other": "메시지 {n}개를 복사하지 못했습니다. 나머지는 복사했습니다."
  },
+ "archive.nested_read_only": "읽기 전용: 압축 파일 안의 압축 파일로, 사본에서 열었습니다. 바꾸려면 F5로 안쪽 압축 파일을 복사해 꺼내세요",
+ "archive.nested_too_deep": "압축 파일 안의 압축 파일은 {depth}단계까지 열립니다: 이것은 F5로 복사해 꺼낸 뒤 여세요",
  "archive.overlapping": "이 zip의 파일들은 압축된 바이트를 공유하므로 담긴 것보다 훨씬 크게 풀립니다. 디스크를 채우려고 만든 것일 수 있습니다. 파일 하나는 여전히 복사해 낼 수 있습니다",
  "archive.pack_confirm": "암호 확인:",
  "archive.pack_hide_names": "파일 이름도 숨기기",
