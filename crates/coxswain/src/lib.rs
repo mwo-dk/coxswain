@@ -299,6 +299,7 @@ impl Panel {
             // By name, as the desktop app counts: a GeoTIFF is reached from F9 (and its preview).
             geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
             models: list.iter().filter(|e| !e.is_dir && coxswain_core::scad::is_model(&e.path)).count(),
+            sums: list.iter().filter(|e| !e.is_dir && coxswain_core::checksum::is_list(&e.path)).count(),
             images: list.iter().filter(|e| !e.is_dir && coxswain_core::container_image::layout_index(&e.path)).count(),
             local_models: list.iter().filter(|e| !e.is_dir && coxswain_core::local_models::is_model(&e.path)).count(),
             ebooks: list.iter().filter(|e| !e.is_dir && coxswain_core::ebook::is_ebook(&e.path)).count(),
@@ -410,6 +411,8 @@ pub enum MenuRun {
     Media(coxswain_core::media::Op, Vec<PathBuf>),
     /// *Convert e-book*: these books into this format (`coxswain_core::ebook::TO`).
     Ebook(&'static str, Vec<PathBuf>),
+    /// Make checksums of these with this algorithm (`checksum`).
+    Sums(coxswain_core::checksum::Algo, Vec<PathBuf>),
 }
 
 pub struct MenuItem {
@@ -665,6 +668,8 @@ pub struct App {
     /// (`None`) making one's text for the viewer; and its question being worked out.
     ebook: Option<(Searchable, Option<&'static str>, Vec<PathBuf>)>,
     ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
+    /// Checksums being made or checked, on their thread.
+    work: Option<Work>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
@@ -727,6 +732,24 @@ struct Searchable {
 
 /// The PDFs, and the question's text or why it cannot run.
 type SearchablePlan = (Vec<PathBuf>, Result<String, String>);
+
+/// Checksums being made or checked on their thread (`checksum`): what it is (its action), how
+/// far, and the flag that stops it.
+struct Work {
+    action: Action,
+    progress: coxswain_core::checksum::Progress,
+    /// The status line it showed last: another message is not written over.
+    shown: String,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    rx: mpsc::Receiver<WorkMsg>,
+}
+
+enum WorkMsg {
+    At(coxswain_core::checksum::Progress),
+    Made(std::io::Result<coxswain_core::checksum::Made>),
+    /// The list checked, and what came of it (and whether it was stopped).
+    Checked(PathBuf, std::io::Result<(Vec<coxswain_core::checksum::Checked>, bool)>),
+}
 
 /// What to make of which files, and the question's text or why it cannot run.
 type MediaPlan = (coxswain_core::media::Op, Vec<PathBuf>, Result<String, String>);
@@ -900,6 +923,7 @@ impl App {
             media_plan: None,
             ebook: None,
             ebook_plan: None,
+            work: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1270,6 +1294,10 @@ impl App {
                 if let Some((s, ..)) = &self.ebook {
                     s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
+                // Checksums leave nothing half made: stopped, and let go.
+                if let Some(w) = self.work.take() {
+                    w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
                 if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
@@ -1314,6 +1342,11 @@ impl App {
             Action::ExportModel => self.media_menu(coxswain_core::media::Program::Openscad),
             Action::ConvertEbook => self.ebook_menu(),
             Action::ExportKicad => self.media_menu(coxswain_core::media::Program::Kicad),
+            Action::MakeChecksums => self.sums_menu(),
+            Action::VerifyChecksums => match self.panel().current().filter(|e| !e.is_dir && coxswain_core::checksum::is_list(&e.path)) {
+                Some(e) => self.sums_verify(e.path.clone()),
+                None => self.status = Some(t!("sums.no_list")),
+            },
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1675,6 +1708,10 @@ impl App {
         // A file of a package: to its folder, the cursor on it.
         if coxswain_core::bsd::split(&self.panel().dir).is_some() {
             return self.reveal(&e.path.clone());
+        }
+        // A list of checksums is checked (in a snapshot too).
+        if coxswain_core::checksum::is_list(&e.path) {
+            return self.sums_verify(e.path.clone());
         }
         // A file in a snapshot: what changed in it since, in the viewer.
         if coxswain_core::zfs::in_snapshot(&e.path).is_some() {
@@ -2176,6 +2213,146 @@ impl App {
             [one] => t!("media.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
             many => t!("media.done_many", "n" => many.len()),
         });
+    }
+
+    /// Make checksums: the algorithm from a menu, for the marked entries (or the one under the
+    /// cursor). Its key again while checksums are made or checked stops them.
+    fn sums_menu(&mut self) {
+        use coxswain_core::checksum::Algo;
+        if let Some(w) = &self.work {
+            w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        if self.panel().subject().place != coxswain_core::menu::Place::Disk {
+            return self.status = Some(t!("sums.not_here"));
+        }
+        let files = self.panel().targets();
+        if files.is_empty() {
+            return self.status = Some(t!("sums.nothing"));
+        }
+        let dir = self.panel().dir.clone();
+        let items = Algo::ALL
+            .into_iter()
+            .enumerate()
+            .map(|(i, a)| MenuItem { key: (i + 1).to_string(), label: t!("sums.algo", "algo" => a.name(), "file" => coxswain_core::checksum::target(&dir, a).file_name().unwrap_or_default().to_string_lossy()), run: MenuRun::Sums(a, files.clone()), group: None })
+            .collect();
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::MakeChecksums), filter: String::new(), items, cursor: 0, direct: true, feature: "checksums" });
+    }
+
+    fn work_start(&mut self, action: Action, run: impl FnOnce(&std::sync::atomic::AtomicBool, &dyn Fn(&coxswain_core::checksum::Progress)) -> WorkMsg + Send + 'static) {
+        if self.work.is_some() {
+            return self.status = Some(t!("sums.busy_already"));
+        }
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        std::thread::spawn(move || {
+            let at = tx.clone();
+            // A message every megabyte would flood the loop: one a tenth of a second.
+            let last = std::sync::Mutex::new(Instant::now() - Duration::from_secs(1));
+            let msg = run(&flag, &|p| {
+                let mut l = last.lock().unwrap();
+                if l.elapsed() >= Duration::from_millis(100) {
+                    *l = Instant::now();
+                    let _ = at.send(WorkMsg::At(p.clone()));
+                }
+            });
+            let _ = tx.send(msg);
+        });
+        self.work = Some(Work { action, progress: Default::default(), shown: String::new(), stop, rx });
+        self.poll_work();
+    }
+
+    fn sums_make(&mut self, algo: coxswain_core::checksum::Algo, files: Vec<PathBuf>) {
+        let dir = self.panel().dir.clone();
+        self.work_start(Action::MakeChecksums, move |stop, at| WorkMsg::Made(coxswain_core::checksum::make(&dir, &files, algo, stop, at)));
+    }
+
+    fn sums_verify(&mut self, list: PathBuf) {
+        self.work_start(Action::VerifyChecksums, move |stop, at| {
+            let r = coxswain_core::checksum::verify(&list, stop, at);
+            WorkMsg::Checked(list, r)
+        });
+    }
+
+    /// How far checksums are, on the status line; when done, what came of them.
+    fn poll_work(&mut self) {
+        use coxswain_core::checksum::{self, State};
+        let Some(w) = &self.work else { return };
+        let key = match self.key_label(w.action) {
+            "" => format!("{} → {}", self.key_label(Action::Menu), self.action_label(w.action)),
+            k => k.to_string(),
+        };
+        let what = self.action_label(w.action);
+        let Some(w) = &mut self.work else { return };
+        let mut done = None;
+        while let Ok(msg) = w.rx.try_recv() {
+            match msg {
+                WorkMsg::At(p) => w.progress = p,
+                m => done = Some(m),
+            }
+        }
+        let Some(done) = done else {
+            let stopping = w.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("media.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let new = format!("{} · {tail}", w.progress.line(&what));
+            if self.status.is_none() || self.status.as_ref() == Some(&w.shown) {
+                self.status = Some(new.clone());
+            }
+            w.shown = new;
+            return;
+        };
+        self.work = None;
+        match done {
+            WorkMsg::Made(Ok(m)) => {
+                self.reload();
+                self.status = Some(tn!("sums.made", m.files, "name" => m.path.file_name().unwrap_or_default().to_string_lossy()));
+            }
+            WorkMsg::Made(Err(e)) if e.kind() == std::io::ErrorKind::Interrupted => self.status = Some(t!("sums.stopped")),
+            WorkMsg::Made(Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("sums.make_failed"), &e.to_string()));
+            }
+            WorkMsg::Checked(_, Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("sums.verify_failed"), &e.to_string()));
+            }
+            WorkMsg::Checked(list, Ok((all, stopped))) => {
+                // The entries of the list's folder that hold a changed or unreadable file are
+                // marked, in each panel that shows that folder.
+                let dir = list.parent().unwrap_or(Path::new("")).to_path_buf();
+                let bad: HashSet<PathBuf> = all
+                    .iter()
+                    .filter(|c| matches!(c.state, State::Changed | State::Unreadable(_)))
+                    .filter_map(|c| c.path.strip_prefix(&dir).ok()?.components().next().map(|f| dir.join(f)))
+                    .collect();
+                for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
+                    p.clear_marks();
+                    for i in 0..p.entries.len() {
+                        if bad.contains(&p.entries[i].path) {
+                            p.toggle_mark(i);
+                        }
+                    }
+                }
+                const SHOWN: usize = 30;
+                let problems: Vec<String> = all.iter().filter(|c| c.state != State::Ok).map(|c| format!("{}: {}", c.name, checksum::word(&c.state))).collect();
+                let mut text = checksum::summary(&all, stopped);
+                if !bad.is_empty() {
+                    text = format!("{text}\n{}", t!("sums.marked"));
+                }
+                if !problems.is_empty() {
+                    text.push_str("\n\n");
+                    text.push_str(&problems.iter().take(SHOWN).cloned().collect::<Vec<_>>().join("\n"));
+                    if problems.len() > SHOWN {
+                        text = format!("{text}\n{}", tn!("sums.more", problems.len() - SHOWN));
+                    }
+                }
+                self.status = None;
+                let name = list.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                self.dialog = Some(Dialog::Message { title: t!("sums.verify_title", "name" => name), text });
+            }
+            WorkMsg::At(_) => {}
+        }
     }
 
     /// Space on the folder under the cursor, else the panel's: walked now, full screen.
@@ -3020,6 +3197,7 @@ impl App {
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
                     Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
                     Some(MenuRun::Ebook(to, books)) => self.ebook_ask(Some(to), books.clone()),
+                    Some(MenuRun::Sums(algo, files)) => self.sums_make(*algo, files.clone()),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -3443,6 +3621,7 @@ impl App {
         self.poll_media_plan();
         self.poll_ebook();
         self.poll_ebook_plan();
+        self.poll_work();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {

@@ -291,6 +291,8 @@ export const isGeoText = (name) => /\.(geojson|kml|gpx)$/i.test(name);
 export const isScad = (name) => /\.scad$/i.test(name);
 /** A KiCad schematic or board: *Export from KiCad* takes it. */
 export const isKicad = (name) => /\.kicad_(sch|pcb)$/i.test(name);
+/** A list of checksums, as `checksum::is_list` tells one. */
+export const isSums = (name) => /^(SHA256SUMS|SHA512SUMS|B3SUMS)|\.(sha256|sha512|b3)$/i.test(name);
 /** Tracker music: facts and sample names, no playback. */
 const TRACKER = ["mod", "xm", "s3m", "it"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];

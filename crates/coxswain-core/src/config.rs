@@ -278,6 +278,10 @@ actions! {
     ConvertEbook = "convert_ebook", "Convert e-book", Files, [];
     // kicad-cli: PDF, SVG, a bill of materials, Gerbers of a schematic or board (`kicad`).
     ExportKicad = "export_kicad", "Export from KiCad", Files, [];
+    // Checksums (`checksum`): a SHA256SUMS, SHA512SUMS or B3SUMS of the marked files; H for
+    // hash. A list is checked by Enter on it, and from the action menu.
+    MakeChecksums = "make_checksums", "Make checksums", Files, ["Alt+H"];
+    VerifyChecksums = "verify_checksums", "Verify checksums", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];

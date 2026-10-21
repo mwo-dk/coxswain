@@ -53,6 +53,8 @@ pub struct Subject {
     pub geo: usize,
     /// Of the files, OpenSCAD models (`scad::is_model`).
     pub models: usize,
+    /// Of the files, lists of checksums (`checksum::is_list`).
+    pub sums: usize,
     /// Of the files, the `index.json` of an OCI image layout (`container_image::layout_index`).
     pub images: usize,
     /// Of the files, local models (`local_models::is_model`): their facts are in Properties.
@@ -127,6 +129,8 @@ impl Action {
             ExportModel => s.models > 0 && disk,
             ConvertEbook => s.ebooks > 0 && disk,
             ExportKicad => s.kicad > 0 && disk,
+            MakeChecksums => n > 0 && disk,
+            VerifyChecksums => s.single() && s.sums == 1 && matches!(s.place, Place::Disk | Place::Snapshot),
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,

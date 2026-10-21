@@ -37,6 +37,7 @@ folder; **Ctrl+E** extracts it.*
 | [Make PDF searchable (Alt+P)](searchable-pdf.md) | A copy of a scanned PDF with its words in it, by OCRmyPDF, installed or in a container; next to the original, never over it |
 | [Convert video or audio](convert-media.md) | MP4, MP3 or FLAC copies, the sound alone or a clip, by ffmpeg; next to the original, never over it |
 | [Convert or edit pictures](edit-pictures.md) | JPEG, PNG or WebP copies, smaller, without the location, turned, by ImageMagick; next to the original, never over it |
+| [Checksums (Alt+H)](checksums.md) | A SHA256SUMS, SHA512SUMS or B3SUMS of the marked files and folders; **Enter** on such a list checks it: OK, changed, missing |
 
 ## Keys at a glance
 
@@ -68,6 +69,8 @@ folder; **Ctrl+E** extracts it.*
 | *Shift+F10*, *F9 → Export from KiCad* | yes | yes | [Export from KiCad](../previews/kicad.md#export-from-kicad): PDF, SVG, a bill of materials, Gerbers |
 | *Shift+F10*, *F9 → Export 3D model* | yes | yes | [Export 3D model](../previews/openscad.md#export-3d-model): STL or 3MF of an OpenSCAD model |
 | *Shift+F10*, *F9 → Convert geodata* | yes | yes | [Convert geodata](../previews/geodata.md#convert-geodata): GeoPackage, GeoJSON, a shapefile, KML, GPX, COG, PNG |
+| **Alt+H** | yes | yes | [Make checksums](checksums.md#making-a-list): SHA256SUMS, SHA512SUMS or B3SUMS |
+| **Enter** on a SHA256SUMS, `.sha256` … | yes | yes | [Verify checksums](checksums.md#checking-a-list): OK, changed, missing |
 
 Every key can be changed ([Changing keys](../customise/keys.md)). In the terminal app a key that
 only the desktop app has says so on the status line: *Batch rename is available in the desktop

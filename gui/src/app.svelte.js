@@ -1,8 +1,8 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, diskName, diskSure, diskSeen, sortItems, HISTORY, ALL, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
-import { setLanguage, t } from "./i18n.svelte.js";
+import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, diskName, diskSure, diskSeen, sortItems, HISTORY, ALL, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
 const tr = t;
@@ -27,6 +27,8 @@ export const ui = $state({
   media: null,
   /** A *Convert e-book* run under way: which book of how many, and what calibre said last. */
   ebook: null,
+  /** Checksums being made or checked (`checksum`): the action, the status line, Stop asked. */
+  work: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -598,6 +600,66 @@ export function stopEbook() {
   invoke("ebook_stop");
 }
 
+/** *Make checksums* (`coxswain_core::checksum`): the algorithm from a menu, then a SHA256SUMS,
+ *  SHA512SUMS or B3SUMS of `paths` in the tab's folder, the status line saying how far it is with
+ *  a Stop button. Its key again while checksums run stops them. */
+export async function makeChecksums(paths = targets()) {
+  if (ui.work) return stopWork();
+  const tb = tab();
+  if (tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = t("sums.not_here"));
+  if (!paths.length) return void (ui.status = t("sums.nothing"));
+  const algos = await invoke("sums_algos", { dir: tb.dir });
+  const make = (algo) =>
+    runWork("make_checksums", () => invoke("sums_make", { dir: tb.dir, paths, algo }), (m) => (ui.status = tn("sums.made", m.files, { name: basename(m.path) })), "sums.make_failed");
+  ui.modal = { kind: "menu", feature: "checksums", title: actionLabel("make_checksums"), direct: true, filter: "", cursor: 0, items: algos.map(([id, algo, file], i) => ({ key: String(i + 1), label: t("sums.algo", { algo, file }), run: () => make(id) })) };
+}
+
+/** *Verify checksums*: every file `list` names checked against its sum, the result in a dialog,
+ *  and the entries of the list's folder that hold a changed or unreadable file marked. */
+export function verifyChecksums(list = item()?.path, tb = tab()) {
+  if (ui.work) return stopWork();
+  if (!list || !isSums(basename(list))) return void (ui.status = t("sums.no_list"));
+  return runWork("verify_checksums", () => invoke("sums_verify", { list }), (v) => {
+    const dir = parent(list);
+    const top = (p) => (p.startsWith(dir) ? dir + p.slice(dir.length).replace(/^([\\/][^\\/]+).*$/, "$1") : null);
+    const bad = new Set(v.checked.filter((c) => c.state === "changed" || c.state === "unreadable").map((c) => top(c.path)).filter(Boolean));
+    let text = v.summary;
+    if (tb.dir === dir) {
+      tb.marked.clear();
+      for (const e of tb.items) if (bad.has(e.path)) tb.marked.add(e.path);
+      if (bad.size) text += `\n${t("sums.marked")}`;
+    }
+    const details = v.checked.map((c, i) => [c, v.words[i]]).filter(([c]) => c.state !== "ok").map(([c, w]) => `${c.name}: ${w}`).join("\n");
+    ui.modal = { kind: "message", feature: "checksums", title: t("sums.verify_title", { name: basename(list) }), text, details: details || undefined };
+  }, "sums.verify_failed");
+}
+
+async function runWork(action, start, done, failed) {
+  ui.work = { action, line: "", stopping: false };
+  const what = actionLabel(action);
+  const poll = setInterval(async () => {
+    const line = await invoke("work_progress", { what }).catch(() => null);
+    if (line && ui.work) ui.work.line = line;
+  }, 300);
+  try {
+    done(await start());
+  } catch (err) {
+    if (ui.work?.stopping) ui.status = t("sums.stopped");
+    else ui.modal = failure(t(failed), err);
+  } finally {
+    clearInterval(poll);
+    ui.work = null;
+    await reloadAll();
+  }
+}
+
+/** Stop the checksums under way. */
+export function stopWork() {
+  if (!ui.work) return;
+  ui.work.stopping = true;
+  invoke("work_stop");
+}
+
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
  *  full window. Only folders on a disk. */
 export function openSpace(tb = tab(), dir) {
@@ -866,6 +928,8 @@ function openFile(tb, e) {
   if (tb.history) return void (ui.status = t("history.file_hint"));
   // A file of a package: to its folder, the cursor on it.
   if (tb.package) return cd(tb, parent(e.path)).then(() => (tb.cursor = Math.max(0, tb.items.findIndex((x) => x.path === e.path || x.name === basename(e.path)))));
+  // A list of checksums is checked.
+  if (isSums(e.name)) return verifyChecksums(e.path, tb);
   if (tb.snapshot) return void (ui.status = t("zfs.file_hint"));
   invoke("open_path", { path: e.path }).then(
     () => (ui.status = t("status.opened", { name: e.name })),
@@ -894,6 +958,7 @@ export function subject(tb = tab()) {
     // By name: a TIFF, geodata only when it is a GeoTIFF, offers it in its preview instead.
     geo: files.filter((x) => isGeo(x.name) && !/\.tiff?$/i.test(x.name)).length,
     models: files.filter((x) => isScad(x.name)).length,
+    sums: files.filter((x) => isSums(x.name)).length,
     images: files.filter((x) => ociIndex(tb, x)).length,
     // `local_models::is_model`: a model file by its ending, or a blob of a model store.
     local_models: files.filter((x) => /\.(gguf|safetensors|pt|pth|ckpt)$|\.safetensors\.index\.json$|^pytorch_model.*\.bin$/i.test(x.name) || (tb.models?.[x.name] && /^sha256-/.test(x.name))).length,

@@ -124,6 +124,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `searchable_pdf` | **Alt+P** | `convert_media` | none |
 | `edit_pictures` | none | `convert_geodata` | none |
 | `export_model` | none | `history_all` | **Alt+A** |
+| `make_checksums` | **Alt+H** | `verify_checksums` | none |
 | `chess` | **Alt+K** | `edit_here` | **Shift+F4** |
 | `convert_ebook` | none | | |
 | `space_view` | **Alt+U** | `export_kicad` | none |
