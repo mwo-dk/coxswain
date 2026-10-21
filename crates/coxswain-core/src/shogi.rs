@@ -967,7 +967,7 @@ mod tests {
         while !lib.progress().done {
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
-        assert_eq!((lib.row(1).unwrap().black.as_str(), lib.row(1).unwrap().moves), ("Oyama", 1));
+        assert_eq!((lib.row(1).unwrap().black.as_str(), lib.row(1).unwrap().moves), ("Oyama", 2));
         let text = crate::extract::text_of(&kif, 1000, 1 << 20).unwrap();
         assert!(text.contains("羽生 – 佐藤"), "{text}");
         let (o, c) = crate::store::MARK;
