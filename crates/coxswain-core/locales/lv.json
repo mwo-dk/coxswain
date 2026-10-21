@@ -1806,7 +1806,7 @@
  "feature.space.a1": "Tie ir faili, kas ir pārāk mazi, lai tos šajā izmērā rādītu pa vienam, apvienoti vienā blokā katrai mapei. Tuviniet mapi (+ vai Enter uz bloka, darbvirsmas lietotnē labais peles taustiņš), un tie iegūs savus taisnstūrus.",
  "feature.space.a2": "Nē. Tā lasa tikai to, ko saka katras mapes saraksts, tāpēc nekas netiek lejupielādēts, un šāds fails tiek skaitīts kā 0 baiti, tik daudz vietas tas aizņem šajā diskā. Rindiņa zem kartes norāda, cik to ir.",
  "feature.space.a3": "Diska lietojums rāda, ko pats Coxswain glabā: meklēšanas krātuvi, modeļus un priekšskatījumus. Vieta rāda jebkuru mapi vai disku, uz ko to norādāt, failu pa failam.",
- "feature.space.q1": "Kāpēc daži taisnstūri ir pelēki un svītroti?",
+ "feature.space.q1": "Kāpēc daži taisnstūri ir pelēki?",
  "feature.space.q2": "Vai Vieta lejupielādē failus, kas ir tikai mākonī?",
  "feature.space.q3": "Kā tas atšķiras no Diska lietojuma iestatījumos?",
  "feature.space.title": "Vieta: kur paliek vieta",

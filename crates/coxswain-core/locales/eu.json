@@ -1769,7 +1769,7 @@
  "feature.space.a1": "Tamaina honetan banan-banan erakusteko txikiegiak diren fitxategiak dira, karpeta bakoitzeko bloke batean bildurik. Handitu karpeta (+ edo Enter blokean, eskuineko klika mahaigaineko aplikazioan) eta laukizuzen propioak izango dituzte.",
  "feature.space.a2": "Ez. Karpeta bakoitzaren zerrendak dioena bakarrik irakurtzen du, beraz ez da ezer deskargatzen, eta halako fitxategi batek 0 byte kontatzen du, disko honetan hartzen duen lekua. Maparen azpiko lerroak zenbat diren esaten du.",
  "feature.space.a3": "Diskoaren erabilerak Coxswain-ek berak gordetzen duena zerrendatzen du: bilaketa-biltegia, ereduak eta aurrebistak. Espazioak seinalatzen diozun edozein karpeta edo unitate erakusten du, fitxategiz fitxategi.",
- "feature.space.q1": "Zergatik dira laukizuzen batzuk grisak eta marradunak?",
+ "feature.space.q1": "Zergatik dira laukizuzen batzuk grisak?",
  "feature.space.q2": "Espazioak hodeian bakarrik dauden fitxategiak deskargatzen ditu?",
  "feature.space.q3": "Zer ezberdintasun dago Ezarpenetako Diskoaren erabilerarekin?",
  "feature.space.title": "Espazioa: espazioa nora doan",

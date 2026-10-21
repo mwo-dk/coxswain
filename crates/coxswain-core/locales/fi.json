@@ -1769,7 +1769,7 @@
  "feature.space.a1": "Ne ovat tiedostoja, jotka ovat liian pieniä näytettäväksi yksitellen tässä koossa, ja ne on yhdistetty yhdeksi lohkoksi kansiota kohden. Lähennä kansioon (+ tai Enter lohkon kohdalla, työpöytäsovelluksessa oikea napsautus), niin ne saavat omat suorakulmionsa.",
  "feature.space.a2": "Ei. Se lukee vain sen, mitä kunkin kansion luettelo kertoo, joten mitään ei ladata, ja tällainen tiedosto lasketaan 0 tavuksi eli tilaksi, jonka se vie tällä levyllä. Kartan alla oleva rivi kertoo, montako niitä on.",
  "feature.space.a3": "Levyn käyttö listaa sen, mitä Coxswain itse säilyttää: hakutietokanta, mallit ja esikatselut. Tila näyttää minkä tahansa kansion tai aseman, jonka valitset, tiedosto tiedostolta.",
- "feature.space.q1": "Miksi jotkin suorakulmiot ovat harmaita ja raidallisia?",
+ "feature.space.q1": "Miksi jotkin suorakulmiot ovat harmaita?",
  "feature.space.q2": "Lataako Tila tiedostoja, jotka ovat vain pilvessä?",
  "feature.space.q3": "Miten tämä eroaa Asetusten Levyn käytöstä?",
  "feature.space.title": "Tila: mihin tila menee",

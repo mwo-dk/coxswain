@@ -359,16 +359,16 @@ impl Tree {
     fn place(&self, id: u32, r: Rect, depth: u16, opts: &Opts, out: &mut Vec<Tile>) {
         let n = &self.nodes[id as usize];
         if n.mount {
-            out.push(Tile::new(r, id, Kind::Mount, depth, Family::Other));
+            out.push(Tile::new(r, id, Kind::Mount, depth, Family::Other, 0));
             return;
         }
         if !n.dir {
-            out.push(Tile::new(r, id, Kind::File, depth, family(&ext_of(&n.name.to_string_lossy()))));
+            out.push(Tile::new(r, id, Kind::File, depth, family(&ext_of(&n.name.to_string_lossy())), 1));
             return;
         }
         let mut inner = r;
         if depth > 0 {
-            out.push(Tile::new(r, id, Kind::Folder, depth, Family::Other));
+            out.push(Tile::new(r, id, Kind::Folder, depth, Family::Other, n.files));
             let head = opts.head > 0.0 && r.w >= opts.head * 4.0 && r.h >= opts.head * 3.0;
             inner = Rect {
                 x: r.x + opts.pad,
@@ -398,6 +398,7 @@ impl Tree {
         let small_one = |k: u32| self.nodes[k as usize].mounts == 0 && area(k) < opts.min_area as f64;
         let big: Vec<u32> = kids.iter().copied().filter(|&k| !small_one(k)).collect();
         let small: f64 = kids.iter().copied().filter(|&k| small_one(k)).map(area).sum();
+        let small_files: u32 = kids.iter().copied().filter(|&k| small_one(k)).map(|k| self.nodes[k as usize].files).sum();
         let mut areas: Vec<f64> = big.iter().map(|&k| area(k)).collect();
         if small > 0.0 {
             areas.push(small);
@@ -406,7 +407,7 @@ impl Tree {
         for (i, rect) in rects.into_iter().enumerate() {
             match big.get(i) {
                 Some(&k) => self.place(k, rect, depth + 1, opts, out),
-                None => out.push(Tile::new(rect, id, Kind::Small, depth + 1, Family::Other)),
+                None => out.push(Tile::new(rect, id, Kind::Small, depth + 1, Family::Other, small_files)),
             }
         }
     }
@@ -726,16 +727,19 @@ pub struct Tile {
     /// 1 for what is directly in the folder shown.
     pub depth: u16,
     pub family: Family,
+    /// The files it stands for: a folder's all levels down, a small block's merged ones.
+    pub files: u32,
 }
 
 impl Tile {
-    fn new(rect: Rect, id: u32, kind: Kind, depth: u16, family: Family) -> Tile {
+    fn new(rect: Rect, id: u32, kind: Kind, depth: u16, family: Family, files: u32) -> Tile {
         Tile {
             rect,
             id,
             kind,
             depth,
             family,
+            files,
         }
     }
 }
@@ -960,6 +964,7 @@ mod tests {
         let small: Vec<&Tile> = tiles.iter().filter(|x| x.kind == Kind::Small).collect();
         assert_eq!(small.len(), 1);
         assert_eq!(small[0].id, code);
+        assert!(small[0].files >= 50, "the block counts the files it stands for: {}", small[0].files);
         assert!(!files.iter().any(|x| t.node(x.id).label().starts_with("t")));
         // A title strip on the folders big enough for one, and a zoom shows one folder alone.
         let headed = t.layout(ROOT, whole, &Opts { head: 10.0, ..opts });

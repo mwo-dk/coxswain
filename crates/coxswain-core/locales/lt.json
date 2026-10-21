@@ -1806,7 +1806,7 @@
  "feature.space.a1": "Tai failai, per maži, kad šiuo dydžiu būtų rodomi po vieną, sujungti į vieną bloką aplankui. Priartinkite aplanką (+ arba Enter ant bloko, darbalaukio programoje dešinysis pelės mygtukas), ir jie gaus savo stačiakampius.",
  "feature.space.a2": "Ne. Ji skaito tik tai, ką sako kiekvieno aplanko sąrašas, todėl niekas nesiunčiama, o toks failas skaičiuojamas kaip 0 baitų, tiek vietos jis užima šiame diske. Eilutė po žemėlapiu pasako, kiek jų yra.",
  "feature.space.a3": "Disko naudojimas rodo, ką pats Coxswain saugo: paieškos saugyklą, modelius ir peržiūras. Vieta rodo bet kurį aplanką ar diską, kurį nurodote, failas po failo.",
- "feature.space.q1": "Kodėl kai kurie stačiakampiai pilki ir dryžuoti?",
+ "feature.space.q1": "Kodėl kai kurie stačiakampiai pilki?",
  "feature.space.q2": "Ar Vieta atsisiunčia failus, kurie yra tik debesyje?",
  "feature.space.q3": "Kuo tai skiriasi nuo Disko naudojimo Parametruose?",
  "feature.space.title": "Vieta: kur dingsta vieta",

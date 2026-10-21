@@ -13,7 +13,7 @@
   import { ui, tab, showInTab, refreshUndo, reloadAll } from "./app.svelte.js";
   import { invoke, size, basename, parent } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
-  import { at, step } from "./space.js";
+  import { at, step, chain, fit, palette, mix, luma } from "./space.js";
 
   const d = ui.modal;
   const back = kept?.modal === d ? kept : null;
@@ -73,7 +73,9 @@
       try {
         const v = await invoke("space_view", { zoom: z, w: ww, h: hh });
         if (n !== laying) return;
+        const was = untrack(() => view);
         view = v;
+        if (was && was.crumbs.at(-1)[0] !== v.crumbs.at(-1)[0]) fly(was, v);
         cursor = v.tiles.findIndex((x) => x.kind !== "folder");
         row = Math.min(row, Math.max(0, (side === "types" ? v.types : v.largest).length - 1));
         if (hl >= v.types.length) hl = -1;
@@ -83,6 +85,18 @@
     }, untrack(() => view) ? 80 : 0);
     return () => clearTimeout(timer);
   });
+
+  /** A zoom, shown: the folder grows from its rectangle to the whole map (in), or the map
+   *  shrinks into the folder's rectangle in its parent (out). Not with reduced motion. */
+  function fly(from, to) {
+    if (!base || !top || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const [was, now] = [from.crumbs.at(-1)[0], to.crumbs.at(-1)[0]];
+    const into = from.tiles.find((x) => x.kind === "folder" && x.id === now);
+    const r = into ?? to.tiles.find((x) => x.kind === "folder" && x.id === was);
+    if (!r?.w || !r?.h || !w || !h) return;
+    const start = into ? `translate(${r.x}px, ${r.y}px) scale(${r.w / w}, ${r.h / h})` : `scale(${w / r.w}, ${h / r.h}) translate(${-r.x}px, ${-r.y}px)`;
+    for (const cv of [base, top]) cv.animate([{ transform: start, opacity: 0.4 }, { transform: "none", opacity: 1 }], { duration: 240, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" });
+  }
 
   // A delete from Space (its run outlives this window when a confirmation stood in for it):
   // the totals that are left.
@@ -104,38 +118,67 @@
   // ------------------------------------------------------------ drawing
 
   const css = (name) => getComputedStyle(box).getPropertyValue(name).trim();
-  const luma = (hex) => {
-    const n = parseInt(hex.slice(1), 16);
-    return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  /** A theme colour as `#rrggbb` (themes may name them: `blue`, `lightcyan`); null when unset. */
+  let probe;
+  const hexOf = (v) => {
+    if (!v) return null;
+    probe ??= document.createElement("canvas").getContext("2d");
+    probe.fillStyle = "#000000";
+    probe.fillStyle = v;
+    return probe.fillStyle.startsWith("#") ? probe.fillStyle : null;
   };
+  /** The theme's colours the map is drawn in. */
+  function themed() {
+    const slots = { red: "--git-deleted-fg", orange: "--search-hit-fg", yellow: "--git-modified-fg", green: "--git-added-fg", blue: "--git-renamed-fg", magenta: "--symlink-fg", dir: "--directory-fg", dim: "--hidden-fg", bg: "--dialog-bg", fg: "--dialog-fg", accent: "--accent-bg" };
+    const out = {};
+    for (const [k, v] of Object.entries(slots)) {
+      const c = hexOf(css(v));
+      if (c) out[k] = c;
+    }
+    out.bg ??= "#000000";
+    out.fg ??= luma(out.bg) < 128 ? "#ffffff" : "#000000";
+    out.accent ??= out.fg;
+    return out;
+  }
+  let theme = $state.raw({});
+  /** Each kind's colour, from the theme (space.js `palette`): the map and By type's swatches. */
+  let colours = $derived(view ? palette(theme, view.colours) : {});
+  $effect(() => {
+    ui.theme;
+    if (box) theme = themed();
+  });
 
-  /** The light from the top left, once: drawn over every file, it makes each a cushion. */
-  let cushion;
-  function shine() {
-    if (cushion) return cushion;
-    cushion = document.createElement("canvas");
-    cushion.width = cushion.height = 64;
-    const c = cushion.getContext("2d");
-    const g = c.createRadialGradient(20, 16, 2, 28, 26, 58);
-    g.addColorStop(0, "rgba(255,255,255,0.38)");
-    g.addColorStop(0.45, "rgba(255,255,255,0.04)");
-    g.addColorStop(1, "rgba(0,0,0,0.42)");
-    c.fillStyle = g;
-    c.fillRect(0, 0, 64, 64);
-    return cushion;
+  /** A rounded rectangle's path. */
+  function round(c, x, y, w, h, r) {
+    c.beginPath();
+    if (c.roundRect) c.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2)));
+    else c.rect(x, y, w, h);
   }
 
-  /** `s` cut with … to `max` pixels. */
-  function fit(c, s, max) {
-    if (c.measureText(s).width <= max) return s;
-    let lo = 0;
-    let hi = s.length;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (c.measureText(s.slice(0, mid) + "…").width <= max) lo = mid;
-      else hi = mid - 1;
-    }
-    return lo ? s.slice(0, lo) + "…" : "";
+  /** A label's text that fits `max` pixels in the current font, or "" (space.js `fit`). */
+  const fits = (c, s, max) => (max > 0 ? fit(s, max, (x) => c.measureText(x).width) : "");
+
+  /** Two lines in a rectangle: the name bold, the size smaller; centred in a big one, at the
+   *  top left in the rest. Only what fits is drawn. */
+  function label(c, r, name, sub, ink, font) {
+    const big = r.w >= 150 && r.h >= 64;
+    const pad = big ? 12 : 6;
+    c.fillStyle = ink;
+    c.textBaseline = "top";
+    c.textAlign = big ? "center" : "start";
+    c.font = `600 ${big ? 14 : 12}px ${font}`;
+    const head = fits(c, name, r.w - 2 * pad);
+    if (!head || r.h < 16) return;
+    const two = sub && r.h >= (big ? 52 : 32);
+    const x = big ? r.x + r.w / 2 : r.x + pad;
+    const y = big ? r.y + r.h / 2 - (two ? 17 : 8) : r.y + 4;
+    c.fillText(head, x, y);
+    if (!two) return;
+    c.font = `${big ? 12 : 11}px ${font}`;
+    const line = fits(c, sub, r.w - 2 * pad);
+    c.globalAlpha *= 0.78;
+    if (line) c.fillText(line, x, y + (big ? 19 : 15));
+    c.globalAlpha /= 0.78;
   }
 
   function draw() {
@@ -147,88 +190,93 @@
     }
     const c = base.getContext("2d");
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const [bg, fg, border] = [css("--dialog-bg"), css("--dialog-fg"), css("--border-fg")];
+    const { bg, fg } = theme;
+    if (!bg) return;
+    const dark = luma(bg) < 128;
     c.fillStyle = bg;
     c.fillRect(0, 0, w, h);
     const font = css("--font") || "sans-serif";
-    const light = shine();
-    // Stripes for the blocks of files too small to show one by one.
-    const p = document.createElement("canvas");
-    p.width = p.height = 6;
-    const pc = p.getContext("2d");
-    pc.fillStyle = "#4a525c";
-    pc.fillRect(0, 0, 6, 6);
-    pc.strokeStyle = "#6b7480";
-    pc.beginPath();
-    pc.moveTo(0, 6);
-    pc.lineTo(6, 0);
-    pc.stroke();
-    const stripes = c.createPattern(p, "repeat");
+    const dim = theme.dim ?? mix(bg, fg, 0.5);
     for (const r of view.tiles) {
       const off = hl >= 0 && r.ty !== hl;
       c.globalAlpha = off ? 0.22 : 1;
       if (r.kind === "folder") {
-        c.fillStyle = `color-mix(in srgb, ${fg} ${8 + Math.min(r.depth, 4) * 3}%, ${bg})`;
-        c.fillRect(r.x, r.y, r.w, r.h);
-        c.strokeStyle = border;
+        // Deeper folders darker, their frames darker still, so the nesting reads.
+        const fill = mix(mix(bg, fg, dark ? 0.08 : 0.05), "#000000", Math.min(r.depth - 1, 5) * (dark ? 0.11 : 0.045));
+        round(c, r.x, r.y, r.w, r.h, 5);
+        c.fillStyle = fill;
+        c.fill();
+        c.strokeStyle = mix(fill, "#000000", dark ? 0.5 : 0.22);
         c.lineWidth = 1;
-        c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+        round(c, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 5);
+        c.stroke();
         if (r.name) {
           c.globalAlpha = 1;
-          c.fillStyle = fg;
-          c.font = `600 11px ${font}`;
           c.textBaseline = "middle";
-          c.fillText(fit(c, `${r.name}  ${size(r.size)}`, r.w - 8), r.x + 5, r.y + 9);
+          c.textAlign = "start";
+          c.font = `600 11px ${font}`;
+          const name = fits(c, r.name, r.w - 12);
+          if (name) {
+            c.fillStyle = fg;
+            c.fillText(name, r.x + 6, r.y + 10);
+            const left = c.measureText(name).width + 14;
+            c.font = `11px ${font}`;
+            const s = size(r.size);
+            if (name === r.name && c.measureText(s).width <= r.w - left - 6) {
+              c.fillStyle = dim;
+              c.fillText(s, r.x + left, r.y + 10);
+            }
+          }
         }
         continue;
       }
+      // Files and blocks: a gap of two pixels between them, slightly rounded.
+      const gap = r.w > 5 && r.h > 5 ? 1 : 0;
+      const inner = { x: r.x + gap, y: r.y + gap, w: r.w - 2 * gap, h: r.h - 2 * gap };
+      const radius = Math.min(4, inner.w / 4, inner.h / 4);
       if (r.kind === "small") {
-        c.fillStyle = stripes;
-        c.fillRect(r.x, r.y, r.w, r.h);
+        // Many files too small to show one by one: one block, how many it holds.
+        round(c, inner.x, inner.y, inner.w, inner.h, radius);
+        c.fillStyle = mix(bg, dim, 0.32);
+        c.fill();
+        if (r.w >= 70 && r.h >= 34) label(c, inner, t("space.small_title"), tn("space.files", r.files, { n: num(r.files) }), mix(dim, fg, 0.4), font);
         continue;
       }
       if (r.kind === "mount") {
         // Another disk: not walked, not to scale; a click opens Space on it.
-        c.fillStyle = "#3f5277";
-        c.fillRect(r.x, r.y, r.w, r.h);
-        c.strokeStyle = "#8aa2d8";
+        const blue = theme.blue ?? "#8aa2d8";
+        round(c, inner.x, inner.y, inner.w, inner.h, radius);
+        c.fillStyle = mix(bg, blue, 0.3);
+        c.fill();
+        c.strokeStyle = blue;
         c.setLineDash([4, 3]);
-        c.strokeRect(r.x + 1.5, r.y + 1.5, r.w - 3, r.h - 3);
+        round(c, inner.x + 1.5, inner.y + 1.5, inner.w - 3, inner.h - 3, radius);
+        c.stroke();
         c.setLineDash([]);
-        if (r.name) {
-          c.fillStyle = "#e8eefc";
-          c.font = `600 12px ${font}`;
-          c.textBaseline = "top";
-          c.fillText(fit(c, t("space.other_disk", { name: r.name }), r.w - 10), r.x + 5, r.y + 5);
-        }
+        if (r.name) label(c, inner, t("space.other_disk", { name: r.name }), "", mix(blue, fg, 0.6), font);
         continue;
       }
-      const colour = view.colours[r.family];
-      c.fillStyle = colour;
-      c.fillRect(r.x, r.y, r.w, r.h);
-      if (r.w > 3 && r.h > 3) {
-        c.drawImage(light, r.x, r.y, r.w, r.h);
-        c.strokeStyle = "rgba(0,0,0,0.45)";
-        c.lineWidth = 1;
-        c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-      }
+      // A soft light from above: the kind's colour, a little lighter at the top.
+      const colour = colours[r.family] ?? dim;
+      const [upper, lower] = dark ? [mix(bg, colour, 0.8), mix(bg, colour, 0.56)] : [mix(bg, colour, 0.5), mix(bg, colour, 0.74)];
+      const g = c.createLinearGradient(0, inner.y, 0, inner.y + inner.h);
+      g.addColorStop(0, upper);
+      g.addColorStop(1, lower);
+      round(c, inner.x, inner.y, inner.w, inner.h, radius);
+      c.fillStyle = g;
+      c.fill();
       if (r.name && !off) {
-        c.fillStyle = luma(colour) > 150 ? "#101418" : "#ffffff";
-        c.font = `600 12px ${font}`;
-        c.textBaseline = "top";
-        c.fillText(fit(c, r.name, r.w - 8), r.x + 4, r.y + 3);
-        if (r.h >= 34) {
-          c.globalAlpha = 0.75;
-          c.font = `12px ${font}`;
-          c.fillText(fit(c, size(r.size), r.w - 8), r.x + 4, r.y + 17);
-        }
+        const middle = mix(upper, lower, 0.5);
+        const ink = luma(middle) > 140 ? mix(colour, "#000000", 0.82) : mix(colour, "#ffffff", 0.9);
+        label(c, inner, r.name, size(r.size), ink, font);
       }
     }
     c.globalAlpha = 1;
+    c.textAlign = "start";
     drawCursor();
   }
 
-  /** The rectangle under the cursor, lit, and the frame of its folder. */
+  /** The rectangle under the cursor framed in the accent colour, and the folders it is in lit. */
   function drawCursor() {
     if (!top || !view) return;
     const dpr = devicePixelRatio || 1;
@@ -237,13 +285,27 @@
     c.clearRect(0, 0, w, h);
     const r = view.tiles[cursor];
     if (!r) return;
-    c.fillStyle = "rgba(255,255,255,0.22)";
-    c.fillRect(r.x, r.y, r.w, r.h);
+    const accent = theme.accent ?? "#ffffff";
+    for (const j of chain(view.tiles, cursor)) {
+      const f = view.tiles[j];
+      c.globalAlpha = 0.14;
+      c.fillStyle = accent;
+      round(c, f.x, f.y, f.w, Math.min(f.h, 20), 5);
+      c.fill();
+      c.globalAlpha = 0.6;
+      c.strokeStyle = accent;
+      c.lineWidth = 1;
+      round(c, f.x + 0.5, f.y + 0.5, f.w - 1, f.h - 1, 5);
+      c.stroke();
+    }
+    c.globalAlpha = 1;
+    c.fillStyle = "rgba(255,255,255,0.14)";
+    round(c, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 4);
+    c.fill();
     c.lineWidth = 2;
-    c.strokeStyle = "rgba(0,0,0,0.8)";
-    c.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
-    c.strokeStyle = "#ffffff";
-    c.strokeRect(r.x + 2, r.y + 2, Math.max(0, r.w - 4), Math.max(0, r.h - 4));
+    c.strokeStyle = accent;
+    round(c, r.x + 1, r.y + 1, Math.max(0, r.w - 2), Math.max(0, r.h - 2), 4);
+    c.stroke();
   }
 
   $effect(() => {
@@ -251,6 +313,7 @@
     hl;
     w;
     h;
+    colours;
     untrack(draw);
   });
   $effect(() => {
@@ -392,6 +455,9 @@
     zoomIn();
   }
 
+  /** A share in per cent: one decimal under 10 %, and "<0.1 %" rather than a 0 for a sliver. */
+  const share = (s) => (s > 0 && s < 0.001 ? `<${num(0.1, { minimumFractionDigits: 1 })} %` : `${num(s * 100, { maximumFractionDigits: s < 0.1 ? 1 : 0 })} %`);
+
   const home = ui.cfg.home;
   const shown = (p) => (p === home ? "~" : p?.startsWith(home + ui.cfg.sep) ? "~" + p.slice(home.length) : p);
   const relative = (p) => (view && p.startsWith(view.path) ? p.slice(view.path.length).replace(/^[\\/]/, "") : p);
@@ -455,12 +521,12 @@
           {#each view?.types ?? [] as r, i (r.ext)}
             <li>
               <button class="type" class:cur={d.list && i === row} class:hl={hl === i} title={t("space.type_tip")} onclick={() => ((row = i), (hl = hl === i ? -1 : i))}>
-                <span class="swatch" style:background={view.colours[r.family]}></span>
+                <span class="swatch" style:background={colours[r.family]}></span>
                 <span class="ext">{r.ext ? `.${r.ext}` : t("space.no_ext")}</span>
                 <span class="fam">{t(`space.family_${r.family}`)}</span>
                 <span class="num">{size(r.bytes)}</span>
-                <span class="share"><span style:width="{r.share * 100}%" style:background={view.colours[r.family]}></span></span>
-                <span class="num pc">{num(r.share * 100, { maximumFractionDigits: r.share < 0.1 ? 1 : 0 })} %</span>
+                <span class="share"><span style:width={r.share > 0 ? `max(2px, ${r.share * 100}%)` : "0"} style:background={colours[r.family]}></span></span>
+                <span class="num pc">{share(r.share)}</span>
               </button>
             </li>
           {/each}
@@ -601,6 +667,10 @@
     border: 0;
     padding: 1px 4px;
   }
+  .crumb:not(.here):hover {
+    color: var(--accent-bg);
+    text-decoration: underline;
+  }
   .crumb.here {
     font-weight: 600;
     color: var(--directory-fg);
@@ -627,6 +697,7 @@
   canvas {
     position: absolute;
     inset: 0;
+    transform-origin: 0 0;
   }
   .top {
     cursor: pointer;

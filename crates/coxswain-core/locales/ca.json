@@ -1806,7 +1806,7 @@
  "feature.space.a1": "Són fitxers massa petits per mostrar-los un per un a aquesta mida, units en un bloc per carpeta. Apropa la carpeta (+ o Enter al bloc, clic dret a l'aplicació d'escriptori) i tindran rectangles propis.",
  "feature.space.a2": "No. Només llegeix el que diu la llista de cada carpeta, així que no es baixa res, i un fitxer així compta 0 bytes, l'espai que ocupa en aquest disc. La línia sota el mapa diu quants n'hi ha.",
  "feature.space.a3": "Ús del disc llista el que el Coxswain mateix desa: el magatzem de cerca, els models i les previsualitzacions. Espai mostra qualsevol carpeta o unitat que li indiquis, fitxer per fitxer.",
- "feature.space.q1": "Per què alguns rectangles són grisos i ratllats?",
+ "feature.space.q1": "Per què alguns rectangles són grisos?",
  "feature.space.q2": "Espai baixa els fitxers que només són al núvol?",
  "feature.space.q3": "En què es diferencia d'Ús del disc a Paràmetres?",
  "feature.space.title": "Espai: on va l'espai",

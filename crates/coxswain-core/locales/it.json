@@ -1806,7 +1806,7 @@
  "feature.space.a1": "Sono file troppo piccoli per essere mostrati uno a uno a questa dimensione, uniti in un blocco per cartella. Ingrandisci la cartella (+ o Enter sul blocco, clic destro nell'app desktop) e ottengono un rettangolo ciascuno.",
  "feature.space.a2": "No. Legge solo ciò che dice l'elenco di ogni cartella, quindi non scarica nulla, e un file così conta 0 byte, lo spazio che occupa su questo disco. La riga sotto la mappa dice quanti sono.",
  "feature.space.a3": "Spazio su disco elenca ciò che Coxswain stesso conserva: il suo archivio di ricerca, i modelli e le anteprime. Spazio mostra qualsiasi cartella o unità indichi, file per file.",
- "feature.space.q1": "Perché alcuni rettangoli sono grigi e a righe?",
+ "feature.space.q1": "Perché alcuni rettangoli sono grigi?",
  "feature.space.q2": "Spazio scarica i file che sono solo nel cloud?",
  "feature.space.q3": "In cosa è diverso da Spazio su disco nelle Impostazioni?",
  "feature.space.title": "Spazio: dove va lo spazio",

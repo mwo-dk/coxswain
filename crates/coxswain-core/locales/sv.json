@@ -1769,7 +1769,7 @@
  "feature.space.a1": "Det är filer som är för små för att visas en och en i den här storleken, hopslagna till ett block per mapp. Zooma in i mappen (+ eller Enter på blocket, högerklick i skrivbordsappen) så får de egna rektanglar.",
  "feature.space.a2": "Nej. Det läser bara vad varje mapps lista säger, så inget hämtas, och en sådan fil räknas som 0 byte, det utrymme den tar på den här disken. Raden under kartan säger hur många de är.",
  "feature.space.a3": "Diskanvändning visar vad Coxswain själv sparar: sökarkivet, modeller och förhandsvisningar. Utrymme visar vilken mapp eller enhet du pekar ut, fil för fil.",
- "feature.space.q1": "Varför är vissa rektanglar grå och randiga?",
+ "feature.space.q1": "Varför är vissa rektanglar grå?",
  "feature.space.q2": "Hämtar Utrymme filer som bara finns i molnet?",
  "feature.space.q3": "Hur skiljer det sig från Diskanvändning i Inställningar?",
  "feature.space.title": "Utrymme: vart utrymmet tar vägen",

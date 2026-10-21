@@ -1843,7 +1843,7 @@
  "feature.space.a1": "To pliki zbyt małe, by pokazać je pojedynczo w tym rozmiarze, połączone w jeden blok na folder. Powiększ folder (+ lub Enter na bloku, w aplikacji desktopowej prawy przycisk), a dostaną własne prostokąty.",
  "feature.space.a2": "Nie. Czyta tylko to, co mówi lista każdego folderu, więc nic się nie pobiera, a taki plik liczy się jako 0 bajtów, tyle miejsca zajmuje na tym dysku. Wiersz pod mapą mówi, ile ich jest.",
  "feature.space.a3": "Użycie dysku pokazuje, co Coxswain sam przechowuje: magazyn wyszukiwania, modele i podglądy. Miejsce pokazuje dowolny folder lub dysk, który wskażesz, plik po pliku.",
- "feature.space.q1": "Dlaczego niektóre prostokąty są szare i w paski?",
+ "feature.space.q1": "Dlaczego niektóre prostokąty są szare?",
  "feature.space.q2": "Czy Miejsce pobiera pliki, które są tylko w chmurze?",
  "feature.space.q3": "Czym to się różni od Użycia dysku w Ustawieniach?",
  "feature.space.title": "Miejsce: gdzie idzie miejsce",

@@ -1769,7 +1769,7 @@
  "feature.space.a1": "Es sind Dateien, die bei dieser Größe zu klein sind, um einzeln gezeigt zu werden, und zu einem Block je Ordner zusammengefasst wurden. Zoomen Sie in den Ordner (+ oder Enter auf dem Block, ein Rechtsklick in der Desktop-App), dann bekommen sie eigene Rechtecke.",
  "feature.space.a2": "Nein. Es liest nur, was die Auflistung jedes Ordners sagt, also wird nichts heruntergeladen, und eine solche Datei zählt 0 Bytes, den Platz, den sie auf diesem Laufwerk belegt. Die Zeile unter der Karte sagt, wie viele es sind.",
  "feature.space.a3": "Die Speicherbelegung listet, was Coxswain selbst ablegt: seinen Suchspeicher, Modelle und Vorschauen. Speicherplatz zeigt jeden Ordner oder jedes Laufwerk, auf das Sie es richten, Datei für Datei.",
- "feature.space.q1": "Warum sind manche Rechtecke grau und gestreift?",
+ "feature.space.q1": "Warum sind manche Rechtecke grau?",
  "feature.space.q2": "Lädt Speicherplatz Dateien herunter, die nur in der Cloud liegen?",
  "feature.space.q3": "Was ist der Unterschied zur Speicherbelegung in den Einstellungen?",
  "feature.space.title": "Speicherplatz: wohin der Platz geht",

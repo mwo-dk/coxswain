@@ -53,7 +53,7 @@ folders, shows git in every panel, and keeps everything on your machine.
 | [The preview pane](docs/previews/README.md) | [Archives as folders](docs/files/archives.md) |
 | ![Morphy's Opera Game in the desktop app at 15.Bxd7+: the board in Cyber's greens, the moves beside it in figurines with a variation in brackets](docs/screenshots/gui-chess.png) | ![The terminal app's chess view: the board in Unicode pieces on blue squares, the moves beside it](docs/screenshots/tui-chess.png) |
 | [Chess games](docs/previews/chess.md) | [Chess in the terminal app](docs/previews/chess.md#a-game-on-the-board) |
-| ![Space in the desktop app: the demo home as a treemap, videos, the virtual machine, music and photos as coloured rectangles inside their folders, the bytes by type beside it](docs/screenshots/space.png) | ![Space in the terminal app: the same treemap in coloured half-blocks, folder names on their title rows, the bytes by type on the right](docs/screenshots/tui-space.png) |
+| ![Space in the desktop app: the demo home as a treemap, videos, the virtual machine, music and photos as coloured rectangles inside their folders, the bytes by type beside it](docs/screenshots/space.png) | ![Space in the terminal app: the same treemap in flat coloured cells with darker edges, folder names on their title rows, the bytes by type on the right](docs/screenshots/tui-space.png) |
 | [Space: where the space goes](docs/panels/space.md) | [Space in the terminal app](docs/panels/space.md#in-the-terminal-app) |
 
 ## Smart search: names, words, meaning and answers

@@ -1806,7 +1806,7 @@
  "feature.space.a1": "Jsou to soubory příliš malé na zobrazení po jednom v této velikosti, sloučené do jednoho bloku na složku. Přiblížte složku (+ nebo Enter na bloku, pravé tlačítko v desktopové aplikaci) a dostanou vlastní obdélníky.",
  "feature.space.a2": "Ne. Čte jen to, co říká výpis každé složky, takže se nic nestahuje, a takový soubor se počítá jako 0 bajtů, tedy místo, které zabírá na tomto disku. Řádek pod mapou říká, kolik jich je.",
  "feature.space.a3": "Využití disku vypisuje, co si Coxswain sám uchovává: úložiště hledání, modely a náhledy. Místo ukáže libovolnou složku nebo disk, který zadáte, soubor po souboru.",
- "feature.space.q1": "Proč jsou některé obdélníky šedé a pruhované?",
+ "feature.space.q1": "Proč jsou některé obdélníky šedé?",
  "feature.space.q2": "Stahuje Místo soubory, které jsou jen v cloudu?",
  "feature.space.q3": "Čím se liší od Využití disku v Nastavení?",
  "feature.space.title": "Místo: kam mizí místo",

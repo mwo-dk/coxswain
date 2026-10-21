@@ -1738,7 +1738,7 @@
  "feature.space.a1": "They are files too small to show one by one at this size, merged into one block per folder. Zoom into the folder (+ or Enter on the block, a right-click in the desktop app) and they get rectangles of their own.",
  "feature.space.a2": "No. It reads only what each folder's listing says, so nothing is downloaded, and such a file counts 0 bytes, the space it takes on this disk. The line under the map says how many there are.",
  "feature.space.a3": "Disk use lists what Coxswain itself keeps: its search store, models and previews. Space shows any folder or drive you point it at, file by file.",
- "feature.space.q1": "Why are some rectangles grey and striped?",
+ "feature.space.q1": "Why are some rectangles grey?",
  "feature.space.q2": "Does Space download files that are only in the cloud?",
  "feature.space.q3": "How is this different from Disk use in Settings?",
  "feature.space.title": "Space: where the space goes",

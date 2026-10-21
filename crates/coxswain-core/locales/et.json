@@ -1769,7 +1769,7 @@
  "feature.space.a1": "Need on failid, mis on selle suuruse juures liiga väikesed ükshaaval näitamiseks, ja liidetud üheks plokiks kausta kohta. Suumi kausta sisse (+ või Enter plokil, parem klõps töölauarakenduses), siis saavad nad oma ristkülikud.",
  "feature.space.a2": "Ei. See loeb ainult seda, mida iga kausta loend ütleb, nii et midagi ei laeta alla, ja selline fail loetakse 0 baidiks, see on ruum, mida see sellel kettal võtab. Kaardi all olev rida ütleb, mitu neid on.",
  "feature.space.a3": "Kettakasutus loetleb, mida Coxswain ise hoiab: selle otsingu andmebaasi, mudelid ja eelvaated. Kettaruum näitab mis tahes kausta või draivi, mille peale seda suunad, fail faili haaval.",
- "feature.space.q1": "Miks mõned ristkülikud on halli triibulised?",
+ "feature.space.q1": "Miks mõned ristkülikud on hallid?",
  "feature.space.q2": "Kas Kettaruum laeb alla faile, mis on ainult pilves?",
  "feature.space.q3": "Mille poolest see erineb Sätete Kettakasutusest?",
  "feature.space.title": "Kettaruum: kuhu ruum kaob",
