@@ -486,6 +486,7 @@ fn hg_commit(rec: &[u8]) -> Option<Commit> {
         time: date.split(' ').next()?.parse().ok()?,
         author: author.to_string(),
         subject: subject.to_string(),
+        ..Default::default()
     })
 }
 
@@ -1132,7 +1133,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&top);
         std::fs::create_dir_all(top.join(".hg")).unwrap();
         let list = crate::history::path_of(&top, crate::history::View::Branches);
-        let at = At { target: top.clone(), base: top.clone(), commit: Some("abc".into()), inner: String::new(), view: crate::history::View::History };
+        let at = At { target: top.clone(), base: top.clone(), commit: Some("abc".into()), inner: String::new(), view: crate::history::View::History, scope: crate::history::Scope::Branch };
         let missing = |e: io::Error| assert_eq!(e.kind(), io::ErrorKind::NotFound, "{e}");
         assert_eq!(of(&top).name(), "hg");
         missing(Hg.log(&top, ".", 10).unwrap_err());
