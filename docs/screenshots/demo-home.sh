@@ -22,6 +22,8 @@ g() {
 
 truncate -s 12K Documents/letter.odt
 python3 "$here/demo-docs.py" "$d"
+# Local model stores (Ollama, Hugging Face, LM Studio): real headers, sparse weights.
+python3 "$here/demo-local-models.py" "$d"
 printf '# Notes\n\n- Book the ferry\n- Renew the domain\n- Try `coxswain` on the laptop\n' > Documents/notes.md
 # A real ISO with a few files, for the disk image preview; an empty one without bsdtar.
 if command -v bsdtar >/dev/null; then

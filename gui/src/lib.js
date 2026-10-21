@@ -447,6 +447,8 @@ export function previewKind(item) {
   if (isArchive(item.name)) return "archive";
   // A .vhd or .img that turns out to be none is shown as text instead (Preview).
   if (diskName(item.name)) return "disk_image";
+  // A local model: its facts (`local_models::facts`), not a hex dump. A pickle is named, never read.
+  if (/\.(gguf|safetensors|pt|pth|ckpt)$|^pytorch_model.*\.bin$/i.test(item.name)) return "model";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";
   // Geodata: a map of its own shapes, a GPX file's drawn without GDAL.

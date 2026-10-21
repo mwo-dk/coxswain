@@ -86,6 +86,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 | Under the cursor | Hint |
 |---|---|
 | The `index.json` of an OCI image layout | *An OCI image layout: Enter on index.json opens the image like a folder, read-only* ([Container images](../files/container-images.md)) |
+| A local model file, or a blob in Ollama's store | *Alt+Enter shows what this model holds and whether it fits this machine* ([Your local models](../files/local-models.md)) |
 | A file or folder (not `..`) | *Shift+F10 / Menu: what you can do with this* |
 | A folder measured at 1 GB or more, or a drive's top folder (not `/tmp`, `/proc` and the like) | *Alt+U shows where the space goes here, every file as a rectangle by its size* ([Space](space.md)) |
 | Anywhere | *Alt+F7 / Ctrl+F finds anything on this machine* |

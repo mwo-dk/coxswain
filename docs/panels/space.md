@@ -29,7 +29,8 @@ file, so the space hogs stand out at a glance.
 2. Space opens full screen and measures: *Measuring… 120 344 files, 34.2 GB* counts up while it
    walks. **Esc** (or *Stop*) stops it and closes Space.
 3. When it is done, the treemap fills the window. Move over it (desktop app) or with the arrow
-   keys: the line under the map names the file, its size and its type.
+   keys: the line under the map names the file, its size and its type (in a model store, the
+   model first).
 4. **Enter** (or a click) on a file closes Space and puts the panel's cursor on the file, in its
    folder. A right-click or **+** zooms into the folder under the cursor, **Backspace** (or
    *Zoom out*) goes back up.
@@ -51,14 +52,14 @@ Features has it.
 |---|---|---|
 | The title | *Space: ~/…* with the size, the number of files and how long the walk took | *Space: ~/… · 34.2 GB in 120 344 files* in the frame |
 | The path line | The folder shown and those above it, each a button that zooms there; its size and files; *Zoom out* | The folder shown and its size |
-| The treemap | Every file a rectangle by its bytes, inside its folder's; folders framed, with their name and size on a title strip when they are big enough; files with room for it carry their name and size | The same in coloured half-blocks: folders big enough get a title row with their name and size |
+| The treemap | Every file a rectangle by its bytes, inside its folder's; folders framed, with their name and size on a title strip when they are big enough; files with room for it carry their name and size; in a model store a blob carries its model's name ([Your local models](../files/local-models.md#in-space)) | The same in coloured half-blocks: folders big enough get a title row with their name and size |
 | Colours | By the kind of file: pictures violet, videos red, music orange, archives yellow, documents blue, code green, data teal, programs pink, disk images brown, the rest grey; each rectangle lit from its top left, like a cushion | The same colours, the same light |
 | Striped grey blocks | Files too small to show one by one at this size, one block per folder | The same, as a grey checker |
 | Blue blocks, dashed frame | *Other disk: …*: a disk mounted inside the folder, not walked and not to scale | Blue-grey stripes |
 | The cursor | Lit, with a white frame; a small card by the pointer gives the name, size and type | Lit white |
 | By type | Each extension with its colour, its bytes, its share as a bar and in per cent, largest first; a click lights up its rectangles and dims the rest | The same list on the right; **Enter** on a row lights up its type (▶ marks it) |
-| Largest files | The 100 largest files under the folder shown, with their size and path; moving over one lights up its rectangle | The same, on the right after **Tab** |
-| The line under it | The file's full path, size and type (*Videos (.mp4)*); files only in the cloud, when there are some | The same |
+| Largest files | The 100 largest files under the folder shown, with their size and path (a model store's blob by its model, the path in its tooltip); moving over one lights up its rectangle | The same, on the right after **Tab**; a blob by its model |
+| The line under it | The file's full path, size and type (*Videos (.mp4)*); in a model store the model's name first (*llama3.2:3b · …/sha256-925b… · 2.0 GB*); files only in the cloud, when there are some | The same |
 | The buttons | *Show* (**Enter**), *Edit* (**F4**), *Delete* (**F8**), each for the file under the cursor | The key line names them |
 
 ## Keys and the mouse

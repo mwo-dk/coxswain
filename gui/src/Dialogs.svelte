@@ -795,7 +795,7 @@
             <dt>{t("props.package")}</dt>
             <dd>{p.package} <button class="link" onclick={() => { const path = p.path; close(); openPackage(tab(), path); }}>{t("action.package")}</button></dd>
           {/if}
-          {#each [...(p.disk_image ?? []), ...(p.facts ?? [])] as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
+          {#each [...(p.disk_image ?? []), ...(p.facts ?? [])] as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}
           {#if p.zfs}
             {@const z = p.zfs}
             <dt>{t("props.dataset")}</dt><dd>{z.dataset}</dd>

@@ -183,6 +183,18 @@ impl Tree {
         }
     }
 
+    /// `id`'s name for showing: a model store's blob or folder by the model it is
+    /// (`local_models::names`), anything else by its own name.
+    pub fn label(&self, id: u32) -> std::borrow::Cow<'_, str> {
+        let n = self.node(id);
+        if id != ROOT
+            && let Some(m) = crate::local_models::name_in(&self.path(n.parent), &n.label())
+        {
+            return m.into();
+        }
+        n.label()
+    }
+
     pub fn node(&self, id: u32) -> &Node {
         &self.nodes[id as usize]
     }

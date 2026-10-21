@@ -70,6 +70,9 @@ pub struct Panel {
     /// at no disk, so a share that stops answering does not freeze the screen.
     pub place: Option<(PathBuf, ui::Place)>,
     pub link: Option<(PathBuf, Option<PathBuf>)>,
+    /// The models a store's folder names its entries by (`local_models::names`), read once
+    /// for the folder it names.
+    pub models: Option<(PathBuf, Option<coxswain_core::local_models::Names>)>,
 }
 
 impl Panel {
@@ -98,6 +101,7 @@ impl Panel {
             facts_seen: None,
             place: None,
             link: None,
+            models: None,
         };
         p.load(show_hidden);
         if let Some(name) = file {
@@ -286,6 +290,7 @@ impl Panel {
             geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
             models: list.iter().filter(|e| !e.is_dir && coxswain_core::scad::is_model(&e.path)).count(),
             images: list.iter().filter(|e| !e.is_dir && coxswain_core::container_image::layout_index(&e.path)).count(),
+            local_models: list.iter().filter(|e| !e.is_dir && coxswain_core::local_models::is_model(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,

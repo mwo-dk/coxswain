@@ -41,7 +41,7 @@ show its diff. Use it to read a file without opening an editor.
 |---|---|
 | Source code, config, plain text | Highlighted by [highlight.js](https://highlightjs.org/): all of its 190-odd languages, and five more grammars for what it lacks (COBOL, Zig, Svelte, Terraform/HCL, Solidity). See [Languages](#languages). Colours come from the theme, so every [theme](../customise/themes.md) matches |
 | `.log` | Each line coloured by its level: `ERROR`, `FATAL`, `CRITICAL`, `PANIC` red; `WARN` yellow; `INFO`, `NOTICE` green; `DEBUG`, `TRACE`, `VERBOSE` grey |
-| Binary files | A hex dump: offset, 16 bytes in hex, and the printable characters |
+| Binary files | A hex dump: offset, 16 bytes in hex, and the printable characters. A local model (`.gguf`, `.safetensors`, `.pt` …) shows its facts instead ([Your local models](../files/local-models.md#the-facts)) |
 | Encodings | UTF-8 (with or without a byte order mark), UTF-16 with its byte order mark, and anything else read as Windows-1252 (Latin-1 with Windows's curly quotes, dashes and €), so a file from an old Windows machine keeps its accented letters |
 | `.md`, `.markdown` | Rendered by [marked](https://marked.js.org/); ```` ```mermaid ```` blocks drawn as diagrams by [Mermaid](https://mermaid.js.org/); `$…$`, `$$…$$`, `\(…\)` and `\[…\]` typeset by [KaTeX](https://katex.org/) |
 
@@ -115,7 +115,7 @@ or conflicted, not for untracked or ignored ones. A file whose changes cancel ou
 - Files under 200 KB are highlighted; larger ones stay plain, so scrolling stays smooth.
 
 ![The desktop app in the Cyber theme previewing a COBOL program: keywords, the DISPLAY strings and the level numbers each in their own colour](../screenshots/gui-preview-cobol.png)
-- A hex dump in place of text for binary files: its first 64 KB (*Showing the first 64 KB*).
+- A hex dump in place of text for binary files: its first 64 KB (*Showing the first 64 KB*). A local model's file shows its facts, not hex ([Your local models](../files/local-models.md)).
 
 ## Settings and config.toml
 

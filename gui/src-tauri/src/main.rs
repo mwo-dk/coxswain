@@ -396,6 +396,9 @@ struct Listing {
     package: Option<String>,
     /// Files in it may belong to an installed package (`bsd::packages_here`).
     packages: bool,
+    /// In a model store's folder: the model each entry is (`local_models::names`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    models: Option<std::collections::HashMap<String, String>>,
 }
 
 /// A history being looked into: the file or folder it is of, and the commit looked into.
@@ -444,7 +447,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
     let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
     let image = archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title);
-    Ok(Listing { image, has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
+    Ok(Listing { image, has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
 }
 
 /// What a folder holds, for its preview: only the counts, not the panel's listing.
@@ -1920,8 +1923,8 @@ pub struct SpaceTree {
     lists: Option<(u32, Arc<Vec<coxswain_core::space::TypeRow>>, Arc<Largest>)>,
 }
 
-/// The largest files: id, size, path.
-type Largest = Vec<(u32, u64, PathBuf)>;
+/// The largest files: id, bytes, path, and the model a store's blob is (`space::Tree::label`).
+type Largest = Vec<(u32, u64, PathBuf, Option<String>)>;
 
 /// Walk `dir` for Space, keeping every file's size; one walk at a time, `space_progress`
 /// meanwhile. The tree stays here for `space_view` until `space_close`. What it holds in all,
@@ -2018,7 +2021,7 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
             Some((z, ty, l)) if *z == zoom => (ty.clone(), l.clone()),
             _ => {
                 let ty = Arc::new(t.types(zoom));
-                let l: Arc<Largest> = Arc::new(t.largest(zoom, 100).into_iter().map(|i| (i, t.node(i).size, t.path(i))).collect());
+                let l: Arc<Largest> = Arc::new(t.largest(zoom, 100).into_iter().map(|i| (i, t.node(i).size, t.path(i), Some(t.label(i)).filter(|l| *l != t.node(i).label()).map(|l| l.into_owned()))).collect());
                 *lists = Some((zoom, ty.clone(), l.clone()));
                 (ty, l)
             }
@@ -2041,7 +2044,7 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
                 };
                 SpaceTile {
                     ty: if tile.kind == Kind::File { row.get(t.ext(tile.id).as_str()).copied().unwrap_or(-1) } else { -1 },
-                    name: labelled.then(|| n.label().into_owned()),
+                    name: labelled.then(|| t.label(tile.id).into_owned()),
                     size: n.size,
                     tile,
                 }
@@ -2050,7 +2053,7 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
         let mut crumbs: Vec<(u32, String)> = vec![];
         let mut at = zoom;
         loop {
-            let name = if at == ROOT { t.root.display().to_string() } else { t.node(at).label().into_owned() };
+            let name = if at == ROOT { t.root.display().to_string() } else { t.label(at).into_owned() };
             crumbs.push((at, name));
             if at == ROOT {
                 break;
@@ -2460,7 +2463,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, image: None, history: None, snapshot: None, package: None, packages: false };
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, image: None, history: None, snapshot: None, package: None, packages: false, models: None };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

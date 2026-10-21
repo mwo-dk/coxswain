@@ -437,7 +437,7 @@
           {:else if info.tile.kind === "mount"}
             <b>{t("space.other_disk", { name: shown(info.path) })}</b><span>{t("space.other_disk_tip")}</span>
           {:else}
-            <b>{basename(info.path)}</b>
+            <b>{info.tile.name && info.tile.name !== basename(info.path) ? info.tile.name : basename(info.path)}</b>
             <span>{size(info.tile.size)}{info.tile.kind === "file" ? ` · ${kindOf(info.tile)}` : ""}</span>
             {#if info.tile.kind === "folder"}<span>{t("space.folder_tip")}</span>{/if}
           {/if}
@@ -465,11 +465,11 @@
             </li>
           {/each}
         {:else}
-          {#each view?.largest ?? [] as [id, bytes, path], i (id)}
+          {#each view?.largest ?? [] as [id, bytes, path, model], i (id)}
             <li>
               <button class="big" class:cur={d.list && i === row} title={`${path}\n${t("space.largest_tip")}`} onmouseenter={() => (cursor = view.tiles.findIndex((x) => x.id === id))} onclick={() => go(path)}>
                 <span class="num">{size(bytes)}</span>
-                <span class="path"><bdi>{relative(path)}</bdi></span>
+                <span class="path"><bdi>{model ?? relative(path)}</bdi></span>
               </button>
             </li>
           {/each}
@@ -485,7 +485,8 @@
       {:else if info?.tile.kind === "mount"}
         {t("space.other_disk", { name: shown(info.path) })} · {t("space.other_disk_tip")}
       {:else if info}
-        <bdi>{shown(info.path)}</bdi> · {size(info.tile.size)}{info.tile.kind === "file" ? ` · ${kindOf(info.tile)}` : ""}
+        <!-- A model store's blob: the model it is first (space::Tree::label). -->
+        {#if info.tile.name && info.tile.name !== basename(info.path)}{info.tile.name} · {/if}<bdi>{shown(info.path)}</bdi> · {size(info.tile.size)}{info.tile.kind === "file" ? ` · ${kindOf(info.tile)}` : ""}
       {/if}
       {#if summary?.online}<span class="online"> · {t("space.online", { count: num(summary.online) })}</span>{/if}
     </span>

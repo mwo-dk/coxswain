@@ -114,6 +114,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | Code, config, plain text | Highlighted in the theme's colours | [Text and code](text-and-code.md#formats) |
 | `.log` | Lines coloured by level | [Text and code](text-and-code.md#formats) |
 | Binary files | Hex dump | [Text and code](text-and-code.md#formats) |
+| .gguf .safetensors, Ollama's and Hugging Face's blobs; .pt .pth .ckpt | The model's facts, the memory it needs and whether it fits; a pickle named, never opened | [Your local models](../files/local-models.md#the-facts) |
 | `.md` `.markdown` | Rendered, with Mermaid and math | [Text and code](text-and-code.md#markdown) |
 | `.html` `.htm` `.xhtml` | The page, sandboxed | [HTML](html.md) |
 | `.pdf` | Pages, zoom, fitted to the width; a scan offered to be made searchable | [Documents](documents.md#formats), [Make PDF searchable](../files/searchable-pdf.md) |
