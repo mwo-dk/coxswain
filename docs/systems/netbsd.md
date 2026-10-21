@@ -105,7 +105,7 @@ from pkgsrc with `pkgin install`:
 
 | Package | For |
 |---|---|
-| `webkit-gtk41` | The desktop app's window content: WebKitGTK with the 4.1 API; brings `gtk3+` and `libsoup3`. Desktop app, required |
+| `webkit-gtk41` | The desktop app's window content: WebKitGTK with the 4.1 API; brings `gtk3+` and `libsoup3`. Desktop app, required; it needs the base system's X sets (`xbase`, which a system installed with X has) |
 | `gst-plugins1-good` | Video and sound in the desktop app's preview pane; without it a notice says what to install |
 | `nerd-fonts-Symbols` (in your terminal's font list for the terminal app) | The file icons and git glyphs; or `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
 | `noto-ttf` | Japanese, Chinese and Korean letters in the desktop app |
