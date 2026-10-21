@@ -242,7 +242,7 @@
         else {
           const up = ch.toUpperCase();
           const sente = ch === up;
-          r.push(SG[up] ? { k: plus ? (SGP[up] ?? SG[up]) : up === "K" && !sente ? "王" : SG[up], promoted: plus, sente } : null);
+          r.push(SG[up] ? { k: plus ? (SGP[up] ?? SG[up]) : up === "K" && !sente ? "王" : SG[up], file: (plus && up !== "G" && up !== "K" ? "p" : "") + up, promoted: plus, sente } : null);
           plus = false;
         }
       }
@@ -432,18 +432,15 @@
   {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
 {/snippet}
 
-<!-- A shogi piece: a five-sided tile with its kanji, Gote's turned round; a promoted piece in
-     red; the last move's squares tinted. -->
+<!-- A shogi piece: a five-sided tile with its kanji (drawn for Coxswain, vendor/game-pieces),
+     Gote's turned round; a promoted piece in red; the last move's squares tinted. -->
 {#snippet sgPiece(p, i)}
   {@const c = flip ? 80 - i : i}
   {@const x = i % 9}
   {@const y = Math.floor(i / 9)}
   {#if last && (last.from === c || last.to === c)}<rect x={x + 0.03} y={y + 0.03} width="0.94" height="0.94" fill="rgb(246 224 90 / 0.5)" />{/if}
   {#if p}
-    <g transform={p.up ? "" : `rotate(180 ${x + 0.5} ${y + 0.5})`}>
-      <path d={`M${x + 0.5} ${y + 0.08} L${x + 0.82} ${y + 0.24} L${x + 0.88} ${y + 0.92} L${x + 0.12} ${y + 0.92} L${x + 0.18} ${y + 0.24} Z`} fill="#f1dfb4" stroke="#6b5530" stroke-width="0.025" />
-      <text x={x + 0.5} y={y + 0.74} class="sgp" text-anchor="middle" fill={p.promoted ? "#b3141d" : "#1a1a1a"}>{p.k}</text>
-    </g>
+    <image href={`vendor/game-pieces/shogi-${p.file}.svg`} x={x} y={y} width="1" height="1" transform={p.up ? "" : `rotate(180 ${x + 0.5} ${y + 0.5})`}><title>{p.k}</title></image>
   {/if}
 {/snippet}
 
@@ -788,11 +785,6 @@
   }
   .board:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-bg);
-  }
-  .sgp {
-    font-size: 0.5px;
-    font-family: "Noto Serif CJK JP", "Noto Sans CJK JP", "Source Han Serif", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", serif;
-    font-weight: bold;
   }
   .board.sg {
     aspect-ratio: 1;

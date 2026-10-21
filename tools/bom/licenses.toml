@@ -43,6 +43,13 @@ source = "https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces"
 file = "gui/public/vendor/chess-pieces/LICENSE"
 
 [[bundled]]
+name = "Noto Sans CJK (kanji outlines on the shogi tiles)"
+what = "gui/public/vendor/game-pieces/shogi-*.svg: the kanji are glyph outlines from Noto Sans CJK on tiles drawn for Coxswain's author's games project; no font file is included."
+license = "OFL-1.1"
+source = "https://github.com/notofonts/noto-cjk"
+file = "tools/bom/licenses/OFL-1.1.txt"
+
+[[bundled]]
 name = "lichess chess-openings"
 what = "crates/coxswain-core/src/chess/openings.tsv: the ECO codes, names and moves of lichess-org/chess-openings, the move numbers taken out."
 license = "CC0-1.0"

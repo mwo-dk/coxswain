@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: knight.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#241c14">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M189 840V647H58V577H182C150 440 87 281 23 197C36 179 54 146 62 124C109 191 155 300 189 413V-79H258V442C285 393 316 334 329 303L375 357C358 385 284 500 258 535V577H379V647H258V840ZM620 835V703H413V635H620V488H378V418H950V488H696V635H902V703H696V835ZM620 380V264H397V194H620V30H330V-41H960V30H696V194H916V264H696V380Z"/>
+  </g>
+</svg>

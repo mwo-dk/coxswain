@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: rook.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#241c14">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M866 814C847 781 810 731 783 700L829 673C858 700 896 741 930 780ZM871 364C850 332 811 281 782 251L828 224C859 251 898 292 935 331ZM303 684C241 630 131 583 34 554C48 540 70 510 79 495C116 509 155 526 194 545V413H48V345H193C188 218 159 80 33 -31C51 -42 78 -65 90 -81C229 43 259 200 264 345H430V-70H502V345H657C669 124 704 -61 877 -80C931 -90 957 -53 968 49C954 57 935 75 921 91C916 25 907 -14 893 -12C806 -5 763 77 743 192C803 161 868 120 904 89L948 138C905 172 822 219 756 249L737 230C729 286 726 349 725 413H502V688H430V413H265V584C304 607 339 632 367 658ZM107 789V721H650C670 549 717 403 872 385C921 377 947 408 959 490C944 499 926 515 912 530C908 478 900 450 887 452C799 458 754 539 731 645C790 615 859 572 893 540L938 589C898 622 817 668 755 697L726 669C720 707 715 748 713 789Z"/>
+  </g>
+</svg>
