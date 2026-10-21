@@ -1373,7 +1373,7 @@ async fn find_read_too(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<UiConfig
 #[derive(Clone, Serialize)]
 #[serde(tag = "k", rename_all = "snake_case")]
 enum AskEvent {
-    Sources { paths: Vec<PathBuf>, read: String },
+    Sources { paths: Vec<PathBuf>, similar: Vec<usize>, read: String },
     Piece { text: String },
 }
 
@@ -1388,8 +1388,8 @@ async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<Pat
     tauri::async_runtime::spawn_blocking(move || {
         // The chat model loads while the sources are looked up.
         coxswain_core::meaning::warm(&cfg);
-        let sources = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here)?;
-        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect(), read: coxswain_core::ask::read(&sources) });
+        let (sources, similar) = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here)?;
+        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect(), similar, read: coxswain_core::ask::read(&sources) });
         // Stopped while searching: the model is not asked (a request it would work on alone).
         if asking.load(Ordering::SeqCst) != me {
             return Ok(());

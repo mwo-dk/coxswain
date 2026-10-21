@@ -153,7 +153,7 @@
     const events = new Channel();
     events.onmessage = (e) => {
       if (ui.modal !== m) return void invoke("ask_stop");
-      if (e.k === "sources") Object.assign(turn, { sources: e.paths, read: e.read });
+      if (e.k === "sources") Object.assign(turn, { sources: e.paths, similar: e.similar ?? [], read: e.read });
       else turn.a += e.text;
       // Follows the answer down, unless you scrolled up to read something.
       const end = !listEl || listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
@@ -677,7 +677,7 @@
                 {#if c.read}<p class="meta">{c.read}</p>{/if}
                 <ol class="sources">
                   {#each c.sources as src, i (i)}
-                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span></button></li>
+                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span>{#if c.similar?.[i]} <span class="where">{tn("ask.similar_files", c.similar[i])}</span>{/if}</button></li>
                   {/each}
                 </ol>
               {/if}

@@ -261,6 +261,11 @@
  "ask.poor_smaller": "{model} šeit atbild ātrāk (apmēram {seconds} s); modeļu serveris uz grafikas kartes – vēl ātrāk.",
  "ask.read": "{excerpts} no: {files}, {words}",
  "ask.read_code": "Jautājums par kodu: {read}",
+ "ask.similar_files": {
+  "one": "un {n} līdzīgs fails",
+  "other": "un {n} līdzīgi faili",
+  "zero": "un {n} līdzīgi faili"
+ },
  "ask.tip_metal": "{model} serverī {server} arī darbojas ar Metal un ir lielāks par {builtin}: labākas atbildes.",
  "ask.tip_metal_quicker": "{model} serverī {server} arī darbojas ar Metal, lielāks un ātrāks par {builtin}.",
  "ask.words": {

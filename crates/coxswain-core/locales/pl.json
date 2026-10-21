@@ -267,6 +267,12 @@
  "ask.poor_smaller": "{model} odpowiada tu szybciej (około {seconds} s); serwer modeli na karcie graficznej jeszcze szybciej.",
  "ask.read": "{excerpts} z: {files}, {words}",
  "ask.read_code": "Pytanie o kod: {read}",
+ "ask.similar_files": {
+  "few": "i {n} podobne pliki",
+  "many": "i {n} podobnych plików",
+  "one": "i {n} podobny plik",
+  "other": "i {n} podobnego pliku"
+ },
  "ask.tip_metal": "{model} na {server} też działa na Metal i jest większy niż {builtin}: lepsze odpowiedzi.",
  "ask.tip_metal_quicker": "{model} na {server} też działa na Metal, większy i szybszy niż {builtin}.",
  "ask.words": {

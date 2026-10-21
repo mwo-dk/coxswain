@@ -261,6 +261,11 @@
  "ask.poor_smaller": "{model} respon abans aquí (uns {seconds} s); un servidor de models amb targeta gràfica, encara abans.",
  "ask.read": "{excerpts} de {files}, {words}",
  "ask.read_code": "Pregunta sobre codi: {read}",
+ "ask.similar_files": {
+  "many": "i {n} de fitxers semblants",
+  "one": "i {n} fitxer semblant",
+  "other": "i {n} fitxers semblants"
+ },
  "ask.tip_metal": "{model} a {server} també funciona amb Metal i és més gran que {builtin}: millors respostes.",
  "ask.tip_metal_quicker": "{model} a {server} també funciona amb Metal, més gran i més ràpid que {builtin}.",
  "ask.words": {

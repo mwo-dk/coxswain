@@ -915,7 +915,11 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_
         for (n, src) in turn.sources.iter().enumerate() {
             let last = i + 1 == chat.len();
             let style = if last && n == cursor { sty(&t.dialog_input) } else { dim };
-            lines.push(Line::from(Span::styled(format!("  [{}] {}", n + 1, src.display()), style)));
+            let similar = match turn.similar.get(n) {
+                Some(&k) if k > 0 => format!("  {}", coxswain_core::tn!("ask.similar_files", k)),
+                _ => String::new(),
+            };
+            lines.push(Line::from(Span::styled(format!("  [{}] {}{similar}", n + 1, src.display()), style)));
         }
         lines.push(Line::from(""));
     }

@@ -1279,7 +1279,7 @@ impl Store {
     // ponytail: the sieve keeps the 1000 closest passages of every folder before the scope
     // is applied; a narrow scope can come up short. Sieve per scope if users notice.
     pub fn similar(&self, query: &str, scope: Option<&Path>, max: usize) -> Vec<Hit> {
-        self.closest(query, max, true, |p| scope.is_none_or(|s| p.starts_with(s)))
+        self.closest(query, max, true, None, |p| scope.is_none_or(|s| p.starts_with(s)))
             .into_iter()
             .map(|(path, s, n, all)| {
                 let words: Vec<&str> = all[n].text.split_whitespace().collect();
@@ -1310,9 +1310,12 @@ impl Store {
         question: &str,
         scope: Option<&Path>,
         bytes: usize,
-    ) -> Vec<(PathBuf, String)> {
+    ) -> Vec<(PathBuf, String, usize)> {
         let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
-        let hits = self.closest(question, ASK_HITS, false, |path| {
+        // Passages near the same as one already taken, of other files (copies, versions of one
+        // document), fold into it: the copies take no room, and the file says how many it has.
+        let mut folded: HashMap<PathBuf, HashSet<PathBuf>> = HashMap::new();
+        let hits = self.closest(question, ASK_HITS, false, Some(&mut folded), |path| {
             if scope.is_some_and(|s| !path.starts_with(s)) || crate::ask::string_table(path) {
                 return false;
             }
@@ -1379,8 +1382,17 @@ impl Store {
                 }
             }
             if !excerpts.is_empty() {
-                out.push((path, excerpts.join(crate::ask::GAP)));
+                out.push((path, excerpts.join(crate::ask::GAP), 0));
             }
+        }
+        // The similar files a source stands for, but those that are sources of their own.
+        let own: HashSet<PathBuf> = out.iter().map(|(p, ..)| p.clone()).collect();
+        for (path, _, similar) in &mut out {
+            *similar = folded.get(path).map_or(0, |f| {
+                f.iter()
+                    .filter(|p| !own.contains(*p) && scope.is_none_or(|s| p.starts_with(s)))
+                    .count()
+            });
         }
         out
     }
@@ -1394,6 +1406,7 @@ impl Store {
         query: &str,
         want: usize,
         by_file: bool,
+        mut folded: Option<&mut HashMap<PathBuf, HashSet<PathBuf>>>,
         mut accept: impl FnMut(&Path) -> bool,
     ) -> Vec<(
         PathBuf,
@@ -1423,14 +1436,17 @@ impl Store {
         else {
             return vec![];
         };
-        let mut ranked: Vec<(i64, f32, u8)> = close
+        // With the vectors themselves when near copies are folded.
+        let mut ranked: Vec<(i64, f32, u8, Vec<u8>)> = close
             .into_iter()
             .filter_map(|(file, n)| {
                 vec.query_row(params![file, n as i64], |r| {
-                    Ok(score(r.get_ref(0)?.as_blob()?, &q))
+                    let blob = r.get_ref(0)?.as_blob()?;
+                    let kept = if folded.is_some() { blob.to_vec() } else { vec![] };
+                    Ok((score(blob, &q), kept))
                 })
                 .ok()
-                .map(|s| (file, s, n))
+                .map(|(s, v)| (file, s, n, v))
             })
             .collect();
         drop(vec);
@@ -1442,6 +1458,8 @@ impl Store {
         if by_file {
             ranked = by_files(ranked);
         }
+        // The vectors of the passages given, with their file and where in `out` they are.
+        let mut given: Vec<(i64, usize, Vec<u8>)> = vec![];
         let offline: Vec<(String, String)> = self
             .offline
             .lock()
@@ -1452,8 +1470,8 @@ impl Store {
         // A file's path as shown, and as kept (its kind says how it is cut into passages).
         let mut paths: HashMap<i64, Option<(PathBuf, String)>> = HashMap::new();
         let mut texts: HashMap<i64, std::rc::Rc<Vec<crate::meaning::Passage>>> = HashMap::new();
-        let mut out = vec![];
-        for (file, s, n) in ranked {
+        let mut out: Vec<(PathBuf, f32, usize, std::rc::Rc<Vec<crate::meaning::Passage>>)> = vec![];
+        for (file, s, n, v) in ranked {
             if out.len() >= want {
                 break;
             }
@@ -1464,6 +1482,16 @@ impl Store {
                 (!offline.iter().any(|(from, to)| path > *from && path < *to))
                     .then(|| (shown(path.clone()), path))
             });
+            // Pairwise only with the passages given so far, `want` at most.
+            if let (Some(folded), Some((shown, _))) = (folded.as_deref_mut(), path.as_ref())
+                && let Some((_, at, _)) = given
+                    .iter()
+                    .find(|(of, _, g)| *of != file && crate::meaning::packed_cosine(g, &v) > NEAR_COPY)
+            {
+                let into: &PathBuf = &out[*at].0;
+                folded.entry(into.clone()).or_default().insert(shown.clone());
+                continue;
+            }
             let Some((path, kept)) = path.clone().filter(|(p, _)| accept(p)) else {
                 continue;
             };
@@ -1479,6 +1507,9 @@ impl Store {
                 )
             });
             if (n as usize) < passages.len() {
+                if folded.is_some() {
+                    given.push((file, out.len(), v));
+                }
                 out.push((path, s, n as usize, passages.clone()));
             }
         }
@@ -1999,6 +2030,11 @@ fn walk(
     Some(found)
 }
 
+/// Two passages whose vectors are this alike (cosine) or more are near copies: Ask gives one.
+/// Measured: a copy, the same text with another date or number, or saved again as another
+/// format, scores 0.98 and up; two passages of one document on the same subject 0.80 to 0.95.
+const NEAR_COPY: f32 = 0.97;
+
 /// Hits Ask looks at, four of a file at most, of `ASK_FILES` files at most.
 const ASK_HITS: usize = 48;
 const ASK_FILES: usize = 16;
@@ -2006,15 +2042,15 @@ const ASK_FILES: usize = 16;
 /// Passages ranked one per file: the file's best, its score raised by 0.005 for each further
 /// passage of it that matches, four at most, so a document that keeps coming back to a
 /// question goes ahead of one that mentions it once.
-fn by_files(ranked: Vec<(i64, f32, u8)>) -> Vec<(i64, f32, u8)> {
-    let mut files: HashMap<i64, (f32, u8, usize)> = HashMap::new();
-    for (file, s, n) in ranked {
+fn by_files(ranked: Vec<(i64, f32, u8, Vec<u8>)>) -> Vec<(i64, f32, u8, Vec<u8>)> {
+    let mut files: HashMap<i64, (f32, u8, usize, Vec<u8>)> = HashMap::new();
+    for (file, s, n, v) in ranked {
         // Ranked best first: the first passage of a file is its best.
-        files.entry(file).or_insert((s, n, 0)).2 += 1;
+        files.entry(file).or_insert((s, n, 0, v)).2 += 1;
     }
-    let mut out: Vec<(i64, f32, u8)> = files
+    let mut out: Vec<(i64, f32, u8, Vec<u8>)> = files
         .into_iter()
-        .map(|(file, (s, n, count))| (file, s + 0.005 * (count - 1).min(4) as f32, n))
+        .map(|(file, (s, n, count, v))| (file, s + 0.005 * (count - 1).min(4) as f32, n, v))
         .collect();
     out.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     out
@@ -3912,7 +3948,7 @@ mod tests {
         assert!(
             passages
                 .first()
-                .is_some_and(|(p, text)| p.ends_with("budget.txt")
+                .is_some_and(|(p, text, _)| p.ends_with("budget.txt")
                     || p.ends_with("budget-da.txt") && text.contains("syv")),
             "{passages:?}"
         );
@@ -4046,7 +4082,7 @@ mod tests {
             !found.is_empty()
                 && found
                     .iter()
-                    .map(|(p, t)| p.as_os_str().len() + 8 + t.len())
+                    .map(|(p, t, _)| p.as_os_str().len() + 8 + t.len())
                     .sum::<usize>()
                     <= 6000,
             "{found:?}"
@@ -4095,6 +4131,7 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         let found = store.passages("zebra quartz", None, 10_000);
         assert_eq!(found.len(), 1, "the copy's text is given once: {found:?}");
+        assert_eq!(found[0].2, 1, "and stands for the copy");
         let t = &found[0].1;
         let (before, hit, after) = (
             t.find("kiln").unwrap(),
@@ -4110,6 +4147,46 @@ mod tests {
             tight[0].1.contains("zebra") && !tight[0].1.contains("kiln"),
             "{tight:?}"
         );
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Fifty near copies of one text (a number apart, which the fake model does not see) and
+    /// one other source: the copies fold into one source that says it stands for 49 more, and
+    /// the other source gets a slot. Without folding the copies took all sixteen.
+    #[test]
+    fn ask_folds_near_copies_so_another_source_gets_a_slot() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-copies-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        for i in 0..50 {
+            std::fs::write(
+                d.join("home").join(format!("copy-{i}.txt")),
+                format!("zebra quartz {i} ").repeat(30),
+            )
+            .unwrap();
+        }
+        std::fs::write(d.join("home/real.txt"), "zebra quartz milk ".repeat(30)).unwrap();
+        let cfg = SearchConfig {
+            text_roots: vec![d.join("home")],
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.hurry.store(true, Ordering::Relaxed);
+        scan(&store, &cfg, &go).unwrap();
+        let found = store.passages("zebra quartz", None, 20_000);
+        let names: Vec<String> = found
+            .iter()
+            .map(|(p, _, n)| format!("{} {n}", p.file_name().unwrap().to_string_lossy()))
+            .collect();
+        assert_eq!(found.len(), 2, "{names:?}");
+        assert!(names[0].starts_with("copy-") && names[0].ends_with(" 49"), "{names:?}");
+        assert_eq!(names[1], "real.txt 0");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

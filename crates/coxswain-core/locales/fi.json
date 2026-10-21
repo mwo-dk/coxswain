@@ -255,6 +255,10 @@
  "ask.poor_smaller": "{model} vastaa täällä nopeammin (noin {seconds} s); mallipalvelin näytönohjaimella vielä nopeammin.",
  "ask.read": "{excerpts}, lähteenä {files}, {words}",
  "ask.read_code": "Kysymys koodista: {read}",
+ "ask.similar_files": {
+  "one": "ja {n} samanlainen tiedosto",
+  "other": "ja {n} samanlaista tiedostoa"
+ },
  "ask.tip_metal": "{model} palvelimella {server} toimii myös Metalilla ja on suurempi kuin {builtin}: paremmat vastaukset.",
  "ask.tip_metal_quicker": "{model} palvelimella {server} toimii myös Metalilla, suurempi ja nopeampi kuin {builtin}.",
  "ask.words": {
