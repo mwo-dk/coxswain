@@ -1755,7 +1755,7 @@
  "feature.space.a1": "Ce sont des fichiers trop petits pour être montrés un par un à cette taille, regroupés en un bloc par dossier. Zoomez sur le dossier (+ ou Enter sur le bloc, clic droit dans l'application de bureau) et ils obtiennent chacun leur rectangle.",
  "feature.space.a2": "Non. Il lit seulement ce que la liste de chaque dossier indique, donc rien n'est téléchargé, et un tel fichier compte 0 octet, l'espace qu'il prend sur ce disque. La ligne sous la carte dit combien il y en a.",
  "feature.space.a3": "Espace disque liste ce que Coxswain garde lui-même : son index de recherche, ses modèles et ses aperçus. Espace montre n'importe quel dossier ou disque que vous indiquez, fichier par fichier.",
- "feature.space.q1": "Pourquoi certains rectangles sont-ils gris et rayés ?",
+ "feature.space.q1": "Pourquoi certains rectangles sont-ils gris ?",
  "feature.space.q2": "Espace télécharge-t-il les fichiers qui ne sont que dans le cloud ?",
  "feature.space.q3": "En quoi est-ce différent d'Espace disque dans les Réglages ?",
  "feature.space.title": "Espace : où va l'espace",

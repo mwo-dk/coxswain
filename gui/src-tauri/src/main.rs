@@ -2027,9 +2027,9 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
             }
         };
         let row: std::collections::HashMap<&str, i32> = types.iter().enumerate().map(|(i, r)| (r.ext.as_str(), i as i32)).collect();
-        // Rectangles under about 20 square pixels go into their folder's block of small files,
+        // Rectangles under about 10 × 10 pixels go into their folder's block of small files,
         // which also bounds what a flat folder of a million files sends.
-        let opts = Opts { pad: 2.0, head: 16.0, min_area: 20.0 };
+        let opts = Opts { pad: 2.0, head: 18.0, min_area: 100.0 };
         let tiles = t
             .layout(zoom, Rect { x: 0.0, y: 0.0, w, h }, &opts)
             .into_iter()
@@ -2037,7 +2037,8 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
                 let n = t.node(tile.id);
                 let r = tile.rect;
                 let labelled = match tile.kind {
-                    Kind::File => r.w >= 48.0 && r.h >= 18.0,
+                    // The window shows it only where it fits whole (or nearly).
+                    Kind::File => r.w >= 40.0 && r.h >= 16.0,
                     Kind::Folder => r.w >= opts.head * 4.0 && r.h >= opts.head * 3.0,
                     Kind::Mount => r.w >= 48.0 && r.h >= 16.0,
                     Kind::Small => false,

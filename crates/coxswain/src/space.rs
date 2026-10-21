@@ -301,7 +301,7 @@ impl Viewer {
         }
         // In half-cells, which are near square: a cell is about twice as tall as wide.
         let area = SRect { x: 0.0, y: 0.0, w: w as f32, h: h as f32 * 2.0 };
-        let tiles = t.layout(self.zoom, area, &Opts { pad: 0.0, head: 2.0, min_area: 2.0 });
+        let tiles = t.layout(self.zoom, area, &Opts { pad: 0.0, head: 2.0, min_area: 4.0 });
         // The lists hang on the zoom alone: a resize keeps them.
         let (types, largest) = match self.laid.take() {
             Some(l) if l.zoom == self.zoom => (l.types, l.largest),
@@ -404,78 +404,79 @@ impl Viewer {
         f.render_widget(Paragraph::new(fit(&format!(" {keys}"), w)).style(dim), foot);
     }
 
-    /// The treemap, two pixels a cell (▀: the upper in the foreground, the lower behind).
+    /// The treemap, a flat colour per rectangle: whole cells, so no half-block banding. Each
+    /// file's last column is a darker edge and its last row ends in a darker line (▁), so
+    /// neighbours of one colour stay apart; folders carry a lighter title row.
     fn paint(&self, buf: &mut Buffer, map: Rect, bg: Color) {
-        let (w, h) = (map.width as usize, map.height as usize * 2);
-        let folder = blend(rgb(bg), (255, 255, 255), 0.22);
-        let mut px = vec![rgb(bg); w * h];
+        let (w, h) = (map.width as usize, map.height as usize);
+        let folder = blend(rgb(bg), (255, 255, 255), 0.34);
+        // Each cell: its colour, and a line along its bottom (a darker colour) or none.
+        let mut cells: Vec<(Rgb, Option<Rgb>)> = vec![(rgb(bg), None); w * h];
         let tiles = self.tiles();
         let cursor = self.tile().copied();
         let t = self.tree.as_ref().unwrap();
-        let ext_of = |id| t.ext(id);
+        // The layout is in half-cells (rows count twice): back to whole cells.
+        let cell = |r: &SRect| {
+            let (x0, y0) = ((r.x.round().max(0.0) as usize).min(w), ((r.y / 2.0).round().max(0.0) as usize).min(h));
+            let (x1, y1) = (((r.x + r.w).round() as usize).min(w), (((r.y + r.h) / 2.0).round() as usize).min(h));
+            (x0, y0, x1, y1)
+        };
         for tile in tiles {
-            let r = tile.rect;
-            let (x0, y0) = ((r.x + 0.5).floor().max(0.0) as usize, (r.y + 0.5).floor().max(0.0) as usize);
-            let (x1, y1) = (((r.x + r.w + 0.5).floor() as usize).min(w), ((r.y + r.h + 0.5).floor() as usize).min(h));
+            let (x0, y0, x1, y1) = cell(&tile.rect);
             let lit = cursor.is_some_and(|c| c.id == tile.id && c.kind == tile.kind);
-            let off = self.highlight.as_ref().is_some_and(|e| tile.kind != Kind::File || *e != ext_of(tile.id));
-            let colour = rgb_hex(tile.family.colour());
+            let off = self.highlight.as_ref().is_some_and(|e| tile.kind != Kind::File || *e != t.ext(tile.id));
+            let mut colour = match tile.kind {
+                Kind::Folder => folder,
+                Kind::Small => (70, 78, 88),
+                // Another disk: blue-grey, not to scale.
+                Kind::Mount => (74, 92, 138),
+                Kind::File => rgb_hex(tile.family.colour()),
+            };
+            if off {
+                colour = blend(colour, (0, 0, 0), 0.7);
+            }
+            if lit {
+                colour = blend(colour, (255, 255, 255), 0.5);
+            }
+            let edge = shade(colour, 0.62);
+            let framed = tile.kind != Kind::Folder;
             for y in y0..y1 {
                 for x in x0..x1 {
-                    let mut c = match tile.kind {
-                        Kind::Folder => folder,
-                        Kind::Small => if (x + y) % 2 == 0 { (78, 86, 96) } else { (58, 64, 72) },
-                        // Another disk: blue-grey stripes, not to scale.
-                        Kind::Mount => if (x + y) % 4 < 2 { (92, 112, 160) } else { (64, 80, 120) },
-                        Kind::File => {
-                            // A cushion: lighter at the top left, darker at the bottom right.
-                            let u = ((x as f32 + 0.5 - r.x) / r.w + (y as f32 + 0.5 - r.y) / r.h) / 2.0;
-                            shade(colour, 1.25 - 0.5 * u)
-                        }
-                    };
-                    if off {
-                        c = blend(c, (0, 0, 0), 0.7);
-                    }
-                    if lit {
-                        c = blend(c, (255, 255, 255), 0.55);
-                    }
-                    px[y * w + x] = c;
+                    let right = framed && x + 1 == x1 && x1 - x0 > 1;
+                    let low = framed && y + 1 == y1 && y1 - y0 > 1;
+                    cells[y * w + x] = (if right { edge } else { colour }, low.then_some(edge));
                 }
             }
         }
-        for row in 0..map.height as usize {
+        for row in 0..h {
             for col in 0..w {
-                let (top, low) = (px[2 * row * w + col], px[(2 * row + 1) * w + col]);
+                let (back, line) = cells[row * w + col];
                 if let Some(cell) = buf.cell_mut((map.x + col as u16, map.y + row as u16)) {
-                    cell.set_symbol("▀").set_style(Style::default().fg(col_of(top)).bg(col_of(low)));
+                    match line {
+                        Some(l) => cell.set_symbol("▁").set_style(Style::default().fg(col_of(l)).bg(col_of(back))),
+                        None => cell.set_symbol(" ").set_style(Style::default().bg(col_of(back))),
+                    };
                 }
             }
         }
-        // Names: on a folder's title strip, and on files wide enough to carry one.
+        // Names only where they fit: on a folder's title row, on files and blocks wide enough.
         for tile in tiles {
-            let r = tile.rect;
-            let fits = match tile.kind {
-                Kind::Folder => r.w >= 8.0 && r.h >= 6.0,
-                Kind::File => r.w >= 10.0 && r.h >= 4.0,
-                Kind::Small => false,
-                Kind::Mount => r.w >= 8.0 && r.h >= 2.0,
-            };
-            if !fits {
+            let (x0, y0, x1, y1) = cell(&tile.rect);
+            if y1 <= y0 || x1 <= x0 + 3 || (tile.kind == Kind::Folder && tile.rect.h < 6.0) {
                 continue;
             }
             let n = t.node(tile.id);
-            // The first pixel row inside it, and the cell row whose upper half that is or follows.
-            let row = ((r.y + 0.5).floor() as usize).div_ceil(2);
-            let col = (r.x + 0.5).ceil() as usize + 1;
-            if row >= map.height as usize || col >= w {
-                continue;
-            }
-            let room = ((r.x + r.w).floor() as usize).min(w).saturating_sub(col + 1);
-            let label = if tile.kind == Kind::Mount { t!("space.other_disk", "name" => n.label()) } else { format!("{} {}", t.label(tile.id), human(n.size)) };
-            let label = if tile.kind == Kind::Folder { format!("{} {}", '\u{f07b}', label) } else { label };
-            let back = px[(2 * row).min(h - 1) * w + col];
+            let room = x1.saturating_sub(x0 + 1 + (tile.kind != Kind::Folder) as usize);
+            let label = match tile.kind {
+                Kind::Mount => fitting(&t!("space.other_disk", "name" => n.label()), "", room),
+                Kind::Small => fitting(&coxswain_core::tn!("space.files", tile.files as usize, "n" => count(tile.files as usize)), "", room),
+                Kind::Folder => fitting(&format!("{} {} {}", '\u{f07b}', t.label(tile.id), human(n.size)), &format!("{} {}", '\u{f07b}', t.label(tile.id)), room),
+                Kind::File => fitting(&format!("{} {}", t.label(tile.id), human(n.size)), &t.label(tile.id), room),
+            };
+            let Some(label) = label else { continue };
+            let (back, _) = cells[y0 * w + x0 + 1];
             let fg = if luma(back) > 140.0 { Color::Black } else { Color::White };
-            buf.set_stringn(map.x + col as u16, map.y + row as u16, fit(&label, room).trim_end(), room, Style::default().fg(fg).bg(col_of(back)));
+            buf.set_stringn(map.x + x0 as u16 + 1, map.y + y0 as u16, &label, room, Style::default().fg(fg).bg(col_of(back)));
         }
     }
 
@@ -499,7 +500,7 @@ impl Viewer {
                 let r = &laid.types[k];
                 let ext = if r.ext.is_empty() { t!("space.no_ext") } else { format!(".{}", r.ext) };
                 let mark = if self.highlight.as_deref() == Some(&r.ext) { "▶" } else { " " };
-                let right = format!("{:>9} {:>3}%", human(r.bytes), (r.share * 100.0).round() as u32);
+                let right = format!("{:>9} {:>5}", human(r.bytes), percent(r.share));
                 (r.family.colour(), format!("{mark}{} {right}", fit(&ext, w.saturating_sub(right.len() + 4))))
             } else {
                 let id = laid.largest[k];
@@ -512,6 +513,34 @@ impl Viewer {
             let line = Line::from(vec![ratatui::text::Span::styled("■", style.fg(col_of(rgb_hex(swatch)))), ratatui::text::Span::styled(fit(&text, w.saturating_sub(1)), style)]);
             f.render_widget(Paragraph::new(line), at);
         }
+    }
+}
+
+/// A label in `room` columns: `full` (a name and its size) when it fits, else `name` whole, else
+/// `name` cut with at least eight letters left; none at all rather than a crumb like "Music 68…".
+fn fitting(full: &str, name: &str, room: usize) -> Option<String> {
+    use unicode_width::UnicodeWidthStr;
+    let name = if name.is_empty() { full } else { name };
+    if full.width() <= room {
+        return Some(full.into());
+    }
+    if name.width() <= room {
+        return Some(name.into());
+    }
+    let cut = fit(name, room);
+    let cut = cut.trim_end();
+    (cut.chars().count() > 8).then(|| cut.to_string())
+}
+
+/// A share in per cent for By type: one decimal under 10 %, "<0.1%" rather than 0 for a sliver.
+fn percent(share: f64) -> String {
+    let p = share * 100.0;
+    if share > 0.0 && p < 0.1 {
+        "<0.1%".into()
+    } else if p < 10.0 && p > 0.0 {
+        format!("{p:.1}%")
+    } else {
+        format!("{p:.0}%")
     }
 }
 
@@ -585,7 +614,7 @@ mod tests {
         }
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
-        assert!(screen.contains("film.mkv") && screen.contains(".jpg") && screen.contains("▀"), "{screen}");
+        assert!(screen.contains("film.mkv") && screen.contains(".jpg") && !screen.contains("▀"), "{screen}");
         // The cursor starts at the top left: the largest file.
         assert!(matches!(v.key(key(KeyCode::Enter), None), Outcome::Go(p) if p == d.join("film.mkv")));
         assert!(matches!(v.key(key(KeyCode::F(8)), Some(Action::Delete)), Outcome::Hand(Action::Delete, p) if p == d.join("film.mkv")));
@@ -614,5 +643,17 @@ mod tests {
         }
         assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
         fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn labels_fit_whole_or_not_at_all_and_slivers_show_a_share() {
+        assert_eq!(fitting("Music 687 MB", "Music", 20).as_deref(), Some("Music 687 MB"));
+        assert_eq!(fitting("Music 687 MB", "Music", 9).as_deref(), Some("Music"), "the size goes first, not cut");
+        assert_eq!(fitting("old-laptop-2019 761 MB", "old-laptop-2019", 12).as_deref(), Some("old-laptop-…"));
+        assert_eq!(fitting("06 Track six.flac 46 MB", "06 Track six.flac", 6), None, "no crumbs");
+        assert_eq!(percent(0.3), "30%");
+        assert_eq!(percent(0.006), "0.6%");
+        assert_eq!(percent(0.000_01), "<0.1%");
+        assert_eq!(percent(0.0), "0%");
     }
 }

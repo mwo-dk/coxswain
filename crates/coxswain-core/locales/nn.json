@@ -1719,7 +1719,7 @@
  "feature.space.a1": "Det er filer som er for små til å visast kvar for seg i denne storleiken, slått saman til éin blokk per mappe. Zoom inn i mappa (+ eller Enter på blokka, eit høgreklikk i skrivebordsappen), så får dei eigne rektangel.",
  "feature.space.a2": "Nei. Plassvising les berre det oppføringa til kvar mappe seier, så ingenting blir lasta ned, og ei slik fil tel 0 byte, den plassen ho tek på denne disken. Linja under kartet seier kor mange det er.",
  "feature.space.a3": "Diskbruk viser det Coxswain sjølv tek vare på: søkjedatabasen, modellane og førehandsvisingane. Plassvising viser kva mappe eller stasjon som helst du peikar på, fil for fil.",
- "feature.space.q1": "Kvifor er nokre rektangel grå og stripete?",
+ "feature.space.q1": "Kvifor er nokre rektangel grå?",
  "feature.space.q2": "Lastar Plassvising ned filer som berre ligg i skya?",
  "feature.space.q3": "Kva skil dette frå Diskbruk i Innstillingar?",
  "feature.space.title": "Plassvising: kvar plassen går",

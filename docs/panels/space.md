@@ -51,13 +51,13 @@ Features has it.
 | Part | Desktop app | Terminal app |
 |---|---|---|
 | The title | *Space: ~/…* with the size, the number of files and how long the walk took | *Space: ~/… · 34.2 GB in 120 344 files* in the frame |
-| The path line | The folder shown and those above it, each a button that zooms there; its size and files; *Zoom out* | The folder shown and its size |
-| The treemap | Every file a rectangle by its bytes, inside its folder's; folders framed, with their name and size on a title strip when they are big enough; files with room for it carry their name and size; in a model store a blob carries its model's name ([Your local models](../files/local-models.md#in-space)) | The same in coloured half-blocks: folders big enough get a title row with their name and size |
-| Colours | By the kind of file: pictures violet, videos red, music orange, archives yellow, documents blue, code green, data teal, programs pink, disk images brown, the rest grey; each rectangle lit from its top left, like a cushion | The same colours, the same light |
-| Striped grey blocks | Files too small to show one by one at this size, one block per folder | The same, as a grey checker |
-| Blue blocks, dashed frame | *Other disk: …*: a disk mounted inside the folder, not walked and not to scale | Blue-grey stripes |
-| The cursor | Lit, with a white frame; a small card by the pointer gives the name, size and type | Lit white |
-| By type | Each extension with its colour, its bytes, its share as a bar and in per cent, largest first; a click lights up its rectangles and dims the rest | The same list on the right; **Enter** on a row lights up its type (▶ marks it) |
+| The path line | The folder shown and those above it, each a button that zooms there (a zoom grows the folder from its rectangle, or shrinks the map back into it; not with reduced motion in the system's settings); its size and files; *Zoom out* | The folder shown and its size |
+| The treemap | Every file a rectangle by its bytes, inside its folder's, with a thin gap between them and slightly rounded corners; folders framed, deeper ones darker, with their name and size on a title strip when they are big enough. A file's name (bold) and size show only where they fit, centred in a big rectangle; a long name is cut with … only when eight letters or more are left; in a model store a blob carries its model's name ([Your local models](../files/local-models.md#in-space)) | The same in whole cells, each a flat colour: a file's last column and its bottom line are darker, so neighbours stay apart; folders big enough get a lighter title row with their name and size. Names show only where they fit, the size left out first |
+| Colours | By the kind of file, in the theme's own colours: in most themes pictures violet, videos red, music orange, archives yellow, documents blue, code green, data the folders' colour, programs between red and violet, disk images between orange and grey, the rest grey. Cyber has only greens, cyans and ambers, so its kinds differ in hue and lightness; kinds a theme gives the same colour are made lighter or darker until they differ. Each rectangle is a little lighter at the top | Fixed colours, the same in every theme: pictures violet, videos red, music orange, archives yellow, documents blue, code green, data teal, programs pink, disk images brown, the rest grey |
+| Grey blocks | Files too small to show one by one at this size, one block per folder: *Small files* and how many (*312 files*) where it fits | The same, with how many where it fits |
+| Blue blocks, dashed frame | *Other disk: …*: a disk mounted inside the folder, not walked and not to scale | A blue-grey block |
+| The cursor | Lit, framed in the theme's accent colour; the folders it is in light up too, each to the top, so you see where it sits; a small card by the pointer gives the name, size and type | Lit white |
+| By type | Each extension with its colour, its bytes, its share as a bar and in per cent, largest first (a share under 0.1 % shows as *<0.1 %* with a sliver of a bar, not 0); a click lights up its rectangles and dims the rest | The same list on the right, *<0.1%* the same; **Enter** on a row lights up its type (▶ marks it) |
 | Largest files | The 100 largest files under the folder shown, with their size and path (a model store's blob by its model, the path in its tooltip); moving over one lights up its rectangle | The same, on the right after **Tab**; a blob by its model |
 | The line under it | The file's full path, size and type (*Videos (.mp4)*); in a model store the model's name first (*llama3.2:3b · …/sha256-925b… · 2.0 GB*); files only in the cloud, when there are some | The same |
 | The buttons | *Show* (**Enter**), *Edit* (**F4**), *Delete* (**F8**), each for the file under the cursor | The key line names them |
@@ -68,7 +68,7 @@ Features has it.
 |---|---|---|
 | **Alt+U** (`space_view`) | Space on the folder under the cursor, else the panel's | The same |
 | Arrows | The cursor to the next rectangle that way | The same |
-| **Enter** | On a file: close Space, the panel's cursor on it; on a striped block or a folder: zoom in; on another disk: Space on that disk; on a row of *By type*: light up that type | The same |
+| **Enter** | On a file: close Space, the panel's cursor on it; on a grey block or a folder: zoom in; on another disk: Space on that disk; on a row of *By type*: light up that type | The same |
 | **+** | Zoom into the folder under the cursor, one level | The same |
 | **Backspace**, **-** | Zoom out one level | The same |
 | **Tab** | From the map to the list beside it, then the other list, then back | The same |
@@ -123,11 +123,12 @@ anew with **Ctrl+R** or when it opens again.
 
 ## In the terminal app
 
-The same, full screen, drawn in coloured half-blocks: each cell is two pixels, so the map has
-twice the rows of the screen. The treemap is on the left, *By type* or *Largest files* on the
+The same, full screen, drawn in whole cells of flat colour: each file's last column and its
+bottom line (▁) are a darker shade of it, so two files of one kind side by side or one above the
+other stay apart, and each folder big enough has a lighter title row. The treemap is on the left, *By type* or *Largest files* on the
 right, the file under the cursor and the key line at the bottom.
 
-![Space in the terminal app, Classic blue: the demo home as a treemap in coloured half-blocks, freebsd-15.qcow2, the flight videos and Music with their names on their title rows; By type on the right with each extension's colour, size and share; the key line at the bottom](../screenshots/tui-space.png)
+![Space in the terminal app, Classic blue: the demo home as a treemap in flat coloured cells with darker edges, freebsd-15.qcow2, the flight videos and Music with their names on their title rows; By type on the right with each extension's colour, size and share; the key line at the bottom](../screenshots/tui-space.png)
 
 It has no mouse in Space. **F3** shows the file in the built-in viewer and **Esc** comes back;
 **F4** opens your editor in place of the screen, and Space comes back when it ends. After **F8**, Space comes back when the delete is done, without
@@ -154,10 +155,11 @@ messages, PostScript, Typst, chess and Go games and old office files documents, 
 diagram sources code, and `.iso`, `.dmg`, `.vhd`, `.vhdx`, `.vmdk`, `.qcow2`, `.vdi` and `.wim`
 disk images. Only endings Coxswain does not know are grey, *Other* in *By type*.
 
-#### Why are some rectangles grey and striped?
+#### Why are some rectangles grey?
 
-They are files too small to show one by one at this size (a few pixels, or one cell in the
-terminal app), merged into one block per folder. Zoom into the folder (a right-click, **+**, or
+They are files too small to show one by one at this size (under about ten by ten pixels, or two
+cells in the terminal app), merged into one block per folder; where it fits, the block says how
+many files it holds (*Small files*, *312 files*). Zoom into the folder (a right-click, **+**, or
 **Enter** on the block) and they get rectangles of their own. The line under the map says
 *Small files in …, too small to show one by one*.
 

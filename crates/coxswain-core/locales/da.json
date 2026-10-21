@@ -1719,7 +1719,7 @@
  "feature.space.a1": "Det er filer, der er for små til at vise én ad gangen i denne størrelse, slået sammen til én blok pr. mappe. Zoom ind på mappen (+ eller Enter på blokken, et højreklik i skrivebordsappen), så får de egne rektangler.",
  "feature.space.a2": "Nej. Den læser kun, hvad hver mappes liste siger, så intet hentes, og en sådan fil tæller 0 bytes, den plads den fylder på dette drev. Linjen under kortet siger, hvor mange der er.",
  "feature.space.a3": "Diskforbrug viser, hvad Coxswain selv gemmer: dens søgedatabase, modeller og eksempler. Plads viser enhver mappe eller ethvert drev, du peger på, fil for fil.",
- "feature.space.q1": "Hvorfor er nogle rektangler grå og stribede?",
+ "feature.space.q1": "Hvorfor er nogle rektangler grå?",
  "feature.space.q2": "Henter Plads filer, der kun er i skyen?",
  "feature.space.q3": "Hvad er forskellen på Diskforbrug i Indstillinger?",
  "feature.space.title": "Plads: hvor pladsen går hen",

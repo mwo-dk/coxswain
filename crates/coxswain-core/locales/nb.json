@@ -1719,7 +1719,7 @@
  "feature.space.a1": "Det er filer som er for små til å vises hver for seg i denne størrelsen, slått sammen til én blokk per mappe. Zoom inn i mappen (+ eller Enter på blokken, et høyreklikk i skrivebordsappen), så får de egne rektangler.",
  "feature.space.a2": "Nei. Den leser bare det hver mappes oppføring sier, så ingenting lastes ned, og en slik fil teller 0 byte, plassen den tar på denne disken. Linjen under kartet sier hvor mange det er.",
  "feature.space.a3": "Diskbruk viser hva Coxswain selv lagrer: søkedatabasen, modeller og forhåndsvisninger. Plassvisning viser hvilken som helst mappe eller stasjon du peker den mot, fil for fil.",
- "feature.space.q1": "Hvorfor er noen rektangler grå og stripete?",
+ "feature.space.q1": "Hvorfor er noen rektangler grå?",
  "feature.space.q2": "Laster Plassvisning ned filer som bare ligger i skyen?",
  "feature.space.q3": "Hvordan skiller dette seg fra Diskbruk i Innstillinger?",
  "feature.space.title": "Plassvisning: hvor plassen går",

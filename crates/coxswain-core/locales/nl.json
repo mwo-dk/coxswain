@@ -1719,7 +1719,7 @@
  "feature.space.a1": "Dat zijn bestanden die te klein zijn om op deze schaal een voor een te tonen, samengevoegd tot één blok per map. Zoom in op de map (+ of Enter op het blok, rechtsklik in de desktop-app) en ze krijgen een eigen rechthoek.",
  "feature.space.a2": "Nee. Het leest alleen wat de lijst van elke map zegt, dus er wordt niets gedownload, en zo'n bestand telt als 0 bytes, de ruimte die het op deze schijf inneemt. De regel onder de kaart zegt hoeveel het er zijn.",
  "feature.space.a3": "Schijfgebruik toont wat Coxswain zelf bewaart: de zoekopslag, modellen en voorbeelden. Ruimte toont elke map of schijf die je opgeeft, bestand voor bestand.",
- "feature.space.q1": "Waarom zijn sommige rechthoeken grijs en gestreept?",
+ "feature.space.q1": "Waarom zijn sommige rechthoeken grijs?",
  "feature.space.q2": "Downloadt Ruimte bestanden die alleen in de cloud staan?",
  "feature.space.q3": "Wat is het verschil met Schijfgebruik in Instellingen?",
  "feature.space.title": "Ruimte: waar de ruimte blijft",

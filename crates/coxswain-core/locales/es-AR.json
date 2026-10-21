@@ -1755,7 +1755,7 @@
  "feature.space.a1": "Son archivos demasiado pequeños para mostrarlos de a uno a este tamaño, unidos en un bloque por carpeta. Acercá la carpeta (+ o Enter en el bloque, clic derecho en la app de escritorio) y tendrán rectángulos propios.",
  "feature.space.a2": "No. Solo lee lo que dice el listado de cada carpeta, así que no se descarga nada, y un archivo así cuenta 0 bytes, el espacio que ocupa en este disco. La línea debajo del mapa dice cuántos hay.",
  "feature.space.a3": "Uso del disco lista lo que Coxswain mismo guarda: su almacén de búsqueda, modelos y vistas previas. Espacio muestra cualquier carpeta o unidad que le indiques, archivo por archivo.",
- "feature.space.q1": "¿Por qué algunos rectángulos son grises y rayados?",
+ "feature.space.q1": "¿Por qué algunos rectángulos son grises?",
  "feature.space.q2": "¿Espacio descarga archivos que solo están en la nube?",
  "feature.space.q3": "¿En qué se diferencia de Uso del disco en Configuración?",
  "feature.space.title": "Espacio: adónde va el espacio",
