@@ -157,7 +157,8 @@ Everything Coxswain itself says changes: menus, commands and the F-key bar, dial
 pane and its facts, the duplicate finder, Settings, status messages, errors, sizes (`KB`, or `Ko`
 in French, with the decimal comma where the language uses one) and the age chips (`5m`, `2d`).
 Numbers are written the way the language writes them (1 234,5 or 1.234,5). Names in the panels,
-archives, Space and the sidebar's clouds sort by the language's alphabet (Danish *Æ Ø Å* after
+archives, a comic's pages, Space, the clouds (in the sidebar and under **Alt+F1**) and the chess
+game table sort by the language's alphabet (Danish *Æ Ø Å* after
 *Z*, German *Ä* with *A*; [Sorting](../panels/sorting.md)). In Persian, counts,
 sizes and dates take Persian digits (۳۲٫۷ KB, ۲۰۲۶-۰۱-۰۵) in both apps; paths, keys, versions
 and `config.toml` values keep their Latin digits.

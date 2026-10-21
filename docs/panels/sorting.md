@@ -21,8 +21,8 @@ clicking a column header in the desktop app. **Alt+.** shows or hides hidden fil
 
 | Key | Sort by | First order |
 |---|---|---|
-| **Ctrl+F3** | Name | A to Z |
-| **Ctrl+F4** | Extension, then name | A to Z |
+| **Ctrl+F3** | Name | Alphabetical |
+| **Ctrl+F4** | Extension, then name | Alphabetical |
 | **Ctrl+F5** | Time modified, then name | Newest first |
 | **Ctrl+F6** | Size, then name | Largest first |
 
@@ -37,10 +37,11 @@ The rules, whatever the order:
 - `..` stays first, then folders, then files.
 - Names sort by the alphabet of the language Coxswain speaks
   ([Languages](../customise/languages.md)): in Danish and Norwegian *Æ*, *Ø* and *Å* come after
-  *Z*, in Swedish and Finnish *Å*, *Ä* and *Ö*, in German *Ä* sorts with *A*, in Spanish *ñ*
+  *Z*, in Swedish and Finnish *Å*, *Ä* and *Ö* do, in German *Ä* sorts with *A*, in Spanish *ñ*
   after *n*, in Czech *ch* after *h*. Numbers go by their value (`file2` before `file10`), case
-  does not count (`a.txt` next to `A.txt`), and names that differ only in case go by their
-  letters' code points, capitals first, so the order never changes between two looks.
+  does not count (`a.txt` next to `A.txt`). Names alike but for case go by their letters' code
+  points (for Latin letters, capitals first), so the order is always the same. Signs and
+  spaces come before digits, digits before letters: `_build` before `2024` before `app`.
 - Sorting by size puts folders in the order of their measured size
   ([Folder sizes](folder-sizes.md)), largest first. A folder not measured yet comes after the
   measured ones, and those among themselves in name order, whichever way round. As the sizes

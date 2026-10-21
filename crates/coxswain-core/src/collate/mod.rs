@@ -198,6 +198,7 @@ mod tests {
         for l in ["en-GB", "da", "ja"] {
             order(l, &["File1", "file2", "file010", "file10", "file10a"]);
             order(l, &["a", "B", "c"]);
+            order(l, &["_build", "2024", "app"]);
         }
         // Alike but for case: code points decide, so no two names are equal.
         order("da", &["Ærø 2", "ærø 2", "ærø 10"]);

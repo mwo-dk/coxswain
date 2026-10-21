@@ -20,7 +20,7 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 
 - **Listing** reads a folder once (`read_dir`, one `stat` per entry) and sorts it by the
   language's alphabet (`file2` before `file10`, case ignored): each name's collation key is made
-  once, on every core, and the sort compares keys byte by byte (200,000 names in about 90 ms).
+  once, on every core, and the sort compares keys byte by byte (200,000 names in about 90 ms, `perf_sort_200k_names`; 160 ms with the code-point order before).
 - **Folder sizes** are measured in the background by two threads, the first folders on screen
   first, and stop when you leave the folder. Sizes under your home folder come from the search
   helper's store at once. See [Folder sizes](../panels/folder-sizes.md).
@@ -111,7 +111,7 @@ files and 1,000 subfolders; an index of a million names in a thousand folders.
 | What | Before | After |
 |---|---|---|
 | List 100,000 entries (read_dir + stat) | 101 ms, +27 MB | 101 ms, +27 MB |
-| Sort 100,000 by name (natural order) | 93–111 ms | 82 ms |
+| Sort 100,000 by name (natural order, before collation) | 93–111 ms | 82 ms |
 | Sort by extension | 101–131 ms | 91 ms |
 | Sort by time / size | 25 ms / 8 ms | 20 ms / 6 ms |
 | Measure the folder's size (dir_size) | 30 ms | 30 ms |
