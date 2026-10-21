@@ -38,6 +38,17 @@ pub fn is_picture(path: &Path) -> bool {
     WEB_PICTURES.contains(&ext.as_str()) || crate::pictures::named(path)
 }
 
+/// Documents compared by the text their reader takes out of them: only these, so a picture is
+/// never read by OCR, nor anything else by an installed program, to be compared.
+const DOCUMENTS: &[&str] = &[
+    "pdf", "docx", "docm", "dotx", "odt", "ott", "xlsx", "xlsm", "xls", "xlsb", "ods", "pptx", "ppsx", "potx", "odp", "epub", "rtf", "msg",
+];
+
+fn is_document(path: &Path) -> bool {
+    let ext = path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+    DOCUMENTS.contains(&ext.as_str())
+}
+
 /// Text by its first 8 KB: no zero byte, or a UTF-16 byte order mark.
 fn looks_like_text(path: &Path) -> bool {
     let mut head = vec![0u8; 8192];
@@ -46,7 +57,7 @@ fn looks_like_text(path: &Path) -> bool {
 }
 
 /// How `a` and `b` are compared: pictures when both are; text when both look like it; by their
-/// text when either is a document with a reader; else byte by byte.
+/// text when each is text or a document (`DOCUMENTS`); else byte by byte.
 pub fn kind(a: &Path, b: &Path) -> Kind {
     if is_picture(a) && is_picture(b) {
         return Kind::Picture;
@@ -54,7 +65,7 @@ pub fn kind(a: &Path, b: &Path) -> Kind {
     let (ta, tb) = (looks_like_text(a), looks_like_text(b));
     if ta && tb {
         Kind::Text
-    } else if (ta || crate::extract::has_reader(a)) && (tb || crate::extract::has_reader(b)) {
+    } else if (ta || is_document(a)) && (tb || is_document(b)) {
         Kind::Document
     } else {
         Kind::Binary
@@ -207,6 +218,8 @@ mod tests {
         let (t1, t2, bin) = (w("a.rs", b"fn a() {}\n"), w("b.txt", b"hello\n"), w("c.bin", b"\0\x01\x02"));
         assert_eq!(kind(&t1, &t2), Kind::Text);
         assert_eq!(kind(&t1, &bin), Kind::Binary);
+        let pdf = w("c.pdf", b"%PDF-1.4\n\0\0");
+        assert_eq!(kind(&t1, &pdf), Kind::Document);
         let (p1, p2) = (d.join("x.png"), d.join("y.png"));
         image::RgbaImage::from_pixel(3, 2, image::Rgba([1, 2, 3, 255])).save(&p1).unwrap();
         let mut other = image::RgbaImage::from_pixel(3, 2, image::Rgba([1, 2, 3, 255]));

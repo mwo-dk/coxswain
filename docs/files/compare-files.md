@@ -89,9 +89,10 @@ says *That side cannot be changed here*.
 
 ## Documents, pictures and other files
 
-- **Documents** (PDF, Word, OpenDocument, spreadsheets, slides, e-books, mail…) are compared by
-  the text the [search readers](../search/documents.md) take out of them, line by line. The
-  summary line says *compared by their text*. They are never written.
+- **Documents** (PDF, Word, OpenDocument text, spreadsheets and slides, Excel, PowerPoint,
+  EPUB, RTF and Outlook `.msg`) are compared by the text the
+  [search readers](../search/documents.md) take out of them, line by line. The summary line says
+  *compared by their text*. They are never written.
 - **Pictures** (PNG, JPEG, GIF, WebP, BMP, and those the preview decodes, such as TIFF, PSD and
   JPEG XL): the summary line says *The pictures differ in 1,240 pixels* (when both are the same
   size) and gives both sizes. The desktop app shows them **side by side**, as an **overlay**
