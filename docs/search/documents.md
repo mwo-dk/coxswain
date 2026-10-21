@@ -52,7 +52,7 @@ break, so passages from a spreadsheet or a slide read as a line of words.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `search.text_max_size` | bytes | `20971520` (20 MB) | Files larger than this are not read |
+| `search.text_max_size` | bytes | `20971520` (20 MB) | Files larger than this are not read, except plain text, code, CSV and logs: they are read line by line, whatever their size, until 4 MB of text is kept |
 
 The formats themselves cannot be switched off one by one; leave a folder out instead
 ([Choosing the folders](folders.md)). At most 4 MB of text is kept from one file, and at most
@@ -110,6 +110,13 @@ Their names are, so `budget.xlsx` finds the mail that had it attached. Their con
 #### Does it read `.tex`, CSV and JSON?
 
 Yes, as plain text, like code and Markdown.
+
+#### Is a 300 MB log file read?
+
+Yes. Plain text, code, CSV and logs are read line by line, whatever their size, and reading stops
+once 4 MB of text is kept: a log of any size costs the same few megabytes of memory and is found
+by the words of its first 4 MB. Other kinds larger than *Largest file read* (`text_max_size`,
+20 MB) are found by name only.
 
 #### Why does a long PDF miss words near its end?
 
