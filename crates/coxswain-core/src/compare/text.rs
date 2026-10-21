@@ -85,6 +85,29 @@ impl Lines {
         self.hashes.len()
     }
 
+    /// The whole bytes of lines `a..b`, line breaks and all, exactly as the source has them.
+    fn raw(&self, a: usize, b: usize) -> std::io::Result<Vec<u8>> {
+        let (s, e) = (self.starts[a], self.starts[b]);
+        match &self.source {
+            Source::Text(t) => Ok(t.as_bytes()[s as usize..e as usize].to_vec()),
+            Source::File(p) => {
+                let mut f = std::fs::File::open(p)?;
+                f.seek(SeekFrom::Start(s))?;
+                let mut buf = vec![0; (e - s) as usize];
+                f.read_exact(&mut buf)?;
+                Ok(buf)
+            }
+        }
+    }
+
+    /// One line's bytes as text with nothing lost: strict UTF-8, or Windows-1252 byte for byte.
+    fn decode(&self, line: &[u8]) -> Option<String> {
+        match (&self.source, self.encoding) {
+            (Source::File(_), Encoding::Windows1252) => Some(crate::view::cp1252(line)),
+            _ => String::from_utf8(line.to_vec()).ok(),
+        }
+    }
+
     /// Lines `a..b`, without their line breaks, each at most `LONGEST` bytes.
     fn read(&self, a: usize, b: usize) -> Vec<String> {
         let b = b.min(self.len());
@@ -577,25 +600,37 @@ impl Compare {
         Some(self.firsts[view as usize][k])
     }
 
-    /// The text side `side` has now.
-    fn text(&self, side: Side) -> String {
+    /// The text side `side` has now, from the whole bytes of each line (never the cut, shown
+    /// ones); an error when a side it takes lines from cannot be read as it was, or changed on
+    /// the disk since (where its lines start is known no more).
+    fn text(&self, side: Side) -> Result<String, SaveError> {
         let mut text = String::new();
         let mut eol = self.sides[side].eol_at_end;
         for s in &self.segs {
             let from = s.taken.unwrap_or(side);
-            let lines = self.sides[from].read(s.at[from], s.at[from] + s.len[from]);
-            if !lines.is_empty() {
-                eol = if s.at[from] + s.len[from] == self.sides[from].len() { self.sides[from].eol_at_end } else { true };
+            let (a, b) = (s.at[from], s.at[from] + s.len[from]);
+            if a == b {
+                continue;
             }
-            for l in lines {
-                text.push_str(&l);
+            let l = &self.sides[from];
+            if from != side && l.stamp.is_some_and(|st| crate::edit::changed(&self.paths[from], &st)) {
+                return Err(SaveError::Io(crate::t!("compare.cannot_save")));
+            }
+            let raw = l.raw(a, b).map_err(|e| SaveError::Io(e.to_string()))?;
+            let base = l.starts[a];
+            for i in a..b {
+                let line = &raw[(l.starts[i] - base) as usize..(l.starts[i + 1] - base) as usize];
+                let line = line.strip_suffix(b"\n").unwrap_or(line);
+                let line = line.strip_suffix(b"\r").unwrap_or(line);
+                text.push_str(&l.decode(line).ok_or_else(|| SaveError::Io(crate::t!("compare.cannot_save")))?);
                 text.push('\n');
             }
+            eol = if b == l.len() { l.eol_at_end } else { true };
         }
         if !eol {
             text.pop();
         }
-        text
+        Ok(text)
     }
 
     /// The sides with changes written, each in its encoding and line endings; one changed on the
@@ -605,8 +640,11 @@ impl Compare {
             if !self.dirty[side] {
                 continue;
             }
-            let text = self.text(side);
             let l = &self.sides[side];
+            if !force && l.stamp.is_some_and(|st| crate::edit::changed(&self.paths[side], &st)) {
+                return Err(SaveError::Changed);
+            }
+            let text = self.text(side)?;
             crate::edit::save(&self.paths[side], &text, l.encoding, l.crlf, if force { None } else { l.stamp.as_ref() })?;
             self.dirty[side] = false;
         }
@@ -684,6 +722,36 @@ mod tests {
         assert!(c.take(last, 1));
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "one\r\ntwo\r\nthree\r\nfour");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn saving_keeps_long_lines_and_windows_1252_whole() {
+        let long = "x".repeat(LONGEST * 2);
+        let left = format!("{long}\nsame\n");
+        let d = super::super::tests::tempfile_dir("long");
+        let (pa, pb) = (d.join("a.txt"), d.join("b.txt"));
+        std::fs::write(&pa, &left).unwrap();
+        // Windows-1252: é is one byte, and a "\xc3\xa9" that would read as UTF-8 é stays two.
+        std::fs::write(&pb, b"caf\xe9 \xc3\xa9\nsame\n").unwrap();
+        let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
+        assert!(c.take(0, 0));
+        c.save(false).unwrap();
+        assert_eq!(std::fs::read_to_string(&pb).unwrap(), left);
+        assert!(c.undo(View::Split).is_some());
+        assert!(c.take(0, 1));
+        c.save(false).unwrap();
+        assert_eq!(std::fs::read(&pa).unwrap(), b"caf\xe9 \xc3\xa9\nsame\n");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_side_gone_or_changed_is_never_saved_from() {
+        let (mut c, d) = compare("a\nz\n", "b\nz\n", Options::default());
+        assert!(c.take(0, 0));
+        std::fs::remove_file(d.join("a.txt")).unwrap();
+        assert!(matches!(c.save(false), Err(SaveError::Io(_))));
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "b\nz\n");
         std::fs::remove_dir_all(d).unwrap();
     }
 

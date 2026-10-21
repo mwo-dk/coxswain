@@ -558,6 +558,7 @@
   "one": "{n} byte differs",
   "other": "{n} bytes differ"
  },
+ "compare.cannot_save": "Not saved: a side changed on the disk since it was read, or holds bytes that are no text. Close and compare again.",
  "compare.case": "Ignore case",
  "compare.changes": {
   "one": "{n} change",

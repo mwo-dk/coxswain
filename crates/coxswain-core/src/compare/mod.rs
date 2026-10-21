@@ -83,9 +83,16 @@ fn decode_picture(path: &Path) -> Result<image::RgbaImage, String> {
     if crate::pictures::readable(path) {
         return crate::pictures::decode(path, 0).map(|p| p.image);
     }
-    let mut r = image::ImageReader::open(path).map_err(|e| e.to_string())?.with_guessed_format().map_err(|e| e.to_string())?;
+    let open = || image::ImageReader::open(path).and_then(|r| r.with_guessed_format()).map_err(|e| e.to_string());
+    // Its size first: the RGBA copy of a picture is 4 bytes a pixel, and no more than
+    // `pictures::MAX_PIXELS` are decoded.
+    let (w, h) = open()?.into_dimensions().map_err(|e| e.to_string())?;
+    crate::pictures::check_size(w.into(), h.into())?;
+    let mut r = open()?;
     let mut limits = image::Limits::default();
     limits.max_alloc = Some(512 << 20);
+    limits.max_image_width = Some(w);
+    limits.max_image_height = Some(h);
     r.limits(limits);
     // Other people's decoders: a panic in one is an error here.
     std::panic::catch_unwind(move || r.decode().map(|i| i.to_rgba8()).map_err(|e| e.to_string())).unwrap_or_else(|_| Err("panic".into()))
@@ -209,6 +216,33 @@ mod tests {
         let p = pictures(&p1, &p2).unwrap();
         assert_eq!((p.left.width, p.right.height, p.differ), (3, 2, Some(1)));
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_picture_too_big_to_hold_is_refused_before_it_is_decoded() {
+        let d = tempfile_dir("huge");
+        // A PNG header claiming 100000 × 100000 pixels: 40 GB as RGBA.
+        let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+        png.extend(100_000u32.to_be_bytes());
+        png.extend(100_000u32.to_be_bytes());
+        png.extend([8, 6, 0, 0, 0]);
+        let crc = crc32(&png[12..]);
+        png.extend(crc.to_be_bytes());
+        let p = d.join("huge.png");
+        std::fs::write(&p, &png).unwrap();
+        assert!(pictures(&p, &p).is_err());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    fn crc32(data: &[u8]) -> u32 {
+        let mut c = !0u32;
+        for &b in data {
+            c ^= u32::from(b);
+            for _ in 0..8 {
+                c = if c & 1 != 0 { 0xedb8_8320 ^ (c >> 1) } else { c >> 1 };
+            }
+        }
+        !c
     }
 
     pub(crate) fn tempfile_dir(name: &str) -> PathBuf {
