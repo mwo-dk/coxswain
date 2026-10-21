@@ -148,6 +148,9 @@ Under the preview, some files get a short list:
 - **Videos, and sound the tags reader does not know:** *Format*, *Length*, *Size in pixels*,
   *Video* (codec and frames a second), *Sound* (each track), *Subtitles* and *Bitrate*, by
   ffprobe ([Video and sound with ffmpeg](#video-and-sound-with-ffmpeg)).
+- **Container images** (a `docker save` or `podman save` tar, an OCI layout's `index.json`):
+  *Format*, *Tags*, *Platform*, *Created*, *Layers*, *Total size*, *Entrypoint*, *Command*,
+  *Environment*, *Exposed ports*, *Labels*; see [Container images](../files/container-images.md#what-you-see).
 - **Programs and libraries:** the platform and CPU they are built for (*Linux/Unix ELF 64-bit*,
   *Windows PE*, *macOS Mach-O*, *macOS universal*; x86, x86-64, ARM, ARM64, RISC-V and more)
   and what they are (program, windowed or console program, shared library, object file).

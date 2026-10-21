@@ -223,8 +223,14 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let dir = match place {
         // A disk image (CHM, CBR) says it is read-only instead.
         Place::Archive => {
-            let ro = coxswain_core::archive::split(&p.dir).is_some_and(|(a, _)| coxswain_core::archive::read_only(&a));
-            format!("{} [{}]", p.dir.to_string_lossy(), if ro { t!("dialogs.readonly") } else { t!("archive.badge") })
+            let archive = coxswain_core::archive::split(&p.dir).map(|(a, _)| a);
+            let ro = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
+            let badge = if ro { t!("dialogs.readonly") } else { t!("archive.badge") };
+            // A container image says which: its tag.
+            match archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title) {
+                Some(tag) => format!("{} [{tag} · {badge}]", p.dir.to_string_lossy()),
+                None => format!("{} [{badge}]", p.dir.to_string_lossy()),
+            }
         }
         Place::History(at) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),

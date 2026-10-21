@@ -227,6 +227,7 @@ export async function load(t, dir = t.dir, focus) {
     t.archive = r.archive;
     t.locked = r.locked;
     t.diskImage = r.disk_image;
+    t.image = r.image;
     t.history = r.history;
     t.snapshot = r.snapshot;
     t.package = r.package;
@@ -764,13 +765,16 @@ export function refreshDisks() {
     .finally(() => (disksBusy = false));
 }
 
+/** An OCI image layout's index.json in `tb`: it opens as the image (`container_image::layout_index`). */
+export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" && !tb.archive && tb.items.some((x) => x.name === "oci-layout" && !x.is_dir);
+
 /** Enter / double-click: folders open in place, files in their default application. */
 export function openItem(tb, i = tb.cursor) {
   const e = tb.items[i];
   if (!e) return;
   // An archive opens like a folder; its files are copied out with F5. An archive inside one is
   // a file like the others.
-  if (e.is_dir || (isArchive(e.name) && !tb.archive)) return cd(tb, e.path);
+  if (e.is_dir || (isArchive(e.name) && !tb.archive) || ociIndex(tb, e)) return cd(tb, e.path);
   if (tb.archive) return void (ui.status = t(tb.diskImage ? "disk_image.copy_out_hint" : "archive.copy_out_hint", { archive: basename(tb.archive) }));
   // A disk image opens like a folder while that option is on (and a .vhd only when it is one).
   if (ui.cfg.settings.disk_images && diskName(e.name)) {
@@ -803,7 +807,7 @@ export function subject(tb = tab()) {
   return {
     files: files.length,
     folders: list.length - files.length,
-    archives: files.filter((x) => isArchive(x.name) || (ui.cfg.settings.disk_images && (diskSure(x.name) || diskSeen.has(x.path)))).length,
+    archives: files.filter((x) => isArchive(x.name) || ociIndex(tb, x) || (ui.cfg.settings.disk_images && (diskSure(x.name) || diskSeen.has(x.path)))).length,
     disk_images: ui.cfg.settings.disk_images ? 0 : files.filter((x) => diskSure(x.name) || diskSeen.has(x.path)).length,
     pdfs: files.filter((x) => /\.pdf$/i.test(x.name)).length,
     chess: files.filter((x) => chessFormat(x.name) || x.path === ui.book).length,
@@ -812,6 +816,7 @@ export function subject(tb = tab()) {
     // By name: a TIFF, geodata only when it is a GeoTIFF, offers it in its preview instead.
     geo: files.filter((x) => isGeo(x.name) && !/\.tiff?$/i.test(x.name)).length,
     models: files.filter((x) => isScad(x.name)).length,
+    images: files.filter((x) => ociIndex(tb, x)).length,
     one: list.length === 1 && list[0] === cur,
     marked: tb.marked.size,
     place,

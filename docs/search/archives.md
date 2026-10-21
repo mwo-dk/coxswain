@@ -45,7 +45,9 @@ Nothing to do: *Look inside archives* is on from the start.
 The formats are those Coxswain opens as folders: zip (and jar, apk, whl, nupkg, vsix), 7z, tar,
 and tar compressed with gzip, bzip2, xz or zstd (`.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`,
 `.tar.zst` …). Files inside are read with the same readers as files on disk, by their
-extension: a PDF in a zip is read as a PDF ([Documents it reads](documents.md)).
+extension: a PDF in a zip is read as a PDF ([Documents it reads](documents.md)). A plain `.tar`
+that is a container image (`docker save`, `podman save`) is the exception: it is found by its own
+name, not by the files of its layers ([Container images](../files/container-images.md)).
 
 ## What you see
 
@@ -189,7 +191,8 @@ the file watcher, at the next hourly rebuild (names) or within ten minutes (text
 
 One of these: the archive is larger than 256 MB (a compressed tar is listed by unpacking it,
 so larger ones are found by their own name only); the file is past the archive's first 50,000
-entries; the archive is not in a folder that is read, or is in a hidden one; or, for its text,
+entries; the archive is not in a folder that is read, or is in a hidden one; it is a container image (a
+plain `.tar` from `docker save` or `podman save`), found by its name only; or, for its text,
 the file is larger than 20 MB or comes after the first 128 MB read out of the archive.
 
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?

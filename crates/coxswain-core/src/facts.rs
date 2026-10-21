@@ -28,6 +28,9 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     if crate::music::named(path) {
         return crate::music::read(path).map(|m| crate::music::facts(&m));
     }
+    if crate::archive::is_image(path) {
+        return crate::container_image::facts(path);
+    }
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     match ext.as_str() {
         "mbox" => {

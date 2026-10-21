@@ -386,6 +386,8 @@ struct Listing {
     locked: bool,
     /// That archive is a disk image: read-only.
     disk_image: bool,
+    /// That archive is a container image: its first tag (`container_image::title`).
+    image: Option<String>,
     /// The history the folder is in.
     history: Option<HistoryInfo>,
     /// The ZFS snapshot the folder is in, or the list of snapshots it is.
@@ -441,7 +443,8 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
     let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
+    let image = archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title);
+    Ok(Listing { image, has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
 }
 
 /// What a folder holds, for its preview: only the counts, not the panel's listing.
@@ -1601,6 +1604,8 @@ fn code_language(path: String, head: String) -> Option<&'static str> {
 struct ArchiveListing {
     entries: Vec<coxswain_core::archive::ArchiveEntry>,
     more: bool,
+    /// It is a container image, read-only (`archive::is_image`).
+    image: bool,
 }
 
 /// A preview reads only what is on the disk, or a file the user asked to download: never a file
@@ -1618,8 +1623,12 @@ fn cloud_fetch(path: PathBuf) {
 #[tauri::command]
 async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
     crate::here(&path)?;
-    let (entries, more) = blocking(move || coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())).await?;
-    Ok(ArchiveListing { entries, more })
+    let (entries, more, image) = blocking(move || {
+        let (entries, more) = coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
+        Ok::<_, String>((entries, more, coxswain_core::archive::is_image(&path)))
+    })
+    .await?;
+    Ok(ArchiveListing { entries, more, image })
 }
 
 #[tauri::command]
@@ -2451,7 +2460,7 @@ mod perf {
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
         let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, history: None, snapshot: None, package: None, packages: false };
+        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, image: None, history: None, snapshot: None, package: None, packages: false };
         println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
         let json = serde_json::to_vec(&listing).unwrap();

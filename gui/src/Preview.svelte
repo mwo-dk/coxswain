@@ -922,7 +922,7 @@
           <p class="more">{archive.error}</p>
         {:else if archive}
           <!-- A mailbox opens like a folder of its messages, read-only. -->
-          {#if /\.mbox$/i.test(e.name)}<p class="more">{t("disk_image.next_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
+          {#if /\.mbox$/i.test(e.name) || archive.image}<p class="more">{t("disk_image.next_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
           <p class="more">{tn(archive.more ? "preview.archive_more" : "preview.archive", archive.entries.length)}</p>
           <ul class="archive mono">
             {#each archive.entries as a (a.name)}

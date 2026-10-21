@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, openSpace, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
@@ -470,7 +470,8 @@
       ui.status = "";
     },
     extract: () => {
-      const paths = targets().filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))));
+      // An OCI image layout's index.json opens as the image, so it unpacks as one too.
+      const paths = targets().filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))) || ociIndex(tab(), { name: basename(p) }));
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {

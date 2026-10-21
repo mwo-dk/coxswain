@@ -175,6 +175,7 @@ mindmap
 | [Pack (Alt+F5) and extract (Ctrl+E)](files/pack-and-extract.md) | Pack (Alt+F5) into any archive format by its name, extract (Ctrl+E) into a new folder |
 | [Passwords for encrypted zip and 7z](files/archive-passwords.md) | Passwords for locked zip and 7z: when asked, kept in memory for the app run, never saved |
 | [Disk images, CHM help files and CBR comics](files/disk-images.md) | Facts of .iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2 and raw images in the preview; opened like folders, read-only, with an installed 7-Zip (opt-in), never mounted |
+| [Container images](files/container-images.md) | A docker save, podman save or OCI image opened with Enter as one read-only folder of its merged layers (whiteouts honoured); tags, platforms, layers, entrypoint in the preview and Properties |
 | [Properties and permissions](files/properties.md) | Properties (Alt+Enter, both apps): size, dates, owner, permissions and read-only; ZFS dataset, FreeBSD package, file flags (chflags) |
 | [Finding duplicates](files/duplicates.md) | Files and whole folders, across disks, safe removal to the trash |
 | [ZFS snapshots as folders](files/zfs-snapshots.md) | Alt+Z: a dataset's snapshots, newest first, browsed read-only; diff against now, F5 copies back; the ZFS line in the footer |

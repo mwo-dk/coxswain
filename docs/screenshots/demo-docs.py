@@ -273,3 +273,50 @@ NOTE: Any "no-go" holds the count.
 """)
 # A short RTF memo for the LibreOffice preview.
 open(os.path.join(docs, "memo.rtf"), "w").write(r"{\rtf1\ansi{\fonttbl{\f0 Helvetica;}}\f0\fs32 \b Memo\b0\par\fs24 The bench test is booked for 6 October.\par Bring the pressure logger.\par}")
+
+
+# A container image as `podman save` writes it: a docker-archive tar of two layers, the second
+# taking a file of the first away (a whiteout), for the container image preview.
+import gzip, hashlib, io, tarfile, time
+
+
+def layer(files):
+    b = io.BytesIO()
+    with tarfile.open(fileobj=b, mode="w", format=tarfile.GNU_FORMAT) as t:
+        for name, data in files:
+            info = tarfile.TarInfo(name.rstrip("/"))
+            info.mtime = 1790000000
+            if name.endswith("/"):
+                info.type, info.mode = tarfile.DIRTYPE, 0o755
+                t.addfile(info)
+            elif " -> " in name:
+                info.name, info.linkname = name.split(" -> ")
+                info.type = tarfile.SYMTYPE
+                t.addfile(info)
+            else:
+                info.size, info.mode = len(data), 0o755 if name.startswith("bin/") else 0o644
+                t.addfile(info, io.BytesIO(data))
+    return b.getvalue()
+
+
+base = layer([("bin/", b""), ("bin/busybox", b"\x7fELF" + bytes(300_000)), ("bin/sh -> /bin/busybox", b""),
+              ("etc/", b""), ("etc/os-release", b'NAME="Alpine Linux"\nVERSION_ID=3.20.3\n'),
+              ("etc/hostname", b"rocket\n"), ("tmp/", b""), ("var/", b""), ("var/cache/", b""),
+              ("var/cache/apk/", b""), ("var/cache/apk/index.tar.gz", bytes(40_000))])
+app = gzip.compress(layer([("app/", b""), ("app/hello.txt", b"Hello from the launch pad.\n"),
+                           ("app/data/", b""), ("app/data/telemetry.csv", b"t,alt\n0,0\n1,12\n2,51\n"),
+                           ("app/run.sh", b"#!/bin/sh\ncat /app/hello.txt\n"),
+                           ("var/cache/.wh.apk", b"")]), mtime=0)
+config = json.dumps({"architecture": "amd64", "os": "linux", "created": "2026-10-18T09:30:00Z",
+                     "config": {"Entrypoint": ["/bin/sh", "-c"], "Cmd": ["/app/run.sh"],
+                                "Env": ["PATH=/usr/sbin:/usr/bin:/sbin:/bin", "GREETING=hello"],
+                                "ExposedPorts": {"8080/tcp": {}},
+                                "Labels": {"org.opencontainers.image.title": "rocket-demo"}}}).encode()
+parts = [(hashlib.sha256(b).hexdigest() + ".tar", b) for b in (base, app)]
+manifest = json.dumps([{"Config": "config.json", "RepoTags": ["localhost/rocket:1.0"],
+                        "Layers": [n for n, _ in parts]}]).encode()
+with tarfile.open(os.path.join(home, "Downloads", "rocket-image.tar"), "w", format=tarfile.GNU_FORMAT) as t:
+    for name, data in [*parts, ("config.json", config), ("manifest.json", manifest)]:
+        info = tarfile.TarInfo(name)
+        info.size, info.mtime = len(data), 1790000000
+        t.addfile(info, io.BytesIO(data))

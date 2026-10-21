@@ -53,6 +53,8 @@ pub struct Subject {
     pub geo: usize,
     /// Of the files, OpenSCAD models (`scad::is_model`).
     pub models: usize,
+    /// Of the files, the `index.json` of an OCI image layout (`container_image::layout_index`).
+    pub images: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -183,6 +185,7 @@ pub const TIMES: u32 = 3;
 const HINTS: &[(&str, &[(&str, Action)])] = &[
     // Before the general ones: a chess file is rare, and what to press on it is not guessed.
     ("chess", &[("key", Action::Chess)]),
+    ("image", &[("key", Action::Open)]),
     ("menu", &[("key", Action::ActionMenu)]),
     ("space", &[("key", Action::SpaceView)]),
     ("find", &[("key", Action::Search)]),
@@ -244,6 +247,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "scad" => disk && s.models > 0,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
+        "image" => disk && s.single() && s.images == 1,
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),

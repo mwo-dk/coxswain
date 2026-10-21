@@ -11,6 +11,7 @@ pub mod cloud;
 pub mod clouds;
 pub mod code;
 pub mod config;
+pub mod container_image;
 pub mod dbf;
 pub mod dirs;
 pub mod disk;
