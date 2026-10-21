@@ -232,7 +232,8 @@ planned.
 #### Does it read ChessBase files?
 
 Not yet: PGN (also packed as `.pgn.gz` or `.pgn.zst`), EPD, FEN and Polyglot books, Go
-games in SGF ([Go games](go.md)) and draughts games in PDN ([Draughts games](draughts.md)). Export ChessBase games to PGN to read them here.
+games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) and xiangqi
+games in PGN ([Xiangqi games](xiangqi.md)). Export ChessBase games to PGN to read them here.
 
 #### How do I see moves in my own language's letters?
 

@@ -553,7 +553,7 @@
         <thead>
           <tr>
             {#each columns as [col, label] (col)}
-              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
+              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(xiangqi && col === "white" ? "xiangqi.col_red" : label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
             {/each}
           </tr>
         </thead>
