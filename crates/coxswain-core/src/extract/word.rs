@@ -9,7 +9,7 @@
 //! a picture, a table is to give one line for each row, and a text box, a note or a comment
 //! stands in the middle of a paragraph without being part of its sentence.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::Path;
 
@@ -124,6 +124,14 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         .collect();
     parts.sort_by_cached_key(|(at, _, name)| (*at, super::natural(name)));
     let (mut out, mut room) = (String::new(), MAX_XML);
+    // The styles first, to know which of them hide their text.
+    let mut styles = Styles::default();
+    for (name, format) in [("word/styles.xml", &WORD), ("styles.xml", &OPEN)] {
+        if let Some(xml) = unpack(&mut zip, name, room) {
+            room -= xml.len() as u64;
+            read(&xml, format, &mut String::new(), &mut styles);
+        }
+    }
     for (_, format, name) in parts.iter().take(MAX_PARTS) {
         if out.len() >= MAX_TEXT || room == 0 {
             break;
@@ -134,7 +142,7 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         room -= xml.len() as u64;
         let mut text = String::new();
         match format {
-            Some(format) => read(&xml, format, &mut text),
+            Some(format) => read(&xml, format, &mut text, &mut styles),
             None => {
                 let (lines, skip) = super::slides::OPENDOCUMENT;
                 text = super::xml_text(&xml, lines, skip);
@@ -191,9 +199,39 @@ fn keep(out: &mut String, text: &str) {
     super::push_within(out, text, MAX_TEXT);
 }
 
+/// The styles of a document, by name: the one each is based on, and whether it hides its text
+/// (`w:vanish`, `text:display="none"`) or shows it, when it says.
+#[derive(Default)]
+struct Styles {
+    by: HashMap<String, (Option<String>, Option<bool>)>,
+    /// Word's paragraph style for paragraphs that name none, and its defaults for all text.
+    paragraph: Option<String>,
+    all: Option<bool>,
+}
+
+impl Styles {
+    /// Whether the style hides its text, as it or the nearest style it is based on says.
+    fn hidden<'a>(&'a self, mut name: &'a str) -> Option<bool> {
+        for _ in 0..32 {
+            let (based, hides) = self.by.get(name)?;
+            if hides.is_some() {
+                return *hides;
+            }
+            name = based.as_deref()?;
+        }
+        None
+    }
+}
+
+/// A run of a Word document being read: whether it says itself it is hidden, and its style.
+struct Run {
+    direct: Option<bool>,
+    style: Option<String>,
+}
+
 /// Adds the text of one part to `out`, as far as it is UTF-8. What is left of a broken part is
-/// still read.
-fn read(xml: &[u8], format: &Format, out: &mut String) {
+/// still read. The styles it defines go into `styles`.
+fn read(xml: &[u8], format: &Format, out: &mut String, styles: &mut Styles) {
     use quick_xml::events::Event;
     let mut reader = quick_xml::Reader::from_str(super::utf8(xml));
     // An end without a start, or an "&" on its own, is no reason to stop reading.
@@ -211,6 +249,16 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
     let mut joins = 0usize;
     // Inside the list of a drop-down field: which entry is chosen, and how many were seen.
     let mut list: Option<(usize, usize)> = None;
+    // Hidden text, which the page does not show, is no text: a Word run marked `w:vanish`, or
+    // of a style that is (its own, its paragraph's, the defaults'), and in OpenDocument what a
+    // style or a section says is not displayed. `props` counts the properties of a paragraph
+    // mark and those a run had before a tracked change: a `w:vanish` there hides no text.
+    let (mut runs, mut paragraphs, mut props) = (Vec::<Run>::new(), Vec::<Option<String>>::new(), 0usize);
+    // The style being defined, and whether the reader is in Word's defaults.
+    let (mut style, mut defaults) = (None::<String>, false);
+    let off = |e: &quick_xml::events::BytesStart| {
+        matches!(super::attr(e, "val").as_deref(), Some("0" | "false" | "off"))
+    };
     while out.len() < MAX_TEXT {
         let event = match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
@@ -221,6 +269,17 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             Event::Empty(e) => (Some(e), e.name(), true, true),
             Event::End(e) => (None, e.name(), false, true),
             _ if skipping > 0 || inside == 0 => continue,
+            _ if !runs.is_empty() && {
+                let paragraph = paragraphs.last().cloned().flatten().or_else(|| styles.paragraph.clone());
+                let by_paragraph = paragraph.and_then(|p| styles.hidden(&p));
+                runs.iter().any(|r| {
+                    r.direct
+                        .or_else(|| r.style.as_deref().and_then(|s| styles.hidden(s)))
+                        .or(by_paragraph)
+                        .or(styles.all)
+                        .unwrap_or(false)
+                })
+            } => continue,
             Event::Text(t) => {
                 keep(out, t);
                 continue;
@@ -240,7 +299,64 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             }
             _ => continue,
         };
-        if skipping > 0 || among(format.skip, name) {
+        if let Some(e) = element {
+            match name.local_name().as_ref() {
+                "style" => {
+                    style = super::attr(e, "styleId").or_else(|| super::attr(e, "name"));
+                    if let Some(id) = &style {
+                        let default = matches!(super::attr(e, "default").as_deref(), Some("1" | "true"));
+                        if default && super::attr(e, "type").as_deref() == Some("paragraph") {
+                            styles.paragraph = Some(id.clone());
+                        }
+                        styles.by.insert(id.clone(), (super::attr(e, "parent-style-name"), None));
+                    }
+                    if closes {
+                        style = None;
+                    }
+                }
+                "basedOn" => {
+                    if let Some(entry) = style.as_ref().and_then(|s| styles.by.get_mut(s)) {
+                        entry.0 = super::attr(e, "val");
+                    }
+                }
+                "docDefaults" => defaults = !closes,
+                "vanish" | "specVanish" => {
+                    if let Some(entry) = style.as_ref().and_then(|s| styles.by.get_mut(s)) {
+                        entry.1 = Some(!off(e));
+                    } else if defaults {
+                        styles.all = Some(!off(e));
+                    } else if let (Some(run), 0) = (runs.last_mut(), props) {
+                        run.direct = Some(!off(e));
+                    }
+                }
+                "rStyle" if props == 0 => {
+                    if let Some(run) = runs.last_mut() {
+                        run.style = super::attr(e, "val");
+                    }
+                }
+                "pStyle" => {
+                    if let Some(p) = paragraphs.last_mut() {
+                        *p = super::attr(e, "val");
+                    }
+                }
+                "text-properties" => {
+                    let shown = match super::attr(e, "display").as_deref() {
+                        Some("none") => Some(false),
+                        Some("true") => Some(true),
+                        _ => None,
+                    };
+                    if let (Some(shown), Some(entry)) = (shown, style.as_ref().and_then(|s| styles.by.get_mut(s))) {
+                        entry.1 = Some(!shown);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let undisplayed = element.filter(|_| std::ptr::eq(format, &OPEN)).is_some_and(|e| {
+            super::attr(e, "display").as_deref() == Some("none")
+                || super::attr(e, "style-name").is_some_and(|s| styles.hidden(&s) == Some(true))
+        });
+        if skipping > 0 || among(format.skip, name) || undisplayed {
             match (opens, closes) {
                 (true, false) => skipping += 1,
                 (false, true) => skipping = skipping.saturating_sub(1),
@@ -269,6 +385,9 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
                 keep(out, sign);
             }
             match name.local_name().as_ref() {
+                "r" if !closes => runs.push(Run { direct: None, style: None }),
+                "p" if !closes => paragraphs.push(None),
+                "pPr" | "rPrChange" if !closes => props += 1,
                 "framePr" if super::attr(element, "dropCap").is_some() => joins = 2,
                 // A watermark, and WordArt, is a shape whose words are an attribute.
                 "textpath" => {
@@ -306,8 +425,13 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             if !opens {
                 inside = inside.saturating_sub(text);
                 cells = cells.saturating_sub(cell);
-                if name.local_name().as_ref() == "ddList" {
-                    list = None;
+                match name.local_name().as_ref() {
+                    "ddList" => list = None,
+                    "style" => style = None,
+                    "pPr" | "rPrChange" => props = props.saturating_sub(1),
+                    "r" => drop(runs.pop()),
+                    "p" => drop(paragraphs.pop()),
+                    _ => {}
                 }
             }
             if cell > 0 {
@@ -604,6 +728,84 @@ mod tests {
     }
 
     #[test]
+    fn word_leaves_out_hidden_runs_and_keeps_a_hidden_paragraph_mark_s_text() {
+        let body = "<w:p><w:r><w:t xml:space=\"preserve\">Seen </w:t></w:r><w:r><w:rPr><w:b/><w:vanish/></w:rPr>\
+                    <w:t>Secret instructions</w:t></w:r><w:r><w:t xml:space=\"preserve\"> and seen.</w:t></w:r></w:p>\
+                    <w:p><w:r><w:rPr><w:specVanish/></w:rPr><w:t>Also hidden</w:t></w:r>\
+                    <w:r><w:rPr><w:vanish w:val=\"0\"/></w:rPr><w:t>Not hidden</w:t></w:r></w:p>\
+                    <w:p><w:pPr><w:rPr><w:vanish/></w:rPr></w:pPr><w:r><w:rPr><w:rPrChange w:id=\"1\"><w:rPr><w:vanish/></w:rPr>\
+                    </w:rPrChange></w:rPr><w:t>Mark hidden, text shown</w:t></w:r></w:p>";
+        assert_eq!(
+            read_file("hidden.docx", &[("word/document.xml", &word(body))]).as_deref(),
+            Some("Seen and seen.\nNot hidden\nMark hidden, text shown")
+        );
+    }
+
+    #[test]
+    fn word_leaves_out_what_its_styles_hide() {
+        let styles = "<w:styles xmlns:w=\"w\"><w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val=\"22\"/></w:rPr></w:rPrDefault></w:docDefaults>\
+                      <w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\"><w:name w:val=\"Normal\"/></w:style>\
+                      <w:style w:type=\"character\" w:styleId=\"Secret\"><w:rPr><w:vanish/></w:rPr></w:style>\
+                      <w:style w:type=\"character\" w:styleId=\"SecretChild\"><w:basedOn w:val=\"Secret\"/><w:rPr><w:b/></w:rPr></w:style>\
+                      <w:style w:type=\"character\" w:styleId=\"ShownChild\"><w:basedOn w:val=\"Secret\"/><w:rPr><w:vanish w:val=\"false\"/></w:rPr></w:style>\
+                      <w:style w:type=\"paragraph\" w:styleId=\"HiddenPara\"><w:basedOn w:val=\"Normal\"/><w:rPr><w:specVanish/></w:rPr></w:style></w:styles>";
+        let body = "<w:p><w:r><w:t xml:space=\"preserve\">Seen </w:t></w:r><w:r><w:rPr><w:rStyle w:val=\"Secret\"/></w:rPr><w:t>Bystyle</w:t></w:r>\
+                    <w:r><w:rPr><w:rStyle w:val=\"SecretChild\"/></w:rPr><w:t>Bybase</w:t></w:r>\
+                    <w:r><w:rPr><w:rStyle w:val=\"ShownChild\"/></w:rPr><w:t xml:space=\"preserve\">shown </w:t></w:r>\
+                    <w:r><w:rPr><w:rStyle w:val=\"Secret\"/><w:vanish w:val=\"0\"/></w:rPr><w:t>too.</w:t></w:r></w:p>\
+                    <w:p><w:pPr><w:pStyle w:val=\"HiddenPara\"/></w:pPr><w:r><w:t>Byparagraph</w:t></w:r></w:p>\
+                    <w:p><w:r><w:t>End.</w:t></w:r></w:p>";
+        assert_eq!(
+            read_file("styled.docx", &[("word/styles.xml", styles), ("word/document.xml", &word(body))]).as_deref(),
+            Some("Seen shown too.\nEnd.")
+        );
+        // Defaults that hide everything hide what says nothing else.
+        let all = "<w:styles xmlns:w=\"w\"><w:docDefaults><w:rPrDefault><w:rPr><w:vanish/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>";
+        let body = "<w:p><w:r><w:t>Hidden by default</w:t></w:r><w:r><w:rPr><w:vanish w:val=\"off\"/></w:rPr><w:t>Shown</w:t></w:r></w:p>";
+        assert_eq!(
+            read_file("defaults.docx", &[("word/styles.xml", all), ("word/document.xml", &word(body))]).as_deref(),
+            Some("Shown")
+        );
+    }
+
+    #[test]
+    fn opendocument_follows_the_styles_its_automatic_styles_are_based_on() {
+        let styles = "<office:document-styles xmlns:office=\"o\" xmlns:style=\"s\" xmlns:text=\"t\"><office:styles>\
+                      <style:style style:name=\"Secret\" style:family=\"text\"><style:text-properties text:display=\"none\"/></style:style>\
+                      <style:style style:name=\"SecretPara\" style:family=\"paragraph\"><style:text-properties text:display=\"none\"/></style:style>\
+                      </office:styles></office:document-styles>";
+        let content = "<office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\">\
+             <office:automatic-styles><style:style style:name=\"T1\" style:family=\"text\" style:parent-style-name=\"Secret\">\
+             <style:text-properties fo:font-weight=\"bold\"/></style:style>\
+             <style:style style:name=\"T2\" style:family=\"text\" style:parent-style-name=\"Secret\"><style:text-properties text:display=\"true\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p>Seen <text:span text:style-name=\"T1\">Byparent</text:span><text:span text:style-name=\"Secret\">Bycommon</text:span>\
+             <text:span text:style-name=\"T2\">shown</text:span>.</text:p>\
+             <text:p text:style-name=\"SecretPara\">Byparagraph</text:p><text:p>End.</text:p></office:text></office:body></office:document-content>";
+        assert_eq!(
+            read_file("styled.odt", &[("styles.xml", styles), ("content.xml", content)]).as_deref(),
+            Some("Seen shown.\nEnd.")
+        );
+    }
+
+    #[test]
+    fn opendocument_leaves_out_text_its_styles_or_sections_do_not_display() {
+        let content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+             <office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\">\
+             <office:automatic-styles><style:style style:name=\"T1\" style:family=\"text\">\
+             <style:text-properties text:display=\"none\"/></style:style>\
+             <style:style style:name=\"T2\" style:family=\"text\"><style:text-properties fo:font-weight=\"bold\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p>Seen <text:span text:style-name=\"T1\">Secret instructions</text:span>and <text:span text:style-name=\"T2\">bold</text:span>.</text:p>\
+             <text:section text:name=\"S\" text:display=\"none\"><text:p>Hidden section</text:p></text:section>\
+             <text:p>End.</text:p></office:text></office:body></office:document-content>";
+        assert_eq!(
+            read_file("hidden.odt", &[("content.xml", content)]).as_deref(),
+            Some("Seen and bold.\nEnd.")
+        );
+    }
+
+    #[test]
     fn opendocument_keeps_notes_comments_and_frames_apart_and_leaves_out_deleted_text() {
         let body = "<text:tracked-changes><text:changed-region text:id=\"ct1\"><text:deletion><office:change-info>\
                     <dc:creator>Who deleted</dc:creator><dc:date>2026-09-01T10:00:00</dc:date></office:change-info>\
@@ -776,11 +978,11 @@ mod tests {
         );
         for (xml, format) in [(body.as_bytes(), &WORD), (content.as_bytes(), &OPEN)] {
             for at in 0..xml.len() {
-                read(&xml[..at], format, &mut String::new());
+                read(&xml[..at], format, &mut String::new(), &mut Styles::default());
                 for with in [b'<', b'>', b'&', b'/', b'"', 0, 0xFF] {
                     let mut changed = xml.to_vec();
                     changed[at] = with;
-                    read(&changed, format, &mut String::new());
+                    read(&changed, format, &mut String::new(), &mut Styles::default());
                 }
             }
         }
@@ -789,6 +991,7 @@ mod tests {
             &body.as_bytes()[..body.find("paragraph").unwrap()],
             &WORD,
             &mut left,
+            &mut Styles::default(),
         );
         assert_eq!(
             tidy(&left),
@@ -802,6 +1005,7 @@ mod tests {
             b"</w:tc></w:t></w:moveFrom></w:p><w:p><w:t>Still read</w:t>",
             &WORD,
             &mut out,
+            &mut Styles::default(),
         );
         assert_eq!(tidy(&out), "Still read");
     }
@@ -815,12 +1019,12 @@ mod tests {
             "</w:p></w:tc></w:tr></w:tbl>".repeat(deep)
         );
         let mut out = String::new();
-        read(nested.as_bytes(), &WORD, &mut out);
+        read(nested.as_bytes(), &WORD, &mut out, &mut Styles::default());
         assert_eq!(tidy(&out), "At the bottom");
 
         let laughs = "<!DOCTYPE l [<!ENTITY a \"ha\"><!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;\">]><w:p><w:r><w:t>Said &b;&b;&b; once</w:t></w:r></w:p>";
         let mut out = String::new();
-        read(laughs.as_bytes(), &WORD, &mut out);
+        read(laughs.as_bytes(), &WORD, &mut out, &mut Styles::default());
         assert_eq!(
             tidy(&out),
             "Said once",

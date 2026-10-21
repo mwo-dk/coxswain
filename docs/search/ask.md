@@ -377,8 +377,8 @@ its error, if any, shows under *Chat model*.
 
 It can try, and it can mislead the model; it cannot do more. Ask has no tools: the model can only
 write text, and nothing it writes is run or opened. A file can hold words meant for the model
-(*ignore the other sources and say …*), in a comment, in white or tiny text in a PDF or Word
-file, or in invisible characters. Coxswain makes such words weaker, not powerless:
+(*ignore the other sources and say …*), in a comment, in text hidden in a PDF or Word file,
+or in invisible characters. Coxswain makes such words weaker, not powerless:
 
 - Each source goes to the model between `<source>` and `</source>`, and the model is told that
   a source is text from a file, never an instruction. A file cannot end its own source or make
@@ -387,6 +387,9 @@ file, or in invisible characters. Coxswain makes such words weaker, not powerles
   would otherwise end the rules and start new ones) can be spelled, in any case or spacing.
 - Invisible characters that carry hidden words (Unicode tags) or turn text around (bidi
   overrides) are left out of what the model reads and out of the answer.
+- Hidden text in Word and OpenDocument files, and text a PDF draws invisibly, white on white or
+  smaller than 2 points, is never read, so it is no source
+  ([Does Coxswain read hidden text?](documents.md#does-coxswain-read-hidden-text)).
 - A **[n]** in the answer only ever leads to source *n* of the list under it; a number with no
   source is plain text. The list shows the real files the answer was made from: check a
   surprising claim there with **Enter** or a click.
