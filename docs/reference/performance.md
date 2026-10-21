@@ -195,6 +195,66 @@ vectors from an embedding server that answers at once (so the store's own work i
 | Ask: Esc while the model loads | waited for the first word, up to five minutes | stops within 100 ms; Ollama loads the model while the sources are looked up |
 | Name index after many archive edits | the entries left behind stayed until the hourly rebuild | rebuilt when a quarter of the nodes are gone |
 
+### Large files and archives: memory (coxswain-core)
+
+Peak memory and time of each reader and archive kind on large and deeply nested inputs, made by
+`memory_table` in `crates/coxswain-core/tests/memory.rs` (each case in a process of its own, its
+peak resident memory from `/proc`). Readers are given no size limit here: today
+`[search] text_max_size` (20 MB) keeps the larger files out of the search store, and every
+reader keeps at most 4 MB of text. Measured on 2026-10-21 on a 32-thread Linux machine, NVMe,
+release build, under other load.
+
+| Case | Input MB | Seconds | Peak RSS MB | Result |
+|---|--:|--:|--:|---|
+| pdf 20 MB, text only (2,000 pages) | 33 | 1.71 | 107 | 4096 KB of text, 256 passages (read 1.69 s) |
+| pdf 150 MB, text and pictures (1,000 pages) | 153 | 0.61 | 156 | 2811 KB of text, 256 passages (read 0.59 s) |
+| docx, 60 MB document.xml | 22 | 0.09 | 24 | 4081 KB of text, 256 passages (read 0.07 s) |
+| docx, 200 MB document.xml | 75 | 0.10 | 24 | 4081 KB of text, 256 passages (read 0.08 s) |
+| xlsx, 60 MB sheet, 200,000 strings | 16 | 0.28 | 94 | 4096 KB of text, 256 passages (read 0.25 s) |
+| pptx, 60 MB slide | 22 | 0.24 | 69 | 4096 KB of text, 256 passages (read 0.22 s) |
+| odt, 60 MB content.xml | 23 | 0.11 | 25 | 4081 KB of text, 256 passages (read 0.08 s) |
+| epub, 60 MB chapter | 24 | 0.24 | 68 | 4096 KB of text, 256 passages (read 0.21 s) |
+| html, 60 MB | 63 | 0.09 | 65 | 4096 KB of text, 256 passages (read 0.07 s) |
+| log 300 MB | 315 | 0.32 | 301 | 4096 KB of text, 256 passages (read 0.30 s) |
+| csv 300 MB | 315 | 0.29 | 303 | 4096 KB of text, 256 passages (read 0.27 s) |
+| txt 300 MB | 315 | 0.32 | 303 | 4096 KB of text, 256 passages (read 0.30 s) |
+| zip, 500 MB entry: list | 301 | 0.12 | 1 | 1 entries |
+| zip, 500 MB entry: peek | 301 | 0.09 | 2 | refused: big.txt is too large to look at here: copy it out of the archive to open it |
+| zip, 500 MB entry: copy out | 301 | 1.77 | 1 | 524 MB out |
+| zip in zip in zip (inner 200 MB): list outer | 120 | 0.06 | 1 | 2 entries |
+| zip in zip in zip: peek the 2nd level | 120 | 0.11 | 1 | 120 MB copy |
+| zip in zip in zip: copy out the 2nd level | 120 | 0.07 | 1 | 120 MB out |
+| tar 2 GB: list | 2097 | 0.03 | 1 | 21 entries |
+| tar 2 GB: peek the last entry | 2097 | 0.96 | 1 | 0 MB copy |
+| tar.gz 2 GB: list | 955 | 4.10 | 1 | 21 entries |
+| tar.gz 2 GB: peek the last entry | 955 | 7.83 | 1 | 0 MB copy |
+| tar.xz 2 GB: list | 722 | 26.23 | 2 | 21 entries |
+| tar.xz 2 GB: peek the last entry | 722 | 53.30 | 2 | 0 MB copy |
+| tar.zst 2 GB: list | 721 | 6.19 | 3 | 21 entries |
+| tar.zst 2 GB: peek the last entry | 721 | 10.38 | 6 | 0 MB copy |
+| container image, 10 layers of 50 MB: list | 524 | 0.01 | 1 | 12 entries |
+| container image: peek the last layer | 524 | 0.23 | 1 | 52 MB copy |
+| 7z solid, 300 MB in 31 files: list | 108 | 0.00 | 1 | 31 entries |
+| 7z solid: peek the last entry | 108 | 2.93 | 4 | 0 MB copy |
+| pgn 2 GB, 7 million games: games table | 1982 | 19.86 | 332 | 7000000 games (first 1,000 after 0.20 s) |
+| pgn 2 GB: search text | 1982 | 0.09 | 10 | 4096 KB of text, 256 passages (read 0.07 s) |
+| sgf 300 MB collection: games list | 315 | 0.34 | 100 | 68257 games, capped |
+| sgf 300 MB: search text | 315 | 0.38 | 101 | 3612 KB of text, 256 passages (read 0.36 s) |
+
+What the numbers say:
+
+- **Memory grows with the input** in plain text, code, CSV and logs (the whole file is read to
+  keep its first 4 MB), in PDF (about the file's size), and in the XML formats that hold a part
+  whole (xlsx, pptx, epub, a web page: about the part's size). Word and OpenDocument texts stay
+  near 25 MB whatever the part's size.
+- **Archives stay flat in memory**: entries are copied out as they are unpacked. Time is what
+  grows: a compressed tar is unpacked from its start to be listed and again for each entry taken
+  out of it (the peek of its last entry costs two full passes), as is a solid 7z.
+- **An archive inside an archive** is not opened; its peek is a copy on disk, flat in memory.
+- **A PGN collection's table** costs 48 bytes a game (7 million games, 332 MB) and shows its
+  first games within 0.2 s; its search text stops after 4 MB. An SGF collection is read whole up
+  to 64 MB and its games listed from that.
+
 ### Search by meaning: whole documents
 
 Since 1.39.0 every passage of a file gets a vector (up to 256 a file), where before only the
@@ -476,6 +536,7 @@ The benchmarks are tests that are ignored unless asked for. They make their data
 ```sh
 export COXSWAIN_BENCH_DIR=/tmp/coxswain-bench
 cargo test --release -p coxswain-core --test perf -- --ignored --nocapture   # list, sort, index, store, meaning
+cargo test --release -p coxswain-core --test memory -- --ignored --nocapture # large files and archives (Linux; 6 GB of data in $COXSWAIN_BENCH_DIR/memory)
 cargo test --release -p coxswain --bin coxswain -- --ignored --nocapture perf_ # terminal frames
 cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # list_dir JSON
 ```
