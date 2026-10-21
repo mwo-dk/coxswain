@@ -122,6 +122,9 @@ the count goes a megabyte at a time.
 
 ## In the terminal app
 
+![The terminal app in Classic blue comparing two versions of main.rs side by side: line 6 marked ~ with the changed numbers in reverse yellow, line 10 marked + in green on the right only, the key line at the bottom](../screenshots/compare-files-tui.png)
+*The same two files in the terminal app, 140 columns wide: side by side.*
+
 The same window, full screen: side by side at 120 columns or more, one under the other below
 that (**V** switches either way). Colours come from the theme: changed lines in the git
 *modified* colour, removed ones in *deleted*, added ones in *added*, the changed words in
