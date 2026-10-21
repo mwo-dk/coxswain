@@ -1854,21 +1854,119 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
 
 // ---------------------------------------------------------------- drag out, watching
 
-/// A native drag, so files can be dropped on other applications (and back on Coxswain).
+/// A native drag of `paths`, so they can be dropped on other applications (and back on
+/// Coxswain): what is only inside an archive or a git history is copied out first
+/// (`drag::out`). `image`: the drag image, a PNG the page drew at `scale`. Returns the paths
+/// dragged, which a drop back on a pane is known by.
 #[tauri::command]
-fn start_drag(paths: Vec<PathBuf>, window: tauri::Window) -> Res<()> {
-    let app = window.app_handle().clone();
-    app.run_on_main_thread(move || {
-        let icon = drag::Image::Raw(include_bytes!("../icons/32x32.png").to_vec());
-        #[cfg(all(unix, not(target_os = "macos")))]
-        let target = window.gtk_window();
-        #[cfg(not(all(unix, not(target_os = "macos"))))]
-        let target = Ok::<_, tauri::Error>(window.clone());
-        if let Ok(w) = target {
-            let _ = drag::start_drag(&w, drag::DragItem::Files(paths), icon, |_, _| {}, drag::Options::default());
-        }
-    })
-    .map_err(|e| e.to_string())
+async fn start_drag(paths: Vec<PathBuf>, image: Vec<u8>, scale: i32, window: tauri::Window) -> Res<Vec<PathBuf>> {
+    let real = blocking(move || coxswain_core::drag::out(&paths).map_err(|e| e.to_string())).await?;
+    let dragged = real.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    window
+        .app_handle()
+        .clone()
+        .run_on_main_thread(move || {
+            let _ = tx.send(native_drag(&window, dragged, image, scale));
+        })
+        .map_err(|e| e.to_string())?;
+    let started = tauri::async_runtime::spawn_blocking(move || rx.recv().unwrap_or(false)).await.map_err(|e| e.to_string())?;
+    // The button let go while the files were being copied out: they are ready for the next drag.
+    if !started {
+        return Err(coxswain_core::t!("drag.again"));
+    }
+    Ok(real)
+}
+
+/// GTK's own drag (the `drag` crate's GTK backend ended it before the other application had
+/// asked for the files, so drops on other applications got nothing). Copy only: another file
+/// manager must not move our files away by its own rules; a drop on a pane asks or goes by the
+/// keys held (`drop_keys`).
+#[cfg(all(unix, not(target_os = "macos")))]
+fn native_drag(window: &tauri::Window, paths: Vec<PathBuf>, image: Vec<u8>, scale: i32) -> bool {
+    use gtk::{gdk, gdk_pixbuf, glib, prelude::*};
+    use std::{cell::RefCell, rc::Rc};
+    let Ok(w) = window.gtk_window() else { return false };
+    // Started when the button is still down, or the drag would hang on the pointer.
+    let held = w.window().zip(w.display().default_seat().and_then(|s| s.pointer())).is_some_and(|(gw, p)| gw.device_position(&p).3.contains(gdk::ModifierType::BUTTON1_MASK));
+    if !held {
+        return false;
+    }
+    let uris: Vec<String> = paths.iter().filter_map(|p| glib::filename_to_uri(p, None).ok()).map(String::from).collect();
+    let targets = gtk::TargetList::new(&[]);
+    targets.add_uri_targets(0);
+    let get = w.connect_drag_data_get(move |_, _, data, _, _| {
+        data.set_uris(&uris.iter().map(String::as_str).collect::<Vec<_>>());
+    });
+    let Some(ctx) = w.drag_begin_with_coordinates(&targets, gdk::DragAction::COPY, 1, None, -1, -1) else {
+        w.disconnect(get);
+        return false;
+    };
+    let loader = gdk_pixbuf::PixbufLoader::new();
+    if loader.write(&image).and_then(|()| loader.close()).is_ok()
+        && let Some(surface) = loader.pixbuf().and_then(|pb| pb.create_surface(scale.max(1), w.window().as_ref()))
+    {
+        ctx.drag_set_icon_surface(&surface);
+    }
+    // The files are handed over after the drop: the handlers go when the drag has ended.
+    let ids = Rc::new(RefCell::new(vec![get]));
+    let end = w.connect_drag_end({
+        let ids = ids.clone();
+        move |w, _| ids.take().into_iter().for_each(|id| w.disconnect(id))
+    });
+    ids.borrow_mut().push(end);
+    true
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"))))]
+fn native_drag(window: &tauri::Window, paths: Vec<PathBuf>, image: Vec<u8>, _scale: i32) -> bool {
+    drag::start_drag(window, drag::DragItem::Files(paths), drag::Image::Raw(image), |_, _| {}, drag::Options::default()).is_ok()
+}
+
+/// The keys held at a drop on a pane: copy (Ctrl; Option on macOS) or move (Shift; Command on
+/// macOS), as `drag::by_keys` reads them.
+#[tauri::command]
+async fn drop_keys(window: tauri::Window) -> Res<(bool, bool)> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    window
+        .app_handle()
+        .clone()
+        .run_on_main_thread(move || {
+            let _ = tx.send(held_keys(&window));
+        })
+        .map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || rx.recv().unwrap_or_default()).await.map_err(|e| e.to_string())
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn held_keys(window: &tauri::Window) -> (bool, bool) {
+    use gtk::{gdk, prelude::*};
+    let Ok(w) = window.gtk_window() else { return (false, false) };
+    let m = gdk::Keymap::for_display(&w.display()).map_or(0, |k| k.modifier_state());
+    let m = gdk::ModifierType::from_bits_truncate(m);
+    (m.contains(gdk::ModifierType::CONTROL_MASK), m.contains(gdk::ModifierType::SHIFT_MASK))
+}
+
+#[cfg(target_os = "macos")]
+fn held_keys(_: &tauri::Window) -> (bool, bool) {
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGEventSourceFlagsState(state: i32) -> u64;
+    }
+    // The combined session state; Option and Command.
+    let f = unsafe { CGEventSourceFlagsState(0) };
+    (f & 0x0008_0000 != 0, f & 0x0010_0000 != 0)
+}
+
+#[cfg(windows)]
+fn held_keys(_: &tauri::Window) -> (bool, bool) {
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn GetAsyncKeyState(key: i32) -> i16;
+    }
+    // VK_CONTROL, VK_SHIFT; the high bit is set while held.
+    let down = |k| unsafe { GetAsyncKeyState(k) } < 0;
+    (down(0x11), down(0x10))
 }
 
 /// Watch exactly these folders (not their subfolders).
@@ -2408,7 +2506,7 @@ fn main() {
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, name_ranks, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, scripts_folder,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
-            clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
+            clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop
@@ -2423,6 +2521,7 @@ fn main() {
                 convert::media_end();
                 ebook::end();
                 coxswain_core::archive::clean_up();
+                coxswain_core::drag::done();
             }
         });
 }

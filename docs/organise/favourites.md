@@ -71,7 +71,8 @@ the folders back. If you keep backups of your data folder, the old `state.json` 
 #### Can I reorder favourites or groups, or drag a folder onto a group?
 
 No. Favourites stay in the order you added them and groups in the order you made them. To
-reorder, remove and add again. Dragging onto the sidebar is not supported.
+reorder, remove and add again. Dragging a folder onto a group does not add it; files dropped on a
+favourite are copied or moved into that folder ([Drag and drop](../files/drag-and-drop.md)).
 
 #### Can a favourite point at a folder inside an archive, or on a USB stick?
 

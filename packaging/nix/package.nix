@@ -15,7 +15,7 @@ rustPlatform.buildRustPackage {
   version = (lib.importTOML ../../Cargo.toml).workspace.package.version;
   src = lib.cleanSource ../..;
 
-  # The git crates of `[patch.crates-io]` (tao, drag) are fetched by their pinned revision:
+  # The git crates of `[patch.crates-io]` (tao) are fetched by their pinned revision:
   # no hashes to keep up to date in the flake.
   cargoLock = {
     lockFile = ../../Cargo.lock;

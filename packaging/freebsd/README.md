@@ -36,7 +36,7 @@ make clean && git -C /usr/ports add sysutils/coxswain && portlint -AC   # pkg in
 ```
 
 Copy `Makefile`, `Makefile.crates` and `distinfo` back here. `make cargo-crates` lists every
-crate in `Cargo.lock`, the desktop app's and the two git ones too: cargo needs them all to read
+crate in `Cargo.lock`, the desktop app's and the git ones too: cargo needs them all to read
 the workspace, though only the terminal app is built (`CARGO_BUILD_ARGS=--package coxswain`).
 Oniguruma comes from `devel/oniguruma` (`LIB_DEPENDS`), as the ports framework wants.
 

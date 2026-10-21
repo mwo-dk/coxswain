@@ -141,6 +141,8 @@
         class:marked
         class:cursor={i === t.cursor}
         class:focused={active}
+        data-drop={e.is_dir && e.name !== ".." ? e.path : undefined}
+        class:drop={e.is_dir && ui.dropDir === e.path}
         draggable={e.name !== ".."}
         ondragstart={(ev) => {
           ev.preventDefault();

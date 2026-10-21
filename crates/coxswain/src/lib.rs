@@ -413,6 +413,8 @@ pub enum MenuRun {
     Ebook(&'static str, Vec<PathBuf>),
     /// Make checksums of these with this algorithm (`checksum`).
     Sums(coxswain_core::checksum::Algo, Vec<PathBuf>),
+    /// Files dropped on the terminal: copied (or with `true` moved) into the active panel.
+    Drop(Vec<PathBuf>, bool),
 }
 
 pub struct MenuItem {
@@ -3198,6 +3200,10 @@ impl App {
                     Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
                     Some(MenuRun::Ebook(to, books)) => self.ebook_ask(Some(to), books.clone()),
                     Some(MenuRun::Sums(algo, files)) => self.sums_make(*algo, files.clone()),
+                    Some(MenuRun::Drop(src, mv)) => {
+                        let dst = self.panel().dir.clone();
+                        self.transfer(if *mv { Transfer::Move } else { Transfer::Copy }, src.clone(), dst, None, None);
+                    }
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -3378,6 +3384,13 @@ impl App {
         if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
             return e.paste(text);
         }
+        // Files dropped on the terminal come as their paths: copy or move them into the panel.
+        if self.dialog.is_none()
+            && self.cmdline.is_empty()
+            && let Some(src) = coxswain_core::drag::dropped(text)
+        {
+            return self.dropped(src);
+        }
         for c in text.replace("\r\n", "\n").chars() {
             let code = match c {
                 '\n' | '\r' => KeyCode::Enter,
@@ -3386,6 +3399,19 @@ impl App {
             };
             self.key_typed(Key::new(code, false, false, false));
         }
+    }
+
+    /// The menu for files dropped on the terminal: Copy here, Move here.
+    fn dropped(&mut self, src: Vec<PathBuf>) {
+        let dir = self.panel().dir.clone();
+        if let Some(key) = coxswain_core::drag::read_only(&dir) {
+            return self.status = Some(t!(key));
+        }
+        let folder = dir.file_name().map_or_else(|| dir.display().to_string(), |n| n.to_string_lossy().into_owned());
+        let title = t!("app.drop_title", "what" => Self::describe(&src), "folder" => ui::printable(&folder));
+        let item = |key: &str, label, mv| MenuItem { key: key.into(), label, run: MenuRun::Drop(src.clone(), mv), group: None };
+        let items = vec![item("c", t!("app.copy_here"), false), item("m", t!("app.move_here"), true)];
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "drag_and_drop" });
     }
 
     fn on_mouse(&mut self, m: MouseEvent) {
@@ -5028,6 +5054,22 @@ mod perf {
 #[cfg(test)]
 mod panel_tests {
     use super::*;
+
+    #[test]
+    fn a_file_dropped_on_the_terminal_asks_copy_or_move_and_text_is_typed() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-paste-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("here")).unwrap();
+        let f = d.join("a b.txt");
+        std::fs::write(&f, "a").unwrap();
+        let mut app = App::new(Config::default(), d.join("here"), d.clone()).unwrap();
+        app.on_paste("ls");
+        assert_eq!(app.cmdline, "ls");
+        app.cmdline.clear();
+        app.on_paste(&format!("'{}' ", f.display()));
+        assert!(matches!(&app.dialog, Some(Dialog::Menu { feature: "drag_and_drop", items, .. }) if matches!(&items[0].run, MenuRun::Drop(p, false) if p == &[f.clone()])));
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     /// Find's rows are rebuilt every frame: a cursor past the last one (rows gone under it)
     /// goes back onto one, it never stops the app.

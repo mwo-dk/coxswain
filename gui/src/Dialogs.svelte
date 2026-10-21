@@ -585,6 +585,7 @@
         {/if}
       {:else if m.kind === "menu"}
         <h2>{m.title}</h2>
+        {#if m.note}<p class="meta">{m.note}</p>{/if}
         {#if !m.direct}
           <input bind:this={input} bind:value={m.filter} oninput={() => (m.cursor = 0)} placeholder={t("dialogs.filter")} spellcheck="false" />
         {/if}

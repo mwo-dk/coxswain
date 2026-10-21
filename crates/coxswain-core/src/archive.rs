@@ -1424,6 +1424,25 @@ pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
     }))
 }
 
+/// What copying `inner` ("" for everything) out of `archive` takes: its bytes and files, and
+/// whether a file of it is locked with no password known this run.
+pub fn measure(archive: &Path, inner: &str) -> io::Result<(u64, usize, bool)> {
+    let prefix = format!("{inner}/");
+    let known = password_for(archive, None).is_some();
+    let mut out = (0, 0, false);
+    for it in items(archive)?
+        .iter()
+        .filter(|it| inner.is_empty() || it.name == inner || it.name.starts_with(&prefix))
+    {
+        if !it.dir {
+            out.0 += it.size;
+            out.1 += 1;
+        }
+        out.2 |= it.locked && !known;
+    }
+    Ok(out)
+}
+
 /// Copy `inner` (a file, or a folder and everything in it) out of `archive` into `dest`, as
 /// `fs::copy` would: into it when it is a folder. Returns where it landed. A locked file needs
 /// `password`; without it, or with a wrong one, the error is `LOCKED`. `whole`: every entry
