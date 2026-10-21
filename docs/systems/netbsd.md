@@ -117,6 +117,7 @@ from pkgsrc with `pkgin install`:
 | `ImageMagick` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) |
 | `gdal` | Maps and facts of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files, [Convert geodata](../previews/geodata.md#convert-geodata) |
 | `openscad` | Pictures of OpenSCAD models, [Export 3D model](../previews/openscad.md#export-3d-model) |
+| `kicad` | KiCad schematics and boards in the preview, [Export from KiCad](../previews/kicad.md#export-from-kicad) |
 | `git` | Git status, history and branches in the panels |
 | `xdg-utils` | `xdg-open`, which opens a file in its program |
 

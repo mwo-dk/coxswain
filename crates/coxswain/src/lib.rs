@@ -302,6 +302,7 @@ impl Panel {
             images: list.iter().filter(|e| !e.is_dir && coxswain_core::container_image::layout_index(&e.path)).count(),
             local_models: list.iter().filter(|e| !e.is_dir && coxswain_core::local_models::is_model(&e.path)).count(),
             ebooks: list.iter().filter(|e| !e.is_dir && coxswain_core::ebook::is_ebook(&e.path)).count(),
+            kicad: list.iter().filter(|e| !e.is_dir && coxswain_core::kicad::is_kicad(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -1311,6 +1312,7 @@ impl App {
             Action::ConvertGeodata => self.media_menu(coxswain_core::media::Program::Gdal),
             Action::ExportModel => self.media_menu(coxswain_core::media::Program::Openscad),
             Action::ConvertEbook => self.ebook_menu(),
+            Action::ExportKicad => self.media_menu(coxswain_core::media::Program::Kicad),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -2033,7 +2035,7 @@ impl App {
     }
 
     /// *Convert video or audio* (ffmpeg), *Convert or edit pictures* (ImageMagick), *Convert
-    /// geodata* (GDAL) or *Export 3D model* (OpenSCAD) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
+    /// geodata* (GDAL), *Export 3D model* (OpenSCAD) or *Export from KiCad* (kicad-cli) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
     /// from a menu. While one runs, the action stops it.
     fn media_menu(&mut self, program: coxswain_core::media::Program) {
         use coxswain_core::media::Op;

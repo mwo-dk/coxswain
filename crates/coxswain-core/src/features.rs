@@ -197,6 +197,7 @@ pub const FEATURES: &[Feature] = &[
     ),
     f("geodata", "previews/geodata.md", &[ConvertGeodata, ActionMenu, TogglePreview, Properties]),
     f("openscad", "previews/openscad.md", &[ExportModel, ActionMenu, TogglePreview]),
+    f("kicad", "previews/kicad.md", &[ExportKicad, ActionMenu, TogglePreview]),
     f(
         "preview_tools",
         "previews/tools.md",

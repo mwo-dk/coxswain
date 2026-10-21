@@ -35,11 +35,12 @@ const SIZES: &[(&str, u32, u32)] = &[
     ("docker.io/mwader/static-ffmpeg:latest", 126, 315),
     ("docker.io/dstmodders/imagemagick:latest", 60, 152),
     ("ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253", 40, 98),
+    ("docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729", 476, 1710),
     ("docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b", 241, 635),
     (crate::ebook::IMAGE, 1300, 3640),
 ];
 
-const TOOLS: [&str; 16] = [
+const TOOLS: [&str; 17] = [
     "tika",
     "latex",
     "libreoffice",
@@ -56,6 +57,7 @@ const TOOLS: [&str; 16] = [
     "gdal",
     "openscad",
     "calibre",
+    "kicad",
 ];
 
 /// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image, a
@@ -64,6 +66,7 @@ pub fn key(tool: &str) -> &str {
     match tool {
         t if KROKI.contains(&t) => "kroki",
         "waveform" | "heif" => "ffmpeg",
+        "kicad_thumb" => "kicad",
         t => t,
     }
 }

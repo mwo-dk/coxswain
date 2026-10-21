@@ -200,7 +200,7 @@ struct UiConfig {
     media_endings: BTreeMap<&'static str, Vec<&'static str>>,
     /// What *Convert video or audio* and *Convert or edit pictures* offer, in their order, as
     /// `media::Op::id`s; `clip:…` and `resize:…` ask for their values.
-    media_ops: [Vec<String>; 4],
+    media_ops: [Vec<String>; 5],
     /// Geodata's endings (`geo::endings`): `vector`, and `raster` (TIFF, geodata when GDAL says so).
     geo_endings: BTreeMap<&'static str, Vec<&'static str>>,
     /// Open the first-run guide at start; its keys and themes.
@@ -287,7 +287,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
-        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "openscad", "calibre", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
+        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "openscad", "kicad-cli", "calibre", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 

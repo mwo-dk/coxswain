@@ -106,11 +106,13 @@ pub enum Program {
     Gdal,
     /// OpenSCAD, for models (`scad`).
     Openscad,
+    /// KiCad's `kicad-cli`, for schematics and boards (`kicad`).
+    Kicad,
 }
 
 impl Program {
     /// The programs whose work the actions offer, in the desktop app's order of `media_ops`.
-    pub const ALL: [Program; 4] = [Program::Ffmpeg, Program::Magick, Program::Gdal, Program::Openscad];
+    pub const ALL: [Program; 5] = [Program::Ffmpeg, Program::Magick, Program::Gdal, Program::Openscad, Program::Kicad];
 
     /// The action that runs it on files, and its feature in F1.
     pub fn action(self) -> crate::config::Action {
@@ -120,6 +122,7 @@ impl Program {
             Program::Magick => Action::EditPictures,
             Program::Gdal => Action::ConvertGeodata,
             Program::Openscad => Action::ExportModel,
+            Program::Kicad => Action::ExportKicad,
         }
     }
     pub fn feature(self) -> &'static str {
@@ -128,6 +131,7 @@ impl Program {
             Program::Magick => "edit_pictures",
             Program::Gdal => "geodata",
             Program::Openscad => "openscad",
+            Program::Kicad => "kicad",
         }
     }
     /// The status line when none of the files is one it takes.
@@ -137,6 +141,7 @@ impl Program {
             Program::Magick => "media.none_pictures",
             Program::Gdal => "geo.none",
             Program::Openscad => "scad.none",
+            Program::Kicad => "kicad.none",
         })
     }
 
@@ -147,6 +152,7 @@ impl Program {
             Program::Magick => MAGICK,
             Program::Gdal => crate::geo::GDAL,
             Program::Openscad => crate::scad::OPENSCAD,
+            Program::Kicad => crate::kicad::KICAD,
         }
     }
     /// What is looked for on the PATH: GDAL's programs are installed together.
@@ -156,6 +162,7 @@ impl Program {
             Program::Magick => "magick",
             Program::Gdal => "gdalinfo",
             Program::Openscad => "openscad",
+            Program::Kicad => "kicad-cli",
         }
     }
     fn name(self) -> &'static str {
@@ -164,6 +171,7 @@ impl Program {
             Program::Magick => "ImageMagick",
             Program::Gdal => "GDAL",
             Program::Openscad => "OpenSCAD",
+            Program::Kicad => "KiCad",
         }
     }
     /// The texts of `missing`: what to get it from, and what needs it.
@@ -173,6 +181,7 @@ impl Program {
             Program::Magick => ("media.install_magick", "media.needs_magick"),
             Program::Gdal => ("geo.install_gdal", "geo.needs_gdal"),
             Program::Openscad => ("scad.install", "scad.needs"),
+            Program::Kicad => ("kicad.install", "kicad.needs"),
         }
     }
 }
@@ -238,7 +247,7 @@ pub fn about(how: &How) -> (String, bool) {
         How::Local { .. } => (t!("media.runs_local", "program" => name), false),
         How::Container { rt, path, image, .. } => {
             // GDAL sees the file's folder (a shapefile is several files), the others the file alone.
-            let key = if matches!(how.program(), Program::Gdal | Program::Openscad) { "geo.runs_container" } else { "media.runs_container" };
+            let key = if matches!(how.program(), Program::Gdal | Program::Openscad | Program::Kicad) { "geo.runs_container" } else { "media.runs_container" };
             let runs = t!(key, "program" => name, "runtime" => *rt, "image" => crate::images::short(image));
             if crate::tools::image_size(path, image).is_some() {
                 return (runs, false);
@@ -286,6 +295,10 @@ pub enum Op {
     Model,
     Stl,
     ThreeMf,
+    /// KiCad: the preview (a PDF of the sheets or layers), the thumbnail, and *Export from KiCad*.
+    Board,
+    BoardThumb,
+    Kicad(crate::kicad::To),
 }
 
 impl Op {
@@ -295,6 +308,7 @@ impl Op {
             Op::Frame | Op::Waveform | Op::Mp4 | Op::Mp3 | Op::Flac | Op::Audio | Op::Clip { .. } => Program::Ffmpeg,
             Op::Map | Op::Geo(_) => Program::Gdal,
             Op::Model | Op::Stl | Op::ThreeMf => Program::Openscad,
+            Op::Board | Op::BoardThumb | Op::Kicad(_) => Program::Kicad,
             _ => Program::Magick,
         }
     }
@@ -306,6 +320,7 @@ impl Op {
             Program::Magick => vec![Op::Jpeg, Op::Png, Op::Webp, Op::Resize(1600), Op::NoLocation, Op::Rotate(90), Op::Rotate(270), Op::Rotate(180)],
             Program::Gdal => crate::geo::To::ALL.map(Op::Geo).to_vec(),
             Program::Openscad => vec![Op::Stl, Op::ThreeMf],
+            Program::Kicad => crate::kicad::To::ALL.map(Op::Kicad).to_vec(),
         }
     }
 
@@ -316,6 +331,7 @@ impl Op {
             Op::Geo(to) => crate::i18n::tr(&format!("geo.to.{}", to.id()), &[]),
             Op::Stl => t!("scad.op.stl"),
             Op::ThreeMf => t!("scad.op.3mf"),
+            Op::Kicad(to) => crate::i18n::tr(&format!("kicad.to.{}", to.id()), &[]),
             _ => crate::i18n::tr(&format!("media.op.{}", self.id().split(':').next().unwrap_or_default()), &[]),
         }
     }
@@ -342,6 +358,9 @@ impl Op {
             Op::Model => "model".into(),
             Op::Stl => "stl".into(),
             Op::ThreeMf => "3mf".into(),
+            Op::Board => "board".into(),
+            Op::BoardThumb => "board_thumb".into(),
+            Op::Kicad(to) => format!("kicad:{}", to.id()),
         }
     }
 
@@ -367,6 +386,7 @@ impl Op {
             "geo" => Op::Geo(crate::geo::To::parse(p.next()?)?),
             "stl" => Op::Stl,
             "3mf" => Op::ThreeMf,
+            "kicad" => Op::Kicad(crate::kicad::To::parse(p.next()?)?),
             _ => return None,
         };
         p.next().is_none().then_some(op)
@@ -382,6 +402,10 @@ impl Op {
                 _ => crate::geo::is_geo(path),
             },
             Program::Openscad => crate::scad::is_model(path),
+            Program::Kicad => match self {
+                Op::Kicad(to) => to.takes(path),
+                _ => crate::kicad::is_kicad(path),
+            },
         }
     }
 
@@ -407,6 +431,9 @@ impl Op {
             Op::Map | Op::Model => "svg".into(),
             Op::Stl => "stl".into(),
             Op::ThreeMf => "3mf".into(),
+            Op::Board => "pdf".into(),
+            Op::BoardThumb => "svg".into(),
+            Op::Kicad(to) => to.result_ending(path).into(),
             Op::Geo(to) => to.result_ending().into(),
             Op::Mp4 => "mp4".into(),
             Op::Mp3 => "mp3".into(),
@@ -533,7 +560,7 @@ fn args(program: Program, op: &Op, input: &str, output: &str, src: &Path) -> Vec
             a
         }
         // GDAL's and OpenSCAD's runs are `geo`'s and `scad`'s.
-        Program::Gdal | Program::Openscad => vec![],
+        Program::Gdal | Program::Openscad | Program::Kicad => vec![],
     }
 }
 
@@ -695,6 +722,14 @@ fn make(
         in_folder(how, path, scratch, stop, timeout, said, &[], |run| match op {
             Op::Model => std::fs::write(&out, crate::scad::picture_of(run, manifold)?).map_err(|e| e.to_string()),
             _ => crate::scad::export(run, op == &Op::Stl, &out_name, manifold),
+        })?;
+        return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
+    }
+    if how.program() == Program::Kicad {
+        in_folder(how, path, scratch, stop, timeout, said, &[], |run| match op {
+            Op::Kicad(to) => crate::kicad::export(run, path, *to, &out_name),
+            Op::BoardThumb => std::fs::write(&out, crate::kicad::thumbnail(run, path)?).map_err(|e| e.to_string()),
+            _ => crate::kicad::preview(run, path, &out_name),
         })?;
         return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
     }

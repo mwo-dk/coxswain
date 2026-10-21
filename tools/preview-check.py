@@ -134,6 +134,9 @@ def files(d):
     # An OpenSCAD model: drawn from an installed OpenSCAD's STL, else the note.
     (d / "za.scad").write_text("difference() { cube(20, center = true); sphere(13); }\n")
     media["scad"] = ("za.scad", ".media img" if shutil.which("openscad") else "p.more", "", 60)
+    # A KiCad board with nothing on it but its outline: a PDF by an installed kicad-cli, else the note.
+    (d / "zb.kicad_pcb").write_text('(kicad_pcb (version 20241229) (generator "check") (general (thickness 1.6)) (paper "A5") (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user)) (net 0 "") (gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type default)) (fill no) (layer "Edge.Cuts")))\n')
+    media["kicad"] = ("zb.kicad_pcb", "iframe" if shutil.which("kicad-cli") else "p.more", "", 60)
     return media | {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
