@@ -1751,6 +1751,18 @@ pub struct Config {
     /// names them.
     #[serde(skip)]
     pub unknown_actions: Vec<String>,
+    /// The settings config.toml gives that could not be used, each left at its default
+    /// (`Config::lenient`): a notice names each one's line and what is wrong.
+    #[serde(skip)]
+    pub refused: Vec<Refused>,
+}
+
+/// A setting in config.toml that could not be used: its line (from 1) and what is wrong with
+/// it, as a sentence ("`theme` must be text").
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Refused {
+    pub line: usize,
+    pub problem: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1829,9 +1841,144 @@ impl Default for Config {
             archive: ArchiveConfig::default(),
             chess: ChessConfig::default(),
             unknown_actions: vec![],
+            refused: vec![],
         };
         c.fill_defaults();
         c
+    }
+}
+
+/// `text` read whole, or its first mistake: the lines (from 0, inclusive) it is on, to be left
+/// out, and what is wrong in words.
+fn mistake(text: &str) -> Result<Config, (usize, usize, String)> {
+    let line_of = |at: usize| text[..at.min(text.len())].matches('\n').count();
+    // Bad TOML: its line, or a table header and the lines under it.
+    let doc = match toml_edit::Document::parse(text) {
+        Ok(d) => d,
+        Err(e) => {
+            let at = line_of(e.span().map_or(0, |s| s.start));
+            let header = text.split('\n').nth(at).is_some_and(|l| l.trim_start().starts_with('['));
+            let to = if header { table_end(text, at) } else { at };
+            let why = e.message().lines().next().unwrap_or_default().to_string();
+            return Err((at, to, crate::t!("config.bad_toml", "why" => why)));
+        }
+    };
+    match toml::from_str::<Config>(text) {
+        Err(e) => {
+            let at = e.span().map_or(0, |s| s.start);
+            let (path, from, to) = entry_at(text, doc.as_table(), "", at).unwrap_or_else(|| (String::new(), line_of(at), line_of(at)));
+            Err((from, to, problem(&path, e.message())))
+        }
+        Ok(_) => Config::parse(text).map_err(|why| {
+            // Parsed, so it is the keys: the first entry of `[keys]` with a key name that does
+            // not exist or a key an earlier entry has.
+            let keys = doc.get("keys").and_then(|k| k.as_table_like());
+            let mut seen: HashMap<Key, &str> = HashMap::new();
+            for (name, item) in keys.into_iter().flat_map(|t| t.iter()) {
+                let list = item.as_array().map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>()).unwrap_or_default();
+                let wrong = list.iter().find_map(|k| match k.parse::<Key>() {
+                    Err(e) => Some(e),
+                    Ok(key) => match seen.insert(key, name) {
+                        Some(other) if other != name => Some(crate::t!("err.key_twice", "key" => k, "a" => other, "b" => name)),
+                        _ => None,
+                    },
+                });
+                if let Some(wrong) = wrong {
+                    let span = keys.and_then(|t| t.key(name)).and_then(|k| k.span());
+                    let from = span.map_or(0, |s| line_of(s.start));
+                    let to = item.span().map_or(from, |s| line_of(s.end.saturating_sub(1)));
+                    return (from, to, crate::t!("config.wrong", "key" => format!("keys.{name}"), "why" => wrong));
+                }
+            }
+            (0, 0, why)
+        }),
+    }
+}
+
+/// The last line (from 0) of the table whose header is on line `at`: the line before the next
+/// header, or the file's last.
+// ponytail: a line of a multi-line string that starts with `[` ends it early; rare in a config.
+fn table_end(text: &str, at: usize) -> usize {
+    let lines: Vec<&str> = text.split('\n').collect();
+    (at + 1..lines.len()).find(|&i| lines[i].trim_start().starts_with('[')).map_or(lines.len() - 1, |i| i - 1)
+}
+
+/// The setting of `table` that byte `at` of `text` is in: its dotted name and its first and
+/// last line (from 0). A table of an array of tables (`[[user_menu]]`) whose own value is
+/// wrong (a key missing) is the whole table.
+fn entry_at(text: &str, table: &toml_edit::Table, prefix: &str, at: usize) -> Option<(String, usize, usize)> {
+    let line_of = |i: usize| text[..i.min(text.len())].matches('\n').count();
+    for (name, item) in table.iter() {
+        let path = if prefix.is_empty() { name.to_string() } else { format!("{prefix}.{name}") };
+        match item {
+            toml_edit::Item::Table(t) => {
+                if let Some(found) = entry_at(text, t, &path, at) {
+                    return Some(found);
+                }
+                if let Some(s) = t.span().filter(|s| s.contains(&at)) {
+                    let from = line_of(s.start);
+                    return Some((path, from, table_end(text, from)));
+                }
+            }
+            toml_edit::Item::ArrayOfTables(a) => {
+                for t in a.iter() {
+                    if let Some(found) = entry_at(text, t, &path, at) {
+                        return Some(found);
+                    }
+                }
+                // The entry whose header comes last before `at`.
+                let head = a.iter().filter_map(|t| t.span()).map(|s| s.start).filter(|&s| s <= at).max()?;
+                let from = line_of(head);
+                return Some((path, from, table_end(text, from)));
+            }
+            toml_edit::Item::Value(v) => {
+                let start = table.key(name).and_then(|k| k.span()).map_or(0, |s| s.start);
+                let end = v.span().map_or(start, |s| s.end);
+                if (start..end.max(start + 1)).contains(&at) {
+                    // Inside an inline table (`images = { latex = 5 }`): named by its key there,
+                    // the whole entry left out.
+                    let mut path = path;
+                    let mut inner = v.as_inline_table();
+                    while let Some(t) = inner.take() {
+                        if let Some((k, v)) = t.iter().find(|(_, v)| v.span().is_some_and(|s| s.contains(&at))) {
+                            path = format!("{path}.{k}");
+                            inner = v.as_inline_table();
+                        }
+                    }
+                    return Some((path, line_of(start), line_of(end.saturating_sub(1).max(start))));
+                }
+            }
+            toml_edit::Item::None => {}
+        }
+    }
+    None
+}
+
+/// What is wrong with the setting `key`, in words, from what serde said.
+fn problem(key: &str, said: &str) -> String {
+    let said = said.lines().next().unwrap_or_default();
+    let expected = said.rsplit_once("expected ").map(|(_, e)| e).unwrap_or_default();
+    let must = if said.starts_with("unknown variant") {
+        Some(crate::t!("config.must_one_of", "key" => key, "values" => expected.trim_start_matches("one of ")))
+    } else if !said.starts_with("invalid type") {
+        None
+    } else if expected.contains("string") {
+        Some(crate::t!("config.must_text", "key" => key))
+    } else if expected.contains("bool") {
+        Some(crate::t!("config.must_bool", "key" => key))
+    } else if ["integer", "i64", "u64", "u32", "u16", "u8", "usize", "f64", "f32", "float", "number"].iter().any(|n| expected.contains(n)) {
+        Some(crate::t!("config.must_number", "key" => key))
+    } else if expected.contains("sequence") {
+        Some(crate::t!("config.must_list", "key" => key))
+    } else if expected.contains("map") || expected.contains("struct") {
+        Some(crate::t!("config.must_table", "key" => key))
+    } else {
+        None
+    };
+    match must {
+        Some(m) => m,
+        None if key.is_empty() => said.to_string(),
+        None => crate::t!("config.wrong", "key" => key, "why" => said),
     }
 }
 
@@ -1867,34 +2014,63 @@ impl Config {
         ]
     }
 
-    /// Load the user config, falling back to defaults when the file does not exist.
+    /// Load the user config, falling back to defaults when the file does not exist. A mistake
+    /// in it costs only the setting it is in (`lenient`); only a file that cannot be read at
+    /// all is an error.
     pub fn load() -> Result<Config, String> {
         match Config::path().map(std::fs::read_to_string) {
-            Some(Ok(text)) => Config::parse(&text),
+            Some(Ok(text)) => Ok(Config::lenient(&text)),
             Some(Err(e)) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("config: {e}")),
             _ => Ok(Config::default()),
         }
     }
 
-    /// The search settings, for the helper above all. A mistake elsewhere in the file (a key
-    /// bound twice) leaves `[search]` as the user set it: the defaults would read the folders
-    /// left out and the archives turned off, and read them again once the mistake is fixed.
+    /// The search settings, for the helper above all: as the user set them even when the file
+    /// has a mistake elsewhere (`lenient`), or the defaults would read the folders left out
+    /// and the archives turned off, and read them again once the mistake is fixed.
     pub fn load_search() -> SearchConfig {
         let text = Config::path().and_then(|p| std::fs::read_to_string(p).ok());
-        Config::search_of(text.as_deref().unwrap_or_default())
+        Config::lenient(text.as_deref().unwrap_or_default()).search
     }
 
-    /// `load_search` of the text of a config.toml.
-    fn search_of(text: &str) -> SearchConfig {
-        #[derive(Deserialize, Default)]
-        #[serde(default)]
-        struct Search {
-            search: SearchConfig,
+    /// `text` (a config.toml) read as far as it can be: each setting with a mistake (bad
+    /// TOML, a wrong type, a key name that does not exist, a key bound twice) is left at its
+    /// default, the rest kept as the user set it; `refused` names each mistake and its line.
+    pub fn lenient(text: &str) -> Config {
+        if let Ok(c) = Config::parse(text) {
+            return c;
         }
-        Config::parse(text).map(|c| c.search).unwrap_or_else(|_| {
-            let search = toml::from_str::<Search>(text).map(|s| s.search).unwrap_or_default();
-            crate::cloud::follow(&search);
-            search
+        // The broken lines are blanked one mistake at a time, so the lines keep their numbers.
+        let mut lines: Vec<String> = text.split('\n').map(str::to_string).collect();
+        let mut refused = vec![];
+        loop {
+            let cur = lines.join("\n");
+            let (from, to, problem) = match mistake(&cur) {
+                Ok(mut c) => {
+                    refused.sort_by_key(|r: &Refused| r.line);
+                    c.refused = refused;
+                    return c;
+                }
+                Err(m) => m,
+            };
+            refused.push(Refused { line: from + 1, problem });
+            let end = to.min(lines.len().saturating_sub(1));
+            // Nothing left to blank there: the defaults, rather than a loop.
+            if from > end || lines[from..=end].iter().all(|l| l.trim().is_empty()) {
+                return Config { refused, ..Config::default() };
+            }
+            lines[from..=end].iter_mut().for_each(String::clear);
+        }
+    }
+
+    /// The settings `new_text` would save, where `old_text` is the file now: refused only when
+    /// it has a mistake `old_text` did not have, so Settings still save while the user has
+    /// not mended a line of their own yet.
+    pub fn parse_saved(old_text: &str, new_text: &str) -> Result<Config, String> {
+        Config::parse(new_text).or_else(|e| {
+            let (old, new) = (Config::lenient(old_text), Config::lenient(new_text));
+            let had = |r: &Refused| old.refused.iter().any(|o| o.problem == r.problem);
+            if new.refused.iter().all(had) { Ok(new) } else { Err(e) }
         })
     }
 
@@ -1954,7 +2130,7 @@ impl Config {
         let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
         update_config(&path, |text| {
             let new = Config::edit(text, keys, value)?;
-            let cfg = Config::parse(&new)?;
+            let cfg = Config::parse_saved(text, &new)?;
             Ok((Some(new), cfg))
         })
     }
@@ -2283,8 +2459,47 @@ mod tests {
         // A key bound twice: the helper still reads with the user's search settings.
         let twice = "[keys]\nquit = [\"F5\"]\ncopy = [\"F5\"]\n[search]\narchives = false\ntext_exclude = [\"secret\"]\n";
         assert!(Config::parse(twice).is_err());
-        let search = Config::search_of(twice);
-        assert_eq!((search.archives, search.text_exclude.as_slice()), (false, ["secret".to_string()].as_slice()));
+        let c = Config::lenient(twice);
+        assert_eq!((c.search.archives, c.search.text_exclude.as_slice()), (false, ["secret".to_string()].as_slice()));
+        // The first binding stays, the second is left out and named.
+        assert_eq!(c.keymap().unwrap()[&"F5".parse().unwrap()], Action::Quit);
+        assert_eq!(c.refused.len(), 1);
+        assert_eq!(c.refused[0].line, 3);
+    }
+
+    /// A config.toml with mistakes: each costs only its own setting, and is named with its line.
+    #[test]
+    fn config_lenient_keeps_what_it_can_read() {
+        crate::i18n::set_language("en-GB");
+        let lines = |c: &Config| c.refused.iter().map(|r| r.line).collect::<Vec<_>>();
+        // A wrong type, at the top and in a table.
+        let c = Config::lenient("show_hidden = false\ntheme = 5\n[search]\nmax_results = \"many\"\narchives = false\n");
+        assert_eq!((c.show_hidden, c.theme.as_str(), c.search.max_results, c.search.archives), (false, "nc", SearchConfig::default().max_results, false));
+        assert_eq!(lines(&c), [2, 4]);
+        assert_eq!(c.refused[0].problem, "`theme` must be text");
+        assert_eq!(c.refused[1].problem, "`search.max_results` must be a number");
+        // Bad TOML: the line; a broken table header: its table.
+        let c = Config::lenient("show_hidden = false\nconfirm_delete = \n[search\narchives = false\n[gui]\nfont_size = 20.0\n");
+        assert_eq!((c.show_hidden, c.confirm_delete, c.search.archives, c.gui.font_size), (false, true, true, 20.0));
+        assert_eq!(lines(&c), [2, 3]);
+        assert!(c.refused[0].problem.starts_with("not valid TOML: "), "{:?}", c.refused);
+        // An unknown key name, and a value spread over lines.
+        let c = Config::lenient("[keys]\nquit = [\"Ctlr+Q\"]\nhelp = [\"F2\"]\n[search]\ntext_exclude = [\n  \"/a\",\n  5,\n]\nmax_results = 9\n");
+        assert_eq!(c.keymap().unwrap()[&"F2".parse().unwrap()], Action::Help);
+        assert_eq!((c.search.text_exclude.clone(), c.search.max_results), (SearchConfig::default().text_exclude, 9));
+        assert_eq!(lines(&c), [2, 5]);
+        assert_eq!(c.refused[0].problem, "`keys.quit`: unknown key 'Ctlr+Q'");
+        // A wrong type inside an inline table.
+        let c = Config::lenient("hints = false\npreview = { prefer = 5 }\n");
+        assert!(!c.hints);
+        assert_eq!(lines(&c), [2]);
+        assert_eq!(c.refused[0].problem, "`preview.prefer` must be text");
+        // A file without mistakes has none.
+        assert!(Config::lenient("theme = \"mc\"\n").refused.is_empty());
+        // Settings save while the old mistake stands, not when they would add one.
+        let old = "theme = 5\n";
+        assert!(Config::parse_saved(old, "theme = 5\nhints = false\n").is_ok_and(|c| !c.hints));
+        assert!(Config::parse_saved(old, "theme = 5\nhints = 3\n").is_err());
     }
 
     #[test]

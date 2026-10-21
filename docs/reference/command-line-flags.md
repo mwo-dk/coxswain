@@ -179,7 +179,7 @@ See [The search helper](../search/helper.md).
 |---|---|
 | `0` | Done, or the app quit normally |
 | `1` | A flag's work failed (`--meaning`, `--index-service`, `--models delete`, `--disk clear`, `--hints reset`), or `--models delete` names no such model; it prints `coxswain: …` with the reason |
-| `2` | An option, value or folder it does not know (`coxswain --model`, `--meaning of`, `coxswain nowhere`), or a name `--disk clear` does not take; or `config.toml` could not be read or has a mistake: `coxswain: config: …` or `coxswain: unknown key 'Ctlr+P'`. The app does not start |
+| `2` | An option, value or folder it does not know (`coxswain --model`, `--meaning of`, `coxswain nowhere`), or a name `--disk clear` does not take; or `config.toml` could not be read at all (no permission): `coxswain: config: …`. The app does not start. A mistake inside the file does not stop it: see [Mistakes](configuration.md#the-file) |
 
 ## The desktop app: `coxswain-gui`
 
@@ -219,9 +219,10 @@ Any other word after `--settings=` opens it at *Overview*; so do the section nam
 (`meaning`, `ask`, `news`, `cloud`), which 2.0 no longer knows.
 
 The desktop app has no `--paths` or `--meaning`: use the terminal app's flags, which work on
-the same `config.toml`, the same cache and the same helper. A `config.toml` it cannot read does
-not stop it: it starts with every default and prints `coxswain: config: …; using defaults` on
-the terminal it was started from.
+the same `config.toml`, the same cache and the same helper. A mistake in `config.toml` costs
+only that setting, named in a notice ([Mistakes](configuration.md#the-file)); a `config.toml` it
+cannot read at all does not stop it: it starts with every default and prints
+`coxswain: config: …; using defaults` on the terminal it was started from.
 
 On FreeBSD, the other BSDs and Linux it needs a display: started where none of `DISPLAY`,
 `WAYLAND_DISPLAY` and `GDK_BACKEND` is set (over ssh, on a console), it prints *coxswain-gui: no display to open

@@ -637,6 +637,14 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, body);
             f.render_widget(Paragraph::new(t!("dialog.keys_one", "verb" => t!("common.close"))).centered(), key);
         }
+        Dialog::Refused { text, line } => {
+            let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
+            let inner = frame(f, app, text_box(full, 76, &p, 4), &t!("config.refused_title"));
+            let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, body);
+            let verb = t!("config.open_at", "line" => line);
+            f.render_widget(Paragraph::new(t!("dialog.keys", "verb" => verb, "cancel" => t!("common.close"))).centered(), key);
+        }
         Dialog::Help { scroll } => {
             let area = centered(full, 120, full.height.saturating_sub(4));
             let inner = frame(f, app, area, &t!("help.title")).inner(ratatui::layout::Margin::new(1, 0));

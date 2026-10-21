@@ -2233,6 +2233,15 @@ async fn open_keys(ctx: tauri::State<'_, Ctx>) -> Res<()> {
     edit_at(path, line, editor).await
 }
 
+/// A notice of a mistake in config.toml: the file in `editor` at its `line`, or with the
+/// desktop's default when no editor is set.
+#[tauri::command]
+async fn open_config_at(line: usize, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let path = Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
+    let editor = ctx.cfg().editor.clone();
+    edit_at(path, line, editor).await
+}
+
 /// `path` in `editor` at `line`, or with the desktop's default when no editor is set.
 async fn edit_at(path: PathBuf, line: usize, editor: Option<String>) -> Res<()> {
     let Some(ed) = editor else { return open_path(path).await };
@@ -2315,6 +2324,8 @@ fn main() {
     if let Err(e) = coxswain_core::migrate::on_start() {
         eprintln!("coxswain: {e}");
     }
+    // A mistake in config.toml costs only its setting, and a notice names its line; only a
+    // file that cannot be read at all leaves every default.
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
         Config::default()
@@ -2326,10 +2337,6 @@ fn main() {
     if ["DISPLAY", "WAYLAND_DISPLAY", "GDK_BACKEND"].iter().all(|v| std::env::var_os(v).is_none_or(|x| x.is_empty())) {
         eprintln!("coxswain-gui: {}", coxswain_core::t!("cli.no_display"));
         std::process::exit(1);
-    }
-    // Validate early: a bad key in the config should not surface as a blank window.
-    if let Err(e) = cfg.keymap() {
-        eprintln!("coxswain: {e}");
     }
     // Launched from the Dock, a macOS app gets the bare system PATH, so docker, podman,
     // pandoc and the rest of Homebrew are invisible.
@@ -2405,7 +2412,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, name_ranks, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, scripts_folder,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, open_config_at, scripts_folder,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

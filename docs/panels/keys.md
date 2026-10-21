@@ -240,10 +240,11 @@ In `config.toml`, under `[keys]`: `search = ["Ctrl+P"]`. See
 The terminal app keeps Norton Commander's short labels on its bar; the keys are the same. See
 [The screen](the-screen.md#why-does-the-f-key-bar-say-move-in-one-app-and-renmov-in-the-other).
 
-#### I bound a key and now the desktop app ignores my whole config. Why?
+#### I bound a key and now Coxswain says config.toml has a mistake. Why?
 
-A key name it cannot read (`"Ctlr+P"`) makes the config invalid: see
-[I bound a key and the app will not start](../customise/keys.md#i-bound-a-key-and-the-app-will-not-start-what-is-wrong).
+A key name it cannot read (`"Ctlr+P"`) or a key bound twice: that one line is left out, the
+rest of the config is used, and the notice opens `config.toml` at the line. See
+[I bound a key and it does nothing](../customise/keys.md#i-bound-a-key-and-it-does-nothing-what-is-wrong).
 
 #### Why does Ctrl+C in the command line copy text, not files?
 
