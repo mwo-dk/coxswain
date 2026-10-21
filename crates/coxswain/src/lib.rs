@@ -271,7 +271,7 @@ impl Panel {
         let list: Vec<&Entry> = if self.marked.is_empty() { cur.into_iter().collect() } else { self.entries.iter().filter(|e| self.marked.contains(&e.path)).collect() };
         let at = history::split(&self.dir);
         let inside = coxswain_core::archive::split(&self.dir);
-        let place = if inside.as_ref().is_some_and(|(a, _)| coxswain_core::archive::read_only(a)) {
+        let place = if inside.as_ref().is_some_and(|(a, i)| coxswain_core::archive::read_only(a) || coxswain_core::archive::nested(a, i, true)) {
             Place::DiskImage
         } else if inside.is_some() {
             Place::Archive
@@ -1246,6 +1246,9 @@ impl App {
         {
             return self.status = Some(t!("disk_image.read_only"));
         }
+        if matches!(a, Action::Move | Action::Rename | Action::Delete | Action::DeleteForever | Action::NewFolder) && coxswain_core::archive::nested_dir(&self.panel().dir) {
+            return self.status = Some(t!("archive.nested_read_only"));
+        }
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
@@ -1651,10 +1654,11 @@ impl App {
 
     fn open(&mut self) {
         let Some(e) = self.panel().current().cloned() else { return };
-        // An archive opens like a folder; its files are copied out with F5. An archive inside
-        // one is a file like the others.
+        // An archive opens like a folder, an archive inside one too (from a copy in the cache);
+        // its files are copied out with F5.
         let inside = coxswain_core::archive::split(&self.panel().dir);
-        if e.is_dir || (inside.is_none() && coxswain_core::archive::opens(&e.path)) {
+        let opens = if inside.is_none() { coxswain_core::archive::opens(&e.path) } else { coxswain_core::archive::opens_inside(&e.path) };
+        if e.is_dir || opens {
             return self.cd(self.active, e.path);
         }
         if let Some((archive, _)) = inside {
@@ -4162,6 +4166,7 @@ pub fn main() {
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableBracketedPaste);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
     ratatui::restore();
+    coxswain_core::archive::clean_up();
     if let Err(e) = res {
         eprintln!("coxswain: {e}");
     }

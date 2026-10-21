@@ -178,7 +178,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
 /// What a panel's folder is, as its title's badge says: read from the disk once per folder.
 pub enum Place {
-    Archive,
+    /// Inside an archive; `true` inside an archive inside another (read-only).
+    Archive(bool),
     History(coxswain_core::history::At),
     /// A dataset's list of snapshots.
     Snapshots,
@@ -188,7 +189,7 @@ pub enum Place {
 impl Place {
     fn of(dir: &std::path::Path) -> Place {
         if coxswain_core::archive::split(dir).is_some() {
-            Place::Archive
+            Place::Archive(coxswain_core::archive::nested_dir(dir))
         } else if let Some(at) = coxswain_core::history::split(dir) {
             Place::History(at)
         } else if coxswain_core::zfs::split(dir).is_some() {
@@ -223,9 +224,9 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let place = p.place.as_ref().map_or(&Place::Plain, |(_, pl)| pl);
     let dir = match place {
         // A disk image (CHM, CBR) says it is read-only instead.
-        Place::Archive => {
+        Place::Archive(nested) => {
             let archive = coxswain_core::archive::split(&p.dir).map(|(a, _)| a);
-            let ro = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
+            let ro = *nested || archive.as_deref().is_some_and(coxswain_core::archive::read_only);
             let badge = if ro { t!("dialogs.readonly") } else { t!("archive.badge") };
             // A container image says which: its tag.
             match archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title) {

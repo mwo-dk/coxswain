@@ -776,6 +776,147 @@ pub fn split(path: &Path) -> Option<(PathBuf, String)> {
     None
 }
 
+// ---------------------------------------------------------------- archives inside archives
+
+/// The most archives inside each other that are opened, the outer one not counted.
+const NESTED_DEPTH: usize = 8;
+/// The most bytes an archive inside one is unpacked to, counted as it comes out: a size the
+/// outer archive claims may be a lie.
+const NESTED_MAX: u64 = 16 << 30;
+/// Archives inside archives kept unpacked in the cache this run; the oldest goes past this.
+const NESTED_KEPT: usize = 8;
+
+/// The archives inside archives unpacked this run, oldest first: the archive each is in, as it
+/// was then, its name in it, and the copy in the cache.
+static NESTED: std::sync::Mutex<Vec<(PathBuf, Stamp, String, PathBuf)>> =
+    std::sync::Mutex::new(Vec::new());
+
+/// Where the first archive inside `archive` on the way to `inner` ends in `inner`: the length
+/// of its name. `into`: `inner` is looked into, so an archive at its very end counts too;
+/// otherwise `inner` is a file to act on, and an archive at its end is only that file.
+fn nested_cut(archive: &Path, inner: &str, into: bool) -> io::Result<Option<usize>> {
+    let ends: Vec<usize> = inner
+        .match_indices('/')
+        .map(|(i, _)| i)
+        .chain(into.then_some(inner.len()))
+        .filter(|&i| i > 0 && opens_inside(Path::new(&inner[..i])))
+        .collect();
+    if ends.is_empty() {
+        return Ok(None);
+    }
+    // Only now the listing: a path through no archive by name costs nothing.
+    let all = items(archive)?;
+    Ok(ends
+        .into_iter()
+        .find(|&i| all.iter().any(|it| !it.dir && it.name == inner[..i])))
+}
+
+/// The archive file `inner` of `archive` is in, and its path inside that one: `archive` itself,
+/// or the copy in the cache of the archive inside it that `inner` goes through (`nested_cut`),
+/// as deep as they go. Each such archive is unpacked to the cache once, never into memory.
+fn resolve(archive: &Path, inner: &str, into: bool) -> io::Result<(PathBuf, String)> {
+    let (mut at, mut rest) = (archive.to_path_buf(), inner.to_string());
+    for depth in 0.. {
+        let Some(cut) = nested_cut(&at, &rest, into)? else {
+            break;
+        };
+        if depth == NESTED_DEPTH {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                crate::t!("archive.nested_too_deep", "depth" => NESTED_DEPTH),
+            ));
+        }
+        at = spilled(&at, &rest[..cut])?;
+        rest = rest[cut..].trim_start_matches('/').to_string();
+    }
+    Ok((at, rest))
+}
+
+/// Whether the file `path` inside an archive opens like a folder too: by its name alone, an
+/// archive, a comic or a mailbox (a disk image inside one does not open).
+pub fn opens_inside(path: &Path) -> bool {
+    ending_kind(path).or_else(|| ends_in(path, OPEN_ONLY)).is_some()
+}
+
+/// Whether `inner` of `archive` lies inside an archive inside it, where nothing is changed.
+/// `into` as for `nested_cut`.
+pub fn nested(archive: &Path, inner: &str, into: bool) -> bool {
+    nested_cut(archive, inner, into).is_ok_and(|c| c.is_some())
+}
+
+/// Whether the folder `dir` (a path through an archive) is inside an archive inside another.
+pub fn nested_dir(dir: &Path) -> bool {
+    split(dir).is_some_and(|(a, inner)| nested(&a, &inner, true))
+}
+
+fn nested_read_only() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        crate::t!("archive.nested_read_only"),
+    )
+}
+
+/// The copy in the cache of `name`, an archive inside `archive`: made when there is none of
+/// it as `archive` is now. In this run's own folder, readable by this user alone, in a fresh
+/// folder of its own under the name it has in the archive (`sound` names only: no `..`, no
+/// separators). The oldest copy goes past `NESTED_KEPT`, and all of them when the app ends.
+fn spilled(archive: &Path, name: &str) -> io::Result<PathBuf> {
+    let st = stamp(archive)?;
+    // One at a time: two looks at the same archive must not unpack it twice.
+    // ponytail: one lock for all; a big inner archive holds up another's preview meanwhile.
+    let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(i) = kept
+        .iter()
+        .position(|(a, s, n, copy)| a == archive && *s == st && n == name && copy.is_file())
+    {
+        let it = kept.remove(i);
+        let copy = it.3.clone();
+        kept.push(it);
+        return Ok(copy);
+    }
+    let base = run_folder("nested", false)?;
+    let dir = (0..)
+        .map(|i| base.join(i.to_string()))
+        .find(|d| !d.exists())
+        .expect("a free number");
+    crate::fs::private_dir(&dir)?;
+    let copy = dir.join(name.rsplit('/').next().unwrap_or("archive"));
+    let made = copy_out_with(
+        archive,
+        name,
+        &copy,
+        password_for(archive, None).as_deref(),
+        Copy {
+            limit: NESTED_MAX,
+            ..Copy::default()
+        },
+    );
+    if let Err(e) = made {
+        let _ = std::fs::remove_dir_all(&dir);
+        return Err(e);
+    }
+    if kept.len() >= NESTED_KEPT {
+        let (.., old) = kept.remove(0);
+        uncache(&old);
+        forget(&old);
+        if let Some(d) = old.parent() {
+            let _ = std::fs::remove_dir_all(d);
+        }
+    }
+    kept.push((archive.to_path_buf(), st, name.to_string(), copy.clone()));
+    Ok(copy)
+}
+
+/// Removes this run's copies of archives inside archives: the apps call it as they end.
+/// Copies a run left behind (it crashed) go after a day.
+pub fn clean_up() {
+    let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
+    kept.clear();
+    if let Some(d) = crate::helper::folder() {
+        let _ = std::fs::remove_dir_all(d.join("nested").join(std::process::id().to_string()));
+    }
+}
+
 /// Seconds since the Unix epoch of a 7z entry's modified time (0: none). Counted here: a time
 /// past what the system's clock holds must not panic.
 fn seven_secs(e: &sevenz_rust2::ArchiveEntry) -> u64 {
@@ -1107,19 +1248,20 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
 /// `list_in`, and whether anything in that folder or below it is locked. A folder's size is
 /// that of the files in it.
 pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
+    let (real, inside) = resolve(archive, inner, true)?;
     // Part by part, so the paths have the system's separator throughout, as the search's do.
     let at = inner
         .split('/')
         .filter(|p| !p.is_empty())
         .fold(archive.to_path_buf(), |p, part| p.join(part));
-    let prefix = if inner.is_empty() {
+    let prefix = if inside.is_empty() {
         String::new()
     } else {
-        format!("{inner}/")
+        format!("{inside}/")
     };
     let mut seen = std::collections::BTreeMap::new();
     let mut locked = false;
-    for it in items(archive)?.iter() {
+    for it in items(&real)?.iter() {
         let Some(rest) = it.name.strip_prefix(&prefix).filter(|r| !r.is_empty()) else {
             continue;
         };
@@ -1173,17 +1315,20 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
 /// Whether `inner` is a folder in the archive (its top, a folder entry, or a folder only named
 /// in the paths of its files).
 pub fn is_folder(archive: &Path, inner: &str) -> io::Result<bool> {
+    let (archive, inner) = resolve(archive, inner, true)?;
     let prefix = format!("{inner}/");
     Ok(inner.is_empty()
-        || items(archive)?
+        || items(&archive)?
             .iter()
             .any(|it| (it.dir && it.name == inner) || it.name.starts_with(&prefix)))
 }
 
 /// Whether anything at or below `inner` is locked with a password ("" for the whole archive).
 pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
+    let (archive, inner) = resolve(archive, inner, true)?;
+    let inner = inner.as_str();
     let prefix = format!("{inner}/");
-    Ok(items(archive)?.iter().any(|it| {
+    Ok(items(&archive)?.iter().any(|it| {
         it.locked && (inner.is_empty() || it.name == inner || it.name.starts_with(&prefix))
     }))
 }
@@ -1215,11 +1360,12 @@ pub fn copy_out(
             format!("{} exists", to.display()),
         ));
     }
+    let (archive, inner) = resolve(archive, inner, false)?;
     copy_out_with(
-        archive,
-        inner,
+        &archive,
+        &inner,
         &to,
-        password_for(archive, password).as_deref(),
+        password_for(&archive, password).as_deref(),
         Copy {
             whole,
             ..Copy::default()
@@ -1247,6 +1393,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
+    let (archive, inner) = resolve(&archive, &inner, false)?;
     let it = items(&archive)?
         .iter()
         .find(|it| it.name == inner)
@@ -1998,6 +2145,9 @@ fn rewrite(
 /// no password; one locked the old way, or a locked 7z, needs its `password`, or the one
 /// remembered).
 pub fn remove(archive: &Path, inner: &[String], password: Option<&str>) -> io::Result<()> {
+    if inner.iter().any(|i| nested(archive, i, false)) {
+        return Err(nested_read_only());
+    }
     let gone = |name: &str| {
         inner
             .iter()
@@ -2057,6 +2207,9 @@ fn named(sources: &[PathBuf]) -> io::Result<Vec<(String, PathBuf)>> {
 /// (`docs/a.txt`). What is there by a name already is kept and the copy refused, as a copy
 /// between folders never overwrites.
 pub fn add(archive: &Path, into: &[(String, PathBuf)], password: Option<&str>) -> io::Result<()> {
+    if into.iter().any(|(name, _)| nested(archive, name, false)) {
+        return Err(nested_read_only());
+    }
     let new = entries_of(into)?;
     let have: std::collections::HashSet<String> =
         items(archive)?.iter().map(|it| it.name.clone()).collect();
@@ -2085,6 +2238,9 @@ pub fn add(archive: &Path, into: &[(String, PathBuf)], password: Option<&str>) -
 
 /// A new, empty folder inside the archive.
 pub fn mkdir(archive: &Path, inner: &str, password: Option<&str>) -> io::Result<()> {
+    if nested(archive, inner, false) {
+        return Err(nested_read_only());
+    }
     if items(archive)?.iter().any(|it| it.name == inner) {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
@@ -2102,6 +2258,9 @@ pub fn mkdir(archive: &Path, inner: &str, password: Option<&str>) -> io::Result<
 
 /// Rename or move `from` (a file, or a folder and all in it) to `to`, inside the archive.
 pub fn rename_in(archive: &Path, from: &str, to: &str, password: Option<&str>) -> io::Result<()> {
+    if nested(archive, from, false) || nested(archive, to, false) {
+        return Err(nested_read_only());
+    }
     if to == from || to.starts_with(&format!("{from}/")) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -2338,6 +2497,87 @@ mod tests {
         let name = message_name(0, 3, &long);
         assert!(name.len() <= 3 + 1 + 100 + 4 && !name.contains('\u{202e}'), "{name}");
         assert!(is_comic(Path::new("a.CBZ")) && !is_comic(&mbox));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn an_archive_inside_an_archive_opens_from_a_copy_and_is_never_changed() {
+        let d = crate::pictures::tests::folder("nested");
+        // inner.tar.gz (deep/note.txt) in mid.zip, in outer.zip beside top.txt.
+        let src = d.join("src");
+        std::fs::create_dir_all(src.join("deep")).unwrap();
+        std::fs::write(src.join("deep/note.txt"), b"three levels down").unwrap();
+        let inner = d.join("inner.tar.gz");
+        create(&inner, &[src.join("deep")]).unwrap();
+        let mid = d.join("mid.zip");
+        create(&mid, std::slice::from_ref(&inner)).unwrap();
+        std::fs::write(d.join("top.txt"), b"top").unwrap();
+        let outer = d.join("outer.zip");
+        create(&outer, &[mid.clone(), d.join("top.txt")]).unwrap();
+        let names = |dir: &Path| -> Vec<String> {
+            crate::fs::list(dir, true).unwrap().into_iter().map(|e| e.name).collect()
+        };
+        assert_eq!(names(&outer), ["..", "mid.zip", "top.txt"]);
+        // Each level lists as a folder, its paths through all of them.
+        let at_mid = outer.join("mid.zip");
+        assert!(opens_inside(&at_mid) && is_folder(&outer, "mid.zip").unwrap());
+        assert_eq!(names(&at_mid), ["..", "inner.tar.gz"]);
+        let at_inner = at_mid.join("inner.tar.gz");
+        let (listed, _) = listing(&outer, "mid.zip/inner.tar.gz/deep").unwrap();
+        assert_eq!(listed[1].path, at_inner.join("deep").join("note.txt"));
+        assert_eq!(listed[0].path, at_inner);
+        // Looked at, copied out: from the copies in the cache, as deep as they go.
+        let note = at_inner.join("deep/note.txt");
+        assert_eq!(std::fs::read(peek(&note).unwrap()).unwrap(), b"three levels down");
+        let out = d.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        copy_out(&outer, "mid.zip/inner.tar.gz/deep", &out, None, false).unwrap();
+        assert_eq!(std::fs::read(out.join("deep/note.txt")).unwrap(), b"three levels down");
+        // The inner archive itself is still a file to copy out.
+        copy_out(&outer, "mid.zip", &out, None, false).unwrap();
+        assert_eq!(std::fs::read(out.join("mid.zip")).unwrap(), std::fs::read(&mid).unwrap());
+        // Nothing inside is changed, by the archive's calls or by the file operations.
+        let before = std::fs::read(&outer).unwrap();
+        assert!(nested(&outer, "mid.zip/inner.tar.gz", false) && !nested(&outer, "mid.zip", false));
+        assert!(nested_dir(&at_inner) && nested_dir(&at_mid) && !nested_dir(&outer));
+        let err = add(&outer, &[("mid.zip/x.txt".into(), d.join("top.txt"))], None).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert!(remove(&outer, &["mid.zip/inner.tar.gz".into()], None).is_err());
+        assert!(mkdir(&outer, "mid.zip/new", None).is_err());
+        assert!(rename_in(&outer, "mid.zip/inner.tar.gz", "mid.zip/b.tar.gz", None).is_err());
+        assert!(crate::fs::delete(&note).is_err() && crate::fs::copy(&d.join("top.txt"), &at_mid).is_err());
+        assert_eq!(std::fs::read(&outer).unwrap(), before);
+        // The archive inside itself can still go, as a file of the outer one.
+        assert!(!nested(&outer, "top.txt", false));
+        // A copy is made once while its archive does not change; the oldest go past the most kept.
+        let copies = |n: &str| {
+            NESTED.lock().unwrap().iter().filter(|(.., c)| c.file_name().is_some_and(|f| f == n)).count()
+        };
+        let _ = listing(&outer, "mid.zip").unwrap();
+        assert_eq!(copies("mid.zip"), 1);
+        clean_up();
+        assert_eq!(copies("mid.zip"), 0);
+        assert_eq!(names(&at_mid), ["..", "inner.tar.gz"], "made again after clean_up");
+        // Only so deep (in the same test: `clean_up` empties what all of them share).
+        std::fs::write(d.join("a.txt"), b"a").unwrap();
+        let mut last = d.join("a.txt");
+        let mut path = String::new();
+        for i in 0..=NESTED_DEPTH + 1 {
+            let z = d.join(format!("l{i}.zip"));
+            create(&z, std::slice::from_ref(&last)).unwrap();
+            if i > 0 {
+                path = format!("{}/{path}", last.file_name().unwrap().to_string_lossy());
+            }
+            last = z;
+        }
+        // The outermost holds NESTED_DEPTH + 1 archives inside each other.
+        let path = path.trim_end_matches('/').to_string();
+        let err = listing(&last, &path).unwrap_err();
+        assert!(err.to_string().contains(&NESTED_DEPTH.to_string()), "{err}");
+        let shallower = path.rsplit_once('/').unwrap().0;
+        assert!(listing(&last, shallower).is_ok());
+        assert!(NESTED.lock().unwrap().len() <= NESTED_KEPT, "the oldest copies went");
+        clean_up();
         std::fs::remove_dir_all(d).unwrap();
     }
 

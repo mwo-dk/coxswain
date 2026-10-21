@@ -229,6 +229,7 @@ export async function load(t, dir = t.dir, focus) {
     t.archive = r.archive;
     t.locked = r.locked;
     t.diskImage = r.disk_image;
+    t.nested = r.nested;
     t.image = r.image;
     t.history = r.history;
     t.snapshot = r.snapshot;
@@ -849,9 +850,9 @@ export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" &
 export function openItem(tb, i = tb.cursor) {
   const e = tb.items[i];
   if (!e) return;
-  // An archive opens like a folder; its files are copied out with F5. An archive inside one is
-  // a file like the others.
-  if (e.is_dir || (isArchive(e.name) && !tb.archive) || ociIndex(tb, e)) return cd(tb, e.path);
+  // An archive opens like a folder, an archive inside one too (from a copy in the cache); its
+  // files are copied out with F5.
+  if (e.is_dir || isArchive(e.name) || ociIndex(tb, e)) return cd(tb, e.path);
   if (tb.archive) return void (ui.status = t(tb.diskImage ? "disk_image.copy_out_hint" : "archive.copy_out_hint", { archive: basename(tb.archive) }));
   // A disk image opens like a folder while that option is on (and a .vhd only when it is one).
   if (ui.cfg.settings.disk_images && diskName(e.name)) {
@@ -879,7 +880,7 @@ export function subject(tb = tab()) {
   const cur = e && e.name !== ".." ? e : null;
   const list = tb.marked.size ? tb.items.filter((x) => tb.marked.has(x.path)) : cur ? [cur] : [];
   const h = tb.history;
-  const place = tb.archive ? (tb.diskImage ? "disk_image" : "archive") : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
+  const place = tb.archive ? (tb.diskImage || tb.nested ? "disk_image" : "archive") : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
   const files = list.filter((x) => !x.is_dir);
   return {
     files: files.length,

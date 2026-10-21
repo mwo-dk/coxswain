@@ -60,7 +60,7 @@ const OWN: &[(&str, &[&str], bool)] = &[
     ),
     ("index", &["index.bin", "index.tmp"], true),
     ("previews", &["previews"], true),
-    ("peek", &["peek"], true),
+    ("peek", &["peek", "nested"], true),
     ("inside", &[], true),
     (
         "libreoffice",

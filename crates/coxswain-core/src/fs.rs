@@ -537,6 +537,13 @@ fn writable(path: &Path) -> io::Result<()> {
     {
         return denied("disk_image.read_only");
     }
+    // Inside an archive inside an archive, which is looked into from a copy in the cache.
+    if !path.exists()
+        && crate::archive::split(path)
+            .is_some_and(|(a, inner)| crate::archive::nested(&a, &inner, false))
+    {
+        return denied("archive.nested_read_only");
+    }
     match crate::history::split(path) {
         Some(_) if !path.exists() => denied("history.read_only"),
         _ => Ok(()),
