@@ -137,7 +137,7 @@ winning a little less in a won game is no mistake):
 | Half a pawn (50 centipawns) or more | `?!`, an inaccuracy |
 | A pawn (100) or more | `?`, a mistake |
 | Three pawns (300) or more | `??`, a blunder |
-| Nothing, but it was the engine's best move and its second choice is 1.5 pawns (150) worse | `!?`, the only move that holds |
+| Nothing, but it was the engine's best move, its second choice is three pawns (300) worse, and the side was not already three pawns up | `!?`, the only move that holds |
 
 A mark the file itself gives a move (`!`, `?`, `!?` …) is kept, and the engine's is not added to
 it. A mate counts as more than ten pawns, a nearer one more than one further off.
@@ -153,9 +153,9 @@ on each analysed move its mark as a NAG, its evaluation as `{[%eval 0.35]}`, and
 `?!`, `?` or `??` the engine's line as a variation. Other chess programs (Lichess, Scid, ChessBase)
 show the evaluations and marks from it.
 
-<!-- screenshot: gui-chess-review.png: desktop app, Cyber: the Opera Game analysed: the evaluation bar beside the board, the graph under it with ticks under the marked moves, marks after the moves, Analyse game and Save as annotated PGN under the board -->
+![The Opera Game analysed in the desktop app, at 15.Bxd7+: the evaluation bar beside the board almost all white, +8.72 under the board, the graph of the game below with the line at this move and ticks under the eight marked moves, the marks ?!, ? and ?? after the moves, Analyse game and Save as annotated PGN under the board, Stockfish 17.1: the game analysed, 8 moves marked](../screenshots/gui-chess-review.png)
 
-<!-- screenshot: tui-chess-review.png: terminal app, Classic blue: the Opera Game analysed: the evaluation line and the row of bars under the board, the marks after the moves -->
+![The same in the terminal app: +8.72 and the bar of blocks under the board, the row of bars for the game below it with this move highlighted, the marks after the moves, Stockfish 17.1: the game analysed, 8 moves marked above them](../screenshots/tui-chess-review.png)
 
 ## Settings and config.toml
 
@@ -220,7 +220,7 @@ Your line holds the game, and *Save as new PGN* keeps it.
 
 By how much a move lowers the engine's evaluation for the side that played it: half a pawn is `?!`,
 a pawn `?`, three pawns `??` (see [How a move is marked](#analysing-a-whole-game)). `!?` marks the
-only move that holds: the engine's best, with its second choice 1.5 pawns worse.
+only move that holds: the engine's best, with its second choice three pawns worse.
 
 #### Why does analysing a game take so long?
 

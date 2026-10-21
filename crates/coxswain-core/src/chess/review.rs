@@ -18,8 +18,9 @@ pub const INACCURACY: i32 = 50;
 pub const MISTAKE: i32 = 100;
 pub const BLUNDER: i32 = 300;
 pub const CAP: i32 = 1000;
-/// `!?`: the engine's best move, played, where its second choice is this much worse.
-pub const ONLY_MOVE: i32 = 150;
+/// `!?`: the engine's best move, played, where its second choice is this much worse, in a
+/// position not already won.
+pub const ONLY_MOVE: i32 = 300;
 
 /// A position's evaluation from White's side, in centipawns; a mate is `CAP` and more (minus
 /// for Black), nearer mates further out, so a mate in 2 beats a mate in 5.
@@ -70,7 +71,7 @@ pub fn mark(before: i32, after: i32, white: bool, only: Option<i32>) -> Option<u
         Some(2)
     } else if lost >= INACCURACY {
         Some(6)
-    } else if only.is_some_and(|gap| gap >= ONLY_MOVE) {
+    } else if only.is_some_and(|gap| gap >= ONLY_MOVE) && side(before) < MISTAKE * 3 {
         Some(5)
     } else {
         None
@@ -305,8 +306,10 @@ mod tests {
         // Winning a little less in a won position is no blunder.
         assert_eq!(mark(2000, 1000, true, None), None);
         // The only move that holds.
-        assert_eq!(mark(0, 0, true, Some(200)), Some(5));
-        assert_eq!(mark(0, 0, true, Some(100)), None);
+        assert_eq!(mark(0, 0, true, Some(400)), Some(5));
+        assert_eq!(mark(0, 0, true, Some(200)), None);
+        // Not in a position already won.
+        assert_eq!(mark(900, 900, true, Some(400)), None);
         assert_eq!((shown(35), shown(-120), shown(score(None, Some(3)).unwrap()), shown(score(None, Some(-2)).unwrap())), ("+0.35".into(), "−1.20".into(), "#3".into(), "#−2".into()));
         assert!(share(300) > 0.7 && share(-300) < 0.3 && (share(0) - 0.5).abs() < 1e-9);
     }

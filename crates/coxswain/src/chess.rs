@@ -1044,14 +1044,6 @@ impl Viewer {
                 spans.push(Span::styled(bar, if here { sty(&theme.dialog_input) } else { base }));
             }
             lines.push(Line::from(spans));
-            let state = if let Some(e) = &r.error {
-                e.clone()
-            } else if r.done {
-                t!("chess.review_done", "engine" => r.engine, "marked" => r.plies.iter().filter(|p| p.mark.is_some_and(|m| m != 5)).count())
-            } else {
-                t!("chess.review_running", "n" => r.plies.len(), "total" => r.total)
-            };
-            lines.push(Line::styled(fit(&state, board_w as usize), dim));
         }
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
         self.draw_moves(f, theme, area, board_w, book);
@@ -1120,6 +1112,7 @@ impl Viewer {
         let base = sty(&theme.dialog);
         let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
         let draughts = self.draughts();
+        let rev = self.review.as_ref().map(|r| r.now());
         let Some(o) = &self.open else { return };
         let g = &o.game;
         let right = Rect { x: area.x + board_w + 2, width: area.width.saturating_sub(board_w + 2), ..area };
@@ -1184,6 +1177,18 @@ impl Viewer {
             for l in self.engine_lines(now.as_deref(), &pieces) {
                 head.push(Line::styled(fit(&l, w), dim));
             }
+        }
+        let review_state = rev.as_ref().map(|r| {
+            if let Some(e) = &r.error {
+                e.clone()
+            } else if r.done {
+                t!("chess.review_done", "engine" => r.engine, "marked" => r.plies.iter().filter(|p| p.mark.is_some_and(|m| m != 5)).count())
+            } else {
+                t!("chess.review_running", "n" => r.plies.len(), "total" => r.total)
+            }
+        });
+        if let Some(state) = review_state {
+            head.push(Line::styled(fit(&state, w), dim));
         }
         head.push(Line::from(""));
         // The move list being chosen from, in place of the moves.
