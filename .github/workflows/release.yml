@@ -496,7 +496,7 @@ jobs:
           done
           packaging/retry.sh gh release upload --clobber "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256"
 
-  # NetBSD, OpenBSD and illumos: the terminal app (and on OpenBSD the desktop app, experimental),
+  # NetBSD, OpenBSD and illumos: the terminal app (and on NetBSD and OpenBSD the desktop app, experimental),
   # each built in a virtual machine of that system and packed here (packaging/pack-unix.sh).
   # A failure of one of them stops the release: every system ships, or none.
   # docs/systems/netbsd.md, openbsd.md, illumos.md.
@@ -520,13 +520,13 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: matrix.sys == 'openbsd'
+        if: matrix.sys == 'netbsd' || matrix.sys == 'openbsd'
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: gui/package-lock.json
       - name: Frontend
-        if: matrix.sys == 'openbsd'
+        if: matrix.sys == 'netbsd' || matrix.sys == 'openbsd'
         working-directory: gui
         run: |
           npm ci --no-audit --no-fund
@@ -544,11 +544,11 @@ jobs:
           usesh: true
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf
+            pkgin -y install rust pkgconf webkit-gtk41
           run: |
             set -e
-            cargo build --release --locked -p coxswain
-            mkdir out && cp target/release/coxswain out/
+            cargo build --release --locked -p coxswain -p coxswain-gui
+            mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
             rm -rf target
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         if: matrix.sys == 'openbsd'

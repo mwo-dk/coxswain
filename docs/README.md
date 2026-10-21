@@ -217,7 +217,7 @@ mindmap
 |---|---|
 | [Systems](systems/README.md) | What is particular to each system, in one page each: FreeBSD first, then the other BSDs and illumos, Linux, Android, ChromeOS, macOS and Windows |
 | [FreeBSD](systems/freebsd.md) | Both apps on FreeBSD: one-line install, packages, the search helper without systemd (autostart, rc.d, login shell), search by meaning, ZFS snapshots and facts, a file's package, file flags, boot environments and jails, differences, updating, the desktop app's experimental status, other BSDs |
-| [NetBSD](systems/netbsd.md) | The terminal app on NetBSD 10: one-line install with ftp, pkgin for the extras, the search helper from rc.d, kqueue within the open-file limit, envstat for the battery, why the desktop app waits for webkit-gtk41's packages |
+| [NetBSD](systems/netbsd.md) | Both apps on NetBSD 10 (the desktop app experimental): one-line install with ftp, the packages from pkgin, the search helper from rc.d, kqueue within the open-file limit, envstat for the battery |
 | [OpenBSD](systems/openbsd.md) | Both apps on OpenBSD 7.9 (the desktop app experimental): one-line install, pkg_add, OpenBSD's own Rust, the search helper with rcctl, login.conf limits (open files, datasize) and what Coxswain does about them |
 | DragonFly BSD | Not supported; its Rust (1.85 in DPorts) is too old for Coxswain's dependencies |
 | [illumos](systems/illumos.md) | The terminal app on OmniOS and OpenIndiana: one-line install with curl, the search helper as an SMF service, ZFS snapshots and datasets, event ports for watching, zones, why there is no desktop build |

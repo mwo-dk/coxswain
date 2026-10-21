@@ -32,8 +32,8 @@ expected() {
   for t in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do
     echo "coxswain-terminal-$tag-$t.zip" "coxswain-terminal-$tag-$t.zip.sha256"
   done
-  # freebsd and other-unix (OpenBSD): the desktop app
-  for t in x86_64-unknown-freebsd x86_64-unknown-openbsd; do
+  # freebsd and other-unix (NetBSD, OpenBSD): the desktop app
+  for t in x86_64-unknown-freebsd x86_64-unknown-netbsd x86_64-unknown-openbsd; do
     echo "coxswain-desktop-$tag-$t.tar.gz" "coxswain-desktop-$tag-$t.tar.gz.sha256"
   done
   # boms

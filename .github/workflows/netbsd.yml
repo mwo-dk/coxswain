@@ -1,8 +1,10 @@
 name: NetBSD
 
-# The terminal app on NetBSD, in a virtual machine: the core's and the terminal app's tests with
-# pkgsrc's Rust, then the archive packed as a release packs it, installed with
-# install/install-unix.sh, and the search helper's rc.d script started, checked and stopped.
+# Both apps on NetBSD, in a virtual machine, with pkgsrc's Rust: the tests of the core, the
+# terminal app and the desktop app; the desktop app started under X11 for a minute, with a
+# picture of its window as this run's artifact; the terminal app's archive packed as a release
+# packs it, installed with install/install-unix.sh, and the search helper's rc.d script started,
+# checked and stopped.
 # Nightly when master changed, and in every release; pull requests only for this system's code (paths below). docs/systems/netbsd.md.
 on:
   workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
@@ -21,6 +23,7 @@ on:
       - "crates/coxswain-core/src/tools.rs"
       - "crates/coxswain-core/src/clouds.rs"
       - "crates/coxswain-core/tests/zfs.rs"
+      - "gui/src-tauri/build.rs"
       - "**/Cargo.toml"
       - "Cargo.lock"
       - "install/**"
@@ -44,11 +47,24 @@ jobs:
     # A release pull request's (release/X.Y.Z) run is its Release run, after the merge.
     if: ${{ !startsWith(github.head_ref, 'release/') }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The desktop app embeds gui/dist; the frontend builds here, not in the VM.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Frontend
+        working-directory: gui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          rm -rf node_modules
 
       # Cargo's downloads, kept between runs: the VM's CARGO_HOME is inside the checkout.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -69,17 +85,47 @@ jobs:
           custom-shell-name: vmsh
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf
+            pkgin -y install rust pkgconf webkit-gtk41 nerd-fonts-Symbols
           run: |
             set -e
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             uname -a
             rustc -V
-            cargo test -p coxswain-core -p coxswain --locked
-            cargo build -p coxswain --locked
-            mkdir -p out && cp target/debug/coxswain out/
+            cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
+            cargo build -p coxswain -p coxswain-gui --locked
+            mkdir -p out && cp target/debug/coxswain target/debug/coxswain-gui out/
             # Only the cache and the program go back to the runner, not the build.
             rm -rf target
+
+      - name: The desktop app starts and draws its window
+        shell: vmsh {0}
+        run: |
+          set -e
+          export PATH="$PATH:/usr/X11R7/bin" # the base system's X: Xvfb, xwd
+          Xvfb :99 -screen 0 1280x800x24 </dev/null >/dev/null 2>&1 &
+          xpid=$!
+          sleep 3
+          mkdir -p /tmp/home
+          HOME=/tmp/home DISPLAY=:99 WEBKIT_DISABLE_COMPOSITING_MODE=1 out/coxswain-gui "$PWD" </dev/null >gui.log 2>&1 &
+          pid=$!
+          sleep 60
+          xwd -root -display :99 -silent > gui.xwd
+          alive=0; kill -0 $pid && alive=1
+          kill $pid || true
+          sleep 2
+          pkill -f WebKit || true
+          kill $xpid || true
+          tail -20 gui.log
+          [ "$alive" = 1 ] || { echo "The desktop app did not stay up" >&2; exit 1; }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: netbsd-desktop
+          path: |
+            gui.xwd
+            gui.log
+          if-no-files-found: ignore
 
       - name: Pack the archive as a release does
         run: sh packaging/pack-unix.sh v0.0.0 x86_64-unknown-netbsd out dist packaging/netbsd/coxswain_index
@@ -88,7 +134,7 @@ jobs:
         shell: vmsh {0}
         run: |
           set -e
-          sh install/install-unix.sh --from dist --yes --prefix /usr/local
+          sh install/install-unix.sh --from dist --yes --terminal-only --prefix /usr/local
           /usr/local/bin/coxswain --version
           /usr/local/bin/cox --version
           man -w coxswain

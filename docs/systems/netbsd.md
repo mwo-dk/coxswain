@@ -2,25 +2,31 @@
 
 # NetBSD
 
-The terminal app, `coxswain`, runs on NetBSD: one binary that needs nothing beyond the base
-system, built and tested on every change, with pkgsrc's Rust. The desktop app is not shipped for
-NetBSD yet: [why](#the-desktop-app).
+Both apps run on NetBSD. The terminal app, `coxswain`, is one binary that needs nothing beyond
+the base system, built and tested on every change with pkgsrc's Rust. The desktop app,
+`coxswain-gui`, is **experimental** on NetBSD: it builds, its tests pass and it starts under X11
+in CI, with WebKitGTK from pkgsrc's binary packages, but it has had little use on real desktops
+yet ([what experimental means](#the-desktop-app-what-experimental-means)).
 
 Release builds are for **NetBSD 10 on amd64**, built and tested on NetBSD 10.1. NetBSD keeps
 its libraries' interfaces, so the 10.1 build should run on 11 as well, but CI does not test 11.
+
+![The desktop app on NetBSD 10.1 in CI, theme Cyber: the first-run guide's Two panels page over the panes, both showing the Coxswain checkout, and the sidebar's drive System with its free space](../screenshots/netbsd-gui.png)
+*The desktop app on NetBSD 10.1, as CI starts it under Xvfb: the first-run guide over the
+panes.*
 
 ## Contents
 
 - [Install with one line](#install-with-one-line)
 - [What the script does](#what-the-script-does)
 - [Install by hand](#install-by-hand)
-- [Packages for the extras](#packages-for-the-extras)
-- [Starting the app](#starting-the-app)
+- [The packages, and what each is for](#the-packages-and-what-each-is-for)
+- [Starting the apps](#starting-the-apps)
 - [The search helper](#the-search-helper)
 - [How NetBSD differs from Linux here](#how-netbsd-differs-from-linux-here)
 - [Updating and uninstalling](#updating-and-uninstalling)
 - [Building from source](#building-from-source)
-- [The desktop app](#the-desktop-app)
+- [The desktop app: what experimental means](#the-desktop-app-what-experimental-means)
 - [The pkgsrc package](#the-pkgsrc-package)
 - [Questions](#questions)
 
@@ -43,7 +49,7 @@ sh install-unix.sh
 
 | Option | Does |
 |---|---|
-| `--terminal-only` | Only the terminal app (on NetBSD this is all there is for now) |
+| `--terminal-only` | Only the terminal app, without the desktop app and its packages |
 | `--prefix DIR` | Install into `DIR`. Without it the script uses the place Coxswain is already in, or asks: `/usr/local` for every user, or `~/.local` for you alone |
 | `--version v2.8.0` | That release instead of the latest |
 | `--from DIR` | Install from release archives already in `DIR`, without downloading |
@@ -63,7 +69,12 @@ Options go after `sh -s --` when the script comes through a pipe:
    which belongs to `pkgin` and `pkg_add`.
 3. With the prefix `/usr/local` it also installs the rc.d script `/etc/rc.d/coxswain_index`,
    which stays off until rc.conf turns it on ([the search helper](#the-search-helper)).
-4. Lists the optional packages that are not installed, with what each adds.
+4. For the desktop app, checks which packages are missing, prints the `pkgin install` line, and
+   runs it through `sudo` or `doas` when you say yes. Without `webkit-gtk41` it leaves the
+   desktop app out and says so; the terminal app is installed either way.
+5. Downloads `coxswain-desktop-<version>-x86_64-unknown-netbsd.tar.gz` the same way and
+   installs `bin/coxswain-gui`, `share/applications/coxswain.desktop` and the icon.
+6. Lists the optional packages that are not installed, with what each adds.
 
 `man coxswain` finds the manual: NetBSD's `/etc/man.conf` looks in `/usr/local/man`. With the
 prefix `~/.local`, set `MANPATH="$HOME/.local/man:"` (the trailing colon keeps the system's).
@@ -87,13 +98,17 @@ install -m 555 coxswain_index /etc/rc.d/
 (as root). The two sums printed must be the same. Every download can also be checked against
 the release's `SHA256SUMS` and its signed provenance ([Security](../reference/security.md)).
 
-## Packages for the extras
+## The packages, and what each is for
 
-The terminal app needs no packages. What adds to it, from pkgsrc with `pkgin install`:
+The terminal app needs no packages. The desktop app needs `webkit-gtk41`. What adds to them,
+from pkgsrc with `pkgin install`:
 
 | Package | For |
 |---|---|
-| `nerd-fonts-Symbols` (in your terminal's font list) | The file icons and git glyphs; or `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
+| `webkit-gtk41` | The desktop app's window content: WebKitGTK with the 4.1 API; brings `gtk3+` and `libsoup3`. Desktop app, required |
+| `gst-plugins1-good` | Video and sound in the desktop app's preview pane; without it a notice says what to install |
+| `nerd-fonts-Symbols` (in your terminal's font list for the terminal app) | The file icons and git glyphs; or `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
+| `noto-ttf` | Japanese, Chinese and Korean letters in the desktop app |
 | `tesseract` | Search the words in scans and pictures ([Scans and pictures](../search/scans.md)) |
 | `poppler-utils` | The same for scanned PDFs |
 | `libreoffice` | Search older Office files |
@@ -107,10 +122,12 @@ The terminal app needs no packages. What adds to it, from pkgsrc with `pkgin ins
 
 Where one of them is missing, the app names the `pkgin install` line. Coxswain never runs it.
 
-## Starting the app
+## Starting the apps
 
-`coxswain` or `cox`, optionally with two folders. Any terminal with 256 colours works; on the
-console (`wscons`), set `glyphs = "ascii"`. `coxswain --help` lists the command-line flags.
+| App | Start | Notes |
+|---|---|---|
+| Terminal app | `coxswain` or `cox`, optionally with two folders | Any terminal with 256 colours; `xterm` from the base system works. On the console (`wscons`), `glyphs = "ascii"`. `coxswain --help` lists the command-line flags |
+| Desktop app | `coxswain-gui`, or *Coxswain* in the desktop's menu | An X11 session (the base system's X) |
 
 ## The search helper
 
@@ -176,20 +193,31 @@ git clone https://github.com/mwo-dk/coxswain.git && cd coxswain
 cargo build --release --locked -p coxswain
 ```
 
+For the desktop app as well (Node.js for the frontend):
+
+```sh
+pkgin install nodejs webkit-gtk41 pkgconf
+(cd gui && npm ci && npm run build)
+cargo build --release --locked -p coxswain-gui
+```
+
 On another architecture that pkgsrc's Rust supports (aarch64 too) this is the way, as is
 `cargo install --locked coxswain`. The build needs Rust 1.93 or later.
 
-## The desktop app
+## The desktop app: what experimental means
 
-The desktop app needs WebKitGTK with the 4.1 API, which pkgsrc has as `www/webkit-gtk41`, and
-it builds from the same code as on FreeBSD and OpenBSD. It is not shipped yet because the binary
-packages for NetBSD 10.1 could not be installed in CI: `webkit-gtk41`'s dependencies
-`dbus`, `libxml2` and others were missing from the package repository. When the binary packages
-are complete again, NetBSD gets the desktop app as OpenBSD has it. Until then, with pkgsrc built
-from source (`cd /usr/pkgsrc/www/webkit-gtk41 && make install`), the
-[build from source](#building-from-source) can add
-`(cd gui && npm ci && npm run build) && cargo build --release --locked -p coxswain-gui`; it is
-untested.
+The desktop app is a [Tauri](https://tauri.app) app, and Tauri does not support NetBSD
+officially. It builds and runs because its window layer is GTK on the BSDs as on Linux, with the
+same two patched crates as on [FreeBSD](freebsd.md#the-desktop-app-what-experimental-means).
+NetBSD's `ld.so` looks only in `/usr/lib`, so the build writes pkgsrc's `/usr/pkg/lib` and the
+base X's `/usr/X11R7/lib` into the program (an rpath), as pkgsrc's own packages do: no
+`LD_LIBRARY_PATH` is needed.
+
+Tested in CI on NetBSD 10.1 (amd64): it builds, its tests pass, and it starts under X11 and
+draws its window. Browsing, the preview pane, Find and the file operations are the same code as
+on FreeBSD and Linux, tested by the core's tests on NetBSD; they have not had use on a real
+NetBSD desktop yet. Please say what works and what does not in an
+[issue](https://github.com/mwo-dk/coxswain/issues).
 
 ## The pkgsrc package
 
@@ -197,7 +225,9 @@ A package for pkgsrc-wip, `wip/coxswain`, is ready in
 [`packaging/pkgsrc`](../../packaging/pkgsrc/SUBMIT.md) but not yet submitted. It builds the
 terminal app from the crates.io release and installs `coxswain`, `cox`, the manual page and the
 rc.d script for the search helper (in `/usr/pkg/share/examples/rc.d`). CI builds it with
-`make package` on NetBSD 10.1, installs it with `pkg_add` and runs it.
+`make package` on NetBSD 10.1, installs it with `pkg_add` and runs it. The package holds the
+terminal app only for now; the desktop app comes from the install script or the release's
+`coxswain-desktop` archive.
 
 ## Questions
 
@@ -205,6 +235,18 @@ rc.d script for the search helper (in `/usr/pkg/share/examples/rc.d`). CI builds
 
 Not yet: the package is prepared ([above](#the-pkgsrc-package)) and
 goes to pkgsrc-wip first. Until then, the script, the archives or `cargo install --locked coxswain`.
+
+#### Why does the desktop app say it is experimental?
+
+Tauri, which it is built on, does not support NetBSD officially. It is tested in CI as far as
+starting and drawing its window ([above](#the-desktop-app-what-experimental-means)); the rest is
+the same code as on FreeBSD and Linux, with little use on NetBSD desktops yet.
+
+#### The desktop app's window stays empty or it does not start
+
+`webkit-gtk41` must be installed (`pkgin install webkit-gtk41`). On a machine without working
+3D drivers, start it with `WEBKIT_DISABLE_COMPOSITING_MODE=1 coxswain-gui`, as CI does under
+Xvfb.
 
 #### Does it run on NetBSD 9?
 
