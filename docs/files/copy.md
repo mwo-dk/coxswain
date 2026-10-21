@@ -79,6 +79,10 @@ A copy can be stopped while it runs, in both apps, without a question:
 |---|---|---|
 | Stop | **Stop** on the progress bar, or **Esc** while the bar's Stop button has the focus | **Esc** while the status line shows the progress (`· Esc stops`) |
 
+![The desktop app copying two marked items from Big to Backups: the status line says Working on disk.img… (2/2) with a progress bar and a Stop button, and the half-copied file waits in Backups under a passing name, .disk.img.coxswain-tmp-2-0](../screenshots/files-copy-stop.png)
+
+![The terminal app in Classic blue copying the same two items: the status line says Working on "disk.img"… (2/2) · Esc stops](../screenshots/tui-copy-stop.png)
+
 The line says `Stopping…` until the file it is on is dealt with, within a second also for a
 large file (a file over 8 MB is copied in steps of a megabyte, under a passing name beside the
 target, and Stop is looked at between them). What has no steps of its own finishes first: one
