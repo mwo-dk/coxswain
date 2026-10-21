@@ -5,7 +5,7 @@
 **Alt+U** shows a folder or a drive as a map of every file in it, each a rectangle as big as the
 file, so the space hogs stand out at a glance.
 
-<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/space.png"><img src="../screenshots/space.gif" alt="The desktop app: Alt+U on the demo home measures it, then shows it as a treemap: the virtual machine, the flight videos, the music and the raw photos as coloured rectangles inside their folders; the pointer moves from the virtual machine down to the flight videos, framing each in green and lighting the folders it is in, with its name, size and type on a card; a click on .nef in By type lights up the photos and dims the rest; a right-click zooms into Videos, the folder growing to fill the map, and Backspace shrinks it back"></picture>
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/space.png"><img src="../screenshots/space.gif" alt="The desktop app: Alt+U on the demo home measures it, then shows it as a treemap: the local models named by model (llama3.2:3b, Qwen/Qwen3-0.6B), the virtual machine, the flight videos, the music and the raw photos as soft rectangles in Cyber's greens and ambers inside their folders; the pointer moves from llama3.2:1b down to installer.iso, framing each in green and lighting the folders it is in, with its name, size and type on a card; a click on .nef in By type lights up the photos and dims the rest; a right-click zooms into VMs, the folder growing to fill the map, and Backspace shrinks it back"></picture>
 
 ## Contents
 
@@ -46,7 +46,7 @@ Features has it.
 
 ## What you see
 
-![Space in the desktop app: the demo home as a treemap in Cyber's greens and ambers, the virtual machine freebsd-15.qcow2 the largest rectangle with its name centred, framed in green under the pointer, then the videos, Downloads with installer.iso, the music and the raw photos, each folder with its name on a title strip; By type on the right with .qcow2, .mp4, .iso and the rest, each with its colour, size and share](../screenshots/space.png)
+![Space in the desktop app: the demo home as a treemap in Cyber's greens and ambers: the Ollama models named llama3.2:3b, llama3.2:1b (framed in green under the pointer, its folders lit) and qwen3:0.6b, the Hugging Face models, the virtual machine freebsd-15.qcow2 with its name centred, the videos, Downloads with installer.iso, the music and the raw photos, each folder with its name on a title strip; By type on the right with .qcow2, .mp4, .iso and the rest, each with its colour, size and share](../screenshots/space.png)
 
 | Part | Desktop app | Terminal app |
 |---|---|---|
@@ -128,7 +128,7 @@ bottom line (▁) are a darker shade of it, so two files of one kind side by sid
 other stay apart, and each folder big enough has a lighter title row. The treemap is on the left, *By type* or *Largest files* on the
 right, the file under the cursor and the key line at the bottom.
 
-![Space in the terminal app, Classic blue: the demo home as a treemap in flat coloured cells with darker edges, freebsd-15.qcow2, the flight videos and Music with their names on their title rows; By type on the right with each extension's colour, size and share; the key line at the bottom](../screenshots/tui-space.png)
+![Space in the terminal app, Classic blue: the demo home as a treemap in flat coloured cells with darker edges, the Ollama models by name, freebsd-15.qcow2, the flight videos and Music with their names on their title rows; By type on the right with each extension's colour, size and share; the key line at the bottom](../screenshots/tui-space.png)
 
 It has no mouse in Space. **F3** shows the file in the built-in viewer and **Esc** comes back;
 **F4** opens your editor in place of the screen, and Space comes back when it ends. After **F8**, Space comes back when the delete is done, without
