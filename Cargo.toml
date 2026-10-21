@@ -20,6 +20,11 @@ coxswain-core = { path = "crates/coxswain-core", version = "=2.32.1" }
 [profile.release]
 lto = "thin"
 codegen-units = 1
+# The symbol table goes too (rustc already drops the debug info): 11 to 13 % smaller programs.
+# A panic still says what and where; only a RUST_BACKTRACE backtrace loses its function names.
+# panic = "abort" is out: catch_unwind keeps a bad file from ending the app (pictures, extract,
+# archive). lto = "fat" would take off 7 % more, at more memory in the release VMs.
+strip = true
 
 # gemm's f16 kernels on ARM64 (candle) are inline assembly that needs the CPU's fp16, which
 # only the functions that ask for it have. Unoptimised, they are compiled on their own,
