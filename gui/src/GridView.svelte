@@ -3,7 +3,7 @@
   // (handled in App, which reads the column count from `data-cols`).
   import { untrack } from "svelte";
   import { openItem, toggleMark, dragOut, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { invoke, convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
+  import { invoke, convertFileSrc, previewKind, TAG_COLORS, MEDIA_TOOL } from "./lib.js";
   import { ui } from "./app.svelte.js";
   import { t as tr } from "./i18n.svelte.js";
 
@@ -107,6 +107,14 @@
             <!-- An old picture: a small PNG the core makes once and keeps (old_picture). -->
             {#await invoke("old_picture", { path: e.path, page: 0, side: 256 }) then r}
               {#if r}<img src={convertFileSrc(r.file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+            {:catch}
+              {@render icon(e)}
+            {/await}
+          {:else if MEDIA_TOOL[previewKind(e)] && !previewKind(e).startsWith("audio") && !e.online}
+            <!-- A video's frame, a HEIC, GIMP or RAW photo: ffmpeg or ImageMagick makes it once,
+                 only when it runs without a pull (media_thumbnail). -->
+            {#await invoke("media_thumbnail", { path: e.path, tool: MEDIA_TOOL[previewKind(e)] }) then file}
+              {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
             {:catch}
               {@render icon(e)}
             {/await}

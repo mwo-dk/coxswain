@@ -46,8 +46,9 @@ open it outside the pane:
   runs nothing. Only a file that starts the way a PDF does (`%PDF-`) opens in the PDF viewer;
   every other answer carries a sandbox that lets nothing in it run.
 - **Write next to your files.** Tool results, LaTeX's auxiliary files and LibreOffice's profile
-  go to the cache folder. Containers see your folders read-only. The only thing that writes is
-  extracting an archive, and only when you press **Ctrl+E**.
+  go to the cache folder. Containers see your folders read-only. The only things that write are
+  extracting an archive, when you press **Ctrl+E**, and Make PDF searchable, Convert video or
+  audio and Convert or edit pictures, a new file next to the original, when you confirm.
 - **Change a database.** SQLite and DuckDB files are opened read-only; counting SQLite rows
   stops after two and a half seconds for the whole database.
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
@@ -55,7 +56,11 @@ open it outside the pane:
   runs with `--sandbox`, PlantUML may include files from the diagram's folder only, and
   containers have no network. LibreOffice converts a document in a profile of its own with all
   macros off (macro security "very high" behind that) and links never updated, so a document
-  neither runs its macros nor fetches what it links.
+  neither runs its macros nor fetches what it links. ffmpeg reads real media formats only
+  (`-protocol_whitelist file`, `-format_whitelist`), so no playlist in a file reaches another
+  file; ImageMagick runs under Coxswain's policy (picture formats only, no helper programs). In
+  their containers both see the one file, on a read-only root with no capabilities and bounded
+  memory.
 - **Run what a repository names.** A folder may be a repository someone else made (a
   download, an unpacked archive), and its `.git/config` can name programs. The git line, the
   diff and [Git history](../panels/git-history.md) run git without any of them: no file system

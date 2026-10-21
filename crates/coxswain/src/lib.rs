@@ -257,6 +257,8 @@ impl Panel {
             pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
             // Only one file's bytes are read: the action menu offers Open games on a single file.
             chess: list.iter().filter(|e| !e.is_dir && if list.len() == 1 { coxswain_core::chess::sniff(&e.path).is_some() } else { coxswain_core::chess::format(&e.path).is_some() }).count(),
+            media: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_media(&e.path)).count(),
+            pictures: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_picture(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -309,6 +311,10 @@ pub enum Prompt {
     Mark(bool),
     /// The user flags to set on a file; the others are cleared.
     Flags(PathBuf),
+    /// A clip's start and length, for *Convert video or audio* on these files.
+    Clip(Vec<PathBuf>),
+    /// The longest side in pixels, for *Convert or edit pictures* on these files.
+    Resize(Vec<PathBuf>),
 }
 
 impl Prompt {
@@ -322,7 +328,7 @@ impl Prompt {
             Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "verb.pack",
             Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "verb.unlock",
             Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
-            Prompt::Flags(_) => "common.apply",
+            Prompt::Flags(_) | Prompt::Clip(_) | Prompt::Resize(_) => "common.apply",
             Prompt::Goto(_) => "verb.go",
             Prompt::Mark(true) => "verb.mark",
             Prompt::Mark(false) => "verb.unmark",
@@ -356,6 +362,8 @@ pub enum MenuRun {
     Goto(usize, Option<PathBuf>),
     /// Cannot be gone to: why, on the status line.
     Say(String),
+    /// What *Convert video or audio* or *Convert or edit pictures* makes of these files.
+    Media(coxswain_core::media::Op, Vec<PathBuf>),
 }
 
 pub struct MenuItem {
@@ -393,6 +401,9 @@ pub enum Dialog {
     /// Make `pdfs` searchable? `text` says what it writes, which program runs and what a first
     /// run pulls.
     Searchable { title: String, text: String, pdfs: Vec<PathBuf> },
+    /// Make `op` of `files`? `text` says what it writes, which program runs and what a first
+    /// run pulls.
+    Media { title: String, text: String, op: coxswain_core::media::Op, files: Vec<PathBuf> },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
@@ -429,9 +440,12 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::Goto(_) => "moving",
             Prompt::Mark(_) => "marking",
             Prompt::Flags(_) => "properties",
+            Prompt::Clip(_) => "convert_media",
+            Prompt::Resize(_) => "edit_pictures",
         },
         Dialog::Confirm { .. } => "delete",
         Dialog::Searchable { .. } => "searchable_pdf",
+        Dialog::Media { op, .. } => media_feature(op.program()),
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -590,6 +604,10 @@ pub struct App {
     /// Its question being worked out on a thread (podman is asked whether it has the image):
     /// the PDFs, and the dialog's text or why it cannot run.
     searchable_plan: Option<mpsc::Receiver<SearchablePlan>>,
+    /// *Convert video or audio* or *Convert or edit pictures* running on its thread, one at a
+    /// time, and the action that started it (which stops it); the question being worked out.
+    media: Option<(Searchable, Action)>,
+    media_plan: Option<mpsc::Receiver<MediaPlan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
@@ -648,6 +666,17 @@ struct Searchable {
 
 /// The PDFs, and the question's text or why it cannot run.
 type SearchablePlan = (Vec<PathBuf>, Result<String, String>);
+
+/// What to make of which files, and the question's text or why it cannot run.
+type MediaPlan = (coxswain_core::media::Op, Vec<PathBuf>, Result<String, String>);
+
+/// The feature (F1) and the action of ffmpeg's and ImageMagick's work.
+fn media_feature(p: coxswain_core::media::Program) -> &'static str {
+    if p == coxswain_core::media::Program::Ffmpeg { "convert_media" } else { "edit_pictures" }
+}
+fn media_action(p: coxswain_core::media::Program) -> Action {
+    if p == coxswain_core::media::Program::Ffmpeg { Action::ConvertMedia } else { Action::EditPictures }
+}
 
 enum SearchableMsg {
     At(usize),
@@ -803,6 +832,8 @@ impl App {
             job: None,
             searchable: None,
             searchable_plan: None,
+            media: None,
+            media_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1140,7 +1171,7 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some()) => (self.job, self.searchable) = (None, None),
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some()) => (self.job, self.searchable, self.media) = (None, None, None),
             Action::Quit => {
                 self.quit = true;
                 // Make PDF searchable is stopped, and waited for: its container is killed,
@@ -1148,7 +1179,11 @@ impl App {
                 if let Some(s) = &self.searchable {
                     s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() {
+                // So is a conversion: its container killed, nothing half made left beside the file.
+                if let Some((s, _)) = &self.media {
+                    s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1185,6 +1220,8 @@ impl App {
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
             Action::SearchablePdf => self.searchable_pdf(),
+            Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
+            Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1634,8 +1671,10 @@ impl App {
         }
         let (tx, rx) = mpsc::channel();
         self.status = Some(t!("app.reading_properties"));
+        let cfg = self.cfg.preview.clone();
         std::thread::spawn(move || {
-            let r = bfs::properties(&path).map_err(|e| e.to_string());
+            // A video's length, size and tracks too, by ffprobe (`media`).
+            let r = bfs::properties(&path).map(|p| coxswain_core::media::with_facts(p, &cfg, &path)).map_err(|e| e.to_string());
             let _ = tx.send(r);
         });
         self.props_rx = Some(rx);
@@ -1883,6 +1922,144 @@ impl App {
         self.status = Some(match made.as_slice() {
             [one] => t!("searchable.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
             many => t!("searchable.done_many", "n" => many.len()),
+        });
+    }
+
+    /// *Convert video or audio* (ffmpeg) or *Convert or edit pictures* (ImageMagick) on the files
+    /// among the marked entries (or the one under the cursor) it takes: what to make of them,
+    /// from a menu. While one runs, the action stops it.
+    fn media_menu(&mut self, program: coxswain_core::media::Program) {
+        use coxswain_core::media::{self, Op, Program};
+        if let Some((s, _)) = &self.media {
+            s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        let takes = |p: &PathBuf| if program == Program::Ffmpeg { media::is_media(p) } else { media::is_picture(p) };
+        // A file only in the cloud is left out: it is not downloaded to be read.
+        let files: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| takes(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
+        if files.is_empty() {
+            return self.status = Some(t!(if program == Program::Ffmpeg { "media.none_media" } else { "media.none_pictures" }));
+        }
+        let items = Op::menu(program)
+            .into_iter()
+            .enumerate()
+            .map(|(i, op)| MenuItem { key: (i + 1).to_string(), label: op.label(), run: MenuRun::Media(op, files.clone()), group: None })
+            .collect();
+        let action = media_action(program);
+        self.dialog = Some(Dialog::Menu { title: self.action_label(action), filter: String::new(), items, cursor: 0, direct: true, feature: media_feature(program) });
+    }
+
+    /// What to make was chosen: a clip and a size are asked for first, then the question.
+    fn media_chose(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
+        use coxswain_core::media::Op;
+        let title = op.label();
+        self.dialog = Some(match op {
+            Op::Clip { .. } => Dialog::Input { title, label: t!("media.clip_label"), value: "0:00 0:30".into(), prompt: Prompt::Clip(files) },
+            Op::Resize(n) => Dialog::Input { title, label: t!("media.resize_label"), value: n.to_string(), prompt: Prompt::Resize(files) },
+            _ => return self.media_ask(op, files),
+        });
+    }
+
+    /// The question, worked out on a thread (asking podman for the image takes a moment).
+    fn media_ask(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
+        use coxswain_core::media;
+        let (tx, rx) = mpsc::channel();
+        let cfg = self.cfg.preview.clone();
+        std::thread::spawn(move || {
+            let plan = media::how(&cfg, op.program()).map(|how| format!("{} {}", media::confirm(&op, &files), media::about(&how).0));
+            let _ = tx.send((op, files, plan));
+        });
+        self.media_plan = Some(rx);
+    }
+
+    fn poll_media_plan(&mut self) {
+        let Some(rx) = &self.media_plan else { return };
+        let Ok((op, files, plan)) = rx.try_recv() else { return };
+        self.media_plan = None;
+        let title = op.label();
+        self.dialog = Some(match plan {
+            Ok(text) => Dialog::Media { title, text, op, files },
+            Err(e) => Dialog::Message { title, text: format!("{e}
+
+{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
+        });
+    }
+
+    fn media_start(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
+        use coxswain_core::media::{self, Said};
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let action = media_action(op.program());
+        let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), files.clone());
+        std::thread::spawn(move || {
+            let (said, at) = (tx.clone(), tx.clone());
+            let image = if op.program() == media::Program::Ffmpeg { media::FFMPEG } else { media::MAGICK };
+            let done = media::run_all(&cfg, &op, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
+                let line = match s {
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(image).cloned().unwrap_or_default())),
+                    Said::Percent(p) => format!("{p} %"),
+                    Said::Line(l) => l.to_string(),
+                };
+                let _ = said.send(SearchableMsg::Said(line));
+            });
+            let _ = tx.send(SearchableMsg::Done(done));
+        });
+        let names = files.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        self.media = Some((Searchable { names, at: 0, line: String::new(), shown: String::new(), started: Instant::now(), stop, rx }, action));
+        self.poll_media();
+    }
+
+    /// How far a conversion is, on the status line; when done, what came of it.
+    fn poll_media(&mut self) {
+        let Some((_, action)) = &self.media else { return };
+        let action = *action;
+        // No key of its own by default: F9 lists it, and stops it from there.
+        let key = match self.key_label(action) {
+            "" => format!("{} → {}", self.key_label(Action::Menu), self.action_label(action)),
+            k => k.to_string(),
+        };
+        let Some((s, _)) = &mut self.media else { return };
+        let mut done = None;
+        while let Ok(msg) = s.rx.try_recv() {
+            match msg {
+                SearchableMsg::At(i) => (s.at, s.line) = (i, String::new()),
+                SearchableMsg::Said(l) => s.line = l,
+                SearchableMsg::Done(d) => done = Some(d),
+            }
+        }
+        let Some(done) = done else {
+            let (name, n, all, seconds) = (s.names.get(s.at).cloned().unwrap_or_default(), s.at + 1, s.names.len(), s.started.elapsed().as_secs());
+            let busy = if all > 1 {
+                t!("media.busy_of", "name" => name, "n" => n, "all" => all, "seconds" => seconds)
+            } else {
+                t!("media.busy", "name" => name, "seconds" => seconds)
+            };
+            let stopping = s.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("media.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let line = if s.line.is_empty() { String::new() } else { format!(" · {}", s.line) };
+            let new = format!("{busy}{line} · {tail}");
+            if self.status.is_none() || self.status.as_ref() == Some(&s.shown) {
+                self.status = Some(new.clone());
+            }
+            s.shown = new;
+            return;
+        };
+        let (s, _) = self.media.take().expect("a run");
+        let stopped = s.stop.load(std::sync::atomic::Ordering::Relaxed);
+        let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(s.names.iter()).partition(|(r, _)| r.is_ok());
+        let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).collect();
+        self.reload();
+        if stopped {
+            return self.status = Some(t!("media.stopped"));
+        }
+        if !failed.is_empty() {
+            let why = failed.into_iter().map(|(r, n)| format!("{n}: {}", r.err().unwrap_or_default())).collect::<Vec<_>>().join("\n");
+            self.status = None;
+            return self.dialog = Some(failure(t!("media.failed"), &why));
+        }
+        self.status = Some(match made.as_slice() {
+            [one] => t!("media.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
+            many => t!("media.done_many", "n" => many.len()),
         });
     }
 
@@ -2289,6 +2466,14 @@ impl App {
                     self.status = Some(t!("status.not_dir", "dir" => d.display()));
                 }
             }
+            Prompt::Clip(files) => match coxswain_core::media::clip(&value) {
+                Some(op) => self.media_ask(op, files),
+                None => self.status = Some(t!("media.clip_bad")),
+            },
+            Prompt::Resize(files) => match coxswain_core::media::Op::parse(&format!("resize:{}", value.trim())) {
+                Some(op) => self.media_ask(op, files),
+                None => self.status = Some(t!("media.resize_bad")),
+            },
             Prompt::Flags(path) => {
                 let on: Vec<&str> = value.split([' ', ',']).filter(|s| !s.is_empty()).collect();
                 let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
@@ -2506,6 +2691,11 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
             },
+            Dialog::Media { title, text, op, files } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.media_start(op, files),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Media { title, text, op, files }),
+            },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -2710,6 +2900,7 @@ impl App {
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
+                    Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -3120,6 +3311,8 @@ impl App {
         self.poll_job();
         self.poll_searchable();
         self.poll_searchable_plan();
+        self.poll_media();
+        self.poll_media_plan();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -3254,7 +3447,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() {
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
             Some(Run::Shell { line, typed, dir, wait }) => {

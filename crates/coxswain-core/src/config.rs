@@ -264,6 +264,11 @@ actions! {
     DiskImages = "disk_images", "Open disk images like folders", Archives, [];
     // OCRmyPDF: a copy of a scanned PDF with its words in it (`searchable`).
     SearchablePdf = "searchable_pdf", "Make PDF searchable", Files, ["Alt+P"];
+    // ffmpeg: MP4, MP3, FLAC, the sound, a clip, next to the original (`media`). No key of its
+    // own: the action menu and the preview offer it.
+    ConvertMedia = "convert_media", "Convert video or audio", Files, [];
+    // ImageMagick: JPEG, PNG, WebP, smaller, without the location, turned (`media`).
+    EditPictures = "edit_pictures", "Convert or edit pictures", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1456,8 +1461,8 @@ pub fn quote_for(shell: &str, s: &str) -> String {
 }
 
 /// Previews made by external tools (desktop app): LaTeX, Typst, LibreOffice, Ghostscript,
-/// PlantUML, Kroki's diagram programs, pandoc and DuckDB; and OCRmyPDF for *Make PDF
-/// searchable* (both apps). Each runs from a locally installed tool or from a container image.
+/// PlantUML, Kroki's diagram programs, pandoc, DuckDB, ffmpeg and ImageMagick; and OCRmyPDF for
+/// *Make PDF searchable*, ffmpeg and ImageMagick for their conversions (both apps). Each runs from a locally installed tool or from a container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct PreviewConfig {
@@ -1501,6 +1506,10 @@ impl Default for PreviewConfig {
             ("duckdb", ""),
             // GhostXPS: in none of the images above, and no project publishes one.
             ("gxps", ""),
+            // A static ffmpeg and ffprobe, rebuilt with each release (`media`).
+            ("ffmpeg", "docker.io/mwader/static-ffmpeg:latest"),
+            // ImageMagick 7, the newest patch release on Alpine (`media`).
+            ("imagemagick", "docker.io/dstmodders/imagemagick:latest"),
         ];
         PreviewConfig {
             prefer: "auto".into(),
