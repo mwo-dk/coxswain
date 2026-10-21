@@ -44,6 +44,12 @@
     dismissNotice(n);
   }
   const openConfigAt = (n) => invoke("open_config_at", { line: n.config_line }).catch((e) => (ui.status = String(e)));
+  // An error on the status line in plain words, its first line only (coxswain_core::fs::plain,
+  // which puts the whole of it in helper.log).
+  $effect(() => {
+    const said = ui.status;
+    if (said) invoke("plain_error", { raw: String(said) }).then((p) => ui.status === said && p !== said && (ui.status = p), () => {});
+  });
   const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id)), () => {});
   init().then(
     () => {

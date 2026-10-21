@@ -1240,7 +1240,7 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str, disk
     if p.kind == "folder" {
         sz = format!("{sz} {}", tn!("dialogs.in_files", p.files));
     }
-    add("dialogs.size", sz);
+    add("dialogs.size", p.unreadable.as_ref().map_or(sz, |why| t!("dialogs.unreadable", "why" => why)));
     if let Some(m) = p.modified {
         add("dialogs.modified", date(m));
     }

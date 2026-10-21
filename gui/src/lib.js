@@ -428,8 +428,9 @@ export function chessFormat(name) {
   return "";
 }
 
-/** A neural network model Netron draws (`neural::named`); a Core ML package is a folder. */
-export const isModel = (item) => (item.is_dir ? /\.mlpackage$/i : /\.(onnx|tflite|mlmodel|keras|h5)$/i).test(item.name);
+/** A neural network model Netron draws (`neural::named`); a Core ML package is a folder. A `.h5`
+ *  is one only when its bytes hold a Keras model (`is_model`, in Preview). */
+export const isModel = (item) => (item.is_dir ? /\.mlpackage$/i : /\.(onnx|tflite|mlmodel|keras)$/i).test(item.name);
 
 export function previewKind(item) {
   if (!item) return "none";

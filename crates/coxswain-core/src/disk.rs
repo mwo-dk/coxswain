@@ -303,8 +303,8 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
             let image = item.id.trim_start_matches("image:");
             let (_, rt) = crate::tools::container_runtime(&cfg.preview)
                 .ok_or_else(crate::tools::no_runtime)?;
-            crate::images::remove(&rt, image)?;
-            return Ok(item.bytes);
+            // Only what no other image shares is freed.
+            return Ok(crate::images::remove_freeing(&rt, image)?.unwrap_or(item.bytes));
         }
     }
     Ok(item.bytes.saturating_sub(size(&item.paths)))

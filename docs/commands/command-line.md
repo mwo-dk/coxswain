@@ -90,7 +90,7 @@ without the AppImage's own libraries in their environment.
 | Afterwards | The panels come back at once | The [preview pane](../previews/README.md) opens and shows the output, headed with the command in bold and *Command output* under it |
 | Output shown | As the program writes it | Standard output, then standard error, then `[exit status: 1]` on a line of its own when it failed. A command that printed nothing shows *(no output)* |
 | Look again | **Ctrl+O** (*Panels on/off*) hides the panels and shows the terminal with the last output, with *Panels hidden · any key brings them back* under it (*No command has run yet · any key brings the panels back* before the first); any key brings the panels back | The `×` in the output's header (*Close the command output and show the preview again*) goes back to the file preview; **Esc**, **F3** or **Space** close the pane |
-| `cd` to a folder that is not there | Status line: *cd: no such folder: foo* | Status line: the error, for example `/home/demo/foo: No such file or directory (os error 2)`, and the panel stays |
+| `cd` to a folder that is not there | Status line: *cd: no such folder: foo* | Status line: the error in plain words, for example `/home/demo/foo: Not found`, and the panel stays |
 
 ## Settings and config.toml
 

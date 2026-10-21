@@ -18,6 +18,7 @@ login, and search by meaning on the Mac's GPU without any server.
 - [Desktop app and terminal app](#desktop-app-and-terminal-app)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Testing a release on your Mac](#testing-a-release-on-your-mac)
+- [Uninstalling](#uninstalling)
 - [Questions](#questions)
 
 ## The folder prompts
@@ -182,6 +183,19 @@ report. Each item is marked PASS, FAIL, SKIP or NOTE.
 
 The same script runs after every release on GitHub's Mac runners, Apple silicon and Intel.
 `--help` lists the options; [tools/selftest](../../tools/selftest/README.md) has the details.
+
+## Uninstalling
+
+```sh
+brew uninstall --cask coxswain-gui    # the desktop app from the cask
+brew uninstall coxswain               # the terminal app
+```
+
+The desktop app from the `.dmg`: quit it and move *Coxswain* from *Applications* to the Bin.
+First turn off *Start with my session* (or run `coxswain --index-service off`), which removes
+`~/Library/LaunchAgents/dk.mwo.coxswain.index.plist`. Your settings, the state and the index stay;
+remove them with `rm -rf ~/Library/Application\ Support/coxswain ~/Library/Caches/coxswain`
+([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## Questions
 

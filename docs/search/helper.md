@@ -211,7 +211,8 @@ app of 2.1.2 you open rewrites the LaunchAgent without that.
 One line per start (`helper starts, process 70973`), why it left (*no app asked for a while*, *an
 app asked it to*, *another helper runs*, *an app of the newer version 2.7.3 came*), an older app it
 serves or cannot serve, an app that found a newer helper it cannot talk to, and errors, such as a search store that could not be
-opened, each with the time. Nothing about your files.
+opened, each with the time. Nothing about your files, except the whole text of an error an app's
+status line said in short (*Could not open: No permission*), which can name the file it was about.
 
 #### I changed `[search]` by hand. How do I make the helper take it?
 

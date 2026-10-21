@@ -12,6 +12,7 @@ change to `master` and every release. Native means Windows runs them without x64
 - [Which file to download](#which-file-to-download)
 - [Installing](#installing)
 - [From the x64 build to the ARM one](#from-the-x64-build-to-the-arm-one)
+- [Uninstalling](#uninstalling)
 - [Search by meaning on ARM](#search-by-meaning-on-arm)
 - [Questions](#questions)
 
@@ -50,6 +51,17 @@ The x64 build runs on Windows on ARM too, under emulation. To change to the nati
 Coxswain (*Settings → Apps → Installed apps*), then run the ARM installer. Your settings, tags and
 search index are in your user folders and stay ([Where things are kept](../reference/where-things-are-kept.md)).
 In Task Manager's *Details* tab, the *Architecture* column says *ARM64* for the native app.
+
+## Uninstalling
+
+The desktop app, from the installer or the `.msi`: *Settings → Apps → Installed apps →
+Coxswain → Uninstall*. The terminal app from WinGet: `winget uninstall mwo-dk.Coxswain.Terminal`;
+from the zip, delete its folder and take it off your `PATH`.
+
+First turn off *Start with my session* (or run `coxswain --index-service off`), which removes the
+`coxswain-index` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Your settings,
+the state and the index stay, in `%APPDATA%\coxswain` and `%LOCALAPPDATA%\coxswain`; delete those
+folders to remove them too ([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## Search by meaning on ARM
 

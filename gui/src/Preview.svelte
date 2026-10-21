@@ -59,6 +59,12 @@
   /** GeoJSON, KML, GPX and OpenSCAD models with Source chosen: their text instead of their map
    *  or model. */
   const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && (isGeoText(e.name) || isScad(e.name)));
+  // A .h5 file holding a Keras model is drawn by Netron; any other HDF5 file is shown as before.
+  $effect(() => {
+    const cur = e;
+    if (!cur || cur.is_dir || !/\.h5$/i.test(cur.name) || sniffed.path === cur.path) return;
+    invoke("is_model", { path: cur.path }).then((yes) => yes && e?.path === cur.path && (sniffed = { path: cur.path, kind: "netron" }), () => {});
+  });
   const kind = $derived(
     output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );

@@ -4,7 +4,7 @@
   // its label and one-line explanation are `setting.<name>` texts), written to config.toml at
   // once (comments and layout kept) and applied without a restart.
   import { tick, untrack } from "svelte";
-  import { ui, setTheme, themeIds, themeName, tab, showInTab, actionLabel, keysOf } from "./app.svelte.js";
+  import { ui, setTheme, themeIds, themeName, tab, showInTab, keysOf } from "./app.svelte.js";
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
@@ -392,7 +392,7 @@
     ui.cfg.groups
       .map(([label, acts]) => [label, acts.filter((a) => {
         const q = keyFilter.trim().toLowerCase();
-        return !q || `${actionLabel(a)} ${a} ${keysOf(a).join(" ")}`.toLowerCase().includes(q);
+        return !q || `${ui.cfg.actions[a]?.[0] ?? a} ${a} ${keysOf(a).join(" ")}`.toLowerCase().includes(q);
       })])
       .filter(([, acts]) => acts.length),
   );
@@ -963,7 +963,7 @@
           <p class="label region">{label}</p>
           <div class="keys">
             {#each acts as a (a)}
-              <span>{actionLabel(a)}</span>
+              <span>{ui.cfg.actions[a]?.[0] ?? a}</span>
               <span class="mono">{keysOf(a).join(" · ") || "—"}</span>
             {/each}
           </div>

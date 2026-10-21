@@ -426,7 +426,9 @@ stand (the branch, ahead and behind, what changed) and hands the writing to a to
 #### Alt+G opened a terminal, not my git tool.
 
 No tool Coxswain knows was found ([the list](#which-tool)), so it opened a terminal in the
-repository instead; the status line says *No git tool found*. Install one (the notice has the
+repository instead; the status line says *No git tool found*. The terminal app opens a shell in
+its own terminal instead (*a shell opened in the repository*), and when the desktop app finds no
+terminal either, nothing opens and the notice says so. Install one (the notice has the
 line to copy), or name yours in *Settings → Behaviour → Git tool*: a tool's name, or a command.
 
 #### My desktop client opens, but not on this repository.

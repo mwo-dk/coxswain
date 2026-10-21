@@ -1279,6 +1279,13 @@ fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
     serde_json::from_str(&line).map_err(io::Error::other)
 }
 
+/// A line in helper.log from this app: an error's full text, where the screen showed it short.
+pub fn app_log(what: &str) {
+    if let Some(dir) = folder().filter(|d| d.is_dir()) {
+        app_note(&dir, format_args!("{what}"));
+    }
+}
+
 /// A line in helper.log from an app, which has its own stderr.
 fn app_note(dir: &Path, what: std::fmt::Arguments) {
     let mut o = std::fs::OpenOptions::new();

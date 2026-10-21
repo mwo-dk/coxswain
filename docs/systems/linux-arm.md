@@ -13,6 +13,7 @@ change to `master` and every release.
 - [Which file to download](#which-file-to-download)
 - [What it needs](#what-it-needs)
 - [Installing](#installing)
+- [Uninstalling](#uninstalling)
 - [Raspberry Pi](#raspberry-pi)
 - [Asahi Linux](#asahi-linux)
 - [ARM servers](#arm-servers)
@@ -63,6 +64,22 @@ For the terminal app, unpack the archive and put `coxswain` and `cox` on your `P
 
 Both apps check for a newer release when they start, then once a day while open, and name the file to get
 ([Update checks](../reference/updates.md)).
+
+## Uninstalling
+
+```sh
+sudo apt remove coxswain                         # the .deb
+sudo dnf remove coxswain                         # the .rpm
+rm Coxswain_<version>_aarch64.AppImage           # the AppImage: the file is all of it
+rm ~/.local/bin/coxswain ~/.local/bin/cox        # the terminal app from the archive
+brew uninstall coxswain                          # the terminal app from Homebrew
+```
+
+The `.deb` and `.rpm` take the menu entry with them. On Arch Linux ARM, `sudo pacman -R coxswain-bin`.
+First turn off *Start with my session* (or run `coxswain --index-service off`), so nothing tries
+to start the search helper at login. Your settings, the state and the index stay; remove them with
+`rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain`
+([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## Raspberry Pi
 
