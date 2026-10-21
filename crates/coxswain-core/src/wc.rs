@@ -217,11 +217,12 @@ pub fn svn_status(root: &Path) -> Option<Status> {
         root: root.to_path_buf(),
         ..Default::default()
     };
+    // `wc.db` names paths with `/`; on Windows the files map holds `\\`.
     let abs = |rel: &str| {
         if rel.is_empty() {
             root.to_path_buf()
         } else {
-            root.join(rel)
+            root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR))
         }
     };
     let mut dirs = vec![];
