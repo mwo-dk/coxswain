@@ -89,6 +89,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   on a thread: the panel shows only `..`, so you can leave, the status line says *Working on
   "files"…*, and the keys keep working. The folder appears, and its folders are measured, when
   it is read. Folders the panel already shows stay on screen while they are read again.
+  The same holds at start: the panels are drawn at once, and a big starting folder fills in
+  when it is read (both panels on the same folder share one reading).
 - **Searches, git status, folder sizes, Ask and the update check** run on threads and arrive
   between frames; the main loop polls for keys every 200 ms (30 ms while a search is out).
 - **Copy, move, delete, extract and pack** run on a thread of their own; the keys keep

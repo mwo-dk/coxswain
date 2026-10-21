@@ -76,11 +76,23 @@ pub struct Panel {
 }
 
 impl Panel {
+    /// A panel listed at once, the cursor on the file `dir` names when it is one.
+    #[cfg(test)]
     fn new(dir: PathBuf, show_hidden: bool) -> Panel {
-        // A file opens its folder with the cursor on it.
+        let (mut p, file) = Panel::unlisted(dir);
+        p.load(show_hidden);
+        if let Some(name) = file {
+            p.select_name(&name);
+        }
+        p
+    }
+
+    /// A panel not listed yet (`App::load` lists it), and the name to put the cursor on: a
+    /// file opens its folder with the cursor on it.
+    fn unlisted(dir: PathBuf) -> (Panel, Option<String>) {
         let file = dir.is_file().then(|| dir.file_name().map(|n| n.to_string_lossy().into_owned())).flatten();
         let dir = if file.is_some() { dir.parent().map_or(dir.clone(), Path::to_path_buf) } else { dir };
-        let mut p = Panel {
+        let p = Panel {
             dir,
             entries: vec![],
             cursor: 0,
@@ -103,11 +115,7 @@ impl Panel {
             link: None,
             models: None,
         };
-        p.load(show_hidden);
-        if let Some(name) = file {
-            p.select_name(&name);
-        }
-        p
+        (p, file)
     }
 
     /// Re-read the directory, keeping the cursor on the same name.
@@ -650,6 +658,10 @@ pub struct App {
     /// How long a key waits for a folder to be listed before the panel shows it as being read
     /// and the keys go on.
     list_wait: Duration,
+    /// Tests hold the listing threads with it (a write lock) until they have looked at the
+    /// panel meanwhile, so a small folder cannot be listed before they look.
+    #[cfg(test)]
+    list_hold: Option<Arc<std::sync::RwLock<()>>>,
     last_click: Option<(Instant, u16, u16)>,
     /// Properties being read on a thread.
     props_rx: Option<mpsc::Receiver<Result<bfs::Props, String>>>,
@@ -822,11 +834,14 @@ impl App {
             });
         }
         let show_hidden = cfg.show_hidden;
+        // Listed by `load` below, on a thread when that takes long, so the first frame is
+        // drawn at once even for a folder of a million files.
+        let ((left, left_file), (right, right_file)) = (Panel::unlisted(left), Panel::unlisted(right));
         let app = App {
             keymap,
             theme: cfg.theme(),
             glyphs: cfg.glyphs(),
-            panels: [Panel::new(left, show_hidden), Panel::new(right, show_hidden)],
+            panels: [left, right],
             active: 0,
             cmdline: String::new(),
             dialog: None,
@@ -869,8 +884,12 @@ impl App {
             undo: Default::default(),
             list_tx,
             list_rx,
-            // Tests list small folders and look at them at once, on machines that can be slow.
-            list_wait: if cfg!(test) { Duration::from_secs(10) } else { Duration::from_millis(150) },
+            #[cfg(test)]
+            list_wait: tests::LIST_WAIT.get(),
+            #[cfg(not(test))]
+            list_wait: Duration::from_millis(150),
+            #[cfg(test)]
+            list_hold: tests::LIST_HOLD.with_borrow(Clone::clone),
             last_click: None,
             props_rx: None,
             watch: Default::default(),
@@ -879,6 +898,15 @@ impl App {
             cfg,
         };
         let mut app = app;
+        app.load(0, left_file);
+        if app.panels[1].dir == app.panels[0].dir && right_file.is_none() {
+            // One listing for both: a listing still under way fills both panels when it comes.
+            app.panels[1].entries = app.panels[0].entries.clone();
+            app.panels[1].error = app.panels[0].error.clone();
+            app.panels[1].fill(right_file);
+        } else {
+            app.load(1, right_file);
+        }
         app.refresh_git(&[0, 1]);
         app.measure(0);
         app.measure(1);
@@ -1035,7 +1063,11 @@ impl App {
         let virtual_dir = virtual_list(&dir);
         let d = dir.clone();
         let k = keep.clone();
+        #[cfg(test)]
+        let hold = self.list_hold.clone();
         std::thread::spawn(move || {
+            #[cfg(test)]
+            drop(hold.as_ref().map(|h| h.read()));
             let r = bfs::list(&d, h);
             let _ = tx.send((d, k, r));
         });
@@ -4186,6 +4218,15 @@ mod tests {
     }
 
     /// An app on two folders, with its own index (no helper) and no update check.
+    thread_local! {
+        /// How long a test's app waits for a folder to be listed (`App::list_wait`), from the
+        /// start: long, as tests list small folders and look at them at once, on machines
+        /// that can be slow.
+        pub(super) static LIST_WAIT: std::cell::Cell<Duration> = const { std::cell::Cell::new(Duration::from_secs(10)) };
+        /// What holds a test's listing threads from the start (`App::list_hold`).
+        pub(super) static LIST_HOLD: std::cell::RefCell<Option<Arc<std::sync::RwLock<()>>>> = const { std::cell::RefCell::new(None) };
+    }
+
     fn app(left: PathBuf, right: PathBuf) -> App {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
@@ -4421,14 +4462,50 @@ mod tests {
         std::fs::write(d.join("big/a.txt"), "a").unwrap();
         let mut app = app(d.clone(), d.clone());
         app.list_wait = Duration::ZERO;
+        // The listing waits until the panel has been looked at meanwhile.
+        let hold = Arc::new(std::sync::RwLock::new(()));
+        let held = hold.write().unwrap();
+        app.list_hold = Some(hold.clone());
         app.cd(0, d.join("big"));
         let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
         assert_eq!(names(&app), [".."], "only the way out while it is read");
         assert!(app.status.is_some(), "the status line says it is being read");
+        drop(held);
         let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
         app.listed(dir, keep, r);
         assert_eq!(names(&app), ["..", "inner", "a.txt"]);
         assert!(app.status.is_none(), "and no longer says so");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// The app starts drawing at once on a folder slow to list: both panels show `..` and the
+    /// status line says it is being read, keys answer, and one listing fills both panels.
+    #[test]
+    fn the_first_panels_are_listed_on_a_thread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-slowstart-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("big/inner")).unwrap();
+        std::fs::write(d.join("big/a.txt"), "a").unwrap();
+        LIST_WAIT.set(Duration::ZERO);
+        // The listing waits until the panels have been looked at meanwhile.
+        let hold = Arc::new(std::sync::RwLock::new(()));
+        let held = hold.write().unwrap();
+        LIST_HOLD.set(Some(hold.clone()));
+        let mut app = app(d.join("big"), d.join("big"));
+        LIST_WAIT.set(Duration::from_secs(10));
+        LIST_HOLD.set(None);
+        let names = |app: &App, side: usize| app.panels[side].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        assert_eq!((names(&app, 0), names(&app, 1)), (vec!["..".to_string()], vec!["..".to_string()]), "only the way out while it is read");
+        assert!(app.status.is_some(), "the status line says it is being read");
+        app.key_typed(Key::new(KeyCode::Tab, false, false, false));
+        assert_eq!(app.active, 1, "a key answers meanwhile");
+        drop(held);
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert_eq!(names(&app, 0), ["..", "inner", "a.txt"]);
+        assert_eq!(names(&app, 1), ["..", "inner", "a.txt"], "one listing, both panels");
+        assert!(app.status.is_none(), "and no longer says so");
+        assert!(app.list_rx.recv_timeout(Duration::from_millis(300)).is_err(), "the folder was listed once");
         let _ = std::fs::remove_dir_all(d);
     }
 
