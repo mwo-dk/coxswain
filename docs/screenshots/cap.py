@@ -376,6 +376,13 @@ def _block(ch):
     return rows.get(name)
 
 
+def _wide(text):
+    """Text as HTML, a wide character (CJK) over two cells as in a terminal: the fallback font
+    draws it narrower, which would pull the rest of its line to the left."""
+    import html, unicodedata
+    return "".join(f'<span class="w">{html.escape(c)}</span>' if unicodedata.east_asian_width(c) in "WF" else html.escape(c) for c in text)
+
+
 def _blocks(text, css, fg, bg):
     """A run of text as HTML, its block characters drawn as pictures of their dots."""
     import html
@@ -390,20 +397,20 @@ def _blocks(text, css, fg, bg):
             plain += ch
             continue
         if plain:
-            out.append(f'<span style="{css}">{html.escape(plain)}</span>')
+            out.append(f'<span style="{css}">{_wide(plain)}</span>')
             plain = ""
         dx, dy, bits = b
         rects = "".join(f'<rect x="{k % dx}" y="{k // dx}" width="1" height="1"/>' for k in range(dx * dy) if bits >> k & 1)
         out.append(f'<svg style="display:inline-block;vertical-align:top;width:1ch;height:1.17em;background:{bg}" viewBox="0 0 {dx} {dy}" '
                    f'preserveAspectRatio="none" shape-rendering="crispEdges" fill="{fg}">{rects}</svg>')
     if plain:
-        out.append(f'<span style="{css}">{html.escape(plain)}</span>')
+        out.append(f'<span style="{css}">{_wide(plain)}</span>')
     return "".join(out)
 
 
 def page(text, cols, rows):
     """`capture-pane -p -e -N` output as an HTML page with the terminal in `#t`."""
-    import html, re
+    import html, re, unicodedata
     st = {"fg": None, "bg": None, "b": False, "rev": False, "dim": False, "it": False, "ul": False}
     lines = text.split("\n")
     if lines and lines[-1] == "":
@@ -450,6 +457,7 @@ def page(text, cols, rows):
     return f"""<!doctype html><meta charset="utf-8"><style>
 body {{ margin: 0; background: {BG}; }}
 pre {{ margin: 0; width: {cols}ch; height: calc({rows} * 1.17em); padding: 2px 6px; font: 20px/1.17 'MesloLGM Nerd Font Mono'; color: {FG}; background: {BG}; display: inline-block; font-variant-ligatures: none; }}
+.w {{ display: inline-block; width: 2ch; text-align: center; }}
 </style><pre id="t">{"".join(out)}</pre>"""
 
 
