@@ -352,6 +352,11 @@ The binaries are in `target/release/`. The terminal app is also on crates.io:
 `cargo install --locked coxswain`. (`install/install.sh` is the Linux and macOS script; it needs
 bash and does not know `pkg`.)
 
+To try a change on FreeBSD, OpenBSD, NetBSD or OmniOS without one of those machines,
+`tools/vms/` in the source makes a virtual machine of each from its official image, and
+`tools/vms/test-in.sh freebsd` runs a checkout's tests in it
+([tools/vms/README.md](../../tools/vms/README.md)).
+
 ## The desktop app: what experimental means
 
 Coxswain's desktop app is a [Tauri](https://tauri.app) app, and Tauri does not support FreeBSD

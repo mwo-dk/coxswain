@@ -100,6 +100,10 @@ These rules hold for every contributor and every Claude session in this reposito
   `cd gui && npx svelte-check && npm test && npm run build`. For preview changes, build the
   release and run `uv run tools/preview-check.py` (Linux, needs `broadwayd`): it opens a file of
   each kind in the real app, on a display of its own, and fails when one shows nothing.
+- **Test platform code in a VM before CI:** `tools/vms/rebuild/<vm>.sh` makes a FreeBSD,
+  OpenBSD, NetBSD or OmniOS virtual machine (unattended), and `tools/vms/test-in.sh <system>`
+  runs a checkout's tests in it (`tools/vms/README.md`). Use one before pushing a change to BSD
+  or illumos code, since pull requests run those systems only for platform files.
 - **Bills of materials:** a dependency that does cryptography needs its use described in
   `tools/bom/crypto.toml`, and an npm licence outside `deny.toml`'s list needs reading first;
   the *bills of materials* check fails until then (`tools/bom/README.md`).
