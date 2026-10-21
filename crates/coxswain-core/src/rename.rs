@@ -21,6 +21,52 @@ pub struct Planned {
     pub conflict: Option<String>,
 }
 
+/// `name` as a name field shows it: a control character (a newline, a tab, an escape) as its
+/// picture from the U+2400 block (`␊`, `␉`, `␛`, `␡`), a C1 one (U+0080 to U+009F, which has
+/// no picture) as `␦`. A text field would drop a newline and a terminal would act on an escape;
+/// one picture for each character, so [`typed`] knows which ones the user left alone.
+pub fn shown(name: &str) -> String {
+    name.chars()
+        .map(|c| match c as u32 {
+            n @ 0..=0x1f => char::from_u32(0x2400 + n).unwrap_or(c),
+            0x7f => '\u{2421}',
+            0x80..=0x9f => '\u{2426}',
+            _ => c,
+        })
+        .collect()
+}
+
+/// A control character's picture as the character itself: `␊` typed is a newline.
+fn real(c: char) -> char {
+    match c as u32 {
+        n @ 0x2400..=0x241f => char::from_u32(n - 0x2400).unwrap_or(c),
+        0x2421 => '\u{7f}',
+        _ => c,
+    }
+}
+
+/// The name a field that showed [`shown`]`(name)` holds once `typed` is in it, or `None` when
+/// the text was not changed: then nothing is renamed. What the user did not touch (the same
+/// text before and after the edit) stays the characters it was, a C1 one or a `␊` that was in
+/// the name too; in what was typed, a picture becomes its control character.
+pub fn typed(name: &str, typed: &str) -> Option<String> {
+    let (old, new): (Vec<char>, Vec<char>) = (shown(name).chars().collect(), typed.chars().collect());
+    if old == new {
+        return None;
+    }
+    let orig: Vec<char> = name.chars().collect();
+    let head = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - head;
+    let tail = old.iter().rev().zip(new.iter().rev()).take(room).take_while(|(a, b)| a == b).count();
+    let out: String = orig[..head]
+        .iter()
+        .copied()
+        .chain(new[head..new.len() - tail].iter().map(|&c| real(c)))
+        .chain(orig[orig.len() - tail..].iter().copied())
+        .collect();
+    (out != name).then_some(out)
+}
+
 /// Compute new names for `selected`. `existing` is every name in the directory.
 ///
 /// `replacement` supports regex groups (`$1`, `${name}`) and a counter: `{n}` is the
@@ -34,6 +80,9 @@ pub fn plan(
     replacement: &str,
     flags: Flags,
 ) -> Result<Vec<Planned>, String> {
+    // A control character's picture typed in a field is that character, as in a name.
+    let (pattern, replacement): (String, String) = (pattern.chars().map(real).collect(), replacement.chars().map(real).collect());
+    let (pattern, replacement) = (pattern.as_str(), replacement.as_str());
     let re = regex::RegexBuilder::new(pattern)
         .case_insensitive(flags.case_insensitive)
         .build()
@@ -235,6 +284,28 @@ mod tests {
         .unwrap();
         assert_eq!(tos(&p), ["x.tgz"]);
         assert!(plan(&names, &names, "(", "", Flags::default()).is_err());
+    }
+
+    #[test]
+    fn rename_controls_shown_and_kept() {
+        let name = "a\nb\tc\u{1b}d\u{7f}e\u{85}f";
+        assert_eq!(shown(name), "a␊b␉c␛d␡e␦f");
+        // Unchanged text never renames, whatever the field shows.
+        assert_eq!(typed(name, &shown(name)), None);
+        assert_eq!(typed("plain.txt", "plain.txt"), None);
+        // An edit elsewhere keeps every control character, the C1 one too.
+        assert_eq!(typed(name, "X␊b␉c␛d␡e␦f").as_deref(), Some("X\nb\tc\u{1b}d\u{7f}e\u{85}f"));
+        assert_eq!(typed(name, "a␊b␉c␛d␡e␦f.txt").as_deref(), Some("a\nb\tc\u{1b}d\u{7f}e\u{85}f.txt"));
+        // A picture typed is the character; one that was in the name stays a picture.
+        assert_eq!(typed("ab", "a␊b").as_deref(), Some("a\nb"));
+        assert_eq!(typed("a␊b", "a␊bc").as_deref(), Some("a␊bc"));
+        // A control character taken out is gone; the same name typed back is no rename.
+        assert_eq!(typed("a\nb", "ab").as_deref(), Some("ab"));
+        assert_eq!(typed("a\nb", "a␊b"), None);
+        // Typed in the batch fields, a picture is its character too.
+        let names = s(&["one\ntwo.txt"]);
+        let p = plan(&names, &names, "␊", "-", Flags::default()).unwrap();
+        assert_eq!(tos(&p), ["one-two.txt"]);
     }
 
     #[test]

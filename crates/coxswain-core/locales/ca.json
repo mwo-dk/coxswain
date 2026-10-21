@@ -952,6 +952,36 @@
  "err.unknown_setting": "Paràmetre desconegut: {name}",
  "err.unsupported_value": "{name}: valor no admès",
  "error.copy": "No s'ha pogut copiar {what}",
+ "error.counted_copy": {
+  "many": "Copiats {done} de {all}; {n} no s'han pogut copiar",
+  "one": "Copiats {done} de {all}; {n} no s'ha pogut copiar",
+  "other": "Copiats {done} de {all}; {n} no s'han pogut copiar"
+ },
+ "error.counted_delete": {
+  "many": "Suprimits {done} de {all}; {n} no s'han pogut suprimir",
+  "one": "Suprimits {done} de {all}; {n} no s'ha pogut suprimir",
+  "other": "Suprimits {done} de {all}; {n} no s'han pogut suprimir"
+ },
+ "error.counted_extract": {
+  "many": "Extrets {done} de {all}; {n} no s'han pogut extreure",
+  "one": "Extrets {done} de {all}; {n} no s'ha pogut extreure",
+  "other": "Extrets {done} de {all}; {n} no s'han pogut extreure"
+ },
+ "error.counted_move": {
+  "many": "Moguts {done} de {all}; {n} no s'han pogut moure",
+  "one": "Moguts {done} de {all}; {n} no s'ha pogut moure",
+  "other": "Moguts {done} de {all}; {n} no s'han pogut moure"
+ },
+ "error.counted_pack": {
+  "many": "Empaquetats {done} de {all}; {n} no s'han pogut empaquetar",
+  "one": "Empaquetats {done} de {all}; {n} no s'ha pogut empaquetar",
+  "other": "Empaquetats {done} de {all}; {n} no s'han pogut empaquetar"
+ },
+ "error.counted_trash": {
+  "many": "Moguts a la paperera {done} de {all}; {n} no s'han pogut moure a la paperera",
+  "one": "Moguts a la paperera {done} de {all}; {n} no s'ha pogut moure a la paperera",
+  "other": "Moguts a la paperera {done} de {all}; {n} no s'han pogut moure a la paperera"
+ },
  "error.create": "No s'ha pogut crear {what}",
  "error.delete": "No s'ha pogut suprimir {what}",
  "error.extract": "No s'ha pogut extreure {what}",

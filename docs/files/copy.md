@@ -7,6 +7,15 @@ any path you type. It never writes over anything, and one failure does not stop 
 
 ![The desktop app's dialog Copy 3 items: To: with the other pane's folder /home/demo/Backups, the buttons Copy and Cancel, and the line Enter Copy · Esc Cancel](../screenshots/files-copy.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+  - [When something goes wrong](#when-something-goes-wrong)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 1. Mark the files to copy (**Insert** or **Shift+Down**), or put the cursor on one.
@@ -63,7 +72,7 @@ done, in three parts, the same in both apps:
 
 | Part | Example |
 |---|---|
-| The title: what failed | *Could not copy "report.pdf"*, *Could not copy 3 items* |
+| The title: what failed | *Could not copy "report.pdf"* for one item; for several, how many went through and how many did not: *2 of 3 copied; 1 could not be copied* |
 | The cause, in one line: the first failure's reason, without the path and the system's error number | *Permission denied*, *No space left on device* |
 | *Details*: the raw text, each file that failed with its reason, one per line | `/home/me/a.txt: /home/me/b/a.txt exists` |
 
@@ -71,13 +80,16 @@ In the desktop app *Details* is a fold-out under the cause; in the terminal app 
 below a *Details:* line. When the cause is all there is, there is no *Details*. Everything else
 was done. **Enter** or **Esc** (or *Close*) closes it; the line under it says *Enter Close*.
 
-The other file operations report the same way, under their own title: *Could not move …*
-([move](move-and-rename.md)), *Could not delete …* and *Could not move … to the bin*
-([delete](delete.md)), *Could not create …* ([new folder](new-folder.md)), *Could not pack …* and
-*Could not extract …* ([pack and extract](pack-and-extract.md)), *Could not paste*
+The other file operations report the same way, under their own title, counted the same way
+when there were several items: *Could not move …* or *2 of 3 moved; 1 could not be moved*
+([move](move-and-rename.md)), *Could not delete …* and *Could not move … to the bin*, or
+*2 of 3 moved to the bin; 1 could not be moved to the bin* ([delete](delete.md)), *Could not
+create …* ([new folder](new-folder.md)), *Could not pack …* (an archive is made whole or not at
+all, so several items read *0 of 3 packed; 3 could not be packed*) and *Could not extract …* or
+*1 of 2 extracted; 1 could not be extracted* ([pack and extract](pack-and-extract.md)), *Could not paste*
 ([clipboard](clipboard.md)), *Could not switch to main* ([git branches](../panels/git-branches.md)).
 
-![The error dialog Could not copy 3 items: the cause Permission denied, Details unfolded with a line per file, the Close button and the line Enter Close](../screenshots/files-copy-error.png)
+![The error dialog 1 of 3 copied; 2 could not be copied: the cause Permission denied, Details unfolded with a line per file, the Close button and the line Enter Close](../screenshots/files-copy-error.png)
 
 ## Settings and config.toml
 
@@ -106,6 +118,12 @@ left as it was and listed under *Details* in *Could not copy …*. Nothing in th
 Since 2.0 the error dialog's title says what failed: *Could not copy "report.pdf"*. Under it is
 the cause in one line, and the full list of what failed under *Details*. See
 [When something goes wrong](#when-something-goes-wrong).
+
+#### How many of my files were copied?
+
+The title says it when there were several: *2 of 3 copied; 1 could not be copied*. The ones that
+failed are listed under *Details*, one per line with its reason; everything else is in the
+target.
 
 #### The error says only "Permission denied". Which file?
 

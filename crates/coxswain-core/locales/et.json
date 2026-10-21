@@ -918,6 +918,30 @@
  "err.unknown_setting": "Tundmatu säte {name}",
  "err.unsupported_value": "{name}: toetamata väärtus",
  "error.copy": "{what} kopeerimine nurjus",
+ "error.counted_copy": {
+  "one": "Kopeeritud {done}/{all}; {n} jäi kopeerimata",
+  "other": "Kopeeritud {done}/{all}; {n} jäid kopeerimata"
+ },
+ "error.counted_delete": {
+  "one": "Kustutatud {done}/{all}; {n} jäi kustutamata",
+  "other": "Kustutatud {done}/{all}; {n} jäid kustutamata"
+ },
+ "error.counted_extract": {
+  "one": "Lahti pakitud {done}/{all}; {n} jäi lahti pakkimata",
+  "other": "Lahti pakitud {done}/{all}; {n} jäid lahti pakkimata"
+ },
+ "error.counted_move": {
+  "one": "Teisaldatud {done}/{all}; {n} jäi teisaldamata",
+  "other": "Teisaldatud {done}/{all}; {n} jäid teisaldamata"
+ },
+ "error.counted_pack": {
+  "one": "Pakitud {done}/{all}; {n} jäi pakkimata",
+  "other": "Pakitud {done}/{all}; {n} jäid pakkimata"
+ },
+ "error.counted_trash": {
+  "one": "Prügikasti teisaldatud {done}/{all}; {n} jäi prügikasti teisaldamata",
+  "other": "Prügikasti teisaldatud {done}/{all}; {n} jäid prügikasti teisaldamata"
+ },
  "error.create": "{what} loomine nurjus",
  "error.delete": "{what} kustutamine nurjus",
  "error.extract": "{what} lahtipakkimine nurjus",

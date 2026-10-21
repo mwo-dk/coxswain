@@ -918,6 +918,30 @@
  "err.unknown_setting": "Ukjend innstilling {name}",
  "err.unsupported_value": "{name}: verdien er ikkje støtta",
  "error.copy": "Klarte ikkje å kopiere {what}",
+ "error.counted_copy": {
+  "one": "{done} av {all} kopierte; {n} kunne ikkje kopierast",
+  "other": "{done} av {all} kopierte; {n} kunne ikkje kopierast"
+ },
+ "error.counted_delete": {
+  "one": "{done} av {all} sletta; {n} kunne ikkje slettast",
+  "other": "{done} av {all} sletta; {n} kunne ikkje slettast"
+ },
+ "error.counted_extract": {
+  "one": "{done} av {all} pakka ut; {n} kunne ikkje pakkast ut",
+  "other": "{done} av {all} pakka ut; {n} kunne ikkje pakkast ut"
+ },
+ "error.counted_move": {
+  "one": "{done} av {all} flytte; {n} kunne ikkje flyttast",
+  "other": "{done} av {all} flytte; {n} kunne ikkje flyttast"
+ },
+ "error.counted_pack": {
+  "one": "{done} av {all} pakka; {n} kunne ikkje pakkast",
+  "other": "{done} av {all} pakka; {n} kunne ikkje pakkast"
+ },
+ "error.counted_trash": {
+  "one": "{done} av {all} flytte til papirkorga; {n} kunne ikkje flyttast til papirkorga",
+  "other": "{done} av {all} flytte til papirkorga; {n} kunne ikkje flyttast til papirkorga"
+ },
  "error.create": "Klarte ikkje å opprette {what}",
  "error.delete": "Klarte ikkje å slette {what}",
  "error.extract": "Klarte ikkje å pakke ut {what}",

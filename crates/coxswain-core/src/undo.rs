@@ -508,6 +508,35 @@ impl Op {
     }
 }
 
+/// The title over what failed when `op` ran on `all` items (`what` names them) and `failed` of
+/// them failed: for one item "Could not copy “a.txt”", for several how many went through and
+/// how many did not, "3 of 4 copied; 1 could not be copied". A pack is one archive: when it
+/// fails, none of its items went in.
+pub fn failure_title(op: Op, what: &str, all: usize, failed: usize) -> String {
+    let failed = if matches!(op, Op::Pack { .. }) { all } else { failed.min(all) };
+    if all <= 1 {
+        return match op {
+            Op::Copy => crate::t!("error.copy", "what" => what),
+            Op::Move => crate::t!("error.move", "what" => what),
+            Op::Extract => crate::t!("error.extract", "what" => what),
+            Op::Trash => crate::t!("error.trash", "what" => what),
+            Op::Forever => crate::t!("error.delete", "what" => what),
+            Op::Mkdir => crate::t!("error.create", "what" => what),
+            Op::Pack { .. } => crate::t!("error.pack", "what" => what),
+        };
+    }
+    let done = all - failed;
+    match op {
+        Op::Copy => crate::tn!("error.counted_copy", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Move => crate::tn!("error.counted_move", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Extract => crate::tn!("error.counted_extract", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Trash => crate::tn!("error.counted_trash", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Forever => crate::tn!("error.counted_delete", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Mkdir => crate::t!("error.create", "what" => what),
+        Op::Pack { .. } => crate::tn!("error.counted_pack", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+    }
+}
+
 /// Run `op` on every item in turn (`dst`: where to, or the archive for a pack), `at(i)`
 /// before item `i`; `password` opens a locked archive. Gives back what failed, with why, and
 /// the record of what can be undone (empty for `Forever`).
@@ -873,5 +902,15 @@ mod tests {
             format!("new folder \"{}\"", KEEP + 2)
         );
         assert_eq!(h.pushed, KEEP as u64 + 3);
+    }
+
+    #[test]
+    fn failure_title_counts_what_went_through() {
+        crate::i18n::set_language("en-GB");
+        assert_eq!(failure_title(Op::Copy, "\"a\"", 1, 1), "Could not copy \"a\"");
+        assert_eq!(failure_title(Op::Copy, "4 items", 4, 1), "3 of 4 copied; 1 could not be copied");
+        assert_eq!(failure_title(Op::Trash, "2 items", 2, 2), "0 of 2 moved to the bin; 2 could not be moved to the bin");
+        // A pack is one archive: all or nothing.
+        assert_eq!(failure_title(Op::Pack { hide_names: true }, "3 items", 3, 1), "0 of 3 packed; 3 could not be packed");
     }
 }

@@ -952,6 +952,36 @@
  "err.unknown_setting": "Nežinomas parametras {name}",
  "err.unsupported_value": "{name}: nepalaikoma reikšmė",
  "error.copy": "Nepavyko nukopijuoti {what}",
+ "error.counted_copy": {
+  "few": "Nukopijuota {done} iš {all}; {n} nepavyko nukopijuoti",
+  "one": "Nukopijuota {done} iš {all}; {n} nepavyko nukopijuoti",
+  "other": "Nukopijuota {done} iš {all}; {n} nepavyko nukopijuoti"
+ },
+ "error.counted_delete": {
+  "few": "Pašalinta {done} iš {all}; {n} nepavyko pašalinti",
+  "one": "Pašalinta {done} iš {all}; {n} nepavyko pašalinti",
+  "other": "Pašalinta {done} iš {all}; {n} nepavyko pašalinti"
+ },
+ "error.counted_extract": {
+  "few": "Išskleista {done} iš {all}; {n} nepavyko išskleisti",
+  "one": "Išskleista {done} iš {all}; {n} nepavyko išskleisti",
+  "other": "Išskleista {done} iš {all}; {n} nepavyko išskleisti"
+ },
+ "error.counted_move": {
+  "few": "Perkelta {done} iš {all}; {n} nepavyko perkelti",
+  "one": "Perkelta {done} iš {all}; {n} nepavyko perkelti",
+  "other": "Perkelta {done} iš {all}; {n} nepavyko perkelti"
+ },
+ "error.counted_pack": {
+  "few": "Supakuota {done} iš {all}; {n} nepavyko supakuoti",
+  "one": "Supakuota {done} iš {all}; {n} nepavyko supakuoti",
+  "other": "Supakuota {done} iš {all}; {n} nepavyko supakuoti"
+ },
+ "error.counted_trash": {
+  "few": "Perkelta į šiukšlinę {done} iš {all}; {n} nepavyko perkelti į šiukšlinę",
+  "one": "Perkelta į šiukšlinę {done} iš {all}; {n} nepavyko perkelti į šiukšlinę",
+  "other": "Perkelta į šiukšlinę {done} iš {all}; {n} nepavyko perkelti į šiukšlinę"
+ },
  "error.create": "Nepavyko sukurti {what}",
  "error.delete": "Nepavyko pašalinti {what}",
  "error.extract": "Nepavyko išskleisti {what}",

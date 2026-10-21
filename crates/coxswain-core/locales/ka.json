@@ -918,6 +918,30 @@
  "err.unknown_setting": "უცნობი პარამეტრი {name}",
  "err.unsupported_value": "{name}: მხარდაუჭერელი მნიშვნელობა",
  "error.copy": "ვერ დაკოპირდა: {what}",
+ "error.counted_copy": {
+  "one": "დაკოპირდა: {done} / {all}; ვერ დაკოპირდა: {n}",
+  "other": "დაკოპირდა: {done} / {all}; ვერ დაკოპირდა: {n}"
+ },
+ "error.counted_delete": {
+  "one": "წაიშალა: {done} / {all}; ვერ წაიშალა: {n}",
+  "other": "წაიშალა: {done} / {all}; ვერ წაიშალა: {n}"
+ },
+ "error.counted_extract": {
+  "one": "გაიხსნა: {done} / {all}; ვერ გაიხსნა: {n}",
+  "other": "გაიხსნა: {done} / {all}; ვერ გაიხსნა: {n}"
+ },
+ "error.counted_move": {
+  "one": "გადავიდა: {done} / {all}; ვერ გადავიდა: {n}",
+  "other": "გადავიდა: {done} / {all}; ვერ გადავიდა: {n}"
+ },
+ "error.counted_pack": {
+  "one": "შეიფუთა: {done} / {all}; ვერ შეიფუთა: {n}",
+  "other": "შეიფუთა: {done} / {all}; ვერ შეიფუთა: {n}"
+ },
+ "error.counted_trash": {
+  "one": "სანაგვეში გადავიდა: {done} / {all}; ვერ გადავიდა სანაგვეში: {n}",
+  "other": "სანაგვეში გადავიდა: {done} / {all}; ვერ გადავიდა სანაგვეში: {n}"
+ },
  "error.create": "ვერ შეიქმნა: {what}",
  "error.delete": "ვერ წაიშალა: {what}",
  "error.extract": "ვერ გაიხსნა: {what}",

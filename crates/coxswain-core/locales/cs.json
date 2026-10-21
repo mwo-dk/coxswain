@@ -952,6 +952,36 @@
  "err.unknown_setting": "Neznámé nastavení {name}",
  "err.unsupported_value": "{name}: nepodporovaná hodnota",
  "error.copy": "Nelze kopírovat {what}",
+ "error.counted_copy": {
+  "few": "Zkopírováno {done} z {all}; {n} nelze zkopírovat",
+  "one": "Zkopírováno {done} z {all}; {n} nelze zkopírovat",
+  "other": "Zkopírováno {done} z {all}; {n} nelze zkopírovat"
+ },
+ "error.counted_delete": {
+  "few": "Odstraněno {done} z {all}; {n} nelze odstranit",
+  "one": "Odstraněno {done} z {all}; {n} nelze odstranit",
+  "other": "Odstraněno {done} z {all}; {n} nelze odstranit"
+ },
+ "error.counted_extract": {
+  "few": "Rozbaleno {done} z {all}; {n} nelze rozbalit",
+  "one": "Rozbaleno {done} z {all}; {n} nelze rozbalit",
+  "other": "Rozbaleno {done} z {all}; {n} nelze rozbalit"
+ },
+ "error.counted_move": {
+  "few": "Přesunuto {done} z {all}; {n} nelze přesunout",
+  "one": "Přesunuto {done} z {all}; {n} nelze přesunout",
+  "other": "Přesunuto {done} z {all}; {n} nelze přesunout"
+ },
+ "error.counted_pack": {
+  "few": "Zabaleno {done} z {all}; {n} nelze zabalit",
+  "one": "Zabaleno {done} z {all}; {n} nelze zabalit",
+  "other": "Zabaleno {done} z {all}; {n} nelze zabalit"
+ },
+ "error.counted_trash": {
+  "few": "Přesunuto do koše {done} z {all}; {n} nelze přesunout do koše",
+  "one": "Přesunuto do koše {done} z {all}; {n} nelze přesunout do koše",
+  "other": "Přesunuto do koše {done} z {all}; {n} nelze přesunout do koše"
+ },
  "error.create": "Nelze vytvořit {what}",
  "error.delete": "Nelze odstranit {what}",
  "error.extract": "Nelze rozbalit {what}",

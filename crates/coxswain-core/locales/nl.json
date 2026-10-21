@@ -918,6 +918,30 @@
  "err.unknown_setting": "Onbekende instelling {name}",
  "err.unsupported_value": "{name}: niet-ondersteunde waarde",
  "error.copy": "Kan {what} niet kopiëren",
+ "error.counted_copy": {
+  "one": "{done} van {all} gekopieerd; {n} kon niet worden gekopieerd",
+  "other": "{done} van {all} gekopieerd; {n} konden niet worden gekopieerd"
+ },
+ "error.counted_delete": {
+  "one": "{done} van {all} verwijderd; {n} kon niet worden verwijderd",
+  "other": "{done} van {all} verwijderd; {n} konden niet worden verwijderd"
+ },
+ "error.counted_extract": {
+  "one": "{done} van {all} uitgepakt; {n} kon niet worden uitgepakt",
+  "other": "{done} van {all} uitgepakt; {n} konden niet worden uitgepakt"
+ },
+ "error.counted_move": {
+  "one": "{done} van {all} verplaatst; {n} kon niet worden verplaatst",
+  "other": "{done} van {all} verplaatst; {n} konden niet worden verplaatst"
+ },
+ "error.counted_pack": {
+  "one": "{done} van {all} ingepakt; {n} kon niet worden ingepakt",
+  "other": "{done} van {all} ingepakt; {n} konden niet worden ingepakt"
+ },
+ "error.counted_trash": {
+  "one": "{done} van {all} naar de prullenbak verplaatst; {n} kon niet worden naar de prullenbak verplaatst",
+  "other": "{done} van {all} naar de prullenbak verplaatst; {n} konden niet worden naar de prullenbak verplaatst"
+ },
  "error.create": "Kan {what} niet maken",
  "error.delete": "Kan {what} niet verwijderen",
  "error.extract": "Kan {what} niet uitpakken",

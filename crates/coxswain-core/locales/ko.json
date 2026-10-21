@@ -884,6 +884,24 @@
  "err.unknown_setting": "알 수 없는 설정 {name}",
  "err.unsupported_value": "{name}: 지원되지 않는 값",
  "error.copy": "{what}을(를) 복사할 수 없습니다",
+ "error.counted_copy": {
+  "other": "{all}개 중 {done}개를 복사했습니다. {n}개는 복사할 수 없습니다."
+ },
+ "error.counted_delete": {
+  "other": "{all}개 중 {done}개를 삭제했습니다. {n}개는 삭제할 수 없습니다."
+ },
+ "error.counted_extract": {
+  "other": "{all}개 중 {done}개의 압축을 풀었습니다. {n}개는 압축을 풀 수 없습니다."
+ },
+ "error.counted_move": {
+  "other": "{all}개 중 {done}개를 이동했습니다. {n}개는 이동할 수 없습니다."
+ },
+ "error.counted_pack": {
+  "other": "{all}개 중 {done}개를 압축했습니다. {n}개는 압축할 수 없습니다."
+ },
+ "error.counted_trash": {
+  "other": "{all}개 중 {done}개를 휴지통으로 이동했습니다. {n}개는 휴지통으로 이동할 수 없습니다."
+ },
  "error.create": "{what}을(를) 만들 수 없습니다",
  "error.delete": "{what}을(를) 삭제할 수 없습니다",
  "error.extract": "{what}의 압축을 풀 수 없습니다",

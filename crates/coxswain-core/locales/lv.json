@@ -952,6 +952,36 @@
  "err.unknown_setting": "Nezināms iestatījums {name}",
  "err.unsupported_value": "{name}: neatbalstīta vērtība",
  "error.copy": "Neizdevās kopēt {what}",
+ "error.counted_copy": {
+  "one": "Izdevās nokopēt {done} no {all}; {n} neizdevās nokopēt",
+  "other": "Izdevās nokopēt {done} no {all}; {n} neizdevās nokopēt",
+  "zero": "Izdevās nokopēt {done} no {all}; {n} neizdevās nokopēt"
+ },
+ "error.counted_delete": {
+  "one": "Izdevās izdzēst {done} no {all}; {n} neizdevās izdzēst",
+  "other": "Izdevās izdzēst {done} no {all}; {n} neizdevās izdzēst",
+  "zero": "Izdevās izdzēst {done} no {all}; {n} neizdevās izdzēst"
+ },
+ "error.counted_extract": {
+  "one": "Izdevās izpakot {done} no {all}; {n} neizdevās izpakot",
+  "other": "Izdevās izpakot {done} no {all}; {n} neizdevās izpakot",
+  "zero": "Izdevās izpakot {done} no {all}; {n} neizdevās izpakot"
+ },
+ "error.counted_move": {
+  "one": "Izdevās pārvietot {done} no {all}; {n} neizdevās pārvietot",
+  "other": "Izdevās pārvietot {done} no {all}; {n} neizdevās pārvietot",
+  "zero": "Izdevās pārvietot {done} no {all}; {n} neizdevās pārvietot"
+ },
+ "error.counted_pack": {
+  "one": "Izdevās iepakot {done} no {all}; {n} neizdevās iepakot",
+  "other": "Izdevās iepakot {done} no {all}; {n} neizdevās iepakot",
+  "zero": "Izdevās iepakot {done} no {all}; {n} neizdevās iepakot"
+ },
+ "error.counted_trash": {
+  "one": "Izdevās pārvietot uz atkritni {done} no {all}; {n} neizdevās pārvietot uz atkritni",
+  "other": "Izdevās pārvietot uz atkritni {done} no {all}; {n} neizdevās pārvietot uz atkritni",
+  "zero": "Izdevās pārvietot uz atkritni {done} no {all}; {n} neizdevās pārvietot uz atkritni"
+ },
  "error.create": "Neizdevās izveidot {what}",
  "error.delete": "Neizdevās dzēst {what}",
  "error.extract": "Neizdevās izpakot {what}",

@@ -918,6 +918,30 @@
  "err.unknown_setting": "Ezarpen ezezaguna: {name}",
  "err.unsupported_value": "{name}: balio onartezina",
  "error.copy": "Ezin izan da kopiatu: {what}",
+ "error.counted_copy": {
+  "one": "Kopiatuak: {done}/{all}; ezin izan da kopiatu: {n}",
+  "other": "Kopiatuak: {done}/{all}; ezin izan da kopiatu: {n}"
+ },
+ "error.counted_delete": {
+  "one": "Ezabatuak: {done}/{all}; ezin izan da ezabatu: {n}",
+  "other": "Ezabatuak: {done}/{all}; ezin izan da ezabatu: {n}"
+ },
+ "error.counted_extract": {
+  "one": "Erauziak: {done}/{all}; ezin izan da erauzi: {n}",
+  "other": "Erauziak: {done}/{all}; ezin izan da erauzi: {n}"
+ },
+ "error.counted_move": {
+  "one": "Mugituak: {done}/{all}; ezin izan da mugitu: {n}",
+  "other": "Mugituak: {done}/{all}; ezin izan da mugitu: {n}"
+ },
+ "error.counted_pack": {
+  "one": "Paketatuak: {done}/{all}; ezin izan da paketatu: {n}",
+  "other": "Paketatuak: {done}/{all}; ezin izan da paketatu: {n}"
+ },
+ "error.counted_trash": {
+  "one": "Zakarrontzira botatakoak: {done}/{all}; ezin izan da zakarrontzira bota: {n}",
+  "other": "Zakarrontzira botatakoak: {done}/{all}; ezin izan da zakarrontzira bota: {n}"
+ },
  "error.create": "Ezin izan da sortu: {what}",
  "error.delete": "Ezin izan da ezabatu: {what}",
  "error.extract": "Ezin izan da erauzi: {what}",

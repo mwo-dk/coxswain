@@ -918,6 +918,30 @@
  "err.unknown_setting": "Okänd inställning {name}",
  "err.unsupported_value": "{name}: värdet stöds inte",
  "error.copy": "Kunde inte kopiera {what}",
+ "error.counted_copy": {
+  "one": "{done} av {all} kopierade; {n} kunde inte kopieras",
+  "other": "{done} av {all} kopierade; {n} kunde inte kopieras"
+ },
+ "error.counted_delete": {
+  "one": "{done} av {all} raderade; {n} kunde inte raderas",
+  "other": "{done} av {all} raderade; {n} kunde inte raderas"
+ },
+ "error.counted_extract": {
+  "one": "{done} av {all} uppackade; {n} kunde inte packas upp",
+  "other": "{done} av {all} uppackade; {n} kunde inte packas upp"
+ },
+ "error.counted_move": {
+  "one": "{done} av {all} flyttade; {n} kunde inte flyttas",
+  "other": "{done} av {all} flyttade; {n} kunde inte flyttas"
+ },
+ "error.counted_pack": {
+  "one": "{done} av {all} packade; {n} kunde inte packas",
+  "other": "{done} av {all} packade; {n} kunde inte packas"
+ },
+ "error.counted_trash": {
+  "one": "{done} av {all} flyttade till papperskorgen; {n} kunde inte flyttas till papperskorgen",
+  "other": "{done} av {all} flyttade till papperskorgen; {n} kunde inte flyttas till papperskorgen"
+ },
  "error.create": "Kunde inte skapa {what}",
  "error.delete": "Kunde inte radera {what}",
  "error.extract": "Kunde inte packa upp {what}",

@@ -887,6 +887,30 @@
  "err.unknown_setting": "Unknown setting {name}",
  "err.unsupported_value": "{name}: unsupported value",
  "error.copy": "Could not copy {what}",
+ "error.counted_copy": {
+  "one": "{done} of {all} copied; {n} could not be copied",
+  "other": "{done} of {all} copied; {n} could not be copied"
+ },
+ "error.counted_delete": {
+  "one": "{done} of {all} deleted; {n} could not be deleted",
+  "other": "{done} of {all} deleted; {n} could not be deleted"
+ },
+ "error.counted_extract": {
+  "one": "{done} of {all} extracted; {n} could not be extracted",
+  "other": "{done} of {all} extracted; {n} could not be extracted"
+ },
+ "error.counted_move": {
+  "one": "{done} of {all} moved; {n} could not be moved",
+  "other": "{done} of {all} moved; {n} could not be moved"
+ },
+ "error.counted_pack": {
+  "one": "{done} of {all} packed; {n} could not be packed",
+  "other": "{done} of {all} packed; {n} could not be packed"
+ },
+ "error.counted_trash": {
+  "one": "{done} of {all} moved to the bin; {n} could not be moved to the bin",
+  "other": "{done} of {all} moved to the bin; {n} could not be moved to the bin"
+ },
  "error.create": "Could not create {what}",
  "error.delete": "Could not delete {what}",
  "error.extract": "Could not extract {what}",

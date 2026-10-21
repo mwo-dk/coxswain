@@ -986,6 +986,42 @@
  "err.unknown_setting": "Nieznane ustawienie {name}",
  "err.unsupported_value": "{name}: nieobsługiwana wartość",
  "error.copy": "Nie udało się skopiować: {what}",
+ "error.counted_copy": {
+  "few": "Skopiowano {done} z {all}; nie udało się skopiować: {n}",
+  "many": "Skopiowano {done} z {all}; nie udało się skopiować: {n}",
+  "one": "Skopiowano {done} z {all}; nie udało się skopiować: {n}",
+  "other": "Skopiowano {done} z {all}; nie udało się skopiować: {n}"
+ },
+ "error.counted_delete": {
+  "few": "Usunięto {done} z {all}; nie udało się usunąć: {n}",
+  "many": "Usunięto {done} z {all}; nie udało się usunąć: {n}",
+  "one": "Usunięto {done} z {all}; nie udało się usunąć: {n}",
+  "other": "Usunięto {done} z {all}; nie udało się usunąć: {n}"
+ },
+ "error.counted_extract": {
+  "few": "Rozpakowano {done} z {all}; nie udało się rozpakować: {n}",
+  "many": "Rozpakowano {done} z {all}; nie udało się rozpakować: {n}",
+  "one": "Rozpakowano {done} z {all}; nie udało się rozpakować: {n}",
+  "other": "Rozpakowano {done} z {all}; nie udało się rozpakować: {n}"
+ },
+ "error.counted_move": {
+  "few": "Przeniesiono {done} z {all}; nie udało się przenieść: {n}",
+  "many": "Przeniesiono {done} z {all}; nie udało się przenieść: {n}",
+  "one": "Przeniesiono {done} z {all}; nie udało się przenieść: {n}",
+  "other": "Przeniesiono {done} z {all}; nie udało się przenieść: {n}"
+ },
+ "error.counted_pack": {
+  "few": "Spakowano {done} z {all}; nie udało się spakować: {n}",
+  "many": "Spakowano {done} z {all}; nie udało się spakować: {n}",
+  "one": "Spakowano {done} z {all}; nie udało się spakować: {n}",
+  "other": "Spakowano {done} z {all}; nie udało się spakować: {n}"
+ },
+ "error.counted_trash": {
+  "few": "Przeniesiono do Kosza {done} z {all}; nie udało się przenieść do Kosza: {n}",
+  "many": "Przeniesiono do Kosza {done} z {all}; nie udało się przenieść do Kosza: {n}",
+  "one": "Przeniesiono do Kosza {done} z {all}; nie udało się przenieść do Kosza: {n}",
+  "other": "Przeniesiono do Kosza {done} z {all}; nie udało się przenieść do Kosza: {n}"
+ },
  "error.create": "Nie udało się utworzyć: {what}",
  "error.delete": "Nie udało się usunąć: {what}",
  "error.extract": "Nie udało się rozpakować: {what}",

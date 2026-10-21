@@ -952,6 +952,36 @@
  "err.unknown_setting": "Impostazione sconosciuta: {name}",
  "err.unsupported_value": "{name}: valore non supportato",
  "error.copy": "Impossibile copiare {what}",
+ "error.counted_copy": {
+  "many": "Copiati {done} su {all}; impossibile copiarne {n}",
+  "one": "Copiati {done} su {all}; impossibile copiarne {n}",
+  "other": "Copiati {done} su {all}; impossibile copiarne {n}"
+ },
+ "error.counted_delete": {
+  "many": "Eliminati {done} su {all}; impossibile eliminarne {n}",
+  "one": "Eliminati {done} su {all}; impossibile eliminarne {n}",
+  "other": "Eliminati {done} su {all}; impossibile eliminarne {n}"
+ },
+ "error.counted_extract": {
+  "many": "Estratti {done} su {all}; impossibile estrarne {n}",
+  "one": "Estratti {done} su {all}; impossibile estrarne {n}",
+  "other": "Estratti {done} su {all}; impossibile estrarne {n}"
+ },
+ "error.counted_move": {
+  "many": "Spostati {done} su {all}; impossibile spostarne {n}",
+  "one": "Spostati {done} su {all}; impossibile spostarne {n}",
+  "other": "Spostati {done} su {all}; impossibile spostarne {n}"
+ },
+ "error.counted_pack": {
+  "many": "Compressi {done} su {all}; impossibile comprimerne {n}",
+  "one": "Compressi {done} su {all}; impossibile comprimerne {n}",
+  "other": "Compressi {done} su {all}; impossibile comprimerne {n}"
+ },
+ "error.counted_trash": {
+  "many": "Spostati nel cestino {done} su {all}; impossibile spostarne {n} nel cestino",
+  "one": "Spostati nel cestino {done} su {all}; impossibile spostarne {n} nel cestino",
+  "other": "Spostati nel cestino {done} su {all}; impossibile spostarne {n} nel cestino"
+ },
  "error.create": "Impossibile creare {what}",
  "error.delete": "Impossibile eliminare {what}",
  "error.extract": "Impossibile estrarre {what}",

@@ -1528,7 +1528,8 @@ impl App {
             Action::Rename => {
                 let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
                 let title = t!("dialog.rename", "what" => Self::describe(std::slice::from_ref(&e.path)));
-                self.input(&title, t!("app.name_label"), e.name, Prompt::Rename(e.path));
+                // A newline or an escape in the name shows as its picture, and comes back as it was.
+                self.input(&title, t!("app.name_label"), coxswain_core::rename::shown(&e.name), Prompt::Rename(e.path));
             }
             Action::ActionMenu => self.action_menu(),
             Action::NewFolder => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
@@ -2438,7 +2439,8 @@ impl App {
         };
         let Some(op) = op else {
             let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
-            return self.after_op(t!("archive.packed", "what" => what) + &hint, t!("error.pack", "what" => what), errors);
+            let fail = coxswain_core::undo::failure_title(job_op(None), &what, src.len(), failed.len());
+            return self.after_op(t!("archive.packed", "what" => what) + &hint, fail, errors);
         };
         if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
@@ -2457,14 +2459,11 @@ impl App {
             Transfer::Delete(false) => t!("status.trashed", "what" => what),
             Transfer::Mkdir => t!("status.created", "what" => src.first().map(|p| p.display().to_string()).unwrap_or_default()),
         };
+        // How many of them went through, and how many did not.
         let fail = match op {
-            Transfer::Copy => t!("error.copy", "what" => what),
-            Transfer::Move => t!("error.move", "what" => what),
             Transfer::Rename => t!("error.rename", "what" => what),
-            Transfer::Extract => t!("error.extract", "what" => what),
-            Transfer::Delete(true) => t!("error.delete", "what" => what),
-            Transfer::Delete(false) => t!("error.trash", "what" => what),
             Transfer::Mkdir => t!("error.create", "what" => src.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            _ => coxswain_core::undo::failure_title(job_op(Some(op)), &what, src.len(), failed.len()),
         };
         self.after_op(ok + &hint, fail, errors);
         if let Some((side, n)) = select {
@@ -2527,6 +2526,9 @@ impl App {
             }
             Prompt::Rename(_) if value.trim().is_empty() => {}
             Prompt::Rename(src) => {
+                // The text as it was shown: nothing to rename.
+                let name = src.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                let Some(value) = coxswain_core::rename::typed(&name, &value) else { return };
                 let dst = resolve(&base, &value);
                 let one = (dst.parent() == Some(base.as_path())).then(|| dst.file_name().unwrap_or_default().to_string_lossy().into_owned());
                 self.transfer(Transfer::Rename, vec![src], dst, None, one);
@@ -4289,6 +4291,36 @@ mod tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    /// F2 Rename shows a newline in a name as ␊ and keeps it; text left as shown renames
+    /// nothing. A copy of which one item fails says how many went through.
+    #[cfg(unix)]
+    #[test]
+    fn rename_keeps_control_characters_and_failures_are_counted() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-rename-controls-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("to")).unwrap();
+        let odd = d.join("a\nb.txt");
+        std::fs::write(&odd, "x").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        let wait = |app: &mut App| {
+            let t = Instant::now();
+            while app.job.is_some() && t.elapsed() < coxswain_core::test_limit(Duration::from_secs(10)) {
+                std::thread::sleep(Duration::from_millis(5));
+                app.poll_job();
+            }
+        };
+        app.submit(Prompt::Rename(odd.clone()), "a␊b.txt".into());
+        assert!(app.job.is_none() && odd.exists(), "unchanged: nothing renamed");
+        app.submit(Prompt::Rename(odd.clone()), "c␊b.txt".into());
+        wait(&mut app);
+        assert!(d.join("c\nb.txt").exists() && !odd.exists());
+        app.transfer(Transfer::Copy, vec![d.join("c\nb.txt"), d.join("gone.txt")], d.join("to"), None, None);
+        wait(&mut app);
+        let Some(Dialog::Message { title, .. }) = &app.dialog else { panic!("no failure shown: {:?}", app.status) };
+        assert_eq!(title, &coxswain_core::undo::failure_title(coxswain_core::undo::Op::Copy, "", 2, 1));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// The user-test round's terminal fixes: Find's F3 and Ctrl+U, a history refusing changes

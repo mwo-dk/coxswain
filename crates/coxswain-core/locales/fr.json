@@ -952,6 +952,36 @@
  "err.unknown_setting": "Réglage inconnu : {name}",
  "err.unsupported_value": "{name} : valeur non prise en charge",
  "error.copy": "Impossible de copier {what}",
+ "error.counted_copy": {
+  "many": "{done} sur {all} copiés ; {n} n’ont pas pu être copiés",
+  "one": "{done} sur {all} copiés ; {n} n’a pas pu être copié",
+  "other": "{done} sur {all} copiés ; {n} n’ont pas pu être copiés"
+ },
+ "error.counted_delete": {
+  "many": "{done} sur {all} supprimés ; {n} n’ont pas pu être supprimés",
+  "one": "{done} sur {all} supprimés ; {n} n’a pas pu être supprimé",
+  "other": "{done} sur {all} supprimés ; {n} n’ont pas pu être supprimés"
+ },
+ "error.counted_extract": {
+  "many": "{done} sur {all} extraits ; {n} n’ont pas pu être extraits",
+  "one": "{done} sur {all} extraits ; {n} n’a pas pu être extrait",
+  "other": "{done} sur {all} extraits ; {n} n’ont pas pu être extraits"
+ },
+ "error.counted_move": {
+  "many": "{done} sur {all} déplacés ; {n} n’ont pas pu être déplacés",
+  "one": "{done} sur {all} déplacés ; {n} n’a pas pu être déplacé",
+  "other": "{done} sur {all} déplacés ; {n} n’ont pas pu être déplacés"
+ },
+ "error.counted_pack": {
+  "many": "{done} sur {all} compressés ; {n} n’ont pas pu être compressés",
+  "one": "{done} sur {all} compressés ; {n} n’a pas pu être compressé",
+  "other": "{done} sur {all} compressés ; {n} n’ont pas pu être compressés"
+ },
+ "error.counted_trash": {
+  "many": "{done} sur {all} placés dans la corbeille ; {n} n’ont pas pu être placés dans la corbeille",
+  "one": "{done} sur {all} placés dans la corbeille ; {n} n’a pas pu être placé dans la corbeille",
+  "other": "{done} sur {all} placés dans la corbeille ; {n} n’ont pas pu être placés dans la corbeille"
+ },
  "error.create": "Impossible de créer {what}",
  "error.delete": "Impossible de supprimer {what}",
  "error.extract": "Impossible d’extraire {what}",

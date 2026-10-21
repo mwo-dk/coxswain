@@ -918,6 +918,30 @@
  "err.unknown_setting": "Tuntematon asetus {name}",
  "err.unsupported_value": "{name}: arvoa ei tueta",
  "error.copy": "Kohteen {what} kopiointi epäonnistui",
+ "error.counted_copy": {
+  "one": "Kopioitu {done}/{all}; {n} kohteen kopiointi epäonnistui",
+  "other": "Kopioitu {done}/{all}; {n} kohteen kopiointi epäonnistui"
+ },
+ "error.counted_delete": {
+  "one": "Poistettu {done}/{all}; {n} kohteen poisto epäonnistui",
+  "other": "Poistettu {done}/{all}; {n} kohteen poisto epäonnistui"
+ },
+ "error.counted_extract": {
+  "one": "Purettu {done}/{all}; {n} kohteen purku epäonnistui",
+  "other": "Purettu {done}/{all}; {n} kohteen purku epäonnistui"
+ },
+ "error.counted_move": {
+  "one": "Siirretty {done}/{all}; {n} kohteen siirto epäonnistui",
+  "other": "Siirretty {done}/{all}; {n} kohteen siirto epäonnistui"
+ },
+ "error.counted_pack": {
+  "one": "Pakattu {done}/{all}; {n} kohteen pakkaus epäonnistui",
+  "other": "Pakattu {done}/{all}; {n} kohteen pakkaus epäonnistui"
+ },
+ "error.counted_trash": {
+  "one": "Siirretty roskakoriin {done}/{all}; {n} kohteen siirto roskakoriin epäonnistui",
+  "other": "Siirretty roskakoriin {done}/{all}; {n} kohteen siirto roskakoriin epäonnistui"
+ },
  "error.create": "Kohteen {what} luonti epäonnistui",
  "error.delete": "Kohteen {what} poisto epäonnistui",
  "error.extract": "Kohteen {what} purku epäonnistui",

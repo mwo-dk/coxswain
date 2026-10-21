@@ -119,8 +119,10 @@ with no archive ending gets one added (`my.notes` becomes `my.notes.zip`).
 - After extracting, it says `Extracted "photos.zip"`.
 - **Ctrl+E** on something that is not an archive says `Not a zip, 7z or tar archive` on the
   status line.
-- Errors open a dialog titled *Could not pack "photos"* or *Could not extract "photos.zip"*,
-  with the cause in one line and the full text under *Details*: an archive or folder that
+- Errors open a dialog titled *Could not pack "photos"* or *Could not extract "photos.zip"*;
+  for several archives extracted it counts them, *1 of 2 extracted; 1 could not be extracted*,
+  and for several items packed *0 of 3 packed; 3 could not be packed* (an archive is made whole
+  or not at all). It comes with the cause in one line and the full text under *Details*: an archive or folder that
   already exists (`… exists`), an ending Coxswain cannot write
   ([When something goes wrong](copy.md#when-something-goes-wrong)).
 - A locked zip or 7z asks for its password before extracting
