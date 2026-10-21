@@ -17,7 +17,7 @@ watch = [
 
 [[library]]
 crate = "sha2"
-provides = ["sha-256"]
+provides = ["sha-256", "sha-512"]
 apps = ["terminal", "desktop"]
 
 [[library]]
@@ -100,8 +100,22 @@ primitive = "hash"
 oid = "2.16.840.1.101.3.4.2.1"
 param_set = "256"
 functions = ["digest"]
-purpose = "Checks that a downloaded model for search by meaning is the file expected"
-found = [{ file = "crates/coxswain-core/src/meaning.rs", pattern = "Sha256::new()" }]
+purpose = "Checks that a downloaded model for search by meaning is the file expected; makes and verifies SHA256SUMS lists of the user's files (Checksums)"
+found = [
+  { file = "crates/coxswain-core/src/meaning.rs", pattern = "Sha256::new()" },
+  { file = "crates/coxswain-core/src/checksum.rs", pattern = "sha2::Sha256::new()" },
+]
+
+[[asset]]
+ref = "sha-512"
+name = "SHA-512"
+type = "algorithm"
+primitive = "hash"
+oid = "2.16.840.1.101.3.4.2.3"
+param_set = "512"
+functions = ["digest"]
+purpose = "Makes and verifies SHA512SUMS lists of the user's files (Checksums)"
+found = [{ file = "crates/coxswain-core/src/checksum.rs", pattern = "sha2::Sha512::new()" }]
 
 [[asset]]
 ref = "blake3"
@@ -110,8 +124,11 @@ type = "algorithm"
 primitive = "hash"
 param_set = "256"
 functions = ["digest"]
-purpose = "Finds duplicate files by content; not used for security"
-found = [{ file = "crates/coxswain-core/src/dupes.rs", pattern = "blake3::Hasher::new()" }]
+purpose = "Finds duplicate files by content, and makes and verifies B3SUMS lists of the user's files (Checksums)"
+found = [
+  { file = "crates/coxswain-core/src/dupes.rs", pattern = "blake3::Hasher::new()" },
+  { file = "crates/coxswain-core/src/checksum.rs", pattern = "blake3::Hasher::new()" },
+]
 
 [[asset]]
 ref = "aes-256-cbc"
