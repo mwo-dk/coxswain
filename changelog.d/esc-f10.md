@@ -1,0 +1,1 @@
+| **Esc then F10 quits on macOS too.** When Esc and the next key arrived together (macOS Terminal, the app busy), the key was lost and typed as `[21~`; the terminal app now puts it back together. | [The terminal app](reference/terminal-app.md#the-terminal-it-needs) |
