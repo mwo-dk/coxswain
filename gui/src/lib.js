@@ -379,7 +379,7 @@ export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
 /** A games file by its name: "pgn" (also packed), "epd" (EPD and FEN), "sgf" (Go), "pdn"
- *  (draughts), "shogi" (KIF, CSA), or ""
+ *  (draughts), "shogi" (KIF, CSA), "pbn" (bridge), or ""
  *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
 export function chessFormat(name) {
   const n = name.toLowerCase();
@@ -388,6 +388,7 @@ export function chessFormat(name) {
   if (n.endsWith(".sgf")) return "sgf";
   if (n.endsWith(".pdn")) return "pdn";
   if (/\.(kif|kifu|csa)$/.test(n)) return "shogi";
+  if (n.endsWith(".pbn")) return "pbn";
   return "";
 }
 

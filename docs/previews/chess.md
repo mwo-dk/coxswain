@@ -9,9 +9,9 @@ files hold positions; Coxswain shows each on the board. A **Polyglot opening boo
 adds its moves for each position, with their weights. Both apps have it. Coxswain reads the
 files and never changes them: you can [play on from any position and ask an installed
 engine](chess-play.md), and your moves are saved only as a new file when you ask. Go games (SGF),
-draughts games (PDN), xiangqi games (PGN with `[Game "Chinese Chess"]`) and shogi games (KIF, CSA)
-have pages of their own: [Go games](go.md), [Draughts games](draughts.md), [Xiangqi games](xiangqi.md),
-[Shogi games](shogi.md).
+draughts games (PDN), xiangqi games (PGN with `[Game "Chinese Chess"]`), shogi games (KIF, CSA) and bridge
+deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draughts.md),
+[Xiangqi games](xiangqi.md), [Shogi games](shogi.md), [Bridge deals](bridge.md).
 
 <picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/chess.png"><img src="../screenshots/chess.gif" alt="Morphy's Opera Game of 1858 in the desktop app's chess window: the board in the Cyber theme's greens, the moves beside it in figurines, the moves stepped through with the right arrow key until the mate on d8"></picture>
 
@@ -259,7 +259,7 @@ games.
 
 Not yet: PGN (also packed as `.pgn.gz` or `.pgn.zst`), EPD, FEN and Polyglot books, Go
 games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) , xiangqi
-games in PGN ([Xiangqi games](xiangqi.md)) and shogi games in KIF and CSA ([Shogi games](shogi.md)). Export ChessBase games to PGN to read them here.
+games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). Export ChessBase games to PGN to read them here.
 
 #### How do I see moves in my own language's letters?
 

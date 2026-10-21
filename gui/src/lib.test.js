@@ -84,6 +84,7 @@ test("games files by their names", async () => {
   assert.equal(chessFormat("club.PDN"), "pdn");
   assert.equal(chessFormat("meijin.kifu"), "shogi");
   assert.equal(chessFormat("ryuo.CSA"), "shogi");
+  assert.equal(chessFormat("club.pbn"), "pbn");
   // A Polyglot book is known by its bytes, not its name.
   assert.equal(chessFormat("book.bin"), "");
 });

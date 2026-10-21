@@ -503,6 +503,63 @@ PI
 +2426HI
 %TORYO
 EOF
+# Bridge: two deals made up for the demo, one played out trick by trick, for Bridge deals
+# (docs/previews/bridge.md).
+mkdir -p "$d/Documents/Bridge"
+cat > "$d/Documents/Bridge/pairs.pbn" <<'EOF'
+% PBN 2.1
+% Made up for the Coxswain demo
+[Event "Rocket Club pairs"]
+[Site "Hangar 3"]
+[Date "2026.05.20"]
+[Board "1"]
+[West "Ada Vance"]
+[North "Ben Okafor"]
+[East "Cy Lund"]
+[South "Di Moreau"]
+[Dealer "S"]
+[Vulnerable "None"]
+[Deal "N:AKQ5.T98.765.432 JT9.J765.432.AKQ 876.432.AKQJ.JT9 432.AKQ.T98.8765"]
+[Scoring "MP"]
+[Declarer "S"]
+[Contract "1NT"]
+[Result "6"]
+[Auction "S"]
+1NT Pass Pass Pass
+[Play "W"]
+C8 C2 CQ C9
+HQ H8 HJ H2
+DT D5 D2 DJ
+D8 D6 D3 DA
+S2 SQ S9 S8
+S3 SA ST S6
+S4 SK SJ S7
+HK HT H5 H3
+C7 C3 CK CT
+HA H9 H7 H4
+C6 C4 CA CJ
+C5 S5 H6 DQ
+D9 D7 D4 DK
+*
+
+[Event "#"]
+[Site "#"]
+[Date "#"]
+[Board "2"]
+[West "Ben Okafor"]
+[North "Cy Lund"]
+[East "Di Moreau"]
+[South "Ada Vance"]
+[Dealer "E"]
+[Vulnerable "NS"]
+[Deal "E:AKQ5.T98.765.432 JT9.J765.432.AKQ 876.432.AKQJ.JT9 432.AKQ.T98.8765"]
+[Declarer "S"]
+[Contract "2D"]
+[Result "8"]
+[Auction "E"]
+Pass 1D Pass 1H
+Pass 2D AP
+EOF
 mkdir -p "$d/Documents/Go"
 cat > "$d/Documents/Go/classics.sgf" <<'EOF'
 (;GM[1]FF[4]CA[UTF-8]SZ[19]GN[The ear-reddening game]PB[Honinbo Shusaku]BR[4d]PW[Gennan Inseki]WR[8d]DT[1846]KM[0]RE[B+2]

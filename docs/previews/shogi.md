@@ -142,4 +142,4 @@ there; Coxswain then takes it for a drop.
 Not yet: Coxswain shows shogi games but does not play.
 
 ---
-[← Previous: Xiangqi games](xiangqi.md) · [Next: Neural network models →](neural-networks.md)
+[← Previous: Xiangqi games](xiangqi.md) · [Next: Bridge deals →](bridge.md)

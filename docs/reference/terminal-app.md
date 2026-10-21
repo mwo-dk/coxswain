@@ -55,6 +55,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Draughts games (**F3** or **Alt+K** on a PDN file), full screen: the chess table of games, a game on a numbered board of coloured squares with ● men and ♚ kings, its captures and variations | [Draughts games](../previews/draughts.md) |
 | Xiangqi games (**F3** or **Alt+K** on a PGN file whose tags say `Game "Chinese Chess"`), full screen: the chess table of games, a game on a board of box lines with the river and the pieces as red and black characters | [Xiangqi games](../previews/xiangqi.md) |
 | Shogi games (**F3** or **Alt+K** on a KIF or CSA file), full screen: the chess table of games, a game on a board of kanji with Gote's pieces marked v, the pieces in hand, variations and comments | [Shogi games](../previews/shogi.md) |
+| Bridge deals (**F3** or **Alt+K** on a PBN file), full screen: the table of deals with pairs, contract and result, a deal as four hands round the table with its auction, trick by trick | [Bridge deals](../previews/bridge.md) |
 | A viewer for build provenance (**F3** on one): inputs → build → outputs, the outputs checked against the files here, compare | [Build provenance](../previews/provenance.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |

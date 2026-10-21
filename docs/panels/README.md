@@ -78,7 +78,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+A** | Yes | Yes | In a git history: every branch's commits and their graph, or this branch's again |
 | **Alt+Y** | Yes | Yes | In a git history: the commits not pushed and not merged, as of the last fetch |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
-| **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md), [Go games](../previews/go.md), [Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md) and [Shogi games](../previews/shogi.md): a PGN (chess or xiangqi), SGF, PDN, KIF or CSA file's games, an EPD or FEN file's positions, a Polyglot book's moves |
+| **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md), [Go games](../previews/go.md), [Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md) , [Shogi games](../previews/shogi.md) and [Bridge deals](../previews/bridge.md): a PGN (chess or xiangqi), SGF, PDN, KIF, CSA or PBN file's games, an EPD or FEN file's positions, a Polyglot book's moves |
 | **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |
 | **Alt+U** | Yes | Yes | [Space](space.md): where the space goes, as a treemap |
 | **Alt+G** | Yes | Yes | [Open in your git tool](git.md#open-in-your-git-tool): commit, push or pull in lazygit, gitui, tig or your desktop client |
