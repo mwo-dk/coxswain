@@ -167,8 +167,8 @@ impl Viewer {
             KeyCode::PageDown => self.scroll(page),
             KeyCode::Home => self.cur = 0,
             KeyCode::End => self.cur = self.total().saturating_sub(1),
-            KeyCode::Left => self.left = self.left.saturating_sub(8),
-            KeyCode::Right => self.left += 8,
+            KeyCode::Left if !key.alt => self.left = self.left.saturating_sub(8),
+            KeyCode::Right if !key.alt => self.left += 8,
             _ if ch == Some('n') || ch == Some('p') || ch == Some('N') => {
                 let back = ch != Some('n');
                 let stop = self.s.stopped();
