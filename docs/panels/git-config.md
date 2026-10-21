@@ -158,4 +158,4 @@ It is bound to *Git config*. Set `git_config = []` in `[keys]` to give it back t
 or start the quick search with another letter.
 
 ---
-[← Previous: Git branches and worktrees](git-branches.md) · [Next: The mouse →](mouse.md)
+[← Previous: Git branches and worktrees](git-branches.md) · [Next: Jujutsu in the panels →](jujutsu.md)

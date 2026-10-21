@@ -3384,5 +3384,17 @@
  "history.scope_branch": "Denne greina",
  "history.scope_all": "Alle greiner",
  "history.scope_tip": "Kva for commits lista og grafen viser ({key} byter)",
- "hint.history": "{all} viser commits frå alle greiner i grafen; igjen berre denne greina sine"
+ "hint.history": "{all} viser commits frå alle greiner i grafen; igjen berre denne greina sine",
+ "setting.git_prefer_git": "Bruk git der Jujutsu òg er",
+ "setting.git_prefer_git.hint": "Der ei mappe har både .jj og .git, blir linja, historikken og greinene til git viste i staden for Jujutsu sine.",
+ "notice.jj_missing": "Dette repositoriet blir halde av Jujutsu, men jj er ikkje installert: installer Jujutsu (programmet jj) for å sjå endringane, historikken og bokmerka. Til då viser git det det kan.",
+ "vcs.jj_read_only": "Coxswain les berre Jujutsu-repositorium: byt til eit bokmerke med jj new eller jj edit.",
+ "feature.jujutsu.title": "Jujutsu i panela",
+ "feature.jujutsu.what": "I eit Jujutsu-repositorium: change-id, næraste bokmerke og dei endra filene på linja, historikken og bokmerka som mapper, lesne gjennom jj utan å endre noko.",
+ "feature.jujutsu.q1": "Kvifor viser linja git og ikkje jj?",
+ "feature.jujutsu.a1": "jj er ikkje installert, eller Innstillingar → Åtferd → Bruk git der Jujutsu òg er, er slått på. Utan jj viser git det det kan der repositoriet har ei .git ved sida av .jj.",
+ "feature.jujutsu.q2": "Kvifor blir ikkje ei fil eg nett endra vist som endra?",
+ "feature.jujutsu.a2": "I eit repositorium utan .git ved sida av .jj viser Coxswain statusen til jj frå den siste jj-kommandoen din, fordi han aldri får jj til å ta eit augneblinksbilete. Køyr ein kva som helst jj-kommando, og trykk så {refresh}.",
+ "feature.jujutsu.q3": "Kan eg byte bokmerke her?",
+ "feature.jujutsu.a3": "Nei: Coxswain les berre eit Jujutsu-repositorium. {branches} viser bokmerka og filene deira; byt med jj new eller jj edit, eller opne ditt eige verktøy med {git_tool}."
 }

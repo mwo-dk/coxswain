@@ -3384,5 +3384,17 @@
  "history.scope_branch": "Adar hau",
  "history.scope_all": "Adar guztiak",
  "history.scope_tip": "Zerrendak eta bere grafikoak zein commit erakusten dituzten ({key} aldatzen du)",
- "hint.history": "{all}: adar guztien commitak grafikoan; berriro, adar honenak bakarrik"
+ "hint.history": "{all}: adar guztien commitak grafikoan; berriro, adar honenak bakarrik",
+ "setting.git_prefer_git": "Erabili git Jujutsu ere dagoen tokian",
+ "setting.git_prefer_git.hint": "Karpeta batek .jj eta .git biak dituenean, erakutsi giten lerroa, historia eta adarrak Jujutsurenen ordez.",
+ "notice.jj_missing": "Biltegi hau Jujutsuk darama, baina jj ez dago instalatuta: instalatu Jujutsu (jj programa) haren aldaketak, historia eta laster-markak ikusteko. Bitartean, gitek ahal duena erakusten du.",
+ "vcs.jj_read_only": "Coxswainek Jujutsu biltegiak irakurri baino ez ditu egiten: joan laster-marka batera jj new edo jj edit erabiliz.",
+ "feature.jujutsu.title": "Jujutsu paneletan",
+ "feature.jujutsu.what": "Jujutsu biltegi batean: aldaketaren ida, laster-marka hurbilena eta aldatutako fitxategiak lerroan, historia eta laster-markak karpeta gisa, jj bidez irakurriak ezer aldatu gabe.",
+ "feature.jujutsu.q1": "Zergatik erakusten du lerroak git eta ez jj?",
+ "feature.jujutsu.a1": "jj ez dago instalatuta, edo Ezarpenak → Portaera → Erabili git Jujutsu ere dagoen tokian aktibatuta dago. jj gabe, gitek ahal duena erakusten du biltegiak .jj-ren ondoan .git duenean.",
+ "feature.jujutsu.q2": "Zergatik ez da aldatu berri dudan fitxategi bat aldatu gisa agertzen?",
+ "feature.jujutsu.a2": ".jj-ren ondoan .git ez duen biltegi batean, Coxswainek zure azken jj aginduaren araberako jj-ren egoera erakusten du, ez baitio inoiz jj-ri argazkirik ateratzen eragiten. Exekutatu edozein jj agindu, eta sakatu {refresh}.",
+ "feature.jujutsu.q3": "Hemen alda dezaket laster-marka?",
+ "feature.jujutsu.a3": "Ez: Coxswainek Jujutsu biltegia irakurri baino ez du egiten. {branches} laster-markak eta haien fitxategiak zerrendatzen ditu; aldatu jj new edo jj edit erabiliz, edo ireki zure tresna {git_tool} bidez."
 }

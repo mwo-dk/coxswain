@@ -3453,5 +3453,17 @@
  "history.scope_branch": "Esta rama",
  "history.scope_all": "Todas las ramas",
  "history.scope_tip": "Qué commits muestran la lista y su gráfico ({key} cambia)",
- "hint.history": "{all} muestra los commits de todas las ramas en el gráfico; otra vez, solo los de esta"
+ "hint.history": "{all} muestra los commits de todas las ramas en el gráfico; otra vez, solo los de esta",
+ "setting.git_prefer_git": "Usar git donde también está Jujutsu",
+ "setting.git_prefer_git.hint": "Donde una carpeta tiene .jj y .git, mostrar la línea, el historial y las ramas de git en lugar de los de Jujutsu.",
+ "notice.jj_missing": "Este repositorio lo lleva Jujutsu, pero jj no está instalado: instalá Jujutsu (el programa jj) para ver sus cambios, su historial y sus marcadores. Hasta entonces, git muestra lo que puede.",
+ "vcs.jj_read_only": "Coxswain solo lee repositorios de Jujutsu: pasá a un marcador con jj new o jj edit.",
+ "feature.jujutsu.title": "Jujutsu en los paneles",
+ "feature.jujutsu.what": "En un repositorio de Jujutsu: el id del cambio, el marcador más cercano y los archivos cambiados en la línea, el historial y los marcadores como carpetas, leídos con jj sin cambiar nada.",
+ "feature.jujutsu.q1": "¿Por qué la línea muestra git y no jj?",
+ "feature.jujutsu.a1": "jj no está instalado, o Configuración → Comportamiento → Usar git donde también está Jujutsu está activado. Sin jj, git muestra lo que puede donde el repositorio tiene un .git junto a .jj.",
+ "feature.jujutsu.q2": "¿Por qué un archivo que acabo de cambiar no aparece como cambiado?",
+ "feature.jujutsu.a2": "En un repositorio sin .git junto a .jj, Coxswain muestra el estado de jj de tu último comando jj, porque nunca hace que jj tome una instantánea. Ejecutá cualquier comando jj y después apretá {refresh}.",
+ "feature.jujutsu.q3": "¿Puedo cambiar de marcador acá?",
+ "feature.jujutsu.a3": "No: Coxswain solo lee un repositorio de Jujutsu. {branches} lista los marcadores y sus archivos; cambiá con jj new o jj edit, o abrí tu propia herramienta con {git_tool}."
 }

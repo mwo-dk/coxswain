@@ -1788,11 +1788,13 @@ pub struct GitConfig {
     /// `Sublime Merge`) or a command (`%d` is the repository). Empty: the first one installed,
     /// else a terminal in the repository (`handoff`).
     pub tool: String,
+    /// Where a folder has both `.jj` and `.git`, ask git, not Jujutsu (`vcs`).
+    pub prefer_git: bool,
 }
 
 impl Default for GitConfig {
     fn default() -> Self {
-        GitConfig { last_commit: true, tool: String::new() }
+        GitConfig { last_commit: true, tool: String::new(), prefer_git: false }
     }
 }
 
@@ -1963,6 +1965,7 @@ impl Config {
         c.fill_defaults();
         c.keymap()?;
         crate::cloud::follow(&c.search);
+        crate::vcs::follow(&c.git);
         Ok(c)
     }
 

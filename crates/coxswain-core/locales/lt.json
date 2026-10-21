@@ -3453,5 +3453,17 @@
  "history.scope_branch": "Ši šaka",
  "history.scope_all": "Visos šakos",
  "history.scope_tip": "Kuriuos commit'us rodo sąrašas ir jo grafas ({key} perjungia)",
- "hint.history": "{all} grafe rodo visų šakų commit'us; dar kartą – tik šios šakos"
+ "hint.history": "{all} grafe rodo visų šakų commit'us; dar kartą – tik šios šakos",
+ "setting.git_prefer_git": "Naudoti git ten, kur yra ir Jujutsu",
+ "setting.git_prefer_git.hint": "Kur aplanke yra ir .jj, ir .git, rodyti git eilutę, istoriją ir šakas vietoj Jujutsu.",
+ "notice.jj_missing": "Šią saugyklą tvarko Jujutsu, bet jj neįdiegta: įdiekite Jujutsu (programą jj), kad matytumėte jos pakeitimus, istoriją ir žymes. Iki tol git rodo, ką gali.",
+ "vcs.jj_read_only": "Coxswain Jujutsu saugyklas tik skaito: pereikite prie žymės komanda jj new arba jj edit.",
+ "feature.jujutsu.title": "Jujutsu skydeliuose",
+ "feature.jujutsu.what": "Jujutsu saugykloje: pakeitimo id, artimiausia žymė ir pakeisti failai eilutėje, istorija ir žymės kaip aplankai, skaitomi per jj nieko nekeičiant.",
+ "feature.jujutsu.q1": "Kodėl eilutėje rodomas git, o ne jj?",
+ "feature.jujutsu.a1": "jj neįdiegta arba įjungta Parametrai → Veikimas → Naudoti git ten, kur yra ir Jujutsu. Be jj git rodo, ką gali, kur saugykloje šalia .jj yra .git.",
+ "feature.jujutsu.q2": "Kodėl ką tik pakeistas failas nerodomas kaip pakeistas?",
+ "feature.jujutsu.a2": "Saugykloje be .git šalia .jj Coxswain rodo jj būseną pagal jūsų paskutinę jj komandą, nes niekada neverčia jj daryti momentinės kopijos. Paleiskite bet kurią jj komandą ir paspauskite {refresh}.",
+ "feature.jujutsu.q3": "Ar galiu čia perjungti žymę?",
+ "feature.jujutsu.a3": "Ne: Coxswain Jujutsu saugyklą tik skaito. {branches} rodo žymes ir jų failus; perjunkite komanda jj new arba jj edit arba atidarykite savo įrankį su {git_tool}."
 }

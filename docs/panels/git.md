@@ -82,6 +82,7 @@ In the terminal app it is at the bottom left of the panel's border; in the deskt
 right of the pane's footer (hover it for the repository's folder, upstream, remote and last
 fetch, see [below](#upstream-remote-and-last-fetch); click it for the
 [branches](git-branches.md)). A folder's preview in the desktop app shows it too, as *Git*.
+In a [Jujutsu](jujutsu.md) repository the same line names `jj`, the change and its bookmark.
 
 With plain characters (`glyphs = "ascii"`) a line reads:
 

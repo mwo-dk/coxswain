@@ -127,8 +127,12 @@ pub struct Summary {
     /// The folder name of a linked worktree (none in the main one).
     pub worktree: Option<String>,
     /// What is under way, from git's state files: `merge`, `rebase`, `cherry_pick`, `revert`
-    /// or `bisect`.
+    /// or `bisect`; in Jujutsu, `conflict` when the working-copy commit has conflicts.
     pub operation: Option<&'static str>,
+    /// What keeps the repository (`vcs::Vcs::name`): `git`, `jj`.
+    pub system: &'static str,
+    /// Jujutsu's change id of the working-copy commit.
+    pub change: Option<String>,
 }
 
 /// What `git_dir` says is under way, by the files git keeps while it is.
@@ -220,12 +224,18 @@ pub struct Status {
 }
 
 impl Status {
-    /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing, or in a
-    /// repository only in the cloud, which git would download.
+    /// The status of the repository `dir` is in, from what keeps it (`vcs::of`). `None` when
+    /// `dir` is in none, its program is missing, or in a repository only in the cloud, which
+    /// git would download.
     pub fn read(dir: &Path) -> Option<Status> {
         if crate::cloud::git_kept_out(dir) {
             return None;
         }
+        crate::vcs::of(dir).status(dir)
+    }
+
+    /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing.
+    pub(crate) fn read_git(dir: &Path) -> Option<Status> {
         let git = |mut c: Command, args: &[&str]| {
             c.args(args)
                 .output()
@@ -270,6 +280,7 @@ impl Status {
             st.summary.worktree = root.file_name().map(|n| n.to_string_lossy().into_owned());
         }
         st.summary.operation = operation(&git_dir);
+        st.summary.system = "git";
         st.git_dirs = [git_dir, common];
         Some(st)
     }
@@ -321,7 +332,8 @@ impl Status {
                 ("!", ..) => Kind::Ignored,
                 (_, _, b'D') | (_, b'D', b'.') => Kind::Deleted,
                 (_, _, b'M' | b'T') => Kind::Modified,
-                (_, b'A', _) => Kind::Added,
+                // `.A`: added with `git add -N` (as Jujutsu's new files are, next to git).
+                (_, b'A', _) | (_, _, b'A') => Kind::Added,
                 (_, b'R' | b'C', _) => Kind::Renamed,
                 _ => Kind::Modified,
             };
@@ -331,7 +343,7 @@ impl Status {
                 Kind::Untracked => s.untracked += 1,
                 Kind::Ignored => {}
                 _ => {
-                    s.staged += staged as u32;
+                    s.staged += (staged || y == b'A') as u32;
                     s.modified += (y == b'M' || y == b'T') as u32;
                     s.deleted += (y == b'D') as u32;
                 }
@@ -376,11 +388,19 @@ impl Status {
     /// One-line, oh-my-posh style: ` main ↑1 ↓2  3  1 ?4`.
     pub fn prompt(&self, g: &Glyphs) -> String {
         let s = &self.summary;
-        let head = match (&s.detached, s.branch.as_str()) {
-            (Some(oid), "(detached)") => crate::t!("git.detached", "commit" => oid),
+        let head = match (&s.detached, s.branch.as_str(), &s.change) {
+            (Some(oid), "(detached)", _) => crate::t!("git.detached", "commit" => oid),
+            (_, "", Some(change)) => change.clone(),
+            (_, b, Some(change)) => format!("{change} {b}"),
             _ => s.branch.clone(),
         };
-        let mut out = format!("{} {head}", g.branch);
+        // Another system than git: its name, in place of `git` in the glyph, or after it.
+        let glyph = match s.system {
+            "" | "git" => g.branch.clone(),
+            sys if g.branch.contains("git") => g.branch.replace("git", sys),
+            sys => format!("{} {sys}", g.branch),
+        };
+        let mut out = format!("{glyph} {head}");
         for (n, glyph) in [
             (s.ahead, &g.ahead),
             (s.behind, &g.behind),
@@ -426,7 +446,9 @@ impl Status {
     /// The facts of this repository: one `git ls-remote --get-url` (which only reads the config,
     /// never the network) and a look at `FETCH_HEAD`.
     pub fn facts(&self, g: &Glyphs) -> Facts {
-        let remote = command_with(&self.root, &[])
+        let mut c = command_with(&self.root, &[]);
+        crate::vcs::use_store(&mut c, &self.root);
+        let remote = c
             .args(["ls-remote", "--get-url"])
             .output()
             .ok()
@@ -455,7 +477,7 @@ impl Status {
 /// The facts of the repository whose own folder `dir` is (one look for `.git` before any git
 /// runs, as most folders are none).
 pub fn facts(dir: &Path, g: &Glyphs) -> Option<Facts> {
-    if !dir.join(".git").exists() {
+    if !dir.join(".git").exists() && !dir.join(".jj").is_dir() {
         return None;
     }
     Some(Status::read(dir)?.facts(g))

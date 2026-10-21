@@ -3315,5 +3315,17 @@
  "history.scope_branch": "이 브랜치",
  "history.scope_all": "모든 브랜치",
  "history.scope_tip": "목록과 그래프가 보여 주는 커밋 ({key}로 전환)",
- "hint.history": "{all}: 모든 브랜치의 커밋을 그래프로, 다시 누르면 이 브랜치만"
+ "hint.history": "{all}: 모든 브랜치의 커밋을 그래프로, 다시 누르면 이 브랜치만",
+ "setting.git_prefer_git": "Jujutsu도 있는 곳에서는 git 사용",
+ "setting.git_prefer_git.hint": "폴더에 .jj와 .git이 모두 있으면 Jujutsu 대신 git의 줄, 기록, 브랜치를 보여 줍니다.",
+ "notice.jj_missing": "이 저장소는 Jujutsu가 관리하지만 jj가 설치되어 있지 않습니다. 변경, 기록, 북마크를 보려면 Jujutsu(jj 프로그램)를 설치하세요. 그때까지는 git이 할 수 있는 만큼 보여 줍니다.",
+ "vcs.jj_read_only": "Coxswain은 Jujutsu 저장소를 읽기만 합니다. 북마크로 옮기려면 jj new 또는 jj edit을 쓰세요.",
+ "feature.jujutsu.title": "패널의 Jujutsu",
+ "feature.jujutsu.what": "Jujutsu 저장소에서 줄에 변경 ID, 가장 가까운 북마크, 바뀐 파일을 보여 주고 기록과 북마크를 폴더로 보여 줍니다. jj로 읽기만 하고 아무것도 바꾸지 않습니다.",
+ "feature.jujutsu.q1": "왜 줄에 jj가 아니라 git이 나오나요?",
+ "feature.jujutsu.a1": "jj가 설치되어 있지 않거나 설정 → 동작 → Jujutsu도 있는 곳에서는 git 사용이 켜져 있습니다. jj가 없어도 .jj 옆에 .git이 있으면 git이 할 수 있는 만큼 보여 줍니다.",
+ "feature.jujutsu.q2": "방금 바꾼 파일이 왜 바뀐 것으로 나오지 않나요?",
+ "feature.jujutsu.a2": ".jj 옆에 .git이 없는 저장소에서는 Coxswain이 jj에게 스냅숏을 찍게 하지 않으므로 마지막 jj 명령 시점의 상태를 보여 줍니다. 아무 jj 명령이나 실행한 다음 {refresh}를 누르세요.",
+ "feature.jujutsu.q3": "여기서 북마크를 바꿀 수 있나요?",
+ "feature.jujutsu.a3": "아니요. Coxswain은 Jujutsu 저장소를 읽기만 합니다. {branches}에서 북마크와 그 파일을 볼 수 있습니다. 옮기려면 jj new나 jj edit을 쓰거나 {git_tool}로 자신의 도구를 여세요."
 }

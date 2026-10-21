@@ -75,6 +75,7 @@ mindmap
 | [Git history as folders](panels/git-history.md) | Ctrl+G, the commits of a file or folder with their graph, Alt+A all branches, the files at a commit, preview and diff, F3, F5, read-only, limits |
 | [Git branches and worktrees](panels/git-branches.md) | Alt+B, the branches, a branch's files, switching (Alt+S) and new branches, Alt+W, the worktrees, limits |
 | [Git config](panels/git-config.md) | Alt+C, the config as git uses it: each value with its scope and file, values set earlier dimmed, secrets hidden until shown, F4 opens a line's file, copying a line, read-only |
+| [Jujutsu in the panels](panels/jujutsu.md) | A Jujutsu repository through jj: the change id, nearest bookmark and changed files on the line, its history (Ctrl+G) and bookmarks (Alt+B) as folders, read-only; git where Settings prefers it |
 | [The mouse](panels/mouse.md) | Clicks, marks, drags, path bar, tabs, splitters, in both apps |
 | [The command list (F9) and Help (F1)](panels/command-list.md) | The command list (F9) and Help (F1) |
 | [Features and questions (F1)](panels/features.md) | Help's second tab: every feature by area with its keys and two or three questions answered, the filter (diacritics ignored), Show me (its page on GitHub, only when pressed), F1 in a dialog, the terminal app's Tab and Enter |

@@ -66,8 +66,12 @@ pub fn parse_refs(out: &str) -> Vec<Branch> {
         .collect()
 }
 
-/// The branches of the repository `dir` is in.
+/// The branches of the repository `dir` is in (Jujutsu's bookmarks in one).
 pub fn branches(dir: &Path) -> io::Result<Vec<Branch>> {
+    crate::vcs::of(dir).branches(dir)
+}
+
+pub(crate) fn git_branches(dir: &Path) -> io::Result<Vec<Branch>> {
     let mut c = history::git(dir);
     c.args(["for-each-ref", REFS, "refs/heads", "refs/remotes"]);
     Ok(parse_refs(&String::from_utf8_lossy(&history::run(c)?)))
@@ -204,8 +208,12 @@ fn base(dir: &Path) -> PathBuf {
 
 /// Switch to the branch `entry` names in the list of branches at `dir`; a remote one gets a
 /// local branch that tracks it. git refuses when changes here would be overwritten, and its
-/// message says which: it is never forced.
+/// message says which: it is never forced. Refused where Coxswain only reads (Jujutsu).
 pub fn switch(dir: &Path, entry: &str) -> io::Result<String> {
+    crate::vcs::of(&base(dir)).switch(dir, entry)
+}
+
+pub(crate) fn git_switch(dir: &Path, entry: &str) -> io::Result<String> {
     let at = history::split(dir)
         .filter(|at| at.view == View::Branches && at.commit.is_none())
         .ok_or_else(|| {
@@ -237,6 +245,10 @@ pub fn switch(dir: &Path, entry: &str) -> io::Result<String> {
 /// A new branch `name`, switched to: from the branch `from` names in the list of branches at
 /// `dir`, or from the current commit.
 pub fn create(dir: &Path, name: &str, from: Option<&str>) -> io::Result<String> {
+    crate::vcs::of(&base(dir)).create(dir, name, from)
+}
+
+pub(crate) fn git_create(dir: &Path, name: &str, from: Option<&str>) -> io::Result<String> {
     let base = base(dir);
     let name = name.trim();
     let mut check = history::git(&base);

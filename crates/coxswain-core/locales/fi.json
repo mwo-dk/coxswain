@@ -3384,5 +3384,17 @@
  "history.scope_branch": "Tämä haara",
  "history.scope_all": "Kaikki haarat",
  "history.scope_tip": "Mitkä commitit luettelo ja sen graafi näyttävät ({key} vaihtaa)",
- "hint.history": "{all} näyttää kaikkien haarojen commitit graafissa; uudelleen vain tämän haaran"
+ "hint.history": "{all} näyttää kaikkien haarojen commitit graafissa; uudelleen vain tämän haaran",
+ "setting.git_prefer_git": "Käytä gitiä, missä on myös Jujutsu",
+ "setting.git_prefer_git.hint": "Kun kansiossa on sekä .jj että .git, näytetään gitin rivi, historia ja haarat Jujutsun sijaan.",
+ "notice.jj_missing": "Tätä repositoriota ylläpitää Jujutsu, mutta jj ei ole asennettuna: asenna Jujutsu (ohjelma jj) nähdäksesi sen muutokset, historian ja kirjanmerkit. Siihen asti git näyttää, mitä voi.",
+ "vcs.jj_read_only": "Coxswain vain lukee Jujutsu-repositorioita: siirry kirjanmerkkiin komennolla jj new tai jj edit.",
+ "feature.jujutsu.title": "Jujutsu paneeleissa",
+ "feature.jujutsu.what": "Jujutsu-repositoriossa: muutoksen tunnus, lähin kirjanmerkki ja muuttuneet tiedostot rivillä, historia ja kirjanmerkit kansioina, luettuina jj:n kautta mitään muuttamatta.",
+ "feature.jujutsu.q1": "Miksi rivillä näkyy git eikä jj?",
+ "feature.jujutsu.a1": "jj ei ole asennettuna, tai Asetukset → Toiminta → Käytä gitiä, missä on myös Jujutsu on päällä. Ilman jj:tä git näyttää, mitä voi, kun repositoriossa on .git .jj:n vieressä.",
+ "feature.jujutsu.q2": "Miksi juuri muuttamani tiedosto ei näy muuttuneena?",
+ "feature.jujutsu.a2": "Repositoriossa, jossa .jj:n vieressä ei ole .git:iä, Coxswain näyttää jj:n tilan viimeisimmän jj-komentosi mukaan, koska se ei koskaan teetä jj:llä tilannevedosta. Aja mikä tahansa jj-komento ja paina sitten {refresh}.",
+ "feature.jujutsu.q3": "Voinko vaihtaa kirjanmerkkiä täällä?",
+ "feature.jujutsu.a3": "Et: Coxswain vain lukee Jujutsu-repositoriota. {branches} näyttää kirjanmerkit ja niiden tiedostot; vaihda komennolla jj new tai jj edit, tai avaa oma työkalusi näppäimellä {git_tool}."
 }

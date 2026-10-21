@@ -3453,5 +3453,17 @@
  "history.scope_branch": "Šis zars",
  "history.scope_all": "Visi zari",
  "history.scope_tip": "Kurus komitus rāda saraksts un tā grafs ({key} pārslēdz)",
- "hint.history": "{all} grafā rāda visu zaru komitus; vēlreiz – tikai šī zara"
+ "hint.history": "{all} grafā rāda visu zaru komitus; vēlreiz – tikai šī zara",
+ "setting.git_prefer_git": "Izmantot git tur, kur ir arī Jujutsu",
+ "setting.git_prefer_git.hint": "Kur mapē ir gan .jj, gan .git, rādīt git rindu, vēsturi un zarus Jujutsu vietā.",
+ "notice.jj_missing": "Šo repozitoriju uztur Jujutsu, bet jj nav instalēts: instalējiet Jujutsu (programmu jj), lai redzētu tā izmaiņas, vēsturi un grāmatzīmes. Līdz tam git rāda, ko var.",
+ "vcs.jj_read_only": "Coxswain Jujutsu repozitorijus tikai lasa: pārejiet uz grāmatzīmi ar jj new vai jj edit.",
+ "feature.jujutsu.title": "Jujutsu paneļos",
+ "feature.jujutsu.what": "Jujutsu repozitorijā: izmaiņas id, tuvākā grāmatzīme un mainītie faili rindā, vēsture un grāmatzīmes kā mapes, nolasītas ar jj, neko nemainot.",
+ "feature.jujutsu.q1": "Kāpēc rindā ir git, nevis jj?",
+ "feature.jujutsu.a1": "jj nav instalēts, vai ir ieslēgts Iestatījumi → Darbība → Izmantot git tur, kur ir arī Jujutsu. Bez jj git rāda, ko var, kur repozitorijā blakus .jj ir .git.",
+ "feature.jujutsu.q2": "Kāpēc tikko mainīts fails netiek rādīts kā mainīts?",
+ "feature.jujutsu.a2": "Repozitorijā bez .git blakus .jj Coxswain rāda jj stāvokli pēc jūsu pēdējās jj komandas, jo tas nekad neliek jj veidot momentuzņēmumu. Palaidiet jebkuru jj komandu un tad nospiediet {refresh}.",
+ "feature.jujutsu.q3": "Vai šeit varu pārslēgt grāmatzīmi?",
+ "feature.jujutsu.a3": "Nē: Coxswain Jujutsu repozitoriju tikai lasa. {branches} rāda grāmatzīmes un to failus; pārslēdzieties ar jj new vai jj edit vai atveriet savu rīku ar {git_tool}."
 }
