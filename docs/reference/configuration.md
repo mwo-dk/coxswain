@@ -219,7 +219,7 @@ flags start a new one.
 | `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
 | `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
 | `tika` | bool | `false` | Read OneNote, XPS, CHM, Outlook data files and other formats no reader here knows with Apache Tika, in a container without network; pulls `images.tika` (about 190 MB) when turned on ([Other formats with Apache Tika](../search/tika.md)) |
-| `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read, except plain text, code, CSV and logs, which are read line by line up to 4 MB of text whatever their size ([Documents it reads](../search/documents.md)); a PGN or PDN file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games), [Draughts games](../previews/draughts.md#finding-games)); an SGF file only within this limit ([Go games](../previews/go.md#finding-games)) |
+| `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read, except plain text, code, CSV and logs, which are read line by line up to 4 MB of text whatever their size ([Documents it reads](../search/documents.md)); a PGN, PDN, KIF or CSA file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games), [Draughts games](../previews/draughts.md#finding-games)); an SGF file only within this limit ([Go games](../previews/go.md#finding-games)) |
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches and programs' folders too, for their names ([Which archives](../search/archives.md#which-archives)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
@@ -321,12 +321,12 @@ Read by both apps when they start, and by each after a change in its own Setting
 
 ## `[chess]`
 
-How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draughts games](../previews/draughts.md) and [xiangqi games](../previews/xiangqi.md) are shown, in both apps.
+How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draughts games](../previews/draughts.md), [xiangqi games](../previews/xiangqi.md) and [shogi games](../previews/shogi.md) are shown, in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `notation` | string | `"figurines"` | `"figurines"` writes moves as ♘f3; `"letters"` in the piece letters of the app's language (Nf3 in English, Sf3 in German). The files keep English SAN |
-| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board; the wood of [Go boards](../previews/go.md) and the squares of [draughts boards](../previews/draughts.md) and the wood and lines of [xiangqi boards](../previews/xiangqi.md) too |
+| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board; the wood of [Go boards](../previews/go.md) and the squares of [draughts boards](../previews/draughts.md) the wood and lines of [xiangqi boards](../previews/xiangqi.md) and of [shogi boards](../previews/shogi.md) too |
 | `pieces` | string | `"auto"` | How the terminal app draws the pieces: `"auto"` the finest block characters the terminal is known to draw, or `"octants"`, `"sextants"`, `"quadrants"`, `"halves"`, `"figurines"` ([Game pieces in the terminal](../previews/game-pieces.md)) |
 | `book` | string | `""` | A Polyglot opening book (`.bin`) whose moves the board shows for each position (`~` is the home folder, a relative path starts from the game file's folder). Empty, or not a book: the first book in the game file's own folder ([Opening books](../previews/chess.md#opening-books)) |
 

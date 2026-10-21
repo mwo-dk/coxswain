@@ -696,7 +696,8 @@ impl Library {
             event: name(r.event),
             eco: eco_text(r.eco),
             opening: name(r.opening),
-            moves: (r.plies as u32).div_ceil(2),
+            // Shogi counts every move; chess, draughts and xiangqi a move of each side as one.
+            moves: if matches!(self.format, super::Format::Kif | super::Format::Csa) { r.plies as u32 } else { (r.plies as u32).div_ceil(2) },
         })
     }
 

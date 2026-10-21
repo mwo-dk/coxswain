@@ -144,4 +144,4 @@ taking without a screen, is shown as the file has it.
 Not yet: Coxswain shows xiangqi games but does not play.
 
 ---
-[← Previous: Draughts games](draughts.md) · [Next: Neural network models →](neural-networks.md)
+[← Previous: Draughts games](draughts.md) · [Next: Shogi games →](shogi.md)
