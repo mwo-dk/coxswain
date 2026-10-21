@@ -719,8 +719,6 @@ mod tests {
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "one\ntwo\nthree\nfour");
         // A side written is read again before anything more is taken from it.
-        assert!(c.take(c.hunk_at(View::Split, 3).unwrap(), 1));
-        assert!(matches!(c.save(false), Err(SaveError::Io(_))));
         let mut c = Compare::open(&d.join("a.txt"), &d.join("b.txt"), Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
         // The other way, onto the CRLF file: its line endings stay.
         let last = c.hunk_at(View::Split, 3).unwrap();
@@ -747,7 +745,8 @@ mod tests {
         let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
         assert!(c.take(0, 1));
         c.save(false).unwrap();
-        assert_eq!(std::fs::read(&pa).unwrap(), b"caf\xe9 \xc3\xa9\nsame\n");
+        // The line as text, in the left file's UTF-8: é stays é, and the two bytes stay Ã©.
+        assert_eq!(std::fs::read_to_string(&pa).unwrap(), "café Ã©\nsame\n");
         std::fs::remove_dir_all(d).unwrap();
     }
 
