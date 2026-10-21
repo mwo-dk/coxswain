@@ -36,7 +36,8 @@ These rules hold for every contributor and every Claude session in this reposito
   *Dependencies* workflow runs on a pull request only when a `Cargo.toml`, `Cargo.lock`,
   `deny.toml`, `gui/package*.json` or `tools/bom/` changes. A release pull
   request (branch `release/X.Y.Z`) starts none of them: its Release run tests every system. CI on
-  a pull request runs Linux, macOS and Windows on x64 (macOS on Apple Silicon); the ARM machines
+  a pull request runs Linux, macOS and Windows on x64 (macOS on Apple Silicon), only Linux when it changes texts alone (docs, README, `changelog.d/`,
+  locales); the ARM machines
   (`ubuntu-24.04-arm`, `windows-11-arm`) run only on pushes to `master` and in Release runs. The
   only required check is *CI result*. Branches need not be up to date with `master`: master's
   own runs catch clashes.
