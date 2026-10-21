@@ -36,7 +36,7 @@
   const total = $derived(st.total ?? 0);
   const shown = $derived(Math.ceil(height / ROW) + 2);
 
-  async function start() {
+  async function start(place = true) {
     clearTimeout(timer);
     rows = [];
     first = cur = 0;
@@ -49,7 +49,7 @@
     }
     if (kind === "picture") srcs = await Promise.all([m.left, m.right].map(async (p) => convertFileSrc(isOldPicture(basename(p)) ? ((await invoke("old_picture", { path: p, page: 0, side: 4096 }).catch(() => null))?.file ?? p) : p)));
     if (kind === "text") lang = await Promise.all([m.left, m.right].map((path) => invoke("code_language", { path, head: "" }).catch(() => null)));
-    poll(true);
+    await poll(place);
   }
 
   async function poll(place = false) {
@@ -111,8 +111,12 @@
       await invoke("compare_save", { force });
       wrote = true;
       asking = null;
+      // Read again: where the lines of a side written start is known no more.
+      const [c, f] = [cur, first];
+      await start(false);
+      [cur, first] = [c, f];
+      if (body) body.scrollTop = f * ROW;
       said = t("compare.saved");
-      await poll();
       return true;
     } catch (e) {
       if (String(e) === "changed") asking = "changed";

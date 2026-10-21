@@ -634,7 +634,8 @@ impl Compare {
     }
 
     /// The sides with changes written, each in its encoding and line endings; one changed on the
-    /// disk since it was read is not written unless `force`.
+    /// disk since it was read is not written unless `force`. A side written is no longer as it
+    /// was read: the apps compare the two files again after a save.
     pub fn save(&mut self, force: bool) -> Result<(), SaveError> {
         for side in 0..2 {
             if !self.dirty[side] {
@@ -717,6 +718,10 @@ mod tests {
         assert!(c.take(first, 0));
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "one\ntwo\nthree\nfour");
+        // A side written is read again before anything more is taken from it.
+        assert!(c.take(c.hunk_at(View::Split, 3).unwrap(), 1));
+        assert!(matches!(c.save(false), Err(SaveError::Io(_))));
+        let mut c = Compare::open(&d.join("a.txt"), &d.join("b.txt"), Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
         // The other way, onto the CRLF file: its line endings stay.
         let last = c.hunk_at(View::Split, 3).unwrap();
         assert!(c.take(last, 1));
@@ -738,7 +743,8 @@ mod tests {
         assert!(c.take(0, 0));
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(&pb).unwrap(), left);
-        assert!(c.undo(View::Split).is_some());
+        std::fs::write(&pb, b"caf\xe9 \xc3\xa9\nsame\n").unwrap();
+        let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
         assert!(c.take(0, 1));
         c.save(false).unwrap();
         assert_eq!(std::fs::read(&pa).unwrap(), b"caf\xe9 \xc3\xa9\nsame\n");

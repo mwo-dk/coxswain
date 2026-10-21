@@ -104,8 +104,14 @@ impl Viewer {
             self.said = Some(t!("compare.nothing_to_save"));
             return false;
         }
-        match c.save(force) {
+        let r = c.save(force);
+        drop(done);
+        match r {
             Ok(()) => {
+                // Read again: where the lines of a side written start is known no more.
+                let (cur, top) = (self.cur, self.top);
+                self.s = self.s.again(self.s.options);
+                (self.cur, self.top, self.placed) = (cur, top, true);
                 self.said = Some(t!("compare.saved"));
                 true
             }
