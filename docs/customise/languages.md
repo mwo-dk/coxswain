@@ -156,7 +156,10 @@ Bokmål and `language = "es"` Argentinian Spanish.
 Everything Coxswain itself says changes: menus, commands and the F-key bar, dialogs, the preview
 pane and its facts, the duplicate finder, Settings, status messages, errors, sizes (`KB`, or `Ko`
 in French, with the decimal comma where the language uses one) and the age chips (`5m`, `2d`).
-Numbers are written the way the language writes them (1 234,5 or 1.234,5). In Persian, counts,
+Numbers are written the way the language writes them (1 234,5 or 1.234,5). Names in the panels,
+archives, a comic's pages, Space, the clouds (in the sidebar and under **Alt+F1**) and the chess
+game table sort by the language's alphabet (Danish *Æ Ø Å* after
+*Z*, German *Ä* with *A*; [Sorting](../panels/sorting.md)). In Persian, counts,
 sizes and dates take Persian digits (۳۲٫۷ KB, ۲۰۲۶-۰۱-۰۵) in both apps; paths, keys, versions
 and `config.toml` values keep their Latin digits.
 
@@ -283,6 +286,12 @@ American words. Pick *English (United Kingdom)* in Settings for "bin", or keep i
 You changed it in the desktop app's Settings: a terminal app already running reads `language`
 when it starts. Quit it (**F10**) and start it again, or pick the language in its own Settings
 (**F12** → *Looks* → *Language*), which changes it at once.
+
+#### Why did my files change their order when I changed the language?
+
+Names sort by the alphabet of the language Coxswain speaks, so Danish puts *Æble* after
+*Zebra* and British English puts it with *A*. A folder read after the change (open it again,
+or **Ctrl+R**) shows the new order ([Sorting](../panels/sorting.md#why-do-æ-ø-and-å-come-after-z-and-ä-with-a)).
 
 #### How do I go back to following the system?
 

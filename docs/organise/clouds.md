@@ -44,7 +44,7 @@ are marked with the cloud glyph and are not downloaded unless you ask for one; s
 | Windows | The sync roots that the Cloud Files API keeps in the registry (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud, Nextcloud's virtual files) | One entry per account, with the name its app gave it |
 
 A folder is listed once, however many places name it, and only while it exists. The list is
-sorted by name.
+sorted by name, in the language's alphabet ([Sorting](../panels/sorting.md)).
 
 ## What you see
 

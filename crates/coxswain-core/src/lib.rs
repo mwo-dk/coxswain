@@ -10,6 +10,7 @@ pub mod chat;
 pub mod cloud;
 pub mod clouds;
 pub mod code;
+pub mod collate;
 pub mod config;
 pub mod container_image;
 pub mod dbf;

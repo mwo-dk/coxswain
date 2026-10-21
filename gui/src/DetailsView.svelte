@@ -1,6 +1,6 @@
 <script>
   import { ui, load, byLast, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, basename, HISTORY, SNAPSHOTS } from "./lib.js";
+  import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, ranks, basename, HISTORY, SNAPSHOTS } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
 
@@ -56,15 +56,19 @@
 
   const ext = (e) => (!e.is_dir && e.name.lastIndexOf(".") > 0 ? e.name.slice(e.name.lastIndexOf(".") + 1) : "");
 
-  function sortBy(k) {
+  async function sortBy(k) {
     onfocus();
     t.reverse = t.sort === k && !t.reverse;
     t.sort = k;
     // Sorted here: reading the folder again takes longer than the sort. A history, a list of
     // snapshots, an archive or a package has an order of its own, which the backend keeps.
     if (t.history || t.snapshot || t.archive || t.package || [HISTORY, SNAPSHOTS].includes(basename(t.dir))) return load(t);
+    const items = t.items;
+    const rank = await ranks(items.flatMap((e) => (k === "ext" ? [e.name, ext(e)] : [e.name])));
+    // Another folder, or another sort, while the ranks were on their way: that one counts.
+    if (t.items !== items || t.sort !== k) return;
     const at = t.items[t.cursor]?.path;
-    t.items = k === "commit" && t.last ? byLast(t.items, t.last, t.reverse) : sortItems(t.items, k, t.reverse, t.sizes);
+    t.items = k === "commit" && t.last ? byLast(t.items, t.last, t.reverse, rank) : sortItems(t.items, k, t.reverse, t.sizes, rank);
     t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
   }
   const arrow = (k) => (t.sort === k ? (t.reverse ? "\u{f0de}" : "\u{f0dd}") : "");

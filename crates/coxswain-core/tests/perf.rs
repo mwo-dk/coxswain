@@ -109,6 +109,31 @@ fn perf_list_and_sort_100k() {
     println!("dir_size of 100k: {:.0} ms ({size:?})", ms(t));
 }
 
+/// 200,000 names in memory, Danish (its own alphabet) and English: keys made once a name.
+#[test]
+#[ignore]
+fn perf_sort_200k_names() {
+    let words = ["Rapport", "IMG_", "Æble", "øl", "dokument", "Faktura", "backup", "Ålborg", "src", "notes"];
+    let v: Vec<fs::Entry> = (0..200_000usize)
+        .map(|i| fs::Entry {
+            name: format!("{} {} v{}.{}", words[i % 10], i % 997, i / 7, EXTS[i % 9]),
+            is_dir: i % 100 == 0,
+            size: (i * 7919 % 100_000) as u64,
+            modified: (i * 104_729 % 1_000_000) as u64,
+            ..Default::default()
+        })
+        .collect();
+    for language in ["da", "en-GB"] {
+        coxswain_core::i18n::set_language(language);
+        for key in [SortKey::Name, SortKey::Ext, SortKey::Size] {
+            let mut w = v.clone();
+            let t = Instant::now();
+            fs::sort(&mut w, key, false);
+            println!("sort 200k by {key:?} in {language}: {:.0} ms", ms(t));
+        }
+    }
+}
+
 #[test]
 #[ignore]
 fn perf_find_file_1m() {

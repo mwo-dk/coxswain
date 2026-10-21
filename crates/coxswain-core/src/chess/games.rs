@@ -562,8 +562,8 @@ impl Library {
         // Names sort by their rank among all names, worked out once.
         let rank = |s: &Shared| -> Vec<u32> {
             let mut order: Vec<u32> = (0..s.strings.len() as u32).collect();
-            let lower: Vec<String> = s.strings.iter().map(|n| n.to_lowercase()).collect();
-            order.sort_by(|&a, &b| lower[a as usize].cmp(&lower[b as usize]));
+            let keys = crate::collate::keys(&s.strings);
+            order.sort_by(|&a, &b| keys[a as usize].cmp(&keys[b as usize]));
             let mut rank = vec![0; order.len()];
             for (r, &i) in order.iter().enumerate() {
                 rank[i as usize] = r as u32;

@@ -64,6 +64,14 @@ sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
 parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
 cozy-chess = "0.3.4"
+# Names sort by the language's alphabet: ICU4X's collator, pure Rust, with the tables of only
+# Coxswain's languages baked in (`src/collate/data`, made by tools/collation-data.sh).
+icu_collator = { version = "2.3.1", default-features = false }
+icu_collections = "2.3"
+icu_locale = { version = "2.3", default-features = false, features = ["compiled_data"] }
+icu_normalizer = "2.3"
+icu_provider = { version = "2.3", features = ["baked"] }
+zerovec = "0.11"
 
 # Old pictures (`pictures`), all pure Rust: TIFF with its pages, TGA, Netpbm, DDS, Radiance HDR,
 # OpenEXR, QOI and farbfeld through `image`, written out as PNG for the desktop app's preview.

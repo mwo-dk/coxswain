@@ -63,7 +63,8 @@ terminal app: **/** player, **o** opening, **r** cycles the result, **y** years 
 **e** rating, **c** clears them all; type, then **Enter**.
 
 **Sorting.** Desktop: a click on a heading sorts by it, a second click reverses. Terminal:
-**s** takes the next column, **S** reverses. Games with no name in that column come last.
+**s** takes the next column, **S** reverses. Games with no name in that column come last. Names sort by the language's alphabet
+([Sorting](../panels/sorting.md)).
 
 ![The table of games in the desktop app's window: the filter fields above, three games of the 1850s with their players, result, date, event, ECO code and opening](../screenshots/gui-chess-games.png)
 
