@@ -31,6 +31,8 @@ pub enum Format {
     Book,
     /// Draughts games: `.pdn` (`crate::draughts`), in the same table as PGN games.
     Pdn,
+    /// Xiangqi games: a PGN file whose tags say so (`games::kind`, `crate::xiangqi`).
+    Xiangqi,
 }
 
 /// The chess file `path` is, by its name.

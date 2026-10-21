@@ -39,8 +39,8 @@ pub(crate) struct Head {
     pub tags: [String; WANTED.len()],
     pub plies: u32,
     pub sans: Vec<String>,
-    /// A chess game; else draughts (PDN), which has no openings by name.
-    pub chess: bool,
+    /// A chess game (`Pgn`), else draughts (`Pdn`) or xiangqi, which have no openings by name.
+    pub format: super::Format,
 }
 
 impl Head {
@@ -50,7 +50,7 @@ impl Head {
 
     /// ECO code and opening name: the file's own, else by the moves, else by the code.
     pub(crate) fn opening(&self) -> (String, String) {
-        if !self.chess {
+        if self.format != super::Format::Pgn {
             return Default::default();
         }
         let eco = self.tag(ECO).to_string();
@@ -127,9 +127,9 @@ fn read_line(r: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<usize> {
 
 /// The games of `r`, in order, each handed to `each` until it says to stop. Never fails on
 /// what it reads: lines that are no PGN are taken for moves, and skipped there.
-/// `chess`: the moves are chess's, else draughts' (PDN).
-pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, chess: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], chess };
+/// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's.
+pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
     let mut line = Vec::new();
     let mut at = 0u64;
     let (mut has_tags, mut has_moves, mut in_brace, mut depth) = (false, false, false, 0u32);
@@ -171,7 +171,8 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, chess: bool, mut each
         }
         if is_tag {
             if let Some((k, v)) = pgn::tag_pair(&text(&line))
-                && let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(&k))
+                // Xiangqi names its first player Red.
+                && let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(&k)).or_else(|| k.eq_ignore_ascii_case("Red").then_some(WHITE))
             {
                 head.tags[i] = v;
             }
@@ -211,7 +212,12 @@ fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32) {
                 s = &s[end..];
                 if *depth == 0
                     && !w.starts_with('$')
-                    && let Word::Move(san, _) = if head.chess { pgn::word(w) } else if crate::draughts::is_move(w) { Word::Move(w, None) } else { Word::Other }
+                    && let Word::Move(san, _) = match head.format {
+                        super::Format::Pdn if crate::draughts::is_move(w) => Word::Move(w, None),
+                        super::Format::Xiangqi if crate::xiangqi::is_move(w) => Word::Move(w, None),
+                        super::Format::Pdn | super::Format::Xiangqi => Word::Other,
+                        _ => pgn::word(w),
+                    }
                 {
                     head.plies += 1;
                     if head.sans.len() < FIRST_MOVES {
@@ -290,9 +296,22 @@ fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dy
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     // The search store reads every PGN file: 1 GiB unpacked of each is plenty.
+    let format = kind(path);
     let r = reader(path, Arc::default(), 1 << 30)?;
-    let chess = super::format(path) != Some(super::Format::Pdn);
-    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), chess, each)
+    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, each)
+}
+
+/// Whose games a PGN-family file holds: draughts for `.pdn`, xiangqi when the first tags of a
+/// PGN file say so (`xiangqi::is_xiangqi`), else chess.
+pub fn kind(path: &Path) -> super::Format {
+    if super::format(path) == Some(super::Format::Pdn) {
+        return super::Format::Pdn;
+    }
+    let mut head = vec![];
+    let xiangqi = reader(path, Arc::default(), crate::xiangqi::SNIFF as u64)
+        .and_then(|r| r.take(crate::xiangqi::SNIFF as u64).read_to_end(&mut head))
+        .is_ok_and(|_| crate::xiangqi::is_xiangqi(&head));
+    if xiangqi { super::Format::Xiangqi } else { super::Format::Pgn }
 }
 
 /// One game in the table: 48 bytes, so a million games take 48 MB.
@@ -532,9 +551,8 @@ impl Library {
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (sh, st) = (shared.clone(), stop.clone());
-        let format = super::format(path).filter(|f| *f == super::Format::Pdn).unwrap_or(super::Format::Pgn);
-        let chess = format == super::Format::Pgn;
-        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st, chess, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked))?;
+        let format = kind(path);
+        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked))?;
         Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source: Mutex::new(Source { path: path.to_path_buf(), open: None }) })
     }
 
@@ -650,13 +668,18 @@ impl Library {
     /// The game at index `i`, read and played out.
     pub fn game(&self, i: u32) -> io::Result<pgn::Game> {
         let text = self.text(i)?;
-        Ok(if self.format == super::Format::Pdn { crate::draughts::parse(&text) } else { pgn::parse(&text) })
+        Ok(match self.format {
+            super::Format::Pdn => crate::draughts::parse(&text),
+            super::Format::Xiangqi => crate::xiangqi::parse(&text),
+            _ => pgn::parse(&text),
+        })
     }
 }
 
 /// The pass over the games: their records, handed over in batches so the table fills.
 /// `cut`: the packed file was unpacked as far as the limits allow.
-fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, chess: bool, limits: Limits, cut: impl Fn() -> bool) {
+fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+    let chess = format == super::Format::Pgn;
     // What the names cost so far: their bytes, twice (the list and the lookup), and the rest.
     let mut names = 0usize;
     let (mut games, mut capped) = (0usize, false);
@@ -685,7 +708,7 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, che
         s.recs.append(batch);
     };
     let mut last = std::time::Instant::now();
-    let res = scan(BufReader::with_capacity(1 << 16, r), stop, chess, |h| {
+    let res = scan(BufReader::with_capacity(1 << 16, r), stop, format, |h| {
         if games >= limits.games || names >= limits.names {
             capped = true;
             return false;
@@ -875,7 +898,7 @@ mod tests {
     fn a_byte_order_mark_is_no_game() {
         let text = format!("\u{feff}{TWO}");
         let mut events = vec![];
-        scan(text.as_bytes(), &AtomicBool::new(false), true, |h| {
+        scan(text.as_bytes(), &AtomicBool::new(false), super::super::Format::Pgn, |h| {
             events.push((h.offset, h.tags[EVENT].clone()));
             true
         })

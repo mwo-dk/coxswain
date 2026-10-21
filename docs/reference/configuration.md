@@ -321,12 +321,12 @@ Read by both apps when they start, and by each after a change in its own Setting
 
 ## `[chess]`
 
-How [chess games](../previews/chess.md), [Go games](../previews/go.md) and [draughts games](../previews/draughts.md) are shown, in both apps.
+How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draughts games](../previews/draughts.md) and [xiangqi games](../previews/xiangqi.md) are shown, in both apps.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `notation` | string | `"figurines"` | `"figurines"` writes moves as ♘f3; `"letters"` in the piece letters of the app's language (Nf3 in English, Sf3 in German). The files keep English SAN |
-| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board; the wood of [Go boards](../previews/go.md) and the squares of [draughts boards](../previews/draughts.md) too |
+| `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board; the wood of [Go boards](../previews/go.md) and the squares of [draughts boards](../previews/draughts.md) and the wood and lines of [xiangqi boards](../previews/xiangqi.md) too |
 | `pieces` | string | `"auto"` | How the terminal app draws the pieces: `"auto"` the finest block characters the terminal is known to draw, or `"octants"`, `"sextants"`, `"quadrants"`, `"halves"`, `"figurines"` ([Game pieces in the terminal](../previews/game-pieces.md)) |
 | `book` | string | `""` | A Polyglot opening book (`.bin`) whose moves the board shows for each position (`~` is the home folder, a relative path starts from the game file's folder). Empty, or not a book: the first book in the game file's own folder ([Opening books](../previews/chess.md#opening-books)) |
 

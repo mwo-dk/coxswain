@@ -140,4 +140,4 @@ the links in Netron's side panel (an operator's documentation) do nothing, so no
 was handed can leave the machine.
 
 ---
-[← Previous: Draughts games](draughts.md) · [Next: Media and files →](media.md)
+[← Previous: Xiangqi games](xiangqi.md) · [Next: Media and files →](media.md)

@@ -56,6 +56,8 @@ pub fn chess_looks(theme: String, ctx: tauri::State<'_, crate::Ctx>) -> Looks {
 #[derive(Serialize)]
 pub struct Rows {
     progress: chess::Progress,
+    /// Whose games: `pgn` (chess), `pdn` (draughts) or `xiangqi`.
+    format: chess::Format,
     /// The games the query lets through, of `progress.games`.
     total: usize,
     /// From `offset`: each with its index in the file (from 0).
@@ -81,7 +83,7 @@ pub async fn chess_rows(path: PathBuf, query: Query, offset: usize, limit: usize
             }
         };
         let rows = ids.iter().skip(offset).take(limit.min(500)).filter_map(|&i| lib.row(i).map(|r| (i, r))).collect();
-        Ok(Rows { progress, total: ids.len(), rows })
+        Ok(Rows { progress, format: lib.format, total: ids.len(), rows })
     })
     .await
     .map_err(|e| e.to_string())?

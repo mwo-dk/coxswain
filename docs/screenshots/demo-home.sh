@@ -413,6 +413,35 @@ cat > "$d/Documents/Draughts/club.pdn" <<'EOF'
 16. 4-8 32-27 17. 8-12 30-26 18. 12x19 24x15 19. 21x30 28-24 20. 30x23x32 29-25
 21. 9-13 24-20 22. 32-27 25-22 23. 27-23 15-10 24. 23-26 20-16 25. 26x17 16-11 1-0
 EOF
+# Xiangqi: two games made up for the demo, one in Chinese notation with a variation and a
+# comment, one in ICCS, for Xiangqi games (docs/previews/xiangqi.md).
+mkdir -p "$d/Documents/Xiangqi"
+cat > "$d/Documents/Xiangqi/evening.pgn" <<'EOF'
+[Game "Chinese Chess"]
+[Event "Rocket Club, xiangqi evening"]
+[Site "Hangar 3"]
+[Date "2026.04.02"]
+[Red "Mei Lin"]
+[Black "Tomas Berg"]
+[Result "1-0"]
+[Format "Chinese"]
+
+1. 炮二平五 马８进７ 2. 马二进三 车９平８ 3. 车一平二 马２进３ 4. 兵七进一 卒７进１
+5. 车二进六 炮８平９ 6. 车二平三 炮９退１ {Black gives way, ready to swing the cannon across.}
+7. 马八进七 士４进５ (7... 象３进５ 8. 马七进六) 8. 马七进六 炮９平７ 9. 车三平四 马７进８
+10. 炮八平七 车１平２ 11. 车九平八 炮２进４ 12. 炮五进四 马３进５ 13. 车四平五 1-0
+
+[Game "Chinese Chess"]
+[Event "Rocket Club, xiangqi evening"]
+[Date "2026.04.02"]
+[Red "Tomas Berg"]
+[Black "Mei Lin"]
+[Result "*"]
+[Format "ICCS"]
+
+1. c3c4 h9g7 2. b0c2 g6g5 3. h2e2 b9c7 4. h0g2 h7h3 5. i0h0 i9h9 6. g3g4 g5g4
+7. e2e6 {The cannon takes over its own pawn.} g7e6 *
+EOF
 mkdir -p "$d/Documents/Go"
 cat > "$d/Documents/Go/classics.sgf" <<'EOF'
 (;GM[1]FF[4]CA[UTF-8]SZ[19]GN[The ear-reddening game]PB[Honinbo Shusaku]BR[4d]PW[Gennan Inseki]WR[8d]DT[1846]KM[0]RE[B+2]

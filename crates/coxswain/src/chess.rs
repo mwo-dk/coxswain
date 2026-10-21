@@ -154,7 +154,14 @@ impl Viewer {
             pick: 0,
         };
         match chess::sniff(path) {
-            Some(Format::Pgn) => v.lib = Some(Arc::new(Library::open(path)?)),
+            Some(Format::Pgn) => {
+                let lib = Library::open(path)?;
+                // Xiangqi in a PGN file: no opening book.
+                if lib.format != Format::Pgn {
+                    v.book = None;
+                }
+                v.lib = Some(Arc::new(lib));
+            }
             // Draughts: the same table; no opening book.
             Some(Format::Pdn) => {
                 v.lib = Some(Arc::new(Library::open(path)?));
@@ -220,6 +227,25 @@ impl Viewer {
             }
             self.show_game(n);
         }
+    }
+
+    /// Draughts or xiangqi: a board of its own, without openings, figurines or a book.
+    fn other_game(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format != Format::Pgn)
+    }
+
+    /// The feature F1 shows for it: chess, draughts or xiangqi.
+    pub fn feature(&self) -> &'static str {
+        match self.lib.as_ref().map(|l| l.format) {
+            Some(Format::Pdn) => "draughts",
+            Some(Format::Xiangqi) => "xiangqi",
+            _ => "chess",
+        }
+    }
+
+    /// A PGN file of xiangqi games.
+    fn xiangqi(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format == Format::Xiangqi)
     }
 
     /// A PDN file: draughts on its own board, without openings or figurines.
@@ -307,7 +333,7 @@ impl Viewer {
                 }
             }
             KeyCode::Char('/') => self.typing = Some((Field::Player, self.query.player.clone())),
-            KeyCode::Char('o') if !self.draughts() => self.typing = Some((Field::Opening, self.query.opening.clone())),
+            KeyCode::Char('o') if !self.other_game() => self.typing = Some((Field::Opening, self.query.opening.clone())),
             KeyCode::Char('e') => self.typing = Some((Field::Elo, self.query.elo.map(|e| e.to_string()).unwrap_or_default())),
             KeyCode::Char('y') => {
                 let years = match (self.query.from, self.query.to) {
@@ -388,7 +414,7 @@ impl Viewer {
             return self.book_key(key);
         }
         let epd = self.lib.is_none();
-        let draughts = self.draughts();
+        let draughts = self.other_game();
         if epd {
             let i = self.open.as_ref().map_or(0, |o| o.index as usize);
             match key.code {
@@ -479,14 +505,14 @@ impl Viewer {
         let keys = if self.book_only {
             t!("chess.keys_book")
         } else if self.open.is_some() {
-            if self.draughts() {
+            if self.other_game() {
                 t!("draughts.keys_game")
             } else if self.lib.is_some() {
                 t!("chess.keys_game")
             } else {
                 t!("chess.keys_position")
             }
-        } else if self.draughts() {
+        } else if self.other_game() {
             t!("draughts.keys_list")
         } else {
             t!("chess.keys_list")
@@ -552,7 +578,7 @@ impl Viewer {
         f.render_widget(Paragraph::new(fit(&state, w)).style(dim), Rect { height: 1, ..area });
         // Columns: fixed ones, and the names sharing the rest.
         // Draughts has no openings: their two columns go to the names and the event.
-        let draughts = lib.format == Format::Pdn;
+        let draughts = lib.format != Format::Pgn;
         let fixed = if draughts { [7usize, 5, 5, 7, 10, 0, 6] } else { [7usize, 5, 5, 7, 10, 4, 6] };
         let rest = w.saturating_sub(fixed.iter().sum::<usize>() + 10);
         let name = (rest * if draughts { 32 } else { 22 } / 100).max(6);
@@ -574,7 +600,7 @@ impl Viewer {
         };
         let head = row([
             "#".into(),
-            t!("chess.col_white"),
+            if lib.format == Format::Xiangqi { t!("xiangqi.col_red") } else { t!("chess.col_white") },
             t!("chess.col_elo"),
             t!("chess.col_black"),
             t!("chess.col_elo"),
@@ -634,9 +660,8 @@ impl Viewer {
         };
         let Some(o) = &self.open else { return };
         let g = &o.game;
-        let draughts = self.draughts();
-        if draughts {
-            let (lines, board_w) = self.draughts_board(area, dim);
+        if self.other_game() {
+            let (lines, board_w) = if self.xiangqi() { self.xiangqi_board(dim) } else { self.draughts_board(area, dim) };
             f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
             return self.draw_moves(f, theme, area, board_w, vec![]);
         }
@@ -745,11 +770,83 @@ impl Viewer {
         (lines, cell_w * w)
     }
 
+    /// A xiangqi board: 9 files by 10 ranks of lines on the theme's wood, the river between
+    /// the fifth and sixth ranks, the palaces' centres marked ╳, the pieces as their characters
+    /// in red and black, the last move's points tinted.
+    fn xiangqi_board(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let fen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        let cells = coxswain_core::xiangqi::cells(&fen);
+        let wood = self.board[0];
+        let ink = Style::default().bg(wood).fg(Color::Rgb(70, 50, 30));
+        let mut lines = vec![];
+        let files = |red: bool| -> String {
+            let n: Vec<String> = if red { ["九", "八", "七", "六", "五", "四", "三", "二", "一"].map(String::from).to_vec() } else { (1..=9).map(|n| format!("{n} ")).collect() };
+            let n: Vec<String> = if self.flip { n.into_iter().rev().collect() } else { n };
+            n.concat()
+        };
+        lines.push(Line::styled(files(self.flip), dim));
+        for row in 0..10usize {
+            let y = if self.flip { 9 - row } else { row };
+            let mut spans = vec![];
+            for col in 0..9usize {
+                let x = if self.flip { 8 - col } else { col };
+                let c = x + y * 9;
+                let mut style = ink;
+                if last.is_some_and(|(a, b)| a == Some(c as u8) || b == Some(c as u8)) {
+                    style = style.bg(tint(wood, (0xf6, 0xe0, 0x5a)));
+                }
+                let text = match cells.get(c).copied().flatten() {
+                    Some(p) => {
+                        let fg = if p.is_ascii_uppercase() { Color::Rgb(200, 20, 30) } else { Color::Rgb(0, 0, 0) };
+                        spans.push(Span::styled(coxswain_core::xiangqi::glyph(p).to_string(), style.fg(fg).add_modifier(Modifier::BOLD)));
+                        continue;
+                    }
+                    None => {
+                        let (top, bottom, left, right) = (row == 0, row == 9, col == 0, col == 8);
+                        let g = match (top, bottom, left, right) {
+                            (true, _, true, _) => "┌",
+                            (true, _, _, true) => "┐",
+                            (_, true, true, _) => "└",
+                            (_, true, _, true) => "┘",
+                            (true, ..) => "┬",
+                            (_, true, ..) => "┴",
+                            (_, _, true, _) => "├",
+                            (_, _, _, true) => "┤",
+                            // The river: the lines stop at its banks.
+                            _ if row == 4 => "┴",
+                            _ if row == 5 => "┬",
+                            _ if x == 4 && (y == 1 || y == 8) => "╳",
+                            _ => "┼",
+                        };
+                        format!("{g}{}", if col < 8 { "─" } else { " " })
+                    }
+                };
+                spans.push(Span::styled(text, style));
+            }
+            lines.push(Line::from(spans));
+            if row == 4 {
+                lines.push(Line::styled("│  楚 河  漢 界 │".to_string(), ink));
+            }
+        }
+        lines.push(Line::styled(files(!self.flip), dim));
+        let red = fen.split_whitespace().nth(1) != Some("b");
+        lines.push(Line::styled(t!(if red { "xiangqi.red_to_move" } else { "chess.black_to_move" }), dim));
+        (lines, 18)
+    }
+
     /// Beside the board: who played, then the moves.
     fn draw_moves(&mut self, f: &mut Frame, theme: &Theme, area: Rect, board_w: u16, book: Vec<BookMove>) {
         let base = sty(&theme.dialog);
         let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
         let draughts = self.draughts();
+        let other = self.other_game();
         let Some(o) = &self.open else { return };
         let g = &o.game;
         let right = Rect { x: area.x + board_w + 2, width: area.width.saturating_sub(board_w + 2), ..area };
@@ -764,7 +861,9 @@ impl Viewer {
                 let e = tag(k);
                 if e.is_empty() { e } else { format!(" ({e})") }
             };
-            head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", tag("White"), elo("WhiteElo"), tag("Black"), elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
+            // Xiangqi names its first player Red.
+            let first = if tag("Red").is_empty() { tag("White") } else { tag("Red") };
+            head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", first, elo("WhiteElo"), tag("Black"), elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
             let about = [tag("Event"), tag("Site"), tag("Date"), [tag("ECO"), tag("Opening")].join(" ").trim().to_string()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ");
             head.push(Line::styled(fit(&about, w), dim));
             if draughts {
@@ -813,7 +912,7 @@ impl Viewer {
                 Token::Move { node, number } => {
                     let n = &g.nodes[*node as usize];
                     let (glued, apart) = chess::nags(&n.nags);
-                    let san = if draughts { n.san.clone() } else { chess::show_san(&n.san, &pieces) };
+                    let san = if other { n.san.clone() } else { chess::show_san(&n.san, &pieces) };
                     let text = format!("{}{san}{glued}", number.clone().unwrap_or_default());
                     let here = o.at == Some(*node);
                     let mut style = if here { sty(&theme.dialog_input) } else if n.depth > 0 { dim } else { base };
@@ -1034,6 +1133,35 @@ mod tests {
         assert!(s.contains("28x19") && s.contains("takes") && s.contains('●') && s.contains("10×10"), "{s}");
         // Square numbers on the empty dark squares.
         assert!(s.contains("26"));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_xiangqi_game_on_its_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-xq-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "[Game \"Chinese Chess\"]\n[Red \"Hu\"]\n[Black \"Lü\"]\n[Result \"1-0\"]\n\n1. 炮二平五 马８进７ 2. 马二进三 {centre} 车９平８ 1-0\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.xiangqi() && v.book.is_none());
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        for _ in 0..3 {
+            v.key(key(KeyCode::Right), None);
+        }
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        // A wide character's second cell is drawn as a space here.
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
+        assert!(s.contains("Hu") && s.contains("马二进三") && s.contains("centre") && s.contains('俥') && s.contains('將') && s.contains('楚'), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 }
