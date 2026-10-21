@@ -87,6 +87,11 @@ pub(crate) fn streams(path: &Path) -> bool {
     reader(path).is_none()
 }
 
+/// The file has a reader of its own (a document), not read as plain text.
+pub(crate) fn has_reader(path: &Path) -> bool {
+    reader(path).is_some()
+}
+
 /// The text of the file at `path`, `size` bytes long, if it has any and is no larger than
 /// `max`. Runs of blank space become one space or one line break; code keeps its indentation
 /// and a blank line between its parts. None for a file only in the cloud, unless the settings

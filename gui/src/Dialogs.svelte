@@ -35,7 +35,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -397,6 +397,7 @@
     if (m.kind === "guide") return m.key?.(k) ?? false;
     if (m.kind === "space") return m.key?.(k, act) ?? false;
     if (m.kind === "editor") return m.key?.(k, act, e) ?? false;
+    if (m.kind === "compare") return m.key?.(k, act, e) ?? false;
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -472,7 +473,7 @@
 <!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
 {#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
 
-{#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space", "editor"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space", "editor", "compare"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>

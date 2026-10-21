@@ -215,4 +215,4 @@ A folder group needs every file in both folders to match. The files that do matc
 file groups.
 
 ---
-[← Previous: Properties and permissions](properties.md) · [Next: ZFS snapshots as folders →](zfs-snapshots.md)
+[← Previous: Properties and permissions](properties.md) · [Next: Compare files (Shift+F2) →](compare-files.md)

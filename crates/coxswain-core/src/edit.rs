@@ -52,7 +52,7 @@ pub struct Stamp {
 }
 
 impl Stamp {
-    fn of(m: &std::fs::Metadata) -> Stamp {
+    pub(crate) fn of(m: &std::fs::Metadata) -> Stamp {
         let d = m.modified().ok().and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok()).unwrap_or_default();
         Stamp { len: m.len(), secs: d.as_secs(), nanos: d.subsec_nanos() }
     }

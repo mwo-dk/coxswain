@@ -18,6 +18,7 @@
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
   import Editor from "./Editor.svelte";
+  import Compare from "./Compare.svelte";
   import GoView from "./GoView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
@@ -466,6 +467,17 @@
       if (tab().snapshot) return void (ui.status = t("zfs.read_only"));
       ui.modal = { kind: "editor", path: e.path };
     },
+    // Two marked files, else the file under each pane's cursor, the left pane's on the left.
+    compare_files: () => {
+      const tb = tab();
+      const marked = tb.items.filter((x) => !x.is_dir && tb.marked.has(x.path));
+      const file = (t) => (t && !t.archive && !t.history ? t.items[t.cursor] : null);
+      const pick = (e) => (e && !e.is_dir && e.name !== ".." ? e.path : null);
+      const pair = marked.length === 2 && !tb.archive && !tb.history ? [marked[0].path, marked[1].path] : [pick(file(tab(0))), pick(file(tab(1)))];
+      if (tb.archive || tb.history) return void (ui.status = t("compare.not_here"));
+      if (!pair[0] || !pair[1]) return void (ui.status = t("compare.pick_two"));
+      ui.modal = { kind: "compare", left: pair[0], right: pair[1] };
+    },
     copy: () => transfer(false),
     move: () => readOnly() || transfer(true),
     rename: () => {
@@ -900,6 +912,7 @@
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "editor"}{#key ui.modal}<Editor />{/key}{/if}
+{#if ui.modal?.kind === "compare"}{#key ui.modal}<Compare />{/key}{/if}
 {#if ui.modal?.kind === "go"}<GoView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}

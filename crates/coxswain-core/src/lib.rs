@@ -9,6 +9,7 @@ pub mod chess;
 pub mod bsd;
 pub mod chat;
 pub mod cloud;
+pub mod compare;
 pub mod clouds;
 pub mod code;
 pub mod collate;

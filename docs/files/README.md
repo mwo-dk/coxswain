@@ -33,6 +33,7 @@ folder; **Ctrl+E** extracts it.*
 | [Your local models, by name](local-models.md) | Ollama's sha256 blobs and the Hugging Face cache named by model; a GGUF's or safetensors file's facts, the memory it needs and whether it fits |
 | [Properties and permissions](properties.md) | Sizes, dates, owner, and changing the permission bits |
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
+| [Compare files (Shift+F2)](compare-files.md) | Two files side by side: changed lines and words of texts and documents, pictures by their pixels, other files byte by byte; a change copied across and saved |
 | [ZFS snapshots as folders](zfs-snapshots.md) | **Alt+Z**: a dataset's snapshots browsed read-only, a file compared with now, copied back with **F5** |
 | [Make PDF searchable (Alt+P)](searchable-pdf.md) | A copy of a scanned PDF with its words in it, by OCRmyPDF, installed or in a container; next to the original, never over it |
 | [Convert video or audio](convert-media.md) | MP4, MP3 or FLAC copies, the sound alone or a clip, by ffmpeg; next to the original, never over it |
@@ -63,6 +64,7 @@ folder; **Ctrl+E** extracts it.*
 | *F9 → File flags* | in Properties | yes | Your own [file flags](properties.md#zfs-packages-and-file-flags) (FreeBSD, macOS) |
 | *F9 → Files of this package* | yes | yes | The files of the [package](properties.md#zfs-packages-and-file-flags) a file belongs to (FreeBSD) |
 | **Ctrl+D** | yes | no | [Find duplicates](duplicates.md) |
+| **Shift+F2** | yes | yes | [Compare files](compare-files.md): the two cursors' files, or two marked ones, side by side |
 | **Alt+P** | yes | yes | [Make PDF searchable](searchable-pdf.md): a copy with the words of a scan in it |
 | *Shift+F10*, *F9 → Convert video or audio* | yes | yes | [Convert video or audio](convert-media.md): MP4, MP3, FLAC, the sound, a clip |
 | *Shift+F10*, *F9 → Convert or edit pictures* | yes | yes | [Convert or edit pictures](edit-pictures.md): JPEG, PNG, WebP, smaller, without the location, turned |

@@ -123,6 +123,10 @@ impl Action {
             NewFolder => s.writable(),
             ClipCopy => n > 0 && disk,
             Properties => s.single() && disk,
+            // The cursor's file against the other panel's, or two marked files.
+            CompareFiles => {
+                matches!(s.place, Place::Disk | Place::Snapshot) && (s.single() && s.files == 1 || s.marked == 2 && s.files == 2)
+            }
             Pack => n > 0 && disk,
             Extract => s.archives > 0 && disk,
             DiskImages => s.disk_images > 0 && disk,
@@ -220,6 +224,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
             ("off", Action::TogglePanels),
         ],
     ),
+    // Before "marked": two marked files are what Compare files takes.
+    ("compare", &[("key", Action::CompareFiles)]),
     ("marked", &[("copy", Action::Copy), ("move", Action::Move)]),
     ("in_archive", &[("copy", Action::Copy)]),
     ("in_disk_image", &[("copy", Action::Copy)]),
@@ -262,6 +268,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "quick" => disk && s.count() > 0,
         "panels" => disk && s.count() == 0,
         "marked" => s.marked > 1 && s.writable(),
+        "compare" => disk && s.marked == 2 && s.files == 2,
         "in_archive" => s.place == Place::Archive && s.files > 0,
         "in_disk_image" => s.place == Place::DiskImage && s.files > 0,
         "disk_image" => disk && s.single() && s.disk_images == 1,
