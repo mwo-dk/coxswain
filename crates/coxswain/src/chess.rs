@@ -5,6 +5,7 @@
 
 use coxswain_core::chess::polyglot::{self, BookMove};
 use coxswain_core::chess::play::{self, Analysis, Played};
+use coxswain_core::chess::review::{self, Review, Reviewer};
 use coxswain_core::chess::{self, Format, Library, Notation, Position, Query, Sort, Token};
 use coxswain_core::config::{Action, Key, KeyCode, Theme};
 use coxswain_core::mosaic::{self, Pieces};
@@ -111,6 +112,9 @@ pub struct Viewer {
     engine_lines: u32,
     thinking: Option<Thinking>,
     analysed: Option<(String, Result<Analysis, String>)>,
+    /// The game analysed as a whole (`g`), and the time it gives a position.
+    review: Option<Reviewer>,
+    review_time: u32,
 }
 
 impl Drop for Viewer {
@@ -198,6 +202,8 @@ impl Viewer {
             engine_lines: cfg.chess.engine_lines,
             thinking: None,
             analysed: None,
+            review: None,
+            review_time: cfg.chess.review_time,
         };
         match chess::sniff(path) {
             Some(Format::Pgn) => v.lib = Some(Arc::new(Library::open(path)?)),
@@ -247,6 +253,7 @@ impl Viewer {
                     self.said = game.error.as_ref().map(|e| t!("chess.cannot_play", "move" => e));
                     self.open = Some(Open { index, game, layout, at: None });
                     self.played = None;
+                    self.review = None;
                 }
                 Err(e) => self.said = Some(e.to_string()),
             }
@@ -369,10 +376,65 @@ impl Viewer {
         let mut sans: Vec<String> = g.path_to(l.base).iter().map(|&n| g.nodes[n as usize].san.clone()).collect();
         sans.extend(l.moves.iter().map(|m| m.san.clone()));
         let text = play::line_pgn(&g.tags, &g.start, &sans);
-        self.said = Some(match play::save_line(&self.path, &text) {
+        self.said = Some(match play::save_beside(&self.path, "line", &text) {
             Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
             Err(e) => t!("chess.line_not_saved", "error" => e),
         });
+    }
+
+    /// `g`: the whole game analysed in the background, or stopped while it runs.
+    fn review_key(&mut self) {
+        if let Some(r) = &self.review
+            && !r.now().done
+        {
+            r.stop();
+            return;
+        }
+        let Some(o) = &self.open else { return };
+        match play::engine(&self.engine) {
+            Some(program) => self.review = Some(Reviewer::start(&program, self.review_time, &o.game)),
+            None => self.said = Some(no_engine()),
+        }
+    }
+
+    /// `w`: the game with the analysis in it, as a new PGN file next to this one.
+    fn save_review(&mut self) {
+        let (Some(r), Some(o)) = (self.review.as_ref().map(|r| r.now()), &self.open) else {
+            self.said = Some(t!("chess.review_first"));
+            return;
+        };
+        if r.plies.is_empty() {
+            self.said = Some(t!("chess.review_first"));
+            return;
+        }
+        let text = review::annotated_pgn(&o.game, &r);
+        self.said = Some(match play::save_beside(&self.path, "annotated", &text) {
+            Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            Err(e) => t!("chess.line_not_saved", "error" => e),
+        });
+    }
+
+    /// The evaluation of the position shown, from White's side: the game's analysis, else the
+    /// engine's for this position.
+    fn eval_now(&self, r: Option<&Review>, fen: Option<&str>) -> Option<i32> {
+        let in_line = self.played.as_ref().is_some_and(|l| l.at > 0);
+        if let (Some(r), Some(o), false) = (r, &self.open, in_line) {
+            let v = match o.at {
+                None => r.start,
+                Some(n) => r.plies.iter().find(|p| p.node == n).map(|p| p.cp),
+            };
+            if v.is_some() {
+                return v;
+            }
+        }
+        match &self.analysed {
+            Some((f, Ok(a))) if Some(f.as_str()) == fen => a.lines.first().and_then(|l| match (l.mate, l.cp) {
+                (Some(m), _) if m > 0 => Some(review::CAP + 100 - m.min(99)),
+                (Some(m), _) if m < 0 => Some(-(review::CAP + 100 + m.max(-99))),
+                (_, c) => c,
+            }),
+            _ => None,
+        }
     }
 
     /// A key while the move list is open: typing narrows it, ↑ ↓ choose, Enter plays.
@@ -613,6 +675,14 @@ impl Viewer {
                 self.save_line();
                 return Outcome::Stay;
             }
+            KeyCode::Char('g') if self.lib.is_some() => {
+                self.review_key();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('w') if self.lib.is_some() => {
+                self.save_review();
+                return Outcome::Stay;
+            }
             KeyCode::Char('c') if self.played.is_some() => {
                 self.played = None;
                 return Outcome::Stay;
@@ -670,6 +740,7 @@ impl Viewer {
             KeyCode::Esc => {
                 self.open = None;
                 self.played = None;
+                self.review = None;
             }
             KeyCode::Right => {
                 o.at = match o.at {
@@ -947,6 +1018,41 @@ impl Viewer {
             lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
         }
         let board_w = 2 + cell_w * 8;
+        // The evaluation as a bar, and the game's as a row of bars, one a move.
+        let rev = self.review.as_ref().map(|r| r.now());
+        if let Some(v) = self.eval_now(rev.as_ref(), fen.as_deref()) {
+            let n = (board_w as usize).saturating_sub(10);
+            let full = (review::share(v) * n as f64).round() as usize;
+            lines.push(Line::from(vec![
+                Span::styled(format!("{:>7} ", review::shown(v)), base.add_modifier(Modifier::BOLD)),
+                Span::styled("█".repeat(full), Style::default().fg(Color::Rgb(240, 240, 240)).bg(Color::Rgb(30, 30, 30))),
+                Span::styled("█".repeat(n - full), Style::default().fg(Color::Rgb(30, 30, 30))),
+            ]));
+        }
+        if let Some(r) = &rev
+            && let Some(start) = r.start
+        {
+            const BARS: [&str; 8] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+            let values: Vec<(Option<u32>, i32)> = std::iter::once((None, start)).chain(r.plies.iter().map(|p| (Some(p.node), p.cp))).collect();
+            let n = (board_w as usize).saturating_sub(2).max(1);
+            let mut spans = vec![Span::styled("  ", dim)];
+            for k in 0..values.len().min(n) {
+                // More moves than room: every so many.
+                let (node, v) = values[k * values.len() / values.len().min(n)];
+                let here = o.at == node && !self.played.as_ref().is_some_and(|l| l.at > 0);
+                let bar = BARS[((review::share(v) * 7.99) as usize).min(7)];
+                spans.push(Span::styled(bar, if here { sty(&theme.dialog_input) } else { base }));
+            }
+            lines.push(Line::from(spans));
+            let state = if let Some(e) = &r.error {
+                e.clone()
+            } else if r.done {
+                t!("chess.review_done", "engine" => r.engine, "marked" => r.plies.iter().filter(|p| p.mark.is_some_and(|m| m != 5)).count())
+            } else {
+                t!("chess.review_running", "n" => r.plies.len(), "total" => r.total)
+            };
+            lines.push(Line::styled(fit(&state, board_w as usize), dim));
+        }
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
         self.draw_moves(f, theme, area, board_w, book);
     }
@@ -1049,8 +1155,8 @@ impl Viewer {
         if self.book_only && picks.is_none() {
             if self.analysis {
                 for l in self.engine_lines(now.as_deref(), &pieces) {
-                head.push(Line::styled(fit(&l, w), dim));
-            }
+                    head.push(Line::styled(fit(&l, w), dim));
+                }
             }
             head.push(Line::from(""));
             if book.is_empty() {
@@ -1101,7 +1207,14 @@ impl Viewer {
             match tok {
                 Token::Move { node, number } => {
                     let n = &g.nodes[*node as usize];
-                    let (glued, apart) = chess::nags(&n.nags);
+                    let mut list = n.nags.clone();
+                    // The analysis's mark, when the file has none of its own.
+                    if let Some(m) = rev.as_ref().and_then(|r| r.plies.iter().find(|p| p.node == *node)).and_then(|p| p.mark)
+                        && !list.iter().any(|x| (1..=6).contains(x))
+                    {
+                        list.push(m);
+                    }
+                    let (glued, apart) = chess::nags(&list);
                     let san = if draughts { n.san.clone() } else { chess::show_san(&n.san, &pieces) };
                     let text = format!("{}{san}{glued}", number.clone().unwrap_or_default());
                     let here = o.at == Some(*node);

@@ -26,6 +26,11 @@ fn library(path: &Path) -> Res<Arc<Library>> {
 #[tauri::command]
 pub fn chess_close(path: PathBuf) {
     LIBS.forget(&path);
+    let mut review = REVIEW.lock().unwrap_or_else(|e| e.into_inner());
+    if review.as_ref().is_some_and(|r| r.0 == path) {
+        *review = None;
+    }
+    drop(review);
     let mut last = ORDER.lock().unwrap_or_else(|e| e.into_inner());
     if last.as_ref().is_some_and(|o| o.0 == path) {
         *last = None;
@@ -200,7 +205,68 @@ pub async fn chess_save_line(path: PathBuf, tags: Vec<(String, String)>, start: 
     crate::here(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let text = chess::play::line_pgn(&tags, &start, &sans);
-        let p = chess::play::save_line(&path, &text).map_err(|e| coxswain_core::t!("chess.line_not_saved", "error" => e))?;
+        let p = chess::play::save_beside(&path, "line", &text).map_err(|e| coxswain_core::t!("chess.line_not_saved", "error" => e))?;
+        Ok(coxswain_core::t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The game analysed as a whole, in the background: its file and index, and the analysis.
+static REVIEW: Mutex<Option<(PathBuf, u32, chess::review::Reviewer)>> = Mutex::new(None);
+
+/// The whole-game analysis of game `index` of `path`: `start` begins it (from the cache when
+/// it was done before), `stop` stops it, `state` says how far it is. Another game's is let go.
+#[tauri::command]
+pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<chess::review::Review>> {
+    let (engine, ms) = {
+        let cfg = ctx.cfg();
+        (cfg.chess.engine.clone(), cfg.chess.review_time)
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut cur = REVIEW.lock().unwrap_or_else(|e| e.into_inner());
+        if cur.as_ref().is_some_and(|(p, i, _)| *p != path || *i != index) {
+            *cur = None;
+        }
+        match act.as_str() {
+            "start" => {
+                let Some(program) = chess::play::engine(&engine) else {
+                    return Err(match chess::play::install() {
+                        Some(line) => coxswain_core::t!("chess.engine_missing_install", "command" => line),
+                        None => coxswain_core::t!("chess.engine_missing"),
+                    });
+                };
+                let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
+                *cur = Some((path, index, chess::review::Reviewer::start(&program, ms, &game)));
+            }
+            "stop" => {
+                if let Some((.., r)) = cur.as_ref() {
+                    r.stop();
+                }
+            }
+            _ => {}
+        }
+        Ok(cur.as_ref().map(|(.., r)| r.now()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Game `index` of `path` with its analysis in it, as a new PGN file next to `path`.
+#[tauri::command]
+pub async fn chess_review_save(path: PathBuf, index: u32) -> Res<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = REVIEW
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .filter(|(p, i, _)| *p == path && *i == index)
+            .map(|(.., r)| r.now())
+            .filter(|r| !r.plies.is_empty())
+            .ok_or_else(|| coxswain_core::t!("chess.review_first"))?;
+        let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
+        let text = chess::review::annotated_pgn(&game, &r);
+        let p = chess::play::save_beside(&path, "annotated", &text).map_err(|e| coxswain_core::t!("chess.line_not_saved", "error" => e))?;
         Ok(coxswain_core::t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
     })
     .await

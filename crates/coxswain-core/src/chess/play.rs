@@ -151,9 +151,9 @@ pub fn line_pgn(tags: &[(String, String)], start: &str, sans: &[String]) -> Stri
     out
 }
 
-/// Writes `text` as a new PGN file next to the game file `source`: `<name> line.pgn`, or
-/// `<name> line 2.pgn` and on when that is taken. Never over a file.
-pub fn save_line(source: &Path, text: &str) -> std::io::Result<PathBuf> {
+/// Writes `text` as a new PGN file next to the game file `source`: `<name> <word>.pgn` (`games
+/// line.pgn`), or `<name> <word> 2.pgn` and on when that is taken. Never over a file.
+pub fn save_beside(source: &Path, word: &str, text: &str) -> std::io::Result<PathBuf> {
     let dir = source.parent().unwrap_or(Path::new("."));
     let name = source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let lower = name.to_ascii_lowercase();
@@ -163,7 +163,7 @@ pub fn save_line(source: &Path, text: &str) -> std::io::Result<PathBuf> {
         .map_or(name.len(), |e| name.len() - e.len());
     let stem = &name[..cut];
     for n in 1..10_000 {
-        let p = dir.join(if n == 1 { format!("{stem} line.pgn") } else { format!("{stem} line {n}.pgn") });
+        let p = dir.join(if n == 1 { format!("{stem} {word}.pgn") } else { format!("{stem} {word} {n}.pgn") });
         match std::fs::OpenOptions::new().write(true).create_new(true).open(&p) {
             Ok(mut f) => {
                 f.write_all(text.as_bytes())?;
@@ -411,8 +411,8 @@ mod tests {
         let d = std::env::temp_dir().join(format!("coxswain-line-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let src = d.join("games.pgn.gz");
-        assert_eq!(save_line(&src, "x").unwrap(), d.join("games line.pgn"));
-        assert_eq!(save_line(&src, "y").unwrap(), d.join("games line 2.pgn"));
+        assert_eq!(save_beside(&src, "line", "x").unwrap(), d.join("games line.pgn"));
+        assert_eq!(save_beside(&src, "line", "y").unwrap(), d.join("games line 2.pgn"));
         assert_eq!(std::fs::read_to_string(d.join("games line.pgn")).unwrap(), "x");
         std::fs::remove_dir_all(&d).unwrap();
     }

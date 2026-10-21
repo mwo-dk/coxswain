@@ -1793,11 +1793,14 @@ pub struct ChessConfig {
     pub engine_time: u32,
     /// How many of the engine's best lines are shown, 1 to 5.
     pub engine_lines: u32,
+    /// How long the engine thinks about each position of a game analysed as a whole, in
+    /// milliseconds.
+    pub review_time: u32,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3 }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500 }
     }
 }
 

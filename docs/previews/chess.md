@@ -96,6 +96,7 @@ standard NAGs after it.
 | **n** | Figurines or letters (also the ♔♘ button) | The same |
 | A click on a piece, then a square / **m** | Plays a move from here ([Playing on](chess-play.md#playing-a-move)) | **m**: the same, from a list |
 | **a**, **b** | The engine on or off, its best move ([The engine](chess-play.md#the-engine)) | The same |
+| **g**, **w** | Analyse the whole game, save it annotated ([Analysing a whole game](chess-play.md#analysing-a-whole-game)) | The same |
 | **PgDn** / **PgUp** | The next / previous game of the table | The same |
 | **Esc** | Back to the table (*Games* too) | Back to the table |
 | A click on a move | Shows it | – |

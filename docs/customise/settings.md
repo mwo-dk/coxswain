@@ -174,6 +174,7 @@ Opening this area asks the container runtime which images it has.
 | *Chess engine* | A UCI engine's program or path; empty: *Stockfish, when installed* (`chess_engine`) | `[chess] engine` |
 | *Engine time (ms)* | 100 to 60000: how long the engine thinks about a position (`chess_engine_time`) | `[chess] engine_time` |
 | *Engine lines* | 1 to 5: how many of its best lines are shown (`chess_engine_lines`) | `[chess] engine_lines` |
+| *Analysis time a move (ms)* | 100 to 10000: how long the engine thinks about each position of a game analysed as a whole (`chess_review_time`, [Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) | `[chess] review_time` |
 
 ## Looks
 

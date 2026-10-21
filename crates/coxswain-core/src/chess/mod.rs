@@ -8,6 +8,7 @@ pub mod games;
 pub mod openings;
 pub mod pgn;
 pub mod play;
+pub mod review;
 pub mod polyglot;
 
 pub use games::{Library, Progress, Query, Row, Sort};

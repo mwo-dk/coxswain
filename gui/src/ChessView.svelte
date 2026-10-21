@@ -74,6 +74,8 @@
   // The engine (chess_analyse): asked about each position while on.
   let analysis = $state(false);
   let engine = $state(null);
+  // The whole game analysed (chess_review): how far it is, asked again while it runs.
+  let review = $state(null);
 
   $effect(() => {
     const theme = ui.theme;
@@ -193,6 +195,7 @@
       game = { ...v, index };
       at = null;
       played = null;
+      review = null;
       said = "";
       error = v.error ?? "";
       setTimeout(() => boardEl?.focus(), 0);
@@ -336,6 +339,58 @@
     }
   }
 
+  /** The whole game analysed (g): started, or stopped while it runs; its state asked for. */
+  async function reviewAct(act) {
+    if (format !== "pgn" || !game) return;
+    const index = game.index;
+    try {
+      const r = await invoke("chess_review", { path, index, act });
+      if (game?.index === index) review = r;
+    } catch (e) {
+      said = String(e);
+    }
+  }
+  $effect(() => {
+    if (!review || review.done) return;
+    const timer = setInterval(() => reviewAct("state"), 700);
+    return () => clearInterval(timer);
+  });
+  async function saveReview() {
+    try {
+      said = await invoke("chess_review_save", { path, index: game.index });
+    } catch (e) {
+      said = String(e);
+    }
+  }
+  const CAP = 1000;
+  const share = (v) => 1 / (1 + Math.exp(-Math.max(-CAP, Math.min(CAP, v)) / 250));
+  /** An evaluation as shown (`review::shown`): +0.35, −1.20, #3, #−2. */
+  function shownEval(v) {
+    if (Math.abs(v) > CAP) return `#${v < 0 ? "−" : ""}${CAP + 100 - Math.abs(v)}`;
+    return `${v < 0 ? "−" : "+"}${(Math.abs(v) / 100).toFixed(2)}`;
+  }
+  // The position's evaluation from White's side: the game's analysis, else the engine's.
+  const evalNow = $derived.by(() => {
+    if (!inLine && review) {
+      const v = at == null ? review.start : review.plies.find((p) => p.node === at)?.cp;
+      if (v != null) return v;
+    }
+    const l = engine?.fen === fen ? engine.a?.lines?.[0] : null;
+    if (!l) return null;
+    if (l.mate != null) return l.mate > 0 ? CAP + 100 - Math.min(l.mate, 99) : -(CAP + 100 + Math.max(l.mate, -99));
+    return l.cp ?? null;
+  });
+  const marks = $derived(new Map((review?.plies ?? []).filter((p) => p.mark).map((p) => [p.node, p.mark])));
+  const MARK = { 2: "?", 4: "??", 5: "!?", 6: "?!" };
+  // The graph: the start and each move analysed, White's share from 0 to 100.
+  const points = $derived(review?.start == null ? [] : [{ node: null, v: review.start }, ...review.plies.map((p) => ({ node: p.node, v: p.cp, mark: p.mark }))]);
+  function graphClick(e) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const i = Math.round(((e.clientX - r.left) / r.width) * (points.length - 1));
+    if (points[i]) goto(points[i].node);
+    boardEl?.focus();
+  }
+
   /** A move of the game shown: out of the played line, which stays. */
   function goto(n) {
     if (played) played.at = 0;
@@ -424,6 +479,8 @@
     else if (e.key === "a" && !draughts) analysis = !analysis;
     else if (e.key === "s" && !draughts) saveLine();
     else if (e.key === "b" && !draughts && engine?.a?.lines[0]) playMove(engine.a.lines[0].best);
+    else if (e.key === "g" && format === "pgn") reviewAct(review && !review.done ? "stop" : "start");
+    else if (e.key === "w" && format === "pgn") saveReview();
     else if (e.key === "c" && played) played = null;
     else if (e.key === "Escape" && (picked != null || promo)) (picked = null), (promo = null);
     else if (e.key === "PageDown" && table) nextGame(1);
@@ -519,9 +576,14 @@
             {#each Array(d.w * d.h) as _, i (i)}{@render cell(d, i)}{/each}
           </svg>
         {:else}
+        <div class="board-row">
+          {#if evalNow != null}
+            <div class="evalbar" class:flip title={shownEval(evalNow)}><div class="white" style:height="{share(evalNow) * 100}%"></div></div>
+          {/if}
           <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
             {#each Array(64) as _, i (i)}{@render square(i)}{/each}
           </svg>
+        </div>
         {/if}
         <div class="bar">
           {#if table}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
@@ -532,6 +594,10 @@
           <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
           {#if !draughts}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
           {#if !draughts}<button title={t("chess.engine_tip")} class:on={analysis} onclick={() => (analysis = !analysis)}>{t("chess.engine_btn")}</button>{/if}
+          {#if format === "pgn"}
+            <button title={t("chess.review_tip")} class:on={review && !review.done} onclick={() => reviewAct(review && !review.done ? "stop" : "start")}>{review && !review.done ? t("chess.review_stop") : t("chess.review_btn")}</button>
+            {#if review?.plies.length}<button title={t("chess.review_save_tip")} onclick={saveReview}>{t("chess.review_save")}</button>{/if}
+          {/if}
           {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
         </div>
         {#if promo}
@@ -540,7 +606,21 @@
             {#each promo as m (m.uci)}<button title={m.san} onclick={() => playMove(m)}><img alt={m.san} src={`vendor/chess-pieces/${m.white ? "w" : "b"}${m.promotion.toUpperCase()}.svg`} /></button>{/each}
           </div>
         {/if}
-        {#if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : t("chess.white_to_move")}</p>{/if}
+        {#if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : t("chess.white_to_move")}{#if evalNow != null} · <b>{shownEval(evalNow)}</b>{/if}</p>{/if}
+        {#if points.length}
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+          <svg class="graph" viewBox="0 0 {Math.max(1, points.length - 1)} 100" preserveAspectRatio="none" onclick={graphClick} role="img" aria-label={t("chess.review_graph")}>
+            <line x1="0" y1="50" x2={points.length - 1} y2="50" class="mid" />
+            <polyline points={points.map((p, i) => `${i},${100 - share(p.v) * 100}`).join(" ")} />
+            {#each points as p, i (i)}
+              {#if p.mark && p.mark !== 5}<line x1={i} y1="82" x2={i} y2="100" class="tick m{p.mark}" />{/if}
+              {#if !inLine && p.node === at}<line x1={i} y1="0" x2={i} y2="100" class="here" />{/if}
+            {/each}
+          </svg>
+        {/if}
+        {#if review}
+          <p class="meta">{review.error ?? (review.done ? t("chess.review_done", { engine: review.engine, marked: review.plies.filter((p) => p.mark && p.mark !== 5).length }) : t("chess.review_running", { n: review.plies.length, total: review.total }))}</p>
+        {/if}
       </div>
       <div class="moves" bind:this={movesEl}>
         {#if table}
@@ -580,7 +660,7 @@
           {#each game.layout as tok, i (i)}
             {#if tok.t === "move"}
               {@const n = nodes[tok.node]}
-              <button class="mv" class:here={!inLine && at === tok.node} class:var={n.depth > 0} onclick={() => goto(tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
+              <button class="mv" class:here={!inLine && at === tok.node} class:var={n.depth > 0} onclick={() => goto(tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}{#if marks.has(tok.node) && !n.nags.some((x) => x <= 6)}<span class="eng m{marks.get(tok.node)}">{MARK[marks.get(tok.node)]}</span>{/if}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
             {:else if tok.t === "comment"}
               <span class="comment">{tok.text}</span>{" "}
             {:else if tok.t === "open"}
@@ -894,6 +974,73 @@
     width: 2em;
     height: 2em;
     display: block;
+  }
+  .board-row {
+    display: flex;
+    gap: 4px;
+  }
+  .board-row .board {
+    flex: 1;
+    min-width: 0;
+  }
+  /* The evaluation: White's share from the bottom (from the top on a flipped board). */
+  .evalbar {
+    width: 12px;
+    background: #222;
+    border: 1px solid var(--border-fg);
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .evalbar.flip {
+    flex-direction: column;
+  }
+  .evalbar .white {
+    background: #eee;
+    transition: height 0.3s;
+  }
+  .graph {
+    width: 100%;
+    height: 60px;
+    cursor: pointer;
+    border: 1px solid var(--border-fg);
+  }
+  .graph polyline {
+    fill: none;
+    stroke: var(--accent-bg, currentColor);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  .graph .mid,
+  .graph .here {
+    stroke: currentColor;
+    opacity: 0.4;
+    vector-effect: non-scaling-stroke;
+  }
+  .graph .here {
+    opacity: 0.9;
+  }
+  .graph .tick {
+    stroke: currentColor;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .m6 {
+    color: #e0c040;
+    fill: #e0c040;
+  }
+  .m2 {
+    color: #e08030;
+    fill: #e08030;
+  }
+  .m4 {
+    color: #e04040;
+    fill: #e04040;
+  }
+  .m5 {
+    color: #40a0e0;
+  }
+  .eng {
+    font-weight: bold;
   }
   .engine-line {
     margin: 0;

@@ -210,6 +210,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("chess_engine", &["chess", "engine"], Previews, &[]),
     opt("chess_engine_time", &["chess", "engine_time"], Previews, &[]),
     opt("chess_engine_lines", &["chess", "engine_lines"], Previews, &[]),
+    opt("chess_review_time", &["chess", "review_time"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),

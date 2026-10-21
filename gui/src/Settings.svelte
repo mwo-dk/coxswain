@@ -854,6 +854,7 @@
         {@render text("chess_engine", t("settings.chess_engine_auto"))}
         {@render num("chess_engine_time", 100, 60000, 100)}
         {@render num("chess_engine_lines", 1, 5)}
+        {@render num("chess_review_time", 100, 10000, 100)}
         {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
         {@render check("image_prune")}
         <p class="hint">{t("settings.previews_more")}</p>

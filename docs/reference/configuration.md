@@ -333,6 +333,7 @@ How [chess games](../previews/chess.md), [Go games](../previews/go.md) and [drau
 | `engine` | string | `""` | The UCI engine: a program's name or a path (`~` is the home folder). Empty: `stockfish` when it is installed. Nothing is downloaded |
 | `engine_time` | integer | `1000` | How long the engine thinks about a position, in milliseconds (100 to 60000) |
 | `engine_lines` | integer | `3` | How many of the engine's best lines are shown (1 to 5) |
+| `review_time` | integer | `500` | How long the engine thinks about each position when a whole game is analysed (**g**), in milliseconds (100 to 10000) ([Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) |
 
 ## What has no key
 
@@ -396,6 +397,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Chess engine* | `chess_engine` | `[chess] engine` |
 | | *Engine time (ms)* | `chess_engine_time` | `[chess] engine_time` |
 | | *Engine lines* | `chess_engine_lines` | `[chess] engine_lines` |
+| | *Analysis time a move (ms)* | `chess_review_time` | `[chess] review_time` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

@@ -7,7 +7,9 @@ you can **play your own moves**: what would have happened after 15…Qxd7, or a 
 try. Your moves are kept beside the game as **your line**; the file is never changed. **Save as
 new PGN** writes the game up to there with your line into a new file next to it. An installed
 **chess engine** (Stockfish, or any UCI engine) can show its **best lines and evaluation** for the
-position on the board. Both apps have it.
+position on the board, and **analyse a whole game**: an evaluation bar beside the board, a graph of
+the game under it, and the moves that lose marked `?!`, `?` or `??`, written out as an annotated
+PGN file when you ask. Both apps have it.
 
 ![The Opera Game in the desktop app with a line played on from 15…Nxd7: 16.Qxe6+ fxe6 17.Rxd7 under the moves as Your line, with Save as new PGN and Clear; Engine on, Stockfish 17.1 at depth 21 above the moves with its three best lines for Black, −4.55, +5.25 and +5.29](../screenshots/gui-chess-play.png)
 
@@ -17,6 +19,7 @@ position on the board. Both apps have it.
 - [Your line](#your-line)
 - [Save as new PGN](#save-as-new-pgn)
 - [The engine](#the-engine)
+- [Analysing a whole game](#analysing-a-whole-game)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
 
@@ -53,6 +56,7 @@ the table.
 | A move played inside your line | Your line goes on from there: the moves after it are dropped | The same |
 | **c** | Clears your line (also *Clear*) | The same |
 | **s** | *Save as new PGN* | The same |
+| **g**, **w** | Analyse the whole game, save it annotated ([below](#analysing-a-whole-game)) | The same |
 
 In an EPD or FEN file **→** and **←** step your line while there is one; **c** clears it and they
 step the positions again. In a Polyglot book a move you play is played on the book's board, as a
@@ -107,6 +111,52 @@ Any other UCI engine works too (Leela Chess Zero's `lc0`, Ethereal, Berserk): na
 path in *Chess engine*. With *Chess engine on* set and no engine found, a notice says so once, with
 the line that installs Stockfish.
 
+## Analysing a whole game
+
+**Analyse game** under the board (desktop) or **g** (both apps) has the engine evaluate every
+position of the game's main line, one after another in the background, for *Analysis time a move*
+(half a second unless set): a game of 40 moves takes about 40 seconds. You can step through the
+game, play on or open the engine meanwhile; *Analysing the game: 12 of 40 moves* says how far it
+is. **g** again (the button says *Stop* while it runs) stops it; what is done so far stays.
+
+What it shows:
+
+| | Desktop app | Terminal app |
+|---|---|---|
+| The evaluation of the position on the board | A bar beside the board, White's share from the bottom (from the top when flipped), and `+0.35` under the board | `+0.35` and a bar of `█` under the board |
+| The game | A graph under the board: White's share after each move, the move on the board marked by a line, a tick under each marked move. A click on the graph goes to that move | A row of `▁▂▃▅▇` under the board, one a move, the one on the board highlighted |
+| The marks | `?!`, `?`, `??` and `!?` after the moves, in yellow, orange, red and blue | The same marks after the moves |
+| When it is done | *Stockfish 17.1: the game analysed, 5 moves marked* | The same |
+
+**How a move is marked.** By how much it lowers the engine's evaluation for the side that played
+it, from the position before to the position after, each counted up to ten pawns either way (so
+winning a little less in a won game is no mistake):
+
+| Lost | Mark |
+|---|---|
+| Half a pawn (50 centipawns) or more | `?!`, an inaccuracy |
+| A pawn (100) or more | `?`, a mistake |
+| Three pawns (300) or more | `??`, a blunder |
+| Nothing, but it was the engine's best move and its second choice is 1.5 pawns (150) worse | `!?`, the only move that holds |
+
+A mark the file itself gives a move (`!`, `?`, `!?` …) is kept, and the engine's is not added to
+it. A mate counts as more than ten pawns, a nearer one more than one further off.
+
+**Kept per game.** A game analysed once comes back at once the next time, from Coxswain's cache
+folder (`chess/` under it), as long as the engine, *Analysis time a move* and the moves are the
+same. Another engine or time analyses it again.
+
+**Save as annotated PGN** (**w**, shown once there is an analysis) writes a new file next to the
+game file, `games annotated.pgn` (then `games annotated 2.pgn` …), never over a file: the game
+with its tags (`Annotator` set to the engine), its moves, variations and comments as they are, and
+on each analysed move its mark as a NAG, its evaluation as `{[%eval 0.35]}`, and for a move marked
+`?!`, `?` or `??` the engine's line as a variation. Other chess programs (Lichess, Scid, ChessBase)
+show the evaluations and marks from it.
+
+<!-- screenshot: gui-chess-review.png: desktop app, Cyber: the Opera Game analysed: the evaluation bar beside the board, the graph under it with ticks under the marked moves, marks after the moves, Analyse game and Save as annotated PGN under the board -->
+
+<!-- screenshot: tui-chess-review.png: terminal app, Classic blue: the Opera Game analysed: the evaluation line and the row of bars under the board, the marks after the moves -->
+
 ## Settings and config.toml
 
 *Settings → Previews*, in both apps:
@@ -117,6 +167,7 @@ the line that installs Stockfish.
 | *Chess engine* | `[chess] engine` | A program's name or a path (`~` is your home folder); empty (default): `stockfish` when it is installed |
 | *Engine time (ms)* | `[chess] engine_time` | How long the engine thinks about a position: 100 to 60000, default `1000` |
 | *Engine lines* | `[chess] engine_lines` | How many of its best lines are shown: 1 to 5, default `3` |
+| *Analysis time a move (ms)* | `[chess] review_time` | How long the engine thinks about each position when a whole game is analysed: 100 to 10000, default `500` |
 
 ```toml
 [chess]
@@ -165,10 +216,22 @@ shows how far it got.
 Not as a game with a clock: play your move, then **b** plays the engine's best reply, and so on.
 Your line holds the game, and *Save as new PGN* keeps it.
 
+#### How are the ?, ?? and ?! marks decided?
+
+By how much a move lowers the engine's evaluation for the side that played it: half a pawn is `?!`,
+a pawn `?`, three pawns `??` (see [How a move is marked](#analysing-a-whole-game)). `!?` marks the
+only move that holds: the engine's best, with its second choice 1.5 pawns worse.
+
+#### Why does analysing a game take so long?
+
+Each position gets *Analysis time a move* (half a second): a game of 60 moves, 120 positions, takes
+a minute. Set it lower for a quick look, higher for deeper marks. A game analysed once comes back at
+once.
+
 #### Does the engine slow the computer down?
 
-It uses one processor core for *Engine time* each time the position changes, then stops. Nothing
-runs while *Engine* is off.
+It uses one processor core for *Engine time* each time the position changes, then stops, and one
+core while a game is analysed. Nothing runs while *Engine* is off and no game is being analysed.
 
 ---
 [← Previous: Game pieces in the terminal](game-pieces.md) · [Next: Go games →](go.md)
