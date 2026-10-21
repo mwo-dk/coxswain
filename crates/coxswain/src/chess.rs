@@ -107,7 +107,8 @@ pub struct Viewer {
     picking: Option<(String, usize)>,
     /// The engine: asked about each position while `analysis` is on.
     analysis: bool,
-    engine: String,
+    /// The engine (`play::engine_for`), found when the view opens; or why there is none.
+    program: Result<play::Program, String>,
     engine_time: u32,
     engine_lines: u32,
     thinking: Option<Thinking>,
@@ -197,7 +198,7 @@ impl Viewer {
             played: None,
             picking: None,
             analysis: cfg.chess.analysis,
-            engine: cfg.chess.engine.clone(),
+            program: play::engine_for(cfg),
             engine_time: cfg.chess.engine_time,
             engine_lines: cfg.chess.engine_lines,
             thinking: None,
@@ -319,9 +320,12 @@ impl Viewer {
         if let Some(t) = self.thinking.take() {
             t.stop.store(true, Ordering::Relaxed);
         }
-        let Some(program) = play::engine(&self.engine) else {
-            self.analysed = Some((fen, Err(no_engine())));
-            return;
+        let program = match &self.program {
+            Ok(p) => p.clone(),
+            Err(why) => {
+                self.analysed = Some((fen, Err(why.clone())));
+                return;
+            }
         };
         let (tx, rx) = std::sync::mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
@@ -391,9 +395,9 @@ impl Viewer {
             return;
         }
         let Some(o) = &self.open else { return };
-        match play::engine(&self.engine) {
-            Some(program) => self.review = Some(Reviewer::start(&program, self.review_time, &o.game)),
-            None => self.said = Some(no_engine()),
+        match &self.program {
+            Ok(program) => self.review = Some(Reviewer::start(program, self.review_time, &o.game)),
+            Err(why) => self.said = Some(why.clone()),
         }
     }
 
@@ -1282,14 +1286,6 @@ impl Viewer {
             Some((f, Err(e))) if Some(f.as_str()) == fen => vec![e.clone()],
             _ => vec![t!("chess.engine_thinking")],
         }
-    }
-}
-
-/// Why the engine is not asked: none is installed, and how to install one.
-fn no_engine() -> String {
-    match play::install() {
-        Some(line) => t!("chess.engine_missing_install", "command" => line),
-        None => t!("chess.engine_missing"),
     }
 }
 

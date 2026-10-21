@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::pgn::{self, Game, Token};
-use super::play::Engine;
+use super::play::{Engine, Program};
 
 /// What a lost advantage is worth, in centipawns from the mover's side: at least this much is
 /// `?!` (an inaccuracy), `?` (a mistake), `??` (a blunder). Evaluations count up to
@@ -137,9 +137,9 @@ impl Drop for Reviewer {
 impl Reviewer {
     /// Analyses the main line of `game` with the engine at `program`, `ms` a position. A game
     /// analysed before (same engine, time and moves) comes from the cache at once.
-    pub fn start(program: &Path, ms: u32, game: &Game) -> Reviewer {
+    pub fn start(program: &Program, ms: u32, game: &Game) -> Reviewer {
         let plies = line(game);
-        let key = program.to_string_lossy().into_owned();
+        let key = program.key();
         let file = cached(&key, ms, game);
         let shared = Arc::new(Mutex::new(Review { total: plies.len(), ..Default::default() }));
         let stop = Arc::new(AtomicBool::new(false));
@@ -151,7 +151,7 @@ impl Reviewer {
             return Reviewer { shared, stop };
         }
         let (s, st, g) = (shared.clone(), stop.clone(), game.clone());
-        let program = program.to_path_buf();
+        let program = program.clone();
         std::thread::spawn(move || {
             let r = run(&program, ms, &g, &plies, &s, &st);
             let mut out = s.lock().unwrap_or_else(|e| e.into_inner());
@@ -180,8 +180,8 @@ impl Reviewer {
     }
 }
 
-fn run(program: &Path, ms: u32, game: &Game, plies: &[u32], shared: &Mutex<Review>, stop: &AtomicBool) -> std::io::Result<()> {
-    let mut engine = Engine::start(crate::tools::command(program))?;
+fn run(program: &Program, ms: u32, game: &Game, plies: &[u32], shared: &Mutex<Review>, stop: &AtomicBool) -> std::io::Result<()> {
+    let mut engine = Engine::start(program)?;
     shared.lock().unwrap_or_else(|e| e.into_inner()).engine = engine.name.clone();
     let halt = || stop.load(Ordering::Relaxed);
     // The position before each move: its score, the engine's line, and how much worse its
@@ -363,12 +363,12 @@ mod tests {
             }
             r.now()
         };
-        let r = wait(&Reviewer::start(&p, 50, &g));
+        let r = wait(&Reviewer::start(&Program::Installed(p.clone()), 50, &g));
         assert_eq!((r.engine.as_str(), r.plies.len(), r.error.as_deref()), ("Fake 2", 3, None));
         assert_eq!(r.plies[0].cp, -20);
         // From the cache, even with the engine gone.
         std::fs::remove_file(&p).unwrap();
-        let again = Reviewer::start(&p, 50, &g).now();
+        let again = Reviewer::start(&Program::Installed(p.clone()), 50, &g).now();
         assert!(again.done && again.plies.len() == 3, "{again:?}");
         std::fs::remove_dir_all(&d).unwrap();
     }

@@ -1540,6 +1540,9 @@ impl Default for PreviewConfig {
             // LinuxServer.io's calibre, pinned to the release tested (`ebook`); calibre
             // publishes no image of its own.
             ("calibre", crate::ebook::IMAGE),
+            // Coxswain's own Stockfish build (packaging/images/stockfish), for the chess engine
+            // when none is installed (`chess::play`).
+            ("stockfish", "ghcr.io/mwo-dk/coxswain-stockfish:latest"),
         ];
         PreviewConfig {
             prefer: "auto".into(),

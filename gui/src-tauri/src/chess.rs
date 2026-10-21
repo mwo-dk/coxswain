@@ -180,18 +180,11 @@ static ASKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0
 #[tauri::command]
 pub async fn chess_analyse(fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<chess::play::Analysis> {
     use std::sync::atomic::Ordering;
-    let (engine, ms, lines) = {
-        let cfg = ctx.cfg();
-        (cfg.chess.engine.clone(), cfg.chess.engine_time, cfg.chess.engine_lines)
-    };
+    let cfg = ctx.cfg().clone();
+    let (ms, lines) = (cfg.chess.engine_time, cfg.chess.engine_lines);
     let me = ASKED.fetch_add(1, Ordering::Relaxed) + 1;
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(program) = chess::play::engine(&engine) else {
-            return Err(match chess::play::install() {
-                Some(line) => coxswain_core::t!("chess.engine_missing_install", "command" => line),
-                None => coxswain_core::t!("chess.engine_missing"),
-            });
-        };
+        let program = chess::play::engine_for(&cfg)?;
         chess::play::analyse(&program, &fen, ms, lines, &|| ASKED.load(Ordering::Relaxed) != me).map_err(|e| e.to_string())
     })
     .await
@@ -219,10 +212,8 @@ static REVIEW: Mutex<Option<(PathBuf, u32, chess::review::Reviewer)>> = Mutex::n
 /// it was done before), `stop` stops it, `state` says how far it is. Another game's is let go.
 #[tauri::command]
 pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<chess::review::Review>> {
-    let (engine, ms) = {
-        let cfg = ctx.cfg();
-        (cfg.chess.engine.clone(), cfg.chess.review_time)
-    };
+    let cfg = ctx.cfg().clone();
+    let ms = cfg.chess.review_time;
     tauri::async_runtime::spawn_blocking(move || {
         let mut cur = REVIEW.lock().unwrap_or_else(|e| e.into_inner());
         if cur.as_ref().is_some_and(|(p, i, _)| *p != path || *i != index) {
@@ -230,12 +221,7 @@ pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::St
         }
         match act.as_str() {
             "start" => {
-                let Some(program) = chess::play::engine(&engine) else {
-                    return Err(match chess::play::install() {
-                        Some(line) => coxswain_core::t!("chess.engine_missing_install", "command" => line),
-                        None => coxswain_core::t!("chess.engine_missing"),
-                    });
-                };
+                let program = chess::play::engine_for(&cfg)?;
                 let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
                 *cur = Some((path, index, chess::review::Reviewer::start(&program, ms, &game)));
             }
