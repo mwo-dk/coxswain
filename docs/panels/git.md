@@ -234,7 +234,8 @@ there. A tab whose folder is in a repository shows the git icon instead of the f
 
 Coxswain shows version control and writes to a repository only to switch branch or make a new
 one (never to a [Jujutsu](jujutsu.md) repository, which it only reads; in a [Mercurial](mercurial.md)
-one with `hg update --check` and new bookmarks). Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
+one with `hg update --check` and new bookmarks; never to a [Subversion](subversion.md) or
+[CVS](cvs.md) working copy, where **Alt+G** opens a terminal). Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
 config) is a handoff. The config itself can be looked at: **Alt+C** shows it as git uses it,
 read-only ([Git config](git-config.md)). For the rest, **Alt+G** (*Open in your git tool*) opens the repository in your own git
 tool, in the repository's top folder, wherever in it the panel is.

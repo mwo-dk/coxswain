@@ -72,7 +72,8 @@ desktop app also has *Switch to branch* under *Git* in the preview pane. In a
 [Jujutsu](jujutsu.md) repository **Alt+S** and *New branch here* are refused: the status line says
 *Coxswain only reads Jujutsu repositories: move to a bookmark with jj new or jj edit.* In a
 [Mercurial](mercurial.md) repository **Alt+S** runs `hg update --check` and *New branch here* makes
-a bookmark.
+a bookmark. In a [Subversion](subversion.md) or [CVS](cvs.md) working copy the branches are on the
+server: **Alt+B** and **Alt+S** say so.
 
 - A **local branch** is switched to with `git switch <branch>`.
 - A **remote-tracking branch** (`origin∕feature`) gets a local branch of the same name that
