@@ -3865,5 +3865,18 @@
  "history.scope_upstream_tip": "Коміти, не надіслані й не злиті, станом на останній fetch; нічого не завантажується ({key})",
  "history.side_ahead": "Не надіслано",
  "history.side_behind": "Не злито",
- "hint.upstream": "{key} показує коміти, не надіслані й не злиті, станом на останній fetch"
+ "hint.upstream": "{key} показує коміти, не надіслані й не злиті, станом на останній fetch",
+ "notice.hg_missing": "Цей репозиторій веде Mercurial, але hg не встановлено: встановіть Mercurial, щоб бачити його зміни, історію та закладки.",
+ "vcs.hg_has_filters": "Власна конфігурація Mercurial цього репозиторію вмикає розширення чи фільтри, яких Coxswain ніколи не читає: перемкніться самим hg",
+ "vcs.hg_bad_name": "«{name}» — не та назва, яку Mercurial приймає для закладки",
+ "vcs.hg_switched": "Тепер на {name}",
+ "vcs.hg_created": "Нова закладка {name}, активна тут",
+ "feature.mercurial.title": "Mercurial на панелях",
+ "feature.mercurial.what": "У репозиторії Mercurial: закладка чи гілка та змінені файли в рядку, історія, закладки й гілки як теки, перемикання і нові закладки, через hg.",
+ "feature.mercurial.q1": "Чому репозиторій Mercurial не показує рядка?",
+ "feature.mercurial.a1": "hg не встановлено (сповіщення скаже це раз), або тека лежить у репозиторії git чи Jujutsu, який показується першим.",
+ "feature.mercurial.q2": "Що перемикання робить з моїми змінами?",
+ "feature.mercurial.a2": "Нічого: {switch_branch} запускає hg update --check, що відмовляє, поки якийсь файл змінено. Спершу зробіть commit або shelve.",
+ "feature.mercurial.q3": "Чи запускає Coxswain хуки мого репозиторію?",
+ "feature.mercurial.a3": "Ні. Coxswain ніколи не читає власний .hg/hgrc репозиторію, тож його хуки й розширення не запускаються; ваша власна конфігурація Mercurial і далі діє."
 }

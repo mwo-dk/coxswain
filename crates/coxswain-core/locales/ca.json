@@ -3783,5 +3783,18 @@
  "history.scope_upstream_tip": "Els commits no pujats i no fusionats, segons l'últim fetch; no es fa cap fetch ({key})",
  "history.side_ahead": "No pujat",
  "history.side_behind": "No fusionat",
- "hint.upstream": "{key} llista els commits no pujats i no fusionats, segons l'últim fetch"
+ "hint.upstream": "{key} llista els commits no pujats i no fusionats, segons l'últim fetch",
+ "notice.hg_missing": "Aquest repositori el porta Mercurial, però hg no està instal·lat: instal·leu Mercurial per veure'n els canvis, l'historial i els marcadors.",
+ "vcs.hg_has_filters": "La configuració de Mercurial pròpia d'aquest repositori activa extensions o filtres, que Coxswain no llegeix mai: canvieu amb hg mateix",
+ "vcs.hg_bad_name": "«{name}» no és un nom que Mercurial accepti per a un marcador",
+ "vcs.hg_switched": "Ara a {name}",
+ "vcs.hg_created": "Marcador nou {name}, actiu aquí",
+ "feature.mercurial.title": "Mercurial als panells",
+ "feature.mercurial.what": "En un repositori de Mercurial: el marcador o la branca i els fitxers canviats a la línia, l'historial i els marcadors i les branques com a carpetes, canviar i marcadors nous, amb hg.",
+ "feature.mercurial.q1": "Per què un repositori de Mercurial no mostra cap línia?",
+ "feature.mercurial.a1": "hg no està instal·lat (un avís ho diu un cop), o la carpeta és dins un repositori de git o de Jujutsu, que es mostra primer.",
+ "feature.mercurial.q2": "Què fa un canvi amb els meus canvis?",
+ "feature.mercurial.a2": "Res: {switch_branch} executa hg update --check, que es nega mentre hi hagi un fitxer canviat. Feu primer un commit o un shelve.",
+ "feature.mercurial.q3": "Coxswain executa els hooks del meu repositori?",
+ "feature.mercurial.a3": "No. Coxswain no llegeix mai el .hg/hgrc propi del repositori, de manera que els seus hooks i extensions no s'executen; la vostra configuració de Mercurial continua valent."
 }

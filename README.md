@@ -6,7 +6,7 @@ Coxswain is a two-panel file manager in the Norton Commander tradition, built fo
 It comes as a terminal app (`coxswain`, Rust and Ratatui) and a desktop app (`coxswain-gui`,
 Tauri and Svelte 5), both on one shared Rust core and one config file. It finds any file by
 its name, its text or what it is about, previews over 60 kinds of file, opens archives like
-folders, shows git (and Jujutsu) in every panel, and keeps everything on your machine.
+folders, shows git (and Jujutsu and Mercurial) in every panel, and keeps everything on your machine.
 
 <picture><source media="(prefers-reduced-motion: reduce)" srcset="docs/screenshots/find.png"><img src="docs/screenshots/find.gif" alt="The desktop app: Ctrl+F opens Find and engine is typed; the groups fill in as it is typed, Names with engine.rs, In files with main.rs and engine.rs and the lines that say engine, About this; Esc closes Find"></picture>
 *Find: type a word and names, the text inside files and what files are about come in, grouped, as you type.*
@@ -40,7 +40,7 @@ folders, shows git (and Jujutsu) in every panel, and keeps everything on your ma
 - **Git in every panel:** branch, ahead and behind, counts, a glyph per file, and who last committed it and when; the git config as git uses it, secrets hidden. [Git](docs/panels/git.md), [Git config](docs/panels/git-config.md)
 - **History as folders:** **Ctrl+G** on a file or folder lists its commits; Enter on one browses the files as they were, F5 copies an old version out, and Find finds commit messages. [Git history](docs/panels/git-history.md) · [History in search](docs/search/history.md)
 - **Branches and worktrees too:** **Alt+B** lists the branches, Enter browses one's files, **Alt+S** switches to it (git refuses to lose your changes); **Alt+W** lists the worktrees. The git line names a worktree, a detached HEAD and a merge or rebase under way. [Git branches](docs/panels/git-branches.md)
-- **Jujutsu too:** in a jj repository the line names the change and its bookmark, and **Ctrl+G** and **Alt+B** show jj's history and bookmarks, read-only. [Jujutsu](docs/panels/jujutsu.md)
+- **Jujutsu and Mercurial too:** in a jj repository the line names the change and its bookmark, and **Ctrl+G** and **Alt+B** show jj's history and bookmarks, read-only; in a Mercurial one the same through hg, with **Alt+S** to switch. [Jujutsu](docs/panels/jujutsu.md) · [Mercurial](docs/panels/mercurial.md)
 - **Folder sizes without asking,** instant in your home folder. [Folder sizes](docs/panels/folder-sizes.md)
 - **Finds duplicates** by content across folders and disks, and marks the extra copies by rule. [Duplicates](docs/files/duplicates.md)
 - **Thirty-three themes with the looks of their era, from the Amiga and the home computers to Windows and Mac,** and 31 languages, listed by region: Hebrew and Persian right to left, Greek capitals without accents, Japanese and Korean lined up in the terminal. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
@@ -164,7 +164,7 @@ what you see, the settings, and the questions people ask.
 
 | Area | What is in it |
 |---|---|
-| [Panels and keys](docs/panels/README.md) | The first-run guide, the screen, notices and what's new, moving, quick search, marking, sorting, tabs, views, folder sizes, git, git history, branches and worktrees, Jujutsu, the mouse, the command list (F9), Features (F1), the action menu, what the apps remember, every key |
+| [Panels and keys](docs/panels/README.md) | The first-run guide, the screen, notices and what's new, moving, quick search, marking, sorting, tabs, views, folder sizes, git, git history, branches and worktrees, Jujutsu, Mercurial, the mouse, the command list (F9), Features (F1), the action menu, what the apps remember, every key |
 | [Tags, notes, favourites and the sidebar](docs/organise/README.md) | Colour tags, folder notes, favourite groups, places and drives |
 | [Commands, the user menu and scripts](docs/commands/README.md) | The command line, F2 menu, scripts, F3 and F4, opening files |
 | [Search](docs/search/README.md) | The guided setup, Find, names, text, documents, scans, diagrams, git history, archives, cloud files, removable disks, meaning, servers, Ask, Ask about code, Ask without a server, built-in models, the helper, battery, search settings |

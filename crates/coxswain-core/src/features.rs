@@ -85,6 +85,7 @@ pub const FEATURES: &[Feature] = &[
     ),
     f("git_config", "panels/git-config.md", &[GitConfig, GitTool]),
     f("jujutsu", "panels/jujutsu.md", &[History, Branches, GitTool, Refresh]),
+    f("mercurial", "panels/mercurial.md", &[History, Branches, SwitchBranch, NewBranch, Refresh]),
     f("mouse", "panels/mouse.md", &[]),
     f("command_list", "panels/command-list.md", &[Menu, Help]),
     f("features", "panels/features.md", &[Help, Features]),

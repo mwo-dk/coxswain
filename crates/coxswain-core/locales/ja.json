@@ -3619,5 +3619,18 @@
  "history.scope_upstream_tip": "最後の fetch 時点で未プッシュ・未マージのコミット。何も取得しません ({key})",
  "history.side_ahead": "未プッシュ",
  "history.side_behind": "未マージ",
- "hint.upstream": "{key} で最後の fetch 時点の未プッシュ・未マージのコミットを一覧"
+ "hint.upstream": "{key} で最後の fetch 時点の未プッシュ・未マージのコミットを一覧",
+ "notice.hg_missing": "このリポジトリは Mercurial で管理されていますが、hg がインストールされていません。変更・履歴・ブックマークを見るには Mercurial をインストールしてください。",
+ "vcs.hg_has_filters": "このリポジトリ独自の Mercurial 設定が拡張機能やフィルターを有効にしていますが、Coxswain はそれを読みません。切り替えは hg 自身で行ってください",
+ "vcs.hg_bad_name": "「{name}」は Mercurial がブックマーク名として受け付けない名前です",
+ "vcs.hg_switched": "{name} に切り替えました",
+ "vcs.hg_created": "新しいブックマーク {name} (ここで有効)",
+ "feature.mercurial.title": "パネルの Mercurial",
+ "feature.mercurial.what": "Mercurial リポジトリでは、行にブックマークまたはブランチと変更されたファイルを表示し、履歴とブックマーク・ブランチをフォルダーとして見せ、切り替えと新しいブックマークを hg で行います。",
+ "feature.mercurial.q1": "Mercurial リポジトリで行が表示されないのはなぜですか?",
+ "feature.mercurial.a1": "hg がインストールされていない(通知が一度表示されます)か、フォルダーが git または Jujutsu のリポジトリ内にあり、そちらが優先されます。",
+ "feature.mercurial.q2": "切り替えると変更はどうなりますか?",
+ "feature.mercurial.a2": "何も起きません。{switch_branch} は hg update --check を実行し、変更されたファイルがある間は拒否します。先に commit か shelve をしてください。",
+ "feature.mercurial.q3": "Coxswain はリポジトリのフックを実行しますか?",
+ "feature.mercurial.a3": "いいえ。Coxswain はリポジトリ独自の .hg/hgrc を読まないので、そのフックや拡張機能は動きません。あなた自身の Mercurial 設定は有効です。"
 }

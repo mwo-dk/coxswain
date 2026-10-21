@@ -3701,5 +3701,18 @@
  "history.scope_upstream_tip": "Die Commits, die nicht gepusht und nicht gemergt sind, Stand des letzten Fetch; nichts wird geholt ({key})",
  "history.side_ahead": "Nicht gepusht",
  "history.side_behind": "Nicht gemergt",
- "hint.upstream": "{key} listet die Commits, die nicht gepusht und nicht gemergt sind, Stand des letzten Fetch"
+ "hint.upstream": "{key} listet die Commits, die nicht gepusht und nicht gemergt sind, Stand des letzten Fetch",
+ "notice.hg_missing": "Dieses Repository wird von Mercurial verwaltet, aber hg ist nicht installiert: Installieren Sie Mercurial, um seine Änderungen, seinen Verlauf und seine Bookmarks zu sehen.",
+ "vcs.hg_has_filters": "Die eigene Mercurial-Konfiguration dieses Repositorys schaltet Erweiterungen oder Filter ein, die Coxswain nie liest: Wechseln Sie mit hg selbst",
+ "vcs.hg_bad_name": "„{name}“ ist kein Name, den Mercurial für ein Bookmark nimmt",
+ "vcs.hg_switched": "Jetzt auf {name}",
+ "vcs.hg_created": "Neues Bookmark {name}, hier aktiv",
+ "feature.mercurial.title": "Mercurial in den Panels",
+ "feature.mercurial.what": "In einem Mercurial-Repository: Bookmark oder Branch und die geänderten Dateien in der Zeile, Verlauf, Bookmarks und Branches als Ordner, Wechseln und neue Bookmarks, über hg.",
+ "feature.mercurial.q1": "Warum zeigt ein Mercurial-Repository keine Zeile?",
+ "feature.mercurial.a1": "hg ist nicht installiert (ein Hinweis sagt es einmal), oder der Ordner liegt in einem git- oder Jujutsu-Repository, das zuerst gezeigt wird.",
+ "feature.mercurial.q2": "Was macht ein Wechsel mit meinen Änderungen?",
+ "feature.mercurial.a2": "Nichts: {switch_branch} führt hg update --check aus, das ablehnt, solange eine Datei geändert ist. Erst committen oder shelven.",
+ "feature.mercurial.q3": "Führt Coxswain die Hooks meines Repositorys aus?",
+ "feature.mercurial.a3": "Nein. Coxswain liest nie die eigene .hg/hgrc des Repositorys, also laufen dessen Hooks und Erweiterungen nicht; Ihre eigene Mercurial-Konfiguration gilt weiter."
 }

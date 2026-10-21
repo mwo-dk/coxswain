@@ -3701,5 +3701,18 @@
  "history.scope_upstream_tip": "Τα commits που δεν έγιναν push και δεν συγχωνεύτηκαν, κατά το τελευταίο fetch· τίποτα δεν ανακτάται ({key})",
  "history.side_ahead": "Χωρίς push",
  "history.side_behind": "Χωρίς συγχώνευση",
- "hint.upstream": "Το {key} δείχνει τα commits χωρίς push και χωρίς συγχώνευση, κατά το τελευταίο fetch"
+ "hint.upstream": "Το {key} δείχνει τα commits χωρίς push και χωρίς συγχώνευση, κατά το τελευταίο fetch",
+ "notice.hg_missing": "Αυτό το αποθετήριο το κρατά το Mercurial, αλλά το hg δεν είναι εγκατεστημένο: εγκαταστήστε το Mercurial για να δείτε τις αλλαγές, το ιστορικό και τους σελιδοδείκτες του.",
+ "vcs.hg_has_filters": "Οι δικές του ρυθμίσεις Mercurial του αποθετηρίου ενεργοποιούν επεκτάσεις ή φίλτρα, που το Coxswain δεν διαβάζει ποτέ: αλλάξτε με το ίδιο το hg",
+ "vcs.hg_bad_name": "Το «{name}» δεν είναι όνομα που δέχεται το Mercurial για σελιδοδείκτη",
+ "vcs.hg_switched": "Τώρα στο {name}",
+ "vcs.hg_created": "Νέος σελιδοδείκτης {name}, ενεργός εδώ",
+ "feature.mercurial.title": "Mercurial στα πάνελ",
+ "feature.mercurial.what": "Σε αποθετήριο Mercurial: ο σελιδοδείκτης ή ο κλάδος και τα αλλαγμένα αρχεία στη γραμμή, το ιστορικό και οι σελιδοδείκτες και κλάδοι ως φάκελοι, εναλλαγή και νέοι σελιδοδείκτες, μέσω hg.",
+ "feature.mercurial.q1": "Γιατί ένα αποθετήριο Mercurial δεν δείχνει γραμμή;",
+ "feature.mercurial.a1": "Το hg δεν είναι εγκατεστημένο (μια ειδοποίηση το λέει μία φορά), ή ο φάκελος είναι μέσα σε αποθετήριο git ή Jujutsu, που εμφανίζεται πρώτο.",
+ "feature.mercurial.q2": "Τι κάνει μια εναλλαγή με τις αλλαγές μου;",
+ "feature.mercurial.a2": "Τίποτα: το {switch_branch} εκτελεί hg update --check, που αρνείται όσο κάποιο αρχείο είναι αλλαγμένο. Κάντε πρώτα commit ή shelve.",
+ "feature.mercurial.q3": "Εκτελεί το Coxswain τα hooks του αποθετηρίου μου;",
+ "feature.mercurial.a3": "Όχι. Το Coxswain δεν διαβάζει ποτέ το δικό του .hg/hgrc του αποθετηρίου, άρα τα hooks και οι επεκτάσεις του δεν τρέχουν· οι δικές σας ρυθμίσεις Mercurial ισχύουν."
 }

@@ -3783,5 +3783,18 @@
  "history.scope_upstream_tip": "Les commits non poussés et non fusionnés, au dernier fetch ; rien n'est récupéré ({key})",
  "history.side_ahead": "Non poussé",
  "history.side_behind": "Non fusionné",
- "hint.upstream": "{key} liste les commits non poussés et non fusionnés, au dernier fetch"
+ "hint.upstream": "{key} liste les commits non poussés et non fusionnés, au dernier fetch",
+ "notice.hg_missing": "Ce dépôt est tenu par Mercurial, mais hg n'est pas installé : installez Mercurial pour voir ses modifications, son historique et ses signets.",
+ "vcs.hg_has_filters": "La configuration Mercurial propre à ce dépôt active des extensions ou des filtres, que Coxswain ne lit jamais : changez avec hg lui-même",
+ "vcs.hg_bad_name": "« {name} » n'est pas un nom que Mercurial accepte pour un signet",
+ "vcs.hg_switched": "Maintenant sur {name}",
+ "vcs.hg_created": "Nouveau signet {name}, actif ici",
+ "feature.mercurial.title": "Mercurial dans les panneaux",
+ "feature.mercurial.what": "Dans un dépôt Mercurial : le signet ou la branche et les fichiers modifiés sur la ligne, l'historique, les signets et les branches comme dossiers, le changement et les nouveaux signets, par hg.",
+ "feature.mercurial.q1": "Pourquoi un dépôt Mercurial n'affiche-t-il pas de ligne ?",
+ "feature.mercurial.a1": "hg n'est pas installé (une notice le dit une fois), ou le dossier est dans un dépôt git ou Jujutsu, montré en premier.",
+ "feature.mercurial.q2": "Que fait un changement de mes modifications ?",
+ "feature.mercurial.a2": "Rien : {switch_branch} lance hg update --check, qui refuse tant qu'un fichier est modifié. Faites d'abord un commit ou un shelve.",
+ "feature.mercurial.q3": "Coxswain lance-t-il les hooks de mon dépôt ?",
+ "feature.mercurial.a3": "Non. Coxswain ne lit jamais le .hg/hgrc propre au dépôt, donc ses hooks et extensions ne tournent pas ; votre propre configuration Mercurial s'applique toujours."
 }

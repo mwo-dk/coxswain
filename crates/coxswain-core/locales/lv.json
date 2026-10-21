@@ -3783,5 +3783,18 @@
  "history.scope_upstream_tip": "Nenosūtītie un nesapludinātie komiti pēc pēdējā fetch; nekas netiek ielādēts ({key})",
  "history.side_ahead": "Nav nosūtīts",
  "history.side_behind": "Nav sapludināts",
- "hint.upstream": "{key} uzskaita nenosūtītos un nesapludinātos komitus pēc pēdējā fetch"
+ "hint.upstream": "{key} uzskaita nenosūtītos un nesapludinātos komitus pēc pēdējā fetch",
+ "notice.hg_missing": "Šo repozitoriju uztur Mercurial, bet hg nav instalēts: instalējiet Mercurial, lai redzētu tā izmaiņas, vēsturi un grāmatzīmes.",
+ "vcs.hg_has_filters": "Šī repozitorija paša Mercurial konfigurācija ieslēdz paplašinājumus vai filtrus, ko Coxswain nekad nelasa: pārslēdzieties ar pašu hg",
+ "vcs.hg_bad_name": "“{name}” nav vārds, ko Mercurial pieņem grāmatzīmei",
+ "vcs.hg_switched": "Tagad uz {name}",
+ "vcs.hg_created": "Jauna grāmatzīme {name}, šeit aktīva",
+ "feature.mercurial.title": "Mercurial paneļos",
+ "feature.mercurial.what": "Mercurial repozitorijā: grāmatzīme vai zars un mainītie faili rindā, vēsture un grāmatzīmes un zari kā mapes, pārslēgšana un jaunas grāmatzīmes, ar hg.",
+ "feature.mercurial.q1": "Kāpēc Mercurial repozitorijs nerāda rindu?",
+ "feature.mercurial.a1": "hg nav instalēts (paziņojums to pasaka vienreiz), vai mape ir git vai Jujutsu repozitorijā, kas tiek rādīts vispirms.",
+ "feature.mercurial.q2": "Ko pārslēgšana dara ar manām izmaiņām?",
+ "feature.mercurial.a2": "Neko: {switch_branch} palaiž hg update --check, kas atsakās, kamēr kāds fails ir mainīts. Vispirms veiciet commit vai shelve.",
+ "feature.mercurial.q3": "Vai Coxswain palaiž mana repozitorija hookus?",
+ "feature.mercurial.a3": "Nē. Coxswain nekad nelasa repozitorija paša .hg/hgrc, tāpēc tā hooki un paplašinājumi nedarbojas; jūsu pašu Mercurial konfigurācija joprojām ir spēkā."
 }

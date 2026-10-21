@@ -204,6 +204,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     if crate::vcs::JJ_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
         all.push(Notice::new("jj-missing", t!("notice.jj_missing"), None));
     }
+    // A Mercurial repository was opened and hg is not installed.
+    if crate::vcs::HG_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+        all.push(Notice::new("hg-missing", t!("notice.hg_missing"), None));
+    }
     // Home is on ZFS: its snapshots are a key away.
     if !seen("zfs") && crate::dirs::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
         let key = cfg

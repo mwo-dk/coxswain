@@ -398,6 +398,10 @@ fn spec(at: &At) -> String {
 
 /// One commit, by its id or name.
 pub fn show(base: &Path, rev: &str) -> io::Result<Commit> {
+    crate::vcs::of(base).show(base, rev)
+}
+
+pub(crate) fn git_show(base: &Path, rev: &str) -> io::Result<Commit> {
     let mut c = git(base);
     c.args(["log", "-1", "-z", FORMAT, rev, "--"]);
     commit(&run(c)?)
@@ -423,7 +427,7 @@ fn entry_name(c: &Commit) -> String {
 }
 
 /// One line of `git ls-tree -l -z`: mode, kind, id, size, path.
-fn tree_line(rec: &[u8]) -> Option<(String, &str, u64, String)> {
+fn tree_line(rec: &[u8]) -> Option<(String, &'static str, u64, String)> {
     let s = std::str::from_utf8(rec).ok()?;
     let (meta, path) = s.split_once('\t')?;
     let mut f = meta.split_whitespace();
@@ -488,25 +492,11 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
         }));
         return Ok(out);
     };
-    let when = show(&at.base, rev)?.time;
-    let mut c = git(&at.base);
-    c.args(["ls-tree", "-z", "-l", rev, "--", &inner_spec(&at.inner)]);
-    let prefix = if at.inner.is_empty() {
-        String::new()
-    } else {
-        format!("{}/", at.inner)
-    };
+    let vcs = crate::vcs::of(&at.base);
+    let when = vcs.show(&at.base, rev)?.time;
     let mut out = vec![up(dir.parent().unwrap_or(dir).to_path_buf())];
-    for rec in run(c)?.split(|&b| b == 0) {
-        let Some((p, kind, size, _)) = tree_line(rec) else {
-            continue;
-        };
-        let Some(name) = p
-            .strip_prefix(&prefix)
-            .filter(|n| !n.is_empty() && !n.contains('/'))
-        else {
-            continue;
-        };
+    for (name, kind, size) in vcs.tree(&at.base, rev, &at.inner)? {
+        let name = name.as_str();
         out.push(Entry {
             hidden: name.starts_with('.'),
             path: dir.join(name),
@@ -537,8 +527,11 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
             crate::t!("history.pick_commit"),
         )
     })?;
-    let mut c = git(&at.base);
-    c.args(["cat-file", "blob", &format!("{rev}:./{}", at.inner)]);
+    crate::vcs::of(&at.base).read(&at.base, rev, &at.inner, max)
+}
+
+/// The first `max` bytes of `c`'s output, and whether there was more.
+pub(crate) fn read_out(mut c: Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
     let mut buf = vec![];
     child
@@ -592,7 +585,12 @@ pub fn diff(at: &At) -> io::Result<String> {
             crate::t!("history.pick_commit"),
         )
     })?;
-    let mut c = git(&at.base);
+    let out = crate::vcs::of(&at.base).diff(&at.base, rev, &at.inner)?;
+    Ok(String::from_utf8_lossy(&out).chars().take(512 * 1024).collect())
+}
+
+pub(crate) fn git_diff(base: &Path, rev: &str, inner: &str) -> io::Result<Vec<u8>> {
+    let mut c = git(base);
     c.args([
         "show",
         "--format=",
@@ -601,11 +599,34 @@ pub fn diff(at: &At) -> io::Result<String> {
         "--no-textconv",
         rev,
         "--",
-        inner_spec(&at.inner).trim_end_matches('/'),
+        inner_spec(inner).trim_end_matches('/'),
     ]);
-    Ok(String::from_utf8_lossy(&run(c)?)
-        .chars()
-        .take(512 * 1024)
+    run(c)
+}
+
+pub(crate) fn git_read(base: &Path, rev: &str, inner: &str, max: usize) -> io::Result<(Vec<u8>, bool)> {
+    let mut c = git(base);
+    c.args(["cat-file", "blob", &format!("{rev}:./{inner}")]);
+    read_out(c, max)
+}
+
+/// The entries of the folder `inner` (below `base`) at `rev`: name, kind (`tree`, `blob`,
+/// `exec`, `link`, `commit`) and size.
+pub(crate) fn git_tree(base: &Path, rev: &str, inner: &str) -> io::Result<Vec<(String, &'static str, u64)>> {
+    let mut c = git(base);
+    c.args(["ls-tree", "-z", "-l", rev, "--", &inner_spec(inner)]);
+    let prefix = if inner.is_empty() {
+        String::new()
+    } else {
+        format!("{inner}/")
+    };
+    Ok(run(c)?
+        .split(|&b| b == 0)
+        .filter_map(|rec| {
+            let (p, kind, size, _) = tree_line(rec)?;
+            let name = p.strip_prefix(&prefix).filter(|n| !n.is_empty() && !n.contains('/'))?;
+            Some((name.to_string(), kind, size))
+        })
         .collect())
 }
 
@@ -657,7 +678,7 @@ pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
             crate::t!("err.exists", "path" => to.display()),
         ));
     }
-    let r = write_tree(at, rev, &to);
+    let r = crate::vcs::of(&at.base).export(at, rev, &to);
     if r.is_err() {
         let _ = if to.is_dir() {
             std::fs::remove_dir_all(&to)
@@ -668,7 +689,7 @@ pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
     r.map(|_| to)
 }
 
-fn write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
+pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     let mut c = git(&at.base);
     let spec = if at.inner.is_empty() {
         ".".to_string()

@@ -3701,5 +3701,18 @@
  "history.scope_upstream_tip": "Commits som inte är pushade och inte mergade, enligt senaste fetch; inget hämtas ({key})",
  "history.side_ahead": "Inte pushad",
  "history.side_behind": "Inte mergad",
- "hint.upstream": "{key} listar commits som inte är pushade och inte mergade, enligt senaste fetch"
+ "hint.upstream": "{key} listar commits som inte är pushade och inte mergade, enligt senaste fetch",
+ "notice.hg_missing": "Det här förrådet hålls av Mercurial, men hg är inte installerat: installera Mercurial för att se dess ändringar, historik och bokmärken.",
+ "vcs.hg_has_filters": "Förrådets egen Mercurial-konfiguration slår på tillägg eller filter, som Coxswain aldrig läser: byt med hg själv",
+ "vcs.hg_bad_name": "”{name}” är inte ett namn Mercurial tar för ett bokmärke",
+ "vcs.hg_switched": "Nu på {name}",
+ "vcs.hg_created": "Nytt bokmärke {name}, aktivt här",
+ "feature.mercurial.title": "Mercurial i panelerna",
+ "feature.mercurial.what": "I ett Mercurial-förråd: bokmärke eller gren och de ändrade filerna på raden, historiken och bokmärken och grenar som mappar, byten och nya bokmärken, genom hg.",
+ "feature.mercurial.q1": "Varför visar ett Mercurial-förråd ingen rad?",
+ "feature.mercurial.a1": "hg är inte installerat (ett meddelande säger det en gång), eller så ligger mappen i ett git- eller Jujutsu-förråd, som visas först.",
+ "feature.mercurial.q2": "Vad gör ett byte med mina ändringar?",
+ "feature.mercurial.a2": "Ingenting: {switch_branch} kör hg update --check, som vägrar så länge en fil är ändrad. Committa eller shelva först.",
+ "feature.mercurial.q3": "Kör Coxswain mitt förråds hooks?",
+ "feature.mercurial.a3": "Nej. Coxswain läser aldrig förrådets egen .hg/hgrc, så dess hooks och tillägg körs inte; din egen Mercurial-konfiguration gäller fortfarande."
 }

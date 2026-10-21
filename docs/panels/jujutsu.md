@@ -126,7 +126,7 @@ in the list, named by its commit id alone until you give it a description (`jj d
 
 #### Which other version control systems does Coxswain show?
 
-Git and Jujutsu. TFVC and Fossil are not supported; a TFS server's git repositories work as git.
+Git, Jujutsu and [Mercurial](mercurial.md). TFVC and Fossil are not supported; a TFS server's git repositories work as git.
 
 ---
-[← Previous: Git config](git-config.md) · [Next: The mouse →](mouse.md)
+[← Previous: Git config](git-config.md) · [Next: Mercurial in the panels →](mercurial.md)

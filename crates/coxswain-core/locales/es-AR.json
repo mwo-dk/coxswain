@@ -3783,5 +3783,18 @@
  "history.scope_upstream_tip": "Los commits sin subir y sin fusionar, según el último fetch; no se trae nada ({key})",
  "history.side_ahead": "Sin subir",
  "history.side_behind": "Sin fusionar",
- "hint.upstream": "{key} lista los commits sin subir y sin fusionar, según el último fetch"
+ "hint.upstream": "{key} lista los commits sin subir y sin fusionar, según el último fetch",
+ "notice.hg_missing": "Este repositorio lo lleva Mercurial, pero hg no está instalado: instalá Mercurial para ver sus cambios, su historial y sus marcadores.",
+ "vcs.hg_has_filters": "La configuración de Mercurial propia de este repositorio activa extensiones o filtros, que Coxswain nunca lee: cambiá con hg mismo",
+ "vcs.hg_bad_name": "«{name}» no es un nombre que Mercurial acepte para un marcador",
+ "vcs.hg_switched": "Ahora en {name}",
+ "vcs.hg_created": "Marcador nuevo {name}, activo acá",
+ "feature.mercurial.title": "Mercurial en los paneles",
+ "feature.mercurial.what": "En un repositorio de Mercurial: el marcador o la rama y los archivos cambiados en la línea, el historial y los marcadores y ramas como carpetas, cambiar y marcadores nuevos, con hg.",
+ "feature.mercurial.q1": "¿Por qué un repositorio de Mercurial no muestra ninguna línea?",
+ "feature.mercurial.a1": "hg no está instalado (un aviso lo dice una vez), o la carpeta está dentro de un repositorio de git o de Jujutsu, que se muestra primero.",
+ "feature.mercurial.q2": "¿Qué hace un cambio con mis cambios?",
+ "feature.mercurial.a2": "Nada: {switch_branch} ejecuta hg update --check, que se niega mientras haya un archivo cambiado. Hacé antes un commit o un shelve.",
+ "feature.mercurial.q3": "¿Coxswain ejecuta los hooks de mi repositorio?",
+ "feature.mercurial.a3": "No. Coxswain nunca lee el .hg/hgrc propio del repositorio, así que sus hooks y extensiones no se ejecutan; tu propia configuración de Mercurial sigue valiendo."
 }

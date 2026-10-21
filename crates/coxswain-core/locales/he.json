@@ -3783,5 +3783,18 @@
  "history.scope_upstream_tip": "הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון; שום דבר לא נמשך ({key})",
  "history.side_ahead": "לא נדחף",
  "history.side_behind": "לא מוזג",
- "hint.upstream": "{key} מציג את הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון"
+ "hint.upstream": "{key} מציג את הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון",
+ "notice.hg_missing": "המאגר הזה מנוהל ב־Mercurial, אבל hg אינו מותקן: התקינו את Mercurial כדי לראות את השינויים, ההיסטוריה והסימניות שלו.",
+ "vcs.hg_has_filters": "הגדרות ה־Mercurial של המאגר עצמו מפעילות הרחבות או מסננים, ש־Coxswain לעולם לא קורא: החליפו עם hg עצמו",
+ "vcs.hg_bad_name": "‏\"{name}\" אינו שם ש־Mercurial מקבל לסימנייה",
+ "vcs.hg_switched": "עכשיו ב־{name}",
+ "vcs.hg_created": "סימנייה חדשה {name}, פעילה כאן",
+ "feature.mercurial.title": "Mercurial בחלוניות",
+ "feature.mercurial.what": "במאגר Mercurial: הסימנייה או הענף והקבצים שהשתנו בשורה, ההיסטוריה והסימניות והענפים כתיקיות, החלפה וסימניות חדשות, דרך hg.",
+ "feature.mercurial.q1": "למה מאגר Mercurial לא מציג שורה?",
+ "feature.mercurial.a1": "hg אינו מותקן (הודעה אומרת זאת פעם אחת), או שהתיקייה בתוך מאגר git או Jujutsu, שמוצג קודם.",
+ "feature.mercurial.q2": "מה החלפה עושה לשינויים שלי?",
+ "feature.mercurial.a2": "כלום: {switch_branch} מריץ hg update --check, שמסרב כל עוד קובץ כלשהו השתנה. בצעו קודם commit או shelve.",
+ "feature.mercurial.q3": "האם Coxswain מריץ את ה־hooks של המאגר שלי?",
+ "feature.mercurial.a3": "לא. Coxswain לעולם לא קורא את ‎.hg/hgrc של המאגר עצמו, ולכן ה־hooks וההרחבות שלו לא רצים; הגדרות ה־Mercurial שלכם עדיין חלות."
 }

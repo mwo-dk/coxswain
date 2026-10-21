@@ -3712,5 +3712,18 @@
  "history.scope_upstream_tip": "The commits not pushed and not merged, as of the last fetch; nothing is fetched ({key})",
  "history.side_ahead": "Not pushed",
  "history.side_behind": "Not merged",
- "hint.upstream": "{key} lists the commits not pushed and not merged, as of the last fetch"
+ "hint.upstream": "{key} lists the commits not pushed and not merged, as of the last fetch",
+ "notice.hg_missing": "This repository is kept by Mercurial, but hg is not installed: install Mercurial to see its changes, history and bookmarks.",
+ "vcs.hg_has_filters": "This repository's own Mercurial config turns on extensions or filters, which Coxswain never reads: switch with hg itself",
+ "vcs.hg_bad_name": "\"{name}\" is not a name Mercurial takes for a bookmark",
+ "vcs.hg_switched": "Now on {name}",
+ "vcs.hg_created": "New bookmark {name}, active here",
+ "feature.mercurial.title": "Mercurial in the panels",
+ "feature.mercurial.what": "In a Mercurial repository: the bookmark or branch and the changed files on the line, the history and the bookmarks and branches as folders, switching and new bookmarks, through hg.",
+ "feature.mercurial.q1": "Why does a Mercurial repository show no line?",
+ "feature.mercurial.a1": "hg is not installed (a notice says so once), or the folder is inside a git or Jujutsu repository, which is shown first.",
+ "feature.mercurial.q2": "What does a switch do with my changes?",
+ "feature.mercurial.a2": "Nothing: {switch_branch} runs hg update --check, which refuses while any file is changed. Commit or shelve first.",
+ "feature.mercurial.q3": "Does Coxswain run my repository's hooks?",
+ "feature.mercurial.a3": "No. Coxswain never reads the repository's own .hg/hgrc, so its hooks and extensions do not run; your own Mercurial config still holds."
 }

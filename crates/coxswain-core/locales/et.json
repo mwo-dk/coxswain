@@ -3701,5 +3701,18 @@
  "history.scope_upstream_tip": "Kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga; midagi ei tooda ({key})",
  "history.side_ahead": "Pushimata",
  "history.side_behind": "Mergimata",
- "hint.upstream": "{key} loetleb kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga"
+ "hint.upstream": "{key} loetleb kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga",
+ "notice.hg_missing": "Seda hoidlat haldab Mercurial, kuid hg pole paigaldatud: paigalda Mercurial, et näha selle muudatusi, ajalugu ja järjehoidjaid.",
+ "vcs.hg_has_filters": "Selle hoidla enda Mercuriali seadistus lülitab sisse laiendusi või filtreid, mida Coxswain kunagi ei loe: vaheta hg-ga ise",
+ "vcs.hg_bad_name": "„{name}” pole nimi, mida Mercurial järjehoidjale võtab",
+ "vcs.hg_switched": "Nüüd: {name}",
+ "vcs.hg_created": "Uus järjehoidja {name}, siin aktiivne",
+ "feature.mercurial.title": "Mercurial paneelides",
+ "feature.mercurial.what": "Mercuriali hoidlas: järjehoidja või haru ja muudetud failid real, ajalugu ning järjehoidjad ja harud kaustadena, vahetamine ja uued järjehoidjad, hg kaudu.",
+ "feature.mercurial.q1": "Miks Mercuriali hoidla rida ei näita?",
+ "feature.mercurial.a1": "hg pole paigaldatud (teade ütleb seda korra) või kaust on git- või Jujutsu hoidlas, mida näidatakse esimesena.",
+ "feature.mercurial.q2": "Mida vahetus mu muudatustega teeb?",
+ "feature.mercurial.a2": "Mitte midagi: {switch_branch} käivitab hg update --check, mis keeldub, kuni mõni fail on muudetud. Tee enne commit või shelve.",
+ "feature.mercurial.q3": "Kas Coxswain käivitab mu hoidla hooke?",
+ "feature.mercurial.a3": "Ei. Coxswain ei loe kunagi hoidla enda .hg/hgrc faili, nii et selle hookid ja laiendused ei käivitu; sinu enda Mercuriali seadistus kehtib edasi."
 }

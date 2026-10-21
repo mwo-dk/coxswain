@@ -3784,5 +3784,18 @@
  "history.scope_upstream_tip": "Commity neodeslané a nesloučené podle posledního fetch; nic se nestahuje ({key})",
  "history.side_ahead": "Neodesláno",
  "history.side_behind": "Nesloučeno",
- "hint.upstream": "{key} vypíše commity neodeslané a nesloučené podle posledního fetch"
+ "hint.upstream": "{key} vypíše commity neodeslané a nesloučené podle posledního fetch",
+ "notice.hg_missing": "Tento repozitář spravuje Mercurial, ale hg není nainstalováno: nainstalujte Mercurial, abyste viděli jeho změny, historii a záložky.",
+ "vcs.hg_has_filters": "Vlastní konfigurace Mercurialu v tomto repozitáři zapíná rozšíření nebo filtry, které Coxswain nikdy nečte: přepněte přímo v hg",
+ "vcs.hg_bad_name": "„{name}“ není jméno, které Mercurial přijme pro záložku",
+ "vcs.hg_switched": "Nyní na {name}",
+ "vcs.hg_created": "Nová záložka {name}, zde aktivní",
+ "feature.mercurial.title": "Mercurial v panelech",
+ "feature.mercurial.what": "V repozitáři Mercurialu: záložka nebo větev a změněné soubory na řádku, historie a záložky a větve jako složky, přepínání a nové záložky, přes hg.",
+ "feature.mercurial.q1": "Proč repozitář Mercurialu neukazuje žádný řádek?",
+ "feature.mercurial.a1": "hg není nainstalováno (oznámení to jednou řekne), nebo je složka uvnitř repozitáře git či Jujutsu, který se ukazuje přednostně.",
+ "feature.mercurial.q2": "Co přepnutí udělá s mými změnami?",
+ "feature.mercurial.a2": "Nic: {switch_branch} spustí hg update --check, které odmítne, dokud je některý soubor změněný. Nejprve proveďte commit nebo shelve.",
+ "feature.mercurial.q3": "Spouští Coxswain hooky mého repozitáře?",
+ "feature.mercurial.a3": "Ne. Coxswain nikdy nečte vlastní .hg/hgrc repozitáře, takže jeho hooky a rozšíření neběží; vaše vlastní konfigurace Mercurialu platí dál."
 }

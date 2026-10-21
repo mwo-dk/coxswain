@@ -31,6 +31,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [Git config](git-config.md) | **Alt+C**: the git config as git uses it, each value with its scope and file, secrets hidden; read-only |
 | [Jujutsu in the panels](jujutsu.md) | A Jujutsu repository through `jj`: the line, the history (**Ctrl+G**) and the bookmarks (**Alt+B**), read-only |
+| [Mercurial in the panels](mercurial.md) | A Mercurial repository through `hg`: the line, the history (**Ctrl+G**), bookmarks and branches (**Alt+B**), switching (**Alt+S**) and new bookmarks |
 | [The mouse](mouse.md) | Clicks, marks, drags, the path bar, the splitters |
 | [The command list (F9) and Help (F1)](command-list.md) | Every action by name, and the keys by group |
 | [Features and questions (F1)](features.md) | Help's second tab: every feature with its keys and two or three questions answered, a filter, **Show me** for its page, **F1** in a dialog |

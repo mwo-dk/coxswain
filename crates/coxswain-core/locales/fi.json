@@ -3701,5 +3701,18 @@
  "history.scope_upstream_tip": "Pushaamattomat ja yhdistämättömät commitit viimeisimmän fetchin mukaan; mitään ei haeta ({key})",
  "history.side_ahead": "Pushaamatta",
  "history.side_behind": "Yhdistämättä",
- "hint.upstream": "{key} luettelee pushaamattomat ja yhdistämättömät commitit viimeisimmän fetchin mukaan"
+ "hint.upstream": "{key} luettelee pushaamattomat ja yhdistämättömät commitit viimeisimmän fetchin mukaan",
+ "notice.hg_missing": "Tätä repositoriota ylläpitää Mercurial, mutta hg ei ole asennettuna: asenna Mercurial nähdäksesi sen muutokset, historian ja kirjanmerkit.",
+ "vcs.hg_has_filters": "Tämän repositorion oma Mercurial-asetus ottaa käyttöön laajennuksia tai suodattimia, joita Coxswain ei koskaan lue: vaihda hg:llä itse",
+ "vcs.hg_bad_name": "”{name}” ei ole nimi, jonka Mercurial hyväksyy kirjanmerkille",
+ "vcs.hg_switched": "Nyt kohdassa {name}",
+ "vcs.hg_created": "Uusi kirjanmerkki {name}, aktiivinen tässä",
+ "feature.mercurial.title": "Mercurial paneeleissa",
+ "feature.mercurial.what": "Mercurial-repositoriossa: kirjanmerkki tai haara ja muuttuneet tiedostot rivillä, historia sekä kirjanmerkit ja haarat kansioina, vaihto ja uudet kirjanmerkit, hg:n kautta.",
+ "feature.mercurial.q1": "Miksi Mercurial-repositoriossa ei näy riviä?",
+ "feature.mercurial.a1": "hg ei ole asennettuna (ilmoitus kertoo sen kerran), tai kansio on git- tai Jujutsu-repositoriossa, joka näytetään ensin.",
+ "feature.mercurial.q2": "Mitä vaihto tekee muutoksilleni?",
+ "feature.mercurial.a2": "Ei mitään: {switch_branch} ajaa hg update --check, joka kieltäytyy niin kauan kuin jokin tiedosto on muuttunut. Tee ensin commit tai shelve.",
+ "feature.mercurial.q3": "Ajaako Coxswain repositorioni hookit?",
+ "feature.mercurial.a3": "Ei. Coxswain ei koskaan lue repositorion omaa .hg/hgrc-tiedostoa, joten sen hookit ja laajennukset eivät käynnisty; oma Mercurial-asetuksesi on yhä voimassa."
 }

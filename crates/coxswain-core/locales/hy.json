@@ -3694,5 +3694,18 @@
  "history.scope_upstream_tip": "Չուղարկված և չմիավորված commit-ները՝ վերջին fetch-ի դրությամբ. ոչինչ չի բեռնվում ({key})",
  "history.side_ahead": "Չուղարկված",
  "history.side_behind": "Չմիավորված",
- "hint.upstream": "{key}՝ չուղարկված և չմիավորված commit-ները՝ վերջին fetch-ի դրությամբ"
+ "hint.upstream": "{key}՝ չուղարկված և չմիավորված commit-ները՝ վերջին fetch-ի դրությամբ",
+ "notice.hg_missing": "Այս պահոցը վարում է Mercurial-ը, բայց hg-ն տեղադրված չէ. տեղադրեք Mercurial-ը՝ նրա փոփոխությունները, պատմությունը և էջանիշերը տեսնելու համար։",
+ "vcs.hg_has_filters": "Այս պահոցի սեփական Mercurial կարգավորումը միացնում է ընդլայնումներ կամ զտիչներ, որոնք Coxswain-ը երբեք չի կարդում. փոխեք հենց hg-ով",
+ "vcs.hg_bad_name": "«{name}»-ը այնպիսի անուն չէ, որ Mercurial-ը ընդունի էջանիշի համար",
+ "vcs.hg_switched": "Այժմ {name}-ի վրա",
+ "vcs.hg_created": "Նոր էջանիշ {name}, այստեղ ակտիվ",
+ "feature.mercurial.title": "Mercurial-ը վահանակներում",
+ "feature.mercurial.what": "Mercurial պահոցում՝ էջանիշը կամ ճյուղը և փոխված ֆայլերը տողում, պատմությունը և էջանիշերն ու ճյուղերը որպես թղթապանակներ, անցում և նոր էջանիշեր՝ hg-ով։",
+ "feature.mercurial.q1": "Ինչո՞ւ Mercurial պահոցը տող ցույց չի տալիս։",
+ "feature.mercurial.a1": "hg-ն տեղադրված չէ (ծանուցումը մեկ անգամ ասում է), կամ թղթապանակը git կամ Jujutsu պահոցի մեջ է, որը ցույց է տրվում առաջինը։",
+ "feature.mercurial.q2": "Ի՞նչ է անում անցումը իմ փոփոխությունների հետ։",
+ "feature.mercurial.a2": "Ոչինչ. {switch_branch}-ը գործարկում է hg update --check, որը մերժում է, քանի դեռ որևէ ֆայլ փոխված է։ Նախ արեք commit կամ shelve։",
+ "feature.mercurial.q3": "Coxswain-ը գործարկո՞ւմ է իմ պահոցի hook-երը։",
+ "feature.mercurial.a3": "Ոչ. Coxswain-ը երբեք չի կարդում պահոցի սեփական .hg/hgrc-ը, ուստի նրա hook-երն ու ընդլայնումները չեն աշխատում. ձեր սեփական Mercurial կարգավորումը շարունակում է գործել։"
 }

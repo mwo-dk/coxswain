@@ -3783,5 +3783,18 @@
  "history.scope_upstream_tip": "Neišsiųsti ir nesulieti commit'ai pagal paskutinį fetch; nieko neparsiunčiama ({key})",
  "history.side_ahead": "Neišsiųsta",
  "history.side_behind": "Nesulieta",
- "hint.upstream": "{key} išvardija neišsiųstus ir nesulietus commit'us pagal paskutinį fetch"
+ "hint.upstream": "{key} išvardija neišsiųstus ir nesulietus commit'us pagal paskutinį fetch",
+ "notice.hg_missing": "Šią saugyklą tvarko Mercurial, bet hg neįdiegta: įdiekite Mercurial, kad matytumėte jos pakeitimus, istoriją ir žymes.",
+ "vcs.hg_has_filters": "Šios saugyklos pačios Mercurial konfigūracija įjungia plėtinius ar filtrus, kurių Coxswain niekada neskaito: perjunkite pačiu hg",
+ "vcs.hg_bad_name": "„{name}“ nėra vardas, kurį Mercurial priima žymei",
+ "vcs.hg_switched": "Dabar ties {name}",
+ "vcs.hg_created": "Nauja žymė {name}, čia aktyvi",
+ "feature.mercurial.title": "Mercurial skydeliuose",
+ "feature.mercurial.what": "Mercurial saugykloje: žymė ar šaka ir pakeisti failai eilutėje, istorija bei žymės ir šakos kaip aplankai, perjungimas ir naujos žymės, per hg.",
+ "feature.mercurial.q1": "Kodėl Mercurial saugykla nerodo eilutės?",
+ "feature.mercurial.a1": "hg neįdiegta (pranešimas tai pasako vieną kartą) arba aplankas yra git ar Jujutsu saugykloje, kuri rodoma pirmiau.",
+ "feature.mercurial.q2": "Ką perjungimas daro su mano pakeitimais?",
+ "feature.mercurial.a2": "Nieko: {switch_branch} paleidžia hg update --check, kuri atsisako, kol kuris nors failas pakeistas. Pirmiau padarykite commit arba shelve.",
+ "feature.mercurial.q3": "Ar Coxswain paleidžia mano saugyklos hook'us?",
+ "feature.mercurial.a3": "Ne. Coxswain niekada neskaito saugyklos pačios .hg/hgrc, todėl jos hook'ai ir plėtiniai neveikia; jūsų pačių Mercurial konfigūracija galioja toliau."
 }

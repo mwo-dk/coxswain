@@ -3694,5 +3694,18 @@
  "history.scope_upstream_tip": "کامیت‌های push نشده و ادغام نشده، تا آخرین fetch؛ چیزی دریافت نمی‌شود ({key})",
  "history.side_ahead": "push نشده",
  "history.side_behind": "ادغام نشده",
- "hint.upstream": "{key} کامیت‌های push نشده و ادغام نشده را تا آخرین fetch فهرست می‌کند"
+ "hint.upstream": "{key} کامیت‌های push نشده و ادغام نشده را تا آخرین fetch فهرست می‌کند",
+ "notice.hg_missing": "این مخزن را Mercurial نگه می‌دارد، ولی hg نصب نیست: Mercurial را نصب کنید تا تغییرات، تاریخچه و نشانک‌های آن را ببینید.",
+ "vcs.hg_has_filters": "پیکربندی Mercurial خود این مخزن افزونه‌ها یا پالایه‌هایی را روشن می‌کند که Coxswain هرگز نمی‌خواند: با خود hg جابه‌جا شوید",
+ "vcs.hg_bad_name": "«{name}» نامی نیست که Mercurial برای نشانک بپذیرد",
+ "vcs.hg_switched": "اکنون روی {name}",
+ "vcs.hg_created": "نشانک تازهٔ {name}، اینجا فعال",
+ "feature.mercurial.title": "Mercurial در پنل‌ها",
+ "feature.mercurial.what": "در مخزن Mercurial: نشانک یا شاخه و پرونده‌های تغییرکرده روی خط، تاریخچه و نشانک‌ها و شاخه‌ها به شکل پوشه، جابه‌جایی و نشانک‌های تازه، با hg.",
+ "feature.mercurial.q1": "چرا مخزن Mercurial خطی نشان نمی‌دهد؟",
+ "feature.mercurial.a1": "hg نصب نیست (یک اعلان یک بار می‌گوید)، یا پوشه درون مخزن git یا Jujutsu است که اول نشان داده می‌شود.",
+ "feature.mercurial.q2": "جابه‌جایی با تغییرات من چه می‌کند؟",
+ "feature.mercurial.a2": "هیچ: {switch_branch} فرمان hg update --check را اجرا می‌کند که تا وقتی پرونده‌ای تغییر کرده باشد سر باز می‌زند. اول commit یا shelve کنید.",
+ "feature.mercurial.q3": "آیا Coxswain هوک‌های مخزن مرا اجرا می‌کند؟",
+ "feature.mercurial.a3": "نه. Coxswain هرگز ‎.hg/hgrc خود مخزن را نمی‌خواند، پس هوک‌ها و افزونه‌های آن اجرا نمی‌شوند؛ پیکربندی Mercurial خودتان همچنان برقرار است."
 }
