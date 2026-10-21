@@ -225,7 +225,7 @@ mindmap
 | [Disk use](reference/disk-use.md) | Settings → Privacy and updates → Disk use and coxswain --disk: each place's size, where, what clearing costs, Clear; Tectonic's cache and container images Coxswain caused; clear everything that is built again |
 | [Security](reference/security.md) | Dependencies: how they are chosen and updated, advisory and licence checks on every change and weekly, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](reference/bills-of-materials.md) | The SBOMs, the CBOM and the third-party notices each release carries, the licence checks, the cryptography both apps use |
-| [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files and a million names, and how to measure again |
+| [Performance](reference/performance.md) | What keeps each app quick, the numbers for 100,000 files, a folder of a million and a million names, and how to measure again |
 
 ## [Systems](systems/README.md)
 

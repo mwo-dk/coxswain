@@ -42,7 +42,9 @@
   }
 
 
-  const selBytes = $derived(t.marks.dirs.reduce((a, d) => a + (t.sizes[d] ?? 0), t.marks.bytes));
+  // Folders as measured; inside an archive (or a list of snapshots) as listed.
+  const listedSizes = $derived((t.archive && !t.history) || (t.snapshot && !t.snapshot.snapshot));
+  const selBytes = $derived(listedSizes ? t.marks.bytes + t.marks.dir_bytes : t.marks.dirs.reduce((a, d) => a + (t.sizes[d] ?? 0), t.marks.bytes));
   const count = $derived(t.items.length - (t.up ? 1 : 0));
   /** The ZFS footer: dataset, compression ratio, space (used of the quota when it has one). */
   const zfsLine = $derived(

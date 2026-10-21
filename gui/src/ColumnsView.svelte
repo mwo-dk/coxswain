@@ -25,7 +25,7 @@
     p.generation = 1;
     try {
       const r = await invoke("tab_list", { tab: p.id, generation: 1, dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse, focus, cursor: 0, span: SPAN });
-      p.reset(r);
+      p.reset(r, 1);
       const n = r.up ? 1 : 0;
       return { items: p.skip(n), cursor: focus ? r.cursor - n : -1, id: p.id };
     } catch {
@@ -34,7 +34,12 @@
     }
   }
   const drop = (cols) => cols.forEach((c) => c?.id != null && invoke("tab_drop", { tab: c.id }).catch(() => {}));
-  $effect(() => () => drop([...ancestors, peek]));
+  // Gone (another view): the columns' listings go, and so do those still being read.
+  let gone = false;
+  $effect(() => () => {
+    gone = true;
+    drop([...ancestors, peek]);
+  });
 
   // Ancestor columns follow the directory.
   $effect(() => {
@@ -42,7 +47,7 @@
     const chain = [];
     for (let d = parent(dir), n = 0; d && n < 2; d = parent(d), n++) chain.unshift(d);
     Promise.all(chain.map(async (d, i) => ({ dir: d, open: chain[i + 1] ?? dir, ...(await list(d, chain[i + 1] ?? dir)) }))).then((cols) => {
-      if (t.dir !== dir) return drop(cols);
+      if (gone || t.dir !== dir) return drop(cols);
       drop(untrack(() => ancestors));
       ancestors = cols;
     });
@@ -56,13 +61,15 @@
   });
   $effect(() => {
     const dir = under;
+    // Read again when the folder is, or sorted or shown otherwise.
+    t.items.listed, t.sort, t.reverse, ui.showHidden;
     if (!dir) {
       untrack(() => drop([peek]));
       return void (peek = null);
     }
     const timer = setTimeout(async () => {
       const col = { dir, ...(await list(dir)) };
-      if (under !== dir) return drop([col]);
+      if (gone || under !== dir) return drop([col]);
       drop([untrack(() => peek)]);
       peek = col;
     }, 90);
@@ -76,9 +83,10 @@
     strip?.scrollTo({ left: i18n.rtl ? -strip.scrollWidth : strip.scrollWidth, behavior: "smooth" });
   });
 
+  /** To `dir`, the cursor on `name`: its rows come around it. */
   async function jump(dir, name) {
     onfocus();
-    await cd(t, dir);
+    if (dir !== t.dir) return cd(t, dir, true, name);
     const i = await invoke("tab_find", { tab: t.id, name }).catch(() => null);
     if (i != null) t.cursor = i;
   }

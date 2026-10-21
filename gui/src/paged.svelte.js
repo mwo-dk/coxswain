@@ -21,10 +21,15 @@ export class Paged {
   constructor(id, onrows = () => {}) {
     this.id = id;
     this.onrows = onrows;
-    /** The number of the listing the backend has for the tab (`tab_list`, `tab_sort`). */
+    /** The number of the latest listing asked for (`tab_list`, `tab_sort`), and of the one
+     *  shown: rows and marks are asked of that one. */
     this.generation = 0;
-    /** The rows being asked for, [from, to). */
+    this.shown = 0;
+    /** The generation of a `tab_list` under way, else 0. */
+    this.loading = 0;
+    /** The rows being asked for, [from, to), and the last asked for by a view. */
     this.asking = null;
+    this.view = [0, 0];
   }
 
   get length() {
@@ -35,8 +40,10 @@ export class Paged {
     return this.rows[i - this.from];
   }
 
-  /** A new listing (`tab_list`, `tab_sort`): its count and rows. */
-  reset(r) {
+  /** A new listing (`tab_list`, `tab_sort`) number `generation`: its count and rows. */
+  reset(r, generation) {
+    this.shown = generation;
+    this.asking = null;
     this.total = r.total;
     this.take(r.rows);
     this.listed++;
@@ -47,6 +54,16 @@ export class Paged {
     this.onrows(items);
     this.from = from;
     this.rows = items;
+  }
+
+  /** Rows that came again (their marks changed) put in place of the ones here. */
+  patch({ from, prefix, items }) {
+    const rows = [...this.rows];
+    items.forEach((e, k) => {
+      e.path ??= prefix + e.name;
+      if (rows[from - this.from + k]) rows[from - this.from + k] = e;
+    });
+    this.rows = rows;
   }
 
   /** Rows `a` to `b` (not included), those not here yet as placeholders, which are asked for. */
@@ -60,6 +77,7 @@ export class Paged {
       out.push(e ?? { name: "", path: `\0${i}`, icon: { glyph: "" }, placeholder: true });
     }
     if (missing) this.want(a, b);
+    this.view = [a, b];
     return out;
   }
 
@@ -68,21 +86,21 @@ export class Paged {
     if (this.asking && this.asking[0] <= a && b <= this.asking[1]) return;
     const range = [Math.max(0, a - SPAN), b + SPAN];
     this.asking = range;
-    const generation = this.generation;
+    const generation = this.shown;
     invoke("tab_rows", { tab: this.id, generation, from: range[0], to: range[1] }).then(
       (r) => {
         if (this.asking === range) this.asking = null;
-        if (r && generation === this.generation) this.take(r);
+        if (r && generation === this.shown) this.take(r);
       },
       () => this.asking === range && (this.asking = null),
     );
   }
 
-  /** The rows here read again (their marks changed). */
+  /** The rows in view read again (their marks changed). */
   refresh() {
-    if (!this.rows.length) return;
-    const generation = this.generation;
-    invoke("tab_rows", { tab: this.id, generation, from: this.from, to: this.from + this.rows.length }).then((r) => r && generation === this.generation && this.take(r), () => {});
+    const generation = this.shown;
+    const [a, b] = this.view;
+    invoke("tab_rows", { tab: this.id, generation, from: Math.max(a, this.from), to: Math.min(b, this.from + this.rows.length) }).then((r) => r && generation === this.shown && this.patch(r), () => {});
   }
 
   /** The same rows without the first `n` (the current folder's `..` in a Miller column). */

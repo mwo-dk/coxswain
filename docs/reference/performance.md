@@ -61,13 +61,13 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   exactly `font_size × line_height` pixels high, so the list never jumps. Thumbnails do the
   same with rows of tiles: a folder of 100,000 files opens in thumbnails in 15 ms.
 - **The page gets the rows in view, not the listing.** The app keeps each tab's listing; the
-  page gets the rows on screen and 300 on each side, with the count, and asks for more as it
+  page gets the rows around the cursor and in view, 300 beyond on each side, with the count, and asks for more as it
   scrolls. Sorting, marking (mark all, invert, a group by pattern), quick search, a Find hit's row,
   and the count and size of what is marked are worked out by the app on the whole listing. A
   folder of up to 5,000 entries comes whole. A folder of a million files opens in about a
   second, with no pause of the window, and costs the page what a screenful does; rows not
   there yet show empty for a moment while scrolling fast. A list too tall for the web view
-  (a million thumbnails) scrolls through a shorter one, a little faster per turn of the wheel.
+  (a million rows, or thumbnails) scrolls through a shorter one, a little faster per turn of the wheel.
 - **A listing is sent small.** An entry's path is left out when it is the folder's path and
   the name (the page joins them), and so are flags that are off and tags that are not set.
 - **The window's thread does no disk work.** Every command that reads or writes a file, the
@@ -75,8 +75,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   sizes, duplicates, previews made by tools, the text of a preview, a folder's properties) go
   to blocking threads of their own, so a slow share holds none of the runtime's few workers.
 - **Each tab keeps its scroll position**; switching tabs brings the list back where it was.
-- **Tabs in the background are read when shown.** A session's tabs are read as their pane
-  shows them, not all at start, and a folder that changes while its tab is in the background is
+- **Tabs in the background are read when shown.** A session's tabs are read as each one becomes
+  the tab on show, not all at start, and a folder that changes while its tab is in the background is
   read again when you switch to it.
 - **Previews wait for the cursor to settle.** Text, data and images load 80 ms after the
   cursor stops; previews made by tools (LibreOffice, LaTeX) wait longer and only start by
@@ -146,8 +146,8 @@ files and 1,000 subfolders; an index of a million names in a thousand folders.
 
 | What | Before | After |
 |---|---|---|
-| `list_dir` body for 100,000 entries (list, sort, icons) | 200 ms | 200 ms, on a blocking thread |
-| Its JSON (sent to the page) | 26 MB, 29 ms to write, 64 ms to parse | 14 MB, 15 ms to write, 50 ms to parse, 1 ms to join the paths |
+| A listing's body for 100,000 entries (list, sort, icons) | 200 ms | 200 ms, on a blocking thread |
+| Its JSON (sent to the page whole then; now only the rows in view, see below) | 26 MB, 29 ms to write, 64 ms to parse | 14 MB, 15 ms to write, 50 ms to parse, 1 ms to join the paths |
 | Page: show 1,000 rows | 222 ms | 37 ms |
 | Page: show 20,000 rows | 4.0 s, 576 MB heap | 33 ms, 15 MB |
 | Page: show 100,000 rows | not done after 10 minutes | 32 ms, 37 MB |
@@ -590,9 +590,9 @@ in a browser: `cd gui && npx vite --port 1421`, then open `http://localhost:1421
 #### Why does a huge folder still take a moment to open?
 
 Reading 100,000 entries means 100,000
-`stat` calls (about 100 ms on a fast disk, more on a network share) and 33 MB of JSON for the
-desktop app to parse (70 ms). The page itself is drawn in 30 ms. After 150 ms the status line
-says *Working on <folder>…* so you know it is coming.
+`stat` calls (about 100 ms on a fast disk, more on a network share), and the app sorts them; the
+desktop app's page gets only the rows around the cursor, so a million files open in about a
+second. After 150 ms the status line says *Working on <folder>…* so you know it is coming.
 
 #### Why does holding Down stay smooth in a folder of 100,000 files?
 

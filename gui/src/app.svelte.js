@@ -152,7 +152,7 @@ let nextId = 1;
 export const newId = () => nextId++;
 
 /** No marks: how many, their files' bytes, the folders among them, what they are (`tabs::Marks`). */
-const NO_MARKS = { count: 0, bytes: 0, dirs: [], subject: null };
+const NO_MARKS = { count: 0, bytes: 0, dirs: [], dir_bytes: 0, subject: null };
 
 export function newTab(dir, view = "details") {
   const t = {
@@ -198,9 +198,10 @@ const tabOf = (id) => ui.panes.flatMap((p) => p.tabs).find((t) => t.id === id);
  *  "none", "invert", `{ glob: { patterns, on } }`); its rows show them. */
 export async function mark(t, op) {
   try {
-    t.marks = await invoke("tab_mark", { tab: t.id, op });
+    t.marks = await invoke("tab_mark", { tab: t.id, generation: t.items.shown, op });
   } catch (e) {
-    return void (ui.status = String(e));
+    // The listing changed meanwhile: rows by number would be other entries now.
+    return void (String(e) !== STALE && (ui.status = String(e)));
   }
   t.items.refresh();
 }
@@ -273,11 +274,13 @@ export async function setTheme(name, save = false) {
 export async function load(t, dir = t.dir, focus) {
   const keep = focus ?? item(t)?.name;
   const generation = ++t.items.generation;
+  t.items.loading = generation;
   const stale = () => t.items.generation !== generation;
   // A slow disk: after a moment the status line says what is being read.
   const slow = setTimeout(() => (ui.status = tr("status.busy", { what: basename(dir) || dir })), 150);
   try {
     const r = await invoke("tab_list", { tab: t.id, generation, dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse, focus: keep ?? null, cursor: t.cursor, span: SPAN }).finally(() => {
+      if (t.items.loading === generation) t.items.loading = 0;
       clearTimeout(slow);
       if (ui.status === tr("status.busy", { what: basename(dir) || dir })) ui.status = "";
     });
@@ -310,7 +313,7 @@ export async function load(t, dir = t.dir, focus) {
     t.up = r.up;
     t.marks = r.marks;
     t.error = null;
-    t.items.reset(r);
+    t.items.reset(r, generation);
     t.cursor = r.cursor;
   } catch (e) {
     if (stale() || String(e) === STALE) return undefined;
@@ -361,6 +364,8 @@ const STALE = "stale listing";
  *  history, a list of snapshots, an archive or a package has an order of its own, which a
  *  fresh read keeps. */
 export async function sortTab(t) {
+  // A folder being read: read with the new order instead.
+  if (t.items.loading) return load(t);
   if (t.history || t.snapshot || t.archive || t.package || [HISTORY, SNAPSHOTS].includes(basename(t.dir))) return load(t);
   const generation = ++t.items.generation;
   try {
@@ -368,7 +373,7 @@ export async function sortTab(t) {
     const measured = t.sort === "size" ? $state.snapshot(t.sizes) : {};
     const r = await invoke("tab_sort", { tab: t.id, generation, sort: t.sort, reverse: t.reverse, measured, cursor: t.cursor, span: SPAN });
     if (t.items.generation !== generation) return;
-    t.items.reset(r);
+    t.items.reset(r, generation);
     t.cursor = r.cursor;
   } catch (e) {
     ui.status = String(e);
@@ -832,7 +837,8 @@ export async function showInTab(tb, path, isDir = false) {
   if (i != null) tb.cursor = i;
 }
 
-export async function cd(t, dir, history = true) {
+/** Tab `t` to `dir`, the cursor on `focus` (a name) when given. */
+export async function cd(t, dir, history = true, focus) {
   if (!dir || dir === t.dir) return;
   const from = t.dir;
   const prevCursor = t.cursor;
@@ -840,7 +846,7 @@ export async function cd(t, dir, history = true) {
   // Coming up: the cursor on the folder (or the file whose history it was) it came from.
   const pre = dir.endsWith(ui.cfg.sep) ? dir : dir + ui.cfg.sep;
   const came = from.startsWith(pre) ? pre + from.slice(pre.length).split(/[\\/]/)[0] : undefined;
-  const ok = await load(t, dir, came);
+  const ok = await load(t, dir, focus ?? came);
   if (ok === undefined) return;
   if (!ok) {
     t.cursor = prevCursor;
@@ -977,6 +983,8 @@ export function snapshot() {
 
 export async function init() {
   ui.cfg = await invoke("get_config");
+  // A page loaded again starts its tabs anew: the listings the backend kept are dropped.
+  await invoke("tab_reset").catch(() => {});
   setLanguage(ui.cfg);
   setArchiveEndings(ui.cfg.archive_endings);
   setDiskEndings(ui.cfg.disk_endings);

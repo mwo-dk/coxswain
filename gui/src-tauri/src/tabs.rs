@@ -46,7 +46,7 @@ struct Row {
     m: bool,
 }
 
-/// Rows `from..` of a listing, as `Listing::items` (paths joined from `prefix` by the page).
+/// Rows `from..` of a listing (paths joined from `prefix` by the page).
 #[derive(Serialize)]
 pub struct Rows {
     from: usize,
@@ -63,6 +63,8 @@ pub struct Marks {
     count: usize,
     bytes: u64,
     dirs: Vec<PathBuf>,
+    /// The folders' own sizes as listed: inside an archive, their contents'.
+    dir_bytes: u64,
     subject: Subject,
 }
 
@@ -115,7 +117,9 @@ impl List {
             count: list.len(),
             bytes: list.iter().filter(|e| !e.is_dir).map(|e| e.size).sum(),
             dirs: list.iter().filter(|e| e.is_dir).map(|e| e.path.clone()).collect(),
-            subject: Subject::of(&list, list.len() == 1),
+            dir_bytes: list.iter().filter(|e| e.is_dir).map(|e| e.size).sum(),
+            // By name only: no file is read for a change of marks (the action menu reads one).
+            subject: Subject::of(&list, false),
         }
     }
 
@@ -268,13 +272,17 @@ pub fn tab_quick(tab: u64, query: String, tabs: tauri::State<Tabs>) -> Res<Optio
     tabs.with(tab, |l| coxswain_core::fs::quick_match(&l.entries, &query))
 }
 
-/// Change the tab's marks; what is marked now.
+/// Change the marks of the tab's listing number `generation` (rows are by number: another
+/// listing would have other entries there); what is marked now.
 #[tauri::command(async)]
-pub fn tab_mark(tab: u64, op: MarkOp, tabs: tauri::State<Tabs>) -> Res<Marks> {
+pub fn tab_mark(tab: u64, generation: u64, op: MarkOp, tabs: tauri::State<Tabs>) -> Res<Marks> {
     tabs.with(tab, |l| {
+        if l.generation != generation {
+            return Err(STALE.to_string());
+        }
         l.mark(op);
-        l.marks()
-    })
+        Ok(l.marks())
+    })?
 }
 
 #[derive(Serialize)]
@@ -295,6 +303,14 @@ pub fn tab_pick(tab: u64, which: String, tabs: tauri::State<Tabs>) -> Res<Vec<Pi
             _ => l.entries.iter().filter(|e| !e.is_parent()).map(pick).collect(),
         }
     })
+}
+
+/// The page started (again): no listing of an earlier page is kept.
+#[tauri::command(async)]
+pub fn tab_reset(tabs: tauri::State<Tabs>) {
+    if let Ok(mut all) = tabs.0.lock() {
+        all.clear();
+    }
 }
 
 /// A tab closed: its listing goes.

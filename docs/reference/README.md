@@ -22,7 +22,7 @@ the full list.
 | [Disk use](disk-use.md) | Every place Coxswain keeps things with its size and what clearing costs, what it caused outside its folder (Tectonic's cache, container images), clearing one or everything that is built again, `coxswain --disk` |
 | [Security](security.md) | How dependencies are chosen and kept current, the advisory checks on every change and every week, licences, the bundled viewers, checking a download, reporting a problem |
 | [Licences and bills of materials](bills-of-materials.md) | What each release carries (SBOMs, a CBOM, the third-party notices), how licences are checked, the cryptography both apps use, making the files yourself |
-| [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files and an index of a million names |
+| [Performance](performance.md) | What keeps each app quick: rows on screen only, no disk work on the window's thread, background measuring, and the numbers for a folder of 100,000 files, a folder of a million and an index of a million names |
 
 ## Keys at a glance
 

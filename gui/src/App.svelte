@@ -795,7 +795,9 @@
   function quickJump(e) {
     e.preventDefault();
     const t = tab();
-    invoke("tab_quick", { tab: t.id, query: ui.quick }).then((i) => i != null && (t.cursor = i), () => {});
+    // Answers can come out of order: only the one for what is typed now counts.
+    const q = ui.quick;
+    invoke("tab_quick", { tab: t.id, query: q }).then((i) => ui.quick === q && i != null && (t.cursor = i), () => {});
   }
 
   const fkeys = $derived.by(() => {
