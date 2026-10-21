@@ -197,13 +197,14 @@ fn script(ending: &str, want: Want) -> String {
 
 /// The arguments of `run` for calibre's container: no network, no capabilities, no new
 /// privileges, nothing mounted, its root read-only with /tmp in memory, never a pull (an image
-/// removed in Settings is not fetched again behind the user's back), as nobody, its memory and
-/// processes bounded.
-fn run_args(name: &str, image: &str, script: &str) -> Vec<String> {
+/// removed in Settings is not fetched again behind the user's back), as nobody, with `bounds`
+/// its memory and processes bounded (`images::bounds_work`: off only where the runtime lacks
+/// the controllers).
+fn run_args(name: &str, image: &str, script: &str, bounds: bool) -> Vec<String> {
     let mut v: Vec<String> = ["run", "--rm", "-i", "--pull=never", "--network=none"].map(String::from).to_vec();
     // ffmpeg's and ImageMagick's: a read-only root, a small /tmp in memory, bounded memory and
     // processes, no capabilities, no new privileges.
-    v.extend(crate::images::TIGHT.iter().map(|s| s.to_string()));
+    v.extend(crate::images::TIGHT.iter().filter(|s| bounds || !(s.starts_with("--memory") || s.starts_with("--pids-limit"))).map(|s| s.to_string()));
     v.extend(["--user", "65534:65534", "-e", "HOME=/tmp", "--name", name, "--entrypoint", "sh", image, "-c", script].map(String::from));
     v
 }
@@ -265,7 +266,7 @@ fn make(how: &How, path: &Path, want: Want, out: &Path, stop: &AtomicBool, timeo
             }
             let name = format!("coxswain-calibre-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
             let mut c = crate::tools::command(rt);
-            c.args(run_args(&name, image, &script(ending, want)));
+            c.args(run_args(&name, image, &script(ending, want), crate::images::bounds_work(rt, image)));
             let book = File::open(path).map_err(|e| e.to_string())?;
             go(c, Some(book), stop, timeout, Some((rt, &name)), Some(out), said)
         }
@@ -667,7 +668,8 @@ mod tests {
         assert_eq!(s, "cd /tmp && cat > in.mobi && ebook-convert in.mobi out.epub >&2 && ebook-meta in.mobi --get-cover=cover.jpg > meta.txt 2>/dev/null; tar -cf - out.epub meta.txt $(ls cover.jpg 2>/dev/null)");
         assert!(script("fb2", Want::Text).contains("nice -n 19 ebook-convert in.fb2 out.epub"));
         assert!(script("lit", Want::To("pdf")).ends_with("tar -cf - out.pdf"));
-        let args = run_args("n", IMAGE, "x");
+        assert!(!run_args("n", IMAGE, "x", false).iter().any(|a| a.starts_with("--memory") || a.starts_with("--pids")));
+        let args = run_args("n", IMAGE, "x", true);
         for want in ["--rm", "--pull=never", "--network=none", "--cap-drop=ALL", "no-new-privileges", "--read-only", "/tmp:rw,size=1g", "--memory=3g", "--pids-limit=256", "65534:65534"] {
             assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
         }

@@ -159,7 +159,7 @@ limits as ffmpeg's and ImageMagick's and no mounts at all:
 | `--network=none` | No network |
 | `--cap-drop=ALL`, `--security-opt no-new-privileges` | No capabilities, none to gain |
 | `--read-only`, `--tmpfs /tmp:size=1g` | Nothing written but a small `/tmp` in memory |
-| `--memory=3g`, `--pids-limit=256` | Bounded memory and processes |
+| `--memory=3g`, `--pids-limit=256` | Bounded memory and processes; left out only where a test container shows the runtime cannot bound them (a rootless podman without those cgroup controllers) |
 | `--user 65534:65534`, `-e HOME=/tmp` | As nobody |
 | no `--mount`, no `-v` | None of your folders: the book goes in on standard input as `/tmp/in.<ending>`, so its name is never an argument, and what calibre made comes back on standard output as a tar of `out.<format>`, `cover.jpg` and `meta.txt`, each with a size limit (768 MB for a book, 32 MB for a cover); anything else in it is ignored |
 
