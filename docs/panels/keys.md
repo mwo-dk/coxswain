@@ -153,7 +153,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
 | **F2** | Menu | `user_menu` | Scripts and the user menu | The user menu ([The user menu](../commands/user-menu.md)) |
 | **Alt+N** | Folder notes | `notes` | The folder's notes in the preview pane ([Folder notes](../organise/notes.md)) | – |
-| **Alt+K** | Open games | `chess` | A PGN or SGF file's games, an EPD or FEN file's positions, a Polyglot book's moves, in a window ([Chess games](../previews/chess.md), [Go games](../previews/go.md)) | The same, full screen; **F3** too |
+| **Alt+K** | Open games | `chess` | A PGN, SGF or PDN file's games, an EPD or FEN file's positions, a Polyglot book's moves, in a window ([Chess games](../previews/chess.md), [Go games](../previews/go.md), [Draughts games](../previews/draughts.md)) | The same, full screen; **F3** too |
 
 ### App
 

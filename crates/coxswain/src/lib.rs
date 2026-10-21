@@ -504,6 +504,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::GitConfig(_) => "git_config",
         Dialog::View { .. } => "view_and_edit",
         Dialog::Edit { .. } => "editor",
+        Dialog::Chess(v) if coxswain_core::chess::format(&v.path) == Some(coxswain_core::chess::Format::Pdn) => "draughts",
         Dialog::Chess(_) => "chess",
         Dialog::Go(_) => "go",
         Dialog::Space(_) => "space",
@@ -2892,7 +2893,7 @@ impl App {
                         }
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
-                            if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf))
+                            if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn))
                                 && let Some(snippet) = hit.snippet.clone()
                             {
                                 let path = hit.path.clone();

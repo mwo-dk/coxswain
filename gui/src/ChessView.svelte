@@ -18,6 +18,11 @@
 
   // A .bin file comes here only when it is a Polyglot opening book (Preview, chess_is_book).
   const format = $derived(/\.bin$/i.test(path) ? "book" : chessFormat(basename(path)));
+  // A PDN file: draughts games in the same table, on a board of their own, without openings,
+  // figurines or a book.
+  const draughts = $derived(format === "pdn");
+  const table = $derived(format === "pgn" || draughts);
+  const columns = $derived(draughts ? COLUMNS.filter(([c]) => c !== "eco" && c !== "opening") : COLUMNS);
   const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   const ROW = 24;
   const COLUMNS = [
@@ -125,7 +130,7 @@
 
   let rowsSeq = 0;
   async function fetchRows() {
-    if (format !== "pgn") return;
+    if (!table) return;
     const p = path;
     const seq = ++rowsSeq;
     const n = Math.ceil(height / ROW) + 20;
@@ -209,6 +214,26 @@
   }
   const board = $derived(squares(fen));
 
+  /** A draughts position (`draughts::cells`): rows from the top, a run of empty cells as its
+   *  count, M K White's man and king, m k Black's. */
+  function cells(f) {
+    const rows = (f ?? "").split(" ")[0].split("/").slice(0, 12);
+    const out = [];
+    let w = 0;
+    for (const row of rows) {
+      const r = [];
+      for (const m of row.matchAll(/(\d+)|([^\d])/g)) {
+        if (m[1]) r.push(...Array(Math.min(12, Number(m[1]))).fill(null));
+        else r.push(m[2]);
+      }
+      w = Math.max(w, Math.min(12, r.length));
+      out.push(r);
+    }
+    w = w || 1;
+    const h = out.length || 1;
+    return { w, h, cells: out.flatMap((r) => [...r, ...Array(w).fill(null)].slice(0, w)) };
+  }
+
   // The book's moves, again for each position.
   let bookSeq = 0;
   $effect(() => {
@@ -216,7 +241,7 @@
     const p = path;
     void ui.cfg;
     const s = ++bookSeq;
-    if (!f) return void (book = null);
+    if (!f || draughts) return void (book = null);
     invoke("chess_book", { path: p, fen: f }).then(
       (b) => s === bookSeq && (book = b),
       () => {},
@@ -231,6 +256,7 @@
 
   /** A move as shown, in pieces: [text, figurine] (`chess::show_san`). */
   function show(san) {
+    if (draughts) return [[san, false]];
     const out = [];
     [...san].forEach((c, i) => {
       const k = "KQRBN".indexOf(c);
@@ -285,10 +311,10 @@
     const map = { ArrowRight: "next", ArrowLeft: "prev", Home: "start", End: "end", ArrowDown: "down", ArrowUp: "up" };
     if (map[e.key]) step(map[e.key]);
     else if (e.key === "f") flip = !flip;
-    else if (e.key === "n") letters = !letters;
-    else if (e.key === "PageDown" && format === "pgn") nextGame(1);
-    else if (e.key === "PageUp" && format === "pgn") nextGame(-1);
-    else if (e.key === "Escape" && format === "pgn" && game) back();
+    else if (e.key === "n" && !draughts) letters = !letters;
+    else if (e.key === "PageDown" && table) nextGame(1);
+    else if (e.key === "PageUp" && table) nextGame(-1);
+    else if (e.key === "Escape" && table && game) back();
     else return;
     e.preventDefault();
     e.stopPropagation();
@@ -340,6 +366,22 @@
   {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
 {/snippet}
 
+<!-- A draughts square: dark ones numbered, a man as a disc, a king as two discs stacked. -->
+{#snippet cell(d, i)}
+  {@const col = i % d.w}
+  {@const row = Math.floor(i / d.w)}
+  {@const x = flip ? d.w - 1 - col : col}
+  {@const y = flip ? d.h - 1 - row : row}
+  {@const c = x + y * d.w}
+  {@const dark = (x + y) % 2 === 1}
+  {@const p = d.cells[c]}
+  {@const lit = last && (last.from === c || last.to === c)}
+  <rect x={col} y={row} width="1" height="1" fill={looks ? looks.colours[dark ? 1 : 0] : dark ? "#769656" : "#eeeed2"} />
+  {#if lit}<rect x={col} y={row} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
+  {#if dark && !p}<text x={col + 0.06} y={row + 0.24} class="coord" fill={looks ? looks.colours[0] : "#000"}>{y * (d.w / 2) + Math.floor(x / 2) + 1}</text>{/if}
+  {#if p}<image href={`vendor/game-pieces/draughts-${p === p.toUpperCase() ? "w" : "b"}${p.toLowerCase() === "k" ? "k" : "m"}.svg`} x={col} y={row} width="1" height="1" />{/if}
+{/snippet}
+
 <div class="chess" class:full role={full ? "dialog" : undefined} aria-modal={full ? "true" : undefined} aria-label={full ? basename(path) : undefined}>
   {#if full}
     <header class="top">
@@ -354,25 +396,33 @@
     <div class="game">
       <div class="side">
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-        <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
-          {#each Array(64) as _, i (i)}{@render square(i)}{/each}
-        </svg>
+        {#if draughts}
+          {@const d = cells(fen)}
+          <svg class="board chess-keys" viewBox="0 0 {d.w} {d.h}" tabindex="0" role="img" aria-label={t("draughts.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            {#each Array(d.w * d.h) as _, i (i)}{@render cell(d, i)}{/each}
+          </svg>
+        {:else}
+          <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            {#each Array(64) as _, i (i)}{@render square(i)}{/each}
+          </svg>
+        {/if}
         <div class="bar">
-          {#if format === "pgn"}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
+          {#if table}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
           <button class="icon" title={t("chess.start_tip")} aria-label={t("chess.start_tip")} onclick={() => step("start")}>|◀</button>
           <button class="icon" title={t("chess.prev_tip")} aria-label={t("chess.prev_tip")} onclick={() => step("prev")}>◀</button>
           <button class="icon" title={t("chess.next_tip")} aria-label={t("chess.next_tip")} onclick={() => step("next")}>▶</button>
           <button class="icon" title={t("chess.end_tip")} aria-label={t("chess.end_tip")} onclick={() => step("end")}>▶|</button>
           <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
-          <button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>
+          {#if !draughts}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
           {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
         </div>
         {#if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : t("chess.white_to_move")}</p>{/if}
       </div>
       <div class="moves" bind:this={movesEl}>
-        {#if format === "pgn"}
+        {#if table}
           <p class="players"><b>{known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>
           <p class="meta">{[known(tag("Event")), known(tag("Site")), known(tag("Date")), [tag("ECO"), tag("Opening")].join(" ").trim()].filter(Boolean).join(" · ")}</p>
+          {#if game.variant}<p class="meta">{game.variant}</p>{/if}
           <p class="meta">{t("chess.game_of", { n: game.index + 1, total: progress?.games ?? "" })}</p>
         {:else if format === "book"}
           <p class="players"><b>{t("chess.book_entries", { n: book?.entries ?? "" })}</b></p>
@@ -412,18 +462,18 @@
             {/if}
           {/each}
         </p>
-        <p class="meta keys">{format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
+        <p class="meta keys">{draughts ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
-  {:else if format === "pgn"}
+  {:else if table}
     <div class="filters">
       <input type="search" placeholder={t("chess.filter_player")} aria-label={t("chess.filter_player")} bind:value={query.player} />
-      <input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />
+      {#if !draughts}<input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
       <select aria-label={t("chess.col_result")} bind:value={query.result}>
         <option value="">{t("chess.result_any")}</option>
-        <option value="1-0">1-0</option>
-        <option value="0-1">0-1</option>
-        <option value="1/2-1/2">½-½</option>
+        <option value="1-0">{draughts ? "2-0 · 1-0" : "1-0"}</option>
+        <option value="0-1">{draughts ? "0-2 · 0-1" : "0-1"}</option>
+        <option value="1/2-1/2">{draughts ? "1-1 · ½-½" : "½-½"}</option>
       </select>
       <input class="num" type="number" placeholder={t("chess.year_from")} aria-label={t("chess.year_from")} value={query.from ?? ""} onchange={(e) => (query.from = num(e.currentTarget.value))} />
       <input class="num" type="number" placeholder={t("chess.year_to")} aria-label={t("chess.year_to")} value={query.to ?? ""} onchange={(e) => (query.to = num(e.currentTarget.value))} />
@@ -438,7 +488,7 @@
       <table>
         <thead>
           <tr>
-            {#each COLUMNS as [col, label] (col)}
+            {#each columns as [col, label] (col)}
               <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
             {/each}
           </tr>
@@ -455,8 +505,8 @@
               <td>{r.result}</td>
               <td>{r.date}</td>
               <td>{r.event}</td>
-              <td>{r.eco}</td>
-              <td>{r.opening}</td>
+              {#if !draughts}<td>{r.eco}</td>
+              <td>{r.opening}</td>{/if}
               <td class="n">{r.moves}</td>
             </tr>
           {/each}

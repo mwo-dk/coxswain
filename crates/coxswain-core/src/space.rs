@@ -618,7 +618,7 @@ pub fn family(ext: &str) -> Family {
                 "pdf", "doc", "docx", "odt", "rtf", "txt", "md", "epub", "xls", "xlsx", "ods",
                 "ppt", "pptx", "odp", "pages", "numbers", "key", "tex", "rst", "adoc", "eml",
                 "mbox", "djvu", "mobi", "azw3", "html", "htm", "msg", "ps", "eps", "xps", "oxps",
-                "typ", "chm", "cbz", "cbr", "cb7", "cbt", "pgn", "epd", "fen", "sgf", "wmf", "emf", "docm", "dotx", "ott", "ppsx",
+                "typ", "chm", "cbz", "cbr", "cb7", "cbt", "pgn", "epd", "fen", "sgf", "pdn", "wmf", "emf", "docm", "dotx", "ott", "ppsx",
                 "potx", "otp", "fodt", "fods", "fodp", "fodg", "cdr", "pmd",
             ],
         ),
@@ -830,7 +830,7 @@ mod tests {
             ("msg", Family::Document), ("dbf", Family::Data), ("mod", Family::Audio), ("xm", Family::Audio),
             ("s3m", Family::Audio), ("it", Family::Audio), ("iso", Family::Disk), ("dmg", Family::Disk),
             ("vhd", Family::Disk), ("vhdx", Family::Disk), ("vmdk", Family::Disk), ("qcow2", Family::Disk),
-            ("vdi", Family::Disk), ("wim", Family::Disk), ("pgn", Family::Document), ("fen", Family::Document), ("sgf", Family::Document),
+            ("vdi", Family::Disk), ("wim", Family::Disk), ("pgn", Family::Document), ("fen", Family::Document), ("sgf", Family::Document), ("pdn", Family::Document),
             ("typ", Family::Document), ("eps", Family::Document), ("wpd", Family::Document), ("d2", Family::Code),
             ("cob", Family::Code), ("tbz2", Family::Archive),
         ];

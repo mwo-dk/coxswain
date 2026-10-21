@@ -167,7 +167,7 @@ Opening this area asks the container runtime which images it has.
 | *Keep images up to date* | *Off*, *Weekly*, *Monthly*: the desktop app pulls the images already pulled again, in the background and never on battery, and removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
 | *Remove images not used for 90 days* | Off: images stay until you remove them ([Removing unused images](../previews/containers.md#removing-unused-images)) | `[preview] image_prune` |
 | *Move notation* | *Figurines (♘f3)* or *Letters of the language* (`chess_notation`, [Chess games](../previews/chess.md#notation-and-the-board)) | `[chess] notation` |
-| *Chess board* | *From the theme*, *Tournament, green*, *Tournament, brown* (`chess_board`); Go boards too | `[chess] board` |
+| *Chess board* | *From the theme*, *Tournament, green*, *Tournament, brown* (`chess_board`); Go and draughts boards too | `[chess] board` |
 | *Opening book* | A path to a Polyglot `.bin` book whose moves the chess board shows; empty: *The first book next to the game file* (`chess_book`, [Opening books](../previews/chess.md#opening-books)) | `[chess] book` |
 
 ## Looks

@@ -137,9 +137,10 @@ Two exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
 [provenance viewer](../previews/provenance.md). **F3** (or `s`) in either shows the source in
 the built-in viewer (or in `viewer`'s program), and **Esc** there goes back to the BOM or the
 provenance; `bom_viewer = false` or `provenance_viewer = false` makes F3 show the source straight
-away. **F3** on a chess or Go file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`, `.sgf`, or a
-`.bin` Polyglot book) opens its games, positions or book moves full screen
-([Chess games](../previews/chess.md), [Go games](../previews/go.md)), and on a neural network
+away. **F3** on a chess, Go or draughts file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`, `.sgf`,
+`.pdn`, or a `.bin` Polyglot book) opens its games, positions or book moves full screen
+([Chess games](../previews/chess.md), [Go games](../previews/go.md),
+[Draughts games](../previews/draughts.md)), and on a neural network
 model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: format, inputs
 and outputs with shapes, operators ([Neural network models](../previews/neural-networks.md)).
 **F3** on a MOBI, Kindle, FictionBook, LIT or Palm book shows its title, authors and text, made by

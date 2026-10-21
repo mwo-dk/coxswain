@@ -165,7 +165,7 @@ pub enum Token {
 }
 
 /// The annotation `!`, `?`, `!!`, `??`, `!?` or `?!` as its NAG number.
-fn suffix_nag(s: &str) -> Option<u8> {
+pub(crate) fn suffix_nag(s: &str) -> Option<u8> {
     Some(match s {
         "!" => 1,
         "?" => 2,
@@ -537,8 +537,65 @@ fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
     (mv.from as u8, to as u8)
 }
 
+/// What a game of the PGN family needs to be read and played out: chess here, draughts in
+/// `crate::draughts`. The rest (tags, comments, variations, NAGs, results) is the same.
+pub(crate) trait Rules {
+    type Board: Clone;
+    /// The position the game starts from, by its tags (a FEN tag) and its first moves, and its
+    /// FEN; the start position when the tags say nothing.
+    fn start(&self, tags: &[(String, String)], moves: &str) -> (Self::Board, String);
+    /// A word of the movetext, sorted.
+    fn word<'a>(&self, w: &'a str) -> Word<'a>;
+    /// Whose move it is on `b`: the first player's (White in chess) or not, and its number.
+    fn turn(&self, b: &Self::Board) -> (bool, u32);
+    /// The move `mv` played on `b`: the board after it, its FEN, and the squares it went from and
+    /// to (for the highlight). None when it cannot be played there.
+    fn play(&self, b: &Self::Board, mv: &str) -> Option<(Self::Board, String, Option<u8>, Option<u8>)>;
+}
+
+/// Chess, by cozy-chess.
+pub(crate) struct Chess;
+
+impl Rules for Chess {
+    type Board = Board;
+
+    fn start(&self, tags: &[(String, String)], _: &str) -> (Board, String) {
+        tags.iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("FEN"))
+            .and_then(|(_, f)| board(f).map(|b| (b, full_fen(f))))
+            .unwrap_or_else(|| (Board::default(), START.to_string()))
+    }
+
+    fn word<'a>(&self, w: &'a str) -> Word<'a> {
+        word(w)
+    }
+
+    fn turn(&self, b: &Board) -> (bool, u32) {
+        (b.side_to_move() == Color::White, b.fullmove_number() as u32)
+    }
+
+    fn play(&self, b: &Board, san: &str) -> Option<(Board, String, Option<u8>, Option<u8>)> {
+        // A null move (`--`, or `Z0`): the turn passes.
+        if san == "--" || san == "Z0" {
+            let nb = b.null_move()?;
+            return Some((nb.clone(), nb.to_string(), None, None));
+        }
+        let mv = san_move(b, san)?;
+        let (from, to) = shown_squares(b, mv);
+        let mut nb = b.clone();
+        nb.play_unchecked(mv);
+        Some((nb.clone(), nb.to_string(), Some(from), Some(to)))
+    }
+}
+
 /// The game `text` (its tags and moves), read and played out.
 pub fn parse(text: &str) -> Game {
+    parse_with(text, &Chess)
+}
+
+/// A game of the PGN family, read and played out by `rules`. Without recursion, and with no
+/// more than `MAX_MOVES` moves and `MAX_DEPTH` levels of variations, whatever the text.
+pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
     let mut g = Game::default();
     // The tags: every `[` line before the moves.
     let mut rest = text;
@@ -557,14 +614,10 @@ pub fn parse(text: &str) -> Game {
             break;
         }
     }
-    let start = g
-        .tag("FEN")
-        .and_then(|f| board(f).map(|b| (b, full_fen(f))))
-        .unwrap_or_else(|| (Board::default(), START.to_string()));
-    g.start = start.1;
-    let first = start.0;
+    let (first, start) = rules.start(&g.tags, rest);
+    g.start = start;
     // Per node: its board, when its line could be played so far.
-    let mut boards: Vec<Option<Board>> = vec![];
+    let mut boards: Vec<Option<R::Board>> = vec![];
     // The move the next one follows (None: the start), and the variations open around it.
     let mut cur: Option<u32> = None;
     let mut stack: Vec<Option<u32>> = vec![];
@@ -576,7 +629,7 @@ pub fn parse(text: &str) -> Game {
     let mut skip = 0u32;
     // The moves of a line with a move that could not be played have no boards: this is the
     // board before the next move, or None.
-    let board_at = |at: Option<u32>, boards: &[Option<Board>]| match at {
+    let board_at = |at: Option<u32>, boards: &[Option<R::Board>]| match at {
         None => Some(first.clone()),
         Some(n) => boards[n as usize].clone(),
     };
@@ -620,7 +673,7 @@ pub fn parse(text: &str) -> Game {
                 }
                 after_move = false;
             }
-            Lex::Word(w) => match word(w) {
+            Lex::Word(w) => match rules.word(w) {
                 Word::Result(r) => {
                     if depth == 0 {
                         g.result = if r == "½-½" { "1/2-1/2".into() } else { r.to_string() };
@@ -634,7 +687,7 @@ pub fn parse(text: &str) -> Game {
                     let id = g.nodes.len() as u32;
                     let prev = board_at(cur, &boards);
                     let (white, number) = match prev.as_ref() {
-                        Some(b) => (b.side_to_move() == Color::White, b.fullmove_number() as u32),
+                        Some(b) => rules.turn(b),
                         None => {
                             // Counted on from the move before.
                             let p = cur.map(|n| &g.nodes[n as usize]);
@@ -643,10 +696,9 @@ pub fn parse(text: &str) -> Game {
                             (white, number)
                         }
                     };
-                    // A null move (`--`, or `Z0`): the turn passes, shown as `--`.
-                    let null = san == "--" || san == "Z0";
                     let mut node = Node {
-                        san: if null { "--".into() } else { san.to_string() },
+                        // A null move is shown as `--`.
+                        san: if san == "Z0" { "--".into() } else { san.to_string() },
                         parent: cur,
                         white,
                         number,
@@ -656,21 +708,12 @@ pub fn parse(text: &str) -> Game {
                         ..Node::default()
                     };
                     let mut after = None;
-                    if let Some(b) = prev.as_ref()
-                        && null
-                        && let Some(nb) = b.null_move()
-                    {
-                        node.fen = Some(nb.to_string());
-                        after = Some(nb);
-                    } else if let Some(b) = prev.as_ref() {
-                        match san_move(b, san) {
-                            Some(mv) => {
-                                let (from, to) = shown_squares(b, mv);
-                                let mut nb = b.clone();
-                                nb.play_unchecked(mv);
-                                node.from = Some(from);
-                                node.to = Some(to);
-                                node.fen = Some(nb.to_string());
+                    if let Some(b) = prev.as_ref() {
+                        match rules.play(b, san) {
+                            Some((nb, fen, from, to)) => {
+                                node.from = from;
+                                node.to = to;
+                                node.fen = Some(fen);
                                 after = Some(nb);
                             }
                             None => {

@@ -8,7 +8,7 @@ a **list of games**, and each game as a **board with its stones**, stepped throu
 the stones each move takes are taken off, as the rules say. Both apps have it. Coxswain only
 reads: it does not play, check or score.
 
-![Honinbo Shusaku against Gennan Inseki, 1846, in the desktop app's window (Alt+K): the 19×19 board in the Cyber theme's colours at move 127, the last stone marked with a ring, beside it the players, komi, the move, captures and the comment on the ear-reddening move](../screenshots/gui-go.png)
+![Honinbo Shusaku against Gennan Inseki, 1846, in the desktop app's window (Alt+K): the 19×19 board in the Cyber theme's colours at move 117, the stones drawn lit from the top left, the last one marked with a ring, beside it the players, komi, the move and the stones taken](../screenshots/gui-go.png)
 
 ![The terminal app's Go view in Classic blue: the same game at move 127, the board drawn with box lines and ● stones in black and white, the last one ◉, coordinates around it, the move, captures and the comment beside it, the key line below](../screenshots/tui-go.png)
 
@@ -162,4 +162,4 @@ as Latin letters; add `CA[GB2312]` (or the right one) to its first node.
 Not yet: Coxswain shows games but does not play.
 
 ---
-[← Previous: Chess games](chess.md) · [Next: Neural network models →](neural-networks.md)
+[← Previous: Chess games](chess.md) · [Next: Draughts games →](draughts.md)

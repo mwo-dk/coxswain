@@ -377,6 +377,42 @@ printf '\x08\x44\x93\x1a\x6e\xf4\xb9\xa0\x01\x5a\x00\x0a\x00\x00\x00\x00\x08\x44
 # Go: the ear-reddening game of 1846 (public domain; its moves as sgf-render's tests have them,
 # MIT), a 9×9 study in variations and a life-and-death problem from the same tests, for Go
 # games (docs/previews/go.md).
+# Draughts: two games made up for the demo (moves played out by Coxswain's own rules), one
+# international with a variation and a comment, one of English draughts, for Draughts games
+# (docs/previews/draughts.md).
+mkdir -p "$d/Documents/Draughts"
+cat > "$d/Documents/Draughts/club.pdn" <<'EOF'
+[Event "Rocket Club Championship"]
+[Site "Hangar 3"]
+[Date "2026.03.14"]
+[Round "4"]
+[White "Ada Vance"]
+[Black "Milo Brandt"]
+[Result "2-0"]
+[GameType "20"]
+
+1. 35-30 20-25 2. 30-24 19x30 3. 31-27 30-35 4. 27-22 17x28 5. 33x22 18x27
+6. 32x21 16x27 7. 34-29 15-20 8. 40-34 27-31 9. 37x26 11-17 10. 26-21 17x26
+11. 41-37 7-11 12. 36-31 12-17 13. 38-32 17-21 14. 39-33 11-16 (14... 13-18
+15. 32-28) 15. 32-27 21x32x41 {Black takes two on the way down.} 16. 46x37 2-7
+17. 29-23 14-19 18. 23x14 10x19 19. 31-27 13-18 20. 37-32 8-13 21. 43-39 16-21
+22. 27x16 7-12 23. 32-28 35-40 24. 44x35 18-23 25. 49-44 23x32 26. 44-40 32-37
+27. 42x31 26x37 28. 16-11 6x17 29. 48-43 1-6 30. 34-30 25x34 31. 40x29 37-41
+32. 47x36 17-21 33. 50-44 12-17 34. 29-23 19x28 35. 33x22x11 6x17 2-0
+
+[Event "Rocket Club, checkers night"]
+[Date "2026.03.21"]
+[White "Ida Kern"]
+[Black "Otto Lind"]
+[Result "1-0"]
+[GameType "21"]
+
+1. 10-14 21-17 2. 14x21 22-17 3. 9-14 17x10 4. 7x14 23-18 5. 14x23 27x18
+6. 6-9 24-19 7. 9-14 18x9 8. 5x14 26-22 9. 3-7 31-27 10. 1-6 27-24 11. 11-15
+19x10x3 {A king.} 12. 12-16 3x12x19 13. 14-17 22x13 14. 6-9 13x6 15. 2x9 19-16
+16. 4-8 32-27 17. 8-12 30-26 18. 12x19 24x15 19. 21x30 28-24 20. 30x23x32 29-25
+21. 9-13 24-20 22. 32-27 25-22 23. 27-23 15-10 24. 23-26 20-16 25. 26x17 16-11 1-0
+EOF
 mkdir -p "$d/Documents/Go"
 cat > "$d/Documents/Go/classics.sgf" <<'EOF'
 (;GM[1]FF[4]CA[UTF-8]SZ[19]GN[The ear-reddening game]PB[Honinbo Shusaku]BR[4d]PW[Gennan Inseki]WR[8d]DT[1846]KM[0]RE[B+2]

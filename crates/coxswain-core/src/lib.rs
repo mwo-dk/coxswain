@@ -14,6 +14,7 @@ pub mod collate;
 pub mod config;
 pub mod container_image;
 pub mod dbf;
+pub mod draughts;
 pub mod dirs;
 pub mod disk;
 pub mod disk_image;
