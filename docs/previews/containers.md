@@ -9,7 +9,8 @@ diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText
 makes scanned PDFs searchable and has the Ghostscript that shows PostScript, ffmpeg's shows and
 converts video and sound and HEIC photos, ImageMagick's shows GIMP pictures and converts and
 edits photos, GDAL's draws and converts geodata, and OpenSCAD's makes models into pictures, STL
-and 3MF. A container gets no network and sees your files read-only. Nothing is downloaded
+and 3MF. Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on.
+A container gets no network and sees your files read-only. Nothing is downloaded
 until you click.
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
@@ -45,7 +46,7 @@ until you click.
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings → *Previews*, with *Container images*, *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image and the two image options, for the desktop app (no *Container images* list, no pulling) |
+| **Ctrl+,** | Settings → *Previews*, with *Container images*, *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image and the two image options, for the desktop app (no *Container images* list, no pulling; Apache Tika's image is pulled by the search helper when [its option](../search/tika.md) is ticked) |
 
 ## The images
 
@@ -68,6 +69,7 @@ a little larger or smaller.
 | `docker.io/dstmodders/imagemagick:latest` (default for ImageMagick) | GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md); no HEIC or RAW photos (its build has no reader for them) | about 60 MB | about 152 MB | Light: a second or two per picture |
 | `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (default for GDAL, pinned to its digest) | A map of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files from their own shapes, with thumbnails, their layers, coordinate system and extent ([Geodata](geodata.md)), and Convert geodata | about 40 MB | about 98 MB | Light: under a second per file for most; a large GeoPackage or GeoTIFF takes a few seconds |
 | `docker.io/openscad/openscad:trixie.2026-10-19` (default for OpenSCAD, pinned to its digest) | A picture of each `.scad` model's part, with thumbnails ([OpenSCAD models](openscad.md)), and Export 3D model as STL or 3MF | about 241 MB | about 635 MB | Light to heavy: most models take a second with Manifold; a large one with many curves keeps the processor busy for a while |
+| `docker.io/apache/tika:4.1.0` (pinned to its digest, for [Read other formats with Apache Tika](../search/tika.md)) | The words of OneNote, XPS, CHM, Outlook data files, MHTML, Hangul and Access files for Find, and of older Office files when LibreOffice is not installed | about 190 MB | about 440 MB | Its server runs only while such files are read and stops after 5 idle minutes: about 350 MB of memory, a fraction of a second of processor time per file |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -83,6 +85,7 @@ Where each image comes from, and why it is the one:
 | `osgeo/gdal:alpine-small-3.13.3` | The GDAL project's own images, built with each release; the small Alpine one has the drivers Coxswain uses and PROJ. Pinned to its digest: a Coxswain release moves it on | GDAL MIT, PROJ MIT, the libraries in it theirs (SQLite public domain, libtiff, libgeotiff, expat …) | With every GDAL release (every few weeks in 2026) |
 | `openscad/openscad:trixie.2026-10-19` | The OpenSCAD project's own image of a dated snapshot (its last release, 2021.01, has no Manifold and no image of its own worth taking). Pinned to its digest: a Coxswain release moves it on | OpenSCAD GPL-2.0-or-later, the libraries in it theirs (CGAL GPL-3.0-or-later, Manifold Apache-2.0, Qt LGPL-3.0 …) | A snapshot every week in 2026 |
 | `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
+| `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
 Ghostscript's AGPL does not reach it.
@@ -124,6 +127,10 @@ held to the driver of the file's kind (`-if GPKG`, `-if GTiff` …) with `GDAL_P
 and `openscad -o /out/… --export-format binstl --backend=manifold` for OpenSCAD. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
 `-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
+commands. No preview container starts a server or opens a port: each run does one file and ends.
+Apache Tika's is the one server, for search: it listens only inside its container, has no
+network, no folder of yours and no port on your machine, and stops itself when idle
+([What the container may do](../search/tika.md#what-the-container-may-do)).
 
 A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
 searchable, Convert video or audio, Convert or edit pictures, Convert geodata and Export 3D model have none: **Stop** ends them. Pulling
@@ -169,7 +176,8 @@ default), **Weekly** or **Monthly**.
 - **Where it goes:** the registry in the image's name, `docker.io` for the defaults, `ghcr.io` for Typst's.
   *Settings → Privacy and updates → What can leave this machine* then says *Container images for
   previews, when pulled and each week to keep them up to date* (or *each month*), with the
-  registry.
+  registry. Apache Tika's image, once pulled for [search](../search/tika.md), is updated with
+  them.
 - **The terminal app** makes no container previews, so it updates nothing; its **F12** →
   *Previews* shows the option, and the desktop app does the updating.
 
@@ -180,13 +188,16 @@ default.
 
 - Both apps note, in `state.json`, when a preview or [Make PDF searchable](../files/searchable-pdf.md)
   last ran in each image. Once an hour (not on battery) the desktop app removes a pulled image
-  of `[preview.images]` that neither used for 90 days, by name, as **Remove** does.
+  of `[preview.images]` that neither used (nor Apache Tika read a file with) for 90 days, by name, as **Remove** does.
 - An image with no use noted yet, such as one pulled before you turned the option on, counts as
   used on the day the app first looks, so turning it on never removes all of them at once.
 - The next preview that needs a removed image says *First run pulls …* again and waits for your
   click.
 - Only Coxswain's own images are ever touched. The terminal app shows the option; the desktop
   app does the removing.
+- Apache Tika's image counts as used on each day the search helper reads a file with it
+  ([Other formats with Apache Tika](../search/tika.md)), so it is not removed while Tika is on and
+  has files to read.
 
 ## What you see
 
@@ -217,6 +228,7 @@ default.
 | – | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"` |
 | – | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` (pinned) |
 | – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
+| – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
 | *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
@@ -228,13 +240,15 @@ LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH`
 `--entrypoint`), `ocrmypdf` as the entry point for OCRmyPDF, Kroki's program names (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
 `PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
-`magick` on its `PATH` for ImageMagick, GDAL's programs on its `PATH` for GDAL, and `openscad`
-on its `PATH` for OpenSCAD.
+`magick` on its `PATH` for ImageMagick, GDAL's programs on its `PATH` for GDAL, `openscad`
+on its `PATH` for OpenSCAD, and for Tika an `apache/tika` server image (`java` and Tika's jars
+in `/opt/tika-server`).
 
 ## In the terminal app
 
-The terminal app makes no previews, so it starts no preview containers. The containers it
-runs are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
+The terminal app makes no previews, so it starts no preview containers. Apache Tika's runs for
+it through the search helper when [Read other formats with Apache Tika](../search/tika.md) is on.
+The containers it runs itself are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
 ffmpeg's, ImageMagick's, GDAL's and OpenSCAD's, for [Convert video or audio](../files/convert-media.md),
 [Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)
 and [Export 3D model](openscad.md#export-3d-model), the same way as the desktop app: asked
@@ -242,7 +256,7 @@ first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a 
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`prefer_tool` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL and OpenSCAD images. Its **F12** → *Previews* still
+`prefer_tool` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL and OpenSCAD images (and its helper `images.tika`). Its **F12** → *Previews* still
 shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
 from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
@@ -282,7 +296,7 @@ are safe.
 
 #### Why did an image disappear?
 
-*Remove images not used for 90 days* is on, and neither a preview nor Make PDF searchable used it for that long. The next
+*Remove images not used for 90 days* is on, and neither a preview nor Make PDF searchable used it (nor Apache Tika read a file with it) for that long. The next
 preview that needs it says *First run pulls …* and waits for a click. Turn the option off in
 *Settings → Previews* to keep every image.
 
@@ -363,9 +377,11 @@ better build for your machine.
 
 #### Does a container run a server?
 
-No. Kroki and Gotenberg are servers by design, but Coxswain runs only the programs inside their
-images, one per file: the container starts, makes the picture or PDF, and is removed. No port is
-opened.
+A preview's never: Kroki and Gotenberg are servers by design, but Coxswain runs only the programs
+inside their images, one per file: the container starts, makes the picture or PDF, and is
+removed. No port is opened. The one server is Apache Tika's, for search, when you turn on
+[Read other formats with Apache Tika](../search/tika.md): it has no network and no port on your
+machine, gets each file on its standard input, and stops itself after 5 idle minutes.
 
 ---
 [← Previous: Previews made by tools](tools.md) · [Next: Safety, speed and limits →](safety.md)

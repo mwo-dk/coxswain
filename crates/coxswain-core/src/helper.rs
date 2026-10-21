@@ -189,6 +189,9 @@ pub struct Status {
     /// The clouds whose files the walk found only in the cloud: (name, folder).
     #[serde(default)]
     pub clouds: Vec<(String, PathBuf)>,
+    /// Apache Tika, when `[search] tika` is on: pulling its image, ready, or why not.
+    #[serde(default)]
+    pub tika: Option<crate::extract::tika::State>,
     /// The helper is this newer version, which this app cannot talk to: it indexes by itself
     /// until it is restarted. Never sent by a helper.
     #[serde(default)]
@@ -331,6 +334,11 @@ fn serve_here() -> io::Result<()> {
         } else {
             None
         });
+    }
+    // Apache Tika's image, when it is turned on and not pulled yet: once there, the files it
+    // reads are read at once.
+    if let Some(s) = store.clone() {
+        crate::extract::tika::prepare(move || s.hurry.store(true, Ordering::Relaxed));
     }
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
@@ -729,6 +737,7 @@ fn answer(
                     roots,
                     tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
+                    tika: store.and(crate::extract::tika::state()),
                     outdated: None,
                 }
             }),

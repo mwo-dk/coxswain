@@ -2045,7 +2045,10 @@ fn scan_for(
 ) -> rusqlite::Result<bool> {
     let began = now();
     let (roots, offline) = place(store, cfg)?;
-    store.tools_changed(&crate::extract::installed::extensions(), &crate::extract::installed::kinds())?;
+    let tika = crate::extract::tika::extensions();
+    let tools: Vec<&str> = crate::extract::installed::extensions().into_iter().chain(tika.iter().copied()).collect();
+    let known: Vec<&str> = crate::extract::installed::kinds().into_iter().chain(crate::extract::tika::FORMATS.iter().copied()).collect();
+    store.tools_changed(&tools, &known)?;
     // Diagrams got a sentence per arrow; code keeps its indentation and blank lines.
     let mut ends: Vec<String> = [
         "drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd",
@@ -2067,6 +2070,12 @@ fn scan_for(
     store.reader_changed("readers.sgf", "1", &crate::go::ENDINGS)?;
     // Outlook messages and dBase tables have readers of their own: read once again.
     store.reader_changed("readers.msg-dbf", "1", &[".msg", ".dbf"])?;
+    // Apache Tika, once it is turned on and its image is there: its own version, so a change
+    // to what it gets reads only its files again. Nothing while it is off.
+    if !tika.is_empty() {
+        let ends: Vec<String> = tika.iter().map(|e| format!(".{e}")).collect();
+        store.reader_changed("readers.tika", crate::extract::tika::READER, &ends)?;
+    }
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;

@@ -34,7 +34,9 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 | Plain text | Everything else that is text: code, CSV, JSON, logs, `.tex` … | As it stands |
 
 Older formats (`.doc`, `.ppt`, Publisher, Visio, Apple's `.pages` and `.key`) and the words in
-pictures need a program you install: see [Scans, pictures and older Office files](scans.md).
+pictures need a program you install: see [Scans, pictures and older Office files](scans.md), or
+Apache Tika in a container when you turn it on. OneNote, XPS, CHM, Outlook `.pst` and `.ost`,
+MHTML, Hangul and Access files are read only with Tika ([Other formats with Apache Tika](tika.md)).
 
 ## What you see
 
@@ -62,7 +64,7 @@ The same: the helper reads the documents for both apps.
 #### Why is a Word document not found by its text?
 
 Check that it is `.docx` (or `.odt` …), not the older `.doc`: that one needs
-[LibreOffice](scans.md). Check that it is smaller than 20 MB, not locked with a password, and in a
+[LibreOffice](scans.md), or [Apache Tika](tika.md) when it is turned on. Check that it is smaller than 20 MB, not locked with a password, and in a
 [folder read](folders.md).
 
 #### Does it find the formulas in my spreadsheet?

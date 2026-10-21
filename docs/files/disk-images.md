@@ -155,6 +155,8 @@ downloads it. An `.iso`, `.dmg` or other image whose header Coxswain does not kn
 Search does not read inside disk images, CHM help files or CBR comics: they can be many
 gigabytes, and need 7-Zip. Find finds the image itself by its name, as any file. A disk image's
 own bytes are never read as text either: a VHD named `.vhd` is not taken for VHDL source.
+The text of a CHM help file is read when
+[Read other formats with Apache Tika](../search/tika.md) is on; its pages are not listed as files.
 
 ## Settings and config.toml
 
@@ -200,7 +202,8 @@ and adding, renaming, deleting or making folders inside it is refused.
 #### Does search find files inside disk images?
 
 No. Search does not read inside disk images, CHM help files or CBR comics, which can be large;
-it finds the file itself by its name.
+it finds the file itself by its name. A CHM file's text is read as a whole with
+[Apache Tika](../search/tika.md), when you turn that on.
 
 #### My .vhd is VHDL code. Will Coxswain take it for a disk image?
 

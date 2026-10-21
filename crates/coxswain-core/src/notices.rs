@@ -309,6 +309,13 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("tesseract", text, Some("search"))
         });
     }
+    // Apache Tika is turned on, but there is no podman or docker to run it in. Once.
+    if cfg.search.tika
+        && cfg.search.text
+        && status.tika == Some(crate::extract::tika::State::NoRuntime)
+    {
+        all.push(Notice::new("tika-runtime", t!("notice.tika_no_runtime"), Some("search_tika")));
+    }
     // Disk images open like folders, but no 7-Zip reads them: what to install. Once.
     if cfg.archive.disk_images && crate::disk_image::seven_zip().is_none() {
         let copy = crate::tools::install("7z");
@@ -463,6 +470,7 @@ mod tests {
             chat_loaded: None,
             error: None,
             clouds: vec![],
+            tika: None,
             outdated: None,
         };
         let mut state = AppState::default();

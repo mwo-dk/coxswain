@@ -626,6 +626,7 @@
               {/each}
               {@render list("cloud_read", t("settings.search_names_only_none"))}
             {/if}
+            {@render check("search_tika")}
             {#if index?.tools?.length}
               <div class="opt">
                 <span class="lab">{t("settings.search_tools")}</span>

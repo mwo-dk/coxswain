@@ -95,9 +95,9 @@ Coxswain lists only what it caused, matched exactly:
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
   `docker.io/yuzutech/kroki:latest`, `ghcr.io/typst/typst:latest`,
   `docker.io/jbarlow83/ocrmypdf-alpine:latest`, listed once though OCRmyPDF and Ghostscript
-  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3` and `docker.io/openscad/openscad:trixie.2026-10-19`) that podman or docker has. Other images, even ones that look
+  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3` `docker.io/openscad/openscad:trixie.2026-10-19` and `docker.io/apache/tika:4.1.0`) that podman or docker has. Other images, even ones that look
   alike, are not listed. *Remove images not used for 90 days* in *Settings → Previews* removes
-  these by itself when no preview used one for that long, and *Keep images up to date* removes
+  these by itself when no preview used one (nor Apache Tika read a file with it) for that long, and *Keep images up to date* removes
   the copy an update replaced ([Containers](../previews/containers.md#keeping-images-up-to-date)).
 
 Nothing outside is cleared by *Clear everything* unless its box is ticked, and every clear shows

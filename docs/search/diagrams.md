@@ -162,4 +162,4 @@ No. The [preview](../previews/diagrams.md) draws the diagram; this reads it for 
 apart.
 
 ---
-[← Previous: Scans, pictures and older Office files](scans.md) · [Next: Git history in search →](history.md)
+[← Previous: Other formats with Apache Tika](tika.md) · [Next: Git history in search →](history.md)
