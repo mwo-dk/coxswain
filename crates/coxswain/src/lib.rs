@@ -629,6 +629,10 @@ pub struct App {
     /// How long a key waits for a folder to be listed before the panel shows it as being read
     /// and the keys go on.
     list_wait: Duration,
+    /// Tests hold the listing threads with it (a write lock) until they have looked at the
+    /// panel meanwhile, so a small folder cannot be listed before they look.
+    #[cfg(test)]
+    list_hold: Option<Arc<std::sync::RwLock<()>>>,
     last_click: Option<(Instant, u16, u16)>,
     /// Properties being read on a thread.
     props_rx: Option<mpsc::Receiver<Result<bfs::Props, String>>>,
@@ -855,6 +859,8 @@ impl App {
             list_wait: tests::LIST_WAIT.get(),
             #[cfg(not(test))]
             list_wait: Duration::from_millis(150),
+            #[cfg(test)]
+            list_hold: tests::LIST_HOLD.with_borrow(Clone::clone),
             last_click: None,
             props_rx: None,
             watch: Default::default(),
@@ -1028,7 +1034,11 @@ impl App {
         let virtual_dir = virtual_list(&dir);
         let d = dir.clone();
         let k = keep.clone();
+        #[cfg(test)]
+        let hold = self.list_hold.clone();
         std::thread::spawn(move || {
+            #[cfg(test)]
+            drop(hold.as_ref().map(|h| h.read()));
             let r = bfs::list(&d, h);
             let _ = tx.send((d, k, r));
         });
@@ -4178,6 +4188,8 @@ mod tests {
         /// start: long, as tests list small folders and look at them at once, on machines
         /// that can be slow.
         pub(super) static LIST_WAIT: std::cell::Cell<Duration> = const { std::cell::Cell::new(Duration::from_secs(10)) };
+        /// What holds a test's listing threads from the start (`App::list_hold`).
+        pub(super) static LIST_HOLD: std::cell::RefCell<Option<Arc<std::sync::RwLock<()>>>> = const { std::cell::RefCell::new(None) };
     }
 
     fn app(left: PathBuf, right: PathBuf) -> App {
@@ -4415,10 +4427,15 @@ mod tests {
         std::fs::write(d.join("big/a.txt"), "a").unwrap();
         let mut app = app(d.clone(), d.clone());
         app.list_wait = Duration::ZERO;
+        // The listing waits until the panel has been looked at meanwhile.
+        let hold = Arc::new(std::sync::RwLock::new(()));
+        let held = hold.write().unwrap();
+        app.list_hold = Some(hold.clone());
         app.cd(0, d.join("big"));
         let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
         assert_eq!(names(&app), [".."], "only the way out while it is read");
         assert!(app.status.is_some(), "the status line says it is being read");
+        drop(held);
         let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
         app.listed(dir, keep, r);
         assert_eq!(names(&app), ["..", "inner", "a.txt"]);
@@ -4435,13 +4452,19 @@ mod tests {
         std::fs::create_dir_all(d.join("big/inner")).unwrap();
         std::fs::write(d.join("big/a.txt"), "a").unwrap();
         LIST_WAIT.set(Duration::ZERO);
+        // The listing waits until the panels have been looked at meanwhile.
+        let hold = Arc::new(std::sync::RwLock::new(()));
+        let held = hold.write().unwrap();
+        LIST_HOLD.set(Some(hold.clone()));
         let mut app = app(d.join("big"), d.join("big"));
         LIST_WAIT.set(Duration::from_secs(10));
+        LIST_HOLD.set(None);
         let names = |app: &App, side: usize| app.panels[side].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
         assert_eq!((names(&app, 0), names(&app, 1)), (vec!["..".to_string()], vec!["..".to_string()]), "only the way out while it is read");
         assert!(app.status.is_some(), "the status line says it is being read");
         app.key_typed(Key::new(KeyCode::Tab, false, false, false));
         assert_eq!(app.active, 1, "a key answers meanwhile");
+        drop(held);
         let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
         app.listed(dir, keep, r);
         assert_eq!(names(&app, 0), ["..", "inner", "a.txt"]);
