@@ -366,7 +366,7 @@
   {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
 {/snippet}
 
-<!-- A draughts square: dark ones numbered, a man as a disc, a king as a disc with a crown ring. -->
+<!-- A draughts square: dark ones numbered, a man as a disc, a king as two discs stacked. -->
 {#snippet cell(d, i)}
   {@const col = i % d.w}
   {@const row = Math.floor(i / d.w)}
@@ -379,12 +379,7 @@
   <rect x={col} y={row} width="1" height="1" fill={looks ? looks.colours[dark ? 1 : 0] : dark ? "#769656" : "#eeeed2"} />
   {#if lit}<rect x={col} y={row} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
   {#if dark && !p}<text x={col + 0.06} y={row + 0.24} class="coord" fill={looks ? looks.colours[0] : "#000"}>{y * (d.w / 2) + Math.floor(x / 2) + 1}</text>{/if}
-  {#if p}
-    {@const white = p === p.toUpperCase()}
-    <circle cx={col + 0.5} cy={row + 0.5} r="0.38" fill={white ? "#f4f4f0" : "#1a1a1a"} stroke={white ? "#555" : "#000"} stroke-width="0.04" />
-    <circle cx={col + 0.5} cy={row + 0.5} r="0.26" fill="none" stroke={white ? "#bbb" : "#444"} stroke-width="0.03" />
-    {#if p.toLowerCase() === "k"}<text x={col + 0.5} y={row + 0.64} class="crown" text-anchor="middle" fill={white ? "#b08000" : "#e0b030"}>♛</text>{/if}
-  {/if}
+  {#if p}<image href={`vendor/game-pieces/draughts-${p === p.toUpperCase() ? "w" : "b"}${p.toLowerCase() === "k" ? "k" : "m"}.svg`} x={col} y={row} width="1" height="1" />{/if}
 {/snippet}
 
 <div class="chess" class:full role={full ? "dialog" : undefined} aria-modal={full ? "true" : undefined} aria-label={full ? basename(path) : undefined}>
@@ -660,10 +655,6 @@
   }
   .board:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-bg);
-  }
-  .crown {
-    font-size: 0.42px;
-    font-family: "DejaVu Sans", "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", sans-serif;
   }
   .coord {
     font-size: 0.17px;

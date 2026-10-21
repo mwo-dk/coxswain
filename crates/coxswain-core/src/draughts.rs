@@ -12,6 +12,10 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::rc::Rc;
+
+/// Capture paths: each the squares landed on (from first) and the pieces taken.
+type Paths = Vec<(Vec<usize>, Vec<usize>)>;
 
 use crate::chess::pgn::{self, Game, Rules, Word};
 
@@ -382,7 +386,7 @@ impl Board {
         let found = if capture || !step {
             rules
                 .captures(self, from)?
-                .into_iter()
+                .iter()
                 .filter(|(path, _)| {
                     path.last() == Some(&to) && {
                         let mut it = path.iter();
@@ -390,6 +394,7 @@ impl Board {
                     }
                 })
                 .max_by_key(|(_, taken)| taken.len())
+                .cloned()
         } else {
             None
         };
@@ -497,7 +502,7 @@ fn first_move(moves: &str) -> Option<&str> {
 /// captures of the positions met so far.
 pub(crate) struct Draughts {
     budget: Cell<usize>,
-    cache: RefCell<HashMap<(Vec<u8>, usize), Vec<(Vec<usize>, Vec<usize>)>>>,
+    cache: RefCell<HashMap<(Vec<u8>, usize), Rc<Paths>>>,
 }
 
 impl Draughts {
@@ -505,13 +510,18 @@ impl Draughts {
         Draughts { budget: Cell::new(MAX_GAME_SEARCH), cache: RefCell::default() }
     }
 
-    /// `Board::captures`, once per position and square.
-    fn captures(&self, b: &Board, from: usize) -> Option<Vec<(Vec<usize>, Vec<usize>)>> {
+    /// `Board::captures`, once per position and square, shared, not copied. A cached answer
+    /// still draws on the budget, a step per path in it, so the paths looked at over a whole
+    /// game stay within `MAX_GAME_SEARCH` however often a position comes back.
+    fn captures(&self, b: &Board, from: usize) -> Option<Rc<Paths>> {
         let key = (b.cells.clone(), from);
         if let Some(c) = self.cache.borrow().get(&key) {
-            return Some(c.clone());
+            let cost = c.len().max(1);
+            let left = self.budget.get();
+            self.budget.set(left.saturating_sub(cost));
+            return (left >= cost).then(|| c.clone());
         }
-        let found = b.captures(from, &self.budget)?;
+        let found = Rc::new(b.captures(from, &self.budget)?);
         let mut cache = self.cache.borrow_mut();
         if cache.len() < MAX_CACHED {
             cache.insert(key, found.clone());
@@ -815,5 +825,24 @@ mod tests {
             n += 1;
         }
         assert!(n > 0 && r.budget.get() == 0);
+    }
+
+    /// One position with many capture paths, asked again and again in thousands of variations:
+    /// the cached answer is charged each time, so the game's budget runs out and the rest of
+    /// the captures are not played, fast.
+    #[test]
+    fn cached_captures_are_charged() {
+        let blacks: Vec<String> = (6..=45).filter(|n| n % 2 == 0 && n % 10 != 0).map(|n| n.to_string()).collect();
+        let fen = format!("W:WK46,K50,K1,K5:B{}", blacks.join(","));
+        let mut text = format!("[GameType \"20\"]\n[FEN \"{fen}\"]\n\n1. 46x5 ");
+        for _ in 0..50_000 {
+            text.push_str("(1. 46x5) ");
+        }
+        let start = std::time::Instant::now();
+        let r = Draughts::new();
+        let g = pgn::parse_with(&text, &r);
+        assert!(g.nodes.len() > 1000);
+        assert!(r.budget.get() < MAX_GAME_SEARCH, "hits are charged");
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "{:?}", start.elapsed());
     }
 }

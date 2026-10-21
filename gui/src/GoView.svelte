@@ -200,7 +200,7 @@
             {#if s}
               {@const x = i % pos.width}
               {@const y = Math.floor(i / pos.width)}
-              <circle cx={x} cy={y} r="0.47" fill={s === 1 ? "#141414" : "#f4f4f0"} stroke={s === 1 ? "#000" : "#777"} stroke-width="0.03" />
+              <image href={`vendor/game-pieces/go-${s === 1 ? "b" : "w"}.svg`} x={x - 0.5} y={y - 0.5} width="1" height="1" />
               {#if pos.last && pos.last[0] === x && pos.last[1] === y}<circle cx={x} cy={y} r="0.2" fill="none" stroke={s === 1 ? "#f4f4f0" : "#141414"} stroke-width="0.06" />{/if}
             {/if}
           {/each}

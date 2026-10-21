@@ -9,7 +9,7 @@ its squares numbered, stepped through move by move: the pieces a capture takes g
 that reaches the far row becomes a king. Both apps have it. Coxswain only reads: it does not
 play or check a game.
 
-![International draughts in the desktop app's window (Alt+K): a 10×10 board in the Cyber theme's colours, white and black men, the empty dark squares numbered, the squares of Black's capture 21x32x41 tinted, beside it the players, event, International draughts, 10×10 and the moves with that capture highlighted, a comment in italics and a variation in brackets](../screenshots/gui-draughts.png)
+![International draughts in the desktop app's window (Alt+K): a 10×10 board in the Cyber theme's colours, white and black men drawn as discs, the empty dark squares numbered, the squares of Black's capture 21x32x41 tinted, beside it the players, event, International draughts, 10×10 and the moves with that capture highlighted, a comment in italics and a variation in brackets](../screenshots/gui-draughts.png)
 
 ![The terminal app's draughts view in Classic blue: an English draughts game on an 8×8 board of coloured squares, men drawn ● and a king ♚ in white and black, square numbers on the empty dark squares, the move 12-16 highlighted among the moves beside it, English draughts (checkers), 8×8 above them, and the key line below](../screenshots/tui-draughts.png)
 
@@ -64,8 +64,8 @@ the keys at once, in the preview pane click it first. Terminal: **Enter**.
 ## A game on the board
 
 The board shows the position after the move you are on, White at the bottom. Men are discs,
-white and black; a king is a disc with a crown (♛) in the desktop app and ♚ in the terminal
-app, where a man is ●. The empty dark squares carry their numbers, as PDN counts them: 1 at
+white and black; a king is two discs stacked, as on a real board, in the desktop app, and ♚ in
+the terminal app, where a man is ●. The empty dark squares carry their numbers, as PDN counts them: 1 at
 the top left, row by row. The squares the last move went from and to are tinted yellow.
 
 Beside the board: the players and the result, the event, place and date, which draughts it is
