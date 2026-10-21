@@ -38,6 +38,7 @@ folder; **Ctrl+E** extracts it.*
 | [Convert video or audio](convert-media.md) | MP4, MP3 or FLAC copies, the sound alone or a clip, by ffmpeg; next to the original, never over it |
 | [Convert or edit pictures](edit-pictures.md) | JPEG, PNG or WebP copies, smaller, without the location, turned, by ImageMagick; next to the original, never over it |
 | [Checksums (Alt+H)](checksums.md) | A SHA256SUMS, SHA512SUMS or B3SUMS of the marked files and folders; **Enter** on such a list checks it: OK, changed, missing |
+| [Split and join (Alt+X)](split-and-join.md) | A big file in parts of a chosen size (`name.001` …) with its SHA-256; **Enter** on `name.001` joins them back and checks the result |
 
 ## Keys at a glance
 
@@ -71,6 +72,8 @@ folder; **Ctrl+E** extracts it.*
 | *Shift+F10*, *F9 → Convert geodata* | yes | yes | [Convert geodata](../previews/geodata.md#convert-geodata): GeoPackage, GeoJSON, a shapefile, KML, GPX, COG, PNG |
 | **Alt+H** | yes | yes | [Make checksums](checksums.md#making-a-list): SHA256SUMS, SHA512SUMS or B3SUMS |
 | **Enter** on a SHA256SUMS, `.sha256` … | yes | yes | [Verify checksums](checksums.md#checking-a-list): OK, changed, missing |
+| **Alt+X** | yes | yes | [Split file](split-and-join.md#splitting-a-file) into parts for a USB stick, a CD or DVD |
+| **Enter** on `name.001` | yes | yes | [Join parts](split-and-join.md#joining-the-parts) and check them against `name.sha256` |
 
 Every key can be changed ([Changing keys](../customise/keys.md)). In the terminal app a key that
 only the desktop app has says so on the status line: *Batch rename is available in the desktop

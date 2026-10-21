@@ -114,6 +114,8 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | – | Convert e-book | `convert_ebook` | The marked e-books (or the one under the cursor) as EPUB, AZW3 or PDF next to them, by calibre; again while it runs, stops it ([E-books](../previews/ebooks.md)) | The same |
 | **Alt+H** | Make checksums | `make_checksums` | A SHA256SUMS, SHA512SUMS or B3SUMS of the marked files and folders; again while it runs, stops it ([Checksums](../files/checksums.md)) | The same |
 | **Enter** on a list | Verify checksums | `verify_checksums` | Every file the SHA256SUMS (or `.sha256` …) names checked: OK, changed, missing; what changed marked ([Checksums](../files/checksums.md#checking-a-list)) | The same |
+| **Alt+X** | Split file | `split_file` | The file in parts of a chosen size, `name.001` …, with `name.sha256`; again while it runs, stops it ([Split and join](../files/split-and-join.md)) | The same |
+| **Enter** on `name.001` | Join parts | `join_parts` | The parts joined back into `name` and checked against `name.sha256` ([Split and join](../files/split-and-join.md#joining-the-parts)) | The same |
 
 ### Archives
 

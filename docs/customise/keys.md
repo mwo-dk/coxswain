@@ -127,6 +127,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `export_model` | none | `history_all` | **Alt+A** |
 | `make_checksums` | **Alt+H** | `verify_checksums` | none |
 | `history_upstream` | **Alt+Y** | | |
+| `split_file` | **Alt+X** | `join_parts` | none |
 | `chess` | **Alt+K** | `edit_here` | **Shift+F4** |
 | `convert_ebook` | none | | |
 | `space_view` | **Alt+U** | `export_kicad` | none |

@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, diskName, diskSure, diskSeen, sortItems, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, sortItems, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -705,6 +705,40 @@ export function verifyChecksums(list = item()?.path, tb = tab()) {
   }, "sums.verify_failed");
 }
 
+/** *Split file* (`coxswain_core::split`): the size of the parts from a menu, or typed, then the
+ *  file under the cursor cut into `name.001`, `name.002` … with `name.sha256` beside them. */
+export async function splitFile(tb = tab()) {
+  if (ui.work) return stopWork();
+  const e = item(tb);
+  if (!e || e.is_dir || e.name === "..") return void (ui.status = t("split.no_file"));
+  if (tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = t("sums.not_here"));
+  const run = (size) => runWork("split_file", () => invoke("split_file", { path: e.path, size }), (s) => (ui.status = tn("split.done", s.parts.length, { sums: basename(s.sums) })), "split.split_failed");
+  const typed = async (v) => {
+    const size = await invoke("split_size", { text: v });
+    if (size) run(size);
+    else ui.status = t("split.size_bad");
+  };
+  const sizes = await invoke("split_sizes");
+  const items = sizes.map(([size, label], i) => ({ key: String(i + 1), label, run: () => run(size) }));
+  items.push({ key: String(items.length + 1), label: t("split.size.other"), run: () => (ui.modal = { kind: "input", feature: "split_and_join", title: actionLabel("split_file"), label: t("split.size_label"), value: "250M", ok: t("common.apply"), run: typed }) });
+  ui.modal = { kind: "menu", feature: "split_and_join", title: `${actionLabel("split_file")} ${e.name}`, direct: true, filter: "", cursor: 0, items };
+}
+
+/** *Join parts*: the parts from `first` (`name.001`) on joined into `name`, asked first (and
+ *  again before a file of that name is replaced), then checked against `name.sha256`. */
+export async function joinParts(first = item()?.path) {
+  if (ui.work) return stopWork();
+  const plan = first && (await invoke("join_plan", { first }));
+  if (!plan) return void (ui.status = t("split.not_first"));
+  const [name, n, there] = plan;
+  const run = () =>
+    runWork("join_parts", () => invoke("join_parts", { first, replace: there }), (j) => {
+      if (j.matches === false) ui.modal = { kind: "message", feature: "split_and_join", title: actionLabel("join_parts"), text: t("split.mismatch", { name }) };
+      else ui.status = t(j.matches ? "split.joined_ok" : "split.joined", { name });
+    }, "split.join_failed");
+  ui.modal = { kind: "menu", feature: "split_and_join", title: actionLabel("join_parts"), direct: true, filter: "", cursor: 0, items: [{ key: "1", label: there ? t("split.replace", { name }) : tn("split.join_into", n, { name }), run }] };
+}
+
 async function runWork(action, start, done, failed) {
   ui.work = { action, line: "", stopping: false };
   const what = actionLabel(action);
@@ -715,7 +749,7 @@ async function runWork(action, start, done, failed) {
   try {
     done(await start());
   } catch (err) {
-    if (ui.work?.stopping) ui.status = t("sums.stopped");
+    if (ui.work?.stopping) ui.status = t(action === "split_file" || action === "join_parts" ? "split.stopped" : "sums.stopped");
     else ui.modal = failure(t(failed), err);
   } finally {
     clearInterval(poll);
@@ -999,8 +1033,9 @@ function openFile(tb, e) {
   if (tb.history) return void (ui.status = t("history.file_hint"));
   // A file of a package: to its folder, the cursor on it.
   if (tb.package) return cd(tb, parent(e.path)).then(() => (tb.cursor = Math.max(0, tb.items.findIndex((x) => x.path === e.path || x.name === basename(e.path)))));
-  // A list of checksums is checked.
+  // A list of checksums is checked; the first part of a split file offers Join.
   if (isSums(e.name)) return verifyChecksums(e.path, tb);
+  if (isFirstPart(e.name) && !tb.snapshot) return joinParts(e.path);
   if (tb.snapshot) return void (ui.status = t("zfs.file_hint"));
   invoke("open_path", { path: e.path }).then(
     () => (ui.status = t("status.opened", { name: e.name })),
@@ -1030,6 +1065,7 @@ export function subject(tb = tab()) {
     geo: files.filter((x) => isGeo(x.name) && !/\.tiff?$/i.test(x.name)).length,
     models: files.filter((x) => isScad(x.name)).length,
     sums: files.filter((x) => isSums(x.name)).length,
+    parts: files.filter((x) => isFirstPart(x.name)).length,
     images: files.filter((x) => ociIndex(tb, x)).length,
     // `local_models::is_model`: a model file by its ending, or a blob of a model store.
     local_models: files.filter((x) => /\.(gguf|safetensors|pt|pth|ckpt)$|\.safetensors\.index\.json$|^pytorch_model.*\.bin$/i.test(x.name) || (tb.models?.[x.name] && /^sha256-/.test(x.name))).length,

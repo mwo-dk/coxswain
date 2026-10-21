@@ -273,6 +273,7 @@ pub const FEATURES: &[Feature] = &[
     f("convert_media", "files/convert-media.md", &[ConvertMedia, ActionMenu, TogglePreview]),
     f("edit_pictures", "files/edit-pictures.md", &[EditPictures, ActionMenu, TogglePreview]),
     f("checksums", "files/checksums.md", &[MakeChecksums, VerifyChecksums, ActionMenu]),
+    f("split_and_join", "files/split-and-join.md", &[SplitFile, JoinParts, ActionMenu]),
     // customise
     f("settings_window", "customise/settings.md", &[Settings]),
     f("themes", "customise/themes.md", &[Settings]),

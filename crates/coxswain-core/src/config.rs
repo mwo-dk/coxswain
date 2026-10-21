@@ -282,6 +282,10 @@ actions! {
     // hash. A list is checked by Enter on it, and from the action menu.
     MakeChecksums = "make_checksums", "Make checksums", Files, ["Alt+H"];
     VerifyChecksums = "verify_checksums", "Verify checksums", Files, [];
+    // Split and join (`split`): a big file in parts of a chosen size, and back; X for cut. Join is
+    // offered by Enter on a first part, and in the action menu.
+    SplitFile = "split_file", "Split file", Files, ["Alt+X"];
+    JoinParts = "join_parts", "Join parts", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
