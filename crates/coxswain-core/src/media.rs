@@ -1124,7 +1124,8 @@ mod tests {
     fn media_image_policy_is_the_installed_ones() {
         let baked = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packaging/images/imagemagick/policy.xml");
         if let Ok(baked) = std::fs::read_to_string(&baked) {
-            assert_eq!(baked, policy(), "packaging/images/imagemagick/policy.xml: write policy() into it");
+            // A Windows checkout may have turned its line ends into CRLF.
+            assert_eq!(baked.replace('\r', ""), policy(), "packaging/images/imagemagick/policy.xml: write policy() into it");
         }
     }
 
