@@ -337,14 +337,25 @@ fn plan(
     // Only inside a repository; asking git would run a program for that.
     let root = dir
         .ancestors()
-        .find(|a| a.join(".git").exists() || a.join(".jj").is_dir() || a.join(".hg").is_dir())
+        .find(|a| {
+            a.join(".git").exists()
+                || a.join(".jj").is_dir()
+                || a.join(".hg").is_dir()
+                || a.join(".svn/wc.db").is_file()
+                || a.join("CVS/Entries").is_file()
+        })
         .ok_or(Missing::NoRepo)?
         .to_path_buf();
+    // A Subversion or CVS working copy: no git tool reads it, so a terminal there, for
+    // `svn update` and the like (unless a command of the user's own is named).
+    let no_git_tool = root.join(".svn").is_dir() || root.join("CVS").is_dir();
     let desktop = matches!(os, "macos" | "windows")
         || os != "android" && var("WAYLAND_DISPLAY").or_else(|| var("DISPLAY")).is_some();
     let tools = known(os);
     let tool = tool.trim();
-    let found = if tool.is_empty() {
+    let found = if no_git_tool && (tool.is_empty() || tools.iter().any(|t| t.name.eq_ignore_ascii_case(tool))) {
+        None
+    } else if tool.is_empty() {
         tools
             .iter()
             .filter(|t| desktop || !t.window)
@@ -616,6 +627,23 @@ mod tests {
             .plan("linux", "", &src, true, &[("SHELL", "/bin/zsh")])
             .unwrap();
         assert_eq!((h.name, h.run), (None, Run::Here("/bin/zsh".into())));
+    }
+
+    /// A Subversion or CVS working copy: no git tool, the shell in it (for `svn update`).
+    #[test]
+    fn handoff_svn_and_cvs_get_a_terminal() {
+        let f = Fake::new("svn", &["lazygit"]);
+        let wc = f.top.join("wc");
+        std::fs::create_dir_all(wc.join(".svn")).unwrap();
+        std::fs::write(wc.join(".svn/wc.db"), "").unwrap();
+        let h = f.plan("linux", "", &wc, true, X).unwrap();
+        assert_eq!((h.root, h.name, h.run), (wc.clone(), None, Run::Here("/bin/zsh".into())));
+        let h = f.plan("linux", "lazygit", &wc, true, X).unwrap();
+        assert_eq!(h.name, None);
+        let co = f.top.join("co");
+        std::fs::create_dir_all(co.join("CVS")).unwrap();
+        std::fs::write(co.join("CVS/Entries"), "").unwrap();
+        assert_eq!(f.plan("linux", "", &co, true, X).unwrap().name, None);
     }
 
     #[test]

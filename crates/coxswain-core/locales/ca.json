@@ -3969,5 +3969,22 @@
  "history.scope_upstream_tip": "Els commits no pujats i no fusionats, segons l'últim fetch; no es fa cap fetch ({key})",
  "history.side_ahead": "No pujat",
  "history.side_behind": "No fusionat",
- "hint.upstream": "{key} llista els commits no pujats i no fusionats, segons l'últim fetch"
+ "hint.upstream": "{key} llista els commits no pujats i no fusionats, segons l'últim fetch",
+ "vcs.on_server": "{system} guarda l'historial i les branques al servidor, que Coxswain no consulta: Obre a la teva eina de git obre per a això un terminal a la còpia de treball.",
+ "feature.subversion.title": "Còpies de treball de Subversion",
+ "feature.subversion.what": "En una còpia de treball de Subversion: la branca, la revisió i els fitxers canviats a la línia i al costat de cada fitxer, llegits només de .svn/wc.db, sense consultar el servidor.",
+ "feature.subversion.q1": "Per què no hi ha historial per a una còpia de treball de Subversion?",
+ "feature.subversion.a1": "Subversion el guarda al seu servidor, i Coxswain no contacta mai un servidor pel seu compte. {git_tool} obre un terminal a la còpia de treball per a svn log i svn update.",
+ "feature.subversion.q2": "Cal tenir svn instal·lat?",
+ "feature.subversion.a2": "No. Coxswain llegeix la base de dades pròpia de la còpia de treball, .svn/wc.db; svn només cal per al que executeu vosaltres al terminal.",
+ "feature.subversion.q3": "Per què un fitxer que només he tocat no surt com a canviat?",
+ "feature.subversion.a3": "Quan n'ha canviat l'hora però no la mida, Coxswain el compara amb la còpia que guarda Subversion, i només el mostra canviat si els bytes difereixen.",
+ "feature.cvs.title": "Còpies de treball de CVS",
+ "feature.cvs.what": "En una còpia de treball de CVS: la branca o l'etiqueta i els fitxers canviats a la línia i al costat de cada fitxer, llegits només dels fitxers CVS/Entries, sense consultar el servidor.",
+ "feature.cvs.q1": "Per què no hi ha historial per a una còpia de treball de CVS?",
+ "feature.cvs.a1": "CVS el guarda al seu servidor, i Coxswain no contacta mai un servidor pel seu compte. {git_tool} obre un terminal a la carpeta per a cvs log i cvs update.",
+ "feature.cvs.q2": "Com sap Coxswain que un fitxer ha canviat?",
+ "feature.cvs.a2": "Com ho fa CVS: per la seva hora davant la que guarda CVS/Entries. Un fitxer només tocat surt com a canviat fins que cvs update torna a posar l'hora.",
+ "feature.cvs.q3": "Quins fitxers queden fora com a ignorats?",
+ "feature.cvs.a3": "La llista pròpia de CVS (*.o, *~, core i semblants), després ~/.cvsignore i el .cvsignore de cada carpeta; un ! en un d'ells buida la llista."
 }

@@ -3791,5 +3791,22 @@
  "history.scope_upstream_tip": "마지막 fetch 기준으로 푸시하지 않았고 병합하지 않은 커밋, 아무것도 가져오지 않음 ({key})",
  "history.side_ahead": "푸시 안 됨",
  "history.side_behind": "병합 안 됨",
- "hint.upstream": "{key}: 마지막 fetch 기준으로 푸시 안 됨·병합 안 됨 커밋 목록"
+ "hint.upstream": "{key}: 마지막 fetch 기준으로 푸시 안 됨·병합 안 됨 커밋 목록",
+ "vcs.on_server": "{system}은(는) 기록과 브랜치를 서버에 두며, Coxswain은 서버에 묻지 않습니다. 그 작업은 '사용하는 git 도구에서 열기'가 작업 사본에 터미널을 엽니다.",
+ "feature.subversion.title": "Subversion 작업 사본",
+ "feature.subversion.what": "Subversion 작업 사본에서 브랜치, 리비전, 바뀐 파일을 줄과 각 파일 옆에 보여 줍니다. .svn/wc.db만 읽고 서버에는 묻지 않습니다.",
+ "feature.subversion.q1": "Subversion 작업 사본에 왜 기록이 없나요?",
+ "feature.subversion.a1": "Subversion은 기록을 서버에 두며, Coxswain은 스스로 서버에 연결하지 않습니다. {git_tool}로 작업 사본에 터미널을 열어 svn log나 svn update를 실행하세요.",
+ "feature.subversion.q2": "svn을 설치해야 하나요?",
+ "feature.subversion.a2": "아니요. 작업 사본 자체의 데이터베이스 .svn/wc.db를 읽습니다. svn은 터미널에서 직접 실행할 때만 필요합니다.",
+ "feature.subversion.q3": "건드리기만 한 파일이 왜 바뀐 것으로 나오지 않나요?",
+ "feature.subversion.a3": "시간은 바뀌었지만 크기가 같으면 Coxswain은 Subversion이 보관한 사본과 비교하고, 바이트가 다를 때만 바뀐 것으로 보여 줍니다.",
+ "feature.cvs.title": "CVS 작업 사본",
+ "feature.cvs.what": "CVS 작업 사본에서 브랜치나 태그와 바뀐 파일을 줄과 각 파일 옆에 보여 줍니다. CVS/Entries 파일만 읽고 서버에는 묻지 않습니다.",
+ "feature.cvs.q1": "CVS 작업 사본에 왜 기록이 없나요?",
+ "feature.cvs.a1": "CVS는 기록을 서버에 두며, Coxswain은 스스로 서버에 연결하지 않습니다. {git_tool}로 폴더에 터미널을 열어 cvs log나 cvs update를 실행하세요.",
+ "feature.cvs.q2": "파일이 바뀐 것을 어떻게 아나요?",
+ "feature.cvs.a2": "CVS처럼 CVS/Entries에 기록된 시간과 비교합니다. 건드리기만 한 파일은 cvs update가 시간을 다시 맞출 때까지 바뀐 것으로 나옵니다.",
+ "feature.cvs.q3": "어떤 파일이 무시되어 빠지나요?",
+ "feature.cvs.a3": "CVS 자체 목록(*.o, *~, core 등), 그다음 ~/.cvsignore와 각 폴더의 .cvsignore입니다. 그 안의 !는 목록을 비웁니다."
 }

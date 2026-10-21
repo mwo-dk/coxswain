@@ -4058,5 +4058,22 @@
  "history.scope_upstream_tip": "Commity niewypchnięte i niescalone, według ostatniego fetch; nic nie jest pobierane ({key})",
  "history.side_ahead": "Niewypchnięty",
  "history.side_behind": "Niescalony",
- "hint.upstream": "{key} wyświetla commity niewypchnięte i niescalone, według ostatniego fetch"
+ "hint.upstream": "{key} wyświetla commity niewypchnięte i niescalone, według ostatniego fetch",
+ "vcs.on_server": "{system} trzyma historię i gałęzie na serwerze, o który Coxswain nie pyta: Otwórz w swoim narzędziu git otwiera do tego terminal w kopii roboczej.",
+ "feature.subversion.title": "Kopie robocze Subversion",
+ "feature.subversion.what": "W kopii roboczej Subversion: gałąź, rewizja i zmienione pliki w wierszu i przy każdym pliku, czytane tylko z .svn/wc.db, bez pytania serwera.",
+ "feature.subversion.q1": "Dlaczego kopia robocza Subversion nie ma historii?",
+ "feature.subversion.a1": "Subversion trzyma ją na swoim serwerze, a Coxswain nigdy sam nie łączy się z serwerem. {git_tool} otwiera terminal w kopii roboczej dla svn log i svn update.",
+ "feature.subversion.q2": "Czy svn musi być zainstalowany?",
+ "feature.subversion.a2": "Nie. Coxswain czyta własną bazę kopii roboczej, .svn/wc.db; svn jest potrzebny tylko do tego, co sam uruchomisz w terminalu.",
+ "feature.subversion.q3": "Dlaczego plik, który tylko dotknąłem, nie jest oznaczony jako zmieniony?",
+ "feature.subversion.a3": "Gdy zmienił się jego czas, ale nie rozmiar, Coxswain porównuje go z kopią przechowywaną przez Subversion i pokazuje jako zmieniony tylko wtedy, gdy bajty się różnią.",
+ "feature.cvs.title": "Kopie robocze CVS",
+ "feature.cvs.what": "W kopii roboczej CVS: gałąź lub znacznik i zmienione pliki w wierszu i przy każdym pliku, czytane tylko z plików CVS/Entries, bez pytania serwera.",
+ "feature.cvs.q1": "Dlaczego kopia robocza CVS nie ma historii?",
+ "feature.cvs.a1": "CVS trzyma ją na swoim serwerze, a Coxswain nigdy sam nie łączy się z serwerem. {git_tool} otwiera terminal w folderze dla cvs log i cvs update.",
+ "feature.cvs.q2": "Skąd Coxswain wie, że plik się zmienił?",
+ "feature.cvs.a2": "Jak CVS: po jego czasie w porównaniu z zapisanym w CVS/Entries. Plik tylko dotknięty jest pokazywany jako zmieniony, aż cvs update znów ustawi czas.",
+ "feature.cvs.q3": "Które pliki są pomijane jako ignorowane?",
+ "feature.cvs.a3": "Własna lista CVS (*.o, *~, core i podobne), potem ~/.cvsignore i .cvsignore każdego folderu; ! w którymś z nich czyści listę."
 }

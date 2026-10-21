@@ -3880,5 +3880,22 @@
  "history.scope_upstream_tip": "De commits die niet gepusht en niet gemerged zijn, volgens de laatste fetch; er wordt niets opgehaald ({key})",
  "history.side_ahead": "Niet gepusht",
  "history.side_behind": "Niet gemerged",
- "hint.upstream": "{key} toont de commits die niet gepusht en niet gemerged zijn, volgens de laatste fetch"
+ "hint.upstream": "{key} toont de commits die niet gepusht en niet gemerged zijn, volgens de laatste fetch",
+ "vcs.on_server": "{system} houdt de geschiedenis en branches op de server, die Coxswain niet vraagt: Openen in je git-tool opent daarvoor een terminal in de werkkopie.",
+ "feature.subversion.title": "Subversion-werkkopieën",
+ "feature.subversion.what": "In een Subversion-werkkopie: de branch, de revisie en de gewijzigde bestanden op de regel en bij elk bestand, alleen gelezen uit .svn/wc.db, zonder de server te vragen.",
+ "feature.subversion.q1": "Waarom is er geen geschiedenis voor een Subversion-werkkopie?",
+ "feature.subversion.a1": "Subversion houdt die op zijn server, en Coxswain neemt nooit uit zichzelf contact op met een server. {git_tool} opent een terminal in de werkkopie voor svn log en svn update.",
+ "feature.subversion.q2": "Moet svn geïnstalleerd zijn?",
+ "feature.subversion.a2": "Nee. Coxswain leest de eigen database van de werkkopie, .svn/wc.db; svn is alleen nodig voor wat je zelf in de terminal uitvoert.",
+ "feature.subversion.q3": "Waarom staat een bestand dat ik alleen heb aangeraakt niet als gewijzigd?",
+ "feature.subversion.a3": "Als de tijd veranderd is maar de grootte niet, vergelijkt Coxswain het met de kopie die Subversion bewaart, en toont het alleen als gewijzigd als de bytes verschillen.",
+ "feature.cvs.title": "CVS-werkkopieën",
+ "feature.cvs.what": "In een CVS-werkkopie: de branch of tag en de gewijzigde bestanden op de regel en bij elk bestand, alleen gelezen uit de CVS/Entries-bestanden, zonder de server te vragen.",
+ "feature.cvs.q1": "Waarom is er geen geschiedenis voor een CVS-werkkopie?",
+ "feature.cvs.a1": "CVS houdt die op zijn server, en Coxswain neemt nooit uit zichzelf contact op met een server. {git_tool} opent een terminal in de map voor cvs log en cvs update.",
+ "feature.cvs.q2": "Hoe weet Coxswain dat een bestand gewijzigd is?",
+ "feature.cvs.a2": "Zoals CVS: aan de tijd tegenover die in CVS/Entries. Een alleen aangeraakt bestand staat als gewijzigd tot cvs update de tijd opnieuw zet.",
+ "feature.cvs.q3": "Welke bestanden worden als genegeerd weggelaten?",
+ "feature.cvs.a3": "De eigen lijst van CVS (*.o, *~, core en dergelijke), dan ~/.cvsignore en de .cvsignore van elke map; een ! daarin maakt de lijst leeg."
 }

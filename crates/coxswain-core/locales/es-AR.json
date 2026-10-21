@@ -3969,5 +3969,22 @@
  "history.scope_upstream_tip": "Los commits sin subir y sin fusionar, según el último fetch; no se trae nada ({key})",
  "history.side_ahead": "Sin subir",
  "history.side_behind": "Sin fusionar",
- "hint.upstream": "{key} lista los commits sin subir y sin fusionar, según el último fetch"
+ "hint.upstream": "{key} lista los commits sin subir y sin fusionar, según el último fetch",
+ "vcs.on_server": "{system} guarda el historial y las ramas en el servidor, que Coxswain no consulta: Abrir en tu herramienta de git abre para eso una terminal en la copia de trabajo.",
+ "feature.subversion.title": "Copias de trabajo de Subversion",
+ "feature.subversion.what": "En una copia de trabajo de Subversion: la rama, la revisión y los archivos cambiados en la línea y junto a cada archivo, leídos solo de .svn/wc.db, sin consultar el servidor.",
+ "feature.subversion.q1": "¿Por qué no hay historial para una copia de trabajo de Subversion?",
+ "feature.subversion.a1": "Subversion lo guarda en su servidor, y Coxswain nunca contacta un servidor por su cuenta. {git_tool} abre una terminal en la copia de trabajo para svn log y svn update.",
+ "feature.subversion.q2": "¿Hace falta tener svn instalado?",
+ "feature.subversion.a2": "No. Coxswain lee la base de datos propia de la copia de trabajo, .svn/wc.db; svn solo hace falta para lo que corrés vos en la terminal.",
+ "feature.subversion.q3": "¿Por qué un archivo que solo toqué no aparece como cambiado?",
+ "feature.subversion.a3": "Cuando cambió su hora pero no su tamaño, Coxswain lo compara con la copia que guarda Subversion, y lo muestra cambiado solo si los bytes difieren.",
+ "feature.cvs.title": "Copias de trabajo de CVS",
+ "feature.cvs.what": "En una copia de trabajo de CVS: la rama o etiqueta y los archivos cambiados en la línea y junto a cada archivo, leídos solo de los archivos CVS/Entries, sin consultar el servidor.",
+ "feature.cvs.q1": "¿Por qué no hay historial para una copia de trabajo de CVS?",
+ "feature.cvs.a1": "CVS lo guarda en su servidor, y Coxswain nunca contacta un servidor por su cuenta. {git_tool} abre una terminal en la carpeta para cvs log y cvs update.",
+ "feature.cvs.q2": "¿Cómo sabe Coxswain que un archivo cambió?",
+ "feature.cvs.a2": "Como CVS: por su hora frente a la que guarda CVS/Entries. Un archivo solo tocado aparece cambiado hasta que cvs update vuelve a poner la hora.",
+ "feature.cvs.q3": "¿Qué archivos quedan afuera como ignorados?",
+ "feature.cvs.a3": "La lista propia de CVS (*.o, *~, core y parecidos), después ~/.cvsignore y el .cvsignore de cada carpeta; un ! en alguno vacía la lista."
 }

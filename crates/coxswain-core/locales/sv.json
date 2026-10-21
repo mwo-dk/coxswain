@@ -3880,5 +3880,22 @@
  "history.scope_upstream_tip": "Commits som inte är pushade och inte mergade, enligt senaste fetch; inget hämtas ({key})",
  "history.side_ahead": "Inte pushad",
  "history.side_behind": "Inte mergad",
- "hint.upstream": "{key} listar commits som inte är pushade och inte mergade, enligt senaste fetch"
+ "hint.upstream": "{key} listar commits som inte är pushade och inte mergade, enligt senaste fetch",
+ "vcs.on_server": "{system} har sin historik och sina grenar på servern, som Coxswain inte frågar: Öppna i ditt git-verktyg öppnar en terminal i arbetskopian för det.",
+ "feature.subversion.title": "Subversion-arbetskopior",
+ "feature.subversion.what": "I en Subversion-arbetskopia: grenen, revisionen och de ändrade filerna på raden och vid varje fil, lästa bara från .svn/wc.db, utan att fråga servern.",
+ "feature.subversion.q1": "Varför finns det ingen historik för en Subversion-arbetskopia?",
+ "feature.subversion.a1": "Subversion har den på sin server, och Coxswain kontaktar aldrig en server av sig själv. {git_tool} öppnar en terminal i arbetskopian för svn log och svn update.",
+ "feature.subversion.q2": "Måste svn vara installerat?",
+ "feature.subversion.a2": "Nej. Coxswain läser arbetskopians egen databas, .svn/wc.db; svn behövs bara för det du själv kör i terminalen.",
+ "feature.subversion.q3": "Varför visas inte en fil jag bara rört som ändrad?",
+ "feature.subversion.a3": "När tiden har flyttats men inte storleken jämför Coxswain filen med kopian Subversion sparar, och visar den som ändrad bara när byten skiljer sig.",
+ "feature.cvs.title": "CVS-arbetskopior",
+ "feature.cvs.what": "I en CVS-arbetskopia: grenen eller taggen och de ändrade filerna på raden och vid varje fil, lästa bara från CVS/Entries-filerna, utan att fråga servern.",
+ "feature.cvs.q1": "Varför finns det ingen historik för en CVS-arbetskopia?",
+ "feature.cvs.a1": "CVS har den på sin server, och Coxswain kontaktar aldrig en server av sig själv. {git_tool} öppnar en terminal i mappen för cvs log och cvs update.",
+ "feature.cvs.q2": "Hur vet Coxswain att en fil är ändrad?",
+ "feature.cvs.a2": "Som CVS gör: av dess tid mot den som CVS/Entries sparar. En fil som bara rörts visas som ändrad tills cvs update sätter tiden igen.",
+ "feature.cvs.q3": "Vilka filer utelämnas som ignorerade?",
+ "feature.cvs.a3": "CVS egen lista (*.o, *~, core och liknande), sedan ~/.cvsignore och varje mapps .cvsignore; ett ! i en av dem tömmer listan."
 }

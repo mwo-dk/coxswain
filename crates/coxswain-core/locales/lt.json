@@ -3969,5 +3969,22 @@
  "history.scope_upstream_tip": "Neišsiųsti ir nesulieti commit'ai pagal paskutinį fetch; nieko neparsiunčiama ({key})",
  "history.side_ahead": "Neišsiųsta",
  "history.side_behind": "Nesulieta",
- "hint.upstream": "{key} išvardija neišsiųstus ir nesulietus commit'us pagal paskutinį fetch"
+ "hint.upstream": "{key} išvardija neišsiųstus ir nesulietus commit'us pagal paskutinį fetch",
+ "vcs.on_server": "{system} istoriją ir šakas laiko serveryje, kurio Coxswain neklausia: Atverti jūsų git įrankyje tam atidaro terminalą darbo kopijoje.",
+ "feature.subversion.title": "Subversion darbo kopijos",
+ "feature.subversion.what": "Subversion darbo kopijoje: šaka, revizija ir pakeisti failai eilutėje ir prie kiekvieno failo, skaitomi tik iš .svn/wc.db, neklausiant serverio.",
+ "feature.subversion.q1": "Kodėl Subversion darbo kopija neturi istorijos?",
+ "feature.subversion.a1": "Subversion ją laiko savo serveryje, o Coxswain niekada pats nesijungia prie serverio. {git_tool} atidaro terminalą darbo kopijoje komandoms svn log ir svn update.",
+ "feature.subversion.q2": "Ar reikia įdiegto svn?",
+ "feature.subversion.a2": "Ne. Coxswain skaito pačios darbo kopijos duomenų bazę .svn/wc.db; svn reikia tik tam, ką patys paleidžiate terminale.",
+ "feature.subversion.q3": "Kodėl failas, kurį tik paliečiau, nerodomas kaip pakeistas?",
+ "feature.subversion.a3": "Kai pasikeitė jo laikas, bet ne dydis, Coxswain palygina jį su Subversion laikoma kopija ir rodo pakeistą tik tada, kai baitai skiriasi.",
+ "feature.cvs.title": "CVS darbo kopijos",
+ "feature.cvs.what": "CVS darbo kopijoje: šaka ar žymė ir pakeisti failai eilutėje ir prie kiekvieno failo, skaitomi tik iš CVS/Entries failų, neklausiant serverio.",
+ "feature.cvs.q1": "Kodėl CVS darbo kopija neturi istorijos?",
+ "feature.cvs.a1": "CVS ją laiko savo serveryje, o Coxswain niekada pats nesijungia prie serverio. {git_tool} atidaro terminalą aplanke komandoms cvs log ir cvs update.",
+ "feature.cvs.q2": "Kaip Coxswain žino, kad failas pasikeitė?",
+ "feature.cvs.a2": "Kaip CVS: pagal jo laiką, palyginus su laikomu CVS/Entries. Tik paliestas failas rodomas pakeistas, kol cvs update vėl nustato laiką.",
+ "feature.cvs.q3": "Kurie failai praleidžiami kaip nepaisomi?",
+ "feature.cvs.a3": "Paties CVS sąrašas (*.o, *~, core ir panašūs), tada ~/.cvsignore ir kiekvieno aplanko .cvsignore; ! viename iš jų išvalo sąrašą."
 }

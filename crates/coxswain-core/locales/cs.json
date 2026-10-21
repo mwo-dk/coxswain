@@ -3972,5 +3972,22 @@
  "history.scope_upstream_tip": "Commity neodeslané a nesloučené podle posledního fetch; nic se nestahuje ({key})",
  "history.side_ahead": "Neodesláno",
  "history.side_behind": "Nesloučeno",
- "hint.upstream": "{key} vypíše commity neodeslané a nesloučené podle posledního fetch"
+ "hint.upstream": "{key} vypíše commity neodeslané a nesloučené podle posledního fetch",
+ "vcs.on_server": "{system} drží historii a větve na serveru, kterého se Coxswain neptá: Otevřít ve vašem nástroji pro git k tomu otevře terminál v pracovní kopii.",
+ "feature.subversion.title": "Pracovní kopie Subversion",
+ "feature.subversion.what": "V pracovní kopii Subversion: větev, revize a změněné soubory na řádku a u každého souboru, čtené jen z .svn/wc.db, bez dotazu na server.",
+ "feature.subversion.q1": "Proč pracovní kopie Subversion nemá historii?",
+ "feature.subversion.a1": "Subversion ji drží na svém serveru a Coxswain se sám nikdy se serverem nespojí. {git_tool} otevře terminál v pracovní kopii pro svn log a svn update.",
+ "feature.subversion.q2": "Musí být svn nainstalováno?",
+ "feature.subversion.a2": "Ne. Coxswain čte vlastní databázi pracovní kopie, .svn/wc.db; svn je potřeba jen pro to, co sami spustíte v terminálu.",
+ "feature.subversion.q3": "Proč se soubor, kterého jsem se jen dotkl, neukazuje jako změněný?",
+ "feature.subversion.a3": "Když se změnil jeho čas, ale ne velikost, Coxswain ho porovná s kopií, kterou drží Subversion, a ukáže ho jako změněný, jen když se bajty liší.",
+ "feature.cvs.title": "Pracovní kopie CVS",
+ "feature.cvs.what": "V pracovní kopii CVS: větev nebo značka a změněné soubory na řádku a u každého souboru, čtené jen ze souborů CVS/Entries, bez dotazu na server.",
+ "feature.cvs.q1": "Proč pracovní kopie CVS nemá historii?",
+ "feature.cvs.a1": "CVS ji drží na svém serveru a Coxswain se sám nikdy se serverem nespojí. {git_tool} otevře terminál ve složce pro cvs log a cvs update.",
+ "feature.cvs.q2": "Jak Coxswain pozná, že se soubor změnil?",
+ "feature.cvs.a2": "Jako CVS: podle jeho času proti tomu, který drží CVS/Entries. Soubor, kterého jste se jen dotkli, je změněný, dokud cvs update čas znovu nenastaví.",
+ "feature.cvs.q3": "Které soubory se vynechávají jako ignorované?",
+ "feature.cvs.a3": "Vlastní seznam CVS (*.o, *~, core a podobné), pak ~/.cvsignore a .cvsignore každé složky; ! v některém z nich seznam vyprázdní."
 }

@@ -123,4 +123,4 @@ Mercurial; name a Mercurial tool as a command in *Settings → Behaviour → Git
 repository), or leave it empty for a terminal there when no git tool is installed.
 
 ---
-[← Previous: Jujutsu in the panels](jujutsu.md) · [Next: The mouse →](mouse.md)
+[← Previous: Jujutsu in the panels](jujutsu.md) · [Next: Subversion working copies →](subversion.md)

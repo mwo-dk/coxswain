@@ -3880,5 +3880,22 @@
  "history.scope_upstream_tip": "Kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga; midagi ei tooda ({key})",
  "history.side_ahead": "Pushimata",
  "history.side_behind": "Mergimata",
- "hint.upstream": "{key} loetleb kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga"
+ "hint.upstream": "{key} loetleb kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga",
+ "vcs.on_server": "{system} hoiab ajalugu ja harusid serveris, mida Coxswain ei küsi: Ava oma git-tööriistas avab selleks terminali töökoopias.",
+ "feature.subversion.title": "Subversioni töökoopiad",
+ "feature.subversion.what": "Subversioni töökoopias: haru, revisjon ja muudetud failid real ning iga faili kõrval, loetud ainult failist .svn/wc.db, serverilt küsimata.",
+ "feature.subversion.q1": "Miks Subversioni töökoopial pole ajalugu?",
+ "feature.subversion.a1": "Subversion hoiab seda oma serveris ja Coxswain ei võta kunagi ise serveriga ühendust. {git_tool} avab terminali töökoopias käskudele svn log ja svn update.",
+ "feature.subversion.q2": "Kas svn peab olema paigaldatud?",
+ "feature.subversion.a2": "Ei. Coxswain loeb töökoopia enda andmebaasi .svn/wc.db; svn on vaja ainult selleks, mida ise terminalis käivitad.",
+ "feature.subversion.q3": "Miks fail, mida ainult puudutasin, ei paista muudetuna?",
+ "feature.subversion.a3": "Kui selle aeg muutus, aga suurus mitte, võrdleb Coxswain seda Subversioni hoitava koopiaga ja näitab muudetuna ainult siis, kui baidid erinevad.",
+ "feature.cvs.title": "CVS-i töökoopiad",
+ "feature.cvs.what": "CVS-i töökoopias: haru või silt ja muudetud failid real ning iga faili kõrval, loetud ainult CVS/Entries failidest, serverilt küsimata.",
+ "feature.cvs.q1": "Miks CVS-i töökoopial pole ajalugu?",
+ "feature.cvs.a1": "CVS hoiab seda oma serveris ja Coxswain ei võta kunagi ise serveriga ühendust. {git_tool} avab terminali kaustas käskudele cvs log ja cvs update.",
+ "feature.cvs.q2": "Kuidas Coxswain teab, et fail muutus?",
+ "feature.cvs.a2": "Nagu CVS: selle aja järgi võrreldes CVS/Entries aja­ga. Ainult puudutatud fail paistab muudetuna, kuni cvs update aja uuesti seab.",
+ "feature.cvs.q3": "Milliseid faile jäetakse eiratutena välja?",
+ "feature.cvs.a3": "CVS-i enda loend (*.o, *~, core ja muu taoline), siis ~/.cvsignore ja iga kausta .cvsignore; ! mõnes neist tühjendab loendi."
 }

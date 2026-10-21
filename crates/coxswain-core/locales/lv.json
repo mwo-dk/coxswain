@@ -3969,5 +3969,22 @@
  "history.scope_upstream_tip": "Nenosūtītie un nesapludinātie komiti pēc pēdējā fetch; nekas netiek ielādēts ({key})",
  "history.side_ahead": "Nav nosūtīts",
  "history.side_behind": "Nav sapludināts",
- "hint.upstream": "{key} uzskaita nenosūtītos un nesapludinātos komitus pēc pēdējā fetch"
+ "hint.upstream": "{key} uzskaita nenosūtītos un nesapludinātos komitus pēc pēdējā fetch",
+ "vcs.on_server": "{system} glabā vēsturi un zarus serverī, kuram Coxswain nejautā: Atvērt savā git rīkā tam atver termināli darba kopijā.",
+ "feature.subversion.title": "Subversion darba kopijas",
+ "feature.subversion.what": "Subversion darba kopijā: zars, revīzija un mainītie faili rindā un pie katra faila, nolasīti tikai no .svn/wc.db, nejautājot serverim.",
+ "feature.subversion.q1": "Kāpēc Subversion darba kopijai nav vēstures?",
+ "feature.subversion.a1": "Subversion to glabā savā serverī, un Coxswain nekad pats nesazinās ar serveri. {git_tool} atver termināli darba kopijā komandām svn log un svn update.",
+ "feature.subversion.q2": "Vai svn jābūt instalētam?",
+ "feature.subversion.a2": "Nē. Coxswain lasa darba kopijas pašas datubāzi .svn/wc.db; svn vajag tikai tam, ko jūs paši palaižat terminālī.",
+ "feature.subversion.q3": "Kāpēc fails, kuram tikai pieskāros, netiek rādīts kā mainīts?",
+ "feature.subversion.a3": "Ja mainījies tā laiks, bet ne izmērs, Coxswain to salīdzina ar kopiju, ko glabā Subversion, un rāda kā mainītu tikai tad, ja baiti atšķiras.",
+ "feature.cvs.title": "CVS darba kopijas",
+ "feature.cvs.what": "CVS darba kopijā: zars vai birka un mainītie faili rindā un pie katra faila, nolasīti tikai no CVS/Entries failiem, nejautājot serverim.",
+ "feature.cvs.q1": "Kāpēc CVS darba kopijai nav vēstures?",
+ "feature.cvs.a1": "CVS to glabā savā serverī, un Coxswain nekad pats nesazinās ar serveri. {git_tool} atver termināli mapē komandām cvs log un cvs update.",
+ "feature.cvs.q2": "Kā Coxswain zina, ka fails ir mainīts?",
+ "feature.cvs.a2": "Tāpat kā CVS: pēc tā laika pret to, ko glabā CVS/Entries. Fails, kuram tikai pieskārās, ir mainīts, līdz cvs update atkal iestata laiku.",
+ "feature.cvs.q3": "Kuri faili tiek izlaisti kā ignorēti?",
+ "feature.cvs.a3": "CVS paša saraksts (*.o, *~, core un līdzīgi), tad ~/.cvsignore un katras mapes .cvsignore; ! kādā no tiem iztukšo sarakstu."
 }

@@ -3891,5 +3891,22 @@
  "history.scope_upstream_tip": "The commits not pushed and not merged, as of the last fetch; nothing is fetched ({key})",
  "history.side_ahead": "Not pushed",
  "history.side_behind": "Not merged",
- "hint.upstream": "{key} lists the commits not pushed and not merged, as of the last fetch"
+ "hint.upstream": "{key} lists the commits not pushed and not merged, as of the last fetch",
+ "vcs.on_server": "{system} keeps its history and branches on the server, which Coxswain does not ask: Open in your git tool opens a terminal in the working copy for that.",
+ "feature.subversion.title": "Subversion working copies",
+ "feature.subversion.what": "In a Subversion working copy: the branch, the revision and the changed files on the line and beside each file, read from .svn/wc.db alone, without asking the server.",
+ "feature.subversion.q1": "Why is there no history for a Subversion working copy?",
+ "feature.subversion.a1": "Subversion keeps it on its server, and Coxswain never contacts a server by itself. {git_tool} opens a terminal in the working copy for svn log and svn update.",
+ "feature.subversion.q2": "Does Coxswain need svn installed?",
+ "feature.subversion.a2": "No. It reads the working copy's own database, .svn/wc.db; svn is needed only for what you run yourself in the terminal.",
+ "feature.subversion.q3": "Why is a file I only touched not shown as changed?",
+ "feature.subversion.a3": "When its time moved but its size did not, Coxswain compares it with the copy Subversion keeps, and shows it changed only when the bytes differ.",
+ "feature.cvs.title": "CVS working copies",
+ "feature.cvs.what": "In a CVS working copy: the branch or tag and the changed files on the line and beside each file, read from the CVS/Entries files alone, without asking the server.",
+ "feature.cvs.q1": "Why is there no history for a CVS working copy?",
+ "feature.cvs.a1": "CVS keeps it on its server, and Coxswain never contacts a server by itself. {git_tool} opens a terminal in the folder for cvs log and cvs update.",
+ "feature.cvs.q2": "How does Coxswain know a file changed?",
+ "feature.cvs.a2": "As CVS does: by its time against the one CVS/Entries keeps. A file only touched shows as changed until cvs update sets the time again.",
+ "feature.cvs.q3": "Which files are left out as ignored?",
+ "feature.cvs.a3": "CVS's own list (*.o, *~, core and the like), then ~/.cvsignore and each folder's .cvsignore; a ! in one clears the list."
 }

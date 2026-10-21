@@ -84,6 +84,7 @@ pub mod undo;
 pub mod update;
 pub mod user_menu;
 pub mod vcs;
+pub mod wc;
 pub mod view;
 #[cfg(any(
     target_os = "android",

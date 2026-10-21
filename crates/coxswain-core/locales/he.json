@@ -3969,5 +3969,22 @@
  "history.scope_upstream_tip": "הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון; שום דבר לא נמשך ({key})",
  "history.side_ahead": "לא נדחף",
  "history.side_behind": "לא מוזג",
- "hint.upstream": "{key} מציג את הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון"
+ "hint.upstream": "{key} מציג את הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון",
+ "vcs.on_server": "{system} שומר את ההיסטוריה והענפים בשרת, ש־Coxswain לא שואל: פתיחה בכלי ה־git שלך פותחת לשם כך מסוף בעותק העבודה.",
+ "feature.subversion.title": "עותקי עבודה של Subversion",
+ "feature.subversion.what": "בעותק עבודה של Subversion: הענף, הגרסה והקבצים שהשתנו בשורה וליד כל קובץ, נקראים רק מ־‎.svn/wc.db, בלי לשאול את השרת.",
+ "feature.subversion.q1": "למה אין היסטוריה לעותק עבודה של Subversion?",
+ "feature.subversion.a1": "Subversion שומר אותה בשרת שלו, ו־Coxswain אף פעם לא פונה לשרת מעצמו. {git_tool} פותח מסוף בעותק העבודה בשביל svn log ו־svn update.",
+ "feature.subversion.q2": "האם צריך svn מותקן?",
+ "feature.subversion.a2": "לא. Coxswain קורא את מסד הנתונים של עותק העבודה עצמו, ‎.svn/wc.db; svn נחוץ רק למה שאתם מריצים בעצמכם במסוף.",
+ "feature.subversion.q3": "למה קובץ שרק נגעתי בו לא מסומן כמשתנה?",
+ "feature.subversion.a3": "כשהזמן שלו השתנה אבל הגודל לא, Coxswain משווה אותו לעותק ש־Subversion שומר, ומסמן אותו כמשתנה רק כשהבתים שונים.",
+ "feature.cvs.title": "עותקי עבודה של CVS",
+ "feature.cvs.what": "בעותק עבודה של CVS: הענף או התגית והקבצים שהשתנו בשורה וליד כל קובץ, נקראים רק מקובצי CVS/Entries, בלי לשאול את השרת.",
+ "feature.cvs.q1": "למה אין היסטוריה לעותק עבודה של CVS?",
+ "feature.cvs.a1": "CVS שומר אותה בשרת שלו, ו־Coxswain אף פעם לא פונה לשרת מעצמו. {git_tool} פותח מסוף בתיקייה בשביל cvs log ו־cvs update.",
+ "feature.cvs.q2": "איך Coxswain יודע שקובץ השתנה?",
+ "feature.cvs.a2": "כמו CVS: לפי הזמן שלו מול זה ש־CVS/Entries שומר. קובץ שרק נגעו בו מסומן כמשתנה עד ש־cvs update מציב את הזמן מחדש.",
+ "feature.cvs.q3": "אילו קבצים נשארים בחוץ כמתעלמים?",
+ "feature.cvs.a3": "הרשימה של CVS עצמו (‎*.o, ‎*~, core וכדומה), אחר כך ‎~/.cvsignore וה־‎.cvsignore של כל תיקייה; ! באחד מהם מרוקן את הרשימה."
 }
