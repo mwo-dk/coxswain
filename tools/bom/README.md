@@ -55,6 +55,33 @@ same list.
 - **`licenses/EPL-1.0.txt`:** Graphviz's licence, which no package on disk carries; the SPDX
   text.
 
+## Our container image
+
+Coxswain ships no container image in a release, but it runs one of its own:
+`ghcr.io/mwo-dk/coxswain-imagemagick` (`packaging/images/imagemagick`, built by
+`.github/workflows/imagemagick-image.yml`), Alpine's ImageMagick 7 packages and their libraries,
+unmodified, with Coxswain's `policy.xml`. Nothing in it is Coxswain's code but that policy file
+(MIT). What it holds, by licence (Alpine 3.24, 2026-10):
+
+| Licence | Packages |
+|---|---|
+| ImageMagick (Apache-2.0 style) | imagemagick |
+| LGPL-3.0-or-later | libheif, libde265 |
+| CDDL-1.0 OR LGPL-2.1-only | libraw |
+| GPL-2.0-or-later | fftw (linked by ImageMagick) |
+| LGPL-2.1-or-later | glib, fribidi, gettext, util-linux's libraries |
+| Apache-2.0 | libjxl, highway, openssl |
+| BSD-2-Clause, BSD-3-Clause | dav1d, libwebp, libbsd, pcre2, libjpeg-turbo (also IJG, Zlib) |
+| MIT, X11, Zlib, libpng, libtiff, bzip2, FTL | musl, lcms2, libxml2, fontconfig, harfbuzz, libx11, zlib, libpng, tiff, bzip2, freetype |
+
+The exact packages and versions of each build are in the image, `/lib/apk/db/installed`, with
+their licences. Their source, as built, is Alpine's: the `APKBUILD`s at
+<https://gitlab.alpinelinux.org/alpine/aports> (tag `v3.24.x`, `main/` and `community/`), with
+the upstream archives they name, kept on Alpine's mirrors. The image's label
+`org.opencontainers.image.licenses` names the same licences. A new Alpine release in the
+Dockerfile's `FROM` line, or a package added, rechecks this table
+(`apk list -I` in the build stage).
+
 ## Known noise
 
 cargo-about logs errors about GPL-2.0 while scanning `libdbus-sys`, which carries D-Bus's C

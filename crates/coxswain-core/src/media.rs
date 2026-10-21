@@ -1118,6 +1118,16 @@ pub fn facts(cfg: &PreviewConfig, path: &Path) -> Vec<(String, String)> {
 mod tests {
     use super::*;
 
+    /// Our ImageMagick image bakes in the policy an installed one runs under: the same file.
+    /// Read from the repository, so a published crate, which has no `packaging/`, skips it.
+    #[test]
+    fn media_image_policy_is_the_installed_ones() {
+        let baked = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packaging/images/imagemagick/policy.xml");
+        if let Ok(baked) = std::fs::read_to_string(&baked) {
+            assert_eq!(baked, policy(), "packaging/images/imagemagick/policy.xml: write policy() into it");
+        }
+    }
+
     #[test]
     fn media_ops_read_back_and_refuse_nonsense() {
         for op in Op::menu(Program::Ffmpeg).into_iter().chain(Op::menu(Program::Magick)).chain([Op::Clip { start: 90, length: 15 }, Op::Resize(800)]) {
