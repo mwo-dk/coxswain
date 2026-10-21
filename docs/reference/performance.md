@@ -48,7 +48,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   first word in 0.06–0.3 s instead of about 7 s), and **Esc** stops the wait for the first word
   at any moment.
 - **Anything that takes a while** says so: while files are copied, moved, deleted, extracted
-  or packed, the status line reads *Working on …*; a folder that takes longer than 150 ms to
+  or packed, the status line reads *Working on …* (the desktop app with a progress bar and
+  **Stop**, the terminal app with `· Esc stops`); a folder that takes longer than 150 ms to
   read says *Working on <folder>…* until it arrives.
 
 ## The desktop app

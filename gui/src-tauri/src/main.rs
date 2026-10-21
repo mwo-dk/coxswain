@@ -1592,13 +1592,13 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static
 }
 
 #[tauri::command]
-async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     // The password of a locked archive, held for this copy only.
     job(&ctx, Op::Copy, paths, resolve(&base, &dest), password).await
 }
 
 #[tauri::command]
-async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     job(&ctx, Op::Move, paths, resolve(&base, &dest), password).await
 }
 
@@ -1612,7 +1612,7 @@ fn delete_plan(paths: Vec<PathBuf>, forever: bool, inside: bool) -> bfs::DeleteP
 /// To the trash, or gone for good with `forever` (as `delete_plan` says). Inside a locked 7z,
 /// `password` opens it.
 #[tauri::command]
-async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     job(&ctx, if forever { Op::Forever } else { Op::Trash }, paths, PathBuf::new(), password).await
 }
 
@@ -1698,6 +1698,8 @@ fn rename_apply(dir: PathBuf, plan: Vec<Planned>, ctx: tauri::State<Ctx>) -> Res
 #[tauri::command]
 async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::undo::Undone> {
     let rec = ctx.undo.lock().map_err(|e| e.to_string())?.pop().ok_or_else(|| coxswain_core::t!("undo.nothing"))?;
+    // In turn with the file operations: never under a copy or a move that runs.
+    let _turn = ctx.job_turn.lock().await;
     let u = blocking(move || Ok(rec.undo(|_| {}))).await?;
     ctx.changed(&u.touched);
     Ok(u)
@@ -1813,7 +1815,7 @@ async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
 }
 
 #[tauri::command]
-async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     job(&ctx, Op::Extract, paths, resolve(&base, &dest), password).await
 }
 
@@ -2668,13 +2670,23 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")
-        // The last window closed: a Make PDF searchable run, a conversion or Convert e-book is stopped and
-        // waited for, so its container is killed and its scratch folder removed.
-        .run(|_, event| {
+        // The last window closed: a Make PDF searchable run, a conversion or Convert e-book is stopped
+        // and waited for, so its container is killed and its scratch folder removed; a file
+        // operation too, at the file it is on, so none is left half copied.
+        .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                if let Some(ctx) = app.try_state::<Ctx>() {
+                    let _ = job_stop(ctx);
+                }
                 convert::searchable_end();
                 convert::media_end();
                 ebook::end();
+                for _ in 0..100 {
+                    if JOB.lock().unwrap_or_else(|e| e.into_inner()).is_none() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
                 coxswain_core::archive::clean_up();
                 coxswain_core::drag::done();
             }

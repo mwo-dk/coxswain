@@ -115,10 +115,12 @@ For each item, before it goes back:
   the case (`Notes` → `notes`) goes back where case does not count.
 - **A new folder must be empty.**
 
-Then undo uses the same code as the operations themselves: a move back across disks copies and
-then deletes, as **F6** does, and files only in the cloud (OneDrive, Dropbox, iCloud) are moved,
-never downloaded. Undo runs in the background, so the keys keep working. In the terminal app,
-as for every file operation, another one is not started meanwhile, and the status line says why.
+Then undo uses the same code as the operations themselves: a move back across disks goes file by
+file, each original deleted only after its copy is checked, as **F6** does, and files only in the
+cloud (OneDrive, Dropbox, iCloud) are moved, never downloaded. Undo runs in the background, so
+the keys keep working. As for every file operation, another one does not run meanwhile: the
+terminal app does not start it and the status line says why, the desktop app starts it when the
+undo is done.
 
 ## The history
 

@@ -284,19 +284,26 @@ fn tar_named_at<'a, R: Read>(
 
 /// A new file at `path` for an archive being written, never one that is there: a link put
 /// in its place (by someone else, in a shared folder) is removed, not written through.
-fn create_fresh(path: &Path) -> io::Result<File> {
+/// `private`: for this user alone while it is written (an archive that is there gets its own
+/// permissions back when it is whole).
+fn create_fresh(path: &Path, private: bool) -> io::Result<File> {
     let _ = std::fs::remove_file(path);
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
+    let mut new = std::fs::OpenOptions::new();
+    new.write(true).create_new(true);
+    #[cfg(unix)]
+    if private {
+        std::os::unix::fs::OpenOptionsExt::mode(&mut new, 0o600);
+    }
+    #[cfg(not(unix))]
+    let _ = private;
+    new.open(path)
 }
 
 /// A tar written plain at `tar`, compressed into `to` as `pack` says.
-fn compress(tar: &Path, to: &Path, pack: Pack) -> io::Result<()> {
+fn compress(tar: &Path, to: &Path, pack: Pack, private: bool) -> io::Result<()> {
     let (mut from, mut out) = (
         BufReader::new(crate::stop::Reader(File::open(tar)?)),
-        create_fresh(to)?,
+        create_fresh(to, private)?,
     );
     match pack {
         Pack::None => io::copy(&mut from, &mut out).map(drop),
@@ -2187,16 +2194,17 @@ fn rewrite(
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
     let _all = writing_lock()?;
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
-    // One name, as the lock above lets one write at a time: a file left by a crash is
-    // written over, and removed at the next start (`clean_stale`).
-    let tmp = archive.with_file_name(format!("{name}.coxswain-tmp"));
-    let plain = archive.with_file_name(format!("{name}.coxswain-tar"));
+    // With the process's id: apps that do not share the lock above (a Flatpak's own cache
+    // folder, another user or machine on a shared folder) never write into each other's. A
+    // file left by a crash is removed at the next start (`clean_stale`).
+    let tmp = archive.with_file_name(format!("{name}.{}.coxswain-tmp", std::process::id()));
+    let plain = archive.with_file_name(format!("{name}.{}.coxswain-tar", std::process::id()));
     let _pending = Pending::new(&[&tmp, &plain]);
     let exists = archive.exists();
     let mut used = false;
     let written = (|| -> io::Result<()> {
         if k == Kind::Zip {
-            let mut w = zip::ZipWriter::new(create_fresh(&tmp)?);
+            let mut w = zip::ZipWriter::new(create_fresh(&tmp, exists)?);
             // New files go into a locked zip locked too, with its password; a wrong one, or
             // none, is refused, so the apps ask.
             let mut pw = if exists {
@@ -2307,7 +2315,7 @@ fn rewrite(
             // 7z has no copying of entries as they are: each is unpacked and packed again on
             // its way from the old file to the new, as it was but for its name.
             let mut w =
-                sevenz_rust2::ArchiveWriter::new(create_fresh(&tmp)?).map_err(io::Error::other)?;
+                sevenz_rust2::ArchiveWriter::new(create_fresh(&tmp, exists)?).map_err(io::Error::other)?;
             if exists {
                 // Names that were locked (the header encrypted) stay locked; open ones stay open.
                 let names_locked = seven(archive, None).is_err_and(|e| e.to_string() == LOCKED);
@@ -2379,7 +2387,7 @@ fn rewrite(
         } else {
             let Kind::Tar(pack) = k else { unreachable!() };
             // Written plain first, then compressed: every compression the same way.
-            let mut b = tar::Builder::new(io::BufWriter::new(create_fresh(&plain)?));
+            let mut b = tar::Builder::new(io::BufWriter::new(create_fresh(&plain, true)?));
             if exists {
                 // Names and link targets written whole: past 100 bytes they take a GNU long
                 // name of their own, which `append` with the old header would drop.
@@ -2417,7 +2425,7 @@ fn rewrite(
                 }
             }
             b.into_inner()?.flush()?;
-            let done = compress(&plain, &tmp, pack);
+            let done = compress(&plain, &tmp, pack, exists);
             let _ = std::fs::remove_file(&plain);
             done?;
         }

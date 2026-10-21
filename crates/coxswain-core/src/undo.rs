@@ -259,16 +259,20 @@ impl Record {
                     }
                 }
             }
-            Kind::Extract => match crate::archive::extract_locked(src, dst, password) {
-                Ok(to) => self.done(src, &to),
-                Err(e) => {
-                    let to = crate::archive::extract_target(src, dst);
-                    if crate::stop::asked() && on_disk(&to) {
-                        self.done(src, &to);
+            Kind::Extract => {
+                let to = crate::archive::extract_target(src, dst);
+                // A folder of that name that was there is the user's, never the extract's.
+                let fresh = !on_disk(&to);
+                match crate::archive::extract_locked(src, dst, password) {
+                    Ok(to) => self.done(src, &to),
+                    Err(e) => {
+                        if fresh && crate::stop::asked() && on_disk(&to) {
+                            self.done(src, &to);
+                        }
+                        return Err(e);
                     }
-                    return Err(e);
                 }
-            },
+            }
             Kind::Trash => {
                 let real = on_disk(src);
                 let name = cfs::trash_named(src, password)?.unwrap_or_default();
@@ -616,7 +620,9 @@ fn run_items(
                 rec.done(dst, dst);
                 Ran { failed: vec![], rec, stopped: None }
             }
-            Err(_) if crate::stop::asked() => Ran { failed: vec![], rec, stopped: stopped(0) },
+            Err(e) if crate::stop::is(&e) => Ran { failed: vec![], rec, stopped: stopped(0) },
+            // Failed for a cause of its own while Stop was pressed: both are said.
+            Err(e) if crate::stop::asked() => Ran { failed: vec![(dst.to_path_buf(), e)], rec, stopped: stopped(0) },
             Err(e) => Ran { failed: vec![(dst.to_path_buf(), e)], rec, stopped: None },
         };
     }
@@ -631,8 +637,14 @@ fn run_items(
             _ => rec.run(p, dst, password),
         };
         match r {
-            Err(_) if crate::stop::asked() => {
+            Err(e) if crate::stop::is(&e) => {
                 return Ran { stopped: stopped(i - failed.len()), failed, rec };
+            }
+            // Failed for a cause of its own while Stop was pressed: both are said.
+            Err(e) if crate::stop::asked() => {
+                let done = i - failed.len();
+                failed.push((p.clone(), e));
+                return Ran { stopped: stopped(done), failed, rec };
             }
             Err(e) => failed.push((p.clone(), e)),
             Ok(()) => {}
@@ -1083,6 +1095,42 @@ mod tests {
             go_on
         });
         assert!(cut_in_big, "one stop came inside the folder, before the large file was whole");
+    }
+
+    /// A private file's copy is never readable by others: not while it is written, not when it
+    /// is stopped half way, not when it is whole.
+    #[cfg(unix)]
+    #[test]
+    fn a_private_file_copied_or_stopped_stays_private() {
+        use std::os::unix::fs::PermissionsExt;
+        each_stop(|k| {
+            let d = tmp(&format!("stop-private-{k}"));
+            let key = d.join("key.bin");
+            fs::write(&key, vec![5u8; 20 << 20]).unwrap();
+            fs::set_permissions(&key, fs::Permissions::from_mode(0o600)).unwrap();
+            let to = d.join("to");
+            fs::create_dir(&to).unwrap();
+            // Looked at from inside the copy: each Stop look sees the half copy as it is.
+            let copy = to.join("key.bin");
+            let seen = to.clone();
+            crate::stop::LOOK.set(Some(Box::new(move || {
+                for e in fs::read_dir(&seen).unwrap().flatten() {
+                    let mode = e.metadata().unwrap().permissions().mode();
+                    assert_eq!(mode & 0o077, 0, "{:?} readable by others while it is written", e.file_name());
+                }
+            })));
+            let r = stopped_at(k, Op::Copy, std::slice::from_ref(&key), &to);
+            crate::stop::LOOK.set(None);
+            if let Ok(m) = fs::metadata(&copy) {
+                assert_eq!(m.permissions().mode() & 0o077, 0, "{k}: readable by others");
+            }
+            if r.stopped.is_some() {
+                assert_eq!(fs::read_dir(&to).unwrap().count(), 0, "{k}: no half copy, under any name");
+            } else {
+                assert_eq!(fs::metadata(&copy).unwrap().permissions().mode() & 0o777, 0o600);
+            }
+            r.stopped.is_some()
+        });
     }
 
     #[test]

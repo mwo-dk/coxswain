@@ -114,6 +114,9 @@ with no archive ending gets one added (`my.notes` becomes `my.notes.zip`).
   what it is good for. In the terminal app **Tab** puts that line on the status line.
 - The password fields show dots, and are there only for Zip and 7z. After packing with a password, the new archive opens without
   asking until you close the app; its badge says *archive, locked*.
+- While it runs, the status line says *Working on …*, with a progress bar and **Stop** in the
+  desktop app and `· Esc stops` in the terminal app
+  ([Can I stop packing or extracting?](#can-i-stop-packing-or-extracting)).
 - After packing, the status line says `Packed "photos"` or `Packed 3 items`, and the new archive
   shows in the other panel.
 - After extracting, it says `Extracted "photos.zip"`.

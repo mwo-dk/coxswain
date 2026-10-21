@@ -43,8 +43,10 @@ For many names at once, use [Batch rename (Ctrl+M)](batch-rename.md) in the desk
 
 ## What you see
 
-- The status line says `Moved "report.pdf"` or `Moved 3 items`; marks are cleared and both
-  panels are read again.
+- While it runs, the status line shows the item it is on, in the desktop app with a progress bar
+  and **Stop**, in the terminal app with `· Esc stops`
+  ([Stopping it](copy.md#stopping-it)). Then it says `Moved "report.pdf"` or `Moved 3 items`
+  (`Stopped: 2 of 5 moved` when stopped); marks are cleared and both panels are read again.
 - After renaming one file in place, the terminal app keeps the cursor on it under its new name.
 - A newline, a tab or another control character in a name shows in the Rename field as its
   picture: `␊` for a newline, `␉` for a tab, `␛` for an escape, `␡` for delete, and `␦` for
@@ -70,7 +72,8 @@ file you renamed in place; the desktop app keeps the cursor at the same row.
 
 On the same disk a move is a rename: instant, whatever the size. Across disks (or file systems)
 the system cannot rename, so Coxswain moves **file by file**: it copies one file, checks that
-the copy was written to the disk and is as long as the original (and that the original did not
+the copy was written to the disk (on Windows too, where its own copy would leave that to the
+cache) and is as long as the original (and that the original did not
 change meanwhile), deletes the original, and goes on to the next. Folders are made on the other
 disk under their own names, and a folder of the original is removed once its files have gone.
 So every file is in one place at any time, apart from the moment between a checked copy and

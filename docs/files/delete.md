@@ -36,8 +36,10 @@ then reads *Delete*, and the status line says *Deleted …* afterwards.
 
 The dialog is titled *Delete*. Under the question, both apps show the key line *Enter Move to
 bin · Esc Cancel* (*Enter Delete · Esc Cancel* for **Shift+F8** and inside an archive); **Y**
-and **N** work too. Afterwards the status line says `Moved 3 items to the bin` or
-`Deleted 3 items`, the marks are cleared and the panels are read again. When something could
+and **N** work too. While it runs, the status line shows the item it is on, with a progress bar
+and **Stop** in the desktop app and `· Esc stops` in the terminal app
+([Can I stop a delete?](#can-i-stop-a-delete)). Afterwards the status line says
+`Moved 3 items to the bin` or `Deleted 3 items`, the marks are cleared and the panels are read again. When something could
 not be deleted, a dialog titled with how many went and how many did not (*2 of 3 moved to the
 bin; 1 could not be moved to the bin*, or *2 of 3 deleted; 1 could not be deleted*; for one item
 *Could not delete "report.pdf"*) gives the cause in one line and each file with its reason under *Details*

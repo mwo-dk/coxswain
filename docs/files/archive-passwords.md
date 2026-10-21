@@ -79,7 +79,7 @@ without typing it again.
   (the terminal app's info line says `locked: a password is needed`); open it again to be
   asked again. With the cursor on such a 7z, the desktop app's preview says *This file is
   locked with a password.*, with the link *Enter the password* that lists it once given.
-- If you press **Esc** during a copy, nothing is copied from the locked part.
+- If you press **Esc** at the password question during a copy, nothing is copied from the locked part.
 
 ## How long the password is kept, and where
 

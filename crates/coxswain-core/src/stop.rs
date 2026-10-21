@@ -27,6 +27,8 @@ pub(crate) fn during<T>(stop: &Arc<AtomicBool>, f: impl FnOnce() -> T) -> T {
 /// Whether Stop was pressed for the operation on this thread.
 pub(crate) fn asked() -> bool {
     #[cfg(test)]
+    LOOK.with(|l| l.borrow().as_ref().map(|f| f()));
+    #[cfg(test)]
     if TRIP.get() > 0 {
         TRIP.set(TRIP.get() - 1);
         if TRIP.get() == 0 {
@@ -40,15 +42,45 @@ pub(crate) fn asked() -> bool {
 thread_local! {
     /// A test's Stop, pressed at the given look: `asked` counts down to it.
     pub(crate) static TRIP: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// A test's look at what is on its way, at each Stop look.
+    pub(crate) static LOOK: RefCell<Option<Box<dyn Fn()>>> = const { RefCell::new(None) };
 }
+
+/// What `check` fails with: told apart from other errors by `is`, also when wrapped.
+#[derive(Debug)]
+struct Stopped;
+
+impl std::fmt::Display for Stopped {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(&crate::t!("stop.stopped"))
+    }
+}
+
+impl std::error::Error for Stopped {}
 
 /// An error once Stop was pressed: what is on its way stops there.
 pub(crate) fn check() -> io::Result<()> {
     if asked() {
-        Err(io::Error::other(crate::t!("stop.stopped")))
+        Err(io::Error::other(Stopped))
     } else {
         Ok(())
     }
+}
+
+/// Whether `e` is Stop's own error (`check`), however deep another error wraps it.
+pub(crate) fn is(e: &io::Error) -> bool {
+    let mut at: Option<&(dyn std::error::Error + 'static)> = e.get_ref().map(|r| r as _);
+    while let Some(err) = at {
+        if err.is::<Stopped>() {
+            return true;
+        }
+        // An io::Error's `source` skips the error it holds: that is looked at first.
+        at = match err.downcast_ref::<io::Error>() {
+            Some(io) => io.get_ref().map(|r| r as _),
+            None => err.source(),
+        };
+    }
+    false
 }
 
 /// A reader that fails once Stop is pressed, so a copy through it (`io::copy`, an archive

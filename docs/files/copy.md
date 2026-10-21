@@ -53,8 +53,9 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
   are cleared and both panels are read again.
 - One file operation runs at a time. In the terminal app another asked for meanwhile is not
   started (the status line says what is still running); in the desktop app it waits its turn
-  and starts when the one before it ends. Quitting the terminal app stops the copy at the file
-  it is on (as **Esc** does) and waits for that, so no half-copied file is left behind. The
+  and starts when the one before it ends. Quitting stops the copy at the file it is on (as
+  **Esc** does) and waits for that, so no half-copied file is left behind: the desktop app,
+  when its last window closes, waits up to ten seconds. The terminal app's
   status line then says *A file operation is still running: Coxswain quits when it is done. F10
   again quits now and leaves it half done.*: a second **F10** leaves at once, for a copy stuck
   on a network disk that no longer answers.
@@ -79,7 +80,10 @@ A copy can be stopped while it runs, in both apps, without a question:
 | Stop | **Stop** on the progress bar, or **Esc** while the bar's Stop button has the focus | **Esc** while the status line shows the progress (`· Esc stops`) |
 
 The line says `Stopping…` until the file it is on is dealt with, within a second also for a
-large file (a large file is copied in steps of a megabyte, and Stop is looked at between them).
+large file (a file over 8 MB is copied in steps of a megabyte, under a passing name beside the
+target, and Stop is looked at between them). What has no steps of its own finishes first: one
+item going to the trash or deleted for good, a smaller file on a slow network disk, a file out
+of a disk image (7-Zip unpacks it).
 Then:
 
 - **The file it was on is removed**: there is never a half-copied file.

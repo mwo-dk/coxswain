@@ -120,7 +120,8 @@ tools show for a zip Coxswain made). A folder made inside an archive (**F7**) is
 
 **Every change writes the archive anew.** Adding, renaming, moving within, making a folder and
 taking out all write a complete new archive next to the old one, in a file ending in
-`.coxswain-tmp` (`tools.zip.coxswain-tmp` for `tools.zip`). Only when it is complete does it
+`.coxswain-tmp` (`tools.zip.4711.coxswain-tmp` for `tools.zip`, the number being the app's
+process id, so two apps never write the same file). Only when it is complete does it
 take the old one's place, with a rename in the same folder. If anything fails on the way, or
 you stop it ([Stopping it](copy.md#stopping-it)), the new file is removed and the archive is
 exactly as it was, byte for byte. One archive is written at a time, also across the apps and
@@ -252,14 +253,16 @@ the target of **F5**.
 
 The archive is written anew into a `.coxswain-tmp` file next to it and only then renamed over the
 old one. Until that rename the old archive is untouched; if something fails, the new file is
-removed. After a crash a leftover `….coxswain-tmp` (or `….coxswain-tar`) file can be deleted.
+removed, also when you stop it. After a crash, or the power going, the next start of Coxswain
+removes the `….coxswain-tmp` (or `….coxswain-tar`) file that write left, and nothing else.
 
 #### Can I change one archive from the desktop app and the terminal app at once?
 
 Yes. Coxswain writes one archive at a time, across all its windows and both apps: a change waits
 while another is being written (a lock on `archive-writing.lock` in Coxswain's cache folder), then
 starts from the archive as the other left it, so neither change is lost. Another program writing
-the same archive at the same moment is not held back by it.
+the same archive at the same moment is not held back by it, nor is a Flatpak's desktop app by a
+terminal app outside it (each has its own cache folder); each still writes a new file of its own.
 
 #### Why does adding one small file to a big .tar.xz take so long?
 

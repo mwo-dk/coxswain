@@ -374,7 +374,9 @@
     const run = async () => {
       ui.status = t("status.busy", { what });
       try {
-        await invoke("delete", { paths: [path], forever: gone });
+        // Stopped (Stop on a file operation before it, while this waited its turn): nothing went.
+        const stopped = await invoke("delete", { paths: [path], forever: gone });
+        if (stopped) return void (ui.status = stopped);
         await refreshUndo(gone ? t("status.deleted", { what }) : t("status.trashed", { what }));
         d.totals = await invoke("space_gone", { paths: [path] });
         if (kept?.modal === d) kept.view = null;

@@ -725,57 +725,103 @@ const STEP: u64 = 8 << 20;
 /// copy that fails half way (a full disk) or is stopped leaves nothing, so trying again is not
 /// refused as "exists".
 fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
-    use std::io::{Read, Seek, Write};
     let meta = fs::metadata(src)?;
-    let r = if meta.len() <= STEP {
-        fs::copy(src, to).and_then(|_| {
-            // Windows copies through to the disk itself; a read-only copy opens for reading only.
+    // Windows' own copy is written to the disk later, by its cache: a move takes the steps below,
+    // which are.
+    if meta.len() <= STEP && !(sync && cfg!(windows)) {
+        let r = fs::copy(src, to).and_then(|_| {
             #[cfg(unix)]
             if sync {
                 fs::File::open(to)?.sync_all()?;
             }
             Ok(())
-        })
+        });
+        if r.is_err() {
+            let _ = fs::remove_file(to);
+        }
+        r?;
     } else {
-        let mut from = fs::File::open(src)?;
-        let mut out = fs::File::create_new(to)?;
-        (|| {
-            // ponytail: the system's clone of a large file is given up for Stop; copy_file_range
-            // in steps would keep it on Linux.
-            let mut buf = vec![0u8; 1 << 20];
-            loop {
-                crate::stop::check()?;
-                let n = match from.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => n,
-                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(e) => return Err(e),
-                };
-                // A run of zeros is skipped, not written: a sparse file stays sparse.
-                if buf[..n].iter().all(|&b| b == 0) {
-                    out.seek(io::SeekFrom::Current(n as i64))?;
-                } else {
-                    out.write_all(&buf[..n])?;
-                }
-            }
-            let end = out.stream_position()?;
-            out.set_len(end)?;
-            if sync {
-                out.sync_all()?;
-            }
-            out.set_permissions(meta.permissions())?;
-            out.set_modified(meta.modified()?)
-        })()
-    };
-    if r.is_err() {
-        let _ = fs::remove_file(to);
+        copy_in_steps(src, to, &meta, sync)?;
     }
-    r?;
     // The original's date (Windows and macOS copy it themselves). As the owner, a file
     // open for reading may be dated, a read-only one too.
     #[cfg(unix)]
     let _ = meta.modified().and_then(|t| fs::File::open(to)?.set_modified(t));
     Ok(())
+}
+
+/// A large file to `to`, in steps of a megabyte with Stop looked at between them, under a
+/// passing name beside it (`.name.coxswain-tmp-…`) until it is whole: a copy cut short, even
+/// by a crash, never stands under the real name.
+// ponytail: the system's clone, and on macOS and Windows a file's extended attributes and
+// streams, are given up for Stop; copyfile(3) and CopyFileExW with their progress callbacks
+// would keep them.
+fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::Result<()> {
+    use std::io::{Read, Seek, Write};
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let tmp = to.with_file_name(format!(
+        ".{}.coxswain-tmp-{}-{}",
+        to.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id(),
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let mut from = fs::File::open(src)?;
+    // For this user alone while it is written: a private file's half copy is never readable
+    // by others. Its own mode once it is whole, below.
+    let mut new = fs::OpenOptions::new();
+    new.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut new, 0o600);
+    let mut out = new.open(&tmp)?;
+    let r = (|| {
+        let mut buf = vec![0u8; 1 << 20];
+        loop {
+            crate::stop::check()?;
+            let n = match from.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            // A run of zeros is skipped, not written: a sparse file stays sparse.
+            if buf[..n].iter().all(|&b| b == 0) {
+                out.seek(io::SeekFrom::Current(n as i64))?;
+            } else {
+                out.write_all(&buf[..n])?;
+            }
+        }
+        let end = out.stream_position()?;
+        out.set_len(end)?;
+        if sync {
+            out.sync_all()?;
+        }
+        out.set_modified(meta.modified()?)?;
+        // The original's permission bits, not its set-user or set-group ones; on Windows only
+        // its read-only flag, not its other attributes (compressed, a cloud placeholder's).
+        #[cfg(unix)]
+        out.set_permissions(std::os::unix::fs::PermissionsExt::from_mode(
+            std::os::unix::fs::PermissionsExt::mode(&meta.permissions()) & 0o777,
+        ))?;
+        #[cfg(not(unix))]
+        {
+            let mut p = out.metadata()?.permissions();
+            p.set_readonly(meta.permissions().readonly());
+            out.set_permissions(p)?;
+        }
+        drop(out);
+        // Never onto one that came meanwhile: rename would replace it.
+        if fs::symlink_metadata(to).is_ok() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                crate::t!("err.exists", "path" => to.display()),
+            ));
+        }
+        fs::rename(&tmp, to)
+    })();
+    if r.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    r
 }
 
 /// What a move across disks did when it ended half way (stopped, or failed): the files and
@@ -905,7 +951,10 @@ pub(crate) fn rename_locked_logged(
         (Some((a, from)), _) => {
             // Taken out of the archive only when all of it came out.
             let to = copy_out_or_in(src, dst, password, true)?;
-            crate::archive::remove(&a, &[from], password)?;
+            // Once out whole it is taken out of the archive, Stop or not: never in two places.
+            crate::stop::during(&Default::default(), || {
+                crate::archive::remove(&a, &[from], password)
+            })?;
             Ok(to)
         }
         (None, Some(_)) => {
