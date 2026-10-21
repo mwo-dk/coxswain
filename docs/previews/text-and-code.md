@@ -141,7 +141,8 @@ the desktop app.
 
 Set `viewer` in `config.toml` to use another program on **F3**, as before; **p** in the viewer
 hands the file to `$PAGER` (else `less`). **F4** opens it in `$VISUAL` / `$EDITOR` (or
-`editor`, else `vi` / `notepad`). For a diff, type `git diff HEAD -- file` on the command line.
+`editor`, else the [built-in editor](../commands/editor.md)), and **Shift+F4** always in the
+built-in one. For a diff, type `git diff HEAD -- file` on the command line.
 See [View and edit](../commands/view-and-edit.md).
 
 ## Questions

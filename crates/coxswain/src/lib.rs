@@ -11,6 +11,7 @@ mod setup;
 mod space;
 mod ui;
 mod viewer;
+mod editor;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
@@ -413,6 +414,9 @@ pub enum Dialog {
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
+    /// A file in the built-in editor, full screen (Shift+F4; F4 with no editor set); `back` as
+    /// for `View`.
+    Edit { e: Box<editor::Editor>, back: Option<Box<Dialog>> },
     /// A PGN file's games, an EPD or FEN file's positions, full screen (F3, Alt+K).
     Chess(Box<chess::Viewer>),
     /// An SGF file's Go games, full screen (F3, Alt+K).
@@ -451,6 +455,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Provenance(_) => "provenance",
         Dialog::GitConfig(_) => "git_config",
         Dialog::View { .. } => "view_and_edit",
+        Dialog::Edit { .. } => "editor",
         Dialog::Chess(_) => "chess",
         Dialog::Go(_) => "go",
         Dialog::Space(_) => "space",
@@ -458,6 +463,20 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Guide(_) => "first_run",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
     })
+}
+
+/// `editor`'s program when it is plainly not there: a bare name not on the PATH, or a path to
+/// nothing. A command with `$` or `~` is the shell's to read, and left to it.
+fn editor_missing(editor: &str) -> Option<String> {
+    let prog = editor.split_whitespace().next()?.to_string();
+    let gone = if prog.contains(['$', '~', '"', '\'']) {
+        false
+    } else if prog.contains(std::path::MAIN_SEPARATOR) || prog.contains('/') {
+        !Path::new(&prog).exists()
+    } else {
+        coxswain_core::tools::which(&prog).is_none()
+    };
+    gone.then_some(prog)
 }
 
 /// The pager the built-in viewer hands a file to: `$PAGER`, else less (more on Windows).
@@ -1072,7 +1091,12 @@ impl App {
     // ------------------------------------------------------------ input
 
     fn on_key(&mut self, ev: KeyEvent) {
-        let Some(key) = to_key(ev) else { return };
+        if let Some(key) = to_key(ev) {
+            self.key_typed(key);
+        }
+    }
+
+    fn key_typed(&mut self, key: Key) {
         self.hint_stale = true;
         self.status = None;
         if self.dialog.is_some() {
@@ -1295,7 +1319,7 @@ impl App {
                     self.cmdline.push(' ');
                 }
             }
-            Action::View | Action::Edit => {
+            Action::View | Action::Edit | Action::EditHere => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
                     // Inside an archive the file is not on disk: F3 views a copy of it, and
                     // editing waits until it is copied out.
@@ -1306,12 +1330,12 @@ impl App {
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
                     }
                     // In a snapshot: viewed as it is there; never edited.
-                    if a == Action::Edit && coxswain_core::zfs::in_snapshot(&e).is_some() {
+                    if a != Action::View && coxswain_core::zfs::in_snapshot(&e).is_some() {
                         return self.status = Some(t!("zfs.read_only"));
                     }
                     // In a history: viewed as it was then, from a copy; never edited.
                     if history::is_history(&e) {
-                        if a == Action::Edit {
+                        if a != Action::View {
                             return self.status = Some(t!("history.read_only"));
                         }
                         return match history::peek(&e) {
@@ -2068,23 +2092,47 @@ impl App {
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
     pub fn edit_at(&mut self, file: &Path, line: usize) {
-        if let Some(prog) = self.editor_missing() {
+        let Some(editor) = self.editor() else { return self.edit_here(file, Some(line), None) };
+        if let Some(prog) = editor_missing(&editor) {
             return self.status = Some(t!("edit.not_found", "name" => prog));
         }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
-        self.run = Some(Run::Shell { line: config::edit_command(&self.editor(), file, line), typed: false, dir, wait: false });
+        self.run = Some(Run::Shell { line: config::edit_command(&editor, file, line), typed: false, dir, wait: false });
     }
 
+    /// View, edit (in the editor set, else the built-in one) or edit here (the built-in one).
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         if a == Action::View && self.cfg.viewer.is_none() {
             return self.view_in(file, None);
         }
+        let prog = match a {
+            Action::View => self.cfg.viewer.clone().unwrap_or_else(pager),
+            _ => match self.editor().filter(|_| a == Action::Edit) {
+                Some(editor) => editor,
+                None => return self.edit_here(file, None, None),
+            },
+        };
         // Said in the status line: the shell's own "not found" would flash by unread.
-        if a == Action::Edit && let Some(prog) = self.editor_missing() {
+        if a == Action::Edit && let Some(prog) = editor_missing(&prog) {
             return self.status = Some(t!("edit.not_found", "name" => prog));
         }
-        let prog = if a == Action::View { self.cfg.viewer.clone().unwrap_or_else(pager) } else { self.editor() };
         self.run_on(&prog, file);
+    }
+
+    /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
+    fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
+        match editor::Editor::open(file) {
+            Ok(mut e) => {
+                if let Some(n) = line {
+                    e.buf.go_to(n);
+                }
+                self.dialog = Some(Dialog::Edit { e: Box::new(e), back });
+            }
+            Err(err) => {
+                self.status = Some(format!("{}: {err}", file.display()));
+                self.dialog = back.map(|b| *b);
+            }
+        }
     }
 
     /// F3 on `of`, shown as `copy`, the text made of it: in the built-in viewer titled with
@@ -2132,28 +2180,10 @@ impl App {
         self.run = Some(Run::Shell { line, typed: false, dir, wait: false });
     }
 
-    fn editor(&self) -> String {
+    /// The editor F4 starts: `editor`, else `$VISUAL`, else `$EDITOR`; `None` for the built-in one.
+    fn editor(&self) -> Option<String> {
         let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
-        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| {
-            // Not every system has vi (Arch, some containers): the first editor installed.
-            let found = ["vi", "vim", "nvim", "nano", "micro", "hx", "emacs"].into_iter().find(|e| coxswain_core::tools::which(e).is_some());
-            if cfg!(windows) { "notepad".into() } else { found.unwrap_or("vi").into() }
-        })
-    }
-
-    /// The editor's program when it is plainly not there: a bare name not on the PATH, or a
-    /// path to nothing. A command with `$` or `~` is the shell's to read, and left to it.
-    fn editor_missing(&self) -> Option<String> {
-        let editor = self.editor();
-        let prog = editor.split_whitespace().next()?.to_string();
-        let gone = if prog.contains(['$', '~', '"', '\'']) {
-            false
-        } else if prog.contains(std::path::MAIN_SEPARATOR) || prog.contains('/') {
-            !Path::new(&prog).exists()
-        } else {
-            coxswain_core::tools::which(&prog).is_none()
-        };
-        gone.then_some(prog)
+        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR"))
     }
 
     /// F2's last entry: config.toml in the editor at `[[user_menu]]`, an example there first.
@@ -2779,7 +2809,7 @@ impl App {
                             self.find_dismissed.push(id.to_string());
                         }
                     }
-                    _ if matches!(action, Some(Action::View | Action::Edit)) => {
+                    _ if matches!(action, Some(Action::View | Action::Edit | Action::EditHere)) => {
                         let path = if answer {
                             sources.get(cursor).cloned()
                         } else {
@@ -2788,13 +2818,16 @@ impl App {
                                 _ => None,
                             }
                         };
-                        // The built-in viewer covers Find, which comes back when it closes.
                         if let Some(path) = path {
-                            if action == Some(Action::View) && self.cfg.viewer.is_none() {
-                                let back = Dialog::Search { query, chip, here, found, cursor, offset, show };
-                                return self.view_in(&path, Some(Box::new(back)));
-                            }
                             self.view_or_edit(action.unwrap(), &path);
+                            // The built-in viewer or editor over the search, which comes back
+                            // as it was when it closes.
+                            let search = Box::new(Dialog::Search { query, chip, here, found, cursor, offset, show });
+                            match &mut self.dialog {
+                                Some(Dialog::View { back, .. } | Dialog::Edit { back, .. }) => *back = Some(search),
+                                _ => self.dialog = Some(*search),
+                            }
+                            return;
                         }
                     }
                     (KeyCode::Up, _) if answer => cursor = cursor.saturating_sub(1),
@@ -2931,11 +2964,25 @@ impl App {
                 viewer::Outcome::Stay => self.dialog = Some(Dialog::View { v, back }),
                 viewer::Outcome::Close => self.dialog = back.map(|b| *b),
                 // Back to the BOM or provenance it was opened from, once the editor ends.
-                viewer::Outcome::Edit(file) => {
-                    self.view_or_edit(Action::Edit, &file);
-                    self.dialog = back.map(|b| *b);
+                viewer::Outcome::Edit(file, a) => {
+                    self.view_or_edit(a, &file);
+                    match &mut self.dialog {
+                        Some(Dialog::Edit { back: b, .. }) => *b = back,
+                        _ => self.dialog = back.map(|b| *b),
+                    }
                 }
                 viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),
+            },
+            Dialog::Edit { mut e, back } => match e.key(key, action) {
+                editor::Outcome::Stay => self.dialog = Some(Dialog::Edit { e, back }),
+                editor::Outcome::Close => {
+                    self.dialog = back.map(|b| *b);
+                    self.reload();
+                }
+                editor::Outcome::Copy(text) => {
+                    guide::copy(&text);
+                    self.dialog = Some(Dialog::Edit { e, back });
+                }
             },
             Dialog::Chess(mut v) => match v.key(key, action) {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Chess(v)),
@@ -3028,12 +3075,36 @@ impl App {
         }
     }
 
+    /// Text the terminal pasted (bracketed paste): into the editor as it is; anywhere else
+    /// as the keys it was typed with before, a line break as Enter.
+    fn on_paste(&mut self, text: &str) {
+        if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
+            return e.paste(text);
+        }
+        for c in text.replace("\r\n", "\n").chars() {
+            let code = match c {
+                '\n' | '\r' => KeyCode::Enter,
+                '\t' => KeyCode::Tab,
+                c => KeyCode::Char(c),
+            };
+            self.key_typed(Key::new(code, false, false, false));
+        }
+    }
+
     fn on_mouse(&mut self, m: MouseEvent) {
         self.hint_stale = true;
         if let Some(Dialog::View { v, .. }) = &mut self.dialog {
             match m.kind {
                 MouseEventKind::ScrollUp => v.scroll(-3),
                 MouseEventKind::ScrollDown => v.scroll(3),
+                _ => {}
+            }
+            return;
+        }
+        if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
+            match m.kind {
+                MouseEventKind::ScrollUp => e.scroll(-3),
+                MouseEventKind::ScrollDown => e.scroll(3),
                 _ => {}
             }
             return;
@@ -3332,13 +3403,16 @@ fn to_key(ev: KeyEvent) -> Option<Key> {
 
 /// Leave the TUI, run `f` on the plain terminal, and come back.
 fn suspended(term: &mut DefaultTerminal, f: impl FnOnce()) -> std::io::Result<()> {
-    use ratatui::crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+    use ratatui::crossterm::event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture};
     let mut out = std::io::stdout();
+    // Bracketed paste where the terminal has it (not the old Windows console).
+    let _ = execute!(out, DisableBracketedPaste);
     execute!(out, DisableMouseCapture, terminal::LeaveAlternateScreen, cursor::Show)?;
     terminal::disable_raw_mode()?;
     f();
     terminal::enable_raw_mode()?;
     execute!(out, terminal::EnterAlternateScreen, EnableMouseCapture)?;
+    let _ = execute!(out, EnableBracketedPaste);
     term.clear()
 }
 
@@ -3432,6 +3506,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             match event::read()? {
                 Event::Key(k) => app.on_key(k),
                 Event::Mouse(m) => app.on_mouse(m),
+                Event::Paste(text) => app.on_paste(&text),
                 _ => {}
             }
         }
@@ -3951,11 +4026,13 @@ pub fn main() {
     // shell gets mouse escapes after a panic.
     let restore = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |i| {
-        let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
+        let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture, ratatui::crossterm::event::DisableBracketedPaste);
         restore(i)
     }));
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
+    let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableBracketedPaste);
     let res = main_loop(&mut term, &mut app);
+    let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableBracketedPaste);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
     ratatui::restore();
     if let Err(e) = res {

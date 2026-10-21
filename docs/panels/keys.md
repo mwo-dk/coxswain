@@ -143,7 +143,8 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
 | **F3** | View | `view` | The preview pane on or off | The file in your viewer (`less`) ([View and edit](../commands/view-and-edit.md)) |
-| **F4** | Edit | `edit` | The file in your editor | The same |
+| **F4** | Edit | `edit` | The file in your editor, else its default application | The file in your editor, else the built-in one |
+| **Shift+F4** | Edit here | `edit_here` | The file in the [built-in editor](../commands/editor.md), in a window | The same, full screen |
 | **Space** | Preview | `toggle_preview` | The preview pane on or off ([The preview pane](../previews/README.md)) | – |
 | **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
 | **F2** | Menu | `user_menu` | Scripts and the user menu | The user menu ([The user menu](../commands/user-menu.md)) |
@@ -184,7 +185,7 @@ These are fixed; `[keys]` does not change them.
 | Any prompt (copy, move, new folder, go to, mark group, password) | **Enter** does what the button says (*Copy*, *Move*, *Create*, *Go*, *Mark*, *Unlock* …), **Esc** cancels; the line under the buttons says so: *Enter Copy · Esc Cancel*. Terminal app: **Backspace** deletes, **Ctrl+U** clears the line, **F10** cancels too |
 | Pack (**Alt+F5**) | Desktop app: the *Format* list next to the name swaps its ending. Terminal app: **Tab** the next format's ending, **Shift+Tab** the previous one ([Pack and extract](../files/pack-and-extract.md#formats)) |
 | Delete confirmation | **Enter** or **Y** deletes, **Esc** or **N** cancels; the line under it says *Enter Delete · Esc Cancel* (*Enter Move to bin* when it goes to the bin) |
-| Find | Type to search, **Tab** the next kind, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **Ctrl+Enter** asks (terminal: **Alt+Enter**), **F1** the syntax, **F4** edits, **Esc** back or close; terminal app also **F3** views it and **Ctrl+U** clears the field ([Find](../search/find-file.md)) |
+| Find | Type to search, **Tab** the next kind, **Up** / **Down** / **PageUp** / **PageDown** move, **Enter** goes to the hit, **Ctrl+Enter** asks (terminal: **Alt+Enter**), **F1** the syntax, **F4** edits, **Shift+F4** edits in the built-in editor, **Esc** back or close; terminal app also **F3** views it and **Ctrl+U** clears the field ([Find](../search/find-file.md)) |
 | First-run guide | Desktop app: **Enter** next, **Esc** skips, *Back* / *Next* / *Done*. Terminal app: **Up** / **Down** choose, **Space** or **Left** / **Right** change, **Enter** next, **Backspace** back, **Esc** skips ([First-run guide](first-run.md)) |
 | Command list (**F9**), columns menu | Type to filter, **Up** / **Down**, **Enter** runs, **Esc** closes |
 | User menu (**F2**) | An entry's own key runs it at once; **Up** / **Down** and **Enter** too; **Esc** closes |

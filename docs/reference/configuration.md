@@ -100,7 +100,7 @@ yourself: [keys] mkdir → new_folder.` The old names are not read any more: an 
 | `glyph_set` | table | none | Your own glyphs; see [Glyphs](#glyphs). When set, it wins over `glyphs` | Both |
 | `show_hidden` | bool | `true` | Show hidden files at start; **Alt+.** switches | Both |
 | `folder_sizes` | bool | `true` | Measure folders in the background. The desktop app starts from it, then keeps its own switch ([Folder sizes](../panels/folder-sizes.md)) | Both |
-| `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, `vi` (`notepad` on Windows). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
+| `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, else the [built-in editor](../commands/editor.md). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
 | `viewer` | string | none | A program for the terminal app's **F3**; unset, the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer) | Terminal |
 | `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the built-in viewer ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
 | `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the built-in viewer ([Build provenance](../previews/provenance.md)) | Terminal |

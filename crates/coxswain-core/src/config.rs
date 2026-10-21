@@ -289,6 +289,8 @@ actions! {
     // Viewing and editing, the most used first.
     View = "view", "View", Viewing, ["F3"];
     Edit = "edit", "Edit", Viewing, ["F4"];
+    // The built-in editor (`edit`), whatever F4 starts: mc's Shift+F4, free here.
+    EditHere = "edit_here", "Edit here", Viewing, ["Shift+F4"];
     TogglePreview = "toggle_preview", "Preview", Viewing, ["Space"];
     CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
     UserMenu = "user_menu", "Menu", Viewing, ["F2"];

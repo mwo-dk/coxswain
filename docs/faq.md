@@ -82,6 +82,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **My script is in the F2 menu but nothing happens.** The error is in the output (desktop app: the status line or the preview pane); usually the program on its #! line is not installed. [Answer](commands/scripts.md#my-script-is-in-the-menu-but-nothing-happens)
 - **F4 in the desktop app does nothing, though editor = "hx" works in the terminal.** The desktop app has no terminal for a terminal editor; set a windowed editor or use $EDITOR for the terminal app. [Answer](commands/view-and-edit.md#f4-in-the-desktop-app-does-nothing-though-editor--hx-works-in-the-terminal-app)
 - **Enter on a file does nothing, and there is no error.** The opener started but found no application for the type; set a default in your system settings. [Answer](commands/opening-files.md#enter-on-a-file-does-nothing-and-there-is-no-error)
+- **Why does F4 not open the built-in editor?** F4 starts your own editor (`editor`, `$VISUAL`, `$EDITOR`); **Shift+F4** always opens the built-in one, and the terminal app's F4 does when none is set. [Answer](commands/editor.md#why-does-f4-not-open-the-built-in-editor)
+- **What if a file changed on the disk while I edited it in Coxswain?** Saving asks first: save over it, read it again, or go back. [Answer](commands/editor.md#what-if-the-file-changed-on-the-disk-while-i-was-editing-it)
 - **How do I get `less` back on F3 in the terminal app?** Set `viewer = "less"` in `config.toml` (Settings → Behaviour → Viewer), or press **p** in the built-in viewer for one file. [Answer](commands/view-and-edit.md#how-do-i-get-less-or-my-own-pager-back-on-f3)
 
 ## Search

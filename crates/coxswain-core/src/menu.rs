@@ -98,7 +98,7 @@ impl Action {
             // A file in a history is not opened: Enter says so.
             Open => s.single() && !(s.place == Place::History && s.files == 1),
             View => s.single() && s.files == 1,
-            Edit => s.single() && s.files == 1 && disk,
+            Edit | EditHere => s.single() && s.files == 1 && disk,
             CopyPath => s.single() && disk,
             Copy => n > 0 && s.place != Place::Branches,
             Move | Delete => n > 0 && s.writable(),

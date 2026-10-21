@@ -1541,6 +1541,27 @@ async fn edit_path(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(line.command(), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
 }
 
+/// The built-in editor (Shift+F4): `path` read for editing (`edit::open`).
+#[tauri::command]
+async fn edit_open(path: PathBuf) -> Res<coxswain_core::edit::Doc> {
+    crate::here(&path)?;
+    blocking(move || coxswain_core::edit::open(&path)).await
+}
+
+/// The built-in editor's text saved as the file was read; `"changed"` when the file changed on
+/// the disk since `stamp` (none: saved over it whatever). The new stamp.
+#[tauri::command]
+async fn edit_save(path: PathBuf, text: String, encoding: coxswain_core::edit::Encoding, crlf: bool, stamp: Option<coxswain_core::edit::Stamp>) -> Res<coxswain_core::edit::Stamp> {
+    use coxswain_core::edit::SaveError;
+    blocking(move || {
+        coxswain_core::edit::save(&path, &text, encoding, crlf, stamp.as_ref()).map_err(|e| match e {
+            SaveError::Changed => "changed".to_string(),
+            e => e.to_string(),
+        })
+    })
+    .await
+}
+
 /// Lines of a hex dump, 16 bytes each: 64 KB. The UI says as much.
 const HEX_LINES: usize = 4096;
 
@@ -2327,7 +2348,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, scripts_folder,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

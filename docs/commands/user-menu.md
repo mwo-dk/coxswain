@@ -86,7 +86,7 @@ commented example (or `coxswain --dump-config`) next to yours. `user_menu = []` 
 only *Add your own command…* (and the scripts, in the desktop app).
 
 The editor is the one **F4** uses ([Viewing and editing](view-and-edit.md)): in the terminal app
-`editor`, `$VISUAL`, `$EDITOR` or `vi` (`notepad` on Windows); in the desktop app `editor`, or
+`editor`, `$VISUAL` or `$EDITOR`, else the [built-in editor](editor.md); in the desktop app `editor`, or
 the default application for `.toml` files. Editors that take `+line` (vi, Vim, Neovim, nano,
 Emacs, micro, mg, joe, kak, mcedit and others) open at the `[[user_menu]]` line; others open
 the file at the top. Once you save, the next **F2** lists the new entries; no restart.

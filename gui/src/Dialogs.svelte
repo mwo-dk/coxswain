@@ -35,7 +35,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -352,9 +352,12 @@
     else if (answer && k === "Up") m.cursor = Math.max(0, m.cursor - 1);
     else if (answer && k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
     else if (k === "Up" || k === "Down" || k === "PageUp" || k === "PageDown") m.cursor = step(rows, m.cursor, { Up: -1, Down: 1, PageUp: -15, PageDown: 15 }[k]);
-    else if (act === "edit") {
+    else if (act === "edit" || act === "edit_here") {
       const p = answer ? src[m.cursor] : rows[m.cursor]?.row === "hit" && !rows[m.cursor].hit.is_dir ? rows[m.cursor].hit.path : null;
-      if (p && !isHistory(p)) invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
+      if (!p || isHistory(p)) return true;
+      // The built-in editor over the search, which comes back as it was when it closes.
+      if (act === "edit_here") ui.modal = { kind: "editor", path: p, back: m };
+      else invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
     } else if (k === "Delete" && rows[m.cursor]?.dismiss && e.target?.selectionStart === m.query.length) dismissRow(m, rows[m.cursor]);
     else return false;
     return true;
@@ -393,6 +396,7 @@
     if (act === "help" && m.kind !== "help") return features(m), true;
     if (m.kind === "guide") return m.key?.(k) ?? false;
     if (m.kind === "space") return m.key?.(k, act) ?? false;
+    if (m.kind === "editor") return m.key?.(k, act, e) ?? false;
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -468,7 +472,7 @@
 <!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
 {#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
 
-{#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space", "editor"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>
