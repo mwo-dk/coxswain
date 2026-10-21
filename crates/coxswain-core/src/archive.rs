@@ -780,16 +780,48 @@ pub fn split(path: &Path) -> Option<(PathBuf, String)> {
 
 /// The most archives inside each other that are opened, the outer one not counted.
 const NESTED_DEPTH: usize = 8;
-/// The most bytes an archive inside one is unpacked to, counted as it comes out: a size the
-/// outer archive claims may be a lie.
-const NESTED_MAX: u64 = 16 << 30;
+/// The most bytes one archive inside another is unpacked to without being copied out by hand:
+/// what it claims first, then counted as it comes out (a claim may be a lie). Larger ones say
+/// to copy them out with F5, a choice the user makes knowing the size.
+const NESTED_MAX: u64 = if cfg!(test) { 1 << 20 } else { 512 << 20 };
+/// The most bytes all the copies kept take together; the oldest go first to make room.
+const NESTED_ALL: u64 = if cfg!(test) { 3 << 20 } else { 2 << 30 };
 /// Archives inside archives kept unpacked in the cache this run; the oldest goes past this.
 const NESTED_KEPT: usize = 8;
 
-/// The archives inside archives unpacked this run, oldest first: the archive each is in, as it
-/// was then, its name in it, and the copy in the cache.
-static NESTED: std::sync::Mutex<Vec<(PathBuf, Stamp, String, PathBuf)>> =
+/// What a file is, for the copies of archives inside it: its size, modified time, and on Unix
+/// its device and inode, so another file at the same path is never taken for it.
+type Identity = (Stamp, u64, u64);
+
+fn identity(path: &Path) -> io::Result<Identity> {
+    let m = std::fs::metadata(path)?;
+    #[cfg(unix)]
+    let id = {
+        use std::os::unix::fs::MetadataExt;
+        (m.dev(), m.ino())
+    };
+    #[cfg(not(unix))]
+    let id = (0, 0);
+    Ok(((m.len(), m.modified().ok()), id.0, id.1))
+}
+
+/// A copy of an archive inside another: the archive it is in, as it was then, its name in
+/// it, the copy, and its size.
+struct Spilled {
+    outer: PathBuf,
+    id: Identity,
+    name: String,
+    copy: PathBuf,
+    size: u64,
+}
+
+/// The copies made this run, oldest first.
+static NESTED: std::sync::Mutex<Vec<Spilled>> = std::sync::Mutex::new(Vec::new());
+/// The copies being made now, by archive and name: a second look waits for the first.
+static MAKING: std::sync::Mutex<Vec<(PathBuf, String, Arc<std::sync::Mutex<()>>)>> =
     std::sync::Mutex::new(Vec::new());
+/// The number of the next copy's folder: never one used before in this run.
+static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Where the first archive inside `archive` on the way to `inner` ends in `inner`: the length
 /// of its name. `into`: `inner` is looked into, so an archive at its very end counts too;
@@ -858,27 +890,66 @@ fn nested_read_only() -> io::Error {
 
 /// The copy in the cache of `name`, an archive inside `archive`: made when there is none of
 /// it as `archive` is now. In this run's own folder, readable by this user alone, in a fresh
-/// folder of its own under the name it has in the archive (`sound` names only: no `..`, no
-/// separators). The oldest copy goes past `NESTED_KEPT`, and all of them when the app ends.
+/// folder of its own (never a number used before in this run) under the name it has in the
+/// archive (`sound` names only: no `..`, no separators). At most `NESTED_MAX` bytes a copy and
+/// `NESTED_ALL` for all, `NESTED_KEPT` copies; the oldest go first, and all when the app ends.
 fn spilled(archive: &Path, name: &str) -> io::Result<PathBuf> {
-    let st = stamp(archive)?;
-    // One at a time: two looks at the same archive must not unpack it twice.
-    // ponytail: one lock for all; a big inner archive holds up another's preview meanwhile.
-    let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(i) = kept
-        .iter()
-        .position(|(a, s, n, copy)| a == archive && *s == st && n == name && copy.is_file())
-    {
+    let id = identity(archive)?;
+    let find = |kept: &mut Vec<Spilled>| -> Option<PathBuf> {
+        let i = kept.iter().position(|k| {
+            k.outer == archive && k.id == id && k.name == name && k.copy.is_file()
+        })?;
         let it = kept.remove(i);
-        let copy = it.3.clone();
+        let copy = it.copy.clone();
         kept.push(it);
+        Some(copy)
+    };
+    if let Some(copy) = find(&mut NESTED.lock().unwrap_or_else(|e| e.into_inner())) {
         return Ok(copy);
     }
+    // One copy of the same archive at a time; others are made meanwhile.
+    let key = {
+        let mut making = MAKING.lock().unwrap_or_else(|e| e.into_inner());
+        match making.iter().find(|(a, n, _)| a == archive && n == name) {
+            Some((.., k)) => k.clone(),
+            None => {
+                let k = Arc::new(std::sync::Mutex::new(()));
+                making.push((archive.to_path_buf(), name.to_string(), k.clone()));
+                k
+            }
+        }
+    };
+    let made = {
+        let _one = key.lock().unwrap_or_else(|e| e.into_inner());
+        // The guard goes before `spill`, which takes the lock again.
+        let found = find(&mut NESTED.lock().unwrap_or_else(|e| e.into_inner()));
+        match found {
+            Some(copy) => Ok(copy),
+            None => spill(archive, name, id),
+        }
+    };
+    MAKING
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .retain(|(a, n, _)| !(a == archive && n == name));
+    made
+}
+
+/// `spilled`'s copy, made: what the archive claims is looked at first.
+fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
+    let claimed = items(archive)?
+        .iter()
+        .find(|it| it.name == name && !it.dir)
+        .map_or(0, |it| it.size);
+    if claimed > NESTED_MAX {
+        return Err(too_large(name));
+    }
     let base = run_folder("nested", false)?;
-    let dir = (0..)
-        .map(|i| base.join(i.to_string()))
-        .find(|d| !d.exists())
-        .expect("a free number");
+    let dir = base.join(
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            .to_string(),
+    );
+    let _ = std::fs::remove_dir_all(&dir);
     crate::fs::private_dir(&dir)?;
     let copy = dir.join(name.rsplit('/').next().unwrap_or("archive"));
     let made = copy_out_with(
@@ -891,20 +962,40 @@ fn spilled(archive: &Path, name: &str) -> io::Result<PathBuf> {
             ..Copy::default()
         },
     );
-    if let Err(e) = made {
-        let _ = std::fs::remove_dir_all(&dir);
-        return Err(e);
-    }
-    if kept.len() >= NESTED_KEPT {
-        let (.., old) = kept.remove(0);
-        uncache(&old);
-        forget(&old);
-        if let Some(d) = old.parent() {
-            let _ = std::fs::remove_dir_all(d);
+    let size = match made.and_then(|()| std::fs::metadata(&copy)) {
+        Ok(m) => m.len(),
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&dir);
+            return Err(e);
         }
+    };
+    let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
+    while !kept.is_empty()
+        && (kept.len() >= NESTED_KEPT || kept.iter().map(|k| k.size).sum::<u64>() + size > NESTED_ALL)
+    {
+        evict(&mut kept, 0);
     }
-    kept.push((archive.to_path_buf(), st, name.to_string(), copy.clone()));
+    kept.push(Spilled {
+        outer: archive.to_path_buf(),
+        id,
+        name: name.to_string(),
+        copy: copy.clone(),
+        size,
+    });
     Ok(copy)
+}
+
+/// Takes the copy `kept[i]` away, and every copy made out of it, as deep as they go.
+fn evict(kept: &mut Vec<Spilled>, i: usize) {
+    let gone = kept.remove(i);
+    uncache(&gone.copy);
+    forget(&gone.copy);
+    if let Some(d) = gone.copy.parent() {
+        let _ = std::fs::remove_dir_all(d);
+    }
+    while let Some(j) = kept.iter().position(|k| k.outer == gone.copy) {
+        evict(kept, j);
+    }
 }
 
 /// Removes this run's copies of archives inside archives: the apps call it as they end.
@@ -2551,7 +2642,7 @@ mod tests {
         assert!(!nested(&outer, "top.txt", false));
         // A copy is made once while its archive does not change; the oldest go past the most kept.
         let copies = |n: &str| {
-            NESTED.lock().unwrap().iter().filter(|(.., c)| c.file_name().is_some_and(|f| f == n)).count()
+            NESTED.lock().unwrap().iter().filter(|k| k.copy.file_name().is_some_and(|f| f == n)).count()
         };
         let _ = listing(&outer, "mid.zip").unwrap();
         assert_eq!(copies("mid.zip"), 1);
@@ -2577,6 +2668,61 @@ mod tests {
         let shallower = path.rsplit_once('/').unwrap().0;
         assert!(listing(&last, shallower).is_ok());
         assert!(NESTED.lock().unwrap().len() <= NESTED_KEPT, "the oldest copies went");
+        // No copy is left whose archive went with an older one.
+        assert!(NESTED.lock().unwrap().iter().all(|k| k.outer.is_file() && k.copy.is_file()));
+        clean_up();
+        // Too large: what it claims is refused before anything is unpacked, and all the copies
+        // together stay within NESTED_ALL, the oldest going first.
+        let noise = |n: usize, seed: u64| -> Vec<u8> {
+            let mut x = seed | 1;
+            (0..n).map(|_| { x ^= x << 13; x ^= x >> 7; x ^= x << 17; x as u8 }).collect()
+        };
+        let pack = |name: &str, bytes: &[u8]| -> PathBuf {
+            let f = d.join(name);
+            std::fs::write(&f, bytes).unwrap();
+            let z = d.join(format!("{name}.zip"));
+            create(&z, std::slice::from_ref(&f)).unwrap();
+            z
+        };
+        let big = pack("big.bin", &noise(NESTED_MAX as usize + 1, 3));
+        let parts: Vec<PathBuf> =
+            (0..4).map(|i| pack(&format!("part{i}.bin"), &noise(NESTED_MAX as usize * 9 / 10, i + 5))).collect();
+        let many = d.join("many.zip");
+        create(&many, &[&[big.clone()][..], &parts].concat()).unwrap();
+        let err = listing(&many, "big.bin.zip").unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::FileTooLarge, "{err}");
+        assert!(NESTED.lock().unwrap().is_empty(), "nothing unpacked for it");
+        for i in 0..4 {
+            listing(&many, &format!("part{i}.bin.zip")).unwrap();
+            let kept = NESTED.lock().unwrap();
+            assert!(kept.iter().map(|k| k.size).sum::<u64>() <= NESTED_ALL);
+        }
+        assert!(copies("part0.bin.zip") == 0 && copies("part3.bin.zip") == 1, "the oldest went");
+        clean_up();
+        // Another file at the same path, the same size and time: never taken for the first.
+        let same = |text: &[u8], to: &Path| {
+            let f = d.join("same.txt");
+            std::fs::write(&f, text).unwrap();
+            let z = d.join("same.zip");
+            let _ = std::fs::remove_file(&z);
+            create(&z, std::slice::from_ref(&f)).unwrap();
+            let o = d.join("o-new.zip");
+            let _ = std::fs::remove_file(&o);
+            create(&o, std::slice::from_ref(&z)).unwrap();
+            std::fs::rename(&o, to).unwrap();
+        };
+        let twin = d.join("twin.zip");
+        same(b"first", &twin);
+        let when = std::fs::metadata(&twin).unwrap().modified().unwrap();
+        let first = peek(&twin.join("same.zip/same.txt")).unwrap();
+        assert_eq!(std::fs::read(first).unwrap(), b"first");
+        same(b"other", &twin);
+        File::options().write(true).open(&twin).unwrap().set_modified(when).unwrap();
+        let again = peek(&twin.join("same.zip/same.txt")).unwrap();
+        #[cfg(unix)]
+        assert_eq!(std::fs::read(again).unwrap(), b"other");
+        #[cfg(not(unix))]
+        let _ = again;
         clean_up();
         std::fs::remove_dir_all(d).unwrap();
     }
