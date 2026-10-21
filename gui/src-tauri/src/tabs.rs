@@ -250,6 +250,7 @@ pub fn tab_rows(tab: u64, generation: u64, from: usize, to: usize, ctx: tauri::S
 /// Sort the tab's listing again, as number `generation`, the cursor kept on the entry at
 /// `cursor`; by size, folders by their `measured` sizes (`fs::sort_in`).
 #[tauri::command(async)]
+#[allow(clippy::too_many_arguments)]
 pub fn tab_sort(tab: u64, generation: u64, sort: SortKey, reverse: bool, measured: HashMap<PathBuf, u64>, cursor: usize, span: usize, ctx: tauri::State<Ctx>, tabs: tauri::State<Tabs>) -> Res<TabListing> {
     tabs.with(tab, |l| {
         let at = l.entries.get(cursor).map(|e| e.path.clone());
