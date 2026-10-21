@@ -1,0 +1,1 @@
+| **The terminal app draws at once when it starts in a huge folder.** Its first panels were read before anything was drawn, so a folder of a million files showed a blank terminal for seconds; now the panels show `..` and *Working on …* at once, the keys answer, and the files fill in when read. | [Performance](reference/performance.md#the-terminal-app) |
