@@ -26,7 +26,7 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 | Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas, and the notes on the cells (not in `.xls`) |
 | Presentations | `.pptx` `.ppsx` `.potx` `.odp` | The slides, with the speaker notes |
 | Mail | `.eml` `.mbox`, Outlook `.msg` | Subject, sender, receivers, the message and the names of its attachments |
-| Chess, Go and draughts games | `.pgn` `.pgn.gz` `.pgn.zst`, `.sgf`, `.pdn` | A line per game: the players (with their ranks in SGF), event, place, date, the opening (PGN) and the result ([Chess](../previews/chess.md#finding-games), [Go](../previews/go.md#finding-games), [Draughts](../previews/draughts.md#finding-games)) |
+| Chess, xiangqi, Go and draughts games | `.pgn` `.pgn.gz` `.pgn.zst`, `.sgf`, `.pdn` | A line per game: the players (with their ranks in SGF), event, place, date, the opening (PGN) and the result ([Chess](../previews/chess.md#finding-games), [Go](../previews/go.md#finding-games), [Draughts](../previews/draughts.md#finding-games), [Xiangqi](../previews/xiangqi.md#finding-games)) |
 | dBase tables | `.dbf` | The field names and the records ([Old pictures and files](../previews/old-formats.md#dbase-tables)) |
 | Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup |
 | Notebooks | Jupyter `.ipynb` | The cells, with what they printed |

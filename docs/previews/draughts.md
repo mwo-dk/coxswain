@@ -181,4 +181,4 @@ top rows and White's at the bottom, in every kind. **f** turns the board round.
 Not yet: Coxswain shows draughts games but does not play.
 
 ---
-[← Previous: Go games](go.md) · [Next: Neural network models →](neural-networks.md)
+[← Previous: Go games](go.md) · [Next: Xiangqi games →](xiangqi.md)

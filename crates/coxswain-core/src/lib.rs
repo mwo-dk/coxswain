@@ -88,6 +88,7 @@ pub mod view;
     all(test, unix)
 ))]
 mod xdg_trash;
+pub mod xiangqi;
 pub mod zfs;
 
 /// The time limit for a test that guards against a hang or a blow-up (a crafted input that must

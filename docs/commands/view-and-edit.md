@@ -140,7 +140,7 @@ provenance; `bom_viewer = false` or `provenance_viewer = false` makes F3 show th
 away. **F3** on a chess, Go or draughts file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`, `.sgf`,
 `.pdn`, or a `.bin` Polyglot book) opens its games, positions or book moves full screen
 ([Chess games](../previews/chess.md), [Go games](../previews/go.md),
-[Draughts games](../previews/draughts.md)), and on a neural network
+[Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md)), and on a neural network
 model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: format, inputs
 and outputs with shapes, operators ([Neural network models](../previews/neural-networks.md)).
 **F3** on a MOBI, Kindle, FictionBook, LIT or Palm book shows its title, authors and text, made by

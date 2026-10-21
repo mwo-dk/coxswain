@@ -98,6 +98,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Game pieces in the terminal](game-pieces.md) | The terminal app's chess pieces drawn from block characters (octants, sextants, quadrants or half blocks) after the desktop app's pictures, as large as the window allows; figurines on a small board |
 | [Go games](go.md) | SGF files as a list of games, each on a board stepped through with its captures, variations and comments; both apps, the terminal app full screen |
 | [Draughts games](draughts.md) | PDN files as a table of games, each on a numbered board with its captures, kings and variations; international and English draughts; both apps, the terminal app full screen |
+| [Xiangqi games](xiangqi.md) | Chinese chess in PGN files as a table of games, each on a board with the river and palaces and its pieces as characters; ICCS, WXF and Chinese notation; both apps, the terminal app full screen |
 | [Neural network models](neural-networks.md) | ONNX, TensorFlow Lite, Core ML and Keras models: inputs, outputs, nodes and parameters in both apps; the graph drawn by Netron, offline, in the desktop app |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file; with ffmpeg and ImageMagick the video and sound the player cannot play, HEIC, GIMP and RAW photos, video thumbnails |
 | [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
@@ -138,6 +139,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.bin` (a Polyglot book) | The board at the start, the book's moves with their weights | [Chess games](chess.md#opening-books) |
 | `.sgf` | A list of Go games, a game on a board with its stones and variations | [Go games](go.md) |
 | `.pdn` | A table of draughts games, a game on a numbered board with its moves | [Draughts games](draughts.md) |
+| `.pgn` with `[Game "Chinese Chess"]` | A table of xiangqi games, a game on a board with the river and palaces | [Xiangqi games](xiangqi.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |
 | `.avi` `.wmv` `.mpg` `.wma` `.ape` and other video and sound the player cannot play | A frame of the video, the waveform, their facts, by ffmpeg | [Media](media.md#video-and-sound-with-ffmpeg) |
 | `.heic` `.xcf` and RAW photos (`.dng` `.cr2` `.nef` …) | The picture, by ImageMagick or ffmpeg | [Media](media.md#photos-only-imagemagick-or-ffmpeg-reads) |
