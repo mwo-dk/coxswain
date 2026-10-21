@@ -211,6 +211,12 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
     let mut joins = 0usize;
     // Inside the list of a drop-down field: which entry is chosen, and how many were seen.
     let mut list: Option<(usize, usize)> = None;
+    // Hidden text, which the page does not show, is no text: a Word run marked `w:vanish`
+    // (from the run it is marked in, by how many runs deep), and in OpenDocument what a style
+    // or a section says is not displayed. `props` counts the properties of a paragraph mark
+    // and those a run had before a tracked change: a `w:vanish` there hides no text.
+    let (mut runs, mut hidden, mut props) = (0usize, None::<usize>, 0usize);
+    let (mut styles, mut style) = (HashSet::new(), None::<String>);
     while out.len() < MAX_TEXT {
         let event = match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
@@ -220,7 +226,7 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             Event::Start(e) => (Some(e), e.name(), true, false),
             Event::Empty(e) => (Some(e), e.name(), true, true),
             Event::End(e) => (None, e.name(), false, true),
-            _ if skipping > 0 || inside == 0 => continue,
+            _ if skipping > 0 || inside == 0 || hidden.is_some() => continue,
             Event::Text(t) => {
                 keep(out, t);
                 continue;
@@ -240,7 +246,20 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             }
             _ => continue,
         };
-        if skipping > 0 || among(format.skip, name) {
+        if let Some(element) = element {
+            match name.local_name().as_ref() {
+                "style" if !closes => style = super::attr(element, "name"),
+                "text-properties" if super::attr(element, "display").as_deref() == Some("none") => {
+                    styles.extend(style.clone())
+                }
+                _ => {}
+            }
+        }
+        let undisplayed = element.filter(|_| std::ptr::eq(format, &OPEN)).is_some_and(|e| {
+            super::attr(e, "display").as_deref() == Some("none")
+                || super::attr(e, "style-name").is_some_and(|s| styles.contains(&s))
+        });
+        if skipping > 0 || among(format.skip, name) || undisplayed {
             match (opens, closes) {
                 (true, false) => skipping += 1,
                 (false, true) => skipping = skipping.saturating_sub(1),
@@ -269,6 +288,16 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
                 keep(out, sign);
             }
             match name.local_name().as_ref() {
+                "r" if !closes => runs += 1,
+                "pPr" | "rPrChange" if !closes => props += 1,
+                "vanish" | "specVanish"
+                    if runs > 0
+                        && props == 0
+                        && hidden.is_none()
+                        && !matches!(super::attr(element, "val").as_deref(), Some("0" | "false" | "off")) =>
+                {
+                    hidden = Some(runs)
+                }
                 "framePr" if super::attr(element, "dropCap").is_some() => joins = 2,
                 // A watermark, and WordArt, is a shape whose words are an attribute.
                 "textpath" => {
@@ -306,8 +335,17 @@ fn read(xml: &[u8], format: &Format, out: &mut String) {
             if !opens {
                 inside = inside.saturating_sub(text);
                 cells = cells.saturating_sub(cell);
-                if name.local_name().as_ref() == "ddList" {
-                    list = None;
+                match name.local_name().as_ref() {
+                    "ddList" => list = None,
+                    "style" => style = None,
+                    "pPr" | "rPrChange" => props = props.saturating_sub(1),
+                    "r" => {
+                        if hidden == Some(runs) {
+                            hidden = None;
+                        }
+                        runs = runs.saturating_sub(1);
+                    }
+                    _ => {}
                 }
             }
             if cell > 0 {
@@ -601,6 +639,37 @@ mod tests {
             ],
         );
         assert_eq!(text.as_deref(), Some("Before\nspeed\n=\ndistance\ntime"));
+    }
+
+    #[test]
+    fn word_leaves_out_hidden_runs_and_keeps_a_hidden_paragraph_mark_s_text() {
+        let body = "<w:p><w:r><w:t xml:space=\"preserve\">Seen </w:t></w:r><w:r><w:rPr><w:b/><w:vanish/></w:rPr>\
+                    <w:t>Secret instructions</w:t></w:r><w:r><w:t xml:space=\"preserve\"> and seen.</w:t></w:r></w:p>\
+                    <w:p><w:r><w:rPr><w:specVanish/></w:rPr><w:t>Also hidden</w:t></w:r>\
+                    <w:r><w:rPr><w:vanish w:val=\"0\"/></w:rPr><w:t>Not hidden</w:t></w:r></w:p>\
+                    <w:p><w:pPr><w:rPr><w:vanish/></w:rPr></w:pPr><w:r><w:rPr><w:rPrChange w:id=\"1\"><w:rPr><w:vanish/></w:rPr>\
+                    </w:rPrChange></w:rPr><w:t>Mark hidden, text shown</w:t></w:r></w:p>";
+        assert_eq!(
+            read_file("hidden.docx", &[("word/document.xml", &word(body))]).as_deref(),
+            Some("Seen and seen.\nNot hidden\nMark hidden, text shown")
+        );
+    }
+
+    #[test]
+    fn opendocument_leaves_out_text_its_styles_or_sections_do_not_display() {
+        let content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+             <office:document-content xmlns:office=\"o\" xmlns:text=\"t\" xmlns:style=\"s\">\
+             <office:automatic-styles><style:style style:name=\"T1\" style:family=\"text\">\
+             <style:text-properties text:display=\"none\"/></style:style>\
+             <style:style style:name=\"T2\" style:family=\"text\"><style:text-properties fo:font-weight=\"bold\"/></style:style>\
+             </office:automatic-styles><office:body><office:text>\
+             <text:p>Seen <text:span text:style-name=\"T1\">Secret instructions</text:span>and <text:span text:style-name=\"T2\">bold</text:span>.</text:p>\
+             <text:section text:name=\"S\" text:display=\"none\"><text:p>Hidden section</text:p></text:section>\
+             <text:p>End.</text:p></office:text></office:body></office:document-content>";
+        assert_eq!(
+            read_file("hidden.odt", &[("content.xml", content)]).as_deref(),
+            Some("Seen and bold.\nEnd.")
+        );
     }
 
     #[test]

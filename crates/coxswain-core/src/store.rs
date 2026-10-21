@@ -517,7 +517,24 @@ impl Store {
     /// reads only its own files again. Apps that know no such key leave it alone, and their
     /// own `readers` tag stays as they wrote it.
     fn reader_changed<S: AsRef<str>>(&self, key: &str, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
-        let db = self.db.lock().unwrap();
+        self.reader_changed_to(key, tag, ends, false)
+    }
+
+    /// `reader_changed` for a reader that now leaves out what it read before (hidden text):
+    /// the files' old text and the vectors of their passages go at once, so nothing of it is
+    /// found, by words or by meaning, nor given to Ask, while the files wait to be read again.
+    fn reader_dropped<S: AsRef<str>>(&self, key: &str, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
+        self.reader_changed_to(key, tag, ends, true)
+    }
+
+    fn reader_changed_to<S: AsRef<str>>(
+        &self,
+        key: &str,
+        tag: &str,
+        ends: &[S],
+        forget: bool,
+    ) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
         let before: String = db
             .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
             .unwrap_or_default();
@@ -526,17 +543,27 @@ impl Store {
         if before == tag || newer {
             return Ok(());
         }
+        let tx = db.transaction()?;
         for end in ends {
-            db.execute(
+            let like = format!("%{}", end.as_ref());
+            if forget {
+                tx.execute("DELETE FROM text WHERE rowid IN (SELECT id FROM files WHERE path LIKE ?1)", [&like])?;
+                tx.execute("DELETE FROM chunks WHERE file IN (SELECT id FROM files WHERE path LIKE ?1)", [&like])?;
+            }
+            tx.execute(
                 "UPDATE files SET has_text = NULL, embedded = NULL WHERE path LIKE ?1",
-                [format!("%{}", end.as_ref())],
+                [like],
             )?;
         }
-        db.execute(
+        tx.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)",
             [key, tag],
         )?;
-        Ok(())
+        if forget {
+            self.commit_signs(|| tx.commit(), SignsChange::Reset)
+        } else {
+            tx.commit()
+        }
     }
 
     /// Where each root's rows are, as the store last saw it: path -> (disk, place on it, rows at).
@@ -2076,6 +2103,10 @@ fn scan_for(
         let ends: Vec<String> = tika.iter().map(|e| format!(".{e}")).collect();
         store.reader_changed("readers.tika", crate::extract::tika::READER, &ends)?;
     }
+    // PDF and Word files leave out hidden text (2.33): their old text and passages go, and
+    // they are read and their passages made again, once.
+    store.reader_dropped("readers.pdf", "1", &[".pdf"])?;
+    store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"])?;
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
@@ -3683,6 +3714,60 @@ mod tests {
         let tag: String = store.db.lock().unwrap()
             .query_row("SELECT value FROM meta WHERE key = 'readers.code'", [], |r| r.get(0)).unwrap();
         assert_eq!(tag, "3");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A reader that now leaves out hidden text: its files lose their old text and the
+    /// vectors of their passages at once, then are read and their passages made again, once,
+    /// even when the new text is the same. Other files keep theirs, and a newer version's work
+    /// stays.
+    #[test]
+    fn store_forgets_what_a_reader_no_longer_reads_and_makes_it_again() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-dropped-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let paths = ["/h/report.PDF", "/h/letter.docx", "/h/notes.odt", "/h/plain.txt"];
+        let files: Vec<_> = paths.iter().map(|p| (p.to_string(), 1, 1, false)).collect();
+        store.apply(&[], &files, &[], false, None).unwrap();
+        let ids: Vec<i64> = store.unread_disk(0, 1000).unwrap().iter().map(|r| r.0).collect();
+        let said = "Seen words. Secret instructions";
+        store.read(&ids.iter().map(|id| (*id, Some(said.to_string()))).collect::<Vec<_>>()).unwrap();
+        let v = crate::meaning::pack(&[0.5f32; 64]);
+        for id in &ids {
+            store.put_vectors(*id, std::slice::from_ref(&v)).unwrap();
+        }
+        let passages = |s: &Signs| s.files.len();
+        assert_eq!(store.with_signs(passages), 4);
+        let chunks = |store: &Store| -> i64 {
+            store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks", [], |r| r.get(0)).unwrap()
+        };
+        store.reader_dropped("readers.pdf", "1", &[".pdf"]).unwrap();
+        store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"]).unwrap();
+        // Nothing of the old text is found, by words or by meaning, but in the other file.
+        assert_eq!(store.search("secret", None, 10).total, 1);
+        assert_eq!(chunks(&store), 1);
+        assert_eq!(store.with_signs(passages), 1, "the signs of the passages go too");
+        let mut unread: Vec<String> = store.unread_disk(0, 1000).unwrap().into_iter().map(|r| r.1).collect();
+        unread.sort();
+        assert_eq!(unread, ["/h/letter.docx", "/h/notes.odt", "/h/report.PDF"]);
+        // Read again with the same text: still their passages are made again.
+        let again: Vec<_> = ids[..3].iter().map(|id| (*id, Some("Seen words.".to_string()))).collect();
+        store.read(&again).unwrap();
+        assert_eq!(store.search("secret", None, 10).total, 1);
+        let mut waiting: Vec<i64> = store.unembedded(10).unwrap().into_iter().map(|r| r.0).collect();
+        waiting.sort();
+        assert_eq!(waiting, ids[..3]);
+        // Once: the same version again, or an older one after a newer, drops nothing.
+        for id in &ids[..3] {
+            store.put_vectors(*id, std::slice::from_ref(&v)).unwrap();
+        }
+        store.reader_dropped("readers.pdf", "1", &[".pdf"]).unwrap();
+        store.db.lock().unwrap().execute("UPDATE meta SET value = '2' WHERE key = 'readers.word'", []).unwrap();
+        store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty());
+        assert_eq!(chunks(&store), 4);
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -19,8 +19,8 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 
 | Kind | Files | What is read |
 |---|---|---|
-| PDF | `.pdf` | The text, and what is drawn on top of the pages: filled-in form fields, stamps and notes as they show on the page; a very long document is read for three seconds, which is most of it. A PDF without text is a scan: see [Scans](scans.md) |
-| Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott` | The text, with headers, footers, footnotes and comments; in an OpenDocument file also the charts and formulas set into it |
+| PDF | `.pdf` | The text, and what is drawn on top of the pages: filled-in form fields, stamps and notes as they show on the page; a very long document is read for three seconds, which is most of it. Text the page does not show is left out ([hidden text](#does-coxswain-read-hidden-text)). A PDF without text is a scan: see [Scans](scans.md) |
+| Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott` | The text, with headers, footers, footnotes and comments; in an OpenDocument file also the charts and formulas set into it. Hidden text is left out ([hidden text](#does-coxswain-read-hidden-text)) |
 | Rich text | `.rtf` | The text |
 | Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas, and the notes on the cells (not in `.xls`) |
 | Presentations | `.pptx` `.ppsx` `.potx` `.odp` | The slides, with the speaker notes |
@@ -66,6 +66,22 @@ The same: the helper reads the documents for both apps.
 Check that it is `.docx` (or `.odt` …), not the older `.doc`: that one needs
 [LibreOffice](scans.md), or [Apache Tika](tika.md) when it is turned on. Check that it is smaller than 20 MB, not locked with a password, and in a
 [folder read](folders.md).
+
+#### Does Coxswain read hidden text?
+
+No: what a document hides from whoever reads it is not found by its words, not found by its
+meaning and never given to [Ask](ask.md) as a source. Left out are:
+
+- in Word (`.docx` `.docm` `.dotx`), runs marked *Hidden* (Font → Hidden, `w:vanish`);
+- in OpenDocument (`.odt` `.ott`), text whose style says it is not shown, and hidden sections;
+- in a PDF, text drawn invisibly (render mode 3 or 7), text smaller than 2 points, and white
+  text on a page where nothing was painted under it.
+
+Invisible text over a scanned picture is kept: it is the scan's words, which an OCR program put
+there. Hidden text set by a Word *style* (rather than on the text itself) is still read. After the
+update that brought this, every PDF and Word file is read again once, and its passages for search
+by meaning are made again; until a file is read, its old text is not found at all. Find's footer
+shows the files still to go.
 
 #### Does it find the formulas in my spreadsheet?
 

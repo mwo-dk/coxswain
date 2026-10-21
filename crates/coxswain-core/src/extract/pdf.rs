@@ -923,11 +923,22 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
     let mut plain = mending.plain;
     // Content written anew is kept unpacked, all of it together within bounds.
     let mut room = MAX_ENTRY;
-    let drawn: HashSet<ObjectId> = doc
-        .page_iter()
-        .take(MAX_PAGES)
-        .flat_map(|page| doc.get_page_contents(page))
-        .collect();
+    // The content of each page, and whether it is all that the page draws: one stream, and no
+    // pictures or forms. Only there is text drawn invisibly known to be hidden, and not the
+    // words of a scan over its picture.
+    let mut drawn: HashMap<ObjectId, bool> = HashMap::new();
+    for page in doc.page_iter().take(MAX_PAGES) {
+        let contents = doc.get_page_contents(page);
+        let bare = contents.len() == 1
+            && doc.get_page_resources(page).is_ok_and(|(own, ids)| {
+                own.into_iter()
+                    .chain(ids.iter().filter_map(|id| doc.get_dictionary(*id).ok()))
+                    .all(|r| dict_at(doc, r, b"XObject").is_none_or(|x| x.is_empty()))
+            });
+        for id in contents {
+            *drawn.entry(id).or_insert(bare) &= bare;
+        }
+    }
     let mut known = HashMap::new();
     for id in ids {
         let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
@@ -955,9 +966,10 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
         };
         let as_is = Known::of(&content);
         let shown =
-            as_is.weight <= MAX_CONTENT && (drawn.contains(&id) || is(stream, b"Subtype", b"Form"));
+            as_is.weight <= MAX_CONTENT && (drawn.contains_key(&id) || is(stream, b"Subtype", b"Form"));
+        let bare = drawn.get(&id).copied().unwrap_or(false);
         match shown
-            .then(|| rewritten(&content))
+            .then(|| rewritten(&content, bare))
             .flatten()
             .filter(|written| written.len() as u64 <= room)
         {
@@ -979,8 +991,13 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
 /// pdf-extract hands back nothing of a span but its glyphs, and nothing else but paths: so
 /// the text is written as a path, with `SPAN` as its start and the UTF-16 units of the text as
 /// the points it goes to, filled before the glyphs of the span, and a path to `SPAN` and one up
-/// filled after them. `Words` reads it back. `None` when the content has neither.
-fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
+/// filled after them. `Words` reads it back.
+///
+/// On a `bare` page, all of whose drawing is this content, text drawn invisibly is hidden
+/// text, left out of what is read: in render mode 3 or 7 (neither filled nor stroked), and
+/// filled white before anything else was painted. Where it starts and ends is a path from
+/// `HIDE` to 1 and to 0. `None` when the content has none of these.
+fn rewritten(content: &[u8], bare: bool) -> Option<Vec<u8>> {
     // Either quote comes after the string it shows and ends there.
     let shows = |at: usize| {
         at > 0
@@ -989,9 +1006,12 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     };
     if memchr::memchr2_iter(b'\'', b'"', content).all(|at| !shows(at))
         && memmem::find(content, b"ActualText").is_none()
+        && !(bare && hiding(content))
     {
         return None;
     }
+    // An inline picture is a scan the text may lie over.
+    let bare = bare && memmem::find(content, b"BI").is_none();
     let op = |operator: &str, operands: Vec<Object>| Operation::new(operator, operands);
     let path = |points: Vec<f64>| {
         let goes = points
@@ -1005,11 +1025,53 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     let mut written = vec![];
     // How many marked spans are open, and at what depth the one with the text was opened.
     let (mut open, mut spanned) = (0usize, None);
+    // The render mode, whether the fill is white, and whether its colour space is a device's
+    // (whose colours `sc` gives as plain numbers), as `q` saves them and `Q` gives them back.
+    let (mut state, mut saved) = (Paint { mode: 0, white: false, device: true }, vec![]);
+    // Whether anything was painted that white text could stand on, and whether the text
+    // being shown is hidden.
+    let (mut painted, mut hidden) = (false, false);
+    let hide = |on: bool| {
+        [
+            op("m", vec![HIDE.into(), 0.0.into()]),
+            op("l", vec![f64::from(on as u8).into(), 0.0.into()]),
+            op("f", vec![]),
+        ]
+    };
     for Operation {
         operator,
         mut operands,
     } in of_lopdf(|| Content::decode(content))?.operations
     {
+        let number = |at: usize| operands.get(at).and_then(|o| o.as_float().ok());
+        let all = |value: f32| operands.iter().all(|o| o.as_float().is_ok_and(|v| (v - value).abs() < 0.01));
+        match operator.as_str() {
+            "q" => saved.push(state),
+            "Q" => state = saved.pop().unwrap_or(state),
+            "Tr" => state.mode = number(0).unwrap_or(0.0) as i64,
+            "g" | "rg" | "k" => {
+                state.device = true;
+                state.white = all(if operator == "k" { 0.0 } else { 1.0 });
+            }
+            "cs" => {
+                state.white = false;
+                state.device = matches!(operands.first(), Some(Object::Name(n)) if [&b"DeviceGray"[..], b"DeviceRGB", b"DeviceCMYK"].contains(&&n[..]));
+            }
+            "sc" | "scn" => {
+                state.white = state.device && all(if operands.len() == 4 { 0.0 } else { 1.0 });
+            }
+            "f" | "F" | "f*" | "B" | "B*" | "b" | "b*" => painted |= !state.white,
+            "sh" | "Do" => painted = true,
+            "Tj" | "TJ" | "'" | "\"" if bare => {
+                let now = matches!(state.mode, 3 | 7)
+                    || (state.white && !painted && matches!(state.mode, 0 | 4));
+                if now != hidden {
+                    hidden = now;
+                    written.extend(hide(now));
+                }
+            }
+            _ => {}
+        }
         match (operator.as_str(), operands.len()) {
             ("'", 1) => written.extend([op("T*", vec![]), op("Tj", operands)]),
             ("\"", 3) => {
@@ -1047,6 +1109,9 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
             _ => written.push(op(&operator, operands)),
         }
     }
+    if hidden {
+        written.extend(hide(false));
+    }
     of_lopdf(|| {
         Content {
             operations: written,
@@ -1057,6 +1122,24 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
 
 /// A point no drawing goes to: where the path that carries the text of a span starts.
 const SPAN: f64 = -65537.5;
+/// Another: where the path starts that says hidden text starts (to 1) or ends (to 0).
+const HIDE: f64 = -65539.5;
+
+/// What of the graphics state says whether text is seen.
+#[derive(Clone, Copy)]
+struct Paint {
+    mode: i64,
+    white: bool,
+    device: bool,
+}
+
+/// Whether the content may draw text invisibly: it sets a render mode, or a white fill. Only
+/// then is it gone through for hidden text.
+fn hiding(content: &[u8]) -> bool {
+    [&b"Tr"[..], b"1 g", b"1 rg", b"1 sc", b"0 k"]
+        .iter()
+        .any(|sign| memmem::find(content, sign).is_some())
+}
 
 /// The UTF-16 units of a string of a PDF: with a byte order mark it is UTF-16, and without one
 /// each byte is a character, near enough.
@@ -1666,6 +1749,8 @@ struct Drawn {
 /// The widest gap between letters that is taken for the letters of one word set apart, in
 /// sizes of the font, and the narrowest that is taken for a space at all.
 const SET_APART: f64 = 0.2;
+/// Text drawn smaller than this, in points, is no text to read.
+const TINY: f64 = 2.0;
 const SPACE: f64 = 0.1;
 /// The most characters held as one line. Longer than this it is no line, and goes to the text
 /// in pieces.
@@ -1680,6 +1765,8 @@ struct Words<'a> {
     /// characters follow each other as the font's widths say.
     start: bool,
     span: Option<Span>,
+    /// Inside text drawn invisibly, which `rewritten` marked.
+    hidden: bool,
     seen: usize,
     until: Instant,
 }
@@ -1692,6 +1779,7 @@ impl<'a> Words<'a> {
             last: None,
             start: true,
             span: None,
+            hidden: false,
             seen: 0,
             until,
         }
@@ -1827,6 +1915,11 @@ impl OutputDev for Words<'_> {
         } else {
             1.0
         };
+        // Hidden text, and text too small to be read (under 2 points), is not what the page
+        // says to whoever reads it.
+        if self.hidden || size < TINY {
+            return Ok(());
+        }
         let spot = Spot {
             at: (trm.m31, trm.m32),
             way,
@@ -1924,7 +2017,11 @@ impl OutputDev for Words<'_> {
         path: &pdf_extract::Path,
     ) -> Result<(), OutputError> {
         use pdf_extract::PathOp::{LineTo, MoveTo};
-        if let [MoveTo(x, _), points @ ..] = &path.ops[..]
+        if let [MoveTo(x, _), LineTo(on, _)] = &path.ops[..]
+            && *x == HIDE
+        {
+            self.hidden = *on == 1.0;
+        } else if let [MoveTo(x, _), points @ ..] = &path.ops[..]
             && *x == SPAN
         {
             let units: Vec<u16> = points
@@ -2194,6 +2291,32 @@ mod tests {
             "zeppelin",
         ];
         assert_eq!(read("pages", &file).as_deref(), Some(&*lines.join("\n")));
+    }
+
+    #[test]
+    fn pdf_leaves_out_text_drawn_invisibly_white_or_too_small() {
+        let content = br"BT /F1 12 Tf 72 720 Td (Seen) Tj 3 Tr ( Secret instructions) Tj 0 Tr ( and seen.) Tj ET
+            q 1 1 1 rg BT /F1 12 Tf 72 700 Td (White words) Tj ET Q
+            BT /F1 12 Tf 72 680 Td (Black again.) Tj ET
+            BT /F1 1 Tf 72 660 Td (Tiny words) Tj ET
+            BT 7 Tr /F1 12 Tf 72 640 Td (Clipped words) Tj ET
+            BT 0 Tr /F1 1 Tf 12 0 0 12 72 620 Tm (Scaled up is read.) Tj ET
+            0 0 0 rg 0 0 612 100 re f BT 1 g /F1 12 Tf 72 50 Td (White on black is read.) Tj ET";
+        let file = document(FONT, &[], &[stream("", content)]);
+        let text = read("hidden", &file).unwrap();
+        assert!(!["Secret", "White words", "Tiny", "Clipped"].iter().any(|w| text.contains(w)), "{text}");
+        for seen in ["Seen", "and seen.", "Black again.", "Scaled up is read.", "White on black is read."] {
+            assert!(text.contains(seen), "{seen}: {text}");
+        }
+    }
+
+    #[test]
+    fn pdf_keeps_the_invisible_words_over_a_scan() {
+        // An OCR layer: the picture, then its words in render mode 3.
+        let content = b"q 100 0 0 100 0 0 cm /Im1 Do Q BT 3 Tr /F1 12 Tf 72 720 Td (Scanned words) Tj ET";
+        let picture = stream("/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8", b"\x80");
+        let file = document(&format!("{FONT} /XObject << /Im1 4 0 R >>"), &[picture], &[stream("", content)]);
+        assert_eq!(read("scan", &file).as_deref(), Some("Scanned words"));
     }
 
     #[test]
