@@ -403,6 +403,10 @@ fn hg(dir: &Path) -> Command {
 /// (`HGRCSKIPREPO`, Mercurial 5.4): an older one is as good as missing.
 fn hg_here() -> bool {
     static NEW: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    #[cfg(test)]
+    if NO_HG.with(|n| n.get()) {
+        return false;
+    }
     let here = crate::user_menu::installed("hg")
         && *NEW.get_or_init(|| {
             let out = crate::tools::command("hg")
@@ -418,6 +422,22 @@ fn hg_here() -> bool {
         HG_MISSING.store(true, Ordering::Relaxed);
     }
     here
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test's way to have no hg.
+    static NO_HG: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// hg is here, or the notice's reason why not: everything but the line needs it, and nothing
+/// is ever asked of git instead (git's branch names must never reach `hg update`).
+fn need_hg() -> io::Result<()> {
+    if hg_here() {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::NotFound, crate::t!("notice.hg_missing")))
+    }
 }
 
 /// `hg --version --quiet` (`Mercurial Distributed SCM (version 6.7.2)`) names 5.4 or later.
@@ -605,9 +625,7 @@ impl Vcs for Hg {
     }
 
     fn log(&self, base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
-        if !hg_here() {
-            return Git.log(base, spec, max);
-        }
+        need_hg()?;
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let rel = from_root(&root, base, if spec == "." { "" } else { spec });
         let mut c = hg(&root);
@@ -629,9 +647,7 @@ impl Vcs for Hg {
     }
 
     fn branches(&self, dir: &Path) -> io::Result<Vec<Branch>> {
-        if !hg_here() {
-            return Git.branches(dir);
-        }
+        need_hg()?;
         let root = hg_root(dir).unwrap_or_else(|| dir.to_path_buf());
         let tail = r"\x1f{node}\x1f{date|hgdate}\x1f{author|person}\x1f{desc|firstline}\n";
         let marks = crate::history::run({
@@ -655,6 +671,7 @@ impl Vcs for Hg {
     }
 
     fn switch(&self, dir: &Path, entry: &str) -> io::Result<String> {
+        need_hg()?;
         let root = hg_root(dir).ok_or_else(|| io::Error::other("no repository"))?;
         let name = crate::branches::name_of(entry);
         let b = self
@@ -675,6 +692,7 @@ impl Vcs for Hg {
     }
 
     fn create(&self, dir: &Path, name: &str, from: Option<&str>) -> io::Result<String> {
+        need_hg()?;
         let root = hg_root(dir).ok_or_else(|| io::Error::other("no repository"))?;
         let name = name.trim();
         if name.is_empty()
@@ -698,6 +716,7 @@ impl Vcs for Hg {
     }
 
     fn show(&self, base: &Path, rev: &str) -> io::Result<Commit> {
+        need_hg()?;
         let mut c = hg(base);
         c.args(["log", "-r", &hg_rev(rev), "-T", HG_LOG]);
         hg_commit(crate::history::run(c)?.split(|&b| b == 0).next().unwrap_or_default())
@@ -705,6 +724,7 @@ impl Vcs for Hg {
     }
 
     fn tree(&self, base: &Path, rev: &str, inner: &str) -> io::Result<Vec<(String, &'static str, u64)>> {
+        need_hg()?;
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let rel = from_root(&root, base, inner);
         let mut c = hg(&root);
@@ -739,6 +759,7 @@ impl Vcs for Hg {
     }
 
     fn read(&self, base: &Path, rev: &str, inner: &str, max: usize) -> io::Result<(Vec<u8>, bool)> {
+        need_hg()?;
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let mut c = hg(&root);
         c.args(["cat", "-r", &hg_rev(rev), "--", &hg_path(&from_root(&root, base, inner))]);
@@ -746,6 +767,7 @@ impl Vcs for Hg {
     }
 
     fn diff(&self, base: &Path, rev: &str, inner: &str) -> io::Result<Vec<u8>> {
+        need_hg()?;
         let root = hg_root(base).ok_or_else(|| io::Error::other("no repository"))?;
         let mut c = hg(&root);
         c.args(["diff", "--git", "-c", &hg_rev(rev), "--", &hg_path(&from_root(&root, base, inner))]);
@@ -753,6 +775,7 @@ impl Vcs for Hg {
     }
 
     fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
+        need_hg()?;
         let root = hg_root(&at.base).ok_or_else(|| io::Error::other("no repository"))?;
         let rel = from_root(&root, &at.base, &at.inner);
         let rev = hg_rev(rev);
@@ -1096,6 +1119,33 @@ mod tests {
         assert_eq!(Status::read(&d).unwrap().summary.branch, "feature");
         assert!(crate::branches::create(&d, "has space", None).is_err());
         assert!(!mark.exists(), "the repository's hook ran");
+        std::fs::remove_dir_all(top).unwrap();
+    }
+
+
+    /// Without hg, nothing in a Mercurial repository is asked of git instead, and nothing that
+    /// writes runs: each says hg is missing.
+    #[test]
+    fn vcs_hg_missing_refuses_all() {
+        NO_HG.with(|n| n.set(true));
+        let top = std::env::temp_dir().join(format!("coxswain-hg-none-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&top);
+        std::fs::create_dir_all(top.join(".hg")).unwrap();
+        let list = crate::history::path_of(&top, crate::history::View::Branches);
+        let at = At { target: top.clone(), base: top.clone(), commit: Some("abc".into()), inner: String::new(), view: crate::history::View::History };
+        let missing = |e: io::Error| assert_eq!(e.kind(), io::ErrorKind::NotFound, "{e}");
+        assert_eq!(of(&top).name(), "hg");
+        missing(Hg.log(&top, ".", 10).unwrap_err());
+        missing(Hg.branches(&top).unwrap_err());
+        missing(Hg.switch(&list, "main").unwrap_err());
+        missing(Hg.create(&top, "feature", None).unwrap_err());
+        missing(Hg.show(&top, "abc").unwrap_err());
+        missing(Hg.tree(&top, "abc", "").unwrap_err());
+        missing(Hg.read(&top, "abc", "a", 10).unwrap_err());
+        missing(Hg.diff(&top, "abc", "").unwrap_err());
+        missing(Hg.export(&at, "abc", &top.join("out")).unwrap_err());
+        missing(crate::branches::switch(&list, "main").unwrap_err());
+        NO_HG.with(|n| n.set(false));
         std::fs::remove_dir_all(top).unwrap();
     }
 
