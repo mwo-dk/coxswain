@@ -116,8 +116,8 @@ Thumbnails of pictures are the pictures themselves, decoded at full size by the 
 videos and HEIC, GIMP and RAW photos get a small picture, made once by ffmpeg or ImageMagick and
 kept in the preview cache, geodata its map, made once by GDAL (a GPX file's by Coxswain), a model its part, made once by
 OpenSCAD, and a KiCad file its sheet or 3D view, made once by kicad-cli. A folder of large photos takes a moment, and tiles load as they scroll into
-sight. Only the rows of tiles on screen are in the page, so a folder of 100,000 files opens in
-thumbnails as quickly as in details.
+sight. Only the rows of tiles on screen are in the page, so a folder of a million files opens
+in thumbnails as quickly as in details ([Performance](../reference/performance.md#the-desktop-app)).
 
 #### Why do I not see git glyphs in the columns or thumbnails view?
 

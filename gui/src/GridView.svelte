@@ -23,8 +23,16 @@
   const GAP = 6, PAD = 8, OVER = 2;
   const step = $derived(tileH + GAP);
   const rows = $derived(Math.ceil(t.items.length / cols));
-  const first = $derived(Math.max(0, Math.min(rows, Math.floor((top - PAD) / step)) - OVER));
-  const last = $derived(Math.min(rows, Math.ceil((top + height) / step) + OVER));
+  // Taller than WebKit lays out (a million files): a box of `MAX` pixels, scrolled through
+  // `scale` times faster; `at` is how far down the whole grid the view is (as in Rows).
+  const MAX = 2 ** 24;
+  const full = $derived(rows * step + 2 * PAD);
+  const box = $derived(Math.min(full, MAX));
+  const scale = $derived(box > height ? Math.max(1, (full - height) / (box - height)) : 1);
+  const at = $derived(top * scale);
+  const first = $derived(Math.max(0, Math.min(rows, Math.floor((at - PAD) / step)) - OVER));
+  const last = $derived(Math.min(rows, Math.ceil((at + height) / step) + OVER));
+  const padTop = $derived(Math.max(0, top + PAD + first * step - at));
 
   function measure() {
     cols = getComputedStyle(tiles).gridTemplateColumns.split(" ").length;
@@ -48,10 +56,11 @@
   // The cursor kept in view, as scrollIntoView would.
   $effect(() => {
     if (!grid || !height || t.cursor < 0) return;
-    t.items; // a new list brings its cursor into view too
+    t.items.listed; // a new list brings its cursor into view too
     const y = PAD + Math.floor(t.cursor / cols) * step;
-    if (y < grid.scrollTop) grid.scrollTop = y - PAD;
-    else if (y + tileH > grid.scrollTop + height) grid.scrollTop = y + tileH + PAD - height;
+    const now = grid.scrollTop * scale;
+    if (y < now) grid.scrollTop = (y - PAD) / scale;
+    else if (y + tileH > now + height) grid.scrollTop = (y + tileH + PAD - height) / scale;
     top = grid.scrollTop;
   });
 
@@ -75,7 +84,7 @@
   aria-label={t.dir}
   onscroll={(ev) => (top = ev.currentTarget.scrollTop)}
 >
-  <div class="tiles" bind:this={tiles} style:padding-top="{PAD + first * step}px" style:padding-bottom="{PAD + (rows - last) * step}px">
+  <div class="tiles" bind:this={tiles} style:padding-top="{padTop}px" style:padding-bottom="{Math.max(PAD, box - padTop - (last - first) * step)}px">
     {#each t.items.slice(first * cols, last * cols) as e, j (e.name === ".." ? "\0.." : e.path)}
       {@const i = first * cols + j}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -85,7 +94,7 @@
         aria-selected={i === t.cursor}
         class="tile"
         class:hidden={e.hidden}
-        class:marked={t.marked.has(e.path)}
+        class:marked={e.m}
         class:cursor={i === t.cursor}
         class:focused={active}
         data-drop={e.is_dir && e.name !== ".." ? e.path : undefined}

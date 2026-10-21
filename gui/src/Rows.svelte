@@ -10,10 +10,19 @@
   let height = $state(0);
   /** Rows rendered beyond the edges, so a scroll never shows a gap before the next render. */
   const OVER = 8;
+  /** The most pixels the scrolling box is made: WebKit lays out up to about 2^25. */
+  const MAX = 2 ** 24;
   // Held to the list: when it gets shorter while scrolled far down, the rows at its end show
   // (and the browser, its content shorter, scrolls up and tells `top`).
-  const first = $derived(Math.max(0, Math.min(items.length, Math.floor(top / rowH)) - OVER));
-  const last = $derived(Math.min(items.length, Math.ceil((top + height) / rowH) + OVER));
+  // A list taller than WebKit lays out (a million rows) is a box of `MAX` pixels, scrolled
+  // through `scale` times faster: `at` is how far down the whole list the view is.
+  const full = $derived(items.length * rowH);
+  const box = $derived(Math.min(full, MAX));
+  const scale = $derived(box > height ? Math.max(1, (full - height) / (box - height)) : 1);
+  const at = $derived(top * scale);
+  const first = $derived(Math.max(0, Math.min(items.length, Math.floor(at / rowH)) - OVER));
+  const last = $derived(Math.min(items.length, Math.ceil((at + height) / rowH) + OVER));
+  const pad = $derived(Math.max(0, top + first * rowH - at));
 
   $effect(() => {
     if (!el) return;
@@ -23,25 +32,29 @@
     return () => ro.disconnect();
   });
 
-  let shown;
+  let shown, shownItems;
   $effect(() => {
     if (!el || !height || cursor < 0) return;
     // A new list (another folder or tab) comes with where it was scrolled, and brings its
     // cursor into view too.
-    if (items !== shown) {
-      shown = items;
+    // (A tab's paged listing stays one object: its `listed` counts the listings.)
+    const now = items.listed === undefined ? items : `${items.listed}`;
+    if (now !== shown || items !== shownItems) {
+      shown = now;
+      shownItems = items;
       const was = untrack(() => top);
       if (el.scrollTop !== was) el.scrollTop = was;
     }
     const y = cursor * rowH;
-    if (y < el.scrollTop) el.scrollTop = y;
-    else if (y + rowH > el.scrollTop + height) el.scrollTop = y + rowH - height;
+    const seen = el.scrollTop * scale;
+    if (y < seen) el.scrollTop = y / scale;
+    else if (y + rowH > seen + height) el.scrollTop = (y + rowH - height) / scale;
     top = el.scrollTop; // the scroll event comes later; the rows there are wanted now
   });
 </script>
 
 <div bind:this={el} {...rest} onscroll={(ev) => (top = ev.currentTarget.scrollTop)}>
-  <div style:height="{first * rowH}px"></div>
+  <div style:height="{pad}px"></div>
   {#each items.slice(first, last) as e, j (e.name === ".." ? "\0.." : e.path)}{@render row(e, first + j)}{/each}
-  <div style:height="{(items.length - last) * rowH}px"></div>
+  <div style:height="{Math.max(0, box - pad - (last - first) * rowH)}px"></div>
 </div>

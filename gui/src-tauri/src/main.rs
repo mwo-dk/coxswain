@@ -31,6 +31,7 @@ mod ebook;
 mod preview;
 mod recent;
 mod work;
+mod tabs;
 
 pub struct Ctx {
     /// Replaced when Settings are saved.
@@ -395,13 +396,10 @@ struct Item {
     tag: Option<String>,
 }
 
+/// What a listing says of its folder, besides the entries.
 #[derive(Serialize)]
-struct Listing {
+struct Meta {
     dir: PathBuf,
-    /// What an entry's path starts with when it is the folder's path and its name: those
-    /// entries come without a path (the page joins it), a third less JSON for a big folder.
-    prefix: String,
-    items: Vec<Item>,
     has_notes: bool,
     /// The archive the folder is inside, and whether something in it is locked.
     archive: Option<PathBuf>,
@@ -440,9 +438,8 @@ struct HistoryInfo {
     upstream: Option<String>,
 }
 
-/// Async, as a compressed tar is read in full to list a folder in it.
-#[tauri::command]
-async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
+/// A folder's entries, sorted, and what the listing says of it.
+async fn read_listing(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: &Ctx) -> Res<(Vec<Entry>, Meta)> {
     // Reading the folder (an archive's, a history's: git) blocks: not on the runtime's workers.
     let d = dir.clone();
     let (entries, inside, in_history, snapshot, package) = tauri::async_runtime::spawn_blocking(move || {
@@ -468,22 +465,12 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
     })
     .await
     .map_err(|e| e.to_string())??;
-    let st = ctx.state.lock().map_err(|e| e.to_string())?;
-    let cfg = ctx.cfg();
-    let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
-    let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
+    let has_notes = ctx.state.lock().map_err(|e| e.to_string())?.notes.contains_key(&dir);
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
     let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
     let nested = archive.is_some() && coxswain_core::archive::nested_dir(&dir);
     let image = archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title);
-    Ok(Listing { nested, image, has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
-}
-
-/// Each name's place in the language's alphabet (`collate`), for the page's own sorting: the
-/// terminal app's order, numbers by their value.
-#[tauri::command]
-fn name_ranks(names: Vec<String>) -> Vec<u32> {
-    coxswain_core::collate::ranks(&names)
+    Ok((entries, Meta { nested, image, has_notes, packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, archive, locked, disk_image, history: in_history, snapshot, package }))
 }
 
 /// What a folder holds, for its preview: only the counts, not the panel's listing.
@@ -493,7 +480,7 @@ async fn dir_summary(dir: PathBuf, show_hidden: bool) -> Res<bfs::Summary> {
 }
 
 /// The entries as the page gets them: with their icon and tag, and without the path when it
-/// is `prefix` and the name (see `Listing::prefix`).
+/// is `prefix` and the name (see `tabs::Rows::prefix`).
 fn to_page(dir: &Path, entries: Vec<Entry>, tag: impl Fn(&Path) -> Option<String>, plain: Option<&Glyphs>) -> (String, Vec<Item>) {
     let joined = dir.join("x").to_string_lossy().into_owned();
     let prefix = joined.strip_suffix('x').unwrap_or_default().to_string();
@@ -2648,6 +2635,7 @@ fn main() {
     };
     tauri::Builder::default()
         .manage(ctx)
+        .manage(tabs::Tabs::default())
         // Files for the page come through our own `asset:`, which keeps cloud files in the cloud.
         .register_asynchronous_uri_scheme_protocol("asset", |_, req, responder| {
             tauri::async_runtime::spawn_blocking(move || responder.respond(asset::respond(&req, coxswain_core::cloud::unasked)));
@@ -2662,7 +2650,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, name_ranks, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, open_keys, open_config_at, scripts_folder,
             plain_error, is_model,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
@@ -2779,12 +2767,11 @@ mod perf {
         let t = std::time::Instant::now();
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
-        let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, nested: false, image: None, history: None, snapshot: None, package: None, packages: false, models: None };
-        println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
+        let (_, items) = to_page(&dir, entries, |_| None, None);
+        println!("listing (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
-        let json = serde_json::to_vec(&listing).unwrap();
-        println!("list_dir to JSON: {:.0} ms, {:.1} MB for {} items", ms(t), json.len() as f64 / 1e6, listing.items.len());
+        let json = serde_json::to_vec(&items).unwrap();
+        println!("listing to JSON: {:.0} ms, {:.1} MB for {} items", ms(t), json.len() as f64 / 1e6, items.len());
         std::fs::write(bench.join("listing.json"), json).unwrap();
     }
 }

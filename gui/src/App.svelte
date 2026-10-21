@@ -3,9 +3,9 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, convertMedia, stopMedia, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, convertMedia, stopMedia, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
+  import { invoke, keyString, basename, parent, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -101,8 +101,13 @@
   });
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
+  // A tab in the background is read again when it is shown.
   listen("dir-changed", (ev) => {
-    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) load(t);
+    const shown = visibleTabs();
+    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? load(t) : (t.unread = true);
+  });
+  $effect(() => {
+    if (ready) for (const t of visibleTabs()) if (t.unread) readWhenShown(t);
   });
   // A copy, move, delete or undo has ended: the folders it changed things in are measured again.
   listen("sizes-changed", (ev) => {
@@ -233,7 +238,7 @@
     } finally {
       ended();
     }
-    for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
+    await Promise.all(ui.panes.flatMap((p) => p.tabs).map((t) => t.marks.count && mark(t, "none")));
     await reloadAll();
   }
 
@@ -241,8 +246,8 @@
   const transferTo = (paths, base, dest, isMove, what = describe(paths)) =>
     op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, failTitle(isMove ? "move" : "copy", paths, what));
 
-  function transfer(isMove, dest = otherTab().dir) {
-    const paths = targets();
+  async function transfer(isMove, dest = otherTab().dir) {
+    const paths = await targets();
     if (!paths.length) return;
     const what = describe(paths);
     prompt(t(isMove ? "dialog.move" : "dialog.copy", { what }), t("dialog.to"), dest, t(isMove ? "verb.move" : "verb.copy"), (d) => {
@@ -254,7 +259,7 @@
   }
 
   async function remove(forever) {
-    const paths = targets();
+    const paths = await targets();
     if (!paths.length) return;
     const what = describe(paths);
     // For good inside an archive (it is written anew without them) and where the trash cannot
@@ -277,7 +282,7 @@
   }
 
   async function clip(cut) {
-    const paths = targets();
+    const paths = await targets();
     if (!paths.length) return;
     try {
       await invoke("clip_set", { paths, cut });
@@ -314,10 +319,7 @@
 
   function markGroup(sel) {
     prompt(t(sel ? "app.mark_files" : "app.unmark_files"), t("app.matching"), "*", t(sel ? "verb.mark" : "verb.unmark"), (v) => {
-      const pats = v.split(/[\s;,]+/).filter(Boolean);
-      const t = tab();
-      const res = pats.map(globRe);
-      for (const e of t.items) if (!e.is_dir && res.some((r) => r.test(e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
+      mark(tab(), { glob: { patterns: v, on: sel } });
     }, "marking");
   }
 
@@ -330,14 +332,14 @@
     const t = tab();
     t.reverse = t.sort === k && !t.reverse;
     t.sort = k;
-    load(t);
+    sortTab(t);
   }
 
-  function runScript(s) {
+  async function runScript(s) {
     const tb = tab();
     const e = item(tb);
     const file = e && e.name !== ".." ? e.path : null;
-    const selected = tb.items.filter((x) => tb.marked.has(x.path)).map((x) => x.path);
+    const selected = tb.marks.count ? (await pick(tb, "marked")).map((x) => x.path) : [];
     ui.status = t("app.running", { what: s.label });
     invoke("run_script", { user: s.user, path: s.path, dir: tb.dir, file, selected }).then(
       (text) => {
@@ -409,14 +411,8 @@
     mark_group: () => markGroup(true),
     unmark_group: () => markGroup(false),
     // As in a file explorer: everything in the folder, files and folders, but `..`.
-    mark_all: () => {
-      const t = tab();
-      for (const e of t.items) if (e.name !== "..") t.marked.add(e.path);
-    },
-    invert_marks: () => {
-      const t = tab();
-      for (const e of t.items) if (!e.is_dir) t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
-    },
+    mark_all: () => mark(tab(), "all"),
+    invert_marks: () => mark(tab(), "invert"),
     search: () => openFind("all"),
     search_text: () => openFind("in_files"),
     ask: () => openFind("ask"),
@@ -551,17 +547,17 @@
       }
       ui.status = "";
     },
-    extract: () => {
+    extract: async () => {
       // An OCI image layout's index.json opens as the image, so it unpacks as one too.
-      const paths = targets().filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))) || ociIndex(tab(), { name: basename(p) }));
+      const paths = (await targets()).filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))) || ociIndex(tab(), { name: basename(p) }));
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
         if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, failTitle("extract", paths, what));
       }, "pack_and_extract");
     },
-    pack: () => {
-      const paths = targets();
+    pack: async () => {
+      const paths = await targets();
       if (!paths.length) return;
       const what = describe(paths);
       const name = paths.length === 1 ? basename(paths[0]).replace(/\.[^.]*$/, "") || basename(paths[0]) : basename(tab().dir) || "archive";
@@ -638,23 +634,23 @@
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
     folder_sizes: async () => {
       const tb = tab();
-      const dirs = tb.marked.size ? targets(tb) : tb.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
+      const dirs = tb.marks.count ? await targets(tb) : (await pick(tb, "dirs")).map((e) => e.path);
       // Inside an archive the sizes come with the listing.
       if (!dirs.length || tb.archive) return;
       ui.status = tn("app.measuring", dirs.length);
       await measureFolders(tb, dirs);
       ui.status = "";
     },
-    batch_rename: () => {
+    batch_rename: async () => {
       if (readOnly()) return;
       const t = tab();
-      const names = (t.marked.size ? t.items.filter((e) => t.marked.has(e.path)) : t.items.filter((e) => e.name !== "..")).map((e) => e.name);
+      const names = (await pick(t, t.marks.count ? "marked" : "all")).map((e) => e.name);
       if (!names.length) return;
       ui.modal = { kind: "rename", dir: t.dir, names, pattern: "", replacement: "", ci: false, global: false, whole: false, plan: [], error: "" };
       dialogs.replan();
     },
-    tag: () => {
-      const paths = targets();
+    tag: async () => {
+      const paths = await targets();
       if (paths.length) ui.modal = { kind: "tag", paths };
     },
     notes: () => {
@@ -683,7 +679,7 @@
   async function actionMenu() {
     const groups = await invoke("action_menu", { subject: subject() }).catch(() => []);
     if (!groups.length) return void (ui.status = t("menu.none"));
-    const paths = targets();
+    const paths = await targets();
     ui.modal = {
       kind: "menu",
       feature: "action_menu",
@@ -799,10 +795,7 @@
   function quickJump(e) {
     e.preventDefault();
     const t = tab();
-    // NFC on both sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙), typing composes.
-    const q = ui.quick.normalize("NFC").toLowerCase();
-    const i = t.items.findIndex((x) => x.name.normalize("NFC").toLowerCase().startsWith(q));
-    if (i >= 0) t.cursor = i;
+    invoke("tab_quick", { tab: t.id, query: ui.quick }).then((i) => i != null && (t.cursor = i), () => {});
   }
 
   const fkeys = $derived.by(() => {

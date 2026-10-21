@@ -289,24 +289,6 @@ impl Panel {
             Place::Disk
         };
         Subject {
-            files: list.iter().filter(|e| !e.is_dir).count(),
-            folders: list.iter().filter(|e| e.is_dir).count(),
-            archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
-            disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
-            pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
-            // Only one file's bytes are read: the action menu offers Open games on a single file.
-            chess: list.iter().filter(|e| !e.is_dir && if list.len() == 1 { coxswain_core::chess::sniff(&e.path).is_some() } else { coxswain_core::chess::format(&e.path).is_some() }).count(),
-            media: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_media(&e.path)).count(),
-            pictures: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_picture(&e.path)).count(),
-            // By name, as the desktop app counts: a GeoTIFF is reached from F9 (and its preview).
-            geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
-            models: list.iter().filter(|e| !e.is_dir && coxswain_core::scad::is_model(&e.path)).count(),
-            sums: list.iter().filter(|e| !e.is_dir && coxswain_core::checksum::is_list(&e.path)).count(),
-            parts: list.iter().filter(|e| !e.is_dir && coxswain_core::split::joins_into(&e.path).is_some()).count(),
-            images: list.iter().filter(|e| !e.is_dir && coxswain_core::container_image::layout_index(&e.path)).count(),
-            local_models: list.iter().filter(|e| !e.is_dir && coxswain_core::local_models::is_model(&e.path)).count(),
-            ebooks: list.iter().filter(|e| !e.is_dir && coxswain_core::ebook::is_ebook(&e.path)).count(),
-            kicad: list.iter().filter(|e| !e.is_dir && coxswain_core::kicad::is_kicad(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -317,8 +299,9 @@ impl Panel {
                 Some(c) => coxswain_core::space::worth_it(&c.path, self.sizes.get(&c.path).copied()),
                 None => coxswain_core::space::worth_it(&self.dir, None),
             },
-            speech: list.iter().filter(|e| !e.is_dir && coxswain_core::transcribe::is_speech(&e.path)).count(),
             whisper: false,
+            // Only one file's bytes are read: the action menu offers Open games on a single file.
+            ..Subject::of(&list, list.len() == 1)
         }
     }
 
@@ -1310,13 +1293,9 @@ impl App {
     }
 
     fn quick_jump(&mut self) {
-        use unicode_normalization::UnicodeNormalization;
-        // NFC on both sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙),
-        // typing composes.
-        let nfc = |s: &str| s.nfc().collect::<String>().to_lowercase();
-        let q = nfc(self.quick.as_deref().unwrap_or_default());
+        let q = self.quick.clone().unwrap_or_default();
         let p = self.panel_mut();
-        if let Some(i) = p.entries.iter().position(|e| nfc(&e.name).starts_with(&q)) {
+        if let Some(i) = coxswain_core::fs::quick_match(&p.entries, &q) {
             p.cursor = i;
         }
     }

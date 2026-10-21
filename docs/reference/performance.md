@@ -60,14 +60,24 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   about 30 ms once the data is there, and a cursor move takes a millisecond. Every row is
   exactly `font_size × line_height` pixels high, so the list never jumps. Thumbnails do the
   same with rows of tiles: a folder of 100,000 files opens in thumbnails in 15 ms.
+- **The page gets the rows in view, not the listing.** The app keeps each tab's listing; the
+  page gets the rows on screen and 300 on each side, with the count, and asks for more as it
+  scrolls. Sorting, marking (mark all, invert, a group by pattern), quick search, a Find hit's row,
+  and the count and size of what is marked are worked out by the app on the whole listing. A
+  folder of up to 5,000 entries comes whole. A folder of a million files opens in about a
+  second, with no pause of the window, and costs the page what a screenful does; rows not
+  there yet show empty for a moment while scrolling fast. A list too tall for the web view
+  (a million thumbnails) scrolls through a shorter one, a little faster per turn of the wheel.
 - **A listing is sent small.** An entry's path is left out when it is the folder's path and
-  the name (the page joins them), and so are flags that are off and tags that are not set:
-  100,000 entries are 14 MB of JSON instead of 26.
+  the name (the page joins them), and so are flags that are off and tags that are not set.
 - **The window's thread does no disk work.** Every command that reads or writes a file, the
   clipboard or the config runs on the async runtime; the heavy ones (git, searches, folder
   sizes, duplicates, previews made by tools, the text of a preview, a folder's properties) go
   to blocking threads of their own, so a slow share holds none of the runtime's few workers.
 - **Each tab keeps its scroll position**; switching tabs brings the list back where it was.
+- **Tabs in the background are read when shown.** A session's tabs are read as their pane
+  shows them, not all at start, and a folder that changes while its tab is in the background is
+  read again when you switch to it.
 - **Previews wait for the cursor to settle.** Text, data and images load 80 ms after the
   cursor stops; previews made by tools (LibreOffice, LaTeX) wait longer and only start by
   themselves when the tool is quick. A preview that comes back for a file you have moved on
@@ -152,6 +162,21 @@ files and 1,000 subfolders; an index of a million names in a thousand folders.
 | Page: highlighting a 170 KB source file | 30 ms (by its type), 180 ms (guessed), on the window's thread | on a worker; 0.4 ms on the window's thread |
 | Page: a disk-touching command (save session, tags, notes, rename plan, clipboard) | on the window's thread | on the async runtime |
 | Start-up pieces: default config and keymap, texts, state file | 0.1 ms, 3 ms, 0.2 ms | the same |
+
+### The desktop app: a folder of a million files
+
+Measured on 2026-10-21 on a 22-core Linux machine, release builds, in the screenshot sandbox
+(GTK's Broadway, headless Chromium). "Before" is version 2.32.1. A folder of 1,000,000 empty or
+small files and 50 subfolders; the second number is for 200,000 files.
+
+| What | Before | After |
+|---|---|---|
+| Open the folder: its first rows on screen | 4.0 s / 0.6 s | 1.2 s / 0.3 s |
+| Longest pause of the window while it opens | 2.1 s / 0.24 s | none over 0.1 s |
+| The web view's memory, the folder open | 2,056 MB / 572 MB | 188 MB / 194 MB |
+| The same after **End** and **Ctrl+A** (all marked) | 7,236 MB / 1,775 MB | 285 MB / 320 MB |
+| The app's own memory, the folder open | 532 MB / 452 MB | 500 MB / 372 MB |
+| Scrolling 3,000 pixels a frame for 4 seconds | 30 frames a second, slowest 105 ms | 39 frames a second, slowest 73 ms |
 
 ### The terminal app
 
@@ -540,7 +565,7 @@ export COXSWAIN_BENCH_DIR=/tmp/coxswain-bench
 cargo test --release -p coxswain-core --test perf -- --ignored --nocapture   # list, sort, index, store, meaning
 cargo test --release -p coxswain-core --test memory -- --ignored --nocapture # large files and archives (Linux; 6 GB of data in $COXSWAIN_BENCH_DIR/memory)
 cargo test --release -p coxswain --bin coxswain -- --ignored --nocapture perf_ # terminal frames
-cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # list_dir JSON
+cargo test --release -p coxswain-gui -- --ignored --nocapture perf_            # a listing as JSON
 ```
 
 **Search by meaning on the CPU and on a Mac's GPU:** with the model downloaded (`coxswain
