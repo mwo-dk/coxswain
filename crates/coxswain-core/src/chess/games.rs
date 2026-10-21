@@ -129,6 +129,9 @@ fn read_line(r: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<usize> {
 /// what it reads: lines that are no PGN are taken for moves, and skipped there.
 /// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's.
 pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    if matches!(format, super::Format::Kif | super::Format::Csa) {
+        return scan_shogi(r, format, each);
+    }
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
     let mut line = Vec::new();
     let mut at = 0u64;
@@ -183,6 +186,26 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format
         }
         at += n as u64;
     }
+}
+
+/// The games of a KIF or CSA file (`crate::shogi`): its first `MAX_GAME` bytes, each game read
+/// in full for its tags and moves.
+fn scan_shogi(r: impl Read, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let mut b = vec![];
+    r.take(MAX_GAME as u64).read_to_end(&mut b)?;
+    for ((a, z), g) in crate::shogi::games(&b, format) {
+        let mut head = Head { offset: a as u64, len: (z - a) as u64, tags: Default::default(), plies: g.main_line().len() as u32, sans: vec![], format };
+        for (k, v) in &g.tags {
+            if let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(k)) {
+                head.tags[i] = v.clone();
+            }
+        }
+        head.tags[RESULT] = g.result.clone();
+        if !each(&head) {
+            break;
+        }
+    }
+    Ok(())
 }
 
 /// A line of movetext: counts the main line's moves and keeps the first few.
@@ -304,8 +327,8 @@ pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Res
 /// Whose games a PGN-family file holds: draughts for `.pdn`, xiangqi when the first tags of a
 /// PGN file say so (`xiangqi::is_xiangqi`), else chess.
 pub fn kind(path: &Path) -> super::Format {
-    if super::format(path) == Some(super::Format::Pdn) {
-        return super::Format::Pdn;
+    if let Some(f @ (super::Format::Pdn | super::Format::Kif | super::Format::Csa)) = super::format(path) {
+        return f;
     }
     let mut head = vec![];
     let xiangqi = reader(path, Arc::default(), crate::xiangqi::SNIFF as u64)
@@ -662,7 +685,11 @@ impl Library {
             (r.offset, r.len)
         };
         let bytes = self.source.lock().unwrap_or_else(|e| e.into_inner()).read(offset, len)?;
-        Ok(text(&bytes).into_owned())
+        // KIF and CSA files are often in Shift_JIS.
+        Ok(match self.format {
+            super::Format::Kif | super::Format::Csa => crate::shogi::decode(&bytes),
+            _ => text(&bytes).into_owned(),
+        })
     }
 
     /// The game at index `i`, read and played out.
@@ -671,6 +698,7 @@ impl Library {
         Ok(match self.format {
             super::Format::Pdn => crate::draughts::parse(&text),
             super::Format::Xiangqi => crate::xiangqi::parse(&text),
+            super::Format::Kif | super::Format::Csa => crate::shogi::parse(&text, self.format),
             _ => pgn::parse(&text),
         })
     }
