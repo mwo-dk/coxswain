@@ -522,7 +522,7 @@
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
-        {#if m.details}<details><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
+        {#if m.details}<details open={!!m.open}><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
         <div class="buttons">
           <!-- What is missing or off: Settings at the place to change it. -->
           {#if m.settings}<button onclick={() => (ui.modal = { kind: "settings", section: m.settings })}>{t("preview.settings")}</button>{/if}

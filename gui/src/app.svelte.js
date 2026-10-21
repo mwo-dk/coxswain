@@ -627,10 +627,10 @@ export function verifyChecksums(list = item()?.path, tb = tab()) {
     if (tb.dir === dir) {
       tb.marked.clear();
       for (const e of tb.items) if (bad.has(e.path)) tb.marked.add(e.path);
-      if (bad.size) text += `\n${t("sums.marked")}`;
+      if (bad.size) text += ` ${t("sums.marked")}`;
     }
     const details = v.checked.map((c, i) => [c, v.words[i]]).filter(([c]) => c.state !== "ok").map(([c, w]) => `${c.name}: ${w}`).join("\n");
-    ui.modal = { kind: "message", feature: "checksums", title: t("sums.verify_title", { name: basename(list) }), text, details: details || undefined };
+    ui.modal = { kind: "message", feature: "checksums", title: t("sums.verify_title", { name: basename(list) }), text, details: details || undefined, open: true };
   }, "sums.verify_failed");
 }
 

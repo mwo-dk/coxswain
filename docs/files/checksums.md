@@ -7,8 +7,9 @@
 `b3sum` read. **Enter** on such a list checks every file it names, and says which are OK,
 changed or missing. Both apps; nothing else needs to be installed.
 
-![The desktop app in the Cyber theme with the dialog Checksums in SHA256SUMS: OK: 4, changed: 1, missing: 1, with notes.txt marked in the pane behind it](../screenshots/checksums-verify.png)
-*A downloaded SHA256SUMS checked: one file changed, one missing; the changed one is marked.*
+![The desktop app in the Cyber theme with Downloads/rocket-1.4.0 in the left pane, rocket-1.4.0-x86_64-linux.tar.gz marked, and the dialog Checksums in SHA256SUMS: OK: 2, changed: 1, missing: 1, with Details listing the changed archive and the missing rocket-1.4.0-x86_64.msi](../screenshots/checksums-verify.png)
+*Enter on a downloaded SHA256SUMS: one archive changed, one file missing; the changed one is
+marked.*
 
 ## Contents
 
@@ -88,6 +89,9 @@ None. The keys are `make_checksums` (**Alt+H**) and `verify_checksums` (no key o
 
 The same: **Alt+H** opens the menu of algorithms, **Enter** on a list checks it. Progress is on
 the status line, and **Alt+H** again stops either. The result is a dialog; **Esc** closes it.
+
+![The terminal app in Classic blue with three files of rocket-1.4.0 marked and the menu Make checksums: SHA-256, written to SHA256SUMS-2 (a SHA256SUMS is there already), SHA-512, written to SHA512SUMS, BLAKE3, written to B3SUMS, numbered 1 to 3](../screenshots/checksums-make-tui.png)
+*Alt+H on three marked files: the algorithms, each with the name its list gets.*
 
 ## Questions
 
