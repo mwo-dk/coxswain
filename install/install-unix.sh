@@ -89,9 +89,8 @@ case "$OS" in
     SYS=netbsd NAME="NetBSD $(uname -r)" MAN=man
     PKG_INSTALL="pkgin -y install" PKG_HINT="pkgin install"
     SERVICE=coxswain_index SERVICE_AT=/etc/rc.d/coxswain_index
-    # No desktop build for NetBSD yet: webkit-gtk41's binary packages miss dependencies.
-    DESKTOP_PKGS=""
-    GOOD_PKGS=""
+    DESKTOP_PKGS="webkit-gtk41"
+    GOOD_PKGS="xdg-utils gst-plugins1-good nerd-fonts-Symbols"
     OPTIONAL="tesseract poppler-utils libreoffice"
     installed() { pkg_info -q -e "$1" 2>/dev/null; }
     ;;
@@ -100,7 +99,7 @@ case "$OS" in
     PKG_INSTALL="pkg_add" PKG_HINT="pkg_add"
     SERVICE=coxswain_index SERVICE_AT=/etc/rc.d/coxswain_index
     DESKTOP_PKGS="webkitgtk41"
-    GOOD_PKGS="xdg-utils gst-plugins-good"
+    GOOD_PKGS="xdg-utils gst-plugins-good symbolsonly-nerd-fonts"
     OPTIONAL="tesseract poppler-utils libreoffice"
     installed() { pkg_info -q -e "$1-*" 2>/dev/null; }
     ;;
@@ -280,7 +279,7 @@ if [ "$TERMINAL_ONLY" = 0 ] && [ -n "$DESKTOP_PKGS" ]; then
   echo
   bold "The desktop app (experimental on $OS)"
   info "It draws its window with WebKitGTK. From packages it needs: $DESKTOP_PKGS"
-  info "and for opening files and playing video and sound: $GOOD_PKGS"
+  info "and, recommended (opening files, video and sound, icons): $GOOD_PKGS"
   # shellcheck disable=SC2086
   LACK=$(missing $DESKTOP_PKGS $GOOD_PKGS)
   if [ -n "$LACK" ]; then
