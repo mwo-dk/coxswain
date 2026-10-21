@@ -67,7 +67,7 @@ then looking, files, archives, search, git and the panels; in each heading the m
 | On FreeBSD, a file | Also Files of this package |
 | Inside an archive | Open, View (a file), Copy, Move, Rename, Delete, New folder: the changes write the archive anew |
 | A disk image, CHM or CBR, while *Open disk images, CHM and CBR like folders* is off | Also *Open disk images, CHM and CBR like folders*, which turns it on ([Disk images](../files/disk-images.md)) |
-| Inside a disk image, CHM or CBR | Open, View (a file), Copy: it is read-only |
+| Inside a disk image, CHM, CBR, mailbox or container image | Open, View (a file), Copy: it is read-only |
 | In a git history, a ZFS snapshot or a package's list | Only what reads: Open, View, Copy; nothing that changes. In a git history Open is offered on a commit or a folder, not on a file (**F3** views it) |
 
 Actions that work on one entry (Open, View, Edit, Rename, Properties) are offered when one
@@ -85,6 +85,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 
 | Under the cursor | Hint |
 |---|---|
+| The `index.json` of an OCI image layout | *An OCI image layout: Enter on index.json opens the image like a folder, read-only* ([Container images](../files/container-images.md)) |
 | A file or folder (not `..`) | *Shift+F10 / Menu: what you can do with this* |
 | A folder measured at 1 GB or more, or a drive's top folder (not `/tmp`, `/proc` and the like) | *Alt+U shows where the space goes here, every file as a rectangle by its size* ([Space](space.md)) |
 | Anywhere | *Alt+F7 / Ctrl+F finds anything on this machine* |
@@ -94,7 +95,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 | `..`, nothing marked | *Ctrl+U swaps the panels · Alt+O shows this folder in the other one · Ctrl+O panels on or off* |
 | Several marked | *F5 copies them to the other panel · F6 moves them* |
 | Files inside an archive | *Inside an archive: F5 copies files out to the other panel* |
-| Files inside a disk image, CHM or CBR | *Read-only here: F5 copies files out to the other panel* |
+| Files inside a disk image, CHM, CBR, mailbox or container image | *Read-only here: F5 copies files out to the other panel* |
 | A disk image while opening them is off | *Shift+F10 / Menu → Open disk images, CHM and CBR like folders looks inside it* ([Disk images](../files/disk-images.md)) |
 | An archive | *Enter opens it like a folder · Ctrl+E extracts it* |
 | A PDF, or PDFs marked | *Alt+P makes a scanned PDF searchable: a copy with its words in it* ([Make PDF searchable](../files/searchable-pdf.md)) |

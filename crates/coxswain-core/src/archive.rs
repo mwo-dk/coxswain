@@ -31,6 +31,8 @@ enum Kind {
     Disk,
     /// A mailbox, its messages as files (`extract::mail::mailbox`): never written.
     Mbox,
+    /// A container image, its layers merged (`container_image`): never written.
+    Image,
 }
 
 /// How a tar is compressed.
@@ -68,11 +70,21 @@ const ENDINGS: &[(&str, Kind)] = &[
 const OPEN_ONLY: &[(&str, Kind)] = &[(".cbz", Kind::Zip), (".mbox", Kind::Mbox)];
 
 /// What `path` opens as: an archive by its ending, a comic or a mailbox, else a disk image
-/// when those open.
+/// when those open, or an OCI layout's `index.json`. A plain tar that is a container image
+/// (read once per change) opens as that image.
 fn kind(path: &Path) -> Option<Kind> {
+    match named_kind(path)? {
+        Kind::Tar(Pack::None) if crate::container_image::is_image(path) => Some(Kind::Image),
+        k => Some(k),
+    }
+}
+
+/// `kind`, from the name alone: a container image's tar is still a tar.
+fn named_kind(path: &Path) -> Option<Kind> {
     ending_kind(path)
         .or_else(|| ends_in(path, OPEN_ONLY))
         .or_else(|| crate::disk_image::opens(path).then_some(Kind::Disk))
+        .or_else(|| crate::container_image::layout_index(path).then_some(Kind::Image))
 }
 
 /// The archive `path` is by its ending (never a disk image).
@@ -97,12 +109,17 @@ pub fn is_archive(path: &Path) -> bool {
 
 /// `path` opens like a folder: an archive, or a disk image when those open.
 pub fn opens(path: &Path) -> bool {
-    kind(path).is_some()
+    named_kind(path).is_some()
 }
 
-/// `archive` is opened like a folder read-only: a disk image or a mailbox.
+/// `archive` is opened like a folder read-only: a disk image, a mailbox or a container image.
 pub fn read_only(archive: &Path) -> bool {
-    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox))
+    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image))
+}
+
+/// `archive` is a container image (`container_image`).
+pub fn is_image(archive: &Path) -> bool {
+    kind(archive) == Some(Kind::Image)
 }
 
 /// `archive` is a comic: a zip of pictures, its pages shown one by one in the desktop app.
@@ -189,11 +206,11 @@ fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
 
 /// The most bytes of a tar's long name or PAX record: the tar crate reads those whole into
 /// memory, however large a crafted header says they are.
-const TAR_META: u64 = 64 * 1024;
+pub(crate) const TAR_META: u64 = 64 * 1024;
 
 /// Each entry of `entries` with its whole name and link target (GNU long names and PAX paths,
 /// read here with `TAR_META` at most), until `f` says enough. Those records are not entries.
-fn tar_named<'a, R: Read>(
+pub(crate) fn tar_named<'a, R: Read>(
     entries: tar::Entries<'a, R>,
     mut f: impl FnMut(String, Option<String>, &mut tar::Entry<'a, R>) -> io::Result<bool>,
 ) -> io::Result<()> {
@@ -598,7 +615,8 @@ pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
     // Read to its end within that, it is kept as `items` keeps it.
     let st = stamp(path)?;
     // A disk image is listed once, whole, by 7-Zip, and kept: the preview, Enter and F5 use it.
-    let disk = kind(path) == Some(Kind::Disk);
+    // So is a container image, its layers merged.
+    let disk = matches!(kind(path), Some(Kind::Disk | Kind::Image));
     let (all, more) = match cached(path, st) {
         _ if disk => {
             let all = items(path)?;
@@ -656,7 +674,12 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
             || name.rfind('.').unwrap_or(name.len()),
             |e| name.len() - e.len(),
         );
-    let to = dest_dir.join(&name[..stem_len]);
+    // An OCI layout's `index.json` comes out under its folder's name.
+    let stem = match path.parent().and_then(Path::file_name) {
+        Some(d) if crate::container_image::layout_index(path) => d.to_string_lossy(),
+        _ => name[..stem_len].into(),
+    };
+    let to = dest_dir.join(&*stem);
     std::fs::create_dir_all(dest_dir)?;
     // Made here, never one that is there (a link to elsewhere included).
     match std::fs::create_dir(&to) {
@@ -673,7 +696,7 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     // which keeps them inside; its names are read first (from the last look, when it was
     // browsed), since the crate would read a crafted long-name record whole, however large:
     // `TAR_META` at most.
-    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox) {
+    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox | Kind::Image) {
         copy_out_with(
             path,
             "",
@@ -843,6 +866,20 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             })
             .collect());
     }
+    if k == Kind::Image {
+        let _ = max;
+        return Ok(crate::container_image::tree(archive)?
+            .files
+            .iter()
+            .map(|(name, n)| Item {
+                name: name.clone(),
+                size: n.size,
+                dir: n.dir,
+                modified: n.modified,
+                locked: false,
+            })
+            .collect());
+    }
     if k == Kind::Mbox {
         let all = messages(archive)?;
         let digits = all.len().to_string().len().max(3);
@@ -965,6 +1002,10 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     if matches!(k, Kind::Tar(p) if p != Pack::None) && size > SEARCH_UNPACK {
         return None;
     }
+    // A container image is found by its own name: its blobs are no files of its own.
+    if k == Kind::Tar(Pack::None) && crate::container_image::is_image(archive) {
+        return None;
+    }
     // Never a password given in this run: what search knows is what anyone sees.
     let items = read_items_with(archive, None, SEARCH_ENTRIES).ok()?;
     Some(
@@ -1041,7 +1082,7 @@ pub(crate) fn search_read(
             })
             .map_err(seven_error)?;
         }
-        Kind::Disk | Kind::Mbox => {}
+        Kind::Disk | Kind::Mbox | Kind::Image => {}
         Kind::Tar(_) => {
             let mut seen = 0;
             tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
@@ -1397,6 +1438,30 @@ fn copy_entries(
         Ok(())
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
+    if k == Kind::Image {
+        // Folders made here, files read out of their layers, each layer once.
+        let tree = crate::container_image::tree(archive)?;
+        let mut files = vec![];
+        for (name, n) in tree.files.iter().filter(|(name, _)| below(name)) {
+            let Some(path) = place(name) else {
+                skip(name)?;
+                continue;
+            };
+            *any = true;
+            match n.src {
+                None => std::fs::create_dir_all(&path)?,
+                Some(src) => files.push((src, path, n.mode, n.modified)),
+            }
+        }
+        let wanted: Vec<_> = files.iter().map(|(src, path, _, secs)| (*src, path.clone(), *secs)).collect();
+        crate::container_image::read_out(archive, &wanted, &write)?;
+        // A script stays one; nothing but the permission bits is taken.
+        #[cfg(unix)]
+        for (_, path, mode, _) in files.iter().filter(|(_, _, m, _)| m & 0o111 != 0) {
+            std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(mode & 0o755))?;
+        }
+        return Ok(());
+    }
     if k == Kind::Mbox {
         // Each message is its bytes in the mailbox, under the name it is listed by.
         let all = messages(archive)?;

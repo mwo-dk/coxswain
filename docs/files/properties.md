@@ -89,10 +89,10 @@ None. The keys are `properties` (**Alt+Enter**), `flags` and `package` (no key o
 
 **Alt+Enter** (or *F9 → Properties*) opens a window with the same facts as text: location,
 type, size, modified, owner, permissions, and the ZFS, package and flag lines; for an old
-picture, a tracker module, a mailbox, a comic or a dBase table also what it holds
-([Old pictures and files](../previews/old-formats.md)), and for a neural network model (a Core ML
-package folder too) its format, inputs, outputs, nodes and parameters
-([Neural network models](../previews/neural-networks.md)), and for a video (or a song the tags reader does not know) its format, length, size in pixels
+picture, a tracker module, a mailbox, a comic, a dBase table or a container image also what it
+holds ([Old pictures and files](../previews/old-formats.md), [Container images](container-images.md#what-you-see)),
+and for a neural network model (a Core ML package folder too) its format, inputs, outputs, nodes
+and parameters ([Neural network models](../previews/neural-networks.md)), and for a video (or a song the tags reader does not know) its format, length, size in pixels
 and tracks, by an installed ffprobe or ffmpeg's pulled image
 ([Media](../previews/media.md#video-and-sound-with-ffmpeg)), and for
 geodata its layers, coordinate system and extent by GDAL, a GPX file's tracks without it
@@ -160,4 +160,4 @@ Its window (**Alt+Enter**) only shows the facts. Change permissions on the comma
 ([In the terminal app](#in-the-terminal-app)).
 
 ---
-[← Previous: Disk images, CHM help files and CBR comics](disk-images.md) · [Next: Finding duplicates →](duplicates.md)
+[← Previous: Container images](container-images.md) · [Next: Finding duplicates →](duplicates.md)

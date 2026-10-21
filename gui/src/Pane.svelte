@@ -104,7 +104,7 @@
         {/each}
         {#if t.archive}
           <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
-          <span class="archive-badge" title={t.diskImage ? tr("disk_image.copy_out_hint", { archive: basename(t.archive) }) : tr("archive.inside_tip")}>{"\u{f410}"} {tr(t.diskImage ? "dialogs.readonly" : t.locked ? "archive.badge_locked" : "archive.badge")}</span>
+          <span class="archive-badge" title={t.diskImage ? tr("disk_image.copy_out_hint", { archive: basename(t.archive) }) : tr("archive.inside_tip")}>{"\u{f410}"} {t.image ? `${t.image} · ` : ""}{tr(t.diskImage ? "dialogs.readonly" : t.locked ? "archive.badge_locked" : "archive.badge")}</span>
         {/if}
         {#if t.history}
           <!-- In a history: which file or folder, and which commit, so an old file is not taken for today's. -->

@@ -105,7 +105,7 @@ preview shows the message under the cursor as any `.eml` ([Documents](documents.
 **F5** copies messages out (one `.eml` each), and **Ctrl+E** on the mailbox unpacks all of them
 into a folder. Nothing is ever written into it: the panel's title says *[Read-only]*, and a
 copy into it says *Read-only: Coxswain never writes into a disk image, a CHM help file, a CBR
-comic or a mailbox. Copy its files out instead.* The preview of the mailbox itself lists its
+comic, a mailbox or a container image. Copy its files out instead.* The preview of the mailbox itself lists its
 messages, under *Enter opens it like a folder, read-only: copy files out of it to the other
 panel.*
 

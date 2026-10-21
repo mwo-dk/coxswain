@@ -72,7 +72,8 @@ still packed by its ending.
    "photos.zip"* (or *Extract 3 items*) opens, its field *To:* filled in with the other panel's
    folder.
 3. Press **Enter** (or click *Extract*). Coxswain makes a folder named after the archive there (`photos` for
-   `photos.zip`, `backup` for `backup.tar.gz`, `site` for `site.7z`) and unpacks into it. Several
+   `photos.zip`, `backup` for `backup.tar.gz`, `site` for `site.7z`; for an OCI layout's
+   `index.json`, the layout folder's name) and unpacks into it. Several
    archives each get their own folder.
 
 | Key | Desktop app | Terminal app |

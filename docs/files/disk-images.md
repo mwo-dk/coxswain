@@ -129,7 +129,7 @@ ones make the links an image holds even when told not to.
 Coxswain asks 7-Zip to list the image and to write single files out of it; it never mounts
 anything, needs no administrator rights, and never writes into an image. Inside one, **F6**,
 **Shift+F6**, **F7** and **F8** are left out of the action menu, and pressed anyway they say
-*Read-only: Coxswain never writes into a disk image, a CHM help file, a CBR comic or a mailbox. Copy its
+*Read-only: Coxswain never writes into a disk image, a CHM help file, a CBR comic, a mailbox or a container image. Copy its
 files out instead.* **F5** into an open image says the same.
 
 Names are given to 7-Zip as they are, after `--`, with its wildcards off: a file called `*` or
@@ -223,4 +223,4 @@ Coxswain's own archive code is pure Rust and reads no RAR ([Why not RAR](archive
 A `.cbr` is read by the 7-Zip you installed, with this option on, the same way as a disk image.
 
 ---
-[← Previous: Passwords for encrypted zip and 7z](archive-passwords.md) · [Next: Properties and permissions →](properties.md)
+[← Previous: Passwords for encrypted zip and 7z](archive-passwords.md) · [Next: Container images →](container-images.md)

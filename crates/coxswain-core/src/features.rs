@@ -238,6 +238,7 @@ pub const FEATURES: &[Feature] = &[
         "files/archive-passwords.md",
         &[Pack, Extract],
     ),
+    f("container_images", "files/container-images.md", &[Open, Copy, Extract, Properties]),
     f(
         "disk_images",
         "files/disk-images.md",
