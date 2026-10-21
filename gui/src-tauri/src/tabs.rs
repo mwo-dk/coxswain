@@ -363,7 +363,8 @@ mod tests {
     fn a_listing_is_found_by_name_or_path_and_sorted_again_in_place() {
         let mut l = list(&[("..", true), ("b", false), ("a", false)]);
         assert_eq!(l.find("b"), Some(1));
-        assert_eq!(l.find("/d/a"), Some(2));
+        let a = PathBuf::from("/d").join("a");
+        assert_eq!(l.find(&a.to_string_lossy()), Some(2), "by path, with the system's separator");
         l.sort(SortKey::Name, false, &HashMap::new());
         assert_eq!(l.find("a"), Some(1), "`..` stays first");
     }
