@@ -3396,5 +3396,6 @@
  "feature.jujutsu.q2": "Warum erscheint eine Datei, die ich gerade geändert habe, nicht als geändert?",
  "feature.jujutsu.a2": "In einem Repository ohne .git neben .jj zeigt Coxswain den Status von jj nach Ihrem letzten jj-Befehl, da es jj nie einen Snapshot machen lässt. Führen Sie einen beliebigen jj-Befehl aus und drücken Sie dann {refresh}.",
  "feature.jujutsu.q3": "Kann ich hier das Bookmark wechseln?",
- "feature.jujutsu.a3": "Nein: Coxswain liest ein Jujutsu-Repository nur. {branches} listet die Bookmarks und ihre Dateien; wechseln Sie mit jj new oder jj edit, oder öffnen Sie Ihr eigenes Werkzeug mit {git_tool}."
+ "feature.jujutsu.a3": "Nein: Coxswain liest ein Jujutsu-Repository nur. {branches} listet die Bookmarks und ihre Dateien; wechseln Sie mit jj new oder jj edit, oder öffnen Sie Ihr eigenes Werkzeug mit {git_tool}.",
+ "git.op_conflict": "Konflikte in dieser Änderung"
 }

@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "Proč se soubor, který jsem právě změnil, neukazuje jako změněný?",
  "feature.jujutsu.a2": "V repozitáři bez .git vedle .jj ukazuje Coxswain stav jj z vašeho posledního příkazu jj, protože jj nikdy nenechá udělat snímek. Spusťte libovolný příkaz jj a pak stiskněte {refresh}.",
  "feature.jujutsu.q3": "Mohu tu přepnout záložku?",
- "feature.jujutsu.a3": "Ne: Coxswain repozitář Jujutsu jen čte. {branches} ukazuje záložky a jejich soubory; přepněte příkazem jj new nebo jj edit, nebo otevřete svůj nástroj klávesou {git_tool}."
+ "feature.jujutsu.a3": "Ne: Coxswain repozitář Jujutsu jen čte. {branches} ukazuje záložky a jejich soubory; přepněte příkazem jj new nebo jj edit, nebo otevřete svůj nástroj klávesou {git_tool}.",
+ "git.op_conflict": "konflikty v této změně"
 }

@@ -3396,5 +3396,6 @@
  "feature.jujutsu.q2": "Miks äsja muudetud fail ei paista muudetuna?",
  "feature.jujutsu.a2": "Hoidlas, kus .jj kõrval pole .git-i, näitab Coxswain jj olekut sinu viimase jj käsu järgi, sest ta ei lase jj-l kunagi hetktõmmist teha. Käivita mõni jj käsk ja vajuta siis {refresh}.",
  "feature.jujutsu.q3": "Kas saan siin järjehoidjat vahetada?",
- "feature.jujutsu.a3": "Ei: Coxswain ainult loeb Jujutsu hoidlat. {branches} näitab järjehoidjaid ja nende faile; vaheta käsuga jj new või jj edit või ava oma tööriist klahviga {git_tool}."
+ "feature.jujutsu.a3": "Ei: Coxswain ainult loeb Jujutsu hoidlat. {branches} näitab järjehoidjaid ja nende faile; vaheta käsuga jj new või jj edit või ava oma tööriist klahviga {git_tool}.",
+ "git.op_conflict": "konfliktid selles muudatuses"
 }

@@ -8,7 +8,9 @@ the nearest bookmark, each changed file carries its glyph, **Ctrl+G** lists the 
 file or folder and **Alt+B** the bookmarks, as folders. It only reads: nothing is committed,
 moved or snapshotted. Both apps do this, through the `jj` program you have installed.
 
-<!-- screenshot: jj-line.png: the desktop app (Cyber) in a Jujutsu repository: the pane footer reads jj: followed by the change id and the bookmark main, with ~1; a.txt marked modified -->
+![The desktop app (Cyber) in ~/projects/lander, a Jujutsu repository: docs and src marked, and at the right of the pane's footer the line jj pypkupsz main with one added and one modified file](../screenshots/jj-line.png)
+
+![The terminal app in Classic blue: lander on the left with the line jj pypkupsz main and its counts in the panel's bottom border, rocket on the right with its git line](../screenshots/tui-jj-line.png)
 
 ## Contents
 
@@ -29,9 +31,13 @@ moved or snapshotted. Both apps do this, through the `jj` program you have insta
    working-copy commit down (`::@` in jj's words). **Enter** on a commit shows the folder as
    that commit had it; **F3** views a file, **F5** copies it out. All as in
    [Git history as folders](git-history.md).
+
+   ![The desktop app's lander/@history: the commits 14deafe Softer thrust (the working-copy commit), 4df1a7b Add the engine and the descent notes and 26df36a Start the lander, newest first](../screenshots/jj-history.png)
 3. **Alt+B** lists the bookmarks: the local ones first, then the remote ones as `main@origin`.
    The bookmark on the working-copy commit or its parent has `*` before it. **Enter** on one
    shows its files. All as in [Git branches](git-branches.md).
+
+   ![The terminal app's lander/@branches [branches]: * main · Add the engine and the desc…, dated 2026-10-15 14:20](../screenshots/tui-jj-bookmarks.png)
 
 *Git history* and *Git branches* are in **F9**, in the action menu (**Shift+F10**) and in the git
 line's menu (a right-click on the line in the desktop app) for a Jujutsu repository too.
@@ -40,7 +46,7 @@ line's menu (a right-click on the line in the desktop app) for a Jujutsu reposit
 
 | Where | What |
 |---|---|
-| The line (desktop app: the pane footer; terminal app: in the panel's bottom border) | `jj:` in ASCII glyphs (or the branch glyph and `jj` with Nerd Font glyphs), the working-copy change id (eight letters, as `jj log` shows it), the nearest bookmark at or below it, then the counts: `+` added, `~` modified, `-` deleted, and *conflicts in this change* when the working-copy commit has a conflict |
+| The line (desktop app: the pane footer; terminal app: in the panel's bottom border) | `jj:` in ASCII glyphs (or the branch glyph and `jj` with Nerd Font glyphs), the working-copy change id (at least eight letters, as `jj log` shows it), the nearest bookmarks at or below it (joined by commas when one commit has several), then the counts as on the [git line](git.md#the-git-line) (`=` when clean; without `.git`, `+` counts added, renamed and copied files), and `· conflicts in this change` when the working-copy commit has a conflict |
 | Each entry | The glyph of its change against the working copy's parent, as for git |
 | **Ctrl+G** | The commits, each named by its short commit id and the first line of its description |
 | **Alt+B** | The bookmarks, each with the first line of its commit's description |
@@ -63,10 +69,12 @@ Jujutsu is too* (`prefer_git` under `[git]`). The line then reads `git:` and sho
 ## What Coxswain does not do
 
 Coxswain never makes jj take a snapshot of the working copy (every jj command it runs has
-`--ignore-working-copy`), so it writes no operation to the operation log and imports no git
-refs. It does not switch bookmarks or make new ones: **Alt+S** and *New branch here* say to use
-`jj new` or `jj edit`. **Alt+G** opens your own tool in the repository for that
-([Open in your git tool](git.md#open-in-your-git-tool)); with no tool set it opens a terminal there.
+`--ignore-working-copy`), so it writes no operation of its own to the operation log and imports
+no git refs. It does not switch bookmarks or make new ones: **Alt+S** and *New branch here* say
+*Coxswain only reads Jujutsu repositories: move to a bookmark with jj new or jj edit.* **Alt+G**
+opens your own tool in the repository ([Open in your git tool](git.md#open-in-your-git-tool)):
+the one named in *Settings → Behaviour → Git tool* (a jj tool such as `jjui` can be named there
+as a command, `%d` being the repository), else the first git tool installed, else a terminal.
 
 ## What it needs
 
@@ -105,6 +113,11 @@ with **Ctrl+R**. Next to git, the files come from git and show at once.
 
 No: Coxswain only reads a Jujutsu repository. **Alt+B** lists the bookmarks and their files; move
 with `jj new` or `jj edit` in a terminal, or open your own tool with **Alt+G**.
+
+#### I ran jj commit in a terminal. Does the line follow?
+
+Yes. Both apps watch jj's operation heads in `.jj` (and `.git` next to it), so the line and the
+files follow any jj command within a moment, as they follow git.
 
 #### Why is the working-copy commit in the history without a description?
 

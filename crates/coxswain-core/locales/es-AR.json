@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "¿Por qué un archivo que acabo de cambiar no aparece como cambiado?",
  "feature.jujutsu.a2": "En un repositorio sin .git junto a .jj, Coxswain muestra el estado de jj de tu último comando jj, porque nunca hace que jj tome una instantánea. Ejecutá cualquier comando jj y después apretá {refresh}.",
  "feature.jujutsu.q3": "¿Puedo cambiar de marcador acá?",
- "feature.jujutsu.a3": "No: Coxswain solo lee un repositorio de Jujutsu. {branches} lista los marcadores y sus archivos; cambiá con jj new o jj edit, o abrí tu propia herramienta con {git_tool}."
+ "feature.jujutsu.a3": "No: Coxswain solo lee un repositorio de Jujutsu. {branches} lista los marcadores y sus archivos; cambiá con jj new o jj edit, o abrí tu propia herramienta con {git_tool}.",
+ "git.op_conflict": "conflictos en este cambio"
 }

@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "Kāpēc tikko mainīts fails netiek rādīts kā mainīts?",
  "feature.jujutsu.a2": "Repozitorijā bez .git blakus .jj Coxswain rāda jj stāvokli pēc jūsu pēdējās jj komandas, jo tas nekad neliek jj veidot momentuzņēmumu. Palaidiet jebkuru jj komandu un tad nospiediet {refresh}.",
  "feature.jujutsu.q3": "Vai šeit varu pārslēgt grāmatzīmi?",
- "feature.jujutsu.a3": "Nē: Coxswain Jujutsu repozitoriju tikai lasa. {branches} rāda grāmatzīmes un to failus; pārslēdzieties ar jj new vai jj edit vai atveriet savu rīku ar {git_tool}."
+ "feature.jujutsu.a3": "Nē: Coxswain Jujutsu repozitoriju tikai lasa. {branches} rāda grāmatzīmes un to failus; pārslēdzieties ar jj new vai jj edit vai atveriet savu rīku ar {git_tool}.",
+ "git.op_conflict": "konflikti šajā izmaiņā"
 }

@@ -3396,5 +3396,6 @@
  "feature.jujutsu.q2": "Zergatik ez da aldatu berri dudan fitxategi bat aldatu gisa agertzen?",
  "feature.jujutsu.a2": ".jj-ren ondoan .git ez duen biltegi batean, Coxswainek zure azken jj aginduaren araberako jj-ren egoera erakusten du, ez baitio inoiz jj-ri argazkirik ateratzen eragiten. Exekutatu edozein jj agindu, eta sakatu {refresh}.",
  "feature.jujutsu.q3": "Hemen alda dezaket laster-marka?",
- "feature.jujutsu.a3": "Ez: Coxswainek Jujutsu biltegia irakurri baino ez du egiten. {branches} laster-markak eta haien fitxategiak zerrendatzen ditu; aldatu jj new edo jj edit erabiliz, edo ireki zure tresna {git_tool} bidez."
+ "feature.jujutsu.a3": "Ez: Coxswainek Jujutsu biltegia irakurri baino ez du egiten. {branches} laster-markak eta haien fitxategiak zerrendatzen ditu; aldatu jj new edo jj edit erabiliz, edo ireki zure tresna {git_tool} bidez.",
+ "git.op_conflict": "gatazkak aldaketa honetan"
 }

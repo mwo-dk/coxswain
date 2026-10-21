@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "Pourquoi un fichier que je viens de modifier n'apparaît-il pas comme modifié ?",
  "feature.jujutsu.a2": "Dans un dépôt sans .git à côté de .jj, Coxswain montre l'état de jj tel qu'à votre dernière commande jj, car il ne fait jamais prendre d'instantané à jj. Lancez n'importe quelle commande jj, puis appuyez sur {refresh}.",
  "feature.jujutsu.q3": "Puis-je changer de signet ici ?",
- "feature.jujutsu.a3": "Non : Coxswain ne fait que lire un dépôt Jujutsu. {branches} liste les signets et leurs fichiers ; changez avec jj new ou jj edit, ou ouvrez votre propre outil avec {git_tool}."
+ "feature.jujutsu.a3": "Non : Coxswain ne fait que lire un dépôt Jujutsu. {branches} liste les signets et leurs fichiers ; changez avec jj new ou jj edit, ou ouvrez votre propre outil avec {git_tool}.",
+ "git.op_conflict": "conflits dans ce changement"
 }

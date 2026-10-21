@@ -3396,5 +3396,6 @@
  "feature.jujutsu.q2": "Waarom staat een bestand dat ik net heb gewijzigd niet als gewijzigd?",
  "feature.jujutsu.a2": "In een repository zonder .git naast .jj toont Coxswain de status van jj na je laatste jj-opdracht, omdat het jj nooit een snapshot laat maken. Voer een willekeurige jj-opdracht uit en druk dan op {refresh}.",
  "feature.jujutsu.q3": "Kan ik hier van bookmark wisselen?",
- "feature.jujutsu.a3": "Nee: Coxswain leest een Jujutsu-repository alleen. {branches} toont de bookmarks en hun bestanden; wissel met jj new of jj edit, of open je eigen programma met {git_tool}."
+ "feature.jujutsu.a3": "Nee: Coxswain leest een Jujutsu-repository alleen. {branches} toont de bookmarks en hun bestanden; wissel met jj new of jj edit, of open je eigen programma met {git_tool}.",
+ "git.op_conflict": "conflicten in deze wijziging"
 }

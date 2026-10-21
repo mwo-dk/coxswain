@@ -3396,5 +3396,6 @@
  "feature.jujutsu.q2": "Varför visas inte en fil jag nyss ändrat som ändrad?",
  "feature.jujutsu.a2": "I ett förråd utan .git bredvid .jj visar Coxswain jj:s status från ditt senaste jj-kommando, eftersom det aldrig får jj att ta en ögonblicksbild. Kör valfritt jj-kommando och tryck sedan {refresh}.",
  "feature.jujutsu.q3": "Kan jag byta bokmärke här?",
- "feature.jujutsu.a3": "Nej: Coxswain läser bara ett Jujutsu-förråd. {branches} visar bokmärkena och deras filer; byt med jj new eller jj edit, eller öppna ditt eget verktyg med {git_tool}."
+ "feature.jujutsu.a3": "Nej: Coxswain läser bara ett Jujutsu-förråd. {branches} visar bokmärkena och deras filer; byt med jj new eller jj edit, eller öppna ditt eget verktyg med {git_tool}.",
+ "git.op_conflict": "konflikter i den här ändringen"
 }

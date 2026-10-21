@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "Per què un fitxer que acabo de canviar no surt com a canviat?",
  "feature.jujutsu.a2": "En un repositori sense .git al costat de .jj, Coxswain mostra l'estat de jj de la vostra última ordre jj, perquè mai no fa que jj prengui una instantània. Executeu qualsevol ordre jj i premeu {refresh}.",
  "feature.jujutsu.q3": "Puc canviar de marcador aquí?",
- "feature.jujutsu.a3": "No: Coxswain només llegeix un repositori de Jujutsu. {branches} llista els marcadors i els seus fitxers; canvieu amb jj new o jj edit, o obriu la vostra eina amb {git_tool}."
+ "feature.jujutsu.a3": "No: Coxswain només llegeix un repositori de Jujutsu. {branches} llista els marcadors i els seus fitxers; canvieu amb jj new o jj edit, o obriu la vostra eina amb {git_tool}.",
+ "git.op_conflict": "conflictes en aquest canvi"
 }

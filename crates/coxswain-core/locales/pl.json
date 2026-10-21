@@ -3534,5 +3534,6 @@
  "feature.jujutsu.q2": "Dlaczego plik, który właśnie zmieniłem, nie jest oznaczony jako zmieniony?",
  "feature.jujutsu.a2": "W repozytorium bez .git obok .jj Coxswain pokazuje stan jj z twojego ostatniego polecenia jj, bo nigdy nie każe jj robić migawki. Uruchom dowolne polecenie jj, a potem naciśnij {refresh}.",
  "feature.jujutsu.q3": "Czy mogę tu przełączyć zakładkę?",
- "feature.jujutsu.a3": "Nie: Coxswain tylko czyta repozytorium Jujutsu. {branches} pokazuje zakładki i ich pliki; przełącz się poleceniem jj new lub jj edit albo otwórz swoje narzędzie przez {git_tool}."
+ "feature.jujutsu.a3": "Nie: Coxswain tylko czyta repozytorium Jujutsu. {branches} pokazuje zakładki i ich pliki; przełącz się poleceniem jj new lub jj edit albo otwórz swoje narzędzie przez {git_tool}.",
+ "git.op_conflict": "konflikty w tej zmianie"
 }

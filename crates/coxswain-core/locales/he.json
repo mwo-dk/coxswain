@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "למה קובץ ששיניתי עכשיו לא מסומן כמשתנה?",
  "feature.jujutsu.a2": "במאגר בלי ‎.git ליד ‎.jj, Coxswain מציג את מצב jj מהפקודה האחרונה שלכם ב־jj, כי הוא לעולם לא גורם ל־jj לצלם תמונת מצב. הריצו פקודת jj כלשהי ואז לחצו {refresh}.",
  "feature.jujutsu.q3": "אפשר להחליף כאן סימנייה?",
- "feature.jujutsu.a3": "לא: Coxswain רק קורא מאגר Jujutsu. {branches} מציג את הסימניות ואת הקבצים שלהן; עברו עם jj new או jj edit, או פתחו את הכלי שלכם עם {git_tool}."
+ "feature.jujutsu.a3": "לא: Coxswain רק קורא מאגר Jujutsu. {branches} מציג את הסימניות ואת הקבצים שלהן; עברו עם jj new או jj edit, או פתחו את הכלי שלכם עם {git_tool}.",
+ "git.op_conflict": "התנגשויות בשינוי הזה"
 }

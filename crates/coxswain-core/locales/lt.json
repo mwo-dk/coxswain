@@ -3465,5 +3465,6 @@
  "feature.jujutsu.q2": "Kodėl ką tik pakeistas failas nerodomas kaip pakeistas?",
  "feature.jujutsu.a2": "Saugykloje be .git šalia .jj Coxswain rodo jj būseną pagal jūsų paskutinę jj komandą, nes niekada neverčia jj daryti momentinės kopijos. Paleiskite bet kurią jj komandą ir paspauskite {refresh}.",
  "feature.jujutsu.q3": "Ar galiu čia perjungti žymę?",
- "feature.jujutsu.a3": "Ne: Coxswain Jujutsu saugyklą tik skaito. {branches} rodo žymes ir jų failus; perjunkite komanda jj new arba jj edit arba atidarykite savo įrankį su {git_tool}."
+ "feature.jujutsu.a3": "Ne: Coxswain Jujutsu saugyklą tik skaito. {branches} rodo žymes ir jų failus; perjunkite komanda jj new arba jj edit arba atidarykite savo įrankį su {git_tool}.",
+ "git.op_conflict": "konfliktai šiame pakeitime"
 }

@@ -3396,5 +3396,6 @@
  "feature.jujutsu.q2": "Hvorfor vises ikke en fil jeg nettopp endret som endret?",
  "feature.jujutsu.a2": "I et repositorium uten .git ved siden av .jj viser Coxswain jj sin status fra din siste jj-kommando, fordi den aldri får jj til å ta et øyeblikksbilde. Kjør en hvilken som helst jj-kommando, og trykk så {refresh}.",
  "feature.jujutsu.q3": "Kan jeg bytte bokmerke her?",
- "feature.jujutsu.a3": "Nei: Coxswain leser bare et Jujutsu-repositorium. {branches} viser bokmerkene og filene deres; bytt med jj new eller jj edit, eller åpne ditt eget verktøy med {git_tool}."
+ "feature.jujutsu.a3": "Nei: Coxswain leser bare et Jujutsu-repositorium. {branches} viser bokmerkene og filene deres; bytt med jj new eller jj edit, eller åpne ditt eget verktøy med {git_tool}.",
+ "git.op_conflict": "konflikter i denne endringen"
 }

@@ -68,7 +68,9 @@ A `/` in a branch's name shows as `∕`, since a name in a listing is one path s
 ## Switching to a branch
 
 **Alt+S** (*Switch to branch*) works in the list of branches, with the cursor on a branch. The
-desktop app also has *Switch to branch* under *Git* in the preview pane.
+desktop app also has *Switch to branch* under *Git* in the preview pane. In a
+[Jujutsu](jujutsu.md) repository **Alt+S** and *New branch here* are refused: the status line says
+*Coxswain only reads Jujutsu repositories: move to a bookmark with jj new or jj edit.*
 
 - A **local branch** is switched to with `git switch <branch>`.
 - A **remote-tracking branch** (`origin∕feature`) gets a local branch of the same name that

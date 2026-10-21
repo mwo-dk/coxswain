@@ -3327,5 +3327,6 @@
  "feature.jujutsu.q2": "방금 바꾼 파일이 왜 바뀐 것으로 나오지 않나요?",
  "feature.jujutsu.a2": ".jj 옆에 .git이 없는 저장소에서는 Coxswain이 jj에게 스냅숏을 찍게 하지 않으므로 마지막 jj 명령 시점의 상태를 보여 줍니다. 아무 jj 명령이나 실행한 다음 {refresh}를 누르세요.",
  "feature.jujutsu.q3": "여기서 북마크를 바꿀 수 있나요?",
- "feature.jujutsu.a3": "아니요. Coxswain은 Jujutsu 저장소를 읽기만 합니다. {branches}에서 북마크와 그 파일을 볼 수 있습니다. 옮기려면 jj new나 jj edit을 쓰거나 {git_tool}로 자신의 도구를 여세요."
+ "feature.jujutsu.a3": "아니요. Coxswain은 Jujutsu 저장소를 읽기만 합니다. {branches}에서 북마크와 그 파일을 볼 수 있습니다. 옮기려면 jj new나 jj edit을 쓰거나 {git_tool}로 자신의 도구를 여세요.",
+ "git.op_conflict": "이 변경에 충돌 있음"
 }

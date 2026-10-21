@@ -3327,5 +3327,6 @@
  "feature.jujutsu.q2": "変更したばかりのファイルが変更済みと表示されないのはなぜですか?",
  "feature.jujutsu.a2": ".jj の隣に .git がないリポジトリでは、Coxswain は jj にスナップショットを取らせないため、最後に実行した jj コマンド時点の状態を表示します。何か jj コマンドを実行してから {refresh} を押してください。",
  "feature.jujutsu.q3": "ここでブックマークを切り替えられますか?",
- "feature.jujutsu.a3": "いいえ。Coxswain は Jujutsu リポジトリを読むだけです。{branches} でブックマークとそのファイルを一覧できます。移動は jj new か jj edit で、または {git_tool} で自分のツールを開いてください。"
+ "feature.jujutsu.a3": "いいえ。Coxswain は Jujutsu リポジトリを読むだけです。{branches} でブックマークとそのファイルを一覧できます。移動は jj new か jj edit で、または {git_tool} で自分のツールを開いてください。",
+ "git.op_conflict": "この変更に競合あり"
 }
