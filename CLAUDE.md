@@ -28,14 +28,13 @@ These rules hold for every contributor and every Claude session in this reposito
   nightly run that passed (and its head is not a release, which tested everything), every
   system's workflow runs on it, so a fault no pull request caught shows up the next morning. Fix
   a red nightly like a red master.
-- **Pull requests run the virtual machines only for platform code**: the files that are mostly
-  BSD or illumos code (`machine.rs`, `bsd.rs`, `zfs.rs`, `kq.rs`, `ports.rs`, `flags.rs`,
-  `service.rs`, `update.rs`, `tools.rs`, `clouds.rs`, for illumos `undo.rs` and `xdg_trash.rs`),
-  every `Cargo.toml`, `Cargo.lock`, `install/`, that system's `packaging/` and the workflow itself;
-  Termux, Flatpak and Nix only when their packaging, the Cargo files or (Flatpak, Nix)
-  `gui/package-lock.json` change. Big shared files with a small platform branch (`lib.rs`,
-  `config.rs`, `fs.rs`, `index.rs` …) are left to the nightly run. A new file that is mostly
-  `cfg(target_os = …)` code for those systems goes into their workflows' `paths`. A release pull
+- **Pull requests run the virtual machines only for their own packaging**: a system's workflow
+  (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) runs on a pull request only when that
+  system's `packaging/` or the workflow itself changes (Nix also `flake.nix`, `flake.lock`). All
+  other code, platform code included, is tested on every system by the nightly run and in every
+  Release run, the Saturday rehearsal among them; a red nightly is fixed like a red master. The
+  *Dependencies* workflow runs on a pull request only when a `Cargo.toml`, `Cargo.lock`,
+  `deny.toml`, `gui/package*.json` or `tools/bom/` changes. A release pull
   request (branch `release/X.Y.Z`) starts none of them: its Release run tests every system. CI on
   a pull request runs Linux, macOS and Windows on x64 (macOS on Apple Silicon); the ARM machines
   (`ubuntu-24.04-arm`, `windows-11-arm`) run only on pushes to `master` and in Release runs. The

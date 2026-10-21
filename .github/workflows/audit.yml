@@ -6,6 +6,15 @@ on:
   push:
     branches: [master]
   pull_request:
+    # Only when a dependency can have changed; master and the Monday run check the rest.
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+      - "gui/package.json"
+      - "gui/package-lock.json"
+      - "tools/bom/**"
+      - ".github/workflows/audit.yml"
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:

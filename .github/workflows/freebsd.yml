@@ -6,26 +6,11 @@ name: FreeBSD
 on:
   workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
   pull_request:
-    # Pull requests run the machine only for code with branches for this system;
-    # master runs it nightly and in every release (CLAUDE.md, Shipping).
+    # Pull requests run this system only when its own packaging or workflow changes; every
+    # other change is tested on it nightly and in every Release run (CLAUDE.md, Shipping).
     paths:
-      - "crates/coxswain-core/src/machine.rs"
-      - "crates/coxswain-core/src/kq.rs"
-      - "crates/coxswain-core/src/ports.rs"
-      - "crates/coxswain-core/src/bsd.rs"
-      - "crates/coxswain-core/src/zfs.rs"
-      - "crates/coxswain-core/src/flags.rs"
-      - "crates/coxswain-core/src/service.rs"
-      - "crates/coxswain-core/src/update.rs"
-      - "crates/coxswain-core/src/tools.rs"
-      - "crates/coxswain-core/src/clouds.rs"
-      - "crates/coxswain-core/tests/zfs.rs"
-      - "**/Cargo.toml"
-      - "Cargo.lock"
-      - "install/**"
       - "packaging/freebsd/**"
       - ".github/workflows/freebsd.yml"
-      - ".github/actions/apt-install/**"
   # The port, built and checked by hand on each supported release (packaging/freebsd/README.md).
   workflow_dispatch:
     inputs:

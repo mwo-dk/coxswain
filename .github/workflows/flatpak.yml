@@ -7,13 +7,11 @@ name: Flatpak
 on:
   workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
   pull_request:
+    # Pull requests run this system only when its own packaging or workflow changes; every
+    # other change is tested on it nightly and in every Release run (CLAUDE.md, Shipping).
     paths:
-      - "**/Cargo.toml"
-      - "Cargo.lock"
-      - "gui/package-lock.json"
       - "packaging/flatpak/**"
       - ".github/workflows/flatpak.yml"
-      - ".github/actions/apt-install/**"
   workflow_dispatch:
 
 permissions:
