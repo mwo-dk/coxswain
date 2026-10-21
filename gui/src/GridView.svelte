@@ -110,6 +110,13 @@
             {:catch}
               {@render icon(e)}
             {/await}
+          {:else if previewKind(e) === "gpx" && !e.online}
+            <!-- A GPX file's tracks, drawn by the core (gpx_map). -->
+            {#await invoke("gpx_map", { path: e.path }) then file}
+              {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+            {:catch}
+              {@render icon(e)}
+            {/await}
           {:else if MEDIA_TOOL[previewKind(e)] && !previewKind(e).startsWith("audio") && !e.online}
             <!-- A video's frame, a HEIC, GIMP or RAW photo: ffmpeg or ImageMagick makes it once,
                  only when it runs without a pull (media_thumbnail). -->

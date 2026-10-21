@@ -188,6 +188,7 @@ pub const FEATURES: &[Feature] = &[
         "previews/latex.md",
         &[TogglePreview, View, Edit, Open, Settings],
     ),
+    f("geodata", "previews/geodata.md", &[ConvertGeodata, ActionMenu, TogglePreview, Properties]),
     f(
         "preview_tools",
         "previews/tools.md",

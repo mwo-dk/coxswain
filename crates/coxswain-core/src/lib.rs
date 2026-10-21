@@ -22,6 +22,7 @@ pub mod features;
 pub mod find;
 pub mod flags;
 pub mod fs;
+pub mod geo;
 pub mod git;
 pub mod git_config;
 pub mod go;

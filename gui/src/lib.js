@@ -294,7 +294,15 @@ const endingOfName = (name) => (name.includes(".") ? name.split(".").pop().toLow
 export const isMedia = (name) => MEDIA_TAKES.media.has(endingOfName(name));
 export const isEditable = (name) => MEDIA_TAKES.pictures.has(endingOfName(name));
 /** The media preview a kind gets its picture from (convert.rs `TOOLS`), for thumbnails. */
-export const MEDIA_TOOL = { video: "ffmpeg", video_other: "ffmpeg", audio: "waveform", audio_other: "waveform", heif: "heif", magick: "imagemagick", raw: "raw" };
+export const MEDIA_TOOL = { video: "ffmpeg", video_other: "ffmpeg", audio: "waveform", audio_other: "waveform", heif: "heif", magick: "imagemagick", raw: "raw", geo: "gdal" };
+/** Geodata (`geo::endings`): the vector endings, a map by GDAL (a GPX file's drawn without
+ *  it); TIFF is geodata only when GDAL finds it is a GeoTIFF. Set once the config has come. */
+const GEO = new Set();
+export const setGeoEndings = (all) => (GEO.clear(), (all.vector ?? []).forEach((x) => GEO.add(x)));
+/** A file *Convert geodata* may take: the backend leaves out a TIFF that is no GeoTIFF. */
+export const isGeo = (name) => GEO.has(endingOfName(name)) || /\.tiff?$/i.test(name);
+/** GeoJSON, KML and GPX are text: their preview shows the map or the source. */
+export const isGeoText = (name) => /\.(geojson|kml|gpx)$/i.test(name);
 /** Tracker music: facts and sample names, no playback. */
 const TRACKER = ["mod", "xm", "s3m", "it"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
@@ -355,6 +363,8 @@ export const CONVERTER = {
   heif: { tool: "heif", auto: true, verb: "convert.render" },
   magick: { tool: "imagemagick", auto: true, verb: "convert.render" },
   raw: { tool: "raw", auto: true, verb: "convert.render" },
+  // GDAL's map of geodata's own shapes (`geo`).
+  geo: { tool: "gdal", auto: true, verb: "convert.render" },
   duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
@@ -430,6 +440,8 @@ export function previewKind(item) {
   if (diskName(item.name)) return "disk_image";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";
+  // Geodata: a map of its own shapes, a GPX file's drawn without GDAL.
+  if (GEO.has(ext)) return ext === "gpx" ? "gpx" : "geo";
   if (FONT.includes(ext)) return "font";
   if (SHEET.includes(ext)) return "sheet";
   if (ext === "docx") return "docx";

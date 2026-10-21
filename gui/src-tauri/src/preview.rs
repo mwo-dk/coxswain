@@ -279,9 +279,12 @@ pub async fn file_facts(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Res
             "mp3" | "flac" | "ogg" | "opus" | "m4a" | "aac" | "wav" | "aiff" | "wv" | "ape" => audio_facts(&path),
             // A video, or a song of a kind the tags reader does not know: ffprobe's facts.
             _ if out.is_empty() && coxswain_core::media::is_media(&path) => coxswain_core::media::facts(&cfg, &path),
+            _ if out.is_empty() && coxswain_core::geo::is_vector(&path) => vec![],
             _ if out.is_empty() => binary_facts(&path),
             _ => vec![],
         });
+        // Geodata's: a GPX file's tracks read here, the rest by GDAL; a GeoTIFF's after its photo facts.
+        coxswain_core::geo::merge(&mut out, coxswain_core::geo::facts(&cfg, &path));
         out
     })
     .await

@@ -258,6 +258,8 @@ impl Panel {
             chess: list.iter().filter(|e| !e.is_dir && if list.len() == 1 { coxswain_core::chess::sniff(&e.path).is_some() } else { coxswain_core::chess::format(&e.path).is_some() }).count(),
             media: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_media(&e.path)).count(),
             pictures: list.iter().filter(|e| !e.is_dir && coxswain_core::media::is_picture(&e.path)).count(),
+            // By name, as the desktop app counts: a GeoTIFF is reached from F9 (and its preview).
+            geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -653,10 +655,10 @@ type MediaPlan = (coxswain_core::media::Op, Vec<PathBuf>, Result<String, String>
 
 /// The feature (F1) and the action of ffmpeg's and ImageMagick's work.
 fn media_feature(p: coxswain_core::media::Program) -> &'static str {
-    if p == coxswain_core::media::Program::Ffmpeg { "convert_media" } else { "edit_pictures" }
+    p.feature()
 }
 fn media_action(p: coxswain_core::media::Program) -> Action {
-    if p == coxswain_core::media::Program::Ffmpeg { Action::ConvertMedia } else { Action::EditPictures }
+    p.action()
 }
 
 enum SearchableMsg {
@@ -1195,6 +1197,7 @@ impl App {
             Action::SearchablePdf => self.searchable_pdf(),
             Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
             Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
+            Action::ConvertGeodata => self.media_menu(coxswain_core::media::Program::Gdal),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -1898,20 +1901,20 @@ impl App {
         });
     }
 
-    /// *Convert video or audio* (ffmpeg) or *Convert or edit pictures* (ImageMagick) on the files
-    /// among the marked entries (or the one under the cursor) it takes: what to make of them,
+    /// *Convert video or audio* (ffmpeg), *Convert or edit pictures* (ImageMagick) or *Convert
+    /// geodata* (GDAL) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
     /// from a menu. While one runs, the action stops it.
     fn media_menu(&mut self, program: coxswain_core::media::Program) {
-        use coxswain_core::media::{self, Op, Program};
+        use coxswain_core::media::Op;
         if let Some((s, _)) = &self.media {
             s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
             return self.status = Some(t!("media.stopping"));
         }
-        let takes = |p: &PathBuf| if program == Program::Ffmpeg { media::is_media(p) } else { media::is_picture(p) };
+        let takes = |p: &PathBuf| Op::menu(program).iter().any(|o| o.takes(p));
         // A file only in the cloud is left out: it is not downloaded to be read.
         let files: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| takes(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
         if files.is_empty() {
-            return self.status = Some(t!(if program == Program::Ffmpeg { "media.none_media" } else { "media.none_pictures" }));
+            return self.status = Some(program.none());
         }
         let items = Op::menu(program)
             .into_iter()
@@ -1936,6 +1939,11 @@ impl App {
     /// The question, worked out on a thread (asking podman for the image takes a moment).
     fn media_ask(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
         use coxswain_core::media;
+        // Only the files this choice takes (a bill of materials of a schematic, not a board).
+        let files: Vec<PathBuf> = files.into_iter().filter(|p| op.takes(p)).collect();
+        if files.is_empty() {
+            return self.status = Some(op.program().none());
+        }
         let (tx, rx) = mpsc::channel();
         let cfg = self.cfg.preview.clone();
         std::thread::spawn(move || {
@@ -1966,10 +1974,10 @@ impl App {
         let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), files.clone());
         std::thread::spawn(move || {
             let (said, at) = (tx.clone(), tx.clone());
-            let image = if op.program() == media::Program::Ffmpeg { media::FFMPEG } else { media::MAGICK };
+            let image = op.program().tool();
             let done = media::run_all(&cfg, &op, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
                 let line = match s {
-                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(image).cloned().unwrap_or_default())),
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(image).cloned().unwrap_or_default()))),
                     Said::Percent(p) => format!("{p} %"),
                     Said::Line(l) => l.to_string(),
                 };
