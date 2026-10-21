@@ -546,6 +546,8 @@ pub enum Show {
 pub struct Turn {
     pub question: String,
     pub sources: Vec<PathBuf>,
+    /// For each source, how many near copies of it were left out ("and 3 similar files").
+    pub similar: Vec<usize>,
     /// How much was read: "12 excerpts from 7 files, about 6000 words".
     pub read: String,
     pub answer: String,
@@ -554,7 +556,7 @@ pub struct Turn {
 
 /// What an Ask sends back while it runs.
 enum AskMsg {
-    Sources(Vec<PathBuf>, String),
+    Sources(Vec<PathBuf>, Vec<usize>, String),
     Piece(String),
     Done(Result<(), String>),
 }
@@ -2702,8 +2704,8 @@ impl App {
                 Err(e) => Err(e),
                 // Stopped while searching: the model is not asked.
                 Ok(_) if stop.load(Ordering::SeqCst) => Ok(()),
-                Ok(sources) => {
-                    let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect(), coxswain_core::ask::read(&sources)));
+                Ok((sources, similar)) => {
+                    let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect(), similar, coxswain_core::ask::read(&sources)));
                     index.answer(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
                 }
             };
@@ -3343,7 +3345,7 @@ impl App {
         while let Some(msg) = self.ask_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             let Some(turn) = self.chat.last_mut() else { break };
             match msg {
-                AskMsg::Sources(paths, read) => (turn.sources, turn.read) = (paths, read),
+                AskMsg::Sources(paths, similar, read) => (turn.sources, turn.similar, turn.read) = (paths, similar, read),
                 AskMsg::Piece(text) => turn.answer.push_str(&text),
                 AskMsg::Done(done) => {
                     turn.error = done.err();

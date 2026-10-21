@@ -1782,6 +1782,23 @@ pub fn score(packed: &[u8], q: &[f32]) -> f32 {
         * scale
 }
 
+/// How much two packed vectors point the same way (1: the same); 0 for two of other lengths.
+pub fn packed_cosine(a: &[u8], b: &[u8]) -> f32 {
+    if a.len() != b.len() || a.len() < 4 {
+        return 0.0;
+    }
+    let n = a.len() - 4;
+    let (mut ab, mut aa, mut bb) = (0i64, 0i64, 0i64);
+    for (x, y) in a[..n].iter().zip(&b[..n]) {
+        let (x, y) = ((*x as i8) as i64, (*y as i8) as i64);
+        (ab, aa, bb) = (ab + x * y, aa + x * x, bb + y * y);
+    }
+    if aa == 0 || bb == 0 {
+        return 0.0;
+    }
+    ab as f32 / ((aa as f32).sqrt() * (bb as f32).sqrt())
+}
+
 /// The signs of a packed vector, one bit each: a first sieve over many passages.
 pub fn signs(packed: &[u8]) -> Box<[u64]> {
     let n = packed.len().saturating_sub(4);

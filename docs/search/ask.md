@@ -128,6 +128,15 @@ passages are joined into one excerpt without the 20 words two passages share whe
 was cut, and a file's excerpts stay in their order, with `[…]` between them. Each file is one
 source. Text that is the same in two files (a copy) is given once.
 
+**Near copies, once.** Before the files are chosen, a passage whose vector is near the same as
+one already taken from another file (a cosine of 0.97 or more: a copy, the same text with
+another date or version number, a report saved again as a PDF) is folded into it. The file with
+the closest passage stays; the copies take none of the 16 places, so a different file gets one,
+and the source says how many it stands for: *and 3 similar files*. Only the passages already
+looked up are compared, with each other, and nothing is read again. Measured with bge-m3 and
+all-minilm, a copy with a changed date or number scores 0.99 and up, the same passage with a
+sentence added 0.91 to 0.94, and two passages on one subject below 0.75: those stay apart.
+
 **A question about the whole folder.** When the question asks what the folder, the project, the
 repository or the code is or is about (*what is this repository's code about?*, *explain this
 project*, *give me an overview*, *hvad handler denne mappe om?*, *worum geht es in diesem
@@ -178,8 +187,9 @@ alone, as before.
 - **How much was read**, over the sources, dim: *12 excerpts from 10 files, about 2600 words*.
   A question about code says so first: *Code question: 9 excerpts from 6 files, about 2000 words*
   ([A question about code](ask-code.md#a-question-about-code)).
-- **The sources** are a numbered list under each answer: the file's name and its folder. The
-  cursor marks the one **Enter** goes to.
+- **The sources** are a numbered list under each answer: the file's name and its folder, and
+  for a source that stands for near copies, dim after it, *and 3 similar files*
+  ([Near copies, once](#how-much-it-reads)). The cursor marks the one **Enter** goes to.
 - **Errors** show in red under the question: the server's own message, such as *model "qwen3:8b"
   not found*, or *Nothing in your files is close to the question.*
 - **The footer**: *Enter ask, or go to the source · ↑↓ sources · F4 edit · Esc back to the list*
@@ -402,6 +412,13 @@ or in invisible characters. Coxswain makes such words weaker, not powerless:
 A file that says the opposite of another can still win: the model weighs what the sources say,
 and a plain sentence in a file looks like any other. When an answer sounds wrong, look at its
 sources.
+
+#### Why does a source say "and 3 similar files"?
+
+Those files hold near copies of what that source gave: the same text, perhaps with another date
+or number. Ask gives it once, from the file whose passage was closest to the question, so the
+copies do not take the places of other files. **Enter** goes to that file; Find's list (**Esc**)
+still shows the copies. See [How much it reads](#how-much-it-reads).
 
 #### Why does a follow-up sometimes find other sources?
 

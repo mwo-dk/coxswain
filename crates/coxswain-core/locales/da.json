@@ -255,6 +255,10 @@
  "ask.poor_smaller": "{model} svarer hurtigere her (omkring {seconds} s); en modelserver på et grafikkort endnu hurtigere.",
  "ask.read": "{excerpts} fra {files}, {words}",
  "ask.read_code": "Spørgsmål om kode: {read}",
+ "ask.similar_files": {
+  "one": "og {n} lignende fil",
+  "other": "og {n} lignende filer"
+ },
  "ask.tip_metal": "{model} på {server} kører også på Metal og er større end {builtin}: bedre svar.",
  "ask.tip_metal_quicker": "{model} på {server} kører også på Metal, større og hurtigere end {builtin}.",
  "ask.words": {

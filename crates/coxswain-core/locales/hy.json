@@ -255,6 +255,10 @@
  "ask.poor_smaller": "{model}-ն այստեղ ավելի շուտ է պատասխանում (մոտ {seconds} վ). վիդեոքարտով մոդելների սերվերն՝ ավելի շուտ։",
  "ask.read": "{excerpts}՝ {files}ից, {words}",
  "ask.read_code": "Հարց կոդի մասին: {read}",
+ "ask.similar_files": {
+  "one": "և {n} նման ֆայլ",
+  "other": "և {n} նման ֆայլ"
+ },
  "ask.tip_metal": "{model}-ը {server}-ում նույնպես աշխատում է Metal-ով և ավելի մեծ է, քան {builtin}-ը՝ ավելի լավ պատասխաններ։",
  "ask.tip_metal_quicker": "{model}-ը {server}-ում նույնպես աշխատում է Metal-ով՝ ավելի մեծ և արագ, քան {builtin}-ը։",
  "ask.words": {

@@ -261,6 +261,11 @@
  "ask.poor_smaller": "{model} responde antes acá (unos {seconds} s); un servidor de modelos en una placa de video, todavía antes.",
  "ask.read": "{excerpts} de {files}, {words}",
  "ask.read_code": "Pregunta sobre código: {read}",
+ "ask.similar_files": {
+  "many": "y {n} archivos parecidos",
+  "one": "y {n} archivo parecido",
+  "other": "y {n} archivos parecidos"
+ },
  "ask.tip_metal": "{model} en {server} también corre en Metal y es más grande que {builtin}: mejores respuestas.",
  "ask.tip_metal_quicker": "{model} en {server} también corre en Metal, más grande y más rápido que {builtin}.",
  "ask.words": {

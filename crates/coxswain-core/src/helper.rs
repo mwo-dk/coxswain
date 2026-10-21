@@ -110,8 +110,9 @@ enum Reply {
     },
     Results(Results),
     Found(Found),
+    /// Each source with how many similar files it stands for.
     Passages {
-        found: Vec<(PathBuf, String)>,
+        found: Vec<(PathBuf, String, usize)>,
     },
     Status(Status),
     /// With the time the walk they come from began.
@@ -895,7 +896,7 @@ impl Client {
         question: &str,
         scope: Option<&Path>,
         bytes: usize,
-    ) -> Vec<(PathBuf, String)> {
+    ) -> Vec<(PathBuf, String, usize)> {
         match self.ask(&Request::Passages {
             query: question.into(),
             scope: scope.map(Path::to_path_buf),
@@ -1393,7 +1394,7 @@ mod tests {
         let mut sources = vec![];
         while sources.len() < 2 && wait.elapsed() < Duration::from_secs(120) {
             std::thread::sleep(Duration::from_millis(500));
-            sources = c.passages(question, None, 10);
+            sources = c.passages(question, None, 10).into_iter().map(|(p, t, _)| (p, t)).collect();
         }
         assert!(!sources.is_empty(), "no passages");
         let (mut answer, mut pieces, start) = (String::new(), 0, Instant::now());

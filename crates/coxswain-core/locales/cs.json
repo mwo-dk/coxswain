@@ -261,6 +261,11 @@
  "ask.poor_smaller": "{model} tu odpoví dřív (asi {seconds} s); server modelů na grafické kartě ještě dřív.",
  "ask.read": "{excerpts} z: {files}, {words}",
  "ask.read_code": "Otázka na kód: {read}",
+ "ask.similar_files": {
+  "few": "a {n} podobné soubory",
+  "one": "a {n} podobný soubor",
+  "other": "a {n} podobných souborů"
+ },
  "ask.tip_metal": "{model} na {server} běží také na Metal a je větší než {builtin}: lepší odpovědi.",
  "ask.tip_metal_quicker": "{model} na {server} běží také na Metal, větší a rychlejší než {builtin}.",
  "ask.words": {

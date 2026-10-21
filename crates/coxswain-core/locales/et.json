@@ -255,6 +255,10 @@
  "ask.poor_smaller": "{model} vastab siin varem (umbes {seconds} s); mudeliserver videokaardil veel varem.",
  "ask.read": "{excerpts} {files} põhjal, {words}",
  "ask.read_code": "Küsimus koodi kohta: {read}",
+ "ask.similar_files": {
+  "one": "ja {n} sarnane fail",
+  "other": "ja {n} sarnast faili"
+ },
  "ask.tip_metal": "{model} serveris {server} töötab samuti Metalil ja on suurem kui {builtin}: paremad vastused.",
  "ask.tip_metal_quicker": "{model} serveris {server} töötab samuti Metalil, suurem ja kiirem kui {builtin}.",
  "ask.words": {
