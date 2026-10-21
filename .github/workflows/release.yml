@@ -544,7 +544,8 @@ jobs:
           usesh: true
           prepare: |
             /usr/sbin/pkg_add pkgin || true
-            pkgin -y install rust pkgconf webkit-gtk41
+            p="rust pkgconf webkit-gtk41" # again when pkgin ends with errors (netbsd.yml)
+            pkgin -y install $p || { cat /var/db/pkgin/pkg_install-err.log; pkgin -y install $p; }
           run: |
             set -e
             cargo build --release --locked -p coxswain -p coxswain-gui
