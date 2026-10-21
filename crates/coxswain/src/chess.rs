@@ -148,6 +148,11 @@ impl Viewer {
         };
         match chess::sniff(path) {
             Some(Format::Pgn) => v.lib = Some(Arc::new(Library::open(path)?)),
+            // Draughts: the same table; no opening book.
+            Some(Format::Pdn) => {
+                v.lib = Some(Arc::new(Library::open(path)?));
+                v.book = None;
+            }
             Some(Format::Book) => {
                 v.book_only = true;
                 let game = chess::Game { start: chess::pgn::START.to_string(), ..Default::default() };
@@ -208,6 +213,11 @@ impl Viewer {
             }
             self.show_game(n);
         }
+    }
+
+    /// A PDN file: draughts on its own board, without openings or figurines.
+    fn draughts(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format == Format::Pdn)
     }
 
     fn requery(&mut self) {
@@ -290,7 +300,7 @@ impl Viewer {
                 }
             }
             KeyCode::Char('/') => self.typing = Some((Field::Player, self.query.player.clone())),
-            KeyCode::Char('o') => self.typing = Some((Field::Opening, self.query.opening.clone())),
+            KeyCode::Char('o') if !self.draughts() => self.typing = Some((Field::Opening, self.query.opening.clone())),
             KeyCode::Char('e') => self.typing = Some((Field::Elo, self.query.elo.map(|e| e.to_string()).unwrap_or_default())),
             KeyCode::Char('y') => {
                 let years = match (self.query.from, self.query.to) {
@@ -371,6 +381,7 @@ impl Viewer {
             return self.book_key(key);
         }
         let epd = self.lib.is_none();
+        let draughts = self.draughts();
         if epd {
             let i = self.open.as_ref().map_or(0, |o| o.index as usize);
             match key.code {
@@ -428,7 +439,7 @@ impl Viewer {
                 }
             }
             KeyCode::Char('f') => self.flip = !self.flip,
-            KeyCode::Char('n') => {
+            KeyCode::Char('n') if !draughts => {
                 self.notation = if self.notation == Notation::Figurines { Notation::Letters } else { Notation::Figurines };
             }
             _ => {}
@@ -461,7 +472,15 @@ impl Viewer {
         let keys = if self.book_only {
             t!("chess.keys_book")
         } else if self.open.is_some() {
-            if self.lib.is_some() { t!("chess.keys_game") } else { t!("chess.keys_position") }
+            if self.draughts() {
+                t!("draughts.keys_game")
+            } else if self.lib.is_some() {
+                t!("chess.keys_game")
+            } else {
+                t!("chess.keys_position")
+            }
+        } else if self.draughts() {
+            t!("draughts.keys_list")
         } else {
             t!("chess.keys_list")
         };
@@ -525,15 +544,20 @@ impl Viewer {
         state = format!("{state} · {} {}{}", t!("chess.sorted_by"), column(q.sort), if q.desc { " ↓" } else { " ↑" });
         f.render_widget(Paragraph::new(fit(&state, w)).style(dim), Rect { height: 1, ..area });
         // Columns: fixed ones, and the names sharing the rest.
-        let fixed = [7usize, 5, 5, 7, 10, 4, 6];
+        // Draughts has no openings: their two columns go to the names and the event.
+        let draughts = lib.format == Format::Pdn;
+        let fixed = if draughts { [7usize, 5, 5, 7, 10, 0, 6] } else { [7usize, 5, 5, 7, 10, 4, 6] };
         let rest = w.saturating_sub(fixed.iter().sum::<usize>() + 10);
-        let name = (rest * 22 / 100).max(6);
-        let event = (rest * 20 / 100).max(4);
-        let opening = rest.saturating_sub(2 * name + event).max(4);
+        let name = (rest * if draughts { 32 } else { 22 } / 100).max(6);
+        let event = if draughts { rest.saturating_sub(2 * name).max(4) } else { (rest * 20 / 100).max(4) };
+        let opening = if draughts { 0 } else { rest.saturating_sub(2 * name + event).max(4) };
         let row = |cells: [String; 11]| -> String {
             let widths = [fixed[0], name, fixed[1], name, fixed[2], fixed[3], fixed[4], event, fixed[5], opening, fixed[6]];
             let mut out = String::new();
             for (i, (c, cw)) in cells.iter().zip(widths).enumerate() {
+                if cw == 0 {
+                    continue;
+                }
                 if i > 0 {
                     out.push(' ');
                 }
@@ -603,6 +627,12 @@ impl Viewer {
         };
         let Some(o) = &self.open else { return };
         let g = &o.game;
+        let draughts = self.draughts();
+        if draughts {
+            let (lines, board_w) = self.draughts_board(area, dim);
+            f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
+            return self.draw_moves(f, theme, area, board_w, vec![]);
+        }
         // The board: as big as fits, a square twice as wide as high.
         let cell_h = ((area.height.saturating_sub(2)) / 8).clamp(1, 2);
         let mut cell_w = cell_h * 2 + 1;
@@ -656,7 +686,72 @@ impl Viewer {
         }
         let board_w = 2 + cell_w * 8;
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
-        // Beside it: who played, then the moves.
+        self.draw_moves(f, theme, area, board_w, book);
+    }
+
+    /// A draughts board from the position shown: dark squares numbered, men ● and kings ♚ in
+    /// white and black, the last move's squares tinted.
+    fn draughts_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16) {
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let fen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        let cells = coxswain_core::draughts::cells(&fen);
+        let h = cells.len().max(1) as u16;
+        let w = cells.iter().map(Vec::len).max().unwrap_or(0).max(1) as u16;
+        let cell_h = (area.height.saturating_sub(2) / h).clamp(1, 2);
+        let mut cell_w = cell_h * 2 + 1;
+        while cell_w > 3 && cell_w * w > area.width / 2 {
+            cell_w -= 2;
+        }
+        let mut lines = vec![];
+        for row in 0..h {
+            let y = if self.flip { h - 1 - row } else { row };
+            for sub in 0..cell_h {
+                let mut spans = vec![];
+                for col in 0..w {
+                    let x = if self.flip { w - 1 - col } else { col };
+                    let dark = (x + y) % 2 == 1;
+                    let cell = (x + y * w) as u8;
+                    let mut colour = self.board[dark as usize];
+                    if last.is_some_and(|(a, b)| a == Some(cell) || b == Some(cell)) {
+                        colour = tint(colour, (0xf6, 0xe0, 0x5a));
+                    }
+                    let piece = cells.get(y as usize).and_then(|r| r.get(x as usize)).copied().flatten();
+                    let mid = sub == cell_h / 2;
+                    let (text, fg) = match piece {
+                        Some(p) if mid => {
+                            let pad = " ".repeat(((cell_w - 1) / 2) as usize);
+                            let glyph = if p.eq_ignore_ascii_case(&'k') { "♚" } else { "●" };
+                            (format!("{pad}{glyph}{pad}"), if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) })
+                        }
+                        None if dark && sub == 0 => {
+                            let n = coxswain_core::draughts::square_number(w as usize, x as usize, y as usize).unwrap_or(0);
+                            (format!("{n:<width$}", width = cell_w as usize), dim.fg.unwrap_or(Color::Gray))
+                        }
+                        _ => (" ".repeat(cell_w as usize), Color::Reset),
+                    };
+                    spans.push(Span::styled(text, Style::default().bg(colour).fg(fg).add_modifier(if piece.is_some() { Modifier::BOLD } else { Modifier::empty() })));
+                }
+                lines.push(Line::from(spans));
+            }
+        }
+        let white = fen.split_whitespace().nth(1) != Some("b");
+        lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
+        (lines, cell_w * w)
+    }
+
+    /// Beside the board: who played, then the moves.
+    fn draw_moves(&mut self, f: &mut Frame, theme: &Theme, area: Rect, board_w: u16, book: Vec<BookMove>) {
+        let base = sty(&theme.dialog);
+        let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
+        let draughts = self.draughts();
+        let Some(o) = &self.open else { return };
+        let g = &o.game;
         let right = Rect { x: area.x + board_w + 2, width: area.width.saturating_sub(board_w + 2), ..area };
         if right.width < 10 {
             return;
@@ -672,6 +767,9 @@ impl Viewer {
             head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", tag("White"), elo("WhiteElo"), tag("Black"), elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
             let about = [tag("Event"), tag("Site"), tag("Date"), [tag("ECO"), tag("Opening")].join(" ").trim().to_string()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ");
             head.push(Line::styled(fit(&about, w), dim));
+            if draughts {
+                head.push(Line::styled(fit(&coxswain_core::draughts::variant(g).name(), w), dim));
+            }
             let total = self.lib.as_ref().map_or(0, |l| l.progress().games);
             head.push(Line::styled(fit(&t!("chess.game_of", "n" => o.index + 1, "total" => total), w), dim));
         } else if self.book_only {
@@ -715,7 +813,8 @@ impl Viewer {
                 Token::Move { node, number } => {
                     let n = &g.nodes[*node as usize];
                     let (glued, apart) = chess::nags(&n.nags);
-                    let text = format!("{}{}{glued}", number.clone().unwrap_or_default(), chess::show_san(&n.san, &pieces));
+                    let san = if draughts { n.san.clone() } else { chess::show_san(&n.san, &pieces) };
+                    let text = format!("{}{san}{glued}", number.clone().unwrap_or_default());
                     let here = o.at == Some(*node);
                     let mut style = if here { sty(&theme.dialog_input) } else if n.depth > 0 { dim } else { base };
                     if n.depth == 0 && !here {
@@ -889,6 +988,41 @@ mod tests {
         }
         let s = screen(&mut v);
         assert!(s.contains("book.bin") && s.contains("e4 75 %"), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_draughts_game_on_its_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-pdn-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pdn");
+        std::fs::write(&p, "[White \"Anna\"]\n[Black \"Bram\"]\n[Result \"2-0\"]\n\n1. 32-28 19-23 2. 28x19 {takes} 14x23 2-0\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.draughts() && v.book.is_none());
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        let screen = |v: &mut Viewer| {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+            term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+            term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>()
+        };
+        let s = screen(&mut v);
+        assert!(s.contains("Anna") && s.contains("2-0") && !s.contains("ECO"), "{s}");
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        for _ in 0..3 {
+            v.key(key(KeyCode::Right), None);
+        }
+        let s = screen(&mut v);
+        assert!(s.contains("28x19") && s.contains("takes") && s.contains('●') && s.contains("10×10"), "{s}");
+        // Square numbers on the empty dark squares.
+        assert!(s.contains("26"));
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

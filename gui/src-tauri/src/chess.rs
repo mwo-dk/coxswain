@@ -90,6 +90,8 @@ pub async fn chess_rows(path: PathBuf, query: Query, offset: usize, limit: usize
 #[derive(Serialize)]
 pub struct GameView {
     game: chess::Game,
+    /// A draughts game's variant, as its heading says it: "International draughts, 10×10".
+    variant: Option<String>,
     layout: Vec<Token>,
     /// Shown above the moves when one could not be played.
     error: Option<String>,
@@ -99,9 +101,11 @@ pub struct GameView {
 #[tauri::command]
 pub async fn chess_game(path: PathBuf, index: u32) -> Res<GameView> {
     tauri::async_runtime::spawn_blocking(move || {
-        let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
+        let lib = library(&path)?;
+        let game = lib.game(index).map_err(|e| e.to_string())?;
         let error = game.error.as_ref().map(|e| coxswain_core::t!("chess.cannot_play", "move" => e));
-        Ok(GameView { layout: game.layout(), game, error })
+        let variant = (lib.format == chess::Format::Pdn).then(|| coxswain_core::draughts::variant(&game).name());
+        Ok(GameView { layout: game.layout(), game, variant, error })
     })
     .await
     .map_err(|e| e.to_string())?

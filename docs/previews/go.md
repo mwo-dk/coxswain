@@ -162,4 +162,4 @@ as Latin letters; add `CA[GB2312]` (or the right one) to its first node.
 Not yet: Coxswain shows games but does not play.
 
 ---
-[← Previous: Chess games](chess.md) · [Next: Neural network models →](neural-networks.md)
+[← Previous: Chess games](chess.md) · [Next: Draughts games →](draughts.md)

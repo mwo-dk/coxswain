@@ -403,13 +403,15 @@ export const LOCKED = "locked: a password is needed";
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
-/** A games file by its name: "pgn" (also packed), "epd" (EPD and FEN), "sgf" (Go), or ""
+/** A games file by its name: "pgn" (also packed), "epd" (EPD and FEN), "sgf" (Go), "pdn"
+ *  (draughts), or ""
  *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
 export function chessFormat(name) {
   const n = name.toLowerCase();
   if (/\.pgn(\.gz|\.zst)?$/.test(n)) return "pgn";
   if (/\.(epd|fen)$/.test(n)) return "epd";
   if (n.endsWith(".sgf")) return "sgf";
+  if (n.endsWith(".pdn")) return "pdn";
   return "";
 }
 

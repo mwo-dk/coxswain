@@ -29,6 +29,8 @@ pub enum Format {
     Sgf,
     /// A Polyglot opening book (`polyglot`): a `.bin` file that is one, by its bytes.
     Book,
+    /// Draughts games: `.pdn` (`crate::draughts`), in the same table as PGN games.
+    Pdn,
 }
 
 /// The chess file `path` is, by its name.
@@ -40,6 +42,8 @@ pub fn format(path: &Path) -> Option<Format> {
         Some(Format::Epd)
     } else if n.ends_with(".sgf") {
         Some(Format::Sgf)
+    } else if n.ends_with(".pdn") {
+        Some(Format::Pdn)
     } else {
         None
     }

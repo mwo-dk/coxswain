@@ -74,7 +74,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+V** | Yes | – | Details, columns, thumbnails |
 | **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
-| **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md) and [Go games](../previews/go.md): a PGN or SGF file's games, an EPD or FEN file's positions, a Polyglot book's moves |
+| **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md), [Go games](../previews/go.md) and [Draughts games](../previews/draughts.md): a PGN, SGF or PDN file's games, an EPD or FEN file's positions, a Polyglot book's moves |
 | **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |
 | **Alt+U** | Yes | Yes | [Space](space.md): where the space goes, as a treemap |
 | **Alt+G** | Yes | Yes | [Open in your git tool](git.md#open-in-your-git-tool): commit, push or pull in lazygit, gitui, tig or your desktop client |

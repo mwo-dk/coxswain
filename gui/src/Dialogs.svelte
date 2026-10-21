@@ -212,7 +212,7 @@
     if (isHistory(h.path)) return cd(tb, h.path);
     await showInTab(tb, h.path);
     // A game in a PGN file: that game, on the board in the preview.
-    if (h.snippet && chessFormat(basename(h.path)) === "pgn") {
+    if (h.snippet && ["pgn", "pdn"].includes(chessFormat(basename(h.path)))) {
       const index = await invoke("chess_hit", { path: h.path, snippet: h.snippet });
       if (index != null) {
         ui.chessAt = { path: h.path, index };

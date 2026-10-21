@@ -96,6 +96,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
 | [Chess games](chess.md) | PGN files as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; Polyglot opening books' moves; both apps, the terminal app full screen |
 | [Go games](go.md) | SGF files as a list of games, each on a board stepped through with its captures, variations and comments; both apps, the terminal app full screen |
+| [Draughts games](draughts.md) | PDN files as a table of games, each on a numbered board with its captures, kings and variations; international and English draughts; both apps, the terminal app full screen |
 | [Neural network models](neural-networks.md) | ONNX, TensorFlow Lite, Core ML and Keras models: inputs, outputs, nodes and parameters in both apps; the graph drawn by Netron, offline, in the desktop app |
 | [Media and files](media.md) | Pictures, video, audio, fonts, archives listed, folders, and the facts under a file; with ffmpeg and ImageMagick the video and sound the player cannot play, HEIC, GIMP and RAW photos, video thumbnails |
 | [Old pictures and files](old-formats.md) | TIFF with its pages, TGA, DDS, HDR, OpenEXR, JPEG XL, Amiga IFF, PCX, XPM, Photoshop; comics page by page, mailboxes as folders, Outlook `.msg`, dBase tables, tracker music; in both apps |
@@ -133,6 +134,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.pgn` `.pgn.gz` `.pgn.zst` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |
 | `.bin` (a Polyglot book) | The board at the start, the book's moves with their weights | [Chess games](chess.md#opening-books) |
 | `.sgf` | A list of Go games, a game on a board with its stones and variations | [Go games](go.md) |
+| `.pdn` | A table of draughts games, a game on a numbered board with its moves | [Draughts games](draughts.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |
 | `.avi` `.wmv` `.mpg` `.wma` `.ape` and other video and sound the player cannot play | A frame of the video, the waveform, their facts, by ffmpeg | [Media](media.md#video-and-sound-with-ffmpeg) |
 | `.heic` `.xcf` and RAW photos (`.dng` `.cr2` `.nef` …) | The picture, by ImageMagick or ffmpeg | [Media](media.md#photos-only-imagemagick-or-ffmpeg-reads) |
