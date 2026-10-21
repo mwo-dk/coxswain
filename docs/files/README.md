@@ -5,7 +5,7 @@
 Copy, move, rename, make folders and delete, in both apps with the same F-keys. Archives open
 like folders, so the same keys copy files into them, out of them and between them, and
 **Alt+F5** packs files into a new one. The desktop app adds the system clipboard, drag and
-drop, batch rename with a regular expression and a duplicate finder. On ZFS, **Alt+Z** browses a
+drop (the terminal app takes drops only), batch rename with a regular expression and a duplicate finder. On ZFS, **Alt+Z** browses a
 folder's snapshots.
 
 All operations work on the **marked** files, or on the file under the cursor when nothing is

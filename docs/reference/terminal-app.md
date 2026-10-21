@@ -85,7 +85,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | [Tabs, back and forward](../panels/tabs-and-panes.md), one pane or two | NC's two fixed panels are the terminal app's layout; **Ctrl+O** is taken by the command output |
 | [Columns and thumbnails views](../panels/views.md), the columns menu | Miller columns and thumbnails need more room and pictures than a terminal has |
 | [The sidebar](../organise/sidebar.md), [favourites](../organise/favourites.md), [colour tags](../organise/tags.md), [folder notes](../organise/notes.md) | They need a side pane and editing widgets the panels do not have room for. They are kept in `state.json`, which both apps share, so they are there when you open the desktop app |
-| [The clipboard](../files/clipboard.md) (**Ctrl+C**, **Ctrl+X**, **Ctrl+V**) and [drag and drop](../files/drag-and-drop.md) | A terminal has no file clipboard or drag source; **Ctrl+C** belongs to the terminal |
+| [The clipboard](../files/clipboard.md) (**Ctrl+C**, **Ctrl+X**, **Ctrl+V**) and dragging files out ([Drag and drop](../files/drag-and-drop.md)) | A terminal has no file clipboard or drag source; **Ctrl+C** belongs to the terminal. Files dropped on the terminal are taken: *Copy here* or *Move here* ([In the terminal app](../files/drag-and-drop.md#in-the-terminal-app)) |
 | [Batch rename](../files/batch-rename.md) (**Ctrl+M**) | It needs a live preview table of old and new names |
 | [Finding duplicates](../files/duplicates.md) (**Ctrl+D**) | A long-running scan with groups to tick; use `coxswain-gui --duplicates FOLDER` |
 | [Restoring the last session](../panels/session.md) | It starts where you start it, as a shell command does |

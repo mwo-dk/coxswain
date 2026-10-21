@@ -13,8 +13,8 @@ The user-facing guide is [docs/systems/freebsd.md](../../docs/systems/freebsd.md
 
 `sysutils/coxswain` builds the terminal app with `USES=cargo` from the GitHub tag, and installs
 `bin/coxswain`, `bin/cox`, `coxswain(1)` and the rc.d script `coxswain_index` (with `%%PREFIX%%`).
-The desktop app is left out: it needs two crates patched from git (`[patch.crates-io]` in
-`Cargo.toml`) until their releases, which a port should not carry.
+The desktop app is left out: it needs tao (and tao-macros) patched from git (`[patch.crates-io]`
+in `Cargo.toml`) until its release, which a port should not carry.
 
 ### Updating it for a release
 

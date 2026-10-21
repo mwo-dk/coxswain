@@ -128,8 +128,9 @@ as for every file operation, another one is not started meanwhile, and the statu
 
 ## In the terminal app
 
-The same key, history, checks, status lines and trash. It has no batch rename, clipboard or drag
-and drop, so there is nothing of those to undo. **F9** and **F1** show *Undo: …* as in the
+The same key, history, checks, status lines and trash. It has no batch rename or clipboard, so
+there is nothing of those to undo; files dropped on the terminal (*Copy here*, *Move here*) are
+undone as F5 and F6 are. **F9** and **F1** show *Undo: …* as in the
 desktop app.
 
 ## config.toml

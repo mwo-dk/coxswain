@@ -69,8 +69,8 @@ image) gets no outline, and a drop on it says so on the status line, for example
 
 ## Out of archives and histories
 
-A file inside an archive (zip, 7z, tar, rar, a disk image, a CHM help file, a mailbox's
-messages) or in a git history is not on disk, so another application could not open it. When
+A file inside an archive (zip, 7z, tar, a CBR comic, a disk image, a CHM help file, a
+mailbox's messages) or in a git history is not on disk, so another application could not open it. When
 you drag one, Coxswain first copies what you drag out into a folder of its own in its cache
 (`coxswain/drag` in the cache folder, one folder per drag, names kept), as **F5** would, and
 hands those copies over. The folders go when the app closes, and any left over after a day.
@@ -99,9 +99,12 @@ A terminal cannot drag files out, and it hands a file dropped on its window to t
 typed text: the file's path. The terminal app knows that text: when what arrives is one or more
 paths of files that exist (quoted, with `\ ` before spaces, or as `file://` addresses, as
 terminals write them) and the command line is empty, it asks *Drop "a.pdf" in Documents* with
-*Copy here* (**C**) and *Move here* (**M**), into the folder of the active panel. It needs a
-terminal that pastes as a whole (bracketed paste), which most do. Pasting a path does the same.
-Anything else arrives as typed, as before.
+*Copy here* (**C**) and *Move here* (**M**), into the folder of the active panel; a read-only
+panel (a history, a snapshot, a package's files, a disk image) says so on the status line
+instead. It needs a terminal that pastes as a whole (bracketed paste), which most do (the old
+Windows console does not), and no dialog open. On Windows a backslash is part of the path, so a
+path with spaces needs its quotes there. Pasting a path does the same. Anything else arrives as
+typed, as before.
 
 ## Questions
 
