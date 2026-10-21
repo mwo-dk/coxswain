@@ -3327,5 +3327,13 @@
  "zfs.read_only": "Een ZFS-snapshot is alleen-lezen — F5 kopieert er een bestand of map uit",
  "zfs.referenced": "{size} verwezen",
  "zfs.same": "Het bestand is nu hetzelfde als in de snapshot",
- "zfs.used_referenced": "{used} gebruikt, {referenced} verwezen"
+ "zfs.used_referenced": "{used} gebruikt, {referenced} verwezen",
+ "action.history_all": "Geschiedenis van alle branches",
+ "history.badge_branch": "geschiedenis van deze branch · {key}: alle branches",
+ "history.badge_all": "geschiedenis van alle branches · {key}: deze branch",
+ "history.all_not_here": "Alle branches is voor een git-geschiedenis, of een bestand of map in een repository",
+ "history.scope_branch": "Deze branch",
+ "history.scope_all": "Alle branches",
+ "history.scope_tip": "Welke commits de lijst en de graaf tonen ({key} wisselt)",
+ "hint.history": "{all} toont de commits van alle branches in de graaf; nog eens alleen die van deze branch"
 }

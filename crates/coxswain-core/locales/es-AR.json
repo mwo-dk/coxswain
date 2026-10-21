@@ -3395,5 +3395,13 @@
  "zfs.read_only": "Un snapshot de ZFS es de solo lectura — F5 copia afuera un archivo o una carpeta",
  "zfs.referenced": "{size} referenciados",
  "zfs.same": "El archivo es igual ahora que en el snapshot",
- "zfs.used_referenced": "{used} usados, {referenced} referenciados"
+ "zfs.used_referenced": "{used} usados, {referenced} referenciados",
+ "action.history_all": "Historial de todas las ramas",
+ "history.badge_branch": "historial de esta rama · {key}: todas las ramas",
+ "history.badge_all": "historial de todas las ramas · {key}: esta rama",
+ "history.all_not_here": "Todas las ramas es para un historial de git, o un archivo o una carpeta de un repositorio",
+ "history.scope_branch": "Esta rama",
+ "history.scope_all": "Todas las ramas",
+ "history.scope_tip": "Qué commits muestran la lista y su gráfico ({key} cambia)",
+ "hint.history": "{all} muestra los commits de todas las ramas en el gráfico; otra vez, solo los de esta"
 }

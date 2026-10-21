@@ -3,7 +3,8 @@
 # Git history as folders
 
 **Ctrl+G** on a file or folder in a git repository opens its history the way **Enter** opens
-an archive: a listing of the commits that touched it, newest first. **Enter** on a commit
+an archive: a listing of the commits that touched it, newest first, with a graph of its
+branches and merges beside them. **Enter** on a commit
 shows the files as they were then, as read-only folders: move around, preview a file, see what
 the commit changed in it, view it with **F3** and copy an old version out with **F5**.
 **Backspace** leads back up to the commits, then to the folder on disk. Both apps do this.
@@ -18,6 +19,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 
 - [How to use it](#how-to-use-it)
 - [What you see](#what-you-see)
+- [The graph](#the-graph)
 - [What works in a history](#what-works-in-a-history)
 - [Paths through a history](#paths-through-a-history)
 - [Limits](#limits)
@@ -32,7 +34,8 @@ the commit changed in it, view it with **F3** and copy an old version out with *
    whole repository. The same is in **F9** as *Git history*, and in the desktop app's preview
    pane as the button *History of main.rs* under *Git*.
 2. The pane lists the commits that changed it, newest first: `a1b2c3d Fly the rocket`, with the
-   commit's date in *Modified*. In the desktop app the *Last commit* column shows its author;
+   commit's date in *Modified* and the [graph](#the-graph) at its start. **Alt+A** (or the
+   *All branches* button next to the badge in the desktop app) lists every branch's commits. In the desktop app the *Last commit* column shows its author;
    in the terminal app the line under the panel shows id, date and author.
 3. **Enter** on a commit: the folder as it was at that commit (for a file, the folder it was
    in). Go into folders as usual.
@@ -55,6 +58,37 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 | A commit in the list | Its short id and subject as the name, the commit's date in *Modified*, its author in *Last commit* | Short id and subject, the date in *Modified*; id, date and author in the info line |
 | A file at a commit | Its size then, the commit's date; *Last commit* as of that commit | The same; the info line shows its last commit as of then |
 
+## The graph
+
+At the start of each commit in the list is its place in the history: a dot on its lane, the
+line up to the commits made on top of it and down to the one it was made on. A merge has two
+lines going down, one to each parent; where a branch split off, two lines meet. A commit that
+is the tip of a branch or a tag carries its name: `HEAD -> main`, `origin/main`, `tag: v1.0`.
+The commits come in an order that keeps every commit below the ones made on top of it, and
+otherwise newest first, as `git log --date-order` has them.
+
+| What | Desktop app | Terminal app |
+|---|---|---|
+| A commit | A dot on its lane, in the lane's colour | `●` |
+| The lines | Curves between the lanes, one colour a lane | `│`, `─`, `╮`, `╯`, `╭`, `╰`, `├`, `┤` |
+| A branch's or tag's name | A small label before the subject; HEAD's filled in | In brackets before the id: `(HEAD -> main, origin/main)` |
+| Where | The *Details* view (**Alt+V**); not in *Columns* or *Thumbnails* | Every history list |
+| How wide | 12 lanes at most; more are cut off at the right | A third of the name column at most |
+
+**This branch or all branches.** A history first lists what the branch you are on reached:
+`HEAD`'s commits. **Alt+A** (*History of all branches*) lists the commits of every local and
+remote branch too, so the graph shows where they split off and where they were merged.
+**Alt+A** again goes back to this branch alone. In the desktop app the two buttons
+*This branch* and *All branches* next to the badge do the same, and the one shown is filled in.
+The terminal app's title says which: `[this branch's history · Alt+A: all branches]` or
+`[every branch's history · Alt+A: this branch]`. On a file or folder on disk, **Alt+A** opens
+its history of all branches at once. It is also in **Shift+F10** and **F9**.
+
+The graph is worked out as far down as the list is shown: the first screen of a long list costs
+a screenful, and scrolling to the end works out the rest. The list is read once, with each
+commit's parents (`git log --parents`, or for a file on its branch `--follow`, which makes its
+commits one line).
+
 ## What works in a history
 
 | Key | In a history |
@@ -73,7 +107,9 @@ every kind of file previews as it would on disk: pictures, PDFs, Markdown, code.
 ## Paths through a history
 
 A history is a path, as an archive is: `<file or folder>/@history` is the list of commits, and
-`<file or folder>/@history/<commit>/<path>` the folder at that commit. You can type one in the
+`<file or folder>/@history/<commit>/<path>` the folder at that commit. `<file or
+folder>/@history/@all` lists every branch's commits, and `@history/@all/<commit>/<path>` is the
+folder at one of them. You can type one in the
 path bar (**Ctrl+L**) or **Alt+F1**, or copy it to the command line. The commit is
 the first 12 characters of its id; any 4 to 40 work. A real folder named `@history` is just a
 folder.
@@ -98,6 +134,7 @@ folder.
 | What | config.toml | Default |
 |---|---|---|
 | The key | `history` in `[keys]` | `["Ctrl+G"]` |
+| The key for all branches | `history_all` in `[keys]` | `["Alt+A"]` |
 | The *Last commit* column and line | `[git] last_commit` | `true` |
 | Commits in Find | `[search] history` ([History in search](../search/history.md)) | `true` |
 
@@ -119,6 +156,23 @@ is there, and the keys keep working meanwhile.
 
 The *Last commit* column (desktop app) or the line under the panel (terminal app) shows the
 last one. **Ctrl+G** lists them all, each with its date and author.
+
+#### What do the lines at the start of each commit mean?
+
+They are the [graph](#the-graph): each commit is a dot, the line down from it leads to the
+commit it was made on, and two lines down mean a merge. Where lines meet, a branch split off
+there. The names in a label or in brackets are the branches and tags whose tip it is.
+
+#### How do I see the other branches in the graph?
+
+Press **Alt+A** in the list, or click *All branches* next to the badge in the desktop app: the
+list and its graph then hold every local and remote branch's commits. **Alt+A** again, or
+*This branch*, goes back.
+
+#### Why does the graph not show in Columns or Thumbnails?
+
+Those views have no room for it. Switch to *Details* with **Alt+V**; the terminal app always
+shows it.
 
 #### How do I get back an old version of a file?
 

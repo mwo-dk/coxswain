@@ -3338,5 +3338,13 @@
  "zfs.read_only": "A ZFS snapshot is read-only — F5 copies a file or folder out of it",
  "zfs.referenced": "{size} referenced",
  "zfs.same": "The file is the same now as in the snapshot",
- "zfs.used_referenced": "{used} used, {referenced} referenced"
+ "zfs.used_referenced": "{used} used, {referenced} referenced",
+ "action.history_all": "History of all branches",
+ "history.badge_branch": "this branch's history · {key}: all branches",
+ "history.badge_all": "every branch's history · {key}: this branch",
+ "history.all_not_here": "All branches is for a git history, or a file or folder in a repository",
+ "history.scope_branch": "This branch",
+ "history.scope_all": "All branches",
+ "history.scope_tip": "Which commits the list and its graph show ({key} switches)",
+ "hint.history": "{all} shows every branch's commits in the graph; again, this branch's alone"
 }

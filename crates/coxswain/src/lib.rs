@@ -1270,7 +1270,8 @@ impl App {
                     self.cd(self.active, p);
                 }
             }
-            Action::History => self.history(),
+            Action::History => self.history(false),
+            Action::HistoryAll => self.history(true),
             Action::Snapshots => self.snapshots(),
             Action::Package => self.package(),
             Action::Flags => self.flags(),
@@ -1659,20 +1660,28 @@ impl App {
         });
     }
 
-    /// Into the history of the entry under the cursor (of this folder on `..`): its commits.
-    fn history(&mut self) {
+    /// Into the history of the entry under the cursor (of this folder on `..`): its commits,
+    /// with `all` every branch's. In a history, `all` goes over to the other branches' list.
+    fn history(&mut self, all: bool) {
         let p = self.panel();
         let target = match p.current() {
             Some(e) if !e.is_parent() => e.path.clone(),
             _ => p.dir.clone(),
         };
+        if all && history::is_history(&p.dir) {
+            return match history::all_branches(&p.dir, &target) {
+                Some(to) => self.cd(self.active, to),
+                None => self.status = Some(t!("history.all_not_here")),
+            };
+        }
         if history::is_history(&target) || coxswain_core::archive::split(&target).is_some() || !target.exists() {
             return self.status = Some(t!("history.not_here"));
         }
         if p.git.is_none() {
             return self.status = Some(t!("history.no_repo"));
         }
-        self.cd(self.active, history::path(&target, None));
+        let scope = if all { history::Scope::All } else { history::Scope::Branch };
+        self.cd(self.active, history::path_in(&target, scope, None));
     }
 
     /// To the snapshots of the ZFS dataset the folder under the cursor (or this one) is on.

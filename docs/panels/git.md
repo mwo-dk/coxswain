@@ -297,6 +297,7 @@ and **Alt+B** (branches). Other git commands can be added as your own entries (*
 | *Settings → Behaviour → Last commit of each file* | `[git] last_commit` | `true` |
 | The *Last commit* column | the columns menu (the session) | on |
 | The history's key | `history` in `[keys]` | `Ctrl+G` |
+| A history of all branches ([The graph](git-history.md#the-graph)) | `history_all` in `[keys]` | `Alt+A` |
 | The branches', the worktrees' and the switch's keys | `branches`, `worktrees`, `switch_branch` in `[keys]` | `Alt+B`, `Alt+W`, `Alt+S` |
 | *Settings → Behaviour → Git tool* | `[git] tool` (a tool's name or a command; empty: the first installed) | `""` |
 | *Open in your git tool* | `git_tool` in `[keys]` | `Alt+G` |

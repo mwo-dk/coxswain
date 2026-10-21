@@ -3327,5 +3327,13 @@
  "zfs.read_only": "ZFS snapshot bat irakurtzeko soilik da — F5ek fitxategi edo karpeta bat kopiatzen du kanpora",
  "zfs.referenced": "{size} erreferentziatuta",
  "zfs.same": "Fitxategia orain snapshot-ean bezalakoa da",
- "zfs.used_referenced": "{used} erabilita, {referenced} erreferentziatuta"
+ "zfs.used_referenced": "{used} erabilita, {referenced} erreferentziatuta",
+ "action.history_all": "Adar guztien historia",
+ "history.badge_branch": "adar honen historia · {key}: adar guztiak",
+ "history.badge_all": "adar guztien historia · {key}: adar hau",
+ "history.all_not_here": "Adar guztiak git historia baterako da, edo biltegi bateko fitxategi edo karpeta baterako",
+ "history.scope_branch": "Adar hau",
+ "history.scope_all": "Adar guztiak",
+ "history.scope_tip": "Zerrendak eta bere grafikoak zein commit erakusten dituzten ({key} aldatzen du)",
+ "hint.history": "{all}: adar guztien commitak grafikoan; berriro, adar honenak bakarrik"
 }

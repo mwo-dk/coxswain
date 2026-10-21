@@ -311,10 +311,10 @@ pub enum SortKey {
 }
 
 /// `..` first, then directories, then files; each group ordered by `key`.
-/// `sort` for the listing of `dir`. A history's list of commits is always by date, newest
-/// first, and in git's order where two have the same time: its names start with commit ids,
-/// which would put it in a random order.
-/// The branches and the worktrees keep git's order: local branches before remote ones.
+/// `sort` for the listing of `dir`. A history's list of commits keeps git's order, newest first
+/// with every commit below those made on top of it, as its graph is drawn: its names start with
+/// commit ids, which would put it in a random order. The branches and the worktrees keep git's
+/// order too: local branches before remote ones. A dataset's snapshots go by date, newest first.
 /// By size a folder goes by its measured size (`measured`; inside an archive its listed one), and comes after the others, by name, while that is not known.
 pub fn sort_in(
     dir: &Path,
@@ -323,14 +323,15 @@ pub fn sort_in(
     reverse: bool,
     measured: &std::collections::HashMap<PathBuf, u64>,
 ) {
-    if crate::history::split(dir)
-        .is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History)
+    let name = |p: &Path| p.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_owned();
+    let commits = name(dir) == crate::history::MARKER
+        || name(dir) == crate::history::ALL && dir.parent().is_some_and(|p| name(p) == crate::history::MARKER);
+    if commits
+        || crate::history::split(dir)
+            .is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History)
     {
         entries.sort_by_key(|e| !e.is_parent());
-    } else if dir
-        .file_name()
-        .is_some_and(|n| n == crate::history::MARKER || n == crate::zfs::MARKER)
-    {
+    } else if dir.file_name().is_some_and(|n| n == crate::zfs::MARKER) {
         entries.sort_by(|a, b| {
             let ord = b.modified.cmp(&a.modified);
             (!a.is_parent())
@@ -1782,15 +1783,12 @@ mod tests {
             sort_in(Path::new("/r/src/main.rs/@history"), &mut v, key, false, &Default::default());
             assert_eq!(order(&v), ["..", "f0", "a1", "be", "0d"], "{key:?}");
         }
-        let mut v = git.to_vec();
-        sort_in(
-            Path::new("/r/src/main.rs/@history"),
-            &mut v,
-            SortKey::Name,
-            true,
-            &Default::default(),
-        );
-        assert_eq!(order(&v), ["..", "be", "0d", "a1", "f0"]);
+        // Reversed too, and in every branch's history: its graph is drawn in git's order.
+        for dir in ["/r/src/main.rs/@history", "/r/src/@history/@all"] {
+            let mut v = git.to_vec();
+            sort_in(Path::new(dir), &mut v, SortKey::Name, true, &Default::default());
+            assert_eq!(order(&v), ["..", "f0", "a1", "be", "0d"]);
+        }
         // Anywhere else, as asked.
         let mut v = git.to_vec();
         sort_in(Path::new("/r/src"), &mut v, SortKey::Name, false, &Default::default());

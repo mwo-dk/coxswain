@@ -3463,5 +3463,13 @@
  "zfs.read_only": "Знімок ZFS доступний лише для читання — F5 копіює з нього файл чи папку",
  "zfs.referenced": "{size} у посиланнях",
  "zfs.same": "Файл зараз такий самий, як у знімку",
- "zfs.used_referenced": "{used} зайнято, {referenced} у посиланнях"
+ "zfs.used_referenced": "{used} зайнято, {referenced} у посиланнях",
+ "action.history_all": "Історія всіх гілок",
+ "history.badge_branch": "історія цієї гілки · {key}: усі гілки",
+ "history.badge_all": "історія всіх гілок · {key}: ця гілка",
+ "history.all_not_here": "«Усі гілки» — для історії git або файлу чи теки в репозиторії",
+ "history.scope_branch": "Ця гілка",
+ "history.scope_all": "Усі гілки",
+ "history.scope_tip": "Які коміти показують список і його граф ({key} перемикає)",
+ "hint.history": "{all} показує в графі коміти всіх гілок; ще раз — лише цієї гілки"
 }

@@ -389,7 +389,9 @@ export const HISTORY = "@history";
 /** The segments that lead to a repository's branches and worktrees (history::BRANCHES, WORKTREES). */
 export const BRANCHES = "@branches";
 export const WORKTREES = "@worktrees";
-export const MARKERS = [HISTORY, BRANCHES, WORKTREES];
+/** After `@history`: the commits of every branch. */
+export const ALL = "@all";
+export const MARKERS = [HISTORY, BRANCHES, WORKTREES, ALL];
 /** The segment after a folder that lists its ZFS dataset's snapshots (zfs::MARKER), and the one
  *  after a file that lists its package's files (bsd::PACKAGE). */
 export const SNAPSHOTS = "@snapshots";

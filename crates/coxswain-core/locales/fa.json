@@ -3320,5 +3320,13 @@
  "theme.paper": "سفید کاغذی",
  "theme.spectrum": "ZX Spectrum",
  "theme.workbench": "Amiga Workbench 1.3",
- "theme.xtree": "XTree Gold"
+ "theme.xtree": "XTree Gold",
+ "action.history_all": "تاریخچه‌ی همه‌ی شاخه‌ها",
+ "history.badge_branch": "تاریخچه‌ی این شاخه · {key}: همه‌ی شاخه‌ها",
+ "history.badge_all": "تاریخچه‌ی همه‌ی شاخه‌ها · {key}: این شاخه",
+ "history.all_not_here": "«همه‌ی شاخه‌ها» برای تاریخچه‌ی git یا فایل یا پوشه‌ای در یک مخزن است",
+ "history.scope_branch": "این شاخه",
+ "history.scope_all": "همه‌ی شاخه‌ها",
+ "history.scope_tip": "فهرست و نمودارش کدام کامیت‌ها را نشان می‌دهند ({key} جابه‌جا می‌کند)",
+ "hint.history": "{all} کامیت‌های همه‌ی شاخه‌ها را در نمودار نشان می‌دهد؛ دوباره، فقط این شاخه را"
 }

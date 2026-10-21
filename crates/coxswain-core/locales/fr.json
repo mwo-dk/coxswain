@@ -3395,5 +3395,13 @@
  "zfs.read_only": "Un instantané ZFS est en lecture seule — F5 en copie un fichier ou un dossier",
  "zfs.referenced": "{size} référencés",
  "zfs.same": "Le fichier est le même maintenant que dans l'instantané",
- "zfs.used_referenced": "{used} utilisés, {referenced} référencés"
+ "zfs.used_referenced": "{used} utilisés, {referenced} référencés",
+ "action.history_all": "Historique de toutes les branches",
+ "history.badge_branch": "historique de cette branche · {key} : toutes les branches",
+ "history.badge_all": "historique de toutes les branches · {key} : cette branche",
+ "history.all_not_here": "Toutes les branches, c'est pour un historique git, ou un fichier ou un dossier d'un dépôt",
+ "history.scope_branch": "Cette branche",
+ "history.scope_all": "Toutes les branches",
+ "history.scope_tip": "Quels commits la liste et son graphe montrent ({key} bascule)",
+ "hint.history": "{all} montre les commits de toutes les branches dans le graphe ; à nouveau, ceux de cette branche seule"
 }

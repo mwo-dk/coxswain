@@ -29,6 +29,7 @@ pub mod geo;
 pub mod git;
 pub mod git_config;
 pub mod go;
+pub mod graph;
 pub mod guide;
 pub mod handoff;
 pub mod helper;

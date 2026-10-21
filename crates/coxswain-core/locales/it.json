@@ -3395,5 +3395,13 @@
  "zfs.read_only": "Uno snapshot ZFS è di sola lettura — F5 ne copia fuori un file o una cartella",
  "zfs.referenced": "{size} referenziati",
  "zfs.same": "Il file adesso è uguale a quello dello snapshot",
- "zfs.used_referenced": "{used} usati, {referenced} referenziati"
+ "zfs.used_referenced": "{used} usati, {referenced} referenziati",
+ "action.history_all": "Cronologia di tutti i rami",
+ "history.badge_branch": "cronologia di questo ramo · {key}: tutti i rami",
+ "history.badge_all": "cronologia di tutti i rami · {key}: questo ramo",
+ "history.all_not_here": "Tutti i rami è per una cronologia git, o un file o una cartella di un repository",
+ "history.scope_branch": "Questo ramo",
+ "history.scope_all": "Tutti i rami",
+ "history.scope_tip": "Quali commit mostrano l'elenco e il suo grafo ({key} cambia)",
+ "hint.history": "{all} mostra nel grafo i commit di tutti i rami; di nuovo, solo quelli di questo ramo"
 }

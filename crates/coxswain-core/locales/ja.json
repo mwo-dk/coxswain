@@ -3259,5 +3259,13 @@
  "zfs.read_only": "ZFS スナップショットは読み取り専用です。F5 でファイルやフォルダーを取り出してコピーします",
  "zfs.referenced": "参照 {size}",
  "zfs.same": "ファイルは現在もスナップショットと同じです",
- "zfs.used_referenced": "使用 {used}、参照 {referenced}"
+ "zfs.used_referenced": "使用 {used}、参照 {referenced}",
+ "action.history_all": "全ブランチの履歴",
+ "history.badge_branch": "このブランチの履歴 · {key}: 全ブランチ",
+ "history.badge_all": "全ブランチの履歴 · {key}: このブランチ",
+ "history.all_not_here": "全ブランチは git 履歴か、リポジトリーのファイルやフォルダーで使えます",
+ "history.scope_branch": "このブランチ",
+ "history.scope_all": "全ブランチ",
+ "history.scope_tip": "一覧とグラフに出すコミット ({key} で切り替え)",
+ "hint.history": "{all} で全ブランチのコミットをグラフに表示、もう一度でこのブランチだけに戻ります"
 }

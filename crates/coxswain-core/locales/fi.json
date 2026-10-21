@@ -3327,5 +3327,13 @@
  "zfs.read_only": "ZFS-tilannevedos on vain luettavissa — F5 kopioi tiedoston tai kansion siitä ulos",
  "zfs.referenced": "{size} viitattu",
  "zfs.same": "Tiedosto on nyt sama kuin tilannevedoksessa",
- "zfs.used_referenced": "{used} käytetty, {referenced} viitattu"
+ "zfs.used_referenced": "{used} käytetty, {referenced} viitattu",
+ "action.history_all": "Kaikkien haarojen historia",
+ "history.badge_branch": "tämän haaran historia · {key}: kaikki haarat",
+ "history.badge_all": "kaikkien haarojen historia · {key}: tämä haara",
+ "history.all_not_here": "Kaikki haarat on git-historiaa tai tietovaraston tiedostoa tai kansiota varten",
+ "history.scope_branch": "Tämä haara",
+ "history.scope_all": "Kaikki haarat",
+ "history.scope_tip": "Mitkä commitit luettelo ja sen graafi näyttävät ({key} vaihtaa)",
+ "hint.history": "{all} näyttää kaikkien haarojen commitit graafissa; uudelleen vain tämän haaran"
 }

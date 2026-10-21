@@ -3320,5 +3320,13 @@
  "theme.paper": "ქაღალდის თეთრი",
  "theme.spectrum": "ZX Spectrum",
  "theme.workbench": "Amiga Workbench 1.3",
- "theme.xtree": "XTree Gold"
+ "theme.xtree": "XTree Gold",
+ "action.history_all": "ყველა ტოტის ისტორია",
+ "history.badge_branch": "ამ ტოტის ისტორია · {key}: ყველა ტოტი",
+ "history.badge_all": "ყველა ტოტის ისტორია · {key}: ეს ტოტი",
+ "history.all_not_here": "„ყველა ტოტი“ git-ის ისტორიისთვის ან საცავის ფაილის ან საქაღალდისთვისაა",
+ "history.scope_branch": "ეს ტოტი",
+ "history.scope_all": "ყველა ტოტი",
+ "history.scope_tip": "რომელ კომიტებს აჩვენებს სია და მისი გრაფი ({key} ცვლის)",
+ "hint.history": "{all} გრაფში ყველა ტოტის კომიტებს აჩვენებს; კიდევ ერთხელ — მხოლოდ ამ ტოტისას"
 }

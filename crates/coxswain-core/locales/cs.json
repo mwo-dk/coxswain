@@ -3395,5 +3395,13 @@
  "zfs.read_only": "Snímek ZFS je jen pro čtení — F5 z něj zkopíruje soubor nebo složku",
  "zfs.referenced": "{size} odkazováno",
  "zfs.same": "Soubor je teď stejný jako ve snímku",
- "zfs.used_referenced": "{used} použito, {referenced} odkazováno"
+ "zfs.used_referenced": "{used} použito, {referenced} odkazováno",
+ "action.history_all": "Historie všech větví",
+ "history.badge_branch": "historie této větve · {key}: všechny větve",
+ "history.badge_all": "historie všech větví · {key}: tato větev",
+ "history.all_not_here": "Všechny větve jsou pro historii gitu nebo soubor či složku v repozitáři",
+ "history.scope_branch": "Tato větev",
+ "history.scope_all": "Všechny větve",
+ "history.scope_tip": "Které commity seznam a jeho graf ukazují ({key} přepíná)",
+ "hint.history": "{all} ukáže v grafu commity všech větví; znovu jen této větve"
 }

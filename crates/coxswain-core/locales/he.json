@@ -3395,5 +3395,13 @@
  "zfs.read_only": "תמונת מצב של ZFS היא לקריאה בלבד — F5 מעתיק ממנה קובץ או תיקייה",
  "zfs.referenced": "{size} בהפניה",
  "zfs.same": "הקובץ עכשיו זהה לזה שבתמונת המצב",
- "zfs.used_referenced": "{used} בשימוש, {referenced} בהפניה"
+ "zfs.used_referenced": "{used} בשימוש, {referenced} בהפניה",
+ "action.history_all": "היסטוריה של כל הענפים",
+ "history.badge_branch": "ההיסטוריה של הענף הזה · {key}: כל הענפים",
+ "history.badge_all": "ההיסטוריה של כל הענפים · {key}: הענף הזה",
+ "history.all_not_here": "כל הענפים מיועד להיסטוריית git, או לקובץ או לתיקייה במאגר",
+ "history.scope_branch": "הענף הזה",
+ "history.scope_all": "כל הענפים",
+ "history.scope_tip": "אילו קומיטים הרשימה והגרף שלה מציגים ({key} מחליף)",
+ "hint.history": "{all} מציג בגרף את הקומיטים של כל הענפים; שוב, רק של הענף הזה"
 }

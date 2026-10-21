@@ -3395,5 +3395,13 @@
  "zfs.read_only": "ZFS momentinė kopija tik skaitoma — F5 nukopijuoja failą ar aplanką iš jos",
  "zfs.referenced": "{size} nurodoma",
  "zfs.same": "Failas dabar toks pat kaip momentinėje kopijoje",
- "zfs.used_referenced": "{used} naudojama, {referenced} nurodoma"
+ "zfs.used_referenced": "{used} naudojama, {referenced} nurodoma",
+ "action.history_all": "Visų šakų istorija",
+ "history.badge_branch": "šios šakos istorija · {key}: visos šakos",
+ "history.badge_all": "visų šakų istorija · {key}: ši šaka",
+ "history.all_not_here": "Visos šakos skirta git istorijai arba saugyklos failui ar aplankui",
+ "history.scope_branch": "Ši šaka",
+ "history.scope_all": "Visos šakos",
+ "history.scope_tip": "Kuriuos commit'us rodo sąrašas ir jo grafas ({key} perjungia)",
+ "hint.history": "{all} grafe rodo visų šakų commit'us; dar kartą – tik šios šakos"
 }

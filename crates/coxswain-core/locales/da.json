@@ -3327,5 +3327,13 @@
  "zfs.read_only": "Et ZFS-snapshot kan kun læses — F5 kopierer en fil eller mappe ud af det",
  "zfs.referenced": "{size} refereret",
  "zfs.same": "Filen er den samme nu som i snapshottet",
- "zfs.used_referenced": "{used} brugt, {referenced} refereret"
+ "zfs.used_referenced": "{used} brugt, {referenced} refereret",
+ "action.history_all": "Historik for alle grene",
+ "history.badge_branch": "denne grens historik · {key}: alle grene",
+ "history.badge_all": "alle grenes historik · {key}: denne gren",
+ "history.all_not_here": "Alle grene er til en git-historik eller en fil eller mappe i et repository",
+ "history.scope_branch": "Denne gren",
+ "history.scope_all": "Alle grene",
+ "history.scope_tip": "Hvilke commits listen og dens graf viser ({key} skifter)",
+ "hint.history": "{all} viser alle grenes commits i grafen; igen kun denne grens"
 }

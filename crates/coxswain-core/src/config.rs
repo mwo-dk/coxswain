@@ -280,6 +280,8 @@ actions! {
     Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
     // Git, the most used first.
     History = "history", "Git history", Git, ["Ctrl+G"];
+    // In a history: every branch's commits in the graph, or this branch's again. A for all.
+    HistoryAll = "history_all", "History of all branches", Git, ["Alt+A"];
     Branches = "branches", "Git branches", Git, ["Alt+B"];
     SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
     Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];

@@ -132,6 +132,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
 | **Ctrl+G** | Git history | `history` | The commits of the file or folder under the cursor, as folders ([Git history](git-history.md)) | The same |
+| **Alt+A** | History of all branches | `history_all` | In a history: the commits of every branch in the list and its graph, or this branch's again; on a file or folder, its history of every branch ([The graph](git-history.md#the-graph)) | The same |
 | **Alt+B** | Git branches | `branches` | The repository's branches, as folders ([Git branches](git-branches.md)) | The same |
 | **Alt+S** | Switch to branch | `switch_branch` | In the list of branches: switch to the one under the cursor, after asking ([Switching](git-branches.md#switching-to-a-branch)) | The same |
 | **Alt+W** | Git worktrees | `worktrees` | The repository's worktrees ([Worktrees](git-branches.md#worktrees)) | The same |
