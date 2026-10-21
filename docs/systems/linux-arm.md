@@ -6,7 +6,7 @@ Both apps have release builds for 64-bit ARM Linux (`aarch64`, also called `arm6
 Raspberry Pi with the 64-bit Raspberry Pi OS, an Apple Silicon Mac with Asahi Linux, an ARM
 laptop, an ARM server (Ampere, AWS Graviton) or an ARM Chromebook's Linux. They are the same apps
 as on an Intel or AMD PC, with every feature, built natively on ARM and tested there on every
-change.
+change to `master` and every release.
 
 ## Contents
 

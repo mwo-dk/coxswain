@@ -28,6 +28,7 @@ how to report a problem in Coxswain itself. What Coxswain sends over the network
 | Crates from unknown registries or git | `cargo deny check sources` | Same |
 | Known vulnerabilities in npm packages | `npm audit --audit-level=high` in `gui/` | Same |
 | Builds and tests on Linux, macOS and Windows, and the static musl build | `cargo test`, `cargo clippy`, `svelte-check`, Vite | Every pull request, and every push to `master` as part of its Release run |
+| The same on Linux and Windows on ARM | The same | Every push to `master` as part of its Release run, and every release |
 | The other systems: FreeBSD, NetBSD, OpenBSD and illumos in virtual machines, Termux, Flatpak, Nix | Each system's own workflow | A pull request that changes what goes into it, every night when `master` changed, and every release |
 
 The weekly run matters: an advisory published after the last change would otherwise go unseen

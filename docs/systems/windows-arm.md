@@ -5,7 +5,7 @@
 Both apps have native builds for Windows on ARM (`arm64`): laptops with a Snapdragon X or
 another ARM processor, and Windows on ARM in a virtual machine on an Apple Silicon Mac. They are
 the same apps as on an x64 PC, with every feature, built and tested on Windows 11 on ARM on every
-change. Native means Windows runs them without x64 emulation.
+change to `master` and every release. Native means Windows runs them without x64 emulation.
 
 ## Contents
 
