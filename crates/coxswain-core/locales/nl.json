@@ -586,6 +586,7 @@
  "chess.sorted_by": "gesorteerd op",
  "chess.start_tip": "Beginstelling (Home)",
  "chess.white_to_move": "Wit is aan zet",
+ "chess.pictures_none": "Deze terminal toont geen afbeeldingen: de stukken worden met bloktekens getekend.",
  "chess.window": "Openen in een venster",
  "chess.year_from": "Vanaf jaar",
  "chess.year_to": "Tot jaar",

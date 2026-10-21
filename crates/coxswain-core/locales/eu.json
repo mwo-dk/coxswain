@@ -586,6 +586,7 @@
  "chess.sorted_by": "ordenatuta honen arabera:",
  "chess.start_tip": "Hasierako posizioa (Home)",
  "chess.white_to_move": "Zuriak mugitzen du",
+ "chess.pictures_none": "Terminal honek ez du irudirik erakusten: piezak bloke-karaktereekin marrazten dira.",
  "chess.window": "Ireki leiho batean",
  "chess.year_from": "Urtetik",
  "chess.year_to": "Urtera arte",

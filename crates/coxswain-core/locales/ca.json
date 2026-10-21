@@ -605,6 +605,7 @@
  "chess.sorted_by": "ordenat per",
  "chess.start_tip": "Posició inicial (Home)",
  "chess.white_to_move": "Juguen les blanques",
+ "chess.pictures_none": "Aquest terminal no mostra imatges: les peces es dibuixen amb caràcters de bloc.",
  "chess.window": "Obre en una finestra",
  "chess.year_from": "Des de l'any",
  "chess.year_to": "Fins a l'any",

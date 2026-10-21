@@ -567,6 +567,7 @@
  "chess.sorted_by": "정렬 기준:",
  "chess.start_tip": "시작 포지션 (Home)",
  "chess.white_to_move": "백 차례",
+ "chess.pictures_none": "이 터미널은 그림을 보여 주지 않습니다: 기물은 블록 문자로 그려집니다.",
  "chess.window": "창에서 열기",
  "chess.year_from": "시작 연도",
  "chess.year_to": "끝 연도",

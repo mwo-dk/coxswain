@@ -586,6 +586,7 @@
  "chess.sorted_by": "sortert etter",
  "chess.start_tip": "Utgangsstilling (Home)",
  "chess.white_to_move": "Hvit i trekket",
+ "chess.pictures_none": "Denne terminalen viser ikke bilder: brikkene tegnes med blokktegn.",
  "chess.window": "Åpne i et vindu",
  "chess.year_from": "Fra år",
  "chess.year_to": "Til år",

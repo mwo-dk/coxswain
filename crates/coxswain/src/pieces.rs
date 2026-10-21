@@ -13,6 +13,10 @@ const DARK: Color = Color::Rgb(0x16, 0x16, 0x16);
 /// How the pieces are drawn, from the setting and the terminal.
 pub fn pieces(cfg: &coxswain_core::config::Config) -> Pieces {
     let env = |k: &str| std::env::var(k).unwrap_or_default();
+    // `auto` and `pictures`: the SVG pieces themselves where the terminal shows pictures.
+    if matches!(cfg.chess.pieces.as_str(), "auto" | "pictures") && crate::pictures::support().is_some() {
+        return Pieces::Pictures;
+    }
     Pieces::from_config(&cfg.chess.pieces, &env("TERM"), &env("TERM_PROGRAM"))
 }
 

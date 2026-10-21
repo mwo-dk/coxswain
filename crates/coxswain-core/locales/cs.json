@@ -605,6 +605,7 @@
  "chess.sorted_by": "řazeno podle",
  "chess.start_tip": "Základní postavení (Home)",
  "chess.white_to_move": "Bílý je na tahu",
+ "chess.pictures_none": "Tento terminál nezobrazuje obrázky: figury jsou kresleny blokovými znaky.",
  "chess.window": "Otevřít v okně",
  "chess.year_from": "Od roku",
  "chess.year_to": "Do roku",

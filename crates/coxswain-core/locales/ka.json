@@ -586,6 +586,7 @@
  "chess.sorted_by": "დახარისხებულია:",
  "chess.start_tip": "საწყისი პოზიცია (Home)",
  "chess.white_to_move": "თეთრების სვლაა",
+ "chess.pictures_none": "ეს ტერმინალი სურათებს არ აჩვენებს: ფიგურები ბლოკური სიმბოლოებით იხატება.",
  "chess.window": "გახსნა ფანჯარაში",
  "chess.year_from": "დაწყებული წლიდან",
  "chess.year_to": "დასრულებული წლით",

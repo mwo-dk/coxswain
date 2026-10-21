@@ -605,6 +605,7 @@
  "chess.sorted_by": "rūšiuota pagal",
  "chess.start_tip": "Pradinė pozicija (Home)",
  "chess.white_to_move": "Baltųjų ėjimas",
+ "chess.pictures_none": "Šis terminalas nerodo paveikslėlių: figūros piešiamos blokiniais simboliais.",
  "chess.window": "Atidaryti lange",
  "chess.year_from": "Nuo metų",
  "chess.year_to": "Iki metų",

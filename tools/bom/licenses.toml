@@ -37,7 +37,7 @@ file = "gui/public/vendor/netron/LICENSE"
 
 [[bundled]]
 name = "Chess pieces of Uray M. János"
-what = "gui/public/vendor/chess-pieces/*.svg and the masks made from them in crates/coxswain-core/src/mosaic/chess.bin (the terminal app's pieces drawn from block characters), Uray M. János's set after Colin M.L. Burnett's Wikimedia chess pieces, renamed, the DOCTYPE and inner comments taken out, the drawings and attribution kept."
+what = "gui/public/vendor/chess-pieces/*.svg, their copy in crates/coxswain/pieces/ (the terminal app's pictures) and the masks made from them in crates/coxswain-core/src/mosaic/chess.bin (the terminal app's pieces drawn from block characters), Uray M. János's set after Colin M.L. Burnett's Wikimedia chess pieces, renamed, the DOCTYPE and inner comments taken out, the drawings and attribution kept."
 license = "CC-BY-SA-3.0"
 source = "https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces"
 file = "gui/public/vendor/chess-pieces/LICENSE"

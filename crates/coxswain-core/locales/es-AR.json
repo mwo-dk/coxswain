@@ -605,6 +605,7 @@
  "chess.sorted_by": "ordenado por",
  "chess.start_tip": "Posición inicial (Home)",
  "chess.white_to_move": "Juegan las blancas",
+ "chess.pictures_none": "Esta terminal no muestra imágenes: las piezas se dibujan con caracteres de bloque.",
  "chess.window": "Abrir en una ventana",
  "chess.year_from": "Desde el año",
  "chess.year_to": "Hasta el año",

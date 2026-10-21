@@ -605,6 +605,7 @@
  "chess.sorted_by": "ordinate per",
  "chess.start_tip": "Posizione iniziale (Home)",
  "chess.white_to_move": "Muove il Bianco",
+ "chess.pictures_none": "Questo terminale non mostra immagini: i pezzi sono disegnati con caratteri a blocchi.",
  "chess.window": "Apri in una finestra",
  "chess.year_from": "Dall'anno",
  "chess.year_to": "All'anno",

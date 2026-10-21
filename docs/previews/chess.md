@@ -23,6 +23,7 @@ have pages of their own: [Go games](go.md), [Draughts games](draughts.md), [Xian
 - [EPD and FEN positions](#epd-and-fen-positions)
 - [Opening books](#opening-books)
 - [Notation and the board](#notation-and-the-board)
+- [Pieces as pictures in the terminal](#pieces-as-pictures-in-the-terminal)
 - [Finding games](#finding-games)
 - [Files it reads](#files-it-reads)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -175,6 +176,32 @@ pieces from block characters, as large as the window allows, and on a small wind
 chess characters of your font (♚ ♛ ♜ ♝ ♞ ♟), white and black, on coloured squares
 ([Game pieces in the terminal](game-pieces.md)).
 
+## Pieces as pictures in the terminal
+
+Where the terminal can show pictures, the terminal app's board draws the desktop app's own
+pieces, the same drawings, on its squares. It asks the terminal once, the first time a board
+opens, and waits a second at most for the answer:
+
+| Terminal | Pictures by |
+|---|---|
+| kitty, Ghostty | kitty's graphics protocol |
+| foot, WezTerm, xterm with sixel, mlterm, Konsole | sixel |
+| inside tmux | kitty's protocol, when the terminal outside is kitty or Ghostty and `allow-passthrough` is on in tmux (`set -g allow-passthrough on`); Coxswain does not turn it on |
+| the Linux console, Windows' own console, anything else | none: the pieces are drawn from block characters |
+
+A square gets a picture when the board is large enough for squares of two rows or more; a
+small window keeps the figurines. The pieces are drawn on the square's own colour, the
+last move's squares tinted, and a picture goes with its piece when you step on, flip the
+board or close the view. With **pictures** chosen and a terminal that shows none, the line
+above the keys says *This terminal shows no pictures: the pieces are drawn from block
+characters.* Windows Terminal is not asked yet: on Windows the board keeps block characters.
+
+`[chess] pieces` chooses: `auto` (the default) and `pictures` draw pictures where the terminal
+shows them; `figurines` and the block-character choices never do. *Settings → Previews →
+Chess pieces* sets it in both apps; the desktop app always draws pictures.
+
+![The terminal app's game view in foot: the desktop app's chess pieces as sixel pictures on the board's blue squares, the moves beside it](../screenshots/tui-chess-pictures.png)
+
 ## Finding games
 
 The search store reads a PGN file as a line per game: the players, event, site, date, ECO code
@@ -228,6 +255,13 @@ book = "~/chess/books/gm2600.bin"
 **n** and *Flip* in the view change only what you see now; Settings sets what it starts with.
 
 ## Questions
+
+#### Why does the terminal board show no pictures?
+
+The terminal did not say it shows them: it is not one of kitty, Ghostty, foot, WezTerm, xterm
+with sixel, mlterm or Konsole, or it runs inside tmux without `allow-passthrough`, or on
+Windows. The pieces are drawn from block characters then. A small window gives squares too
+small for pictures too: make it larger, and the board takes pictures again.
 
 #### Can I play against an engine?
 

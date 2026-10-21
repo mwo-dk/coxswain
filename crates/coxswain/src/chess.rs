@@ -92,6 +92,8 @@ pub struct Viewer {
     /// outlines of their own.
     squares: [Color; 2],
     pieces: Pieces,
+    /// The pieces as pictures, made as the board needs them (`pictures`).
+    pictures: Option<crate::pictures::Pieces>,
     said: Option<String>,
     /// The opening book whose moves are shown (`polyglot::find`), and the last position's.
     book: Option<PathBuf>,
@@ -186,6 +188,7 @@ impl Viewer {
             },
             squares: chess::board_colours(theme, &cfg.chess.board).map(|c| rgb(&c)),
             pieces: crate::pieces::pieces(cfg),
+            pictures: crate::pictures::support().map(crate::pictures::Pieces::new),
             said: None,
             reading: None,
             hit: None,
@@ -228,6 +231,12 @@ impl Viewer {
             _ => {
                 v.positions = chess::read_positions(path)?;
                 v.show_position(0);
+            }
+        }
+        if v.pieces != Pieces::Pictures {
+            v.pictures = None;
+            if cfg.chess.pieces == "pictures" {
+                v.said = Some(t!("chess.pictures_none"));
             }
         }
         Ok(v)
@@ -1027,6 +1036,8 @@ impl Viewer {
         let fen = now.clone();
         let squares = chess::squares(fen.as_deref().unwrap_or(""));
         let mut lines: Vec<Line> = vec![];
+        // The squares with a piece, for its picture: where, which and on what colour.
+        let mut placed: Vec<(Rect, char, Color)> = vec![];
         for row in 0..8u16 {
             let rank = if self.flip { row } else { 7 - row };
             let mut rows: Vec<Vec<Span>> = (0..cell_h).map(|sub| vec![Span::styled(if sub == cell_h / 2 { format!("{} ", rank + 1) } else { "  ".into() }, dim)]).collect();
@@ -1037,6 +1048,9 @@ impl Viewer {
                 let mut colour = if pieces == Pieces::Figurines { self.board[!light as usize] } else { self.squares[!light as usize] };
                 if last.is_some_and(|(a, b)| a == Some(sq) || b == Some(sq)) {
                     colour = tint(colour, (0xf6, 0xe0, 0x5a));
+                }
+                if let (Pieces::Pictures, Some(p)) = (pieces, squares[sq as usize]) {
+                    placed.push((Rect::new(area.x + 2 + col * cell_w, area.y + row * cell_h, cell_w, cell_h), p, colour));
                 }
                 let piece = squares[sq as usize].map(|p| crate::pieces::Piece {
                     name: p,
@@ -1091,6 +1105,15 @@ impl Viewer {
             lines.push(Line::from(spans));
         }
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
+        // Each picture over its square's figurine, which stays where one cannot be made.
+        if let Some(pics) = self.pictures.as_mut() {
+            for (r, p, colour) in placed {
+                if r.right() <= area.right() && r.bottom() <= area.bottom() {
+                    pics.draw(f.buffer_mut(), r, p, colour);
+                }
+            }
+            pics.finish(f.buffer_mut());
+        }
         self.draw_moves(f, theme, area, board_w, book);
     }
 

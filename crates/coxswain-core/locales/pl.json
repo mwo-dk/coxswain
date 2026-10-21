@@ -624,6 +624,7 @@
  "chess.sorted_by": "posortowano według",
  "chess.start_tip": "Pozycja początkowa (Home)",
  "chess.white_to_move": "Ruch białych",
+ "chess.pictures_none": "Ten terminal nie pokazuje obrazków: bierki są rysowane znakami blokowymi.",
  "chess.window": "Otwórz w oknie",
  "chess.year_from": "Od roku",
  "chess.year_to": "Do roku",

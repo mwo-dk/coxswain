@@ -586,6 +586,7 @@
  "chess.sorted_by": "lajiteltu",
  "chess.start_tip": "Alkuasema (Home)",
  "chess.white_to_move": "Valkoinen siirtää",
+ "chess.pictures_none": "Tämä pääte ei näytä kuvia: nappulat piirretään lohkomerkeistä.",
  "chess.window": "Avaa ikkunassa",
  "chess.year_from": "Vuodesta",
  "chess.year_to": "Vuoteen",

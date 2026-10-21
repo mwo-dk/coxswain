@@ -169,8 +169,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // Whatever was drawn without `fit` (a dialog's text, an error): no control character
     // reaches the terminal, where it would move the cursor or start an escape sequence. Drawn
     // as taking no room, it rides along in the cell before it; taken out, the row stays even.
+    // A sixel picture (`pictures`) is the one sequence let through: it is marked as one column.
     for cell in f.buffer_mut().content.iter_mut() {
-        if cell.symbol().chars().any(char::is_control) {
+        if !matches!(cell.diff_option, ratatui::buffer::CellDiffOption::ForcedWidth(_)) && cell.symbol().chars().any(char::is_control) {
             let clean: String = cell.symbol().chars().filter(|c| !c.is_control()).collect();
             cell.set_symbol(if clean.is_empty() { " " } else { &clean });
         }

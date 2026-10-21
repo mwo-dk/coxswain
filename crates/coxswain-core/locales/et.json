@@ -586,6 +586,7 @@
  "chess.sorted_by": "sorditud",
  "chess.start_tip": "Algseis (Home)",
  "chess.white_to_move": "Käib valge",
+ "chess.pictures_none": "See terminal ei näita pilte: nupud joonistatakse plokkmärkidest.",
  "chess.window": "Ava aknas",
  "chess.year_from": "Aastast",
  "chess.year_to": "Aastani",

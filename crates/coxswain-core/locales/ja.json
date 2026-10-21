@@ -567,6 +567,7 @@
  "chess.sorted_by": "並べ替え：",
  "chess.start_tip": "初期局面 (Home)",
  "chess.white_to_move": "白番",
+ "chess.pictures_none": "この端末は画像を表示できません：駒はブロック文字で描かれます。",
  "chess.window": "ウィンドウで開く",
  "chess.year_from": "開始年",
  "chess.year_to": "終了年",

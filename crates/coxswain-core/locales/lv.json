@@ -605,6 +605,7 @@
  "chess.sorted_by": "kārtots pēc",
  "chess.start_tip": "Sākumpozīcija (Home)",
  "chess.white_to_move": "Baltie kārtējā gājienā",
+ "chess.pictures_none": "Šis terminālis nerāda attēlus: figūras tiek zīmētas ar bloku rakstzīmēm.",
  "chess.window": "Atvērt logā",
  "chess.year_from": "No gada",
  "chess.year_to": "Līdz gadam",

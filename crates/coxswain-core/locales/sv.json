@@ -586,6 +586,7 @@
  "chess.sorted_by": "sorterat efter",
  "chess.start_tip": "Utgångsposition (Home)",
  "chess.white_to_move": "Vit vid draget",
+ "chess.pictures_none": "Den här terminalen visar inga bilder: pjäserna ritas med blocktecken.",
  "chess.window": "Öppna i ett fönster",
  "chess.year_from": "Från år",
  "chess.year_to": "Till år",

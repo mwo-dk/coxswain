@@ -624,6 +624,7 @@
  "chess.sorted_by": "відсортовано за",
  "chess.start_tip": "Початкова позиція (Home)",
  "chess.white_to_move": "Хід білих",
+ "chess.pictures_none": "Цей термінал не показує зображень: фігури малюються блоковими символами.",
  "chess.window": "Відкрити у вікні",
  "chess.year_from": "Від року",
  "chess.year_to": "До року",

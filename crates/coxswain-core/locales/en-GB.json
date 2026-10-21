@@ -555,6 +555,7 @@
  "chess.sorted_by": "sorted by",
  "chess.start_tip": "Start position (Home)",
  "chess.white_to_move": "White to move",
+ "chess.pictures_none": "This terminal shows no pictures: the pieces are drawn from block characters.",
  "chess.window": "Open in a window",
  "chess.year_from": "From year",
  "chess.year_to": "To year",

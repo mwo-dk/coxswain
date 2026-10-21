@@ -586,6 +586,7 @@
  "chess.sorted_by": "sortiert nach",
  "chess.start_tip": "Grundstellung (Home)",
  "chess.white_to_move": "Weiß am Zug",
+ "chess.pictures_none": "Dieses Terminal zeigt keine Bilder: Die Figuren werden aus Blockzeichen gezeichnet.",
  "chess.window": "In einem Fenster öffnen",
  "chess.year_from": "Ab Jahr",
  "chess.year_to": "Bis Jahr",
