@@ -5,7 +5,7 @@
 **Alt+U** shows a folder or a drive as a map of every file in it, each a rectangle as big as the
 file, so the space hogs stand out at a glance.
 
-<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/space.png"><img src="../screenshots/space.gif" alt="The desktop app: Alt+U on the demo home measures it, then shows it as a treemap: the virtual machine, the flight videos, the music and the raw photos as coloured rectangles inside their folders; the pointer moves over the launch video and its name, size and type show; a click on .nef in By type lights up the photos and dims the rest; a right-click zooms into Videos and Backspace zooms out again"></picture>
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/space.png"><img src="../screenshots/space.gif" alt="The desktop app: Alt+U on the demo home measures it, then shows it as a treemap: the virtual machine, the flight videos, the music and the raw photos as coloured rectangles inside their folders; the pointer moves from the virtual machine down to the flight videos, framing each in green and lighting the folders it is in, with its name, size and type on a card; a click on .nef in By type lights up the photos and dims the rest; a right-click zooms into Videos, the folder growing to fill the map, and Backspace shrinks it back"></picture>
 
 ## Contents
 
@@ -46,7 +46,7 @@ Features has it.
 
 ## What you see
 
-![Space in the desktop app: the demo home as a treemap, the virtual machine freebsd-15.qcow2 the largest rectangle, then the videos, Downloads with installer.iso, the music and the raw photos, each folder with its name on a title strip; By type on the right with .qcow2, .mp4, .iso and the rest, each with its colour, size and share](../screenshots/space.png)
+![Space in the desktop app: the demo home as a treemap in Cyber's greens and ambers, the virtual machine freebsd-15.qcow2 the largest rectangle with its name centred, framed in green under the pointer, then the videos, Downloads with installer.iso, the music and the raw photos, each folder with its name on a title strip; By type on the right with .qcow2, .mp4, .iso and the rest, each with its colour, size and share](../screenshots/space.png)
 
 | Part | Desktop app | Terminal app |
 |---|---|---|
