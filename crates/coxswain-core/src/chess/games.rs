@@ -50,6 +50,10 @@ impl Head {
 
     /// ECO code and opening name: the file's own, else by the moves, else by the code.
     pub(crate) fn opening(&self) -> (String, String) {
+        if self.format == super::Format::Pbn {
+            // A deal's contract stands where a game's opening does.
+            return (String::new(), self.tag(OPENING).to_string());
+        }
         if self.format != super::Format::Pgn {
             return Default::default();
         }
@@ -131,6 +135,9 @@ fn read_line(r: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<usize> {
 pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     if matches!(format, super::Format::Kif | super::Format::Csa) {
         return scan_shogi(&mut r, stop, format, each);
+    }
+    if format == super::Format::Pbn {
+        return scan_pbn(&mut r, stop, each);
     }
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
     let mut line = Vec::new();
@@ -223,6 +230,63 @@ fn scan_shogi(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut
             at += n as u64;
             start = at;
             continue;
+        }
+        if game.len() + line.len() <= MAX_GAME as usize {
+            game.extend_from_slice(&line);
+        }
+        at += n as u64;
+    }
+}
+
+/// The deals of a PBN file (`crate::bridge`), read as they stream by: a deal ends at an empty
+/// line before the next one's tags. Each deal is read in full, up to `MAX_GAME` bytes of it;
+/// a tag whose value is `#` takes the deal before's, as PBN says.
+fn scan_pbn(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let (mut game, mut line) = (Vec::new(), Vec::new());
+    let (mut at, mut start, mut blank) = (0u64, 0u64, true);
+    let mut last: HashMap<String, String> = HashMap::new();
+    let mut emit = |game: &mut Vec<u8>, start: u64, end: u64| -> bool {
+        if !game.iter().any(|c| !c.is_ascii_whitespace()) {
+            game.clear();
+            return true;
+        }
+        let mut g = crate::bridge::parse(&text(game));
+        game.clear();
+        for (k, v) in &mut g.tags {
+            if v == "#" {
+                *v = last.get(k).cloned().unwrap_or_default();
+            } else if last.len() < 64 || last.contains_key(k) {
+                last.insert(k.clone(), v.clone());
+            }
+        }
+        let (pairs, contract) = crate::bridge::summary(&g);
+        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.nodes.len() as u32, sans: vec![], format: super::Format::Pbn };
+        let tag = |k: &str| g.tag(k).unwrap_or("").to_string();
+        head.tags[WHITE] = pairs[0].clone();
+        head.tags[BLACK] = pairs[1].clone();
+        head.tags[EVENT] = tag("Event");
+        head.tags[SITE] = tag("Site");
+        head.tags[DATE] = tag("Date");
+        head.tags[OPENING] = contract;
+        head.tags[RESULT] = g.result.clone();
+        each(&head)
+    };
+    loop {
+        let n = read_line(&mut r, &mut line)?;
+        if n == 0 {
+            emit(&mut game, start, at);
+            return Ok(());
+        }
+        let t = line.trim_ascii();
+        if t.starts_with(b"[") && blank && !game.is_empty() {
+            if !emit(&mut game, start, at) || stop.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            start = at;
+        }
+        blank = t.is_empty();
+        if game.is_empty() {
+            start = at;
         }
         if game.len() + line.len() <= MAX_GAME as usize {
             game.extend_from_slice(&line);
@@ -350,7 +414,7 @@ pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Res
 /// Whose games a PGN-family file holds: draughts for `.pdn`, xiangqi when the first tags of a
 /// PGN file say so (`xiangqi::is_xiangqi`), else chess.
 pub fn kind(path: &Path) -> super::Format {
-    if let Some(f @ (super::Format::Pdn | super::Format::Kif | super::Format::Csa)) = super::format(path) {
+    if let Some(f @ (super::Format::Pdn | super::Format::Kif | super::Format::Csa | super::Format::Pbn)) = super::format(path) {
         return f;
     }
     let mut head = vec![];
@@ -697,7 +761,8 @@ impl Library {
             eco: eco_text(r.eco),
             opening: name(r.opening),
             // Shogi counts every move; chess, draughts and xiangqi a move of each side as one.
-            moves: if matches!(self.format, super::Format::Kif | super::Format::Csa) { r.plies as u32 } else { (r.plies as u32).div_ceil(2) },
+            // Bridge counts the tricks played.
+            moves: if matches!(self.format, super::Format::Kif | super::Format::Csa | super::Format::Pbn) { r.plies as u32 } else { (r.plies as u32).div_ceil(2) },
         })
     }
 
@@ -723,6 +788,7 @@ impl Library {
             super::Format::Pdn => crate::draughts::parse(&text),
             super::Format::Xiangqi => crate::xiangqi::parse(&text),
             super::Format::Kif | super::Format::Csa => crate::shogi::parse(&text, self.format),
+            super::Format::Pbn => crate::bridge::parse(&text),
             _ => pgn::parse(&text),
         })
     }

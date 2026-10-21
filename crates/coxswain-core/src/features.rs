@@ -173,6 +173,7 @@ pub const FEATURES: &[Feature] = &[
     f("draughts", "previews/draughts.md", &[Chess, View]),
     f("xiangqi", "previews/xiangqi.md", &[Chess, View]),
     f("shogi", "previews/shogi.md", &[Chess, View]),
+    f("bridge", "previews/bridge.md", &[Chess, View]),
     f(
         "neural_networks",
         "previews/neural-networks.md",

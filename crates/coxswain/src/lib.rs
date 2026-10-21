@@ -3273,7 +3273,7 @@ impl App {
                         }
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
-                            if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa))
+                            if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa | coxswain_core::chess::Format::Pbn))
                                 && let Some(snippet) = hit.snippet.clone()
                             {
                                 let path = hit.path.clone();
