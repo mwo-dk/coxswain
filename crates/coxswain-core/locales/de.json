@@ -868,6 +868,30 @@
  "err.unknown_setting": "Unbekannte Einstellung {name}",
  "err.unsupported_value": "{name}: nicht unterstützter Wert",
  "error.copy": "{what} konnte nicht kopiert werden",
+ "error.counted_copy": {
+  "one": "{done} von {all} kopiert; {n} konnte nicht kopiert werden",
+  "other": "{done} von {all} kopiert; {n} konnten nicht kopiert werden"
+ },
+ "error.counted_delete": {
+  "one": "{done} von {all} gelöscht; {n} konnte nicht gelöscht werden",
+  "other": "{done} von {all} gelöscht; {n} konnten nicht gelöscht werden"
+ },
+ "error.counted_extract": {
+  "one": "{done} von {all} entpackt; {n} konnte nicht entpackt werden",
+  "other": "{done} von {all} entpackt; {n} konnten nicht entpackt werden"
+ },
+ "error.counted_move": {
+  "one": "{done} von {all} verschoben; {n} konnte nicht verschoben werden",
+  "other": "{done} von {all} verschoben; {n} konnten nicht verschoben werden"
+ },
+ "error.counted_pack": {
+  "one": "{done} von {all} gepackt; {n} konnte nicht gepackt werden",
+  "other": "{done} von {all} gepackt; {n} konnten nicht gepackt werden"
+ },
+ "error.counted_trash": {
+  "one": "{done} von {all} in den Papierkorb verschoben; {n} konnte nicht in den Papierkorb verschoben werden",
+  "other": "{done} von {all} in den Papierkorb verschoben; {n} konnten nicht in den Papierkorb verschoben werden"
+ },
  "error.create": "{what} konnte nicht erstellt werden",
  "error.delete": "{what} konnte nicht gelöscht werden",
  "error.extract": "{what} konnte nicht entpackt werden",

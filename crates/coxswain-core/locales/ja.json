@@ -835,6 +835,24 @@
  "err.unknown_setting": "不明な設定 {name}",
  "err.unsupported_value": "{name}: 対応していない値です",
  "error.copy": "{what} をコピーできません",
+ "error.counted_copy": {
+  "other": "{all} 件中 {done} 件をコピーしました（{n} 件はコピーできません）"
+ },
+ "error.counted_delete": {
+  "other": "{all} 件中 {done} 件を削除しました（{n} 件は削除できません）"
+ },
+ "error.counted_extract": {
+  "other": "{all} 件中 {done} 件を展開しました（{n} 件は展開できません）"
+ },
+ "error.counted_move": {
+  "other": "{all} 件中 {done} 件を移動しました（{n} 件は移動できません）"
+ },
+ "error.counted_pack": {
+  "other": "{all} 件中 {done} 件を圧縮しました（{n} 件は圧縮できません）"
+ },
+ "error.counted_trash": {
+  "other": "{all} 件中 {done} 件をごみ箱に移動しました（{n} 件はごみ箱に移動できません）"
+ },
  "error.create": "{what} を作成できません",
  "error.delete": "{what} を削除できません",
  "error.extract": "{what} を展開できません",

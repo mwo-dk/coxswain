@@ -868,6 +868,30 @@
  "err.unknown_setting": "Ukendt indstilling {name}",
  "err.unsupported_value": "{name}: værdien understøttes ikke",
  "error.copy": "Kunne ikke kopiere {what}",
+ "error.counted_copy": {
+  "one": "{done} af {all} kopieret; {n} kunne ikke kopieres",
+  "other": "{done} af {all} kopieret; {n} kunne ikke kopieres"
+ },
+ "error.counted_delete": {
+  "one": "{done} af {all} slettet; {n} kunne ikke slettes",
+  "other": "{done} af {all} slettet; {n} kunne ikke slettes"
+ },
+ "error.counted_extract": {
+  "one": "{done} af {all} udpakket; {n} kunne ikke udpakkes",
+  "other": "{done} af {all} udpakket; {n} kunne ikke udpakkes"
+ },
+ "error.counted_move": {
+  "one": "{done} af {all} flyttet; {n} kunne ikke flyttes",
+  "other": "{done} af {all} flyttet; {n} kunne ikke flyttes"
+ },
+ "error.counted_pack": {
+  "one": "{done} af {all} pakket; {n} kunne ikke pakkes",
+  "other": "{done} af {all} pakket; {n} kunne ikke pakkes"
+ },
+ "error.counted_trash": {
+  "one": "{done} af {all} flyttet til papirkurven; {n} kunne ikke flyttes til papirkurven",
+  "other": "{done} af {all} flyttet til papirkurven; {n} kunne ikke flyttes til papirkurven"
+ },
  "error.create": "Kunne ikke oprette {what}",
  "error.delete": "Kunne ikke slette {what}",
  "error.extract": "Kunne ikke udpakke {what}",

@@ -6,7 +6,7 @@
   import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, convertMedia, stopMedia, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
-  import { t, tn } from "./i18n.svelte.js";
+  import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
   import Preview from "./Preview.svelte";
@@ -147,6 +147,19 @@
   }
 
 
+  /** The title over what failed of `paths` (as coxswain_core::undo::failure_title): for one
+   *  item "Could not copy …", for several how many went through and how many did not. `kind`
+   *  is copy, move, extract, trash, delete or pack; a pack is one archive, all or nothing. */
+  function failTitle(kind, paths, what) {
+    const all = paths.length;
+    if (all <= 1) return t(`error.${kind}`, { what });
+    return (lines) => {
+      const failed = kind === "pack" ? all : Math.min(lines, all);
+      const p = { done: num(all - failed), all: num(all) };
+      return { copy: () => tn("error.counted_copy", failed, p), move: () => tn("error.counted_move", failed, p), extract: () => tn("error.counted_extract", failed, p), trash: () => tn("error.counted_trash", failed, p), delete: () => tn("error.counted_delete", failed, p), pack: () => tn("error.counted_pack", failed, p) }[kind]();
+    };
+  }
+
   /** Run `start(password, only)`, saying meanwhile that `what` is being worked on; when only
    *  locked archives were in the way (every failure says so), ask for the password and run it
    *  again with that, for just the paths that failed. The password lives only in this call.
@@ -177,7 +190,8 @@
         return;
       }
       ui.status = "";
-      ui.modal = failure(fail, e);
+      // A title made from how many failed: one line each.
+      ui.modal = failure(typeof fail === "function" ? fail(lines.length) : fail, e);
     }
     for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
     await reloadAll();
@@ -185,7 +199,7 @@
 
   /** Copy or move `paths` (named relative to `base`) to `dest`, with its status line and error. */
   const transferTo = (paths, base, dest, isMove, what = describe(paths)) =>
-    op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, t(isMove ? "error.move" : "error.copy", { what }));
+    op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, failTitle(isMove ? "move" : "copy", paths, what));
 
   function transfer(isMove, dest = otherTab().dir) {
     const paths = targets();
@@ -213,7 +227,7 @@
     const gone = plan.forever;
     // Where the trash gives nothing back, the status line says so.
     const said = gone ? t("status.deleted", { what }) : ui.cfg.trash_restores ? t("status.trashed", { what }) : `${t("status.trashed", { what })} · ${t("undo.no_restore_hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}`;
-    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever: gone, password }), said, what, t(gone ? "error.delete" : "error.trash", { what }));
+    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever: gone, password }), said, what, failTitle(gone ? "delete" : "trash", paths, what));
     const text = t(plan.question, { what, archive: inside ? basename(inside) : "" });
     if (ui.cfg.confirm_delete || plan.must_confirm) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run, feature: "delete" };
     else run();
@@ -412,11 +426,16 @@
       const e = item(tb);
       if (!e || e.name === ".." || readOnly()) return;
       const what = describe([e.path]);
-      prompt(t("dialog.rename", { what }), t("app.name_label"), e.name, t("verb.rename"), async (name) => {
-        if (!name.trim() || name === e.name) return;
-        await op((password, only) => invoke("rename", { paths: only ?? [e.path], base: tb.dir, dest: name, password }), t("status.renamed", { what }), what, t("error.rename", { what }));
-        await load(tb, tb.dir, name);
-      }, "move_and_rename");
+      // A newline or an escape in the name shows as its picture (␊, ␛), and comes back as it
+      // was: text left as shown renames nothing.
+      invoke("rename_shown", { name: e.name }).then((shown) =>
+        prompt(t("dialog.rename", { what }), t("app.name_label"), shown, t("verb.rename"), async (typed) => {
+          const name = typed.trim() ? await invoke("rename_typed", { name: e.name, typed }) : null;
+          if (name == null) return;
+          await op((password, only) => invoke("rename", { paths: only ?? [e.path], base: tb.dir, dest: name, password }), t("status.renamed", { what }), what, t("error.rename", { what }));
+          await load(tb, tb.dir, name);
+        }, "move_and_rename"),
+      );
     },
     action_menu: () => actionMenu(),
     new_folder: () =>
@@ -476,7 +495,7 @@
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
-        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, t("error.extract", { what }));
+        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, failTitle("extract", paths, what));
       }, "pack_and_extract");
     },
     pack: () => {
@@ -496,7 +515,7 @@
         run: (d, password, hideNames) => {
           const f = packFormat(ui.cfg.pack_formats, d);
           if (f) ui.packEnding = f.endings[0];
-          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, t("error.pack", { what }));
+          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, failTitle("pack", paths, what));
         },
       };
     },

@@ -868,6 +868,30 @@
  "err.unknown_setting": "تنظیم ناشناخته‌ی {name}",
  "err.unsupported_value": "{name}: مقدار پشتیبانی‌نشده",
  "error.copy": "کپی {what} ممکن نشد",
+ "error.counted_copy": {
+  "one": "{done} از {all} کپی شد؛ {n} کپی نشد",
+  "other": "{done} از {all} کپی شد؛ {n} کپی نشد"
+ },
+ "error.counted_delete": {
+  "one": "{done} از {all} حذف شد؛ {n} حذف نشد",
+  "other": "{done} از {all} حذف شد؛ {n} حذف نشد"
+ },
+ "error.counted_extract": {
+  "one": "{done} از {all} استخراج شد؛ {n} استخراج نشد",
+  "other": "{done} از {all} استخراج شد؛ {n} استخراج نشد"
+ },
+ "error.counted_move": {
+  "one": "{done} از {all} منتقل شد؛ {n} منتقل نشد",
+  "other": "{done} از {all} منتقل شد؛ {n} منتقل نشد"
+ },
+ "error.counted_pack": {
+  "one": "{done} از {all} بسته‌بندی شد؛ {n} بسته‌بندی نشد",
+  "other": "{done} از {all} بسته‌بندی شد؛ {n} بسته‌بندی نشد"
+ },
+ "error.counted_trash": {
+  "one": "{done} از {all} به سطل زباله منتقل شد؛ {n} به سطل زباله منتقل نشد",
+  "other": "{done} از {all} به سطل زباله منتقل شد؛ {n} به سطل زباله منتقل نشد"
+ },
  "error.create": "ایجاد {what} ممکن نشد",
  "error.delete": "حذف {what} ممکن نشد",
  "error.extract": "استخراج {what} ممکن نشد",

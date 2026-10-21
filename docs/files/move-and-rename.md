@@ -46,6 +46,11 @@ For many names at once, use [Batch rename (Ctrl+M)](batch-rename.md) in the desk
 - The status line says `Moved "report.pdf"` or `Moved 3 items`; marks are cleared and both
   panels are read again.
 - After renaming one file in place, the terminal app keeps the cursor on it under its new name.
+- A newline, a tab or another control character in a name shows in the Rename field as its
+  picture: `␊` for a newline, `␉` for a tab, `␛` for an escape, `␡` for delete, and `␦` for
+  the rarer C1 characters. What you do not change is kept as it was, so the file keeps its
+  newline. A name left as it was shown renames nothing, and the status line says nothing.
+  Typing a picture (`␊`) writes the character itself. The same in both apps.
 - A target that exists is an error: a dialog titled *Could not move "report.pdf"*, with the
   cause and, under *Details*, `… exists`; nothing is written over
   ([When something goes wrong](copy.md#when-something-goes-wrong)).
@@ -103,6 +108,12 @@ It holds a symbolic link, a pipe or a device, which an archive leaves out. Movin
 delete what never went in, so the move is refused before anything is added or deleted:
 *Could not move …*, with `… is a link, a pipe or a device, which an archive leaves out, so
 nothing was moved`. Copy it with **F5** instead (the links are left out, the originals stay).
+
+#### My file has a newline in its name. Will Rename spoil it?
+
+No. The field shows the newline as `␊` (a tab as `␉`), and what you leave alone stays the
+character it was. Press **Enter** without changing anything and nothing is renamed. To take the
+newline out, delete the `␊`; to put one in, type `␊`.
 
 #### Can I undo a move or rename?
 

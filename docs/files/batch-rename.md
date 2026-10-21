@@ -35,7 +35,11 @@ counter. Every new name is shown before anything changes, and conflicts are caug
 ## What you see
 
 - The title says *Batch rename 12 items*.
-- The list shows every name as `old → new`; names that change are highlighted.
+- The list shows every name as `old → new`; names that change are highlighted. A newline, a
+  tab or another control character in a name shows as its picture (`␊`, `␉`, `␛`), so you can
+  see it; a name the pattern does not change is never renamed. Typed in *Find* or *Replace
+  with*, a picture is the character itself: *Find* `␊` and *Replace with* `-` turns the
+  newline in `one␊two.txt` into `one-two.txt`.
 - A rename that cannot happen is marked red with its reason: `empty name`, `contains a path
   separator`, `name already taken` (two files getting the same name, or a name taken by a
   file that is not itself being renamed), or, on Windows, `a name Windows does not allow` (one
@@ -93,6 +97,11 @@ Each file is first renamed to a temporary name `.coxswain-rename-…` and then t
 the system refuses a step (a disk removed mid-way), the error is shown in the dialog, and every
 file gets its old name back, the ones already renamed before the failure too: the batch is
 done whole, or not at all.
+
+#### How do I take newlines out of names?
+
+The list shows a newline as `␊`. Type `␊` in *Find* (it means the newline) and what should
+stand there in *Replace with*, tick *Replace all matches*, and press **Enter**.
 
 #### Why is `b.txt` a conflict for `a.txt` when only `B.txt` exists?
 

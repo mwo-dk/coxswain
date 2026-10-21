@@ -901,6 +901,36 @@
  "err.unknown_setting": "הגדרה לא ידועה {name}",
  "err.unsupported_value": "{name}: ערך לא נתמך",
  "error.copy": "לא ניתן להעתיק את {what}",
+ "error.counted_copy": {
+  "one": "הועתקו {done} מתוך {all}; {n} לא הועתק",
+  "other": "הועתקו {done} מתוך {all}; {n} לא הועתקו",
+  "two": "הועתקו {done} מתוך {all}; {n} לא הועתקו"
+ },
+ "error.counted_delete": {
+  "one": "נמחקו {done} מתוך {all}; {n} לא נמחק",
+  "other": "נמחקו {done} מתוך {all}; {n} לא נמחקו",
+  "two": "נמחקו {done} מתוך {all}; {n} לא נמחקו"
+ },
+ "error.counted_extract": {
+  "one": "חולצו {done} מתוך {all}; {n} לא חולץ",
+  "other": "חולצו {done} מתוך {all}; {n} לא חולצו",
+  "two": "חולצו {done} מתוך {all}; {n} לא חולצו"
+ },
+ "error.counted_move": {
+  "one": "הועברו {done} מתוך {all}; {n} לא הועבר",
+  "other": "הועברו {done} מתוך {all}; {n} לא הועברו",
+  "two": "הועברו {done} מתוך {all}; {n} לא הועברו"
+ },
+ "error.counted_pack": {
+  "one": "נארזו {done} מתוך {all}; {n} לא נארז",
+  "other": "נארזו {done} מתוך {all}; {n} לא נארזו",
+  "two": "נארזו {done} מתוך {all}; {n} לא נארזו"
+ },
+ "error.counted_trash": {
+  "one": "הועברו לסל המיחזור {done} מתוך {all}; {n} לא הועבר לסל המיחזור",
+  "other": "הועברו לסל המיחזור {done} מתוך {all}; {n} לא הועברו לסל המיחזור",
+  "two": "הועברו לסל המיחזור {done} מתוך {all}; {n} לא הועברו לסל המיחזור"
+ },
  "error.create": "לא ניתן ליצור את {what}",
  "error.delete": "לא ניתן למחוק את {what}",
  "error.extract": "לא ניתן לחלץ את {what}",

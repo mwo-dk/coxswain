@@ -901,6 +901,36 @@
  "err.unknown_setting": "Opción desconocida: {name}",
  "err.unsupported_value": "{name}: valor no admitido",
  "error.copy": "No se pudo copiar {what}",
+ "error.counted_copy": {
+  "many": "Se copiaron {done} de {all}; {n} no se pudieron copiar",
+  "one": "Se copiaron {done} de {all}; {n} no se pudo copiar",
+  "other": "Se copiaron {done} de {all}; {n} no se pudieron copiar"
+ },
+ "error.counted_delete": {
+  "many": "Se eliminaron {done} de {all}; {n} no se pudieron eliminar",
+  "one": "Se eliminaron {done} de {all}; {n} no se pudo eliminar",
+  "other": "Se eliminaron {done} de {all}; {n} no se pudieron eliminar"
+ },
+ "error.counted_extract": {
+  "many": "Se extrajeron {done} de {all}; {n} no se pudieron extraer",
+  "one": "Se extrajeron {done} de {all}; {n} no se pudo extraer",
+  "other": "Se extrajeron {done} de {all}; {n} no se pudieron extraer"
+ },
+ "error.counted_move": {
+  "many": "Se movieron {done} de {all}; {n} no se pudieron mover",
+  "one": "Se movieron {done} de {all}; {n} no se pudo mover",
+  "other": "Se movieron {done} de {all}; {n} no se pudieron mover"
+ },
+ "error.counted_pack": {
+  "many": "Se comprimieron {done} de {all}; {n} no se pudieron comprimir",
+  "one": "Se comprimieron {done} de {all}; {n} no se pudo comprimir",
+  "other": "Se comprimieron {done} de {all}; {n} no se pudieron comprimir"
+ },
+ "error.counted_trash": {
+  "many": "Se movieron a la papelera {done} de {all}; {n} no se pudieron mover a la papelera",
+  "one": "Se movieron a la papelera {done} de {all}; {n} no se pudo mover a la papelera",
+  "other": "Se movieron a la papelera {done} de {all}; {n} no se pudieron mover a la papelera"
+ },
  "error.create": "No se pudo crear {what}",
  "error.delete": "No se pudo eliminar {what}",
  "error.extract": "No se pudo extraer {what}",

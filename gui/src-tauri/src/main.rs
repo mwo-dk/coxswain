@@ -1428,7 +1428,8 @@ async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Opt
         .map_err(|e| e.to_string())?;
     ctx.changed(&touched);
     ctx.remember(rec);
-    let errors: Vec<String> = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
+    // One line for each item that failed: the page counts them for the title.
+    let errors: Vec<String> = failed.iter().map(|(p, e)| format!("{}: {}", p.display(), e.to_string().replace('\n', " "))).collect();
     if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
 }
 
@@ -1512,14 +1513,36 @@ async fn dir_sizes(paths: Vec<PathBuf>, tab: Option<String>, ctx: tauri::State<'
         .map_err(|e| e.to_string())
 }
 
+/// A planned rename, with both names as the list shows them (a newline as `␊`).
+#[derive(Serialize)]
+struct PlannedShown {
+    #[serde(flatten)]
+    plan: Planned,
+    from_shown: String,
+    to_shown: String,
+}
+
 #[tauri::command(async)]
-fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement: String, flags: Flags) -> Res<Vec<Planned>> {
+fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement: String, flags: Flags) -> Res<Vec<PlannedShown>> {
     let existing: Vec<String> = std::fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
         .flatten()
         .map(|d| d.file_name().to_string_lossy().into_owned())
         .collect();
-    rename::plan(&selected, &existing, &pattern, &replacement, flags)
+    let plan = rename::plan(&selected, &existing, &pattern, &replacement, flags)?;
+    Ok(plan.into_iter().map(|p| PlannedShown { from_shown: rename::shown(&p.from), to_shown: rename::shown(&p.to), plan: p }).collect())
+}
+
+/// A name as the Rename field shows it: a control character as its picture.
+#[tauri::command]
+fn rename_shown(name: String) -> String {
+    rename::shown(&name)
+}
+
+/// The new name typed over `name` in the Rename field, or `None` when the text is as shown.
+#[tauri::command]
+fn rename_typed(name: String, typed: String) -> Option<String> {
+    rename::typed(&name, &typed)
 }
 
 #[tauri::command(async)]
@@ -2377,7 +2400,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, name_ranks, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, scripts_folder,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, scripts_folder,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

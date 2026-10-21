@@ -753,7 +753,7 @@
         <ul class="list plan">
           {#each m.plan as p (p.from)}
             <li class:changed={p.from !== p.to} class:bad={p.conflict}>
-              <span class="from">{p.from}</span><span class="arrow">→</span><span class="to">{p.to}</span>
+              <span class="from">{p.from_shown}</span><span class="arrow">→</span><span class="to">{p.to_shown}</span>
               {#if p.conflict}<span class="why">{p.conflict}</span>{/if}
             </li>
           {/each}

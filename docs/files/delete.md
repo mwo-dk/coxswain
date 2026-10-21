@@ -38,8 +38,9 @@ The dialog is titled *Delete*. Under the question, both apps show the key line *
 bin · Esc Cancel* (*Enter Delete · Esc Cancel* for **Shift+F8** and inside an archive); **Y**
 and **N** work too. Afterwards the status line says `Moved 3 items to the bin` or
 `Deleted 3 items`, the marks are cleared and the panels are read again. When something could
-not be deleted, a dialog titled *Could not move 3 items to the bin* (or *Could not delete …*)
-gives the cause in one line and each file with its reason under *Details*
+not be deleted, a dialog titled with how many went and how many did not (*2 of 3 moved to the
+bin; 1 could not be moved to the bin*, or *2 of 3 deleted; 1 could not be deleted*; for one item
+*Could not delete "report.pdf"*) gives the cause in one line and each file with its reason under *Details*
 ([When something goes wrong](copy.md#when-something-goes-wrong)).
 
 Inside an archive the button reads *Delete* for **F8** too, and the status line says

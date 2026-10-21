@@ -868,6 +868,30 @@
  "err.unknown_setting": "Անհայտ կարգավորում՝ {name}",
  "err.unsupported_value": "{name}՝ չաջակցվող արժեք",
  "error.copy": "Չհաջողվեց պատճենել՝ {what}",
+ "error.counted_copy": {
+  "one": "Պատճենվեց՝ {done}/{all}; չհաջողվեց պատճենել՝ {n}",
+  "other": "Պատճենվեց՝ {done}/{all}; չհաջողվեց պատճենել՝ {n}"
+ },
+ "error.counted_delete": {
+  "one": "Ջնջվեց՝ {done}/{all}; չհաջողվեց ջնջել՝ {n}",
+  "other": "Ջնջվեց՝ {done}/{all}; չհաջողվեց ջնջել՝ {n}"
+ },
+ "error.counted_extract": {
+  "one": "Հանվեց՝ {done}/{all}; չհաջողվեց հանել՝ {n}",
+  "other": "Հանվեց՝ {done}/{all}; չհաջողվեց հանել՝ {n}"
+ },
+ "error.counted_move": {
+  "one": "Տեղափոխվեց՝ {done}/{all}; չհաջողվեց տեղափոխել՝ {n}",
+  "other": "Տեղափոխվեց՝ {done}/{all}; չհաջողվեց տեղափոխել՝ {n}"
+ },
+ "error.counted_pack": {
+  "one": "Արխիվացվեց՝ {done}/{all}; չհաջողվեց արխիվացնել՝ {n}",
+  "other": "Արխիվացվեց՝ {done}/{all}; չհաջողվեց արխիվացնել՝ {n}"
+ },
+ "error.counted_trash": {
+  "one": "Աղբարկղ տեղափոխվեց՝ {done}/{all}; չհաջողվեց աղբարկղ տեղափոխել՝ {n}",
+  "other": "Աղբարկղ տեղափոխվեց՝ {done}/{all}; չհաջողվեց աղբարկղ տեղափոխել՝ {n}"
+ },
  "error.create": "Չհաջողվեց ստեղծել՝ {what}",
  "error.delete": "Չհաջողվեց ջնջել՝ {what}",
  "error.extract": "Չհաջողվեց հանել՝ {what}",
