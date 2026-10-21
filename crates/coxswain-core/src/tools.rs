@@ -568,6 +568,19 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "lazygit",
             "JesseDuffield.lazygit",
         ],
+        // The chess engine the chess view asks (`chess::play`). IPS and winget: none to name.
+        "stockfish" => [
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "",
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "",
+        ],
         "tig" => [
             "tig", "tig", "", "ooce/application/tig", "tig", "tig", "tig", "tig", "tig", "",
         ],

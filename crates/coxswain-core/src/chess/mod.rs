@@ -1,12 +1,13 @@
 //! Chess games and positions (docs/previews/chess.md), for both apps: PGN files (also
 //! `.pgn.gz` and `.pgn.zst`) as a table of games, each game as a board with its moves and
-//! variations; EPD and FEN files as their positions. Reading only: nothing is played or
-//! analysed. Moves are shown in figurines (♘f3) or in the letters of the app's language; the
+//! variations; EPD and FEN files as their positions. A position can be played on (`play`), in
+//! the view only, and an installed engine asked about it. Moves are shown in figurines (♘f3) or in the letters of the app's language; the
 //! files keep English SAN.
 
 pub mod games;
 pub mod openings;
 pub mod pgn;
+pub mod play;
 pub mod polyglot;
 
 pub use games::{Library, Progress, Query, Row, Sort};

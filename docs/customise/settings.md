@@ -170,6 +170,10 @@ Opening this area asks the container runtime which images it has.
 | *Chess board* | *From the theme*, *Tournament, green*, *Tournament, brown* (`chess_board`); Go and draughts boards too | `[chess] board` |
 | *Opening book* | A path to a Polyglot `.bin` book whose moves the chess board shows; empty: *The first book next to the game file* (`chess_book`, [Opening books](../previews/chess.md#opening-books)) | `[chess] book` |
 | *Game pieces in the terminal* | *As fine as the terminal draws*, *Octants*, *Sextants*, *Quadrants*, *Half blocks*, *Figurines*: how the terminal app draws the pieces (`chess_pieces`, [Game pieces in the terminal](../previews/game-pieces.md)) | `[chess] pieces` |
+| *Chess engine on* | Off: the engine is asked only after *Engine* (**a**) in the view (`chess_analysis`, [The engine](../previews/chess-play.md#the-engine)) | `[chess] analysis` |
+| *Chess engine* | A UCI engine's program or path; empty: *Stockfish, when installed* (`chess_engine`) | `[chess] engine` |
+| *Engine time (ms)* | 100 to 60000: how long the engine thinks about a position (`chess_engine_time`) | `[chess] engine_time` |
+| *Engine lines* | 1 to 5: how many of its best lines are shown (`chess_engine_lines`) | `[chess] engine_lines` |
 
 ## Looks
 

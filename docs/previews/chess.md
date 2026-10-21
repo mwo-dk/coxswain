@@ -6,9 +6,10 @@ A **PGN** file holds chess games: who played, where and when, and every move, of
 variations and comments. Coxswain shows one as a **table of games** you can filter and sort,
 and each game as a **board with its moves**, stepped through move by move. **EPD** and **FEN**
 files hold positions; Coxswain shows each on the board. A **Polyglot opening book** (`.bin`)
-adds its moves for each position, with their weights. Both apps have it. Coxswain only reads:
-it does not play, check or analyse. Go games (SGF) and draughts games
-(PDN) have pages of their own: [Go games](go.md), [Draughts games](draughts.md).
+adds its moves for each position, with their weights. Both apps have it. Coxswain reads the
+files and never changes them: you can [play on from any position and ask an installed
+engine](chess-play.md), and your moves are saved only as a new file when you ask. Go games (SGF)
+and draughts games (PDN) have pages of their own: [Go games](go.md), [Draughts games](draughts.md).
 
 <picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/chess.png"><img src="../screenshots/chess.gif" alt="Morphy's Opera Game of 1858 in the desktop app's preview pane: the board in the Cyber theme's greens, the moves beside it in figurines, the moves stepped through with the right arrow key until the mate on d8"></picture>
 
@@ -93,6 +94,8 @@ standard NAGs after it.
 | **Home** / **End** | The start position / the last move of the line | The same |
 | **f** | Turn the board round (also *Flip*) | The same |
 | **n** | Figurines or letters (also the ♔♘ button) | The same |
+| A click on a piece, then a square / **m** | Plays a move from here ([Playing on](chess-play.md#playing-a-move)) | **m**: the same, from a list |
+| **a**, **b** | The engine on or off, its best move ([The engine](chess-play.md#the-engine)) | The same |
 | **PgDn** / **PgUp** | The next / previous game of the table | The same |
 | **Esc** | Back to the table (*Games* too) | Back to the table |
 | A click on a move | Shows it | – |
@@ -225,8 +228,9 @@ book = "~/chess/books/gm2600.bin"
 
 #### Can I play against an engine?
 
-Not yet: Coxswain shows games and positions but does not play or analyse them. An engine is
-planned.
+Yes, from any position: play your own moves on the board, and **a** (*Engine*) asks an
+installed Stockfish for its best lines; **b** plays its best move. See [Chess: playing on and the
+engine](chess-play.md).
 
 #### Does it read ChessBase files?
 

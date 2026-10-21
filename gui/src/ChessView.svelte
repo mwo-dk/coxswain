@@ -63,6 +63,17 @@
   // the positions before the one shown.
   let book = $state(null);
   let bookLine = $state([]);
+  // Playing on (chess_moves): the line played from the board, kept here until saved as a new
+  // PGN file or cleared ({ base: the move it is played from, moves, at: how many are shown });
+  // the legal moves of the position shown, the square clicked, and a promotion to choose.
+  let played = $state(null);
+  let legal = $state([]);
+  let picked = $state(null);
+  let promo = $state(null);
+  let said = $state("");
+  // The engine (chess_analyse): asked about each position while on.
+  let analysis = $state(false);
+  let engine = $state(null);
 
   $effect(() => {
     const theme = ui.theme;
@@ -71,6 +82,7 @@
     invoke("chess_looks", { theme }).then((l) => {
       looks = l;
       letters = l.notation === "letters";
+      analysis = l.analysis;
     });
   });
 
@@ -91,6 +103,7 @@
     untrack(() => {
       game = null;
       at = null;
+      played = null;
       error = "";
       cursor = 0;
       first = 0;
@@ -116,6 +129,7 @@
   /** Back from a game to the table, which takes the keys. */
   function back() {
     game = null;
+    played = null;
     setTimeout(() => listEl?.focus(), 0);
   }
 
@@ -178,6 +192,8 @@
       const v = await invoke("chess_game", { path, index });
       game = { ...v, index };
       at = null;
+      played = null;
+      said = "";
       error = v.error ?? "";
       setTimeout(() => boardEl?.focus(), 0);
     } catch (e) {
@@ -189,14 +205,16 @@
     const p = positions[i];
     if (!p) return;
     posAt = i;
+    played = null;
     game = { game: { start: p.fen ?? "", nodes: [], roots: [], tags: [], result: "" }, layout: p.about ? [{ t: "comment", text: p.about }] : [], index: i };
     at = null;
     error = p.fen ? "" : t("chess.no_position", { line: p.line });
   }
 
   const nodes = $derived(game?.game.nodes ?? []);
-  const fen = $derived(at == null ? game?.game.start : nodes[at]?.fen);
-  const last = $derived(at == null ? null : nodes[at]);
+  const inLine = $derived(played != null && played.at > 0);
+  const fen = $derived(inLine ? played.moves[played.at - 1].fen : at == null ? game?.game.start : nodes[at]?.fen);
+  const last = $derived(inLine ? played.moves[played.at - 1] : at == null ? null : nodes[at]);
   const pieces = $derived(looks ? (letters ? looks.letters : looks.figurines) : ["♔", "♕", "♖", "♗", "♘"]);
 
   /** The pieces on the board: 64 squares, a1 first. */
@@ -248,6 +266,86 @@
     );
   });
 
+  // The legal moves, again for each position.
+  let movesSeq = 0;
+  $effect(() => {
+    const f = fen;
+    const s = ++movesSeq;
+    picked = null;
+    promo = null;
+    legal = [];
+    if (f) invoke("chess_moves", { fen: f }).then((m) => s === movesSeq && (legal = m), () => {});
+  });
+  const targets = $derived(picked == null ? [] : legal.filter((m) => m.from === picked).map((m) => m.to));
+
+  // The engine, again for each position while it is on.
+  let engineSeq = 0;
+  $effect(() => {
+    const f = fen;
+    const s = ++engineSeq;
+    if (!analysis || !f || draughts) return void (engine = null);
+    engine = { fen: f, thinking: true };
+    invoke("chess_analyse", { fen: f }).then(
+      (a) => s === engineSeq && (engine = { fen: f, a }),
+      (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
+    );
+  });
+
+  /** A click on a square: a piece of the side to move is picked up, a square it can reach plays
+   * the move (a promotion asks for its piece). */
+  function clickSquare(sq) {
+    if (picked != null) {
+      const ms = legal.filter((m) => m.from === picked && m.to === sq);
+      if (ms.length > 1) return void (promo = ms);
+      if (ms.length) return playMove(ms[0]);
+    }
+    picked = picked !== sq && legal.some((m) => m.from === sq) ? sq : null;
+    boardEl?.focus();
+  }
+
+  /** A move played from the position shown: the game's own next move (or a variation's) is
+   * stepped to; any other starts the played line, or goes on with it after the move shown. */
+  function playMove(m) {
+    picked = null;
+    promo = null;
+    if (format === "book" && !inLine) {
+      bookLine.push(game.game.start);
+      game.game.start = m.fen;
+      return;
+    }
+    if (!inLine) {
+      const next = at == null ? game.game.roots : nodes[at].children;
+      const n = next.find((n) => nodes[n].fen === m.fen);
+      if (n != null) return void (at = n);
+      played = { base: at, moves: [m], at: 1 };
+      return;
+    }
+    played.moves = [...played.moves.slice(0, played.at), m];
+    played.at = played.moves.length;
+  }
+
+  /** The played line as a new PGN file next to this one: the game's moves to its base, then it. */
+  async function saveLine() {
+    if (!played) return void (said = t("chess.line_none"));
+    const sans = [];
+    for (let n = played.base; n != null; n = nodes[n].parent) sans.unshift(nodes[n].san);
+    try {
+      said = await invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: [...sans, ...played.moves.map((m) => m.san)] });
+    } catch (e) {
+      said = String(e);
+    }
+  }
+
+  /** A move of the game shown: out of the played line, which stays. */
+  function goto(n) {
+    if (played) played.at = 0;
+    at = n;
+  }
+
+  /** A move's number as written: "12." for White's, "12…" for Black's when it starts a line. */
+  const numbered = (m, first) => (m.white ? `${m.number}.` : first ? `${m.number}…` : "");
+  const baseName = $derived(played?.base == null ? t("chess.line_start") : `${nodes[played.base].number}${nodes[played.base].white ? "." : "…"}${nodes[played.base].san}`);
+
   /** A book's move played: its position on the board, the one before kept for ←. */
   function playBook(m) {
     bookLine.push(game.game.start);
@@ -271,6 +369,17 @@
 
   function step(to) {
     if (!game) return;
+    // In the played line, → ← step it; → on the move it starts from enters it again. In a
+    // position, → ← step it whenever there is one.
+    if (played) {
+      const baseHere = played.at === 0 && (format !== "pgn" || at === played.base);
+      if (played.at > 0 || baseHere) {
+        if (to === "next") return void (played.at = Math.min(played.at + 1, played.moves.length));
+        if (to === "prev" && played.at > 0) return void played.at--;
+        if (to === "prev" && format !== "pgn") return;
+        played.at = 0;
+      }
+    }
     const g = game.game;
     const sibs = (n) => (nodes[n].parent == null ? g.roots : nodes[nodes[n].parent].children);
     if (format === "book") {
@@ -312,6 +421,11 @@
     if (map[e.key]) step(map[e.key]);
     else if (e.key === "f") flip = !flip;
     else if (e.key === "n" && !draughts) letters = !letters;
+    else if (e.key === "a" && !draughts) analysis = !analysis;
+    else if (e.key === "s" && !draughts) saveLine();
+    else if (e.key === "b" && !draughts && engine?.a?.lines[0]) playMove(engine.a.lines[0].best);
+    else if (e.key === "c" && played) played = null;
+    else if (e.key === "Escape" && (picked != null || promo)) (picked = null), (promo = null);
     else if (e.key === "PageDown" && table) nextGame(1);
     else if (e.key === "PageUp" && table) nextGame(-1);
     else if (e.key === "Escape" && table && game) back();
@@ -359,11 +473,14 @@
   {@const lit = last && (last.from === sq || last.to === sq)}
   {@const x = i % 8}
   {@const y = Math.floor(i / 8)}
-  <rect {x} {y} width="1" height="1" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 1 : 0] : "#888"} />
-  {#if lit}<rect {x} {y} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
-  {#if p}<image href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} {x} {y} width="1" height="1" />{/if}
-  {#if y === 7}<text x={x + 0.94} y={y + 0.95} class="coord" text-anchor="end" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{"abcdefgh"[file]}</text>{/if}
-  {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+  <rect {x} {y} width="1" height="1" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 1 : 0] : "#888"} onclick={() => clickSquare(sq)} />
+  {#if picked === sq}<rect {x} {y} width="1" height="1" class="mark" fill="rgb(90 160 246 / 0.5)" />{/if}
+  {#if lit}<rect class="mark" {x} {y} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
+  {#if p}<image class="mark" href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} {x} {y} width="1" height="1" />{/if}
+  {#if targets.includes(sq)}<circle class="mark" cx={x + 0.5} cy={y + 0.5} r={p ? 0.45 : 0.15} fill={p ? "none" : "rgb(0 0 0 / 0.3)"} stroke={p ? "rgb(0 0 0 / 0.35)" : "none"} stroke-width="0.07" />{/if}
+  {#if y === 7}<text class="coord mark" x={x + 0.94} y={y + 0.95} text-anchor="end" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{"abcdefgh"[file]}</text>{/if}
+  {#if x === 0}<text class="coord mark" x={x + 0.05} y={y + 0.22} fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
 {/snippet}
 
 <!-- A draughts square: dark ones numbered, a man as a disc, a king as two discs stacked. -->
@@ -414,8 +531,15 @@
           <button class="icon" title={t("chess.end_tip")} aria-label={t("chess.end_tip")} onclick={() => step("end")}>▶|</button>
           <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
           {#if !draughts}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
+          {#if !draughts}<button title={t("chess.engine_tip")} class:on={analysis} onclick={() => (analysis = !analysis)}>{t("chess.engine_btn")}</button>{/if}
           {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
         </div>
+        {#if promo}
+          <div class="bar promo">
+            <span class="meta">{t("chess.promote")}</span>
+            {#each promo as m (m.uci)}<button title={m.san} onclick={() => playMove(m)}><img alt={m.san} src={`vendor/chess-pieces/${m.white ? "w" : "b"}${m.promotion.toUpperCase()}.svg`} /></button>{/each}
+          </div>
+        {/if}
         {#if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : t("chess.white_to_move")}</p>{/if}
       </div>
       <div class="moves" bind:this={movesEl}>
@@ -446,11 +570,17 @@
         {:else if book}
           <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
         {/if}
+        {#if engine}
+          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{/if}</p>
+          {#each engine.a?.lines ?? [] as l, k (k)}
+            <p class="engine-line"><b class="eval">{l.eval}</b> <button class="mv" title={t("chess.engine_play_tip")} onclick={() => playMove(l.best)}>{#each show(l.moves[0]) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button> <span class="meta">{l.moves.slice(1).map((s) => show(s).map(([x]) => x).join("")).join(" ")}</span></p>
+          {/each}
+        {/if}
         <p class="text">
           {#each game.layout as tok, i (i)}
             {#if tok.t === "move"}
               {@const n = nodes[tok.node]}
-              <button class="mv" class:here={at === tok.node} class:var={n.depth > 0} onclick={() => (at = tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
+              <button class="mv" class:here={!inLine && at === tok.node} class:var={n.depth > 0} onclick={() => goto(tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
             {:else if tok.t === "comment"}
               <span class="comment">{tok.text}</span>{" "}
             {:else if tok.t === "open"}
@@ -462,6 +592,17 @@
             {/if}
           {/each}
         </p>
+        {#if played}
+          <p class="text played">
+            <span class="comment">{t("chess.line_from", { move: baseName })}</span><br />
+            {#each played.moves as m, k (k)}<button class="mv" class:here={played.at === k + 1} onclick={() => (played.at = k + 1)}>{numbered(m, k === 0)}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{" "}{/each}
+          </p>
+          <div class="bar">
+            <button title={t("chess.line_save_tip")} onclick={saveLine}>{t("chess.line_save")}</button>
+            <button title={t("chess.line_clear_tip")} onclick={() => (played = null)}>{t("chess.line_clear")}</button>
+          </div>
+        {/if}
+        {#if said}<p class="meta">{said}</p>{/if}
         <p class="meta keys">{draughts ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
@@ -744,6 +885,24 @@
   }
   .keys {
     margin-top: 6px;
+  }
+  /* The pieces and marks on the board let a click through to their square. */
+  .mark {
+    pointer-events: none;
+  }
+  .promo img {
+    width: 2em;
+    height: 2em;
+    display: block;
+  }
+  .engine-line {
+    margin: 0;
+    font-size: 0.9em;
+  }
+  .engine-line .eval {
+    display: inline-block;
+    min-width: 4em;
+    font-variant-numeric: tabular-nums;
   }
   .book {
     border-collapse: collapse;

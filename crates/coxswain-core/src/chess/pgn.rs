@@ -78,6 +78,18 @@ impl Game {
         v
     }
 
+    /// The moves from the first to `node`, in order; empty for none (the start position).
+    pub fn path_to(&self, node: Option<u32>) -> Vec<u32> {
+        let mut v = vec![];
+        let mut at = node.filter(|&n| (n as usize) < self.nodes.len());
+        while let Some(n) = at {
+            v.push(n);
+            at = self.nodes[n as usize].parent;
+        }
+        v.reverse();
+        v
+    }
+
     /// The moves as they are written out: the main line with each variation in brackets after
     /// the move it replaces, comments where they stand, move numbers where needed.
     pub fn layout(&self) -> Vec<Token> {
@@ -527,7 +539,7 @@ pub fn san(b: &Board, mv: Move) -> String {
 
 /// The square a move ends on as the eye sees it: castling goes to the king's square, not its
 /// rook's (cozy-chess's notation).
-fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
+pub(crate) fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
     let to = if b.piece_on(mv.from) == Some(Piece::King) && b.color_on(mv.to) == b.color_on(mv.from) {
         let file = if mv.to.file() > mv.from.file() { File::G } else { File::C };
         Square::new(file, mv.from.rank())
