@@ -73,9 +73,8 @@ first start of 2.0 renames them in `config.toml` ([Renamed in 2.0](../reference/
 
 ## In the terminal app
 
-The same keys and patterns. It has no Ctrl-click or Shift-click, and its marked total
-counts the sizes of marked files only: a marked folder adds nothing, even when its size is
-shown. The desktop app adds a marked folder's size once it is measured.
+The same keys and patterns. It has no Ctrl-click or Shift-click. Its marked total, like the
+desktop app's, adds a marked folder's size once it is measured, and nothing for it before.
 
 ## Questions
 
@@ -97,10 +96,11 @@ Press **Ctrl+A**: every file and folder is marked, as in a file explorer. For fi
 `*` or `+` for the files, then **Insert** on each folder you want too. `..` can never be
 marked.
 
-#### The marked total in the terminal app is smaller than in the desktop app. Why?
+#### Why does the marked total grow after I mark a folder?
 
-The terminal app sums the sizes of marked files; marked folders count nothing there. The
-desktop app adds each marked folder's measured size.
+A marked folder counts with its measured size ([Folder sizes](folder-sizes.md)), in both apps.
+Marked before its size is known, it adds nothing at first; the total grows when the size
+arrives. With folder sizes off, marked folders add nothing.
 
 #### Why does it say *marked*, not *selected*?
 

@@ -419,7 +419,8 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         if let Some((archive, _)) = &inside {
             coxswain_core::cloud::ask_for(archive);
         }
-        bfs::sort_in(&dir, &mut entries, sort, reverse);
+        // By size, folders the page has measured are sorted again there (`resortSoon`).
+        bfs::sort_in(&dir, &mut entries, sort, reverse, &Default::default());
         // By last commit: as the walk git did is known; else by name now, and the page sorts
         // again when `git_last` answers.
         if sort == SortKey::Commit

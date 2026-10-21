@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia } from "./app.svelte.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia, resortSoon } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -565,6 +565,7 @@
     try {
       const r = (await invoke("dir_sizes", { paths: [path] }))[path];
       if (r) p.sizes[path] = r[0];
+      resortSoon(p);
     } catch (err) {
       ui.status = String(err);
     }

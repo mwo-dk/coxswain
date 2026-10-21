@@ -50,6 +50,9 @@ pub struct Panel {
     pub error: Option<String>,
     /// Folder sizes, measured in the background.
     pub sizes: HashMap<PathBuf, u64>,
+    /// Since when sizes have arrived that a sort by size has not taken in yet: sorted again
+    /// a moment later, not at every folder measured.
+    resort_due: Option<Instant>,
     /// The last commit of each entry, when git has answered.
     pub last: Option<Arc<Lasts>>,
     /// The ZFS dataset the folder is on (or whose snapshots it lists), when `zfs` has answered.
@@ -87,6 +90,7 @@ impl Panel {
             git: None,
             error: None,
             sizes: HashMap::new(),
+            resort_due: None,
             last: None,
             zfs: None,
             package: None,
@@ -133,7 +137,7 @@ impl Panel {
 
     /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
     fn fill(&mut self, keep: Option<String>) {
-        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
+        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse, &self.sizes);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
         // A snapshot's is its own space.
         if coxswain_core::archive::split(&self.dir).is_some() || coxswain_core::zfs::split(&self.dir).is_some() {
@@ -151,8 +155,9 @@ impl Panel {
     /// Sort the entries as they are, keeping the cursor on the same name: no reread, which
     /// on a big folder takes longer than the sort.
     fn resort(&mut self) {
+        self.resort_due = None;
         let keep = self.current().map(|e| e.name.clone());
-        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
+        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse, &self.sizes);
         if let Some(n) = keep {
             self.select_name(&n);
         }
@@ -161,11 +166,29 @@ impl Panel {
     /// Mark the entry at `i`, or unmark it. `..` is never marked.
     fn toggle_mark(&mut self, i: usize) {
         let Some(e) = self.entries.get(i).filter(|e| !e.is_parent()) else { return };
+        let bytes = self.bytes(e);
         if self.marked.remove(&e.path) {
-            self.marked_bytes -= e.size;
+            self.marked_bytes -= bytes;
         } else {
             self.marked.insert(e.path.clone());
-            self.marked_bytes += e.size;
+            self.marked_bytes += bytes;
+        }
+    }
+
+    /// What an entry adds to the marked total: a folder its measured size (none until then),
+    /// not its own entry's.
+    fn bytes(&self, e: &Entry) -> u64 {
+        if e.is_dir { self.sizes.get(&e.path).copied().unwrap_or(0) } else { e.size }
+    }
+
+    /// A folder measured: the marked total takes it in, and a sort by size soon after.
+    fn sized(&mut self, folder: PathBuf, bytes: u64) {
+        let old = self.sizes.insert(folder.clone(), bytes).unwrap_or(0);
+        if self.marked.contains(&folder) {
+            self.marked_bytes = self.marked_bytes - old + bytes;
+        }
+        if self.sort == SortKey::Size {
+            self.resort_due.get_or_insert_with(Instant::now);
         }
     }
 
@@ -184,7 +207,7 @@ impl Panel {
     }
 
     fn recount_marks(&mut self) {
-        self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| e.size).sum();
+        self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| self.bytes(e)).sum();
     }
 
     /// Show `dir`, not listed yet: returns the name to put the cursor on once it is.
@@ -3244,7 +3267,13 @@ impl App {
         }
         while let Ok((dir, folder, bytes)) = self.sizes_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
-                p.sizes.insert(folder.clone(), bytes);
+                p.sized(folder.clone(), bytes);
+            }
+        }
+        // At most four sorts a second while a folder of thousands is measured.
+        for p in &mut self.panels {
+            if p.resort_due.is_some_and(|at| at.elapsed() >= Duration::from_millis(250)) {
+                p.resort();
             }
         }
         while let Ok((generation, now)) = self.search_rx.try_recv() {
@@ -4673,6 +4702,44 @@ mod panel_tests {
             term.draw(|f| ui::draw(f, &mut app)).unwrap();
         }
         assert_eq!(menu_visible(&[MenuItem { key: "1".into(), label: "Copy".into(), run: MenuRun::Say(String::new()), group: None }], "COP"), [0]);
+    }
+
+    #[test]
+    fn a_measured_folder_sorts_by_size_and_the_cursor_stays() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-size-sort-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        for f in ["big", "mid", "small"] {
+            std::fs::create_dir_all(d.join(f)).unwrap();
+        }
+        std::fs::write(d.join("f.txt"), "x").unwrap();
+        let cfg = Config { check_updates: false, folder_sizes: false, ..Config::default() };
+        let index = crate::test_index(&cfg);
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        let p = &mut app.panels[0];
+        p.sort = SortKey::Size;
+        p.resort();
+        assert_eq!(names(&app), ["..", "big", "mid", "small", "f.txt"], "nothing measured: by name");
+        app.panels[0].cursor = 1;
+        app.panels[0].toggle_mark(1);
+        for (f, n) in [("big", 5u64 << 30), ("mid", 50 << 20), ("small", 1 << 20)] {
+            app.sizes_tx.send((d.clone(), d.join(f), n)).unwrap();
+        }
+        let mut state = app.index.state();
+        app.tick(&mut state);
+        assert_eq!(app.panels[0].marked_bytes, 5 << 30, "a marked folder counts its measured size");
+        app.panels[0].resort_due = Some(Instant::now() - Duration::from_secs(1));
+        app.tick(&mut state);
+        assert_eq!(names(&app), ["..", "big", "mid", "small", "f.txt"]);
+        app.sizes_tx.send((d.clone(), d.join("small"), 9 << 30)).unwrap();
+        app.tick(&mut state);
+        assert!(app.panels[0].resort_due.is_some(), "not at every arrival");
+        app.panels[0].resort_due = Some(Instant::now() - Duration::from_secs(1));
+        app.tick(&mut state);
+        assert_eq!(names(&app), ["..", "small", "big", "mid", "f.txt"]);
+        assert_eq!(app.panels[0].current().map(|e| e.name.as_str()), Some("big"), "the cursor stays on its folder");
+        assert_eq!(app.panels[0].marked_bytes, 5 << 30);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

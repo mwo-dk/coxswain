@@ -36,8 +36,11 @@ The rules, whatever the order:
 
 - `..` stays first, then folders, then files.
 - Names sort naturally and case-insensitively: `file2` before `file10`, `a.txt` next to `A.txt`.
-- Sorting by size uses the size the file system gives. Folders are not sorted by their
-  measured size; among themselves they keep name order.
+- Sorting by size puts folders in the order of their measured size
+  ([Folder sizes](folder-sizes.md)), largest first. A folder not measured yet comes after the
+  measured ones, and those among themselves in name order, whichever way round. As the sizes
+  come in, the list sorts itself again (a few times a second at most) and the cursor stays on
+  the same entry. Inside an archive a folder goes by the size the archive gives.
 
 ## What you see
 
@@ -76,11 +79,12 @@ session ([What the apps remember](session.md)).
 
 ## Questions
 
-#### Why are folders not sorted by their size?
+#### Do folders sort by their size?
 
-The order uses the sizes the file system gives, and a folder's is not its contents. Folder
-sizes are shown ([Folder sizes](folder-sizes.md)) but not sorted by; folders stay in name
-order among themselves.
+Yes, by their measured size: the one the Size column shows ([Folder sizes](folder-sizes.md)).
+A folder still being measured comes after the measured ones, in name order, and moves to its
+place when its size arrives. With folder sizes off (`folder_sizes = false`) nothing is
+measured, so with **Ctrl+F6** the folders stay in name order before the files.
 
 #### Ctrl+F3 does nothing in my terminal. Why?
 

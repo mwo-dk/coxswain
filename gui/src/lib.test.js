@@ -81,6 +81,15 @@ test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async (
   assert.deepEqual(names("ext"), ["..", "Docs", "a2.md", "a10.md", "b.txt"]);
   assert.deepEqual(names("time"), ["..", "Docs", "a10.md", "b.txt", "a2.md"], "newest first, none last");
   assert.deepEqual(names("size"), ["..", "Docs", "a2.md", "b.txt", "a10.md"], "biggest first");
+  // As fs::tests::by_size_folders_go_by_their_measured_size: a folder by its measured size, the
+  // ones not measured (or folder sizes off) last, by name, whichever way round.
+  const d = (name, size) => ({ name, path: `/d/${name}`, is_dir: true, size });
+  const all = [d("..", 4096), d("one", 4096), d("fifty", 4096), d("five-g", 4096), d("b-new", 9999), d("a-new", 0), { name: "x.txt", is_dir: false, size: 10 }, { name: "y.txt", is_dir: false, size: 20 }];
+  const measured = { "/d/one": 2 ** 20, "/d/fifty": 50 * 2 ** 20, "/d/five-g": 5 * 2 ** 30 };
+  const bySize = (sizes, reverse) => sortItems(all, "size", reverse, sizes).map((e) => e.name);
+  assert.deepEqual(bySize(measured, false), ["..", "five-g", "fifty", "one", "a-new", "b-new", "y.txt", "x.txt"]);
+  assert.deepEqual(bySize(measured, true), ["..", "one", "fifty", "five-g", "a-new", "b-new", "x.txt", "y.txt"]);
+  assert.deepEqual(bySize({}, false), ["..", "a-new", "b-new", "fifty", "five-g", "one", "y.txt", "x.txt"]);
 });
 
 test("inside: the folder itself and below it, not a sibling that starts the same", async () => {
