@@ -1483,14 +1483,15 @@ pub fn plain_kind(kind: io::ErrorKind) -> Option<String> {
 /// ("Permission denied (os error 13)") as `plain_kind` says it. A text it changed goes, whole,
 /// to helper.log.
 pub fn plain(raw: &str) -> String {
-    let out = plain_text(raw);
+    let out = plain_words(raw);
     if out != raw.trim() {
         crate::helper::app_log(raw.trim());
     }
     out
 }
 
-fn plain_text(raw: &str) -> String {
+/// `plain` without the log: for a text drawn again and again.
+pub fn plain_words(raw: &str) -> String {
     plain_line(raw.lines().find(|l| !l.trim().is_empty()).unwrap_or_default().trim())
 }
 
@@ -1539,9 +1540,9 @@ mod tests {
         assert_eq!(plain_line(&io::Error::from(io::ErrorKind::NotFound).to_string()), crate::t!("oserr.not_found"));
         assert_eq!(plain_line("/a/b: entity not found"), format!("/a/b: {}", crate::t!("oserr.not_found")));
         // Only the first line: an opener's stderr can run long.
-        assert_eq!(plain_text("\nxdg-open: no method available\nmore\n"), "xdg-open: no method available");
+        assert_eq!(plain_words("\nxdg-open: no method available\nmore\n"), "xdg-open: no method available");
         // Not a system error: left as it is.
-        assert_eq!(plain_text("Copied 3 items"), "Copied 3 items");
+        assert_eq!(plain_words("Copied 3 items"), "Copied 3 items");
     }
 
     #[test]

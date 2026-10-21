@@ -78,7 +78,7 @@ Netron draws in its own colours, dark in a dark theme and light in a light one, 
 | `.mlmodel` | Core ML | Yes |
 | `.mlpackage` | A Core ML package, a folder: its `Manifest.json` names the model, its weights are in `Data/` | Yes |
 | `.keras` | Keras 3: a zip with `config.json` and `metadata.json` | Yes |
-| `.h5` | Keras 2 in HDF5, when the file's bytes hold a model's configuration; any other HDF5 file gets no facts and no graph, and is shown as any other file of bytes (the hex view) | Yes, for a Keras model |
+| `.h5` | Keras 2 in HDF5, when the file's bytes hold a model's configuration; any other HDF5 file gets no facts and no graph, and is shown as any other file (as text, or in the hex view) | Yes, for a Keras model |
 
 Not read: PyTorch (`.pt`, `.pth`, `.bin`), TorchScript, pickles (`.pkl`) and joblib files. They
 are Python pickles, and TorchScript holds code: reading them means running Python. Export such
