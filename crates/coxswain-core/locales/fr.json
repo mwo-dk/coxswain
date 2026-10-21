@@ -3522,5 +3522,18 @@
  "history.scope_branch": "Cette branche",
  "history.scope_all": "Toutes les branches",
  "history.scope_tip": "Quels commits la liste et son graphe montrent ({key} bascule)",
- "hint.history": "{all} montre les commits de toutes les branches dans le graphe ; à nouveau, ceux de cette branche seule"
+ "hint.history": "{all} montre les commits de toutes les branches dans le graphe ; à nouveau, ceux de cette branche seule",
+ "setting.git_prefer_git": "Utiliser git là où Jujutsu est aussi",
+ "setting.git_prefer_git.hint": "Là où un dossier a à la fois .jj et .git, montrer la ligne, l'historique et les branches de git plutôt que ceux de Jujutsu.",
+ "notice.jj_missing": "Ce dépôt est tenu par Jujutsu, mais jj n'est pas installé : installez Jujutsu (le programme jj) pour voir ses modifications, son historique et ses signets. D'ici là, git montre ce qu'il peut.",
+ "vcs.jj_read_only": "Coxswain ne fait que lire les dépôts Jujutsu : passez à un signet avec jj new ou jj edit.",
+ "feature.jujutsu.title": "Jujutsu dans les panneaux",
+ "feature.jujutsu.what": "Dans un dépôt Jujutsu : l'identifiant de changement, le signet le plus proche et les fichiers modifiés sur la ligne, l'historique et les signets comme dossiers, lus par jj sans rien changer.",
+ "feature.jujutsu.q1": "Pourquoi la ligne montre-t-elle git et non jj ?",
+ "feature.jujutsu.a1": "jj n'est pas installé, ou Réglages → Comportement → Utiliser git là où Jujutsu est aussi est activé. Sans jj, git montre ce qu'il peut là où le dépôt a un .git à côté de .jj.",
+ "feature.jujutsu.q2": "Pourquoi un fichier que je viens de modifier n'apparaît-il pas comme modifié ?",
+ "feature.jujutsu.a2": "Dans un dépôt sans .git à côté de .jj, Coxswain montre l'état de jj tel qu'à votre dernière commande jj, car il ne fait jamais prendre d'instantané à jj. Lancez n'importe quelle commande jj, puis appuyez sur {refresh}.",
+ "feature.jujutsu.q3": "Puis-je changer de signet ici ?",
+ "feature.jujutsu.a3": "Non : Coxswain ne fait que lire un dépôt Jujutsu. {branches} liste les signets et leurs fichiers ; changez avec jj new ou jj edit, ou ouvrez votre propre outil avec {git_tool}.",
+ "git.op_conflict": "conflits dans ce changement"
 }

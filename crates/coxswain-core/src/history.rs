@@ -79,6 +79,8 @@ pub(crate) fn git(dir: &Path) -> Command {
 /// filter, which then costs no `git config` first.
 fn git_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     let mut c = crate::git::command_with(dir, keys);
+    // A Jujutsu repository with no git of its own: its commits are in its store.
+    crate::vcs::use_store(&mut c, dir);
     // Paths are names, never patterns.
     c.env("GIT_LITERAL_PATHSPECS", "1");
     c
@@ -100,7 +102,7 @@ pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
 
 /// Run `c` and give `f` what it prints, record by record (split at `sep`), until `f` says
 /// enough, the output ends, or `BUDGET` passes. `true` when it was cut short.
-fn records(mut c: Command, sep: u8, mut f: impl FnMut(&[u8]) -> bool) -> io::Result<bool> {
+pub(crate) fn records(mut c: Command, sep: u8, mut f: impl FnMut(&[u8]) -> bool) -> io::Result<bool> {
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
     let out = child
         .stdout
@@ -311,7 +313,7 @@ fn graph_commit(rec: &[u8]) -> Option<Commit> {
 
 /// The commits of a history's list, children before parents (`--date-order`), with their
 /// parents as the list has them: at most `max`, and whether there were more.
-fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+pub(crate) fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> {
     let spec = spec(at);
     // A file's history on its branch goes on past its renames, as `log` does; git rewrites no
     // parents then, so its commits are one line, as they are on that branch.
@@ -935,15 +937,24 @@ static COMMITS: Keyed<Arc<Vec<Commit>>> = Mutex::new(None);
 /// The commits of a history (its list), cached by HEAD: the list and its *Last commit*
 /// column ask for the same, and for a file seldom changed git walks the whole history.
 fn commits_of(at: &At) -> io::Result<Arc<Vec<Commit>>> {
+    let vcs = crate::vcs::of(&at.base);
     let spec = format!("{:?} {}", at.scope, spec(at));
-    let key = list_key(at).map(|oid| (at.base.clone(), oid, spec));
+    // Jujutsu's working-copy commit moves without HEAD moving: its list is not kept.
+    let key = list_key(at)
+        .filter(|_| vcs.name() == "git")
+        .map(|oid| (at.base.clone(), oid, spec));
     if let Some(hit) = key
         .as_ref()
         .and_then(|k| COMMITS.lock().unwrap().as_ref()?.get(k).cloned())
     {
         return Ok(hit);
     }
-    let (commits, more) = graph_log(at, MAX_COMMITS)?;
+    // git draws its graph; another system lists its commits, one line.
+    let (commits, more) = if vcs.name() == "git" {
+        graph_log(at, MAX_COMMITS)?
+    } else {
+        vcs.log(&at.base, &self::spec(at), MAX_COMMITS)?
+    };
     let commits = Arc::new(commits);
     // `more` is also a walk stopped for time; a list cut at MAX_COMMITS stays cut, so it is kept.
     if let Some(k) = key.filter(|_| !more || commits.len() >= MAX_COMMITS) {

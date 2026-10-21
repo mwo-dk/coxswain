@@ -3447,5 +3447,18 @@
  "history.scope_branch": "Deze branch",
  "history.scope_all": "Alle branches",
  "history.scope_tip": "Welke commits de lijst en de graaf tonen ({key} wisselt)",
- "hint.history": "{all} toont de commits van alle branches in de graaf; nog eens alleen die van deze branch"
+ "hint.history": "{all} toont de commits van alle branches in de graaf; nog eens alleen die van deze branch",
+ "setting.git_prefer_git": "Git gebruiken waar ook Jujutsu is",
+ "setting.git_prefer_git.hint": "Waar een map zowel .jj als .git heeft, de regel, geschiedenis en branches van git tonen in plaats van die van Jujutsu.",
+ "notice.jj_missing": "Deze repository wordt door Jujutsu bijgehouden, maar jj is niet geïnstalleerd: installeer Jujutsu (het programma jj) om de wijzigingen, geschiedenis en bookmarks te zien. Tot dan toont git wat het kan.",
+ "vcs.jj_read_only": "Coxswain leest Jujutsu-repository's alleen: ga naar een bookmark met jj new of jj edit.",
+ "feature.jujutsu.title": "Jujutsu in de panelen",
+ "feature.jujutsu.what": "In een Jujutsu-repository: de change-id, de dichtstbijzijnde bookmark en de gewijzigde bestanden op de regel, de geschiedenis en bookmarks als mappen, gelezen via jj zonder iets te veranderen.",
+ "feature.jujutsu.q1": "Waarom toont de regel git en niet jj?",
+ "feature.jujutsu.a1": "jj is niet geïnstalleerd, of Instellingen → Gedrag → Git gebruiken waar ook Jujutsu is staat aan. Zonder jj toont git wat het kan waar de repository een .git naast .jj heeft.",
+ "feature.jujutsu.q2": "Waarom staat een bestand dat ik net heb gewijzigd niet als gewijzigd?",
+ "feature.jujutsu.a2": "In een repository zonder .git naast .jj toont Coxswain de status van jj na je laatste jj-opdracht, omdat het jj nooit een snapshot laat maken. Voer een willekeurige jj-opdracht uit en druk dan op {refresh}.",
+ "feature.jujutsu.q3": "Kan ik hier van bookmark wisselen?",
+ "feature.jujutsu.a3": "Nee: Coxswain leest een Jujutsu-repository alleen. {branches} toont de bookmarks en hun bestanden; wissel met jj new of jj edit, of open je eigen programma met {git_tool}.",
+ "git.op_conflict": "conflicten in deze wijziging"
 }

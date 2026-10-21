@@ -3458,5 +3458,18 @@
  "history.scope_branch": "This branch",
  "history.scope_all": "All branches",
  "history.scope_tip": "Which commits the list and its graph show ({key} switches)",
- "hint.history": "{all} shows every branch's commits in the graph; again, this branch's alone"
+ "hint.history": "{all} shows every branch's commits in the graph; again, this branch's alone",
+ "setting.git_prefer_git": "Use git where Jujutsu is too",
+ "setting.git_prefer_git.hint": "Where a folder has both .jj and .git, show git's line, history and branches instead of Jujutsu's.",
+ "notice.jj_missing": "This repository is kept by Jujutsu, but jj is not installed: install Jujutsu (the jj program) to see its changes, history and bookmarks. Until then git shows what it can.",
+ "vcs.jj_read_only": "Coxswain only reads Jujutsu repositories: move to a bookmark with jj new or jj edit.",
+ "feature.jujutsu.title": "Jujutsu in the panels",
+ "feature.jujutsu.what": "In a Jujutsu repository: the change id, the nearest bookmark and the changed files on the line, its history and bookmarks as folders, read through jj without changing anything.",
+ "feature.jujutsu.q1": "Why does the line show git, not jj?",
+ "feature.jujutsu.a1": "jj is not installed, or Settings → Behaviour → Use git where Jujutsu is too is on. Without jj, git shows what it can where the repository has a .git next to .jj.",
+ "feature.jujutsu.q2": "Why does a file I just changed not show as changed?",
+ "feature.jujutsu.a2": "In a repository with no .git next to .jj, Coxswain shows jj's status as of your last jj command, because it never makes jj take a snapshot. Run any jj command, then press {refresh}.",
+ "feature.jujutsu.q3": "Can I switch bookmarks here?",
+ "feature.jujutsu.a3": "No: Coxswain only reads a Jujutsu repository. {branches} lists the bookmarks and their files; move with jj new or jj edit, or open your own tool with {git_tool}.",
+ "git.op_conflict": "conflicts in this change"
 }

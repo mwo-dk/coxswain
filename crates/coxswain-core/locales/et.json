@@ -3447,5 +3447,18 @@
  "history.scope_branch": "See haru",
  "history.scope_all": "Kõik harud",
  "history.scope_tip": "Milliseid kommiteid loend ja selle graaf näitavad ({key} vahetab)",
- "hint.history": "{all} näitab graafis kõigi harude kommiteid; uuesti ainult selle haru omi"
+ "hint.history": "{all} näitab graafis kõigi harude kommiteid; uuesti ainult selle haru omi",
+ "setting.git_prefer_git": "Kasuta gitti seal, kus on ka Jujutsu",
+ "setting.git_prefer_git.hint": "Kui kaustas on nii .jj kui ka .git, näidatakse giti rida, ajalugu ja harusid Jujutsu omade asemel.",
+ "notice.jj_missing": "Seda hoidlat haldab Jujutsu, kuid jj pole paigaldatud: paigalda Jujutsu (programm jj), et näha selle muudatusi, ajalugu ja järjehoidjaid. Seni näitab git, mida suudab.",
+ "vcs.jj_read_only": "Coxswain ainult loeb Jujutsu hoidlaid: mine järjehoidjale käsuga jj new või jj edit.",
+ "feature.jujutsu.title": "Jujutsu paneelides",
+ "feature.jujutsu.what": "Jujutsu hoidlas: muudatuse id, lähim järjehoidja ja muudetud failid real, ajalugu ja järjehoidjad kaustadena, loetud jj kaudu midagi muutmata.",
+ "feature.jujutsu.q1": "Miks real on git, mitte jj?",
+ "feature.jujutsu.a1": "jj pole paigaldatud või on sisse lülitatud Sätted → Käitumine → Kasuta gitti seal, kus on ka Jujutsu. Ilma jj-ta näitab git, mida suudab, kui hoidlas on .jj kõrval .git.",
+ "feature.jujutsu.q2": "Miks äsja muudetud fail ei paista muudetuna?",
+ "feature.jujutsu.a2": "Hoidlas, kus .jj kõrval pole .git-i, näitab Coxswain jj olekut sinu viimase jj käsu järgi, sest ta ei lase jj-l kunagi hetktõmmist teha. Käivita mõni jj käsk ja vajuta siis {refresh}.",
+ "feature.jujutsu.q3": "Kas saan siin järjehoidjat vahetada?",
+ "feature.jujutsu.a3": "Ei: Coxswain ainult loeb Jujutsu hoidlat. {branches} näitab järjehoidjaid ja nende faile; vaheta käsuga jj new või jj edit või ava oma tööriist klahviga {git_tool}.",
+ "git.op_conflict": "konfliktid selles muudatuses"
 }

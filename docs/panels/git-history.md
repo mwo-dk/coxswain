@@ -126,11 +126,14 @@ folder.
 - **Four seconds** at most for git to answer a list, so a huge repository stays usable; a file
   that changed rarely in a very long history may then show fewer commits than it has.
 - **Renames are followed** for a file on its branch: its history goes on past the commits that
-  renamed it (`git log --follow`); its history of all branches (**Alt+A**) is not. A folder's history is the folder's path as it is.
+  renamed it (`git log --follow`); its history of all branches (**Alt+A**) is not. A folder's history is the folder's path as it is. In a
+  [Jujutsu](jujutsu.md) repository renames are not followed: jj lists the commits of the path as it is now.
 - **Merge commits** are listed only when the merge itself changed it, as `git log` does.
 - **Submodules** show as empty entries; their own history is in their own folder.
 - **Read-only:** nothing is ever written to the repository. It runs `git log`, `git ls-tree`,
   `git cat-file` and `git show`, with `GIT_OPTIONAL_LOCKS=0`.
+- In a Jujutsu repository the list comes from `jj log --ignore-working-copy`, and the files at a
+  commit from git, reading jj's store.
 - It needs `git` on your `PATH`, and a commit to start from: a new repository without commits
   has no history yet.
 

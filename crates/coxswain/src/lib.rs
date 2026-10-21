@@ -3271,7 +3271,8 @@ impl App {
     /// (the cursor stays on its name), and git's line when anything did, its `.git` too.
     fn follow_disk(&mut self) {
         let mut want: Vec<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
-        want.extend(self.panels.iter().filter_map(|p| p.git.as_ref()).map(|g| g.root.join(".git")).filter(|g| g.is_dir()));
+        // Jujutsu's operation heads change with every jj command.
+        want.extend(self.panels.iter().filter_map(|p| p.git.as_ref()).flat_map(|g| [g.root.join(".git"), g.root.join(".jj/repo/op_heads/heads")]).filter(|g| g.is_dir()));
         want.dedup();
         self.watch.set(want);
         let paths = self.watch.changed();

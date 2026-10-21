@@ -3522,5 +3522,18 @@
  "history.scope_branch": "Aquesta branca",
  "history.scope_all": "Totes les branques",
  "history.scope_tip": "Quins commits mostren la llista i el seu gràfic ({key} canvia)",
- "hint.history": "{all} mostra els commits de totes les branques al gràfic; un altre cop, només els d'aquesta"
+ "hint.history": "{all} mostra els commits de totes les branques al gràfic; un altre cop, només els d'aquesta",
+ "setting.git_prefer_git": "Fes servir git on també hi ha Jujutsu",
+ "setting.git_prefer_git.hint": "On una carpeta té alhora .jj i .git, mostra la línia, l'historial i les branques de git en lloc dels de Jujutsu.",
+ "notice.jj_missing": "Aquest repositori el porta Jujutsu, però jj no està instal·lat: instal·leu Jujutsu (el programa jj) per veure'n els canvis, l'historial i els marcadors. Fins aleshores, git mostra el que pot.",
+ "vcs.jj_read_only": "Coxswain només llegeix repositoris de Jujutsu: canvieu a un marcador amb jj new o jj edit.",
+ "feature.jujutsu.title": "Jujutsu als panells",
+ "feature.jujutsu.what": "En un repositori de Jujutsu: l'identificador de canvi, el marcador més proper i els fitxers canviats a la línia, l'historial i els marcadors com a carpetes, llegits amb jj sense canviar res.",
+ "feature.jujutsu.q1": "Per què la línia mostra git i no jj?",
+ "feature.jujutsu.a1": "jj no està instal·lat, o Paràmetres → Comportament → Fes servir git on també hi ha Jujutsu està activat. Sense jj, git mostra el que pot on el repositori té un .git al costat de .jj.",
+ "feature.jujutsu.q2": "Per què un fitxer que acabo de canviar no surt com a canviat?",
+ "feature.jujutsu.a2": "En un repositori sense .git al costat de .jj, Coxswain mostra l'estat de jj de la vostra última ordre jj, perquè mai no fa que jj prengui una instantània. Executeu qualsevol ordre jj i premeu {refresh}.",
+ "feature.jujutsu.q3": "Puc canviar de marcador aquí?",
+ "feature.jujutsu.a3": "No: Coxswain només llegeix un repositori de Jujutsu. {branches} llista els marcadors i els seus fitxers; canvieu amb jj new o jj edit, o obriu la vostra eina amb {git_tool}.",
+ "git.op_conflict": "conflictes en aquest canvi"
 }

@@ -3522,5 +3522,18 @@
  "history.scope_branch": "Tato větev",
  "history.scope_all": "Všechny větve",
  "history.scope_tip": "Které commity seznam a jeho graf ukazují ({key} přepíná)",
- "hint.history": "{all} ukáže v grafu commity všech větví; znovu jen této větve"
+ "hint.history": "{all} ukáže v grafu commity všech větví; znovu jen této větve",
+ "setting.git_prefer_git": "Používat git tam, kde je i Jujutsu",
+ "setting.git_prefer_git.hint": "Kde má složka .jj i .git, ukazovat řádek, historii a větve gitu místo Jujutsu.",
+ "notice.jj_missing": "Tento repozitář spravuje Jujutsu, ale jj není nainstalováno: nainstalujte Jujutsu (program jj), abyste viděli jeho změny, historii a záložky. Do té doby git ukazuje, co umí.",
+ "vcs.jj_read_only": "Coxswain repozitáře Jujutsu jen čte: na záložku přejděte příkazem jj new nebo jj edit.",
+ "feature.jujutsu.title": "Jujutsu v panelech",
+ "feature.jujutsu.what": "V repozitáři Jujutsu: id změny, nejbližší záložka a změněné soubory na řádku, historie a záložky jako složky, čtené přes jj bez jakékoli změny.",
+ "feature.jujutsu.q1": "Proč řádek ukazuje git, a ne jj?",
+ "feature.jujutsu.a1": "jj není nainstalováno, nebo je zapnuto Nastavení → Chování → Používat git tam, kde je i Jujutsu. Bez jj ukazuje git, co umí, kde má repozitář .git vedle .jj.",
+ "feature.jujutsu.q2": "Proč se soubor, který jsem právě změnil, neukazuje jako změněný?",
+ "feature.jujutsu.a2": "V repozitáři bez .git vedle .jj ukazuje Coxswain stav jj z vašeho posledního příkazu jj, protože jj nikdy nenechá udělat snímek. Spusťte libovolný příkaz jj a pak stiskněte {refresh}.",
+ "feature.jujutsu.q3": "Mohu tu přepnout záložku?",
+ "feature.jujutsu.a3": "Ne: Coxswain repozitář Jujutsu jen čte. {branches} ukazuje záložky a jejich soubory; přepněte příkazem jj new nebo jj edit, nebo otevřete svůj nástroj klávesou {git_tool}.",
+ "git.op_conflict": "konflikty v této změně"
 }

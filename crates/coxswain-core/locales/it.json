@@ -3522,5 +3522,18 @@
  "history.scope_branch": "Questo ramo",
  "history.scope_all": "Tutti i rami",
  "history.scope_tip": "Quali commit mostrano l'elenco e il suo grafo ({key} cambia)",
- "hint.history": "{all} mostra nel grafo i commit di tutti i rami; di nuovo, solo quelli di questo ramo"
+ "hint.history": "{all} mostra nel grafo i commit di tutti i rami; di nuovo, solo quelli di questo ramo",
+ "setting.git_prefer_git": "Usa git dove c'è anche Jujutsu",
+ "setting.git_prefer_git.hint": "Dove una cartella ha sia .jj sia .git, mostra la riga, la cronologia e i branch di git invece di quelli di Jujutsu.",
+ "notice.jj_missing": "Questo repository è gestito da Jujutsu, ma jj non è installato: installa Jujutsu (il programma jj) per vederne modifiche, cronologia e segnalibri. Fino ad allora git mostra ciò che può.",
+ "vcs.jj_read_only": "Coxswain legge soltanto i repository Jujutsu: passa a un segnalibro con jj new o jj edit.",
+ "feature.jujutsu.title": "Jujutsu nei pannelli",
+ "feature.jujutsu.what": "In un repository Jujutsu: l'id del change, il segnalibro più vicino e i file modificati sulla riga, la cronologia e i segnalibri come cartelle, letti tramite jj senza cambiare nulla.",
+ "feature.jujutsu.q1": "Perché la riga mostra git e non jj?",
+ "feature.jujutsu.a1": "jj non è installato, oppure Impostazioni → Comportamento → Usa git dove c'è anche Jujutsu è attivo. Senza jj, git mostra ciò che può dove il repository ha un .git accanto a .jj.",
+ "feature.jujutsu.q2": "Perché un file appena modificato non risulta modificato?",
+ "feature.jujutsu.a2": "In un repository senza .git accanto a .jj, Coxswain mostra lo stato di jj al tuo ultimo comando jj, perché non fa mai scattare a jj un'istantanea. Esegui un qualsiasi comando jj, poi premi {refresh}.",
+ "feature.jujutsu.q3": "Posso cambiare segnalibro qui?",
+ "feature.jujutsu.a3": "No: Coxswain legge soltanto un repository Jujutsu. {branches} elenca i segnalibri e i loro file; spostati con jj new o jj edit, oppure apri il tuo strumento con {git_tool}.",
+ "git.op_conflict": "conflitti in questa modifica"
 }

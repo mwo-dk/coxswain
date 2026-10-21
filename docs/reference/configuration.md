@@ -296,6 +296,7 @@ Read by both apps when they start, and by each after a change in its own Setting
 |---|---|---|---|
 | `last_commit` | bool | `true` | Last commit of each file: the *Last commit* column and the preview pane in the desktop app, the info line in the terminal app ([Git in the panels](../panels/git.md#last-commit-per-file)) |
 | `tool` | string | `""` | Where *Open in your git tool* (**Alt+G**) goes: a tool's name as Settings lists it (`"lazygit"`, `"Sublime Merge"`) or a command, `%d` being the repository's folder. Empty: the first installed of lazygit, gitui, tig and the desktop clients, else a terminal ([Open in your git tool](../panels/git.md#open-in-your-git-tool)) |
+| `prefer_git` | bool | `false` | Where a folder has both `.jj` and `.git`, show git's line, history and branches instead of Jujutsu's ([Jujutsu in the panels](../panels/jujutsu.md#jujutsu-and-git-in-one-folder)) |
 
 The [git history](../panels/git-history.md) itself has no switch: it is there when you press
 **Ctrl+G** (`history` in `[keys]`).
@@ -391,6 +392,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Open disk images, CHM and CBR like folders* | `disk_images` | `[archive] disk_images` |
 | | *Last commit of each file* | `git_last_commit` | `[git] last_commit` |
 | | *Git tool* | `git_tool` | `[git] tool` |
+| | *Use git where Jujutsu is too* | `git_prefer_git` | `[git] prefer_git` |
 | | *Editor* | `editor` | `editor` |
 | | *Viewer (terminal app)* | `viewer` | `viewer` |
 | | *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `bom_viewer` |

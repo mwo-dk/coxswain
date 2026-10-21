@@ -80,17 +80,18 @@
   });
 
   // Folders open in any tab reread themselves when something changes in them; so does a
-  // repository's `.git` (a commit, a checkout), so the status and the last-commit column follow.
+  // repository's `.git` (a commit, a checkout), or Jujutsu's operation heads (any jj command), so
+  // the status and the last-commit column follow.
   const allTabs = () => ui.panes.flatMap((p) => p.tabs);
-  const gitDir = (t) => t.git && `${t.git.root}${ui.cfg.sep}.git`;
+  const gitDirs = (t) => (t.git ? [`${t.git.root}${ui.cfg.sep}.git`, [t.git.root, ".jj", "repo", "op_heads", "heads"].join(ui.cfg.sep)] : []);
   $effect(() => {
     if (!ready) return;
-    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, gitDir(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
+    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, ...gitDirs(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
   });
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
   listen("dir-changed", (ev) => {
-    for (const t of allTabs()) if (ev.payload.includes(t.dir) || ev.payload.includes(gitDir(t))) load(t);
+    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) load(t);
   });
   // A copy, move, delete or undo has ended: the folders it changed things in are measured again.
   listen("sizes-changed", (ev) => {

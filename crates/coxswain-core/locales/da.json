@@ -3447,5 +3447,18 @@
  "history.scope_branch": "Denne gren",
  "history.scope_all": "Alle grene",
  "history.scope_tip": "Hvilke commits listen og dens graf viser ({key} skifter)",
- "hint.history": "{all} viser alle grenes commits i grafen; igen kun denne grens"
+ "hint.history": "{all} viser alle grenes commits i grafen; igen kun denne grens",
+ "setting.git_prefer_git": "Brug git, hvor Jujutsu også er",
+ "setting.git_prefer_git.hint": "Hvor en mappe har både .jj og .git, vises gits linje, historik og grene i stedet for Jujutsus.",
+ "notice.jj_missing": "Dette repository holdes af Jujutsu, men jj er ikke installeret: installér Jujutsu (programmet jj) for at se dets ændringer, historik og bogmærker. Indtil da viser git, hvad det kan.",
+ "vcs.jj_read_only": "Coxswain læser kun Jujutsu-repositories: skift til et bogmærke med jj new eller jj edit.",
+ "feature.jujutsu.title": "Jujutsu i panelerne",
+ "feature.jujutsu.what": "I et Jujutsu-repository: change-id, nærmeste bogmærke og de ændrede filer på linjen, historikken og bogmærkerne som mapper, læst gennem jj uden at ændre noget.",
+ "feature.jujutsu.q1": "Hvorfor viser linjen git og ikke jj?",
+ "feature.jujutsu.a1": "jj er ikke installeret, eller Indstillinger → Adfærd → Brug git, hvor Jujutsu også er, er slået til. Uden jj viser git, hvad det kan, hvor repositoriet har en .git ved siden af .jj.",
+ "feature.jujutsu.q2": "Hvorfor vises en fil, jeg lige har ændret, ikke som ændret?",
+ "feature.jujutsu.a2": "I et repository uden .git ved siden af .jj viser Coxswain jj's status fra din seneste jj-kommando, for det får aldrig jj til at tage et snapshot. Kør en vilkårlig jj-kommando, og tryk så {refresh}.",
+ "feature.jujutsu.q3": "Kan jeg skifte bogmærke her?",
+ "feature.jujutsu.a3": "Nej: Coxswain læser kun et Jujutsu-repository. {branches} viser bogmærkerne og deres filer; skift med jj new eller jj edit, eller åbn dit eget værktøj med {git_tool}.",
+ "git.op_conflict": "konflikter i denne ændring"
 }

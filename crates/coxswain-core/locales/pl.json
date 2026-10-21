@@ -3597,5 +3597,18 @@
  "history.scope_branch": "Ta gałąź",
  "history.scope_all": "Wszystkie gałęzie",
  "history.scope_tip": "Które commity pokazują lista i jej graf ({key} przełącza)",
- "hint.history": "{all} pokazuje w grafie commity wszystkich gałęzi; ponownie tylko tej gałęzi"
+ "hint.history": "{all} pokazuje w grafie commity wszystkich gałęzi; ponownie tylko tej gałęzi",
+ "setting.git_prefer_git": "Używaj git tam, gdzie jest też Jujutsu",
+ "setting.git_prefer_git.hint": "Tam, gdzie folder ma zarówno .jj, jak i .git, pokazuj wiersz, historię i gałęzie git zamiast Jujutsu.",
+ "notice.jj_missing": "To repozytorium prowadzi Jujutsu, ale jj nie jest zainstalowany: zainstaluj Jujutsu (program jj), aby zobaczyć jego zmiany, historię i zakładki. Do tego czasu git pokazuje, co może.",
+ "vcs.jj_read_only": "Coxswain tylko czyta repozytoria Jujutsu: przejdź do zakładki poleceniem jj new lub jj edit.",
+ "feature.jujutsu.title": "Jujutsu w panelach",
+ "feature.jujutsu.what": "W repozytorium Jujutsu: identyfikator zmiany, najbliższa zakładka i zmienione pliki w wierszu, historia i zakładki jako foldery, czytane przez jj bez żadnych zmian.",
+ "feature.jujutsu.q1": "Dlaczego wiersz pokazuje git, a nie jj?",
+ "feature.jujutsu.a1": "jj nie jest zainstalowany albo włączono Ustawienia → Działanie → Używaj git tam, gdzie jest też Jujutsu. Bez jj git pokazuje, co może, tam gdzie repozytorium ma .git obok .jj.",
+ "feature.jujutsu.q2": "Dlaczego plik, który właśnie zmieniłem, nie jest oznaczony jako zmieniony?",
+ "feature.jujutsu.a2": "W repozytorium bez .git obok .jj Coxswain pokazuje stan jj z twojego ostatniego polecenia jj, bo nigdy nie każe jj robić migawki. Uruchom dowolne polecenie jj, a potem naciśnij {refresh}.",
+ "feature.jujutsu.q3": "Czy mogę tu przełączyć zakładkę?",
+ "feature.jujutsu.a3": "Nie: Coxswain tylko czyta repozytorium Jujutsu. {branches} pokazuje zakładki i ich pliki; przełącz się poleceniem jj new lub jj edit albo otwórz swoje narzędzie przez {git_tool}.",
+ "git.op_conflict": "konflikty w tej zmianie"
 }

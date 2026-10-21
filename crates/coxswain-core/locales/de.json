@@ -3447,5 +3447,18 @@
  "history.scope_branch": "Dieser Branch",
  "history.scope_all": "Alle Branches",
  "history.scope_tip": "Welche Commits die Liste und ihr Graph zeigen ({key} wechselt)",
- "hint.history": "{all} zeigt die Commits aller Branches im Graphen; noch einmal nur die dieses Branches"
+ "hint.history": "{all} zeigt die Commits aller Branches im Graphen; noch einmal nur die dieses Branches",
+ "setting.git_prefer_git": "Git verwenden, wo auch Jujutsu ist",
+ "setting.git_prefer_git.hint": "Wo ein Ordner sowohl .jj als auch .git hat, Zeile, Verlauf und Branches von git statt von Jujutsu zeigen.",
+ "notice.jj_missing": "Dieses Repository wird von Jujutsu verwaltet, aber jj ist nicht installiert: Installieren Sie Jujutsu (das Programm jj), um seine Änderungen, seinen Verlauf und seine Bookmarks zu sehen. Bis dahin zeigt git, was es kann.",
+ "vcs.jj_read_only": "Coxswain liest Jujutsu-Repositorys nur: Wechseln Sie mit jj new oder jj edit zu einem Bookmark.",
+ "feature.jujutsu.title": "Jujutsu in den Panels",
+ "feature.jujutsu.what": "In einem Jujutsu-Repository: die Change-ID, das nächste Bookmark und die geänderten Dateien in der Zeile, Verlauf und Bookmarks als Ordner, über jj gelesen, ohne etwas zu ändern.",
+ "feature.jujutsu.q1": "Warum zeigt die Zeile git und nicht jj?",
+ "feature.jujutsu.a1": "jj ist nicht installiert, oder Einstellungen → Verhalten → Git verwenden, wo auch Jujutsu ist, ist an. Ohne jj zeigt git, was es kann, wo das Repository neben .jj ein .git hat.",
+ "feature.jujutsu.q2": "Warum erscheint eine Datei, die ich gerade geändert habe, nicht als geändert?",
+ "feature.jujutsu.a2": "In einem Repository ohne .git neben .jj zeigt Coxswain den Status von jj nach Ihrem letzten jj-Befehl, da es jj nie einen Snapshot machen lässt. Führen Sie einen beliebigen jj-Befehl aus und drücken Sie dann {refresh}.",
+ "feature.jujutsu.q3": "Kann ich hier das Bookmark wechseln?",
+ "feature.jujutsu.a3": "Nein: Coxswain liest ein Jujutsu-Repository nur. {branches} listet die Bookmarks und ihre Dateien; wechseln Sie mit jj new oder jj edit, oder öffnen Sie Ihr eigenes Werkzeug mit {git_tool}.",
+ "git.op_conflict": "Konflikte in dieser Änderung"
 }

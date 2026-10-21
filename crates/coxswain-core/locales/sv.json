@@ -3447,5 +3447,18 @@
  "history.scope_branch": "Den här grenen",
  "history.scope_all": "Alla grenar",
  "history.scope_tip": "Vilka commits listan och dess graf visar ({key} växlar)",
- "hint.history": "{all} visar alla grenars commits i grafen; igen bara den här grenens"
+ "hint.history": "{all} visar alla grenars commits i grafen; igen bara den här grenens",
+ "setting.git_prefer_git": "Använd git där Jujutsu också finns",
+ "setting.git_prefer_git.hint": "Där en mapp har både .jj och .git visas gits rad, historik och grenar i stället för Jujutsus.",
+ "notice.jj_missing": "Det här förrådet hålls av Jujutsu, men jj är inte installerat: installera Jujutsu (programmet jj) för att se dess ändringar, historik och bokmärken. Tills dess visar git det det kan.",
+ "vcs.jj_read_only": "Coxswain läser bara Jujutsu-förråd: byt till ett bokmärke med jj new eller jj edit.",
+ "feature.jujutsu.title": "Jujutsu i panelerna",
+ "feature.jujutsu.what": "I ett Jujutsu-förråd: change-id, närmaste bokmärke och de ändrade filerna på raden, historiken och bokmärkena som mappar, lästa genom jj utan att något ändras.",
+ "feature.jujutsu.q1": "Varför visar raden git och inte jj?",
+ "feature.jujutsu.a1": "jj är inte installerat, eller så är Inställningar → Beteende → Använd git där Jujutsu också finns påslaget. Utan jj visar git det det kan där förrådet har en .git bredvid .jj.",
+ "feature.jujutsu.q2": "Varför visas inte en fil jag nyss ändrat som ändrad?",
+ "feature.jujutsu.a2": "I ett förråd utan .git bredvid .jj visar Coxswain jj:s status från ditt senaste jj-kommando, eftersom det aldrig får jj att ta en ögonblicksbild. Kör valfritt jj-kommando och tryck sedan {refresh}.",
+ "feature.jujutsu.q3": "Kan jag byta bokmärke här?",
+ "feature.jujutsu.a3": "Nej: Coxswain läser bara ett Jujutsu-förråd. {branches} visar bokmärkena och deras filer; byt med jj new eller jj edit, eller öppna ditt eget verktyg med {git_tool}.",
+ "git.op_conflict": "konflikter i den här ändringen"
 }

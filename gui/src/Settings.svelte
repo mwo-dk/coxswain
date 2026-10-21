@@ -933,6 +933,7 @@
           <datalist id="git-tools">{#each gitTools as n (n)}<option value={n}></option>{/each}</datalist>
         {/snippet}
         {@render field("git_tool", gitTool)}
+        {@render check("git_prefer_git")}
         {@render text("editor", "$EDITOR")}
         {@render text("viewer", t("setting.viewer.empty"))}
         {@render check("bom_viewer")}

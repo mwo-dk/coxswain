@@ -227,6 +227,7 @@ pub const OPTIONS: &[Opt] = &[
         &[Cpu],
     ),
     opt("git_tool", &["git", "tool"], Behaviour, &[]),
+    opt("git_prefer_git", &["git", "prefer_git"], Behaviour, &[]),
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),

@@ -170,6 +170,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("git-tool", text, Some("git_tool"))
         });
     }
+    // A Jujutsu repository was opened and jj is not installed: git is asked where it can be.
+    if crate::vcs::JJ_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+        all.push(Notice::new("jj-missing", t!("notice.jj_missing"), None));
+    }
     // Home is on ZFS: its snapshots are a key away.
     if !seen("zfs") && crate::dirs::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
         let key = cfg
