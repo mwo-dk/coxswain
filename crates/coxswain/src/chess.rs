@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
-use unicode_width::UnicodeWidthStr;
+use crate::ui::Cols;
 
 use crate::bom::faint;
 use crate::ui::{fit, sty};

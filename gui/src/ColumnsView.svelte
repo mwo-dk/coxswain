@@ -64,7 +64,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
-    <span class="label">{e.name}</span>
+    <span class="label" dir="auto">{e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}
     {#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span>{/if}
     {#if e.is_dir}<span class="chev flip">{"\u{f054}"}</span>{/if}
@@ -154,12 +154,12 @@
     font-size: 0.7em;
     color: var(--hidden-fg);
   }
-  /* A name goes the way its first letter does, aligned as the column is. */
+  /* A name goes the way its first letter does (dir="auto"), aligned as the column is. */
   .label {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
-    unicode-bidi: plaintext;
+    text-align: match-parent;
     text-align: match-parent;
   }
   .hidden {

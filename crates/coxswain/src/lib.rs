@@ -1076,10 +1076,7 @@ impl App {
         if self.dialog.is_some() {
             return self.dialog_key(key);
         }
-        let plain_char = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let plain_char = typed(&key);
         // Quick search: Alt+letter starts it; further letters extend it.
         if let Some(q) = &mut self.quick {
             match (key.code, plain_char) {
@@ -2622,10 +2619,7 @@ impl App {
 
     fn dialog_key(&mut self, key: Key) {
         let action = self.keymap.get(&key).copied();
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let ch = typed(&key);
         let esc = key.code == KeyCode::Esc || action == Some(Action::Quit);
         let Some(dialog) = self.dialog.take() else { return };
         // F1 in a dialog: Features, at what it is about; Esc comes back.
@@ -3284,6 +3278,17 @@ impl App {
         }
         // Last, so a notice it shows is not written over in the same round.
         self.tell();
+    }
+}
+
+/// The letter a key types, if it types one. Alt Gr letters (@ { \ € on German and Nordic
+/// keyboards, ą ł on Polish) come from Windows terminals as Ctrl+Alt with the letter itself,
+/// which is never one of the plain letters or digits a Ctrl+Alt shortcut uses.
+fn typed(key: &Key) -> Option<char> {
+    match key.code {
+        KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
+        KeyCode::Char(c) if key.ctrl && key.alt && !c.is_ascii_alphanumeric() && !c.is_control() => Some(c),
+        _ => None,
     }
 }
 
@@ -4000,6 +4005,18 @@ mod tests {
             let path = path.unwrap_or_else(|| panic!("{what}: none"));
             assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
         }
+    }
+
+    /// Alt Gr letters arrive as Ctrl+Alt from Windows terminals and are typed; Ctrl+Alt with a
+    /// plain letter stays a shortcut.
+    #[test]
+    fn alt_gr_letters_are_typed() {
+        let k = |c, ctrl, alt| Key::new(KeyCode::Char(c), ctrl, alt, false);
+        assert_eq!(typed(&k('@', true, true)), Some('@'));
+        assert_eq!(typed(&k('ą', true, true)), Some('ą'));
+        assert_eq!(typed(&k('a', true, true)), None);
+        assert_eq!(typed(&k('@', true, false)), None);
+        assert_eq!(typed(&k('x', false, false)), Some('x'));
     }
 
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
