@@ -239,96 +239,128 @@ pub fn install() -> Option<String> {
 /// leaves the machine. `stop` is asked at each line the engine writes: true ends it at once
 /// (the position on screen changed).
 pub fn analyse(program: &Path, fen: &str, ms: u32, lines: u32, stop: &dyn Fn() -> bool) -> std::io::Result<Analysis> {
-    let fen = pgn::full_fen(fen);
-    let b = pgn::board(&fen).ok_or_else(|| std::io::Error::other("no position"))?;
-    let mut child = crate::tools::command(program)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()?;
-    // Killed and waited for however this ends: no engine is left running.
-    struct Reap(std::process::Child);
-    impl Drop for Reap {
-        fn drop(&mut self) {
-            let _ = self.0.kill();
-            let _ = self.0.wait();
+    Engine::start(crate::tools::command(program))?.think(fen, ms, lines, stop)
+}
+
+fn failed(kind: std::io::ErrorKind) -> std::io::Error {
+    std::io::Error::new(kind, crate::t!("chess.engine_failed"))
+}
+
+/// A UCI engine running, asked about one position after another. It is killed and waited for
+/// when dropped: no engine is left running.
+pub struct Engine {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    out: std::io::Lines<BufReader<std::process::ChildStdout>>,
+    /// Its name, as it gives it (`Stockfish 17.1`).
+    pub name: String,
+}
+
+impl Drop for Engine {
+    fn drop(&mut self) {
+        let _ = self.stdin.write_all(b"quit\n");
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+impl Engine {
+    /// Starts the engine `cmd` and waits for it to say it speaks UCI.
+    pub fn start(mut cmd: std::process::Command) -> std::io::Result<Engine> {
+        let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
+        let stdin = child.stdin.take().ok_or_else(|| failed(std::io::ErrorKind::BrokenPipe))?;
+        let stdout = child.stdout.take().ok_or_else(|| failed(std::io::ErrorKind::BrokenPipe))?;
+        let mut e = Engine { child, stdin, out: BufReader::new(stdout).lines(), name: String::new() };
+        writeln!(e.stdin, "uci")?;
+        e.stdin.flush()?;
+        let started = std::time::Instant::now();
+        loop {
+            if started.elapsed().as_secs() > 30 {
+                return Err(failed(std::io::ErrorKind::TimedOut));
+            }
+            let line = e.out.next().ok_or_else(|| failed(std::io::ErrorKind::UnexpectedEof))??;
+            let w: Vec<&str> = line.split_whitespace().collect();
+            match w.first() {
+                Some(&"id") if w.get(1) == Some(&"name") => e.name = w[2..].join(" "),
+                Some(&"uciok") => return Ok(e),
+                _ => {}
+            }
         }
     }
-    let mut stdin = child.stdin.take().ok_or_else(|| std::io::Error::other("no stdin"))?;
-    let stdout = child.stdout.take().ok_or_else(|| std::io::Error::other("no stdout"))?;
-    let _reap = Reap(child);
-    let wanted = lines.clamp(1, MAX_LINES) as usize;
-    write!(
-        stdin,
-        "uci\nsetoption name MultiPV value {wanted}\nisready\nucinewgame\nposition fen {fen}\ngo movetime {}\n",
-        ms.clamp(50, 600_000)
-    )?;
-    stdin.flush()?;
-    let black = b.side_to_move() == Color::Black;
-    let mut a = Analysis::default();
-    // Per line: its score (cp, mate) and its moves in UCI.
-    let mut pvs: Vec<(Option<i32>, Option<i32>, Vec<String>)> = vec![Default::default(); wanted];
-    let mut lines = BufReader::new(stdout).lines();
-    let started = std::time::Instant::now();
-    loop {
-        if stop() {
-            return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "stopped"));
-        }
-        // An engine that says nothing for far longer than it was given: given up on.
-        if started.elapsed().as_millis() as u64 > ms as u64 + 30_000 {
-            return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, crate::t!("chess.engine_failed")));
-        }
-        let Some(line) = lines.next() else {
-            return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, crate::t!("chess.engine_failed")));
-        };
-        let line = line?;
-        let w: Vec<&str> = line.split_whitespace().collect();
-        match w.first() {
-            Some(&"id") if w.get(1) == Some(&"name") => a.engine = w[2..].join(" "),
-            Some(&"info") if !w.contains(&"lowerbound") && !w.contains(&"upperbound") && w.contains(&"pv") => {
-                let at = |k: &str| w.iter().position(|x| *x == k).and_then(|i| w.get(i + 1));
-                let k = at("multipv").and_then(|k| k.parse::<usize>().ok()).unwrap_or(1);
-                let Some(slot) = pvs.get_mut(k.wrapping_sub(1)) else { continue };
-                if k == 1
-                    && let Some(d) = at("depth").and_then(|d| d.parse().ok())
-                {
-                    a.depth = d;
-                }
-                let flip = |v: i32| if black { -v } else { v };
-                if let Some(i) = w.iter().position(|x| *x == "score") {
-                    let v = w.get(i + 2).and_then(|v| v.parse::<i32>().ok()).map(flip);
-                    (slot.0, slot.1) = match w.get(i + 1) {
-                        Some(&"mate") => (None, v),
-                        _ => (v, None),
-                    };
-                }
-                let from = w.iter().position(|x| *x == "pv").map_or(w.len(), |i| i + 1);
-                slot.2 = w[from..].iter().map(|s| s.to_string()).collect();
+
+    /// Its best `lines` (1 to 5) for the position `fen`, after `ms` milliseconds. `stop` is
+    /// asked at each line the engine writes: true ends it, and the engine is of no more use.
+    pub fn think(&mut self, fen: &str, ms: u32, lines: u32, stop: &dyn Fn() -> bool) -> std::io::Result<Analysis> {
+        let fen = pgn::full_fen(fen);
+        let b = pgn::board(&fen).ok_or_else(|| std::io::Error::other("no position"))?;
+        let wanted = lines.clamp(1, MAX_LINES) as usize;
+        write!(
+            self.stdin,
+            "setoption name MultiPV value {wanted}\nisready\nposition fen {fen}\ngo movetime {}\n",
+            ms.clamp(50, 600_000)
+        )?;
+        self.stdin.flush()?;
+        let black = b.side_to_move() == Color::Black;
+        let mut a = Analysis { engine: self.name.clone(), ..Default::default() };
+        // Per line: its score (cp, mate) and its moves in UCI.
+        let mut pvs: Vec<(Option<i32>, Option<i32>, Vec<String>)> = vec![Default::default(); wanted];
+        let started = std::time::Instant::now();
+        loop {
+            if stop() {
+                return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "stopped"));
             }
-            Some(&"bestmove") => {
-                // An engine that gave no line still names its move.
-                if pvs[0].2.is_empty()
-                    && let Some(m) = w.get(1)
-                {
-                    pvs[0].2 = vec![m.to_string()];
-                }
-                for (cp, mate, pv) in pvs {
-                    let mut line = EngineLine { cp, mate, eval: eval_text(cp, mate), ..Default::default() };
-                    let mut f = fen.clone();
-                    for m in pv.iter().take(12) {
-                        let Some(p) = play(&f, m) else { break };
-                        f = p.fen.clone();
-                        line.moves.push(p.san.clone());
-                        line.best.get_or_insert(p);
-                    }
-                    if line.best.is_some() {
-                        a.lines.push(line);
-                    }
-                }
-                let _ = stdin.write_all(b"quit\n");
-                return Ok(a);
+            // An engine that says nothing for far longer than it was given: given up on.
+            if started.elapsed().as_millis() as u64 > ms as u64 + 30_000 {
+                return Err(failed(std::io::ErrorKind::TimedOut));
             }
-            _ => {}
+            let line = self.out.next().ok_or_else(|| failed(std::io::ErrorKind::UnexpectedEof))??;
+            let w: Vec<&str> = line.split_whitespace().collect();
+            match w.first() {
+                Some(&"info") if !w.contains(&"lowerbound") && !w.contains(&"upperbound") && w.contains(&"pv") => {
+                    let at = |k: &str| w.iter().position(|x| *x == k).and_then(|i| w.get(i + 1));
+                    let k = at("multipv").and_then(|k| k.parse::<usize>().ok()).unwrap_or(1);
+                    let Some(slot) = pvs.get_mut(k.wrapping_sub(1)) else { continue };
+                    if k == 1
+                        && let Some(d) = at("depth").and_then(|d| d.parse().ok())
+                    {
+                        a.depth = d;
+                    }
+                    let flip = |v: i32| if black { -v } else { v };
+                    if let Some(i) = w.iter().position(|x| *x == "score") {
+                        let v = w.get(i + 2).and_then(|v| v.parse::<i32>().ok()).map(flip);
+                        (slot.0, slot.1) = match w.get(i + 1) {
+                            Some(&"mate") => (None, v),
+                            _ => (v, None),
+                        };
+                    }
+                    let from = w.iter().position(|x| *x == "pv").map_or(w.len(), |i| i + 1);
+                    slot.2 = w[from..].iter().map(|s| s.to_string()).collect();
+                }
+                Some(&"bestmove") => {
+                    // An engine that gave no line still names its move.
+                    if pvs[0].2.is_empty()
+                        && let Some(m) = w.get(1)
+                    {
+                        pvs[0].2 = vec![m.to_string()];
+                    }
+                    for (cp, mate, pv) in pvs {
+                        let mut line = EngineLine { cp, mate, eval: eval_text(cp, mate), ..Default::default() };
+                        let mut f = fen.clone();
+                        for m in pv.iter().take(12) {
+                            let Some(p) = play(&f, m) else { break };
+                            f = p.fen.clone();
+                            line.moves.push(p.san.clone());
+                            line.best.get_or_insert(p);
+                        }
+                        // A mated position has no move, but its score still counts.
+                        if line.best.is_some() || line.mate.is_some() || line.cp.is_some() {
+                            a.lines.push(line);
+                        }
+                    }
+                    return Ok(a);
+                }
+                _ => {}
+            }
         }
     }
 }
