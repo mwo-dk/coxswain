@@ -187,9 +187,14 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Changing a locked archive:** in a zip, locked files stay locked, and files you add are
   locked with its password (AES-256). A locked 7z that you change is written anew locked with
   the same password (its names too, when they were), the key made as 7-Zip makes it.
-- **Large compressed tars** are read from the start when opened, as the format has no index.
-  The listing is kept while the archive does not change, so moving between its folders is
-  quick after that. A multi-gigabyte `.tar.xz` is still slow to open; extract it instead.
+- **Large compressed tars** are read from the start the first time they are opened, as the
+  format has no list of its contents. That list is then kept in the cache folder
+  (`coxswain/archive-index/`, by the archive's path, size, date and, on Unix, its inode), so the
+  next time, in this run or a later one, it opens at once while the archive does not change. A
+  file taken out of a `.tar.xz` made in blocks (xz 5.6 and later make them by default, and
+  `xz -T`) is unpacked from the block it starts in, not from the start: the last file of a 2 GB
+  `.tar.xz` comes out in a moment. Out of a `.tar.gz`, `.tar.bz2` or `.tar.zst` a file is still
+  unpacked from the start up to it.
 - **No overwriting:** a name that already exists inside, or at the target outside, is refused
   with `… exists`, as between folders.
 - **Permissions that come out:** a file or folder from a zip or a tar keeps its executable bit,

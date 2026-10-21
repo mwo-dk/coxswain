@@ -1,0 +1,1 @@
+| **A big compressed tar opens at once the second time.** What a `.tar.gz`, `.tar.xz`, `.tar.bz2` or `.tar.zst` holds is kept in the cache after the first look, also for later runs, and a file of a `.tar.xz` made in blocks is unpacked from its block, not from the start of the archive. | [Archives as folders](files/archives.md#limits) |

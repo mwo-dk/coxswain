@@ -134,7 +134,7 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | Limit | Value | What happens past it |
 |---|---|---|
 | Entries of one archive | the first 50,000 | The rest are not found |
-| A compressed tar, to be listed | 256 MB | It is found by its own name only: a compressed tar must be unpacked from its start to be listed |
+| A compressed tar, to be listed | 256 MB | It is found by its own name only, since a compressed tar must be unpacked from its start to be listed; once you have opened it, its kept list is used and its files are found by name too ([Archives as folders](../files/archives.md#limits)) |
 | A 7z or compressed tar, to be read for text | 256 MB | Its names are found, its text is not read |
 | One file inside | 20 MB (`text_max_size`) | Its name is found, its text is not read |
 | Read out of one archive | 128 MB | The files after that are found by name only |
@@ -190,7 +190,7 @@ the file watcher, at the next hourly rebuild (names) or within ten minutes (text
 #### Why is a file in my .tar.xz not found?
 
 One of these: the archive is larger than 256 MB (a compressed tar is listed by unpacking it,
-so larger ones are found by their own name only); the file is past the archive's first 50,000
+so larger ones are found by their own name only, until you have opened one once); the file is past the archive's first 50,000
 entries; the archive is not in a folder that is read, or is in a hidden one; it is a container image (a
 plain `.tar` from `docker save` or `podman save`), found by its name only; or, for its text,
 the file is larger than 20 MB or comes after the first 128 MB read out of the archive.
