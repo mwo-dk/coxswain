@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::branches::Branch;
 use crate::git::{FileStatus, Kind, Status};
-use crate::history::Commit;
+use crate::history::{At, Commit};
 
 /// What a repository is asked, whatever keeps it.
 pub trait Vcs: Sync {
@@ -99,7 +99,16 @@ impl Vcs for Git {
         Status::read_git(dir)
     }
     fn log(&self, base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
-        crate::history::log(base, "HEAD", spec, max)
+        // A history of this branch, as the list shows it (`history::graph_log`).
+        let at = At {
+            target: if spec == "." { base.to_path_buf() } else { base.join(spec) },
+            base: base.to_path_buf(),
+            commit: None,
+            inner: String::new(),
+            view: crate::history::View::History,
+            scope: crate::history::Scope::Branch,
+        };
+        crate::history::graph_log(&at, max)
     }
     fn branches(&self, dir: &Path) -> io::Result<Vec<Branch>> {
         crate::branches::git_branches(dir)

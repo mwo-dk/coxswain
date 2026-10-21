@@ -313,7 +313,7 @@ fn graph_commit(rec: &[u8]) -> Option<Commit> {
 
 /// The commits of a history's list, children before parents (`--date-order`), with their
 /// parents as the list has them: at most `max`, and whether there were more.
-fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+pub(crate) fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> {
     let spec = spec(at);
     // A file's history on its branch goes on past its renames, as `log` does; git rewrites no
     // parents then, so its commits are one line, as they are on that branch.
