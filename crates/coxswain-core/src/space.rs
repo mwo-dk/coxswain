@@ -177,7 +177,12 @@ impl Tree {
                 kids: vec![],
             });
             if let Some(mut kids) = f.kids {
-                kids.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
+                kids.sort_by(|a, b| {
+                    b.size.cmp(&a.size).then_with(|| {
+                        let name = |f: &Found| f.name.to_string_lossy().into_owned();
+                        crate::collate::cmp(&name(a), &name(b)).then_with(|| a.name.cmp(&b.name))
+                    })
+                });
                 todo.extend(kids.into_iter().rev().map(|k| (k, id)));
             }
         }

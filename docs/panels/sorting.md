@@ -35,7 +35,12 @@ In the desktop app's details view, click a header instead: **Name**, **Type** (e
 The rules, whatever the order:
 
 - `..` stays first, then folders, then files.
-- Names sort naturally and case-insensitively: `file2` before `file10`, `a.txt` next to `A.txt`.
+- Names sort by the alphabet of the language Coxswain speaks
+  ([Languages](../customise/languages.md)): in Danish and Norwegian *Æ*, *Ø* and *Å* come after
+  *Z*, in Swedish and Finnish *Å*, *Ä* and *Ö*, in German *Ä* sorts with *A*, in Spanish *ñ*
+  after *n*, in Czech *ch* after *h*. Numbers go by their value (`file2` before `file10`), case
+  does not count (`a.txt` next to `A.txt`), and names that differ only in case go by their
+  letters' code points, capitals first, so the order never changes between two looks.
 - Sorting by size puts folders in the order of their measured size
   ([Folder sizes](folder-sizes.md)), largest first. A folder not measured yet comes after the
   measured ones, and those among themselves in name order, whichever way round. As the sizes
@@ -85,6 +90,13 @@ Yes, by their measured size: the one the Size column shows ([Folder sizes](folde
 A folder still being measured comes after the measured ones, in name order, and moves to its
 place when its size arrives. With folder sizes off (`folder_sizes = false`) nothing is
 measured, so with **Ctrl+F6** the folders stay in name order before the files.
+
+#### Why do Æ, Ø and Å come after Z, and Ä with A?
+
+Names sort by the alphabet of the language Coxswain speaks: Danish puts *Æble*, *Østers* and
+*Ål* after *Zebra*, German puts *Äpfel* with *Apfel*. Both apps sort the same way, from
+coxswain-core. To sort by another alphabet, pick that language in Settings → *Looks* →
+*Language* (`language` in `config.toml`); a folder read after the change sorts by the new one.
 
 #### Ctrl+F3 does nothing in my terminal. Why?
 

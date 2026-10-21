@@ -18,8 +18,9 @@ numbers measured on synthetic data, so you know what to expect and can measure a
 
 ## What both apps do
 
-- **Listing** reads a folder once (`read_dir`, one `stat` per entry) and sorts it in natural
-  order (`file2` before `file10`, case ignored) without allocating per comparison.
+- **Listing** reads a folder once (`read_dir`, one `stat` per entry) and sorts it by the
+  language's alphabet (`file2` before `file10`, case ignored): each name's collation key is made
+  once, on every core, and the sort compares keys byte by byte (200,000 names in about 90 ms).
 - **Folder sizes** are measured in the background by two threads, the first folders on screen
   first, and stop when you leave the folder. Sizes under your home folder come from the search
   helper's store at once. See [Folder sizes](../panels/folder-sizes.md).

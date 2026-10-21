@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, sortItems, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, sortItems, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -271,15 +271,18 @@ export async function load(t, dir = t.dir, focus) {
   // not sent again while HEAD stays. A listing sorted by commit before the walk was done
   // (it came sorted by name) is sorted now.
   if (ui.cfg.settings.git_last_commit)
-    invoke("git_last", { dir: t.dir, have: t.lastHead }).then((r) => {
+    invoke("git_last", { dir: t.dir, have: t.lastHead }).then(async (r) => {
       if (t.dir !== dir) return;
       if (!r) return void (t.last = null);
       t.lastHead = r.head;
       if (!r.lasts) return;
       t.last = r.lasts;
       if (t.sort === "commit") {
+        const items = t.items;
+        const rank = await ranks(items.map((e) => e.name));
+        if (t.dir !== dir || t.items !== items || t.sort !== "commit") return;
         const at = t.items[t.cursor]?.path;
-        t.items = byLast(t.items, r.lasts, t.reverse);
+        t.items = byLast(t.items, r.lasts, t.reverse, rank);
         t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
       }
     }, () => {});
@@ -287,11 +290,11 @@ export async function load(t, dir = t.dir, focus) {
 }
 
 /** `items` by their last commit, newest first (`..` first, folders before files), as the
- * backend sorts them; entries without one last. */
-export function byLast(items, last, reverse) {
+ * backend sorts them; entries without one last, and alike by name (`rank`, from `ranks`). */
+export function byLast(items, last, reverse, rank) {
   const group = (e) => (e.name === ".." ? 0 : e.is_dir ? 1 : 2);
   const when = (e) => last[e.name]?.time ?? 0;
-  const name = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  const name = (a, b) => rank(a.name) - rank(b.name);
   return [...items].sort((a, b) => group(a) - group(b) || (reverse ? -1 : 1) * (when(b) - when(a) || name(a, b)));
 }
 
@@ -641,6 +644,16 @@ export async function measureFolders(t, paths) {
   }
 }
 
+/** `ranks` of a tab's names, asked once while its listing keeps the same names. */
+const ranked = new WeakMap();
+async function tabRanks(t) {
+  const had = ranked.get(t);
+  if (had && t.items.every((e) => had.has(e.name))) return had;
+  const rank = await ranks(t.items.map((e) => e.name));
+  ranked.set(t, rank);
+  return rank;
+}
+
 /** Sorted by size: the folders measured since the listing (which sorted them by name) go to
  *  their place, the cursor on the same entry. A quarter second after the first arrival, so a
  *  folder of thousands is sorted four times a second at most. */
@@ -648,12 +661,15 @@ const resorting = new WeakSet();
 export function resortSoon(t) {
   if (t.sort !== "size" || resorting.has(t)) return;
   resorting.add(t);
-  setTimeout(() => {
+  setTimeout(async () => {
     resorting.delete(t);
     // A history, a list of snapshots, an archive or a package keeps the backend's order.
     if (t.sort !== "size" || t.archive || t.history || (t.snapshot && !t.snapshot.snapshot) || t.package) return;
+    const items = t.items;
+    const rank = await tabRanks(t);
+    if (t.items !== items || t.sort !== "size") return;
     const at = t.items[t.cursor]?.path;
-    t.items = sortItems(t.items, "size", t.reverse, t.sizes);
+    t.items = sortItems(t.items, "size", t.reverse, t.sizes, rank);
     t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
   }, 250);
 }

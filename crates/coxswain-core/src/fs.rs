@@ -349,7 +349,8 @@ pub fn sort_in(
     }
 }
 
-/// `sort` with no folder measured: by size, folders in name order.
+/// `sort` with no folder measured: by size, folders in name order. Names in the language's
+/// alphabet (`collate`), numbers by their value: "file2" < "file10".
 pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
     sort_sized(entries, key, reverse, |e| (!e.is_dir).then_some(e.size));
 }
@@ -361,10 +362,10 @@ fn sort_sized(
     reverse: bool,
     size: impl Fn(&Entry) -> Option<u64>,
 ) {
-    entries.sort_by(|a, b| {
+    sort_keyed(entries, key == SortKey::Ext, |a, ka, b, kb| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
-            let name = || natord(&a.name, &b.name);
+            let name = || ka.name.cmp(&kb.name);
             let sizes = (key == SortKey::Size).then(|| (size(a), size(b)));
             if let Some((x, y)) = sizes
                 && (x.is_none() || y.is_none())
@@ -374,7 +375,7 @@ fn sort_sized(
             }
             let ord = match key {
                 SortKey::Name | SortKey::Commit => name(),
-                SortKey::Ext => natord(a.ext(), b.ext()).then_with(name),
+                SortKey::Ext => ka.ext.cmp(&kb.ext).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
                 SortKey::Size => {
                     let (x, y) = sizes.unwrap_or_default();
@@ -386,36 +387,32 @@ fn sort_sized(
     });
 }
 
-/// Case-insensitive natural order: "file2" < "file10". No allocation: a sort of 100,000
-/// names calls this two million times.
-pub(crate) fn natord(a: &str, b: &str) -> std::cmp::Ordering {
-    let (mut a, mut b) = (a, b);
-    loop {
-        let (Some(x), Some(y)) = (a.chars().next(), b.chars().next()) else {
-            return a.len().cmp(&b.len());
-        };
-        if x.is_ascii_digit() && y.is_ascii_digit() {
-            let digits = |s: &str| s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
-            let (na, nb) = (&a[..digits(a)], &b[..digits(b)]);
-            let (ta, tb) = (na.trim_start_matches('0'), nb.trim_start_matches('0'));
-            let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
-            if ord.is_ne() {
-                return ord;
-            }
-            a = &a[na.len()..];
-            b = &b[nb.len()..];
-        } else {
-            let ord = if x.is_ascii() && y.is_ascii() {
-                x.to_ascii_lowercase().cmp(&y.to_ascii_lowercase())
-            } else {
-                x.to_lowercase().cmp(y.to_lowercase())
-            };
-            if ord.is_ne() {
-                return ord;
-            }
-            a = &a[x.len_utf8()..];
-            b = &b[y.len_utf8()..];
-        }
+/// An entry's collation keys (`collate::key`): its name's, and its extension's when asked.
+pub(crate) struct Keys {
+    pub name: Vec<u8>,
+    pub ext: Vec<u8>,
+}
+
+/// `entries` sorted by `cmp`, which gets each entry with its `Keys`, made once per entry (on
+/// every core): a sort of 200,000 names compares them some four million times.
+pub(crate) fn sort_keyed(
+    entries: &mut [Entry],
+    ext: bool,
+    cmp: impl Fn(&Entry, &Keys, &Entry, &Keys) -> std::cmp::Ordering,
+) {
+    use rayon::prelude::*;
+    let keys: Vec<Keys> = entries
+        .par_iter()
+        .map(|e| Keys {
+            name: crate::collate::key(&e.name),
+            ext: if ext { crate::collate::key(e.ext()) } else { Vec::new() },
+        })
+        .collect();
+    let mut order: Vec<usize> = (0..entries.len()).collect();
+    order.sort_by(|&i, &j| cmp(&entries[i], &keys[i], &entries[j], &keys[j]));
+    let mut taken: Vec<Entry> = entries.iter_mut().map(std::mem::take).collect();
+    for (slot, i) in entries.iter_mut().zip(order) {
+        *slot = std::mem::take(&mut taken[i]);
     }
 }
 
@@ -1802,16 +1799,19 @@ mod tests {
 
     #[test]
     fn fs_natural_order() {
-        use std::cmp::Ordering::*;
-        assert_eq!(natord("file2", "file10"), Less);
-        assert_eq!(natord("file010", "file10"), Equal);
-        assert_eq!(natord("file10", "file010a"), Less);
-        assert_eq!(natord("a", "B"), Less);
-        assert_eq!(natord("B", "a"), Greater);
-        assert_eq!(natord("abc", "ab"), Greater);
-        assert_eq!(natord("", "a"), Less);
-        assert_eq!(natord("Ærø 2", "ærø 10"), Less);
-        assert_eq!(natord("x9y", "x9z"), Less);
+        let names = |v: &[Entry]| v.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        let mut v: Vec<Entry> = ["x9z", "file10", "B", "file010a", "ab", "file2", "a", "x9y", "abc"]
+            .into_iter()
+            .map(|n| Entry {
+                name: n.into(),
+                ..Default::default()
+            })
+            .collect();
+        sort(&mut v, SortKey::Name, false);
+        let want = ["a", "ab", "abc", "B", "file2", "file10", "file010a", "x9y", "x9z"];
+        assert_eq!(names(&v), want);
+        sort(&mut v, SortKey::Name, true);
+        assert_eq!(names(&v), want.iter().rev().copied().collect::<Vec<_>>());
     }
 
     #[test]

@@ -82,7 +82,7 @@ pub fn places() -> Vec<Place> {
             });
         }
     }
-    v.sort_by_key(|p| p.name.to_lowercase());
+    v.sort_by_cached_key(|p| crate::collate::key(&p.name));
     v
 }
 

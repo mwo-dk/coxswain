@@ -110,14 +110,14 @@ pub fn is_comic(path: &Path) -> bool {
     ends_in(path, &OPEN_ONLY[..1]).is_some()
 }
 
-/// The pages of a comic: its pictures, in the order of their names (natural: 2 before 10).
+/// The pages of a comic: its pictures, in the order of their names (`collate`: 2 before 10).
 pub fn pages(comic: &Path) -> io::Result<Vec<String>> {
     let mut v: Vec<String> = items(comic)?
         .iter()
         .filter(|it| !it.dir && crate::pictures::is_page(Path::new(&it.name)))
         .map(|it| it.name.clone())
         .collect();
-    v.sort_by(|a, b| crate::fs::natord(a, b));
+    v.sort_by_cached_key(|n| crate::collate::key(n));
     Ok(v)
 }
 

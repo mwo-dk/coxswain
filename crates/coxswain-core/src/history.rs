@@ -885,10 +885,10 @@ pub fn sort_by_last(entries: &mut [Entry], lasts: &Lasts, reverse: bool) {
             .and_then(|l| l.as_ref())
             .map_or(0, |l| l.time)
     };
-    entries.sort_by(|a, b| {
+    crate::fs::sort_keyed(entries, false, |a, ka, b, kb| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
-            let ord = when(b).cmp(&when(a)).then_with(|| a.name.cmp(&b.name));
+            let ord = when(b).cmp(&when(a)).then_with(|| ka.name.cmp(&kb.name));
             if reverse { ord.reverse() } else { ord }
         })
     });

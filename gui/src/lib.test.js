@@ -61,13 +61,11 @@ test("old pictures: the core's endings, any case", async () => {
   assert.ok(!isOldPicture("a.tif"), "the list replaced");
 });
 
-test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async () => {
-  const { natord, sortItems } = await pick("isDigit", "byPoint", "natord", "sortItems");
-  assert.ok(natord("file2", "file10") < 0);
-  assert.equal(natord("a", "A"), 0);
-  assert.ok(natord("a", "B") < 0);
-  assert.equal(natord("01", "1"), 0);
-  assert.ok(natord("x", "x1") < 0);
+test("sortItems: as coxswain-core's fs::sort, names by their ranks from collate", async () => {
+  const { sortItems } = await pick("sortItems");
+  // What `name_ranks` gives for these: the language's order, numbers by their value.
+  const order = ["", "a2.md", "a10.md", "b.txt", "Docs", "md", "txt"];
+  const rank = (w) => order.indexOf(w);
   const items = [
     { name: "b.txt", is_dir: false, modified: 1, size: 5 },
     { name: "..", is_dir: true },
@@ -75,7 +73,7 @@ test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async (
     { name: "Docs", is_dir: true, modified: 2 },
     { name: "a2.md", is_dir: false, modified: null, size: 9 },
   ];
-  const names = (key, reverse = false) => sortItems(items, key, reverse).map((e) => e.name);
+  const names = (key, reverse = false) => sortItems(items, key, reverse, {}, rank).map((e) => e.name);
   assert.deepEqual(names("name"), ["..", "Docs", "a2.md", "a10.md", "b.txt"]);
   assert.deepEqual(names("name", true), ["..", "Docs", "b.txt", "a10.md", "a2.md"]);
   assert.deepEqual(names("ext"), ["..", "Docs", "a2.md", "a10.md", "b.txt"]);
@@ -86,7 +84,8 @@ test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async (
   const d = (name, size) => ({ name, path: `/d/${name}`, is_dir: true, size });
   const all = [d("..", 4096), d("one", 4096), d("fifty", 4096), d("five-g", 4096), d("b-new", 9999), d("a-new", 0), { name: "x.txt", is_dir: false, size: 10 }, { name: "y.txt", is_dir: false, size: 20 }];
   const measured = { "/d/one": 2 ** 20, "/d/fifty": 50 * 2 ** 20, "/d/five-g": 5 * 2 ** 30 };
-  const bySize = (sizes, reverse) => sortItems(all, "size", reverse, sizes).map((e) => e.name);
+  const alpha = (w) => [...all.map((e) => e.name)].sort().indexOf(w);
+  const bySize = (sizes, reverse) => sortItems(all, "size", reverse, sizes, alpha).map((e) => e.name);
   assert.deepEqual(bySize(measured, false), ["..", "five-g", "fifty", "one", "a-new", "b-new", "y.txt", "x.txt"]);
   assert.deepEqual(bySize(measured, true), ["..", "one", "fifty", "five-g", "a-new", "b-new", "x.txt", "y.txt"]);
   assert.deepEqual(bySize({}, false), ["..", "a-new", "b-new", "fifty", "five-g", "one", "y.txt", "x.txt"]);
