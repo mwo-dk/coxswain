@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+Buchstabe springt zu einem Namen: tippen Sie, wie er beginnt",
  "hint.space": "{key} zeigt, wohin der Platz hier geht, jede Datei als Rechteck nach ihrer Größe",
  "hint.zfs": "{snapshots} zeigt die ZFS-Snapshots dieses Ordners",
- "history.badge": "Verlauf",
  "history.badge_at": "Commit {commit}",
  "history.badge_of": "Verlauf von {name}",
  "history.commit_in": "Commit in {repo}",
@@ -3327,5 +3326,13 @@
  "zfs.read_only": "Ein ZFS-Snapshot ist schreibgeschützt — F5 kopiert eine Datei oder einen Ordner daraus",
  "zfs.referenced": "{size} referenziert",
  "zfs.same": "Die Datei ist jetzt dieselbe wie im Snapshot",
- "zfs.used_referenced": "{used} belegt, {referenced} referenziert"
+ "zfs.used_referenced": "{used} belegt, {referenced} referenziert",
+ "action.history_all": "Verlauf aller Branches",
+ "history.badge_branch": "Verlauf dieses Branches · {key}: alle Branches",
+ "history.badge_all": "Verlauf aller Branches · {key}: dieser Branch",
+ "history.all_not_here": "Alle Branches gibt es in einem Git-Verlauf oder auf einer Datei oder einem Ordner eines Repositorys",
+ "history.scope_branch": "Dieser Branch",
+ "history.scope_all": "Alle Branches",
+ "history.scope_tip": "Welche Commits die Liste und ihr Graph zeigen ({key} wechselt)",
+ "hint.history": "{all} zeigt die Commits aller Branches im Graphen; noch einmal nur die dieses Branches"
 }

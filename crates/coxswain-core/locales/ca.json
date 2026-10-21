@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+lletra salta a un nom: escriviu com comença",
  "hint.space": "{key} mostra on va l'espai aquí, cada fitxer com a rectangle segons la mida",
  "hint.zfs": "{snapshots} mostra les instantànies ZFS d'aquesta carpeta",
- "history.badge": "historial",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historial de {name}",
  "history.commit_in": "commit a {repo}",
@@ -3395,5 +3394,13 @@
  "zfs.read_only": "Una instantània ZFS és de només lectura — F5 en copia un fitxer o una carpeta",
  "zfs.referenced": "{size} referenciats",
  "zfs.same": "El fitxer és igual ara que a la instantània",
- "zfs.used_referenced": "{used} usats, {referenced} referenciats"
+ "zfs.used_referenced": "{used} usats, {referenced} referenciats",
+ "action.history_all": "Historial de totes les branques",
+ "history.badge_branch": "historial d'aquesta branca · {key}: totes les branques",
+ "history.badge_all": "historial de totes les branques · {key}: aquesta branca",
+ "history.all_not_here": "Totes les branques és per a un historial de git, o un fitxer o una carpeta d'un repositori",
+ "history.scope_branch": "Aquesta branca",
+ "history.scope_all": "Totes les branques",
+ "history.scope_tip": "Quins commits mostren la llista i el seu gràfic ({key} canvia)",
+ "hint.history": "{all} mostra els commits de totes les branques al gràfic; un altre cop, només els d'aquesta"
 }

@@ -122,6 +122,7 @@ impl Action {
             ConvertGeodata => s.geo > 0 && disk,
             ExportModel => s.models > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
+            HistoryAll => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
             NewBranch => s.place == Place::Branches,
@@ -225,6 +226,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
         ],
     ),
     ("branches", &[("switch", Action::SwitchBranch)]),
+    ("history", &[("all", Action::HistoryAll)]),
     (
         "git",
         &[("branches", Action::Branches), ("history", Action::History)],
@@ -255,6 +257,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),
+        "history" => s.place == Place::History,
         "git" | "git_tool" => disk && s.git,
         "zfs" => disk && s.zfs,
         "space" => disk && s.big,

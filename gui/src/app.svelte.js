@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, sortItems, HISTORY, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, diskName, diskSure, diskSeen, sortItems, HISTORY, ALL, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -304,13 +304,20 @@ export function byLast(items, last, reverse, rank) {
 /** Where `..` leads: the listing says (out of a history, back to the folder on disk). */
 export const up = (t) => (t.items[0]?.name === ".." ? t.items[0].path : parent(t.dir));
 
-/** Into the git history of the entry under the cursor (of the folder itself on `..`). */
-export function openHistory(tb = tab()) {
+/** Into the git history of the entry under the cursor (of the folder itself on `..`), with
+ *  `all` every branch's commits. In a history, `all` goes over to the other branches' list. */
+export function openHistory(tb = tab(), all = false) {
   const e = item(tb);
+  const s = ui.cfg.sep;
+  if (all && tb.history) {
+    const h = tb.history;
+    if (h.view !== "history") return void (ui.status = tr("history.all_not_here"));
+    return cd(tb, `${h.target.replace(/[\\/]$/, "")}${s}${HISTORY}${h.scope === "all" ? "" : s + ALL}`);
+  }
   if (tb.archive || tb.history) return void (ui.status = tr("history.not_here"));
   if (!tb.git) return void (ui.status = tr("history.no_repo"));
   const target = e && e.name !== ".." ? e.path : tb.dir;
-  return cd(tb, `${target.replace(/[\\/]$/, "")}${ui.cfg.sep}${HISTORY}`);
+  return cd(tb, `${target.replace(/[\\/]$/, "")}${s}${HISTORY}${all ? s + ALL : ""}`);
 }
 
 /** To the ZFS snapshots of the folder under the cursor (of the tab's folder on `..` or a file).

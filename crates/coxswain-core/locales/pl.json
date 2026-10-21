@@ -2153,7 +2153,6 @@
  "hint.quick": "Alt+litera skacze do nazwy: wpisz, jak się zaczyna",
  "hint.space": "{key} pokazuje, gdzie idzie tu miejsce, każdy plik jako prostokąt wielkości pliku",
  "hint.zfs": "{snapshots} pokazuje migawki ZFS tego folderu",
- "history.badge": "historia",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historia {name}",
  "history.commit_in": "commit w {repo}",
@@ -3463,5 +3462,13 @@
  "zfs.read_only": "Migawka ZFS jest tylko do odczytu — F5 kopiuje z niej plik lub folder",
  "zfs.referenced": "{size} wskazywane",
  "zfs.same": "Plik jest teraz taki sam jak w migawce",
- "zfs.used_referenced": "{used} zajęte, {referenced} wskazywane"
+ "zfs.used_referenced": "{used} zajęte, {referenced} wskazywane",
+ "action.history_all": "Historia wszystkich gałęzi",
+ "history.badge_branch": "historia tej gałęzi · {key}: wszystkie gałęzie",
+ "history.badge_all": "historia wszystkich gałęzi · {key}: ta gałąź",
+ "history.all_not_here": "Wszystkie gałęzie są dla historii gita albo pliku lub folderu w repozytorium",
+ "history.scope_branch": "Ta gałąź",
+ "history.scope_all": "Wszystkie gałęzie",
+ "history.scope_tip": "Które commity pokazują lista i jej graf ({key} przełącza)",
+ "hint.history": "{all} pokazuje w grafie commity wszystkich gałęzi; ponownie tylko tej gałęzi"
 }

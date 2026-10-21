@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+տառը թռչում է անվանը՝ մուտքագրեք, թե ինչպես է այն սկսվում",
  "hint.space": "{key}-ը ցույց է տալիս, թե որտեղ է գնում տարածքն այստեղ. յուրաքանչյուր ֆայլ ուղղանկյուն է՝ ըստ չափի",
  "hint.zfs": "{snapshots}՝ ցույց է տալիս այս թղթապանակի ZFS ակնթարթապատկերները",
- "history.badge": "պատմություն",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "{name}-ի պատմությունը",
  "history.commit_in": "commit {repo}-ում",
@@ -3320,5 +3319,13 @@
  "theme.paper": "Թղթի սպիտակ",
  "theme.spectrum": "ZX Spectrum",
  "theme.workbench": "Amiga Workbench 1.3",
- "theme.xtree": "XTree Gold"
+ "theme.xtree": "XTree Gold",
+ "action.history_all": "Բոլոր ճյուղերի պատմությունը",
+ "history.badge_branch": "այս ճյուղի պատմությունը · {key}՝ բոլոր ճյուղերը",
+ "history.badge_all": "բոլոր ճյուղերի պատմությունը · {key}՝ այս ճյուղը",
+ "history.all_not_here": "«Բոլոր ճյուղերը» git-ի պատմության կամ պահոցի ֆայլի կամ թղթապանակի համար է",
+ "history.scope_branch": "Այս ճյուղը",
+ "history.scope_all": "Բոլոր ճյուղերը",
+ "history.scope_tip": "Որ commit-ներն են ցույց տալիս ցանկը և դրա գրաֆը ({key}՝ փոխել)",
+ "hint.history": "{all}՝ բոլոր ճյուղերի commit-ները գրաֆում, կրկին՝ միայն այս ճյուղինը"
 }

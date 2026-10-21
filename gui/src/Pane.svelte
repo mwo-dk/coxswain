@@ -1,6 +1,6 @@
 <script>
   import { tick } from "svelte";
-  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, gitFacts, gitMenu } from "./app.svelte.js";
+  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, openHistory, gitFacts, gitMenu } from "./app.svelte.js";
   import { invoke, basename, crumbs, size, MARKERS, SNAPSHOTS, PACKAGE, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
@@ -112,6 +112,15 @@
           <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr(`${t.history.view}.inside_tip`)}>
             {t.history.view === "history" ? "\u{f1da}" : "\u{e725}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : badgeOf(t.history)}
           </span>
+          {#if t.history.view === "history" && !c}
+            <!-- Which commits the list and its graph show: this branch's, or every branch's. -->
+            {@const key = ui.cfg.actions.history_all?.[1] ?? ""}
+            <span class="scope" role="group" title={tr("history.scope_tip", { key })}>
+              {#each ["branch", "all"] as s (s)}
+                <button class:on={t.history.scope === s} aria-pressed={t.history.scope === s} onclick={() => t.history.scope !== s && openHistory(t, true)}>{tr(`history.scope_${s}`)}</button>
+              {/each}
+            </span>
+          {/if}
         {/if}
         {#if t.snapshot}
           <!-- Among a dataset's snapshots: which, so an old file is not taken for today's. -->
@@ -310,6 +319,28 @@
     color: var(--accent-fg);
     background: var(--accent-bg);
     flex: none;
+  }
+  /* This branch | All branches, next to a history's badge. */
+  .scope {
+    display: flex;
+    flex: none;
+    margin-inline-start: 6px;
+    font-size: 0.8em;
+    border: 1px solid var(--accent-bg);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+  }
+  .scope button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0 8px;
+    cursor: pointer;
+  }
+  .scope button.on {
+    color: var(--accent-fg);
+    background: var(--accent-bg);
   }
   .crumb {
     padding: 1px 6px;

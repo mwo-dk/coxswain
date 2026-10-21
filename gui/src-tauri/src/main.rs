@@ -410,6 +410,8 @@ struct HistoryInfo {
     commit: Option<history::Commit>,
     /// A history's commits, the branches or the worktrees (what the list above a commit is).
     view: history::View,
+    /// HEAD's commits, or every branch's.
+    scope: history::Scope,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -433,7 +435,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
-        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view });
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view, scope: at.scope });
         let snapshot = coxswain_core::zfs::at(&dir);
         let package = coxswain_core::bsd::split(&dir).and_then(|f| coxswain_core::bsd::package_of(&f));
         Ok::<_, String>((entries, inside, in_history, snapshot, package))
@@ -487,6 +489,13 @@ struct GitLast {
     head: String,
     /// `None` when `head` is what the page said it had: the map it has holds.
     lasts: Option<std::sync::Arc<history::Lasts>>,
+}
+
+/// The graph column's rows for the commits `from..to` of the history listed at `dir` (`..` is
+/// none): worked out as far as the window in view, from what the listing read.
+#[tauri::command]
+fn history_graph(dir: PathBuf, from: usize, to: usize) -> Vec<coxswain_core::graph::Row> {
+    history::graph(&dir, from, to)
 }
 
 /// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
@@ -2367,7 +2376,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, name_ranks, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, name_ranks, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, open_keys, scripts_folder,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,

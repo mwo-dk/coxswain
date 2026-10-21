@@ -235,7 +235,12 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         }
         Place::History(at) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
-            (None, coxswain_core::history::View::History) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
+            (None, coxswain_core::history::View::History) => {
+                // Which commits, and the key that lists the others.
+                let key = app.key_label(Action::HistoryAll);
+                let badge = if at.scope == coxswain_core::history::Scope::All { t!("history.badge_all", "key" => key) } else { t!("history.badge_branch", "key" => key) };
+                format!("{} [{badge}]", p.dir.to_string_lossy())
+            }
             (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
             (None, coxswain_core::history::View::Worktrees) => format!("{} [{}]", p.dir.to_string_lossy(), t!("worktrees.badge")),
         },
@@ -311,6 +316,15 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let p = &app.panels[side];
 
     let plain = app.cfg.plain_glyphs().then_some(&app.glyphs);
+    // A history's list of commits: the graph's rows for the commits in view (`..` is none),
+    // worked out in core as far down as this.
+    let graph = match p.place.as_ref().map(|(_, pl)| pl) {
+        Some(Place::History(at)) if at.commit.is_none() && at.view == coxswain_core::history::View::History => coxswain_core::history::graph(&p.dir, p.offset.saturating_sub(1), p.offset + rows),
+        _ => vec![],
+    };
+    // As many lanes as the widest row in view, at most a third of the name column.
+    let lanes = graph.iter().map(|r| r.width()).max().unwrap_or(0).min((nw / 6).max(1) as u16);
+    let colours = [&t.git_branch, &t.git_added, &t.git_modified, &t.git_renamed, &t.git_untracked, &t.symlink];
     let mut lines = vec![];
     for (i, e) in p.entries.iter().enumerate().skip(p.offset).take(rows) {
         let marked = p.marked.contains(&e.path);
@@ -350,8 +364,11 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             None if e.online => (app.glyphs.cloud.clone(), s),
             None => (String::new(), s),
         };
+        let row = graph.iter().find(|r| !e.is_parent() && e.path.ends_with(&r.id));
         let name = if e.is_parent() {
             format!("  {}", e.name)
+        } else if row.is_some() {
+            e.name.clone()
         } else {
             format!("{} {}", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name)
         };
@@ -371,7 +388,23 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             size(e.size)
         };
         let bar = Span::styled("│", border.bg(row_bg).fg(border.fg.unwrap_or(Color::Reset)));
-        let mut v = vec![Span::styled(fit(&glyph, gw), gstyle), Span::styled(fit(name, nw), s), bar.clone(), Span::styled(right(&sz, sw), s)];
+        let mut v = vec![Span::styled(fit(&glyph, gw), gstyle)];
+        let mut left = nw;
+        if let Some(r) = row {
+            // Each lane in a colour of its own; the cursor's row in the cursor's.
+            let tint = |k: usize| if at { s } else { sty(colours[k % colours.len()]).bg(row_bg) };
+            for (k, ch) in coxswain_core::graph::boxes(r, lanes).chars().enumerate().take(left) {
+                v.push(Span::styled(ch.to_string(), tint(k / 2)));
+            }
+            left = left.saturating_sub(lanes as usize * 2);
+            if !r.refs.is_empty() {
+                let refs = format!("({}) ", r.refs.join(", "));
+                let refs = fit(&refs, refs.width().min(left / 2));
+                left -= refs.width();
+                v.push(Span::styled(refs, if at { s } else { sty(&t.git_branch).bg(row_bg) }));
+            }
+        }
+        v.extend([Span::styled(fit(name, left), s), bar.clone(), Span::styled(right(&sz, sw), s)]);
         if show_date {
             v.push(bar);
             v.push(Span::styled(fit(&if e.is_parent() { String::new() } else { date(e.modified) }, dw), s));

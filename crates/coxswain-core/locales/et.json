@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+täht hüppab nimele: tipi, kuidas see algab",
  "hint.space": "{key} näitab, kuhu ruum siin kaob, iga fail ristkülikuna oma suuruse järgi",
  "hint.zfs": "{snapshots} näitab selle kausta ZFS-i hetktõmmiseid",
- "history.badge": "ajalugu",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "{name} ajalugu",
  "history.commit_in": "commit hoidlas {repo}",
@@ -3327,5 +3326,13 @@
  "zfs.read_only": "ZFS-i hetktõmmis on kirjutuskaitstud — F5 kopeerib faili või kausta sealt välja",
  "zfs.referenced": "{size} viidatud",
  "zfs.same": "Fail on praegu sama mis hetktõmmises",
- "zfs.used_referenced": "{used} kasutatud, {referenced} viidatud"
+ "zfs.used_referenced": "{used} kasutatud, {referenced} viidatud",
+ "action.history_all": "Kõigi harude ajalugu",
+ "history.badge_branch": "selle haru ajalugu · {key}: kõik harud",
+ "history.badge_all": "kõigi harude ajalugu · {key}: see haru",
+ "history.all_not_here": "Kõik harud on git-ajaloo või hoidla faili või kausta jaoks",
+ "history.scope_branch": "See haru",
+ "history.scope_all": "Kõik harud",
+ "history.scope_tip": "Milliseid kommiteid loend ja selle graaf näitavad ({key} vahetab)",
+ "hint.history": "{all} näitab graafis kõigi harude kommiteid; uuesti ainult selle haru omi"
 }

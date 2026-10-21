@@ -1,6 +1,6 @@
 <script>
   import { ui, load, byLast, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, ranks, basename, HISTORY, SNAPSHOTS } from "./lib.js";
+  import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, ranks, basename, invoke, HISTORY, SNAPSHOTS } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
 
@@ -36,6 +36,28 @@
 
   /** Every row is this high (`--row`, set by applyTheme from the same two settings). */
   const rowH = $derived(Math.round(ui.cfg.gui.font_size * ui.cfg.gui.line_height));
+
+  // A history's list of commits: the graph's rows for the window in view (by commit id), which
+  // core works out only as far down as asked. Asked again each 16 rows scrolled.
+  const commits = $derived(!!t.history && !t.history.commit && t.history.view === "history");
+  const win = $derived(Math.floor(t.top / rowH / 16) * 16);
+  let graph = $state({});
+  $effect(() => {
+    if (!commits) return void (graph = {});
+    // Asked again when the list is read again (its graph is new then).
+    void t.items;
+    const [dir, from] = [t.dir, Math.max(0, win - 16)];
+    // 160 rows: a tall screenful and the margin around it.
+    invoke("history_graph", { dir, from, to: from + 160 }).then((rows) => {
+      if (dir !== t.dir) return;
+      graph = Object.fromEntries(rows.map((r) => [r.id, r]));
+    });
+  });
+  /** Lanes as wide as the widest row in view, at most 12. */
+  const lanes = $derived(Math.min(12, Math.max(0, ...Object.values(graph).map((r) => Math.max(r.node, ...r.up.flat(), ...r.down.flat()) + 1))));
+  const LANE = 12;
+  const x = (c) => c * LANE + LANE / 2;
+  const laneColour = (c) => `var(--lane-${c % 6})`;
 
   const g = $derived(ui.cfg.glyphs);
   const gitGlyph = (kind) =>
@@ -107,6 +129,7 @@
     {#snippet row(e, i)}
       {@const st = e.name === ".." ? undefined : (t.git?.files[e.name] ?? t.git?.all)}
       {@const marked = t.marked.has(e.path)}
+      {@const gr = commits ? graph[basename(e.path)] : undefined}
       <!-- Keyboard handling is global (App.svelte); rows are pointer targets. -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div
@@ -130,7 +153,21 @@
         onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}
       >
         <span class="name">
+          {#if gr}
+            <!-- Its lane, the lines from its children above and to its parents below. -->
+            <svg class="graph" width={lanes * LANE} height={rowH} aria-hidden="true">
+              {#each gr.up.filter(([a]) => a < lanes) as [a, b]}
+                <path d="M{x(a)} 0 C{x(a)} {rowH / 4} {x(b)} {rowH / 4} {x(b)} {rowH / 2}" stroke={laneColour(a)} />
+              {/each}
+              {#each gr.down.filter(([, c]) => c < lanes) as [b, c]}
+                <path d="M{x(b)} {rowH / 2} C{x(b)} {(rowH * 3) / 4} {x(c)} {(rowH * 3) / 4} {x(c)} {rowH}" stroke={laneColour(c)} />
+              {/each}
+              {#if gr.node < lanes}<circle cx={x(gr.node)} cy={rowH / 2} r="3.5" fill={laneColour(gr.node)} />{/if}
+            </svg>
+            {#each gr.refs ?? [] as r (r)}<span class="ref" class:head={r.startsWith("HEAD")}>{r}</span>{/each}
+          {:else}
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
+          {/if}
           <!-- In a model store: the model it is, then its hashed name (`local_models::names`). -->
           <span class="label" dir="auto">{#if t.models?.[e.name]}{t.models[e.name]} <span class="hash">{e.name}</span>{:else}{e.name}{/if}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
@@ -324,6 +361,35 @@
     color: #fff;
     text-shadow: 0 0 2px rgb(0 0 0 / 0.6);
     line-height: 1.5;
+  }
+  .graph {
+    flex: none;
+    overflow: visible;
+  }
+  .graph path {
+    fill: none;
+    stroke-width: 2;
+  }
+  .details {
+    --lane-0: var(--git-branch-fg);
+    --lane-1: var(--git-added-fg);
+    --lane-2: var(--git-modified-fg);
+    --lane-3: var(--git-renamed-fg);
+    --lane-4: var(--git-untracked-fg);
+    --lane-5: var(--symlink-fg);
+  }
+  /* A branch tip's name: HEAD's filled. */
+  .ref {
+    flex: none;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    font-size: 0.8em;
+    border: 1px solid var(--git-branch-fg);
+    color: var(--git-branch-fg);
+  }
+  .ref.head {
+    background: var(--git-branch-fg);
+    color: var(--panel-bg);
   }
   .tag {
     flex: none;

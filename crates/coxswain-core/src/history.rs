@@ -47,7 +47,29 @@ pub const LAST_WALK: usize = 5000;
 /// How long one git run may take before it is stopped, so a huge repository stays usable.
 const BUDGET: Duration = Duration::from_secs(4);
 /// Characters of a commit id in paths: unique in any repository there is.
-const ID: usize = 12;
+pub(crate) const ID: usize = 12;
+/// The path segment after `@history` that lists the commits of every branch, not HEAD's alone.
+pub const ALL: &str = "@all";
+
+/// Which commits a history lists: those HEAD reaches, or those of every branch (local and
+/// remote) and HEAD.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Scope {
+    #[default]
+    Branch,
+    All,
+}
+
+impl Scope {
+    /// What git is given to start from.
+    fn revs(self) -> &'static [&'static str] {
+        match self {
+            Scope::Branch => &["HEAD"],
+            Scope::All => &["HEAD", "--branches", "--remotes"],
+        }
+    }
+}
 
 pub(crate) fn git(dir: &Path) -> Command {
     git_with(dir, &crate::git::repo_filters(dir))
@@ -119,6 +141,7 @@ pub struct At {
     pub commit: Option<String>,
     pub inner: String,
     pub view: View,
+    pub scope: Scope,
 }
 
 /// Whether `path` has a history's (or the branches', or the worktrees') marker in it, without
@@ -129,10 +152,36 @@ pub fn is_history(path: &Path) -> bool {
 
 /// The path of `target`'s history, or of the folder it is in at `commit`.
 pub fn path(target: &Path, commit: Option<&str>) -> PathBuf {
-    let p = target.join(MARKER);
+    path_in(target, Scope::Branch, commit)
+}
+
+/// `path`, in a history of `scope`.
+pub fn path_in(target: &Path, scope: Scope, commit: Option<&str>) -> PathBuf {
+    let mut p = target.join(MARKER);
+    if scope == Scope::All {
+        p.push(ALL);
+    }
     match commit {
         Some(c) => p.join(&c[..c.len().min(ID)]),
         None => p,
+    }
+}
+
+/// Where *History of all branches* leads from `dir`, with `target` under the cursor (`dir`
+/// itself on `..`): from a history's list, or a commit in it, to the list of the other scope
+/// (every branch, or HEAD's alone again); from a folder on disk into `target`'s history of
+/// every branch. None in the branches or the worktrees.
+pub fn all_branches(dir: &Path, target: &Path) -> Option<PathBuf> {
+    match split(dir) {
+        Some(at) if at.view == View::History => {
+            let other = match at.scope {
+                Scope::Branch => Scope::All,
+                Scope::All => Scope::Branch,
+            };
+            Some(path_in(&at.target, other, None))
+        }
+        Some(_) => None,
+        None => Some(path_in(target, Scope::All, None)),
     }
 }
 
@@ -161,6 +210,12 @@ pub fn split(path: &Path) -> Option<At> {
         let Component::Normal(s) = c else { return None };
         rest.push(s.to_str()?.to_string());
     }
+    let scope = if view == View::History && rest.first().is_some_and(|r| r == ALL) {
+        rest.remove(0);
+        Scope::All
+    } else {
+        Scope::Branch
+    };
     let commit = match rest.first() {
         // The worktrees are folders on disk: nothing below the list.
         Some(_) if view == View::Worktrees => return None,
@@ -178,6 +233,7 @@ pub fn split(path: &Path) -> Option<At> {
         commit,
         inner,
         view,
+        scope,
     })
 }
 
@@ -190,13 +246,18 @@ pub fn path_of(dir: &Path, view: View) -> PathBuf {
     })
 }
 
-/// A commit: its id, time (seconds), author and subject.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// A commit: its id, time (seconds), author and subject; in a history's list also its parents
+/// (as the list has them) and what points at it, for the graph.
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct Commit {
     pub hash: String,
     pub time: u64,
     pub author: String,
     pub subject: String,
+    #[serde(skip)]
+    pub parents: Vec<String>,
+    #[serde(skip)]
+    pub refs: Vec<String>,
 }
 
 impl Commit {
@@ -218,7 +279,68 @@ fn commit(rec: &[u8]) -> Option<Commit> {
         time,
         author: f.next()?.to_string(),
         subject: f.next().unwrap_or("").to_string(),
+        ..Commit::default()
     })
+}
+
+/// `FORMAT` with the parents and what points at the commit before the subject.
+const GRAPH_FORMAT: &str = "--format=%H%x1f%at%x1f%an%x1f%P%x1f%D%x1f%s";
+
+fn graph_commit(rec: &[u8]) -> Option<Commit> {
+    let s = String::from_utf8_lossy(rec);
+    let mut f = s.splitn(6, '\x1f');
+    let hash = f.next()?.trim_start_matches('\n').to_string();
+    let time = f.next()?.parse().ok()?;
+    let author = f.next()?.to_string();
+    let parents = f.next()?.split_whitespace().map(String::from).collect();
+    let refs = f
+        .next()?
+        .split(", ")
+        .filter(|r| !r.is_empty())
+        .map(String::from)
+        .collect();
+    Some(Commit {
+        hash,
+        time,
+        author,
+        subject: f.next().unwrap_or("").to_string(),
+        parents,
+        refs,
+    })
+}
+
+/// The commits of a history's list, children before parents (`--date-order`), with their
+/// parents as the list has them: at most `max`, and whether there were more.
+fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+    let spec = spec(at);
+    // A file's history on its branch goes on past its renames, as `log` does; git rewrites no
+    // parents then, so its commits are one line, as they are on that branch.
+    let follow = spec != "." && at.scope == Scope::Branch;
+    let mut c = git(&at.base);
+    c.args(["log", "-z", GRAPH_FORMAT, "--date-order", "-n", &(max + 1).to_string()]);
+    c.arg(if follow { "--follow" } else { "--parents" });
+    c.args(at.scope.revs()).args(["--", &spec]);
+    let mut out = vec![];
+    let cut = records(c, 0, |rec| {
+        out.extend(graph_commit(rec));
+        true
+    })?;
+    if out.is_empty() && !cut {
+        run({
+            let mut c = git(&at.base);
+            c.args(["rev-parse", "--verify", "-q", "HEAD"]);
+            c
+        })?;
+    }
+    let more = cut || out.len() > max;
+    out.truncate(max);
+    if follow {
+        let next: Vec<String> = out.iter().skip(1).map(|c| c.hash.clone()).collect();
+        for (c, n) in out.iter_mut().zip(next.into_iter().map(Some).chain([None])) {
+            c.parents = n.into_iter().collect();
+        }
+    }
+    Ok((out, more))
 }
 
 /// What git calls `target` from `base`: its name, or `.` for the folder itself.
@@ -231,34 +353,6 @@ fn spec(at: &At) -> String {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| ".".into())
     }
-}
-
-/// The commits that touched `spec` (from `base`) up to `rev`, newest first: at most `max`, and
-/// whether there were more (or the walk took too long to see).
-pub fn log(base: &Path, rev: &str, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
-    let mut c = git(base);
-    c.args(["log", "-z", FORMAT, "-n", &(max + 1).to_string()]);
-    // A file's history goes on past its renames (git follows one path at a time).
-    if spec != "." {
-        c.arg("--follow");
-    }
-    c.args([rev, "--", spec]);
-    let mut out = vec![];
-    let cut = records(c, 0, |rec| {
-        out.extend(commit(rec));
-        true
-    })?;
-    if out.is_empty() && !cut {
-        // Nothing: say why, when git has a reason (not a repository, no commits yet).
-        run({
-            let mut c = git(base);
-            c.args(["rev-parse", "--verify", "-q", rev]);
-            c
-        })?;
-    }
-    let more = cut || out.len() > max;
-    out.truncate(max);
-    Ok((out, more))
 }
 
 /// One commit, by its id or name.
@@ -341,10 +435,11 @@ pub fn list(dir: &Path, at: &At) -> io::Result<Vec<Entry>> {
             View::History => {}
         }
         let commits = commits_of(at)?;
+        keep_graph(dir, &commits);
         let mut out = vec![up(at.base.clone())];
         out.extend(commits.iter().map(|c| Entry {
             name: entry_name(c),
-            path: path(&at.target, Some(&c.hash)),
+            path: path_in(&at.target, at.scope, Some(&c.hash)),
             is_dir: true,
             modified: c.time,
             created: c.time,
@@ -727,7 +822,7 @@ pub fn last_changes_since(
             ));
         }
         Some(at) if at.commit.is_none() => {
-            let oid = rev_oid(&at.base, "HEAD")?;
+            let oid = list_key(&at)?;
             if have == Some(oid.as_str()) {
                 return Some((oid, None));
             }
@@ -778,6 +873,51 @@ fn rev_oid(base: &Path, rev: &str) -> Option<String> {
     Some(String::from_utf8(out).ok()?.trim().to_string())
 }
 
+/// What a history's list is as of now: HEAD's commit, and for every branch's history the
+/// commit of each branch too (hashed), as any of them moving changes it.
+fn list_key(at: &At) -> Option<String> {
+    if at.scope == Scope::Branch {
+        return rev_oid(&at.base, "HEAD");
+    }
+    let mut c = git_with(&at.base, &[]);
+    c.args(["rev-parse"]).args(at.scope.revs());
+    let out = run(c).ok()?;
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    out.hash(&mut h);
+    Some(format!("{:x}", h.finish()))
+}
+
+/// The graph of the history lists shown lately, by their path: the list made it, the graph
+/// column asks for its rows.
+static GRAPHS: Mutex<Vec<(PathBuf, crate::graph::Layout)>> = Mutex::new(Vec::new());
+
+/// The graph rows of a history's list at `dir`, for its commits `from..to` (the first commit is
+/// 0; `..` is not one), as far as the list was read: none when it was not.
+pub fn graph(dir: &Path, from: usize, to: usize) -> Vec<crate::graph::Row> {
+    let mut all = GRAPHS.lock().unwrap();
+    all.iter_mut()
+        .find(|(d, _)| d == dir)
+        .map(|(_, l)| l.rows(from, to).to_vec())
+        .unwrap_or_default()
+}
+
+/// Keep the graph of the list just read, unless the same commits have one already.
+fn keep_graph(dir: &Path, commits: &Arc<Vec<Commit>>) {
+    let mut all = GRAPHS.lock().unwrap();
+    if let Some(i) = all.iter().position(|(d, _)| d == dir) {
+        if Arc::ptr_eq(all[i].1.commits(), commits) {
+            return;
+        }
+        all.remove(i);
+    }
+    // A pane or two, a tab or two, each with its list.
+    if all.len() >= 8 {
+        all.remove(0);
+    }
+    all.push((dir.to_path_buf(), crate::graph::Layout::new(commits.clone())));
+}
+
 /// A cache by (folder, commit, path below it).
 type Keyed<T> = Mutex<Option<HashMap<(PathBuf, String, String), T>>>;
 
@@ -795,15 +935,15 @@ static COMMITS: Keyed<Arc<Vec<Commit>>> = Mutex::new(None);
 /// The commits of a history (its list), cached by HEAD: the list and its *Last commit*
 /// column ask for the same, and for a file seldom changed git walks the whole history.
 fn commits_of(at: &At) -> io::Result<Arc<Vec<Commit>>> {
-    let spec = spec(at);
-    let key = rev_oid(&at.base, "HEAD").map(|oid| (at.base.clone(), oid, spec.clone()));
+    let spec = format!("{:?} {}", at.scope, spec(at));
+    let key = list_key(at).map(|oid| (at.base.clone(), oid, spec));
     if let Some(hit) = key
         .as_ref()
         .and_then(|k| COMMITS.lock().unwrap().as_ref()?.get(k).cloned())
     {
         return Ok(hit);
     }
-    let (commits, more) = log(&at.base, "HEAD", &spec, MAX_COMMITS)?;
+    let (commits, more) = graph_log(at, MAX_COMMITS)?;
     let commits = Arc::new(commits);
     // `more` is also a walk stopped for time; a list cut at MAX_COMMITS stays cut, so it is kept.
     if let Some(k) = key.filter(|_| !more || commits.len() >= MAX_COMMITS) {
@@ -1319,7 +1459,7 @@ pub(crate) mod tests {
         .unwrap();
         let at = split(&path(&d.join("a.txt"), None)).unwrap();
         assert_eq!(list(&path(&d.join("a.txt"), None), &at).unwrap().len(), 2);
-        let commit = log(&d, "HEAD", ".", 10).unwrap().0.remove(0);
+        let commit = graph_log(&split(&path(&d, None)).unwrap(), 10).unwrap().0.remove(0);
         assert!(
             show(&d, &commit.hash).is_ok()
                 && diff(&split(&path(&d.join("a.txt"), Some(&commit.hash)).join("a.txt")).unwrap())
@@ -1391,6 +1531,7 @@ pub(crate) mod tests {
             commit: Some(commit),
             inner: String::new(),
             view: View::History,
+            scope: Scope::Branch,
         };
         let _ = copy_out(&at, &dest);
         assert!(!outside.join("evil").exists(), "written through the link");
@@ -1432,6 +1573,121 @@ pub(crate) mod tests {
         for git in [".GIT.", "git~1"] {
             assert!(!out.join(git).exists(), "{git} was made");
         }
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A repository made by `git fast-import` from `stream`: any shape, quickly.
+    fn import(name: &str, stream: &str) -> Option<PathBuf> {
+        let d = repo(name)?;
+        let mut c = crate::tools::command("git")
+            .arg("-C")
+            .arg(&d)
+            .args(["fast-import", "--quiet"])
+            .stdin(Stdio::piped())
+            .spawn()
+            .ok()?;
+        c.stdin.take()?.write_all(stream.as_bytes()).unwrap();
+        assert!(c.wait().unwrap().success(), "fast-import");
+        Some(d)
+    }
+
+    /// One commit of a fast-import stream on `branch`, with its parents as marks.
+    fn mk(branch: &str, mark: usize, parents: &[usize]) -> String {
+        let msg = format!("c{mark}");
+        let mut s = format!(
+            "commit refs/heads/{branch}\nmark :{mark}\ncommitter A <a@a> {} +0000\ndata {}\n{msg}\n",
+            1_700_000_000 + mark,
+            msg.len()
+        );
+        for (i, p) in parents.iter().enumerate() {
+            s += &format!("{} :{p}\n", if i == 0 { "from" } else { "merge" });
+        }
+        s + &format!("M 644 inline f{mark}\ndata 1\nx\n\n")
+    }
+
+    fn graph_of(dir: &Path) -> (Vec<Entry>, Vec<String>) {
+        let entries = crate::fs::list(dir, true).unwrap();
+        let rows = graph(dir, 0, entries.len());
+        let w = rows.iter().map(|r| r.width()).max().unwrap_or(1);
+        let text = rows
+            .iter()
+            .zip(&entries[1..])
+            .map(|(r, e)| {
+                assert!(e.path.ends_with(&r.id));
+                format!("{} {}", crate::graph::boxes(r, w).trim_end(), &e.name[8..])
+            })
+            .collect();
+        (entries, text)
+    }
+
+    #[test]
+    fn history_graph_of_merges_and_branches() {
+        // main: 1, 2, then 4 merges side's 3; feat: 5 on 2.
+        let stream = [
+            mk("main", 1, &[]),
+            mk("main", 2, &[1]),
+            mk("side", 3, &[1]),
+            mk("main", 4, &[2, 3]),
+            mk("feat", 5, &[2]),
+        ]
+        .concat();
+        let Some(d) = import("graph", &stream) else {
+            return;
+        };
+        let (_, rows) = graph_of(&path(&d, None));
+        assert_eq!(rows, ["●─╮ c4", "│ ● c3", "● │ c2", "●─╯ c1"]);
+        let all = path_in(&d, Scope::All, None);
+        let (entries, rows) = graph_of(&all);
+        assert_eq!(rows, ["● c5", "│ ●─╮ c4", "│ │ ● c3", "●─╯ │ c2", "●───╯ c1"]);
+        // The tips are named, HEAD's first; a commit of the list leads into the folder at it.
+        let tips = graph(&all, 0, 2);
+        assert_eq!((tips[0].refs.clone(), tips[1].refs.clone()), (vec!["feat".to_string()], vec!["HEAD -> main".to_string()]));
+        let at = split(&entries[1].path).unwrap();
+        assert_eq!((at.scope, at.commit.is_some()), (Scope::All, true));
+        assert!(crate::fs::list(&entries[1].path, true).unwrap().iter().any(|e| e.name == "f5"));
+        assert_eq!(crate::fs::list(&entries[1].path, true).unwrap()[0].path, all);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn history_graph_of_many_branches() {
+        let mut stream = mk("main", 1, &[]);
+        for i in 2..=300 {
+            stream += &mk(&format!("b{i}"), i, &[1]);
+        }
+        let Some(d) = import("branches", &stream) else {
+            return;
+        };
+        let all = path_in(&d, Scope::All, None);
+        let n = crate::fs::list(&all, true).unwrap().len() - 1;
+        assert_eq!(n, 300);
+        let rows = graph(&all, 0, n);
+        // Every tip in a lane of its own, all meeting at 1.
+        assert_eq!(rows[n - 1].up.len(), 299);
+        assert!(rows[n - 1].up.iter().all(|&(_, to)| to == rows[n - 1].node));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn history_graph_of_100k_commits_is_quick() {
+        let mut stream = String::new();
+        for i in 1..=100_000 {
+            stream += &format!(
+                "commit refs/heads/main\nmark :{i}\ncommitter A <a@a> {} +0000\ndata 1\nc\n{}M 644 inline f\ndata {}\n{i}\n\n",
+                1_600_000_000 + i,
+                if i > 1 { format!("from :{}\n", i - 1) } else { String::new() },
+                i.to_string().len() + 1,
+            );
+        }
+        let Some(d) = import("big", &stream) else {
+            return;
+        };
+        let list = path_in(&d, Scope::All, None);
+        let t = std::time::Instant::now();
+        let n = crate::fs::list(&list, true).unwrap().len() - 1;
+        assert_eq!(n, MAX_COMMITS);
+        assert_eq!(graph(&list, n - 30, n).len(), 30);
+        assert!(t.elapsed() < BUDGET + Duration::from_secs(1), "{:?}", t.elapsed());
         std::fs::remove_dir_all(d).unwrap();
     }
 }

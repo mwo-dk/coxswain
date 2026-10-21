@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+ასო გადადის სახელზე: აკრიფეთ, როგორ იწყება",
  "hint.space": "{key} აჩვენებს, სად მიდის ადგილი აქ, თითოეული ფაილი მართკუთხედის სახით მისი ზომით",
  "hint.zfs": "{snapshots} აჩვენებს ამ საქაღალდის ZFS სნეპშოტებს",
- "history.badge": "ისტორია",
  "history.badge_at": "კომიტი {commit}",
  "history.badge_of": "ისტორია: {name}",
  "history.commit_in": "კომიტი რეპოზიტორიაში {repo}",
@@ -3320,5 +3319,13 @@
  "theme.paper": "ქაღალდის თეთრი",
  "theme.spectrum": "ZX Spectrum",
  "theme.workbench": "Amiga Workbench 1.3",
- "theme.xtree": "XTree Gold"
+ "theme.xtree": "XTree Gold",
+ "action.history_all": "ყველა ტოტის ისტორია",
+ "history.badge_branch": "ამ ტოტის ისტორია · {key}: ყველა ტოტი",
+ "history.badge_all": "ყველა ტოტის ისტორია · {key}: ეს ტოტი",
+ "history.all_not_here": "„ყველა ტოტი“ git-ის ისტორიისთვის ან საცავის ფაილის ან საქაღალდისთვისაა",
+ "history.scope_branch": "ეს ტოტი",
+ "history.scope_all": "ყველა ტოტი",
+ "history.scope_tip": "რომელ კომიტებს აჩვენებს სია და მისი გრაფი ({key} ცვლის)",
+ "hint.history": "{all} გრაფში ყველა ტოტის კომიტებს აჩვენებს; კიდევ ერთხელ — მხოლოდ ამ ტოტისას"
 }

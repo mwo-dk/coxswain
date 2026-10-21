@@ -122,6 +122,10 @@ sed -i 's|let used = secs.min(self.fuel);|let used = secs.min(self.fuel); // the
 ada commit -qam "Fix the fuel valve"
 g mv docs/plan.md docs/launch-plan.md && printf 'Hold at T-10 if the wind is over 12 m/s.\n' >> docs/launch-plan.md
 g add docs && ada commit -qm "Rename the plan, add the wind rule"
+# A branch merged back, for the graph of the history (Ctrl+G, Alt+A).
+g checkout -q -b wind-check HEAD~1 && printf 'pub fn wind_ok(speed: f64) -> bool {\n    speed <= 12.0\n}\n' > src/wind.rs
+g add src/wind.rs && ada commit -qm "Check the wind" && g checkout -q master
+g merge -q --no-ff -m "Merge the wind check" wind-check && g branch -q -d wind-check
 
 g init -q --bare "$d/.remotes/rocket.git"
 g remote add origin "$d/.remotes/rocket.git"

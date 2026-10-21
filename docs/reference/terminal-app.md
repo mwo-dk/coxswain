@@ -113,7 +113,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | Marked size | Files only: `4.2 MB in 3 marked` | Measured folders count too |
 | Find, **F3** | Views the hit in the built-in viewer | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |
-| In a git history | The panel title ends in `[history]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
+| In a git history | The panel title ends in `[this branch's history · Alt+A: all branches]` or `[commit a1b2c3d]` | A badge (*history of main.rs*, *commit a1b2c3d*) and a tint |
 | The last commit | In the info line under the panel: `a1b2c3d 2026-09-30 14:02 Ada` | A *Last commit* column, and in the preview pane |
 | An archive's password | Asked in a *Locked archive* box, shown as stars | Asked in a dialog |
 | The F-key bar | Norton Commander's labels: *RenMov*, *Mkdir*, *PullDn* | *Move*, *New folder*, *Commands* |
@@ -158,7 +158,8 @@ The same as in the desktop app ([Git history as folders](../panels/git-history.m
 
 | To | Do |
 |---|---|
-| See a file's or folder's commits | **Ctrl+G** on it (on `..` for the folder you are in). The title becomes `…/main.rs/@history [history]`; each row is `a1b2c3d subject`, its date in *Modified* |
+| See a file's or folder's commits | **Ctrl+G** on it (on `..` for the folder you are in). The title becomes `…/main.rs/@history [this branch's history · Alt+A: all branches]`; each row is the graph in box-drawing characters (`●─╮`, `│ ●`, `├─╯`), the names of the branches whose tip it is in brackets, then `a1b2c3d subject`, its date in *Modified* |
+| See every branch's commits | **Alt+A** in the list: the title ends in `[every branch's history · Alt+A: this branch]`, and **Alt+A** again goes back ([The graph](../panels/git-history.md#the-graph)) |
 | See who made a commit | Put the cursor on it: the info line shows its id, date and author |
 | Browse the files as they were | **Enter** on a commit. The title ends in `[commit a1b2c3d]` |
 | Read an old file | **F3**: the built-in viewer shows a copy of it as it was |

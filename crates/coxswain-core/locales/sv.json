@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+bokstav hoppar till ett namn: skriv hur det börjar",
  "hint.space": "{key} visar vart utrymmet tar vägen här, varje fil som en rektangel efter storlek",
  "hint.zfs": "{snapshots} visar mappens ZFS-ögonblicksbilder",
- "history.badge": "historik",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historik för {name}",
  "history.commit_in": "commit i {repo}",
@@ -3327,5 +3326,13 @@
  "zfs.read_only": "En ZFS-ögonblicksbild är skrivskyddad — F5 kopierar ut en fil eller mapp",
  "zfs.referenced": "{size} refererat",
  "zfs.same": "Filen är densamma nu som i ögonblicksbilden",
- "zfs.used_referenced": "{used} använt, {referenced} refererat"
+ "zfs.used_referenced": "{used} använt, {referenced} refererat",
+ "action.history_all": "Historik för alla grenar",
+ "history.badge_branch": "den här grenens historik · {key}: alla grenar",
+ "history.badge_all": "alla grenars historik · {key}: den här grenen",
+ "history.all_not_here": "Alla grenar gäller en git-historik eller en fil eller mapp i ett repository",
+ "history.scope_branch": "Den här grenen",
+ "history.scope_all": "Alla grenar",
+ "history.scope_tip": "Vilka commits listan och dess graf visar ({key} växlar)",
+ "hint.history": "{all} visar alla grenars commits i grafen; igen bara den här grenens"
 }

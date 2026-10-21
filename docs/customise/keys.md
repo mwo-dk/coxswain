@@ -123,7 +123,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
 | `searchable_pdf` | **Alt+P** | `convert_media` | none |
 | `edit_pictures` | none | `convert_geodata` | none |
-| `export_model` | none | | |
+| `export_model` | none | `history_all` | **Alt+A** |
 | `chess` | **Alt+K** | `edit_here` | **Shift+F4** |
 | `space_view` | **Alt+U** | | |
 

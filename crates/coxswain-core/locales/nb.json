@@ -2079,7 +2079,6 @@
  "hint.quick": "Alt+bokstav hopper til et navn: skriv hvordan det begynner",
  "hint.space": "{key} viser hvor plassen går her, hver fil som et rektangel etter størrelsen",
  "hint.zfs": "{snapshots} viser ZFS-øyeblikksbildene av denne mappen",
- "history.badge": "historikk",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "historikk for {name}",
  "history.commit_in": "commit i {repo}",
@@ -3327,5 +3326,13 @@
  "zfs.read_only": "Et ZFS-øyeblikksbilde er skrivebeskyttet — F5 kopierer en fil eller mappe ut av det",
  "zfs.referenced": "{size} referert",
  "zfs.same": "Filen er den samme nå som i øyeblikksbildet",
- "zfs.used_referenced": "{used} brukt, {referenced} referert"
+ "zfs.used_referenced": "{used} brukt, {referenced} referert",
+ "action.history_all": "Historikk for alle grener",
+ "history.badge_branch": "historikken til denne grenen · {key}: alle grener",
+ "history.badge_all": "historikken til alle grener · {key}: denne grenen",
+ "history.all_not_here": "Alle grener er for en git-historikk eller en fil eller mappe i et repository",
+ "history.scope_branch": "Denne grenen",
+ "history.scope_all": "Alle grener",
+ "history.scope_tip": "Hvilke commits listen og grafen viser ({key} bytter)",
+ "hint.history": "{all} viser commits fra alle grener i grafen; igjen bare denne grenens"
 }

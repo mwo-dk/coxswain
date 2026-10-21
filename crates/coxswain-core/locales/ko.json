@@ -2042,7 +2042,6 @@
  "hint.quick": "Alt+글자로 이름으로 이동: 이름의 시작을 입력하세요",
  "hint.space": "{key} 키로 여기서 공간이 어디에 쓰이는지 봅니다. 파일마다 크기에 따른 사각형입니다",
  "hint.zfs": "{snapshots} 이 폴더의 ZFS 스냅샷 보기",
- "history.badge": "기록",
  "history.badge_at": "커밋 {commit}",
  "history.badge_of": "{name}의 기록",
  "history.commit_in": "{repo}의 커밋",
@@ -3259,5 +3258,13 @@
  "zfs.read_only": "ZFS 스냅샷은 읽기 전용입니다 — F5로 파일이나 폴더를 밖으로 복사하세요",
  "zfs.referenced": "{size} 참조",
  "zfs.same": "파일이 지금도 스냅샷과 같습니다",
- "zfs.used_referenced": "{used} 사용, {referenced} 참조"
+ "zfs.used_referenced": "{used} 사용, {referenced} 참조",
+ "action.history_all": "모든 브랜치의 기록",
+ "history.badge_branch": "이 브랜치의 기록 · {key}: 모든 브랜치",
+ "history.badge_all": "모든 브랜치의 기록 · {key}: 이 브랜치",
+ "history.all_not_here": "모든 브랜치는 git 기록이나 저장소의 파일 또는 폴더에서 쓸 수 있습니다",
+ "history.scope_branch": "이 브랜치",
+ "history.scope_all": "모든 브랜치",
+ "history.scope_tip": "목록과 그래프가 보여 주는 커밋 ({key}로 전환)",
+ "hint.history": "{all}: 모든 브랜치의 커밋을 그래프로, 다시 누르면 이 브랜치만"
 }

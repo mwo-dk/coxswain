@@ -2116,7 +2116,6 @@
  "hint.quick": "Alt+burts pārlec uz nosaukumu: rakstiet, kā tas sākas",
  "hint.space": "{key} parāda, kur šeit paliek vieta, katrs fails kā taisnstūris pēc izmēra",
  "hint.zfs": "{snapshots} parāda šīs mapes ZFS momentuzņēmumus",
- "history.badge": "vēsture",
  "history.badge_at": "commit {commit}",
  "history.badge_of": "{name} vēsture",
  "history.commit_in": "commit repozitorijā {repo}",
@@ -3395,5 +3394,13 @@
  "zfs.read_only": "ZFS momentuzņēmums ir tikai lasāms — F5 izkopē no tā failu vai mapi",
  "zfs.referenced": "{size} atsaukts",
  "zfs.same": "Fails tagad ir tāds pats kā momentuzņēmumā",
- "zfs.used_referenced": "{used} izmantots, {referenced} atsaukts"
+ "zfs.used_referenced": "{used} izmantots, {referenced} atsaukts",
+ "action.history_all": "Visu zaru vēsture",
+ "history.badge_branch": "šī zara vēsture · {key}: visi zari",
+ "history.badge_all": "visu zaru vēsture · {key}: šis zars",
+ "history.all_not_here": "Visi zari ir git vēsturei vai repozitorija failam vai mapei",
+ "history.scope_branch": "Šis zars",
+ "history.scope_all": "Visi zari",
+ "history.scope_tip": "Kurus komitus rāda saraksts un tā grafs ({key} pārslēdz)",
+ "hint.history": "{all} grafā rāda visu zaru komitus; vēlreiz – tikai šī zara"
 }
