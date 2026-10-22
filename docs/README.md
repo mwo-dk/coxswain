@@ -188,6 +188,7 @@ mindmap
 | [Make PDF searchable (Alt+P)](files/searchable-pdf.md) | A copy of a scanned PDF with its words in it (`name.searchable.pdf`), by OCRmyPDF installed or in its container; never over the original; progress and Stop; both apps |
 | [Convert video or audio](files/convert-media.md) | MP4, MP3 or FLAC copies of videos and songs, their sound, a clip, by ffmpeg installed or in its container; next to the original, never over it; progress and Stop; both apps |
 | [Convert or edit pictures](files/edit-pictures.md) | JPEG, PNG or WebP copies of photos, smaller, without the location, turned, by ImageMagick in its sealed container or installed under a policy; next to the original; both apps |
+| [Checksums (Alt+H)](files/checksums.md) | SHA256SUMS, SHA512SUMS or B3SUMS of the marked files and folders, in the lines sha256sum and b3sum read; Enter on a list checks it (OK, changed, missing, not read) and marks what changed; GNU and BSD forms; progress and Stop; both apps |
 
 ## [Customising](customise/README.md)
 

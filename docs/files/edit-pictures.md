@@ -182,4 +182,4 @@ updates → What can leave this machine* names it. The container has no network,
 ImageMagick reads and writes only here.
 
 ---
-[← Previous: Convert video or audio](convert-media.md) · [Next: Customising →](../customise/README.md)
+[← Previous: Convert video or audio](convert-media.md) · [Next: Checksums (Alt+H) →](checksums.md)

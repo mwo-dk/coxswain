@@ -112,6 +112,8 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | – | Export 3D model | `export_model` | STL or 3MF copies of the marked OpenSCAD models, by OpenSCAD; again while it runs, stops it ([OpenSCAD models](../previews/openscad.md#export-3d-model)) | The same |
 | – | Convert or edit pictures | `edit_pictures` | JPEG, PNG or WebP copies of the marked pictures, smaller, without the location or turned, by ImageMagick; again while it runs, stops it ([Convert or edit pictures](../files/edit-pictures.md)) | The same |
 | – | Convert e-book | `convert_ebook` | The marked e-books (or the one under the cursor) as EPUB, AZW3 or PDF next to them, by calibre; again while it runs, stops it ([E-books](../previews/ebooks.md)) | The same |
+| **Alt+H** | Make checksums | `make_checksums` | A SHA256SUMS, SHA512SUMS or B3SUMS of the marked files and folders; again while it runs, stops it ([Checksums](../files/checksums.md)) | The same |
+| **Enter** on a list | Verify checksums | `verify_checksums` | Every file the SHA256SUMS (or `.sha256` …) names checked: OK, changed, missing; what changed marked ([Checksums](../files/checksums.md#checking-a-list)) | The same |
 
 ### Archives
 
