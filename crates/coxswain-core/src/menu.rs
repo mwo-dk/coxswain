@@ -85,6 +85,35 @@ pub struct Subject {
 }
 
 impl Subject {
+    /// The counts of `list` (the marked entries, or the one under the cursor): its files and
+    /// folders, and the kinds of file among them; the other fields are left at their default.
+    /// With `sniff`, a file's first bytes are read for chess (the menu offers Open games on one).
+    pub fn of(list: &[&crate::fs::Entry], sniff: bool) -> Subject {
+        let files: Vec<&std::path::Path> = list.iter().filter(|e| !e.is_dir).map(|e| e.path.as_path()).collect();
+        let count = |f: &dyn Fn(&std::path::Path) -> bool| files.iter().filter(|p| f(p)).count();
+        Subject {
+            files: files.len(),
+            folders: list.len() - files.len(),
+            archives: count(&crate::archive::opens),
+            disk_images: if crate::disk_image::open_on() { 0 } else { count(&crate::disk_image::is_disk_image) },
+            pdfs: count(&crate::searchable::is_pdf),
+            chess: count(&|p| if sniff { crate::chess::sniff(p).is_some() } else { crate::chess::format(p).is_some() }),
+            media: count(&crate::media::is_media),
+            pictures: count(&crate::media::is_picture),
+            // By name: a GeoTIFF is reached from F9 (and its preview).
+            geo: count(&crate::geo::is_vector),
+            models: count(&crate::scad::is_model),
+            sums: count(&crate::checksum::is_list),
+            parts: count(&|p| crate::split::joins_into(p).is_some()),
+            images: count(&crate::container_image::layout_index),
+            local_models: count(&crate::local_models::is_model),
+            ebooks: count(&crate::ebook::is_ebook),
+            kicad: count(&crate::kicad::is_kicad),
+            speech: count(&crate::transcribe::is_speech),
+            ..Subject::default()
+        }
+    }
+
     /// What kind of entries these are, for when a hint comes up anew.
     fn kind(&self) -> (Place, bool, bool, bool, bool) {
         (

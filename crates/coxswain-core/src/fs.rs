@@ -310,6 +310,15 @@ pub enum SortKey {
     Commit,
 }
 
+/// Quick search: the first entry whose name starts with `query`, in any case. NFC on both
+/// sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙), typing composes.
+pub fn quick_match(entries: &[Entry], query: &str) -> Option<usize> {
+    use unicode_normalization::UnicodeNormalization;
+    let nfc = |s: &str| s.nfc().collect::<String>().to_lowercase();
+    let q = nfc(query);
+    entries.iter().position(|e| nfc(&e.name).starts_with(&q))
+}
+
 /// `..` first, then directories, then files; each group ordered by `key`.
 /// `sort` for the listing of `dir`. A history's list of commits keeps git's order, newest first
 /// with every commit below those made on top of it, as its graph is drawn: its names start with

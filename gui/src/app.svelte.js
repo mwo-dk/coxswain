@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
-import { SvelteSet } from "svelte/reactivity";
-import { invoke, listDir, ranks, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, sortItems, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { Paged, SPAN } from "./paged.svelte.js";
+import { invoke, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -148,16 +148,24 @@ export function keysOf(name) {
 }
 
 let nextId = 1;
+/** A new id for a listing in the backend (`tabs.rs`): a tab's, or a Miller column's. */
+export const newId = () => nextId++;
+
+/** No marks: how many, their files' bytes, the folders among them, what they are (`tabs::Marks`). */
+const NO_MARKS = { count: 0, bytes: 0, dirs: [], dir_bytes: 0, subject: null };
 
 export function newTab(dir, view = "details") {
-  return {
-    id: nextId++,
+  const t = {
+    id: newId(),
     dir,
-    items: [],
     cursor: 0,
     /** How far the list is scrolled, kept per tab. */
     top: 0,
-    marked: new SvelteSet(),
+    marks: NO_MARKS,
+    /** Where `..` leads, when the listing has it. */
+    up: null,
+    /** Not read yet, or changed while in the background: read when shown (`readWhenShown`). */
+    unread: false,
     sort: "name",
     reverse: false,
     view,
@@ -170,7 +178,36 @@ export function newTab(dir, view = "details") {
     back: [],
     fwd: [],
   };
+  // The listing: rows asked of the backend (tabs.rs) as they come into view. Inside an archive
+  // a folder's size comes with the listing; there is nothing to measure. A history's folders
+  // have none (git keeps no size for a tree): left empty, not "0 B". A list of snapshots: each
+  // one's own space.
+  t.items = new Paged(t.id, (rows) => {
+    const tb = tabOf(t.id);
+    if (!tb) return;
+    if (tb.archive && !tb.history) for (const e of rows) if (e.is_dir && e.name !== "..") tb.sizes[e.path] = e.size;
+    if (tb.snapshot && !tb.snapshot.snapshot) for (const e of rows) if (e.name !== "..") tb.sizes[e.path] = e.size;
+  });
+  return t;
 }
+
+/** The tab with this id, as the panes hold it (reactive). */
+const tabOf = (id) => ui.panes.flatMap((p) => p.tabs).find((t) => t.id === id);
+
+/** Change the marks of tab `t` (`tabs::MarkOp`: `{ toggle: i }`, `{ range: [a, b] }`, "all",
+ *  "none", "invert", `{ glob: { patterns, on } }`); its rows show them. */
+export async function mark(t, op) {
+  try {
+    t.marks = await invoke("tab_mark", { tab: t.id, generation: t.items.shown, op });
+  } catch (e) {
+    // The listing changed meanwhile: rows by number would be other entries now.
+    return void (String(e) !== STALE && (ui.status = String(e)));
+  }
+  t.items.refresh();
+}
+
+/** Entries of the tab's listing (`tabs::tab_pick`): "marked", "dirs" or "all", never `..`. */
+export const pick = (t, which) => invoke("tab_pick", { tab: t.id, which });
 
 /** A new tab in pane `p` at its tab's folder and view, made the active one. */
 export function addTab(p) {
@@ -183,6 +220,7 @@ export function addTab(p) {
 /** Close tab `i` of pane `p`, unless it is the last; the active tab stays the one it was. */
 export function closeTab(p, i = p.active) {
   if (p.tabs.length === 1) return;
+  invoke("tab_drop", { tab: p.tabs[i].id }).catch(() => {});
   p.tabs.splice(i, 1);
   if (i < p.active) p.active--;
   else p.active = Math.min(p.active, p.tabs.length - 1);
@@ -199,7 +237,7 @@ export function openFind(chip) {
 export const pane = (i = ui.activePane) => ui.panes[i];
 export const tab = (i = ui.activePane) => ui.panes[i]?.tabs[ui.panes[i].active];
 export const otherTab = () => tab(ui.dual ? ui.activePane ^ 1 : ui.activePane);
-export const item = (t = tab()) => t?.items[t.cursor];
+export const item = (t = tab()) => t?.items.at(t.cursor);
 
 /** The built-in themes' ids, in their order, made once per `ui.cfg.builtin_themes`. */
 let builtin = { of: null, ids: [], set: new Set() };
@@ -231,27 +269,24 @@ export async function setTheme(name, save = false) {
   }
 }
 
-/** Each tab's latest listing asked for: an answer to an older one is dropped. */
-const listing = new WeakMap();
-
 /** Re-read a tab, keeping the cursor on `focus` (default: the current name). True when listed,
  *  false when it failed, undefined when a later load of the tab overtook it. */
 export async function load(t, dir = t.dir, focus) {
   const keep = focus ?? item(t)?.name;
-  const seq = (listing.get(t) ?? 0) + 1;
-  listing.set(t, seq);
-  const stale = () => listing.get(t) !== seq;
+  const generation = ++t.items.generation;
+  t.items.loading = generation;
+  const stale = () => t.items.generation !== generation;
   // A slow disk: after a moment the status line says what is being read.
   const slow = setTimeout(() => (ui.status = tr("status.busy", { what: basename(dir) || dir })), 150);
   try {
-    const r = await listDir({ dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse }).finally(() => {
+    const r = await invoke("tab_list", { tab: t.id, generation, dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse, focus: keep ?? null, cursor: t.cursor, span: SPAN }).finally(() => {
+      if (t.items.loading === generation) t.items.loading = 0;
       clearTimeout(slow);
       if (ui.status === tr("status.busy", { what: basename(dir) || dir })) ui.status = "";
     });
     // A slow folder answering after a later cd would show the wrong folder.
     if (stale()) return undefined;
     if (r.dir !== t.dir) {
-      t.marked.clear();
       // In the same repository the last-commit column stays (empty) until git answers, so
       // the columns do not jump at every step.
       const same = t.git && r.dir.startsWith(t.git.root);
@@ -261,15 +296,13 @@ export async function load(t, dir = t.dir, focus) {
       t.sizes = {};
       t.counts = {};
     }
-    const alive = new Set(r.items.map((e) => e.path));
-    for (const m of [...t.marked]) if (!alive.has(m)) t.marked.delete(m);
     t.dir = r.dir;
-    t.items = r.items;
     t.archive = r.archive;
     t.locked = r.locked;
     t.diskImage = r.disk_image;
     t.nested = r.nested;
     t.image = r.image;
+    t.oci = r.oci;
     t.history = r.history;
     t.snapshot = r.snapshot;
     t.package = r.package;
@@ -277,16 +310,13 @@ export async function load(t, dir = t.dir, focus) {
     // In a model store's folder: the model each entry is, shown beside its name.
     t.models = r.models ?? null;
     t.hasNotes = r.has_notes;
+    t.up = r.up;
+    t.marks = r.marks;
     t.error = null;
-    // Inside an archive a folder's size comes with the listing; there is nothing to measure. A
-    // history's folders have none (git keeps no size for a tree): left empty, not "0 B".
-    if (r.archive && !r.history) for (const e of r.items) if (e.is_dir && e.name !== "..") t.sizes[e.path] = e.size;
-    // A list of snapshots: each one's own space.
-    if (r.snapshot && !r.snapshot.snapshot) for (const e of r.items) if (e.name !== "..") t.sizes[e.path] = e.size;
-    const at = keep ? r.items.findIndex((e) => e.name === keep || e.path === keep) : -1;
-    t.cursor = at >= 0 ? at : Math.max(0, Math.min(t.cursor, r.items.length - 1));
+    t.items.reset(r, generation);
+    t.cursor = r.cursor;
   } catch (e) {
-    if (stale()) return undefined;
+    if (stale() || String(e) === STALE) return undefined;
     // A locked archive, looked into: its password, kept by the app for this run, then again.
     const locked = String(e).includes(LOCKED);
     if (locked) {
@@ -322,29 +352,36 @@ export async function load(t, dir = t.dir, focus) {
       t.lastHead = r.head;
       if (!r.lasts) return;
       t.last = r.lasts;
-      if (t.sort === "commit") {
-        const items = t.items;
-        const rank = await ranks(items.map((e) => e.name));
-        if (t.dir !== dir || t.items !== items || t.sort !== "commit") return;
-        const at = t.items[t.cursor]?.path;
-        t.items = byLast(t.items, r.lasts, t.reverse, rank);
-        t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
-      }
+      if (t.sort === "commit") sortTab(t);
     }, () => {});
   return true;
 }
 
-/** `items` by their last commit, newest first (`..` first, folders before files), as the
- * backend sorts them; entries without one last, and alike by name (`rank`, from `ranks`). */
-export function byLast(items, last, reverse, rank) {
-  const group = (e) => (e.name === ".." ? 0 : e.is_dir ? 1 : 2);
-  const when = (e) => last[e.name]?.time ?? 0;
-  const name = (a, b) => rank(a.name) - rank(b.name);
-  return [...items].sort((a, b) => group(a) - group(b) || (reverse ? -1 : 1) * (when(b) - when(a) || name(a, b)));
+/** What the backend says to a listing a later one overtook. */
+const STALE = "stale listing";
+
+/** Sort the tab's listing again by `t.sort` and `t.reverse`, the cursor kept on its entry. A
+ *  history, a list of snapshots, an archive or a package has an order of its own, which a
+ *  fresh read keeps. */
+export async function sortTab(t) {
+  // A folder being read: read with the new order instead.
+  if (t.items.loading) return load(t);
+  if (t.history || t.snapshot || t.archive || t.package || [HISTORY, SNAPSHOTS].includes(basename(t.dir))) return load(t);
+  const generation = ++t.items.generation;
+  try {
+    // By size, folders go by their measured sizes.
+    const measured = t.sort === "size" ? $state.snapshot(t.sizes) : {};
+    const r = await invoke("tab_sort", { tab: t.id, generation, sort: t.sort, reverse: t.reverse, measured, cursor: t.cursor, span: SPAN });
+    if (t.items.generation !== generation) return;
+    t.items.reset(r, generation);
+    t.cursor = r.cursor;
+  } catch (e) {
+    ui.status = String(e);
+  }
 }
 
 /** Where `..` leads: the listing says (out of a history, back to the folder on disk). */
-export const up = (t) => (t.items[0]?.name === ".." ? t.items[0].path : parent(t.dir));
+export const up = (t) => t.up ?? parent(t.dir);
 
 /** Into the git history of the entry under the cursor (of the folder itself on `..`): this
  *  branch's commits, every branch's ("all") or those against the upstream ("upstream"). In a
@@ -469,9 +506,10 @@ export async function openGitConfig(tb = tab()) {
 /** *Make PDF searchable* (`coxswain_core::searchable`): the PDFs among `paths`, asked first
  *  (what it writes, which program runs, the first pull and its size), then run, the status line
  *  saying how far it is with a Stop button (or the key again). One run at a time. */
-export async function makeSearchable(paths = targets()) {
+export async function makeSearchable(paths) {
   // Its key again while it runs stops it, as the status line says.
   if (ui.searchable) return stopSearchable();
+  paths ??= await targets();
   let plan;
   try {
     plan = await invoke("searchable_plan", { paths });
@@ -549,10 +587,11 @@ export function stopSearchable() {
  *  menu, a clip's times or a size asked next, then the question (what it writes, which program
  *  runs, the first pull and its size), then the run, the status line saying how far it is with
  *  a Stop button. The action again while it runs stops it. */
-export function convertMedia(program, paths = targets()) {
+export async function convertMedia(program, paths) {
   const action = ["convert_media", "edit_pictures", "convert_geodata", "export_model", "export_kicad"][program];
   const none = () => (ui.status = t(["media.none_media", "media.none_pictures", "geo.none", "scad.none", "kicad.none"][program]));
   if (ui.media) return stopMedia();
+  paths ??= await targets();
   const files = paths.filter((p) => [isMedia, isEditable, isGeo, isScad, isKicad][program](basename(p)));
   if (!files.length) return void none();
   const label = (id) => {
@@ -618,8 +657,9 @@ async function runMedia(files, op, action) {
  *  PDF by calibre, next to each. The format from a menu, then the question (what it writes,
  *  which calibre runs, the first pull and its size), then the run, the status line saying how
  *  far it is with a Stop button. One run at a time; the action again stops it. */
-export function convertEbook(paths = targets()) {
+export async function convertEbook(paths) {
   if (ui.ebook) return stopEbook();
+  paths ??= await targets();
   const items = ["epub", "azw3", "pdf"].map((to, i) => ({ key: String(i + 1), label: t(`ebook.to_${to}`), run: () => planEbook(paths, to) }));
   ui.modal = { kind: "menu", feature: "ebooks", title: t("action.convert_ebook"), direct: true, filter: "", cursor: 0, items };
 }
@@ -674,8 +714,9 @@ export function stopEbook() {
 /** *Make checksums* (`coxswain_core::checksum`): the algorithm from a menu, then a SHA256SUMS,
  *  SHA512SUMS or B3SUMS of `paths` in the tab's folder, the status line saying how far it is with
  *  a Stop button. Its key again while checksums run stops them. */
-export async function makeChecksums(paths = targets()) {
+export async function makeChecksums(paths) {
   if (ui.work) return stopWork();
+  paths ??= await targets();
   const tb = tab();
   if (tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = t("sums.not_here"));
   if (!paths.length) return void (ui.status = t("sums.nothing"));
@@ -696,8 +737,7 @@ export function verifyChecksums(list = item()?.path, tb = tab()) {
     const bad = new Set(v.checked.filter((c) => c.state === "changed" || c.state === "unreadable").map((c) => top(c.path)).filter(Boolean));
     let text = v.summary;
     if (tb.dir === dir) {
-      tb.marked.clear();
-      for (const e of tb.items) if (bad.has(e.path)) tb.marked.add(e.path);
+      mark(tb, "none").then(() => bad.size && mark(tb, { paths: [...bad] }));
       if (bad.size) text += ` ${t("sums.marked")}`;
     }
     const details = v.checked.map((c, i) => [c, v.words[i]]).filter(([c]) => c.state !== "ok").map(([c, w]) => `${c.name}: ${w}`).join("\n");
@@ -770,7 +810,7 @@ export function stopWork() {
 export function openSpace(tb = tab(), dir) {
   if (tb.archive || tb.history || tb.snapshot || tb.package) return void (ui.status = t("space.not_here"));
   const e = item(tb);
-  const folder = dir ?? (e?.is_dir && e.name !== ".." && !tb.marked.size ? e.path : tb.dir);
+  const folder = dir ?? (e?.is_dir && e.name !== ".." && !tb.marks.count ? e.path : tb.dir);
   ui.modal = { kind: "space", feature: "space", root: folder };
 }
 
@@ -793,11 +833,12 @@ export function gitMenu(tb = tab()) {
 export async function showInTab(tb, path, isDir = false) {
   await cd(tb, isDir ? path : parent(path));
   if (isDir) return;
-  const i = tb.items.findIndex((e) => e.path === path);
-  if (i >= 0) tb.cursor = i;
+  const i = await invoke("tab_find", { tab: tb.id, name: path }).catch(() => null);
+  if (i != null) tb.cursor = i;
 }
 
-export async function cd(t, dir, history = true) {
+/** Tab `t` to `dir`, the cursor on `focus` (a name) when given. */
+export async function cd(t, dir, history = true, focus) {
   if (!dir || dir === t.dir) return;
   const from = t.dir;
   const prevCursor = t.cursor;
@@ -805,7 +846,7 @@ export async function cd(t, dir, history = true) {
   // Coming up: the cursor on the folder (or the file whose history it was) it came from.
   const pre = dir.endsWith(ui.cfg.sep) ? dir : dir + ui.cfg.sep;
   const came = from.startsWith(pre) ? pre + from.slice(pre.length).split(/[\\/]/)[0] : undefined;
-  const ok = await load(t, dir, came);
+  const ok = await load(t, dir, focus ?? came);
   if (ok === undefined) return;
   if (!ok) {
     t.cursor = prevCursor;
@@ -852,13 +893,13 @@ export async function measureFolders(t, paths) {
   try {
     // The folder above only when its size is already known (measured lately, or in the store):
     // never walked for this.
-    const up = !paths && t.items.find((e) => e.name === "..");
-    if (up && t.sizes[up.path] === undefined) {
-      const r = await invoke("dir_size_known", { path: up.path });
+    const up = !paths && t.up;
+    if (up && t.sizes[up] === undefined) {
+      const r = await invoke("dir_size_known", { path: up });
       if (t.dir !== dir) return;
-      if (r) [t.sizes[up.path], t.counts[up.path]] = r;
+      if (r) [t.sizes[up], t.counts[up]] = r;
     }
-    const todo = paths ?? t.items.filter((e) => e.is_dir && e.name !== ".." && t.sizes[e.path] === undefined).map((e) => e.path);
+    const todo = paths ?? (await pick(t, "dirs")).map((e) => e.path).filter((p) => t.sizes[p] === undefined);
     for (const p of todo) {
       if (t.dir !== dir) return;
       // The automatic run is this tab's own: a new one stops it, and recent sizes are reused.
@@ -874,16 +915,6 @@ export async function measureFolders(t, paths) {
   }
 }
 
-/** `ranks` of a tab's names, asked once while its listing keeps the same names. */
-const ranked = new WeakMap();
-async function tabRanks(t) {
-  const had = ranked.get(t);
-  if (had && t.items.every((e) => had.has(e.name))) return had;
-  const rank = await ranks(t.items.map((e) => e.name));
-  ranked.set(t, rank);
-  return rank;
-}
-
 /** Sorted by size: the folders measured since the listing (which sorted them by name) go to
  *  their place, the cursor on the same entry. A quarter second after the first arrival, so a
  *  folder of thousands is sorted four times a second at most. */
@@ -893,15 +924,24 @@ export function resortSoon(t) {
   resorting.add(t);
   setTimeout(async () => {
     resorting.delete(t);
-    // A history, a list of snapshots, an archive or a package keeps the backend's order.
-    if (t.sort !== "size" || t.archive || t.history || (t.snapshot && !t.snapshot.snapshot) || t.package) return;
-    const items = t.items;
-    const rank = await tabRanks(t);
-    if (t.items !== items || t.sort !== "size") return;
-    const at = t.items[t.cursor]?.path;
-    t.items = sortItems(t.items, "size", t.reverse, t.sizes, rank);
-    t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
+    // A history, a list of snapshots, an archive or a package keeps the backend's order; with
+    // no folder measured there is nothing to move.
+    if (t.sort !== "size" || t.archive || t.history || (t.snapshot && !t.snapshot.snapshot) || t.package || !Object.keys(t.sizes).length) return;
+    sortTab(t);
   }, 250);
+}
+
+/** A tab not read yet (restored with the session, or changed while in the background) is read
+ *  as it is shown. A file (`coxswain-gui ~/Pictures/cat.jpg`) opens its folder with the cursor
+ *  on it. A saved directory may be gone: the folder above it, else home. */
+export async function readWhenShown(t) {
+  if (!t.unread) return;
+  t.unread = false;
+  const ok = await load(t);
+  if (ok !== false) return;
+  const up = parent(t.dir);
+  const above = up ? await load(t, up, basename(t.dir)) : false;
+  if (above === false) await load(t, ui.cfg.home);
 }
 
 export const reloadAll = () => Promise.all(visibleTabs().map((t) => load(t)));
@@ -910,8 +950,9 @@ export function visibleTabs() {
   return (ui.dual ? ui.panes : [pane()]).map((p) => p.tabs[p.active]);
 }
 
-export function targets(t = tab()) {
-  if (t.marked.size) return t.items.filter((e) => t.marked.has(e.path)).map((e) => e.path);
+/** The marked entries' paths, in the listing's order, or the one under the cursor (not `..`). */
+export async function targets(t = tab()) {
+  if (t.marks.count) return (await pick(t, "marked")).map((e) => e.path);
   const e = item(t);
   return e && e.name !== ".." ? [e.path] : [];
 }
@@ -942,6 +983,8 @@ export function snapshot() {
 
 export async function init() {
   ui.cfg = await invoke("get_config");
+  // A page loaded again starts its tabs anew: the listings the backend kept are dropped.
+  await invoke("tab_reset").catch(() => {});
   setLanguage(ui.cfg);
   setArchiveEndings(ui.cfg.archive_endings);
   setDiskEndings(ui.cfg.disk_endings);
@@ -970,17 +1013,9 @@ export async function init() {
     ui.panes[0].tabs.push(newTab(fromArgs[0]));
     ui.panes[0].active = ui.panes[0].tabs.length - 1;
   }
-  // A file (`coxswain-gui ~/Pictures/cat.jpg`) opens its folder with the cursor on it. A saved
-  // directory may be gone; fall back to home.
-  await Promise.all(
-    ui.panes.flatMap((p) => p.tabs).map(async (t) => {
-      const ok = await load(t);
-      if (ok !== false) return;
-      const up = parent(t.dir);
-      const above = up ? await load(t, up, basename(t.dir)) : false;
-      if (above === false) await load(t, ui.cfg.home);
-    }),
-  );
+  // The tabs in view are read now; the others when they are shown (`readWhenShown`).
+  for (const t of ui.panes.flatMap((p) => p.tabs)) t.unread = true;
+  await Promise.all(visibleTabs().map(readWhenShown));
   invoke("places").then((p) => (ui.places = p));
   invoke("bsd_places").then((p) => (ui.bsdPlaces = p), () => {});
   // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders; with
@@ -1011,11 +1046,11 @@ export function refreshDisks() {
 }
 
 /** An OCI image layout's index.json in `tb`: it opens as the image (`container_image::layout_index`). */
-export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" && !tb.archive && tb.items.some((x) => x.name === "oci-layout" && !x.is_dir);
+export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" && !tb.archive && tb.oci;
 
 /** Enter / double-click: folders open in place, files in their default application. */
 export function openItem(tb, i = tb.cursor) {
-  const e = tb.items[i];
+  const e = tb.items.at(i);
   if (!e) return;
   // An archive opens like a folder, an archive inside one too (from a copy in the cache); its
   // files are copied out with F5.
@@ -1032,7 +1067,7 @@ export function openItem(tb, i = tb.cursor) {
 function openFile(tb, e) {
   if (tb.history) return void (ui.status = t("history.file_hint"));
   // A file of a package: to its folder, the cursor on it.
-  if (tb.package) return cd(tb, parent(e.path)).then(() => (tb.cursor = Math.max(0, tb.items.findIndex((x) => x.path === e.path || x.name === basename(e.path)))));
+  if (tb.package) return showInTab(tb, e.path);
   // A list of checksums is checked; the first part of a split file offers Join.
   if (isSums(e.name)) return verifyChecksums(e.path, tb);
   if (isFirstPart(e.name) && !tb.snapshot) return joinParts(e.path);
@@ -1048,7 +1083,8 @@ function openFile(tb, e) {
 export function subject(tb = tab()) {
   const e = item(tb);
   const cur = e && e.name !== ".." ? e : null;
-  const list = tb.marked.size ? tb.items.filter((x) => tb.marked.has(x.path)) : cur ? [cur] : [];
+  // Marked: what they are, as the backend counted them (`Subject::of`).
+  const list = tb.marks.count ? [] : cur ? [cur] : [];
   const h = tb.history;
   const place = tb.archive ? (tb.diskImage || tb.nested ? "disk_image" : "archive") : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
   const files = list.filter((x) => !x.is_dir);
@@ -1072,15 +1108,17 @@ export function subject(tb = tab()) {
     // A .pdb is an e-book only by its header (a debugging database otherwise): F9 offers it.
     ebooks: files.filter((x) => /\.(mobi|azw3?|fb2|lit)$/i.test(x.name)).length,
     kicad: files.filter((x) => isKicad(x.name)).length,
-    one: list.length === 1 && list[0] === cur,
-    marked: tb.marked.size,
+    speech: files.filter((x) => isSpeech(x.name)).length,
+    ...(tb.marks.count ? tb.marks.subject : {}),
+    // The one marked entry is the one under the cursor (`m`: marked).
+    one: tb.marks.count ? tb.marks.count === 1 && !!cur?.m : !!cur,
+    marked: tb.marks.count,
     place,
     git: !!tb.git,
     zfs: !!tb.zfs,
     packages: !!tb.packages,
     // A drive's top, or a folder measured at 1 GB or more: where Space is worth a hint.
     big: place === "disk" && (cur?.is_dir && list.length === 1 ? (tb.sizes[cur.path] ?? 0) >= 2 ** 30 || ui.disks.some((d) => d.mount === cur.path) : ui.disks.some((d) => d.mount === tb.dir)),
-    speech: files.filter((x) => isSpeech(x.name)).length,
     whisper: !!ui.cfg.settings.search_whisper,
   };
 }
@@ -1108,18 +1146,18 @@ export function rowMenu(ev, t, i, onfocus) {
 }
 
 export function toggleMark(t, i) {
-  const e = t.items[i];
+  const e = t.items.at(i);
   if (!e || e.name === "..") return;
-  t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
+  return mark(t, { toggle: i });
 }
 
 /** Native drag of the marked files (or the one at `i`), so other apps can take them; what is
  *  only inside an archive or a history is copied out first (`drag::out`). */
 export async function dragOut(t, i) {
-  const e = t.items[i];
+  const e = t.items.at(i);
   if (!e || e.name === "..") return;
   t.cursor = i;
-  const paths = t.marked.has(e.path) ? targets(t) : [e.path];
+  const paths = e.m ? await targets(t) : [e.path];
   const scale = Math.max(1, Math.round(devicePixelRatio));
   try {
     const real = await invoke("start_drag", { paths, image: [...(await dragImage(paths, e, scale))], scale });

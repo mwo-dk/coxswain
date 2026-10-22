@@ -1,6 +1,6 @@
 <script>
-  import { ui, load, byLast, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, ranks, basename, invoke, HISTORY, SNAPSHOTS } from "./lib.js";
+  import { ui, sortTab, mark, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
+  import { size, date, day, age, ageColor, TAG_COLORS, tagName, basename, invoke } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
 
@@ -45,7 +45,7 @@
   $effect(() => {
     if (!commits) return void (graph = {});
     // Asked again when the list is read again (its graph is new then).
-    void t.items;
+    t.items.listed;
     const [dir, from] = [t.dir, Math.max(0, win - 16)];
     // 160 rows: a tall screenful and the margin around it.
     invoke("history_graph", { dir, from, to: from + 160 }).then((rows) => {
@@ -82,25 +82,13 @@
     onfocus();
     t.reverse = t.sort === k && !t.reverse;
     t.sort = k;
-    // Sorted here: reading the folder again takes longer than the sort. A history, a list of
-    // snapshots, an archive or a package has an order of its own, which the backend keeps.
-    if (t.history || t.snapshot || t.archive || t.package || [HISTORY, SNAPSHOTS].includes(basename(t.dir))) return load(t);
-    const items = t.items;
-    const rank = await ranks(items.flatMap((e) => (k === "ext" ? [e.name, ext(e)] : [e.name])));
-    // Another folder, or another sort, while the ranks were on their way: that one counts.
-    if (t.items !== items || t.sort !== k) return;
-    const at = t.items[t.cursor]?.path;
-    t.items = k === "commit" && t.last ? byLast(t.items, t.last, t.reverse, rank) : sortItems(t.items, k, t.reverse, t.sizes, rank);
-    t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
+    sortTab(t);
   }
   const arrow = (k) => (t.sort === k ? (t.reverse ? "\u{f0de}" : "\u{f0dd}") : "");
 
   function click(ev, i) {
     onfocus();
-    if (ev.shiftKey) {
-      const [a, b] = [Math.min(t.cursor, i), Math.max(t.cursor, i)];
-      for (let r = a; r <= b; r++) if (t.items[r].name !== "..") t.marked.add(t.items[r].path);
-    }
+    if (ev.shiftKey) mark(t, { range: [Math.min(t.cursor, i), Math.max(t.cursor, i)] });
     t.cursor = i;
     if (ev.ctrlKey || ev.metaKey) toggleMark(t, i);
   }
@@ -127,8 +115,11 @@
   </div>
   <Rows class="rows" items={t.items} {rowH} cursor={t.cursor} bind:top={t.top} role="listbox" tabindex="-1" aria-label={t.dir}>
     {#snippet row(e, i)}
+      {#if e.placeholder}
+        <div role="option" tabindex="-1" aria-selected={i === t.cursor} class="cols row" class:cursor={i === t.cursor} class:focused={active}></div>
+      {:else}
       {@const st = e.name === ".." ? undefined : (t.git?.files[e.name] ?? t.git?.all)}
-      {@const marked = t.marked.has(e.path)}
+      {@const marked = !!e.m}
       {@const gr = commits ? graph[basename(e.path)] : undefined}
       <!-- Keyboard handling is global (App.svelte); rows are pointer targets. -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -201,6 +192,7 @@
         {/if}
         {#if shown.has("created")}<span class="time">{day(e.created)}</span>{/if}
       </div>
+      {/if}
     {/snippet}
   </Rows>
 </div>

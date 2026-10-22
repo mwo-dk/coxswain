@@ -42,8 +42,10 @@
   }
 
 
-  const selBytes = $derived(t.items.filter((e) => t.marked.has(e.path)).reduce((a, e) => a + (e.is_dir ? t.sizes[e.path] ?? 0 : e.size), 0));
-  const count = $derived(t.items.length - (t.items[0]?.name === ".." ? 1 : 0));
+  // Folders as measured; inside an archive (or a list of snapshots) as listed.
+  const listedSizes = $derived((t.archive && !t.history) || (t.snapshot && !t.snapshot.snapshot));
+  const selBytes = $derived(listedSizes ? t.marks.bytes + t.marks.dir_bytes : t.marks.dirs.reduce((a, d) => a + (t.sizes[d] ?? 0), t.marks.bytes));
+  const count = $derived(t.items.length - (t.up ? 1 : 0));
   /** The ZFS footer: dataset, compression ratio, space (used of the quota when it has one). */
   const zfsLine = $derived(
     t.zfs &&
@@ -155,7 +157,7 @@
 
   <footer class="foot">
     <!-- Against the upstream: which, how far ahead and behind, and the last fetch. -->
-    <span>{tn("items", count)}{#if t.history?.upstream}&nbsp;· {t.history.upstream}{/if}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
+    <span>{tn("items", count)}{#if t.history?.upstream}&nbsp;· {t.history.upstream}{/if}{#if t.marks.count}&nbsp;· <b>{tn("pane.selected", t.marks.count, { size: size(selBytes) })}</b>{/if}</span>
     {#if t.hasNotes}<span class="note" title={tr("pane.has_notes")}>{"\u{f249}"}</span>{/if}
     <!-- On ZFS: the dataset and its space; a click lists the snapshots. -->
     {#if zfsLine}<button class="zfs-line" title={`${t.zfs.mountpoint}\n${tr("zfs.footer_tip", { key: ui.cfg.actions.snapshots?.[1] ?? "" })}`} onclick={() => openSnapshots(t)}>{zfsLine}</button>{/if}

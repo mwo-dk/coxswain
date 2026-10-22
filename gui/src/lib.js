@@ -5,14 +5,6 @@ import { isBomName, isProvenanceName } from "./sniff.js";
 
 export { invoke, convertFileSrc };
 
-/** A folder's listing. An entry whose path is the folder's and its name comes as the name
- *  only (a third less JSON for a big folder); here it gets its path again. */
-export async function listDir(args) {
-  const r = await invoke("list_dir", args);
-  for (const e of r.items) e.path ??= r.prefix + e.name;
-  return r;
-}
-
 const NAMED = {
   Enter: "Enter",
   Escape: "Esc",
@@ -178,40 +170,6 @@ export function ageColor(secs, look) {
     }
     [t0, h0] = [t1, h1];
   }
-}
-
-/** `*` and `?` wildcards, whole name, case-insensitive, as a RegExp to test many names with. */
-export function globRe(pattern) {
-  const re = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-  // `u`: `?` is one character, also outside the basic plane (an emoji).
-  return new RegExp(`^${re}$`, "iu");
-}
-
-/** A rank for each of `words` in the language's alphabet, numbers by their value ("file2"
- *  before "file10"), from coxswain-core's `collate`: the same order as the terminal app's. */
-export async function ranks(words) {
-  const u = [...new Set(words)];
-  const r = await invoke("name_ranks", { names: u });
-  const m = new Map(u.map((w, i) => [w, r[i]]));
-  return Object.assign((w) => m.get(w) ?? 0, { has: (w) => m.has(w) });
-}
-
-/** A listing sorted again by `key` ("name", "ext", "time", "size"; "commit" is by name), as
- *  coxswain-core's fs::sort: `..`, then folders, then files; `reverse` within each. `rank`
- *  (from `ranks`) knows each name and, for "ext", each extension. */
-export function sortItems(items, key, reverse, sizes = {}, rank) {
-  const group = (e) => (e.name === ".." ? 0 : e.is_dir ? 1 : 2);
-  const ext = (e) => (!e.is_dir && e.name.lastIndexOf(".") > 0 ? e.name.slice(e.name.lastIndexOf(".") + 1) : "");
-  const down = (x, y) => ((y ?? -Infinity) > (x ?? -Infinity) ? 1 : (y ?? -Infinity) < (x ?? -Infinity) ? -1 : 0);
-  // By size a folder goes by its measured size (`sizes`); not measured yet, it comes last, by name.
-  const sz = (e) => (e.is_dir ? sizes[e.path] : e.size);
-  const unknown = (a, b) => key === "size" && (sz(a) === undefined || sz(b) === undefined) && ((sz(a) === undefined) - (sz(b) === undefined) || rank(a.name) - rank(b.name));
-  const by = {
-    ext: (a, b) => rank(ext(a)) - rank(ext(b)),
-    time: (a, b) => down(a.modified, b.modified),
-    size: (a, b) => down(sz(a), sz(b)),
-  }[key];
-  return [...items].sort((a, b) => group(a) - group(b) || unknown(a, b) || (reverse ? -1 : 1) * ((by?.(a, b) ?? 0) || rank(a.name) - rank(b.name)));
 }
 
 /** Shell-quote a word the way coxswain-core's `quote` does: in double quotes for Windows'

@@ -98,19 +98,6 @@ fn key_with(c: &Collator, name: &str) -> Vec<u8> {
     k
 }
 
-/// Each of `names`' place in the language's order (alike names alike): for the desktop app's
-/// page, which sorts a listing again by itself.
-pub fn ranks(names: &[String]) -> Vec<u32> {
-    let keys = keys(names);
-    let mut order: Vec<usize> = (0..names.len()).collect();
-    order.sort_unstable_by(|&i, &j| keys[i].cmp(&keys[j]));
-    let mut ranks = vec![0; names.len()];
-    for (r, &i) in order.iter().enumerate() {
-        ranks[i] = r as u32;
-    }
-    ranks
-}
-
 /// `a` against `b` in the language's order, numbers by their value; total.
 pub fn cmp(a: &str, b: &str) -> Ordering {
     with(|c| c.as_borrowed().compare(a, b)).then_with(|| a.cmp(b))
@@ -203,7 +190,5 @@ mod tests {
         // Alike but for case: code points decide, so no two names are equal.
         order("da", &["Ærø 2", "ærø 2", "ærø 10"]);
         assert_eq!(cmp("x", "x"), Ordering::Equal);
-        let names = ["file10", "file2", "B", "a"].map(String::from);
-        assert_eq!(ranks(&names), [3, 2, 1, 0]);
     }
 }

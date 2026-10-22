@@ -1,8 +1,10 @@
 <script>
+  import { untrack } from "svelte";
   // Miller columns: two ancestor levels, the current folder, and a peek into the folder
   // under the cursor. Left/Right walk the hierarchy (handled in App).
-  import { ui, cd, load, openItem, toggleMark, gitFacts, dragOut } from "./app.svelte.js";
-  import { listDir, parent, TAG_COLORS } from "./lib.js";
+  import { ui, cd, openItem, toggleMark, gitFacts, dragOut, newId } from "./app.svelte.js";
+  import { invoke, parent, TAG_COLORS } from "./lib.js";
+  import { Paged, SPAN } from "./paged.svelte.js";
   import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
 
@@ -13,34 +15,63 @@
   let strip = $state();
   const rowH = $derived(Math.round(ui.cfg.gui.font_size * ui.cfg.gui.line_height));
   /** The current folder without `..`, which a column does not show; `skip` is its index shift. */
-  const skip = $derived(t.items[0]?.name === ".." ? 1 : 0);
-  const shown = $derived(skip ? t.items.slice(1) : t.items);
+  const skip = $derived(t.up ? 1 : 0);
+  const shown = $derived(t.items.skip(skip));
 
-  async function list(dir) {
+  /** A column's folder, paged as a tab's is (its own listing in the backend, dropped when the
+   *  column goes), without `..`; `cursor`: the row of `focus` in it. */
+  async function list(dir, focus = null) {
+    const p = new Paged(newId());
+    p.generation = 1;
     try {
-      return (await listDir({ dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse })).items.filter((e) => e.name !== "..");
+      const r = await invoke("tab_list", { tab: p.id, generation: 1, dir, showHidden: ui.showHidden, sort: t.sort, reverse: t.reverse, focus, cursor: 0, span: SPAN });
+      p.reset(r, 1);
+      const n = r.up ? 1 : 0;
+      return { items: p.skip(n), cursor: focus ? r.cursor - n : -1, id: p.id };
     } catch {
-      return [];
+      invoke("tab_drop", { tab: p.id }).catch(() => {});
+      return { items: [], cursor: -1, id: null };
     }
   }
+  const drop = (cols) => cols.forEach((c) => c?.id != null && invoke("tab_drop", { tab: c.id }).catch(() => {}));
+  // Gone (another view): the columns' listings go, and so do those still being read.
+  let gone = false;
+  $effect(() => () => {
+    gone = true;
+    drop([...ancestors, peek]);
+  });
 
   // Ancestor columns follow the directory.
   $effect(() => {
     const dir = t.dir;
     const chain = [];
     for (let d = parent(dir), n = 0; d && n < 2; d = parent(d), n++) chain.unshift(d);
-    Promise.all(chain.map(async (d, i) => ({ dir: d, items: await list(d), open: chain[i + 1] ?? dir }))).then((cols) => {
-      if (t.dir === dir) ancestors = cols;
+    Promise.all(chain.map(async (d, i) => ({ dir: d, open: chain[i + 1] ?? dir, ...(await list(d, chain[i + 1] ?? dir)) }))).then((cols) => {
+      if (gone || t.dir !== dir) return drop(cols);
+      drop(untrack(() => ancestors));
+      ancestors = cols;
     });
   });
 
   // The peek column follows the cursor, a moment later so fast scrolling stays smooth.
+  // The folder under the cursor, as a path: rows that come again do not make it new.
+  const under = $derived.by(() => {
+    const e = t.items.at(t.cursor);
+    return e?.is_dir && e.name !== ".." ? e.path : null;
+  });
   $effect(() => {
-    const e = t.items[t.cursor];
-    if (!e?.is_dir || e.name === "..") return void (peek = null);
+    const dir = under;
+    // Read again when the folder is, or sorted or shown otherwise.
+    t.items.listed, t.sort, t.reverse, ui.showHidden;
+    if (!dir) {
+      untrack(() => drop([peek]));
+      return void (peek = null);
+    }
     const timer = setTimeout(async () => {
-      const items = await list(e.path);
-      if (t.items[t.cursor]?.path === e.path) peek = { dir: e.path, items };
+      const col = { dir, ...(await list(dir)) };
+      if (gone || under !== dir) return drop([col]);
+      drop([untrack(() => peek)]);
+      peek = col;
     }, 90);
     return () => clearTimeout(timer);
   });
@@ -52,11 +83,12 @@
     strip?.scrollTo({ left: i18n.rtl ? -strip.scrollWidth : strip.scrollWidth, behavior: "smooth" });
   });
 
+  /** To `dir`, the cursor on `name`: its rows come around it. */
   async function jump(dir, name) {
     onfocus();
-    await cd(t, dir);
-    const i = t.items.findIndex((x) => x.name === name);
-    if (i >= 0) t.cursor = i;
+    if (dir !== t.dir) return cd(t, dir, true, name);
+    const i = await invoke("tab_find", { tab: t.id, name }).catch(() => null);
+    if (i != null) t.cursor = i;
   }
 </script>
 
@@ -73,9 +105,9 @@
 
 <div class="strip" bind:this={strip}>
   {#each ancestors as col (col.dir)}
-    <Rows class="col" items={col.items} {rowH} cursor={col.items.findIndex((e) => e.path === col.open)} role="listbox" aria-label={col.dir}>
+    <Rows class="col" items={col.items} {rowH} cursor={col.cursor} role="listbox" aria-label={col.dir}>
       {#snippet row(e)}
-        {@render entry(e, e.path === col.open ? "open" : "", () => jump(col.dir, e.name), () => jump(col.dir, e.name).then(() => openItem(t, t.items.findIndex((x) => x.name === e.name))))}
+        {@render entry(e, e.path === col.open ? "open" : "", () => jump(col.dir, e.name), () => jump(col.dir, e.name).then(() => openItem(t)))}
       {/snippet}
     </Rows>
   {/each}
@@ -84,7 +116,7 @@
       {@const i = j + skip}
       {@render entry(
         e,
-        `${i === t.cursor ? "cursor" : ""} ${t.marked.has(e.path) ? "marked" : ""}`,
+        `${i === t.cursor ? "cursor" : ""} ${e.m ? "marked" : ""}`,
         (ev) => {
           onfocus();
           t.cursor = i;
