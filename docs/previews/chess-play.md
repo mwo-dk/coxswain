@@ -155,7 +155,7 @@ show the evaluations and marks from it.
 
 ![The Opera Game analysed in the desktop app, at 15.Bxd7+: the evaluation bar beside the board almost all white, +8.72 under the board, the graph of the game below with the line at this move and ticks under the eight marked moves, the marks ?!, ? and ?? after the moves, Analyse game and Save as annotated PGN under the board, Stockfish 17.1: the game analysed, 8 moves marked](../screenshots/gui-chess-review.png)
 
-![The same in the terminal app: +8.72 and the bar of blocks under the board, the row of bars for the game below it with this move highlighted, the marks after the moves, Stockfish 17.1: the game analysed, 8 moves marked above them](../screenshots/tui-chess-review.png)
+![The same in the terminal app, its pieces in block characters: +8.89 and the bar under the board, the row of bars for the game below it with this move highlighted, the marks after the moves, Stockfish 17.1: the game analysed, 9 moves marked above them](../screenshots/tui-chess-review.png)
 
 ## Settings and config.toml
 
