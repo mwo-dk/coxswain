@@ -234,12 +234,83 @@ pub fn install() -> Option<String> {
     crate::tools::install("stockfish")
 }
 
-/// Asks the engine at `program` about the position `fen` for `ms` milliseconds, for its best
+/// The name of the engine's image under `[preview.images]` and `prefer_tool`.
+pub const TOOL: &str = "stockfish";
+
+/// Where the engine runs.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Program {
+    /// A program installed here.
+    Installed(PathBuf),
+    /// Coxswain's Stockfish image (`[preview.images] stockfish`), pulled, run by podman or
+    /// docker at `rt`: no network, a read-only root, no capabilities, bounded memory.
+    Container { rt: &'static str, path: PathBuf, image: String },
+}
+
+impl Program {
+    /// What tells one engine from another, for the cache of analysed games.
+    pub fn key(&self) -> String {
+        match self {
+            Program::Installed(p) => p.to_string_lossy().into_owned(),
+            Program::Container { image, .. } => image.clone(),
+        }
+    }
+
+    /// The command that starts it, and for a container its runtime and its name, to stop it by.
+    fn command(&self) -> (std::process::Command, Option<(PathBuf, String)>) {
+        match self {
+            Program::Installed(p) => (crate::tools::command(p), None),
+            Program::Container { rt, path, image } => {
+                static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+                let name = format!("coxswain-stockfish-{}-{}", std::process::id(), N.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+                let mut c = crate::images::sealed_bare(rt, path, &name);
+                c.arg(image);
+                (c, Some((path.clone(), name)))
+            }
+        }
+    }
+}
+
+/// The engine for these settings: `[chess] engine` when it names one; else Stockfish installed
+/// here, else Coxswain's Stockfish image when it is pulled (`prefer_tool = { stockfish = … }`
+/// turns the order round, or keeps to one). Err: why there is none, and what to do.
+pub fn engine_for(cfg: &crate::config::Config) -> Result<Program, String> {
+    let missing = || match install() {
+        Some(line) => crate::t!("chess.engine_missing_install", "command" => line),
+        None => crate::t!("chess.engine_missing"),
+    };
+    if !cfg.chess.engine.trim().is_empty() {
+        return engine(&cfg.chess.engine).map(Program::Installed).ok_or_else(missing);
+    }
+    let p = &cfg.preview;
+    let pref = p.prefer_tool.get(TOOL).unwrap_or(&p.prefer).as_str();
+    let local = || crate::tools::which("stockfish").map(Program::Installed);
+    let image = p.images.get(TOOL).filter(|i| !i.is_empty());
+    let container = || {
+        let (rt, path) = crate::tools::container_runtime(p)?;
+        let image = image?;
+        crate::images::id(&path, image).map(|_| Program::Container { rt, path, image: image.clone() })
+    };
+    let found = match pref {
+        "container" => container().or_else(local),
+        "local" => local(),
+        _ => local().or_else(container),
+    };
+    found.ok_or_else(|| {
+        let mut why = missing();
+        if pref != "local" && image.is_some() && crate::tools::container_runtime(p).is_some() {
+            why = format!("{why} {}", crate::t!("chess.engine_or_image"));
+        }
+        why
+    })
+}
+
+/// Asks the engine `program` about the position `fen` for `ms` milliseconds, for its best
 /// `lines` (1 to 5), over UCI on its standard input and output; it runs here and nothing
 /// leaves the machine. `stop` is asked at each line the engine writes: true ends it at once
 /// (the position on screen changed).
-pub fn analyse(program: &Path, fen: &str, ms: u32, lines: u32, stop: &dyn Fn() -> bool) -> std::io::Result<Analysis> {
-    Engine::start(crate::tools::command(program))?.think(fen, ms, lines, stop)
+pub fn analyse(program: &Program, fen: &str, ms: u32, lines: u32, stop: &dyn Fn() -> bool) -> std::io::Result<Analysis> {
+    Engine::start(program)?.think(fen, ms, lines, stop)
 }
 
 fn failed(kind: std::io::ErrorKind) -> std::io::Error {
@@ -254,23 +325,38 @@ pub struct Engine {
     out: std::io::Lines<BufReader<std::process::ChildStdout>>,
     /// Its name, as it gives it (`Stockfish 17.1`).
     pub name: String,
+    /// A container's runtime and name: stopped by it too, as killing `podman run` leaves the
+    /// container running.
+    container: Option<(PathBuf, String)>,
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
         let _ = self.stdin.write_all(b"quit\n");
+        let _ = self.stdin.flush();
+        // A moment to quit by itself, then killed.
+        for _ in 0..20 {
+            if matches!(self.child.try_wait(), Ok(Some(_))) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
+        if let Some((rt, name)) = &self.container {
+            let _ = crate::tools::command(rt).args(["kill", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        }
     }
 }
 
 impl Engine {
-    /// Starts the engine `cmd` and waits for it to say it speaks UCI.
-    pub fn start(mut cmd: std::process::Command) -> std::io::Result<Engine> {
+    /// Starts the engine `program` and waits for it to say it speaks UCI.
+    pub fn start(program: &Program) -> std::io::Result<Engine> {
+        let (mut cmd, container) = program.command();
         let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
         let stdin = child.stdin.take().ok_or_else(|| failed(std::io::ErrorKind::BrokenPipe))?;
         let stdout = child.stdout.take().ok_or_else(|| failed(std::io::ErrorKind::BrokenPipe))?;
-        let mut e = Engine { child, stdin, out: BufReader::new(stdout).lines(), name: String::new() };
+        let mut e = Engine { child, stdin, out: BufReader::new(stdout).lines(), name: String::new(), container };
         writeln!(e.stdin, "uci")?;
         e.stdin.flush()?;
         let started = std::time::Instant::now();
@@ -441,7 +527,7 @@ mod tests {
         .unwrap();
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
         let fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
-        let a = analyse(&p, fen, 100, 3, &|| false).unwrap();
+        let a = analyse(&Program::Installed(p.clone()), fen, 100, 3, &|| false).unwrap();
         assert_eq!((a.engine.as_str(), a.depth, a.lines.len()), ("Fake 1", 9, 2));
         let (one, two) = (&a.lines[0], &a.lines[1]);
         assert_eq!((one.cp, one.eval.as_str()), (Some(-30), "−0.30"));
@@ -449,7 +535,7 @@ mod tests {
         assert_eq!(one.moves, ["e5", "Nf3", "Nc6"]);
         // Black to move and mating: plus for Black is minus from White's side.
         assert_eq!((two.mate, two.eval.as_str(), two.moves[0].as_str()), (Some(4), "#4", "c5"));
-        assert!(analyse(&p, fen, 100, 1, &|| true).is_err());
+        assert!(analyse(&Program::Installed(p.clone()), fen, 100, 1, &|| true).is_err());
         assert_eq!(engine(&p.to_string_lossy()), Some(p.clone()));
         // A bare name is looked for on PATH only, never as a file in the working folder.
         let bare = format!("coxswain-test-engine-{}", std::process::id());

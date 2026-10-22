@@ -107,6 +107,15 @@ says how to install Stockfish here:
 | macOS | `brew install stockfish` |
 | Windows | Download it from stockfishchess.org, then name `stockfish.exe` in *Settings → Previews → Chess engine* |
 
+**Without an installed engine.** When no Stockfish is installed and podman or docker is,
+Coxswain runs Stockfish from its own container image, `ghcr.io/mwo-dk/coxswain-stockfish`
+(about 70 MB): pull it once in the desktop app's *Settings → Previews → Container images* (the
+terminal app uses it once pulled, or after `podman pull ghcr.io/mwo-dk/coxswain-stockfish:latest`).
+It then runs without network, with a read-only root, no capabilities, bounded memory and no
+folder of yours ([What a container may do](containers.md#what-a-container-may-do)). Until it is
+pulled, the line under the board says so. `[preview] prefer_tool = { stockfish = "container" }`
+uses the image even with Stockfish installed, `"local"` never.
+
 Any other UCI engine works too (Leela Chess Zero's `lc0`, Ethereal, Berserk): name its program or
 path in *Chess engine*. With *Chess engine on* set and no engine found, a notice says so once, with
 the line that installs Stockfish.

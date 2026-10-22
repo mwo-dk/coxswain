@@ -23,6 +23,8 @@ pub const UNUSED_DAYS: u64 = 90;
 
 /// Megabytes to download and on disk of the default images, measured (amd64, 2026-10).
 const SIZES: &[(&str, u32, u32)] = &[
+    // Its two evaluation networks are most of it, and do not pack (estimated from the binary).
+    ("ghcr.io/mwo-dk/coxswain-stockfish:latest", 70, 80),
     ("docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4", 190, 440),
     ("docker.io/texlive/texlive:latest", 2800, 5900),
     ("docker.io/texlive/texlive:latest-medium", 960, 2200),
@@ -40,7 +42,7 @@ const SIZES: &[(&str, u32, u32)] = &[
     (crate::ebook::IMAGE, 1300, 3640),
 ];
 
-const TOOLS: [&str; 17] = [
+const TOOLS: [&str; 18] = [
     "tika",
     "latex",
     "libreoffice",
@@ -58,6 +60,7 @@ const TOOLS: [&str; 17] = [
     "openscad",
     "calibre",
     "kicad",
+    "stockfish",
 ];
 
 /// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image, a
@@ -116,6 +119,15 @@ pub const TIGHT: &[&str] = &[
     "--security-opt",
     "no-new-privileges",
 ];
+
+/// `<rt> run` of a program that reads no file at all (the chess engine, talking over stdin
+/// and stdout): `sealed` without a mount, with `TIGHT`'s limits, as the image's own user.
+pub fn sealed_bare(_rt: &str, rt_path: &Path, name: &str) -> Command {
+    let mut c = crate::tools::command(rt_path);
+    c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
+    c.args(TIGHT);
+    c
+}
 
 /// `sealed`, seeing one file only: `file`, read-only at `at` (`/src/in.heic`), instead of a
 /// folder at /src, with `TIGHT`'s limits. Nothing else of its folder is there to be read, and

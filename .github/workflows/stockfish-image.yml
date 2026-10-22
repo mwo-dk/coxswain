@@ -1,0 +1,73 @@
+name: Stockfish image
+
+# Coxswain's own Stockfish image (packaging/images/stockfish), for amd64 and arm64, pushed to
+# ghcr.io/mwo-dk/coxswain-stockfish:latest. Built again every week like the ImageMagick
+# image; the same source and networks give the same image (timestamps at 1970, no
+# attestations), so an unchanged week pushes an unchanged digest. Pull requests build it
+# without pushing.
+on:
+  push:
+    branches: [master]
+    paths:
+      - packaging/images/stockfish/**
+      - .github/workflows/stockfish-image.yml
+  pull_request:
+    paths:
+      - packaging/images/stockfish/**
+      - .github/workflows/stockfish-image.yml
+  schedule:
+    - cron: "47 3 * * 6" # Saturdays, 03:47 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockfish-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/mwo-dk/coxswain-stockfish
+      PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to ghcr.io
+        if: env.PUSH == 'true'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+      - name: It speaks UCI, held as Coxswain holds it
+        run: |
+          docker buildx build packaging/images/stockfish --load -t coxswain-stockfish:test
+          printf 'uci\nisready\nposition startpos moves e2e4\ngo movetime 500\n' | { cat; sleep 3; echo quit; } \
+            | docker run --rm -i --network=none --read-only --tmpfs /tmp --cap-drop=ALL \
+                --security-opt no-new-privileges --memory=3g --pids-limit=256 coxswain-stockfish:test > out.txt
+          grep -q '^uciok' out.txt && grep -q '^bestmove ' out.txt || { cat out.txt; echo "::error::no UCI answer"; exit 1; }
+          if docker run --rm --entrypoint sh coxswain-stockfish:test -c true 2>/dev/null; then
+            echo "::error::the image has a shell"; exit 1
+          fi
+      - name: Build, and push from master
+        run: |
+          export SOURCE_DATE_EPOCH=0
+          docker buildx build packaging/images/stockfish \
+            --platform linux/amd64,linux/arm64 --pull --no-cache \
+            --provenance=false --sbom=false \
+            --output "type=image,name=$IMAGE:latest,push=$PUSH,rewrite-timestamp=true" \
+            --metadata-file meta.json
+          if [ "$PUSH" = true ]; then
+            echo "::notice title=Pushed::$IMAGE:latest@$(jq -r '."containerimage.digest"' meta.json)"
+          fi

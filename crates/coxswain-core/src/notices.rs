@@ -363,12 +363,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         });
     }
     // The chess view asks an engine about each position, but none is installed: what to install.
-    if cfg.chess.analysis && crate::chess::play::engine(&cfg.chess.engine).is_none() {
+    if cfg.chess.analysis
+        && let Err(text) = crate::chess::play::engine_for(cfg)
+    {
         let copy = crate::chess::play::install();
-        let text = match &copy {
-            Some(line) => t!("chess.engine_missing_install", "command" => line),
-            None => t!("chess.engine_missing"),
-        };
         all.push(Notice {
             copy,
             ..Notice::new("chess-engine", text, Some("chess_analysis"))
