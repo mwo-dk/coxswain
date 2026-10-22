@@ -98,7 +98,7 @@ Coxswain lists only what it caused, matched exactly:
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
   `docker.io/yuzutech/kroki:latest`, `ghcr.io/typst/typst:latest`,
   `docker.io/jbarlow83/ocrmypdf-alpine:latest`, listed once though OCRmyPDF and Ghostscript
-  share it, `docker.io/mwader/static-ffmpeg:latest`, `docker.io/dstmodders/imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, `docker.io/openscad/openscad:trixie.2026-10-19`, `docker.io/kicad/kicad:9.0.9`, `docker.io/apache/tika:4.1.0` calibre's `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest, and `ghcr.io/ggml-org/whisper.cpp:main`) that podman or docker has. Other images,
+  share it, `docker.io/mwader/static-ffmpeg:latest`, `ghcr.io/mwo-dk/coxswain-imagemagick:latest`, `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, `docker.io/openscad/openscad:trixie.2026-10-19`, `docker.io/kicad/kicad:9.0.9`, `docker.io/apache/tika:4.1.0` calibre's `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest, and `ghcr.io/ggml-org/whisper.cpp:main`) that podman or docker has. Other images,
   alike, are not listed. *Remove images not used for 90 days* in *Settings → Previews* removes
   these by itself when no preview used one (nor Apache Tika nor Whisper used it) for that long, and *Keep images up to date* removes
   the copy an update replaced ([Containers](../previews/containers.md#keeping-images-up-to-date)).

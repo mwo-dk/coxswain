@@ -42,7 +42,9 @@ pub struct Kind {
     pub sample: Option<(&'static str, &'static str)>,
 }
 
-/// An image under `[preview.images]`: its default, and megabytes to download and on disk
+/// An image under `[preview.images]`: its default, pinned by the digest of its multi-arch index
+/// (`name:tag@sha256:…`, so a pull fetches exactly that build; `tools/images-pin.py` moves the
+/// pins to a tag's newest build), and megabytes to download and on disk
 /// (amd64, measured 2026-10). `image.what.<key>` and `image.cost.<key>` say what it gives and
 /// costs. An empty default: no image is set, the user may set one they trust.
 pub struct Image {
@@ -58,24 +60,25 @@ const fn tool(id: &'static str, programs: &'static [&'static str], install: &'st
 
 /// Every image Coxswain knows, its default and size.
 pub const IMAGES: &[Image] = &[
-    Image { key: "latex", default: "docker.io/texlive/texlive:latest", download: 2800, disk: 5900 },
-    Image { key: "typst", default: "ghcr.io/typst/typst:latest", download: 29, disk: 65 },
+    Image { key: "latex", default: "docker.io/texlive/texlive:latest@sha256:e8148b126545105c4aeeaa212f8a7bd02d05b500351372881055e1e59ae67d33", download: 2800, disk: 5900 },
+    Image { key: "typst", default: "ghcr.io/typst/typst:latest@sha256:032e292249bcd378480cc7c142cfa324b63ef8aadeb88d7e7230320c4c9c422f", download: 29, disk: 65 },
     // Gotenberg's image, LibreOffice only: LibreOffice publishes none of its own.
-    Image { key: "libreoffice", default: "docker.io/gotenberg/gotenberg:8-libreoffice", download: 440, disk: 1030 },
+    Image { key: "libreoffice", default: "docker.io/gotenberg/gotenberg:8-libreoffice@sha256:2098722190575dbd975d8abf02e4ce83ffe20783114c5cc56f1b2ac309e6a083", download: 440, disk: 1030 },
     // OCRmyPDF's own image, which has Ghostscript too: one pull for both.
-    Image { key: "ghostscript", default: "docker.io/jbarlow83/ocrmypdf-alpine:latest", download: 310, disk: 850 },
+    Image { key: "ghostscript", default: "docker.io/jbarlow83/ocrmypdf-alpine:latest@sha256:4a0b45ca35c1b2c43875b257d624f8bc8ad530ba4f75b52078e3baca17d66f7c", download: 310, disk: 850 },
     // GhostXPS: in none of the images, and no project publishes one.
     Image { key: "gxps", default: "", download: 0, disk: 0 },
-    Image { key: "plantuml", default: "docker.io/plantuml/plantuml:latest", download: 141, disk: 353 },
+    Image { key: "plantuml", default: "docker.io/plantuml/plantuml:latest@sha256:9b5071ab56a4192aac458ab4b0d42261c22c8109695894ae5be6013c3be6cac1", download: 141, disk: 353 },
     // The programs of a dozen diagram kinds.
-    Image { key: "kroki", default: "docker.io/yuzutech/kroki:latest", download: 1200, disk: 2830 },
-    Image { key: "pandoc", default: "docker.io/pandoc/core:latest", download: 57, disk: 246 },
+    Image { key: "kroki", default: "docker.io/yuzutech/kroki:latest@sha256:a4341ac44cd2590124da7142d13fdf5d83eadc2b94c023d018a2227695a30da1", download: 1200, disk: 2830 },
+    Image { key: "pandoc", default: "docker.io/pandoc/core:latest@sha256:62518bfb6833705dc90a1634d8d879299bd820b3f74ad3b32fba8b618452553a", download: 57, disk: 246 },
     // No official image; set one you trust (see docs/previews/containers.md).
     Image { key: "duckdb", default: "", download: 0, disk: 0 },
     // A static ffmpeg and ffprobe, rebuilt with each release (`media`).
-    Image { key: "ffmpeg", default: "docker.io/mwader/static-ffmpeg:latest", download: 126, disk: 315 },
-    // ImageMagick 7, the newest patch release on Alpine (`media`).
-    Image { key: "imagemagick", default: "docker.io/dstmodders/imagemagick:latest", download: 60, disk: 152 },
+    Image { key: "ffmpeg", default: "docker.io/mwader/static-ffmpeg:latest@sha256:ac3ffd0125b2a783c5d3e8e2bbb1fe2505708a3b558e6af216276aa853ade09a", download: 126, disk: 315 },
+    // Coxswain's own ImageMagick 7 on Alpine, with HEIC, AVIF and RAW (packaging/images/imagemagick,
+    // `media`).
+    Image { key: "imagemagick", default: "ghcr.io/mwo-dk/coxswain-imagemagick:latest@sha256:bf3f7a4570d309c744105c119e1df883afd1f8bf6593ec6c24ff7704cde93483", download: 21, disk: 52 },
     // GDAL's small Alpine build, pinned to a release by its digest (`geo`).
     Image { key: "gdal", default: "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253", download: 40, disk: 98 },
     // OpenSCAD's own build of a dated snapshot, pinned by its digest (`scad`): its last release
@@ -91,14 +94,14 @@ pub const IMAGES: &[Image] = &[
     Image { key: "whisper", default: "ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af", download: 505, disk: 1140 },
     // Apache Tika's own server image, for `[search] tika`, pinned to a release by its digest.
     Image { key: "tika", default: "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4", download: 190, disk: 440 },
-    Image { key: "ocrmypdf", default: "docker.io/jbarlow83/ocrmypdf-alpine:latest", download: 310, disk: 850 },
+    Image { key: "ocrmypdf", default: "docker.io/jbarlow83/ocrmypdf-alpine:latest@sha256:4a0b45ca35c1b2c43875b257d624f8bc8ad530ba4f75b52078e3baca17d66f7c", download: 310, disk: 850 },
     // Coxswain's own Stockfish build (packaging/images/stockfish), for the chess engine when
     // none is installed (`chess::play`); its two evaluation networks are most of it.
-    Image { key: "stockfish", default: "ghcr.io/mwo-dk/coxswain-stockfish:latest", download: 70, disk: 80 },
+    Image { key: "stockfish", default: "ghcr.io/mwo-dk/coxswain-stockfish:latest@sha256:2d042e01f4a3751b1495843fc61f121e42ef446b29fc0d776200774ea5a5acc4", download: 70, disk: 80 },
     // Asciidoctor's own image, with Asciidoctor PDF: *Build PDF of AsciiDoc* (`export`).
-    Image { key: "asciidoctor", default: "docker.io/asciidoctor/docker-asciidoctor:latest", download: 665, disk: 1500 },
+    Image { key: "asciidoctor", default: "docker.io/asciidoctor/docker-asciidoctor:latest@sha256:16d479c874b9646cd4fd20d1a954fb7897d23c3787c1ddec29cfbb23533a58d2", download: 665, disk: 1500 },
     // draw.io's desktop app with a display of its own (`export`); used only with `drawio` on.
-    Image { key: "drawio", default: "docker.io/rlespinasse/drawio-desktop-headless:latest", download: 560, disk: 1310 },
+    Image { key: "drawio", default: "docker.io/rlespinasse/drawio-desktop-headless:latest@sha256:b7468f89320a6b4c6d8099da224c837a03abab4832701bb4b2355e0901f805fd", download: 560, disk: 1310 },
     // ClamAV's own Debian image without a database (it is fetched apart, at scan time), for
     // x86-64, ARM64 and POWER; pinned, so a scan always runs the same one (`viruses`).
     Image { key: "clamav", default: "docker.io/clamav/clamav-debian:1.5_base@sha256:dfe9a0c9ea8d7f14034f742010c0f91e0d3f7a719a526c426c60d2e1f5c490eb", download: 80, disk: 240 },
@@ -182,12 +185,12 @@ pub const KINDS: &[Kind] = &[
         id: "pictures",
         docs: "media.md#photos-only-imagemagick-or-ffmpeg-reads",
         exts: &[crate::media::HEIF, crate::media::MAGICK_ONLY, crate::media::RAW],
-        // HEIC: either program, else ffmpeg's image; RAW: an installed ImageMagick with LibRaw,
-        // as no image reads them.
+        // HEIC: either program installed; RAW: an installed ImageMagick with LibRaw; both, else
+        // Coxswain's ImageMagick image, which has libheif and LibRaw.
         tools: &[
-            tool("heif", &["magick", "ffmpeg"], "magick", "ffmpeg"),
+            tool("heif", &["magick", "ffmpeg"], "magick", "imagemagick"),
             tool("imagemagick", &["magick"], "magick", "imagemagick"),
-            tool("raw", &["magick"], "magick", ""),
+            tool("raw", &["magick"], "magick", "imagemagick"),
         ],
         sample: None,
     },
@@ -323,7 +326,7 @@ pub fn default_images() -> std::collections::BTreeMap<String, String> {
 /// Megabytes to download and on disk of `image`, when it is one Coxswain knows.
 pub fn sizes(image: &str) -> Option<(u32, u32)> {
     let full = if image.starts_with(&format!("{}/", crate::settings::registry(image))) { image.to_string() } else { format!("docker.io/{image}") };
-    IMAGES.iter().filter(|i| !i.default.is_empty()).map(|i| (i.default, i.download, i.disk)).chain(OTHER_SIZES.iter().copied()).find(|s| s.0 == full).map(|s| (s.1, s.2))
+    IMAGES.iter().filter(|i| !i.default.is_empty()).map(|i| (i.default, i.download, i.disk)).chain(OTHER_SIZES.iter().copied()).find(|s| crate::images::short(s.0) == crate::images::short(&full)).map(|s| (s.1, s.2))
 }
 
 // ---------------------------------------------------------------- what is here
@@ -587,7 +590,7 @@ mod tests {
             assert!(t.install.is_empty() || crate::tools::install_line(t.install, crate::tools::Manager::Pacman).is_some() || crate::tools::install_line(t.install, crate::tools::Manager::Brew).is_some(), "{}", t.id);
         }
         assert_eq!(image_key("d2"), "kroki");
-        assert_eq!((image_key("waveform"), image_key("heif"), image_key("raw")), ("ffmpeg", "ffmpeg", "raw"));
+        assert_eq!((image_key("waveform"), image_key("heif"), image_key("raw")), ("ffmpeg", "imagemagick", "imagemagick"));
         assert_eq!(image_key("custom"), "custom");
         assert_eq!(kind_of("waveform").unwrap().id, "video");
         assert_eq!(for_path(Path::new("/x/A.TEX")).unwrap().id, "latex");

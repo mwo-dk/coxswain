@@ -79,7 +79,7 @@ pub async fn ebook_run(paths: Vec<PathBuf>, to: String, ctx: tauri::State<'_, cr
         let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
         let done = ebook::run_all(&cfg, &to, &paths, &STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
             let line = match said {
-                ebook::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(ebook::TOOL).cloned().unwrap_or_default())),
+                ebook::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(ebook::TOOL).cloned().unwrap_or_default()))),
                 ebook::Said::Line(l) => l.to_string(),
             };
             set(&|p| p.line = line.clone());

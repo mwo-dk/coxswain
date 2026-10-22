@@ -73,13 +73,13 @@ pub fn about(how: &How) -> (String, bool) {
     match how {
         How::Local(_) => (t!("searchable.runs_local"), false),
         How::Container { rt, path, image } => {
-            let runs = t!("searchable.runs_container", "runtime" => *rt, "image" => image.as_str());
+            let runs = t!("searchable.runs_container", "runtime" => *rt, "image" => crate::images::short(image));
             if crate::tools::image_size(path, image).is_some() {
                 return (runs, false);
             }
             let pull = match crate::images::download(image) {
-                Some(size) => t!("convert.first_run_pulls_large", "image" => image.as_str(), "size" => size),
-                None => t!("convert.first_run_pulls", "image" => image.as_str()),
+                Some(size) => t!("convert.first_run_pulls_large", "image" => crate::images::short(image), "size" => size),
+                None => t!("convert.first_run_pulls", "image" => crate::images::short(image)),
             };
             (format!("{runs} {pull}."), true)
         }

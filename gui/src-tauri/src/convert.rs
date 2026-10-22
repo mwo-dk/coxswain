@@ -304,6 +304,12 @@ pub fn keep(app: tauri::AppHandle) {
             }
             let now = coxswain_core::fs::now();
             if ctx.state.lock().is_ok_and(|st| images::update_due(&cfg, &st, now)) {
+                // A new version's pins first: the old copies they replace go.
+                let moved = ctx.state.lock().map(|st| images::superseded(&cfg, &st)).unwrap_or_default();
+                let gone = images::move_pins(&rt, &moved, |i| pull(&rt, i));
+                if !gone.is_empty() {
+                    let _ = ctx.edit(|st| st.images_used.retain(|i, _| !gone.contains(i)));
+                }
                 // Every image is tried; when all fail (offline) the round stays due for the next hour.
                 if images::update_round(&rt, &images::pulled(&cfg, &rt), |i| pull(&rt, i)) {
                     let _ = ctx.edit(|st| st.images_checked = now);
@@ -985,7 +991,7 @@ pub async fn searchable_run(paths: Vec<PathBuf>, ctx: tauri::State<'_, crate::Ct
         let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
         let done = coxswain_core::searchable::run_all(&cfg, &paths, &SEARCHABLE_STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
             let line = match said {
-                coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default())),
+                coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default()))),
                 coxswain_core::searchable::Said::Line(l) => l.to_string(),
             };
             set(&|p| p.line = line.clone());
@@ -1526,7 +1532,7 @@ pub async fn export_run(paths: Vec<PathBuf>, op: String, ctx: tauri::State<'_, c
         let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
         let done = export::run_all(&cfg, op, &paths, &EXPORT_STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
             let line = match said {
-                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(op.tool()).cloned().unwrap_or_default())),
+                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(op.tool()).cloned().unwrap_or_default()))),
                 Said::Line(l) => l.to_string(),
             };
             set(&|p| p.line = line.clone());

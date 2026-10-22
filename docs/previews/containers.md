@@ -25,6 +25,7 @@ turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md
 - [What a container may do](#what-a-container-may-do)
 - [Pulling and removing images](#pulling-and-removing-images)
 - [Keeping images up to date](#keeping-images-up-to-date)
+  - [Pinned images](#pinned-images)
 - [Removing unused images](#removing-unused-images)
 - [What you see](#what-you-see)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -68,8 +69,8 @@ a little larger or smaller.
 | `ghcr.io/typst/typst:latest` (default for Typst) | `.typ` documents built into the PDF the preview shows ([Typst](documents.md#typst)) | about 29 MB | about 65 MB | Light: a fraction of a second for most documents |
 | `docker.io/yuzutech/kroki:latest` (default for Kroki's diagram kinds) | D2, ditaa, svgbob, Pikchr, nomnoml, WaveDrom, Vega, Vega-Lite, DBML, erd and bytefield diagrams drawn as the picture the preview shows ([Diagrams](diagrams.md#d2-ditaa-svgbob-and-the-others)) | about 1.2 GB | about 2.8 GB | Light: each diagram takes well under a second; the image is large because it holds the programs of two dozen kinds |
 | `docker.io/jbarlow83/ocrmypdf-alpine:latest` (default for OCRmyPDF and for Ghostscript) | [Make PDF searchable](../files/searchable-pdf.md), and PostScript (`.ps`, `.eps`) shown as a PDF with its Ghostscript ([PostScript and XPS](documents.md#postscript-and-xps)): one pull for both | about 310 MB | about 850 MB | OCR: about a second of processor time per page, only when you ask; PostScript: under a second |
-| `docker.io/mwader/static-ffmpeg:latest` (default for ffmpeg) | Videos and sound the app's player cannot play shown as a frame or a waveform, HEIC photos, a frame as each video's thumbnail and poster, a waveform above each song's player, the facts of videos (length, size, codecs, tracks) ([Media](media.md#video-and-sound-with-ffmpeg)), and [Convert video or audio](../files/convert-media.md) | about 126 MB | about 315 MB | Previews: well under a second each. An MP4 keeps the processor busy for a while, often about as long as the video plays; only when you ask |
-| `docker.io/dstmodders/imagemagick:latest` (default for ImageMagick) | GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md); no HEIC or RAW photos (its build has no reader for them) | about 60 MB | about 152 MB | Light: a second or two per picture |
+| `docker.io/mwader/static-ffmpeg:latest` (default for ffmpeg) | Videos and sound the app's player cannot play shown as a frame or a waveform, a frame as each video's thumbnail and poster, a waveform above each song's player, the facts of videos (length, size, codecs, tracks) ([Media](media.md#video-and-sound-with-ffmpeg)), and [Convert video or audio](../files/convert-media.md) | about 126 MB | about 315 MB | Previews: well under a second each. An MP4 keeps the processor busy for a while, often about as long as the video plays; only when you ask |
+| `ghcr.io/mwo-dk/coxswain-imagemagick:latest` (default for ImageMagick) | HEIC and cameras' RAW photos, GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md) | about 21 MB | about 52 MB | Light: a second or two per picture |
 | `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (default for GDAL, pinned to its digest) | A map of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files from their own shapes, with thumbnails, their layers, coordinate system and extent ([Geodata](geodata.md)), and Convert geodata | about 40 MB | about 98 MB | Light: under a second per file for most; a large GeoPackage or GeoTIFF takes a few seconds |
 | `ghcr.io/mwo-dk/coxswain-stockfish:latest` (default for the chess engine) | Stockfish for the chess view's best lines and whole-game analysis when none is installed ([The engine](chess-play.md#the-engine)) | about 70 MB | about 80 MB | Light while you look at a position; a whole game analysed keeps one core busy for about a minute |
 | `docker.io/openscad/openscad:trixie.2026-10-19` (default for OpenSCAD, pinned to its digest) | A picture of each `.scad` model's part, with thumbnails ([OpenSCAD models](openscad.md)), and Export 3D model as STL or 3MF | about 241 MB | about 635 MB | Light to heavy: most models take a second with Manifold; a large one with many curves keeps the processor busy for a while |
@@ -96,7 +97,7 @@ Where each image comes from, and why it is the one:
 | `kicad/kicad:9.0.9` | The KiCad project's own image of its newest release (the one without 3D models of parts; `-full` adds them at several GB). Pinned to its digest: a Coxswain release moves it on | KiCad GPL-3.0-or-later, its libraries CC-BY-SA-4.0 with an exception for what you make with them | With every KiCad release (every month or two in 2026) |
 | `mwo-dk/coxswain-stockfish:latest` | Coxswain itself (`packaging/images/stockfish`): Stockfish 17.1's released source and its two evaluation networks, each checked by its digest, built statically into an image that holds nothing else (no shell) | Stockfish GPL-3.0 | Built again every week; a new Stockfish release with a Coxswain release |
 | `openscad/openscad:trixie.2026-10-19` | The OpenSCAD project's own image of a dated snapshot (its last release, 2021.01, has no Manifold and no image of its own worth taking). Pinned to its digest: a Coxswain release moves it on | OpenSCAD GPL-2.0-or-later, the libraries in it theirs (CGAL GPL-3.0-or-later, Manifold Apache-2.0, Qt LGPL-3.0 …) | A snapshot every week in 2026 |
-| `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
+| `mwo-dk/coxswain-imagemagick:latest` | Coxswain itself (`packaging/images/imagemagick`): Alpine's ImageMagick 7 with libheif (HEIC, AVIF) and LibRaw (RAW), Coxswain's policy built in, and no shell or package manager; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), libheif LGPL-3.0, LibRaw LGPL-2.1 or CDDL-1.0, the rest of Alpine's packages theirs | Built again every week for Alpine's security updates |
 | `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
 | `linuxserver/calibre:9.16.0` | [LinuxServer.io](https://www.linuxserver.io/), an organisation that rebuilds it for every calibre release, for amd64 and arm64; calibre publishes no image of its own. Coxswain runs only calibre's `ebook-convert` and `ebook-meta` in it, never the desktop it serves, and more tightly than the others ([How calibre runs](ebooks.md#how-calibre-runs)) | calibre GPL-3.0, the image's own files GPL-3.0 | Weekly; Coxswain pins the release it was tested with, and a newer Coxswain moves the pin |
 | `ghcr.io/ggml-org/whisper.cpp:main` | The whisper.cpp project (ggml-org), built from every change; pinned to one build by its digest: a Coxswain release moves it on | MIT (whisper.cpp), ffmpeg LGPL/GPL | Daily; 64-bit Intel and AMD only |
@@ -188,8 +189,9 @@ the image is not counted.
 *Settings → Previews → Keep images up to date* (`[preview] image_updates`): **Off** (the
 default), **Weekly** or **Monthly**.
 
-- **What it updates:** only the images under `[preview.images]` that are already pulled. One
-  you never pulled is never downloaded by it.
+- **What it updates:** only the images under `[preview.images]` that are already pulled, and
+  the new [pin](#pinned-images) of a default image whose older build is there. One you never
+  pulled is never downloaded by it.
 - **When:** the desktop app looks once an hour while it runs (the first time ten minutes after
   it starts). When a week or a month has passed since the last round, it runs `podman pull`
   (or `docker pull`) for each of those images, in the background. Not on battery, and not with
@@ -204,13 +206,31 @@ default), **Weekly** or **Monthly**.
   also take untagged images of yours that have nothing to do with it. A copy that cannot be
   removed, because a container still uses it or another name points at it, stays; nothing is
   said and it is not tried again.
-- **Where it goes:** the registry in the image's name, `docker.io` for the defaults, `ghcr.io` for Typst's.
+- **Where it goes:** the registry in the image's name, `docker.io` for most defaults, `ghcr.io` for Typst's, GDAL's, whisper.cpp's and
+  Coxswain's own (ImageMagick, Stockfish).
   *Settings → Privacy and updates → What can leave this machine* then says *Container images for
   previews, when pulled and each week to keep them up to date* (or *each month*), with the
   registry. Apache Tika's image, once pulled for [search](../search/tika.md), is updated with
   them.
 - **The terminal app** makes no container previews, so it updates nothing; its **F12** →
   *Previews* shows the option, and the desktop app does the updating.
+
+### Pinned images
+
+Every default image is named with its tag and the digest of the build Coxswain was tried with
+(`docker.io/pandoc/core:latest@sha256:…`), as `[preview.images]` shows it. A pull fetches exactly
+that build, for every processor the image is made for, never whatever the tag points at that
+day; texts and Settings show the name without the digest.
+
+- **A new version of Coxswain moves the pins.** Before a release, `tools/images-pin.py` asks
+  each registry, anonymously, for the digest its tag has now, and writes the new ones into the
+  code; the tests run on them.
+- **An update takes the new pin.** With *Keep images up to date* on, the next round pulls the
+  new pin of each image whose old one Coxswain ran in, and removes the copy of the old one by
+  its name. A pull that fails keeps the old copy for the next round. Without it, the next
+  preview that needs the image asks to pull it, as for a first run.
+- **An image you set is yours.** One you set under `[preview.images]` (with or without a
+  digest) is never rewritten nor replaced: Coxswain pulls and runs exactly that.
 
 ## Removing unused images
 
@@ -245,27 +265,27 @@ default.
 |---|---|---|
 | *Container runtime* | `[preview] container` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, `"off"` (*No containers*) |
 | *How previews are made* | `[preview] prefer` | `"auto"`, `"local"`, `"container"` |
-| *LaTeX image* | `[preview.images] latex` | `"docker.io/texlive/texlive:latest"` |
-| – | `[preview.images] plantuml` | `"docker.io/plantuml/plantuml:latest"` |
-| – | `[preview.images] pandoc` | `"docker.io/pandoc/core:latest"` |
-| – | `[preview.images] libreoffice` | `"docker.io/gotenberg/gotenberg:8-libreoffice"` |
-| – | `[preview.images] kroki` | `"docker.io/yuzutech/kroki:latest"` |
-| – | `[preview.images] typst` | `"ghcr.io/typst/typst:latest"` |
-| – | `[preview.images] ghostscript` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
-| – | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
-| – | `[preview.images] asciidoctor` | `"docker.io/asciidoctor/docker-asciidoctor:latest"` |
-| – | `[preview.images] drawio` | `"docker.io/rlespinasse/drawio-desktop-headless:latest"` |
+| *LaTeX image* | `[preview.images] latex` | `"docker.io/texlive/texlive:latest@sha256:…"` (pinned) |
+| – | `[preview.images] plantuml` | `"docker.io/plantuml/plantuml:latest@sha256:…"` (pinned) |
+| – | `[preview.images] pandoc` | `"docker.io/pandoc/core:latest@sha256:…"` (pinned) |
+| – | `[preview.images] libreoffice` | `"docker.io/gotenberg/gotenberg:8-libreoffice@sha256:…"` (pinned) |
+| – | `[preview.images] kroki` | `"docker.io/yuzutech/kroki:latest@sha256:…"` (pinned) |
+| – | `[preview.images] typst` | `"ghcr.io/typst/typst:latest@sha256:…"` (pinned) |
+| – | `[preview.images] ghostscript` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest@sha256:…"` (pinned) |
+| – | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest@sha256:…"` (pinned) |
+| – | `[preview.images] asciidoctor` | `"docker.io/asciidoctor/docker-asciidoctor:latest@sha256:…"` (pinned) |
+| – | `[preview.images] drawio` | `"docker.io/rlespinasse/drawio-desktop-headless:latest@sha256:…"` (pinned) |
 | – | `[preview.images] duckdb` | `""` (none) |
 | – | `[preview.images] gxps` | `""` (none) |
-| – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"` |
-| – | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"` |
-| – | `[preview.images] kicad` | `"docker.io/kicad/kicad:9.0.9@sha256:e638…"` (pinned) |
-| – | `[preview.images] stockfish` | `"ghcr.io/mwo-dk/coxswain-stockfish:latest"` ([The engine](chess-play.md#the-engine)) |
-| – | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` (pinned) |
-| – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
-| – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
+| – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest@sha256:…"` (pinned) |
+| – | `[preview.images] imagemagick` | `"ghcr.io/mwo-dk/coxswain-imagemagick:latest@sha256:…"` (pinned) |
+| – | `[preview.images] kicad` | `"docker.io/kicad/kicad:9.0.9@sha256:…"` (pinned) |
+| – | `[preview.images] stockfish` | `"ghcr.io/mwo-dk/coxswain-stockfish:latest@sha256:…"` (pinned) ([The engine](chess-play.md#the-engine)) |
+| – | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:…"` (pinned) |
+| – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:…"` (pinned) |
+| – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
 | – | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` ([E-books](ebooks.md)) |
-| – | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5…"` (pinned) ([Transcripts of speech](../search/transcripts.md)) |
+| – | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:…"` (pinned) ([Transcripts of speech](../search/transcripts.md)) |
 | [*Preview tools*](tools.md#preview-tools-in-settings) | `[preview.tools]` | **Pull** and **Remove** for each kind's image, with what it gives, its size and cost; the choice per kind (`"local"`, `"container"`, `"off"`) |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
@@ -396,20 +416,19 @@ ffmpeg and one ffprobe with the common codecs built in (H.264, H.265, VP9, AV1, 
 more), no shell or other programs beside them, rebuilt with each release. It is small for what
 it holds (about 126 MB). An installed ffmpeg is used first all the same.
 
-#### Why does ImageMagick's image not show my HEIC photos?
+#### Does ImageMagick's image show my HEIC and RAW photos?
 
-No well-kept ImageMagick image has libheif with its HEVC decoder in 2026; `dstmodders/imagemagick`
-follows every ImageMagick release but is built without it, and without LibRaw for RAW photos.
-So HEIC photos are shown by ffmpeg (installed or its image), and RAW photos by an installed
-ImageMagick with LibRaw; [Convert or edit pictures](../files/edit-pictures.md) hands both to an
-installed ImageMagick when there is one.
+Yes. Coxswain's own image (`packaging/images/imagemagick`) is Alpine's ImageMagick with libheif
+and its HEVC decoder for HEIC and AVIF, and LibRaw for cameras' RAW photos: no other well-kept
+ImageMagick image had both in 2026. It holds nothing else, no shell either, and runs under the
+same policy as an installed ImageMagick ([Convert or edit pictures](../files/edit-pictures.md#how-a-picture-is-kept-from-doing-harm)).
 
 #### Why is GDAL's image pinned to one version?
 
 GDAL's images are its own, made by the GDAL project with each release; the small Alpine one is
 about 40 MB and has every driver the [geodata](geodata.md) previews use. Coxswain names it by
-its digest, so the maps and conversions stay the same until a Coxswain release moves it on,
-after it has been tried. *Keep images up to date* leaves a pinned image as it is; set
+its digest, as every default image is ([Pinned images](#pinned-images)), so the maps and
+conversions stay the same until a Coxswain release moves it on, after it has been tried. Set
 `[preview.images] gdal = "ghcr.io/osgeo/gdal:alpine-small-latest"` to follow GDAL's newest.
 
 #### Why is ImageMagick's container used before an installed ImageMagick?

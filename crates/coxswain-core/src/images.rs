@@ -4,8 +4,16 @@
 //! app makes no container previews (only Make PDF searchable and Scan for viruses run containers there), so it
 //! only shows the settings.
 //!
+//! Every default image is pinned by its digest (`name:tag@sha256:…`, `preview_tools::IMAGES`):
+//! a pull fetches exactly that build, never whatever the tag points at that day. A new version
+//! of Coxswain brings new pins (`tools/images-pin.py` moves them to each tag's newest build); a
+//! round of updates then pulls the new pin of each image whose old pin a preview ran in, and
+//! removes the old copy (`superseded`, `move_pins`). An image the user set in `config.toml` is
+//! never rewritten nor replaced.
+//!
 //! Only Coxswain's own images are ever touched: an update removes the copy it replaced by that
-//! copy's id, never with `image prune`, which would take the user's other untagged images too.
+//! copy's id or its old pin, never with `image prune`, which would take the user's other
+//! untagged images too.
 
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -234,7 +242,7 @@ pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) 
         if status.success() {
             Ok(())
         } else {
-            Err(t!("convert.pull_failed", "image" => image, "error" => last_err))
+            Err(t!("convert.pull_failed", "image" => short(image), "error" => last_err))
         }
     })();
     PULLING.lock().unwrap().remove(image);
@@ -348,6 +356,33 @@ pub fn pulled(cfg: &PreviewConfig, rt: &Path) -> Vec<String> {
     v.dedup();
     v.retain(|i| crate::tools::image_size(rt, i).is_some());
     v
+}
+
+/// Copies of default images Coxswain ran in that no tool is set to now, each with the default
+/// that took its place: the same name and tag under another digest, so an older pin, or the
+/// bare tag from before it was pinned. Only defaults replace: an image of the user's own, or
+/// one they set before, is never part of it.
+pub fn superseded(cfg: &PreviewConfig, st: &AppState) -> Vec<(String, String)> {
+    let defaults = crate::preview_tools::default_images();
+    let set: Vec<&String> = cfg.images.values().filter(|i| !i.is_empty() && defaults.values().any(|d| d == *i)).collect();
+    let all: Vec<&String> = cfg.images.values().collect();
+    st.images_used
+        .keys()
+        .filter(|old| !all.contains(old))
+        .filter_map(|old| set.iter().find(|new| short(new) == short(old)).map(|new| (old.clone(), new.to_string())))
+        .collect()
+}
+
+/// Move each pin of `pairs` (`superseded`): when the runtime has the old copy, the new pin is
+/// pulled and the old copy removed by its name. The old images done with are returned, to be
+/// forgotten: those removed, and those the runtime no longer has. A pull that fails keeps the
+/// old copy for the next round.
+pub fn move_pins(rt: &Path, pairs: &[(String, String)], pull: impl Fn(&str) -> Result<(), String>) -> Vec<String> {
+    pairs
+        .iter()
+        .filter(|(old, new)| crate::tools::image_size(rt, old).is_none() || (pull(new).is_ok() && remove(rt, old).is_ok()))
+        .map(|(old, _)| old.clone())
+        .collect()
 }
 
 /// The id of the copy of `image` the runtime has.
@@ -528,6 +563,57 @@ mod tests {
     }
 
     #[test]
+    fn images_defaults_are_pinned_by_digest() {
+        for (tool, image) in PreviewConfig::default().images {
+            let pinned = image.split_once('@').is_some_and(|(name, d)| name.rsplit('/').next().is_some_and(|n| n.contains(':')) && d.len() == 71 && d.starts_with("sha256:"));
+            assert!(image.is_empty() || pinned, "{tool}: {image} is not name:tag@sha256:…");
+        }
+    }
+
+    #[test]
+    fn images_an_older_pin_or_the_bare_tag_is_superseded_by_the_new_pin() {
+        let mut cfg = PreviewConfig::default();
+        let latex = cfg.images["latex"].clone();
+        let pandoc = cfg.images["pandoc"].clone();
+        let tag = short(&latex).to_string();
+        cfg.images.insert("plantuml".into(), "ghcr.io/me/plantuml:1@sha256:mine".into());
+        let mut st = AppState::default();
+        for i in [&format!("{tag}@sha256:old"), &tag, "docker.io/texlive/texlive:latest-medium", &pandoc, "ghcr.io/me/plantuml:1", "docker.io/plantuml/plantuml:latest"] {
+            used(&mut st, i, 1);
+        }
+        let mut got = superseded(&cfg, &st);
+        got.sort();
+        assert_eq!(
+            got,
+            [(tag.clone(), latex.clone()), (format!("{tag}@sha256:old"), latex)],
+            "another tag, the one in use, the user's own and a default the user replaced stay"
+        );
+    }
+
+    /// A runtime that has the images named in `has` and writes what it removes to `rm.log`.
+    #[cfg(unix)]
+    #[test]
+    fn images_move_pins_pulls_the_new_and_removes_the_old() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-test-pins-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let rt = d.join("podman");
+        std::fs::write(&rt, format!("#!/bin/sh\ncase \"$1 $2\" in\n'image inspect') grep -qxF \"$5\" {0}/has && echo 1;;\n'image rm') echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display())).unwrap();
+        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(d.join("has"), "a:1@sha256:old\nb:1\n").unwrap();
+        let pairs = [("a:1@sha256:old", "a:1@sha256:new"), ("b:1", "b:1@sha256:new"), ("c:1@sha256:gone", "c:1@sha256:new")].map(|(o, n)| (o.to_string(), n.to_string()));
+        let pulled = std::cell::RefCell::new(vec![]);
+        let done = move_pins(&rt, &pairs, |i| {
+            pulled.borrow_mut().push(i.to_string());
+            if i.starts_with("b:") { Err("offline".into()) } else { Ok(()) }
+        });
+        assert_eq!(*pulled.borrow(), ["a:1@sha256:new", "b:1@sha256:new"], "nothing pulled for a copy not there");
+        assert_eq!(done, ["a:1@sha256:old", "c:1@sha256:gone"], "a failed pull keeps the old copy");
+        assert_eq!(std::fs::read_to_string(d.join("rm.log")).unwrap(), "a:1@sha256:old\n");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
     fn images_update_round_tries_every_image() {
         // No runtime there: no id is read, so nothing is removed.
         let rt = Path::new("/nonexistent/coxswain-test-runtime");
@@ -598,7 +684,7 @@ mod tests {
     fn images_diagram_kinds_share_krokis() {
         assert_eq!(key("d2"), "kroki");
         assert_eq!(key("latex"), "latex");
-        assert_eq!((key("waveform"), key("heif"), key("raw")), ("ffmpeg", "ffmpeg", "raw"));
+        assert_eq!((key("waveform"), key("heif"), key("raw")), ("ffmpeg", "imagemagick", "imagemagick"));
         let one = sealed_file("docker", Path::new("/nonexistent/docker"), "n", Path::new("/home/me/-x.heic"), "/src/in.heic", None);
         let args: Vec<String> = one.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
         assert!(args.iter().any(|a| a == "type=bind,\"source=/home/me/-x.heic\",target=/src/in.heic,readonly") && args.contains(&"--network=none".to_string()), "{args:?}");
@@ -631,7 +717,7 @@ mod tests {
     #[test]
     fn images_are_explained_with_their_sizes() {
         crate::i18n::set_language("en-GB");
-        let about = about("latex", "docker.io/texlive/texlive:latest").unwrap();
+        let about = about("latex", short(&PreviewConfig::default().images["latex"])).unwrap();
         assert!(
             about.contains("2.8 GB to download, 5.9 GB on disk"),
             "{about}"

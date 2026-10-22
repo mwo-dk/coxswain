@@ -35,7 +35,7 @@ installed. The original is never changed and nothing is ever written over. Both 
    that small is copied at its size: it is never made larger.
 5. A question says what it writes (*Writes IMG_0042.resized.jpg next to IMG_0042.jpg.
    IMG_0042.jpg itself is not changed.*), which program runs, and, when the container image is
-   not there yet, *First run pulls docker.io/dstmodders/imagemagick:latest (about 60 MB)*.
+   not there yet, *First run pulls ghcr.io/mwo-dk/coxswain-imagemagick:latest (about 21 MB)*.
    **Enter** (or **Convert**) starts it; **Esc** leaves everything as it is.
 6. The status line says which picture it is at: *Converting IMG_0043.jpg (2 of 3), 1 s*.
    **Stop** (desktop app), or the action again from **F9** (both apps), stops it.
@@ -75,15 +75,13 @@ One of these, in this order unless *Settings → Previews → How previews are m
 
 | Way | What runs | Systems |
 |---|---|---|
-| Its container, first | podman or docker runs `docker.io/dstmodders/imagemagick:latest` (ImageMagick 7 on Alpine, rebuilt with every ImageMagick release) with no network, seeing only that one file, read-only | Linux, macOS and Windows with podman or docker. Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install ImageMagick there instead |
+| Its container, first | podman or docker runs `ghcr.io/mwo-dk/coxswain-imagemagick:latest` (Coxswain's own: Alpine's ImageMagick 7 with libheif and LibRaw, rebuilt every week) with no network, seeing only that one file, read-only | Linux, macOS and Windows with podman or docker. Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install ImageMagick there instead |
 | ImageMagick installed | `magick`, at the lowest priority, under Coxswain's own [policy](#how-a-picture-is-kept-from-doing-harm) | FreeBSD: `pkg install ImageMagick7`; NetBSD: `pkgin install ImageMagick`; OpenBSD: `pkg_add ImageMagick`; Linux: `sudo pacman -S imagemagick`, `sudo apt install imagemagick`, `sudo dnf install ImageMagick`, `sudo zypper install ImageMagick`; macOS: `brew install imagemagick`; Windows: `winget install --id ImageMagick.ImageMagick -e`. It must be ImageMagick 7, which has `magick` |
 
-The image is about 60 MB to download and 152 MB on disk. It is pulled only after the question
-said so and you pressed **Enter**; never by itself. It reads every kind above except HEIC and
-RAW photos, for which its build has no reader: those go to an installed ImageMagick with libheif
-and LibRaw (Arch, Fedora, Debian 13, Homebrew and FreeBSD's ship it so) when there is one, while
-the container does the rest. Without one, a HEIC or RAW photo says *This ImageMagick cannot read
-.heic files…* and the others are done all the same.
+The image is about 21 MB to download and 52 MB on disk. It is pulled only after the question
+said so and you pressed **Enter**; never by itself. It reads every kind above, HEIC and RAW
+photos too. An installed ImageMagick without libheif or LibRaw says *This ImageMagick cannot
+read .heic files…* for those, and the others are done all the same.
 
 With neither, the action says what is missing instead of asking: *Converting pictures needs
 ImageMagick. Install it (sudo apt install imagemagick), or run it in a container: …*. The
@@ -114,7 +112,7 @@ formats, some of which can name other files or run helper programs. So:
 | The preview of a picture | The **Convert or edit pictures** button under it, with the photo's facts | – |
 | The status line | *Shift+F10 / Menu on a video, a song or a photo: convert it, cut a clip, make it smaller or turn it*, a few times | The same hint |
 | While it runs | *Converting IMG_0043.jpg (2 of 3), 1 s* and a **Stop** button at the end of the command line | *Converting IMG_0043.jpg (2 of 3), 1 s · F9 → Convert or edit pictures stops* |
-| First run of the container | *Pulling docker.io/dstmodders/imagemagick:latest…* with the runtime's progress line | The same |
+| First run of the container | *Pulling ghcr.io/mwo-dk/coxswain-imagemagick:latest…* with the runtime's progress line | The same |
 | Done | *Made photo.no-location.jpg* (several: *Made 3 new files next to their originals*) | The same |
 | Stopped | *Stopped: the file it was working on got no result*; the ones done before stay | The same |
 | Failed | A dialog *Could not convert the file* with ImageMagick's last lines, per file | The same, full screen |
@@ -126,7 +124,7 @@ formats, some of which can name other files or run helper programs. So:
 | *How previews are made* | `[preview] prefer` (`"auto"`, `"local"`, `"container"`) | `"auto"`: for ImageMagick, the container first, else installed |
 | *Preview tools* → *Pictures* | `[preview.tools] pictures` (`"local"`, `"container"`, `"off"`) | `[preview] prefer`; *Off* turns off only its previews, not this |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Preview tools* → *Pictures* (Pull, Remove) | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"`; `""` never uses a container. An image you set must have `magick` on its `PATH` |
+| *Preview tools* → *Pictures* (Pull, Remove) | `[preview.images] imagemagick` | `"ghcr.io/mwo-dk/coxswain-imagemagick:latest@sha256:…"` (pinned); `""` never uses a container. An image you set must have `magick` on its `PATH` |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off; a run counts as a use |
 | *Keys* | `[keys] edit_pictures` | none |
 
@@ -153,12 +151,13 @@ ImageMagick runs in a container with no network that sees only that one file, re
 installed ImageMagick runs under a policy that allows picture formats only and no helper
 programs ([How a picture is kept from doing harm](#how-a-picture-is-kept-from-doing-harm)).
 
-#### Why can it not read my HEIC or RAW photo?
+#### Can it read my HEIC or RAW photo?
 
-The container image reads neither: its ImageMagick is built without libheif and LibRaw. Install
-ImageMagick with them, as most systems ship it: HEIC and RAW photos then go to it by themselves,
-the rest to the container. The [preview](../previews/media.md#photos-only-imagemagick-or-ffmpeg-reads)
-shows HEIC photos with ffmpeg all the same.
+Yes. Coxswain's own ImageMagick image reads HEIC, AVIF and most cameras' RAW photos (libheif and
+LibRaw are in it). An installed ImageMagick reads them too when it has libheif and LibRaw, as
+Arch, Fedora, Debian 13, Homebrew and FreeBSD's ship it; one without them says *This ImageMagick
+cannot read .heic files…*. The [preview](../previews/media.md#photos-only-imagemagick-or-ffmpeg-reads)
+shows them the same way.
 
 #### Does *Without its location* keep the date and the camera?
 

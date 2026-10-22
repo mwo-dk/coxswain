@@ -192,13 +192,13 @@ pub fn about(how: &How) -> (String, bool) {
     match how {
         How::Local(p) => (t!("export.runs_local", "program" => p.file_name().unwrap_or_default().to_string_lossy()), false),
         How::Container { rt, path, image } => {
-            let runs = t!("export.runs_container", "runtime" => *rt, "image" => image.as_str());
+            let runs = t!("export.runs_container", "runtime" => *rt, "image" => crate::images::short(image));
             if crate::tools::image_size(path, image).is_some() {
                 return (runs, false);
             }
             let pull = match crate::images::download(image) {
-                Some(size) => t!("convert.first_run_pulls_large", "image" => image.as_str(), "size" => size),
-                None => t!("convert.first_run_pulls", "image" => image.as_str()),
+                Some(size) => t!("convert.first_run_pulls_large", "image" => crate::images::short(image), "size" => size),
+                None => t!("convert.first_run_pulls", "image" => crate::images::short(image)),
             };
             (format!("{runs} {pull}."), true)
         }
@@ -745,7 +745,7 @@ pub fn drawio_thumbnail(cfg: &PreviewConfig, path: &Path, to: &Path, width: u32,
     let image = cfg.images.get(DRAWIO).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => DRAWIO))?;
     let (rt, rt_path) = crate::tools::container_runtime(cfg).ok_or_else(crate::tools::no_runtime)?;
     if !cfg.drawio || crate::tools::image_size(&rt_path, image).is_none() {
-        return Err(t!("convert.first_run_pulls", "image" => image.as_str()));
+        return Err(t!("convert.first_run_pulls", "image" => crate::images::short(image)));
     }
     let how = How::Container { rt, path: rt_path, image: image.clone() };
     let _one = DRAWING.lock().map_err(|e| e.to_string())?;
@@ -923,7 +923,7 @@ pub fn diagram_svg(cfg: &PreviewConfig, kind: &str, text: &str) -> Result<String
     let image = cfg.images.get(image_key).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => image_key))?;
     let (rt, path) = crate::tools::container_runtime(cfg).ok_or_else(crate::tools::no_runtime)?;
     if crate::tools::image_size(&path, image).is_none() {
-        return Err(t!("convert.first_run_pulls", "image" => image.as_str()));
+        return Err(t!("convert.first_run_pulls", "image" => crate::images::short(image)));
     }
     let empty = Scratch::new()?;
     let mut c = crate::images::sealed(rt, &path, &container_name(), &empty.0, None);

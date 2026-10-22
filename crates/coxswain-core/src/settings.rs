@@ -1047,7 +1047,7 @@ mod tests {
             "on unless switched off"
         );
         assert_eq!(
-            cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest",
+            crate::images::short(&cfg.preview.images["plantuml"]), "docker.io/plantuml/plantuml:latest",
             "other defaults stay"
         );
         assert!(

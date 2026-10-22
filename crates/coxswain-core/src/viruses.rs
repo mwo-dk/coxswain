@@ -106,8 +106,8 @@ pub fn plan(cfg: &PreviewConfig, targets: &[PathBuf]) -> Result<Plan, String> {
     }
     if crate::tools::image_size(&path, &image).is_none() {
         text.push(match crate::images::download(&image) {
-            Some(size) => t!("convert.first_run_pulls_large", "image" => image.as_str(), "size" => size),
-            None => t!("convert.first_run_pulls", "image" => image.as_str()),
+            Some(size) => t!("convert.first_run_pulls_large", "image" => crate::images::short(&image), "size" => size),
+            None => t!("convert.first_run_pulls", "image" => crate::images::short(&image)),
         } + ".");
     }
     text.push(t!("viruses.never_deletes"));

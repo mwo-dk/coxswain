@@ -87,7 +87,7 @@ impl App {
             let said = tx.clone();
             let r = viruses::scan(&cfg, &targets, &flag, |s| {
                 let line = match s {
-                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => image)),
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&image))),
                     Said::Updating(l) => format!("{} · {l}", t!("viruses.updating")),
                     Said::Scanned(n, all) => t!("viruses.busy", "n" => n, "all" => all),
                 };

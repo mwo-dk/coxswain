@@ -54,7 +54,7 @@ pub async fn viruses_run(paths: Vec<PathBuf>, ctx: tauri::State<'_, crate::Ctx>)
     let result = tauri::async_runtime::spawn_blocking(move || {
         let r = viruses::scan(&cfg, &paths, &STOP, |s| {
             let line = match s {
-                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => image)),
+                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&image))),
                 Said::Updating(l) => format!("{} · {l}", t!("viruses.updating")),
                 Said::Scanned(n, all) => t!("viruses.busy", "n" => n, "all" => all),
             };
