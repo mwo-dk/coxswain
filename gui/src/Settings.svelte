@@ -553,6 +553,7 @@
                 <span>{n.text}</span>
                 {#if n.copy}<button title={n.copy} onclick={() => invoke("copy_text", { text: n.copy }).then(() => (flashCopied = n.id), (e) => (error = String(e)))}>{flashCopied === n.id ? t("common.copied") : t("common.copy")}</button>{/if}
                 {#if n.settings}<button onclick={() => actOnNotice(n)}>{t("news.show_me")}</button>{/if}
+                {#if n.config_line}<button onclick={() => invoke("open_config_at", { line: n.config_line }).catch((e) => (error = String(e)))}>{t("config.open_at", { line: n.config_line })}</button>{/if}
                 <button title={t("news.dismiss_hint")} onclick={() => actOnNotice({ ...n, settings: null })}>{t("news.dismiss")}</button>
               </div>
             {/each}

@@ -317,7 +317,7 @@ pub fn save_to(
 ) -> Result<Config, String> {
     let cfg = crate::config::update_config(path, |text| {
         let new_text = apply(text, changes)?;
-        let cfg = Config::parse(&new_text)?;
+        let cfg = Config::parse_saved(text, &new_text)?;
         Ok((Some(new_text), cfg))
     })?;
     crate::i18n::set_language(crate::i18n::resolve(&cfg.language));

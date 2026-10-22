@@ -165,7 +165,7 @@ by name, and move to their place as their sizes arrive
 
 The action is called `folder_sizes` since 2.0, the same word as the `folder_sizes` switch. The
 first start of 2.0 renames it in `config.toml` and lists it in a notice; an old name typed in
-afterwards makes the config invalid. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
+afterwards is left out with a notice that names it. See [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 #### Why do folders inside an archive show 0 B?
 

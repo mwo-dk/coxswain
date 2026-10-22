@@ -19,6 +19,8 @@ pub struct Notice {
     pub settings: Option<&'static str>,
     /// A line to copy and run (an install command): shown with a Copy button.
     pub copy: Option<String>,
+    /// The line of config.toml it is about: shown with a button that opens the file there.
+    pub config_line: Option<usize>,
 }
 
 impl Notice {
@@ -28,8 +30,26 @@ impl Notice {
             text,
             settings,
             copy: None,
+            config_line: None,
         }
     }
+}
+
+/// One notice for each setting config.toml gives that could not be used (`Config::refused`):
+/// its line and what is wrong, while it stays wrong. The terminal app shows them in a dialog
+/// at start, the desktop app first in its status line.
+pub fn refused(cfg: &Config) -> Vec<Notice> {
+    cfg.refused
+        .iter()
+        .map(|r| Notice {
+            config_line: Some(r.line),
+            ..Notice::new(
+                format!("config:{}", r.problem),
+                t!("notice.config_refused", "line" => r.line, "problem" => r.problem),
+                None,
+            )
+        })
+        .collect()
 }
 
 /// About how long the files still to get their vectors take here: the files to go, times
@@ -56,7 +76,8 @@ pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> 
 pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> Vec<Notice> {
     let version = crate::update::VERSION;
     let seen = |id: &str| state.notices_dismissed.iter().any(|d| d == id);
-    let mut all = vec![];
+    // A mistake in config.toml, before anything else: the terminal app has said it at start.
+    let mut all = if terminal { vec![] } else { refused(cfg) };
     // Version 2.0 renamed keys in config.toml: which, once.
     if !state.migrated.is_empty() {
         all.push(Notice::new(

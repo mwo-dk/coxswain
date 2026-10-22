@@ -447,6 +447,9 @@ pub enum Dialog {
     /// under the cursor, what Enter (Show me) said, and the dialog Esc goes back to.
     Features { filter: String, list: Vec<coxswain_core::features::Entry>, cursor: usize, said: Option<String>, back: Option<Box<Dialog>> },
     Message { title: String, text: String },
+    /// Mistakes in config.toml, shown at start (`coxswain_core::notices::refused`): Enter opens
+    /// the file at `line`, the first one's.
+    Refused { text: String, line: usize },
     /// Make `pdfs` searchable? `text` says what it writes, which program runs and what a first
     /// run pulls.
     Searchable { title: String, text: String, pdfs: Vec<PathBuf> },
@@ -513,6 +516,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Space(_) => "space",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
+        Dialog::Refused { .. } => "configuration",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
     })
 }
@@ -3235,6 +3239,11 @@ impl App {
                 _ => {}
             },
             Dialog::Message { .. } => {}
+            Dialog::Refused { line, .. } if key.code == KeyCode::Enter => match Config::path() {
+                Some(path) => self.edit_at(&path, line),
+                None => self.status = Some(t!("err.no_config_folder")),
+            },
+            Dialog::Refused { .. } => {}
             Dialog::Settings(s) => self.settings_key(s, key, action),
             Dialog::Guide(g) => self.guide_key(g, key, esc),
             Dialog::Bom(mut v) => match v.key(key, action == Some(Action::Quit)) {
@@ -4334,7 +4343,12 @@ pub fn main() {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
     });
-    if let Some(section) = open_settings {
+    // A mistake in config.toml: said first, with the way to its line.
+    let refused = coxswain_core::notices::refused(&app.cfg);
+    if let Some(line) = refused.first().and_then(|n| n.config_line) {
+        let text = refused.into_iter().map(|n| n.text).collect::<Vec<_>>().join("\n");
+        app.dialog = Some(Dialog::Refused { text, line });
+    } else if let Some(section) = open_settings {
         app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, &section))));
     } else if coxswain_core::state::AppState::load().guide_due() {
         app.dialog = Some(Dialog::Guide(Box::default()));

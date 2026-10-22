@@ -33,13 +33,17 @@
   let ready = $state(false);
 
   let update = $state(null);
-  // A problem with search is said in the status line; the rest waits under What's new.
-  const problem = $derived(ui.news.notices.find((n) => n.id.startsWith("error:")));
+  // A mistake in config.toml or a problem with search is said in the status line; the rest
+  // waits under What's new.
+  const problem = $derived(ui.news.notices.find((n) => n.config_line || n.id.startsWith("error:")));
   const newsCount = $derived(ui.news.notices.length + ui.news.unread.length);
   function actOn(n) {
+    // config.toml at the mistake's line; the notice stays until the file is mended.
+    if (n.config_line) return openConfigAt(n);
     if (n.settings) ui.modal = { kind: "settings", section: n.settings };
     dismissNotice(n);
   }
+  const openConfigAt = (n) => invoke("open_config_at", { line: n.config_line }).catch((e) => (ui.status = String(e)));
   const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id)), () => {});
   init().then(
     () => {
@@ -808,7 +812,7 @@
       {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}
         <span class="notice">
-          <button class="update" onclick={() => actOn(problem)}>{problem.text}</button>
+          <button class="update" title={problem.config_line ? t("config.open_at", { line: problem.config_line }) : undefined} onclick={() => actOn(problem)}>{problem.text}</button>
           <button class="dismiss" title={t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(problem)}>×</button>
         </span>
       {/if}

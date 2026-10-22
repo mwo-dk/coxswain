@@ -972,7 +972,7 @@ impl App {
     /// instead when meaning is turned on without its model.
     fn settings_change(&mut self, mut s: Box<Settings>, changes: Map<String, Value>) {
         let text = s.path.as_ref().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
-        let new = match cs::apply(&text, &changes).and_then(|t| Config::parse(&t)) {
+        let new = match cs::apply(&text, &changes).and_then(|t| Config::parse_saved(&text, &t)) {
             Ok(c) => c,
             Err(e) => {
                 s.said = Some((e, true));

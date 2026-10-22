@@ -66,17 +66,18 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
   command line is empty; once you have typed something, it goes into the command line.
 - **A key you bind leaves the action it was a default of.** `pack = ["F5"]` makes **F5** Pack,
   and Copy, whose only default it was, is left without a key (still in **F9**'s command list).
-- **A key you bind to two actions is refused**, like an unknown key name: the terminal app does
-  not start and says `coxswain: F9 is given to both copy and pack in [keys] of config.toml`;
-  the desktop app starts with every default and prints that line on its terminal.
+- **A key you bind to two actions is refused** for the second one, like an unknown key name:
+  the first binding stays, the second action keeps its defaults, and a notice says
+  *config.toml line 14: `keys.pack`: F9 is given to both copy and pack in [keys] of
+  config.toml* (see [Mistakes](../reference/configuration.md#the-file)).
 - **An Alt+letter that you bind is no longer a [quick search](../panels/quick-search.md)** for
   that letter.
-- **An unknown key name is refused.** The terminal app does not start and says
-  `coxswain: unknown key 'Ctlr+P'`; the desktop app starts with every default and prints
-  `coxswain: unknown key 'Ctlr+P'; using defaults` on the terminal it was started from. An
-  unknown *action* name is refused the same way, as a config error; that includes the names
-  2.0 renamed (`mkdir`, `dir_sizes`, `select_group` …), see
-  [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
+- **An unknown key name is refused.** That action keeps its defaults, the rest of the file is
+  used, and a notice names the line: *config.toml line 9: `keys.quit`: unknown key 'Ctlr+P'*;
+  in the terminal app in a dialog at start (**Enter** opens `config.toml` there), in the
+  desktop app in the status line (a click opens it there). An unknown *action* name is left
+  out with a notice that names it; that includes the names 2.0 renamed (`mkdir`, `dir_sizes`,
+  `select_group` …), see [Renamed in 2.0](../reference/configuration.md#renamed-in-20).
 
 ## The actions
 
@@ -206,11 +207,13 @@ and **Enter** in the terminal app. Both open the file at `[keys]`. Restart the a
 List both: `search = ["Alt+F7", "Ctrl+F", "Ctrl+P"]`. Listing an action replaces all of its
 defaults, so a list with only `"Ctrl+P"` takes Alt+F7 and Ctrl+F away.
 
-#### I bound a key and the app will not start. What is wrong?
+#### I bound a key and it does nothing. What is wrong?
 
-A key name it does not know, such as `"Ctlr+P"` or `"Hyper+Q"`. The terminal app stops with
-`coxswain: unknown key 'Ctlr+P'`; the desktop app starts with the defaults and prints the reason
-on its terminal. Check the spelling against [Key names](#key-names).
+A key name it does not know, such as `"Ctlr+P"` or `"Hyper+Q"`, or a key an earlier action in
+`[keys]` already has. That line is left out and the action keeps its defaults; a notice names
+the line: in the terminal app a dialog at start, where **Enter** opens `config.toml` there; in
+the desktop app the status line, where a click opens it there. Check the spelling against
+[Key names](#key-names).
 
 #### My `[keys] mkdir` stopped working in 2.0. Why?
 

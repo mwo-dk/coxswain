@@ -54,7 +54,7 @@ The same, with the label *Create the folder:*, and the status line names the ful
 #### My `mkdir = [...]` line in `[keys]` stopped working.
 
 2.0 renamed the action to `new_folder`. The first start of 2.0 renames it in `config.toml` and
-says so in a notice; an old name typed in afterwards makes the config invalid. Write
+says so in a notice; an old name typed in afterwards is left out with a notice that names it. Write
 `new_folder = ["F7"]`. See [Changing keys](../customise/keys.md#my-keys-mkdir-stopped-working-in-20-why).
 
 #### Can I make several nested folders at once?

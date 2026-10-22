@@ -175,8 +175,8 @@ shows what is under it. Give `bg` in each slot you write, the same as `panel`'s 
 The desktop app reads `config.toml` when it starts, and again with every change made in
 Settings, which reads the file afresh before writing it. So a theme added by hand appears after
 the next start, or after any change in Settings (tick a box twice). Check too that the table is
-`[themes.<name>]` (plural `themes`) and that the file still parses: if it does not, the desktop
-app starts with the defaults and prints `coxswain: config: …; using defaults` on its terminal.
+`[themes.<name>]` (plural `themes`) and that the file has no mistake there: a value with one
+is left out, and a notice in the status line names its line and opens `config.toml` there.
 
 #### Can I share a theme with someone?
 

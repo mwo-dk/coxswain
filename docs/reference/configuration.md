@@ -39,18 +39,28 @@ app reads it and which Settings item writes it.
 | Made by | You, either app's [Settings](../customise/settings.md), or the `coxswain --meaning` flags ([Command-line flags](command-line-flags.md#--meaning)). Settings and the flags write single values and keep your comments and layout |
 | Read by | Each app when it starts, and after each change made in its own Settings, which it applies at once; the [search helper](../search/helper.md) when it starts (`[search]`), which Settings restarts after a change to it. A change made in the other app, or by hand, is read at the next start |
 
-**Mistakes.** A file that is not valid TOML, a value of the wrong type (`show_hidden = "yes"`)
-or a key name that does not exist (`"Ctlr+P"`) is refused:
+**Mistakes.** A mistake costs only the setting it is in. A line that is not valid TOML, a
+value of the wrong type (`show_hidden = "yes"`), a key name that does not exist (`"Ctlr+P"`)
+or a key bound to a second action is left out, that setting keeps its default, and every other
+setting is used as you wrote it:
 
-- The terminal app does not start and says why: `coxswain: config: …` or
-  `coxswain: unknown key 'Ctlr+P'` (exit status 2).
-- A key bound to two actions is refused the same way, naming both:
-  `coxswain: F9 is given to both copy and pack in [keys] of config.toml`.
-- The desktop app starts with every default and prints `coxswain: config: …; using defaults`
-  on the terminal it was started from.
-- Settings never write a file that would be refused: a change that would break it is not saved.
-- The [search helper](../search/helper.md) reads `[search]` even when the rest of the file is
-  refused, so a key bound twice does not make it read the folders you left out.
+- **The terminal app** starts with a dialog, *Mistakes in config.toml*, that names each one by
+  its line: *config.toml line 12: `theme` must be text. That setting keeps its default until
+  it is mended.* **Enter** opens `config.toml` at the first one's line, in your editor (or the
+  built-in one); **Esc** closes the dialog.
+- **The desktop app** says the first one in its status line, as a button that opens
+  `config.toml` at that line (in your `editor`, or with the desktop's default); every one is
+  listed under *Settings → What's new*, each with an *Open config.toml at line …* button.
+- A broken table header (`[search` without its `]`) costs that whole table; a line that is not
+  valid TOML costs only itself.
+- Settings never save a change that would add a mistake; while a mistake of your own is still
+  in the file, they save the rest and leave that line as it is.
+- The [search helper](../search/helper.md) reads the file the same way, so a key bound twice
+  does not make it read the folders you left out.
+- Only a file that cannot be read at all (no permission) stops the terminal app (exit status 2)
+  and starts the desktop app with every default.
+
+![The terminal app at start with the dialog Mistakes in config.toml over the panels: config.toml line 2: `theme` must be text, and line 7: `search.max_results` must be a number, each keeping its default until it is mended; under them Enter Open config.toml at line 2 · Esc Close](../screenshots/tui-config-mistakes.png)
 
 **An action this version does not know** in `[keys]`, from a newer Coxswain (a config shared
 between machines, or a version gone back to) or misspelt, is left out and stays in the file,
@@ -493,10 +503,18 @@ only what you change.
 
 #### I misspelt a key and Coxswain said nothing.
 
-Only mistakes that make the file unreadable are refused: bad TOML, a wrong type, an unknown key
-name in `[keys]`. A misspelt action in `[keys]` is left out with a notice that names it. A
-misspelt setting name such as `show_hiden` is ignored and the default stays. Compare with
-`coxswain --dump-config`.
+A misspelt setting name such as `show_hiden` is ignored and the default stays; compare with
+`coxswain --dump-config`. A misspelt action in `[keys]` is left out with a notice that names
+it. A value that cannot be used (bad TOML, a wrong type, an unknown key name) is named with its
+line: in a dialog at start in the terminal app, in the status line and *Settings → What's new*
+in the desktop app. See [Mistakes](#the-file).
+
+#### Coxswain says config.toml line 12 has a mistake. What now?
+
+Press **Enter** in the terminal app's dialog, or click the notice in the desktop app's status
+line: `config.toml` opens at that line. Mend the value (the notice says what it must be, such
+as *must be a number*) and start the app again. Until then that one setting has its default
+and everything else in the file is used.
 
 #### Will Settings mess up my comments?
 

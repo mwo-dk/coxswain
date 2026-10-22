@@ -446,10 +446,11 @@ with only what you changed.
 
 #### Settings says something in red at the bottom and nothing changed. Why?
 
-The new file would not have parsed, so it was not written. Most often the file already had an
-error you made by hand (for example an unknown key name in `[keys]`, *unknown key 'Ctlr+P'*),
-or a table such as `[search]` was written as a plain value. Fix the line the message names in
-`config.toml`; until then the file stays as it was.
+The change would have added a mistake to `config.toml`, so it was not written: most often a
+table such as `[search]` was written by hand as a plain value, and the change goes inside it.
+Fix the line the message names in `config.toml`; until then the file stays as it was. A mistake
+of your own elsewhere in the file does not stop Settings: the change is saved and that line is
+left as it is (a notice names it).
 
 #### Do I have to restart the desktop app after a change in Settings?
 
