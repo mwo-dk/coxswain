@@ -150,7 +150,7 @@ fn svn_db(db: &Path) -> Option<rusqlite::Connection> {
     // `immutable`: SQLite takes no lock and opens no `-wal`, `-shm` or `-journal` beside it,
     // which a hostile working copy could make pipes or links.
     let conn = rusqlite::Connection::open_with_flags(
-        format!("{}?immutable=1&mode=ro", file_uri(db)),
+        format!("{}?immutable=1&mode=ro", file_uri(db)?),
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
             | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
             | rusqlite::OpenFlags::SQLITE_OPEN_URI,
@@ -181,9 +181,10 @@ fn svn_db(db: &Path) -> Option<rusqlite::Connection> {
 }
 
 /// `path` as a SQLite `file:` URI: every byte but letters, digits, `-._~/` percent-encoded,
-/// `\\` as `/`, and a drive (`C:`) after a `/`.
-fn file_uri(path: &Path) -> String {
-    let p = path.to_string_lossy().replace('\\', "/");
+/// `\\` as `/`, and a drive (`C:`) after a `/`. None for a path that is not UTF-8: its URI
+/// would name another file.
+fn file_uri(path: &Path) -> Option<String> {
+    let p = path.to_str()?.replace('\\', "/");
     let p = if p.starts_with('/') { p } else { format!("/{p}") };
     let mut out = String::from("file:");
     for b in p.bytes() {
@@ -193,7 +194,7 @@ fn file_uri(path: &Path) -> String {
             out.push_str(&format!("%{b:02X}"));
         }
     }
-    out
+    Some(out)
 }
 
 /// A path as `wc.db` holds it: `/`-separated, relative, nothing that climbs out or names a
@@ -823,7 +824,9 @@ mod tests {
         assert_eq!(st.summary.conflicts, 0);
         assert!(safe_relpath("a/b") && safe_relpath("") && !safe_relpath("a//b") && !safe_relpath("/a") && !safe_relpath("a/.."));
         assert!(sha1_of("$sha1$3f786850e387550fdab836ed7e6dc881de23001b").is_some() && sha1_of("$sha1$../x").is_none());
-        assert_eq!(file_uri(Path::new("/a b/c?#%.db")), "file:/a%20b/c%3F%23%25.db");
+        assert_eq!(file_uri(Path::new("/a b/c?#%.db")).as_deref(), Some("file:/a%20b/c%3F%23%25.db"));
+        #[cfg(unix)]
+        assert_eq!(file_uri(Path::new(<std::ffi::OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(b"/a\xff"))), None);
         make(true);
         assert!(svn_status(&d).is_none(), "nodes as a view");
         std::fs::remove_dir_all(d).unwrap();
