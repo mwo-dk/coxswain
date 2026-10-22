@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Førehandsvisingar køyrer aldri skripta i ei fil, skriv aldri ved sida av ho og går aldri ut på nettet, og store filer blir viste delvis.",
  "feature.preview_tools.a1": "Verktøyet ventar på eit klikk (LaTeX med automatisk bygging slått av), eller den einaste motoren er ein container der imaget ikkje er henta enno. Merknaden under knappen seier kva for ein grunn det er.",
  "feature.preview_tools.a2": "Nei. Ho viser kommandolinja for systemet ditt med Kopier og køyrer ho aldri. Lim ho inn i ein terminal, eller klikk Innstillingar → Førehandsvisingar for å bruke ein container i staden.",
- "feature.preview_tools.a3": "Opna Innstillingar ({settings}) → Førehandsvisingar → Førehandsvisingsverktøy: kvart slag har ei rad med det som er installert, containeren, det som vert brukt no, og valet Installert program, Container eller Av.",
+ "feature.preview_tools.a3": "På ei fil: Førehandsvis med… i handlingsmenyen ({action_menu}) viser vala for slaget, Installert program, Container eller Av, med det kvart ville bruka. Innstillingar ({settings}) → Førehandsvisingar → Førehandsvisingsverktøy har ei rad for kvart slag, med Hent, Fjern og Prøv.",
  "feature.preview_tools.q1": "Kvifor viser førehandsvisinga ein knapp i staden for å gjengi?",
  "feature.preview_tools.q2": "Førehandsvisinga seier at eg skal installere eit program. Installerer Coxswain det?",
  "feature.preview_tools.q3": "Korleis vel eg kva program som viser ein slags fil?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Neste side",
  "preview.no_changes": "(ingen endringar mot HEAD)",
  "preview.no_contacts": "Ingen kontaktar",
- "preview.no_engine": "{notes}. Installer programmet, eller la ein container lage denne førehandsvisinga.",
  "preview.no_events": "Ingen hendingar",
  "preview.no_name": "(utan namn)",
  "preview.no_output": "(ingen utdata)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Databasen kunne ikkje oppdaterast, så den som fanst vart brukt: {error}",
  "viruses.update_first": "Først blir databasen (om lag 110 MB) henta frå {server}, i ein eigen container som ikkje ser anna enn databasen.",
  "viruses.updating": "Oppdaterer virusdatabasen",
- "ptools.kind.viruses": "Skann etter virus"
+ "ptools.kind.viruses": "Skann etter virus",
+ "action.preview_with": "Førehandsvis med…",
+ "ptools.none_here": "Ingen førehandsvisingsverktøy viser denne fila.",
+ "ptools.current": "no",
+ "ptools.chosen": "{kind}: lagra, førehandsvisinga vert laga på nytt",
+ "ptools.menu_copy": "Kopier installasjonslina: {line}",
+ "ptools.menu_settings": "Innstillingar → Førehandsvisingsverktøy (hent, fjern, versjonar)…",
+ "ptools.would": "Installer {program}, eller hent imaget{size}.",
+ "ptools.would_runtime": "Installer {program}, eller installer podman eller docker og hent imaget{size}.",
+ "ptools.would_install": "Installer {program}.",
+ "ptools.pull": "Hent imaget{size}"
 }

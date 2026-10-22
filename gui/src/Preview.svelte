@@ -454,9 +454,24 @@
   // Previews made by an external tool (convert.rs): pick an engine, render, show the cached result.
   let conv = $state(null);
   const engineOf = (c) => c.engines.find((x) => x.id === ui.previewEngine[c.tool] && x.available) ?? c.engines.find((x) => x.available);
+  /** When no program is installed and the container would need a download or is not there:
+   *  the sentence that says what would show the file, the install line, and the container to
+   *  pull with (an engine), its size. */
+  function wouldOf(c) {
+    const local = c.engines.filter((x) => x.id.startsWith("local:"));
+    const ctr = c.engines.find((x) => x.id.startsWith("container:"));
+    if (local.some((x) => x.available) || (ctr?.available && !ctr.needs_pull)) return null;
+    const program = local[0]?.label;
+    const size = ctr?.size ? ` (${ctr.size})` : "";
+    // Kroki's diagram kinds have no program of their own to install: a container is the way.
+    const text = !program ? t("convert.container_only", { tool: c.tool }) : ctr?.available ? t("ptools.would", { program, size }) : ctr?.image ? t("ptools.would_runtime", { program, size }) : t("ptools.would_install", { program });
+    return { text, note: ctr && !ctr.available && ctr.image ? ctr.note : "", install: local.find((x) => x.install)?.install, pull: ctr?.available ? ctr : null };
+  }
   $effect(() => {
     const cur = e;
     const spec = CONVERTER[kind];
+    // A preview tool's choice changed (Preview with…, Settings): looked up again.
+    ui.toolsChanged;
     conv = null;
     if (!spec || !cur || diffing) return;
     let later;
@@ -845,14 +860,19 @@
         {:else if conv.engines[0]?.id === "off:"}
           <!-- Off for this kind in Settings → Previews → Preview tools. -->
           <p class="more">{conv.engines[0].note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "preview_tools" })}>{t("preview.settings")}</button></p>
-        {:else if !conv.engines.some((x) => x.available)}
-          <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = conv.engines.find((x) => x.install)?.install}
-          {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
-          <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
-          <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
-          <p class="more">{#if conv.tool === "calibre" && !ui.cfg.settings.ebooks}<!-- Only turned off: nothing to install. -->{:else if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
-            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: conv.tool === "calibre" && !ui.cfg.settings.ebooks ? "ebooks" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "preview_tools" })}>{t("preview.settings")}</button></p>
+        {:else if conv.tool === "calibre" && !ui.cfg.settings.ebooks}
+          <!-- E-books only turned off: nothing to install. -->
+          <p class="more">{conv.engines[0]?.note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "ebooks" })}>{t("preview.settings")}</button></p>
+        {:else if wouldOf(conv)}
+          <!-- Nothing shows it without an install or a download: what would, with both ways. -->
+          {@const w = wouldOf(conv)}
+          <p class="more">{w.text}</p>
+          {#if w.note}<p class="more">{w.note}</p>{/if}
+          <p class="more">
+            {#if w.install}{t("install.with")} <CopyLine line={w.install} />{/if}
+            {#if w.pull}<button class="render" onclick={() => renderConv(w.pull.id)}>{t("ptools.pull", { size: w.pull.size ? ` (${w.pull.size})` : "" })}</button>{/if}
+            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.preview_container === "off" ? "preview_container" : "preview_tools" })}>{t("preview.settings")}</button>
+          </p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>

@@ -4,7 +4,7 @@
   // its label and one-line explanation are `setting.<name>` texts), written to config.toml at
   // once (comments and layout kept) and applied without a restart.
   import { tick, untrack } from "svelte";
-  import { ui, setTheme, themeIds, themeName, tab, showInTab, keysOf } from "./app.svelte.js";
+  import { ui, setPreviewTool, setTheme, themeIds, themeName, tab, showInTab, keysOf } from "./app.svelte.js";
   import { invoke, size, parent } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
@@ -325,13 +325,7 @@
   });
   async function setTool(r, choice) {
     error = "";
-    try {
-      ui.cfg = await invoke("set_preview_tool", { kind: r.kind, choice });
-      // A pick in the preview gave way to the choice made here.
-      ui.previewEngine = Object.fromEntries(Object.entries(ui.previewEngine).filter(([tool]) => !r.tools.includes(tool)));
-    } catch (e) {
-      error = String(e);
-    }
+    await setPreviewTool(r, choice).catch((e) => (error = String(e)));
     loadTools();
   }
   /** Try: a sample of the kind, shown in the panel with the preview open. */

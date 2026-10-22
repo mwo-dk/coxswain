@@ -57,6 +57,9 @@ pub struct Engine {
     needs_pull: bool,
     /// The line that installs this program here, when it is not installed and one is known.
     install: Option<String>,
+    /// A container's image and how much it downloads ("126 MB"), when known.
+    image: Option<String>,
+    size: Option<String>,
 }
 
 /// The ways `tool` can run here, in the order of preference; the first available one is the
@@ -70,20 +73,20 @@ pub async fn preview_engines(tool: String, ctx: tauri::State<'_, crate::Ctx>) ->
 fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     // E-books are off until Settings turns them on: nothing runs, the pane says where.
     if tool == coxswain_core::ebook::TOOL && !cfg.ebooks {
-        return vec![Engine { id: "local:ebook-convert".into(), label: "calibre".into(), available: false, note: t!("ebook.off"), needs_pull: false, install: None }];
+        return vec![Engine { id: "local:ebook-convert".into(), label: "calibre".into(), available: false, note: t!("ebook.off"), needs_pull: false, install: None, image: None, size: None }];
     }
     use coxswain_core::preview_tools;
     let pref = preview_tools::choice(cfg, tool);
     // Off for this kind (Settings → Previews → Preview tools): nothing runs.
     if pref == "off" {
-        return vec![Engine { id: "off:".into(), label: t!("ptools.choice.off"), available: false, note: t!("ptools.off_note"), needs_pull: false, install: None }];
+        return vec![Engine { id: "off:".into(), label: t!("ptools.choice.off"), available: false, note: t!("ptools.off_note"), needs_pull: false, install: None, image: None, size: None }];
     }
     let install = preview_tools::find(tool).map(|t| t.install).filter(|i| !i.is_empty()).and_then(coxswain_core::tools::install);
     let mut local: Vec<Engine> = preview_tools::programs(tool)
         .iter()
         .map(|p| {
             let found = which(p);
-            Engine { id: format!("local:{p}"), label: p.to_string(), available: found.is_some(), note: if found.is_some() { String::new() } else { t!("convert.not_installed", "program" => p) }, needs_pull: false, install: if found.is_some() { None } else { install.clone() } }
+            Engine { id: format!("local:{p}"), label: p.to_string(), available: found.is_some(), note: if found.is_some() { String::new() } else { t!("convert.not_installed", "program" => p) }, needs_pull: false, install: if found.is_some() { None } else { install.clone() }, image: None, size: None }
         })
         .collect();
     // Only show missing local programs when none is installed, to keep the buttons few, and
@@ -99,8 +102,8 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     let key = coxswain_core::images::key(tool);
     let image = cfg.images.get(key).cloned().unwrap_or_default();
     let container = match (runtime(cfg), image.is_empty()) {
-        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => key), needs_pull: false, install: None },
-        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false, install: None },
+        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => key), needs_pull: false, install: None, image: None, size: None },
+        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false, install: None, size: coxswain_core::images::download(&image), image: Some(image.clone()) },
         (Some((rt, path)), false) => {
             let pulled = image_size(&path, &image).is_some();
             let short = coxswain_core::images::short(&image).rsplit('/').next().unwrap_or(&image).to_string();
@@ -117,6 +120,8 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
                 },
                 needs_pull: !pulled,
                 install: None,
+                size: coxswain_core::images::download(&image),
+                image: Some(image.clone()),
             }
         }
     };
@@ -867,6 +872,13 @@ pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// *Preview with…*: the row of the kind `tool` belongs to.
+#[tauri::command]
+pub async fn preview_with(tool: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<coxswain_core::preview_tools::Row> {
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::preview_tools::row_of(&cfg, &tool).ok_or_else(|| t!("ptools.none_here"))).await.map_err(|e| e.to_string())?
 }
 
 /// *Try*: the sample of `kind`, written into the cache, for the preview to show.

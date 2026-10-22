@@ -160,6 +160,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **F4** | Edit | `edit` | The file in your editor, else its default application | The file in your editor, else the built-in one |
 | **Shift+F4** | Edit here | `edit_here` | The file in the [built-in editor](../commands/editor.md), in a window | The same, full screen |
 | **Space** | Preview | `toggle_preview` | The preview pane on or off ([The preview pane](../previews/README.md)) | – |
+| – | Preview with… | `preview_with` | The choices for the kind of the file under the cursor: Installed program, Container or Off, from the action menu and F9 ([Preview with…](../previews/tools.md#preview-with)) | The same; it sets what the terminal app runs and the desktop app's previews |
 | **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
 | **F2** | Menu | `user_menu` | Scripts and the user menu | The user menu ([The user menu](../commands/user-menu.md)) |
 | **Alt+N** | Folder notes | `notes` | The folder's notes in the preview pane ([Folder notes](../organise/notes.md)) | – |

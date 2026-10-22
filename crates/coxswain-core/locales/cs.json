@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Náhledy nikdy nespouštějí skripty souboru, nezapisují vedle něj ani nesahají na web a velké soubory ukazují jen zčásti.",
  "feature.preview_tools.a1": "Nástroj čeká na kliknutí (LaTeX s vypnutým automatickým sestavováním), nebo jediným nástrojem je kontejner, jehož obraz ještě není stažený. Poznámka pod tlačítkem řekne, co z toho.",
  "feature.preview_tools.a2": "Ne. Ukáže řádek pro váš systém s tlačítkem Kopírovat a nikdy ho nespustí. Vložte ho do terminálu, nebo klikněte na Nastavení → Náhledy a použijte místo toho kontejner.",
- "feature.preview_tools.a3": "Otevřete Nastavení ({settings}) → Náhledy → Nástroje náhledů: každý druh má řádek s tím, co je nainstalováno, jeho kontejnerem, tím, co se teď používá, a volbou Nainstalovaný program, Kontejner nebo Vypnuto.",
+ "feature.preview_tools.a3": "Na souboru: Náhled pomocí… v nabídce akcí ({action_menu}) ukáže volby jeho druhu, Nainstalovaný program, Kontejner nebo Vypnuto, s tím, co by každá použila. Nastavení ({settings}) → Náhledy → Nástroje náhledů mají řádek pro každý druh se Stáhnout, Odstranit a Vyzkoušet.",
  "feature.preview_tools.q1": "Proč náhled ukazuje tlačítko, místo aby vykresloval?",
  "feature.preview_tools.q2": "Náhled říká, ať nainstaluji program. Nainstaluje ho Coxswain?",
  "feature.preview_tools.q3": "Jak zvolím, který program ukazuje určitý druh souboru?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Další stránka",
  "preview.no_changes": "(žádné změny oproti HEAD)",
  "preview.no_contacts": "Žádné kontakty",
- "preview.no_engine": "{notes}. Nainstalujte program, nebo nechte náhled vytvořit kontejner.",
  "preview.no_events": "Žádné události",
  "preview.no_name": "(bez názvu)",
  "preview.no_output": "(žádný výstup)",
@@ -4140,5 +4139,15 @@
  "viruses.update_failed": "Databázi nešlo aktualizovat, proto byla použita stávající: {error}",
  "viruses.update_first": "Nejprve se stáhne databáze (asi 110 MB) z {server}, ve vlastním kontejneru, který nevidí nic než databázi.",
  "viruses.updating": "Aktualizuji virovou databázi",
- "ptools.kind.viruses": "Prohledat na viry"
+ "ptools.kind.viruses": "Prohledat na viry",
+ "action.preview_with": "Náhled pomocí…",
+ "ptools.none_here": "Tento soubor neukazuje žádný nástroj náhledů.",
+ "ptools.current": "teď",
+ "ptools.chosen": "{kind}: uloženo, náhled se vytvoří znovu",
+ "ptools.menu_copy": "Zkopírovat instalační řádek: {line}",
+ "ptools.menu_settings": "Nastavení → Nástroje náhledů (stáhnout, odstranit, verze)…",
+ "ptools.would": "Nainstalujte {program}, nebo stáhněte jeho obraz{size}.",
+ "ptools.would_runtime": "Nainstalujte {program}, nebo nainstalujte podman či docker a stáhněte jeho obraz{size}.",
+ "ptools.would_install": "Nainstalujte {program}.",
+ "ptools.pull": "Stáhnout jeho obraz{size}"
 }

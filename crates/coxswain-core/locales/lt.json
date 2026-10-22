@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Peržiūros niekada nevykdo failo scenarijų, nerašo šalia jo ir nesikreipia į žiniatinklį, o dideli failai rodomi iš dalies.",
  "feature.preview_tools.a1": "Įrankis laukia spustelėjimo (LaTeX su išjungtu automatiniu kūrimu) arba vienintelis variklis yra konteineris, kurio atvaizdas dar neatsisiųstas. Pastaba po mygtuku nurodo kuris.",
  "feature.preview_tools.a2": "Ne. Ji parodo eilutę jūsų sistemai su Kopijuoti ir niekada jos nevykdo. Įklijuokite ją į terminalą arba spustelėkite Parametrai → Peržiūros, kad vietoj to naudotumėte konteinerį.",
- "feature.preview_tools.a3": "Atverkite Nustatymus ({settings}) → Peržiūros → Peržiūros įrankiai: kiekviena rūšis turi eilutę su tuo, kas įdiegta, jos konteineriu, tuo, kas naudojama dabar, ir parinktimi Įdiegta programa, Konteineris arba Išjungta.",
+ "feature.preview_tools.a3": "Ant failo: veiksmų meniu ({action_menu}) punktas Peržiūrėti su… rodo jo rūšies parinktis, Įdiegta programa, Konteineris arba Išjungta, ir ką kiekviena naudotų. Nustatymai ({settings}) → Peržiūros → Peržiūros įrankiai turi eilutę kiekvienai rūšiai su Atsisiųsti, Pašalinti ir Išbandyti.",
  "feature.preview_tools.q1": "Kodėl peržiūra rodo mygtuką, užuot atvaizdavusi?",
  "feature.preview_tools.q2": "Peržiūroje rašoma įdiegti programą. Ar Coxswain ją įdiegia?",
  "feature.preview_tools.q3": "Kaip pasirinkti, kuri programa rodo tam tikros rūšies failą?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Kitas puslapis",
  "preview.no_changes": "(pakeitimų, palyginti su HEAD, nėra)",
  "preview.no_contacts": "Kontaktų nėra",
- "preview.no_engine": "{notes}. Įdiekite programą arba leiskite šią peržiūrą sukurti konteineriui.",
  "preview.no_events": "Įvykių nėra",
  "preview.no_name": "(be vardo)",
  "preview.no_output": "(išvesties nėra)",
@@ -4137,5 +4136,15 @@
  "viruses.update_failed": "Duomenų bazės nepavyko atnaujinti, todėl naudota esama: {error}",
  "viruses.update_first": "Pirmiausia duomenų bazė (apie 110 MB) atsisiunčiama iš {server}, atskirame konteineryje, kuris nemato nieko, tik duomenų bazę.",
  "viruses.updating": "Atnaujinama virusų duomenų bazė",
- "ptools.kind.viruses": "Tikrinti dėl virusų"
+ "ptools.kind.viruses": "Tikrinti dėl virusų",
+ "action.preview_with": "Peržiūrėti su…",
+ "ptools.none_here": "Joks peržiūros įrankis šio failo nerodo.",
+ "ptools.current": "dabar",
+ "ptools.chosen": "{kind}: įrašyta, peržiūra daroma iš naujo",
+ "ptools.menu_copy": "Kopijuoti diegimo eilutę: {line}",
+ "ptools.menu_settings": "Nustatymai → Peržiūros įrankiai (atsisiųsti, pašalinti, versijos)…",
+ "ptools.would": "Įdiekite {program} arba atsisiųskite jo atvaizdą{size}.",
+ "ptools.would_runtime": "Įdiekite {program} arba įdiekite podman ar docker ir atsisiųskite jo atvaizdą{size}.",
+ "ptools.would_install": "Įdiekite {program}.",
+ "ptools.pull": "Atsisiųsti jo atvaizdą{size}"
 }

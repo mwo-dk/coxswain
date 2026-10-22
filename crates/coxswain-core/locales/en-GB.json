@@ -1788,7 +1788,7 @@
  "feature.preview_safety.what": "Previews never run a file's scripts, write next to it or reach the web, and large files are shown in part.",
  "feature.preview_tools.a1": "The tool waits for a click (LaTeX with automatic builds off), or the only engine is a container whose image is not pulled yet. The note under the button says which.",
  "feature.preview_tools.a2": "No. It shows the line for your system with Copy and never runs it. Paste it into a terminal, or click Settings → Previews to use a container instead.",
- "feature.preview_tools.a3": "Open Settings ({settings}) → Previews → Preview tools: each kind has a row with what is installed, its container, what is used now, and the choice Installed program, Container or Off.",
+ "feature.preview_tools.a3": "On a file: Preview with… in the action menu ({action_menu}) lists its kind's choices, Installed program, Container or Off, with what each would use. Settings ({settings}) → Previews → Preview tools has a row per kind, with Pull, Remove and Try.",
  "feature.preview_tools.q1": "Why does the preview show a button instead of rendering?",
  "feature.preview_tools.q2": "The preview says to install a program. Does Coxswain install it?",
  "feature.preview_tools.q3": "How do I choose which program shows a kind of file?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Next page",
  "preview.no_changes": "(no changes against HEAD)",
  "preview.no_contacts": "No contacts",
- "preview.no_engine": "{notes}. Install the program, or let a container make this preview.",
  "preview.no_events": "No events",
  "preview.no_name": "(no name)",
  "preview.no_output": "(no output)",
@@ -4059,5 +4058,15 @@
  "viruses.update_failed": "The database could not be brought up to date, so the one there was used: {error}",
  "viruses.update_first": "First the database (about 110 MB) is fetched from {server}, in a container of its own that sees nothing but the database.",
  "viruses.updating": "Updating the virus database",
- "ptools.kind.viruses": "Scan for viruses"
+ "ptools.kind.viruses": "Scan for viruses",
+ "action.preview_with": "Preview with…",
+ "ptools.none_here": "No preview tool shows this file.",
+ "ptools.current": "now",
+ "ptools.chosen": "{kind}: saved, the preview is made again",
+ "ptools.menu_copy": "Copy the install line: {line}",
+ "ptools.menu_settings": "Settings → Preview tools (pull, remove, versions)…",
+ "ptools.would": "Install {program}, or pull its image{size}.",
+ "ptools.would_runtime": "Install {program}, or install podman or docker and pull its image{size}.",
+ "ptools.would_install": "Install {program}.",
+ "ptools.pull": "Pull its image{size}"
 }

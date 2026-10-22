@@ -19,6 +19,7 @@ kept in a cache, so each file is made once.
 
 - [The tools](#the-tools)
 - [Preview tools in Settings](#preview-tools-in-settings)
+- [Preview with…](#preview-with)
 - [How to use it](#how-to-use-it)
 - [How it works](#how-it-works)
 - [The preview cache](#the-preview-cache)
@@ -115,6 +116,32 @@ terminal app has no **Try**: it shows no rendered preview.
 
 ![The terminal app's Settings, Previews: the options, then Preview tools, a line per kind with its choice and what is used now](../screenshots/tui-previews-tools.png)
 
+## Preview with…
+
+On a file a tool shows, *Preview with…* switches the choice for its whole kind without opening
+Settings. It has no key of its own: it is in the action menu (**Shift+F10**), in the command
+list (**F9**) and in F1 → Features → *Previews made by tools*.
+
+1. Put the cursor on the file (a `.tex`, a `.puml`, an `.avi` …).
+2. Press **Shift+F10** and choose *Preview with…*. A menu titled *Preview with… LaTeX* lists:
+   - **1** *Default (An installed program, else a container)*,
+   - **2** *Installed program: latexmk 4.86* (or *Installed program: openscad is not installed*),
+   - **3** *Container: texlive:latest (Not pulled (2.8 GB))*,
+   - **4** *Off*,
+   - **C** *Copy the install line: sudo pacman -S …*, when no program is installed,
+   - **S** *Settings → Preview tools (pull, remove, versions)…*.
+
+   The choice in force ends in *· now*.
+3. Press its number (or **Enter** on it). The choice is written to `[preview.tools]` at once;
+   in the desktop app the preview is made again with it and the status line says *LaTeX:
+   saved, the preview is made again*.
+
+![The menu Preview with… 3D models (OpenSCAD) over the panels, on engine-bell.scad: 1 Default (An installed program, else a container) · now, 2 Installed program: openscad is not installed, 3 Container: openscad:trixie.2026-10-19 (Not pulled (241 MB)), 4 Off, C Copy the install line: sudo pacman -S openscad, S Settings → Preview tools (pull, remove, versions)…](../screenshots/previews-preview-with.png)
+
+The terminal app has the same menu, from **Shift+F10** and **F9**; it makes no tool previews
+itself, so the choice there sets them for the desktop app and for what the terminal app does
+run (conversions, Make PDF searchable, a video's facts in **Properties**).
+
 ## How to use it
 
 1. Put the cursor on the file and open the pane with **Space** or **F3**.
@@ -174,24 +201,32 @@ things are kept](../reference/where-things-are-kept.md).
 |---|---|
 | **Build PDF** / **Render** / **Read tables** | Waiting for a click; the engine's note is under it |
 | *Runs docker.io/pandoc/core:latest without network access* | The container's image is here |
-| *First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)* | The first click downloads the image |
+| *Install ffmpeg, or pull its image (126 MB).*, then *Install it:* with the line and **Copy**, **Pull its image (126 MB)** and **Settings → Previews** | No program is installed and the image is not pulled yet: one of the two shows the file ([below](#installing-what-is-missing)) |
 | *Rendering with soffice…* | Running |
 | *Pulling docker.io/texlive/texlive:latest…* and a progress line | Downloading the image |
-| *soffice is not installed. Neither podman nor docker is installed. Install the program, or let a container make this preview.*, then *Install it:* with the line for this system and **Copy**, and a **Settings → Previews** button | No engine can run: neither an installed program nor a container ([below](#installing-what-is-missing)) |
-| *container: Neither podman nor docker is installed. …*, then *ditaa has no program of its own here: install podman or docker, and Kroki's image draws it.* and **Settings → Previews** | A diagram kind only Kroki's image draws, and no container can run |
+| *Install soffice, or install podman or docker and pull its image (440 MB).*, then *Neither podman nor docker is installed*, *Install it:* with the line and **Copy**, and **Settings → Previews** | No program and no container runtime |
+| *ditaa has no program of its own here: install podman or docker, and Kroki's image draws it.* and **Settings → Previews** | A diagram kind only Kroki's image draws, and no container can run |
+| *Previews of these files by a tool are off (Settings → Previews → Preview tools).* and **Settings → Previews** | The kind's choice is *Off* |
 | *Stopped after 120 s (the timeout in [preview])* | Too slow |
 | **Try again** | After an error |
 
 ## Installing what is missing
 
-When neither an installed program nor a container can make a preview, the pane says what is
-missing, then *Install the program, or let a container make this preview.* Under it is the
-command that installs the program on this system, with **Copy**, and a **Settings → Previews**
-button that opens *Settings → Previews → Preview tools* to pull the image or choose; with
-*Container runtime → No containers* it opens Settings at that option. Coxswain never
-runs the command: paste it into a shell, then show the file again.
+When no program is installed and the container would first need a download (or there is no
+podman or docker), the pane says what would show the file: *Install ffmpeg, or pull its image
+(126 MB).* Under it are both ways: the command that installs the program on this system, with
+**Copy**, and **Pull its image (126 MB)**, which pulls the image and makes the preview with it;
+then a **Settings → Previews** button that opens *Settings → Previews → Preview tools*
+(with *Container runtime → No containers* it opens Settings at that option). Without podman or
+docker the sentence is *Install ffmpeg, or install podman or docker and pull its image (126
+MB).*, with why the container cannot run under it. Coxswain never runs the install command:
+paste it into a shell, then show the file again. Nothing is pulled without the click.
 
-![The preview pane on sequence.puml with no plantuml and no container runtime: plantuml is not installed. Neither podman nor docker is installed., the line Install it: sudo pacman -S plantuml with Copy, and Settings → Previews](../screenshots/previews-install-line.png)
+![The preview pane on engine-bell.scad with no openscad and no podman or docker: Install openscad, or install podman or docker and pull its image (241 MB)., then Neither podman nor docker is installed, Install it: sudo pacman -S openscad with Copy, and Settings → Previews](../screenshots/previews-install-line.png)
+
+In the terminal app, *Preview with…* (**Shift+F10**) on such a file has the same two ways as
+lines with keys: **C** copies the install line, **S** opens *Settings → Previews → Preview
+tools*, where **P** pulls the image.
 
 The package manager is the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `pkg_add` on
 OpenBSD, `pkg` on illumos, on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is

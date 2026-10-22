@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Aurrebistek ez dute inoiz fitxategi baten scriptik exekutatzen, ez dute haren ondoan idazten eta ez dira webera iristen; fitxategi handiak zati batean erakusten dira.",
  "feature.preview_tools.a1": "Tresna klik baten zain dago (LaTeX sortze automatikoa desaktibatuta), edo motor bakarra irudia oraindik deskargatu gabe duen edukiontzi bat da. Botoiaren azpiko oharrak zein den esaten du.",
  "feature.preview_tools.a2": "Ez. Zure sistemarako lerroa erakusten du Kopiatu botoiarekin eta ez du inoiz exekutatzen. Itsatsi terminal batean, edo egin klik Ezarpenak → Aurrebistak aukeran edukiontzi bat erabiltzeko horren ordez.",
- "feature.preview_tools.a3": "Ireki Ezarpenak ({settings}) → Aurrebistak → Aurrebista-tresnak: mota bakoitzak lerro bat du instalatuta dagoenarekin, bere edukiontziarekin, orain erabiltzen denarekin eta Instalatutako programa, Edukiontzia edo Desaktibatuta aukerarekin.",
+ "feature.preview_tools.a3": "Fitxategi batean: ekintzen menuko ({action_menu}) Aurrebista honekin… aukerak bere motaren aukerak erakusten ditu, Instalatutako programa, Edukiontzia edo Desaktibatuta, bakoitzak zer erabiliko lukeen. Ezarpenak ({settings}) → Aurrebistak → Aurrebista-tresnak atalak lerro bat du motako, Deskargatu, Kendu eta Probatu botoiekin.",
  "feature.preview_tools.q1": "Zergatik erakusten du aurrebistak botoi bat errendatu beharrean?",
  "feature.preview_tools.q2": "Aurrebistak programa bat instalatzeko dio. Coxswain-ek instalatzen du?",
  "feature.preview_tools.q3": "Nola aukeratzen dut zein programak erakusten duen fitxategi mota bat?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Hurrengo orria",
  "preview.no_changes": "(ez dago aldaketarik HEADekiko)",
  "preview.no_contacts": "Ez dago kontakturik",
- "preview.no_engine": "{notes}. Instalatu programa, edo utzi edukiontzi bati aurrebista hau egiten.",
  "preview.no_events": "Ez dago gertaerarik",
  "preview.no_name": "(izenik gabe)",
  "preview.no_output": "(irteerarik ez)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Ezin izan da datu-basea eguneratu, beraz zegoena erabili da: {error}",
  "viruses.update_first": "Lehenik datu-basea (110 MB inguru) {server}-tik deskargatzen da, datu-basea besterik ikusten ez duen bere edukiontzi batean.",
  "viruses.updating": "Birus-datu-basea eguneratzen",
- "ptools.kind.viruses": "Eskaneatu birusen bila"
+ "ptools.kind.viruses": "Eskaneatu birusen bila",
+ "action.preview_with": "Aurrebista honekin…",
+ "ptools.none_here": "Ez dago fitxategi hau erakusten duen aurrebista-tresnarik.",
+ "ptools.current": "orain",
+ "ptools.chosen": "{kind}: gordeta, aurrebista berriz egiten da",
+ "ptools.menu_copy": "Kopiatu instalazio-lerroa: {line}",
+ "ptools.menu_settings": "Ezarpenak → Aurrebista-tresnak (deskargatu, kendu, bertsioak)…",
+ "ptools.would": "Instalatu {program}, edo deskargatu haren irudia{size}.",
+ "ptools.would_runtime": "Instalatu {program}, edo instalatu podman edo docker eta deskargatu haren irudia{size}.",
+ "ptools.would_install": "Instalatu {program}.",
+ "ptools.pull": "Deskargatu haren irudia{size}"
 }

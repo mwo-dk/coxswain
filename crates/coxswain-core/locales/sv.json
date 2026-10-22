@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Förhandsvisningar kör aldrig en fils skript, skriver aldrig bredvid den och når aldrig webben, och stora filer visas delvis.",
  "feature.preview_tools.a1": "Verktyget väntar på ett klick (LaTeX med automatiska byggen avstängda), eller så är den enda motorn en container vars avbild inte är hämtad än. Anteckningen under knappen säger vilket.",
  "feature.preview_tools.a2": "Nej. Den visar raden för ditt system med Kopiera och kör den aldrig. Klistra in den i en terminal, eller klicka på Inställningar → Förhandsvisningar för att använda en container i stället.",
- "feature.preview_tools.a3": "Öppna Inställningar ({settings}) → Förhandsvisningar → Förhandsvisningsverktyg: varje sort har en rad med det som är installerat, dess container, det som används nu och valet Installerat program, Container eller Av.",
+ "feature.preview_tools.a3": "På en fil: Förhandsvisa med… i åtgärdsmenyn ({action_menu}) visar sortens val, Installerat program, Container eller Av, med det som vart och ett skulle använda. Inställningar ({settings}) → Förhandsvisningar → Förhandsvisningsverktyg har en rad per sort, med Hämta, Ta bort och Prova.",
  "feature.preview_tools.q1": "Varför visar förhandsvisningen en knapp i stället för att rendera?",
  "feature.preview_tools.q2": "Förhandsvisningen säger att jag ska installera ett program. Installerar Coxswain det?",
  "feature.preview_tools.q3": "Hur väljer jag vilket program som visar en sorts fil?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Nästa sida",
  "preview.no_changes": "(inga ändringar mot HEAD)",
  "preview.no_contacts": "Inga kontakter",
- "preview.no_engine": "{notes}. Installera programmet eller låt en container göra den här förhandsvisningen.",
  "preview.no_events": "Inga händelser",
  "preview.no_name": "(inget namn)",
  "preview.no_output": "(ingen utdata)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Databasen kunde inte uppdateras, så den befintliga användes: {error}",
  "viruses.update_first": "Först hämtas databasen (cirka 110 MB) från {server}, i en egen container som inte ser något annat än databasen.",
  "viruses.updating": "Uppdaterar virusdatabasen",
- "ptools.kind.viruses": "Sök efter virus"
+ "ptools.kind.viruses": "Sök efter virus",
+ "action.preview_with": "Förhandsvisa med…",
+ "ptools.none_here": "Inget förhandsvisningsverktyg visar den här filen.",
+ "ptools.current": "nu",
+ "ptools.chosen": "{kind}: sparat, förhandsvisningen görs om",
+ "ptools.menu_copy": "Kopiera installationsraden: {line}",
+ "ptools.menu_settings": "Inställningar → Förhandsvisningsverktyg (hämta, ta bort, versioner)…",
+ "ptools.would": "Installera {program}, eller hämta dess avbild{size}.",
+ "ptools.would_runtime": "Installera {program}, eller installera podman eller docker och hämta dess avbild{size}.",
+ "ptools.would_install": "Installera {program}.",
+ "ptools.pull": "Hämta dess avbild{size}"
 }

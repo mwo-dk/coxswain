@@ -323,6 +323,9 @@ actions! {
     // The built-in editor (`edit`), whatever F4 starts: mc's Shift+F4, free here.
     EditHere = "edit_here", "Edit here", Viewing, ["Shift+F4"];
     TogglePreview = "toggle_preview", "Preview", Viewing, ["Space"];
+    // Which program shows this kind of file (`preview_tools`): from the action menu, F9 and F1;
+    // no key of its own.
+    PreviewWith = "preview_with", "Preview with…", Viewing, [];
     CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
     UserMenu = "user_menu", "Menu", Viewing, ["F2"];
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];

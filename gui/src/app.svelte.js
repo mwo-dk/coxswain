@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { Paged, SPAN } from "./paged.svelte.js";
-import { invoke, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -60,6 +60,9 @@ export const ui = $state({
   previewDiff: false,
   /** Tool -> the engine id picked in the preview (local program or container). */
   previewEngine: {},
+  /** Counts each change of a preview tool's choice (`[preview.tools]`): previews made by a tool
+   *  are looked up again. */
+  toolsChanged: 0,
   /** One modal at a time: { kind, ... } */
   modal: null,
   /** A game to show on the board when its PGN file is previewed (a Find hit): { path, index }. */
@@ -585,6 +588,43 @@ export function stopSearchable() {
   if (!ui.searchable) return;
   ui.searchable.stopping = true;
   invoke("searchable_stop");
+}
+
+/** Choose how the kind `r` (a `preview_tools::Row`) is made ("" follows How previews are made):
+ *  written into config.toml, a pick in the preview for it forgotten, the preview made again. */
+export async function setPreviewTool(r, choice) {
+  ui.cfg = await invoke("set_preview_tool", { kind: r.kind, choice });
+  ui.previewEngine = Object.fromEntries(Object.entries(ui.previewEngine).filter(([tool]) => !r.tools.includes(tool)));
+  ui.toolsChanged++;
+}
+
+/** *Preview with…* (`preview_tools`) on the file under the cursor: the choices for its kind,
+ *  each with what it would use, the line that installs its program, and Settings at Preview
+ *  tools. */
+export async function previewWith(e = item(tab())) {
+  const spec = e && !e.is_dir ? CONVERTER[previewKind(e)] : null;
+  if (!spec) return void (ui.status = t("ptools.none_here"));
+  let r;
+  try {
+    r = await invoke("preview_with", { tool: spec.tool });
+  } catch (err) {
+    return void (ui.status = String(err));
+  }
+  const installed = r.programs.filter((p) => p.path).map((p) => (p.version ? `${p.name} ${p.version}` : p.name));
+  const im = r.images.find((i) => i.image);
+  const container = im ? `${t("ptools.choice.container")}: ${im.image.split("@")[0].split("/").pop()} (${im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled")})` : t("ptools.container_none");
+  const prefer = t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[ui.cfg.settings.preview_prefer] ?? "settings.prefer_auto");
+  const choices = [
+    ["", t("ptools.choice.default", { value: prefer })],
+    ["local", `${t("ptools.choice.local")}: ${installed.length ? installed.join(", ") : t("convert.not_installed", { program: r.programs[0]?.name ?? "" })}`],
+    ["container", container],
+    ["off", t("ptools.choice.off")],
+  ];
+  const set = (c) => setPreviewTool(r, c).then(() => (ui.status = t("ptools.chosen", { kind: r.title })), (err) => (ui.status = String(err)));
+  const items = choices.map(([c, label], i) => ({ key: String(i + 1), label: r.choice === c ? `${label} · ${t("ptools.current")}` : label, run: () => set(c) }));
+  if (!installed.length && r.install) items.push({ key: "c", label: t("ptools.menu_copy", { line: r.install }), run: () => invoke("copy_text", { text: r.install }).then(() => (ui.status = t("guide.copied", { command: r.install })), (err) => (ui.status = String(err))) });
+  items.push({ key: "s", label: t("ptools.menu_settings"), run: () => (ui.modal = { kind: "settings", section: "preview_tools" }) });
+  ui.modal = { kind: "menu", feature: "preview_tools", title: `${actionLabel("preview_with")} ${r.title}`, direct: true, filter: "", cursor: 0, items };
 }
 
 /** *Convert video or audio* (`program` 0, ffmpeg), *Convert or edit pictures* (1, ImageMagick),
@@ -1257,6 +1297,7 @@ export function subject(tb = tab()) {
     speech: files.filter((x) => isSpeech(x.name)).length,
     adocs: files.filter((x) => /\.(adoc|asciidoc)$/i.test(x.name)).length,
     drawios: files.filter((x) => isDrawio(x.name)).length,
+    previewed: files.filter((x) => CONVERTER[previewKind(x)]).length,
     ...(tb.marks.count ? tb.marks.subject : {}),
     // The one marked entry is the one under the cursor (`m`: marked).
     one: tb.marks.count ? tb.marks.count === 1 && !!cur?.m : !!cur,

@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Eelvaated ei käivita kunagi faili skripte, ei kirjuta selle kõrvale ega pöördu veebi ning suuri faile näidatakse osaliselt.",
  "feature.preview_tools.a1": "Tööriist ootab klõpsu (LaTeX, kui automaatsed koostamised on väljas) või ainus mootor on konteiner, mille tõmmist pole veel laaditud. Nupu all olev märkus ütleb, kumb.",
  "feature.preview_tools.a2": "Ei. See näitab sinu süsteemi jaoks rida koos nupuga Kopeeri ega käivita seda kunagi. Kleebi see terminali või klõpsa Sätted → Eelvaated, et kasutada hoopis konteinerit.",
- "feature.preview_tools.a3": "Ava Seaded ({settings}) → Eelvaated → Eelvaate tööriistad: igal liigil on rida sellega, mis on paigaldatud, selle konteineri, praegu kasutatava ja valikuga Paigaldatud programm, Konteiner või Väljas.",
+ "feature.preview_tools.a3": "Failil: Eelvaade programmiga… toimingute menüüs ({action_menu}) näitab selle liigi valikuid, Paigaldatud programm, Konteiner või Väljas, koos sellega, mida igaüks kasutaks. Seaded ({settings}) → Eelvaated → Eelvaate tööriistad on igal liigil rida, nuppudega Laadi alla, Eemalda ja Proovi.",
  "feature.preview_tools.q1": "Miks näitab eelvaade renderdamise asemel nuppu?",
  "feature.preview_tools.q2": "Eelvaade ütleb, et paigalda programm. Kas Coxswain paigaldab selle?",
  "feature.preview_tools.q3": "Kuidas valida, milline programm näitab mingit liiki faili?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Järgmine leht",
  "preview.no_changes": "(muudatusi võrreldes HEAD-iga pole)",
  "preview.no_contacts": "Kontakte pole",
- "preview.no_engine": "{notes}. Paigalda programm või lase konteineril see eelvaade teha.",
  "preview.no_events": "Sündmusi pole",
  "preview.no_name": "(nimeta)",
  "preview.no_output": "(väljund puudub)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Andmebaasi ei saanud uuendada, seega kasutati olemasolevat: {error}",
  "viruses.update_first": "Kõigepealt laaditakse andmebaas (umbes 110 MB) aadressilt {server}, omaette konteineris, mis ei näe muud kui andmebaasi.",
  "viruses.updating": "Uuendan viirusteandmebaasi",
- "ptools.kind.viruses": "Kontrolli viirusi"
+ "ptools.kind.viruses": "Kontrolli viirusi",
+ "action.preview_with": "Eelvaade programmiga…",
+ "ptools.none_here": "Ükski eelvaate tööriist seda faili ei näita.",
+ "ptools.current": "praegu",
+ "ptools.chosen": "{kind}: salvestatud, eelvaade tehakse uuesti",
+ "ptools.menu_copy": "Kopeeri paigaldusrida: {line}",
+ "ptools.menu_settings": "Seaded → Eelvaate tööriistad (laadi alla, eemalda, versioonid)…",
+ "ptools.would": "Paigalda {program} või laadi alla selle tõmmis{size}.",
+ "ptools.would_runtime": "Paigalda {program} või paigalda podman või docker ja laadi alla selle tõmmis{size}.",
+ "ptools.would_install": "Paigalda {program}.",
+ "ptools.pull": "Laadi alla selle tõmmis{size}"
 }
