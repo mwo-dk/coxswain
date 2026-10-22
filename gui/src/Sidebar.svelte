@@ -106,7 +106,7 @@
 
 {#snippet row(path, label, icon, color, trailing)}
   <li>
-    <button class="row" class:here={path === here} title={path} onclick={() => go(path)}>
+    <button class="row" class:here={path === here} class:drop={ui.dropDir === path} data-drop={path} title={path} onclick={() => go(path)}>
       <span class="icon" style:color>{icon}</span>
       <span class="label">{label}</span>
       {@render trailing?.()}
@@ -130,7 +130,7 @@
       {#each ui.disks as d (d.mount)}
         {@const used = 1 - d.free / d.total}
         <li>
-          <button class="row drive" class:here={d.mount === here} title="{d.device} · {d.mount}" onclick={() => go(d.mount)} oncontextmenu={(e) => driveMenu(e, d)}>
+          <button class="row drive" class:here={d.mount === here} class:drop={ui.dropDir === d.mount} data-drop={d.mount} title="{d.device} · {d.mount}" onclick={() => go(d.mount)} oncontextmenu={(e) => driveMenu(e, d)}>
             <span class="icon">{d.removable ? "\u{f0287}" : "\u{f02ca}"}</span>
             <span class="label">
               <span class="drive-name"><span>{d.label}</span><small>{t("sidebar.free", { size: size(d.free) })}</small></span>

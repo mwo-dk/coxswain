@@ -1,7 +1,7 @@
 <script>
   // Miller columns: two ancestor levels, the current folder, and a peek into the folder
   // under the cursor. Left/Right walk the hierarchy (handled in App).
-  import { ui, cd, load, openItem, toggleMark, gitFacts } from "./app.svelte.js";
+  import { ui, cd, load, openItem, toggleMark, gitFacts, dragOut } from "./app.svelte.js";
   import { listDir, parent, TAG_COLORS } from "./lib.js";
   import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
@@ -60,9 +60,9 @@
   }
 </script>
 
-{#snippet entry(e, cls, onclick, ondblclick)}
+{#snippet entry(e, cls, onclick, ondblclick, drag)}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
+  <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} class:drop={e.is_dir && ui.dropDir === e.path} data-drop={e.is_dir ? e.path : undefined} draggable={!!drag} ondragstart={drag && ((ev) => (ev.preventDefault(), drag()))} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
     <span class="label" dir="auto">{t.models?.[e.name] ?? e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}
@@ -91,6 +91,7 @@
           if (ev.ctrlKey || ev.metaKey) toggleMark(t, i);
         },
         () => openItem(t, i),
+        () => dragOut(t, i),
       )}
     {/snippet}
   </Rows>

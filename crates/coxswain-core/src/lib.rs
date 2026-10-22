@@ -19,6 +19,7 @@ pub mod draughts;
 pub mod dirs;
 pub mod disk;
 pub mod disk_image;
+pub mod drag;
 pub mod dupes;
 pub mod edit;
 pub mod ebook;

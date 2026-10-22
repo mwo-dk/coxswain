@@ -32,8 +32,13 @@ export const ui = $state({
   quick: null,
   cmd: "",
   lastOutput: "",
-  /** Pane under a file being dragged in, for the highlight. */
+  /** Pane under a file being dragged in, for the highlight, and the folder row or sidebar
+   *  place under it when the drop would go into that. */
   dropPane: null,
+  dropDir: null,
+  /** The last drag out of a pane: the tab, its paths there, and the paths dragged (copies out
+   *  of an archive or a history), so a drop back on a pane copies from where they really are. */
+  drag: null,
   /** Optional columns in the details view. */
   columns: { type: true, size: true, files: false, modified: true, commit: true, created: false },
   /** Measure every folder's size as a folder opens. */
@@ -1038,13 +1043,55 @@ export function toggleMark(t, i) {
   t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
 }
 
-/** Native drag of the marked files (or the one at `i`), so other apps can take them. */
-export function dragOut(t, i) {
+/** Native drag of the marked files (or the one at `i`), so other apps can take them; what is
+ *  only inside an archive or a history is copied out first (`drag::out`). */
+export async function dragOut(t, i) {
   const e = t.items[i];
   if (!e || e.name === "..") return;
   t.cursor = i;
   const paths = t.marked.has(e.path) ? targets(t) : [e.path];
-  invoke("start_drag", { paths }).catch((err) => (ui.status = String(err)));
+  const scale = Math.max(1, Math.round(devicePixelRatio));
+  try {
+    const real = await invoke("start_drag", { paths, image: [...(await dragImage(paths, e, scale))], scale });
+    ui.drag = { tab: t, paths, real };
+  } catch (err) {
+    ui.status = String(err);
+  }
+}
+
+/** The picture under the pointer while dragging: the entry's icon and name, or the number of
+ *  entries, in the theme's colours; a PNG at `scale` (device pixels per pixel). */
+async function dragImage(paths, e, scale) {
+  const css = getComputedStyle(document.documentElement);
+  const v = (name, or) => css.getPropertyValue(name).trim() || or;
+  const font = `${ui.cfg.gui.font_size}px ${v("--font", "monospace")}`;
+  const text = paths.length === 1 ? e.name : tn("items", paths.length);
+  const c = document.createElement("canvas");
+  const g = c.getContext("2d");
+  g.font = font;
+  const pad = 8;
+  const h = Math.round(ui.cfg.gui.font_size * 2);
+  const w = Math.min(320, Math.ceil(g.measureText(text).width) + h + pad * 2);
+  // A small gap from the pointer, which sits at the top left corner.
+  const at = 12;
+  c.width = (w + at) * scale;
+  c.height = (h + at) * scale;
+  g.scale(scale, scale);
+  g.translate(at, at);
+  g.fillStyle = v("--cursor-bg", "#333");
+  g.strokeStyle = v("--accent-bg", "#888");
+  g.beginPath();
+  g.roundRect(0.5, 0.5, w - 1, h - 1, 4);
+  g.fill();
+  g.stroke();
+  g.fillStyle = v("--cursor-fg", "#fff");
+  g.textBaseline = "middle";
+  g.font = `${ui.cfg.gui.font_size}px ${v("--icon-font", "monospace")}`;
+  g.fillText(paths.length === 1 ? e.icon.glyph : "\u{f0c5}", pad, h / 2);
+  g.font = font;
+  g.fillText(text, pad + h, h / 2, w - h - pad * 2);
+  const blob = await new Promise((ok) => c.toBlob(ok, "image/png"));
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 /** The details view's column choices and automatic folder sizes, as a menu. */

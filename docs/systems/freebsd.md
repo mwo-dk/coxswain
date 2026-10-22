@@ -362,16 +362,16 @@ To try a change on FreeBSD, OpenBSD, NetBSD or OmniOS without one of those machi
 
 Coxswain's desktop app is a [Tauri](https://tauri.app) app, and Tauri does not support FreeBSD
 officially. It builds and runs because its window layer (tao, wry) is written for GTK on the
-BSDs as on Linux, with two gaps that Coxswain patches until upstream releases close them:
+BSDs as on Linux, with one gap that Coxswain patches until an upstream release closes it:
 
 | Crate | The problem | Patched with | Upstream |
 |---|---|---|---|
 | `tao` 0.37.1 | Resize hit testing was compiled for Linux only, so tao did not build on FreeBSD | tao's own commit `d19f4c1`, merged after 0.37.1 | [tauri-apps/tao#1356](https://github.com/tauri-apps/tao/pull/1356) |
-| `drag` 2.1.1 | Its GTK backend, which drags files out of the window, was selected for Linux only | A fork, commit `5781aba` on `mwo-dk/drag-rs` | [crabnebula-dev/drag-rs#99](https://github.com/crabnebula-dev/drag-rs/pull/99) |
 
-Both patches only widen a `cfg(target_os = "linux")` to the BSDs, so the Linux, macOS and Windows
-builds compile the same code as from crates.io. They are in `[patch.crates-io]` in `Cargo.toml`
-and go when the fixed versions are released.
+The patch only widens a `cfg(target_os = "linux")` to the BSDs, so the Linux, macOS and Windows
+builds compile the same code as from crates.io. It is in `[patch.crates-io]` in `Cargo.toml`
+and goes when the fixed version is released. Dragging files out of the window uses GTK itself,
+as on Linux.
 
 Tested on FreeBSD 14.5 (amd64), on every change in CI and by hand under X11:
 
@@ -382,7 +382,7 @@ Tested on FreeBSD 14.5 (amd64), on every change in CI and by hand under X11:
 | Find: names, words in files, the search helper | Yes |
 | Copy (F5), move (F6), new folder (F7), delete to the trash (F8) | Yes |
 | The clipboard: **Ctrl+C** on files offers them as `file://` lists (`text/uri-list`, GNOME's and Nautilus's formats) as on Linux, and **Ctrl+V** pastes them | Yes |
-| Dragging files out of the window | The native GTK drag starts; dropping on other programs is not yet confirmed on a real desktop |
+| Dragging files out of the window | The same GTK code as on Linux, where drops on other programs are tested (X11 and Wayland); not yet confirmed on a FreeBSD desktop |
 | Opening a file in its program | Through `xdg-open` (package `xdg-utils`), the same code as on Linux; not tried on FreeBSD yet |
 | Video and sound in the preview | With `gstreamer1-plugins-good` |
 | Wayland sessions | Not tested yet; `GDK_BACKEND=x11` starts it under XWayland |

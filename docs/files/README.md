@@ -5,7 +5,7 @@
 Copy, move, rename, make folders and delete, in both apps with the same F-keys. Archives open
 like folders, so the same keys copy files into them, out of them and between them, and
 **Alt+F5** packs files into a new one. The desktop app adds the system clipboard, drag and
-drop, batch rename with a regular expression and a duplicate finder. On ZFS, **Alt+Z** browses a
+drop (the terminal app takes drops only), batch rename with a regular expression and a duplicate finder. On ZFS, **Alt+Z** browses a
 folder's snapshots.
 
 All operations work on the **marked** files, or on the file under the cursor when nothing is
@@ -23,7 +23,7 @@ folder; **Ctrl+E** extracts it.*
 | [Delete: trash (F8) or for good (Shift+F8)](delete.md) | The trash, deleting for good, the question and how to skip it |
 | [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs and extracts; what is refused and why |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](clipboard.md) | Copy and cut through the system clipboard, shared with other file managers |
-| [Drag and drop](drag-and-drop.md) | Dragging files out to other applications, between panes and in |
+| [Drag and drop](drag-and-drop.md) | Dragging files out to other applications (out of archives too), between panes, onto folders and in |
 | [Batch rename (Ctrl+M)](batch-rename.md) | Renaming many files with a regular expression and a counter, previewed |
 | [Archives as folders](archives.md) | Opening zip, tar and 7z like folders; copying in, out and between; formats; why not RAR |
 | [Pack (Alt+F5) and extract (Ctrl+E)](pack-and-extract.md) | Making a new archive, and unpacking one into a folder of its own |
@@ -56,7 +56,7 @@ folder; **Ctrl+E** extracts it.*
 | **Ctrl+E** | yes | yes | [Extract](pack-and-extract.md) the archive into a new folder |
 | **Alt+F5** | yes | yes | [Pack](pack-and-extract.md) the files into a new archive |
 | **Ctrl+C**, **Ctrl+X**, **Ctrl+V** | yes | no | [Clipboard](clipboard.md) copy, cut, paste |
-| Drag with the mouse | yes | no | [Drag and drop](drag-and-drop.md) |
+| Drag with the mouse | yes | drops in only | [Drag and drop](drag-and-drop.md) |
 | **Ctrl+M** | yes | no | [Batch rename](batch-rename.md) |
 | **Alt+Enter** | yes | yes (shown, not changed) | [Properties and permissions](properties.md), with ZFS, package and file flags |
 | **Alt+Z** | yes | yes | [ZFS snapshots](zfs-snapshots.md) of the folder's dataset |

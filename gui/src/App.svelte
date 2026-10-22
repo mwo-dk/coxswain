@@ -106,24 +106,48 @@
   });
 
   // Files dragged in from other applications, or from a pane (the drag is native, see dragOut).
-  const paneAt = ({ x, y }) => {
-    const el = document.elementFromPoint(x / devicePixelRatio, y / devicePixelRatio)?.closest("[data-pane]");
-    return el ? Number(el.dataset.pane) : null;
+  // The position is in CSS pixels on GTK and macOS, in device pixels on Windows. Under it: a
+  // pane, and a folder row or a sidebar place (`data-drop`), which a drop goes into.
+  const dropAt = ({ x, y }) => {
+    const k = ui.cfg.sep === "\\" ? devicePixelRatio : 1;
+    const el = document.elementFromPoint(x / k, y / k);
+    const pane = el?.closest("[data-pane]");
+    return { pane: pane ? Number(pane.dataset.pane) : null, dir: el?.closest("[data-drop]")?.dataset.drop ?? null };
   };
-  getCurrentWebview().onDragDropEvent(({ payload: p }) => {
-    if (p.type === "leave") return void (ui.dropPane = null);
-    const at = p.position ? paneAt(p.position) : null;
-    if (p.type !== "drop") return void (ui.dropPane = at);
-    ui.dropPane = null;
-    if (at === null || !p.paths.length) return;
-    const dest = tab(at).dir;
-    if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
-    const n = describe(p.paths);
-    const go = (isMove) => transferTo(p.paths, dest, dest, isMove, n);
+  const mac = /Macintosh/.test(navigator.userAgent);
+  let entered = [];
+  getCurrentWebview().onDragDropEvent(async ({ payload: p }) => {
+    if (p.type === "leave") return void (ui.dropPane = ui.dropDir = null);
+    if (p.type === "enter") entered = p.paths;
+    const paths = p.paths ?? entered;
+    const at = p.position ? dropAt(p.position) : { pane: null, dir: null };
+    // Not into a folder that is itself dragged.
+    const into = at.dir && !paths.includes(at.dir) && !ui.drag?.paths.includes(at.dir) ? at.dir : null;
+    const ro = at.pane === null ? null : readOnlyKey(tab(at.pane));
+    if (p.type !== "drop") {
+      ui.dropPane = ro || into ? null : at.pane;
+      ui.dropDir = ro ? null : into;
+      return;
+    }
+    ui.dropPane = ui.dropDir = null;
+    const dest = into ?? (at.pane === null ? null : tab(at.pane).dir);
+    if (!dest || !paths.length) return;
+    if (ro) return void (ui.status = t(ro));
+    // From a pane: from where the files really are (an archive, a history), as F5 there.
+    const own = ui.drag && ui.drag.real.length === paths.length && ui.drag.real.every((x, i) => x === paths[i]) ? ui.drag : null;
+    const from = own ? own.paths : paths;
+    if (from.every((x) => parent(x) === dest)) return; // dropped where it came from
+    const n = describe(from);
+    const fixed = own ? readOnlyKey(own.tab) : null;
+    const go = (isMove) => (isMove && fixed ? (ui.status = t(fixed)) : transferTo(from, dest, dest, isMove, n));
+    const [copy, mv] = await invoke("drop_keys").catch(() => [false, false]);
+    if (copy !== mv) return go(mv);
+    const hint = await invoke("hint_once", { id: "drop_keys" }).catch(() => false);
     ui.modal = {
       kind: "menu",
       feature: "drag_and_drop",
       title: t("app.drop_title", { what: n, folder: basename(dest) || dest }),
+      note: hint ? t("hint.drop_keys", { copy: mac ? "Option" : "Ctrl", move: mac ? "Command" : "Shift" }) : "",
       direct: true,
       filter: "",
       cursor: 0,
@@ -315,11 +339,11 @@
   /** In a git history, a ZFS snapshot (or its list) nothing changes, nor in a package's list of
    *  files or a disk image: said at once, not after a prompt. */
   const readOnly = () => {
-    const tb = tab();
-    const key = tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : tb.nested ? "archive.nested_read_only" : null;
+    const key = readOnlyKey(tab());
     if (key) ui.status = t(key);
     return !!key;
   };
+  const readOnlyKey = (tb) => (tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : tb.nested ? "archive.nested_read_only" : null);
 
   const actions = {
     quit: () => getCurrentWindow().close(),
@@ -866,6 +890,11 @@
   }
   :global(#app) {
     height: 100%;
+  }
+  /* A folder row or a sidebar place a drop would go into. */
+  :global([data-drop].drop) {
+    outline: 2px dashed var(--accent-bg);
+    outline-offset: -2px;
   }
   :global(*::-webkit-scrollbar) {
     width: 10px;

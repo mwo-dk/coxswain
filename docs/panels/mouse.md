@@ -21,7 +21,7 @@ and bars to resize.
 | Wheel | Moves the cursor of the panel under the mouse by three | Scrolls the list |
 | Ctrl-click (Cmd-click on a Mac) | – | Marks or unmarks, in every view |
 | Shift-click | – | Marks the range from the cursor to the click (details view) |
-| Drag | – | Copies or moves to the other pane or to another application; see [Drag and drop](../files/drag-and-drop.md) |
+| Drag | – | Copies or moves to the other pane, onto a folder's row or a sidebar entry, or to another application; **Ctrl** at the drop copies, **Shift** moves. See [Drag and drop](../files/drag-and-drop.md) |
 | Column header | – | Sorts; a second click reverses. Right-click opens the [columns menu](views.md#the-columns-menu) |
 | Path bar | – | A part goes to that folder; empty space turns it into a text field. The `←`, `→` and `↑` buttons go back, forward and up |
 | Tabs | – | A click shows the tab, a middle click or the `×` closes it, the `+` opens a new one. The tab's tooltip is its folder and *Middle-click or Ctrl+W closes the tab* |
@@ -46,8 +46,9 @@ scrolls.*
 
 - The panel you click becomes active: its frame (desktop app) or its path (terminal app)
   lights up.
-- While you drag files from another application over a pane, the pane gets a dashed outline;
-  dropping opens a menu with *Copy here* (`c`) and *Move here* (`m`).
+- While you drag files over a pane, the pane gets a dashed outline, or the folder's row or the
+  sidebar entry under the pointer does; dropping opens a menu with *Copy here* (`c`) and
+  *Move here* (`m`), or copies (**Ctrl**) or moves (**Shift**) at once.
 - A double-click is two clicks on the same spot within 0.4 seconds in the terminal app, and the
   system's own double-click time in the desktop app.
 
@@ -59,7 +60,9 @@ None. The widths you drag to are kept in the desktop app's session
 ## In the terminal app
 
 Click, double-click, right-click and the wheel, in the panels only. There is no drag, since a
-terminal cannot hand files to other programs, and clicks do nothing while a dialog is open:
+terminal cannot hand files to other programs; a file dropped on the terminal arrives as its path
+and asks *Copy here* or *Move here* ([Drag and drop](../files/drag-and-drop.md#in-the-terminal-app)).
+Clicks do nothing while a dialog is open:
 use its keys. Some terminals keep the mouse for selecting text; hold **Shift** while you drag
 to select text anyway.
 
@@ -80,7 +83,9 @@ pattern ([Marking files](marking.md)).
 
 #### Can I copy by dragging in the terminal app?
 
-No. Mark the files and press **F5** (copy) or **F6** (move).
+Not out of it: mark the files and press **F5** (copy) or **F6** (move). Files dropped on the
+terminal from another program are asked about: *Copy here* or *Move here*, into the active
+panel ([Drag and drop](../files/drag-and-drop.md#in-the-terminal-app)).
 
 #### Mouse clicks in the terminal app select text instead. Why?
 

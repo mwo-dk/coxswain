@@ -570,6 +570,23 @@ pub fn diff(at: &At) -> io::Result<String> {
         .collect())
 }
 
+/// What `copy_out` of `at` takes: its bytes and files.
+pub fn measure(at: &At) -> io::Result<(u64, usize)> {
+    let rev = at.commit.as_deref().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            crate::t!("history.pick_commit"),
+        )
+    })?;
+    let mut c = git(&at.base);
+    let spec = if at.inner.is_empty() { "." } else { &at.inner };
+    c.args(["ls-tree", "-r", "-z", "-l", rev, "--", spec]);
+    Ok(run(c)?
+        .split(|&b| b == 0)
+        .filter_map(tree_line)
+        .fold((0, 0), |(b, n), (_, _, size, _)| (b + size, n + 1)))
+}
+
 /// Copy a file or folder as it was at a commit (the whole folder for a commit itself) out to
 /// `dest`, as `fs::copy` would: into it when it is a folder. Returns where it landed; whatever
 /// was written is removed when it fails.
