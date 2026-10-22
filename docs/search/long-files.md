@@ -12,7 +12,7 @@ folder from the action menu. Before a choice is saved, Coxswain says what it cos
 long files it touches, about how much more room they take, and about how long reading them and
 making their vectors takes on this machine.
 
-<!-- screenshot: long-files-menu.png: the desktop app's action menu on a folder of logs, Long files: sample or everything… open with Everything here: Long files kept whole: 3; about 180 MB more on the disk; about 25 minutes …, Sample here and Like the folders above (Sample) · now -->
+![The desktop app's action menu on the folder logs, Long files: sample or everything… open: Everything here with Long files kept whole: 2; about 5.8 MB more on the disk; about a minute to read them and make their vectors, Sample here, and Like the folders above (Sample) · now](../screenshots/long-files-menu.png)
 
 ## Contents
 
@@ -52,6 +52,8 @@ of its own. A menu opens with three choices, each with what it would cost:
 | **1** *Everything here* | The folder's long files, and those of the folders inside it, are kept whole, whatever *Long files* says |
 | **2** *Sample here* | They are sampled, whatever *Long files* says |
 | **3** *Like the folders above (Sample)* | The folder follows the nearest folder above it that has a choice of its own, else *Long files* |
+
+![The terminal app: the same three choices in a box over the panels, each with its cost, numbered 1 to 3](../screenshots/tui-long-files-menu.png)
 
 The one in force ends with *· now*. Choosing one writes `long_files_everything` or
 `long_files_sample` in `config.toml`; the status line says *Long files in logs: saved; the search

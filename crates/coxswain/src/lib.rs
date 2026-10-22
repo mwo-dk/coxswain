@@ -436,7 +436,7 @@ pub enum MenuRun {
     /// A line copied to the clipboard, said on the status line.
     CopyLine(String),
     /// Settings written (*Long files* for a folder), the helper restarted for them.
-    Save(serde_json::Map<String, serde_json::Value>),
+    Save(serde_json::Map<String, serde_json::Value>, String),
     /// Settings, open at a section.
     SettingsAt(&'static str),
     /// Compare folders' menu (Ctrl+F2 while one is on).
@@ -2433,12 +2433,13 @@ impl App {
         };
         let measured = self.index.status().meaning_ms_per_passage;
         let index = self.index.clone();
+        let name = dir.file_name().map_or_else(|| dir.display().to_string(), |n| n.to_string_lossy().into_owned());
         let items = coxswain_core::long_files::choices(&self.cfg.search, &dir, measured, |r| index.long_files_cost(r))
             .into_iter()
             .enumerate()
-            .map(|(i, c)| MenuItem { key: (i + 1).to_string(), label: c.label, run: MenuRun::Save(c.changes), group: None })
+            .map(|(i, c)| MenuItem { key: (i + 1).to_string(), label: c.cost.map_or_else(|| c.label.clone(), |w| format!("{}: {w}", c.label)), run: MenuRun::Save(c.changes, name.clone()), group: None })
             .collect();
-        let title = format!("{} {}", self.action_label(Action::LongFiles), dir.file_name().map_or_else(|| dir.display().to_string(), |n| n.to_string_lossy().into_owned()));
+        let title = format!("{} {name}", self.action_label(Action::LongFiles));
         self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "long_files" });
     }
 
@@ -3916,11 +3917,11 @@ impl App {
                     Some(MenuRun::Split(file, None)) => self.input(&self.action_label(Action::SplitFile), t!("split.size_label"), "250M".into(), Prompt::SplitSize(file.clone())),
                     Some(MenuRun::Join(first, replace)) => self.join_start(first.clone(), *replace),
                     Some(MenuRun::PreviewTool(kind, choice)) => self.preview_tool(kind, choice),
-                    Some(MenuRun::Save(changes)) => {
-                        let changes = changes.clone();
+                    Some(MenuRun::Save(changes, name)) => {
+                        let (changes, name) = (changes.clone(), name.clone());
                         self.status = Some(match Config::path() {
                             Some(path) => match self.save_options(&path, &changes) {
-                                Ok(()) => t!("settings.saved", "path" => path.display()),
+                                Ok(()) => t!("long.saved", "name" => name),
                                 Err(e) => e,
                             },
                             None => t!("err.no_config_folder"),

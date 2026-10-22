@@ -129,11 +129,12 @@ pub fn change_notice(
     })
 }
 
-/// A choice for one folder in the action menu: its label (with what it costs), whether it is
-/// the one in force, and the settings it writes.
+/// A choice for one folder in the action menu: its label, what it would cost (none for the one
+/// in force), whether it is the one in force, and the settings it writes.
 #[derive(Clone, Debug, Serialize)]
 pub struct Choice {
     pub label: String,
+    pub cost: Option<String>,
     pub current: bool,
     pub changes: Map<String, Value>,
 }
@@ -197,16 +198,12 @@ pub fn choices(
     .into_iter()
     .map(|(whole, label, current)| {
         let changes = changes_for(s, dir, whole);
-        let label = if current {
-            format!("{label} · {}", t!("ptools.current"))
+        let (label, cost) = if current {
+            (format!("{label} · {}", t!("ptools.current")), None)
         } else {
-            let new = with(s, &changes);
-            match change_notice(s, &new, measured, &cost) {
-                Some(why) => format!("{label}: {why}"),
-                None => label,
-            }
+            (label, change_notice(s, &with(s, &changes), measured, &cost))
         };
-        Choice { label, current, changes }
+        Choice { label, cost, current, changes }
     })
     .collect()
 }

@@ -641,7 +641,7 @@ export async function longFiles(e = item(tab())) {
     return void (ui.status = String(err));
   }
   const save = (c) => invoke("save_settings", { changes: c.changes }).then((cfg) => ((ui.cfg = cfg), (ui.status = t("long.saved", { name: e.name }))), (err) => (ui.status = String(err)));
-  const items = choices.map((c, i) => ({ key: String(i + 1), label: c.label, run: () => (c.current ? null : save(c)) }));
+  const items = choices.map((c, i) => ({ key: String(i + 1), label: c.label, sub: c.cost, run: () => (c.current ? null : save(c)) }));
   ui.modal = { kind: "menu", feature: "long_files", title: `${actionLabel("long_files")} ${e.name}`, direct: true, filter: "", cursor: 0, items };
 }
 
