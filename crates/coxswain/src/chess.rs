@@ -1011,8 +1011,6 @@ impl Viewer {
             Some(fen) if self.book.is_some() => self.book_moves(fen).to_vec(),
             _ => vec![],
         };
-        let Some(o) = &self.open else { return };
-        let g = &o.game;
         if self.other_game() {
             let (lines, board_w) = if self.xiangqi() {
                 self.xiangqi_board(dim)
