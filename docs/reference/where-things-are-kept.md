@@ -128,7 +128,7 @@ Uninstall the app the way you installed it ([README → Install](../../README.md
    leave (or end the `coxswain --index-helper` process).
 3. Delete the three folders above: config, state and cache.
 4. Container images Coxswain pulled stay in podman or docker until you remove them there (or
-   beforehand with *Remove* in Settings → *Previews* → *Container images*, or with *Clear* under
+   beforehand with *Remove* on the kind's row in Settings → *Previews* → *Preview tools*, or with *Clear* under
    *Outside Coxswain's folder* in [Disk use](disk-use.md); `coxswain --disk clear images`). So
    does Tectonic's cache (`coxswain --disk clear tectonic` beforehand, when Coxswain made it). A model pulled with Ollama goes with
    `ollama rm bge-m3`.

@@ -62,8 +62,8 @@ other by absolute paths) are mended before they are drawn, so they show too.
   installed. Neither podman nor docker is installed. Install the program, or let a container
   make this preview.* Under it, *Install it:* with the line for this system
   (`sudo apt install libreoffice`, `brew install --cask libreoffice`, `winget install --id
-  TheDocumentFoundation.LibreOffice -e` …) and **Copy**, and a **Settings → Previews** button
-  ([Installing what is missing](tools.md#installing-what-is-missing)).
+  TheDocumentFoundation.LibreOffice -e` …) and **Copy**, and a **Settings → Previews** button that opens
+  *Preview tools* ([Installing what is missing](tools.md#installing-what-is-missing)).
 - **While another format renders:** *Rendering with soffice…*; on an error, the message with
   **Try again**.
 
@@ -72,8 +72,8 @@ other by absolute paths) are mended before they are drawn, so they show too.
 | Settings → Previews | config.toml | Type, default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` | `"auto"`: an installed program, else a container |
-| – | `[preview.prefer_tool] libreoffice` | Overrides `prefer` for LibreOffice |
-| – | `[preview.images] libreoffice` | String, `"docker.io/gotenberg/gotenberg:8-libreoffice"`; `""` never uses a container |
+| [*Preview tools*](tools.md#preview-tools-in-settings) → *Office documents* | `[preview.tools] office` | `"local"`, `"container"` or `"off"`; overrides `prefer` for these files |
+| *Preview tools* → *Office documents* (Pull, Remove) | `[preview.images] libreoffice` | String, `"docker.io/gotenberg/gotenberg:8-libreoffice"`; `""` never uses a container |
 | *Timeout (seconds)* | `[preview] timeout` | 120 |
 
 Coxswain looks for `soffice` and `libreoffice` on the `PATH`, and in LibreOffice's usual

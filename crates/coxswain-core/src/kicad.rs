@@ -13,7 +13,7 @@ use std::path::Path;
 use crate::media::Run;
 use crate::t;
 
-/// The name under `[preview.images]` and `prefer_tool`.
+/// The name under `[preview.images]`.
 pub const KICAD: &str = "kicad";
 
 fn ending(path: &Path) -> String {

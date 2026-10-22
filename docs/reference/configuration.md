@@ -255,7 +255,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | Key | Type | Default | Does |
 |---|---|---|---|
 | `prefer` | string | `"auto"` | `"auto"`: an installed program first, else a container (ImageMagick: its container first); `"local"`: installed programs (a container is listed but never the default); `"container"`: containers first |
-| `prefer_tool` | table | `{}` | Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }` |
+| `tools` | table | `{}` | Per kind of file, overrides `prefer`: `"local"`, `"container"` or `"off"` (no preview by a tool; conversions you ask for still run): `tools = { latex = "container", video = "off" }`. *Settings → Previews → Preview tools* sets it ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)) |
 | `container` | string | `"auto"` | `"auto"` (podman, else docker), `"podman"`, `"docker"`, or `"off"` for no containers (Tika is off then too) |
 | `images.latex` | string | `"docker.io/texlive/texlive:latest"` | The LaTeX image (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
 | `images.plantuml` | string | `"docker.io/plantuml/plantuml:latest"` | The PlantUML image |
@@ -282,11 +282,12 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview or Make PDF searchable used (nor Apache Tika read a file with) for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
-defaults. The tool names, for `prefer_tool`, are `latex`, `typst`, `libreoffice`, `ghostscript`,
-`gxps`, `plantuml`, `pandoc`, `duckdb`, `ocrmypdf`, `ffmpeg`, `waveform`, `heif` (these three
-share `images.ffmpeg`), `imagemagick`, `raw` (no image), `gdal`, `openscad`, `kicad`, `kicad_thumb` (shares `images.kicad`), `calibre` and each diagram kind of Kroki's image (`d2`,
-`ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`,
-`bytefield`), which share `images.kroki`.
+defaults. The kinds, for `tools`, are `latex`, `typst`, `office` (LibreOffice), `postscript`
+(Ghostscript and GhostXPS), `diagrams` (PlantUML and every kind of Kroki's image), `markup`
+(pandoc), `databases` (DuckDB), `video` (ffmpeg: frames and waveforms), `pictures` (HEIC,
+ImageMagick's kinds, RAW), `maps` (GDAL), `models` (OpenSCAD), `kicad` (KiCad), `ebooks` (calibre), `transcripts` (Whisper, for Transcribe) and `ocr` (Make PDF searchable); `other`, Tika's row, has no choice: `[search] tika` turns it on;
+[The tools](../previews/tools.md#the-tools) lists each with its programs and image. Up to 2.32
+the choice was per tool, `prefer_tool`; a config with it is rewritten to `tools` once, on start.
 
 ## `[gui]`
 
@@ -339,7 +340,7 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 | Choice | Where it lives |
 |---|---|
-| The LaTeX engine (XeLaTeX, LuaLaTeX, pdfLaTeX) | Picked per document: a `% !TEX program = …` line, else by the packages it loads. The engine button you last pressed in the preview (installed or a container) is remembered in the session in `state.json`. `prefer_tool = { latex = … }` sets which kind comes first ([LaTeX projects](../previews/latex.md)) |
+| The LaTeX engine (XeLaTeX, LuaLaTeX, pdfLaTeX) | Picked per document: a `% !TEX program = …` line, else by the packages it loads. The engine button you last pressed in the preview (installed or a container) is remembered in the session in `state.json`. `[preview.tools] latex` (`"local"`, `"container"`, `"off"`) sets which comes first ([LaTeX projects](../previews/latex.md)) |
 | Archives and their passwords | Nothing to set. Passwords are kept in memory until the app quits and never written anywhere ([Passwords](../files/archive-passwords.md)) |
 | Notices you dismissed | `state.json`, `notices_dismissed` ([Notices](../panels/notices.md)) |
 | The session, favourites, tags, notes | `state.json` ([What the apps remember](../panels/session.md)) |
@@ -416,7 +417,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | *Privacy and updates* | *Check for a new version* | `check_updates` | `check_updates` |
 
 *Keys* lists every action and its keys, read-only, with **Open config.toml**. Every other key
-(`[keys]`, `glyph_set`, `[themes.*]`, `[[user_menu]]`, `prefer_tool`, the other images) has no
+(`[keys]`, `glyph_set`, `[themes.*]`, `[[user_menu]]`, the other images) has no
 Settings item: edit the file.
 
 ## In the terminal app

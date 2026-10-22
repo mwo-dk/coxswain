@@ -6,7 +6,7 @@
 //!
 //! Off unless `[preview] ebooks` is on. calibre runs as installed (`ebook-convert`), else from
 //! its container image (`[preview.images] calibre`), chosen by `[preview] prefer` and
-//! `prefer_tool.calibre` as every preview tool is. The container is held tight: no network, no
+//! `[preview.tools] ebooks` as every preview tool is. The container is held tight: no network, no
 //! capabilities, no new privileges, a read-only root with /tmp in memory, bounded memory and
 //! processes, and nothing of the user's mounted. The book goes in on standard input as
 //! `/tmp/in.<ending>`, so its name is never an argument, and what calibre made comes back on
@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 use crate::config::PreviewConfig;
 use crate::t;
 
-/// Its name under `[preview.images]` and `prefer_tool`.
+/// Its name under `[preview.images]`.
 pub const TOOL: &str = "calibre";
 /// LinuxServer.io's calibre image, pinned to the calibre release tested here (9.16.0, the
 /// index of its amd64 and arm64 images).
@@ -95,7 +95,8 @@ pub fn how(cfg: &PreviewConfig) -> Result<How, String> {
     if !cfg.ebooks {
         return Err(t!("ebook.off"));
     }
-    let pref = cfg.prefer_tool.get(TOOL).unwrap_or(&cfg.prefer).as_str();
+    let pref = crate::preview_tools::asked(cfg, TOOL);
+    let pref = pref.as_str();
     let local = crate::tools::which("ebook-convert").map(|convert| How::Local { convert, meta: crate::tools::which("ebook-meta") });
     let image = cfg.images.get(TOOL).filter(|i| !i.is_empty()).cloned();
     let container = match (crate::tools::container_runtime(cfg), &image) {
@@ -638,7 +639,7 @@ mod tests {
         assert_eq!(ending(Path::new("/x/Book.AZW3")), Some("azw3"));
         assert!(!is_ebook(Path::new("/x/comic.cbz")) && !is_ebook(Path::new("/x/b.epub")), "they have their own readers");
         let mut cfg = PreviewConfig { ebooks: true, ..Default::default() };
-        cfg.prefer_tool.insert(TOOL.into(), "local".into());
+        cfg.tools.insert("ebooks".into(), "local".into());
         let how = How::Local { convert: "/nonexistent/ebook-convert".into(), meta: None };
         let r = make(&how, &d.join("locked.azw3"), Want::Text, &d, &AtomicBool::new(false), Duration::from_secs(1), &mut |_| {});
         crate::i18n::set_language("en-GB");
@@ -654,7 +655,7 @@ mod tests {
         assert_eq!(cfg.images.get(TOOL).map(String::as_str), Some(IMAGE));
         cfg.ebooks = true;
         cfg.container = "off".into();
-        cfg.prefer_tool.insert(TOOL.into(), "container".into());
+        cfg.tools.insert("ebooks".into(), "container".into());
         match how(&cfg) {
             Ok(How::Local { .. }) => {}
             Ok(other) => panic!("containers are off: {other:?}"),
@@ -735,7 +736,7 @@ mod tests {
         let txt = std::fs::read_to_string(text_copy(&p).unwrap()).unwrap();
         assert!(txt.starts_with(&p.title) && txt.contains("Chapter"), "{txt}");
         let mut cfg = PreviewConfig { ebooks: true, ..Default::default() };
-        cfg.prefer_tool.insert(TOOL.into(), "container".into());
+        cfg.tools.insert("ebooks".into(), "container".into());
         for to in formats_for(&copy) {
             let r = run_all(&cfg, to, std::slice::from_ref(&copy), &AtomicBool::new(false), |_| {}, |_| {});
             let made = r.into_iter().next().unwrap().unwrap();

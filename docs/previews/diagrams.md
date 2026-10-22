@@ -105,7 +105,7 @@ PlantUML and Kroki's kinds have them, as tools of [Previews made by tools](tools
 |---|---|
 | `[preview.images] plantuml` | String, `"docker.io/plantuml/plantuml:latest"`; `""` never uses a container |
 | `[preview.images] kroki` | String, `"docker.io/yuzutech/kroki:latest"`, for every kind of the table from D2 on; `""` never uses a container |
-| `[preview.prefer_tool] plantuml`, `d2`, `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `vegalite`, `dbml`, `erd`, `bytefield` | `"auto"`, `"local"` or `"container"`; default: `[preview] prefer` |
+| `[preview.tools] diagrams` | `"local"`, `"container"` or `"off"`, for PlantUML and every Kroki kind together; default: `[preview] prefer`. In Settings: the *Diagrams* row of [*Preview tools*](tools.md#preview-tools-in-settings) |
 
 ## In the terminal app
 

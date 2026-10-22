@@ -161,8 +161,8 @@ that runs past three times its length (at least half an hour) is stopped.
 |---|---|---|
 | *Transcribe speech with Whisper* | `[search] whisper` | `false` |
 | *Whisper model* (while it is on) | `[search] whisper_model` | `""`: chosen for this machine; or `"tiny"`, `"base"`, `"small"`, `"large-v3-turbo"` |
-| – (Settings → Previews → Container images lists it) | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main"` |
-| *How previews are made* | `[preview] prefer`, `prefer_tool.whisper` | `"auto"`: whisper.cpp installed first; `"container"` takes the image first |
+| *Preview tools* → *Transcripts (Whisper)* (Pull, Remove) | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main"` |
+| *Preview tools* → *Transcripts (Whisper)*, else *How previews are made* | `[preview.tools] transcripts`, `[preview] prefer` | `"auto"`: whisper.cpp installed first; `"container"` takes the image first |
 
 `coxswain-gui --settings=search_whisper` (or `coxswain --settings=search_whisper`) opens Settings
 at the option. *Transcribe speech* has no key of its own: the action menu and **F9** list it, and
@@ -212,7 +212,7 @@ that would be *slow here*.
 #### It says it needs ffmpeg.
 
 Your whisper.cpp reads WAV, MP3, FLAC and Ogg by itself. For `.m4a`, `.m4b`, `.aac`, `.opus`, `.wma`, `.aiff` and videos,
-install ffmpeg, or let the container image do it (`prefer_tool = { whisper = "container" }`).
+install ffmpeg, or let the container image do it (*Container* on the *Transcripts (Whisper)* row of *Settings → Previews → Preview tools*, `[preview.tools] transcripts = "container"`).
 
 #### Can I transcribe on FreeBSD?
 

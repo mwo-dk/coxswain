@@ -118,8 +118,8 @@ fn config_keys() -> Vec<String> {
     // A theme of one's own: the look, the tube, and fg, bg and bold on every slot.
     keys.extend(["themes", "keys", "themes.*.look", "themes.*.crt", "themes.*.*.fg", "themes.*.*.bg", "themes.*.*.bold"].map(String::from));
     keys.extend(Theme::default().slots().into_iter().map(|(s, _)| format!("themes.*.{s}")));
-    // preview.images and prefer_tool are maps of tool names, not keys.
-    keys.retain(|k| !k.starts_with("preview.images.") && !k.starts_with("preview.prefer_tool."));
+    // preview.images and preview.tools are maps of image and kind names, not keys.
+    keys.retain(|k| !k.starts_with("preview.images.") && !k.starts_with("preview.tools."));
     keys
 }
 
@@ -244,4 +244,17 @@ fn f1_texts_name_keys_by_their_action() {
     }
     found.sort();
     assert!(found.is_empty(), "a default key written out in F1's texts; use its {{action}} placeholder:\n{}", found.join("\n"));
+}
+
+/// The tables of docs/previews/tools.md come from `preview_tools`: the kinds with their programs
+/// and images, and every install line. Each sits between its two markers.
+#[test]
+fn the_preview_tools_tables_are_the_cores() {
+    let page = read(root().join("docs/previews/tools.md"));
+    for (name, want) in [("tools-table", coxswain_core::preview_tools::docs_table()), ("install-table", coxswain_core::preview_tools::docs_install_table())] {
+        let (start, end) = (format!("<!-- {name} -->\n"), format!("<!-- /{name} -->"));
+        let at = page.find(&start).unwrap_or_else(|| panic!("docs/previews/tools.md has no {start}")) + start.len();
+        let got = &page[at..at + page[at..].find(&end).unwrap_or_else(|| panic!("no {end}"))];
+        assert!(got == want, "docs/previews/tools.md's {name} must be, from crates/coxswain-core/src/preview_tools.rs:\n{want}");
+    }
 }

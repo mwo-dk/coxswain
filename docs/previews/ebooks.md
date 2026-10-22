@@ -46,8 +46,8 @@ terminal app shows the file as it is, with the same line on the status line.
 
 ## What it needs
 
-One of these, tried in the order of *Settings → Previews → How previews are made*
-(`[preview] prefer`, or `[preview.prefer_tool] calibre` for this alone):
+One of these, tried in the order of the *E-books (calibre)* row in *Settings → Previews → Preview
+tools* (`[preview.tools] ebooks`), else *How previews are made* (`[preview] prefer`):
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -173,8 +173,8 @@ stopped and its container killed.
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *E-books with calibre* | `[preview] ebooks` | `false` |
-| *How previews are made* | `[preview] prefer`, `[preview.prefer_tool] calibre` | `"auto"`: installed first, else the container |
-| *Container images* (Pull, Remove) | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:48c8a5ba…"`; `""` never uses a container. An image you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` |
+| *Preview tools* → *E-books (calibre)*, else *How previews are made* | `[preview.tools] ebooks` (`"local"`, `"container"`, `"off"`), `[preview] prefer` | `"auto"`: installed first, else the container |
+| *Preview tools* → *E-books (calibre)* (Pull, Remove) | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:48c8a5ba…"`; `""` never uses a container. An image you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off. The default image is pinned by its digest, so an update keeps it; a newer Coxswain moves the pin |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 | *Keys* | `[keys] convert_ebook` | none |

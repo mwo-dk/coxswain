@@ -206,6 +206,7 @@ The terminal app, coxswain, has the rest: coxswain --help
 | `--settings=disk` | …at *Privacy and updates*, with *Disk use* open ([Disk use](disk-use.md)) |
 | `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
 | `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../panels/notices.md)) |
+| `--settings=preview_tools` | …at *Previews*, scrolled to *Preview tools* ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)) |
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |

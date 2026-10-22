@@ -1,6 +1,7 @@
 //! Version 2.0 gave a few things in config.toml the word the apps use for them: marking, not
 //! selecting; folders, not directories; the name index's folders under the names Settings has.
-//! On start, both apps rewrite a config from 1.x once, its comments and order kept, and a notice
+//! 2.33 chose the preview tools per kind of file (`[preview] prefer_tool` → `[preview.tools]`).
+//! On start, both apps rewrite an older config once, its comments and order kept, and a notice
 //! says what changed.
 
 use toml_edit::{DocumentMut, Item, Key, TableLike};
@@ -42,7 +43,40 @@ pub fn rewrite(text: &str) -> Result<Option<(String, Vec<String>)>, String> {
             });
         });
     }
+    prefer_tool(&mut doc, &mut said);
     Ok((!said.is_empty()).then(|| (doc.to_string(), said)))
+}
+
+/// 2.33 chose per kind of file, not per tool: `[preview] prefer_tool` (`latex`, `d2`,
+/// `ffmpeg` …) becomes `[preview.tools]` by kind (`latex`, `diagrams`, `video`). A kind
+/// chosen already keeps its choice; `auto` was the default, so it goes.
+fn prefer_tool(doc: &mut DocumentMut, said: &mut Vec<String>) {
+    let Some(preview) = doc.get_mut("preview").and_then(Item::as_table_like_mut) else { return };
+    let Some(old) = preview.remove("prefer_tool") else { return };
+    let moved: Vec<(String, String)> = old
+        .as_table_like()
+        .map(|t| {
+            t.iter()
+                .filter_map(|(tool, v)| Some((crate::preview_tools::kind_of(tool)?.id.to_string(), v.as_str()?.to_string())))
+                .filter(|(_, v)| crate::preview_tools::CHOICES.contains(&v.as_str()))
+                .collect()
+        })
+        .unwrap_or_default();
+    if !moved.is_empty() {
+        if !preview.contains_key("tools") {
+            let mut t = toml_edit::Table::new();
+            t.set_implicit(true);
+            preview.insert("tools", Item::Table(t));
+        }
+        if let Some(tools) = preview.get_mut("tools").and_then(Item::as_table_like_mut) {
+            for (kind, v) in moved {
+                if !tools.contains_key(&kind) {
+                    tools.insert(&kind, toml_edit::value(v));
+                }
+            }
+        }
+    }
+    said.push("[preview] prefer_tool → tools".into());
 }
 
 /// Every key of `t` in its place, the old ones under their new names with their comments. Where
@@ -113,6 +147,22 @@ roots = ["/home/me", "/mnt/data"]  # two disks
 exclude = ["/proc", "node_modules"]
 max_results = 500
 "#;
+
+    #[test]
+    fn migrate_prefer_tool_to_a_choice_per_kind() {
+        let old = "[preview]\nprefer = \"local\"\n\n[preview.prefer_tool]\nd2 = \"container\"\nlatex = \"auto\"\nwaveform = \"local\"\n";
+        let (new, said) = rewrite(old).unwrap().unwrap();
+        assert_eq!(said, ["[preview] prefer_tool → tools"]);
+        let cfg = crate::config::Config::parse(&new).unwrap();
+        assert_eq!(cfg.preview.tools.get("diagrams").map(String::as_str), Some("container"));
+        assert_eq!(cfg.preview.tools.get("video").map(String::as_str), Some("local"));
+        assert!(!cfg.preview.tools.contains_key("latex"), "auto was the default");
+        assert!(!new.contains("prefer_tool"), "{new}");
+        assert!(rewrite(&new).unwrap().is_none(), "once");
+        let inline = "[preview]\nprefer_tool = { ocrmypdf = \"container\" }\n";
+        let cfg = crate::config::Config::parse(&rewrite(inline).unwrap().unwrap().0).unwrap();
+        assert_eq!(cfg.preview.tools["ocr"], "container");
+    }
 
     #[test]
     fn migrate_a_config_of_1x_once_with_its_comments() {

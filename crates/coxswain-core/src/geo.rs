@@ -18,7 +18,7 @@ use std::path::Path;
 use crate::media::Run;
 use crate::t;
 
-/// The name under `[preview.images]` and `prefer_tool`.
+/// The name under `[preview.images]`.
 pub const GDAL: &str = "gdal";
 
 /// Vector kinds by their endings, with the GDAL driver that alone may read each.
@@ -231,6 +231,10 @@ pub fn facts(cfg: &crate::config::PreviewConfig, path: &Path) -> Vec<(String, St
     }
     if ending(path) == "gpx" {
         return read_gpx(path).map(|g| g.facts()).unwrap_or_default();
+    }
+    // Maps *Off* in Preview tools: GDAL does not run by itself.
+    if crate::preview_tools::off(cfg, GDAL) {
+        return vec![];
     }
     let Ok(how) = crate::media::how(cfg, Program::Gdal) else { return vec![] };
     if let How::Container { path: rt, image, .. } = &how

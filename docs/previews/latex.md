@@ -128,7 +128,8 @@ five lines after it; for tectonic, which keeps no log, what it said without its 
 |---|---|---|
 | *Build LaTeX by itself* | `[preview] latex_auto` | Boolean, `true` |
 | *LaTeX image* | `[preview.images] latex` | String, `"docker.io/texlive/texlive:latest"` (about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB) |
-| *How previews are made* | `[preview] prefer` (or `[preview.prefer_tool] latex`) | `"auto"`, `"local"`, `"container"`; `"auto"` |
+| *How previews are made* | `[preview] prefer` | `"auto"`, `"local"`, `"container"`; `"auto"` |
+| [*Preview tools*](tools.md#preview-tools-in-settings) → *LaTeX* | `[preview.tools] latex` | `"local"`, `"container"`, `"off"`; none: follows `prefer` |
 | *Timeout (seconds)* | `[preview] timeout` | 10 to 3600, `120` |
 | *Previews made so far* → **Clear** | – | Empties the preview cache, so every PDF is built again |
 

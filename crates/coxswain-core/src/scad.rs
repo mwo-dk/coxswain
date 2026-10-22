@@ -13,7 +13,7 @@ use std::path::Path;
 use crate::media::{How, Run};
 use crate::t;
 
-/// The name under `[preview.images]` and `prefer_tool`.
+/// The name under `[preview.images]`.
 pub const OPENSCAD: &str = "openscad";
 
 /// A model by its name.

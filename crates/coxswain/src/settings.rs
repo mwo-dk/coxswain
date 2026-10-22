@@ -76,6 +76,9 @@ pub enum Row {
     Tick(bool, u64),
     /// Clear everything that can be built again, and the bytes that frees.
     ClearAll(u64),
+    /// Preview tools: a kind of file, what is installed, its image, the choice. Enter takes
+    /// the next choice, C copies the install line, P pulls the image, Delete removes it.
+    PreviewTool(coxswain_core::preview_tools::Row),
 }
 
 impl Row {
@@ -100,6 +103,7 @@ impl Row {
             Row::Disk(i) => format!("disk:{}", i.id),
             Row::Tick(outside, _) => format!("tick:{outside}"),
             Row::ClearAll(_) => "clear_all".into(),
+            Row::PreviewTool(r) => format!("ptool:{}", r.kind),
         }
     }
 
@@ -172,6 +176,10 @@ pub struct Settings {
     /// take a walk of each folder, so a drawing reads them only when that changed, and a key
     /// that deletes one, or saves a setting (which may change the one in use), forgets them.
     pub(crate) models: Option<(coxswain_core::models::Loaded, Vec<coxswain_core::models::Entry>)>,
+    /// Preview tools, read when Previews opens, after a change and after a pull, by a thread:
+    /// it asks every program and the container runtime.
+    tools: Option<Vec<coxswain_core::preview_tools::Row>>,
+    tools_rx: Option<mpsc::Receiver<(Vec<coxswain_core::preview_tools::Row>, Option<String>)>>,
 }
 
 /// How to install a search tool that is missing, asked of the system once per tool: it looks
@@ -209,6 +217,8 @@ impl Settings {
             disk_rx: None,
             ticks: (false, false),
             models: None,
+            tools: None,
+            tools_rx: None,
         };
         s.go(app, section);
         s
@@ -221,6 +231,9 @@ impl Settings {
         self.offset = 0;
         if area == Area::Privacy {
             self.load_disk(app);
+        }
+        if area == Area::Previews {
+            self.load_tools(app, None);
         }
         let rows = rows(app, self);
         let start = at.and_then(|at| rows.iter().position(|r| r.id() == Some(at))).unwrap_or(0);
@@ -236,8 +249,31 @@ impl Settings {
         self.disk_rx = Some(rx);
     }
 
+    /// Preview tools read again by a thread; `pull` first pulls these images, and what that
+    /// gave is said when the rows come.
+    fn load_tools(&mut self, app: &App, pull: Option<Vec<String>>) {
+        let cfg = app.cfg.preview.clone();
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let said = pull.map(|images| {
+                let rt = coxswain_core::tools::container_runtime(&cfg).map(|r| r.1);
+                let failed: Vec<String> = images.iter().filter_map(|i| rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pull(rt, i)).err()).collect();
+                if failed.is_empty() { t!("ptools.pulled", "images" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")) } else { failed.join(" ") }
+            });
+            tx.send((coxswain_core::preview_tools::rows(&cfg), said))
+        });
+        self.tools_rx = Some(rx);
+    }
+
     /// The answer to Ask's test question, when it has come.
     pub fn poll(&mut self) {
+        if let Some((rows, said)) = self.tools_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.tools_rx = None;
+            self.tools = Some(rows);
+            if let Some(said) = said {
+                self.said = Some((said, false));
+            }
+        }
         if let Some(items) = self.disk_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.disk_rx = None;
             self.disk = items;
@@ -381,6 +417,14 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             }
             let version = t!("settings.version", "version" => coxswain_core::update::VERSION);
             v.push(Row::Info(version.clone(), String::new(), t!("settings.stored_in", "path" => s.path.as_ref().map(|p| p.display().to_string()).unwrap_or_default())));
+        }
+        Area::Previews => {
+            v.extend(opts(Area::Previews));
+            v.push(Row::Head(t!("ptools.title"), "preview_tools"));
+            match &s.tools {
+                Some(tools) => v.extend(tools.iter().cloned().map(Row::PreviewTool)),
+                None => v.push(Row::Info(t!("common.loading"), String::new(), t!("ptools.hint"))),
+            }
         }
         area => v.extend(opts(area)),
     }
@@ -616,11 +660,33 @@ impl App {
                 }
                 (_, Some('/')) => s.mode = Mode::Find { query: String::new(), at: 0 },
                 (KeyCode::Delete, _) => match rows.get(s.cursor) {
-                    Some(Row::Model(e)) if e.in_use => s.mode = Mode::ConfirmDelete(e.id.clone()),
+                    Some(Row::PreviewTool(r)) => self.tool_remove(&mut s, r),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
                     Some(Row::Disk(i)) if i.bytes > 0 => s.mode = Mode::ConfirmClear(i.id.clone()),
                     _ => {}
                 },
+                (_, Some('c' | 'C')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
+                    if let Some(Row::PreviewTool(r)) = rows.get(s.cursor) {
+                        match &r.install {
+                            Some(line) => {
+                                crate::guide::copy(line);
+                                s.said = Some((t!("guide.copied", "command" => line), false));
+                            }
+                            None => s.said = Some((t!("install.get", "program" => r.programs.first().map_or("", |p| p.name)), false)),
+                        }
+                    }
+                }
+                (_, Some('p' | 'P')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
+                    if let Some(Row::PreviewTool(r)) = rows.get(s.cursor) {
+                        let images: Vec<String> = r.images.iter().filter(|i| !i.image.is_empty()).map(|i| i.image.clone()).collect();
+                        if images.is_empty() {
+                            s.said = Some((t!("ptools.container_none"), false));
+                        } else {
+                            s.said = Some((t!("convert.pulling", "image" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")), false));
+                            s.load_tools(self, Some(images));
+                        }
+                    }
+                }
                 (_, Some('u' | 'U')) => {
                     if let Some(Row::Model(e)) = rows.get(s.cursor) {
                         s.said = Some(match (&e.loaded, e.what) {
@@ -797,6 +863,26 @@ impl App {
     fn settings_space(&mut self, mut s: Box<Settings>, rows: &[Row], value: &Value) {
         let set = |name: &str, v: Value| Map::from_iter([(name.to_string(), v)]);
         match rows.get(s.cursor) {
+            // Tika's: `[search] tika` turns it on, it has no choice here.
+            Some(Row::PreviewTool(r)) if !r.can_choose => {}
+            Some(Row::PreviewTool(r)) => {
+                // The next choice: Default, Installed program, Container, Off.
+                let order = ["", "local", "container", "off"];
+                let next = order[(order.iter().position(|c| *c == r.choice).unwrap_or(0) + 1) % order.len()];
+                let Some(path) = s.path.clone() else {
+                    s.said = Some((t!("err.no_config_folder"), true));
+                    return self.dialog = Some(Dialog::Settings(s));
+                };
+                match coxswain_core::preview_tools::set_choice(&path, r.kind, next) {
+                    Ok(cfg) => {
+                        self.cfg = cfg;
+                        s.said = Some((t!("settings.saved", "path" => path.display()), false));
+                        s.load_tools(self, None);
+                    }
+                    Err(e) => s.said = Some((e, true)),
+                }
+                return self.dialog = Some(Dialog::Settings(s));
+            }
             Some(Row::Opt(o)) if matches!(o.name, "ask_model" | "ask_code_model") => {
                 if let Kind::Choice(c) = kind(o, &self.cfg, value) {
                     s.mode = Mode::Pick(pick_start(o, &self.cfg, value, &c));
@@ -1005,6 +1091,20 @@ impl App {
     }
 
     /// Written to config.toml and used at once; the helper restarts when it reads one of them.
+    /// Delete on a preview tool: its pulled images removed.
+    fn tool_remove(&mut self, s: &mut Settings, r: &coxswain_core::preview_tools::Row) {
+        let Some((_, rt)) = coxswain_core::tools::container_runtime(&self.cfg.preview) else {
+            return s.said = Some((coxswain_core::tools::no_runtime(), true));
+        };
+        let gone: Vec<Result<String, String>> = r.images.iter().filter(|i| i.pulled.is_some()).map(|i| coxswain_core::images::remove(&rt, &i.image).map(|_| coxswain_core::images::short(&i.image).to_string())).collect();
+        s.said = Some(match gone.iter().find_map(|g| g.as_ref().err()) {
+            Some(e) => (e.clone(), true),
+            None if gone.is_empty() => (t!("settings.image_not_pulled"), false),
+            None => (t!("ptools.removed", "images" => gone.into_iter().flatten().collect::<Vec<_>>().join(", ")), false),
+        });
+        s.load_tools(self, None);
+    }
+
     fn settings_save(&mut self, mut s: Box<Settings>, changes: Map<String, Value>) {
         let Some(path) = s.path.clone() else {
             s.said = Some((t!("err.no_config_folder"), true));
@@ -1222,6 +1322,17 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(Span::styled(fit(&format!(" {} {label}", if on { "[x]" } else { "[ ]" }), w), st)));
                 }
                 Row::ClearAll(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("disk.clear_all", "size" => cs::human(*n))), w), st))),
+                // The kind, then what is used and the choice.
+                Row::PreviewTool(r) => {
+                    let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else { t!(&format!("ptools.choice.{}", r.choice)) };
+                    // What is used first: the choice is long when it is the default.
+                    let pulling = coxswain_core::images::pulling();
+                    let uses = match r.images.iter().find_map(|i| pulling.get(&i.image)) {
+                        Some(line) => format!("{} {line}", t!("common.loading")),
+                        None => r.uses.clone(),
+                    };
+                    lines.push(pair(&format!(" {} {}", if r.missing { "✗" } else { "✓" }, r.title), &if choice.is_empty() { uses } else { format!("{uses} · {choice}") }, if r.missing && !here { red } else { st }));
+                }
                 Row::Opt(o) => {
                     let value = &values[o.name];
                     let label = match on(o, value) {
@@ -1383,6 +1494,23 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             Some(Row::Tick(true, _)) => text.push(Span::raw(t!("disk.outside_hint"))),
             Some(Row::Tick(false, _)) => text.push(Span::raw(t!("models.hint"))),
             Some(Row::ClearAll(_)) => text.push(Span::raw(t!("disk.clear_all_hint"))),
+            Some(Row::PreviewTool(r)) => {
+                let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
+                let mut parts = vec![if installed.is_empty() { t!("ptools.installed_none") } else { t!("ptools.installed", "programs" => installed.join(", ")) }];
+                if let (true, Some(line)) = (installed.is_empty(), &r.install) {
+                    parts.push(format!("{} {line}", t!("install.with")));
+                }
+                for i in &r.images {
+                    let state = match (i.pulled, &i.download) {
+                        (Some(b), _) => t!("settings.image_pulled", "size" => cs::human(b)),
+                        (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
+                        (None, None) => t!("settings.image_not_pulled"),
+                    };
+                    parts.push(if i.image.is_empty() { t!("ptools.container_none") } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
+                }
+                parts.push(r.exts.clone());
+                text.push(Span::raw(parts.join(" · ")));
+            }
             _ => {}
         },
     }
@@ -1394,6 +1522,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };
     f.render_widget(Paragraph::new(fit(&line, keys.width as usize)).style(st), keys);
@@ -1467,6 +1596,28 @@ mod tests {
     fn selected(app: &App) -> Option<&'static str> {
         let s = settings(app);
         rows(app, s).get(s.cursor).and_then(Row::id)
+    }
+
+    /// Preview tools: a row per kind once read; Enter takes the next choice and writes it.
+    #[test]
+    fn preview_tools_rows_take_the_next_choice() {
+        let d = crate::test_dir("panels");
+        let mut app = app(&d);
+        app.cfg.preview.container = "off".into();
+        let mut s = Settings::open(&app, "preview_tools");
+        s.path = Some(d.join("config.toml"));
+        while s.tools.is_none() {
+            s.poll();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let rows_now = rows(&app, &s);
+        let at = rows_now.iter().position(|r| matches!(r, Row::PreviewTool(t) if t.kind == "latex")).unwrap();
+        assert_eq!(rows_now.iter().filter(|r| matches!(r, Row::PreviewTool(_))).count(), coxswain_core::preview_tools::KINDS.len());
+        s.cursor = at;
+        app.dialog = Some(Dialog::Settings(Box::new(s)));
+        key(&mut app, KeyCode::Enter);
+        assert_eq!(app.cfg.preview.tools.get("latex").map(String::as_str), Some("local"));
+        assert!(std::fs::read_to_string(d.join("config.toml")).unwrap().contains("latex = \"local\""));
     }
 
     /// The themes stand under their groups' headings, your own last; the next one skips a heading.

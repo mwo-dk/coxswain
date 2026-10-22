@@ -12,12 +12,13 @@ kept in a cache, so each file is made once.
 ![Three previews: a PlantUML sequence diagram under the engine buttons "plantuml" (chosen) and "container" (greyed), a Graphviz graph and an AsciiDoc guide](../screenshots/gui-previews-tools.png)
 *The engine buttons at the top of a tool preview: here the installed `plantuml` is used; the container is greyed, as there is no podman or docker to run it.*
 
-![Settings, Previews: How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, and Container images, each Not pulled with Pull and Remove](../screenshots/previews-tools-settings.png)
-<!-- screenshot: previews-tools-settings.png: desktop app, Cyber theme, Settings open at Previews (the area list on the left with Previews chosen): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout (seconds), Previews made so far with its size and Clear, Container images, each with the line that says what it gives, its size and cost, and Pull and Remove, then Keep images up to date and Remove images not used for 90 days -->
+![Settings, Previews, Preview tools: a row per kind of file, LaTeX, Typst, Office documents and the others, each with what is installed and its version, its container image with its size and Pull and Remove, Used now, the choice Default, Installed program, Container or Off, and Try](../screenshots/previews-tools-settings.png)
+*Settings → Previews → Preview tools: which program makes each kind of preview, and the choice per kind.*
 
 ## Contents
 
 - [The tools](#the-tools)
+- [Preview tools in Settings](#preview-tools-in-settings)
 - [How to use it](#how-to-use-it)
 - [How it works](#how-it-works)
 - [The preview cache](#the-preview-cache)
@@ -29,29 +30,86 @@ kept in a cache, so each file is made once.
 
 ## The tools
 
-| Files | Tool | Installed programs it looks for | Container image (default) | Result | Runs by itself |
-|---|---|---|---|---|---|
-| `.tex`, `.ltx` | LaTeX ([LaTeX projects](latex.md)) | `latexmk`, `tectonic`, `pdflatex` | `docker.io/texlive/texlive:latest` (about 2.8 GB to download, 5.9 GB on disk) | PDF | After 0.8 s, when `latex_auto` is on |
-| `.typ` | Typst ([Documents](documents.md#typst)) | `typst` | `ghcr.io/typst/typst:latest` (about 29 MB to download, 65 MB on disk) | PDF | At once |
-| `.doc` `.docm` `.dot` `.dotx` `.odt` `.ott` `.rtf` `.wri` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` `.wk1` `.wks` `.123` `.lwp` `.sxw` `.sxc` `.sxi` `.sxd` `.abw` `.cwk` `.pages` `.key` `.numbers` `.fodt` `.fods` `.fodp` `.fodg` `.cdr` `.pmd` `.wmf` `.emf` | LibreOffice ([Office](office.md)) | `soffice`, `libreoffice` (also its usual macOS and Windows install folders) | `docker.io/gotenberg/gotenberg:8-libreoffice` (about 440 MB to download, 1 GB on disk) | PDF | After 0.6 s |
-| `.ps`, `.eps` | Ghostscript ([Documents](documents.md#postscript-and-xps)) | `gs`, `gswin64c` | `docker.io/jbarlow83/ocrmypdf-alpine:latest` (about 310 MB, 850 MB on disk; shared with [Make PDF searchable](../files/searchable-pdf.md)) | PDF | At once |
-| `.xps`, `.oxps` | GhostXPS ([Documents](documents.md#postscript-and-xps)) | `gxps` | none; set one you trust | PDF | At once |
-| `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | PlantUML ([Diagrams](diagrams.md)) | `plantuml` | `docker.io/plantuml/plantuml:latest` | SVG | At once |
-| `.d2` `.ditaa` `.bob` `.svgbob` `.pikchr` `.nomnoml` `.noml` `.wavedrom` `.vg` `.vega` `.vl` `.vegalite` `.dbml` `.er` `.erd` `.bytefield` | Kroki's programs ([Diagrams](diagrams.md#d2-ditaa-svgbob-and-the-others)) | `d2`, `svgbob`, `pikchr`, `erd` for theirs; none for the others | `docker.io/yuzutech/kroki:latest` (about 1.2 GB to download, 2.8 GB on disk) | SVG | At once |
-| `.rst`, `.rest` | pandoc ([Documents](documents.md)) | `pandoc` | `docker.io/pandoc/core:latest` | HTML | At once |
-| `.duckdb`, `.ddb` | DuckDB ([Data](data.md)) | `duckdb` | none; set one you trust | Tables, row estimates, column counts | At once |
-| `.avi` `.wmv` `.mpg` and the other videos the player cannot play, and every video's thumbnail and poster | ffmpeg ([Media](media.md#video-and-sound-with-ffmpeg)) | `ffmpeg` | `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk) | PNG of a frame | At once |
-| `.wma` `.ape` `.ac3` and the other sound the player cannot play, and the waveform above a player | ffmpeg (`waveform`) | `ffmpeg` | The same | PNG of the waveform | At once |
-| `.heic`, `.heif` | ImageMagick or ffmpeg (`heif`, [Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)) | `magick`, `ffmpeg` | ffmpeg's | PNG | At once |
-| `.xcf` `.dpx` `.cin` `.fits` `.sgi` `.sun` `.xwd` `.pict` `.miff` `.wbmp` | ImageMagick (`imagemagick`) | `magick` | `docker.io/dstmodders/imagemagick:latest` (about 60 MB to download, 152 MB on disk), first once pulled | PNG | At once |
-| `.dng` `.cr2` `.nef` `.arw` and other RAW photos | ImageMagick with LibRaw (`raw`) | `magick` | none: no image reads RAW | PNG | At once |
-| `.gpkg` `.shp` `.geojson` `.kml`, and GeoTIFF the picture reader cannot draw | GDAL (`gdal`, [Geodata](geodata.md)) | `gdalinfo` (and `ogrinfo`, `ogr2ogr`, `gdal_translate` beside it) | `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, pinned (about 40 MB to download, 98 MB on disk) | SVG map | At once |
-| `.scad` | OpenSCAD (`openscad`, [OpenSCAD models](openscad.md)) | `openscad` | `docker.io/openscad/openscad:trixie.2026-10-19`, pinned (about 241 MB to download, 635 MB on disk) | A picture of the part (an SVG outline of a flat model) | At once |
-| `.mobi` `.azw` `.azw3` `.fb2` `.lit` | calibre ([E-books](ebooks.md), only with *E-books with calibre* on) | `ebook-convert`, `ebook-meta` | `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (about 1.3 GB to download, 3.6 GB on disk) | Cover, title, authors and first chapter | After 0.4 s |
-| `.kicad_sch`, `.kicad_pcb` | KiCad (`kicad`; `kicad_thumb` for thumbnails, [KiCad](kicad.md)) | `kicad-cli` | `docker.io/kicad/kicad:9.0.9`, pinned (about 476 MB to download, 1.7 GB on disk; amd64 only) | PDF of the sheets or layers | At once |
+Every kind of file a tool shows, the programs Coxswain looks for (best first) and its container
+image. The kind's name in backquotes is its key under `[preview.tools]`. This table is made from
+the app's own list (`crates/coxswain-core/src/preview_tools.rs`); a test fails when they differ.
+
+<!-- tools-table -->
+| Kind (`[preview.tools]`) | Files | Installed programs it looks for | Container image (default) |
+|---|---|---|---|
+| [LaTeX](latex.md) (`latex`) | `.tex` `.ltx` | `latexmk`, `tectonic`, `pdflatex` | `latex`: `docker.io/texlive/texlive:latest` (about 2.8 GB to download, 5.9 GB on disk) |
+| [Typst](documents.md#typst) (`typst`) | `.typ` | `typst` | `typst`: `ghcr.io/typst/typst:latest` (about 29 MB to download, 65 MB on disk) |
+| [Office documents](office.md) (`office`) | `.doc` `.docm` `.dot` `.dotx` `.odt` `.ott` `.rtf` `.wri` `.ppt` `.pptx` `.pps` `.ppsx` `.pot` `.potx` `.odp` `.otp` `.odg` `.vsd` `.vsdx` `.pub` `.wpd` `.wps` `.wk1` `.wks` `.123` `.lwp` `.sxw` `.sxc` `.sxi` `.sxd` `.abw` `.cwk` `.pages` `.key` `.numbers` `.fodt` `.fods` `.fodp` `.fodg` `.cdr` `.pmd` `.wmf` `.emf` | `soffice`, `libreoffice` | `libreoffice`: `docker.io/gotenberg/gotenberg:8-libreoffice` (about 440 MB to download, 1.0 GB on disk) |
+| [PostScript and XPS](documents.md#postscript-and-xps) (`postscript`) | `.ps` `.eps` `.xps` `.oxps` | `gs`, `gswin64c`, `gxps` | `ghostscript`: `docker.io/jbarlow83/ocrmypdf-alpine:latest` (about 310 MB to download, 850 MB on disk)<br>`gxps`: none; set one you trust |
+| [Diagrams](diagrams.md) (`diagrams`) | `.puml` `.plantuml` `.pu` `.iuml` `.wsd` `.d2` `.ditaa` `.bob` `.svgbob` `.pikchr` `.nomnoml` `.noml` `.wavedrom` `.vg` `.vega` `.vl` `.vegalite` `.dbml` `.er` `.erd` `.bytefield` | `plantuml`, `d2`, `svgbob`, `pikchr`, `erd` | `plantuml`: `docker.io/plantuml/plantuml:latest` (about 141 MB to download, 353 MB on disk)<br>`kroki`: `docker.io/yuzutech/kroki:latest` (about 1.2 GB to download, 2.8 GB on disk) |
+| [reStructuredText](documents.md) (`markup`) | `.rst` `.rest` | `pandoc` | `pandoc`: `docker.io/pandoc/core:latest` (about 57 MB to download, 246 MB on disk) |
+| [DuckDB databases](data.md) (`databases`) | `.duckdb` `.ddb` | `duckdb` | `duckdb`: none; set one you trust |
+| [Video and sound](media.md#video-and-sound-with-ffmpeg) (`video`) | `.avi` `.wmv` `.flv` `.mpg` `.mpeg` `.m2v` `.ts` `.m2ts` `.mts` `.3gp` `.3g2` `.vob` `.asf` `.rm` `.rmvb` `.divx` `.ogm` `.f4v` `.mxf` `.dv` `.nut` `.wma` `.ape` `.ac3` `.dts` `.amr` `.aiff` `.aif` `.au` `.mka` `.wv` `.tta` `.caf` `.w64` `.mp2` `.oga` `.spx` `.ra` | `ffmpeg` | `ffmpeg`: `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk) |
+| [Pictures (HEIC, RAW, GIMP)](media.md#photos-only-imagemagick-or-ffmpeg-reads) (`pictures`) | `.heic` `.heif` `.xcf` `.dpx` `.cin` `.fits` `.fts` `.sgi` `.sun` `.ras` `.xwd` `.pict` `.pct` `.miff` `.wbmp` `.dng` `.cr2` `.cr3` `.crw` `.nef` `.nrw` `.arw` `.srf` `.sr2` `.orf` `.rw2` `.raf` `.pef` `.srw` `.x3f` `.erf` `.kdc` `.dcr` `.mrw` `.3fr` `.iiq` `.rwl` | `magick`, `ffmpeg` | `ffmpeg`: `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk)<br>`imagemagick`: `docker.io/dstmodders/imagemagick:latest` (about 60 MB to download, 152 MB on disk) |
+| [Circuits and boards (KiCad)](kicad.md) (`kicad`) | `.kicad_sch` `.kicad_pcb` | `kicad-cli` | `kicad`: `docker.io/kicad/kicad:9.0.9` (about 476 MB to download, 1.7 GB on disk) |
+| [E-books (calibre)](documents.md) (`ebooks`) | `.mobi` `.azw` `.azw3` `.fb2` `.lit` `.pdb` | `ebook-convert` | `calibre`: `docker.io/linuxserver/calibre:9.16.0` (about 1.3 GB to download, 3.6 GB on disk) |
+| [Maps (geodata)](geodata.md) (`maps`) | `.gpkg` `.shp` `.geojson` `.kml` `.gpx` | `gdalinfo` | `gdal`: `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (about 40 MB to download, 98 MB on disk) |
+| [3D models (OpenSCAD)](openscad.md) (`models`) | `.scad` | `openscad` | `openscad`: `docker.io/openscad/openscad:trixie.2026-10-19` (about 241 MB to download, 635 MB on disk) |
+| [Other formats (Tika, for search)](../search/tika.md) (`other`) | `.one` `.xps` `.oxps` `.chm` `.pst` `.ost` `.mht` `.mhtml` `.hwp` `.mdb` `.accdb` | none | `tika`: `docker.io/apache/tika:4.1.0` (about 190 MB to download, 440 MB on disk) |
+| [Transcripts (Whisper)](../search/transcripts.md) (`transcripts`) | `.mp3` `.m4a` `.m4b` `.aac` `.wav` `.flac` `.ogg` `.oga` `.opus` `.wma` `.aiff` `.aif` `.mp4` `.m4v` `.mov` `.mkv` `.webm` `.avi` | `whisper-cli` | `whisper`: `ghcr.io/ggml-org/whisper.cpp:main` (about 505 MB to download, 1.1 GB on disk) |
+| [Searchable PDFs (OCR)](../files/searchable-pdf.md) (`ocr`) | `.pdf` | `ocrmypdf` | `ocrmypdf`: `docker.io/jbarlow83/ocrmypdf-alpine:latest` (about 310 MB to download, 850 MB on disk) |
+<!-- /tools-table -->
+
+What each makes and when it runs by itself:
+
+| Kind | Result | Runs by itself |
+|---|---|---|
+| LaTeX | PDF | After 0.8 s, when `latex_auto` is on |
+| Typst, PostScript and XPS | PDF | At once |
+| Office documents | PDF | After 0.6 s |
+| Diagrams | SVG | At once |
+| reStructuredText | HTML | At once |
+| DuckDB databases | Tables, row estimates, column counts | At once |
+| Video and sound | PNG of a frame (videos the player cannot play, every video's thumbnail and poster), PNG of the waveform (sound) | At once |
+| Pictures | PNG; RAW only with an installed ImageMagick with LibRaw, as no image reads RAW; ImageMagick's image first once pulled | At once |
+| Maps | SVG map | At once |
+| 3D models | A picture of the part (an SVG outline of a flat model) | At once |
+| KiCad | PDF of the sheets or layers; a board in 3D as its thumbnail | At once |
+| E-books | Cover, title, authors and first chapter, only with *E-books with calibre* on ([E-books](ebooks.md)) | After 0.4 s |
+| Searchable PDFs | A searchable copy, only when [Make PDF searchable](../files/searchable-pdf.md) is asked for | – |
+| Transcripts (Whisper) | No preview: the transcript [Transcribe](../search/transcripts.md) makes when asked; *Off* counts as *Default* there | – |
+| Other formats (Tika) | No preview: the text [search](../search/tika.md) reads, when `[search] tika` is on; its row has no choice, only its image's **Pull** and **Remove** | – |
 
 "Runs by itself" never includes a container whose image is not pulled yet: a download waits for
 your click.
+
+## Preview tools in Settings
+
+*Settings → Previews → Preview tools* (desktop app: **Ctrl+,**; terminal app: **F12**, then
+**→** to *Previews*) has a row for every kind in the table above. Each row says:
+
+| Line | Means |
+|---|---|
+| The kind and its file endings | *LaTeX .tex .ltx* |
+| *Installed: latexmk 4.86, pdflatex 3.141592653* | The programs found, with the version each says; *Installed: none* when there is none, then *Install it:* with the line for this system and **Copy** |
+| *Container: docker.io/texlive/texlive:latest, Pulled, 5.9 GB* | Its image and whether the runtime has it (*Not pulled (2.8 GB)*), with **Pull** (also updates) and **Remove**; hover it for what the image gives and costs |
+| *Used now: latexmk 4.86* | What makes these previews now; *podman with texlive:latest, once pulled* when the container is used and its image is still to come; *nothing: install the program, or pull its image* in red when nothing can |
+| The choice | *Default (An installed program, else a container)*, *Installed program*, *Container*, *Off* |
+| **Try** | Writes a small sample of the kind (a `.tex`, a `.puml` …) into the cache folder, closes Settings and shows it in the panel with the preview open |
+
+The choice is kept under `[preview.tools]` in `config.toml`:
+
+| Choice | `[preview.tools]` | What happens |
+|---|---|---|
+| *Default (…)* | no entry | The kind follows *How previews are made* (`prefer`) |
+| *Installed program* | `"local"` | Only an installed program is the default; the container stays a button in the preview |
+| *Container* | `"container"` | The container first, even when a program is installed |
+| *Off* | `"off"` | No tool makes these previews, their thumbnails or their facts in **Properties** (ffprobe, GDAL): the preview says *Previews of these files by a tool are off (Settings → Previews → Preview tools).* with a **Settings → Previews** button. Conversions you ask for (Convert video or audio, Make PDF searchable …) still run, as *Default* |
+
+A choice made here wins over an engine button clicked in the preview for that kind. In the
+terminal app each row is one line, *✓ LaTeX* with what is used and the choice, *tectonic 0.17.0 ·
+Default (…)* (*✗* in red, *nothing: install the program, or pull its image*, when nothing can
+make them); under the list are what is installed, the container and the file endings, and the
+keys **Enter** (the next choice), **C** (copy the install line), **P** (pull the image) and
+**Delete** (remove it). The
+terminal app has no **Try**: it shows no rendered preview.
+
+![The terminal app's Settings, Previews: the options, then Preview tools, a line per kind with its choice and what is used now](../screenshots/tui-previews-tools.png)
 
 ## How to use it
 
@@ -60,13 +118,13 @@ your click.
    **Read tables**. Press it.
 3. To use another engine, click its button at the top; that renders again with it, and the pick
    is remembered for the tool (in the session).
-4. To change what is preferred, or the container runtime, open *Settings → Previews*
-   (**Ctrl+,**).
+4. To choose for a whole kind of file, open *Settings → Previews → Preview tools*
+   (**Ctrl+,**); *How previews are made* is the default for the kinds left at *Default*.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings | **F12**: the same *Previews* area, which sets the desktop app's previews |
+| **Ctrl+,** | Settings, *Previews*, with *Preview tools* | **F12**: the same *Previews* area with *Preview tools* (**Enter**, **C**, **P**, **Delete**) |
 
 ## How it works
 
@@ -77,7 +135,7 @@ your click.
    installed*). The container is greyed with *No image for duckdb: set [preview.images] duckdb
    in the config* or *Neither podman nor docker is installed*.
 2. **The default.** Without a pick of yours, the first available engine is used, in the order
-   `prefer` gives: `auto` puts installed programs first and the container last (ImageMagick:
+   the kind's choice gives (`[preview.tools]`), else `prefer`: `auto` puts installed programs first and the container last (ImageMagick:
    its container first once its image is pulled, as it reads files from anywhere); `local`
    never defaults to a container; `container` puts it first.
 3. **Waiting a moment.** A tool starts only once the file has stayed under the cursor for a
@@ -125,7 +183,7 @@ things are kept](../reference/where-things-are-kept.md).
 When neither an installed program nor a container can make a preview, the pane says what is
 missing, then *Install the program, or let a container make this preview.* Under it is the
 command that installs the program on this system, with **Copy**, and a **Settings → Previews**
-button that opens *Settings → Previews* to choose a container runtime or an image; with
+button that opens *Settings → Previews → Preview tools* to pull the image or choose; with
 *Container runtime → No containers* it opens Settings at that option. Coxswain never
 runs the command: paste it into a shell, then show the file again.
 
@@ -135,18 +193,23 @@ The package manager is the system's own: `pkg` on FreeBSD, `pkgin` on NetBSD, `p
 OpenBSD, `pkg` on illumos, on Linux the first of `pacman`, `apt`, `dnf` and `zypper` that is
 installed, Homebrew on a Mac and `winget` on Windows.
 
-| System | LibreOffice | LaTeX | Typst | Ghostscript | PlantUML | pandoc |
-|---|---|---|---|---|---|---|
-| FreeBSD | `pkg install libreoffice` | `pkg install texlive-full` | `pkg install typst` | `pkg install ghostscript10` | `pkg install plantuml` | `pkg install hs-pandoc` |
-| NetBSD (`pkgin`) | `pkgin install libreoffice` | none | `pkgin install typst` | `pkgin install ghostscript-agpl` | none | `pkgin install pandoc-cli` |
-| OpenBSD (`pkg_add`) | `pkg_add libreoffice` | `pkg_add texlive_texmf-full` | `pkg_add typst` | `pkg_add ghostscript` | none | `pkg_add pandoc` |
-| illumos (`pkg`) | none | `pkg install ooce/application/texlive` | none | none | none | none |
-| Arch (`pacman`) | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S typst` | `sudo pacman -S ghostscript` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` |
-| Debian, Ubuntu (`apt`) | `sudo apt install libreoffice` | `sudo apt install texlive-latex-extra latexmk` | none | `sudo apt install ghostscript` | `sudo apt install plantuml` | `sudo apt install pandoc` |
-| Fedora (`dnf`) | `sudo dnf install libreoffice` | `sudo dnf install texlive-scheme-medium latexmk` | `sudo dnf install typst` | `sudo dnf install ghostscript` | `sudo dnf install plantuml` | `sudo dnf install pandoc` |
-| openSUSE (`zypper`) | `sudo zypper install libreoffice` | `sudo zypper install texlive-latexmk texlive-collection-latexextra` | `sudo zypper install typst` | `sudo zypper install ghostscript` | `sudo zypper install plantuml` | `sudo zypper install pandoc` |
-| macOS (Homebrew) | `brew install --cask libreoffice` | `brew install --cask mactex-no-gui` | `brew install typst` | `brew install ghostscript` | `brew install plantuml` | `brew install pandoc` |
-| Windows (`winget`) | `winget install --id TheDocumentFoundation.LibreOffice -e` | `winget install --id MiKTeX.MiKTeX -e` | `winget install --id Typst.Typst -e` | `winget install --id ArtifexSoftware.GhostScript -e` | none | `winget install --id JohnMacFarlane.Pandoc -e` |
+Every line Coxswain knows, by the name it looks for the program under (made from the same list;
+the test checks this one too):
+
+<!-- install-table -->
+| System | `latex` | `typst` | `soffice` | `gs` | `plantuml` | `pandoc` | `ffmpeg` | `magick` | `kicad-cli` | `calibre` | `gdalinfo` | `openscad` | `ocrmypdf` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| FreeBSD (`pkg`) | `pkg install texlive-full` | `pkg install typst` | `pkg install libreoffice` | `pkg install ghostscript10` | `pkg install plantuml` | `pkg install hs-pandoc` | `pkg install ffmpeg` | `pkg install ImageMagick7` | `pkg install kicad` | `pkg install calibre` | `pkg install gdal` | `pkg install openscad` | none |
+| NetBSD (`pkgin`) | none | `pkgin install typst` | `pkgin install libreoffice` | `pkgin install ghostscript-agpl` | none | `pkgin install pandoc-cli` | `pkgin install ffmpeg7` | `pkgin install ImageMagick` | `pkgin install kicad` | none | `pkgin install gdal` | `pkgin install openscad` | none |
+| OpenBSD (`pkg_add`) | `pkg_add texlive_texmf-full` | `pkg_add typst` | `pkg_add libreoffice` | `pkg_add ghostscript` | none | `pkg_add pandoc` | `pkg_add ffmpeg` | `pkg_add ImageMagick` | `pkg_add kicad` | none | `pkg_add gdal` | `pkg_add openscad` | `pkg_add ocrmypdf` |
+| illumos (`pkg`) | `pkg install ooce/application/texlive` | none | none | none | none | none | `pkg install ooce/multimedia/ffmpeg` | none | none | none | none | none | none |
+| Arch (`pacman`) | `sudo pacman -S texlive-basic texlive-latexextra texlive-binextra` | `sudo pacman -S typst` | `sudo pacman -S libreoffice-fresh` | `sudo pacman -S ghostscript` | `sudo pacman -S plantuml` | `sudo pacman -S pandoc-cli` | `sudo pacman -S ffmpeg` | `sudo pacman -S imagemagick` | `sudo pacman -S kicad` | `sudo pacman -S calibre` | `sudo pacman -S gdal` | `sudo pacman -S openscad` | `sudo pacman -S ocrmypdf` |
+| Debian, Ubuntu (`apt`) | `sudo apt install texlive-latex-extra latexmk` | none | `sudo apt install libreoffice` | `sudo apt install ghostscript` | `sudo apt install plantuml` | `sudo apt install pandoc` | `sudo apt install ffmpeg` | `sudo apt install imagemagick` | `sudo apt install kicad` | `sudo apt install calibre` | `sudo apt install gdal-bin` | `sudo apt install openscad` | `sudo apt install ocrmypdf` |
+| Fedora (`dnf`) | `sudo dnf install texlive-scheme-medium latexmk` | `sudo dnf install typst` | `sudo dnf install libreoffice` | `sudo dnf install ghostscript` | `sudo dnf install plantuml` | `sudo dnf install pandoc` | `sudo dnf install ffmpeg-free` | `sudo dnf install ImageMagick` | `sudo dnf install kicad` | `sudo dnf install calibre` | `sudo dnf install gdal` | `sudo dnf install openscad` | `sudo dnf install ocrmypdf` |
+| openSUSE (`zypper`) | `sudo zypper install texlive-latexmk texlive-collection-latexextra` | `sudo zypper install typst` | `sudo zypper install libreoffice` | `sudo zypper install ghostscript` | `sudo zypper install plantuml` | `sudo zypper install pandoc` | `sudo zypper install ffmpeg` | `sudo zypper install ImageMagick` | `sudo zypper install kicad` | `sudo zypper install calibre` | `sudo zypper install gdal` | `sudo zypper install openscad` | none |
+| macOS (Homebrew) | `brew install --cask mactex-no-gui` | `brew install typst` | `brew install --cask libreoffice` | `brew install ghostscript` | `brew install plantuml` | `brew install pandoc` | `brew install ffmpeg` | `brew install imagemagick` | `brew install --cask kicad` | `brew install --cask calibre` | `brew install gdal` | `brew install --cask openscad` | `brew install ocrmypdf` |
+| Windows (`winget`) | `winget install --id MiKTeX.MiKTeX -e` | `winget install --id Typst.Typst -e` | `winget install --id TheDocumentFoundation.LibreOffice -e` | `winget install --id ArtifexSoftware.GhostScript -e` | none | `winget install --id JohnMacFarlane.Pandoc -e` | `winget install --id Gyan.FFmpeg -e` | `winget install --id ImageMagick.ImageMagick -e` | `winget install --id KiCad.KiCad -e` | `winget install --id calibre.calibre -e` | none | `winget install --id OpenSCAD.OpenSCAD -e` | none |
+<!-- /install-table -->
 
 D2, svgbob, Pikchr and erd come from their own projects' releases (`brew install d2`, `cargo
 install svgbob_cli`, …): Coxswain has no line for them. Where the table says *none*, and for
@@ -168,28 +231,12 @@ image_updates = "off"    # "weekly", "monthly": the desktop app pulls the pulled
 image_prune = false      # remove an image no preview used for 90 days
 ebooks = false           # e-books through calibre: previews, search, Convert e-book
 
-[preview.prefer_tool]    # per tool, overrides prefer
-libreoffice = "local"
+[preview.tools]          # per kind of file, overrides prefer: "local", "container", "off"
+office = "local"
+video = "off"
 
-[preview.images]         # "" means that tool never uses a container
+[preview.images]         # "" means that tool never uses a container; the defaults: the table above
 latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 960 MB to download
-plantuml = "docker.io/plantuml/plantuml:latest"
-pandoc = "docker.io/pandoc/core:latest"
-libreoffice = "docker.io/gotenberg/gotenberg:8-libreoffice"
-kroki = "docker.io/yuzutech/kroki:latest"   # D2, ditaa, svgbob and the other diagram kinds
-typst = "ghcr.io/typst/typst:latest"
-ghostscript = "docker.io/jbarlow83/ocrmypdf-alpine:latest"
-ocrmypdf = "docker.io/jbarlow83/ocrmypdf-alpine:latest"   # Make PDF searchable
-duckdb = ""
-gxps = ""
-ffmpeg = "docker.io/mwader/static-ffmpeg:latest"          # video, sound, HEIC
-imagemagick = "docker.io/dstmodders/imagemagick:latest"  # GIMP and other pictures, conversions
-gdal = "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"  # geodata
-openscad = "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"  # models
-calibre = "docker.io/linuxserver/calibre:9.16.0@sha256:…"   # e-books
-kicad = "docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729"  # schematics, boards
-tika = "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4"  # Read other formats with Apache Tika
-whisper = "ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af"  # Transcribe speech, when no whisper.cpp is installed
 ```
 
 | Settings → Previews | config.toml | Choices, default |
@@ -201,18 +248,20 @@ whisper = "ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f8
 | *E-books with calibre* | `ebooks` | off ([E-books](ebooks.md)) |
 | *Timeout (seconds)* | `timeout` | 10 to 3600, `120` |
 | *Previews made so far* | – | The cache size, **Clear** |
-| *Container images* | `images.*` | Each image with what it gives, its size and cost, **Pull** and **Remove** ([Containers](containers.md)) |
+| *Preview tools* | `tools.*`, `images.*` | A row per kind: what is installed, its image with **Pull** and **Remove**, what is used, the choice, **Try** ([above](#preview-tools-in-settings)) |
 | *Keep images up to date* | `image_updates` | *Off* (`off`, default), *Weekly* (`weekly`), *Monthly* (`monthly`) ([Containers](containers.md#keeping-images-up-to-date)) |
 | *Remove images not used for 90 days* | `image_prune` | off ([Containers](containers.md#removing-unused-images)) |
 
-Setting one image keeps the others' defaults. `prefer_tool` and the other images are set in
-`config.toml` only. Every key: [Configuration](../reference/configuration.md#preview).
+Setting one image keeps the others' defaults. The images other than LaTeX's are set in
+`config.toml` only. A config of before 2.33 with `[preview.prefer_tool]` (per tool) is rewritten
+once, on start, to `[preview.tools]` (per kind; `d2` becomes `diagrams`, `waveform` `video`), and
+a notice says so. Every key: [Configuration](../reference/configuration.md#preview).
 
 ## In the terminal app
 
 The terminal app has no preview pane, so it makes none of these previews; the `[preview]`
 section is mostly the desktop app's. The terminal app's Settings (**F12** → *Previews*) change it all the same, for
-the desktop app. Run the
+the desktop app, *Preview tools* too ([above](#preview-tools-in-settings)). Run the
 tool yourself on the command line (`latexmk -pdf`, `typst compile`, `soffice --headless
 --convert-to pdf`, `gs -dSAFER -sDEVICE=pdfwrite`, `plantuml`, `d2`, `pandoc`, `duckdb`) and
 open the result with **Enter**. The tools it does run are OCRmyPDF, for
@@ -242,6 +291,17 @@ No. It shows the line for your system (`sudo apt install plantuml`) with **Copy*
 it. Paste it into a terminal, or click **Settings → Previews** to let a container make the
 preview instead. The lines: [Installing what is missing](#installing-what-is-missing).
 
+#### How do I see which program shows a kind of file?
+
+*Settings → Previews → Preview tools*: the kind's row says what is installed, with versions, its
+container image and whether it is pulled, and *Used now:* with what makes the previews. **Try**
+shows a sample of that kind at once.
+
+#### How do I turn off the previews of one kind?
+
+Choose *Off* on its row (`[preview.tools] video = "off"`). Its files are shown as if no tool
+were there; what you ask for (a conversion) still runs.
+
 #### How do I stop using containers?
 
 *Settings → Previews → Container runtime → No containers* (`container = "off"`),
@@ -261,8 +321,9 @@ Nothing is lost: previews are made again when shown.
 
 #### Can I use a tool from a container even though it is installed?
 
-Yes: click the container's button (the pick is remembered for that tool), or set
-`prefer = "container"`, or per tool `[preview.prefer_tool] latex = "container"`.
+Yes: click the container's button (the pick is remembered for that tool), or choose *Container*
+on the kind's row in *Settings → Previews → Preview tools* (`[preview.tools] latex =
+"container"`), or set `prefer = "container"` for every kind.
 
 #### Why did the timeout not stop the first run?
 

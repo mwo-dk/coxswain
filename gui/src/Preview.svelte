@@ -820,14 +820,17 @@
           <div class="slides">
             {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
           </div>
+        {:else if conv.engines[0]?.id === "off:"}
+          <!-- Off for this kind in Settings → Previews → Preview tools. -->
+          <p class="more">{conv.engines[0].note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "preview_tools" })}>{t("preview.settings")}</button></p>
         {:else if !conv.engines.some((x) => x.available)}
           <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs", waveform: "ffmpeg", heif: "magick", imagemagick: "magick", raw: "magick", gdal: "gdalinfo", openscad: "openscad", kicad: "kicad-cli" }[conv.tool] ?? conv.tool]}
+          {@const install = conv.engines.find((x) => x.install)?.install}
           {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
           <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
           <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
           <p class="more">{#if conv.tool === "calibre" && !ui.cfg.settings.ebooks}<!-- Only turned off: nothing to install. -->{:else if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
-            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: conv.tool === "calibre" && !ui.cfg.settings.ebooks ? "ebooks" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews" })}>{t("preview.settings")}</button></p>
+            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: conv.tool === "calibre" && !ui.cfg.settings.ebooks ? "ebooks" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "preview_tools" })}>{t("preview.settings")}</button></p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>

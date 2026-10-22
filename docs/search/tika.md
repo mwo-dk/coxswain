@@ -36,7 +36,7 @@ on.
    your words.
 
 To stop: untick it. What was read stays searchable; nothing more is read with Tika, and the
-image stays until you remove it in *Settings → Previews → Container images* (**Remove**).
+image stays until you remove it in *Settings → Previews → Preview tools*, on the row *Other formats (Tika, for search)* (**Remove**).
 Untick it before you remove the image: while it is ticked, the helper pulls the image again
 the next time it starts.
 
@@ -117,8 +117,9 @@ stays on: nothing is mounted, so nothing needs relabelling.
   *Read other formats with Apache Tika is on, but neither podman nor docker is installed: install
   one to read OneNote, XPS, CHM and Outlook files.*
 - A hit from such a file shows its passage in *In files*, as any text hit does.
-- *Settings → Previews → Container images* (desktop app) lists the image with what it gives, its
-  size and cost, *Pulled, 440 MB*, **Pull** and **Remove**; [Disk use](../reference/disk-use.md)
+- *Settings → Previews → Preview tools* lists the image on the row *Other formats (Tika, for
+  search)*, with what it gives, its size and cost on hover, *Pulled, 440 MB*, **Pull** and **Remove**
+  (the terminal app: **P** and **Delete** on that line); it has no choice there, as this option turns it on; [Disk use](../reference/disk-use.md)
   has its row in both apps.
 
 ## What is read again
@@ -134,7 +135,7 @@ kinds again (the store keeps Tika's own reader version, `readers.tika`).
 | Settings → Finding files → Details → What is read | config.toml | Default |
 |---|---|---|
 | *Read other formats with Apache Tika (container)* | `[search] tika` | `false` |
-| – (Settings → Previews → Container images lists it) | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"`, pinned |
+| *Preview tools* → *Other formats (Tika, for search)* (Pull, Remove) | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"`, pinned |
 | *Container runtime* (Settings → Previews) | `[preview] container` | `"auto"`; `"off"` turns Tika off too |
 
 `coxswain-gui --settings=search_tika` (or `coxswain --settings=search_tika`) opens Settings at the
@@ -149,8 +150,8 @@ preview images; each day it reads a file counts as a use.
 
 The same: the helper reads for both apps. **F12** (or *Settings* in **F9**) → *Finding files*
 shows the row under *What is read* and the *Tika* line in the status block; **Space**
-turns it on or off. The terminal app has no *Container images* list: remove the image with
-`podman image rm docker.io/apache/tika:4.1.0`, or in the desktop app.
+turns it on or off. **F12** → *Previews* → *Preview tools* has its line, where **P** pulls the
+image and **Delete** removes it.
 
 ## Questions
 

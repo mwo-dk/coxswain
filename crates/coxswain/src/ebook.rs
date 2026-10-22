@@ -196,6 +196,9 @@ impl App {
 
 /// The book's text for the viewer: from the cache when calibre made its preview before.
 fn view(cfg: &coxswain_core::config::PreviewConfig, book: &std::path::Path, said: &mut dyn FnMut(ebook::Said)) -> Result<PathBuf, String> {
+    if coxswain_core::preview_tools::off(cfg, ebook::TOOL) {
+        return Err(t!("ptools.off_note"));
+    }
     let how = ebook::how(cfg)?;
     let dir = ebook::cache_dir(book).ok_or_else(|| t!("err.no_cache_folder"))?;
     let p = match ebook::shown(&dir) {

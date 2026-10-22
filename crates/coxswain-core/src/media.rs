@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 use crate::config::PreviewConfig;
 use crate::t;
 
-/// Their names under `[preview.images]` and `prefer_tool`.
+/// Their names under `[preview.images]`.
 pub const FFMPEG: &str = "ffmpeg";
 pub const MAGICK: &str = "imagemagick";
 
@@ -203,10 +203,11 @@ impl How {
 
 /// How `program` runs for an action, or why it cannot: what to install, or which setting to
 /// change. ffmpeg: as installed first; ImageMagick: its container first, as `[preview]
-/// prefer` and `prefer_tool` allow.
+/// prefer` and `[preview.tools]` allow.
 pub fn how(cfg: &PreviewConfig, program: Program) -> Result<How, String> {
     let tool = program.tool();
-    let pref = cfg.prefer_tool.get(tool).unwrap_or(&cfg.prefer).as_str();
+    let pref = crate::preview_tools::asked(cfg, tool);
+    let pref = pref.as_str();
     let local = crate::tools::which(program.local()).map(|path| How::Local { program, path });
     let image = cfg.images.get(tool).filter(|i| !i.is_empty()).cloned();
     let container = match (crate::tools::container_runtime(cfg), &image) {
@@ -909,7 +910,7 @@ pub fn run_all(
     };
     // The image reads no HEIC or RAW photo: an installed ImageMagick takes those, when there
     // is one and nothing asks for the container alone.
-    let auto = cfg.prefer_tool.get(MAGICK).unwrap_or(&cfg.prefer) == "auto";
+    let auto = crate::preview_tools::asked(cfg, MAGICK) == "auto";
     let installed = match (&how, auto) {
         (How::Container { program: Program::Magick, .. }, true) => crate::tools::which("magick").map(|path| How::Local { program: Program::Magick, path }),
         _ => None,
@@ -1036,7 +1037,7 @@ fn parse_probe(json: &str) -> Option<Probe> {
 /// pulled for this). Twenty seconds at most; `None` when neither is there or it says nothing.
 pub fn probe_file(cfg: &PreviewConfig, path: &Path) -> Option<Probe> {
     let base = ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", "-protocol_whitelist", "file", "-format_whitelist", DEMUXERS];
-    let local = crate::tools::which("ffprobe").filter(|_| cfg.prefer_tool.get(FFMPEG).unwrap_or(&cfg.prefer) != "container");
+    let local = crate::tools::which("ffprobe").filter(|_| crate::preview_tools::asked(cfg, FFMPEG) != "container");
     let (c, kill) = match local {
         Some(p) => {
             let mut c = crate::tools::command(p);
@@ -1044,7 +1045,7 @@ pub fn probe_file(cfg: &PreviewConfig, path: &Path) -> Option<Probe> {
             (c, None)
         }
         None => {
-            if cfg.prefer_tool.get(FFMPEG).unwrap_or(&cfg.prefer) == "local" {
+            if crate::preview_tools::asked(cfg, FFMPEG) == "local" {
                 return None;
             }
             let (rt, rt_path) = crate::tools::container_runtime(cfg)?;
@@ -1143,7 +1144,8 @@ pub fn with_facts(mut p: crate::fs::Props, cfg: &PreviewConfig, path: &Path) -> 
 /// The facts of a video, or of a song the tags reader does not know, by ffprobe; empty for
 /// anything else, without ffprobe, or for a file only in the cloud.
 pub fn facts(cfg: &PreviewConfig, path: &Path) -> Vec<(String, String)> {
-    if crate::cloud::unasked(path) || !among(path, &[VIDEO, VIDEO_OTHER, AUDIO_OTHER]) {
+    // Video and sound *Off* in Preview tools: ffprobe does not run by itself either.
+    if crate::cloud::unasked(path) || !among(path, &[VIDEO, VIDEO_OTHER, AUDIO_OTHER]) || crate::preview_tools::off(cfg, FFMPEG) {
         return vec![];
     }
     probe_file(cfg, path).map(|p| facts_of(&p)).unwrap_or_default()

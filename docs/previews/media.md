@@ -179,8 +179,9 @@ Previews* like every [previews made by tools](tools.md):
 
 | Settings → Previews | config.toml | Default |
 |---|---|---|
-| *How previews are made* | `[preview] prefer`, `[preview.prefer_tool] ffmpeg`, `waveform`, `heif`, `imagemagick`, `raw` | `"auto"`: an installed ffmpeg first; ImageMagick's image first once it is pulled |
-| *Container images* | `[preview.images] ffmpeg`, `imagemagick` | `"docker.io/mwader/static-ffmpeg:latest"`, `"docker.io/dstmodders/imagemagick:latest"` |
+| *How previews are made* | `[preview] prefer` | `"auto"`: an installed ffmpeg first; ImageMagick's image first once it is pulled |
+| [*Preview tools*](tools.md#preview-tools-in-settings) → *Video and sound*, *Pictures* | `[preview.tools] video`, `pictures` | `[preview] prefer`; `"local"`, `"container"` or `"off"` |
+| *Preview tools* (Pull, Remove) | `[preview.images] ffmpeg`, `imagemagick` | `"docker.io/mwader/static-ffmpeg:latest"`, `"docker.io/dstmodders/imagemagick:latest"` |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 
 Thumbnails of pictures in the panel itself are a view of their own:
@@ -215,7 +216,7 @@ seconds, with its facts; **Enter** plays it in your media player, and *Convert v
 
 Neither ffmpeg nor ImageMagick is installed, and ffmpeg's image is not pulled yet: a download
 never starts without a click. Press **Render** (the note beside it says how big the image is),
-**Pull** it in *Settings → Previews → Container images*, or install ffmpeg.
+**Pull** it in *Settings → Previews → Preview tools* (the *Video and sound* row), or install ffmpeg.
 
 #### Why does a RAW photo say ImageMagick is not installed?
 

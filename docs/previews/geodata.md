@@ -139,7 +139,7 @@ option); the other formats keep it.
 ## What it needs
 
 One of these, in the order of *Settings → Previews → How previews are made* (`[preview]
-prefer`, or `prefer_tool.gdal` for GDAL alone):
+prefer`), or the *Maps* row of [*Preview tools*](tools.md#preview-tools-in-settings) (`[preview.tools] maps`) for this kind alone:
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -171,9 +171,9 @@ install gdal-bin), or run it in a container: …*. A GPX file's map and facts wo
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` (`"auto"`, `"local"`, `"container"`) | `"auto"`: installed first, else the container |
-| – | `[preview.prefer_tool] gdal` | `[preview] prefer` |
+| *Preview tools* → *Maps* | `[preview.tools] maps` (`"local"`, `"container"`, `"off"`) | `[preview] prefer`; *Off* turns off the maps and facts, not *Convert geodata* |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Container images* (Pull, Remove) | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"`; `""` never uses a container. An image you set must have GDAL's programs on its `PATH` |
+| *Preview tools* → *Maps* (Pull, Remove) | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"`; `""` never uses a container. An image you set must have GDAL's programs on its `PATH` |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off. A pinned image stays as it is: a Coxswain release moves it on |
 | *Keys* | `[keys] convert_geodata` | none |
 
@@ -197,8 +197,8 @@ file. A GPX file is read by Coxswain alone.
 
 #### Why is there no map, only the size and dates?
 
-The map and the facts need GDAL: install it, or let the container run (*Settings → Previews*,
-with podman or docker). The first map with the container waits for a click on **Render**,
+The map and the facts need GDAL: install it, or let the container run (*Settings → Previews → [Preview tools](tools.md#preview-tools-in-settings)*, the *Maps*
+row, with podman or docker). The first map with the container waits for a click on **Render**,
 since it pulls the image (about 40 MB). Facts never pull it: they come once GDAL is there. A
 GPX file needs neither.
 
