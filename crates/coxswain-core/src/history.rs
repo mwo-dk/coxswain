@@ -1786,7 +1786,7 @@ pub(crate) mod tests {
         for i in 2..=300 {
             stream += &mk(&format!("b{i}"), i, &[1]);
         }
-        let Some(d) = import("branches", &stream) else {
+        let Some(d) = import("many-branches", &stream) else {
             return;
         };
         let all = path_in(&d, Scope::All, None);
