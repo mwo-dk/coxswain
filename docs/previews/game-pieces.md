@@ -2,8 +2,9 @@
 
 # Game pieces in the terminal
 
-The terminal app draws the pieces of a [chess game](chess.md) from **block characters**: each
-piece is the desktop app's own picture (Uray M. János's set), drawn in dots, two dots across
+The terminal app draws the pieces of a [chess game](chess.md) and the men and kings of a
+[draughts game](draughts.md) from **block characters**: each piece is the desktop app's own
+picture (for chess Uray M. János's set), drawn in dots, two dots across
 a character cell and up to four down, so a knight looks like a knight and not like a letter.
 The board grows to the largest squares the window has room for. On a small window it falls
 back to the chess characters of your font (♚ ♛ ♜ ♝ ♞ ♟) on small squares, as before.
@@ -30,6 +31,10 @@ colour of the next fewest. The finer the block characters, the fewer such cells.
 A square is twice as wide as high in cells, so that it is square on the screen. The view
 needs about 30 rows and 85 columns for drawn pieces (38 rows with half blocks); on a smaller
 window, or with *Figurines* chosen, it shows the chess characters of your font.
+
+Draughts pieces are simple discs, so they are drawn on squares a row smaller: two rows (three
+with half blocks). A 10 × 10 board then needs about 26 rows; an 8 × 8 one about 22. The empty
+dark squares keep their numbers at their top left.
 
 The desktop app draws the pictures themselves, as it always has.
 

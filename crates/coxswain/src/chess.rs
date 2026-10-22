@@ -641,7 +641,7 @@ impl Viewer {
             return self.draw_moves(f, theme, area, board_w, vec![]);
         }
         // The board: as big as fits, a square twice as wide as high, the moves beside it.
-        let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, 8, 8, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(2), area.height.saturating_sub(2));
+        let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, &mosaic::CHESS, 8, 8, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(2), area.height.saturating_sub(2));
         let fen = match o.at {
             Some(n) => g.nodes[n as usize].fen.clone(),
             None => Some(g.start.clone()),
@@ -703,42 +703,36 @@ impl Viewer {
         let cells = coxswain_core::draughts::cells(&fen);
         let h = cells.len().max(1) as u16;
         let w = cells.iter().map(Vec::len).max().unwrap_or(0).max(1) as u16;
-        let cell_h = (area.height.saturating_sub(2) / h).clamp(1, 2);
-        let mut cell_w = cell_h * 2 + 1;
-        while cell_w > 3 && cell_w * w > area.width / 2 {
-            cell_w -= 2;
-        }
+        let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, &mosaic::DRAUGHTS, w, h, (area.width * 3 / 5).max(area.width.saturating_sub(40)), area.height.saturating_sub(1));
         let mut lines = vec![];
         for row in 0..h {
             let y = if self.flip { h - 1 - row } else { row };
-            for sub in 0..cell_h {
-                let mut spans = vec![];
-                for col in 0..w {
-                    let x = if self.flip { w - 1 - col } else { col };
-                    let dark = (x + y) % 2 == 1;
-                    let cell = (x + y * w) as u8;
-                    let mut colour = self.board[dark as usize];
-                    if last.is_some_and(|(a, b)| a == Some(cell) || b == Some(cell)) {
-                        colour = tint(colour, (0xf6, 0xe0, 0x5a));
-                    }
-                    let piece = cells.get(y as usize).and_then(|r| r.get(x as usize)).copied().flatten();
-                    let mid = sub == cell_h / 2;
-                    let (text, fg) = match piece {
-                        Some(p) if mid => {
-                            let pad = " ".repeat(((cell_w - 1) / 2) as usize);
-                            let glyph = if p.eq_ignore_ascii_case(&'k') { "♚" } else { "●" };
-                            (format!("{pad}{glyph}{pad}"), if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) })
-                        }
-                        None if dark && sub == 0 => {
-                            let n = coxswain_core::draughts::square_number(w as usize, x as usize, y as usize).unwrap_or(0);
-                            (format!("{n:<width$}", width = cell_w as usize), dim.fg.unwrap_or(Color::Gray))
-                        }
-                        _ => (" ".repeat(cell_w as usize), Color::Reset),
-                    };
-                    spans.push(Span::styled(text, Style::default().bg(colour).fg(fg).add_modifier(if piece.is_some() { Modifier::BOLD } else { Modifier::empty() })));
+            let mut rows: Vec<Vec<Span>> = vec![vec![]; cell_h as usize];
+            for col in 0..w {
+                let x = if self.flip { w - 1 - col } else { col };
+                let dark = (x + y) % 2 == 1;
+                let cell = (x + y * w) as u8;
+                let mut colour = if pieces == Pieces::Figurines { self.board[dark as usize] } else { self.squares[dark as usize] };
+                if last.is_some_and(|(a, b)| a == Some(cell) || b == Some(cell)) {
+                    colour = tint(colour, (0xf6, 0xe0, 0x5a));
                 }
-                lines.push(Line::from(spans));
+                let piece = cells.get(y as usize).and_then(|r| r.get(x as usize)).copied().flatten().map(|p| crate::pieces::Piece {
+                    name: p,
+                    figurine: if p.eq_ignore_ascii_case(&'k') { "♚" } else { "●" },
+                    colour: if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) },
+                });
+                let empty = piece.is_none();
+                let mut square = crate::pieces::square(pieces, &mosaic::DRAUGHTS, piece, cell_w, cell_h, colour);
+                // An empty dark square: its number at the top left.
+                if empty && dark {
+                    let n = coxswain_core::draughts::square_number(w as usize, x as usize, y as usize).unwrap_or(0);
+                    square[0] = vec![Span::styled(format!("{n:<width$}", width = cell_w as usize), Style::default().bg(colour).fg(dim.fg.unwrap_or(Color::Gray)))];
+                }
+                for (r, spans) in square.into_iter().enumerate() {
+                    rows[r].extend(spans);
+                }
             }
+            lines.extend(rows.into_iter().map(Line::from));
         }
         let white = fen.split_whitespace().nth(1) != Some("b");
         lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
@@ -1030,10 +1024,17 @@ mod tests {
         for _ in 0..3 {
             v.key(key(KeyCode::Right), None);
         }
+        v.pieces = Pieces::Figurines;
         let s = screen(&mut v);
         assert!(s.contains("28x19") && s.contains("takes") && s.contains('●') && s.contains("10×10"), "{s}");
         // Square numbers on the empty dark squares.
         assert!(s.contains("26"));
+        // Men drawn from sextants on a board large enough, the numbers still there.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Sextants);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(140, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(s.chars().any(|c| ('\u{1FB00}'..='\u{1FB3B}').contains(&c)) && !s.contains('●') && s.contains("26"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

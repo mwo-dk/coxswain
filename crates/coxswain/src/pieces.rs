@@ -22,13 +22,14 @@ pub fn pieces(cfg: &coxswain_core::config::Config) -> Pieces {
 /// enough; otherwise figurines on today's small squares (3 or 5 wide, 1 or 2 high).
 pub fn layout(
     pieces: Pieces,
+    set: &Set,
     files: u16,
     ranks: u16,
     width: u16,
     height: u16,
 ) -> (Pieces, u16, u16) {
     let least = match pieces {
-        Pieces::Mosaic(g) => g.min_rows(),
+        Pieces::Mosaic(g) => g.min_rows() - set.plain as u16,
         Pieces::Pictures => 2,
         Pieces::Figurines => u16::MAX,
     };

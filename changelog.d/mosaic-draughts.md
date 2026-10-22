@@ -1,0 +1,1 @@
+| **Draughts pieces drawn in the terminal.** The terminal app draws draughts men and kings from block characters after the desktop app's pictures, as it does chess pieces; ● and ♚ on a small board. | [Game pieces in the terminal](previews/game-pieces.md) · [Draughts games](previews/draughts.md#a-game-on-the-board) |
