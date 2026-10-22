@@ -149,7 +149,7 @@ Every line, level and option, with what it shows, its key and its default:
 
 ## Previews
 
-<!-- screenshot: previews-tools-settings.png: desktop app, Cyber, Settings → Previews (not in the sandbox, where containers must not run): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout, Previews made so far, Preview tools with a row per kind (Installed, Container with Pull and Remove, Used now, the choice, Try), Keep images up to date, Remove images not used for 90 days -->
+![The desktop app's Settings at Previews, in the Cyber theme: E-books with calibre and Export draw.io diagrams with their cost badges, Timeout (seconds) 120, Previews made so far with Clear, and Preview tools: the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Pulled, 5.5 GB with Pull and Remove, Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB) and Pull](../screenshots/previews-tools-settings.png)
 
 For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like.
 Opening this area asks the container runtime which images it has.

@@ -9,11 +9,11 @@ shows the files as they were then, as read-only folders: move around, preview a 
 the commit changed in it, view it with **F3** and copy an old version out with **F5**.
 **Backspace** leads back up to the commits, then to the folder on disk. Both apps do this.
 
-![The desktop app's left pane in ~/projects/rocket/@history, tinted, with the badge history of rocket and the buttons This branch (filled in) and All branches at the end of the path bar: the commits from e466d9e Document the build down to f9539fc Cargo project, each with its age, the graph at their start (one lane, and a second for 0f36dbd Check the wind, which the merge aca4a13 brought in), and the labels HEAD -> master, origin/master and origin/HEAD on their tips](../screenshots/git-history-commits.png)
+![The desktop app's left pane in ~/projects/rocket/@history, tinted, with the badge history of rocket and the buttons This branch (filled in), All branches and Against upstream at the end of the path bar: the commits from 9682143 Document the build down to c61462e Cargo project, each with its age, the graph at their start (one lane, and a second for e0a4176 Check the wind, which the merge 031f6d9 brought in), and the labels HEAD -> master, origin/master and origin/HEAD on their tips](../screenshots/git-history-commits.png)
 
-![Inside commit 6ba7e53 (the badge commit 6ba7e53 at the end of the path bar): engine.rs under the cursor and the preview pane on Diff, showing the line that commit changed in it, and its last commit by Ada](../screenshots/git-history-file.png)
+![Inside commit 2e5fb73 (the badge commit 2e5fb73 at the end of the path bar): engine.rs under the cursor and the preview pane on Diff, showing the line that commit changed in it, and its last commit by Ada](../screenshots/git-history-file.png)
 
-![The terminal app in Classic blue (NC): the left panel titled …ket/@history [this branch's history · Alt+A: all branches] with the commits newest first, each after its graph in box-drawing characters (the merge aca4a13 as ●─╮, the commit it brought in on a second lane, the fork as ●─╯), the tips' names in brackets: (HEAD -> master), (origin/master, origin/HEAD)](../screenshots/tui-git-history.png)
+![The terminal app in Classic blue (NC): the left panel titled …ket/@history [this branch's history · Alt+A: all branches] with the commits newest first, each after its graph in box-drawing characters (the merge 031f6d9 as ●─╮, the commit it brought in on a second lane, the fork as ●─╯), the tips' names in brackets: (HEAD -> master), (origin/master, origin/HEAD)](../screenshots/tui-git-history.png)
 
 ## Contents
 
@@ -77,9 +77,9 @@ the lines always join the right rows.
 | Where | The *Details* view (**Alt+V**); not in *Columns* or *Thumbnails* | Every history list |
 | How wide | 12 lanes at most; more are cut off at the right | A third of the name column at most |
 
-![The desktop app's history of rocket with All branches filled in next to the badge and @all in the path bar: feature/engine 3071f59 Add the throttle on top, then HEAD -> master e466d9e Document the build, and below them the merge and the wind check on its own lane](../screenshots/git-graph-all.png)
+![The desktop app's history of rocket with All branches filled in next to the badge and @all in the path bar: feature/engine 393592b Add the throttle on top, then HEAD -> master 9682143 Document the build, and below them the merge and the wind check on its own lane](../screenshots/git-graph-all.png)
 
-![The terminal app's panel titled …ket/@history/@all [every branch's history · Alt+A: this branch]: (feature/engine) 3071f59 Add the throttle above (HEAD -> master) e466d9e Document the build, then the merge ●─╮ and 0f36dbd Check the wind on the second lane](../screenshots/tui-git-graph-all.png)
+![The terminal app's panel titled …ket/@history/@all [every branch's history · Alt+A: this branch]: (feature/engine) 393592b Add the throttle above (HEAD -> master) 9682143 Document the build, then the merge ●─╮ and e0a4176 Check the wind on the second lane](../screenshots/tui-git-graph-all.png)
 
 **This branch or all branches.** A history first lists what the branch you are on reached:
 `HEAD`'s commits. **Alt+A** (*History of all branches*) lists the commits of every local and
@@ -112,9 +112,9 @@ the middle of the panel's bottom border in the terminal app, whose title ends in
 `[against upstream · Alt+Y: this branch]`. The graph shows the two sides splitting off from
 where they last met.
 
-![The desktop app's history of rocket with Against upstream filled in next to the badge and @upstream in the path bar: one commit, 16af031 Document the build, marked with ↑ and the label HEAD -> master; at the bottom of the pane 1 item · Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/git-history-upstream.png)
+![The desktop app's history of rocket with Against upstream filled in next to the badge and @upstream in the path bar: one commit, 9682143 Document the build, marked with ↑ and the label HEAD -> master; at the bottom of the pane 1 item · Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/git-history-upstream.png)
 
-![The terminal app's panel titled …cket/@history/@upstream [against upstream · Alt+Y: this branch]: the commit ↑ (HEAD -> master) 16af031 Document the build, and in the bottom border Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/tui-git-history-upstream.png)
+![The terminal app's panel titled …cket/@history/@upstream [against upstream · Alt+Y: this branch]: the commit ↑ (HEAD -> master) 9682143 Document the build, and in the bottom border Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/tui-git-history-upstream.png)
 
 **It never fetches.** The upstream's commits are those git kept at your last fetch (or pull),
 and the last fetch's time says how old they are. To see newer ones, fetch in your own git tool

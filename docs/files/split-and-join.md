@@ -81,7 +81,7 @@ The same: **Alt+X** opens the menu of sizes, *Another size…* asks for one on a
 and **Enter** on `name.001` offers the join. Quitting while a split or join runs stops it and
 waits until what it made is removed.
 
-![The terminal app in Classic blue in Downloads with big.bin, its parts big.bin.001 to big.bin.003 and big.bin.sha256 listed, and the menu Join parts offering 1 Replace big.bin with the joined parts, since big.bin is still there](../screenshots/join-tui.png)
+![The terminal app in Classic blue in Downloads with the parts big.bin.001 to big.bin.003 and big.bin.sha256 listed, the cursor on big.bin.001, and the menu Join parts offering 1 Join 3 parts into big.bin](../screenshots/join-tui.png)
 *Enter on big.bin.001 while big.bin is still there: the join asks before it replaces it.*
 
 ## Questions

@@ -78,7 +78,7 @@ sentences](../search/diagrams.md).)
   its own here: install podman or docker, and Kroki's image draws it.* with **Settings →
   Previews**.
 
-<!-- screenshot: previews-d2.png: desktop app, Cyber theme: launch.d2 under the cursor, the preview pane with the engine buttons d2 and podman kroki:latest above the D2 diagram of Tank → Valve → Engine -->
+![The desktop app in the Cyber theme: launch.d2 under the cursor in Documents, and the preview pane with the engine buttons d2 and podman kroki:latest (lit) above the D2 diagram Tank → Valve → Engine, its arrows labelled fuel and burn](../screenshots/previews-d2.png)
 
 ## D2, ditaa, svgbob and the others
 
