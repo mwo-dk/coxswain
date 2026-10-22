@@ -900,8 +900,6 @@ impl Viewer {
             Some(fen) if self.book.is_some() => self.book_moves(fen).to_vec(),
             _ => vec![],
         };
-        let Some(o) = &self.open else { return };
-        let g = &o.game;
         let draughts = self.draughts();
         if draughts {
             let (lines, board_w) = self.draughts_board(area, dim);
@@ -1011,6 +1009,8 @@ impl Viewer {
 
     /// Beside the board: who played, then the moves.
     fn draw_moves(&mut self, f: &mut Frame, theme: &Theme, area: Rect, board_w: u16, book: Vec<BookMove>) {
+        let now = self.now().0;
+        let picks = self.picking.as_ref().map(|(text, sel)| (self.pick_list(text), *sel));
         let base = sty(&theme.dialog);
         let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
         let draughts = self.draughts();
