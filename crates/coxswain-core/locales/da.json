@@ -317,6 +317,7 @@
  "archive.preview_locked": "Filen er låst med en adgangskode.",
  "archive.preview_opening": "Åbner den fra {archive}…",
  "archive.preview_unlock": "Indtast adgangskoden",
+ "archive.room_short": "Pladsen kan blive for lille: her er {free} fri, og det kan kræve {need}, da arkivet først skrives ved siden af det gamle",
  "archive.too_large": "{name} er for stor til at se på her: kopiér den ud af arkivet for at åbne den",
  "ask.builtin_estimate": "På denne processor: omkring {seconds} s til første ord, derefter {words} ord i sekundet",
  "ask.builtin_missing": "{model} er ikke hentet endnu: hent den i Indstillinger under Spørg eller i Sæt op…",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} er et link, et rør eller en enhed, som et arkiv udelader, så intet blev flyttet",
  "err.is_folder": "{name} er en mappe",
  "err.key_twice": "{key} er givet til både {a} og {b} i [keys] i config.toml",
+ "err.move_check": "{path} ændrede sig, mens den blev flyttet, eller kopien blev for kort, så den bliver, hvor den var",
  "err.no_application": "Intet program åbner denne slags fil",
  "err.no_cache_folder": "Ingen cachemappe",
  "err.no_certificate": "Intet certifikat i denne PEM-fil",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Konvertér video eller lyd",
  "feature.convert_media.what": "Laver en MP4-, MP3- eller FLAC-kopi af en video eller en sang, tager lyden ud eller klipper et klip, med ffmpeg, ved siden af originalen.",
  "feature.copy.a1": "Coxswain overskriver aldrig. Slet først den gamle ({delete}), eller kopiér under et andet navn ved at skrive det i målet.",
- "feature.copy.a2": "Årsagslinjen udelader stien for at være kort. Fold Detaljer ud i skrivebordsprogrammet, eller læs under Detaljer: i terminalprogrammet.",
+ "feature.copy.a2": "Ja: Esc på statuslinjen i terminalprogrammet, Stop (eller Esc) i skrivebordsprogrammet. Filen, den var i gang med, fjernes, det kopierede bliver, og {undo} tager det væk.",
  "feature.copy.a3": "Skriv det nye navn, eller en sti, der ender med det, i målet. Når stien ikke findes, kopieres filen under det navn.",
  "feature.copy.q1": "Hvordan overskriver jeg en fil, der findes?",
- "feature.copy.q2": "Fejlen siger kun Permission denied. Hvilken fil?",
+ "feature.copy.q2": "Kan jeg stoppe en kopiering, der kører?",
  "feature.copy.q3": "Hvordan kopierer jeg en fil og giver kopien et nyt navn?",
  "feature.copy.title": "Kopiér",
  "feature.copy.what": "{copy} kopierer de markerede filer, eller den under markøren, til det andet panels mappe eller en sti, du skriver.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klik for at flytte, dobbeltklik for at åbne, højreklik for at markere; skrivebordsprogrammet tilføjer træk og ændring af størrelse.",
  "feature.move_and_rename.a1": "Der ligger allerede noget med det navn i målmappen, og Coxswain skriver aldrig oven i det. Omdøb en af dem først, eller flyt den anden af vejen.",
  "feature.move_and_rename.a2": "Nej. En flytning ind i et arkiv tilføjer filerne til det og sletter derefter originalerne permanent. Kopiér med {copy}, hvis du vil beholde dem.",
- "feature.move_and_rename.a3": "Ja: {undo}, i begge programmer, lige efter eller senere i samme kørsel, så længe intet har ændret filen siden.",
+ "feature.move_and_rename.a3": "Hver fil er ét sted: de flyttede på den anden disk, resten hvor de var, og den, den var i gang med, beholder sin original. {undo} flytter de flyttede tilbage.",
  "feature.move_and_rename.q1": "Hvorfor fejlede min flytning med »findes allerede«?",
  "feature.move_and_rename.q2": "Jeg flyttede filer ind i en zip. Ligger originalerne i papirkurven?",
- "feature.move_and_rename.q3": "Kan jeg fortryde en flytning eller omdøbning?",
+ "feature.move_and_rename.q3": "Jeg stoppede en flytning til en anden disk. Hvor er mine filer?",
  "feature.move_and_rename.title": "Flyt og omdøb",
  "feature.move_and_rename.what": "{move} flytter de markerede filer til en anden mappe eller omdøber en, når du skriver et nyt navn; {rename} omdøber på stedet.",
  "feature.moving.a1": "Sådan gør Norton Commander. Bind dem om til handlingerne Overordnet mappe og Åbn, hvis du foretrækker det; i skrivebordsprogrammets kolonnevisning går de allerede i træet.",
@@ -3356,6 +3358,31 @@
  "status.trashed": "Flyttede {what} til papirkurven",
  "status.update": "Coxswain {version} er tilgængelig: {how}",
  "status.update_lags": "Coxswain {version} er tilgængelig: {how} (den kan nå {channel} nogle dage senere; ellers udgivelsessiden)",
+ "stop.done.copy": {
+  "one": "Stoppet: {n} af {all} kopieret",
+  "other": "Stoppet: {n} af {all} kopieret"
+ },
+ "stop.done.delete": {
+  "one": "Stoppet: {n} af {all} slettet",
+  "other": "Stoppet: {n} af {all} slettet"
+ },
+ "stop.done.extract": {
+  "one": "Stoppet: {n} af {all} udpakket",
+  "other": "Stoppet: {n} af {all} udpakket"
+ },
+ "stop.done.move": {
+  "one": "Stoppet: {n} af {all} flyttet",
+  "other": "Stoppet: {n} af {all} flyttet"
+ },
+ "stop.done.pack": {
+  "one": "Stoppet: {n} af {all} pakket",
+  "other": "Stoppet: {n} af {all} pakket"
+ },
+ "stop.done.trash": {
+  "one": "Stoppet: {n} af {all} flyttet til papirkurven",
+  "other": "Stoppet: {n} af {all} flyttet til papirkurven"
+ },
+ "stop.stopped": "Stoppet",
  "syntax.both": "begge ord",
  "syntax.case": "forskel på store/små bogstaver",
  "syntax.either": "et af dem",

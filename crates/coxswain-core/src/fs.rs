@@ -633,7 +633,8 @@ fn inside(to: &Path, dir: &Path) -> bool {
 
 /// `src` to `to`. A folder that is not there yet is made under a passing name beside it and
 /// gets its name when complete, so a copy that fails half way leaves nothing and can be tried
-/// again; one that is there is merged into, file by file.
+/// again; one that is there is merged into, file by file. Stopped (`stop`), the folder gets its
+/// name with what was copied so far: the file it was on is removed, the rest stays.
 fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
     if !fs::symlink_metadata(src)?.is_dir() || fs::symlink_metadata(to).is_ok() {
         return copy_entry(src, to);
@@ -671,12 +672,16 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         fs::rename(&tmp, to)
     })();
     if r.is_err() {
-        let _ = fs::remove_dir_all(&tmp);
+        // Never onto one that came meanwhile, as above.
+        if !(crate::stop::asked() && fs::symlink_metadata(to).is_err() && fs::rename(&tmp, to).is_ok()) {
+            let _ = fs::remove_dir_all(&tmp);
+        }
     }
     r
 }
 
 fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
+    crate::stop::check()?;
     let ft = fs::symlink_metadata(src)?.file_type();
     if ft.is_symlink() {
         let link = fs::read_link(src)?;
@@ -707,19 +712,180 @@ fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
             crate::t!("err.exists", "path" => to.display()),
         ))
     } else {
-        // Not there before (above): a copy that fails half way (a full disk) leaves nothing,
-        // so trying again is not refused as "exists".
-        fs::copy(src, to).inspect_err(|_| {
-            let _ = fs::remove_file(to);
-        })?;
-        // The original's date (Windows and macOS copy it themselves). As the owner, a file
-        // open for reading may be dated, a read-only one too.
-        #[cfg(unix)]
-        let _ = fs::metadata(src)
-            .and_then(|m| m.modified())
-            .and_then(|t| fs::File::open(to)?.set_modified(t));
-        Ok(())
+        copy_file(src, to, false)
     }
+}
+
+/// Files up to this size are copied by the system in one go (a clone where the disk can), in
+/// well under a second; larger ones in steps, with Stop looked at between them.
+const STEP: u64 = 8 << 20;
+
+/// The file `src` to `to`, which is not there (`copy_entry` looked). `sync`: written through to
+/// the disk before it returns, for a move that deletes the original next. Not there before: a
+/// copy that fails half way (a full disk) or is stopped leaves nothing, so trying again is not
+/// refused as "exists".
+fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
+    let meta = fs::metadata(src)?;
+    // Windows' own copy is written to the disk later, by its cache: a move takes the steps below,
+    // which are.
+    if meta.len() <= STEP && !(sync && cfg!(windows)) {
+        let r = fs::copy(src, to).and_then(|_| {
+            #[cfg(unix)]
+            if sync {
+                fs::File::open(to)?.sync_all()?;
+            }
+            Ok(())
+        });
+        if r.is_err() {
+            let _ = fs::remove_file(to);
+        }
+        r?;
+    } else {
+        copy_in_steps(src, to, &meta, sync)?;
+    }
+    // The original's date (Windows and macOS copy it themselves). As the owner, a file
+    // open for reading may be dated, a read-only one too.
+    #[cfg(unix)]
+    let _ = meta.modified().and_then(|t| fs::File::open(to)?.set_modified(t));
+    Ok(())
+}
+
+/// A large file to `to`, in steps of a megabyte with Stop looked at between them, under a
+/// passing name beside it (`.name.coxswain-tmp-…`) until it is whole: a copy cut short, even
+/// by a crash, never stands under the real name.
+// ponytail: the system's clone, and on macOS and Windows a file's extended attributes and
+// streams, are given up for Stop; copyfile(3) and CopyFileExW with their progress callbacks
+// would keep them.
+fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::Result<()> {
+    use std::io::{Read, Seek, Write};
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let tmp = to.with_file_name(format!(
+        ".{}.coxswain-tmp-{}-{}",
+        to.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id(),
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let mut from = fs::File::open(src)?;
+    // For this user alone while it is written: a private file's half copy is never readable
+    // by others. Its own mode once it is whole, below.
+    let mut new = fs::OpenOptions::new();
+    new.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut new, 0o600);
+    let mut out = new.open(&tmp)?;
+    let r = (|| {
+        let mut buf = vec![0u8; 1 << 20];
+        loop {
+            crate::stop::check()?;
+            let n = match from.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            // A run of zeros is skipped, not written: a sparse file stays sparse.
+            if buf[..n].iter().all(|&b| b == 0) {
+                out.seek(io::SeekFrom::Current(n as i64))?;
+            } else {
+                out.write_all(&buf[..n])?;
+            }
+        }
+        let end = out.stream_position()?;
+        out.set_len(end)?;
+        if sync {
+            out.sync_all()?;
+        }
+        out.set_modified(meta.modified()?)?;
+        // The original's permission bits, not its set-user or set-group ones; on Windows only
+        // its read-only flag, not its other attributes (compressed, a cloud placeholder's).
+        #[cfg(unix)]
+        out.set_permissions(std::os::unix::fs::PermissionsExt::from_mode(
+            std::os::unix::fs::PermissionsExt::mode(&meta.permissions()) & 0o777,
+        ))?;
+        #[cfg(not(unix))]
+        {
+            let mut p = out.metadata()?.permissions();
+            p.set_readonly(meta.permissions().readonly());
+            out.set_permissions(p)?;
+        }
+        drop(out);
+        // Never onto one that came meanwhile: rename would replace it.
+        if fs::symlink_metadata(to).is_ok() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                crate::t!("err.exists", "path" => to.display()),
+            ));
+        }
+        fs::rename(&tmp, to)
+    })();
+    if r.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    r
+}
+
+/// What a move across disks did when it ended half way (stopped, or failed): the files and
+/// folders that went over whole, and the folders it made for them that are not empty.
+#[derive(Default, Debug)]
+pub(crate) struct Moved {
+    pub(crate) done: Vec<(PathBuf, PathBuf)>,
+    pub(crate) made: Vec<PathBuf>,
+}
+
+/// Move `src` to `to` on another disk, file by file: each copied, checked (written to the disk,
+/// as long as the original) and only then its original deleted, so every file is in one
+/// place at any time. A folder is made under its own name and its original removed once empty.
+fn move_across(src: &Path, to: &Path, log: &mut Moved) -> io::Result<()> {
+    crate::stop::check()?;
+    let meta = fs::symlink_metadata(src)?;
+    if !meta.is_dir() {
+        move_file(src, to, &meta)?;
+        log.done.push((src.to_path_buf(), to.to_path_buf()));
+        return Ok(());
+    }
+    fs::create_dir(to)?;
+    log.made.push(to.to_path_buf());
+    let mark = log.done.len();
+    let inside: Vec<_> = fs::read_dir(src)?.collect::<io::Result<_>>()?;
+    for de in inside {
+        move_across(&de.path(), &to.join(de.file_name()), log)?;
+    }
+    // Its own permissions once the files are in: a read-only folder would have kept them out.
+    let _ = fs::set_permissions(to, meta.permissions());
+    fs::remove_dir(src)?;
+    // Gone over whole: one item, the folder, instead of what is in it.
+    log.done.truncate(mark);
+    log.made.retain(|m| !m.starts_with(to));
+    log.done.push((src.to_path_buf(), to.to_path_buf()));
+    Ok(())
+}
+
+/// One file (or link) of `move_across`. When anything fails, the original stays and the copy
+/// goes.
+fn move_file(src: &Path, to: &Path, before: &fs::Metadata) -> io::Result<()> {
+    if before.is_file() {
+        copy_file(src, to, true)?;
+    } else {
+        copy_entry(src, to)?;
+    }
+    let checked = (|| {
+        let (now, copy) = (fs::symlink_metadata(src)?, fs::symlink_metadata(to)?);
+        // Changed while it was copied, or the copy is short: the original stays.
+        if before.is_file()
+            && (copy.len() != before.len()
+                || now.len() != before.len()
+                || now.modified().ok() != before.modified().ok())
+        {
+            return Err(io::Error::other(
+                crate::t!("err.move_check", "path" => src.display()),
+            ));
+        }
+        fs::remove_file(src)
+    })();
+    if checked.is_err() {
+        let _ = fs::remove_file(to);
+    }
+    checked
 }
 
 /// The error for a pipe, a socket or a device, which are not copied or moved.
@@ -754,6 +920,16 @@ pub fn rename(src: &Path, dst: &Path) -> io::Result<PathBuf> {
 /// `rename`, with the password of the archive `src` is inside: out of an archive it is copied
 /// out, then taken out of the archive.
 pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    rename_locked_logged(src, dst, password, &mut Moved::default())
+}
+
+/// `rename_locked`; `log`: what a move across disks that ended half way left, for undo.
+pub(crate) fn rename_locked_logged(
+    src: &Path,
+    dst: &Path,
+    password: Option<&str>,
+    log: &mut Moved,
+) -> io::Result<PathBuf> {
     writable(src)?;
     writable(dst)?;
     match (out_of_archive(src), into_archive(dst)) {
@@ -775,7 +951,10 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
         (Some((a, from)), _) => {
             // Taken out of the archive only when all of it came out.
             let to = copy_out_or_in(src, dst, password, true)?;
-            crate::archive::remove(&a, &[from], password)?;
+            // Once out whole it is taken out of the archive, Stop or not: never in two places.
+            crate::stop::during(&Default::default(), || {
+                crate::archive::remove(&a, &[from], password)
+            })?;
             Ok(to)
         }
         (None, Some(_)) => {
@@ -784,11 +963,19 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
             delete(src)?;
             Ok(to)
         }
-        (None, None) => rename_plain(src, dst),
+        (None, None) => rename_logged(src, dst, log),
     }
 }
 
-fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
+#[cfg(test)]
+thread_local! {
+    /// A test's move goes as across disks.
+    pub(crate) static ACROSS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// A move on disk: a rename, or across disks file by file; `log`: what a move across disks that
+/// ended half way left, for undo.
+fn rename_logged(src: &Path, dst: &Path, log: &mut Moved) -> io::Result<PathBuf> {
     let to = target(src, dst);
     if src.is_dir() && inside(&to, src) && !same_file(src, &to) {
         return Err(io::Error::new(
@@ -804,11 +991,25 @@ fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
             crate::t!("err.exists", "path" => to.display()),
         ));
     }
-    match fs::rename(src, &to) {
-        // Another disk: copied over, then the original goes. Other failures are failures.
+    #[cfg(test)]
+    let moved = if ACROSS.get() {
+        Err(io::ErrorKind::CrossesDevices.into())
+    } else {
+        fs::rename(src, &to)
+    };
+    #[cfg(not(test))]
+    let moved = fs::rename(src, &to);
+    match moved {
+        // Another disk: file by file. Other failures are failures.
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
-            copy(src, &to)?;
-            delete(src)?;
+            if let Err(e) = move_across(src, &to, log) {
+                // The folders made that nothing went into go again, the innermost first.
+                for m in log.made.iter().rev() {
+                    let _ = fs::remove_dir(m);
+                }
+                log.made.retain(|m| m.exists());
+                return Err(e);
+            }
         }
         r => r?,
     }
@@ -1084,6 +1285,38 @@ fn read_dir_once(
             .insert(dir.to_path_buf());
     }
     rd
+}
+
+/// The space free to this user on the disk `dir` is on, when the system says.
+pub fn free_space(dir: &Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let c = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
+        // SAFETY: statvfs fills the zeroed struct it is given.
+        let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+        if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+            return None;
+        }
+        #[allow(clippy::unnecessary_cast)] // the types differ between systems
+        Some((st.f_bavail as u64).saturating_mul(st.f_frsize as u64))
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        let wide: Vec<u16> = dir.as_os_str().encode_wide().chain([0]).collect();
+        let mut free = 0u64;
+        // SAFETY: the path ends with a NUL; the counts not wanted are null.
+        let ok = unsafe {
+            windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
+                wide.as_ptr(),
+                &mut free,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        (ok != 0).then_some(free)
+    }
 }
 
 /// Total bytes and file count under `path`, in parallel. Symlinks are counted, not followed;

@@ -312,6 +312,7 @@
  "archive.preview_locked": "このファイルはパスワードでロックされています。",
  "archive.preview_opening": "{archive} から開いています…",
  "archive.preview_unlock": "パスワードを入力",
+ "archive.room_short": "空きが足りないかもしれません: ここの空きは {free} で、{need} 必要になることがあります。アーカイブはまず古いものの隣に書き出されるためです",
  "archive.too_large": "{name} はここで表示するには大きすぎます。開くにはアーカイブの外にコピーしてください",
  "ask.builtin_estimate": "このプロセッサーでは: 最初の語まで約 {seconds} 秒、その後毎秒 {words} 語",
  "ask.builtin_missing": "{model} はまだダウンロードされていません: 設定 の 質問、または 設定… からダウンロードしてください",
@@ -906,6 +907,7 @@
  "err.not_packable": "{path} はリンク、パイプ、デバイスのいずれかで、アーカイブには入らないため、何も移動していません",
  "err.is_folder": "{name} はフォルダーです",
  "err.key_twice": "config.toml の [keys] で {key} が {a} と {b} の両方に割り当てられています",
+ "err.move_check": "{path} は移動中に変わったか、コピーが短くなったため、元の場所に残ります",
  "err.no_application": "この種類のファイルを開くアプリケーションがありません",
  "err.no_cache_folder": "キャッシュフォルダーがありません",
  "err.no_certificate": "この PEM ファイルに証明書がありません",
@@ -1226,10 +1228,10 @@
  "feature.convert_media.title": "動画や音声を変換する",
  "feature.convert_media.what": "ffmpeg で動画や曲の MP4、MP3、FLAC のコピーを作ったり、音声を取り出したり、クリップを切り出したりして、元のファイルの隣に置きます。",
  "feature.copy.a1": "Coxswain は上書きしません。先に古いものを削除する ({delete}) か、コピー先に別の名前を入力してコピーしてください。",
- "feature.copy.a2": "原因の行は短くするためにパスを省いています。デスクトップアプリでは「詳細」を開き、ターミナルアプリでは「詳細:」の下を読んでください。",
+ "feature.copy.a2": "はい。ターミナルアプリでは進行状況の行で Esc、デスクトップアプリでは「停止」（または Esc）です。作業中だったファイルは削除され、コピー済みのものは残り、{undo} で取り除けます。",
  "feature.copy.a3": "コピー先に新しい名前、またはその名前で終わるパスを入力します。そのパスがなければ、その名前でコピーされます。",
  "feature.copy.q1": "既存のファイルを上書きするには？",
- "feature.copy.q2": "エラーに Permission denied としか出ません。どのファイルですか？",
+ "feature.copy.q2": "実行中のコピーを止められますか？",
  "feature.copy.q3": "ファイルをコピーして、コピーに新しい名前を付けるには？",
  "feature.copy.title": "コピー",
  "feature.copy.what": "{copy} はマークしたファイル、またはカーソル位置のファイルを、反対パネルのフォルダーか入力したパスにコピーします。",
@@ -1499,10 +1501,10 @@
  "feature.mouse.what": "クリックで移動、ダブルクリックで開く、右クリックでマーク。デスクトップアプリではドラッグとサイズ変更もできます。",
  "feature.move_and_rename.a1": "移動先のフォルダーに同じ名前のものがすでにあり、Coxswain は決して上書きしないためです。先にどちらかの名前を変えるか、もう一方をよそへ移してください。",
  "feature.move_and_rename.a2": "いいえ。アーカイブへの移動は、ファイルを追加したあと元のファイルを完全に削除します。残したいなら {copy} でコピーしてください。",
- "feature.move_and_rename.a3": "はい: 両方のアプリで {undo} を使います。直後でも、同じ実行中のあとでも、その後ファイルが変更されていなければ戻せます。",
+ "feature.move_and_rename.a3": "どのファイルも一か所にあります。移動済みのものは別のディスクに、残りは元の場所に、作業中だったものは元のファイルが残ります。{undo} で移動済みのものを戻せます。",
  "feature.move_and_rename.q1": "移動が「既にあります」で失敗したのはなぜですか？",
  "feature.move_and_rename.q2": "ファイルを zip に移動しました。元のファイルはごみ箱にありますか？",
- "feature.move_and_rename.q3": "移動や名前の変更を元に戻せますか？",
+ "feature.move_and_rename.q3": "別のディスクへの移動を止めました。ファイルはどこですか？",
  "feature.move_and_rename.title": "移動と名前の変更",
  "feature.move_and_rename.what": "{move} はマークしたファイルを別のフォルダーに移し、新しい名前を入力すれば 1 つの名前を変えます。{rename} はその場で名前を変えます。",
  "feature.moving.a1": "それが Norton Commander の流儀です。好みなら、親フォルダーと開く操作に割り当て直してください。デスクトップアプリの列表示では、すでにツリーをたどります。",
@@ -3285,6 +3287,25 @@
  "status.trashed": "{what} をごみ箱に移動しました",
  "status.update": "Coxswain {version} が利用できます: {how}",
  "status.update_lags": "Coxswain {version} が利用できます: {how}（{channel} に届くのは数日後のことがあります。リリースページからも入手できます）",
+ "stop.done.copy": {
+  "other": "停止しました: {all} 個中 {n} 個をコピー済み"
+ },
+ "stop.done.delete": {
+  "other": "停止しました: {all} 個中 {n} 個を削除済み"
+ },
+ "stop.done.extract": {
+  "other": "停止しました: {all} 個中 {n} 個を展開済み"
+ },
+ "stop.done.move": {
+  "other": "停止しました: {all} 個中 {n} 個を移動済み"
+ },
+ "stop.done.pack": {
+  "other": "停止しました: {all} 個中 {n} 個を圧縮済み"
+ },
+ "stop.done.trash": {
+  "other": "停止しました: {all} 個中 {n} 個をごみ箱に移動済み"
+ },
+ "stop.stopped": "停止しました",
  "syntax.both": "両方の語",
  "syntax.case": "大文字と小文字を区別",
  "syntax.either": "どちらか",

@@ -191,7 +191,8 @@ fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
     let Kind::Tar(pack) = k else {
         return Err(not_archive(path));
     };
-    let f = BufReader::new(File::open(path)?);
+    // Stop is looked at on every read, so unpacking a large file stops inside it.
+    let f = BufReader::new(crate::stop::Reader(File::open(path)?));
     let r: Box<dyn Read> = match pack {
         Pack::None => Box::new(f),
         Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f)),
@@ -283,17 +284,27 @@ fn tar_named_at<'a, R: Read>(
 
 /// A new file at `path` for an archive being written, never one that is there: a link put
 /// in its place (by someone else, in a shared folder) is removed, not written through.
-fn create_fresh(path: &Path) -> io::Result<File> {
+/// `private`: for this user alone while it is written (an archive that is there gets its own
+/// permissions back when it is whole).
+fn create_fresh(path: &Path, private: bool) -> io::Result<File> {
     let _ = std::fs::remove_file(path);
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
+    let mut new = std::fs::OpenOptions::new();
+    new.write(true).create_new(true);
+    #[cfg(unix)]
+    if private {
+        std::os::unix::fs::OpenOptionsExt::mode(&mut new, 0o600);
+    }
+    #[cfg(not(unix))]
+    let _ = private;
+    new.open(path)
 }
 
 /// A tar written plain at `tar`, compressed into `to` as `pack` says.
-fn compress(tar: &Path, to: &Path, pack: Pack) -> io::Result<()> {
-    let (mut from, mut out) = (BufReader::new(File::open(tar)?), create_fresh(to)?);
+fn compress(tar: &Path, to: &Path, pack: Pack, private: bool) -> io::Result<()> {
+    let (mut from, mut out) = (
+        BufReader::new(crate::stop::Reader(File::open(tar)?)),
+        create_fresh(to, private)?,
+    );
     match pack {
         Pack::None => io::copy(&mut from, &mut out).map(drop),
         Pack::Gz => {
@@ -674,9 +685,8 @@ pub fn extract(path: &Path, dest_dir: &Path) -> io::Result<PathBuf> {
     extract_locked(path, dest_dir, None)
 }
 
-/// `extract`, with the password of a locked archive.
-pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> io::Result<PathBuf> {
-    let k = kind(path).ok_or_else(|| not_archive(path))?;
+/// The folder `extract` makes for `path` in `dest_dir`: the archive's name without its ending.
+pub(crate) fn extract_target(path: &Path, dest_dir: &Path) -> PathBuf {
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let lower = name.to_lowercase();
     let stem_len = ENDINGS
@@ -688,11 +698,17 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
             |e| name.len() - e.len(),
         );
     // An OCI layout's `index.json` comes out under its folder's name.
-    let stem = match path.parent().and_then(Path::file_name) {
-        Some(d) if crate::container_image::layout_index(path) => d.to_string_lossy(),
-        _ => name[..stem_len].into(),
-    };
-    let to = dest_dir.join(&*stem);
+    match path.parent().and_then(Path::file_name) {
+        Some(d) if crate::container_image::layout_index(path) => dest_dir.join(d),
+        _ => dest_dir.join(&name[..stem_len]),
+    }
+}
+
+/// `extract`, with the password of a locked archive. Stopped half way, the folder keeps what
+/// came out so far; the file it was on is removed.
+pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    let k = kind(path).ok_or_else(|| not_archive(path))?;
+    let to = extract_target(path, dest_dir);
     std::fs::create_dir_all(dest_dir)?;
     // Made here, never one that is there (a link to elsewhere included).
     match std::fs::create_dir(&to) {
@@ -721,8 +737,12 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     } else {
         items(path).and_then(|_| unpack_tar(tar_reader(path, k)?, &to))
     };
-    // A mailbox some messages of which could not come out keeps the others.
-    if r.is_err() && !(k == Kind::Mbox && std::fs::read_dir(&to).is_ok_and(|mut d| d.next().is_some())) {
+    // A mailbox some messages of which could not come out keeps the others; what came out
+    // before a Stop stays.
+    if r.is_err()
+        && !crate::stop::asked()
+        && !(k == Kind::Mbox && std::fs::read_dir(&to).is_ok_and(|mut d| d.next().is_some()))
+    {
         let _ = std::fs::remove_dir_all(&to);
     }
     r.map(|_| to)
@@ -749,8 +769,19 @@ fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()>
         }
         if t.is_dir() {
             dirs.push(e);
-        } else if t.is_file() || t.is_gnu_sparse() || t.is_hard_link() {
-            e.unpack_in(to)?;
+        } else if (t.is_file() || t.is_gnu_sparse() || t.is_hard_link())
+            && let Err(err) = e.unpack_in(to)
+        {
+            // Stopped inside it: the file half written goes (only a plain name below `to`,
+            // which was made empty for this).
+            if crate::stop::asked()
+                && let Ok(p) = e.path()
+                && p.components().all(|c| matches!(c, std::path::Component::Normal(_)))
+                && std::fs::symlink_metadata(to.join(&p)).is_ok_and(|m| m.is_file())
+            {
+                let _ = std::fs::remove_file(to.join(&p));
+            }
+            return Err(err);
         }
     }
     dirs.sort_by(|a, b| b.path_bytes().cmp(&a.path_bytes()));
@@ -1640,7 +1671,8 @@ fn copy_out_with(
 ) -> io::Result<()> {
     let (mut any, mut used) = (false, false);
     let r = copy_entries(archive, inner, to, password, how, &mut any, &mut used);
-    if r.is_err() && !inner.is_empty() {
+    // Stopped, what came out stays, unless it all must (a move).
+    if r.is_err() && !inner.is_empty() && (how.whole || !crate::stop::asked()) {
         let _ = if to.is_dir() {
             std::fs::remove_dir_all(to)
         } else {
@@ -1724,8 +1756,15 @@ fn copy_entries(
             std::fs::create_dir_all(parent)?;
         }
         let mut f = File::create_new(path)?;
-        let n = io::copy(&mut from.take(left.get().saturating_add(1)), &mut f)?;
+        // Stop is looked at on every read; a file stopped or failed half way goes.
+        let n = io::copy(
+            &mut crate::stop::Reader(from.take(left.get().saturating_add(1))),
+            &mut f,
+        )
+        .inspect_err(|_| drop(std::fs::remove_file(path)))?;
         if n > left.get() {
+            drop(f);
+            let _ = std::fs::remove_file(path);
             return Err(too_large(
                 &path.file_name().unwrap_or_default().to_string_lossy(),
             ));
@@ -1777,7 +1816,7 @@ fn copy_entries(
             *any = true;
             f.seek(io::SeekFrom::Start(m.start))?;
             match write(&path, &mut (&mut f).take(m.len), m.secs.max(0) as u64) {
-                Err(e) if inner.is_empty() => {
+                Err(e) if inner.is_empty() && !crate::stop::asked() => {
                     let _ = (e, std::fs::remove_file(&path));
                     skipped += 1;
                 }
@@ -2050,6 +2089,91 @@ fn writing_lock() -> io::Result<Option<File>> {
     Ok(Some(f))
 }
 
+/// What `rewrite` writes beside an archive, listed in Coxswain's cache folder while it does (the
+/// lock above held), so a crash leaves the list `clean_stale` goes by at the next start. The
+/// list goes when the write ends, however it ends.
+struct Pending(Option<PathBuf>);
+
+const PENDING: &str = "archive-writing.pending";
+
+impl Pending {
+    fn new(files: &[&Path]) -> Pending {
+        let Some(list) = crate::helper::folder().map(|d| d.join(PENDING)) else {
+            return Pending(None);
+        };
+        let names: Vec<String> = files.iter().map(|f| f.to_string_lossy().into_owned()).collect();
+        let text = serde_json::to_string(&names).unwrap_or_default();
+        Pending(std::fs::write(&list, text).ok().map(|_| list))
+    }
+}
+
+impl Drop for Pending {
+    fn drop(&mut self) {
+        if let Some(list) = &self.0 {
+            let _ = std::fs::remove_file(list);
+        }
+    }
+}
+
+/// At start: remove what a write of an archive that never ended (a crash, the power going)
+/// left beside it, as `rewrite` listed it: only those files, with the endings it gives them,
+/// and only while no other window is writing one.
+pub fn clean_stale() {
+    if let Some(dir) = crate::helper::folder() {
+        clean_stale_in(&dir);
+    }
+}
+
+/// `clean_stale`, with the list and the lock in `dir`.
+fn clean_stale_in(dir: &Path) {
+    if !dir.join(PENDING).exists() {
+        return;
+    }
+    let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
+    let Ok(lock) = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(dir.join("archive-writing.lock"))
+    else {
+        return;
+    };
+    // Another window writing holds the lock: its list is live.
+    if lock.try_lock().is_err() {
+        return;
+    }
+    let names: Vec<String> = std::fs::read_to_string(dir.join(PENDING))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default();
+    for name in names {
+        let p = PathBuf::from(name);
+        let ours = p.file_name().is_some_and(|n| {
+            let n = n.to_string_lossy();
+            n.ends_with(".coxswain-tmp") || n.ends_with(".coxswain-tar")
+        });
+        if ours && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_file()) {
+            let _ = std::fs::remove_file(&p);
+        }
+    }
+    let _ = std::fs::remove_file(dir.join(PENDING));
+}
+
+/// What the pack and copy dialogs say when the disk may be short of room to write `sources`
+/// into `archive` (a new one, or one that is there): it is written beside it first, and one that
+/// is there takes a second copy of itself while that runs. `None`: room enough, or not known.
+pub fn short_of_room(archive: &Path, sources: &[PathBuf]) -> Option<String> {
+    let free = crate::fs::free_space(archive.parent()?)?;
+    let have = std::fs::metadata(archive).map_or(0, |m| m.len());
+    // ponytail: walks the sources when the dialog opens; the sizes kept by `sizes` if a huge
+    // tree makes that slow.
+    let new: u64 = sources.iter().map(|s| crate::fs::dir_size(s).0).sum();
+    let need = have.saturating_add(new);
+    (need > free).then(|| {
+        crate::t!("archive.room_short", "need" => crate::settings::human(need), "free" => crate::settings::human(free))
+    })
+}
+
 /// Write `archive` anew: each old entry by what `keep` says of its name (`None`: left out,
 /// `Some(name)`: kept under that name, as it was, locked or not), then `add`. Into a new
 /// file first, which then takes the old one's place, so a failure leaves the archive whole.
@@ -2070,12 +2194,17 @@ fn rewrite(
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
     let _all = writing_lock()?;
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
+    // With the process's id: apps that do not share the lock above (a Flatpak's own cache
+    // folder, another user or machine on a shared folder) never write into each other's. A
+    // file left by a crash is removed at the next start (`clean_stale`).
     let tmp = archive.with_file_name(format!("{name}.{}.coxswain-tmp", std::process::id()));
+    let plain = archive.with_file_name(format!("{name}.{}.coxswain-tar", std::process::id()));
+    let _pending = Pending::new(&[&tmp, &plain]);
     let exists = archive.exists();
     let mut used = false;
     let written = (|| -> io::Result<()> {
         if k == Kind::Zip {
-            let mut w = zip::ZipWriter::new(create_fresh(&tmp)?);
+            let mut w = zip::ZipWriter::new(create_fresh(&tmp, exists)?);
             // New files go into a locked zip locked too, with its password; a wrong one, or
             // none, is refused, so the apps ask.
             let mut pw = if exists {
@@ -2089,6 +2218,7 @@ fn rewrite(
                     .map_err(io::Error::other)?;
                 let mut first_locked = None;
                 for i in 0..z.len() {
+                    crate::stop::check()?;
                     let e = z.by_index_raw(i).map_err(io::Error::other)?;
                     if e.encrypted() && !e.is_dir() {
                         first_locked.get_or_insert(i);
@@ -2176,7 +2306,7 @@ fn rewrite(
                         ));
                         w.start_file(name.as_str(), opts)
                             .map_err(io::Error::other)?;
-                        io::copy(&mut File::open(path)?, &mut w)?;
+                        io::copy(&mut crate::stop::Reader(File::open(path)?), &mut w)?;
                     }
                 }
             }
@@ -2185,7 +2315,7 @@ fn rewrite(
             // 7z has no copying of entries as they are: each is unpacked and packed again on
             // its way from the old file to the new, as it was but for its name.
             let mut w =
-                sevenz_rust2::ArchiveWriter::new(create_fresh(&tmp)?).map_err(io::Error::other)?;
+                sevenz_rust2::ArchiveWriter::new(create_fresh(&tmp, exists)?).map_err(io::Error::other)?;
             if exists {
                 // Names that were locked (the header encrypted) stay locked; open ones stay open.
                 let names_locked = seven(archive, None).is_err_and(|e| e.to_string() == LOCKED);
@@ -2216,7 +2346,7 @@ fn rewrite(
                     let pushed = if e.is_directory {
                         w.push_archive_entry::<File>(entry, None)
                     } else {
-                        w.push_archive_entry(entry, Some(&mut from))
+                        w.push_archive_entry(entry, Some(crate::stop::Reader(&mut from)))
                     };
                     if let Err(err) = pushed {
                         failed = Some(copy_error(io::Error::other(err), &from, locked));
@@ -2248,7 +2378,7 @@ fn rewrite(
                     ),
                     New::File(path) => w.push_archive_entry(
                         sevenz_rust2::ArchiveEntry::from_path(path, name.clone()),
-                        Some(File::open(path)?),
+                        Some(crate::stop::Reader(File::open(path)?)),
                     ),
                 }
                 .map_err(io::Error::other)?;
@@ -2257,8 +2387,7 @@ fn rewrite(
         } else {
             let Kind::Tar(pack) = k else { unreachable!() };
             // Written plain first, then compressed: every compression the same way.
-            let plain = tmp.with_extension("coxswain-tar");
-            let mut b = tar::Builder::new(io::BufWriter::new(create_fresh(&plain)?));
+            let mut b = tar::Builder::new(io::BufWriter::new(create_fresh(&plain, true)?));
             if exists {
                 // Names and link targets written whole: past 100 bytes they take a GNU long
                 // name of their own, which `append` with the old header would drop.
@@ -2287,11 +2416,16 @@ fn rewrite(
                         h.set_mtime(now_secs());
                         b.append_data(&mut h, name, io::empty())?;
                     }
-                    New::File(path) => b.append_path_with_name(path, name)?,
+                    // As `append_path_with_name` would, read through Stop.
+                    New::File(path) => {
+                        let mut h = tar::Header::new_gnu();
+                        h.set_metadata(&std::fs::metadata(path)?);
+                        b.append_data(&mut h, name, crate::stop::Reader(File::open(path)?))?
+                    }
                 }
             }
             b.into_inner()?.flush()?;
-            let done = compress(&plain, &tmp, pack);
+            let done = compress(&plain, &tmp, pack, exists);
             let _ = std::fs::remove_file(&plain);
             done?;
         }
@@ -2305,6 +2439,7 @@ fn rewrite(
             .and_then(|_| std::fs::rename(&tmp, archive)),
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
+            let _ = std::fs::remove_file(&plain);
             Err(e)
         }
     };
@@ -2629,6 +2764,41 @@ pub fn create_locked(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A crash while an archive was written anew: at the next start the file it was writing
+    /// goes, the archive is as it was, and nothing else is touched.
+    #[test]
+    fn what_a_crashed_write_left_is_cleaned_at_start() {
+        let d = crate::fs::Scratch::named("stale-pack");
+        let cache = d.join("cache");
+        std::fs::create_dir_all(&cache).unwrap();
+        let zip = d.join("keep.zip");
+        std::fs::write(d.join("a.txt"), "a").unwrap();
+        create(&zip, &[d.join("a.txt")]).unwrap();
+        let old = std::fs::read(&zip).unwrap();
+        let (tmp, other) = (d.join("keep.zip.coxswain-tmp"), d.join("mine.coxswain-tmp"));
+        std::fs::write(&tmp, "half").unwrap();
+        std::fs::write(&other, "not listed").unwrap();
+        let listed = vec![tmp.to_string_lossy().into_owned(), zip.to_string_lossy().into_owned()];
+        std::fs::write(cache.join(PENDING), serde_json::to_string(&listed).unwrap()).unwrap();
+        clean_stale_in(&cache);
+        assert!(!tmp.exists(), "the file a write left goes");
+        assert_eq!(std::fs::read(&zip).unwrap(), old, "the archive, though listed, is not its kind");
+        assert!(other.exists(), "nothing it did not list");
+        assert!(!cache.join(PENDING).exists());
+        // While a write runs, its list is live and left alone (another window holds the lock).
+        std::fs::write(&tmp, "half").unwrap();
+        std::fs::write(cache.join(PENDING), serde_json::to_string(&listed).unwrap()).unwrap();
+        let held = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(cache.join("archive-writing.lock")).unwrap();
+        held.lock().unwrap();
+        let other_process = std::thread::spawn({
+            let cache = cache.clone();
+            move || clean_stale_in(&cache)
+        });
+        other_process.join().unwrap();
+        assert!(tmp.exists(), "a live write's file stays");
+        drop(held);
+    }
 
     #[test]
     fn a_mailbox_opens_like_a_folder_of_messages_read_only() {

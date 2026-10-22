@@ -317,6 +317,7 @@
  "archive.preview_locked": "Denne fila er låst med eit passord.",
  "archive.preview_opening": "Opnar fila frå {archive}…",
  "archive.preview_unlock": "Skriv inn passordet",
+ "archive.room_short": "Plassen kan bli for liten: her er {free} ledig, og det kan trengast {need}, sidan arkivet først blir skrive ved sida av det gamle",
  "archive.too_large": "{name} er for stor til å visast her: kopier fila ut av arkivet for å opne ho",
  "ask.builtin_estimate": "På denne prosessoren: om lag {seconds} s til første ord, deretter {words} ord i sekundet",
  "ask.builtin_missing": "{model} er ikkje lasta ned enno: last han ned i Innstillingar under Spør, eller i Set opp…",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} er ei lenkje, eit røyr eller ei eining, som eit arkiv utelèt, så ingenting vart flytt",
  "err.is_folder": "{name} er ei mappe",
  "err.key_twice": "{key} er gitt til både {a} og {b} under [keys] i config.toml",
+ "err.move_check": "{path} endra seg medan han vart flytta, eller kopien vart for kort, så han blir der han var",
  "err.no_application": "Ingen program opnar denne filtypen",
  "err.no_cache_folder": "Inga hurtigbuffermappe",
  "err.no_certificate": "Ingen sertifikat i denne PEM-fila",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Konverter video eller lyd",
  "feature.convert_media.what": "Lagar ein MP4-, MP3- eller FLAC-kopi av ein video eller ein song, tek ut lyden eller klipper ut eit klipp, med ffmpeg, ved sida av originalen.",
  "feature.copy.a1": "Coxswain skriv aldri over. Slett den gamle først ({delete}), eller kopier under eit anna namn ved å skrive det inn i målet.",
- "feature.copy.a2": "Årsakslinja tek ikkje med stien, for å halde seg kort. Fald ut Detaljar i skrivebordsappen, eller les under Detaljar: i terminalappen.",
+ "feature.copy.a2": "Ja: Esc på framdriftslinja i terminalappen, Stopp (eller Esc) i skrivebordsappen. Fila han heldt på med, blir fjerna, det kopierte blir, og {undo} tek det bort.",
  "feature.copy.a3": "Skriv det nye namnet, eller ein sti som sluttar med det, inn i målet. Når stien ikkje finst, blir fila kopiert under det namnet.",
  "feature.copy.q1": "Korleis skriv eg over ei fil som finst?",
- "feature.copy.q2": "Feilmeldinga seier berre Permission denied. Kva for ei fil gjeld det?",
+ "feature.copy.q2": "Kan eg stoppe ei kopiering som går?",
  "feature.copy.q3": "Korleis kopierer eg ei fil og gir kopien eit nytt namn?",
  "feature.copy.title": "Kopier",
  "feature.copy.what": "{copy} kopierer dei merkte filene, eller den under markøren, til mappa i det andre panelet eller til ein sti du skriv.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klikk for å flytte, dobbeltklikk for å opne, høgreklikk for å merke; skrivebordsappen legg til draging og endring av storleik.",
  "feature.move_and_rename.a1": "Noko med det namnet finst allereie i målmappa, og Coxswain skriv aldri over det. Gi eitt av dei nytt namn først, eller flytt det andre ut av vegen.",
  "feature.move_and_rename.a2": "Nei. Flytting inn i eit arkiv legg filene til i det og slettar deretter originalane for godt. Kopier med {copy} om du vil ta vare på dei.",
- "feature.move_and_rename.a3": "Ja: {undo}, i begge appane, rett etterpå eller seinare i same økt, så lenge ingenting har endra fila sidan.",
+ "feature.move_and_rename.a3": "Kvar fil er på éin stad: dei flytta på den andre disken, resten der dei var, og fila han heldt på med, held på originalen. {undo} flyttar dei flytta tilbake.",
  "feature.move_and_rename.q1": "Kvifor feila flyttinga mi med «finst allereie»?",
  "feature.move_and_rename.q2": "Eg flytta filer inn i ein zip. Ligg originalane i papirkorga?",
- "feature.move_and_rename.q3": "Kan eg angre ei flytting eller ei namneendring?",
+ "feature.move_and_rename.q3": "Eg stoppa ei flytting til ein annan disk. Kvar er filene mine?",
  "feature.move_and_rename.title": "Flytt og gi nytt namn",
  "feature.move_and_rename.what": "{move} flyttar dei merkte filene til ei anna mappe, eller gir éi fil nytt namn når du skriv eit nytt namn; {rename} gir nytt namn på staden.",
  "feature.moving.a1": "Slik gjer Norton Commander det. Bind dei om til handlingane Overordna mappe og Opne om du føretrekkjer det; i kolonnevisinga i skrivebordsappen går dei allereie gjennom treet.",
@@ -3356,6 +3358,31 @@
  "status.trashed": "Flytta {what} til papirkorga",
  "status.update": "Coxswain {version} er tilgjengeleg: {how}",
  "status.update_lags": "Coxswain {version} er tilgjengeleg: {how} (versjonen kan kome til {channel} nokre dagar seinare; eller sjå utgivingssida)",
+ "stop.done.copy": {
+  "one": "Stoppa: {n} av {all} kopierte",
+  "other": "Stoppa: {n} av {all} kopierte"
+ },
+ "stop.done.delete": {
+  "one": "Stoppa: {n} av {all} sletta",
+  "other": "Stoppa: {n} av {all} sletta"
+ },
+ "stop.done.extract": {
+  "one": "Stoppa: {n} av {all} pakka ut",
+  "other": "Stoppa: {n} av {all} pakka ut"
+ },
+ "stop.done.move": {
+  "one": "Stoppa: {n} av {all} flytta",
+  "other": "Stoppa: {n} av {all} flytta"
+ },
+ "stop.done.pack": {
+  "one": "Stoppa: {n} av {all} pakka",
+  "other": "Stoppa: {n} av {all} pakka"
+ },
+ "stop.done.trash": {
+  "one": "Stoppa: {n} av {all} flytta til papirkorga",
+  "other": "Stoppa: {n} av {all} flytta til papirkorga"
+ },
+ "stop.stopped": "Stoppa",
  "syntax.both": "begge orda",
  "syntax.case": "skil mellom store og små bokstavar",
  "syntax.either": "eitt av dei",

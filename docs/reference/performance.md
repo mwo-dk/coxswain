@@ -48,7 +48,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   first word in 0.06–0.3 s instead of about 7 s), and **Esc** stops the wait for the first word
   at any moment.
 - **Anything that takes a while** says so: while files are copied, moved, deleted, extracted
-  or packed, the status line reads *Working on …*; a folder that takes longer than 150 ms to
+  or packed, the status line reads *Working on …* (the desktop app with a progress bar and
+  **Stop**, the terminal app with `· Esc stops`); a folder that takes longer than 150 ms to
   read says *Working on <folder>…* until it arrives.
 
 ## The desktop app
@@ -96,7 +97,8 @@ numbers measured on synthetic data, so you know what to expect and can measure a
   between frames; the main loop polls for keys every 200 ms (30 ms while a search is out).
 - **Copy, move, delete, extract and pack** run on a thread of their own; the keys keep
   working, and the status line says *Working on …* with the item it is on (`(2/3)`). One runs
-  at a time; quitting waits for it to finish, so no half-copied file is left.
+  at a time; **Esc** stops it at the file it is on, and so does quitting, which waits for that,
+  so no half-copied file is left ([Stopping it](../files/copy.md#stopping-it)).
 - **A history's commits** are read by git on a thread, so a long history (or a rarely changed
   file in a big repository, which git has to walk the whole history for) never holds up keys.
 
@@ -585,8 +587,9 @@ app about 13 % smaller; the memory they use while running is not affected by any
 
 Yes: the copy runs on a thread, the
 status line says which item it is on, and the keys work meanwhile. A second copy waits until
-the first is done (the status line says so), and quitting waits for it too, so nothing is left
-half-copied.
+the first is done (the status line says so). **Esc** stops it, and quitting stops it too and
+waits for the file it is on, so nothing is left half-copied
+([Stopping it](../files/copy.md#stopping-it)).
 
 #### Why does F3 show plain text for a big file?
 

@@ -71,6 +71,7 @@ pub mod shogi;
 pub mod sizes;
 pub mod space;
 pub mod state;
+mod stop;
 pub mod store;
 pub mod tables;
 mod tar_index;

@@ -317,6 +317,7 @@
  "archive.preview_locked": "Dit bestand is vergrendeld met een wachtwoord.",
  "archive.preview_opening": "Wordt geopend uit {archive}…",
  "archive.preview_unlock": "Wachtwoord invoeren",
+ "archive.room_short": "De ruimte kan krap worden: hier is {free} vrij, en dit kan {need} vragen, omdat het archief eerst naast het oude wordt geschreven",
  "archive.too_large": "{name} is te groot om hier te bekijken: kopieer het uit het archief om het te openen",
  "ask.builtin_estimate": "Op deze processor: ongeveer {seconds} s tot het eerste woord, daarna {words} woorden per seconde",
  "ask.builtin_missing": "{model} is nog niet gedownload: download het in Instellingen onder Vragen, of in Instellen…",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} is een koppeling, pipe of apparaat, dat een archief weglaat, dus er is niets verplaatst",
  "err.is_folder": "{name} is een map",
  "err.key_twice": "{key} is in [keys] van config.toml aan zowel {a} als {b} gegeven",
+ "err.move_check": "{path} veranderde tijdens het verplaatsen, of de kopie is te kort, dus het blijft waar het was",
  "err.no_application": "Geen programma opent dit soort bestand",
  "err.no_cache_folder": "Geen cachemap",
  "err.no_certificate": "Geen certificaat in dit PEM-bestand",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Video of audio converteren",
  "feature.convert_media.what": "Maakt met ffmpeg een MP4-, MP3- of FLAC-kopie van een video of een nummer, haalt het geluid eruit of knipt een fragment, naast het origineel.",
  "feature.copy.a1": "Coxswain overschrijft nooit. Verwijder eerst het oude ({delete}), of kopieer onder een andere naam door die in het doel te typen.",
- "feature.copy.a2": "De regel met de oorzaak laat het pad weg om kort te blijven. Klap Details open in de desktop-app, of lees onder Details: in de terminal-app.",
+ "feature.copy.a2": "Ja: Esc op de voortgangsregel in de terminal-app, Stoppen (of Esc) in de desktop-app. Het bestand waar het mee bezig was, wordt verwijderd, wat gekopieerd is blijft, en {undo} haalt dat weg.",
  "feature.copy.a3": "Typ de nieuwe naam, of een pad dat erop eindigt, in het doel. Als dat pad niet bestaat, wordt het bestand onder die naam gekopieerd.",
  "feature.copy.q1": "Hoe overschrijf ik een bestand dat al bestaat?",
- "feature.copy.q2": "De foutmelding zegt alleen Permission denied. Welk bestand?",
+ "feature.copy.q2": "Kan ik een kopie die bezig is stoppen?",
  "feature.copy.q3": "Hoe kopieer ik een bestand en geef ik de kopie een nieuwe naam?",
  "feature.copy.title": "Kopiëren",
  "feature.copy.what": "{copy} kopieert de gemarkeerde bestanden, of dat onder de cursor, naar de map van het andere paneel of een pad dat je typt.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klik om te bewegen, dubbelklik om te openen, rechtsklik om te markeren; de desktop-app voegt slepen en van grootte veranderen toe.",
  "feature.move_and_rename.a1": "Er staat al iets met die naam in de doelmap, en Coxswain overschrijft dat nooit. Hernoem eerst een van beide, of verplaats het andere uit de weg.",
  "feature.move_and_rename.a2": "Nee. Verplaatsen naar een archief voegt de bestanden eraan toe en verwijdert dan de originelen definitief. Kopieer met {copy} als je ze wilt houden.",
- "feature.move_and_rename.a3": "Ja: {undo}, in beide apps, meteen erna of later in dezelfde sessie, zolang niets het bestand sindsdien heeft gewijzigd.",
+ "feature.move_and_rename.a3": "Elk bestand staat op één plek: de verplaatste op de andere schijf, de rest waar ze waren, en het bestand waar het mee bezig was houdt zijn origineel. {undo} zet de verplaatste terug.",
  "feature.move_and_rename.q1": "Waarom mislukte mijn verplaatsing met ‘bestaat al’?",
  "feature.move_and_rename.q2": "Ik heb bestanden naar een zip verplaatst. Staan de originelen in de prullenbak?",
- "feature.move_and_rename.q3": "Kan ik verplaatsen of hernoemen ongedaan maken?",
+ "feature.move_and_rename.q3": "Ik heb een verplaatsing naar een andere schijf gestopt. Waar zijn mijn bestanden?",
  "feature.move_and_rename.title": "Verplaatsen en hernoemen",
  "feature.move_and_rename.what": "{move} verplaatst de gemarkeerde bestanden naar een andere map, of hernoemt er een als je een nieuwe naam typt; {rename} hernoemt ter plekke.",
  "feature.moving.a1": "Zo doet Norton Commander het. Wijs ze desgewenst opnieuw toe aan de acties Bovenliggende map en Openen; in de kolomweergave van de desktop-app lopen ze al door de boom.",
@@ -3356,6 +3358,31 @@
  "status.trashed": "{what} naar de prullenbak verplaatst",
  "status.update": "Coxswain {version} is beschikbaar: {how}",
  "status.update_lags": "Coxswain {version} is beschikbaar: {how} ({channel} kan het een paar dagen later krijgen; of de releasepagina)",
+ "stop.done.copy": {
+  "one": "Gestopt: {n} van {all} gekopieerd",
+  "other": "Gestopt: {n} van {all} gekopieerd"
+ },
+ "stop.done.delete": {
+  "one": "Gestopt: {n} van {all} verwijderd",
+  "other": "Gestopt: {n} van {all} verwijderd"
+ },
+ "stop.done.extract": {
+  "one": "Gestopt: {n} van {all} uitgepakt",
+  "other": "Gestopt: {n} van {all} uitgepakt"
+ },
+ "stop.done.move": {
+  "one": "Gestopt: {n} van {all} verplaatst",
+  "other": "Gestopt: {n} van {all} verplaatst"
+ },
+ "stop.done.pack": {
+  "one": "Gestopt: {n} van {all} verpakt",
+  "other": "Gestopt: {n} van {all} verpakt"
+ },
+ "stop.done.trash": {
+  "one": "Gestopt: {n} van {all} naar de prullenbak verplaatst",
+  "other": "Gestopt: {n} van {all} naar de prullenbak verplaatst"
+ },
+ "stop.stopped": "Gestopt",
  "syntax.both": "beide woorden",
  "syntax.case": "hoofdlettergevoelig",
  "syntax.either": "een van beide",

@@ -322,6 +322,7 @@
  "archive.preview_locked": "Este archivo está bloqueado con contraseña.",
  "archive.preview_opening": "Abriendo desde {archive}…",
  "archive.preview_unlock": "Ingresá la contraseña",
+ "archive.room_short": "Puede faltar espacio: acá hay {free} libres y puede hacer falta {need}, porque el archivo se escribe primero al lado del viejo",
  "archive.too_large": "{name} es demasiado grande para verlo acá: copialo fuera del archivo para abrirlo",
  "ask.builtin_estimate": "En este procesador: unos {seconds} s hasta la primera palabra, después {words} palabras por segundo",
  "ask.builtin_missing": "{model} todavía no está descargado: descargalo en Configuración, en Preguntar, o en Configurar…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} es un enlace, una tubería o un dispositivo, que un archivo comprimido deja afuera, así que no se movió nada",
  "err.is_folder": "{name} es una carpeta",
  "err.key_twice": "{key} está asignada a {a} y a {b} a la vez en [keys] de config.toml",
+ "err.move_check": "{path} cambió mientras se movía, o su copia quedó corta, así que se queda donde estaba",
  "err.no_application": "Ninguna aplicación abre este tipo de archivo",
  "err.no_cache_folder": "No hay carpeta de caché",
  "err.no_certificate": "No hay ningún certificado en este archivo PEM",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Convertir video o audio",
  "feature.convert_media.what": "Hace una copia MP4, MP3 o FLAC de un video o una canción, le saca el sonido o corta un fragmento, con ffmpeg, al lado del original.",
  "feature.copy.a1": "Coxswain nunca sobrescribe. Borrá primero el viejo ({delete}), o copiá con otro nombre escribiéndolo en el destino.",
- "feature.copy.a2": "La línea del motivo omite la ruta para ser corta. Desplegá Detalles en la app de escritorio, o leé debajo de Details: en la app de terminal.",
+ "feature.copy.a2": "Sí: Esc en la línea de progreso en la app de terminal, Detener (o Esc) en la app de escritorio. El archivo en el que estaba se borra, lo copiado se queda, y {undo} lo saca.",
  "feature.copy.a3": "Escribí el nombre nuevo, o una ruta que termine en él, en el destino. Si esa ruta no existe, el archivo se copia con ese nombre.",
  "feature.copy.q1": "¿Cómo sobrescribo un archivo que ya existe?",
- "feature.copy.q2": "El error solo dice Permission denied. ¿Qué archivo?",
+ "feature.copy.q2": "¿Puedo detener una copia en curso?",
  "feature.copy.q3": "¿Cómo copio un archivo y le pongo otro nombre a la copia?",
  "feature.copy.title": "Copiar",
  "feature.copy.what": "{copy} copia los archivos marcados, o el que está bajo el cursor, a la carpeta del otro panel o a una ruta que escribas.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Clic para moverte, doble clic para abrir, clic derecho para marcar; la app de escritorio suma arrastrar y cambiar el tamaño.",
  "feature.move_and_rename.a1": "Ya hay algo con ese nombre en la carpeta de destino, y Coxswain nunca lo sobrescribe. Cambiale el nombre a uno de los dos primero, o mové el otro a otro lado.",
  "feature.move_and_rename.a2": "No. Mover a un archivo comprimido agrega los archivos y después borra los originales definitivamente. Copiá con {copy} si querés conservarlos.",
- "feature.move_and_rename.a3": "Sí: {undo}, en las dos apps, justo después o más tarde en la misma sesión, mientras nada haya cambiado el archivo desde entonces.",
+ "feature.move_and_rename.a3": "Cada archivo está en un solo lugar: los movidos, en el otro disco; el resto, donde estaba; y el que se estaba moviendo conserva su original. {undo} devuelve los que se movieron.",
  "feature.move_and_rename.q1": "¿Por qué mi movimiento falló con «ya existe»?",
  "feature.move_and_rename.q2": "Moví archivos a un zip. ¿Los originales están en la papelera?",
- "feature.move_and_rename.q3": "¿Puedo deshacer un movimiento o un cambio de nombre?",
+ "feature.move_and_rename.q3": "Detuve un movimiento a otro disco. ¿Dónde están mis archivos?",
  "feature.move_and_rename.title": "Mover y cambiar el nombre",
  "feature.move_and_rename.what": "{move} mueve los archivos marcados a otra carpeta, o le cambia el nombre a uno si escribís un nombre nuevo; {rename} cambia el nombre en el lugar.",
  "feature.moving.a1": "Así lo hace Norton Commander. Si preferís, asignalas a las acciones de carpeta superior y abrir; en la vista de columnas de la app de escritorio ya recorren el árbol.",
@@ -3427,6 +3429,37 @@
  "status.trashed": "Se movió {what} a la papelera",
  "status.update": "Coxswain {version} está disponible: {how}",
  "status.update_lags": "Coxswain {version} está disponible: {how} (puede llegar a {channel} unos días después; o la página de versiones)",
+ "stop.done.copy": {
+  "many": "Detenido: {n} de {all} copiados",
+  "one": "Detenido: {n} de {all} copiado",
+  "other": "Detenido: {n} de {all} copiados"
+ },
+ "stop.done.delete": {
+  "many": "Detenido: {n} de {all} eliminados",
+  "one": "Detenido: {n} de {all} eliminado",
+  "other": "Detenido: {n} de {all} eliminados"
+ },
+ "stop.done.extract": {
+  "many": "Detenido: {n} de {all} extraídos",
+  "one": "Detenido: {n} de {all} extraído",
+  "other": "Detenido: {n} de {all} extraídos"
+ },
+ "stop.done.move": {
+  "many": "Detenido: {n} de {all} movidos",
+  "one": "Detenido: {n} de {all} movido",
+  "other": "Detenido: {n} de {all} movidos"
+ },
+ "stop.done.pack": {
+  "many": "Detenido: {n} de {all} empaquetados",
+  "one": "Detenido: {n} de {all} empaquetado",
+  "other": "Detenido: {n} de {all} empaquetados"
+ },
+ "stop.done.trash": {
+  "many": "Detenido: {n} de {all} movidos a la papelera",
+  "one": "Detenido: {n} de {all} movido a la papelera",
+  "other": "Detenido: {n} de {all} movidos a la papelera"
+ },
+ "stop.stopped": "Detenido",
  "syntax.both": "las dos palabras",
  "syntax.case": "distingue mayúsculas",
  "syntax.either": "cualquiera de las dos",

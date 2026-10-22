@@ -322,6 +322,7 @@
  "archive.preview_locked": "Questo file è protetto da password.",
  "archive.preview_opening": "Apertura da {archive}…",
  "archive.preview_unlock": "Inserisci la password",
+ "archive.room_short": "Lo spazio potrebbe non bastare: qui ci sono {free} liberi e potrebbero servirne {need}, perché l’archivio viene scritto prima accanto al vecchio",
  "archive.too_large": "{name} è troppo grande per essere visto qui: copialo fuori dall’archivio per aprirlo",
  "ask.builtin_estimate": "Su questo processore: circa {seconds} s alla prima parola, poi {words} parole al secondo",
  "ask.builtin_missing": "{model} non è ancora scaricato: scaricalo in Impostazioni, sotto Chiedi, o in Configura…",
@@ -974,6 +975,7 @@
  "err.not_packable": "{path} è un collegamento, una pipe o un dispositivo, che un archivio tralascia, quindi non è stato spostato nulla",
  "err.is_folder": "{name} è una cartella",
  "err.key_twice": "{key} è assegnato sia a {a} sia a {b} in [keys] di config.toml",
+ "err.move_check": "{path} è cambiato durante lo spostamento, o la sua copia è venuta corta, quindi resta dov’era",
  "err.no_application": "Nessuna applicazione apre questo tipo di file",
  "err.no_cache_folder": "Nessuna cartella della cache",
  "err.no_certificate": "Nessun certificato in questo file PEM",
@@ -1312,10 +1314,10 @@
  "feature.convert_media.title": "Converti video o audio",
  "feature.convert_media.what": "Crea con ffmpeg una copia MP4, MP3 o FLAC di un video o di un brano, ne estrae l’audio o taglia una clip, accanto all’originale.",
  "feature.copy.a1": "Coxswain non sovrascrive mai. Elimina prima il vecchio ({delete}), o copia con un altro nome scrivendolo nella destinazione.",
- "feature.copy.a2": "La riga della causa omette il percorso per restare breve. Apri Dettagli nell’app desktop, o leggi sotto Dettagli: nell’app da terminale.",
+ "feature.copy.a2": "Sì: Esc sulla riga di avanzamento nell’app da terminale, Ferma (o Esc) nell’app desktop. Il file su cui era viene rimosso, quello già copiato resta, e {undo} lo toglie.",
  "feature.copy.a3": "Scrivi il nuovo nome, o un percorso che finisce con esso, nella destinazione. Se quel percorso non esiste, il file viene copiato con quel nome.",
  "feature.copy.q1": "Come sovrascrivo un file che esiste?",
- "feature.copy.q2": "L’errore dice solo Permission denied. Quale file?",
+ "feature.copy.q2": "Posso fermare una copia in corso?",
  "feature.copy.q3": "Come copio un file dando un nuovo nome alla copia?",
  "feature.copy.title": "Copia",
  "feature.copy.what": "{copy} copia i file contrassegnati, o quello sotto il cursore, nella cartella dell’altro pannello o in un percorso che scrivi.",
@@ -1585,10 +1587,10 @@
  "feature.mouse.what": "Clic per spostarsi, doppio clic per aprire, clic destro per contrassegnare; l’app desktop aggiunge trascinamento e ridimensionamento.",
  "feature.move_and_rename.a1": "Nella cartella di destinazione c’è già qualcosa con quel nome, e Coxswain non lo sovrascrive mai. Rinomina prima uno dei due, o sposta l’altro di mezzo.",
  "feature.move_and_rename.a2": "No. Uno spostamento in un archivio vi aggiunge i file e poi elimina definitivamente gli originali. Copia con {copy} se vuoi tenerli.",
- "feature.move_and_rename.a3": "Sì: {undo}, in entrambe le app, subito dopo o più tardi nella stessa sessione, finché nulla ha modificato il file nel frattempo.",
+ "feature.move_and_rename.a3": "Ogni file è in un solo posto: quelli spostati sull’altro disco, gli altri dov’erano, e quello in corso conserva l’originale. {undo} riporta indietro quelli spostati.",
  "feature.move_and_rename.q1": "Perché il mio spostamento è fallito con «esiste già»?",
  "feature.move_and_rename.q2": "Ho spostato file in uno zip. Gli originali sono nel cestino?",
- "feature.move_and_rename.q3": "Posso annullare uno spostamento o una rinomina?",
+ "feature.move_and_rename.q3": "Ho fermato uno spostamento su un altro disco. Dove sono i miei file?",
  "feature.move_and_rename.title": "Sposta e rinomina",
  "feature.move_and_rename.what": "{move} sposta i file contrassegnati in un’altra cartella, o ne rinomina uno quando scrivi un nuovo nome; {rename} rinomina sul posto.",
  "feature.moving.a1": "È il modo di Norton Commander. Riassegnali alle azioni cartella superiore e apri, se preferisci; nella vista a colonne dell’app desktop percorrono già l’albero.",
@@ -3427,6 +3429,37 @@
  "status.trashed": "{what} spostato nel cestino",
  "status.update": "È disponibile Coxswain {version}: {how}",
  "status.update_lags": "È disponibile Coxswain {version}: {how} (può arrivare su {channel} qualche giorno dopo; oppure la pagina delle versioni)",
+ "stop.done.copy": {
+  "many": "Fermato: {n} su {all} copiati",
+  "one": "Fermato: {n} su {all} copiato",
+  "other": "Fermato: {n} su {all} copiati"
+ },
+ "stop.done.delete": {
+  "many": "Fermato: {n} su {all} eliminati",
+  "one": "Fermato: {n} su {all} eliminato",
+  "other": "Fermato: {n} su {all} eliminati"
+ },
+ "stop.done.extract": {
+  "many": "Fermato: {n} su {all} estratti",
+  "one": "Fermato: {n} su {all} estratto",
+  "other": "Fermato: {n} su {all} estratti"
+ },
+ "stop.done.move": {
+  "many": "Fermato: {n} su {all} spostati",
+  "one": "Fermato: {n} su {all} spostato",
+  "other": "Fermato: {n} su {all} spostati"
+ },
+ "stop.done.pack": {
+  "many": "Fermato: {n} su {all} compressi",
+  "one": "Fermato: {n} su {all} compresso",
+  "other": "Fermato: {n} su {all} compressi"
+ },
+ "stop.done.trash": {
+  "many": "Fermato: {n} su {all} spostati nel cestino",
+  "one": "Fermato: {n} su {all} spostato nel cestino",
+  "other": "Fermato: {n} su {all} spostati nel cestino"
+ },
+ "stop.stopped": "Fermato",
  "syntax.both": "entrambe le parole",
  "syntax.case": "maiuscole/minuscole",
  "syntax.either": "l’una o l’altra",

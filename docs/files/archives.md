@@ -120,11 +120,15 @@ tools show for a zip Coxswain made). A folder made inside an archive (**F7**) is
 
 **Every change writes the archive anew.** Adding, renaming, moving within, making a folder and
 taking out all write a complete new archive next to the old one, in a file ending in
-`.coxswain-tmp` (`tools.zip.4711.coxswain-tmp` for `tools.zip`, the number being the app's process
-id, so two apps never write the same file). Only when it is complete does it take the
-old one's place, with a rename in the same folder. If anything fails on the way, the new file is
-removed and the archive is exactly as it was. One archive is written at a time per app: a second
-change waits for the first.
+`.coxswain-tmp` (`tools.zip.4711.coxswain-tmp` for `tools.zip`, the number being the app's
+process id, so two apps never write the same file). Only when it is complete does it
+take the old one's place, with a rename in the same folder. If anything fails on the way, or
+you stop it ([Stopping it](copy.md#stopping-it)), the new file is removed and the archive is
+exactly as it was, byte for byte. One archive is written at a time, also across the apps and
+windows that run: a second change waits for the first. While it writes, Coxswain notes the
+file's name in its cache folder; if the app or the computer stops in the middle (a crash, the
+power), the next start removes that file, and only that: never another file ending in
+`.coxswain-tmp`.
 
 | Format | How it is written anew |
 |---|---|
@@ -136,7 +140,11 @@ Copying **from one archive into another** goes through a folder of its own in th
 folder (`coxswain-archive-…`), which is removed afterwards.
 
 Free space needed: room for the new archive next to the old one, and for a tar also the
-unpacked tar.
+unpacked tar. When the disk has less free space than the archive and what goes into it, the pack
+dialog, and the copy and move dialogs into an archive, say so before you start (*Space may be
+short: 1.2 GB free here, and this may need 3.4 GB, as the archive is written beside the old one
+first*), in red in the desktop app and on the line under the field in the terminal app. It is a
+warning: you can still go ahead.
 
 The new archive is a new file with the old one's permissions, and hard links to the old one
 keep pointing at the old contents. Files added to a zip keep their Unix permissions (the
@@ -245,14 +253,16 @@ the target of **F5**.
 
 The archive is written anew into a `.coxswain-tmp` file next to it and only then renamed over the
 old one. Until that rename the old archive is untouched; if something fails, the new file is
-removed. After a crash a leftover `….coxswain-tmp` (or `….coxswain-tar`) file can be deleted.
+removed, also when you stop it. After a crash, or the power going, the next start of Coxswain
+removes the `….coxswain-tmp` (or `….coxswain-tar`) file that write left, and nothing else.
 
 #### Can I change one archive from the desktop app and the terminal app at once?
 
 Yes. Coxswain writes one archive at a time, across all its windows and both apps: a change waits
 while another is being written (a lock on `archive-writing.lock` in Coxswain's cache folder), then
 starts from the archive as the other left it, so neither change is lost. Another program writing
-the same archive at the same moment is not held back by it.
+the same archive at the same moment is not held back by it, nor is a Flatpak's desktop app by a
+terminal app outside it (each has its own cache folder); each still writes a new file of its own.
 
 #### Why does adding one small file to a big .tar.xz take so long?
 

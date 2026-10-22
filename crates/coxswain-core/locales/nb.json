@@ -317,6 +317,7 @@
  "archive.preview_locked": "Denne filen er låst med et passord.",
  "archive.preview_opening": "Åpner den fra {archive}…",
  "archive.preview_unlock": "Skriv inn passordet",
+ "archive.room_short": "Plassen kan bli for liten: her er {free} ledig, og det kan trenges {need}, siden arkivet først skrives ved siden av det gamle",
  "archive.too_large": "{name} er for stor til å vises her: kopier den ut av arkivet for å åpne den",
  "ask.builtin_estimate": "På denne prosessoren: omtrent {seconds} s til første ord, deretter {words} ord i sekundet",
  "ask.builtin_missing": "{model} er ikke lastet ned ennå: last den ned i Innstillinger under Spør, eller i Sett opp…",
@@ -940,6 +941,7 @@
  "err.not_packable": "{path} er en lenke, et rør eller en enhet, som et arkiv utelater, så ingenting ble flyttet",
  "err.is_folder": "{name} er en mappe",
  "err.key_twice": "{key} er gitt til både {a} og {b} under [keys] i config.toml",
+ "err.move_check": "{path} endret seg mens den ble flyttet, eller kopien ble for kort, så den blir der den var",
  "err.no_application": "Ingen programmer åpner denne filtypen",
  "err.no_cache_folder": "Ingen hurtigbuffermappe",
  "err.no_certificate": "Ingen sertifikater i denne PEM-filen",
@@ -1269,10 +1271,10 @@
  "feature.convert_media.title": "Konverter video eller lyd",
  "feature.convert_media.what": "Lager en MP4-, MP3- eller FLAC-kopi av en video eller en sang, tar ut lyden eller klipper ut et klipp, med ffmpeg, ved siden av originalen.",
  "feature.copy.a1": "Coxswain overskriver aldri. Slett den gamle først ({delete}), eller kopier under et annet navn ved å skrive det inn i målet.",
- "feature.copy.a2": "Årsakslinjen utelater stien for å holde seg kort. Fold ut Detaljer i skrivebordsappen, eller les under Detaljer: i terminalappen.",
+ "feature.copy.a2": "Ja: Esc på fremdriftslinjen i terminalappen, Stopp (eller Esc) i skrivebordsappen. Filen den holdt på med, fjernes, det kopierte blir, og {undo} tar det bort.",
  "feature.copy.a3": "Skriv det nye navnet, eller en sti som slutter med det, inn i målet. Når stien ikke finnes, blir filen kopiert under det navnet.",
  "feature.copy.q1": "Hvordan overskriver jeg en fil som finnes?",
- "feature.copy.q2": "Feilmeldingen sier bare Permission denied. Hvilken fil gjelder det?",
+ "feature.copy.q2": "Kan jeg stoppe en kopiering som pågår?",
  "feature.copy.q3": "Hvordan kopierer jeg en fil og gir kopien et nytt navn?",
  "feature.copy.title": "Kopier",
  "feature.copy.what": "{copy} kopierer de merkede filene, eller den under markøren, til mappen i det andre panelet eller til en sti du skriver.",
@@ -1542,10 +1544,10 @@
  "feature.mouse.what": "Klikk for å flytte, dobbeltklikk for å åpne, høyreklikk for å merke; i skrivebordsappen kan du også dra og endre størrelse.",
  "feature.move_and_rename.a1": "Noe med det navnet finnes allerede i målmappen, og Coxswain skriver aldri over det. Gi en av dem nytt navn først, eller flytt den andre ut av veien.",
  "feature.move_and_rename.a2": "Nei. Flytting inn i et arkiv legger filene til i det og sletter deretter originalene for godt. Kopier med {copy} hvis du vil beholde dem.",
- "feature.move_and_rename.a3": "Ja: {undo}, i begge appene, rett etterpå eller senere i samme økt, så lenge ingenting har endret filen siden.",
+ "feature.move_and_rename.a3": "Hver fil er på ett sted: de flyttede på den andre disken, resten der de var, og den den holdt på med, beholder originalen. {undo} flytter de flyttede tilbake.",
  "feature.move_and_rename.q1": "Hvorfor feilet flyttingen min med «finnes allerede»?",
  "feature.move_and_rename.q2": "Jeg flyttet filer inn i en zip. Ligger originalene i papirkurven?",
- "feature.move_and_rename.q3": "Kan jeg angre en flytting eller en navneendring?",
+ "feature.move_and_rename.q3": "Jeg stoppet en flytting til en annen disk. Hvor er filene mine?",
  "feature.move_and_rename.title": "Flytt og gi nytt navn",
  "feature.move_and_rename.what": "{move} flytter de merkede filene til en annen mappe, eller gir én fil nytt navn når du skriver et nytt navn; {rename} gir nytt navn på stedet.",
  "feature.moving.a1": "Slik gjør Norton Commander det. Bind dem om til handlingene Overordnet mappe og Åpne hvis du foretrekker det; i kolonnevisningen i skrivebordsappen går de allerede gjennom treet.",
@@ -3356,6 +3358,31 @@
  "status.trashed": "Flyttet {what} til papirkurven",
  "status.update": "Coxswain {version} er tilgjengelig: {how}",
  "status.update_lags": "Coxswain {version} er tilgjengelig: {how} (den kan komme til {channel} noen dager senere; ellers utgivelsessiden)",
+ "stop.done.copy": {
+  "one": "Stoppet: {n} av {all} kopiert",
+  "other": "Stoppet: {n} av {all} kopiert"
+ },
+ "stop.done.delete": {
+  "one": "Stoppet: {n} av {all} slettet",
+  "other": "Stoppet: {n} av {all} slettet"
+ },
+ "stop.done.extract": {
+  "one": "Stoppet: {n} av {all} pakket ut",
+  "other": "Stoppet: {n} av {all} pakket ut"
+ },
+ "stop.done.move": {
+  "one": "Stoppet: {n} av {all} flyttet",
+  "other": "Stoppet: {n} av {all} flyttet"
+ },
+ "stop.done.pack": {
+  "one": "Stoppet: {n} av {all} pakket",
+  "other": "Stoppet: {n} av {all} pakket"
+ },
+ "stop.done.trash": {
+  "one": "Stoppet: {n} av {all} flyttet til papirkurven",
+  "other": "Stoppet: {n} av {all} flyttet til papirkurven"
+ },
+ "stop.stopped": "Stoppet",
  "syntax.both": "begge ordene",
  "syntax.case": "skiller mellom store og små bokstaver",
  "syntax.either": "ett av dem",

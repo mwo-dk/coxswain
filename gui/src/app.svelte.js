@@ -29,6 +29,10 @@ export const ui = $state({
   ebook: null,
   /** Checksums being made or checked (`checksum`): the action, the status line, Stop asked. */
   work: null,
+  /** The file operation under way (copy, move, delete, extract, pack), for its progress bar:
+   *  the item it is on of how many, its name, how many wait behind it, and whether Stop was
+   *  pressed. */
+  job: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -99,6 +103,34 @@ export async function refreshUndo(ok) {
   ui.undoSeq = seq;
   ui.undo = label ?? "";
   if (ok !== undefined) ui.status = fresh ? `${ok} · ${t("undo.hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}` : ok;
+}
+
+let jobs = 0;
+let jobPoll = null;
+
+/** A file operation starts: its progress bar shows while it (or another) runs, in place of
+ *  `busy` on the status line. Call what it gives back when it has ended. */
+export function watchJob(busy) {
+  jobs += 1;
+  jobPoll ??= setInterval(async () => {
+    const p = await invoke("job_progress").catch(() => null);
+    if (p && !ui.job && ui.status === busy) ui.status = "";
+    ui.job = p;
+  }, 250);
+  return () => {
+    jobs -= 1;
+    if (jobs) return;
+    clearInterval(jobPoll);
+    jobPoll = null;
+    ui.job = null;
+  };
+}
+
+/** Stop the file operation under way: the file it is on is removed (a move keeps its
+ *  original), what is done stays and can be undone, and those waiting behind it do not start. */
+export function stopJob() {
+  if (ui.job) ui.job.stopping = true;
+  invoke("job_stop").catch(() => {});
 }
 
 /** An action's name in F1 and F9: Undo says what it would undo. */

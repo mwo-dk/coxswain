@@ -709,6 +709,9 @@ pub struct App {
     /// without the file if it went.
     space_back: Option<(Box<space::Viewer>, PathBuf)>,
     quit: bool,
+    /// Under the pack, copy or move dialog's field: that the disk may be short of room to write
+    /// into an archive (`archive::short_of_room`). Cleared by each new input dialog.
+    input_note: Option<String>,
 }
 
 /// A file operation on its thread. It says how far it is (the item it is on), then what failed.
@@ -722,12 +725,25 @@ struct Job {
     /// What the status line says meanwhile.
     line: String,
     rx: mpsc::Receiver<JobMsg>,
+    /// Esc on the progress line sets it (`undo::run`); an undo has none.
+    stop: Option<Arc<std::sync::atomic::AtomicBool>>,
+}
+
+impl Job {
+    /// The progress line: `line`, then that Esc stops it, or that it is stopping.
+    fn shown(&self) -> String {
+        match &self.stop {
+            Some(s) if s.load(std::sync::atomic::Ordering::Relaxed) => format!("{} · {}", self.line, t!("searchable.stopping")),
+            Some(_) => format!("{} · {}", self.line, t!("searchable.stop_key", "key" => "Esc")),
+            None => self.line.clone(),
+        }
+    }
 }
 
 enum JobMsg {
     At(usize),
-    /// What failed, and what can be undone of what did not.
-    Done(Vec<(PathBuf, std::io::Error)>, Record),
+    /// What failed, what can be undone of what did not, and when stopped, how far it got.
+    Done(Vec<(PathBuf, std::io::Error)>, Record, Option<String>),
     /// An undo has ended: what came of it.
     Undone(coxswain_core::undo::Undone),
 }
@@ -954,6 +970,7 @@ impl App {
             watch: Default::default(),
             space_back: None,
             quit: false,
+            input_note: None,
             cfg,
         };
         let mut app = app;
@@ -1199,6 +1216,7 @@ impl App {
 
     fn input(&mut self, title: &str, label: String, value: String, prompt: Prompt) {
         self.status = None;
+        self.input_note = None;
         self.dialog = Some(Dialog::Input { title: title.into(), label, value, prompt });
     }
 
@@ -1262,6 +1280,14 @@ impl App {
                 LineKey::Keep => {}
             };
         }
+        // Esc on the progress line: the file operation under way stops (`undo::run`).
+        if key.code == KeyCode::Esc
+            && !(key.ctrl || key.alt || key.shift)
+            && let Some(stop) = self.job.as_ref().and_then(|j| j.stop.clone())
+        {
+            stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = self.job.as_ref().map(Job::shown);
+        }
         match (action, plain_char) {
             (Some(a), _) => self.act(a),
             (None, Some(c)) => self.cmdline.push(c),
@@ -1313,6 +1339,10 @@ impl App {
                 // Checksums leave nothing half made: stopped, and let go.
                 if let Some(w) = self.work.take() {
                     w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                // And a file operation, between files: none is left half copied.
+                if let Some(s) = self.job.as_ref().and_then(|j| j.stop.as_ref()) {
+                    s.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
                 if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
@@ -1570,8 +1600,11 @@ impl App {
                 }
                 let dst = self.panels[self.active ^ 1].dir.to_string_lossy().into_owned();
                 let title = t!(if a == Action::Copy { "dialog.copy" } else { "dialog.move" }, "what" => Self::describe(&src));
+                // Into an archive it is written anew beside itself: the room that takes.
+                let note = coxswain_core::archive::split(&self.panels[self.active ^ 1].dir).and_then(|(a, _)| coxswain_core::archive::short_of_room(&a, &src));
                 let prompt = if a == Action::Copy { Prompt::Copy(src) } else { Prompt::Move(src) };
                 self.input(&title, t!("dialog.to"), dst, prompt);
+                self.input_note = note;
             }
             Action::Extract => {
                 let src: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| coxswain_core::archive::opens(p)).collect();
@@ -1589,7 +1622,9 @@ impl App {
                 let ending = coxswain_core::state::AppState::load().pack_ending().to_string();
                 let dst = self.panels[1 - self.active].dir.join(format!("{name}{ending}")).display().to_string();
                 let title = t!("archive.pack_title", "what" => Self::describe(&src));
+                let note = coxswain_core::archive::short_of_room(Path::new(&dst), &src);
                 self.input(&title, t!("tui.pack_into"), dst, Prompt::Pack(src));
+                self.input_note = note;
             }
             Action::Rename => {
                 let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
@@ -2585,20 +2620,23 @@ impl App {
     /// one runs, another is not started and the status line says why.
     fn start(&mut self, op: Option<Transfer>, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String>) {
         if let Some(j) = &self.job {
-            return self.status = Some(j.line.clone());
+            return self.status = Some(j.shown());
         }
         // Measured in `finish`: while it runs, a folder's size would be halfway.
         self.forget(&job_op(op).touches(&src, &dst));
         let (tx, rx) = mpsc::channel();
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
         std::thread::spawn(move || {
-            let (failed, rec) = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), |i| drop(tx.send(JobMsg::At(i))));
-            let _ = tx.send(JobMsg::Done(failed, rec));
+            let r = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), &flag, |i| drop(tx.send(JobMsg::At(i))));
+            let _ = tx.send(JobMsg::Done(r.failed, r.rec, r.stopped));
         });
         let line = t!("status.busy", "what" => Self::describe(&src));
-        self.status = Some(line.clone());
         let select = select.map(|n| (self.active, n));
-        self.job = Some(Job { op, src, dst, password, select, line, rx });
+        let job = Job { op, src, dst, password, select, line, rx, stop: Some(stop) };
+        self.status = Some(job.shown());
+        self.job = Some(job);
     }
 
     /// How far the job is; when it is done, what came of it.
@@ -2617,14 +2655,14 @@ impl App {
             match msg {
                 JobMsg::At(i) if job.src.len() > 1 => {
                     let what = Self::describe(std::slice::from_ref(&job.src[i]));
-                    let line = t!("status.busy_of", "what" => what, "n" => i + 1, "all" => job.src.len());
-                    if self.status.as_ref() == Some(&job.line) || self.status.is_none() {
-                        self.status = Some(line.clone());
+                    let was = job.shown();
+                    job.line = t!("status.busy_of", "what" => what, "n" => i + 1, "all" => job.src.len());
+                    if self.status.as_ref() == Some(&was) || self.status.is_none() {
+                        self.status = Some(job.shown());
                     }
-                    job.line = line;
                 }
                 JobMsg::At(_) => {}
-                JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
+                JobMsg::Done(failed, rec, stopped) => done = Some((failed, Some(rec), stopped)),
                 JobMsg::Undone(u) => undone = Some(u),
             }
         }
@@ -2652,17 +2690,18 @@ impl App {
         }
         // A key clears the status line; while the job runs, it comes back.
         if self.status.is_none() {
-            self.status = Some(job.line.clone());
+            self.status = Some(job.shown());
         }
-        let Some((failed, rec)) = done else { return };
+        let Some((failed, rec, stopped)) = done else { return };
         let job = self.job.take().expect("a job");
         self.status = None;
-        self.finish(job, failed, rec);
+        self.finish(job, failed, rec, stopped);
     }
 
     /// When only locked archives were in the way, ask for the password and run again with it,
     /// for just what was locked.
-    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>) {
+    /// `stopped`: Esc stopped it, and the line that says how far it got.
+    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>, stopped: Option<String>) {
         let Job { op, src, dst, password, select, .. } = job;
         // Again now it has ended: a folder measured while it ran would keep a size halfway.
         self.changed(&job_op(op).touches(&src, &dst));
@@ -2680,9 +2719,10 @@ impl App {
         let Some(op) = op else {
             let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
             let fail = coxswain_core::undo::failure_title(job_op(None), &what, src.len(), failed.len());
-            return self.after_op(t!("archive.packed", "what" => what) + &hint, fail, errors);
+            let ok = stopped.unwrap_or_else(|| t!("archive.packed", "what" => what));
+            return self.after_op(ok + &hint, fail, errors);
         };
-        if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
+        if stopped.is_none() && !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
             let again = failed.into_iter().map(|(p, _)| p).collect();
             // Nothing is being worked on while the password is asked for (and after Esc).
@@ -2691,6 +2731,7 @@ impl App {
         }
         let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
         let ok = match op {
+            _ if stopped.is_some() => stopped.unwrap_or_default(),
             Transfer::Copy => t!("status.copied", "what" => what),
             Transfer::Move => t!("status.moved", "what" => what),
             Transfer::Rename => t!("status.renamed", "what" => what),
@@ -2725,7 +2766,7 @@ impl App {
     /// Ctrl+Z: undo the newest operation in the history, on the job's thread, as it ran.
     fn undo_last(&mut self) {
         if let Some(j) = &self.job {
-            return self.status = Some(j.line.clone());
+            return self.status = Some(j.shown());
         }
         let Some(rec) = self.undo.pop() else { return self.status = Some(t!("undo.nothing")) };
         self.forget(&rec.touched());
@@ -2736,7 +2777,7 @@ impl App {
             let _ = tx.send(JobMsg::Undone(u));
         });
         self.status = Some(line.clone());
-        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx });
+        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: None });
     }
 
     fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
@@ -4419,6 +4460,8 @@ pub fn main() {
         _ => {}
     }
     coxswain_core::fs::lock_down();
+    // What a write of an archive cut short by a crash left beside it.
+    std::thread::spawn(coxswain_core::archive::clean_stale);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
         eprintln!("coxswain: {e}");
@@ -4925,7 +4968,7 @@ mod tests {
         let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (_tx, rx) = mpsc::channel();
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
         app.act(Action::Quit);
         assert!(app.quit && app.job.is_some(), "the first waits");
         assert!(app.status.as_deref().is_some_and(|s| s.contains("F10")), "{:?}", app.status);
@@ -4958,10 +5001,31 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         tx.send(JobMsg::At(0)).unwrap();
         drop(tx);
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
         app.poll_job();
         assert!(app.job.is_none());
         assert!(matches!(app.dialog, Some(Dialog::Message { .. })), "and says so");
+    }
+
+    /// Esc on the progress line stops the file operation: the line says it is stopping, and
+    /// then how far it got.
+    #[test]
+    fn esc_on_the_progress_line_stops_the_job() {
+        let d = crate::test_dir("panels");
+        let mut app = app(d.clone(), d.clone());
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d.clone(), password: None, select: None, line: "busy".into(), rx, stop: Some(stop.clone()) });
+        assert!(app.job.as_ref().unwrap().shown().contains("Esc"), "the line says Esc stops it");
+        app.key_typed(Key::new(KeyCode::Esc, false, false, false));
+        assert!(stop.load(std::sync::atomic::Ordering::Relaxed), "stopped");
+        assert!(app.status.as_ref().is_some_and(|s| s.contains(&t!("searchable.stopping"))), "{:?}", app.status);
+        let line = coxswain_core::undo::stopped_line(coxswain_core::undo::Op::Copy, 1, 3);
+        tx.send(JobMsg::Done(vec![], coxswain_core::undo::Record::new(coxswain_core::undo::Kind::Copy), Some(line.clone()))).unwrap();
+        app.poll_job();
+        assert!(app.job.is_none());
+        assert_eq!(app.status.as_deref(), Some(line.as_str()));
+        assert!(line.contains('1') && line.contains('3'), "{line}");
     }
 
     /// A folder not in a commit: back to the commit, which is read on a thread too, and the

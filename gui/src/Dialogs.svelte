@@ -479,6 +479,8 @@
       {#if m.kind === "input"}
         <h2>{m.title}</h2>
         <label>{m.label}{#if m.secret}<input bind:this={input} bind:value={m.value} type="password" autocomplete="off" />{:else}<input bind:this={input} bind:value={m.value} spellcheck="false" />{/if}</label>
+        <!-- Into an archive: that the disk may be short of room for it written anew. -->
+        {#if m.room}<p class="err">{m.room}</p>{/if}
         <div class="buttons">
           <button class="primary" onclick={() => confirm(m, m.value)}>{m.ok}</button>
           <button onclick={close}>{t("common.cancel")}</button>
@@ -496,6 +498,8 @@
           </select></label>
         </div>
         {#if fmt}<p class="meta">{t(`archive.format_${fmt.id}`)}</p>{/if}
+        <!-- That the disk may be short of room: the archive is written beside the old one first. -->
+        {#if m.room}<p class="err">{m.room}</p>{/if}
         {#if locks}
           <div class="grid2">
             <label>{t("archive.pack_password")}<input bind:value={m.password} type="password" autocomplete="new-password" /></label>

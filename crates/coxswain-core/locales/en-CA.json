@@ -34,6 +34,10 @@
  "feature.undo.what": "{undo} undoes the last file operation (copy, move, rename, new folder, trash, pack, extract), up to 20 back.",
  "features.area.customise": "Customizing",
  "status.trashed": "Moved {what} to the trash",
+ "stop.done.trash": {
+  "one": "Stopped: {n} of {all} moved to the trash",
+  "other": "Stopped: {n} of {all} moved to the trash"
+ },
  "termux.no_trash_storage": "No trash on the phone's storage: delete {what} for good?",
  "undo.no_restore": "the trash here gives nothing back to apps: restore it from the system's trash",
  "undo.no_restore_hint": "{key} cannot bring it back here: restore it from the system's trash",
