@@ -15,6 +15,7 @@ mod ui;
 mod viewer;
 mod editor;
 mod split_escape;
+mod compare;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
@@ -478,6 +479,8 @@ pub enum Dialog {
     /// A file in the built-in editor, full screen (Shift+F4; F4 with no editor set); `back` as
     /// for `View`.
     Edit { e: Box<editor::Editor>, back: Option<Box<Dialog>> },
+    /// Two files compared, full screen (Shift+F2).
+    Compare(Box<compare::Viewer>),
     /// A PGN file's games, an EPD or FEN file's positions, full screen (F3, Alt+K).
     Chess(Box<chess::Viewer>),
     /// An SGF file's Go games, full screen (F3, Alt+K).
@@ -519,6 +522,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::GitConfig(_) => "git_config",
         Dialog::View { .. } => "view_and_edit",
         Dialog::Edit { .. } => "editor",
+        Dialog::Compare(_) => "compare_files",
         Dialog::Chess(v) => v.feature(),
         Dialog::Go(_) => "go",
         Dialog::Space(_) => "space",
@@ -1403,6 +1407,7 @@ impl App {
                 }
             }
             Action::SpaceView => self.space_view(),
+            Action::CompareFiles => self.compare_files(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -2498,6 +2503,25 @@ impl App {
         self.run_on(&prog, file);
     }
 
+    /// Shift+F2: the two marked files compared, else the file under the cursor with the one under
+    /// the other panel's; the left panel's on the left.
+    fn compare_files(&mut self) {
+        let p = self.panel();
+        let marked: Vec<PathBuf> = p.entries.iter().filter(|e| !e.is_dir && p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
+        let pair = if marked.len() == 2 {
+            Some((marked[0].clone(), marked[1].clone()))
+        } else {
+            let file = |i: usize| self.panels[i].current().filter(|e| !e.is_dir && !e.is_parent()).map(|e| e.path.clone());
+            file(0).zip(file(1))
+        };
+        let Some((a, b)) = pair else { return self.status = Some(t!("compare.pick_two")) };
+        // Only files on the disk: a file inside an archive or a history is copied out first.
+        if [&a, &b].iter().any(|f| f.parent().is_some_and(|d| coxswain_core::archive::split(d).is_some()) || history::is_history(f)) {
+            return self.status = Some(t!("compare.not_here"));
+        }
+        self.dialog = Some(Dialog::Compare(Box::new(compare::Viewer::open(&a, &b))));
+    }
+
     /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
         match editor::Editor::open(file) {
@@ -3398,6 +3422,10 @@ impl App {
                     self.dialog = Some(Dialog::Edit { e, back });
                 }
             },
+            Dialog::Compare(mut v) => match v.key(key, action) {
+                compare::Outcome::Stay => self.dialog = Some(Dialog::Compare(v)),
+                compare::Outcome::Close => self.reload(),
+            },
             Dialog::Chess(mut v) => match v.key(key, action) {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Chess(v)),
                 chess::Outcome::Close => {}
@@ -3528,6 +3556,14 @@ impl App {
     fn on_mouse(&mut self, m: MouseEvent) {
         self.hint_stale = true;
         if let Some(Dialog::View { v, .. }) = &mut self.dialog {
+            match m.kind {
+                MouseEventKind::ScrollUp => v.scroll(-3),
+                MouseEventKind::ScrollDown => v.scroll(3),
+                _ => {}
+            }
+            return;
+        }
+        if let Some(Dialog::Compare(v)) = &mut self.dialog {
             match m.kind {
                 MouseEventKind::ScrollUp => v.scroll(-3),
                 MouseEventKind::ScrollDown => v.scroll(3),

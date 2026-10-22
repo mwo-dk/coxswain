@@ -268,6 +268,7 @@ pub const FEATURES: &[Feature] = &[
         &[Properties, Flags, Package],
     ),
     f("duplicates", "files/duplicates.md", &[Duplicates]),
+    f("compare_files", "files/compare-files.md", &[CompareFiles]),
     f("zfs_snapshots", "files/zfs-snapshots.md", &[Snapshots]),
     f("searchable_pdf", "files/searchable-pdf.md", &[SearchablePdf, TogglePreview]),
     f("convert_media", "files/convert-media.md", &[ConvertMedia, ActionMenu, TogglePreview]),

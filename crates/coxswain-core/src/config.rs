@@ -251,6 +251,8 @@ actions! {
     Paste = "paste", "Paste", Files, ["Ctrl+V"];
     DeleteForever = "delete_forever", "Delete permanently", Files, ["Shift+F8", "Shift+Delete"];
     Properties = "properties", "Properties", Files, ["Alt+Enter"];
+    // Two files side by side (`compare`): free, and an Alt+letter would cost quick search.
+    CompareFiles = "compare_files", "Compare files", Files, ["Shift+F2"];
     BatchRename = "batch_rename", "Batch rename", Files, ["Ctrl+M"];
     Tag = "tag", "Colour tag", Files, ["Alt+T"];
     // ZFS and FreeBSD: a folder's snapshots, a file's flags and the files of its package.
