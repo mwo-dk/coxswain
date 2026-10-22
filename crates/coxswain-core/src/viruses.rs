@@ -427,7 +427,8 @@ fn sealed(rt_path: &Path, name: &str, who: &[String], bounds: bool, net: bool) -
     if !net {
         c.arg("--network=none");
     }
-    c.args(["--read-only", "--tmpfs", "/tmp:rw,size=1g", "--cap-drop=ALL", "--security-opt", "no-new-privileges"]);
+    // Every container's options (`images::bounded`), with ClamAV's own bounds instead of theirs.
+    c.args(crate::images::bounded(false));
     if bounds {
         c.args(["--memory=4g", "--pids-limit=64"]);
     }
