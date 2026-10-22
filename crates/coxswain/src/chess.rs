@@ -229,7 +229,7 @@ impl Viewer {
                 v.lib = Some(Arc::new(lib));
             }
             // Draughts: the same table; no opening book.
-            Some(Format::Pdn | Format::Kif | Format::Csa) => {
+            Some(Format::Pdn | Format::Kif | Format::Csa | Format::Pbn) => {
                 v.lib = Some(Arc::new(Library::open(path)?));
                 v.book = None;
             }
@@ -324,8 +324,14 @@ impl Viewer {
             Some(Format::Pdn) => "draughts",
             Some(Format::Xiangqi) => "xiangqi",
             Some(Format::Kif | Format::Csa) => "shogi",
+            Some(Format::Pbn) => "bridge",
             _ => "chess",
         }
+    }
+
+    /// A PBN file of bridge deals.
+    fn bridge(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format == Format::Pbn)
     }
 
     /// A KIF or CSA file of shogi games.
@@ -671,7 +677,7 @@ impl Viewer {
                 }
             }
             KeyCode::Char('/') => self.typing = Some((Field::Player, self.query.player.clone())),
-            KeyCode::Char('o') if !self.other_game() => self.typing = Some((Field::Opening, self.query.opening.clone())),
+            KeyCode::Char('o') if !self.other_game() || self.bridge() => self.typing = Some((Field::Opening, self.query.opening.clone())),
             KeyCode::Char('e') => self.typing = Some((Field::Elo, self.query.elo.map(|e| e.to_string()).unwrap_or_default())),
             KeyCode::Char('y') => {
                 let years = match (self.query.from, self.query.to) {
@@ -931,13 +937,17 @@ impl Viewer {
         } else if self.book_only {
             t!("chess.keys_book")
         } else if self.open.is_some() {
-            if self.other_game() {
+            if self.bridge() {
+                t!("bridge.keys_game")
+            } else if self.other_game() {
                 t!("draughts.keys_game")
             } else if self.lib.is_some() {
                 t!("chess.keys_game")
             } else {
                 t!("chess.keys_position")
             }
+        } else if self.bridge() {
+            t!("bridge.keys_list")
         } else if self.other_game() {
             t!("draughts.keys_list")
         } else {
@@ -1007,12 +1017,20 @@ impl Viewer {
         f.render_widget(Paragraph::new(fit(&state, w)).style(dim), Rect { height: 1, ..area });
         // Columns: fixed ones, and the names sharing the rest.
         // Draughts has no openings: their two columns go to the names and the event.
-        let draughts = lib.format != Format::Pgn;
-        let fixed = if draughts { [7usize, 5, 5, 7, 10, 0, 6] } else { [7usize, 5, 5, 7, 10, 4, 6] };
+        let bridge = lib.format == Format::Pbn;
+        let draughts = lib.format != Format::Pgn && !bridge;
+        // Bridge: the pairs, no ratings, the contract where the opening stands, the tricks.
+        let fixed = if bridge {
+            [7usize, 0, 0, 12, 10, 0, 6]
+        } else if draughts {
+            [7usize, 5, 5, 7, 10, 0, 6]
+        } else {
+            [7usize, 5, 5, 7, 10, 4, 6]
+        };
         let rest = w.saturating_sub(fixed.iter().sum::<usize>() + 10);
-        let name = (rest * if draughts { 32 } else { 22 } / 100).max(6);
+        let name = (rest * if draughts { 32 } else if bridge { 26 } else { 22 } / 100).max(6);
         let event = if draughts { rest.saturating_sub(2 * name).max(4) } else { (rest * 20 / 100).max(4) };
-        let opening = if draughts { 0 } else { rest.saturating_sub(2 * name + event).max(4) };
+        let opening = if draughts { 0 } else if bridge { rest.saturating_sub(2 * name + event).max(6) } else { rest.saturating_sub(2 * name + event).max(4) };
         let row = |cells: [String; 11]| -> String {
             let widths = [fixed[0], name, fixed[1], name, fixed[2], fixed[3], fixed[4], event, fixed[5], opening, fixed[6]];
             let mut out = String::new();
@@ -1032,17 +1050,22 @@ impl Viewer {
             match lib.format {
                 Format::Xiangqi => t!("xiangqi.col_red"),
                 Format::Kif | Format::Csa => t!("shogi.col_sente"),
+                Format::Pbn => t!("bridge.col_ns"),
                 _ => t!("chess.col_white"),
             },
             t!("chess.col_elo"),
-            if matches!(lib.format, Format::Kif | Format::Csa) { t!("shogi.col_gote") } else { t!("chess.col_black") },
+            match lib.format {
+                Format::Kif | Format::Csa => t!("shogi.col_gote"),
+                Format::Pbn => t!("bridge.col_ew"),
+                _ => t!("chess.col_black"),
+            },
             t!("chess.col_elo"),
             t!("chess.col_result"),
             t!("chess.col_date"),
             t!("chess.col_event"),
             "ECO".into(),
-            t!("chess.col_opening"),
-            t!("chess.col_moves"),
+            if bridge { t!("bridge.col_contract") } else { t!("chess.col_opening") },
+            if bridge { t!("bridge.col_tricks") } else { t!("chess.col_moves") },
         ]);
         f.render_widget(Paragraph::new(fit(&head, w)).style(base.add_modifier(Modifier::BOLD)), Rect { y: area.y + 1, height: 1, ..area });
         let h = area.height.saturating_sub(2) as usize;
@@ -1097,7 +1120,9 @@ impl Viewer {
             _ => vec![],
         };
         if self.other_game() {
-            let (lines, board_w) = if self.xiangqi() {
+            let (lines, board_w) = if self.bridge() {
+                self.bridge_table(dim)
+            } else if self.xiangqi() {
                 self.xiangqi_board(dim)
             } else if self.shogi() {
                 self.shogi_board(dim)
@@ -1314,6 +1339,87 @@ impl Viewer {
         (lines, 18)
     }
 
+    /// A bridge deal round the table: North above, West and East beside, South below, each
+    /// hand's cards still held by suit, the trick on the table in the middle; then the contract,
+    /// dealer and vulnerability, the tricks won, and the auction in four columns.
+    fn bridge_table(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+        use coxswain_core::bridge::{self, State};
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let fen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let st = State::from_text(&fen);
+        let tag = |k: &str| g.tag(k).filter(|v| !v.is_empty() && *v != "#" && *v != "?").unwrap_or("").to_string();
+        let seat = [t!("bridge.north"), t!("bridge.east"), t!("bridge.south"), t!("bridge.west")];
+        let names = ["North", "East", "South", "West"];
+        let red = Style::default().fg(Color::Rgb(190, 20, 30));
+        let suit_line = |s: usize, su: u8| -> Line<'static> {
+            let mut cards: Vec<_> = st.hands[s].iter().filter(|c| c.suit == su).collect();
+            cards.sort_by(|a, b| b.rank.cmp(&a.rank));
+            let ranks: String = cards.iter().map(|c| c.shown().chars().skip(1).collect::<String>()).collect::<Vec<_>>().join(" ");
+            let sym = ['♠', '♥', '♦', '♣'][su as usize].to_string();
+            Line::from(vec![Span::styled(sym, if su == 1 || su == 2 { red } else { Style::default() }), Span::raw(format!(" {}", if ranks.is_empty() { "–".into() } else { ranks }))])
+        };
+        let head = |s: usize| format!("{} {}", seat[s], tag(names[s]));
+        let pad = |l: Line<'static>, n: usize| -> Line<'static> {
+            let mut spans = vec![Span::raw(" ".repeat(n))];
+            spans.extend(l.spans);
+            Line::from(spans)
+        };
+        let mut lines: Vec<Line<'static>> = vec![];
+        lines.push(pad(Line::styled(head(0), dim), 16));
+        for su in 0..4 {
+            lines.push(pad(suit_line(0, su), 16));
+        }
+        // West and East side by side, the trick between them.
+        let trick = |s: usize| st.trick.iter().find(|(w, _)| *w == s).map(|(_, c)| c.shown()).unwrap_or_default();
+        let middle = [format!("   {:^6}   ", trick(0)), format!("{:<6}  {:>6}", trick(3), trick(1)), format!("   {:^6}   ", trick(2)), String::new()];
+        lines.push(Line::from(vec![Span::styled(format!("{:<16}", head(3)), dim), Span::raw(" ".repeat(16)), Span::styled(head(1), dim)]));
+        for su in 0..4u8 {
+            let w = suit_line(3, su);
+            let width: usize = w.spans.iter().map(|s| s.content.chars().count()).sum();
+            let mut spans = w.spans;
+            spans.push(Span::raw(" ".repeat(16usize.saturating_sub(width))));
+            spans.push(Span::styled(format!("{:<16}", middle[su as usize]), Style::default().add_modifier(Modifier::BOLD)));
+            spans.extend(suit_line(1, su).spans);
+            lines.push(Line::from(spans));
+        }
+        lines.push(pad(Line::styled(head(2), dim), 16));
+        for su in 0..4 {
+            lines.push(pad(suit_line(2, su), 16));
+        }
+        lines.push(Line::from(""));
+        let (contract, _, _) = bridge::contract(&tag("Contract"));
+        if !contract.is_empty() {
+            lines.push(Line::raw(t!("bridge.contract", "contract" => contract, "declarer" => tag("Declarer"))));
+        }
+        lines.push(Line::styled(t!("bridge.facts", "dealer" => tag("Dealer"), "vulnerable" => tag("Vulnerable")), dim));
+        lines.push(Line::raw(t!("bridge.tricks", "ns" => st.won[0], "ew" => st.won[1])));
+        if let Some(a) = g.tag("Auction") {
+            let mut calls = a.split_whitespace();
+            let first = calls.next().and_then(|c| "NESW".find(c)).unwrap_or(0);
+            lines.push(Line::styled(t!("bridge.auction"), dim));
+            // Columns West, North, East, South, as bridge players write them.
+            let order = [3usize, 0, 1, 2];
+            lines.push(Line::styled(order.iter().map(|&s| format!("{:<6}", seat[s].chars().take(5).collect::<String>())).collect::<String>(), dim));
+            let mut row = vec![String::new(); order.iter().position(|&s| s == first).unwrap_or(0)];
+            for c in calls {
+                row.push(c.to_string());
+                if row.len() == 4 {
+                    lines.push(Line::raw(row.iter().map(|c| format!("{c:<6}")).collect::<String>()));
+                    row.clear();
+                }
+            }
+            if !row.is_empty() {
+                lines.push(Line::raw(row.iter().map(|c| format!("{c:<6}")).collect::<String>()));
+            }
+        }
+        (lines, 48)
+    }
+
     /// A shogi board: 9×9 squares on the theme's wood, each piece its kanji, Gote's after a `v`
     /// (as KIF's board diagrams write them) and in another colour; the files numbered ９ to １
     /// above, the ranks 一 to 九 beside; the pieces in hand above (Gote's) and below (Sente's);
@@ -1395,13 +1501,22 @@ impl Viewer {
                 let e = tag(k);
                 if e.is_empty() { e } else { format!(" ({e})") }
             };
-            // Xiangqi names its first player Red.
+            // Xiangqi names its first player Red; bridge has pairs.
             let first = if tag("Red").is_empty() { tag("White") } else { tag("Red") };
-            head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", first, elo("WhiteElo"), tag("Black"), elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
+            let (first, second) = if self.bridge() {
+                let (pairs, _) = coxswain_core::bridge::summary(g);
+                (pairs[0].clone(), pairs[1].clone())
+            } else {
+                (first, tag("Black"))
+            };
+            head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", first, elo("WhiteElo"), second, elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
             let about = [tag("Event"), tag("Site"), tag("Date"), [tag("ECO"), tag("Opening")].join(" ").trim().to_string()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ");
             head.push(Line::styled(fit(&about, w), dim));
             if draughts {
                 head.push(Line::styled(fit(&coxswain_core::draughts::variant(g).name(), w), dim));
+            }
+            if let Some(b) = g.tag("Board").filter(|_| self.bridge()) {
+                head.push(Line::styled(fit(&t!("bridge.board_n", "n" => b), w), dim));
             }
             let total = self.lib.as_ref().map_or(0, |l| l.progress().games);
             head.push(Line::styled(fit(&t!("chess.game_of", "n" => o.index + 1, "total" => total), w), dim));
@@ -1872,6 +1987,32 @@ mod tests {
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
         assert!(s.contains("羽生") && s.contains("△同") && s.contains("角道") && s.contains("v香") && s.contains('角'), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_bridge_deal_at_the_table() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-pbn-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("club.pbn");
+        std::fs::write(&p, "[Board \"1\"]\n[North \"Ben\"]\n[South \"Di\"]\n[East \"Cy\"]\n[West \"Ada\"]\n[Dealer \"N\"]\n[Vulnerable \"None\"]\n[Deal \"N:AKQ5.T98.765.432 JT9.J765.432.AKQ 876.432.AKQJ.JT9 432.AKQ.T98.8765\"]\n[Declarer \"S\"]\n[Contract \"3NT\"]\n[Result \"9\"]\n[Auction \"N\"]\n1C Pass 1D Pass\n3NT AP\n[Play \"W\"]\nHA H8 H5 H2\n*\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.bridge() && v.feature() == "bridge");
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        v.key(key(KeyCode::Right), None);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(130, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(s.contains("Ben, Di") && s.contains("3NT S =") && s.contains("♥A") && s.contains("1♣") && s.contains("Ada"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

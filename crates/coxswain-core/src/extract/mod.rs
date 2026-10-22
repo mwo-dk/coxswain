@@ -45,7 +45,7 @@ type Reader = fn(&Path, u64) -> Option<String>;
 fn reader(path: &Path) -> Option<Reader> {
     // A PGN file, packed too, or a PDN file: a line per game, its players, event, opening and
     // result.
-    if matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa)) {
+    if matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn)) {
         return Some(|path, _| crate::chess::games::search_text(path, MAX_TEXT));
     }
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
@@ -93,7 +93,7 @@ pub(crate) fn streams(path: &Path) -> bool {
 /// read those: reading it would download it.
 pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
     // A PGN file of any size: its reader stops after a line per game for MAX_TEXT bytes.
-    let pgn = matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa));
+    let pgn = matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn));
     // Plain text, code, CSV and logs of any size: read line by line, they stop at MAX_TEXT.
     let streamed = pgn || streams(path);
     if size == 0 || (size > max && !streamed) || crate::cloud::keep_out(path) {

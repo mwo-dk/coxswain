@@ -23,16 +23,21 @@
   const draughts = $derived(format === "pdn");
   // KIF and CSA: shogi, on its board with the pieces in hand.
   const shogi = $derived(format === "shogi");
-  const table = $derived(format === "pgn" || draughts || shogi);
+  // PBN: bridge deals, at a table of four hands; the contract stands where the opening does.
+  const bridge = $derived(format === "pbn");
+  const table = $derived(format === "pgn" || draughts || shogi || bridge);
   // A PGN file of xiangqi, as its tags say (chess_rows): its own board too.
   let kind = $state("");
   const xiangqi = $derived(kind === "xiangqi");
-  const other = $derived(draughts || xiangqi || shogi);
+  const other = $derived(draughts || xiangqi || shogi || bridge);
   // F1 in the window: the feature of the file's games.
   $effect(() => {
     if (full && xiangqi && ui.modal?.kind === "chess" && ui.modal.path === path) ui.modal.feature = "xiangqi";
   });
-  const columns = $derived(other ? COLUMNS.filter(([c]) => c !== "eco" && c !== "opening") : COLUMNS);
+  const columns = $derived(
+    bridge ? COLUMNS.filter(([c]) => !["eco", "white_elo", "black_elo"].includes(c)) : other ? COLUMNS.filter(([c]) => c !== "eco" && c !== "opening") : COLUMNS,
+  );
+  const BRIDGE_COL = { white: "bridge.col_ns", black: "bridge.col_ew", opening: "bridge.col_contract", moves: "bridge.col_tricks" };
   const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   const ROW = 24;
   const COLUMNS = [
@@ -247,6 +252,35 @@
     return out;
   }
   const board = $derived(squares(fen));
+
+  const SEAT = ["bridge.north", "bridge.east", "bridge.south", "bridge.west"];
+  const SEAT_TAG = ["North", "East", "South", "West"];
+  const SUIT = ["♠", "♥", "♦", "♣"];
+  /** A bridge table from its state (`bridge::State::text`): each seat's cards by suit as text
+   *  ("A K 10"), the trick's card per seat ("♠A"), the tricks won. */
+  function bridgeState(f) {
+    const [hands = "", trick = "", , ns = "0", ew = "0"] = (f ?? "").split(";");
+    const out = { hands: [[], [], [], []], trick: [null, null, null, null], won: [ns, ew] };
+    const shown = (r) => (r === "T" ? "10" : r);
+    for (const h of hands.split(" ")) {
+      const s = "NESW".indexOf(h[0]);
+      if (s < 0) continue;
+      out.hands[s] = h.slice(2).split(".").map((suit) => [...suit].map(shown).join(" "));
+    }
+    for (const c of trick.split(" ")) {
+      const s = "NESW".indexOf(c[0]);
+      if (s >= 0 && c.length >= 4) out.trick[s] = SUIT["SHDC".indexOf(c[2])] + shown(c.slice(3));
+    }
+    return out;
+  }
+  /** The auction's calls in rows West, North, East, South, from the seat that called first. */
+  function auctionRows(calls) {
+    const first = "NESW".indexOf(calls[0]);
+    const cells = [...Array([3, 0, 1, 2].indexOf(first < 0 ? 0 : first)).fill(""), ...calls.slice(1)];
+    const rows = [];
+    for (let i = 0; i < cells.length; i += 4) rows.push(cells.slice(i, i + 4));
+    return rows;
+  }
 
   /** Shogi kanji by SFEN letter, plain and promoted (`shogi::glyph`). */
   const SG = { P: "歩", L: "香", N: "桂", S: "銀", G: "金", B: "角", R: "飛", K: "玉" };
@@ -707,6 +741,32 @@
           <svg class="board chess-keys" viewBox="0 0 {d.w} {d.h}" tabindex="0" role="img" aria-label={t("draughts.board")} bind:this={boardEl} onkeydown={onBoardKey}>
             {#each Array(d.w * d.h) as _, i (i)}{@render cell(d, i)}{/each}
           </svg>
+        {:else if bridge}
+          {@const st = bridgeState(fen)}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+          <div class="bridge chess-keys" tabindex="0" role="img" aria-label={t("bridge.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            {#each [[0, "n"], [3, "w"], [1, "e"], [2, "s"]] as [s, area] (s)}
+              <div class="hand {area}">
+                <b>{t(SEAT[s])}</b> {tag(SEAT_TAG[s])}
+                {#each [0, 1, 2, 3] as su (su)}<div><span class:red={su === 1 || su === 2}>{SUIT[su]}</span> {st.hands[s][su] || "–"}</div>{/each}
+              </div>
+            {/each}
+            <div class="trick">
+              {#each [[0, "n"], [3, "w"], [1, "e"], [2, "s"]] as [s, area] (s)}<span class="card {area}" class:red={st.trick[s] && "♥♦".includes(st.trick[s][0])}>{st.trick[s] ?? ""}</span>{/each}
+            </div>
+          </div>
+          {#if tag("Contract")}<p class="meta">{t("bridge.contract", { contract: game.game.result.split(" ")[0], declarer: tag("Declarer") })}</p>{/if}
+          <p class="meta">{t("bridge.facts", { dealer: tag("Dealer"), vulnerable: tag("Vulnerable") })}</p>
+          <p class="meta">{t("bridge.tricks", { ns: st.won[0], ew: st.won[1] })}</p>
+          {#if tag("Auction")}
+            <p class="meta">{t("bridge.auction")}</p>
+            <table class="auction">
+              <thead><tr>{#each [3, 0, 1, 2] as s (s)}<th>{t(SEAT[s])}</th>{/each}</tr></thead>
+              <tbody>
+                {#each auctionRows(tag("Auction").split(" ")) as row, i (i)}<tr>{#each row as c, j (j)}<td class:red={c && /[♥♦]/.test(c)}>{c}</td>{/each}</tr>{/each}
+              </tbody>
+            </table>
+          {/if}
         {:else if shogi}
           {@const sg = sgView(fen)}
           <p class="meta hand">{t(flip ? "shogi.hand_sente" : "shogi.hand_gote", { pieces: sg.hands[flip ? 0 : 1] || "–" })}</p>
@@ -746,7 +806,7 @@
           <button class="icon" title={t("chess.prev_tip")} aria-label={t("chess.prev_tip")} onclick={() => step("prev")}>◀</button>
           <button class="icon" title={t("chess.next_tip")} aria-label={t("chess.next_tip")} onclick={() => step("next")}>▶</button>
           <button class="icon" title={t("chess.end_tip")} aria-label={t("chess.end_tip")} onclick={() => step("end")}>▶|</button>
-          <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
+          {#if !bridge}<button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>{/if}
           {#if !other}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
           {#if !other}<button title={t("chess.engine_tip")} class:on={analysis} onclick={() => (analysis = !analysis)}>{t("chess.engine_btn")}</button>{/if}
           {#if !other}<button title={t("chess.position_tip")} onclick={findPosition}>{t("chess.position_btn")}</button>{/if}
@@ -762,7 +822,7 @@
             {#each promo as m (m.uci)}<button title={m.san} onclick={() => playMove(m)}><img alt={m.san} src={`vendor/chess-pieces/${m.white ? "w" : "b"}${m.promotion.toUpperCase()}.svg`} /></button>{/each}
           </div>
         {/if}
-        {#if fen && shogi}<p class="meta">{fen.split(" ")[1] === "w" ? t("shogi.gote_to_move") : t("shogi.sente_to_move")}</p>
+        {#if bridge}{:else if fen && shogi}<p class="meta">{fen.split(" ")[1] === "w" ? t("shogi.gote_to_move") : t("shogi.sente_to_move")}</p>
         {:else if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : xiangqi ? t("xiangqi.red_to_move") : t("chess.white_to_move")}{#if evalNow != null} · <b>{shownEval(evalNow)}</b>{/if}</p>{/if}
         {#if points.length}
           <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
@@ -781,7 +841,9 @@
       </div>
       <div class="moves" bind:this={movesEl}>
         {#if table}
-          <p class="players"><b>{known(tag("Red")) || known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>
+          {#if bridge}<p class="players"><b>{[tag("North"), tag("South")].filter(known).join(", ")} – {[tag("East"), tag("West")].filter(known).join(", ")}</b> {game.game.result}</p>
+          {#if tag("Board")}<p class="meta">{t("bridge.board_n", { n: tag("Board") })}</p>{/if}
+          {:else}<p class="players"><b>{known(tag("Red")) || known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>{/if}
           <p class="meta">{[known(tag("Event")), known(tag("Site")), known(tag("Date")), [tag("ECO"), tag("Opening")].join(" ").trim()].filter(Boolean).join(" · ")}</p>
           {#if game.variant}<p class="meta">{game.variant}</p>{/if}
           <p class="meta">{t("chess.game_of", { n: game.index + 1, total: progress?.games ?? "" })}</p>
@@ -848,22 +910,23 @@
             {/each}
           </ul>
         {/if}
-        <p class="meta keys">{other ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
+        <p class="meta keys">{bridge ? t("bridge.keys_game_gui") : other ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
   {:else if table}
     <div class="filters">
       <input type="search" placeholder={t("chess.filter_player")} aria-label={t("chess.filter_player")} bind:value={query.player} />
+      {#if bridge}<input type="search" placeholder={t("bridge.col_contract")} aria-label={t("bridge.col_contract")} bind:value={query.opening} />{/if}
       {#if !other}<input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
-      <select aria-label={t("chess.col_result")} bind:value={query.result}>
+      {#if !bridge}<select aria-label={t("chess.col_result")} bind:value={query.result}>
         <option value="">{t("chess.result_any")}</option>
         <option value="1-0">{draughts ? "2-0 · 1-0" : "1-0"}</option>
         <option value="0-1">{draughts ? "0-2 · 0-1" : "0-1"}</option>
         <option value="1/2-1/2">{draughts ? "1-1 · ½-½" : "½-½"}</option>
-      </select>
+      </select>{/if}
       <input class="num" type="number" style:width={fits(t("chess.year_from"))} placeholder={t("chess.year_from")} aria-label={t("chess.year_from")} value={query.from ?? ""} onchange={(e) => (query.from = num(e.currentTarget.value))} />
       <input class="num" type="number" style:width={fits(t("chess.year_to"))} placeholder={t("chess.year_to")} aria-label={t("chess.year_to")} value={query.to ?? ""} onchange={(e) => (query.to = num(e.currentTarget.value))} />
-      <input class="num" type="number" style:width={fits(t("chess.filter_elo"))} placeholder={t("chess.filter_elo")} aria-label={t("chess.filter_elo")} value={query.elo ?? ""} onchange={(e) => (query.elo = num(e.currentTarget.value))} />
+      {#if !bridge}<input class="num" type="number" style:width={fits(t("chess.filter_elo"))} placeholder={t("chess.filter_elo")} aria-label={t("chess.filter_elo")} value={query.elo ?? ""} onchange={(e) => (query.elo = num(e.currentTarget.value))} />{/if}
       {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
     </div>
     <p class="meta">
@@ -875,7 +938,7 @@
         <thead>
           <tr>
             {#each columns as [col, label] (col)}
-              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(xiangqi && col === "white" ? "xiangqi.col_red" : shogi && col === "white" ? "shogi.col_sente" : shogi && col === "black" ? "shogi.col_gote" : label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
+              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(bridge && BRIDGE_COL[col] ? BRIDGE_COL[col] : xiangqi && col === "white" ? "xiangqi.col_red" : shogi && col === "white" ? "shogi.col_sente" : shogi && col === "black" ? "shogi.col_gote" : label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
             {/each}
           </tr>
         </thead>
@@ -885,14 +948,14 @@
             <tr class:cursor={first + k === cursor} onclick={() => (cursor = first + k)} ondblclick={() => openGame(index)}>
               <td class="number">{r.n}</td>
               <td>{r.white}</td>
-              <td class="n">{r.white_elo ?? ""}</td>
+              {#if !bridge}<td class="n">{r.white_elo ?? ""}</td>{/if}
               <td>{r.black}</td>
-              <td class="n">{r.black_elo ?? ""}</td>
+              {#if !bridge}<td class="n">{r.black_elo ?? ""}</td>{/if}
               <td>{r.result}</td>
               <td>{r.date}</td>
               <td>{r.event}</td>
-              {#if !other}<td>{r.eco}</td>
-              <td>{r.opening}</td>{/if}
+              {#if !other}<td>{r.eco}</td>{/if}
+              {#if !other || bridge}<td>{r.opening}</td>{/if}
               <td class="n">{r.moves}</td>
             </tr>
           {/each}
@@ -1041,6 +1104,60 @@
   }
   .board:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .bridge {
+    display: grid;
+    grid-template-areas: ". n ." "w t e" ". s .";
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+    outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .bridge:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .hand.n {
+    grid-area: n;
+  }
+  .hand.w {
+    grid-area: w;
+  }
+  .hand.e {
+    grid-area: e;
+  }
+  .hand.s {
+    grid-area: s;
+  }
+  .trick {
+    grid-area: t;
+    display: grid;
+    grid-template-areas: ". n ." "w . e" ". s .";
+    align-items: center;
+    justify-items: center;
+    font-weight: bold;
+  }
+  .card.n {
+    grid-area: n;
+  }
+  .card.w {
+    grid-area: w;
+  }
+  .card.e {
+    grid-area: e;
+  }
+  .card.s {
+    grid-area: s;
+  }
+  .red {
+    color: #e0303f;
+  }
+  .auction td,
+  .auction th {
+    padding: 0 10px 0 0;
+    text-align: start;
   }
   .board.sg {
     aspect-ratio: 1;
