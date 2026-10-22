@@ -118,8 +118,8 @@ impl List {
             bytes: list.iter().filter(|e| !e.is_dir).map(|e| e.size).sum(),
             dirs: list.iter().filter(|e| e.is_dir).map(|e| e.path.clone()).collect(),
             dir_bytes: list.iter().filter(|e| e.is_dir).map(|e| e.size).sum(),
-            // By name only: no file is read for a change of marks (the action menu reads one).
-            subject: Subject::of(&list, false),
+            // By name, and for disk images and a single file by their first bytes (`Subject::of`).
+            subject: Subject::of(&list),
         }
     }
 

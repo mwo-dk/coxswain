@@ -453,7 +453,7 @@ const RANDOM: [u64; 781] = [
 ];
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn after(moves: &[&str]) -> Board {
