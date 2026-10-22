@@ -390,14 +390,11 @@ mod tests {
     use crate::history::tests::{add, commit_as, repo};
 
     fn git(d: &Path, args: &[&str]) -> bool {
-        crate::tools::command("git")
-            .arg("-C")
-            .arg(d)
-            .args(args)
-            .output()
-            .unwrap()
-            .status
-            .success()
+        let out = crate::tools::command("git").arg("-C").arg(d).args(args).output().unwrap();
+        if !out.status.success() {
+            eprintln!("git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        }
+        out.status.success()
     }
 
     #[test]
