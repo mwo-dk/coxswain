@@ -83,7 +83,7 @@ image = { version = "0.25.10", default-features = false, features = ["tiff", "tg
 # JPEG XL, in pure Rust; no colour management library (lcms2 is C).
 jxl-oxide = { version = "0.12.6", default-features = false, features = ["image", "rayon"] }
 # Outlook's `.msg` is a compound file (OLE); the version tauri's `infer` already brings.
-cfb = "0.14.0"
+cfb = "0.15"
 
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [target.'cfg(unix)'.dependencies]
