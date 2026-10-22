@@ -217,4 +217,4 @@ environments themselves are in the sidebar and **Alt+F1**
 ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 
 ---
-[← Previous: Compare files (Shift+F2)](compare-files.md) · [Next: Make PDF searchable →](searchable-pdf.md)
+[← Previous: Compare folders (Ctrl+F2)](compare-folders.md) · [Next: Make PDF searchable →](searchable-pdf.md)

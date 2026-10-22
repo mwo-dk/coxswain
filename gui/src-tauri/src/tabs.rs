@@ -220,7 +220,8 @@ pub async fn tab_list(
     ctx: tauri::State<'_, Ctx>,
     tabs: tauri::State<'_, Tabs>,
 ) -> Res<TabListing> {
-    let (entries, meta) = read_listing(dir, show_hidden, sort, reverse, &ctx).await?;
+    let (mut entries, meta) = read_listing(dir, show_hidden, sort, reverse, &ctx).await?;
+    crate::compare::hide_same(&mut entries);
     let mut all = tabs.0.lock().map_err(|e| e.to_string())?;
     let mut marked = HashSet::new();
     if let Some(old) = all.get_mut(&tab) {

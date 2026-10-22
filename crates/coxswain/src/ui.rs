@@ -363,22 +363,36 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             s = if marked { sty(&t.marked_cursor) } else { sty(&t.cursor) };
         }
         let row_bg = s.bg.unwrap_or(Color::Reset);
-        let (glyph, gstyle) = match p.git.as_ref().and_then(|g| g.get(&e.path)).filter(|_| !e.is_parent()) {
-            Some(st) => {
-                let gs = match st.kind {
-                    Kind::Modified => &t.git_modified,
-                    Kind::Added => &t.git_added,
-                    Kind::Untracked => &t.git_untracked,
-                    Kind::Deleted => &t.git_deleted,
-                    Kind::Renamed => &t.git_renamed,
-                    Kind::Conflict => &t.git_conflict,
-                    Kind::Ignored => &t.git_ignored,
-                };
-                (st.kind.glyph(&app.glyphs).to_string(), sty(gs).bg(row_bg))
+        // Compare folders: how it stands against the other side, before git's mark.
+        let cmp = p.cmp.as_ref().filter(|_| !e.is_parent()).and_then(|c| c.f.state(c.side, &e.path).map(|st| (c, st)));
+        let (glyph, gstyle) = if let Some((c, st)) = cmp {
+            use coxswain_core::compare::folders::State;
+            let gs = match if c.side == 0 { st } else { st.flip() } {
+                State::OnlyLeft => &t.git_added,
+                State::NewerLeft => &t.git_modified,
+                State::NewerRight => &t.git_renamed,
+                State::Different => &t.git_conflict,
+                State::Same | State::OnlyRight => &t.git_ignored,
+            };
+            (st.glyph(c.side).to_string(), sty(gs).bg(row_bg))
+        } else {
+            match p.git.as_ref().and_then(|g| g.get(&e.path)).filter(|_| !e.is_parent()) {
+                Some(st) => {
+                    let gs = match st.kind {
+                        Kind::Modified => &t.git_modified,
+                        Kind::Added => &t.git_added,
+                        Kind::Untracked => &t.git_untracked,
+                        Kind::Deleted => &t.git_deleted,
+                        Kind::Renamed => &t.git_renamed,
+                        Kind::Conflict => &t.git_conflict,
+                        Kind::Ignored => &t.git_ignored,
+                    };
+                    (st.kind.glyph(&app.glyphs).to_string(), sty(gs).bg(row_bg))
+                }
+                // Only in the cloud: the glyph says so, and nothing reads it unasked.
+                None if e.online => (app.glyphs.cloud.clone(), s),
+                None => (String::new(), s),
             }
-            // Only in the cloud: the glyph says so, and nothing reads it unasked.
-            None if e.online => (app.glyphs.cloud.clone(), s),
-            None => (String::new(), s),
         };
         let row = graph.iter().find(|r| !e.is_parent() && e.path.ends_with(&r.id));
         let name = if e.is_parent() {

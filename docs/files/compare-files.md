@@ -165,4 +165,4 @@ A terminal has no pixels to draw them with; it shows both sizes and how many pix
 desktop app shows them side by side, as an overlay and as their difference.
 
 ---
-[← Previous: Finding duplicates](duplicates.md) · [Next: ZFS snapshots as folders →](zfs-snapshots.md)
+[← Previous: Finding duplicates](duplicates.md) · [Next: Compare folders (Ctrl+F2) →](compare-folders.md)

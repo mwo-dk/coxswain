@@ -232,6 +232,8 @@ actions! {
     // Where the space goes, as a treemap (`space`). Alt+U, for usage: free, and few names
     // start with u, so quick search hardly misses it.
     SpaceView = "space_view", "Space view", Panels, ["Alt+U"];
+    // The two panels' folders compared (`compare::folders`); again: its menu.
+    CompareFolders = "compare_folders", "Compare folders", Panels, ["Ctrl+F2"];
     // Marking, the most used first.
     Mark = "mark", "Mark", Marking, ["Insert", "Shift+Down"];
     MarkAll = "mark_all", "Mark all", Marking, ["Ctrl+A"];

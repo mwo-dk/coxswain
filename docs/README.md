@@ -41,6 +41,7 @@ mindmap
       Archives as folders
       Properties, duplicates
       Compare files Shift+F2
+      Compare folders Ctrl+F2
       ZFS snapshots
     Customising
       Settings
@@ -195,6 +196,7 @@ mindmap
 | [Properties and permissions](files/properties.md) | Properties (Alt+Enter, both apps): size, dates, owner, permissions and read-only; ZFS dataset, FreeBSD package, file flags (chflags) |
 | [Finding duplicates](files/duplicates.md) | Files and whole folders, across disks, safe removal to the trash |
 | [Compare files (Shift+F2)](files/compare-files.md) | Shift+F2, both apps: side by side or one under the other, changed words, spaces and case set aside, next change, copy a change across and save; documents by their text, pictures by their pixels (overlay and difference in the desktop app), other files as hex |
+| [Compare folders (Ctrl+F2)](files/compare-folders.md) | Ctrl+F2, both apps: two folders recursively, by size and date or byte by byte; + > < ≠ = in both panels as found; differences only; mark differences and F5; links compared as links; archives, images, snapshots and histories read-only; Stop |
 | [ZFS snapshots as folders](files/zfs-snapshots.md) | Alt+Z: a dataset's snapshots, newest first, browsed read-only; diff against now, F5 copies back; the ZFS line in the footer |
 | [Make PDF searchable (Alt+P)](files/searchable-pdf.md) | A copy of a scanned PDF with its words in it (`name.searchable.pdf`), by OCRmyPDF installed or in its container; never over the original; progress and Stop; both apps |
 | [Convert video or audio](files/convert-media.md) | MP4, MP3 or FLAC copies of videos and songs, their sound, a clip, by ffmpeg installed or in its container; next to the original, never over it; progress and Stop; both apps |

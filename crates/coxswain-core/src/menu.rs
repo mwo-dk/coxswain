@@ -204,6 +204,7 @@ impl Action {
             Duplicates => disk && (s.folders > 0 || n == 0),
             // The folder under the cursor, else the panel's.
             SpaceView => disk,
+            CompareFolders => s.place != Place::Branches,
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
             // What Coxswain can do, and Settings, from any menu.

@@ -323,6 +323,7 @@ export async function load(t, dir = t.dir, focus) {
     t.error = null;
     t.items.reset(r, generation);
     t.cursor = r.cursor;
+    if (ui.folders) cmpStates(t);
   } catch (e) {
     if (stale() || String(e) === STALE) return undefined;
     // A locked archive, looked into: its password, kept by the app for this run, then again.
@@ -1423,4 +1424,103 @@ export const nextView = (v) => VIEWS[(VIEWS.indexOf(v) + 1) % VIEWS.length];
 export function focusPane(p, ti) {
   ui.activePane = p;
   if (ti !== undefined) ui.panes[p].active = ti;
+}
+
+// ---------------------------------------------------------------- compare folders
+
+/** The side of the panes `t` is in: 0 left, 1 right. */
+const sideOf = (t) => Math.max(0, ui.panes.findIndex((p) => p.tabs.includes(t)));
+const FLIP = { only_left: "only_right", only_right: "only_left", newer_left: "newer_right", newer_right: "newer_left" };
+/** How a state reads on side `side`: as the left sees it. */
+const asLeft = (state, side) => (side === 0 ? state : (FLIP[state] ?? state));
+const GLYPH = { only_left: "+", newer_left: ">", newer_right: "<", different: "≠", same: "=", only_right: "-" };
+/** The mark beside a name in a pane while folders are compared (`State::glyph`). */
+export const cmpGlyph = (t, state) => GLYPH[asLeft(state, sideOf(t))];
+export const cmpClass = (t, state) => asLeft(state, sideOf(t));
+/** The words for a state, for a tooltip. */
+export const cmpLabel = (state) => t(`compare.${state === "same" ? "same_state" : state}`);
+/** How the entries of `t` stand against the other pane's, while folders are compared. With
+ *  Differences only, the listing itself (`tab_list`) leaves out what is the same. */
+export async function cmpStates(t) {
+  if (!ui.folders) return void (t.cmp = null);
+  t.cmp = await invoke("folders_states", { dir: t.dir, side: sideOf(t) }).catch(() => null);
+}
+
+let folderTimer;
+async function pollFolders() {
+  clearTimeout(folderTimer);
+  if (!ui.folders) return;
+  const st = await invoke("folders_state").catch(() => null);
+  if (!st || !ui.folders) return;
+  Object.assign(ui.folders, st);
+  ui.status = st.summary;
+  for (const t of visibleTabs()) await cmpStates(t);
+  if (!st.done) folderTimer = setTimeout(pollFolders, 300);
+  else if (ui.folders.diffOnly) await reloadAll();
+}
+
+/** Compare folders (Ctrl+F2): the left pane's folder against the right one's; while it is on,
+ *  its menu. */
+export function compareFolders() {
+  if (!ui.folders) return startFolders("quick");
+  const f = ui.folders;
+  const entry = (key, label, run) => ({ key, label: t(label), run });
+  ui.modal = {
+    kind: "menu",
+    feature: "compare_folders",
+    title: actionLabel("compare_folders"),
+    direct: true,
+    filter: "",
+    cursor: 0,
+    items: [
+      entry("1", "compare.mark_differences", markDifferences),
+      entry("2", f.diffOnly ? "compare.show_all" : "compare.differences_only", () => diffOnly(!f.diffOnly)),
+      entry("3", f.mode === "quick" ? "compare.by_content" : "compare.by_size_date", () => startFolders(f.mode === "quick" ? "content" : "quick")),
+      entry("4", "compare.stop_comparing", stopFolders),
+    ],
+  };
+}
+
+export async function startFolders(mode) {
+  const [l, r] = [tab(0), tab(1)];
+  const keep = ui.folders?.diffOnly;
+  if (!ui.dual || !l || !r) return void (ui.status = t("compare.two_panes"));
+  try {
+    await invoke("folders_open", { left: l.dir, right: r.dir, mode });
+  } catch (e) {
+    return void (ui.status = String(e));
+  }
+  ui.folders = { mode, diffOnly: false, done: false, summary: "" };
+  if (keep) await diffOnly(true);
+  pollFolders();
+}
+
+/** Differences only, on or off: the listings leave out what is the same, or show it again. */
+async function diffOnly(on) {
+  if (!ui.folders) return;
+  ui.folders.diffOnly = on;
+  await invoke("folders_diff_only", { on }).catch(() => {});
+  await reloadAll();
+}
+
+function stopFolders() {
+  invoke("folders_close");
+  const all = ui.folders?.diffOnly;
+  ui.folders = null;
+  for (const t of visibleTabs()) t.cmp = null;
+  if (all) reloadAll();
+  ui.status = t("compare.stopped_comparing");
+}
+
+/** Marks, in both panes, what is only there, newer there or different: ready for F5. */
+async function markDifferences() {
+  let n = 0;
+  for (const tb of visibleTabs()) {
+    const paths = await invoke("folders_ahead", { dir: tb.dir, side: sideOf(tb) }).catch(() => []);
+    if (!paths.length) continue;
+    const before = tb.marks?.count ?? 0;
+    await mark(tb, { paths });
+    n += (tb.marks?.count ?? 0) - before;
+  }
+  ui.status = tn("compare.marked", n);
 }
