@@ -2207,6 +2207,8 @@ fn scan_for(
     store.reader_changed("readers.sgf", "1", &crate::go::ENDINGS)?;
     // PDN files: a line per draughts game (players, event, place, date, result), read once again.
     store.reader_changed("readers.pdn", "1", &crate::draughts::ENDINGS)?;
+    // KIF and CSA files: a line per shogi game (players, event, place, date, result), read once again.
+    store.reader_changed("readers.shogi", "1", &crate::shogi::ENDINGS)?;
     // Outlook messages and dBase tables have readers of their own: read once again.
     store.reader_changed("readers.msg-dbf", "1", &[".msg", ".dbf"])?;
     // Apache Tika, once it is turned on and its image is there: its own version, so a change

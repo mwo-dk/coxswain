@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: silver.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#241c14">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M81 286C102 226 118 150 121 99L178 114C173 164 156 240 134 299ZM370 311C360 257 338 176 321 127L369 111C388 158 411 231 431 293ZM840 553V435H564V553ZM840 618H564V731H840ZM493 798V22L408 3L431 -70C522 -47 643 -17 757 13L749 82L564 38V368H656C700 162 783 -2 930 -82C941 -62 962 -34 979 -20C904 16 845 79 801 158C849 190 907 235 953 276L901 327C868 293 817 249 772 215C752 262 735 314 722 368H912V798ZM218 840C183 760 117 658 22 582C37 572 59 549 70 533L111 570V528H224V422H60V356H224V50L47 18L65 -50C170 -29 316 0 453 29L448 93L291 63V356H440V422H291V528H414V593H133C190 653 232 717 263 771C322 718 386 643 419 595L470 653C432 705 351 785 286 840Z"/>
+  </g>
+</svg>

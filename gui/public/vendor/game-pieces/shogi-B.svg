@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: bishop.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#241c14">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M265 544H486V411H265ZM265 611H263C295 646 324 682 349 718H593C573 682 547 642 522 611ZM797 544V411H558V544ZM337 843C287 742 191 618 56 527C74 516 98 492 110 474C139 495 166 517 191 539V361C191 234 175 79 33 -31C48 -42 75 -69 86 -85C166 -23 212 58 237 141H797V16C797 -3 791 -9 769 -10C746 -11 668 -11 587 -9C598 -29 612 -61 616 -82C718 -82 783 -81 821 -69C858 -57 871 -34 871 15V611H605C640 655 674 706 697 752L646 785L634 781H391L418 828ZM265 346H486V207H252C261 255 264 302 265 346ZM797 346V207H558V346Z"/>
+  </g>
+</svg>

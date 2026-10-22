@@ -67,6 +67,7 @@ pub mod searchable;
 pub mod service;
 pub mod settings;
 pub mod setup;
+pub mod shogi;
 pub mod sizes;
 pub mod space;
 pub mod state;

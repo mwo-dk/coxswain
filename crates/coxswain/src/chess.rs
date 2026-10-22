@@ -163,7 +163,7 @@ impl Viewer {
                 v.lib = Some(Arc::new(lib));
             }
             // Draughts: the same table; no opening book.
-            Some(Format::Pdn) => {
+            Some(Format::Pdn | Format::Kif | Format::Csa) => {
                 v.lib = Some(Arc::new(Library::open(path)?));
                 v.book = None;
             }
@@ -239,8 +239,14 @@ impl Viewer {
         match self.lib.as_ref().map(|l| l.format) {
             Some(Format::Pdn) => "draughts",
             Some(Format::Xiangqi) => "xiangqi",
+            Some(Format::Kif | Format::Csa) => "shogi",
             _ => "chess",
         }
+    }
+
+    /// A KIF or CSA file of shogi games.
+    fn shogi(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| matches!(l.format, Format::Kif | Format::Csa))
     }
 
     /// A PGN file of xiangqi games.
@@ -600,9 +606,13 @@ impl Viewer {
         };
         let head = row([
             "#".into(),
-            if lib.format == Format::Xiangqi { t!("xiangqi.col_red") } else { t!("chess.col_white") },
+            match lib.format {
+                Format::Xiangqi => t!("xiangqi.col_red"),
+                Format::Kif | Format::Csa => t!("shogi.col_sente"),
+                _ => t!("chess.col_white"),
+            },
             t!("chess.col_elo"),
-            t!("chess.col_black"),
+            if matches!(lib.format, Format::Kif | Format::Csa) { t!("shogi.col_gote") } else { t!("chess.col_black") },
             t!("chess.col_elo"),
             t!("chess.col_result"),
             t!("chess.col_date"),
@@ -661,7 +671,13 @@ impl Viewer {
         let Some(o) = &self.open else { return };
         let g = &o.game;
         if self.other_game() {
-            let (lines, board_w) = if self.xiangqi() { self.xiangqi_board(dim) } else { self.draughts_board(area, dim) };
+            let (lines, board_w) = if self.xiangqi() {
+                self.xiangqi_board(dim)
+            } else if self.shogi() {
+                self.shogi_board(dim)
+            } else {
+                self.draughts_board(area, dim)
+            };
             f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
             return self.draw_moves(f, theme, area, board_w, vec![]);
         }
@@ -833,6 +849,64 @@ impl Viewer {
         let red = fen.split_whitespace().nth(1) != Some("b");
         lines.push(Line::styled(t!(if red { "xiangqi.red_to_move" } else { "chess.black_to_move" }), dim));
         (lines, 18)
+    }
+
+    /// A shogi board: 9×9 squares on the theme's wood, each piece its kanji, Gote's after a `v`
+    /// (as KIF's board diagrams write them) and in another colour; the files numbered ９ to １
+    /// above, the ranks 一 to 九 beside; the pieces in hand above (Gote's) and below (Sente's);
+    /// the last move's squares tinted.
+    fn shogi_board(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+        use coxswain_core::shogi;
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let sfen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        let (cells, hands) = shogi::view(&sfen);
+        let wood = self.board[0];
+        let ink = Style::default().bg(wood).fg(Color::Rgb(70, 50, 30));
+        let hand = |side: usize| -> String {
+            let list: Vec<String> = hands[side].iter().map(|&(k, n)| if n > 1 { format!("{k}{n}") } else { k.to_string() }).collect();
+            let pieces = if list.is_empty() { "–".to_string() } else { list.join(" ") };
+            if side == 0 { t!("shogi.hand_sente", "pieces" => pieces) } else { t!("shogi.hand_gote", "pieces" => pieces) }
+        };
+        let (top, bottom) = if self.flip { (0, 1) } else { (1, 0) };
+        let mut lines = vec![Line::styled(hand(top), dim)];
+        const FILES: [&str; 9] = ["９", "８", "７", "６", "５", "４", "３", "２", "１"];
+        const RANKS: [&str; 9] = ["一", "二", "三", "四", "五", "六", "七", "八", "九"];
+        let files: Vec<&str> = if self.flip { FILES.iter().rev().copied().collect() } else { FILES.to_vec() };
+        lines.push(Line::styled(files.iter().map(|f| format!(" {f}")).collect::<String>(), dim));
+        for row in 0..9usize {
+            let y = if self.flip { 8 - row } else { row };
+            let mut spans = vec![];
+            for col in 0..9usize {
+                let x = if self.flip { 8 - col } else { col };
+                let c = x + y * 9;
+                let mut style = ink;
+                if last.is_some_and(|(a, b)| a == Some(c as u8) || b == Some(c as u8)) {
+                    style = style.bg(tint(wood, (0xf6, 0xe0, 0x5a)));
+                }
+                match cells.get(c).copied().flatten() {
+                    Some(p) => {
+                        // Gote's pieces point the other way: marked v, in red, from Sente's side.
+                        let gote = p.sente == self.flip;
+                        let fg = if gote { Color::Rgb(160, 20, 30) } else { Color::Rgb(0, 0, 0) };
+                        spans.push(Span::styled(if gote { "v" } else { " " }, style.fg(fg)));
+                        spans.push(Span::styled(shogi::glyph(p).to_string(), style.fg(fg).add_modifier(Modifier::BOLD)));
+                    }
+                    None => spans.push(Span::styled(" ・", style)),
+                }
+            }
+            spans.push(Span::styled(format!(" {}", RANKS[y]), dim));
+            lines.push(Line::from(spans));
+        }
+        lines.push(Line::styled(hand(bottom), dim));
+        let sente = sfen.split_whitespace().nth(1) != Some("w");
+        lines.push(Line::styled(t!(if sente { "shogi.sente_to_move" } else { "shogi.gote_to_move" }), dim));
+        (lines, 30)
     }
 
     /// Beside the board: who played, then the moves.
@@ -1163,6 +1237,34 @@ mod tests {
         // A wide character's second cell is drawn as a space here.
         let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
         assert!(s.contains("Hu") && s.contains("马二进三") && s.contains("centre") && s.contains('俥') && s.contains('將') && s.contains('楚'), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_shogi_game_on_its_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-shogi-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.kif");
+        std::fs::write(&p, "先手：羽生\n後手：佐藤\n手数----指手--\n   1 ７六歩(77)\n   2 ３四歩(33)\n*角道\n   3 ２二角成(88)\n   4 同　銀(31)\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.shogi() && v.book.is_none() && v.feature() == "shogi");
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        for _ in 0..4 {
+            v.key(key(KeyCode::Right), None);
+        }
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
+        assert!(s.contains("羽生") && s.contains("△同") && s.contains("角道") && s.contains("v香") && s.contains('角'), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 }
