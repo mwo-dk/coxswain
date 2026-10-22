@@ -393,7 +393,7 @@
     export_kicad: () => convertMedia(4),
     make_checksums: () => makeChecksums(),
     verify_checksums: () => verifyChecksums(),
-    transcribe: () => transcribe(targets()),
+    transcribe: async () => transcribe(await targets()),
     split_file: () => splitFile(),
     join_parts: () => joinParts(),
     chess: async () => {
