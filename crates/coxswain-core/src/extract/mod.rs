@@ -81,6 +81,12 @@ fn reader(path: &Path) -> Option<Reader> {
     })
 }
 
+/// Whether the file at `path` is read line by line (`plain::tidied`), whatever its size: text,
+/// code, CSV and logs, the kinds no reader of its own reads.
+pub(crate) fn streams(path: &Path) -> bool {
+    reader(path).is_none()
+}
+
 /// The text of the file at `path`, `size` bytes long, if it has any and is no larger than
 /// `max`. Runs of blank space become one space or one line break; code keeps its indentation
 /// and a blank line between its parts. None for a file only in the cloud, unless the settings
@@ -89,7 +95,7 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
     // A PGN file of any size: its reader stops after a line per game for MAX_TEXT bytes.
     let pgn = matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn));
     // Plain text, code, CSV and logs of any size: read line by line, they stop at MAX_TEXT.
-    let streamed = pgn || reader(path).is_none();
+    let streamed = pgn || streams(path);
     if size == 0 || (size > max && !streamed) || crate::cloud::keep_out(path) {
         return None;
     }
@@ -134,6 +140,10 @@ pub(crate) struct Tidy {
     line: String,
     blank: bool,
     code: bool,
+    /// The most bytes of text (`MAX_TEXT`), and how many there are so far: `out` may be
+    /// taken away as it grows (`drain`).
+    cap: usize,
+    len: usize,
 }
 
 impl Tidy {
@@ -143,20 +153,42 @@ impl Tidy {
             line: String::new(),
             blank: false,
             code,
+            cap: MAX_TEXT,
+            len: 0,
         }
+    }
+
+    /// No limit: for text that is handed on as it is made (`drain`), never kept whole.
+    pub fn whole(code: bool) -> Tidy {
+        Tidy {
+            cap: usize::MAX,
+            ..Tidy::new(code)
+        }
+    }
+
+    /// The text made since the last call, taken out.
+    pub fn drain(&mut self) -> String {
+        std::mem::take(&mut self.out)
     }
 
     /// Adds a line (without its line break); `false` once the text is full.
     pub fn push(&mut self, l: &str) -> bool {
-        let out = &mut self.out;
+        let before = self.out.len();
+        let go = self.push_to(l);
+        self.len += self.out.len() - before;
+        go
+    }
+
+    fn push_to(&mut self, l: &str) -> bool {
+        let (out, len, cap) = (&mut self.out, self.len, self.cap);
         if self.code {
             let line = seen(l);
             let line = line.trim_end();
             if line.is_empty() {
-                self.blank = !out.is_empty();
+                self.blank = len > 0;
                 return true;
             }
-            let start = if out.is_empty() {
+            let start = if len == 0 {
                 ""
             } else if self.blank {
                 "\n\n"
@@ -164,7 +196,7 @@ impl Tidy {
                 "\n"
             };
             self.blank = false;
-            if out.len() + start.len() + line.len() > MAX_TEXT {
+            if len + start.len() + line.len() > cap {
                 return false;
             }
             out.push_str(start);
@@ -182,12 +214,14 @@ impl Tidy {
         if line.is_empty() {
             return true;
         }
-        if !out.is_empty() {
+        let mut len = len;
+        if len > 0 {
             out.push('\n');
+            len += 1;
         }
         // The line that does not fit is cut at a word, and the text ends there.
-        if out.len() + line.len() > MAX_TEXT {
-            let room = start(line, MAX_TEXT.saturating_sub(out.len()));
+        if len + line.len() > cap {
+            let room = start(line, cap.saturating_sub(len));
             out.push_str(&room[..room.rfind(' ').unwrap_or(room.len())]);
             return false;
         }
