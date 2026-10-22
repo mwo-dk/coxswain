@@ -49,6 +49,7 @@ pub mod meaning;
 pub mod media;
 pub mod menu;
 pub mod migrate;
+pub mod mosaic;
 pub mod models;
 pub mod music;
 pub mod neural;

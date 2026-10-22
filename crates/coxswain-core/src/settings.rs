@@ -205,6 +205,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("chess_notation", &["chess", "notation"], Previews, &[]),
     opt("chess_board", &["chess", "board"], Previews, &[]),
     opt("chess_book", &["chess", "book"], Previews, &[]),
+    opt("chess_pieces", &["chess", "pieces"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),

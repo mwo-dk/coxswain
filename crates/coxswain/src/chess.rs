@@ -6,6 +6,7 @@
 use coxswain_core::chess::polyglot::{self, BookMove};
 use coxswain_core::chess::{self, Format, Library, Notation, Position, Query, Sort, Token};
 use coxswain_core::config::{Action, Key, KeyCode, Theme};
+use coxswain_core::mosaic::{self, Pieces};
 use coxswain_core::t;
 use ratatui::Frame;
 use ratatui::layout::{Margin, Rect};
@@ -67,6 +68,10 @@ pub struct Viewer {
     flip: bool,
     notation: Notation,
     board: [Color; 2],
+    /// The squares' own colours, light then dark: for pieces drawn from blocks, which have
+    /// outlines of their own.
+    squares: [Color; 2],
+    pieces: Pieces,
     said: Option<String>,
     /// The opening book whose moves are shown (`polyglot::find`), and the last position's.
     book: Option<PathBuf>,
@@ -136,6 +141,8 @@ impl Viewer {
                 let [light, dark] = chess::board_colours(theme, &cfg.chess.board).map(|c| rgb(&c));
                 [mix(light, dark), dark]
             },
+            squares: chess::board_colours(theme, &cfg.chess.board).map(|c| rgb(&c)),
+            pieces: crate::pieces::pieces(cfg),
             said: None,
             reading: None,
             hit: None,
@@ -633,12 +640,8 @@ impl Viewer {
             f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
             return self.draw_moves(f, theme, area, board_w, vec![]);
         }
-        // The board: as big as fits, a square twice as wide as high.
-        let cell_h = ((area.height.saturating_sub(2)) / 8).clamp(1, 2);
-        let mut cell_w = cell_h * 2 + 1;
-        while cell_w > 3 && cell_w * 8 + 2 > area.width / 2 {
-            cell_w -= 2;
-        }
+        // The board: as big as fits, a square twice as wide as high, the moves beside it.
+        let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, 8, 8, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(2), area.height.saturating_sub(2));
         let fen = match o.at {
             Some(n) => g.nodes[n as usize].fen.clone(),
             None => Some(g.start.clone()),
@@ -648,28 +651,25 @@ impl Viewer {
         let mut lines: Vec<Line> = vec![];
         for row in 0..8u16 {
             let rank = if self.flip { row } else { 7 - row };
-            for sub in 0..cell_h {
-                let label = if sub == cell_h / 2 { format!("{} ", rank + 1) } else { "  ".into() };
-                let mut spans = vec![Span::styled(label, dim)];
-                for col in 0..8u16 {
-                    let file = if self.flip { 7 - col } else { col };
-                    let sq = (rank * 8 + file) as u8;
-                    let mut colour = self.board[((rank + file) % 2 == 0) as usize];
-                    if last.is_some_and(|(a, b)| a == Some(sq) || b == Some(sq)) {
-                        colour = tint(colour, (0xf6, 0xe0, 0x5a));
-                    }
-                    let (text, fg) = match squares[sq as usize] {
-                        Some(p) if sub == cell_h / 2 => {
-                            let pad = " ".repeat(((cell_w - 1) / 2) as usize);
-                            let fg = if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) };
-                            (format!("{pad}{}{pad}", glyph(p)), fg)
-                        }
-                        _ => (" ".repeat(cell_w as usize), Color::Reset),
-                    };
-                    spans.push(Span::styled(text, Style::default().bg(colour).fg(fg).add_modifier(Modifier::BOLD)));
+            let mut rows: Vec<Vec<Span>> = (0..cell_h).map(|sub| vec![Span::styled(if sub == cell_h / 2 { format!("{} ", rank + 1) } else { "  ".into() }, dim)]).collect();
+            for col in 0..8u16 {
+                let file = if self.flip { 7 - col } else { col };
+                let sq = (rank * 8 + file) as u8;
+                let light = (rank + file) % 2 == 1;
+                let mut colour = if pieces == Pieces::Figurines { self.board[!light as usize] } else { self.squares[!light as usize] };
+                if last.is_some_and(|(a, b)| a == Some(sq) || b == Some(sq)) {
+                    colour = tint(colour, (0xf6, 0xe0, 0x5a));
                 }
-                lines.push(Line::from(spans));
+                let piece = squares[sq as usize].map(|p| crate::pieces::Piece {
+                    name: p,
+                    figurine: glyph(p),
+                    colour: if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) },
+                });
+                for (r, spans) in crate::pieces::square(pieces, &mosaic::CHESS, piece, cell_w, cell_h, colour).into_iter().enumerate() {
+                    rows[r].extend(spans);
+                }
             }
+            lines.extend(rows.into_iter().map(Line::from));
         }
         let mut files = String::from("  ");
         for col in 0..8u16 {
@@ -913,12 +913,23 @@ mod tests {
         v.key(key(KeyCode::Right), None);
         let o = v.open.as_ref().unwrap();
         assert_eq!(o.game.nodes[o.at.unwrap() as usize].san, "Bb5");
+        v.pieces = Pieces::Figurines;
         let backend = ratatui::backend::TestBackend::new(100, 30);
         let mut term = ratatui::Terminal::new(backend).unwrap();
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
         assert!(screen.contains("Morphy") && screen.contains("♘f3") && screen.contains("♗b5") && screen.contains("centre"), "{screen}");
         assert!(screen.contains('♚'));
+        // Drawn from sextants on a board large enough; figurines on a small one.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Sextants);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(140, 36)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(screen.chars().any(|c| ('\u{1FB00}'..='\u{1FB3B}').contains(&c)) && !screen.contains('♚'), "{screen}");
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(screen.contains('♚'), "{screen}");
         // Esc back to the table, a filter, and the table again.
         v.key(key(KeyCode::Esc), None);
         v.key(key(KeyCode::Char('/')), None);

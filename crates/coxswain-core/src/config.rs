@@ -1765,11 +1765,14 @@ pub struct ChessConfig {
     /// A Polyglot opening book (`.bin`) whose moves the board shows for each position. Empty:
     /// the first book in the game file's own folder, if it has one.
     pub book: String,
+    /// How the terminal app draws the pieces: `auto` (the finest block characters the terminal
+    /// is known to draw), `octants`, `sextants`, `quadrants`, `halves` or `figurines`.
+    pub pieces: String,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new() }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into() }
     }
 }
 

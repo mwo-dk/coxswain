@@ -12,7 +12,7 @@ it does not play, check or analyse. Go games (SGF) and draughts games
 
 <picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/chess.png"><img src="../screenshots/chess.gif" alt="Morphy's Opera Game of 1858 in the desktop app's preview pane: the board in the Cyber theme's greens, the moves beside it in figurines, the moves stepped through with the right arrow key until the mate on d8"></picture>
 
-![The terminal app's game view: the board in Unicode pieces on blue squares, the moves beside it in figurines with a variation in brackets, the key line below](../screenshots/tui-chess.png)
+![The terminal app's game view: the board on blue squares, its pieces drawn from block characters, white with a dark outline, the moves beside it in figurines with a variation in brackets, the key line below](../screenshots/tui-chess.png)
 
 - [Using it](#using-it)
 - [The table of games](#the-table-of-games)
@@ -143,7 +143,7 @@ it is. Play a move to see the book's moves after it:
 
 <!-- screenshot: gui-chess-book.png: desktop app, Cyber: openings.bin in the preview pane: the start position on the board, beside it Polyglot opening book · 12 entries and the moves e4 45.0 % 45, d4 35.0 % 35, ♘f3 12.0 % 12, c4 8.0 % 8 -->
 
-![The terminal app with a Polyglot book open (F3 on openings.bin) after 1.e4: the board, Polyglot opening book · 12 entries, the book's four replies c5, e5, e6 and c6 with their shares and weights, c5 chosen, and the key line](../screenshots/tui-chess-book.png)
+![The terminal app with a Polyglot book open (F3 on openings.bin) after 1.e4: the board with its pieces drawn from block characters, Polyglot opening book · 12 entries, the book's four replies c5, e5, e6 and c6 with their shares and weights, c5 chosen, and the key line](../screenshots/tui-chess-book.png)
 
 A `.bin` file is taken for a book when its length is a whole number of 16-byte entries, its
 first and last 64 entries are in key order and their moves are moves (it reads a few KB); any other `.bin` file
@@ -164,8 +164,10 @@ green* and *Tournament, brown* give the usual club boards. The desktop app draws
 as pictures: white pieces with a black outline and black pieces, clear around them so the
 squares show through, the same on every theme. They are Uray M. János's set after Colin M.L.
 Burnett's Wikimedia chess pieces, under CC BY-SA 3.0
-([licence](../../gui/public/vendor/chess-pieces/LICENSE)); the rest of Coxswain is MIT. The terminal app uses the chess
-characters of your font (♚ ♛ ♜ ♝ ♞ ♟), white and black, on coloured squares.
+([licence](../../gui/public/vendor/chess-pieces/LICENSE)); the rest of Coxswain is MIT. The terminal app draws the same
+pieces from block characters, as large as the window allows, and on a small window uses the
+chess characters of your font (♚ ♛ ♜ ♝ ♞ ♟), white and black, on coloured squares
+([Game pieces in the terminal](game-pieces.md)).
 
 ## Finding games
 
@@ -208,6 +210,7 @@ not.
 | *Move notation* | `[chess] notation` | `figurines` (default), `letters` |
 | *Chess board* | `[chess] board` | `theme` (default), `green`, `brown` |
 | *Opening book* | `[chess] book` | A path to a Polyglot `.bin` book; empty (default): the first book next to the game file |
+| *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `octants`, `sextants`, `quadrants`, `halves`, `figurines` ([Game pieces in the terminal](game-pieces.md#the-setting)) |
 
 ```toml
 [chess]
@@ -263,4 +266,4 @@ From the game's own `Opening` tag when it has one; else from lichess's table of 
 by the game's first moves; else by its ECO code.
 
 ---
-[← Previous: Build provenance](provenance.md) · [Next: Go games →](go.md)
+[← Previous: Build provenance](provenance.md) · [Next: Game pieces in the terminal →](game-pieces.md)

@@ -428,6 +428,15 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
         "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
         "chess_notation" => pairs(&[("figurines", "settings.chess_figurines"), ("letters", "settings.chess_letters")]),
+        "chess_pieces" => pairs(&[
+            ("auto", "settings.chess_pieces_auto"),
+            ("pictures", "settings.chess_pieces_pictures"),
+            ("octants", "settings.chess_pieces_octants"),
+            ("sextants", "settings.chess_pieces_sextants"),
+            ("quadrants", "settings.chess_pieces_quadrants"),
+            ("halves", "settings.chess_pieces_halves"),
+            ("figurines", "settings.chess_pieces_figurines"),
+        ]),
         "chess_board" => pairs(&[("theme", "settings.chess_board_theme"), ("green", "settings.chess_board_green"), ("brown", "settings.chess_board_brown")]),
         "meaning_engine" => vec![
             ("builtin".into(), t!("settings.meaning_builtin", "size" => cs::human(coxswain_core::meaning::size()))),
