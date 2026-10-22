@@ -47,7 +47,12 @@ const MAX_WHOLE: u64 = 1 << 30;
 /// keeps all its text, one in another encoding what comes before its first byte that is no
 /// UTF-8 (decided by its first 64 KB, as `text` decides).
 pub fn tidied(path: &Path, code: bool) -> Option<String> {
-    let mut t = super::Tidy::new(code);
+    tidied_up_to(path, code, super::MAX_TEXT)
+}
+
+/// `tidied`, keeping up to `cap` bytes of text (*Everything* keeps more, `long_files`).
+pub fn tidied_up_to(path: &Path, code: bool, cap: usize) -> Option<String> {
+    let mut t = super::Tidy::with_cap(code, cap);
     raw_lines(path, MAX_READ, &mut |l| t.push(l))?;
     Some(t.out)
 }

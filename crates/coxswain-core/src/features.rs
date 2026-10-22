@@ -136,6 +136,7 @@ pub const FEATURES: &[Feature] = &[
     f("cloud_files", "search/cloud-files.md", &[]),
     f("removable_disks", "search/removable-disks.md", &[]),
     f("meaning", "search/meaning.md", &[Search]),
+    f("long_files", "search/long-files.md", &[LongFiles, ActionMenu, Settings]),
     f("servers", "search/servers.md", &[]),
     f("ask", "search/ask.md", &[Ask, Search]),
     f("ask_code", "search/ask-code.md", &[Ask]),

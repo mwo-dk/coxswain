@@ -136,7 +136,7 @@ impl SignsChange {
                     s.retain(|f| f != file);
                 }
                 for (n, v) in vectors.iter().enumerate() {
-                    s.push(file, n as u8, v);
+                    s.push(file, n as u32, v);
                 }
             }
             _ => {}
@@ -149,14 +149,15 @@ impl SignsChange {
 #[derive(Default)]
 struct Signs {
     files: Vec<i64>,
-    ns: Vec<u8>,
+    /// The passage's number: past 255 for a file kept whole (`long_files`).
+    ns: Vec<u32>,
     bits: Vec<u64>,
     width: usize,
 }
 
 impl Signs {
     /// A passage's packed vector; one of another length (a broken row) is left out.
-    fn push(&mut self, file: i64, n: u8, packed: &[u8]) {
+    fn push(&mut self, file: i64, n: u32, packed: &[u8]) {
         let s = crate::meaning::signs(packed);
         if self.width == 0 {
             self.width = s.len();
@@ -187,7 +188,7 @@ impl Signs {
 
     /// The `keep` passages whose signs are most like `wanted`'s: (file, number). Parts of
     /// 65,536 passages each are gone through on all cores, each keeping its best.
-    fn closest(&self, wanted: &[u64], keep: usize) -> Vec<(i64, u8)> {
+    fn closest(&self, wanted: &[u64], keep: usize) -> Vec<(i64, u32)> {
         use rayon::prelude::*;
         use std::cmp::Reverse;
         use std::collections::BinaryHeap;
@@ -234,6 +235,9 @@ impl Store {
         let db = Connection::open(path)?;
         #[cfg(unix)]
         let _ = std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600));
+        // A new store gives back the room of what it drops bit by bit (`compact`); one from
+        // before gets it at its first compaction.
+        db.pragma_update(None, "auto_vacuum", "INCREMENTAL")?;
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "NORMAL")?;
         let version = db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))?;
@@ -285,6 +289,17 @@ impl Store {
                 db.execute_batch(&format!("ALTER TABLE chunks ADD COLUMN {column} TEXT"))?;
             }
         }
+        // *Everything* came later still (2.34, `long_files`): a file kept whole has `whole` set
+        // to the date it had when it was, so a file another version read again since (and
+        // cut) counts as sampled; its passages' `starts` say which start a section, so going
+        // back to *Sample* keeps the passages `meaning::passages` would. An older version
+        // leaves both be.
+        if db.prepare("SELECT whole FROM files LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE files ADD COLUMN whole INTEGER")?;
+        }
+        if db.prepare("SELECT starts FROM chunks LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE chunks ADD COLUMN starts INTEGER")?;
+        }
         // Files inside archives came later too: `inside` is 1 for them. They have text, and no
         // part in sizes, hashes or the walk; the index of sizes leaves them out.
         if db.prepare("SELECT inside FROM files LIMIT 0").is_err() {
@@ -308,6 +323,13 @@ impl Store {
             "CREATE INDEX IF NOT EXISTS files_unread ON files(id) WHERE has_text IS NULL",
         )?;
         let renewing = passages_are(&db, crate::meaning::SCHEME)?;
+        // What a passage took last time, kept: the cost of *Everything* is said before any
+        // vector is made in this run.
+        let measured: usize = db
+            .query_row("SELECT value FROM meta WHERE key = 'ms_per_passage'", [], |r| r.get::<_, String>(0))
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
         Ok(Store {
             db: Mutex::new(db),
             pending: AtomicUsize::new(0),
@@ -325,7 +347,7 @@ impl Store {
             later: Mutex::default(),
             path: path.to_path_buf(),
             renewing: AtomicUsize::new(renewing),
-            ms_per_passage: AtomicUsize::new(0),
+            ms_per_passage: AtomicUsize::new(measured),
             quiet: AtomicU64::new(if cfg!(test) { 0 } else { QUIET }),
             clouds: Mutex::default(),
             #[cfg(test)]
@@ -583,6 +605,194 @@ impl Store {
         }
         self.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", rusqlite::params![key, tag])?;
         Ok(())
+    }
+
+    /// What search keeps of long files follows `rule` (`long_files`), once after each change
+    /// of it (the rule is kept in `meta`). Files kept whole that are no longer go back to
+    /// *Sample* (`to_sample`, nothing read again) and the store gives the room back. Files to
+    /// be kept whole are marked; the long ones among them are read again (those whose text was
+    /// cut at `extract::MAX_TEXT`) or get their vectors again (those with more passages than
+    /// `meaning::PASSAGES`). A short file is the same either way, and only marked.
+    fn long_files_changed(&self, rule: &crate::long_files::Rule) -> rusqlite::Result<()> {
+        let sig = serde_json::to_string(rule).unwrap_or_default();
+        let before: Option<String> = self
+            .db
+            .lock()
+            .unwrap()
+            .query_row("SELECT value FROM meta WHERE key = 'long_files'", [], |r| r.get(0))
+            .ok();
+        if before.as_deref() == Some(sig.as_str()) {
+            return Ok(());
+        }
+        let rows = self.long_rows()?;
+        let capped = self.capped()?;
+        let mut back = vec![];
+        {
+            let mut db = self.db.lock().unwrap();
+            let tx = db.transaction()?;
+            for r in &rows {
+                if !rule.whole(Path::new(&r.path)) {
+                    if r.whole.is_some() {
+                        back.push((r.id, r.path.clone()));
+                    }
+                    continue;
+                }
+                if r.whole == Some(r.modified) {
+                    continue;
+                }
+                tx.execute("UPDATE files SET whole = modified WHERE id = ?1", [r.id])?;
+                if r.has_text && r.may_be_cut() && text_len(&tx, r.id) + LONG_MARGIN >= crate::extract::MAX_TEXT {
+                    tx.execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE id = ?1", [r.id])?;
+                } else if capped.contains_key(&r.id) {
+                    tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [r.id])?;
+                }
+            }
+            tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('long_files', ?1)", [&sig])?;
+            tx.commit()?;
+        }
+        if !back.is_empty() {
+            self.to_sample(&back)?;
+            self.compact()?;
+        }
+        Ok(())
+    }
+
+    /// The files on disk (not inside archives, not commits) as `long_files_changed` and
+    /// `long_files_cost` go through them.
+    fn long_rows(&self) -> rusqlite::Result<Vec<LongRow>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare("SELECT id, path, modified, whole, size, coalesce(has_text, 0) FROM files WHERE inside IS NULL AND path NOT LIKE 'git:%'")?;
+        q.query_map([], |r| {
+            Ok(LongRow {
+                id: r.get(0)?,
+                path: r.get(1)?,
+                modified: r.get(2)?,
+                whole: r.get(3)?,
+                size: r.get::<_, i64>(4)? as u64,
+                has_text: r.get(5)?,
+            })
+        })?
+        .collect()
+    }
+
+    /// The files with as many passages as `meaning::PASSAGES` keeps or more, and how many.
+    fn capped(&self) -> rusqlite::Result<HashMap<i64, usize>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare("SELECT file, count(*) FROM chunks GROUP BY file HAVING count(*) >= ?1")?;
+        q.query_map([crate::meaning::PASSAGES as i64], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as usize)))?
+            .collect()
+    }
+
+    /// Files kept whole (`ids`, with their paths) back to *Sample*, without reading anything:
+    /// of their passages those `meaning::passages` keeps (`meaning::chosen`, by where sections
+    /// start), numbered anew, the rest gone with their vectors; their text cut back to what is
+    /// kept of a file (`extract::cut_back`).
+    fn to_sample(&self, ids: &[(i64, String)]) -> rusqlite::Result<()> {
+        for (id, path) in ids {
+            let mut db = self.db.lock().unwrap();
+            let tx = db.transaction()?;
+            let rows: Vec<(i64, bool)> = tx
+                .prepare("SELECT n, coalesce(starts, 0) FROM chunks WHERE file = ?1 ORDER BY n")?
+                .query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            let heads: Vec<usize> = (0..rows.len()).filter(|&i| rows[i].1).collect();
+            let mut change = None;
+            if let Some(keep) = crate::meaning::chosen(rows.len(), &heads) {
+                // Upwards: the number a kept passage takes is free by the time it is reached.
+                let mut k = 0i64;
+                for (i, (n, _)) in rows.iter().enumerate() {
+                    if !keep[i] {
+                        tx.execute("DELETE FROM chunks WHERE file = ?1 AND n = ?2", [*id, *n])?;
+                        continue;
+                    }
+                    if *n != k {
+                        tx.execute("UPDATE chunks SET n = ?3 WHERE file = ?1 AND n = ?2", [*id, *n, k])?;
+                    }
+                    k += 1;
+                }
+                let vectors: Vec<Vec<u8>> = tx
+                    .prepare("SELECT vector FROM chunks WHERE file = ?1 ORDER BY n")?
+                    .query_map([id], |r| r.get(0))?
+                    .collect::<rusqlite::Result<_>>()?;
+                change = Some(SignsChange::Put(*id, vectors, true));
+            }
+            let body: Option<String> = tx.query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0)).ok();
+            if let Some(cut) = body.and_then(|b| crate::extract::cut_back(&b, crate::code::is_code(path))) {
+                tx.execute("DELETE FROM text WHERE rowid = ?1", [id])?;
+                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, cut])?;
+            }
+            tx.execute("UPDATE files SET whole = NULL WHERE id = ?1", [id])?;
+            match change {
+                Some(change) => self.commit_signs(|| tx.commit(), change)?,
+                None => tx.commit()?,
+            }
+        }
+        Ok(())
+    }
+
+    /// The room of what was dropped given back to the disk: bit by bit once the store vacuums
+    /// incrementally; a store from before is vacuumed whole once, to that.
+    fn compact(&self) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let mode: i64 = db.pragma_query_value(None, "auto_vacuum", |r| r.get(0))?;
+        db.execute_batch(if mode == 2 {
+            "PRAGMA incremental_vacuum;"
+        } else {
+            "PRAGMA auto_vacuum = INCREMENTAL; VACUUM;"
+        })?;
+        db.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+    }
+
+    /// What following `rule` would cost (`long_files::Cost`): of the long files, those to be
+    /// kept whole that are not, with the passages they would get besides theirs (about one
+    /// per `PASSAGE_BYTES` of text), the bytes that adds (their text twice over, text and
+    /// index, and each passage's vector and text) and the bytes read again; and those kept
+    /// whole that would not be, with the bytes that frees.
+    pub fn long_files_cost(&self, rule: &crate::long_files::Rule) -> rusqlite::Result<crate::long_files::Cost> {
+        let rows = self.long_rows()?;
+        let capped = self.capped()?;
+        let meaning = self.meaning.load(Ordering::Relaxed);
+        let db = self.db.lock().unwrap();
+        let dims: u64 = db
+            .query_row("SELECT length(vector) FROM chunks LIMIT 1", [], |r| r.get::<_, i64>(0))
+            .map_or(384, |n| n as u64);
+        let per_passage = dims + PASSAGE_ROW;
+        let mut c = crate::long_files::Cost::default();
+        for r in rows {
+            let count = capped.get(&r.id).copied().unwrap_or(0);
+            let now = r.whole == Some(r.modified);
+            if rule.whole(Path::new(&r.path)) && !now {
+                if count == 0 && !r.may_be_cut() {
+                    continue;
+                }
+                let len = text_len(&db, r.id);
+                let cut = r.has_text && r.may_be_cut() && len + LONG_MARGIN >= crate::extract::MAX_TEXT;
+                if !cut && count == 0 {
+                    continue;
+                }
+                c.files += 1;
+                let all = if cut { r.size as usize } else { len } / PASSAGE_BYTES;
+                if cut {
+                    c.read += r.size;
+                    c.bytes += 2 * ((r.size as usize).min(crate::extract::EVERYTHING_TEXT).saturating_sub(len)) as u64;
+                }
+                if meaning {
+                    let more = all.saturating_sub(count);
+                    c.passages += more;
+                    c.bytes += more as u64 * per_passage;
+                }
+            } else if !rule.whole(Path::new(&r.path)) && r.whole.is_some() {
+                let len = text_len(&db, r.id);
+                let fewer = count.saturating_sub(crate::meaning::PASSAGES) as u64;
+                let less = if crate::extract::streams(Path::new(&r.path)) { len.saturating_sub(crate::extract::MAX_TEXT) as u64 } else { 0 };
+                if fewer + less == 0 {
+                    continue;
+                }
+                c.back += 1;
+                c.freed += fewer * per_passage + 2 * less;
+            }
+        }
+        Ok(c)
     }
 
     /// Files left without text and larger than `max` are read again, once (under `key`, at
@@ -1045,6 +1255,18 @@ impl Store {
         self.commit_signs(|| tx.commit(), SignsChange::Reset)
     }
 
+    /// Whether each file just read (`id`, kept whole, with text) is kept whole: marked with
+    /// the date it has now (`long_files_changed`), unmarked otherwise.
+    fn mark_whole(&self, files: &[(i64, bool, bool)]) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        for (id, whole, _) in files {
+            tx.prepare_cached("UPDATE files SET whole = CASE WHEN ?2 THEN modified END WHERE id = ?1")?
+                .execute(params![id, whole])?;
+        }
+        tx.commit()
+    }
+
     /// Files read, in one transaction. `text` is `None` for a file without text.
     fn read(&self, files: &[(i64, Option<String>)]) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
@@ -1326,22 +1548,27 @@ impl Store {
 
     /// Up to `n` quiet files still to get their vectors, the last changed first: (id, path, text).
     fn unembedded(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, String)>> {
+        Ok(self.unembedded_whole(n)?.into_iter().map(|(id, path, body, _)| (id, path, body)).collect())
+    }
+
+    /// `unembedded`, with whether each file is kept whole (*Everything*).
+    fn unembedded_whole(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, String, bool)>> {
         let db = self.db.lock().unwrap();
         // The files first, by `files_unembedded`, then their text: joined before the limit, the
         // text of every file still to go was read for each few (2 s a time with 300,000).
         let mut q = db.prepare(
-            "SELECT f.id, f.path, coalesce(t.body, '') FROM (SELECT id, path, modified FROM files WHERE has_text = 1 AND embedded IS NULL AND (modified <= ?2 OR settled = modified) ORDER BY modified DESC LIMIT ?1) f
+            "SELECT f.id, f.path, coalesce(t.body, ''), f.whole IS NOT NULL AND f.whole = f.modified FROM (SELECT id, path, modified, whole FROM files WHERE has_text = 1 AND embedded IS NULL AND (modified <= ?2 OR settled = modified) ORDER BY modified DESC LIMIT ?1) f
              LEFT JOIN text t ON t.rowid = f.id ORDER BY f.modified DESC",
         )?;
         let rows = q.query_map([n as i64, self.quiet_since()], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
         })?;
         rows.collect()
     }
 
     /// A file's passages' vectors, packed.
     fn put_vectors(&self, file: i64, vectors: &[Vec<u8>]) -> rusqlite::Result<()> {
-        self.put_passages(file, vectors, None)
+        self.put_passages(file, vectors, None, None)
     }
 
     /// `put_vectors`, with the passages themselves when they were made from the whole file
@@ -1351,6 +1578,7 @@ impl Store {
         file: i64,
         vectors: &[Vec<u8>],
         passages: Option<&[crate::meaning::Passage]>,
+        starts: Option<&[bool]>,
     ) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
@@ -1358,8 +1586,8 @@ impl Store {
         for (n, v) in vectors.iter().enumerate() {
             let p = passages.and_then(|p| p.get(n));
             tx.execute(
-                "INSERT INTO chunks(file, n, vector, passage, heading) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![file, n as i64, v, p.map(|p| p.text.as_str()), p.map(|p| p.heading.as_str())],
+                "INSERT INTO chunks(file, n, vector, passage, heading, starts) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![file, n as i64, v, p.map(|p| p.text.as_str()), p.map(|p| p.heading.as_str()), starts.and_then(|s| s.get(n))],
             )?;
         }
         tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
@@ -1421,7 +1649,7 @@ impl Store {
                 while let Some(r) = rows.next()? {
                     out.push(
                         r.get(0)?,
-                        r.get::<_, i64>(1)? as u8,
+                        r.get::<_, i64>(1)? as u32,
                         r.get_ref(2)?.as_blob()?,
                     );
                 }
@@ -1604,7 +1832,7 @@ impl Store {
             return vec![];
         };
         // With the vectors themselves when near copies are folded.
-        let mut ranked: Vec<(i64, f32, u8, Vec<u8>)> = close
+        let mut ranked: Vec<(i64, f32, u32, Vec<u8>)> = close
             .into_iter()
             .filter_map(|(file, n)| {
                 vec.query_row(params![file, n as i64], |r| {
@@ -1636,8 +1864,11 @@ impl Store {
             .collect();
         // A file's path as shown, and as kept (its kind says how it is cut into passages).
         let mut paths: HashMap<i64, Option<(PathBuf, String)>> = HashMap::new();
-        let mut texts: HashMap<i64, std::rc::Rc<Vec<crate::meaning::Passage>>> = HashMap::new();
-        let mut out: Vec<(PathBuf, f32, usize, std::rc::Rc<Vec<crate::meaning::Passage>>)> = vec![];
+        let mut texts: HashMap<i64, Vec<crate::meaning::Passage>> = HashMap::new();
+        // Files kept whole with more passages than are read at once: only the passages a hit
+        // needs (it and its neighbours) are read, the rest left empty.
+        let mut sparse: HashSet<i64> = HashSet::new();
+        let mut out: Vec<(PathBuf, f32, usize, i64)> = vec![];
         for (file, s, n, v) in ranked {
             if out.len() >= want {
                 break;
@@ -1665,6 +1896,14 @@ impl Store {
             let passages = texts.entry(file).or_insert_with(|| {
                 #[cfg(test)]
                 self.bodies_read.fetch_add(1, Ordering::Relaxed);
+                let stored: usize = db
+                    .prepare_cached("SELECT count(*) FROM chunks WHERE file = ?1 AND passage IS NOT NULL")
+                    .and_then(|mut q| q.query_row([file], |r| r.get::<_, i64>(0)))
+                    .map_or(0, |c| c as usize);
+                if stored > READ_WHOLE {
+                    sparse.insert(file);
+                    return vec![crate::meaning::Passage::default(); stored];
+                }
                 // Made from the whole file: kept with the vectors. Else cut from the text.
                 let whole: Vec<crate::meaning::Passage> = db
                     .prepare_cached("SELECT passage, coalesce(heading, '') FROM chunks WHERE file = ?1 AND passage IS NOT NULL ORDER BY n")
@@ -1673,7 +1912,7 @@ impl Store {
                             .collect()
                     })
                     .unwrap_or_default();
-                std::rc::Rc::new(if whole.is_empty() {
+                if whole.is_empty() {
                     db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| {
                         r.get::<_, String>(0)
                     })
@@ -1681,16 +1920,32 @@ impl Store {
                     .unwrap_or_default()
                 } else {
                     whole
-                })
+                }
             });
+            if sparse.contains(&file) {
+                let mut q = match db.prepare_cached("SELECT n, passage, coalesce(heading, '') FROM chunks WHERE file = ?1 AND n BETWEEN ?2 AND ?3 AND passage IS NOT NULL") {
+                    Ok(q) => q,
+                    Err(_) => continue,
+                };
+                let rows = q.query_map([file, i64::from(n.saturating_sub(1)), i64::from(n) + 1], |r| {
+                    Ok((r.get::<_, i64>(0)? as usize, crate::meaning::Passage { text: r.get(1)?, heading: r.get(2)? }))
+                });
+                for (i, p) in rows.into_iter().flatten().flatten() {
+                    if let Some(at) = passages.get_mut(i) {
+                        *at = p;
+                    }
+                }
+            }
             if (n as usize) < passages.len() {
                 if folded.is_some() {
                     given.push((file, out.len(), v));
                 }
-                out.push((path, s, n as usize, passages.clone()));
+                out.push((path, s, n as usize, file));
             }
         }
-        out
+        let texts: HashMap<i64, std::rc::Rc<Vec<crate::meaning::Passage>>> =
+            texts.into_iter().map(|(f, p)| (f, std::rc::Rc::new(p))).collect();
+        out.into_iter().map(|(path, s, n, file)| (path, s, n, texts[&file].clone())).collect()
     }
 
     /// Files whose text has every word of `query`; the last word may be the start of one. When
@@ -2219,13 +2474,13 @@ const ASK_FILES: usize = 16;
 /// Passages ranked one per file: the file's best, its score raised by 0.005 for each further
 /// passage of it that matches, four at most, so a document that keeps coming back to a
 /// question goes ahead of one that mentions it once.
-fn by_files(ranked: Vec<(i64, f32, u8, Vec<u8>)>) -> Vec<(i64, f32, u8, Vec<u8>)> {
-    let mut files: HashMap<i64, (f32, u8, usize, Vec<u8>)> = HashMap::new();
+fn by_files(ranked: Vec<(i64, f32, u32, Vec<u8>)>) -> Vec<(i64, f32, u32, Vec<u8>)> {
+    let mut files: HashMap<i64, (f32, u32, usize, Vec<u8>)> = HashMap::new();
     for (file, s, n, v) in ranked {
         // Ranked best first: the first passage of a file is its best.
         files.entry(file).or_insert((s, n, 0, v)).2 += 1;
     }
-    let mut out: Vec<(i64, f32, u8, Vec<u8>)> = files
+    let mut out: Vec<(i64, f32, u32, Vec<u8>)> = files
         .into_iter()
         .map(|(file, (s, n, count, v))| (file, s + 0.005 * (count - 1).min(4) as f32, n, v))
         .collect();
@@ -2331,6 +2586,9 @@ fn scan_for(
     // Their passages and those of every text, code, CSV or log file with more text than is
     // kept are made from the whole file (2.33): only those files get their vectors again, once.
     store.long_passages("passages.whole", "1")?;
+    // What is kept of long files, *Sample* or *Everything* (2.34): only the long files whose
+    // folder's choice changed are read again, get their vectors again, or are cut back.
+    store.long_files_changed(&crate::long_files::Rule::of(cfg))?;
     // PDF and Word files leave out hidden text (2.33): their old text and passages go, and
     // they are read and their passages made again, once.
     store.reader_dropped("readers.pdf", "1", &[".pdf"])?;
@@ -2479,6 +2737,148 @@ fn whole_passages(path: &str, body: &str) -> Option<Vec<crate::meaning::Passage>
     })
 }
 
+/// Whether `body`, the text kept of the file at `path`, is as long as what is kept of most files
+/// or longer, and of a kind read line by line: its passages come from the file itself.
+fn long_text(path: &str, body: &str) -> bool {
+    body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && crate::extract::streams(Path::new(path))
+}
+
+/// How a file kept whole got its vectors (`embed_streamed`).
+enum Streamed {
+    /// With this many passages.
+    Done(usize),
+    Stopped,
+    Failed(crate::meaning::NoVectors),
+}
+
+/// Passages that go to the model at a time, for a file kept whole.
+const STREAM_BATCH: usize = 64;
+
+/// The vectors of every passage of the file at `path` (`id`), kept whole: read line by line,
+/// a batch at a time to the model, each batch written with its passages and where sections
+/// start; the file is done (`embedded`) once the last is in. Stopped or refused, the rows
+/// written go again.
+fn embed_streamed(
+    store: &Store,
+    engine: &crate::meaning::Engine,
+    id: i64,
+    path: &str,
+    stop: &AtomicBool,
+) -> rusqlite::Result<Streamed> {
+    let had = store.db.lock().unwrap().execute("DELETE FROM chunks WHERE file = ?1", [id])? > 0;
+    let code = crate::code::is_code(path);
+    let (mut batch, mut packed) = (Vec::with_capacity(STREAM_BATCH), vec![]);
+    let mut halt: Option<rusqlite::Result<Streamed>> = None;
+    // A file that cannot be read now has no passages, as one without text.
+    crate::meaning::every_passage_streamed(
+        path,
+        &mut |f| crate::extract::plain::each_line(Path::new(path), code, f).is_some(),
+        &mut |p, starts| {
+            batch.push((p, starts));
+            if batch.len() < STREAM_BATCH {
+                return true;
+            }
+            match put_batch(store, engine, id, path, &mut batch, &mut packed, stop) {
+                Ok(None) => true,
+                h => {
+                    halt = Some(h.map(|h| h.unwrap_or(Streamed::Stopped)));
+                    false
+                }
+            }
+        },
+    );
+    let end = match halt {
+        Some(h) => h?,
+        None => match put_batch(store, engine, id, path, &mut batch, &mut packed, stop)? {
+            Some(h) => h,
+            None => Streamed::Done(packed.len()),
+        },
+    };
+    let mut db = store.db.lock().unwrap();
+    if !matches!(end, Streamed::Done(_)) {
+        db.execute("DELETE FROM chunks WHERE file = ?1", [id])?;
+        drop(db);
+        if had {
+            store.commit_signs(|| Ok(()), SignsChange::Drop(HashSet::from([id])))?;
+        }
+        return Ok(end);
+    }
+    let tx = db.transaction()?;
+    tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [id])?;
+    store.commit_signs(|| tx.commit(), SignsChange::Put(id, packed, had))?;
+    Ok(end)
+}
+
+/// `batch` to the model and into `chunks` after the `packed` ones (whose vectors it joins);
+/// `Some` when it stopped there.
+fn put_batch(
+    store: &Store,
+    engine: &crate::meaning::Engine,
+    id: i64,
+    path: &str,
+    batch: &mut Vec<(crate::meaning::Passage, bool)>,
+    packed: &mut Vec<Vec<u8>>,
+    stop: &AtomicBool,
+) -> rusqlite::Result<Option<Streamed>> {
+    if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
+        return Ok(Some(Streamed::Stopped));
+    }
+    if batch.is_empty() {
+        return Ok(None);
+    }
+    let texts: Vec<String> = batch.iter().map(|(p, _)| crate::meaning::shown_to_model(path, p)).collect();
+    let vectors = match engine.passages(&texts) {
+        Ok(v) => v,
+        Err(e) => return Ok(Some(Streamed::Failed(e))),
+    };
+    let mut db = store.db.lock().unwrap();
+    let tx = db.transaction()?;
+    for ((p, starts), v) in batch.drain(..).zip(vectors) {
+        let v = crate::meaning::pack(&v);
+        tx.execute(
+            "INSERT INTO chunks(file, n, vector, passage, heading, starts) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![id, packed.len() as i64, v, p.text, p.heading, starts],
+        )?;
+        packed.push(v);
+    }
+    tx.commit()?;
+    Ok(None)
+}
+
+/// A file on disk as `Store::long_rows` gives it.
+struct LongRow {
+    id: i64,
+    path: String,
+    modified: i64,
+    whole: Option<i64>,
+    size: u64,
+    has_text: bool,
+}
+
+impl LongRow {
+    /// Read line by line and large enough that its text may have been cut at `MAX_TEXT`.
+    fn may_be_cut(&self) -> bool {
+        self.size as usize + LONG_MARGIN >= crate::extract::MAX_TEXT && crate::extract::streams(Path::new(&self.path))
+    }
+}
+
+/// The bytes of a file's text in the store.
+fn text_len(db: &Connection, id: i64) -> usize {
+    db.query_row("SELECT length(CAST(body AS BLOB)) FROM text WHERE rowid = ?1", [id], |r| r.get::<_, i64>(0))
+        .map_or(0, |n| n as usize)
+}
+
+/// About how many bytes of text a passage stands for (`meaning::WORDS` words less the
+/// `OVERLAP`), and what a passage's row holds besides its vector (its text, its numbers).
+const PASSAGE_BYTES: usize = 600;
+const PASSAGE_ROW: u64 = 800;
+
+/// A file kept whole with more passages than this has only those a search needs read.
+const READ_WHOLE: usize = 4 * crate::meaning::PASSAGES;
+
+/// The most text `read` holds before it writes what it has.
+const HELD_TEXT: usize = 64 << 20;
+
 /// How far below `extract::MAX_TEXT` a text may end and still be one that was cut.
 const LONG_MARGIN: usize = 64 << 10;
 
@@ -2494,7 +2894,7 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
     };
     store.model_is(&engine.id(), engine.digest().as_deref())?;
     loop {
-        let files = store.unembedded(8)?;
+        let files = store.unembedded_whole(8)?;
         if files.is_empty() {
             if store.renewing.swap(0, Ordering::Relaxed) > 0 {
                 store
@@ -2506,8 +2906,40 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
             return Ok(false);
         }
         let (start, mut count) = (Instant::now(), 0);
-        for (id, path, body) in files {
-            let whole = whole_passages(&path, &body);
+        for (id, path, body, everything) in files {
+            // Kept whole, longer than what is kept of most files: read line by line again and
+            // a passage for every part of it, a batch at a time, never held whole.
+            if everything && long_text(&path, &body) {
+                match embed_streamed(store, &engine, id, &path, stop)? {
+                    Streamed::Done(n) => count += n,
+                    Streamed::Stopped => return Ok(false),
+                    Streamed::Failed(NoVectors::Down(e)) => {
+                        store.note_error(Some(path.as_str()), &e);
+                        *store.meaning_error.lock().unwrap() = Some(e);
+                        return Ok(false);
+                    }
+                    Streamed::Failed(NoVectors::Refused(e)) => {
+                        store.note_error(Some(path.as_str()), &e);
+                        *store.meaning_error.lock().unwrap() = Some(e);
+                        store.db.lock().unwrap().execute("UPDATE files SET embedded = 0 WHERE id = ?1", [id])?;
+                    }
+                }
+                *store.meaning_error.lock().unwrap() = None;
+                continue;
+            }
+            // Kept whole: every passage, kept with the vectors when there are more than
+            // `meaning::passages` keeps (they are no longer what it cuts from the text), with
+            // where sections start for going back to *Sample*.
+            let (whole, starts) = if everything {
+                let (all, starts): (Vec<_>, Vec<_>) = crate::meaning::every_passage(&body, &path).into_iter().unzip();
+                if all.len() > crate::meaning::PASSAGES {
+                    (Some(all), Some(starts))
+                } else {
+                    (None, None)
+                }
+            } else {
+                (whole_passages(&path, &body), None)
+            };
             let passages = whole.clone().unwrap_or_else(|| crate::meaning::passages(&body, &path));
             let texts: Vec<String> = passages
                 .iter()
@@ -2545,6 +2977,7 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
                     .map(|v| crate::meaning::pack(v))
                     .collect::<Vec<_>>(),
                 whole.as_deref(),
+                starts.as_deref(),
             )?;
             if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
                 return Ok(false);
@@ -2565,14 +2998,9 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
         let ms = (work + rest.min(Duration::from_secs(2))).as_millis() as usize / count.max(1);
         store.rest_after(rest, stop, until);
         let before = store.ms_per_passage.load(Ordering::Relaxed);
-        store.ms_per_passage.store(
-            if before == 0 {
-                ms
-            } else {
-                (before * 7 + ms) / 8
-            },
-            Ordering::Relaxed,
-        );
+        let ms = if before == 0 { ms } else { (before * 7 + ms) / 8 };
+        store.ms_per_passage.store(ms, Ordering::Relaxed);
+        store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('ms_per_passage', ?1)", [ms.to_string()])?;
         if until.is_some_and(|u| Instant::now() >= u) {
             return Ok(true);
         }
@@ -2636,7 +3064,8 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed)
     };
     // In batches by id: every row read gets its `has_text`, and the cursor ends the loop even
-    // if one did not.
+    // if one did not. A file in a folder kept whole (`long_files`) keeps all its text.
+    let rule = crate::long_files::Rule::of(cfg);
     let mut after = 0;
     // A file that is not there now (its disk unplugged, or it went since the scan) is not read
     // as one without text: it keeps what it had, and waits for its disk or for the next scan.
@@ -2652,26 +3081,32 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
             .filter(|(_, path, _)| !away(path) && std::fs::symlink_metadata(path).is_ok())
             .collect();
         let start = Instant::now();
-        let rows: Vec<_> = batch
-            .iter()
-            .map(|(id, path, size)| {
-                (
-                    *id,
-                    if left_out_file(path, cfg) {
-                        None
-                    } else {
-                        crate::extract::text_of(Path::new(path), *size, cfg.text_max_size)
-                            .or_else(|| store.transcript_of(*id))
-                    },
-                )
-            })
-            .collect();
+        let (mut rows, mut held, mut whole) = (vec![], 0, vec![]);
+        for (id, path, size) in &batch {
+            let keep = rule.whole(Path::new(path));
+            let cap = if keep { crate::extract::EVERYTHING_TEXT } else { crate::extract::MAX_TEXT };
+            let text = if left_out_file(path, cfg) {
+                None
+            } else {
+                crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap)
+                    .or_else(|| store.transcript_of(*id))
+            };
+            held += text.as_ref().map_or(0, String::len);
+            whole.push((*id, keep, text.is_some()));
+            rows.push((*id, text));
+            // Text kept whole may be large: written before more is held.
+            if held > HELD_TEXT {
+                store.read(&std::mem::take(&mut rows))?;
+                held = 0;
+            }
+        }
         store.read(&rows)?;
+        store.mark_whole(&whole)?;
         // PGN files the text reader read (not left out, not online-only, not empty): the
         // positions of their games too, game by game as the file is read.
         let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
-        for ((id, path, _), (_, text)) in batch.iter().zip(&rows) {
-            if text.is_some() && crate::chess::format(Path::new(path)) == Some(crate::chess::Format::Pgn) {
+        for ((id, path, _), (_, _, text)) in batch.iter().zip(&whole) {
+            if *text && crate::chess::format(Path::new(path)) == Some(crate::chess::Format::Pgn) {
                 store.put_positions(*id, Path::new(path), &halt)?;
             }
         }
@@ -5149,6 +5584,125 @@ mod tests {
         Connection::open(&path).unwrap().execute_batch("ALTER TABLE chunks DROP COLUMN heading").unwrap();
         let store = Store::open(&path).unwrap();
         assert!(store.db.lock().unwrap().prepare("SELECT passage, heading FROM chunks LIMIT 0").is_ok());
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// *Everything* for a folder keeps all of a long log's text and a passage for every part
+    /// of it, as the warning said beforehand; back to *Sample*, nothing is read or embedded
+    /// again, the vectors and the text are exactly those *Sample* made, and the store shrinks.
+    #[test]
+    fn long_files_everything_and_back_to_sample() {
+        let d = std::env::temp_dir().join(format!("coxswain-long-files-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        let mut log = String::new();
+        let mut i = 0;
+        while log.len() < crate::extract::MAX_TEXT + (1 << 20) {
+            log.push_str(&format!("line {i} of the engine log, pressure nominal and valves closed\n"));
+            i += 1;
+        }
+        log.push_str("finally the rocket landed safely in the harbour after its long flight\n");
+        std::fs::write(home.join("big.log"), &log).unwrap();
+        // More passages than Sample keeps, well within what is kept of its text.
+        let notes: String = (0..400).map(|i| format!("Chapter {i}. The crew checked the fuel, the valves and the pressure of tank {i} before the launch.\n\n")).collect::<String>().repeat(6);
+        std::fs::write(home.join("notes.txt"), &notes).unwrap();
+        std::fs::write(home.join("short.txt"), "a short note about the launch window and nothing more").unwrap();
+        let sample = SearchConfig {
+            text_roots: vec![home.clone()],
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        let everything = SearchConfig { long_files_everything: vec![home.clone()], ..sample.clone() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        let mode: i64 = store.db.lock().unwrap().pragma_query_value(None, "auto_vacuum", |r| r.get(0)).unwrap();
+        assert_eq!(mode, 2, "a new store vacuums incrementally");
+        store.set_engine(crate::meaning::Engine::from_config(&sample));
+        store.hurry.store(true, Ordering::Relaxed);
+        scan(&store, &sample, &go).unwrap();
+        let id = |name: &str| -> i64 {
+            store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [home.join(name).to_string_lossy()], |r| r.get(0)).unwrap()
+        };
+        let (big, notes_id, short) = (id("big.log"), id("notes.txt"), id("short.txt"));
+        let vectors = |file: i64| -> Vec<Vec<u8>> {
+            let db = store.db.lock().unwrap();
+            let mut q = db.prepare("SELECT vector FROM chunks WHERE file = ?1 ORDER BY n").unwrap();
+            q.query_map([file], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+        };
+        let body = |file: i64| -> String { store.db.lock().unwrap().query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| r.get(0)).unwrap() };
+        let size = || {
+            store.db.lock().unwrap().execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+            std::fs::metadata(d.join("search.db")).unwrap().len()
+        };
+        let (big_sampled, notes_sampled, big_text) = (vectors(big), vectors(notes_id), body(big));
+        assert_eq!((big_sampled.len(), notes_sampled.len()), (crate::meaning::PASSAGES, crate::meaning::PASSAGES));
+        assert!(big_text.len() <= crate::extract::MAX_TEXT);
+        assert_eq!(store.search("harbour", None, 10).total, 0, "Sample keeps the first 4 MB of text");
+        let short_vectors = vectors(short);
+
+        // The warning: the two long files, more passages and room, the log read again.
+        let cost = store.long_files_cost(&crate::long_files::Rule::of(&everything)).unwrap();
+        assert_eq!((cost.files, cost.back), (2, 0), "{cost:?}");
+        assert!(cost.passages > 5000 && cost.bytes > (1 << 20) && cost.read >= log.len() as u64, "{cost:?}");
+        assert_eq!(store.long_files_cost(&crate::long_files::Rule::of(&sample)).unwrap(), crate::long_files::Cost::default(), "nothing changes");
+        let small = size();
+
+        scan(&store, &everything, &go).unwrap();
+        let (big_all, notes_all) = (vectors(big), vectors(notes_id));
+        assert!(big_all.len() > 5000 && notes_all.len() > crate::meaning::PASSAGES, "{} {}", big_all.len(), notes_all.len());
+        assert_eq!(store.search("harbour", None, 10).total, 1, "Everything keeps all the text");
+        assert!(body(big).len() > crate::extract::MAX_TEXT);
+        assert_eq!(vectors(short), short_vectors, "a short file stays as it was");
+        assert!(store.meaning_counts().0 == 0, "every file has its vectors");
+        let large = size();
+        assert!(large > small, "{large} > {small}");
+        // Found by what its last part is about.
+        assert!(store.similar("rocket landed harbour flight", None, 3).iter().any(|h| h.path.ends_with("big.log")));
+        // Its passages past the 256th are numbered as they are kept, and read one by one.
+        let asked = store.passages("finally the rocket landed safely in the harbour", None, 6000);
+        assert!(asked.iter().any(|(p, text, _)| p.ends_with("big.log") && text.contains("harbour")), "{asked:?}");
+
+        // The cost of going back, then going back: nothing read or embedded again.
+        let back = store.long_files_cost(&crate::long_files::Rule::of(&sample)).unwrap();
+        assert_eq!((back.files, back.back), (0, 2), "{back:?}");
+        assert!(back.freed > (1 << 20), "{back:?}");
+        store.long_files_changed(&crate::long_files::Rule::of(&sample)).unwrap();
+        assert_eq!(store.unread_count().unwrap(), 0, "nothing is read again");
+        assert!(store.unembedded(8).unwrap().is_empty(), "no vectors are made again");
+        assert_eq!(vectors(big), big_sampled, "the log's vectors are Sample's");
+        assert_eq!(vectors(notes_id), notes_sampled, "the notes' vectors are Sample's");
+        assert_eq!(body(big), big_text, "the text is cut back as reading would cut it");
+        assert_eq!(store.search("harbour", None, 10).total, 0);
+        let mode: i64 = store.db.lock().unwrap().pragma_query_value(None, "auto_vacuum", |r| r.get(0)).unwrap();
+        assert_eq!(mode, 2);
+        let after = size();
+        assert!(after < large, "the store gave the room back: {after} < {large}");
+        // A scan after it changes nothing more.
+        scan(&store, &sample, &go).unwrap();
+        assert_eq!(vectors(big), big_sampled);
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A store made before incremental vacuum gets it at its first compaction.
+    #[test]
+    fn long_files_compaction_turns_an_old_store_incremental() {
+        let d = std::env::temp_dir().join(format!("coxswain-compact-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let old = Connection::open(d.join("search.db")).unwrap();
+        old.execute_batch("CREATE TABLE old(x); DROP TABLE old;").unwrap();
+        drop(old);
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let mode = || -> i64 { store.db.lock().unwrap().pragma_query_value(None, "auto_vacuum", |r| r.get(0)).unwrap() };
+        assert_eq!(mode(), 0);
+        store.compact().unwrap();
+        assert_eq!(mode(), 2);
+        store.compact().unwrap();
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

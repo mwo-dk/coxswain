@@ -435,6 +435,8 @@ pub enum MenuRun {
     PreviewTool(&'static str, &'static str),
     /// A line copied to the clipboard, said on the status line.
     CopyLine(String),
+    /// Settings written (*Long files* for a folder), the helper restarted for them.
+    Save(serde_json::Map<String, serde_json::Value>),
     /// Settings, open at a section.
     SettingsAt(&'static str),
     /// Compare folders' menu (Ctrl+F2 while one is on).
@@ -1523,6 +1525,7 @@ impl App {
             Action::DrawioExport => self.export_menu(false),
             Action::ScanViruses => self.scan_viruses(),
             Action::PreviewWith => self.preview_with(),
+            Action::LongFiles => self.long_files(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -2419,6 +2422,24 @@ impl App {
         items.push(MenuItem { key: "s".into(), label: t!("ptools.menu_settings"), run: MenuRun::SettingsAt("preview_tools"), group: None });
         let title = format!("{} {}", self.action_label(Action::PreviewWith), r.title);
         self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "preview_tools" });
+    }
+
+    /// *Long files: sample or everything…* on the folder under the cursor: *Everything here*,
+    /// *Sample here* or *Like the folders above*, each with what it would cost
+    /// (`long_files::choices`); the one taken is written into config.toml.
+    fn long_files(&mut self) {
+        let Some(dir) = self.panel().current().filter(|e| e.is_dir && e.name != "..").map(|e| e.path.clone()) else {
+            return self.status = Some(t!("long.on_folder"));
+        };
+        let measured = self.index.status().meaning_ms_per_passage;
+        let index = self.index.clone();
+        let items = coxswain_core::long_files::choices(&self.cfg.search, &dir, measured, |r| index.long_files_cost(r))
+            .into_iter()
+            .enumerate()
+            .map(|(i, c)| MenuItem { key: (i + 1).to_string(), label: c.label, run: MenuRun::Save(c.changes), group: None })
+            .collect();
+        let title = format!("{} {}", self.action_label(Action::LongFiles), dir.file_name().map_or_else(|| dir.display().to_string(), |n| n.to_string_lossy().into_owned()));
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "long_files" });
     }
 
     /// A choice of *Preview with…* written into config.toml and used at once.
@@ -3895,6 +3916,16 @@ impl App {
                     Some(MenuRun::Split(file, None)) => self.input(&self.action_label(Action::SplitFile), t!("split.size_label"), "250M".into(), Prompt::SplitSize(file.clone())),
                     Some(MenuRun::Join(first, replace)) => self.join_start(first.clone(), *replace),
                     Some(MenuRun::PreviewTool(kind, choice)) => self.preview_tool(kind, choice),
+                    Some(MenuRun::Save(changes)) => {
+                        let changes = changes.clone();
+                        self.status = Some(match Config::path() {
+                            Some(path) => match self.save_options(&path, &changes) {
+                                Ok(()) => t!("settings.saved", "path" => path.display()),
+                                Err(e) => e,
+                            },
+                            None => t!("err.no_config_folder"),
+                        });
+                    }
                     Some(MenuRun::CopyLine(line)) => {
                         crate::guide::copy(line);
                         self.status = Some(t!("guide.copied", "command" => line));

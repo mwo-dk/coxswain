@@ -172,6 +172,9 @@ pub const OPTIONS: &[Opt] = &[
         &[],
     ),
     opt("meaning_device", &["search", "meaning_device"], Search, &[]),
+    opt("long_files", &["search", "long_files"], Search, &[Disk, Cpu]),
+    opt("long_files_everything", &["search", "long_files_everything"], Search, &[Disk, Cpu]),
+    opt("long_files_sample", &["search", "long_files_sample"], Search, &[]),
     opt("ask_model", &["search", "ask_model"], Search, &[Leaves]),
     opt(
         "ask_code_model",

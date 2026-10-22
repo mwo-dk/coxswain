@@ -132,6 +132,7 @@ mindmap
 | [Cloud files: OneDrive, Dropbox, Google Drive, Proton Drive, iCloud](search/cloud-files.md) | Online-only files found by name and never downloaded, the cloud glyph, Download and preview, `cloud` and `cloud_read`, per system |
 | [Removable disks](search/removable-disks.md) | Text kept while unplugged, found again at any mount point |
 | [Search by meaning](search/meaning.md) | The built-in multilingual model, turning it on and off, what you see, how it works, how fast it is here (*Measure speed*, `coxswain --meaning bench`) |
+| [Long files: sample or everything](search/long-files.md) | Sample (first 4 MB of text, 256 passages spread over the file) or Everything (all the text up to 256 MB, every passage), in Settings or per folder from the action menu; the cost said first; back to Sample reads nothing again |
 | [Search by meaning on a server: Ollama, Lemonade, LM Studio](search/servers.md) | Ollama, Lemonade, LM Studio, any OpenAI-compatible server, API keys, privacy |
 | [Ask: questions answered from your files](search/ask.md) | The Ask row of Find (Ctrl+Enter): your chat model answers from the closest passages, citing them, in place of the list |
 | [Ask about code](search/ask-code.md) | Code read as code: passages cut at functions and classes with their lines, named after their item; a map of a project (files, public items, dependencies) for questions about it as a whole; any language |

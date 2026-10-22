@@ -141,6 +141,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             Some("search_meaning"),
         ));
     }
+    // Everything chosen for long files, with words in files off: nothing is kept, whole or not.
+    if crate::long_files::Rule::of(&cfg.search).any() && !cfg.search.text {
+        all.push(Notice::new("long-files-text-off", t!("notice.long_files_text_off"), Some("search_text")));
+    }
     // Clouds found: their files that are only online are found by name, never downloaded.
     if cfg.search.cloud != "all" && !status.clouds.is_empty() {
         // Each once, in the order first seen: two OneDrive roots name OneDrive once.

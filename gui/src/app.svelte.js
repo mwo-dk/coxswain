@@ -629,6 +629,22 @@ export async function previewWith(e = item(tab())) {
   ui.modal = { kind: "menu", feature: "preview_tools", title: `${actionLabel("preview_with")} ${r.title}`, direct: true, filter: "", cursor: 0, items };
 }
 
+/** *Long files: sample or everything…* (`coxswain_core::long_files`) on the folder under the
+ *  cursor: Everything here, Sample here or like the folders above, each with what it would
+ *  cost (the long files, the room on the disk, the time); the one taken is saved. */
+export async function longFiles(e = item(tab())) {
+  if (!e || !e.is_dir || e.name === "..") return void (ui.status = t("long.on_folder"));
+  let choices;
+  try {
+    choices = await invoke("long_files_choices", { dir: e.path });
+  } catch (err) {
+    return void (ui.status = String(err));
+  }
+  const save = (c) => invoke("save_settings", { changes: c.changes }).then((cfg) => ((ui.cfg = cfg), (ui.status = t("long.saved", { name: e.name }))), (err) => (ui.status = String(err)));
+  const items = choices.map((c, i) => ({ key: String(i + 1), label: c.label, run: () => (c.current ? null : save(c)) }));
+  ui.modal = { kind: "menu", feature: "long_files", title: `${actionLabel("long_files")} ${e.name}`, direct: true, filter: "", cursor: 0, items };
+}
+
 /** *Convert video or audio* (`program` 0, ffmpeg), *Convert or edit pictures* (1, ImageMagick),
  *  *Convert geodata* (2, GDAL), *Export 3D model* (3, OpenSCAD) or *Export from KiCad* (4) on the files among `paths` it takes (`coxswain_core::media`): what to make of them from a
  *  menu, a clip's times or a size asked next, then the question (what it writes, which program

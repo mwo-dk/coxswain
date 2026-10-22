@@ -117,7 +117,7 @@ Yes, as plain text, like code and Markdown.
 
 Yes. Plain text, code, CSV and logs are read line by line, whatever their size, and reading stops
 once 4 MB of text is kept: a log of any size costs the same few megabytes of memory and is found
-by the words of its first 4 MB. Other kinds larger than *Largest file read* (`text_max_size`,
+by the words of its first 4 MB ([Long files](long-files.md) set to *Everything* keep all of it). Other kinds larger than *Largest file read* (`text_max_size`,
 20 MB) are found by name only.
 
 #### Why does a long PDF miss words near its end?

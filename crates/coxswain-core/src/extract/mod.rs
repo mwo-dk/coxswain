@@ -92,6 +92,17 @@ pub(crate) fn streams(path: &Path) -> bool {
 /// and a blank line between its parts. None for a file only in the cloud, unless the settings
 /// read those: reading it would download it.
 pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
+    text_up_to(path, size, max, MAX_TEXT)
+}
+
+/// The most text *Everything* (`long_files`) keeps of a file read line by line. Search by
+/// words keeps a file's text in one row, read and written whole.
+// ponytail: one row per file; past this, text in parts (rows per part) if anyone needs more.
+pub const EVERYTHING_TEXT: usize = 256 << 20;
+
+/// `text_of`, keeping up to `cap` bytes of the text of a file read line by line (text, code,
+/// CSV, logs); every other reader stops at `MAX_TEXT` as ever.
+pub fn text_up_to(path: &Path, size: u64, max: u64, cap: usize) -> Option<String> {
     // A PGN file of any size: its reader stops after a line per game for MAX_TEXT bytes.
     let pgn = matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn));
     // Plain text, code, CSV and logs of any size: read line by line, they stop at MAX_TEXT.
@@ -106,7 +117,7 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
             if code { tidy_code(&text) } else { tidy(&text) }
         }
         // Read as it is tidied, line by line: no more of the file than the text kept needs.
-        None => plain::tidied(path, code)?,
+        None => plain::tidied_up_to(path, code, cap)?,
     };
     (!text.trim().is_empty()).then_some(text)
 }
@@ -131,6 +142,13 @@ fn tidied<'a>(lines: impl Iterator<Item = &'a str>, code: bool) -> String {
         }
     }
     t.out
+}
+
+/// A text kept whole (*Everything*, `long_files`) cut back to what is kept of a file, as
+/// reading it again would cut it: tidying tidied text changes nothing. `None` when it is no
+/// longer than that.
+pub(crate) fn cut_back(body: &str, code: bool) -> Option<String> {
+    (body.len() > MAX_TEXT).then(|| tidied(body.lines(), code))
 }
 
 /// `tidy` (or `tidy_code`) a line at a time, for text read as it comes: the same text in, the
@@ -160,8 +178,13 @@ impl Tidy {
 
     /// No limit: for text that is handed on as it is made (`drain`), never kept whole.
     pub fn whole(code: bool) -> Tidy {
+        Tidy::with_cap(code, usize::MAX)
+    }
+
+    /// At most `cap` bytes of text.
+    pub fn with_cap(code: bool, cap: usize) -> Tidy {
         Tidy {
-            cap: usize::MAX,
+            cap,
             ..Tidy::new(code)
         }
     }

@@ -45,6 +45,7 @@ pub mod history;
 pub mod i18n;
 pub mod images;
 pub mod local_models;
+pub mod long_files;
 pub mod icons;
 pub mod index;
 pub mod kicad;

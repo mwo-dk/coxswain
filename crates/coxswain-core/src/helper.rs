@@ -114,6 +114,10 @@ enum Request {
         hash: u64,
         max: usize,
     },
+    /// What keeping long files as `rule` says would cost (`Store::long_files_cost`).
+    LongFiles {
+        rule: crate::long_files::Rule,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -157,6 +161,10 @@ enum Reply {
     },
     Transcript {
         transcript: Option<crate::transcribe::Transcript>,
+    },
+    /// `None` without the store (words in files off).
+    LongFiles {
+        cost: Option<crate::long_files::Cost>,
     },
 }
 
@@ -711,6 +719,9 @@ fn answer(
             Request::Positions { hash, max } => Reply::Games {
                 games: store.and_then(|s| s.games_at(hash, max).ok()),
             },
+            Request::LongFiles { rule } => Reply::LongFiles {
+                cost: store.and_then(|s| s.long_files_cost(&rule).ok()),
+            },
             Request::Size { path } => Reply::Size {
                 size: store.and_then(|s| s.size(&path)),
             },
@@ -1044,6 +1055,15 @@ impl Client {
     pub fn games_at(&self, hash: u64, max: usize) -> Option<Vec<(PathBuf, u32)>> {
         match self.ask(&Request::Positions { hash, max }) {
             Some(Reply::Games { games }) => games,
+            _ => None,
+        }
+    }
+
+    /// What keeping long files as `rule` says would cost, from the store; `None` without it
+    /// (no helper, or words in files off).
+    pub fn long_files_cost(&self, rule: &crate::long_files::Rule) -> Option<crate::long_files::Cost> {
+        match self.ask(&Request::LongFiles { rule: rule.clone() }) {
+            Some(Reply::LongFiles { cost }) => cost,
             _ => None,
         }
     }

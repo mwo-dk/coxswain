@@ -1145,6 +1145,34 @@ async fn meaning_change(name: String, value: String, engine: Option<String>, url
     tauri::async_runtime::spawn_blocking(move || { let st = index.status(); coxswain_core::meaning::change_notice(&old, &new, st.meaning_done, st.meaning_passages) }).await.map_err(|e| e.to_string())
 }
 
+/// What changing what is kept of long files (`long_files`, `long_files_everything`,
+/// `long_files_sample`) as `changes` say costs, said before it is saved; None when it stays.
+#[tauri::command]
+async fn long_files_change(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+    let (cfg, index) = (ctx.cfg().clone(), ctx.index.clone());
+    let text = coxswain_core::config::Config::path().and_then(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
+    let new = coxswain_core::settings::apply(&text, &changes).and_then(|t| coxswain_core::config::Config::parse_saved(&text, &t))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let measured = index.status().meaning_ms_per_passage;
+        coxswain_core::long_files::change_notice(&cfg.search, &new.search, measured, |r| index.long_files_cost(r))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// *Long files: sample or everything…* on the folder `dir`: its choices, each with what it
+/// would cost and the settings it writes (`save_settings`).
+#[tauri::command]
+async fn long_files_choices(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::long_files::Choice>> {
+    let (cfg, index) = (ctx.cfg().search.clone(), ctx.index.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        let measured = index.status().meaning_ms_per_passage;
+        coxswain_core::long_files::choices(&cfg, &dir, measured, |r| index.long_files_cost(r))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Why Ask's chat model cannot answer (one that only makes vectors, one the server does not
 /// have), or None. `try_it` sends an OpenAI server a one-word question, when it is saved.
 #[tauri::command]
@@ -2659,7 +2687,7 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_moves, chess::chess_analyse, chess::chess_save_line, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
+            job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, long_files_change, long_files_choices, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts
         ])
         .build(tauri::generate_context!())
