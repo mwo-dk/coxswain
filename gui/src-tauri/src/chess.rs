@@ -260,3 +260,40 @@ pub async fn chess_review_save(path: PathBuf, index: u32) -> Res<String> {
     .await
     .map_err(|e| e.to_string())?
 }
+
+/// A game found by Find this position: its file, its index, and for a game of `path` (the file
+/// on view) its players, result and date.
+#[derive(Serialize)]
+pub struct PositionGame {
+    path: PathBuf,
+    name: String,
+    index: u32,
+    about: String,
+}
+
+/// The games in the search store that reach the position `fen` (Find this position). `None`:
+/// no store to ask (words in files off).
+#[tauri::command]
+pub async fn chess_position_games(path: PathBuf, fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<Vec<PositionGame>>> {
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(b) = chess::pgn::board(&fen) else { return Ok(Some(vec![])) };
+        let Some(found) = index.games_at(chess::polyglot::key(&b), 500) else { return Ok(None) };
+        let here = library(&path).ok();
+        Ok(Some(
+            found
+                .into_iter()
+                .map(|(p, i)| {
+                    let about = match here.as_ref().filter(|_| p == path).and_then(|l| l.row(i)) {
+                        Some(r) => format!("{} – {} {} {}", r.white, r.black, r.result, r.date),
+                        None => String::new(),
+                    };
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    PositionGame { path: p, name, index: i, about }
+                })
+                .collect(),
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

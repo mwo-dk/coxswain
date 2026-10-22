@@ -86,6 +86,8 @@
   let engine = $state(null);
   // The whole game analysed (chess_review): how far it is, asked again while it runs.
   let review = $state(null);
+  // Find this position (chess_position_games): the games found, null before asking.
+  let posGames = $state(null);
 
   $effect(() => {
     const theme = ui.theme;
@@ -457,6 +459,27 @@
     boardEl?.focus();
   }
 
+  /** Find this position (p): the games in the search store that reach the board shown. */
+  async function findPosition() {
+    if (!fen || other) return;
+    said = t("chess.position_searching");
+    try {
+      const r = await invoke("chess_position_games", { path, fen });
+      if (r == null) (said = t("chess.position_off")), (posGames = null);
+      else if (!r.length) (said = t("chess.position_none")), (posGames = null);
+      else (said = ""), (posGames = r);
+    } catch (e) {
+      said = String(e);
+    }
+  }
+  /** A game found: this file's on the board, another file's in its own window. */
+  function openFound(g) {
+    posGames = null;
+    if (g.path === path) return void openGame(g.index);
+    ui.modal = { kind: "chess", path: g.path };
+    ui.chessAt = { path: g.path, index: g.index };
+  }
+
   /** A move of the game shown: out of the played line, which stays. */
   function goto(n) {
     if (played) played.at = 0;
@@ -547,6 +570,7 @@
     else if (e.key === "b" && !other && engine?.a?.lines[0]) playMove(engine.a.lines[0].best);
     else if (e.key === "g" && format === "pgn" && !other) reviewAct(review && !review.done ? "stop" : "start");
     else if (e.key === "w" && format === "pgn" && !other) saveReview();
+    else if (e.key === "p" && !other) findPosition();
     else if (e.key === "c" && played) played = null;
     else if (e.key === "Escape" && (picked != null || promo)) (picked = null), (promo = null);
     else if (e.key === "PageDown" && table) nextGame(1);
@@ -725,6 +749,7 @@
           <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
           {#if !other}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
           {#if !other}<button title={t("chess.engine_tip")} class:on={analysis} onclick={() => (analysis = !analysis)}>{t("chess.engine_btn")}</button>{/if}
+          {#if !other}<button title={t("chess.position_tip")} onclick={findPosition}>{t("chess.position_btn")}</button>{/if}
           {#if format === "pgn" && !other}
             <button title={t("chess.review_tip")} class:on={review && !review.done} onclick={() => reviewAct(review && !review.done ? "stop" : "start")}>{review && !review.done ? t("chess.review_stop") : t("chess.review_btn")}</button>
             {#if review?.plies.length}<button title={t("chess.review_save_tip")} onclick={saveReview}>{t("chess.review_save")}</button>{/if}
@@ -815,6 +840,14 @@
           </div>
         {/if}
         {#if said}<p class="meta">{said}</p>{/if}
+        {#if posGames}
+          <p class="players"><b>{t("chess.position_title", { n: posGames.length })}</b> <button class="mv" title={t("chess.close")} onclick={() => (posGames = null)}>×</button></p>
+          <ul class="found">
+            {#each posGames as g, k (k)}
+              <li><button class="mv" onclick={() => openFound(g)}>{t("chess.position_game", { file: g.name, n: g.index + 1 })}</button>{#if g.about}{" "}<span class="meta">{g.about}</span>{/if}</li>
+            {/each}
+          </ul>
+        {/if}
         <p class="meta keys">{other ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
@@ -1186,6 +1219,12 @@
   }
   .eng {
     font-weight: bold;
+  }
+  .found {
+    margin: 0 0 6px;
+    padding-inline-start: 1.2em;
+    max-height: 14em;
+    overflow: auto;
   }
   .engine-line {
     margin: 0;

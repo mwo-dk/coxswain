@@ -256,7 +256,9 @@ impl Store {
              CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));
              CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS transcripts(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, length INTEGER, done INTEGER NOT NULL DEFAULT 0, text TEXT NOT NULL DEFAULT '', finished INTEGER NOT NULL DEFAULT 0, asked INTEGER NOT NULL);",
+             CREATE TABLE IF NOT EXISTS transcripts(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, length INTEGER, done INTEGER NOT NULL DEFAULT 0, text TEXT NOT NULL DEFAULT '', finished INTEGER NOT NULL DEFAULT 0, asked INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS positions(hash INTEGER NOT NULL, file INTEGER NOT NULL, game INTEGER NOT NULL, PRIMARY KEY(hash, file, game)) WITHOUT ROWID;
+             CREATE INDEX IF NOT EXISTS positions_file ON positions(file);",
         )?;
         // Search by meaning came later: a store from before gets the column, and keeps its text.
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
@@ -390,7 +392,7 @@ impl Store {
         self.cleared.store(true, Ordering::SeqCst);
         let db = self.db.lock().unwrap();
         // The vacuum goes to the write-ahead log first: written back and emptied, the room is free.
-        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
+        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM positions; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
         // Read again whatever came of it: each statement commits on its own, so a vacuum that
         // fails still leaves the rows gone.
         self.commit_signs(|| Ok(()), SignsChange::Reset)?;
@@ -766,6 +768,7 @@ impl Store {
         let deletes = [
             format!("DELETE FROM text WHERE rowid IN ({ids})"),
             format!("DELETE FROM chunks WHERE file IN ({ids})"),
+            format!("DELETE FROM positions WHERE file IN ({ids})"),
             format!("DELETE FROM files WHERE {at}"),
             format!("DELETE FROM hashes WHERE {at}"),
             format!("DELETE FROM skipped WHERE {at}"),
@@ -787,6 +790,8 @@ impl Store {
             tx.prepare_cached("DELETE FROM text WHERE rowid = ?1")?
                 .execute([id])?;
             tx.prepare_cached("DELETE FROM chunks WHERE file = ?1")?
+                .execute([id])?;
+            tx.prepare_cached("DELETE FROM positions WHERE file = ?1")?
                 .execute([id])?;
             if whole {
                 tx.prepare_cached("DELETE FROM files WHERE id = ?1")?
@@ -1022,6 +1027,48 @@ impl Store {
             )?;
         }
         tx.commit()
+    }
+
+    /// The positions a PGN file's games reach (`chess::games::positions`), in place of those it
+    /// had: by key, with the game's index, so Find this position finds the games. The file is
+    /// read game by game without the store's lock (`stop` asked between games), and the rows go
+    /// in, in transactions of their own a few thousand games at a time.
+    fn put_positions(&self, id: i64, path: &Path, stop: &dyn Fn() -> bool) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("DELETE FROM positions WHERE file = ?1", [id])?;
+        let mut batch: Vec<(u64, u32)> = vec![];
+        let flush = |batch: &mut Vec<(u64, u32)>| -> rusqlite::Result<()> {
+            let mut db = self.db.lock().unwrap();
+            let tx = db.transaction()?;
+            {
+                let mut put = tx.prepare_cached("INSERT OR IGNORE INTO positions(hash, file, game) VALUES (?1, ?2, ?3)")?;
+                for (k, game) in batch.drain(..) {
+                    put.execute(params![k as i64, id, game])?;
+                }
+            }
+            tx.commit()
+        };
+        let mut failed = None;
+        let _ = crate::chess::games::positions(path, stop, |game, keys| {
+            batch.extend(keys.iter().map(|&k| (k, game)));
+            if batch.len() >= 100_000
+                && failed.is_none()
+                && let Err(e) = flush(&mut batch)
+            {
+                failed = Some(e);
+            }
+        });
+        if let Some(e) = failed {
+            return Err(e);
+        }
+        flush(&mut batch)
+    }
+
+    /// The games that reach the position with the Polyglot key `hash`: (file, game index from
+    /// 0), at most `max`.
+    pub fn games_at(&self, hash: u64, max: usize) -> rusqlite::Result<Vec<(PathBuf, u32)>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare_cached("SELECT f.path, p.game FROM positions p JOIN files f ON f.id = p.file WHERE p.hash = ?1 ORDER BY f.path, p.game LIMIT ?2")?;
+        q.query_map(params![hash as i64, max as i64], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, u32>(1)?)))?.collect()
     }
 
     /// Commits of the repository at `root`, (id, time, text), as rows whose text is searched;
@@ -2201,8 +2248,9 @@ fn scan_for(
     // Code in more languages (2.32): only the files with the endings new then are read again.
     let added: Vec<String> = crate::code::SINCE_CODE_1.iter().map(|e| format!(".{e}")).collect();
     store.reader_changed("readers.code", "2", &added)?;
-    // PGN files: a line per game (players, event, site, date, opening, result), read once again.
-    store.reader_changed("readers.pgn", "1", &crate::chess::PGN_ENDINGS)?;
+    // PGN files: a line per game (players, event, site, date, opening, result), read once
+    // again; at 2, the positions of their games too (Find this position).
+    store.reader_changed("readers.pgn", "2", &crate::chess::PGN_ENDINGS)?;
     // SGF files: a line per game (players, ranks, event, place, date, result), read once again.
     store.reader_changed("readers.sgf", "1", &crate::go::ENDINGS)?;
     // PDN files: a line per draughts game (players, event, place, date, result), read once again.
@@ -2551,6 +2599,14 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
             })
             .collect();
         store.read(&rows)?;
+        // PGN files the text reader read (not left out, not online-only, not empty): the
+        // positions of their games too, game by game as the file is read.
+        let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
+        for ((id, path, _), (_, text)) in batch.iter().zip(&rows) {
+            if text.is_some() && crate::chess::format(Path::new(path)) == Some(crate::chess::Format::Pgn) {
+                store.put_positions(*id, Path::new(path), &halt)?;
+            }
+        }
         if done(batch.len()) {
             return Ok(true);
         }
@@ -3904,15 +3960,33 @@ mod tests {
         std::fs::write(&file, &pgn).unwrap();
         let store = Store::open(&d.join("search.db")).unwrap();
         let path = file.to_string_lossy().into_owned();
-        store.apply(&[], &[(path.clone(), pgn.len() as u64, 1, false)], &[], false, None).unwrap();
-        let id = store.unread_disk(0, 1000).unwrap()[0].0;
-        let text = crate::extract::text_of(&file, pgn.len() as u64, 1 << 20).unwrap();
-        store.read(&[(id, Some(text))]).unwrap();
+        // An empty PGN file beside it: nothing read, so no positions either.
+        let empty = d.join("empty.pgn");
+        std::fs::write(&empty, "").unwrap();
+        store
+            .apply(&[], &[(path.clone(), pgn.len() as u64, 1, false), (empty.to_string_lossy().into_owned(), 0, 1, false)], &[], false, None)
+            .unwrap();
+        // The store's own reading: the text, then the positions of what it read.
+        assert!(!read(&store, &SearchConfig::default(), &AtomicBool::new(false)).unwrap());
         for (query, game) in [("Kieseritzky", 1), ("Dufresne", 2), ("Zukertort", 3), ("Havana", 5), ("Philidor", 0), ("Evans", 2), ("Sicilian", 4)] {
             let hits = store.search(query, None, 10).hits;
             let snippet = hits[0].snippet.as_deref().unwrap_or_default();
             assert_eq!(crate::chess::games::game_of_hit(&file, snippet), Some(game), "{query}: {snippet}");
         }
+        // Find this position: after 1.e4 e5 2.Nf3, games 0 and 2; after 1.e4 e5, 0, 1 and 2.
+        let key = |fen: &str| crate::chess::polyglot::key(&crate::chess::pgn::board(fen).unwrap());
+        let nf3 = key("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
+        assert_eq!(store.games_at(nf3, 10).unwrap(), vec![(file.clone(), 0), (file.clone(), 2)]);
+        let e5 = key("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
+        assert_eq!(store.games_at(e5, 2).unwrap().len(), 2);
+        // Stopped at once: the file's rows go, and none come.
+        let id: i64 = store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [&path], |r| r.get(0)).unwrap();
+        store.put_positions(id, &file, &|| true).unwrap();
+        assert!(store.games_at(e5, 10).unwrap().is_empty());
+        store.put_positions(id, &file, &|| false).unwrap();
+        // The file gone, its positions go with it.
+        store.apply(&[path.clone()], &[], &[], false, None).unwrap();
+        assert!(store.games_at(nf3, 10).unwrap().is_empty());
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

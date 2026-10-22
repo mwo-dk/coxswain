@@ -109,6 +109,11 @@ enum Request {
     Transcript {
         path: PathBuf,
     },
+    /// The PGN games that reach the position with this Polyglot key (`Store::games_at`).
+    Positions {
+        hash: u64,
+        max: usize,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -124,6 +129,10 @@ enum Reply {
     },
     Results(Results),
     Found(Found),
+    /// Games by file and index; `None` without the store (words in files off).
+    Games {
+        games: Option<Vec<(PathBuf, u32)>>,
+    },
     /// Each source with how many similar files it stands for.
     Passages {
         found: Vec<(PathBuf, String, usize)>,
@@ -694,6 +703,9 @@ fn answer(
                     .map(|s| s.passages(&query, scope.as_deref(), bytes))
                     .unwrap_or_default(),
             },
+            Request::Positions { hash, max } => Reply::Games {
+                games: store.and_then(|s| s.games_at(hash, max).ok()),
+            },
             Request::Size { path } => Reply::Size {
                 size: store.and_then(|s| s.size(&path)),
             },
@@ -1014,6 +1026,16 @@ impl Client {
             path: dir.to_path_buf(),
         }) {
             Some(Reply::Size { size }) => size,
+            _ => None,
+        }
+    }
+
+    /// The PGN games that reach the position with the Polyglot key `hash`, at most `max`:
+    /// (file, game index from 0). `None` when the store is not there (words in files off, or no
+    /// helper).
+    pub fn games_at(&self, hash: u64, max: usize) -> Option<Vec<(PathBuf, u32)>> {
+        match self.ask(&Request::Positions { hash, max }) {
+            Some(Reply::Games { games }) => games,
             _ => None,
         }
     }
