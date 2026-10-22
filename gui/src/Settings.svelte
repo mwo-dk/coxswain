@@ -849,6 +849,7 @@
         {@render choice("chess_notation", [["figurines", t("settings.chess_figurines")], ["letters", t("settings.chess_letters")]])}
         {@render choice("chess_board", [["theme", t("settings.chess_board_theme")], ["green", t("settings.chess_board_green")], ["brown", t("settings.chess_board_brown")]])}
         {@render text("chess_book", t("settings.chess_book_auto"))}
+        {@render choice("chess_pieces", [["auto", t("settings.chess_pieces_auto")], ["pictures", t("settings.chess_pieces_pictures")], ["octants", t("settings.chess_pieces_octants")], ["sextants", t("settings.chess_pieces_sextants")], ["quadrants", t("settings.chess_pieces_quadrants")], ["halves", t("settings.chess_pieces_halves")], ["figurines", t("settings.chess_pieces_figurines")]])}
         {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
         {@render check("image_prune")}
         <p class="hint">{t("settings.previews_more")}</p>

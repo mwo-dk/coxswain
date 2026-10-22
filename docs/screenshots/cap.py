@@ -350,6 +350,57 @@ def _c256(n):
     return "#%02x%02x%02x" % (g, g, g)
 
 
+def _block(ch):
+    """A block character's dots as (across, down, bits row by row), as a terminal draws them
+    itself: the font's own leave gaps between lines."""
+    import unicodedata
+    c = ord(ch)
+    if not (0x2580 <= c <= 0x259F or 0x1FB00 <= c <= 0x1FBEF or 0x1CD00 <= c <= 0x1CEAF):
+        return None
+    try:
+        name = unicodedata.name(ch)
+    except ValueError:
+        return None
+    for kind, dx, dy in (("BLOCK OCTANT-", 2, 4), ("BLOCK SEXTANT-", 2, 3)):
+        if name.startswith(kind):
+            return dx, dy, sum(1 << (int(d) - 1) for d in name[len(kind):])
+    quad = {"UPPER LEFT": 1, "UPPER RIGHT": 2, "LOWER LEFT": 4, "LOWER RIGHT": 8}
+    if name.startswith("QUADRANT "):
+        return 2, 2, sum(v for k, v in quad.items() if k in name)
+    rows = {"UPPER HALF BLOCK": (1, 2, 1), "LOWER HALF BLOCK": (1, 2, 2), "FULL BLOCK": (1, 1, 1), "LEFT HALF BLOCK": (2, 1, 1),
+            "RIGHT HALF BLOCK": (2, 1, 2), "LOWER ONE QUARTER BLOCK": (1, 4, 8), "UPPER ONE QUARTER BLOCK": (1, 4, 1),
+            "LOWER THREE QUARTERS BLOCK": (1, 4, 14), "UPPER THREE QUARTERS BLOCK": (1, 4, 7),
+            "MIDDLE LEFT ONE QUARTER BLOCK": (2, 4, 20), "MIDDLE RIGHT ONE QUARTER BLOCK": (2, 4, 40),
+            "LEFT HALF UPPER ONE QUARTER BLOCK": (2, 4, 1), "RIGHT HALF UPPER ONE QUARTER BLOCK": (2, 4, 2),
+            "LEFT HALF LOWER ONE QUARTER BLOCK": (2, 4, 64), "RIGHT HALF LOWER ONE QUARTER BLOCK": (2, 4, 128)}
+    return rows.get(name)
+
+
+def _blocks(text, css, fg, bg):
+    """A run of text as HTML, its block characters drawn as pictures of their dots."""
+    import html
+    if text.strip(" ") == "":
+        # A run of spaces (a square of a board) as a box of its own: a text's background
+        # reaches past its line into the next and would cover a block drawn there.
+        return f'<span style="{css};display:inline-block;vertical-align:top;height:1.17em;width:{len(text)}ch">{html.escape(text)}</span>'
+    out, plain = [], ""
+    for ch in text:
+        b = _block(ch)
+        if b is None:
+            plain += ch
+            continue
+        if plain:
+            out.append(f'<span style="{css}">{html.escape(plain)}</span>')
+            plain = ""
+        dx, dy, bits = b
+        rects = "".join(f'<rect x="{k % dx}" y="{k // dx}" width="1" height="1"/>' for k in range(dx * dy) if bits >> k & 1)
+        out.append(f'<svg style="display:inline-block;vertical-align:top;width:1ch;height:1.17em;background:{bg}" viewBox="0 0 {dx} {dy}" '
+                   f'preserveAspectRatio="none" shape-rendering="crispEdges" fill="{fg}">{rects}</svg>')
+    if plain:
+        out.append(f'<span style="{css}">{html.escape(plain)}</span>')
+    return "".join(out)
+
+
 def page(text, cols, rows):
     """`capture-pane -p -e -N` output as an HTML page with the terminal in `#t`."""
     import html, re
@@ -368,7 +419,7 @@ def page(text, cols, rows):
                 if st["rev"]:
                     fg, bg = bg, fg
                 css = f"color:{fg};background:{bg}" + (";font-weight:bold" if st["b"] else "") + (";opacity:.7" if st["dim"] else "") + (";font-style:italic" if st["it"] else "") + (";text-decoration:underline" if st["ul"] else "")
-                out.append(f'<span style="{css}">{html.escape(t)}</span>')
+                out.append(_blocks(t, css, fg, bg))
             pos = m.end()
             ps = [int(x) if x else 0 for x in re.split("[;:]", m.group(1))] if m.group(1) else [0]
             i = 0

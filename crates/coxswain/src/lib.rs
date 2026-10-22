@@ -2,6 +2,7 @@
 
 mod bom;
 mod chess;
+mod pieces;
 mod go;
 mod ebook;
 mod git_config;
