@@ -4,7 +4,8 @@
 //! photos, and their thumbnails).
 //!
 //! Each tool runs either from a local install or from a container image (podman or docker),
-//! chosen per `[preview]` in the config and by the buttons in the preview pane. Results go to
+//! chosen per kind of file (`coxswain_core::preview_tools`, `[preview.tools]`) and by the
+//! buttons in the preview pane. Results go to
 //! the cache folder, keyed by the file's path, size, modification time and the engine, so a
 //! file renders once and shows immediately afterwards.
 //!
@@ -22,42 +23,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 type Res<T> = Result<T, String>;
-
-/// The tools, with the local programs that can do the job, best first.
-const TOOLS: &[(&str, &[&str])] = &[
-    ("latex", &["latexmk", "tectonic", "pdflatex"]),
-    ("typst", &["typst"]),
-    ("libreoffice", &["soffice", "libreoffice"]),
-    ("ghostscript", &["gs", "gswin64c"]),
-    // GhostXPS, Ghostscript's interpreter of XPS.
-    ("gxps", &["gxps"]),
-    ("plantuml", &["plantuml"]),
-    ("pandoc", &["pandoc"]),
-    ("duckdb", &["duckdb"]),
-    // E-books: calibre, when `[preview] ebooks` is on (`coxswain_core::ebook`).
-    ("calibre", &["ebook-convert"]),
-    // Kroki's image has them all (`images::KROKI`); these four are packaged on their own too.
-    ("d2", &["d2"]),
-    ("svgbob", &["svgbob"]),
-    ("pikchr", &["pikchr"]),
-    ("erd", &["erd"]),
-    // ffmpeg and ImageMagick (`coxswain_core::media`): a video's frame, a song's waveform, HEIC
-    // photos (either program, else ffmpeg's image), GIMP and the other pictures only ImageMagick
-    // reads, and RAW photos (an installed ImageMagick with LibRaw: no image reads them).
-    ("ffmpeg", &["ffmpeg"]),
-    ("waveform", &["ffmpeg"]),
-    ("heif", &["magick", "ffmpeg"]),
-    ("imagemagick", &["magick"]),
-    ("raw", &["magick"]),
-    // GDAL (`coxswain_core::geo`): its programs come together; gdalinfo stands for them.
-    ("gdal", &["gdalinfo"]),
-    // OpenSCAD (`coxswain_core::scad`): a model drawn from its STL.
-    ("openscad", &["openscad"]),
-    // KiCad (`coxswain_core::kicad`): a schematic's sheets or a board's layers as a PDF; the
-    // thumbnail is a schematic's first sheet or the board in 3D.
-    ("kicad", &["kicad-cli"]),
-    ("kicad_thumb", &["kicad-cli"]),
-];
 
 /// The media previews, and what each makes.
 fn media_op(tool: &str) -> Option<coxswain_core::media::Op> {
@@ -106,6 +71,8 @@ pub struct Engine {
     note: String,
     /// A container whose image is not pulled yet: never run it without a click.
     needs_pull: bool,
+    /// The line that installs this program here, when it is not installed and one is known.
+    install: Option<String>,
 }
 
 /// The ways `tool` can run here, in the order of preference; the first available one is the
@@ -119,14 +86,20 @@ pub async fn preview_engines(tool: String, ctx: tauri::State<'_, crate::Ctx>) ->
 fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     // E-books are off until Settings turns them on: nothing runs, the pane says where.
     if tool == coxswain_core::ebook::TOOL && !cfg.ebooks {
-        return vec![Engine { id: "local:ebook-convert".into(), label: "calibre".into(), available: false, note: t!("ebook.off"), needs_pull: false }];
+        return vec![Engine { id: "local:ebook-convert".into(), label: "calibre".into(), available: false, note: t!("ebook.off"), needs_pull: false, install: None }];
     }
-    let programs = TOOLS.iter().find(|(t, _)| *t == tool).map_or(&[][..], |(_, p)| *p);
-    let mut local: Vec<Engine> = programs
+    use coxswain_core::preview_tools;
+    let pref = preview_tools::choice(cfg, tool);
+    // Off for this kind (Settings → Previews → Preview tools): nothing runs.
+    if pref == "off" {
+        return vec![Engine { id: "off:".into(), label: t!("ptools.choice.off"), available: false, note: t!("ptools.off_note"), needs_pull: false, install: None }];
+    }
+    let install = preview_tools::find(tool).map(|t| t.install).filter(|i| !i.is_empty()).and_then(coxswain_core::tools::install);
+    let mut local: Vec<Engine> = preview_tools::programs(tool)
         .iter()
         .map(|p| {
             let found = which(p);
-            Engine { id: format!("local:{p}"), label: p.to_string(), available: found.is_some(), note: if found.is_some() { String::new() } else { t!("convert.not_installed", "program" => p) }, needs_pull: false }
+            Engine { id: format!("local:{p}"), label: p.to_string(), available: found.is_some(), note: if found.is_some() { String::new() } else { t!("convert.not_installed", "program" => p) }, needs_pull: false, install: if found.is_some() { None } else { install.clone() } }
         })
         .collect();
     // Only show missing local programs when none is installed, to keep the buttons few, and
@@ -142,8 +115,8 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
     let key = coxswain_core::images::key(tool);
     let image = cfg.images.get(key).cloned().unwrap_or_default();
     let container = match (runtime(cfg), image.is_empty()) {
-        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => key), needs_pull: false },
-        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false },
+        (_, true) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: t!("convert.no_image", "tool" => key), needs_pull: false, install: None },
+        (None, false) => Engine { id: "container:".into(), label: t!("convert.container"), available: false, note: coxswain_core::tools::no_runtime(), needs_pull: false, install: None },
         (Some((rt, path)), false) => {
             let pulled = image_size(&path, &image).is_some();
             let short = coxswain_core::images::short(&image).rsplit('/').next().unwrap_or(&image).to_string();
@@ -159,10 +132,10 @@ fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
                     t!("convert.first_run_pulls", "image" => coxswain_core::images::short(&image))
                 },
                 needs_pull: !pulled,
+                install: None,
             }
         }
     };
-    let pref = cfg.prefer_tool.get(tool).unwrap_or(&cfg.prefer).as_str();
     // ImageMagick runs in its container first, once its image is there (`media::how`).
     let pref = if pref == "auto" && key == coxswain_core::media::MAGICK && container.available && !container.needs_pull { "container" } else { pref };
     let mut out = if pref == "container" { vec![container.clone()] } else { vec![] };
@@ -246,6 +219,10 @@ fn output(tool: &str, path: &Path, out: &Path) -> (&'static str, PathBuf) {
 pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: bool, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<Converted>> {
     crate::here(&path)?;
     let cfg = ctx.cfg().preview.clone();
+    // Its kind *Off* (an engine picked before it was turned off): nothing runs.
+    if coxswain_core::preview_tools::off(&cfg, &tool) {
+        return Err(t!("ptools.off_note"));
+    }
     let result = tauri::async_runtime::spawn_blocking(move || {
         // A chapter builds its document, not itself.
         let main = if tool == "latex" { latex::main_file(&path) } else { path.clone() };
@@ -518,7 +495,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
 
     // Only a program of this tool's own list: the page names it, and a name outside the list
     // would run whatever is on the PATH under that name.
-    if !TOOLS.iter().any(|(t, p)| *t == tool && p.contains(&which_one)) {
+    if !coxswain_core::preview_tools::programs(tool).contains(&which_one) {
         return Err(t!("convert.unknown_engine"));
     }
     let program = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
@@ -608,7 +585,7 @@ fn media_how(cfg: &PreviewConfig, tool: &str, kind: &str, which_one: &str) -> Re
         let program = Program::ALL.into_iter().find(|p| p.tool() == key).unwrap_or(Program::Magick);
         return Ok(How::Container { program, rt, path, image: image.clone() });
     }
-    if !TOOLS.iter().any(|(t, p)| *t == tool && p.contains(&which_one)) {
+    if !coxswain_core::preview_tools::programs(tool).contains(&which_one) {
         return Err(t!("convert.unknown_engine"));
     }
     let path = which(which_one).ok_or_else(|| t!("convert.not_installed", "program" => which_one))?;
@@ -885,38 +862,33 @@ mod latex {
 
 use coxswain_core::images::pull;
 
+/// Settings → Previews → Preview tools: every kind of file, what is installed, its images and
+/// whether the runtime has them (with the progress of a pull under way), the choice, and what
+/// is used.
 #[derive(Serialize)]
-pub struct Image {
-    tool: String,
-    image: String,
-    /// Bytes, when the runtime has it.
-    size: Option<u64>,
-    /// The latest progress line while it is being pulled.
-    pulling: Option<String>,
-    /// What it gives, its size and what it costs (`images::about`).
-    about: Option<String>,
+pub struct Tools {
+    rows: Vec<coxswain_core::preview_tools::Row>,
+    pulling: BTreeMap<String, String>,
+    /// Why no container runs, when none can.
+    no_runtime: Option<String>,
 }
 
-/// The images of `[preview.images]` that are set, each once with the first tool that names
-/// it: OCRmyPDF's serves Ghostscript too, and Settings keys its rows by image.
-fn listed(images: &BTreeMap<String, String>) -> impl Iterator<Item = (&String, &String)> {
-    let mut seen = std::collections::HashSet::new();
-    images.iter().filter(move |(_, image)| !image.is_empty() && seen.insert(image.as_str()))
-}
-
-/// Every configured image and whether the runtime has it, for Settings.
 #[tauri::command]
-pub async fn images(ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<Image>> {
+pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
     let cfg = ctx.cfg().preview.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let (_, rt) = runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?;
-        let pulling = coxswain_core::images::pulling();
-        Ok(listed(&cfg.images)
-            .map(|(tool, image)| Image { tool: tool.clone(), image: image.clone(), size: image_size(&rt, image), pulling: pulling.get(image).cloned(), about: coxswain_core::images::about(tool, image) })
-            .collect())
+    tauri::async_runtime::spawn_blocking(move || Tools {
+        rows: coxswain_core::preview_tools::rows(&cfg),
+        pulling: coxswain_core::images::pulling(),
+        no_runtime: runtime(&cfg).is_none().then(|| if cfg.container == "off" { t!("searchable.containers_off") } else { coxswain_core::tools::no_runtime() }),
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// *Try*: the sample of `kind`, written into the cache, for the preview to show.
+#[tauri::command]
+pub fn preview_sample(kind: String) -> Res<PathBuf> {
+    coxswain_core::preview_tools::sample(&kind)
 }
 
 /// Pull `image`, or update it to the newest. Poll `pull_progress` meanwhile.
@@ -1167,8 +1139,10 @@ mod tests {
         cfg.prefer = "container".into();
         assert!(engines(&cfg, "latex")[0].id.starts_with("container:"), "container listed first when preferred");
         cfg.prefer = "auto".into();
-        cfg.prefer_tool.insert("latex".into(), "container".into());
-        assert!(engines(&cfg, "latex")[0].id.starts_with("container:"), "per-tool preference wins");
+        cfg.tools.insert("latex".into(), "container".into());
+        assert!(engines(&cfg, "latex")[0].id.starts_with("container:"), "the kind's choice wins");
+        cfg.tools.insert("diagrams".into(), "off".into());
+        assert_eq!(engines(&cfg, "d2").iter().map(|e| (e.id.as_str(), e.available)).collect::<Vec<_>>(), [("off:", false)], "off: nothing runs");
         assert!(engines(&cfg, "nonsense").iter().all(|e| !e.available));
     }
 
@@ -1205,15 +1179,6 @@ mod tests {
 
 
     /// Needs podman and the network: `cargo test -- --ignored real_pull`.
-    #[test]
-    fn settings_lists_each_image_once() {
-        let cfg = PreviewConfig::default();
-        let images: Vec<&String> = listed(&cfg.images).map(|(_, i)| i).collect();
-        let once: std::collections::HashSet<_> = images.iter().collect();
-        assert_eq!(images.len(), once.len(), "{images:?}");
-        assert!(images.iter().any(|i| i.contains("ocrmypdf")));
-    }
-
     #[test]
     #[ignore]
     fn real_pull_streams_progress() {
@@ -1336,7 +1301,7 @@ mod tests {
 
 // ---------------------------------------------------------------- ffmpeg and ImageMagick
 
-/// A media preview made without asking (`tool` as in `TOOLS`): with the first engine that runs
+/// A media preview made without asking (`tool` as in `preview_tools::KINDS`): with the first engine that runs
 /// without a pull, else none; the preview's own picture when that was made with it. For the
 /// thumbnails and a song's waveform under its player. One at a time.
 #[tauri::command]

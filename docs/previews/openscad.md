@@ -85,7 +85,7 @@ behind. A flat model says *This model is flat (2D): STL and 3MF need a 3D one.*
 ## What it needs
 
 One of these, in the order of *Settings → Previews → How previews are made* (`[preview]
-prefer`, or `prefer_tool.openscad` for OpenSCAD alone):
+prefer`), or the *3D models* row of [*Preview tools*](tools.md#preview-tools-in-settings) (`[preview.tools] models`) for this kind alone:
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -116,9 +116,9 @@ apt install openscad), or run it in a container: …*.
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` (`"auto"`, `"local"`, `"container"`) | `"auto"`: installed first, else the container |
-| – | `[preview.prefer_tool] openscad` | `[preview] prefer` |
+| *Preview tools* → *3D models* | `[preview.tools] models` (`"local"`, `"container"`, `"off"`) | `[preview] prefer`; *Off* turns off the pictures, not *Export 3D model* |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Container images* (Pull, Remove) | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"`; `""` never uses a container. An image you set must have `openscad` on its `PATH` |
+| *Preview tools* → *3D models* (Pull, Remove) | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"`; `""` never uses a container. An image you set must have `openscad` on its `PATH` |
 | *Timeout (seconds)* | `[preview] timeout` | `120`: a picture whose making takes longer (OpenSCAD's runs together) is stopped, and drawing it has 20 s of its own; an export has no time limit |
 | *Keys* | `[keys] export_model` | none |
 

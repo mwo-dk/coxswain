@@ -4,7 +4,7 @@
 //! the search store reads it as it reads any other: nothing is read by OCR in the background.
 //!
 //! OCRmyPDF runs as installed, else from its container image (`[preview.images] ocrmypdf`), as
-//! a preview tool does: `[preview] prefer` and `prefer_tool.ocrmypdf` choose, a container
+//! a preview tool does: `[preview] prefer` and `[preview.tools] ocr` choose, a container
 //! gets no network and sees the PDF's folder read-only. Its image is pulled only once the user
 //! has said yes to a first run that says it pulls.
 
@@ -18,7 +18,7 @@ use std::time::Duration;
 use crate::config::PreviewConfig;
 use crate::t;
 
-/// Its name under `[preview.images]` and `prefer_tool`.
+/// Its name under `[preview.images]`.
 pub const TOOL: &str = "ocrmypdf";
 
 /// The languages OCRmyPDF's default image reads (`/usr/share/tessdata`, 2026-10).
@@ -33,7 +33,8 @@ pub enum How {
 
 /// The way it runs here, or why it cannot: what to install, or which setting to change.
 pub fn how(cfg: &PreviewConfig) -> Result<How, String> {
-    let pref = cfg.prefer_tool.get(TOOL).unwrap_or(&cfg.prefer).as_str();
+    let pref = crate::preview_tools::asked(cfg, TOOL);
+    let pref = pref.as_str();
     let local = crate::tools::which("ocrmypdf").map(How::Local);
     let image = cfg.images.get(TOOL).filter(|i| !i.is_empty()).cloned();
     let container = match (crate::tools::container_runtime(cfg), &image) {
@@ -329,13 +330,13 @@ mod tests {
     fn searchable_follows_the_preference_and_says_what_is_missing() {
         crate::i18n::set_language("en-GB");
         let mut cfg = PreviewConfig { container: "off".into(), ..Default::default() };
-        cfg.prefer_tool.insert(TOOL.into(), "container".into());
+        cfg.tools.insert("ocr".into(), "container".into());
         match how(&cfg) {
             Ok(How::Local(_)) => {}
             Ok(other) => panic!("containers are off: {other:?}"),
             Err(e) => assert!(e.contains(&t!("searchable.containers_off")), "{e}"),
         }
-        cfg.prefer_tool.insert(TOOL.into(), "local".into());
+        cfg.tools.insert("ocr".into(), "local".into());
         if let Err(e) = how(&cfg) {
             assert!(e.contains(&t!("searchable.prefer_local")), "{e}");
         }
@@ -353,7 +354,7 @@ mod tests {
         std::fs::copy(src, &pdf).unwrap();
         assert!(scanned(&pdf));
         let mut cfg = PreviewConfig::default();
-        cfg.prefer_tool.insert(TOOL.into(), "container".into());
+        cfg.tools.insert("ocr".into(), "container".into());
         let start = std::time::Instant::now();
         let r = run_all(&cfg, std::slice::from_ref(&pdf), &AtomicBool::new(false), |_| {}, |s| {
             if let Said::Line(l) = s {

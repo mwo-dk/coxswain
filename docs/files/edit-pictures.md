@@ -71,7 +71,7 @@ the next is `photo 2.png`. A JPEG saved again loses a little quality, as any JPE
 ## What it needs
 
 One of these, in this order unless *Settings → Previews → How previews are made*
-(`[preview] prefer`, or `prefer_tool.imagemagick` for ImageMagick alone) says otherwise:
+(`[preview] prefer`), or the *Pictures* row of [*Preview tools*](../previews/tools.md#preview-tools-in-settings) (`[preview.tools] pictures`) for this kind alone, says otherwise:
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -124,9 +124,9 @@ formats, some of which can name other files or run helper programs. So:
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` (`"auto"`, `"local"`, `"container"`) | `"auto"`: for ImageMagick, the container first, else installed |
-| – | `[preview.prefer_tool] imagemagick` | `[preview] prefer` |
+| *Preview tools* → *Pictures* | `[preview.tools] pictures` (`"local"`, `"container"`, `"off"`) | `[preview] prefer`; *Off* turns off only its previews, not this |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Container images* (Pull, Remove) | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"`; `""` never uses a container. An image you set must have `magick` on its `PATH` |
+| *Preview tools* → *Pictures* (Pull, Remove) | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"`; `""` never uses a container. An image you set must have `magick` on its `PATH` |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off; a run counts as a use |
 | *Keys* | `[keys] edit_pictures` | none |
 

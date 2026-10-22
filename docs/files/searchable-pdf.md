@@ -48,7 +48,7 @@ one is `scan.searchable 2.pdf`. A page that has text already is left as it is
 ## What it needs
 
 One of these, tried in the order of *Settings → Previews → How previews are made*
-(`[preview] prefer`, or `prefer_tool.ocrmypdf` for this alone):
+(`[preview] prefer`), or the *Searchable PDFs* row of [*Preview tools*](../previews/tools.md#preview-tools-in-settings) (`[preview.tools] ocr`) for this alone:
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -101,9 +101,9 @@ system's), when it has them:
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` (`"auto"`, `"local"`, `"container"`) | `"auto"`: installed first, else the container |
-| – | `[preview.prefer_tool] ocrmypdf` | `[preview] prefer` |
+| *Preview tools* → *Searchable PDFs* | `[preview.tools] ocr` (`"local"`, `"container"`, `"off"`) | `[preview] prefer`; *Off* makes it run as *Default*, since you asked for it |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Container images* (Pull, Remove) | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"`; `""` never uses a container. An image you set must have `ocrmypdf` as its entry point |
+| *Preview tools* → *Searchable PDFs* (Pull, Remove) | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"`; `""` never uses a container. An image you set must have `ocrmypdf` as its entry point |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off; a run counts as a use |
 | *Keys* | `[keys] searchable_pdf` | `"Alt+P"` |
 

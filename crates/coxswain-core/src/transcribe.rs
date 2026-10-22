@@ -34,7 +34,7 @@ pub const FORMATS: &[&str] = &[
 ];
 /// What `whisper-cli` reads by itself, without ffmpeg.
 const PLAIN: &[&str] = &["wav", "mp3", "flac", "ogg", "oga"];
-/// Its name under `[preview.images]` and `prefer_tool`.
+/// Its name under `[preview.images]`.
 pub const TOOL: &str = "whisper";
 /// Seconds of a file transcribed in one run.
 const CHUNK: u64 = 600;
@@ -197,7 +197,8 @@ pub enum Engine {
 /// The way it runs here, or why it cannot.
 pub fn engine(cfg: &Config) -> Result<Engine, String> {
     let p = &cfg.preview;
-    let pref = p.prefer_tool.get(TOOL).unwrap_or(&p.prefer).as_str();
+    let pref = crate::preview_tools::asked(p, TOOL);
+    let pref = pref.as_str();
     let local = crate::tools::which("whisper-cli").map(|cli| Engine::Local { cli, ffmpeg: crate::tools::which("ffmpeg") });
     let image = p.images.get(TOOL).filter(|i| !i.is_empty()).cloned();
     let container = match (crate::tools::container_runtime(p), image) {

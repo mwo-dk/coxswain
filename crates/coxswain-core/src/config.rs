@@ -1486,8 +1486,9 @@ pub fn quote_for(shell: &str, s: &str) -> String {
 pub struct PreviewConfig {
     /// "auto" (an installed tool first, else a container), "local" or "container".
     pub prefer: String,
-    /// Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }`.
-    pub prefer_tool: BTreeMap<String, String>,
+    /// Per kind of file (`preview_tools::KINDS`), overrides `prefer`: "local", "container" or
+    /// "off" (no preview by a tool): `tools = { latex = "container", video = "off" }`.
+    pub tools: BTreeMap<String, String>,
     /// "auto" (podman, else docker), "podman", "docker", or "off" for no containers.
     pub container: String,
     /// Container image per tool. An empty image means that tool never runs in a container.
@@ -1511,47 +1512,12 @@ pub struct PreviewConfig {
 
 impl Default for PreviewConfig {
     fn default() -> Self {
-        let images = [
-            ("latex", "docker.io/texlive/texlive:latest"),
-            ("plantuml", "docker.io/plantuml/plantuml:latest"),
-            ("pandoc", "docker.io/pandoc/core:latest"),
-            // Gotenberg's image, LibreOffice only: LibreOffice publishes none of its own.
-            ("libreoffice", "docker.io/gotenberg/gotenberg:8-libreoffice"),
-            // Kroki's image has the programs of a dozen diagram kinds (`images::KROKI`).
-            ("kroki", "docker.io/yuzutech/kroki:latest"),
-            ("typst", "ghcr.io/typst/typst:latest"),
-            // OCRmyPDF's own image, which has Ghostscript too: one pull for both.
-            ("ocrmypdf", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
-            ("ghostscript", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
-            // Apache Tika's own server image, for `[search] tika`, pinned to a release by its digest.
-            ("tika", "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4"),
-            // whisper.cpp's own image, with ffmpeg, for Transcribe when no whisper-cli is installed; one
-            // daily build, pinned by its digest.
-            ("whisper", "ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af"),
-            // No official image; set one you trust (see docs/previews/containers.md).
-            ("duckdb", ""),
-            // GhostXPS: in none of the images above, and no project publishes one.
-            ("gxps", ""),
-            // A static ffmpeg and ffprobe, rebuilt with each release (`media`).
-            ("ffmpeg", "docker.io/mwader/static-ffmpeg:latest"),
-            // ImageMagick 7, the newest patch release on Alpine (`media`).
-            ("imagemagick", "docker.io/dstmodders/imagemagick:latest"),
-            // GDAL's small Alpine build, pinned to a release by its digest (`geo`).
-            ("gdal", "ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253"),
-            // OpenSCAD's own build of a dated snapshot, pinned by its digest (`scad`): its last
-            // release (2021.01) has no Manifold, which renders in a second what took minutes.
-            // KiCad's own image of its newest release (amd64 only), pinned by its digest (`kicad`).
-            ("kicad", "docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729"),
-            ("openscad", "docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b"),
-            // LinuxServer.io's calibre, pinned to the release tested (`ebook`); calibre
-            // publishes no image of its own.
-            ("calibre", crate::ebook::IMAGE),
-        ];
         PreviewConfig {
             prefer: "auto".into(),
-            prefer_tool: BTreeMap::new(),
+            tools: BTreeMap::new(),
             container: "auto".into(),
-            images: images.map(|(k, v)| (k.to_string(), v.to_string())).into_iter().collect(),
+            // Every image's default and why: `preview_tools::IMAGES`.
+            images: crate::preview_tools::default_images(),
             timeout: 120,
             latex_auto: true,
             image_updates: "off".into(),

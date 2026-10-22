@@ -21,63 +21,10 @@ const DAY: u64 = 24 * 3600;
 /// An image no preview used for this many days goes, when `image_prune` is on.
 pub const UNUSED_DAYS: u64 = 90;
 
-/// Megabytes to download and on disk of the default images, measured (amd64, 2026-10).
-const SIZES: &[(&str, u32, u32)] = &[
-    ("docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4", 190, 440),
-    ("docker.io/texlive/texlive:latest", 2800, 5900),
-    ("docker.io/texlive/texlive:latest-medium", 960, 2200),
-    ("docker.io/plantuml/plantuml:latest", 141, 353),
-    ("docker.io/pandoc/core:latest", 57, 246),
-    ("docker.io/gotenberg/gotenberg:8-libreoffice", 440, 1030),
-    ("docker.io/yuzutech/kroki:latest", 1200, 2830),
-    ("docker.io/jbarlow83/ocrmypdf-alpine:latest", 310, 850),
-    ("ghcr.io/typst/typst:latest", 29, 65),
-    ("docker.io/mwader/static-ffmpeg:latest", 126, 315),
-    ("docker.io/dstmodders/imagemagick:latest", 60, 152),
-    ("ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e21a794e3e49c2882a078cf39625aa8d1f86188e0273f74156e9f3f3cd0253", 40, 98),
-    ("docker.io/kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729", 476, 1710),
-    ("docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed39fad63b66f26113d82e2b39ce1e14b2568378426fb2cdfeb41e34d7837b", 241, 635),
-    (crate::ebook::IMAGE, 1300, 3640),
-    ("ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af", 505, 1140),
-];
-
-const TOOLS: [&str; 18] = [
-    "whisper",
-    "tika",
-    "latex",
-    "libreoffice",
-    "plantuml",
-    "pandoc",
-    "duckdb",
-    "kroki",
-    "typst",
-    "ghostscript",
-    "ocrmypdf",
-    "gxps",
-    "ffmpeg",
-    "imagemagick",
-    "gdal",
-    "openscad",
-    "calibre",
-    "kicad",
-];
-
-/// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image, a
-/// video's frame, a song's waveform and HEIC photos ffmpeg's.
+/// The image of `tool` under `[preview.images]` (`preview_tools::image_key`).
 pub fn key(tool: &str) -> &str {
-    match tool {
-        t if KROKI.contains(&t) => "kroki",
-        "waveform" | "heif" => "ffmpeg",
-        "kicad_thumb" => "kicad",
-        t => t,
-    }
+    crate::preview_tools::image_key(tool)
 }
-
-/// The diagram kinds whose programs Kroki's image has, each drawn from standard input to SVG.
-pub const KROKI: &[&str] = &[
-    "d2", "ditaa", "svgbob", "pikchr", "nomnoml", "wavedrom", "vega", "vegalite", "dbml", "erd",
-    "bytefield",
-];
 
 /// `<rt> run` as every container of Coxswain's starts: removed when it ends, no network, no
 /// SELinux relabelling of your folders, named `name` so a run that is stopped can be killed,
@@ -318,12 +265,7 @@ fn shown(mb: u32) -> String {
 }
 
 fn sizes(image: &str) -> Option<(u32, u32)> {
-    let full = if image.starts_with(&format!("{}/", crate::settings::registry(image))) {
-        image.to_string()
-    } else {
-        format!("docker.io/{image}")
-    };
-    SIZES.iter().find(|s| s.0 == full).map(|s| (s.1, s.2))
+    crate::preview_tools::sizes(image)
 }
 
 /// How much `image` downloads, "2.8 GB", when it is one of the default ones.
@@ -335,9 +277,7 @@ pub fn download(image: &str) -> Option<String> {
 /// (Settings → Previews) and in Disk use. None for a name under `[preview.images]` that is no
 /// tool's.
 pub fn about(tool: &str, image: &str) -> Option<String> {
-    if !TOOLS.contains(&tool) {
-        return None;
-    }
+    crate::preview_tools::image(tool)?;
     let size = match sizes(image) {
         Some((d, disk)) => t!("image.size", "download" => shown(d), "disk" => shown(disk)),
         None => t!("image.size_unknown"),
@@ -633,7 +573,7 @@ mod tests {
                 .contains(&t!("image.size_unknown"))
         );
         assert_eq!(super::about("other", "x"), None);
-        for tool in TOOLS {
+        for tool in crate::preview_tools::IMAGES.iter().map(|i| i.key) {
             assert!(
                 !super::about(tool, "").unwrap().contains("image."),
                 "{tool}: every text is there"

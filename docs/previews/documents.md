@@ -96,7 +96,8 @@ page the size of its bounding box (`-dEPSCrop`).
 - **XPS and OpenXPS** need GhostXPS (`gxps`), Ghostscript's XPS interpreter, installed: no
   package manager Coxswain knows has it, and none of the images does, so the preview says
   *gxps is not installed. No image for gxps: set [preview.images] gxps in the config* with the
-  **Settings → Previews** button. An image you trust with `gxps` in it can be set there.
+  **Settings → Previews** button, which opens *Preview tools*. An image you trust with `gxps` in it
+  can be set in `config.toml` (`[preview.images] gxps`).
 - **Licence:** Ghostscript and GhostXPS are AGPL-3.0. Coxswain runs them as separate programs
   and ships none of their code, so its own licence is not touched.
 - **Search:** with Ghostscript installed, Find reads the text of `.ps` and `.eps` files too
@@ -131,7 +132,7 @@ reStructuredText, Typst, PostScript and XPS are [previews made by tools](tools.m
 | `[preview.images] typst` | `"ghcr.io/typst/typst:latest"` |
 | `[preview.images] ghostscript` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` (its entry point is not `gs`; Coxswain runs `--entrypoint gs`) |
 | `[preview.images] gxps` | `""`: no image; one you set is run with `--entrypoint gxps` |
-| `[preview.prefer_tool] typst`, `ghostscript`, `gxps` | `[preview] prefer` |
+| `[preview.tools] typst`, `postscript` (Ghostscript and GhostXPS), `markup` (pandoc) | `[preview] prefer`; `"local"`, `"container"` or `"off"`, also in *Settings → Previews → [Preview tools](tools.md#preview-tools-in-settings)* |
 
 The PDFs for scans have `[preview.images] ocrmypdf` ([Make PDF searchable](../files/searchable-pdf.md#settings-and-configtoml)).
 

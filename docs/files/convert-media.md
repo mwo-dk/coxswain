@@ -65,7 +65,7 @@ nothing behind. A song without a picture gets *To MP4* as an MP4 of its sound.
 ## What it needs
 
 One of these, tried in the order of *Settings → Previews → How previews are made*
-(`[preview] prefer`, or `prefer_tool.ffmpeg` for ffmpeg alone):
+(`[preview] prefer`), or the *Video and sound* row of [*Preview tools*](../previews/tools.md#preview-tools-in-settings) (`[preview.tools] video`) for this kind alone:
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -99,9 +99,9 @@ terminal app's says *Settings: F12 → Previews*.
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` (`"auto"`, `"local"`, `"container"`) | `"auto"`: installed first, else the container |
-| – | `[preview.prefer_tool] ffmpeg` | `[preview] prefer` |
+| *Preview tools* → *Video and sound* | `[preview.tools] video` (`"local"`, `"container"`, `"off"`) | `[preview] prefer`; *Off* turns off only its previews, not this |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Container images* (Pull, Remove) | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"`; `""` never uses a container. An image you set must have `/ffmpeg` and `/ffprobe`, as this one does |
+| *Preview tools* → *Video and sound* (Pull, Remove) | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"`; `""` never uses a container. An image you set must have `/ffmpeg` and `/ffprobe`, as this one does |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off; a run counts as a use |
 | *Keys* | `[keys] convert_media` | none |
 

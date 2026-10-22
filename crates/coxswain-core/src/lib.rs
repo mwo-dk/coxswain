@@ -59,6 +59,7 @@ pub mod notices;
 pub mod pictures;
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
 mod ports;
+pub mod preview_tools;
 pub mod provenance;
 pub mod rename;
 pub mod scad;

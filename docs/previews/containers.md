@@ -40,18 +40,18 @@ turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md
    (**Space** or **F3**). The engine button reads **podman texlive:latest**.
 3. The first time, the image has to be downloaded. The preview says *First run pulls
    docker.io/texlive/texlive:latest (about 2.8 GB)* under **Build PDF**; press it. Or pull ahead
-   of time: *Settings → Previews → Container images → **Pull***.
+   of time: **Pull** on the kind's row in *Settings → Previews → [Preview tools](tools.md#preview-tools-in-settings)*.
 4. From then on the container runs by itself like an installed program.
-5. To free the room again: *Settings → Previews → Container images → **Remove***.
+5. To free the room again: **Remove** on the same row.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings → *Previews*, with *Container images*, *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image, *E-books with calibre* and the two image options, for the desktop app (no *Container images* list, no pulling) |
+| **Ctrl+,** | Settings → *Previews*, with *Preview tools* (**Pull**, **Remove**), *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image, *E-books with calibre*, *Preview tools* (**P** pulls the image of the kind under the cursor, **Delete** removes it) and the two image options; Apache Tika's image is pulled by the search helper when [its option](../search/tika.md) is ticked |
 
 ## The images
 
-Each image under *Settings → Previews → Container images* says what it gives, how big it is and
+Each image in *Settings → Previews → Preview tools* (when you hover its *Container:* line) says what it gives, how big it is and
 what it costs, and so does its row in [Disk use](../reference/disk-use.md) in both apps. Sizes
 are for 64-bit Intel and AMD (amd64), measured in October 2026; a newer version of a tag can be
 a little larger or smaller.
@@ -157,11 +157,11 @@ the image is not counted.
   size), and while it downloads the preview shows
   *Pulling docker.io/texlive/texlive:latest…* with the runtime's own progress line.
 - Once pulled, the note says *Runs docker.io/texlive/texlive:latest without network access*.
-- **Settings lists the images** under *Container images*, each once (OCRmyPDF's, which also
-  shows PostScript, is one row): each with what it gives, its size and
-  cost ([The images](#the-images)), *Pulled, 5.9 GB* or *Not pulled* (the progress line while
-  pulling), **Pull** to download it ahead of time or update it to the newest, and **Remove** to
-  free the space.
+- **Settings lists the images** under [*Preview tools*](tools.md#preview-tools-in-settings), on the row of the kind they
+  make (*PostScript and XPS* and *Searchable PDFs* share OCRmyPDF's): each with what it gives,
+  its size and cost when you hover it ([The images](#the-images)), *Pulled, 5.9 GB* or
+  *Not pulled (2.8 GB)* (the progress line while pulling), **Pull** to download it ahead of
+  time or update it to the newest, and **Remove** to free the space.
 - Unless you turn on one of the two options below, Coxswain never updates or removes an image
   by itself.
 
@@ -178,8 +178,8 @@ default), **Weekly** or **Monthly**.
   *Container runtime → No containers*. Each image is tried, even after one fails. When every
   pull fails (no network), the round stays due and the next hour tries again; when only some
   fail, the round is done and those wait for the next one.
-- **What you see:** nothing pops up. While it pulls, *Settings → Previews → Container images*
-  shows the runtime's progress line under that image, as for **Pull**, and the image's
+- **What you see:** nothing pops up. While it pulls, *Settings → Previews → Preview tools*
+  shows the runtime's progress line on that image's row, as for **Pull**, and the image's
   **Pull** and **Remove** wait.
 - **The old copy goes at once.** When a pull brought a new version, the copy it replaced is
   removed by its own id (`podman image rm <id>`). Coxswain never runs `image prune`, which would
@@ -245,7 +245,7 @@ default.
 | – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
 | – | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` ([E-books](ebooks.md)) |
 | – | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5…"` (pinned) ([Transcripts of speech](../search/transcripts.md)) |
-| *Container images* | – | **Pull** and **Remove** for each image set, with what it gives, its size and cost |
+| [*Preview tools*](tools.md#preview-tools-in-settings) | `[preview.tools]` | **Pull** and **Remove** for each kind's image, with what it gives, its size and cost; the choice per kind (`"local"`, `"container"`, `"off"`) |
 | *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
@@ -274,9 +274,10 @@ first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a 
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`prefer_tool`, `ebooks` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad and calibre images (and its helper `images.tika`). Its **F12** → *Previews* still
-shows *Keep images up to date* and *Remove images not used for 90 days*, so you can set them
-from there; the desktop app is what pulls and removes, while it runs. Its Disk use rows for the
+`tools`, `ebooks` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad and calibre images (and its helper `images.tika`). Its **F12** → *Previews* shows
+[*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
+removes it, and *Keep images up to date* and *Remove images not used for 90 days*, so you can
+set them from there; the desktop app is what updates and removes unused images, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
 
 ## Questions

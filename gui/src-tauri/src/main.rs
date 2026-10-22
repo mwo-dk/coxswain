@@ -211,7 +211,8 @@ struct UiConfig {
     guide_menu: String,
     guide_features: String,
     guide_themes: [&'static str; 4],
-    /// The line that installs each program Coxswain can use, on this system, where it knows one.
+    /// The line that installs each search tool and the icon font here, where Coxswain knows one
+    /// (a preview tool's comes with its engines, `preview_engines`).
     installs: BTreeMap<&'static str, Option<String>>,
     /// Ask's chat model as the user sees it: a built-in one by its name.
     ask_name: String,
@@ -291,7 +292,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
         speech_endings: coxswain_core::transcribe::FORMATS,
-        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "openscad", "kicad-cli", "calibre", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
+        installs: ["tesseract", "pdftoppm", "soffice", "gs", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 
@@ -307,6 +308,16 @@ fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri
     if changes.keys().any(|k| coxswain_core::settings::find(k).is_some_and(|o| o.restarts_helper())) {
         ctx.index.restart();
     }
+    get_config(ctx)
+}
+
+/// Settings → Previews → Preview tools: how `kind` is made ("local", "container", "off"; ""
+/// follows How previews are made), written into config.toml and used at once.
+#[tauri::command(async)]
+fn set_preview_tool(kind: String, choice: String, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
+    let path = coxswain_core::config::Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
+    let cfg = coxswain_core::preview_tools::set_choice(&path, &kind, &choice)?;
+    *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
     get_config(ctx)
 }
 
@@ -2566,8 +2577,8 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, transcribe_plan, transcribe, transcript, whisper_models, dupes_scan,
-            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop
+            convert::convert, convert::preview_tools, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, dupes_scan,
+            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models,
         ])
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")

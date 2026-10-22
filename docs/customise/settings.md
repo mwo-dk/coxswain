@@ -149,7 +149,7 @@ Every line, level and option, with what it shows, its key and its default:
 
 ## Previews
 
-<!-- screenshot: previews-tools-settings.png: desktop app, Cyber, Settings → Previews (not in the sandbox, where containers must not run): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout, Previews made so far, Container images with the line under each that says what it gives, its size and cost, Keep images up to date, Remove images not used for 90 days -->
+<!-- screenshot: previews-tools-settings.png: desktop app, Cyber, Settings → Previews (not in the sandbox, where containers must not run): How previews are made, Container runtime, LaTeX image, Build LaTeX by itself, Timeout, Previews made so far, Preview tools with a row per kind (Installed, Container with Pull and Remove, Used now, the choice, Try), Keep images up to date, Remove images not used for 90 days -->
 
 For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like.
 Opening this area asks the container runtime which images it has.
@@ -164,7 +164,7 @@ Opening this area asks the container runtime which images it has.
 | *E-books with calibre* | Off by default. On: previews, text for search and *Convert e-book* for MOBI, Kindle, FictionBook, LIT and Palm books, by calibre installed or its 1.3 GB image ([E-books](../previews/ebooks.md)) | `[preview] ebooks` |
 | *Timeout (seconds)* | 10 to 3600; pulling an image is not counted | `[preview] timeout` |
 | *Previews made so far* | *… in the cache; made again when a source changes*, and **Clear** | |
-| *Container images* | Each image with a line that says what it gives, its size and what it costs ([The images](../previews/containers.md#the-images)), *Pulled, 5.9 GB* or *Not pulled*, **Pull** (also updates; its progress shows in place) and **Remove** ([Containers](../previews/containers.md)) | |
+| *Preview tools* | A row per kind of file (LaTeX, Office documents, Diagrams, Video and sound …) with its file endings, *Installed: <program version>* (or *Installed: none* and the *Install it:* line with **Copy**), its image, *Pulled, 5.9 GB* or *Not pulled (2.8 GB)*, **Pull** (also updates; its progress shows in place) and **Remove** (hover for what the image gives and costs, [The images](../previews/containers.md#the-images)), *Used now: …*, the choice *Default*, *Installed program*, *Container* or *Off*, and **Try**, which shows a sample of that kind ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)). `coxswain-gui --settings=preview_tools` opens here | `[preview.tools]`, `[preview.images]` |
 | *Keep images up to date* | *Off*, *Weekly*, *Monthly*: the desktop app pulls the images already pulled again, in the background and never on battery, and removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
 | *Remove images not used for 90 days* | Off: images stay until you remove them ([Removing unused images](../previews/containers.md#removing-unused-images)) | `[preview] image_prune` |
 | *Move notation* | *Figurines (♘f3)* or *Letters of the language* (`chess_notation`, [Chess games](../previews/chess.md#notation-and-the-board)) | `[chess] notation` |
@@ -251,7 +251,7 @@ Set these in `config.toml` (every key: [Configuration](../reference/configuratio
 - [your own themes](own-theme.md) (`[themes.<name>]`; once there, they show among the swatches)
   and a [`[glyph_set]`](glyphs-and-fonts.md);
 - the [user menu](../commands/user-menu.md);
-- the other container images and `prefer_tool` ([Previews made by tools](../previews/tools.md)).
+- the container images other than LaTeX's ([Previews made by tools](../previews/tools.md)).
 
 ## In the terminal app
 

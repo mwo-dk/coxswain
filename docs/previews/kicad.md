@@ -77,8 +77,8 @@ behind.
 
 ## What it needs
 
-One of these, in the order of *Settings → Previews → How previews are made* (`[preview]
-prefer`, or `prefer_tool.kicad` for KiCad alone):
+One of these, in the order of the *KiCad* row in *Settings → Previews → Preview tools*
+(`[preview.tools] kicad`), else *How previews are made* (`[preview] prefer`):
 
 | Way | What runs | Systems |
 |---|---|---|
@@ -110,9 +110,9 @@ it (sudo apt install kicad), or run it in a container: …*.
 | Settings → Previews | config.toml | Default |
 |---|---|---|
 | *How previews are made* | `[preview] prefer` | `"auto"`: installed first, else the container |
-| – | `[preview.prefer_tool] kicad` | `[preview] prefer` |
+| *Preview tools* → *KiCad* | `[preview.tools] kicad` (`"local"`, `"container"`, `"off"`) | `[preview] prefer` |
 | *Container runtime* | `[preview] container` | `"auto"` |
-| *Container images* (Pull, Remove) | `[preview.images] kicad` | `"docker.io/kicad/kicad:9.0.9@sha256:e638…"`; `""` never uses a container. An image you set must have `kicad-cli` on its `PATH` |
+| *Preview tools* → *KiCad* (Pull, Remove) | `[preview.images] kicad` | `"docker.io/kicad/kicad:9.0.9@sha256:e638…"`; `""` never uses a container. An image you set must have `kicad-cli` on its `PATH` |
 | *Timeout (seconds)* | `[preview] timeout` | `120`: a preview that takes longer is stopped; an export has no time limit |
 | *Keys* | `[keys] export_kicad` | none |
 

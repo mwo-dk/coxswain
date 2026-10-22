@@ -78,7 +78,7 @@
     untrack(() => go(section));
   });
   $effect(() => {
-    if (area === "previews") untrack(() => (loadImages(), loadPreviewCache()));
+    if (area === "previews") untrack(() => (loadTools(), loadPreviewCache()));
     if (area === "privacy") untrack(loadDisk);
     if (area === "behaviour") invoke("git_tools").then((v) => (gitTools = v), () => {});
   });
@@ -302,33 +302,54 @@
 
   // ------------------------------------------------------------ previews
 
-  // Container images, with Pull (also updates) and Remove: asked only while Previews is shown,
-  // as it asks the container runtime.
-  let images = $state(null);
+  // Preview tools: per kind of file what is installed, its images with Pull (also updates) and
+  // Remove, and the choice. Asked only while Previews is shown, as it asks every program and the
+  // container runtime.
+  let tools = $state(null);
   // The Whisper models to choose from, marked by what suits this machine: asked once.
   let whisperModels = $state(null);
   $effect(() => {
     if (area === "search" && s.search_whisper && !whisperModels) untrack(() => invoke("whisper_models").then((v) => (whisperModels = v), () => {}));
   });
-  const loadImages = () => invoke("images").then((v) => (images = v), (e) => (images = String(e)));
-  async function imageAction(cmd, im) {
+  const loadTools = () => invoke("preview_tools").then((v) => (tools = v), (e) => (tools = String(e)));
+  async function imageAction(cmd, image) {
     error = "";
-    im.pulling = "";
-    await invoke(cmd, { image: im.image }).catch((e) => (error = String(e)));
-    loadImages();
+    tools.pulling[image] = "";
+    await invoke(cmd, { image }).catch((e) => (error = String(e)));
+    loadTools();
   }
   $effect(() => {
-    if (area !== "previews" || !Array.isArray(images) || !images.some((im) => im.pulling != null)) return;
-    const id = setInterval(loadImages, 1000);
+    if (area !== "previews" || !tools?.pulling || !Object.keys(tools.pulling).length) return;
+    const id = setInterval(loadTools, 1000);
     return () => clearInterval(id);
   });
+  async function setTool(r, choice) {
+    error = "";
+    try {
+      ui.cfg = await invoke("set_preview_tool", { kind: r.kind, choice });
+      // A pick in the preview gave way to the choice made here.
+      ui.previewEngine = Object.fromEntries(Object.entries(ui.previewEngine).filter(([tool]) => !r.tools.includes(tool)));
+    } catch (e) {
+      error = String(e);
+    }
+    loadTools();
+  }
+  /** Try: a sample of the kind, shown in the panel with the preview open. */
+  async function tryTool(r) {
+    const path = await invoke("preview_sample", { kind: r.kind }).catch((e) => void (error = String(e)));
+    if (!path) return;
+    ui.showPreview = true;
+    showInPanel(path);
+  }
+  const preferLabel = (v) => t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[v] ?? "settings.prefer_auto");
+  const installed = (r) => r.programs.filter((p) => p.path);
+  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
   let previewCache = $state(null);
   const loadPreviewCache = () => invoke("preview_cache").then((v) => (previewCache = v), () => (previewCache = null));
   async function clearPreviewCache() {
     await invoke("clear_preview_cache").catch((e) => (error = String(e)));
     loadPreviewCache();
   }
-  const imageStatus = (im) => (im.pulling != null ? im.pulling || t("common.loading") : im.size != null ? t("settings.image_pulled", { size: size(im.size) }) : t("settings.image_not_pulled"));
 
   // ------------------------------------------------------------ privacy: disk use
 
@@ -824,7 +845,6 @@
       {:else if area === "previews"}
         <!-- ------------------------------------------------ Previews (asks the container runtime) -->
         <h3>{t("settings.area.previews")}</h3>
-        {#if typeof images === "string"}<p class="hint err">{images}</p>{/if}
         {@render choice("preview_prefer", [["auto", t("settings.prefer_auto")], ["local", t("settings.prefer_local")], ["container", t("settings.prefer_container")]])}
         {@render choice("preview_container", [["auto", t("settings.container_auto")], ["podman", "podman"], ["docker", "docker"], ["off", t("settings.container_off")]])}
         {@render text("latex_image")}
@@ -838,22 +858,43 @@
             <button disabled={!previewCache} onclick={clearPreviewCache}>{t("settings.preview_cache_clear")}</button>
           </div>
         </div>
-        {#if Array.isArray(images)}
-          <div class="opt">
-            <span class="lab">{t("settings.images")}</span>
-            <div class="images">
-              {#each images as im (im.image)}
-                <div class="image">
-                  <span class="mono" title={im.tool}>{im.image}</span>
-                  {#if im.about}<p class="hint about">{im.about}</p>{/if}
-                  <small class="hint">{imageStatus(im)}</small>
-                  <button disabled={im.pulling != null} onclick={() => imageAction("pull_image", im)}>{t("settings.pull")}</button>
-                  <button disabled={im.pulling != null || im.size == null} onclick={() => imageAction("remove_image", im)}>{t("common.remove")}</button>
+        <div class="opt" id="opt-preview_tools" class:flash={flash === "preview_tools"}>
+          <span class="lab">{t("ptools.title")}</span>
+          <div class="ptools">
+            <p class="hint">{t("ptools.hint")}</p>
+            {#if typeof tools === "string"}<p class="hint err">{tools}</p>{:else if !tools}<p class="hint">{t("common.loading")}</p>{/if}
+            {#if tools?.no_runtime}<p class="hint">{tools.no_runtime}</p>{/if}
+            {#each tools?.rows ?? [] as r (r.kind)}
+              <div class="ptool" id="ptool-{r.kind}" class:flash={flash === `ptool-${r.kind}`}>
+                <div class="ptool-head">
+                  <b>{r.title}</b>
+                  <small class="hint mono exts" title={r.exts}>{r.exts}</small>
                 </div>
-              {/each}
-            </div>
+                <small>{installed(r).length ? t("ptools.installed", { programs: installed(r).map((p) => (p.version ? `${p.name} ${p.version}` : p.name)).join(", ") }) : t("ptools.installed_none")}</small>
+                {#if !installed(r).length && r.install}<small>{t("install.with")} <CopyLine line={r.install} /></small>{/if}
+                {#each r.images as im (im.key)}
+                  <div class="ptool-image" title={im.about ?? ""}>
+                    <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none")}</small>
+                    {#if im.image && !tools.no_runtime}
+                      <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t("settings.pull")}</button>
+                      <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
+                    {/if}
+                  </div>
+                {/each}
+                <div class="ptool-use">
+                  <small class:err={r.missing}>{t("ptools.uses", { engine: r.uses })}</small>
+                  {#if r.can_choose}<select aria-label={t("ptools.choice")} value={r.choice} onchange={(e) => setTool(r, e.currentTarget.value)}>
+                    <option value="">{t("ptools.choice.default", { value: preferLabel(s.preview_prefer) })}</option>
+                    <option value="local">{t("ptools.choice.local")}</option>
+                    <option value="container">{t("ptools.choice.container")}</option>
+                    <option value="off">{t("ptools.choice.off")}</option>
+                  </select>{/if}
+                  {#if r.sample}<button title={t("ptools.try_hint")} onclick={() => tryTool(r)}>{t("ptools.try")}</button>{/if}
+                </div>
+              </div>
+            {/each}
           </div>
-        {/if}
+        </div>
         {@render choice("chess_notation", [["figurines", t("settings.chess_figurines")], ["letters", t("settings.chess_letters")]])}
         {@render choice("chess_board", [["theme", t("settings.chess_board_theme")], ["green", t("settings.chess_board_green")], ["brown", t("settings.chess_board_brown")]])}
         {@render text("chess_book", t("settings.chess_book_auto"))}
@@ -1371,30 +1412,50 @@
   .keys > span {
     overflow-wrap: anywhere;
   }
-  .images {
+  .ptools {
     display: grid;
-    gap: 6px;
-    max-width: 36em;
+    gap: 10px;
+    max-width: 40em;
   }
-  .image {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 2px 8px;
-    align-items: center;
-  }
-  /* The name on a line of its own, then its status with the buttons. */
-  .image span {
-    grid-column: 1 / -1;
-    overflow-wrap: anywhere;
-  }
-  .image .about {
-    grid-column: 1 / -1;
+  .ptools > .hint {
     margin: 0;
   }
-  .image small {
+  .ptool {
+    display: grid;
+    gap: 2px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-fg);
+  }
+  .ptool-head {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    min-width: 0;
+  }
+  .ptool-head b {
+    white-space: nowrap;
+  }
+  .ptool-use select {
+    width: auto;
+    max-width: 100%;
+  }
+  .ptool .exts {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .ptool-image,
+  .ptool-use {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: center;
+  }
+  .ptool-image small {
+    overflow-wrap: anywhere;
+  }
+  .ptool-use small {
+    flex: 1 1 14em;
   }
   .folders {
     display: grid;

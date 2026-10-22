@@ -421,6 +421,11 @@ pub fn tr(key: &str, args: &[(&str, &str)]) -> String {
     }
 }
 
+/// The text for `key` in the language `code`, whatever the current one is (the docs' English).
+pub fn tr_in(code: &str, key: &str) -> String {
+    lookup(code, key).and_then(|v| v.as_str()).map_or_else(|| key.to_string(), str::to_string)
+}
+
 /// The text for `key` and count `n`, in the plural form the current language uses for it.
 /// `{n}` is available as a placeholder.
 pub fn trn(key: &str, n: u64, args: &[(&str, &str)]) -> String {
