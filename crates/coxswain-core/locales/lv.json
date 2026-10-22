@@ -3683,7 +3683,6 @@
  "history.all_not_here": "Visi zari ir git vēsturei vai repozitorija failam vai mapei",
  "history.scope_branch": "Šis zars",
  "history.scope_all": "Visi zari",
- "history.scope_tip": "Kurus komitus rāda saraksts un tā grafs ({key} pārslēdz)",
  "hint.history": "{all} grafā rāda visu zaru komitus; vēlreiz – tikai šī zara",
  "setting.git_prefer_git": "Izmantot git tur, kur ir arī Jujutsu",
  "setting.git_prefer_git.hint": "Kur mapē ir gan .jj, gan .git, rādīt git rindu, vēsturi un zarus Jujutsu vietā.",
@@ -3774,5 +3773,15 @@
  "ptools.kind.other": "Citi formāti (Tika, meklēšanai)",
  "ptools.kind.ebooks": "E-grāmatas (calibre)",
  "ptools.kind.kicad": "Shēmas un plates (KiCad)",
- "ptools.kind.transcripts": "Transkripcijas (Whisper)"
+ "ptools.kind.transcripts": "Transkripcijas (Whisper)",
+ "action.history_upstream": "Pret upstream",
+ "history.badge_upstream": "pret upstream · {key}: šis zars",
+ "history.no_upstream": "Šim zaram nav upstream, ar ko salīdzināt: iestatiet to savā git rīkā",
+ "history.scope_upstream": "Pret upstream",
+ "history.scope_branch_tip": "Šī zara komiti",
+ "history.scope_all_tip": "Visu zaru komiti, sarakstā un tā grafā ({key})",
+ "history.scope_upstream_tip": "Nenosūtītie un nesapludinātie komiti pēc pēdējā fetch; nekas netiek ielādēts ({key})",
+ "history.side_ahead": "Nav nosūtīts",
+ "history.side_behind": "Nav sapludināts",
+ "hint.upstream": "{key} uzskaita nenosūtītos un nesapludinātos komitus pēc pēdējā fetch"
 }

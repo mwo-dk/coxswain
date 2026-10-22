@@ -3764,7 +3764,6 @@
  "history.all_not_here": "Wszystkie gałęzie są dla historii gita albo pliku lub folderu w repozytorium",
  "history.scope_branch": "Ta gałąź",
  "history.scope_all": "Wszystkie gałęzie",
- "history.scope_tip": "Które commity pokazują lista i jej graf ({key} przełącza)",
  "hint.history": "{all} pokazuje w grafie commity wszystkich gałęzi; ponownie tylko tej gałęzi",
  "setting.git_prefer_git": "Używaj git tam, gdzie jest też Jujutsu",
  "setting.git_prefer_git.hint": "Tam, gdzie folder ma zarówno .jj, jak i .git, pokazuj wiersz, historię i gałęzie git zamiast Jujutsu.",
@@ -3856,5 +3855,15 @@
  "ptools.kind.other": "Inne formaty (Tika, do wyszukiwania)",
  "ptools.kind.ebooks": "E-booki (calibre)",
  "ptools.kind.kicad": "Schematy i płytki (KiCad)",
- "ptools.kind.transcripts": "Transkrypcje (Whisper)"
+ "ptools.kind.transcripts": "Transkrypcje (Whisper)",
+ "action.history_upstream": "Względem upstreamu",
+ "history.badge_upstream": "względem upstreamu · {key}: ta gałąź",
+ "history.no_upstream": "Ta gałąź nie ma upstreamu do porównania: ustaw go w swoim narzędziu git",
+ "history.scope_upstream": "Względem upstreamu",
+ "history.scope_branch_tip": "Commity tej gałęzi",
+ "history.scope_all_tip": "Commity wszystkich gałęzi, na liście i w grafie ({key})",
+ "history.scope_upstream_tip": "Commity niewypchnięte i niescalone, według ostatniego fetch; nic nie jest pobierane ({key})",
+ "history.side_ahead": "Niewypchnięty",
+ "history.side_behind": "Niescalony",
+ "hint.upstream": "{key} wyświetla commity niewypchnięte i niescalone, według ostatniego fetch"
 }

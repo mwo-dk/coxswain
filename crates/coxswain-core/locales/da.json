@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Alle grene er til en git-historik eller en fil eller mappe i et repository",
  "history.scope_branch": "Denne gren",
  "history.scope_all": "Alle grene",
- "history.scope_tip": "Hvilke commits listen og dens graf viser ({key} skifter)",
  "hint.history": "{all} viser alle grenes commits i grafen; igen kun denne grens",
  "setting.git_prefer_git": "Brug git, hvor Jujutsu også er",
  "setting.git_prefer_git.hint": "Hvor en mappe har både .jj og .git, vises gits linje, historik og grene i stedet for Jujutsus.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Andre formater (Tika, til søgning)",
  "ptools.kind.ebooks": "E-bøger (calibre)",
  "ptools.kind.kicad": "Diagrammer og printplader (KiCad)",
- "ptools.kind.transcripts": "Udskrifter (Whisper)"
+ "ptools.kind.transcripts": "Udskrifter (Whisper)",
+ "action.history_upstream": "Mod upstream",
+ "history.badge_upstream": "mod upstream · {key}: denne gren",
+ "history.no_upstream": "Denne gren har intet upstream at sammenligne med: sæt et i dit git-værktøj",
+ "history.scope_upstream": "Mod upstream",
+ "history.scope_branch_tip": "Denne grens commits",
+ "history.scope_all_tip": "Alle grenes commits, i listen og dens graf ({key})",
+ "history.scope_upstream_tip": "De commits, der ikke er pushet og ikke merget, som ved sidste fetch; intet hentes ({key})",
+ "history.side_ahead": "Ikke pushet",
+ "history.side_behind": "Ikke merget",
+ "hint.upstream": "{key} viser de commits, der ikke er pushet og ikke merget, som ved sidste fetch"
 }

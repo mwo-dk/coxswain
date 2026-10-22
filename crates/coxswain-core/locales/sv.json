@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Alla grenar gäller en git-historik eller en fil eller mapp i ett repository",
  "history.scope_branch": "Den här grenen",
  "history.scope_all": "Alla grenar",
- "history.scope_tip": "Vilka commits listan och dess graf visar ({key} växlar)",
  "hint.history": "{all} visar alla grenars commits i grafen; igen bara den här grenens",
  "setting.git_prefer_git": "Använd git där Jujutsu också finns",
  "setting.git_prefer_git.hint": "Där en mapp har både .jj och .git visas gits rad, historik och grenar i stället för Jujutsus.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Andra format (Tika, för sökning)",
  "ptools.kind.ebooks": "E-böcker (calibre)",
  "ptools.kind.kicad": "Kretsscheman och kretskort (KiCad)",
- "ptools.kind.transcripts": "Transkriptioner (Whisper)"
+ "ptools.kind.transcripts": "Transkriptioner (Whisper)",
+ "action.history_upstream": "Mot upstream",
+ "history.badge_upstream": "mot upstream · {key}: den här grenen",
+ "history.no_upstream": "Den här grenen har ingen upstream att jämföra med: ställ in en i ditt git-verktyg",
+ "history.scope_upstream": "Mot upstream",
+ "history.scope_branch_tip": "Den här grenens commits",
+ "history.scope_all_tip": "Alla grenars commits, i listan och grafen ({key})",
+ "history.scope_upstream_tip": "Commits som inte är pushade och inte mergade, enligt senaste fetch; inget hämtas ({key})",
+ "history.side_ahead": "Inte pushad",
+ "history.side_behind": "Inte mergad",
+ "hint.upstream": "{key} listar commits som inte är pushade och inte mergade, enligt senaste fetch"
 }

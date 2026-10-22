@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Adar guztiak git historia baterako da, edo biltegi bateko fitxategi edo karpeta baterako",
  "history.scope_branch": "Adar hau",
  "history.scope_all": "Adar guztiak",
- "history.scope_tip": "Zerrendak eta bere grafikoak zein commit erakusten dituzten ({key} aldatzen du)",
  "hint.history": "{all}: adar guztien commitak grafikoan; berriro, adar honenak bakarrik",
  "setting.git_prefer_git": "Erabili git Jujutsu ere dagoen tokian",
  "setting.git_prefer_git.hint": "Karpeta batek .jj eta .git biak dituenean, erakutsi giten lerroa, historia eta adarrak Jujutsurenen ordez.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Beste formatu batzuk (Tika, bilaketarako)",
  "ptools.kind.ebooks": "Liburu elektronikoak (calibre)",
  "ptools.kind.kicad": "Zirkuituak eta plakak (KiCad)",
- "ptools.kind.transcripts": "Transkripzioak (Whisper)"
+ "ptools.kind.transcripts": "Transkripzioak (Whisper)",
+ "action.history_upstream": "Upstream-aren aurka",
+ "history.badge_upstream": "upstream-aren aurka · {key}: adar hau",
+ "history.no_upstream": "Adar honek ez du alderatzeko upstream-ik: ezarri bat zure git tresnan",
+ "history.scope_upstream": "Upstream-aren aurka",
+ "history.scope_branch_tip": "Adar honen commitak",
+ "history.scope_all_tip": "Adar guztien commitak, zerrendan eta grafikoan ({key})",
+ "history.scope_upstream_tip": "Igo eta batu gabeko commitak, azken fetch-aren arabera; ez da ezer ekartzen ({key})",
+ "history.side_ahead": "Igo gabe",
+ "history.side_behind": "Batu gabe",
+ "hint.upstream": "{key}: igo eta batu gabeko commitak, azken fetch-aren arabera"
 }

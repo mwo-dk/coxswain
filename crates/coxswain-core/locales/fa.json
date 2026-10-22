@@ -3584,7 +3584,6 @@
  "history.all_not_here": "«همه‌ی شاخه‌ها» برای تاریخچه‌ی git یا فایل یا پوشه‌ای در یک مخزن است",
  "history.scope_branch": "این شاخه",
  "history.scope_all": "همه‌ی شاخه‌ها",
- "history.scope_tip": "فهرست و نمودارش کدام کامیت‌ها را نشان می‌دهند ({key} جابه‌جا می‌کند)",
  "hint.history": "{all} کامیت‌های همه‌ی شاخه‌ها را در نمودار نشان می‌دهد؛ دوباره، فقط این شاخه را",
  "setting.git_prefer_git": "استفاده از git جایی که Jujutsu هم هست",
  "setting.git_prefer_git.hint": "جایی که پوشه هم ‎.jj و هم ‎.git دارد، خط، تاریخچه و شاخه‌های git به جای Jujutsu نشان داده شود.",
@@ -3685,5 +3684,15 @@
  "ptools.kind.transcripts": "رونوشت‌های گفتار (Whisper)",
  "xiangqi.board": "صفحهٔ شیانگ‌چی",
  "xiangqi.col_red": "سرخ",
- "xiangqi.red_to_move": "نوبت سرخ"
+ "xiangqi.red_to_move": "نوبت سرخ",
+ "action.history_upstream": "در برابر بالادست",
+ "history.badge_upstream": "در برابر بالادست · {key}: این شاخه",
+ "history.no_upstream": "این شاخه بالادستی برای مقایسه ندارد: در ابزار git خود یکی تنظیم کنید",
+ "history.scope_upstream": "در برابر بالادست",
+ "history.scope_branch_tip": "کامیت‌های این شاخه",
+ "history.scope_all_tip": "کامیت‌های همه‌ی شاخه‌ها، در فهرست و نمودارش ({key})",
+ "history.scope_upstream_tip": "کامیت‌های push نشده و ادغام نشده، تا آخرین fetch؛ چیزی دریافت نمی‌شود ({key})",
+ "history.side_ahead": "push نشده",
+ "history.side_behind": "ادغام نشده",
+ "hint.upstream": "{key} کامیت‌های push نشده و ادغام نشده را تا آخرین fetch فهرست می‌کند"
 }

@@ -294,6 +294,8 @@ actions! {
     History = "history", "Git history", Git, ["Ctrl+G"];
     // In a history: every branch's commits in the graph, or this branch's again. A for all.
     HistoryAll = "history_all", "History of all branches", Git, ["Alt+A"];
+    // In a history: the commits not pushed and not merged, as of the last fetch. Y: a free key.
+    HistoryUpstream = "history_upstream", "Against upstream", Git, ["Alt+Y"];
     Branches = "branches", "Git branches", Git, ["Alt+B"];
     SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
     Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];

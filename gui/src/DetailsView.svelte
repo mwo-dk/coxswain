@@ -166,6 +166,7 @@
               {/each}
               {#if gr.node < lanes}<circle cx={x(gr.node)} cy={rowH / 2} r="3.5" fill={laneColour(gr.node)} />{/if}
             </svg>
+            {#if gr.side}<span class="side side-{gr.side}" title={tr(`history.side_${gr.side}`)}>{gr.side === "ahead" ? g.ahead : g.behind}</span>{/if}
             {#each gr.refs ?? [] as r (r)}<span class="ref" class:head={r.startsWith("HEAD")}>{r}</span>{/each}
           {:else}
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
@@ -380,6 +381,13 @@
     --lane-4: var(--git-untracked-fg);
     --lane-5: var(--symlink-fg);
   }
+  /* Against the upstream: not pushed, not merged. */
+  .side {
+    flex: none;
+    font-weight: bold;
+  }
+  .side-ahead { color: var(--git-added-fg); }
+  .side-behind { color: var(--git-modified-fg); }
   /* A branch tip's name: HEAD's filled. */
   .ref {
     flex: none;

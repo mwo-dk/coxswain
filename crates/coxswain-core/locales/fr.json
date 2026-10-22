@@ -3683,7 +3683,6 @@
  "history.all_not_here": "Toutes les branches, c'est pour un historique git, ou un fichier ou un dossier d'un dépôt",
  "history.scope_branch": "Cette branche",
  "history.scope_all": "Toutes les branches",
- "history.scope_tip": "Quels commits la liste et son graphe montrent ({key} bascule)",
  "hint.history": "{all} montre les commits de toutes les branches dans le graphe ; à nouveau, ceux de cette branche seule",
  "setting.git_prefer_git": "Utiliser git là où Jujutsu est aussi",
  "setting.git_prefer_git.hint": "Là où un dossier a à la fois .jj et .git, montrer la ligne, l'historique et les branches de git plutôt que ceux de Jujutsu.",
@@ -3774,5 +3773,15 @@
  "ptools.kind.other": "Autres formats (Tika, pour la recherche)",
  "ptools.kind.ebooks": "Livres numériques (calibre)",
  "ptools.kind.kicad": "Schémas et cartes (KiCad)",
- "ptools.kind.transcripts": "Transcriptions (Whisper)"
+ "ptools.kind.transcripts": "Transcriptions (Whisper)",
+ "action.history_upstream": "Par rapport à l'amont",
+ "history.badge_upstream": "par rapport à l'amont · {key} : cette branche",
+ "history.no_upstream": "Cette branche n'a pas d'amont à comparer : définissez-en un dans votre outil git",
+ "history.scope_upstream": "Par rapport à l'amont",
+ "history.scope_branch_tip": "Les commits de cette branche",
+ "history.scope_all_tip": "Les commits de toutes les branches, dans la liste et son graphe ({key})",
+ "history.scope_upstream_tip": "Les commits non poussés et non fusionnés, au dernier fetch ; rien n'est récupéré ({key})",
+ "history.side_ahead": "Non poussé",
+ "history.side_behind": "Non fusionné",
+ "hint.upstream": "{key} liste les commits non poussés et non fusionnés, au dernier fetch"
 }

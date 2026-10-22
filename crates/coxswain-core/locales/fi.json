@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Kaikki haarat on git-historiaa tai tietovaraston tiedostoa tai kansiota varten",
  "history.scope_branch": "Tämä haara",
  "history.scope_all": "Kaikki haarat",
- "history.scope_tip": "Mitkä commitit luettelo ja sen graafi näyttävät ({key} vaihtaa)",
  "hint.history": "{all} näyttää kaikkien haarojen commitit graafissa; uudelleen vain tämän haaran",
  "setting.git_prefer_git": "Käytä gitiä, missä on myös Jujutsu",
  "setting.git_prefer_git.hint": "Kun kansiossa on sekä .jj että .git, näytetään gitin rivi, historia ja haarat Jujutsun sijaan.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Muut muodot (Tika, hakua varten)",
  "ptools.kind.ebooks": "E-kirjat (calibre)",
  "ptools.kind.kicad": "Kytkentäkaaviot ja piirilevyt (KiCad)",
- "ptools.kind.transcripts": "Litteroinnit (Whisper)"
+ "ptools.kind.transcripts": "Litteroinnit (Whisper)",
+ "action.history_upstream": "Upstreamia vasten",
+ "history.badge_upstream": "upstreamia vasten · {key}: tämä haara",
+ "history.no_upstream": "Tällä haaralla ei ole upstreamia vertailuun: aseta se git-työkalussasi",
+ "history.scope_upstream": "Upstreamia vasten",
+ "history.scope_branch_tip": "Tämän haaran commitit",
+ "history.scope_all_tip": "Kaikkien haarojen commitit, luettelossa ja graafissa ({key})",
+ "history.scope_upstream_tip": "Pushaamattomat ja yhdistämättömät commitit viimeisimmän fetchin mukaan; mitään ei haeta ({key})",
+ "history.side_ahead": "Pushaamatta",
+ "history.side_behind": "Yhdistämättä",
+ "hint.upstream": "{key} luettelee pushaamattomat ja yhdistämättömät commitit viimeisimmän fetchin mukaan"
 }

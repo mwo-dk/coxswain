@@ -3764,7 +3764,6 @@
  "history.all_not_here": "«Усі гілки» — для історії git або файлу чи теки в репозиторії",
  "history.scope_branch": "Ця гілка",
  "history.scope_all": "Усі гілки",
- "history.scope_tip": "Які коміти показують список і його граф ({key} перемикає)",
  "hint.history": "{all} показує в графі коміти всіх гілок; ще раз — лише цієї гілки",
  "setting.git_prefer_git": "Використовувати git там, де є й Jujutsu",
  "setting.git_prefer_git.hint": "Де тека має і .jj, і .git, показувати рядок, історію та гілки git замість Jujutsu.",
@@ -3856,5 +3855,15 @@
  "ptools.kind.other": "Інші формати (Tika, для пошуку)",
  "ptools.kind.ebooks": "Електронні книги (calibre)",
  "ptools.kind.kicad": "Схеми та плати (KiCad)",
- "ptools.kind.transcripts": "Транскрипції (Whisper)"
+ "ptools.kind.transcripts": "Транскрипції (Whisper)",
+ "action.history_upstream": "Порівняно з upstream",
+ "history.badge_upstream": "порівняно з upstream · {key}: ця гілка",
+ "history.no_upstream": "Ця гілка не має upstream для порівняння: задайте його у своєму git-інструменті",
+ "history.scope_upstream": "Порівняно з upstream",
+ "history.scope_branch_tip": "Коміти цієї гілки",
+ "history.scope_all_tip": "Коміти всіх гілок, у списку та його графі ({key})",
+ "history.scope_upstream_tip": "Коміти, не надіслані й не злиті, станом на останній fetch; нічого не завантажується ({key})",
+ "history.side_ahead": "Не надіслано",
+ "history.side_behind": "Не злито",
+ "hint.upstream": "{key} показує коміти, не надіслані й не злиті, станом на останній fetch"
 }

@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Alle greiner er for ein git-historikk eller ei fil eller mappe i eit repository",
  "history.scope_branch": "Denne greina",
  "history.scope_all": "Alle greiner",
- "history.scope_tip": "Kva for commits lista og grafen viser ({key} byter)",
  "hint.history": "{all} viser commits frå alle greiner i grafen; igjen berre denne greina sine",
  "setting.git_prefer_git": "Bruk git der Jujutsu òg er",
  "setting.git_prefer_git.hint": "Der ei mappe har både .jj og .git, blir linja, historikken og greinene til git viste i staden for Jujutsu sine.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Andre format (Tika, for søk)",
  "ptools.kind.ebooks": "E-bøker (calibre)",
  "ptools.kind.kicad": "Krinsskjema og krinskort (KiCad)",
- "ptools.kind.transcripts": "Transkripsjonar (Whisper)"
+ "ptools.kind.transcripts": "Transkripsjonar (Whisper)",
+ "action.history_upstream": "Mot upstream",
+ "history.badge_upstream": "mot upstream · {key}: denne greina",
+ "history.no_upstream": "Denne greina har ingen upstream å samanlikne med: set ein i git-verktøyet ditt",
+ "history.scope_upstream": "Mot upstream",
+ "history.scope_branch_tip": "Commits i denne greina",
+ "history.scope_all_tip": "Commits frå alle greiner, i lista og grafen ({key})",
+ "history.scope_upstream_tip": "Commits som ikkje er pusha og ikkje merga, per siste fetch; ingenting vert henta ({key})",
+ "history.side_ahead": "Ikkje pusha",
+ "history.side_behind": "Ikkje merga",
+ "hint.upstream": "{key} viser commits som ikkje er pusha og ikkje merga, per siste fetch"
 }

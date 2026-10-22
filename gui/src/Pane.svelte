@@ -114,10 +114,10 @@
           </span>
           {#if t.history.view === "history" && !c}
             <!-- Which commits the list and its graph show: this branch's, or every branch's. -->
-            {@const key = ui.cfg.actions.history_all?.[1] ?? ""}
-            <span class="scope" role="group" title={tr("history.scope_tip", { key })}>
-              {#each ["branch", "all"] as s (s)}
-                <button class:on={t.history.scope === s} aria-pressed={t.history.scope === s} onclick={() => t.history.scope !== s && openHistory(t, true)}>{tr(`history.scope_${s}`)}</button>
+            {@const keyOf = (s) => ui.cfg.actions[s === "upstream" ? "history_upstream" : "history_all"]?.[1] ?? ""}
+            <span class="scope" role="group">
+              {#each ["branch", "all", "upstream"] as s (s)}
+                <button class:on={t.history.scope === s} aria-pressed={t.history.scope === s} title={tr(`history.scope_${s}_tip`, { key: keyOf(s) })} onclick={() => t.history.scope !== s && openHistory(t, s === "branch" ? t.history.scope : s)}>{tr(`history.scope_${s}`)}</button>
               {/each}
             </span>
           {/if}
@@ -154,7 +154,8 @@
   {/if}
 
   <footer class="foot">
-    <span>{tn("items", count)}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
+    <!-- Against the upstream: which, how far ahead and behind, and the last fetch. -->
+    <span>{tn("items", count)}{#if t.history?.upstream}&nbsp;· {t.history.upstream}{/if}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
     {#if t.hasNotes}<span class="note" title={tr("pane.has_notes")}>{"\u{f249}"}</span>{/if}
     <!-- On ZFS: the dataset and its space; a click lists the snapshots. -->
     {#if zfsLine}<button class="zfs-line" title={`${t.zfs.mountpoint}\n${tr("zfs.footer_tip", { key: ui.cfg.actions.snapshots?.[1] ?? "" })}`} onclick={() => openSnapshots(t)}>{zfsLine}</button>{/if}

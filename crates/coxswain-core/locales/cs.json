@@ -3683,7 +3683,6 @@
  "history.all_not_here": "Všechny větve jsou pro historii gitu nebo soubor či složku v repozitáři",
  "history.scope_branch": "Tato větev",
  "history.scope_all": "Všechny větve",
- "history.scope_tip": "Které commity seznam a jeho graf ukazují ({key} přepíná)",
  "hint.history": "{all} ukáže v grafu commity všech větví; znovu jen této větve",
  "setting.git_prefer_git": "Používat git tam, kde je i Jujutsu",
  "setting.git_prefer_git.hint": "Kde má složka .jj i .git, ukazovat řádek, historii a větve gitu místo Jujutsu.",
@@ -3775,5 +3774,15 @@
  "ptools.kind.other": "Další formáty (Tika, pro hledání)",
  "ptools.kind.ebooks": "E-knihy (calibre)",
  "ptools.kind.kicad": "Schémata a desky (KiCad)",
- "ptools.kind.transcripts": "Přepisy (Whisper)"
+ "ptools.kind.transcripts": "Přepisy (Whisper)",
+ "action.history_upstream": "Proti upstreamu",
+ "history.badge_upstream": "proti upstreamu · {key}: tato větev",
+ "history.no_upstream": "Tato větev nemá upstream k porovnání: nastavte ho ve svém nástroji pro git",
+ "history.scope_upstream": "Proti upstreamu",
+ "history.scope_branch_tip": "Commity této větve",
+ "history.scope_all_tip": "Commity všech větví, v seznamu i v grafu ({key})",
+ "history.scope_upstream_tip": "Commity neodeslané a nesloučené podle posledního fetch; nic se nestahuje ({key})",
+ "history.side_ahead": "Neodesláno",
+ "history.side_behind": "Nesloučeno",
+ "hint.upstream": "{key} vypíše commity neodeslané a nesloučené podle posledního fetch"
 }

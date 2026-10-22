@@ -3584,7 +3584,6 @@
  "history.all_not_here": "„ყველა ტოტი“ git-ის ისტორიისთვის ან საცავის ფაილის ან საქაღალდისთვისაა",
  "history.scope_branch": "ეს ტოტი",
  "history.scope_all": "ყველა ტოტი",
- "history.scope_tip": "რომელ კომიტებს აჩვენებს სია და მისი გრაფი ({key} ცვლის)",
  "hint.history": "{all} გრაფში ყველა ტოტის კომიტებს აჩვენებს; კიდევ ერთხელ — მხოლოდ ამ ტოტისას",
  "setting.git_prefer_git": "git-ის გამოყენება იქ, სადაც Jujutsu-ც არის",
  "setting.git_prefer_git.hint": "როცა საქაღალდეს აქვს .jj-იც და .git-იც, Jujutsu-ს ნაცვლად ნაჩვენებია git-ის ხაზი, ისტორია და ტოტები.",
@@ -3685,5 +3684,15 @@
  "ptools.kind.transcripts": "ტრანსკრიპციები (Whisper)",
  "xiangqi.board": "სიანცის დაფა",
  "xiangqi.col_red": "წითელი",
- "xiangqi.red_to_move": "წითელის სვლაა"
+ "xiangqi.red_to_move": "წითელის სვლაა",
+ "action.history_upstream": "upstream-თან შედარებით",
+ "history.badge_upstream": "upstream-თან შედარებით · {key}: ეს ტოტი",
+ "history.no_upstream": "ამ ტოტს შესადარებელი upstream არ აქვს: დააყენეთ ის თქვენს git ხელსაწყოში",
+ "history.scope_upstream": "upstream-თან შედარებით",
+ "history.scope_branch_tip": "ამ ტოტის კომიტები",
+ "history.scope_all_tip": "ყველა ტოტის კომიტები, სიაში და გრაფში ({key})",
+ "history.scope_upstream_tip": "გაუგზავნელი და შეუერთებელი კომიტები ბოლო fetch-ის მიხედვით; არაფერი ჩამოიტვირთება ({key})",
+ "history.side_ahead": "გაუგზავნელი",
+ "history.side_behind": "შეუერთებელი",
+ "hint.upstream": "{key} აჩვენებს გაუგზავნელ და შეუერთებელ კომიტებს ბოლო fetch-ის მიხედვით"
 }

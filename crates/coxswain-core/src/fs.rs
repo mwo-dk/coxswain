@@ -325,7 +325,7 @@ pub fn sort_in(
 ) {
     let name = |p: &Path| p.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_owned();
     let commits = name(dir) == crate::history::MARKER
-        || name(dir) == crate::history::ALL && dir.parent().is_some_and(|p| name(p) == crate::history::MARKER);
+        || [crate::history::ALL, crate::history::UPSTREAM].contains(&name(dir).as_str()) && dir.parent().is_some_and(|p| name(p) == crate::history::MARKER);
     if commits
         || crate::history::split(dir)
             .is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History)

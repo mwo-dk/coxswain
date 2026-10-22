@@ -1369,8 +1369,9 @@ impl App {
                     self.cd(self.active, p);
                 }
             }
-            Action::History => self.history(false),
-            Action::HistoryAll => self.history(true),
+            Action::History => self.history(history::Scope::Branch),
+            Action::HistoryAll => self.history(history::Scope::All),
+            Action::HistoryUpstream => self.history(history::Scope::Upstream),
             Action::Snapshots => self.snapshots(),
             Action::Package => self.package(),
             Action::Flags => self.flags(),
@@ -1796,16 +1797,17 @@ impl App {
         });
     }
 
-    /// Into the history of the entry under the cursor (of this folder on `..`): its commits,
-    /// with `all` every branch's. In a history, `all` goes over to the other branches' list.
-    fn history(&mut self, all: bool) {
+    /// Into the history of the entry under the cursor (of this folder on `..`): its commits on
+    /// this branch, every branch's or those against the upstream (`scope`). In a history, every
+    /// branch's and against the upstream switch to that list, and back.
+    fn history(&mut self, scope: history::Scope) {
         let p = self.panel();
         let target = match p.current() {
             Some(e) if !e.is_parent() => e.path.clone(),
             _ => p.dir.clone(),
         };
-        if all && history::is_history(&p.dir) {
-            return match history::all_branches(&p.dir, &target) {
+        if scope != history::Scope::Branch && history::is_history(&p.dir) {
+            return match history::switch_scope(&p.dir, &target, scope) {
                 Some(to) => self.cd(self.active, to),
                 None => self.status = Some(t!("history.all_not_here")),
             };
@@ -1816,7 +1818,6 @@ impl App {
         if p.git.is_none() {
             return self.status = Some(t!("history.no_repo"));
         }
-        let scope = if all { history::Scope::All } else { history::Scope::Branch };
         self.cd(self.active, history::path_in(&target, scope, None));
     }
 

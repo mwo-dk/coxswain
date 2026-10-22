@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Kõik harud on git-ajaloo või hoidla faili või kausta jaoks",
  "history.scope_branch": "See haru",
  "history.scope_all": "Kõik harud",
- "history.scope_tip": "Milliseid kommiteid loend ja selle graaf näitavad ({key} vahetab)",
  "hint.history": "{all} näitab graafis kõigi harude kommiteid; uuesti ainult selle haru omi",
  "setting.git_prefer_git": "Kasuta gitti seal, kus on ka Jujutsu",
  "setting.git_prefer_git.hint": "Kui kaustas on nii .jj kui ka .git, näidatakse giti rida, ajalugu ja harusid Jujutsu omade asemel.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Muud vormingud (Tika, otsinguks)",
  "ptools.kind.ebooks": "E-raamatud (calibre)",
  "ptools.kind.kicad": "Skeemid ja trükkplaadid (KiCad)",
- "ptools.kind.transcripts": "Transkriptsioonid (Whisper)"
+ "ptools.kind.transcripts": "Transkriptsioonid (Whisper)",
+ "action.history_upstream": "Võrreldes upstreamiga",
+ "history.badge_upstream": "võrreldes upstreamiga · {key}: see haru",
+ "history.no_upstream": "Sellel harul pole upstreami, millega võrrelda: määra see oma git-tööriistas",
+ "history.scope_upstream": "Võrreldes upstreamiga",
+ "history.scope_branch_tip": "Selle haru kommitid",
+ "history.scope_all_tip": "Kõigi harude kommitid, loendis ja graafis ({key})",
+ "history.scope_upstream_tip": "Kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga; midagi ei tooda ({key})",
+ "history.side_ahead": "Pushimata",
+ "history.side_behind": "Mergimata",
+ "hint.upstream": "{key} loetleb kommitid, mis pole pushitud ega mergitud, viimase fetchi seisuga"
 }

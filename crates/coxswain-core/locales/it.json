@@ -3683,7 +3683,6 @@
  "history.all_not_here": "Tutti i rami è per una cronologia git, o un file o una cartella di un repository",
  "history.scope_branch": "Questo ramo",
  "history.scope_all": "Tutti i rami",
- "history.scope_tip": "Quali commit mostrano l'elenco e il suo grafo ({key} cambia)",
  "hint.history": "{all} mostra nel grafo i commit di tutti i rami; di nuovo, solo quelli di questo ramo",
  "setting.git_prefer_git": "Usa git dove c'è anche Jujutsu",
  "setting.git_prefer_git.hint": "Dove una cartella ha sia .jj sia .git, mostra la riga, la cronologia e i branch di git invece di quelli di Jujutsu.",
@@ -3774,5 +3773,15 @@
  "ptools.kind.other": "Altri formati (Tika, per la ricerca)",
  "ptools.kind.ebooks": "E-book (calibre)",
  "ptools.kind.kicad": "Schemi e circuiti stampati (KiCad)",
- "ptools.kind.transcripts": "Trascrizioni (Whisper)"
+ "ptools.kind.transcripts": "Trascrizioni (Whisper)",
+ "action.history_upstream": "Rispetto all'upstream",
+ "history.badge_upstream": "rispetto all'upstream · {key}: questo ramo",
+ "history.no_upstream": "Questo ramo non ha un upstream con cui confrontarsi: impostane uno nel tuo strumento git",
+ "history.scope_upstream": "Rispetto all'upstream",
+ "history.scope_branch_tip": "I commit di questo ramo",
+ "history.scope_all_tip": "I commit di tutti i rami, nell'elenco e nel grafo ({key})",
+ "history.scope_upstream_tip": "I commit non inviati e non uniti, all'ultimo fetch; non si scarica nulla ({key})",
+ "history.side_ahead": "Non inviato",
+ "history.side_behind": "Non unito",
+ "hint.upstream": "{key} elenca i commit non inviati e non uniti, all'ultimo fetch"
 }

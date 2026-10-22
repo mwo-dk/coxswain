@@ -61,8 +61,8 @@ then looking, files, archives, search, git and the panels; in each heading the m
 | An archive (zip, tar, 7z …) | What a file has, and Extract archive (**Ctrl+E**); Open goes into it like a folder |
 | Several marked | Copy, Move, Delete, New folder, Copy to clipboard, Batch rename (**Ctrl+M**, desktop app), Colour tag, Pack into an archive, Make checksums; Extract archive when an archive is among them; Make PDF searchable when a PDF is among them; Convert video or audio and Convert or edit pictures when a video, a song or a picture is; Convert geodata when geodata is; Export 3D model when a model is; Export from KiCad when a schematic or board is; Convert e-book when an e-book is; Find duplicates when a folder is among them |
 | `..`, nothing marked | New folder, Folder notes, Find duplicates (in this folder), Space view (**Alt+U**, this folder), the git and ZFS entries for this folder, and under *Panels*: Other panel here (**Alt+O**), Swap panels (**Ctrl+U**), Panels on/off (**Ctrl+O**) |
-| In a git repository | Also Git history (**Ctrl+G**) and History of all branches (**Alt+A**) for the one entry or the folder, Git branches (**Alt+B**), Git worktrees (**Alt+W**), Git config (**Alt+C**) and Open in your git tool (**Alt+G**) |
-| In a git history | History of all branches (**Alt+A**): every branch's commits, or this branch's again |
+| In a git repository | Also Git history (**Ctrl+G**) History of all branches (**Alt+A**) and Against upstream (**Alt+Y**) for the one entry or the folder, Git branches (**Alt+B**), Git worktrees (**Alt+W**), Git config (**Alt+C**) and Open in your git tool (**Alt+G**) |
+| In a git history | History of all branches (**Alt+A**): every branch's commits, or this branch's again; Against upstream (**Alt+Y**): the commits not pushed and not merged, or this branch's again |
 | In the list of branches | Open, Switch to branch (**Alt+S**), New branch here |
 | On ZFS | Also ZFS snapshots (**Alt+Z**) for the folder; inside a snapshot, back to the list |
 | On FreeBSD, a file | Also Files of this package |

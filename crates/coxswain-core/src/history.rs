@@ -50,15 +50,18 @@ const BUDGET: Duration = Duration::from_secs(4);
 pub(crate) const ID: usize = 12;
 /// The path segment after `@history` that lists the commits of every branch, not HEAD's alone.
 pub const ALL: &str = "@all";
+/// The path segment after `@history` that lists the commits not pushed and not merged.
+pub const UPSTREAM: &str = "@upstream";
 
-/// Which commits a history lists: those HEAD reaches, or those of every branch (local and
-/// remote) and HEAD.
+/// Which commits a history lists: those HEAD reaches, those of every branch (local and remote)
+/// and HEAD, or those on one side of HEAD and its upstream only (as of the last fetch).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Scope {
     #[default]
     Branch,
     All,
+    Upstream,
 }
 
 impl Scope {
@@ -67,6 +70,16 @@ impl Scope {
         match self {
             Scope::Branch => &["HEAD"],
             Scope::All => &["HEAD", "--branches", "--remotes"],
+            Scope::Upstream => &["--left-right", "HEAD...@{upstream}"],
+        }
+    }
+
+    /// Its path segment after `@history`, if it has one.
+    fn segment(self) -> Option<&'static str> {
+        match self {
+            Scope::Branch => None,
+            Scope::All => Some(ALL),
+            Scope::Upstream => Some(UPSTREAM),
         }
     }
 }
@@ -160,31 +173,36 @@ pub fn path(target: &Path, commit: Option<&str>) -> PathBuf {
 /// `path`, in a history of `scope`.
 pub fn path_in(target: &Path, scope: Scope, commit: Option<&str>) -> PathBuf {
     let mut p = target.join(MARKER);
-    if scope == Scope::All {
-        p.push(ALL);
-    }
+    p.extend(scope.segment());
     match commit {
         Some(c) => p.join(&c[..c.len().min(ID)]),
         None => p,
     }
 }
 
-/// Where *History of all branches* leads from `dir`, with `target` under the cursor (`dir`
-/// itself on `..`): from a history's list, or a commit in it, to the list of the other scope
-/// (every branch, or HEAD's alone again); from a folder on disk into `target`'s history of
-/// every branch. None in the branches or the worktrees.
-pub fn all_branches(dir: &Path, target: &Path) -> Option<PathBuf> {
+/// Where *History of all branches* (`scope` all) or *Against upstream* (`scope` upstream)
+/// leads from `dir`, with `target` under the cursor (`dir` itself on `..`): from a history's
+/// list, or a commit in it, to its list of `scope`, or back to HEAD's when it is that already;
+/// from a folder on disk into `target`'s history of `scope`. None in the branches or the
+/// worktrees.
+pub fn switch_scope(dir: &Path, target: &Path, scope: Scope) -> Option<PathBuf> {
     match split(dir) {
         Some(at) if at.view == View::History => {
-            let other = match at.scope {
-                Scope::Branch => Scope::All,
-                Scope::All => Scope::Branch,
-            };
-            Some(path_in(&at.target, other, None))
+            let to = if at.scope == scope { Scope::Branch } else { scope };
+            Some(path_in(&at.target, to, None))
         }
         Some(_) => None,
-        None => Some(path_in(target, Scope::All, None)),
+        None => Some(path_in(target, scope, None)),
     }
+}
+
+/// What an *Against upstream* list is against, from what the repository at `base` knows: the
+/// upstream with the commits ahead and behind, and the last fetch (`git::Facts`). Read from
+/// git's records: nothing is fetched. None without an upstream.
+pub fn upstream_line(base: &Path) -> Option<String> {
+    let facts = crate::git::Status::read(base)?.facts(&crate::config::Glyphs::default());
+    facts.upstream.as_ref()?;
+    Some(facts.lines()[1..3].join(" · "))
 }
 
 /// Where `path` goes through a history, if it does: the marker after a file or folder that is
@@ -212,12 +230,14 @@ pub fn split(path: &Path) -> Option<At> {
         let Component::Normal(s) = c else { return None };
         rest.push(s.to_str()?.to_string());
     }
-    let scope = if view == View::History && rest.first().is_some_and(|r| r == ALL) {
-        rest.remove(0);
-        Scope::All
-    } else {
-        Scope::Branch
+    let scope = match rest.first().map(String::as_str) {
+        Some(ALL) if view == View::History => Scope::All,
+        Some(UPSTREAM) if view == View::History => Scope::Upstream,
+        _ => Scope::Branch,
     };
+    if scope != Scope::Branch {
+        rest.remove(0);
+    }
     let commit = match rest.first() {
         // The worktrees are folders on disk: nothing below the list.
         Some(_) if view == View::Worktrees => return None,
@@ -260,6 +280,9 @@ pub struct Commit {
     pub parents: Vec<String>,
     #[serde(skip)]
     pub refs: Vec<String>,
+    /// Against the upstream: on HEAD's side (not pushed) or the upstream's (not merged).
+    #[serde(skip)]
+    pub side: Option<crate::graph::Side>,
 }
 
 impl Commit {
@@ -286,11 +309,11 @@ fn commit(rec: &[u8]) -> Option<Commit> {
 }
 
 /// `FORMAT` with the parents and what points at the commit before the subject.
-const GRAPH_FORMAT: &str = "--format=%H%x1f%at%x1f%an%x1f%P%x1f%D%x1f%s";
+const GRAPH_FORMAT: &str = "--format=%H%x1f%at%x1f%an%x1f%P%x1f%D%x1f%m%x1f%s";
 
 fn graph_commit(rec: &[u8]) -> Option<Commit> {
     let s = String::from_utf8_lossy(rec);
-    let mut f = s.splitn(6, '\x1f');
+    let mut f = s.splitn(7, '\x1f');
     let hash = f.next()?.trim_start_matches('\n').to_string();
     let time = f.next()?.parse().ok()?;
     let author = f.next()?.to_string();
@@ -301,6 +324,11 @@ fn graph_commit(rec: &[u8]) -> Option<Commit> {
         .filter(|r| !r.is_empty())
         .map(String::from)
         .collect();
+    let side = match f.next()? {
+        "<" => Some(crate::graph::Side::Ahead),
+        ">" => Some(crate::graph::Side::Behind),
+        _ => None,
+    };
     Some(Commit {
         hash,
         time,
@@ -308,6 +336,7 @@ fn graph_commit(rec: &[u8]) -> Option<Commit> {
         subject: f.next().unwrap_or("").to_string(),
         parents,
         refs,
+        side,
     })
 }
 
@@ -318,6 +347,12 @@ pub(crate) fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> 
     // A file's history on its branch goes on past its renames, as `log` does; git rewrites no
     // parents then, so its commits are one line, as they are on that branch.
     let follow = spec != "." && at.scope == Scope::Branch;
+    if at.scope == Scope::Upstream && rev_oid(&at.base, "@{upstream}").is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            crate::t!("history.no_upstream"),
+        ));
+    }
     let mut c = git(&at.base);
     c.args(["log", "-z", GRAPH_FORMAT, "--date-order", "-n", &(max + 1).to_string()]);
     c.arg(if follow { "--follow" } else { "--parents" });
@@ -336,6 +371,10 @@ pub(crate) fn graph_log(at: &At, max: usize) -> io::Result<(Vec<Commit>, bool)> 
     }
     let more = cut || out.len() > max;
     out.truncate(max);
+    // `%m` marks a side only in a list against the upstream.
+    if at.scope != Scope::Upstream {
+        out.iter_mut().for_each(|c| c.side = None);
+    }
     if follow {
         let next: Vec<String> = out.iter().skip(1).map(|c| c.hash.clone()).collect();
         for (c, n) in out.iter_mut().zip(next.into_iter().map(Some).chain([None])) {
@@ -899,7 +938,10 @@ fn list_key(at: &At) -> Option<String> {
         return rev_oid(&at.base, "HEAD");
     }
     let mut c = git_with(&at.base, &[]);
-    c.args(["rev-parse"]).args(at.scope.revs());
+    c.args(["rev-parse"]).args(match at.scope {
+        Scope::Upstream => &["HEAD", "@{upstream}"][..],
+        s => s.revs(),
+    });
     let out = run(c).ok()?;
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -1623,7 +1665,8 @@ pub(crate) mod tests {
     fn mk(branch: &str, mark: usize, parents: &[usize]) -> String {
         let msg = format!("c{mark}");
         let mut s = format!(
-            "commit refs/heads/{branch}\nmark :{mark}\ncommitter A <a@a> {} +0000\ndata {}\n{msg}\n",
+            "commit {}\nmark :{mark}\ncommitter A <a@a> {} +0000\ndata {}\n{msg}\n",
+            if branch.starts_with("refs/") { branch.to_string() } else { format!("refs/heads/{branch}") },
             1_700_000_000 + mark,
             msg.len()
         );
@@ -1674,6 +1717,45 @@ pub(crate) mod tests {
         assert_eq!((at.scope, at.commit.is_some()), (Scope::All, true));
         assert!(crate::fs::list(&entries[1].path, true).unwrap().iter().any(|e| e.name == "f5"));
         assert_eq!(crate::fs::list(&entries[1].path, true).unwrap()[0].path, all);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn history_against_upstream() {
+        // main: 1, 2, 3; origin/main: 1, 2, 4 (fetched, not merged).
+        let stream = [
+            mk("main", 1, &[]),
+            mk("main", 2, &[1]),
+            mk("main", 3, &[2]),
+            mk("refs/remotes/origin/main", 4, &[2]),
+        ]
+        .concat();
+        let Some(d) = import("upstream", &stream) else {
+            return;
+        };
+        let list = path_in(&d, Scope::Upstream, None);
+        // No upstream yet: said so, and nothing listed.
+        let err = crate::fs::list(&list, true).unwrap_err().to_string();
+        assert_eq!(err, crate::t!("history.no_upstream"));
+        let git = |args: &[&str]| assert!(crate::tools::command("git").arg("-C").arg(&d).args(args).status().unwrap().success());
+        git(&["remote", "add", "origin", "/nowhere/rocket.git"]);
+        git(&["config", "branch.main.remote", "origin"]);
+        git(&["config", "branch.main.merge", "refs/heads/main"]);
+        let entries = crate::fs::list(&list, true).unwrap();
+        let rows = graph(&list, 0, 2);
+        let sides: Vec<_> = rows.iter().map(|r| r.side).collect();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(sides, [Some(crate::graph::Side::Behind), Some(crate::graph::Side::Ahead)]);
+        assert!(entries[1].name.ends_with("c4") && entries[2].name.ends_with("c3"));
+        assert_eq!(split(&entries[1].path).unwrap().scope, Scope::Upstream);
+        let line = upstream_line(&d).unwrap();
+        assert!(line.contains("origin/main") && line.contains(&crate::t!("git.facts_never_fetched")), "{line}");
+        // Never a fetch: the remote is nowhere, and nothing asked it.
+        assert!(!d.join(".git/FETCH_HEAD").exists());
+        // Its switch leads there and back.
+        assert_eq!(switch_scope(&d, &d, Scope::Upstream), Some(list.clone()));
+        assert_eq!(switch_scope(&list, &d, Scope::Upstream), Some(path(&d, None)));
+        assert_eq!(switch_scope(&list, &d, Scope::All), Some(path_in(&d, Scope::All, None)));
         std::fs::remove_dir_all(d).unwrap();
     }
 

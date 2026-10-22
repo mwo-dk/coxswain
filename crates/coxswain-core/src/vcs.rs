@@ -251,8 +251,7 @@ fn commit(rec: &[u8]) -> Option<Commit> {
         time: time.parse().ok()?,
         author: author.to_string(),
         subject: subject.to_string(),
-        parents: vec![],
-        refs: vec![],
+        ..Commit::default()
     })
 }
 

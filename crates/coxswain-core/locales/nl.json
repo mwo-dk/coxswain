@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Alle branches is voor een git-geschiedenis, of een bestand of map in een repository",
  "history.scope_branch": "Deze branch",
  "history.scope_all": "Alle branches",
- "history.scope_tip": "Welke commits de lijst en de graaf tonen ({key} wisselt)",
  "hint.history": "{all} toont de commits van alle branches in de graaf; nog eens alleen die van deze branch",
  "setting.git_prefer_git": "Git gebruiken waar ook Jujutsu is",
  "setting.git_prefer_git.hint": "Waar een map zowel .jj als .git heeft, de regel, geschiedenis en branches van git tonen in plaats van die van Jujutsu.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Andere formaten (Tika, voor zoeken)",
  "ptools.kind.ebooks": "E-books (calibre)",
  "ptools.kind.kicad": "Schema's en printplaten (KiCad)",
- "ptools.kind.transcripts": "Transcripties (Whisper)"
+ "ptools.kind.transcripts": "Transcripties (Whisper)",
+ "action.history_upstream": "Tegen upstream",
+ "history.badge_upstream": "tegen upstream · {key}: deze branch",
+ "history.no_upstream": "Deze branch heeft geen upstream om mee te vergelijken: stel er een in met je git-programma",
+ "history.scope_upstream": "Tegen upstream",
+ "history.scope_branch_tip": "De commits van deze branch",
+ "history.scope_all_tip": "De commits van alle branches, in de lijst en de graaf ({key})",
+ "history.scope_upstream_tip": "De commits die niet gepusht en niet gemerged zijn, volgens de laatste fetch; er wordt niets opgehaald ({key})",
+ "history.side_ahead": "Niet gepusht",
+ "history.side_behind": "Niet gemerged",
+ "hint.upstream": "{key} toont de commits die niet gepusht en niet gemerged zijn, volgens de laatste fetch"
 }

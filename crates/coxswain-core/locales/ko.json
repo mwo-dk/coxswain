@@ -3521,7 +3521,6 @@
  "history.all_not_here": "모든 브랜치는 git 기록이나 저장소의 파일 또는 폴더에서 쓸 수 있습니다",
  "history.scope_branch": "이 브랜치",
  "history.scope_all": "모든 브랜치",
- "history.scope_tip": "목록과 그래프가 보여 주는 커밋 ({key}로 전환)",
  "hint.history": "{all}: 모든 브랜치의 커밋을 그래프로, 다시 누르면 이 브랜치만",
  "setting.git_prefer_git": "Jujutsu도 있는 곳에서는 git 사용",
  "setting.git_prefer_git.hint": "폴더에 .jj와 .git이 모두 있으면 Jujutsu 대신 git의 줄, 기록, 브랜치를 보여 줍니다.",
@@ -3610,5 +3609,15 @@
  "ptools.kind.other": "기타 형식 (Tika, 검색용)",
  "ptools.kind.ebooks": "전자책 (calibre)",
  "ptools.kind.kicad": "회로도와 기판 (KiCad)",
- "ptools.kind.transcripts": "받아쓰기 (Whisper)"
+ "ptools.kind.transcripts": "받아쓰기 (Whisper)",
+ "action.history_upstream": "업스트림과 비교",
+ "history.badge_upstream": "업스트림과 비교 · {key}: 이 브랜치",
+ "history.no_upstream": "이 브랜치에는 비교할 업스트림이 없습니다: git 도구에서 설정하세요",
+ "history.scope_upstream": "업스트림과 비교",
+ "history.scope_branch_tip": "이 브랜치의 커밋",
+ "history.scope_all_tip": "모든 브랜치의 커밋, 목록과 그래프에 ({key})",
+ "history.scope_upstream_tip": "마지막 fetch 기준으로 푸시하지 않았고 병합하지 않은 커밋, 아무것도 가져오지 않음 ({key})",
+ "history.side_ahead": "푸시 안 됨",
+ "history.side_behind": "병합 안 됨",
+ "hint.upstream": "{key}: 마지막 fetch 기준으로 푸시 안 됨·병합 안 됨 커밋 목록"
 }
