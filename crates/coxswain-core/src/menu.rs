@@ -509,6 +509,15 @@ mod tests {
         let s = Subject::of(&[&i]);
         // Opened like a folder (an archive) when that option is on, else offered Disk images.
         assert_eq!(s.disk_images + s.archives, 1, "a raw disk by its partition table: {s:?}");
+        // A FIFO by those names is never opened to wait for a writer: no count, no hang.
+        #[cfg(unix)]
+        for name in ["pipe.bin", "pipe.img"] {
+            let p = dir.join(name);
+            let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
+            assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+            let s = Subject::of(&[&entry(&p)]);
+            assert_eq!((s.chess, s.disk_images + s.archives), (0, 0), "{name}");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 

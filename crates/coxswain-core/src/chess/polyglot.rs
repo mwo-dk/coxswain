@@ -95,7 +95,7 @@ pub struct Book {
 
 impl Book {
     pub fn open(path: &Path) -> std::io::Result<Book> {
-        let file = std::fs::File::open(path)?;
+        let file = crate::fs::open_regular(path)?;
         let entries = file.metadata()?.len() / 16;
         Ok(Book { file, entries })
     }

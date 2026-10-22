@@ -224,7 +224,7 @@ pub fn facts(path: &Path) -> Option<Facts> {
 }
 
 fn read_facts(path: &Path, meta: &std::fs::Metadata) -> Option<Facts> {
-    let mut f = File::open(path).ok()?;
+    let mut f = crate::fs::open_regular(path).ok()?;
     let len = meta.len();
     let head = read_at(&mut f, 0, HEAD);
     let tail = if len >= 512 {
