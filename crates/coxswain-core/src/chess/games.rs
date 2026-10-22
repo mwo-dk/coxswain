@@ -910,12 +910,96 @@ pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
     hit.found()
 }
 
+/// The most games of one file whose positions the search store keeps, and the most positions.
+pub const POSITION_GAMES: u32 = 100_000;
+pub const POSITION_ROWS: usize = 2_000_000;
+
+/// The positions each game of the PGN file at `path` reaches on its main line, as Polyglot keys
+/// (`polyglot::key`), each once a game, the start position left out (every game has it):
+/// handed to `each` game by game, with the game's index, as the file is read, so a big file
+/// never has more than one game in memory. Up to `POSITION_GAMES` games and `POSITION_ROWS`
+/// positions; `stop` is asked between games, and true ends it there.
+pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32, &[u64])) -> io::Result<()> {
+    let mut r = BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?);
+    let (mut line, mut game, mut n, mut rows) = (Vec::new(), String::new(), 0u32, 0usize);
+    // Moves seen in this game, and how deep in a { } comment the reading is.
+    let (mut moves, mut brace) = (false, 0i32);
+    let mut flush = |game: &mut String, n: &mut u32, rows: &mut usize| {
+        if game.trim().is_empty() {
+            game.clear();
+            return;
+        }
+        let g = super::pgn::parse(game);
+        game.clear();
+        let mut keys: Vec<u64> = g
+            .main_line()
+            .iter()
+            .map_while(|&i| g.nodes[i as usize].fen.as_deref().and_then(super::pgn::board))
+            .map(|b| super::polyglot::key(&b))
+            .collect();
+        keys.sort_unstable();
+        keys.dedup();
+        keys.truncate(POSITION_ROWS.saturating_sub(*rows));
+        *rows += keys.len();
+        each(*n, &keys);
+        *n += 1;
+    };
+    loop {
+        if n >= POSITION_GAMES || rows >= POSITION_ROWS || stop() || read_line(&mut r, &mut line)? == 0 {
+            break;
+        }
+        let l = text(&line);
+        let t = l.trim_start_matches('\u{feff}').trim_start();
+        if brace == 0 && t.starts_with('[') && moves {
+            flush(&mut game, &mut n, &mut rows);
+            moves = false;
+        }
+        if !t.starts_with('[') || brace > 0 {
+            if !t.is_empty() {
+                moves = true;
+            }
+            brace = (brace + t.matches('{').count() as i32 - t.matches('}').count() as i32).max(0);
+        }
+        if game.len() < MAX_GAME as usize {
+            game.push_str(&l);
+            if !l.ends_with('\n') {
+                game.push('\n');
+            }
+        }
+    }
+    if n < POSITION_GAMES && rows < POSITION_ROWS && !stop() {
+        flush(&mut game, &mut n, &mut rows);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
 
     const TWO: &str = "[Event \"Paris\"]\n[White \"Morphy, Paul\"]\n[Black \"Duke Karl\"]\n[Result \"1-0\"]\n[Date \"1858.11.02\"]\n[WhiteElo \"2690\"]\n\n1.e4 e5 2.Nf3 d6 {Philidor} 3.d4 Bg4 (3...exd4) 4.dxe5 1-0\n\n[Event \"London\"]\n[White \"Anderssen, Adolf\"]\n[Black \"Kieseritzky, Lionel\"]\n[Result \"1-0\"]\n[Date \"1851.06.21\"]\n[ECO \"C33\"]\n\n1.e4 e5 2.f4 exf4 {a\n[not a tag] } 3.Bc4 1-0\n";
+
+    #[test]
+    fn positions_game_by_game() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("two.pgn");
+        std::fs::write(&p, TWO).unwrap();
+        let mut seen = vec![];
+        positions(&p, &|| false, |n, keys| seen.push((n, keys.to_vec()))).unwrap();
+        // Stopped: no game at all.
+        let mut none = 0;
+        positions(&p, &|| true, |_, _| none += 1).unwrap();
+        assert_eq!(none, 0);
+        assert_eq!(seen.len(), 2);
+        // Both start 1.e4 e5: the position after it is in both, the start position in neither.
+        let after = |fen: &str| crate::chess::polyglot::key(&crate::chess::pgn::board(fen).unwrap());
+        let e4e5 = after("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
+        assert!(seen.iter().all(|(_, k)| k.contains(&e4e5)));
+        assert!(seen.iter().all(|(_, k)| !k.contains(&after(crate::chess::pgn::START))));
+        // The first game's 4.dxe5 is in it alone; the comment with a [ line does not split a game.
+        assert_eq!((seen[0].1.len(), seen[1].1.len()), (7, 5));
+    }
 
     fn lib(text: &[u8], name: &str) -> (Library, tempdir::Dir) {
         let d = tempdir::Dir::new();

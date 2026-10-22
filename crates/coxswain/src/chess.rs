@@ -29,6 +29,8 @@ use crate::ui::{fit, sty};
 pub enum Outcome {
     Stay,
     Close,
+    /// Another games file, at a game (Find this position).
+    Open(PathBuf, u32),
 }
 
 /// The filter field being typed into.
@@ -116,6 +118,11 @@ pub struct Viewer {
     /// The game analysed as a whole (`g`), and the time it gives a position.
     review: Option<Reviewer>,
     review_time: u32,
+    /// The search helper, and Find this position: the games it found (file, index) and the one
+    /// chosen; asked on a thread.
+    index: Option<Arc<coxswain_core::helper::Client>>,
+    finding: Option<Receiver<Option<Vec<(PathBuf, u32)>>>>,
+    found: Option<(Vec<(PathBuf, u32)>, usize)>,
 }
 
 impl Drop for Viewer {
@@ -205,6 +212,9 @@ impl Viewer {
             analysed: None,
             review: None,
             review_time: cfg.chess.review_time,
+            index: None,
+            finding: None,
+            found: None,
         };
         match chess::sniff(path) {
             Some(Format::Pgn) => {
@@ -247,6 +257,14 @@ impl Viewer {
     /// The engine is asked about the position shown, once per position.
     pub fn poll(&mut self) {
         self.poll_engine();
+        if let Some(r) = self.finding.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.finding = None;
+            match r {
+                None => self.said = Some(t!("chess.position_off")),
+                Some(v) if v.is_empty() => self.said = Some(t!("chess.position_none")),
+                Some(v) => self.found = Some((v, 0)),
+            }
+        }
         if let Some(r) = self.hit.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.hit = None;
             self.said = None;
@@ -416,6 +434,55 @@ impl Viewer {
             Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
             Err(e) => t!("chess.line_not_saved", "error" => e),
         });
+    }
+
+    /// The search helper, for Find this position.
+    pub fn with_index(mut self, index: Arc<coxswain_core::helper::Client>) -> Viewer {
+        self.index = Some(index);
+        self
+    }
+
+    /// `p`: the games in the search store that reach the position shown, asked on a thread.
+    fn find_position(&mut self) {
+        let (Some(index), Some(b)) = (self.index.clone(), self.now().0.as_deref().and_then(chess::pgn::board)) else { return };
+        let key = polyglot::key(&b);
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(index.games_at(key, 500));
+        });
+        self.finding = Some(rx);
+        self.said = Some(t!("chess.position_searching"));
+    }
+
+    /// A key while the games found are listed: ↑ ↓ choose, Enter opens one, Esc closes.
+    fn found_key(&mut self, key: Key) -> Outcome {
+        let Some((list, mut sel)) = self.found.take() else { return Outcome::Stay };
+        match key.code {
+            KeyCode::Esc => return Outcome::Stay,
+            KeyCode::Enter => {
+                let Some((path, game)) = list.get(sel).cloned() else { return Outcome::Stay };
+                if path == self.path {
+                    if let Some(i) = self.ids.iter().position(|&g| g == game) {
+                        self.cursor = i;
+                    }
+                    self.show_game(game);
+                    return Outcome::Stay;
+                }
+                return Outcome::Open(path, game);
+            }
+            KeyCode::Down => sel = (sel + 1).min(list.len().saturating_sub(1)),
+            KeyCode::Up => sel = sel.saturating_sub(1),
+            KeyCode::PageDown => sel = (sel + 20).min(list.len().saturating_sub(1)),
+            KeyCode::PageUp => sel = sel.saturating_sub(20),
+            _ => {}
+        }
+        self.found = Some((list, sel));
+        Outcome::Stay
+    }
+
+    /// Opens game `n` once the table has it, as a Find hit's.
+    pub fn at_game(&mut self, n: u32) {
+        self.want = Some(n);
     }
 
     /// `g`: the whole game analysed in the background, or stopped while it runs.
@@ -675,6 +742,9 @@ impl Viewer {
         if self.picking.is_some() {
             return self.pick_key(key);
         }
+        if self.found.is_some() {
+            return self.found_key(key);
+        }
         // Playing on, the engine, the played line: the same in a game, a position and a book;
         // not on a draughts board.
         match key.code {
@@ -709,6 +779,10 @@ impl Viewer {
             }
             KeyCode::Char('s') => {
                 self.save_line();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('p') => {
+                self.find_position();
                 return Outcome::Stay;
             }
             KeyCode::Char('g') if self.lib.is_some() => {
@@ -843,6 +917,8 @@ impl Viewer {
         let w = inner.width as usize;
         let keys = if self.picking.is_some() {
             t!("chess.keys_pick")
+        } else if self.found.is_some() {
+            t!("chess.keys_found")
         } else if self.book_only {
             t!("chess.keys_book")
         } else if self.open.is_some() {
@@ -1374,6 +1450,24 @@ impl Viewer {
             }
             let room = (right.height as usize).saturating_sub(head.len());
             head.extend(wrap(words, w, base, room));
+            f.render_widget(Paragraph::new(head), right);
+            return;
+        }
+        // The games that reach this position, in place of the moves.
+        if let Some((list, sel)) = &self.found {
+            head.push(Line::styled(fit(&t!("chess.position_title", "n" => list.len()), w), base.add_modifier(Modifier::BOLD)));
+            let room = (right.height as usize).saturating_sub(head.len());
+            let top = sel.saturating_sub(room.saturating_sub(1));
+            for (k, (path, game)) in list.iter().enumerate().skip(top).take(room) {
+                let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                let mut text = t!("chess.position_game", "file" => file, "n" => game + 1);
+                if *path == self.path
+                    && let Some(r) = self.lib.as_ref().and_then(|l| l.row(*game))
+                {
+                    text = format!("{text} · {} – {} {} {}", r.white, r.black, r.result, r.date);
+                }
+                head.push(Line::styled(fit(&text, w), if k == *sel { sty(&theme.dialog_input) } else { base }));
+            }
             f.render_widget(Paragraph::new(head), right);
             return;
         }

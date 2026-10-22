@@ -99,6 +99,7 @@ standard NAGs after it.
 | A click on a piece, then a square / **m** | Plays a move from here ([Playing on](chess-play.md#playing-a-move)) | **m**: the same, from a list |
 | **a**, **b** | The engine on or off, its best move ([The engine](chess-play.md#the-engine)) | The same |
 | **g**, **w** | Analyse the whole game, save it annotated ([Analysing a whole game](chess-play.md#analysing-a-whole-game)) | The same |
+| **p** | Find this position: the games that reach it ([Finding games](#finding-games)) | The same |
 | **PgDn** / **PgUp** | The next / previous game of the table | The same |
 | **Esc** | Back to the table (*Games* too) | Back to the table |
 | A click on a move | Shows it | – |
@@ -180,11 +181,23 @@ chess characters of your font (♚ ♛ ♜ ♝ ♞ ♟), white and black, on col
 The search store reads a PGN file as a line per game: the players, event, site, date, ECO code
 with the opening's name, and result. So **Find** (**Ctrl+F**) finds a game by a player's name,
 a tournament or an opening (`Philidor`, `Morphy Paris`). A hit opens that game: in the desktop
-app on the board in the preview pane, in the terminal app in the game view. The moves are not
-in the store.
+app on the board in the preview pane, in the terminal app in the game view.
 
-A store made before this release reads every PGN file again once, for this: only `.pgn`,
-`.pgn.gz` and `.pgn.zst` files, nothing else. A PGN file is read for Find whatever its size
+**Find this position.** The store also keeps, for each game, the positions its main line
+reaches (as Polyglot keys, 8 bytes each). On any board, a game's, an EPD position's, a book's or
+your own line's, *Find this position* under the board (desktop) or **p** (both apps) lists the
+games in your PGN files that reach it: *Games that reach this position: 12*, each as
+*classics.pgn · game 3*, with the players, result and date for games of the file on view.
+Desktop: a click opens the game, on this board or in its file's own window. Terminal: **↑**
+**↓** choose, **Enter** opens it, **Esc** goes back. The start position is left out (every game
+has it). It needs *Words in files* on (*Settings → Search*); without it the line under the
+board says so, and *No game in the search store reaches this position* when none does.
+
+![The Opera Game at 2…d6 in the desktop app with Find this position pressed: Games that reach this position: 1, and below it classics.pgn · game 1 with Morphy, Paul – Duke Karl / Count Isouard 1-0 1858.11.02; Find this position beside Engine under the board](../screenshots/gui-chess-position.png)
+
+A store made before this release reads every PGN file again once, for the positions: only
+`.pgn`, `.pgn.gz` and `.pgn.zst` files, nothing else. Up to 100,000 games and 2,000,000
+positions of each file are kept, read game by game. A PGN file is read for Find whatever its size
 (*Largest file read (MB)*, `[search] text_max_size`, does not apply to it), but the store keeps
 4 MB of lines of it: about the first 40,000 games of a big file, read from its start and no
 further, and of a packed file no more than 1 GB unpacked. Find finds only those; the table
@@ -234,6 +247,13 @@ book = "~/chess/books/gm2600.bin"
 Yes, from any position: play your own moves on the board, and **a** (*Engine*) asks an
 installed Stockfish for its best lines; **b** plays its best move. See [Chess: playing on and the
 engine](chess-play.md).
+
+#### Why does Find this position find no game?
+
+It looks in the search store, which holds the positions of PGN files under the folders Find
+reads, once they have been read (*Settings → Search* shows how far it is). Words in files must
+be on. Positions are the main line's only, not variations', and of each file the first 100,000
+games.
 
 #### Does it read ChessBase files?
 

@@ -1989,7 +1989,7 @@ impl App {
                 Err(e) => self.status = Some(e.to_string()),
             };
         }
-        match chess::Viewer::open(path, &self.cfg, &self.theme) {
+        match chess::Viewer::open(path, &self.cfg, &self.theme).map(|v| v.with_index(self.index.clone())) {
             Ok(mut v) => {
                 if let Some(snippet) = hit {
                     v.at_hit(snippet);
@@ -3503,10 +3503,22 @@ impl App {
             Dialog::Chess(mut v) => match v.key(key, action) {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Chess(v)),
                 chess::Outcome::Close => {}
+                // Find this position: another file's game.
+                chess::Outcome::Open(path, game) => match chess::Viewer::open(&path, &self.cfg, &self.theme) {
+                    Ok(next) => {
+                        let mut next = next.with_index(self.index.clone());
+                        next.at_game(game);
+                        self.dialog = Some(Dialog::Chess(Box::new(next)));
+                    }
+                    Err(e) => {
+                        self.status = Some(e.to_string());
+                        self.dialog = Some(Dialog::Chess(v));
+                    }
+                },
             },
             Dialog::Go(mut v) => match v.key(key, action) {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Go(v)),
-                chess::Outcome::Close => {}
+                chess::Outcome::Close | chess::Outcome::Open(..) => {}
             },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
