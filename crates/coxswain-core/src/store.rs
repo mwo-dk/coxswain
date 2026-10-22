@@ -624,8 +624,12 @@ impl Store {
         if before.as_deref() == Some(sig.as_str()) {
             return Ok(());
         }
-        let rows = self.long_rows()?;
-        let capped = self.capped()?;
+        // Nothing kept whole, before or now: nothing to do but note the rule.
+        let none_whole = || -> rusqlite::Result<bool> {
+            Ok(self.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE whole IS NOT NULL", [], |r| r.get::<_, i64>(0))? == 0)
+        };
+        let rows = if !rule.any() && none_whole()? { vec![] } else { self.long_rows()? };
+        let capped = if rule.any() { self.capped()? } else { HashMap::new() };
         let mut back = vec![];
         {
             let mut db = self.db.lock().unwrap();

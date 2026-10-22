@@ -52,12 +52,17 @@ break, so passages from a spreadsheet or a slide read as a line of words.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
+<<<<<<< HEAD
 | `search.text_max_size` | bytes | `20971520` (20 MB) | Files larger than this are not read, except plain text, code, CSV and logs: they are read line by line, whatever their size, until 4 MB of text is kept (or 256 MB of the file is read) |
+=======
+| `search.text_max_size` | bytes | `20971520` (20 MB) | Files larger than this are not read, except plain text, code, CSV and logs: they are read line by line, whatever their size, until 4 MB of text is kept (all of it, up to 256 MB, with [Long files](long-files.md) set to *Everything*) |
+>>>>>>> ad3a4fce (Long files: every mention of the 4 MB and 256-passage limits names Everything; Signs number passages past 255; a long file's passages read only where a hit needs them)
 
 The formats themselves cannot be switched off one by one; leave a folder out instead
-([Choosing the folders](folders.md)). At most 4 MB of text is kept from one file, and at most
-64 MB is unpacked from one part of a zipped document (`.docx`, `.xlsx`, `.epub` …); neither is
-a setting.
+([Choosing the folders](folders.md)). At most 4 MB of text is kept from one file (text, code,
+CSV and logs keep up to 256 MB with [Long files](long-files.md) set to *Everything*), and at most 64 MB is
+unpacked from one part of a zipped document (`.docx`, `.xlsx`, `.epub` …), which is not a
+setting.
 
 ## In the terminal app
 
@@ -123,7 +128,8 @@ by the words of its first 4 MB ([Long files](long-files.md) set to *Everything* 
 #### Why does a long PDF miss words near its end?
 
 A PDF is read for at most three seconds, which covers most documents but not every page of a very
-long one. Its words are also cut at 4 MB of text.
+long one. Its words are also cut at 4 MB of text, even with *Everything*: a PDF's reader stops
+there ([Long files](long-files.md#does-everything-keep-all-the-text-of-a-big-pdf)).
 
 #### Does opening a document for search change it, or start Word?
 

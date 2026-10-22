@@ -37,8 +37,8 @@ with **Enter** to apply and **Esc** to cancel.
 For one folder, see [below](#one-folder): the action menu on it.
 
 It needs *Words inside files* (`text`, on by default). Without [search by meaning](meaning.md) it
-keeps all the text for words and makes no vectors. With *Words inside files* off, a notice says
-once that nothing is kept of any file until it is on.
+keeps all the text for words and makes no vectors. With *Words inside files* off and *Everything* chosen, a
+notice says once that nothing is kept of any file until it is on.
 
 ## One folder
 
@@ -70,8 +70,9 @@ A hint on the status line names the action menu a few times when the cursor is o
 |---|---|---|
 | Text for words, of text, code, CSV and logs | The first 4 MB | All of it, up to 256 MB a file |
 | Text for words, of PDF, Word, slides and other documents | The first 4 MB | The first 4 MB: their readers stop there |
-| Passages for meaning | 256 at most: the first 16, the last 4, the first under each heading, the rest spread evenly over the whole file | One for every part of the file, about every 100 words |
+| Passages for meaning | 256 at most: the first 16, the last 4, the first under each heading, the rest spread evenly over the whole file | One for every part of the file, about 120 words each |
 | A short file (under 4 MB of text and 256 passages) | All of it | The same: nothing differs |
+| Files inside archives, git commits | Sampled | Sampled: *Everything* is for files on disk |
 
 A text, code, CSV or log file kept whole is read line by line, never held whole, and its passages
 go to the model 64 at a time. Its passages are kept in `search.db` with their vectors, with where
@@ -82,8 +83,8 @@ each section starts.
 Room on the disk and time, for the long files only. The cost is worked out from what the store
 knows about each file, before anything is read:
 
-- **Long files kept whole**: the files in the folders the choice reaches with more than 4 MB of
-  text or more than 256 passages.
+- **Long files kept whole**: the files in the folders the choice reaches with 4 MB of text or
+  256 passages or more.
 - **More on the disk**: their extra text twice over (the text and its index), and each extra
   passage's vector and text, about 1 KB to 2 KB a passage.
 - **Time**: the extra passages at the speed the helper measured making vectors here (kept from
@@ -92,8 +93,8 @@ knows about each file, before anything is read:
 
 A line such as *Long files kept whole: 3; about 180 MB more on the disk; about 25 minutes to read
 them and make their vectors.* When the choice touches no long file now: *No long file changes
-now; files read later follow the choice.* When the helper does not answer: *What this costs
-cannot be said now …*.
+now; files read later follow the choice.* When the helper does not answer, or *Words inside
+files* is off: *What this costs cannot be said now …*.
 
 ## Back to Sample
 

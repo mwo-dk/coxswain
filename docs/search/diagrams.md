@@ -111,7 +111,8 @@ start of the passage in italics. To see the diagram itself, **Enter** to go to i
   sentence; the diagram's text is always kept, so its words are still found.
 - At most 2,000 sentences per diagram: a generated graph can have thousands of arrows.
 - In draw.io, an arrow whose ends are not both shapes with labels gives no sentence.
-- Search by meaning gives vectors to the whole text, up to 256 passages of about 120 words. The
+- Search by meaning gives vectors to the whole text, up to 256 passages of about 120 words (every passage with
+  [Long files](long-files.md) → *Everything*). The
   sentences come first, so a diagram is found by its arrows even in a file longer than that; a
   generated graph with thousands of arrows can take most of those passages itself (its words are
   still found by words).

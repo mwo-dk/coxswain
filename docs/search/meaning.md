@@ -318,7 +318,9 @@ for its folder ([Long files](long-files.md)). Before 1.39.0 only the first 960 w
 Once after an update that changes how files are cut into passages: 1.39.0 (whole documents,
 not the first 960 words) and 2.18.0 (code cut at its functions and classes, with its lines,
 [Ask about code](ask-code.md)); 2.33.0 made again only the vectors of text, code, CSV and log
-files with more than 4 MB of text, whose passages now come from the whole file. Vectors made the old way cannot be mixed with the new ones. The
+files with more than 4 MB of text, whose passages now come from the whole file. Choosing
+*Everything* for long files reads those files again or makes their vectors again, once
+([What is read again](long-files.md#what-is-read-again)). Vectors made the old way cannot be mixed with the new ones. The
 helper notices it when it opens the store, drops the old vectors and makes new ones in the
 background, the most recently changed files first. The text is not read again, except files
 of code once with their indentation, and search by words works all the while. Both

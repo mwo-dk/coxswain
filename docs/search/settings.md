@@ -76,7 +76,7 @@ Six groups: *What is read* (open at first), *Folders*, *Meaning*, *Ask*, *Built-
 | | *Transcribe speech with Whisper* | `whisper` | bool, `false` | Recordings and videos you choose are transcribed in the background; the model is downloaded from Hugging Face when ticked ([Transcripts of speech](transcripts.md)) |
 | | *Whisper model* (while the one above is on) | `whisper_model` | text, `""` = chosen for this machine | `tiny`, `base`, `small`, `large-v3-turbo`, each with its size, *recommended* or *slow here* |
 | | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*; a missing one with the line that installs it and **Copy** ([Installing what is missing](scans.md#installing-what-is-missing)) |
-| | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only; plain text, code, CSV and logs are read whatever their size, their first 4 MB of text |
+| | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only; plain text, code, CSV and logs are read whatever their size, their first 4 MB of text (all of it with *Long files* → *Everything*) |
 | | *Most hits* | `max_results` | number, `10000` | The most rows Find lists for one kind of hit |
 | Folders | *Folders read* | `text_roots` | list, `[]` = *Your home folder* | [Choosing the folders](folders.md) |
 | | *Names only* | `names_only` | list, `[]` | [Choosing the folders](folders.md) |
