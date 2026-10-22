@@ -12,6 +12,7 @@ back to the chess characters of your font (♚ ♛ ♜ ♝ ♞ ♟) on small squ
 ![The terminal app's game view in Classic blue: Morphy's Opera Game on a board of blue squares, each piece drawn in sextants, white pieces with a dark outline, black pieces solid, the yellow squares of the last move, the moves beside it](../screenshots/tui-game-pieces.png)
 
 - [How it looks](#how-it-looks)
+- [Pictures, where the terminal shows them](#pictures-where-the-terminal-shows-them)
 - [The block characters](#the-block-characters)
 - [The setting](#the-setting)
 - [Questions](#questions)
@@ -36,7 +37,34 @@ Draughts pieces are simple discs, so they are drawn on squares a row smaller: tw
 with half blocks). A 10 × 10 board then needs about 26 rows; an 8 × 8 one about 22. The empty
 dark squares keep their numbers at their top left.
 
-The desktop app draws the pictures themselves, as it always has.
+The desktop app draws the pictures themselves, as it always has. So does the terminal app,
+where the terminal shows pictures ([below](#pictures-where-the-terminal-shows-them)).
+
+## Pictures, where the terminal shows them
+
+Where the terminal can show pictures, the terminal app's board draws the desktop app's own
+pieces, the same drawings, on its squares. It asks the terminal once, the first time a board
+opens, and waits a second at most for the answer:
+
+| Terminal | Pictures by |
+|---|---|
+| kitty, Ghostty | kitty's graphics protocol |
+| foot, WezTerm, xterm with sixel, mlterm, Konsole | sixel |
+| inside tmux | kitty's protocol, when the terminal outside is kitty or Ghostty and `allow-passthrough` is on in tmux (`set -g allow-passthrough on`); Coxswain does not turn it on |
+| the Linux console, Windows' own console, anything else | none: the pieces are drawn from block characters, as below |
+
+A square gets a picture when the board is large enough for squares of two rows or more; a
+small window keeps the figurines. The pieces are drawn on the square's own colour, the
+last move's squares tinted, and a picture goes with its piece when you step on, flip the
+board or close the view. With **pictures** chosen and a terminal that shows none, the line
+above the keys says *This terminal shows no pictures: the pieces are drawn from block
+characters.* Windows Terminal is not asked yet: on Windows the board keeps block characters.
+
+*As fine as the terminal draws* (`auto`, the default) and *Pictures, where the terminal shows
+them* (`pictures`) draw pictures where the terminal shows them, block characters elsewhere;
+the block-character choices and *Figurines* never draw pictures.
+
+![The terminal app's game view in foot: the desktop app's chess pieces as sixel pictures on the board's blue squares, the moves beside it](../screenshots/tui-chess-pictures.png)
 
 ## The block characters
 
@@ -48,7 +76,8 @@ The desktop app draws the pictures themselves, as it always has.
 | *Half blocks* | ▀ ▄ | 1 × 2 | Every terminal, the Linux console too |
 | *Figurines* | ♚ ♛ ♜ ♝ ♞ ♟ | | A font with the chess characters |
 
-*As fine as the terminal draws* (the default) picks by the terminal: octants in kitty, Ghostty
+*As fine as the terminal draws* (the default) draws pictures where the terminal shows them
+(above); elsewhere it picks block characters by the terminal: octants in kitty, Ghostty
 and foot, sextants in WezTerm, Alacritty and Konsole, half blocks on the Linux console and in
 a VT terminal, quadrants everywhere else (inside tmux and screen too, which hide the terminal
 outside). It reads `TERM` and `TERM_PROGRAM`, nothing else.
@@ -60,7 +89,7 @@ for the terminal app):
 
 | Setting | `config.toml` | Values |
 |---|---|---|
-| *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `octants`, `sextants`, `quadrants`, `halves`, `figurines` |
+| *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `pictures`, `octants`, `sextants`, `quadrants`, `halves`, `figurines` |
 
 ```toml
 [chess]
@@ -68,6 +97,13 @@ pieces = "sextants"
 ```
 
 ## Questions
+
+#### Why does the terminal board show no pictures?
+
+The terminal did not say it shows them: it is not one of kitty, Ghostty, foot, WezTerm, xterm
+with sixel, mlterm or Konsole, or it runs inside tmux without `allow-passthrough`, or on
+Windows. The pieces are drawn from block characters then. A small window gives squares too
+small for pictures too: make it larger, and the board takes pictures again.
 
 #### The pieces show as boxes or gaps.
 
@@ -83,7 +119,8 @@ to keep the small board.
 
 #### Which block characters does it use?
 
-With *As fine as the terminal draws*: octants in kitty, Ghostty and foot, sextants in WezTerm,
+With *As fine as the terminal draws*, where the terminal shows no pictures: octants in kitty,
+Ghostty and foot, sextants in WezTerm,
 Alacritty and Konsole, half blocks on the Linux console, quadrants elsewhere. The table under
 [The block characters](#the-block-characters) has them all; Settings chooses one by hand.
 

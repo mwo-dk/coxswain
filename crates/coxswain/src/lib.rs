@@ -5425,7 +5425,10 @@ mod panel_tests {
         assert_eq!(names(&app), ["..", "small", "big", "mid", "f.txt"]);
         assert_eq!(app.panels[0].current().map(|e| e.name.as_str()), Some("big"), "the cursor stays on its folder");
         assert_eq!(app.panels[0].marked_bytes, 5 << 30);
-        std::fs::remove_dir_all(&d).unwrap();
+        // Windows keeps the folder while the app watches it: let it go first, and leave a
+        // folder still held (the temporary folder's own) rather than fail.
+        drop(app);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]
