@@ -59,8 +59,10 @@ fn file_for(archive: &Path) -> Option<PathBuf> {
     Some(folder()?.join(format!("{}.json", &h.finalize().to_hex()[..32])))
 }
 
-/// The kept list of `archive`, if it has not changed since it was made.
+/// The kept list of `archive`, if it has not changed since it was made and can be read.
 pub(crate) fn load(archive: &Path) -> Option<Vec<Listed>> {
+    // Only of an archive that can be read now: what a user may no longer read is not told.
+    File::open(archive).ok()?;
     let f = File::open(file_for(archive)?).ok()?;
     serde_json::from_reader(io::BufReader::new(f)).ok()
 }
