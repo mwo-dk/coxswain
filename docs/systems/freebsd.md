@@ -131,6 +131,7 @@ The terminal app needs no packages: it links only against the base system's libr
 | `kicad` | KiCad schematics and boards in the preview, [Export from KiCad](../previews/kicad.md#export-from-kicad) | Optional; the same |
 | `git` | Git status, history and branches in the panels | Optional; most machines have it |
 | `ollama` | A model server for search by meaning and Ask | Optional ([below](#search-by-meaning-and-ask)) |
+| `rubygem-asciidoctor-pdf` | [Build PDF of AsciiDoc](../files/asciidoc-pdf.md): the containers other systems can use do not run here | Optional |
 
 Where one of the optional programs is missing, both apps show the line that installs it with
 `pkg` (`pkg install tesseract`, `pkg install texlive-full` for LaTeX previews, `pkg install

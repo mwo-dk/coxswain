@@ -652,7 +652,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&t!("whisper.go"))).centered(), b);
         }
-        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. }) => {
+        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. }) => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);
             let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
@@ -661,6 +661,8 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 Dialog::Media { .. } => t!("media.go"),
                 Dialog::Ebook { to: None, .. } => t!("ebook.go_view"),
                 Dialog::Ebook { .. } => t!("ebook.go"),
+                Dialog::Export { op: coxswain_core::export::Op::AdocPdf, .. } => t!("export.go_adoc"),
+                Dialog::Export { .. } => t!("export.go_drawio"),
                 _ => t!("searchable.go"),
             };
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
@@ -1115,6 +1117,8 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(keys(t!("help.git_tool", "key" => key(Action::GitTool)))));
     v.push(Line::from(keys(t!("help.git_config", "key" => key(Action::GitConfig)))));
     v.push(Line::from(keys(t!("help.searchable_pdf", "key" => key(Action::SearchablePdf)))));
+    v.push(Line::from(keys(t!("help.adoc_pdf"))));
+    v.push(Line::from(keys(t!("help.drawio_export"))));
     v.push(Line::from(keys(t!("help.chess", "key" => key(Action::Chess), "view" => key(Action::View)))));
     v.push(Line::from(keys(t!("help.space", "key" => key(Action::SpaceView)))));
     v.push(Line::from(""));

@@ -195,6 +195,7 @@ pub const OPTIONS: &[Opt] = &[
         &[Disk, Network],
     ),
     opt("latex_auto", &["preview", "latex_auto"], Previews, &[Cpu]),
+    opt("drawio", &["preview", "drawio"], Previews, &[Disk, Network, Cpu]),
     opt(
         "image_updates",
         &["preview", "image_updates"],

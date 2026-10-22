@@ -277,6 +277,8 @@ pub const FEATURES: &[Feature] = &[
     f("edit_pictures", "files/edit-pictures.md", &[EditPictures, ActionMenu, TogglePreview]),
     f("checksums", "files/checksums.md", &[MakeChecksums, VerifyChecksums, ActionMenu]),
     f("split_and_join", "files/split-and-join.md", &[SplitFile, JoinParts, ActionMenu]),
+    f("adoc_pdf", "files/asciidoc-pdf.md", &[AdocPdf, ActionMenu, View]),
+    f("drawio_export", "files/drawio-export.md", &[DrawioExport, ActionMenu, Settings]),
     // customise
     f("settings_window", "customise/settings.md", &[Settings]),
     f("themes", "customise/themes.md", &[Settings]),

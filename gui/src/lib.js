@@ -391,6 +391,10 @@ export function chessFormat(name) {
   return "";
 }
 
+/** A draw.io diagram by its name (`export::is_drawio`): `.drawio`, `.dio`, or a picture with
+ *  the diagram in it, `.drawio.svg` and `.drawio.png`. */
+export const isDrawio = (name) => /\.(drawio|dio|drawio\.svg|drawio\.png)$/i.test(name);
+
 /** A neural network model Netron draws (`neural::named`); a Core ML package is a folder. A `.h5`
  *  is one only when its bytes hold a Keras model (`is_model`, in Preview). */
 export const isModel = (item) => (item.is_dir ? /\.mlpackage$/i : /\.(onnx|tflite|mlmodel|keras)$/i).test(item.name);
@@ -399,6 +403,7 @@ export function previewKind(item) {
   if (!item) return "none";
   if (isModel(item)) return "netron";
   if (item.is_dir) return "folder";
+  if (isDrawio(item.name)) return "drawio";
   if (chessFormat(item.name)) return chessFormat(item.name) === "sgf" ? "go" : "chess";
   if (isProvenanceName(item.name)) return "provenance";
   if (isBomName(item.name)) return "bom";

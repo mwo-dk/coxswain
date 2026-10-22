@@ -42,7 +42,7 @@ one without starting the program it belongs to.
 | `.ipynb` | Markdown cells, highlighted code with its `In [n]` number, and outputs: text, errors, tables, PNG and SVG plots | marked, highlight.js |
 | `.msg`, `.mbox` | An Outlook message as an `.eml` is shown; a mailbox lists its messages and opens like a folder of them | Built in: [Old pictures and files](old-formats.md#outlook-messages) |
 | `.eml` | *Subject*, *From*, *To*, *Date*, *Attachments* with sizes, and the text of the message: every text part, HTML made plain, and of a plain and an HTML form the one a mail program shows, as the search reads it | Read in Rust, with [mail-parser](https://crates.io/crates/mail-parser) for the headers |
-| `.adoc`, `.asciidoc` | Headings, lists, tables, admonitions, table of contents | [Asciidoctor.js](https://asciidoctor.org/), in secure mode (no file includes) |
+| `.adoc`, `.asciidoc` | Headings, lists, tables, admonitions, table of contents; diagram blocks (`[plantuml]`, `[d2]`, `[mermaid]` …) drawn ([Diagrams in the document](../files/asciidoc-pdf.md#diagrams-in-the-document)); **Build PDF** above it ([Build PDF of AsciiDoc](../files/asciidoc-pdf.md)) | [Asciidoctor.js](https://asciidoctor.org/), in secure mode (no file includes) |
 | `.rst`, `.rest` | reStructuredText as HTML | pandoc, installed or in a container ([Previews made by tools](tools.md)) |
 | `.typ` | The PDF Typst builds ([Typst](#typst)) | `typst`, installed or in its container |
 | `.ps`, `.eps` | The PDF Ghostscript makes of it ([PostScript and XPS](#postscript-and-xps)) | Ghostscript (`gs`), installed or in a container |
@@ -139,8 +139,10 @@ The PDFs for scans have `[preview.images] ocrmypdf` ([Make PDF searchable](../fi
 ## In the terminal app
 
 No preview pane (a terminal cannot draw pages or pictures). **Enter** opens the document in its
-program; **F3** opens it in the built-in viewer, which is useful for `.eml`, `.ics`, `.vcf`, `.adoc` and
-`.rst`, which are text. Their contents are searchable in both apps:
+program; **F3** opens it in the built-in viewer, which is useful for `.eml`, `.ics`, `.vcf` and
+`.rst`, which are text; an `.adoc` document it shows as readable text, formatted (headings
+underlined, lists with bullets, links as their text), and *Build PDF of AsciiDoc* in the action
+menu makes its PDF ([Build PDF of AsciiDoc](../files/asciidoc-pdf.md#in-the-terminal-app)). Their contents are searchable in both apps:
 [Documents search reads](../search/documents.md).
 
 ## Questions

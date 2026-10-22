@@ -95,6 +95,10 @@ pub const IMAGES: &[Image] = &[
     // Coxswain's own Stockfish build (packaging/images/stockfish), for the chess engine when
     // none is installed (`chess::play`); its two evaluation networks are most of it.
     Image { key: "stockfish", default: "ghcr.io/mwo-dk/coxswain-stockfish:latest", download: 70, disk: 80 },
+    // Asciidoctor's own image, with Asciidoctor PDF: *Build PDF of AsciiDoc* (`export`).
+    Image { key: "asciidoctor", default: "docker.io/asciidoctor/docker-asciidoctor:latest", download: 665, disk: 1500 },
+    // draw.io's desktop app with a display of its own (`export`); used only with `drawio` on.
+    Image { key: "drawio", default: "docker.io/rlespinasse/drawio-desktop-headless:latest", download: 560, disk: 1310 },
 ];
 
 /// Other images whose size is known: what a user may set instead of a default.
@@ -219,6 +223,11 @@ pub const KINDS: &[Kind] = &[
     // preview, so `for_path` leaves it out.
     Kind { id: "chess_engine", docs: "chess-play.md", exts: &[&["pgn", "epd", "fen"]], tools: &[tool("stockfish", &["stockfish"], "stockfish", "stockfish")], sample: None },
     Kind { id: "ocr", docs: "../files/searchable-pdf.md", exts: &[&["pdf"]], tools: &[tool("ocrmypdf", &["ocrmypdf"], "ocrmypdf", "ocrmypdf")], sample: None },
+    // Build PDF of AsciiDoc (`export`): the preview itself is built in.
+    Kind { id: "asciidoc", docs: "../files/asciidoc-pdf.md", exts: &[&["adoc", "asciidoc"]], tools: &[tool("asciidoctor", &["asciidoctor-pdf"], "asciidoctor-pdf", "asciidoctor")], sample: None },
+    // Export draw.io diagram and its thumbnails (`export`), only in draw.io's container, with
+    // `[preview] drawio` on: no choice, no installed program.
+    Kind { id: "drawio", docs: "../files/drawio-export.md", exts: &[&["drawio", "dio"]], tools: &[tool("drawio", &[], "", "drawio")], sample: None },
 ];
 
 /// The choices of `[preview.tools]`; no entry follows `[preview] prefer`.
@@ -238,7 +247,7 @@ pub fn kind_of(tool: &str) -> Option<&'static Kind> {
 /// searchable is asked for.
 pub fn for_path(path: &Path) -> Option<&'static Kind> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    KINDS.iter().filter(|k| !matches!(k.id, "ocr" | "other" | "transcripts" | "chess_engine")).find(|k| k.exts.iter().any(|e| e.contains(&ext.as_str())))
+    KINDS.iter().filter(|k| !matches!(k.id, "ocr" | "other" | "transcripts" | "chess_engine" | "asciidoc" | "drawio")).find(|k| k.exts.iter().any(|e| e.contains(&ext.as_str())))
 }
 
 /// The image of `tool` under `[preview.images]`: Kroki's diagram kinds share `kroki`, a
@@ -289,9 +298,10 @@ pub fn set_choice(path: &Path, kind: &str, value: &str) -> Result<crate::config:
     })
 }
 
-/// Whether `[preview.tools]` has a choice for the kind: not Tika's, which `[search] tika` turns on.
+/// Whether `[preview.tools]` has a choice for the kind: not Tika's, which `[search] tika` turns on,
+/// nor draw.io's, which runs only in its container.
 pub fn can_choose(kind: &str) -> bool {
-    kind != "other"
+    !matches!(kind, "other" | "drawio")
 }
 
 /// The image `key`'s entry.

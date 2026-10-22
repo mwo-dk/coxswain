@@ -409,6 +409,8 @@ pub enum MenuRun {
     Split(PathBuf, Option<u64>),
     /// Join the parts from this first one; `true`: the joined file replaces the one there.
     Join(PathBuf, bool),
+    /// What *Export draw.io diagram* makes of these diagrams.
+    Export(coxswain_core::export::Op, Vec<PathBuf>),
 }
 
 pub struct MenuItem {
@@ -455,6 +457,9 @@ pub enum Dialog {
     /// Transcribe `files`? `text` says how much sound, how long it takes here, and what it
     /// fetches first.
     Transcribe { title: String, text: String, files: Vec<PathBuf> },
+    /// Make `op` of `files`? `text` says what it writes, which program runs and what a first
+    /// run pulls.
+    Export { title: String, text: String, op: coxswain_core::export::Op, files: Vec<PathBuf> },
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
@@ -505,6 +510,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Media { op, .. } => media_feature(op.program()),
         Dialog::Ebook { .. } => "ebooks",
         Dialog::Transcribe { .. } => "transcripts",
+        Dialog::Export { op, .. } => export_feature(*op),
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -680,6 +686,10 @@ pub struct App {
     /// *Transcribe speech*'s question being worked out on a thread (the lengths of the
     /// recordings are read): the files and the dialog's text.
     transcribe_plan: Option<mpsc::Receiver<(Vec<PathBuf>, String)>>,
+    /// *Build PDF of AsciiDoc* or *Export draw.io diagram* running on its thread, one at a
+    /// time; the question being worked out.
+    export: Option<Exporting>,
+    export_plan: Option<mpsc::Receiver<ExportPlan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
@@ -794,6 +804,37 @@ enum SearchableMsg {
     At(usize),
     Said(String),
     Done(Vec<Result<PathBuf, String>>),
+}
+
+/// An export on its thread (`coxswain_core::export`): what it makes, of which files, how far
+/// it is, what the program said last, and the flag that stops it.
+struct Exporting {
+    op: coxswain_core::export::Op,
+    names: Vec<String>,
+    at: usize,
+    line: String,
+    /// The status line it showed last: another message is not written over.
+    shown: String,
+    started: Instant,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    rx: mpsc::Receiver<ExportMsg>,
+}
+
+enum ExportMsg {
+    At(usize),
+    Said(String),
+    Done(Vec<Result<Vec<PathBuf>, String>>),
+}
+
+/// What to make of which files, and the question's text or why it cannot run.
+type ExportPlan = (coxswain_core::export::Op, Vec<PathBuf>, Result<String, String>);
+
+/// The feature (F1) and the action of an export.
+fn export_feature(op: coxswain_core::export::Op) -> &'static str {
+    if op == coxswain_core::export::Op::AdocPdf { "adoc_pdf" } else { "drawio_export" }
+}
+fn export_action(op: coxswain_core::export::Op) -> Action {
+    if op == coxswain_core::export::Op::AdocPdf { Action::AdocPdf } else { Action::DrawioExport }
 }
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
@@ -953,6 +994,8 @@ impl App {
             ebook_plan: None,
             work: None,
             transcribe_plan: None,
+            export: None,
+            export_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1313,7 +1356,9 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some()) => (self.job, self.searchable, self.media, self.ebook, self.work) = (None, None, None, None, None),
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some()) => {
+                (self.job, self.searchable, self.media, self.ebook, self.work, self.export) = (None, None, None, None, None, None)
+            }
             Action::Quit => {
                 self.quit = true;
                 // Make PDF searchable is stopped, and waited for: its container is killed,
@@ -1338,7 +1383,11 @@ impl App {
                 if let Some(s) = self.job.as_ref().and_then(|j| j.stop.as_ref()) {
                     s.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() {
+                // So is an export.
+                if let Some(x) = &self.export {
+                    x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1394,6 +1443,8 @@ impl App {
                 None => self.status = Some(t!("sums.no_list")),
             },
             Action::Transcribe => self.transcribe(),
+            Action::AdocPdf => self.export_menu(true),
+            Action::DrawioExport => self.export_menu(false),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -2519,6 +2570,136 @@ impl App {
         }
     }
 
+    /// *Build PDF of AsciiDoc* (`adoc`) or *Export draw.io diagram* on the files among the
+    /// marked entries (or the one under the cursor) it takes; a diagram's format is picked from
+    /// a menu first. While one runs, either action stops it.
+    fn export_menu(&mut self, adoc: bool) {
+        use coxswain_core::export::{self, Op};
+        if let Some(x) = &self.export {
+            x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("export.stopping"));
+        }
+        let takes = |p: &PathBuf| if adoc { export::is_adoc(p) } else { export::is_drawio(p) };
+        // A file only in the cloud is left out: it is not downloaded to be read.
+        let files: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| takes(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
+        if files.is_empty() {
+            return self.status = Some(t!(if adoc { "export.none_adoc" } else { "export.none_drawio" }));
+        }
+        if adoc {
+            return self.export_ask(Op::AdocPdf, files);
+        }
+        let items = Op::DRAWIO
+            .into_iter()
+            .enumerate()
+            .map(|(i, op)| MenuItem { key: (i + 1).to_string(), label: op.label(), run: MenuRun::Export(op, files.clone()), group: None })
+            .collect();
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::DrawioExport), filter: String::new(), items, cursor: 0, direct: true, feature: "drawio_export" });
+    }
+
+    /// The question, worked out on a thread (asking podman for the image takes a moment).
+    fn export_ask(&mut self, op: coxswain_core::export::Op, files: Vec<PathBuf>) {
+        use coxswain_core::export;
+        let (tx, rx) = mpsc::channel();
+        let cfg = self.cfg.preview.clone();
+        std::thread::spawn(move || {
+            let plan = export::how(&cfg, op.tool()).map(|how| format!("{} {}", export::confirm(op, &files), export::about(&how).0));
+            let _ = tx.send((op, files, plan));
+        });
+        self.export_plan = Some(rx);
+    }
+
+    fn poll_export_plan(&mut self) {
+        let Some(rx) = &self.export_plan else { return };
+        let Ok((op, files, plan)) = rx.try_recv() else { return };
+        self.export_plan = None;
+        let title = self.action_label(export_action(op));
+        self.dialog = Some(match plan {
+            Ok(text) => Dialog::Export { title, text, op, files },
+            Err(e) => Dialog::Message { title, text: format!("{e}\n\n{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
+        });
+    }
+
+    fn export_start(&mut self, op: coxswain_core::export::Op, files: Vec<PathBuf>) {
+        use coxswain_core::export::{self, Said};
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), files.clone());
+        std::thread::spawn(move || {
+            let (said, at) = (tx.clone(), tx.clone());
+            let done = export::run_all(&cfg, op, &list, &flag, |i| drop(at.send(ExportMsg::At(i))), |s| {
+                let line = match s {
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(op.tool()).cloned().unwrap_or_default())),
+                    Said::Line(l) => l.to_string(),
+                };
+                let _ = said.send(ExportMsg::Said(line));
+            });
+            let _ = tx.send(ExportMsg::Done(done));
+        });
+        let names = files.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        self.export = Some(Exporting { op, names, at: 0, line: String::new(), shown: String::new(), started: Instant::now(), stop, rx });
+        self.poll_export();
+    }
+
+    /// How far an export is, on the status line; when done, what came of it.
+    fn poll_export(&mut self) {
+        let Some(x) = &self.export else { return };
+        let action = export_action(x.op);
+        // No key of its own by default: the action menu and F9 list it, and stop it from there.
+        let key = match self.key_label(action) {
+            "" => format!("{} → {}", self.key_label(Action::Menu), self.action_label(action)),
+            k => k.to_string(),
+        };
+        let Some(x) = &mut self.export else { return };
+        let mut done = None;
+        while let Ok(msg) = x.rx.try_recv() {
+            match msg {
+                ExportMsg::At(i) => (x.at, x.line) = (i, String::new()),
+                ExportMsg::Said(l) => x.line = l,
+                ExportMsg::Done(d) => done = Some(d),
+            }
+        }
+        let Some(done) = done else {
+            let (name, n, all, seconds) = (x.names.get(x.at).cloned().unwrap_or_default(), x.at + 1, x.names.len(), x.started.elapsed().as_secs());
+            let busy = if all > 1 {
+                t!("export.busy_of", "name" => name, "n" => n, "all" => all, "seconds" => seconds)
+            } else {
+                t!("export.busy", "name" => name, "seconds" => seconds)
+            };
+            let stopping = x.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("export.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let line = if x.line.is_empty() { String::new() } else { format!(" · {}", x.line) };
+            let new = format!("{busy}{line} · {tail}");
+            if self.status.is_none() || self.status.as_ref() == Some(&x.shown) {
+                self.status = Some(new.clone());
+            }
+            x.shown = new;
+            return;
+        };
+        let x = self.export.take().expect("a run");
+        // The image was used: what *Remove images not used for 90 days* goes by.
+        if let Ok(coxswain_core::export::How::Container { image, .. }) = coxswain_core::export::how(&self.cfg.preview, x.op.tool()) {
+            let mut st = coxswain_core::state::AppState::load();
+            coxswain_core::images::used(&mut st, &image, coxswain_core::fs::now());
+            let _ = st.save();
+        }
+        let stopped = x.stop.load(std::sync::atomic::Ordering::Relaxed);
+        let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(x.names.iter()).partition(|(r, _)| r.is_ok());
+        let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).flatten().collect();
+        self.reload();
+        if stopped {
+            return self.status = Some(t!("export.stopped"));
+        }
+        if !failed.is_empty() {
+            let why = failed.into_iter().map(|(r, n)| format!("{n}: {}", r.err().unwrap_or_default())).collect::<Vec<_>>().join("\n");
+            self.status = None;
+            return self.dialog = Some(failure(t!("export.failed"), &why));
+        }
+        self.status = Some(match made.as_slice() {
+            [one] => t!("export.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
+            many => t!("export.done_many", "n" => many.len()),
+        });
+    }
+
     /// Space on the folder under the cursor, else the panel's: walked now, full screen.
     fn space_view(&mut self) {
         let p = self.panel();
@@ -3194,6 +3375,11 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Transcribe { title, text, files }),
             },
+            Dialog::Export { title, text, op, files } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.export_start(op, files),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Export { title, text, op, files }),
+            },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -3398,6 +3584,7 @@ impl App {
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
+                    Some(MenuRun::Export(op, files)) => self.export_ask(*op, files.clone()),
                     Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
                     Some(MenuRun::Ebook(to, books)) => self.ebook_ask(Some(to), books.clone()),
                     Some(MenuRun::Sums(algo, files)) => self.sums_make(*algo, files.clone()),
@@ -3876,6 +4063,8 @@ impl App {
         self.poll_job();
         self.poll_searchable();
         self.poll_searchable_plan();
+        self.poll_export();
+        self.poll_export_plan();
         self.poll_media();
         self.poll_media_plan();
         self.poll_ebook();
@@ -4027,7 +4216,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() || app.export.is_some() {
         // An error on the status line in plain words, its first line only; the whole of it
         // goes to helper.log.
         if let Some(s) = &app.status {
@@ -4841,7 +5030,8 @@ mod tests {
         app.act(Action::Edit);
         assert!(app.run.is_none());
         assert!(app.status.as_deref().is_some_and(|s| s.contains("no-such-editor-coxswain")), "{:?}", app.status);
-        std::fs::remove_dir_all(d).unwrap();
+        // The viewer's reading thread may still hold a.txt open: Windows refuses to remove it then.
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]

@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, convertMedia, stopMedia, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, convertMedia, stopMedia, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -397,6 +397,8 @@
     transcribe: async () => transcribe(await targets()),
     split_file: () => splitFile(),
     join_parts: () => joinParts(),
+    adoc_pdf: () => makeExport(true),
+    drawio_export: () => makeExport(false),
     chess: async () => {
       const e = item(tab());
       const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
@@ -873,6 +875,12 @@
         <!-- Checksums under way: which file of how many, how far. -->
         <span class="status">{s.line || actionLabel(s.action)}{s.stopping ? ` · ${t("media.stopping")}` : ""}</span>
         <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopWork}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.exporting}
+        {@const s = ui.exporting}
+        <!-- An export under way: which file, for how long, what the program said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "export.busy_of" : "export.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" title={actionLabel(s.action)} disabled={s.stopping} onclick={stopExport}>{t("searchable.stop")}</button>
       {/if}
       {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}

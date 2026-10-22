@@ -263,6 +263,15 @@ open(os.path.join(papers, "guide.adoc"), "w").write("""= Launch operations guide
 
 NOTE: Any "no-go" holds the count.
 
+== Fuel flow
+
+[mermaid]
+.From the tank to the engine
+----
+flowchart LR
+  Tank --> Valve --> Engine
+----
+
 == After lift-off
 
 |===

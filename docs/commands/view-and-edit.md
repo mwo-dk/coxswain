@@ -41,7 +41,8 @@ A variable that is set but empty counts as unset.
 
 The terminal app's **F3** shows the file full screen over the panels: highlighted in the
 theme's colours (the same colour for each kind of token as the desktop app's preview), with
-line numbers at the left, and a title that names the file, its language, its encoding and its
+line numbers at the left (an AsciiDoc document comes formatted as readable text instead,
+[Build PDF of AsciiDoc](../files/asciidoc-pdf.md#in-the-terminal-app)), and a title that names the file, its language, its encoding and its
 number of lines. The line under the text says where you are (*Line 120 · 34%*), or what a key
 said; the key line at the bottom lists the keys.
 

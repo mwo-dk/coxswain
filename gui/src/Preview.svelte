@@ -1,7 +1,7 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
-  import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
+  import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
@@ -87,11 +87,22 @@
   /** A hex dump shows this much (read_text). */
   const HEX_LIMIT = 64 * 1024;
 
-  /** Draws a draw.io diagram into the element, again when it changes. */
+  /** Draws a draw.io diagram into the element, again when it changes; its pages are the tabs
+   *  above it, which pick the page through the viewer kept here. */
+  let drawioViewer = null;
+  let drawioPage = $state(0);
   function drawioView(el, xml) {
-    const draw = (x) => renderDrawio(el, x).catch((err) => (el.textContent = String(err?.message ?? err)));
+    const draw = (x) => {
+      drawioPage = 0;
+      drawioViewer = null;
+      renderDrawio(el, x).then((v) => (drawioViewer = v), (err) => (el.textContent = String(err?.message ?? err)));
+    };
     draw(xml);
     return { update: draw };
+  }
+  function showPage(i) {
+    drawioPage = i;
+    drawioViewer?.selectPage?.(i);
   }
   /** Markdown, Mermaid and data files: show the rendered result or tree, or the source. Kept across files. */
   const source = $derived(ui.previewSource === true);
@@ -221,7 +232,12 @@
         else if (k === "font") r = await loadFont(cur.path);
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
         else if (deck) r = { slides: await renderPptx(cur.path) };
-        else if (k === "drawio") r = { drawio: (await invoke("read_text", { path: cur.path, max: 32 * 1024 * 1024 }))[0] };
+        else if (k === "drawio") {
+          // The file, or the diagram inside a .drawio.svg or .drawio.png (export::drawio_xml).
+          const xml = await invoke("drawio_xml", { path: cur.path });
+          r = xml ? { drawio: xml, pages: drawioPages(xml) } : { error: t("preview.drawio_none") };
+        }
+
         else r = { sheet: await readSheet(cur.path) };
       } catch (err) {
         r = { error: String(err?.message ?? err) };
@@ -885,6 +901,19 @@
           {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
         </div>
       {:else if rich?.drawio !== undefined}
+        <!-- Export: draw.io itself makes a PNG or SVG of each page, or one PDF, next to the file. -->
+        <p class="more">
+          {t("export.export_as")}
+          {#each ["png", "svg", "pdf"] as f (f)}<button class="render" title={t(`export.op.drawio_${f}`)} onclick={() => makeExport(false, `drawio_${f}`, [e.path])}>{f.toUpperCase()}</button> {/each}
+          <kbd>{ui.cfg.actions.drawio_export?.[1] ?? ""}</kbd>
+        </p>
+        {#if rich.pages.length > 1}
+          <div class="tabs drawio-tabs" role="tablist">
+            {#each rich.pages as name, i (i)}
+              <button role="tab" aria-selected={drawioPage === i} class:on={drawioPage === i} onclick={() => showPage(i)}>{name || t("export.page", { n: i + 1 })}</button>
+            {/each}
+          </div>
+        {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
@@ -980,7 +1009,12 @@
         <iframe class="page" sandbox="" srcdoc={page} title={e.name}></iframe>
         {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html && !source}
+        {#if kind === "asciidoc"}
+          <!-- Build PDF: Asciidoctor PDF writes it next to the document. -->
+          <p class="more"><button class="render" onclick={() => makeExport(true, "adoc_pdf", [e.path])}>{t("export.go_adoc")}</button> <kbd>{ui.cfg.actions.adoc_pdf?.[1] ?? ""}</kbd></p>
+        {/if}
         <article class="markdown">{@html html}</article>
+
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html}
         <pre class="mono code"><code class="hljs">{@html html}</code></pre>
       {:else if rich?.error}
@@ -1120,8 +1154,30 @@
     background: #fff;
     border-radius: var(--r);
   }
-  /* Diagrams are drawn for a white page, whatever the theme. */
+  .drawio-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  .drawio-tabs button {
+    font: inherit;
+    font-size: 0.85em;
+    padding: 2px 10px;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r) var(--r) 0 0;
+    background: var(--status-bg);
+    color: var(--panel-fg);
+    cursor: pointer;
+  }
+  .drawio-tabs button.on {
+    background: var(--cursor-bg);
+    color: var(--cursor-fg);
+  }
+  /* Diagrams are drawn for a white page, whatever the theme. Its toolbar's stacking stays
+     inside it, under the app's dialogs. */
   .drawio {
+    isolation: isolate;
     flex: 1;
     min-height: 240px;
     overflow: auto;

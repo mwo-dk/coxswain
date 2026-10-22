@@ -35,4 +35,4 @@ through each part, with the keys and the exact `config.toml` lines.
 key with its default. Every key is listed in [Configuration: every key](../reference/configuration.md).
 
 ---
-[← Previous: Split and join (Alt+X)](../files/split-and-join.md) · [Next: The Settings window →](settings.md)
+[← Previous: Export draw.io diagram](../files/drawio-export.md) · [Next: The Settings window →](settings.md)
