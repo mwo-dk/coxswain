@@ -333,6 +333,11 @@ How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draught
 | `board` | string | `"theme"` | The squares' colours: `"theme"` from the theme, `"green"` or `"brown"` for a tournament board; the wood of [Go boards](../previews/go.md) and the squares of [draughts boards](../previews/draughts.md) the wood and lines of [xiangqi boards](../previews/xiangqi.md) and of [shogi boards](../previews/shogi.md) too |
 | `pieces` | string | `"auto"` | How the terminal app draws the pieces: `"auto"` the finest block characters the terminal is known to draw, or `"octants"`, `"sextants"`, `"quadrants"`, `"halves"`, `"figurines"` ([Game pieces in the terminal](../previews/game-pieces.md)) |
 | `book` | string | `""` | A Polyglot opening book (`.bin`) whose moves the board shows for each position (`~` is the home folder, a relative path starts from the game file's folder). Empty, or not a book: the first book in the game file's own folder ([Opening books](../previews/chess.md#opening-books)) |
+| `analysis` | bool | `false` | Ask the chess engine about each position as soon as a game opens; off, **a** (*Engine*) in the view asks it ([The engine](../previews/chess-play.md#the-engine)) |
+| `engine` | string | `""` | The UCI engine: a program's name or a path (`~` is the home folder). Empty: `stockfish` when it is installed. Nothing is downloaded |
+| `engine_time` | integer | `1000` | How long the engine thinks about a position, in milliseconds (100 to 60000) |
+| `engine_lines` | integer | `3` | How many of the engine's best lines are shown (1 to 5) |
+| `review_time` | integer | `500` | How long the engine thinks about each position when a whole game is analysed (**g**), in milliseconds (100 to 10000) ([Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) |
 
 ## What has no key
 
@@ -394,6 +399,11 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Move notation* | `chess_notation` | `[chess] notation` |
 | | *Chess board* | `chess_board` | `[chess] board` |
 | | *Opening book* | `chess_book` | `[chess] book` |
+| | *Chess engine on* | `chess_analysis` | `[chess] analysis` |
+| | *Chess engine* | `chess_engine` | `[chess] engine` |
+| | *Engine time (ms)* | `chess_engine_time` | `[chess] engine_time` |
+| | *Engine lines* | `chess_engine_lines` | `[chess] engine_lines` |
+| | *Analysis time a move (ms)* | `chess_review_time` | `[chess] review_time` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

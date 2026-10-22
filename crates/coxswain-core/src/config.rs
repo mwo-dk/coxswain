@@ -1764,11 +1764,23 @@ pub struct ChessConfig {
     /// How the terminal app draws the pieces: `auto` (the finest block characters the terminal
     /// is known to draw), `octants`, `sextants`, `quadrants`, `halves` or `figurines`.
     pub pieces: String,
+    /// Ask the chess engine about each position from the start (the view's *Engine* turns it
+    /// on and off there). Off by default: nothing runs until asked.
+    pub analysis: bool,
+    /// The UCI engine to ask: a path or a program's name. Empty: `stockfish` on PATH.
+    pub engine: String,
+    /// How long the engine thinks about a position, in milliseconds.
+    pub engine_time: u32,
+    /// How many of the engine's best lines are shown, 1 to 5.
+    pub engine_lines: u32,
+    /// How long the engine thinks about each position of a game analysed as a whole, in
+    /// milliseconds.
+    pub review_time: u32,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into() }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500 }
     }
 }
 

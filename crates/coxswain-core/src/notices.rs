@@ -378,6 +378,16 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("ebooks", why, Some("ebooks"))
         });
     }
+    // The chess view asks an engine about each position, but none is installed: what to install.
+    if cfg.chess.analysis
+        && let Err(text) = crate::chess::play::engine_for(cfg)
+    {
+        let copy = crate::chess::play::install();
+        all.push(Notice {
+            copy,
+            ..Notice::new("chess-engine", text, Some("chess_analysis"))
+        });
+    }
     all.retain(|n| !seen(&n.id));
     all
 }

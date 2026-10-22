@@ -69,6 +69,7 @@ a little larger or smaller.
 | `docker.io/mwader/static-ffmpeg:latest` (default for ffmpeg) | Videos and sound the app's player cannot play shown as a frame or a waveform, HEIC photos, a frame as each video's thumbnail and poster, a waveform above each song's player, the facts of videos (length, size, codecs, tracks) ([Media](media.md#video-and-sound-with-ffmpeg)), and [Convert video or audio](../files/convert-media.md) | about 126 MB | about 315 MB | Previews: well under a second each. An MP4 keeps the processor busy for a while, often about as long as the video plays; only when you ask |
 | `docker.io/dstmodders/imagemagick:latest` (default for ImageMagick) | GIMP (`.xcf`) and the other pictures only ImageMagick reads, with thumbnails ([Media](media.md#photos-only-imagemagick-or-ffmpeg-reads)), and [Convert or edit pictures](../files/edit-pictures.md); no HEIC or RAW photos (its build has no reader for them) | about 60 MB | about 152 MB | Light: a second or two per picture |
 | `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (default for GDAL, pinned to its digest) | A map of GeoPackage, shapefile, GeoJSON, KML and GeoTIFF files from their own shapes, with thumbnails, their layers, coordinate system and extent ([Geodata](geodata.md)), and Convert geodata | about 40 MB | about 98 MB | Light: under a second per file for most; a large GeoPackage or GeoTIFF takes a few seconds |
+| `ghcr.io/mwo-dk/coxswain-stockfish:latest` (default for the chess engine) | Stockfish for the chess view's best lines and whole-game analysis when none is installed ([The engine](chess-play.md#the-engine)) | about 70 MB | about 80 MB | Light while you look at a position; a whole game analysed keeps one core busy for about a minute |
 | `docker.io/openscad/openscad:trixie.2026-10-19` (default for OpenSCAD, pinned to its digest) | A picture of each `.scad` model's part, with thumbnails ([OpenSCAD models](openscad.md)), and Export 3D model as STL or 3MF | about 241 MB | about 635 MB | Light to heavy: most models take a second with Manifold; a large one with many curves keeps the processor busy for a while |
 | `docker.io/apache/tika:4.1.0` (pinned to its digest, for [Read other formats with Apache Tika](../search/tika.md)) | The words of OneNote, XPS, CHM, Outlook data files, MHTML, Hangul and Access files for Find, and of older Office files when LibreOffice is not installed | about 190 MB | about 440 MB | Its server runs only while such files are read and stops after 5 idle minutes: about 350 MB of memory, a fraction of a second of processor time per file |
 | `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (default for calibre, only with [E-books with calibre](ebooks.md) on) | MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books shown with their cover, title, authors and first pages, their words in Find, and *Convert e-book* to EPUB, AZW3 or PDF | about 1.3 GB | about 3.6 GB | A second or two of processor time per book, a few more for a PDF; reading a library for search runs in the background at the lowest priority |
@@ -88,6 +89,7 @@ Where each image comes from, and why it is the one:
 | `mwader/static-ffmpeg:latest` | Mattias Wadman's static builds of ffmpeg and ffprobe, the most used of their kind; Coxswain runs `/ffmpeg` and `/ffprobe` in it | ffmpeg GPL-2.0-or-later (with x264 and the other libraries built in), the build scripts MIT | With every ffmpeg release, and when a library in it changes (a new build every few days in 2026) |
 | `osgeo/gdal:alpine-small-3.13.3` | The GDAL project's own images, built with each release; the small Alpine one has the drivers Coxswain uses and PROJ. Pinned to its digest: a Coxswain release moves it on | GDAL MIT, PROJ MIT, the libraries in it theirs (SQLite public domain, libtiff, libgeotiff, expat …) | With every GDAL release (every few weeks in 2026) |
 | `kicad/kicad:9.0.9` | The KiCad project's own image of its newest release (the one without 3D models of parts; `-full` adds them at several GB). Pinned to its digest: a Coxswain release moves it on | KiCad GPL-3.0-or-later, its libraries CC-BY-SA-4.0 with an exception for what you make with them | With every KiCad release (every month or two in 2026) |
+| `mwo-dk/coxswain-stockfish:latest` | Coxswain itself (`packaging/images/stockfish`): Stockfish 17.1's released source and its two evaluation networks, each checked by its digest, built statically into an image that holds nothing else (no shell) | Stockfish GPL-3.0 | Built again every week; a new Stockfish release with a Coxswain release |
 | `openscad/openscad:trixie.2026-10-19` | The OpenSCAD project's own image of a dated snapshot (its last release, 2021.01, has no Manifold and no image of its own worth taking). Pinned to its digest: a Coxswain release moves it on | OpenSCAD GPL-2.0-or-later, the libraries in it theirs (CGAL GPL-3.0-or-later, Manifold Apache-2.0, Qt LGPL-3.0 …) | A snapshot every week in 2026 |
 | `dstmodders/imagemagick:latest` | The dstmodders project's ImageMagick builds on Alpine, made by its scripts for each release; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), the build scripts MIT | With every ImageMagick release (weekly in 2026) |
 | `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
@@ -116,8 +118,8 @@ Every run is `podman run` (or `docker run`) with:
 | `--security-opt label=disable` | No SELinux relabelling, so your folders' labels are never changed |
 | `--user <you>` and `-e HOME=/tmp` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache; your user has no home in the image, so programs that keep a profile (LibreOffice) keep it in the container's `/tmp` |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
-| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's runs) |
-| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg, ImageMagick, GDAL, OpenSCAD and KiCad) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
+| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's runs, `coxswain-stockfish-<n>` for the chess engine's) |
+| `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` (ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad and the chess engine) | Their images run tighter still: nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
 `typst compile --root /src` for Typst, `soffice -env:UserInstallation=file:///tmp/lo --headless --convert-to pdf --outdir /out`
@@ -132,7 +134,10 @@ policy (`MAGICK_CONFIGURE_PATH`: no helper programs, picture formats only, bound
 time) for ImageMagick, and `gdalinfo`, `ogrinfo`, `ogr2ogr` and `gdal_translate` for GDAL, each
 held to the driver of the file's kind (`-if GPKG`, `-if GTiff` …) with `GDAL_PAM_ENABLED=NO`,
 `openscad -o /out/… --export-format binstl --backend=manifold` for OpenSCAD, and `kicad-cli sch export …`
-and `kicad-cli pcb export …` for KiCad. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
+and `kicad-cli pcb export …` for KiCad. The chess
+engine (`/stockfish`) gets no folder at all: it talks UCI over standard input and output, runs
+as the image's own user (nobody), and is named `coxswain-stockfish-<n>` so it is killed when the
+position changes or the view closes. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
 `-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
 commands. No preview container starts a server or opens a port: each run does one file and ends.
@@ -240,6 +245,7 @@ default.
 | – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"` |
 | – | `[preview.images] imagemagick` | `"docker.io/dstmodders/imagemagick:latest"` |
 | – | `[preview.images] kicad` | `"docker.io/kicad/kicad:9.0.9@sha256:e638…"` (pinned) |
+| – | `[preview.images] stockfish` | `"ghcr.io/mwo-dk/coxswain-stockfish:latest"` ([The engine](chess-play.md#the-engine)) |
 | – | `[preview.images] openscad` | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` (pinned) |
 | – | `[preview.images] gdal` | `"ghcr.io/osgeo/gdal:alpine-small-3.13.3@sha256:58e2…"` (pinned) |
 | – | `[preview.images] tika` | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` (pinned) ([Other formats with Apache Tika](../search/tika.md)) |
@@ -270,7 +276,9 @@ ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's, for [Convert video or a
 [Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)
 and [Export 3D model](openscad.md#export-3d-model), [Export from KiCad](kicad.md#export-from-kicad), and calibre's, for [e-books](ebooks.md)
 (**F3** on a book, *Convert e-book*), the same way as the desktop app: asked
-first, with the first pull and its size. **Properties** (**Alt+Enter**) reads a video's facts
+first, with the first pull and its size. The chess engine's image it runs when it is pulled (by
+the desktop app's Settings, or `podman pull ghcr.io/mwo-dk/coxswain-stockfish:latest`), never
+pulling it itself. **Properties** (**Alt+Enter**) reads a video's facts
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,

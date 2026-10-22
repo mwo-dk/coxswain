@@ -93,4 +93,4 @@ A cell has two colours, and a piece is a few dozen dots: a 6 × 3 square in sext
 dots. A larger window gives larger squares and finer pieces; octants are the finest.
 
 ---
-[← Previous: Chess games](chess.md) · [Next: Go games →](go.md)
+[← Previous: Chess games](chess.md) · [Next: Chess: playing on and the engine →](chess-play.md)
