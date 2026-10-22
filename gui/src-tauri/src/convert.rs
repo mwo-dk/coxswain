@@ -440,9 +440,8 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
                 None
             }
             "libreoffice" => {
-                // A profile in the container's /tmp: run as you (docker, rootful podman), its
-                // own user's home is not there to write one in.
-                c.args(["-e", "HOME=/tmp", image.as_str(), "soffice", "-env:UserInstallation=file:///tmp/lo", "--headless", "--convert-to", "pdf", "--outdir", "/out", &format!("/src/{name}")]);
+                // A profile in the container's /tmp, the one place it can write besides /out.
+                c.args([image.as_str(), "soffice", "-env:UserInstallation=file:///tmp/lo", "--headless", "--convert-to", "pdf", "--outdir", "/out", &format!("/src/{name}")]);
                 None
             }
             "ghostscript" => {

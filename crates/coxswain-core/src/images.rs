@@ -28,18 +28,25 @@ pub fn key(tool: &str) -> &str {
 
 /// `<rt> run` as every container of Coxswain's starts: removed when it ends, no network, no
 /// SELinux relabelling of your folders, named `name` so a run that is stopped can be killed,
-/// `src` read-only at /src and `out` (when there is one) at /out. It runs as you: in rootless
-/// podman the container's root is you, so `--user 0:0`, where an image's own user (Gotenberg's,
-/// OCRmyPDF's) could not write to /out; rootful docker or podman get your own uid and gid, so
-/// no root-owned file is left, with `HOME=/tmp`, as that user has no home in the image.
+/// held by `TIGHT`, `src` read-only at /src and `out` (when there is one) at /out. It runs as
+/// you: in rootless podman the container's root is you, so `--user 0:0`, where an image's own
+/// user (Gotenberg's, OCRmyPDF's) could not write to /out; rootful docker or podman get your own
+/// uid and gid, so no root-owned file is left. `HOME=/tmp`, as the root is read-only and that
+/// user has no home in the image.
 pub fn sealed(rt: &str, rt_path: &Path, name: &str, src: &Path, out: Option<&Path>) -> Command {
+    sealed_at(rt, rt_path, name, src, "/src", out)
+}
+
+fn sealed_at(rt: &str, rt_path: &Path, name: &str, src: &Path, at: &str, out: Option<&Path>) -> Command {
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
-    c.arg("--mount").arg(bind(src, "/src", true));
+    c.args(tight(rt_path));
+    c.arg("--mount").arg(bind(src, at, true));
     if let Some(out) = out {
         c.arg("--mount").arg(bind(out, "/out", false));
     }
     c.args(user(rt == "podman" && rootless(rt_path), out.unwrap_or(src)));
+    c.args(["-e", "HOME=/tmp"]);
     c
 }
 
@@ -51,10 +58,11 @@ pub(crate) fn bind(host: &Path, at: &str, ro: bool) -> String {
     format!("type=bind,\"source={src}\",target={at}{}", if ro { ",readonly" } else { "" })
 }
 
-/// The options that hold ffmpeg's, ImageMagick's, Asciidoctor's and draw.io's containers tighter than `sealed`: a
-/// read-only root with a small `/tmp` in memory, bounded memory and processes, no
-/// capabilities, no gaining of privileges. `label=disable` stays, as in `sealed`: relabelling
-/// (`:Z`) would change the SELinux label of the user's own file.
+/// The options that hold every container of Coxswain's (`sealed`, `sealed_file`, `sealed_bare`,
+/// through `tight`; given once, as docker refuses a second `--tmpfs /tmp`): a read-only root
+/// with a small `/tmp` in memory, bounded memory and processes, no capabilities, no gaining of
+/// privileges. `label=disable` stays: relabelling (`:Z`) would change the SELinux label of the
+/// user's own files.
 pub const TIGHT: &[&str] = &[
     "--read-only",
     "--tmpfs",
@@ -71,26 +79,18 @@ pub const TIGHT: &[&str] = &[
 pub fn sealed_bare(_rt: &str, rt_path: &Path, name: &str) -> Command {
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
-    c.args(TIGHT);
+    c.args(tight(rt_path));
     c
 }
 
 /// `sealed`, seeing one file only: `file`, read-only at `at` (`/src/in.heic`), instead of a
-/// folder at /src, with `TIGHT`'s limits. Nothing else of its folder is there to be read, and
-/// `out` is the only place it can write.
+/// folder at /src. Nothing else of its folder is there to be read, and `out` is the only place
+/// it can write.
 pub fn sealed_file(rt: &str, rt_path: &Path, name: &str, file: &Path, at: &str, out: Option<&Path>) -> Command {
-    let mut c = crate::tools::command(rt_path);
-    c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
-    c.args(tight(rt_path));
-    c.arg("--mount").arg(bind(file, at, true));
-    if let Some(out) = out {
-        c.arg("--mount").arg(bind(out, "/out", false));
-    }
-    c.args(user(rt == "podman" && rootless(rt_path), out.unwrap_or(file)));
-    c
+    sealed_at(rt, rt_path, name, file, at, out)
 }
 
-/// The `--user` (and `HOME`) options of `sealed`.
+/// The `--user` option of `sealed`.
 pub(crate) fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
     if rootless_podman {
         return vec!["--user".into(), "0:0".into()];
@@ -99,7 +99,7 @@ pub(crate) fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
     {
         use std::os::unix::fs::MetadataExt;
         if let Ok(m) = std::fs::metadata(owner) {
-            return vec!["--user".into(), format!("{}:{}", m.uid(), m.gid()), "-e".into(), "HOME=/tmp".into()];
+            return vec!["--user".into(), format!("{}:{}", m.uid(), m.gid())];
         }
     }
     let _ = owner;
@@ -127,12 +127,14 @@ static BOUNDS: Mutex<BTreeMap<(PathBuf, String), bool>> = Mutex::new(BTreeMap::n
 /// `TIGHT`, less its memory and process bounds where a probe (`bounds_work`) found that `rt`
 /// cannot keep them; all of it while nothing says so.
 pub fn tight(rt: &Path) -> Vec<&'static str> {
-    let off = BOUNDS.lock().unwrap().iter().any(|((r, _), ok)| r == rt && !ok);
-    TIGHT
-        .iter()
-        .copied()
-        .filter(|a| !off || !(a.starts_with("--memory") || a.starts_with("--pids-limit")))
-        .collect()
+    bounded(!BOUNDS.lock().unwrap().iter().any(|((r, _), ok)| r == rt && !ok))
+}
+
+/// `TIGHT`, with its memory and process bounds only when `bounds`: the one place every
+/// container's options come from, those `sealed` starts and those built by hand (Tika's
+/// server, calibre's).
+pub fn bounded(bounds: bool) -> Vec<&'static str> {
+    TIGHT.iter().copied().filter(|a| bounds || !(a.starts_with("--memory") || a.starts_with("--pids-limit"))).collect()
 }
 
 /// Whether the runtime at `rt` can bound a container's memory and processes (`--memory`,
@@ -607,16 +609,22 @@ mod tests {
         assert_eq!(args.iter().filter(|a| a.starts_with("type=bind") && !a.ends_with(",readonly")).count(), 0, "no writable mount without an output folder");
         let c = sealed("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a"), Some(Path::new("/b")));
         let args: Vec<String> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
-        for want in ["--network=none", "type=bind,\"source=/a\",target=/src,readonly", "type=bind,\"source=/b\",target=/out"] {
+        for want in ["--network=none", "type=bind,\"source=/a\",target=/src,readonly", "type=bind,\"source=/b\",target=/out", "--read-only", "--cap-drop=ALL", "no-new-privileges", "HOME=/tmp"] {
             assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
         }
+        // Once: docker refuses a second `--tmpfs /tmp`.
+        for one in ["--tmpfs", "--read-only", "--cap-drop=ALL"] {
+            assert_eq!(args.iter().filter(|a| *a == one).count(), 1, "{one}: {args:?}");
+        }
+        let file = sealed_file("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a/x"), "/src/x", None);
+        assert_eq!(file.get_args().filter(|a| *a == "--tmpfs").count(), 1);
         assert_eq!(user(true, Path::new("/")), ["--user", "0:0"], "rootless podman: you are its root");
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
             let tmp = std::env::temp_dir();
             let m = std::fs::metadata(&tmp).unwrap();
-            assert_eq!(user(false, &tmp), ["--user".to_string(), format!("{}:{}", m.uid(), m.gid()), "-e".into(), "HOME=/tmp".into()], "rootful: the folder's owner");
+            assert_eq!(user(false, &tmp), ["--user".to_string(), format!("{}:{}", m.uid(), m.gid())], "rootful: the folder's owner");
         }
     }
 

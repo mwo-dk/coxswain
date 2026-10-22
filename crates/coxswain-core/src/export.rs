@@ -363,7 +363,6 @@ fn pull(rt: &Path, image: &str, stop: &AtomicBool, said: &mut impl FnMut(Said)) 
     })
 }
 
-use crate::images::TIGHT;
 
 fn container_name() -> String {
     format!("coxswain-export-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed))
@@ -394,7 +393,7 @@ fn adoc_command(how: &How, file: &Path, scratch: &Path) -> Result<(Command, Opti
         How::Container { rt, path, image } => {
             let name = container_name();
             let mut c = crate::images::sealed(rt, path, &name, dir, None);
-            c.args(TIGHT).args(["-e", "HOME=/tmp", "-w", "/src", image.as_str(), "asciidoctor-pdf"]).args(args).args(["/src", "-o", "-", "-"]);
+            c.args(["-w", "/src", image.as_str(), "asciidoctor-pdf"]).args(args).args(["/src", "-o", "-", "-"]);
             (c, Some(name))
         }
     })
@@ -467,7 +466,7 @@ fn drawio_command(how: &How, input: &Path, out: &Path, args: &[String]) -> Resul
             // The arguments reach draw.io as the script's own ("$@"), never as part of its text.
             let script = "Xvfb :42 -nolisten unix >/dev/null 2>&1 & export DISPLAY=:42; exec /opt/drawio/drawio --no-sandbox \"$@\"";
             // Its settings go to a home in the container's /tmp: the root is read-only.
-            c.args(TIGHT).args(["-e", "HOME=/tmp", "--entrypoint", "sh", image.as_str(), "-c", script, "sh"]).args(OFFLINE).args(args);
+            c.args(["--entrypoint", "sh", image.as_str(), "-c", script, "sh"]).args(OFFLINE).args(args);
             c.arg(format!("/src/{}", input.file_name().unwrap_or_default().to_string_lossy()));
             (c, Some(name))
         }
@@ -928,7 +927,6 @@ pub fn diagram_svg(cfg: &PreviewConfig, kind: &str, text: &str) -> Result<String
     }
     let empty = Scratch::new()?;
     let mut c = crate::images::sealed(rt, &path, &container_name(), &empty.0, None);
-    c.args(TIGHT);
     if kind == "plantuml" {
         c.args(["-e", "PLANTUML_SECURITY_PROFILE=SANDBOX", image.as_str()]).args(&argv[1..]);
     } else {

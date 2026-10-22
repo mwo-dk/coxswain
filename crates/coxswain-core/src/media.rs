@@ -867,9 +867,7 @@ pub(crate) fn in_folder<R>(
             How::Container { rt, path: rt_path, image, .. } => {
                 let name = container_name();
                 let mut c = if whole {
-                    let mut c = crate::images::sealed(rt, rt_path, &name, &dir, Some(scratch));
-                    c.args(crate::images::TIGHT);
-                    c
+                    crate::images::sealed(rt, rt_path, &name, &dir, Some(scratch))
                 } else {
                     crate::images::sealed_file(rt, rt_path, &name, &abs, &alone, Some(scratch))
                 };
