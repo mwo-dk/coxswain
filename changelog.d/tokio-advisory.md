@@ -1,0 +1,1 @@
+| **Tokio 1.54.1.** The async library under the update check, model downloads and the desktop app moves past a race in its timers (RUSTSEC-2026-0384); 1.54.0 was withdrawn. | [Privacy and updates](reference/privacy.md) |
