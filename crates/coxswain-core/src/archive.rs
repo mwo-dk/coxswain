@@ -1631,6 +1631,11 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
 /// before it goes, and copies left by earlier runs go after a day.
 pub(crate) fn peek_folder() -> io::Result<PathBuf> {
+    // Tests run side by side in one process, each on its own thread: a folder each, so one
+    // test's fresh folder never takes away the copy another is still reading.
+    #[cfg(test)]
+    return run_folder(&format!("peek-{:?}", std::thread::current().id()), true);
+    #[cfg(not(test))]
     run_folder("peek", true)
 }
 

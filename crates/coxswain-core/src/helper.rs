@@ -1755,7 +1755,10 @@ mod tests {
         let d = tree("newer");
         helper_of(("1.0.0", PROTOCOL), &d, Duration::from_secs(5))();
         up(&d);
-        let new_helper = helper_of(("9.0.0", PROTOCOL), &d, Duration::from_secs(5));
+        // It stays a while after an app lets go: on a loaded runner the new app's line may break
+        // while the helper rebuilds the index it found, and it must still be there to come back
+        // to (this app starts no second one).
+        let new_helper = helper_of(("9.0.0", PROTOCOL), &d, crate::test_limit(Duration::from_secs(5)));
         let (new_starts, spawn) = counting(new_helper.clone());
         let new = Client::of(
             ("9.0.0", PROTOCOL),

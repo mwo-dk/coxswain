@@ -949,7 +949,9 @@ pub(crate) mod tests {
     fn quick(secs: u64, f: impl FnOnce()) {
         let t = std::time::Instant::now();
         f();
-        assert!(t.elapsed() < std::time::Duration::from_secs(secs), "took {:?}", t.elapsed());
+        // A debug build on a loaded runner is many times slower: `test_limit` allows for it.
+        let limit = crate::test_limit(std::time::Duration::from_secs(secs));
+        assert!(t.elapsed() < limit, "took {:?}", t.elapsed());
     }
 
     #[test]
