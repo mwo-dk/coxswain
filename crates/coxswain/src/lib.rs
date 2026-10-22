@@ -5,6 +5,7 @@ mod chess;
 mod pieces;
 mod go;
 mod ebook;
+mod pictures;
 mod git_config;
 mod provenance;
 mod guide;
@@ -4624,6 +4625,7 @@ pub fn main() {
     }));
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableBracketedPaste);
+    pictures::live();
     let res = main_loop(&mut term, &mut app);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableBracketedPaste);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
@@ -5414,7 +5416,10 @@ mod panel_tests {
         assert_eq!(names(&app), ["..", "small", "big", "mid", "f.txt"]);
         assert_eq!(app.panels[0].current().map(|e| e.name.as_str()), Some("big"), "the cursor stays on its folder");
         assert_eq!(app.panels[0].marked_bytes, 5 << 30);
-        std::fs::remove_dir_all(&d).unwrap();
+        // Windows keeps the folder while the app watches it: let it go first, and leave a
+        // folder still held (the temporary folder's own) rather than fail.
+        drop(app);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

@@ -229,7 +229,7 @@ not.
 | *Move notation* | `[chess] notation` | `figurines` (default), `letters` |
 | *Chess board* | `[chess] board` | `theme` (default), `green`, `brown` |
 | *Opening book* | `[chess] book` | A path to a Polyglot `.bin` book; empty (default): the first book next to the game file |
-| *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `octants`, `sextants`, `quadrants`, `halves`, `figurines` ([Game pieces in the terminal](game-pieces.md#the-setting)) |
+| *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `pictures`, `octants`, `sextants`, `quadrants`, `halves`, `figurines` ([Game pieces in the terminal](game-pieces.md#the-setting)) |
 
 ```toml
 [chess]
