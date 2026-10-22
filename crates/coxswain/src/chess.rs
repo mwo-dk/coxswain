@@ -1039,7 +1039,7 @@ impl Viewer {
             for k in 0..values.len().min(n) {
                 // More moves than room: every so many.
                 let (node, v) = values[k * values.len() / values.len().min(n)];
-                let here = o.at == node && !self.played.as_ref().is_some_and(|l| l.at > 0);
+                let here = self.open.as_ref().is_some_and(|o| o.at == node) && !self.played.as_ref().is_some_and(|l| l.at > 0);
                 let bar = BARS[((review::share(v) * 7.99) as usize).min(7)];
                 spans.push(Span::styled(bar, if here { sty(&theme.dialog_input) } else { base }));
             }
