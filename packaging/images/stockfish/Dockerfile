@@ -17,10 +17,11 @@ RUN curl -fsSLo sf.tar.gz https://github.com/official-stockfish/Stockfish/archiv
  && echo "0cfd9396438798cc68f5c0d5fa0bb458bb8ffff7de06add841aaeace86bec1f1  sf.tar.gz" | sha256sum -c - \
  && tar xzf sf.tar.gz --strip-components=1 && rm sf.tar.gz
 # A build that runs on any CPU of its kind: SSE4.1 and POPCNT on amd64 (every one since about
-# 2008), plain ARMv8 on arm64.
+# 2008), plain ARMv8 on arm64. Alpine's fortified headers do not go with Stockfish's link-time
+# optimisation, so they are left out (-U_FORTIFY_SOURCE).
 RUN cd src \
  && arch=$([ "$TARGETARCH" = arm64 ] && echo armv8 || echo x86-64-sse41-popcnt) \
- && make -j"$(nproc)" build ARCH="$arch" COMP=gcc EXTRALDFLAGS=-static \
+ && make -j"$(nproc)" build ARCH="$arch" COMP=gcc EXTRALDFLAGS=-static EXTRACXXFLAGS=-U_FORTIFY_SOURCE \
  && strip stockfish \
  && ./stockfish bench 16 1 6 >/dev/null 2>&1
 
