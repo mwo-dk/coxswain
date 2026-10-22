@@ -513,6 +513,24 @@ impl Store {
         self.reader_changed("readers", tag, ends)
     }
 
+    /// Files left without text and larger than `max` are read again, once (under `key`, at
+    /// `tag`, as `reader_changed`): a reader now reads files of any size of some kinds.
+    fn large_unread(&self, key: &str, tag: &str, max: u64) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let before: String = db
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .unwrap_or_default();
+        if before == tag || matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b) {
+            return Ok(());
+        }
+        db.execute(
+            "UPDATE files SET has_text = NULL WHERE has_text = 0 AND size > ?1",
+            [max as i64],
+        )?;
+        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", rusqlite::params![key, tag])?;
+        Ok(())
+    }
+
     /// `readers_changed` for one reader, under its own `key` in the store, so a change to it
     /// reads only its own files again. Apps that know no such key leave it alone, and their
     /// own `readers` tag stays as they wrote it.
@@ -2142,6 +2160,10 @@ fn scan_for(
         let ends: Vec<String> = tika.iter().map(|e| format!(".{e}")).collect();
         store.reader_changed("readers.tika", crate::extract::tika::READER, &ends)?;
     }
+    // Plain text, code, CSV and logs of any size are read line by line (2.33): those left
+    // without text for being larger than `text_max_size` are read, once. Only files without
+    // text and that large; a larger file of another kind is passed over again at once.
+    store.large_unread("readers.large", "1", cfg.text_max_size)?;
     // PDF and Word files leave out hidden text (2.33): their old text and passages go, and
     // they are read and their passages made again, once.
     store.reader_dropped("readers.pdf", "1", &[".pdf"])?;

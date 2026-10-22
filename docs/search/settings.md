@@ -73,7 +73,7 @@ Six groups: *What is read* (open at first), *Folders*, *Meaning*, *Ask*, *Built-
 | | *Cloud folders read anyway* | `cloud_read` | list, `[]` | The clouds found, each with **Read its files**, and folders added ([Cloud files](cloud-files.md)) |
 | | *Read other formats with Apache Tika (container)* | `tika` | bool, `false` | OneNote, XPS, CHM, Outlook data files and more, read by Apache Tika in a container without network; pulls its image (about 190 MB) when ticked ([Other formats with Apache Tika](tika.md)) |
 | | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*; a missing one with the line that installs it and **Copy** ([Installing what is missing](scans.md#installing-what-is-missing)) |
-| | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only |
+| | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only; plain text, code, CSV and logs are read whatever their size, their first 4 MB of text |
 | | *Most hits* | `max_results` | number, `10000` | The most rows Find lists for one kind of hit |
 | Folders | *Folders read* | `text_roots` | list, `[]` = *Your home folder* | [Choosing the folders](folders.md) |
 | | *Names only* | `names_only` | list, `[]` | [Choosing the folders](folders.md) |

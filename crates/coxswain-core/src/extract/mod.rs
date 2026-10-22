@@ -88,19 +88,19 @@ fn reader(path: &Path) -> Option<Reader> {
 pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
     // A PGN file of any size: its reader stops after a line per game for MAX_TEXT bytes.
     let pgn = matches!(crate::chess::format(path), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn));
-    if size == 0 || (size > max && !pgn) || crate::cloud::keep_out(path) {
+    // Plain text, code, CSV and logs of any size: read line by line, they stop at MAX_TEXT.
+    let streamed = pgn || reader(path).is_none();
+    if size == 0 || (size > max && !streamed) || crate::cloud::keep_out(path) {
         return None;
     }
+    let code = crate::code::is_code(&path.to_string_lossy());
     let text = match reader(path) {
-        Some(read) => std::panic::catch_unwind(|| read(path, max))
-            .ok()
-            .flatten()?,
-        None => plain::text(path, max)?,
-    };
-    let text = if crate::code::is_code(&path.to_string_lossy()) {
-        tidy_code(&text)
-    } else {
-        tidy(&text)
+        Some(read) => {
+            let text = std::panic::catch_unwind(|| read(path, max)).ok().flatten()?;
+            if code { tidy_code(&text) } else { tidy(&text) }
+        }
+        // Read as it is tidied, line by line: no more of the file than the text kept needs.
+        None => plain::tidied(path, code)?,
     };
     (!text.trim().is_empty()).then_some(text)
 }
@@ -108,38 +108,70 @@ pub fn text_of(path: &Path, size: u64, max: u64) -> Option<String> {
 /// Code as `tidy` leaves text, but with each line's indentation and one blank line where it
 /// has some.
 pub fn tidy_code(text: &str) -> String {
-    let mut out = String::with_capacity(text.len().min(MAX_TEXT));
-    let mut blank = false;
-    for line in text.lines() {
-        let line = seen(line);
-        let line = line.trim_end();
-        if line.is_empty() {
-            blank = !out.is_empty();
-            continue;
-        }
-        let start = if out.is_empty() {
-            ""
-        } else if blank {
-            "\n\n"
-        } else {
-            "\n"
-        };
-        blank = false;
-        if out.len() + start.len() + line.len() > MAX_TEXT {
-            break;
-        }
-        out.push_str(start);
-        out.push_str(line);
-    }
-    out
+    tidied(text.lines(), true)
 }
 
 /// One space between words, one line break between lines, no more than `MAX_TEXT` bytes, and
 /// the text as `seen` leaves it.
 pub fn tidy(text: &str) -> String {
-    let mut out = String::with_capacity(text.len().min(MAX_TEXT));
-    let mut line = String::new();
-    for l in text.lines() {
+    tidied(text.lines(), false)
+}
+
+fn tidied<'a>(lines: impl Iterator<Item = &'a str>, code: bool) -> String {
+    let mut t = Tidy::new(code);
+    for l in lines {
+        if !t.push(l) {
+            break;
+        }
+    }
+    t.out
+}
+
+/// `tidy` (or `tidy_code`) a line at a time, for text read as it comes: the same text in, the
+/// same out, whether whole or line by line.
+pub(crate) struct Tidy {
+    pub out: String,
+    line: String,
+    blank: bool,
+    code: bool,
+}
+
+impl Tidy {
+    pub fn new(code: bool) -> Tidy {
+        Tidy {
+            out: String::new(),
+            line: String::new(),
+            blank: false,
+            code,
+        }
+    }
+
+    /// Adds a line (without its line break); `false` once the text is full.
+    pub fn push(&mut self, l: &str) -> bool {
+        let out = &mut self.out;
+        if self.code {
+            let line = seen(l);
+            let line = line.trim_end();
+            if line.is_empty() {
+                self.blank = !out.is_empty();
+                return true;
+            }
+            let start = if out.is_empty() {
+                ""
+            } else if self.blank {
+                "\n\n"
+            } else {
+                "\n"
+            };
+            self.blank = false;
+            if out.len() + start.len() + line.len() > MAX_TEXT {
+                return false;
+            }
+            out.push_str(start);
+            out.push_str(line);
+            return true;
+        }
+        let line = &mut self.line;
         line.clear();
         for word in seen(l).split_whitespace() {
             if !line.is_empty() {
@@ -148,20 +180,20 @@ pub fn tidy(text: &str) -> String {
             line.push_str(word);
         }
         if line.is_empty() {
-            continue;
+            return true;
         }
         if !out.is_empty() {
             out.push('\n');
         }
         // The line that does not fit is cut at a word, and the text ends there.
         if out.len() + line.len() > MAX_TEXT {
-            let room = start(&line, MAX_TEXT.saturating_sub(out.len()));
+            let room = start(line, MAX_TEXT.saturating_sub(out.len()));
             out.push_str(&room[..room.rfind(' ').unwrap_or(room.len())]);
-            break;
+            return false;
         }
-        out.push_str(&line);
+        out.push_str(line);
+        true
     }
-    out
 }
 
 /// The bytes as text, as far as they are UTF-8. A part of an office file is UTF-8 through and
@@ -524,9 +556,9 @@ pub(crate) mod tests {
             Some("Book the ferry.")
         );
         assert_eq!(
-            text_of(&d.join("notes.txt"), 20, 10),
-            None,
-            "larger than allowed"
+            text_of(&d.join("notes.txt"), 20, 10).as_deref(),
+            Some("Book the ferry."),
+            "plain text of any size: read line by line, it stops at MAX_TEXT"
         );
         let _ = std::fs::remove_dir_all(d);
     }
