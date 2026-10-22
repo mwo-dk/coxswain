@@ -63,8 +63,8 @@ fn lines(facts: &[(String, String)]) -> String {
     facts.iter().map(|(k, v)| format!("{k}{}  {v}\n", " ".repeat(w - k.chars().count()))).collect()
 }
 
-/// What F3 shows in the terminal app for an old picture, a tracker module or an Outlook
-/// message: its facts (and a module's sample names, a message's headers, text and
+/// What F3 shows in the terminal app for an old picture, a tracker module, an Outlook
+/// message or an AsciiDoc document (as readable text): its facts (and a module's sample names, a message's headers, text and
 /// attachments) as text. `None`: the file is none of these, the viewer shows it as it is.
 pub fn as_text(path: &Path) -> Option<String> {
     text_and_format(path).map(|(text, _)| text)
@@ -104,6 +104,12 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
             out += &format!("\n{}\n\n{}\n", t!("local_models.chat_template"), t.chars().take(200_000).collect::<String>());
         }
         return Some((out, format));
+    }
+    // An AsciiDoc document, formatted as text: its source is a key away in the editor.
+    if crate::export::is_adoc(path) {
+        let mut b = vec![];
+        std::io::Read::read_to_end(&mut std::io::Read::take(std::fs::File::open(path).ok()?, 8 << 20), &mut b).ok()?;
+        return Some((crate::export::adoc_text(&String::from_utf8_lossy(&b)), "AsciiDoc".into()));
     }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;

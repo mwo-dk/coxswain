@@ -88,6 +88,13 @@ def files(d):
                                 '<mxCell id="2" value="Lift-off $$x^2$$" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell>'
                                 '</root></mxGraphModel></diagram></mxfile>')
     (d / "l.md").write_text("# Orbit\n\nEnergy: $E = mc^2$\n\n$$\\int_0^1 x\\,dx$$\n")
+    # AsciiDoc with a Mermaid block, drawn in the app; a .drawio.svg with two pages in it, as tabs.
+    (d / "aa.adoc").write_text("= Guide\n\n[mermaid]\n----\nflowchart LR\n  A[Fuel] --> B[Orbit]\n----\n")
+    from html import escape
+    cell = '<mxCell id="2" value="{}" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell>'
+    page = lambda name, label: f'<diagram id="{name}" name="{name}"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>' + cell.format(label) + "</root></mxGraphModel></diagram>"
+    mx = "<mxfile>" + page("First", "Booster") + page("Second", "Lander") + "</mxfile>"
+    (d / "ab.drawio.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" content="{escape(mx)}"><rect width="10" height="10"/></svg>')
     pdf(d / "n.pdf", words=False)
     (d / "o.ps").write_text("%!PS\n/Helvetica findfont 24 scalefont setfont\n72 700 moveto (Rocket) show\nshowpage\n")
     (d / "p.d2").write_text("tank -> valve -> engine\n")
@@ -152,6 +159,10 @@ def files(d):
         "math": ("l.md", "article .katex-display", "", 10),
         # With maths, which draw.io's viewer cannot load here: the diagram must still show.
         "drawio": ("m.drawio", ".drawio svg", "Lift-off", 20),
+        "adoc": ("aa.adoc", "article .diagram svg", "Orbit", 20),
+        # The diagram inside a picture, its pages as tabs.
+        "drawio_svg": ("ab.drawio.svg", ".drawio svg", "Booster", 20),
+        "drawio_tabs": ("ab.drawio.svg", ".drawio-tabs button", "Second", 20),
         "provenance": ("k.provenance.json", ".prov .flow", "matches the file here", 10),
         # A PDF without text: the line that offers Make PDF searchable.
         "scan": ("n.pdf", "p.more", "looks like a scan", 10),

@@ -65,6 +65,9 @@ pub struct Subject {
     pub ebooks: usize,
     /// Of the files, KiCad schematics and boards (`kicad::is_kicad`).
     pub kicad: usize,
+    /// Of the files, AsciiDoc documents and draw.io diagrams (`export`).
+    pub adocs: usize,
+    pub drawios: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -110,6 +113,8 @@ impl Subject {
             ebooks: count(&crate::ebook::is_ebook),
             kicad: count(&crate::kicad::is_kicad),
             speech: count(&crate::transcribe::is_speech),
+            adocs: count(&crate::export::is_adoc),
+            drawios: count(&crate::export::is_drawio),
             ..Subject::default()
         }
     }
@@ -172,6 +177,8 @@ impl Action {
             SplitFile => s.single() && s.files == 1 && disk,
             JoinParts => s.single() && s.parts == 1 && disk,
             VerifyChecksums => s.single() && s.sums == 1 && matches!(s.place, Place::Disk | Place::Snapshot),
+            AdocPdf => s.adocs > 0 && disk,
+            DrawioExport => s.drawios > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
@@ -271,6 +278,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("ebook", &[("menu", Action::ActionMenu)]),
     ("kicad", &[("menu", Action::ActionMenu)]),
     ("speech", &[("key", Action::ActionMenu)]),
+    ("adoc", &[("menu", Action::ActionMenu)]),
+    ("drawio", &[("menu", Action::ActionMenu)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -313,6 +322,8 @@ fn fits(id: &str, s: &Subject) -> bool {
         "ebook" => disk && s.ebooks > 0,
         "kicad" => disk && s.kicad > 0,
         "speech" => disk && s.single() && s.speech == 1,
+        "adoc" => disk && s.single() && s.adocs == 1,
+        "drawio" => disk && s.single() && s.drawios == 1,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
         "image" => disk && s.single() && s.images == 1,

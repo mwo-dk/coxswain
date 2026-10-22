@@ -265,6 +265,8 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.typst` | string | `"ghcr.io/typst/typst:latest"` | Typst's image (about 29 MB, 65 MB on disk) |
 | `images.ghostscript` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For PostScript; OCRmyPDF's image, which has Ghostscript (`gs` is run as its entry point) |
 | `images.ocrmypdf` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For Make PDF searchable, in both apps (about 310 MB, 850 MB on disk); its entry point must be `ocrmypdf` |
+| `images.asciidoctor` | string | `"docker.io/asciidoctor/docker-asciidoctor:latest"` | For [Build PDF of AsciiDoc](../files/asciidoc-pdf.md), in both apps (about 665 MB, 1.5 GB on disk); it must have `asciidoctor-pdf` |
+| `images.drawio` | string | `"docker.io/rlespinasse/drawio-desktop-headless:latest"` | For [Export draw.io diagram](../files/drawio-export.md) and the diagrams' thumbnails, with `drawio` on (about 560 MB, 1.3 GB on disk); it must have draw.io at `/opt/drawio/drawio` and Xvfb |
 | `images.duckdb` | string | `""` | No official image; set one whose entry point is `duckdb` |
 | `images.tika` | string | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` | Apache Tika's server image, for `[search] tika` (about 190 MB, 440 MB on disk); one you set must be an `apache/tika` server image. Pinned to its digest |
 | `images.gxps` | string | `""` | No image has GhostXPS; set one with `gxps` for XPS files |
@@ -280,12 +282,13 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
 | `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview or Make PDF searchable used (nor Apache Tika read a file with) for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
+| `drawio` | bool | `false` | [Export draw.io diagrams](../files/drawio-export.md) (PNG, SVG, PDF) and draw their thumbnails with draw.io: only in its container image `images.drawio` (podman or docker), never an installed draw.io |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The kinds, for `tools`, are `latex`, `typst`, `office` (LibreOffice), `postscript`
 (Ghostscript and GhostXPS), `diagrams` (PlantUML and every kind of Kroki's image), `markup`
 (pandoc), `databases` (DuckDB), `video` (ffmpeg: frames and waveforms), `pictures` (HEIC,
-ImageMagick's kinds, RAW), `maps` (GDAL), `models` (OpenSCAD), `kicad` (KiCad), `ebooks` (calibre), `transcripts` (Whisper, for Transcribe) and `ocr` (Make PDF searchable); `other`, Tika's row, has no choice: `[search] tika` turns it on;
+ImageMagick's kinds, RAW), `maps` (GDAL), `models` (OpenSCAD), `kicad` (KiCad), `ebooks` (calibre), `transcripts` (Whisper, for Transcribe), `asciidoc` (Asciidoctor PDF, for Build PDF of AsciiDoc) and `ocr` (Make PDF searchable); `other`, Tika's row, has no choice: `[search] tika` turns it on, nor has `drawio`: draw.io runs only in its container, with `drawio` on;
 [The tools](../previews/tools.md#the-tools) lists each with its programs and image. Up to 2.32
 the choice was per tool, `prefer_tool`; a config with it is rewritten to `tools` once, on start.
 
@@ -393,6 +396,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *LaTeX image* | `latex_image` | `[preview] images.latex` |
 | | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
 | | *E-books with calibre* | `ebooks` | `[preview] ebooks` |
+| | *Export draw.io diagrams* | `drawio` | `[preview] drawio` |
 | | *Keep images up to date* | `image_updates` | `[preview] image_updates` |
 | | *Remove images not used for 90 days* | `image_prune` | `[preview] image_prune` |
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |

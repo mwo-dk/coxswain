@@ -132,6 +132,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `convert_ebook` | none | | |
 | `space_view` | **Alt+U** | `export_kicad` | none |
 | `transcribe` | none | `compare_files` | **Shift+F2** |
+| `adoc_pdf` | none | `drawio_export` | none |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.

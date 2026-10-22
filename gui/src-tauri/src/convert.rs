@@ -40,24 +40,8 @@ fn media_op(tool: &str) -> Option<coxswain_core::media::Op> {
     })
 }
 
-/// How each diagram program of Kroki's image draws its kind: the program and its arguments,
-/// reading the diagram on standard input and writing SVG to standard output.
-fn kroki(tool: &str) -> Option<&'static [&'static str]> {
-    Some(match tool {
-        "d2" => &["d2", "-", "-"],
-        "ditaa" => &["ditaa", "--svg", "-", "-"],
-        "svgbob" => &["svgbob"],
-        "pikchr" => &["pikchr", "--svg-only", "-"],
-        "nomnoml" => &["nomnoml"],
-        "wavedrom" => &["wavedrom"],
-        "vega" => &["vega", "--spec-format=default"],
-        "vegalite" => &["vega", "--spec-format=lite"],
-        "dbml" => &["dbml"],
-        "erd" => &["erd", "-f", "svg"],
-        "bytefield" => &["bytefield"],
-        _ => return None,
-    })
-}
+/// How each diagram program of Kroki's image draws its kind (`export::kroki`).
+use coxswain_core::export::kroki;
 
 use coxswain_core::tools::{container_runtime as runtime, image_size, which};
 
@@ -1463,6 +1447,201 @@ pub async fn gpx_map(path: PathBuf) -> Res<Option<PathBuf>> {
             std::fs::write(&file, coxswain_core::geo::gpx_map(&path)?).map_err(|e| e.to_string())?;
         }
         Ok(Some(file))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// *Build PDF of AsciiDoc* and *Export draw.io diagram* (`coxswain_core::export`): what it
+/// would do with `paths`, for the question before it.
+#[derive(Serialize)]
+pub struct ExportPlan {
+    /// The files among those picked it takes.
+    files: Vec<PathBuf>,
+    /// What it writes, which program runs, and the first pull with its size.
+    about: String,
+    /// Why it cannot run here: what to install, or which setting to change.
+    missing: Option<String>,
+    /// draw.io exports are off: Settings opens at their switch.
+    off: bool,
+}
+
+#[tauri::command]
+pub async fn export_plan(paths: Vec<PathBuf>, op: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<ExportPlan> {
+    use coxswain_core::export;
+    let op = export::Op::from_id(&op).ok_or_else(|| t!("convert.unknown_engine"))?;
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        // A file only in the cloud is not fetched to be read: it is left out.
+        let files: Vec<PathBuf> = paths.into_iter().filter(|p| op.takes(p) && crate::here(p).is_ok() && p.is_file()).collect();
+        let (about, missing) = match export::how(&cfg, op.tool()) {
+            Ok(how) => (format!("{} {}", export::confirm(op, &files), export::about(&how).0), None),
+            Err(e) => (String::new(), Some(e)),
+        };
+        ExportPlan { files, about, missing, off: op.tool() == export::DRAWIO && !cfg.drawio }
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+static EXPORT: Mutex<Option<SearchableProgress>> = Mutex::new(None);
+static EXPORT_STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Make `op` of each of `paths`, one after the other; one export at a time in the app. What was
+/// written, and what failed (`name: why`, one per line).
+#[tauri::command]
+pub async fn export_run(paths: Vec<PathBuf>, op: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Vec<PathBuf>> {
+    use coxswain_core::export::{self, Said};
+    use std::sync::atomic::Ordering;
+    let op = export::Op::from_id(&op).ok_or_else(|| t!("convert.unknown_engine"))?;
+    for p in &paths {
+        crate::here(p)?;
+    }
+    let cfg = ctx.cfg().preview.clone();
+    {
+        let mut s = EXPORT.lock().unwrap();
+        if s.is_some() {
+            return Err(t!("export.busy_already"));
+        }
+        *s = Some(SearchableProgress { all: paths.len(), ..Default::default() });
+    }
+    EXPORT_STOP.store(false, Ordering::Relaxed);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let set = |f: &dyn Fn(&mut SearchableProgress)| {
+            if let Some(p) = EXPORT.lock().unwrap().as_mut() {
+                f(p)
+            }
+        };
+        let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        let done = export::run_all(&cfg, op, &paths, &EXPORT_STOP, |i| set(&|p| (p.at, p.name, p.line) = (i, names[i].clone(), String::new())), |said| {
+            let line = match said {
+                Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(op.tool()).cloned().unwrap_or_default())),
+                Said::Line(l) => l.to_string(),
+            };
+            set(&|p| p.line = line.clone());
+        });
+        // The image was used only when the container ran, not the installed program.
+        if let Ok(export::How::Container { image, .. }) = export::how(&cfg, op.tool()) {
+            USED.lock().unwrap().insert(image);
+        }
+        // Done here, on this thread, so an app that is ending sees it (`export_end`).
+        *EXPORT.lock().unwrap() = None;
+        let (mut made, mut failed) = (vec![], vec![]);
+        for (i, r) in done.into_iter().enumerate() {
+            match r {
+                Ok(p) => made.extend(p),
+                Err(e) => failed.push(format!("{}: {e}", names.get(i).cloned().unwrap_or_default())),
+            }
+        }
+        if failed.is_empty() { Ok(made) } else { Err(failed.join("\n")) }
+    })
+    .await
+    .map_err(|e| e.to_string());
+    *EXPORT.lock().unwrap() = None;
+    let used = std::mem::take(&mut *USED.lock().unwrap());
+    if !used.is_empty() {
+        let now = coxswain_core::fs::now();
+        let _ = ctx.edit(|st| used.iter().for_each(|i| coxswain_core::images::used(st, i, now)));
+    }
+    result?
+}
+
+#[tauri::command]
+pub fn export_progress() -> Option<SearchableProgress> {
+    EXPORT.lock().unwrap().clone()
+}
+
+/// Stop the export under way: the file being worked on gets nothing, the rest are not started.
+#[tauri::command]
+pub fn export_stop() {
+    EXPORT_STOP.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Stop the export under way and wait for it, ten seconds at most: the app is ending.
+pub fn export_end() {
+    export_stop();
+    for _ in 0..100 {
+        if EXPORT.lock().unwrap().is_none() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// The diagram of a draw.io file, a `.drawio.svg` or a `.drawio.png`, as draw.io's XML, for its
+/// viewer (`export::drawio_xml`). None for a file without one, or only in the cloud.
+#[tauri::command]
+pub async fn drawio_xml(path: PathBuf) -> Option<String> {
+    if crate::here(&path).is_err() {
+        return None;
+    }
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::export::drawio_xml(&path)).await.ok().flatten()
+}
+
+/// The first page of a diagram as a 256-pixel PNG, for the grid view: made once by draw.io and
+/// kept in the previews cache. None while draw.io exports are off, before its image is pulled,
+/// for a file only in the cloud, or when it cannot be made.
+#[tauri::command]
+pub async fn drawio_thumbnail(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<PathBuf>> {
+    let cfg = ctx.cfg().preview.clone();
+    if !cfg.drawio || crate::here(&path).is_err() {
+        return Ok(None);
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let out = cache_dir(&path, &path, "drawio-thumb", "")?;
+        let png = out.join("thumb.png");
+        if png.is_file() {
+            return Ok(Some(png));
+        }
+        // A thumbnail that could not be made is not tried again until the file changes.
+        if out.join("none").exists() {
+            return Ok(None);
+        }
+        std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        match coxswain_core::export::drawio_thumbnail(&cfg, &path, &png, 256, Duration::from_secs(cfg.timeout.max(10))) {
+            Ok(()) => Ok(Some(png)),
+            Err(_) => {
+                let _ = std::fs::write(out.join("none"), "");
+                Ok(None)
+            }
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// An AsciiDoc document for the preview: its diagram blocks (`export::blocks`) each made a
+/// placeholder the preview draws into, and the blocks themselves.
+#[derive(Serialize)]
+pub struct AdocPrepared {
+    source: String,
+    blocks: Vec<coxswain_core::export::Block>,
+}
+
+#[tauri::command]
+pub fn adoc_blocks(text: String) -> AdocPrepared {
+    let (source, blocks) = coxswain_core::export::with_placeholders(&text);
+    AdocPrepared { source, blocks }
+}
+
+/// A diagram of an AsciiDoc document as SVG, drawn here by its program, installed or in an
+/// image already pulled (`export::diagram_svg`), and kept in the previews cache; what was
+/// missing when it could not be drawn. The preview shows it as a picture (a data URI).
+#[tauri::command]
+pub async fn adoc_diagram(kind: String, text: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<String> {
+    let cfg = ctx.cfg().preview.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        ("adoc-diagram", &kind, &text).hash(&mut h);
+        let dir = previews_dir()?.join(format!("{:016x}", h.finish()));
+        let svg = dir.join("diagram.svg");
+        if let Ok(kept) = std::fs::read_to_string(&svg) {
+            return Ok(kept);
+        }
+        let drawn = coxswain_core::export::diagram_svg(&cfg, &kind, &text)?;
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        std::fs::write(&svg, &drawn).map_err(|e| e.to_string())?;
+        Ok(drawn)
     })
     .await
     .map_err(|e| e.to_string())?

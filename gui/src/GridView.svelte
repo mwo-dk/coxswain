@@ -136,6 +136,20 @@
             {:catch}
               {@render icon(e)}
             {/await}
+          {:else if previewKind(e) === "drawio" && !e.online}
+            <!-- A .drawio.svg or .drawio.png shows itself; a .drawio file its first page, drawn
+                 once by draw.io when its exports are on (drawio_thumbnail). -->
+            {#if /\.(svg|png)$/i.test(e.name)}
+              <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
+            {:else if ui.cfg.settings.drawio}
+              {#await invoke("drawio_thumbnail", { path: e.path }) then file}
+                {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+              {:catch}
+                {@render icon(e)}
+              {/await}
+            {:else}
+              {@render icon(e)}
+            {/if}
           {:else}
             {@render icon(e)}
           {/if}

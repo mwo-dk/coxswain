@@ -395,7 +395,7 @@ impl Manager {
 
 /// The line that installs `program` with `manager`, for the user to copy and run: Coxswain never
 /// runs it. `program` is what Coxswain looks for: `tesseract`, `pdftoppm`, `soffice`, `latex`,
-/// `plantuml`, `pandoc`, `ocrmypdf`, `gs` (Ghostscript), `typst`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
+/// `plantuml`, `pandoc`, `ocrmypdf`, `gs` (Ghostscript), `typst`, `asciidoctor-pdf`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
 /// (video and sound) and `cjk-font` (Japanese and Korean letters). `None` when that manager has no
 /// package for it; the hint then says where to get it.
 pub fn install_line(program: &str, manager: Manager) -> Option<String> {
@@ -529,6 +529,11 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "pandoc",
             "JohnMacFarlane.Pandoc",
         ],
+        // *Build PDF of AsciiDoc* (`export`); Homebrew's asciidoctor has Asciidoctor PDF in it.
+        "asciidoctor-pdf" => [
+            "rubygem-asciidoctor-pdf", "", "", "", "", "ruby-asciidoctor-pdf", "rubygem-asciidoctor-pdf", "", "asciidoctor", "",
+        ],
+        // *Export draw.io diagram* (`export`): draw.io's desktop app.
         // What the desktop app's preview and its letters need, where a notice names the line.
         "gst-good" => [
             "gstreamer1-plugins-good",

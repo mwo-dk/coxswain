@@ -288,6 +288,11 @@ actions! {
     // offered by Enter on a first part, and in the action menu.
     SplitFile = "split_file", "Split file", Files, ["Alt+X"];
     JoinParts = "join_parts", "Join parts", Files, [];
+    // Asciidoctor PDF: a PDF of an AsciiDoc document, next to it (`export`). No key of its own:
+    // the action menu and the preview offer it.
+    AdocPdf = "adoc_pdf", "Build PDF of AsciiDoc", Files, [];
+    // draw.io: PNG, SVG or PDF of a diagram, next to it (`export`).
+    DrawioExport = "drawio_export", "Export draw.io diagram", Files, [];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1488,7 +1493,9 @@ pub fn quote_for(shell: &str, s: &str) -> String {
 
 /// Previews made by external tools (desktop app): LaTeX, Typst, LibreOffice, Ghostscript,
 /// PlantUML, Kroki's diagram programs, pandoc, DuckDB, ffmpeg and ImageMagick; and OCRmyPDF for
-/// *Make PDF searchable*, ffmpeg and ImageMagick for their conversions (both apps). Each runs from a locally installed tool or from a container image.
+/// *Make PDF searchable*, ffmpeg and ImageMagick for their conversions, Asciidoctor PDF and
+/// draw.io for their exports (both apps). Each runs from a locally installed tool or from a
+/// container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct PreviewConfig {
@@ -1516,6 +1523,9 @@ pub struct PreviewConfig {
     /// E-books calibre reads (MOBI, Kindle, FictionBook, LIT, Palm): previews, their text for
     /// search, and *Convert e-book*; an installed calibre first, else `images.calibre`.
     pub ebooks: bool,
+    /// Export draw.io diagrams (PNG, SVG, PDF) and draw their thumbnails with draw.io: the
+    /// installed desktop app, else its container image, which is large. Off by default.
+    pub drawio: bool,
 }
 
 impl Default for PreviewConfig {
@@ -1531,6 +1541,7 @@ impl Default for PreviewConfig {
             image_updates: "off".into(),
             image_prune: false,
             ebooks: false,
+            drawio: false,
         }
     }
 }

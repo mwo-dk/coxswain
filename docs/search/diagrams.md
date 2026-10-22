@@ -31,7 +31,7 @@ the diagrams read before this came in are read again once, by themselves.
 
 | Kind | Files |
 |---|---|
-| draw.io | `.drawio` `.dio` (and each page of one) |
+| draw.io | `.drawio` `.dio` (and each page of one); a `.drawio.svg` or `.drawio.png` is read as the picture it is |
 | Mermaid | `.mmd` `.mermaid`, and every ` ```mermaid ` block in Markdown (`.md` `.markdown` `.mdx`) |
 | Graphviz | `.dot` `.gv` |
 | PlantUML | `.puml` `.plantuml` `.pu` `.iuml` `.wsd` |

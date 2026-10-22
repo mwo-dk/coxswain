@@ -13,7 +13,7 @@ sentences](../search/diagrams.md).)
 ![Three previews: a PlantUML sequence diagram with the engine buttons "plantuml" and "container" above it, a Graphviz pipeline graph with Rendered / Source, and an AsciiDoc guide](../screenshots/gui-previews-tools.png)
 *sequence.puml rendered by the installed `plantuml`, and pipeline.dot drawn by Graphviz in the app.*
 
-![The desktop app with launch-pad.drawio under the cursor: the preview shows the diagram Fuel tank, Valve and Engine on white, with draw.io's page switcher (1 / 2) and zoom buttons above it](../screenshots/previews-drawio.png)
+![The desktop app with launch-pad.drawio under the cursor: the preview shows the diagram Fuel tank, Valve and Engine on white, with Export as PNG, SVG and PDF, then the tabs Pad and Countdown and draw.io's zoom buttons above it](../screenshots/previews-drawio.png)
 
 ## Contents
 
@@ -29,7 +29,9 @@ sentences](../search/diagrams.md).)
 
 1. Put the cursor on the diagram and press **Space** or **F3**.
 2. Mermaid and Graphviz: **Rendered / Source** switches to the text.
-3. draw.io: the toolbar at the top switches pages, zooms and shows or hides layers.
+3. draw.io: the tabs above the diagram switch pages, its toolbar zooms and shows or hides
+   layers; **PNG**, **SVG** and **PDF** after *Export as* write those next to the file with
+   draw.io itself ([Export draw.io diagram](../files/drawio-export.md)).
 4. PlantUML, D2 and the other kinds: the engine buttons choose the installed program or the
    container.
 5. **Enter** opens the file in its program (draw.io's desktop app, an editor).
@@ -43,7 +45,7 @@ sentences](../search/diagrams.md).)
 
 | Files | Drawn by | Needs |
 |---|---|---|
-| `.drawio`, `.dio` | draw.io's own viewer, shipped inside Coxswain: every page (a page switcher), zoom, layers | Nothing |
+| `.drawio`, `.dio`, and `.drawio.svg`, `.drawio.png` with the diagram inside | draw.io's own viewer, shipped inside Coxswain: every page (a tab each), zoom, layers | Nothing; [exports and thumbnails](../files/drawio-export.md) need draw.io |
 | `.mmd`, `.mermaid`, and ```` ```mermaid ```` blocks in Markdown | [Mermaid](https://mermaid.js.org/), in the theme's colours, `securityLevel: "strict"` | Nothing |
 | `.dot`, `.gv` | [Graphviz](https://graphviz.org/) compiled to WebAssembly ([viz.js](https://github.com/mdaines/viz-js)) | Nothing |
 | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | [PlantUML](https://plantuml.com/), as SVG | `plantuml` installed, or the container `docker.io/plantuml/plantuml:latest` |
@@ -60,8 +62,10 @@ sentences](../search/diagrams.md).)
 
 ## What you see
 
-- **draw.io:** the diagram on white, with its toolbar; a file with several pages gets a page
-  switcher.
+- **draw.io:** the diagram on white, with its toolbar; a file with several pages gets a tab per
+  page above it, named after the page. A `.drawio.svg` or `.drawio.png` shows the diagram inside
+  it the same way. With [Export draw.io diagrams](../files/drawio-export.md) on, the grid view
+  shows each diagram's first page as its thumbnail.
 - **Mermaid:** the diagram in the theme's colours (green in Cyber, grey in Windows 95); an error
   in the source shows Mermaid's message in its place.
 - **Graphviz:** the graph as SVG; a syntax error shows Graphviz's message.
@@ -112,6 +116,8 @@ PlantUML and Kroki's kinds have them, as tools of [Previews made by tools](tools
 No preview pane; diagrams need the desktop app's webview to be drawn. **F3** shows the source
 in the built-in viewer. To draw one from the command line: `dot -Tpng graph.dot -o graph.png`,
 `plantuml seq.puml`, `mmdc -i chart.mmd` (Mermaid's CLI), `d2 launch.d2 launch.svg`.
+A draw.io diagram is exported from the action menu (**Shift+F10** → *Export draw.io diagram*)
+([Export draw.io diagram](../files/drawio-export.md)).
 
 ## Questions
 
@@ -130,7 +136,8 @@ drawn as usual. Open the file in draw.io for the typeset formula.
 #### Do I need draw.io, Graphviz or Mermaid installed?
 
 No. All three are drawn by code that ships with Coxswain. PlantUML (a Java program), D2 and the
-other kinds need their program installed or a container.
+other kinds need their program installed or a container. Exporting a draw.io diagram as PNG,
+SVG or PDF, and its thumbnail, need draw.io's container ([Export draw.io diagram](../files/drawio-export.md)).
 
 #### Why is the Mermaid diagram in my theme's colours, not Mermaid's?
 

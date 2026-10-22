@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { Paged, SPAN } from "./paged.svelte.js";
-import { invoke, basename, parent, applyTheme, isArchive, chessFormat, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -33,6 +33,9 @@ export const ui = $state({
    *  the item it is on of how many, its name, how many wait behind it, and whether Stop was
    *  pressed. */
   job: null,
+  /** A *Build PDF of AsciiDoc* or *Export draw.io diagram* run under way, as `searchable`,
+   *  with the action that stops it. */
+  exporting: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -805,6 +808,67 @@ export function stopWork() {
   invoke("work_stop");
 }
 
+/** *Build PDF of AsciiDoc* (`op` "adoc_pdf") or *Export draw.io diagram* ("drawio_png",
+ *  "drawio_svg", "drawio_pdf"; none: picked from a menu) on the files among `paths` it takes
+ *  (`coxswain_core::export`): the question (what it writes, which program runs, the first pull
+ *  and its size), then the run, the status line saying how far it is with a Stop button. The
+ *  action again while it runs stops it. */
+export function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = targets()) {
+  const action = adoc ? "adoc_pdf" : "drawio_export";
+  if (ui.exporting) return stopExport();
+  const files = paths.filter((p) => (adoc ? /\.(adoc|asciidoc)$/i.test(p) : isDrawio(basename(p))));
+  if (!files.length) return void (ui.status = t(adoc ? "export.none_adoc" : "export.none_drawio"));
+  const ask = async (op) => {
+    let plan;
+    try {
+      plan = await invoke("export_plan", { paths: files, op });
+    } catch (err) {
+      return void (ui.status = String(err));
+    }
+    const title = actionLabel(action);
+    if (!plan.files.length) return void (ui.status = t(adoc ? "export.none_adoc" : "export.none_drawio"));
+    // draw.io off: Settings opens at its switch; else what to install, or the container runtime.
+    if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: plan.off ? "drawio" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: action });
+    ui.modal = { kind: "confirm", title, text: plan.about, ok: t(adoc ? "export.go_adoc" : "export.go_drawio"), safe: true, run: () => runExport(plan.files, op, action), feature: action };
+  };
+  if (op) return ask(op);
+  ui.modal = {
+    kind: "menu",
+    feature: action,
+    title: actionLabel(action),
+    direct: true,
+    filter: "",
+    cursor: 0,
+    items: ["drawio_png", "drawio_svg", "drawio_pdf"].map((id, i) => ({ key: String(i + 1), label: t(`export.op.${id}`), run: () => ask(id) })),
+  };
+}
+
+async function runExport(files, op, action) {
+  ui.exporting = { at: 0, all: files.length, name: basename(files[0]), line: "", started: Date.now(), now: Date.now(), stopping: false, action };
+  const poll = setInterval(async () => {
+    const p = await invoke("export_progress").catch(() => null);
+    if (p && ui.exporting) Object.assign(ui.exporting, p, { now: Date.now() });
+  }, 500);
+  try {
+    const made = await invoke("export_run", { paths: files, op });
+    ui.status = made.length === 1 ? t("export.done_one", { name: basename(made[0]) }) : t("export.done_many", { n: made.length });
+  } catch (err) {
+    if (ui.exporting?.stopping) ui.status = t("export.stopped");
+    else ui.modal = failure(t("export.failed"), err);
+  } finally {
+    clearInterval(poll);
+    ui.exporting = null;
+    await reloadAll();
+  }
+}
+
+/** Stop the export under way. */
+export function stopExport() {
+  if (!ui.exporting) return;
+  ui.exporting.stopping = true;
+  invoke("export_stop");
+}
+
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
  *  full window. Only folders on a disk. */
 export function openSpace(tb = tab(), dir) {
@@ -1109,6 +1173,8 @@ export function subject(tb = tab()) {
     ebooks: files.filter((x) => /\.(mobi|azw3?|fb2|lit)$/i.test(x.name)).length,
     kicad: files.filter((x) => isKicad(x.name)).length,
     speech: files.filter((x) => isSpeech(x.name)).length,
+    adocs: files.filter((x) => /\.(adoc|asciidoc)$/i.test(x.name)).length,
+    drawios: files.filter((x) => isDrawio(x.name)).length,
     ...(tb.marks.count ? tb.marks.subject : {}),
     // The one marked entry is the one under the cursor (`m`: marked).
     one: tb.marks.count ? tb.marks.count === 1 && !!cur?.m : !!cur,

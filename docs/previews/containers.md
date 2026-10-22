@@ -9,7 +9,9 @@ diagram kinds, the PlantUML and pandoc images draw diagrams and reStructuredText
 makes scanned PDFs searchable and has the Ghostscript that shows PostScript, ffmpeg's shows and
 converts video and sound and HEIC photos, ImageMagick's shows GIMP pictures and converts and
 edits photos, GDAL's draws and converts geodata, OpenSCAD's makes models into pictures, STL
-and 3MF, and KiCad's shows and exports schematics and boards. Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on,
+and 3MF, KiCad's shows and exports schematics and boards, Asciidoctor's builds
+[PDFs of AsciiDoc](../files/asciidoc-pdf.md) and draw.io's [exports diagrams](../files/drawio-export.md)
+(opt-in). Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on,
 and calibre's reads [e-books](ebooks.md) when you turn them on. A container gets no network and
 sees your files read-only. Nothing is downloaded until you click, except calibre's image, which
 turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md#turning-it-on)).
@@ -75,6 +77,8 @@ a little larger or smaller.
 | `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (default for calibre, only with [E-books with calibre](ebooks.md) on) | MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books shown with their cover, title, authors and first pages, their words in Find, and *Convert e-book* to EPUB, AZW3 or PDF | about 1.3 GB | about 3.6 GB | A second or two of processor time per book, a few more for a PDF; reading a library for search runs in the background at the lowest priority |
 | `docker.io/kicad/kicad:9.0.9` (default for KiCad, pinned to its digest; amd64 only) | KiCad schematics and boards shown as PDF, with thumbnails ([KiCad](kicad.md)), and Export from KiCad: PDF, SVG, a bill of materials, Gerbers | about 476 MB | about 1.7 GB | Light: a second or two per schematic or board; the download is the cost |
 | `ghcr.io/ggml-org/whisper.cpp:main` (pinned to its digest, for [Transcripts of speech](../search/transcripts.md)) | The speech of recordings and videos you choose, written down for Find and the preview, when no whisper.cpp is installed | about 505 MB | about 1.1 GB | Only while it transcribes: half the processor, about 10 minutes for an hour of sound with the small model on a recent processor |
+| `docker.io/asciidoctor/docker-asciidoctor:latest` (default for Asciidoctor) | [Build PDF of AsciiDoc](../files/asciidoc-pdf.md): a PDF of an `.adoc` document next to it, when you ask; the preview needs no image | about 665 MB | about 1.5 GB | A few seconds of processor time per document, only when you ask |
+| `docker.io/rlespinasse/drawio-desktop-headless:latest` (default for draw.io, used only with *Export draw.io diagrams* on) | [Export draw.io diagram](../files/drawio-export.md): PNG, SVG or PDF of a diagram next to it, and its thumbnail in the grid view | about 560 MB | about 1.3 GB | draw.io starts a browser for each export: a second or two of processor time and a few hundred MB of memory |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -95,6 +99,8 @@ Where each image comes from, and why it is the one:
 | `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
 | `linuxserver/calibre:9.16.0` | [LinuxServer.io](https://www.linuxserver.io/), an organisation that rebuilds it for every calibre release, for amd64 and arm64; calibre publishes no image of its own. Coxswain runs only calibre's `ebook-convert` and `ebook-meta` in it, never the desktop it serves, and more tightly than the others ([How calibre runs](ebooks.md#how-calibre-runs)) | calibre GPL-3.0, the image's own files GPL-3.0 | Weekly; Coxswain pins the release it was tested with, and a newer Coxswain moves the pin |
 | `ghcr.io/ggml-org/whisper.cpp:main` | The whisper.cpp project (ggml-org), built from every change; pinned to one build by its digest: a Coxswain release moves it on | MIT (whisper.cpp), ffmpeg LGPL/GPL | Daily; 64-bit Intel and AMD only |
+| `asciidoctor/docker-asciidoctor:latest` | The Asciidoctor project; Coxswain runs only its `asciidoctor-pdf` | MIT (Asciidoctor, Asciidoctor PDF) | With every Asciidoctor release |
+| `rlespinasse/drawio-desktop-headless:latest` | Romain Lespinasse, who keeps it in step with draw.io's desktop releases; no image of draw.io's own exports | MIT (the image), Apache-2.0 (draw.io) | With every draw.io desktop release (weekly in 2026) |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
 Ghostscript's AGPL does not reach it.
@@ -127,7 +133,10 @@ for LibreOffice, `gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite` for PostScript
 `ocrmypdf --skip-text -l <languages>` for [Make PDF searchable](../files/searchable-pdf.md), the
 PlantUML and pandoc images' own entry points reading the file on standard input (`-tsvg -pipe`,
 `-f rst -t html5`), Kroki's programs one per call, reading the diagram on standard input
-(`--entrypoint d2` with `- -`, `ditaa --svg - -`, `svgbob`, `pikchr --svg-only -`, …), and
+(`--entrypoint d2` with `- -`, `ditaa --svg - -`, `svgbob`, `pikchr --svg-only -`, …), `asciidoctor-pdf --safe-mode server` for [Build PDF of
+AsciiDoc](../files/asciidoc-pdf.md), draw.io's own `-x` export behind an Xvfb display for
+[Export draw.io diagram](../files/drawio-export.md) (both held like ffmpeg's below, draw.io
+seeing only a copy of the diagram), and
 `duckdb -readonly -json` for DuckDB, `/ffmpeg` and `/ffprobe` with `-protocol_whitelist file`
 and `-format_whitelist` (real media formats only) for ffmpeg, and `magick` under Coxswain's
 policy (`MAGICK_CONFIGURE_PATH`: no helper programs, picture formats only, bounded memory and
@@ -240,6 +249,8 @@ default.
 | – | `[preview.images] typst` | `"ghcr.io/typst/typst:latest"` |
 | – | `[preview.images] ghostscript` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
 | – | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` |
+| – | `[preview.images] asciidoctor` | `"docker.io/asciidoctor/docker-asciidoctor:latest"` |
+| – | `[preview.images] drawio` | `"docker.io/rlespinasse/drawio-desktop-headless:latest"` |
 | – | `[preview.images] duckdb` | `""` (none) |
 | – | `[preview.images] gxps` | `""` (none) |
 | – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest"` |
@@ -274,15 +285,17 @@ for it through the search helper when [Read other formats with Apache Tika](../s
 The containers it runs itself are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
 ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's, for [Convert video or audio](../files/convert-media.md),
 [Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)
-and [Export 3D model](openscad.md#export-3d-model), [Export from KiCad](kicad.md#export-from-kicad), and calibre's, for [e-books](ebooks.md)
-(**F3** on a book, *Convert e-book*), the same way as the desktop app: asked
+and [Export 3D model](openscad.md#export-3d-model), [Export from KiCad](kicad.md#export-from-kicad), calibre's, for [e-books](ebooks.md)
+(**F3** on a book, *Convert e-book*), Asciidoctor's, for [Build PDF of
+AsciiDoc](../files/asciidoc-pdf.md), and draw.io's, for [Export draw.io
+diagram](../files/drawio-export.md) (with `[preview] drawio` on), the same way as the desktop app: asked
 first, with the first pull and its size. The chess engine's image it runs when it is pulled (by
 the desktop app's Settings, or `podman pull ghcr.io/mwo-dk/coxswain-stockfish:latest`), never
 pulling it itself. **Properties** (**Alt+Enter**) reads a video's facts
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`tools`, `ebooks` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad and calibre images (and its helper `images.tika`). Its **F12** → *Previews* shows
+`tools`, `ebooks`, `drawio` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor and draw.io images (and its helper `images.tika`). Its **F12** → *Previews* shows
 [*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
 removes it, and *Keep images up to date* and *Remove images not used for 90 days*, so you can
 set them from there; the desktop app is what updates and removes unused images, while it runs. Its Disk use rows for the

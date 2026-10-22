@@ -51,7 +51,7 @@ pub(crate) fn bind(host: &Path, at: &str, ro: bool) -> String {
     format!("type=bind,\"source={src}\",target={at}{}", if ro { ",readonly" } else { "" })
 }
 
-/// The options that hold ffmpeg's and ImageMagick's containers tighter than `sealed`: a
+/// The options that hold ffmpeg's, ImageMagick's, Asciidoctor's and draw.io's containers tighter than `sealed`: a
 /// read-only root with a small `/tmp` in memory, bounded memory and processes, no
 /// capabilities, no gaining of privileges. `label=disable` stays, as in `sealed`: relabelling
 /// (`:Z`) would change the SELinux label of the user's own file.

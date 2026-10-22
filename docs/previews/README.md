@@ -153,7 +153,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.mod` `.xm` `.s3m` `.it` | Tracker music: its samples and facts | [Old pictures and files](old-formats.md#tracker-music) |
 | `.mobi` `.azw` `.azw3` `.fb2` `.lit` | Cover, title, authors and first pages, by calibre (opt-in) | [E-books](ebooks.md) |
 | `.zip` `.7z` `.tar.*` and other archives | The files inside | [Media](media.md#archives) |
-| `.drawio` `.dio`, `.mmd`, `.dot` `.gv`, `.puml`, `.d2` `.ditaa` `.bob` `.pikchr` `.nomnoml` `.wavedrom` `.vg` `.vl` `.dbml` `.er` `.bytefield` | Diagrams | [Diagrams](diagrams.md) |
+| `.drawio` `.dio` (and `.drawio.svg` `.drawio.png` with the diagram inside), `.mmd`, `.dot` `.gv`, `.puml`, `.d2` `.ditaa` `.bob` `.pikchr` `.nomnoml` `.wavedrom` `.vg` `.vl` `.dbml` `.er` `.bytefield` | Diagrams | [Diagrams](diagrams.md) |
 | `.tex` `.ltx` | PDF built by LaTeX | [LaTeX](latex.md) |
 | `.scad` | A picture of the part OpenSCAD makes | [OpenSCAD models](openscad.md) |
 | `.kicad_sch` `.kicad_pcb` | A PDF of the sheets or the board's layers | [KiCad](kicad.md) |

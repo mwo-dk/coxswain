@@ -70,6 +70,7 @@ shows the search store and *Built-in models* each model with its folder ([Built-
 | `geo/` | `~/.cache/coxswain/geo/` | GDAL's work while it reads [geodata](../previews/geodata.md)'s facts (its map and Convert geodata work in `media/`) | Removed by itself when each run ends |
 | `magick/` | `~/.cache/coxswain/magick/policy.xml` | The policy an installed ImageMagick runs under, and the container's too ([How a picture is kept from doing harm](../files/edit-pictures.md#how-a-picture-is-kept-from-doing-harm)) | Yes: written again when needed |
 | `ocr/` | `~/.cache/coxswain/ocr/` | OCRmyPDF's work while [Make PDF searchable](../files/searchable-pdf.md) runs; the copy itself goes next to the PDF | Removed by itself when each run ends |
+| `export/` | `~/.cache/coxswain/export/` | The work of [Build PDF of AsciiDoc](../files/asciidoc-pdf.md) and [Export draw.io diagram](../files/drawio-export.md); the results go next to the files | Removed by itself when each run ends |
 | `coxswain-archive-…` | The system's temporary folder | Files on their way from one archive to another | Removed by itself |
 | Tectonic's cache | `~/.cache/tectonic` (`~/.cache/Tectonic` with older tectonic, `~/Library/Caches/Tectonic` on macOS, `%LOCALAPPDATA%\TectonicProject\Tectonic` on Windows) | TeX packages tectonic downloads when a LaTeX preview uses it; tectonic's own, shared with your own use of it | Yes: downloaded again. Disk use lists it when Coxswain made it |
 
