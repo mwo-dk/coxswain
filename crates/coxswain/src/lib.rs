@@ -319,7 +319,7 @@ impl Panel {
             },
             whisper: false,
             // Only one file's bytes are read: the action menu offers Open games on a single file.
-            ..Subject::of(&list, list.len() == 1)
+            ..Subject::of(&list)
         }
     }
 

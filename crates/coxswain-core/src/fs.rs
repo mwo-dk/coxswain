@@ -34,6 +34,21 @@ pub struct Entry {
     pub referenced: u64,
 }
 
+/// `path` opened for reading only when it is a regular file: a FIFO or a device would block
+/// a sniff of its first bytes (opened without waiting, then checked on the open file, so it
+/// cannot be swapped for one in between).
+pub fn open_regular(path: &Path) -> io::Result<fs::File> {
+    let mut o = fs::OpenOptions::new();
+    o.read(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NONBLOCK);
+    let f = o.open(path)?;
+    if !f.metadata()?.is_file() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a regular file"));
+    }
+    Ok(f)
+}
+
 fn is_zero(n: &u64) -> bool {
     *n == 0
 }

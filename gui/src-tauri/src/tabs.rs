@@ -58,7 +58,24 @@ pub struct Rows {
 
 /// The marked entries: how many, their files' bytes, the folders among them (whose measured
 /// sizes the page adds) and what they are, for the action menu and the hints.
-#[derive(Serialize)]
+/// The marked entries taken from a listing, to be counted outside the lock.
+struct Pending(Vec<Entry>);
+
+impl Pending {
+    fn done(self) -> Marks {
+        let list: Vec<&Entry> = self.0.iter().collect();
+        Marks {
+            count: list.len(),
+            bytes: list.iter().filter(|e| !e.is_dir).map(|e| e.size).sum(),
+            dirs: list.iter().filter(|e| e.is_dir).map(|e| e.path.clone()).collect(),
+            dir_bytes: list.iter().filter(|e| e.is_dir).map(|e| e.size).sum(),
+            // By name, and for disk images and a single file by their first bytes (`Subject::of`).
+            subject: Subject::of(&list),
+        }
+    }
+}
+
+#[derive(Serialize, Default)]
 pub struct Marks {
     count: usize,
     bytes: u64,
@@ -109,18 +126,12 @@ impl List {
         self.entries.iter().filter(|e| !self.marked.is_empty() && self.marked.contains(&e.path))
     }
 
-    fn marks(&self) -> Marks {
+    /// The marked entries, copied: their counts are made (`Pending::done`) once the tabs' lock
+    /// is let go, as a single marked file's first bytes are read.
+    fn marks(&self) -> Pending {
         // ponytail: one pass over the listing per change of marks; kept counts if a million
         // marked entries make Insert slow.
-        let list: Vec<&Entry> = self.marked().collect();
-        Marks {
-            count: list.len(),
-            bytes: list.iter().filter(|e| !e.is_dir).map(|e| e.size).sum(),
-            dirs: list.iter().filter(|e| e.is_dir).map(|e| e.path.clone()).collect(),
-            dir_bytes: list.iter().filter(|e| e.is_dir).map(|e| e.size).sum(),
-            // By name only: no file is read for a change of marks (the action menu reads one).
-            subject: Subject::of(&list, false),
-        }
+        Pending(self.marked().cloned().collect())
     }
 
     fn up(&self) -> Option<PathBuf> {
@@ -237,8 +248,11 @@ pub async fn tab_list(
     let list = List { generation, dir: meta.dir.clone(), entries, marked };
     let total = list.entries.len();
     let cursor = focus.and_then(|f| list.find(&f)).unwrap_or(cursor.min(total.saturating_sub(1)));
-    let answer = TabListing { total, up: list.up(), oci: list.oci(), cursor, rows: list.around(cursor, span, &ctx), marks: list.marks(), meta: Some(meta) };
+    let marks = list.marks();
+    let mut answer = TabListing { total, up: list.up(), oci: list.oci(), cursor, rows: list.around(cursor, span, &ctx), marks: Marks::default(), meta: Some(meta) };
     all.insert(tab, list);
+    drop(all);
+    answer.marks = marks.done();
     Ok(answer)
 }
 
@@ -253,13 +267,15 @@ pub fn tab_rows(tab: u64, generation: u64, from: usize, to: usize, ctx: tauri::S
 #[tauri::command(async)]
 #[allow(clippy::too_many_arguments)]
 pub fn tab_sort(tab: u64, generation: u64, sort: SortKey, reverse: bool, measured: HashMap<PathBuf, u64>, cursor: usize, span: usize, ctx: tauri::State<Ctx>, tabs: tauri::State<Tabs>) -> Res<TabListing> {
-    tabs.with(tab, |l| {
+    let (mut answer, marks) = tabs.with(tab, |l| {
         let at = l.entries.get(cursor).map(|e| e.path.clone());
         l.sort(sort, reverse, &measured);
         l.generation = l.generation.max(generation);
         let cursor = at.and_then(|p| l.entries.iter().position(|e| e.path == p)).unwrap_or(0);
-        TabListing { meta: None, total: l.entries.len(), up: l.up(), oci: l.oci(), cursor, rows: l.around(cursor, span, &ctx), marks: l.marks() }
-    })
+        (TabListing { meta: None, total: l.entries.len(), up: l.up(), oci: l.oci(), cursor, rows: l.around(cursor, span, &ctx), marks: Marks::default() }, l.marks())
+    })?;
+    answer.marks = marks.done();
+    Ok(answer)
 }
 
 /// The row of the entry called `name` (or with that path).
@@ -278,13 +294,14 @@ pub fn tab_quick(tab: u64, query: String, tabs: tauri::State<Tabs>) -> Res<Optio
 /// listing would have other entries there); what is marked now.
 #[tauri::command(async)]
 pub fn tab_mark(tab: u64, generation: u64, op: MarkOp, tabs: tauri::State<Tabs>) -> Res<Marks> {
-    tabs.with(tab, |l| {
+    let marks = tabs.with(tab, |l| {
         if l.generation != generation {
             return Err(STALE.to_string());
         }
         l.mark(op);
         Ok(l.marks())
-    })?
+    })??;
+    Ok(marks.done())
 }
 
 #[derive(Serialize)]
@@ -340,24 +357,24 @@ mod tests {
     fn marking_works_on_the_whole_listing_never_on_the_way_up() {
         let mut l = list(&[("..", true), ("src", true), ("a.rs", false), ("b.txt", false), ("C.RS", false)]);
         l.mark(MarkOp::All);
-        assert_eq!(l.marks().count, 4, "all but ..");
-        assert_eq!(l.marks().bytes, 30, "the files' bytes; a folder's size the page adds");
-        assert_eq!(l.marks().dirs, [PathBuf::from("/d/src")]);
+        assert_eq!(l.marks().done().count, 4, "all but ..");
+        assert_eq!(l.marks().done().bytes, 30, "the files' bytes; a folder's size the page adds");
+        assert_eq!(l.marks().done().dirs, [PathBuf::from("/d/src")]);
         l.mark(MarkOp::Invert);
-        assert_eq!(l.marks().count, 1, "files turned over, folders kept");
+        assert_eq!(l.marks().done().count, 1, "files turned over, folders kept");
         l.mark(MarkOp::None);
         l.mark(MarkOp::Glob { patterns: "*.rs;x".into(), on: true });
         let names: Vec<_> = l.marked().map(|e| e.name.as_str()).collect();
         assert_eq!(names, ["a.rs", "C.RS"], "in any case, in the listing's order");
         l.mark(MarkOp::Toggle(0));
         l.mark(MarkOp::Toggle(2));
-        assert_eq!(l.marks().count, 1, "`..` is never marked; a marked one unmarked");
+        assert_eq!(l.marks().done().count, 1, "`..` is never marked; a marked one unmarked");
         l.mark(MarkOp::Range(0, 3));
-        assert_eq!(l.marks().count, 4);
-        assert_eq!(l.marks().subject.files, 3);
+        assert_eq!(l.marks().done().count, 4);
+        assert_eq!(l.marks().done().subject.files, 3);
         l.mark(MarkOp::None);
         l.mark(MarkOp::Paths(vec![PathBuf::from("/d").join("b.txt"), PathBuf::from("/elsewhere")]));
-        assert_eq!(l.marks().count, 1, "only what the listing has");
+        assert_eq!(l.marks().done().count, 1, "only what the listing has");
     }
 
     #[test]

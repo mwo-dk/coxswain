@@ -92,8 +92,11 @@ pub struct Subject {
 impl Subject {
     /// The counts of `list` (the marked entries, or the one under the cursor): its files and
     /// folders, and the kinds of file among them; the other fields are left at their default.
-    /// With `sniff`, a file's first bytes are read for chess (the menu offers Open games on one).
-    pub fn of(list: &[&crate::fs::Entry], sniff: bool) -> Subject {
+    /// Disk images (`.img`, `.vhd`) are known by their first bytes; a single file's are read for
+    /// chess too (a Polyglot `.bin` book: the menu offers Open games on one), so the marked file
+    /// counts as the one under the cursor does, in both apps.
+    pub fn of(list: &[&crate::fs::Entry]) -> Subject {
+        let sniff = list.len() == 1;
         let files: Vec<&std::path::Path> = list.iter().filter(|e| !e.is_dir).map(|e| e.path.as_path()).collect();
         let count = |f: &dyn Fn(&std::path::Path) -> bool| files.iter().filter(|p| f(p)).count();
         Subject {
@@ -488,6 +491,36 @@ pub fn reset() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_marked_book_and_disk_image_are_known_by_their_bytes() {
+        let dir = std::env::temp_dir().join(format!("coxswain-subject-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let book = crate::chess::polyglot::tests::book(&dir);
+        let img = dir.join("sd.img");
+        let mut disk = vec![0u8; 2 << 20];
+        disk[446 + 4] = 0x0c;
+        disk[446 + 8..446 + 12].copy_from_slice(&2048u32.to_le_bytes());
+        disk[446 + 12..446 + 16].copy_from_slice(&2048u32.to_le_bytes());
+        disk[510..512].copy_from_slice(&[0x55, 0xAA]);
+        std::fs::write(&img, disk).unwrap();
+        let entry = |p: &std::path::Path| crate::fs::Entry { path: p.to_path_buf(), ..Default::default() };
+        let (b, i) = (entry(&book), entry(&img));
+        assert_eq!(Subject::of(&[&b]).chess, 1, "one book, by its bytes");
+        let s = Subject::of(&[&i]);
+        // Opened like a folder (an archive) when that option is on, else offered Disk images.
+        assert_eq!(s.disk_images + s.archives, 1, "a raw disk by its partition table: {s:?}");
+        // A FIFO by those names is never opened to wait for a writer: no count, no hang.
+        #[cfg(unix)]
+        for name in ["pipe.bin", "pipe.img"] {
+            let p = dir.join(name);
+            let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
+            assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+            let s = Subject::of(&[&entry(&p)]);
+            assert_eq!((s.chess, s.disk_images + s.archives), (0, 0), "{name}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn names(s: &Subject, gui: bool) -> Vec<&'static str> {
         actions(s, gui)
