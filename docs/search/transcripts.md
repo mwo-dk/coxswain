@@ -87,7 +87,7 @@ used. They are kept in the cache folder, `coxswain/models/whisper`, and
 
 | | |
 |---|---|
-| Needs | *Words inside files* on (the default). An installed whisper.cpp (`whisper-cli`), else podman or docker for its container image. On FreeBSD, the other BSDs and illumos the image does not run: install whisper.cpp there |
+| Needs | *Words inside files* on (the default). An installed whisper.cpp (`whisper-cli`), else podman or docker for its container image. On FreeBSD, the other BSDs and illumos the image does not run: install whisper.cpp there. In the [Flatpak](../systems/flatpak.md#does-whisper-work-in-the-flatpak), the host's `whisper-cli` in `/usr/bin` or `/usr/local/bin`, or the host's podman or docker |
 | Download | The model, once, from Hugging Face (`huggingface.co`): 141 MB for base, 465 MB for small. Without whisper.cpp installed, `ghcr.io/ggml-org/whisper.cpp:main` too: about 505 MB, 1.1 GB on disk |
 | Processor | Half its threads (at most 8), at the lowest priority, only while it transcribes: an hour of sound takes about 10 minutes with small on a recent processor |
 | Memory | The model's size and a little more: about 1 GB for small |

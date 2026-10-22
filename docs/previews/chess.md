@@ -148,7 +148,7 @@ it is. Play a move to see the book's moves after it:
 | **f**, **n** | Flip, notation | The same |
 | **Esc** | Closes the window | Closes the view |
 
-<!-- screenshot: gui-chess-book.png: desktop app, Cyber: openings.bin in the preview pane: the start position on the board, beside it Polyglot opening book · 12 entries and the moves e4 45.0 % 45, d4 35.0 % 35, ♘f3 12.0 % 12, c4 8.0 % 8 -->
+![The desktop app in the Cyber theme: openings.bin under the cursor in Documents/Chess, and in the preview pane the start position on the board, White to move, and under it Polyglot opening book · 12 entries with the moves e4 45.0 % 45, d4 35.0 % 35, ♘f3 12.0 % 12 and c4 8.0 % 8](../screenshots/gui-chess-book.png)
 
 ![The terminal app with a Polyglot book open (F3 on openings.bin) after 1.e4: the board with its pieces drawn from block characters, Polyglot opening book · 12 entries, the book's four replies c5, e5, e6 and c6 with their shares and weights, c5 chosen, and the key line](../screenshots/tui-chess-book.png)
 

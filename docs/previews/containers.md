@@ -16,7 +16,7 @@ and calibre's reads [e-books](ebooks.md) when you turn them on. A container gets
 the database) and sees your files read-only. Nothing is downloaded until you click, except calibre's image, which
 turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md#turning-it-on)).
 
-<!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
+![The desktop app in the Cyber theme: flight7.tex under the cursor in projects/paper, and the preview pane with the engine buttons podman texlive:latest (lit) and tectonic, and under them Rendering with podman texlive:latest… and Pulling docker.io/texlive/texlive:latest… with podman's progress line, the bar at the bottom of the pane running](../screenshots/previews-container-pull.png)
 
 ## Contents
 

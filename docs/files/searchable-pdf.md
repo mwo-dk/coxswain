@@ -8,7 +8,7 @@ original: `report.pdf` gets `report.searchable.pdf`. [OCRmyPDF](https://ocrmypdf
 reads the pages; the copy looks the same and has its words as an invisible layer, so any program
 can search and select them, and Find reads them as it reads any PDF. Both apps.
 
-<!-- screenshot: searchable-pdf.png: desktop app, Cyber theme: a scanned PDF in the preview pane with the line "No text in this PDF: it looks like a scan. Make it searchable, and Find reads its words." and the button Make PDF searchable with Alt+P beside it; the dialog Make PDF searchable over it saying "Writes scan.searchable.pdf next to scan.pdf … It runs OCRmyPDF in podman (docker.io/jbarlow83/ocrmypdf-alpine:latest), without network access. First run pulls … (about 310 MB)." -->
+![The desktop app in the Cyber theme: scan.pdf under the cursor in Documents, its scanned page in the preview pane under the line No text in this PDF: it looks like a scan, and over it the dialog Make PDF searchable: Writes scan.searchable.pdf next to scan.pdf, with the words OCRmyPDF reads on its pages. scan.pdf itself is not changed. It runs OCRmyPDF in podman (docker.io/jbarlow83/ocrmypdf-alpine:latest), without network access. First run pulls docker.io/jbarlow83/ocrmypdf-alpine:latest (about 310 MB), with the buttons Make searchable and Cancel](../screenshots/searchable-pdf.png)
 
 ## Contents
 

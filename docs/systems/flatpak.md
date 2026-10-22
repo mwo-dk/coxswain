@@ -68,6 +68,7 @@ runs on the host instead, through `flatpak-spawn --host`, so it is your program 
 | Deleting to the trash | **F8** | `gio trash` on the host, so the files land in your desktop's trash; the Flatpak's own data folder would hold a trash nothing shows |
 | Opening a file | **Enter**, **F3** → *Open in its app* | The desktop's portal, which opens the default application or asks which one |
 | tesseract, pdftoppm, LibreOffice, pandoc, LaTeX, PlantUML, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre (`ebook-convert`, `ebook-meta`), podman or docker, duckdb | Previews, Find inside files, the conversions | On the host when they are installed in `/usr/bin` or `/usr/local/bin` there, at the lowest priority, and stopped with Coxswain when they run past their time limit |
+| `whisper-cli` (whisper.cpp) and ffmpeg | [Transcripts of speech](../search/transcripts.md) | On the host when installed in `/usr/bin` or `/usr/local/bin` there, at the lowest priority; otherwise whisper.cpp's container image through the host's podman or docker; with neither, *Transcribe speech* says it needs whisper.cpp installed, or podman or docker; see [Does Whisper work in the Flatpak?](#does-whisper-work-in-the-flatpak) |
 | git | The panels' status, **History**, branches | Inside the sandbox: Coxswain bundles it, so the settings that keep a repository's own config from running programs still hold |
 
 A preview tool installed somewhere else (Homebrew, `~/.local/bin`) is not found from the
@@ -195,6 +196,17 @@ keeps its own under `~/.var/app/io.github.mwo_dk.Coxswain/`. Copy `config.toml` 
 
 Yes. The built-in model downloads into the Flatpak's data folder when you turn it on, and
 Ollama or a server on this machine (`http://localhost:11434`) is reached as usual.
+
+#### Does Whisper work in the Flatpak?
+
+Yes, when the host has it. The sandbox has no `whisper-cli` of its own: Coxswain looks for one in
+the host's `/usr/bin` and `/usr/local/bin` and runs it there, with the host's ffmpeg cutting the
+sound into parts. A `whisper-cli` built into `~/.local/bin` or Homebrew is not found from the
+Flatpak. Without one, it runs whisper.cpp's container image with the host's podman or docker
+(*Settings → Previews → Preview tools* shows which is used). With neither, *Transcribe speech*
+says it needs whisper.cpp installed, or podman or docker. The model downloads into the Flatpak's
+data folder, and the parts it cuts go to its `cache/tmp`, which the host's programs read at the
+same paths. [Transcripts of speech](../search/transcripts.md) has the rest.
 
 #### Can it open a terminal in the current folder?
 
