@@ -214,10 +214,21 @@ pub(crate) fn tar_named<'a, R: Read>(
     entries: tar::Entries<'a, R>,
     mut f: impl FnMut(String, Option<String>, &mut tar::Entry<'a, R>) -> io::Result<bool>,
 ) -> io::Result<()> {
+    tar_named_at(entries, |name, link, e, _| f(name, link, e))
+}
+
+/// `tar_named`, with where each entry starts in the unpacked tar: its first header, the long
+/// name or PAX record before it if it has one (where reading it again can start).
+fn tar_named_at<'a, R: Read>(
+    entries: tar::Entries<'a, R>,
+    mut f: impl FnMut(String, Option<String>, &mut tar::Entry<'a, R>, u64) -> io::Result<bool>,
+) -> io::Result<()> {
+    let mut start = None;
     let text = |b: &[u8]| String::from_utf8_lossy(b.strip_suffix(&[0]).unwrap_or(b)).into_owned();
     let (mut long, mut link): (Option<String>, Option<String>) = (None, None);
     for e in entries.raw(true) {
         let mut e = e?;
+        let at = *start.get_or_insert(e.raw_header_position());
         let t = e.header().entry_type();
         if t.is_gnu_longname()
             || t.is_gnu_longlink()
@@ -255,12 +266,14 @@ pub(crate) fn tar_named<'a, R: Read>(
             Some(l) => Some(l),
             None => e.link_name()?.map(|l| l.to_string_lossy().into_owned()),
         };
+        start = None;
         if !f(
             name.trim_start_matches("./")
                 .trim_end_matches('/')
                 .to_string(),
             link,
             &mut e,
+            at,
         )? {
             break;
         }
@@ -1178,10 +1191,35 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?,
             |n, _, e| item(n, e.header(), e.size()),
         )?;
+    } else if let Some(kept) = crate::tar_index::load(archive) {
+        // Unpacked once before, in this run or an earlier one: its list is kept.
+        for l in kept.into_iter().take(max) {
+            out.push(Item {
+                name: l.name,
+                size: l.size,
+                dir: l.dir,
+                modified: l.modified,
+                locked: false,
+            });
+        }
     } else {
-        tar_named(tar_reader(archive, k)?.entries()?, |n, _, e| {
-            item(n, e.header(), e.size())
+        let (mut all, mut whole) = (vec![], true);
+        tar_named_at(tar_reader(archive, k)?.entries()?, |name, _, e, at| {
+            let h = e.header();
+            all.push(crate::tar_index::Listed {
+                name: name.clone(),
+                size: e.size(),
+                dir: h.entry_type().is_dir(),
+                modified: h.mtime().unwrap_or(0),
+                at,
+            });
+            let go = item(name, e.header(), e.size())?;
+            whole &= go;
+            Ok(go)
         })?;
+        if whole {
+            crate::tar_index::save(archive, &all);
+        }
     }
     Ok(out)
 }
@@ -1231,7 +1269,11 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     if crate::cloud::keep_out(archive) {
         return None;
     }
-    if matches!(k, Kind::Tar(p) if p != Pack::None) && size > SEARCH_UNPACK {
+    // A large one only once its list is kept (it was opened): then nothing is unpacked.
+    if matches!(k, Kind::Tar(p) if p != Pack::None)
+        && size > SEARCH_UNPACK
+        && crate::tar_index::load(archive).is_none()
+    {
         return None;
     }
     // A container image is found by its own name: its blobs are no files of its own.
@@ -1891,7 +1933,30 @@ fn copy_entries(
         }
         *used |= locked;
     } else {
-        tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
+        // One file of a compressed tar: from the block it starts in, when that is known and the
+        // file is in blocks (an xz in blocks), not from the start.
+        let Kind::Tar(pack) = k else { unreachable!() };
+        let from = crate::tar_index::load(archive)
+            .and_then(|all| all.into_iter().find(|l| l.name == inner && !l.dir))
+            .map(|l| -> io::Result<Option<Box<dyn Read>>> {
+                Ok(match pack {
+                    Pack::Xz => match crate::tar_index::xz_from(archive, l.at)? {
+                        Some((mut r, skip)) => {
+                            io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
+                            Some(r)
+                        }
+                        None => None,
+                    },
+                    _ => None,
+                })
+            })
+            .transpose()?
+            .flatten();
+        let mut tar = match from {
+            Some(r) => tar::Archive::new(r),
+            None => tar_reader(archive, k)?,
+        };
+        tar_named(tar.entries()?, |name, _, e| {
             let Some(path) = place(&name) else {
                 skip(&name)?;
                 return Ok(true);

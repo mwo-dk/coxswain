@@ -72,6 +72,7 @@ pub mod space;
 pub mod state;
 pub mod store;
 pub mod tables;
+mod tar_index;
 pub mod termux;
 pub mod tools;
 pub mod transcribe;
