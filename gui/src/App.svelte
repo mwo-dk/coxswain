@@ -467,12 +467,12 @@
       ui.modal = { kind: "editor", path: e.path };
     },
     // Two marked files, else the file under each pane's cursor, the left pane's on the left.
-    compare_files: () => {
+    compare_files: async () => {
       const tb = tab();
-      const marked = tb.items.filter((x) => !x.is_dir && tb.marked.has(x.path));
-      const file = (t) => (t && !t.archive && !t.history ? t.items[t.cursor] : null);
-      const pick = (e) => (e && !e.is_dir && e.name !== ".." ? e.path : null);
-      const pair = marked.length === 2 && !tb.archive && !tb.history ? [marked[0].path, marked[1].path] : [pick(file(tab(0))), pick(file(tab(1)))];
+      const marked = tb.marks.count === 2 ? (await pick(tb, "marked")).filter((x) => !x.is_dir) : [];
+      const file = (t) => (t && !t.archive && !t.history ? item(t) : null);
+      const fileOf = (e) => (e && !e.is_dir && e.name !== ".." ? e.path : null);
+      const pair = marked.length === 2 && !tb.archive && !tb.history ? [marked[0].path, marked[1].path] : [fileOf(file(tab(0))), fileOf(file(tab(1)))];
       if (tb.archive || tb.history) return void (ui.status = t("compare.not_here"));
       if (!pair[0] || !pair[1]) return void (ui.status = t("compare.pick_two"));
       ui.modal = { kind: "compare", left: pair[0], right: pair[1] };
