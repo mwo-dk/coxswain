@@ -55,6 +55,8 @@ pub struct Subject {
     pub models: usize,
     /// Of the files, lists of checksums (`checksum::is_list`).
     pub sums: usize,
+    /// Of the files, first parts of a split file (`split::joins_into`).
+    pub parts: usize,
     /// Of the files, the `index.json` of an OCI image layout (`container_image::layout_index`).
     pub images: usize,
     /// Of the files, local models (`local_models::is_model`): their facts are in Properties.
@@ -138,6 +140,8 @@ impl Action {
             ConvertEbook => s.ebooks > 0 && disk,
             ExportKicad => s.kicad > 0 && disk,
             MakeChecksums => n > 0 && disk,
+            SplitFile => s.single() && s.files == 1 && disk,
+            JoinParts => s.single() && s.parts == 1 && disk,
             VerifyChecksums => s.single() && s.sums == 1 && matches!(s.place, Place::Disk | Place::Snapshot),
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),

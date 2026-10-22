@@ -302,6 +302,7 @@ impl Panel {
             geo: list.iter().filter(|e| !e.is_dir && coxswain_core::geo::is_vector(&e.path)).count(),
             models: list.iter().filter(|e| !e.is_dir && coxswain_core::scad::is_model(&e.path)).count(),
             sums: list.iter().filter(|e| !e.is_dir && coxswain_core::checksum::is_list(&e.path)).count(),
+            parts: list.iter().filter(|e| !e.is_dir && coxswain_core::split::joins_into(&e.path).is_some()).count(),
             images: list.iter().filter(|e| !e.is_dir && coxswain_core::container_image::layout_index(&e.path)).count(),
             local_models: list.iter().filter(|e| !e.is_dir && coxswain_core::local_models::is_model(&e.path)).count(),
             ebooks: list.iter().filter(|e| !e.is_dir && coxswain_core::ebook::is_ebook(&e.path)).count(),
@@ -364,6 +365,8 @@ pub enum Prompt {
     Clip(Vec<PathBuf>),
     /// The longest side in pixels, for *Convert or edit pictures* on these files.
     Resize(Vec<PathBuf>),
+    /// The size of the parts to split this file into (`split`).
+    SplitSize(PathBuf),
 }
 
 impl Prompt {
@@ -377,7 +380,7 @@ impl Prompt {
             Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "verb.pack",
             Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "verb.unlock",
             Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
-            Prompt::Flags(_) | Prompt::Clip(_) | Prompt::Resize(_) => "common.apply",
+            Prompt::Flags(_) | Prompt::Clip(_) | Prompt::Resize(_) | Prompt::SplitSize(_) => "common.apply",
             Prompt::Goto(_) => "verb.go",
             Prompt::Mark(true) => "verb.mark",
             Prompt::Mark(false) => "verb.unmark",
@@ -419,6 +422,10 @@ pub enum MenuRun {
     Sums(coxswain_core::checksum::Algo, Vec<PathBuf>),
     /// Files dropped on the terminal: copied (or with `true` moved) into the active panel.
     Drop(Vec<PathBuf>, bool),
+    /// Split this file into parts of this size; with none, ask for the size.
+    Split(PathBuf, Option<u64>),
+    /// Join the parts from this first one; `true`: the joined file replaces the one there.
+    Join(PathBuf, bool),
 }
 
 pub struct MenuItem {
@@ -508,6 +515,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::Flags(_) => "properties",
             Prompt::Clip(_) => "convert_media",
             Prompt::Resize(_) => "edit_pictures",
+            Prompt::SplitSize(_) => "split_and_join",
         },
         Dialog::Confirm { .. } => "delete",
         Dialog::Searchable { .. } => "searchable_pdf",
@@ -784,6 +792,8 @@ enum WorkMsg {
     Made(std::io::Result<coxswain_core::checksum::Made>),
     /// The list checked, and what came of it (and whether it was stopped).
     Checked(PathBuf, std::io::Result<(Vec<coxswain_core::checksum::Checked>, bool)>),
+    Split(std::io::Result<coxswain_core::split::Split>),
+    Joined(std::io::Result<coxswain_core::split::Joined>),
 }
 
 /// What to make of which files, and the question's text or why it cannot run.
@@ -1324,7 +1334,7 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some()) => (self.job, self.searchable, self.media, self.ebook) = (None, None, None, None),
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some()) => (self.job, self.searchable, self.media, self.ebook, self.work) = (None, None, None, None, None),
             Action::Quit => {
                 self.quit = true;
                 // Make PDF searchable is stopped, and waited for: its container is killed,
@@ -1340,15 +1350,16 @@ impl App {
                 if let Some((s, ..)) = &self.ebook {
                     s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                // Checksums leave nothing half made: stopped, and let go.
-                if let Some(w) = self.work.take() {
+                // Checksums, a split or a join: stopped, and waited for, so a split's parts and a
+                // join's file are not left half made.
+                if let Some(w) = &self.work {
                     w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
                 // And a file operation, between files: none is left half copied.
                 if let Some(s) = self.job.as_ref().and_then(|j| j.stop.as_ref()) {
                     s.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() {
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1394,6 +1405,11 @@ impl App {
             Action::ConvertEbook => self.ebook_menu(),
             Action::ExportKicad => self.media_menu(coxswain_core::media::Program::Kicad),
             Action::MakeChecksums => self.sums_menu(),
+            Action::SplitFile => self.split_menu(),
+            Action::JoinParts => match self.panel().current().filter(|e| !e.is_dir && coxswain_core::split::joins_into(&e.path).is_some()) {
+                Some(e) => self.join_menu(e.path.clone()),
+                None => self.status = Some(t!("split.not_first")),
+            },
             Action::VerifyChecksums => match self.panel().current().filter(|e| !e.is_dir && coxswain_core::checksum::is_list(&e.path)) {
                 Some(e) => self.sums_verify(e.path.clone()),
                 None => self.status = Some(t!("sums.no_list")),
@@ -1776,6 +1792,10 @@ impl App {
         // A file of a package: to its folder, the cursor on it.
         if coxswain_core::bsd::split(&self.panel().dir).is_some() {
             return self.reveal(&e.path.clone());
+        }
+        // The first part of a split file: Join is offered.
+        if coxswain_core::split::joins_into(&e.path).is_some() && coxswain_core::zfs::in_snapshot(&e.path).is_none() {
+            return self.join_menu(e.path.clone());
         }
         // A list of checksums is checked (in a snapshot too).
         if coxswain_core::checksum::is_list(&e.path) {
@@ -2360,6 +2380,48 @@ impl App {
         self.poll_work();
     }
 
+    /// Split the file under the cursor: the size of the parts from a menu, or typed.
+    fn split_menu(&mut self) {
+        if let Some(w) = &self.work {
+            w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        let Some(e) = self.panel().current().filter(|e| !e.is_dir && !e.is_parent()).cloned() else {
+            return self.status = Some(t!("split.no_file"));
+        };
+        if self.panel().subject().place != coxswain_core::menu::Place::Disk {
+            return self.status = Some(t!("sums.not_here"));
+        }
+        let mut items: Vec<MenuItem> = coxswain_core::split::PRESETS
+            .iter()
+            .enumerate()
+            .map(|(i, (size, id))| MenuItem { key: (i + 1).to_string(), label: t!(&format!("split.size.{id}")), run: MenuRun::Split(e.path.clone(), Some(*size)), group: None })
+            .collect();
+        items.push(MenuItem { key: (items.len() + 1).to_string(), label: t!("split.size.other"), run: MenuRun::Split(e.path.clone(), None), group: None });
+        let title = format!("{} {}", self.action_label(Action::SplitFile), e.name);
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "split_and_join" });
+    }
+
+    fn split_start(&mut self, file: PathBuf, size: u64) {
+        self.work_start(Action::SplitFile, move |stop, at| WorkMsg::Split(coxswain_core::split::split(&file, size, stop, at)));
+    }
+
+    /// Join the parts from `first` on: asked first, and again before a file of that name is
+    /// replaced.
+    fn join_menu(&mut self, first: PathBuf) {
+        let Some(target) = coxswain_core::split::joins_into(&first) else { return };
+        let n = coxswain_core::split::parts_of(&first).len();
+        let name = target.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let there = std::fs::symlink_metadata(&target).is_ok();
+        let label = if there { t!("split.replace", "name" => &name) } else { tn!("split.join_into", n, "name" => &name) };
+        let items = vec![MenuItem { key: "1".into(), label, run: MenuRun::Join(first, there), group: None }];
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::JoinParts), filter: String::new(), items, cursor: 0, direct: true, feature: "split_and_join" });
+    }
+
+    fn join_start(&mut self, first: PathBuf, replace: bool) {
+        self.work_start(Action::JoinParts, move |stop, at| WorkMsg::Joined(coxswain_core::split::join(&first, replace, stop, at)));
+    }
+
     fn sums_make(&mut self, algo: coxswain_core::checksum::Algo, files: Vec<PathBuf>) {
         let dir = self.panel().dir.clone();
         self.work_start(Action::MakeChecksums, move |stop, at| WorkMsg::Made(coxswain_core::checksum::make(&dir, &files, algo, stop, at)));
@@ -2406,6 +2468,32 @@ impl App {
                 self.status = Some(tn!("sums.made", m.files, "name" => m.path.file_name().unwrap_or_default().to_string_lossy()));
             }
             WorkMsg::Made(Err(e)) if e.kind() == std::io::ErrorKind::Interrupted => self.status = Some(t!("sums.stopped")),
+            WorkMsg::Split(Ok(s)) => {
+                self.reload();
+                let name = |p: &Path| p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                self.status = Some(tn!("split.done", s.parts.len(), "sums" => name(&s.sums)));
+            }
+            WorkMsg::Joined(Ok(j)) => {
+                self.reload();
+                let name = j.path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                match j.matches {
+                    Some(false) => {
+                        self.status = None;
+                        self.dialog = Some(Dialog::Message { title: self.action_label(Action::JoinParts), text: t!("split.mismatch", "name" => name) });
+                    }
+                    Some(true) => self.status = Some(t!("split.joined_ok", "name" => name)),
+                    None => self.status = Some(t!("split.joined", "name" => name)),
+                }
+            }
+            WorkMsg::Split(Err(e)) | WorkMsg::Joined(Err(e)) if e.kind() == std::io::ErrorKind::Interrupted => self.status = Some(t!("split.stopped")),
+            WorkMsg::Split(Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("split.split_failed"), &e.to_string()));
+            }
+            WorkMsg::Joined(Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("split.join_failed"), &e.to_string()));
+            }
             WorkMsg::Made(Err(e)) => {
                 self.status = None;
                 self.dialog = Some(failure(t!("sums.make_failed"), &e.to_string()));
@@ -2885,6 +2973,10 @@ impl App {
                 Some(op) => self.media_ask(op, files),
                 None => self.status = Some(t!("media.clip_bad")),
             },
+            Prompt::SplitSize(file) => match coxswain_core::split::parse_size(&value) {
+                Some(size) => self.split_start(file, size),
+                None => self.status = Some(t!("split.size_bad")),
+            },
             Prompt::Resize(files) => match coxswain_core::media::Op::parse(&format!("resize:{}", value.trim())) {
                 Some(op) => self.media_ask(op, files),
                 None => self.status = Some(t!("media.resize_bad")),
@@ -3334,6 +3426,9 @@ impl App {
                         let dst = self.panel().dir.clone();
                         self.transfer(if *mv { Transfer::Move } else { Transfer::Copy }, src.clone(), dst, None, None);
                     }
+                    Some(MenuRun::Split(file, Some(size))) => self.split_start(file.clone(), *size),
+                    Some(MenuRun::Split(file, None)) => self.input(&self.action_label(Action::SplitFile), t!("split.size_label"), "250M".into(), Prompt::SplitSize(file.clone())),
+                    Some(MenuRun::Join(first, replace)) => self.join_start(first.clone(), *replace),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -3941,7 +4036,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() {
         // An error on the status line in plain words, its first line only; the whole of it
         // goes to helper.log.
         if let Some(s) = &app.status {

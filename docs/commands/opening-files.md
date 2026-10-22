@@ -21,6 +21,7 @@ or `start` would. The terminal app runs a program instead of opening it.
 | A file inside an archive | Status line: *photos.zip is an archive: F5 copies this file out of it* | Same |
 | A program (a file with the executable bit on the BSDs, illumos, Linux and macOS; `.exe`, `.bat`, `.cmd`, `.ps1`, `.com` on Windows) | Opened like any other file, in its default application | Run in the terminal as `./name`, in the panel's folder, then `-- press Enter --` |
 | A list of checksums (`SHA256SUMS`, `SHA512SUMS`, `B3SUMS`, a `.sha256`, `.sha512` or `.b3` file) | Checks every file it names: OK, changed or missing ([Checksums](../files/checksums.md#checking-a-list)); **F3** shows its text | Same |
+| The first part of a split file (`name.001`) | Offers *Join parts* into `name`, checked against `name.sha256` ([Split and join](../files/split-and-join.md#joining-the-parts)) | Same |
 | A symbolic link to nothing (its target is gone, or two links point at each other) | Handed to the default application, which says it cannot open it | The same: never run as a program, whatever the link's own mode says |
 | Any other file | Opened in its default application | Same |
 

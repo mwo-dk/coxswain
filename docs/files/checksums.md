@@ -136,4 +136,4 @@ Copy the list and its files out first (**F5**): checking reads the files from th
 ZFS snapshot. A list in a ZFS snapshot can be checked from the action menu.
 
 ---
-[← Previous: Convert or edit pictures](edit-pictures.md) · [Next: Customising →](../customise/README.md)
+[← Previous: Convert or edit pictures](edit-pictures.md) · [Next: Split and join (Alt+X) →](split-and-join.md)

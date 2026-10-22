@@ -292,6 +292,8 @@ export const isScad = (name) => /\.scad$/i.test(name);
 /** A KiCad schematic or board: *Export from KiCad* takes it. */
 export const isKicad = (name) => /\.kicad_(sch|pcb)$/i.test(name);
 /** A list of checksums, as `checksum::is_list` tells one. */
+/** The first part of a split file, as `split::joins_into` tells one: `name.001`. */
+export const isFirstPart = (name) => /.\.0*1$/.test(name) && /\.\d{3,}$/.test(name);
 export const isSums = (name) => /^(SHA256SUMS|SHA512SUMS|B3SUMS)|\.(sha256|sha512|b3)$/i.test(name);
 /** Tracker music: facts and sample names, no playback. */
 const TRACKER = ["mod", "xm", "s3m", "it"];

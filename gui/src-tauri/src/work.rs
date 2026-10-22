@@ -77,3 +77,46 @@ pub fn work_progress(what: String) -> Option<String> {
 pub fn work_stop() {
     STOP.store(true, Ordering::Relaxed);
 }
+
+/// The sizes offered for parts, each with its label: `[bytes, "CD (700 MB)"]`.
+#[tauri::command]
+pub fn split_sizes() -> Vec<(u64, String)> {
+    coxswain_core::split::PRESETS.iter().map(|(n, id)| (*n, coxswain_core::t!(&format!("split.size.{id}")))).collect()
+}
+
+/// A typed size in bytes (`250M`), or none when it is no size.
+#[tauri::command]
+pub fn split_size(text: String) -> Option<u64> {
+    coxswain_core::split::parse_size(&text)
+}
+
+#[tauri::command]
+pub async fn split_file(path: PathBuf, size: u64) -> Res<coxswain_core::split::Split> {
+    crate::here(&path)?;
+    run(move |stop, at| coxswain_core::split::split(&path, size, stop, at)).await?.map_err(|e| e.to_string())
+}
+
+/// What joining from `first` makes: its name, how many parts, and whether a file has that name.
+#[tauri::command]
+pub fn join_plan(first: PathBuf) -> Option<(String, usize, bool)> {
+    let target = coxswain_core::split::joins_into(&first)?;
+    let name = target.file_name()?.to_string_lossy().into_owned();
+    Some((name, coxswain_core::split::parts_of(&first).len(), std::fs::symlink_metadata(&target).is_ok()))
+}
+
+#[tauri::command]
+pub async fn join_parts(first: PathBuf, replace: bool) -> Res<coxswain_core::split::Joined> {
+    run(move |stop, at| coxswain_core::split::join(&first, replace, stop, at)).await?.map_err(|e| e.to_string())
+}
+
+/// Stop the run under way and wait for it, ten seconds at most: the app is ending, and a split's
+/// parts or a join's file must not be left half made.
+pub fn work_end() {
+    work_stop();
+    for _ in 0..100 {
+        if WORK.lock().unwrap().is_none() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+}
