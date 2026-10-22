@@ -129,7 +129,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `history_upstream` | **Alt+Y** | | |
 | `split_file` | **Alt+X** | `join_parts` | none |
 | `chess` | **Alt+K** | `edit_here` | **Shift+F4** |
-| `convert_ebook` | none | | |
+| `convert_ebook` | none | `preview_with` | none |
 | `space_view` | **Alt+U** | `export_kicad` | none |
 | `transcribe` | none | `compare_files` | **Shift+F2** |
 | `adoc_pdf` | none | `drawio_export` | none |

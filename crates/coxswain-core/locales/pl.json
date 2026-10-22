@@ -1915,7 +1915,7 @@
  "feature.preview_safety.what": "Podglądy nigdy nie uruchamiają skryptów pliku, nie zapisują niczego obok niego ani nie łączą się z siecią, a duże pliki są pokazywane częściowo.",
  "feature.preview_tools.a1": "Narzędzie czeka na kliknięcie (LaTeX przy wyłączonym automatycznym budowaniu) albo jedynym silnikiem jest kontener, którego obraz nie jest jeszcze pobrany. Notka pod przyciskiem mówi, który przypadek zachodzi.",
  "feature.preview_tools.a2": "Nie. Pokazuje polecenie dla Twojego systemu z przyciskiem Kopiuj i nigdy go nie uruchamia. Wklej je do terminala albo kliknij Ustawienia → Podglądy, aby zamiast tego użyć kontenera.",
- "feature.preview_tools.a3": "Otwórz Ustawienia ({settings}) → Podglądy → Narzędzia podglądu: każdy rodzaj ma wiersz z tym, co jest zainstalowane, jego kontenerem, tym, co jest teraz używane, i wyborem Zainstalowany program, Kontener lub Wyłączone.",
+ "feature.preview_tools.a3": "Na pliku: Podgląd za pomocą… w menu akcji ({action_menu}) pokazuje wybory jego rodzaju, Zainstalowany program, Kontener lub Wyłączone, z tym, czego każdy by użył. Ustawienia ({settings}) → Podglądy → Narzędzia podglądu mają wiersz dla każdego rodzaju, z Pobierz, Usuń i Wypróbuj.",
  "feature.preview_tools.q1": "Dlaczego podgląd pokazuje przycisk, zamiast renderować?",
  "feature.preview_tools.q2": "Podgląd mówi, żeby zainstalować program. Czy Coxswain go instaluje?",
  "feature.preview_tools.q3": "Jak wybrać, który program pokazuje dany rodzaj pliku?",
@@ -2868,7 +2868,6 @@
  "preview.next_page": "Następna strona",
  "preview.no_changes": "(brak zmian względem HEAD)",
  "preview.no_contacts": "Brak kontaktów",
- "preview.no_engine": "{notes}. Zainstaluj program albo pozwól, by ten podgląd utworzył kontener.",
  "preview.no_events": "Brak wydarzeń",
  "preview.no_name": "(bez nazwy)",
  "preview.no_output": "(brak wyniku)",
@@ -4226,5 +4225,15 @@
  "viruses.update_failed": "Nie udało się zaktualizować bazy, więc użyto istniejącej: {error}",
  "viruses.update_first": "Najpierw baza (około 110 MB) jest pobierana z {server}, we własnym kontenerze, który widzi tylko bazę.",
  "viruses.updating": "Aktualizowanie bazy wirusów",
- "ptools.kind.viruses": "Skanuj w poszukiwaniu wirusów"
+ "ptools.kind.viruses": "Skanuj w poszukiwaniu wirusów",
+ "action.preview_with": "Podgląd za pomocą…",
+ "ptools.none_here": "Żadne narzędzie podglądu nie pokazuje tego pliku.",
+ "ptools.current": "teraz",
+ "ptools.chosen": "{kind}: zapisano, podgląd powstaje od nowa",
+ "ptools.menu_copy": "Kopiuj wiersz instalacji: {line}",
+ "ptools.menu_settings": "Ustawienia → Narzędzia podglądu (pobierz, usuń, wersje)…",
+ "ptools.would": "Zainstaluj {program} albo pobierz jego obraz{size}.",
+ "ptools.would_runtime": "Zainstaluj {program} albo zainstaluj podman lub docker i pobierz jego obraz{size}.",
+ "ptools.would_install": "Zainstaluj {program}.",
+ "ptools.pull": "Pobierz jego obraz{size}"
 }

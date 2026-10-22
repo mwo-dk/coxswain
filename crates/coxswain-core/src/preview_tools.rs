@@ -408,8 +408,18 @@ fn version_in(text: &str) -> Option<String> {
 /// images and whether the runtime has them, the choice, and what is used. Asks every program
 /// and the runtime: run it off the screen's thread.
 pub fn rows(cfg: &PreviewConfig) -> Vec<Row> {
+    rows_of(cfg, KINDS)
+}
+
+/// The row of the kind `tool` belongs to (a tool's id or a kind's), for *Preview with…*.
+pub fn row_of(cfg: &PreviewConfig, tool: &str) -> Option<Row> {
+    let k = kind_of(tool)?;
+    rows_of(cfg, std::slice::from_ref(k)).pop()
+}
+
+fn rows_of(cfg: &PreviewConfig, kinds: &'static [Kind]) -> Vec<Row> {
     let runtime = crate::tools::container_runtime(cfg);
-    let mut names: Vec<&'static str> = KINDS.iter().flat_map(|k| k.tools).flat_map(|t| t.programs.iter().copied()).collect();
+    let mut names: Vec<&'static str> = kinds.iter().flat_map(|k| k.tools).flat_map(|t| t.programs.iter().copied()).collect();
     names.sort();
     names.dedup();
     let found: HashMap<&str, Program> = std::thread::scope(|s| {
@@ -425,7 +435,7 @@ pub fn rows(cfg: &PreviewConfig) -> Vec<Row> {
             .collect();
         jobs.into_iter().filter_map(|j| j.join().ok()).collect()
     });
-    KINDS.iter().map(|k| row(cfg, k, &found, runtime.as_ref())).collect()
+    kinds.iter().map(|k| row(cfg, k, &found, runtime.as_ref())).collect()
 }
 
 fn row(cfg: &PreviewConfig, k: &'static Kind, found: &HashMap<&str, Program>, runtime: Option<&(&'static str, PathBuf)>) -> Row {

@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Vorschauen führen nie die Skripte einer Datei aus, schreiben nie daneben und gehen nie ins Web, und große Dateien werden teilweise gezeigt.",
  "feature.preview_tools.a1": "Das Werkzeug wartet auf einen Klick (LaTeX, wenn das automatische Erstellen aus ist), oder die einzige Engine ist ein Container, dessen Image noch nicht geladen ist. Der Hinweis unter der Schaltfläche sagt, was davon.",
  "feature.preview_tools.a2": "Nein. Sie zeigt die Zeile für Ihr System mit Kopieren und führt sie nie aus. Fügen Sie sie in ein Terminal ein, oder klicken Sie auf Einstellungen → Vorschauen, um stattdessen einen Container zu nutzen.",
- "feature.preview_tools.a3": "Öffnen Sie die Einstellungen ({settings}) → Vorschauen → Vorschauwerkzeuge: Jede Art hat eine Zeile mit dem, was installiert ist, ihrem Container, dem, was jetzt verwendet wird, und der Wahl Installiertes Programm, Container oder Aus.",
+ "feature.preview_tools.a3": "Auf einer Datei: Vorschau mit… im Aktionsmenü ({action_menu}) zeigt die Wahl ihrer Art, Installiertes Programm, Container oder Aus, mit dem, was jede verwenden würde. Einstellungen ({settings}) → Vorschauen → Vorschauwerkzeuge hat eine Zeile je Art, mit Laden, Entfernen und Ausprobieren.",
  "feature.preview_tools.q1": "Warum zeigt die Vorschau eine Schaltfläche, statt zu rendern?",
  "feature.preview_tools.q2": "Die Vorschau sagt, ich soll ein Programm installieren. Installiert Coxswain es?",
  "feature.preview_tools.q3": "Wie wähle ich, welches Programm eine Art von Datei zeigt?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Nächste Seite",
  "preview.no_changes": "(keine Änderungen gegenüber HEAD)",
  "preview.no_contacts": "Keine Kontakte",
- "preview.no_engine": "{notes}. Installieren Sie das Programm oder lassen Sie einen Container diese Vorschau erstellen.",
  "preview.no_events": "Keine Termine",
  "preview.no_name": "(kein Name)",
  "preview.no_output": "(keine Ausgabe)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Die Datenbank konnte nicht aktualisiert werden, daher wurde die vorhandene benutzt: {error}",
  "viruses.update_first": "Zuerst wird die Datenbank (etwa 110 MB) von {server} geladen, in einem eigenen Container, der nichts außer der Datenbank sieht.",
  "viruses.updating": "Aktualisiere die Virendatenbank",
- "ptools.kind.viruses": "Auf Viren prüfen"
+ "ptools.kind.viruses": "Auf Viren prüfen",
+ "action.preview_with": "Vorschau mit…",
+ "ptools.none_here": "Kein Vorschauwerkzeug zeigt diese Datei.",
+ "ptools.current": "jetzt",
+ "ptools.chosen": "{kind}: gespeichert, die Vorschau entsteht neu",
+ "ptools.menu_copy": "Installationszeile kopieren: {line}",
+ "ptools.menu_settings": "Einstellungen → Vorschauwerkzeuge (laden, entfernen, Versionen)…",
+ "ptools.would": "Installieren Sie {program} oder laden Sie sein Image{size}.",
+ "ptools.would_runtime": "Installieren Sie {program} oder installieren Sie podman oder docker und laden Sie sein Image{size}.",
+ "ptools.would_install": "Installieren Sie {program}.",
+ "ptools.pull": "Sein Image laden{size}"
 }

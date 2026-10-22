@@ -68,6 +68,8 @@ pub struct Subject {
     /// Of the files, AsciiDoc documents and draw.io diagrams (`export`).
     pub adocs: usize,
     pub drawios: usize,
+    /// Of the files, those a preview tool shows (`preview_tools::for_path`).
+    pub previewed: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -115,6 +117,7 @@ impl Subject {
             speech: count(&crate::transcribe::is_speech),
             adocs: count(&crate::export::is_adoc),
             drawios: count(&crate::export::is_drawio),
+            previewed: count(&|p| crate::preview_tools::for_path(p).is_some()),
             ..Subject::default()
         }
     }
@@ -180,6 +183,7 @@ impl Action {
             AdocPdf => s.adocs > 0 && disk,
             DrawioExport => s.drawios > 0 && disk,
             ScanViruses => n > 0 && disk,
+            PreviewWith => s.single() && s.previewed == 1 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,

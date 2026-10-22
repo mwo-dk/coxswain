@@ -111,8 +111,8 @@ page the size of its bounding box (`-dEPSCrop`).
   line before the button says *No text in this PDF: it looks like a scan. Make it searchable,
   and Find reads its words.* ([Make PDF searchable](../files/searchable-pdf.md)).
 - **Typst, PostScript, XPS:** the engine buttons, then the PDF. With neither the program nor a
-  container: *gs is not installed. Neither podman nor docker is installed. Install the program,
-  or let a container make this preview.*, the line that installs it with **Copy**, and
+  container: *Install gs, or install podman or docker and pull its image (310 MB).*, the line
+  that installs it with **Copy**, and
   **Settings → Previews** ([Installing what is missing](tools.md#installing-what-is-missing)).
 - **EPUB:** the book's title as a heading, then the chapter's text.
 - **Notebook:** each code cell with *In [n]* beside it and its output under it.

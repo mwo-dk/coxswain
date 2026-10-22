@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Forhåndsvisninger kjører aldri skriptene i en fil, skriver aldri ved siden av den og går aldri ut på nettet, og store filer vises delvis.",
  "feature.preview_tools.a1": "Verktøyet venter på et klikk (LaTeX med automatisk bygging slått av), eller den eneste motoren er en container der imaget ikke er hentet ennå. Merknaden under knappen sier hvilken.",
  "feature.preview_tools.a2": "Nei. Den viser kommandolinjen for systemet ditt med Kopier og kjører den aldri. Lim den inn i en terminal, eller klikk Innstillinger → Forhåndsvisninger for å bruke en container i stedet.",
- "feature.preview_tools.a3": "Åpne Innstillinger ({settings}) → Forhåndsvisninger → Forhåndsvisningsverktøy: hver slags har en rad med det som er installert, containeren, det som brukes nå, og valget Installert program, Container eller Av.",
+ "feature.preview_tools.a3": "På en fil: Forhåndsvis med… i handlingsmenyen ({action_menu}) viser valgene for slagsen, Installert program, Container eller Av, med det hvert ville bruke. Innstillinger ({settings}) → Forhåndsvisninger → Forhåndsvisningsverktøy har en rad for hver slags, med Hent, Fjern og Prøv.",
  "feature.preview_tools.q1": "Hvorfor viser forhåndsvisningen en knapp i stedet for å gjengi?",
  "feature.preview_tools.q2": "Forhåndsvisningen sier at jeg skal installere et program. Installerer Coxswain det?",
  "feature.preview_tools.q3": "Hvordan velger jeg hvilket program som viser en slags fil?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Neste side",
  "preview.no_changes": "(ingen endringer mot HEAD)",
  "preview.no_contacts": "Ingen kontakter",
- "preview.no_engine": "{notes}. Installer programmet, eller la en container lage denne forhåndsvisningen.",
  "preview.no_events": "Ingen hendelser",
  "preview.no_name": "(uten navn)",
  "preview.no_output": "(ingen utdata)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Databasen kunne ikke oppdateres, så den som fantes ble brukt: {error}",
  "viruses.update_first": "Først hentes databasen (omtrent 110 MB) fra {server}, i en egen container som ikke ser annet enn databasen.",
  "viruses.updating": "Oppdaterer virusdatabasen",
- "ptools.kind.viruses": "Søk etter virus"
+ "ptools.kind.viruses": "Søk etter virus",
+ "action.preview_with": "Forhåndsvis med…",
+ "ptools.none_here": "Ingen forhåndsvisningsverktøy viser denne filen.",
+ "ptools.current": "nå",
+ "ptools.chosen": "{kind}: lagret, forhåndsvisningen lages på nytt",
+ "ptools.menu_copy": "Kopier installasjonslinjen: {line}",
+ "ptools.menu_settings": "Innstillinger → Forhåndsvisningsverktøy (hent, fjern, versjoner)…",
+ "ptools.would": "Installer {program}, eller hent imaget{size}.",
+ "ptools.would_runtime": "Installer {program}, eller installer podman eller docker og hent imaget{size}.",
+ "ptools.would_install": "Installer {program}.",
+ "ptools.pull": "Hent imaget{size}"
 }

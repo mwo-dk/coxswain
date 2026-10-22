@@ -1819,7 +1819,7 @@
  "feature.preview_safety.what": "Esikatselut eivät koskaan aja tiedoston skriptejä, kirjoita sen viereen tai käytä verkkoa, ja suurista tiedostoista näytetään osa.",
  "feature.preview_tools.a1": "Työkalu odottaa napsautusta (LaTeX, kun automaattinen kokoaminen on pois päältä), tai ainoa ohjelma on kontti, jonka kuvaa ei ole vielä noudettu. Painikkeen alla oleva huomautus kertoo kumpi.",
  "feature.preview_tools.a2": "Ei. Se näyttää järjestelmällesi sopivan rivin Kopioi-painikkeen kanssa eikä koskaan aja sitä. Liitä se päätteeseen tai napsauta Asetukset → Esikatselut käyttääksesi sen sijaan konttia.",
- "feature.preview_tools.a3": "Avaa Asetukset ({settings}) → Esikatselut → Esikatselun työkalut: kullakin lajilla on rivi, jossa on asennetut ohjelmat, sen säiliö, nyt käytössä oleva ja valinta Asennettu ohjelma, Säiliö tai Pois.",
+ "feature.preview_tools.a3": "Tiedoston kohdalla: toimintovalikon ({action_menu}) Esikatsele ohjelmalla… näyttää sen lajin valinnat, Asennettu ohjelma, Säiliö tai Pois, ja mitä kukin käyttäisi. Asetukset ({settings}) → Esikatselut → Esikatselun työkalut sisältää rivin kullekin lajille, painikkeineen Lataa, Poista ja Kokeile.",
  "feature.preview_tools.q1": "Miksi esikatselu näyttää painikkeen eikä hahmonna?",
  "feature.preview_tools.q2": "Esikatselu kehottaa asentamaan ohjelman. Asentaako Coxswain sen?",
  "feature.preview_tools.q3": "Miten valitsen, mikä ohjelma näyttää tiedostolajin?",
@@ -2748,7 +2748,6 @@
  "preview.next_page": "Seuraava sivu",
  "preview.no_changes": "(ei muutoksia HEADiin verrattuna)",
  "preview.no_contacts": "Ei yhteystietoja",
- "preview.no_engine": "{notes}. Asenna ohjelma tai anna säiliön tehdä tämä esikatselu.",
  "preview.no_events": "Ei tapahtumia",
  "preview.no_name": "(ei nimeä)",
  "preview.no_output": "(ei tulostetta)",
@@ -4048,5 +4047,15 @@
  "viruses.update_failed": "Tietokantaa ei voitu päivittää, joten käytettiin olemassa olevaa: {error}",
  "viruses.update_first": "Ensin tietokanta (noin 110 Mt) noudetaan palvelimelta {server}, omassa kontissaan, joka ei näe muuta kuin tietokannan.",
  "viruses.updating": "Päivitetään virustietokantaa",
- "ptools.kind.viruses": "Tarkista virukset"
+ "ptools.kind.viruses": "Tarkista virukset",
+ "action.preview_with": "Esikatsele ohjelmalla…",
+ "ptools.none_here": "Mikään esikatselun työkalu ei näytä tätä tiedostoa.",
+ "ptools.current": "nyt",
+ "ptools.chosen": "{kind}: tallennettu, esikatselu tehdään uudelleen",
+ "ptools.menu_copy": "Kopioi asennusrivi: {line}",
+ "ptools.menu_settings": "Asetukset → Esikatselun työkalut (lataa, poista, versiot)…",
+ "ptools.would": "Asenna {program} tai lataa sen levykuva{size}.",
+ "ptools.would_runtime": "Asenna {program} tai asenna podman tai docker ja lataa sen levykuva{size}.",
+ "ptools.would_install": "Asenna {program}.",
+ "ptools.pull": "Lataa sen levykuva{size}"
 }

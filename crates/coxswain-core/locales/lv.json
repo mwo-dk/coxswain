@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Priekšskatījumi nekad nepalaiž faila skriptus, neraksta blakus tam un nesasniedz tīmekli, un lieli faili tiek rādīti daļēji.",
  "feature.preview_tools.a1": "Rīks gaida klikšķi (LaTeX ar izslēgtu automātisko veidošanu), vai vienīgais dzinējs ir konteiners, kura attēls vēl nav lejupielādēts. Piezīme zem pogas saka, kurš no tiem.",
  "feature.preview_tools.a2": "Nē. Tas rāda rindu jūsu sistēmai ar Kopēt un nekad to nepalaiž. Ielīmējiet to terminālī vai noklikšķiniet uz Iestatījumi → Priekšskatījumi, lai tā vietā izmantotu konteineru.",
- "feature.preview_tools.a3": "Atveriet Iestatījumus ({settings}) → Priekšskatījumi → Priekšskatījuma rīki: katram veidam ir rinda ar instalēto, tā konteineru, tagad lietoto un izvēli Instalēta programma, Konteiners vai Izslēgts.",
+ "feature.preview_tools.a3": "Uz faila: darbību izvēlnes ({action_menu}) Priekšskatīt ar… rāda tā veida izvēles, Instalēta programma, Konteiners vai Izslēgts, un ko katra lietotu. Iestatījumi ({settings}) → Priekšskatījumi → Priekšskatījuma rīki ir rinda katram veidam ar Lejupielādēt, Noņemt un Izmēģināt.",
  "feature.preview_tools.q1": "Kāpēc priekšskatījums rāda pogu, nevis atveido?",
  "feature.preview_tools.q2": "Priekšskatījums saka instalēt programmu. Vai Coxswain to instalē?",
  "feature.preview_tools.q3": "Kā izvēlēties, kura programma rāda kāda veida failu?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Nākamā lappuse",
  "preview.no_changes": "(nav izmaiņu salīdzinājumā ar HEAD)",
  "preview.no_contacts": "Nav kontaktpersonu",
- "preview.no_engine": "{notes}. Instalējiet programmu vai ļaujiet konteineram izveidot šo priekšskatījumu.",
  "preview.no_events": "Nav notikumu",
  "preview.no_name": "(bez nosaukuma)",
  "preview.no_output": "(nav izvades)",
@@ -4137,5 +4136,15 @@
  "viruses.update_failed": "Datubāzi nevarēja atjaunināt, tāpēc tika izmantota esošā: {error}",
  "viruses.update_first": "Vispirms datubāze (apmēram 110 MB) tiek lejupielādēta no {server}, atsevišķā konteinerā, kas redz tikai datubāzi.",
  "viruses.updating": "Atjaunina vīrusu datubāzi",
- "ptools.kind.viruses": "Pārbaudīt, vai nav vīrusu"
+ "ptools.kind.viruses": "Pārbaudīt, vai nav vīrusu",
+ "action.preview_with": "Priekšskatīt ar…",
+ "ptools.none_here": "Neviens priekšskatījuma rīks šo failu nerāda.",
+ "ptools.current": "tagad",
+ "ptools.chosen": "{kind}: saglabāts, priekšskatījums top no jauna",
+ "ptools.menu_copy": "Kopēt instalēšanas rindu: {line}",
+ "ptools.menu_settings": "Iestatījumi → Priekšskatījuma rīki (lejupielādēt, noņemt, versijas)…",
+ "ptools.would": "Instalējiet {program} vai lejupielādējiet tā attēlu{size}.",
+ "ptools.would_runtime": "Instalējiet {program} vai instalējiet podman vai docker un lejupielādējiet tā attēlu{size}.",
+ "ptools.would_install": "Instalējiet {program}.",
+ "ptools.pull": "Lejupielādēt tā attēlu{size}"
 }

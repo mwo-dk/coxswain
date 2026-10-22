@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Las vistas previas nunca ejecutan los scripts de un archivo, no escriben a su lado ni acceden a la web, y los archivos grandes se muestran en parte.",
  "feature.preview_tools.a1": "La herramienta espera un clic (LaTeX con la compilación automática desactivada), o el único motor es un contenedor cuya imagen todavía no se descargó. La nota debajo del botón dice cuál es el caso.",
  "feature.preview_tools.a2": "No. Muestra la línea para tu sistema con Copiar y nunca la ejecuta. Pegala en una terminal, o hacé clic en Configuración → Vistas previas para usar un contenedor en su lugar.",
- "feature.preview_tools.a3": "Abrí Configuración ({settings}) → Vistas previas → Herramientas de vista previa: cada tipo tiene una fila con lo instalado, su contenedor, lo que se usa ahora y la opción Programa instalado, Contenedor o Desactivado.",
+ "feature.preview_tools.a3": "En un archivo: Vista previa con… en el menú de acciones ({action_menu}) muestra las opciones de su tipo, Programa instalado, Contenedor o Desactivado, con lo que usaría cada una. Configuración ({settings}) → Vistas previas → Herramientas de vista previa tiene una fila por tipo, con Descargar, Quitar y Probar.",
  "feature.preview_tools.q1": "¿Por qué la vista previa muestra un botón en vez de renderizar?",
  "feature.preview_tools.q2": "La vista previa dice que instale un programa. ¿Coxswain lo instala?",
  "feature.preview_tools.q3": "¿Cómo elijo qué programa muestra un tipo de archivo?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Página siguiente",
  "preview.no_changes": "(sin cambios respecto de HEAD)",
  "preview.no_contacts": "No hay contactos",
- "preview.no_engine": "{notes}. Instalá el programa, o dejá que un contenedor haga esta vista previa.",
  "preview.no_events": "No hay eventos",
  "preview.no_name": "(sin nombre)",
  "preview.no_output": "(sin salida)",
@@ -4137,5 +4136,15 @@
  "viruses.update_failed": "No se pudo actualizar la base de datos, así que se usó la que había: {error}",
  "viruses.update_first": "Primero se descarga la base de datos (unos 110 MB) de {server}, en un contenedor propio que no ve nada más que la base de datos.",
  "viruses.updating": "Actualizando la base de datos de virus",
- "ptools.kind.viruses": "Analizar en busca de virus"
+ "ptools.kind.viruses": "Analizar en busca de virus",
+ "action.preview_with": "Vista previa con…",
+ "ptools.none_here": "Ninguna herramienta de vista previa muestra este archivo.",
+ "ptools.current": "ahora",
+ "ptools.chosen": "{kind}: guardado, la vista previa se vuelve a hacer",
+ "ptools.menu_copy": "Copiar la línea de instalación: {line}",
+ "ptools.menu_settings": "Configuración → Herramientas de vista previa (descargar, quitar, versiones)…",
+ "ptools.would": "Instalá {program}, o descargá su imagen{size}.",
+ "ptools.would_runtime": "Instalá {program}, o instalá podman o docker y descargá su imagen{size}.",
+ "ptools.would_install": "Instalá {program}.",
+ "ptools.pull": "Descargar su imagen{size}"
 }

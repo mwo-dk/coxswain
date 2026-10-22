@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Le anteprime non eseguono mai gli script di un file, non scrivono accanto a esso e non usano il web, e i file grandi sono mostrati in parte.",
  "feature.preview_tools.a1": "Lo strumento attende un clic (LaTeX con la compilazione automatica disattivata), oppure l’unico motore è un container la cui immagine non è ancora scaricata. La nota sotto il pulsante dice quale dei due.",
  "feature.preview_tools.a2": "No. Mostra la riga per il tuo sistema con Copia e non la esegue mai. Incollala in un terminale, o fai clic su Impostazioni → Anteprime per usare invece un container.",
- "feature.preview_tools.a3": "Aprite le Impostazioni ({settings}) → Anteprime → Strumenti di anteprima: ogni tipo ha una riga con ciò che è installato, il suo container, ciò che è in uso ora e la scelta Programma installato, Container o Disattivato.",
+ "feature.preview_tools.a3": "Su un file: Anteprima con… nel menu delle azioni ({action_menu}) elenca le scelte del suo tipo, Programma installato, Container o Disattivato, con ciò che ognuna userebbe. Impostazioni ({settings}) → Anteprime → Strumenti di anteprima ha una riga per tipo, con Scarica, Rimuovi e Prova.",
  "feature.preview_tools.q1": "Perché l’anteprima mostra un pulsante invece di eseguire il rendering?",
  "feature.preview_tools.q2": "L’anteprima dice di installare un programma. Coxswain lo installa?",
  "feature.preview_tools.q3": "Come scelgo quale programma mostra un tipo di file?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Pagina successiva",
  "preview.no_changes": "(nessuna modifica rispetto a HEAD)",
  "preview.no_contacts": "Nessun contatto",
- "preview.no_engine": "{notes}. Installa il programma, o lascia che un container crei questa anteprima.",
  "preview.no_events": "Nessun evento",
  "preview.no_name": "(senza nome)",
  "preview.no_output": "(nessun output)",
@@ -4137,5 +4136,15 @@
  "viruses.update_failed": "Non è stato possibile aggiornare il database, quindi è stato usato quello presente: {error}",
  "viruses.update_first": "Prima il database (circa 110 MB) viene scaricato da {server}, in un container a parte che non vede altro che il database.",
  "viruses.updating": "Aggiornamento del database dei virus",
- "ptools.kind.viruses": "Cerca virus"
+ "ptools.kind.viruses": "Cerca virus",
+ "action.preview_with": "Anteprima con…",
+ "ptools.none_here": "Nessuno strumento di anteprima mostra questo file.",
+ "ptools.current": "ora",
+ "ptools.chosen": "{kind}: salvato, l'anteprima si rifà",
+ "ptools.menu_copy": "Copia la riga di installazione: {line}",
+ "ptools.menu_settings": "Impostazioni → Strumenti di anteprima (scarica, rimuovi, versioni)…",
+ "ptools.would": "Installate {program}, o scaricatene l'immagine{size}.",
+ "ptools.would_runtime": "Installate {program}, o installate podman o docker e scaricatene l'immagine{size}.",
+ "ptools.would_install": "Installate {program}.",
+ "ptools.pull": "Scaricane l'immagine{size}"
 }

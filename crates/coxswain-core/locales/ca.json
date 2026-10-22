@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Les previsualitzacions no executen mai els scripts d'un fitxer, no escriuen al seu costat ni accedeixen al web, i els fitxers grans es mostren en part.",
  "feature.preview_tools.a1": "L'eina espera un clic (LaTeX amb la compilació automàtica desactivada), o l'únic motor és un contenidor amb la imatge encara no baixada. La nota sota el botó diu quin és el cas.",
  "feature.preview_tools.a2": "No. Mostra la línia per al vostre sistema amb Copia i no l'executa mai. Enganxeu-la en un terminal, o feu clic a Paràmetres → Previsualitzacions per fer servir un contenidor.",
- "feature.preview_tools.a3": "Obriu Configuració ({settings}) → Previsualitzacions → Eines de previsualització: cada tipus té una fila amb el que hi ha instal·lat, el seu contenidor, el que s'usa ara i l'opció Programa instal·lat, Contenidor o Desactivat.",
+ "feature.preview_tools.a3": "En un fitxer: Previsualitza amb… al menú d'accions ({action_menu}) mostra les opcions del seu tipus, Programa instal·lat, Contenidor o Desactivat, amb el que usaria cadascuna. Configuració ({settings}) → Previsualitzacions → Eines de previsualització té una fila per tipus, amb Descarrega, Elimina i Prova.",
  "feature.preview_tools.q1": "Per què la previsualització mostra un botó en lloc de renderitzar?",
  "feature.preview_tools.q2": "La previsualització diu que cal instal·lar un programa. El Coxswain l'instal·la?",
  "feature.preview_tools.q3": "Com trio quin programa mostra un tipus de fitxer?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Pàgina següent",
  "preview.no_changes": "(cap canvi respecte a HEAD)",
  "preview.no_contacts": "No hi ha contactes",
- "preview.no_engine": "{notes}. Instal·leu el programa, o deixeu que un contenidor faci aquesta previsualització.",
  "preview.no_events": "No hi ha esdeveniments",
  "preview.no_name": "(sense nom)",
  "preview.no_output": "(sense sortida)",
@@ -4137,5 +4136,15 @@
  "viruses.update_failed": "No s'ha pogut actualitzar la base de dades, així que s'ha fet servir la que hi havia: {error}",
  "viruses.update_first": "Primer es baixa la base de dades (uns 110 MB) de {server}, en un contenidor propi que no veu res més que la base de dades.",
  "viruses.updating": "Actualitzant la base de dades de virus",
- "ptools.kind.viruses": "Analitza si hi ha virus"
+ "ptools.kind.viruses": "Analitza si hi ha virus",
+ "action.preview_with": "Previsualitza amb…",
+ "ptools.none_here": "Cap eina de previsualització mostra aquest fitxer.",
+ "ptools.current": "ara",
+ "ptools.chosen": "{kind}: desat, la previsualització es torna a fer",
+ "ptools.menu_copy": "Copia la línia d'instal·lació: {line}",
+ "ptools.menu_settings": "Configuració → Eines de previsualització (descarrega, elimina, versions)…",
+ "ptools.would": "Instal·leu {program}, o descarregueu-ne la imatge{size}.",
+ "ptools.would_runtime": "Instal·leu {program}, o instal·leu podman o docker i descarregueu-ne la imatge{size}.",
+ "ptools.would_install": "Instal·leu {program}.",
+ "ptools.pull": "Descarrega'n la imatge{size}"
 }

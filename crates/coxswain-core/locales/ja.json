@@ -1771,7 +1771,7 @@
  "feature.preview_safety.what": "プレビューはファイルのスクリプトを実行せず、隣に書き込まず、ウェブにアクセスしません。大きなファイルは一部だけ表示します。",
  "feature.preview_tools.a1": "ツールがクリックを待っている (LaTeX の自動作成がオフ) か、使えるエンジンがイメージ未プルのコンテナーだけです。ボタンの下の説明にどちらかが出ます。",
  "feature.preview_tools.a2": "いいえ。システムに合ったコマンド行を「コピー」付きで表示するだけで、実行はしません。ターミナルに貼り付けるか、設定 → プレビュー をクリックして代わりにコンテナーを使ってください。",
- "feature.preview_tools.a3": "設定 ({settings}) → プレビュー → プレビューツールを開きます。各種類に、インストール済みのもの、そのコンテナ、現在使われているもの、そして選択 (インストール済みのプログラム、コンテナ、オフ) の行があります。",
+ "feature.preview_tools.a3": "ファイルの上で、アクションメニュー ({action_menu}) の「プレビューの方法…」がその種類の選択肢 (インストール済みのプログラム、コンテナ、オフ) と、それぞれが使うものを示します。設定 ({settings}) → プレビュー → プレビューツールには種類ごとの行があり、取得、削除、試すがあります。",
  "feature.preview_tools.q1": "プレビューが描画されずにボタンが出るのはなぜですか？",
  "feature.preview_tools.q2": "プレビューにプログラムをインストールするよう出ます。Coxswain がインストールしますか？",
  "feature.preview_tools.q3": "ある種類のファイルを表示するプログラムはどう選びますか?",
@@ -2688,7 +2688,6 @@
  "preview.next_page": "次のページ",
  "preview.no_changes": "(HEAD との差分なし)",
  "preview.no_contacts": "連絡先なし",
- "preview.no_engine": "{notes}。プログラムをインストールするか、コンテナーでプレビューを作成してください。",
  "preview.no_events": "予定なし",
  "preview.no_name": "(名前なし)",
  "preview.no_output": "(出力なし)",
@@ -3959,5 +3958,15 @@
  "viruses.update_failed": "データベースを最新にできなかったため、既存のものを使いました: {error}",
  "viruses.update_first": "まずデータベース (約 110 MB) を {server} から取得します。データベース以外何も見えない専用のコンテナー内で行います。",
  "viruses.updating": "ウイルスデータベースを更新中",
- "ptools.kind.viruses": "ウイルスをスキャン"
+ "ptools.kind.viruses": "ウイルスをスキャン",
+ "action.preview_with": "プレビューの方法…",
+ "ptools.none_here": "このファイルを表示するプレビューツールはありません。",
+ "ptools.current": "現在",
+ "ptools.chosen": "{kind}: 保存しました。プレビューを作り直します",
+ "ptools.menu_copy": "インストール行をコピー: {line}",
+ "ptools.menu_settings": "設定 → プレビューツール (取得、削除、バージョン)…",
+ "ptools.would": "{program} をインストールするか、そのイメージを取得してください{size}。",
+ "ptools.would_runtime": "{program} をインストールするか、podman か docker をインストールしてそのイメージを取得してください{size}。",
+ "ptools.would_install": "{program} をインストールしてください。",
+ "ptools.pull": "イメージを取得{size}"
 }

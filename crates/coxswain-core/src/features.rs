@@ -212,7 +212,7 @@ pub const FEATURES: &[Feature] = &[
     f(
         "preview_tools",
         "previews/tools.md",
-        &[TogglePreview, Settings],
+        &[PreviewWith, TogglePreview, Settings],
     ),
     f(
         "containers",

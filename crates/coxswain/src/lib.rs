@@ -413,6 +413,12 @@ pub enum MenuRun {
     Join(PathBuf, bool),
     /// What *Export draw.io diagram* makes of these diagrams.
     Export(coxswain_core::export::Op, Vec<PathBuf>),
+    /// *Preview with…*: this choice for this kind (`[preview.tools]`; "" for the default).
+    PreviewTool(&'static str, &'static str),
+    /// A line copied to the clipboard, said on the status line.
+    CopyLine(String),
+    /// Settings, open at a section.
+    SettingsAt(&'static str),
 }
 
 pub struct MenuItem {
@@ -1464,6 +1470,7 @@ impl App {
             Action::AdocPdf => self.export_menu(true),
             Action::DrawioExport => self.export_menu(false),
             Action::ScanViruses => self.scan_viruses(),
+            Action::PreviewWith => self.preview_with(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -2260,6 +2267,53 @@ impl App {
             .collect();
         let action = media_action(program);
         self.dialog = Some(Dialog::Menu { title: self.action_label(action), filter: String::new(), items, cursor: 0, direct: true, feature: media_feature(program) });
+    }
+
+    /// *Preview with…* on the file under the cursor: the choices for its kind of file
+    /// (`preview_tools`), what each would use, the line that installs its program, and Settings
+    /// at Preview tools (where its image is pulled).
+    fn preview_with(&mut self) {
+        use coxswain_core::preview_tools as pt;
+        let Some(kind) = self.panel().current().filter(|e| !e.is_dir).and_then(|e| pt::for_path(&e.path)) else {
+            return self.status = Some(t!("ptools.none_here"));
+        };
+        let Some(r) = pt::row_of(&self.cfg.preview, kind.id) else { return };
+        let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
+        let image = r.images.iter().find(|i| !i.image.is_empty());
+        let now = |c: &str| if r.choice == c { format!(" · {}", t!("ptools.current")) } else { String::new() };
+        let default = t!("ptools.choice.default", "value" => settings::choice_label("preview_prefer", &self.cfg.preview.prefer));
+        let local = format!("{}: {}", t!("ptools.choice.local"), if installed.is_empty() { t!("convert.not_installed", "program" => r.programs.first().map_or("", |p| p.name)) } else { installed.join(", ") });
+        let container = match image {
+            Some(i) => format!("{}: {} ({})", t!("ptools.choice.container"), coxswain_core::images::short(&i.image).rsplit('/').next().unwrap_or_default(), match (i.pulled, &i.download) {
+                (Some(b), _) => t!("settings.image_pulled", "size" => coxswain_core::settings::human(b)),
+                (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
+                (None, None) => t!("settings.image_not_pulled"),
+            }),
+            None => t!("ptools.container_none"),
+        };
+        let mut items: Vec<MenuItem> = [("", default), ("local", local), ("container", container), ("off", t!("ptools.choice.off"))]
+            .into_iter()
+            .enumerate()
+            .map(|(i, (c, label))| MenuItem { key: (i + 1).to_string(), label: format!("{label}{}", now(c)), run: MenuRun::PreviewTool(kind.id, c), group: None })
+            .collect();
+        if let (true, Some(line)) = (installed.is_empty(), &r.install) {
+            items.push(MenuItem { key: "c".into(), label: t!("ptools.menu_copy", "line" => line.as_str()), run: MenuRun::CopyLine(line.clone()), group: None });
+        }
+        items.push(MenuItem { key: "s".into(), label: t!("ptools.menu_settings"), run: MenuRun::SettingsAt("preview_tools"), group: None });
+        let title = format!("{} {}", self.action_label(Action::PreviewWith), r.title);
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "preview_tools" });
+    }
+
+    /// A choice of *Preview with…* written into config.toml and used at once.
+    fn preview_tool(&mut self, kind: &str, choice: &str) {
+        let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
+        self.status = Some(match coxswain_core::preview_tools::set_choice(&path, kind, choice) {
+            Ok(cfg) => {
+                self.cfg = cfg;
+                t!("settings.saved", "path" => path.display())
+            }
+            Err(e) => e,
+        });
     }
 
     /// What to make was chosen: a clip and a size are asked for first, then the question.
@@ -3620,6 +3674,12 @@ impl App {
                     Some(MenuRun::Split(file, Some(size))) => self.split_start(file.clone(), *size),
                     Some(MenuRun::Split(file, None)) => self.input(&self.action_label(Action::SplitFile), t!("split.size_label"), "250M".into(), Prompt::SplitSize(file.clone())),
                     Some(MenuRun::Join(first, replace)) => self.join_start(first.clone(), *replace),
+                    Some(MenuRun::PreviewTool(kind, choice)) => self.preview_tool(kind, choice),
+                    Some(MenuRun::CopyLine(line)) => {
+                        crate::guide::copy(line);
+                        self.status = Some(t!("guide.copied", "command" => line));
+                    }
+                    Some(MenuRun::SettingsAt(at)) => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, at)))),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }

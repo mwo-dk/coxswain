@@ -1867,7 +1867,7 @@
  "feature.preview_safety.what": "Les aperçus n’exécutent jamais les scripts d’un fichier, n’écrivent jamais à côté et n’accèdent jamais au web, et les gros fichiers sont affichés en partie.",
  "feature.preview_tools.a1": "L’outil attend un clic (LaTeX avec la compilation automatique désactivée), ou le seul moteur est un conteneur dont l’image n’est pas encore téléchargée. La note sous le bouton dit lequel.",
  "feature.preview_tools.a2": "Non. Il montre la ligne pour votre système avec Copier et ne l’exécute jamais. Collez-la dans un terminal, ou cliquez sur Réglages → Aperçus pour utiliser plutôt un conteneur.",
- "feature.preview_tools.a3": "Ouvrez les Paramètres ({settings}) → Aperçus → Outils d'aperçu : chaque type a une ligne avec ce qui est installé, son conteneur, ce qui est utilisé maintenant et le choix Programme installé, Conteneur ou Désactivé.",
+ "feature.preview_tools.a3": "Sur un fichier : Aperçu avec… dans le menu d'actions ({action_menu}) liste les choix de son type, Programme installé, Conteneur ou Désactivé, avec ce que chacun utiliserait. Paramètres ({settings}) → Aperçus → Outils d'aperçu a une ligne par type, avec Télécharger, Supprimer et Essayer.",
  "feature.preview_tools.q1": "Pourquoi l’aperçu affiche-t-il un bouton au lieu du rendu ?",
  "feature.preview_tools.q2": "L’aperçu dit d’installer un programme. Coxswain l’installe-t-il ?",
  "feature.preview_tools.q3": "Comment choisir quel programme montre un type de fichier ?",
@@ -2808,7 +2808,6 @@
  "preview.next_page": "Page suivante",
  "preview.no_changes": "(aucune modification par rapport à HEAD)",
  "preview.no_contacts": "Aucun contact",
- "preview.no_engine": "{notes}. Installez le programme, ou laissez un conteneur faire cet aperçu.",
  "preview.no_events": "Aucun événement",
  "preview.no_name": "(sans nom)",
  "preview.no_output": "(aucune sortie)",
@@ -4137,5 +4136,15 @@
  "viruses.update_failed": "La base n’a pas pu être mise à jour, celle déjà présente a donc été utilisée : {error}",
  "viruses.update_first": "La base (environ 110 Mo) est d’abord téléchargée depuis {server}, dans un conteneur à part qui ne voit rien d’autre que la base.",
  "viruses.updating": "Mise à jour de la base de virus",
- "ptools.kind.viruses": "Détecter les virus"
+ "ptools.kind.viruses": "Détecter les virus",
+ "action.preview_with": "Aperçu avec…",
+ "ptools.none_here": "Aucun outil d'aperçu ne montre ce fichier.",
+ "ptools.current": "maintenant",
+ "ptools.chosen": "{kind} : enregistré, l'aperçu est refait",
+ "ptools.menu_copy": "Copier la ligne d'installation : {line}",
+ "ptools.menu_settings": "Paramètres → Outils d'aperçu (télécharger, supprimer, versions)…",
+ "ptools.would": "Installez {program}, ou téléchargez son image{size}.",
+ "ptools.would_runtime": "Installez {program}, ou installez podman ou docker et téléchargez son image{size}.",
+ "ptools.would_install": "Installez {program}.",
+ "ptools.pull": "Télécharger son image{size}"
 }
