@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: horse.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#a8321f">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M466 169C493 112 517 36 525 -11L588 7C580 53 553 127 525 183ZM628 184C662 142 698 83 713 45L771 71C756 108 718 165 682 206ZM294 163C310 99 323 17 324 -37L392 -26C390 28 376 110 357 173ZM150 198C134 110 99 21 36 -32L98 -71C165 -13 197 86 216 180ZM474 405V306H240V405ZM166 791V240H854C842 80 830 16 811 -3C803 -12 794 -13 775 -13C757 -14 710 -13 661 -8C672 -28 681 -57 682 -77C733 -81 783 -81 809 -78C838 -76 857 -70 875 -50C903 -20 917 63 931 273C932 285 933 306 933 306H548V405H835V467H548V564H835V626H548V725H870V791ZM474 467H240V564H474ZM474 626H240V725H474Z"/>
+  </g>
+</svg>

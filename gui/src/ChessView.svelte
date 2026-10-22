@@ -21,8 +21,18 @@
   // A PDN file: draughts games in the same table, on a board of their own, without openings,
   // figurines or a book.
   const draughts = $derived(format === "pdn");
-  const table = $derived(format === "pgn" || draughts);
-  const columns = $derived(draughts ? COLUMNS.filter(([c]) => c !== "eco" && c !== "opening") : COLUMNS);
+  // KIF and CSA: shogi, on its board with the pieces in hand.
+  const shogi = $derived(format === "shogi");
+  const table = $derived(format === "pgn" || draughts || shogi);
+  // A PGN file of xiangqi, as its tags say (chess_rows): its own board too.
+  let kind = $state("");
+  const xiangqi = $derived(kind === "xiangqi");
+  const other = $derived(draughts || xiangqi || shogi);
+  // F1 in the window: the feature of the file's games.
+  $effect(() => {
+    if (full && xiangqi && ui.modal?.kind === "chess" && ui.modal.path === path) ui.modal.feature = "xiangqi";
+  });
+  const columns = $derived(other ? COLUMNS.filter(([c]) => c !== "eco" && c !== "opening") : COLUMNS);
   const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   const ROW = 24;
   const COLUMNS = [
@@ -140,6 +150,7 @@
       // An answer to an older scroll or filter that came in late: a newer one is on its way.
       if (p !== path || seq !== rowsSeq) return;
       progress = r.progress;
+      kind = r.format;
       total = r.total;
       rows = r.rows;
       first = from;
@@ -214,6 +225,61 @@
   }
   const board = $derived(squares(fen));
 
+  /** Shogi kanji by SFEN letter, plain and promoted (`shogi::glyph`). */
+  const SG = { P: "歩", L: "香", N: "桂", S: "銀", G: "金", B: "角", R: "飛", K: "玉" };
+  const SGP = { P: "と", L: "杏", N: "圭", S: "全", B: "馬", R: "龍" };
+  /** A shogi position from its SFEN: 81 cells (flipped when `flip`), each { k, promoted, up }
+   *  (up: drawn upright, the side at the bottom), and each side's hand as text ("歩2 角"). */
+  function sgView(f) {
+    const [placement = "", , handText = "-"] = (f ?? "").split(" ");
+    const cells = [];
+    for (const row of placement.split("/").slice(0, 9)) {
+      const r = [];
+      let plus = false;
+      for (const ch of row) {
+        if (ch === "+") plus = true;
+        else if (/\d/.test(ch)) r.push(...Array(Number(ch)).fill(null)), (plus = false);
+        else {
+          const up = ch.toUpperCase();
+          const sente = ch === up;
+          r.push(SG[up] ? { k: plus ? (SGP[up] ?? SG[up]) : up === "K" && !sente ? "王" : SG[up], file: (plus && up !== "G" && up !== "K" ? "p" : "") + up, promoted: plus, sente } : null);
+          plus = false;
+        }
+      }
+      cells.push(...[...r, ...Array(9).fill(null)].slice(0, 9));
+    }
+    while (cells.length < 81) cells.push(null);
+    const view = (flip ? cells.reverse() : cells).map((p) => p && { ...p, up: p.sente !== flip });
+    const hands = ["", ""];
+    let n = "";
+    for (const ch of handText === "-" ? "" : handText) {
+      if (/\d/.test(ch)) n += ch;
+      else if (SG[ch.toUpperCase()]) {
+        const side = ch === ch.toUpperCase() ? 0 : 1;
+        hands[side] += `${hands[side] ? " " : ""}${SG[ch.toUpperCase()]}${n && n !== "1" ? n : ""}`;
+        n = "";
+      }
+    }
+    return { cells: view, hands };
+  }
+
+  /** Xiangqi pieces by their FEN letter (`xiangqi::glyph`). */
+  const XQ = { K: "帥", A: "仕", B: "相", N: "傌", R: "俥", C: "炮", P: "兵", k: "將", a: "士", b: "象", n: "馬", r: "車", c: "砲", p: "卒" };
+  /** A xiangqi position's 90 points from its FEN, rows from Black's side; flipped when `flip`. */
+  function xqCells(f) {
+    const out = [];
+    for (const row of (f ?? "").split(" ")[0].split("/").slice(0, 10)) {
+      const r = [];
+      for (const ch of row) {
+        if (/\d/.test(ch)) r.push(...Array(Number(ch)).fill(null));
+        else r.push(XQ[ch] ? ch : null);
+      }
+      out.push(...[...r, ...Array(9).fill(null)].slice(0, 9));
+    }
+    while (out.length < 90) out.push(null);
+    return flip ? out.reverse() : out;
+  }
+
   /** A draughts position (`draughts::cells`): rows from the top, a run of empty cells as its
    *  count, M K White's man and king, m k Black's. */
   function cells(f) {
@@ -241,7 +307,7 @@
     const p = path;
     void ui.cfg;
     const s = ++bookSeq;
-    if (!f || draughts) return void (book = null);
+    if (!f || other) return void (book = null);
     invoke("chess_book", { path: p, fen: f }).then(
       (b) => s === bookSeq && (book = b),
       () => {},
@@ -256,7 +322,7 @@
 
   /** A move as shown, in pieces: [text, figurine] (`chess::show_san`). */
   function show(san) {
-    if (draughts) return [[san, false]];
+    if (other) return [[san, false]];
     const out = [];
     [...san].forEach((c, i) => {
       const k = "KQRBN".indexOf(c);
@@ -311,7 +377,7 @@
     const map = { ArrowRight: "next", ArrowLeft: "prev", Home: "start", End: "end", ArrowDown: "down", ArrowUp: "up" };
     if (map[e.key]) step(map[e.key]);
     else if (e.key === "f") flip = !flip;
-    else if (e.key === "n" && !draughts) letters = !letters;
+    else if (e.key === "n" && !other) letters = !letters;
     else if (e.key === "PageDown" && table) nextGame(1);
     else if (e.key === "PageUp" && table) nextGame(-1);
     else if (e.key === "Escape" && table && game) back();
@@ -368,6 +434,46 @@
   {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
 {/snippet}
 
+<!-- A shogi piece: a five-sided tile with its kanji (drawn for Coxswain, vendor/game-pieces),
+     Gote's turned round; a promoted piece in red; the last move's squares tinted. -->
+{#snippet sgPiece(p, i)}
+  {@const c = flip ? 80 - i : i}
+  {@const x = i % 9}
+  {@const y = Math.floor(i / 9)}
+  {#if last && (last.from === c || last.to === c)}<rect x={x + 0.03} y={y + 0.03} width="0.94" height="0.94" fill="rgb(246 224 90 / 0.5)" />{/if}
+  {#if p}
+    <image href={`vendor/game-pieces/shogi-${p.file}.svg`} x={x} y={y} width="1" height="1" transform={p.up ? "" : `rotate(180 ${x + 0.5} ${y + 0.5})`}><title>{p.k}</title></image>
+  {/if}
+{/snippet}
+
+<!-- The xiangqi board's lines: 9 files, 10 ranks, the river between ranks 5 and 6 that only the
+     edge files cross, the palaces' diagonals; the files numbered for both sides. -->
+{#snippet xqLines(ink)}
+  {#each Array(10) as _, y (y)}<line x1="0" y1={y} x2="8" y2={y} stroke={ink} stroke-width="0.04" />{/each}
+  {#each Array(9) as _, x (x)}
+    {#if x === 0 || x === 8}<line x1={x} y1="0" x2={x} y2="9" stroke={ink} stroke-width="0.04" />
+    {:else}<line x1={x} y1="0" x2={x} y2="4" stroke={ink} stroke-width="0.04" /><line x1={x} y1="5" x2={x} y2="9" stroke={ink} stroke-width="0.04" />{/if}
+    <text x={x} y="-0.45" class="coord" text-anchor="middle" fill={ink}>{flip ? "九八七六五四三二一"[x] : x + 1}</text>
+    <text x={x} y="9.65" class="coord" text-anchor="middle" fill={ink}>{flip ? x + 1 : "九八七六五四三二一"[x]}</text>
+  {/each}
+  {#each [[3, 0, 5, 2], [5, 0, 3, 2], [3, 7, 5, 9], [5, 7, 3, 9]] as [a, b, c, d], k (k)}<line x1={a} y1={b} x2={c} y2={d} stroke={ink} stroke-width="0.03" />{/each}
+  <text x="2" y="4.68" class="river" text-anchor="middle" fill={ink}>楚 河</text>
+  <text x="6" y="4.68" class="river" text-anchor="middle" fill={ink}>漢 界</text>
+{/snippet}
+
+<!-- A xiangqi piece: a disc with its character, Red's in red, Black's in black (drawn for
+     Coxswain, vendor/game-pieces); the last move's points ringed. -->
+{#snippet xqPiece(p, i)}
+  {@const c = flip ? 89 - i : i}
+  {@const x = i % 9}
+  {@const y = Math.floor(i / 9)}
+  {@const lit = last && (last.from === c || last.to === c)}
+  {#if lit}<circle cx={x} cy={y} r="0.47" fill="rgb(246 224 90 / 0.55)" />{/if}
+  {#if p}
+    <image href={`vendor/game-pieces/xiangqi-${p === p.toUpperCase() ? "r" : "b"}${p.toLowerCase()}.svg`} x={x - 0.46} y={y - 0.46} width="0.92" height="0.92" />
+  {/if}
+{/snippet}
+
 <!-- A draughts square: dark ones numbered, a man as a disc, a king as two discs stacked. -->
 {#snippet cell(d, i)}
   {@const col = i % d.w}
@@ -403,6 +509,29 @@
           <svg class="board chess-keys" viewBox="0 0 {d.w} {d.h}" tabindex="0" role="img" aria-label={t("draughts.board")} bind:this={boardEl} onkeydown={onBoardKey}>
             {#each Array(d.w * d.h) as _, i (i)}{@render cell(d, i)}{/each}
           </svg>
+        {:else if shogi}
+          {@const sg = sgView(fen)}
+          <p class="meta hand">{t(flip ? "shogi.hand_sente" : "shogi.hand_gote", { pieces: sg.hands[flip ? 0 : 1] || "–" })}</p>
+          <svg class="board sg chess-keys" viewBox="-0.2 -0.6 9.8 9.8" tabindex="0" role="img" aria-label={t("shogi.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            <rect x="-0.2" y="-0.6" width="9.8" height="9.8" fill={looks ? looks.colours[0] : "#e8c88a"} />
+            {#each Array(10) as _, k (k)}
+              <line x1={k} y1="0" x2={k} y2="9" stroke={looks ? looks.colours[1] : "#5a4020"} stroke-width="0.03" />
+              <line x1="0" y1={k} x2="9" y2={k} stroke={looks ? looks.colours[1] : "#5a4020"} stroke-width="0.03" />
+            {/each}
+            {#each Array(9) as _, k (k)}
+              <text x={k + 0.5} y="-0.18" class="coord" text-anchor="middle" fill={looks ? looks.colours[1] : "#5a4020"}>{"９８７６５４３２１"[flip ? 8 - k : k]}</text>
+              <text x="9.3" y={k + 0.58} class="coord" text-anchor="middle" fill={looks ? looks.colours[1] : "#5a4020"}>{"一二三四五六七八九"[flip ? 8 - k : k]}</text>
+            {/each}
+            {#each sg.cells as p, i (i)}{@render sgPiece(p, i)}{/each}
+          </svg>
+          <p class="meta hand">{t(flip ? "shogi.hand_gote" : "shogi.hand_sente", { pieces: sg.hands[flip ? 1 : 0] || "–" })}</p>
+        {:else if xiangqi}
+          {@const xq = xqCells(fen)}
+          <svg class="board xq chess-keys" viewBox="-0.8 -0.8 9.6 10.6" tabindex="0" role="img" aria-label={t("xiangqi.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            <rect x="-0.8" y="-0.8" width="9.6" height="10.6" fill={looks ? looks.colours[0] : "#e8c88a"} />
+            {@render xqLines(looks ? looks.colours[1] : "#5a4020")}
+            {#each xq as p, i (i)}{@render xqPiece(p, i)}{/each}
+          </svg>
         {:else}
           <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
             {#each Array(64) as _, i (i)}{@render square(i)}{/each}
@@ -415,14 +544,15 @@
           <button class="icon" title={t("chess.next_tip")} aria-label={t("chess.next_tip")} onclick={() => step("next")}>▶</button>
           <button class="icon" title={t("chess.end_tip")} aria-label={t("chess.end_tip")} onclick={() => step("end")}>▶|</button>
           <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
-          {#if !draughts}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
+          {#if !other}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
           {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
         </div>
-        {#if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : t("chess.white_to_move")}</p>{/if}
+        {#if fen && shogi}<p class="meta">{fen.split(" ")[1] === "w" ? t("shogi.gote_to_move") : t("shogi.sente_to_move")}</p>
+        {:else if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : xiangqi ? t("xiangqi.red_to_move") : t("chess.white_to_move")}</p>{/if}
       </div>
       <div class="moves" bind:this={movesEl}>
         {#if table}
-          <p class="players"><b>{known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>
+          <p class="players"><b>{known(tag("Red")) || known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>
           <p class="meta">{[known(tag("Event")), known(tag("Site")), known(tag("Date")), [tag("ECO"), tag("Opening")].join(" ").trim()].filter(Boolean).join(" · ")}</p>
           {#if game.variant}<p class="meta">{game.variant}</p>{/if}
           <p class="meta">{t("chess.game_of", { n: game.index + 1, total: progress?.games ?? "" })}</p>
@@ -464,13 +594,13 @@
             {/if}
           {/each}
         </p>
-        <p class="meta keys">{draughts ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
+        <p class="meta keys">{other ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
   {:else if table}
     <div class="filters">
       <input type="search" placeholder={t("chess.filter_player")} aria-label={t("chess.filter_player")} bind:value={query.player} />
-      {#if !draughts}<input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
+      {#if !other}<input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
       <select aria-label={t("chess.col_result")} bind:value={query.result}>
         <option value="">{t("chess.result_any")}</option>
         <option value="1-0">{draughts ? "2-0 · 1-0" : "1-0"}</option>
@@ -491,7 +621,7 @@
         <thead>
           <tr>
             {#each columns as [col, label] (col)}
-              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
+              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(xiangqi && col === "white" ? "xiangqi.col_red" : shogi && col === "white" ? "shogi.col_sente" : shogi && col === "black" ? "shogi.col_gote" : label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
             {/each}
           </tr>
         </thead>
@@ -507,7 +637,7 @@
               <td>{r.result}</td>
               <td>{r.date}</td>
               <td>{r.event}</td>
-              {#if !draughts}<td>{r.eco}</td>
+              {#if !other}<td>{r.eco}</td>
               <td>{r.opening}</td>{/if}
               <td class="n">{r.moves}</td>
             </tr>
@@ -657,6 +787,19 @@
   }
   .board:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .board.sg {
+    aspect-ratio: 1;
+  }
+  .hand {
+    margin: 0;
+  }
+  .river {
+    font-size: 0.55px;
+    font-family: "Noto Serif CJK SC", "Noto Sans CJK SC", "Source Han Serif", "PingFang SC", "Microsoft YaHei", serif;
+  }
+  .board.xq {
+    aspect-ratio: 9.6 / 10.6;
   }
   .coord {
     font-size: 0.17px;

@@ -151,7 +151,7 @@ does not start on **Alt+U** ([Quick search](quick-search.md)). To use another ke
 
 Every kind Coxswain reads has its family: old pictures (TIFF, Amiga IFF, PCX, Photoshop, JPEG XL
 …) are pictures, tracker music (`.mod`, `.xm`, `.s3m`, `.it`) music, comics, mailboxes, Outlook
-messages, PostScript, Typst, chess, Go and draughts games and old office files documents, dBase tables data,
+messages, PostScript, Typst, chess, xiangqi, Go, draughts and shogi games and old office files documents, dBase tables data,
 diagram sources code, and `.iso`, `.dmg`, `.vhd`, `.vhdx`, `.vmdk`, `.qcow2`, `.vdi` and `.wim`
 disk images. Only endings Coxswain does not know are grey, *Other* in *By type*.
 

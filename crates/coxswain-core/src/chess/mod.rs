@@ -31,6 +31,11 @@ pub enum Format {
     Book,
     /// Draughts games: `.pdn` (`crate::draughts`), in the same table as PGN games.
     Pdn,
+    /// Xiangqi games: a PGN file whose tags say so (`games::kind`, `crate::xiangqi`).
+    Xiangqi,
+    /// Shogi games (`crate::shogi`): KIF (`.kif`, `.kifu`) and CSA (`.csa`).
+    Kif,
+    Csa,
 }
 
 /// The chess file `path` is, by its name.
@@ -44,6 +49,8 @@ pub fn format(path: &Path) -> Option<Format> {
         Some(Format::Sgf)
     } else if n.ends_with(".pdn") {
         Some(Format::Pdn)
+    } else if let Some(f) = crate::shogi::format(&n) {
+        Some(f)
     } else {
         None
     }

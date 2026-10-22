@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: tokin.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#a8321f">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M308 778 229 745C275 636 328 519 374 437C267 362 201 281 201 178C201 28 337 -28 525 -28C650 -28 765 -16 841 -3V86C763 66 630 52 521 52C363 52 284 104 284 187C284 263 340 329 433 389C531 454 669 520 737 555C766 570 791 583 814 597L770 668C749 651 728 638 699 621C644 591 536 538 442 481C398 560 348 668 308 778Z"/>
+  </g>
+</svg>

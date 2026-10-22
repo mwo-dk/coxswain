@@ -67,6 +67,7 @@ pub mod searchable;
 pub mod service;
 pub mod settings;
 pub mod setup;
+pub mod shogi;
 pub mod sizes;
 pub mod space;
 pub mod state;
@@ -88,6 +89,7 @@ pub mod view;
     all(test, unix)
 ))]
 mod xdg_trash;
+pub mod xiangqi;
 pub mod zfs;
 
 /// The time limit for a test that guards against a hang or a blow-up (a crafted input that must
