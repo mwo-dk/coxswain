@@ -38,7 +38,7 @@ The dialog is titled with the entry's name.
 |---|---|
 | *Location* | The folder it is in |
 | *Type* | *File*, *Folder*, or *Symbolic link* `→` its target |
-| *Size* | The size; from 10 KB on also the exact bytes; for a folder, *in 1,234 files* |
+| *Size* | The size; from 10 KB on also the exact bytes; for a folder, *in 1,234 files*. A folder you may not list says *Could not be read: No permission* (or why else it could not), not a size of 0 |
 | *Created*, *Modified*, *Accessed* | Dates, where the file system records them |
 | *Owner* | The user and group by name, as `ls -l` shows them, then their ids: `demo:demo · uid 1000, gid 1000` (the BSDs, illumos, Linux, macOS). An id with no name stays a number |
 | *Permissions* | An octal field, `644`, with `rw-r--r--` next to it, updated as you type (the BSDs, Linux, macOS) |

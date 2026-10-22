@@ -5,13 +5,20 @@
 //! tools, never at startup.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::config::quote;
 use crate::t;
 
-/// A handoff found no tool: the notice that says what to install shows (`notices`).
-pub static MISSING: AtomicBool = AtomicBool::new(false);
+/// A handoff found no tool: the notice that says what to install shows (`notices`), saying
+/// what opened instead: `OPENED_SHELL`, `OPENED_TERMINAL` or `OPENED_NOTHING` (0: none missed).
+pub static MISSING: AtomicU8 = AtomicU8::new(0);
+/// A shell in the terminal app's own terminal.
+pub const OPENED_SHELL: u8 = 1;
+/// A terminal window.
+pub const OPENED_TERMINAL: u8 = 2;
+/// No terminal was found to open either.
+pub const OPENED_NOTHING: u8 = 3;
 
 /// What opens, and how.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -238,8 +245,14 @@ pub fn handoff(tool: &str, dir: &Path, terminal: bool) -> Result<Handoff, String
     let var = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
     let has = |p: &str| crate::user_menu::installed(p);
     let r = plan(os(), tool, dir, terminal, &look, &has, &var);
-    if matches!(&r, Ok(Handoff { name: None, .. }) | Err(Missing::Nothing)) {
-        MISSING.store(true, Ordering::Relaxed);
+    let missed = match &r {
+        Ok(Handoff { name: None, run: Run::Here(_), .. }) => OPENED_SHELL,
+        Ok(Handoff { name: None, .. }) => OPENED_TERMINAL,
+        Err(Missing::Nothing) => OPENED_NOTHING,
+        _ => 0,
+    };
+    if missed != 0 {
+        MISSING.store(missed, Ordering::Relaxed);
     }
     r.map_err(Missing::text)
 }
@@ -492,9 +505,10 @@ pub fn spawn(h: &Handoff) -> std::io::Result<()> {
 
 /// What the status line says once the tool has opened.
 pub fn opened(h: &Handoff) -> String {
-    match &h.name {
-        Some(name) => t!("gittool.opened", "name" => name),
-        None => t!("gittool.terminal"),
+    match (&h.name, &h.run) {
+        (Some(name), _) => t!("gittool.opened", "name" => name),
+        (None, Run::Here(_)) => t!("gittool.shell"),
+        (None, _) => t!("gittool.terminal"),
     }
 }
 
@@ -733,9 +747,9 @@ mod tests {
             f.plan("linux", "my-tool", &outside, false, X),
             Err(Missing::NoRepo)
         );
-        MISSING.store(false, Ordering::Relaxed);
+        MISSING.store(0, Ordering::Relaxed);
         assert!(handoff("", &outside, true).is_err());
-        assert!(!MISSING.load(Ordering::Relaxed), "not a missing tool");
+        assert_eq!(MISSING.load(Ordering::Relaxed), 0, "not a missing tool");
     }
 
     #[test]

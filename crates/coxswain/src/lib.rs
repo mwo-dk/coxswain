@@ -3865,6 +3865,14 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
     while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() {
+        // An error on the status line in plain words, its first line only; the whole of it
+        // goes to helper.log.
+        if let Some(s) = &app.status {
+            let p = coxswain_core::fs::plain(s);
+            if &p != s {
+                app.status = Some(p);
+            }
+        }
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
             Some(Run::Shell { line, typed, dir, wait }) => {

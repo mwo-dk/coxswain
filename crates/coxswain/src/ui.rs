@@ -426,7 +426,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let sep_y = inner.y + 1 + rows as u16;
     f.render_widget(Paragraph::new(Span::styled("─".repeat(w), border)), Rect { y: sep_y, height: 1, ..inner });
     let info = if let Some(err) = &p.error {
-        Line::from(Span::styled(fit(err, w), sty(&t.git_conflict)))
+        Line::from(Span::styled(fit(&coxswain_core::fs::plain_words(err), w), sty(&t.git_conflict)))
     } else if !p.marked.is_empty() {
         Line::from(Span::styled(fit(&center(&tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes)), w), w), sty(&t.marked)))
     } else if let Some(e) = p.current() {
@@ -1240,7 +1240,7 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str, disk
     if p.kind == "folder" {
         sz = format!("{sz} {}", tn!("dialogs.in_files", p.files));
     }
-    add("dialogs.size", sz);
+    add("dialogs.size", p.unreadable.as_ref().map_or(sz, |why| t!("dialogs.unreadable", "why" => why)));
     if let Some(m) = p.modified {
         add("dialogs.modified", date(m));
     }

@@ -108,6 +108,8 @@ test("isModel: model files, and a Core ML package only as a folder", async () =>
   assert.ok(isModel({ name: "Thrust.mlpackage", is_dir: true }));
   assert.ok(!isModel({ name: "Thrust.mlpackage", is_dir: false }));
   assert.ok(!isModel({ name: "weights.pt", is_dir: false }));
+  // An HDF5 file is a model only when its bytes say so: Preview asks.
+  assert.ok(!isModel({ name: "survey.h5", is_dir: false }));
   assert.ok(!isModel({ name: "onnx", is_dir: true }));
 });
 

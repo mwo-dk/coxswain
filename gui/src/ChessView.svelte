@@ -347,6 +347,8 @@
   const known = (v) => (v && v !== "?" && !v.startsWith("????") ? v : "");
   const PIECE = { k: "K", q: "Q", r: "R", b: "B", n: "N", p: "P" };
   const num = (v) => (v === "" || v == null ? null : Number(v) || null);
+  /** A number field as wide as its label, which is all it shows until something is typed. */
+  const fits = (label) => `calc(${[...label].length}ch + 2.5em)`;
   const pct = $derived(progress && progress.size ? Math.floor((progress.read * 100) / progress.size) : 0);
 </script>
 
@@ -475,9 +477,9 @@
         <option value="0-1">{draughts ? "0-2 · 0-1" : "0-1"}</option>
         <option value="1/2-1/2">{draughts ? "1-1 · ½-½" : "½-½"}</option>
       </select>
-      <input class="num" type="number" placeholder={t("chess.year_from")} aria-label={t("chess.year_from")} value={query.from ?? ""} onchange={(e) => (query.from = num(e.currentTarget.value))} />
-      <input class="num" type="number" placeholder={t("chess.year_to")} aria-label={t("chess.year_to")} value={query.to ?? ""} onchange={(e) => (query.to = num(e.currentTarget.value))} />
-      <input class="num" type="number" placeholder={t("chess.filter_elo")} aria-label={t("chess.filter_elo")} value={query.elo ?? ""} onchange={(e) => (query.elo = num(e.currentTarget.value))} />
+      <input class="num" type="number" style:width={fits(t("chess.year_from"))} placeholder={t("chess.year_from")} aria-label={t("chess.year_from")} value={query.from ?? ""} onchange={(e) => (query.from = num(e.currentTarget.value))} />
+      <input class="num" type="number" style:width={fits(t("chess.year_to"))} placeholder={t("chess.year_to")} aria-label={t("chess.year_to")} value={query.to ?? ""} onchange={(e) => (query.to = num(e.currentTarget.value))} />
+      <input class="num" type="number" style:width={fits(t("chess.filter_elo"))} placeholder={t("chess.filter_elo")} aria-label={t("chess.filter_elo")} value={query.elo ?? ""} onchange={(e) => (query.elo = num(e.currentTarget.value))} />
       {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
     </div>
     <p class="meta">
@@ -585,7 +587,7 @@
     padding: 2px 6px;
   }
   .filters .num {
-    flex: 0 1 6em;
+    flex: 0 1 auto;
   }
   .list {
     flex: 1;

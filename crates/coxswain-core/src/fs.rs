@@ -1103,6 +1103,9 @@ pub struct Props {
     pub link_target: Option<PathBuf>,
     pub size: u64,
     pub files: u64,
+    /// A folder that could not be listed: why, in plain words. Its size and count are then
+    /// unknown, not 0.
+    pub unreadable: Option<String>,
     pub created: Option<u64>,
     pub modified: Option<u64>,
     pub accessed: Option<u64>,
@@ -1135,6 +1138,11 @@ pub fn properties(path: &Path) -> io::Result<Props> {
     let lmeta = fs::symlink_metadata(path)?;
     let meta = fs::metadata(path).unwrap_or_else(|_| lmeta.clone());
     let (size, files) = dir_size(path);
+    let unreadable = meta
+        .is_dir()
+        .then(|| fs::read_dir(path).err())
+        .flatten()
+        .map(|e| plain_kind(e.kind()).unwrap_or_else(|| cause(&e.to_string())));
     #[cfg(unix)]
     let (mode, uid, gid) = {
         use std::os::unix::fs::MetadataExt;
@@ -1169,6 +1177,7 @@ pub fn properties(path: &Path) -> io::Result<Props> {
         link_target: fs::read_link(path).ok(),
         size,
         files,
+        unreadable,
         created: secs(meta.created()),
         modified: secs(meta.modified()),
         accessed: secs(meta.accessed()),
@@ -1445,8 +1454,97 @@ pub fn cause(err: &str) -> String {
     }
 }
 
+/// A system error in plain words, in the current language ("No permission", "Not found"), or
+/// `None` for one that has none.
+pub fn plain_kind(kind: io::ErrorKind) -> Option<String> {
+    use io::ErrorKind as K;
+    let key = match kind {
+        K::PermissionDenied => "oserr.permission",
+        K::NotFound => "oserr.not_found",
+        K::AlreadyExists => "oserr.exists",
+        K::StorageFull | K::QuotaExceeded => "oserr.full",
+        K::ReadOnlyFilesystem => "oserr.read_only",
+        K::DirectoryNotEmpty => "oserr.not_empty",
+        K::NotADirectory => "oserr.not_folder",
+        K::IsADirectory => "oserr.is_folder",
+        K::ResourceBusy | K::ExecutableFileBusy => "oserr.busy",
+        K::InvalidFilename => "oserr.bad_name",
+        K::FileTooLarge => "oserr.too_large",
+        K::TimedOut => "oserr.timed_out",
+        K::StaleNetworkFileHandle | K::NetworkDown | K::NetworkUnreachable | K::HostUnreachable => "oserr.network",
+        K::ConnectionRefused => "oserr.refused",
+        K::CrossesDevices => "oserr.other_disk",
+        _ => return None,
+    };
+    Some(crate::t!(key))
+}
+
+/// A status line's error in plain words: its first line, with what the system said
+/// ("Permission denied (os error 13)") as `plain_kind` says it. A text it changed goes, whole,
+/// to helper.log.
+pub fn plain(raw: &str) -> String {
+    let out = plain_words(raw);
+    if out != raw.trim() {
+        crate::helper::app_log(raw.trim());
+    }
+    out
+}
+
+/// `plain` without the log: for a text drawn again and again.
+pub fn plain_words(raw: &str) -> String {
+    plain_line(raw.lines().find(|l| !l.trim().is_empty()).unwrap_or_default().trim())
+}
+
+fn plain_line(line: &str) -> String {
+    // "…: Permission denied (os error 13)": the number says what it is on every system.
+    let (said, kind) = match line.rsplit_once(" (os error ").and_then(|(t, n)| Some((t, n.strip_suffix(')')?.parse::<i32>().ok()?))) {
+        Some((t, n)) => (t, io::Error::from_raw_os_error(n).kind()),
+        None => {
+            // An error made from a kind alone says it in English: "entity not found".
+            let tail = line.rsplit_once(": ").map_or(line, |(_, t)| t);
+            match KINDS.iter().find(|k| io::Error::from(**k).to_string() == tail) {
+                Some(k) => (line, *k),
+                None => return line.to_string(),
+            }
+        }
+    };
+    let Some(words) = plain_kind(kind) else { return line.to_string() };
+    match said.rsplit_once(": ") {
+        Some((head, _)) => format!("{head}: {words}"),
+        None => words,
+    }
+}
+
+/// The kinds `plain_kind` has words for, to know them by their English text.
+const KINDS: &[io::ErrorKind] = &[
+    io::ErrorKind::PermissionDenied,
+    io::ErrorKind::NotFound,
+    io::ErrorKind::AlreadyExists,
+    io::ErrorKind::StorageFull,
+    io::ErrorKind::ReadOnlyFilesystem,
+    io::ErrorKind::DirectoryNotEmpty,
+    io::ErrorKind::NotADirectory,
+    io::ErrorKind::IsADirectory,
+    io::ErrorKind::ResourceBusy,
+    io::ErrorKind::InvalidFilename,
+    io::ErrorKind::FileTooLarge,
+    io::ErrorKind::TimedOut,
+];
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn plain_says_system_errors_in_words() {
+        let e = io::Error::from_raw_os_error(if cfg!(windows) { 5 } else { 13 });
+        assert_eq!(plain_line(&format!("Could not open: {e}")), format!("Could not open: {}", crate::t!("oserr.permission")));
+        assert_eq!(plain_line(&io::Error::from(io::ErrorKind::NotFound).to_string()), crate::t!("oserr.not_found"));
+        assert_eq!(plain_line("/a/b: entity not found"), format!("/a/b: {}", crate::t!("oserr.not_found")));
+        // Only the first line: an opener's stderr can run long.
+        assert_eq!(plain_words("\nxdg-open: no method available\nmore\n"), "xdg-open: no method available");
+        // Not a system error: left as it is.
+        assert_eq!(plain_words("Copied 3 items"), "Copied 3 items");
+    }
+
     #[test]
     fn percent_decode_undoes_two_digits_and_leaves_the_rest() {
         assert_eq!(super::percent_decode(b"a%C3%A6%2f"), "aæ/".as_bytes());
@@ -1604,6 +1702,26 @@ mod tests {
             );
         }
         assert!(read_dir_once(&refused, &d).is_ok());
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Properties of a folder it may not list say so, not "0 B in 0 files".
+    #[cfg(unix)]
+    #[test]
+    fn properties_of_an_unreadable_folder_say_why() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-props-shut-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("shut")).unwrap();
+        fs::set_permissions(d.join("shut"), fs::Permissions::from_mode(0o000)).unwrap();
+        let p = properties(&d.join("shut")).unwrap();
+        let root = fs::read_dir(d.join("shut")).is_ok();
+        fs::set_permissions(d.join("shut"), fs::Permissions::from_mode(0o755)).unwrap();
+        // Root lists any folder.
+        if !root {
+            assert_eq!(p.unreadable, Some(crate::t!("oserr.permission")));
+        }
+        assert_eq!(properties(&d).unwrap().unreadable, None);
         fs::remove_dir_all(&d).unwrap();
     }
 

@@ -33,6 +33,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "coxswain.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "coxswain.desktop"
+      }
+    },
     "macOS": {
       "signingIdentity": "-"
     }

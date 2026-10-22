@@ -44,7 +44,7 @@ system; this page is about the room they take and getting it back.
 | `peek/` | Files copied out of archives to be previewed or viewed, and archives inside archives you opened (`nested/`), and what compressed tars hold (`archive-index/`) | Copied again the next time | Yes |
 | `inside-…/` | Left-overs of the search helper reading files inside archives; shown only when there are some | Nothing. A folder a running helper is using now is kept | Yes |
 | `libreoffice-profile/` (and `libreoffice-index-profile/`) | LibreOffice's own profiles for previews and for reading old Office files | Made again the next time LibreOffice runs | Yes |
-| `helper.log` | When the search helper started and left, and what failed | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
+| `helper.log` | When the search helper started and left, and what failed; the whole text of an error the status line said short | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, *Whisper*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice (*Whisper* in use: transcribing is turned off) | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
 | A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
@@ -80,6 +80,8 @@ How each is cleared:
   choice, saved, and the line says which (as under [Built-in models](../search/models.md)).
 - **A container image** is removed with `podman image rm <name>` (or docker's). No container is
   ever started. An image a container still uses is refused by podman, and its words are shown.
+  What it says was freed is only what really went: the layers no other image uses, measured
+  with `podman system df` (or docker's) before and after. Its size in the list counts the shared layers too.
 
 ## Outside Coxswain's folder
 

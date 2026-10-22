@@ -177,10 +177,19 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         ));
     }
     // "Open in your git tool" found none: what to install, or where to name one. Once.
-    if crate::handoff::MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+    let missed = crate::handoff::MISSING.load(std::sync::atomic::Ordering::Relaxed);
+    if missed != 0 {
         let key = cfg.key_for(crate::config::Action::GitTool).unwrap_or("F9");
         let copy = crate::handoff::install();
-        let text = t!("notice.git_tool", "key" => key);
+        // What opened instead, as it was.
+        let text = t!(
+            match missed {
+                crate::handoff::OPENED_SHELL => "notice.git_tool_shell",
+                crate::handoff::OPENED_NOTHING => "notice.git_tool_nothing",
+                _ => "notice.git_tool",
+            },
+            "key" => key
+        );
         // The terminal app has no Copy button: the line is in the text.
         let text = match &copy {
             Some(line) => format!("{text} {line}"),

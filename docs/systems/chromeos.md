@@ -13,6 +13,7 @@ its own home folder, *Linux files*, and the ChromeOS folders you share with it.
 - [Which file to download](#which-file-to-download)
 - [Installing the desktop app](#installing-the-desktop-app)
 - [The terminal app](#the-terminal-app)
+- [Uninstalling](#uninstalling)
 - [Your ChromeOS files](#your-chromeos-files)
 - [Search, the helper and the graphics card](#search-the-helper-and-the-graphics-card)
 - [What was checked](#what-was-checked)
@@ -63,6 +64,20 @@ mkdir -p ~/.local/bin && cp coxswain-terminal-*/coxswain coxswain-terminal-*/cox
 It runs in the *Terminal* app (or any terminal installed in Linux). The Terminal app's default
 font has no Nerd Font glyphs: pick one in its settings, or set `glyphs = "ascii"`
 ([Glyphs and fonts](../customise/glyphs-and-fonts.md)).
+
+## Uninstalling
+
+Right-click *Coxswain* in the launcher and choose **Uninstall**, or in the Linux terminal:
+
+```sh
+sudo apt remove coxswain                         # the desktop app
+rm ~/.local/bin/coxswain ~/.local/bin/cox        # the terminal app
+```
+
+First turn off *Start with my session* (or run `coxswain --index-service off`), so nothing tries
+to start the search helper at login. Your settings, the state and the index stay; remove them with
+`rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain`
+([Where things are kept](../reference/where-things-are-kept.md)). Turning Linux off in ChromeOS's settings removes all of it at once.
 
 ## Your ChromeOS files
 

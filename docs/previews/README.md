@@ -131,7 +131,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.csv` `.tsv` `.xlsx` `.xls` `.ods` | Table, a button per sheet | [Data](data.md#formats) |
 | `.db` `.sqlite`, `.parquet`, `.duckdb` | Tables, rows, schema | [Data](data.md#formats) |
 | `.pem` `.crt` `.cer` `.der`, `.plist` | Certificate facts, XML | [Data](data.md#formats) |
-| `.onnx` `.tflite` `.mlmodel` `.mlpackage` `.keras` `.h5` | The model's facts and its graph, drawn by Netron | [Neural network models](neural-networks.md) |
+| `.onnx` `.tflite` `.mlmodel` `.mlpackage` `.keras`, a Keras `.h5` | The model's facts and its graph, drawn by Netron | [Neural network models](neural-networks.md) |
 | `.cdx.json` `.cdx.xml` `.cbom.json`, CycloneDX JSON/XML | Rated tree, sunburst, compare | [Cryptography bills of materials](bom.md) |
 | `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
 | `.pgn` `.pgn.gz` `.pgn.zst` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |

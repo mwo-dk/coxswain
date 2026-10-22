@@ -24,6 +24,7 @@ dataset facts.
 - [Snapshots](#snapshots)
 - [Leaving the system alone](#leaving-the-system-alone)
 - [The search helper on a NAS](#the-search-helper-on-a-nas)
+- [Uninstalling](#uninstalling)
 - [Questions](#questions)
 
 ## Before you start: a home of your own
@@ -130,6 +131,19 @@ it read while you are logged out, add a cron job in the web interface (Community
 `/mnt/tank/home/alice/.local/bin/coxswain --index-helper --stay` as your user, say every hour:
 while one helper runs, a second one ends at once, so the job only starts it again after a
 restart. Do not edit the system's crontab by hand; TrueNAS rewrites it.
+
+## Uninstalling
+
+Everything is in your home. On Community Edition: `rm ~/.local/bin/coxswain ~/.local/bin/cox`. On
+CORE, the script's own line:
+
+```sh
+fetch -qo - https://raw.githubusercontent.com/mwo-dk/coxswain/master/install/install-freebsd.sh | sh -s -- --uninstall --prefix ~/.local
+```
+
+Delete the cron job that starts the helper, if you made one ([The search helper on a NAS](#the-search-helper-on-a-nas)),
+then remove the settings, the state and the index with
+`rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain`.
 
 ## Questions
 

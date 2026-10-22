@@ -19,6 +19,7 @@ accepted, the flake is the way to get Coxswain with Nix.
 - [The desktop app](#the-desktop-app)
 - [What the packages hold](#what-the-packages-hold)
 - [Updating](#updating)
+- [Uninstalling](#uninstalling)
 - [nixpkgs and the flake](#nixpkgs-and-the-flake)
 - [Questions](#questions)
 
@@ -110,6 +111,17 @@ The once-a-day update check sees that the program runs from `/nix/store/` and na
 it at once). For NixOS or Home Manager, update the flake input and rebuild instead. To turn the
 check off: `check_updates = false` in `config.toml` (Settings → *Privacy and updates* → *Check
 for a new version*); see [Update checks](../reference/updates.md).
+
+## Uninstalling
+
+- `nix profile remove coxswain` (or the index `nix profile list` shows) for a profile install,
+  then `nix store gc` to free the space.
+- For NixOS and Home Manager, take the package out of your configuration and rebuild.
+
+First turn off *Start with my session* (or run `coxswain --index-service off`). Your settings, the
+state and the index stay; remove them with
+`rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain`
+([Where things are kept](../reference/where-things-are-kept.md)).
 
 ## nixpkgs and the flake
 

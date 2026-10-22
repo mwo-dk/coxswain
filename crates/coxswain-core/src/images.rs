@@ -368,6 +368,49 @@ pub fn remove(rt: &Path, what: &str) -> Result<(), String> {
         .to_string())
 }
 
+/// How many bytes the runtime's images take on disk together, layers they share counted once
+/// (`system df`): podman says it in bytes, docker in rounded units ("1.2GB").
+pub fn storage(rt: &Path) -> Option<u64> {
+    let out = crate::tools::command(rt)
+        .args(["system", "df", "--format", "json"])
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    out.status.success().then(|| images_size(&String::from_utf8_lossy(&out.stdout))).flatten()
+}
+
+/// The images' row of `system df --format json`: podman's array, or docker's one object a line.
+fn images_size(said: &str) -> Option<u64> {
+    let rows: Vec<serde_json::Value> = serde_json::from_str(said)
+        .ok()
+        .or_else(|| said.lines().map(|l| serde_json::from_str(l).ok()).collect())?;
+    let row = rows.iter().find(|r| r["Type"] == "Images")?;
+    row["RawSize"].as_u64().or_else(|| units(row["Size"].as_str()?))
+}
+
+/// "1.234GB", "512.5kB", "0B": docker's sizes, in powers of 1000.
+fn units(s: &str) -> Option<u64> {
+    let at = s.find(|c: char| c.is_ascii_alphabetic())?;
+    let n: f64 = s[..at].trim().parse().ok()?;
+    let times = match s[at..].trim().to_ascii_uppercase().as_str() {
+        "B" => 1e0,
+        "KB" => 1e3,
+        "MB" => 1e6,
+        "GB" => 1e9,
+        "TB" => 1e12,
+        _ => return None,
+    };
+    Some((n * times) as u64)
+}
+
+/// Remove `image`: the bytes that freed, which are only the layers no other image uses
+/// (`storage` before and after). `None` when the runtime would not say.
+pub fn remove_freeing(rt: &Path, image: &str) -> Result<Option<u64>, String> {
+    let before = storage(rt);
+    remove(rt, image)?;
+    Ok(before.zip(storage(rt)).map(|(b, a)| b.saturating_sub(a)))
+}
+
 /// Update `image` with `pull`; when that brought a new copy, the one it replaced is removed by
 /// its id at once. A copy that cannot go (a container still uses it, another name points at
 /// it) stays, quietly.
@@ -408,6 +451,20 @@ fn replaced(old: Option<String>, new: Option<String>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn images_size_from_podman_and_docker() {
+        let podman = r#"[
+    {"Type":"Images","Total":6,"Active":1,"RawSize":9024242441,"Size":"9.024GB"},
+    {"Type":"Containers","Total":1,"Active":1,"RawSize":13146,"Size":"13.15kB"}
+]"#;
+        assert_eq!(images_size(podman), Some(9_024_242_441));
+        let docker = "{\"Active\":\"1\",\"Size\":\"1.234GB\",\"TotalCount\":\"6\",\"Type\":\"Images\"}\n{\"Size\":\"0B\",\"Type\":\"Containers\"}\n";
+        assert_eq!(images_size(docker), Some(1_234_000_000));
+        assert_eq!(units("512.5kB"), Some(512_500));
+        assert_eq!(units("0B"), Some(0));
+        assert_eq!(images_size("nonsense"), None);
+    }
 
     #[test]
     fn images_updates_come_weekly_or_monthly_and_never_without_containers() {

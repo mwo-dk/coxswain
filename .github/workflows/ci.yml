@@ -117,7 +117,16 @@ jobs:
         if: runner.arch == 'ARM64' && runner.os != 'macOS'
         working-directory: gui
         shell: bash
-        run: npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,appimage' || 'nsis,msi' }}
+        run: |
+          npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,appimage' || 'nsis,msi' }}
+          # The menu entry (gui/src-tauri/coxswain.desktop): a file manager, handed the files and
+          # folders it is opened with.
+          if [ "$RUNNER_OS" = Linux ]; then
+            entry="$(dpkg-deb --fsys-tarfile ../target/debug/bundle/deb/*.deb | tar -xO --wildcards '*.desktop')"
+            echo "$entry"
+            grep -qx 'Exec=coxswain-gui %F' <<<"$entry"
+            grep -qx 'Categories=System;FileTools;FileManager;' <<<"$entry"
+          fi
 
       # Intel Macs: releases build for x86_64-apple-darwin too, with candle's Metal on, so this
       # target has to build before a release finds out.
