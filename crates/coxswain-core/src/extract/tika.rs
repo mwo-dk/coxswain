@@ -258,12 +258,7 @@ fn run_args(t: &Tika, limits: bool) -> Vec<String> {
     .to_vec();
     // The bounds every sealed container has (`images::TIGHT`), the memory and process ones only
     // where the runtime can keep them.
-    v.extend(
-        crate::images::TIGHT
-            .iter()
-            .filter(|a| limits || !(a.starts_with("--memory") || a.starts_with("--pids-limit")))
-            .map(|a| a.to_string()),
-    );
+    v.extend(crate::images::bounded(limits).into_iter().map(String::from));
     v.extend(["--name".into(), t.name.clone()]);
     v.extend(["--entrypoint".into(), "sh".into(), t.image.clone(), "-c".into(), SERVE.into(), IDLE.to_string()]);
     v

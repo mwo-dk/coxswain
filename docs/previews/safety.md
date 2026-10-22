@@ -64,8 +64,9 @@ open it outside the pane:
   address or another file, and writes no `.aux.xml` beside it; OpenSCAD has no way to write files
   or run programs from a model. In
   their containers ffmpeg, ImageMagick and GDAL see the one file (GDAL a shapefile's folder,
-  as a shapefile is several files), OpenSCAD and KiCad their file's folder, on a read-only root with no capabilities and bounded
-  memory.
+  as a shapefile is several files), OpenSCAD and KiCad their file's folder. Every container,
+  LaTeX's and the other documents' too, runs on a read-only root with no network, no
+  capabilities and bounded memory and processes.
 - **Run what a repository names.** A folder may be a repository someone else made (a
   download, an unpacked archive), and its `.git/config` can name programs. The git line, the
   diff and [Git history](../panels/git-history.md) run git without any of them: no file system

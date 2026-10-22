@@ -205,7 +205,7 @@ fn run_args(name: &str, image: &str, script: &str, bounds: bool) -> Vec<String> 
     let mut v: Vec<String> = ["run", "--rm", "-i", "--pull=never", "--network=none"].map(String::from).to_vec();
     // ffmpeg's and ImageMagick's: a read-only root, a small /tmp in memory, bounded memory and
     // processes, no capabilities, no new privileges.
-    v.extend(crate::images::TIGHT.iter().filter(|s| bounds || !(s.starts_with("--memory") || s.starts_with("--pids-limit"))).map(|s| s.to_string()));
+    v.extend(crate::images::bounded(bounds).into_iter().map(String::from));
     v.extend(["--user", "65534:65534", "-e", "HOME=/tmp", "--name", name, "--entrypoint", "sh", image, "-c", script].map(String::from));
     v
 }
