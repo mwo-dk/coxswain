@@ -11,7 +11,7 @@ play or check a game.
 
 ![English draughts in the desktop app's window (Alt+K): an 8×8 board in the Cyber theme's colours, white and black men as discs, a white king as two discs stacked, the empty dark squares numbered, the last move's squares tinted, beside it the players, event, English draughts (checkers), 8×8 and the moves with a comment, the move 3x12x19 highlighted](../screenshots/gui-draughts.png)
 
-![The terminal app's draughts view in Classic blue: an English draughts game on an 8×8 board of coloured squares, men drawn ● and a king ♚ in white and black, square numbers on the empty dark squares, the move 12-16 highlighted among the moves beside it, English draughts (checkers), 8×8 above them, and the key line below](../screenshots/tui-draughts.png)
+![The terminal app's draughts view in Classic blue: an English draughts game on an 8×8 board of coloured squares, men drawn from block characters as discs and a white king as two discs stacked, square numbers on the empty dark squares, the move 12-16 highlighted among the moves beside it, English draughts (checkers), 8×8 above them, and the key line below](../screenshots/tui-draughts.png)
 
 - [Using it](#using-it)
 - [The table of games](#the-table-of-games)
@@ -64,8 +64,9 @@ the keys at once, in the preview pane click it first. Terminal: **Enter**.
 ## A game on the board
 
 The board shows the position after the move you are on, White at the bottom. Men are discs,
-white and black; a king is two discs stacked, as on a real board, in the desktop app, and ♚ in
-the terminal app, where a man is ●. The empty dark squares carry their numbers, as PDN counts them: 1 at
+white and black; a king is two discs stacked, as on a real board. The terminal app draws them
+from block characters when the window has room ([Game pieces in the terminal](game-pieces.md)),
+and on a small board as ● (a man) and ♚ (a king). The empty dark squares carry their numbers, as PDN counts them: 1 at
 the top left, row by row. The squares the last move went from and to are tinted yellow.
 
 Beside the board: the players and the result, the event, place and date, which draughts it is

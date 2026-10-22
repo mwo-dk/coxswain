@@ -7,7 +7,7 @@ Needs `resvg` (or `rsvg-convert`) and Pillow. Each set is one file under
 crates/coxswain-core/src/mosaic/: an 8-byte FNV-1a hash of its SVG files, without CRs (so a test can tell
 that the masks are current), then each piece as SIZE x SIZE bytes, row by row: the high four
 bits how much of the dot the piece covers, the low four how much of it is dark.
-A new set is one line in SETS.
+A new set is one line in SETS and a `Set` in mosaic.rs.
 """
 import shutil, subprocess, sys, tempfile
 from pathlib import Path
@@ -18,6 +18,7 @@ SIZE = 64
 SETS = {
     # name: (folder of SVG files, piece files in the order the code knows them)
     "chess": ("gui/public/vendor/chess-pieces", [f"{c}{p}.svg" for c in "wb" for p in "KQRBNP"]),
+    "draughts": ("gui/public/vendor/game-pieces", [f"draughts-{c}{p}.svg" for c in "wb" for p in "mk"]),
 }
 
 

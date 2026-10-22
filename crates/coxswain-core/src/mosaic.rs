@@ -179,16 +179,48 @@ pub struct Cell {
 /// The masks' side, in source pixels (`SIZE` in `tools/mosaic.py`).
 const SIZE: usize = 64;
 
-/// A set of pieces: a game's pieces as masks, `names` the letter of each in the file's order.
+/// A set of pieces: a game's pieces as masks, `names` the letter of each in the file's order,
+/// `svgs` the files they are made from (`SETS` in `tools/mosaic.py`), `plain` when its pieces
+/// are simple shapes that read on a square a row smaller.
 pub struct Set {
     data: &'static [u8],
     names: &'static str,
+    pub svgs: &'static [&'static str],
+    pub plain: bool,
 }
 
 /// The chess pieces (Uray M. János's set, as the desktop app's), white then black.
 pub static CHESS: Set = Set {
     data: include_bytes!("mosaic/chess.bin"),
     names: "KQRBNPkqrbnp",
+    svgs: &[
+        "chess-pieces/wK.svg",
+        "chess-pieces/wQ.svg",
+        "chess-pieces/wR.svg",
+        "chess-pieces/wB.svg",
+        "chess-pieces/wN.svg",
+        "chess-pieces/wP.svg",
+        "chess-pieces/bK.svg",
+        "chess-pieces/bQ.svg",
+        "chess-pieces/bR.svg",
+        "chess-pieces/bB.svg",
+        "chess-pieces/bN.svg",
+        "chess-pieces/bP.svg",
+    ],
+    plain: false,
+};
+
+/// The draughts men and kings, white then black, as `coxswain_core::draughts::cells` names them.
+pub static DRAUGHTS: Set = Set {
+    data: include_bytes!("mosaic/draughts.bin"),
+    names: "MKmk",
+    svgs: &[
+        "game-pieces/draughts-wm.svg",
+        "game-pieces/draughts-wk.svg",
+        "game-pieces/draughts-bm.svg",
+        "game-pieces/draughts-bk.svg",
+    ],
+    plain: true,
 };
 
 impl Set {
@@ -324,28 +356,26 @@ mod tests {
 
     #[test]
     fn the_masks_are_made_from_the_svg_pieces_as_they_are() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../gui/public/vendor/chess-pieces");
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gui/public/vendor");
         if !dir.is_dir() {
             return; // the published crate has no desktop app beside it
         }
-        let mut all = vec![];
-        for c in ["w", "b"] {
-            for p in "KQRBNP".chars() {
-                // Line ends as git checks them out on Windows too.
-                all.extend(
-                    std::fs::read(dir.join(format!("{c}{p}.svg")))
-                        .unwrap()
-                        .into_iter()
-                        .filter(|&b| b != b'\r'),
-                );
-            }
+        for set in [&CHESS, &DRAUGHTS] {
+            assert_eq!(set.svgs.len(), set.names.chars().count());
+            // Line ends as git checks them out on Windows too.
+            let all: Vec<u8> = set
+                .svgs
+                .iter()
+                .flat_map(|f| std::fs::read(dir.join(f)).unwrap())
+                .filter(|&b| b != b'\r')
+                .collect();
+            assert_eq!(
+                set.made_from(),
+                fnv(&all),
+                "{} changed: run python3 tools/mosaic.py",
+                set.svgs[0]
+            );
         }
-        assert_eq!(
-            CHESS.made_from(),
-            fnv(&all),
-            "the chess pieces changed: run python3 tools/mosaic.py"
-        );
     }
 
     #[test]
