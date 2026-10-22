@@ -92,6 +92,9 @@ pub const IMAGES: &[Image] = &[
     // Apache Tika's own server image, for `[search] tika`, pinned to a release by its digest.
     Image { key: "tika", default: "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4", download: 190, disk: 440 },
     Image { key: "ocrmypdf", default: "docker.io/jbarlow83/ocrmypdf-alpine:latest", download: 310, disk: 850 },
+    // Coxswain's own Stockfish build (packaging/images/stockfish), for the chess engine when
+    // none is installed (`chess::play`); its two evaluation networks are most of it.
+    Image { key: "stockfish", default: "ghcr.io/mwo-dk/coxswain-stockfish:latest", download: 70, disk: 80 },
 ];
 
 /// Other images whose size is known: what a user may set instead of a default.
@@ -212,6 +215,9 @@ pub const KINDS: &[Kind] = &[
     Kind { id: "other", docs: "../search/tika.md", exts: &[crate::extract::tika::FORMATS], tools: &[tool("tika", &[], "", "tika")], sample: None },
     // Transcripts of speech, on request (`transcribe`): no preview of its own.
     Kind { id: "transcripts", docs: "../search/transcripts.md", exts: &[crate::transcribe::FORMATS], tools: &[tool("whisper", &["whisper-cli"], "", "whisper")], sample: None },
+    // The chess view's engine (`chess::play`): the files it is asked about; it makes no
+    // preview, so `for_path` leaves it out.
+    Kind { id: "chess_engine", docs: "chess-play.md", exts: &[&["pgn", "epd", "fen"]], tools: &[tool("stockfish", &["stockfish"], "stockfish", "stockfish")], sample: None },
     Kind { id: "ocr", docs: "../files/searchable-pdf.md", exts: &[&["pdf"]], tools: &[tool("ocrmypdf", &["ocrmypdf"], "ocrmypdf", "ocrmypdf")], sample: None },
 ];
 
@@ -232,7 +238,7 @@ pub fn kind_of(tool: &str) -> Option<&'static Kind> {
 /// searchable is asked for.
 pub fn for_path(path: &Path) -> Option<&'static Kind> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    KINDS.iter().filter(|k| !matches!(k.id, "ocr" | "other" | "transcripts")).find(|k| k.exts.iter().any(|e| e.contains(&ext.as_str())))
+    KINDS.iter().filter(|k| !matches!(k.id, "ocr" | "other" | "transcripts" | "chess_engine")).find(|k| k.exts.iter().any(|e| e.contains(&ext.as_str())))
 }
 
 /// The image of `tool` under `[preview.images]`: Kroki's diagram kinds share `kroki`, a

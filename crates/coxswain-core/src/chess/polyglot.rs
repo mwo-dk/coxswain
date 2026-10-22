@@ -163,7 +163,7 @@ impl Book {
 }
 
 /// A move in UCI, castling as the king's own move (`e1g1`).
-fn uci(b: &Board, m: Move) -> String {
+pub(crate) fn uci(b: &Board, m: Move) -> String {
     let mut to = m.to;
     if b.piece_on(m.from) == Some(Piece::King) && b.color_on(m.to) == b.color_on(m.from) {
         to = Square::new(if m.to.file() > m.from.file() { File::G } else { File::C }, m.from.rank());

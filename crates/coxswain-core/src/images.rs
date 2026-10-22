@@ -66,6 +66,15 @@ pub const TIGHT: &[&str] = &[
     "no-new-privileges",
 ];
 
+/// `<rt> run` of a program that reads no file at all (the chess engine, talking over stdin
+/// and stdout): `sealed` without a mount, with `TIGHT`'s limits, as the image's own user.
+pub fn sealed_bare(_rt: &str, rt_path: &Path, name: &str) -> Command {
+    let mut c = crate::tools::command(rt_path);
+    c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
+    c.args(TIGHT);
+    c
+}
+
 /// `sealed`, seeing one file only: `file`, read-only at `at` (`/src/in.heic`), instead of a
 /// folder at /src, with `TIGHT`'s limits. Nothing else of its folder is there to be read, and
 /// `out` is the only place it can write.

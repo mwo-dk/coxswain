@@ -111,7 +111,7 @@ impl Opt {
 
     /// Optional in config.toml: empty means the key is taken out (the default applies).
     fn optional(&self) -> bool {
-        matches!(self.name, "editor" | "viewer" | "git_tool" | "chess_book")
+        matches!(self.name, "editor" | "viewer" | "git_tool" | "chess_book" | "chess_engine")
     }
 }
 
@@ -208,6 +208,11 @@ pub const OPTIONS: &[Opt] = &[
     opt("chess_board", &["chess", "board"], Previews, &[]),
     opt("chess_book", &["chess", "book"], Previews, &[]),
     opt("chess_pieces", &["chess", "pieces"], Previews, &[]),
+    opt("chess_analysis", &["chess", "analysis"], Previews, &[Cpu]),
+    opt("chess_engine", &["chess", "engine"], Previews, &[]),
+    opt("chess_engine_time", &["chess", "engine_time"], Previews, &[]),
+    opt("chess_engine_lines", &["chess", "engine_lines"], Previews, &[]),
+    opt("chess_review_time", &["chess", "review_time"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),

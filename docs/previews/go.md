@@ -162,4 +162,4 @@ as Latin letters; add `CA[GB2312]` (or the right one) to its first node.
 Not yet: Coxswain shows games but does not play.
 
 ---
-[← Previous: Game pieces in the terminal](game-pieces.md) · [Next: Draughts games →](draughts.md)
+[← Previous: Chess: playing on and the engine](chess-play.md) · [Next: Draughts games →](draughts.md)
