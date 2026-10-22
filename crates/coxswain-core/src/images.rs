@@ -1,7 +1,7 @@
 //! The container images of `[preview.images]`: what each one brings and costs, keeping the
 //! pulled ones up to date (`[preview] image_updates`), and removing those no preview used for
 //! 90 days (`[preview] image_prune`). The desktop app does both in the background; the terminal
-//! app makes no container previews (only Make PDF searchable runs a container there), so it
+//! app makes no container previews (only Make PDF searchable and Scan for viruses run containers there), so it
 //! only shows the settings.
 //!
 //! Only Coxswain's own images are ever touched: an update removes the copy it replaced by that
@@ -91,7 +91,7 @@ pub fn sealed_file(rt: &str, rt_path: &Path, name: &str, file: &Path, at: &str, 
 }
 
 /// The `--user` (and `HOME`) options of `sealed`.
-fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
+pub(crate) fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
     if rootless_podman {
         return vec!["--user".into(), "0:0".into()];
     }
@@ -108,7 +108,7 @@ fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
 
 /// Does podman run rootless here? Asked once (`podman info`); when it cannot say, rootless,
 /// which is how podman runs for a user.
-fn rootless(rt: &Path) -> bool {
+pub(crate) fn rootless(rt: &Path) -> bool {
     static ROOTLESS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ROOTLESS.get_or_init(|| {
         crate::tools::command(rt)

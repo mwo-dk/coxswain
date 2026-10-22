@@ -179,6 +179,7 @@ impl Action {
             VerifyChecksums => s.single() && s.sums == 1 && matches!(s.place, Place::Disk | Place::Snapshot),
             AdocPdf => s.adocs > 0 && disk,
             DrawioExport => s.drawios > 0 && disk,
+            ScanViruses => n > 0 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,

@@ -280,6 +280,7 @@ pub const FEATURES: &[Feature] = &[
     f("split_and_join", "files/split-and-join.md", &[SplitFile, JoinParts, ActionMenu]),
     f("adoc_pdf", "files/asciidoc-pdf.md", &[AdocPdf, ActionMenu, View]),
     f("drawio_export", "files/drawio-export.md", &[DrawioExport, ActionMenu, Settings]),
+    f("virus_scan", "files/virus-scan.md", &[ScanViruses, Mark, ActionMenu, Settings]),
     // customise
     f("settings_window", "customise/settings.md", &[Settings]),
     f("themes", "customise/themes.md", &[Settings]),

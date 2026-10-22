@@ -36,6 +36,8 @@ export const ui = $state({
   /** A *Build PDF of AsciiDoc* or *Export draw.io diagram* run under way, as `searchable`,
    *  with the action that stops it. */
   exporting: null,
+  /** A *Scan for viruses* run under way: what it said last, since when. */
+  viruses: null,
   quick: null,
   cmd: "",
   lastOutput: "",
@@ -867,6 +869,86 @@ export function stopExport() {
   if (!ui.exporting) return;
   ui.exporting.stopping = true;
   invoke("export_stop");
+}
+
+/** *Scan for viruses* (`coxswain_core::viruses`): the marked entries, the one under the
+ *  cursor, or on `..` the tab's folder; asked first (how many files, the database and its
+ *  update, the first pull), then run, the status line saying how far it is with a Stop button
+ *  (or the key again). What it finds is marked in the tab and listed, each file with a choice. */
+export async function scanViruses(tb = tab()) {
+  if (ui.viruses) return stopViruses();
+  if (subject(tb).place !== "disk") return void (ui.status = t("viruses.none"));
+  const paths = targets(tb).length ? targets(tb) : [tb.dir];
+  let plan;
+  try {
+    plan = await invoke("viruses_plan", { paths });
+  } catch (err) {
+    return void (ui.status = String(err));
+  }
+  const title = t("action.scan_viruses");
+  // Off, or nothing to run it with: what to turn on or install, and Settings at the place for it.
+  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: plan.off ? "virus_scan" : ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: "virus_scan" });
+  ui.modal = { kind: "confirm", title, text: plan.text, ok: t("viruses.go"), safe: true, run: () => runViruses(paths), feature: "virus_scan" };
+}
+
+async function runViruses(paths) {
+  ui.viruses = { line: t("viruses.busy_start"), started: Date.now(), now: Date.now(), stopping: false };
+  const poll = setInterval(async () => {
+    const line = await invoke("viruses_progress").catch(() => null);
+    if (ui.viruses) Object.assign(ui.viruses, line ? { line } : {}, { now: Date.now() });
+  }, 500);
+  try {
+    const report = await invoke("viruses_run", { paths });
+    const [db, quarantine] = await invoke("viruses_facts", { db: report.db ?? null });
+    if (!report.found.length) {
+      const clean = t("viruses.clean", { n: report.scanned });
+      const notes = virusNotes(report, db);
+      ui.status = clean;
+      if (notes.length > 1 || report.update_failed) ui.modal = { kind: "message", title: t("action.scan_viruses"), text: `${clean}. ${notes.join(" ")}`, feature: "virus_scan" };
+      return;
+    }
+    // Marked in the panes: each file found there, and each folder with one in it.
+    const holds = (e) => e.name !== ".." && report.found.some((f) => f.path === e.path || f.path.startsWith(e.path + "/") || f.path.startsWith(e.path + "\\"));
+    for (const v of visibleTabs()) {
+      const hit = v.items.filter(holds);
+      if (!hit.length) continue;
+      v.marked.clear();
+      for (const e of hit) v.marked.add(e.path);
+    }
+    ui.modal = { kind: "viruses", feature: "virus_scan", report, notes: virusNotes(report, db), quarantine, choices: report.found.map(() => "nothing"), cursor: 0 };
+  } catch (err) {
+    if (ui.viruses?.stopping) ui.status = t("viruses.stopped");
+    else ui.modal = failure(t("viruses.failed"), err);
+  } finally {
+    clearInterval(poll);
+    ui.viruses = null;
+  }
+}
+
+/** What a report says beyond its findings: the database, what was left out, what failed. */
+function virusNotes(r, db) {
+  const v = [db];
+  if (r.update_failed) v.push(t("viruses.update_failed", { error: r.update_failed }));
+  if (r.left_out) v.push(t("viruses.left_out", { n: r.left_out }));
+  if (r.more) v.push(t("viruses.more"));
+  if (r.problems.length) v.push(`${t("viruses.problems")} ${r.problems.join("; ")}`);
+  return v;
+}
+
+/** Do what was chosen for each file found. */
+export async function applyViruses(m) {
+  ui.modal = null;
+  const done = await invoke("viruses_act", { choices: m.choices });
+  ui.status = t("viruses.done", { bin: done.bin, quarantine: done.quarantine, left: done.left });
+  if (done.failed.length) ui.modal = failure(t("viruses.failed_act"), done.failed.join("\n"));
+  await reloadAll();
+}
+
+/** Stop the *Scan for viruses* run under way. */
+export function stopViruses() {
+  if (!ui.viruses) return;
+  ui.viruses.stopping = true;
+  invoke("viruses_stop");
 }
 
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,

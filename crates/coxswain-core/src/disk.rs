@@ -68,6 +68,8 @@ const OWN: &[(&str, &[&str], bool)] = &[
         true,
     ),
     ("log", &["helper.log"], false),
+    // ClamAV's virus database (`viruses`), fetched again before the next scan.
+    ("clamav", &["clamav"], true),
 ];
 
 /// What `--disk clear` takes besides the rows' ids.

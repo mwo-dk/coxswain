@@ -56,6 +56,7 @@ the app's own list (`crates/coxswain-core/src/preview_tools.rs`); a test fails w
 | [Searchable PDFs (OCR)](../files/searchable-pdf.md) (`ocr`) | `.pdf` | `ocrmypdf` | `ocrmypdf`: `docker.io/jbarlow83/ocrmypdf-alpine:latest` (about 310 MB to download, 850 MB on disk) |
 | [Build PDF of AsciiDoc](../files/asciidoc-pdf.md) (`asciidoc`) | `.adoc` `.asciidoc` | `asciidoctor-pdf` | `asciidoctor`: `docker.io/asciidoctor/docker-asciidoctor:latest` (about 665 MB to download, 1.5 GB on disk) |
 | [Export draw.io diagram](../files/drawio-export.md) (`drawio`) | `.drawio` `.dio` | none | `drawio`: `docker.io/rlespinasse/drawio-desktop-headless:latest` (about 560 MB to download, 1.3 GB on disk) |
+| [Scan for viruses](../files/virus-scan.md) (`viruses`) | any | none | `clamav`: `docker.io/clamav/clamav-debian:1.5_base` (about 80 MB to download, 240 MB on disk) |
 <!-- /tools-table -->
 
 What each makes and when it runs by itself:
@@ -231,7 +232,8 @@ container = "auto"       # "auto" (podman, else docker), "podman", "docker", "of
 timeout = 120            # seconds per conversion; pulling is not counted
 latex_auto = true        # build LaTeX by itself when shown and changed
 image_updates = "off"    # "weekly", "monthly": the desktop app pulls the pulled images again
-image_prune = false      # remove an image no preview used for 90 days
+image_prune = false      # remove an image no preview, Make PDF searchable or Scan for viruses used for 90 days
+virus_scan = false       # Scan for viruses with ClamAV (Alt+I), only when asked
 ebooks = false           # e-books through calibre: previews, search, Convert e-book
 
 [preview.tools]          # per kind of file, overrides prefer: "local", "container", "off"
@@ -254,6 +256,7 @@ latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 960 MB t
 | *Preview tools* | `tools.*`, `images.*` | A row per kind: what is installed, its image with **Pull** and **Remove**, what is used, the choice, **Try** ([above](#preview-tools-in-settings)) |
 | *Keep images up to date* | `image_updates` | *Off* (`off`, default), *Weekly* (`weekly`), *Monthly* (`monthly`) ([Containers](containers.md#keeping-images-up-to-date)) |
 | *Remove images not used for 90 days* | `image_prune` | off ([Containers](containers.md#removing-unused-images)) |
+| *Scan for viruses with ClamAV* | `virus_scan` | off ([Scan for viruses](../files/virus-scan.md)) |
 
 Setting one image keeps the others' defaults. The images other than LaTeX's are set in
 `config.toml` only. A config of before 2.33 with `[preview.prefer_tool]` (per tool) is rewritten
@@ -275,7 +278,8 @@ open the result with **Enter**. The tools it does run are OCRmyPDF, for
 [Convert geodata](geodata.md#convert-geodata), OpenSCAD for
 [Export 3D model](openscad.md#export-3d-model), kicad-cli for
 [Export from KiCad](kicad.md#export-from-kicad), calibre for [e-books](ebooks.md) (**F3** on a
-book, *Convert e-book*), and ffprobe and GDAL for a video's and
+book, *Convert e-book*), ClamAV, for [Scan for viruses](../files/virus-scan.md)
+(**Alt+I**), and ffprobe and GDAL for a video's and
 geodata's facts in **Properties**, with the same images and preferences; of `[preview]` it
 also reads `ebooks`; and the search helper runs Apache Tika's and whisper.cpp's for it when
 [Read other formats with Apache Tika](../search/tika.md) or

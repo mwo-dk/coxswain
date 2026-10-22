@@ -204,6 +204,7 @@ pub const OPTIONS: &[Opt] = &[
     ),
     opt("image_prune", &["preview", "image_prune"], Previews, &[]),
     opt("ebooks", &["preview", "ebooks"], Previews, &[Disk, Cpu, Network]),
+    opt("virus_scan", &["preview", "virus_scan"], Previews, &[Disk, Network]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
     opt("chess_notation", &["chess", "notation"], Previews, &[]),
     opt("chess_board", &["chess", "board"], Previews, &[]),
@@ -893,6 +894,9 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
             };
             v.push(out(what, &hosts.join(", "), false));
         }
+    }
+    if cfg.preview.virus_scan {
+        v.push(out("settings.out.viruses", crate::viruses::SERVER, false));
     }
     v
 }

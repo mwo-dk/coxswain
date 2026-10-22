@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool } from "./app.svelte.js";
+  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -436,6 +436,19 @@
         else if (act === "git_tool") (close(), gitTool());
         else return false;
         return true;
+      case "viruses": {
+        // A choice per file: N leave it, B bin, Q quarantine; Enter does them all.
+        const n = m.report.found.length;
+        const c = { n: "nothing", b: "bin", q: "quarantine" }[k.replace(/^Shift\+/, "").toLowerCase()];
+        if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
+        else if (k === "Down") m.cursor = Math.min(n - 1, m.cursor + 1);
+        else if (k === "Home") m.cursor = 0;
+        else if (k === "End") m.cursor = n - 1;
+        else if (c) m.choices[m.cursor] = c;
+        else if (k === "Enter") applyViruses(m);
+        else return false;
+        return true;
+      }
       case "props":
         if (k === "Enter") savePerms();
         else return false;
@@ -534,6 +547,27 @@
           <button class="primary" bind:this={input} onclick={close}>{t("common.close")}</button>
         </div>
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
+      {:else if m.kind === "viruses"}
+        <!-- What a virus scan found: a choice per file, nothing done until Enter. -->
+        <h2>{t("viruses.title")}</h2>
+        <p>{t("viruses.found", { n: num(m.report.scanned) })} {t("viruses.quarantine_at", { path: m.quarantine })}</p>
+        <ul class="gclist vlist" bind:this={listEl}>
+          {#each m.report.found as f, i (f.path)}
+            <li class="row" class:cursor={i === m.cursor} onmouseenter={() => (m.cursor = i)}>
+              <select bind:value={m.choices[i]} aria-label={f.path}>
+                {#each ["nothing", "bin", "quarantine"] as c (c)}<option value={c}>{t(`viruses.choice.${c}`)}</option>{/each}
+              </select>
+              <span class="value">{f.name}</span>
+              <span class="file" title={f.path}><bdi>{f.path}</bdi></span>
+            </li>
+          {/each}
+        </ul>
+        {#each m.notes as note, i (i)}<p class="meta">{note}</p>{/each}
+        <div class="buttons">
+          <button class="primary" onclick={() => applyViruses(m)}>{t("viruses.apply")}</button>
+          <button onclick={close}>{t("common.close")}</button>
+        </div>
+        <p class="keys">{t("viruses.keys", { verb: t("viruses.apply"), cancel: t("common.close") })}</p>
       {:else if m.kind === "help"}
         <h2>{t("dialogs.help_title", { version: ui.cfg.version })}</h2>
         <div class="tabs" role="tablist">
@@ -922,8 +956,15 @@
   .dialog.menu {
     width: min(520px, 92vw);
   }
-  .dialog.gitconfig {
+  .dialog.gitconfig,
+  .dialog.viruses {
     width: min(1000px, 92vw);
+  }
+  .gclist.vlist .row {
+    grid-template-columns: max-content max-content minmax(0, 1fr);
+  }
+  .gclist.vlist select {
+    width: auto;
   }
   .gclist {
     list-style: none;

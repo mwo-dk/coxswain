@@ -17,6 +17,7 @@ mod viewer;
 mod editor;
 mod split_escape;
 mod compare;
+mod viruses;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
@@ -461,6 +462,11 @@ pub enum Dialog {
     /// Make `op` of `files`? `text` says what it writes, which program runs and what a first
     /// run pulls.
     Export { title: String, text: String, op: coxswain_core::export::Op, files: Vec<PathBuf> },
+    /// Scan `targets` for viruses? `text` says what it reads, the database and its update,
+    /// and what a first run pulls.
+    VirusScan { title: String, text: String, targets: Vec<PathBuf> },
+    /// What a virus scan found: each file with what to do with it.
+    Viruses(Box<viruses::Found>),
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
@@ -512,6 +518,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Ebook { .. } => "ebooks",
         Dialog::Transcribe { .. } => "transcripts",
         Dialog::Export { op, .. } => export_feature(*op),
+        Dialog::VirusScan { .. } | Dialog::Viruses(_) => "virus_scan",
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -691,6 +698,10 @@ pub struct App {
     /// time; the question being worked out.
     export: Option<Exporting>,
     export_plan: Option<mpsc::Receiver<ExportPlan>>,
+    /// *Scan for viruses* running on its thread, one at a time; and its question being worked
+    /// out (the files are counted, podman is asked for the image).
+    viruses: Option<viruses::Run>,
+    viruses_plan: Option<mpsc::Receiver<viruses::Plan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
     /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
@@ -997,6 +1008,8 @@ impl App {
             transcribe_plan: None,
             export: None,
             export_plan: None,
+            viruses: None,
+            viruses_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
@@ -1357,8 +1370,8 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some()) => {
-                (self.job, self.searchable, self.media, self.ebook, self.work, self.export) = (None, None, None, None, None, None)
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some()) => {
+                (self.job, self.searchable, self.media, self.ebook, self.work, self.export, self.viruses) = (None, None, None, None, None, None, None)
             }
             Action::Quit => {
                 self.quit = true;
@@ -1388,7 +1401,11 @@ impl App {
                 if let Some(x) = &self.export {
                     x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() {
+                // So is a virus scan: its container is killed.
+                if let Some(x) = &self.viruses {
+                    x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1446,6 +1463,7 @@ impl App {
             Action::Transcribe => self.transcribe(),
             Action::AdocPdf => self.export_menu(true),
             Action::DrawioExport => self.export_menu(false),
+            Action::ScanViruses => self.scan_viruses(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
@@ -3386,6 +3404,12 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Searchable { title, text, pdfs }),
             },
+            Dialog::VirusScan { title, text, targets } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.viruses_start(targets),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::VirusScan { title, text, targets }),
+            },
+            Dialog::Viruses(v) => self.viruses_key(v, key.code, ch, esc),
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
@@ -4072,6 +4096,8 @@ impl App {
         self.poll_ebook_plan();
         self.poll_work();
         self.poll_transcribe_plan();
+        self.poll_viruses();
+        self.poll_viruses_plan();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -4217,7 +4243,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() || app.export.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() || app.export.is_some() || app.viruses.is_some() {
         // An error on the status line in plain words, its first line only; the whole of it
         // goes to helper.log.
         if let Some(s) = &app.status {

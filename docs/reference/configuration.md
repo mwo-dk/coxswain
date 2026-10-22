@@ -248,7 +248,8 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 [Convert or edit pictures](../files/edit-pictures.md) in both apps, and GDAL for
 [geodata](../previews/geodata.md)'s facts and Convert geodata, and OpenSCAD for
 [Export 3D model](../previews/openscad.md#export-3d-model), kicad-cli for
-[Export from KiCad](../previews/kicad.md#export-from-kicad), and calibre for
+[Export from KiCad](../previews/kicad.md#export-from-kicad), ClamAV for
+[Scan for viruses](../files/virus-scan.md), and calibre for
 [e-books](../previews/ebooks.md), in both apps, and Apache Tika's image for
 [`[search] tika`](../search/tika.md).
 
@@ -267,6 +268,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.ocrmypdf` | string | `"docker.io/jbarlow83/ocrmypdf-alpine:latest"` | For Make PDF searchable, in both apps (about 310 MB, 850 MB on disk); its entry point must be `ocrmypdf` |
 | `images.asciidoctor` | string | `"docker.io/asciidoctor/docker-asciidoctor:latest"` | For [Build PDF of AsciiDoc](../files/asciidoc-pdf.md), in both apps (about 665 MB, 1.5 GB on disk); it must have `asciidoctor-pdf` |
 | `images.drawio` | string | `"docker.io/rlespinasse/drawio-desktop-headless:latest"` | For [Export draw.io diagram](../files/drawio-export.md) and the diagrams' thumbnails, with `drawio` on (about 560 MB, 1.3 GB on disk); it must have draw.io at `/opt/drawio/drawio` and Xvfb |
+| `images.clamav` | string | `"docker.io/clamav/clamav-debian:1.5_base@sha256:dfe9a0c9ea8d7f14034f742010c0f91e0d3f7a719a526c426c60d2e1f5c490eb"` | For Scan for viruses, in both apps (about 80 MB, 240 MB on disk); it must have `clamscan` and `freshclam` |
 | `images.duckdb` | string | `""` | No official image; set one whose entry point is `duckdb` |
 | `images.tika` | string | `"docker.io/apache/tika:4.1.0@sha256:06bc…"` | Apache Tika's server image, for `[search] tika` (about 190 MB, 440 MB on disk); one you set must be an `apache/tika` server image. Pinned to its digest |
 | `images.gxps` | string | `""` | No image has GhostXPS; set one with `gxps` for XPS files |
@@ -281,8 +283,9 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
-| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview or Make PDF searchable used (nor Apache Tika read a file with) for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
+| `image_prune` | bool | `false` | The desktop app removes an image of `images` that no preview, Make PDF searchable or Scan for viruses used (nor Apache Tika read a file with) for 90 days ([Removing unused images](../previews/containers.md#removing-unused-images)) |
 | `drawio` | bool | `false` | [Export draw.io diagrams](../files/drawio-export.md) (PNG, SVG, PDF) and draw their thumbnails with draw.io: only in its container image `images.drawio` (podman or docker), never an installed draw.io |
+| `virus_scan` | bool | `false` | Turns on [Scan for viruses](../files/virus-scan.md) (**Alt+I**) with ClamAV's image: only when you ask; its virus database is fetched from `database.clamav.net` when it is more than a day old |
 
 An empty image means that tool never runs in a container. Setting one image keeps the others'
 defaults. The kinds, for `tools`, are `latex`, `typst`, `office` (LibreOffice), `postscript`
@@ -399,6 +402,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Export draw.io diagrams* | `drawio` | `[preview] drawio` |
 | | *Keep images up to date* | `image_updates` | `[preview] image_updates` |
 | | *Remove images not used for 90 days* | `image_prune` | `[preview] image_prune` |
+| | *Scan for viruses with ClamAV* | `virus_scan` | `[preview] virus_scan` |
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
 | | *Move notation* | `chess_notation` | `[chess] notation` |
 | | *Chess board* | `chess_board` | `[chess] board` |

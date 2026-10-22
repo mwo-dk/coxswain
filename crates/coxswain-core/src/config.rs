@@ -293,6 +293,8 @@ actions! {
     AdocPdf = "adoc_pdf", "Build PDF of AsciiDoc", Files, [];
     // draw.io: PNG, SVG or PDF of a diagram, next to it (`export`).
     DrawioExport = "drawio_export", "Export draw.io diagram", Files, [];
+    // ClamAV in a container, on request only (`viruses`): I for infected.
+    ScanViruses = "scan_viruses", "Scan for viruses", Files, ["Alt+I"];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
@@ -1494,7 +1496,7 @@ pub fn quote_for(shell: &str, s: &str) -> String {
 /// Previews made by external tools (desktop app): LaTeX, Typst, LibreOffice, Ghostscript,
 /// PlantUML, Kroki's diagram programs, pandoc, DuckDB, ffmpeg and ImageMagick; and OCRmyPDF for
 /// *Make PDF searchable*, ffmpeg and ImageMagick for their conversions, Asciidoctor PDF and
-/// draw.io for their exports (both apps). Each runs from a locally installed tool or from a
+/// draw.io for their exports, and ClamAV for *Scan for viruses* (both apps). Each runs from a locally installed tool or from a
 /// container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -1507,7 +1509,8 @@ pub struct PreviewConfig {
     /// "auto" (podman, else docker), "podman", "docker", or "off" for no containers.
     pub container: String,
     /// Container image per tool. An empty image means that tool never runs in a container.
-    /// Containers run without network, with the file's folder mounted read-only.
+    /// Containers run without network, with the file's folder mounted read-only (ClamAV's
+    /// freshclam run alone has network, and sees only its database).
     pub images: BTreeMap<String, String>,
     /// Seconds before a conversion is stopped. A first container run also pulls the image,
     /// which the timeout does not cover.
@@ -1526,6 +1529,9 @@ pub struct PreviewConfig {
     /// Export draw.io diagrams (PNG, SVG, PDF) and draw their thumbnails with draw.io: the
     /// installed desktop app, else its container image, which is large. Off by default.
     pub drawio: bool,
+    /// *Scan for viruses* with ClamAV's image (`images.clamav`), on request only. Its virus
+    /// database is fetched from database.clamav.net when it is more than a day old.
+    pub virus_scan: bool,
 }
 
 impl Default for PreviewConfig {
@@ -1542,6 +1548,7 @@ impl Default for PreviewConfig {
             image_prune: false,
             ebooks: false,
             drawio: false,
+            virus_scan: false,
         }
     }
 }

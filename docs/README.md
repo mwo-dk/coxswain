@@ -201,6 +201,7 @@ mindmap
 | [Split and join (Alt+X)](files/split-and-join.md) | A big file cut into parts of a chosen size (100 MB, CD, FAT32 stick, DVD, typed) as name.001 … with name.sha256; Enter on name.001 joins and checks them; never over a file; progress and Stop, nothing half made left; both apps |
 | [Build PDF of AsciiDoc](files/asciidoc-pdf.md) | A PDF of an AsciiDoc document next to it, by Asciidoctor PDF installed or in its container (about 665 MB); diagrams drawn by the preview's programs; no remote includes or pictures; both apps |
 | [Export draw.io diagram](files/drawio-export.md) | PNG or SVG of each page, or one PDF, next to a draw.io diagram (also inside `.drawio.svg`, `.drawio.png`), by draw.io only in its sealed container (about 560 MB, opt-in, podman or docker); thumbnails in the grid view; both apps |
+| [Scan for viruses (Alt+I)](files/virus-scan.md) | A file, the marked files or a folder scanned by ClamAV in a container without network, only when asked (opt-in); its database from database.clamav.net when a day old; each file found left, binned or quarantined, never deleted by itself; both apps |
 
 ## [Customising](customise/README.md)
 
