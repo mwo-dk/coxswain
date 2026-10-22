@@ -1616,72 +1616,166 @@ pub fn passages(text: &str, path: &str) -> Vec<Passage> {
     if all.is_empty() {
         all = prose(text, markdown);
     }
-    all.retain(|(p, _)| p.text.chars().filter(|c| c.is_alphabetic()).count() >= 20);
-    for (p, _) in &mut all {
-        p.text.truncate(p.text.floor_char_boundary(CHARS));
-    }
+    let all = all.into_iter().filter_map(|(p, starts)| Some((kept(p)?, starts))).collect();
     cap(all)
 }
 
 /// Prose in passages of about `WORDS` words, with whether each starts a section.
 fn prose(text: &str, markdown: bool) -> Vec<(Passage, bool)> {
-    let mut all: Vec<(Passage, bool)> = vec![];
-    let (mut cur, mut fresh, mut heading, mut starts, mut code) =
-        (Vec::<&str>::new(), 0, "", true, false);
-    let mut flush =
-        |cur: &mut Vec<&str>, fresh: &mut usize, heading: &str, starts: &mut bool, keep: usize| {
-            if *fresh > 0 {
-                all.push((
-                    Passage {
-                        text: cur.join(" "),
-                        heading: heading.to_string(),
-                    },
-                    *starts,
-                ));
-                *starts = false;
-            }
-            cur.drain(..cur.len() - keep.min(cur.len()));
-            *fresh = 0;
-        };
+    let mut all = vec![];
+    let mut b = Prose::new(markdown);
     for line in text.lines() {
+        b.line(line, &mut |p, starts| all.push((p, starts)));
+    }
+    b.end(&mut |p, starts| all.push((p, starts)));
+    all
+}
+
+/// `prose` a line at a time, for text read as it comes: each passage goes to `emit` with
+/// whether it starts a section, as soon as it is whole.
+struct Prose {
+    markdown: bool,
+    cur: Vec<String>,
+    fresh: usize,
+    heading: String,
+    starts: bool,
+    code: bool,
+}
+
+impl Prose {
+    fn new(markdown: bool) -> Prose {
+        Prose {
+            markdown,
+            cur: vec![],
+            fresh: 0,
+            heading: String::new(),
+            starts: true,
+            code: false,
+        }
+    }
+
+    fn flush(&mut self, keep: usize, emit: &mut dyn FnMut(Passage, bool)) {
+        if self.fresh > 0 {
+            emit(
+                Passage {
+                    text: self.cur.join(" "),
+                    heading: self.heading.clone(),
+                },
+                self.starts,
+            );
+            self.starts = false;
+        }
+        let n = self.cur.len();
+        self.cur.drain(..n - keep.min(n));
+        self.fresh = 0;
+    }
+
+    fn line(&mut self, line: &str, emit: &mut dyn FnMut(Passage, bool)) {
         let line = line.trim();
         let hashes = line.len() - line.trim_start_matches('#').len();
         let mut words = line;
         // A `# comment` in a fenced block of code is no heading.
-        code ^= markdown && (line.starts_with("```") || line.starts_with("~~~"));
-        if markdown && !code && (1..=6).contains(&hashes) && line[hashes..].starts_with(' ') {
-            flush(&mut cur, &mut fresh, heading, &mut starts, 0);
-            heading = line[hashes..].trim();
-            words = heading;
-            starts = true;
-        } else if line.is_empty() && cur.len() >= WORDS / 2 {
-            flush(&mut cur, &mut fresh, heading, &mut starts, 0);
+        self.code ^= self.markdown && (line.starts_with("```") || line.starts_with("~~~"));
+        let heading = self.markdown && !self.code && (1..=6).contains(&hashes) && line[hashes..].starts_with(' ');
+        if heading {
+            self.flush(0, emit);
+            self.heading = line[hashes..].trim().to_string();
+            words = line[hashes..].trim();
+            self.starts = true;
+        } else if line.is_empty() && self.cur.len() >= WORDS / 2 {
+            self.flush(0, emit);
         }
         for w in words.split_whitespace() {
-            cur.push(w);
-            fresh += 1;
-            if cur.len() == WORDS {
-                flush(&mut cur, &mut fresh, heading, &mut starts, OVERLAP);
+            self.cur.push(w.to_string());
+            self.fresh += 1;
+            if self.cur.len() == WORDS {
+                self.flush(OVERLAP, emit);
             }
         }
     }
-    flush(&mut cur, &mut fresh, heading, &mut starts, 0);
-    all
+
+    fn end(&mut self, emit: &mut dyn FnMut(Passage, bool)) {
+        self.flush(0, emit);
+    }
+}
+
+/// A passage as it is kept: no fewer than 20 letters (`None`), cut at `CHARS`.
+fn kept(mut p: Passage) -> Option<Passage> {
+    if p.text.chars().filter(|c| c.is_alphabetic()).count() < 20 {
+        return None;
+    }
+    p.text.truncate(p.text.floor_char_boundary(CHARS));
+    Some(p)
+}
+
+/// The passages of a whole file, read twice line by line through `lines` (which hands each
+/// line of the tidied text to its argument), never held whole: the first time counts them
+/// and notes where sections start, the second keeps those `cap` keeps. The same as `passages`
+/// of the whole text, for prose; code is cut as prose here (no items), so this is for text
+/// longer than what is kept of it (`extract::MAX_TEXT`).
+pub fn passages_streamed(
+    path: &str,
+    lines: &mut dyn FnMut(&mut dyn FnMut(&str)) -> bool,
+) -> Option<Vec<Passage>> {
+    let markdown = is_markdown(path);
+    let (mut n, mut heads) = (0usize, vec![]);
+    let mut b = Prose::new(markdown);
+    let mut count = |p: Passage, starts: bool| {
+        if kept(p).is_some() {
+            if starts {
+                heads.push(n);
+            }
+            n += 1;
+        }
+    };
+    if !lines(&mut |l| b.line(l, &mut count)) {
+        return None;
+    }
+    b.end(&mut count);
+    let keep = chosen(n, &heads);
+    let (mut out, mut i) = (vec![], 0usize);
+    let mut b = Prose::new(markdown);
+    let mut take = |p: Passage, _: bool| {
+        if let Some(p) = kept(p) {
+            if keep.as_ref().is_none_or(|k| k.get(i) == Some(&true)) {
+                out.push(p);
+            }
+            i += 1;
+        }
+    };
+    if !lines(&mut |l| b.line(l, &mut take)) {
+        return None;
+    }
+    b.end(&mut take);
+    // The file changed between the two readings: its passages are not what was counted.
+    (i == n).then_some(out)
 }
 
 /// At most `PASSAGES` of `all`.
 fn cap(all: Vec<(Passage, bool)>) -> Vec<Passage> {
-    let n = all.len();
-    if n <= PASSAGES {
-        return all.into_iter().map(|(p, _)| p).collect();
+    let heads: Vec<usize> = (0..all.len()).filter(|&i| all[i].1).collect();
+    match chosen(all.len(), &heads) {
+        None => all.into_iter().map(|(p, _)| p).collect(),
+        Some(keep) => all
+            .into_iter()
+            .zip(keep)
+            .filter(|(_, k)| *k)
+            .map(|((p, _), _)| p)
+            .collect(),
     }
-    // Too long: the start and the end, the first passage of each section (up to half), and
-    // passages evenly spread over the rest.
+}
+
+/// Which of `n` passages are kept, those in `heads` starting a section; `None`: all of them.
+/// Too many: the start and the end, the first passage of each section (up to half), and
+/// passages evenly spread over the rest.
+fn chosen(n: usize, heads: &[usize]) -> Option<Vec<bool>> {
+    if n <= PASSAGES {
+        return None;
+    }
     let mut keep = vec![false; n];
     for i in (0..16).chain(n - 4..n) {
         keep[i] = true;
     }
-    let heads: Vec<usize> = (0..n).filter(|&i| all[i].1).collect();
     let m = heads.len().min(PASSAGES / 2);
     for k in 0..m {
         keep[heads[k * heads.len() / m]] = true;
@@ -1691,11 +1785,7 @@ fn cap(all: Vec<(Passage, bool)>) -> Vec<Passage> {
     for k in 0..left {
         keep[rest[k * rest.len() / left]] = true;
     }
-    all.into_iter()
-        .zip(keep)
-        .filter(|(_, k)| *k)
-        .map(|((p, _), _)| p)
-        .collect()
+    Some(keep)
 }
 
 /// `next`, the passage after `text`, put on its end without the `OVERLAP` words they share
@@ -2752,5 +2842,30 @@ mod tests {
         for (a, b) in gpu.passages(&texts).iter().zip(cpu.passages(&texts)) {
             assert!(cosine(a, &b) >= AGREE, "{}", cosine(a, &b));
         }
+    }
+
+    /// Read line by line twice, a file gives the passages its whole text gives: past the cap
+    /// too, with blank lines and paragraphs, as prose and as code read as prose.
+    #[test]
+    fn passages_of_a_file_read_line_by_line_are_those_of_its_text() {
+        let d = std::env::temp_dir().join(format!("coxswain-passages-stream-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        for (name, n) in [("short.txt", 30usize), ("long.txt", 4000), ("long.csv", 9000)] {
+            let text: String = (0..n)
+                .map(|i| match i % 7 {
+                    0 => "\n\n".to_string(),
+                    1 => format!("chapter {i} begins with the crew and the fuel\n"),
+                    _ => format!("word{i} orbit thrust valve pressure nominal {} ", i * 7),
+                })
+                .collect();
+            let p = d.join(name);
+            std::fs::write(&p, &text).unwrap();
+            let path = p.to_string_lossy().into_owned();
+            let body = crate::extract::plain::tidied(&p, false).unwrap();
+            let want = passages(&body, &path);
+            let got = passages_streamed(&path, &mut |f| crate::extract::plain::each_line(&p, false, f).is_some()).unwrap();
+            assert_eq!(got, want, "{name}");
+        }
+        std::fs::remove_dir_all(d).unwrap();
     }
 }

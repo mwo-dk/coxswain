@@ -39,14 +39,47 @@ const MAX_LINE: u64 = 64 << 20;
 /// keeps all its text, one in another encoding what comes before its first byte that is no
 /// UTF-8 (decided by its first 64 KB, as `text` decides).
 pub fn tidied(path: &Path, code: bool) -> Option<String> {
-    let mut f = std::io::BufReader::with_capacity(1 << 16, std::fs::File::open(path).ok()?);
+    let mut t = super::Tidy::new(code);
+    raw_lines(path, &mut |l| t.push(l))?;
+    Some(t.out)
+}
+
+/// Each line of the whole text of the file at `path` as `tidied` makes it (no limit), handed
+/// to `f` as it is read: the file is never held whole. `None` when it has no text.
+pub fn each_line(path: &Path, code: bool, f: &mut dyn FnMut(&str)) -> Option<()> {
+    let mut t = super::Tidy::whole(code);
+    let mut first = true;
+    raw_lines(path, &mut |l| {
+        t.push(l);
+        // What was added: the line, after one line break (two before a blank line in code)
+        // unless it is the first.
+        let piece = t.drain();
+        if piece.is_empty() {
+            return true;
+        }
+        let line = piece.trim_start_matches('\n');
+        let breaks = piece.len() - line.len();
+        if !first {
+            for _ in 1..breaks {
+                f("");
+            }
+        }
+        first = false;
+        f(line);
+        true
+    })
+}
+
+/// The lines of the file at `path` as `text` reads it, without their line breaks, to `f`
+/// until it says to stop. `None` when the file has no text (a zero byte in its first 8 KB).
+fn raw_lines(path: &Path, f: &mut dyn FnMut(&str) -> bool) -> Option<()> {
+    let mut file = std::io::BufReader::with_capacity(1 << 16, std::fs::File::open(path).ok()?);
     let mut head = Vec::with_capacity(1 << 16);
-    (&mut f).take(1 << 16).read_to_end(&mut head).ok()?;
+    (&mut file).take(1 << 16).read_to_end(&mut head).ok()?;
     if head[..head.len().min(8192)].contains(&0) {
         return None;
     }
-    let mut r = std::io::Cursor::new(head.clone()).chain(f);
-    let mut t = super::Tidy::new(code);
+    let mut r = std::io::Cursor::new(head.clone()).chain(file);
     // How a byte that is no UTF-8 is taken: decided at the first such byte.
     let mut lossy = None;
     let mut line = vec![];
@@ -63,12 +96,12 @@ pub fn tidied(path: &Path, code: bool) -> Option<String> {
             }
         }
         let go = match std::str::from_utf8(&line) {
-            Ok(l) => t.push(l),
+            Ok(l) => f(l),
             Err(e) => match *lossy.get_or_insert_with(|| super::nearly_utf8(&head)) {
-                true => t.push(&String::from_utf8_lossy(&line)),
+                true => f(&String::from_utf8_lossy(&line)),
                 // The text ends where its first byte that is no UTF-8 is.
                 false => {
-                    t.push(std::str::from_utf8(&line[..e.valid_up_to()]).unwrap_or_default());
+                    f(std::str::from_utf8(&line[..e.valid_up_to()]).unwrap_or_default());
                     false
                 }
             },
@@ -77,7 +110,7 @@ pub fn tidied(path: &Path, code: bool) -> Option<String> {
             break;
         }
     }
-    Some(t.out)
+    Some(())
 }
 
 #[cfg(test)]

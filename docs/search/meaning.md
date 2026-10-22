@@ -106,8 +106,12 @@ files are still to go, and *· 2 files changing* while files changed in the last
   passage. A question that names a file, a folder or a section finds it.
 - **The cap:** 256 passages a file, about 25,000 words. Of a longer file, the first 16 passages,
   the last 4, the first passage under each heading (up to 128) and passages spread evenly over
-  the rest get vectors; search by words still finds every word. Each vector (384 numbers) is
-  packed into a byte a number and kept in `search.db`.
+  the rest get vectors. Search by words keeps the first 4 MB of a file's text. A text, code,
+  CSV or log file with more text than that has its passages chosen from the whole file, read
+  line by line twice (once to count them, once to keep the chosen ones), never held whole: a
+  300 MB log gets its 256 passages from its start to its end, and those passages are kept with
+  their vectors. Each vector (384 numbers) is packed into a byte a number and kept in
+  `search.db`.
 - **When:** the [helper](helper.md) makes them a few files at a time, and not on
   [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
   the work took; with a [server](servers.md) it rests a quarter of that, since the work is the
@@ -301,14 +305,17 @@ in the setup guide.
 #### Is a document found by what its last chapter is about?
 
 Yes, since 1.39.0: the whole text gets vectors, up to 256 passages (about 25,000 words). A longer
-file has its start, its end, the start of each section and passages evenly between; search by
-words still finds every word. Before 1.39.0 only the first 960 words counted.
+file has its start, its end, the start of each section and passages evenly between. Search by
+words keeps the first 4 MB of a file's text. A text, code, CSV or log file with more text than
+that has its passages spread over the whole file (since coxswain 2.33.0); other documents rarely
+have that much text. Before 1.39.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
 
 Once after an update that changes how files are cut into passages: 1.39.0 (whole documents,
 not the first 960 words) and 2.18.0 (code cut at its functions and classes, with its lines,
-[Ask about code](ask-code.md)). Vectors made the old way cannot be mixed with the new ones. The
+[Ask about code](ask-code.md)); 2.33.0 made again only the vectors of text, code, CSV and log
+files with more than 4 MB of text, whose passages now come from the whole file. Vectors made the old way cannot be mixed with the new ones. The
 helper notices it when it opens the store, drops the old vectors and makes new ones in the
 background, the most recently changed files first. The text is not read again, except files
 of code once with their indentation, and search by words works all the while. Both
