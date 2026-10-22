@@ -7,6 +7,7 @@
 //! (closing it) ends the reading: what the apps show is pulled from it a screen at a time.
 
 pub mod bytes;
+pub mod folders;
 pub mod text;
 
 use serde::Serialize;

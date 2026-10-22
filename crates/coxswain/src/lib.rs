@@ -79,6 +79,16 @@ pub struct Panel {
     /// The models a store's folder names its entries by (`local_models::names`), read once
     /// for the folder it names.
     pub models: Option<(PathBuf, Option<coxswain_core::local_models::Names>)>,
+    /// Compare folders (Ctrl+F2): the compare, this panel's side in it, and whether only the
+    /// differences are listed.
+    pub cmp: Option<Cmp>,
+}
+
+#[derive(Clone)]
+pub struct Cmp {
+    pub f: Arc<coxswain_core::compare::folders::Folders>,
+    pub side: usize,
+    pub diff_only: bool,
 }
 
 impl Panel {
@@ -120,6 +130,7 @@ impl Panel {
             place: None,
             link: None,
             models: None,
+            cmp: None,
         };
         (p, file)
     }
@@ -155,6 +166,11 @@ impl Panel {
 
     /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
     fn fill(&mut self, keep: Option<String>) {
+        // Differences only: what is the same on both sides is left out.
+        if let Some(c) = self.cmp.as_ref().filter(|c| c.diff_only) {
+            use coxswain_core::compare::folders::State;
+            self.entries.retain(|e| e.is_parent() || c.f.state(c.side, &e.path) != Some(State::Same));
+        }
         bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse, &self.sizes);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
         // A snapshot's is its own space.
@@ -419,6 +435,16 @@ pub enum MenuRun {
     CopyLine(String),
     /// Settings, open at a section.
     SettingsAt(&'static str),
+    /// Compare folders' menu (Ctrl+F2 while one is on).
+    Folders(FoldersRun),
+}
+
+#[derive(Clone, Copy)]
+pub enum FoldersRun {
+    Mark,
+    DiffOnly,
+    Again(coxswain_core::compare::folders::Mode),
+    Stop,
 }
 
 pub struct MenuItem {
@@ -731,6 +757,8 @@ pub struct App {
     /// Space, put aside while View, Edit or Delete has a file of it: back when that is done,
     /// without the file if it went.
     space_back: Option<(Box<space::Viewer>, PathBuf)>,
+    /// Compare folders' summary was put on the status line once it was done.
+    folders_said: bool,
     quit: bool,
     /// Under the pack, copy or move dialog's field: that the disk may be short of room to write
     /// into an archive (`archive::short_of_room`). Cleared by each new input dialog.
@@ -1029,6 +1057,7 @@ impl App {
             props_rx: None,
             watch: Default::default(),
             space_back: None,
+            folders_said: false,
             quit: false,
             input_note: None,
             cfg,
@@ -1480,6 +1509,7 @@ impl App {
             }
             Action::SpaceView => self.space_view(),
             Action::CompareFiles => self.compare_files(),
+            Action::CompareFolders => self.compare_folders(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -2843,6 +2873,93 @@ impl App {
         self.dialog = Some(Dialog::Compare(Box::new(compare::Viewer::open(&a, &b))));
     }
 
+    /// Ctrl+F2: the left panel's folder compared with the right one's; while a compare is on,
+    /// its menu.
+    fn compare_folders(&mut self) {
+        use coxswain_core::compare::folders::Mode;
+        let Some(c) = self.panels[0].cmp.clone() else { return self.folders_start(Mode::Quick) };
+        let item = |key: &str, label: String, run| MenuItem { key: key.into(), label, run: MenuRun::Folders(run), group: None };
+        let other = if c.f.mode == Mode::Quick { Mode::Content } else { Mode::Quick };
+        let items = vec![
+            item("1", t!("compare.mark_differences"), FoldersRun::Mark),
+            item("2", t!(if c.diff_only { "compare.show_all" } else { "compare.differences_only" }), FoldersRun::DiffOnly),
+            item("3", t!(if other == Mode::Content { "compare.by_content" } else { "compare.by_size_date" }), FoldersRun::Again(other)),
+            item("4", t!("compare.stop_comparing"), FoldersRun::Stop),
+        ];
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::CompareFolders), filter: String::new(), items, cursor: 0, direct: true, feature: "compare_folders" });
+    }
+
+    fn folders_start(&mut self, mode: coxswain_core::compare::folders::Mode) {
+        let f = Arc::new(coxswain_core::compare::folders::Folders::open(&self.panels[0].dir, &self.panels[1].dir, mode));
+        let diff_only = self.panels[0].cmp.as_ref().is_some_and(|c| c.diff_only);
+        for side in 0..2 {
+            self.panels[side].cmp = Some(Cmp { f: f.clone(), side, diff_only });
+        }
+        self.folders_said = false;
+        self.status = Some(t!("compare.comparing", "n" => 0));
+    }
+
+    fn folders_run(&mut self, r: FoldersRun) {
+        let Some(c) = self.panels[0].cmp.clone() else { return };
+        match r {
+            FoldersRun::Mark => {
+                let mut n = 0;
+                for side in 0..2 {
+                    let p = &mut self.panels[side];
+                    let ahead: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_parent() && c.f.state(side, &p.entries[i].path).is_some_and(|s| s.ahead(side))).collect();
+                    for i in ahead {
+                        if !p.marked.contains(&p.entries[i].path) {
+                            p.toggle_mark(i);
+                            n += 1;
+                        }
+                    }
+                }
+                self.status = Some(tn!("compare.marked", n));
+            }
+            FoldersRun::DiffOnly => {
+                for p in &mut self.panels {
+                    if let Some(c) = &mut p.cmp {
+                        c.diff_only = !c.diff_only;
+                    }
+                }
+                self.reload();
+            }
+            FoldersRun::Again(mode) => self.folders_start(mode),
+            FoldersRun::Stop => {
+                c.f.stop();
+                let all = c.diff_only;
+                for p in &mut self.panels {
+                    p.cmp = None;
+                }
+                if all {
+                    self.reload();
+                }
+                self.status = Some(t!("compare.stopped_comparing"));
+            }
+        }
+    }
+
+    /// How far Compare folders is.
+    fn poll_folders(&mut self) {
+        let Some(c) = self.panels[0].cmp.clone() else { return };
+        if self.folders_said {
+            return;
+        }
+        let found = c.f.found();
+        if found.done {
+            let line = found.error.clone().unwrap_or_else(|| found.summary());
+            drop(found);
+            self.folders_said = true;
+            self.status = Some(line);
+            if c.diff_only {
+                self.reload();
+            }
+        } else {
+            drop(found);
+            self.status = Some(t!("compare.comparing", "n" => coxswain_core::settings::count(c.f.seen.load(std::sync::atomic::Ordering::Relaxed) as usize)));
+        }
+    }
+
     /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
         match editor::Editor::open(file) {
@@ -3680,6 +3797,7 @@ impl App {
                         self.status = Some(t!("guide.copied", "command" => line));
                     }
                     Some(MenuRun::SettingsAt(at)) => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, at)))),
+                    Some(MenuRun::Folders(r)) => self.folders_run(*r),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -4056,6 +4174,7 @@ impl App {
     }
 
     fn tick(&mut self, last_state: &mut State) {
+        self.poll_folders();
         if matches!(self.dialog, Some(Dialog::Search { .. })) && self.slow.0.is_none_or(|at| at.elapsed() >= Duration::from_secs(1)) {
             let poor = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);
             self.slow = (Some(Instant::now()), poor);

@@ -54,8 +54,11 @@ pub struct Viewer {
     placed: bool,
 }
 
+/// A file's name as it can be shown: a control character in it (an escape) would talk to the
+/// terminal.
 fn name(p: &Path) -> String {
-    p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned())
+    let n = p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned());
+    crate::ui::printable(&n).into_owned()
 }
 
 impl Viewer {
@@ -277,7 +280,7 @@ impl Viewer {
         let done = self.s.done();
         let (summary, rows) = match &*done {
             None => return (t!("compare.reading", "percent" => self.s.percent()), vec![]),
-            Some(Done::Failed(e)) => return (e.clone(), vec![]),
+            Some(Done::Failed(e)) => return (crate::ui::printable(e).into_owned(), vec![]),
             Some(Done::Pictures(p)) => {
                 let size = |s: &coxswain_core::compare::Size| format!("{} × {}", s.width, s.height);
                 let line = match p.differ {
@@ -454,5 +457,15 @@ impl Viewer {
             out.push(Line::from(spans));
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn names_carry_no_escape_to_the_terminal() {
+        let n = super::name(std::path::Path::new("/tmp/a\x1b]0;owned\x07\x1b[31m.txt"));
+        assert!(!n.chars().any(char::is_control), "{n:?}");
+        assert_eq!(n, "a?]0;owned??[31m.txt");
     }
 }

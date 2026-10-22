@@ -1,5 +1,5 @@
 <script>
-  import { ui, sortTab, mark, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
+  import { ui, sortTab, mark, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts, cmpGlyph, cmpClass, cmpLabel } from "./app.svelte.js";
   import { size, date, day, age, ageColor, TAG_COLORS, tagName, basename, invoke } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
@@ -166,6 +166,7 @@
           <span class="label" dir="auto">{#if t.models?.[e.name]}{t.models[e.name]} <span class="hash">{e.name}</span>{:else}{e.name}{/if}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
+          {#if e.name !== ".." && t.cmp?.[e.name]}<span class="cmp cmp-{cmpClass(t, t.cmp[e.name])}" title={cmpLabel(t.cmp[e.name])}>{cmpGlyph(t, t.cmp[e.name])}</span>{/if}
           {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
           <!-- The action menu on this row, shown on the row under the mouse and the cursor's. -->
           {#if e.name !== ".."}<button class="more" tabindex="-1" title="{tr('action.action_menu')} ({ui.cfg.actions.action_menu?.[1] ?? ''})" aria-label={tr("action.action_menu")} onclick={(ev) => rowMenu(ev, t, i, onfocus)} ondblclick={(ev) => ev.stopPropagation()}>⋯</button>{/if}
@@ -407,6 +408,13 @@
   .cloud {
     opacity: 0.7;
   }
+  .cmp { margin-left: 4px; font-weight: bold; }
+  .cmp-only_left { color: var(--git-added-fg); }
+  .cmp-newer_left { color: var(--git-modified-fg); }
+  .cmp-newer_right { color: var(--git-renamed-fg); }
+  .cmp-different { color: var(--git-conflict-fg); }
+  .cmp-same,
+  .cmp-only_right { color: var(--git-ignored-fg); }
   .git-modified { color: var(--git-modified-fg); }
   .git-added { color: var(--git-added-fg); }
   .git-untracked { color: var(--git-untracked-fg); }
