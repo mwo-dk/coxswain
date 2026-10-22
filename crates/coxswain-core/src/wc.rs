@@ -147,9 +147,13 @@ struct Node {
 /// stopped after two seconds.
 fn svn_db(db: &Path) -> Option<rusqlite::Connection> {
     use rusqlite::config::DbConfig;
+    // `immutable`: SQLite takes no lock and opens no `-wal`, `-shm` or `-journal` beside it,
+    // which a hostile working copy could make pipes or links.
     let conn = rusqlite::Connection::open_with_flags(
-        db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        format!("{}?immutable=1&mode=ro", file_uri(db)),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | rusqlite::OpenFlags::SQLITE_OPEN_URI,
     )
     .ok()?;
     conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true).ok()?;
@@ -174,6 +178,22 @@ fn svn_db(db: &Path) -> Option<rusqlite::Connection> {
         )
         .ok()?;
     (plain == 2 && other == 0).then_some(conn)
+}
+
+/// `path` as a SQLite `file:` URI: every byte but letters, digits, `-._~/` percent-encoded,
+/// `\\` as `/`, and a drive (`C:`) after a `/`.
+fn file_uri(path: &Path) -> String {
+    let p = path.to_string_lossy().replace('\\', "/");
+    let p = if p.starts_with('/') { p } else { format!("/{p}") };
+    let mut out = String::from("file:");
+    for b in p.bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) || (cfg!(windows) && b == b':') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 /// A path as `wc.db` holds it: `/`-separated, relative, nothing that climbs out or names a
@@ -803,6 +823,7 @@ mod tests {
         assert_eq!(st.summary.conflicts, 0);
         assert!(safe_relpath("a/b") && safe_relpath("") && !safe_relpath("a//b") && !safe_relpath("/a") && !safe_relpath("a/.."));
         assert!(sha1_of("$sha1$3f786850e387550fdab836ed7e6dc881de23001b").is_some() && sha1_of("$sha1$../x").is_none());
+        assert_eq!(file_uri(Path::new("/a b/c?#%.db")), "file:/a%20b/c%3F%23%25.db");
         make(true);
         assert!(svn_status(&d).is_none(), "nodes as a view");
         std::fs::remove_dir_all(d).unwrap();
@@ -848,6 +869,18 @@ mod tests {
         std::fs::create_dir(&wc).unwrap();
         std::os::unix::fs::symlink(d.join("elsewhere"), wc.join(".svn")).unwrap();
         assert!(svn_status(&wc).is_none());
+        // Pipes where SQLite's journal files would be are never opened.
+        let real = d.join("real");
+        std::fs::create_dir_all(real.join(".svn")).unwrap();
+        let c = rusqlite::Connection::open(real.join(".svn/wc.db")).unwrap();
+        c.execute_batch("CREATE TABLE nodes (wc_id, local_relpath, op_depth, presence, kind, translated_size, last_mod_time, checksum, properties, repos_path, revision); CREATE TABLE actual_node (local_relpath, properties, conflict_data, tree_conflict_data); INSERT INTO nodes VALUES (1, '', 0, 'normal', 'dir', NULL, NULL, NULL, NULL, 'trunk', 1);").unwrap();
+        drop(c);
+        for side in ["wc.db-wal", "wc.db-shm", "wc.db-journal"] {
+            assert!(std::process::Command::new("mkfifo").arg(real.join(".svn").join(side)).status().unwrap().success());
+        }
+        let t = std::time::Instant::now();
+        assert!(svn_status(&real).is_some());
+        assert!(t.elapsed() < std::time::Duration::from_secs(2));
         std::fs::remove_dir_all(d).unwrap();
     }
 
