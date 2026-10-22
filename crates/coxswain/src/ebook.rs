@@ -100,7 +100,7 @@ impl App {
             let image = cfg.images.get(ebook::TOOL).cloned().unwrap_or_default();
             let mut say = |s: ebook::Said| {
                 let line = match s {
-                    ebook::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => image.as_str())),
+                    ebook::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&image))),
                     ebook::Said::Line(l) => l.to_string(),
                 };
                 let _ = said.send(SearchableMsg::Said(line));

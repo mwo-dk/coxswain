@@ -2402,7 +2402,7 @@ mod tests {
         let c = Config::parse("[preview]\nprefer = \"container\"\nimages.latex = \"texlive:medium\"\n").unwrap();
         assert_eq!(c.preview.prefer, "container");
         assert_eq!(c.preview.images["latex"], "texlive:medium");
-        assert_eq!(c.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest");
+        assert_eq!(crate::images::short(&c.preview.images["plantuml"]), "docker.io/plantuml/plantuml:latest");
         assert_eq!(Config::default().preview.timeout, 120);
     }
 

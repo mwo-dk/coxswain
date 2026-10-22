@@ -103,9 +103,9 @@ video or audio** button ([Convert video or audio](../files/convert-media.md)).
 
 | Files | Drawn by |
 |---|---|
-| HEIC and HEIF (`heic`, `heif`), the iPhone's photos | An installed ImageMagick or ffmpeg, else ffmpeg's image (no ImageMagick image reads them) |
-| GIMP (`xcf`, its layers merged), DPX and Cineon (`dpx`, `cin`), FITS (`fits`, `fts`), SGI, Sun raster, XWD, PICT, MIFF, WBMP | ImageMagick's image first once it is pulled (`docker.io/dstmodders/imagemagick:latest`, about 60 MB); before that, an installed ImageMagick |
-| RAW photos (`dng cr2 cr3 crw nef nrw arw srf sr2 orf rw2 raf pef srw x3f erf kdc dcr mrw 3fr iiq rwl`) | An installed ImageMagick with LibRaw only: no image reads them |
+| HEIC and HEIF (`heic`, `heif`), the iPhone's photos | ImageMagick's image first once it is pulled; before that, an installed ImageMagick or ffmpeg |
+| GIMP (`xcf`, its layers merged), DPX and Cineon (`dpx`, `cin`), FITS (`fits`, `fts`), SGI, Sun raster, XWD, PICT, MIFF, WBMP | ImageMagick's image first once it is pulled (`ghcr.io/mwo-dk/coxswain-imagemagick:latest`, about 21 MB); before that, an installed ImageMagick |
+| RAW photos (`dng cr2 cr3 crw nef nrw arw srf sr2 orf rw2 raf pef srw x3f erf kdc dcr mrw 3fr iiq rwl`) | ImageMagick's image first once it is pulled; before that, an installed ImageMagick with LibRaw |
 
 Each is drawn into a PNG at most 2,048 pixels on its longest side, turned upright as the camera
 noted, kept in the preview cache and shown on the checkerboard; in **Thumbnails** each one gets
@@ -181,7 +181,7 @@ Previews* like every [previews made by tools](tools.md):
 |---|---|---|
 | *How previews are made* | `[preview] prefer` | `"auto"`: an installed ffmpeg first; ImageMagick's image first once it is pulled |
 | [*Preview tools*](tools.md#preview-tools-in-settings) → *Video and sound*, *Pictures* | `[preview.tools] video`, `pictures` | `[preview] prefer`; `"local"`, `"container"` or `"off"` |
-| *Preview tools* (Pull, Remove) | `[preview.images] ffmpeg`, `imagemagick` | `"docker.io/mwader/static-ffmpeg:latest"`, `"docker.io/dstmodders/imagemagick:latest"` |
+| *Preview tools* (Pull, Remove) | `[preview.images] ffmpeg`, `imagemagick` | `"docker.io/mwader/static-ffmpeg:latest@sha256:…"` (pinned), `"ghcr.io/mwo-dk/coxswain-imagemagick:latest@sha256:…"` (pinned) |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 
 Thumbnails of pictures in the panel itself are a view of their own:
@@ -214,14 +214,16 @@ seconds, with its facts; **Enter** plays it in your media player, and *Convert v
 
 #### Why does a video or a HEIC photo show a Render button instead of the picture?
 
-Neither ffmpeg nor ImageMagick is installed, and ffmpeg's image is not pulled yet: a download
-never starts without a click. Press **Render** (the note beside it says how big the image is),
-**Pull** it in *Settings → Previews → Preview tools* (the *Video and sound* row), or install ffmpeg.
+Neither ffmpeg nor ImageMagick is installed, and the image is not pulled yet (ffmpeg's for a
+video, ImageMagick's for a photo): a download never starts without a click. Press **Render**
+(the note beside it says how big the image is), **Pull** it in *Settings → Previews → Preview
+tools* (the *Video and sound* or *Pictures* row), or install ffmpeg or ImageMagick.
 
 #### Why does a RAW photo say ImageMagick is not installed?
 
-No container image reads RAW photos: an installed ImageMagick with LibRaw does (Arch, Fedora,
-Debian 13, Homebrew and FreeBSD's have it). Many cameras also save a JPEG beside the RAW file.
+No container runtime is there, or containers are off, so ImageMagick's image cannot read it:
+install ImageMagick with LibRaw (Arch, Fedora, Debian 13, Homebrew and FreeBSD's have it), or
+podman or docker. Many cameras also save a JPEG beside the RAW file.
 
 #### Do thumbnails of videos start ffmpeg for every file?
 

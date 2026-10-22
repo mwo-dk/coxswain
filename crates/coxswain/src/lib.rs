@@ -2178,7 +2178,7 @@ impl App {
             let at = tx.clone();
             let done = coxswain_core::searchable::run_all(&cfg, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
                 let line = match s {
-                    coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default())),
+                    coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default()))),
                     coxswain_core::searchable::Said::Line(l) => l.to_string(),
                 };
                 let _ = said.send(SearchableMsg::Said(line));
@@ -2701,7 +2701,7 @@ impl App {
             let (said, at) = (tx.clone(), tx.clone());
             let done = export::run_all(&cfg, op, &list, &flag, |i| drop(at.send(ExportMsg::At(i))), |s| {
                 let line = match s {
-                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(op.tool()).cloned().unwrap_or_default())),
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(op.tool()).cloned().unwrap_or_default()))),
                     Said::Line(l) => l.to_string(),
                 };
                 let _ = said.send(ExportMsg::Said(line));

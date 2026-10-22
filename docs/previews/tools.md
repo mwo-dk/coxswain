@@ -46,7 +46,7 @@ the app's own list (`crates/coxswain-core/src/preview_tools.rs`); a test fails w
 | [reStructuredText](documents.md) (`markup`) | `.rst` `.rest` | `pandoc` | `pandoc`: `docker.io/pandoc/core:latest` (about 57 MB to download, 246 MB on disk) |
 | [DuckDB databases](data.md) (`databases`) | `.duckdb` `.ddb` | `duckdb` | `duckdb`: none; set one you trust |
 | [Video and sound](media.md#video-and-sound-with-ffmpeg) (`video`) | `.avi` `.wmv` `.flv` `.mpg` `.mpeg` `.m2v` `.ts` `.m2ts` `.mts` `.3gp` `.3g2` `.vob` `.asf` `.rm` `.rmvb` `.divx` `.ogm` `.f4v` `.mxf` `.dv` `.nut` `.wma` `.ape` `.ac3` `.dts` `.amr` `.aiff` `.aif` `.au` `.mka` `.wv` `.tta` `.caf` `.w64` `.mp2` `.oga` `.spx` `.ra` | `ffmpeg` | `ffmpeg`: `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk) |
-| [Pictures (HEIC, RAW, GIMP)](media.md#photos-only-imagemagick-or-ffmpeg-reads) (`pictures`) | `.heic` `.heif` `.xcf` `.dpx` `.cin` `.fits` `.fts` `.sgi` `.sun` `.ras` `.xwd` `.pict` `.pct` `.miff` `.wbmp` `.dng` `.cr2` `.cr3` `.crw` `.nef` `.nrw` `.arw` `.srf` `.sr2` `.orf` `.rw2` `.raf` `.pef` `.srw` `.x3f` `.erf` `.kdc` `.dcr` `.mrw` `.3fr` `.iiq` `.rwl` | `magick`, `ffmpeg` | `ffmpeg`: `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk)<br>`imagemagick`: `docker.io/dstmodders/imagemagick:latest` (about 60 MB to download, 152 MB on disk) |
+| [Pictures (HEIC, RAW, GIMP)](media.md#photos-only-imagemagick-or-ffmpeg-reads) (`pictures`) | `.heic` `.heif` `.xcf` `.dpx` `.cin` `.fits` `.fts` `.sgi` `.sun` `.ras` `.xwd` `.pict` `.pct` `.miff` `.wbmp` `.dng` `.cr2` `.cr3` `.crw` `.nef` `.nrw` `.arw` `.srf` `.sr2` `.orf` `.rw2` `.raf` `.pef` `.srw` `.x3f` `.erf` `.kdc` `.dcr` `.mrw` `.3fr` `.iiq` `.rwl` | `magick`, `ffmpeg` | `imagemagick`: `ghcr.io/mwo-dk/coxswain-imagemagick:latest` (about 21 MB to download, 52 MB on disk) |
 | [Circuits and boards (KiCad)](kicad.md) (`kicad`) | `.kicad_sch` `.kicad_pcb` | `kicad-cli` | `kicad`: `docker.io/kicad/kicad:9.0.9` (about 476 MB to download, 1.7 GB on disk) |
 | [E-books (calibre)](documents.md) (`ebooks`) | `.mobi` `.azw` `.azw3` `.fb2` `.lit` `.pdb` | `ebook-convert` | `calibre`: `docker.io/linuxserver/calibre:9.16.0` (about 1.3 GB to download, 3.6 GB on disk) |
 | [Maps (geodata)](geodata.md) (`maps`) | `.gpkg` `.shp` `.geojson` `.kml` `.gpx` | `gdalinfo` | `gdal`: `ghcr.io/osgeo/gdal:alpine-small-3.13.3` (about 40 MB to download, 98 MB on disk) |
@@ -71,7 +71,7 @@ What each makes and when it runs by itself:
 | reStructuredText | HTML | At once |
 | DuckDB databases | Tables, row estimates, column counts | At once |
 | Video and sound | PNG of a frame (videos the player cannot play, every video's thumbnail and poster), PNG of the waveform (sound) | At once |
-| Pictures | PNG; RAW only with an installed ImageMagick with LibRaw, as no image reads RAW; ImageMagick's image first once pulled | At once |
+| Pictures | PNG; ImageMagick's image first once pulled | At once |
 | Maps | SVG map | At once |
 | 3D models | A picture of the part (an SVG outline of a flat model) | At once |
 | KiCad | PDF of the sheets or layers; a board in 3D as its thumbnail | At once |

@@ -38,11 +38,11 @@ pub const AUDIO: &[&str] = &["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"];
 pub const AUDIO_OTHER: &[&str] = &[
     "wma", "ape", "ac3", "dts", "amr", "aiff", "aif", "au", "mka", "wv", "tta", "caf", "w64", "mp2", "oga", "spx", "ra",
 ];
-/// Apple's photos: shown by an installed ImageMagick or ffmpeg, else ffmpeg's image.
+/// Apple's photos: shown by an installed ImageMagick or ffmpeg, else ImageMagick's image.
 pub const HEIF: &[&str] = &["heic", "heif"];
 /// Pictures only ImageMagick reads (TGA, PCX, PSD and the other old ones Coxswain draws itself).
 pub const MAGICK_ONLY: &[&str] = &["xcf", "dpx", "cin", "fits", "fts", "sgi", "sun", "ras", "xwd", "pict", "pct", "miff", "wbmp"];
-/// Cameras' RAW photos: an installed ImageMagick with LibRaw reads them.
+/// Cameras' RAW photos: ImageMagick with LibRaw reads them, installed or in its image.
 pub const RAW: &[&str] = &[
     "dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf", "rw2", "raf", "pef", "srw", "x3f", "erf", "kdc",
     "dcr", "mrw", "3fr", "iiq", "rwl",
@@ -906,21 +906,13 @@ pub fn run_all(
         Ok(h) => h,
         Err(e) => return vec![Err(e)],
     };
-    // The image reads no HEIC or RAW photo: an installed ImageMagick takes those, when there
-    // is one and nothing asks for the container alone.
-    let auto = crate::preview_tools::asked(cfg, MAGICK) == "auto";
-    let installed = match (&how, auto) {
-        (How::Container { program: Program::Magick, .. }, true) => crate::tools::which("magick").map(|path| How::Local { program: Program::Magick, path }),
-        _ => None,
-    };
     let mut done = vec![];
     for (i, file) in files.iter().enumerate() {
         if stop.load(Ordering::Relaxed) {
             break;
         }
         at(i);
-        let how = installed.as_ref().filter(|_| among(file, &[HEIF, RAW])).unwrap_or(&how);
-        done.push(run(cfg, how, op, file, stop, &mut said));
+        done.push(run(cfg, &how, op, file, stop, &mut said));
     }
     done
 }
@@ -1280,9 +1272,8 @@ mod tests {
         let ok = |c: &mut std::process::Command| assert!(c.status().unwrap().success());
         let video = d.join("-v clip.avi");
         ok(std::process::Command::new("ffmpeg").args(["-v", "error", "-f", "lavfi", "-i", "testsrc2=d=4:s=320x240", "-f", "lavfi", "-i", "sine=d=4", "-c:v", "mpeg4", "-c:a", "mp2"]).arg(&video));
-        // No image reads HEIC: a PNG in the containers.
         let container = std::env::var("COXSWAIN_MEDIA_CONTAINER").is_ok();
-        let photo = d.join(if container { "--photo.png" } else { "--photo.heic" });
+        let photo = d.join("--photo.heic");
         ok(std::process::Command::new("magick").args(["-size", "400x300", "plasma:"]).arg(&photo));
         // Installed ones only, unless asked: a test never pulls into the machine's own store.
         let mut cfg = PreviewConfig { prefer: "local".into(), ..Default::default() };
