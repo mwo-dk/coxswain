@@ -3683,7 +3683,6 @@
  "history.all_not_here": "כל הענפים מיועד להיסטוריית git, או לקובץ או לתיקייה במאגר",
  "history.scope_branch": "הענף הזה",
  "history.scope_all": "כל הענפים",
- "history.scope_tip": "אילו קומיטים הרשימה והגרף שלה מציגים ({key} מחליף)",
  "hint.history": "{all} מציג בגרף את הקומיטים של כל הענפים; שוב, רק של הענף הזה",
  "setting.git_prefer_git": "להשתמש ב־git היכן שיש גם Jujutsu",
  "setting.git_prefer_git.hint": "כשבתיקייה יש גם ‎.jj וגם ‎.git, להציג את השורה, ההיסטוריה והענפים של git במקום של Jujutsu.",
@@ -3774,5 +3773,15 @@
  "ptools.kind.other": "תבניות אחרות (Tika, לחיפוש)",
  "ptools.kind.ebooks": "ספרים אלקטרוניים (calibre)",
  "ptools.kind.kicad": "מעגלים ולוחות (KiCad)",
- "ptools.kind.transcripts": "תמלולים (Whisper)"
+ "ptools.kind.transcripts": "תמלולים (Whisper)",
+ "action.history_upstream": "מול ה-upstream",
+ "history.badge_upstream": "מול ה-upstream · {key}: הענף הזה",
+ "history.no_upstream": "לענף הזה אין upstream להשוואה: הגדירו אחד בכלי ה-git שלכם",
+ "history.scope_upstream": "מול ה-upstream",
+ "history.scope_branch_tip": "הקומיטים של הענף הזה",
+ "history.scope_all_tip": "הקומיטים של כל הענפים, ברשימה ובגרף שלה ({key})",
+ "history.scope_upstream_tip": "הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון; שום דבר לא נמשך ({key})",
+ "history.side_ahead": "לא נדחף",
+ "history.side_behind": "לא מוזג",
+ "hint.upstream": "{key} מציג את הקומיטים שלא נדחפו ולא מוזגו, לפי ה-fetch האחרון"
 }

@@ -3683,7 +3683,6 @@
  "history.all_not_here": "Visos šakos skirta git istorijai arba saugyklos failui ar aplankui",
  "history.scope_branch": "Ši šaka",
  "history.scope_all": "Visos šakos",
- "history.scope_tip": "Kuriuos commit'us rodo sąrašas ir jo grafas ({key} perjungia)",
  "hint.history": "{all} grafe rodo visų šakų commit'us; dar kartą – tik šios šakos",
  "setting.git_prefer_git": "Naudoti git ten, kur yra ir Jujutsu",
  "setting.git_prefer_git.hint": "Kur aplanke yra ir .jj, ir .git, rodyti git eilutę, istoriją ir šakas vietoj Jujutsu.",
@@ -3774,5 +3773,15 @@
  "ptools.kind.other": "Kiti formatai (Tika, paieškai)",
  "ptools.kind.ebooks": "E. knygos (calibre)",
  "ptools.kind.kicad": "Schemos ir plokštės (KiCad)",
- "ptools.kind.transcripts": "Transkripcijos (Whisper)"
+ "ptools.kind.transcripts": "Transkripcijos (Whisper)",
+ "action.history_upstream": "Palyginti su upstream",
+ "history.badge_upstream": "palyginti su upstream · {key}: ši šaka",
+ "history.no_upstream": "Ši šaka neturi upstream palyginimui: nustatykite jį savo git įrankyje",
+ "history.scope_upstream": "Palyginti su upstream",
+ "history.scope_branch_tip": "Šios šakos commit'ai",
+ "history.scope_all_tip": "Visų šakų commit'ai, sąraše ir grafe ({key})",
+ "history.scope_upstream_tip": "Neišsiųsti ir nesulieti commit'ai pagal paskutinį fetch; nieko neparsiunčiama ({key})",
+ "history.side_ahead": "Neišsiųsta",
+ "history.side_behind": "Nesulieta",
+ "hint.upstream": "{key} išvardija neišsiųstus ir nesulietus commit'us pagal paskutinį fetch"
 }

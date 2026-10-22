@@ -162,6 +162,7 @@ The same as in the desktop app ([Git history as folders](../panels/git-history.m
 | To | Do |
 |---|---|
 | See a file's or folder's commits | **Ctrl+G** on it (on `..` for the folder you are in). The title becomes `…/main.rs/@history [this branch's history · Alt+A: all branches]`; each row is the graph in box-drawing characters (`●─╮`, `│ ●`, `├─╯`), the names of the branches whose tip it is in brackets, then `a1b2c3d subject`, its date in *Modified* |
+| See what is not pushed or not merged | **Alt+Y**: the title ends in `[against upstream · Alt+Y: this branch]` and the bottom border reads `Upstream: origin/main, 1 ahead, 2 behind · Last fetch: …`, each commit marked `↑` (not pushed) or `↓` (not merged) ([Against upstream](../panels/git-history.md#against-upstream)) |
 | See every branch's commits | **Alt+A** in the list: the title ends in `[every branch's history · Alt+A: this branch]`, and **Alt+A** again goes back ([The graph](../panels/git-history.md#the-graph)) |
 | See who made a commit | Put the cursor on it: the info line shows its id, date and author |
 | Browse the files as they were | **Enter** on a commit. The title ends in `[commit a1b2c3d]` |

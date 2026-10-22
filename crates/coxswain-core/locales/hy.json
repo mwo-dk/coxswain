@@ -3584,7 +3584,6 @@
  "history.all_not_here": "«Բոլոր ճյուղերը» git-ի պատմության կամ պահոցի ֆայլի կամ թղթապանակի համար է",
  "history.scope_branch": "Այս ճյուղը",
  "history.scope_all": "Բոլոր ճյուղերը",
- "history.scope_tip": "Որ commit-ներն են ցույց տալիս ցանկը և դրա գրաֆը ({key}՝ փոխել)",
  "hint.history": "{all}՝ բոլոր ճյուղերի commit-ները գրաֆում, կրկին՝ միայն այս ճյուղինը",
  "setting.git_prefer_git": "Օգտագործել git, որտեղ կա նաև Jujutsu",
  "setting.git_prefer_git.hint": "Երբ թղթապանակն ունի և՛ .jj, և՛ .git, ցույց տալ git-ի տողը, պատմությունը և ճյուղերը Jujutsu-ի փոխարեն։",
@@ -3685,5 +3684,15 @@
  "ptools.kind.transcripts": "Տառադարձումներ (Whisper)",
  "xiangqi.board": "Սյանցիի տախտակ",
  "xiangqi.col_red": "Կարմիր",
- "xiangqi.red_to_move": "Կարմիրի քայլն է"
+ "xiangqi.red_to_move": "Կարմիրի քայլն է",
+ "action.history_upstream": "Upstream-ի համեմատ",
+ "history.badge_upstream": "upstream-ի համեմատ · {key}՝ այս ճյուղը",
+ "history.no_upstream": "Այս ճյուղը համեմատելու upstream չունի. սահմանեք այն ձեր git գործիքում",
+ "history.scope_upstream": "Upstream-ի համեմատ",
+ "history.scope_branch_tip": "Այս ճյուղի commit-ները",
+ "history.scope_all_tip": "Բոլոր ճյուղերի commit-ները՝ ցանկում և գրաֆում ({key})",
+ "history.scope_upstream_tip": "Չուղարկված և չմիավորված commit-ները՝ վերջին fetch-ի դրությամբ. ոչինչ չի բեռնվում ({key})",
+ "history.side_ahead": "Չուղարկված",
+ "history.side_behind": "Չմիավորված",
+ "hint.upstream": "{key}՝ չուղարկված և չմիավորված commit-ները՝ վերջին fetch-ի դրությամբ"
 }

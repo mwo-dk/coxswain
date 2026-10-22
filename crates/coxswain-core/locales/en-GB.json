@@ -3613,7 +3613,6 @@
  "history.all_not_here": "All branches is for a git history, or a file or folder in a repository",
  "history.scope_branch": "This branch",
  "history.scope_all": "All branches",
- "history.scope_tip": "Which commits the list and its graph show ({key} switches)",
  "hint.history": "{all} shows every branch's commits in the graph; again, this branch's alone",
  "setting.git_prefer_git": "Use git where Jujutsu is too",
  "setting.git_prefer_git.hint": "Where a folder has both .jj and .git, show git's line, history and branches instead of Jujutsu's.",
@@ -3703,5 +3702,15 @@
  "ptools.kind.other": "Other formats (Tika, for search)",
  "ptools.kind.ebooks": "E-books (calibre)",
  "ptools.kind.kicad": "Circuits and boards (KiCad)",
- "ptools.kind.transcripts": "Transcripts (Whisper)"
+ "ptools.kind.transcripts": "Transcripts (Whisper)",
+ "action.history_upstream": "Against upstream",
+ "history.badge_upstream": "against upstream · {key}: this branch",
+ "history.no_upstream": "This branch has no upstream to compare with: set one in your git tool",
+ "history.scope_upstream": "Against upstream",
+ "history.scope_branch_tip": "This branch's commits",
+ "history.scope_all_tip": "Every branch's commits, in the list and its graph ({key})",
+ "history.scope_upstream_tip": "The commits not pushed and not merged, as of the last fetch; nothing is fetched ({key})",
+ "history.side_ahead": "Not pushed",
+ "history.side_behind": "Not merged",
+ "hint.upstream": "{key} lists the commits not pushed and not merged, as of the last fetch"
 }

@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Alle Branches gibt es in einem Git-Verlauf oder auf einer Datei oder einem Ordner eines Repositorys",
  "history.scope_branch": "Dieser Branch",
  "history.scope_all": "Alle Branches",
- "history.scope_tip": "Welche Commits die Liste und ihr Graph zeigen ({key} wechselt)",
  "hint.history": "{all} zeigt die Commits aller Branches im Graphen; noch einmal nur die dieses Branches",
  "setting.git_prefer_git": "Git verwenden, wo auch Jujutsu ist",
  "setting.git_prefer_git.hint": "Wo ein Ordner sowohl .jj als auch .git hat, Zeile, Verlauf und Branches von git statt von Jujutsu zeigen.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Weitere Formate (Tika, für die Suche)",
  "ptools.kind.ebooks": "E-Books (calibre)",
  "ptools.kind.kicad": "Schaltpläne und Platinen (KiCad)",
- "ptools.kind.transcripts": "Transkripte (Whisper)"
+ "ptools.kind.transcripts": "Transkripte (Whisper)",
+ "action.history_upstream": "Gegen Upstream",
+ "history.badge_upstream": "gegen Upstream · {key}: dieser Branch",
+ "history.no_upstream": "Dieser Branch hat keinen Upstream zum Vergleich: lege einen in deinem Git-Werkzeug fest",
+ "history.scope_upstream": "Gegen Upstream",
+ "history.scope_branch_tip": "Die Commits dieses Branches",
+ "history.scope_all_tip": "Die Commits aller Branches, in der Liste und ihrem Graphen ({key})",
+ "history.scope_upstream_tip": "Die Commits, die nicht gepusht und nicht gemergt sind, Stand des letzten Fetch; nichts wird geholt ({key})",
+ "history.side_ahead": "Nicht gepusht",
+ "history.side_behind": "Nicht gemergt",
+ "hint.upstream": "{key} listet die Commits, die nicht gepusht und nicht gemergt sind, Stand des letzten Fetch"
 }

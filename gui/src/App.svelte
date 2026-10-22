@@ -369,7 +369,8 @@
     open: () => openItem(tab()),
     parent: () => up(tab()) && cd(tab(), up(tab())),
     history: () => openHistory(),
-    history_all: () => openHistory(undefined, true),
+    history_all: () => openHistory(undefined, "all"),
+    history_upstream: () => openHistory(undefined, "upstream"),
     snapshots: () => openSnapshots(),
     package: () => openPackage(),
     // The flags are set in Properties.

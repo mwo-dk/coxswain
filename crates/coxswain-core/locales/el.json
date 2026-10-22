@@ -3602,7 +3602,6 @@
  "history.all_not_here": "Το «Όλοι οι κλάδοι» είναι για ιστορικό git ή για αρχείο ή φάκελο ενός αποθετηρίου",
  "history.scope_branch": "Αυτός ο κλάδος",
  "history.scope_all": "Όλοι οι κλάδοι",
- "history.scope_tip": "Ποια commits δείχνουν η λίστα και το γράφημά της (το {key} εναλλάσσει)",
  "hint.history": "Το {all} δείχνει τα commits όλων των κλάδων στο γράφημα· ξανά, μόνο αυτού του κλάδου",
  "setting.git_prefer_git": "Χρήση git όπου υπάρχει και Jujutsu",
  "setting.git_prefer_git.hint": "Όπου ένας φάκελος έχει και .jj και .git, εμφανίζονται η γραμμή, το ιστορικό και οι κλάδοι του git αντί του Jujutsu.",
@@ -3692,5 +3691,15 @@
  "ptools.kind.other": "Άλλες μορφές (Tika, για την αναζήτηση)",
  "ptools.kind.ebooks": "Ηλεκτρονικά βιβλία (calibre)",
  "ptools.kind.kicad": "Κυκλώματα και πλακέτες (KiCad)",
- "ptools.kind.transcripts": "Απομαγνητοφωνήσεις (Whisper)"
+ "ptools.kind.transcripts": "Απομαγνητοφωνήσεις (Whisper)",
+ "action.history_upstream": "Έναντι upstream",
+ "history.badge_upstream": "έναντι upstream · {key}: αυτός ο κλάδος",
+ "history.no_upstream": "Αυτός ο κλάδος δεν έχει upstream για σύγκριση: ορίστε ένα στο εργαλείο git σας",
+ "history.scope_upstream": "Έναντι upstream",
+ "history.scope_branch_tip": "Τα commits αυτού του κλάδου",
+ "history.scope_all_tip": "Τα commits όλων των κλάδων, στη λίστα και στο γράφημά της ({key})",
+ "history.scope_upstream_tip": "Τα commits που δεν έγιναν push και δεν συγχωνεύτηκαν, κατά το τελευταίο fetch· τίποτα δεν ανακτάται ({key})",
+ "history.side_ahead": "Χωρίς push",
+ "history.side_behind": "Χωρίς συγχώνευση",
+ "hint.upstream": "Το {key} δείχνει τα commits χωρίς push και χωρίς συγχώνευση, κατά το τελευταίο fetch"
 }

@@ -180,7 +180,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 pub enum Place {
     /// Inside an archive; `true` inside an archive inside another (read-only).
     Archive(bool),
-    History(coxswain_core::history::At),
+    /// With what a list against the upstream is against (`history::upstream_line`).
+    History(coxswain_core::history::At, Option<String>),
     /// A dataset's list of snapshots.
     Snapshots,
     Plain,
@@ -191,7 +192,8 @@ impl Place {
         if coxswain_core::archive::split(dir).is_some() {
             Place::Archive(coxswain_core::archive::nested_dir(dir))
         } else if let Some(at) = coxswain_core::history::split(dir) {
-            Place::History(at)
+            let line = (at.scope == coxswain_core::history::Scope::Upstream && at.commit.is_none()).then(|| coxswain_core::history::upstream_line(&at.base)).flatten();
+            Place::History(at, line)
         } else if coxswain_core::zfs::split(dir).is_some() {
             Place::Snapshots
         } else {
@@ -234,12 +236,16 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
                 None => format!("{} [{badge}]", p.dir.to_string_lossy()),
             }
         }
-        Place::History(at) => match (&at.commit, at.view) {
+        Place::History(at, _) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
             (None, coxswain_core::history::View::History) => {
                 // Which commits, and the key that lists the others.
                 let key = app.key_label(Action::HistoryAll);
-                let badge = if at.scope == coxswain_core::history::Scope::All { t!("history.badge_all", "key" => key) } else { t!("history.badge_branch", "key" => key) };
+                let badge = match at.scope {
+                    coxswain_core::history::Scope::All => t!("history.badge_all", "key" => key),
+                    coxswain_core::history::Scope::Branch => t!("history.badge_branch", "key" => key),
+                    coxswain_core::history::Scope::Upstream => t!("history.badge_upstream", "key" => app.key_label(Action::HistoryUpstream)),
+                };
                 format!("{} [{badge}]", p.dir.to_string_lossy())
             }
             (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
@@ -277,7 +283,14 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     };
     let sort = if p.reverse { sort.to_uppercase() } else { sort.to_string() };
     // On ZFS: the dataset, its compression ratio and its space, between the git line and the sort.
-    if let Some(z) = p.zfs.as_ref().and_then(|z| centred_between(&crate::App::zfs_line(z), area.width as usize, git_w, sort.width() + 2)) {
+    // Against the upstream: which, how far ahead and behind, and the last fetch.
+    let upstream = match &p.place {
+        Some((_, Place::History(_, Some(line)))) => Some(line.clone()),
+        _ => None,
+    };
+    if let Some(u) = upstream.and_then(|u| centred_between(&u, area.width as usize, git_w, sort.width() + 2)) {
+        block = block.title_bottom(Line::from(Span::styled(format!(" {u} "), border)).centered());
+    } else if let Some(z) = p.zfs.as_ref().and_then(|z| centred_between(&crate::App::zfs_line(z), area.width as usize, git_w, sort.width() + 2)) {
         block = block.title_bottom(Line::from(Span::styled(format!(" {z} "), border)).centered());
     }
     block = block.title_bottom(Line::from(Span::styled(format!(" {sort} "), border)).right_aligned());
@@ -320,7 +333,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // A history's list of commits: the graph's rows for the commits in view (`..` is none),
     // worked out in core as far down as this.
     let graph = match p.place.as_ref().map(|(_, pl)| pl) {
-        Some(Place::History(at)) if at.commit.is_none() && at.view == coxswain_core::history::View::History => coxswain_core::history::graph(&p.dir, p.offset.saturating_sub(1), p.offset + rows),
+        Some(Place::History(at, _)) if at.commit.is_none() && at.view == coxswain_core::history::View::History => coxswain_core::history::graph(&p.dir, p.offset.saturating_sub(1), p.offset + rows),
         _ => vec![],
     };
     // As many lanes as the widest row in view, at most a third of the name column.
@@ -398,6 +411,16 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
                 v.push(Span::styled(ch.to_string(), tint(k / 2)));
             }
             left = left.saturating_sub(lanes as usize * 2);
+            // Against the upstream: not pushed, or not merged.
+            if let Some(side) = r.side {
+                let (g, st) = match side {
+                    coxswain_core::graph::Side::Ahead => (&app.glyphs.ahead, &t.git_added),
+                    coxswain_core::graph::Side::Behind => (&app.glyphs.behind, &t.git_modified),
+                };
+                let g = fit(&format!("{g} "), (g.width() + 1).min(left));
+                left -= g.width();
+                v.push(Span::styled(g, if at { s } else { sty(st).bg(row_bg) }));
+            }
             if !r.refs.is_empty() {
                 let refs = format!("({}) ", r.refs.join(", "));
                 let refs = fit(&refs, refs.width().min(left / 2));

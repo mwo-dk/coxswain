@@ -123,7 +123,8 @@ magenta in NC).
 ## Upstream, remote and last fetch
 
 How far behind is this branch, and how old is that number? The git line counts the commits
-ahead and behind, but only as of the last fetch: Coxswain never fetches. These facts tell you
+ahead and behind, but only as of the last fetch: Coxswain never fetches. **Alt+Y** lists those
+commits themselves ([Against upstream](git-history.md#against-upstream)). These facts tell you
 where you stand:
 
 | Fact | Example | From |
@@ -300,6 +301,7 @@ and **Alt+B** (branches). Other git commands can be added as your own entries (*
 | The *Last commit* column | the columns menu (the session) | on |
 | The history's key | `history` in `[keys]` | `Ctrl+G` |
 | A history of all branches ([The graph](git-history.md#the-graph)) | `history_all` in `[keys]` | `Alt+A` |
+| A history against the upstream ([Against upstream](git-history.md#against-upstream)) | `history_upstream` in `[keys]` | `Alt+Y` |
 | The branches', the worktrees' and the switch's keys | `branches`, `worktrees`, `switch_branch` in `[keys]` | `Alt+B`, `Alt+W`, `Alt+S` |
 | *Settings → Behaviour → Git tool* | `[git] tool` (a tool's name or a command; empty: the first installed) | `""` |
 | *Open in your git tool* | `git_tool` in `[keys]` | `Alt+G` |

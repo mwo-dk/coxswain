@@ -3521,7 +3521,6 @@
  "history.all_not_here": "全ブランチは git 履歴か、リポジトリーのファイルやフォルダーで使えます",
  "history.scope_branch": "このブランチ",
  "history.scope_all": "全ブランチ",
- "history.scope_tip": "一覧とグラフに出すコミット ({key} で切り替え)",
  "hint.history": "{all} で全ブランチのコミットをグラフに表示、もう一度でこのブランチだけに戻ります",
  "setting.git_prefer_git": "Jujutsu もある場所では git を使う",
  "setting.git_prefer_git.hint": "フォルダーに .jj と .git の両方がある場合、Jujutsu ではなく git の行・履歴・ブランチを表示します。",
@@ -3610,5 +3609,15 @@
  "ptools.kind.other": "その他の形式 (Tika、検索用)",
  "ptools.kind.ebooks": "電子書籍 (calibre)",
  "ptools.kind.kicad": "回路図と基板 (KiCad)",
- "ptools.kind.transcripts": "文字起こし (Whisper)"
+ "ptools.kind.transcripts": "文字起こし (Whisper)",
+ "action.history_upstream": "アップストリームと比較",
+ "history.badge_upstream": "アップストリームと比較 · {key}: このブランチ",
+ "history.no_upstream": "このブランチには比べるアップストリームがありません: git ツールで設定してください",
+ "history.scope_upstream": "アップストリームと比較",
+ "history.scope_branch_tip": "このブランチのコミット",
+ "history.scope_all_tip": "全ブランチのコミット (一覧とグラフ) ({key})",
+ "history.scope_upstream_tip": "最後の fetch 時点で未プッシュ・未マージのコミット。何も取得しません ({key})",
+ "history.side_ahead": "未プッシュ",
+ "history.side_behind": "未マージ",
+ "hint.upstream": "{key} で最後の fetch 時点の未プッシュ・未マージのコミットを一覧"
 }

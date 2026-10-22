@@ -77,7 +77,7 @@ pub const FEATURES: &[Feature] = &[
     ),
     f("space", "panels/space.md", &[SpaceView, Delete, View, Edit]),
     f("git", "panels/git.md", &[History, Branches, GitTool, Refresh]),
-    f("git_history", "panels/git-history.md", &[History, HistoryAll]),
+    f("git_history", "panels/git-history.md", &[History, HistoryAll, HistoryUpstream]),
     f(
         "git_branches",
         "panels/git-branches.md",

@@ -9,6 +9,16 @@ use std::sync::Arc;
 
 use crate::history::Commit;
 
+/// Which side of HEAD and its upstream a commit is on, in a list against the upstream.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Side {
+    /// On HEAD's side only: not pushed.
+    Ahead,
+    /// On the upstream's only: not merged (as of the last fetch).
+    Behind,
+}
+
 /// One commit's row. Columns count lanes from the left. A line in the upper half runs from a
 /// column at the row's top to one at its middle; one in the lower half from the middle down.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -21,6 +31,8 @@ pub struct Row {
     /// What points at the commit, as git names it: `HEAD -> main`, `origin/main`, `tag: v1`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub side: Option<Side>,
 }
 
 impl Row {
@@ -117,6 +129,7 @@ impl Layout {
             up,
             down,
             refs: c.refs.clone(),
+            side: c.side,
         }
     }
 }

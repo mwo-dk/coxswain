@@ -3683,7 +3683,6 @@
  "history.all_not_here": "Todas las ramas es para un historial de git, o un archivo o una carpeta de un repositorio",
  "history.scope_branch": "Esta rama",
  "history.scope_all": "Todas las ramas",
- "history.scope_tip": "Qué commits muestran la lista y su gráfico ({key} cambia)",
  "hint.history": "{all} muestra los commits de todas las ramas en el gráfico; otra vez, solo los de esta",
  "setting.git_prefer_git": "Usar git donde también está Jujutsu",
  "setting.git_prefer_git.hint": "Donde una carpeta tiene .jj y .git, mostrar la línea, el historial y las ramas de git en lugar de los de Jujutsu.",
@@ -3774,5 +3773,15 @@
  "ptools.kind.other": "Otros formatos (Tika, para la búsqueda)",
  "ptools.kind.ebooks": "Libros electrónicos (calibre)",
  "ptools.kind.kicad": "Circuitos y placas (KiCad)",
- "ptools.kind.transcripts": "Transcripciones (Whisper)"
+ "ptools.kind.transcripts": "Transcripciones (Whisper)",
+ "action.history_upstream": "Contra el upstream",
+ "history.badge_upstream": "contra el upstream · {key}: esta rama",
+ "history.no_upstream": "Esta rama no tiene upstream con el cual comparar: configurá uno en tu herramienta de git",
+ "history.scope_upstream": "Contra el upstream",
+ "history.scope_branch_tip": "Los commits de esta rama",
+ "history.scope_all_tip": "Los commits de todas las ramas, en la lista y su gráfico ({key})",
+ "history.scope_upstream_tip": "Los commits sin subir y sin fusionar, según el último fetch; no se trae nada ({key})",
+ "history.side_ahead": "Sin subir",
+ "history.side_behind": "Sin fusionar",
+ "hint.upstream": "{key} lista los commits sin subir y sin fusionar, según el último fetch"
 }

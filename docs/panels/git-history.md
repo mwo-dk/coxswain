@@ -20,6 +20,7 @@ the commit changed in it, view it with **F3** and copy an old version out with *
 - [How to use it](#how-to-use-it)
 - [What you see](#what-you-see)
 - [The graph](#the-graph)
+- [Against upstream](#against-upstream)
 - [What works in a history](#what-works-in-a-history)
 - [Paths through a history](#paths-through-a-history)
 - [Limits](#limits)
@@ -94,6 +95,36 @@ a screenful, and scrolling to the end works out the rest. The list is read once,
 commit's parents (`git log --parents`, or for a file on its branch `--follow`, which makes its
 commits one line).
 
+## Against upstream
+
+What have I not pushed, and what is waiting on the server? **Alt+Y** (*Against upstream*) in a
+history lists only the commits on one side of your branch and its upstream (`origin/main`):
+
+| Mark | Desktop app | Terminal app | Means |
+|---|---|---|---|
+| Not pushed | `↑` before the subject (hover: *Not pushed*) | `↑` | On your branch, not on its upstream |
+| Not merged | `↓` before the subject (hover: *Not merged*) | `↓` | On the upstream, not on your branch yet |
+
+The pane says what it is against and how old that is: *Upstream: origin/main, 1 ahead,
+2 behind · Last fetch: 2026-10-21 14:13*, after the count of items at the bottom of the pane in
+the desktop app (with *Against upstream* filled in among the buttons next to the badge), and in
+the middle of the panel's bottom border in the terminal app, whose title ends in
+`[against upstream · Alt+Y: this branch]`. The graph shows the two sides splitting off from
+where they last met.
+
+![The desktop app's history of rocket with Against upstream filled in next to the badge and @upstream in the path bar: one commit, 16af031 Document the build, marked with ↑ and the label HEAD -> master; at the bottom of the pane 1 item · Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/git-history-upstream.png)
+
+![The terminal app's panel titled …cket/@history/@upstream [against upstream · Alt+Y: this branch]: the commit ↑ (HEAD -> master) 16af031 Document the build, and in the bottom border Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/tui-git-history-upstream.png)
+
+**It never fetches.** The upstream's commits are those git kept at your last fetch (or pull),
+and the last fetch's time says how old they are. To see newer ones, fetch in your own git tool
+(**Alt+G**) and press **Ctrl+R**. **Alt+Y** again, or *This branch*, goes back to the branch's
+history. On a file or folder on disk, **Alt+Y** opens its history against the upstream at once:
+only the commits that changed it. The path is `<file or folder>/@history/@upstream`.
+
+A branch without an upstream says *This branch has no upstream to compare with: set one in your
+git tool* in the pane.
+
 ## What works in a history
 
 | Key | In a history |
@@ -143,13 +174,15 @@ folder.
 |---|---|---|
 | The key | `history` in `[keys]` | `["Ctrl+G"]` |
 | The key for all branches | `history_all` in `[keys]` | `["Alt+A"]` |
+| The key against the upstream | `history_upstream` in `[keys]` | `["Alt+Y"]` |
 | The *Last commit* column and line | `[git] last_commit` | `true` |
 | Commits in Find | `[search] history` ([History in search](../search/history.md)) | `true` |
 
 The first time you open a folder of a repository, you are told that the history is there and
 which key opens it: under *Settings → Overview → What's new* in the desktop app, once in the status line in
 the terminal app ([Notices and what's new](notices.md)). Inside a history, the status line says a
-few times that **Alt+A** shows every branch's commits in the graph, and again this branch's alone.
+few times that **Alt+A** shows every branch's commits in the graph, and again this branch's alone,
+and that **Alt+Y** lists the commits not pushed and not merged.
 
 ## In the terminal app
 
@@ -177,6 +210,16 @@ there. The names in a label or in brackets are the branches and tags whose tip i
 Press **Alt+A** in the list, or click *All branches* next to the badge in the desktop app: the
 list and its graph then hold every local and remote branch's commits. **Alt+A** again, or
 *This branch*, goes back.
+
+#### How do I see what I have not pushed yet?
+
+Press **Alt+Y** in a history (or on a file or folder): the list holds only the commits not
+pushed (`↑`) and not merged (`↓`), as of the last fetch, whose time the badge shows.
+
+#### Why does Against upstream not show the newest commits on the server?
+
+Coxswain never fetches: it shows what git kept at your last fetch. Fetch in your git tool
+(**Alt+G**), then **Ctrl+R**.
 
 #### Why does the graph not show in Columns or Thumbnails?
 

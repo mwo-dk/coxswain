@@ -27,7 +27,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Folder sizes](folder-sizes.md) | Sizes that fill in by themselves, the size of the folder above on `..`, where they come from, measuring again |
 | [Space: where the space goes](space.md) | **Alt+U**: a folder or a drive as a treemap, every file a rectangle by its size and coloured by its kind; the bytes by type, the largest files, zooming, clean-up with Delete |
 | [Git in the panels](git.md) | The git line with the upstream, last fetch and remote, glyphs per file, the last commit per file, the diff, recent repositories, **Alt+G** to open your git tool |
-| [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits with a graph of branches and merges (**Alt+A**: all branches), the files as they were, their diff, copying an old version out |
+| [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits with a graph of branches and merges (**Alt+A**: all branches; **Alt+Y**: against the upstream), the files as they were, their diff, copying an old version out |
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [Git config](git-config.md) | **Alt+C**: the git config as git uses it, each value with its scope and file, secrets hidden; read-only |
 | [Jujutsu in the panels](jujutsu.md) | A Jujutsu repository through `jj`: the line, the history (**Ctrl+G**) and the bookmarks (**Alt+B**), read-only |
@@ -75,6 +75,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+V** | Yes | – | Details, columns, thumbnails |
 | **Ctrl+G** | Yes | Yes | The git history of the file or folder under the cursor |
 | **Alt+A** | Yes | Yes | In a git history: every branch's commits and their graph, or this branch's again |
+| **Alt+Y** | Yes | Yes | In a git history: the commits not pushed and not merged, as of the last fetch |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
 | **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md), [Go games](../previews/go.md), [Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md) and [Shogi games](../previews/shogi.md): a PGN (chess or xiangqi), SGF, PDN, KIF or CSA file's games, an EPD or FEN file's positions, a Polyglot book's moves |
 | **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |

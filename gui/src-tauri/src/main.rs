@@ -433,8 +433,10 @@ struct HistoryInfo {
     commit: Option<history::Commit>,
     /// A history's commits, the branches or the worktrees (what the list above a commit is).
     view: history::View,
-    /// HEAD's commits, or every branch's.
+    /// HEAD's commits, every branch's, or those against the upstream.
     scope: history::Scope,
+    /// Against the upstream: which, how far ahead and behind, and the last fetch.
+    upstream: Option<String>,
 }
 
 /// Async, as a compressed tar is read in full to list a folder in it.
@@ -458,7 +460,7 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
-        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view, scope: at.scope });
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), upstream: (at.scope == history::Scope::Upstream && at.commit.is_none()).then(|| history::upstream_line(&at.base)).flatten(), target: at.target, base: at.base, view: at.view, scope: at.scope });
         let snapshot = coxswain_core::zfs::at(&dir);
         let package = coxswain_core::bsd::split(&dir).and_then(|f| coxswain_core::bsd::package_of(&f));
         Ok::<_, String>((entries, inside, in_history, snapshot, package))
