@@ -4187,5 +4187,18 @@
  "ptools.would": "Installate {program}, o scaricatene l'immagine{size}.",
  "ptools.would_runtime": "Installate {program}, o installate podman o docker e scaricatene l'immagine{size}.",
  "ptools.would_install": "Installate {program}.",
- "ptools.pull": "Scaricane l'immagine{size}"
+ "ptools.pull": "Scaricane l'immagine{size}",
+ "pinned.changed": "Non è più lo stesso file: lasciato com’è.",
+ "pinned.link": "Un collegamento: lasciato com'è e non seguito.",
+ "pinned.too_deep": "Più di {n} cartelle di profondità: il contenuto è lasciato com’è.",
+ "pinned.no_open": "Impossibile aprirlo: lasciato com’è.",
+ "pinned.hard_link": "Un collegamento fisico: lasciato com’è, perché non cambino anche gli altri suoi nomi.",
+ "pinned.not_yours": "File di un altro utente: lasciato com’è, perché resti suo.",
+ "pinned.extra": "Ha permessi o attributi in più: lasciato com’è.",
+ "pinned.special": "Né un file né una cartella: lasciato com’è.",
+ "pinned.missed": "Cambiati dal piano, lasciati come sono: {n}",
+ "pinned.no_folders": "Su Windows non si entra ancora nelle cartelle: segna i file stessi.",
+ "pinned.setid": "Si esegue come il suo proprietario o gruppo (setuid, setgid): lasciato com’è.",
+ "pinned.other_disk": "Su un altro disco o mount: non si entra.",
+ "pinned.full": "Fermato a {n}: segna meno elementi."
 }

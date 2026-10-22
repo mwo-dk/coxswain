@@ -4097,5 +4097,18 @@
  "ptools.would": "Installera {program}, eller hämta dess avbild{size}.",
  "ptools.would_runtime": "Installera {program}, eller installera podman eller docker och hämta dess avbild{size}.",
  "ptools.would_install": "Installera {program}.",
- "ptools.pull": "Hämta dess avbild{size}"
+ "ptools.pull": "Hämta dess avbild{size}",
+ "pinned.changed": "Inte längre samma fil: lämnas som den är.",
+ "pinned.link": "En länk: lämnas som den är och följs inte.",
+ "pinned.too_deep": "Djupare än {n} mappar: innehållet lämnas som det är.",
+ "pinned.no_open": "Kunde inte öppnas: lämnas som den är.",
+ "pinned.hard_link": "En hård länk: lämnas som den är, så att dess andra namn inte ändras också.",
+ "pinned.not_yours": "En annan användares fil: lämnas som den är, så att den förblir deras.",
+ "pinned.extra": "Har extra behörigheter eller attribut: lämnas som den är.",
+ "pinned.special": "Varken en fil eller en mapp: lämnas som den är.",
+ "pinned.missed": "Ändrade sedan planen, lämnas som de är: {n}",
+ "pinned.no_folders": "Går inte in i mappar på Windows än: markera själva filerna.",
+ "pinned.setid": "Körs som sin ägare eller grupp (setuid, setgid): lämnas som den är.",
+ "pinned.other_disk": "På en annan disk eller montering: går inte in.",
+ "pinned.full": "Stoppade vid {n}: markera färre."
 }

@@ -4187,5 +4187,18 @@
  "ptools.would": "Installez {program}, ou téléchargez son image{size}.",
  "ptools.would_runtime": "Installez {program}, ou installez podman ou docker et téléchargez son image{size}.",
  "ptools.would_install": "Installez {program}.",
- "ptools.pull": "Télécharger son image{size}"
+ "ptools.pull": "Télécharger son image{size}",
+ "pinned.changed": "Ce n’est plus le même fichier : laissé tel quel.",
+ "pinned.link": "Un lien : laissé tel quel et non suivi.",
+ "pinned.too_deep": "Plus de {n} dossiers de profondeur : leur contenu est laissé tel quel.",
+ "pinned.no_open": "Impossible de l’ouvrir : laissé tel quel.",
+ "pinned.hard_link": "Un lien physique : laissé tel quel, pour que ses autres noms ne changent pas aussi.",
+ "pinned.not_yours": "Fichier d’un autre utilisateur : laissé tel quel, pour qu’il reste le sien.",
+ "pinned.extra": "A des droits ou attributs supplémentaires : laissé tel quel.",
+ "pinned.special": "Ni un fichier ni un dossier : laissé tel quel.",
+ "pinned.missed": "Modifiés depuis le plan, laissés tels quels : {n}",
+ "pinned.no_folders": "Pas encore parcouru sous Windows : marquez les fichiers eux-mêmes.",
+ "pinned.setid": "S’exécute en tant que son propriétaire ou groupe (setuid, setgid) : laissé tel quel.",
+ "pinned.other_disk": "Sur un autre disque ou montage : pas parcouru.",
+ "pinned.full": "Arrêté à {n} : marquez moins d’éléments."
 }

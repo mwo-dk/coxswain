@@ -4097,5 +4097,18 @@
  "ptools.would": "Installieren Sie {program} oder laden Sie sein Image{size}.",
  "ptools.would_runtime": "Installieren Sie {program} oder installieren Sie podman oder docker und laden Sie sein Image{size}.",
  "ptools.would_install": "Installieren Sie {program}.",
- "ptools.pull": "Sein Image laden{size}"
+ "ptools.pull": "Sein Image laden{size}",
+ "pinned.changed": "Nicht mehr dieselbe Datei: bleibt, wie sie ist.",
+ "pinned.link": "Ein Link: bleibt, wie er ist, und wird nicht verfolgt.",
+ "pinned.too_deep": "Mehr als {n} Ordner tief: Was darin liegt, bleibt, wie es ist.",
+ "pinned.no_open": "Ließ sich nicht öffnen: bleibt, wie es ist.",
+ "pinned.hard_link": "Ein harter Link: bleibt, wie er ist, damit sich seine anderen Namen nicht mitändern.",
+ "pinned.not_yours": "Datei eines anderen Benutzers: bleibt, wie sie ist, damit sie seine bleibt.",
+ "pinned.extra": "Hat zusätzliche Berechtigungen oder Attribute: bleibt, wie sie ist.",
+ "pinned.special": "Weder Datei noch Ordner: bleibt, wie es ist.",
+ "pinned.missed": "Seit dem Plan geändert, bleiben, wie sie sind: {n}",
+ "pinned.no_folders": "Unter Windows wird noch nicht hineingegangen: markieren Sie die Dateien selbst.",
+ "pinned.setid": "Läuft als Eigentümer oder Gruppe (setuid, setgid): bleibt, wie es ist.",
+ "pinned.other_disk": "Auf einem anderen Datenträger oder Mount: nicht hineingegangen.",
+ "pinned.full": "Bei {n} angehalten: markieren Sie weniger."
 }

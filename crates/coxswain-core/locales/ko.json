@@ -4007,5 +4007,18 @@
  "ptools.would": "{program}을(를) 설치하거나 이미지를 받으세요{size}.",
  "ptools.would_runtime": "{program}을(를) 설치하거나 podman 또는 docker를 설치하고 이미지를 받으세요{size}.",
  "ptools.would_install": "{program}을(를) 설치하세요.",
- "ptools.pull": "이미지 받기{size}"
+ "ptools.pull": "이미지 받기{size}",
+ "pinned.changed": "더 이상 같은 파일이 아닙니다. 그대로 둡니다.",
+ "pinned.link": "링크: 그대로 두고 따라가지 않습니다.",
+ "pinned.too_deep": "{n}단계보다 깊은 폴더입니다. 안의 내용은 그대로 둡니다.",
+ "pinned.no_open": "열 수 없었습니다. 그대로 둡니다.",
+ "pinned.hard_link": "하드 링크입니다. 다른 이름까지 바뀌지 않도록 그대로 둡니다.",
+ "pinned.not_yours": "다른 사용자의 파일입니다. 그 사용자의 것으로 남도록 그대로 둡니다.",
+ "pinned.extra": "추가 권한이나 속성이 있습니다. 그대로 둡니다.",
+ "pinned.special": "파일도 폴더도 아닙니다. 그대로 둡니다.",
+ "pinned.missed": "계획 뒤에 바뀌어 그대로 둔 항목: {n}",
+ "pinned.no_folders": "Windows에서는 아직 폴더 안으로 들어가지 않습니다. 파일 자체를 표시하세요.",
+ "pinned.setid": "소유자나 그룹 권한으로 실행됩니다(setuid, setgid). 그대로 둡니다.",
+ "pinned.other_disk": "다른 디스크나 마운트에 있습니다. 안으로 들어가지 않습니다.",
+ "pinned.full": "{n}에서 멈췄습니다. 더 적게 표시하세요."
 }

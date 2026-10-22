@@ -4097,5 +4097,18 @@
  "ptools.would": "Installer {program}, eller hent dets image{size}.",
  "ptools.would_runtime": "Installer {program}, eller installer podman eller docker og hent dets image{size}.",
  "ptools.would_install": "Installer {program}.",
- "ptools.pull": "Hent dets image{size}"
+ "ptools.pull": "Hent dets image{size}",
+ "pinned.changed": "Ikke længere den samme fil: efterladt som den er.",
+ "pinned.link": "Et link: ladt, som det er, og ikke fulgt.",
+ "pinned.too_deep": "Mere end {n} mapper dybt: indholdet efterlades som det er.",
+ "pinned.no_open": "Kunne ikke åbnes: efterladt som den er.",
+ "pinned.hard_link": "Et hårdt link: efterladt som det er, så dets andre navne ikke også ændres.",
+ "pinned.not_yours": "En anden brugers fil: efterladt som den er, så den forbliver deres.",
+ "pinned.extra": "Har ekstra tilladelser eller attributter: efterladt som den er.",
+ "pinned.special": "Hverken en fil eller en mappe: efterladt som den er.",
+ "pinned.missed": "Ændret siden planen, efterladt som de er: {n}",
+ "pinned.no_folders": "Endnu ikke åbnet på Windows: markér selve filerne.",
+ "pinned.setid": "Kører som sin ejer eller gruppe (setuid, setgid): efterladt som den er.",
+ "pinned.other_disk": "På en anden disk eller montering: ikke åbnet.",
+ "pinned.full": "Stoppet ved {n}: markér færre."
 }

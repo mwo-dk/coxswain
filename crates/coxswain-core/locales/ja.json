@@ -4007,5 +4007,18 @@
  "ptools.would": "{program} をインストールするか、そのイメージを取得してください{size}。",
  "ptools.would_runtime": "{program} をインストールするか、podman か docker をインストールしてそのイメージを取得してください{size}。",
  "ptools.would_install": "{program} をインストールしてください。",
- "ptools.pull": "イメージを取得{size}"
+ "ptools.pull": "イメージを取得{size}",
+ "pinned.changed": "もう同じファイルではありません。そのままにします。",
+ "pinned.link": "リンク: そのままにし、たどりません。",
+ "pinned.too_deep": "{n} 階層より深いフォルダーです。中身はそのままにします。",
+ "pinned.no_open": "開けませんでした。そのままにします。",
+ "pinned.hard_link": "ハードリンクです。ほかの名前まで変わらないよう、そのままにします。",
+ "pinned.not_yours": "ほかのユーザーのファイルです。その人のもののままにするため、そのままにします。",
+ "pinned.extra": "追加のアクセス権または属性があります。そのままにします。",
+ "pinned.special": "ファイルでもフォルダーでもありません。そのままにします。",
+ "pinned.missed": "計画の後に変わったため、そのままにしたもの: {n}",
+ "pinned.no_folders": "Windows ではまだフォルダーの中に入りません。ファイル自体を選んでください。",
+ "pinned.setid": "所有者またはグループとして実行されます (setuid、setgid)。そのままにします。",
+ "pinned.other_disk": "別のディスクまたはマウントにあります。中には入りません。",
+ "pinned.full": "{n} で止めました。選ぶ項目を減らしてください。"
 }

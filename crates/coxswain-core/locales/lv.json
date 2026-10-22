@@ -4187,5 +4187,18 @@
  "ptools.would": "Instalējiet {program} vai lejupielādējiet tā attēlu{size}.",
  "ptools.would_runtime": "Instalējiet {program} vai instalējiet podman vai docker un lejupielādējiet tā attēlu{size}.",
  "ptools.would_install": "Instalējiet {program}.",
- "ptools.pull": "Lejupielādēt tā attēlu{size}"
+ "ptools.pull": "Lejupielādēt tā attēlu{size}",
+ "pinned.changed": "Vairs nav tas pats fails: atstāts, kā ir.",
+ "pinned.link": "Saite: atstāta, kā ir, un tai neseko.",
+ "pinned.too_deep": "Dziļāk par {n} mapēm: saturs atstāts, kā ir.",
+ "pinned.no_open": "Neizdevās atvērt: atstāts, kā ir.",
+ "pinned.hard_link": "Cietā saite: atstāta, kā ir, lai nemainītos arī tās citi nosaukumi.",
+ "pinned.not_yours": "Cita lietotāja fails: atstāts, kā ir, lai paliktu viņa.",
+ "pinned.extra": "Tam ir papildu atļaujas vai atribūti: atstāts, kā ir.",
+ "pinned.special": "Nav ne fails, ne mape: atstāts, kā ir.",
+ "pinned.missed": "Mainīti kopš plāna, atstāti, kā ir: {n}",
+ "pinned.no_folders": "Windows mapēs vēl neieiet: atzīmējiet pašus failus.",
+ "pinned.setid": "Darbojas kā tā īpašnieks vai grupa (setuid, setgid): atstāts, kā ir.",
+ "pinned.other_disk": "Citā diskā vai montējumā: neieiet.",
+ "pinned.full": "Apstājās pie {n}: atzīmējiet mazāk."
 }

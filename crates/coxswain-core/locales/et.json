@@ -4097,5 +4097,18 @@
  "ptools.would": "Paigalda {program} või laadi alla selle tõmmis{size}.",
  "ptools.would_runtime": "Paigalda {program} või paigalda podman või docker ja laadi alla selle tõmmis{size}.",
  "ptools.would_install": "Paigalda {program}.",
- "ptools.pull": "Laadi alla selle tõmmis{size}"
+ "ptools.pull": "Laadi alla selle tõmmis{size}",
+ "pinned.changed": "Pole enam sama fail: jäetakse nii, nagu on.",
+ "pinned.link": "Link: jäetakse, nagu on, ja seda ei järgita.",
+ "pinned.too_deep": "Sügavamal kui {n} kausta: sisu jäetakse nii, nagu on.",
+ "pinned.no_open": "Ei saanud avada: jäetakse nii, nagu on.",
+ "pinned.hard_link": "Kõva link: jäetakse nii, nagu on, et selle teised nimed ei muutuks.",
+ "pinned.not_yours": "Teise kasutaja fail: jäetakse nii, nagu on, et see jääks tema omaks.",
+ "pinned.extra": "Sellel on lisaõigused või -atribuudid: jäetakse nii, nagu on.",
+ "pinned.special": "Pole fail ega kaust: jäetakse nii, nagu on.",
+ "pinned.missed": "Plaanist saati muudetud, jäetakse nii, nagu on: {n}",
+ "pinned.no_folders": "Windowsis kaustadesse veel ei minda: märgi failid ise.",
+ "pinned.setid": "Töötab omaniku või grupina (setuid, setgid): jäetakse nii, nagu on.",
+ "pinned.other_disk": "Teisel kettal või haakepunktis: ei minda sisse.",
+ "pinned.full": "Peatus {n} juures: märgi vähem."
 }
