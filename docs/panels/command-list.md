@@ -61,7 +61,7 @@ them, and in each group the most used action first:
 | Marking | Mark, Mark all, Mark group, Unmark group, Invert marks |
 | Files | What can I do with this? (the [action menu](action-menu.md)), Copy, Move, Rename, Delete, New folder, the clipboard, Delete permanently, Properties, Batch rename, Colour tag, ZFS snapshots, File flags, Files of this package, Make PDF searchable, Convert video or audio, Convert or edit pictures, Convert geodata, Export 3D model, Export from KiCad, Convert e-book, Make checksums, Verify checksums |
 | Archives | Extract archive, Pack into an archive |
-| Search | Find, Find in files, Ask your files, Find duplicates |
+| Search | Find, Find in files, Ask your files, Find duplicates, Transcribe speech |
 | Git | Git history, History of all branches, Git branches, Switch to branch, Git worktrees, New branch here, Open in your git tool, Git config |
 | Viewing and editing | View, Edit, Preview, Path to command line, Menu (the user menu), Folder notes, Open games |
 | App | Help, Features and questions, Commands (this list), Settings, Disk use, Quit |

@@ -76,6 +76,10 @@ pub struct Subject {
     /// The panel shows a drive's top folder, or the cursor is on a folder measured at 1 GB or
     /// more: where Space is worth a hint.
     pub big: bool,
+    /// Of the files, recordings and videos whose speech can be transcribed
+    /// (`transcribe::is_speech`); and whether transcribing is on, so a folder offers it too.
+    pub speech: usize,
+    pub whisper: bool,
 }
 
 impl Subject {
@@ -144,6 +148,8 @@ impl Action {
             Notes => disk,
             Chess => s.single() && s.chess == 1 && matches!(s.place, Place::Disk | Place::Archive),
             Worktrees | GitTool | GitConfig => s.git && disk,
+            // A recording, or with transcribing on a folder of them too.
+            Transcribe => disk && (s.speech > 0 || (s.whisper && s.folders > 0)),
             // Find, anywhere; duplicates among the folders, or in this one.
             Search | SearchText | Ask => true,
             Duplicates => disk && (s.folders > 0 || n == 0),
@@ -225,6 +231,7 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("scad", &[("menu", Action::ActionMenu)]),
     ("ebook", &[("menu", Action::ActionMenu)]),
     ("kicad", &[("menu", Action::ActionMenu)]),
+    ("speech", &[("key", Action::ActionMenu)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -264,6 +271,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "scad" => disk && s.models > 0,
         "ebook" => disk && s.ebooks > 0,
         "kicad" => disk && s.kicad > 0,
+        "speech" => disk && s.single() && s.speech == 1,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
         "image" => disk && s.single() && s.images == 1,

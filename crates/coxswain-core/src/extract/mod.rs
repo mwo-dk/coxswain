@@ -240,7 +240,7 @@ fn start(text: &str, most: usize) -> &str {
 }
 
 /// Adds to `out` as much of `text` as keeps it within `most` bytes.
-fn push_within(out: &mut String, text: &str, most: usize) {
+pub(crate) fn push_within(out: &mut String, text: &str, most: usize) {
     out.push_str(start(text, most.saturating_sub(out.len())));
 }
 

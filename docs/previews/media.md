@@ -45,9 +45,9 @@ and RAW photos, and thumbnails of videos.
 |---|---|
 | Pictures: `png jpg jpeg gif webp bmp ico svg avif` | The picture on a checkerboard (so transparency shows), plus its EXIF facts |
 | Old pictures: TIFF, TGA, Netpbm, DDS, HDR, OpenEXR, QOI, farbfeld, JPEG XL, Amiga IFF, PCX, XPM, XBM, Photoshop | The same, drawn by Coxswain; see [Old pictures and files](old-formats.md) |
-| Video: `mp4 webm mkv mov m4v ogv` | A player, with a frame of the video on it before it plays, and its length, size in pixels and tracks (with ffmpeg) |
+| Video: `mp4 webm mkv mov m4v ogv` | A player, with a frame of the video on it before it plays, and its length, size in pixels and tracks (with ffmpeg); under it the [transcript](../search/transcripts.md) of its speech, once transcribed |
 | Other video: `avi wmv flv mpg mpeg m2v ts m2ts mts 3gp 3g2 vob asf rm rmvb divx ogm f4v mxf dv nut` | A frame of the video and its facts, by ffmpeg ([below](#video-and-sound-with-ffmpeg)) |
-| Audio: `mp3 flac wav ogg m4a opus aac` | A player, plus its tags; its waveform above the player (with ffmpeg) |
+| Audio: `mp3 flac wav ogg m4a opus aac` | A player, plus its tags; its waveform above the player (with ffmpeg); under it the [transcript](../search/transcripts.md) of its speech, once transcribed |
 | Other audio: `wma ape ac3 dts amr aiff aif au mka wv tta caf w64 mp2 oga spx ra` | Its waveform and facts, by ffmpeg |
 | Photos: HEIC `heic heif`, GIMP `xcf`, `dpx cin fits sgi sun xwd pict miff wbmp`, RAW `dng cr2 cr3 nef arw orf rw2 raf pef srw` and other cameras' | The picture, by ImageMagick or ffmpeg ([below](#photos-only-imagemagick-or-ffmpeg-reads)) |
 | Fonts: `.ttf`, `.otf`, `.woff`, `.woff2` | *The quick brown fox jumps over the lazy dog* and *Sphinx of black quartz, judge my vow* in large sizes, the alphabet, digits and signs, and *Æble, øl og å — Grüße — ﬁ ﬂ — “quotes” — €£¥* |
@@ -138,6 +138,8 @@ Under the preview, some files get a short list:
 
 - **Photos:** *Camera*, *Lens*, *Taken*, *Exposure*, *Aperture*, *ISO*, *Focal length*, and
   *Location* as decimal degrees (paste them into any map).
+- **Recordings and videos:** *Transcript*, with each line's time, when
+  [transcribed](../search/transcripts.md); else **Transcribe speech**.
 - **Audio:** *Title*, *Artist*, *Album*, *Year*, *Track*, *Genre*, *Length*, *Bitrate*, and
   the sample rate and channels (*44.1 kHz, stereo*).
 - **Old pictures, comics, mailboxes, dBase tables and tracker music:** their format, size in

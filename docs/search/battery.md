@@ -2,8 +2,8 @@
 
 # Battery
 
-While a laptop runs on its battery, the [search helper](helper.md) does not read files, hash them
-or make vectors: it waits until the mains is back, so search does not drain the battery. Searching
+While a laptop runs on its battery, the [search helper](helper.md) does not read files, hash them,
+make vectors or [transcribe speech](transcripts.md): it waits until the mains is back, so search does not drain the battery. Searching
 itself goes on as usual.
 
 ![Settings at Finding files: Names, Files on this machine; Words, Files read: 360 · waiting: 130 · 668 KB on disk, under it Paused while the machine runs on its battery., and the button Read now; Meaning and Ask off with their Set up… buttons](../screenshots/search-battery-paused.png)
@@ -14,7 +14,7 @@ Nothing to do. To read anyway, on battery:
 
 1. Open *Settings → Finding files* (**Ctrl+,** in the desktop app, **F12** in the terminal app).
 2. Press **Read now** on the *Words* line (or under *Details → Background reading*). The helper reads the backlog at full speed, without rests, until it is
-   done, and makes the vectors too.
+   done, and makes the vectors too. Transcribing still waits for the mains.
 
 The terminal app's Settings have the same **Read now** ([below](#in-the-terminal-app)).
 
@@ -22,7 +22,7 @@ The terminal app's Settings have the same **Read now** ([below](#in-the-terminal
 
 | Where | What |
 |---|---|
-| *Settings → Finding files* | Under the *Words* line of the status: *Paused while the machine runs on its battery.*, with **Read now** beside it |
+| *Settings → Finding files* | Under the *Words* line of the status: *Paused while the machine runs on its battery.*, with **Read now** beside it; the same under the *Speech* line while [transcripts](transcripts.md) wait |
 | Find | The count line's ` · 412 still to read` stops counting down |
 
 The name index, the file watcher and every search work as usual.
@@ -63,7 +63,7 @@ It reports a battery (a UPS can look like one). Press **Read now**, or check wha
 #### Does search stop working on battery?
 
 No. Names, text and meaning are all searched as usual. Only reading new and changed files, hashing
-them and making vectors wait.
+them, making vectors and transcribing speech wait.
 
 #### I pressed Read now on battery. Does it stay on?
 

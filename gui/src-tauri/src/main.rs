@@ -217,6 +217,8 @@ struct UiConfig {
     ask_name: String,
     /// The trash gives back what went into it, so Ctrl+Z undoes a move to the trash.
     trash_restores: bool,
+    /// The endings of recordings whose speech can be transcribed (`transcribe::FORMATS`).
+    speech_endings: &'static [&'static str],
 }
 
 fn css(c: &str) -> Option<String> {
@@ -288,6 +290,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
+        speech_endings: coxswain_core::transcribe::FORMATS,
         installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "ffmpeg", "magick", "gdalinfo", "openscad", "kicad-cli", "calibre", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
@@ -1303,10 +1306,58 @@ async fn index_action(what: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     tauri::async_runtime::spawn_blocking(move || match what.as_str() {
         "now" => index.index_now(),
         "forget" => index.forget(),
+        "pause" => index.transcribe_pause(true, false),
+        "resume" => index.transcribe_pause(false, false),
+        "stop_transcribing" => index.transcribe_pause(false, true),
         _ => index.restart(),
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// *Transcribe speech*'s question: the recordings among `paths` (folders gone through), and
+/// what to ask; or, with transcribing off, why.
+#[derive(Serialize)]
+struct TranscribePlan {
+    files: Vec<PathBuf>,
+    text: String,
+    off: bool,
+}
+
+#[tauri::command]
+async fn transcribe_plan(paths: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<TranscribePlan> {
+    let (cfg, index) = (ctx.cfg().clone(), ctx.index.clone());
+    if !cfg.search.whisper || !cfg.search.text {
+        return Ok(TranscribePlan { files: vec![], text: coxswain_core::t!("whisper.off"), off: true });
+    }
+    blocking(move || {
+        let survey = coxswain_core::transcribe::survey(&paths);
+        let rate = index.status().transcripts.and_then(|t| t.rate);
+        let text = if survey.files.is_empty() { coxswain_core::t!("whisper.none") } else { coxswain_core::transcribe::plan_text(&cfg, &survey, rate) };
+        Ok(TranscribePlan { files: survey.files, text, off: false })
+    })
+    .await
+}
+
+/// Hand `files` to the helper to transcribe: how many it took.
+#[tauri::command]
+async fn transcribe(files: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<usize> {
+    let index = ctx.index.clone();
+    blocking(move || index.transcribe(&files).ok_or_else(|| coxswain_core::t!("whisper.no_helper"))).await
+}
+
+/// The transcript of a recording, done or under way, for the preview.
+#[tauri::command]
+async fn transcript(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<coxswain_core::transcribe::Transcript>> {
+    let index = ctx.index.clone();
+    blocking(move || Ok(index.transcript(&path))).await
+}
+
+/// The Whisper models to choose from, each with its size and whether it suits this machine.
+#[tauri::command]
+async fn whisper_models(ctx: tauri::State<'_, Ctx>) -> Res<Vec<(String, String)>> {
+    let cfg = ctx.cfg().clone();
+    blocking(move || Ok(coxswain_core::transcribe::choices(&cfg))).await
 }
 
 /// What Find shows: its rows, where the cursor starts, what can be searched (the footer), and
@@ -2417,7 +2468,7 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, dupes_scan,
+            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::gpx_map, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, transcribe_plan, transcribe, transcript, whisper_models, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop
         ])
         .build(tauri::generate_context!())

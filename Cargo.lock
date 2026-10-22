@@ -986,6 +986,7 @@ dependencies = [
  "jxl-oxide",
  "kqueue",
  "libc",
+ "lofty",
  "lzma-rust2",
  "mail-parser",
  "md-5 0.11.0",

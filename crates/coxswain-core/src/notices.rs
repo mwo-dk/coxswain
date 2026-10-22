@@ -341,6 +341,13 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     {
         all.push(Notice::new("tika-runtime", t!("notice.tika_no_runtime"), Some("search_tika")));
     }
+    // Transcribing is on, but cannot run here (no whisper.cpp, no podman or docker, no model).
+    if cfg.search.whisper
+        && cfg.search.text
+        && let Some(crate::transcribe::State::Off(why)) = status.transcripts.as_ref().map(|t| &t.state)
+    {
+        all.push(Notice::new("whisper-off", t!("notice.whisper_off", "why" => why), Some("search_whisper")));
+    }
     // Disk images open like folders, but no 7-Zip reads them: what to install. Once.
     if cfg.archive.disk_images && crate::disk_image::seven_zip().is_none() {
         let copy = crate::tools::install("7z");
@@ -505,6 +512,7 @@ mod tests {
             error: None,
             clouds: vec![],
             tika: None,
+            transcripts: None,
             outdated: None,
         };
         let mut state = AppState::default();

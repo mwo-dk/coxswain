@@ -466,6 +466,38 @@ async function runSearchable(pdfs) {
   }
 }
 
+/** Whether a recording's speech can be transcribed, by its name (`transcribe::is_speech`). */
+export function isSpeech(name) {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 && (ui.cfg.speech_endings ?? []).includes(name.slice(dot + 1).toLowerCase());
+}
+
+/** *Transcribe speech* (`coxswain_core::transcribe`) on `paths`: with transcribing off, how to
+ *  turn it on; else how much sound and how long it takes here, asked first, then handed to the
+ *  search helper, which transcribes in the background. */
+export async function transcribe(paths) {
+  const title = t("action.transcribe");
+  let plan;
+  try {
+    plan = await invoke("transcribe_plan", { paths });
+  } catch (e) {
+    return void (ui.modal = failure(title, e));
+  }
+  if (plan.off) return void (ui.modal = { kind: "message", title, text: plan.text, settings: "search_whisper", feature: "transcripts" });
+  if (!plan.files.length) return void (ui.status = plan.text);
+  ui.modal = {
+    kind: "confirm", title, text: plan.text, ok: t("whisper.go"), safe: true, feature: "transcripts",
+    run: async () => {
+      try {
+        const n = await invoke("transcribe", { files: plan.files });
+        ui.status = t("whisper.taken", { n, key: ui.cfg.actions.settings?.[1] ?? "" });
+      } catch (e) {
+        ui.modal = failure(title, e);
+      }
+    },
+  };
+}
+
 /** Stop the *Make PDF searchable* run under way. */
 export function stopSearchable() {
   if (!ui.searchable) return;
@@ -973,6 +1005,8 @@ export function subject(tb = tab()) {
     packages: !!tb.packages,
     // A drive's top, or a folder measured at 1 GB or more: where Space is worth a hint.
     big: place === "disk" && (cur?.is_dir && list.length === 1 ? (tb.sizes[cur.path] ?? 0) >= 2 ** 30 || ui.disks.some((d) => d.mount === cur.path) : ui.disks.some((d) => d.mount === tb.dir)),
+    speech: files.filter((x) => isSpeech(x.name)).length,
+    whisper: !!ui.cfg.settings.search_whisper,
   };
 }
 

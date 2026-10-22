@@ -121,6 +121,7 @@ pub const FEATURES: &[Feature] = &[
     f("search_documents", "search/documents.md", &[SearchText]),
     f("scans", "search/scans.md", &[]),
     f("tika", "search/tika.md", &[]),
+    f("transcripts", "search/transcripts.md", &[Transcribe]),
     f(
         "search_diagrams",
         "search/diagrams.md",

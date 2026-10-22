@@ -28,7 +28,7 @@ To keep everything on this machine:
    this machine (`localhost`). Downloading the built-in model is the one request it makes, once.
 3. Leave `[preview] container = "off"` if you do not want podman or docker to pull images, and
    *Settings → Previews → Keep images up to date* on **Off** (the default), and *Read other formats
-   with Apache Tika* off (the default).
+   with Apache Tika* and *Transcribe speech with Whisper* off (the default).
 
 With those, nothing leaves the machine. Previews load nothing from the web, not even a picture a
 Markdown file links: the app's own content security policy allows only the app and your disk.
@@ -105,7 +105,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
   app's status line: [Update checks](updates.md#what-you-see).
 - Nothing shows for requests that do not happen: there is no "sending data" indicator because
   nothing is sent in the background apart from the update check, the image updates when you
-  turned them on, and Apache Tika's image, once, after you turn it on.
+  turned them on, and Apache Tika's image and the Whisper model, once each, after you turn them on.
 
 ## Settings and config.toml
 
@@ -116,6 +116,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 | *Finding files* → *Details* → *Meaning* → *Server* | `[search] meaning_url` | `""` | Not `localhost` |
 | *Finding files* → *Details* → *Meaning* → *API key from the environment variable* | `[search] meaning_key_env` | `""` | The key is sent to the saved server only (unencrypted over `http://`), and never stored in `config.toml` |
 | *Previews* → *Container runtime* | `[preview] container` | `"auto"` | Pulling an image, when you ask |
+| *Finding files* → *Transcribe speech with Whisper* | `[search] whisper` | `false` | Once, when turned on: the Whisper model from `huggingface.co`, and whisper.cpp's image from `ghcr.io` when it is not installed ([Transcripts of speech](../search/transcripts.md)) |
 | *Finding files* → *Read other formats with Apache Tika (container)* | `[search] tika` | `false` | Once, when turned on: Tika's image from `docker.io` ([Other formats with Apache Tika](../search/tika.md)) |
 | *Previews* → *Keep images up to date* | `[preview] image_updates` | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled, from their registry |
 

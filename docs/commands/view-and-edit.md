@@ -132,7 +132,7 @@ needs it: `hx '/home/demo/My notes.txt'`. So arguments work (`editor = "code --w
 The desktop app has no terminal to lend, which is why its **F3** is the preview pane and its
 **F4** wants a windowed editor. Both apps read the same `editor` key.
 
-Two exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
+The exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
 [BOM viewer](../previews/bom.md), and **F3** on build provenance its
 [provenance viewer](../previews/provenance.md). **F3** (or `s`) in either shows the source in
 the built-in viewer (or in `viewer`'s program), and **Esc** there goes back to the BOM or the
@@ -145,6 +145,8 @@ model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: 
 and outputs with shapes, operators ([Neural network models](../previews/neural-networks.md)).
 **F3** on a MOBI, Kindle, FictionBook, LIT or Palm book shows its title, authors and text, made by
 calibre, when *E-books with calibre* is on ([E-books](../previews/ebooks.md#in-the-terminal-app)).
+**F3** on a recording or video that has a [transcript](../search/transcripts.md) shows the
+transcript in the viewer.
 
 ## Questions
 

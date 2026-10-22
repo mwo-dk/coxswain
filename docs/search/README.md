@@ -51,6 +51,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Documents it reads](documents.md) | PDF, Word, spreadsheets, slides, mail, books, notebooks: the formats |
 | [Scans, pictures and older Office files](scans.md) | tesseract, pdftoppm and LibreOffice, when they are installed |
 | [Other formats with Apache Tika](tika.md) | OneNote, XPS, CHM, Outlook data files and more, read by Apache Tika in a container without network, when you turn it on |
+| [Transcripts of speech](transcripts.md) | Recordings and videos you choose, transcribed with Whisper in the background, found by Find and shown in the preview |
 | [Diagrams read as sentences](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML: a sentence per arrow |
 | [Git history in search](history.md) | Commit messages, authors and changed paths, found like text; Enter opens the commit |
 | [Inside archives](archives.md) | Files in zip, 7z and tar archives, found by name, text and meaning; changes followed |

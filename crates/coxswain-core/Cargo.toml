@@ -38,6 +38,8 @@ quick-xml = "0.42.0"
 mail-parser = "0.11.9"
 encoding_rs = "0.8.42"
 pdf-extract = "0.12.1"
+# The length of a song or a recording, for the hours Transcribe asks about (pure Rust).
+lofty = "0.25.4"
 candle-core = "0.11.0"
 candle-nn = "0.11.0"
 candle-transformers = "0.11.0"

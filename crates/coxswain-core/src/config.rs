@@ -287,6 +287,9 @@ actions! {
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
     Ask = "ask", "Ask your files", Search, ["Ctrl+F7"];
     Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
+    // Whisper: the speech of a recording, or of every one in a folder, into the search store
+    // (`transcribe`). No key of its own: the action menu, F9 and the preview offer it.
+    Transcribe = "transcribe", "Transcribe speech", Search, [];
     // Git, the most used first.
     History = "history", "Git history", Git, ["Ctrl+G"];
     // In a history: every branch's commits in the graph, or this branch's again. A for all.
@@ -1522,6 +1525,9 @@ impl Default for PreviewConfig {
             ("ghostscript", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
             // Apache Tika's own server image, for `[search] tika`, pinned to a release by its digest.
             ("tika", "docker.io/apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4"),
+            // whisper.cpp's own image, with ffmpeg, for Transcribe when no whisper-cli is installed; one
+            // daily build, pinned by its digest.
+            ("whisper", "ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5ce497d31f8eef2f8d6a123f834d4217150d2dd2a391f37a6881f725036af"),
             // No official image; set one you trust (see docs/previews/containers.md).
             ("duckdb", ""),
             // GhostXPS: in none of the images above, and no project publishes one.
@@ -1630,6 +1636,12 @@ pub struct SearchConfig {
     /// Read the formats no reader here knows (OneNote, XPS, CHM, Outlook data files …) with
     /// Apache Tika, in a container without network (`[preview.images] tika`).
     pub tika: bool,
+    /// Transcribe speech with Whisper when asked to (a file or a folder at a time): the model
+    /// is downloaded once this is on, and the image pulled when no whisper.cpp is installed.
+    pub whisper: bool,
+    /// The Whisper model: `tiny`, `base`, `small` or `large-v3-turbo`; empty: the one this
+    /// machine runs well.
+    pub whisper_model: String,
 }
 
 /// The trees the kernel makes up, never indexed: Linux's `/proc`, `/sys`, `/dev` and `/run`;
@@ -1672,6 +1684,8 @@ impl Default for SearchConfig {
             cloud: "local-only".into(),
             cloud_read: vec![],
             tika: false,
+            whisper: false,
+            whisper_model: String::new(),
         }
     }
 }

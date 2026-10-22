@@ -4,11 +4,16 @@
 
 Coxswain downloads a model only when you choose one: the embedding model for
 [search by meaning](meaning.md) (multilingual-e5-small, 465 MB) and the chat models for
-[Ask without a server](ask-builtin.md) (Qwen3 1.7B, 4B Instruct, 14B). They live in the cache
+[Ask without a server](ask-builtin.md) (Qwen3 1.7B, 4B Instruct, 14B), and Whisper's models for [transcripts of speech](transcripts.md). They live in the cache
 folder, and the [search helper](helper.md) loads the one in use when it is needed. *Built-in
 models* lists every one on the disk, with what is left over: an unfinished download, or a model
 of an older version that a new release replaced. You see where each is, whether it is loaded and
 where it runs, and you can unload it, delete it, or delete everything not in use.
+
+Whisper's models for [transcripts of speech](transcripts.md) share one entry, *Whisper*, *for
+transcripts of speech*, in use while *Transcribe speech with Whisper* is on; deleting it turns
+that off (*Whisper's models are deleted, and Transcribe speech is off. Turned on again, it
+downloads the model again.*).
 
 Models a server runs (Ollama, Lemonade, LM Studio) are not listed: the server keeps and loads
 them itself (`ollama list`, `ollama rm`).
@@ -32,9 +37,9 @@ One entry per folder in the cache folder's `models` folder, those in use first:
 | Part | Example | Says |
 |---|---|---|
 | Name | *Qwen3 14B*, *multilingual-e5-small* | The model; a leftover by the model it was |
-| What it is for | *for Ask*, *for search by meaning*, *an unfinished download*, *an older version*, *not one of Coxswain's models* | Leftovers are never in use |
+| What it is for | *for Ask*, *for search by meaning*, *for transcripts of speech*, *an unfinished download*, *an older version*, *not one of Coxswain's models* | Leftovers are never in use |
 | Size | *8.4 GB* | On the disk, all its files |
-| In use | *in use* / *not in use* | `ask_model` names it, or search by meaning is on with the built-in model |
+| In use | *in use* / *not in use* | `ask_model` names it, or search by meaning is on with the built-in model, or (*Whisper*) `[search] whisper` is on |
 | Loaded | *loaded on the CPU, about 8.4 GB of memory*, *loaded on the GPU (Metal)*, *not loaded* | Whether the search helper (or the app, without a helper) holds it now, and where |
 | Last used | *last used 2026-10-08*, *not used yet* | When it was last loaded or asked |
 | Folder | `~/.cache/coxswain/models/qwen3-14b-a04a82c4` | With **Show in panel** (desktop) or **Enter** (terminal) |
@@ -68,6 +73,7 @@ which:
 | Deleted | Then | You see |
 |---|---|---|
 | Ask's built-in chat model | Ask takes a server's chat model on the graphics card when one answers (Ollama here with the built-in vectors, else the server that makes them), else another built-in chat model that is downloaded, else Ask is off | *Qwen3 14B was Ask's model: Ask now uses qwen3:8b.* or *… Ask is off until you choose another.* |
+| *Whisper*, while transcribing is on | *Transcribe speech with Whisper* (`[search] whisper`) is turned off; the transcripts made stay | *Whisper's models are deleted, and Transcribe speech is off. Turned on again, it downloads the model again.* |
 | The embedding model, while search by meaning uses it | A server's embedding model on the graphics card, when one answers; every file's meaning is read again. Else search by meaning is off (and Ask with it) | *multilingual-e5-small read the meaning of your files: bge-m3:latest reads it now, every file again.* or *… search by meaning is off until you choose a model.* |
 
 ## On the command line

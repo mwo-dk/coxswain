@@ -25,7 +25,7 @@ pub const AREAS: [Area; 7] = Area::ALL;
 /// Finding files' details, by group: its heading, the name `--settings=<name>` opens it at, and
 /// its options. A test checks that every option of the area is in one.
 const GROUPS: &[(&str, &str, &[&str])] = &[
-    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "search_tika", "text_max_size", "max_results"]),
+    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "search_tika", "search_whisper", "whisper_model", "text_max_size", "max_results"]),
     ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
     ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device"]),
     ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
@@ -438,6 +438,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             ("figurines", "settings.chess_pieces_figurines"),
         ]),
         "chess_board" => pairs(&[("theme", "settings.chess_board_theme"), ("green", "settings.chess_board_green"), ("brown", "settings.chess_board_brown")]),
+        "whisper_model" => coxswain_core::transcribe::choices(cfg),
         "meaning_engine" => vec![
             ("builtin".into(), t!("settings.meaning_builtin", "size" => cs::human(coxswain_core::meaning::size()))),
             ("ollama".into(), "Ollama".into()),
@@ -831,6 +832,9 @@ impl App {
                 Some(Step::TurnOn) => return self.settings_level(s, Level::Text),
                 Some(Step::Start) => self.index.restart(),
                 Some(Step::ReadNow) => self.index.index_now(),
+                Some(Step::Pause) => self.index.transcribe_pause(true, false),
+                Some(Step::Resume) => self.index.transcribe_pause(false, false),
+                Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
                 Some(Step::SetUp) => self.setup_guide(),
                 Some(Step::TryIt) if s.trial_rx.is_none() => {
                     let (tx, rx) = mpsc::channel();

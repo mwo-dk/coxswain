@@ -142,7 +142,8 @@
     if (line.step === "set_up") return openSetup();
     if (line.step === "try_it") return tryAsk();
     if (line.step === "bench") return runBench();
-    await invoke("index_action", { what: line.step === "read_now" ? "now" : "restart" }).catch((e) => (error = String(e)));
+    const what = { read_now: "now", pause: "pause", resume: "resume", stop_transcribing: "stop_transcribing" }[line.step] ?? "restart";
+    await invoke("index_action", { what }).catch((e) => (error = String(e)));
     loadIndex();
   }
 
@@ -304,6 +305,11 @@
   // Container images, with Pull (also updates) and Remove: asked only while Previews is shown,
   // as it asks the container runtime.
   let images = $state(null);
+  // The Whisper models to choose from, marked by what suits this machine: asked once.
+  let whisperModels = $state(null);
+  $effect(() => {
+    if (area === "search" && s.search_whisper && !whisperModels) untrack(() => invoke("whisper_models").then((v) => (whisperModels = v), () => {}));
+  });
   const loadImages = () => invoke("images").then((v) => (images = v), (e) => (images = String(e)));
   async function imageAction(cmd, im) {
     error = "";
@@ -628,6 +634,8 @@
               {@render list("cloud_read", t("settings.search_names_only_none"))}
             {/if}
             {@render check("search_tika")}
+            {@render check("search_whisper")}
+            {#if s.search_whisper && whisperModels}{@render choice("whisper_model", whisperModels)}{/if}
             {#if index?.tools?.length}
               <div class="opt">
                 <span class="lab">{t("settings.search_tools")}</span>

@@ -162,4 +162,4 @@ No. The [preview](../previews/diagrams.md) draws the diagram; this reads it for 
 apart.
 
 ---
-[← Previous: Other formats with Apache Tika](tika.md) · [Next: Git history in search →](history.md)
+[← Previous: Transcripts of speech](transcripts.md) · [Next: Git history in search →](history.md)

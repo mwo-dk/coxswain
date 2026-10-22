@@ -130,6 +130,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Shift+F7**, **Ctrl+Shift+F** | Find in files | `search_text` | Find at *In files*; inside it, *In files* ⇄ *All* ([Text in files](../search/text.md)) | The same; many terminals send Ctrl+Shift+F as Ctrl+F, so use Shift+F7 |
 | **Ctrl+F7** | Ask your files | `ask` | Find at *Ask*; inside it, ask what is typed ([Ask](../search/ask.md)) | The same |
 | **Ctrl+D** | Find duplicates | `duplicates` | The duplicate finder ([Finding duplicates](../files/duplicates.md)) | – |
+| – | Transcribe speech | `transcribe` | The marked recordings, or those in the folder, transcribed with Whisper after a question with the hours and the time here ([Transcripts of speech](../search/transcripts.md)) | The same; **F3** on a recording shows its transcript |
 
 ### Git
 

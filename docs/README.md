@@ -119,6 +119,7 @@ mindmap
 | [Documents it reads](search/documents.md) | PDF, Word, RTF, spreadsheets, slides, mail, books, notebooks, diagrams, Markdown |
 | [Scans, pictures and older Office files](search/scans.md) | Tesseract, pdftoppm, LibreOffice and how to install them |
 | [Other formats with Apache Tika](search/tika.md) | OneNote, XPS, CHM, Outlook .pst, MHTML, Hangul and Access files read by Apache Tika in a container (opt-in, no network); what it costs, what is read again |
+| [Transcripts of speech](search/transcripts.md) | Whisper on request: a file or a folder (hours and time asked first), background, pausable, never on battery; the model by hardware from Hugging Face, whisper.cpp installed or its container |
 | [Diagrams read as sentences](search/diagrams.md) | Draw.io, Mermaid, Graphviz, PlantUML, with examples and limits |
 | [Git history in search](search/history.md) | Commit messages, authors and changed paths of your repositories, found by text and meaning, opened at the commit |
 | [Inside archives](search/archives.md) | Files in zip, 7z and tar found by name, text, meaning and Ask; which archives, changes, locked ones, limits |

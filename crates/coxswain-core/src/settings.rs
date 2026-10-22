@@ -152,6 +152,8 @@ pub const OPTIONS: &[Opt] = &[
     opt("search_cloud", &["search", "cloud"], Search, &[Network]),
     opt("cloud_read", &["search", "cloud_read"], Search, &[Network]),
     opt("search_tika", &["search", "tika"], Search, &[Disk, Cpu, Network]),
+    opt("search_whisper", &["search", "whisper"], Search, &[Disk, Cpu, Network]),
+    opt("whisper_model", &["search", "whisper_model"], Search, &[Disk]),
     opt("text_max_size", &["search", "text_max_size"], Search, &[]),
     opt("max_results", &["search", "max_results"], Search, &[]),
     opt("text_roots", &["search", "text_roots"], Search, &[]),
@@ -455,6 +457,8 @@ pub enum Part {
     Ask,
     /// Apache Tika, for other formats: only while it is turned on.
     Tika,
+    /// Transcripts with Whisper: only while it is turned on.
+    Whisper,
 }
 
 /// The one step a status line offers.
@@ -473,6 +477,10 @@ pub enum Step {
     TryIt,
     /// Time the model on a few passages.
     Bench,
+    /// Transcribing: pause, go on, or let every file waiting go.
+    Pause,
+    Resume,
+    StopTranscribing,
 }
 
 impl Step {
@@ -484,6 +492,9 @@ impl Step {
             Step::SetUp => "settings.step.set_up",
             Step::TryIt => "settings.step.try_it",
             Step::Bench => "settings.step.bench",
+            Step::Pause => "settings.step.pause",
+            Step::Resume => "settings.step.resume",
+            Step::StopTranscribing => "settings.step.stop_transcribing",
         })
     }
 }
@@ -753,6 +764,48 @@ pub fn status(
         }
         lines.push(tika);
     }
+    if s.whisper && s.text {
+        use crate::transcribe::State;
+        let mut w = line(Part::Whisper, "settings.status.whisper", t!("settings.status.not_running"));
+        if let Some(ts) = st.transcripts.as_ref().filter(|_| helper) {
+            w.text = t!("settings.status.whisper_counts", "done" => count(ts.done), "waiting" => count(ts.waiting));
+            match &ts.state {
+                State::Idle => {}
+                State::Working => {
+                    if let Some((path, pct)) = &ts.current {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy();
+                        w.note = Some(t!("settings.status.whisper_working", "name" => name, "percent" => pct));
+                    }
+                    if let Some(left) = ts.left.filter(|l| *l > 0) {
+                        let left = t!("settings.status.whisper_left", "time" => crate::transcribe::span(left));
+                        w.note = Some(w.note.take().map_or(left.clone(), |n| format!("{n} {left}")));
+                    }
+                    w.step = Some(Step::Pause);
+                }
+                State::Paused => {
+                    w.note = Some(t!("settings.status.whisper_paused"));
+                    w.step = Some(Step::Resume);
+                }
+                State::Battery => w.note = Some(t!("settings.status.paused")),
+                State::Downloading(done, total) => {
+                    w.note = Some(t!("settings.status.whisper_downloading", "done" => human(*done), "total" => human(*total)));
+                    w.bar = Some((*done as usize, *total as usize));
+                }
+                State::Pulling(progress) => {
+                    let image = crate::images::short(&crate::config::PreviewConfig::default().images["whisper"]).to_string();
+                    w.note = Some(format!("{} {progress}", t!("settings.status.tika_pulling", "image" => image)).trim().to_string());
+                }
+                State::Off(why) => {
+                    w.note = Some(t!("settings.status.failed", "why" => why));
+                    w.bad = true;
+                }
+            }
+            if ts.waiting > 0 && w.step.is_none() {
+                w.step = Some(Step::StopTranscribing);
+            }
+        }
+        lines.push(w);
+    }
     lines
 }
 
@@ -803,6 +856,12 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
             &t!("settings.out.cloud_where"),
             false,
         ));
+    }
+    if s.whisper && s.text {
+        v.push(out("settings.out.whisper", "huggingface.co", false));
+        if let Ok(crate::transcribe::Engine::Container { image, .. }) = crate::transcribe::engine(cfg) {
+            v.push(out("settings.out.whisper_image", registry(&image), false));
+        }
     }
     if s.tika && s.text && cfg.preview.container != "off" {
         let image = cfg.preview.images.get("tika").map_or("", String::as_str);
@@ -1065,6 +1124,7 @@ mod tests {
             error: Some("stalled".into()),
             clouds: vec![("OneDrive".into(), "/c".into())],
             tika: None,
+            transcripts: None,
             outdated: None,
         };
         let mut state = crate::state::AppState::default();
@@ -1140,6 +1200,7 @@ mod tests {
             tools: vec![],
             clouds: vec![],
             tika: None,
+            transcripts: None,
             outdated: None,
         };
         s.text = true;

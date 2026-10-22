@@ -72,6 +72,7 @@ pub mod store;
 pub mod tables;
 pub mod termux;
 pub mod tools;
+pub mod transcribe;
 pub mod undo;
 pub mod update;
 pub mod user_menu;

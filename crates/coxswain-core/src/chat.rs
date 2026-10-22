@@ -209,12 +209,20 @@ const WRITE_COST: f64 = 2.2;
 /// probe (0.2 s) runs the first time it is asked for; `wait` false does not wait for it, but
 /// starts it and is None until it is done.
 pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
-    static SPEED: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
-    static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     if metal(cpu_only) {
         return None;
     }
-    let ns = match SPEED.get() {
+    cpu_ns(wait).map(|ns| Estimate::of(m, ns))
+}
+
+/// Nanoseconds a weight on this processor, from `probe`: the one measure of its speed that
+/// every model's estimate goes by (the built-in chat models', Whisper's). The probe (0.2 s)
+/// runs the first time it is asked for; `wait` false does not wait for it, but starts it and
+/// is None until it is done.
+pub fn cpu_ns(wait: bool) -> Option<f64> {
+    static SPEED: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
+    static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    match SPEED.get() {
         Some(ns) => *ns,
         None if wait => *SPEED.get_or_init(speed),
         None => {
@@ -223,10 +231,9 @@ pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
                     .name("coxswain-chat-probe".into())
                     .spawn(|| SPEED.get_or_init(speed));
             }
-            return None;
+            None
         }
-    };
-    ns.map(|ns| Estimate::of(m, ns))
+    }
 }
 
 /// The quickest the probe has measured on this processor and version, kept in the data

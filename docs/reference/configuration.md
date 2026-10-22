@@ -218,6 +218,8 @@ flags start a new one.
 | `names_only` | list of paths | `[]` | Folders found by name and counted in sizes, never read |
 | `cloud` | string | `"local-only"` | Files only in OneDrive, Dropbox, Google Drive, Proton Drive, iCloud or a cloud mount: `"local-only"` finds them by name and never reads (downloads) them; `"all"` reads them ([Cloud files](../search/cloud-files.md)) |
 | `cloud_read` | list of paths | `[]` | Cloud folders whose online-only files are read anyway |
+| `whisper` | bool | `false` | Transcribe the speech of recordings and videos you choose with Whisper, in the background; the model is downloaded from Hugging Face when turned on ([Transcripts of speech](../search/transcripts.md)) |
+| `whisper_model` | string | `""` | The Whisper model: `"tiny"`, `"base"`, `"small"`, `"large-v3-turbo"`; empty: the one this machine runs well |
 | `tika` | bool | `false` | Read OneNote, XPS, CHM, Outlook data files and other formats no reader here knows with Apache Tika, in a container without network; pulls `images.tika` (about 190 MB) when turned on ([Other formats with Apache Tika](../search/tika.md)) |
 | `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read, except plain text, code, CSV and logs, which are read line by line up to 4 MB of text whatever their size ([Documents it reads](../search/documents.md)); a PGN or PDN file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games), [Draughts games](../previews/draughts.md#finding-games)); an SGF file only within this limit ([Go games](../previews/go.md#finding-games)) |
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
@@ -273,6 +275,7 @@ and ImageMagick for [Convert video or audio](../files/convert-media.md) and
 | `images.openscad` | string | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:bbed…"` | OpenSCAD's image of a dated snapshot, pinned to its digest (about 241 MB, 635 MB on disk), for models' pictures and Export 3D model ([OpenSCAD models](../previews/openscad.md)); one you set must have `openscad` on its `PATH` |
 | `images.calibre` | string | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` | calibre, for [e-books](../previews/ebooks.md) in both apps (about 1.3 GB, 3.6 GB on disk), pinned by its digest; one you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` |
 | `ebooks` | bool | `false` | [E-books with calibre](../previews/ebooks.md): previews, text for search and *Convert e-book* for MOBI, AZW, AZW3, FB2, LIT and PDB books, in both apps; changing it restarts the search helper |
+| `images.whisper` | string | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:b3a5…"` | whisper.cpp's image, for transcripts when no whisper-cli is installed (about 505 MB, 1.1 GB on disk). Pinned to its digest |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
 | `image_updates` | string | `"off"` | `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled again in the background (never on battery) and removes each replaced copy by its id ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) |
@@ -359,6 +362,8 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Read files that are only online* | `search_cloud` | `[search] cloud` |
 | | *Cloud folders read anyway* | `cloud_read` | `[search] cloud_read` |
 | | *Read other formats with Apache Tika (container)* | `search_tika` | `[search] tika` |
+| | *Transcribe speech with Whisper* | `search_whisper` | `[search] whisper` |
+| | *Whisper model* | `whisper_model` | `[search] whisper_model` |
 | | *Largest file read (MB)* | `text_max_size` | `[search] text_max_size` |
 | | *Most hits* | `max_results` | `[search] max_results` |
 | | *Programs that read more* |  | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |
