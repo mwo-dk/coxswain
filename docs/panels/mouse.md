@@ -109,4 +109,4 @@ Drag the bar between them back to the middle. The split is kept between runs, so
 reset by itself.
 
 ---
-[← Previous: Mercurial in the panels](mercurial.md) · [Next: The command list (F9) and Help (F1) →](command-list.md)
+[← Previous: CVS working copies](cvs.md) · [Next: The command list (F9) and Help (F1) →](command-list.md)

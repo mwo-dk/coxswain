@@ -80,15 +80,30 @@ pub fn of(dir: &Path) -> &'static dyn Vcs {
         &Jj
     } else if hg_root(dir).is_some() {
         &Hg
+    } else if let Some(t) = top(dir).filter(|t| !t.join(".git").exists()) {
+        // A Subversion or CVS working copy, read from its own records.
+        if t.join(".svn/wc.db").is_file() {
+            &crate::wc::Svn
+        } else if t.join("CVS/Entries").is_file() {
+            &crate::wc::Cvs
+        } else {
+            &Git
+        }
     } else {
         &Git
     }
 }
 
-/// The nearest folder at or above `dir` that is a repository's top.
+/// The nearest folder at or above `dir` that is a repository's or working copy's top (for
+/// CVS, which keeps `CVS` in every folder, the folder itself).
 fn top(dir: &Path) -> Option<&Path> {
-    dir.ancestors()
-        .find(|a| a.join(".jj").is_dir() || a.join(".git").exists() || a.join(".hg").is_dir())
+    dir.ancestors().find(|a| {
+        a.join(".jj").is_dir()
+            || a.join(".git").exists()
+            || a.join(".hg").is_dir()
+            || a.join(".svn/wc.db").is_file()
+            || a.join("CVS/Entries").is_file()
+    })
 }
 
 /// The root of the Mercurial repository `dir` is in (one with no `.git` or `.jj` of its own).
