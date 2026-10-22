@@ -53,6 +53,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I switch to another branch?** Alt+B lists the branches; Alt+S on one, then Enter. [Answer](panels/git-branches.md#how-do-i-switch-to-another-branch)
 - **Why does the line show git in my Jujutsu repository?** jj is not installed, or Settings → Behaviour → Use git where Jujutsu is too is on. [Answer](panels/jujutsu.md#why-does-the-line-show-git-not-jj)
 - **Can I switch Jujutsu bookmarks here?** No: Coxswain only reads a Jujutsu repository; use `jj new` or `jj edit`. [Answer](panels/jujutsu.md#can-i-switch-bookmarks-here)
+- **Does Coxswain show Mercurial repositories?** Yes, through hg: the line, the history, bookmarks and branches, and switching with `hg update --check`. [Answer](panels/mercurial.md)
 - **Why did the switch say my changes would be overwritten?** A file you changed differs between the branches; git refuses, and so does Coxswain. Commit or stash first. [Answer](panels/git-branches.md#why-did-the-switch-say-my-changes-would-be-overwritten)
 - **What does "merging" on the git line mean?** git is in the middle of a merge (or rebase, cherry-pick, revert, bisect); finish or abort it. [Answer](panels/git.md#what-does-merging-or-rebasing-on-the-git-line-mean)
 - **Does a file's history go past a rename?** Yes, on its branch: it follows the file under its earlier names (all branches, **Alt+A**, do not). [Answer](panels/git-history.md#does-a-files-history-go-past-a-rename)

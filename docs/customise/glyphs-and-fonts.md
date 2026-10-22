@@ -43,7 +43,7 @@ choose the interface font, the monospaced font, the icon font and the text size.
 
 | Glyph | Nerd Font (code point) | ASCII | Where |
 |---|---|---|---|
-| `branch` | U+E0A0 | `git:` | Start of the git line, before the branch name; in a Jujutsu repository `git` in it becomes `jj` (`jj:`), or `jj` follows a glyph without it |
+| `branch` | U+E0A0 | `git:` | Start of the git line, before the branch name; in a Jujutsu or Mercurial repository `git` in it becomes `jj` or `hg` (`jj:`, `hg:`), or the name follows a glyph without it |
 | `ahead`, `behind` | `↑`, `↓` | `^`, `v` | The git line: commits ahead of and behind upstream |
 | `staged` | U+F046 | `+` | The git line; next to a file that is added |
 | `modified` | U+F044 | `~` | The git line; next to a changed file |

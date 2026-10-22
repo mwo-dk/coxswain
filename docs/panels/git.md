@@ -82,7 +82,8 @@ In the terminal app it is at the bottom left of the panel's border; in the deskt
 right of the pane's footer (hover it for the repository's folder, upstream, remote and last
 fetch, see [below](#upstream-remote-and-last-fetch); click it for the
 [branches](git-branches.md)). A folder's preview in the desktop app shows it too, as *Git*.
-In a [Jujutsu](jujutsu.md) repository the same line names `jj`, the change and its bookmark.
+In a [Jujutsu](jujutsu.md) repository the same line names `jj`, the change and its bookmark; in a
+[Mercurial](mercurial.md) one `hg` and the bookmark or branch.
 
 With plain characters (`glyphs = "ascii"`) a line reads:
 
@@ -92,7 +93,7 @@ git: master ^1 v2 +3 ~1 -2 ?4 !1 $1
 
 | Part | Nerd Font glyph | ASCII | Means |
 |---|---|---|---|
-| Branch | branch (U+E0A0) | `git:` | The branch, or *detached at a1b2c3d* when HEAD is on no branch; in a Jujutsu repository `jj`, the change id and the nearest bookmark ([Jujutsu](jujutsu.md#what-you-see)) |
+| Branch | branch (U+E0A0) | `git:` | The branch, or *detached at a1b2c3d* when HEAD is on no branch; in a Jujutsu repository `jj`, the change id and the nearest bookmark ([Jujutsu](jujutsu.md#what-you-see)); in a Mercurial one `hg` and the bookmark or branch ([Mercurial](mercurial.md#what-you-see)) |
 | Ahead | `↑` | `^` | Commits not yet pushed to the upstream |
 | Behind | `↓` | `v` | Commits on the upstream not yet pulled |
 | Staged | ticked box (U+F046) | `+` | Files with changes in the index, or added with `git add -N` (as Jujutsu adds new files next to git) |
@@ -231,7 +232,8 @@ there. A tab whose folder is in a repository shows the git icon instead of the f
 ## Open in your git tool
 
 Coxswain shows version control and writes to a repository only to switch branch or make a new
-one (never to a [Jujutsu](jujutsu.md) repository, which it only reads). Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
+one (never to a [Jujutsu](jujutsu.md) repository, which it only reads; in a [Mercurial](mercurial.md)
+one with `hg update --check` and new bookmarks). Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
 config) is a handoff. The config itself can be looked at: **Alt+C** shows it as git uses it,
 read-only ([Git config](git-config.md)). For the rest, **Alt+G** (*Open in your git tool*) opens the repository in your own git
 tool, in the repository's top folder, wherever in it the panel is.

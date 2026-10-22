@@ -68,7 +68,8 @@ jobs:
         uses: ./.github/actions/apt-install
         timeout-minutes: 10
         with:
-          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          # mercurial: the tests of Mercurial repositories (vcs) run with it.
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev mercurial
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:

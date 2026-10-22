@@ -159,13 +159,16 @@ folder.
 - **Renames are followed** for a file on its branch: its history goes on past the commits that
   renamed it (`git log --follow`); its history of all branches (**Alt+A**) is not. A folder's history is the folder's path as it is. In a
   [Jujutsu](jujutsu.md) repository renames are not followed: jj lists the commits of the path as it is now.
+  In a [Mercurial](mercurial.md) one a file's are (`hg log --follow`).
 - **Merge commits** are listed only when the merge itself changed it, as `git log` does.
 - **Submodules** show as empty entries; their own history is in their own folder.
 - **Read-only:** nothing is ever written to the repository. It runs `git log`, `git ls-tree`,
   `git cat-file` and `git show`, with `GIT_OPTIONAL_LOCKS=0`.
 - In a Jujutsu repository the list comes from `jj log --ignore-working-copy`, and the files at a
   commit from git, reading jj's store.
-- It needs `git` on your `PATH`, and a commit to start from: a new repository without commits
+- In a Mercurial repository it runs `hg log`, `hg files`, `hg cat` and `hg diff`, never with the
+  repository's own config.
+- It needs `git` (or `jj`, or `hg`) on your `PATH`, and a commit to start from: a new repository without commits
   has no history yet.
 
 ## Settings and config.toml

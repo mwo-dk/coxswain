@@ -440,6 +440,8 @@ pub struct Facts {
     pub remote: Option<String>,
     /// When the repository was last fetched: `FETCH_HEAD`'s time.
     pub fetched: Option<u64>,
+    /// Whether the system keeps an upstream and fetches (git, Jujutsu): else only the line.
+    pub tracks: bool,
 }
 
 impl Status {
@@ -470,6 +472,7 @@ impl Status {
             behind: s.behind,
             remote,
             fetched,
+            tracks: matches!(s.system, "" | "git" | "jj"),
         }
     }
 }
@@ -487,6 +490,9 @@ impl Facts {
     /// One fact a line: the git line, the upstream with ahead and behind, the last fetch, the
     /// remote (the longest, so last). The terminal app joins them with ` · `.
     pub fn lines(&self) -> Vec<String> {
+        if !self.tracks {
+            return vec![self.prompt.clone()];
+        }
         let upstream = match &self.upstream {
             Some(u) => crate::t!(
                 "git.facts_upstream",

@@ -337,7 +337,7 @@ fn plan(
     // Only inside a repository; asking git would run a program for that.
     let root = dir
         .ancestors()
-        .find(|a| a.join(".git").exists() || a.join(".jj").is_dir())
+        .find(|a| a.join(".git").exists() || a.join(".jj").is_dir() || a.join(".hg").is_dir())
         .ok_or(Missing::NoRepo)?
         .to_path_buf();
     let desktop = matches!(os, "macos" | "windows")

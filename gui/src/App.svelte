@@ -91,10 +91,11 @@
   });
 
   // Folders open in any tab reread themselves when something changes in them; so does a
-  // repository's `.git` (a commit, a checkout), or Jujutsu's operation heads (any jj command), so
+  // repository's `.git` or Mercurial's store (a commit, a checkout; not `.hg` itself, which every
+  // `hg status` touches), or Jujutsu's operation heads (any jj command), so
   // the status and the last-commit column follow.
   const allTabs = () => ui.panes.flatMap((p) => p.tabs);
-  const gitDirs = (t) => (t.git ? [`${t.git.root}${ui.cfg.sep}.git`, [t.git.root, ".jj", "repo", "op_heads", "heads"].join(ui.cfg.sep)] : []);
+  const gitDirs = (t) => (t.git ? [`${t.git.root}${ui.cfg.sep}.git`, [t.git.root, ".hg", "store"].join(ui.cfg.sep), [t.git.root, ".jj", "repo", "op_heads", "heads"].join(ui.cfg.sep)] : []);
   $effect(() => {
     if (!ready) return;
     invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, ...gitDirs(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
