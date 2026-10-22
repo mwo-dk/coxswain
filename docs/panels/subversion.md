@@ -9,7 +9,7 @@ each changed file carries its glyph. It reads only the working copy's own record
 branches, update and commit stay with Subversion: **Alt+G** opens a terminal in the working copy
 for them. Both apps do this.
 
-<!-- screenshot: svn-line.png: the desktop app (Cyber) in a Subversion working copy: the pane footer reads svn r2 trunk with one modified and one unversioned file -->
+![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy: src marked modified, TODO.txt unversioned, and at the right of the pane's footer the line svn r2 trunk with one modified and one unversioned file](../screenshots/svn-line.png)
 
 ## Contents
 

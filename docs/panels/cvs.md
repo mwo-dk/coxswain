@@ -8,7 +8,7 @@ file carries its glyph. It reads only the `CVS/Entries` files in each folder, so
 to the server and `cvs` need not be installed. History, update and commit stay with CVS:
 **Alt+G** opens a terminal in the folder for them. Both apps do this.
 
-<!-- screenshot: cvs-line.png: the terminal app (Classic blue) in a CVS working copy: the panel's bottom border reads cvs HEAD with one modified file, the file marked -->
+![The terminal app in Classic blue: the CVS working copy kite on the left with src marked modified and notes.txt unknown, the line cvs HEAD with its counts in the panel's bottom border; on the right the Subversion working copy balloon with svn r2 trunk](../screenshots/cvs-line.png)
 
 ## Contents
 
