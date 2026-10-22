@@ -194,7 +194,13 @@ fn sha1_of(checksum: &str) -> Option<&str> {
 
 /// The status of the Subversion working copy at `root`, from `wc.db` and the files on disk.
 pub fn svn_status(root: &Path) -> Option<Status> {
-    let conn = svn_db(&root.join(".svn/wc.db"))?;
+    // `.svn` and its database are the working copy's own, not links to elsewhere.
+    let real_dir = |p: &Path| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir());
+    let db = root.join(".svn/wc.db");
+    if !real_dir(&root.join(".svn")) || !std::fs::symlink_metadata(&db).is_ok_and(|m| m.is_file()) {
+        return None;
+    }
+    let conn = svn_db(&db)?;
     let mut nodes: HashMap<String, Node> = HashMap::new();
     let mut root_path = (String::new(), 0i64);
     {
@@ -359,8 +365,11 @@ fn svn_changed(root: &Path, n: &Node, path: &Path, meta: &std::fs::Metadata) -> 
     let Some(sha) = n.checksum.as_deref().and_then(sha1_of) else {
         return true;
     };
-    let pristine = root
-        .join(".svn/pristine")
+    let store = root.join(".svn/pristine");
+    if !std::fs::symlink_metadata(&store).is_ok_and(|m| m.is_dir()) {
+        return true;
+    }
+    let pristine = store
         .join(&sha[..2])
         .join(format!("{sha}.svn-base"));
     let cap = n.size.map_or(meta.len(), |s| s.max(0) as u64);
@@ -375,7 +384,8 @@ fn open_plain(path: &Path) -> io::Result<std::fs::File> {
     let mut o = std::fs::OpenOptions::new();
     o.read(true);
     #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW);
+    // Never through a link, and never waiting on a pipe put where a file was.
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW | libc::O_NONBLOCK);
     let f = o.open(path)?;
     if f.metadata()?.is_file() {
         Ok(f)
@@ -815,6 +825,29 @@ mod tests {
         let st = cvs_status(&d).expect("status");
         assert!(st.files.keys().all(|p| p.starts_with(&d) && !p.components().any(|c| c == std::path::Component::ParentDir)), "{:?}", st.files);
         assert!(!cvs_name_ok("..") && !cvs_name_ok("a/b") && !cvs_name_ok("") && cvs_name_ok("main.c"));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+
+    /// A pipe where a file was never hangs the read, and a `.svn` that is a link is no working
+    /// copy.
+    #[cfg(unix)]
+    #[test]
+    fn wc_svn_pipes_and_links_are_refused() {
+        let d = top("svn-fifo");
+        std::fs::write(d.join("f"), "x").unwrap();
+        let fifo = d.join("pipe");
+        assert!(std::process::Command::new("mkfifo").arg(&fifo).status().unwrap().success());
+        let t = std::time::Instant::now();
+        assert!(open_plain(&fifo).is_err());
+        assert!(t.elapsed() < std::time::Duration::from_secs(2));
+        assert!(open_plain(&d.join("f")).is_ok());
+        let wc = d.join("wc");
+        std::fs::create_dir_all(d.join("elsewhere")).unwrap();
+        std::fs::write(d.join("elsewhere/wc.db"), "").unwrap();
+        std::fs::create_dir(&wc).unwrap();
+        std::os::unix::fs::symlink(d.join("elsewhere"), wc.join(".svn")).unwrap();
+        assert!(svn_status(&wc).is_none());
         std::fs::remove_dir_all(d).unwrap();
     }
 
