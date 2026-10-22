@@ -99,6 +99,9 @@ pub const IMAGES: &[Image] = &[
     Image { key: "asciidoctor", default: "docker.io/asciidoctor/docker-asciidoctor:latest", download: 665, disk: 1500 },
     // draw.io's desktop app with a display of its own (`export`); used only with `drawio` on.
     Image { key: "drawio", default: "docker.io/rlespinasse/drawio-desktop-headless:latest", download: 560, disk: 1310 },
+    // ClamAV's own Debian image without a database (it is fetched apart, at scan time), for
+    // x86-64, ARM64 and POWER; pinned, so a scan always runs the same one (`viruses`).
+    Image { key: "clamav", default: "docker.io/clamav/clamav-debian:1.5_base@sha256:dfe9a0c9ea8d7f14034f742010c0f91e0d3f7a719a526c426c60d2e1f5c490eb", download: 80, disk: 240 },
 ];
 
 /// Other images whose size is known: what a user may set instead of a default.
@@ -228,6 +231,9 @@ pub const KINDS: &[Kind] = &[
     // Export draw.io diagram and its thumbnails (`export`), only in draw.io's container, with
     // `[preview] drawio` on: no choice, no installed program.
     Kind { id: "drawio", docs: "../files/drawio-export.md", exts: &[&["drawio", "dio"]], tools: &[tool("drawio", &[], "", "drawio")], sample: None },
+    // Scan for viruses (`viruses`): any file, only in ClamAV's container, with `[preview]
+    // virus_scan` on: no choice, no installed program.
+    Kind { id: "viruses", docs: "../files/virus-scan.md", exts: &[], tools: &[tool("clamav", &[], "", "clamav")], sample: None },
 ];
 
 /// The choices of `[preview.tools]`; no entry follows `[preview] prefer`.
@@ -247,7 +253,7 @@ pub fn kind_of(tool: &str) -> Option<&'static Kind> {
 /// searchable is asked for.
 pub fn for_path(path: &Path) -> Option<&'static Kind> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    KINDS.iter().filter(|k| !matches!(k.id, "ocr" | "other" | "transcripts" | "chess_engine" | "asciidoc" | "drawio")).find(|k| k.exts.iter().any(|e| e.contains(&ext.as_str())))
+    KINDS.iter().filter(|k| !matches!(k.id, "ocr" | "other" | "transcripts" | "chess_engine" | "asciidoc" | "drawio" | "viruses")).find(|k| k.exts.iter().any(|e| e.contains(&ext.as_str())))
 }
 
 /// The image of `tool` under `[preview.images]`: Kroki's diagram kinds share `kroki`, a
@@ -299,9 +305,9 @@ pub fn set_choice(path: &Path, kind: &str, value: &str) -> Result<crate::config:
 }
 
 /// Whether `[preview.tools]` has a choice for the kind: not Tika's, which `[search] tika` turns on,
-/// nor draw.io's, which runs only in its container.
+/// nor draw.io's or ClamAV's, which run only in their containers.
 pub fn can_choose(kind: &str) -> bool {
-    !matches!(kind, "other" | "drawio")
+    !matches!(kind, "other" | "drawio" | "viruses")
 }
 
 /// The image `key`'s entry.
@@ -507,6 +513,7 @@ pub fn docs_table() -> String {
             }
         }
         let files = k.exts.iter().copied().flatten().map(|e| format!("`.{e}`")).collect::<Vec<_>>().join(" ");
+        let files = if files.is_empty() { "any".to_string() } else { files };
         let title = crate::i18n::tr_in("en-GB", &format!("ptools.kind.{}", k.id));
         s.push_str(&format!(
             "| [{title}]({}) (`{}`) | {files} | {} | {} |\n",

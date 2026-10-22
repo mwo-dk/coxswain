@@ -119,6 +119,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Enter** on `name.001` | Join parts | `join_parts` | The parts joined back into `name` and checked against `name.sha256` ([Split and join](../files/split-and-join.md#joining-the-parts)) | The same |
 | none (**Shift+F10**, **F9**) | Build PDF of AsciiDoc | `adoc_pdf` | A PDF of each marked AsciiDoc document next to it, by Asciidoctor PDF ([Build PDF of AsciiDoc](../files/asciidoc-pdf.md)) | The same |
 | none (**Shift+F10**, **F9**) | Export draw.io diagram | `drawio_export` | PNG, SVG or PDF of each marked diagram next to it, by draw.io ([Export draw.io diagram](../files/drawio-export.md)) | The same |
+| **Alt+I** | Scan for viruses | `scan_viruses` | The marked files or folders (on `..`, the panel's folder) scanned by ClamAV in a container, once turned on; the key again stops it ([Scan for viruses](../files/virus-scan.md)) | The same |
 
 ### Archives
 

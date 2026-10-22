@@ -44,6 +44,7 @@ system; this page is about the room they take and getting it back.
 | `peek/` | Files copied out of archives to be previewed or viewed, and archives inside archives you opened (`nested/`), and what compressed tars hold (`archive-index/`) | Copied again the next time | Yes |
 | `inside-…/` | Left-overs of the search helper reading files inside archives; shown only when there are some | Nothing. A folder a running helper is using now is kept | Yes |
 | `libreoffice-profile/` (and `libreoffice-index-profile/`) | LibreOffice's own profiles for previews and for reading old Office files | Made again the next time LibreOffice runs | Yes |
+| `clamav/` | ClamAV's virus database, for [Scan for viruses](../files/virus-scan.md); shown when there is one | Fetched again from database.clamav.net before the next virus scan | Yes |
 | `helper.log` | When the search helper started and left, and what failed; the whole text of an error the status line said short | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, *Whisper*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice (*Whisper* in use: transcribing is turned off) | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
@@ -147,7 +148,7 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | Command | Does |
 |---|---|
 | `coxswain --disk clear store` | Empties the search store, through the helper when one runs: *search.db cleared: 284 KB freed.* |
-| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`) | Clears that row |
+| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
 | `coxswain --disk clear rebuildable` | Every row that is built again on its own: *Cleared: 12.9 MB freed.* |
@@ -167,7 +168,7 @@ system's ([Where things are kept](where-things-are-kept.md#on-each-system)).
 
 Everything in the list but your models and what is outside comes back by itself. **Clear
 everything that can be built again** takes the search store, the name index, previews, archive
-copies and LibreOffice profiles. The cost is time: the search store is read again at half speed
+copies, LibreOffice profiles and ClamAV's virus database. The cost is time: the search store is read again at half speed
 (**Read now** in Settings → *Finding files* reads at full speed), and Find by name waits for the
 index.
 

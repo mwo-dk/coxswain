@@ -11,9 +11,9 @@ converts video and sound and HEIC photos, ImageMagick's shows GIMP pictures and 
 edits photos, GDAL's draws and converts geodata, OpenSCAD's makes models into pictures, STL
 and 3MF, KiCad's shows and exports schematics and boards, Asciidoctor's builds
 [PDFs of AsciiDoc](../files/asciidoc-pdf.md) and draw.io's [exports diagrams](../files/drawio-export.md)
-(opt-in). Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on,
-and calibre's reads [e-books](ebooks.md) when you turn them on. A container gets no network and
-sees your files read-only. Nothing is downloaded until you click, except calibre's image, which
+(opt-in), and ClamAV's [scans for viruses](../files/virus-scan.md) when you ask. Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on,
+and calibre's reads [e-books](ebooks.md) when you turn them on. A container gets no network (only ClamAV's database update has it, and it sees nothing but
+the database) and sees your files read-only. Nothing is downloaded until you click, except calibre's image, which
 turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md#turning-it-on)).
 
 <!-- screenshot: previews-container-pull.png: desktop app, Cyber theme: a .tex file whose engine is "podman texlive:latest", first run; the preview shows "Rendering with podman texlive:latest…" and under it "Pulling docker.io/texlive/texlive:latest…" with podman's progress line -->
@@ -79,6 +79,7 @@ a little larger or smaller.
 | `ghcr.io/ggml-org/whisper.cpp:main` (pinned to its digest, for [Transcripts of speech](../search/transcripts.md)) | The speech of recordings and videos you choose, written down for Find and the preview, when no whisper.cpp is installed | about 505 MB | about 1.1 GB | Only while it transcribes: half the processor, about 10 minutes for an hour of sound with the small model on a recent processor |
 | `docker.io/asciidoctor/docker-asciidoctor:latest` (default for Asciidoctor) | [Build PDF of AsciiDoc](../files/asciidoc-pdf.md): a PDF of an `.adoc` document next to it, when you ask; the preview needs no image | about 665 MB | about 1.5 GB | A few seconds of processor time per document, only when you ask |
 | `docker.io/rlespinasse/drawio-desktop-headless:latest` (default for draw.io, used only with *Export draw.io diagrams* on) | [Export draw.io diagram](../files/drawio-export.md): PNG, SVG or PDF of a diagram next to it, and its thumbnail in the grid view | about 560 MB | about 1.3 GB | draw.io starts a browser for each export: a second or two of processor time and a few hundred MB of memory |
+| `docker.io/clamav/clamav-debian:1.5_base@sha256:dfe9…` (default for ClamAV) | [Scan for viruses](../files/virus-scan.md), once turned on: only the files you choose, only when you ask | about 80 MB | about 240 MB | Busy only when you ask: about 1.5 GB of memory while it scans, and its virus database (about 110 MB) in the cache |
 | one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
@@ -101,6 +102,7 @@ Where each image comes from, and why it is the one:
 | `ghcr.io/ggml-org/whisper.cpp:main` | The whisper.cpp project (ggml-org), built from every change; pinned to one build by its digest: a Coxswain release moves it on | MIT (whisper.cpp), ffmpeg LGPL/GPL | Daily; 64-bit Intel and AMD only |
 | `asciidoctor/docker-asciidoctor:latest` | The Asciidoctor project; Coxswain runs only its `asciidoctor-pdf` | MIT (Asciidoctor, Asciidoctor PDF) | With every Asciidoctor release |
 | `rlespinasse/drawio-desktop-headless:latest` | Romain Lespinasse, who keeps it in step with draw.io's desktop releases; no image of draw.io's own exports | MIT (the image), Apache-2.0 (draw.io) | With every draw.io desktop release (weekly in 2026) |
+| `clamav/clamav-debian:1.5_base` | Cisco Talos, ClamAV's makers; for x86-64, ARM64 and POWER. Pinned by its digest; its database is fetched apart from `database.clamav.net` | GPL-2.0 | Rebuilt every few days; Coxswain moves to a newer digest in its releases |
 
 The programs run as separate programs in their containers; Coxswain ships none of their code, so
 Ghostscript's AGPL does not reach it.
@@ -148,8 +150,9 @@ engine (`/stockfish`) gets no folder at all: it talks UCI over standard input an
 as the image's own user (nobody), and is named `coxswain-stockfish-<n>` so it is killed when the
 position changes or the view closes. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
-`-shell-escape`, so a document cannot run commands. No container ever starts a server or opens a port: each run does one file and ends.
-commands. No preview container starts a server or opens a port: each run does one file and ends.
+`-shell-escape`, so a document cannot run commands. ClamAV's two runs are held tighter still,
+and only its database update has network ([How it is sealed](../files/virus-scan.md#how-it-is-sealed)).
+commands. No preview container starts a server or opens a port: each run does one job and ends.
 Apache Tika's is the one server, for search: it listens only inside its container, has no
 network, no folder of yours and no port on your machine, and stops itself when idle
 ([What the container may do](../search/tika.md#what-the-container-may-do)).
@@ -213,8 +216,8 @@ default), **Weekly** or **Monthly**.
 *Settings → Previews → Remove images not used for 90 days* (`[preview] image_prune`), off by
 default.
 
-- Both apps note, in `state.json`, when a preview or [Make PDF searchable](../files/searchable-pdf.md)
-  last ran in each image. Once an hour (not on battery) the desktop app removes a pulled image
+- Both apps note, in `state.json`, when a preview, [Make PDF searchable](../files/searchable-pdf.md)
+  or [Scan for viruses](../files/virus-scan.md) last ran in each image. Once an hour (not on battery) the desktop app removes a pulled image
   of `[preview.images]` that neither used (nor Apache Tika read a file with) for 90 days, by name, as **Remove** does.
 - An image with no use noted yet, such as one pulled before you turned the option on, counts as
   used on the day the app first looks, so turning it on never removes all of them at once.
@@ -274,7 +277,7 @@ LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH`
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
 `PATH` for Kroki, `duckdb` as the entry point for DuckDB, `/ffmpeg` and `/ffprobe` for ffmpeg,
 `magick` on its `PATH` for ImageMagick, GDAL's programs on its `PATH` for GDAL, `openscad`
-on its `PATH` for OpenSCAD, `kicad-cli` on its `PATH` for KiCad, `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` for
+on its `PATH` for OpenSCAD, `clamscan` and `freshclam` for ClamAV, `kicad-cli` on its `PATH` for KiCad, `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` for
 calibre, for Whisper `ffmpeg`, `whisper-cli` and `sh` on its `PATH`, and for Tika an `apache/tika` server image (`java` and Tika's jars in `/opt/tika-server`).
 
 ## In the terminal app
@@ -284,18 +287,19 @@ for it through the search helper when [Read other formats with Apache Tika](../s
 [Transcribe speech with Whisper](../search/transcripts.md) is on.
 The containers it runs itself are OCRmyPDF's, for [Make PDF searchable](../files/searchable-pdf.md) (**Alt+P**), and
 ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's, for [Convert video or audio](../files/convert-media.md),
-[Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata)
-and [Export 3D model](openscad.md#export-3d-model), [Export from KiCad](kicad.md#export-from-kicad), calibre's, for [e-books](ebooks.md)
+[Convert or edit pictures](../files/edit-pictures.md), [Convert geodata](geodata.md#convert-geodata),
+[Export 3D model](openscad.md#export-3d-model), [Export from KiCad](kicad.md#export-from-kicad), calibre's, for [e-books](ebooks.md)
 (**F3** on a book, *Convert e-book*), Asciidoctor's, for [Build PDF of
 AsciiDoc](../files/asciidoc-pdf.md), and draw.io's, for [Export draw.io
-diagram](../files/drawio-export.md) (with `[preview] drawio` on), the same way as the desktop app: asked
+diagram](../files/drawio-export.md) (with `[preview] drawio` on), and ClamAV's, for [Scan for viruses](../files/virus-scan.md)
+(**Alt+I**), the same way as the desktop app: asked
 first, with the first pull and its size. The chess engine's image it runs when it is pulled (by
 the desktop app's Settings, or `podman pull ghcr.io/mwo-dk/coxswain-stockfish:latest`), never
 pulling it itself. **Properties** (**Alt+Enter**) reads a video's facts
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`tools`, `ebooks`, `drawio` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor and draw.io images (and its helper `images.tika`). Its **F12** → *Previews* shows
+`tools`, `ebooks`, `drawio`, `virus_scan` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io and ClamAV images (and its helper `images.tika`). Its **F12** → *Previews* shows
 [*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
 removes it, and *Keep images up to date* and *Remove images not used for 90 days*, so you can
 set them from there; the desktop app is what updates and removes unused images, while it runs. Its Disk use rows for the
@@ -336,7 +340,7 @@ are safe.
 
 #### Why did an image disappear?
 
-*Remove images not used for 90 days* is on, and neither a preview nor Make PDF searchable used it (nor Apache Tika read a file with it) for that long. The next
+*Remove images not used for 90 days* is on, and neither a preview, Make PDF searchable nor Scan for viruses used it (nor Apache Tika read a file with it) for that long. The next
 preview that needs it says *First run pulls …* and waits for a click. Turn the option off in
 *Settings → Previews* to keep every image.
 

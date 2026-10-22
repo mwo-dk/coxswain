@@ -580,7 +580,7 @@ fn keybar_widths(nums: &[usize], labels: &[usize], width: usize) -> Vec<usize> {
     out
 }
 
-fn centered(area: Rect, w: u16, h: u16) -> Rect {
+pub(crate) fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let w = w.min(area.width);
     let h = h.min(area.height);
     Rect { x: area.x + (area.width - w) / 2, y: area.y + (area.height - h) / 2, width: w, height: h }
@@ -653,7 +653,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&t!("whisper.go"))).centered(), b);
         }
-        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. }) => {
+        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. } | Dialog::VirusScan { title, text, .. }) => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);
             let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
@@ -664,10 +664,12 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 Dialog::Ebook { .. } => t!("ebook.go"),
                 Dialog::Export { op: coxswain_core::export::Op::AdocPdf, .. } => t!("export.go_adoc"),
                 Dialog::Export { .. } => t!("export.go_drawio"),
+                Dialog::VirusScan { .. } => t!("viruses.go"),
                 _ => t!("searchable.go"),
             };
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
+        Dialog::Viruses(v) => crate::viruses::draw(f, app, full, v),
         Dialog::Message { title, text } => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
             let inner = frame(f, app, text_box(full, 76, &p, 4), title);
@@ -1120,6 +1122,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(keys(t!("help.searchable_pdf", "key" => key(Action::SearchablePdf)))));
     v.push(Line::from(keys(t!("help.adoc_pdf"))));
     v.push(Line::from(keys(t!("help.drawio_export"))));
+    v.push(Line::from(keys(t!("help.scan_viruses", "key" => key(Action::ScanViruses)))));
     v.push(Line::from(keys(t!("help.chess", "key" => key(Action::Chess), "view" => key(Action::View)))));
     v.push(Line::from(keys(t!("help.space", "key" => key(Action::SpaceView)))));
     v.push(Line::from(""));

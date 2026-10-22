@@ -170,4 +170,4 @@ that draw.io cannot draw keeps its icon until it changes.
 No. draw.io reads a copy of it; the results are new files next to it.
 
 ---
-[← Previous: Build PDF of AsciiDoc](asciidoc-pdf.md) · [Next: Customising →](../customise/README.md)
+[← Previous: Build PDF of AsciiDoc](asciidoc-pdf.md) · [Next: Scan for viruses (Alt+I) →](virus-scan.md)

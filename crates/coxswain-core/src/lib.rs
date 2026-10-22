@@ -88,6 +88,7 @@ pub mod user_menu;
 pub mod vcs;
 pub mod wc;
 pub mod view;
+pub mod viruses;
 #[cfg(any(
     target_os = "android",
     target_os = "illumos",
