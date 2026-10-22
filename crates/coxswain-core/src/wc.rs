@@ -142,22 +142,67 @@ struct Node {
     base: bool,
 }
 
-/// The status of the Subversion working copy at `root`, from `wc.db` and the files on disk.
-pub fn svn_status(root: &Path) -> Option<Status> {
-    let db = root.join(".svn/wc.db");
+/// `wc.db`, opened to be read only and trusting nothing in it: defensive mode, no functions
+/// from its schema, `nodes` and `actual_node` plain tables (not views), and every statement
+/// stopped after two seconds.
+fn svn_db(db: &Path) -> Option<rusqlite::Connection> {
+    use rusqlite::config::DbConfig;
     let conn = rusqlite::Connection::open_with_flags(
-        &db,
+        db,
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
     .ok()?;
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_DEFENSIVE, true).ok()?;
+    conn.set_db_config(DbConfig::SQLITE_DBCONFIG_TRUSTED_SCHEMA, false).ok()?;
+    conn.execute_batch("PRAGMA trusted_schema = OFF; PRAGMA query_only = ON;").ok()?;
     let _ = conn.busy_timeout(std::time::Duration::from_millis(500));
+    let start = std::time::Instant::now();
+    conn.progress_handler(10_000, Some(move || start.elapsed() > std::time::Duration::from_secs(2)))
+        .ok()?;
+    let plain: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND lower(name) IN ('nodes', 'actual_node')",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    let other: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE type <> 'table' AND lower(name) IN ('nodes', 'actual_node')",
+            [],
+            |r| r.get(0),
+        )
+        .ok()?;
+    (plain == 2 && other == 0).then_some(conn)
+}
+
+/// A path as `wc.db` holds it: `/`-separated, relative, nothing that climbs out or names a
+/// drive.
+fn safe_relpath(rel: &str) -> bool {
+    rel.is_empty()
+        || (!rel.contains(['\\', '\0'])
+            && !(cfg!(windows) && rel.contains(':'))
+            && rel.split('/').all(|c| !c.is_empty() && c != "." && c != ".."))
+}
+
+/// The SHA-1 of a `$sha1$…` checksum: 40 hex digits, or none.
+fn sha1_of(checksum: &str) -> Option<&str> {
+    checksum
+        .strip_prefix("$sha1$")
+        .filter(|h| h.len() == 40 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+/// The status of the Subversion working copy at `root`, from `wc.db` and the files on disk.
+pub fn svn_status(root: &Path) -> Option<Status> {
+    let conn = svn_db(&root.join(".svn/wc.db"))?;
     let mut nodes: HashMap<String, Node> = HashMap::new();
     let mut root_path = (String::new(), 0i64);
     {
         let mut q = conn
             .prepare(
                 "SELECT local_relpath, op_depth, presence, kind, translated_size, last_mod_time, \
-                 checksum, properties, repos_path, revision FROM nodes ORDER BY local_relpath, op_depth",
+                 checksum, properties, repos_path, revision FROM nodes ORDER BY local_relpath, op_depth \
+                 LIMIT 1000000",
             )
             .ok()?;
         let rows = q
@@ -180,6 +225,14 @@ pub fn svn_status(root: &Path) -> Option<Status> {
             })
             .ok()?;
         for (path, mut node, repos_path, rev) in rows.flatten() {
+            // A working copy may be someone else's (an unpacked archive): a path that would
+            // leave it, or a checksum that is not one, is not believed.
+            if !safe_relpath(&path) {
+                continue;
+            }
+            if node.checksum.as_deref().is_some_and(|c| sha1_of(c).is_none()) {
+                node.checksum = None;
+            }
             if path.is_empty() && node.op_depth == 0 {
                 root_path = (repos_path.unwrap_or_default(), rev.unwrap_or(0));
             }
@@ -196,7 +249,7 @@ pub fn svn_status(root: &Path) -> Option<Status> {
     let mut actual_props: HashMap<String, Vec<u8>> = HashMap::new();
     let mut conflicts: HashSet<String> = HashSet::new();
     if let Ok(mut q) = conn.prepare(
-        "SELECT local_relpath, properties, conflict_data IS NOT NULL OR tree_conflict_data IS NOT NULL FROM actual_node",
+        "SELECT local_relpath, properties, conflict_data IS NOT NULL OR tree_conflict_data IS NOT NULL FROM actual_node LIMIT 1000000",
     ) && let Ok(rows) = q.query_map([], |r| {
         Ok((
             r.get::<_, String>(0)?,
@@ -204,7 +257,7 @@ pub fn svn_status(root: &Path) -> Option<Status> {
             r.get::<_, bool>(2)?,
         ))
     }) {
-        for (path, props, conflict) in rows.flatten() {
+        for (path, props, conflict) in rows.flatten().filter(|(p, ..)| safe_relpath(p)) {
             if conflict {
                 conflicts.insert(path.clone());
             }
@@ -269,7 +322,8 @@ pub fn svn_status(root: &Path) -> Option<Status> {
             patterns.extend(ignore.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from));
         }
         let Ok(read) = std::fs::read_dir(&dir) else { continue };
-        for e in read.flatten() {
+        // ponytail: 100k unknown entries a folder at most; enough for any working copy one browses.
+        for e in read.flatten().take(100_000) {
             let name = e.file_name().to_string_lossy().into_owned();
             if name == ".svn" {
                 continue;
@@ -298,16 +352,61 @@ fn svn_changed(root: &Path, n: &Node, path: &Path, meta: &std::fs::Metadata) -> 
     if mtime(meta).map(|m| m.1) == n.mtime {
         return false;
     }
-    let Some(sha) = n.checksum.as_deref().and_then(|c| c.strip_prefix("$sha1$")) else {
+    // Only a plain file is compared, never what a link points at.
+    if !meta.is_file() {
+        return true;
+    }
+    let Some(sha) = n.checksum.as_deref().and_then(sha1_of) else {
         return true;
     };
     let pristine = root
         .join(".svn/pristine")
-        .join(sha.get(..2).unwrap_or_default())
+        .join(&sha[..2])
         .join(format!("{sha}.svn-base"));
-    match (std::fs::read(&pristine), std::fs::read(path)) {
-        (Ok(a), Ok(b)) => a != b,
+    let cap = n.size.map_or(meta.len(), |s| s.max(0) as u64);
+    match (open_plain(&pristine), open_plain(path)) {
+        (Ok(a), Ok(b)) => !same_bytes(a, b, cap),
         _ => true,
+    }
+}
+
+/// A plain file opened for reading, never through a link.
+fn open_plain(path: &Path) -> io::Result<std::fs::File> {
+    let mut o = std::fs::OpenOptions::new();
+    o.read(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW);
+    let f = o.open(path)?;
+    if f.metadata()?.is_file() {
+        Ok(f)
+    } else {
+        Err(io::Error::other("not a file"))
+    }
+}
+
+/// Whether two files hold the same bytes, read side by side, at most `cap` and one more.
+fn same_bytes(a: std::fs::File, b: std::fs::File, cap: u64) -> bool {
+    use std::io::Read;
+    let (mut a, mut b) = (a.take(cap + 1), b.take(cap + 1));
+    let (mut x, mut y) = ([0u8; 64 * 1024], [0u8; 64 * 1024]);
+    loop {
+        let n = match a.read(&mut x) {
+            Ok(n) => n,
+            Err(_) => return false,
+        };
+        let mut got = 0;
+        while got < n {
+            match b.read(&mut y[got..n]) {
+                Ok(0) | Err(_) => return false,
+                Ok(m) => got += m,
+            }
+        }
+        if x[..n] != y[..n] {
+            return false;
+        }
+        if n == 0 {
+            return matches!(b.read(&mut y[..1]), Ok(0));
+        }
     }
 }
 
@@ -418,6 +517,15 @@ fn cvs_time(s: &str) -> Option<i64> {
     Some(days * 86400 + h * 3600 + m * 60 + sec)
 }
 
+/// How deep, and over how many entries, a CVS working copy is walked at most.
+const CVS_MAX_DEPTH: usize = 64;
+const CVS_MAX_ENTRIES: usize = 500_000;
+
+/// A name in `CVS/Entries` that is one plain name in its folder.
+fn cvs_name_ok(n: &str) -> bool {
+    !n.is_empty() && n != "." && n != ".." && !n.contains(['/', '\\', '\0']) && !(cfg!(windows) && n.contains(':'))
+}
+
 /// The status of the CVS working copy at `root`, from its `CVS/Entries` and the files on disk.
 pub fn cvs_status(root: &Path) -> Option<Status> {
     let mut st = Status {
@@ -427,17 +535,32 @@ pub fn cvs_status(root: &Path) -> Option<Status> {
     let home_ignores = crate::dirs::home_dir()
         .and_then(|h| std::fs::read_to_string(h.join(".cvsignore")).ok())
         .unwrap_or_default();
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
-        let entries = cvs_entries(&dir);
+    // A working copy may be someone else's: names are single folder names, a link to a folder
+    // is never followed, each folder is read once, and the walk is bounded.
+    let mut stack = vec![(root.to_path_buf(), 0usize)];
+    let mut seen: HashSet<PathBuf> = HashSet::new();
+    let mut budget = CVS_MAX_ENTRIES;
+    while let Some((dir, depth)) = stack.pop() {
+        if !seen.insert(dir.canonicalize().unwrap_or_else(|_| dir.clone())) {
+            continue;
+        }
+        let entries: Vec<Entry> = cvs_entries(&dir)
+            .into_iter()
+            .filter(|e| match e {
+                Entry::Dir(n) | Entry::File { name: n, .. } => cvs_name_ok(n),
+            })
+            .take(budget)
+            .collect();
+        budget -= entries.len();
         let mut known: HashSet<String> = HashSet::from(["CVS".to_string()]);
         for e in &entries {
             match e {
                 Entry::Dir(n) => {
                     known.insert(n.clone());
                     let d = dir.join(n);
-                    if d.join("CVS/Entries").is_file() {
-                        stack.push(d);
+                    let plain_dir = std::fs::symlink_metadata(&d).is_ok_and(|m| m.is_dir());
+                    if plain_dir && depth < CVS_MAX_DEPTH && d.join("CVS/Entries").is_file() {
+                        stack.push((d, depth + 1));
                     }
                 }
                 Entry::File { name, rev, time } => {
@@ -476,7 +599,8 @@ pub fn cvs_status(root: &Path) -> Option<Status> {
             }
         }
         let Ok(read) = std::fs::read_dir(&dir) else { continue };
-        for e in read.flatten() {
+        // ponytail: 100k unknown entries a folder at most; enough for any working copy one browses.
+        for e in read.flatten().take(100_000) {
             let name = e.file_name().to_string_lossy().into_owned();
             if known.contains(&name) {
                 continue;
@@ -633,4 +757,65 @@ mod tests {
         assert_eq!(st.prompt(&crate::config::Glyphs::ascii()), "svn: r2 trunk +1 ~1 -1 ?1");
         std::fs::remove_dir_all(d).unwrap();
     }
+
+    /// A hostile wc.db (an unpacked archive's): paths that climb out or are absolute are never
+    /// looked at, a bad checksum is not used, and `nodes` as a view is refused outright.
+    #[test]
+    fn wc_svn_hostile_db_is_not_believed() {
+        let d = top("svn-hostile");
+        std::fs::create_dir_all(d.join(".svn")).unwrap();
+        let make = |nodes_view: bool| {
+            let db = d.join(".svn/wc.db");
+            let _ = std::fs::remove_file(&db);
+            let c = rusqlite::Connection::open(&db).unwrap();
+            let nodes = "wc_id, local_relpath, op_depth, presence, kind, translated_size, last_mod_time, checksum, properties, repos_path, revision";
+            if nodes_view {
+                c.execute_batch(&format!("CREATE TABLE real_nodes ({nodes}); CREATE VIEW nodes AS SELECT * FROM real_nodes;")).unwrap();
+            } else {
+                c.execute_batch(&format!("CREATE TABLE nodes ({nodes});")).unwrap();
+            }
+            c.execute_batch("CREATE TABLE actual_node (local_relpath, properties, conflict_data, tree_conflict_data);").unwrap();
+            let table = if nodes_view { "real_nodes" } else { "nodes" };
+            for (rel, sum) in [("", ""), ("../outside.txt", ""), ("/etc/passwd", ""), ("a/./b", ""), ("ok.txt", "$sha1$../../x")] {
+                c.execute(
+                    &format!("INSERT INTO {table} VALUES (1, ?1, 0, 'normal', ?2, 1, 1, ?3, NULL, 'trunk', 3)"),
+                    rusqlite::params![rel, if rel.is_empty() { "dir" } else { "file" }, if sum.is_empty() { None } else { Some(sum) }],
+                )
+                .unwrap();
+            }
+            c.execute("INSERT INTO actual_node VALUES ('../../conflict', NULL, 'x', NULL)", []).unwrap();
+        };
+        make(false);
+        std::fs::write(d.join("ok.txt"), "changed and longer").unwrap();
+        let st = svn_status(&d).expect("status");
+        assert!(st.files.keys().all(|p| p.starts_with(&d) && !p.components().any(|c| c == std::path::Component::ParentDir)), "{:?}", st.files);
+        assert_eq!(st.get(&d.join("ok.txt")).map(|f| f.kind), Some(Kind::Modified));
+        assert_eq!(st.summary.conflicts, 0);
+        assert!(safe_relpath("a/b") && safe_relpath("") && !safe_relpath("a//b") && !safe_relpath("/a") && !safe_relpath("a/.."));
+        assert!(sha1_of("$sha1$3f786850e387550fdab836ed7e6dc881de23001b").is_some() && sha1_of("$sha1$../x").is_none());
+        make(true);
+        assert!(svn_status(&d).is_none(), "nodes as a view");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A hostile CVS working copy: names that climb out are skipped, a link to a folder is not
+    /// followed, and a loop ends.
+    #[test]
+    fn wc_cvs_hostile_entries_are_skipped() {
+        let d = top("cvs-hostile");
+        std::fs::create_dir_all(d.join("CVS")).unwrap();
+        std::fs::create_dir_all(d.join("sub/CVS")).unwrap();
+        std::fs::write(d.join("CVS/Entries"), "/../escape/1.1/x//\nD/..////\nD/.////\nD/sub////\nD/loop////\n/a\\b/1.1/x//\n").unwrap();
+        std::fs::write(d.join("sub/CVS/Entries"), "D/up////\n").unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&d, d.join("loop")).unwrap();
+            std::os::unix::fs::symlink(&d, d.join("sub/up")).unwrap();
+        }
+        let st = cvs_status(&d).expect("status");
+        assert!(st.files.keys().all(|p| p.starts_with(&d) && !p.components().any(|c| c == std::path::Component::ParentDir)), "{:?}", st.files);
+        assert!(!cvs_name_ok("..") && !cvs_name_ok("a/b") && !cvs_name_ok("") && cvs_name_ok("main.c"));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
 }
