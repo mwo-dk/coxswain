@@ -33,7 +33,8 @@ different, **=** the same. The status line sums it up.*
 The compare runs on a thread of its own: the status line counts what it has looked at
 (*Comparing the folders: 1,204 looked at…*) and the marks appear in both panels as they are
 found. When it is done, the status line sums it up: *3 only on the left (12 KB) · 1 newer on the
-right (4 KB) · 40 the same (2 MB)*, or *The folders are the same*.
+right (4 KB) · 40 the same (2 MB)*, or *The folders are the same* when nothing at all differs. A
+file against a folder of the same name counts as one *different*.
 
 The marks follow you into subfolders: open one in either panel and its entries are marked too.
 **Ctrl+F2** again opens [the menu](#the-menu).

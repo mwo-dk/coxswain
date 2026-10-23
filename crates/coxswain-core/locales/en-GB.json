@@ -662,6 +662,7 @@
  "compare.save": "Save",
  "compare.save_first": "Save or undo the copied changes first",
  "compare.saved": "Saved",
+ "compare.seeking": "Looking for the next difference… Esc stops",
  "compare.show_all": "Show everything again",
  "compare.side_by_side": "Side by side",
  "compare.spaces": "Ignore spaces",

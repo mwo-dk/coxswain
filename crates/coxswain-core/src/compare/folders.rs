@@ -73,6 +73,8 @@ pub struct Found {
     pub error: Option<String>,
     /// Folders below `DEEPEST` were not compared (marked different): the summary says so.
     pub too_deep: bool,
+    /// Something was found that is not the same, whatever the counts say.
+    pub differ: bool,
 }
 
 /// How deep the walk goes: below this a folder is marked different, not walked into, so a tree
@@ -81,7 +83,7 @@ pub const DEEPEST: usize = 1024;
 
 impl Found {
     /// The summary line: how many files are in each state, and their size, the empty ones
-    /// left out; "The folders are the same" when all are.
+    /// left out; "The folders are the same" only when the walk found nothing that is not.
     pub fn summary(&self) -> String {
         let parts: Vec<String> = State::ALL
             .iter()
@@ -89,9 +91,10 @@ impl Found {
             .map(|(s, &(n, bytes))| crate::t!("compare.state_count", "n" => crate::settings::count(n as usize), "state" => s.label(), "size" => crate::settings::human(bytes)))
             .collect();
         let deep = self.too_deep.then(|| crate::t!("compare.too_deep", "n" => DEEPEST));
-        if !self.too_deep && (parts.is_empty() || self.counts.keys().all(|s| *s == State::Same)) {
+        if !self.too_deep && !self.differ {
             return crate::t!("compare.folders_same");
         }
+        let parts = if parts.is_empty() && deep.is_none() { vec![State::Different.label()] } else { parts };
         parts.into_iter().chain(deep).collect::<Vec<_>>().join(" · ")
     }
 }
@@ -201,6 +204,7 @@ struct Walk<'a> {
 impl Walk<'_> {
     fn put(&self, rel: &str, state: State, files: u64, bytes: u64) {
         let mut f = self.found.lock().unwrap_or_else(|e| e.into_inner());
+        f.differ |= state != State::Same;
         f.states.insert(rel.to_string(), state);
         if files > 0 {
             let c = f.counts.entry(state).or_default();
@@ -257,7 +261,9 @@ impl Walk<'_> {
                         (false, false) => file_state(x, y, self.mode, self.stop),
                         _ => State::Different,
                     };
-                    self.put(&sub, s, u64::from(!xd && !yd), x.size);
+                    // A folder against a folder counts what is in them; anything else (a file
+                    // or a link against a folder too) is one item, sized by its file side.
+                    self.put(&sub, s, u64::from(!(xd && yd)), if xd { y.size } else { x.size });
                     s
                 }
             };
@@ -348,6 +354,26 @@ mod tests {
         assert_eq!(f.found().counts.get(&State::OnlyRight).map(|c| c.0), Some(1), "a folder only there counts");
         assert!(State::OnlyLeft.ahead(0) && !State::OnlyLeft.ahead(1) && State::NewerRight.ahead(1));
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_file_against_a_folder_is_one_difference() {
+        let d = super::super::tests::tempfile_dir("folders-clash");
+        let (l, r) = (d.join("l"), d.join("r"));
+        std::fs::create_dir_all(&l).unwrap();
+        std::fs::create_dir_all(r.join("x")).unwrap();
+        std::fs::write(l.join("x"), "a file").unwrap();
+        let (found, stop, seen) = (Mutex::default(), AtomicBool::default(), AtomicU64::default());
+        assert!(!Walk { mode: Mode::Quick, found: &found, stop: &stop, seen: &seen, deepest: DEEPEST }.folder(&l, &r, "", 0));
+        let found = found.into_inner().unwrap();
+        assert_eq!(found.states.get("x"), Some(&State::Different));
+        assert_eq!(found.counts.get(&State::Different), Some(&(1, 6)));
+        assert_ne!(found.summary(), crate::t!("compare.folders_same"));
+        // Nothing counted, but something differs: never "the same".
+        let odd = Found { differ: true, ..Found::default() };
+        assert_ne!(odd.summary(), crate::t!("compare.folders_same"));
+        assert_eq!(Found::default().summary(), crate::t!("compare.folders_same"));
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

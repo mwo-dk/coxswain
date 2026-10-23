@@ -100,8 +100,13 @@ A file is saved the way it was read, so a change of one line changes one line:
 - **Permissions.** A script stays executable; the owner's, group's and others' bits are kept.
 - **Links.** Saving a symbolic link saves the file it points to, and the link stays. A file
   with other hard links is written in place, so every name keeps seeing the new text.
-- **No half files.** The text is written to a file beside it first, then renamed over the old
-  one, so a full disk or a crash in the middle leaves the old file as it was.
+- **No half files.** The text is written to a file beside it first (for you alone until it has
+  the old file's group and permissions), then renamed over the old one, so a full disk or a
+  crash in the middle leaves the old file as it was: *Not saved* says why.
+- **What it carries.** A file you may not write (read-only, or another user's without write
+  for you) is refused, as it would be anywhere. One that is another user's, or has an ACL or
+  extended attributes, is written in place, so it stays the very file with its owner, group,
+  ACL and attributes. So is a file in a folder that takes no new file.
 
 ## What it opens
 

@@ -744,6 +744,7 @@
  "compare.save": "Зберегти",
  "compare.save_first": "Спершу збережіть або скасуйте скопійовані зміни",
  "compare.saved": "Збережено",
+ "compare.seeking": "Пошук наступної відмінності… Esc зупиняє",
  "compare.show_all": "Показати все знову",
  "compare.side_by_side": "Поруч",
  "compare.spaces": "Не зважати на пробіли",

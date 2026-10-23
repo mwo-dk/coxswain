@@ -102,7 +102,9 @@ says *That side cannot be changed here*.
 - **Any other file** is compared byte by byte, at the same place in both, as `cmp` does: hex
   rows of each side, the bytes that differ marked. The summary line counts them on a thread
   while you look (*12 bytes differ · the first at 0x1f40*); **N** and **P** go to the next and
-  previous row with a difference.
+  previous row with a difference. In a big file that looking can take a while: the status line
+  says *Looking for the next difference… Esc stops*, the screen still scrolls, and **Esc** stops
+  the looking (not the window).
 
 A text file against a PDF compares the text with the PDF's text; a text file against any other
 binary file compares bytes.
@@ -129,7 +131,8 @@ the count goes a megabyte at a time.
 The same window, full screen: side by side at 120 columns or more, one under the other below
 that (**V** switches either way). Colours come from the theme: changed lines in the git
 *modified* colour, removed ones in *deleted*, added ones in *added*, the changed words in
-reverse. Pictures show their sizes and how many pixels differ.
+reverse. Pictures show their sizes and how many pixels differ. Hex rows show 16 bytes a side;
+below 110 columns the right side's bytes go on a line of their own under the left's.
 
 ## Questions
 

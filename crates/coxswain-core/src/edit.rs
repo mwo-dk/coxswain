@@ -166,9 +166,12 @@ pub fn changed(path: &Path, stamp: &Stamp) -> bool {
 
 /// Save `text` to `path` as `doc` read it (its encoding, line endings), unless the file changed
 /// since `doc.stamp` and `force` is not given. A link is saved through to its file; the file
-/// keeps its permissions. Written beside the file and renamed over it, so a failed save leaves
-/// the file as it was; a file with other hard links, or in a folder that takes no new file, is
-/// written in place instead, so its links keep seeing it. The new stamp.
+/// keeps its permissions. A file this user may not write (read-only, another's) is refused, as
+/// it would be in place: a rename never gets round that. Written beside the file and renamed
+/// over it, so a failed save leaves the file as it was; written in place instead, so it stays
+/// the very file with all it carries, when it has other hard links, is another user's, has an
+/// ACL or extended attributes (or that cannot be told), or its folder takes no new file. The
+/// new stamp.
 pub fn save(path: &Path, text: &str, encoding: Encoding, crlf: bool, stamp: Option<&Stamp>) -> Result<Stamp, SaveError> {
     let bytes = encode(text, encoding, crlf).map_err(SaveError::Unencodable)?;
     let io = |e: std::io::Error| SaveError::Io(e.to_string());
@@ -176,33 +179,203 @@ pub fn save(path: &Path, text: &str, encoding: Encoding, crlf: bool, stamp: Opti
         return Err(SaveError::Changed);
     }
     let target: PathBuf = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-    let old = std::fs::metadata(&target).ok();
+    // Opened for writing first (not emptied): what this user may not write fails here.
+    let mut o = std::fs::OpenOptions::new();
+    o.write(true);
+    // A named pipe is never waited on.
     #[cfg(unix)]
-    let linked = old.as_ref().is_some_and(|m| std::os::unix::fs::MetadataExt::nlink(m) > 1);
-    #[cfg(not(unix))]
-    let linked = false;
-    if linked || beside(&target, &bytes, old.as_ref()).is_err() {
-        let mut f = std::fs::OpenOptions::new().write(true).truncate(true).create(true).open(&target).map_err(io)?;
-        f.write_all(&bytes).map_err(io)?;
-        f.sync_all().map_err(io)?;
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NONBLOCK);
+    let existing = match o.open(&target) {
+        Ok(f) => Some(f),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(io(e)),
+    };
+    let old = existing.as_ref().map(|f| f.metadata()).transpose().map_err(io)?;
+    let in_place = match (&existing, &old) {
+        (Some(f), Some(m)) => !renamed_over_safely(f, m),
+        _ => false,
+    };
+    if !in_place {
+        match beside(&target, &bytes, old.as_ref()) {
+            Ok(()) => return std::fs::metadata(&target).map(|m| Stamp::of(&m)).map_err(io),
+            // No new file there, or its group cannot be given to one: in place, below.
+            Err((_, true)) => {}
+            // Anything else (a full disk, a quota) is said, the file left as it was.
+            Err((e, false)) => return Err(io(e)),
+        }
     }
+    let mut f = match existing {
+        Some(f) => f,
+        None => std::fs::OpenOptions::new().write(true).create(true).truncate(true).open(&target).map_err(io)?,
+    };
+    // Written over, then cut to length: never emptied first.
+    f.write_all(&bytes).map_err(io)?;
+    f.set_len(bytes.len() as u64).map_err(io)?;
+    f.sync_all().map_err(io)?;
     std::fs::metadata(&target).map(|m| Stamp::of(&m)).map_err(io)
 }
 
-/// `bytes` written to a file beside `target`, with its permissions, then renamed over it.
-fn beside(target: &Path, bytes: &[u8], old: Option<&std::fs::Metadata>) -> std::io::Result<()> {
+/// Whether a new file renamed over `f` would be the same to its user: no other hard links,
+/// this user's own, no ACL and no extended attributes.
+#[cfg(unix)]
+fn renamed_over_safely(f: &std::fs::File, m: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    // SAFETY: geteuid has no preconditions.
+    m.nlink() == 1 && m.uid() == unsafe { libc::geteuid() } && !extra_permissions(f)
+}
+
+// ponytail: the same test as find and replace's (pinned.rs in #377); one copy once both are in.
+/// The file has permissions beyond its bits (an ACL) or extended attributes: written anew it
+/// would lose them. It fails closed: an error, or a system where this cannot be told, counts
+/// as extra. SELinux's own label is no reason; a file system that cannot hold extended
+/// attributes at all has none to lose.
+#[cfg(unix)]
+fn extra_permissions(f: &std::fs::File) -> bool {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+        // ACLs are the xattrs `system.posix_acl_*` here: listed with the rest.
+        xattrs_listed(f)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn acl_get_fd(fd: libc::c_int) -> *mut libc::c_void;
+            fn acl_free(obj: *mut libc::c_void) -> libc::c_int;
+        }
+        // SAFETY: an open file; the ACL got is freed at once.
+        let acl = unsafe { acl_get_fd(std::os::fd::AsRawFd::as_raw_fd(f)) };
+        if !acl.is_null() {
+            // SAFETY: as above.
+            unsafe { acl_free(acl) };
+            return true;
+        }
+        // No extended ACL is ENOENT; anything else is not knowing.
+        std::io::Error::last_os_error().raw_os_error() != Some(libc::ENOENT) || xattrs_listed(f)
+    }
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd"))]
+    {
+        unsafe extern "C" {
+            fn acl_get_fd_np(fd: libc::c_int, kind: libc::c_int) -> *mut libc::c_void;
+            fn acl_is_trivial_np(acl: *const libc::c_void, trivial: *mut libc::c_int) -> libc::c_int;
+            fn acl_free(obj: *mut libc::c_void) -> libc::c_int;
+        }
+        // ACL_TYPE_NFS4 (ZFS), else ACL_TYPE_ACCESS (POSIX.1e, UFS): whichever it has.
+        let mut acl = std::ptr::null_mut();
+        for kind in [4, 2] {
+            // SAFETY: an open file and an ACL type.
+            acl = unsafe { acl_get_fd_np(std::os::fd::AsRawFd::as_raw_fd(f), kind) };
+            if !acl.is_null() {
+                break;
+            }
+        }
+        if acl.is_null() {
+            // No ACL support on this file system at all is no ACL; anything else is not knowing.
+            if std::io::Error::last_os_error().raw_os_error() != Some(libc::EOPNOTSUPP) {
+                return true;
+            }
+        } else {
+            let mut trivial = 0;
+            // SAFETY: the ACL got above, freed at once.
+            let ok = unsafe { acl_is_trivial_np(acl, &mut trivial) } == 0;
+            // SAFETY: as above.
+            unsafe { acl_free(acl) };
+            if !ok || trivial != 1 {
+                return true;
+            }
+        }
+        // SAFETY: an open file; no buffer, only the length is asked for.
+        let n = unsafe { libc::extattr_list_fd(std::os::fd::AsRawFd::as_raw_fd(f), libc::EXTATTR_NAMESPACE_USER, std::ptr::null_mut(), 0) };
+        n > 0 || n < 0 && std::io::Error::last_os_error().raw_os_error() != Some(libc::EOPNOTSUPP)
+    }
+    // OpenBSD has neither ACLs nor extended attributes: nothing to lose.
+    #[cfg(target_os = "openbsd")]
+    {
+        let _ = f;
+        false
+    }
+    #[cfg(any(target_os = "illumos", target_os = "solaris"))]
+    {
+        #[link(name = "sec")]
+        unsafe extern "C" {
+            fn facl_get(fd: libc::c_int, flag: libc::c_int, aclp: *mut *mut libc::c_void) -> libc::c_int;
+            fn acl_free(acl: *mut libc::c_void);
+        }
+        /// `facl_get` gives no ACL (a null one) when the file's is trivial: its mode bits alone.
+        const ACL_NO_TRIVIAL: libc::c_int = 0x2;
+        let mut acl = std::ptr::null_mut();
+        // SAFETY: an open file and a place for the ACL got, freed at once.
+        if unsafe { facl_get(std::os::fd::AsRawFd::as_raw_fd(f), ACL_NO_TRIVIAL, &mut acl) } != 0 {
+            return true;
+        }
+        if !acl.is_null() {
+            // SAFETY: as above.
+            unsafe { acl_free(acl) };
+            return true;
+        }
+        // Extended attributes other than the system's own: 1 when there are, -1 not knowing.
+        // SAFETY: an open file.
+        unsafe { libc::fpathconf(std::os::fd::AsRawFd::as_raw_fd(f), libc::_PC_XATTR_EXISTS) != 0 }
+    }
+    // Elsewhere it cannot be told here: left as it is.
+    #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris")))]
+    {
+        let _ = f;
+        true
+    }
+}
+
+/// Extended attributes on the file, SELinux's label aside; an error but "none possible here"
+/// counts as some.
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+fn xattrs_listed(f: &std::fs::File) -> bool {
+    let mut names = vec![0u8; 64 * 1024];
+    // SAFETY: an open file and a buffer of the length given.
+    #[cfg(target_os = "macos")]
+    let n = unsafe { libc::flistxattr(std::os::fd::AsRawFd::as_raw_fd(f), names.as_mut_ptr().cast(), names.len(), 0) };
+    // SAFETY: as above.
+    #[cfg(not(target_os = "macos"))]
+    let n = unsafe { libc::flistxattr(std::os::fd::AsRawFd::as_raw_fd(f), names.as_mut_ptr().cast(), names.len()) };
+    if n < 0 {
+        return std::io::Error::last_os_error().raw_os_error() != Some(libc::ENOTSUP);
+    }
+    names[..n as usize].split(|&b| b == 0).any(|name| !name.is_empty() && name != b"security.selinux")
+}
+
+#[cfg(not(unix))]
+fn renamed_over_safely(_: &std::fs::File, _: &std::fs::Metadata) -> bool {
+    true
+}
+
+/// `bytes` written to a file beside `target`, for this user alone until it has the old file's
+/// group and permissions (set before a byte is written), then renamed over it. The error, and
+/// whether to write in place instead: no new file can be made there, or the group not given.
+fn beside(target: &Path, bytes: &[u8], old: Option<&std::fs::Metadata>) -> Result<(), (std::io::Error, bool)> {
     let dir = target.parent().unwrap_or(Path::new("."));
     let name = target.file_name().unwrap_or_default().to_string_lossy();
     let tmp = dir.join(format!(".{name}.coxswain-{}.tmp", std::process::id()));
+    let mut o = std::fs::OpenOptions::new();
+    o.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+    let mut f = o.open(&tmp).map_err(|e| {
+        let no_room = matches!(e.kind(), std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem);
+        (e, no_room)
+    })?;
     let done = (|| {
-        let mut f = std::fs::OpenOptions::new().write(true).create_new(true).open(&tmp)?;
-        f.write_all(bytes)?;
-        f.sync_all()?;
-        drop(f);
+        #[cfg(unix)]
         if let Some(m) = old {
-            std::fs::set_permissions(&tmp, m.permissions())?;
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            if f.metadata().map_err(|e| (e, false))?.gid() != m.gid() {
+                std::os::unix::fs::fchown(&f, None, Some(m.gid())).map_err(|e| (e, true))?;
+            }
+            // Its permission bits, not its set-user or set-group ones.
+            f.set_permissions(std::fs::Permissions::from_mode(m.mode() & 0o777)).map_err(|e| (e, false))?;
         }
-        std::fs::rename(&tmp, target)
+        #[cfg(not(unix))]
+        let _ = old;
+        f.write_all(bytes).and_then(|_| f.sync_all()).map_err(|e| (e, false))?;
+        drop(f);
+        std::fs::rename(&tmp, target).map_err(|e| (e, false))
     })();
     if done.is_err() {
         let _ = std::fs::remove_file(&tmp);
@@ -599,25 +772,21 @@ impl Buffer {
         if q.is_empty() {
             return false;
         }
-        let q = q.to_lowercase();
+        let q = fold(q);
         let n = self.lines.len();
         let from = self.selection().map_or(self.cursor, |(a, b)| if back { a } else { b });
         // Line by line from the cursor's, around the end, back to it.
         for k in 0..=n {
             let line = if back { (from.line + n * 2 - k) % n } else { (from.line + k) % n };
-            let l = &self.lines[line];
-            let lower = l.to_lowercase();
-            // Lowercasing changed the length (İ): that line is searched as it is.
-            let hay = if lower.len() == l.len() { lower } else { l.clone() };
-            let hits: Vec<usize> = hay.match_indices(&q).map(|(i, _)| i).collect();
+            let hits = folded_hits(&self.lines[line], &q);
             let hit = if back {
-                hits.into_iter().rev().find(|&i| k > 0 || i < from.col)
+                hits.into_iter().rev().find(|&(i, _)| k > 0 || i < from.col)
             } else {
-                hits.into_iter().find(|&i| k > 0 && k < n || k == 0 && i >= from.col || k == n && i < from.col)
+                hits.into_iter().find(|&(i, _)| k > 0 && k < n || k == 0 && i >= from.col || k == n && i < from.col)
             };
-            if let Some(i) = hit {
+            if let Some((i, end)) = hit {
                 self.anchor = Some(Pos { line, col: i });
-                self.cursor = Pos { line, col: i + q.len() };
+                self.cursor = Pos { line, col: end };
                 self.typing = false;
                 self.want = self.col_chars();
                 return true;
@@ -631,13 +800,10 @@ impl Buffer {
         if q.is_empty() {
             return 0;
         }
-        let ql = q.to_lowercase();
+        let ql = fold(q);
         let mut hits = vec![];
         for (line, l) in self.lines.iter().enumerate() {
-            let lower = l.to_lowercase();
-            if lower.len() == l.len() {
-                hits.extend(lower.match_indices(&ql).map(|(i, _)| Pos { line, col: i }));
-            }
+            hits.extend(folded_hits(l, &ql).into_iter().map(|(a, b)| (Pos { line, col: a }, b)));
         }
         if hits.is_empty() {
             return 0;
@@ -645,8 +811,8 @@ impl Buffer {
         let before = self.cursor;
         let mut step = vec![];
         // From the end, so the places before stay where they are.
-        for at in hits.iter().rev() {
-            let end = Pos { line: at.line, col: at.col + q.len() };
+        for (at, end) in hits.iter().rev() {
+            let end = Pos { line: at.line, col: *end };
             let text = self.take_raw(*at, end);
             step.push(Change { at: *at, text, put: false, before });
             self.put_raw(*at, with);
@@ -659,6 +825,28 @@ impl Buffer {
         self.after_jump();
         hits.len()
     }
+}
+
+/// `s` with its case set aside, a character at a time, as `folded_hits` compares.
+fn fold(s: &str) -> String {
+    s.chars().flat_map(char::to_lowercase).collect()
+}
+
+/// Where `ql` (folded) is in `line`, case aside: the start and end of each hit in `line`'s own
+/// bytes. Folding can change a character's length (ẞ, the Kelvin sign, İ), so places in the
+/// folded line are taken back to the characters they came from; a hit starting or ending
+/// inside one character's folding is none.
+fn folded_hits(line: &str, ql: &str) -> Vec<(usize, usize)> {
+    let mut folded = String::with_capacity(line.len());
+    // Where each character starts in the folded line, and in `line`.
+    let mut at = Vec::with_capacity(line.len() + 1);
+    for (i, c) in line.char_indices() {
+        at.push((folded.len(), i));
+        folded.extend(c.to_lowercase());
+    }
+    at.push((folded.len(), line.len()));
+    let back = |o: usize| at.binary_search_by_key(&o, |&(f, _)| f).ok().map(|k| at[k].1);
+    folded.match_indices(ql).filter_map(|(s, _)| Some((back(s)?, back(s + ql.len())?))).collect()
 }
 
 #[cfg(test)]
@@ -785,6 +973,78 @@ mod tests {
         assert_eq!(b.text(), "");
         b.insert("one\ntwo");
         assert_eq!(b.cursor, Pos { line: 1, col: 3 });
+    }
+
+    #[test]
+    fn case_aside_finds_and_replaces_whole_characters() {
+        // ẞ folds to ß (3 bytes to 2), the Kelvin sign to k (3 to 1), İ to i and a dot (2 to 3).
+        let mut b = Buffer::new("Maße STRAẞE\n\u{212A}=273 kelvin\nİstanbul istanbul");
+        assert_eq!(b.replace_all("ẞ", "ss"), 2);
+        assert_eq!(b.lines[0], "Masse STRAssE");
+        assert_eq!(b.replace_all("k", "K"), 2);
+        assert_eq!(b.lines[1], "K=273 Kelvin");
+        // An i is not half of an İ.
+        assert_eq!(b.replace_all("ist", "IST"), 1);
+        assert_eq!(b.lines[2], "İstanbul ISTanbul");
+        assert!(b.find("İSTANBUL", false));
+        assert_eq!(b.selection(), Some((Pos { line: 2, col: 0 }, Pos { line: 2, col: "İstanbul".len() })));
+        b.undo();
+        b.undo();
+        b.undo();
+        assert_eq!(b.text(), "Maße STRAẞE\n\u{212A}=273 kelvin\nİstanbul istanbul");
+        assert!(b.find("\u{212A}ELVIN", false));
+        assert_eq!(b.selection(), Some((Pos { line: 1, col: 8 }, Pos { line: 1, col: 14 })));
+    }
+
+    #[test]
+    fn a_failed_save_leaves_the_file_and_what_it_carries() {
+        let d = dir("carries");
+        let p = d.join("notes.txt");
+        std::fs::write(&p, "as it was\n").unwrap();
+        #[cfg(unix)]
+        {
+            // Something in the way of the file beside it that is no lack of room: said, not
+            // written in place. (Windows calls a folder in the way "access denied".)
+            let tmp = d.join(format!(".notes.txt.coxswain-{}.tmp", std::process::id()));
+            std::fs::create_dir(&tmp).unwrap();
+            assert!(matches!(save(&p, "new\n", Encoding::Utf8, false, None), Err(SaveError::Io(_))));
+            assert_eq!(std::fs::read_to_string(&p).unwrap(), "as it was\n");
+            std::fs::remove_dir(&tmp).unwrap();
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            let ino = |p: &Path| std::fs::metadata(p).unwrap().ino();
+            // A private file stays private, its group kept; renamed over.
+            std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
+            let (was, gid) = (ino(&p), std::fs::metadata(&p).unwrap().gid());
+            save(&p, "new\n", Encoding::Utf8, false, None).unwrap();
+            let m = std::fs::metadata(&p).unwrap();
+            assert_eq!((m.mode() & 0o777, m.gid()), (0o600, gid));
+            assert_ne!(m.ino(), was, "renamed over");
+            // SAFETY: geteuid has no preconditions.
+            if unsafe { libc::geteuid() } != 0 {
+                // Read-only: refused, not got round by a rename.
+                std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o400)).unwrap();
+                assert!(save(&p, "newer\n", Encoding::Utf8, false, None).is_err());
+                assert_eq!(std::fs::read_to_string(&p).unwrap(), "new\n");
+                std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
+            }
+            // Extended attributes, where the file system takes them: written in place, kept.
+            let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            // SAFETY: a path and a value of the length given.
+            let set = unsafe { libc::setxattr(c.as_ptr(), c"user.coxswain-test".as_ptr(), b"x".as_ptr().cast(), 1, 0) } == 0;
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            let set = { let _ = c; false };
+            if set {
+                let was = ino(&p);
+                save(&p, "with attributes\n", Encoding::Utf8, false, None).unwrap();
+                assert_eq!(ino(&p), was, "in place");
+                assert_eq!(std::fs::read_to_string(&p).unwrap(), "with attributes\n");
+                save(&p, "short\n", Encoding::Utf8, false, None).unwrap();
+                assert_eq!(std::fs::read_to_string(&p).unwrap(), "short\n", "cut to length");
+            }
+        }
+        assert!(std::fs::read_dir(&d).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().ends_with(".tmp")));
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]
