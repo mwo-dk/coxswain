@@ -26,6 +26,11 @@ fn library(path: &Path) -> Res<Arc<Library>> {
 #[tauri::command]
 pub fn chess_close(path: PathBuf) {
     LIBS.forget(&path);
+    let mut review = REVIEW.lock().unwrap_or_else(|e| e.into_inner());
+    if review.as_ref().is_some_and(|r| r.0 == path) {
+        *review = None;
+    }
+    drop(review);
     let mut last = ORDER.lock().unwrap_or_else(|e| e.into_inner());
     if last.as_ref().is_some_and(|o| o.0 == path) {
         *last = None;
@@ -40,6 +45,8 @@ pub struct Looks {
     letters: [String; 5],
     /// `figurines` or `letters`, from Settings.
     notation: String,
+    /// Whether the engine is asked from the start (`[chess] analysis`).
+    analysis: bool,
 }
 
 #[tauri::command]
@@ -50,12 +57,15 @@ pub fn chess_looks(theme: String, ctx: tauri::State<'_, crate::Ctx>) -> Looks {
         figurines: chess::pieces(chess::Notation::Figurines),
         letters: chess::pieces(chess::Notation::Letters),
         notation: cfg.chess.notation.clone(),
+        analysis: cfg.chess.analysis,
     }
 }
 
 #[derive(Serialize)]
 pub struct Rows {
     progress: chess::Progress,
+    /// Whose games: `pgn` (chess), `pdn` (draughts) or `xiangqi`.
+    format: chess::Format,
     /// The games the query lets through, of `progress.games`.
     total: usize,
     /// From `offset`: each with its index in the file (from 0).
@@ -81,7 +91,7 @@ pub async fn chess_rows(path: PathBuf, query: Query, offset: usize, limit: usize
             }
         };
         let rows = ids.iter().skip(offset).take(limit.min(500)).filter_map(|&i| lib.row(i).map(|r| (i, r))).collect();
-        Ok(Rows { progress, total: ids.len(), rows })
+        Ok(Rows { progress, format: lib.format, total: ids.len(), rows })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -90,6 +100,8 @@ pub async fn chess_rows(path: PathBuf, query: Query, offset: usize, limit: usize
 #[derive(Serialize)]
 pub struct GameView {
     game: chess::Game,
+    /// A draughts game's variant, as its heading says it: "International draughts, 10×10".
+    variant: Option<String>,
     layout: Vec<Token>,
     /// Shown above the moves when one could not be played.
     error: Option<String>,
@@ -99,9 +111,11 @@ pub struct GameView {
 #[tauri::command]
 pub async fn chess_game(path: PathBuf, index: u32) -> Res<GameView> {
     tauri::async_runtime::spawn_blocking(move || {
-        let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
+        let lib = library(&path)?;
+        let game = lib.game(index).map_err(|e| e.to_string())?;
         let error = game.error.as_ref().map(|e| coxswain_core::t!("chess.cannot_play", "move" => e));
-        Ok(GameView { layout: game.layout(), game, error })
+        let variant = (lib.format == chess::Format::Pdn).then(|| coxswain_core::draughts::variant(&game).name());
+        Ok(GameView { layout: game.layout(), game, variant, error })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -122,4 +136,164 @@ pub async fn chess_positions(path: PathBuf) -> Res<Vec<Position>> {
 #[tauri::command]
 pub async fn chess_hit(path: PathBuf, snippet: String) -> Option<u32> {
     tauri::async_runtime::spawn_blocking(move || chess::games::game_of_hit(&path, &snippet)).await.ok().flatten()
+}
+
+#[derive(Serialize)]
+pub struct BookView {
+    /// The book's file name.
+    name: String,
+    entries: u64,
+    moves: Vec<chess::polyglot::BookMove>,
+}
+
+/// The opening book's moves for the position `fen` of a game in the file at `path`: the file
+/// itself when it is a book, else the book Settings names or the first one next to the file.
+#[tauri::command]
+pub async fn chess_book(path: PathBuf, fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<BookView>> {
+    let configured = ctx.cfg().chess.book.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::here(&path)?;
+        let Some(book) = chess::polyglot::find(&path, &configured) else { return Ok(None) };
+        let entries = chess::polyglot::Book::open(&book).map_or(0, |b| b.entries());
+        let name = book.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        Ok(Some(BookView { name, entries, moves: chess::polyglot::moves_at(&book, &fen) }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Whether the file is a Polyglot opening book (`chess::sniff`), for the preview.
+#[tauri::command]
+pub async fn chess_is_book(path: PathBuf) -> bool {
+    tauri::async_runtime::spawn_blocking(move || chess::polyglot::is_book(&path)).await.unwrap_or(false)
+}
+
+/// The legal moves of the position `fen`, each with the position after it (`chess::play`).
+#[tauri::command]
+pub fn chess_moves(fen: String) -> Vec<chess::play::Played> {
+    chess::play::moves(&fen)
+}
+
+/// The last position the engine was asked about: an older question stops when a newer one comes.
+static ASKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// What the installed engine (`[chess] engine`, else Stockfish) says about the position `fen`,
+/// after `[chess] engine_time`. It runs on this machine; nothing is sent anywhere.
+#[tauri::command]
+pub async fn chess_analyse(fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<chess::play::Analysis> {
+    use std::sync::atomic::Ordering;
+    let cfg = ctx.cfg().clone();
+    let (ms, lines) = (cfg.chess.engine_time, cfg.chess.engine_lines);
+    let me = ASKED.fetch_add(1, Ordering::Relaxed) + 1;
+    tauri::async_runtime::spawn_blocking(move || {
+        let program = chess::play::engine_for(&cfg)?;
+        chess::play::analyse(&program, &fen, ms, lines, &|| ASKED.load(Ordering::Relaxed) != me).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// A line played on from the board, saved as a new PGN file next to the game file at `path`:
+/// the game's `tags`, `sans` played from `start`. Its name, for the status line.
+#[tauri::command]
+pub async fn chess_save_line(path: PathBuf, tags: Vec<(String, String)>, start: String, sans: Vec<String>) -> Res<String> {
+    crate::here(&path)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let text = chess::play::line_pgn(&tags, &start, &sans);
+        let p = chess::play::save_beside(&path, "line", &text).map_err(|e| coxswain_core::t!("chess.line_not_saved", "error" => e))?;
+        Ok(coxswain_core::t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The game analysed as a whole, in the background: its file and index, and the analysis.
+static REVIEW: Mutex<Option<(PathBuf, u32, chess::review::Reviewer)>> = Mutex::new(None);
+
+/// The whole-game analysis of game `index` of `path`: `start` begins it (from the cache when
+/// it was done before), `stop` stops it, `state` says how far it is. Another game's is let go.
+#[tauri::command]
+pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<chess::review::Review>> {
+    let cfg = ctx.cfg().clone();
+    let ms = cfg.chess.review_time;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut cur = REVIEW.lock().unwrap_or_else(|e| e.into_inner());
+        if cur.as_ref().is_some_and(|(p, i, _)| *p != path || *i != index) {
+            *cur = None;
+        }
+        match act.as_str() {
+            "start" => {
+                let program = chess::play::engine_for(&cfg)?;
+                let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
+                *cur = Some((path, index, chess::review::Reviewer::start(&program, ms, &game)));
+            }
+            "stop" => {
+                if let Some((.., r)) = cur.as_ref() {
+                    r.stop();
+                }
+            }
+            _ => {}
+        }
+        Ok(cur.as_ref().map(|(.., r)| r.now()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Game `index` of `path` with its analysis in it, as a new PGN file next to `path`.
+#[tauri::command]
+pub async fn chess_review_save(path: PathBuf, index: u32) -> Res<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = REVIEW
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .filter(|(p, i, _)| *p == path && *i == index)
+            .map(|(.., r)| r.now())
+            .filter(|r| !r.plies.is_empty())
+            .ok_or_else(|| coxswain_core::t!("chess.review_first"))?;
+        let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
+        let text = chess::review::annotated_pgn(&game, &r);
+        let p = chess::play::save_beside(&path, "annotated", &text).map_err(|e| coxswain_core::t!("chess.line_not_saved", "error" => e))?;
+        Ok(coxswain_core::t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// A game found by Find this position: its file, its index, and for a game of `path` (the file
+/// on view) its players, result and date.
+#[derive(Serialize)]
+pub struct PositionGame {
+    path: PathBuf,
+    name: String,
+    index: u32,
+    about: String,
+}
+
+/// The games in the search store that reach the position `fen` (Find this position). `None`:
+/// no store to ask (words in files off).
+#[tauri::command]
+pub async fn chess_position_games(path: PathBuf, fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<Vec<PositionGame>>> {
+    let index = ctx.index.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(b) = chess::pgn::board(&fen) else { return Ok(Some(vec![])) };
+        let Some(found) = index.games_at(chess::polyglot::key(&b), 500) else { return Ok(None) };
+        let here = library(&path).ok();
+        Ok(Some(
+            found
+                .into_iter()
+                .map(|(p, i)| {
+                    let about = match here.as_ref().filter(|_| p == path).and_then(|l| l.row(i)) {
+                        Some(r) => format!("{} – {} {} {}", r.white, r.black, r.result, r.date),
+                        None => String::new(),
+                    };
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    PositionGame { path: p, name, index: i, about }
+                })
+                .collect(),
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

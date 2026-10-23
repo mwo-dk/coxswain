@@ -1,12 +1,15 @@
 //! Chess games and positions (docs/previews/chess.md), for both apps: PGN files (also
 //! `.pgn.gz` and `.pgn.zst`) as a table of games, each game as a board with its moves and
-//! variations; EPD and FEN files as their positions. Reading only: nothing is played or
-//! analysed. Moves are shown in figurines (♘f3) or in the letters of the app's language; the
+//! variations; EPD and FEN files as their positions. A position can be played on (`play`), in
+//! the view only, and an installed engine asked about it. Moves are shown in figurines (♘f3) or in the letters of the app's language; the
 //! files keep English SAN.
 
 pub mod games;
 pub mod openings;
 pub mod pgn;
+pub mod play;
+pub mod review;
+pub mod polyglot;
 
 pub use games::{Library, Progress, Query, Row, Sort};
 pub use pgn::{Game, Node, Token};
@@ -24,6 +27,19 @@ pub enum Format {
     Pgn,
     /// Positions, one a line: `.epd`, `.fen`.
     Epd,
+    /// Go games: `.sgf` (`crate::go`), shown by the same action.
+    Sgf,
+    /// A Polyglot opening book (`polyglot`): a `.bin` file that is one, by its bytes.
+    Book,
+    /// Draughts games: `.pdn` (`crate::draughts`), in the same table as PGN games.
+    Pdn,
+    /// Xiangqi games: a PGN file whose tags say so (`games::kind`, `crate::xiangqi`).
+    Xiangqi,
+    /// Shogi games (`crate::shogi`): KIF (`.kif`, `.kifu`) and CSA (`.csa`).
+    Kif,
+    Csa,
+    /// Bridge deals: `.pbn` (`crate::bridge`).
+    Pbn,
 }
 
 /// The chess file `path` is, by its name.
@@ -33,9 +49,23 @@ pub fn format(path: &Path) -> Option<Format> {
         Some(Format::Pgn)
     } else if n.ends_with(".epd") || n.ends_with(".fen") {
         Some(Format::Epd)
+    } else if n.ends_with(".sgf") {
+        Some(Format::Sgf)
+    } else if n.ends_with(".pdn") {
+        Some(Format::Pdn)
+    } else if n.ends_with(".pbn") {
+        Some(Format::Pbn)
+    } else if let Some(f) = crate::shogi::format(&n) {
+        Some(f)
     } else {
         None
     }
+}
+
+/// The games file `path` is: `format`, and for a `.bin` file, whether its bytes are a
+/// Polyglot book's. It reads the file, so it is for one file the user is on, not a listing.
+pub fn sniff(path: &Path) -> Option<Format> {
+    format(path).or_else(|| polyglot::is_book(path).then_some(Format::Book))
 }
 
 /// The file endings of PGN files, for the search store.

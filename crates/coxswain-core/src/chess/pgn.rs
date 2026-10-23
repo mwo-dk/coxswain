@@ -78,6 +78,18 @@ impl Game {
         v
     }
 
+    /// The moves from the first to `node`, in order; empty for none (the start position).
+    pub fn path_to(&self, node: Option<u32>) -> Vec<u32> {
+        let mut v = vec![];
+        let mut at = node.filter(|&n| (n as usize) < self.nodes.len());
+        while let Some(n) = at {
+            v.push(n);
+            at = self.nodes[n as usize].parent;
+        }
+        v.reverse();
+        v
+    }
+
     /// The moves as they are written out: the main line with each variation in brackets after
     /// the move it replaces, comments where they stand, move numbers where needed.
     pub fn layout(&self) -> Vec<Token> {
@@ -165,7 +177,7 @@ pub enum Token {
 }
 
 /// The annotation `!`, `?`, `!!`, `??`, `!?` or `?!` as its NAG number.
-fn suffix_nag(s: &str) -> Option<u8> {
+pub(crate) fn suffix_nag(s: &str) -> Option<u8> {
     Some(match s {
         "!" => 1,
         "?" => 2,
@@ -457,9 +469,77 @@ pub fn san_move(b: &Board, san: &str) -> Option<Move> {
     (count == 1).then_some(found).flatten()
 }
 
+/// A legal move on `b` in English SAN, as a book writes it: `Nbd2`, `exd5`, `O-O`, `e8=Q+`.
+pub fn san(b: &Board, mv: Move) -> String {
+    let piece = b.piece_on(mv.from).unwrap_or(Piece::Pawn);
+    let mut out = String::new();
+    if piece == Piece::King && b.color_on(mv.to) == b.color_on(mv.from) {
+        out.push_str(if mv.to.file() > mv.from.file() { "O-O" } else { "O-O-O" });
+    } else {
+        let capture = b.color_on(mv.to).is_some() || (piece == Piece::Pawn && mv.from.file() != mv.to.file());
+        if piece == Piece::Pawn {
+            if capture {
+                out.push(char::from(b'a' + mv.from.file() as u8));
+            }
+        } else {
+            out.push(match piece {
+                Piece::Knight => 'N',
+                Piece::Bishop => 'B',
+                Piece::Rook => 'R',
+                Piece::Queen => 'Q',
+                _ => 'K',
+            });
+            // Other pieces of its kind that reach the square: its file, else its rank, else both.
+            let mut others = vec![];
+            b.generate_moves_for(b.colored_pieces(b.side_to_move(), piece), |moves| {
+                for m in moves {
+                    if m.to == mv.to && m.from != mv.from {
+                        others.push(m.from);
+                    }
+                }
+                false
+            });
+            if !others.is_empty() {
+                let file = !others.iter().any(|s| s.file() == mv.from.file());
+                let rank = !others.iter().any(|s| s.rank() == mv.from.rank());
+                if file || !rank {
+                    out.push(char::from(b'a' + mv.from.file() as u8));
+                }
+                if !file {
+                    out.push(char::from(b'1' + mv.from.rank() as u8));
+                }
+            }
+        }
+        if capture {
+            out.push('x');
+        }
+        out.push_str(&mv.to.to_string());
+        if let Some(p) = mv.promotion {
+            out.push('=');
+            out.push(match p {
+                Piece::Knight => 'N',
+                Piece::Bishop => 'B',
+                Piece::Rook => 'R',
+                _ => 'Q',
+            });
+        }
+    }
+    let mut after = b.clone();
+    after.play_unchecked(mv);
+    if !after.checkers().is_empty() {
+        let mut any = false;
+        after.generate_moves(|_| {
+            any = true;
+            true
+        });
+        out.push(if any { '+' } else { '#' });
+    }
+    out
+}
+
 /// The square a move ends on as the eye sees it: castling goes to the king's square, not its
 /// rook's (cozy-chess's notation).
-fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
+pub(crate) fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
     let to = if b.piece_on(mv.from) == Some(Piece::King) && b.color_on(mv.to) == b.color_on(mv.from) {
         let file = if mv.to.file() > mv.from.file() { File::G } else { File::C };
         Square::new(file, mv.from.rank())
@@ -469,8 +549,65 @@ fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
     (mv.from as u8, to as u8)
 }
 
+/// What a game of the PGN family needs to be read and played out: chess here, draughts in
+/// `crate::draughts`. The rest (tags, comments, variations, NAGs, results) is the same.
+pub(crate) trait Rules {
+    type Board: Clone;
+    /// The position the game starts from, by its tags (a FEN tag) and its first moves, and its
+    /// FEN; the start position when the tags say nothing.
+    fn start(&self, tags: &[(String, String)], moves: &str) -> (Self::Board, String);
+    /// A word of the movetext, sorted.
+    fn word<'a>(&self, w: &'a str) -> Word<'a>;
+    /// Whose move it is on `b`: the first player's (White in chess) or not, and its number.
+    fn turn(&self, b: &Self::Board) -> (bool, u32);
+    /// The move `mv` played on `b`: the board after it, its FEN, and the squares it went from and
+    /// to (for the highlight). None when it cannot be played there.
+    fn play(&self, b: &Self::Board, mv: &str) -> Option<(Self::Board, String, Option<u8>, Option<u8>)>;
+}
+
+/// Chess, by cozy-chess.
+pub(crate) struct Chess;
+
+impl Rules for Chess {
+    type Board = Board;
+
+    fn start(&self, tags: &[(String, String)], _: &str) -> (Board, String) {
+        tags.iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("FEN"))
+            .and_then(|(_, f)| board(f).map(|b| (b, full_fen(f))))
+            .unwrap_or_else(|| (Board::default(), START.to_string()))
+    }
+
+    fn word<'a>(&self, w: &'a str) -> Word<'a> {
+        word(w)
+    }
+
+    fn turn(&self, b: &Board) -> (bool, u32) {
+        (b.side_to_move() == Color::White, b.fullmove_number() as u32)
+    }
+
+    fn play(&self, b: &Board, san: &str) -> Option<(Board, String, Option<u8>, Option<u8>)> {
+        // A null move (`--`, or `Z0`): the turn passes.
+        if san == "--" || san == "Z0" {
+            let nb = b.null_move()?;
+            return Some((nb.clone(), nb.to_string(), None, None));
+        }
+        let mv = san_move(b, san)?;
+        let (from, to) = shown_squares(b, mv);
+        let mut nb = b.clone();
+        nb.play_unchecked(mv);
+        Some((nb.clone(), nb.to_string(), Some(from), Some(to)))
+    }
+}
+
 /// The game `text` (its tags and moves), read and played out.
 pub fn parse(text: &str) -> Game {
+    parse_with(text, &Chess)
+}
+
+/// A game of the PGN family, read and played out by `rules`. Without recursion, and with no
+/// more than `MAX_MOVES` moves and `MAX_DEPTH` levels of variations, whatever the text.
+pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
     let mut g = Game::default();
     // The tags: every `[` line before the moves.
     let mut rest = text;
@@ -489,14 +626,10 @@ pub fn parse(text: &str) -> Game {
             break;
         }
     }
-    let start = g
-        .tag("FEN")
-        .and_then(|f| board(f).map(|b| (b, full_fen(f))))
-        .unwrap_or_else(|| (Board::default(), START.to_string()));
-    g.start = start.1;
-    let first = start.0;
+    let (first, start) = rules.start(&g.tags, rest);
+    g.start = start;
     // Per node: its board, when its line could be played so far.
-    let mut boards: Vec<Option<Board>> = vec![];
+    let mut boards: Vec<Option<R::Board>> = vec![];
     // The move the next one follows (None: the start), and the variations open around it.
     let mut cur: Option<u32> = None;
     let mut stack: Vec<Option<u32>> = vec![];
@@ -508,7 +641,7 @@ pub fn parse(text: &str) -> Game {
     let mut skip = 0u32;
     // The moves of a line with a move that could not be played have no boards: this is the
     // board before the next move, or None.
-    let board_at = |at: Option<u32>, boards: &[Option<Board>]| match at {
+    let board_at = |at: Option<u32>, boards: &[Option<R::Board>]| match at {
         None => Some(first.clone()),
         Some(n) => boards[n as usize].clone(),
     };
@@ -552,7 +685,7 @@ pub fn parse(text: &str) -> Game {
                 }
                 after_move = false;
             }
-            Lex::Word(w) => match word(w) {
+            Lex::Word(w) => match rules.word(w) {
                 Word::Result(r) => {
                     if depth == 0 {
                         g.result = if r == "½-½" { "1/2-1/2".into() } else { r.to_string() };
@@ -566,7 +699,7 @@ pub fn parse(text: &str) -> Game {
                     let id = g.nodes.len() as u32;
                     let prev = board_at(cur, &boards);
                     let (white, number) = match prev.as_ref() {
-                        Some(b) => (b.side_to_move() == Color::White, b.fullmove_number() as u32),
+                        Some(b) => rules.turn(b),
                         None => {
                             // Counted on from the move before.
                             let p = cur.map(|n| &g.nodes[n as usize]);
@@ -575,10 +708,9 @@ pub fn parse(text: &str) -> Game {
                             (white, number)
                         }
                     };
-                    // A null move (`--`, or `Z0`): the turn passes, shown as `--`.
-                    let null = san == "--" || san == "Z0";
                     let mut node = Node {
-                        san: if null { "--".into() } else { san.to_string() },
+                        // A null move is shown as `--`.
+                        san: if san == "Z0" { "--".into() } else { san.to_string() },
                         parent: cur,
                         white,
                         number,
@@ -588,21 +720,12 @@ pub fn parse(text: &str) -> Game {
                         ..Node::default()
                     };
                     let mut after = None;
-                    if let Some(b) = prev.as_ref()
-                        && null
-                        && let Some(nb) = b.null_move()
-                    {
-                        node.fen = Some(nb.to_string());
-                        after = Some(nb);
-                    } else if let Some(b) = prev.as_ref() {
-                        match san_move(b, san) {
-                            Some(mv) => {
-                                let (from, to) = shown_squares(b, mv);
-                                let mut nb = b.clone();
-                                nb.play_unchecked(mv);
-                                node.from = Some(from);
-                                node.to = Some(to);
-                                node.fen = Some(nb.to_string());
+                    if let Some(b) = prev.as_ref() {
+                        match rules.play(b, san) {
+                            Some((nb, fen, from, to)) => {
+                                node.from = from;
+                                node.to = to;
+                                node.fen = Some(fen);
                                 after = Some(nb);
                             }
                             None => {
@@ -782,6 +905,38 @@ mod tests {
         // A tag value no longer than MAX_TAG.
         let long = format!("[White \"{}\"]", "x".repeat(100_000));
         assert_eq!(tag_pair(&long).unwrap().1.len(), MAX_TAG);
+    }
+
+    #[test]
+    fn moves_written_in_san() {
+        let all = |fen: &str| -> Vec<String> {
+            let b = board(fen).unwrap();
+            let mut v = vec![];
+            b.generate_moves(|ms| {
+                for m in ms {
+                    v.push(san(&b, m));
+                }
+                false
+            });
+            // Every move written reads back as itself.
+            for s in &v {
+                let m = san_move(&b, s).unwrap_or_else(|| panic!("{s} on {fen}"));
+                assert_eq!(&san(&b, m), s);
+            }
+            v
+        };
+        assert!(all(START).contains(&"Nf3".to_string()));
+        let v = all("4k3/8/8/8/8/8/8/1N2KN2 w - - 0 1");
+        assert!(v.contains(&"Nbd2".into()) && v.contains(&"Nfd2".into()));
+        let v = all("8/P5k1/8/8/8/8/8/R3K2R w KQ - 0 1");
+        assert!(v.contains(&"a8=Q".into()) && v.contains(&"O-O".into()) && v.contains(&"O-O-O".into()));
+        let v = all("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 1");
+        assert!(v.contains(&"Qxf7#".into()));
+        let v = all("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3");
+        assert!(v.contains(&"exf6".into()));
+        // Rooks on one file: the rank tells them apart.
+        let v = all("4k3/8/R7/8/8/8/R7/4K3 w - - 0 1");
+        assert!(v.contains(&"R6a4".into()) && v.contains(&"R2a4".into()));
     }
 
     #[test]

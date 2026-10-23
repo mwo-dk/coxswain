@@ -3,8 +3,12 @@
 //! its moves beside it, variations and comments in place. An EPD or FEN file: its positions.
 //! Reading and playing out are coxswain-core's `chess`; the desktop app shows the same.
 
+use coxswain_core::chess::polyglot::{self, BookMove};
+use coxswain_core::chess::play::{self, Analysis, Played};
+use coxswain_core::chess::review::{self, Review, Reviewer};
 use coxswain_core::chess::{self, Format, Library, Notation, Position, Query, Sort, Token};
 use coxswain_core::config::{Action, Key, KeyCode, Theme};
+use coxswain_core::mosaic::{self, Pieces};
 use coxswain_core::t;
 use ratatui::Frame;
 use ratatui::layout::{Margin, Rect};
@@ -13,9 +17,10 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
-use unicode_width::UnicodeWidthStr;
+use crate::ui::Cols;
 
 use crate::bom::faint;
 use crate::ui::{fit, sty};
@@ -24,6 +29,8 @@ use crate::ui::{fit, sty};
 pub enum Outcome {
     Stay,
     Close,
+    /// Another games file, at a game (Find this position).
+    Open(PathBuf, u32),
 }
 
 /// The filter field being typed into.
@@ -43,6 +50,23 @@ struct Open {
     layout: Vec<Token>,
     /// The move shown; None: the position before the first.
     at: Option<u32>,
+}
+
+/// A line played on from the board (`chess::play`), kept in the view until saved or cleared.
+struct PlayedLine {
+    /// The move it is played from (None: the start position).
+    base: Option<u32>,
+    moves: Vec<Played>,
+    /// How many of its moves are shown: 0 is the base.
+    at: usize,
+}
+
+/// The engine asked about a position, on a thread: its position, the answer, and the flag
+/// that stops it.
+struct Thinking {
+    fen: String,
+    rx: Receiver<Result<Analysis, String>>,
+    stop: Arc<AtomicBool>,
 }
 
 pub struct Viewer {
@@ -66,7 +90,49 @@ pub struct Viewer {
     flip: bool,
     notation: Notation,
     board: [Color; 2],
+    /// The squares' own colours, light then dark: for pieces drawn from blocks, which have
+    /// outlines of their own.
+    squares: [Color; 2],
+    pieces: Pieces,
+    /// The pieces as pictures, made as the board needs them (`pictures`).
+    pictures: Option<crate::pictures::Pieces>,
     said: Option<String>,
+    /// The opening book whose moves are shown (`polyglot::find`), and the last position's.
+    book: Option<PathBuf>,
+    book_moves: Option<(String, Vec<BookMove>)>,
+    /// The file is a book: its moves are played on the board from the start, `line` the
+    /// positions before, `pick` the move chosen.
+    book_only: bool,
+    line: Vec<String>,
+    pick: usize,
+    /// The line played on from the board, and the move list being chosen from (what is typed
+    /// to narrow it, the move chosen).
+    played: Option<PlayedLine>,
+    picking: Option<(String, usize)>,
+    /// The engine: asked about each position while `analysis` is on.
+    analysis: bool,
+    /// The engine (`play::engine_for`), found when the view opens; or why there is none.
+    program: Result<play::Program, String>,
+    engine_time: u32,
+    engine_lines: u32,
+    thinking: Option<Thinking>,
+    analysed: Option<(String, Result<Analysis, String>)>,
+    /// The game analysed as a whole (`g`), and the time it gives a position.
+    review: Option<Reviewer>,
+    review_time: u32,
+    /// The search helper, and Find this position: the games it found (file, index) and the one
+    /// chosen; asked on a thread.
+    index: Option<Arc<coxswain_core::helper::Client>>,
+    finding: Option<Receiver<Option<Vec<(PathBuf, u32)>>>>,
+    found: Option<(Vec<(PathBuf, u32)>, usize)>,
+}
+
+impl Drop for Viewer {
+    fn drop(&mut self) {
+        if let Some(t) = &self.thinking {
+            t.stop.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 fn rgb(hex: &str) -> Color {
@@ -127,16 +193,60 @@ impl Viewer {
                 let [light, dark] = chess::board_colours(theme, &cfg.chess.board).map(|c| rgb(&c));
                 [mix(light, dark), dark]
             },
+            squares: chess::board_colours(theme, &cfg.chess.board).map(|c| rgb(&c)),
+            pieces: crate::pieces::pieces(cfg),
+            pictures: crate::pictures::support().map(crate::pictures::Pieces::new),
             said: None,
             reading: None,
             hit: None,
             want: None,
+            book: polyglot::find(path, &cfg.chess.book),
+            book_moves: None,
+            book_only: false,
+            line: vec![],
+            pick: 0,
+            played: None,
+            picking: None,
+            analysis: cfg.chess.analysis,
+            program: play::engine_for(cfg),
+            engine_time: cfg.chess.engine_time,
+            engine_lines: cfg.chess.engine_lines,
+            thinking: None,
+            analysed: None,
+            review: None,
+            review_time: cfg.chess.review_time,
+            index: None,
+            finding: None,
+            found: None,
         };
-        match chess::format(path) {
-            Some(Format::Pgn) => v.lib = Some(Arc::new(Library::open(path)?)),
+        match chess::sniff(path) {
+            Some(Format::Pgn) => {
+                let lib = Library::open(path)?;
+                // Xiangqi in a PGN file: no opening book.
+                if lib.format != Format::Pgn {
+                    v.book = None;
+                }
+                v.lib = Some(Arc::new(lib));
+            }
+            // Draughts: the same table; no opening book.
+            Some(Format::Pdn | Format::Kif | Format::Csa | Format::Pbn) => {
+                v.lib = Some(Arc::new(Library::open(path)?));
+                v.book = None;
+            }
+            Some(Format::Book) => {
+                v.book_only = true;
+                let game = chess::Game { start: chess::pgn::START.to_string(), ..Default::default() };
+                v.open = Some(Open { index: 0, layout: vec![], game, at: None });
+            }
             _ => {
                 v.positions = chess::read_positions(path)?;
                 v.show_position(0);
+            }
+        }
+        if v.pieces != Pieces::Pictures {
+            v.pictures = None;
+            if cfg.chess.pieces == "pictures" {
+                v.said = Some(t!("chess.pictures_none"));
             }
         }
         Ok(v)
@@ -153,7 +263,17 @@ impl Viewer {
     }
 
     /// The table follows the reading: asked again when there are more games, twice a second.
+    /// The engine is asked about the position shown, once per position.
     pub fn poll(&mut self) {
+        self.poll_engine();
+        if let Some(r) = self.finding.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.finding = None;
+            match r {
+                None => self.said = Some(t!("chess.position_off")),
+                Some(v) if v.is_empty() => self.said = Some(t!("chess.position_none")),
+                Some(v) => self.found = Some((v, 0)),
+            }
+        }
         if let Some(r) = self.hit.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.hit = None;
             self.said = None;
@@ -167,6 +287,8 @@ impl Viewer {
                     let layout = game.layout();
                     self.said = game.error.as_ref().map(|e| t!("chess.cannot_play", "move" => e));
                     self.open = Some(Open { index, game, layout, at: None });
+                    self.played = None;
+                    self.review = None;
                 }
                 Err(e) => self.said = Some(e.to_string()),
             }
@@ -189,6 +311,289 @@ impl Viewer {
             }
             self.show_game(n);
         }
+    }
+
+    /// Draughts or xiangqi: a board of its own, without openings, figurines or a book.
+    fn other_game(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format != Format::Pgn)
+    }
+
+    /// The feature F1 shows for it: chess, draughts or xiangqi.
+    pub fn feature(&self) -> &'static str {
+        match self.lib.as_ref().map(|l| l.format) {
+            Some(Format::Pdn) => "draughts",
+            Some(Format::Xiangqi) => "xiangqi",
+            Some(Format::Kif | Format::Csa) => "shogi",
+            Some(Format::Pbn) => "bridge",
+            _ => "chess",
+        }
+    }
+
+    /// A PBN file of bridge deals.
+    fn bridge(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format == Format::Pbn)
+    }
+
+    /// A KIF or CSA file of shogi games.
+    fn shogi(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| matches!(l.format, Format::Kif | Format::Csa))
+    }
+
+    /// A PGN file of xiangqi games.
+    fn xiangqi(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format == Format::Xiangqi)
+    }
+
+    /// A PDN file: draughts on its own board, without openings or figurines.
+    fn draughts(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.format == Format::Pdn)
+    }
+
+    /// The position on the board, and the squares of the move that led to it.
+    fn now(&self) -> (Option<String>, Option<(Option<u8>, Option<u8>)>) {
+        if let Some(l) = self.played.as_ref().filter(|l| l.at > 0) {
+            let m = &l.moves[l.at - 1];
+            return (Some(m.fen.clone()), Some((Some(m.from), Some(m.to))));
+        }
+        let Some(o) = &self.open else { return (None, None) };
+        match o.at {
+            Some(n) => {
+                let n = &o.game.nodes[n as usize];
+                (n.fen.clone(), Some((n.from, n.to)))
+            }
+            None => (Some(o.game.start.clone()), None),
+        }
+    }
+
+    fn poll_engine(&mut self) {
+        if let Some(t) = &self.thinking
+            && let Ok(r) = t.rx.try_recv()
+        {
+            self.analysed = Some((t.fen.clone(), r));
+            self.thinking = None;
+        }
+        let fen = self.now().0.filter(|_| self.analysis && self.open.is_some());
+        let Some(fen) = fen else {
+            if let Some(t) = self.thinking.take() {
+                t.stop.store(true, Ordering::Relaxed);
+            }
+            return;
+        };
+        if self.thinking.as_ref().is_some_and(|t| t.fen == fen) || self.analysed.as_ref().is_some_and(|a| a.0 == fen) {
+            return;
+        }
+        if let Some(t) = self.thinking.take() {
+            t.stop.store(true, Ordering::Relaxed);
+        }
+        let program = match &self.program {
+            Ok(p) => p.clone(),
+            Err(why) => {
+                self.analysed = Some((fen, Err(why.clone())));
+                return;
+            }
+        };
+        let (tx, rx) = std::sync::mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let (f, s, ms, n) = (fen.clone(), stop.clone(), self.engine_time, self.engine_lines);
+        std::thread::spawn(move || {
+            let r = play::analyse(&program, &f, ms, n, &|| s.load(Ordering::Relaxed)).map_err(|e| e.to_string());
+            let _ = tx.send(r);
+        });
+        self.thinking = Some(Thinking { fen, rx, stop });
+    }
+
+    /// A move played from the position shown: the game's own next move (or a variation's) is
+    /// stepped to; any other starts or goes on with the played line, cut after the move shown.
+    fn play(&mut self, m: Played) {
+        let in_line = self.played.as_ref().is_some_and(|l| l.at > 0);
+        if self.book_only && !in_line {
+            if let Some(o) = self.open.as_mut() {
+                self.line.push(std::mem::replace(&mut o.game.start, m.fen));
+                self.pick = 0;
+            }
+            return;
+        }
+        if !in_line && let Some(o) = self.open.as_mut() {
+            let g = &o.game;
+            let next: &[u32] = match o.at {
+                Some(n) => &g.nodes[n as usize].children,
+                None => &g.roots,
+            };
+            if let Some(&n) = next.iter().find(|&&n| g.nodes[n as usize].fen.as_deref() == Some(m.fen.as_str())) {
+                o.at = Some(n);
+                return;
+            }
+            let base = self.open.as_ref().and_then(|o| o.at);
+            self.played = Some(PlayedLine { base, moves: vec![m], at: 1 });
+            return;
+        }
+        if let Some(l) = self.played.as_mut() {
+            l.moves.truncate(l.at);
+            l.moves.push(m);
+            l.at = l.moves.len();
+        }
+    }
+
+    /// The played line as a new PGN file next to this one: the game's moves up to its base,
+    /// then the line.
+    fn save_line(&mut self) {
+        let (Some(l), Some(o)) = (&self.played, &self.open) else {
+            self.said = Some(t!("chess.line_none"));
+            return;
+        };
+        let g = &o.game;
+        let mut sans: Vec<String> = g.path_to(l.base).iter().map(|&n| g.nodes[n as usize].san.clone()).collect();
+        sans.extend(l.moves.iter().map(|m| m.san.clone()));
+        let text = play::line_pgn(&g.tags, &g.start, &sans);
+        self.said = Some(match play::save_beside(&self.path, "line", &text) {
+            Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            Err(e) => t!("chess.line_not_saved", "error" => e),
+        });
+    }
+
+    /// The search helper, for Find this position.
+    pub fn with_index(mut self, index: Arc<coxswain_core::helper::Client>) -> Viewer {
+        self.index = Some(index);
+        self
+    }
+
+    /// `p`: the games in the search store that reach the position shown, asked on a thread.
+    fn find_position(&mut self) {
+        let (Some(index), Some(b)) = (self.index.clone(), self.now().0.as_deref().and_then(chess::pgn::board)) else { return };
+        let key = polyglot::key(&b);
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(index.games_at(key, 500));
+        });
+        self.finding = Some(rx);
+        self.said = Some(t!("chess.position_searching"));
+    }
+
+    /// A key while the games found are listed: ↑ ↓ choose, Enter opens one, Esc closes.
+    fn found_key(&mut self, key: Key) -> Outcome {
+        let Some((list, mut sel)) = self.found.take() else { return Outcome::Stay };
+        match key.code {
+            KeyCode::Esc => return Outcome::Stay,
+            KeyCode::Enter => {
+                let Some((path, game)) = list.get(sel).cloned() else { return Outcome::Stay };
+                if path == self.path {
+                    if let Some(i) = self.ids.iter().position(|&g| g == game) {
+                        self.cursor = i;
+                    }
+                    self.show_game(game);
+                    return Outcome::Stay;
+                }
+                return Outcome::Open(path, game);
+            }
+            KeyCode::Down => sel = (sel + 1).min(list.len().saturating_sub(1)),
+            KeyCode::Up => sel = sel.saturating_sub(1),
+            KeyCode::PageDown => sel = (sel + 20).min(list.len().saturating_sub(1)),
+            KeyCode::PageUp => sel = sel.saturating_sub(20),
+            _ => {}
+        }
+        self.found = Some((list, sel));
+        Outcome::Stay
+    }
+
+    /// Opens game `n` once the table has it, as a Find hit's.
+    pub fn at_game(&mut self, n: u32) {
+        self.want = Some(n);
+    }
+
+    /// `g`: the whole game analysed in the background, or stopped while it runs.
+    fn review_key(&mut self) {
+        if let Some(r) = &self.review
+            && !r.now().done
+        {
+            r.stop();
+            return;
+        }
+        let Some(o) = &self.open else { return };
+        match &self.program {
+            Ok(program) => self.review = Some(Reviewer::start(program, self.review_time, &o.game)),
+            Err(why) => self.said = Some(why.clone()),
+        }
+    }
+
+    /// `w`: the game with the analysis in it, as a new PGN file next to this one.
+    fn save_review(&mut self) {
+        let (Some(r), Some(o)) = (self.review.as_ref().map(|r| r.now()), &self.open) else {
+            self.said = Some(t!("chess.review_first"));
+            return;
+        };
+        if r.plies.is_empty() {
+            self.said = Some(t!("chess.review_first"));
+            return;
+        }
+        let text = review::annotated_pgn(&o.game, &r);
+        self.said = Some(match play::save_beside(&self.path, "annotated", &text) {
+            Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            Err(e) => t!("chess.line_not_saved", "error" => e),
+        });
+    }
+
+    /// The evaluation of the position shown, from White's side: the game's analysis, else the
+    /// engine's for this position.
+    fn eval_now(&self, r: Option<&Review>, fen: Option<&str>) -> Option<i32> {
+        let in_line = self.played.as_ref().is_some_and(|l| l.at > 0);
+        if let (Some(r), Some(o), false) = (r, &self.open, in_line) {
+            let v = match o.at {
+                None => r.start,
+                Some(n) => r.plies.iter().find(|p| p.node == n).map(|p| p.cp),
+            };
+            if v.is_some() {
+                return v;
+            }
+        }
+        match &self.analysed {
+            Some((f, Ok(a))) if Some(f.as_str()) == fen => a.lines.first().and_then(|l| match (l.mate, l.cp) {
+                (Some(m), _) if m > 0 => Some(review::CAP + 100 - m.min(99)),
+                (Some(m), _) if m < 0 => Some(-(review::CAP + 100 + m.max(-99))),
+                (_, c) => c,
+            }),
+            _ => None,
+        }
+    }
+
+    /// A key while the move list is open: typing narrows it, ↑ ↓ choose, Enter plays.
+    fn pick_key(&mut self, key: Key) -> Outcome {
+        let Some((mut text, mut sel)) = self.picking.take() else { return Outcome::Stay };
+        let list = self.pick_list(&text);
+        match key.code {
+            KeyCode::Esc => return Outcome::Stay,
+            KeyCode::Enter => {
+                if let Some(m) = list.get(sel) {
+                    self.play(m.clone());
+                }
+                return Outcome::Stay;
+            }
+            KeyCode::Down | KeyCode::Right | KeyCode::Tab => sel = (sel + 1).min(list.len().saturating_sub(1)),
+            KeyCode::Up | KeyCode::Left => sel = sel.saturating_sub(1),
+            KeyCode::Backspace => {
+                text.pop();
+                sel = 0;
+            }
+            KeyCode::Char(c) if !key.ctrl && !key.alt => {
+                text.push(c);
+                sel = 0;
+            }
+            _ => {}
+        }
+        self.picking = Some((text, sel));
+        Outcome::Stay
+    }
+
+    /// The legal moves of the position shown that `typed` starts (in English SAN, as shown, or
+    /// in UCI; `x`, `+` and `=` need not be typed).
+    fn pick_list(&self, typed: &str) -> Vec<Played> {
+        let Some(fen) = self.now().0 else { return vec![] };
+        let pieces = chess::pieces(self.notation);
+        let bare = |s: &str| s.chars().filter(|c| !"x+#=-".contains(*c)).collect::<String>().to_lowercase();
+        let want = bare(typed);
+        play::moves(&fen)
+            .into_iter()
+            .filter(|m| want.is_empty() || [bare(&m.san), bare(&chess::show_san(&m.san, &pieces)), m.uci.clone()].iter().any(|s| s.starts_with(&want)))
+            .collect()
     }
 
     fn requery(&mut self) {
@@ -216,6 +621,7 @@ impl Viewer {
         let Some(p) = self.positions.get(i) else { return };
         let game = chess::Game { start: p.fen.clone().unwrap_or_default(), comment: p.about.clone(), ..Default::default() };
         self.said = p.fen.is_none().then(|| t!("chess.no_position", "line" => p.line));
+        self.played = None;
         self.open = Some(Open { index: i as u32, layout: game.layout(), game, at: None });
     }
 
@@ -271,7 +677,7 @@ impl Viewer {
                 }
             }
             KeyCode::Char('/') => self.typing = Some((Field::Player, self.query.player.clone())),
-            KeyCode::Char('o') => self.typing = Some((Field::Opening, self.query.opening.clone())),
+            KeyCode::Char('o') if !self.other_game() || self.bridge() => self.typing = Some((Field::Opening, self.query.opening.clone())),
             KeyCode::Char('e') => self.typing = Some((Field::Elo, self.query.elo.map(|e| e.to_string()).unwrap_or_default())),
             KeyCode::Char('y') => {
                 let years = match (self.query.from, self.query.to) {
@@ -304,8 +710,135 @@ impl Viewer {
         Outcome::Stay
     }
 
+    /// The book's moves for `fen`, read once per position.
+    fn book_moves(&mut self, fen: &str) -> &[BookMove] {
+        if self.book_moves.as_ref().is_none_or(|(f, _)| f != fen) {
+            let moves = self.book.as_deref().map(|b| polyglot::moves_at(b, fen)).unwrap_or_default();
+            self.book_moves = Some((fen.to_string(), moves));
+        }
+        &self.book_moves.as_ref().expect("set above").1
+    }
+
+    /// A key in a book of its own: its moves are chosen and played.
+    fn book_key(&mut self, key: Key) -> Outcome {
+        let Some(fen) = self.open.as_ref().map(|o| o.game.start.clone()) else { return Outcome::Close };
+        let n = self.book_moves(&fen).len();
+        let mut to = None;
+        match key.code {
+            KeyCode::Esc => return Outcome::Close,
+            KeyCode::Down => self.pick = (self.pick + 1).min(n.saturating_sub(1)),
+            KeyCode::Up => self.pick = self.pick.saturating_sub(1),
+            KeyCode::Enter | KeyCode::Right => {
+                let pick = self.pick;
+                if let Some(m) = self.book_moves(&fen).get(pick) {
+                    to = Some(m.fen.clone());
+                    self.line.push(fen);
+                }
+            }
+            KeyCode::Left | KeyCode::Backspace => to = self.line.pop(),
+            KeyCode::Home => {
+                to = self.line.first().cloned();
+                self.line.clear();
+            }
+            KeyCode::Char('f') => self.flip = !self.flip,
+            KeyCode::Char('n') => {
+                self.notation = if self.notation == Notation::Figurines { Notation::Letters } else { Notation::Figurines };
+            }
+            _ => {}
+        }
+        if let (Some(fen), Some(o)) = (to, self.open.as_mut()) {
+            o.game.start = fen;
+            self.pick = 0;
+        }
+        Outcome::Stay
+    }
+
     fn game_key(&mut self, key: Key) -> Outcome {
-        let epd = self.lib.is_none();
+        if self.picking.is_some() {
+            return self.pick_key(key);
+        }
+        if self.found.is_some() {
+            return self.found_key(key);
+        }
+        // Playing on, the engine, the played line: the same in a game, a position and a book;
+        // not on a draughts board.
+        match key.code {
+            _ if self.other_game() => {}
+            KeyCode::Char('m') => {
+                self.picking = Some((String::new(), 0));
+                if self.pick_list("").is_empty() {
+                    self.picking = None;
+                    self.said = Some(t!("chess.no_moves"));
+                }
+                return Outcome::Stay;
+            }
+            KeyCode::Char('a') => {
+                self.analysis = !self.analysis;
+                if !self.analysis {
+                    self.analysed = None;
+                }
+                self.poll_engine();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('b') => {
+                let fen = self.now().0;
+                let best = match &self.analysed {
+                    Some((f, Ok(a))) if Some(f) == fen.as_ref() => a.lines.first().and_then(|l| l.best.clone()),
+                    _ => None,
+                };
+                match best {
+                    Some(m) => self.play(m),
+                    None => self.said = Some(t!("chess.engine_no_best")),
+                }
+                return Outcome::Stay;
+            }
+            KeyCode::Char('s') => {
+                self.save_line();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('p') => {
+                self.find_position();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('g') if self.lib.is_some() => {
+                self.review_key();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('w') if self.lib.is_some() => {
+                self.save_review();
+                return Outcome::Stay;
+            }
+            KeyCode::Char('c') if self.played.is_some() => {
+                self.played = None;
+                return Outcome::Stay;
+            }
+            _ => {}
+        }
+        let epd = self.lib.is_none() && !self.book_only;
+        // In the played line, ← → step it; → on the move it starts from enters it again. In a
+        // position or a book, ← → step it whenever there is one.
+        let base_here = self.played.as_ref().is_some_and(|l| l.at == 0 && (epd || self.book_only || self.open.as_ref().is_some_and(|o| o.at == l.base)));
+        if let Some(l) = self.played.as_mut()
+            && (l.at > 0 || base_here)
+        {
+            match key.code {
+                KeyCode::Right => {
+                    l.at = (l.at + 1).min(l.moves.len());
+                    return Outcome::Stay;
+                }
+                KeyCode::Left if l.at > 0 => {
+                    l.at -= 1;
+                    return Outcome::Stay;
+                }
+                KeyCode::Left if epd || self.book_only => return Outcome::Stay,
+                KeyCode::Home | KeyCode::End | KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => l.at = 0,
+                _ => {}
+            }
+        }
+        if self.book_only {
+            return self.book_key(key);
+        }
+        let draughts = self.other_game();
         if epd {
             let i = self.open.as_ref().map_or(0, |o| o.index as usize);
             match key.code {
@@ -329,7 +862,11 @@ impl Viewer {
         };
         match key.code {
             _ if epd && !matches!(key.code, KeyCode::Char(_)) => {}
-            KeyCode::Esc => self.open = None,
+            KeyCode::Esc => {
+                self.open = None;
+                self.played = None;
+                self.review = None;
+            }
             KeyCode::Right => {
                 o.at = match o.at {
                     None => g.roots.first().copied(),
@@ -363,7 +900,7 @@ impl Viewer {
                 }
             }
             KeyCode::Char('f') => self.flip = !self.flip,
-            KeyCode::Char('n') => {
+            KeyCode::Char('n') if !draughts => {
                 self.notation = if self.notation == Notation::Figurines { Notation::Letters } else { Notation::Figurines };
             }
             _ => {}
@@ -393,8 +930,26 @@ impl Viewer {
         let said = Rect { y: inner.bottom() - 2, height: 1, ..inner };
         let body = Rect { height: inner.height - 2, ..inner };
         let w = inner.width as usize;
-        let keys = if self.open.is_some() {
-            if self.lib.is_some() { t!("chess.keys_game") } else { t!("chess.keys_position") }
+        let keys = if self.picking.is_some() {
+            t!("chess.keys_pick")
+        } else if self.found.is_some() {
+            t!("chess.keys_found")
+        } else if self.book_only {
+            t!("chess.keys_book")
+        } else if self.open.is_some() {
+            if self.bridge() {
+                t!("bridge.keys_game")
+            } else if self.other_game() {
+                t!("draughts.keys_game")
+            } else if self.lib.is_some() {
+                t!("chess.keys_game")
+            } else {
+                t!("chess.keys_position")
+            }
+        } else if self.bridge() {
+            t!("bridge.keys_list")
+        } else if self.other_game() {
+            t!("draughts.keys_list")
         } else {
             t!("chess.keys_list")
         };
@@ -409,7 +964,10 @@ impl Viewer {
                 };
                 Some((format!("{label}: {text}▏"), sty(&theme.dialog_input)))
             }
-            None => self.said.clone().map(|s| (s, dim)),
+            None => match &self.picking {
+                Some((text, _)) => Some((format!("{}: {text}▏", t!("chess.pick")), sty(&theme.dialog_input))),
+                None => self.said.clone().map(|s| (s, dim)),
+            },
         };
         if let Some((s, style)) = line {
             f.render_widget(Paragraph::new(fit(&s, w)).style(style), said);
@@ -458,15 +1016,28 @@ impl Viewer {
         state = format!("{state} · {} {}{}", t!("chess.sorted_by"), column(q.sort), if q.desc { " ↓" } else { " ↑" });
         f.render_widget(Paragraph::new(fit(&state, w)).style(dim), Rect { height: 1, ..area });
         // Columns: fixed ones, and the names sharing the rest.
-        let fixed = [7usize, 5, 5, 7, 10, 4, 6];
+        // Draughts has no openings: their two columns go to the names and the event.
+        let bridge = lib.format == Format::Pbn;
+        let draughts = lib.format != Format::Pgn && !bridge;
+        // Bridge: the pairs, no ratings, the contract where the opening stands, the tricks.
+        let fixed = if bridge {
+            [7usize, 0, 0, 12, 10, 0, 6]
+        } else if draughts {
+            [7usize, 5, 5, 7, 10, 0, 6]
+        } else {
+            [7usize, 5, 5, 7, 10, 4, 6]
+        };
         let rest = w.saturating_sub(fixed.iter().sum::<usize>() + 10);
-        let name = (rest * 22 / 100).max(6);
-        let event = (rest * 20 / 100).max(4);
-        let opening = rest.saturating_sub(2 * name + event).max(4);
+        let name = (rest * if draughts { 32 } else if bridge { 26 } else { 22 } / 100).max(6);
+        let event = if draughts { rest.saturating_sub(2 * name).max(4) } else { (rest * 20 / 100).max(4) };
+        let opening = if draughts { 0 } else if bridge { rest.saturating_sub(2 * name + event).max(6) } else { rest.saturating_sub(2 * name + event).max(4) };
         let row = |cells: [String; 11]| -> String {
             let widths = [fixed[0], name, fixed[1], name, fixed[2], fixed[3], fixed[4], event, fixed[5], opening, fixed[6]];
             let mut out = String::new();
             for (i, (c, cw)) in cells.iter().zip(widths).enumerate() {
+                if cw == 0 {
+                    continue;
+                }
                 if i > 0 {
                     out.push(' ');
                 }
@@ -476,16 +1047,25 @@ impl Viewer {
         };
         let head = row([
             "#".into(),
-            t!("chess.col_white"),
+            match lib.format {
+                Format::Xiangqi => t!("xiangqi.col_red"),
+                Format::Kif | Format::Csa => t!("shogi.col_sente"),
+                Format::Pbn => t!("bridge.col_ns"),
+                _ => t!("chess.col_white"),
+            },
             t!("chess.col_elo"),
-            t!("chess.col_black"),
+            match lib.format {
+                Format::Kif | Format::Csa => t!("shogi.col_gote"),
+                Format::Pbn => t!("bridge.col_ew"),
+                _ => t!("chess.col_black"),
+            },
             t!("chess.col_elo"),
             t!("chess.col_result"),
             t!("chess.col_date"),
             t!("chess.col_event"),
             "ECO".into(),
-            t!("chess.col_opening"),
-            t!("chess.col_moves"),
+            if bridge { t!("bridge.col_contract") } else { t!("chess.col_opening") },
+            if bridge { t!("bridge.col_tricks") } else { t!("chess.col_moves") },
         ]);
         f.render_widget(Paragraph::new(fit(&head, w)).style(base.add_modifier(Modifier::BOLD)), Rect { y: area.y + 1, height: 1, ..area });
         let h = area.height.saturating_sub(2) as usize;
@@ -525,45 +1105,64 @@ impl Viewer {
         let base = sty(&theme.dialog);
         let bg = base.bg.unwrap_or(Color::Reset);
         let dim = faint(theme).bg(bg);
-        let Some(o) = &self.open else { return };
-        let g = &o.game;
-        // The board: as big as fits, a square twice as wide as high.
-        let cell_h = ((area.height.saturating_sub(2)) / 8).clamp(1, 2);
-        let mut cell_w = cell_h * 2 + 1;
-        while cell_w > 3 && cell_w * 8 + 2 > area.width / 2 {
-            cell_w -= 2;
+        if self.open.is_none() {
+            return;
         }
-        let fen = match o.at {
-            Some(n) => g.nodes[n as usize].fen.clone(),
-            None => Some(g.start.clone()),
+        let (now, mut last) = self.now();
+        let picks = self.picking.as_ref().map(|(text, sel)| (self.pick_list(text), *sel));
+        if let Some((list, sel)) = &picks
+            && let Some(m) = list.get(*sel)
+        {
+            last = Some((Some(m.from), Some(m.to)));
+        }
+        let book: Vec<BookMove> = match &now {
+            Some(fen) if self.book.is_some() => self.book_moves(fen).to_vec(),
+            _ => vec![],
         };
-        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        if self.other_game() {
+            let (lines, board_w) = if self.bridge() {
+                self.bridge_table(dim)
+            } else if self.xiangqi() {
+                self.xiangqi_board(dim)
+            } else if self.shogi() {
+                self.shogi_board(dim)
+            } else {
+                self.draughts_board(area, dim)
+            };
+            f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
+            return self.draw_moves(f, theme, area, board_w, vec![]);
+        }
+        // The board: as big as fits, a square twice as wide as high, the moves beside it.
+        let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, &mosaic::CHESS, 8, 8, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(2), area.height.saturating_sub(2));
+        let fen = now.clone();
         let squares = chess::squares(fen.as_deref().unwrap_or(""));
         let mut lines: Vec<Line> = vec![];
+        // The squares with a piece, for its picture: where, which and on what colour.
+        let mut placed: Vec<(Rect, char, Color)> = vec![];
         for row in 0..8u16 {
             let rank = if self.flip { row } else { 7 - row };
-            for sub in 0..cell_h {
-                let label = if sub == cell_h / 2 { format!("{} ", rank + 1) } else { "  ".into() };
-                let mut spans = vec![Span::styled(label, dim)];
-                for col in 0..8u16 {
-                    let file = if self.flip { 7 - col } else { col };
-                    let sq = (rank * 8 + file) as u8;
-                    let mut colour = self.board[((rank + file) % 2 == 0) as usize];
-                    if last.is_some_and(|(a, b)| a == Some(sq) || b == Some(sq)) {
-                        colour = tint(colour, (0xf6, 0xe0, 0x5a));
-                    }
-                    let (text, fg) = match squares[sq as usize] {
-                        Some(p) if sub == cell_h / 2 => {
-                            let pad = " ".repeat(((cell_w - 1) / 2) as usize);
-                            let fg = if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) };
-                            (format!("{pad}{}{pad}", glyph(p)), fg)
-                        }
-                        _ => (" ".repeat(cell_w as usize), Color::Reset),
-                    };
-                    spans.push(Span::styled(text, Style::default().bg(colour).fg(fg).add_modifier(Modifier::BOLD)));
+            let mut rows: Vec<Vec<Span>> = (0..cell_h).map(|sub| vec![Span::styled(if sub == cell_h / 2 { format!("{} ", rank + 1) } else { "  ".into() }, dim)]).collect();
+            for col in 0..8u16 {
+                let file = if self.flip { 7 - col } else { col };
+                let sq = (rank * 8 + file) as u8;
+                let light = (rank + file) % 2 == 1;
+                let mut colour = if pieces == Pieces::Figurines { self.board[!light as usize] } else { self.squares[!light as usize] };
+                if last.is_some_and(|(a, b)| a == Some(sq) || b == Some(sq)) {
+                    colour = tint(colour, (0xf6, 0xe0, 0x5a));
                 }
-                lines.push(Line::from(spans));
+                if let (Pieces::Pictures, Some(p)) = (pieces, squares[sq as usize]) {
+                    placed.push((Rect::new(area.x + 2 + col * cell_w, area.y + row * cell_h, cell_w, cell_h), p, colour));
+                }
+                let piece = squares[sq as usize].map(|p| crate::pieces::Piece {
+                    name: p,
+                    figurine: glyph(p),
+                    colour: if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) },
+                });
+                for (r, spans) in crate::pieces::square(pieces, &mosaic::CHESS, piece, cell_w, cell_h, colour).into_iter().enumerate() {
+                    rows[r].extend(spans);
+                }
             }
+            lines.extend(rows.into_iter().map(Line::from));
         }
         let mut files = String::from("  ");
         for col in 0..8u16 {
@@ -579,8 +1178,317 @@ impl Viewer {
             lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
         }
         let board_w = 2 + cell_w * 8;
+        // The evaluation as a bar, and the game's as a row of bars, one a move.
+        let rev = self.review.as_ref().map(|r| r.now());
+        if let Some(v) = self.eval_now(rev.as_ref(), fen.as_deref()) {
+            let n = (board_w as usize).saturating_sub(10);
+            let full = (review::share(v) * n as f64).round() as usize;
+            lines.push(Line::from(vec![
+                Span::styled(format!("{:>7} ", review::shown(v)), base.add_modifier(Modifier::BOLD)),
+                Span::styled("█".repeat(full), Style::default().fg(Color::Rgb(240, 240, 240)).bg(Color::Rgb(30, 30, 30))),
+                Span::styled("█".repeat(n - full), Style::default().fg(Color::Rgb(30, 30, 30))),
+            ]));
+        }
+        if let Some(r) = &rev
+            && let Some(start) = r.start
+        {
+            const BARS: [&str; 8] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+            let values: Vec<(Option<u32>, i32)> = std::iter::once((None, start)).chain(r.plies.iter().map(|p| (Some(p.node), p.cp))).collect();
+            let n = (board_w as usize).saturating_sub(2).max(1);
+            let mut spans = vec![Span::styled("  ", dim)];
+            for k in 0..values.len().min(n) {
+                // More moves than room: every so many.
+                let (node, v) = values[k * values.len() / values.len().min(n)];
+                let here = self.open.as_ref().is_some_and(|o| o.at == node) && !self.played.as_ref().is_some_and(|l| l.at > 0);
+                let bar = BARS[((review::share(v) * 7.99) as usize).min(7)];
+                spans.push(Span::styled(bar, if here { sty(&theme.dialog_input) } else { base }));
+            }
+            lines.push(Line::from(spans));
+        }
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
-        // Beside it: who played, then the moves.
+        // Each picture over its square's figurine, which stays where one cannot be made.
+        if let Some(pics) = self.pictures.as_mut() {
+            for (r, p, colour) in placed {
+                if r.right() <= area.right() && r.bottom() <= area.bottom() {
+                    pics.draw(f.buffer_mut(), r, p, colour);
+                }
+            }
+            pics.finish(f.buffer_mut());
+        }
+        self.draw_moves(f, theme, area, board_w, book);
+    }
+
+    /// A draughts board from the position shown: dark squares numbered, men ● and kings ♚ in
+    /// white and black, the last move's squares tinted.
+    fn draughts_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16) {
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let fen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        let cells = coxswain_core::draughts::cells(&fen);
+        let h = cells.len().max(1) as u16;
+        let w = cells.iter().map(Vec::len).max().unwrap_or(0).max(1) as u16;
+        let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, &mosaic::DRAUGHTS, w, h, (area.width * 3 / 5).max(area.width.saturating_sub(40)), area.height.saturating_sub(1));
+        let mut lines = vec![];
+        for row in 0..h {
+            let y = if self.flip { h - 1 - row } else { row };
+            let mut rows: Vec<Vec<Span>> = vec![vec![]; cell_h as usize];
+            for col in 0..w {
+                let x = if self.flip { w - 1 - col } else { col };
+                let dark = (x + y) % 2 == 1;
+                let cell = (x + y * w) as u8;
+                let mut colour = if pieces == Pieces::Figurines { self.board[dark as usize] } else { self.squares[dark as usize] };
+                if last.is_some_and(|(a, b)| a == Some(cell) || b == Some(cell)) {
+                    colour = tint(colour, (0xf6, 0xe0, 0x5a));
+                }
+                let piece = cells.get(y as usize).and_then(|r| r.get(x as usize)).copied().flatten().map(|p| crate::pieces::Piece {
+                    name: p,
+                    figurine: if p.eq_ignore_ascii_case(&'k') { "♚" } else { "●" },
+                    colour: if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) },
+                });
+                let empty = piece.is_none();
+                let mut square = crate::pieces::square(pieces, &mosaic::DRAUGHTS, piece, cell_w, cell_h, colour);
+                // An empty dark square: its number at the top left.
+                if empty && dark {
+                    let n = coxswain_core::draughts::square_number(w as usize, x as usize, y as usize).unwrap_or(0);
+                    square[0] = vec![Span::styled(format!("{n:<width$}", width = cell_w as usize), Style::default().bg(colour).fg(dim.fg.unwrap_or(Color::Gray)))];
+                }
+                for (r, spans) in square.into_iter().enumerate() {
+                    rows[r].extend(spans);
+                }
+            }
+            lines.extend(rows.into_iter().map(Line::from));
+        }
+        let white = fen.split_whitespace().nth(1) != Some("b");
+        lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
+        (lines, cell_w * w)
+    }
+
+    /// A xiangqi board: 9 files by 10 ranks of lines on the theme's wood, the river between
+    /// the fifth and sixth ranks, the palaces' centres marked ╳, the pieces as their characters
+    /// in red and black, the last move's points tinted.
+    fn xiangqi_board(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let fen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        let cells = coxswain_core::xiangqi::cells(&fen);
+        let wood = self.board[0];
+        let ink = Style::default().bg(wood).fg(Color::Rgb(70, 50, 30));
+        let mut lines = vec![];
+        let files = |red: bool| -> String {
+            let n: Vec<String> = if red { ["九", "八", "七", "六", "五", "四", "三", "二", "一"].map(String::from).to_vec() } else { (1..=9).map(|n| format!("{n} ")).collect() };
+            let n: Vec<String> = if self.flip { n.into_iter().rev().collect() } else { n };
+            n.concat()
+        };
+        lines.push(Line::styled(files(self.flip), dim));
+        for row in 0..10usize {
+            let y = if self.flip { 9 - row } else { row };
+            let mut spans = vec![];
+            for col in 0..9usize {
+                let x = if self.flip { 8 - col } else { col };
+                let c = x + y * 9;
+                let mut style = ink;
+                if last.is_some_and(|(a, b)| a == Some(c as u8) || b == Some(c as u8)) {
+                    style = style.bg(tint(wood, (0xf6, 0xe0, 0x5a)));
+                }
+                let text = match cells.get(c).copied().flatten() {
+                    Some(p) => {
+                        let fg = if p.is_ascii_uppercase() { Color::Rgb(200, 20, 30) } else { Color::Rgb(0, 0, 0) };
+                        spans.push(Span::styled(coxswain_core::xiangqi::glyph(p).to_string(), style.fg(fg).add_modifier(Modifier::BOLD)));
+                        continue;
+                    }
+                    None => {
+                        let (top, bottom, left, right) = (row == 0, row == 9, col == 0, col == 8);
+                        let g = match (top, bottom, left, right) {
+                            (true, _, true, _) => "┌",
+                            (true, _, _, true) => "┐",
+                            (_, true, true, _) => "└",
+                            (_, true, _, true) => "┘",
+                            (true, ..) => "┬",
+                            (_, true, ..) => "┴",
+                            (_, _, true, _) => "├",
+                            (_, _, _, true) => "┤",
+                            // The river: the lines stop at its banks.
+                            _ if row == 4 => "┴",
+                            _ if row == 5 => "┬",
+                            _ if x == 4 && (y == 1 || y == 8) => "╳",
+                            _ => "┼",
+                        };
+                        format!("{g}{}", if col < 8 { "─" } else { " " })
+                    }
+                };
+                spans.push(Span::styled(text, style));
+            }
+            lines.push(Line::from(spans));
+            if row == 4 {
+                lines.push(Line::styled("│  楚 河  漢 界 │".to_string(), ink));
+            }
+        }
+        lines.push(Line::styled(files(!self.flip), dim));
+        let red = fen.split_whitespace().nth(1) != Some("b");
+        lines.push(Line::styled(t!(if red { "xiangqi.red_to_move" } else { "chess.black_to_move" }), dim));
+        (lines, 18)
+    }
+
+    /// A bridge deal round the table: North above, West and East beside, South below, each
+    /// hand's cards still held by suit, the trick on the table in the middle; then the contract,
+    /// dealer and vulnerability, the tricks won, and the auction in four columns.
+    fn bridge_table(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+        use coxswain_core::bridge::{self, State};
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let fen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let st = State::from_text(&fen);
+        let tag = |k: &str| g.tag(k).filter(|v| !v.is_empty() && *v != "#" && *v != "?").unwrap_or("").to_string();
+        let seat = [t!("bridge.north"), t!("bridge.east"), t!("bridge.south"), t!("bridge.west")];
+        let names = ["North", "East", "South", "West"];
+        let red = Style::default().fg(Color::Rgb(190, 20, 30));
+        let suit_line = |s: usize, su: u8| -> Line<'static> {
+            let mut cards: Vec<_> = st.hands[s].iter().filter(|c| c.suit == su).collect();
+            cards.sort_by(|a, b| b.rank.cmp(&a.rank));
+            let ranks: String = cards.iter().map(|c| c.shown().chars().skip(1).collect::<String>()).collect::<Vec<_>>().join(" ");
+            let sym = ['♠', '♥', '♦', '♣'][su as usize].to_string();
+            Line::from(vec![Span::styled(sym, if su == 1 || su == 2 { red } else { Style::default() }), Span::raw(format!(" {}", if ranks.is_empty() { "–".into() } else { ranks }))])
+        };
+        let head = |s: usize| format!("{} {}", seat[s], tag(names[s]));
+        let pad = |l: Line<'static>, n: usize| -> Line<'static> {
+            let mut spans = vec![Span::raw(" ".repeat(n))];
+            spans.extend(l.spans);
+            Line::from(spans)
+        };
+        let mut lines: Vec<Line<'static>> = vec![];
+        lines.push(pad(Line::styled(head(0), dim), 16));
+        for su in 0..4 {
+            lines.push(pad(suit_line(0, su), 16));
+        }
+        // West and East side by side, the trick between them.
+        let trick = |s: usize| st.trick.iter().find(|(w, _)| *w == s).map(|(_, c)| c.shown()).unwrap_or_default();
+        let middle = [format!("   {:^6}   ", trick(0)), format!("{:<6}  {:>6}", trick(3), trick(1)), format!("   {:^6}   ", trick(2)), String::new()];
+        lines.push(Line::from(vec![Span::styled(format!("{:<16}", head(3)), dim), Span::raw(" ".repeat(16)), Span::styled(head(1), dim)]));
+        for su in 0..4u8 {
+            let w = suit_line(3, su);
+            let width: usize = w.spans.iter().map(|s| s.content.chars().count()).sum();
+            let mut spans = w.spans;
+            spans.push(Span::raw(" ".repeat(16usize.saturating_sub(width))));
+            spans.push(Span::styled(format!("{:<16}", middle[su as usize]), Style::default().add_modifier(Modifier::BOLD)));
+            spans.extend(suit_line(1, su).spans);
+            lines.push(Line::from(spans));
+        }
+        lines.push(pad(Line::styled(head(2), dim), 16));
+        for su in 0..4 {
+            lines.push(pad(suit_line(2, su), 16));
+        }
+        lines.push(Line::from(""));
+        let (contract, _, _) = bridge::contract(&tag("Contract"));
+        if !contract.is_empty() {
+            lines.push(Line::raw(t!("bridge.contract", "contract" => contract, "declarer" => tag("Declarer"))));
+        }
+        lines.push(Line::styled(t!("bridge.facts", "dealer" => tag("Dealer"), "vulnerable" => tag("Vulnerable")), dim));
+        lines.push(Line::raw(t!("bridge.tricks", "ns" => st.won[0], "ew" => st.won[1])));
+        if let Some(a) = g.tag("Auction") {
+            let mut calls = a.split_whitespace();
+            let first = calls.next().and_then(|c| "NESW".find(c)).unwrap_or(0);
+            lines.push(Line::styled(t!("bridge.auction"), dim));
+            // Columns West, North, East, South, as bridge players write them.
+            let order = [3usize, 0, 1, 2];
+            lines.push(Line::styled(order.iter().map(|&s| format!("{:<6}", seat[s].chars().take(5).collect::<String>())).collect::<String>(), dim));
+            let mut row = vec![String::new(); order.iter().position(|&s| s == first).unwrap_or(0)];
+            for c in calls {
+                row.push(c.to_string());
+                if row.len() == 4 {
+                    lines.push(Line::raw(row.iter().map(|c| format!("{c:<6}")).collect::<String>()));
+                    row.clear();
+                }
+            }
+            if !row.is_empty() {
+                lines.push(Line::raw(row.iter().map(|c| format!("{c:<6}")).collect::<String>()));
+            }
+        }
+        (lines, 48)
+    }
+
+    /// A shogi board: 9×9 squares on the theme's wood, each piece its kanji, Gote's after a `v`
+    /// (as KIF's board diagrams write them) and in another colour; the files numbered ９ to １
+    /// above, the ranks 一 to 九 beside; the pieces in hand above (Gote's) and below (Sente's);
+    /// the last move's squares tinted.
+    fn shogi_board(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+        use coxswain_core::shogi;
+        let Some(o) = &self.open else { return (vec![], 0) };
+        let g = &o.game;
+        let sfen = match o.at {
+            Some(n) => g.nodes[n as usize].fen.clone(),
+            None => Some(g.start.clone()),
+        }
+        .unwrap_or_default();
+        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        let (cells, hands) = shogi::view(&sfen);
+        let wood = self.board[0];
+        let ink = Style::default().bg(wood).fg(Color::Rgb(70, 50, 30));
+        let hand = |side: usize| -> String {
+            let list: Vec<String> = hands[side].iter().map(|&(k, n)| if n > 1 { format!("{k}{n}") } else { k.to_string() }).collect();
+            let pieces = if list.is_empty() { "–".to_string() } else { list.join(" ") };
+            if side == 0 { t!("shogi.hand_sente", "pieces" => pieces) } else { t!("shogi.hand_gote", "pieces" => pieces) }
+        };
+        let (top, bottom) = if self.flip { (0, 1) } else { (1, 0) };
+        let mut lines = vec![Line::styled(hand(top), dim)];
+        const FILES: [&str; 9] = ["９", "８", "７", "６", "５", "４", "３", "２", "１"];
+        const RANKS: [&str; 9] = ["一", "二", "三", "四", "五", "六", "七", "八", "九"];
+        let files: Vec<&str> = if self.flip { FILES.iter().rev().copied().collect() } else { FILES.to_vec() };
+        lines.push(Line::styled(files.iter().map(|f| format!(" {f}")).collect::<String>(), dim));
+        for row in 0..9usize {
+            let y = if self.flip { 8 - row } else { row };
+            let mut spans = vec![];
+            for col in 0..9usize {
+                let x = if self.flip { 8 - col } else { col };
+                let c = x + y * 9;
+                let mut style = ink;
+                if last.is_some_and(|(a, b)| a == Some(c as u8) || b == Some(c as u8)) {
+                    style = style.bg(tint(wood, (0xf6, 0xe0, 0x5a)));
+                }
+                match cells.get(c).copied().flatten() {
+                    Some(p) => {
+                        // Gote's pieces point the other way: marked v, in red, from Sente's side.
+                        let gote = p.sente == self.flip;
+                        let fg = if gote { Color::Rgb(160, 20, 30) } else { Color::Rgb(0, 0, 0) };
+                        spans.push(Span::styled(if gote { "v" } else { " " }, style.fg(fg)));
+                        spans.push(Span::styled(shogi::glyph(p).to_string(), style.fg(fg).add_modifier(Modifier::BOLD)));
+                    }
+                    None => spans.push(Span::styled(" ・", style)),
+                }
+            }
+            spans.push(Span::styled(format!(" {}", RANKS[y]), dim));
+            lines.push(Line::from(spans));
+        }
+        lines.push(Line::styled(hand(bottom), dim));
+        let sente = sfen.split_whitespace().nth(1) != Some("w");
+        lines.push(Line::styled(t!(if sente { "shogi.sente_to_move" } else { "shogi.gote_to_move" }), dim));
+        (lines, 30)
+    }
+
+    /// Beside the board: who played, then the moves.
+    fn draw_moves(&mut self, f: &mut Frame, theme: &Theme, area: Rect, board_w: u16, book: Vec<BookMove>) {
+        let now = self.now().0;
+        let picks = self.picking.as_ref().map(|(text, sel)| (self.pick_list(text), *sel));
+        let base = sty(&theme.dialog);
+        let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
+        let draughts = self.draughts();
+        let other = self.other_game();
+        let rev = self.review.as_ref().map(|r| r.now());
+        let Some(o) = &self.open else { return };
+        let g = &o.game;
         let right = Rect { x: area.x + board_w + 2, width: area.width.saturating_sub(board_w + 2), ..area };
         if right.width < 10 {
             return;
@@ -593,24 +1501,130 @@ impl Viewer {
                 let e = tag(k);
                 if e.is_empty() { e } else { format!(" ({e})") }
             };
-            head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", tag("White"), elo("WhiteElo"), tag("Black"), elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
+            // Xiangqi names its first player Red; bridge has pairs.
+            let first = if tag("Red").is_empty() { tag("White") } else { tag("Red") };
+            let (first, second) = if self.bridge() {
+                let (pairs, _) = coxswain_core::bridge::summary(g);
+                (pairs[0].clone(), pairs[1].clone())
+            } else {
+                (first, tag("Black"))
+            };
+            head.push(Line::styled(fit(&format!("{}{} – {}{}  {}", first, elo("WhiteElo"), second, elo("BlackElo"), g.result), w), base.add_modifier(Modifier::BOLD)));
             let about = [tag("Event"), tag("Site"), tag("Date"), [tag("ECO"), tag("Opening")].join(" ").trim().to_string()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ");
             head.push(Line::styled(fit(&about, w), dim));
+            if draughts {
+                head.push(Line::styled(fit(&coxswain_core::draughts::variant(g).name(), w), dim));
+            }
+            if let Some(b) = g.tag("Board").filter(|_| self.bridge()) {
+                head.push(Line::styled(fit(&t!("bridge.board_n", "n" => b), w), dim));
+            }
             let total = self.lib.as_ref().map_or(0, |l| l.progress().games);
             head.push(Line::styled(fit(&t!("chess.game_of", "n" => o.index + 1, "total" => total), w), dim));
+        } else if self.book_only {
+            let entries = polyglot::Book::open(&self.path).map_or(0, |b| b.entries());
+            head.push(Line::styled(fit(&t!("chess.book_entries", "n" => entries), w), base.add_modifier(Modifier::BOLD)));
         } else {
             head.push(Line::styled(fit(&t!("chess.position_of", "n" => o.index + 1, "total" => self.positions.len()), w), base.add_modifier(Modifier::BOLD)));
         }
-        head.push(Line::from(""));
         let pieces = chess::pieces(self.notation);
+        // The book's moves for this position: a list to choose from in a book of its own, a
+        // line under the game's heading otherwise.
+        let book_name = self.book.as_ref().and_then(|b| b.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if self.book_only && picks.is_none() {
+            if self.analysis {
+                for l in self.engine_lines(now.as_deref(), &pieces) {
+                    head.push(Line::styled(fit(&l, w), dim));
+                }
+            }
+            head.push(Line::from(""));
+            if book.is_empty() {
+                head.push(Line::styled(fit(&t!("chess.book_none"), w), dim));
+            }
+            for (k, m) in book.iter().enumerate() {
+                let learn = if m.learn > 0 { format!("  {}", t!("chess.book_learn", "n" => m.learn)) } else { String::new() };
+                let text = format!("{:<8} {:>5.1} %  {:>5}{learn}", chess::show_san(&m.san, &pieces), m.share, m.weight);
+                let style = if k == self.pick { sty(&theme.dialog_input) } else { base };
+                head.push(Line::styled(fit(&text, w), style));
+            }
+            f.render_widget(Paragraph::new(head), right);
+            return;
+        }
+        if self.book.is_some() {
+            let text = if book.is_empty() {
+                t!("chess.book_out", "name" => book_name)
+            } else {
+                let list: Vec<String> = book.iter().take(8).map(|m| format!("{} {:.0} %", chess::show_san(&m.san, &pieces), m.share)).collect();
+                t!("chess.book", "name" => book_name, "moves" => list.join(" · "))
+            };
+            head.push(Line::styled(fit(&text, w), dim));
+        }
+        if self.analysis {
+            for l in self.engine_lines(now.as_deref(), &pieces) {
+                head.push(Line::styled(fit(&l, w), dim));
+            }
+        }
+        let review_state = rev.as_ref().map(|r| {
+            if let Some(e) = &r.error {
+                e.clone()
+            } else if r.done {
+                t!("chess.review_done", "engine" => r.engine, "marked" => r.plies.iter().filter(|p| p.mark.is_some_and(|m| m != 5)).count())
+            } else {
+                t!("chess.review_running", "n" => r.plies.len(), "total" => r.total)
+            }
+        });
+        if let Some(state) = review_state {
+            head.push(Line::styled(fit(&state, w), dim));
+        }
+        head.push(Line::from(""));
+        // The move list being chosen from, in place of the moves.
+        if let Some((list, sel)) = picks {
+            let mut words: Vec<(String, Style, bool)> = vec![(format!("{}:", t!("chess.pick_title")), dim, false)];
+            for (k, m) in list.iter().enumerate() {
+                let here = k == sel;
+                words.push((chess::show_san(&m.san, &pieces), if here { sty(&theme.dialog_input) } else { base }, here));
+            }
+            if list.is_empty() {
+                words.push((t!("chess.pick_none"), dim, false));
+            }
+            let room = (right.height as usize).saturating_sub(head.len());
+            head.extend(wrap(words, w, base, room));
+            f.render_widget(Paragraph::new(head), right);
+            return;
+        }
+        // The games that reach this position, in place of the moves.
+        if let Some((list, sel)) = &self.found {
+            head.push(Line::styled(fit(&t!("chess.position_title", "n" => list.len()), w), base.add_modifier(Modifier::BOLD)));
+            let room = (right.height as usize).saturating_sub(head.len());
+            let top = sel.saturating_sub(room.saturating_sub(1));
+            for (k, (path, game)) in list.iter().enumerate().skip(top).take(room) {
+                let file = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                let mut text = t!("chess.position_game", "file" => file, "n" => game + 1);
+                if *path == self.path
+                    && let Some(r) = self.lib.as_ref().and_then(|l| l.row(*game))
+                {
+                    text = format!("{text} · {} – {} {} {}", r.white, r.black, r.result, r.date);
+                }
+                head.push(Line::styled(fit(&text, w), if k == *sel { sty(&theme.dialog_input) } else { base }));
+            }
+            f.render_widget(Paragraph::new(head), right);
+            return;
+        }
         // The moves, word by word, wrapped; the line with the move shown is kept in view.
         let mut words: Vec<(String, Style, bool)> = vec![];
         for tok in &o.layout {
             match tok {
                 Token::Move { node, number } => {
                     let n = &g.nodes[*node as usize];
-                    let (glued, apart) = chess::nags(&n.nags);
-                    let text = format!("{}{}{glued}", number.clone().unwrap_or_default(), chess::show_san(&n.san, &pieces));
+                    let mut list = n.nags.clone();
+                    // The analysis's mark, when the file has none of its own.
+                    if let Some(m) = rev.as_ref().and_then(|r| r.plies.iter().find(|p| p.node == *node)).and_then(|p| p.mark)
+                        && !list.iter().any(|x| (1..=6).contains(x))
+                    {
+                        list.push(m);
+                    }
+                    let (glued, apart) = chess::nags(&list);
+                    let san = if other { n.san.clone() } else { chess::show_san(&n.san, &pieces) };
+                    let text = format!("{}{san}{glued}", number.clone().unwrap_or_default());
                     let here = o.at == Some(*node);
                     let mut style = if here { sty(&theme.dialog_input) } else if n.depth > 0 { dim } else { base };
                     if n.depth == 0 && !here {
@@ -631,31 +1645,79 @@ impl Viewer {
                 Token::Result { text } => words.push((text.clone(), base.add_modifier(Modifier::BOLD), false)),
             }
         }
-        let mut body: Vec<Vec<Span>> = vec![vec![]];
-        let mut used = 0;
-        let mut here_line = 0;
-        for (text, style, here) in words {
-            let tw = text.width();
-            if used > 0 && used + 1 + tw > w {
-                body.push(vec![]);
-                used = 0;
+        // The line played on from the board, on lines of its own after the game.
+        if let Some(l) = &self.played {
+            words.push(("\n".into(), base, false));
+            let from = match l.base {
+                Some(n) => {
+                    let n = &g.nodes[n as usize];
+                    format!("{}{}{}", n.number, if n.white { "." } else { "…" }, chess::show_san(&n.san, &pieces))
+                }
+                None => t!("chess.line_start"),
+            };
+            words.push((t!("chess.line_from", "move" => from), dim.add_modifier(Modifier::ITALIC), false));
+            words.push(("\n".into(), base, false));
+            for (k, m) in l.moves.iter().enumerate() {
+                let number = if m.white { format!("{}.", m.number) } else if k == 0 { format!("{}…", m.number) } else { String::new() };
+                let here = l.at == k + 1;
+                words.push((format!("{number}{}", chess::show_san(&m.san, &pieces)), if here { sty(&theme.dialog_input) } else { base }, here));
             }
-            let line = body.last_mut().expect("one line at least");
-            if used > 0 && text != ")" {
-                line.push(Span::styled(" ", base));
-                used += 1;
-            }
-            if here {
-                here_line = body.len() - 1;
-            }
-            used += tw;
-            body.last_mut().expect("one line at least").push(Span::styled(text, style));
+            words.push(("\n".into(), base, false));
+            words.push((t!("chess.line_keys"), dim, false));
         }
         let room = (right.height as usize).saturating_sub(head.len());
-        let top = here_line.saturating_sub(room.saturating_sub(2));
-        head.extend(body.into_iter().skip(top).take(room).map(Line::from));
+        head.extend(wrap(words, w, base, room));
         f.render_widget(Paragraph::new(head), right);
     }
+
+    /// What the engine says about the position `fen`, as a line: its name, depth, evaluation,
+    /// best move and line; or that it thinks, or why it cannot.
+    fn engine_lines(&self, fen: Option<&str>, pieces: &[String; 5]) -> Vec<String> {
+        match &self.analysed {
+            Some((f, Ok(a))) if Some(f.as_str()) == fen => {
+                let mut out = vec![t!("chess.engine", "name" => a.engine, "depth" => a.depth)];
+                for l in &a.lines {
+                    let moves: Vec<String> = l.moves.iter().map(|s| chess::show_san(s, pieces)).collect();
+                    out.push(format!("{:>6}  {}", l.eval, moves.join(" ")));
+                }
+                out
+            }
+            Some((f, Err(e))) if Some(f.as_str()) == fen => vec![e.clone()],
+            _ => vec![t!("chess.engine_thinking")],
+        }
+    }
+}
+
+/// Words wrapped to lines `w` wide (`"\n"` starts a new one), the lines around the word
+/// marked `here` kept in view: `room` lines at most.
+fn wrap(words: Vec<(String, Style, bool)>, w: usize, base: Style, room: usize) -> Vec<Line<'static>> {
+    let mut body: Vec<Vec<Span>> = vec![vec![]];
+    let mut used = 0;
+    let mut here_line = 0;
+    for (text, style, here) in words {
+        if text == "\n" {
+            body.push(vec![]);
+            used = 0;
+            continue;
+        }
+        let tw = text.width();
+        if used > 0 && used + 1 + tw > w {
+            body.push(vec![]);
+            used = 0;
+        }
+        let line = body.last_mut().expect("one line at least");
+        if used > 0 && text != ")" {
+            line.push(Span::styled(" ", base));
+            used += 1;
+        }
+        if here {
+            here_line = body.len() - 1;
+        }
+        used += tw;
+        body.last_mut().expect("one line at least").push(Span::styled(text, style));
+    }
+    let top = here_line.saturating_sub(room.saturating_sub(2));
+    body.into_iter().skip(top).take(room).map(Line::from).collect()
 }
 
 /// A column's name, for the order line.
@@ -709,12 +1771,54 @@ mod tests {
         v.key(key(KeyCode::Right), None);
         let o = v.open.as_ref().unwrap();
         assert_eq!(o.game.nodes[o.at.unwrap() as usize].san, "Bb5");
+        // A move played on from 2…d6: m, typed, Enter: a line of its own; its own next move
+        // steps the game instead.
+        v.key(key(KeyCode::Left), None);
+        v.key(key(KeyCode::Up), None);
+        let o = v.open.as_ref().unwrap();
+        assert_eq!(o.game.nodes[o.at.unwrap() as usize].san, "d6");
+        v.key(key(KeyCode::Char('m')), None);
+        for c in "Nc3".chars() {
+            v.key(key(KeyCode::Char(c)), None);
+        }
+        v.key(key(KeyCode::Enter), None);
+        assert_eq!(v.played.as_ref().map(|l| l.moves[0].san.as_str()), Some("Nc3"));
+        v.key(key(KeyCode::Char('s')), None);
+        let saved = std::fs::read_to_string(d.join("g line.pgn")).unwrap();
+        assert!(saved.contains("1. e4 e5 2. Nf3 d6 3. Nc3 *") && saved.contains("Morphy"), "{saved}");
+        v.key(key(KeyCode::Left), None);
+        v.key(key(KeyCode::Char('m')), None);
+        for c in "d4".chars() {
+            v.key(key(KeyCode::Char(c)), None);
+        }
+        v.key(key(KeyCode::Enter), None);
+        let o = v.open.as_ref().unwrap();
+        assert_eq!(o.game.nodes[o.at.unwrap() as usize].san, "d4");
+        assert_eq!(v.played.as_ref().map(|l| l.at), Some(0));
+        v.key(key(KeyCode::Left), None);
+        v.key(key(KeyCode::Right), None);
+        assert_eq!(v.played.as_ref().map(|l| l.at), Some(1));
+        v.key(key(KeyCode::Char('c')), None);
+        assert!(v.played.is_none());
+        v.key(key(KeyCode::Down), None);
+        v.key(key(KeyCode::Right), None);
+        v.pieces = Pieces::Figurines;
         let backend = ratatui::backend::TestBackend::new(100, 30);
         let mut term = ratatui::Terminal::new(backend).unwrap();
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
         assert!(screen.contains("Morphy") && screen.contains("♘f3") && screen.contains("♗b5") && screen.contains("centre"), "{screen}");
         assert!(screen.contains('♚'));
+        // Drawn from sextants on a board large enough; figurines on a small one.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Sextants);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(140, 36)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(screen.chars().any(|c| ('\u{1FB00}'..='\u{1FB3B}').contains(&c)) && !screen.contains('♚'), "{screen}");
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(screen.contains('♚'), "{screen}");
         // Esc back to the table, a filter, and the table again.
         v.key(key(KeyCode::Esc), None);
         v.key(key(KeyCode::Char('/')), None);
@@ -733,6 +1837,182 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
         assert_eq!(v.open.as_ref().map(|o| o.index), Some(1));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_book_played_through() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-book-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        // Two moves from the start, one after 1.e4: (key, from, to, weight).
+        let zobrist = |fen: &str| polyglot::key(&chess::pgn::board(fen).unwrap());
+        let sq = |s: &str| (s.as_bytes()[0] - b'a') as u16 | (((s.as_bytes()[1] - b'1') as u16) << 3);
+        let start = zobrist(chess::pgn::START);
+        let e4 = zobrist("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
+        let mut entries = vec![(start, "e2", "e4", 3u16), (start, "d2", "d4", 1), (e4, "c7", "c5", 1)];
+        entries.sort_by_key(|e| e.0);
+        let mut bytes = vec![];
+        for (k, from, to, w) in entries {
+            bytes.extend(k.to_be_bytes());
+            bytes.extend((sq(to) | (sq(from) << 6)).to_be_bytes());
+            bytes.extend(w.to_be_bytes());
+            bytes.extend(0u32.to_be_bytes());
+        }
+        let book = d.join("book.bin");
+        std::fs::write(&book, bytes).unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&book, &cfg, &Theme::default()).unwrap();
+        let screen = |v: &mut Viewer| {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 30)).unwrap();
+            term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+            term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>()
+        };
+        let s = screen(&mut v);
+        assert!(s.contains("e4") && s.contains("75.0 %") && s.contains("d4"), "{s}");
+        v.key(key(KeyCode::Enter), None);
+        assert!(screen(&mut v).contains("c5"));
+        v.key(key(KeyCode::Left), None);
+        assert!(screen(&mut v).contains("75.0 %"));
+        // A game next to the book: its moves under the heading.
+        let pgn = d.join("g.pgn");
+        std::fs::write(&pgn, "[White \"A\"]\n\n1.e4 c5 *\n").unwrap();
+        let mut v = Viewer::open(&pgn, &cfg, &Theme::default()).unwrap();
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let s = screen(&mut v);
+        assert!(s.contains("book.bin") && s.contains("e4 75 %"), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_draughts_game_on_its_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-pdn-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pdn");
+        std::fs::write(&p, "[White \"Anna\"]\n[Black \"Bram\"]\n[Result \"2-0\"]\n\n1. 32-28 19-23 2. 28x19 {takes} 14x23 2-0\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.draughts() && v.book.is_none());
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        let screen = |v: &mut Viewer| {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+            term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+            term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>()
+        };
+        let s = screen(&mut v);
+        assert!(s.contains("Anna") && s.contains("2-0") && !s.contains("ECO"), "{s}");
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        for _ in 0..3 {
+            v.key(key(KeyCode::Right), None);
+        }
+        v.pieces = Pieces::Figurines;
+        let s = screen(&mut v);
+        assert!(s.contains("28x19") && s.contains("takes") && s.contains('●') && s.contains("10×10"), "{s}");
+        // Square numbers on the empty dark squares.
+        assert!(s.contains("26"));
+        // Men drawn from sextants on a board large enough, the numbers still there.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Sextants);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(140, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(s.chars().any(|c| ('\u{1FB00}'..='\u{1FB3B}').contains(&c)) && !s.contains('●') && s.contains("26"), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_xiangqi_game_on_its_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-xq-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "[Game \"Chinese Chess\"]\n[Red \"Hu\"]\n[Black \"Lü\"]\n[Result \"1-0\"]\n\n1. 炮二平五 马８进７ 2. 马二进三 {centre} 车９平８ 1-0\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.xiangqi() && v.book.is_none());
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        for _ in 0..3 {
+            v.key(key(KeyCode::Right), None);
+        }
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        // A wide character's second cell is drawn as a space here.
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
+        assert!(s.contains("Hu") && s.contains("马二进三") && s.contains("centre") && s.contains('俥') && s.contains('將') && s.contains('楚'), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_shogi_game_on_its_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-shogi-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.kif");
+        std::fs::write(&p, "先手：羽生\n後手：佐藤\n手数----指手--\n   1 ７六歩(77)\n   2 ３四歩(33)\n*角道\n   3 ２二角成(88)\n   4 同　銀(31)\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.shogi() && v.book.is_none() && v.feature() == "shogi");
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        for _ in 0..4 {
+            v.key(key(KeyCode::Right), None);
+        }
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
+        assert!(s.contains("羽生") && s.contains("△同") && s.contains("角道") && s.contains("v香") && s.contains('角'), "{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_bridge_deal_at_the_table() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-pbn-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("club.pbn");
+        std::fs::write(&p, "[Board \"1\"]\n[North \"Ben\"]\n[South \"Di\"]\n[East \"Cy\"]\n[West \"Ada\"]\n[Dealer \"N\"]\n[Vulnerable \"None\"]\n[Deal \"N:AKQ5.T98.765.432 JT9.J765.432.AKQ 876.432.AKQJ.JT9 432.AKQ.T98.8765\"]\n[Declarer \"S\"]\n[Contract \"3NT\"]\n[Result \"9\"]\n[Auction \"N\"]\n1C Pass 1D Pass\n3NT AP\n[Play \"W\"]\nHA H8 H5 H2\n*\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        assert!(v.bridge() && v.feature() == "bridge");
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        v.key(key(KeyCode::Right), None);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(130, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
+        assert!(s.contains("Ben, Di") && s.contains("3NT S =") && s.contains("♥A") && s.contains("1♣") && s.contains("Ada"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

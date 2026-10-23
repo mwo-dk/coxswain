@@ -39,6 +39,8 @@ pub(crate) struct Head {
     pub tags: [String; WANTED.len()],
     pub plies: u32,
     pub sans: Vec<String>,
+    /// A chess game (`Pgn`), else draughts (`Pdn`) or xiangqi, which have no openings by name.
+    pub format: super::Format,
 }
 
 impl Head {
@@ -48,6 +50,13 @@ impl Head {
 
     /// ECO code and opening name: the file's own, else by the moves, else by the code.
     pub(crate) fn opening(&self) -> (String, String) {
+        if self.format == super::Format::Pbn {
+            // A deal's contract stands where a game's opening does.
+            return (String::new(), self.tag(OPENING).to_string());
+        }
+        if self.format != super::Format::Pgn {
+            return Default::default();
+        }
         let eco = self.tag(ECO).to_string();
         let mut name = self.tag(OPENING).to_string();
         if !name.is_empty() && !self.tag(VARIATION).is_empty() {
@@ -122,8 +131,15 @@ fn read_line(r: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<usize> {
 
 /// The games of `r`, in order, each handed to `each` until it says to stop. Never fails on
 /// what it reads: lines that are no PGN are taken for moves, and skipped there.
-pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![] };
+/// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's.
+pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    if matches!(format, super::Format::Kif | super::Format::Csa) {
+        return scan_shogi(&mut r, stop, format, each);
+    }
+    if format == super::Format::Pbn {
+        return scan_pbn(&mut r, stop, each);
+    }
+    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
     let mut line = Vec::new();
     let mut at = 0u64;
     let (mut has_tags, mut has_moves, mut in_brace, mut depth) = (false, false, false, 0u32);
@@ -165,7 +181,8 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(
         }
         if is_tag {
             if let Some((k, v)) = pgn::tag_pair(&text(&line))
-                && let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(&k))
+                // Xiangqi names its first player Red.
+                && let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(&k)).or_else(|| k.eq_ignore_ascii_case("Red").then_some(WHITE))
             {
                 head.tags[i] = v;
             }
@@ -173,6 +190,106 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(
         } else if !trimmed.is_empty() && (trimmed[0] != b'%' || in_brace) {
             has_moves = true;
             moves(&text(&line), &mut head, &mut in_brace, &mut depth);
+        }
+        at += n as u64;
+    }
+}
+
+/// The games of a KIF or CSA file (`crate::shogi`), read as they stream by: a CSA file's games
+/// end at a line of `/`, a KIF file is one game. Each game is read in full for its tags and
+/// moves, up to `MAX_GAME` bytes of it.
+fn scan_shogi(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let (mut game, mut line) = (Vec::new(), Vec::new());
+    let (mut at, mut start) = (0u64, 0u64);
+    let mut emit = |game: &mut Vec<u8>, start: u64, end: u64| -> bool {
+        let keep = game.iter().any(|c| !c.is_ascii_whitespace());
+        let g = crate::shogi::parse(&crate::shogi::decode(game), format);
+        game.clear();
+        if !keep {
+            return true;
+        }
+        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.main_line().len() as u32, sans: vec![], format };
+        for (k, v) in &g.tags {
+            if let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(k)) {
+                head.tags[i] = v.clone();
+            }
+        }
+        head.tags[RESULT] = g.result.clone();
+        each(&head)
+    };
+    loop {
+        let n = read_line(&mut r, &mut line)?;
+        if n == 0 {
+            emit(&mut game, start, at);
+            return Ok(());
+        }
+        if format == super::Format::Csa && line.trim_ascii() == b"/" {
+            if !emit(&mut game, start, at) || stop.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            at += n as u64;
+            start = at;
+            continue;
+        }
+        if game.len() + line.len() <= MAX_GAME as usize {
+            game.extend_from_slice(&line);
+        }
+        at += n as u64;
+    }
+}
+
+/// The deals of a PBN file (`crate::bridge`), read as they stream by: a deal ends at an empty
+/// line before the next one's tags. Each deal is read in full, up to `MAX_GAME` bytes of it;
+/// a tag whose value is `#` takes the deal before's, as PBN says.
+fn scan_pbn(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let (mut game, mut line) = (Vec::new(), Vec::new());
+    let (mut at, mut start, mut blank) = (0u64, 0u64, true);
+    let mut last: HashMap<String, String> = HashMap::new();
+    let mut emit = |game: &mut Vec<u8>, start: u64, end: u64| -> bool {
+        if !game.iter().any(|c| !c.is_ascii_whitespace()) {
+            game.clear();
+            return true;
+        }
+        let mut g = crate::bridge::parse(&text(game));
+        game.clear();
+        for (k, v) in &mut g.tags {
+            if v == "#" {
+                *v = last.get(k).cloned().unwrap_or_default();
+            } else if last.len() < 64 || last.contains_key(k) {
+                last.insert(k.clone(), v.clone());
+            }
+        }
+        let (pairs, contract) = crate::bridge::summary(&g);
+        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.nodes.len() as u32, sans: vec![], format: super::Format::Pbn };
+        let tag = |k: &str| g.tag(k).unwrap_or("").to_string();
+        head.tags[WHITE] = pairs[0].clone();
+        head.tags[BLACK] = pairs[1].clone();
+        head.tags[EVENT] = tag("Event");
+        head.tags[SITE] = tag("Site");
+        head.tags[DATE] = tag("Date");
+        head.tags[OPENING] = contract;
+        head.tags[RESULT] = g.result.clone();
+        each(&head)
+    };
+    loop {
+        let n = read_line(&mut r, &mut line)?;
+        if n == 0 {
+            emit(&mut game, start, at);
+            return Ok(());
+        }
+        let t = line.trim_ascii();
+        if t.starts_with(b"[") && blank && !game.is_empty() {
+            if !emit(&mut game, start, at) || stop.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            start = at;
+        }
+        blank = t.is_empty();
+        if game.is_empty() {
+            start = at;
+        }
+        if game.len() + line.len() <= MAX_GAME as usize {
+            game.extend_from_slice(&line);
         }
         at += n as u64;
     }
@@ -205,7 +322,12 @@ fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32) {
                 s = &s[end..];
                 if *depth == 0
                     && !w.starts_with('$')
-                    && let Word::Move(san, _) = pgn::word(w)
+                    && let Word::Move(san, _) = match head.format {
+                        super::Format::Pdn if crate::draughts::is_move(w) => Word::Move(w, None),
+                        super::Format::Xiangqi if crate::xiangqi::is_move(w) => Word::Move(w, None),
+                        super::Format::Pdn | super::Format::Xiangqi => Word::Other,
+                        _ => pgn::word(w),
+                    }
                 {
                     head.plies += 1;
                     if head.sans.len() < FIRST_MOVES {
@@ -284,8 +406,22 @@ fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dy
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     // The search store reads every PGN file: 1 GiB unpacked of each is plenty.
+    let format = kind(path);
     let r = reader(path, Arc::default(), 1 << 30)?;
-    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), each)
+    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, each)
+}
+
+/// Whose games a PGN-family file holds: draughts for `.pdn`, xiangqi when the first tags of a
+/// PGN file say so (`xiangqi::is_xiangqi`), else chess.
+pub fn kind(path: &Path) -> super::Format {
+    if let Some(f @ (super::Format::Pdn | super::Format::Kif | super::Format::Csa | super::Format::Pbn)) = super::format(path) {
+        return f;
+    }
+    let mut head = vec![];
+    let xiangqi = reader(path, Arc::default(), crate::xiangqi::SNIFF as u64)
+        .and_then(|r| r.take(crate::xiangqi::SNIFF as u64).read_to_end(&mut head))
+        .is_ok_and(|_| crate::xiangqi::is_xiangqi(&head));
+    if xiangqi { super::Format::Xiangqi } else { super::Format::Pgn }
 }
 
 /// One game in the table: 48 bytes, so a million games take 48 MB.
@@ -307,6 +443,8 @@ struct Rec {
     plies: u16,
     /// 1 White won, 2 Black won, 3 a draw, 0 anything else.
     result: u8,
+    /// The result as written, interned: draughts writes `2-0`.
+    result_name: u32,
 }
 
 #[derive(Default)]
@@ -321,9 +459,9 @@ struct Shared {
 
 fn result_code(r: &str) -> u8 {
     match r {
-        "1-0" => 1,
-        "0-1" => 2,
-        "1/2-1/2" | "½-½" => 3,
+        "1-0" | "2-0" => 1,
+        "0-1" | "0-2" => 2,
+        "1/2-1/2" | "½-½" | "1-1" => 3,
         _ => 0,
     }
 }
@@ -490,6 +628,8 @@ pub struct Row {
 /// The games of one PGN file.
 pub struct Library {
     pub path: PathBuf,
+    /// `Pgn`, or `Pdn` for draughts.
+    pub format: super::Format,
     shared: Arc<Mutex<Shared>>,
     read: Arc<AtomicU64>,
     size: u64,
@@ -521,8 +661,9 @@ impl Library {
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (sh, st) = (shared.clone(), stop.clone());
-        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked))?;
-        Ok(Library { path: path.to_path_buf(), shared, read, size, stop, source: Mutex::new(Source { path: path.to_path_buf(), open: None }) })
+        let format = kind(path);
+        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked))?;
+        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source: Mutex::new(Source { path: path.to_path_buf(), open: None }) })
     }
 
     pub fn progress(&self) -> Progress {
@@ -562,8 +703,8 @@ impl Library {
         // Names sort by their rank among all names, worked out once.
         let rank = |s: &Shared| -> Vec<u32> {
             let mut order: Vec<u32> = (0..s.strings.len() as u32).collect();
-            let lower: Vec<String> = s.strings.iter().map(|n| n.to_lowercase()).collect();
-            order.sort_by(|&a, &b| lower[a as usize].cmp(&lower[b as usize]));
+            let keys = crate::collate::keys(&s.strings);
+            order.sort_by(|&a, &b| keys[a as usize].cmp(&keys[b as usize]));
             let mut rank = vec![0; order.len()];
             for (r, &i) in order.iter().enumerate() {
                 rank[i as usize] = r as u32;
@@ -614,12 +755,14 @@ impl Library {
             black: name(r.black),
             white_elo: (r.white_elo > 0).then_some(r.white_elo),
             black_elo: (r.black_elo > 0).then_some(r.black_elo),
-            result: result_text(r.result).into(),
+            result: if self.format == super::Format::Pgn || r.result_name == u32::MAX { result_text(r.result).into() } else { name(r.result_name) },
             date: date_text(r.date),
             event: name(r.event),
             eco: eco_text(r.eco),
             opening: name(r.opening),
-            moves: (r.plies as u32).div_ceil(2),
+            // Shogi counts every move; chess, draughts and xiangqi a move of each side as one.
+            // Bridge counts the tricks played.
+            moves: if matches!(self.format, super::Format::Kif | super::Format::Csa | super::Format::Pbn) { r.plies as u32 } else { (r.plies as u32).div_ceil(2) },
         })
     }
 
@@ -631,18 +774,30 @@ impl Library {
             (r.offset, r.len)
         };
         let bytes = self.source.lock().unwrap_or_else(|e| e.into_inner()).read(offset, len)?;
-        Ok(text(&bytes).into_owned())
+        // KIF and CSA files are often in Shift_JIS.
+        Ok(match self.format {
+            super::Format::Kif | super::Format::Csa => crate::shogi::decode(&bytes),
+            _ => text(&bytes).into_owned(),
+        })
     }
 
     /// The game at index `i`, read and played out.
     pub fn game(&self, i: u32) -> io::Result<pgn::Game> {
-        Ok(pgn::parse(&self.text(i)?))
+        let text = self.text(i)?;
+        Ok(match self.format {
+            super::Format::Pdn => crate::draughts::parse(&text),
+            super::Format::Xiangqi => crate::xiangqi::parse(&text),
+            super::Format::Kif | super::Format::Csa => crate::shogi::parse(&text, self.format),
+            super::Format::Pbn => crate::bridge::parse(&text),
+            _ => pgn::parse(&text),
+        })
     }
 }
 
 /// The pass over the games: their records, handed over in batches so the table fills.
 /// `cut`: the packed file was unpacked as far as the limits allow.
-fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, limits: Limits, cut: impl Fn() -> bool) {
+fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+    let chess = format == super::Format::Pgn;
     // What the names cost so far: their bytes, twice (the list and the lookup), and the rest.
     let mut names = 0usize;
     let (mut games, mut capped) = (0usize, false);
@@ -671,7 +826,7 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, lim
         s.recs.append(batch);
     };
     let mut last = std::time::Instant::now();
-    let res = scan(BufReader::with_capacity(1 << 16, r), stop, |h| {
+    let res = scan(BufReader::with_capacity(1 << 16, r), stop, format, |h| {
         if games >= limits.games || names >= limits.names {
             capped = true;
             return false;
@@ -691,6 +846,7 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, lim
             eco: eco_code(&eco),
             plies: h.plies.min(u16::MAX as u32) as u16,
             result: result_code(h.tag(RESULT)),
+            result_name: if chess { u32::MAX } else { intern(h.tag(RESULT), &mut ids, &mut fresh, base, &mut names) },
         };
         batch.push(rec);
         if batch.len() >= 4096 && last.elapsed().as_millis() >= 200 {
@@ -752,47 +908,135 @@ fn words(text: &str) -> Vec<(String, bool)> {
     out
 }
 
-/// The game a Find hit in a PGN file is about, by its snippet: its index, from 0.
+/// The game a Find hit is about, from the lines of a file's games (`search_text`) fed in
+/// order, by its snippet: PGN files here, SGF files in `go`.
 ///
-/// The store keeps a line per game (`search_text`) and its snippet is a run of words around
-/// the ones found, often across the lines of neighbouring games, its line breaks gone. So the
-/// snippet's words are looked for as a run in the file's games, one after the other; the game
-/// of the first word found is the one. When no run matches (a reader that changed the text),
-/// the game whose line has the found words and most of the others.
-pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
-    let want = words(snippet);
-    if want.is_empty() {
-        return None;
+/// The store keeps a line per game and its snippet is a run of words around the ones found,
+/// often across the lines of neighbouring games, its line breaks gone. So the snippet's words
+/// are looked for as a run in the games' lines, one after the other; the game of the first
+/// word found is the one. When no run matches (a reader that changed the text), the game whose
+/// line has the found words and most of the others.
+pub struct Hit {
+    want: Vec<(String, bool)>,
+    first: usize,
+    found: Vec<String>,
+    /// The last words fed, each with its game, as many as the snippet has.
+    window: std::collections::VecDeque<(String, u32)>,
+    n: u32,
+    hit: Option<u32>,
+    best: (usize, Option<u32>),
+}
+
+impl Hit {
+    /// None for a snippet without words.
+    pub fn new(snippet: &str) -> Option<Hit> {
+        let want = words(snippet);
+        if want.is_empty() {
+            return None;
+        }
+        let first = want.iter().position(|w| w.1).unwrap_or(0);
+        let found = want.iter().filter(|w| w.1).map(|w| w.0.clone()).collect();
+        Some(Hit { want, first, found, window: Default::default(), n: 0, hit: None, best: (0, None) })
     }
-    let first = want.iter().position(|w| w.1).unwrap_or(0);
-    let found: Vec<&str> = want.iter().filter(|w| w.1).map(|w| w.0.as_str()).collect();
-    // The last words of the file, each with its game, as many as the snippet has.
-    let mut window: std::collections::VecDeque<(String, u32)> = std::collections::VecDeque::new();
-    let (mut n, mut hit, mut best) = (0u32, None, (0usize, None));
-    scan_file(path, |h| {
-        let line: Vec<String> = words(&h.line()).into_iter().map(|w| w.0).collect();
+
+    /// The next game's line; false once the game is found.
+    pub fn feed(&mut self, line: &str) -> bool {
+        let line: Vec<String> = words(line).into_iter().map(|w| w.0).collect();
         // The fallback's score: the found words all here, then as many of the others.
-        if found.iter().all(|f| line.iter().any(|w| w == f)) {
-            let score = 1 + want.iter().filter(|w| line.contains(&w.0)).count();
-            if score > best.0 {
-                best = (score, Some(n));
+        if self.found.iter().all(|f| line.iter().any(|w| w == f)) {
+            let score = 1 + self.want.iter().filter(|w| line.contains(&w.0)).count();
+            if score > self.best.0 {
+                self.best = (score, Some(self.n));
             }
         }
         for w in line {
-            window.push_back((w, n));
-            if window.len() > want.len() {
-                window.pop_front();
+            self.window.push_back((w, self.n));
+            if self.window.len() > self.want.len() {
+                self.window.pop_front();
             }
-            if window.len() == want.len() && window.iter().zip(&want).all(|(a, b)| a.0 == b.0) {
-                hit = Some(window[first].1);
+            if self.window.len() == self.want.len() && self.window.iter().zip(&self.want).all(|(a, b)| a.0 == b.0) {
+                self.hit = Some(self.window[self.first].1);
                 return false;
             }
         }
-        n += 1;
+        self.n += 1;
         true
-    })
-    .ok()?;
-    hit.or(best.1)
+    }
+
+    /// The game found, from 0.
+    pub fn found(&self) -> Option<u32> {
+        self.hit.or(self.best.1)
+    }
+}
+
+/// The game a Find hit in a PGN file is about, by its snippet (`Hit`): its index, from 0.
+pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
+    let mut hit = Hit::new(snippet)?;
+    scan_file(path, |h| hit.feed(&h.line())).ok()?;
+    hit.found()
+}
+
+/// The most games of one file whose positions the search store keeps, and the most positions.
+pub const POSITION_GAMES: u32 = 100_000;
+pub const POSITION_ROWS: usize = 2_000_000;
+
+/// The positions each game of the PGN file at `path` reaches on its main line, as Polyglot keys
+/// (`polyglot::key`), each once a game, the start position left out (every game has it):
+/// handed to `each` game by game, with the game's index, as the file is read, so a big file
+/// never has more than one game in memory. Up to `POSITION_GAMES` games and `POSITION_ROWS`
+/// positions; `stop` is asked between games, and true ends it there.
+pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32, &[u64])) -> io::Result<()> {
+    let mut r = BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?);
+    let (mut line, mut game, mut n, mut rows) = (Vec::new(), String::new(), 0u32, 0usize);
+    // Moves seen in this game, and how deep in a { } comment the reading is.
+    let (mut moves, mut brace) = (false, 0i32);
+    let mut flush = |game: &mut String, n: &mut u32, rows: &mut usize| {
+        if game.trim().is_empty() {
+            game.clear();
+            return;
+        }
+        let g = super::pgn::parse(game);
+        game.clear();
+        let mut keys: Vec<u64> = g
+            .main_line()
+            .iter()
+            .map_while(|&i| g.nodes[i as usize].fen.as_deref().and_then(super::pgn::board))
+            .map(|b| super::polyglot::key(&b))
+            .collect();
+        keys.sort_unstable();
+        keys.dedup();
+        keys.truncate(POSITION_ROWS.saturating_sub(*rows));
+        *rows += keys.len();
+        each(*n, &keys);
+        *n += 1;
+    };
+    loop {
+        if n >= POSITION_GAMES || rows >= POSITION_ROWS || stop() || read_line(&mut r, &mut line)? == 0 {
+            break;
+        }
+        let l = text(&line);
+        let t = l.trim_start_matches('\u{feff}').trim_start();
+        if brace == 0 && t.starts_with('[') && moves {
+            flush(&mut game, &mut n, &mut rows);
+            moves = false;
+        }
+        if !t.starts_with('[') || brace > 0 {
+            if !t.is_empty() {
+                moves = true;
+            }
+            brace = (brace + t.matches('{').count() as i32 - t.matches('}').count() as i32).max(0);
+        }
+        if game.len() < MAX_GAME as usize {
+            game.push_str(&l);
+            if !l.ends_with('\n') {
+                game.push('\n');
+            }
+        }
+    }
+    if n < POSITION_GAMES && rows < POSITION_ROWS && !stop() {
+        flush(&mut game, &mut n, &mut rows);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -801,6 +1045,27 @@ mod tests {
     use std::io::Write;
 
     const TWO: &str = "[Event \"Paris\"]\n[White \"Morphy, Paul\"]\n[Black \"Duke Karl\"]\n[Result \"1-0\"]\n[Date \"1858.11.02\"]\n[WhiteElo \"2690\"]\n\n1.e4 e5 2.Nf3 d6 {Philidor} 3.d4 Bg4 (3...exd4) 4.dxe5 1-0\n\n[Event \"London\"]\n[White \"Anderssen, Adolf\"]\n[Black \"Kieseritzky, Lionel\"]\n[Result \"1-0\"]\n[Date \"1851.06.21\"]\n[ECO \"C33\"]\n\n1.e4 e5 2.f4 exf4 {a\n[not a tag] } 3.Bc4 1-0\n";
+
+    #[test]
+    fn positions_game_by_game() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("two.pgn");
+        std::fs::write(&p, TWO).unwrap();
+        let mut seen = vec![];
+        positions(&p, &|| false, |n, keys| seen.push((n, keys.to_vec()))).unwrap();
+        // Stopped: no game at all.
+        let mut none = 0;
+        positions(&p, &|| true, |_, _| none += 1).unwrap();
+        assert_eq!(none, 0);
+        assert_eq!(seen.len(), 2);
+        // Both start 1.e4 e5: the position after it is in both, the start position in neither.
+        let after = |fen: &str| crate::chess::polyglot::key(&crate::chess::pgn::board(fen).unwrap());
+        let e4e5 = after("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
+        assert!(seen.iter().all(|(_, k)| k.contains(&e4e5)));
+        assert!(seen.iter().all(|(_, k)| !k.contains(&after(crate::chess::pgn::START))));
+        // The first game's 4.dxe5 is in it alone; the comment with a [ line does not split a game.
+        assert_eq!((seen[0].1.len(), seen[1].1.len()), (7, 5));
+    }
 
     fn lib(text: &[u8], name: &str) -> (Library, tempdir::Dir) {
         let d = tempdir::Dir::new();
@@ -835,7 +1100,7 @@ mod tests {
     fn a_byte_order_mark_is_no_game() {
         let text = format!("\u{feff}{TWO}");
         let mut events = vec![];
-        scan(text.as_bytes(), &AtomicBool::new(false), |h| {
+        scan(text.as_bytes(), &AtomicBool::new(false), super::super::Format::Pgn, |h| {
             events.push((h.offset, h.tags[EVENT].clone()));
             true
         })
