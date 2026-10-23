@@ -34,6 +34,21 @@ pub struct Entry {
     pub referenced: u64,
 }
 
+/// `path` opened for reading only when it is a regular file: a FIFO or a device would block
+/// a sniff of its first bytes (opened without waiting, then checked on the open file, so it
+/// cannot be swapped for one in between).
+pub fn open_regular(path: &Path) -> io::Result<fs::File> {
+    let mut o = fs::OpenOptions::new();
+    o.read(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NONBLOCK);
+    let f = o.open(path)?;
+    if !f.metadata()?.is_file() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a regular file"));
+    }
+    Ok(f)
+}
+
 fn is_zero(n: &u64) -> bool {
     *n == 0
 }
@@ -89,6 +104,12 @@ pub fn private(dir: &Path, file: Option<&Path>) -> io::Result<()> {
 /// `t` in seconds since 1970; `None` before then, or when the system keeps no such time.
 pub fn secs(t: io::Result<std::time::SystemTime>) -> Option<u64> {
     Some(t.ok()?.duration_since(UNIX_EPOCH).ok()?.as_secs())
+}
+
+/// The moment `secs` seconds after 1970, as far as the year 9999. An archive, an index or a
+/// commit may say any number, and past that adding it to 1970 or showing it as a date panics.
+pub fn epoch(secs: u64) -> std::time::SystemTime {
+    std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs.min(253_402_300_799))
 }
 
 /// Now, in seconds since 1970.
@@ -152,15 +173,16 @@ impl Entry {
     ) -> io::Result<Entry> {
         let lmeta = lmeta?;
         let is_symlink = lmeta.file_type().is_symlink();
-        // Follow links for type and size; a dangling link stays a plain entry.
-        let meta = if is_symlink {
-            fs::metadata(&path).unwrap_or(lmeta)
-        } else {
-            lmeta
+        // Follow links for type and size; a dangling link stays a plain entry, and never a
+        // program: its own mode (0777) says nothing about what it would run.
+        let (meta, dangling) = match is_symlink.then(|| fs::metadata(&path)) {
+            Some(Ok(m)) => (m, false),
+            Some(Err(_)) => (lmeta, true),
+            None => (lmeta, false),
         };
         Ok(Entry {
             hidden: name.starts_with('.') || is_hidden_attr(&meta),
-            is_exec: !meta.is_dir() && is_exec(&meta, &name),
+            is_exec: !dangling && !meta.is_dir() && is_exec(&meta, &name),
             is_dir: meta.is_dir(),
             is_symlink,
             size: if meta.is_dir() { 0 } else { meta.len() },
@@ -303,20 +325,37 @@ pub enum SortKey {
     Commit,
 }
 
+/// Quick search: the first entry whose name starts with `query`, in any case. NFC on both
+/// sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙), typing composes.
+pub fn quick_match(entries: &[Entry], query: &str) -> Option<usize> {
+    use unicode_normalization::UnicodeNormalization;
+    let nfc = |s: &str| s.nfc().collect::<String>().to_lowercase();
+    let q = nfc(query);
+    entries.iter().position(|e| nfc(&e.name).starts_with(&q))
+}
+
 /// `..` first, then directories, then files; each group ordered by `key`.
-/// `sort` for the listing of `dir`. A history's list of commits is always by date, newest
-/// first, and in git's order where two have the same time: its names start with commit ids,
-/// which would put it in a random order.
-/// The branches and the worktrees keep git's order: local branches before remote ones.
-pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
-    if crate::history::split(dir)
-        .is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History)
+/// `sort` for the listing of `dir`. A history's list of commits keeps git's order, newest first
+/// with every commit below those made on top of it, as its graph is drawn: its names start with
+/// commit ids, which would put it in a random order. The branches and the worktrees keep git's
+/// order too: local branches before remote ones. A dataset's snapshots go by date, newest first.
+/// By size a folder goes by its measured size (`measured`; inside an archive its listed one), and comes after the others, by name, while that is not known.
+pub fn sort_in(
+    dir: &Path,
+    entries: &mut [Entry],
+    key: SortKey,
+    reverse: bool,
+    measured: &std::collections::HashMap<PathBuf, u64>,
+) {
+    let name = |p: &Path| p.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_owned();
+    let commits = name(dir) == crate::history::MARKER
+        || [crate::history::ALL, crate::history::UPSTREAM].contains(&name(dir).as_str()) && dir.parent().is_some_and(|p| name(p) == crate::history::MARKER);
+    if commits
+        || crate::history::split(dir)
+            .is_some_and(|at| at.commit.is_none() && at.view != crate::history::View::History)
     {
         entries.sort_by_key(|e| !e.is_parent());
-    } else if dir
-        .file_name()
-        .is_some_and(|n| n == crate::history::MARKER || n == crate::zfs::MARKER)
-    {
+    } else if dir.file_name().is_some_and(|n| n == crate::zfs::MARKER) {
         entries.sort_by(|a, b| {
             let ord = b.modified.cmp(&a.modified);
             (!a.is_parent())
@@ -324,56 +363,81 @@ pub fn sort_in(dir: &Path, entries: &mut [Entry], key: SortKey, reverse: bool) {
                 .then(if reverse { ord.reverse() } else { ord })
         });
     } else {
-        sort(entries, key, reverse);
+        let listed = crate::archive::split(dir).is_some();
+        sort_sized(entries, key, reverse, |e| {
+            if !e.is_dir || listed {
+                Some(e.size)
+            } else {
+                measured.get(&e.path).copied()
+            }
+        });
     }
 }
 
+/// `sort` with no folder measured: by size, folders in name order. Names in the language's
+/// alphabet (`collate`), numbers by their value: "file2" < "file10".
 pub fn sort(entries: &mut [Entry], key: SortKey, reverse: bool) {
-    entries.sort_by(|a, b| {
+    sort_sized(entries, key, reverse, |e| (!e.is_dir).then_some(e.size));
+}
+
+/// `size` is what a sort by size goes by; `None` (a folder not measured) after the rest.
+fn sort_sized(
+    entries: &mut [Entry],
+    key: SortKey,
+    reverse: bool,
+    size: impl Fn(&Entry) -> Option<u64>,
+) {
+    sort_keyed(entries, key == SortKey::Ext, |a, ka, b, kb| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
-            let name = || natord(&a.name, &b.name);
+            let name = || ka.name.cmp(&kb.name);
+            let sizes = (key == SortKey::Size).then(|| (size(a), size(b)));
+            if let Some((x, y)) = sizes
+                && (x.is_none() || y.is_none())
+            {
+                // Not measured yet, or folder sizes off: last, by name, whichever way round.
+                return x.is_none().cmp(&y.is_none()).then_with(name);
+            }
             let ord = match key {
                 SortKey::Name | SortKey::Commit => name(),
-                SortKey::Ext => natord(a.ext(), b.ext()).then_with(name),
+                SortKey::Ext => ka.ext.cmp(&kb.ext).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
-                SortKey::Size => b.size.cmp(&a.size).then_with(name),
+                SortKey::Size => {
+                    let (x, y) = sizes.unwrap_or_default();
+                    y.cmp(&x).then_with(name)
+                }
             };
             if reverse { ord.reverse() } else { ord }
         })
     });
 }
 
-/// Case-insensitive natural order: "file2" < "file10". No allocation: a sort of 100,000
-/// names calls this two million times.
-pub(crate) fn natord(a: &str, b: &str) -> std::cmp::Ordering {
-    let (mut a, mut b) = (a, b);
-    loop {
-        let (Some(x), Some(y)) = (a.chars().next(), b.chars().next()) else {
-            return a.len().cmp(&b.len());
-        };
-        if x.is_ascii_digit() && y.is_ascii_digit() {
-            let digits = |s: &str| s.find(|c: char| !c.is_ascii_digit()).unwrap_or(s.len());
-            let (na, nb) = (&a[..digits(a)], &b[..digits(b)]);
-            let (ta, tb) = (na.trim_start_matches('0'), nb.trim_start_matches('0'));
-            let ord = ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb));
-            if ord.is_ne() {
-                return ord;
-            }
-            a = &a[na.len()..];
-            b = &b[nb.len()..];
-        } else {
-            let ord = if x.is_ascii() && y.is_ascii() {
-                x.to_ascii_lowercase().cmp(&y.to_ascii_lowercase())
-            } else {
-                x.to_lowercase().cmp(y.to_lowercase())
-            };
-            if ord.is_ne() {
-                return ord;
-            }
-            a = &a[x.len_utf8()..];
-            b = &b[y.len_utf8()..];
-        }
+/// An entry's collation keys (`collate::key`): its name's, and its extension's when asked.
+pub(crate) struct Keys {
+    pub name: Vec<u8>,
+    pub ext: Vec<u8>,
+}
+
+/// `entries` sorted by `cmp`, which gets each entry with its `Keys`, made once per entry (on
+/// every core): a sort of 200,000 names compares them some four million times.
+pub(crate) fn sort_keyed(
+    entries: &mut [Entry],
+    ext: bool,
+    cmp: impl Fn(&Entry, &Keys, &Entry, &Keys) -> std::cmp::Ordering,
+) {
+    use rayon::prelude::*;
+    let keys: Vec<Keys> = entries
+        .par_iter()
+        .map(|e| Keys {
+            name: crate::collate::key(&e.name),
+            ext: if ext { crate::collate::key(e.ext()) } else { Vec::new() },
+        })
+        .collect();
+    let mut order: Vec<usize> = (0..entries.len()).collect();
+    order.sort_by(|&i, &j| cmp(&entries[i], &keys[i], &entries[j], &keys[j]));
+    let mut taken: Vec<Entry> = entries.iter_mut().map(std::mem::take).collect();
+    for (slot, i) in entries.iter_mut().zip(order) {
+        *slot = std::mem::take(&mut taken[i]);
     }
 }
 
@@ -497,6 +561,13 @@ fn writable(path: &Path) -> io::Result<()> {
     {
         return denied("disk_image.read_only");
     }
+    // Inside an archive inside an archive, which is looked into from a copy in the cache.
+    if !path.exists()
+        && crate::archive::split(path)
+            .is_some_and(|(a, inner)| crate::archive::nested(&a, &inner, false))
+    {
+        return denied("archive.nested_read_only");
+    }
     match crate::history::split(path) {
         Some(_) if !path.exists() => denied("history.read_only"),
         _ => Ok(()),
@@ -586,7 +657,8 @@ fn inside(to: &Path, dir: &Path) -> bool {
 
 /// `src` to `to`. A folder that is not there yet is made under a passing name beside it and
 /// gets its name when complete, so a copy that fails half way leaves nothing and can be tried
-/// again; one that is there is merged into, file by file.
+/// again; one that is there is merged into, file by file. Stopped (`stop`), the folder gets its
+/// name with what was copied so far: the file it was on is removed, the rest stays.
 fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
     if !fs::symlink_metadata(src)?.is_dir() || fs::symlink_metadata(to).is_ok() {
         return copy_entry(src, to);
@@ -624,12 +696,16 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         fs::rename(&tmp, to)
     })();
     if r.is_err() {
-        let _ = fs::remove_dir_all(&tmp);
+        // Never onto one that came meanwhile, as above.
+        if !(crate::stop::asked() && fs::symlink_metadata(to).is_err() && fs::rename(&tmp, to).is_ok()) {
+            let _ = fs::remove_dir_all(&tmp);
+        }
     }
     r
 }
 
 fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
+    crate::stop::check()?;
     let ft = fs::symlink_metadata(src)?.file_type();
     if ft.is_symlink() {
         let link = fs::read_link(src)?;
@@ -660,19 +736,180 @@ fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
             crate::t!("err.exists", "path" => to.display()),
         ))
     } else {
-        // Not there before (above): a copy that fails half way (a full disk) leaves nothing,
-        // so trying again is not refused as "exists".
-        fs::copy(src, to).inspect_err(|_| {
-            let _ = fs::remove_file(to);
-        })?;
-        // The original's date (Windows and macOS copy it themselves). As the owner, a file
-        // open for reading may be dated, a read-only one too.
-        #[cfg(unix)]
-        let _ = fs::metadata(src)
-            .and_then(|m| m.modified())
-            .and_then(|t| fs::File::open(to)?.set_modified(t));
-        Ok(())
+        copy_file(src, to, false)
     }
+}
+
+/// Files up to this size are copied by the system in one go (a clone where the disk can), in
+/// well under a second; larger ones in steps, with Stop looked at between them.
+const STEP: u64 = 8 << 20;
+
+/// The file `src` to `to`, which is not there (`copy_entry` looked). `sync`: written through to
+/// the disk before it returns, for a move that deletes the original next. Not there before: a
+/// copy that fails half way (a full disk) or is stopped leaves nothing, so trying again is not
+/// refused as "exists".
+fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
+    let meta = fs::metadata(src)?;
+    // Windows' own copy is written to the disk later, by its cache: a move takes the steps below,
+    // which are.
+    if meta.len() <= STEP && !(sync && cfg!(windows)) {
+        let r = fs::copy(src, to).and_then(|_| {
+            #[cfg(unix)]
+            if sync {
+                fs::File::open(to)?.sync_all()?;
+            }
+            Ok(())
+        });
+        if r.is_err() {
+            let _ = fs::remove_file(to);
+        }
+        r?;
+    } else {
+        copy_in_steps(src, to, &meta, sync)?;
+    }
+    // The original's date (Windows and macOS copy it themselves). As the owner, a file
+    // open for reading may be dated, a read-only one too.
+    #[cfg(unix)]
+    let _ = meta.modified().and_then(|t| fs::File::open(to)?.set_modified(t));
+    Ok(())
+}
+
+/// A large file to `to`, in steps of a megabyte with Stop looked at between them, under a
+/// passing name beside it (`.name.coxswain-tmp-…`) until it is whole: a copy cut short, even
+/// by a crash, never stands under the real name.
+// ponytail: the system's clone, and on macOS and Windows a file's extended attributes and
+// streams, are given up for Stop; copyfile(3) and CopyFileExW with their progress callbacks
+// would keep them.
+fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::Result<()> {
+    use std::io::{Read, Seek, Write};
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let tmp = to.with_file_name(format!(
+        ".{}.coxswain-tmp-{}-{}",
+        to.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id(),
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    let mut from = fs::File::open(src)?;
+    // For this user alone while it is written: a private file's half copy is never readable
+    // by others. Its own mode once it is whole, below.
+    let mut new = fs::OpenOptions::new();
+    new.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut new, 0o600);
+    let mut out = new.open(&tmp)?;
+    let r = (|| {
+        let mut buf = vec![0u8; 1 << 20];
+        loop {
+            crate::stop::check()?;
+            let n = match from.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            // A run of zeros is skipped, not written: a sparse file stays sparse.
+            if buf[..n].iter().all(|&b| b == 0) {
+                out.seek(io::SeekFrom::Current(n as i64))?;
+            } else {
+                out.write_all(&buf[..n])?;
+            }
+        }
+        let end = out.stream_position()?;
+        out.set_len(end)?;
+        if sync {
+            out.sync_all()?;
+        }
+        out.set_modified(meta.modified()?)?;
+        // The original's permission bits, not its set-user or set-group ones; on Windows only
+        // its read-only flag, not its other attributes (compressed, a cloud placeholder's).
+        #[cfg(unix)]
+        out.set_permissions(std::os::unix::fs::PermissionsExt::from_mode(
+            std::os::unix::fs::PermissionsExt::mode(&meta.permissions()) & 0o777,
+        ))?;
+        #[cfg(not(unix))]
+        {
+            let mut p = out.metadata()?.permissions();
+            p.set_readonly(meta.permissions().readonly());
+            out.set_permissions(p)?;
+        }
+        drop(out);
+        // Never onto one that came meanwhile: rename would replace it.
+        if fs::symlink_metadata(to).is_ok() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                crate::t!("err.exists", "path" => to.display()),
+            ));
+        }
+        fs::rename(&tmp, to)
+    })();
+    if r.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    r
+}
+
+/// What a move across disks did when it ended half way (stopped, or failed): the files and
+/// folders that went over whole, and the folders it made for them that are not empty.
+#[derive(Default, Debug)]
+pub(crate) struct Moved {
+    pub(crate) done: Vec<(PathBuf, PathBuf)>,
+    pub(crate) made: Vec<PathBuf>,
+}
+
+/// Move `src` to `to` on another disk, file by file: each copied, checked (written to the disk,
+/// as long as the original) and only then its original deleted, so every file is in one
+/// place at any time. A folder is made under its own name and its original removed once empty.
+fn move_across(src: &Path, to: &Path, log: &mut Moved) -> io::Result<()> {
+    crate::stop::check()?;
+    let meta = fs::symlink_metadata(src)?;
+    if !meta.is_dir() {
+        move_file(src, to, &meta)?;
+        log.done.push((src.to_path_buf(), to.to_path_buf()));
+        return Ok(());
+    }
+    fs::create_dir(to)?;
+    log.made.push(to.to_path_buf());
+    let mark = log.done.len();
+    let inside: Vec<_> = fs::read_dir(src)?.collect::<io::Result<_>>()?;
+    for de in inside {
+        move_across(&de.path(), &to.join(de.file_name()), log)?;
+    }
+    // Its own permissions once the files are in: a read-only folder would have kept them out.
+    let _ = fs::set_permissions(to, meta.permissions());
+    fs::remove_dir(src)?;
+    // Gone over whole: one item, the folder, instead of what is in it.
+    log.done.truncate(mark);
+    log.made.retain(|m| !m.starts_with(to));
+    log.done.push((src.to_path_buf(), to.to_path_buf()));
+    Ok(())
+}
+
+/// One file (or link) of `move_across`. When anything fails, the original stays and the copy
+/// goes.
+fn move_file(src: &Path, to: &Path, before: &fs::Metadata) -> io::Result<()> {
+    if before.is_file() {
+        copy_file(src, to, true)?;
+    } else {
+        copy_entry(src, to)?;
+    }
+    let checked = (|| {
+        let (now, copy) = (fs::symlink_metadata(src)?, fs::symlink_metadata(to)?);
+        // Changed while it was copied, or the copy is short: the original stays.
+        if before.is_file()
+            && (copy.len() != before.len()
+                || now.len() != before.len()
+                || now.modified().ok() != before.modified().ok())
+        {
+            return Err(io::Error::other(
+                crate::t!("err.move_check", "path" => src.display()),
+            ));
+        }
+        fs::remove_file(src)
+    })();
+    if checked.is_err() {
+        let _ = fs::remove_file(to);
+    }
+    checked
 }
 
 /// The error for a pipe, a socket or a device, which are not copied or moved.
@@ -707,6 +944,16 @@ pub fn rename(src: &Path, dst: &Path) -> io::Result<PathBuf> {
 /// `rename`, with the password of the archive `src` is inside: out of an archive it is copied
 /// out, then taken out of the archive.
 pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Result<PathBuf> {
+    rename_locked_logged(src, dst, password, &mut Moved::default())
+}
+
+/// `rename_locked`; `log`: what a move across disks that ended half way left, for undo.
+pub(crate) fn rename_locked_logged(
+    src: &Path,
+    dst: &Path,
+    password: Option<&str>,
+    log: &mut Moved,
+) -> io::Result<PathBuf> {
     writable(src)?;
     writable(dst)?;
     match (out_of_archive(src), into_archive(dst)) {
@@ -728,7 +975,10 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
         (Some((a, from)), _) => {
             // Taken out of the archive only when all of it came out.
             let to = copy_out_or_in(src, dst, password, true)?;
-            crate::archive::remove(&a, &[from], password)?;
+            // Once out whole it is taken out of the archive, Stop or not: never in two places.
+            crate::stop::during(&Default::default(), || {
+                crate::archive::remove(&a, &[from], password)
+            })?;
             Ok(to)
         }
         (None, Some(_)) => {
@@ -737,11 +987,19 @@ pub fn rename_locked(src: &Path, dst: &Path, password: Option<&str>) -> io::Resu
             delete(src)?;
             Ok(to)
         }
-        (None, None) => rename_plain(src, dst),
+        (None, None) => rename_logged(src, dst, log),
     }
 }
 
-fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
+#[cfg(test)]
+thread_local! {
+    /// A test's move goes as across disks.
+    pub(crate) static ACROSS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// A move on disk: a rename, or across disks file by file; `log`: what a move across disks that
+/// ended half way left, for undo.
+fn rename_logged(src: &Path, dst: &Path, log: &mut Moved) -> io::Result<PathBuf> {
     let to = target(src, dst);
     if src.is_dir() && inside(&to, src) && !same_file(src, &to) {
         return Err(io::Error::new(
@@ -757,11 +1015,25 @@ fn rename_plain(src: &Path, dst: &Path) -> io::Result<PathBuf> {
             crate::t!("err.exists", "path" => to.display()),
         ));
     }
-    match fs::rename(src, &to) {
-        // Another disk: copied over, then the original goes. Other failures are failures.
+    #[cfg(test)]
+    let moved = if ACROSS.get() {
+        Err(io::ErrorKind::CrossesDevices.into())
+    } else {
+        fs::rename(src, &to)
+    };
+    #[cfg(not(test))]
+    let moved = fs::rename(src, &to);
+    match moved {
+        // Another disk: file by file. Other failures are failures.
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
-            copy(src, &to)?;
-            delete(src)?;
+            if let Err(e) = move_across(src, &to, log) {
+                // The folders made that nothing went into go again, the innermost first.
+                for m in log.made.iter().rev() {
+                    let _ = fs::remove_dir(m);
+                }
+                log.made.retain(|m| m.exists());
+                return Err(e);
+            }
         }
         r => r?,
     }
@@ -921,7 +1193,7 @@ pub fn protected(path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+        if let Some(home) = HOME.get_or_init(crate::dirs::home_dir) {
             return protected_in(home, path);
         }
     }
@@ -940,7 +1212,7 @@ pub fn protected_for_space(path: &Path) -> bool {
     #[cfg(target_os = "macos")]
     {
         static HOME: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-        if let Some(home) = HOME.get_or_init(std::env::home_dir) {
+        if let Some(home) = HOME.get_or_init(crate::dirs::home_dir) {
             return protected_for_space_in(home, path);
         }
     }
@@ -1039,6 +1311,38 @@ fn read_dir_once(
     rd
 }
 
+/// The space free to this user on the disk `dir` is on, when the system says.
+pub fn free_space(dir: &Path) -> Option<u64> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let c = std::ffi::CString::new(dir.as_os_str().as_bytes()).ok()?;
+        // SAFETY: statvfs fills the zeroed struct it is given.
+        let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+        if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+            return None;
+        }
+        #[allow(clippy::unnecessary_cast)] // the types differ between systems
+        Some((st.f_bavail as u64).saturating_mul(st.f_frsize as u64))
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        let wide: Vec<u16> = dir.as_os_str().encode_wide().chain([0]).collect();
+        let mut free = 0u64;
+        // SAFETY: the path ends with a NUL; the counts not wanted are null.
+        let ok = unsafe {
+            windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
+                wide.as_ptr(),
+                &mut free,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        (ok != 0).then_some(free)
+    }
+}
+
 /// Total bytes and file count under `path`, in parallel. Symlinks are counted, not followed;
 /// unreadable parts, and other apps' data on a Mac (`protected`) below it, are skipped.
 pub fn dir_size(path: &Path) -> (u64, u64) {
@@ -1056,6 +1360,9 @@ pub struct Props {
     pub link_target: Option<PathBuf>,
     pub size: u64,
     pub files: u64,
+    /// A folder that could not be listed: why, in plain words. Its size and count are then
+    /// unknown, not 0.
+    pub unreadable: Option<String>,
     pub created: Option<u64>,
     pub modified: Option<u64>,
     pub accessed: Option<u64>,
@@ -1088,6 +1395,11 @@ pub fn properties(path: &Path) -> io::Result<Props> {
     let lmeta = fs::symlink_metadata(path)?;
     let meta = fs::metadata(path).unwrap_or_else(|_| lmeta.clone());
     let (size, files) = dir_size(path);
+    let unreadable = meta
+        .is_dir()
+        .then(|| fs::read_dir(path).err())
+        .flatten()
+        .map(|e| plain_kind(e.kind()).unwrap_or_else(|| cause(&e.to_string())));
     #[cfg(unix)]
     let (mode, uid, gid) = {
         use std::os::unix::fs::MetadataExt;
@@ -1122,6 +1434,7 @@ pub fn properties(path: &Path) -> io::Result<Props> {
         link_target: fs::read_link(path).ok(),
         size,
         files,
+        unreadable,
         created: secs(meta.created()),
         modified: secs(meta.modified()),
         accessed: secs(meta.accessed()),
@@ -1138,7 +1451,7 @@ pub fn properties(path: &Path) -> io::Result<Props> {
             crate::bsd::package_of(path)
         },
         flags: crate::flags::read(path),
-        facts: (meta.is_file() && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
+        facts: ((meta.is_file() || crate::neural::named(path)) && disk.is_none()).then(|| crate::facts::of(path)).flatten(),
         disk_image: disk.as_ref().map(crate::disk_image::lines),
         disk_next: disk.map(|_| crate::disk_image::next()),
         path: path.to_path_buf(),
@@ -1262,7 +1575,7 @@ pub fn percent_decode(bytes: &[u8]) -> Vec<u8> {
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
     let p = match s.strip_prefix('~') {
-        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => std::env::home_dir()
+        Some(rest) if rest.is_empty() || rest.starts_with(['/', '\\']) => crate::dirs::home_dir()
             .unwrap_or_default()
             .join(rest.trim_start_matches(['/', '\\'])),
         _ => PathBuf::from(s),
@@ -1398,8 +1711,97 @@ pub fn cause(err: &str) -> String {
     }
 }
 
+/// A system error in plain words, in the current language ("No permission", "Not found"), or
+/// `None` for one that has none.
+pub fn plain_kind(kind: io::ErrorKind) -> Option<String> {
+    use io::ErrorKind as K;
+    let key = match kind {
+        K::PermissionDenied => "oserr.permission",
+        K::NotFound => "oserr.not_found",
+        K::AlreadyExists => "oserr.exists",
+        K::StorageFull | K::QuotaExceeded => "oserr.full",
+        K::ReadOnlyFilesystem => "oserr.read_only",
+        K::DirectoryNotEmpty => "oserr.not_empty",
+        K::NotADirectory => "oserr.not_folder",
+        K::IsADirectory => "oserr.is_folder",
+        K::ResourceBusy | K::ExecutableFileBusy => "oserr.busy",
+        K::InvalidFilename => "oserr.bad_name",
+        K::FileTooLarge => "oserr.too_large",
+        K::TimedOut => "oserr.timed_out",
+        K::StaleNetworkFileHandle | K::NetworkDown | K::NetworkUnreachable | K::HostUnreachable => "oserr.network",
+        K::ConnectionRefused => "oserr.refused",
+        K::CrossesDevices => "oserr.other_disk",
+        _ => return None,
+    };
+    Some(crate::t!(key))
+}
+
+/// A status line's error in plain words: its first line, with what the system said
+/// ("Permission denied (os error 13)") as `plain_kind` says it. A text it changed goes, whole,
+/// to helper.log.
+pub fn plain(raw: &str) -> String {
+    let out = plain_words(raw);
+    if out != raw.trim() {
+        crate::helper::app_log(raw.trim());
+    }
+    out
+}
+
+/// `plain` without the log: for a text drawn again and again.
+pub fn plain_words(raw: &str) -> String {
+    plain_line(raw.lines().find(|l| !l.trim().is_empty()).unwrap_or_default().trim())
+}
+
+fn plain_line(line: &str) -> String {
+    // "…: Permission denied (os error 13)": the number says what it is on every system.
+    let (said, kind) = match line.rsplit_once(" (os error ").and_then(|(t, n)| Some((t, n.strip_suffix(')')?.parse::<i32>().ok()?))) {
+        Some((t, n)) => (t, io::Error::from_raw_os_error(n).kind()),
+        None => {
+            // An error made from a kind alone says it in English: "entity not found".
+            let tail = line.rsplit_once(": ").map_or(line, |(_, t)| t);
+            match KINDS.iter().find(|k| io::Error::from(**k).to_string() == tail) {
+                Some(k) => (line, *k),
+                None => return line.to_string(),
+            }
+        }
+    };
+    let Some(words) = plain_kind(kind) else { return line.to_string() };
+    match said.rsplit_once(": ") {
+        Some((head, _)) => format!("{head}: {words}"),
+        None => words,
+    }
+}
+
+/// The kinds `plain_kind` has words for, to know them by their English text.
+const KINDS: &[io::ErrorKind] = &[
+    io::ErrorKind::PermissionDenied,
+    io::ErrorKind::NotFound,
+    io::ErrorKind::AlreadyExists,
+    io::ErrorKind::StorageFull,
+    io::ErrorKind::ReadOnlyFilesystem,
+    io::ErrorKind::DirectoryNotEmpty,
+    io::ErrorKind::NotADirectory,
+    io::ErrorKind::IsADirectory,
+    io::ErrorKind::ResourceBusy,
+    io::ErrorKind::InvalidFilename,
+    io::ErrorKind::FileTooLarge,
+    io::ErrorKind::TimedOut,
+];
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn plain_says_system_errors_in_words() {
+        let e = io::Error::from_raw_os_error(if cfg!(windows) { 5 } else { 13 });
+        assert_eq!(plain_line(&format!("Could not open: {e}")), format!("Could not open: {}", crate::t!("oserr.permission")));
+        assert_eq!(plain_line(&io::Error::from(io::ErrorKind::NotFound).to_string()), crate::t!("oserr.not_found"));
+        assert_eq!(plain_line("/a/b: entity not found"), format!("/a/b: {}", crate::t!("oserr.not_found")));
+        // Only the first line: an opener's stderr can run long.
+        assert_eq!(plain_words("\nxdg-open: no method available\nmore\n"), "xdg-open: no method available");
+        // Not a system error: left as it is.
+        assert_eq!(plain_words("Copied 3 items"), "Copied 3 items");
+    }
+
     #[test]
     fn percent_decode_undoes_two_digits_and_leaves_the_rest() {
         assert_eq!(super::percent_decode(b"a%C3%A6%2f"), "aæ/".as_bytes());
@@ -1407,6 +1809,26 @@ mod tests {
     }
 
     use super::*;
+
+    /// A link to nothing (or to itself) is never a program: Enter would try to run it.
+    #[cfg(unix)]
+    #[test]
+    fn dangling_and_looping_links_are_no_programs() {
+        let d = std::env::temp_dir().join(format!("coxswain-dangling-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        std::os::unix::fs::symlink("/nonexistent", d.join("gone")).unwrap();
+        std::os::unix::fs::symlink("loop2", d.join("loop1")).unwrap();
+        std::os::unix::fs::symlink("loop1", d.join("loop2")).unwrap();
+        fs::write(d.join("run.sh"), b"#!/bin/sh\n").unwrap();
+        fs::set_permissions(d.join("run.sh"), std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
+        std::os::unix::fs::symlink("run.sh", d.join("run-link")).unwrap();
+        let all = list(&d, true).unwrap();
+        let exec = |n: &str| all.iter().find(|e| e.name == n).unwrap().is_exec;
+        assert!(!exec("gone") && !exec("loop1") && !exec("loop2"));
+        assert!(exec("run.sh") && exec("run-link"), "a link to a program is one");
+        let _ = fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn summary_counts_folders_files_and_bytes() {
@@ -1494,7 +1916,7 @@ mod tests {
         }
         assert_eq!(
             protected(Path::new("/Users/me/Library/Containers")),
-            cfg!(target_os = "macos") && std::env::home_dir().as_deref() == Some(home)
+            cfg!(target_os = "macos") && crate::dirs::home_dir().as_deref() == Some(home)
         );
     }
 
@@ -1537,6 +1959,26 @@ mod tests {
             );
         }
         assert!(read_dir_once(&refused, &d).is_ok());
+        fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Properties of a folder it may not list say so, not "0 B in 0 files".
+    #[cfg(unix)]
+    #[test]
+    fn properties_of_an_unreadable_folder_say_why() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-props-shut-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(d.join("shut")).unwrap();
+        fs::set_permissions(d.join("shut"), fs::Permissions::from_mode(0o000)).unwrap();
+        let p = properties(&d.join("shut")).unwrap();
+        let root = fs::read_dir(d.join("shut")).is_ok();
+        fs::set_permissions(d.join("shut"), fs::Permissions::from_mode(0o755)).unwrap();
+        // Root lists any folder.
+        if !root {
+            assert_eq!(p.unreadable, Some(crate::t!("oserr.permission")));
+        }
+        assert_eq!(properties(&d).unwrap().unreadable, None);
         fs::remove_dir_all(&d).unwrap();
     }
 
@@ -1615,7 +2057,7 @@ mod tests {
         let base = Path::new("/base");
         assert_eq!(resolve(base, " sub/x "), PathBuf::from("/base/sub/x"));
         assert_eq!(resolve(base, "/abs"), PathBuf::from("/abs"));
-        let home = std::env::home_dir().unwrap_or_default();
+        let home = crate::dirs::home_dir().unwrap_or_default();
         assert_eq!(resolve(base, "~"), home);
         assert_eq!(resolve(base, "~/x"), home.join("x"));
         assert_eq!(resolve(base, "~x"), PathBuf::from("/base/~x"));
@@ -1642,6 +2084,50 @@ mod tests {
         sort(&mut v, SortKey::Ext, false);
         assert_eq!(v[2].name, "a.rs");
         assert_eq!(list(&d, true).unwrap().len(), 6);
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn by_size_folders_go_by_their_measured_size() {
+        let e = |name: &str, is_dir: bool, size: u64| Entry {
+            name: name.into(),
+            path: PathBuf::from("/d").join(name),
+            is_dir,
+            size,
+            ..Entry::default()
+        };
+        // A folder's own entry size (4096 on ext4) says nothing about what is in it.
+        let all = [
+            e("..", true, 4096),
+            e("one", true, 4096),
+            e("fifty", true, 4096),
+            e("five-g", true, 4096),
+            e("b-new", true, 9999),
+            e("a-new", true, 0),
+            e("x.txt", false, 10),
+            e("y.txt", false, 20),
+        ];
+        let measured: std::collections::HashMap<PathBuf, u64> = [("one", 1 << 20), ("fifty", 50 << 20), ("five-g", 5 << 30)]
+            .map(|(n, b)| (PathBuf::from("/d").join(n), b))
+            .into();
+        let order = |measured: &std::collections::HashMap<PathBuf, u64>, reverse: bool| {
+            let mut v = all.to_vec();
+            sort_in(Path::new("/d"), &mut v, SortKey::Size, reverse, measured);
+            v.iter().map(|e| e.name.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(order(&measured, false), ["..", "five-g", "fifty", "one", "a-new", "b-new", "y.txt", "x.txt"], "unmeasured after, by name");
+        assert_eq!(order(&measured, true), ["..", "one", "fifty", "five-g", "a-new", "b-new", "x.txt", "y.txt"], "unmeasured last either way");
+        // Folder sizes off: nothing measured, folders by name, never by their entry size.
+        assert_eq!(order(&Default::default(), false), ["..", "a-new", "b-new", "fifty", "five-g", "one", "y.txt", "x.txt"]);
+        let mut v = all.to_vec();
+        sort(&mut v, SortKey::Size, false);
+        assert_eq!(v[1].name, "a-new");
+        // Inside an archive a folder's listed size is its real one.
+        let d = tmp("size-sort");
+        fs::write(d.join("a.zip"), "").unwrap();
+        let mut v = all.to_vec();
+        sort_in(&d.join("a.zip"), &mut v, SortKey::Size, false, &Default::default());
+        assert_eq!(v[1].name, "b-new");
         fs::remove_dir_all(d).unwrap();
     }
 
@@ -1676,35 +2162,36 @@ mod tests {
             SortKey::Commit,
         ] {
             let mut v = git.to_vec();
-            sort_in(Path::new("/r/src/main.rs/@history"), &mut v, key, false);
+            sort_in(Path::new("/r/src/main.rs/@history"), &mut v, key, false, &Default::default());
             assert_eq!(order(&v), ["..", "f0", "a1", "be", "0d"], "{key:?}");
         }
-        let mut v = git.to_vec();
-        sort_in(
-            Path::new("/r/src/main.rs/@history"),
-            &mut v,
-            SortKey::Name,
-            true,
-        );
-        assert_eq!(order(&v), ["..", "be", "0d", "a1", "f0"]);
+        // Reversed too, and in every branch's history: its graph is drawn in git's order.
+        for dir in ["/r/src/main.rs/@history", "/r/src/@history/@all"] {
+            let mut v = git.to_vec();
+            sort_in(Path::new(dir), &mut v, SortKey::Name, true, &Default::default());
+            assert_eq!(order(&v), ["..", "f0", "a1", "be", "0d"]);
+        }
         // Anywhere else, as asked.
         let mut v = git.to_vec();
-        sort_in(Path::new("/r/src"), &mut v, SortKey::Name, false);
+        sort_in(Path::new("/r/src"), &mut v, SortKey::Name, false, &Default::default());
         assert_eq!(order(&v), ["..", "0d", "a1", "be", "f0"]);
     }
 
     #[test]
     fn fs_natural_order() {
-        use std::cmp::Ordering::*;
-        assert_eq!(natord("file2", "file10"), Less);
-        assert_eq!(natord("file010", "file10"), Equal);
-        assert_eq!(natord("file10", "file010a"), Less);
-        assert_eq!(natord("a", "B"), Less);
-        assert_eq!(natord("B", "a"), Greater);
-        assert_eq!(natord("abc", "ab"), Greater);
-        assert_eq!(natord("", "a"), Less);
-        assert_eq!(natord("Ærø 2", "ærø 10"), Less);
-        assert_eq!(natord("x9y", "x9z"), Less);
+        let names = |v: &[Entry]| v.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        let mut v: Vec<Entry> = ["x9z", "file10", "B", "file010a", "ab", "file2", "a", "x9y", "abc"]
+            .into_iter()
+            .map(|n| Entry {
+                name: n.into(),
+                ..Default::default()
+            })
+            .collect();
+        sort(&mut v, SortKey::Name, false);
+        let want = ["a", "ab", "abc", "B", "file2", "file10", "file010a", "x9y", "x9z"];
+        assert_eq!(names(&v), want);
+        sort(&mut v, SortKey::Name, true);
+        assert_eq!(names(&v), want.iter().rev().copied().collect::<Vec<_>>());
     }
 
     #[test]
