@@ -27,6 +27,11 @@ const MAX_PARTS: usize = 100;
 /// than is kept, well before its end.
 const MAX_XML: u64 = 16 * 1024 * 1024;
 
+/// The most time one file is read for: what is read by then is its text. A file can make each
+/// piece of text cost more than the last (runs opened and never closed, each asked whether it
+/// hides its text), and the reader in the background must go on to the next file.
+const TIME: std::time::Duration = std::time::Duration::from_secs(20);
+
 type Zip = zip::ZipArchive<super::Metered>;
 
 /// How a format keeps its text. An element is known by its name without the prefix, `w:p` by
@@ -125,7 +130,10 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     parts.sort_by_cached_key(|(at, _, name)| (*at, super::natural(name)));
     let (mut out, mut room) = (String::new(), MAX_XML);
     // The styles first, to know which of them hide their text.
-    let mut styles = Styles::default();
+    let mut styles = Styles {
+        until: Some(std::time::Instant::now() + TIME),
+        ..Styles::default()
+    };
     for (name, format) in [("word/styles.xml", &WORD), ("styles.xml", &OPEN)] {
         if let Some(xml) = unpack(&mut zip, name, room) {
             room -= xml.len() as u64;
@@ -207,12 +215,18 @@ struct Styles {
     /// Word's paragraph style for paragraphs that name none, and its defaults for all text.
     paragraph: Option<String>,
     all: Option<bool>,
+    /// When reading stops (`TIME` after it started); never, when `None`.
+    until: Option<std::time::Instant>,
 }
 
 impl Styles {
     /// Whether the style hides its text, as it or the nearest style it is based on says.
     fn hidden<'a>(&'a self, mut name: &'a str) -> Option<bool> {
         for _ in 0..32 {
+            // No style is named at this length; looking one up would cost the file's choice.
+            if name.len() > 256 {
+                return None;
+            }
             let (based, hides) = self.by.get(name)?;
             if hides.is_some() {
                 return *hides;
@@ -259,7 +273,16 @@ fn read(xml: &[u8], format: &Format, out: &mut String, styles: &mut Styles) {
     let off = |e: &quick_xml::events::BytesStart| {
         matches!(super::attr(e, "val").as_deref(), Some("0" | "false" | "off"))
     };
+    // Work done, and when the clock is next looked at: every 64 Ki events or runs asked.
+    let (mut work, mut check) = (0usize, 0usize);
     while out.len() < MAX_TEXT {
+        work += 1;
+        if work >= check {
+            check = work + (1 << 16);
+            if styles.until.is_some_and(|u| std::time::Instant::now() >= u) {
+                break;
+            }
+        }
         let event = match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
             Ok(event) => event,
@@ -270,8 +293,9 @@ fn read(xml: &[u8], format: &Format, out: &mut String, styles: &mut Styles) {
             Event::End(e) => (None, e.name(), false, true),
             _ if skipping > 0 || inside == 0 => continue,
             _ if !runs.is_empty() && {
-                let paragraph = paragraphs.last().cloned().flatten().or_else(|| styles.paragraph.clone());
-                let by_paragraph = paragraph.and_then(|p| styles.hidden(&p));
+                work += runs.len();
+                let paragraph = paragraphs.last().and_then(|p| p.as_deref()).or(styles.paragraph.as_deref());
+                let by_paragraph = paragraph.and_then(|p| styles.hidden(p));
                 runs.iter().any(|r| {
                     r.direct
                         .or_else(|| r.style.as_deref().and_then(|s| styles.hidden(s)))
@@ -1008,6 +1032,21 @@ mod tests {
             &mut Styles::default(),
         );
         assert_eq!(tidy(&out), "Still read");
+    }
+
+    /// Runs opened and never closed make each piece of text cost more than the last: the file
+    /// is read for `TIME` at most, not for hours.
+    #[test]
+    fn a_document_of_runs_never_closed_is_read_within_its_time() {
+        let n = 200_000;
+        let xml = format!("<w:p>{}<w:t>{}</w:t></w:p>", "<w:r>".repeat(n), "x<b/>".repeat(n));
+        let mut styles = Styles {
+            until: Some(std::time::Instant::now() + std::time::Duration::from_secs(1)),
+            ..Styles::default()
+        };
+        let began = std::time::Instant::now();
+        read(xml.as_bytes(), &WORD, &mut String::new(), &mut styles);
+        assert!(began.elapsed() < std::time::Duration::from_secs(10), "{:?}", began.elapsed());
     }
 
     #[test]

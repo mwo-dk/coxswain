@@ -236,7 +236,7 @@ impl Store {
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "NORMAL")?;
         if db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))? != VERSION {
-            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS errors;")?;
+            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS errors; DROP TABLE IF EXISTS positions;")?;
             db.pragma_update(None, "user_version", VERSION)?;
         }
         // The duplicate finder writes hashes from the app while the helper scans.
@@ -269,8 +269,11 @@ impl Store {
         // The passages of a file whose text is longer than what is kept of it (2.33) are made
         // from the whole file, and kept with their vectors: they cannot be cut again from the
         // text kept. NULL for every other file, whose passages are cut from its text.
-        if db.prepare("SELECT passage FROM chunks LIMIT 0").is_err() {
-            db.execute_batch("ALTER TABLE chunks ADD COLUMN passage TEXT; ALTER TABLE chunks ADD COLUMN heading TEXT;")?;
+        // Each on its own: a store left with one of them (stopped between the two) gets the other.
+        for column in ["passage", "heading"] {
+            if db.prepare(&format!("SELECT {column} FROM chunks LIMIT 0")).is_err() {
+                db.execute_batch(&format!("ALTER TABLE chunks ADD COLUMN {column} TEXT"))?;
+            }
         }
         // Files inside archives came later too: `inside` is 1 for them. They have text, and no
         // part in sizes, hashes or the walk; the index of sizes leaves them out.
@@ -465,8 +468,9 @@ impl Store {
     /// kind (`exts`, e.g. tesseract for pictures), or no longer can. A kind that a program can
     /// read now and could not before is read again whole, text and vectors, as another reader
     /// now reads it (Ghostscript a PostScript file that was read as plain text); only the files
-    /// of that kind. A kind no program reads any more keeps what was read of it: the program
-    /// may only be missing from `PATH` for a while.
+    /// of that kind, the first time. A kind no program reads any more keeps what was read of it:
+    /// the program may only be missing from `PATH` for a while, and when it is back only that
+    /// kind's files without text are read again.
     ///
     /// `known` are the kinds this app can read with a program at all. The list is kept under
     /// `tools.2`, which apps before 2.32.2 leave alone (they write a shorter `tools`): a kind
@@ -487,6 +491,13 @@ impl Store {
             return Ok(());
         }
         let knew: Vec<&str> = knew.split(',').filter(|e| !e.is_empty()).collect();
+        // The kinds a program has read here before (`tools.had`, since 2.33; before that the
+        // list itself): one that comes back (a container runtime that started late, a program
+        // back on `PATH`) is not read again whole, only its files without text.
+        // ponytail: a file of such a kind read another way while its program was away (a
+        // PostScript file as plain text) keeps that text until it changes.
+        let had_list = meta("tools.had").unwrap_or_else(|| before.clone());
+        let had: Vec<&str> = had_list.split(',').filter(|e| !e.is_empty()).collect();
         let kinds: Vec<&str> = before
             .split(',')
             .chain(now.split(','))
@@ -497,7 +508,7 @@ impl Store {
             let pattern = format!("%.{ext}");
             // New to the list: its program came, or the app that wrote the list did not know
             // the kind (then a reader's own version in `reader_changed` says what to read).
-            let came = knew.is_empty() || knew.contains(&ext);
+            let came = (knew.is_empty() || knew.contains(&ext)) && !had.contains(&ext);
             if is.contains(&ext) && !was.contains(&ext) && came {
                 db.execute(
                     "UPDATE files SET has_text = NULL, embedded = NULL WHERE lower(path) LIKE ?1",
@@ -510,8 +521,11 @@ impl Store {
                 )?;
             }
         }
+        let mut had_now = had.clone();
+        had_now.extend(is.iter().filter(|e| !e.is_empty() && !had.contains(e)));
+        let had_now = had_now.join(",");
         // `tools` too, for the apps from before.
-        for (key, value) in [("tools", &now), ("tools.2", &now), ("tools.known", &now_known)] {
+        for (key, value) in [("tools", &now), ("tools.2", &now), ("tools.known", &now_known), ("tools.had", &had_now)] {
             db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, value])?;
         }
         Ok(())
@@ -991,6 +1005,10 @@ impl Store {
                 [new],
             )?;
             tx.execute(
+                &format!("DELETE FROM positions WHERE file IN (SELECT id FROM files WHERE {named})"),
+                [new],
+            )?;
+            tx.execute(
                 &format!(
                     "UPDATE files SET has_text = 0, embedded = NULL WHERE has_text = 1 AND {named}"
                 ),
@@ -1059,6 +1077,12 @@ impl Store {
         });
         if let Some(e) = failed {
             return Err(e);
+        }
+        // Stopped part way (the app quits, or *Forget* cleared the store): what came in is not
+        // all, so the file is read again, its positions with it; after a clear none go in.
+        if stop() {
+            self.db.lock().unwrap().execute("UPDATE files SET has_text = NULL WHERE id = ?1", [id])?;
+            return Ok(());
         }
         flush(&mut batch)
     }
@@ -2406,8 +2430,8 @@ fn hash(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::R
 }
 
 /// The passages of a file whose text is longer than what is kept of it (`body`, cut at
-/// `extract::MAX_TEXT`), made from the whole file, read twice line by line: `cap`'s choice
-/// spread over all of it, not only its start. `None` for every other file (its passages are
+/// `extract::MAX_TEXT`), made from the whole file (its first gigabyte), read twice line by
+/// line: `cap`'s choice spread over all of it, not only its start. `None` for every other file (its passages are
 /// cut from `body`), and for one that cannot be read now. Text, code, CSV and logs only, the
 /// kinds read line by line (`extract::streams`).
 fn whole_passages(path: &str, body: &str) -> Option<Vec<crate::meaning::Passage>> {
@@ -2581,10 +2605,19 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
     // In batches by id: every row read gets its `has_text`, and the cursor ends the loop even
     // if one did not.
     let mut after = 0;
+    // A file that is not there now (its disk unplugged, or it went since the scan) is not read
+    // as one without text: it keeps what it had, and waits for its disk or for the next scan.
+    let away: Vec<(String, String)> = store.offline.lock().unwrap().iter().map(|at| below(at)).collect();
+    let away = |p: &str| away.iter().any(|(from, to)| p > from.as_str() && p < to.as_str());
     loop {
         let batch = store.unread_disk(after, 200)?;
         let Some(last) = batch.last() else { break };
         after = last.0;
+        let n = batch.len();
+        let batch: Vec<_> = batch
+            .into_iter()
+            .filter(|(_, path, _)| !away(path) && std::fs::symlink_metadata(path).is_ok())
+            .collect();
         let start = Instant::now();
         let rows: Vec<_> = batch
             .iter()
@@ -2609,7 +2642,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                 store.put_positions(*id, Path::new(path), &halt)?;
             }
         }
-        if done(batch.len()) {
+        if done(n) {
             return Ok(true);
         }
         store.rest(start, stop);
@@ -2619,7 +2652,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
     let mut lost = vec![];
     // Which archive a folder inside one is in: found once per folder, not per member.
     let mut holders: HashMap<PathBuf, Option<(PathBuf, String)>> = HashMap::new();
-    for (id, path) in inside {
+    for (id, path) in inside.into_iter().filter(|(_, path)| !away(path)) {
         let path = Path::new(&path);
         let holder = path.parent().map(|dir| {
             holders
@@ -2644,6 +2677,10 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
     }
     store.read(&lost)?;
     for (archive, files) in archives {
+        // An archive that went since the scan: its files wait for the next one.
+        if std::fs::symlink_metadata(&archive).is_err() {
+            continue;
+        }
         let start = Instant::now();
         let n = files.len();
         store.read(&read_inside(&archive, files, cfg.text_max_size))?;
@@ -2652,6 +2689,8 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         }
         store.rest(start, stop);
     }
+    // What waits for its disk, or went since the scan, is not being read.
+    store.pending.store(0, Ordering::Relaxed);
     Ok(false)
 }
 
@@ -3926,6 +3965,14 @@ mod tests {
         assert_eq!((found(), store.texts()), (0, 1));
         let roots = store.root_sizes();
         assert_eq!((roots[0].1.clone(), roots[0].2.1), (None, 1));
+        // A reader that learnt more asks for its files again while the disk is away: they keep
+        // their text until it is back, and are read then.
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = NULL", []).unwrap();
+        assert!(!read(&store, &cfg, &go).unwrap());
+        let kept: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM text", [], |r| r.get(0)).unwrap();
+        assert_eq!(kept, 1);
+        let unread: Option<bool> = store.db.lock().unwrap().query_row("SELECT has_text FROM files", [], |r| r.get(0)).unwrap();
+        assert_eq!(unread, None);
 
         // Plugged in again: found again, nothing read twice.
         std::fs::rename(d.join("away"), d.join("disk")).unwrap();
@@ -3981,9 +4028,16 @@ mod tests {
         assert_eq!(store.games_at(nf3, 10).unwrap(), vec![(file.clone(), 0), (file.clone(), 2)]);
         let e5 = key("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
         assert_eq!(store.games_at(e5, 2).unwrap().len(), 2);
-        // Stopped at once: the file's rows go, and none come.
+        // Stopped at once: the file's rows go, none come, and the file is to be read again.
         let id: i64 = store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [&path], |r| r.get(0)).unwrap();
         store.put_positions(id, &file, &|| true).unwrap();
+        assert!(store.games_at(e5, 10).unwrap().is_empty());
+        let unread: Option<bool> = store.db.lock().unwrap().query_row("SELECT has_text FROM files WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+        assert_eq!(unread, None);
+        store.put_positions(id, &file, &|| false).unwrap();
+        assert_eq!(store.games_at(e5, 10).unwrap().len(), 3);
+        // Left out by `text_exclude`: Find this position no longer names it.
+        store.exclude_changed(&["*.pgn".into()]).unwrap();
         assert!(store.games_at(e5, 10).unwrap().is_empty());
         store.put_positions(id, &file, &|| false).unwrap();
         // The file gone, its positions go with it.
@@ -4064,9 +4118,11 @@ mod tests {
         store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "a program that went keeps what it read");
         assert_eq!(store.search("launch", None, 10).total, 1);
-        // Ghostscript back, then an app from before 2.32.2 (that knew no PostScript reader)
-        // writes its shorter list: coming back to this one reads nothing again.
+        // Ghostscript back (a container runtime that started late, alike): what it read stays,
+        // nothing is read or given vectors again. Then an app from before 2.32.2 (that knew no
+        // PostScript reader) writes its shorter list: coming back to this one reads nothing again.
         store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "a program that came back reads nothing again");
         store.read(&[(ps, Some("launch notes".into()))]).unwrap();
         store.db.lock().unwrap().execute("UPDATE meta SET value = 'png,jpg' WHERE key = 'tools'", []).unwrap();
         store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
@@ -5003,6 +5059,21 @@ mod tests {
         let short = d.join("short.log");
         std::fs::write(&short, "a short log of a launch, all well, nothing more to say here\n").unwrap();
         assert!(whole_passages(&short.to_string_lossy(), "a short log").is_none());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A store stopped between adding `passage` and `heading` gets the second when opened.
+    #[test]
+    fn a_store_with_half_its_new_columns_gets_the_rest() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-columns-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let path = d.join("search.db");
+        drop(Store::open(&path).unwrap());
+        Connection::open(&path).unwrap().execute_batch("ALTER TABLE chunks DROP COLUMN heading").unwrap();
+        let store = Store::open(&path).unwrap();
+        assert!(store.db.lock().unwrap().prepare("SELECT passage, heading FROM chunks LIMIT 0").is_ok());
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 }

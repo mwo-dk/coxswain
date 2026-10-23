@@ -52,7 +52,7 @@ break, so passages from a spreadsheet or a slide read as a line of words.
 
 | Key | Type | Default | Does |
 |---|---|---|---|
-| `search.text_max_size` | bytes | `20971520` (20 MB) | Files larger than this are not read, except plain text, code, CSV and logs: they are read line by line, whatever their size, until 4 MB of text is kept |
+| `search.text_max_size` | bytes | `20971520` (20 MB) | Files larger than this are not read, except plain text, code, CSV and logs: they are read line by line, whatever their size, until 4 MB of text is kept (or 256 MB of the file is read) |
 
 The formats themselves cannot be switched off one by one; leave a folder out instead
 ([Choosing the folders](folders.md)). At most 4 MB of text is kept from one file, and at most

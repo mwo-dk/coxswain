@@ -1068,7 +1068,7 @@ fn hide(
         let contents = walk.doc.get_page_contents(page);
         let mut looked = HashSet::new();
         if !contents.iter().any(|id| suspects.contains(id))
-            && !may_hide(walk.doc, resources.as_ref(), suspects, &mut looked, DEPTH)
+            && !may_hide(walk.doc, resources.as_ref(), suspects, &mut looked, DEPTH, until)
         {
             continue;
         }
@@ -1107,11 +1107,14 @@ fn may_hide(
     suspects: &HashSet<ObjectId>,
     looked: &mut HashSet<ObjectId>,
     depth: usize,
+    until: Instant,
 ) -> bool {
     let Some(resources) = resources else {
         return false;
     };
-    if depth == 0 {
+    // Too deep, or out of time (forms that share resources of many forms are each gone
+    // through): taken to hide, so the page is walked, and the walk stops at `until` itself.
+    if depth == 0 || Instant::now() >= until {
         return true;
     }
     let clear = dict_at(doc, resources, b"ExtGState").is_some_and(|states| {
@@ -1129,7 +1132,7 @@ fn may_hide(
                         .objects
                         .get(&form)
                         .and_then(|o| o.as_stream().ok())
-                        .is_some_and(|f| may_hide(doc, dict_at(doc, &f.dict, b"Resources"), suspects, looked, depth - 1)))
+                        .is_some_and(|f| may_hide(doc, dict_at(doc, &f.dict, b"Resources"), suspects, looked, depth - 1, until)))
         })
 }
 
@@ -2641,6 +2644,35 @@ mod tests {
         ]
     }
     const TWO_BYTE: &str = "/Font << /F1 3 0 R /F2 4 0 R >>";
+
+    /// Forms that share resources of many forms make the look for what may hide text cost
+    /// forms times forms: out of time, it stops and takes the page to hide.
+    #[test]
+    fn the_look_for_what_may_hide_text_stops_at_its_time() {
+        use pdf_extract::{Dictionary, Document, Object, Stream};
+        let mut doc = Document::new();
+        let mut images = Dictionary::new();
+        for i in 0..50 {
+            let id = doc.add_object(Object::Stream(Stream::new(Dictionary::new(), vec![])));
+            images.set(format!("I{i}"), Object::Reference(id));
+        }
+        let mut shared = Dictionary::new();
+        shared.set("XObject", Object::Dictionary(images));
+        let shared = doc.add_object(Object::Dictionary(shared));
+        let mut forms = Dictionary::new();
+        for i in 0..50 {
+            let mut dict = Dictionary::new();
+            dict.set("Resources", Object::Reference(shared));
+            let id = doc.add_object(Object::Stream(Stream::new(dict, vec![])));
+            forms.set(format!("F{i}"), Object::Reference(id));
+        }
+        let mut page = Dictionary::new();
+        page.set("XObject", Object::Dictionary(forms));
+        let none = HashSet::new();
+        let later = Instant::now() + Duration::from_secs(60);
+        assert!(!super::may_hide(&doc, Some(&page), &none, &mut HashSet::new(), DEPTH, later));
+        assert!(super::may_hide(&doc, Some(&page), &none, &mut HashSet::new(), DEPTH, Instant::now()));
+    }
 
     #[test]
     fn pdf_gives_the_words_of_every_page_in_their_order() {
