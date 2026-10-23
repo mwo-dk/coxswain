@@ -414,7 +414,7 @@ pub fn cache_dir(path: &Path) -> Option<PathBuf> {
     let meta = std::fs::metadata(path).ok()?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), TOOL).hash(&mut h);
-    Some(dirs::cache_dir()?.join("coxswain").join("previews").join(format!("{:016x}", h.finish())))
+    Some(crate::dirs::cache_dir()?.join("coxswain").join("previews").join(format!("{:016x}", h.finish())))
 }
 
 /// The preview as text, for the terminal app's viewer (F3): the book's title and authors,

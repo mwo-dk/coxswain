@@ -9,7 +9,9 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-coxswain-core = { path = "../crates/coxswain-core" }
+# test-home: the readers that keep things (an archive's peek folder in the cache) keep them in the
+# temporary folder, never the developer's own cache.
+coxswain-core = { path = "../crates/coxswain-core", features = ["test-home"] }
 
 # Its own workspace: not built with the apps.
 [workspace]
