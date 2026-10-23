@@ -13,6 +13,7 @@
 //! container sees `/src/in.<ending>`, an installed ffmpeg `file:<path>`, an installed
 //! ImageMagick a link or copy named `in.<ending>`, so no name is read as an option or a coder.
 
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -208,7 +209,16 @@ pub fn how(cfg: &PreviewConfig, program: Program) -> Result<How, String> {
     let tool = program.tool();
     let pref = crate::preview_tools::asked(cfg, tool);
     let pref = pref.as_str();
-    let local = crate::tools::which(program.local()).map(|path| How::Local { program, path });
+    let mut local = crate::tools::which(program.local()).map(|path| How::Local { program, path });
+    // An installed GDAL older than `crate::geo::GDAL_LEAST` fails every vector run: the container
+    // then, and when there is none, why not.
+    let old = match &local {
+        Some(How::Local { path, .. }) if program == Program::Gdal => crate::geo::too_old(path),
+        _ => None,
+    };
+    if old.is_some() {
+        local = None;
+    }
     let image = cfg.images.get(tool).filter(|i| !i.is_empty()).cloned();
     let container = match (crate::tools::container_runtime(cfg), &image) {
         (Some((rt, path)), Some(image)) => Some(How::Container { program, rt, path, image: image.clone() }),
@@ -219,7 +229,10 @@ pub fn how(cfg: &PreviewConfig, program: Program) -> Result<How, String> {
         ("local", _) => local,
         _ => local.or(container),
     };
-    found.ok_or_else(|| missing(cfg, pref, program, image.is_some()))
+    found.ok_or_else(|| match old {
+        Some(v) => t!("geo.gdal_too_old", "version" => v, "least" => format!("{}.{}", crate::geo::GDAL_LEAST.0, crate::geo::GDAL_LEAST.1)),
+        None => missing(cfg, pref, program, image.is_some()),
+    })
 }
 
 /// Why a program cannot run: the line that installs it, and what keeps the container from it.
@@ -714,14 +727,14 @@ fn make(
     if how.program() == Program::Gdal {
         in_folder(how, path, scratch, stop, timeout, said, crate::geo::ENV, |run| match op {
             Op::Geo(to) => crate::geo::convert(run, path, *to, &out_name),
-            _ => std::fs::write(&out, crate::geo::map(run, path)?).map_err(|e| e.to_string()),
+            _ => write_fresh(&out, crate::geo::map(run, path)?.as_bytes()),
         })?;
         return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
     }
     if how.program() == Program::Openscad {
         let manifold = crate::scad::manifold(how);
         in_folder(how, path, scratch, stop, timeout, said, &[], |run| match op {
-            Op::Model => std::fs::write(&out, crate::scad::picture_of(run, manifold)?).map_err(|e| e.to_string()),
+            Op::Model => write_fresh(&out, crate::scad::picture_of(run, manifold)?.as_bytes()),
             _ => crate::scad::export(run, op == &Op::Stl, &out_name, manifold),
         })?;
         return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
@@ -729,7 +742,7 @@ fn make(
     if how.program() == Program::Kicad {
         in_folder(how, path, scratch, stop, timeout, said, &[], |run| match op {
             Op::Kicad(to) => crate::kicad::export(run, path, *to, &out_name),
-            Op::BoardThumb => std::fs::write(&out, crate::kicad::thumbnail(run, path)?).map_err(|e| e.to_string()),
+            Op::BoardThumb => write_fresh(&out, crate::kicad::thumbnail(run, path)?.as_bytes()),
             _ => crate::kicad::preview(run, path, &out_name),
         })?;
         return if out.is_file() { Ok(out) } else { Err(t!("convert.no_result")) };
@@ -888,7 +901,13 @@ pub(crate) fn in_folder<R>(
 pub fn preview(how: &How, op: &Op, path: &Path, file: &Path, timeout: Duration) -> Result<(), String> {
     let scratch = crate::searchable::Scratch::named("media")?;
     let made = make(how, op, path, &scratch.0, &op.result_ending(path, None), None, &AtomicBool::new(false), Some(timeout), &mut |_| {})?;
-    std::fs::copy(made, file).map(drop).map_err(|e| e.to_string())
+    let (m, len) = crate::images::take_result(&made)?;
+    std::fs::File::create(file).and_then(|mut f| std::io::copy(&mut m.take(len), &mut f)).map(drop).map_err(|e| e.to_string())
+}
+
+/// `bytes` written into the scratch folder as a file of its own (`images::fresh_result`).
+fn write_fresh(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    std::io::Write::write_all(&mut crate::images::fresh_result(path)?, bytes).map_err(|e| e.to_string())
 }
 
 /// Do `op` on each of `files`, one after the other: `at(i)` as each starts, `said` with what
@@ -919,7 +938,7 @@ pub fn run_all(
 
 /// One file. A folder that cannot be written to says so before the program starts (a probe
 /// file, removed at once); the result's name is taken only when it is put there, with
-/// `create_new` (a hard link, else a copy), so nothing is overwritten and an app that ends
+/// `create_new` (a copy), so nothing is overwritten and an app that ends
 /// mid-run leaves no empty file.
 fn run(cfg: &PreviewConfig, how: &How, op: &Op, file: &Path, stop: &AtomicBool, said: &mut dyn FnMut(Said)) -> Result<PathBuf, String> {
     let probe = target(file, op);
@@ -937,18 +956,16 @@ fn run(cfg: &PreviewConfig, how: &How, op: &Op, file: &Path, stop: &AtomicBool, 
     put(&made, || target_for(file, op, audio.as_deref()))
 }
 
-/// `made` under the first free name `name` gives, with `create_new`: a hard link where it can
-/// be one, else a copy; a copy cut short is removed.
+/// `made` copied under the first free name `name` gives, with `create_new`, from the file
+/// `images::take_result` opened (never by its path: a container could have left a link there);
+/// a copy cut short is removed.
 fn put(made: &Path, name: impl Fn() -> PathBuf) -> Result<PathBuf, String> {
+    let (m, len) = crate::images::take_result(made)?;
+    let mut m = m.take(len);
     for _ in 0..100 {
         let to = name();
-        match std::fs::hard_link(made, &to) {
-            Ok(()) => return Ok(to),
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(_) => {}
-        }
         let Ok(mut f) = std::fs::OpenOptions::new().write(true).create_new(true).open(&to) else { continue };
-        let copied = std::fs::File::open(made).and_then(|mut m| std::io::copy(&mut m, &mut f));
+        let copied = std::io::copy(&mut m, &mut f);
         return match copied {
             Ok(_) => Ok(to),
             Err(e) => {
@@ -1144,6 +1161,23 @@ pub fn facts(cfg: &PreviewConfig, path: &Path) -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A result that is a link (to a secret, say) is never put next to the file: neither as a
+    /// hard link of the link nor as a copy of what it points at.
+    #[cfg(unix)]
+    #[test]
+    fn a_result_that_is_a_link_is_never_put_beside_the_file() {
+        let d = std::env::temp_dir().join(format!("coxswain-media-put-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("secret"), "SECRET").unwrap();
+        std::os::unix::fs::symlink(d.join("secret"), d.join("out.png")).unwrap();
+        assert!(put(&d.join("out.png"), || d.join("film.png")).is_err());
+        assert!(std::fs::symlink_metadata(d.join("film.png")).is_err(), "nothing is put");
+        std::fs::write(d.join("made.png"), "PNG").unwrap();
+        assert_eq!(std::fs::read(put(&d.join("made.png"), || d.join("film.png")).unwrap()).unwrap(), b"PNG");
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     /// Our ImageMagick image bakes in the policy an installed one runs under: the same file.
     /// Read from the repository, so a published crate, which has no `packaging/`, skips it.

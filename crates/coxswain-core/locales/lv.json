@@ -108,6 +108,7 @@
  "geo.track_length": "Trases garums",
  "geo.tracks": "Trases",
  "geo.unreadable": "GDAL to nevarēja nolasīt kā ģeodatus.",
+ "geo.gdal_too_old": "Ir instalēts GDAL {version}, tam par vecu: vajag GDAL {least} vai jaunāku.",
  "geo.waypoints": "Ceļa punkti",
  "hint.ebook": "{menu} → Konvertēt e-grāmatu padara to par EPUB, AZW3 vai PDF",
  "hint.geo": "{menu} uz ģeodatiem: konvertēt uz GeoPackage, GeoJSON, shapefile, KML vai GPX",

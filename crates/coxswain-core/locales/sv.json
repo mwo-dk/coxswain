@@ -107,6 +107,7 @@
  "geo.track_length": "Spårlängd",
  "geo.tracks": "Spår",
  "geo.unreadable": "GDAL kunde inte läsa den som geodata.",
+ "geo.gdal_too_old": "GDAL {version} är installerat, för gammalt för det här: det krävs GDAL {least} eller nyare.",
  "geo.waypoints": "Vägpunkter",
  "hint.ebook": "{menu} → Konvertera e-bok gör den till EPUB, AZW3 eller PDF",
  "hint.geo": "{menu} på geodata: konvertera till GeoPackage, GeoJSON, en shapefil, KML eller GPX",

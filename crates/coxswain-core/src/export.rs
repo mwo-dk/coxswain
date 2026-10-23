@@ -331,7 +331,7 @@ fn place(made: &Path, file: &Path, op: Op, page: Option<&str>) -> Result<PathBuf
         .map(|_| target(file, op, page))
         .find_map(|to| std::fs::OpenOptions::new().write(true).create_new(true).open(&to).ok().map(|f| (to, f)))
         .ok_or_else(|| format!("{}: {}", file.display(), t!("err.no_file_name")))?;
-    let copied = std::fs::File::open(made).and_then(|mut m| std::io::copy(&mut m, &mut f));
+    let copied = crate::images::take_result(made).and_then(|(m, len)| std::io::copy(&mut m.take(len), &mut f).map_err(|e| e.to_string()));
     if let Err(e) = copied {
         let _ = std::fs::remove_file(&to);
         return Err(format!("{}: {e}", to.display()));
@@ -764,11 +764,14 @@ pub fn drawio_thumbnail(cfg: &PreviewConfig, path: &Path, to: &Path, width: u32,
         let _ = crate::tools::command(path).args(["kill", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
     }
     let o = o.map_err(|e| e.to_string())?;
-    let len = std::fs::metadata(&png).map(|m| m.len()).unwrap_or(0);
-    if !o.status.success() || len == 0 || len > 16 << 20 {
+    if !o.status.success() {
         return Err(t!("convert.no_result"));
     }
-    std::fs::copy(&png, to).map(|_| ()).map_err(|e| e.to_string())
+    let png = crate::images::read_result(&png, 16 << 20, || t!("convert.no_result"))?;
+    if png.is_empty() {
+        return Err(t!("convert.no_result"));
+    }
+    std::fs::write(to, png).map_err(|e| e.to_string())
 }
 
 // ------------------------------------------------------------ AsciiDoc

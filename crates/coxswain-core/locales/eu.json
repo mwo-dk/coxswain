@@ -107,6 +107,7 @@
  "geo.track_length": "Arrastoaren luzera",
  "geo.tracks": "Arrastoak",
  "geo.unreadable": "GDALek ezin izan du datu geografiko gisa irakurri.",
+ "geo.gdal_too_old": "GDAL {version} dago instalatuta, zaharregia honetarako: GDAL {least} edo berriagoa behar da.",
  "geo.waypoints": "Bide-puntuak",
  "hint.ebook": "{menu} → Bihurtu liburu elektronikoa EPUB, AZW3 edo PDF bihurtzen du",
  "hint.geo": "{menu} datu geografikoetan: bihurtu GeoPackage, GeoJSON, shapefile, KML edo GPX formatura",

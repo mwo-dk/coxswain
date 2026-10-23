@@ -106,6 +106,7 @@
  "geo.track_length": "트랙 길이",
  "geo.tracks": "트랙",
  "geo.unreadable": "GDAL이 이것을 지리 데이터로 읽지 못했습니다.",
+ "geo.gdal_too_old": "설치된 GDAL {version}은(는) 이 작업에 너무 오래되었습니다. GDAL {least} 이상이 필요합니다.",
  "geo.waypoints": "웨이포인트",
  "hint.ebook": "{menu} → 전자책 변환으로 EPUB, AZW3, PDF를 만듭니다",
  "hint.geo": "지리 데이터에서 {menu}: GeoPackage, GeoJSON, 셰이프파일, KML, GPX로 변환",

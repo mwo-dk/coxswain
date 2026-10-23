@@ -107,6 +107,7 @@
  "geo.track_length": "Tracklänge",
  "geo.tracks": "Tracks",
  "geo.unreadable": "GDAL konnte sie nicht als Geodaten lesen.",
+ "geo.gdal_too_old": "GDAL {version} ist installiert, dafür zu alt: nötig ist GDAL {least} oder neuer.",
  "geo.waypoints": "Wegpunkte",
  "hint.ebook": "{menu} → E-Book umwandeln macht daraus EPUB, AZW3 oder PDF",
  "hint.geo": "{menu} auf Geodaten: in GeoPackage, GeoJSON, ein Shapefile, KML oder GPX umwandeln",

@@ -119,7 +119,7 @@ geodata shows the size and dates only, and a GPX file all its facts.
 | Choice | The new file | Takes | How |
 |---|---|---|---|
 | *To GeoPackage* | `roads.gpkg` | Any | Every layer; a GeoTIFF as a GeoPackage of pictures |
-| *To GeoJSON* | `roads.geojson` | Vector files | In degrees (RFC 7946). GeoJSON holds one layer: several are put together, each feature with a `layer` field naming its own |
+| *To GeoJSON* | `roads.geojson` | Vector files | In degrees (RFC 7946). GeoJSON holds one layer: several are put together, each feature with a `layer` field naming its own; a file with one layer that has features (a GPX file of waypoints alone, a GeoPackage beside empty tables) gives that layer |
 | *To a shapefile (zipped)* | `roads.shp.zip` | Vector files | Each layer as a shapefile, all their files in one zip, which GDAL and QGIS open as it is. A shapefile holds one kind of shape: a layer of mixed points and lines fails |
 | *To KML* | `roads.kml` | Vector files | In degrees |
 | *To GPX* | `roads.gpx` | Vector files of points and lines | In degrees; points become waypoints, lines routes; other fields are kept as GPX extensions. Areas cannot be GPX |
@@ -143,12 +143,17 @@ prefer`), or the *Maps* row of [*Preview tools*](tools.md#preview-tools-in-setti
 
 | Way | What runs | Systems |
 |---|---|---|
-| GDAL installed | `gdalinfo`, `ogrinfo`, `ogr2ogr`, `gdal_translate` at the lowest priority, each held to the driver of the file's kind (`-if`), with `GDAL_PAM_ENABLED=NO` (no `.aux.xml` written beside your file) and PROJ's network off | FreeBSD: `pkg install gdal`; NetBSD: `pkgin install gdal`; OpenBSD: `pkg_add gdal`; Linux: `sudo pacman -S gdal`, `sudo apt install gdal-bin`, `sudo dnf install gdal`, `sudo zypper install gdal`; macOS: `brew install gdal`; Windows: GDAL from [OSGeo4W](https://trac.osgeo.org/osgeo4w/) or QGIS, on the `PATH` |
+| GDAL installed, 3.7 or newer | `gdalinfo`, `ogrinfo`, `ogr2ogr`, `gdal_translate` at the lowest priority, each held to the driver of the file's kind (`-if`), with `GDAL_PAM_ENABLED=NO` (no `.aux.xml` written beside your file) and PROJ's network off | FreeBSD: `pkg install gdal`; NetBSD: `pkgin install gdal`; OpenBSD: `pkg_add gdal`; Linux: `sudo pacman -S gdal`, `sudo apt install gdal-bin`, `sudo dnf install gdal`, `sudo zypper install gdal`; macOS: `brew install gdal`; Windows: GDAL from [OSGeo4W](https://trac.osgeo.org/osgeo4w/) or QGIS, on the `PATH` |
 | Its container | podman or docker runs `ghcr.io/osgeo/gdal:alpine-small-3.13.3`, pinned to its digest, with no network, seeing the file's folder read-only (a shapefile is several files side by side), on a read-only root with bounded memory and processes ([What a container may do](containers.md#what-a-container-may-do)) | Linux, macOS and Windows with podman or docker. Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install GDAL there instead |
 
 The image is about 40 MB to download and 98 MB on disk: GDAL's own small build, with the
 drivers above and PROJ. It is pulled only when you click **Render** on the map or confirm a
 conversion; never by itself, and never for the facts.
+
+An installed GDAL older than 3.7 lacks `ogrinfo -json`, which every reading of shapes needs:
+Coxswain asks `gdalinfo --version` once, and then runs GDAL's container instead when it can.
+When it cannot, the preview and the action say *GDAL 3.6.2 is installed, too old for this: it
+needs GDAL 3.7 or newer.*
 
 With neither, the preview says what is missing with the line that installs it and a
 **Settings** button, and the action says *Converting geodata needs GDAL. Install it (sudo apt
@@ -225,6 +230,13 @@ feature stopped it. GeoPackage, GeoJSON and KML take any shapes.
 So every map looks the same until a Coxswain release moves it on, after it has been tried.
 *Keep images up to date* leaves a pinned image as it is. To follow GDAL's newest, set
 `[preview.images] gdal = "ghcr.io/osgeo/gdal:alpine-small-latest"`.
+
+#### Why does it say my GDAL is too old?
+
+Reading a file's shapes needs `ogrinfo -json`, which came in GDAL 3.7; an older one would fail
+on every map, fact and conversion. Coxswain then runs GDAL's container instead, when podman or
+docker is there and the image is set; otherwise it says *GDAL 3.6.2 is installed, too old for
+this: it needs GDAL 3.7 or newer.* Upgrade GDAL, or install podman.
 
 #### Can I see the map in the terminal app?
 

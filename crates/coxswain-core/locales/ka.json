@@ -107,6 +107,7 @@
  "geo.track_length": "ტრეკის სიგრძე",
  "geo.tracks": "ტრეკები",
  "geo.unreadable": "GDAL-მა ვერ წაიკითხა ის გეომონაცემებად.",
+ "geo.gdal_too_old": "დაინსტალირებულია GDAL {version}, ამისთვის ძალიან ძველია: საჭიროა GDAL {least} ან უფრო ახალი.",
  "geo.waypoints": "გზის წერტილები",
  "hint.ebook": "{menu} → ელწიგნის გარდაქმნა მას აქცევს EPUB, AZW3 ან PDF-ად",
  "hint.geo": "{menu} გეომონაცემებზე: გარდაქმნა GeoPackage-ად, GeoJSON-ად, shapefile-ად, KML-ად ან GPX-ად",

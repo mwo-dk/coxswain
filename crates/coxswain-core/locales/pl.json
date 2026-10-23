@@ -109,6 +109,7 @@
  "geo.track_length": "Długość śladu",
  "geo.tracks": "Ślady",
  "geo.unreadable": "GDAL nie mógł odczytać tego jako danych geograficznych.",
+ "geo.gdal_too_old": "Zainstalowany jest GDAL {version}, za stary do tego: potrzebny jest GDAL {least} lub nowszy.",
  "geo.waypoints": "Punkty trasy",
  "hint.ebook": "{menu} → Konwertuj e-book robi z niego EPUB, AZW3 lub PDF",
  "hint.geo": "{menu} na danych geograficznych: konwertuj do GeoPackage, GeoJSON, shapefile, KML lub GPX",

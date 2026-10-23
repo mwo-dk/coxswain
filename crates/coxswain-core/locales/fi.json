@@ -107,6 +107,7 @@
  "geo.track_length": "Jäljen pituus",
  "geo.tracks": "Jäljet",
  "geo.unreadable": "GDAL ei pystynyt lukemaan sitä paikkatietona.",
+ "geo.gdal_too_old": "Asennettu GDAL {version} on tähän liian vanha: tarvitaan GDAL {least} tai uudempi.",
  "geo.waypoints": "Reittipisteet",
  "hint.ebook": "{menu} → Muunna e-kirja tekee siitä EPUBin, AZW3:n tai PDF:n",
  "hint.geo": "{menu} paikkatiedon päällä: muunna GeoPackageksi, GeoJSONiksi, shapefileksi, KML:ksi tai GPX:ksi",

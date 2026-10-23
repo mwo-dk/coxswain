@@ -87,14 +87,9 @@ pub(crate) fn export(run: &mut Run, stl: bool, name: &str, manifold: bool) -> Re
     run.go("openscad", &a).map(drop).map_err(|e| if flat(&e) { format!("{}\n{e}", t!("scad.flat")) } else { e })
 }
 
+/// What OpenSCAD wrote into the scratch folder, at most `MAX_STL` (`images::read_result`).
 fn read(path: &Path) -> Result<Vec<u8>, String> {
-    let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    if f.metadata().map_err(|e| e.to_string())?.len() > MAX_STL {
-        return Err(t!("scad.too_large"));
-    }
-    let mut b = vec![];
-    std::io::Read::read_to_end(&mut std::io::Read::take(f, MAX_STL), &mut b).map_err(|e| e.to_string())?;
-    Ok(b)
+    crate::images::read_result(path, MAX_STL, || t!("scad.too_large"))
 }
 
 fn stl_file(path: &Path) -> Result<Vec<[V; 3]>, String> {

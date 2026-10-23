@@ -108,6 +108,7 @@
  "geo.track_length": "Délka stopy",
  "geo.tracks": "Stopy",
  "geo.unreadable": "GDAL to nedokázal přečíst jako geodata.",
+ "geo.gdal_too_old": "Je nainstalován GDAL {version}, na to je příliš starý: je potřeba GDAL {least} nebo novější.",
  "geo.waypoints": "Body trasy",
  "hint.ebook": "{menu} → Převést e-knihu z ní udělá EPUB, AZW3 nebo PDF",
  "hint.geo": "{menu} na geodatech: převést na GeoPackage, GeoJSON, shapefile, KML nebo GPX",

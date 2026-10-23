@@ -108,6 +108,7 @@
  "geo.track_length": "Trasos ilgis",
  "geo.tracks": "Trasos",
  "geo.unreadable": "GDAL nepavyko to perskaityti kaip geoduomenų.",
+ "geo.gdal_too_old": "Įdiegta GDAL {version}, tam per sena: reikia GDAL {least} ar naujesnės.",
  "geo.waypoints": "Kelio taškai",
  "hint.ebook": "{menu} → Konvertuoti el. knygą padaro iš jos EPUB, AZW3 arba PDF",
  "hint.geo": "{menu} ant geoduomenų: konvertuoti į GeoPackage, GeoJSON, shapefile, KML ar GPX",
