@@ -1073,6 +1073,7 @@
  "err.is_folder": "{name} is een map",
  "err.key_twice": "{key} is in [keys] van config.toml aan zowel {a} als {b} gegeven",
  "err.move_check": "{path} veranderde tijdens het verplaatsen, of de kopie is te kort, dus het blijft waar het was",
+ "err.move_split": "{error}, en niet alles kon worden teruggezet: een deel staat in {to}, de rest nog in {from}",
  "err.no_application": "Geen programma opent dit soort bestand",
  "err.no_cache_folder": "Geen cachemap",
  "err.no_certificate": "Geen certificaat in dit PEM-bestand",

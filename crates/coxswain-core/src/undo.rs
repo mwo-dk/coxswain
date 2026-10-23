@@ -1167,6 +1167,99 @@ mod tests {
         assert!(halves > 0, "some stops came half way");
     }
 
+    /// A move across disks of the folder `src` in `d` into `d/to`, with copy number `n` failing
+    /// for each bit `n` of `full` (a full disk).
+    fn move_with_full_disk(d: &Path, full: u64) -> Ran {
+        fs::create_dir(d.join("to")).unwrap();
+        cfs::ACROSS.set(true);
+        cfs::COPIES.set(0);
+        cfs::FULL.set(full);
+        let r = super::run(Op::Move, &[d.join("src")], &d.join("to"), None, &Arc::default(), |_| {});
+        cfs::FULL.set(0);
+        r
+    }
+
+    #[test]
+    fn a_move_across_disks_that_fails_puts_back_what_went() {
+        // Five files: the disk is full at each of them in turn.
+        for n in 1..=5 {
+            let d = tmp(&format!("full-move-{n}"));
+            stop_tree(&d);
+            let before = files(&d.join("src"));
+            let r = move_with_full_disk(&d, 1 << n);
+            cfs::ACROSS.set(false);
+            assert_eq!(r.failed.len(), 1, "{n}");
+            assert_eq!(r.failed[0].1.kind(), io::ErrorKind::StorageFull, "{n}");
+            assert_eq!(files(&d.join("src")), before, "{n}: the source is whole again");
+            assert_eq!(fs::read_dir(d.join("to")).unwrap().count(), 0, "{n}: nothing left over there");
+            assert!(r.rec.items.is_empty() && r.rec.made.is_empty(), "{n}: nothing to undo");
+        }
+    }
+
+    #[test]
+    fn a_failed_move_across_disks_that_cannot_all_go_back_says_where_and_undo_has_the_rest() {
+        let d = tmp("full-move-back");
+        stop_tree(&d);
+        let before = files(&d.join("src"));
+        // The third file fails, and so does the first one put back.
+        let r = move_with_full_disk(&d, (1 << 3) | (1 << 4));
+        assert_eq!(r.failed.len(), 1);
+        let msg = r.failed[0].1.to_string();
+        assert!(msg.contains(&d.join("src").display().to_string()), "{msg}");
+        assert!(msg.contains(&d.join("to").join("src").display().to_string()), "{msg}");
+        let (left, moved) = (files(&d.join("src")), files(&d.join("to/src")));
+        assert!(!moved.is_empty(), "some of it stayed over there");
+        for (p, h) in &before {
+            match (left.get(p), moved.get(p)) {
+                (Some(a), None) | (None, Some(a)) => assert_eq!(a, h, "{p:?}"),
+                other => panic!("{p:?} is in {other:?}"),
+            }
+        }
+        assert!(!r.rec.items.is_empty(), "undo has what stayed over there");
+        let u = r.rec.undo(|_| {});
+        cfs::ACROSS.set(false);
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert_eq!(files(&d.join("src")), before, "all back");
+        assert_eq!(fs::read_dir(d.join("to")).unwrap().count(), 0);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_move_across_disks_of_a_tree_with_a_pipe_leaves_the_tree_whole() {
+        use std::os::unix::{ffi::OsStrExt, fs::FileTypeExt};
+        let d = tmp("pipe-move");
+        stop_tree(&d);
+        let before = files(&d.join("src"));
+        let pipe = d.join("src/sub/zz.pipe");
+        let c = std::ffi::CString::new(pipe.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+        let r = move_with_full_disk(&d, 0);
+        cfs::ACROSS.set(false);
+        assert_eq!(r.failed.len(), 1);
+        assert_eq!(r.failed[0].1.kind(), io::ErrorKind::Unsupported);
+        assert!(fs::symlink_metadata(&pipe).unwrap().file_type().is_fifo());
+        fs::remove_file(&pipe).unwrap();
+        assert_eq!(files(&d.join("src")), before);
+        assert_eq!(fs::read_dir(d.join("to")).unwrap().count(), 0);
+        assert!(r.rec.items.is_empty());
+    }
+
+    /// The same file under a name of its own (a hard link here, another mount point for real):
+    /// a move across disks onto it is refused, never a copy onto itself that empties it.
+    #[cfg(unix)]
+    #[test]
+    fn a_move_across_disks_onto_the_same_file_keeps_it() {
+        let d = tmp("same-inode");
+        fs::write(d.join("a.txt"), "keep me").unwrap();
+        fs::hard_link(d.join("a.txt"), d.join("b.txt")).unwrap();
+        cfs::ACROSS.set(true);
+        let r = cfs::rename(&d.join("a.txt"), &d.join("b.txt"));
+        cfs::ACROSS.set(false);
+        assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(d.join("a.txt")).unwrap(), "keep me");
+        assert_eq!(fs::read_to_string(d.join("b.txt")).unwrap(), "keep me");
+    }
+
     #[test]
     fn a_stopped_extract_keeps_what_came_out_whole() {
         let d = tmp("stop-extract");

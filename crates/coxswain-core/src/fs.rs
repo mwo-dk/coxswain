@@ -744,24 +744,44 @@ fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
 /// well under a second; larger ones in steps, with Stop looked at between them.
 const STEP: u64 = 8 << 20;
 
-/// The file `src` to `to`, which is not there (`copy_entry` looked). `sync`: written through to
-/// the disk before it returns, for a move that deletes the original next. Not there before: a
-/// copy that fails half way (a full disk) or is stopped leaves nothing, so trying again is not
-/// refused as "exists".
+#[cfg(test)]
+thread_local! {
+    /// A test's full disk: copy number `n` (counted by `COPIES`, from 1) fails when bit `n` is set.
+    pub(crate) static FULL: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    pub(crate) static COPIES: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// The file `src` to `to`, which is not there. `sync`: written through to the disk before it
+/// returns, for a move that deletes the original next. Written under a passing name beside `to`
+/// and renamed when whole: a copy that fails half way (a full disk) or is stopped leaves nothing,
+/// so trying again is not refused as "exists", and a `to` that is there (`src` itself, seen
+/// through another mount) is never opened, so never emptied.
 fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
+    #[cfg(test)]
+    {
+        let n = COPIES.get() + 1;
+        COPIES.set(n);
+        if n < 64 && FULL.get() & (1 << n) != 0 {
+            return Err(io::ErrorKind::StorageFull.into());
+        }
+    }
     let meta = fs::metadata(src)?;
+    if fs::symlink_metadata(to).is_ok() {
+        return Err(exists(to));
+    }
     // Windows' own copy is written to the disk later, by its cache: a move takes the steps below,
     // which are.
     if meta.len() <= STEP && !(sync && cfg!(windows)) {
-        let r = fs::copy(src, to).and_then(|_| {
+        let tmp = beside(to);
+        let r = fs::copy(src, &tmp).and_then(|_| {
             #[cfg(unix)]
             if sync {
-                fs::File::open(to)?.sync_all()?;
+                fs::File::open(&tmp)?.sync_all()?;
             }
-            Ok(())
+            put(&tmp, to)
         });
         if r.is_err() {
-            let _ = fs::remove_file(to);
+            let _ = fs::remove_file(&tmp);
         }
         r?;
     } else {
@@ -782,13 +802,7 @@ fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
 // would keep them.
 fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::Result<()> {
     use std::io::{Read, Seek, Write};
-    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let tmp = to.with_file_name(format!(
-        ".{}.coxswain-tmp-{}-{}",
-        to.file_name().unwrap_or_default().to_string_lossy(),
-        std::process::id(),
-        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    ));
+    let tmp = beside(to);
     let mut from = fs::File::open(src)?;
     // For this user alone while it is written: a private file's half copy is never readable
     // by others. Its own mode once it is whole, below.
@@ -833,19 +847,38 @@ fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::
             out.set_permissions(p)?;
         }
         drop(out);
-        // Never onto one that came meanwhile: rename would replace it.
-        if fs::symlink_metadata(to).is_ok() {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                crate::t!("err.exists", "path" => to.display()),
-            ));
-        }
-        fs::rename(&tmp, to)
+        put(&tmp, to)
     })();
     if r.is_err() {
         let _ = fs::remove_file(&tmp);
     }
     r
+}
+
+/// A passing name beside `to` for its copy while it is written: `.name.coxswain-tmp-…`.
+fn beside(to: &Path) -> PathBuf {
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    to.with_file_name(format!(
+        ".{}.coxswain-tmp-{}-{}",
+        to.file_name().unwrap_or_default().to_string_lossy(),
+        std::process::id(),
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ))
+}
+
+/// The whole copy `tmp` under its name `to`; never onto one that came meanwhile: rename would
+/// replace it.
+// ponytail: a `to` made between the look and the rename is still replaced; renameat2's
+// RENAME_NOREPLACE (Linux) would close that.
+fn put(tmp: &Path, to: &Path) -> io::Result<()> {
+    if fs::symlink_metadata(to).is_ok() {
+        return Err(exists(to));
+    }
+    fs::rename(tmp, to)
+}
+
+fn exists(to: &Path) -> io::Error {
+    io::Error::new(io::ErrorKind::AlreadyExists, crate::t!("err.exists", "path" => to.display()))
 }
 
 /// What a move across disks did when it ended half way (stopped, or failed): the files and
@@ -882,6 +915,27 @@ fn move_across(src: &Path, to: &Path, log: &mut Moved) -> io::Result<()> {
     log.made.retain(|m| !m.starts_with(to));
     log.done.push((src.to_path_buf(), to.to_path_buf()));
     Ok(())
+}
+
+/// What `move_across` moved before it failed, back where it came from, the last first, and not
+/// stopped by Stop. False when some of it could not go back: that stays in `log.done`.
+fn put_back(log: &mut Moved) -> bool {
+    let mut left = Vec::new();
+    crate::stop::during(&Default::default(), || {
+        while let Some((from, to)) = log.done.pop() {
+            let mut again = Moved::default();
+            if move_across(&to, &from, &mut again).is_err() {
+                for m in again.made.iter().rev() {
+                    let _ = fs::remove_dir(m);
+                }
+                left.push((from, to));
+            }
+        }
+    });
+    left.reverse();
+    let all = left.is_empty();
+    log.done = left;
+    all
 }
 
 /// One file (or link) of `move_across`. When anything fails, the original stays and the copy
@@ -1026,12 +1080,26 @@ fn rename_logged(src: &Path, dst: &Path, log: &mut Moved) -> io::Result<PathBuf>
     match moved {
         // Another disk: file by file. Other failures are failures.
         Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {
+            // `src` itself, seen through another mount (a bind mount, a toolbox's /run/host):
+            // copied onto itself it would be lost.
+            if same_file(src, &to) {
+                return Err(exists(&to));
+            }
             if let Err(e) = move_across(src, &to, log) {
-                // The folders made that nothing went into go again, the innermost first.
+                // Failed, not stopped (a full disk, a pipe, a file that changed): what went over
+                // comes back, so `src` is whole again. Stopped, it stays there, for undo.
+                let back = if crate::stop::is(&e) { true } else { put_back(log) };
+                // The folders made that nothing went into (now) go again, the innermost first.
                 for m in log.made.iter().rev() {
                     let _ = fs::remove_dir(m);
                 }
                 log.made.retain(|m| m.exists());
+                if !back {
+                    return Err(io::Error::new(
+                        e.kind(),
+                        crate::t!("err.move_split", "error" => e, "from" => src.display(), "to" => to.display()),
+                    ));
+                }
                 return Err(e);
             }
         }

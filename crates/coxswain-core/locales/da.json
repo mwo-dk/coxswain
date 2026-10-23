@@ -1073,6 +1073,7 @@
  "err.is_folder": "{name} er en mappe",
  "err.key_twice": "{key} er givet til både {a} og {b} i [keys] i config.toml",
  "err.move_check": "{path} ændrede sig, mens den blev flyttet, eller kopien blev for kort, så den bliver, hvor den var",
+ "err.move_split": "{error}, og ikke alt kunne flyttes tilbage: en del er i {to}, resten stadig i {from}",
  "err.no_application": "Intet program åbner denne slags fil",
  "err.no_cache_folder": "Ingen cachemappe",
  "err.no_certificate": "Intet certifikat i denne PEM-fil",

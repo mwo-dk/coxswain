@@ -1041,6 +1041,7 @@
  "err.is_folder": "{name} is a folder",
  "err.key_twice": "{key} is given to both {a} and {b} in [keys] of config.toml",
  "err.move_check": "{path} changed while it was moved, or its copy came out short, so it stays where it was",
+ "err.move_split": "{error}, and not all of it could be put back: part is in {to}, the rest still in {from}",
  "err.no_application": "No application opens this kind of file",
  "err.no_cache_folder": "No cache folder",
  "err.no_certificate": "No certificate in this PEM file",

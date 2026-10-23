@@ -1113,6 +1113,7 @@
  "err.is_folder": "{name} yra aplankas",
  "err.key_twice": "{key} config.toml skiltyje [keys] priskirtas ir {a}, ir {b}",
  "err.move_check": "{path} pasikeitė perkeliant arba jo kopija išėjo trumpesnė, todėl jis lieka, kur buvo",
+ "err.move_split": "{error}, ir ne viską pavyko grąžinti: dalis yra {to}, likusi dalis vis dar {from}",
  "err.no_application": "Jokia programa neatidaro tokio tipo failo",
  "err.no_cache_folder": "Nėra podėlio aplanko",
  "err.no_certificate": "Šiame PEM faile nėra sertifikato",

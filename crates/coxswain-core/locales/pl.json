@@ -1153,6 +1153,7 @@
  "err.is_folder": "{name} to folder",
  "err.key_twice": "{key} jest w [keys] pliku config.toml przypisany zarówno do {a}, jak i do {b}",
  "err.move_check": "{path} zmienił się podczas przenoszenia albo jego kopia wyszła krótsza, więc zostaje tam, gdzie był",
+ "err.move_split": "{error} i nie wszystko udało się odłożyć: część jest w {to}, reszta nadal w {from}",
  "err.no_application": "Żadna aplikacja nie otwiera tego rodzaju plików",
  "err.no_cache_folder": "Brak folderu pamięci podręcznej",
  "err.no_certificate": "Brak certyfikatu w tym pliku PEM",

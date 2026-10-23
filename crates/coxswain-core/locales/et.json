@@ -1073,6 +1073,7 @@
  "err.is_folder": "{name} on kaust",
  "err.key_twice": "{key} on failis config.toml jaotises [keys] antud nii toimingule {a} kui ka {b}",
  "err.move_check": "{path} muutus teisaldamise ajal või jäi selle koopia lühemaks, nii et see jääb oma kohale",
+ "err.move_split": "{error} ja kõike ei saanud tagasi panna: osa on kohas {to}, ülejäänu endiselt kohas {from}",
  "err.no_application": "Ükski rakendus ei ava seda tüüpi faili",
  "err.no_cache_folder": "Vahemälu kausta pole",
  "err.no_certificate": "Selles PEM-failis pole sertifikaati",

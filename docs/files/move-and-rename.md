@@ -81,6 +81,13 @@ its original's deletion; a move that fails or is stopped half way leaves each fi
 or there, never in both or neither. Any other failure to rename (no permission, say) is
 reported as it is; nothing is copied then.
 
+#### A move to another disk failed half way. Where are my files?
+
+Back where they were. When it fails rather than being stopped (a full disk, an unreadable file,
+a pipe in the folder, a file that changed), what had gone over is moved back and the error
+shown. If even that fails, the error names both places and **Ctrl+Z** takes back what stayed
+over there. The source itself under another path (a bind mount) is refused as already there.
+
 #### I stopped a move to another disk. Where are my files?
 
 Each file is in one place. The ones moved are on the other disk, the rest where they were, and

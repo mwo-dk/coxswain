@@ -1113,6 +1113,7 @@
  "err.is_folder": "{name} ir mape",
  "err.key_twice": "{key} config.toml sadaļā [keys] piešķirts gan {a}, gan {b}",
  "err.move_check": "{path} mainījās pārvietošanas laikā vai tā kopija iznāca īsāka, tāpēc tas paliek, kur bija",
+ "err.move_split": "{error}, un ne visu izdevās atlikt atpakaļ: daļa ir {to}, pārējais joprojām {from}",
  "err.no_application": "Neviena lietotne neatver šāda veida failu",
  "err.no_cache_folder": "Nav kešatmiņas mapes",
  "err.no_certificate": "Šajā PEM failā nav sertifikāta",

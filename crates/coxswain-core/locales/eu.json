@@ -1073,6 +1073,7 @@
  "err.is_folder": "{name} karpeta bat da",
  "err.key_twice": "{key} {a} eta {b} ekintzei emanda dago config.toml-eko [keys] atalean",
  "err.move_check": "{path} aldatu egin da mugitzen ari zela, edo kopia laburregia da; dagoen tokian geratzen da",
+ "err.move_split": "{error}, eta ezin izan da dena itzuli: zati bat {to} karpetan dago, gainerakoa oraindik {from} karpetan",
  "err.no_application": "Ez dago fitxategi mota hau irekitzen duen aplikaziorik",
  "err.no_cache_folder": "Ez dago cache-karpetarik",
  "err.no_certificate": "PEM fitxategi honetan ez dago ziurtagiririk",

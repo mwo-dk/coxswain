@@ -1113,6 +1113,7 @@
  "err.is_folder": "{name} היא תיקייה",
  "err.key_twice": "{key} מוקצה גם ל־{a} וגם ל־{b} ב־[keys] של config.toml",
  "err.move_check": "{path} השתנה בזמן ההעברה, או שהעותק שלו יצא קצר, ולכן הוא נשאר במקומו",
+ "err.move_split": "{error}, ולא הכול הוחזר: חלק נמצא ב־{to} והשאר עדיין ב־{from}",
  "err.no_application": "אין יישום שפותח קבצים מסוג זה",
  "err.no_cache_folder": "אין תיקיית מטמון",
  "err.no_certificate": "אין אישור בקובץ PEM זה",
