@@ -541,24 +541,37 @@ impl Store {
     /// Files read line by line whose text was cut at `extract::MAX_TEXT` get their passages and
     /// vectors made again, once (under `key`, at `tag`; an older app leaves a newer tag be):
     /// they are now made from the whole file. Their text stays.
+    /// Gone through `PART` files at a time, the store's lock let go between them: a search
+    /// waits for one part, not for the whole store's text to be measured.
     fn long_passages(&self, key: &str, tag: &str) -> rusqlite::Result<()> {
-        let db = self.db.lock().unwrap();
-        let before: String = db
+        const PART: i64 = 2000;
+        let before: String = self
+            .db
+            .lock()
+            .unwrap()
             .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
             .unwrap_or_default();
         if before == tag || matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b) {
             return Ok(());
         }
-        let long: Vec<(i64, String)> = db
-            .prepare("SELECT f.id, f.path FROM files f JOIN text t ON t.rowid = f.id WHERE f.embedded = 1 AND length(CAST(t.body AS BLOB)) + ?1 >= ?2")?
-            .query_map([LONG_MARGIN as i64, crate::extract::MAX_TEXT as i64], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<_>>()?;
-        for (id, path) in long {
-            if crate::extract::streams(Path::new(&path)) {
-                db.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
+        let mut after = 0i64;
+        loop {
+            let mut db = self.db.lock().unwrap();
+            let part: Vec<(i64, String, bool)> = db
+                .prepare_cached("SELECT f.id, f.path, length(CAST(t.body AS BLOB)) + ?1 >= ?2 FROM files f JOIN text t ON t.rowid = f.id WHERE f.embedded = 1 AND f.id > ?3 ORDER BY f.id LIMIT ?4")?
+                .query_map(rusqlite::params![LONG_MARGIN as i64, crate::extract::MAX_TEXT as i64, after, PART], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            let Some(last) = part.last().map(|p| p.0) else { break };
+            after = last;
+            let tx = db.transaction()?;
+            for (id, path, long) in part {
+                if long && crate::extract::streams(Path::new(&path)) {
+                    tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
+                }
             }
+            tx.commit()?;
         }
-        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", rusqlite::params![key, tag])?;
+        self.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", rusqlite::params![key, tag])?;
         Ok(())
     }
 
@@ -1052,7 +1065,13 @@ impl Store {
     /// read game by game without the store's lock (`stop` asked between games), and the rows go
     /// in, in transactions of their own a few thousand games at a time.
     fn put_positions(&self, id: i64, path: &Path, stop: &dyn Fn() -> bool) -> rusqlite::Result<()> {
-        self.db.lock().unwrap().execute("DELETE FROM positions WHERE file = ?1", [id])?;
+        // The old rows a part at a time, the lock let go between parts: a database of millions
+        // of games holds up no search.
+        while self.db.lock().unwrap().execute(
+            "DELETE FROM positions WHERE file = ?1 AND (hash, game) IN (SELECT hash, game FROM positions WHERE file = ?1 LIMIT 50000)",
+            [id],
+        )? > 0
+        {}
         let mut batch: Vec<(u64, u32)> = vec![];
         let flush = |batch: &mut Vec<(u64, u32)>| -> rusqlite::Result<()> {
             let mut db = self.db.lock().unwrap();
@@ -1088,11 +1107,15 @@ impl Store {
     }
 
     /// The games that reach the position with the Polyglot key `hash`: (file, game index from
-    /// 0), at most `max`.
+    /// 0), at most `max`, by their files' paths. The first `max` rows of the key's in the order
+    /// they are kept (by file, as it came into the store), so a position millions of games
+    /// reach (the start, 1. e4) is answered as quickly as a rare one: never all of them sorted.
     pub fn games_at(&self, hash: u64, max: usize) -> rusqlite::Result<Vec<(PathBuf, u32)>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare_cached("SELECT f.path, p.game FROM positions p JOIN files f ON f.id = p.file WHERE p.hash = ?1 ORDER BY f.path, p.game LIMIT ?2")?;
-        q.query_map(params![hash as i64, max as i64], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, u32>(1)?)))?.collect()
+        let mut q = db.prepare_cached("SELECT f.path, p.game FROM (SELECT file, game FROM positions WHERE hash = ?1 ORDER BY file, game LIMIT ?2) p JOIN files f ON f.id = p.file")?;
+        let mut games: Vec<(PathBuf, u32)> = q.query_map(params![hash as i64, max as i64], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, u32>(1)?)))?.collect::<rusqlite::Result<_>>()?;
+        games.sort();
+        Ok(games)
     }
 
     /// Commits of the repository at `root`, (id, time, text), as rows whose text is searched;
@@ -5059,6 +5082,33 @@ mod tests {
         let short = d.join("short.log");
         std::fs::write(&short, "a short log of a launch, all well, nothing more to say here\n").unwrap();
         assert!(whole_passages(&short.to_string_lossy(), "a short log").is_none());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Long texts are found part by part: one past the first part is marked as well, and
+    /// only a file read line by line.
+    #[test]
+    fn long_passages_are_found_past_the_first_part() {
+        let d = std::env::temp_dir().join(format!("coxswain-long-parts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let long = "x".repeat(crate::extract::MAX_TEXT);
+        {
+            let mut db = store.db.lock().unwrap();
+            let tx = db.transaction().unwrap();
+            for id in 1..=2500i64 {
+                let ext = if id == 10 { "pdf" } else { "log" };
+                tx.execute("INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, 1, 0, 1, 1)", params![id, format!("/r/{id}.{ext}")]).unwrap();
+                let body = if id == 10 || id == 2400 { long.as_str() } else { "short" };
+                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, body]).unwrap();
+            }
+            tx.commit().unwrap();
+        }
+        store.long_passages("passages.test", "1").unwrap();
+        let renewed: Vec<i64> = store.db.lock().unwrap().prepare("SELECT id FROM files WHERE embedded IS NULL").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
+        assert_eq!(renewed, [2400], "the long log, past the first part; not the PDF");
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 
