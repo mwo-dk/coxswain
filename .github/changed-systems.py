@@ -31,10 +31,15 @@ def main() -> None:
     for name in SYSTEMS:
         run = True
         if files is not None:
-            on = yaml.safe_load(open(f".github/workflows/{name}.yml"))
-            on = on.get("on", on.get(True))  # PyYAML reads the key `on` as true
-            paths = [glob(p) for p in on["pull_request"]["paths"]]
-            run = any(p.match(f) for p in paths for f in files)
+            # A workflow whose `paths` cannot be read runs: a crash here would print no line for
+            # it (and the ones after it), and release.yml would skip them.
+            try:
+                on = yaml.safe_load(open(f".github/workflows/{name}.yml"))
+                on = on.get("on", on.get(True))  # PyYAML reads the key `on` as true
+                paths = [glob(p) for p in on["pull_request"]["paths"]]
+                run = any(p.match(f) for p in paths for f in files)
+            except Exception as e:  # noqa: BLE001
+                print(f"{name}: paths not known ({e}): it runs", file=sys.stderr)
         print(f"{name}={'true' if run else 'false'}")
 
 

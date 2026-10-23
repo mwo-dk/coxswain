@@ -302,7 +302,8 @@ pub fn set_choice(path: &Path, kind: &str, value: &str) -> Result<crate::config:
     crate::config::update_config(path, |text| {
         let at = ["preview", "tools", kind];
         let new = if value.is_empty() { crate::config::Config::unset(text, &at)? } else { crate::config::Config::edit(text, &at, value.into())? };
-        let cfg = crate::config::Config::parse(&new)?;
+        // As Settings save: a mistake the file has already does not stop this one.
+        let cfg = crate::config::Config::parse_saved(text, &new)?;
         Ok((Some(new), cfg))
     })
 }
@@ -645,6 +646,9 @@ mod tests {
         assert!(cfg.preview.tools.is_empty());
         assert!(set_choice(&path, "d2", "local").is_err(), "a kind, not a tool");
         assert!(set_choice(&path, "latex", "auto").is_err());
+        // A mistake of the user's own elsewhere does not stop the choice being saved.
+        std::fs::write(&path, "theme = 5\n").unwrap();
+        assert_eq!(set_choice(&path, "latex", "local").unwrap().preview.tools["latex"], "local");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

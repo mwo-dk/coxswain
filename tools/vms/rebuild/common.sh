@@ -43,6 +43,8 @@ prepare() {
   fi
   mkdir -p "$DIR"
   running && die "the VM is running: stop it first ($DIR/stop.sh)"
+  # From here on a qemu of this folder is this script's own: `cleanup` may stop it.
+  MINE=1
   touch "$DIR/.made-by-tools-vms"
   [ -f "$DIR/id_ed25519" ] || ssh-keygen -q -t ed25519 -N '' -C "test@$NAME" -f "$DIR/id_ed25519"
   if [ ! -s "$DIR/password" ]; then
@@ -66,10 +68,12 @@ fetch() {
 
 # A short-lived HTTP server on 127.0.0.1:$HTTP_PORT (10.0.2.2:$HTTP_PORT from the guest) serving $1.
 HTTP_PID=
+# Set by `prepare` once it has checked the folder: before that, a VM running there is not ours.
+MINE=0
 http_serve() { python3 -I -m http.server --bind 127.0.0.1 --directory "$1" "$HTTP_PORT" >/dev/null 2>&1 & HTTP_PID=$!; }
 cleanup() {
   [ -n "$HTTP_PID" ] && kill "$HTTP_PID" 2>/dev/null || true
-  if running; then echo quit | socat - "UNIX-CONNECT:$DIR/monitor.sock" >/dev/null 2>&1 || kill "$(cat "$DIR/qemu.pid")"; fi
+  if [ "$MINE" = 1 ] && running; then echo quit | socat - "UNIX-CONNECT:$DIR/monitor.sock" >/dev/null 2>&1 || kill "$(cat "$DIR/qemu.pid")"; fi
   return 0
 }
 trap cleanup EXIT INT TERM

@@ -2072,7 +2072,9 @@ impl Config {
         }
         // The broken lines are blanked one mistake at a time, so the lines keep their numbers.
         let mut lines: Vec<String> = text.split('\n').map(str::to_string).collect();
-        let mut refused = vec![];
+        let mut refused: Vec<Refused> = vec![];
+        // The lines (from 0) blanked last.
+        let mut last = (usize::MAX - 1, usize::MAX - 1);
         loop {
             let cur = lines.join("\n");
             let (from, to, problem) = match mistake(&cur) {
@@ -2083,12 +2085,28 @@ impl Config {
                 }
                 Err(m) => m,
             };
-            refused.push(Refused { line: from + 1, problem });
-            let end = to.min(lines.len().saturating_sub(1));
-            // Nothing left to blank there: the defaults, rather than a loop.
-            if from > end || lines[from..=end].iter().all(|l| l.trim().is_empty()) {
-                return Config { refused, ..Config::default() };
+            let mut end = to.min(lines.len().saturating_sub(1));
+            let mut from = from.min(end);
+            // Nothing left to blank there (an unclosed string or array, found at the end): the
+            // line above, until it closes, rather than every setting at its default.
+            while lines[from..=end].iter().all(|l| l.trim().is_empty()) {
+                if from == 0 {
+                    refused.push(Refused { line: 1, problem });
+                    return Config { refused, ..Config::default() };
+                }
+                from -= 1;
+                end = from;
             }
+            // One mistake makes the lines next to it wrong the same way (`=` in an unclosed
+            // array below it, the lines of an unclosed string above the end): named once, at
+            // the line it starts on.
+            match refused.last_mut() {
+                Some(r) if r.problem == problem && (from == last.1 + 1 || end + 1 == last.0) => {
+                    r.line = r.line.min(from + 1);
+                }
+                _ => refused.push(Refused { line: from + 1, problem }),
+            }
+            last = (from, end);
             lines[from..=end].iter_mut().for_each(String::clear);
         }
     }
@@ -2100,7 +2118,8 @@ impl Config {
         Config::parse(new_text).or_else(|e| {
             let (old, new) = (Config::lenient(old_text), Config::lenient(new_text));
             let had = |r: &Refused| old.refused.iter().any(|o| o.problem == r.problem);
-            if new.refused.iter().all(had) { Ok(new) } else { Err(e) }
+            // A file that does not parse names at least one mistake, or it is not saved.
+            if !new.refused.is_empty() && new.refused.iter().all(had) { Ok(new) } else { Err(e) }
         })
     }
 
@@ -2530,6 +2549,20 @@ mod tests {
         let old = "theme = 5\n";
         assert!(Config::parse_saved(old, "theme = 5\nhints = false\n").is_ok_and(|c| !c.hints));
         assert!(Config::parse_saved(old, "theme = 5\nhints = 3\n").is_err());
+        // An unclosed multi-line string, found at the end: the lines above go until it closes,
+        // the settings before it stay.
+        let c = Config::lenient("theme = \"mc\"\nnotes = \"\"\"\nabc\nhints = false\n");
+        assert_eq!((c.theme.as_str(), c.hints), ("mc", true));
+        assert_eq!(c.refused.len(), 1, "{:?}", c.refused);
+        assert_eq!(c.refused[0].line, 2, "where the string opens");
+        // Two lines wrong the same way apart from each other: both named.
+        assert_eq!(Config::lenient("foo bar\nhints = false\nfoo bar\n").refused.len(), 2);
+        // An unclosed array makes every line after it wrong the same way: named once each way.
+        let mut text = String::from("theme = \"mc\"\n[search]\ntext_exclude = [\"/a\",\n");
+        (0..30).for_each(|i| text += &format!("max_results = {i}\n"));
+        let c = Config::lenient(&text);
+        assert_eq!(c.theme, "mc");
+        assert!(c.refused.len() <= 3, "{:?}", c.refused);
     }
 
     #[test]

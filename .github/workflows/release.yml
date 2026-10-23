@@ -15,7 +15,8 @@ name: Release
 # (packaging/release-pr.py) on a branch of their own, rehearsal/vX.Y.Z, and everything runs as
 # for a release, to the draft checked against every file; then `cargo publish --dry-run` and
 # `brew audit` of the formula and cask, and nothing is published: the draft and the branch are
-# deleted, no tag is made.
+# deleted, no tag is made. A release of the same version meanwhile (a patch made by hand) stops
+# the rehearsal and goes ahead.
 #
 #   version ─┬─ test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos,
 #            │  test-termux, test-flatpak, test-nix          (the systems' own workflows, in parallel)
@@ -178,6 +179,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      actions: write # sees whether another run still works on a draft, and stops a rehearsal
     runs-on: ubuntu-24.04
     outputs:
       id: ${{ steps.create.outputs.id }}
@@ -215,24 +217,38 @@ jobs:
         env:
           REPO: ${{ github.repository }}
           SHA: ${{ steps.stage.outputs.sha || needs.version.outputs.sha }}
+          REHEARSAL: ${{ needs.version.outputs.rehearsal }}
         run: |
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          # The draft says which run makes it, in a comment of its notes.
+          # The draft says which run makes it, in a comment of its notes, and a rehearsal's says so.
           if info="$(gh release view "$TAG" --json isDraft,body 2>err)"; then
             if [ "$(jq -r .isDraft <<<"$info")" = false ]; then
               echo "::notice::$TAG was released meanwhile by another run."; exit 0
             fi
             owner="$(jq -r .body <<<"$info" | sed -n 's/^<!-- release run \([0-9]*\) -->$/\1/p')"
-            if [ -n "$owner" ] && [ "$owner" != "$GITHUB_RUN_ID" ] &&
-               [ "$(gh run view "$owner" --repo "$REPO" --json status -q .status)" != completed ]; then
-              echo "::notice::Run $owner is releasing $TAG: this run leaves it to that one."; exit 0
+            busy() { [ "$(gh run view "$owner" --repo "$REPO" --json status -q .status)" != completed ]; }
+            if [ -n "$owner" ] && [ "$owner" != "$GITHUB_RUN_ID" ] && busy; then
+              # A release (a patch released by hand on a Saturday) goes before a rehearsal of the
+              # same version: the rehearsal is stopped, and its draft goes, before this one starts.
+              if [ "$REHEARSAL" != true ] && jq -r .body <<<"$info" | grep -qx '<!-- rehearsal -->'; then
+                echo "::notice::Run $owner rehearses $TAG: stopped, so this run releases it."
+                gh run cancel "$owner" --repo "$REPO" || true
+                # Completed means every job of it has ended, its uploads too: none reaches this draft.
+                for _ in $(seq 120); do busy || break; sleep 15; done
+                busy && { echo "::error::the rehearsal run $owner did not stop: $TAG is not released."; exit 1; }
+              else
+                echo "::notice::Run $owner is releasing $TAG: this run leaves it to that one."; exit 0
+              fi
             fi
             # A draft no run is working on any more: replaced, so this run starts clean.
-            packaging/retry.sh gh release delete "$TAG" --yes
+            if gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null | grep -qx true; then
+              packaging/retry.sh gh release delete "$TAG" --yes
+            fi
           elif ! grep -q "release not found" err; then
             cat err >&2; exit 1
           fi
-          { cat .github/release-notes.md; printf '\n<!-- release run %s -->\n' "$GITHUB_RUN_ID"; } > notes.md
+          { cat .github/release-notes.md; printf '\n<!-- release run %s -->\n' "$GITHUB_RUN_ID"
+            [ "$REHEARSAL" != true ] || echo '<!-- rehearsal -->'; } > notes.md
           packaging/retry.sh gh release create "$TAG" --draft --target "$SHA" --title "Coxswain $TAG" --notes-file notes.md
           echo "id=$(gh release view "$TAG" --json databaseId -q .databaseId)" >> "$GITHUB_OUTPUT"
 
