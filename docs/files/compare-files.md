@@ -79,7 +79,7 @@ side like the left there, or **Alt+←** for the other way. The rows turn to **=
 no longer counted, and the status line says *Copied to the other side: F2 saves, Ctrl+Z undoes*.
 **Ctrl+Z** puts the last one back.
 
-**F2** writes each side that was changed, as the [built-in editor](../commands/editor.md) does:
+**F2** writes each side that was changed (both, when changes went both ways), as the [built-in editor](../commands/editor.md) does:
 in its own encoding and line endings, through a file beside it, keeping its permissions. A side
 that changed on the disk since it was read is not written over without asking: *Save over it*
 (**o** in the terminal app) or go back. Closing with copies not saved asks *Save the changes?*.
