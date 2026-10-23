@@ -490,14 +490,15 @@
     <div class="folders">
       {#if words}
         <div class="chips">
-          {#each s[name] as w (w)}
+          <!-- Unkeyed: config.toml may name an entry twice, and a repeated key stops the area showing. -->
+          {#each s[name] as w}
             <span class="chip mono">{w}<button title={t("common.remove")} aria-label={t("common.remove")} onclick={() => set(name, s[name].filter((x) => x !== w))}>×</button></span>
           {:else}
             <span class="hint">{none}</span>
           {/each}
         </div>
       {:else}
-        {#each s[name] as dir (dir)}
+        {#each s[name] as dir}
           <div class="folder">
             <span class="mono">{dir}{#if name === "text_roots"}<small class="hint">{rootInfo(dir)}</small>{/if}</span>
             <button onclick={() => set(name, s[name].filter((d) => d !== dir))}>{t("common.remove")}</button>
@@ -716,7 +717,7 @@
               {#snippet model()}
                 <div class="folder">
                   <input id="in-meaning_model" list="mmodels" value={s.meaning_model} spellcheck="false" placeholder={server === "ollama" ? "bge-m3" : ""} onchange={(e) => setVectors(e.currentTarget, "meaning_model", e.currentTarget.value.trim())} />
-                  <datalist id="mmodels">{#each models.list as m (m)}<option value={m}></option>{/each}</datalist>
+                  <datalist id="mmodels">{#each models.list as m}<option value={m}></option>{/each}</datalist>
                   {#if server === "ollama" && models.ok && !models.list.some((m) => m.split(":")[0] === wanted)}
                     <button disabled={!!meaning?.downloading} onclick={() => pull(wanted)}>{t("settings.meaning_pull", { model: wanted })}</button>
                   {/if}
