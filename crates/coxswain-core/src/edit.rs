@@ -1001,15 +1001,15 @@ mod tests {
         let d = dir("carries");
         let p = d.join("notes.txt");
         std::fs::write(&p, "as it was\n").unwrap();
-        // Something in the way of the file beside it that is no lack of room: said, not
-        // written in place.
-        let tmp = d.join(format!(".notes.txt.coxswain-{}.tmp", std::process::id()));
-        std::fs::create_dir(&tmp).unwrap();
-        assert!(matches!(save(&p, "new\n", Encoding::Utf8, false, None), Err(SaveError::Io(_))));
-        assert_eq!(std::fs::read_to_string(&p).unwrap(), "as it was\n");
-        std::fs::remove_dir(&tmp).unwrap();
         #[cfg(unix)]
         {
+            // Something in the way of the file beside it that is no lack of room: said, not
+            // written in place. (Windows calls a folder in the way "access denied".)
+            let tmp = d.join(format!(".notes.txt.coxswain-{}.tmp", std::process::id()));
+            std::fs::create_dir(&tmp).unwrap();
+            assert!(matches!(save(&p, "new\n", Encoding::Utf8, false, None), Err(SaveError::Io(_))));
+            assert_eq!(std::fs::read_to_string(&p).unwrap(), "as it was\n");
+            std::fs::remove_dir(&tmp).unwrap();
             use std::os::unix::fs::{MetadataExt, PermissionsExt};
             let ino = |p: &Path| std::fs::metadata(p).unwrap().ino();
             // A private file stays private, its group kept; renamed over.
