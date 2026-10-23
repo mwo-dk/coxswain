@@ -174,9 +174,15 @@ pub(crate) fn fetch(dir: &std::path::Path, files: &[Pinned], p: &Progress) -> io
             if n == 0 {
                 break;
             }
+            got += n as u64;
+            // More than the file is long: not the file, and no more of it goes on the disk.
+            if got > len {
+                drop(out);
+                let _ = std::fs::remove_file(&part);
+                return Err(io::Error::other(format!("{name}: longer than the file expected")));
+            }
             hash.update(&buf[..n]);
             out.write_all(&buf[..n])?;
-            got += n as u64;
             p.done.fetch_add(n as u64, Ordering::Relaxed);
         }
         drop(out);
@@ -998,7 +1004,7 @@ impl Server {
                     "{} {}: {}",
                     shown(&self.url),
                     status,
-                    error_in(&v).unwrap_or(text)
+                    error_in(&v).unwrap_or_else(|| short(&text))
                 ),
             ));
         }
@@ -1065,7 +1071,7 @@ pub(crate) fn numbered(sources: &[(PathBuf, String)]) -> String {
 /// case or spacing; Mistral's `[INST]`-like control tokens (`[`, upper case, `]`) broken up;
 /// and the invisible characters that carry words a user never sees (Unicode tags) or turn text
 /// around (bidi overrides) left out.
-fn inert(text: &str) -> String {
+pub(crate) fn inert(text: &str) -> String {
     // The hidden ones first, so none can sit inside a mark (`[\u{E0001}INST]`) and join it up.
     let text: String = text.chars().filter(|&c| !hidden(c)).collect();
     let mut out = String::with_capacity(text.len());
@@ -1174,9 +1180,10 @@ pub fn ask(
     let mut messages = vec![
         serde_json::json!({ "role": "system", "content": format!("{RULES}\n\nSources:\n\n{}", numbered(sources)) }),
     ];
+    // An answer before may hold what a source made the model write: a turn mark of its own.
     for (q, a) in earlier {
         messages.push(serde_json::json!({ "role": "user", "content": q }));
-        messages.push(serde_json::json!({ "role": "assistant", "content": a }));
+        messages.push(serde_json::json!({ "role": "assistant", "content": inert(a) }));
     }
     // A model that thinks before it answers keeps the user waiting for words never shown:
     // asked not to, unless `ask_think`. Ollama has a switch for it; Qwen3 elsewhere reads a
@@ -1686,7 +1693,9 @@ impl Prose {
             self.flush(0, emit);
         }
         for w in words.split_whitespace() {
-            self.cur.push(w.to_string());
+            // No passage keeps more than `CHARS` of a word: a line of one endless word (minified
+            // JSON, base64) costs no more than that, not the line 120 times over.
+            self.cur.push(w[..w.floor_char_boundary(CHARS)].to_string());
             self.fresh += 1;
             if self.cur.len() == WORDS {
                 self.flush(OVERLAP, emit);
@@ -1908,6 +1917,20 @@ pub fn alike(a: &[u64], b: &[u64]) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    /// A line of one endless word is held at `CHARS` a word, not whole 120 times over, and
+    /// gives the same text it gave before.
+    #[test]
+    fn a_word_longer_than_a_passage_is_held_no_longer() {
+        let word = "é".repeat(super::CHARS);
+        let mut b = super::Prose::new(false);
+        let mut got = vec![];
+        b.line(&format!("{word} {word}"), &mut |p, _| got.push(p));
+        assert!(b.cur.iter().all(|w| w.len() <= super::CHARS));
+        b.end(&mut |p, _| got.push(p));
+        let kept: Vec<_> = got.into_iter().filter_map(super::kept).map(|p| p.text).collect();
+        assert_eq!(kept, [word[..word.floor_char_boundary(super::CHARS)].to_string()]);
+    }
+
     #[test]
     fn sources_numbered_byte_for_byte() {
         let sources = [

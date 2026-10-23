@@ -26,6 +26,9 @@ pub(crate) struct Listed {
 
 /// Lists kept at most; the oldest go past this.
 const KEPT: usize = 256;
+/// Bytes of names a kept list holds at most: an archive of a few megabytes can name 50,000
+/// entries of 64 KB each, gigabytes to keep. Such a list is not kept; the archive is listed again.
+const KEPT_NAMES: usize = 64 << 20;
 /// What is kept changes form: an older form is never read.
 const FORM: &str = "1";
 
@@ -70,6 +73,9 @@ pub(crate) fn load(archive: &Path) -> Option<Vec<Listed>> {
 /// Keeps the whole list of `archive`, written whole or not at all; the oldest lists go past
 /// `KEPT`.
 pub(crate) fn save(archive: &Path, all: &[Listed]) {
+    if all.iter().map(|l| l.name.len()).sum::<usize>() > KEPT_NAMES {
+        return;
+    }
     let (Some(to), Some(dir)) = (file_for(archive), folder()) else {
         return;
     };
@@ -349,6 +355,9 @@ mod tests {
         }
         // Changed: listed again, never from the old list.
         std::fs::write(&xz, b"no longer an archive").unwrap();
+        assert!(load(&xz).is_none());
+        // A list of names too long to keep is not kept.
+        save(&xz, &[Listed { name: "n".repeat(KEPT_NAMES + 1), size: 0, dir: false, modified: 0, at: 0 }]);
         assert!(load(&xz).is_none());
         std::fs::remove_dir_all(d).unwrap();
     }

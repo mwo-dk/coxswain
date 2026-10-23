@@ -33,6 +33,14 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 /// here. No line of text is this long; the text kept stops at `MAX_TEXT` long before.
 const MAX_LINE: u64 = 64 << 20;
 
+/// The most of a file read for its text kept (`MAX_TEXT`): a file of blank space or zero bytes
+/// after its first lines (a sparse file of a terabyte) gives no more text, however long it is read.
+const MAX_READ: u64 = 256 << 20;
+
+/// The most of a file read for its passages (`each_line`), twice: a log of a hundred gigabytes
+/// gets its passages from its first gigabyte.
+const MAX_WHOLE: u64 = 1 << 30;
+
 /// `text`, tidied (`super::tidy`, or `super::tidy_code` for `code`), read line by line as it
 /// is tidied: no more of the file is read than the text kept needs, whatever the file's size.
 /// The same text comes out as from `tidy(&text(path, …))`: a file of UTF-8 with a stray byte
@@ -40,16 +48,16 @@ const MAX_LINE: u64 = 64 << 20;
 /// UTF-8 (decided by its first 64 KB, as `text` decides).
 pub fn tidied(path: &Path, code: bool) -> Option<String> {
     let mut t = super::Tidy::new(code);
-    raw_lines(path, &mut |l| t.push(l))?;
+    raw_lines(path, MAX_READ, &mut |l| t.push(l))?;
     Some(t.out)
 }
 
-/// Each line of the whole text of the file at `path` as `tidied` makes it (no limit), handed
+/// Each line of the text of the file at `path` as `tidied` makes it (its first `MAX_WHOLE` bytes), handed
 /// to `f` as it is read: the file is never held whole. `None` when it has no text.
 pub fn each_line(path: &Path, code: bool, f: &mut dyn FnMut(&str)) -> Option<()> {
     let mut t = super::Tidy::whole(code);
     let mut first = true;
-    raw_lines(path, &mut |l| {
+    raw_lines(path, MAX_WHOLE, &mut |l| {
         t.push(l);
         // What was added: the line, after one line break (two before a blank line in code)
         // unless it is the first.
@@ -71,15 +79,16 @@ pub fn each_line(path: &Path, code: bool, f: &mut dyn FnMut(&str)) -> Option<()>
 }
 
 /// The lines of the file at `path` as `text` reads it, without their line breaks, to `f`
-/// until it says to stop. `None` when the file has no text (a zero byte in its first 8 KB).
-fn raw_lines(path: &Path, f: &mut dyn FnMut(&str) -> bool) -> Option<()> {
+/// until it says to stop, of its first `most` bytes. `None` when the file has no text (a zero
+/// byte in its first 8 KB).
+fn raw_lines(path: &Path, most: u64, f: &mut dyn FnMut(&str) -> bool) -> Option<()> {
     let mut file = std::io::BufReader::with_capacity(1 << 16, std::fs::File::open(path).ok()?);
     let mut head = Vec::with_capacity(1 << 16);
     (&mut file).take(1 << 16).read_to_end(&mut head).ok()?;
     if head[..head.len().min(8192)].contains(&0) {
         return None;
     }
-    let mut r = std::io::Cursor::new(head.clone()).chain(file);
+    let mut r = std::io::Cursor::new(head.clone()).chain(file).take(most);
     // How a byte that is no UTF-8 is taken: decided at the first such byte.
     let mut lossy = None;
     let mut line = vec![];
@@ -134,6 +143,23 @@ mod tests {
         );
         std::fs::write(d.join("zero.bin"), b"a\0b").unwrap();
         assert_eq!(super::text(&d.join("zero.bin"), u64::MAX), None);
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// No more of a file is read than `most`: a sparse file of blank space after its first
+    /// line is not read to its end.
+    #[test]
+    fn no_more_than_most_is_read() {
+        let d = crate::extract::tests::folder("plain-most");
+        let p = d.join("sparse.txt");
+        std::fs::write(&p, b"first line\nsecond line\n").unwrap();
+        let mut lines = vec![];
+        super::raw_lines(&p, 14, &mut |l| {
+            lines.push(l.to_string());
+            true
+        })
+        .unwrap();
+        assert_eq!(lines, ["first line", "sec"]);
         let _ = std::fs::remove_dir_all(d);
     }
 

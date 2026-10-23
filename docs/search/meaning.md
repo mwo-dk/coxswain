@@ -110,7 +110,7 @@ files are still to go, and *· 2 files changing* while files changed in the last
   CSV or log file with more text than that has its passages chosen from the whole file, read
   line by line twice (once to count them, once to keep the chosen ones), never held whole: a
   300 MB log gets its 256 passages from its start to its end, and those passages are kept with
-  their vectors. Each vector (384 numbers) is packed into a byte a number and kept in
+  their vectors. Of a file larger than 1 GB, its first gigabyte is read that way. Each vector (384 numbers) is packed into a byte a number and kept in
   `search.db`.
 - **When:** the [helper](helper.md) makes them a few files at a time, and not on
   [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
