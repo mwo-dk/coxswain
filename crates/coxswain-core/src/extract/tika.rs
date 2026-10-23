@@ -43,7 +43,10 @@ const IDLE: u64 = 300;
 /// How long one file may take.
 const TIMEOUT: Duration = Duration::from_secs(120);
 /// How long the server may take to start: Java and Tika's parsers load.
-const START: Duration = Duration::from_secs(90);
+const START: Duration = Duration::from_secs(if cfg!(test) { 2 } else { 90 });
+/// After a server that would not start, how long no file is given to Tika before it is tried
+/// again (the helper starts afresh, and so tries at once, when a search option changes).
+const BACK_OFF: Duration = Duration::from_secs(600);
 /// Files one server reads before a fresh one takes over: a parser a hostile file got hold of
 /// does not stay to see many more. With its root read-only and /tmp in memory, nothing of one
 /// server is left for the next.
@@ -104,6 +107,21 @@ fn name() -> String {
 /// The image is pulled: set once it is known, so the status costs no runtime call.
 static PULLED: AtomicBool = AtomicBool::new(false);
 static FAILED: Mutex<Option<String>> = Mutex::new(None);
+/// When the server last failed to start: no start is tried for `BACK_OFF` after it.
+static FAILED_AT: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// The server would not start: why, for `state`, and no new start for `BACK_OFF`.
+fn failed(why: String) -> String {
+    crate::helper::note(format_args!("Apache Tika: {why}"));
+    *FAILED.lock().unwrap() = Some(why.clone());
+    *FAILED_AT.lock().unwrap() = Some(Instant::now());
+    why
+}
+
+/// Within `BACK_OFF` of a start that failed.
+fn backing_off() -> bool {
+    FAILED_AT.lock().unwrap().is_some_and(|at| at.elapsed() < BACK_OFF)
+}
 
 /// How Tika stands, for the status lines; None when it is off.
 pub fn state() -> Option<State> {
@@ -192,6 +210,9 @@ static LAST: Mutex<Option<Instant>> = Mutex::new(None);
 /// parse, one that held it up, or a crash: the next file starts a fresh one.
 fn read(t: &Tika, bytes: &[u8], path: &Path) -> Option<String> {
     static SERVED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    if backing_off() {
+        return None;
+    }
     for _ in 0..2 {
         if !running(t) {
             SERVED.store(0, Ordering::Relaxed);
@@ -271,6 +292,10 @@ fn start(t: &Tika) -> Result<(), String> {
     if LAST.lock().unwrap().is_some() && running(t) {
         return Ok(());
     }
+    // Every file would wait for a start that fails again: none is tried for a while.
+    if backing_off() {
+        return Err(FAILED.lock().unwrap().clone().unwrap_or_default());
+    }
     // One left from a helper that ended, stopping or broken: gone first.
     let _ = crate::tools::command(&t.rt)
         .args(["rm", "-f", &t.name])
@@ -284,24 +309,20 @@ fn start(t: &Tika) -> Result<(), String> {
         .output()
         .map_err(|e| e.to_string())?;
     if !out.status.success() {
-        let why = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        crate::helper::note(format_args!("Apache Tika would not start: {why}"));
-        *FAILED.lock().unwrap() = Some(why.clone());
-        return Err(why);
+        return Err(failed(format!("would not start: {}", String::from_utf8_lossy(&out.stderr).trim())));
     }
     let began = Instant::now();
     while began.elapsed() < START {
         if let Asked::Text(_) = ask(t, b"GET /tika HTTP/1.0\r\n\r\n") {
             *LAST.lock().unwrap() = Some(Instant::now());
             *FAILED.lock().unwrap() = None;
+            *FAILED_AT.lock().unwrap() = None;
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(500));
     }
     kill(t);
-    let why = "Apache Tika did not start within 90 seconds".to_string();
-    crate::helper::note(format_args!("{why}"));
-    Err(why)
+    Err(failed(format!("did not start within {} seconds", START.as_secs())))
 }
 
 fn kill(t: &Tika) {
@@ -454,6 +475,32 @@ mod tests {
         let mut big = b"HTTP/1.1 200 OK\r\n\r\n".to_vec();
         big.extend(std::iter::repeat_n(b'a', super::super::MAX_TEXT + 10));
         assert_eq!(parse(&big).unwrap().1.len(), super::super::MAX_TEXT);
+    }
+
+    /// A server that does not answer within `START` is a failure `state` names, and no file
+    /// waits for another start for `BACK_OFF`; a runtime that will not run one, the same.
+    #[test]
+    #[cfg(unix)]
+    fn tika_that_will_not_start_fails_once_and_backs_off() {
+        let rt = |p: &str| crate::tools::which(p).unwrap();
+        // `true` "runs" every command and answers nothing: a server that never comes up.
+        let silent = Tika { rt: rt("true"), image: "img".into(), name: "n".into() };
+        let began = Instant::now();
+        let e = start(&silent).unwrap_err();
+        assert!(e.contains("did not start within") && began.elapsed() >= START, "{e}");
+        assert_eq!(*FAILED.lock().unwrap(), Some(e.clone()));
+        assert!(backing_off());
+        let began = Instant::now();
+        assert_eq!(read(&silent, b"x", Path::new("a.one")), None);
+        assert_eq!(start(&silent).unwrap_err(), e);
+        assert!(began.elapsed() < Duration::from_secs(1), "no new start: {:?}", began.elapsed());
+        // Past the back-off, a runtime that refuses to run it: the reason it gave.
+        *FAILED_AT.lock().unwrap() = Some(Instant::now() - BACK_OFF);
+        let refusing = Tika { rt: rt("false"), ..silent };
+        assert!(start(&refusing).unwrap_err().starts_with("would not start"));
+        assert!(backing_off());
+        *FAILED.lock().unwrap() = None;
+        *FAILED_AT.lock().unwrap() = None;
     }
 
     /// Needs podman and the image pulled (`podman pull` the image of `[preview.images] tika`):

@@ -940,12 +940,10 @@ async function runViruses(paths) {
   }, 500);
   try {
     const report = await invoke("viruses_run", { paths });
-    const [db, quarantine] = await invoke("viruses_facts", { db: report.db ?? null });
+    const [summary, notes, quarantine] = await invoke("viruses_facts", { report });
     if (!report.found.length) {
-      const clean = t("viruses.clean", { n: report.scanned });
-      const notes = virusNotes(report, db);
-      ui.status = clean;
-      if (notes.length > 1 || report.update_failed) ui.modal = { kind: "message", title: t("action.scan_viruses"), text: `${clean}. ${notes.join(" ")}`, feature: "virus_scan" };
+      ui.status = summary;
+      if (notes.length) ui.modal = { kind: "message", title: t("action.scan_viruses"), text: `${summary}.`, notes, feature: "virus_scan" };
       return;
     }
     // Marked in the panes: each file found there, and each folder with one in it.
@@ -956,7 +954,7 @@ async function runViruses(paths) {
       v.marked.clear();
       for (const e of hit) v.marked.add(e.path);
     }
-    ui.modal = { kind: "viruses", feature: "virus_scan", report, notes: virusNotes(report, db), quarantine, choices: report.found.map(() => "nothing"), cursor: 0 };
+    ui.modal = { kind: "viruses", feature: "virus_scan", report, notes, quarantine, choices: report.found.map(() => "nothing"), cursor: 0 };
   } catch (err) {
     if (ui.viruses?.stopping) ui.status = t("viruses.stopped");
     else ui.modal = failure(t("viruses.failed"), err);
@@ -964,16 +962,6 @@ async function runViruses(paths) {
     clearInterval(poll);
     ui.viruses = null;
   }
-}
-
-/** What a report says beyond its findings: the database, what was left out, what failed. */
-function virusNotes(r, db) {
-  const v = [db];
-  if (r.update_failed) v.push(t("viruses.update_failed", { error: r.update_failed }));
-  if (r.left_out) v.push(t("viruses.left_out", { n: r.left_out }));
-  if (r.more) v.push(t("viruses.more"));
-  if (r.problems.length) v.push(`${t("viruses.problems")} ${r.problems.join("; ")}`);
-  return v;
 }
 
 /** Do what was chosen for each file found. */

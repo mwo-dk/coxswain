@@ -136,8 +136,9 @@ pub fn viruses_act(choices: Vec<Choice>) -> Done {
     d
 }
 
-/// The database line and the quarantine folder, for the dialog of what was found.
+/// What a report comes to (`viruses::summary`), its notes (`viruses::notes`) and the
+/// quarantine folder, for the status line and the dialog of what was found.
 #[tauri::command]
-pub fn viruses_facts(db: Option<u64>) -> (String, String) {
-    (viruses::db_line(db), viruses::quarantine_dir().map(|d| d.display().to_string()).unwrap_or_default())
+pub fn viruses_facts(report: Report) -> (String, Vec<String>, String) {
+    (viruses::summary(&report), viruses::notes(&report), viruses::quarantine_dir().map(|d| d.display().to_string()).unwrap_or_default())
 }

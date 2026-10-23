@@ -93,6 +93,7 @@ pub struct Plan {
 
 pub fn plan(cfg: &PreviewConfig, targets: &[PathBuf]) -> Result<Plan, String> {
     let (rt, path, image) = how(cfg)?;
+    let targets = &chosen(targets)[..];
     let files = walk(targets, &AtomicBool::new(false)).0.len();
     let what = match targets {
         [one] if one.is_dir() => t!("viruses.confirm_folder", "name" => shown(one), "n" => crate::i18n::digits(files.to_string())),
@@ -118,9 +119,15 @@ fn shown(p: &Path) -> String {
     p.file_name().map_or_else(|| p.display().to_string(), |n| n.to_string_lossy().into_owned())
 }
 
-/// The regular files under `targets`, each once, links and special files left out (a pipe
-/// would hold the scan up), and those only in the cloud too (they are not downloaded to be
-/// read). The second number: files left out for that.
+/// The targets as chosen, a link among them resolved once (a marked `Downloads` that is a link
+/// is the folder it points to); links found inside them are never followed (`walk`).
+fn chosen(targets: &[PathBuf]) -> Vec<PathBuf> {
+    targets.iter().map(|t| if std::fs::symlink_metadata(t).is_ok_and(|m| m.file_type().is_symlink()) { std::fs::canonicalize(t).unwrap_or_else(|_| t.clone()) } else { t.clone() }).collect()
+}
+
+/// The regular files under `targets` (as `chosen` gives them), each once, links and special
+/// files left out (a pipe would hold the scan up), and those only in the cloud too (they are
+/// not downloaded to be read). The second number: files left out for that.
 fn walk(targets: &[PathBuf], stop: &AtomicBool) -> (Vec<PathBuf>, usize) {
     let (mut files, mut left) = (vec![], 0);
     let mut todo: Vec<PathBuf> = targets.to_vec();
@@ -250,16 +257,23 @@ mod win {
 }
 
 /// What a scan came to.
-#[derive(Clone, Debug, Default, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Report {
     pub found: Vec<Finding>,
-    /// Files read, of `files` listed.
+    /// Files read, of `files` listed (those not fully read among them).
     pub scanned: usize,
     pub files: usize,
     /// Files not read: only in the cloud, or too many with a line break in their name.
     pub left_out: usize,
+    /// Files ClamAV could not read (an error, access denied): never counted as scanned.
+    pub unread: usize,
     /// Lines ClamAV wrote about files it could not read, at most twenty.
     pub problems: Vec<String>,
+    /// Files read only in part: larger, or packed deeper, than ClamAV's limits (its
+    /// `Heuristics.Limits.Exceeded` alerts), so something in the rest was not looked for.
+    pub partly: usize,
+    /// Their names, at most twenty.
+    pub partly_files: Vec<String>,
     /// More was found than is kept (`FOUND_MAX`).
     pub more: bool,
     /// When the database it used was updated.
@@ -268,12 +282,84 @@ pub struct Report {
     pub update_failed: Option<String>,
 }
 
+impl Report {
+    /// What clamscan said of `file`: read and clean (`OK`, `Empty file`), something found,
+    /// read only in part (a `Heuristics.Limits.Exceeded` alert: a note, not a finding), or not
+    /// read at all (an error), which is never counted as scanned.
+    fn tally(&mut self, file: &Path, verdict: &str) {
+        // After an alert on a file (a limit passed), a second line on it: already counted.
+        if verdict.starts_with("Virus(es) detected") {
+            return;
+        }
+        match verdict.strip_suffix(" FOUND") {
+            None if matches!(verdict, "OK" | "Empty file") => self.scanned += 1,
+            None => {
+                self.unread += 1;
+                if self.problems.len() < 20 {
+                    self.problems.push(clean(&format!("{}: {}", file.display(), verdict)));
+                }
+            }
+            Some(sig) if sig.starts_with("Heuristics.Limits.Exceeded") => {
+                self.scanned += 1;
+                self.partly += 1;
+                if self.partly_files.len() < 20 {
+                    self.partly_files.push(clean(&file.display().to_string()));
+                }
+            }
+            Some(sig) => {
+                self.scanned += 1;
+                if self.found.len() < FOUND_MAX {
+                    self.found.push(Finding { path: file.to_path_buf(), name: clean(sig), id: Ident::of(file) });
+                } else {
+                    self.more = true;
+                }
+            }
+        }
+    }
+}
+
+/// What a scan that found nothing says: how many files were read, never "no viruses" when
+/// none was read at all.
+pub fn summary(r: &Report) -> String {
+    if r.scanned > 0 {
+        return t!("viruses.clean", "n" => crate::i18n::digits(r.scanned.to_string()));
+    }
+    t!(if r.files == 0 && r.left_out == 0 { "viruses.no_files" } else { "viruses.nothing_scanned" })
+}
+
+/// What a report says beyond its findings, a line each: the database, then (when there is
+/// any) the failed update, what was left out, what was not read or read only in part. Only
+/// the database line: nothing to say, unless nothing was read at all.
+pub fn notes(r: &Report) -> Vec<String> {
+    let mut v = vec![db_line(r.db)];
+    if let Some(e) = &r.update_failed {
+        v.push(t!("viruses.update_failed", "error" => e));
+    }
+    if r.left_out > 0 {
+        v.push(t!("viruses.left_out", "n" => r.left_out));
+    }
+    if r.more {
+        v.push(t!("viruses.more"));
+    }
+    if r.partly > 0 {
+        v.push(format!("{}\n{}", t!("viruses.partly", "n" => r.partly), r.partly_files.join("\n")));
+    }
+    if r.unread > 0 || !r.problems.is_empty() {
+        v.push(format!("{}\n{}", t!("viruses.unread", "n" => r.unread), r.problems.join("\n")));
+    }
+    if v.len() == 1 && r.scanned > 0 {
+        v.clear();
+    }
+    v
+}
+
 static N: AtomicUsize = AtomicUsize::new(0);
 
 /// Scan `targets`: the database brought up to date when it is due, then every file under them
 /// read. `stop` ends it (and its container); a stopped scan is an error saying so.
 pub fn scan(cfg: &PreviewConfig, targets: &[PathBuf], stop: &AtomicBool, mut said: impl FnMut(Said)) -> Result<Report, String> {
     let (rt, rt_path, image) = how(cfg)?;
+    let targets = &chosen(targets)[..];
     let who = who(rt, &rt_path)?;
     let db = db_dir().ok_or_else(|| t!("err.no_cache_folder"))?;
     std::fs::create_dir_all(&db).map_err(|e| format!("{}: {e}", db.display()))?;
@@ -345,27 +431,20 @@ pub fn scan(cfg: &PreviewConfig, targets: &[PathBuf], stop: &AtomicBool, mut sai
     for (i, f) in odd.iter().enumerate() {
         c.arg("--mount").arg(crate::images::bind(f, &format!("/odd/{}", i + 1), true));
     }
-    c.args(["--entrypoint", "clamscan", image.as_str(), "--database=/db", "--file-list=/list/files", "--tempdir=/tmp", "--no-summary", "--stdout"]);
+    // `--alert-exceeds-max`: a file past ClamAV's limits (size, depth, files in an archive) is
+    // said to be, not taken for clean.
+    c.args(["--entrypoint", "clamscan", image.as_str(), "--database=/db", "--file-list=/list/files", "--tempdir=/tmp", "--no-summary", "--stdout", "--alert-exceeds-max=yes"]);
     said(Said::Scanned(0, all));
     let (status, err) = follow(c, &rt_path, &name, stop, |line| {
         let Some((path, verdict)) = parse(line) else { return };
         let Some(file) = back.get(path) else { return };
-        report.scanned += 1;
-        if let Some(sig) = verdict.strip_suffix(" FOUND") {
-            if report.found.len() < FOUND_MAX {
-                report.found.push(Finding { path: file.clone(), name: clean(sig), id: Ident::of(file) });
-            } else {
-                report.more = true;
-            }
-        } else if verdict != "OK" && report.problems.len() < 20 {
-            report.problems.push(clean(&format!("{}: {}", file.display(), verdict)));
-        }
-        said(Said::Scanned(report.scanned.min(all), all));
+        report.tally(file, verdict);
+        said(Said::Scanned((report.scanned + report.unread).min(all), all));
     })?;
     // 0: nothing found, 1: something found, 2: some files could not be read.
     match status {
         Some(0 | 1) => Ok(report),
-        Some(2) if report.scanned > 0 => {
+        Some(2) if report.scanned + report.unread > 0 => {
             report.problems.extend(err.into_iter().take(20usize.saturating_sub(report.problems.len())));
             Ok(report)
         }
@@ -514,11 +593,13 @@ fn follow(c: Command, rt: &Path, name: &str, stop: &AtomicBool, mut line: impl F
     let mut child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let err = child.stderr.take();
     let complaints = std::thread::spawn(move || {
-        let mut s = String::new();
-        if let Some(e) = err {
-            let _ = e.take(1 << 20).read_to_string(&mut s);
+        let mut b = vec![];
+        if let Some(mut e) = err {
+            let _ = (&mut e).take(1 << 20).read_to_end(&mut b);
+            // What is past the first MiB is read and dropped: a closed pipe would kill the run.
+            let _ = std::io::copy(&mut e, &mut std::io::sink());
         }
-        s.lines().map(clean).filter(|l| !l.is_empty()).collect::<Vec<_>>().into_iter().rev().take(8).rev().collect::<Vec<_>>()
+        String::from_utf8_lossy(&b).lines().map(clean).filter(|l| !l.is_empty()).collect::<Vec<_>>().into_iter().rev().take(8).rev().collect::<Vec<_>>()
     });
     let (tx, rx) = std::sync::mpsc::channel::<Vec<u8>>();
     let mut out = child.stdout.take().expect("piped");
@@ -624,7 +705,11 @@ fn quarantine(f: &Finding, was: Ident, dir: &Path) -> Result<PathBuf, String> {
         .find(|p| std::fs::symlink_metadata(p).is_err())
         .expect("a free name");
     #[cfg(unix)]
-    at::quarantine(&f.path, was, &to).map_err(|e| if e.kind() == std::io::ErrorKind::InvalidData { changed(&f.path) } else { err(e) })?;
+    at::quarantine(&f.path, was, &to).map_err(|e| match e.kind() {
+        std::io::ErrorKind::InvalidData => changed(&f.path),
+        std::io::ErrorKind::PermissionDenied => format!("{}: {}", f.path.display(), t!("viruses.not_yours")),
+        _ => err(e),
+    })?;
     #[cfg(not(unix))]
     {
         // ponytail: by path, checked again just before: Windows has no rename relative to an
@@ -658,12 +743,13 @@ mod at {
         CString::new(s.as_bytes()).map_err(|_| Error::from(ErrorKind::InvalidInput))
     }
 
-    /// The folder `p` is in, opened as a folder without following a link, and its name there.
+    /// The folder `p` is in, opened as a folder (a link to one followed: the file itself is
+    /// opened from it without following one, and checked to be the one found), and its name there.
     fn parent(p: &Path) -> io::Result<(OwnedFd, CString)> {
         let dir = c(p.parent().ok_or(ErrorKind::InvalidInput)?.as_os_str())?;
         let name = c(p.file_name().ok_or(ErrorKind::InvalidInput)?)?;
         // SAFETY: a valid C string; the descriptor is owned from here on.
-        let fd = unsafe { libc::open(dir.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC) };
+        let fd = unsafe { libc::open(dir.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC) };
         if fd < 0 {
             return Err(Error::last_os_error());
         }
@@ -690,23 +776,34 @@ mod at {
         if Ident::from(&f.metadata()?) == *was { Ok(()) } else { Err(ErrorKind::InvalidData.into()) }
     }
 
+    /// Locked first (`lock`, on the open file), then moved: a file that cannot be locked (not
+    /// yours) is a `PermissionDenied` error and stays where it is; one that cannot be moved gets
+    /// its mode back. Once moved, it is in quarantine: `Ok`.
     pub fn quarantine(from: &Path, was: Ident, to: &Path) -> io::Result<()> {
         let (src, name) = parent(from)?;
         let (dst, new) = parent(to)?;
         let file = open(&src, &name)?;
         check(&file, &was)?;
+        let mode = file.metadata()?.permissions();
+        lock(&file).map_err(|e| if e.raw_os_error() == Some(libc::EPERM) { Error::new(ErrorKind::PermissionDenied, e) } else { e })?;
+        let r = moved(&file, &src, &name, &dst, &new, was, to);
+        if r.is_err() {
+            let _ = file.set_permissions(mode);
+        }
+        r
+    }
+
+    fn moved(file: &File, src: &OwnedFd, name: &CString, dst: &OwnedFd, new: &CString, was: Ident, to: &Path) -> io::Result<()> {
         // SAFETY: open folders and valid C strings.
         let r = unsafe { libc::renameat(src.as_raw_fd(), name.as_ptr(), dst.as_raw_fd(), new.as_ptr()) };
         if r == 0 {
             // What was moved is the file found (a rename changes only its inode's time); else
             // it goes back where it was.
-            let moved = open(&dst, &new)?;
-            let m = Ident::from(&moved.metadata()?);
-            if !m.same_inode(&was) {
+            if !open(dst, new).and_then(|m| m.metadata()).is_ok_and(|m| Ident::from(&m).same_inode(&was)) {
                 unsafe { libc::renameat(dst.as_raw_fd(), new.as_ptr(), src.as_raw_fd(), name.as_ptr()) };
                 return Err(ErrorKind::InvalidData.into());
             }
-            return lock(&moved);
+            return Ok(());
         }
         let e = Error::last_os_error();
         if e.raw_os_error() != Some(libc::EXDEV) {
@@ -718,8 +815,8 @@ mod at {
         use std::os::unix::fs::OpenOptionsExt;
         o.write(true).create_new(true).mode(0o600);
         let mut out = o.open(to)?;
-        let copied = std::io::copy(&mut &file, &mut out).and_then(|_| {
-            let again = open(&src, &name)?;
+        let copied = std::io::copy(&mut &*file, &mut out).and_then(|_| {
+            let again = open(src, name)?;
             check(&again, &Ident::from(&file.metadata()?))
         });
         if let Err(e) = copied {
@@ -727,12 +824,17 @@ mod at {
             return Err(e);
         }
         // SAFETY: an open folder and a valid C string.
+        // The copy is yours: locked before the name goes.
+        if let Err(e) = lock(&out) {
+            let _ = std::fs::remove_file(to);
+            return Err(e);
+        }
         if unsafe { libc::unlinkat(src.as_raw_fd(), name.as_ptr(), 0) } != 0 {
             let e = Error::last_os_error();
             let _ = std::fs::remove_file(to);
             return Err(e);
         }
-        lock(&out)
+        Ok(())
     }
 
     /// Read-only, by you alone, never run: on the open file itself (`fchmod`), no link followed.
@@ -816,6 +918,97 @@ mod tests {
         assert_eq!(root(std::slice::from_ref(&d)), d);
         assert_eq!(root(&[d.join("a"), d.join("sub")]), d);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Errors are not read files, a limit passed is a note and not a finding, and a scan that
+    /// read nothing never says "no viruses".
+    #[test]
+    fn viruses_report_counts_only_what_was_read() {
+        crate::i18n::set_language("en-GB");
+        let mut r = Report { files: 5, ..Default::default() };
+        for (f, v) in [("a", "OK"), ("e", "Empty file"), ("x", "Access denied. ERROR"), ("big.iso", "Heuristics.Limits.Exceeded.MaxFileSize FOUND"), ("big.iso", "Virus(es) detected ERROR"), ("v", "Win.Test.EICAR_HDB-1 FOUND")] {
+            r.tally(Path::new(f), v);
+        }
+        assert_eq!((r.scanned, r.unread, r.partly, r.found.len()), (4, 1, 1, 1));
+        assert_eq!((r.partly_files.as_slice(), r.found[0].name.as_str()), (["big.iso".to_string()].as_slice(), "Win.Test.EICAR_HDB-1"));
+        let said = notes(&r).join("\n");
+        assert!(said.contains(&t!("viruses.partly", "n" => 1)) && said.contains("big.iso"), "{said}");
+        assert!(said.contains(&t!("viruses.unread", "n" => 1)) && said.contains("x: Access denied. ERROR"), "{said}");
+        assert_eq!(summary(&r), t!("viruses.clean", "n" => "4"));
+        // Clean and nothing else to say: no notes.
+        let ok = Report { files: 1, scanned: 1, db: Some(1), ..Default::default() };
+        assert!(notes(&ok).is_empty());
+        // Nothing read: never "no viruses found", and the reasons shown.
+        let none = Report { files: 2, unread: 2, ..Default::default() };
+        assert_eq!(summary(&none), t!("viruses.nothing_scanned"));
+        assert!(notes(&none).join(" ").contains(&t!("viruses.unread", "n" => 2)));
+        assert_eq!(summary(&Report::default()), t!("viruses.no_files"));
+        assert!(!notes(&Report::default()).is_empty(), "nothing read: a dialog, never only a status line");
+    }
+
+    /// A marked folder that is a link is scanned as the folder it points to; links inside it
+    /// are still not followed.
+    #[test]
+    #[cfg(unix)]
+    fn viruses_a_chosen_link_is_followed_once() {
+        let d = std::env::temp_dir().join(format!("coxswain-viruses-chosen-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("real")).unwrap();
+        std::fs::write(d.join("real/a"), "a").unwrap();
+        std::os::unix::fs::symlink(d.join("real"), d.join("Downloads")).unwrap();
+        std::os::unix::fs::symlink("/etc", d.join("real/etc")).unwrap();
+        let t = chosen(&[d.join("Downloads"), d.join("real/a")]);
+        assert_eq!(t, [std::fs::canonicalize(d.join("real")).unwrap(), d.join("real/a")]);
+        let (files, _) = walk(&t, &AtomicBool::new(false));
+        assert!(files.contains(&std::fs::canonicalize(d.join("real/a")).unwrap()), "{files:?}");
+        assert!(files.iter().all(|f| f.file_name().unwrap() == "a"), "nothing through the link inside: {files:?}");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file found in a folder reached through a link is quarantined; one that cannot be moved
+    /// keeps its mode.
+    #[test]
+    #[cfg(unix)]
+    fn viruses_quarantine_through_a_linked_folder_and_back_on_failure() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-viruses-qlink-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("real")).unwrap();
+        std::os::unix::fs::symlink(d.join("real"), d.join("Downloads")).unwrap();
+        let path = d.join("Downloads/eicar.com");
+        std::fs::write(&path, eicar()).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let f = Finding { path: path.clone(), name: "Eicar-Test-Signature".into(), id: Ident::of(&path) };
+        // The quarantine folder cannot be written to: the file stays, as it was.
+        let shut = d.join("shut");
+        std::fs::create_dir_all(&shut).unwrap();
+        std::fs::set_permissions(&shut, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let writable = std::fs::write(shut.join("probe"), "").is_ok(); // as root it is
+        if !writable {
+            assert!(quarantine(&f, f.id.unwrap(), &shut).is_err());
+            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o755);
+            assert!(!shut.join("quarantine.log").exists());
+        }
+        std::fs::set_permissions(&shut, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let f = Finding { id: Ident::of(&path), ..f };
+        let to = quarantine(&f, f.id.unwrap(), &d.join("q")).unwrap();
+        assert!(!path.exists());
+        assert_eq!(std::fs::metadata(&to).unwrap().permissions().mode() & 0o777, 0o400);
+        assert_eq!(std::fs::read_to_string(d.join("q/quarantine.log")).unwrap().lines().count(), 1);
+        std::fs::set_permissions(&to, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Past a MiB of complaints, and in bytes that are no UTF-8, a run goes on to its end and
+    /// its last complaints are kept.
+    #[test]
+    #[cfg(unix)]
+    fn viruses_follow_drains_a_flood_of_complaints() {
+        let mut c = Command::new("sh");
+        c.args(["-c", "printf 'bad \\377 byte\\n' >&2; i=0; while [ $i -lt 40000 ]; do echo 'complaint number of some length' >&2; i=$((i+1)); done; echo done"]);
+        let mut lines = vec![];
+        let (status, err) = follow(c, Path::new("/nonexistent"), "n", &AtomicBool::new(false), |l| lines.push(l.to_vec())).unwrap();
+        assert_eq!(status, Some(0));
+        assert_eq!(lines, [b"done".to_vec()]);
+        assert!(err.iter().any(|l| l.starts_with("complaint")), "{err:?}");
     }
 
     #[test]
@@ -946,23 +1139,41 @@ mod tests {
         std::fs::write(d.join("eicar: odd OK.com"), eicar()).unwrap();
         std::fs::write(d.join("sub/two\nlines.com"), eicar()).unwrap();
         std::fs::write(d.join("sub/clean.txt"), "hello").unwrap();
+        // Past ClamAV's 100 MB limit: read in part, said so; one it may not read: not scanned.
+        std::fs::File::create(d.join("big.bin")).unwrap().set_len(101 << 20).unwrap();
+        std::fs::write(d.join("locked.txt"), "x").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(d.join("locked.txt"), std::fs::Permissions::from_mode(0o000)).unwrap();
+        }
+        // Chosen through a link to the folder: the folder is scanned.
+        let link = d.with_extension("link");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&d, &link).unwrap();
+        #[cfg(not(unix))]
+        let link = d.clone();
         let cfg = PreviewConfig { virus_scan: true, ..Default::default() };
         let start = std::time::Instant::now();
-        let r = scan(&cfg, std::slice::from_ref(&d), &AtomicBool::new(false), |s| match s {
+        let r = scan(&cfg, std::slice::from_ref(&link), &AtomicBool::new(false), |s| match s {
             Said::Updating(l) | Said::Pulling(l) => eprintln!("{l}"),
             Said::Scanned(n, all) => eprintln!("{n} of {all}"),
         })
         .unwrap();
         eprintln!("{r:?} in {:?}", start.elapsed());
-        assert_eq!((r.files, r.scanned, r.left_out), (3, 3, 0));
+        let unread = usize::from(cfg!(unix));
+        assert_eq!((r.files, r.scanned, r.left_out, r.unread, r.partly), (5, 5 - unread, 0, unread, 1), "{r:?}");
+        assert!(r.partly_files[0].ends_with("big.bin"), "{r:?}");
         let mut found: Vec<_> = r.found.iter().map(|f| f.path.clone()).collect();
         found.sort();
-        assert_eq!(found, [d.join("eicar: odd OK.com"), d.join("sub/two\nlines.com")]);
+        let real = std::fs::canonicalize(&d).unwrap();
+        assert_eq!(found, [real.join("eicar: odd OK.com"), real.join("sub/two\nlines.com")]);
         assert!(r.found.iter().all(|f| f.name.contains("Eicar")), "{:?}", r.found);
         assert!(r.db.is_some() && r.update_failed.is_none());
         // Stopped at once: an error, and no container left.
         let r = scan(&cfg, std::slice::from_ref(&d), &AtomicBool::new(true), |_| {});
         assert_eq!(r.unwrap_err(), t!("viruses.stopped"));
+        let _ = std::fs::remove_file(&link);
         std::fs::remove_dir_all(d).unwrap();
     }
 }

@@ -97,7 +97,10 @@ script in the container passes to the server on its own `127.0.0.1`. The file's 
 argument; only its ending is sent, so Tika knows the format. The answer is read up to 4 MB,
 tidied like every reader's text, and kept in `search.db`; [Ask](ask.md) gets it only as passages,
 the same way as every other file's text. A file that takes longer than two minutes is given up
-and the server stopped; the next file starts a fresh one.
+and the server stopped; the next file starts a fresh one. A server that does not answer within 90 seconds of
+starting, or that the runtime will not run, is not tried again for 10 minutes (or until a
+search option changes, which starts the helper afresh): files are not held up waiting for it,
+and `helper.log` says why.
 
 A fresh server also takes over after every 100 files, and at once after a file Tika could not
 parse or a crash: a parser that a hostile file got hold of does not stay to read the files that
