@@ -1,7 +1,7 @@
 name: CI
 
 on:
-  workflow_call: # from release.yml, for every push to master
+  workflow_call: # from release.yml, for every push to master and every release
   pull_request:
 
 permissions:
@@ -24,19 +24,27 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       code: ${{ steps.files.outputs.code }}
+      native: ${{ steps.files.outputs.native }}
     steps:
       - id: files
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          if [ -z "$PR" ]; then echo code=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -z "$PR" ]; then printf 'code=true\nnative=true\n' >> "$GITHUB_OUTPUT"; exit 0; fi
           files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | if .status != "modified" and (.filename | test("^docs/.*\\.md$")) then "page:" + .filename else .filename end')
           printf '%s\n' "$files"
           if [ -n "$files" ] && ! printf '%s\n' "$files" | grep -qvP '^(docs/(?!flags/|changelog\.md$)|design/|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
             echo code=false >> "$GITHUB_OUTPUT"
           else
             echo code=true >> "$GITHUB_OUTPUT"
+          fi
+          # Only texts (docs, README, changelog rows, locales, pictures): Linux builds and tests
+          # them; macOS and Windows have nothing of their own to find there.
+          if [ -n "$files" ] && ! printf '%s\n' "$files" | sed 's/^page://' | grep -qvP '^(docs/|design/|changelog\.d/|crates/coxswain-core/locales/|README\.md$|CLAUDE\.md$|LICENSE$|packaging/.*/SUBMIT\.md$)'; then
+            echo native=false >> "$GITHUB_OUTPUT"
+          else
+            echo native=true >> "$GITHUB_OUTPUT"
           fi
 
   test:
@@ -45,8 +53,10 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
+      # The ARM machines run on every push to master and every release (called from release.yml),
+      # not on pull requests; a pull request of texts only runs Linux. A skipped matrix entry is simply absent, so "CI result" is unaffected.
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+        os: ${{ fromJSON(github.event_name != 'pull_request' && '["ubuntu-24.04", "ubuntu-24.04-arm", "macos-latest", "windows-latest", "windows-11-arm"]' || needs.changes.outputs.native == 'true' && '["ubuntu-24.04", "macos-latest", "windows-latest"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -58,7 +68,8 @@ jobs:
         uses: ./.github/actions/apt-install
         timeout-minutes: 10
         with:
-          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          # mercurial: the tests of Mercurial repositories (vcs) run with it.
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev mercurial
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
@@ -107,7 +118,16 @@ jobs:
         if: runner.arch == 'ARM64' && runner.os != 'macOS'
         working-directory: gui
         shell: bash
-        run: npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,appimage' || 'nsis,msi' }}
+        run: |
+          npx tauri build --debug --ci --bundles ${{ runner.os == 'Linux' && 'deb,appimage' || 'nsis,msi' }}
+          # The menu entry (gui/src-tauri/coxswain.desktop): a file manager, handed the files and
+          # folders it is opened with.
+          if [ "$RUNNER_OS" = Linux ]; then
+            entry="$(dpkg-deb --fsys-tarfile ../target/debug/bundle/deb/*.deb | tar -xO --wildcards '*.desktop')"
+            echo "$entry"
+            grep -qx 'Exec=coxswain-gui %F' <<<"$entry"
+            grep -qx 'Categories=System;FileTools;FileManager;' <<<"$entry"
+          fi
 
       # Intel Macs: releases build for x86_64-apple-darwin too, with candle's Metal on, so this
       # target has to build before a release finds out.

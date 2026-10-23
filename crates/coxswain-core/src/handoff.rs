@@ -5,13 +5,20 @@
 //! tools, never at startup.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::config::quote;
 use crate::t;
 
-/// A handoff found no tool: the notice that says what to install shows (`notices`).
-pub static MISSING: AtomicBool = AtomicBool::new(false);
+/// A handoff found no tool: the notice that says what to install shows (`notices`), saying
+/// what opened instead: `OPENED_SHELL`, `OPENED_TERMINAL` or `OPENED_NOTHING` (0: none missed).
+pub static MISSING: AtomicU8 = AtomicU8::new(0);
+/// A shell in the terminal app's own terminal.
+pub const OPENED_SHELL: u8 = 1;
+/// A terminal window.
+pub const OPENED_TERMINAL: u8 = 2;
+/// No terminal was found to open either.
+pub const OPENED_NOTHING: u8 = 3;
 
 /// What opens, and how.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -238,8 +245,14 @@ pub fn handoff(tool: &str, dir: &Path, terminal: bool) -> Result<Handoff, String
     let var = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
     let has = |p: &str| crate::user_menu::installed(p);
     let r = plan(os(), tool, dir, terminal, &look, &has, &var);
-    if matches!(&r, Ok(Handoff { name: None, .. }) | Err(Missing::Nothing)) {
-        MISSING.store(true, Ordering::Relaxed);
+    let missed = match &r {
+        Ok(Handoff { name: None, run: Run::Here(_), .. }) => OPENED_SHELL,
+        Ok(Handoff { name: None, .. }) => OPENED_TERMINAL,
+        Err(Missing::Nothing) => OPENED_NOTHING,
+        _ => 0,
+    };
+    if missed != 0 {
+        MISSING.store(missed, Ordering::Relaxed);
     }
     r.map_err(Missing::text)
 }
@@ -288,7 +301,7 @@ fn look(at: &str) -> Option<PathBuf> {
     }
     let mut s = at.to_string();
     if let Some(rest) = s.strip_prefix("~/") {
-        s = std::env::home_dir()?
+        s = crate::dirs::home_dir()?
             .join(rest)
             .to_string_lossy()
             .into_owned();
@@ -324,14 +337,25 @@ fn plan(
     // Only inside a repository; asking git would run a program for that.
     let root = dir
         .ancestors()
-        .find(|a| a.join(".git").exists())
+        .find(|a| {
+            a.join(".git").exists()
+                || a.join(".jj").is_dir()
+                || a.join(".hg").is_dir()
+                || a.join(".svn/wc.db").is_file()
+                || a.join("CVS/Entries").is_file()
+        })
         .ok_or(Missing::NoRepo)?
         .to_path_buf();
+    // A Subversion or CVS working copy: no git tool reads it, so a terminal there, for
+    // `svn update` and the like (unless a command of the user's own is named).
+    let no_git_tool = root.join(".svn").is_dir() || root.join("CVS").is_dir();
     let desktop = matches!(os, "macos" | "windows")
         || os != "android" && var("WAYLAND_DISPLAY").or_else(|| var("DISPLAY")).is_some();
     let tools = known(os);
     let tool = tool.trim();
-    let found = if tool.is_empty() {
+    let found = if no_git_tool && (tool.is_empty() || tools.iter().any(|t| t.name.eq_ignore_ascii_case(tool))) {
+        None
+    } else if tool.is_empty() {
         tools
             .iter()
             .filter(|t| desktop || !t.window)
@@ -492,9 +516,10 @@ pub fn spawn(h: &Handoff) -> std::io::Result<()> {
 
 /// What the status line says once the tool has opened.
 pub fn opened(h: &Handoff) -> String {
-    match &h.name {
-        Some(name) => t!("gittool.opened", "name" => name),
-        None => t!("gittool.terminal"),
+    match (&h.name, &h.run) {
+        (Some(name), _) => t!("gittool.opened", "name" => name),
+        (None, Run::Here(_)) => t!("gittool.shell"),
+        (None, _) => t!("gittool.terminal"),
     }
 }
 
@@ -602,6 +627,23 @@ mod tests {
             .plan("linux", "", &src, true, &[("SHELL", "/bin/zsh")])
             .unwrap();
         assert_eq!((h.name, h.run), (None, Run::Here("/bin/zsh".into())));
+    }
+
+    /// A Subversion or CVS working copy: no git tool, the shell in it (for `svn update`).
+    #[test]
+    fn handoff_svn_and_cvs_get_a_terminal() {
+        let f = Fake::new("svn", &["lazygit"]);
+        let wc = f.top.join("wc");
+        std::fs::create_dir_all(wc.join(".svn")).unwrap();
+        std::fs::write(wc.join(".svn/wc.db"), "").unwrap();
+        let h = f.plan("linux", "", &wc, true, X).unwrap();
+        assert_eq!((h.root, h.name, h.run), (wc.clone(), None, Run::Here("/bin/zsh".into())));
+        let h = f.plan("linux", "lazygit", &wc, true, X).unwrap();
+        assert_eq!(h.name, None);
+        let co = f.top.join("co");
+        std::fs::create_dir_all(co.join("CVS")).unwrap();
+        std::fs::write(co.join("CVS/Entries"), "").unwrap();
+        assert_eq!(f.plan("linux", "", &co, true, X).unwrap().name, None);
     }
 
     #[test]
@@ -733,9 +775,9 @@ mod tests {
             f.plan("linux", "my-tool", &outside, false, X),
             Err(Missing::NoRepo)
         );
-        MISSING.store(false, Ordering::Relaxed);
+        MISSING.store(0, Ordering::Relaxed);
         assert!(handoff("", &outside, true).is_err());
-        assert!(!MISSING.load(Ordering::Relaxed), "not a missing tool");
+        assert_eq!(MISSING.load(Ordering::Relaxed), 0, "not a missing tool");
     }
 
     #[test]

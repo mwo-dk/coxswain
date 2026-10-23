@@ -127,6 +127,28 @@ The build prerequisites for each platform are listed at <https://v2.tauri.app/st
 
 ## Uninstalling
 
+Each system's page in [the docs](../docs/systems/README.md) has its own *Uninstalling*. By the
+way it was installed:
+
+| Installed with | Removed with |
+|---|---|
+| `install-freebsd.sh`, `install-unix.sh` | The same line with `sh -s -- --uninstall` ([FreeBSD](../docs/systems/freebsd.md#uninstalling)) |
+| The `.deb` | `sudo apt remove coxswain` |
+| The `.rpm` | `sudo dnf remove coxswain` (`sudo zypper remove coxswain` on openSUSE) |
+| The AppImage | Delete the file |
+| Flatpak | `flatpak uninstall io.github.mwo_dk.Coxswain` ([Flatpak](../docs/systems/flatpak.md#uninstalling)) |
+| Nix | `nix profile remove coxswain` ([Nix](../docs/systems/nix.md#uninstalling)) |
+| Termux | `pkg uninstall coxswain`, or `cargo uninstall coxswain` ([Termux](../docs/systems/termux.md#uninstalling)) |
+| cargo | `cargo uninstall coxswain` |
+| Homebrew | `brew uninstall coxswain`; the desktop app on a Mac `brew uninstall --cask coxswain-gui` |
+| The `.dmg` | Move *Coxswain* from *Applications* to the Bin |
+| WinGet | `winget uninstall mwo-dk.Coxswain.Terminal` |
+| The `.msi` or `-setup.exe` | *Settings → Apps → Installed apps → Coxswain → Uninstall* |
+| This script (`install.sh`, `install.ps1`) | The lines below |
+
+Turn off *Start with my session* first (or run `coxswain --index-service off`), so nothing tries
+to start the search helper at login.
+
 - **Linux and macOS:** delete `~/.local/bin/coxswain`, `~/.local/bin/cox` and
   `~/.local/bin/coxswain-gui`.
   - Linux: also delete `~/.local/share/applications/coxswain.desktop`.

@@ -140,6 +140,16 @@ pub fn written(k: &str) -> String {
 
 // ---------------------------------------------------------------- actions
 
+/// `[keys]` without the actions this version does not know: a config.toml a newer Coxswain
+/// wrote (or one shared with it) still starts this one, and the file keeps them for that one.
+fn known_actions<'de, D: serde::Deserializer<'de>>(d: D) -> Result<BTreeMap<Action, Vec<String>>, D::Error> {
+    let keys = BTreeMap::<String, Vec<String>>::deserialize(d)?;
+    Ok(keys
+        .into_iter()
+        .filter_map(|(name, keys)| Some((*Action::ALL.iter().find(|a| a.name() == name)?, keys)))
+        .collect())
+}
+
 macro_rules! actions {
     ($($variant:ident = $name:literal, $label:literal, $group:ident, [$($key:literal),*];)*) => {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize)]
@@ -222,6 +232,8 @@ actions! {
     // Where the space goes, as a treemap (`space`). Alt+U, for usage: free, and few names
     // start with u, so quick search hardly misses it.
     SpaceView = "space_view", "Space view", Panels, ["Alt+U"];
+    // The two panels' folders compared (`compare::folders`); again: its menu.
+    CompareFolders = "compare_folders", "Compare folders", Panels, ["Ctrl+F2"];
     // Marking, the most used first.
     Mark = "mark", "Mark", Marking, ["Insert", "Shift+Down"];
     MarkAll = "mark_all", "Mark all", Marking, ["Ctrl+A"];
@@ -241,6 +253,8 @@ actions! {
     Paste = "paste", "Paste", Files, ["Ctrl+V"];
     DeleteForever = "delete_forever", "Delete permanently", Files, ["Shift+F8", "Shift+Delete"];
     Properties = "properties", "Properties", Files, ["Alt+Enter"];
+    // Two files side by side (`compare`): free, and an Alt+letter would cost quick search.
+    CompareFiles = "compare_files", "Compare files", Files, ["Shift+F2"];
     BatchRename = "batch_rename", "Batch rename", Files, ["Ctrl+M"];
     Tag = "tag", "Colour tag", Files, ["Alt+T"];
     // ZFS and FreeBSD: a folder's snapshots, a file's flags and the files of its package.
@@ -254,13 +268,49 @@ actions! {
     DiskImages = "disk_images", "Open disk images like folders", Archives, [];
     // OCRmyPDF: a copy of a scanned PDF with its words in it (`searchable`).
     SearchablePdf = "searchable_pdf", "Make PDF searchable", Files, ["Alt+P"];
+    // ffmpeg: MP4, MP3, FLAC, the sound, a clip, next to the original (`media`). No key of its
+    // own: the action menu and the preview offer it.
+    ConvertMedia = "convert_media", "Convert video or audio", Files, [];
+    // ImageMagick: JPEG, PNG, WebP, smaller, without the location, turned (`media`).
+    EditPictures = "edit_pictures", "Convert or edit pictures", Files, [];
+    // GDAL: GeoPackage, GeoJSON, a shapefile, KML, GPX; a GeoTIFF as COG or PNG (`geo`).
+    ConvertGeodata = "convert_geodata", "Convert geodata", Files, [];
+    // OpenSCAD: an STL or 3MF of a .scad model (`scad`).
+    ExportModel = "export_model", "Export 3D model", Files, [];
+    // calibre: an e-book as EPUB, AZW3 or PDF, next to it (`ebook`). No key of its own: the
+    // action menu and the preview offer it.
+    ConvertEbook = "convert_ebook", "Convert e-book", Files, [];
+    // kicad-cli: PDF, SVG, a bill of materials, Gerbers of a schematic or board (`kicad`).
+    ExportKicad = "export_kicad", "Export from KiCad", Files, [];
+    // Checksums (`checksum`): a SHA256SUMS, SHA512SUMS or B3SUMS of the marked files; H for
+    // hash. A list is checked by Enter on it, and from the action menu.
+    MakeChecksums = "make_checksums", "Make checksums", Files, ["Alt+H"];
+    VerifyChecksums = "verify_checksums", "Verify checksums", Files, [];
+    // Split and join (`split`): a big file in parts of a chosen size, and back; X for cut. Join is
+    // offered by Enter on a first part, and in the action menu.
+    SplitFile = "split_file", "Split file", Files, ["Alt+X"];
+    JoinParts = "join_parts", "Join parts", Files, [];
+    // Asciidoctor PDF: a PDF of an AsciiDoc document, next to it (`export`). No key of its own:
+    // the action menu and the preview offer it.
+    AdocPdf = "adoc_pdf", "Build PDF of AsciiDoc", Files, [];
+    // draw.io: PNG, SVG or PDF of a diagram, next to it (`export`).
+    DrawioExport = "drawio_export", "Export draw.io diagram", Files, [];
+    // ClamAV in a container, on request only (`viruses`): I for infected.
+    ScanViruses = "scan_viruses", "Scan for viruses", Files, ["Alt+I"];
     // Search, the most used first.
     Search = "search", "Find", Search, ["Alt+F7", "Ctrl+F"];
     SearchText = "search_text", "Search inside files", Search, ["Shift+F7", "Ctrl+Shift+F"];
     Ask = "ask", "Ask your files", Search, ["Ctrl+F7"];
     Duplicates = "duplicates", "Find duplicates", Search, ["Ctrl+D"];
+    // Whisper: the speech of a recording, or of every one in a folder, into the search store
+    // (`transcribe`). No key of its own: the action menu, F9 and the preview offer it.
+    Transcribe = "transcribe", "Transcribe speech", Search, [];
     // Git, the most used first.
     History = "history", "Git history", Git, ["Ctrl+G"];
+    // In a history: every branch's commits in the graph, or this branch's again. A for all.
+    HistoryAll = "history_all", "History of all branches", Git, ["Alt+A"];
+    // In a history: the commits not pushed and not merged, as of the last fetch. Y: a free key.
+    HistoryUpstream = "history_upstream", "Against upstream", Git, ["Alt+Y"];
     Branches = "branches", "Git branches", Git, ["Alt+B"];
     SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
     Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];
@@ -272,7 +322,12 @@ actions! {
     // Viewing and editing, the most used first.
     View = "view", "View", Viewing, ["F3"];
     Edit = "edit", "Edit", Viewing, ["F4"];
+    // The built-in editor (`edit`), whatever F4 starts: mc's Shift+F4, free here.
+    EditHere = "edit_here", "Edit here", Viewing, ["Shift+F4"];
     TogglePreview = "toggle_preview", "Preview", Viewing, ["Space"];
+    // Which program shows this kind of file (`preview_tools`): from the action menu, F9 and F1;
+    // no key of its own.
+    PreviewWith = "preview_with", "Preview with…", Viewing, [];
     CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
     UserMenu = "user_menu", "Menu", Viewing, ["F2"];
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];
@@ -1444,19 +1499,23 @@ pub fn quote_for(shell: &str, s: &str) -> String {
 }
 
 /// Previews made by external tools (desktop app): LaTeX, Typst, LibreOffice, Ghostscript,
-/// PlantUML, Kroki's diagram programs, pandoc and DuckDB; and OCRmyPDF for *Make PDF
-/// searchable* (both apps). Each runs from a locally installed tool or from a container image.
+/// PlantUML, Kroki's diagram programs, pandoc, DuckDB, ffmpeg and ImageMagick; and OCRmyPDF for
+/// *Make PDF searchable*, ffmpeg and ImageMagick for their conversions, Asciidoctor PDF and
+/// draw.io for their exports, and ClamAV for *Scan for viruses* (both apps). Each runs from a locally installed tool or from a
+/// container image.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct PreviewConfig {
     /// "auto" (an installed tool first, else a container), "local" or "container".
     pub prefer: String,
-    /// Per tool, overrides `prefer`: `prefer_tool = { latex = "container" }`.
-    pub prefer_tool: BTreeMap<String, String>,
+    /// Per kind of file (`preview_tools::KINDS`), overrides `prefer`: "local", "container" or
+    /// "off" (no preview by a tool): `tools = { latex = "container", video = "off" }`.
+    pub tools: BTreeMap<String, String>,
     /// "auto" (podman, else docker), "podman", "docker", or "off" for no containers.
     pub container: String,
     /// Container image per tool. An empty image means that tool never runs in a container.
-    /// Containers run without network, with the file's folder mounted read-only.
+    /// Containers run without network, with the file's folder mounted read-only (ClamAV's
+    /// freshclam run alone has network, and sees only its database).
     pub images: BTreeMap<String, String>,
     /// Seconds before a conversion is stopped. A first container run also pulls the image,
     /// which the timeout does not cover.
@@ -1469,36 +1528,32 @@ pub struct PreviewConfig {
     pub image_updates: String,
     /// Remove an image of `images` that no preview used for 90 days (desktop app).
     pub image_prune: bool,
+    /// E-books calibre reads (MOBI, Kindle, FictionBook, LIT, Palm): previews, their text for
+    /// search, and *Convert e-book*; an installed calibre first, else `images.calibre`.
+    pub ebooks: bool,
+    /// Export draw.io diagrams (PNG, SVG, PDF) and draw their thumbnails with draw.io: the
+    /// installed desktop app, else its container image, which is large. Off by default.
+    pub drawio: bool,
+    /// *Scan for viruses* with ClamAV's image (`images.clamav`), on request only. Its virus
+    /// database is fetched from database.clamav.net when it is more than a day old.
+    pub virus_scan: bool,
 }
 
 impl Default for PreviewConfig {
     fn default() -> Self {
-        let images = [
-            ("latex", "docker.io/texlive/texlive:latest"),
-            ("plantuml", "docker.io/plantuml/plantuml:latest"),
-            ("pandoc", "docker.io/pandoc/core:latest"),
-            // Gotenberg's image, LibreOffice only: LibreOffice publishes none of its own.
-            ("libreoffice", "docker.io/gotenberg/gotenberg:8-libreoffice"),
-            // Kroki's image has the programs of a dozen diagram kinds (`images::KROKI`).
-            ("kroki", "docker.io/yuzutech/kroki:latest"),
-            ("typst", "ghcr.io/typst/typst:latest"),
-            // OCRmyPDF's own image, which has Ghostscript too: one pull for both.
-            ("ocrmypdf", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
-            ("ghostscript", "docker.io/jbarlow83/ocrmypdf-alpine:latest"),
-            // No official image; set one you trust (see docs/previews/containers.md).
-            ("duckdb", ""),
-            // GhostXPS: in none of the images above, and no project publishes one.
-            ("gxps", ""),
-        ];
         PreviewConfig {
             prefer: "auto".into(),
-            prefer_tool: BTreeMap::new(),
+            tools: BTreeMap::new(),
             container: "auto".into(),
-            images: images.map(|(k, v)| (k.to_string(), v.to_string())).into_iter().collect(),
+            // Every image's default and why: `preview_tools::IMAGES`.
+            images: crate::preview_tools::default_images(),
             timeout: 120,
             latex_auto: true,
             image_updates: "off".into(),
             image_prune: false,
+            ebooks: false,
+            drawio: false,
+            virus_scan: false,
         }
     }
 }
@@ -1575,6 +1630,15 @@ pub struct SearchConfig {
     pub cloud: String,
     /// Folders in the cloud whose files are read even so: a cloud mount on Linux, say.
     pub cloud_read: Vec<PathBuf>,
+    /// Read the formats no reader here knows (OneNote, XPS, CHM, Outlook data files …) with
+    /// Apache Tika, in a container without network (`[preview.images] tika`).
+    pub tika: bool,
+    /// Transcribe speech with Whisper when asked to (a file or a folder at a time): the model
+    /// is downloaded once this is on, and the image pulled when no whisper.cpp is installed.
+    pub whisper: bool,
+    /// The Whisper model: `tiny`, `base`, `small` or `large-v3-turbo`; empty: the one this
+    /// machine runs well.
+    pub whisper_model: String,
 }
 
 /// The trees the kernel makes up, never indexed: Linux's `/proc`, `/sys`, `/dev` and `/run`;
@@ -1616,6 +1680,9 @@ impl Default for SearchConfig {
             history: true,
             cloud: "local-only".into(),
             cloud_read: vec![],
+            tika: false,
+            whisper: false,
+            whisper_model: String::new(),
         }
     }
 }
@@ -1682,7 +1749,9 @@ pub struct Config {
     pub hints: bool,
     /// Look for a newer release on GitHub at startup (at most once a day).
     pub check_updates: bool,
-    /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it.
+    /// Action -> keys. Listing an action replaces its default keys; `[]` unbinds it. An action
+    /// this version does not know (a newer one's, in a config shared with it) is left out.
+    #[serde(deserialize_with = "known_actions")]
     pub keys: BTreeMap<Action, Vec<String>>,
     pub themes: BTreeMap<String, Theme>,
     /// F2's entries. None (no `[[user_menu]]`): the built-in ones (`user_menu::entries`).
@@ -1693,6 +1762,22 @@ pub struct Config {
     pub git: GitConfig,
     pub archive: ArchiveConfig,
     pub chess: ChessConfig,
+    /// The names in `[keys]` that are no action of this version, left out (`keys`): a notice
+    /// names them.
+    #[serde(skip)]
+    pub unknown_actions: Vec<String>,
+    /// The settings config.toml gives that could not be used, each left at its default
+    /// (`Config::lenient`): a notice names each one's line and what is wrong.
+    #[serde(skip)]
+    pub refused: Vec<Refused>,
+}
+
+/// A setting in config.toml that could not be used: its line (from 1) and what is wrong with
+/// it, as a sentence ("`theme` must be text").
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Refused {
+    pub line: usize,
+    pub problem: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1704,11 +1789,29 @@ pub struct ChessConfig {
     /// The board's colours: `theme` (from the theme's own), or a tournament board, `green` or
     /// `brown`.
     pub board: String,
+    /// A Polyglot opening book (`.bin`) whose moves the board shows for each position. Empty:
+    /// the first book in the game file's own folder, if it has one.
+    pub book: String,
+    /// How the terminal app draws the pieces: `auto` (the finest block characters the terminal
+    /// is known to draw), `octants`, `sextants`, `quadrants`, `halves` or `figurines`.
+    pub pieces: String,
+    /// Ask the chess engine about each position from the start (the view's *Engine* turns it
+    /// on and off there). Off by default: nothing runs until asked.
+    pub analysis: bool,
+    /// The UCI engine to ask: a path or a program's name. Empty: `stockfish` on PATH.
+    pub engine: String,
+    /// How long the engine thinks about a position, in milliseconds.
+    pub engine_time: u32,
+    /// How many of the engine's best lines are shown, 1 to 5.
+    pub engine_lines: u32,
+    /// How long the engine thinks about each position of a game analysed as a whole, in
+    /// milliseconds.
+    pub review_time: u32,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into() }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500 }
     }
 }
 
@@ -1731,11 +1834,13 @@ pub struct GitConfig {
     /// `Sublime Merge`) or a command (`%d` is the repository). Empty: the first one installed,
     /// else a terminal in the repository (`handoff`).
     pub tool: String,
+    /// Where a folder has both `.jj` and `.git`, ask git, not Jujutsu (`vcs`).
+    pub prefer_git: bool,
 }
 
 impl Default for GitConfig {
     fn default() -> Self {
-        GitConfig { last_commit: true, tool: String::new() }
+        GitConfig { last_commit: true, tool: String::new(), prefer_git: false }
     }
 }
 
@@ -1765,9 +1870,145 @@ impl Default for Config {
             git: GitConfig::default(),
             archive: ArchiveConfig::default(),
             chess: ChessConfig::default(),
+            unknown_actions: vec![],
+            refused: vec![],
         };
         c.fill_defaults();
         c
+    }
+}
+
+/// `text` read whole, or its first mistake: the lines (from 0, inclusive) it is on, to be left
+/// out, and what is wrong in words.
+fn mistake(text: &str) -> Result<Config, (usize, usize, String)> {
+    let line_of = |at: usize| text[..at.min(text.len())].matches('\n').count();
+    // Bad TOML: its line, or a table header and the lines under it.
+    let doc = match toml_edit::Document::parse(text) {
+        Ok(d) => d,
+        Err(e) => {
+            let at = line_of(e.span().map_or(0, |s| s.start));
+            let header = text.split('\n').nth(at).is_some_and(|l| l.trim_start().starts_with('['));
+            let to = if header { table_end(text, at) } else { at };
+            let why = e.message().lines().next().unwrap_or_default().to_string();
+            return Err((at, to, crate::t!("config.bad_toml", "why" => why)));
+        }
+    };
+    match toml::from_str::<Config>(text) {
+        Err(e) => {
+            let at = e.span().map_or(0, |s| s.start);
+            let (path, from, to) = entry_at(text, doc.as_table(), "", at).unwrap_or_else(|| (String::new(), line_of(at), line_of(at)));
+            Err((from, to, problem(&path, e.message())))
+        }
+        Ok(_) => Config::parse(text).map_err(|why| {
+            // Parsed, so it is the keys: the first entry of `[keys]` with a key name that does
+            // not exist or a key an earlier entry has.
+            let keys = doc.get("keys").and_then(|k| k.as_table_like());
+            let mut seen: HashMap<Key, &str> = HashMap::new();
+            for (name, item) in keys.into_iter().flat_map(|t| t.iter()) {
+                let list = item.as_array().map(|a| a.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>()).unwrap_or_default();
+                let wrong = list.iter().find_map(|k| match k.parse::<Key>() {
+                    Err(e) => Some(e),
+                    Ok(key) => match seen.insert(key, name) {
+                        Some(other) if other != name => Some(crate::t!("err.key_twice", "key" => k, "a" => other, "b" => name)),
+                        _ => None,
+                    },
+                });
+                if let Some(wrong) = wrong {
+                    let span = keys.and_then(|t| t.key(name)).and_then(|k| k.span());
+                    let from = span.map_or(0, |s| line_of(s.start));
+                    let to = item.span().map_or(from, |s| line_of(s.end.saturating_sub(1)));
+                    return (from, to, crate::t!("config.wrong", "key" => format!("keys.{name}"), "why" => wrong));
+                }
+            }
+            (0, 0, why)
+        }),
+    }
+}
+
+/// The last line (from 0) of the table whose header is on line `at`: the line before the next
+/// header, or the file's last.
+// ponytail: a line of a multi-line string that starts with `[` ends it early; rare in a config.
+fn table_end(text: &str, at: usize) -> usize {
+    let lines: Vec<&str> = text.split('\n').collect();
+    (at + 1..lines.len()).find(|&i| lines[i].trim_start().starts_with('[')).map_or(lines.len() - 1, |i| i - 1)
+}
+
+/// The setting of `table` that byte `at` of `text` is in: its dotted name and its first and
+/// last line (from 0). A table of an array of tables (`[[user_menu]]`) whose own value is
+/// wrong (a key missing) is the whole table.
+fn entry_at(text: &str, table: &toml_edit::Table, prefix: &str, at: usize) -> Option<(String, usize, usize)> {
+    let line_of = |i: usize| text[..i.min(text.len())].matches('\n').count();
+    for (name, item) in table.iter() {
+        let path = if prefix.is_empty() { name.to_string() } else { format!("{prefix}.{name}") };
+        match item {
+            toml_edit::Item::Table(t) => {
+                if let Some(found) = entry_at(text, t, &path, at) {
+                    return Some(found);
+                }
+                if let Some(s) = t.span().filter(|s| s.contains(&at)) {
+                    let from = line_of(s.start);
+                    return Some((path, from, table_end(text, from)));
+                }
+            }
+            toml_edit::Item::ArrayOfTables(a) => {
+                for t in a.iter() {
+                    if let Some(found) = entry_at(text, t, &path, at) {
+                        return Some(found);
+                    }
+                }
+                // The entry whose header comes last before `at`.
+                let head = a.iter().filter_map(|t| t.span()).map(|s| s.start).filter(|&s| s <= at).max()?;
+                let from = line_of(head);
+                return Some((path, from, table_end(text, from)));
+            }
+            toml_edit::Item::Value(v) => {
+                let start = table.key(name).and_then(|k| k.span()).map_or(0, |s| s.start);
+                let end = v.span().map_or(start, |s| s.end);
+                if (start..end.max(start + 1)).contains(&at) {
+                    // Inside an inline table (`images = { latex = 5 }`): named by its key there,
+                    // the whole entry left out.
+                    let mut path = path;
+                    let mut inner = v.as_inline_table();
+                    while let Some(t) = inner.take() {
+                        if let Some((k, v)) = t.iter().find(|(_, v)| v.span().is_some_and(|s| s.contains(&at))) {
+                            path = format!("{path}.{k}");
+                            inner = v.as_inline_table();
+                        }
+                    }
+                    return Some((path, line_of(start), line_of(end.saturating_sub(1).max(start))));
+                }
+            }
+            toml_edit::Item::None => {}
+        }
+    }
+    None
+}
+
+/// What is wrong with the setting `key`, in words, from what serde said.
+fn problem(key: &str, said: &str) -> String {
+    let said = said.lines().next().unwrap_or_default();
+    let expected = said.rsplit_once("expected ").map(|(_, e)| e).unwrap_or_default();
+    let must = if said.starts_with("unknown variant") {
+        Some(crate::t!("config.must_one_of", "key" => key, "values" => expected.trim_start_matches("one of ")))
+    } else if !said.starts_with("invalid type") {
+        None
+    } else if expected.contains("string") {
+        Some(crate::t!("config.must_text", "key" => key))
+    } else if expected.contains("bool") {
+        Some(crate::t!("config.must_bool", "key" => key))
+    } else if ["integer", "i64", "u64", "u32", "u16", "u8", "usize", "f64", "f32", "float", "number"].iter().any(|n| expected.contains(n)) {
+        Some(crate::t!("config.must_number", "key" => key))
+    } else if expected.contains("sequence") {
+        Some(crate::t!("config.must_list", "key" => key))
+    } else if expected.contains("map") || expected.contains("struct") {
+        Some(crate::t!("config.must_table", "key" => key))
+    } else {
+        None
+    };
+    match must {
+        Some(m) => m,
+        None if key.is_empty() => said.to_string(),
+        None => crate::t!("config.wrong", "key" => key, "why" => said),
     }
 }
 
@@ -1780,7 +2021,7 @@ fn delivered(key: &str) -> bool {
 
 impl Config {
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::config_dir()?.join("coxswain").join("config.toml"))
+        Some(crate::dirs::config_dir()?.join("coxswain").join("config.toml"))
     }
 
     /// config.toml ready to be opened at `[keys]` (Settings → Keys): its path and the line
@@ -1798,18 +2039,69 @@ impl Config {
             ("name index", crate::index::Index::cache_path()),
             ("search store", crate::store::Store::path()),
             ("models", crate::models::folder()),
-            ("previews", dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
-            ("archive looks", dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
+            ("previews", crate::dirs::cache_dir().map(|d| d.join("coxswain").join("previews"))),
+            ("archive looks", crate::dirs::cache_dir().map(|d| d.join("coxswain").join("peek"))),
         ]
     }
 
-    /// Load the user config, falling back to defaults when the file does not exist.
+    /// Load the user config, falling back to defaults when the file does not exist. A mistake
+    /// in it costs only the setting it is in (`lenient`); only a file that cannot be read at
+    /// all is an error.
     pub fn load() -> Result<Config, String> {
         match Config::path().map(std::fs::read_to_string) {
-            Some(Ok(text)) => Config::parse(&text),
+            Some(Ok(text)) => Ok(Config::lenient(&text)),
             Some(Err(e)) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("config: {e}")),
             _ => Ok(Config::default()),
         }
+    }
+
+    /// The search settings, for the helper above all: as the user set them even when the file
+    /// has a mistake elsewhere (`lenient`), or the defaults would read the folders left out
+    /// and the archives turned off, and read them again once the mistake is fixed.
+    pub fn load_search() -> SearchConfig {
+        let text = Config::path().and_then(|p| std::fs::read_to_string(p).ok());
+        Config::lenient(text.as_deref().unwrap_or_default()).search
+    }
+
+    /// `text` (a config.toml) read as far as it can be: each setting with a mistake (bad
+    /// TOML, a wrong type, a key name that does not exist, a key bound twice) is left at its
+    /// default, the rest kept as the user set it; `refused` names each mistake and its line.
+    pub fn lenient(text: &str) -> Config {
+        if let Ok(c) = Config::parse(text) {
+            return c;
+        }
+        // The broken lines are blanked one mistake at a time, so the lines keep their numbers.
+        let mut lines: Vec<String> = text.split('\n').map(str::to_string).collect();
+        let mut refused = vec![];
+        loop {
+            let cur = lines.join("\n");
+            let (from, to, problem) = match mistake(&cur) {
+                Ok(mut c) => {
+                    refused.sort_by_key(|r: &Refused| r.line);
+                    c.refused = refused;
+                    return c;
+                }
+                Err(m) => m,
+            };
+            refused.push(Refused { line: from + 1, problem });
+            let end = to.min(lines.len().saturating_sub(1));
+            // Nothing left to blank there: the defaults, rather than a loop.
+            if from > end || lines[from..=end].iter().all(|l| l.trim().is_empty()) {
+                return Config { refused, ..Config::default() };
+            }
+            lines[from..=end].iter_mut().for_each(String::clear);
+        }
+    }
+
+    /// The settings `new_text` would save, where `old_text` is the file now: refused only when
+    /// it has a mistake `old_text` did not have, so Settings still save while the user has
+    /// not mended a line of their own yet.
+    pub fn parse_saved(old_text: &str, new_text: &str) -> Result<Config, String> {
+        Config::parse(new_text).or_else(|e| {
+            let (old, new) = (Config::lenient(old_text), Config::lenient(new_text));
+            let had = |r: &Refused| old.refused.iter().any(|o| o.problem == r.problem);
+            if new.refused.iter().all(had) { Ok(new) } else { Err(e) }
+        })
     }
 
     /// `text` (a config.toml) with the value at `keys` (`["search", "meaning"]`) set, its
@@ -1868,16 +2160,22 @@ impl Config {
         let path = Config::path().ok_or_else(|| crate::t!("err.no_config_folder"))?;
         update_config(&path, |text| {
             let new = Config::edit(text, keys, value)?;
-            let cfg = Config::parse(&new)?;
+            let cfg = Config::parse_saved(text, &new)?;
             Ok((Some(new), cfg))
         })
     }
 
     pub fn parse(text: &str) -> Result<Config, String> {
         let mut c: Config = toml::from_str(text).map_err(|e| format!("config: {e}"))?;
+        if let Ok(doc) = text.parse::<toml::Table>()
+            && let Some(keys) = doc.get("keys").and_then(toml::Value::as_table)
+        {
+            c.unknown_actions = keys.keys().filter(|n| !Action::ALL.iter().any(|a| a.name() == *n)).cloned().collect();
+        }
         c.fill_defaults();
         c.keymap()?;
         crate::cloud::follow(&c.search);
+        crate::vcs::follow(&c.git);
         Ok(c)
     }
 
@@ -2106,7 +2404,7 @@ mod tests {
         let c = Config::parse("[preview]\nprefer = \"container\"\nimages.latex = \"texlive:medium\"\n").unwrap();
         assert_eq!(c.preview.prefer, "container");
         assert_eq!(c.preview.images["latex"], "texlive:medium");
-        assert_eq!(c.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest");
+        assert_eq!(crate::images::short(&c.preview.images["plantuml"]), "docker.io/plantuml/plantuml:latest");
         assert_eq!(Config::default().preview.timeout, 120);
     }
 
@@ -2182,6 +2480,56 @@ mod tests {
         assert_eq!(c.theme().panel.fg, "#ffffff");
         assert_eq!(c.theme().cursor, Theme::nc().cursor);
         assert!(Config::parse("[keys]\nquit = [\"Hyper+Q\"]").is_err());
+        // A config.toml of a newer version, with an action this one does not know: it starts,
+        // with the rest of the settings.
+        let newer = Config::parse("theme = \"mc\"\n[keys]\nlater_action = [\"Alt+Shift+K\"]\nquit = [\"Ctrl+Q\"]\n[search]\nmax_results = 7\n").unwrap();
+        assert_eq!((newer.theme.as_str(), newer.search.max_results), ("mc", 7));
+        assert_eq!(newer.keymap().unwrap()[&"Ctrl+Q".parse().unwrap()], Action::Quit);
+        assert_eq!(newer.unknown_actions, ["later_action"]);
+        // A key bound twice: the helper still reads with the user's search settings.
+        let twice = "[keys]\nquit = [\"F5\"]\ncopy = [\"F5\"]\n[search]\narchives = false\ntext_exclude = [\"secret\"]\n";
+        assert!(Config::parse(twice).is_err());
+        let c = Config::lenient(twice);
+        assert_eq!((c.search.archives, c.search.text_exclude.as_slice()), (false, ["secret".to_string()].as_slice()));
+        // The first binding stays, the second is left out and named.
+        assert_eq!(c.keymap().unwrap()[&"F5".parse().unwrap()], Action::Quit);
+        assert_eq!(c.refused.len(), 1);
+        assert_eq!(c.refused[0].line, 3);
+    }
+
+    /// A config.toml with mistakes: each costs only its own setting, and is named with its line.
+    #[test]
+    fn config_lenient_keeps_what_it_can_read() {
+        crate::i18n::set_language("en-GB");
+        let lines = |c: &Config| c.refused.iter().map(|r| r.line).collect::<Vec<_>>();
+        // A wrong type, at the top and in a table.
+        let c = Config::lenient("show_hidden = false\ntheme = 5\n[search]\nmax_results = \"many\"\narchives = false\n");
+        assert_eq!((c.show_hidden, c.theme.as_str(), c.search.max_results, c.search.archives), (false, "nc", SearchConfig::default().max_results, false));
+        assert_eq!(lines(&c), [2, 4]);
+        assert_eq!(c.refused[0].problem, "`theme` must be text");
+        assert_eq!(c.refused[1].problem, "`search.max_results` must be a number");
+        // Bad TOML: the line; a broken table header: its table.
+        let c = Config::lenient("show_hidden = false\nconfirm_delete = \n[search\narchives = false\n[gui]\nfont_size = 20.0\n");
+        assert_eq!((c.show_hidden, c.confirm_delete, c.search.archives, c.gui.font_size), (false, true, true, 20.0));
+        assert_eq!(lines(&c), [2, 3]);
+        assert!(c.refused[0].problem.starts_with("not valid TOML: "), "{:?}", c.refused);
+        // An unknown key name, and a value spread over lines.
+        let c = Config::lenient("[keys]\nquit = [\"Ctlr+Q\"]\nhelp = [\"F2\"]\n[search]\ntext_exclude = [\n  \"/a\",\n  5,\n]\nmax_results = 9\n");
+        assert_eq!(c.keymap().unwrap()[&"F2".parse().unwrap()], Action::Help);
+        assert_eq!((c.search.text_exclude.clone(), c.search.max_results), (SearchConfig::default().text_exclude, 9));
+        assert_eq!(lines(&c), [2, 5]);
+        assert_eq!(c.refused[0].problem, "`keys.quit`: unknown key 'Ctlr+Q'");
+        // A wrong type inside an inline table.
+        let c = Config::lenient("hints = false\npreview = { prefer = 5 }\n");
+        assert!(!c.hints);
+        assert_eq!(lines(&c), [2]);
+        assert_eq!(c.refused[0].problem, "`preview.prefer` must be text");
+        // A file without mistakes has none.
+        assert!(Config::lenient("theme = \"mc\"\n").refused.is_empty());
+        // Settings save while the old mistake stands, not when they would add one.
+        let old = "theme = 5\n";
+        assert!(Config::parse_saved(old, "theme = 5\nhints = false\n").is_ok_and(|c| !c.hints));
+        assert!(Config::parse_saved(old, "theme = 5\nhints = 3\n").is_err());
     }
 
     #[test]

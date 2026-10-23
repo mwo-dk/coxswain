@@ -254,9 +254,12 @@ def check_unreleased(v: str, base: str | None) -> int:
     frags = sorted((ROOT / "changelog.d").glob("*.md"))
     for f in frags:
         body = [l.strip() for l in read(f).splitlines() if l.strip()]
-        cells = re.split(r"(?<!\\)\|", body[0])[1:-1] if len(body) == 1 else []
+        # A feature's row ends with `<!-- feature -->`: the release is then minor, else a patch
+        # (packaging/release-pr.py).
+        row = body[0].removesuffix("<!-- feature -->").rstrip() if len(body) == 1 else ""
+        cells = re.split(r"(?<!\\)\|", row)[1:-1] if row.endswith("|") else []
         if len(cells) != 2 or not LINK.search(cells[1]):
-            error(rel(f), "one line: `| **What a user gets.** In plain words. | [Page](path.md#anchor) |`")
+            error(rel(f), "one line: `| **What a user gets.** In plain words. | [Page](path.md#anchor) |`, and `<!-- feature -->` after it for a feature")
             continue
         for target in (m.group(1) for m in LINK.finditer(body[0])):
             if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:|^//", target):
@@ -328,10 +331,6 @@ def base_version(base: str | None) -> str | None:
 # Pictures the sandbox cannot take, each with what it needs. Any other placeholder blocks a minor
 # or major release.
 NEEDS_HARDWARE = {
-    "previews-tools-settings.png": "containers, which must not run in the sandbox",
-    "previews-container-pull.png": "podman pulling an image, which must not run in the sandbox",
-    "searchable-pdf.png": "containers, which must not run in the sandbox",
-    "previews-d2.png": "containers, which must not run in the sandbox",
     "files-properties-zfs.png": "a FreeBSD desktop with ZFS",
     "tui-zfs-snapshots.png": "FreeBSD with ZFS snapshots (the picture there shows the key bar before 12 Settings)",
     "freebsd-sidebar-be.png": "a FreeBSD desktop with a ZFS root, boot environments and jails",

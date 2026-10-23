@@ -233,7 +233,8 @@ fn code_eval() {
                 None,
                 &root,
             )
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .0;
             let rel = |p: &PathBuf| {
                 p.strip_prefix(&root)
                     .map(|r| r.to_string_lossy().replace('\\', "/"))

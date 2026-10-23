@@ -224,7 +224,7 @@ pub fn facts(path: &Path) -> Option<Facts> {
 }
 
 fn read_facts(path: &Path, meta: &std::fs::Metadata) -> Option<Facts> {
-    let mut f = File::open(path).ok()?;
+    let mut f = crate::fs::open_regular(path).ok()?;
     let len = meta.len();
     let head = read_at(&mut f, 0, HEAD);
     let tail = if len >= 512 {
@@ -269,7 +269,7 @@ fn read(f: &mut File, head: &[u8], tail: &[u8], len: u64) -> Option<Facts> {
                 matches!(w.next(), Some("RW" | "RDONLY" | "NOACCESS"))
                     .then(|| w.next()?.parse::<u64>().ok())?
             })
-            .sum();
+            .fold(0u64, u64::saturating_add);
         x.virtual_size = (sectors > 0).then(|| sectors.saturating_mul(512));
         x.variant = vmdk_variant(&d);
     } else if has(head, 64, &0xBEDA_107Fu32.to_le_bytes()) {
@@ -1132,6 +1132,9 @@ pub(crate) mod tests {
         let text = "# Disk DescriptorFile\nversion=1\nparentCID=ffffffff\ncreateType=\"monolithicFlat\"\n\nRW 2048 FLAT \"a-flat.vmdk\" 0\nRW 2048 FLAT \"b-flat.vmdk\" 0\n";
         let f = facts_of("d.vmdk", text.as_bytes()).unwrap();
         assert_eq!((f.virtual_size, f.variant), (Some(2 << 20), Some("fixed")));
+        // Extents whose sizes add up past what a number holds: the most, not a wrong size.
+        let text = format!("# Disk DescriptorFile\nRW {0} SPARSE \"a.vmdk\"\nRW {0} SPARSE \"b.vmdk\"\n", u64::MAX);
+        assert_eq!(facts_of("e.vmdk", text.as_bytes()).unwrap().virtual_size, Some(u64::MAX));
 
         let mut v = vec![0u8; 512];
         v[64..68].copy_from_slice(&0xBEDA_107Fu32.to_le_bytes());

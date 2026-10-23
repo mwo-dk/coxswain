@@ -1,0 +1,84 @@
+name: ImageMagick image
+
+# Coxswain's own ImageMagick image (packaging/images/imagemagick), for amd64 and arm64, pushed to
+# ghcr.io/mwo-dk/coxswain-imagemagick:latest. Built again every week, so Alpine's security
+# updates reach it; the same packages give the same image (timestamps at 1970, no
+# attestations), so an unchanged week pushes an unchanged digest. Coxswain pins the
+# digest (crates/coxswain-core/src/images.rs), and images-pin.yml brings a new one in by a pull
+# request. Pull requests build it without pushing.
+on:
+  push:
+    branches: [master]
+    paths:
+      - packaging/images/imagemagick/**
+      - .github/workflows/imagemagick-image.yml
+  pull_request:
+    paths:
+      - packaging/images/imagemagick/**
+      - .github/workflows/imagemagick-image.yml
+  schedule:
+    - cron: "37 3 * * 6" # Saturdays, 03:37 UTC: before images-pin.yml's Sunday run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: imagemagick-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/mwo-dk/coxswain-imagemagick
+      PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to ghcr.io
+        if: env.PUSH == 'true'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+      - name: HEIC, AVIF, RAW, JPEG XL and WebP are read
+        run: |
+          docker buildx build packaging/images/imagemagick --load -t coxswain-imagemagick:test
+          docker run --rm coxswain-imagemagick:test -list format > formats.txt
+          for f in HEIC AVIF NEF CR3 DNG JXL WEBP TIFF; do
+            grep -qE "^ +$f\*? +[A-Z0-9]+ +r" formats.txt || { echo "::error::$f is not read"; cat formats.txt; exit 1; }
+          done
+          # A PNG made here, to WebP through the image held as Coxswain holds it. (Its policy
+          # refuses ImageMagick's built-in pictures such as gradient:, as it should.)
+          python3 -c "
+          import zlib, struct, sys
+          def ch(t, d): return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
+          raw = b''.join(b'\\0' + b'\\xff\\x00\\x00' * 8 for _ in range(8))
+          sys.stdout.buffer.write(b'\\x89PNG\\r\\n\\x1a\\n' + ch(b'IHDR', struct.pack('>IIBBBBB', 8, 8, 8, 2, 0, 0, 0)) + ch(b'IDAT', zlib.compress(raw)) + ch(b'IEND', b''))
+          " > red.png
+          docker run --rm -i --read-only --tmpfs /tmp --cap-drop=ALL --network=none \
+            coxswain-imagemagick:test png:- webp:- < red.png | head -c 4 | grep -q RIFF
+          if docker run --rm --entrypoint sh coxswain-imagemagick:test -c true 2>/dev/null; then
+            echo "::error::the image has a shell"; exit 1
+          fi
+      - name: Build, and push from master
+        run: |
+          # Every file and the image's date at 1970: the digest changes only with what is in it.
+          export SOURCE_DATE_EPOCH=0
+          docker buildx build packaging/images/imagemagick \
+            --platform linux/amd64,linux/arm64 --pull --no-cache \
+            --provenance=false --sbom=false \
+            --output "type=image,name=$IMAGE:latest,push=$PUSH,rewrite-timestamp=true" \
+            --metadata-file meta.json
+          if [ "$PUSH" = true ]; then
+            echo "::notice title=Pushed::$IMAGE:latest@$(jq -r '."containerimage.digest"' meta.json)"
+          fi

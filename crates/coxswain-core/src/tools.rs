@@ -16,6 +16,12 @@ fn extra_paths(program: &str) -> Vec<PathBuf> {
         "soffice" if cfg!(windows) => &[r"C:\Program Files\LibreOffice\program\soffice.exe"],
         "tesseract" if cfg!(windows) => &[r"C:\Program Files\Tesseract-OCR\tesseract.exe"],
         "7z" if cfg!(windows) => &[r"C:\Program Files\7-Zip\7z.exe"],
+        // Its installer adds nothing to PATH; `openscad.com` is the one for the command line.
+        "openscad" if cfg!(windows) => &[r"C:\Program Files\OpenSCAD\openscad.com", r"C:\Program Files\OpenSCAD (Nightly)\openscad.com"],
+        // KiCad's installers put kicad-cli on no PATH either.
+        "kicad-cli" if cfg!(windows) => &[r"C:\Program Files\KiCad\9.0\bin\kicad-cli.exe"],
+        "kicad-cli" if cfg!(target_os = "macos") => &["/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"],
+        "openscad" if cfg!(target_os = "macos") => &["/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD"],
         _ => &[],
     };
     v.iter().map(PathBuf::from).collect()
@@ -227,7 +233,7 @@ pub fn flatpak_tmp() {
     if flatpak().is_none() {
         return;
     }
-    if let Some(d) = dirs::cache_dir()
+    if let Some(d) = crate::dirs::cache_dir()
         .map(|d| d.join("tmp"))
         .filter(|d| std::fs::create_dir_all(d).is_ok())
     {
@@ -278,7 +284,7 @@ pub fn media_missing() -> Option<String> {
                 .collect()
             }
         });
-    let local = dirs::data_dir().map(|d| d.join("gstreamer-1.0/plugins"));
+    let local = crate::dirs::data_dir().map(|d| d.join("gstreamer-1.0/plugins"));
     let dirs: Vec<PathBuf> = vars(&["GST_PLUGIN_PATH_1_0", "GST_PLUGIN_PATH"])
         .unwrap_or_default()
         .into_iter()
@@ -389,7 +395,7 @@ impl Manager {
 
 /// The line that installs `program` with `manager`, for the user to copy and run: Coxswain never
 /// runs it. `program` is what Coxswain looks for: `tesseract`, `pdftoppm`, `soffice`, `latex`,
-/// `plantuml`, `pandoc`, `ocrmypdf`, `gs` (Ghostscript), `typst`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
+/// `plantuml`, `pandoc`, `ocrmypdf`, `gs` (Ghostscript), `typst`, `asciidoctor-pdf`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
 /// (video and sound) and `cjk-font` (Japanese and Korean letters). `None` when that manager has no
 /// package for it; the hint then says where to get it.
 pub fn install_line(program: &str, manager: Manager) -> Option<String> {
@@ -449,10 +455,14 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
         ],
         // 7-Zip, which reads disk images (`disk_image`); p7zip where the system has no other.
         "7z" => [
-            "7-zip", "7-zip", "p7zip", "", "7zip", "7zip", "7zip", "7zip", "sevenzip", "7zip.7zip",
+            "7-zip", "7-zip", "p7zip", "compress/7zip", "7zip", "7zip", "7zip", "7zip", "sevenzip", "7zip.7zip",
         ],
         "ocrmypdf" => [
-            "", "", "", "", "ocrmypdf", "ocrmypdf", "ocrmypdf", "", "ocrmypdf", "",
+            "", "", "ocrmypdf", "", "ocrmypdf", "ocrmypdf", "ocrmypdf", "", "ocrmypdf", "",
+        ],
+        // calibre's ebook-convert (`ebook`).
+        "calibre" => [
+            "calibre", "", "", "", "calibre", "calibre", "calibre", "calibre", "--cask calibre", "calibre.calibre",
         ],
         "gs" => [
             "ghostscript10",
@@ -467,7 +477,45 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "ArtifexSoftware.GhostScript",
         ],
         "typst" => [
-            "typst", "", "", "", "typst", "", "typst", "typst", "typst", "Typst.Typst",
+            "typst", "typst", "typst", "", "typst", "", "typst", "typst", "typst", "Typst.Typst",
+        ],
+        // ffmpeg and ffprobe, for video and sound (`media`); Fedora's is ffmpeg-free.
+        "ffmpeg" => [
+            "ffmpeg",
+            "ffmpeg7",
+            "ffmpeg",
+            "ooce/multimedia/ffmpeg",
+            "ffmpeg",
+            "ffmpeg",
+            "ffmpeg-free",
+            "ffmpeg",
+            "ffmpeg",
+            "Gyan.FFmpeg",
+        ],
+        // GDAL's programs, for geodata (`geo`); OmniOS and winget have none.
+        "gdalinfo" => [
+            "gdal", "gdal", "gdal", "", "gdal", "gdal-bin", "gdal", "gdal", "gdal", "",
+        ],
+        // KiCad's kicad-cli, for schematics and boards (`kicad`); OmniOS has none.
+        "kicad-cli" => [
+            "kicad", "kicad", "kicad", "", "kicad", "kicad", "kicad", "kicad", "--cask kicad", "KiCad.KiCad",
+        ],
+        // OpenSCAD, for models (`scad`); OmniOS has none, Homebrew's is a cask.
+        "openscad" => [
+            "openscad", "openscad", "openscad", "", "openscad", "openscad", "openscad", "openscad", "--cask openscad", "OpenSCAD.OpenSCAD",
+        ],
+        // ImageMagick 7 (`magick`), for pictures (`media`).
+        "magick" => [
+            "ImageMagick7",
+            "ImageMagick",
+            "ImageMagick",
+            "",
+            "imagemagick",
+            "imagemagick",
+            "ImageMagick",
+            "ImageMagick",
+            "imagemagick",
+            "ImageMagick.ImageMagick",
         ],
         "pandoc" => [
             "hs-pandoc",
@@ -481,6 +529,11 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "pandoc",
             "JohnMacFarlane.Pandoc",
         ],
+        // *Build PDF of AsciiDoc* (`export`); Homebrew's asciidoctor has Asciidoctor PDF in it.
+        "asciidoctor-pdf" => [
+            "rubygem-asciidoctor-pdf", "", "", "", "", "ruby-asciidoctor-pdf", "rubygem-asciidoctor-pdf", "", "asciidoctor", "",
+        ],
+        // *Export draw.io diagram* (`export`): draw.io's desktop app.
         // What the desktop app's preview and its letters need, where a notice names the line.
         "gst-good" => [
             "gstreamer1-plugins-good",
@@ -520,8 +573,21 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "lazygit",
             "JesseDuffield.lazygit",
         ],
+        // The chess engine the chess view asks (`chess::play`). IPS and winget: none to name.
+        "stockfish" => [
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "",
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "stockfish",
+            "",
+        ],
         "tig" => [
-            "tig", "tig", "", "", "tig", "tig", "tig", "tig", "tig", "",
+            "tig", "tig", "", "ooce/application/tig", "tig", "tig", "tig", "tig", "tig", "",
         ],
         "nerd-font" => [
             "nerd-fonts",
@@ -595,7 +661,7 @@ pub fn nerd_font() -> Option<bool> {
         let dirs: Vec<PathBuf> = if cfg!(windows) {
             [
                 std::env::var_os("WINDIR").map(|w| PathBuf::from(w).join("Fonts")),
-                dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts")),
+                crate::dirs::data_local_dir().map(|d| d.join("Microsoft/Windows/Fonts")),
             ]
             .into_iter()
             .flatten()
@@ -603,7 +669,7 @@ pub fn nerd_font() -> Option<bool> {
         } else {
             [
                 Some(PathBuf::from("/Library/Fonts")),
-                dirs::home_dir().map(|h| h.join("Library/Fonts")),
+                crate::dirs::home_dir().map(|h| h.join("Library/Fonts")),
             ]
             .into_iter()
             .flatten()
@@ -899,6 +965,12 @@ mod tests {
             Some("pkg_add gst-plugins-good")
         );
         assert_eq!(install_line("tig", Manager::PkgAdd), None);
+        // OmniOS: 7-Zip in its core repository, tig in omnios-extra; OpenBSD and NetBSD: Typst.
+        assert_eq!(install_line("7z", Manager::Ips).as_deref(), Some("pkg install compress/7zip"));
+        assert_eq!(install_line("tig", Manager::Ips).as_deref(), Some("pkg install ooce/application/tig"));
+        assert_eq!(install_line("typst", Manager::PkgAdd).as_deref(), Some("pkg_add typst"));
+        assert_eq!(install_line("typst", Manager::Pkgin).as_deref(), Some("pkgin install typst"));
+        assert_eq!(install_line("ocrmypdf", Manager::PkgAdd).as_deref(), Some("pkg_add ocrmypdf"));
         assert_eq!(
             install_line("gst-good", Manager::Apt),
             None,
