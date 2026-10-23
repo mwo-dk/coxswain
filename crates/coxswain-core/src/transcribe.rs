@@ -370,7 +370,10 @@ fn remove(engine: &Engine, name: &str) {
 /// How long the sound of a file is, in seconds, when its header says.
 pub fn duration(path: &Path) -> Option<u64> {
     use lofty::prelude::*;
-    let secs = lofty::read_from_path(path).ok()?.properties().duration().as_secs();
+    // The file comes from anywhere and lofty is other people's code: a panic is no length.
+    let secs = std::panic::catch_unwind(|| lofty::read_from_path(path).ok().map(|f| f.properties().duration().as_secs()))
+        .ok()
+        .flatten()?;
     (secs > 0).then_some(secs)
 }
 
@@ -392,7 +395,8 @@ pub fn survey(paths: &[PathBuf]) -> Survey {
             return;
         }
         match duration(p) {
-            Some(d) => s.seconds += d,
+            // A header may claim any length: summed without wrapping round.
+            Some(d) => s.seconds = s.seconds.saturating_add(d),
             None => s.unknown += 1,
         }
         s.files.push(p.to_path_buf());
@@ -691,6 +695,19 @@ fn one_part(store: &Store, engine: &Engine, model: &Path, next: crate::store::Wa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_damaged_sound_file_has_no_length() {
+        let d = std::env::temp_dir().join(format!("coxswain-duration-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        for (name, bytes) in [("a.mp3", &b"ID3\x04\0\0\x7f\x7f\x7f\x7fnot a song"[..]), ("b.wav", b"RIFF\xff\xff\xff\xffWAVEfmt "), ("c.m4a", b"\0\0\0\x08ftyp")] {
+            std::fs::write(d.join(name), bytes).unwrap();
+            assert_eq!(duration(&d.join(name)), None, "{name}");
+        }
+        let s = survey(std::slice::from_ref(&d));
+        assert_eq!((s.files.len(), s.seconds, s.unknown), (3, 0, 3));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
 
     #[test]
     fn whisper_lines_are_kept_with_their_times() {
