@@ -102,9 +102,12 @@ starting, or that the runtime will not run, is not tried again for 10 minutes (o
 search option changes, which starts the helper afresh): files are not held up waiting for it,
 and `helper.log` says why.
 
-A fresh server also takes over after every 100 files, and at once after a file Tika could not
-parse or a crash: a parser that a hostile file got hold of does not stay to read the files that
-come after it, and with its root read-only nothing of it is left for the next one. SELinux
+A fresh server also takes over after every 100 files, and at once after a crash: a parser that
+a hostile file got hold of does not stay to read the files that come after it, and with its root
+read-only nothing of it is left for the next one. A file Tika answers it could not parse counts as
+ten, so a folder of broken files gets a fresh server every ten files, not one for each. A server
+is started at most three times a minute: one that crashes on file after file leaves the files of
+that minute unread instead of starting again for each. SELinux
 stays on: nothing is mounted, so nothing needs relabelling.
 
 ## What you see

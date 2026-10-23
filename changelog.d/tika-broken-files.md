@@ -1,0 +1,1 @@
+| **A folder of broken files no longer restarts Apache Tika for each one.** A file Tika answers it cannot parse now counts as ten files toward a fresh server, instead of stopping the server at once, and a server that crashes on file after file is started at most three times a minute. | [What the container may do](search/tika.md#what-the-container-may-do) |

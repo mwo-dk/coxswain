@@ -51,6 +51,12 @@ const BACK_OFF: Duration = Duration::from_secs(600);
 /// does not stay to see many more. With its root read-only and /tmp in memory, nothing of one
 /// server is left for the next.
 const FRESH_AFTER: u32 = 100;
+/// A file the server answered it could not parse counts as this many files: a folder of broken
+/// files gets a fresh server every tenth of them, not one for each.
+const REFUSED_WEIGHS: u32 = 10;
+/// Most starts within a minute: a server that crashes on file after file (or is held up by
+/// each) is not started again for every one; the files of that minute are left unread.
+const MOST_STARTS: usize = 3;
 
 /// What Settings and the status lines say of Tika.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -206,8 +212,9 @@ static LAST: Mutex<Option<Instant>> = Mutex::new(None);
 
 /// `bytes` read by the server, started first when it does not run. A request that cannot
 /// reach it (it stopped itself just now) starts it and is tried once more.
-/// The server is stopped after `FRESH_AFTER` files, and at once after a file it could not
-/// parse, one that held it up, or a crash: the next file starts a fresh one.
+/// The server is stopped after `FRESH_AFTER` files (a file it could not parse counts as
+/// `REFUSED_WEIGHS`), and at once after one that held it up, or a crash: the next file starts
+/// a fresh one, at most `MOST_STARTS` a minute.
 fn read(t: &Tika, bytes: &[u8], path: &Path) -> Option<String> {
     static SERVED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     if backing_off() {
@@ -229,7 +236,15 @@ fn read(t: &Tika, bytes: &[u8], path: &Path) -> Option<String> {
                 return text;
             }
             Asked::Unreached => kill(t),
-            Asked::Refused | Asked::TooLong => {
+            // It answered: it runs as it should, and the file is broken.
+            Asked::Refused => {
+                *LAST.lock().unwrap() = Some(Instant::now());
+                if SERVED.fetch_add(REFUSED_WEIGHS - 1, Ordering::Relaxed) + REFUSED_WEIGHS - 1 >= FRESH_AFTER {
+                    kill(t);
+                }
+                return None;
+            }
+            Asked::TooLong => {
                 kill(t);
                 return None;
             }
@@ -296,6 +311,10 @@ fn start(t: &Tika) -> Result<(), String> {
     if backing_off() {
         return Err(FAILED.lock().unwrap().clone().unwrap_or_default());
     }
+    static STARTS: Mutex<Vec<Instant>> = Mutex::new(Vec::new());
+    if !may_start(&mut STARTS.lock().unwrap(), Instant::now()) {
+        return Err(format!("started {MOST_STARTS} times within a minute"));
+    }
     // One left from a helper that ended, stopping or broken: gone first.
     let _ = crate::tools::command(&t.rt)
         .args(["rm", "-f", &t.name])
@@ -323,6 +342,17 @@ fn start(t: &Tika) -> Result<(), String> {
     }
     kill(t);
     Err(failed(format!("did not start within {} seconds", START.as_secs())))
+}
+
+/// Whether a start may be made now, by the starts made (kept to the last minute's): it is
+/// counted when it may.
+fn may_start(starts: &mut Vec<Instant>, now: Instant) -> bool {
+    starts.retain(|at| now.duration_since(*at) < Duration::from_secs(60));
+    let may = starts.len() < MOST_STARTS;
+    if may {
+        starts.push(now);
+    }
+    may
 }
 
 fn kill(t: &Tika) {
@@ -479,6 +509,16 @@ mod tests {
 
     /// A server that does not answer within `START` is a failure `state` names, and no file
     /// waits for another start for `BACK_OFF`; a runtime that will not run one, the same.
+    #[test]
+    fn tika_starts_at_most_three_times_a_minute() {
+        let (mut starts, now) = (vec![], Instant::now());
+        for _ in 0..MOST_STARTS {
+            assert!(may_start(&mut starts, now));
+        }
+        assert!(!may_start(&mut starts, now + Duration::from_secs(30)), "a fourth within the minute");
+        assert!(may_start(&mut starts, now + Duration::from_secs(61)), "the minute gone by");
+    }
+
     #[test]
     #[cfg(unix)]
     fn tika_that_will_not_start_fails_once_and_backs_off() {
