@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "passer i hukommelsen ({ram} GB), ikke på grafikkortet ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "denne maskines hukommelse kendes ikke",
  "local_models.here": "På denne maskine",
+ "local_models.header_too_big": "{format}: headeren er over {mb} MB og læses ikke",
  "local_models.layers": "Lag",
  "local_models.licence": "Licens",
  "local_models.memory": "Hukommelse til indlæsning",

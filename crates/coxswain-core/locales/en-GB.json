@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "fits in memory ({ram} GB), not on the graphics card ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "the memory of this machine is not known",
  "local_models.here": "On this machine",
+ "local_models.header_too_big": "{format}: header over {mb} MB, not read",
  "local_models.layers": "Layers",
  "local_models.licence": "Licence",
  "local_models.memory": "Memory to load",

@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "tient en mémoire ({ram} Go), pas sur la carte graphique ({gpu}, {gb} Go)",
  "local_models.fits_unknown": "la mémoire de cette machine est inconnue",
  "local_models.here": "Sur cette machine",
+ "local_models.header_too_big": "{format} : en-tête de plus de {mb} Mo, non lu",
  "local_models.layers": "Couches",
  "local_models.licence": "Licence",
  "local_models.memory": "Mémoire pour le charger",

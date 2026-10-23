@@ -2473,6 +2473,7 @@
  "local_models.fits_ram_not_gpu": "در حافظه جا می‌شود ({ram} GB)، نه در کارت گرافیک ({gpu}، {gb} GB)",
  "local_models.fits_unknown": "حافظه‌ی این دستگاه معلوم نیست",
  "local_models.here": "روی همین دستگاه",
+ "local_models.header_too_big": "{format}: سرآیند بیش از {mb} مگابایت است، خوانده نمی‌شود",
  "local_models.layers": "لایه‌ها",
  "local_models.licence": "مجوز",
  "local_models.memory": "حافظه برای بارگذاری",

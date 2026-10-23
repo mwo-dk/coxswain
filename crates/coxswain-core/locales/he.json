@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "נכנס לזיכרון ({ram} GB), לא לכרטיס הגרפי ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "הזיכרון של המחשב הזה לא ידוע",
  "local_models.here": "במחשב הזה",
+ "local_models.header_too_big": "{format}: הכותרת גדולה מ-{mb} MB, לא נקראת",
  "local_models.layers": "שכבות",
  "local_models.licence": "רישיון",
  "local_models.memory": "זיכרון לטעינה",

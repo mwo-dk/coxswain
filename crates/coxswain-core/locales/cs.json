@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "vejde se do paměti ({ram} GB), ne na grafickou kartu ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "paměť tohoto počítače není známa",
  "local_models.here": "Na tomto počítači",
+ "local_models.header_too_big": "{format}: hlavička má přes {mb} MB, nečte se",
  "local_models.layers": "Vrstvy",
  "local_models.licence": "Licence",
  "local_models.memory": "Paměť k načtení",

@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "memorian sartzen da ({ram} GB), ez txartel grafikoan ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "ez da ezagutzen makina honen memoria",
  "local_models.here": "Makina honetan",
+ "local_models.header_too_big": "{format}: goiburuak {mb} MB baino gehiago ditu, ez da irakurtzen",
  "local_models.layers": "Geruzak",
  "local_models.licence": "Lizentzia",
  "local_models.memory": "Kargatzeko memoria",

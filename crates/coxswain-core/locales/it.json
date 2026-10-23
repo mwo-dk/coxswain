@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "entra in memoria ({ram} GB), non nella scheda grafica ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "la memoria di questa macchina non è nota",
  "local_models.here": "Su questa macchina",
+ "local_models.header_too_big": "{format}: intestazione oltre {mb} MB, non letta",
  "local_models.layers": "Strati",
  "local_models.licence": "Licenza",
  "local_models.memory": "Memoria per caricarlo",

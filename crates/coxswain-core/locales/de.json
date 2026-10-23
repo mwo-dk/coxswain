@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "passt in den Arbeitsspeicher ({ram} GB), nicht auf die Grafikkarte ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "der Arbeitsspeicher dieses Rechners ist nicht bekannt",
  "local_models.here": "Auf diesem Rechner",
+ "local_models.header_too_big": "{format}: Kopfteil über {mb} MB, nicht gelesen",
  "local_models.layers": "Schichten",
  "local_models.licence": "Lizenz",
  "local_models.memory": "Speicher zum Laden",

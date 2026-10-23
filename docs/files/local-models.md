@@ -58,7 +58,9 @@ from Ollama's own library is `llama3.2:3b`, one from another namespace `user/mod
 another registry `hf.co/org/repo:Q4_K_M`, as `ollama list` shows them. The store is found by its
 shape, `blobs/` beside `manifests/`, so a system-wide store (`/usr/share/ollama/.ollama/models`)
 or one moved with `OLLAMA_MODELS` is named too. The names are read again a few seconds after
-the last time, so a model pulled meanwhile shows when you come back to the folder.
+the last time, so a model pulled meanwhile shows when you come back to the folder. A manifest
+kept only in the cloud (a store in a synced folder) is not downloaded to be read: its blobs stay
+unnamed.
 
 In a Hugging Face snapshot (`snapshots/<revision>/`) the files have their real names already;
 each one is a link to a blob, and the facts are those of the file behind the link.
@@ -83,10 +85,12 @@ each one is a link to a blob, and the facts are those of the file behind the lin
 A sharded model's `model.safetensors.index.json` lists its shards; when all of them are here,
 their headers are read too and the facts are those of the whole model.
 
-Only the header is read: a GGUF's keys and tensor list (up to 256 MB of header, a few
-megabytes in practice), a safetensors file's JSON header (up to the format's own 100 MB). Every
-length, count and offset in it is checked before it is used, and a header that claims more than
-the file holds, or more than these limits, is not read further. ONNX, TensorFlow Lite, Core ML and Keras models have
+Only the header is read: a GGUF's keys and tensor list (up to 64 MB of header, a few
+megabytes in practice), a safetensors file's JSON header (up to 16 MB, and 64 MB for all the
+shards of a model together; the format itself allows 100 MB). Every length, count and offset in
+it is checked before it is used, and a header that claims more than the file holds is not read
+further. One past these limits is not read at all: *Format* says *GGUF: header over 64 MB, not
+read* (or *safetensors: header over 16 MB, not read*). ONNX, TensorFlow Lite, Core ML and Keras models have
 [a page of their own](../previews/neural-networks.md), with their graph.
 
 ## Memory, and whether it fits

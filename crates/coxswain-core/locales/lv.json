@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "ietilpst atmiņā ({ram} GB), ne grafikas kartē ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "šī datora atmiņa nav zināma",
  "local_models.here": "Šajā datorā",
+ "local_models.header_too_big": "{format}: galvene pārsniedz {mb} MB, netiek lasīta",
  "local_models.layers": "Slāņi",
  "local_models.licence": "Licence",
  "local_models.memory": "Atmiņa ielādei",
