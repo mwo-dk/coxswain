@@ -8,6 +8,8 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::SystemTime;
 
 /// How many operations the history keeps.
@@ -68,6 +70,9 @@ struct Item {
 pub struct Record {
     kind: Kind,
     items: Vec<Item>,
+    /// Folders a move across disks made and that it left with something in them when it ended
+    /// half way: removed by undo once empty again, the innermost first.
+    made: Vec<PathBuf>,
     /// When it started, in seconds since the epoch: what the trash holds from before is not its.
     since: i64,
 }
@@ -187,6 +192,7 @@ impl Record {
         Record {
             kind,
             items: vec![],
+            made: vec![],
             since: crate::fs::now() as i64 - 1,
         }
     }
@@ -196,7 +202,7 @@ impl Record {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        self.items.is_empty() && self.made.is_empty()
     }
 
     /// One item done: `from` is where it came from (what was made, for a new folder or a pack),
@@ -218,27 +224,54 @@ impl Record {
 
     /// The operation on `src`, as `fs` and `archive` do it (`dst`: where to, for a copy, a move
     /// or an extract), keeping what it left when that can be undone: not what went into or came
-    /// out of an archive for a move, not what was merged into a folder that was there.
+    /// out of an archive for a move, not what was merged into a folder that was there. Stopped
+    /// or failed half way, what it did so far is kept too: a folder copied or extracted in part,
+    /// the files a move across disks moved.
     pub fn run(&mut self, src: &Path, dst: &Path, password: Option<&str>) -> io::Result<()> {
         let on_disk = |p: &Path| fs::symlink_metadata(p).is_ok();
         match self.kind {
             Kind::Copy => {
-                let fresh = !on_disk(&cfs::target(src, dst));
-                let to = cfs::copy_locked(src, dst, password)?;
-                if fresh && on_disk(&to) {
-                    self.done(src, &to);
+                let target = cfs::target(src, dst);
+                let fresh = !on_disk(&target);
+                match cfs::copy_locked(src, dst, password) {
+                    Ok(to) if fresh && on_disk(&to) => self.done(src, &to),
+                    Ok(_) => {}
+                    Err(e) => {
+                        if fresh && crate::stop::asked() && on_disk(&target) {
+                            self.done(src, &target);
+                        }
+                        return Err(e);
+                    }
                 }
             }
             Kind::Move | Kind::Rename => {
                 let real = on_disk(src);
-                let to = cfs::rename_locked(src, dst, password)?;
-                if real && on_disk(&to) {
-                    self.done(src, &to);
+                let mut log = cfs::Moved::default();
+                match cfs::rename_locked_logged(src, dst, password, &mut log) {
+                    Ok(to) if real && on_disk(&to) => self.done(src, &to),
+                    Ok(_) => {}
+                    Err(e) => {
+                        for (from, to) in &log.done {
+                            self.done(from, to);
+                        }
+                        self.made.extend(log.made);
+                        return Err(e);
+                    }
                 }
             }
             Kind::Extract => {
-                let to = crate::archive::extract_locked(src, dst, password)?;
-                self.done(src, &to);
+                let to = crate::archive::extract_target(src, dst);
+                // A folder of that name that was there is the user's, never the extract's.
+                let fresh = !on_disk(&to);
+                match crate::archive::extract_locked(src, dst, password) {
+                    Ok(to) => self.done(src, &to),
+                    Err(e) => {
+                        if fresh && crate::stop::asked() && on_disk(&to) {
+                            self.done(src, &to);
+                        }
+                        return Err(e);
+                    }
+                }
             }
             Kind::Trash => {
                 let real = on_disk(src);
@@ -350,6 +383,9 @@ impl Record {
                     }
                     Err(why) => refused.push(why),
                 }
+            }
+            for m in self.made.iter().rev() {
+                let _ = fs::remove_dir(m);
             }
         }
         Undone {
@@ -508,16 +544,66 @@ impl Op {
     }
 }
 
+/// The title over what failed when `op` ran on `all` items (`what` names them) and `failed` of
+/// them failed: for one item "Could not copy “a.txt”", for several how many went through and
+/// how many did not, "3 of 4 copied; 1 could not be copied". A pack is one archive: when it
+/// fails, none of its items went in.
+pub fn failure_title(op: Op, what: &str, all: usize, failed: usize) -> String {
+    let failed = if matches!(op, Op::Pack { .. }) { all } else { failed.min(all) };
+    if all <= 1 {
+        return match op {
+            Op::Copy => crate::t!("error.copy", "what" => what),
+            Op::Move => crate::t!("error.move", "what" => what),
+            Op::Extract => crate::t!("error.extract", "what" => what),
+            Op::Trash => crate::t!("error.trash", "what" => what),
+            Op::Forever => crate::t!("error.delete", "what" => what),
+            Op::Mkdir => crate::t!("error.create", "what" => what),
+            Op::Pack { .. } => crate::t!("error.pack", "what" => what),
+        };
+    }
+    let done = all - failed;
+    match op {
+        Op::Copy => crate::tn!("error.counted_copy", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Move => crate::tn!("error.counted_move", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Extract => crate::tn!("error.counted_extract", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Trash => crate::tn!("error.counted_trash", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Forever => crate::tn!("error.counted_delete", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+        Op::Mkdir => crate::t!("error.create", "what" => what),
+        Op::Pack { .. } => crate::tn!("error.counted_pack", failed, "done" => crate::i18n::digits(done.to_string()), "all" => crate::i18n::digits(all.to_string())),
+    }
+}
+
+/// What `run` did: what failed, with why; the record of what can be undone (empty for
+/// `Forever`); and, when it was stopped, the line that says how far it got ("Stopped: 120 of
+/// 400 copied").
+pub struct Ran {
+    pub failed: Vec<(PathBuf, io::Error)>,
+    pub rec: Record,
+    pub stopped: Option<String>,
+}
+
 /// Run `op` on every item in turn (`dst`: where to, or the archive for a pack), `at(i)`
-/// before item `i`; `password` opens a locked archive. Gives back what failed, with why, and
-/// the record of what can be undone (empty for `Forever`).
+/// before item `i`; `password` opens a locked archive. `stop`, set by the app's Stop, ends it
+/// between items and inside a large file: the file it was on is removed (a move keeps its
+/// original), what was done stays and can be undone, the rest is not started.
 pub fn run(
     op: Op,
     items: &[PathBuf],
     dst: &Path,
     password: Option<&str>,
+    stop: &Arc<AtomicBool>,
+    at: impl FnMut(usize),
+) -> Ran {
+    crate::stop::during(stop, || run_items(op, items, dst, password, at))
+}
+
+fn run_items(
+    op: Op,
+    items: &[PathBuf],
+    dst: &Path,
+    password: Option<&str>,
     mut at: impl FnMut(usize),
-) -> (Vec<(PathBuf, io::Error)>, Record) {
+) -> Ran {
     let mut rec = Record::new(match op {
         Op::Copy => Kind::Copy,
         Op::Move => Kind::Move,
@@ -526,27 +612,59 @@ pub fn run(
         Op::Mkdir => Kind::Mkdir,
         Op::Pack { .. } => Kind::Pack,
     });
+    let stopped = |done: usize| Some(stopped_line(op, done, items.len()));
     if let Op::Pack { hide_names } = op {
+        at(0);
         return match crate::archive::create_locked(dst, items, password, hide_names) {
             Ok(()) => {
                 rec.done(dst, dst);
-                (vec![], rec)
+                Ran { failed: vec![], rec, stopped: None }
             }
-            Err(e) => (vec![(dst.to_path_buf(), e)], rec),
+            Err(e) if crate::stop::is(&e) => Ran { failed: vec![], rec, stopped: stopped(0) },
+            // Failed for a cause of its own while Stop was pressed: both are said.
+            Err(e) if crate::stop::asked() => Ran { failed: vec![(dst.to_path_buf(), e)], rec, stopped: stopped(0) },
+            Err(e) => Ran { failed: vec![(dst.to_path_buf(), e)], rec, stopped: None },
         };
     }
     let mut failed = vec![];
     for (i, p) in items.iter().enumerate() {
+        if crate::stop::asked() {
+            return Ran { stopped: stopped(i - failed.len()), failed, rec };
+        }
         at(i);
         let r = match op {
             Op::Forever => cfs::delete_locked(p, password),
             _ => rec.run(p, dst, password),
         };
-        if let Err(e) = r {
-            failed.push((p.clone(), e));
+        match r {
+            Err(e) if crate::stop::is(&e) => {
+                return Ran { stopped: stopped(i - failed.len()), failed, rec };
+            }
+            // Failed for a cause of its own while Stop was pressed: both are said.
+            Err(e) if crate::stop::asked() => {
+                let done = i - failed.len();
+                failed.push((p.clone(), e));
+                return Ran { stopped: stopped(done), failed, rec };
+            }
+            Err(e) => failed.push((p.clone(), e)),
+            Ok(()) => {}
         }
     }
-    (failed, rec)
+    Ran { failed, rec, stopped: None }
+}
+
+/// "Stopped: 120 of 400 copied": how far `op` got of `all` items when it was stopped.
+pub fn stopped_line(op: Op, done: usize, all: usize) -> String {
+    let key = match op {
+        Op::Copy => "stop.done.copy",
+        Op::Move => "stop.done.move",
+        Op::Extract => "stop.done.extract",
+        Op::Trash => "stop.done.trash",
+        Op::Forever => "stop.done.delete",
+        Op::Pack { .. } => "stop.done.pack",
+        Op::Mkdir => return t!("stop.stopped"),
+    };
+    tn!(key, done, "all" => crate::i18n::digits(all.to_string()))
 }
 
 /// What undo did.
@@ -601,6 +719,18 @@ mod tests {
 
     fn tmp(name: &str) -> crate::fs::Scratch {
         crate::fs::Scratch::named(&format!("undo-{name}"))
+    }
+
+    /// `super::run`, never stopped, as the tests before Stop took it.
+    fn run(
+        op: Op,
+        items: &[PathBuf],
+        dst: &Path,
+        password: Option<&str>,
+        at: impl FnMut(usize),
+    ) -> (Vec<(PathBuf, io::Error)>, Record) {
+        let r = super::run(op, items, dst, password, &Arc::default(), at);
+        (r.failed, r.rec)
     }
 
     #[test]
@@ -874,4 +1004,276 @@ mod tests {
         );
         assert_eq!(h.pushed, KEEP as u64 + 3);
     }
+
+    #[test]
+    fn failure_title_counts_what_went_through() {
+        crate::i18n::set_language("en-GB");
+        assert_eq!(failure_title(Op::Copy, "\"a\"", 1, 1), "Could not copy \"a\"");
+        assert_eq!(failure_title(Op::Copy, "4 items", 4, 1), "3 of 4 copied; 1 could not be copied");
+        assert_eq!(failure_title(Op::Trash, "2 items", 2, 2), "0 of 2 moved to the bin; 2 could not be moved to the bin");
+        // A pack is one archive: all or nothing.
+        assert_eq!(failure_title(Op::Pack { hide_names: true }, "3 items", 3, 1), "0 of 3 packed; 3 could not be packed");
+    }
+
+    // ------------------------------------------------------------ Stop
+
+    /// A tree to work on: small files, a folder, and a file large enough to be copied in
+    /// steps (`fs::STEP`), with zeros in it (a hole) and bytes around them.
+    fn stop_tree(d: &Path) -> Vec<PathBuf> {
+        let src = d.join("src");
+        fs::create_dir_all(src.join("sub/deep")).unwrap();
+        fs::write(src.join("a.txt"), "a").unwrap();
+        fs::write(src.join("sub/b.txt"), "bb").unwrap();
+        fs::write(src.join("sub/deep/d.txt"), "ddd").unwrap();
+        let mut big = vec![7u8; 3 << 20];
+        big.extend(vec![0u8; 6 << 20]);
+        big.extend(vec![9u8; 3 << 20]);
+        fs::write(src.join("sub/big.bin"), &big).unwrap();
+        fs::write(src.join("c.txt"), "c").unwrap();
+        vec![src.join("a.txt"), src.join("sub"), src.join("c.txt")]
+    }
+
+    /// Every file below `root`, by its path inside, with its bytes' hash.
+    fn files(root: &Path) -> std::collections::BTreeMap<PathBuf, blake3::Hash> {
+        let mut out = std::collections::BTreeMap::new();
+        fn walk(root: &Path, at: &Path, out: &mut std::collections::BTreeMap<PathBuf, blake3::Hash>) {
+            for e in fs::read_dir(at).unwrap().flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    walk(root, &p, out);
+                } else {
+                    out.insert(p.strip_prefix(root).unwrap().to_path_buf(), blake3::hash(&fs::read(&p).unwrap()));
+                }
+            }
+        }
+        if root.exists() {
+            walk(root, root, &mut out);
+        }
+        out
+    }
+
+    /// Stop at the `k`th look, for every `k` until the operation ends before it: 1, 2, 3, 5, 8 …
+    fn each_stop(mut f: impl FnMut(u64) -> bool) {
+        let mut k = 1;
+        while f(k) {
+            k = k * 3 / 2 + 1;
+            assert!(k < 1 << 20, "never ended");
+        }
+    }
+
+    fn stopped_at(k: u64, op: Op, items: &[PathBuf], dst: &Path) -> Ran {
+        crate::stop::TRIP.set(k);
+        let r = super::run(op, items, dst, None, &Arc::default(), |_| {});
+        crate::stop::TRIP.set(0);
+        r
+    }
+
+    #[test]
+    fn a_stopped_copy_leaves_no_half_file_and_keeps_what_is_done() {
+        let mut cut_in_big = false;
+        each_stop(|k| {
+            let d = tmp(&format!("stop-copy-{k}"));
+            let items = stop_tree(&d);
+            let (src, to) = (d.join("src"), d.join("to"));
+            fs::create_dir(&to).unwrap();
+            let before = files(&src);
+            let r = stopped_at(k, Op::Copy, &items, &to);
+            assert!(r.failed.is_empty(), "{:?}", r.failed);
+            let copied = files(&to);
+            // What is there is whole: no file half copied, no folder under a passing name.
+            for (p, h) in &copied {
+                assert_eq!(before.get(p), Some(h), "{k}: {p:?} is not the original");
+            }
+            assert!(fs::read_dir(&to).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().contains("coxswain-tmp")));
+            // Undo has each item it left.
+            assert_eq!(r.rec.items.len(), fs::read_dir(&to).unwrap().count(), "{k}");
+            cut_in_big |= r.stopped.is_some() && to.join("sub").exists() && !to.join("sub/big.bin").exists();
+            let go_on = r.stopped.is_some();
+            if !go_on {
+                assert_eq!(copied, before, "all of it when not stopped");
+            }
+            go_on
+        });
+        assert!(cut_in_big, "one stop came inside the folder, before the large file was whole");
+    }
+
+    /// A private file's copy is never readable by others: not while it is written, not when it
+    /// is stopped half way, not when it is whole.
+    #[cfg(unix)]
+    #[test]
+    fn a_private_file_copied_or_stopped_stays_private() {
+        use std::os::unix::fs::PermissionsExt;
+        each_stop(|k| {
+            let d = tmp(&format!("stop-private-{k}"));
+            let key = d.join("key.bin");
+            fs::write(&key, vec![5u8; 20 << 20]).unwrap();
+            fs::set_permissions(&key, fs::Permissions::from_mode(0o600)).unwrap();
+            let to = d.join("to");
+            fs::create_dir(&to).unwrap();
+            // Looked at from inside the copy: each Stop look sees the half copy as it is.
+            let copy = to.join("key.bin");
+            let seen = to.clone();
+            crate::stop::LOOK.set(Some(Box::new(move || {
+                for e in fs::read_dir(&seen).unwrap().flatten() {
+                    let mode = e.metadata().unwrap().permissions().mode();
+                    assert_eq!(mode & 0o077, 0, "{:?} readable by others while it is written", e.file_name());
+                }
+            })));
+            let r = stopped_at(k, Op::Copy, std::slice::from_ref(&key), &to);
+            crate::stop::LOOK.set(None);
+            if let Ok(m) = fs::metadata(&copy) {
+                assert_eq!(m.permissions().mode() & 0o077, 0, "{k}: readable by others");
+            }
+            if r.stopped.is_some() {
+                assert_eq!(fs::read_dir(&to).unwrap().count(), 0, "{k}: no half copy, under any name");
+            } else {
+                assert_eq!(fs::metadata(&copy).unwrap().permissions().mode() & 0o777, 0o600);
+            }
+            r.stopped.is_some()
+        });
+    }
+
+    #[test]
+    fn a_stopped_move_across_disks_has_every_file_in_one_place_and_undo_takes_back_the_rest() {
+        cfs::ACROSS.set(true);
+        let mut halves = 0;
+        each_stop(|k| {
+            let d = tmp(&format!("stop-move-{k}"));
+            let items = stop_tree(&d);
+            let (src, to) = (d.join("src"), d.join("to"));
+            fs::create_dir(&to).unwrap();
+            let before = files(&src);
+            let r = stopped_at(k, Op::Move, &items, &to);
+            assert!(r.failed.is_empty(), "{:?}", r.failed);
+            let (left, moved) = (files(&src), files(&to));
+            // Each file in one place, whole.
+            for (p, h) in &before {
+                match (left.get(p), moved.get(p)) {
+                    (Some(a), None) | (None, Some(a)) => assert_eq!(a, h, "{k}: {p:?}"),
+                    other => panic!("{k}: {p:?} is in {other:?}"),
+                }
+            }
+            assert_eq!(left.len() + moved.len(), before.len(), "{k}: nothing more");
+            halves += usize::from(!left.is_empty() && !moved.is_empty());
+            let go_on = r.stopped.is_some();
+            // Undo puts back exactly what went, and the folders made for it go.
+            let u = r.rec.undo(|_| {});
+            assert!(u.refused.is_empty(), "{k}: {:?}", u.refused);
+            assert_eq!(files(&src), before, "{k}: all back");
+            assert_eq!(fs::read_dir(&to).unwrap().count(), 0, "{k}: nothing left over there");
+            go_on
+        });
+        cfs::ACROSS.set(false);
+        assert!(halves > 0, "some stops came half way");
+    }
+
+    #[test]
+    fn a_stopped_extract_keeps_what_came_out_whole() {
+        let d = tmp("stop-extract");
+        let items = stop_tree(&d);
+        // Each archive holds each item under its name, as the source folder has it.
+        let before = files(&d.join("src"));
+        for name in ["tree.zip", "tree.tar.gz", "tree.7z"] {
+            let archive = d.join(name);
+            crate::archive::create(&archive, &items).unwrap();
+            each_stop(|k| {
+                let to = d.join(format!("out-{name}-{k}"));
+                fs::create_dir(&to).unwrap();
+                let r = stopped_at(k, Op::Extract, std::slice::from_ref(&archive), &to);
+                assert!(r.failed.is_empty(), "{name} {k}: {:?}", r.failed);
+                for (p, h) in files(&to.join("tree")) {
+                    assert_eq!(before.get(&p), Some(&h), "{name} {k}: {p:?} came out half");
+                }
+                assert_eq!(r.rec.items.len(), usize::from(to.join("tree").exists()), "{name} {k}: undo has it");
+                r.stopped.is_some()
+            });
+        }
+    }
+
+    #[test]
+    fn a_stopped_pack_leaves_the_archive_as_it_was() {
+        let d = tmp("stop-pack");
+        let items = stop_tree(&d);
+        let zip = d.join("old.zip");
+        crate::archive::create(&zip, &items[..1]).unwrap();
+        let old = fs::read(&zip).unwrap();
+        let leftovers = || {
+            fs::read_dir(&*d).unwrap().flatten().filter(|e| {
+                let n = e.file_name().to_string_lossy().into_owned();
+                n.ends_with(".coxswain-tmp") || n.ends_with(".coxswain-tar")
+            }).count()
+        };
+        // Added to one that is there.
+        let mut stops = 0;
+        each_stop(|k| {
+            let r = stopped_at(k, Op::Copy, &items[1..2], &zip);
+            if r.stopped.is_none() {
+                return false;
+            }
+            stops += 1;
+            assert!(r.failed.is_empty(), "{:?}", r.failed);
+            assert!(fs::read(&zip).unwrap() == old, "{k}: the archive is as it was");
+            assert_eq!(leftovers(), 0, "{k}");
+            assert!(r.rec.is_empty());
+            true
+        });
+        assert!(stops > 2);
+        // A new one: not made at all, of every kind.
+        for name in ["new.zip", "new.7z", "new.tar.gz"] {
+            each_stop(|k| {
+                let to = d.join(name);
+                let r = stopped_at(k, Op::Pack { hide_names: false }, &items, &to);
+                if r.stopped.is_none() {
+                    assert!(to.is_file());
+                    fs::remove_file(&to).unwrap();
+                    return false;
+                }
+                assert!(!to.exists(), "{name} {k}");
+                assert_eq!(leftovers(), 0, "{name} {k}");
+                assert!(r.stopped.unwrap().contains('3'));
+                true
+            });
+        }
+    }
+
+    #[test]
+    fn a_stopped_delete_stops_between_items() {
+        let d = tmp("stop-delete");
+        let items: Vec<PathBuf> = ["a", "b", "c"].iter().map(|n| d.join(n)).collect();
+        for p in &items {
+            fs::write(p, "x").unwrap();
+        }
+        let stop = Arc::new(AtomicBool::new(false));
+        let r = super::run(Op::Forever, &items, Path::new(""), None, &stop, |i| {
+            if i == 1 {
+                stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        });
+        // The one it was on is done; the next is not started.
+        assert!(!items[0].exists() && !items[1].exists() && items[2].exists());
+        assert_eq!(r.stopped, Some(stopped_line(Op::Forever, 2, 3)));
+        // To the bin, where the trash gives back (in CI: the developer's own trash is left alone).
+        if !in_ci() || !trash_restores() || !cfs::trash_takes(&items) {
+            return;
+        }
+        let d = std::env::current_dir().unwrap().join(format!("target-stop-trash-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        let items: Vec<PathBuf> = ["a", "b", "c"].iter().map(|n| d.join(n)).collect();
+        for p in &items {
+            fs::write(p, "x").unwrap();
+        }
+        let stop = Arc::new(AtomicBool::new(false));
+        let r = super::run(Op::Trash, &items, Path::new(""), None, &stop, |i| {
+            if i == 1 {
+                stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        });
+        assert!(!items[1].exists() && items[2].exists());
+        assert_eq!(r.stopped, Some(stopped_line(Op::Trash, 2, 3)));
+        assert_eq!(r.rec.undo(|_| {}).done, 2, "undo brings back the two");
+        assert!(items.iter().all(|p| p.exists()));
+        fs::remove_dir_all(&d).unwrap();
+    }
+
 }

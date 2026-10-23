@@ -45,6 +45,31 @@ pub struct Subject {
     pub pdfs: usize,
     /// Of the files, chess games or positions (`chess::format`).
     pub chess: usize,
+    /// Of the files, videos and songs (`media::is_media`), and pictures ImageMagick takes
+    /// (`media::is_picture`).
+    pub media: usize,
+    pub pictures: usize,
+    /// Of the files, geodata by its name (`geo::is_vector`, and TIFF, which GDAL is asked about).
+    pub geo: usize,
+    /// Of the files, OpenSCAD models (`scad::is_model`).
+    pub models: usize,
+    /// Of the files, lists of checksums (`checksum::is_list`).
+    pub sums: usize,
+    /// Of the files, first parts of a split file (`split::joins_into`).
+    pub parts: usize,
+    /// Of the files, the `index.json` of an OCI image layout (`container_image::layout_index`).
+    pub images: usize,
+    /// Of the files, local models (`local_models::is_model`): their facts are in Properties.
+    pub local_models: usize,
+    /// Of the files, e-books calibre reads (`ebook::is_ebook`).
+    pub ebooks: usize,
+    /// Of the files, KiCad schematics and boards (`kicad::is_kicad`).
+    pub kicad: usize,
+    /// Of the files, AsciiDoc documents and draw.io diagrams (`export`).
+    pub adocs: usize,
+    pub drawios: usize,
+    /// Of the files, those a preview tool shows (`preview_tools::for_path`).
+    pub previewed: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -58,9 +83,48 @@ pub struct Subject {
     /// The panel shows a drive's top folder, or the cursor is on a folder measured at 1 GB or
     /// more: where Space is worth a hint.
     pub big: bool,
+    /// Of the files, recordings and videos whose speech can be transcribed
+    /// (`transcribe::is_speech`); and whether transcribing is on, so a folder offers it too.
+    pub speech: usize,
+    pub whisper: bool,
 }
 
 impl Subject {
+    /// The counts of `list` (the marked entries, or the one under the cursor): its files and
+    /// folders, and the kinds of file among them; the other fields are left at their default.
+    /// Disk images (`.img`, `.vhd`) are known by their first bytes; a single file's are read for
+    /// chess too (a Polyglot `.bin` book: the menu offers Open games on one), so the marked file
+    /// counts as the one under the cursor does, in both apps.
+    pub fn of(list: &[&crate::fs::Entry]) -> Subject {
+        let sniff = list.len() == 1;
+        let files: Vec<&std::path::Path> = list.iter().filter(|e| !e.is_dir).map(|e| e.path.as_path()).collect();
+        let count = |f: &dyn Fn(&std::path::Path) -> bool| files.iter().filter(|p| f(p)).count();
+        Subject {
+            files: files.len(),
+            folders: list.len() - files.len(),
+            archives: count(&crate::archive::opens),
+            disk_images: if crate::disk_image::open_on() { 0 } else { count(&crate::disk_image::is_disk_image) },
+            pdfs: count(&crate::searchable::is_pdf),
+            chess: count(&|p| if sniff { crate::chess::sniff(p).is_some() } else { crate::chess::format(p).is_some() }),
+            media: count(&crate::media::is_media),
+            pictures: count(&crate::media::is_picture),
+            // By name: a GeoTIFF is reached from F9 (and its preview).
+            geo: count(&crate::geo::is_vector),
+            models: count(&crate::scad::is_model),
+            sums: count(&crate::checksum::is_list),
+            parts: count(&|p| crate::split::joins_into(p).is_some()),
+            images: count(&crate::container_image::layout_index),
+            local_models: count(&crate::local_models::is_model),
+            ebooks: count(&crate::ebook::is_ebook),
+            kicad: count(&crate::kicad::is_kicad),
+            speech: count(&crate::transcribe::is_speech),
+            adocs: count(&crate::export::is_adoc),
+            drawios: count(&crate::export::is_drawio),
+            previewed: count(&|p| crate::preview_tools::for_path(p).is_some()),
+            ..Subject::default()
+        }
+    }
+
     /// What kind of entries these are, for when a hint comes up anew.
     fn kind(&self) -> (Place, bool, bool, bool, bool) {
         (
@@ -92,7 +156,7 @@ impl Action {
             // A file in a history is not opened: Enter says so.
             Open => s.single() && !(s.place == Place::History && s.files == 1),
             View => s.single() && s.files == 1,
-            Edit => s.single() && s.files == 1 && disk,
+            Edit | EditHere => s.single() && s.files == 1 && disk,
             CopyPath => s.single() && disk,
             Copy => n > 0 && s.place != Place::Branches,
             Move | Delete => n > 0 && s.writable(),
@@ -101,11 +165,30 @@ impl Action {
             NewFolder => s.writable(),
             ClipCopy => n > 0 && disk,
             Properties => s.single() && disk,
+            // The cursor's file against the other panel's, or two marked files.
+            CompareFiles => {
+                matches!(s.place, Place::Disk | Place::Snapshot) && (s.single() && s.files == 1 || s.marked == 2 && s.files == 2)
+            }
             Pack => n > 0 && disk,
             Extract => s.archives > 0 && disk,
             DiskImages => s.disk_images > 0 && disk,
             SearchablePdf => s.pdfs > 0 && disk,
+            ConvertMedia => s.media > 0 && disk,
+            EditPictures => s.pictures > 0 && disk,
+            ConvertGeodata => s.geo > 0 && disk,
+            ExportModel => s.models > 0 && disk,
+            ConvertEbook => s.ebooks > 0 && disk,
+            ExportKicad => s.kicad > 0 && disk,
+            MakeChecksums => n > 0 && disk,
+            SplitFile => s.single() && s.files == 1 && disk,
+            JoinParts => s.single() && s.parts == 1 && disk,
+            VerifyChecksums => s.single() && s.sums == 1 && matches!(s.place, Place::Disk | Place::Snapshot),
+            AdocPdf => s.adocs > 0 && disk,
+            DrawioExport => s.drawios > 0 && disk,
+            ScanViruses => n > 0 && disk,
+            PreviewWith => s.single() && s.previewed == 1 && disk,
             History => s.git && disk && (n == 0 || s.single()),
+            HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
             NewBranch => s.place == Place::Branches,
@@ -117,11 +200,14 @@ impl Action {
             Notes => disk,
             Chess => s.single() && s.chess == 1 && matches!(s.place, Place::Disk | Place::Archive),
             Worktrees | GitTool | GitConfig => s.git && disk,
+            // A recording, or with transcribing on a folder of them too.
+            Transcribe => disk && (s.speech > 0 || (s.whisper && s.folders > 0)),
             // Find, anywhere; duplicates among the folders, or in this one.
             Search | SearchText | Ask => true,
             Duplicates => disk && (s.folders > 0 || n == 0),
             // The folder under the cursor, else the panel's.
             SpaceView => disk,
+            CompareFolders => s.place != Place::Branches,
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
             // What Coxswain can do, and Settings, from any menu.
@@ -171,6 +257,8 @@ pub const TIMES: u32 = 3;
 const HINTS: &[(&str, &[(&str, Action)])] = &[
     // Before the general ones: a chess file is rare, and what to press on it is not guessed.
     ("chess", &[("key", Action::Chess)]),
+    ("image", &[("key", Action::Open)]),
+    ("local_model", &[("key", Action::Properties)]),
     ("menu", &[("key", Action::ActionMenu)]),
     ("space", &[("key", Action::SpaceView)]),
     ("find", &[("key", Action::Search)]),
@@ -185,12 +273,22 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
             ("off", Action::TogglePanels),
         ],
     ),
+    // Before "marked": two marked files are what Compare files takes.
+    ("compare", &[("key", Action::CompareFiles)]),
     ("marked", &[("copy", Action::Copy), ("move", Action::Move)]),
     ("in_archive", &[("copy", Action::Copy)]),
     ("in_disk_image", &[("copy", Action::Copy)]),
     ("disk_image", &[("menu", Action::ActionMenu)]),
     ("archive", &[("extract", Action::Extract)]),
     ("pdf", &[("key", Action::SearchablePdf)]),
+    ("media", &[("menu", Action::ActionMenu)]),
+    ("geo", &[("menu", Action::ActionMenu)]),
+    ("scad", &[("menu", Action::ActionMenu)]),
+    ("ebook", &[("menu", Action::ActionMenu)]),
+    ("kicad", &[("menu", Action::ActionMenu)]),
+    ("speech", &[("key", Action::ActionMenu)]),
+    ("adoc", &[("menu", Action::ActionMenu)]),
+    ("drawio", &[("menu", Action::ActionMenu)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -204,6 +302,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
         ],
     ),
     ("branches", &[("switch", Action::SwitchBranch)]),
+    ("history", &[("all", Action::HistoryAll)]),
+    ("upstream", &[("key", Action::HistoryUpstream)]),
     (
         "git",
         &[("branches", Action::Branches), ("history", Action::History)],
@@ -220,15 +320,27 @@ fn fits(id: &str, s: &Subject) -> bool {
         "quick" => disk && s.count() > 0,
         "panels" => disk && s.count() == 0,
         "marked" => s.marked > 1 && s.writable(),
+        "compare" => disk && s.marked == 2 && s.files == 2,
         "in_archive" => s.place == Place::Archive && s.files > 0,
         "in_disk_image" => s.place == Place::DiskImage && s.files > 0,
         "disk_image" => disk && s.single() && s.disk_images == 1,
         "pdf" => disk && s.pdfs > 0,
+        "media" => disk && s.media + s.pictures > 0,
+        "geo" => disk && s.geo > 0,
+        "scad" => disk && s.models > 0,
+        "ebook" => disk && s.ebooks > 0,
+        "kicad" => disk && s.kicad > 0,
+        "speech" => disk && s.single() && s.speech == 1,
+        "adoc" => disk && s.single() && s.adocs == 1,
+        "drawio" => disk && s.single() && s.drawios == 1,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
+        "image" => disk && s.single() && s.images == 1,
+        "local_model" => disk && s.single() && s.local_models == 1,
         "folder" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),
+        "history" | "upstream" => s.place == Place::History,
         "git" | "git_tool" => disk && s.git,
         "zfs" => disk && s.zfs,
         "space" => disk && s.big,
@@ -379,6 +491,36 @@ pub fn reset() -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_marked_book_and_disk_image_are_known_by_their_bytes() {
+        let dir = std::env::temp_dir().join(format!("coxswain-subject-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let book = crate::chess::polyglot::tests::book(&dir);
+        let img = dir.join("sd.img");
+        let mut disk = vec![0u8; 2 << 20];
+        disk[446 + 4] = 0x0c;
+        disk[446 + 8..446 + 12].copy_from_slice(&2048u32.to_le_bytes());
+        disk[446 + 12..446 + 16].copy_from_slice(&2048u32.to_le_bytes());
+        disk[510..512].copy_from_slice(&[0x55, 0xAA]);
+        std::fs::write(&img, disk).unwrap();
+        let entry = |p: &std::path::Path| crate::fs::Entry { path: p.to_path_buf(), ..Default::default() };
+        let (b, i) = (entry(&book), entry(&img));
+        assert_eq!(Subject::of(&[&b]).chess, 1, "one book, by its bytes");
+        let s = Subject::of(&[&i]);
+        // Opened like a folder (an archive) when that option is on, else offered Disk images.
+        assert_eq!(s.disk_images + s.archives, 1, "a raw disk by its partition table: {s:?}");
+        // A FIFO by those names is never opened to wait for a writer: no count, no hang.
+        #[cfg(unix)]
+        for name in ["pipe.bin", "pipe.img"] {
+            let p = dir.join(name);
+            let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
+            assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+            let s = Subject::of(&[&entry(&p)]);
+            assert_eq!((s.chess, s.disk_images + s.archives), (0, 0), "{name}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn names(s: &Subject, gui: bool) -> Vec<&'static str> {
         actions(s, gui)
