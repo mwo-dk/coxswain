@@ -1206,7 +1206,7 @@ mod tests {
         assert_eq!(r.failed.len(), 1);
         let msg = r.failed[0].1.to_string();
         assert!(msg.contains(&d.join("src").display().to_string()), "{msg}");
-        assert!(msg.contains(&d.join("to/src").display().to_string()), "{msg}");
+        assert!(msg.contains(&d.join("to").join("src").display().to_string()), "{msg}");
         let (left, moved) = (files(&d.join("src")), files(&d.join("to/src")));
         assert!(!moved.is_empty(), "some of it stayed over there");
         for (p, h) in &before {
