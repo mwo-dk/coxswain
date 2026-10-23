@@ -65,14 +65,18 @@ ClamAV's virus database is fetched from ClamAV's server, `database.clamav.net`.
 | The question | What it reads (the count of files), how ClamAV runs, the database's date, its update, the first pull, and *Nothing is deleted or moved* | The same |
 | While it runs | *Updating the virus database · …*, then *Scanning for viruses: 312/1204, 21 s*, and a **Stop** button at the end of the command line | The same text, with *· Alt+I stops* |
 | First scan | *Pulling docker.io/clamav/clamav-debian:1.5_base@sha256:…* with the runtime's progress | The same |
-| Nothing found | *No viruses found (files scanned: 1204)*; when the update failed or some files could not be read, a dialog says so too | The same |
+| Nothing found | *No viruses found (files scanned: 1204)*; when the update failed, or some files could not be read or were read only in part, a dialog says so too and lists them | The same |
+| Nothing read | Never *No viruses found*: the dialog says *Nothing was scanned, so nothing can be said about viruses*, with why (the files it could not read, or *there are no files in it* for an empty folder or one of links only) | The same |
 | Found | The files marked in the panel (those in it), and the dialog *Found by ClamAV*: a row a file, with its path, what was found and a list *Leave it* / *Bin* / *Quarantine*; under it the database's date, the quarantine folder, and what was not read | The same, as a box: the choice, what was found, the path (from the panel's folder); **N**, **B**, **Q** set the choice |
 | Stopped | *Stopped: nothing was changed* | The same |
 | Failed | *The virus scan failed* with ClamAV's last lines | The same |
 
 Files only in the cloud (an online-only OneDrive or Dropbox file) are not downloaded to be
-scanned: the dialog counts them under *Not scanned*. Links are not followed, and pipes and
-devices are left out. A name with a line break in it is scanned like any other (up to a hundred
+scanned: the dialog counts them under *Not scanned*. Links found inside a folder are not
+followed, and pipes and devices are left out; a file or folder you marked that is itself a link
+(a `Downloads` that points to another disk) is scanned as what it points to, and what is found
+is named by that real path. A file ClamAV could not read (*Access denied*) is not counted as
+scanned: the dialog lists it under *Could not be read*. A name with a line break in it is scanned like any other (up to a hundred
 of them a scan).
 
 ## What it needs
@@ -87,8 +91,12 @@ runs the same ClamAV until Coxswain itself moves to a newer one. The database is
 about 1.5 GB of memory while it runs; loading the database takes some seconds before the first
 file is read.
 
-ClamAV's own limits apply: a file over 100 MB, or an archive that unpacks to more than 400 MB,
-is read only as far as those limits.
+ClamAV's own limits apply: a file over 100 MB, or an archive that unpacks to more than 400 MB
+(or holds more files, or is packed deeper, than ClamAV goes), is read only as far as those
+limits. Such a file is never taken for clean: ClamAV is asked to say so
+(`--alert-exceeds-max`), and the dialog lists it under *Read only in part, as they are larger or
+packed deeper than ClamAV's limits allow*. That is a note, not a finding: nothing is offered
+to move.
 
 ## How it is sealed
 
@@ -113,7 +121,9 @@ the scan uses the database there is and says so; with no database at all it does
 `~/Library/Application Support/coxswain/quarantine/`, Windows:
 `%APPDATA%\coxswain\quarantine\`) under a name of its own, the time and its name
 (`1792515148-eicar.com`), so nothing there is written over. On Linux and macOS it is made
-readable by you alone and runnable by nobody; on Windows its permissions stay as they were. Each move adds a line to `quarantine.log` in that folder: when, what was
+readable by you alone and runnable by nobody, before it is moved; a file that belongs to another
+user cannot be made so, and stays where it is (*… it belongs to another user, so it cannot be
+locked in quarantine and was left where it is*; *Bin* may still take it). On Windows its permissions stay as they were. Each move adds a line to `quarantine.log` in that folder: when, what was
 found, where it came from and where it went, so a file that was wrongly found can be put back
 by hand (copy it back, then give it its permissions again).
 
@@ -191,6 +201,20 @@ changes, once a day. Each scan also loads the database (some seconds) before it 
 Yes: ClamAV opens zip, 7z, tar, rar and more and reads what is inside, within its limits. A
 finding names the archive, as that is the file you can act on. Files inside an archive that
 Coxswain shows as a folder are scanned by scanning the archive itself.
+
+#### It says some files were read only in part. Are they safe?
+
+Not known: ClamAV stopped at its limits (100 MB a file, 400 MB unpacked from an archive, or an
+archive packed too deep), so what lies past them was not looked at. The dialog lists those
+files under *Read only in part*; nothing is offered to move, as nothing was found. Scan what
+is inside such an archive by unpacking it first, or check it with another scanner.
+
+#### Why does it say *Nothing was scanned* and not *No viruses found*?
+
+Because no file was read, so nothing can be said about viruses. The dialog says why: the files
+listed under *Could not be read* (often *Access denied*: files of another user), those only in
+the cloud, or *there are no files in it*, for an empty folder or one that holds only links,
+pipes or devices, which are never followed.
 
 #### Why is it off by default?
 

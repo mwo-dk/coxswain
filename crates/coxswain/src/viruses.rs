@@ -142,7 +142,7 @@ impl App {
         }
         let notes = notes(&report);
         if report.found.is_empty() {
-            let clean = t!("viruses.clean", "n" => coxswain_core::i18n::digits(report.scanned.to_string()));
+            let clean = viruses::summary(&report);
             if notes.is_empty() {
                 return self.status = Some(clean);
             }
@@ -191,26 +191,9 @@ impl App {
     }
 }
 
-/// What a report says beyond its findings: the database, what was left out, what failed.
+/// What a report says beyond its findings (`viruses::notes`), a line each.
 fn notes(r: &Report) -> String {
-    let mut v = vec![viruses::db_line(r.db)];
-    if let Some(e) = &r.update_failed {
-        v.push(t!("viruses.update_failed", "error" => e));
-    }
-    if r.left_out > 0 {
-        v.push(t!("viruses.left_out", "n" => r.left_out));
-    }
-    if r.more {
-        v.push(t!("viruses.more"));
-    }
-    if !r.problems.is_empty() {
-        v.push(format!("{}\n{}", t!("viruses.problems"), r.problems.join("\n")));
-    }
-    // Only the database line: nothing to say.
-    if v.len() == 1 && r.update_failed.is_none() {
-        return String::new();
-    }
-    v.join("\n")
+    viruses::notes(r).join("\n")
 }
 
 fn choice(c: Choice) -> String {

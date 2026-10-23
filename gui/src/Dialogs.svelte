@@ -540,6 +540,7 @@
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
+        {#each m.notes ?? [] as note, i (i)}<p class="meta">{note}</p>{/each}
         {#if m.details}<details open={!!m.open}><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
         <div class="buttons">
           <!-- What is missing or off: Settings at the place to change it. -->
@@ -1176,6 +1177,8 @@
     font-size: 0.85em;
     color: var(--hidden-fg);
     padding: 0 8px;
+    /* A note may list files, one a line. */
+    white-space: pre-line;
   }
   .chat {
     overflow-y: auto;
