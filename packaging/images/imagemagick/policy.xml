@@ -1,0 +1,13 @@
+<policymap>
+  <policy domain="delegate" rights="none" pattern="*"/>
+  <policy domain="coder" rights="none" pattern="*"/>
+  <policy domain="coder" rights="read|write" pattern="{3FR,ARW,AVIF,BMP,CIN,CR2,CR3,CRW,DCR,DNG,DPX,ERF,FITS,FTS,GIF,HEIC,HEIF,IIQ,JPEG,JPG,JXL,KDC,MIFF,MRW,NEF,NRW,ORF,PCT,PEF,PICT,PNG,PSD,RAF,RAS,RW2,RWL,SGI,SR2,SRF,SRW,SUN,TGA,TIF,TIFF,WBMP,WEBP,X3F,XCF,XWD}"/>
+  <policy domain="path" rights="none" pattern="@*"/>
+  <policy domain="resource" name="memory" value="1GiB"/>
+  <policy domain="resource" name="map" value="2GiB"/>
+  <policy domain="resource" name="disk" value="4GiB"/>
+  <policy domain="resource" name="area" value="256MP"/>
+  <policy domain="resource" name="width" value="32KP"/>
+  <policy domain="resource" name="height" value="32KP"/>
+  <policy domain="resource" name="time" value="300"/>
+</policymap>
