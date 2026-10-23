@@ -1,15 +1,23 @@
 //! The container images of `[preview.images]`: what each one brings and costs, keeping the
 //! pulled ones up to date (`[preview] image_updates`), and removing those no preview used for
 //! 90 days (`[preview] image_prune`). The desktop app does both in the background; the terminal
-//! app makes no container previews (only Make PDF searchable runs a container there), so it
+//! app makes no container previews (only Make PDF searchable and Scan for viruses run containers there), so it
 //! only shows the settings.
 //!
+//! Every default image is pinned by its digest (`name:tag@sha256:…`, `preview_tools::IMAGES`):
+//! a pull fetches exactly that build, never whatever the tag points at that day. A new version
+//! of Coxswain brings new pins (`tools/images-pin.py` moves them to each tag's newest build); a
+//! round of updates then pulls the new pin of each image whose old pin a preview ran in, and
+//! removes the old copy (`superseded`, `move_pins`). An image the user set in `config.toml` is
+//! never rewritten nor replaced.
+//!
 //! Only Coxswain's own images are ever touched: an update removes the copy it replaced by that
-//! copy's id, never with `image prune`, which would take the user's other untagged images too.
+//! copy's id or its old pin, never with `image prune`, which would take the user's other
+//! untagged images too.
 
 use std::collections::BTreeMap;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
@@ -21,61 +29,77 @@ const DAY: u64 = 24 * 3600;
 /// An image no preview used for this many days goes, when `image_prune` is on.
 pub const UNUSED_DAYS: u64 = 90;
 
-/// Megabytes to download and on disk of the default images, measured (amd64, 2026-10).
-const SIZES: &[(&str, u32, u32)] = &[
-    ("docker.io/texlive/texlive:latest", 2800, 5900),
-    ("docker.io/texlive/texlive:latest-medium", 960, 2200),
-    ("docker.io/plantuml/plantuml:latest", 141, 353),
-    ("docker.io/pandoc/core:latest", 57, 246),
-    ("docker.io/gotenberg/gotenberg:8-libreoffice", 440, 1030),
-    ("docker.io/yuzutech/kroki:latest", 1200, 2830),
-    ("docker.io/jbarlow83/ocrmypdf-alpine:latest", 310, 850),
-    ("ghcr.io/typst/typst:latest", 29, 65),
-];
-
-const TOOLS: [&str; 10] = [
-    "latex",
-    "libreoffice",
-    "plantuml",
-    "pandoc",
-    "duckdb",
-    "kroki",
-    "typst",
-    "ghostscript",
-    "ocrmypdf",
-    "gxps",
-];
-
-/// The image of `tool`: the diagram kinds Kroki's image draws share its `kroki` image.
+/// The image of `tool` under `[preview.images]` (`preview_tools::image_key`).
 pub fn key(tool: &str) -> &str {
-    if KROKI.contains(&tool) { "kroki" } else { tool }
+    crate::preview_tools::image_key(tool)
 }
-
-/// The diagram kinds whose programs Kroki's image has, each drawn from standard input to SVG.
-pub const KROKI: &[&str] = &[
-    "d2", "ditaa", "svgbob", "pikchr", "nomnoml", "wavedrom", "vega", "vegalite", "dbml", "erd",
-    "bytefield",
-];
 
 /// `<rt> run` as every container of Coxswain's starts: removed when it ends, no network, no
 /// SELinux relabelling of your folders, named `name` so a run that is stopped can be killed,
-/// `src` read-only at /src and `out` (when there is one) at /out. It runs as you: in rootless
-/// podman the container's root is you, so `--user 0:0`, where an image's own user (Gotenberg's,
-/// OCRmyPDF's) could not write to /out; rootful docker or podman get your own uid and gid, so
-/// no root-owned file is left, with `HOME=/tmp`, as that user has no home in the image.
+/// held by `TIGHT`, `src` read-only at /src and `out` (when there is one) at /out. It runs as
+/// you: in rootless podman the container's root is you, so `--user 0:0`, where an image's own
+/// user (Gotenberg's, OCRmyPDF's) could not write to /out; rootful docker or podman get your own
+/// uid and gid, so no root-owned file is left. `HOME=/tmp`, as the root is read-only and that
+/// user has no home in the image.
 pub fn sealed(rt: &str, rt_path: &Path, name: &str, src: &Path, out: Option<&Path>) -> Command {
+    sealed_at(rt, rt_path, name, src, "/src", out)
+}
+
+fn sealed_at(rt: &str, rt_path: &Path, name: &str, src: &Path, at: &str, out: Option<&Path>) -> Command {
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
-    c.arg("-v").arg(format!("{}:/src:ro", src.display()));
+    c.args(tight(rt_path));
+    c.arg("--mount").arg(bind(src, at, true));
     if let Some(out) = out {
-        c.arg("-v").arg(format!("{}:/out", out.display()));
+        c.arg("--mount").arg(bind(out, "/out", false));
     }
     c.args(user(rt == "podman" && rootless(rt_path), out.unwrap_or(src)));
+    c.args(["-e", "HOME=/tmp"]);
     c
 }
 
-/// The `--user` (and `HOME`) options of `sealed`.
-fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
+/// `--mount` of the folder `host` at `at`: not `-v`, which splits at every `:`, so a folder
+/// named `10:30` would not mount. The source is one quoted CSV field, as
+/// podman and docker read it, so a `,` or `"` in the path stays in it.
+pub(crate) fn bind(host: &Path, at: &str, ro: bool) -> String {
+    let src = host.display().to_string().replace('"', "\"\"");
+    format!("type=bind,\"source={src}\",target={at}{}", if ro { ",readonly" } else { "" })
+}
+
+/// The options that hold every container of Coxswain's (`sealed`, `sealed_file`, `sealed_bare`,
+/// through `tight`; given once, as docker refuses a second `--tmpfs /tmp`): a read-only root
+/// with a small `/tmp` in memory, bounded memory and processes, no capabilities, no gaining of
+/// privileges. `label=disable` stays: relabelling (`:Z`) would change the SELinux label of the
+/// user's own files.
+pub const TIGHT: &[&str] = &[
+    "--read-only",
+    "--tmpfs",
+    "/tmp:rw,size=1g",
+    "--memory=3g",
+    "--pids-limit=256",
+    "--cap-drop=ALL",
+    "--security-opt",
+    "no-new-privileges",
+];
+
+/// `<rt> run` of a program that reads no file at all (the chess engine, talking over stdin
+/// and stdout): `sealed` without a mount, with `TIGHT`'s limits, as the image's own user.
+pub fn sealed_bare(_rt: &str, rt_path: &Path, name: &str) -> Command {
+    let mut c = crate::tools::command(rt_path);
+    c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
+    c.args(tight(rt_path));
+    c
+}
+
+/// `sealed`, seeing one file only: `file`, read-only at `at` (`/src/in.heic`), instead of a
+/// folder at /src. Nothing else of its folder is there to be read, and `out` is the only place
+/// it can write.
+pub fn sealed_file(rt: &str, rt_path: &Path, name: &str, file: &Path, at: &str, out: Option<&Path>) -> Command {
+    sealed_at(rt, rt_path, name, file, at, out)
+}
+
+/// The `--user` option of `sealed`.
+pub(crate) fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
     if rootless_podman {
         return vec!["--user".into(), "0:0".into()];
     }
@@ -83,7 +107,7 @@ fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
     {
         use std::os::unix::fs::MetadataExt;
         if let Ok(m) = std::fs::metadata(owner) {
-            return vec!["--user".into(), format!("{}:{}", m.uid(), m.gid()), "-e".into(), "HOME=/tmp".into()];
+            return vec!["--user".into(), format!("{}:{}", m.uid(), m.gid())];
         }
     }
     let _ = owner;
@@ -92,7 +116,7 @@ fn user(rootless_podman: bool, owner: &Path) -> Vec<String> {
 
 /// Does podman run rootless here? Asked once (`podman info`); when it cannot say, rootless,
 /// which is how podman runs for a user.
-fn rootless(rt: &Path) -> bool {
+pub(crate) fn rootless(rt: &Path) -> bool {
     static ROOTLESS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ROOTLESS.get_or_init(|| {
         crate::tools::command(rt)
@@ -103,6 +127,71 @@ fn rootless(rt: &Path) -> bool {
             .map(|o| String::from_utf8_lossy(&o.stdout).trim() != "false")
             .unwrap_or(true)
     })
+}
+
+/// What `bounds_work` found, by runtime and image.
+static BOUNDS: Mutex<BTreeMap<(PathBuf, String), bool>> = Mutex::new(BTreeMap::new());
+
+/// `TIGHT`, less its memory and process bounds where a probe (`bounds_work`) found that `rt`
+/// cannot keep them; all of it while nothing says so.
+pub fn tight(rt: &Path) -> Vec<&'static str> {
+    bounded(!BOUNDS.lock().unwrap().iter().any(|((r, _), ok)| r == rt && !ok))
+}
+
+/// `TIGHT`, with its memory and process bounds only when `bounds`: the one place every
+/// container's options come from, those `sealed` starts and those built by hand (Tika's
+/// server, calibre's).
+pub fn bounded(bounds: bool) -> Vec<&'static str> {
+    TIGHT.iter().copied().filter(|a| bounds || !(a.starts_with("--memory") || a.starts_with("--pids-limit"))).collect()
+}
+
+/// Whether the runtime at `rt` can bound a container's memory and processes (`--memory`,
+/// `--pids-limit`): a rootless podman whose cgroup controllers are not delegated cannot. Found
+/// by a container of `image` that only runs `true` with both bounds, never from what a real run
+/// printed (a file's name or a decoder's words could say anything). It fails closed: only a
+/// probe that the runtime refused for want of those controllers turns the bounds off; any other
+/// failure (the image not pulled yet, a hiccup) keeps them on and is asked again next time.
+pub fn bounds_work(rt: &Path, image: &str) -> bool {
+    let key = (rt.to_path_buf(), image.to_string());
+    if let Some(k) = BOUNDS.lock().unwrap().get(&key) {
+        return *k;
+    }
+    let out = crate::tools::capture(
+        {
+            let mut c = crate::tools::command(rt);
+            c.args(["run", "--rm", "--pull=never", "--network=none", "--memory=64m", "--pids-limit=16", "--entrypoint", "true", image]);
+            c
+        },
+        std::time::Duration::from_secs(60),
+        4096,
+    );
+    let said = out.ok().and_then(|o| bounds_said(o.status.success(), &String::from_utf8_lossy(&o.stderr)));
+    match said {
+        Some(ok) => {
+            if !ok {
+                note(rt);
+            }
+            BOUNDS.lock().unwrap().insert(key, ok);
+            ok
+        }
+        None => true,
+    }
+}
+
+fn note(rt: &Path) {
+    crate::helper::note(format_args!("{}: no memory and process bounds for containers here", rt.display()));
+}
+
+/// What a probe of `bounds_work` says: it ran (they work), it was refused for want of the
+/// controllers (they do not), or it failed some other way (not known: None). Its output is the
+/// runtime's alone: the probe runs `true`, with nothing of the user's in it.
+fn bounds_said(ran: bool, stderr: &str) -> Option<bool> {
+    if ran {
+        return Some(true);
+    }
+    let e = stderr.to_lowercase();
+    (["cgroup", "memory.max", "pids.max", "controller"].iter().any(|w| e.contains(w)) && !e.contains("image not known") && !e.contains("no such image"))
+        .then_some(false)
 }
 
 /// The last progress line of every pull under way, by image, for the apps to show.
@@ -153,7 +242,7 @@ pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) 
         if status.success() {
             Ok(())
         } else {
-            Err(t!("convert.pull_failed", "image" => image, "error" => last_err))
+            Err(t!("convert.pull_failed", "image" => short(image), "error" => last_err))
         }
     })();
     PULLING.lock().unwrap().remove(image);
@@ -180,6 +269,11 @@ fn follow(mut r: impl Read, image: &str) -> String {
     last
 }
 
+/// An image's name as texts show it: without the digest it is pinned to (`…@sha256:…`).
+pub fn short(image: &str) -> &str {
+    image.split('@').next().unwrap_or(image)
+}
+
 /// Megabytes as "2.8 GB" or "141 MB".
 fn shown(mb: u32) -> String {
     crate::i18n::digits(if mb >= 1000 {
@@ -190,12 +284,7 @@ fn shown(mb: u32) -> String {
 }
 
 fn sizes(image: &str) -> Option<(u32, u32)> {
-    let full = if image.starts_with(&format!("{}/", crate::settings::registry(image))) {
-        image.to_string()
-    } else {
-        format!("docker.io/{image}")
-    };
-    SIZES.iter().find(|s| s.0 == full).map(|s| (s.1, s.2))
+    crate::preview_tools::sizes(image)
 }
 
 /// How much `image` downloads, "2.8 GB", when it is one of the default ones.
@@ -207,9 +296,7 @@ pub fn download(image: &str) -> Option<String> {
 /// (Settings → Previews) and in Disk use. None for a name under `[preview.images]` that is no
 /// tool's.
 pub fn about(tool: &str, image: &str) -> Option<String> {
-    if !TOOLS.contains(&tool) {
-        return None;
-    }
+    crate::preview_tools::image(tool)?;
     let size = match sizes(image) {
         Some((d, disk)) => t!("image.size", "download" => shown(d), "disk" => shown(disk)),
         None => t!("image.size_unknown"),
@@ -271,6 +358,33 @@ pub fn pulled(cfg: &PreviewConfig, rt: &Path) -> Vec<String> {
     v
 }
 
+/// Copies of default images Coxswain ran in that no tool is set to now, each with the default
+/// that took its place: the same name and tag under another digest, so an older pin, or the
+/// bare tag from before it was pinned. Only defaults replace: an image of the user's own, or
+/// one they set before, is never part of it.
+pub fn superseded(cfg: &PreviewConfig, st: &AppState) -> Vec<(String, String)> {
+    let defaults = crate::preview_tools::default_images();
+    let set: Vec<&String> = cfg.images.values().filter(|i| !i.is_empty() && defaults.values().any(|d| d == *i)).collect();
+    let all: Vec<&String> = cfg.images.values().collect();
+    st.images_used
+        .keys()
+        .filter(|old| !all.contains(old))
+        .filter_map(|old| set.iter().find(|new| short(new) == short(old)).map(|new| (old.clone(), new.to_string())))
+        .collect()
+}
+
+/// Move each pin of `pairs` (`superseded`): when the runtime has the old copy, the new pin is
+/// pulled and the old copy removed by its name. The old images done with are returned, to be
+/// forgotten: those removed, and those the runtime no longer has. A pull that fails keeps the
+/// old copy for the next round.
+pub fn move_pins(rt: &Path, pairs: &[(String, String)], pull: impl Fn(&str) -> Result<(), String>) -> Vec<String> {
+    pairs
+        .iter()
+        .filter(|(old, new)| crate::tools::image_size(rt, old).is_none() || (pull(new).is_ok() && remove(rt, old).is_ok()))
+        .map(|(old, _)| old.clone())
+        .collect()
+}
+
 /// The id of the copy of `image` the runtime has.
 pub fn id(rt: &Path, image: &str) -> Option<String> {
     let out = crate::tools::command(rt)
@@ -298,6 +412,49 @@ pub fn remove(rt: &Path, what: &str) -> Result<(), String> {
         .find(|l| !l.trim().is_empty())
         .unwrap_or_default()
         .to_string())
+}
+
+/// How many bytes the runtime's images take on disk together, layers they share counted once
+/// (`system df`): podman says it in bytes, docker in rounded units ("1.2GB").
+pub fn storage(rt: &Path) -> Option<u64> {
+    let out = crate::tools::command(rt)
+        .args(["system", "df", "--format", "json"])
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    out.status.success().then(|| images_size(&String::from_utf8_lossy(&out.stdout))).flatten()
+}
+
+/// The images' row of `system df --format json`: podman's array, or docker's one object a line.
+fn images_size(said: &str) -> Option<u64> {
+    let rows: Vec<serde_json::Value> = serde_json::from_str(said)
+        .ok()
+        .or_else(|| said.lines().map(|l| serde_json::from_str(l).ok()).collect())?;
+    let row = rows.iter().find(|r| r["Type"] == "Images")?;
+    row["RawSize"].as_u64().or_else(|| units(row["Size"].as_str()?))
+}
+
+/// "1.234GB", "512.5kB", "0B": docker's sizes, in powers of 1000.
+fn units(s: &str) -> Option<u64> {
+    let at = s.find(|c: char| c.is_ascii_alphabetic())?;
+    let n: f64 = s[..at].trim().parse().ok()?;
+    let times = match s[at..].trim().to_ascii_uppercase().as_str() {
+        "B" => 1e0,
+        "KB" => 1e3,
+        "MB" => 1e6,
+        "GB" => 1e9,
+        "TB" => 1e12,
+        _ => return None,
+    };
+    Some((n * times) as u64)
+}
+
+/// Remove `image`: the bytes that freed, which are only the layers no other image uses
+/// (`storage` before and after). `None` when the runtime would not say.
+pub fn remove_freeing(rt: &Path, image: &str) -> Result<Option<u64>, String> {
+    let before = storage(rt);
+    remove(rt, image)?;
+    Ok(before.zip(storage(rt)).map(|(b, a)| b.saturating_sub(a)))
 }
 
 /// Update `image` with `pull`; when that brought a new copy, the one it replaced is removed by
@@ -340,6 +497,20 @@ fn replaced(old: Option<String>, new: Option<String>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn images_size_from_podman_and_docker() {
+        let podman = r#"[
+    {"Type":"Images","Total":6,"Active":1,"RawSize":9024242441,"Size":"9.024GB"},
+    {"Type":"Containers","Total":1,"Active":1,"RawSize":13146,"Size":"13.15kB"}
+]"#;
+        assert_eq!(images_size(podman), Some(9_024_242_441));
+        let docker = "{\"Active\":\"1\",\"Size\":\"1.234GB\",\"TotalCount\":\"6\",\"Type\":\"Images\"}\n{\"Size\":\"0B\",\"Type\":\"Containers\"}\n";
+        assert_eq!(images_size(docker), Some(1_234_000_000));
+        assert_eq!(units("512.5kB"), Some(512_500));
+        assert_eq!(units("0B"), Some(0));
+        assert_eq!(images_size("nonsense"), None);
+    }
 
     #[test]
     fn images_updates_come_weekly_or_monthly_and_never_without_containers() {
@@ -392,6 +563,57 @@ mod tests {
     }
 
     #[test]
+    fn images_defaults_are_pinned_by_digest() {
+        for (tool, image) in PreviewConfig::default().images {
+            let pinned = image.split_once('@').is_some_and(|(name, d)| name.rsplit('/').next().is_some_and(|n| n.contains(':')) && d.len() == 71 && d.starts_with("sha256:"));
+            assert!(image.is_empty() || pinned, "{tool}: {image} is not name:tag@sha256:…");
+        }
+    }
+
+    #[test]
+    fn images_an_older_pin_or_the_bare_tag_is_superseded_by_the_new_pin() {
+        let mut cfg = PreviewConfig::default();
+        let latex = cfg.images["latex"].clone();
+        let pandoc = cfg.images["pandoc"].clone();
+        let tag = short(&latex).to_string();
+        cfg.images.insert("plantuml".into(), "ghcr.io/me/plantuml:1@sha256:mine".into());
+        let mut st = AppState::default();
+        for i in [&format!("{tag}@sha256:old"), &tag, "docker.io/texlive/texlive:latest-medium", &pandoc, "ghcr.io/me/plantuml:1", "docker.io/plantuml/plantuml:latest"] {
+            used(&mut st, i, 1);
+        }
+        let mut got = superseded(&cfg, &st);
+        got.sort();
+        assert_eq!(
+            got,
+            [(tag.clone(), latex.clone()), (format!("{tag}@sha256:old"), latex)],
+            "another tag, the one in use, the user's own and a default the user replaced stay"
+        );
+    }
+
+    /// A runtime that has the images named in `has` and writes what it removes to `rm.log`.
+    #[cfg(unix)]
+    #[test]
+    fn images_move_pins_pulls_the_new_and_removes_the_old() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-test-pins-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let rt = d.join("podman");
+        std::fs::write(&rt, format!("#!/bin/sh\ncase \"$1 $2\" in\n'image inspect') grep -qxF \"$5\" {0}/has && echo 1;;\n'image rm') echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display())).unwrap();
+        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(d.join("has"), "a:1@sha256:old\nb:1\n").unwrap();
+        let pairs = [("a:1@sha256:old", "a:1@sha256:new"), ("b:1", "b:1@sha256:new"), ("c:1@sha256:gone", "c:1@sha256:new")].map(|(o, n)| (o.to_string(), n.to_string()));
+        let pulled = std::cell::RefCell::new(vec![]);
+        let done = move_pins(&rt, &pairs, |i| {
+            pulled.borrow_mut().push(i.to_string());
+            if i.starts_with("b:") { Err("offline".into()) } else { Ok(()) }
+        });
+        assert_eq!(*pulled.borrow(), ["a:1@sha256:new", "b:1@sha256:new"], "nothing pulled for a copy not there");
+        assert_eq!(done, ["a:1@sha256:old", "c:1@sha256:gone"], "a failed pull keeps the old copy");
+        assert_eq!(std::fs::read_to_string(d.join("rm.log")).unwrap(), "a:1@sha256:old\n");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
     fn images_update_round_tries_every_image() {
         // No runtime there: no id is read, so nothing is removed.
         let rt = Path::new("/nonexistent/coxswain-test-runtime");
@@ -438,6 +660,21 @@ mod tests {
     }
 
     #[test]
+    fn images_mount_folders_with_colons_commas_and_quotes() {
+        assert_eq!(bind(Path::new("/m/10:30, \"x\""), "/src", true), "type=bind,\"source=/m/10:30, \"\"x\"\"\",target=/src,readonly");
+        assert_eq!(bind(Path::new("/c"), "/out", false), "type=bind,\"source=/c\",target=/out");
+    }
+
+    #[test]
+    fn images_bounds_stay_on_unless_the_runtime_lacks_them() {
+        assert_eq!(bounds_said(true, ""), Some(true));
+        assert_eq!(bounds_said(false, "Error: crun: opening file `memory.max` for writing: No such file or directory: OCI runtime attempted to invoke a command that was not found"), Some(false));
+        assert_eq!(bounds_said(false, "Error: docker.io/apache/tika:latest: image not known"), None, "not pulled yet: unknown, bounds stay on");
+        assert_eq!(bounds_said(false, "Error: cannot connect to Podman"), None);
+        assert_eq!(bounds_said(false, ""), None);
+    }
+
+    #[test]
     fn follow_keeps_last_complete_line() {
         assert_eq!(follow("one\ntwo\rthree".as_bytes(), "t"), "two");
         assert_eq!(pulling().get("t").map(String::as_str), Some("two"));
@@ -447,25 +684,40 @@ mod tests {
     fn images_diagram_kinds_share_krokis() {
         assert_eq!(key("d2"), "kroki");
         assert_eq!(key("latex"), "latex");
-        let c = sealed("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a"), Some(Path::new("/b")));
-        let args: Vec<String> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
-        for want in ["--network=none", "/a:/src:ro", "/b:/out"] {
+        assert_eq!((key("waveform"), key("heif"), key("raw")), ("ffmpeg", "imagemagick", "imagemagick"));
+        let one = sealed_file("docker", Path::new("/nonexistent/docker"), "n", Path::new("/home/me/-x.heic"), "/src/in.heic", None);
+        let args: Vec<String> = one.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        assert!(args.iter().any(|a| a == "type=bind,\"source=/home/me/-x.heic\",target=/src/in.heic,readonly") && args.contains(&"--network=none".to_string()), "{args:?}");
+        assert!(!args.iter().any(|a| a.contains("target=/src,")), "only the one file");
+        for want in ["--rm", "--network=none", "--read-only", "/tmp:rw,size=1g", "--memory=3g", "--pids-limit=256", "--cap-drop=ALL", "no-new-privileges"] {
             assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
         }
+        assert_eq!(args.iter().filter(|a| a.starts_with("type=bind") && !a.ends_with(",readonly")).count(), 0, "no writable mount without an output folder");
+        let c = sealed("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a"), Some(Path::new("/b")));
+        let args: Vec<String> = c.get_args().map(|a| a.to_string_lossy().into_owned()).collect();
+        for want in ["--network=none", "type=bind,\"source=/a\",target=/src,readonly", "type=bind,\"source=/b\",target=/out", "--read-only", "--cap-drop=ALL", "no-new-privileges", "HOME=/tmp"] {
+            assert!(args.iter().any(|a| a == want), "{want}: {args:?}");
+        }
+        // Once: docker refuses a second `--tmpfs /tmp`.
+        for one in ["--tmpfs", "--read-only", "--cap-drop=ALL"] {
+            assert_eq!(args.iter().filter(|a| *a == one).count(), 1, "{one}: {args:?}");
+        }
+        let file = sealed_file("docker", Path::new("/nonexistent/docker"), "n", Path::new("/a/x"), "/src/x", None);
+        assert_eq!(file.get_args().filter(|a| *a == "--tmpfs").count(), 1);
         assert_eq!(user(true, Path::new("/")), ["--user", "0:0"], "rootless podman: you are its root");
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
             let tmp = std::env::temp_dir();
             let m = std::fs::metadata(&tmp).unwrap();
-            assert_eq!(user(false, &tmp), ["--user".to_string(), format!("{}:{}", m.uid(), m.gid()), "-e".into(), "HOME=/tmp".into()], "rootful: the folder's owner");
+            assert_eq!(user(false, &tmp), ["--user".to_string(), format!("{}:{}", m.uid(), m.gid())], "rootful: the folder's owner");
         }
     }
 
     #[test]
     fn images_are_explained_with_their_sizes() {
         crate::i18n::set_language("en-GB");
-        let about = about("latex", "docker.io/texlive/texlive:latest").unwrap();
+        let about = about("latex", short(&PreviewConfig::default().images["latex"])).unwrap();
         assert!(
             about.contains("2.8 GB to download, 5.9 GB on disk"),
             "{about}"
@@ -481,7 +733,7 @@ mod tests {
                 .contains(&t!("image.size_unknown"))
         );
         assert_eq!(super::about("other", "x"), None);
-        for tool in TOOLS {
+        for tool in crate::preview_tools::IMAGES.iter().map(|i| i.key) {
             assert!(
                 !super::about(tool, "").unwrap().contains("image."),
                 "{tool}: every text is there"
