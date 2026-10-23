@@ -1,40 +1,16 @@
 name: FreeBSD
 
 # Both apps on FreeBSD, in a virtual machine: the core's and the terminal app's tests, and the
-# desktop app built and its tests run. Every push to master;
+# desktop app built and its tests run. Nightly when master changed, and in every release;
 # pull requests only for this system's code (paths below).
 on:
-  workflow_call: # from release.yml, for every push to master
+  workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
   pull_request:
-    # Pull requests run the machine only for code with branches for this system;
-    # every push to master runs it as part of the Release run (CLAUDE.md, Shipping).
+    # Pull requests run this system only when its own packaging or workflow changes; every
+    # other change is tested on it nightly and in every Release run (CLAUDE.md, Shipping).
     paths:
-      - "crates/coxswain-core/src/lib.rs"
-      - "crates/coxswain-core/src/machine.rs"
-      - "crates/coxswain-core/src/kq.rs"
-      - "crates/coxswain-core/src/ports.rs"
-      - "crates/coxswain-core/src/bsd.rs"
-      - "crates/coxswain-core/src/zfs.rs"
-      - "crates/coxswain-core/src/flags.rs"
-      - "crates/coxswain-core/src/service.rs"
-      - "crates/coxswain-core/src/fs.rs"
-      - "crates/coxswain-core/src/helper.rs"
-      - "crates/coxswain-core/src/index.rs"
-      - "crates/coxswain-core/src/tools.rs"
-      - "crates/coxswain-core/src/update.rs"
-      - "crates/coxswain-core/src/cloud.rs"
-      - "crates/coxswain-core/src/clouds.rs"
-      - "crates/coxswain-core/src/setup.rs"
-      - "crates/coxswain-core/src/menu.rs"
-      - "crates/coxswain-core/src/config.rs"
-      - "crates/coxswain-core/tests/zfs.rs"
-      - "**/Cargo.toml"
-      - "Cargo.lock"
-      - "gui/src-tauri/src/main.rs"
-      - "install/**"
       - "packaging/freebsd/**"
       - ".github/workflows/freebsd.yml"
-      - ".github/actions/apt-install/**"
   # The port, built and checked by hand on each supported release (packaging/freebsd/README.md).
   workflow_dispatch:
     inputs:
@@ -53,7 +29,7 @@ concurrency:
 
 jobs:
   test:
-    if: github.event_name != 'workflow_dispatch' || github.workflow != 'FreeBSD'
+    if: ${{ (github.event_name != 'workflow_dispatch' || github.workflow != 'FreeBSD') && !startsWith(github.head_ref, 'release/') }}
     name: FreeBSD ${{ matrix.release }}
     strategy:
       fail-fast: false

@@ -37,7 +37,7 @@ fn within<T: Send + 'static>(
 pub fn places() -> Vec<Place> {
     let mut found: Vec<(String, PathBuf)> = Vec::new();
     #[cfg(target_os = "macos")]
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = crate::dirs::home_dir() {
         found.extend(cloud_storage(&home.join("Library/CloudStorage")));
         let icloud = home.join("Library/Mobile Documents/com~apple~CloudDocs");
         if icloud.is_dir() {
@@ -59,7 +59,7 @@ pub fn places() -> Vec<Place> {
         (m.mount, fstype, m.device)
     })));
     found.extend(gvfs());
-    if let Some(dir) = dirs::preference_dir() {
+    if let Some(dir) = crate::dirs::preference_dir() {
         for (app, cfg) in [("Nextcloud", "nextcloud.cfg"), ("ownCloud", "owncloud.cfg")] {
             if let Ok(text) = std::fs::read_to_string(dir.join(app).join(cfg)) {
                 found.extend(sync_folders(app, &text));
@@ -82,7 +82,7 @@ pub fn places() -> Vec<Place> {
             });
         }
     }
-    v.sort_by_key(|p| p.name.to_lowercase());
+    v.sort_by_cached_key(|p| crate::collate::key(&p.name));
     v
 }
 
@@ -228,11 +228,11 @@ fn sync_folders(app: &str, cfg: &str) -> Vec<(String, PathBuf)> {
 /// Where the Dropbox app says which folders it keeps.
 fn dropbox_files() -> Vec<PathBuf> {
     let mut v = vec![];
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = crate::dirs::home_dir() {
         v.push(home.join(".dropbox/info.json"));
     }
     #[cfg(windows)]
-    v.extend([dirs::config_dir(), dirs::data_local_dir()].into_iter().flatten().map(|d| d.join("Dropbox\\info.json")));
+    v.extend([crate::dirs::config_dir(), crate::dirs::data_local_dir()].into_iter().flatten().map(|d| d.join("Dropbox\\info.json")));
     v
 }
 

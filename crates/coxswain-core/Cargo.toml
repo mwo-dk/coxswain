@@ -10,6 +10,11 @@ keywords.workspace = true
 categories.workspace = true
 description = "The shared core of Coxswain, the two-panel file manager: file operations with undo, archives, previews and text from documents, search by name, text and meaning, git, ZFS, config, themes and translations"
 
+[features]
+# For the apps' tests only (their dev-dependency turns it on): the home, config, data and
+# cache folders lie in the temporary folder, never the developer's own (`dirs`).
+test-home = []
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "1"
@@ -33,6 +38,8 @@ quick-xml = "0.42.0"
 mail-parser = "0.11.9"
 encoding_rs = "0.8.42"
 pdf-extract = "0.12.1"
+# The length of a song or a recording, for the hours Transcribe asks about (pure Rust).
+lofty = "0.25.4"
 candle-core = "0.11.0"
 candle-nn = "0.11.0"
 candle-transformers = "0.11.0"
@@ -59,14 +66,24 @@ sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
 parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
 cozy-chess = "0.3.4"
+# Names sort by the language's alphabet: ICU4X's collator, pure Rust, with the tables of only
+# Coxswain's languages baked in (`src/collate/data`, made by tools/collation-data.sh).
+icu_collator = { version = "2.3.1", default-features = false }
+icu_collections = "2.3"
+icu_locale = { version = "2.3", default-features = false, features = ["compiled_data"] }
+icu_normalizer = "2.3"
+icu_provider = { version = "2.3", features = ["baked"] }
+zerovec = "0.11"
+# Compare files (`compare`): patience diffs of line hashes and of the words in a changed line.
+similar = "3.2.0"
 
 # Old pictures (`pictures`), all pure Rust: TIFF with its pages, TGA, Netpbm, DDS, Radiance HDR,
 # OpenEXR, QOI and farbfeld through `image`, written out as PNG for the desktop app's preview.
-image = { version = "0.25.10", default-features = false, features = ["tiff", "tga", "pnm", "dds", "hdr", "exr", "qoi", "ff", "png"] }
+image = { version = "0.25.10", default-features = false, features = ["tiff", "tga", "pnm", "dds", "hdr", "exr", "qoi", "ff", "png", "jpeg", "gif", "webp", "bmp"] }
 # JPEG XL, in pure Rust; no colour management library (lcms2 is C).
 jxl-oxide = { version = "0.12.6", default-features = false, features = ["image", "rayon"] }
 # Outlook's `.msg` is a compound file (OLE); the version tauri's `infer` already brings.
-cfb = "0.14.0"
+cfb = "0.15"
 
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [target.'cfg(unix)'.dependencies]

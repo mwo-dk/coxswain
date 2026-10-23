@@ -1,8 +1,9 @@
 # Maintainer: Michael W. Olesen <michael.w.olesen@gmail.com>
 # Kept in https://github.com/mwo-dk/coxswain/tree/master/packaging/aur; the release workflow
-# bumps pkgver and pushes it to the AUR.
+# writes the released version into pkgver and pushes it to the AUR. In a clone, pkgver is the
+# version of the clone's Cargo.toml, so `makepkg -si` here fetches that release.
 pkgname=coxswain-bin
-pkgver=1.0.0
+pkgver=$(sed -n '/^version = /{s/^version = "\(.*\)"$/\1/p;q;}' "${startdir:-.}/../../../Cargo.toml")
 pkgrel=1
 pkgdesc='Two-pane file manager in the Norton Commander tradition, with git status and instant search (prebuilt)'
 arch=('x86_64' 'aarch64')
@@ -13,6 +14,8 @@ optdepends=('git: git status in the panels'
             'ttf-nerd-fonts-symbols-mono: file icons and git glyphs'
             'gst-plugins-good: video and sound in the preview'
             'xdg-utils: open files with their default application')
+# The release's binaries as they are: no -debug package of them is left behind.
+options=('!debug')
 provides=('coxswain')
 conflicts=('coxswain')
 _rel="$url/releases/download/v$pkgver"

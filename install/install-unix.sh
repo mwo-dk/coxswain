@@ -30,8 +30,8 @@ FROM=
 UNINSTALL=0
 
 usage() {
-  if [ -f "$0" ]; then sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
-  else echo "See https://github.com/$REPO/blob/master/docs/reference/README.md"; fi
+  if [ -f "$0" ]; then sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  else echo "See https://github.com/$REPO/blob/master/docs/systems/README.md"; fi
 }
 
 while [ $# -gt 0 ]; do
@@ -89,9 +89,8 @@ case "$OS" in
     SYS=netbsd NAME="NetBSD $(uname -r)" MAN=man
     PKG_INSTALL="pkgin -y install" PKG_HINT="pkgin install"
     SERVICE=coxswain_index SERVICE_AT=/etc/rc.d/coxswain_index
-    # No desktop build for NetBSD yet: webkit-gtk41's binary packages miss dependencies.
-    DESKTOP_PKGS=""
-    GOOD_PKGS=""
+    DESKTOP_PKGS="webkit-gtk41"
+    GOOD_PKGS="xdg-utils gst-plugins1-good nerd-fonts-Symbols"
     OPTIONAL="tesseract poppler-utils libreoffice"
     installed() { pkg_info -q -e "$1" 2>/dev/null; }
     ;;
@@ -100,7 +99,7 @@ case "$OS" in
     PKG_INSTALL="pkg_add" PKG_HINT="pkg_add"
     SERVICE=coxswain_index SERVICE_AT=/etc/rc.d/coxswain_index
     DESKTOP_PKGS="webkitgtk41"
-    GOOD_PKGS="xdg-utils gst-plugins-good"
+    GOOD_PKGS="xdg-utils gst-plugins-good symbolsonly-nerd-fonts"
     OPTIONAL="tesseract poppler-utils libreoffice"
     installed() { pkg_info -q -e "$1-*" 2>/dev/null; }
     ;;
@@ -154,6 +153,13 @@ put() {
   fi
 }
 
+# OpenBSD's man(1) warns about a manual its mandoc.db does not list, and apropos(1) misses it:
+# the database of the prefix's manuals is made again where there is one (never a reason to stop).
+index_man() {
+  [ -f "$PREFIX/$MAN/mandoc.db" ] && have makewhatis || return 0
+  if [ -w "$PREFIX/$MAN" ]; then makewhatis "$PREFIX/$MAN"; else as_root makewhatis "$PREFIX/$MAN"; fi >/dev/null 2>&1 || true
+}
+
 if [ "$UNINSTALL" = 1 ]; then
   bold "Removing Coxswain from $PREFIX"
   put rm -f "$PREFIX/bin/coxswain" "$PREFIX/bin/cox" "$PREFIX/bin/coxswain-gui" \
@@ -169,7 +175,8 @@ if [ "$UNINSTALL" = 1 ]; then
     esac
     as_root rm -f "$SERVICE_AT"
   fi
-  rm -f "$HOME/.config/autostart/coxswain-index.desktop"
+  index_man
+  rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/autostart/coxswain-index.desktop"
   info "Your settings and the search store stay: ~/.config/coxswain and ~/.cache/coxswain."
   info "Remove them too with: rm -rf ~/.config/coxswain ~/.local/share/coxswain ~/.cache/coxswain"
   exit 0
@@ -244,6 +251,7 @@ if [ -f "$T/coxswain.1" ]; then
   put cp "$T/coxswain.1" "$PREFIX/$MAN/man1/coxswain.1"
   put chmod 644 "$PREFIX/$MAN/man1/coxswain.1"
   put ln -sf coxswain.1 "$PREFIX/$MAN/man1/cox.1"
+  index_man
 fi
 info "Terminal app: $PREFIX/bin/coxswain (and cox), manual: man coxswain"
 
@@ -271,7 +279,7 @@ if [ "$TERMINAL_ONLY" = 0 ] && [ -n "$DESKTOP_PKGS" ]; then
   echo
   bold "The desktop app (experimental on $OS)"
   info "It draws its window with WebKitGTK. From packages it needs: $DESKTOP_PKGS"
-  info "and for opening files and playing video and sound: $GOOD_PKGS"
+  info "and, recommended (opening files, video and sound, icons): $GOOD_PKGS"
   # shellcheck disable=SC2086
   LACK=$(missing $DESKTOP_PKGS $GOOD_PKGS)
   if [ -n "$LACK" ]; then
@@ -328,4 +336,4 @@ case ":$PATH:" in
 esac
 info "Start the terminal app with: coxswain    (or cox)"
 [ -x "$PREFIX/bin/coxswain-gui" ] && info "Start the desktop app with: coxswain-gui, or Coxswain in the menu"
-info "Update later by running this script again. Guide: https://github.com/$REPO/blob/master/docs/reference/$SYS.md"
+info "Update later by running this script again. Guide: https://github.com/$REPO/blob/master/docs/systems/$SYS.md"

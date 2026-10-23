@@ -13,14 +13,17 @@ export LC_ALL=C
 tag="$1" v="${1#v}"
 [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Not a release tag: $tag"; exit 1; }
 
+desktop() { for f in "$@"; do echo "$f" "$f.sha256"; done; }
+
 expected() {
-  # desktop: tauri-action, one line per matrix entry
-  echo "Coxswain_${v}_amd64.deb" "Coxswain_${v}_amd64.AppImage" "Coxswain-${v}-1.x86_64.rpm"          # ubuntu-22.04
-  echo "Coxswain_${v}_arm64.deb" "Coxswain_${v}_aarch64.AppImage" "Coxswain-${v}-1.aarch64.rpm"       # ubuntu-22.04-arm
-  echo "Coxswain_${v}_aarch64.dmg" "Coxswain_${v}_aarch64.app.tar.gz"                                 # macOS, aarch64
-  echo "Coxswain_${v}_x64.dmg" "Coxswain_${v}_x64.app.tar.gz"                                         # macOS, x86_64
-  echo "Coxswain_${v}_x64-setup.exe" "Coxswain_${v}_x64_en-US.msi"                                    # windows-latest
-  echo "Coxswain_${v}_arm64-setup.exe" "Coxswain_${v}_arm64_en-US.msi"                                # windows-11-arm
+  # desktop: tauri-action, one line per matrix entry, each installer with its .sha256 (verify
+  # writes those)
+  desktop "Coxswain_${v}_amd64.deb" "Coxswain_${v}_amd64.AppImage" "Coxswain-${v}-1.x86_64.rpm"          # ubuntu-22.04
+  desktop "Coxswain_${v}_arm64.deb" "Coxswain_${v}_aarch64.AppImage" "Coxswain-${v}-1.aarch64.rpm"       # ubuntu-22.04-arm
+  desktop "Coxswain_${v}_aarch64.dmg" "Coxswain_${v}_aarch64.app.tar.gz"                                 # macOS, aarch64
+  desktop "Coxswain_${v}_x64.dmg" "Coxswain_${v}_x64.app.tar.gz"                                         # macOS, x86_64
+  desktop "Coxswain_${v}_x64-setup.exe" "Coxswain_${v}_x64_en-US.msi"                                    # windows-latest
+  desktop "Coxswain_${v}_arm64-setup.exe" "Coxswain_${v}_arm64_en-US.msi"                                # windows-11-arm
   # terminal, freebsd and other-unix: the terminal app, each archive with its .sha256
   for t in x86_64-unknown-freebsd x86_64-unknown-netbsd x86_64-unknown-openbsd x86_64-unknown-illumos \
     x86_64-unknown-linux-musl aarch64-unknown-linux-musl aarch64-apple-darwin x86_64-apple-darwin; do
@@ -29,8 +32,8 @@ expected() {
   for t in x86_64-pc-windows-msvc aarch64-pc-windows-msvc; do
     echo "coxswain-terminal-$tag-$t.zip" "coxswain-terminal-$tag-$t.zip.sha256"
   done
-  # freebsd and other-unix (OpenBSD): the desktop app
-  for t in x86_64-unknown-freebsd x86_64-unknown-openbsd; do
+  # freebsd and other-unix (NetBSD, OpenBSD): the desktop app
+  for t in x86_64-unknown-freebsd x86_64-unknown-netbsd x86_64-unknown-openbsd; do
     echo "coxswain-desktop-$tag-$t.tar.gz" "coxswain-desktop-$tag-$t.tar.gz.sha256"
   done
   # boms
