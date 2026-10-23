@@ -637,6 +637,9 @@ impl Compare {
     /// disk since it was read is not written unless `force`. A side written is no longer as it
     /// was read: the apps compare the two files again after a save.
     pub fn save(&mut self, force: bool) -> Result<(), SaveError> {
+        // Both sides' texts first: a side written is read from no more, and the other may take
+        // lines from it (changes copied both ways).
+        let mut texts = [None, None];
         for side in 0..2 {
             if !self.dirty[side] {
                 continue;
@@ -646,6 +649,14 @@ impl Compare {
                 return Err(SaveError::Changed);
             }
             let text = self.text(side)?;
+            // A letter the side's encoding has not (copied from a UTF-8 side) fails here, before
+            // the other side is written.
+            crate::edit::encode(&text, l.encoding, l.crlf).map_err(SaveError::Unencodable)?;
+            texts[side] = Some(text);
+        }
+        for (side, text) in texts.into_iter().enumerate() {
+            let Some(text) = text else { continue };
+            let l = &self.sides[side];
             crate::edit::save(&self.paths[side], &text, l.encoding, l.crlf, if force { None } else { l.stamp.as_ref() })?;
             self.dirty[side] = false;
         }
@@ -769,6 +780,32 @@ mod tests {
         assert_eq!(c.save(false), Err(SaveError::Changed));
         c.save(true).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a\n");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn changes_copied_both_ways_are_both_saved() {
+        let (mut c, d) = compare("a\nsame\nx\n", "b\nsame\ny\n", Options::default());
+        assert!(c.take(0, 0), "a over b");
+        assert!(c.take(1, 1), "y over x");
+        c.save(false).unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "a\nsame\ny\n");
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a\nsame\ny\n");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_side_that_cannot_be_written_leaves_the_other_unwritten_too() {
+        let d = super::super::tests::tempfile_dir("unencodable");
+        let (pa, pb) = (d.join("a.txt"), d.join("b.txt"));
+        std::fs::write(&pa, "日\nsame\nx\n").unwrap();
+        // Windows-1252, which has no 日.
+        std::fs::write(&pb, b"caf\xe9\nsame\ny\n").unwrap();
+        let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
+        assert!(c.take(0, 0), "日 over café");
+        assert!(c.take(1, 1), "y over x");
+        assert!(matches!(c.save(false), Err(SaveError::Unencodable('日'))));
+        assert_eq!(std::fs::read_to_string(&pa).unwrap(), "日\nsame\nx\n", "the left side is not written either");
         std::fs::remove_dir_all(d).unwrap();
     }
 }

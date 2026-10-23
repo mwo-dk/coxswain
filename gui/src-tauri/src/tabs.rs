@@ -155,6 +155,18 @@ impl List {
         }
     }
 
+    /// Sorted again as the page's listing number `generation`; refused when a later listing
+    /// came first, whose rows the page holds as they came: sorting it would move other entries
+    /// under the rows it marks by number.
+    fn sort_as(&mut self, generation: u64, sort: SortKey, reverse: bool, measured: &HashMap<PathBuf, u64>) -> Res<()> {
+        if self.generation > generation {
+            return Err(STALE.into());
+        }
+        self.sort(sort, reverse, measured);
+        self.generation = generation;
+        Ok(())
+    }
+
     fn mark(&mut self, op: MarkOp) {
         let toggle = |marked: &mut HashSet<PathBuf>, e: &Entry| {
             if !marked.remove(&e.path) {
@@ -269,11 +281,10 @@ pub fn tab_rows(tab: u64, generation: u64, from: usize, to: usize, ctx: tauri::S
 pub fn tab_sort(tab: u64, generation: u64, sort: SortKey, reverse: bool, measured: HashMap<PathBuf, u64>, cursor: usize, span: usize, ctx: tauri::State<Ctx>, tabs: tauri::State<Tabs>) -> Res<TabListing> {
     let (mut answer, marks) = tabs.with(tab, |l| {
         let at = l.entries.get(cursor).map(|e| e.path.clone());
-        l.sort(sort, reverse, &measured);
-        l.generation = l.generation.max(generation);
+        l.sort_as(generation, sort, reverse, &measured)?;
         let cursor = at.and_then(|p| l.entries.iter().position(|e| e.path == p)).unwrap_or(0);
-        (TabListing { meta: None, total: l.entries.len(), up: l.up(), oci: l.oci(), cursor, rows: l.around(cursor, span, &ctx), marks: Marks::default() }, l.marks())
-    })?;
+        Ok::<_, String>((TabListing { meta: None, total: l.entries.len(), up: l.up(), oci: l.oci(), cursor, rows: l.around(cursor, span, &ctx), marks: Marks::default() }, l.marks()))
+    })??;
     answer.marks = marks.done();
     Ok(answer)
 }
@@ -385,5 +396,15 @@ mod tests {
         assert_eq!(l.find(&a.to_string_lossy()), Some(2), "by path, with the system's separator");
         l.sort(SortKey::Name, false, &HashMap::new());
         assert_eq!(l.find("a"), Some(1), "`..` stays first");
+    }
+
+    #[test]
+    fn a_sort_asked_before_a_later_listing_leaves_that_listing_as_it_came() {
+        let mut l = list(&[("..", true), ("b", false), ("a", false)]);
+        l.generation = 7;
+        assert_eq!(l.sort_as(6, SortKey::Name, false, &HashMap::new()), Err(STALE.to_string()));
+        assert_eq!(l.find("b"), Some(1), "not sorted");
+        l.sort_as(8, SortKey::Name, false, &HashMap::new()).unwrap();
+        assert_eq!((l.find("a"), l.generation), (Some(1), 8));
     }
 }

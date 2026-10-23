@@ -40,7 +40,8 @@ against `name.sha256`. Both apps; nothing else needs to be installed.
    `sha256sum` reads, and the status line says *Split into 14 parts, with installer.iso.sha256*.
 
 The file itself stays as it was. Parts are numbered with three digits (`.001` to `.999`), more
-when there are more.
+when there are more. A size that would make more than 100,000 parts (`1` is one byte, not 1 GB)
+is refused with *Type a size such as 250M or 1.5G*, before anything is written.
 
 ## Joining the parts
 

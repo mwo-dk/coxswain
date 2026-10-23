@@ -385,7 +385,8 @@ export async function sortTab(t) {
     t.items.reset(r, generation);
     t.cursor = r.cursor;
   } catch (e) {
-    ui.status = String(e);
+    // A later listing of the tab came first: it is the one shown.
+    if (String(e) !== STALE) ui.status = String(e);
   }
 }
 

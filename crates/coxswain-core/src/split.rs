@@ -93,15 +93,24 @@ fn hex(h: sha2::Sha256) -> String {
     h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// The most parts a file is split into.
+const MOST_PARTS: u64 = 100_000;
+
 /// Cut `file` into parts of `size` bytes beside it, and write `file.sha256` of the whole. Refused
-/// when a part's name or the list's is taken, or the file fits in one part. A stopped or failed
-/// split removes what it made.
+/// when a part's name or the list's is taken, the file fits in one part, or it would take more
+/// than `MOST_PARTS`. A stopped or failed split removes what it made.
 pub fn split(file: &Path, size: u64, stop: &AtomicBool, mut at: impl FnMut(&Progress)) -> io::Result<Split> {
     let len = fs::metadata(file)?.len();
     if size == 0 || len <= size {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("split.too_small", "size" => crate::settings::human(len))));
     }
-    let n = len.div_ceil(size) as usize;
+    let n = len.div_ceil(size);
+    // A size typed without its unit ("1" for a byte): billions of parts, a list that would not
+    // fit in memory and a folder of tiny files. More than this is no split anyone meant.
+    if n > MOST_PARTS {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("split.size_bad")));
+    }
+    let n = n as usize;
     let digits = n.to_string().len().max(3);
     let parts: Vec<PathBuf> = (1..=n).map(|i| part(file, i, digits)).collect();
     let mut sums_name = file.file_name().unwrap_or_default().to_os_string();
@@ -242,6 +251,9 @@ mod tests {
         assert!(join(&s.parts[0], true, &yes, |_| {}).is_err());
         assert_eq!(fs::read(&f).unwrap(), before);
         assert!(split(&g, 10 * MB, &no, |_| {}).is_err(), "it fits in one part");
+        // A byte a part (a size typed without its unit): refused before anything is written.
+        assert_eq!(split(&g, 1, &no, |_| {}).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(fs::read_dir(&*d).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().starts_with("other")).count(), 1);
     }
 
     #[test]
