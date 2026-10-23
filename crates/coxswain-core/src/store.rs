@@ -4,7 +4,8 @@
 //! It also knows every file's size, and the total of each folder it leaves out, so a folder's
 //! size is a sum; and the content hash of files that share a size, for the duplicate finder.
 //!
-//! It is a cache: a store from another version is thrown away and filled again.
+//! It is a cache: a store from an older version is thrown away and filled again; one from a
+//! newer version is left alone.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -235,7 +236,16 @@ impl Store {
         let _ = std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600));
         db.pragma_update(None, "journal_mode", "WAL")?;
         db.pragma_update(None, "synchronous", "NORMAL")?;
-        if db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))? != VERSION {
+        let version = db.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0))?;
+        // A newer Coxswain made this store: an older one never throws it away, it leaves it
+        // alone, so going back to the newer version finds everything it had read.
+        if version > VERSION {
+            return Err(rusqlite::Error::SqliteFailure(
+                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+                Some(format!("made by a newer Coxswain (store version {version}, this one reads {VERSION}): kept as it is; update Coxswain to search inside files")),
+            ));
+        }
+        if version != VERSION {
             db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS errors; DROP TABLE IF EXISTS positions;")?;
             db.pragma_update(None, "user_version", VERSION)?;
         }
@@ -3454,7 +3464,7 @@ mod tests {
         store.clear().unwrap();
         assert_eq!((store.texts(), store.size(&home)), (0, None));
 
-        // The store of another version is filled afresh.
+        // The store of a newer version is left as it is: refused, not thrown away.
         drop(store);
         let old = Connection::open(d.join("search.db")).unwrap();
         old.execute_batch(
@@ -3464,6 +3474,22 @@ mod tests {
         old.pragma_update(None, "user_version", VERSION + 1)
             .unwrap();
         drop(old);
+        let err = Store::open(&d.join("search.db")).err().expect("a newer store is refused");
+        assert!(err.to_string().contains("newer Coxswain"), "{err}");
+        let newer = Connection::open(d.join("search.db")).unwrap();
+        assert_eq!(
+            (
+                newer.pragma_query_value(None, "user_version", |r| r.get::<_, i32>(0)).unwrap(),
+                newer.query_row("SELECT count(*) FROM errors", [], |r| r.get::<_, i64>(0)).unwrap(),
+                newer.query_row("SELECT count(*) FROM chunks", [], |r| r.get::<_, i64>(0)).unwrap(),
+            ),
+            (VERSION + 1, 1, 1),
+            "the newer store keeps its version and its rows"
+        );
+
+        // The store of an older version is filled afresh.
+        newer.pragma_update(None, "user_version", VERSION - 1).unwrap();
+        drop(newer);
         let store = Store::open(&d.join("search.db")).unwrap();
         assert_eq!(store.texts(), 0);
         let rows = |t: &str| {
