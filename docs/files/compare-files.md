@@ -82,7 +82,11 @@ no longer counted, and the status line says *Copied to the other side: F2 saves,
 **F2** writes each side that was changed (both, when changes went both ways), as the [built-in editor](../commands/editor.md) does:
 in its own encoding and line endings, through a file beside it, keeping its permissions. A side
 that changed on the disk since it was read is not written over without asking: *Save over it*
-(**o** in the terminal app) or go back. Closing with copies not saved asks *Save the changes?*.
+(**o** in the terminal app) or go back. From the first copy on, both files are held as they were
+read, so saving one never needs the other as it is now: the side copied from may change on the
+disk, or go, and the side asked for is still written with the lines copied. A side that changed
+on the disk before a copy is not copied from or into: the status line says *A file changed on the
+disk since it was read*; close and compare again. Closing with copies not saved asks *Save the changes?*.
 
 Only text files of at most 16 MB can be changed; a document, a bigger file or a read-only one
 says *That side cannot be changed here*.
@@ -156,6 +160,13 @@ For anything else, open the file in the [built-in editor](../commands/editor.md)
 
 That side is a document (compared by its text, never written), a file over 16 MB, or one read
 only partly (over 10 million lines). The status line says *That side cannot be changed here*.
+
+#### The other file changed while I was copying. Is anything lost?
+
+No. The lines copied were taken when you copied them, so **F2** writes the side you changed with
+them, whatever the other file holds now, and leaves that file as it is. Only the side being
+written is checked: when it changed on the disk itself, *Save over it* (**o**) writes your
+version over it.
 
 #### Does it work inside archives and git histories?
 

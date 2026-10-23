@@ -290,8 +290,7 @@ impl Viewer {
                 if let Some(Done::Text(c)) = &mut *done {
                     let said = match c.hunk_at(view, self.cur) {
                         None => t!("compare.not_a_change"),
-                        Some(h) if !c.take(h, from) => t!("compare.read_only"),
-                        Some(_) => t!("compare.copied"),
+                        Some(h) => c.take(h, from).map_or_else(|why| why, |()| t!("compare.copied")),
                     };
                     self.said = Some(said);
                 }

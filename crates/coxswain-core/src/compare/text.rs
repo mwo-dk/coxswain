@@ -60,6 +60,9 @@ enum Source {
     File(PathBuf),
     /// A document's text, or a UTF-16 file's, as UTF-8.
     Text(String),
+    /// A file's bytes as they were read, held once a change is copied to or from it: saving
+    /// takes its lines from here, however the file changes on the disk after.
+    Held(Vec<u8>),
 }
 
 /// One side, read.
@@ -90,6 +93,7 @@ impl Lines {
         let (s, e) = (self.starts[a], self.starts[b]);
         match &self.source {
             Source::Text(t) => Ok(t.as_bytes()[s as usize..e as usize].to_vec()),
+            Source::Held(b) => Ok(b[s as usize..e as usize].to_vec()),
             Source::File(p) => {
                 let mut f = std::fs::File::open(p)?;
                 f.seek(SeekFrom::Start(s))?;
@@ -100,10 +104,31 @@ impl Lines {
         }
     }
 
+    /// The file held as it was read; false when it changed on the disk since. One over
+    /// `edit::MOST` stays on the disk.
+    // ponytail: a side that large is only ever copied from (it cannot be changed here); one
+    // that changed after the copy makes saving the other side fail, as it did before.
+    fn hold(&mut self, path: &Path) -> bool {
+        let Source::File(_) = &self.source else { return true };
+        let unchanged = || self.stamp.is_some_and(|st| !crate::edit::changed(path, &st));
+        if std::fs::metadata(path).is_ok_and(|m| m.len() > crate::edit::MOST) {
+            return true;
+        }
+        if !unchanged() {
+            return false;
+        }
+        let Ok(bytes) = std::fs::read(path) else { return false };
+        if !unchanged() || (bytes.len() as u64) < self.starts.last().copied().unwrap_or(0) {
+            return false;
+        }
+        self.source = Source::Held(bytes);
+        true
+    }
+
     /// One line's bytes as text with nothing lost: strict UTF-8, or Windows-1252 byte for byte.
     fn decode(&self, line: &[u8]) -> Option<String> {
         match (&self.source, self.encoding) {
-            (Source::File(_), Encoding::Windows1252) => Some(crate::view::cp1252(line)),
+            (Source::File(_) | Source::Held(_), Encoding::Windows1252) => Some(crate::view::cp1252(line)),
             _ => String::from_utf8(line.to_vec()).ok(),
         }
     }
@@ -122,6 +147,7 @@ impl Lines {
         };
         match &self.source {
             Source::Text(t) => (a..b).map(|i| span(i)).map(|(s, e)| tidy(&t.as_bytes()[s as usize..e as usize])).collect(),
+            Source::Held(h) => (a..b).map(|i| span(i)).map(|(s, e)| tidy(&h[s as usize..e as usize])).collect(),
             Source::File(p) => {
                 let Ok(mut f) = std::fs::File::open(p) else { return vec![String::new(); b - a] };
                 let mut out = Vec::with_capacity(b - a);
@@ -576,19 +602,24 @@ impl Compare {
         s.hunk.filter(|_| s.taken.is_none())
     }
 
-    /// The change `hunk` copied from side `from` to the other; false when that side cannot be
-    /// changed.
-    pub fn take(&mut self, hunk: usize, from: Side) -> bool {
+    /// The change `hunk` copied from side `from` to the other; what to say when it cannot be:
+    /// that side cannot be changed, or a side changed on the disk since it was read. Both sides
+    /// are held as they were read from then on, so saving needs neither file as it is now.
+    pub fn take(&mut self, hunk: usize, from: Side) -> Result<(), String> {
         let to = from ^ 1;
-        if !self.editable[to] {
-            return false;
+        let Some(k) = self.segs.iter().position(|s| s.hunk == Some(hunk) && s.taken.is_none()).filter(|_| self.editable[to]) else {
+            return Err(crate::t!("compare.read_only"));
+        };
+        for side in [to, from] {
+            if !self.sides[side].hold(&self.paths[side]) {
+                return Err(crate::t!("compare.ask_changed_gui"));
+            }
         }
-        let Some(k) = self.segs.iter().position(|s| s.hunk == Some(hunk) && s.taken.is_none()) else { return false };
         self.segs[k].taken = Some(from);
         self.taken.push(k);
         self.dirty[to] = true;
         self.count();
-        true
+        Ok(())
     }
 
     /// The last change copied, put back; its first row.
@@ -601,8 +632,8 @@ impl Compare {
     }
 
     /// The text side `side` has now, from the whole bytes of each line (never the cut, shown
-    /// ones); an error when a side it takes lines from cannot be read as it was, or changed on
-    /// the disk since (where its lines start is known no more).
+    /// ones); an error when a side it takes lines from cannot be read as it was, or is still on
+    /// the disk and changed there since (where its lines start is known no more).
     fn text(&self, side: Side) -> Result<String, SaveError> {
         let mut text = String::new();
         let mut eol = self.sides[side].eol_at_end;
@@ -613,7 +644,8 @@ impl Compare {
                 continue;
             }
             let l = &self.sides[from];
-            if from != side && l.stamp.is_some_and(|st| crate::edit::changed(&self.paths[from], &st)) {
+            // A side held is read as it was; one still on the disk only while unchanged.
+            if matches!(l.source, Source::File(_)) && l.stamp.is_some_and(|st| crate::edit::changed(&self.paths[from], &st)) {
                 return Err(SaveError::Io(crate::t!("compare.cannot_save")));
             }
             let raw = l.raw(a, b).map_err(|e| SaveError::Io(e.to_string()))?;
@@ -722,18 +754,18 @@ mod tests {
         let (mut c, d) = compare("one\r\ntwo\r\nthree\r\n", "one\nTWO\nthree\nfour", Options::default());
         assert_eq!(c.summary().changes, 2);
         let first = c.hunk_at(View::Split, 1).unwrap();
-        assert!(c.take(first, 0));
+        assert!(c.take(first, 0).is_ok());
         assert_eq!(c.summary().changes, 1);
         assert_eq!(c.rows(View::Split, 1, 1)[0].tag, Tag::Taken);
         assert_eq!(c.undo(View::Split), Some(1));
-        assert!(c.take(first, 0));
+        assert!(c.take(first, 0).is_ok());
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "one\ntwo\nthree\nfour");
         // A side written is read again before anything more is taken from it.
         let mut c = Compare::open(&d.join("a.txt"), &d.join("b.txt"), Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
         // The other way, onto the CRLF file: its line endings stay.
         let last = c.hunk_at(View::Split, 3).unwrap();
-        assert!(c.take(last, 1));
+        assert!(c.take(last, 1).is_ok());
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "one\r\ntwo\r\nthree\r\nfour");
         std::fs::remove_dir_all(d).unwrap();
@@ -749,12 +781,12 @@ mod tests {
         // Windows-1252: é is one byte, and a "\xc3\xa9" that would read as UTF-8 é stays two.
         std::fs::write(&pb, b"caf\xe9 \xc3\xa9\nsame\n").unwrap();
         let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
-        assert!(c.take(0, 0));
+        assert!(c.take(0, 0).is_ok());
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(&pb).unwrap(), left);
         std::fs::write(&pb, b"caf\xe9 \xc3\xa9\nsame\n").unwrap();
         let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
-        assert!(c.take(0, 1));
+        assert!(c.take(0, 1).is_ok());
         c.save(false).unwrap();
         // The line as text, in the left file's UTF-8: é stays é, and the two bytes stay Ã©.
         assert_eq!(std::fs::read_to_string(&pa).unwrap(), "café Ã©\nsame\n");
@@ -762,32 +794,62 @@ mod tests {
     }
 
     #[test]
-    fn a_side_gone_or_changed_is_never_saved_from() {
+    fn a_side_gone_or_changed_after_a_copy_is_saved_from_as_it_was_read() {
+        // Gone after the copy: the lines copied are held, and saved.
         let (mut c, d) = compare("a\nz\n", "b\nz\n", Options::default());
-        assert!(c.take(0, 0));
+        assert!(c.take(0, 0).is_ok());
         std::fs::remove_file(d.join("a.txt")).unwrap();
-        assert!(matches!(c.save(false), Err(SaveError::Io(_))));
-        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "b\nz\n");
+        c.save(false).unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a\nz\n");
+        std::fs::remove_dir_all(d).unwrap();
+
+        // The side copied from changed on the disk (its lines elsewhere now): the side asked
+        // for is saved as it was read with the copy, and the other is left as it is now.
+        let (mut c, d) = compare("one\nsame\nx\n", "two\nsame\ny\n", Options::default());
+        assert!(c.take(1, 1).is_ok(), "y over x");
+        std::thread::sleep(Duration::from_millis(20));
+        std::fs::write(d.join("b.txt"), "inserted\nlines\ntwo\nsame\ny\n").unwrap();
+        c.save(false).unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "one\nsame\ny\n");
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "inserted\nlines\ntwo\nsame\ny\n");
+        std::fs::remove_dir_all(d).unwrap();
+
+        // Changed before the copy: it is not copied from, and says why.
+        let (mut c, d) = compare("a\nz\n", "b\nz\n", Options::default());
+        std::thread::sleep(Duration::from_millis(20));
+        std::fs::write(d.join("a.txt"), "changed\na\nz\n").unwrap();
+        assert_eq!(c.take(0, 0), Err(crate::t!("compare.ask_changed_gui")));
+        assert!(!c.summary().dirty[1]);
         std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
     fn a_file_changed_meanwhile_is_not_saved_over() {
         let (mut c, d) = compare("a\n", "b\n", Options::default());
-        assert!(c.take(0, 0));
+        assert!(c.take(0, 0).is_ok());
         std::thread::sleep(Duration::from_millis(20));
         std::fs::write(d.join("b.txt"), "bb\n").unwrap();
         assert_eq!(c.save(false), Err(SaveError::Changed));
         c.save(true).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a\n");
         std::fs::remove_dir_all(d).unwrap();
+
+        // Saved over, a side keeps its own lines as they were read, not the file's bytes now.
+        let (mut c, d) = compare("first\nsame\nx\n", "second\nsame\ny\n", Options::default());
+        assert!(c.take(1, 0).is_ok(), "x over y");
+        std::thread::sleep(Duration::from_millis(20));
+        std::fs::write(d.join("b.txt"), "a longer first line\nsame\ny\n").unwrap();
+        assert_eq!(c.save(false), Err(SaveError::Changed));
+        c.save(true).unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "second\nsame\nx\n");
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
     fn changes_copied_both_ways_are_both_saved() {
         let (mut c, d) = compare("a\nsame\nx\n", "b\nsame\ny\n", Options::default());
-        assert!(c.take(0, 0), "a over b");
-        assert!(c.take(1, 1), "y over x");
+        assert!(c.take(0, 0).is_ok(), "a over b");
+        assert!(c.take(1, 1).is_ok(), "y over x");
         c.save(false).unwrap();
         assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "a\nsame\ny\n");
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a\nsame\ny\n");
@@ -802,8 +864,8 @@ mod tests {
         // Windows-1252, which has no 日.
         std::fs::write(&pb, b"caf\xe9\nsame\ny\n").unwrap();
         let mut c = Compare::open(&pa, &pb, Kind::Text, Options::default(), &AtomicU64::new(0), &AtomicBool::new(false)).unwrap();
-        assert!(c.take(0, 0), "日 over café");
-        assert!(c.take(1, 1), "y over x");
+        assert!(c.take(0, 0).is_ok(), "日 over café");
+        assert!(c.take(1, 1).is_ok(), "y over x");
         assert!(matches!(c.save(false), Err(SaveError::Unencodable('日'))));
         assert_eq!(std::fs::read_to_string(&pa).unwrap(), "日\nsame\nx\n", "the left side is not written either");
         std::fs::remove_dir_all(d).unwrap();
