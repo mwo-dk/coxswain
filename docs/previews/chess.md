@@ -191,7 +191,9 @@ games in your PGN files that reach it: *Games that reach this position: 12*, eac
 *classics.pgn · game 3*, with the players, result and date for games of the file on view.
 Desktop: a click opens the game, on this board or in its file's own window. Terminal: **↑**
 **↓** choose, **Enter** opens it, **Esc** goes back. The start position is left out (every game
-has it). It needs *Words in files* on (*Settings → Search*); without it the line under the
+has it). At most 500 games are listed: of a position more games reach, the first 500 the store
+took in, sorted by file, so a position of millions of games is answered as quickly as a rare
+one. It needs *Words in files* on (*Settings → Search*); without it the line under the
 board says so, and *No game in the search store reaches this position* when none does.
 
 ![The Opera Game at 2…d6 in the desktop app with Find this position pressed: Games that reach this position: 1, and below it classics.pgn · game 1 with Morphy, Paul – Duke Karl / Count Isouard 1-0 1858.11.02; Find this position beside Engine under the board](../screenshots/gui-chess-position.png)
