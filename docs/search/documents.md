@@ -89,8 +89,10 @@ Invisible text over a scanned picture drawn before it is kept: it is the scan's 
 OCR program put there. A very long PDF is looked through for hidden text for a third of its
 reading time; pages after that are read as they are drawn. After the
 update that brought this, every PDF and Word file is read again once, and its passages for search
-by meaning are made again; until a file is read, its old text is not found at all. Find's footer
-shows the files still to go.
+by meaning are made again. That takes in PDFs of scanned pages: when [OCR](scans.md) is on
+(tesseract and pdftoppm installed), each is read by OCR once more, which takes a while when there
+are many. Until a file is read, its old text is not found at all. Find's footer shows the files
+still to go.
 
 #### Does it find the formulas in my spreadsheet?
 
