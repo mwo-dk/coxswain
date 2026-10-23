@@ -988,7 +988,7 @@ fn hide_at() -> f64 {
 }
 
 /// A colour space, as far as it says whether a colour is white.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Space {
     Gray,
     Rgb,
@@ -1000,7 +1000,7 @@ enum Space {
 }
 
 /// What of the graphics state says whether text is seen, as `q` saves it and `Q` gives it back.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Paint {
     mode: i64,
     fill: (Space, bool),
@@ -1026,8 +1026,6 @@ impl Default for Paint {
 struct Page {
     painted: bool,
     picture: bool,
-    /// Whether the text shown last was hidden, as the marks so far say.
-    hidden: bool,
 }
 
 /// Every page's content gone through in the order it is drawn, its streams one after the other
@@ -1036,6 +1034,10 @@ struct Page {
 /// wholly transparent, or white (in any colour space whose white is known) where nothing was
 /// painted on the page before it. The streams where hidden text starts or ends get a mark
 /// there (`hide_at()`), within `room`; the others stay as they are.
+///
+/// Every marked stream begins and ends with its text seen, and so does every form it draws:
+/// a stream's marks say nothing about what is drawn after it. A stream drawn more than once,
+/// a form in several places, hides only the text that is hidden wherever it is drawn.
 ///
 /// Only the pages that may draw text unseen are gone through: one of whose streams or forms
 /// is a `suspect`, or has a graphics state that makes paint clear.
@@ -1055,10 +1057,16 @@ fn hide(
         known: &*known,
         until,
         seen: HashSet::new(),
-        marked: HashMap::new(),
+        shows: HashMap::new(),
     };
-    for page in walk.doc.page_iter().take(MAX_PAGES).collect::<Vec<_>>() {
-        if Instant::now() >= until {
+    let pages: Vec<_> = walk.doc.page_iter().collect();
+    for (n, &page) in pages.iter().enumerate() {
+        if n >= MAX_PAGES || Instant::now() >= until {
+            // ponytail: what the pages left draw is not known, so the forms (which any page
+            // may draw) and the streams of those pages keep no marks: their hidden text is read.
+            let left: HashSet<_> = pages[n..].iter().flat_map(|p| walk.doc.get_page_contents(*p)).collect();
+            let contents: HashSet<_> = pages[..n].iter().flat_map(|p| walk.doc.get_page_contents(*p)).collect();
+            walk.shows.retain(|id, _| contents.contains(id) && !left.contains(id));
             break;
         }
         let resources = walk.doc.get_page_resources(page).ok().and_then(|(own, ids)| {
@@ -1075,17 +1083,20 @@ fn hide(
         for id in &contents {
             walk.stream(*id, resources.as_ref(), &mut paint, &mut drawn, DEPTH);
         }
-        // The page ends with its text seen, for what is drawn on top of it.
-        if drawn.hidden
-            && let Some(last) = contents.last()
-            && let Some(ops) = walk.marked.get_mut(last)
-        {
-            ops.extend(mark(false));
-        }
     }
-    let marked = walk.marked;
-    for (id, operations) in marked {
-        let Some(written) = of_lopdf(|| Content { operations }.encode()) else {
+    let shows = walk.shows;
+    for (id, hidden) in shows {
+        if !hidden.contains(&true) {
+            continue;
+        }
+        let Some(written) = doc
+            .objects
+            .get(&id)
+            .and_then(|o| o.as_stream().ok())
+            .and_then(|s| unpacked(s, MAX_ENTRY))
+            .and_then(|content| of_lopdf(|| Content::decode(&content)))
+            .and_then(|c| of_lopdf(|| Content { operations: marked(c.operations, &hidden) }.encode()))
+        else {
             continue;
         };
         if written.len() as u64 > room {
@@ -1231,30 +1242,84 @@ fn suspect(content: &[u8]) -> bool {
     false
 }
 
-/// The path that says hidden text starts (`on`) or ends.
-fn mark(on: bool) -> [Operation; 3] {
-    [
-        Operation::new("m", vec![hide_at().into(), 0.0.into()]),
+/// The path that says hidden text starts (`on`) or ends: from `hide_at()` through the
+/// points of the tag to `on`.
+fn mark(on: bool) -> Vec<Operation> {
+    let mut path = tag(hide_at());
+    path.extend([
         Operation::new("l", vec![f64::from(on as u8).into(), 0.0.into()]),
         Operation::new("f", vec![]),
-    ]
+    ]);
+    path
+}
+
+/// `operations` with a mark before each show whose text is hidden where the one before it was
+/// not, and the other way round, in the order of `hidden`; with the text seen again before
+/// each form drawn and at the end. Inline pictures are left out, as lopdf would write them as
+/// streams.
+fn marked(operations: Vec<Operation>, hidden: &[bool]) -> Vec<Operation> {
+    let (mut written, mut on, mut shown) = (Vec::with_capacity(operations.len() + 8), false, 0);
+    for operation in operations {
+        match operation.operator.as_str() {
+            "BI" => continue,
+            "Tj" | "TJ" | "'" | "\"" => {
+                let hide = hidden.get(shown).copied().unwrap_or(false);
+                shown += 1;
+                if hide != on {
+                    on = hide;
+                    written.extend(mark(on));
+                }
+            }
+            "Do" if on => {
+                on = false;
+                written.extend(mark(false));
+            }
+            _ => {}
+        }
+        written.push(operation);
+    }
+    if on {
+        written.extend(mark(false));
+    }
+    written
 }
 
 struct Walk<'a> {
     doc: &'a Document,
     known: &'a HashMap<ObjectId, Known>,
     until: Instant,
-    /// Streams gone through: a form drawn twice is marked as it was drawn first.
-    seen: HashSet<ObjectId>,
-    /// The streams that got marks, with all their operations.
-    marked: HashMap<ObjectId, Vec<Operation>>,
+    /// Streams gone through, with how the page stood when they were: drawn again the same
+    /// way, a stream hides the same text, and is not gone through again.
+    seen: HashSet<(ObjectId, Paint, bool, bool)>,
+    /// Of each stream gone through, whether each of its shows is hidden: one drawn again
+    /// keeps hidden only what is hidden each time. A stream drawn and not gone through (too
+    /// deep, out of time, too big) hides nothing.
+    shows: HashMap<ObjectId, Vec<bool>>,
 }
 
 impl Walk<'_> {
+    /// Hidden only where it was each time before.
+    fn found(&mut self, id: ObjectId, hidden: Vec<bool>) {
+        match self.shows.get_mut(&id) {
+            Some(had) => {
+                for (i, h) in had.iter_mut().enumerate() {
+                    *h &= hidden.get(i).copied().unwrap_or(false);
+                }
+            }
+            None => drop(self.shows.insert(id, hidden)),
+        }
+    }
+
     fn stream(&mut self, id: ObjectId, resources: Option<&Dictionary>, paint: &mut Paint, page: &mut Page, depth: usize) {
-        if depth == 0 || !self.seen.insert(id) || Instant::now() >= self.until {
+        if !self.seen.insert((id, *paint, page.painted, page.picture)) {
+            // Gone through just so: the same text is hidden, and what it paints is painted.
+            page.painted = true;
+            return;
+        }
+        if depth == 0 || Instant::now() >= self.until {
             // Not gone through: whatever it draws may be under what comes after.
             page.painted = true;
+            self.found(id, vec![]);
             return;
         }
         let doc = self.doc;
@@ -1274,7 +1339,7 @@ impl Walk<'_> {
         };
         let own = dict_at(doc, &stream.dict, b"Resources");
         let resources = own.or(resources);
-        let (mut written, mut saved, mut marks) = (Vec::with_capacity(operations.len()), vec![], false);
+        let (mut hidden, mut saved) = (vec![], vec![]);
         for operation in operations {
             let ops = &operation.operands;
             let space = |name: &[u8]| space_of(doc, resources, name);
@@ -1303,41 +1368,26 @@ impl Walk<'_> {
                 "S" | "s" => page.painted |= !(paint.stroke.1 || paint.clear.1),
                 "B" | "B*" | "b" | "b*" => page.painted |= !(paint.fill.1 || paint.clear.0) || !(paint.stroke.1 || paint.clear.1),
                 "sh" => page.painted = true,
-                // A picture within the content. lopdf reads it as a stream, and would write it as one.
-                "BI" => {
-                    (page.painted, page.picture) = (true, true);
-                    continue;
-                }
+                // A picture within the content.
+                "BI" => (page.painted, page.picture) = (true, true),
                 "Do" => {
                     let form = name_of(ops)
                         .and_then(|n| dict_at(doc, resources?, b"XObject").and_then(|x| x.get(n).ok()))
                         .and_then(|o| stream_at(doc, o));
                     match form {
                         Some((form, s)) if is(s, b"Subtype", b"Form") => {
-                            written.push(operation);
                             let mut inner = *paint;
                             self.stream(form, resources, &mut inner, page, depth - 1);
-                            continue;
                         }
                         Some(_) => (page.painted, page.picture) = (true, true),
                         None => page.painted = true,
                     }
                 }
-                "Tj" | "TJ" | "'" | "\"" => {
-                    let hidden = invisible(paint, page);
-                    if hidden != page.hidden {
-                        page.hidden = hidden;
-                        written.extend(mark(hidden));
-                        marks = true;
-                    }
-                }
+                "Tj" | "TJ" | "'" | "\"" => hidden.push(invisible(paint, page)),
                 _ => {}
             }
-            written.push(operation);
         }
-        if marks {
-            self.marked.insert(id, written);
-        }
+        self.found(id, hidden);
     }
 }
 
@@ -1435,10 +1485,7 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
         let goes = points
             .into_iter()
             .map(|point| op("l", vec![point.into(), 0.0.into()]));
-        [op("m", vec![span().into(), 0.0.into()])]
-            .into_iter()
-            .chain(goes)
-            .chain([op("f", vec![])])
+        tag(span()).into_iter().chain(goes).chain([op("f", vec![])])
     };
     let mut written = vec![];
     // How many marked spans are open, and at what depth the one with the text was opened.
@@ -1497,8 +1544,37 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
 // A file cannot draw it on purpose to turn hiding off or put words in: it is drawn anew for
 // each file read, on the thread that reads it, a half between -2^22 and -(2^22 + 2^21), which
 // an f32 (as lopdf writes it) holds exactly.
+//
+// After the point, a mark goes through the points of a tag of 128 bits, drawn from the
+// system's random source for each file read: a file that guessed the point still cannot
+// draw the mark.
 thread_local! {
     static SENTINEL: Cell<f64> = const { Cell::new(-4_194_304.5) };
+    static TAG: Cell<[u16; 8]> = const { Cell::new([0; 8]) };
+}
+
+/// The start of a mark: to `at`, then through the points of the tag.
+fn tag(at: f64) -> Vec<Operation> {
+    let tag = TAG.get();
+    let mut path = vec![Operation::new("m", vec![at.into(), 0.0.into()])];
+    path.extend(tag.chunks(2).map(|p| Operation::new("l", vec![f64::from(p[0]).into(), f64::from(p[1]).into()])));
+    path
+}
+
+/// The points of a path after the start of a mark (`at`, then the tag), or `None` when the
+/// path is no mark.
+fn after_tag(path: &[pdf_extract::PathOp], at: f64) -> Option<&[pdf_extract::PathOp]> {
+    use pdf_extract::PathOp::{LineTo, MoveTo};
+    let tag = TAG.get();
+    match path {
+        [MoveTo(x, _), rest @ ..] if *x == at && rest.len() >= 4 => {
+            let ours = rest[..4].iter().zip(tag.chunks(2)).all(|(op, p)| {
+                matches!(op, LineTo(a, b) if *a == f64::from(p[0]) && *b == f64::from(p[1]))
+            });
+            ours.then_some(&rest[4..])
+        }
+        _ => None,
+    }
 }
 
 fn span() -> f64 {
@@ -1507,9 +1583,18 @@ fn span() -> f64 {
 
 /// A new point for `span()` and `hide_at()`.
 fn new_sentinel() {
-    use std::hash::BuildHasher;
-    let r = std::collections::hash_map::RandomState::new().hash_one(Instant::now());
+    let mut bytes = [0u8; 24];
+    if getrandom::fill(&mut bytes).is_err() {
+        // No random source: the keys of a hash map's, which come from it where there is one.
+        use std::hash::BuildHasher;
+        for (i, part) in bytes.chunks_mut(8).enumerate() {
+            let r = std::collections::hash_map::RandomState::new().hash_one((Instant::now(), i));
+            part.copy_from_slice(&r.to_le_bytes());
+        }
+    }
+    let r = u64::from_le_bytes(bytes[..8].try_into().unwrap());
     SENTINEL.set(-(((1u64 << 22) + r % (1 << 21)) as f64) - 0.5);
+    TAG.set(std::array::from_fn(|i| u16::from_le_bytes([bytes[8 + 2 * i], bytes[9 + 2 * i]])));
 }
 
 /// The UTF-16 units of a string of a PDF: with a byte order mark it is UTF-16, and without one
@@ -2387,14 +2472,10 @@ impl OutputDev for Words<'_> {
         _: &[f64],
         path: &pdf_extract::Path,
     ) -> Result<(), OutputError> {
-        use pdf_extract::PathOp::{LineTo, MoveTo};
-        if let [MoveTo(x, _), LineTo(on, _)] = &path.ops[..]
-            && *x == hide_at()
-        {
+        use pdf_extract::PathOp::LineTo;
+        if let Some([LineTo(on, _)]) = after_tag(&path.ops, hide_at()) {
             self.hidden = *on == 1.0;
-        } else if let [MoveTo(x, _), points @ ..] = &path.ops[..]
-            && *x == span()
-        {
+        } else if let Some(points) = after_tag(&path.ops, span()) {
             let units: Vec<u16> = points
                 .iter()
                 .filter_map(|op| {
@@ -2790,6 +2871,57 @@ mod tests {
         .concat();
         let file = document(FONT, &[], &[stream("", &content)]);
         assert_eq!(read("forged", &file).as_deref(), Some("Seen\nStill seen"));
+    }
+
+    #[test]
+    fn pdf_marks_need_the_tag_of_the_file_read() {
+        use pdf_extract::PathOp::{LineTo, MoveTo};
+        new_sentinel();
+        let points = |at: f64, tag: [u16; 8]| {
+            let mut ops = vec![MoveTo(at, 0.0)];
+            ops.extend(tag.chunks(2).map(|p| LineTo(f64::from(p[0]), f64::from(p[1]))));
+            ops.push(LineTo(1.0, 0.0));
+            ops
+        };
+        let ours = TAG.get();
+        assert_eq!(after_tag(&points(hide_at(), ours), hide_at()).map(<[_]>::len), Some(1));
+        // The right point with another tag, or the tag alone, is a path like any other.
+        let mut guess = ours;
+        guess[7] ^= 1;
+        assert!(after_tag(&points(hide_at(), guess), hide_at()).is_none());
+        assert!(after_tag(&[MoveTo(hide_at(), 0.0), LineTo(1.0, 0.0)], hide_at()).is_none());
+        // Each file read draws another tag.
+        new_sentinel();
+        assert_ne!(TAG.get(), ours);
+    }
+
+    #[test]
+    fn pdf_form_drawn_hidden_and_seen_leaves_text_after_it_seen() {
+        // The form shows text in the colour it is drawn with: white on an empty page first,
+        // black after a box is painted. Neither it nor what comes after it is lost.
+        let form = stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> >>",
+            b"BT /F1 12 Tf 72 400 Td (Formtext) Tj ET",
+        );
+        let content = br"q 1 1 1 rg /X Do Q
+            BT /F1 12 Tf 72 700 Td (Between) Tj ET
+            0 0 0 rg 0 0 10 10 re f
+            /X Do
+            BT /F1 12 Tf 72 680 Td (After) Tj ET
+            q 1 1 1 rg 0 0 1 1 re f BT 3 Tr /F1 12 Tf 72 660 Td (Stillhidden) Tj ET Q";
+        let objects = vec![
+            CATALOG.to_vec(),
+            b"<< /Type /Pages /Kids [5 0 R] /Count 1 >>".to_vec(),
+            HELVETICA.to_vec(),
+            form,
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> /XObject << /X 4 0 R >> >> /Contents 6 0 R >>".to_vec(),
+            stream("", content),
+        ];
+        let text = read("form-twice", &pdf(&objects)).unwrap();
+        for seen in ["Formtext", "Between", "After"] {
+            assert!(text.contains(seen), "{seen}: {text}");
+        }
+        assert!(!text.contains("Stillhidden"), "{text}");
     }
 
     #[test]
