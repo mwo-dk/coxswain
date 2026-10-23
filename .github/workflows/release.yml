@@ -179,6 +179,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      actions: write # sees whether another run still works on a draft, and stops a rehearsal
     runs-on: ubuntu-24.04
     outputs:
       id: ${{ steps.create.outputs.id }}
@@ -232,6 +233,7 @@ jobs:
               if [ "$REHEARSAL" != true ] && jq -r .body <<<"$info" | grep -qx '<!-- rehearsal -->'; then
                 echo "::notice::Run $owner rehearses $TAG: stopped, so this run releases it."
                 gh run cancel "$owner" --repo "$REPO" || true
+                # Completed means every job of it has ended, its uploads too: none reaches this draft.
                 for _ in $(seq 120); do busy || break; sleep 15; done
                 busy && { echo "::error::the rehearsal run $owner did not stop: $TAG is not released."; exit 1; }
               else
