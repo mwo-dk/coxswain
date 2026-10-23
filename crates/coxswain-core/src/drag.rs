@@ -18,8 +18,8 @@ static LAST: Mutex<Option<Last>> = Mutex::new(None);
 
 /// Files on disk for a drag out to other applications: `paths` themselves where they are on
 /// disk, and what is only inside an archive (a disk image, a mailbox …) or a git history copied
-/// out into a fresh folder of this run's cache, as F5 would. The folders go when the app closes
-/// (`done`), or after a day. Too much, or a file locked with a password not given yet, is
+/// out into a fresh folder of this run's cache, as F5 would. The folders stay for a day, the app
+/// closed or not (`done`). Too much, or a file locked with a password not given yet, is
 /// refused: F5 copies those, and asks for the password.
 pub fn out(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
     let virt = |p: &PathBuf| fs::symlink_metadata(p).is_err();
@@ -85,10 +85,14 @@ fn measure(p: &Path) -> io::Result<(u64, usize)> {
     Ok((bytes, files))
 }
 
-/// This run's drag folders, when the app closes.
+/// How long the copies of a drag stay: the program they were dropped on may read them long
+/// after the drop, after this app has closed too.
+const KEPT: Duration = Duration::from_secs(24 * 3600);
+
+/// When the app closes: the drag folders of any run a day old, never the ones still kept.
 pub fn done() {
     if let Some(f) = crate::helper::folder() {
-        let _ = fs::remove_dir_all(f.join("drag").join(std::process::id().to_string()));
+        crate::archive::sweep(&f.join("drag"), KEPT);
     }
 }
 
@@ -257,6 +261,21 @@ mod tests {
         assert_eq!(fs::read_to_string(&got[0]).unwrap(), "inside");
         // The same drag again soon takes the same copy.
         assert_eq!(out(&[zip.join("b c#1 50%.txt")]).unwrap(), got);
+        // The app closing leaves it for the program it was dropped on.
+        done();
+        assert_eq!(fs::read_to_string(&got[0]).unwrap(), "inside");
+        let _ = fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn only_drag_folders_older_than_kept_are_swept() {
+        let d = scratch("drag-sweep");
+        fs::create_dir_all(d.join("123").join("0")).unwrap();
+        crate::archive::sweep(&d, KEPT);
+        assert!(d.join("123").join("0").exists(), "a fresh one stays");
+        std::thread::sleep(Duration::from_millis(30));
+        crate::archive::sweep(&d, Duration::from_millis(10));
+        assert!(!d.join("123").exists(), "an old one goes");
         let _ = fs::remove_dir_all(&d);
     }
 }

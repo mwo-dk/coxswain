@@ -1639,6 +1639,19 @@ pub(crate) fn peek_folder() -> io::Result<PathBuf> {
     run_folder("peek", true)
 }
 
+/// The runs' folders in `base` last written more than `age` ago, removed.
+pub(crate) fn sweep(base: &Path, age: std::time::Duration) {
+    for old in std::fs::read_dir(base).into_iter().flatten().flatten() {
+        if old
+            .metadata()
+            .and_then(|m| m.modified())
+            .is_ok_and(|t| t.elapsed().unwrap_or_default() > age)
+        {
+            let _ = std::fs::remove_dir_all(old.path());
+        }
+    }
+}
+
 /// This run's own folder in the cache's `sub`, for this user's eyes only (a copy may be of a
 /// locked file). Folders left by earlier runs go after a day; `fresh` empties this run's too,
 /// which may be one a crashed run with the same process id left.
@@ -1646,16 +1659,7 @@ pub(crate) fn run_folder(sub: &str, fresh: bool) -> io::Result<PathBuf> {
     let base = crate::helper::folder()
         .ok_or_else(|| io::Error::other(crate::t!("err.no_cache_folder")))?
         .join(sub);
-    let day = std::time::Duration::from_secs(24 * 3600);
-    for old in std::fs::read_dir(&base).into_iter().flatten().flatten() {
-        if old
-            .metadata()
-            .and_then(|m| m.modified())
-            .is_ok_and(|t| t.elapsed().unwrap_or_default() > day)
-        {
-            let _ = std::fs::remove_dir_all(old.path());
-        }
-    }
+    sweep(&base, std::time::Duration::from_secs(24 * 3600));
     let run = base.join(std::process::id().to_string());
     if fresh {
         let _ = std::fs::remove_dir_all(&run);
