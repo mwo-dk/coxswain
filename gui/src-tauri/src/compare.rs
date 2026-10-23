@@ -98,8 +98,7 @@ pub fn compare_take(view: View, row: usize, from: usize) -> Res<String> {
     Ok(with(|d| match d {
         Done::Text(c) => match c.hunk_at(view, row) {
             None => coxswain_core::t!("compare.not_a_change"),
-            Some(h) if !c.take(h, from.min(1)) => coxswain_core::t!("compare.read_only"),
-            Some(_) => coxswain_core::t!("compare.copied"),
+            Some(h) => c.take(h, from.min(1)).map_or_else(|why| why, |()| coxswain_core::t!("compare.copied")),
         },
         _ => String::new(),
     })?
