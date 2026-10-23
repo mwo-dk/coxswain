@@ -52,7 +52,8 @@ setting is used as you wrote it:
   `config.toml` at that line (in your `editor`, or with the desktop's default); every one is
   listed under *Settings → What's new*, each with an *Open config.toml at line …* button.
 - A broken table header (`[search` without its `]`) costs that whole table; a line that is not
-  valid TOML costs only itself.
+  valid TOML costs only itself. An array or a multi-line string left open costs the lines from
+  it down to where the file reads again, named once.
 - Settings never save a change that would add a mistake; while a mistake of your own is still
   in the file, they save the rest and leave that line as it is.
 - The [search helper](../search/helper.md) reads the file the same way, so a key bound twice

@@ -2083,11 +2083,21 @@ impl Config {
                 }
                 Err(m) => m,
             };
-            refused.push(Refused { line: from + 1, problem });
-            let end = to.min(lines.len().saturating_sub(1));
-            // Nothing left to blank there: the defaults, rather than a loop.
-            if from > end || lines[from..=end].iter().all(|l| l.trim().is_empty()) {
-                return Config { refused, ..Config::default() };
+            let mut end = to.min(lines.len().saturating_sub(1));
+            let mut from = from.min(end);
+            // Nothing left to blank there (an unclosed string or array, found at the end): the
+            // line above, until it closes, rather than every setting at its default.
+            while lines[from..=end].iter().all(|l| l.trim().is_empty()) {
+                if from == 0 {
+                    return Config { refused, ..Config::default() };
+                }
+                from -= 1;
+                end = from;
+            }
+            // One mistake makes the lines after it wrong the same way (`=` in an unclosed
+            // array): named once.
+            if refused.last().is_none_or(|r: &Refused| r.problem != problem) {
+                refused.push(Refused { line: from + 1, problem });
             }
             lines[from..=end].iter_mut().for_each(String::clear);
         }
@@ -2530,6 +2540,17 @@ mod tests {
         let old = "theme = 5\n";
         assert!(Config::parse_saved(old, "theme = 5\nhints = false\n").is_ok_and(|c| !c.hints));
         assert!(Config::parse_saved(old, "theme = 5\nhints = 3\n").is_err());
+        // An unclosed multi-line string, found at the end: the lines above go until it closes,
+        // the settings before it stay.
+        let c = Config::lenient("theme = \"mc\"\nnotes = \"\"\"\nabc\nhints = false\n");
+        assert_eq!((c.theme.as_str(), c.hints), ("mc", true));
+        assert_eq!(c.refused.len(), 1, "{:?}", c.refused);
+        // An unclosed array makes every line after it wrong the same way: named once each way.
+        let mut text = String::from("theme = \"mc\"\n[search]\ntext_exclude = [\"/a\",\n");
+        (0..30).for_each(|i| text += &format!("max_results = {i}\n"));
+        let c = Config::lenient(&text);
+        assert_eq!(c.theme, "mc");
+        assert!(c.refused.len() <= 3, "{:?}", c.refused);
     }
 
     #[test]
