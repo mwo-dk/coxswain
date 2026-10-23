@@ -258,6 +258,10 @@ pub(crate) fn note(what: std::fmt::Arguments) {
     );
 }
 
+/// Why the search store could not be opened (one a newer Coxswain made): the apps' notice
+/// and Settings say so, since there is no store to hold the error.
+static UNOPENED: Mutex<Option<String>> = Mutex::new(None);
+
 /// The system was to start the registered helper and did not, so this app started one: a
 /// notice says where to allow it.
 pub static UNSTARTED: AtomicBool = AtomicBool::new(false);
@@ -358,7 +362,8 @@ fn serve_here() -> io::Result<()> {
             .inspect_err(|e| {
                 note(format_args!(
                     "search inside files is off: the search store: {e}"
-                ))
+                ));
+                *UNOPENED.lock().unwrap() = Some(format!("the search store: {e}"));
             })
             .ok()
             .map(Arc::new)
@@ -797,7 +802,10 @@ fn answer(
                     meaning_error: store.and_then(|s| s.meaning_error.lock().unwrap().clone()),
                     meaning_runs: store.and_then(Store::engine_runs),
                     chat_loaded: crate::chat::loaded().map(|(id, metal)| (id.to_string(), metal)),
-                    error: store.and_then(|s| s.error.lock().unwrap().clone()),
+                    error: store.map_or_else(
+                        || UNOPENED.lock().unwrap().clone(),
+                        |s| s.error.lock().unwrap().clone(),
+                    ),
                     paused: store.is_some_and(|s| s.paused.load(Ordering::Relaxed)),
                     roots,
                     tools,

@@ -163,6 +163,14 @@ button *Delete what was read (412 MB)*.
 empties `search.db`, sizes, hashes and vectors included, and the helper fills it again from the
 start. Or delete `search.db` while no Coxswain runs.
 
+#### I went back to an older Coxswain. Why is text search off?
+
+The store was made by the newer version, and an older one never throws away what a newer one
+read: it leaves `search.db` as it is and reads nothing. A notice and the *Words* line in Settings
+say *the search store: made by a newer Coxswain*. Update Coxswain again and everything is there,
+nothing read again. To use the older version anyway, delete `search.db` while no Coxswain runs;
+it is then filled again from the start.
+
 #### Why is only part of a very large file found?
 
 At most 4 MB of text is kept from one file, and a very long PDF is read for three seconds. Words
