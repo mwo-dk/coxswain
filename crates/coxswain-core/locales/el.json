@@ -107,6 +107,7 @@
  "geo.track_length": "Μήκος ίχνους",
  "geo.tracks": "Ίχνη",
  "geo.unreadable": "Το GDAL δεν μπόρεσε να το διαβάσει ως γεωδεδομένα.",
+ "geo.gdal_too_old": "Είναι εγκατεστημένο το GDAL {version}, πολύ παλιό για αυτό: χρειάζεται GDAL {least} ή νεότερο.",
  "geo.waypoints": "Σημεία πορείας",
  "hint.ebook": "{menu} → Μετατροπή ηλεκτρονικού βιβλίου το κάνει EPUB, AZW3 ή PDF",
  "hint.geo": "{menu} σε γεωδεδομένα: μετατροπή σε GeoPackage, GeoJSON, shapefile, KML ή GPX",

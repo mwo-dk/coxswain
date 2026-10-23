@@ -66,7 +66,10 @@ open it outside the pane:
   their containers ffmpeg, ImageMagick and GDAL see the one file (GDAL a shapefile's folder,
   as a shapefile is several files), OpenSCAD and KiCad their file's folder. Every container,
   LaTeX's and the other documents' too, runs on a read-only root with no network, no
-  capabilities and bounded memory and processes.
+  capabilities and bounded memory and processes. What a container writes back is taken only
+  as a plain file of its own, read from its folder without following links: a link (to your
+  `~/.ssh` key, say), a hard link or a FIFO left there is refused, so a program made to
+  misbehave cannot hand Coxswain another of your files or make it wait for ever.
 - **Run what a repository names.** A folder may be a repository someone else made (a
   download, an unpacked archive), and its `.git/config` can name programs. The git line, the
   diff and [Git history](../panels/git-history.md) run git without any of them: no file system

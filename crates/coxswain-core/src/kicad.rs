@@ -38,6 +38,8 @@ pub fn is_kicad(path: &Path) -> bool {
 const LAYERS: &str = "F.Cu,B.Cu,F.Silkscreen,B.Silkscreen,F.Mask,B.Mask";
 const OUTLINE: &str = "Edge.Cuts";
 const SVG_LAYERS: &str = "F.Cu,B.Cu,F.Silkscreen,Edge.Cuts";
+/// A sheet or board picture read back for the thumbnail, at most.
+const MAX_MADE: u64 = 64 << 20;
 
 /// What *Export from KiCad* makes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -105,11 +107,11 @@ pub(crate) fn thumbnail(run: &mut Run, path: &Path) -> Result<String, String> {
         let root = run.scratch.join("sheets").join(format!("{stem}.svg"));
         let first = if root.is_file() { Some(root) } else { files(&run.scratch.join("sheets")).into_iter().next() };
         let first = first.ok_or_else(|| t!("convert.no_result"))?;
-        return std::fs::read_to_string(first).map_err(|e| e.to_string());
+        return crate::images::read_result(&first, MAX_MADE, || t!("render.too_large")).map(|b| String::from_utf8_lossy(&b).into_owned());
     }
     let png = run.out("board.png");
     run.go("kicad-cli", &["pcb", "render", "-o", &png, "--width", "1024", "--height", "768", "--side", "top", "--quality", "basic", &input])?;
-    let bytes = std::fs::read(run.scratch.join("board.png")).map_err(|e| e.to_string())?;
+    let bytes = crate::images::read_result(&run.scratch.join("board.png"), MAX_MADE, || t!("render.too_large"))?;
     Ok(crate::media::png_in_svg(&bytes, 1024, 768))
 }
 
@@ -149,9 +151,9 @@ pub(crate) fn export(run: &mut Run, path: &Path, to: To, name: &str) -> Result<(
     .map(drop)
 }
 
-/// The files of `dir`, by name.
+/// The plain files of `dir` (no links), by name.
 fn files(dir: &Path) -> Vec<std::path::PathBuf> {
-    let mut v: Vec<_> = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_file()).collect();
+    let mut v: Vec<_> = std::fs::read_dir(dir).into_iter().flatten().flatten().filter(|e| e.file_type().is_ok_and(|t| t.is_file())).map(|e| e.path()).collect();
     v.sort();
     v
 }
@@ -162,13 +164,13 @@ fn zip(dir: &Path, to: &Path) -> Result<(), String> {
     if all.is_empty() {
         return Err(t!("convert.no_result"));
     }
-    let f = std::fs::File::create(to).map_err(|e| e.to_string())?;
+    let f = crate::images::fresh_result(to)?;
     let mut z = zip::ZipWriter::new(f);
     let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     for p in all {
         z.start_file(p.file_name().unwrap_or_default().to_string_lossy(), opts).map_err(|e| e.to_string())?;
-        let mut src = std::fs::File::open(&p).map_err(|e| e.to_string())?;
-        std::io::copy(&mut src, &mut z).map_err(|e| e.to_string())?;
+        let (src, len) = crate::images::take_result(&p)?;
+        std::io::copy(&mut std::io::Read::take(src, len), &mut z).map_err(|e| e.to_string())?;
     }
     z.finish().map(drop).map_err(|e| e.to_string())
 }

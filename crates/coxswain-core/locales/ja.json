@@ -106,6 +106,7 @@
  "geo.track_length": "トラックの長さ",
  "geo.tracks": "トラック",
  "geo.unreadable": "GDAL はこれを地理データとして読めませんでした。",
+ "geo.gdal_too_old": "インストールされている GDAL {version} はこれには古すぎます。GDAL {least} 以降が必要です。",
  "geo.waypoints": "ウェイポイント",
  "hint.ebook": "{menu} → 電子書籍を変換で EPUB、AZW3、PDF にします",
  "hint.geo": "地理データで {menu}: GeoPackage、GeoJSON、シェープファイル、KML、GPX に変換",

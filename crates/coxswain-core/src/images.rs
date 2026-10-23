@@ -66,6 +66,60 @@ pub(crate) fn bind(host: &Path, at: &str, ro: bool) -> String {
     format!("type=bind,\"source={src}\",target={at}{}", if ro { ",readonly" } else { "" })
 }
 
+/// A result a run wrote into its scratch folder (`/out`, which the container could write
+/// anything into), opened for reading only when it is a plain file of its own: never through a
+/// link (to `~/.ssh/id_ed25519`, say), in a folder that is no link, not a FIFO or device (opened
+/// without waiting, so a FIFO cannot hang it), and not a hard link to another file. The open
+/// file and its length then; everything after reads from that handle, at most that length.
+pub fn take_result(path: &Path) -> Result<(std::fs::File, u64), String> {
+    let refuse = || format!("{}: {}", path.display(), t!("convert.no_result"));
+    if let Some(dir) = path.parent()
+        && std::fs::symlink_metadata(dir).map_err(|_| refuse())?.file_type().is_symlink()
+    {
+        return Err(refuse());
+    }
+    let mut o = std::fs::OpenOptions::new();
+    o.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        o.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    #[cfg(not(unix))]
+    if std::fs::symlink_metadata(path).map_err(|_| refuse())?.file_type().is_symlink() {
+        return Err(refuse());
+    }
+    let f = o.open(path).map_err(|_| refuse())?;
+    let m = f.metadata().map_err(|_| refuse())?;
+    #[cfg(unix)]
+    let alone = std::os::unix::fs::MetadataExt::nlink(&m) == 1;
+    #[cfg(not(unix))]
+    let alone = true;
+    if !m.is_file() || !alone {
+        return Err(refuse());
+    }
+    Ok((f, m.len()))
+}
+
+/// `take_result`'s file read whole, when it is at most `max` bytes (`too_large` otherwise).
+pub fn read_result(path: &Path, max: u64, too_large: impl FnOnce() -> String) -> Result<Vec<u8>, String> {
+    let (f, len) = take_result(path)?;
+    if len > max {
+        return Err(too_large());
+    }
+    let mut b = Vec::with_capacity(len as usize);
+    f.take(len).read_to_end(&mut b).map_err(|e| e.to_string())?;
+    Ok(b)
+}
+
+/// A file Coxswain writes into a scratch folder a container wrote into: whatever stands at
+/// `path` (a link the container left there, say) is removed first, and the file is made anew,
+/// so the write never goes through a link.
+pub fn fresh_result(path: &Path) -> Result<std::fs::File, String> {
+    let _ = std::fs::remove_file(path);
+    std::fs::OpenOptions::new().write(true).create_new(true).open(path).map_err(|e| format!("{}: {e}", path.display()))
+}
+
 /// The options that hold every container of Coxswain's (`sealed`, `sealed_file`, `sealed_bare`,
 /// through `tight`; given once, as docker refuses a second `--tmpfs /tmp`): a read-only root
 /// with a small `/tmp` in memory, bounded memory and processes, no capabilities, no gaining of
@@ -496,6 +550,38 @@ fn replaced(old: Option<String>, new: Option<String>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    /// What a hijacked program could leave in `/out`: a link to a secret, a link in a folder
+    /// that is a link, a hard link to a secret, a FIFO. Each is refused; a plain file is read;
+    /// a file written over a link replaces the link and leaves the secret as it was.
+    #[cfg(unix)]
+    #[test]
+    fn results_are_taken_only_as_plain_files_of_their_own() {
+        use super::{fresh_result, read_result, take_result};
+        use std::os::unix::fs::symlink;
+        let d = std::env::temp_dir().join(format!("coxswain-take-result-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (out, home) = (d.join("out"), d.join("home"));
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::create_dir_all(&home).unwrap();
+        let secret = home.join("id_ed25519");
+        std::fs::write(&secret, "SECRET").unwrap();
+        symlink(&secret, out.join("out.png")).unwrap();
+        symlink(&home, out.join("sheets")).unwrap();
+        std::fs::hard_link(&secret, out.join("hard.png")).unwrap();
+        let fifo = std::ffi::CString::new(out.join("fifo.png").to_str().unwrap()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        for bad in [out.join("out.png"), out.join("sheets").join("id_ed25519"), out.join("hard.png"), out.join("fifo.png"), out.join("missing.png")] {
+            assert!(take_result(&bad).is_err(), "{}", bad.display());
+        }
+        std::fs::write(out.join("ok.png"), "PNG").unwrap();
+        assert_eq!(read_result(&out.join("ok.png"), 3, || "big".into()).unwrap(), b"PNG");
+        assert_eq!(read_result(&out.join("ok.png"), 2, || "big".into()), Err("big".into()));
+        std::io::Write::write_all(&mut fresh_result(&out.join("out.png")).unwrap(), b"made").unwrap();
+        assert_eq!(std::fs::read_to_string(&secret).unwrap(), "SECRET");
+        assert_eq!(take_result(&out.join("out.png")).unwrap().1, 4);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     use super::*;
 
     #[test]

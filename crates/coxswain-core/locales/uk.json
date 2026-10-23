@@ -109,6 +109,7 @@
  "geo.track_length": "Довжина треку",
  "geo.tracks": "Треки",
  "geo.unreadable": "GDAL не зміг прочитати це як геодані.",
+ "geo.gdal_too_old": "Встановлено GDAL {version}, надто старий для цього: потрібен GDAL {least} або новіший.",
  "geo.waypoints": "Шляхові точки",
  "hint.ebook": "{menu} → Перетворити електронну книгу робить з неї EPUB, AZW3 або PDF",
  "hint.geo": "{menu} на геоданих: конвертувати в GeoPackage, GeoJSON, shapefile, KML чи GPX",

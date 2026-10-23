@@ -238,7 +238,8 @@ fn run(how: &How, pdf: &Path, stop: &AtomicBool, said: &mut impl FnMut(Said)) ->
             .find_map(|to| std::fs::OpenOptions::new().write(true).create_new(true).open(&to).ok().map(|f| (to, f)));
         let (to, mut file) = to.ok_or_else(|| format!("{}: {}", probe.display(), t!("err.no_file_name")))?;
         made = Some(to.clone());
-        std::io::copy(&mut std::fs::File::open(&out).map_err(|e| e.to_string())?, &mut file).map_err(|e| format!("{}: {e}", to.display()))?;
+        let (m, len) = crate::images::take_result(&out)?;
+        std::io::copy(&mut std::io::Read::take(m, len), &mut file).map_err(|e| format!("{}: {e}", to.display()))?;
         Ok(to)
     })();
     if let (Err(_), Some(half)) = (&result, made) {

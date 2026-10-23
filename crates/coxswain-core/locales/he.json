@@ -108,6 +108,7 @@
  "geo.track_length": "אורך המסלול",
  "geo.tracks": "מסלולים",
  "geo.unreadable": "GDAL לא הצליח לקרוא אותו כנתונים גאוגרפיים.",
+ "geo.gdal_too_old": "GDAL {version} מותקן, ישן מדי לזה: נדרש GDAL {least} ומעלה.",
  "geo.waypoints": "נקודות ציון",
  "hint.ebook": "{menu} ← המרת ספר אלקטרוני הופכת אותו ל־EPUB, ‏AZW3 או PDF",
  "hint.geo": "{menu} על נתונים גאוגרפיים: המרה ל-GeoPackage, GeoJSON, shapefile, KML או GPX",

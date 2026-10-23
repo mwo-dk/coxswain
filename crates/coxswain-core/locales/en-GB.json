@@ -2245,6 +2245,7 @@
  "geo.track_length": "Track length",
  "geo.tracks": "Tracks",
  "geo.unreadable": "GDAL could not read it as geodata.",
+ "geo.gdal_too_old": "GDAL {version} is installed, too old for this: it needs GDAL {least} or newer.",
  "geo.waypoints": "Waypoints",
  "preview.cover": "Cover of {name}",
  "setting.ebooks": "E-books with calibre",

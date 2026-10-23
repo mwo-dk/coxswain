@@ -168,6 +168,31 @@ impl To {
 /// address ever opened.
 pub(crate) const ENV: &[(&str, &str)] = &[("GDAL_PAM_ENABLED", "NO"), ("PROJ_NETWORK", "OFF"), ("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", "none"), ("GDAL_HTTP_TIMEOUT", "1")];
 
+/// The oldest GDAL whose programs take every option used here: `ogrinfo -json` came in 3.7.
+pub(crate) const GDAL_LEAST: (u32, u32) = (3, 7);
+
+/// The installed GDAL's version (`gdalinfo --version`) when it is older than `GDAL_LEAST`;
+/// asked once per program. None when it is new enough, or says no version.
+pub(crate) fn too_old(gdalinfo: &Path) -> Option<String> {
+    static KNOWN: std::sync::Mutex<Vec<(std::path::PathBuf, Option<String>)>> = std::sync::Mutex::new(Vec::new());
+    if let Some((_, v)) = KNOWN.lock().ok()?.iter().find(|(p, _)| p == gdalinfo) {
+        return v.clone();
+    }
+    let mut c = crate::tools::low(gdalinfo);
+    c.arg("--version");
+    let said = crate::tools::capture(c, std::time::Duration::from_secs(10), 4096).map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+    let old = version(&said).filter(|v| (v.0, v.1) < GDAL_LEAST).map(|v| format!("{}.{}.{}", v.0, v.1, v.2));
+    KNOWN.lock().ok()?.push((gdalinfo.to_path_buf(), old.clone()));
+    old
+}
+
+/// The version in `gdalinfo --version`'s line: `GDAL 3.6.2, released 2023/01/02`.
+fn version(said: &str) -> Option<(u32, u32, u32)> {
+    let v = said.trim().strip_prefix("GDAL ")?.split([',', ' ']).next()?;
+    let mut n = v.split('.').map(|x| x.chars().take_while(char::is_ascii_digit).collect::<String>().parse::<u32>());
+    Some((n.next()?.ok()?, n.next()?.ok()?, n.next().and_then(Result::ok).unwrap_or(0)))
+}
+
 /// What GDAL says of `path`: `ogrinfo`'s summary of a vector file (a GeoPackage of pictures
 /// only: `gdalinfo`'s), `gdalinfo`'s of a GeoTIFF.
 pub(crate) fn info(run: &mut Run, path: &Path) -> Result<Info, String> {
@@ -195,8 +220,8 @@ pub(crate) fn map(run: &mut Run, path: &Path) -> Result<String, String> {
             for (i, l) in v.layers.iter().filter(|l| l.geometry && plain(l)).take(MAX_LAYERS).enumerate() {
                 let file = format!("layer{i}.geojson");
                 run.go("ogr2ogr", &layer_args(path, l, &run.out(&file), &run.input.clone()).iter().map(String::as_str).collect::<Vec<_>>())?;
-                let json = read_max(&run.scratch.join(&file), MAX_LAYER)?;
-                layers.push(geojson(&json, &l.name).ok_or_else(|| t!("geo.unreadable"))?);
+                let json = made(&run.scratch.join(&file))?;
+                layers.push(geojson(&json, l.crs.is_some()).ok_or_else(|| t!("geo.unreadable"))?);
             }
             Ok(svg(&layers))
         }
@@ -204,7 +229,7 @@ pub(crate) fn map(run: &mut Run, path: &Path) -> Result<String, String> {
             let input = run.input.clone();
             let png = run.out("map.png");
             run.go("gdal_translate", &picture_args(&r, driver(path).unwrap_or("GTiff"), &input, &png).iter().map(String::as_str).collect::<Vec<_>>())?;
-            let bytes = std::fs::read(run.scratch.join("map.png")).map_err(|e| e.to_string())?;
+            let bytes = crate::images::read_result(&run.scratch.join("map.png"), MAX_LAYER, || t!("geo.too_large"))?;
             let (w, h) = image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format().ok().and_then(|r| r.into_dimensions().ok()).ok_or_else(|| t!("geo.unreadable"))?;
             Ok(crate::media::png_in_svg(&bytes, w, h))
         }
@@ -344,8 +369,11 @@ pub(crate) fn convert(run: &mut Run, path: &Path, to: To, name: &str) -> Result<
             let Info::Vector(v) = info else { return Err(t!("geo.needs_vector")) };
             let filled: Vec<&Layer> = v.layers.iter().filter(|l| l.features > 0).collect();
             if filled.len() <= 1 {
-                // One layer: GDAL writes it straight, however large.
-                return run.go("ogr2ogr", &["-f", "GeoJSON", "-if", drv, "-lco", "RFC7946=YES", out.as_str(), input.as_str()]).map(drop);
+                // One layer: GDAL writes it straight, however large; named, as the file may
+                // have others without features (a GPX file has five, a GeoPackage empty tables).
+                let one = filled.first().copied().or(v.layers.first()).map(|l| l.name.as_str());
+                let a = ["-f", "GeoJSON", "-if", drv, "-lco", "RFC7946=YES", out.as_str(), input.as_str()];
+                return run.go("ogr2ogr", &a.into_iter().chain(one).collect::<Vec<_>>()).map(drop);
             }
             let mut all = vec![];
             for (i, l) in filled.into_iter().filter(|l| plain(l)).enumerate() {
@@ -354,14 +382,14 @@ pub(crate) fn convert(run: &mut Run, path: &Path, to: To, name: &str) -> Result<
                 let at = run.out(&file);
                 a.extend([at.as_str(), input.as_str(), l.name.as_str()]);
                 run.go("ogr2ogr", &a)?;
-                let v: serde_json::Value = serde_json::from_str(&read_max(&run.scratch.join(&file), MAX_LAYER)?).map_err(|e| e.to_string())?;
+                let v: serde_json::Value = serde_json::from_str(&made(&run.scratch.join(&file))?).map_err(|e| e.to_string())?;
                 for mut f in v["features"].as_array().cloned().unwrap_or_default() {
                     f["properties"]["layer"] = l.name.clone().into();
                     all.push(f);
                 }
             }
             let fc = serde_json::json!({ "type": "FeatureCollection", "features": all });
-            std::fs::write(run.scratch.join(name), fc.to_string()).map_err(|e| e.to_string())
+            std::io::Write::write_all(&mut crate::images::fresh_result(&run.scratch.join(name))?, fc.to_string().as_bytes()).map_err(|e| e.to_string())
         }
         (_, false) => {
             let mut a = vec!["-f", to.driver(), "-if", drv];
@@ -389,6 +417,11 @@ pub(crate) fn convert(run: &mut Run, path: &Path, to: To, name: &str) -> Result<
             run.go("ogr2ogr", &a).map(drop)
         }
     }
+}
+
+/// A layer GDAL wrote into the scratch folder, at most `MAX_LAYER` (`images::read_result`).
+fn made(path: &Path) -> Result<String, String> {
+    crate::images::read_result(path, MAX_LAYER, || t!("geo.too_large")).map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
 fn read_max(path: &Path, max: u64) -> Result<String, String> {
@@ -749,11 +782,11 @@ struct Shapes {
     degrees: bool,
 }
 
-/// A layer's GeoJSON as shapes. Degrees unless the layer had no coordinate system.
-fn geojson(json: &str, _name: &str) -> Option<Shapes> {
+/// A layer's GeoJSON as shapes; `degrees` when it was made in them (`layer_args`: a layer with
+/// a coordinate system is moved into WGS 84, one without stays as it is).
+fn geojson(json: &str, degrees: bool) -> Option<Shapes> {
     let v: serde_json::Value = serde_json::from_str(json).ok()?;
     let mut shapes = vec![];
-    let degrees = !v["crs"].is_object();
     for f in v["features"].as_array()?.iter().take(MAX_FEATURES) {
         geometry(&f["geometry"], &mut shapes);
     }
@@ -943,6 +976,103 @@ mod tests {
         assert!(a.windows(3).any(|w| w == ["-outsize", "1024", "0"]) && a.contains(&"-scale".to_string()));
     }
 
+    /// `steps` on a GDAL that is a stand-in: `ogrinfo` says `layers`; `ogr2ogr` hands its
+    /// arguments to `made`, which writes what it likes into the scratch folder.
+    fn fake<R>(name: &str, layers: &str, mut made: impl FnMut(&Path, &[String]), steps: impl FnOnce(&mut Run) -> Result<R, String>) -> (Result<R, String>, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!("coxswain-geo-fake-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let info = format!(r#"{{"driverLongName":"x","layers":[{layers}]}}"#);
+        let scratch = dir.clone();
+        let mut exec = |program: &str, args: &[String]| -> Result<Vec<u8>, String> {
+            match program {
+                "ogrinfo" => Ok(info.clone().into_bytes()),
+                _ => {
+                    made(&scratch, args);
+                    Ok(vec![])
+                }
+            }
+        };
+        let mut run = Run { exec: &mut exec, input: "/src/in".into(), out: dir.display().to_string(), scratch: &dir };
+        (steps(&mut run), dir)
+    }
+
+    const WGS84: &str = r#"{"wkt":"GEOGCRS[\"WGS 84\",ID[\"EPSG\",4326]]"}"#;
+    /// What ogr2ogr writes when it moves a layer into WGS 84 without RFC 7946: a `crs` member.
+    const CRS84: &str = r#"{"type":"FeatureCollection","crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"features":[
+        {"type":"Feature","geometry":{"type":"LineString","coordinates":[[12.0,55.0],[13.0,56.0]]}}]}"#;
+
+    fn write_to_geojson_arg(dir: &Path, args: &[String], body: &str) {
+        let out = args.iter().find(|a| a.ends_with(".geojson")).unwrap();
+        assert!(Path::new(out).starts_with(dir));
+        std::fs::write(out, body).unwrap();
+    }
+
+    fn width_and_height(svg: &str) -> (f64, f64) {
+        let get = |k: &str| svg.split(k).nth(1).unwrap().split('"').next().unwrap().parse().unwrap();
+        (get("width=\""), get("height=\""))
+    }
+
+    #[test]
+    fn geo_a_reprojected_layer_is_drawn_in_degrees_a_layer_without_a_crs_as_it_is() {
+        let with = format!(r#"{{"name":"roads","featureCount":1,"geometryFields":[{{"type":"LineString","coordinateSystem":{WGS84}}}]}}"#);
+        let (svg, d) = fake("crs", &with, |dir, a| write_to_geojson_arg(dir, a, CRS84), |run| map(run, Path::new("a.gpkg")));
+        let (w, h) = width_and_height(&svg.unwrap());
+        assert!(h == SIDE && w < 0.65 * SIDE, "a layer moved into WGS 84 is narrower at 55° N: {w} × {h}");
+        std::fs::remove_dir_all(d).unwrap();
+        let without = r#"{"name":"plan","featureCount":1,"geometryFields":[{"type":"LineString"}]}"#;
+        let (svg, d) = fake("nocrs", without, |dir, a| write_to_geojson_arg(dir, a, &CRS84.replace(r#""crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}},"#, "")), |run| map(run, Path::new("a.gpkg")));
+        let (w, h) = width_and_height(&svg.unwrap());
+        assert_eq!(w, h, "a layer without a coordinate system is drawn as it is");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn geo_a_gpx_file_of_waypoints_alone_converts_to_geojson_by_its_layer() {
+        let layers = ["waypoints", "routes", "tracks", "route_points", "track_points"]
+            .iter()
+            .map(|n| format!(r#"{{"name":"{n}","featureCount":{},"geometryFields":[{{"type":"Point","coordinateSystem":{WGS84}}}]}}"#, u8::from(*n == "waypoints")))
+            .collect::<Vec<_>>()
+            .join(",");
+        let mut seen = vec![];
+        let (r, d) = fake("gpx", &layers, |_, a| seen.push(a.to_vec()), |run| convert(run, Path::new("walk.gpx"), To::GeoJson, "out.geojson"));
+        r.unwrap();
+        assert_eq!(seen.len(), 1);
+        assert_eq!(seen[0].last().map(String::as_str), Some("waypoints"), "{:?}", seen[0]);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A GDAL that was made to write a link to a secret (or a FIFO) where its layer goes: the
+    /// map is refused, nothing of the secret is read, and a FIFO does not hang it.
+    #[cfg(unix)]
+    #[test]
+    fn geo_results_that_are_links_or_fifos_are_refused() {
+        let secret = std::env::temp_dir().join(format!("coxswain-geo-secret-{}", std::process::id()));
+        std::fs::write(&secret, CRS84).unwrap();
+        let layer = format!(r#"{{"name":"roads","featureCount":1,"geometryFields":[{{"type":"LineString","coordinateSystem":{WGS84}}}]}}"#);
+        let link = |_: &Path, a: &[String]| std::os::unix::fs::symlink(&secret, a.iter().find(|a| a.ends_with(".geojson")).unwrap()).unwrap();
+        let (r, d) = fake("link", &layer, link, |run| map(run, Path::new("a.gpkg")));
+        assert!(r.is_err(), "a link is never followed");
+        std::fs::remove_dir_all(d).unwrap();
+        let fifo = |_: &Path, a: &[String]| {
+            let p = std::ffi::CString::new(a.iter().find(|a| a.ends_with(".geojson")).unwrap().as_str()).unwrap();
+            assert_eq!(unsafe { libc::mkfifo(p.as_ptr(), 0o600) }, 0);
+        };
+        let (r, d) = fake("fifo", &layer, fifo, |run| map(run, Path::new("a.gpkg")));
+        assert!(r.is_err(), "a FIFO is refused, not waited on");
+        std::fs::remove_dir_all(d).unwrap();
+        std::fs::remove_file(secret).unwrap();
+    }
+
+    #[test]
+    fn geo_gdal_versions_are_read_from_gdalinfo() {
+        assert_eq!(version("GDAL 3.6.2, released 2023/01/02\n"), Some((3, 6, 2)));
+        assert_eq!(version("GDAL 3.10.0dev-abc, released 2024/11/01"), Some((3, 10, 0)));
+        assert_eq!(version("GDAL 3.9.1 \"Ilheus\", released 2024/06/22"), Some((3, 9, 1)));
+        assert_eq!(version("not GDAL"), None);
+        assert!((3, 6) < GDAL_LEAST && (3, 7) >= GDAL_LEAST && (3, 10) > GDAL_LEAST);
+    }
+
     #[test]
     fn geo_names_are_never_options_and_layers_say_their_driver() {
         let l = Layer { name: "-roads".into(), crs: Some(("WGS 84".into(), Some(4326))), extent: Some([0.0, 0.0, 2048.0, 1.0]), ..Default::default() };
@@ -980,6 +1110,10 @@ mod tests {
         let gpx = run(Op::Geo(To::GeoJson), &d.join("walk.gpx"));
         let merged = std::fs::read_to_string(&gpx).unwrap();
         assert!(merged.contains("\"layer\":\"tracks\"") && merged.contains("\"layer\":\"waypoints\""), "{merged}");
+        // Waypoints alone: one filled layer of five, converted by its name.
+        std::fs::write(d.join("points.gpx"), r#"<?xml version="1.0"?><gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><wpt lat="55.676" lon="12.568"><name>Start</name></wpt></gpx>"#).unwrap();
+        let points = std::fs::read_to_string(run(Op::Geo(To::GeoJson), &d.join("points.gpx"))).unwrap();
+        assert!(points.contains("Start") && points.contains("Point"), "{points}");
         let facts = facts(&cfg, &gpkg);
         assert!(facts.iter().any(|(_, v)| v.contains("2 features")), "{facts:?}");
         let how = crate::media::how(&cfg, Program::Gdal).unwrap();
@@ -1016,7 +1150,7 @@ mod tests {
             {"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[12,55],[12.5,55],[12.5,55.5],[12,55]]]}},
             {"type":"Feature","geometry":{"type":"MultiPoint","coordinates":[[12.2,55.2],[12.8,55.8]]}},
             {"type":"Feature","geometry":null}]}"#;
-        let shapes = geojson(json, "x").unwrap();
+        let shapes = geojson(json, true).unwrap();
         assert_eq!(shapes.shapes.len(), 4);
         let s = svg(&[shapes]);
         assert!(s.starts_with("<svg") && s.ends_with("</svg>") && s.contains("<circle") && s.contains("fill-opacity"));

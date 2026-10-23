@@ -107,6 +107,7 @@
  "geo.track_length": "Հետքի երկարություն",
  "geo.tracks": "Հետքեր",
  "geo.unreadable": "GDAL-ը չկարողացավ այն կարդալ որպես աշխարհագրական տվյալներ։",
+ "geo.gdal_too_old": "Տեղադրված է GDAL {version}, դրա համար շատ հին է. անհրաժեշտ է GDAL {least} կամ ավելի նոր։",
  "geo.waypoints": "Ուղու կետեր",
  "hint.ebook": "{menu} → Փոխարկել էլ. գիրքը այն դարձնում է EPUB, AZW3 կամ PDF",
  "hint.geo": "{menu} աշխարհագրական տվյալների վրա․ փոխարկել GeoPackage, GeoJSON, shapefile, KML կամ GPX",

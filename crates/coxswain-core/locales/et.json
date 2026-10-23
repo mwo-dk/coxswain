@@ -107,6 +107,7 @@
  "geo.track_length": "Raja pikkus",
  "geo.tracks": "Rajad",
  "geo.unreadable": "GDAL ei suutnud seda geoandmetena lugeda.",
+ "geo.gdal_too_old": "Paigaldatud on GDAL {version}, selleks liiga vana: vaja on GDAL {least} või uuemat.",
  "geo.waypoints": "Teekonnapunktid",
  "hint.ebook": "{menu} → Teisenda e-raamat teeb sellest EPUB, AZW3 või PDF-i",
  "hint.geo": "{menu} geoandmetel: teisenda GeoPackage'iks, GeoJSON-iks, shapefile'iks, KML-iks või GPX-iks",

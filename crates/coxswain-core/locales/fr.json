@@ -108,6 +108,7 @@
  "geo.track_length": "Longueur de la trace",
  "geo.tracks": "Traces",
  "geo.unreadable": "GDAL n'a pas pu le lire comme géodonnées.",
+ "geo.gdal_too_old": "GDAL {version} est installé, trop ancien pour cela : il faut GDAL {least} ou plus récent.",
  "geo.waypoints": "Points de passage",
  "hint.ebook": "{menu} → Convertir le livre numérique en fait un EPUB, AZW3 ou PDF",
  "hint.geo": "{menu} sur des géodonnées : convertir en GeoPackage, GeoJSON, shapefile, KML ou GPX",

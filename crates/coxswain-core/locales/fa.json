@@ -107,6 +107,7 @@
  "geo.track_length": "طول رد",
  "geo.tracks": "ردها",
  "geo.unreadable": "GDAL نتوانست آن را به‌عنوان دادهٔ جغرافیایی بخواند.",
+ "geo.gdal_too_old": "GDAL {version} نصب است و برای این کار خیلی قدیمی است: GDAL {least} یا جدیدتر لازم است.",
  "geo.waypoints": "نقطه‌های راه",
  "hint.ebook": "{menu} ← تبدیل کتاب الکترونیکی آن را EPUB، AZW3 یا PDF می‌کند",
  "hint.geo": "{menu} روی داده‌های جغرافیایی: تبدیل به GeoPackage، GeoJSON، shapefile، KML یا GPX",
