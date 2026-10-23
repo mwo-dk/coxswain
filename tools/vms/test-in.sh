@@ -47,7 +47,7 @@ STARTED=0
 if ! up; then
   echo "== starting $(basename "$DIR") (headless)"
   # A start.sh may stay in the foreground (one made by hand) or put qemu in the background.
-  VM_DISPLAY=none nohup "$DIR/start.sh" >/dev/null 2>&1 &
+  VM_DISPLAY=none nohup "$DIR/start.sh" >/dev/null 2>&1 9>&- &
   STARTED=1
 fi
 finish() {
@@ -62,7 +62,7 @@ done
 echo "== copying $SRC"
 if vm 'command -v rsync' >/dev/null 2>&1; then
   # rsync calls "<-e> <host> rsync --server ...": the wrapper drops the host and goes through ssh.sh.
-  rsync -az --delete --exclude /target/ --exclude node_modules/ --exclude /.git/ \
+  rsync -az --timeout=120 --delete --exclude /target/ --exclude node_modules/ --exclude /.git/ \
     --exclude /.worktrees/ -e "sh -c 'shift; exec \"$DIR/ssh.sh\" -o BatchMode=yes \"\$@\"' ssh" \
     "$SRC/" vm:coxswain-src/
 else
