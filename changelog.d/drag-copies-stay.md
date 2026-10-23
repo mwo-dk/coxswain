@@ -1,0 +1,1 @@
+| **Files dragged out of an archive stay while another program reads them.** Closing the desktop app no longer deletes the copies it made for a drag out of an archive or a git history, which the program they were dropped on may still have open; they go once they are a day old. | [Out of archives and histories](files/drag-and-drop.md#out-of-archives-and-histories) |

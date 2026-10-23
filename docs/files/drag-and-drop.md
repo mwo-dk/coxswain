@@ -73,7 +73,9 @@ A file inside an archive (zip, 7z, tar, a CBR comic, a disk image, a CHM help fi
 mailbox's messages) or in a git history is not on disk, so another application could not open it. When
 you drag one, Coxswain first copies what you drag out into a folder of its own in its cache
 (`coxswain/drag` in the cache folder, one folder per drag, names kept), as **F5** would, and
-hands those copies over. The folders go when the app closes, and any left over after a day.
+hands those copies over. The copies stay for a day, after the app closes too, since the program
+you dropped them on may still be reading them; then they go, when the app next copies out for a
+drag or closes.
 
 - More than 200 MB or 2,000 files is not copied out for a drag: the status line says
   `Too much to copy out for a drag (over 200 MB or 2,000 files) — F5 copies it out`.
