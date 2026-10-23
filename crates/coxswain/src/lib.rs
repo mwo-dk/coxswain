@@ -757,6 +757,9 @@ pub struct App {
     /// Space, put aside while View, Edit or Delete has a file of it: back when that is done,
     /// without the file if it went.
     space_back: Option<(Box<space::Viewer>, PathBuf)>,
+    /// What a background job wanted to show while the editor was open: shown once it closes,
+    /// so the editor and its unsaved text are never put away by it.
+    waiting: Vec<Dialog>,
     /// Compare folders' summary was put on the status line once it was done.
     folders_said: bool,
     quit: bool,
@@ -1057,6 +1060,7 @@ impl App {
             props_rx: None,
             watch: Default::default(),
             space_back: None,
+            waiting: Vec::new(),
             folders_said: false,
             quit: false,
             input_note: None,
@@ -4247,6 +4251,8 @@ impl App {
         if let Some(Dialog::View { v, .. }) = &mut self.dialog {
             v.poll();
         }
+        // The editor is put aside while the jobs below report: a box one opens waits for it.
+        let editing = if matches!(self.dialog, Some(Dialog::Edit { .. })) { self.dialog.take() } else { None };
         if let Some(r) = self.props_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.props_rx = None;
             if self.status.as_deref() == Some(t!("app.reading_properties").as_str()) {
@@ -4277,6 +4283,14 @@ impl App {
         self.poll_transcribe_plan();
         self.poll_viruses();
         self.poll_viruses_plan();
+        if let Some(e) = editing
+            && let Some(d) = self.dialog.replace(e)
+        {
+            self.waiting.push(d);
+        }
+        if self.dialog.is_none() && !self.waiting.is_empty() {
+            self.dialog = Some(self.waiting.remove(0));
+        }
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -5153,6 +5167,30 @@ mod tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    /// A box a background job opens while the editor is open waits for the editor to close:
+    /// the editor and its unsaved text stay.
+    #[test]
+    fn a_job_ending_never_puts_the_editor_away() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-edit-waits-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("f.txt"), "x\n").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        app.edit_here(&d.join("f.txt"), None, None);
+        let Some(Dialog::Edit { e, .. }) = &mut app.dialog else { panic!("no editor") };
+        e.buf.insert("typed ");
+        let (tx, rx) = mpsc::channel();
+        app.props_rx = Some(rx);
+        tx.send(Err("failed".into())).unwrap();
+        let mut state = app.index.state();
+        app.tick(&mut state);
+        assert!(matches!(&app.dialog, Some(Dialog::Edit { e, .. }) if e.buf.dirty()));
+        app.dialog = None;
+        app.tick(&mut state);
+        assert!(app.dialog.is_some() && !matches!(app.dialog, Some(Dialog::Edit { .. })));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// F2 Rename shows a newline in a name as ␊ and keeps it; text left as shown renames

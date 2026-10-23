@@ -313,7 +313,7 @@ fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32) {
         match c {
             '{' => *in_brace = true,
             ';' => return,
-            '(' => *depth += 1,
+            '(' => *depth = depth.saturating_add(1),
             ')' => *depth = depth.saturating_sub(1),
             c if c.is_whitespace() => {}
             _ => {
@@ -329,7 +329,7 @@ fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32) {
                         _ => pgn::word(w),
                     }
                 {
-                    head.plies += 1;
+                    head.plies = head.plies.saturating_add(1);
                     if head.sans.len() < FIRST_MOVES {
                         head.sans.push(san.to_string());
                     }

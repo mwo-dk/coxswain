@@ -390,7 +390,7 @@ impl Editor {
         if cx < self.left {
             self.left = cx.saturating_sub(8);
         } else if cx >= self.left + w {
-            self.left = cx + 8 - w;
+            self.left = (cx + 8).saturating_sub(w).min(cx);
         }
         let lines = self.highlighted(self.top, h);
         let slots: HashMap<&str, Style> = theme.slots().into_iter().map(|(n, s)| (n, sty(s))).collect();

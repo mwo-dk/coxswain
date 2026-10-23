@@ -130,7 +130,8 @@ letters). It works on EPD and FEN positions too.
 **Which book.** The one *Settings → Previews → Opening book* names (`[chess] book`, a path; `~`
 is your home folder, a relative path starts from the game file's folder); when that is empty or
 no book, the first `.bin` file in the game file's own folder that is a Polyglot book, by name.
-Without either, no line is shown.
+A `.bin` file of a cloud folder that is online only is skipped, so looking for a book never
+downloads it. Without either, no line is shown.
 
 **A book on its own.** The preview of a `.bin` file that is a Polyglot book (desktop), and
 **F3** or **Alt+K** on it (both apps, *Open games* in the action menu), show the board at the
