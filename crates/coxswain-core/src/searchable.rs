@@ -4,7 +4,7 @@
 //! the search store reads it as it reads any other: nothing is read by OCR in the background.
 //!
 //! OCRmyPDF runs as installed, else from its container image (`[preview.images] ocrmypdf`), as
-//! a preview tool does: `[preview] prefer` and `prefer_tool.ocrmypdf` choose, a container
+//! a preview tool does: `[preview] prefer` and `[preview.tools] ocr` choose, a container
 //! gets no network and sees the PDF's folder read-only. Its image is pulled only once the user
 //! has said yes to a first run that says it pulls.
 
@@ -18,7 +18,7 @@ use std::time::Duration;
 use crate::config::PreviewConfig;
 use crate::t;
 
-/// Its name under `[preview.images]` and `prefer_tool`.
+/// Its name under `[preview.images]`.
 pub const TOOL: &str = "ocrmypdf";
 
 /// The languages OCRmyPDF's default image reads (`/usr/share/tessdata`, 2026-10).
@@ -33,7 +33,8 @@ pub enum How {
 
 /// The way it runs here, or why it cannot: what to install, or which setting to change.
 pub fn how(cfg: &PreviewConfig) -> Result<How, String> {
-    let pref = cfg.prefer_tool.get(TOOL).unwrap_or(&cfg.prefer).as_str();
+    let pref = crate::preview_tools::asked(cfg, TOOL);
+    let pref = pref.as_str();
     let local = crate::tools::which("ocrmypdf").map(How::Local);
     let image = cfg.images.get(TOOL).filter(|i| !i.is_empty()).cloned();
     let container = match (crate::tools::container_runtime(cfg), &image) {
@@ -72,13 +73,13 @@ pub fn about(how: &How) -> (String, bool) {
     match how {
         How::Local(_) => (t!("searchable.runs_local"), false),
         How::Container { rt, path, image } => {
-            let runs = t!("searchable.runs_container", "runtime" => *rt, "image" => image.as_str());
+            let runs = t!("searchable.runs_container", "runtime" => *rt, "image" => crate::images::short(image));
             if crate::tools::image_size(path, image).is_some() {
                 return (runs, false);
             }
             let pull = match crate::images::download(image) {
-                Some(size) => t!("convert.first_run_pulls_large", "image" => image.as_str(), "size" => size),
-                None => t!("convert.first_run_pulls", "image" => image.as_str()),
+                Some(size) => t!("convert.first_run_pulls_large", "image" => crate::images::short(image), "size" => size),
+                None => t!("convert.first_run_pulls", "image" => crate::images::short(image)),
             };
             (format!("{runs} {pull}."), true)
         }
@@ -250,7 +251,7 @@ static N: AtomicUsize = AtomicUsize::new(0);
 
 /// The lines `child` writes to its standard error, as they come; progress bars that redraw
 /// with `\r` count as lines.
-fn follow(child: &mut Child) -> mpsc::Receiver<String> {
+pub(crate) fn follow(child: &mut Child) -> mpsc::Receiver<String> {
     let (tx, rx) = mpsc::channel();
     if let Some(mut err) = child.stderr.take() {
         std::thread::spawn(move || {
@@ -277,12 +278,17 @@ fn follow(child: &mut Child) -> mpsc::Receiver<String> {
 }
 
 /// A folder of its own in the cache for one run, removed when dropped.
-struct Scratch(PathBuf);
+pub(crate) struct Scratch(pub(crate) PathBuf);
 
 impl Scratch {
     fn new() -> Result<Scratch, String> {
-        let base = dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?;
-        let ocr = base.join("coxswain").join("ocr");
+        Scratch::named("ocr")
+    }
+
+    /// A folder of its own under the cache's `coxswain/<kind>`.
+    pub(crate) fn named(kind: &str) -> Result<Scratch, String> {
+        let base = crate::dirs::cache_dir().ok_or_else(|| t!("err.no_cache_folder"))?;
+        let ocr = base.join("coxswain").join(kind);
         // What a run of an app that was killed left behind, a day on (a run may take hours).
         for e in std::fs::read_dir(&ocr).into_iter().flatten().flatten() {
             if e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().is_ok_and(|a| a > Duration::from_secs(24 * 3600))) {
@@ -324,13 +330,13 @@ mod tests {
     fn searchable_follows_the_preference_and_says_what_is_missing() {
         crate::i18n::set_language("en-GB");
         let mut cfg = PreviewConfig { container: "off".into(), ..Default::default() };
-        cfg.prefer_tool.insert(TOOL.into(), "container".into());
+        cfg.tools.insert("ocr".into(), "container".into());
         match how(&cfg) {
             Ok(How::Local(_)) => {}
             Ok(other) => panic!("containers are off: {other:?}"),
             Err(e) => assert!(e.contains(&t!("searchable.containers_off")), "{e}"),
         }
-        cfg.prefer_tool.insert(TOOL.into(), "local".into());
+        cfg.tools.insert("ocr".into(), "local".into());
         if let Err(e) = how(&cfg) {
             assert!(e.contains(&t!("searchable.prefer_local")), "{e}");
         }
@@ -348,7 +354,7 @@ mod tests {
         std::fs::copy(src, &pdf).unwrap();
         assert!(scanned(&pdf));
         let mut cfg = PreviewConfig::default();
-        cfg.prefer_tool.insert(TOOL.into(), "container".into());
+        cfg.tools.insert("ocr".into(), "container".into());
         let start = std::time::Instant::now();
         let r = run_all(&cfg, std::slice::from_ref(&pdf), &AtomicBool::new(false), |_| {}, |s| {
             if let Said::Line(l) = s {

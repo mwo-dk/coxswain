@@ -95,6 +95,25 @@ enum Request {
     },
     /// Let the built-in chat model go now, freeing its memory.
     Unload,
+    /// Transcribe these files (folders: the files with speech in them), in the background.
+    Transcribe {
+        paths: Vec<PathBuf>,
+    },
+    /// Pause transcribing, or go on; `stop`: let every file waiting go.
+    TranscribePause {
+        pause: bool,
+        #[serde(default)]
+        stop: bool,
+    },
+    /// The transcript of a file, done or under way.
+    Transcript {
+        path: PathBuf,
+    },
+    /// The PGN games that reach the position with this Polyglot key (`Store::games_at`).
+    Positions {
+        hash: u64,
+        max: usize,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -110,8 +129,13 @@ enum Reply {
     },
     Results(Results),
     Found(Found),
+    /// Games by file and index; `None` without the store (words in files off).
+    Games {
+        games: Option<Vec<(PathBuf, u32)>>,
+    },
+    /// Each source with how many similar files it stands for.
     Passages {
-        found: Vec<(PathBuf, String)>,
+        found: Vec<(PathBuf, String, usize)>,
     },
     Status(Status),
     /// With the time the walk they come from began.
@@ -126,6 +150,13 @@ enum Reply {
     /// The answer is complete, or why there is none.
     Answered {
         error: Option<String>,
+    },
+    /// Files taken in to be transcribed.
+    Transcribing {
+        files: usize,
+    },
+    Transcript {
+        transcript: Option<crate::transcribe::Transcript>,
     },
 }
 
@@ -189,6 +220,12 @@ pub struct Status {
     /// The clouds whose files the walk found only in the cloud: (name, folder).
     #[serde(default)]
     pub clouds: Vec<(String, PathBuf)>,
+    /// Apache Tika, when `[search] tika` is on: pulling its image, ready, or why not.
+    #[serde(default)]
+    pub tika: Option<crate::extract::tika::State>,
+    /// Transcripts, when `[search] whisper` is on: how many wait, are done, how far.
+    #[serde(default)]
+    pub transcripts: Option<crate::transcribe::Status>,
     /// The helper is this newer version, which this app cannot talk to: it indexes by itself
     /// until it is restarted. Never sent by a helper.
     #[serde(default)]
@@ -197,7 +234,7 @@ pub struct Status {
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
 pub fn folder() -> Option<PathBuf> {
-    Some(dirs::cache_dir()?.join("coxswain"))
+    Some(crate::dirs::cache_dir()?.join("coxswain"))
 }
 
 /// Whether a helper runs now: it holds `index.lock` for as long as it does.
@@ -294,7 +331,10 @@ fn serve_here() -> io::Result<()> {
         crate::tools::login_path();
     }
     let dir = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
-    let search = Config::load().map(|c| c.search).unwrap_or_default();
+    let search = Config::load_search();
+    // The rest of the settings for transcripts (their model, how whisper.cpp runs), its
+    // `[search]` the one kept even when the rest is refused.
+    let config = Config { search: search.clone(), ..Config::load().unwrap_or_default() };
     // First, or the store cannot be made on a machine that has no cache folder yet.
     std::fs::create_dir_all(&dir)?;
     // A store locked for a moment (a helper still leaving, a compaction) is waited for, up to
@@ -332,6 +372,20 @@ fn serve_here() -> io::Result<()> {
             None
         });
     }
+    // Apache Tika's image, when it is turned on and not pulled yet: once there, the files it
+    // reads are read at once.
+    if let Some(s) = store.clone() {
+        crate::extract::tika::prepare(move || s.hurry.store(true, Ordering::Relaxed));
+    }
+    // calibre's image, when e-books are turned on and it is not pulled yet: once there, the
+    // books it reads are read at once.
+    if let Some(s) = store.clone() {
+        crate::ebook::prepare(move || s.hurry.store(true, Ordering::Relaxed));
+    }
+    // Transcripts, when they are turned on: what was asked for, in the background.
+    if let Some(s) = store.clone() {
+        std::thread::spawn(move || crate::transcribe::work(s, config, Arc::new(AtomicBool::new(false))));
+    }
     let cfg = search.clone();
     // Registered to start with the session: it stays when the apps have gone.
     let linger = if std::env::args().any(|a| a == crate::service::STAY) {
@@ -343,7 +397,7 @@ fn serve_here() -> io::Result<()> {
         OURS,
         &dir,
         linger,
-        move || Service::start(&search),
+        move || Service::start(&search, crate::index::Index::cache_path()),
         store.map(|s| (s, cfg)),
     )
 }
@@ -649,8 +703,27 @@ fn answer(
                     .map(|s| s.passages(&query, scope.as_deref(), bytes))
                     .unwrap_or_default(),
             },
+            Request::Positions { hash, max } => Reply::Games {
+                games: store.and_then(|s| s.games_at(hash, max).ok()),
+            },
             Request::Size { path } => Reply::Size {
                 size: store.and_then(|s| s.size(&path)),
+            },
+            Request::Transcribe { paths } => {
+                let files = crate::transcribe::survey(&paths).files;
+                Reply::Transcribing {
+                    files: store.map_or(Ok(0), |s| s.transcribe_ask(&files)).map_err(io::Error::other)?,
+                }
+            }
+            Request::TranscribePause { pause, stop } => {
+                crate::transcribe::pause(pause);
+                if stop {
+                    store.map(Store::transcribe_stop).transpose().map_err(io::Error::other)?;
+                }
+                Reply::Done
+            }
+            Request::Transcript { path } => Reply::Transcript {
+                transcript: store.and_then(|s| s.transcript(&path)),
             },
             Request::IndexNow => {
                 store.inspect(|s| s.hurry.store(true, Ordering::Relaxed));
@@ -729,6 +802,8 @@ fn answer(
                     roots,
                     tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
+                    tika: store.and(crate::extract::tika::state()),
+                    transcripts: store.and_then(crate::transcribe::status),
                     outdated: None,
                 }
             }),
@@ -886,7 +961,7 @@ impl Client {
         question: &str,
         scope: Option<&Path>,
         bytes: usize,
-    ) -> Vec<(PathBuf, String)> {
+    ) -> Vec<(PathBuf, String, usize)> {
         match self.ask(&Request::Passages {
             query: question.into(),
             scope: scope.map(Path::to_path_buf),
@@ -909,6 +984,8 @@ impl Client {
         sources: &[(PathBuf, String)],
         mut piece: impl FnMut(&str) -> bool,
     ) -> Result<(), String> {
+        // Both apps show what the model says as it is: never an escape a terminal obeys.
+        let mut piece = |text: &str| piece(&crate::meaning::printable(text));
         let line = (crate::chat::of(&cfg.ask_model).is_some() && self.own.get().is_none())
             .then(|| self.connect())
             .flatten();
@@ -953,9 +1030,42 @@ impl Client {
         }
     }
 
+    /// The PGN games that reach the position with the Polyglot key `hash`, at most `max`:
+    /// (file, game index from 0). `None` when the store is not there (words in files off, or no
+    /// helper).
+    pub fn games_at(&self, hash: u64, max: usize) -> Option<Vec<(PathBuf, u32)>> {
+        match self.ask(&Request::Positions { hash, max }) {
+            Some(Reply::Games { games }) => games,
+            _ => None,
+        }
+    }
+
     /// Read the backlog of the files' text at full speed.
     pub fn index_now(&self) {
         self.ask(&Request::IndexNow);
+    }
+
+    /// Transcribe `paths` in the helper's background: how many files were taken in, or None
+    /// when no helper answers (transcribing needs it).
+    pub fn transcribe(&self, paths: &[PathBuf]) -> Option<usize> {
+        match self.ask(&Request::Transcribe { paths: paths.to_vec() }) {
+            Some(Reply::Transcribing { files }) => Some(files),
+            _ => None,
+        }
+    }
+
+    /// Pause transcribing or go on; `stop` lets every file waiting go.
+    pub fn transcribe_pause(&self, pause: bool, stop: bool) {
+        self.ask(&Request::TranscribePause { pause, stop });
+        *self.status.lock().unwrap() = None;
+    }
+
+    /// The transcript of `path`, done or under way.
+    pub fn transcript(&self, path: &Path) -> Option<crate::transcribe::Transcript> {
+        match self.ask(&Request::Transcript { path: path.to_path_buf() }) {
+            Some(Reply::Transcript { transcript }) => transcript,
+            _ => None,
+        }
     }
 
     /// Empty the search store; the helper fills it again.
@@ -1041,7 +1151,9 @@ impl Client {
     }
 
     fn own(&self) -> &Arc<Service> {
-        self.own.get_or_init(|| Service::start(&self.search))
+        self.own.get_or_init(|| {
+            Service::start(&self.search, self.dir.as_ref().map(|d| d.join("index.bin")))
+        })
     }
 
     /// The app's own index, started when no helper can be reached: not for one that is
@@ -1189,6 +1301,13 @@ fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
     serde_json::from_str(&line).map_err(io::Error::other)
 }
 
+/// A line in helper.log from this app: an error's full text, where the screen showed it short.
+pub fn app_log(what: &str) {
+    if let Some(dir) = folder().filter(|d| d.is_dir()) {
+        app_note(&dir, format_args!("{what}"));
+    }
+}
+
 /// A line in helper.log from an app, which has its own stderr.
 fn app_note(dir: &Path, what: std::fmt::Arguments) {
     let mut o = std::fs::OpenOptions::new();
@@ -1321,8 +1440,8 @@ mod tests {
                     &dir,
                     linger,
                     {
-                        let s = search.clone();
-                        move || Service::start(&s)
+                        let (s, cache) = (search.clone(), dir.join("index.bin"));
+                        move || Service::start(&s, Some(cache.clone()))
                     },
                     Some((store, search)),
                 )
@@ -1368,8 +1487,8 @@ mod tests {
                 &dir,
                 Duration::from_secs(5),
                 {
-                    let s = s.clone();
-                    move || Service::start(&s)
+                    let (s, cache) = (s.clone(), dir.join("index.bin"));
+                    move || Service::start(&s, Some(cache.clone()))
                 },
                 Some((store, s)),
             )
@@ -1380,7 +1499,7 @@ mod tests {
         let mut sources = vec![];
         while sources.len() < 2 && wait.elapsed() < Duration::from_secs(120) {
             std::thread::sleep(Duration::from_millis(500));
-            sources = c.passages(question, None, 10);
+            sources = c.passages(question, None, 10).into_iter().map(|(p, t, _)| (p, t)).collect();
         }
         assert!(!sources.is_empty(), "no passages");
         let (mut answer, mut pieces, start) = (String::new(), 0, Instant::now());
@@ -1636,7 +1755,10 @@ mod tests {
         let d = tree("newer");
         helper_of(("1.0.0", PROTOCOL), &d, Duration::from_secs(5))();
         up(&d);
-        let new_helper = helper_of(("9.0.0", PROTOCOL), &d, Duration::from_secs(5));
+        // It stays a while after an app lets go: on a loaded runner the new app's line may break
+        // while the helper rebuilds the index it found, and it must still be there to come back
+        // to (this app starts no second one).
+        let new_helper = helper_of(("9.0.0", PROTOCOL), &d, crate::test_limit(Duration::from_secs(5)));
         let (new_starts, spawn) = counting(new_helper.clone());
         let new = Client::of(
             ("9.0.0", PROTOCOL),

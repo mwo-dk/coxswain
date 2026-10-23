@@ -255,13 +255,22 @@ impl Store {
              CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));
-             CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);",
+             CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS transcripts(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, length INTEGER, done INTEGER NOT NULL DEFAULT 0, text TEXT NOT NULL DEFAULT '', finished INTEGER NOT NULL DEFAULT 0, asked INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS positions(hash INTEGER NOT NULL, file INTEGER NOT NULL, game INTEGER NOT NULL, PRIMARY KEY(hash, file, game)) WITHOUT ROWID;
+             CREATE INDEX IF NOT EXISTS positions_file ON positions(file);",
         )?;
         // Search by meaning came later: a store from before gets the column, and keeps its text.
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
         // they have, 0 when the server refused the file (tried again at the next scan).
         if db.prepare("SELECT embedded FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN embedded INTEGER")?;
+        }
+        // The passages of a file whose text is longer than what is kept of it (2.33) are made
+        // from the whole file, and kept with their vectors: they cannot be cut again from the
+        // text kept. NULL for every other file, whose passages are cut from its text.
+        if db.prepare("SELECT passage FROM chunks LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE chunks ADD COLUMN passage TEXT; ALTER TABLE chunks ADD COLUMN heading TEXT;")?;
         }
         // Files inside archives came later too: `inside` is 1 for them. They have text, and no
         // part in sizes, hashes or the walk; the index of sizes leaves them out.
@@ -376,12 +385,14 @@ impl Store {
     }
 
     /// Forget everything; the store fills again from the start.
+    /// Transcripts stay: they are made only on request, and each comes back as its file's text
+    /// when the file is read again.
     pub fn clear(&self) -> rusqlite::Result<()> {
         *self.walked.lock().unwrap() = None;
         self.cleared.store(true, Ordering::SeqCst);
         let db = self.db.lock().unwrap();
         // The vacuum goes to the write-ahead log first: written back and emptied, the room is free.
-        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
+        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM positions; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
         // Read again whatever came of it: each statement commits on its own, so a vacuum that
         // fails still leaves the rows gone.
         self.commit_signs(|| Ok(()), SignsChange::Reset)?;
@@ -456,17 +467,26 @@ impl Store {
     /// now reads it (Ghostscript a PostScript file that was read as plain text); only the files
     /// of that kind. A kind no program reads any more keeps what was read of it: the program
     /// may only be missing from `PATH` for a while.
-    fn tools_changed(&self, exts: &[&str]) -> rusqlite::Result<()> {
+    ///
+    /// `known` are the kinds this app can read with a program at all. The list is kept under
+    /// `tools.2`, which apps before 2.32.2 leave alone (they write a shorter `tools`): a kind
+    /// missing only because an older or newer app wrote the list, not because its program was
+    /// missing, is not read again, so going back and forth between versions reads nothing again.
+    fn tools_changed(&self, exts: &[&str], known: &[&str]) -> rusqlite::Result<()> {
         let now = exts.join(",");
         let db = self.db.lock().unwrap();
-        let before: String = db
-            .query_row("SELECT value FROM meta WHERE key = 'tools'", [], |r| {
-                r.get(0)
-            })
-            .unwrap_or_default();
-        if before == now {
+        let meta = |key: &str| -> Option<String> {
+            db.query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0)).ok()
+        };
+        // Written by this app or a later one; else the list of an app from before (`tools`).
+        let ours = meta("tools.2");
+        let before = ours.clone().or_else(|| meta("tools")).unwrap_or_default();
+        let knew = ours.and(meta("tools.known")).unwrap_or_default();
+        let now_known = known.join(",");
+        if before == now && knew == now_known {
             return Ok(());
         }
+        let knew: Vec<&str> = knew.split(',').filter(|e| !e.is_empty()).collect();
         let kinds: Vec<&str> = before
             .split(',')
             .chain(now.split(','))
@@ -475,7 +495,10 @@ impl Store {
         let (was, is): (Vec<&str>, Vec<&str>) = (before.split(',').collect(), now.split(',').collect());
         for ext in kinds {
             let pattern = format!("%.{ext}");
-            if is.contains(&ext) && !was.contains(&ext) {
+            // New to the list: its program came, or the app that wrote the list did not know
+            // the kind (then a reader's own version in `reader_changed` says what to read).
+            let came = knew.is_empty() || knew.contains(&ext);
+            if is.contains(&ext) && !was.contains(&ext) && came {
                 db.execute(
                     "UPDATE files SET has_text = NULL, embedded = NULL WHERE lower(path) LIKE ?1",
                     [&pattern],
@@ -487,10 +510,10 @@ impl Store {
                 )?;
             }
         }
-        db.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES ('tools', ?1)",
-            [now],
-        )?;
+        // `tools` too, for the apps from before.
+        for (key, value) in [("tools", &now), ("tools.2", &now), ("tools.known", &now_known)] {
+            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, value])?;
+        }
         Ok(())
     }
 
@@ -501,11 +524,70 @@ impl Store {
         self.reader_changed("readers", tag, ends)
     }
 
+    /// Files read line by line whose text was cut at `extract::MAX_TEXT` get their passages and
+    /// vectors made again, once (under `key`, at `tag`; an older app leaves a newer tag be):
+    /// they are now made from the whole file. Their text stays.
+    fn long_passages(&self, key: &str, tag: &str) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let before: String = db
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .unwrap_or_default();
+        if before == tag || matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b) {
+            return Ok(());
+        }
+        let long: Vec<(i64, String)> = db
+            .prepare("SELECT f.id, f.path FROM files f JOIN text t ON t.rowid = f.id WHERE f.embedded = 1 AND length(CAST(t.body AS BLOB)) + ?1 >= ?2")?
+            .query_map([LONG_MARGIN as i64, crate::extract::MAX_TEXT as i64], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        for (id, path) in long {
+            if crate::extract::streams(Path::new(&path)) {
+                db.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
+            }
+        }
+        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", rusqlite::params![key, tag])?;
+        Ok(())
+    }
+
+    /// Files left without text and larger than `max` are read again, once (under `key`, at
+    /// `tag`, as `reader_changed`): a reader now reads files of any size of some kinds.
+    fn large_unread(&self, key: &str, tag: &str, max: u64) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let before: String = db
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .unwrap_or_default();
+        if before == tag || matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b) {
+            return Ok(());
+        }
+        db.execute(
+            "UPDATE files SET has_text = NULL WHERE has_text = 0 AND size > ?1",
+            [max as i64],
+        )?;
+        db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", rusqlite::params![key, tag])?;
+        Ok(())
+    }
+
     /// `readers_changed` for one reader, under its own `key` in the store, so a change to it
     /// reads only its own files again. Apps that know no such key leave it alone, and their
     /// own `readers` tag stays as they wrote it.
     fn reader_changed<S: AsRef<str>>(&self, key: &str, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
-        let db = self.db.lock().unwrap();
+        self.reader_changed_to(key, tag, ends, false)
+    }
+
+    /// `reader_changed` for a reader that now leaves out what it read before (hidden text):
+    /// the files' old text and the vectors of their passages go at once, so nothing of it is
+    /// found, by words or by meaning, nor given to Ask, while the files wait to be read again.
+    fn reader_dropped<S: AsRef<str>>(&self, key: &str, tag: &str, ends: &[S]) -> rusqlite::Result<()> {
+        self.reader_changed_to(key, tag, ends, true)
+    }
+
+    fn reader_changed_to<S: AsRef<str>>(
+        &self,
+        key: &str,
+        tag: &str,
+        ends: &[S],
+        forget: bool,
+    ) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
         let before: String = db
             .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
             .unwrap_or_default();
@@ -514,17 +596,27 @@ impl Store {
         if before == tag || newer {
             return Ok(());
         }
+        let tx = db.transaction()?;
         for end in ends {
-            db.execute(
+            let like = format!("%{}", end.as_ref());
+            if forget {
+                tx.execute("DELETE FROM text WHERE rowid IN (SELECT id FROM files WHERE path LIKE ?1)", [&like])?;
+                tx.execute("DELETE FROM chunks WHERE file IN (SELECT id FROM files WHERE path LIKE ?1)", [&like])?;
+            }
+            tx.execute(
                 "UPDATE files SET has_text = NULL, embedded = NULL WHERE path LIKE ?1",
-                [format!("%{}", end.as_ref())],
+                [like],
             )?;
         }
-        db.execute(
+        tx.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)",
             [key, tag],
         )?;
-        Ok(())
+        if forget {
+            self.commit_signs(|| tx.commit(), SignsChange::Reset)
+        } else {
+            tx.commit()
+        }
     }
 
     /// Where each root's rows are, as the store last saw it: path -> (disk, place on it, rows at).
@@ -676,6 +768,7 @@ impl Store {
         let deletes = [
             format!("DELETE FROM text WHERE rowid IN ({ids})"),
             format!("DELETE FROM chunks WHERE file IN ({ids})"),
+            format!("DELETE FROM positions WHERE file IN ({ids})"),
             format!("DELETE FROM files WHERE {at}"),
             format!("DELETE FROM hashes WHERE {at}"),
             format!("DELETE FROM skipped WHERE {at}"),
@@ -697,6 +790,8 @@ impl Store {
             tx.prepare_cached("DELETE FROM text WHERE rowid = ?1")?
                 .execute([id])?;
             tx.prepare_cached("DELETE FROM chunks WHERE file = ?1")?
+                .execute([id])?;
+            tx.prepare_cached("DELETE FROM positions WHERE file = ?1")?
                 .execute([id])?;
             if whole {
                 tx.prepare_cached("DELETE FROM files WHERE id = ?1")?
@@ -934,6 +1029,48 @@ impl Store {
         tx.commit()
     }
 
+    /// The positions a PGN file's games reach (`chess::games::positions`), in place of those it
+    /// had: by key, with the game's index, so Find this position finds the games. The file is
+    /// read game by game without the store's lock (`stop` asked between games), and the rows go
+    /// in, in transactions of their own a few thousand games at a time.
+    fn put_positions(&self, id: i64, path: &Path, stop: &dyn Fn() -> bool) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("DELETE FROM positions WHERE file = ?1", [id])?;
+        let mut batch: Vec<(u64, u32)> = vec![];
+        let flush = |batch: &mut Vec<(u64, u32)>| -> rusqlite::Result<()> {
+            let mut db = self.db.lock().unwrap();
+            let tx = db.transaction()?;
+            {
+                let mut put = tx.prepare_cached("INSERT OR IGNORE INTO positions(hash, file, game) VALUES (?1, ?2, ?3)")?;
+                for (k, game) in batch.drain(..) {
+                    put.execute(params![k as i64, id, game])?;
+                }
+            }
+            tx.commit()
+        };
+        let mut failed = None;
+        let _ = crate::chess::games::positions(path, stop, |game, keys| {
+            batch.extend(keys.iter().map(|&k| (k, game)));
+            if batch.len() >= 100_000
+                && failed.is_none()
+                && let Err(e) = flush(&mut batch)
+            {
+                failed = Some(e);
+            }
+        });
+        if let Some(e) = failed {
+            return Err(e);
+        }
+        flush(&mut batch)
+    }
+
+    /// The games that reach the position with the Polyglot key `hash`: (file, game index from
+    /// 0), at most `max`.
+    pub fn games_at(&self, hash: u64, max: usize) -> rusqlite::Result<Vec<(PathBuf, u32)>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare_cached("SELECT f.path, p.game FROM positions p JOIN files f ON f.id = p.file WHERE p.hash = ?1 ORDER BY f.path, p.game LIMIT ?2")?;
+        q.query_map(params![hash as i64, max as i64], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, u32>(1)?)))?.collect()
+    }
+
     /// Commits of the repository at `root`, (id, time, text), as rows whose text is searched;
     /// then only its newest `max` stay.
     fn put_commits(
@@ -1147,13 +1284,25 @@ impl Store {
 
     /// A file's passages' vectors, packed.
     fn put_vectors(&self, file: i64, vectors: &[Vec<u8>]) -> rusqlite::Result<()> {
+        self.put_passages(file, vectors, None)
+    }
+
+    /// `put_vectors`, with the passages themselves when they were made from the whole file
+    /// (`whole_passages`), not from the text kept.
+    fn put_passages(
+        &self,
+        file: i64,
+        vectors: &[Vec<u8>],
+        passages: Option<&[crate::meaning::Passage]>,
+    ) -> rusqlite::Result<()> {
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
         let had = tx.execute("DELETE FROM chunks WHERE file = ?1", [file])? > 0;
         for (n, v) in vectors.iter().enumerate() {
+            let p = passages.and_then(|p| p.get(n));
             tx.execute(
-                "INSERT INTO chunks(file, n, vector) VALUES (?1, ?2, ?3)",
-                params![file, n as i64, v],
+                "INSERT INTO chunks(file, n, vector, passage, heading) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![file, n as i64, v, p.map(|p| p.text.as_str()), p.map(|p| p.heading.as_str())],
             )?;
         }
         tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
@@ -1240,7 +1389,7 @@ impl Store {
     // ponytail: the sieve keeps the 1000 closest passages of every folder before the scope
     // is applied; a narrow scope can come up short. Sieve per scope if users notice.
     pub fn similar(&self, query: &str, scope: Option<&Path>, max: usize) -> Vec<Hit> {
-        self.closest(query, max, true, |p| scope.is_none_or(|s| p.starts_with(s)))
+        self.closest(query, max, true, None, |p| scope.is_none_or(|s| p.starts_with(s)))
             .into_iter()
             .map(|(path, s, n, all)| {
                 let words: Vec<&str> = all[n].text.split_whitespace().collect();
@@ -1271,9 +1420,12 @@ impl Store {
         question: &str,
         scope: Option<&Path>,
         bytes: usize,
-    ) -> Vec<(PathBuf, String)> {
+    ) -> Vec<(PathBuf, String, usize)> {
         let mut per_file: HashMap<PathBuf, usize> = HashMap::new();
-        let hits = self.closest(question, ASK_HITS, false, |path| {
+        // Passages near the same as one already taken, of other files (copies, versions of one
+        // document), fold into it: the copies take no room, and the file says how many it has.
+        let mut folded: HashMap<PathBuf, HashSet<PathBuf>> = HashMap::new();
+        let hits = self.closest(question, ASK_HITS, false, Some(&mut folded), |path| {
             if scope.is_some_and(|s| !path.starts_with(s)) || crate::ask::string_table(path) {
                 return false;
             }
@@ -1301,7 +1453,7 @@ impl Store {
         let mut seen = HashSet::new();
         let mut out = vec![];
         for (rank, (path, all, hits)) in files.into_iter().enumerate() {
-            let header = path.as_os_str().len() + 8;
+            let header = path.as_os_str().len() + 32;
             let mut taken: Vec<usize> = vec![];
             for &n in hits.iter().take(4usize.saturating_sub(rank).max(1)) {
                 // With its neighbours if they fit, else alone.
@@ -1340,8 +1492,17 @@ impl Store {
                 }
             }
             if !excerpts.is_empty() {
-                out.push((path, excerpts.join(crate::ask::GAP)));
+                out.push((path, excerpts.join(crate::ask::GAP), 0));
             }
+        }
+        // The similar files a source stands for, but those that are sources of their own.
+        let own: HashSet<PathBuf> = out.iter().map(|(p, ..)| p.clone()).collect();
+        for (path, _, similar) in &mut out {
+            *similar = folded.get(path).map_or(0, |f| {
+                f.iter()
+                    .filter(|p| !own.contains(*p) && scope.is_none_or(|s| p.starts_with(s)))
+                    .count()
+            });
         }
         out
     }
@@ -1355,6 +1516,7 @@ impl Store {
         query: &str,
         want: usize,
         by_file: bool,
+        mut folded: Option<&mut HashMap<PathBuf, HashSet<PathBuf>>>,
         mut accept: impl FnMut(&Path) -> bool,
     ) -> Vec<(
         PathBuf,
@@ -1384,14 +1546,17 @@ impl Store {
         else {
             return vec![];
         };
-        let mut ranked: Vec<(i64, f32, u8)> = close
+        // With the vectors themselves when near copies are folded.
+        let mut ranked: Vec<(i64, f32, u8, Vec<u8>)> = close
             .into_iter()
             .filter_map(|(file, n)| {
                 vec.query_row(params![file, n as i64], |r| {
-                    Ok(score(r.get_ref(0)?.as_blob()?, &q))
+                    let blob = r.get_ref(0)?.as_blob()?;
+                    let kept = if folded.is_some() { blob.to_vec() } else { vec![] };
+                    Ok((score(blob, &q), kept))
                 })
                 .ok()
-                .map(|s| (file, s, n))
+                .map(|(s, v)| (file, s, n, v))
             })
             .collect();
         drop(vec);
@@ -1403,6 +1568,8 @@ impl Store {
         if by_file {
             ranked = by_files(ranked);
         }
+        // The vectors of the passages given, with their file and where in `out` they are.
+        let mut given: Vec<(i64, usize, Vec<u8>)> = vec![];
         let offline: Vec<(String, String)> = self
             .offline
             .lock()
@@ -1413,8 +1580,8 @@ impl Store {
         // A file's path as shown, and as kept (its kind says how it is cut into passages).
         let mut paths: HashMap<i64, Option<(PathBuf, String)>> = HashMap::new();
         let mut texts: HashMap<i64, std::rc::Rc<Vec<crate::meaning::Passage>>> = HashMap::new();
-        let mut out = vec![];
-        for (file, s, n) in ranked {
+        let mut out: Vec<(PathBuf, f32, usize, std::rc::Rc<Vec<crate::meaning::Passage>>)> = vec![];
+        for (file, s, n, v) in ranked {
             if out.len() >= want {
                 break;
             }
@@ -1425,21 +1592,44 @@ impl Store {
                 (!offline.iter().any(|(from, to)| path > *from && path < *to))
                     .then(|| (shown(path.clone()), path))
             });
+            // Pairwise only with the passages given so far, `want` at most.
+            if let (Some(folded), Some((shown, _))) = (folded.as_deref_mut(), path.as_ref())
+                && let Some((_, at, _)) = given
+                    .iter()
+                    .find(|(of, _, g)| *of != file && crate::meaning::packed_cosine(g, &v) > NEAR_COPY)
+            {
+                let into: &PathBuf = &out[*at].0;
+                folded.entry(into.clone()).or_default().insert(shown.clone());
+                continue;
+            }
             let Some((path, kept)) = path.clone().filter(|(p, _)| accept(p)) else {
                 continue;
             };
             let passages = texts.entry(file).or_insert_with(|| {
                 #[cfg(test)]
                 self.bodies_read.fetch_add(1, Ordering::Relaxed);
-                std::rc::Rc::new(
+                // Made from the whole file: kept with the vectors. Else cut from the text.
+                let whole: Vec<crate::meaning::Passage> = db
+                    .prepare_cached("SELECT passage, coalesce(heading, '') FROM chunks WHERE file = ?1 AND passage IS NOT NULL ORDER BY n")
+                    .and_then(|mut q| {
+                        q.query_map([file], |r| Ok(crate::meaning::Passage { text: r.get(0)?, heading: r.get(1)? }))?
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                std::rc::Rc::new(if whole.is_empty() {
                     db.query_row("SELECT body FROM text WHERE rowid = ?1", [file], |r| {
                         r.get::<_, String>(0)
                     })
                     .map(|b| crate::meaning::passages(&b, &kept))
-                    .unwrap_or_default(),
-                )
+                    .unwrap_or_default()
+                } else {
+                    whole
+                })
             });
             if (n as usize) < passages.len() {
+                if folded.is_some() {
+                    given.push((file, out.len(), v));
+                }
                 out.push((path, s, n as usize, passages.clone()));
             }
         }
@@ -1752,7 +1942,7 @@ pub fn facts(path: &Path) -> Result<Facts, String> {
 /// The folders whose text is kept: the ones in the config, or the home folder.
 pub(crate) fn roots(cfg: &SearchConfig) -> Vec<PathBuf> {
     if cfg.text_roots.is_empty() {
-        std::env::home_dir().into_iter().collect()
+        crate::dirs::home_dir().into_iter().collect()
     } else {
         cfg.text_roots.clone()
     }
@@ -1810,8 +2000,8 @@ pub(crate) fn cache_folder(dir: &Path) -> bool {
     ];
     static AT: std::sync::OnceLock<Vec<PathBuf>> = std::sync::OnceLock::new();
     let at = AT.get_or_init(|| {
-        let home = std::env::home_dir().unwrap_or_default();
-        let mut v: Vec<PathBuf> = [dirs::cache_dir(), dirs::data_dir(), dirs::data_local_dir()]
+        let home = crate::dirs::home_dir().unwrap_or_default();
+        let mut v: Vec<PathBuf> = [crate::dirs::cache_dir(), crate::dirs::data_dir(), crate::dirs::data_local_dir()]
             .into_iter()
             .flatten()
             .collect();
@@ -1960,6 +2150,11 @@ fn walk(
     Some(found)
 }
 
+/// Two passages whose vectors are this alike (cosine) or more are near copies: Ask gives one.
+/// Measured: a copy, the same text with another date or number, or saved again as another
+/// format, scores 0.98 and up; two passages of one document on the same subject 0.80 to 0.95.
+const NEAR_COPY: f32 = 0.97;
+
 /// Hits Ask looks at, four of a file at most, of `ASK_FILES` files at most.
 const ASK_HITS: usize = 48;
 const ASK_FILES: usize = 16;
@@ -1967,15 +2162,15 @@ const ASK_FILES: usize = 16;
 /// Passages ranked one per file: the file's best, its score raised by 0.005 for each further
 /// passage of it that matches, four at most, so a document that keeps coming back to a
 /// question goes ahead of one that mentions it once.
-fn by_files(ranked: Vec<(i64, f32, u8)>) -> Vec<(i64, f32, u8)> {
-    let mut files: HashMap<i64, (f32, u8, usize)> = HashMap::new();
-    for (file, s, n) in ranked {
+fn by_files(ranked: Vec<(i64, f32, u8, Vec<u8>)>) -> Vec<(i64, f32, u8, Vec<u8>)> {
+    let mut files: HashMap<i64, (f32, u8, usize, Vec<u8>)> = HashMap::new();
+    for (file, s, n, v) in ranked {
         // Ranked best first: the first passage of a file is its best.
-        files.entry(file).or_insert((s, n, 0)).2 += 1;
+        files.entry(file).or_insert((s, n, 0, v)).2 += 1;
     }
-    let mut out: Vec<(i64, f32, u8)> = files
+    let mut out: Vec<(i64, f32, u8, Vec<u8>)> = files
         .into_iter()
-        .map(|(file, (s, n, count))| (file, s + 0.005 * (count - 1).min(4) as f32, n))
+        .map(|(file, (s, n, count, v))| (file, s + 0.005 * (count - 1).min(4) as f32, n, v))
         .collect();
     out.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
     out
@@ -2033,7 +2228,11 @@ fn scan_for(
 ) -> rusqlite::Result<bool> {
     let began = now();
     let (roots, offline) = place(store, cfg)?;
-    store.tools_changed(&crate::extract::installed::extensions())?;
+    let tika = crate::extract::tika::extensions();
+    let ebooks = crate::ebook::extensions();
+    let tools: Vec<&str> = crate::extract::installed::extensions().into_iter().chain(tika.iter().copied()).chain(ebooks.iter().copied()).collect();
+    let known: Vec<&str> = crate::extract::installed::kinds().into_iter().chain(crate::extract::tika::FORMATS.iter().copied()).chain(crate::ebook::FORMATS.iter().copied()).collect();
+    store.tools_changed(&tools, &known)?;
     // Diagrams got a sentence per arrow; code keeps its indentation and blank lines.
     let mut ends: Vec<String> = [
         "drawio", "dio", "mmd", "mermaid", "dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd",
@@ -2049,10 +2248,42 @@ fn scan_for(
     // Code in more languages (2.32): only the files with the endings new then are read again.
     let added: Vec<String> = crate::code::SINCE_CODE_1.iter().map(|e| format!(".{e}")).collect();
     store.reader_changed("readers.code", "2", &added)?;
-    // PGN files: a line per game (players, event, site, date, opening, result), read once again.
-    store.reader_changed("readers.pgn", "1", &crate::chess::PGN_ENDINGS)?;
+    // PGN files: a line per game (players, event, site, date, opening, result), read once
+    // again; at 2, the positions of their games too (Find this position).
+    store.reader_changed("readers.pgn", "2", &crate::chess::PGN_ENDINGS)?;
+    // SGF files: a line per game (players, ranks, event, place, date, result), read once again.
+    store.reader_changed("readers.sgf", "1", &crate::go::ENDINGS)?;
+    // PDN files: a line per draughts game (players, event, place, date, result), read once again.
+    store.reader_changed("readers.pdn", "1", &crate::draughts::ENDINGS)?;
+    // KIF and CSA files: a line per shogi game (players, event, place, date, result), read once again.
+    store.reader_changed("readers.shogi", "1", &crate::shogi::ENDINGS)?;
+    // PBN files: a line per bridge deal (the pairs, event, place, date, contract and result), read once again.
+    store.reader_changed("readers.pbn", "1", &crate::bridge::ENDINGS)?;
     // Outlook messages and dBase tables have readers of their own: read once again.
     store.reader_changed("readers.msg-dbf", "1", &[".msg", ".dbf"])?;
+    // Apache Tika, once it is turned on and its image is there: its own version, so a change
+    // to what it gets reads only its files again. Nothing while it is off.
+    if !tika.is_empty() {
+        let ends: Vec<String> = tika.iter().map(|e| format!(".{e}")).collect();
+        store.reader_changed("readers.tika", crate::extract::tika::READER, &ends)?;
+    }
+    // Plain text, code, CSV and logs of any size are read line by line (2.33): those left
+    // without text for being larger than `text_max_size` are read, once. Only files without
+    // text and that large; a larger file of another kind is passed over again at once.
+    store.large_unread("readers.large", "1", cfg.text_max_size)?;
+    // Their passages and those of every text, code, CSV or log file with more text than is
+    // kept are made from the whole file (2.33): only those files get their vectors again, once.
+    store.long_passages("passages.whole", "1")?;
+    // PDF and Word files leave out hidden text (2.33): their old text and passages go, and
+    // they are read and their passages made again, once.
+    store.reader_dropped("readers.pdf", "1", &[".pdf"])?;
+    store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"])?;
+    // E-books through calibre, once they are turned on and calibre can run: a version of their
+    // own, so a change to what it gets reads only these books again. Nothing while it is off.
+    if !ebooks.is_empty() {
+        let ends: Vec<String> = ebooks.iter().map(|e| format!(".{e}")).collect();
+        store.reader_changed("readers.ebooks", crate::ebook::READER, &ends)?;
+    }
     store.archives_changed(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
@@ -2174,6 +2405,26 @@ fn hash(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::R
     Ok(false)
 }
 
+/// The passages of a file whose text is longer than what is kept of it (`body`, cut at
+/// `extract::MAX_TEXT`), made from the whole file, read twice line by line: `cap`'s choice
+/// spread over all of it, not only its start. `None` for every other file (its passages are
+/// cut from `body`), and for one that cannot be read now. Text, code, CSV and logs only, the
+/// kinds read line by line (`extract::streams`).
+fn whole_passages(path: &str, body: &str) -> Option<Vec<crate::meaning::Passage>> {
+    // Near the limit: the next line did not fit. A text that was not cut gives the same
+    // passages read whole, so a file taken for cut costs a reading, never other passages.
+    if body.len() + LONG_MARGIN < crate::extract::MAX_TEXT || !crate::extract::streams(Path::new(path)) {
+        return None;
+    }
+    let code = crate::code::is_code(path);
+    crate::meaning::passages_streamed(path, &mut |f| {
+        crate::extract::plain::each_line(Path::new(path), code, f).is_some()
+    })
+}
+
+/// How far below `extract::MAX_TEXT` a text may end and still be one that was cut.
+const LONG_MARGIN: usize = 64 << 10;
+
 /// Give the passages of files with text their vectors, when search by meaning is on: a few
 /// files at a time, resting as long as the work took, never on battery unless *Index now*.
 /// `true` when stopped at `until` with files still to go.
@@ -2199,7 +2450,9 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
         }
         let (start, mut count) = (Instant::now(), 0);
         for (id, path, body) in files {
-            let texts: Vec<String> = crate::meaning::passages(&body, &path)
+            let whole = whole_passages(&path, &body);
+            let passages = whole.clone().unwrap_or_else(|| crate::meaning::passages(&body, &path));
+            let texts: Vec<String> = passages
                 .iter()
                 .map(|p| crate::meaning::shown_to_model(&path, p))
                 .collect();
@@ -2228,12 +2481,13 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
                 }
             };
             *store.meaning_error.lock().unwrap() = None;
-            store.put_vectors(
+            store.put_passages(
                 id,
                 &vectors
                     .iter()
                     .map(|v| crate::meaning::pack(v))
                     .collect::<Vec<_>>(),
+                whole.as_deref(),
             )?;
             if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
                 return Ok(false);
@@ -2341,11 +2595,20 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                         None
                     } else {
                         crate::extract::text_of(Path::new(path), *size, cfg.text_max_size)
+                            .or_else(|| store.transcript_of(*id))
                     },
                 )
             })
             .collect();
         store.read(&rows)?;
+        // PGN files the text reader read (not left out, not online-only, not empty): the
+        // positions of their games too, game by game as the file is read.
+        let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
+        for ((id, path, _), (_, text)) in batch.iter().zip(&rows) {
+            if text.is_some() && crate::chess::format(Path::new(path)) == Some(crate::chess::Format::Pgn) {
+                store.put_positions(*id, Path::new(path), &halt)?;
+            }
+        }
         if done(batch.len()) {
             return Ok(true);
         }
@@ -2720,6 +2983,166 @@ pub fn keep_current(
 /// How long hashes and vectors go on before what the watcher saw is followed.
 const SLICE: Duration = Duration::from_secs(60);
 
+/// A file waiting to be transcribed: where it is, how long it plays when known, and the
+/// seconds of it done.
+pub(crate) struct Waiting {
+    pub path: String,
+    pub length: Option<u64>,
+    pub done: u64,
+}
+
+/// A file's size and modification time, as the store keeps them.
+pub(crate) fn meta_of(meta: &std::fs::Metadata) -> (u64, i64) {
+    (meta.len(), secs(meta))
+}
+
+/// Transcripts (`transcribe`): kept by path with the size and time of the file they were made
+/// of; `finished` is 0 while waiting or under way, 1 when done, 2 when given up.
+impl Store {
+    /// Ask for `files` to be transcribed: those not done yet, or changed since. How many.
+    pub fn transcribe_ask(&self, files: &[PathBuf]) -> rusqlite::Result<usize> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        let mut n = 0;
+        for f in files {
+            let (Some(path), Ok(meta)) = (key(f), std::fs::metadata(f)) else { continue };
+            let (size, modified) = meta_of(&meta);
+            let kept: Option<(u64, i64, i64)> = tx
+                .query_row("SELECT size, modified, finished FROM transcripts WHERE path = ?1", [&path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?, r.get(2)?)))
+                .ok();
+            if kept.is_some_and(|(s, m, f)| s == size && m == modified && f != 2) {
+                continue;
+            }
+            tx.execute(
+                "INSERT OR REPLACE INTO transcripts(path, size, modified, asked) VALUES (?1, ?2, ?3, ?4)",
+                params![path, size as i64, modified, now() as i64],
+            )?;
+            n += 1;
+        }
+        tx.commit()?;
+        Ok(n)
+    }
+
+    /// The next file to work on: the one under way, else the one asked for first.
+    pub(crate) fn transcript_next(&self) -> rusqlite::Result<Option<Waiting>> {
+        let db = self.db.lock().unwrap();
+        let r = db.query_row(
+            "SELECT path, length, done FROM transcripts WHERE finished = 0 ORDER BY done = 0, asked, path LIMIT 1",
+            [],
+            |r| Ok(Waiting { path: r.get(0)?, length: r.get::<_, Option<i64>>(1)?.map(|l| l as u64), done: r.get::<_, i64>(2)? as u64 }),
+        );
+        match r {
+            Ok(w) => Ok(Some(w)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// A part of `path` transcribed, up to `done` seconds; `meta` is the file as it is now. A
+    /// file that changed since its first part is begun again. Done, its text is the file's
+    /// text in the store when the store reads the file, at once.
+    pub(crate) fn transcript_part(&self, path: &str, meta: (u64, i64), length: Option<u64>, done: u64, text: &str, finished: bool) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        let kept: Option<(u64, i64, String)> = db
+            .query_row("SELECT size, modified, text FROM transcripts WHERE path = ?1 AND finished = 0", [path], |r| Ok((r.get::<_, i64>(0)? as u64, r.get(1)?, r.get(2)?)))
+            .ok();
+        let Some((size, modified, before)) = kept else { return Ok(()) };
+        if (size, modified) != meta {
+            db.execute("UPDATE transcripts SET size = ?2, modified = ?3, length = NULL, done = 0, text = '' WHERE path = ?1", params![path, meta.0 as i64, meta.1])?;
+            return Ok(());
+        }
+        let mut all = before;
+        if !all.is_empty() && !text.is_empty() {
+            all.push('\n');
+        }
+        crate::extract::push_within(&mut all, text, crate::extract::MAX_TEXT);
+        db.execute(
+            "UPDATE transcripts SET length = ?2, done = ?3, text = ?4, finished = ?5 WHERE path = ?1",
+            params![path, length.map(|l| l as i64), done as i64, all, finished as i64],
+        )?;
+        let row: Option<i64> = db
+            .query_row("SELECT id FROM files WHERE path = ?1 AND size = ?2 AND modified = ?3", params![path, meta.0 as i64, meta.1], |r| r.get(0))
+            .ok();
+        drop(db);
+        if finished && let Some(id) = row {
+            let text = crate::extract::tidy(&all);
+            self.read(&[(id, (!text.trim().is_empty()).then_some(text))])?;
+            self.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
+        }
+        Ok(())
+    }
+
+    /// `path` could not be transcribed: given up, with why, until it is asked for again.
+    pub(crate) fn transcript_failed(&self, path: &str, why: &str) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("UPDATE transcripts SET finished = 2, text = ?2 WHERE path = ?1", params![path, why])?;
+        Ok(())
+    }
+
+    /// `path` is gone from the disk.
+    pub(crate) fn transcript_gone(&self, path: &str) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("DELETE FROM transcripts WHERE path = ?1", [path])?;
+        Ok(())
+    }
+
+    /// Every file waiting is let go; the transcripts done stay.
+    pub fn transcribe_stop(&self) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute("DELETE FROM transcripts WHERE finished = 0", [])?;
+        Ok(())
+    }
+
+    /// Files waiting, done and given up, and the seconds of sound left of those waiting whose
+    /// length is known.
+    pub(crate) fn transcript_counts(&self) -> rusqlite::Result<(usize, usize, usize, u64)> {
+        self.db.lock().unwrap().query_row(
+            "SELECT count(*) FILTER (WHERE finished = 0), count(*) FILTER (WHERE finished = 1), count(*) FILTER (WHERE finished = 2), coalesce(sum(max(length - done, 0)) FILTER (WHERE finished = 0), 0) FROM transcripts",
+            [],
+            |r| Ok((r.get::<_, i64>(0)? as usize, r.get::<_, i64>(1)? as usize, r.get::<_, i64>(2)? as usize, r.get::<_, i64>(3)? as u64)),
+        )
+    }
+
+    /// Seconds of work a second of sound took here, last measured.
+    pub(crate) fn transcribe_rate(&self) -> Option<f64> {
+        self.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = 'whisper_rate'", [], |r| r.get::<_, String>(0)).ok()?.parse().ok()
+    }
+
+    /// A part took `rate` seconds of work a second of sound: kept, evened with the last.
+    pub(crate) fn transcribe_measured(&self, rate: f64) -> rusqlite::Result<()> {
+        let rate = self.transcribe_rate().map_or(rate, |r| (r + rate) / 2.0);
+        self.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('whisper_rate', ?1)", [rate.to_string()])?;
+        Ok(())
+    }
+
+    /// The transcript of `path`, done or under way, for the preview.
+    pub fn transcript(&self, path: &Path) -> Option<crate::transcribe::Transcript> {
+        let path = key(path)?;
+        let db = self.db.lock().unwrap();
+        let (text, finished, done, length, asked): (String, i64, i64, Option<i64>, i64) = db
+            .query_row("SELECT text, finished, done, length, asked FROM transcripts WHERE path = ?1", [&path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .ok()?;
+        let place = (finished == 0).then(|| {
+            db.query_row("SELECT count(*) FROM transcripts WHERE finished = 0 AND done = 0 AND (asked < ?1 OR (asked = ?1 AND path < ?2))", params![asked, path], |r| r.get::<_, i64>(0))
+                .unwrap_or(0) as usize
+                + db.query_row("SELECT count(*) FROM transcripts WHERE finished = 0 AND done > 0 AND path != ?1", [&path], |r| r.get::<_, i64>(0)).unwrap_or(0) as usize
+        });
+        Some(crate::transcribe::Transcript { text, finished: finished == 1, failed: finished == 2, done: done as u64, length: length.map(|l| l as u64), place: place.map(|p| if done > 0 { 0 } else { p + 1 }) })
+    }
+
+    /// The transcript of the file of row `id`, when it was made of the file as it is; a file
+    /// that changed since is transcribed again (it was asked for once).
+    fn transcript_of(&self, id: i64) -> Option<String> {
+        let db = self.db.lock().unwrap();
+        let (path, size, modified): (String, i64, i64) = db.query_row("SELECT path, size, modified FROM files WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).ok()?;
+        let (tsize, tmod, finished, text): (i64, i64, i64, String) = db
+            .query_row("SELECT size, modified, finished, text FROM transcripts WHERE path = ?1", [&path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .ok()?;
+        if (tsize, tmod) != (size, modified) {
+            let _ = db.execute("UPDATE transcripts SET size = ?2, modified = ?3, length = NULL, done = 0, text = '', finished = 0 WHERE path = ?1", params![path, size, modified]);
+            return None;
+        }
+        (finished == 1 && !text.trim().is_empty()).then_some(text)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2996,7 +3419,7 @@ mod tests {
         drop(store);
         let old = Connection::open(d.join("search.db")).unwrap();
         old.execute_batch(
-            "INSERT INTO errors VALUES (0, NULL, 'old'); INSERT INTO chunks VALUES (1, 0, x'00');",
+            "INSERT INTO errors VALUES (0, NULL, 'old'); INSERT INTO chunks(file, n, vector) VALUES (1, 0, x'00');",
         )
         .unwrap();
         old.pragma_update(None, "user_version", VERSION + 1)
@@ -3299,7 +3722,7 @@ mod tests {
         ] {
             assert_eq!(in_cache(Path::new(path), &roots), cached, "{path}");
         }
-        let cache = dirs::cache_dir().unwrap();
+        let cache = crate::dirs::cache_dir().unwrap();
         assert!(
             in_cache(&cache.join("a.zip"), std::slice::from_ref(&cache)),
             "a folder read that is one"
@@ -3539,21 +3962,40 @@ mod tests {
         std::fs::write(&file, &pgn).unwrap();
         let store = Store::open(&d.join("search.db")).unwrap();
         let path = file.to_string_lossy().into_owned();
-        store.apply(&[], &[(path.clone(), pgn.len() as u64, 1, false)], &[], false, None).unwrap();
-        let id = store.unread_disk(0, 1000).unwrap()[0].0;
-        let text = crate::extract::text_of(&file, pgn.len() as u64, 1 << 20).unwrap();
-        store.read(&[(id, Some(text))]).unwrap();
+        // An empty PGN file beside it: nothing read, so no positions either.
+        let empty = d.join("empty.pgn");
+        std::fs::write(&empty, "").unwrap();
+        store
+            .apply(&[], &[(path.clone(), pgn.len() as u64, 1, false), (empty.to_string_lossy().into_owned(), 0, 1, false)], &[], false, None)
+            .unwrap();
+        // The store's own reading: the text, then the positions of what it read.
+        assert!(!read(&store, &SearchConfig::default(), &AtomicBool::new(false)).unwrap());
         for (query, game) in [("Kieseritzky", 1), ("Dufresne", 2), ("Zukertort", 3), ("Havana", 5), ("Philidor", 0), ("Evans", 2), ("Sicilian", 4)] {
             let hits = store.search(query, None, 10).hits;
             let snippet = hits[0].snippet.as_deref().unwrap_or_default();
             assert_eq!(crate::chess::games::game_of_hit(&file, snippet), Some(game), "{query}: {snippet}");
         }
+        // Find this position: after 1.e4 e5 2.Nf3, games 0 and 2; after 1.e4 e5, 0, 1 and 2.
+        let key = |fen: &str| crate::chess::polyglot::key(&crate::chess::pgn::board(fen).unwrap());
+        let nf3 = key("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
+        assert_eq!(store.games_at(nf3, 10).unwrap(), vec![(file.clone(), 0), (file.clone(), 2)]);
+        let e5 = key("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2");
+        assert_eq!(store.games_at(e5, 2).unwrap().len(), 2);
+        // Stopped at once: the file's rows go, and none come.
+        let id: i64 = store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [&path], |r| r.get(0)).unwrap();
+        store.put_positions(id, &file, &|| true).unwrap();
+        assert!(store.games_at(e5, 10).unwrap().is_empty());
+        store.put_positions(id, &file, &|| false).unwrap();
+        // The file gone, its positions go with it.
+        store.apply(&[path.clone()], &[], &[], false, None).unwrap();
+        assert!(store.games_at(nf3, 10).unwrap().is_empty());
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
     fn store_reads_again_what_a_new_program_can_read() {
+        const KNOWN: &[&str] = &["png", "jpg", "ps"];
         let d = std::env::temp_dir().join(format!("coxswain-store-tools-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let store = Store::open(&d.join("search.db")).unwrap();
@@ -3580,12 +4022,12 @@ mod tests {
             )
             .unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty());
-        store.tools_changed(&[]).unwrap();
+        store.tools_changed(&[], KNOWN).unwrap();
         assert!(
             store.unread_disk(0, 1000).unwrap().is_empty(),
             "nothing new"
         );
-        store.tools_changed(&["png", "jpg"]).unwrap();
+        store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         assert_eq!(
             store
                 .unread_disk(0, 1000)
@@ -3596,7 +4038,7 @@ mod tests {
             ["/h/scan.PNG"],
             "tesseract came"
         );
-        store.tools_changed(&["png", "jpg"]).unwrap();
+        store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         // A reader that learnt more: its files are read again over the text they had. Before
         // 1.26.4 the old text made every scan fail there, and no file got its vectors after.
         let id = store.unread_disk(0, 1000).unwrap()[0].0;
@@ -3611,7 +4053,7 @@ mod tests {
         store.apply(&[], &[("/h/notes.ps".into(), 1, 1, false)], &[], false, None).unwrap();
         let ps = store.unread_disk(0, 1000).unwrap()[0].0;
         store.read(&[(ps, Some("%!PS moveto show".into()))]).unwrap();
-        store.tools_changed(&["png", "jpg", "ps"]).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
         assert_eq!(
             store.unread_disk(0, 1000).unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(),
             ["/h/notes.ps"],
@@ -3619,9 +4061,22 @@ mod tests {
         );
         store.read(&[(ps, Some("launch notes".into()))]).unwrap();
         // Ghostscript gone from PATH for a while: what it read stays.
-        store.tools_changed(&["png", "jpg"]).unwrap();
+        store.tools_changed(&["png", "jpg"], KNOWN).unwrap();
         assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "a program that went keeps what it read");
         assert_eq!(store.search("launch", None, 10).total, 1);
+        // Ghostscript back, then an app from before 2.32.2 (that knew no PostScript reader)
+        // writes its shorter list: coming back to this one reads nothing again.
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        store.read(&[(ps, Some("launch notes".into()))]).unwrap();
+        store.db.lock().unwrap().execute("UPDATE meta SET value = 'png,jpg' WHERE key = 'tools'", []).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "an older app's list costs nothing");
+        // A newer app knew a kind this one does not: its list leaves this one's work alone,
+        // and the way back reads nothing again either.
+        store.tools_changed(&["png", "jpg", "ps", "xyz"], &["png", "jpg", "ps", "xyz"]).unwrap();
+        store.tools_changed(&["png", "jpg", "ps"], KNOWN).unwrap();
+        store.tools_changed(&["png", "jpg", "ps", "xyz"], &["png", "jpg", "ps", "xyz"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "back and forth reads nothing again");
         // The PostScript reader's own version: its files once again, the others not.
         store.reader_changed("readers.postscript", "1", &[".ps", ".eps"]).unwrap();
         assert_eq!(store.unread_disk(0, 1000).unwrap().iter().map(|r| r.1.as_str()).collect::<Vec<_>>(), ["/h/notes.ps"]);
@@ -3646,6 +4101,60 @@ mod tests {
         let tag: String = store.db.lock().unwrap()
             .query_row("SELECT value FROM meta WHERE key = 'readers.code'", [], |r| r.get(0)).unwrap();
         assert_eq!(tag, "3");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A reader that now leaves out hidden text: its files lose their old text and the
+    /// vectors of their passages at once, then are read and their passages made again, once,
+    /// even when the new text is the same. Other files keep theirs, and a newer version's work
+    /// stays.
+    #[test]
+    fn store_forgets_what_a_reader_no_longer_reads_and_makes_it_again() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-dropped-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let paths = ["/h/report.PDF", "/h/letter.docx", "/h/notes.odt", "/h/plain.txt"];
+        let files: Vec<_> = paths.iter().map(|p| (p.to_string(), 1, 1, false)).collect();
+        store.apply(&[], &files, &[], false, None).unwrap();
+        let ids: Vec<i64> = store.unread_disk(0, 1000).unwrap().iter().map(|r| r.0).collect();
+        let said = "Seen words. Secret instructions";
+        store.read(&ids.iter().map(|id| (*id, Some(said.to_string()))).collect::<Vec<_>>()).unwrap();
+        let v = crate::meaning::pack(&[0.5f32; 64]);
+        for id in &ids {
+            store.put_vectors(*id, std::slice::from_ref(&v)).unwrap();
+        }
+        let passages = |s: &Signs| s.files.len();
+        assert_eq!(store.with_signs(passages), 4);
+        let chunks = |store: &Store| -> i64 {
+            store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks", [], |r| r.get(0)).unwrap()
+        };
+        store.reader_dropped("readers.pdf", "1", &[".pdf"]).unwrap();
+        store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"]).unwrap();
+        // Nothing of the old text is found, by words or by meaning, but in the other file.
+        assert_eq!(store.search("secret", None, 10).total, 1);
+        assert_eq!(chunks(&store), 1);
+        assert_eq!(store.with_signs(passages), 1, "the signs of the passages go too");
+        let mut unread: Vec<String> = store.unread_disk(0, 1000).unwrap().into_iter().map(|r| r.1).collect();
+        unread.sort();
+        assert_eq!(unread, ["/h/letter.docx", "/h/notes.odt", "/h/report.PDF"]);
+        // Read again with the same text: still their passages are made again.
+        let again: Vec<_> = ids[..3].iter().map(|id| (*id, Some("Seen words.".to_string()))).collect();
+        store.read(&again).unwrap();
+        assert_eq!(store.search("secret", None, 10).total, 1);
+        let mut waiting: Vec<i64> = store.unembedded(10).unwrap().into_iter().map(|r| r.0).collect();
+        waiting.sort();
+        assert_eq!(waiting, ids[..3]);
+        // Once: the same version again, or an older one after a newer, drops nothing.
+        for id in &ids[..3] {
+            store.put_vectors(*id, std::slice::from_ref(&v)).unwrap();
+        }
+        store.reader_dropped("readers.pdf", "1", &[".pdf"]).unwrap();
+        store.db.lock().unwrap().execute("UPDATE meta SET value = '2' WHERE key = 'readers.word'", []).unwrap();
+        store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty());
+        assert_eq!(chunks(&store), 4);
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -3790,7 +4299,7 @@ mod tests {
         assert!(
             passages
                 .first()
-                .is_some_and(|(p, text)| p.ends_with("budget.txt")
+                .is_some_and(|(p, text, _)| p.ends_with("budget.txt")
                     || p.ends_with("budget-da.txt") && text.contains("syv")),
             "{passages:?}"
         );
@@ -3924,7 +4433,7 @@ mod tests {
             !found.is_empty()
                 && found
                     .iter()
-                    .map(|(p, t)| p.as_os_str().len() + 8 + t.len())
+                    .map(|(p, t, _)| p.as_os_str().len() + 8 + t.len())
                     .sum::<usize>()
                     <= 6000,
             "{found:?}"
@@ -3973,6 +4482,7 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         let found = store.passages("zebra quartz", None, 10_000);
         assert_eq!(found.len(), 1, "the copy's text is given once: {found:?}");
+        assert_eq!(found[0].2, 1, "and stands for the copy");
         let t = &found[0].1;
         let (before, hit, after) = (
             t.find("kiln").unwrap(),
@@ -3988,6 +4498,46 @@ mod tests {
             tight[0].1.contains("zebra") && !tight[0].1.contains("kiln"),
             "{tight:?}"
         );
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Fifty near copies of one text (a number apart, which the fake model does not see) and
+    /// one other source: the copies fold into one source that says it stands for 49 more, and
+    /// the other source gets a slot. Without folding the copies took all sixteen.
+    #[test]
+    fn ask_folds_near_copies_so_another_source_gets_a_slot() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-copies-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("home")).unwrap();
+        for i in 0..50 {
+            std::fs::write(
+                d.join("home").join(format!("copy-{i}.txt")),
+                format!("zebra quartz {i} ").repeat(30),
+            )
+            .unwrap();
+        }
+        std::fs::write(d.join("home/real.txt"), "zebra quartz milk ".repeat(30)).unwrap();
+        let cfg = SearchConfig {
+            text_roots: vec![d.join("home")],
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.hurry.store(true, Ordering::Relaxed);
+        scan(&store, &cfg, &go).unwrap();
+        let found = store.passages("zebra quartz", None, 20_000);
+        let names: Vec<String> = found
+            .iter()
+            .map(|(p, _, n)| format!("{} {n}", p.file_name().unwrap().to_string_lossy()))
+            .collect();
+        assert_eq!(found.len(), 2, "{names:?}");
+        assert!(names[0].starts_with("copy-") && names[0].ends_with(" 49"), "{names:?}");
+        assert_eq!(names[1], "real.txt 0");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -4422,6 +4972,37 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(state(&store), ((0, 1), 0), "unchanged since: quiet, and the scan gave it its vectors");
         drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A log with more text than is kept gets its passages from the whole file: its last
+    /// words are in its last passage, and its passages are as many as the cap. One within the
+    /// limit is cut from its text, as before.
+    #[test]
+    fn a_long_log_gets_its_passages_from_the_whole_file() {
+        let d = std::env::temp_dir().join(format!("coxswain-long-passages-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let log = d.join("big.log");
+        let mut text = String::new();
+        let mut i = 0;
+        while text.len() < crate::extract::MAX_TEXT * 3 / 2 {
+            text.push_str(&format!("line {i} of the engine log, pressure nominal and valves closed\n"));
+            i += 1;
+        }
+        text.push_str("finally the rocket landed safely in the harbour after its long flight\n");
+        std::fs::write(&log, &text).unwrap();
+        let path = log.to_string_lossy().into_owned();
+        let body = crate::extract::text_of(&log, text.len() as u64, 20 << 20).unwrap();
+        assert!(body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT);
+        let cut = crate::meaning::passages(&body, &path);
+        let whole = whole_passages(&path, &body).expect("long: from the whole file");
+        assert_eq!(whole.len(), crate::meaning::PASSAGES);
+        assert!(whole.last().unwrap().text.contains("harbour"));
+        assert!(!cut.iter().any(|p| p.text.contains("harbour")));
+        assert_eq!(whole[0], cut[0], "the same start");
+        let short = d.join("short.log");
+        std::fs::write(&short, "a short log of a launch, all well, nothing more to say here\n").unwrap();
+        assert!(whole_passages(&short.to_string_lossy(), "a short log").is_none());
         std::fs::remove_dir_all(d).unwrap();
     }
 }

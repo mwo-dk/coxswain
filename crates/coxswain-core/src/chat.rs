@@ -209,12 +209,20 @@ const WRITE_COST: f64 = 2.2;
 /// probe (0.2 s) runs the first time it is asked for; `wait` false does not wait for it, but
 /// starts it and is None until it is done.
 pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
-    static SPEED: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
-    static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
     if metal(cpu_only) {
         return None;
     }
-    let ns = match SPEED.get() {
+    cpu_ns(wait).map(|ns| Estimate::of(m, ns))
+}
+
+/// Nanoseconds a weight on this processor, from `probe`: the one measure of its speed that
+/// every model's estimate goes by (the built-in chat models', Whisper's). The probe (0.2 s)
+/// runs the first time it is asked for; `wait` false does not wait for it, but starts it and
+/// is None until it is done.
+pub fn cpu_ns(wait: bool) -> Option<f64> {
+    static SPEED: std::sync::OnceLock<Option<f64>> = std::sync::OnceLock::new();
+    static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    match SPEED.get() {
         Some(ns) => *ns,
         None if wait => *SPEED.get_or_init(speed),
         None => {
@@ -223,17 +231,16 @@ pub fn estimate(m: &Model, cpu_only: bool, wait: bool) -> Option<Estimate> {
                     .name("coxswain-chat-probe".into())
                     .spawn(|| SPEED.get_or_init(speed));
             }
-            return None;
+            None
         }
-    };
-    ns.map(|ns| Estimate::of(m, ns))
+    }
 }
 
 /// The quickest the probe has measured on this processor and version, kept in the data
 /// folder. It runs once in each process too: other work on the processor while it ran makes
 /// one measurement slow, and the quickest is the processor's own.
 fn speed() -> Option<f64> {
-    let file = dirs::data_dir().map(|d| d.join("coxswain").join("chat-speed.txt"));
+    let file = crate::dirs::data_dir().map(|d| d.join("coxswain").join("chat-speed.txt"));
     // A debug build is far slower: its result is kept apart.
     let key = format!(
         "{} × {} · {}{}",
@@ -671,7 +678,7 @@ fn answer(
             .map_err(err)?;
         let next = sampler.sample(&last).map_err(err)?;
         if ends.contains(&next) {
-            break;
+            return Ok(());
         }
         out.push(next);
         let mut new = stream
@@ -692,6 +699,8 @@ fn answer(
             .map_err(err)?;
         logits = l.weights.forward(&input, ids.len() + n).map_err(err)?;
     }
+    // Cut off at `room`: the answer shows it does not end there.
+    piece(" …");
     Ok(())
 }
 
@@ -709,7 +718,10 @@ mod tests {
         let words = |s: &str| s.split_whitespace().count();
         let all = prompt(true, &earlier, "New?", &sources, 10_000, words);
         assert!(all.starts_with("<|im_start|>system\n"));
-        assert!(all.contains("[1] /a.md\n") && all.contains("[2] /b.md\n"));
+        assert!(
+            all.contains("<source n=\"1\" path=\"/a.md\">\n")
+                && all.contains("<source n=\"2\" path=\"/b.md\">\n")
+        );
         assert!(
             all.contains(
                 "<|im_start|>user\nOld?<|im_end|>\n<|im_start|>assistant\nOld.<|im_end|>\n"
@@ -721,11 +733,11 @@ mod tests {
         assert!(!prompt(false, &earlier, "New?", &sources, 10_000, words).contains("<think>"));
         // Too long: the turn before goes first, then the last source; the question stays.
         let short = prompt(true, &earlier, "New?", &sources, words(&all) - 1, words);
-        assert!(!short.contains("Old?") && short.contains("[2] /b.md"));
+        assert!(!short.contains("Old?") && short.contains("<source n=\"2\" path=\"/b.md\">"));
         let shorter = prompt(true, &earlier, "New?", &sources, words(&all) - 40, words);
         assert!(
-            shorter.contains("[1] /a.md")
-                && !shorter.contains("[2] /b.md")
+            shorter.contains("<source n=\"1\" path=\"/a.md\">")
+                && !shorter.contains("<source n=\"2\" path=\"/b.md\">")
                 && shorter.contains("New?")
         );
     }
@@ -741,7 +753,7 @@ mod tests {
         assert_eq!(
             p,
             format!(
-                "<|im_start|>system\n{}\n\nSources:\n\n[1] /a.md\nA\n\n[2] /b.md\nB\n\n<|im_end|>\n\
+                "<|im_start|>system\n{}\n\nSources:\n\n<source n=\"1\" path=\"/a.md\">\nA\n</source>\n\n<source n=\"2\" path=\"/b.md\">\nB\n</source>\n\n<|im_end|>\n\
                  <|im_start|>user\nOld?<|im_end|>\n<|im_start|>assistant\nOld.<|im_end|>\n\
                  <|im_start|>user\nNew?<|im_end|>\n<|im_start|>assistant\n",
                 crate::meaning::RULES

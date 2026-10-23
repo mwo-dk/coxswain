@@ -136,6 +136,7 @@ const THREAD: &str = "pdf";
 static QUIET: std::sync::Once = std::sync::Once::new();
 
 fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
+    new_sentinel();
     // Whatever stands before the header, a mail gateway's line or a byte order mark, is no
     // part of the file: the places its tables point at are counted from the header.
     if let Some(at) = memmem::find(&bytes[..bytes.len().min(1024)], b"%PDF-") {
@@ -929,6 +930,8 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
         .flat_map(|page| doc.get_page_contents(page))
         .collect();
     let mut known = HashMap::new();
+    // The streams that may draw text unseen, which `hide` goes through.
+    let mut suspects = HashSet::new();
     for id in ids {
         let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
             continue;
@@ -954,6 +957,9 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
             continue;
         };
         let as_is = Known::of(&content);
+        if suspect(&content) {
+            suspects.insert(id);
+        }
         let shown =
             as_is.weight <= MAX_CONTENT && (drawn.contains(&id) || is(stream, b"Subtype", b"Form"));
         match shown
@@ -969,7 +975,436 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
             None => drop(known.insert(id, as_is)),
         }
     }
+    hide(doc, &mut known, &suspects, room, until);
     known
+}
+
+// ---------------------------------------------------------------- hidden text
+
+/// A point no drawing goes to: where the path starts that says hidden text starts (to 1) or
+/// ends (to 0). `Words` reads it back. Two below `span()`, as random.
+fn hide_at() -> f64 {
+    span() - 2.0
+}
+
+/// A colour space, as far as it says whether a colour is white.
+#[derive(Clone, Copy, PartialEq)]
+enum Space {
+    Gray,
+    Rgb,
+    Cmyk,
+    /// Separation and DeviceN: a tint of 0 is no ink.
+    Tint,
+    /// Lab, Indexed, Pattern and the rest: never taken for white.
+    Other,
+}
+
+/// What of the graphics state says whether text is seen, as `q` saves it and `Q` gives it back.
+#[derive(Clone, Copy)]
+struct Paint {
+    mode: i64,
+    fill: (Space, bool),
+    stroke: (Space, bool),
+    /// The fill and the stroke wholly transparent (`ca`, `CA` of an ExtGState).
+    clear: (bool, bool),
+}
+
+impl Default for Paint {
+    fn default() -> Self {
+        Paint {
+            mode: 0,
+            fill: (Space::Gray, false),
+            stroke: (Space::Gray, false),
+            clear: (false, false),
+        }
+    }
+}
+
+/// What was drawn so far on the page: anything painted (white text on it may be seen), and a
+/// picture (invisible text over it is the words of a scan).
+#[derive(Default)]
+struct Page {
+    painted: bool,
+    picture: bool,
+    /// Whether the text shown last was hidden, as the marks so far say.
+    hidden: bool,
+}
+
+/// Every page's content gone through in the order it is drawn, its streams one after the other
+/// and each form where it is drawn, with the graphics state as it goes. Text drawn invisibly is
+/// hidden text: in render mode 3 or 7 but over a picture drawn before it (a scan's words),
+/// wholly transparent, or white (in any colour space whose white is known) where nothing was
+/// painted on the page before it. The streams where hidden text starts or ends get a mark
+/// there (`hide_at()`), within `room`; the others stay as they are.
+///
+/// Only the pages that may draw text unseen are gone through: one of whose streams or forms
+/// is a `suspect`, or has a graphics state that makes paint clear.
+fn hide(
+    doc: &mut Document,
+    known: &mut HashMap<ObjectId, Known>,
+    suspects: &HashSet<ObjectId>,
+    mut room: u64,
+    until: Instant,
+) {
+    // ponytail: a third of the time left, so a long manual full of white boxes keeps most of
+    // its pages' text; pages past it are read as drawn, hidden text and all.
+    let now = Instant::now();
+    let until = now + until.saturating_duration_since(now) / 3;
+    let mut walk = Walk {
+        doc: &*doc,
+        known: &*known,
+        until,
+        seen: HashSet::new(),
+        marked: HashMap::new(),
+    };
+    for page in walk.doc.page_iter().take(MAX_PAGES).collect::<Vec<_>>() {
+        if Instant::now() >= until {
+            break;
+        }
+        let resources = walk.doc.get_page_resources(page).ok().and_then(|(own, ids)| {
+            own.cloned().or_else(|| ids.first().and_then(|id| walk.doc.get_dictionary(*id).ok().cloned()))
+        });
+        let (mut paint, mut drawn) = (Paint::default(), Page::default());
+        let contents = walk.doc.get_page_contents(page);
+        let mut looked = HashSet::new();
+        if !contents.iter().any(|id| suspects.contains(id))
+            && !may_hide(walk.doc, resources.as_ref(), suspects, &mut looked, DEPTH)
+        {
+            continue;
+        }
+        for id in &contents {
+            walk.stream(*id, resources.as_ref(), &mut paint, &mut drawn, DEPTH);
+        }
+        // The page ends with its text seen, for what is drawn on top of it.
+        if drawn.hidden
+            && let Some(last) = contents.last()
+            && let Some(ops) = walk.marked.get_mut(last)
+        {
+            ops.extend(mark(false));
+        }
+    }
+    let marked = walk.marked;
+    for (id, operations) in marked {
+        let Some(written) = of_lopdf(|| Content { operations }.encode()) else {
+            continue;
+        };
+        if written.len() as u64 > room {
+            break;
+        }
+        if let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) {
+            room -= written.len() as u64;
+            known.insert(id, Known::of(&written));
+            stream.set_plain_content(written);
+        }
+    }
+}
+
+/// Whether what these resources draw may hide text: a form that is a `suspect` (or one of its
+/// own forms is), or a graphics state that makes the fill or the stroke clear.
+fn may_hide(
+    doc: &Document,
+    resources: Option<&Dictionary>,
+    suspects: &HashSet<ObjectId>,
+    looked: &mut HashSet<ObjectId>,
+    depth: usize,
+) -> bool {
+    let Some(resources) = resources else {
+        return false;
+    };
+    if depth == 0 {
+        return true;
+    }
+    let clear = dict_at(doc, resources, b"ExtGState").is_some_and(|states| {
+        states.iter().any(|(_, state)| {
+            doc.dereference(state).ok().and_then(|(_, s)| s.as_dict().ok()).is_some_and(|s| {
+                [&b"ca"[..], b"CA"].iter().any(|k| held(doc, s, k).and_then(|o| o.as_float().ok()).is_some_and(|a| a <= 0.01))
+            })
+        })
+    });
+    clear
+        || forms(doc, resources).any(|(_, form)| {
+            looked.insert(form)
+                && (suspects.contains(&form)
+                    || doc
+                        .objects
+                        .get(&form)
+                        .and_then(|o| o.as_stream().ok())
+                        .is_some_and(|f| may_hide(doc, dict_at(doc, &f.dict, b"Resources"), suspects, looked, depth - 1)))
+        })
+}
+
+/// Whether content may draw text unseen, found without parsing it: it sets render mode 3 or 7,
+/// or a colour that may be white (every number of a colour 1 or more, or 0 for CMYK, a tint
+/// or a pattern's: either may be white). Strings, comments and inline pictures are passed over.
+fn suspect(content: &[u8]) -> bool {
+    let (mut at, mut numbers, mut count) = (0, [0f32; 4], 0usize);
+    let blank = |c: u8| c.is_ascii_whitespace() || c == 0;
+    let delimiter = |c: u8| b"()<>[]{}/%".contains(&c);
+    while at < content.len() {
+        let c = content[at];
+        if blank(c) {
+            at += 1;
+            continue;
+        }
+        match c {
+            b'%' => {
+                while at < content.len() && !b"\r\n".contains(&content[at]) {
+                    at += 1;
+                }
+                continue;
+            }
+            b'(' => {
+                let mut depth = 0usize;
+                while at < content.len() {
+                    match content[at] {
+                        b'\\' => at += 1,
+                        b'(' => depth += 1,
+                        b')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    at += 1;
+                }
+                at += 1;
+                count = 0;
+                continue;
+            }
+            b'<' | b'>' | b'[' | b']' | b'{' | b'}' => {
+                // A hex string, or what holds operands: numbers before it are no colour's.
+                if c == b'<' && content.get(at + 1) != Some(&b'<') {
+                    at += memchr::memchr(b'>', &content[at..]).unwrap_or(content.len() - at);
+                }
+                at += 1;
+                count = 0;
+                continue;
+            }
+            _ => {}
+        }
+        let start = at;
+        at += 1;
+        while at < content.len() && !blank(content[at]) && !delimiter(content[at]) {
+            at += 1;
+        }
+        let token = &content[start..at];
+        if c == b'/' {
+            continue;
+        }
+        if let Some(n) = std::str::from_utf8(token).ok().and_then(|t| t.parse::<f32>().ok()) {
+            numbers[count % 4] = n;
+            count += 1;
+            continue;
+        }
+        let taken = &numbers[..count.min(4)];
+        let all = |f: fn(f32) -> bool| count > 0 && taken.iter().all(|n| f(*n));
+        let found = match token {
+            b"Tr" => count > 0 && matches!(numbers[(count - 1) % 4] as i64, 3 | 7),
+            b"g" | b"G" | b"rg" | b"RG" => all(|n| n >= 0.99),
+            b"k" | b"K" => all(|n| n <= 0.01),
+            b"sc" | b"scn" | b"SC" | b"SCN" => all(|n| n >= 0.99) || all(|n| n <= 0.01),
+            // A picture within the content: its bytes run to `EI` on its own.
+            b"BI" => {
+                let rest = &content[at..];
+                let data = memmem::find(rest, b"ID").map_or(rest.len(), |i| i + 2);
+                let end = memmem::find_iter(&rest[data..], b"EI")
+                    .find(|&i| {
+                        let i = data + i;
+                        i > 0 && blank(rest[i - 1]) && rest.get(i + 2).is_none_or(|c| blank(*c))
+                    })
+                    .map_or(rest.len(), |i| data + i + 2);
+                at += end;
+                false
+            }
+            _ => false,
+        };
+        if found {
+            return true;
+        }
+        count = 0;
+    }
+    false
+}
+
+/// The path that says hidden text starts (`on`) or ends.
+fn mark(on: bool) -> [Operation; 3] {
+    [
+        Operation::new("m", vec![hide_at().into(), 0.0.into()]),
+        Operation::new("l", vec![f64::from(on as u8).into(), 0.0.into()]),
+        Operation::new("f", vec![]),
+    ]
+}
+
+struct Walk<'a> {
+    doc: &'a Document,
+    known: &'a HashMap<ObjectId, Known>,
+    until: Instant,
+    /// Streams gone through: a form drawn twice is marked as it was drawn first.
+    seen: HashSet<ObjectId>,
+    /// The streams that got marks, with all their operations.
+    marked: HashMap<ObjectId, Vec<Operation>>,
+}
+
+impl Walk<'_> {
+    fn stream(&mut self, id: ObjectId, resources: Option<&Dictionary>, paint: &mut Paint, page: &mut Page, depth: usize) {
+        if depth == 0 || !self.seen.insert(id) || Instant::now() >= self.until {
+            // Not gone through: whatever it draws may be under what comes after.
+            page.painted = true;
+            return;
+        }
+        let doc = self.doc;
+        let Some(Object::Stream(stream)) = doc.objects.get(&id) else {
+            return;
+        };
+        if self.known.get(&id).is_some_and(|k| k.weight > MAX_CONTENT) {
+            page.painted = true;
+            return;
+        }
+        let Some(operations) = unpacked(stream, MAX_ENTRY)
+            .and_then(|content| of_lopdf(|| Content::decode(&content)))
+            .map(|c| c.operations)
+        else {
+            page.painted = true;
+            return;
+        };
+        let own = dict_at(doc, &stream.dict, b"Resources");
+        let resources = own.or(resources);
+        let (mut written, mut saved, mut marks) = (Vec::with_capacity(operations.len()), vec![], false);
+        for operation in operations {
+            let ops = &operation.operands;
+            let space = |name: &[u8]| space_of(doc, resources, name);
+            match operation.operator.as_str() {
+                "q" => saved.push(*paint),
+                "Q" => *paint = saved.pop().unwrap_or(*paint),
+                "Tr" => paint.mode = ops.first().and_then(|o| o.as_float().ok()).unwrap_or(0.0) as i64,
+                "g" => paint.fill = (Space::Gray, white(Space::Gray, ops)),
+                "rg" => paint.fill = (Space::Rgb, white(Space::Rgb, ops)),
+                "k" => paint.fill = (Space::Cmyk, white(Space::Cmyk, ops)),
+                "G" => paint.stroke = (Space::Gray, white(Space::Gray, ops)),
+                "RG" => paint.stroke = (Space::Rgb, white(Space::Rgb, ops)),
+                "K" => paint.stroke = (Space::Cmyk, white(Space::Cmyk, ops)),
+                // A colour space starts black, a Separation's at a tint of 1.
+                "cs" => paint.fill = (name_of(ops).map_or(Space::Other, space), false),
+                "CS" => paint.stroke = (name_of(ops).map_or(Space::Other, space), false),
+                "sc" | "scn" => paint.fill.1 = white(paint.fill.0, ops),
+                "SC" | "SCN" => paint.stroke.1 = white(paint.stroke.0, ops),
+                "gs" => {
+                    if let Some(state) = name_of(ops).and_then(|n| dict_at(doc, resources?, b"ExtGState").and_then(|g| dict_at(doc, g, n))) {
+                        let none = |key: &[u8]| held(doc, state, key).and_then(|o| o.as_float().ok()).map(|a| a <= 0.01);
+                        paint.clear = (none(b"ca").unwrap_or(paint.clear.0), none(b"CA").unwrap_or(paint.clear.1));
+                    }
+                }
+                "f" | "F" | "f*" => page.painted |= !(paint.fill.1 || paint.clear.0),
+                "S" | "s" => page.painted |= !(paint.stroke.1 || paint.clear.1),
+                "B" | "B*" | "b" | "b*" => page.painted |= !(paint.fill.1 || paint.clear.0) || !(paint.stroke.1 || paint.clear.1),
+                "sh" => page.painted = true,
+                // A picture within the content. lopdf reads it as a stream, and would write it as one.
+                "BI" => {
+                    (page.painted, page.picture) = (true, true);
+                    continue;
+                }
+                "Do" => {
+                    let form = name_of(ops)
+                        .and_then(|n| dict_at(doc, resources?, b"XObject").and_then(|x| x.get(n).ok()))
+                        .and_then(|o| stream_at(doc, o));
+                    match form {
+                        Some((form, s)) if is(s, b"Subtype", b"Form") => {
+                            written.push(operation);
+                            let mut inner = *paint;
+                            self.stream(form, resources, &mut inner, page, depth - 1);
+                            continue;
+                        }
+                        Some(_) => (page.painted, page.picture) = (true, true),
+                        None => page.painted = true,
+                    }
+                }
+                "Tj" | "TJ" | "'" | "\"" => {
+                    let hidden = invisible(paint, page);
+                    if hidden != page.hidden {
+                        page.hidden = hidden;
+                        written.extend(mark(hidden));
+                        marks = true;
+                    }
+                }
+                _ => {}
+            }
+            written.push(operation);
+        }
+        if marks {
+            self.marked.insert(id, written);
+        }
+    }
+}
+
+/// Whether text drawn now is unseen.
+fn invisible(paint: &Paint, page: &Page) -> bool {
+    let (fills, strokes) = match paint.mode {
+        3 | 7 => return !page.picture,
+        0 | 4 => (true, false),
+        1 | 5 => (false, true),
+        _ => (true, true),
+    };
+    let gone = |(_, white): (Space, bool), clear: bool| clear || (white && !page.painted);
+    !((fills && !gone(paint.fill, paint.clear.0)) || (strokes && !gone(paint.stroke, paint.clear.1)))
+}
+
+/// Whether these numbers are white in `space`.
+fn white(space: Space, operands: &[Object]) -> bool {
+    let numbers: Vec<f32> = operands.iter().filter_map(|o| o.as_float().ok()).collect();
+    if numbers.is_empty() || numbers.len() < operands.len() {
+        return false;
+    }
+    match (space, numbers.len()) {
+        (Space::Gray, 1) | (Space::Rgb, 3) => numbers.iter().all(|v| *v >= 0.99),
+        (Space::Cmyk, 4) | (Space::Tint, _) => numbers.iter().all(|v| *v <= 0.01),
+        _ => false,
+    }
+}
+
+fn name_of(operands: &[Object]) -> Option<&[u8]> {
+    match operands.last()? {
+        Object::Name(n) => Some(n),
+        _ => None,
+    }
+}
+
+/// The kind of the colour space of that name, a device's or one of the resources.
+fn space_of(doc: &Document, resources: Option<&Dictionary>, name: &[u8]) -> Space {
+    let by_name = |name: &[u8]| match name {
+        b"DeviceGray" | b"G" | b"CalGray" => Some(Space::Gray),
+        b"DeviceRGB" | b"RGB" | b"CalRGB" => Some(Space::Rgb),
+        b"DeviceCMYK" | b"CMYK" => Some(Space::Cmyk),
+        b"Separation" | b"DeviceN" => Some(Space::Tint),
+        _ => None,
+    };
+    if let Some(space) = by_name(name) {
+        return space;
+    }
+    let Some(object) = resources
+        .and_then(|r| dict_at(doc, r, b"ColorSpace"))
+        .and_then(|spaces| held(doc, spaces, name))
+    else {
+        return Space::Other;
+    };
+    match object {
+        Object::Name(n) => by_name(n).unwrap_or(Space::Other),
+        Object::Array(a) => match a.first() {
+            Some(Object::Name(n)) if n == b"ICCBased" => {
+                let n = a.get(1).and_then(|o| stream_at(doc, o)).and_then(|(_, s)| s.dict.get(b"N").ok()?.as_i64().ok());
+                match n {
+                    Some(1) => Space::Gray,
+                    Some(3) => Space::Rgb,
+                    Some(4) => Space::Cmyk,
+                    _ => Space::Other,
+                }
+            }
+            Some(Object::Name(n)) => by_name(n).unwrap_or(Space::Other),
+            _ => Space::Other,
+        },
+        _ => Space::Other,
+    }
 }
 
 /// Content written anew for pdf-extract, when it has either of two things it passes over:
@@ -977,8 +1412,8 @@ fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
 /// text a marked span says its glyphs stand for, `/Span << /ActualText (...) >> BDC ... EMC`,
 /// as LibreOffice says an Arabic letter drawn as a base and a dot, and Word says a ligature.
 /// pdf-extract hands back nothing of a span but its glyphs, and nothing else but paths: so
-/// the text is written as a path, with `SPAN` as its start and the UTF-16 units of the text as
-/// the points it goes to, filled before the glyphs of the span, and a path to `SPAN` and one up
+/// the text is written as a path, with `span()` as its start and the UTF-16 units of the text as
+/// the points it goes to, filled before the glyphs of the span, and a path to `span()` and one up
 /// filled after them. `Words` reads it back. `None` when the content has neither.
 fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     // Either quote comes after the string it shows and ends there.
@@ -997,7 +1432,7 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
         let goes = points
             .into_iter()
             .map(|point| op("l", vec![point.into(), 0.0.into()]));
-        [op("m", vec![SPAN.into(), 0.0.into()])]
+        [op("m", vec![span().into(), 0.0.into()])]
             .into_iter()
             .chain(goes)
             .chain([op("f", vec![])])
@@ -1055,8 +1490,24 @@ fn rewritten(content: &[u8]) -> Option<Vec<u8>> {
     })
 }
 
-/// A point no drawing goes to: where the path that carries the text of a span starts.
-const SPAN: f64 = -65537.5;
+// A point no drawing goes to: where the path that carries the text of a span starts.
+// A file cannot draw it on purpose to turn hiding off or put words in: it is drawn anew for
+// each file read, on the thread that reads it, a half between -2^22 and -(2^22 + 2^21), which
+// an f32 (as lopdf writes it) holds exactly.
+thread_local! {
+    static SENTINEL: Cell<f64> = const { Cell::new(-4_194_304.5) };
+}
+
+fn span() -> f64 {
+    SENTINEL.get()
+}
+
+/// A new point for `span()` and `hide_at()`.
+fn new_sentinel() {
+    use std::hash::BuildHasher;
+    let r = std::collections::hash_map::RandomState::new().hash_one(Instant::now());
+    SENTINEL.set(-(((1u64 << 22) + r % (1 << 21)) as f64) - 0.5);
+}
 
 /// The UTF-16 units of a string of a PDF: with a byte order mark it is UTF-16, and without one
 /// each byte is a character, near enough.
@@ -1666,6 +2117,8 @@ struct Drawn {
 /// The widest gap between letters that is taken for the letters of one word set apart, in
 /// sizes of the font, and the narrowest that is taken for a space at all.
 const SET_APART: f64 = 0.2;
+/// Text drawn smaller than this, in points, is no text to read.
+const TINY: f64 = 2.0;
 const SPACE: f64 = 0.1;
 /// The most characters held as one line. Longer than this it is no line, and goes to the text
 /// in pieces.
@@ -1680,6 +2133,8 @@ struct Words<'a> {
     /// characters follow each other as the font's widths say.
     start: bool,
     span: Option<Span>,
+    /// Inside hidden text, which `hide` marked.
+    hidden: bool,
     seen: usize,
     until: Instant,
 }
@@ -1692,6 +2147,7 @@ impl<'a> Words<'a> {
             last: None,
             start: true,
             span: None,
+            hidden: false,
             seen: 0,
             until,
         }
@@ -1827,6 +2283,11 @@ impl OutputDev for Words<'_> {
         } else {
             1.0
         };
+        // Hidden text, and text too small to be read (under 2 points), is not what the page
+        // says to whoever reads it.
+        if self.hidden || size < TINY {
+            return Ok(());
+        }
         let spot = Spot {
             at: (trm.m31, trm.m32),
             way,
@@ -1914,7 +2375,7 @@ impl OutputDev for Words<'_> {
         self.go_on()
     }
 
-    /// Where a path starts at `SPAN`, it is the text of a marked span that `rewritten` put
+    /// Where a path starts at `span()`, it is the text of a marked span that `rewritten` put
     /// there, or the end of the span.
     fn fill(
         &mut self,
@@ -1924,8 +2385,12 @@ impl OutputDev for Words<'_> {
         path: &pdf_extract::Path,
     ) -> Result<(), OutputError> {
         use pdf_extract::PathOp::{LineTo, MoveTo};
-        if let [MoveTo(x, _), points @ ..] = &path.ops[..]
-            && *x == SPAN
+        if let [MoveTo(x, _), LineTo(on, _)] = &path.ops[..]
+            && *x == hide_at()
+        {
+            self.hidden = *on == 1.0;
+        } else if let [MoveTo(x, _), points @ ..] = &path.ops[..]
+            && *x == span()
         {
             let units: Vec<u16> = points
                 .iter()
@@ -1971,6 +2436,7 @@ impl OutputDev for Words<'_> {
         _: &MediaBox,
         _: Option<(f64, f64, f64, f64)>,
     ) -> Result<(), OutputError> {
+        self.hidden = false;
         Ok(())
     }
 
@@ -2195,6 +2661,114 @@ mod tests {
         ];
         assert_eq!(read("pages", &file).as_deref(), Some(&*lines.join("\n")));
     }
+
+    #[test]
+    fn pdf_leaves_out_text_drawn_invisibly_white_or_too_small() {
+        let content = br"BT /F1 12 Tf 72 720 Td (Seen) Tj 3 Tr ( Secret instructions) Tj 0 Tr ( and seen.) Tj ET
+            q 1 1 1 rg BT /F1 12 Tf 72 700 Td (White words) Tj ET Q
+            BT /F1 12 Tf 72 680 Td (Black again.) Tj ET
+            BT /F1 1 Tf 72 660 Td (Tiny words) Tj ET
+            BT 7 Tr /F1 12 Tf 72 640 Td (Clipped words) Tj ET
+            BT 0 Tr /F1 1 Tf 12 0 0 12 72 620 Tm (Scaled up is read.) Tj ET
+            0 0 0 rg 0 0 612 100 re f BT 1 g /F1 12 Tf 72 50 Td (White on black is read.) Tj ET";
+        let file = document(FONT, &[], &[stream("", content)]);
+        let text = read("hidden", &file).unwrap();
+        assert!(!["Secret", "White words", "Tiny", "Clipped"].iter().any(|w| text.contains(w)), "{text}");
+        for seen in ["Seen", "and seen.", "Black again.", "Scaled up is read.", "White on black is read."] {
+            assert!(text.contains(seen), "{seen}: {text}");
+        }
+    }
+
+    #[test]
+    fn pdf_finds_hidden_text_however_its_state_is_written() {
+        // Objects 4 on: a form that shows white text, an ICC gray space, an ExtGState that
+        // makes the fill clear.
+        let form = stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> >>",
+            b"BT 1.0 1.0 1.0 rg /F1 12 Tf 72 400 Td (Formwhite) Tj 0 g 0 -14 Td (Formblack) Tj ET",
+        );
+        let icc = stream("/N 1", b"");
+        let resources = "/Font << /F1 3 0 R >> /XObject << /X 4 0 R >> /ColorSpace << /CS0 5 0 R /CS1 [/Separation /Spot /DeviceCMYK 7 0 R] >> /ExtGState << /GS0 6 0 R >>";
+        let content = br"BT /F1 12 Tf 72 720 Td (Seen1) Tj ET
+            q BT 1.0 g /F1 12 Tf 72 700 Td (Decimalwhite) Tj ET Q
+            q BT /CS0 cs 1 scn /F1 12 Tf 72 680 Td (Iccwhite) Tj ET Q
+            q BT /CS1 cs 0 scn /F1 12 Tf 72 660 Td (Tintwhite) Tj ET Q
+            q BT 3
+            Tr /F1 12 Tf 72 640 Td (Spacedmode) Tj ET Q
+            q BT /GS0 gs /F1 12 Tf 72 620 Td (Clearfill) Tj ET Q
+            q 1 1 1 rg 0 0 612 792 re f
+            BT /F1 12 Tf 72 600 Td (Afterwhitebox) Tj ET Q
+            BT /F1 12 Tf 72 580 Td (Seen2) Tj ET
+            /X Do
+            BT /F1 12 Tf 72 560 Td (Seen3) Tj ET";
+        let objects = vec![
+            CATALOG.to_vec(),
+            b"<< /Type /Pages /Kids [8 0 R] /Count 1 >>".to_vec(),
+            HELVETICA.to_vec(),
+            form,
+            b"[/ICCBased 9 0 R]".to_vec(),
+            b"<< /Type /ExtGState /ca 0 >>".to_vec(),
+            b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 0 0 0] /N 1 >>".to_vec(),
+            format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {resources} >> /Contents [10 0 R 11 0 R] >>").into_bytes(),
+            icc,
+            stream("", b"q Q"),
+            stream("", content),
+        ];
+        let text = read("hidden-state", &pdf(&objects)).unwrap();
+        for hidden in ["Decimalwhite", "Iccwhite", "Tintwhite", "Spacedmode", "Clearfill", "Afterwhitebox", "Formwhite"] {
+            assert!(!text.contains(hidden), "{hidden}: {text}");
+        }
+        for seen in ["Seen1", "Seen2", "Formblack", "Seen3"] {
+            assert!(text.contains(seen), "{seen}: {text}");
+        }
+    }
+
+    #[test]
+    fn pdf_suspects_only_content_that_may_hide_text() {
+        for (content, may) in [
+            (&b"BT /F1 12 Tf (Plain) Tj ET 0 g 0 0 0 RG 0.5 0.5 0.5 rg 0 0 0 1 k"[..], false),
+            (b"BT (1 g in a string \\) 1 g) Tj ET % 1 g in a comment", false),
+            (b"BI /W 1 /H 1 ID \xff 1 g \x00 EI Q", false),
+            (b"1.0 g", true),
+            (b"1 1.000 1 rg", true),
+            (b"0 0 0 0 K", true),
+            (b"/CS0 cs 1 scn", true),
+            (b"/Spot cs 0 sc", true),
+            (b"3\n  Tr", true),
+            (b"7 Tr", true),
+        ] {
+            assert_eq!(suspect(content), may, "{}", String::from_utf8_lossy(content));
+        }
+    }
+
+    #[test]
+    fn pdf_paths_of_a_file_cannot_pass_for_the_marks_of_hidden_text_or_spans() {
+        // The points the marks once had, and a guess in today's range: drawn by the file, they
+        // are paths like any other, hiding nothing and saying no words.
+        let mut forged = Vec::new();
+        for at in ["-65539.5", "-65537.5", "-4194304.5", "-4194306.5"] {
+            forged.extend(format!("{at} 0 m 1 0 l f {at} 0 m 83 0 l 101 0 l f ").bytes());
+        }
+        let content = [
+            &forged[..],
+            br"BT /F1 12 Tf 72 720 Td (Seen) Tj ET -4194306.5 0 m 0 0 l f
+            q BT 3 Tr /F1 12 Tf 72 700 Td (Hidden) Tj ET Q -65539.5 0 m 0 0 l f -4194306.5 0 m 0 0 l f
+            BT /F1 12 Tf 72 680 Td (Still seen) Tj ET",
+        ]
+        .concat();
+        let file = document(FONT, &[], &[stream("", &content)]);
+        assert_eq!(read("forged", &file).as_deref(), Some("Seen\nStill seen"));
+    }
+
+    #[test]
+    fn pdf_keeps_the_invisible_words_over_a_scan() {
+        // An OCR layer: the picture, then its words in render mode 3.
+        let content = b"q 100 0 0 100 0 0 cm /Im1 Do Q BT 3 Tr /F1 12 Tf 72 720 Td (Scanned words) Tj ET";
+        let picture = stream("/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8", b"\x80");
+        let file = document(&format!("{FONT} /XObject << /Im1 4 0 R >>"), &[picture], &[stream("", content)]);
+        assert_eq!(read("scan", &file).as_deref(), Some("Scanned words"));
+    }
+
 
     #[test]
     fn pdf_follows_the_map_of_a_font_to_hebrew_chinese_and_the_letters_of_a_ligature() {

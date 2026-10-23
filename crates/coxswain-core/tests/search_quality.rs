@@ -212,8 +212,8 @@ fn search_quality() {
         );
         let from_file: Vec<&String> = sources
             .iter()
-            .filter(|(p, _)| rank(std::slice::from_ref(p), &root, q).is_some())
-            .map(|(_, t)| t)
+            .filter(|(p, ..)| rank(std::slice::from_ref(p), &root, q).is_some())
+            .map(|(_, t, _)| t)
             .collect();
         let passage = from_file
             .iter()

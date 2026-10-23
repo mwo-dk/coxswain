@@ -69,15 +69,15 @@ pub fn budget(cfg: &SearchConfig, earlier: &[Turn], question: &str) -> usize {
 /// (looked up with the question before it, which a follow-up often leans on), below `scope`
 /// when given; for a question about the folder as a whole, an overview of `scope` or, without
 /// one, of `here` (the panel's folder) first. `passages` is `Client::passages`. The error says
-/// nothing was close.
+/// nothing was close. With each source, how many similar files (near copies) it stands for.
 pub fn sources(
-    passages: impl FnOnce(&str, Option<&Path>, usize) -> Vec<(PathBuf, String)>,
+    passages: impl FnOnce(&str, Option<&Path>, usize) -> Vec<(PathBuf, String, usize)>,
     cfg: &SearchConfig,
     earlier: &[Turn],
     question: &str,
     scope: Option<&Path>,
     here: &Path,
-) -> Result<Vec<(PathBuf, String)>, String> {
+) -> Result<(Vec<(PathBuf, String)>, Vec<usize>), String> {
     let lookup = earlier
         .last()
         .map_or(question.to_string(), |(q, _)| format!("{q} {question}"));
@@ -90,27 +90,34 @@ pub fn sources(
     };
     let used: usize = out
         .iter()
-        .map(|(p, t)| p.as_os_str().len() + t.len() + 8)
+        .map(|(p, t)| p.as_os_str().len() + t.len() + 32)
         .sum();
     // A question about code gets no map unless it is about the whole project: measured, the
     // excerpts it pushes out said more (docs/reference/performance.md, "Code questions").
     let found = passages(&lookup, scope, budget.saturating_sub(used));
-    for (path, text) in found {
-        match out.iter_mut().find(|(p, _)| *p == path) {
+    let mut similar = vec![0; out.len()];
+    for (path, text, alike) in found {
+        match out.iter_mut().position(|(p, _)| *p == path) {
             // A README the overview has: what the passages add that it does not.
-            Some((_, had)) => {
+            Some(at) => {
+                similar[at] += alike;
+                let had = &mut out[at].1;
                 let new: Vec<&str> = text.split(GAP).filter(|e| !had.contains(e)).collect();
                 if !new.is_empty() {
                     had.push_str(GAP);
                     had.push_str(&new.join(GAP));
                 }
             }
-            None => out.push((path, text)),
+            None => {
+                out.push((path, text));
+                similar.push(alike);
+            }
         }
     }
     // Nothing close, but the question names the folder: what it holds says the most.
     if out.is_empty() && has(&question.to_lowercase(), HERE) {
         out = overview(dir, budget, &cfg.text_exclude);
+        similar = vec![0; out.len()];
     }
     if out.is_empty() {
         return Err(match scope {
@@ -120,7 +127,7 @@ pub fn sources(
             None => t!("search.ask_nothing"),
         });
     }
-    Ok(out)
+    Ok((out, similar))
 }
 
 /// A table of an app's translated strings (`locales/de.json`, `messages.po`, `Strings.resx`):
@@ -922,11 +929,13 @@ mod tests {
                 (
                     readme.clone(),
                     format!("A rocket planner.{GAP}## Fuel budget"),
+                    2,
                 ),
-                (d.join("src/fuel.rs"), "fn fuel()".to_string()),
+                (d.join("src/fuel.rs"), "fn fuel()".to_string(), 0),
             ]
         };
-        let s = sources(found, &cfg, &[], "What is this project about?", None, &d).unwrap();
+        let (s, similar) = sources(found, &cfg, &[], "What is this project about?", None, &d).unwrap();
+        assert_eq!(similar, [2, 0, 0], "the README stands for its copies");
         let names: Vec<_> = s
             .iter()
             .map(|(p, _)| {
@@ -946,13 +955,14 @@ mod tests {
             "{:?}",
             s[0].1
         );
-        let s = sources(found, &cfg, &[], "How much fuel?", None, &d).unwrap();
+        let (s, _) = sources(found, &cfg, &[], "How much fuel?", None, &d).unwrap();
         assert_eq!(s.len(), 2, "a specific question: the excerpts alone");
         // Nothing close, but the question is about the folder.
         let none = |_: &str, _: Option<&Path>, _: usize| vec![];
         assert_eq!(
             sources(none, &cfg, &[], "how is the code laid out", None, &d)
                 .unwrap()
+                .0
                 .len(),
             2
         );
