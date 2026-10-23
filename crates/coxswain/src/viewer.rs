@@ -21,7 +21,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use syntect::parsing::{ParseState, Scope, ScopeStack, SyntaxReference, SyntaxSet};
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use crate::ui::Cols;
+use unicode_width::UnicodeWidthChar;
 
 use crate::bom::faint;
 use crate::ui::{fit, sty};
@@ -48,7 +49,7 @@ const MOST_LINES: usize = 20_000_000;
 const READ_AT_ONCE: u64 = 4 << 20;
 
 /// syntect's grammars and two-face's (about 200 languages), read once, on the first F3.
-fn syntaxes() -> &'static SyntaxSet {
+pub(crate) fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
     SET.get_or_init(two_face::syntax::extra_newlines)
 }
@@ -100,16 +101,18 @@ pub fn syntax_for(path: &Path, head: &str) -> Option<&'static SyntaxReference> {
 }
 
 /// A line in pieces, each with the theme slot it is coloured with.
-type Pieces = Vec<(Option<&'static str>, String)>;
+pub(crate) type Pieces = Vec<(Option<&'static str>, String)>;
 
 /// What the viewer wants done after a key.
 pub enum Outcome {
     Stay,
     Close,
-    /// Close, and open the file in the editor.
-    Edit(PathBuf),
+    /// Close, and open the file in the editor (`Edit`) or the built-in one (`EditHere`).
+    Edit(PathBuf, Action),
     /// Close, and open the file in the pager (`$PAGER`, else less).
     Pager(PathBuf),
+    /// Show the file a text copy was made of as it is (`made_of`), this one again after it.
+    Original(PathBuf),
 }
 
 /// What the file is read as.
@@ -161,9 +164,46 @@ enum Typing {
 
 /// Highlighting's state before a line: the grammar's, and the scopes open there.
 #[derive(Clone)]
-struct Point {
+pub(crate) struct Point {
     parse: ParseState,
     scopes: ScopeStack,
+}
+
+impl Point {
+    /// Before the first line.
+    pub(crate) fn new(syntax: &SyntaxReference) -> Point {
+        Point { parse: ParseState::new(syntax), scopes: ScopeStack::new() }
+    }
+}
+
+/// The theme slot each scope takes, looked up once.
+pub(crate) type Slots = HashMap<Scope, Option<&'static str>>;
+
+/// One line's pieces, from `point`, which moves past it.
+pub(crate) fn paint(point: &mut Point, line: &str, slots: &mut Slots) -> Pieces {
+    if line.len() > LONGEST_HIGHLIGHTED {
+        return vec![(None, line.to_owned())];
+    }
+    let ss = syntaxes();
+    let with_end = format!("{line}\n");
+    let Ok(ops) = point.parse.parse_line(&with_end, ss) else {
+        return vec![(None, line.to_owned())];
+    };
+    let mut out = vec![];
+    let mut from = 0;
+    // The slot of the innermost scope open that has one.
+    let mut slot = |scopes: &ScopeStack| {
+        scopes.as_slice().iter().rev().find_map(|s| *slots.entry(*s).or_insert_with(|| coxswain_core::view::slot_of_scope(&s.build_string())))
+    };
+    for (at, op) in ops.into_iter().chain([(line.len(), syntect::parsing::ScopeStackOp::Noop)]) {
+        let at = at.min(line.len());
+        if at > from {
+            out.push((slot(&point.scopes), line[from..at].to_owned()));
+            from = at;
+        }
+        let _ = point.scopes.apply(&op);
+    }
+    out
 }
 
 /// A search going on: the lines `a..b` still to look through (from the end for `back`), of
@@ -182,13 +222,14 @@ pub struct Viewer {
     /// What the title calls the text, for a text copy of another file (its format); else the
     /// highlighting's language, or plain text.
     kind: Option<String>,
+    /// A text copy's file (`made_of`): **h** shows it as it is, a hex dump for a binary one.
+    original: Option<PathBuf>,
     body: Body,
     encoding: Encoding,
     syntax: Option<&'static SyntaxReference>,
     /// Points highlighting has passed, every `STEP` lines from the start: index i is line i·STEP.
     points: Vec<Point>,
-    /// The theme slot each scope takes, looked up once.
-    slots: HashMap<Scope, Option<&'static str>>,
+    slots: Slots,
     /// The lines last drawn, highlighted: (first, count, lines known then) and per line its
     /// pieces.
     shown: Option<((usize, usize, usize), Vec<Pieces>)>,
@@ -248,10 +289,11 @@ impl Viewer {
         Ok(Viewer {
             title: path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()),
             kind: None,
+            original: None,
             path: path.to_path_buf(),
             body,
             encoding,
-            points: syntax.map(|s| vec![Point { parse: ParseState::new(s), scopes: ScopeStack::new() }]).unwrap_or_default(),
+            points: syntax.map(|s| vec![Point::new(s)]).unwrap_or_default(),
             syntax,
             slots: HashMap::new(),
             shown: None,
@@ -277,6 +319,8 @@ impl Viewer {
     pub fn made_of(mut self, of: &Path, kind: String) -> Viewer {
         self.title = of.file_name().map_or_else(|| of.display().to_string(), |n| n.to_string_lossy().into_owned());
         self.kind = Some(kind);
+        self.original = Some(of.to_path_buf());
+        self.key_line = format!("{} · {}", t!("viewer.keys_original"), self.key_line);
         self
     }
 
@@ -383,7 +427,7 @@ impl Viewer {
             (kept * STEP, self.points[kept].clone(), true)
         } else {
             let from = a.saturating_sub(STEP);
-            (from, Point { parse: ParseState::new(syntax), scopes: ScopeStack::new() }, false)
+            (from, Point::new(syntax), false)
         };
         // Lines above the screen only lead up to it: a line too long to highlight is not read whole.
         let mut text = self.lines(at, a, LONGEST_HIGHLIGHTED as u64 + 1);
@@ -393,7 +437,7 @@ impl Viewer {
             if exact && at % STEP == 0 && at / STEP == self.points.len() {
                 self.points.push(point.clone());
             }
-            let pieces = self.paint(&mut point, &line);
+            let pieces = paint(&mut point, &line, &mut self.slots);
             if at >= a {
                 out.push(pieces);
             }
@@ -403,34 +447,6 @@ impl Viewer {
         out
     }
 
-    /// One line's pieces, from `point`, which moves past it.
-    fn paint(&mut self, point: &mut Point, line: &str) -> Pieces {
-        if line.len() > LONGEST_HIGHLIGHTED {
-            return vec![(None, line.to_owned())];
-        }
-        let ss = syntaxes();
-        let with_end = format!("{line}\n");
-        let Ok(ops) = point.parse.parse_line(&with_end, ss) else {
-            return vec![(None, line.to_owned())];
-        };
-        let mut out = vec![];
-        let mut from = 0;
-        for (at, op) in ops.into_iter().chain([(line.len(), syntect::parsing::ScopeStackOp::Noop)]) {
-            let at = at.min(line.len());
-            if at > from {
-                let slot = self.slot(&point.scopes);
-                out.push((slot, line[from..at].to_owned()));
-                from = at;
-            }
-            let _ = point.scopes.apply(&op);
-        }
-        out
-    }
-
-    /// The slot of the innermost scope open that has one.
-    fn slot(&mut self, scopes: &ScopeStack) -> Option<&'static str> {
-        scopes.as_slice().iter().rev().find_map(|s| *self.slots.entry(*s).or_insert_with(|| coxswain_core::view::slot_of_scope(&s.build_string())))
-    }
 
     /// Scroll by `by` lines (the mouse wheel, the arrows).
     pub fn scroll(&mut self, by: isize) {
@@ -515,7 +531,15 @@ impl Viewer {
                 return;
             }
         }
-        let (_, done) = self.count();
+        let (n, done) = self.count();
+        // The lines are still being found (a big file just opened): the search goes on over
+        // them as they come, rather than stopping at the ones found so far.
+        if !s.back && (!done || s.b < n) {
+            (s.b, s.from.1) = (n, n);
+            self.said = Some(t!("viewer.still_reading"));
+            self.seek = Some(s);
+            return;
+        }
         self.said = Some(if done { t!("viewer.not_found", "text" => &self.query) } else { t!("viewer.still_reading") });
     }
 
@@ -566,7 +590,7 @@ impl Viewer {
         match (key.code, ch) {
             (KeyCode::Esc, _) => return Outcome::Close,
             _ if matches!(action, Some(Action::Quit | Action::View)) => return Outcome::Close,
-            _ if action == Some(Action::Edit) => return Outcome::Edit(self.path.clone()),
+            _ if matches!(action, Some(Action::Edit | Action::EditHere)) => return Outcome::Edit(self.path.clone(), action.unwrap()),
             (KeyCode::Up, _) => self.scroll(-1),
             (KeyCode::Down, _) | (KeyCode::Enter, _) => self.scroll(1),
             (KeyCode::PageUp, _) => self.scroll(-page),
@@ -590,6 +614,7 @@ impl Viewer {
                 self.left = 0;
             }
             (_, Some('p')) => return Outcome::Pager(self.path.clone()),
+            (_, Some('h')) if self.original.is_some() => return Outcome::Original(self.original.clone().unwrap_or_default()),
             _ => {}
         }
         Outcome::Stay
@@ -904,7 +929,7 @@ mod tests {
         assert!(s.contains("501     last·[31m line"), "{s}");
         assert!(!s.contains('\x1b'));
         // Esc closes, F4 edits, p hands it to the pager.
-        assert!(matches!(v.key(key(KeyCode::F(4)), Some(Action::Edit)), Outcome::Edit(_)));
+        assert!(matches!(v.key(key(KeyCode::F(4)), Some(Action::Edit)), Outcome::Edit(_, Action::Edit)));
         assert!(matches!(v.key(key(KeyCode::Char('p')), None), Outcome::Pager(_)));
         assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
         drop(v);
@@ -920,6 +945,9 @@ mod tests {
         let mut v = Viewer::open(&d.join("boing.iff.txt"), ["F4", "F3"]).unwrap().made_of(Path::new("/x/boing.iff"), "Amiga IFF ILBM".into());
         let s = screen(&mut v, 80, 4);
         assert!(s.contains(" boing.iff · Amiga IFF ILBM · ") && !s.contains("boing.iff.txt ·"), "{s}");
+        // h: the file the card was made of, as it is; the key line says so.
+        assert!(v.key_line.starts_with(&t!("viewer.keys_original")));
+        assert!(matches!(v.key(key(KeyCode::Char('h')), None), Outcome::Original(p) if p == Path::new("/x/boing.iff")));
         std::fs::write(d.join("a.bin"), b"MZ\0\x01hello").unwrap();
         let v = Viewer::open(&d.join("a.bin"), ["F4", "F3"]).unwrap();
         assert_eq!(v.encoding, Encoding::Binary);
@@ -945,6 +973,36 @@ mod tests {
             assert_eq!(v.syntax.map(|s| s.name.as_str()), grammar, "{name}");
         }
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A search started while the lines are still being found (a big file just opened) goes
+    /// on over the lines that come, instead of stopping at *Not found yet*.
+    #[test]
+    fn a_search_goes_on_while_the_lines_are_found() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-follow-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("big.log");
+        let body: String = (0..500).map(|i| if i == 480 { "the needle\n".to_string() } else { format!("line {i}\n") }).collect();
+        std::fs::write(&p, body).unwrap();
+        let mut v = Viewer::open(&p, ["F4", "F3"]).unwrap();
+        wait(&v);
+        // As it is a moment after opening: ten lines found, the rest still to come.
+        let Body::File { index, .. } = &v.body else { panic!() };
+        let all = std::mem::take(&mut *index.starts.lock().unwrap());
+        *index.starts.lock().unwrap() = all[..11].to_vec();
+        index.done.store(false, Ordering::Relaxed);
+        v.query = "needle".into();
+        v.find(false);
+        v.poll();
+        assert!(v.busy(), "still searching");
+        assert_eq!((v.found, v.said.as_deref()), (None, Some(t!("viewer.still_reading").as_str())));
+        let Body::File { index, .. } = &v.body else { panic!() };
+        *index.starts.lock().unwrap() = all;
+        index.done.store(true, Ordering::Relaxed);
+        finish(&mut v);
+        assert_eq!(v.found, Some(480), "found once its line is");
+        drop(v);
+        std::fs::remove_dir_all(&d).ok();
     }
 
     #[test]

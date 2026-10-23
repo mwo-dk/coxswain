@@ -11,7 +11,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 use std::str::FromStr;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 
 pub(crate) fn sty(s: &config::Style) -> Style {
     // `#rrggbb`, what the themes write, read directly: `Color::from_str` tries the colour
@@ -33,8 +33,33 @@ pub(crate) fn sty(s: &config::Style) -> Style {
     out
 }
 
+/// `s` with each control character (a newline, a tab, an escape in a file's name) as `?`, as
+/// `ls` shows them: printed, they would move the cursor or talk to the terminal.
+pub(crate) fn printable(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.chars().any(char::is_control) {
+        s.chars().map(|c| if c.is_control() { '?' } else { c }).collect::<String>().into()
+    } else {
+        s.into()
+    }
+}
+
+/// The columns a text takes in a terminal: the sum of its letters', each in a cell of its own,
+/// as the terminal and ratatui place them. `UnicodeWidthStr` counts Arabic lam-alef as one
+/// column (a ligature), which pushed a Persian "بالاتر" one column past its border.
+// ponytail: letters, not grapheme clusters; an emoji with a variation selector may differ.
+pub(crate) trait Cols {
+    fn width(&self) -> usize;
+}
+
+impl Cols for str {
+    fn width(&self) -> usize {
+        self.chars().map(|c| c.width().unwrap_or(0)).sum()
+    }
+}
+
 /// Cut to `w` columns, marking the cut with `…`; pad to exactly `w`.
 pub(crate) fn fit(s: &str, w: usize) -> String {
+    let s = &*printable(s);
     if s.width() <= w {
         return format!("{s}{}", " ".repeat(w - s.width()));
     }
@@ -54,6 +79,7 @@ pub(crate) fn fit(s: &str, w: usize) -> String {
 
 /// `s` centred in `w` columns, by display width: a CJK letter takes two, which `{:^w$}` miscounts.
 fn center(s: &str, w: usize) -> String {
+    let s = &*printable(s);
     let gap = w.saturating_sub(s.width());
     format!("{}{s}{}", " ".repeat(gap / 2), " ".repeat(gap - gap / 2))
 }
@@ -63,8 +89,24 @@ fn right(s: &str, w: usize) -> String {
     fit(&format!("{}{s}", " ".repeat(w.saturating_sub(s.width()))), w)
 }
 
+/// `s` for the middle of a border `w` wide whose ends hold `left` and `right` columns of titles:
+/// cut so that, centred, it stays clear of both (the git line on ZFS keeps its branch); none
+/// when too little is left to say anything.
+fn centred_between(s: &str, w: usize, left: usize, right: usize) -> Option<String> {
+    // The corners, both ends' titles as wide as the wider one, and the spaces around `s`.
+    let room = w.saturating_sub(2 + 2 * left.max(right) + 2);
+    if s.width() <= room {
+        Some(s.to_string())
+    } else if room >= 12 {
+        Some(fit(s, room).trim_end().to_string())
+    } else {
+        None
+    }
+}
+
 /// Keep the tail of a path, which is the informative part.
 pub(crate) fn fit_left(s: &str, w: usize) -> String {
+    let s = &*printable(s);
     if s.width() <= w {
         return s.to_string();
     }
@@ -114,19 +156,34 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::Provenance(v)) => v.draw(f, &theme),
         Some(Dialog::GitConfig(v)) => v.draw(f, &theme),
         Some(Dialog::View { v, .. }) => v.draw(f, &theme),
+        Some(Dialog::Edit { e, .. }) => e.draw(f, &theme),
+        Some(Dialog::Compare(v)) => v.draw(f, &theme),
         Some(Dialog::Chess(v)) => v.draw(f, &theme),
+        Some(Dialog::Go(v)) => v.draw(f, &theme),
         Some(Dialog::Space(v)) => v.draw(f, &theme),
         Some(Dialog::Settings(_)) => crate::settings::draw(f, app),
         Some(Dialog::Guide(_)) => crate::guide::draw(f, app),
         Some(_) => dialog(f, app),
         None => {}
     }
+    // Whatever was drawn without `fit` (a dialog's text, an error): no control character
+    // reaches the terminal, where it would move the cursor or start an escape sequence. Drawn
+    // as taking no room, it rides along in the cell before it; taken out, the row stays even.
+    // A sixel picture (`pictures`) is the one sequence let through: it is marked as one column.
+    for cell in f.buffer_mut().content.iter_mut() {
+        if !matches!(cell.diff_option, ratatui::buffer::CellDiffOption::ForcedWidth(_)) && cell.symbol().chars().any(char::is_control) {
+            let clean: String = cell.symbol().chars().filter(|c| !c.is_control()).collect();
+            cell.set_symbol(if clean.is_empty() { " " } else { &clean });
+        }
+    }
 }
 
 /// What a panel's folder is, as its title's badge says: read from the disk once per folder.
 pub enum Place {
-    Archive,
-    History(coxswain_core::history::At),
+    /// Inside an archive; `true` inside an archive inside another (read-only).
+    Archive(bool),
+    /// With what a list against the upstream is against (`history::upstream_line`).
+    History(coxswain_core::history::At, Option<String>),
     /// A dataset's list of snapshots.
     Snapshots,
     Plain,
@@ -135,9 +192,10 @@ pub enum Place {
 impl Place {
     fn of(dir: &std::path::Path) -> Place {
         if coxswain_core::archive::split(dir).is_some() {
-            Place::Archive
+            Place::Archive(coxswain_core::archive::nested_dir(dir))
         } else if let Some(at) = coxswain_core::history::split(dir) {
-            Place::History(at)
+            let line = (at.scope == coxswain_core::history::Scope::Upstream && at.commit.is_none()).then(|| coxswain_core::history::upstream_line(&at.base)).flatten();
+            Place::History(at, line)
         } else if coxswain_core::zfs::split(dir).is_some() {
             Place::Snapshots
         } else {
@@ -152,6 +210,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let p = &mut app.panels[side];
     if p.place.as_ref().is_none_or(|(d, _)| *d != p.dir) {
         p.place = Some((p.dir.clone(), Place::of(&p.dir)));
+        p.models = Some((p.dir.clone(), coxswain_core::local_models::names(&p.dir)));
     }
     if let Some(e) = p.current().filter(|e| e.is_symlink)
         && p.link.as_ref().is_none_or(|(at, _)| *at != e.path)
@@ -169,13 +228,28 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let place = p.place.as_ref().map_or(&Place::Plain, |(_, pl)| pl);
     let dir = match place {
         // A disk image (CHM, CBR) says it is read-only instead.
-        Place::Archive => {
-            let ro = coxswain_core::archive::split(&p.dir).is_some_and(|(a, _)| coxswain_core::archive::read_only(&a));
-            format!("{} [{}]", p.dir.to_string_lossy(), if ro { t!("dialogs.readonly") } else { t!("archive.badge") })
+        Place::Archive(nested) => {
+            let archive = coxswain_core::archive::split(&p.dir).map(|(a, _)| a);
+            let ro = *nested || archive.as_deref().is_some_and(coxswain_core::archive::read_only);
+            let badge = if ro { t!("dialogs.readonly") } else { t!("archive.badge") };
+            // A container image says which: its tag.
+            match archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title) {
+                Some(tag) => format!("{} [{tag} · {badge}]", p.dir.to_string_lossy()),
+                None => format!("{} [{badge}]", p.dir.to_string_lossy()),
+            }
         }
-        Place::History(at) => match (&at.commit, at.view) {
+        Place::History(at, _) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
-            (None, coxswain_core::history::View::History) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge")),
+            (None, coxswain_core::history::View::History) => {
+                // Which commits, and the key that lists the others.
+                let key = app.key_label(Action::HistoryAll);
+                let badge = match at.scope {
+                    coxswain_core::history::Scope::All => t!("history.badge_all", "key" => key),
+                    coxswain_core::history::Scope::Branch => t!("history.badge_branch", "key" => key),
+                    coxswain_core::history::Scope::Upstream => t!("history.badge_upstream", "key" => app.key_label(Action::HistoryUpstream)),
+                };
+                format!("{} [{badge}]", p.dir.to_string_lossy())
+            }
             (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
             (None, coxswain_core::history::View::Worktrees) => format!("{} [{}]", p.dir.to_string_lossy(), t!("worktrees.badge")),
         },
@@ -196,8 +270,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         .border_style(border)
         .style(base)
         .title(Line::from(Span::styled(format!(" {} ", fit_left(&dir, area.width.saturating_sub(6) as usize)), title_style)).centered());
+    let mut git_w = 0;
     if let Some(g) = &p.git {
         let prompt = g.prompt(&app.glyphs);
+        git_w = prompt.width() + 2;
         block = block.title_bottom(Line::from(Span::styled(format!(" {prompt} "), sty(&t.git_branch))).left_aligned());
     }
     let sort = match p.sort {
@@ -209,8 +285,15 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     };
     let sort = if p.reverse { sort.to_uppercase() } else { sort.to_string() };
     // On ZFS: the dataset, its compression ratio and its space, between the git line and the sort.
-    if let Some(z) = &p.zfs {
-        block = block.title_bottom(Line::from(Span::styled(format!(" {} ", crate::App::zfs_line(z)), border)).centered());
+    // Against the upstream: which, how far ahead and behind, and the last fetch.
+    let upstream = match &p.place {
+        Some((_, Place::History(_, Some(line)))) => Some(line.clone()),
+        _ => None,
+    };
+    if let Some(u) = upstream.and_then(|u| centred_between(&u, area.width as usize, git_w, sort.width() + 2)) {
+        block = block.title_bottom(Line::from(Span::styled(format!(" {u} "), border)).centered());
+    } else if let Some(z) = p.zfs.as_ref().and_then(|z| centred_between(&crate::App::zfs_line(z), area.width as usize, git_w, sort.width() + 2)) {
+        block = block.title_bottom(Line::from(Span::styled(format!(" {z} "), border)).centered());
     }
     block = block.title_bottom(Line::from(Span::styled(format!(" {sort} "), border)).right_aligned());
     let inner = block.inner(area);
@@ -249,6 +332,15 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let p = &app.panels[side];
 
     let plain = app.cfg.plain_glyphs().then_some(&app.glyphs);
+    // A history's list of commits: the graph's rows for the commits in view (`..` is none),
+    // worked out in core as far down as this.
+    let graph = match p.place.as_ref().map(|(_, pl)| pl) {
+        Some(Place::History(at, _)) if at.commit.is_none() && at.view == coxswain_core::history::View::History => coxswain_core::history::graph(&p.dir, p.offset.saturating_sub(1), p.offset + rows),
+        _ => vec![],
+    };
+    // As many lanes as the widest row in view, at most a third of the name column.
+    let lanes = graph.iter().map(|r| r.width()).max().unwrap_or(0).min((nw / 6).max(1) as u16);
+    let colours = [&t.git_branch, &t.git_added, &t.git_modified, &t.git_renamed, &t.git_untracked, &t.symlink];
     let mut lines = vec![];
     for (i, e) in p.entries.iter().enumerate().skip(p.offset).take(rows) {
         let marked = p.marked.contains(&e.path);
@@ -271,27 +363,49 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             s = if marked { sty(&t.marked_cursor) } else { sty(&t.cursor) };
         }
         let row_bg = s.bg.unwrap_or(Color::Reset);
-        let (glyph, gstyle) = match p.git.as_ref().and_then(|g| g.get(&e.path)).filter(|_| !e.is_parent()) {
-            Some(st) => {
-                let gs = match st.kind {
-                    Kind::Modified => &t.git_modified,
-                    Kind::Added => &t.git_added,
-                    Kind::Untracked => &t.git_untracked,
-                    Kind::Deleted => &t.git_deleted,
-                    Kind::Renamed => &t.git_renamed,
-                    Kind::Conflict => &t.git_conflict,
-                    Kind::Ignored => &t.git_ignored,
-                };
-                (st.kind.glyph(&app.glyphs).to_string(), sty(gs).bg(row_bg))
+        // Compare folders: how it stands against the other side, before git's mark.
+        let cmp = p.cmp.as_ref().filter(|_| !e.is_parent()).and_then(|c| c.f.state(c.side, &e.path).map(|st| (c, st)));
+        let (glyph, gstyle) = if let Some((c, st)) = cmp {
+            use coxswain_core::compare::folders::State;
+            let gs = match if c.side == 0 { st } else { st.flip() } {
+                State::OnlyLeft => &t.git_added,
+                State::NewerLeft => &t.git_modified,
+                State::NewerRight => &t.git_renamed,
+                State::Different => &t.git_conflict,
+                State::Same | State::OnlyRight => &t.git_ignored,
+            };
+            (st.glyph(c.side).to_string(), sty(gs).bg(row_bg))
+        } else {
+            match p.git.as_ref().and_then(|g| g.get(&e.path)).filter(|_| !e.is_parent()) {
+                Some(st) => {
+                    let gs = match st.kind {
+                        Kind::Modified => &t.git_modified,
+                        Kind::Added => &t.git_added,
+                        Kind::Untracked => &t.git_untracked,
+                        Kind::Deleted => &t.git_deleted,
+                        Kind::Renamed => &t.git_renamed,
+                        Kind::Conflict => &t.git_conflict,
+                        Kind::Ignored => &t.git_ignored,
+                    };
+                    (st.kind.glyph(&app.glyphs).to_string(), sty(gs).bg(row_bg))
+                }
+                // Only in the cloud: the glyph says so, and nothing reads it unasked.
+                None if e.online => (app.glyphs.cloud.clone(), s),
+                None => (String::new(), s),
             }
-            // Only in the cloud: the glyph says so, and nothing reads it unasked.
-            None if e.online => (app.glyphs.cloud.clone(), s),
-            None => (String::new(), s),
         };
+        let row = graph.iter().find(|r| !e.is_parent() && e.path.ends_with(&r.id));
         let name = if e.is_parent() {
             format!("  {}", e.name)
+        } else if row.is_some() {
+            e.name.clone()
         } else {
             format!("{} {}", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name)
+        };
+        // In a model store: the model it is, before the hashed name.
+        let name = match p.models.as_ref().and_then(|(_, m)| m.as_ref()).and_then(|m| m.get(&e.name)) {
+            Some(m) => format!("{} {m} [{}]", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name),
+            None => name,
         };
         let name = &name;
         let sz = if let Some(n) = p.sizes.get(&e.path) {
@@ -304,7 +418,33 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             size(e.size)
         };
         let bar = Span::styled("│", border.bg(row_bg).fg(border.fg.unwrap_or(Color::Reset)));
-        let mut v = vec![Span::styled(fit(&glyph, gw), gstyle), Span::styled(fit(name, nw), s), bar.clone(), Span::styled(right(&sz, sw), s)];
+        let mut v = vec![Span::styled(fit(&glyph, gw), gstyle)];
+        let mut left = nw;
+        if let Some(r) = row {
+            // Each lane in a colour of its own; the cursor's row in the cursor's.
+            let tint = |k: usize| if at { s } else { sty(colours[k % colours.len()]).bg(row_bg) };
+            for (k, ch) in coxswain_core::graph::boxes(r, lanes).chars().enumerate().take(left) {
+                v.push(Span::styled(ch.to_string(), tint(k / 2)));
+            }
+            left = left.saturating_sub(lanes as usize * 2);
+            // Against the upstream: not pushed, or not merged.
+            if let Some(side) = r.side {
+                let (g, st) = match side {
+                    coxswain_core::graph::Side::Ahead => (&app.glyphs.ahead, &t.git_added),
+                    coxswain_core::graph::Side::Behind => (&app.glyphs.behind, &t.git_modified),
+                };
+                let g = fit(&format!("{g} "), (g.width() + 1).min(left));
+                left -= g.width();
+                v.push(Span::styled(g, if at { s } else { sty(st).bg(row_bg) }));
+            }
+            if !r.refs.is_empty() {
+                let refs = format!("({}) ", r.refs.join(", "));
+                let refs = fit(&refs, refs.width().min(left / 2));
+                left -= refs.width();
+                v.push(Span::styled(refs, if at { s } else { sty(&t.git_branch).bg(row_bg) }));
+            }
+        }
+        v.extend([Span::styled(fit(name, left), s), bar.clone(), Span::styled(right(&sz, sw), s)]);
         if show_date {
             v.push(bar);
             v.push(Span::styled(fit(&if e.is_parent() { String::new() } else { date(e.modified) }, dw), s));
@@ -325,7 +465,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let sep_y = inner.y + 1 + rows as u16;
     f.render_widget(Paragraph::new(Span::styled("─".repeat(w), border)), Rect { y: sep_y, height: 1, ..inner });
     let info = if let Some(err) = &p.error {
-        Line::from(Span::styled(fit(err, w), sty(&t.git_conflict)))
+        Line::from(Span::styled(fit(&coxswain_core::fs::plain_words(err), w), sty(&t.git_conflict)))
     } else if !p.marked.is_empty() {
         Line::from(Span::styled(fit(&center(&tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes)), w), w), sty(&t.marked)))
     } else if let Some(e) = p.current() {
@@ -353,6 +493,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         if let Some((_, Some(target))) = p.link.as_ref().filter(|(at, _)| e.is_symlink && *at == e.path) {
             name = format!("{name} -> {}", target.display());
         }
+        // A narrow panel keeps room for the name: the facts on the right give way first, from
+        // their start, so the size at their end stays.
+        let keep = name.width().min(w / 2);
+        let right = if right.width() + keep > w { fit_left(&right, w.saturating_sub(keep)) } else { right };
         Line::from(vec![Span::styled(fit(&name, w.saturating_sub(right.width())), base), Span::styled(right, base)])
     } else {
         Line::default()
@@ -395,26 +539,62 @@ fn keybar(f: &mut Frame, app: &App, area: Rect) {
     // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
     let fkey = |n| app.keymap.get(&Key::new(KeyCode::F(n), false, false, false));
     let keys: Vec<u8> = (1..=12u8).filter(|&n| n <= 10 || fkey(n).is_some()).collect();
-    let slot = area.width as usize / keys.len();
+    // The keymap, so the bar names the action the key runs when two share it.
+    // Norton Commander's short words where the plain ones do not fit: RenMov, Mkdir, PullDn.
+    let labels: Vec<String> = keys
+        .iter()
+        .map(|&n| {
+            fkey(n).map_or(String::new(), |a| match a {
+                Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
+                a => a.label(),
+            })
+        })
+        .collect();
+    let nums: Vec<String> = keys.iter().map(|n| n.to_string()).collect();
+    let widths = keybar_widths(&nums.iter().map(|n| n.len()).collect::<Vec<_>>(), &labels.iter().map(|l| l.width()).collect::<Vec<_>>(), area.width as usize);
     let mut spans = vec![];
-    for (i, &n) in keys.iter().enumerate() {
-        // The keymap, so the bar names the action the key runs when two share it.
-        // Norton Commander's short words where the plain ones do not fit: RenMov, Mkdir, PullDn.
-        let label = fkey(n).map_or(String::new(), |a| match a {
-            Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
-            a => a.label(),
-        });
-        let num = n.to_string();
-        // The last slot takes what is left over, so "12Settings" fits in 80 columns.
-        let w = if i + 1 == keys.len() { area.width as usize - slot * i } else { slot };
-        let lw = w.saturating_sub(num.len());
+    for ((num, label), lw) in nums.into_iter().zip(&labels).zip(widths) {
         spans.push(Span::styled(num, sty(&t.keybar_num)));
-        spans.push(Span::styled(fit(&label, lw), sty(&t.keybar_label)));
+        spans.push(Span::styled(fit(label, lw), sty(&t.keybar_label)));
     }
     f.render_widget(Paragraph::new(Line::from(spans)).style(sty(&t.keybar_num)), area);
 }
 
-fn centered(area: Rect, w: u16, h: u16) -> Rect {
+/// The columns each F-key label gets: even slots, as in NC, when every label fits in its own
+/// (the last slot takes what is left over, so "12Settings" fits in 80 columns). When one does
+/// not, as in most languages at 80 columns, short labels lend their spare room to long ones,
+/// so only the longest are cut.
+fn keybar_widths(nums: &[usize], labels: &[usize], width: usize) -> Vec<usize> {
+    let k = nums.len().max(1);
+    let slot = width / k;
+    let even: Vec<usize> = (0..nums.len()).map(|i| if i + 1 == k { width - slot * i } else { slot }.saturating_sub(nums[i])).collect();
+    if labels.iter().zip(&even).all(|(l, e)| l <= e) {
+        return even;
+    }
+    let avail = width.saturating_sub(nums.iter().sum());
+    // The largest cap that fits, then what is left makes whole the labels it cut least.
+    let mut cap = labels.iter().copied().max().unwrap_or(0);
+    while cap > 0 && labels.iter().map(|&l| l.min(cap)).sum::<usize>() > avail {
+        cap -= 1;
+    }
+    let mut out: Vec<usize> = labels.iter().map(|&l| l.min(cap)).collect();
+    let mut spare = avail - out.iter().sum::<usize>();
+    let mut cut: Vec<usize> = (0..out.len()).filter(|&i| out[i] < labels[i]).collect();
+    cut.sort_by_key(|&i| labels[i] - out[i]);
+    for i in cut {
+        let more = (labels[i] - out[i]).min(spare);
+        out[i] += more;
+        spare -= more;
+    }
+    // Any room still over pads the labels evenly, from the left.
+    let n = out.len();
+    for i in 0..spare {
+        out[i % n] += 1;
+    }
+    out
+}
+
+pub(crate) fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let w = w.min(area.width);
     let h = h.min(area.height);
     Rect { x: area.x + (area.width - w) / 2, y: area.y + (area.height - h) / 2, width: w, height: h }
@@ -457,8 +637,12 @@ fn dialog(f: &mut Frame, app: &mut App) {
     match app.dialog.as_ref().unwrap() {
         Dialog::Input { title, label, value, prompt } => {
             let inner = frame(f, app, centered(full, (label.width() as u16 + 4).clamp(70, 110), 6), title);
-            let [a, b, _, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
+            let [a, b, note, c] = Layout::vertical([Constraint::Length(1); 4]).areas(inner.inner(ratatui::layout::Margin::new(1, 0)));
             f.render_widget(Paragraph::new(label.as_str()), a);
+            // That the disk may be short of room for an archive written anew.
+            if let (Some(n), crate::Prompt::Pack(_) | crate::Prompt::Copy(_) | crate::Prompt::Move(_)) = (&app.input_note, prompt) {
+                f.render_widget(Paragraph::new(fit(n, note.width as usize)).style(sty(&app.theme.git_conflict)), note);
+            }
             // A password shows as stars.
             let shown = if matches!(prompt, crate::Prompt::Password(..) | crate::Prompt::Unlock(..) | crate::Prompt::Peek(..) | crate::Prompt::PackPassword(..) | crate::Prompt::PackConfirm(..)) { "*".repeat(value.chars().count()) } else { value.clone() };
             input_line(f, app, b, &shown);
@@ -476,19 +660,44 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
-        Dialog::Searchable { title, text, .. } => {
+        Dialog::Transcribe { title, text, .. } => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);
             let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
             f.render_widget(p, a);
-            f.render_widget(Paragraph::new(keys(&t!("searchable.go"))).centered(), b);
+            f.render_widget(Paragraph::new(keys(&t!("whisper.go"))).centered(), b);
         }
+        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. } | Dialog::VirusScan { title, text, .. }) => {
+            let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
+            let inner = frame(f, app, text_box(full, 64, &p, 4), title);
+            let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, a);
+            let verb = match d {
+                Dialog::Media { .. } => t!("media.go"),
+                Dialog::Ebook { to: None, .. } => t!("ebook.go_view"),
+                Dialog::Ebook { .. } => t!("ebook.go"),
+                Dialog::Export { op: coxswain_core::export::Op::AdocPdf, .. } => t!("export.go_adoc"),
+                Dialog::Export { .. } => t!("export.go_drawio"),
+                Dialog::VirusScan { .. } => t!("viruses.go"),
+                _ => t!("searchable.go"),
+            };
+            f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
+        }
+        Dialog::Viruses(v) => crate::viruses::draw(f, app, full, v),
         Dialog::Message { title, text } => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
             let inner = frame(f, app, text_box(full, 76, &p, 4), title);
             let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
             f.render_widget(p, body);
             f.render_widget(Paragraph::new(t!("dialog.keys_one", "verb" => t!("common.close"))).centered(), key);
+        }
+        Dialog::Refused { text, line } => {
+            let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
+            let inner = frame(f, app, text_box(full, 76, &p, 4), &t!("config.refused_title"));
+            let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, body);
+            let verb = t!("config.open_at", "line" => line);
+            f.render_widget(Paragraph::new(t!("dialog.keys", "verb" => verb, "cancel" => t!("common.close"))).centered(), key);
         }
         Dialog::Help { scroll } => {
             let area = centered(full, 120, full.height.saturating_sub(4));
@@ -544,7 +753,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Chess(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Compare(_) | Dialog::Chess(_) | Dialog::Go(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 
@@ -683,7 +892,11 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
                     // The words found stand out; a passage close in meaning is in italics.
                     let mut passage = vec![Span::styled("   ", dim)];
                     let rest = if h.similar.is_some() { dim.add_modifier(Modifier::ITALIC) } else { dim };
-                    for (n, part) in fit(snippet, width.saturating_sub(3)).split([coxswain_core::store::MARK.0, coxswain_core::store::MARK.1]).enumerate() {
+                    // The marks are control characters, which `fit` prints as `?`: carried through
+                    // it as private-use characters instead.
+                    let (a, b) = coxswain_core::store::MARK;
+                    let marked = snippet.replace(a, "\u{e000}").replace(b, "\u{e001}");
+                    for (n, part) in fit(&marked, width.saturating_sub(3)).split(['\u{e000}', '\u{e001}']).enumerate() {
                         passage.push(Span::styled(part.to_string(), if n % 2 == 1 { dstyle(&t).patch(hit_style) } else { rest }));
                     }
                     vec![file, Line::from(passage)]
@@ -774,7 +987,11 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_
         for (n, src) in turn.sources.iter().enumerate() {
             let last = i + 1 == chat.len();
             let style = if last && n == cursor { sty(&t.dialog_input) } else { dim };
-            lines.push(Line::from(Span::styled(format!("  [{}] {}", n + 1, src.display()), style)));
+            let similar = match turn.similar.get(n) {
+                Some(&k) if k > 0 => format!("  {}", coxswain_core::tn!("ask.similar_files", k)),
+                _ => String::new(),
+            };
+            lines.push(Line::from(Span::styled(format!("  [{}] {}{similar}", n + 1, src.display()), style)));
         }
         lines.push(Line::from(""));
     }
@@ -834,7 +1051,10 @@ fn wrap(s: &str, width: usize) -> Vec<String> {
     let (mut out, mut line, mut w) = (vec![], String::new(), 0);
     for word in s.split_inclusive(' ') {
         let ww = word.trim_end().width();
-        if w + ww > width && w > 0 {
+        // Japanese and Korean break between any two letters, so a word with wide letters
+        // flows on from where the line is rather than starting a line of its own.
+        let wide = word.chars().any(|c| c.width() == Some(2));
+        if w + ww > width && w > 0 && !wide {
             out.push(std::mem::take(&mut line).trim_end().to_string());
             w = 0;
         }
@@ -914,6 +1134,9 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(keys(t!("help.git_tool", "key" => key(Action::GitTool)))));
     v.push(Line::from(keys(t!("help.git_config", "key" => key(Action::GitConfig)))));
     v.push(Line::from(keys(t!("help.searchable_pdf", "key" => key(Action::SearchablePdf)))));
+    v.push(Line::from(keys(t!("help.adoc_pdf"))));
+    v.push(Line::from(keys(t!("help.drawio_export"))));
+    v.push(Line::from(keys(t!("help.scan_viruses", "key" => key(Action::ScanViruses)))));
     v.push(Line::from(keys(t!("help.chess", "key" => key(Action::Chess), "view" => key(Action::View)))));
     v.push(Line::from(keys(t!("help.space", "key" => key(Action::SpaceView)))));
     v.push(Line::from(""));
@@ -930,15 +1153,25 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
 mod tests {
     use super::*;
 
+    /// On ZFS in a git repository, the dataset line is cut before it covers the branch.
+    #[test]
+    fn zfs_line_leaves_the_git_branch_and_the_sort_alone() {
+        let z = "rpool/home/alice · 2.48x · 3670M used · 12G free";
+        assert_eq!(centred_between(z, 120, 13, 3).as_deref(), Some(z));
+        let cut = centred_between(z, 60, 13, 3).unwrap();
+        assert!(cut.ends_with('…') && cut.width() <= 60 - 2 - 26 - 2, "{cut}");
+        assert_eq!(centred_between(z, 60, 0, 3).as_deref(), Some(z), "without git it fits");
+        assert_eq!(centred_between(z, 30, 13, 3), None);
+    }
+
     /// The Make PDF searchable question, and the other text dialogs, show their last sentence
     /// however long it wraps, in English, German and Finnish, narrow and wide.
     #[test]
     fn text_dialogs_show_their_last_line() {
-        use coxswain_core::helper::Client;
         let d = std::env::temp_dir().join(format!("coxswain-test-dialog-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let cfg = coxswain_core::config::Config { check_updates: false, ..Default::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
         for lang in ["en-GB", "de", "fi"] {
             // From the catalogue, not the process's language, which other tests share.
@@ -991,9 +1224,36 @@ mod tests {
     }
 
     #[test]
+    fn persian_lam_alef_takes_two_columns() {
+        assert_eq!("بالاتر".width(), 6);
+        assert_eq!(fit("بالاتر", 8).width(), 8);
+        assert_eq!("日本".width(), 4);
+    }
+
+    #[test]
+    fn keybar_lends_room_to_long_labels() {
+        let nums = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2];
+        // British English fits: even slots of 7, the last one 10.
+        let en = [4, 4, 4, 4, 4, 6, 5, 6, 6, 4, 8];
+        assert_eq!(keybar_widths(&nums, &en, 80), [6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 8]);
+        // German does not: Hilfe Menü Ansicht Bearbeit. Kopieren RenMov Mkdir Löschen PullDn
+        // Beenden Einstellungen. Only the longest are cut, and the bar still fills 80 columns.
+        let de = [5, 4, 7, 9, 8, 6, 5, 7, 6, 7, 13];
+        let w = keybar_widths(&nums, &de, 80);
+        assert_eq!(w.iter().sum::<usize>() + nums.iter().sum::<usize>(), 80);
+        let cut = w.iter().zip(&de).filter(|(w, l)| w < l).count();
+        assert!(cut <= 3, "{w:?}");
+        // Too narrow for anything: no panic, nothing wider than the bar.
+        assert!(keybar_widths(&nums, &de, 10).iter().sum::<usize>() <= 10);
+    }
+
+    #[test]
     fn features_wrap_to_the_width_and_mark_the_cursor() {
         assert_eq!(wrap("one two three four", 9), ["one two", "three", "four"]);
         assert!(wrap("日本語のテキストはスペースがない", 10).iter().all(|l| l.width() <= 10));
+        // A Latin word in Japanese does not leave the line before it short.
+        let ja = wrap("はい。F1 を押し、デスクトップアプリでは「ガイドを再表示」を押します", 20);
+        assert!(ja[0].width() >= 18 && ja.iter().all(|l| l.width() <= 20), "{ja:?}");
         let list = coxswain_core::features::list(&config::Config::default(), "", false);
         let (lines, at) = feature_lines(&list, 2, true, 60, &config::Theme::nc());
         assert!(lines[at].to_string().contains(&list[2].title), "{}", lines[at]);
@@ -1030,7 +1290,7 @@ pub(crate) fn properties(p: &coxswain_core::fs::Props, snapshots_key: &str, disk
     if p.kind == "folder" {
         sz = format!("{sz} {}", tn!("dialogs.in_files", p.files));
     }
-    add("dialogs.size", sz);
+    add("dialogs.size", p.unreadable.as_ref().map_or(sz, |why| t!("dialogs.unreadable", "why" => why)));
     if let Some(m) = p.modified {
         add("dialogs.modified", date(m));
     }

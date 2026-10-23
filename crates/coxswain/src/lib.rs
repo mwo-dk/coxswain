@@ -2,6 +2,10 @@
 
 mod bom;
 mod chess;
+mod pieces;
+mod go;
+mod ebook;
+mod pictures;
 mod git_config;
 mod provenance;
 mod guide;
@@ -10,6 +14,10 @@ mod setup;
 mod space;
 mod ui;
 mod viewer;
+mod editor;
+mod split_escape;
+mod compare;
+mod viruses;
 
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Config, Glyphs, Key, KeyCode};
@@ -48,6 +56,9 @@ pub struct Panel {
     pub error: Option<String>,
     /// Folder sizes, measured in the background.
     pub sizes: HashMap<PathBuf, u64>,
+    /// Since when sizes have arrived that a sort by size has not taken in yet: sorted again
+    /// a moment later, not at every folder measured.
+    resort_due: Option<Instant>,
     /// The last commit of each entry, when git has answered.
     pub last: Option<Arc<Lasts>>,
     /// The ZFS dataset the folder is on (or whose snapshots it lists), when `zfs` has answered.
@@ -65,14 +76,39 @@ pub struct Panel {
     /// at no disk, so a share that stops answering does not freeze the screen.
     pub place: Option<(PathBuf, ui::Place)>,
     pub link: Option<(PathBuf, Option<PathBuf>)>,
+    /// The models a store's folder names its entries by (`local_models::names`), read once
+    /// for the folder it names.
+    pub models: Option<(PathBuf, Option<coxswain_core::local_models::Names>)>,
+    /// Compare folders (Ctrl+F2): the compare, this panel's side in it, and whether only the
+    /// differences are listed.
+    pub cmp: Option<Cmp>,
+}
+
+#[derive(Clone)]
+pub struct Cmp {
+    pub f: Arc<coxswain_core::compare::folders::Folders>,
+    pub side: usize,
+    pub diff_only: bool,
 }
 
 impl Panel {
+    /// A panel listed at once, the cursor on the file `dir` names when it is one.
+    #[cfg(test)]
     fn new(dir: PathBuf, show_hidden: bool) -> Panel {
-        // A file opens its folder with the cursor on it.
+        let (mut p, file) = Panel::unlisted(dir);
+        p.load(show_hidden);
+        if let Some(name) = file {
+            p.select_name(&name);
+        }
+        p
+    }
+
+    /// A panel not listed yet (`App::load` lists it), and the name to put the cursor on: a
+    /// file opens its folder with the cursor on it.
+    fn unlisted(dir: PathBuf) -> (Panel, Option<String>) {
         let file = dir.is_file().then(|| dir.file_name().map(|n| n.to_string_lossy().into_owned())).flatten();
         let dir = if file.is_some() { dir.parent().map_or(dir.clone(), Path::to_path_buf) } else { dir };
-        let mut p = Panel {
+        let p = Panel {
             dir,
             entries: vec![],
             cursor: 0,
@@ -85,6 +121,7 @@ impl Panel {
             git: None,
             error: None,
             sizes: HashMap::new(),
+            resort_due: None,
             last: None,
             zfs: None,
             package: None,
@@ -92,12 +129,10 @@ impl Panel {
             facts_seen: None,
             place: None,
             link: None,
+            models: None,
+            cmp: None,
         };
-        p.load(show_hidden);
-        if let Some(name) = file {
-            p.select_name(&name);
-        }
-        p
+        (p, file)
     }
 
     /// Re-read the directory, keeping the cursor on the same name.
@@ -131,7 +166,12 @@ impl Panel {
 
     /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
     fn fill(&mut self, keep: Option<String>) {
-        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
+        // Differences only: what is the same on both sides is left out.
+        if let Some(c) = self.cmp.as_ref().filter(|c| c.diff_only) {
+            use coxswain_core::compare::folders::State;
+            self.entries.retain(|e| e.is_parent() || c.f.state(c.side, &e.path) != Some(State::Same));
+        }
+        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse, &self.sizes);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
         // A snapshot's is its own space.
         if coxswain_core::archive::split(&self.dir).is_some() || coxswain_core::zfs::split(&self.dir).is_some() {
@@ -149,8 +189,9 @@ impl Panel {
     /// Sort the entries as they are, keeping the cursor on the same name: no reread, which
     /// on a big folder takes longer than the sort.
     fn resort(&mut self) {
+        self.resort_due = None;
         let keep = self.current().map(|e| e.name.clone());
-        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse);
+        bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse, &self.sizes);
         if let Some(n) = keep {
             self.select_name(&n);
         }
@@ -159,11 +200,29 @@ impl Panel {
     /// Mark the entry at `i`, or unmark it. `..` is never marked.
     fn toggle_mark(&mut self, i: usize) {
         let Some(e) = self.entries.get(i).filter(|e| !e.is_parent()) else { return };
+        let bytes = self.bytes(e);
         if self.marked.remove(&e.path) {
-            self.marked_bytes -= e.size;
+            self.marked_bytes -= bytes;
         } else {
             self.marked.insert(e.path.clone());
-            self.marked_bytes += e.size;
+            self.marked_bytes += bytes;
+        }
+    }
+
+    /// What an entry adds to the marked total: a folder its measured size (none until then),
+    /// not its own entry's.
+    fn bytes(&self, e: &Entry) -> u64 {
+        if e.is_dir { self.sizes.get(&e.path).copied().unwrap_or(0) } else { e.size }
+    }
+
+    /// A folder measured: the marked total takes it in, and a sort by size soon after.
+    fn sized(&mut self, folder: PathBuf, bytes: u64) {
+        let old = self.sizes.insert(folder.clone(), bytes).unwrap_or(0);
+        if self.marked.contains(&folder) {
+            self.marked_bytes = self.marked_bytes - old + bytes;
+        }
+        if self.sort == SortKey::Size {
+            self.resort_due.get_or_insert_with(Instant::now);
         }
     }
 
@@ -182,7 +241,7 @@ impl Panel {
     }
 
     fn recount_marks(&mut self) {
-        self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| e.size).sum();
+        self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| self.bytes(e)).sum();
     }
 
     /// Show `dir`, not listed yet: returns the name to put the cursor on once it is.
@@ -232,7 +291,7 @@ impl Panel {
         let list: Vec<&Entry> = if self.marked.is_empty() { cur.into_iter().collect() } else { self.entries.iter().filter(|e| self.marked.contains(&e.path)).collect() };
         let at = history::split(&self.dir);
         let inside = coxswain_core::archive::split(&self.dir);
-        let place = if inside.as_ref().is_some_and(|(a, _)| coxswain_core::archive::read_only(a)) {
+        let place = if inside.as_ref().is_some_and(|(a, i)| coxswain_core::archive::read_only(a) || coxswain_core::archive::nested(a, i, true)) {
             Place::DiskImage
         } else if inside.is_some() {
             Place::Archive
@@ -248,12 +307,6 @@ impl Panel {
             Place::Disk
         };
         Subject {
-            files: list.iter().filter(|e| !e.is_dir).count(),
-            folders: list.iter().filter(|e| e.is_dir).count(),
-            archives: list.iter().filter(|e| !e.is_dir && coxswain_core::archive::opens(&e.path)).count(),
-            disk_images: if coxswain_core::disk_image::open_on() { 0 } else { list.iter().filter(|e| !e.is_dir && coxswain_core::disk_image::is_disk_image(&e.path)).count() },
-            pdfs: list.iter().filter(|e| !e.is_dir && coxswain_core::searchable::is_pdf(&e.path)).count(),
-            chess: list.iter().filter(|e| !e.is_dir && coxswain_core::chess::format(&e.path).is_some()).count(),
             one: list.len() == 1 && cur.is_some_and(|c| c.path == list[0].path),
             marked: self.marked.len(),
             place,
@@ -264,6 +317,9 @@ impl Panel {
                 Some(c) => coxswain_core::space::worth_it(&c.path, self.sizes.get(&c.path).copied()),
                 None => coxswain_core::space::worth_it(&self.dir, None),
             },
+            whisper: false,
+            // Only one file's bytes are read: the action menu offers Open games on a single file.
+            ..Subject::of(&list)
         }
     }
 
@@ -306,6 +362,12 @@ pub enum Prompt {
     Mark(bool),
     /// The user flags to set on a file; the others are cleared.
     Flags(PathBuf),
+    /// A clip's start and length, for *Convert video or audio* on these files.
+    Clip(Vec<PathBuf>),
+    /// The longest side in pixels, for *Convert or edit pictures* on these files.
+    Resize(Vec<PathBuf>),
+    /// The size of the parts to split this file into (`split`).
+    SplitSize(PathBuf),
 }
 
 impl Prompt {
@@ -319,7 +381,7 @@ impl Prompt {
             Prompt::Pack(_) | Prompt::PackPassword(..) | Prompt::PackConfirm(..) => "verb.pack",
             Prompt::Password(..) | Prompt::Unlock(..) | Prompt::Peek(_) => "verb.unlock",
             Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
-            Prompt::Flags(_) => "common.apply",
+            Prompt::Flags(_) | Prompt::Clip(_) | Prompt::Resize(_) | Prompt::SplitSize(_) => "common.apply",
             Prompt::Goto(_) => "verb.go",
             Prompt::Mark(true) => "verb.mark",
             Prompt::Mark(false) => "verb.unmark",
@@ -353,6 +415,36 @@ pub enum MenuRun {
     Goto(usize, Option<PathBuf>),
     /// Cannot be gone to: why, on the status line.
     Say(String),
+    /// What *Convert video or audio* or *Convert or edit pictures* makes of these files.
+    Media(coxswain_core::media::Op, Vec<PathBuf>),
+    /// *Convert e-book*: these books into this format (`coxswain_core::ebook::TO`).
+    Ebook(&'static str, Vec<PathBuf>),
+    /// Make checksums of these with this algorithm (`checksum`).
+    Sums(coxswain_core::checksum::Algo, Vec<PathBuf>),
+    /// Files dropped on the terminal: copied (or with `true` moved) into the active panel.
+    Drop(Vec<PathBuf>, bool),
+    /// Split this file into parts of this size; with none, ask for the size.
+    Split(PathBuf, Option<u64>),
+    /// Join the parts from this first one; `true`: the joined file replaces the one there.
+    Join(PathBuf, bool),
+    /// What *Export draw.io diagram* makes of these diagrams.
+    Export(coxswain_core::export::Op, Vec<PathBuf>),
+    /// *Preview with…*: this choice for this kind (`[preview.tools]`; "" for the default).
+    PreviewTool(&'static str, &'static str),
+    /// A line copied to the clipboard, said on the status line.
+    CopyLine(String),
+    /// Settings, open at a section.
+    SettingsAt(&'static str),
+    /// Compare folders' menu (Ctrl+F2 while one is on).
+    Folders(FoldersRun),
+}
+
+#[derive(Clone, Copy)]
+pub enum FoldersRun {
+    Mark,
+    DiffOnly,
+    Again(coxswain_core::compare::folders::Mode),
+    Stop,
 }
 
 pub struct MenuItem {
@@ -387,19 +479,46 @@ pub enum Dialog {
     /// under the cursor, what Enter (Show me) said, and the dialog Esc goes back to.
     Features { filter: String, list: Vec<coxswain_core::features::Entry>, cursor: usize, said: Option<String>, back: Option<Box<Dialog>> },
     Message { title: String, text: String },
+    /// Mistakes in config.toml, shown at start (`coxswain_core::notices::refused`): Enter opens
+    /// the file at `line`, the first one's.
+    Refused { text: String, line: usize },
     /// Make `pdfs` searchable? `text` says what it writes, which program runs and what a first
     /// run pulls.
     Searchable { title: String, text: String, pdfs: Vec<PathBuf> },
+    /// Make `op` of `files`? `text` says what it writes, which program runs and what a first
+    /// run pulls.
+    Media { title: String, text: String, op: coxswain_core::media::Op, files: Vec<PathBuf> },
+    /// Transcribe `files`? `text` says how much sound, how long it takes here, and what it
+    /// fetches first.
+    Transcribe { title: String, text: String, files: Vec<PathBuf> },
+    /// Make `op` of `files`? `text` says what it writes, which program runs and what a first
+    /// run pulls.
+    Export { title: String, text: String, op: coxswain_core::export::Op, files: Vec<PathBuf> },
+    /// Scan `targets` for viruses? `text` says what it reads, the database and its update,
+    /// and what a first run pulls.
+    VirusScan { title: String, text: String, targets: Vec<PathBuf> },
+    /// What a virus scan found: each file with what to do with it.
+    Viruses(Box<viruses::Found>),
     /// A CycloneDX BOM, full screen (F3 on one).
     Bom(Box<bom::Viewer>),
     Provenance(Box<provenance::Viewer>),
     /// The git config, full screen (Alt+C).
     GitConfig(Box<git_config::Viewer>),
+    /// Convert `books` into `to`, or (`None`) pull calibre's image to view the book? `text` says
+    /// what it writes, which calibre runs and what a first run pulls.
+    Ebook { title: String, text: String, to: Option<&'static str>, books: Vec<PathBuf> },
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
+    /// A file in the built-in editor, full screen (Shift+F4; F4 with no editor set); `back` as
+    /// for `View`.
+    Edit { e: Box<editor::Editor>, back: Option<Box<Dialog>> },
+    /// Two files compared, full screen (Shift+F2).
+    Compare(Box<compare::Viewer>),
     /// A PGN file's games, an EPD or FEN file's positions, full screen (F3, Alt+K).
     Chess(Box<chess::Viewer>),
+    /// An SGF file's Go games, full screen (F3, Alt+K).
+    Go(Box<go::Viewer>),
     /// Where the space goes, full screen (Alt+U).
     Space(Box<space::Viewer>),
     /// Settings, full screen (F12, F9 → Settings, `--settings`).
@@ -421,9 +540,17 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::Goto(_) => "moving",
             Prompt::Mark(_) => "marking",
             Prompt::Flags(_) => "properties",
+            Prompt::Clip(_) => "convert_media",
+            Prompt::Resize(_) => "edit_pictures",
+            Prompt::SplitSize(_) => "split_and_join",
         },
         Dialog::Confirm { .. } => "delete",
         Dialog::Searchable { .. } => "searchable_pdf",
+        Dialog::Media { op, .. } => media_feature(op.program()),
+        Dialog::Ebook { .. } => "ebooks",
+        Dialog::Transcribe { .. } => "transcripts",
+        Dialog::Export { op, .. } => export_feature(*op),
+        Dialog::VirusScan { .. } | Dialog::Viruses(_) => "virus_scan",
         Dialog::Switch { .. } => "git_branches",
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
@@ -431,12 +558,30 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Provenance(_) => "provenance",
         Dialog::GitConfig(_) => "git_config",
         Dialog::View { .. } => "view_and_edit",
-        Dialog::Chess(_) => "chess",
+        Dialog::Edit { .. } => "editor",
+        Dialog::Compare(_) => "compare_files",
+        Dialog::Chess(v) => v.feature(),
+        Dialog::Go(_) => "go",
         Dialog::Space(_) => "space",
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
+        Dialog::Refused { .. } => "configuration",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
     })
+}
+
+/// `editor`'s program when it is plainly not there: a bare name not on the PATH, or a path to
+/// nothing. A command with `$` or `~` is the shell's to read, and left to it.
+fn editor_missing(editor: &str) -> Option<String> {
+    let prog = editor.split_whitespace().next()?.to_string();
+    let gone = if prog.contains(['$', '~', '"', '\'']) {
+        false
+    } else if prog.contains(std::path::MAIN_SEPARATOR) || prog.contains('/') {
+        !Path::new(&prog).exists()
+    } else {
+        coxswain_core::tools::which(&prog).is_none()
+    };
+    gone.then_some(prog)
 }
 
 /// The pager the built-in viewer hands a file to: `$PAGER`, else less (more on Windows).
@@ -467,6 +612,8 @@ pub enum Show {
 pub struct Turn {
     pub question: String,
     pub sources: Vec<PathBuf>,
+    /// For each source, how many near copies of it were left out ("and 3 similar files").
+    pub similar: Vec<usize>,
     /// How much was read: "12 excerpts from 7 files, about 6000 words".
     pub read: String,
     pub answer: String,
@@ -475,7 +622,7 @@ pub struct Turn {
 
 /// What an Ask sends back while it runs.
 enum AskMsg {
-    Sources(Vec<PathBuf>, String),
+    Sources(Vec<PathBuf>, Vec<usize>, String),
     Piece(String),
     Done(Result<(), String>),
 }
@@ -566,12 +713,41 @@ pub struct App {
     /// Its question being worked out on a thread (podman is asked whether it has the image):
     /// the PDFs, and the dialog's text or why it cannot run.
     searchable_plan: Option<mpsc::Receiver<SearchablePlan>>,
+    /// *Convert video or audio* or *Convert or edit pictures* running on its thread, one at a
+    /// time, and the action that started it (which stops it); the question being worked out.
+    media: Option<(Searchable, Action)>,
+    media_plan: Option<mpsc::Receiver<MediaPlan>>,
+    /// calibre on its thread (`ebook`), one run at a time: converting books into a format, or
+    /// (`None`) making one's text for the viewer; and its question being worked out.
+    ebook: Option<(Searchable, Option<&'static str>, Vec<PathBuf>)>,
+    ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
+    /// Checksums being made or checked, on their thread.
+    work: Option<Work>,
+    /// *Transcribe speech*'s question being worked out on a thread (the lengths of the
+    /// recordings are read): the files and the dialog's text.
+    transcribe_plan: Option<mpsc::Receiver<(Vec<PathBuf>, String)>>,
+    /// *Build PDF of AsciiDoc* or *Export draw.io diagram* running on its thread, one at a
+    /// time; the question being worked out.
+    export: Option<Exporting>,
+    export_plan: Option<mpsc::Receiver<ExportPlan>>,
+    /// *Scan for viruses* running on its thread, one at a time; and its question being worked
+    /// out (the files are counted, podman is asked for the image).
+    viruses: Option<viruses::Run>,
+    viruses_plan: Option<mpsc::Receiver<viruses::Plan>>,
     /// What Ctrl+Z undoes, the newest last.
     undo: coxswain_core::undo::History,
-    /// A history's commits, listed on a thread (git can take seconds): the folder, the name
+    /// Folders listed on a thread: a history's commits (git can take seconds), and a folder
+    /// not read within `list_wait` (a million files take seconds too). The folder, the name
     /// to put the cursor on, the listing.
     list_tx: mpsc::Sender<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
     list_rx: mpsc::Receiver<(PathBuf, Option<String>, std::io::Result<Vec<Entry>>)>,
+    /// How long a key waits for a folder to be listed before the panel shows it as being read
+    /// and the keys go on.
+    list_wait: Duration,
+    /// Tests hold the listing threads with it (a write lock) until they have looked at the
+    /// panel meanwhile, so a small folder cannot be listed before they look.
+    #[cfg(test)]
+    list_hold: Option<Arc<std::sync::RwLock<()>>>,
     last_click: Option<(Instant, u16, u16)>,
     /// Properties being read on a thread.
     props_rx: Option<mpsc::Receiver<Result<bfs::Props, String>>>,
@@ -581,7 +757,12 @@ pub struct App {
     /// Space, put aside while View, Edit or Delete has a file of it: back when that is done,
     /// without the file if it went.
     space_back: Option<(Box<space::Viewer>, PathBuf)>,
+    /// Compare folders' summary was put on the status line once it was done.
+    folders_said: bool,
     quit: bool,
+    /// Under the pack, copy or move dialog's field: that the disk may be short of room to write
+    /// into an archive (`archive::short_of_room`). Cleared by each new input dialog.
+    input_note: Option<String>,
 }
 
 /// A file operation on its thread. It says how far it is (the item it is on), then what failed.
@@ -595,12 +776,25 @@ struct Job {
     /// What the status line says meanwhile.
     line: String,
     rx: mpsc::Receiver<JobMsg>,
+    /// Esc on the progress line sets it (`undo::run`); an undo has none.
+    stop: Option<Arc<std::sync::atomic::AtomicBool>>,
+}
+
+impl Job {
+    /// The progress line: `line`, then that Esc stops it, or that it is stopping.
+    fn shown(&self) -> String {
+        match &self.stop {
+            Some(s) if s.load(std::sync::atomic::Ordering::Relaxed) => format!("{} · {}", self.line, t!("searchable.stopping")),
+            Some(_) => format!("{} · {}", self.line, t!("searchable.stop_key", "key" => "Esc")),
+            None => self.line.clone(),
+        }
+    }
 }
 
 enum JobMsg {
     At(usize),
-    /// What failed, and what can be undone of what did not.
-    Done(Vec<(PathBuf, std::io::Error)>, Record),
+    /// What failed, what can be undone of what did not, and when stopped, how far it got.
+    Done(Vec<(PathBuf, std::io::Error)>, Record, Option<String>),
     /// An undo has ended: what came of it.
     Undone(coxswain_core::undo::Undone),
 }
@@ -621,10 +815,72 @@ struct Searchable {
 /// The PDFs, and the question's text or why it cannot run.
 type SearchablePlan = (Vec<PathBuf>, Result<String, String>);
 
+/// Checksums being made or checked on their thread (`checksum`): what it is (its action), how
+/// far, and the flag that stops it.
+struct Work {
+    action: Action,
+    progress: coxswain_core::checksum::Progress,
+    /// The status line it showed last: another message is not written over.
+    shown: String,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    rx: mpsc::Receiver<WorkMsg>,
+}
+
+enum WorkMsg {
+    At(coxswain_core::checksum::Progress),
+    Made(std::io::Result<coxswain_core::checksum::Made>),
+    /// The list checked, and what came of it (and whether it was stopped).
+    Checked(PathBuf, std::io::Result<(Vec<coxswain_core::checksum::Checked>, bool)>),
+    Split(std::io::Result<coxswain_core::split::Split>),
+    Joined(std::io::Result<coxswain_core::split::Joined>),
+}
+
+/// What to make of which files, and the question's text or why it cannot run.
+type MediaPlan = (coxswain_core::media::Op, Vec<PathBuf>, Result<String, String>);
+
+/// The feature (F1) and the action of ffmpeg's and ImageMagick's work.
+fn media_feature(p: coxswain_core::media::Program) -> &'static str {
+    p.feature()
+}
+fn media_action(p: coxswain_core::media::Program) -> Action {
+    p.action()
+}
+
 enum SearchableMsg {
     At(usize),
     Said(String),
     Done(Vec<Result<PathBuf, String>>),
+}
+
+/// An export on its thread (`coxswain_core::export`): what it makes, of which files, how far
+/// it is, what the program said last, and the flag that stops it.
+struct Exporting {
+    op: coxswain_core::export::Op,
+    names: Vec<String>,
+    at: usize,
+    line: String,
+    /// The status line it showed last: another message is not written over.
+    shown: String,
+    started: Instant,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    rx: mpsc::Receiver<ExportMsg>,
+}
+
+enum ExportMsg {
+    At(usize),
+    Said(String),
+    Done(Vec<Result<Vec<PathBuf>, String>>),
+}
+
+/// What to make of which files, and the question's text or why it cannot run.
+type ExportPlan = (coxswain_core::export::Op, Vec<PathBuf>, Result<String, String>);
+
+/// The feature (F1) and the action of an export.
+fn export_feature(op: coxswain_core::export::Op) -> &'static str {
+    if op == coxswain_core::export::Op::AdocPdf { "adoc_pdf" } else { "drawio_export" }
+}
+fn export_action(op: coxswain_core::export::Op) -> Action {
+    if op == coxswain_core::export::Op::AdocPdf { Action::AdocPdf } else { Action::DrawioExport }
 }
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
@@ -733,11 +989,14 @@ impl App {
             });
         }
         let show_hidden = cfg.show_hidden;
+        // Listed by `load` below, on a thread when that takes long, so the first frame is
+        // drawn at once even for a folder of a million files.
+        let ((left, left_file), (right, right_file)) = (Panel::unlisted(left), Panel::unlisted(right));
         let app = App {
             keymap,
             theme: cfg.theme(),
             glyphs: cfg.glyphs(),
-            panels: [Panel::new(left, show_hidden), Panel::new(right, show_hidden)],
+            panels: [left, right],
             active: 0,
             cmdline: String::new(),
             dialog: None,
@@ -775,17 +1034,44 @@ impl App {
             job: None,
             searchable: None,
             searchable_plan: None,
+            media: None,
+            media_plan: None,
+            ebook: None,
+            ebook_plan: None,
+            work: None,
+            transcribe_plan: None,
+            export: None,
+            export_plan: None,
+            viruses: None,
+            viruses_plan: None,
             undo: Default::default(),
             list_tx,
             list_rx,
+            #[cfg(test)]
+            list_wait: tests::LIST_WAIT.get(),
+            #[cfg(not(test))]
+            list_wait: Duration::from_millis(150),
+            #[cfg(test)]
+            list_hold: tests::LIST_HOLD.with_borrow(Clone::clone),
             last_click: None,
             props_rx: None,
             watch: Default::default(),
             space_back: None,
+            folders_said: false,
             quit: false,
+            input_note: None,
             cfg,
         };
         let mut app = app;
+        app.load(0, left_file);
+        if app.panels[1].dir == app.panels[0].dir && right_file.is_none() {
+            // One listing for both: a listing still under way fills both panels when it comes.
+            app.panels[1].entries = app.panels[0].entries.clone();
+            app.panels[1].error = app.panels[0].error.clone();
+            app.panels[1].fill(right_file);
+        } else {
+            app.load(1, right_file);
+        }
         app.refresh_git(&[0, 1]);
         app.measure(0);
         app.measure(1);
@@ -935,20 +1221,48 @@ impl App {
         self.hint_stale = true;
         let h = self.show_hidden;
         let p = &mut self.panels[side];
-        if !virtual_list(&p.dir) {
-            p.load(h);
-            if let Some(n) = select {
-                p.select_name(&n);
-            }
-            return;
-        }
         let keep = select.or_else(|| p.current().map(|e| e.name.clone()));
         let (dir, tx) = (p.dir.clone(), self.list_tx.clone());
-        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
+        // The keys wait no longer than `list_wait` for a folder on disk: one of a million files
+        // is said to be read meanwhile, and measured once it is listed.
+        let virtual_dir = virtual_list(&dir);
+        let d = dir.clone();
+        let k = keep.clone();
+        #[cfg(test)]
+        let hold = self.list_hold.clone();
         std::thread::spawn(move || {
-            let r = bfs::list(&dir, h);
-            let _ = tx.send((dir, keep, r));
+            #[cfg(test)]
+            drop(hold.as_ref().map(|h| h.read()));
+            let r = bfs::list(&d, h);
+            let _ = tx.send((d, k, r));
         });
+        if !virtual_dir {
+            let until = Instant::now() + self.list_wait;
+            while let Ok((d, k, r)) = self.list_rx.recv_timeout(until.saturating_duration_since(Instant::now())) {
+                if d != dir {
+                    self.listed(d, k, r);
+                } else if r.is_err() {
+                    // Walking up keeps the reason, as a locked archive's password asks by it.
+                    let p = &mut self.panels[side];
+                    p.load(h);
+                    if let Some(n) = keep {
+                        p.select_name(&n);
+                    }
+                    return;
+                } else {
+                    return self.listed(d, k, r);
+                }
+            }
+        }
+        // Meanwhile `..` leads out of a folder entered.
+        let p = &mut self.panels[side];
+        if !virtual_dir
+            && p.entries.is_empty()
+            && let Some(up) = dir.parent()
+        {
+            p.entries.push(Entry { name: "..".into(), path: up.to_path_buf(), is_dir: true, ..Entry::default() });
+        }
+        self.status = Some(t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir))));
     }
 
     /// A listing from the thread, for the panels still showing its folder. One that failed
@@ -969,6 +1283,10 @@ impl App {
                     (p.entries, p.link) = (v.clone(), None);
                     p.error = None;
                     p.fill(keep.clone());
+                    // Listed after its key had gone on: its folders measured now.
+                    if !virtual_list(&dir) && self.panels[side].sizes.is_empty() {
+                        self.measure(side);
+                    }
                 }
                 Err(e) => {
                     p.error = Some(e.to_string());
@@ -987,12 +1305,13 @@ impl App {
 
     fn input(&mut self, title: &str, label: String, value: String, prompt: Prompt) {
         self.status = None;
+        self.input_note = None;
         self.dialog = Some(Dialog::Input { title: title.into(), label, value, prompt });
     }
 
     fn describe(paths: &[PathBuf]) -> String {
         match paths {
-            [one] => format!("\"{}\"", one.file_name().unwrap_or_default().to_string_lossy()),
+            [one] => format!("\"{}\"", ui::printable(&one.file_name().unwrap_or_default().to_string_lossy())),
             _ => tn!("items", paths.len()),
         }
     }
@@ -1000,16 +1319,18 @@ impl App {
     // ------------------------------------------------------------ input
 
     fn on_key(&mut self, ev: KeyEvent) {
-        let Some(key) = to_key(ev) else { return };
+        if let Some(key) = to_key(ev) {
+            self.key_typed(key);
+        }
+    }
+
+    fn key_typed(&mut self, key: Key) {
         self.hint_stale = true;
         self.status = None;
         if self.dialog.is_some() {
             return self.dialog_key(key);
         }
-        let plain_char = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let plain_char = typed(&key);
         // Quick search: Alt+letter starts it; further letters extend it.
         if let Some(q) = &mut self.quick {
             match (key.code, plain_char) {
@@ -1048,6 +1369,14 @@ impl App {
                 LineKey::Keep => {}
             };
         }
+        // Esc on the progress line: the file operation under way stops (`undo::run`).
+        if key.code == KeyCode::Esc
+            && !(key.ctrl || key.alt || key.shift)
+            && let Some(stop) = self.job.as_ref().and_then(|j| j.stop.clone())
+        {
+            stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = self.job.as_ref().map(Job::shown);
+        }
         match (action, plain_char) {
             (Some(a), _) => self.act(a),
             (None, Some(c)) => self.cmdline.push(c),
@@ -1056,13 +1385,9 @@ impl App {
     }
 
     fn quick_jump(&mut self) {
-        use unicode_normalization::UnicodeNormalization;
-        // NFC on both sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙),
-        // typing composes.
-        let nfc = |s: &str| s.nfc().collect::<String>().to_lowercase();
-        let q = nfc(self.quick.as_deref().unwrap_or_default());
+        let q = self.quick.clone().unwrap_or_default();
         let p = self.panel_mut();
-        if let Some(i) = p.entries.iter().position(|e| nfc(&e.name).starts_with(&q)) {
+        if let Some(i) = coxswain_core::fs::quick_match(&p.entries, &q) {
             p.cursor = i;
         }
     }
@@ -1074,10 +1399,15 @@ impl App {
         {
             return self.status = Some(t!("disk_image.read_only"));
         }
+        if matches!(a, Action::Move | Action::Rename | Action::Delete | Action::DeleteForever | Action::NewFolder) && coxswain_core::archive::nested_dir(&self.panel().dir) {
+            return self.status = Some(t!("archive.nested_read_only"));
+        }
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some()) => (self.job, self.searchable) = (None, None),
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some()) => {
+                (self.job, self.searchable, self.media, self.ebook, self.work, self.export, self.viruses) = (None, None, None, None, None, None, None)
+            }
             Action::Quit => {
                 self.quit = true;
                 // Make PDF searchable is stopped, and waited for: its container is killed,
@@ -1085,7 +1415,32 @@ impl App {
                 if let Some(s) = &self.searchable {
                     s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() {
+                // So is a conversion: its container killed, nothing half made left beside the file.
+                if let Some((s, _)) = &self.media {
+                    s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                // So is calibre: its container killed, nothing half made left beside the book.
+                if let Some((s, ..)) = &self.ebook {
+                    s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                // Checksums, a split or a join: stopped, and waited for, so a split's parts and a
+                // join's file are not left half made.
+                if let Some(w) = &self.work {
+                    w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                // And a file operation, between files: none is left half copied.
+                if let Some(s) = self.job.as_ref().and_then(|j| j.stop.as_ref()) {
+                    s.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                // So is an export.
+                if let Some(x) = &self.export {
+                    x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                // So is a virus scan: its container is killed.
+                if let Some(x) = &self.viruses {
+                    x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1110,7 +1465,9 @@ impl App {
                     self.cd(self.active, p);
                 }
             }
-            Action::History => self.history(),
+            Action::History => self.history(history::Scope::Branch),
+            Action::HistoryAll => self.history(history::Scope::All),
+            Action::HistoryUpstream => self.history(history::Scope::Upstream),
             Action::Snapshots => self.snapshots(),
             Action::Package => self.package(),
             Action::Flags => self.flags(),
@@ -1122,14 +1479,37 @@ impl App {
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
             Action::SearchablePdf => self.searchable_pdf(),
+            Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
+            Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
+            Action::ConvertGeodata => self.media_menu(coxswain_core::media::Program::Gdal),
+            Action::ExportModel => self.media_menu(coxswain_core::media::Program::Openscad),
+            Action::ConvertEbook => self.ebook_menu(),
+            Action::ExportKicad => self.media_menu(coxswain_core::media::Program::Kicad),
+            Action::MakeChecksums => self.sums_menu(),
+            Action::SplitFile => self.split_menu(),
+            Action::JoinParts => match self.panel().current().filter(|e| !e.is_dir && coxswain_core::split::joins_into(&e.path).is_some()) {
+                Some(e) => self.join_menu(e.path.clone()),
+                None => self.status = Some(t!("split.not_first")),
+            },
+            Action::VerifyChecksums => match self.panel().current().filter(|e| !e.is_dir && coxswain_core::checksum::is_list(&e.path)) {
+                Some(e) => self.sums_verify(e.path.clone()),
+                None => self.status = Some(t!("sums.no_list")),
+            },
+            Action::Transcribe => self.transcribe(),
+            Action::AdocPdf => self.export_menu(true),
+            Action::DrawioExport => self.export_menu(false),
+            Action::ScanViruses => self.scan_viruses(),
+            Action::PreviewWith => self.preview_with(),
             Action::Chess => {
-                if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::format(&e.path).is_some()).map(|e| e.path.clone()) {
+                if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
                 } else {
                     self.status = Some(t!("chess.not_chess"));
                 }
             }
             Action::SpaceView => self.space_view(),
+            Action::CompareFiles => self.compare_files(),
+            Action::CompareFolders => self.compare_folders(),
             Action::Mark => {
                 let p = self.panel_mut();
                 p.toggle_mark(p.cursor);
@@ -1219,7 +1599,7 @@ impl App {
                     self.cmdline.push(' ');
                 }
             }
-            Action::View | Action::Edit => {
+            Action::View | Action::Edit | Action::EditHere => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
                     // Inside an archive the file is not on disk: F3 views a copy of it, and
                     // editing waits until it is copied out.
@@ -1230,12 +1610,12 @@ impl App {
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
                     }
                     // In a snapshot: viewed as it is there; never edited.
-                    if a == Action::Edit && coxswain_core::zfs::in_snapshot(&e).is_some() {
+                    if a != Action::View && coxswain_core::zfs::in_snapshot(&e).is_some() {
                         return self.status = Some(t!("zfs.read_only"));
                     }
                     // In a history: viewed as it was then, from a copy; never edited.
                     if history::is_history(&e) {
-                        if a == Action::Edit {
+                        if a != Action::View {
                             return self.status = Some(t!("history.read_only"));
                         }
                         return match history::peek(&e) {
@@ -1251,6 +1631,14 @@ impl App {
                             Ok(text) => return self.view_copy(&text, &e, r.title.clone()),
                             Err(err) => self.status = Some(err),
                         }
+                    }
+                    // An e-book calibre reads, when e-books are on: its title, authors and text.
+                    if a == Action::View && coxswain_core::ebook::is_ebook(&e) {
+                        if self.cfg.preview.ebooks {
+                            return self.ebook_view(e);
+                        }
+                        // Off: shown as it is, and where to turn its text on.
+                        self.status = Some(format!("{} ({})", t!("ebook.off"), t!("searchable.settings_key", "key" => self.key_label(Action::Settings))));
                     }
                     // An old picture, a tracker module, an Outlook message: what it holds, as text.
                     if a == Action::View
@@ -1278,7 +1666,17 @@ impl App {
                             Err(err) => self.status = Some(err.to_string()),
                         }
                     }
-                    if a == Action::View && coxswain_core::chess::format(&e).is_some() {
+                    // A recording with its transcript: the transcript, as text.
+                    if a == Action::View
+                        && coxswain_core::transcribe::is_speech(&e)
+                        && let Some(tr) = self.index.transcript(&e).filter(|t| !t.text.is_empty())
+                    {
+                        match coxswain_core::transcribe::text_copy(&e, &tr) {
+                            Ok(copy) => return self.view_copy(&copy, &e, t!("whisper.transcript")),
+                            Err(err) => self.status = Some(err),
+                        }
+                    }
+                    if a == Action::View && coxswain_core::chess::sniff(&e).is_some() {
                         return self.chess(&e, None);
                     }
                     if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
@@ -1290,6 +1688,10 @@ impl App {
                     }
                     self.view_or_edit(a, &e);
                 }
+            }
+            // Nor in a git history: its commits and their files are as they were.
+            Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if history::is_history(&self.panel().dir) => {
+                self.status = Some(t!("history.read_only"));
             }
             // In a ZFS snapshot (or its list) nothing changes: said at once, not after a prompt.
             Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if coxswain_core::zfs::is_read_only(&self.panel().dir) => {
@@ -1306,8 +1708,11 @@ impl App {
                 }
                 let dst = self.panels[self.active ^ 1].dir.to_string_lossy().into_owned();
                 let title = t!(if a == Action::Copy { "dialog.copy" } else { "dialog.move" }, "what" => Self::describe(&src));
+                // Into an archive it is written anew beside itself: the room that takes.
+                let note = coxswain_core::archive::split(&self.panels[self.active ^ 1].dir).and_then(|(a, _)| coxswain_core::archive::short_of_room(&a, &src));
                 let prompt = if a == Action::Copy { Prompt::Copy(src) } else { Prompt::Move(src) };
                 self.input(&title, t!("dialog.to"), dst, prompt);
+                self.input_note = note;
             }
             Action::Extract => {
                 let src: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| coxswain_core::archive::opens(p)).collect();
@@ -1325,12 +1730,15 @@ impl App {
                 let ending = coxswain_core::state::AppState::load().pack_ending().to_string();
                 let dst = self.panels[1 - self.active].dir.join(format!("{name}{ending}")).display().to_string();
                 let title = t!("archive.pack_title", "what" => Self::describe(&src));
+                let note = coxswain_core::archive::short_of_room(Path::new(&dst), &src);
                 self.input(&title, t!("tui.pack_into"), dst, Prompt::Pack(src));
+                self.input_note = note;
             }
             Action::Rename => {
                 let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
                 let title = t!("dialog.rename", "what" => Self::describe(std::slice::from_ref(&e.path)));
-                self.input(&title, t!("app.name_label"), e.name, Prompt::Rename(e.path));
+                // A newline or an escape in the name shows as its picture, and comes back as it was.
+                self.input(&title, t!("app.name_label"), coxswain_core::rename::shown(&e.name), Prompt::Rename(e.path));
             }
             Action::ActionMenu => self.action_menu(),
             Action::NewFolder => self.input(&t!("dialog.new_folder"), t!("tui.mkdir_label"), String::new(), Prompt::Mkdir),
@@ -1403,7 +1811,7 @@ impl App {
     /// The actions that fit the marked entries (or the one under the cursor), under their
     /// headings, each with its key: Enter runs one, Esc closes.
     fn action_menu(&mut self) {
-        let s = self.panel().subject();
+        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, ..self.panel().subject() };
         let mut items = vec![];
         for (g, acts) in coxswain_core::menu::actions(&s, false) {
             let group = g.label();
@@ -1433,6 +1841,13 @@ impl App {
         }
     }
 
+    /// A password that did not open the archive, asked for again: the box says so.
+    fn asked_again(&mut self) {
+        if let Some(Dialog::Input { label, prompt: Prompt::Peek(_) | Prompt::Unlock(..), .. }) = &mut self.dialog {
+            *label = t!("archive.locked_again");
+        }
+    }
+
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
     fn peek(&mut self, path: PathBuf) {
         match coxswain_core::archive::peek(&path) {
@@ -1446,10 +1861,11 @@ impl App {
 
     fn open(&mut self) {
         let Some(e) = self.panel().current().cloned() else { return };
-        // An archive opens like a folder; its files are copied out with F5. An archive inside
-        // one is a file like the others.
+        // An archive opens like a folder, an archive inside one too (from a copy in the cache);
+        // its files are copied out with F5.
         let inside = coxswain_core::archive::split(&self.panel().dir);
-        if e.is_dir || (inside.is_none() && coxswain_core::archive::opens(&e.path)) {
+        let opens = if inside.is_none() { coxswain_core::archive::opens(&e.path) } else { coxswain_core::archive::opens_inside(&e.path) };
+        if e.is_dir || opens {
             return self.cd(self.active, e.path);
         }
         if let Some((archive, _)) = inside {
@@ -1462,6 +1878,14 @@ impl App {
         // A file of a package: to its folder, the cursor on it.
         if coxswain_core::bsd::split(&self.panel().dir).is_some() {
             return self.reveal(&e.path.clone());
+        }
+        // The first part of a split file: Join is offered.
+        if coxswain_core::split::joins_into(&e.path).is_some() && coxswain_core::zfs::in_snapshot(&e.path).is_none() {
+            return self.join_menu(e.path.clone());
+        }
+        // A list of checksums is checked (in a snapshot too).
+        if coxswain_core::checksum::is_list(&e.path) {
+            return self.sums_verify(e.path.clone());
         }
         // A file in a snapshot: what changed in it since, in the viewer.
         if coxswain_core::zfs::in_snapshot(&e.path).is_some() {
@@ -1484,20 +1908,28 @@ impl App {
         });
     }
 
-    /// Into the history of the entry under the cursor (of this folder on `..`): its commits.
-    fn history(&mut self) {
+    /// Into the history of the entry under the cursor (of this folder on `..`): its commits on
+    /// this branch, every branch's or those against the upstream (`scope`). In a history, every
+    /// branch's and against the upstream switch to that list, and back.
+    fn history(&mut self, scope: history::Scope) {
         let p = self.panel();
         let target = match p.current() {
             Some(e) if !e.is_parent() => e.path.clone(),
             _ => p.dir.clone(),
         };
+        if scope != history::Scope::Branch && history::is_history(&p.dir) {
+            return match history::switch_scope(&p.dir, &target, scope) {
+                Some(to) => self.cd(self.active, to),
+                None => self.status = Some(t!("history.all_not_here")),
+            };
+        }
         if history::is_history(&target) || coxswain_core::archive::split(&target).is_some() || !target.exists() {
             return self.status = Some(t!("history.not_here"));
         }
         if p.git.is_none() {
             return self.status = Some(t!("history.no_repo"));
         }
-        self.cd(self.active, history::path(&target, None));
+        self.cd(self.active, history::path_in(&target, scope, None));
     }
 
     /// To the snapshots of the ZFS dataset the folder under the cursor (or this one) is on.
@@ -1560,8 +1992,10 @@ impl App {
         }
         let (tx, rx) = mpsc::channel();
         self.status = Some(t!("app.reading_properties"));
+        let cfg = self.cfg.preview.clone();
         std::thread::spawn(move || {
-            let r = bfs::properties(&path).map_err(|e| e.to_string());
+            // A video's length, size and tracks too, by ffprobe (`media`).
+            let r = bfs::properties(&path).map(|p| coxswain_core::media::with_facts(p, &cfg, &path)).map_err(|e| e.to_string());
             let _ = tx.send(r);
         });
         self.props_rx = Some(rx);
@@ -1651,7 +2085,18 @@ impl App {
     /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
     /// FEN file's positions.
     fn chess(&mut self, path: &Path, hit: Option<String>) {
-        match chess::Viewer::open(path, &self.cfg, &self.theme) {
+        if coxswain_core::chess::format(path) == Some(coxswain_core::chess::Format::Sgf) {
+            return match go::Viewer::open(path, &self.cfg, &self.theme) {
+                Ok(mut v) => {
+                    if let Some(i) = hit.and_then(|s| coxswain_core::go::game_of_hit(path, &s)) {
+                        v.show(i as usize);
+                    }
+                    self.dialog = Some(Dialog::Go(Box::new(v)));
+                }
+                Err(e) => self.status = Some(e.to_string()),
+            };
+        }
+        match chess::Viewer::open(path, &self.cfg, &self.theme).map(|v| v.with_index(self.index.clone())) {
             Ok(mut v) => {
                 if let Some(snippet) = hit {
                     v.at_hit(snippet);
@@ -1713,6 +2158,35 @@ impl App {
         self.searchable_plan = Some(rx);
     }
 
+    /// *Transcribe speech* on the marked entries (or the one under the cursor): with
+    /// transcribing off, how to turn it on; else the question, once the lengths are read.
+    fn transcribe(&mut self) {
+        let title = t!("action.transcribe");
+        if !self.cfg.search.whisper || !self.cfg.search.text {
+            let text = t!("whisper.off_tui", "key" => self.key_label(Action::Settings));
+            return self.dialog = Some(Dialog::Message { title, text });
+        }
+        let paths: Vec<PathBuf> = self.panel().targets();
+        let (tx, rx) = mpsc::channel();
+        let (cfg, rate) = (self.cfg.clone(), self.index.status().transcripts.and_then(|t| t.rate));
+        std::thread::spawn(move || {
+            let survey = coxswain_core::transcribe::survey(&paths);
+            let text = coxswain_core::transcribe::plan_text(&cfg, &survey, rate);
+            let _ = tx.send((survey.files, text));
+        });
+        self.status = Some(t!("common.loading"));
+        self.transcribe_plan = Some(rx);
+    }
+
+    fn poll_transcribe_plan(&mut self) {
+        let Some(rx) = &self.transcribe_plan else { return };
+        let Ok((files, text)) = rx.try_recv() else { return };
+        self.transcribe_plan = None;
+        self.status = None;
+        let title = t!("action.transcribe");
+        self.dialog = Some(if files.is_empty() { Dialog::Message { title, text: t!("whisper.none") } } else { Dialog::Transcribe { title, text, files } });
+    }
+
     /// The question worked out: the dialog, or what is missing with the key of Settings.
     fn poll_searchable_plan(&mut self) {
         let Some(rx) = &self.searchable_plan else { return };
@@ -1734,7 +2208,7 @@ impl App {
             let at = tx.clone();
             let done = coxswain_core::searchable::run_all(&cfg, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
                 let line = match s {
-                    coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default())),
+                    coxswain_core::searchable::Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(coxswain_core::searchable::TOOL).cloned().unwrap_or_default()))),
                     coxswain_core::searchable::Said::Line(l) => l.to_string(),
                 };
                 let _ = said.send(SearchableMsg::Said(line));
@@ -1776,6 +2250,13 @@ impl App {
             return;
         };
         let s = self.searchable.take().expect("a run");
+        // The image was used: what *Remove images not used for 90 days* goes by, which the
+        // desktop app does; the installed program uses none.
+        if let Ok(coxswain_core::searchable::How::Container { image, .. }) = coxswain_core::searchable::how(&self.cfg.preview) {
+            let mut st = coxswain_core::state::AppState::load();
+            coxswain_core::images::used(&mut st, &image, coxswain_core::fs::now());
+            let _ = st.save();
+        }
         let stopped = s.stop.load(std::sync::atomic::Ordering::Relaxed);
         let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(s.names.iter()).partition(|(r, _)| r.is_ok());
         let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).collect();
@@ -1791,6 +2272,534 @@ impl App {
         self.status = Some(match made.as_slice() {
             [one] => t!("searchable.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
             many => t!("searchable.done_many", "n" => many.len()),
+        });
+    }
+
+    /// *Convert video or audio* (ffmpeg), *Convert or edit pictures* (ImageMagick), *Convert
+    /// geodata* (GDAL), *Export 3D model* (OpenSCAD) or *Export from KiCad* (kicad-cli) on the files among the marked entries (or the one under the cursor) it takes: what to make of them,
+    /// from a menu. While one runs, the action stops it.
+    fn media_menu(&mut self, program: coxswain_core::media::Program) {
+        use coxswain_core::media::Op;
+        if let Some((s, _)) = &self.media {
+            s.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        let takes = |p: &PathBuf| Op::menu(program).iter().any(|o| o.takes(p));
+        // A file only in the cloud is left out: it is not downloaded to be read.
+        let files: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| takes(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
+        if files.is_empty() {
+            return self.status = Some(program.none());
+        }
+        let items = Op::menu(program)
+            .into_iter()
+            .enumerate()
+            .map(|(i, op)| MenuItem { key: (i + 1).to_string(), label: op.label(), run: MenuRun::Media(op, files.clone()), group: None })
+            .collect();
+        let action = media_action(program);
+        self.dialog = Some(Dialog::Menu { title: self.action_label(action), filter: String::new(), items, cursor: 0, direct: true, feature: media_feature(program) });
+    }
+
+    /// *Preview with…* on the file under the cursor: the choices for its kind of file
+    /// (`preview_tools`), what each would use, the line that installs its program, and Settings
+    /// at Preview tools (where its image is pulled).
+    fn preview_with(&mut self) {
+        use coxswain_core::preview_tools as pt;
+        let Some(kind) = self.panel().current().filter(|e| !e.is_dir).and_then(|e| pt::for_path(&e.path)) else {
+            return self.status = Some(t!("ptools.none_here"));
+        };
+        let Some(r) = pt::row_of(&self.cfg.preview, kind.id) else { return };
+        let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
+        let image = r.images.iter().find(|i| !i.image.is_empty());
+        let now = |c: &str| if r.choice == c { format!(" · {}", t!("ptools.current")) } else { String::new() };
+        let default = t!("ptools.choice.default", "value" => settings::choice_label("preview_prefer", &self.cfg.preview.prefer));
+        let local = format!("{}: {}", t!("ptools.choice.local"), if installed.is_empty() { t!("convert.not_installed", "program" => r.programs.first().map_or("", |p| p.name)) } else { installed.join(", ") });
+        let container = match image {
+            Some(i) => format!("{}: {} ({})", t!("ptools.choice.container"), coxswain_core::images::short(&i.image).rsplit('/').next().unwrap_or_default(), match (i.pulled, &i.download) {
+                (Some(b), _) => t!("settings.image_pulled", "size" => coxswain_core::settings::human(b)),
+                (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
+                (None, None) => t!("settings.image_not_pulled"),
+            }),
+            None => t!("ptools.container_none"),
+        };
+        let mut items: Vec<MenuItem> = [("", default), ("local", local), ("container", container), ("off", t!("ptools.choice.off"))]
+            .into_iter()
+            .enumerate()
+            .map(|(i, (c, label))| MenuItem { key: (i + 1).to_string(), label: format!("{label}{}", now(c)), run: MenuRun::PreviewTool(kind.id, c), group: None })
+            .collect();
+        if let (true, Some(line)) = (installed.is_empty(), &r.install) {
+            items.push(MenuItem { key: "c".into(), label: t!("ptools.menu_copy", "line" => line.as_str()), run: MenuRun::CopyLine(line.clone()), group: None });
+        }
+        items.push(MenuItem { key: "s".into(), label: t!("ptools.menu_settings"), run: MenuRun::SettingsAt("preview_tools"), group: None });
+        let title = format!("{} {}", self.action_label(Action::PreviewWith), r.title);
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "preview_tools" });
+    }
+
+    /// A choice of *Preview with…* written into config.toml and used at once.
+    fn preview_tool(&mut self, kind: &str, choice: &str) {
+        let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
+        self.status = Some(match coxswain_core::preview_tools::set_choice(&path, kind, choice) {
+            Ok(cfg) => {
+                self.cfg = cfg;
+                t!("settings.saved", "path" => path.display())
+            }
+            Err(e) => e,
+        });
+    }
+
+    /// What to make was chosen: a clip and a size are asked for first, then the question.
+    fn media_chose(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
+        use coxswain_core::media::Op;
+        let title = op.label();
+        self.dialog = Some(match op {
+            Op::Clip { .. } => Dialog::Input { title, label: t!("media.clip_label"), value: "0:00 0:30".into(), prompt: Prompt::Clip(files) },
+            Op::Resize(n) => Dialog::Input { title, label: t!("media.resize_label"), value: n.to_string(), prompt: Prompt::Resize(files) },
+            _ => return self.media_ask(op, files),
+        });
+    }
+
+    /// The question, worked out on a thread (asking podman for the image takes a moment).
+    fn media_ask(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
+        use coxswain_core::media;
+        // Only the files this choice takes (a bill of materials of a schematic, not a board).
+        let files: Vec<PathBuf> = files.into_iter().filter(|p| op.takes(p)).collect();
+        if files.is_empty() {
+            return self.status = Some(op.program().none());
+        }
+        let (tx, rx) = mpsc::channel();
+        let cfg = self.cfg.preview.clone();
+        std::thread::spawn(move || {
+            let plan = media::how(&cfg, op.program()).map(|how| format!("{} {}", media::confirm(&op, &files), media::about(&how).0));
+            let _ = tx.send((op, files, plan));
+        });
+        self.media_plan = Some(rx);
+    }
+
+    fn poll_media_plan(&mut self) {
+        let Some(rx) = &self.media_plan else { return };
+        let Ok((op, files, plan)) = rx.try_recv() else { return };
+        self.media_plan = None;
+        let title = op.label();
+        self.dialog = Some(match plan {
+            Ok(text) => Dialog::Media { title, text, op, files },
+            Err(e) => Dialog::Message { title, text: format!("{e}
+
+{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
+        });
+    }
+
+    fn media_start(&mut self, op: coxswain_core::media::Op, files: Vec<PathBuf>) {
+        use coxswain_core::media::{self, Said};
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let action = media_action(op.program());
+        let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), files.clone());
+        std::thread::spawn(move || {
+            let (said, at) = (tx.clone(), tx.clone());
+            let image = op.program().tool();
+            let done = media::run_all(&cfg, &op, &list, &flag, |i| drop(at.send(SearchableMsg::At(i))), |s| {
+                let line = match s {
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(image).cloned().unwrap_or_default()))),
+                    Said::Percent(p) => format!("{p} %"),
+                    Said::Line(l) => l.to_string(),
+                };
+                let _ = said.send(SearchableMsg::Said(line));
+            });
+            let _ = tx.send(SearchableMsg::Done(done));
+        });
+        let names = files.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        self.media = Some((Searchable { names, at: 0, line: String::new(), shown: String::new(), started: Instant::now(), stop, rx }, action));
+        self.poll_media();
+    }
+
+    /// How far a conversion is, on the status line; when done, what came of it.
+    fn poll_media(&mut self) {
+        let Some((_, action)) = &self.media else { return };
+        let action = *action;
+        // No key of its own by default: F9 lists it, and stops it from there.
+        let key = match self.key_label(action) {
+            "" => format!("{} → {}", self.key_label(Action::Menu), self.action_label(action)),
+            k => k.to_string(),
+        };
+        let Some((s, _)) = &mut self.media else { return };
+        let mut done = None;
+        while let Ok(msg) = s.rx.try_recv() {
+            match msg {
+                SearchableMsg::At(i) => (s.at, s.line) = (i, String::new()),
+                SearchableMsg::Said(l) => s.line = l,
+                SearchableMsg::Done(d) => done = Some(d),
+            }
+        }
+        let Some(done) = done else {
+            let (name, n, all, seconds) = (s.names.get(s.at).cloned().unwrap_or_default(), s.at + 1, s.names.len(), s.started.elapsed().as_secs());
+            let busy = if all > 1 {
+                t!("media.busy_of", "name" => name, "n" => n, "all" => all, "seconds" => seconds)
+            } else {
+                t!("media.busy", "name" => name, "seconds" => seconds)
+            };
+            let stopping = s.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("media.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let line = if s.line.is_empty() { String::new() } else { format!(" · {}", s.line) };
+            let new = format!("{busy}{line} · {tail}");
+            if self.status.is_none() || self.status.as_ref() == Some(&s.shown) {
+                self.status = Some(new.clone());
+            }
+            s.shown = new;
+            return;
+        };
+        let (s, _) = self.media.take().expect("a run");
+        let stopped = s.stop.load(std::sync::atomic::Ordering::Relaxed);
+        let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(s.names.iter()).partition(|(r, _)| r.is_ok());
+        let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).collect();
+        self.reload();
+        if stopped {
+            return self.status = Some(t!("media.stopped"));
+        }
+        if !failed.is_empty() {
+            let why = failed.into_iter().map(|(r, n)| format!("{n}: {}", r.err().unwrap_or_default())).collect::<Vec<_>>().join("\n");
+            self.status = None;
+            return self.dialog = Some(failure(t!("media.failed"), &why));
+        }
+        self.status = Some(match made.as_slice() {
+            [one] => t!("media.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
+            many => t!("media.done_many", "n" => many.len()),
+        });
+    }
+
+    /// Make checksums: the algorithm from a menu, for the marked entries (or the one under the
+    /// cursor). Its key again while checksums are made or checked stops them.
+    fn sums_menu(&mut self) {
+        use coxswain_core::checksum::Algo;
+        if let Some(w) = &self.work {
+            w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        if self.panel().subject().place != coxswain_core::menu::Place::Disk {
+            return self.status = Some(t!("sums.not_here"));
+        }
+        let files = self.panel().targets();
+        if files.is_empty() {
+            return self.status = Some(t!("sums.nothing"));
+        }
+        let dir = self.panel().dir.clone();
+        let items = Algo::ALL
+            .into_iter()
+            .enumerate()
+            .map(|(i, a)| MenuItem { key: (i + 1).to_string(), label: t!("sums.algo", "algo" => a.name(), "file" => coxswain_core::checksum::target(&dir, a).file_name().unwrap_or_default().to_string_lossy()), run: MenuRun::Sums(a, files.clone()), group: None })
+            .collect();
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::MakeChecksums), filter: String::new(), items, cursor: 0, direct: true, feature: "checksums" });
+    }
+
+    fn work_start(&mut self, action: Action, run: impl FnOnce(&std::sync::atomic::AtomicBool, &dyn Fn(&coxswain_core::checksum::Progress)) -> WorkMsg + Send + 'static) {
+        if self.work.is_some() {
+            return self.status = Some(t!("sums.busy_already"));
+        }
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        std::thread::spawn(move || {
+            let at = tx.clone();
+            // A message every megabyte would flood the loop: one a tenth of a second.
+            let last = std::sync::Mutex::new(Instant::now() - Duration::from_secs(1));
+            let msg = run(&flag, &|p| {
+                let mut l = last.lock().unwrap();
+                if l.elapsed() >= Duration::from_millis(100) {
+                    *l = Instant::now();
+                    let _ = at.send(WorkMsg::At(p.clone()));
+                }
+            });
+            let _ = tx.send(msg);
+        });
+        self.work = Some(Work { action, progress: Default::default(), shown: String::new(), stop, rx });
+        self.poll_work();
+    }
+
+    /// Split the file under the cursor: the size of the parts from a menu, or typed.
+    fn split_menu(&mut self) {
+        if let Some(w) = &self.work {
+            w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        let Some(e) = self.panel().current().filter(|e| !e.is_dir && !e.is_parent()).cloned() else {
+            return self.status = Some(t!("split.no_file"));
+        };
+        if self.panel().subject().place != coxswain_core::menu::Place::Disk {
+            return self.status = Some(t!("sums.not_here"));
+        }
+        let mut items: Vec<MenuItem> = coxswain_core::split::PRESETS
+            .iter()
+            .enumerate()
+            .map(|(i, (size, id))| MenuItem { key: (i + 1).to_string(), label: t!(&format!("split.size.{id}")), run: MenuRun::Split(e.path.clone(), Some(*size)), group: None })
+            .collect();
+        items.push(MenuItem { key: (items.len() + 1).to_string(), label: t!("split.size.other"), run: MenuRun::Split(e.path.clone(), None), group: None });
+        let title = format!("{} {}", self.action_label(Action::SplitFile), e.name);
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "split_and_join" });
+    }
+
+    fn split_start(&mut self, file: PathBuf, size: u64) {
+        self.work_start(Action::SplitFile, move |stop, at| WorkMsg::Split(coxswain_core::split::split(&file, size, stop, at)));
+    }
+
+    /// Join the parts from `first` on: asked first, and again before a file of that name is
+    /// replaced.
+    fn join_menu(&mut self, first: PathBuf) {
+        let Some(target) = coxswain_core::split::joins_into(&first) else { return };
+        let n = coxswain_core::split::parts_of(&first).len();
+        let name = target.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        let there = std::fs::symlink_metadata(&target).is_ok();
+        let label = if there { t!("split.replace", "name" => &name) } else { tn!("split.join_into", n, "name" => &name) };
+        let items = vec![MenuItem { key: "1".into(), label, run: MenuRun::Join(first, there), group: None }];
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::JoinParts), filter: String::new(), items, cursor: 0, direct: true, feature: "split_and_join" });
+    }
+
+    fn join_start(&mut self, first: PathBuf, replace: bool) {
+        self.work_start(Action::JoinParts, move |stop, at| WorkMsg::Joined(coxswain_core::split::join(&first, replace, stop, at)));
+    }
+
+    fn sums_make(&mut self, algo: coxswain_core::checksum::Algo, files: Vec<PathBuf>) {
+        let dir = self.panel().dir.clone();
+        self.work_start(Action::MakeChecksums, move |stop, at| WorkMsg::Made(coxswain_core::checksum::make(&dir, &files, algo, stop, at)));
+    }
+
+    fn sums_verify(&mut self, list: PathBuf) {
+        self.work_start(Action::VerifyChecksums, move |stop, at| {
+            let r = coxswain_core::checksum::verify(&list, stop, at);
+            WorkMsg::Checked(list, r)
+        });
+    }
+
+    /// How far checksums are, on the status line; when done, what came of them.
+    fn poll_work(&mut self) {
+        use coxswain_core::checksum::{self, State};
+        let Some(w) = &self.work else { return };
+        let key = match self.key_label(w.action) {
+            "" => format!("{} → {}", self.key_label(Action::Menu), self.action_label(w.action)),
+            k => k.to_string(),
+        };
+        let what = self.action_label(w.action);
+        let Some(w) = &mut self.work else { return };
+        let mut done = None;
+        while let Ok(msg) = w.rx.try_recv() {
+            match msg {
+                WorkMsg::At(p) => w.progress = p,
+                m => done = Some(m),
+            }
+        }
+        let Some(done) = done else {
+            let stopping = w.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("media.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let new = format!("{} · {tail}", w.progress.line(&what));
+            if self.status.is_none() || self.status.as_ref() == Some(&w.shown) {
+                self.status = Some(new.clone());
+            }
+            w.shown = new;
+            return;
+        };
+        self.work = None;
+        match done {
+            WorkMsg::Made(Ok(m)) => {
+                self.reload();
+                self.status = Some(tn!("sums.made", m.files, "name" => m.path.file_name().unwrap_or_default().to_string_lossy()));
+            }
+            WorkMsg::Made(Err(e)) if e.kind() == std::io::ErrorKind::Interrupted => self.status = Some(t!("sums.stopped")),
+            WorkMsg::Split(Ok(s)) => {
+                self.reload();
+                let name = |p: &Path| p.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                self.status = Some(tn!("split.done", s.parts.len(), "sums" => name(&s.sums)));
+            }
+            WorkMsg::Joined(Ok(j)) => {
+                self.reload();
+                let name = j.path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                match j.matches {
+                    Some(false) => {
+                        self.status = None;
+                        self.dialog = Some(Dialog::Message { title: self.action_label(Action::JoinParts), text: t!("split.mismatch", "name" => name) });
+                    }
+                    Some(true) => self.status = Some(t!("split.joined_ok", "name" => name)),
+                    None => self.status = Some(t!("split.joined", "name" => name)),
+                }
+            }
+            WorkMsg::Split(Err(e)) | WorkMsg::Joined(Err(e)) if e.kind() == std::io::ErrorKind::Interrupted => self.status = Some(t!("split.stopped")),
+            WorkMsg::Split(Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("split.split_failed"), &e.to_string()));
+            }
+            WorkMsg::Joined(Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("split.join_failed"), &e.to_string()));
+            }
+            WorkMsg::Made(Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("sums.make_failed"), &e.to_string()));
+            }
+            WorkMsg::Checked(_, Err(e)) => {
+                self.status = None;
+                self.dialog = Some(failure(t!("sums.verify_failed"), &e.to_string()));
+            }
+            WorkMsg::Checked(list, Ok((all, stopped))) => {
+                // The entries of the list's folder that hold a changed or unreadable file are
+                // marked, in each panel that shows that folder.
+                let dir = list.parent().unwrap_or(Path::new("")).to_path_buf();
+                let bad: HashSet<PathBuf> = all
+                    .iter()
+                    .filter(|c| matches!(c.state, State::Changed | State::Unreadable(_)))
+                    .filter_map(|c| c.path.strip_prefix(&dir).ok()?.components().next().map(|f| dir.join(f)))
+                    .collect();
+                for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
+                    p.clear_marks();
+                    for i in 0..p.entries.len() {
+                        if bad.contains(&p.entries[i].path) {
+                            p.toggle_mark(i);
+                        }
+                    }
+                }
+                const SHOWN: usize = 30;
+                let problems: Vec<String> = all.iter().filter(|c| c.state != State::Ok).map(|c| format!("{}: {}", c.name, checksum::word(&c.state))).collect();
+                let mut text = checksum::summary(&all, stopped);
+                if !bad.is_empty() {
+                    text = format!("{text}\n{}", t!("sums.marked"));
+                }
+                if !problems.is_empty() {
+                    text.push_str("\n\n");
+                    text.push_str(&problems.iter().take(SHOWN).cloned().collect::<Vec<_>>().join("\n"));
+                    if problems.len() > SHOWN {
+                        text = format!("{text}\n{}", tn!("sums.more", problems.len() - SHOWN));
+                    }
+                }
+                self.status = None;
+                let name = list.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                self.dialog = Some(Dialog::Message { title: t!("sums.verify_title", "name" => name), text });
+            }
+            WorkMsg::At(_) => {}
+        }
+    }
+
+    /// *Build PDF of AsciiDoc* (`adoc`) or *Export draw.io diagram* on the files among the
+    /// marked entries (or the one under the cursor) it takes; a diagram's format is picked from
+    /// a menu first. While one runs, either action stops it.
+    fn export_menu(&mut self, adoc: bool) {
+        use coxswain_core::export::{self, Op};
+        if let Some(x) = &self.export {
+            x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("export.stopping"));
+        }
+        let takes = |p: &PathBuf| if adoc { export::is_adoc(p) } else { export::is_drawio(p) };
+        // A file only in the cloud is left out: it is not downloaded to be read.
+        let files: Vec<PathBuf> = self.panel().targets().into_iter().filter(|p| takes(p) && !coxswain_core::cloud::unasked(p) && p.is_file()).collect();
+        if files.is_empty() {
+            return self.status = Some(t!(if adoc { "export.none_adoc" } else { "export.none_drawio" }));
+        }
+        if adoc {
+            return self.export_ask(Op::AdocPdf, files);
+        }
+        let items = Op::DRAWIO
+            .into_iter()
+            .enumerate()
+            .map(|(i, op)| MenuItem { key: (i + 1).to_string(), label: op.label(), run: MenuRun::Export(op, files.clone()), group: None })
+            .collect();
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::DrawioExport), filter: String::new(), items, cursor: 0, direct: true, feature: "drawio_export" });
+    }
+
+    /// The question, worked out on a thread (asking podman for the image takes a moment).
+    fn export_ask(&mut self, op: coxswain_core::export::Op, files: Vec<PathBuf>) {
+        use coxswain_core::export;
+        let (tx, rx) = mpsc::channel();
+        let cfg = self.cfg.preview.clone();
+        std::thread::spawn(move || {
+            let plan = export::how(&cfg, op.tool()).map(|how| format!("{} {}", export::confirm(op, &files), export::about(&how).0));
+            let _ = tx.send((op, files, plan));
+        });
+        self.export_plan = Some(rx);
+    }
+
+    fn poll_export_plan(&mut self) {
+        let Some(rx) = &self.export_plan else { return };
+        let Ok((op, files, plan)) = rx.try_recv() else { return };
+        self.export_plan = None;
+        let title = self.action_label(export_action(op));
+        self.dialog = Some(match plan {
+            Ok(text) => Dialog::Export { title, text, op, files },
+            Err(e) => Dialog::Message { title, text: format!("{e}\n\n{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
+        });
+    }
+
+    fn export_start(&mut self, op: coxswain_core::export::Op, files: Vec<PathBuf>) {
+        use coxswain_core::export::{self, Said};
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (cfg, flag, list) = (self.cfg.preview.clone(), stop.clone(), files.clone());
+        std::thread::spawn(move || {
+            let (said, at) = (tx.clone(), tx.clone());
+            let done = export::run_all(&cfg, op, &list, &flag, |i| drop(at.send(ExportMsg::At(i))), |s| {
+                let line = match s {
+                    Said::Pulling(l) => format!("{} {l}", t!("convert.pulling", "image" => coxswain_core::images::short(&cfg.images.get(op.tool()).cloned().unwrap_or_default()))),
+                    Said::Line(l) => l.to_string(),
+                };
+                let _ = said.send(ExportMsg::Said(line));
+            });
+            let _ = tx.send(ExportMsg::Done(done));
+        });
+        let names = files.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+        self.export = Some(Exporting { op, names, at: 0, line: String::new(), shown: String::new(), started: Instant::now(), stop, rx });
+        self.poll_export();
+    }
+
+    /// How far an export is, on the status line; when done, what came of it.
+    fn poll_export(&mut self) {
+        let Some(x) = &self.export else { return };
+        let action = export_action(x.op);
+        // No key of its own by default: the action menu and F9 list it, and stop it from there.
+        let key = match self.key_label(action) {
+            "" => format!("{} → {}", self.key_label(Action::Menu), self.action_label(action)),
+            k => k.to_string(),
+        };
+        let Some(x) = &mut self.export else { return };
+        let mut done = None;
+        while let Ok(msg) = x.rx.try_recv() {
+            match msg {
+                ExportMsg::At(i) => (x.at, x.line) = (i, String::new()),
+                ExportMsg::Said(l) => x.line = l,
+                ExportMsg::Done(d) => done = Some(d),
+            }
+        }
+        let Some(done) = done else {
+            let (name, n, all, seconds) = (x.names.get(x.at).cloned().unwrap_or_default(), x.at + 1, x.names.len(), x.started.elapsed().as_secs());
+            let busy = if all > 1 {
+                t!("export.busy_of", "name" => name, "n" => n, "all" => all, "seconds" => seconds)
+            } else {
+                t!("export.busy", "name" => name, "seconds" => seconds)
+            };
+            let stopping = x.stop.load(std::sync::atomic::Ordering::Relaxed);
+            let tail = if stopping { t!("export.stopping") } else { t!("searchable.stop_key", "key" => key) };
+            let line = if x.line.is_empty() { String::new() } else { format!(" · {}", x.line) };
+            let new = format!("{busy}{line} · {tail}");
+            if self.status.is_none() || self.status.as_ref() == Some(&x.shown) {
+                self.status = Some(new.clone());
+            }
+            x.shown = new;
+            return;
+        };
+        let x = self.export.take().expect("a run");
+        // The image was used: what *Remove images not used for 90 days* goes by.
+        if let Ok(coxswain_core::export::How::Container { image, .. }) = coxswain_core::export::how(&self.cfg.preview, x.op.tool()) {
+            let mut st = coxswain_core::state::AppState::load();
+            coxswain_core::images::used(&mut st, &image, coxswain_core::fs::now());
+            let _ = st.save();
+        }
+        let stopped = x.stop.load(std::sync::atomic::Ordering::Relaxed);
+        let (made, failed): (Vec<_>, Vec<_>) = done.into_iter().zip(x.names.iter()).partition(|(r, _)| r.is_ok());
+        let made: Vec<PathBuf> = made.into_iter().filter_map(|(r, _)| r.ok()).flatten().collect();
+        self.reload();
+        if stopped {
+            return self.status = Some(t!("export.stopped"));
+        }
+        if !failed.is_empty() {
+            let why = failed.into_iter().map(|(r, n)| format!("{n}: {}", r.err().unwrap_or_default())).collect::<Vec<_>>().join("\n");
+            self.status = None;
+            return self.dialog = Some(failure(t!("export.failed"), &why));
+        }
+        self.status = Some(match made.as_slice() {
+            [one] => t!("export.done_one", "name" => one.file_name().unwrap_or_default().to_string_lossy()),
+            many => t!("export.done_many", "n" => many.len()),
         });
     }
 
@@ -1818,16 +2827,153 @@ impl App {
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
     pub fn edit_at(&mut self, file: &Path, line: usize) {
+        let Some(editor) = self.editor() else { return self.edit_here(file, Some(line), None) };
+        if let Some(prog) = editor_missing(&editor) {
+            return self.status = Some(t!("edit.not_found", "name" => prog));
+        }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
-        self.run = Some(Run::Shell { line: config::edit_command(&self.editor(), file, line), typed: false, dir, wait: false });
+        self.run = Some(Run::Shell { line: config::edit_command(&editor, file, line), typed: false, dir, wait: false });
     }
 
+    /// View, edit (in the editor set, else the built-in one) or edit here (the built-in one).
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         if a == Action::View && self.cfg.viewer.is_none() {
             return self.view_in(file, None);
         }
-        let prog = if a == Action::View { self.cfg.viewer.clone().unwrap_or_else(pager) } else { self.editor() };
+        let prog = match a {
+            Action::View => self.cfg.viewer.clone().unwrap_or_else(pager),
+            _ => match self.editor().filter(|_| a == Action::Edit) {
+                Some(editor) => editor,
+                None => return self.edit_here(file, None, None),
+            },
+        };
+        // Said in the status line: the shell's own "not found" would flash by unread.
+        if a == Action::Edit && let Some(prog) = editor_missing(&prog) {
+            return self.status = Some(t!("edit.not_found", "name" => prog));
+        }
         self.run_on(&prog, file);
+    }
+
+    /// Shift+F2: the two marked files compared, else the file under the cursor with the one under
+    /// the other panel's; the left panel's on the left.
+    fn compare_files(&mut self) {
+        let p = self.panel();
+        let marked: Vec<PathBuf> = p.entries.iter().filter(|e| !e.is_dir && p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
+        let pair = if marked.len() == 2 {
+            Some((marked[0].clone(), marked[1].clone()))
+        } else {
+            let file = |i: usize| self.panels[i].current().filter(|e| !e.is_dir && !e.is_parent()).map(|e| e.path.clone());
+            file(0).zip(file(1))
+        };
+        let Some((a, b)) = pair else { return self.status = Some(t!("compare.pick_two")) };
+        // Only files on the disk: a file inside an archive or a history is copied out first.
+        if [&a, &b].iter().any(|f| f.parent().is_some_and(|d| coxswain_core::archive::split(d).is_some()) || history::is_history(f)) {
+            return self.status = Some(t!("compare.not_here"));
+        }
+        self.dialog = Some(Dialog::Compare(Box::new(compare::Viewer::open(&a, &b))));
+    }
+
+    /// Ctrl+F2: the left panel's folder compared with the right one's; while a compare is on,
+    /// its menu.
+    fn compare_folders(&mut self) {
+        use coxswain_core::compare::folders::Mode;
+        let Some(c) = self.panels[0].cmp.clone() else { return self.folders_start(Mode::Quick) };
+        let item = |key: &str, label: String, run| MenuItem { key: key.into(), label, run: MenuRun::Folders(run), group: None };
+        let other = if c.f.mode == Mode::Quick { Mode::Content } else { Mode::Quick };
+        let items = vec![
+            item("1", t!("compare.mark_differences"), FoldersRun::Mark),
+            item("2", t!(if c.diff_only { "compare.show_all" } else { "compare.differences_only" }), FoldersRun::DiffOnly),
+            item("3", t!(if other == Mode::Content { "compare.by_content" } else { "compare.by_size_date" }), FoldersRun::Again(other)),
+            item("4", t!("compare.stop_comparing"), FoldersRun::Stop),
+        ];
+        self.dialog = Some(Dialog::Menu { title: self.action_label(Action::CompareFolders), filter: String::new(), items, cursor: 0, direct: true, feature: "compare_folders" });
+    }
+
+    fn folders_start(&mut self, mode: coxswain_core::compare::folders::Mode) {
+        let f = Arc::new(coxswain_core::compare::folders::Folders::open(&self.panels[0].dir, &self.panels[1].dir, mode));
+        let diff_only = self.panels[0].cmp.as_ref().is_some_and(|c| c.diff_only);
+        for side in 0..2 {
+            self.panels[side].cmp = Some(Cmp { f: f.clone(), side, diff_only });
+        }
+        self.folders_said = false;
+        self.status = Some(t!("compare.comparing", "n" => 0));
+    }
+
+    fn folders_run(&mut self, r: FoldersRun) {
+        let Some(c) = self.panels[0].cmp.clone() else { return };
+        match r {
+            FoldersRun::Mark => {
+                let mut n = 0;
+                for side in 0..2 {
+                    let p = &mut self.panels[side];
+                    let ahead: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_parent() && c.f.state(side, &p.entries[i].path).is_some_and(|s| s.ahead(side))).collect();
+                    for i in ahead {
+                        if !p.marked.contains(&p.entries[i].path) {
+                            p.toggle_mark(i);
+                            n += 1;
+                        }
+                    }
+                }
+                self.status = Some(tn!("compare.marked", n));
+            }
+            FoldersRun::DiffOnly => {
+                for p in &mut self.panels {
+                    if let Some(c) = &mut p.cmp {
+                        c.diff_only = !c.diff_only;
+                    }
+                }
+                self.reload();
+            }
+            FoldersRun::Again(mode) => self.folders_start(mode),
+            FoldersRun::Stop => {
+                c.f.stop();
+                let all = c.diff_only;
+                for p in &mut self.panels {
+                    p.cmp = None;
+                }
+                if all {
+                    self.reload();
+                }
+                self.status = Some(t!("compare.stopped_comparing"));
+            }
+        }
+    }
+
+    /// How far Compare folders is.
+    fn poll_folders(&mut self) {
+        let Some(c) = self.panels[0].cmp.clone() else { return };
+        if self.folders_said {
+            return;
+        }
+        let found = c.f.found();
+        if found.done {
+            let line = found.error.clone().unwrap_or_else(|| found.summary());
+            drop(found);
+            self.folders_said = true;
+            self.status = Some(line);
+            if c.diff_only {
+                self.reload();
+            }
+        } else {
+            drop(found);
+            self.status = Some(t!("compare.comparing", "n" => coxswain_core::settings::count(c.f.seen.load(std::sync::atomic::Ordering::Relaxed) as usize)));
+        }
+    }
+
+    /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
+    fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
+        match editor::Editor::open(file) {
+            Ok(mut e) => {
+                if let Some(n) = line {
+                    e.buf.go_to(n);
+                }
+                self.dialog = Some(Dialog::Edit { e: Box::new(e), back });
+            }
+            Err(err) => {
+                self.status = Some(format!("{}: {err}", file.display()));
+                self.dialog = back.map(|b| *b);
+            }
+        }
     }
 
     /// F3 on `of`, shown as `copy`, the text made of it: in the built-in viewer titled with
@@ -1875,9 +3021,10 @@ impl App {
         self.run = Some(Run::Shell { line, typed: false, dir, wait: false });
     }
 
-    fn editor(&self) -> String {
+    /// The editor F4 starts: `editor`, else `$VISUAL`, else `$EDITOR`; `None` for the built-in one.
+    fn editor(&self) -> Option<String> {
         let env = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
-        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR")).unwrap_or_else(|| if cfg!(windows) { "notepad".into() } else { "vi".into() })
+        self.cfg.editor.clone().or_else(|| env("VISUAL")).or_else(|| env("EDITOR"))
     }
 
     /// F2's last entry: config.toml in the editor at `[[user_menu]]`, an example there first.
@@ -1894,7 +3041,7 @@ impl App {
         // `cd` has to change our own directory, so it is built in.
         if t == "cd" || t.starts_with("cd ") {
             let arg = t[2..].trim().trim_matches(['"', '\'']);
-            let target = if arg.is_empty() { std::env::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
+            let target = if arg.is_empty() { coxswain_core::dirs::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
             if target.is_dir() {
                 self.cd(self.active, std::fs::canonicalize(&target).unwrap_or(target));
             } else {
@@ -1936,20 +3083,23 @@ impl App {
     /// one runs, another is not started and the status line says why.
     fn start(&mut self, op: Option<Transfer>, src: Vec<PathBuf>, dst: PathBuf, password: Option<String>, select: Option<String>) {
         if let Some(j) = &self.job {
-            return self.status = Some(j.line.clone());
+            return self.status = Some(j.shown());
         }
         // Measured in `finish`: while it runs, a folder's size would be halfway.
         self.forget(&job_op(op).touches(&src, &dst));
         let (tx, rx) = mpsc::channel();
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
         std::thread::spawn(move || {
-            let (failed, rec) = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), |i| drop(tx.send(JobMsg::At(i))));
-            let _ = tx.send(JobMsg::Done(failed, rec));
+            let r = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), &flag, |i| drop(tx.send(JobMsg::At(i))));
+            let _ = tx.send(JobMsg::Done(r.failed, r.rec, r.stopped));
         });
         let line = t!("status.busy", "what" => Self::describe(&src));
-        self.status = Some(line.clone());
         let select = select.map(|n| (self.active, n));
-        self.job = Some(Job { op, src, dst, password, select, line, rx });
+        let job = Job { op, src, dst, password, select, line, rx, stop: Some(stop) };
+        self.status = Some(job.shown());
+        self.job = Some(job);
     }
 
     /// How far the job is; when it is done, what came of it.
@@ -1968,14 +3118,14 @@ impl App {
             match msg {
                 JobMsg::At(i) if job.src.len() > 1 => {
                     let what = Self::describe(std::slice::from_ref(&job.src[i]));
-                    let line = t!("status.busy_of", "what" => what, "n" => i + 1, "all" => job.src.len());
-                    if self.status.as_ref() == Some(&job.line) || self.status.is_none() {
-                        self.status = Some(line.clone());
+                    let was = job.shown();
+                    job.line = t!("status.busy_of", "what" => what, "n" => i + 1, "all" => job.src.len());
+                    if self.status.as_ref() == Some(&was) || self.status.is_none() {
+                        self.status = Some(job.shown());
                     }
-                    job.line = line;
                 }
                 JobMsg::At(_) => {}
-                JobMsg::Done(failed, rec) => done = Some((failed, Some(rec))),
+                JobMsg::Done(failed, rec, stopped) => done = Some((failed, Some(rec), stopped)),
                 JobMsg::Undone(u) => undone = Some(u),
             }
         }
@@ -2003,17 +3153,18 @@ impl App {
         }
         // A key clears the status line; while the job runs, it comes back.
         if self.status.is_none() {
-            self.status = Some(job.line.clone());
+            self.status = Some(job.shown());
         }
-        let Some((failed, rec)) = done else { return };
+        let Some((failed, rec, stopped)) = done else { return };
         let job = self.job.take().expect("a job");
         self.status = None;
-        self.finish(job, failed, rec);
+        self.finish(job, failed, rec, stopped);
     }
 
     /// When only locked archives were in the way, ask for the password and run again with it,
     /// for just what was locked.
-    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>) {
+    /// `stopped`: Esc stopped it, and the line that says how far it got.
+    fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>, stopped: Option<String>) {
         let Job { op, src, dst, password, select, .. } = job;
         // Again now it has ended: a folder measured while it ran would keep a size halfway.
         self.changed(&job_op(op).touches(&src, &dst));
@@ -2030,9 +3181,11 @@ impl App {
         };
         let Some(op) = op else {
             let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
-            return self.after_op(t!("archive.packed", "what" => what) + &hint, t!("error.pack", "what" => what), errors);
+            let fail = coxswain_core::undo::failure_title(job_op(None), &what, src.len(), failed.len());
+            let ok = stopped.unwrap_or_else(|| t!("archive.packed", "what" => what));
+            return self.after_op(ok + &hint, fail, errors);
         };
-        if !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
+        if stopped.is_none() && !failed.is_empty() && failed.iter().all(|(_, e)| e.to_string().contains(coxswain_core::archive::LOCKED)) {
             let label = t!(if password.is_none() { "archive.locked_label" } else { "archive.locked_again" });
             let again = failed.into_iter().map(|(p, _)| p).collect();
             // Nothing is being worked on while the password is asked for (and after Esc).
@@ -2041,6 +3194,7 @@ impl App {
         }
         let errors = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
         let ok = match op {
+            _ if stopped.is_some() => stopped.unwrap_or_default(),
             Transfer::Copy => t!("status.copied", "what" => what),
             Transfer::Move => t!("status.moved", "what" => what),
             Transfer::Rename => t!("status.renamed", "what" => what),
@@ -2049,14 +3203,11 @@ impl App {
             Transfer::Delete(false) => t!("status.trashed", "what" => what),
             Transfer::Mkdir => t!("status.created", "what" => src.first().map(|p| p.display().to_string()).unwrap_or_default()),
         };
+        // How many of them went through, and how many did not.
         let fail = match op {
-            Transfer::Copy => t!("error.copy", "what" => what),
-            Transfer::Move => t!("error.move", "what" => what),
             Transfer::Rename => t!("error.rename", "what" => what),
-            Transfer::Extract => t!("error.extract", "what" => what),
-            Transfer::Delete(true) => t!("error.delete", "what" => what),
-            Transfer::Delete(false) => t!("error.trash", "what" => what),
             Transfer::Mkdir => t!("error.create", "what" => src.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+            _ => coxswain_core::undo::failure_title(job_op(Some(op)), &what, src.len(), failed.len()),
         };
         self.after_op(ok + &hint, fail, errors);
         if let Some((side, n)) = select {
@@ -2078,7 +3229,7 @@ impl App {
     /// Ctrl+Z: undo the newest operation in the history, on the job's thread, as it ran.
     fn undo_last(&mut self) {
         if let Some(j) = &self.job {
-            return self.status = Some(j.line.clone());
+            return self.status = Some(j.shown());
         }
         let Some(rec) = self.undo.pop() else { return self.status = Some(t!("undo.nothing")) };
         self.forget(&rec.touched());
@@ -2089,7 +3240,7 @@ impl App {
             let _ = tx.send(JobMsg::Undone(u));
         });
         self.status = Some(line.clone());
-        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx });
+        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: None });
     }
 
     fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
@@ -2108,15 +3259,20 @@ impl App {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.peek(path);
+                self.asked_again();
             }
             Prompt::Unlock(side, dir) => {
                 if let Some((archive, _)) = coxswain_core::archive::split(&dir) {
                     coxswain_core::archive::remember(&archive, &value);
                 }
                 self.cd(side, dir);
+                self.asked_again();
             }
             Prompt::Rename(_) if value.trim().is_empty() => {}
             Prompt::Rename(src) => {
+                // The text as it was shown: nothing to rename.
+                let name = src.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                let Some(value) = coxswain_core::rename::typed(&name, &value) else { return };
                 let dst = resolve(&base, &value);
                 let one = (dst.parent() == Some(base.as_path())).then(|| dst.file_name().unwrap_or_default().to_string_lossy().into_owned());
                 self.transfer(Transfer::Rename, vec![src], dst, None, one);
@@ -2163,6 +3319,18 @@ impl App {
                     self.status = Some(t!("status.not_dir", "dir" => d.display()));
                 }
             }
+            Prompt::Clip(files) => match coxswain_core::media::clip(&value) {
+                Some(op) => self.media_ask(op, files),
+                None => self.status = Some(t!("media.clip_bad")),
+            },
+            Prompt::SplitSize(file) => match coxswain_core::split::parse_size(&value) {
+                Some(size) => self.split_start(file, size),
+                None => self.status = Some(t!("split.size_bad")),
+            },
+            Prompt::Resize(files) => match coxswain_core::media::Op::parse(&format!("resize:{}", value.trim())) {
+                Some(op) => self.media_ask(op, files),
+                None => self.status = Some(t!("media.resize_bad")),
+            },
             Prompt::Flags(path) => {
                 let on: Vec<&str> = value.split([' ', ',']).filter(|s| !s.is_empty()).collect();
                 let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
@@ -2172,11 +3340,12 @@ impl App {
                 });
             }
             Prompt::Mark(sel) => {
-                let pats: Vec<Vec<u8>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().into_bytes()).collect();
+                // By letters, not bytes: `?` is one "æ" or "日", as in the desktop app.
+                let pats: Vec<Vec<char>> = value.split([' ', ';', ',']).filter(|s| !s.is_empty()).map(|s| s.to_lowercase().chars().collect()).collect();
                 let p = self.panel_mut();
                 for e in p.entries.iter().filter(|e| !e.is_dir) {
-                    let name = e.name.to_lowercase();
-                    if pats.iter().any(|g| index::glob(g, name.as_bytes())) {
+                    let name: Vec<char> = e.name.to_lowercase().chars().collect();
+                    if pats.iter().any(|g| index::glob(g, &name)) {
                         if sel {
                             p.marked.insert(e.path.clone());
                         } else {
@@ -2321,8 +3490,8 @@ impl App {
                 Err(e) => Err(e),
                 // Stopped while searching: the model is not asked.
                 Ok(_) if stop.load(Ordering::SeqCst) => Ok(()),
-                Ok(sources) => {
-                    let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect(), coxswain_core::ask::read(&sources)));
+                Ok((sources, similar)) => {
+                    let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect(), similar, coxswain_core::ask::read(&sources)));
                     index.answer(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
                 }
             };
@@ -2340,10 +3509,7 @@ impl App {
 
     fn dialog_key(&mut self, key: Key) {
         let action = self.keymap.get(&key).copied();
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let ch = typed(&key);
         let esc = key.code == KeyCode::Esc || action == Some(Action::Quit);
         let Some(dialog) = self.dialog.take() else { return };
         // F1 in a dialog: Features, at what it is about; Esc comes back.
@@ -2379,11 +3545,42 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Confirm { title, text, paths, forever }),
             },
+            Dialog::Media { title, text, op, files } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.media_start(op, files),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Media { title, text, op, files }),
+            },
+            Dialog::Ebook { title, text, to, books } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.ebook_start(to, books),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Ebook { title, text, to, books }),
+            },
+            Dialog::Transcribe { title, text, files } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
+                    self.status = Some(match self.index.transcribe(&files) {
+                        Some(n) => t!("whisper.taken", "n" => n, "key" => self.key_label(Action::Settings)),
+                        None => t!("whisper.no_helper"),
+                    });
+                }
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Transcribe { title, text, files }),
+            },
+            Dialog::Export { title, text, op, files } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.export_start(op, files),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Export { title, text, op, files }),
+            },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Searchable { title, text, pdfs }),
             },
+            Dialog::VirusScan { title, text, targets } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.viruses_start(targets),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::VirusScan { title, text, targets }),
+            },
+            Dialog::Viruses(v) => self.viruses_key(v, key.code, ch, esc),
             Dialog::Switch { title, text, dir, entry } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
                     let r = coxswain_core::branches::switch(&dir, &entry);
@@ -2458,7 +3655,7 @@ impl App {
                         }
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
-                            if coxswain_core::chess::format(&hit.path) == Some(coxswain_core::chess::Format::Pgn)
+                            if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa | coxswain_core::chess::Format::Pbn))
                                 && let Some(snippet) = hit.snippet.clone()
                             {
                                 let path = hit.path.clone();
@@ -2490,7 +3687,7 @@ impl App {
                             self.find_dismissed.push(id.to_string());
                         }
                     }
-                    _ if matches!(action, Some(Action::View | Action::Edit)) => {
+                    _ if matches!(action, Some(Action::View | Action::Edit | Action::EditHere)) => {
                         let path = if answer {
                             sources.get(cursor).cloned()
                         } else {
@@ -2501,6 +3698,14 @@ impl App {
                         };
                         if let Some(path) = path {
                             self.view_or_edit(action.unwrap(), &path);
+                            // The built-in viewer or editor over the search, which comes back
+                            // as it was when it closes.
+                            let search = Box::new(Dialog::Search { query, chip, here, found, cursor, offset, show });
+                            match &mut self.dialog {
+                                Some(Dialog::View { back, .. } | Dialog::Edit { back, .. }) => *back = Some(search),
+                                _ => self.dialog = Some(*search),
+                            }
+                            return;
                         }
                     }
                     (KeyCode::Up, _) if answer => cursor = cursor.saturating_sub(1),
@@ -2510,6 +3715,11 @@ impl App {
                     (KeyCode::PageUp, _) => cursor = find::step(&rows, cursor, -10),
                     (KeyCode::PageDown, _) => cursor = find::step(&rows, cursor, 10),
                     (KeyCode::Backspace, _) => requery = query.pop().is_some() && !answer,
+                    // Ctrl+U clears the field, as in every prompt.
+                    (KeyCode::Char('u'), None) if key.ctrl => {
+                        requery = !query.is_empty() && !answer;
+                        query.clear();
+                    }
                     (_, Some(c)) => {
                         query.push(c);
                         requery = show != Show::Answer;
@@ -2570,6 +3780,24 @@ impl App {
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
+                    Some(MenuRun::Export(op, files)) => self.export_ask(*op, files.clone()),
+                    Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
+                    Some(MenuRun::Ebook(to, books)) => self.ebook_ask(Some(to), books.clone()),
+                    Some(MenuRun::Sums(algo, files)) => self.sums_make(*algo, files.clone()),
+                    Some(MenuRun::Drop(src, mv)) => {
+                        let dst = self.panel().dir.clone();
+                        self.transfer(if *mv { Transfer::Move } else { Transfer::Copy }, src.clone(), dst, None, None);
+                    }
+                    Some(MenuRun::Split(file, Some(size))) => self.split_start(file.clone(), *size),
+                    Some(MenuRun::Split(file, None)) => self.input(&self.action_label(Action::SplitFile), t!("split.size_label"), "250M".into(), Prompt::SplitSize(file.clone())),
+                    Some(MenuRun::Join(first, replace)) => self.join_start(first.clone(), *replace),
+                    Some(MenuRun::PreviewTool(kind, choice)) => self.preview_tool(kind, choice),
+                    Some(MenuRun::CopyLine(line)) => {
+                        crate::guide::copy(line);
+                        self.status = Some(t!("guide.copied", "command" => line));
+                    }
+                    Some(MenuRun::SettingsAt(at)) => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, at)))),
+                    Some(MenuRun::Folders(r)) => self.folders_run(*r),
                     None => self.dialog = Some(Dialog::Menu { title, filter, items, cursor, direct, feature }),
                 }
             }
@@ -2607,6 +3835,11 @@ impl App {
                 _ => {}
             },
             Dialog::Message { .. } => {}
+            Dialog::Refused { line, .. } if key.code == KeyCode::Enter => match Config::path() {
+                Some(path) => self.edit_at(&path, line),
+                None => self.status = Some(t!("err.no_config_folder")),
+            },
+            Dialog::Refused { .. } => {}
             Dialog::Settings(s) => self.settings_key(s, key, action),
             Dialog::Guide(g) => self.guide_key(g, key, esc),
             Dialog::Bom(mut v) => match v.key(key, action == Some(Action::Quit)) {
@@ -2631,15 +3864,51 @@ impl App {
                 viewer::Outcome::Stay => self.dialog = Some(Dialog::View { v, back }),
                 viewer::Outcome::Close => self.dialog = back.map(|b| *b),
                 // Back to the BOM or provenance it was opened from, once the editor ends.
-                viewer::Outcome::Edit(file) => {
-                    self.view_or_edit(Action::Edit, &file);
-                    self.dialog = back.map(|b| *b);
+                viewer::Outcome::Edit(file, a) => {
+                    self.view_or_edit(a, &file);
+                    match &mut self.dialog {
+                        Some(Dialog::Edit { back: b, .. }) => *b = back,
+                        _ => self.dialog = back.map(|b| *b),
+                    }
                 }
                 viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),
+                // A facts card's file as it is (hex for a model); Esc comes back to the card.
+                viewer::Outcome::Original(file) => self.view_in(&file, Some(Box::new(Dialog::View { v, back }))),
+            },
+            Dialog::Edit { mut e, back } => match e.key(key, action) {
+                editor::Outcome::Stay => self.dialog = Some(Dialog::Edit { e, back }),
+                editor::Outcome::Close => {
+                    self.dialog = back.map(|b| *b);
+                    self.reload();
+                }
+                editor::Outcome::Copy(text) => {
+                    guide::copy(&text);
+                    self.dialog = Some(Dialog::Edit { e, back });
+                }
+            },
+            Dialog::Compare(mut v) => match v.key(key, action) {
+                compare::Outcome::Stay => self.dialog = Some(Dialog::Compare(v)),
+                compare::Outcome::Close => self.reload(),
             },
             Dialog::Chess(mut v) => match v.key(key, action) {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Chess(v)),
                 chess::Outcome::Close => {}
+                // Find this position: another file's game.
+                chess::Outcome::Open(path, game) => match chess::Viewer::open(&path, &self.cfg, &self.theme) {
+                    Ok(next) => {
+                        let mut next = next.with_index(self.index.clone());
+                        next.at_game(game);
+                        self.dialog = Some(Dialog::Chess(Box::new(next)));
+                    }
+                    Err(e) => {
+                        self.status = Some(e.to_string());
+                        self.dialog = Some(Dialog::Chess(v));
+                    }
+                },
+            },
+            Dialog::Go(mut v) => match v.key(key, action) {
+                chess::Outcome::Stay => self.dialog = Some(Dialog::Go(v)),
+                chess::Outcome::Close | chess::Outcome::Open(..) => {}
             },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
@@ -2724,12 +3993,64 @@ impl App {
         }
     }
 
+    /// Text the terminal pasted (bracketed paste): into the editor as it is; anywhere else
+    /// as the keys it was typed with before, a line break as Enter.
+    fn on_paste(&mut self, text: &str) {
+        if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
+            return e.paste(text);
+        }
+        // Files dropped on the terminal come as their paths: copy or move them into the panel.
+        if self.dialog.is_none()
+            && self.cmdline.is_empty()
+            && let Some(src) = coxswain_core::drag::dropped(text)
+        {
+            return self.dropped(src);
+        }
+        for c in text.replace("\r\n", "\n").chars() {
+            let code = match c {
+                '\n' | '\r' => KeyCode::Enter,
+                '\t' => KeyCode::Tab,
+                c => KeyCode::Char(c),
+            };
+            self.key_typed(Key::new(code, false, false, false));
+        }
+    }
+
+    /// The menu for files dropped on the terminal: Copy here, Move here.
+    fn dropped(&mut self, src: Vec<PathBuf>) {
+        let dir = self.panel().dir.clone();
+        if let Some(key) = coxswain_core::drag::read_only(&dir) {
+            return self.status = Some(t!(key));
+        }
+        let folder = dir.file_name().map_or_else(|| dir.display().to_string(), |n| n.to_string_lossy().into_owned());
+        let title = t!("app.drop_title", "what" => Self::describe(&src), "folder" => ui::printable(&folder));
+        let item = |key: &str, label, mv| MenuItem { key: key.into(), label, run: MenuRun::Drop(src.clone(), mv), group: None };
+        let items = vec![item("c", t!("app.copy_here"), false), item("m", t!("app.move_here"), true)];
+        self.dialog = Some(Dialog::Menu { title, filter: String::new(), items, cursor: 0, direct: true, feature: "drag_and_drop" });
+    }
+
     fn on_mouse(&mut self, m: MouseEvent) {
         self.hint_stale = true;
         if let Some(Dialog::View { v, .. }) = &mut self.dialog {
             match m.kind {
                 MouseEventKind::ScrollUp => v.scroll(-3),
                 MouseEventKind::ScrollDown => v.scroll(3),
+                _ => {}
+            }
+            return;
+        }
+        if let Some(Dialog::Compare(v)) = &mut self.dialog {
+            match m.kind {
+                MouseEventKind::ScrollUp => v.scroll(-3),
+                MouseEventKind::ScrollDown => v.scroll(3),
+                _ => {}
+            }
+            return;
+        }
+        if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
+            match m.kind {
+                MouseEventKind::ScrollUp => e.scroll(-3),
+                MouseEventKind::ScrollDown => e.scroll(3),
                 _ => {}
             }
             return;
@@ -2777,7 +4098,8 @@ impl App {
     /// (the cursor stays on its name), and git's line when anything did, its `.git` too.
     fn follow_disk(&mut self) {
         let mut want: Vec<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
-        want.extend(self.panels.iter().filter_map(|p| p.git.as_ref()).map(|g| g.root.join(".git")).filter(|g| g.is_dir()));
+        // Jujutsu's operation heads change with every jj command.
+        want.extend(self.panels.iter().filter_map(|p| p.git.as_ref()).flat_map(|g| [g.root.join(".git"), g.root.join(".hg/store"), g.root.join(".jj/repo/op_heads/heads")]).filter(|g| g.is_dir()));
         want.dedup();
         self.watch.set(want);
         let paths = self.watch.changed();
@@ -2814,7 +4136,7 @@ impl App {
             return;
         }
         self.hint_stale = false;
-        let s = self.panel().subject();
+        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, ..self.panel().subject() };
         if self.hint_for.as_ref() == Some(&s) {
             return;
         }
@@ -2852,6 +4174,7 @@ impl App {
     }
 
     fn tick(&mut self, last_state: &mut State) {
+        self.poll_folders();
         if matches!(self.dialog, Some(Dialog::Search { .. })) && self.slow.0.is_none_or(|at| at.elapsed() >= Duration::from_secs(1)) {
             let poor = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);
             self.slow = (Some(Instant::now()), poor);
@@ -2867,7 +4190,13 @@ impl App {
         }
         while let Ok((dir, folder, bytes)) = self.sizes_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
-                p.sizes.insert(folder.clone(), bytes);
+                p.sized(folder.clone(), bytes);
+            }
+        }
+        // At most four sorts a second while a folder of thousands is measured.
+        for p in &mut self.panels {
+            if p.resort_due.is_some_and(|at| at.elapsed() >= Duration::from_millis(250)) {
+                p.resort();
             }
         }
         while let Ok((generation, now)) = self.search_rx.try_recv() {
@@ -2898,7 +4227,7 @@ impl App {
         while let Some(msg) = self.ask_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             let Some(turn) = self.chat.last_mut() else { break };
             match msg {
-                AskMsg::Sources(paths, read) => (turn.sources, turn.read) = (paths, read),
+                AskMsg::Sources(paths, similar, read) => (turn.sources, turn.similar, turn.read) = (paths, similar, read),
                 AskMsg::Piece(text) => turn.answer.push_str(&text),
                 AskMsg::Done(done) => {
                     turn.error = done.err();
@@ -2938,6 +4267,16 @@ impl App {
         self.poll_job();
         self.poll_searchable();
         self.poll_searchable_plan();
+        self.poll_export();
+        self.poll_export_plan();
+        self.poll_media();
+        self.poll_media_plan();
+        self.poll_ebook();
+        self.poll_ebook_plan();
+        self.poll_work();
+        self.poll_transcribe_plan();
+        self.poll_viruses();
+        self.poll_viruses_plan();
         self.follow_disk();
         while let Ok((dir, news)) = self.git_rx.try_recv() {
             for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
@@ -2983,6 +4322,17 @@ impl App {
     }
 }
 
+/// The letter a key types, if it types one. Alt Gr letters (@ { \ € on German and Nordic
+/// keyboards, ą ł on Polish) come from Windows terminals as Ctrl+Alt with the letter itself,
+/// which is never one of the plain letters or digits a Ctrl+Alt shortcut uses.
+fn typed(key: &Key) -> Option<char> {
+    match key.code {
+        KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
+        KeyCode::Char(c) if key.ctrl && key.alt && !c.is_ascii_alphanumeric() && !c.is_control() => Some(c),
+        _ => None,
+    }
+}
+
 fn to_key(ev: KeyEvent) -> Option<Key> {
     if ev.kind == KeyEventKind::Release {
         return None;
@@ -3015,13 +4365,16 @@ fn to_key(ev: KeyEvent) -> Option<Key> {
 
 /// Leave the TUI, run `f` on the plain terminal, and come back.
 fn suspended(term: &mut DefaultTerminal, f: impl FnOnce()) -> std::io::Result<()> {
-    use ratatui::crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+    use ratatui::crossterm::event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture};
     let mut out = std::io::stdout();
+    // Bracketed paste where the terminal has it (not the old Windows console).
+    let _ = execute!(out, DisableBracketedPaste);
     execute!(out, DisableMouseCapture, terminal::LeaveAlternateScreen, cursor::Show)?;
     terminal::disable_raw_mode()?;
     f();
     terminal::enable_raw_mode()?;
     execute!(out, terminal::EnterAlternateScreen, EnableMouseCapture)?;
+    let _ = execute!(out, EnableBracketedPaste);
     term.clear()
 }
 
@@ -3069,7 +4422,15 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() || app.export.is_some() || app.viruses.is_some() {
+        // An error on the status line in plain words, its first line only; the whole of it
+        // goes to helper.log.
+        if let Some(s) = &app.status {
+            let p = coxswain_core::fs::plain(s);
+            if &p != s {
+                app.status = Some(p);
+            }
+        }
         term.draw(|f| ui::draw(f, app))?;
         match app.run.take() {
             Some(Run::Shell { line, typed, dir, wait }) => {
@@ -3112,10 +4473,22 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             || app.ask_check_rx.is_some()
             || matches!(&app.dialog, Some(Dialog::View { v, .. }) if v.busy());
         if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
-            match event::read()? {
-                Event::Key(k) => app.on_key(k),
-                Event::Mouse(m) => app.on_mouse(m),
-                _ => {}
+            let first = event::read()?;
+            // An Esc read in one go with the key after it took that key's Esc too (crossterm):
+            // the key is put back together rather than typed as its letters.
+            let rest = match &first {
+                Event::Key(k) if k.code == CK::Esc && k.kind == KeyEventKind::Press && k.modifiers.is_empty() => {
+                    split_escape::after_esc(|| event::poll(Duration::ZERO).unwrap_or(false).then(event::read).and_then(Result::ok))
+                }
+                _ => Vec::new(),
+            };
+            for e in std::iter::once(first).chain(rest) {
+                match e {
+                    Event::Key(k) => app.on_key(k),
+                    Event::Mouse(m) => app.on_mouse(m),
+                    Event::Paste(text) => app.on_paste(&text),
+                    _ => {}
+                }
             }
         }
         app.tick(&mut state);
@@ -3171,7 +4544,7 @@ fn languages() {
             println!("{}", t!(group));
         }
         let current = if l.code == i18n::language() { format!("  ({})", t!("app.current")) } else { String::new() };
-        let new = if l.new { format!("  {}", t!("news.new")) } else { String::new() };
+        let new = if l.new() { format!("  {}", t!("news.new")) } else { String::new() };
         println!("  {:<6} {}{new}{current}", l.code, l.name);
     }
     println!("\nlanguage = \"…\" in {}", Config::path().map(|p| p.display().to_string()).unwrap_or_else(|| "config.toml".into()));
@@ -3211,7 +4584,7 @@ fn index_service(on: Option<&str>) {
         eprintln!("coxswain: {e}");
         std::process::exit(1)
     }
-    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+    Client::start(&Config::load_search()).restart();
 }
 
 /// A command line option that could not be done: why, and the exit code.
@@ -3248,7 +4621,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
     };
     // Another model for the vectors reads every file's meaning again: said, and asked, first.
     let confirm = |change: &dyn Fn(&mut coxswain_core::config::SearchConfig)| {
-        let old = Config::load().map(|c| c.search).unwrap_or_default();
+        let old = Config::load_search();
         let mut new = old.clone();
         change(&mut new);
         let st = Client::start(&old).status();
@@ -3280,7 +4653,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         Some("server") => {
             let (Some(url), Some(model)) = (rest.first(), rest.get(1)) else { fail(t!("tui.meaning_server_usage")) };
             confirm(&|c| (c.meaning_engine, c.meaning_url, c.meaning_model) = ("openai".into(), url.clone(), model.clone()));
-            let key = meaning::key_of(&Config::load().map(|c| c.search).unwrap_or_default());
+            let key = meaning::key_of(&Config::load_search());
             meaning::server_models(true, url, key.as_deref()).unwrap_or_else(|e| fail(e));
             save("meaning_engine", "openai");
             save("meaning_url", url);
@@ -3305,7 +4678,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
         // The model's speed on a few passages, and what the files to go take at it; another
         // server is tried without a change: `--meaning bench http://my-server:8000/api/v1 <model>`.
         Some("bench") => {
-            let saved = Config::load().map(|c| c.search).unwrap_or_default();
+            let saved = Config::load_search();
             let mut cfg = saved.clone();
             if let (Some(url), Some(model)) = (rest.first(), rest.get(1)) {
                 (cfg.meaning_engine, cfg.meaning_url, cfg.meaning_model) = ("openai".into(), url.clone(), model.clone());
@@ -3329,7 +4702,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 if coxswain_core::chat::of(&Config::load().map(|c| c.search.ask_model).unwrap_or_default()).is_some() {
                     save("ask_model", "");
                 }
-                let helper = Client::start(&Config::load().map(|c| c.search).unwrap_or_default());
+                let helper = Client::start(&Config::load_search());
                 for m in coxswain_core::chat::MODELS {
                     m.remove(&helper).unwrap_or_else(|e| fail(e.to_string()));
                 }
@@ -3342,7 +4715,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
                 }
                 return save("ask_model", model);
             }
-            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let search = Config::load_search();
             let openai = search.meaning_engine == "openai";
             let url = if search.meaning_engine == "builtin" { "" } else { search.meaning_url.as_str() };
             let have = meaning::server_models(openai, url, meaning::key_of(&search).as_deref()).unwrap_or_else(|e| fail(e));
@@ -3360,7 +4733,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return save("ask_model", model);
         }
         _ => {
-            let search = Config::load().map(|c| c.search).unwrap_or_default();
+            let search = Config::load_search();
             let on = search.meaning && (search.meaning_engine != "builtin" || meaning::installed());
             println!("{}", if on { "on" } else { "off" });
             // The built-in model: on the GPU (Metal) or on the CPU, and why.
@@ -3370,7 +4743,7 @@ fn meaning(what: Option<&str>, rest: &[String]) {
             return;
         }
     }
-    Client::start(&Config::load().map(|c| c.search).unwrap_or_default()).restart();
+    Client::start(&Config::load_search()).restart();
 }
 
 /// The options, and the values each takes after it (none: it takes none, or any words).
@@ -3605,6 +4978,8 @@ pub fn main() {
         _ => {}
     }
     coxswain_core::fs::lock_down();
+    // What a write of an archive cut short by a crash left beside it.
+    std::thread::spawn(coxswain_core::archive::clean_stale);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
         eprintln!("coxswain: {e}");
@@ -3624,7 +4999,12 @@ pub fn main() {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
     });
-    if let Some(section) = open_settings {
+    // A mistake in config.toml: said first, with the way to its line.
+    let refused = coxswain_core::notices::refused(&app.cfg);
+    if let Some(line) = refused.first().and_then(|n| n.config_line) {
+        let text = refused.into_iter().map(|n| n.text).collect::<Vec<_>>().join("\n");
+        app.dialog = Some(Dialog::Refused { text, line });
+    } else if let Some(section) = open_settings {
         app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, &section))));
     } else if coxswain_core::state::AppState::load().guide_due() {
         app.dialog = Some(Dialog::Guide(Box::default()));
@@ -3634,13 +5014,17 @@ pub fn main() {
     // shell gets mouse escapes after a panic.
     let restore = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |i| {
-        let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
+        let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture, ratatui::crossterm::event::DisableBracketedPaste);
         restore(i)
     }));
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
+    let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableBracketedPaste);
+    pictures::live();
     let res = main_loop(&mut term, &mut app);
+    let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableBracketedPaste);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
     ratatui::restore();
+    coxswain_core::archive::clean_up();
     if let Err(e) = res {
         eprintln!("coxswain: {e}");
     }
@@ -3665,14 +5049,55 @@ fn git_sides(panels: &[Panel; 2], paths: &[PathBuf]) -> Vec<usize> {
         .collect()
 }
 
+/// A folder of a test's own, empty: panels on the shared temp folder would measure, and an
+/// index would walk, everything other programs keep there.
+#[cfg(test)]
+pub(crate) fn test_dir(name: &str) -> PathBuf {
+    let d = std::env::temp_dir().join(format!("coxswain-test-{name}-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    d
+}
+
+/// The app's own index for a test (no helper): over an empty folder, not the whole disk, and
+/// kept in no cache file.
+#[cfg(test)]
+pub(crate) fn test_index(cfg: &Config) -> Arc<Client> {
+    let search = coxswain_core::config::SearchConfig { roots: vec![test_dir("index")], watch: false, ..cfg.search.clone() };
+    Client::with(None, &search, |_| {})
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// The app's tests keep their config, state and caches in a home of their own in the
+    /// temporary folder (`coxswain-core`'s `test-home`), never the developer's own.
+    #[test]
+    fn tests_never_reach_the_real_home() {
+        let mut all = coxswain_core::config::Config::paths();
+        all.push(("home", coxswain_core::dirs::home_dir()));
+        for (what, path) in all {
+            let path = path.unwrap_or_else(|| panic!("{what}: none"));
+            assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
+        }
+    }
+
+    /// Alt Gr letters arrive as Ctrl+Alt from Windows terminals and are typed; Ctrl+Alt with a
+    /// plain letter stays a shortcut.
+    #[test]
+    fn alt_gr_letters_are_typed() {
+        let k = |c, ctrl, alt| Key::new(KeyCode::Char(c), ctrl, alt, false);
+        assert_eq!(typed(&k('@', true, true)), Some('@'));
+        assert_eq!(typed(&k('ą', true, true)), Some('ą'));
+        assert_eq!(typed(&k('a', true, true)), None);
+        assert_eq!(typed(&k('@', true, false)), None);
+        assert_eq!(typed(&k('x', false, false)), Some('x'));
+    }
+
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
     #[test]
     fn unknown_options_and_folders_are_said() {
-        let cwd = std::env::temp_dir();
+        let cwd = crate::test_dir("panels");
         let check = |a: &[&str]| check_args(&a.iter().map(|s| s.to_string()).collect::<Vec<_>>(), &cwd);
         let e = check(&["--model"]).unwrap_err();
         assert!(e.contains("--model") && e.contains("--models?") && e.contains("--help"), "{e}");
@@ -3714,10 +5139,106 @@ mod tests {
     }
 
     /// An app on two folders, with its own index (no helper) and no update check.
+    thread_local! {
+        /// How long a test's app waits for a folder to be listed (`App::list_wait`), from the
+        /// start: long, as tests list small folders and look at them at once, on machines
+        /// that can be slow.
+        pub(super) static LIST_WAIT: std::cell::Cell<Duration> = const { std::cell::Cell::new(Duration::from_secs(10)) };
+        /// What holds a test's listing threads from the start (`App::list_hold`).
+        pub(super) static LIST_HOLD: std::cell::RefCell<Option<Arc<std::sync::RwLock<()>>>> = const { std::cell::RefCell::new(None) };
+    }
+
     fn app(left: PathBuf, right: PathBuf) -> App {
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    /// F2 Rename shows a newline in a name as ␊ and keeps it; text left as shown renames
+    /// nothing. A copy of which one item fails says how many went through.
+    #[cfg(unix)]
+    #[test]
+    fn rename_keeps_control_characters_and_failures_are_counted() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-rename-controls-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("to")).unwrap();
+        let odd = d.join("a\nb.txt");
+        std::fs::write(&odd, "x").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        let wait = |app: &mut App| {
+            let t = Instant::now();
+            while app.job.is_some() && t.elapsed() < coxswain_core::test_limit(Duration::from_secs(10)) {
+                std::thread::sleep(Duration::from_millis(5));
+                app.poll_job();
+            }
+        };
+        app.submit(Prompt::Rename(odd.clone()), "a␊b.txt".into());
+        assert!(app.job.is_none() && odd.exists(), "unchanged: nothing renamed");
+        app.submit(Prompt::Rename(odd.clone()), "c␊b.txt".into());
+        wait(&mut app);
+        assert!(d.join("c\nb.txt").exists() && !odd.exists());
+        app.transfer(Transfer::Copy, vec![d.join("c\nb.txt"), d.join("gone.txt")], d.join("to"), None, None);
+        wait(&mut app);
+        let Some(Dialog::Message { title, .. }) = &app.dialog else { panic!("no failure shown: {:?}", app.status) };
+        assert_eq!(title, &coxswain_core::undo::failure_title(coxswain_core::undo::Op::Copy, "", 2, 1));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// The user-test round's terminal fixes: Find's F3 and Ctrl+U, a history refusing changes
+    /// at once, `?` as one letter, a wrong password said, an editor that is not there.
+    #[test]
+    fn find_views_a_hit_a_history_refuses_and_a_missing_editor_is_said() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-usertest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["ø.txt", "ab.txt", "a.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        let mut app = app(d.clone(), d.clone());
+        let k = |c: KeyCode, ctrl: bool| Key::new(c, ctrl, false, false);
+        // F3 on a hit: the built-in viewer, and Find again after it.
+        let mut found = Found::default();
+        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None }];
+        found.names.total = 1;
+        let cursor = app.find_rows("a", Kind::All, &found).iter().position(|r| matches!(r, Row::Hit { .. })).unwrap();
+        app.dialog = Some(Dialog::Search { query: "a".into(), chip: Kind::All, here: false, found, cursor, offset: 0, show: Show::List });
+        app.dialog_key(k(KeyCode::F(3), false));
+        let Some(Dialog::View { back: Some(back), .. }) = &app.dialog else { panic!("not viewed") };
+        assert!(matches!(**back, Dialog::Search { .. }));
+        app.dialog_key(k(KeyCode::Esc, false));
+        // Ctrl+U clears Find's field.
+        assert!(matches!(&app.dialog, Some(Dialog::Search { query, .. }) if query == "a"), "back at Find");
+        app.dialog_key(k(KeyCode::Char('u'), true));
+        assert!(matches!(&app.dialog, Some(Dialog::Search { query, .. }) if query.is_empty()));
+        app.dialog = None;
+        // `?` is one letter, also outside ASCII.
+        app.submit(Prompt::Mark(true), "?.txt".into());
+        let marked: Vec<String> = app.panels[0].marked.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+        assert_eq!(marked.len(), 2, "{marked:?}");
+        assert!(marked.contains(&"ø.txt".to_string()) && marked.contains(&"a.txt".to_string()));
+        app.panels[0].clear_marks();
+        // In a history, F8, F7, F6 say read-only at once: no question first.
+        app.panels[0].dir = d.join("@history");
+        for a in [Action::Delete, Action::DeleteForever, Action::NewFolder, Action::Move, Action::Rename] {
+            app.act(a);
+            assert!(app.dialog.is_none(), "{a:?} asked");
+            assert_eq!(app.status.as_deref(), Some(t!("history.read_only").as_str()), "{a:?}");
+        }
+        app.panels[0].dir = d.clone();
+        // A password that did not open it: the box says so.
+        app.dialog = Some(Dialog::Input { title: String::new(), label: t!("archive.locked_label"), value: String::new(), prompt: Prompt::Peek(d.join("x.zip").join("a")) });
+        app.asked_again();
+        assert!(matches!(&app.dialog, Some(Dialog::Input { label, .. }) if *label == t!("archive.locked_again")));
+        app.dialog = None;
+        // An editor that is not installed: the status line names it, nothing runs.
+        app.cfg.editor = Some("no-such-editor-coxswain --wait".into());
+        let at = app.panels[0].entries.iter().position(|e| e.name == "a.txt").unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::Edit);
+        assert!(app.run.is_none());
+        assert!(app.status.as_deref().is_some_and(|s| s.contains("no-such-editor-coxswain")), "{:?}", app.status);
+        // The viewer's reading thread may still hold a.txt open: Windows refuses to remove it then.
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]
@@ -3883,6 +5404,63 @@ mod tests {
         let _ = std::fs::remove_dir_all(d);
     }
 
+    /// A folder not listed within `list_wait` (a million files) does not hold the keys: the
+    /// panel shows `..` and the status line says it is being read, until the listing comes.
+    #[test]
+    fn a_slow_folder_is_listed_on_a_thread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-slow-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("big/inner")).unwrap();
+        std::fs::write(d.join("big/a.txt"), "a").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        app.list_wait = Duration::ZERO;
+        // The listing waits until the panel has been looked at meanwhile.
+        let hold = Arc::new(std::sync::RwLock::new(()));
+        let held = hold.write().unwrap();
+        app.list_hold = Some(hold.clone());
+        app.cd(0, d.join("big"));
+        let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&app), [".."], "only the way out while it is read");
+        assert!(app.status.is_some(), "the status line says it is being read");
+        drop(held);
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert_eq!(names(&app), ["..", "inner", "a.txt"]);
+        assert!(app.status.is_none(), "and no longer says so");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// The app starts drawing at once on a folder slow to list: both panels show `..` and the
+    /// status line says it is being read, keys answer, and one listing fills both panels.
+    #[test]
+    fn the_first_panels_are_listed_on_a_thread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-slowstart-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("big/inner")).unwrap();
+        std::fs::write(d.join("big/a.txt"), "a").unwrap();
+        LIST_WAIT.set(Duration::ZERO);
+        // The listing waits until the panels have been looked at meanwhile.
+        let hold = Arc::new(std::sync::RwLock::new(()));
+        let held = hold.write().unwrap();
+        LIST_HOLD.set(Some(hold.clone()));
+        let mut app = app(d.join("big"), d.join("big"));
+        LIST_WAIT.set(Duration::from_secs(10));
+        LIST_HOLD.set(None);
+        let names = |app: &App, side: usize| app.panels[side].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        assert_eq!((names(&app, 0), names(&app, 1)), (vec!["..".to_string()], vec!["..".to_string()]), "only the way out while it is read");
+        assert!(app.status.is_some(), "the status line says it is being read");
+        app.key_typed(Key::new(KeyCode::Tab, false, false, false));
+        assert_eq!(app.active, 1, "a key answers meanwhile");
+        drop(held);
+        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        app.listed(dir, keep, r);
+        assert_eq!(names(&app, 0), ["..", "inner", "a.txt"]);
+        assert_eq!(names(&app, 1), ["..", "inner", "a.txt"], "one listing, both panels");
+        assert!(app.status.is_none(), "and no longer says so");
+        assert!(app.list_rx.recv_timeout(Duration::from_millis(300)).is_err(), "the folder was listed once");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
     #[test]
     fn a_history_is_listed_on_a_thread_and_walks_up_when_there_is_none() {
         let d = std::env::temp_dir().join(format!("coxswain-test-hist-{}", std::process::id()));
@@ -3907,10 +5485,10 @@ mod tests {
     /// hung on a dead network mount).
     #[test]
     fn a_second_quit_leaves_a_hung_job() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (_tx, rx) = mpsc::channel();
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
         app.act(Action::Quit);
         assert!(app.quit && app.job.is_some(), "the first waits");
         assert!(app.status.as_deref().is_some_and(|s| s.contains("F10")), "{:?}", app.status);
@@ -3921,7 +5499,7 @@ mod tests {
     /// Quit while Make PDF searchable runs stops it and waits for it to end.
     #[test]
     fn quit_stops_make_pdf_searchable_and_waits() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         let (tx, rx) = mpsc::channel();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -3938,15 +5516,36 @@ mod tests {
     /// can still quit.
     #[test]
     fn a_job_whose_thread_died_is_let_go() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (tx, rx) = mpsc::channel();
         tx.send(JobMsg::At(0)).unwrap();
         drop(tx);
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
         app.poll_job();
         assert!(app.job.is_none());
         assert!(matches!(app.dialog, Some(Dialog::Message { .. })), "and says so");
+    }
+
+    /// Esc on the progress line stops the file operation: the line says it is stopping, and
+    /// then how far it got.
+    #[test]
+    fn esc_on_the_progress_line_stops_the_job() {
+        let d = crate::test_dir("panels");
+        let mut app = app(d.clone(), d.clone());
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d.clone(), password: None, select: None, line: "busy".into(), rx, stop: Some(stop.clone()) });
+        assert!(app.job.as_ref().unwrap().shown().contains("Esc"), "the line says Esc stops it");
+        app.key_typed(Key::new(KeyCode::Esc, false, false, false));
+        assert!(stop.load(std::sync::atomic::Ordering::Relaxed), "stopped");
+        assert!(app.status.as_ref().is_some_and(|s| s.contains(&t!("searchable.stopping"))), "{:?}", app.status);
+        let line = coxswain_core::undo::stopped_line(coxswain_core::undo::Op::Copy, 1, 3);
+        tx.send(JobMsg::Done(vec![], coxswain_core::undo::Record::new(coxswain_core::undo::Kind::Copy), Some(line.clone()))).unwrap();
+        app.poll_job();
+        assert!(app.job.is_none());
+        assert_eq!(app.status.as_deref(), Some(line.as_str()));
+        assert!(line.contains('1') && line.contains('3'), "{line}");
     }
 
     /// A folder not in a commit: back to the commit, which is read on a thread too, and the
@@ -3984,7 +5583,7 @@ mod tests {
 
     #[test]
     fn find_keys_switch_kind_scope_and_view() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         let k = |c: KeyCode, ctrl: bool, alt: bool, shift: bool| Key::new(c, ctrl, alt, shift);
         let state = |app: &App| match &app.dialog {
@@ -4031,7 +5630,7 @@ mod tests {
 
     #[test]
     fn tab_in_the_pack_prompt_swaps_the_format() {
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d);
         app.input("Pack", String::new(), "/x/rocket.zip".into(), Prompt::Pack(vec![]));
         let value = |app: &App| match &app.dialog {
@@ -4123,14 +5722,30 @@ mod perf {
 mod panel_tests {
     use super::*;
 
+    #[test]
+    fn a_file_dropped_on_the_terminal_asks_copy_or_move_and_text_is_typed() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-paste-drop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("here")).unwrap();
+        let f = d.join("a b.txt");
+        std::fs::write(&f, "a").unwrap();
+        let mut app = App::new(Config::default(), d.join("here"), d.clone()).unwrap();
+        app.on_paste("ls");
+        assert_eq!(app.cmdline, "ls");
+        app.cmdline.clear();
+        app.on_paste(&format!("'{}' ", f.display()));
+        assert!(matches!(&app.dialog, Some(Dialog::Menu { feature: "drag_and_drop", items, .. }) if matches!(&items[0].run, MenuRun::Drop(p, false) if p == &[f.clone()])));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     /// Find's rows are rebuilt every frame: a cursor past the last one (rows gone under it)
     /// goes back onto one, it never stops the app.
     #[test]
     fn finds_cursor_past_the_rows_is_brought_back() {
         use ratatui::backend::TestBackend;
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
         let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
         let mut found = Found::default();
@@ -4148,9 +5763,9 @@ mod panel_tests {
     #[test]
     fn a_menu_on_a_tiny_terminal_draws() {
         use ratatui::backend::TestBackend;
-        let d = std::env::temp_dir();
+        let d = crate::test_dir("panels");
         let cfg = Config { check_updates: false, ..Config::default() };
-        let index = Client::with(None, &cfg.search, |_| {});
+        let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d, index).unwrap();
         let items = vec![MenuItem { key: "1".into(), label: "One".into(), run: MenuRun::Say(String::new()), group: None }];
         app.dialog = Some(Dialog::Menu { title: "M".into(), filter: String::new(), items, cursor: 0, direct: false, feature: "" });
@@ -4159,6 +5774,47 @@ mod panel_tests {
             term.draw(|f| ui::draw(f, &mut app)).unwrap();
         }
         assert_eq!(menu_visible(&[MenuItem { key: "1".into(), label: "Copy".into(), run: MenuRun::Say(String::new()), group: None }], "COP"), [0]);
+    }
+
+    #[test]
+    fn a_measured_folder_sorts_by_size_and_the_cursor_stays() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-size-sort-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        for f in ["big", "mid", "small"] {
+            std::fs::create_dir_all(d.join(f)).unwrap();
+        }
+        std::fs::write(d.join("f.txt"), "x").unwrap();
+        let cfg = Config { check_updates: false, folder_sizes: false, ..Config::default() };
+        let index = crate::test_index(&cfg);
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let names = |app: &App| app.panels[0].entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        let p = &mut app.panels[0];
+        p.sort = SortKey::Size;
+        p.resort();
+        assert_eq!(names(&app), ["..", "big", "mid", "small", "f.txt"], "nothing measured: by name");
+        app.panels[0].cursor = 1;
+        app.panels[0].toggle_mark(1);
+        for (f, n) in [("big", 5u64 << 30), ("mid", 50 << 20), ("small", 1 << 20)] {
+            app.sizes_tx.send((d.clone(), d.join(f), n)).unwrap();
+        }
+        let mut state = app.index.state();
+        app.tick(&mut state);
+        assert_eq!(app.panels[0].marked_bytes, 5 << 30, "a marked folder counts its measured size");
+        app.panels[0].resort_due = Some(Instant::now() - Duration::from_secs(1));
+        app.tick(&mut state);
+        assert_eq!(names(&app), ["..", "big", "mid", "small", "f.txt"]);
+        app.sizes_tx.send((d.clone(), d.join("small"), 9 << 30)).unwrap();
+        app.tick(&mut state);
+        assert!(app.panels[0].resort_due.is_some(), "not at every arrival");
+        app.panels[0].resort_due = Some(Instant::now() - Duration::from_secs(1));
+        app.tick(&mut state);
+        assert_eq!(names(&app), ["..", "small", "big", "mid", "f.txt"]);
+        assert_eq!(app.panels[0].current().map(|e| e.name.as_str()), Some("big"), "the cursor stays on its folder");
+        assert_eq!(app.panels[0].marked_bytes, 5 << 30);
+        // Windows keeps the folder while the app watches it: let it go first, and leave a
+        // folder still held (the temporary folder's own) rather than fail.
+        drop(app);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]
@@ -4226,6 +5882,34 @@ mod wide_letters {
         }
     }
 
+    /// A name with a newline, a tab or an escape in it is drawn with `?` there: the bars stay
+    /// straight, and no control character reaches the terminal.
+    #[cfg(unix)]
+    #[test]
+    fn control_characters_in_names_never_reach_the_terminal() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-ctrl-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for f in ["new\nline.txt", "tab\there.txt", "esc\u{1b}]2;x\u{7}.txt", "plain.txt"] {
+            std::fs::write(d.join(f), "x").unwrap();
+        }
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = Client::with(None, &cfg.search, |_| {});
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let s = draw(&mut app);
+        same_columns(&s, "│", 2..18);
+        assert!(s.iter().flatten().all(|c| !c.chars().any(char::is_control)));
+        assert!(s.iter().any(|r| r.concat().contains("new?line.txt")), "shown as ls shows it");
+        // The delete question names it the same way, on one line.
+        let at = app.panels[0].entries.iter().position(|e| e.name.starts_with("new")).unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::Delete);
+        let s = draw(&mut app);
+        assert!(s.iter().any(|r| r.concat().contains("\"new?line.txt\"")));
+        assert!(s.iter().flatten().all(|c| !c.chars().any(char::is_control)));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn japanese_and_korean_line_up() {
         // The language is the whole process's: the check runs in a process of its own, so
@@ -4248,7 +5932,7 @@ mod wide_letters {
         for lang in ["ja", "ko"] {
             coxswain_core::i18n::set_language(lang);
             let cfg = Config { check_updates: false, ..Config::default() };
-            let index = Client::with(None, &cfg.search, |_| {});
+            let index = crate::test_index(&cfg);
             let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
             app.panels[0].toggle_mark(1);
             let s = draw(&mut app);

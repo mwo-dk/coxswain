@@ -37,7 +37,13 @@ base64 = "0.23"
 # Oniguruma to compile), and two-face's grammars beyond syntect's own (bat's, ~200 languages).
 syntect = { version = "5.3", default-features = false, features = ["parsing", "regex-fancy"] }
 two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }
+# The chess pieces drawn as pictures where the terminal shows them (`pictures`): the SVGs
+# rendered in pure Rust, no fonts, text or raster images.
+resvg = { version = "0.48", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# Tests get a home of their own in the temporary folder (`coxswain_core::dirs`).
+[dev-dependencies]
+coxswain-core = { workspace = true, features = ["test-home"] }
