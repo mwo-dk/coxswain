@@ -21,7 +21,8 @@ pub(crate) fn after_esc(mut next: impl FnMut() -> Option<Event>) -> Vec<Event> {
             _ => None,
         };
         got.push(e);
-        let Some(c) = c else { return got };
+        // No key's sequence has a letter beyond ASCII: given back as typed (and `key` cuts by bytes).
+        let Some(c) = c.filter(char::is_ascii) else { return got };
         if text.is_empty() && !matches!(c, '[' | 'O') {
             return got;
         }
@@ -132,5 +133,15 @@ mod tests {
         assert_eq!(feed(b"\x1b\x1b[x"), rest_as_letters(b"\x1b\x1b[x"));
         assert_eq!(feed(b"\x1b\x1b[2"), rest_as_letters(b"\x1b\x1b[2"));
         assert!(feed(b"\x1b\x1b").is_empty());
+    }
+
+    #[test]
+    fn a_letter_beyond_ascii_after_esc_stays_text() {
+        let ev = |c| Event::Key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+        for typed in [vec!['[', 'é'], vec!['O', 'é'], vec!['[', '1', 'ü', '~']] {
+            let mut q = typed.iter().map(|&c| ev(c));
+            let got = after_esc(|| q.next());
+            assert_eq!(got, typed.iter().take_while(|c| c.is_ascii()).chain(typed.iter().find(|c| !c.is_ascii())).map(|&c| ev(c)).collect::<Vec<_>>());
+        }
     }
 }

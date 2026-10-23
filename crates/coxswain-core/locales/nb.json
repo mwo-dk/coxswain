@@ -1072,6 +1072,7 @@
  "err.is_folder": "{name} er en mappe",
  "err.key_twice": "{key} er gitt til både {a} og {b} under [keys] i config.toml",
  "err.move_check": "{path} endret seg mens den ble flyttet, eller kopien ble for kort, så den blir der den var",
+ "err.move_split": "{error}, og ikke alt kunne flyttes tilbake: en del er i {to}, resten fortsatt i {from}",
  "err.no_application": "Ingen programmer åpner denne filtypen",
  "err.no_cache_folder": "Ingen hurtigbuffermappe",
  "err.no_certificate": "Ingen sertifikater i denne PEM-filen",

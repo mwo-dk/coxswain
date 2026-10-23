@@ -1072,6 +1072,7 @@
  "err.is_folder": "{name} är en mapp",
  "err.key_twice": "{key} är tilldelad både {a} och {b} i [keys] i config.toml",
  "err.move_check": "{path} ändrades medan den flyttades, eller så blev kopian för kort, så den stannar där den var",
+ "err.move_split": "{error}, och allt kunde inte flyttas tillbaka: en del finns i {to}, resten fortfarande i {from}",
  "err.no_application": "Inget program öppnar den här typen av fil",
  "err.no_cache_folder": "Ingen cachemapp",
  "err.no_certificate": "Inget certifikat i den här PEM-filen",

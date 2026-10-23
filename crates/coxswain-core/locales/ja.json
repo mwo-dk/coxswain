@@ -1032,6 +1032,7 @@
  "err.is_folder": "{name} はフォルダーです",
  "err.key_twice": "config.toml の [keys] で {key} が {a} と {b} の両方に割り当てられています",
  "err.move_check": "{path} は移動中に変わったか、コピーが短くなったため、元の場所に残ります",
+ "err.move_split": "{error}。すべては元に戻せませんでした: 一部は {to} に、残りはまだ {from} にあります",
  "err.no_application": "この種類のファイルを開くアプリケーションがありません",
  "err.no_cache_folder": "キャッシュフォルダーがありません",
  "err.no_certificate": "この PEM ファイルに証明書がありません",

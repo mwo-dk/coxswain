@@ -1112,6 +1112,7 @@
  "err.is_folder": "{name} je složka",
  "err.key_twice": "{key} je v [keys] souboru config.toml přiřazena k {a} i k {b}",
  "err.move_check": "{path} se během přesunu změnil, nebo je jeho kopie kratší, takže zůstává, kde byl",
+ "err.move_split": "{error} a ne vše se dalo vrátit: část je v {to}, zbytek stále v {from}",
  "err.no_application": "Tento druh souboru neotevírá žádná aplikace",
  "err.no_cache_folder": "Žádná složka mezipaměti",
  "err.no_certificate": "V tomto souboru PEM není žádný certifikát",

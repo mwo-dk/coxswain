@@ -1072,6 +1072,7 @@
  "err.is_folder": "{name} ist ein Ordner",
  "err.key_twice": "{key} ist in [keys] von config.toml sowohl {a} als auch {b} zugewiesen",
  "err.move_check": "{path} hat sich beim Verschieben geändert, oder die Kopie ist zu kurz: Es bleibt, wo es war",
+ "err.move_split": "{error}, und nicht alles ließ sich zurücklegen: Ein Teil liegt in {to}, der Rest noch in {from}",
  "err.no_application": "Keine Anwendung öffnet diese Art von Datei",
  "err.no_cache_folder": "Kein Cache-Ordner",
  "err.no_certificate": "Kein Zertifikat in dieser PEM-Datei",

@@ -1112,6 +1112,7 @@
  "err.is_folder": "{name} és una carpeta",
  "err.key_twice": "{key} està assignada alhora a {a} i a {b} a [keys] de config.toml",
  "err.move_check": "{path} ha canviat mentre es movia, o la còpia ha quedat curta: es queda on era",
+ "err.move_split": "{error}, i no s’ha pogut tornar tot: una part és a {to} i la resta encara a {from}",
  "err.no_application": "Cap aplicació obre aquest tipus de fitxer",
  "err.no_cache_folder": "No hi ha carpeta de memòria cau",
  "err.no_certificate": "No hi ha cap certificat en aquest fitxer PEM",

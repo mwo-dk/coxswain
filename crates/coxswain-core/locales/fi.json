@@ -1072,6 +1072,7 @@
  "err.is_folder": "{name} on kansio",
  "err.key_twice": "{key} on annettu sekä toiminnolle {a} että {b} config.toml-tiedoston osassa [keys]",
  "err.move_check": "{path} muuttui siirron aikana tai sen kopio jäi lyhyeksi, joten se jää paikalleen",
+ "err.move_split": "{error}, eikä kaikkea saatu takaisin: osa on kohteessa {to}, loput yhä kohteessa {from}",
  "err.no_application": "Mikään sovellus ei avaa tämäntyyppistä tiedostoa",
  "err.no_cache_folder": "Välimuistikansiota ei ole",
  "err.no_certificate": "Tässä PEM-tiedostossa ei ole varmennetta",

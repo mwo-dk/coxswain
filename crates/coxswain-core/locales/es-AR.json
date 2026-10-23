@@ -1112,6 +1112,7 @@
  "err.is_folder": "{name} es una carpeta",
  "err.key_twice": "{key} está asignada a {a} y a {b} a la vez en [keys] de config.toml",
  "err.move_check": "{path} cambió mientras se movía, o su copia quedó corta, así que se queda donde estaba",
+ "err.move_split": "{error}, y no se pudo devolver todo: una parte está en {to} y el resto sigue en {from}",
  "err.no_application": "Ninguna aplicación abre este tipo de archivo",
  "err.no_cache_folder": "No hay carpeta de caché",
  "err.no_certificate": "No hay ningún certificado en este archivo PEM",

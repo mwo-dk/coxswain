@@ -1032,6 +1032,7 @@
  "err.is_folder": "{name}은(는) 폴더입니다",
  "err.key_twice": "config.toml의 [keys]에서 {key}이(가) {a}와(과) {b} 모두에 지정되어 있습니다",
  "err.move_check": "{path}이(가) 이동 중에 바뀌었거나 사본이 짧게 나와서 원래 자리에 남습니다",
+ "err.move_split": "{error}. 전부 되돌리지 못했습니다: 일부는 {to}에, 나머지는 아직 {from}에 있습니다",
  "err.no_application": "이 종류의 파일을 여는 응용 프로그램이 없습니다",
  "err.no_cache_folder": "캐시 폴더 없음",
  "err.no_certificate": "이 PEM 파일에 인증서가 없습니다",
