@@ -25,6 +25,8 @@ pub const MAX_SETUP: usize = 250_000;
 pub const MAX_TEXT: usize = 64 << 10;
 /// The largest board SGF allows.
 pub const MAX_SIZE: u8 = 52;
+/// Values kept of one property (`AB[aa][ab]…`): a full 52 × 52 board's setup fits.
+const MAX_VALUES: usize = 4096;
 
 /// The file endings of SGF files, for the search store.
 pub const ENDINGS: [&str; 1] = [".sgf"];
@@ -93,7 +95,10 @@ impl<'a> Iterator for Lexer<'a> {
                             j += if b[j] == b'\\' { 2 } else { 1 };
                         }
                         let end = j.min(b.len());
-                        values.push(&b[start..end]);
+                        // Read on past the rest: a 52 × 52 board's setup needs 2704.
+                        if values.len() < MAX_VALUES {
+                            values.push(&b[start..end]);
+                        }
                         self.i = (end + 1).min(b.len());
                     }
                     if values.is_empty() {
@@ -298,8 +303,9 @@ fn scan(b: &[u8]) -> (Vec<Info>, bool) {
             }
             Tok::Node => {}
             Tok::Prop(name, values) if depth > 0 => {
-                if nodes == 1 {
-                    for v in values {
+                // The facts of the game: one value each, and at most so many.
+                if nodes == 1 && root.len() < 256 {
+                    if let Some(v) = values.first() {
                         root.push((name.clone(), v));
                     }
                 } else if main && (name == "B" || name == "W") {
@@ -496,6 +502,9 @@ impl Game {
             n = self.nodes[i as usize].parent;
         }
         let mut seen = vec![false; p.stones.len()];
+        // Points looked at for captures: a crafted game of huge groups costs at most this
+        // much (about 50 ms) per board; past it, stones are only put down.
+        let mut budget: u64 = 20_000_000;
         let handicap = self.info.handicap.trim().parse::<u32>().unwrap_or(0);
         for &i in path.iter().rev() {
             let node = &self.nodes[i as usize];
@@ -509,7 +518,7 @@ impl Game {
             }
             if let Some(m) = node.mv {
                 if let Some((x, y)) = m.at {
-                    play(&mut p, &mut seen, m.black, x, y);
+                    play(&mut p, &mut seen, &mut budget, m.black, x, y);
                     p.last = Some((x, y));
                 }
                 p.black_next = !m.black;
@@ -584,7 +593,7 @@ pub fn stars(w: u8, h: u8) -> Vec<(u8, u8)> {
 
 /// A stone of Black (else White) played at `x`, `y`: the other side's groups without a
 /// liberty are taken off, then its own (a suicide, which some rules allow).
-fn play(p: &mut Position, seen: &mut [bool], black: bool, x: u8, y: u8) {
+fn play(p: &mut Position, seen: &mut [bool], budget: &mut u64, black: bool, x: u8, y: u8) {
     let (w, h) = (p.width as usize, p.height as usize);
     let me = if black { 1 } else { 2 };
     let at = y as usize * w + x as usize;
@@ -594,13 +603,19 @@ fn play(p: &mut Position, seen: &mut [bool], black: bool, x: u8, y: u8) {
         [(x > 0).then(|| i - 1), (x + 1 < w).then(|| i + 1), (y > 0).then(|| i - w), (y + 1 < h).then(|| i + w)].into_iter().flatten()
     };
     // A group without liberties, taken off: how many stones.
-    let take = |p: &mut Position, seen: &mut [bool], from: usize| -> u32 {
+    let take = |p: &mut Position, seen: &mut [bool], budget: &mut u64, from: usize| -> u32 {
         let colour = p.stones[from];
         let mut group = vec![from];
         let mut stack = vec![from];
         seen[from] = true;
         let mut free = false;
-        while let Some(i) = stack.pop() {
+        // Done at its first liberty; out of budget counts as one.
+        while !free && let Some(i) = stack.pop() {
+            if *budget == 0 {
+                free = true;
+                break;
+            }
+            *budget -= 1;
             for n in neighbours(i) {
                 match p.stones[n] {
                     0 => free = true,
@@ -627,12 +642,12 @@ fn play(p: &mut Position, seen: &mut [bool], black: bool, x: u8, y: u8) {
     let mut taken = 0;
     for n in neighbours(at) {
         if p.stones[n] == 3 - me {
-            taken += take(p, seen, n);
+            taken += take(p, seen, budget, n);
         }
     }
     p.captures[(!black) as usize] += taken;
     if taken == 0 {
-        let lost = take(p, seen, at);
+        let lost = take(p, seen, budget, at);
         p.captures[black as usize] += lost;
     }
 }
@@ -826,6 +841,27 @@ mod tests {
             .unwrap()
             .join()
             .unwrap();
+    }
+
+    /// Millions of values to one property, and a board of one group played on and on: a
+    /// few thousand values kept, each board made in bounded time.
+    #[test]
+    fn endless_values_and_huge_groups_stay_cheap() {
+        // Millions of values to one property: a few thousand kept.
+        let t = format!("(;A{}B[ok])", "[]".repeat(1_000_000));
+        let (games, _) = scan(t.as_bytes());
+        assert_eq!(games.len(), 1);
+        let n = lex(t.as_bytes()).map(|(_, tok)| match tok {
+            Tok::Prop(_, v) => v.len(),
+            _ => 0,
+        });
+        assert!(n.max().unwrap() <= MAX_VALUES);
+        // A board filled with one group, played on again and again: capped in time.
+        let t = format!("(;SZ[52]AB[aa:ZY]{})", ";B[aa];W[]".repeat(125_000));
+        let g = parse(t.as_bytes());
+        let start = std::time::Instant::now();
+        let _ = g.position(g.end_of_line(0));
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(3)));
     }
 
     /// Big set-up rectangles on every node: no more than `MAX_SETUP` points kept, fast.

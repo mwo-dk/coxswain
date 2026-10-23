@@ -41,6 +41,8 @@ pub fn which(program: &str) -> Option<PathBuf> {
     std::env::var_os("PATH")
         .into_iter()
         .flat_map(|p| std::env::split_paths(&p).collect::<Vec<_>>())
+        // An empty or relative entry would find the program in the working folder.
+        .filter(|dir| dir.is_absolute())
         .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .chain(extra_paths(program))
         .chain(

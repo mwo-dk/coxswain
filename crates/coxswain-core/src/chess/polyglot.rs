@@ -224,6 +224,8 @@ pub fn find(game: &Path, configured: &str) -> Option<PathBuf> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("bin")))
+        // A cloud file not on this machine is not downloaded to find out.
+        .filter(|p| !crate::cloud::unasked(p))
         .take(1000)
         .collect();
     bins.sort();

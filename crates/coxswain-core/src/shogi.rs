@@ -675,7 +675,7 @@ fn csa(text: &str) -> Game {
                 }
                 setup = Some(b);
             } else if s.len() >= 2 && s.starts_with('P') && s.as_bytes()[1].is_ascii_digit() {
-                let y = (s.as_bytes()[1] - b'1') as usize;
+                let y = s.as_bytes()[1].wrapping_sub(b'1') as usize;
                 let b = setup.get_or_insert(Board { cells: [None; 81], hands: [[0; 7]; 2], sente: true });
                 let c: Vec<char> = s.chars().skip(2).collect();
                 for (x, p) in c.chunks(3).take(9).enumerate() {
@@ -906,7 +906,7 @@ mod tests {
                 let _ = n.fen.as_deref().map(view);
             }
         }
-        for t in ["", "+", "P9", "P1+FU+FU+FU+FU+FU+FU+FU+FU+FU+FU+FU", "P+00FU00FU00XX", "P-99", "+0000FU", "+9999OU", "-7776FU", "+7776FUé", "PI99999999", "P+é00FU", "%TORYO\n+7776FU", "/\n/\n/"] {
+        for t in ["", "+", "P9", "P0+FU", "P1+FU+FU+FU+FU+FU+FU+FU+FU+FU+FU+FU", "P+00FU00FU00XX", "P-99", "+0000FU", "+9999OU", "-7776FU", "+7776FUé", "PI99999999", "P+é00FU", "%TORYO\n+7776FU", "/\n/\n/"] {
             for (a, b) in split(t.as_bytes(), Format::Csa) {
                 let g = parse(&t[a..b], Format::Csa);
                 for n in &g.nodes {

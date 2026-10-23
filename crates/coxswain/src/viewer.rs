@@ -590,7 +590,10 @@ impl Viewer {
         match (key.code, ch) {
             (KeyCode::Esc, _) => return Outcome::Close,
             _ if matches!(action, Some(Action::Quit | Action::View)) => return Outcome::Close,
-            _ if matches!(action, Some(Action::Edit | Action::EditHere)) => return Outcome::Edit(self.path.clone(), action.unwrap()),
+            // A text copy is not what is edited: its file is (the editor says when it is no text).
+            _ if matches!(action, Some(Action::Edit | Action::EditHere)) => {
+                return Outcome::Edit(self.original.clone().unwrap_or_else(|| self.path.clone()), action.unwrap());
+            }
             (KeyCode::Up, _) => self.scroll(-1),
             (KeyCode::Down, _) | (KeyCode::Enter, _) => self.scroll(1),
             (KeyCode::PageUp, _) => self.scroll(-page),
@@ -948,6 +951,7 @@ mod tests {
         // h: the file the card was made of, as it is; the key line says so.
         assert!(v.key_line.starts_with(&t!("viewer.keys_original")));
         assert!(matches!(v.key(key(KeyCode::Char('h')), None), Outcome::Original(p) if p == Path::new("/x/boing.iff")));
+        assert!(matches!(v.key(key(KeyCode::F(4)), Some(Action::Edit)), Outcome::Edit(p, _) if p == Path::new("/x/boing.iff")));
         std::fs::write(d.join("a.bin"), b"MZ\0\x01hello").unwrap();
         let v = Viewer::open(&d.join("a.bin"), ["F4", "F3"]).unwrap();
         assert_eq!(v.encoding, Encoding::Binary);

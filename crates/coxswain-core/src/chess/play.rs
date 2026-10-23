@@ -311,7 +311,8 @@ pub fn engine_for(cfg: &crate::config::Config) -> Result<Program, String> {
 /// leaves the machine. `stop` is asked at each line the engine writes: true ends it at once
 /// (the position on screen changed).
 pub fn analyse(program: &Program, fen: &str, ms: u32, lines: u32, stop: &dyn Fn() -> bool) -> std::io::Result<Analysis> {
-    Engine::start(program)?.think(fen, ms, lines, stop)
+    pgn::board(&pgn::full_fen(fen)).ok_or_else(|| std::io::Error::other("no position"))?;
+    Engine::start(program, stop)?.think(fen, ms, lines, stop)
 }
 
 fn failed(kind: std::io::ErrorKind) -> std::io::Error {
@@ -323,7 +324,9 @@ fn failed(kind: std::io::ErrorKind) -> std::io::Error {
 pub struct Engine {
     child: std::process::Child,
     stdin: std::process::ChildStdin,
-    out: std::io::Lines<BufReader<std::process::ChildStdout>>,
+    /// Its lines, read on a thread of their own, so a silent engine never blocks the asker:
+    /// it is waited for a tenth of a second at a time, `stop` and the deadline asked between.
+    out: std::sync::mpsc::Receiver<std::io::Result<String>>,
     /// Its name, as it gives it (`Stockfish 17.1`).
     pub name: String,
     /// A container's runtime and name: stopped by it too, as killing `podman run` leaves the
@@ -351,21 +354,47 @@ impl Drop for Engine {
 }
 
 impl Engine {
-    /// Starts the engine `program` and waits for it to say it speaks UCI.
-    pub fn start(program: &Program) -> std::io::Result<Engine> {
+    /// The next line it writes; Err when it ended, `stop` turned true or `deadline` passed.
+    fn line(&self, deadline: std::time::Instant, stop: &dyn Fn() -> bool) -> std::io::Result<String> {
+        use std::sync::mpsc::RecvTimeoutError;
+        loop {
+            if stop() {
+                return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "stopped"));
+            }
+            let wait = deadline.saturating_duration_since(std::time::Instant::now());
+            if wait.is_zero() {
+                return Err(failed(std::io::ErrorKind::TimedOut));
+            }
+            match self.out.recv_timeout(wait.min(std::time::Duration::from_millis(100))) {
+                Ok(l) => return l,
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return Err(failed(std::io::ErrorKind::UnexpectedEof)),
+            }
+        }
+    }
+
+    /// Starts the engine `program` and waits for it to say it speaks UCI; given up on as soon
+    /// as `stop` is true.
+    pub fn start(program: &Program, stop: &dyn Fn() -> bool) -> std::io::Result<Engine> {
         let (mut cmd, container) = program.command();
         let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
         let stdin = child.stdin.take().ok_or_else(|| failed(std::io::ErrorKind::BrokenPipe))?;
         let stdout = child.stdout.take().ok_or_else(|| failed(std::io::ErrorKind::BrokenPipe))?;
-        let mut e = Engine { child, stdin, out: BufReader::new(stdout).lines(), name: String::new(), container };
+        let (tx, out) = std::sync::mpsc::channel();
+        // Ends when the engine's output closes, at the latest when Drop kills it.
+        std::thread::spawn(move || {
+            for l in BufReader::new(stdout).lines() {
+                if tx.send(l).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut e = Engine { child, stdin, out, name: String::new(), container };
         writeln!(e.stdin, "uci")?;
         e.stdin.flush()?;
-        let started = std::time::Instant::now();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
         loop {
-            if started.elapsed().as_secs() > 30 {
-                return Err(failed(std::io::ErrorKind::TimedOut));
-            }
-            let line = e.out.next().ok_or_else(|| failed(std::io::ErrorKind::UnexpectedEof))??;
+            let line = e.line(deadline, stop)?;
             let w: Vec<&str> = line.split_whitespace().collect();
             match w.first() {
                 Some(&"id") if w.get(1) == Some(&"name") => e.name = w[2..].join(" "),
@@ -391,16 +420,10 @@ impl Engine {
         let mut a = Analysis { engine: self.name.clone(), ..Default::default() };
         // Per line: its score (cp, mate) and its moves in UCI.
         let mut pvs: Vec<(Option<i32>, Option<i32>, Vec<String>)> = vec![Default::default(); wanted];
-        let started = std::time::Instant::now();
+        // An engine that says nothing for far longer than it was given: given up on.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(ms.clamp(50, 600_000) as u64 + 30_000);
         loop {
-            if stop() {
-                return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "stopped"));
-            }
-            // An engine that says nothing for far longer than it was given: given up on.
-            if started.elapsed().as_millis() as u64 > ms as u64 + 30_000 {
-                return Err(failed(std::io::ErrorKind::TimedOut));
-            }
-            let line = self.out.next().ok_or_else(|| failed(std::io::ErrorKind::UnexpectedEof))??;
+            let line = self.line(deadline, stop)?;
             let w: Vec<&str> = line.split_whitespace().collect();
             match w.first() {
                 Some(&"info") if !w.contains(&"lowerbound") && !w.contains(&"upperbound") && w.contains(&"pv") => {
@@ -544,6 +567,14 @@ mod tests {
         let found = engine(&bare);
         std::fs::remove_file(&bare).ok();
         assert_eq!(found, None);
+        // One that never answers is given up on when asked to stop, and killed.
+        let silent = d.join("silent");
+        std::fs::write(&silent, "#!/bin/sh\nexec sleep 1000\n").unwrap();
+        std::fs::set_permissions(&silent, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let t = std::time::Instant::now();
+        let soon = || t.elapsed() > std::time::Duration::from_millis(300);
+        assert!(analyse(&Program::Installed(silent), fen, 100, 1, &soon).is_err());
+        assert!(t.elapsed() < std::time::Duration::from_secs(5));
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

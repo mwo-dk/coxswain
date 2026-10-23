@@ -181,9 +181,9 @@ impl Reviewer {
 }
 
 fn run(program: &Program, ms: u32, game: &Game, plies: &[u32], shared: &Mutex<Review>, stop: &AtomicBool) -> std::io::Result<()> {
-    let mut engine = Engine::start(program)?;
-    shared.lock().unwrap_or_else(|e| e.into_inner()).engine = engine.name.clone();
     let halt = || stop.load(Ordering::Relaxed);
+    let mut engine = Engine::start(program, &halt)?;
+    shared.lock().unwrap_or_else(|e| e.into_inner()).engine = engine.name.clone();
     // The position before each move: its score, the engine's line, and how much worse its
     // second choice is (from the mover's side).
     let mut before: Option<(i32, Vec<String>, Option<i32>)> = None;
