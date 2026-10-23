@@ -25,7 +25,8 @@ time("cursor_down_ms", () => (t.cursor = 1));
 time("cursor_end_ms", () => (t.cursor = n - 1));
 res.cursor_end_in_dom = !!document.querySelector('[aria-selected="true"]');
 time("cursor_home_ms", () => (t.cursor = 0));
-time("mark_one_ms", () => t.marked.add(items[0].path));
+// (A tab's rows come from the backend, paged; a plain array stands in for them here.)
+time("mark_one_ms", () => ((items[0].m = true), (t.items = [...items])));
 time("relist_same_ms", () => (t.items = items.map((e) => ({ ...e }))));
 time("relist_reversed_ms", () => (t.items = [...items].reverse()));
 // Scrolled far down, then a short list with the same cursor: its rows show (they did not).

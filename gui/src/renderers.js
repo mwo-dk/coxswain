@@ -5,7 +5,7 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { highlight } from "./hl.js";
-import { convertFileSrc } from "./lib.js";
+import { convertFileSrc, invoke } from "./lib.js";
 import { t } from "./i18n.svelte.js";
 
 /** Sanitized HTML. No `<style>`: a file's style sheet would restyle the whole window. `styles`
@@ -13,6 +13,13 @@ import { t } from "./i18n.svelte.js";
  *  whose every piece is sanitized already. */
 export const clean = (html, { styles = false } = {}) =>
   DOMPurify.sanitize(html, { USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true }, FORBID_TAGS: styles ? [] : ["style"] });
+/** Text as base64 of its UTF-8, a piece at a time (a large diagram would overflow the call). */
+const base64 = (s) => {
+  const u = new TextEncoder().encode(s);
+  let bin = "";
+  for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode(...u.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
 const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 /** File bytes through the asset protocol; refuses files too big to preview. */
@@ -373,7 +380,8 @@ export function pageHead(fileUrl, path) {
 let drawioReady;
 /** A draw.io diagram drawn into `el` by draw.io's own viewer (gui/public/vendor/drawio), loaded on
  *  first use. It works offline: shapes from draw.io's extra libraries (AWS, Azure, …) that it
- *  would fetch from diagrams.net show as plain boxes. Several pages get a page switcher. */
+ *  would fetch from diagrams.net show as plain boxes. The pages are tabs of the preview, which
+ *  picks one with the viewer this returns (`selectPage`). */
 export async function renderDrawio(el, xml) {
   drawioReady ??= new Promise((ok, fail) => {
     const local = "vendor/drawio/none";
@@ -394,13 +402,40 @@ export async function renderDrawio(el, xml) {
   await drawioReady;
   el.replaceChildren();
   const doc = window.mxUtils.parseXml(xml);
-  new window.GraphViewer(el, doc.documentElement, { nav: true, lightbox: false, toolbar: "pages zoom layers", "toolbar-nohide": true, "toolbar-position": "top", resize: true, center: true });
+  return new window.GraphViewer(el, doc.documentElement, { nav: true, lightbox: false, toolbar: "zoom layers", "toolbar-nohide": true, "toolbar-position": "top", resize: true, center: true });
 }
 
-/** AsciiDoc as HTML, in Asciidoctor's secure mode (no file includes), sanitized. */
+/** The names of a draw.io diagram's pages, in order; "" for one without a name. */
+export function drawioPages(xml) {
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  return [...doc.getElementsByTagName("diagram")].map((d) => d.getAttribute("name") ?? "");
+}
+
+/** AsciiDoc as HTML, in Asciidoctor's secure mode (no file includes), sanitized. Its diagram
+ *  blocks (`[plantuml]`, `[d2]`, `[mermaid]` … over `----`, found by the core) are drawn:
+ *  Mermaid and Graphviz here, the rest by their programs, installed or in an image already
+ *  pulled, as pictures; one that cannot be drawn shows its source and why. */
 export async function renderAsciidoc(src) {
-  const { convert } = await import("@asciidoctor/core");
-  return clean(await convert(src, { safe: "secure", attributes: { showtitle: true } }));
+  const [{ convert }, { source, blocks }] = await Promise.all([import("@asciidoctor/core"), invoke("adoc_blocks", { text: src })]);
+  const html = clean(await convert(source, { safe: "secure", attributes: { showtitle: true } }));
+  if (!blocks.length) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const el of doc.querySelectorAll("div.cx-diagram[data-n]")) {
+    const b = blocks[Number(el.dataset.n)];
+    if (!b) continue;
+    let drawn;
+    if (b.kind === "mermaid") drawn = await renderMermaid(b.text);
+    else if (b.kind === "graphviz" || b.kind === "dot") drawn = await renderGraphviz(b.text);
+    else
+      drawn = await invoke("adoc_diagram", { kind: b.kind, text: b.text }).then(
+        // A picture, never inline SVG: its styles and scripts stay inside it.
+        (svg) => `<div class="diagram"><img src="data:image/svg+xml;base64,${base64(svg)}" alt="${escape(b.kind)}"></div>`,
+        (err) => `<pre class="diagram-source">${escape(b.text)}</pre><p class="diagram-error">${escape(String(err?.message ?? err))}</p>`,
+      );
+    const part = new DOMParser().parseFromString(drawn, "text/html");
+    el.replaceWith(...doc.adoptNode(part.body).childNodes);
+  }
+  return clean(doc.body.innerHTML, { styles: true });
 }
 
 /** A Parquet file: its column schema, row count and the first 200 rows as a table. */

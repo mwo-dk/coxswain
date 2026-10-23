@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool } from "./app.svelte.js";
+  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses } from "./app.svelte.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -35,7 +35,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -55,7 +55,7 @@
     const m = ui.modal;
     if (m?.kind !== "help" || m.tab !== "features") return;
     const query = m.filter ?? "";
-    invoke("features", { query }).then((list) => ui.modal === m && m.filter === query && (m.list = list), () => {});
+    invoke("features", { query }).then((list) => ui.modal === m && (m.filter ?? "") === query && (m.list = list), () => {});
   });
 
   /** "Show me": the feature's page on GitHub, in the browser. */
@@ -153,7 +153,7 @@
     const events = new Channel();
     events.onmessage = (e) => {
       if (ui.modal !== m) return void invoke("ask_stop");
-      if (e.k === "sources") Object.assign(turn, { sources: e.paths, read: e.read });
+      if (e.k === "sources") Object.assign(turn, { sources: e.paths, similar: e.similar ?? [], read: e.read });
       else turn.a += e.text;
       // Follows the answer down, unless you scrolled up to read something.
       const end = !listEl || listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
@@ -212,10 +212,18 @@
     if (isHistory(h.path)) return cd(tb, h.path);
     await showInTab(tb, h.path);
     // A game in a PGN file: that game, on the board in the preview.
-    if (h.snippet && chessFormat(basename(h.path)) === "pgn") {
+    if (h.snippet && ["pgn", "pdn", "shogi", "pbn"].includes(chessFormat(basename(h.path)))) {
       const index = await invoke("chess_hit", { path: h.path, snippet: h.snippet });
       if (index != null) {
         ui.chessAt = { path: h.path, index };
+        ui.showPreview = true;
+      }
+    }
+    // A game in an SGF file: the same.
+    if (h.snippet && chessFormat(basename(h.path)) === "sgf") {
+      const index = await invoke("go_hit", { path: h.path, snippet: h.snippet });
+      if (index != null) {
+        ui.goAt = { path: h.path, index };
         ui.showPreview = true;
       }
     }
@@ -344,9 +352,12 @@
     else if (answer && k === "Up") m.cursor = Math.max(0, m.cursor - 1);
     else if (answer && k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
     else if (k === "Up" || k === "Down" || k === "PageUp" || k === "PageDown") m.cursor = step(rows, m.cursor, { Up: -1, Down: 1, PageUp: -15, PageDown: 15 }[k]);
-    else if (act === "edit") {
+    else if (act === "edit" || act === "edit_here") {
       const p = answer ? src[m.cursor] : rows[m.cursor]?.row === "hit" && !rows[m.cursor].hit.is_dir ? rows[m.cursor].hit.path : null;
-      if (p && !isHistory(p)) invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
+      if (!p || isHistory(p)) return true;
+      // The built-in editor over the search, which comes back as it was when it closes.
+      if (act === "edit_here") ui.modal = { kind: "editor", path: p, back: m };
+      else invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
     } else if (k === "Delete" && rows[m.cursor]?.dismiss && e.target?.selectionStart === m.query.length) dismissRow(m, rows[m.cursor]);
     else return false;
     return true;
@@ -385,6 +396,8 @@
     if (act === "help" && m.kind !== "help") return features(m), true;
     if (m.kind === "guide") return m.key?.(k) ?? false;
     if (m.kind === "space") return m.key?.(k, act) ?? false;
+    if (m.kind === "editor") return m.key?.(k, act, e) ?? false;
+    if (m.kind === "compare") return m.key?.(k, act, e) ?? false;
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -423,6 +436,19 @@
         else if (act === "git_tool") (close(), gitTool());
         else return false;
         return true;
+      case "viruses": {
+        // A choice per file: N leave it, B bin, Q quarantine; Enter does them all.
+        const n = m.report.found.length;
+        const c = { n: "nothing", b: "bin", q: "quarantine" }[k.replace(/^Shift\+/, "").toLowerCase()];
+        if (k === "Up") m.cursor = Math.max(0, m.cursor - 1);
+        else if (k === "Down") m.cursor = Math.min(n - 1, m.cursor + 1);
+        else if (k === "Home") m.cursor = 0;
+        else if (k === "End") m.cursor = n - 1;
+        else if (c) m.choices[m.cursor] = c;
+        else if (k === "Enter") applyViruses(m);
+        else return false;
+        return true;
+      }
       case "props":
         if (k === "Enter") savePerms();
         else return false;
@@ -439,6 +465,7 @@
       }
       case "bom":
       case "chess":
+      case "go":
       case "settings":
       case "dupes":
       case "setup":
@@ -459,13 +486,15 @@
 <!-- The keys of a dialog, in one line the terminal app shares: "Enter Copy · Esc Cancel". -->
 {#snippet keys(verb)}<p class="keys">{t("dialog.keys", { verb, cancel: t("common.cancel") })}</p>{/snippet}
 
-{#if ui.modal && !["dupes", "settings", "bom", "chess", "space"].includes(ui.modal.kind)}
+{#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space", "editor", "compare"].includes(ui.modal.kind)}
   {@const m = ui.modal}
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>
       {#if m.kind === "input"}
         <h2>{m.title}</h2>
         <label>{m.label}{#if m.secret}<input bind:this={input} bind:value={m.value} type="password" autocomplete="off" />{:else}<input bind:this={input} bind:value={m.value} spellcheck="false" />{/if}</label>
+        <!-- Into an archive: that the disk may be short of room for it written anew. -->
+        {#if m.room}<p class="err">{m.room}</p>{/if}
         <div class="buttons">
           <button class="primary" onclick={() => confirm(m, m.value)}>{m.ok}</button>
           <button onclick={close}>{t("common.cancel")}</button>
@@ -483,6 +512,8 @@
           </select></label>
         </div>
         {#if fmt}<p class="meta">{t(`archive.format_${fmt.id}`)}</p>{/if}
+        <!-- That the disk may be short of room: the archive is written beside the old one first. -->
+        {#if m.room}<p class="err">{m.room}</p>{/if}
         {#if locks}
           <div class="grid2">
             <label>{t("archive.pack_password")}<input bind:value={m.password} type="password" autocomplete="new-password" /></label>
@@ -509,13 +540,34 @@
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
-        {#if m.details}<details><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
+        {#if m.details}<details open={!!m.open}><summary>{t("dialog.details")}</summary><pre>{m.details}</pre></details>{/if}
         <div class="buttons">
           <!-- What is missing or off: Settings at the place to change it. -->
           {#if m.settings}<button onclick={() => (ui.modal = { kind: "settings", section: m.settings })}>{t("preview.settings")}</button>{/if}
           <button class="primary" bind:this={input} onclick={close}>{t("common.close")}</button>
         </div>
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
+      {:else if m.kind === "viruses"}
+        <!-- What a virus scan found: a choice per file, nothing done until Enter. -->
+        <h2>{t("viruses.title")}</h2>
+        <p>{t("viruses.found", { n: num(m.report.scanned) })} {t("viruses.quarantine_at", { path: m.quarantine })}</p>
+        <ul class="gclist vlist" bind:this={listEl}>
+          {#each m.report.found as f, i (f.path)}
+            <li class="row" class:cursor={i === m.cursor} onmouseenter={() => (m.cursor = i)}>
+              <select bind:value={m.choices[i]} aria-label={f.path}>
+                {#each ["nothing", "bin", "quarantine"] as c (c)}<option value={c}>{t(`viruses.choice.${c}`)}</option>{/each}
+              </select>
+              <span class="value">{f.name}</span>
+              <span class="file" title={f.path}><bdi>{f.path}</bdi></span>
+            </li>
+          {/each}
+        </ul>
+        {#each m.notes as note, i (i)}<p class="meta">{note}</p>{/each}
+        <div class="buttons">
+          <button class="primary" onclick={() => applyViruses(m)}>{t("viruses.apply")}</button>
+          <button onclick={close}>{t("common.close")}</button>
+        </div>
+        <p class="keys">{t("viruses.keys", { verb: t("viruses.apply"), cancel: t("common.close") })}</p>
       {:else if m.kind === "help"}
         <h2>{t("dialogs.help_title", { version: ui.cfg.version })}</h2>
         <div class="tabs" role="tablist">
@@ -572,6 +624,7 @@
         {/if}
       {:else if m.kind === "menu"}
         <h2>{m.title}</h2>
+        {#if m.note}<p class="meta">{m.note}</p>{/if}
         {#if !m.direct}
           <input bind:this={input} bind:value={m.filter} oninput={() => (m.cursor = 0)} placeholder={t("dialogs.filter")} spellcheck="false" />
         {/if}
@@ -664,7 +717,7 @@
                 {#if c.read}<p class="meta">{c.read}</p>{/if}
                 <ol class="sources">
                   {#each c.sources as src, i (i)}
-                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span></button></li>
+                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span>{#if c.similar?.[i]} <span class="where">{tn("ask.similar_files", c.similar[i])}</span>{/if}</button></li>
                   {/each}
                 </ol>
               {/if}
@@ -740,7 +793,7 @@
         <ul class="list plan">
           {#each m.plan as p (p.from)}
             <li class:changed={p.from !== p.to} class:bad={p.conflict}>
-              <span class="from">{p.from}</span><span class="arrow">→</span><span class="to">{p.to}</span>
+              <span class="from">{p.from_shown}</span><span class="arrow">→</span><span class="to">{p.to_shown}</span>
               {#if p.conflict}<span class="why">{p.conflict}</span>{/if}
             </li>
           {/each}
@@ -756,7 +809,7 @@
         <dl class="props">
           <dt>{t("dialogs.location")}</dt><dd>{parent(p.path)}</dd>
           <dt>{t("dialogs.type")}</dt><dd>{t(`dialogs.kind.${p.kind}`)}{#if p.link_target} → {p.link_target}{/if}</dd>
-          <dt>{t("dialogs.size")}</dt><dd>{size(p.size)}{#if p.size >= 10_240} {tn("dialogs.bytes", p.size)}{/if}{#if p.kind === "folder"} {tn("dialogs.in_files", p.files)}{/if}</dd>
+          <dt>{t("dialogs.size")}</dt><dd>{#if p.unreadable}{t("dialogs.unreadable", { why: p.unreadable })}{:else}{size(p.size)}{#if p.size >= 10_240} {tn("dialogs.bytes", p.size)}{/if}{#if p.kind === "folder"} {tn("dialogs.in_files", p.files)}{/if}{/if}</dd>
           {#if p.created}<dt>{t("dialogs.created")}</dt><dd>{date(p.created)}</dd>{/if}
           {#if p.modified}<dt>{t("dialogs.modified")}</dt><dd>{date(p.modified)}</dd>{/if}
           {#if p.accessed}<dt>{t("dialogs.accessed")}</dt><dd>{date(p.accessed)}</dd>{/if}
@@ -782,7 +835,7 @@
             <dt>{t("props.package")}</dt>
             <dd>{p.package} <button class="link" onclick={() => { const path = p.path; close(); openPackage(tab(), path); }}>{t("action.package")}</button></dd>
           {/if}
-          {#each [...(p.disk_image ?? []), ...(p.facts ?? [])] as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
+          {#each [...(p.disk_image ?? []), ...(p.facts ?? [])] as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}
           {#if p.zfs}
             {@const z = p.zfs}
             <dt>{t("props.dataset")}</dt><dd>{z.dataset}</dd>
@@ -903,8 +956,15 @@
   .dialog.menu {
     width: min(520px, 92vw);
   }
-  .dialog.gitconfig {
+  .dialog.gitconfig,
+  .dialog.viruses {
     width: min(1000px, 92vw);
+  }
+  .gclist.vlist .row {
+    grid-template-columns: max-content max-content minmax(0, 1fr);
+  }
+  .gclist.vlist select {
+    width: auto;
   }
   .gclist {
     list-style: none;

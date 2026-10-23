@@ -17,7 +17,6 @@ dirs = "7"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 clipboard-rs = { version = "0.3.5", default-features = false, features = ["wayland"] }
-drag = "2.1.1"
 notify = "8"
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 kamadak-exif = "0.6.1"
@@ -38,6 +37,14 @@ custom-protocol = ["tauri/custom-protocol"]
 [target.'cfg(any(target_os = "linux", target_os = "macos", windows))'.dependencies]
 sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 
+# Dragging files out of the window; on Linux and the BSDs GTK's own (`native_drag`).
+[target.'cfg(any(target_os = "macos", windows))'.dependencies]
+drag = "2.1.1"
+
 # The title bar GTK draws keeps its first title; it is set as well (`set_title`).
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 gtk = "0.18.2"
+
+# Tests get a home of their own in the temporary folder (`coxswain_core::dirs`).
+[dev-dependencies]
+coxswain-core = { workspace = true, features = ["test-home"] }

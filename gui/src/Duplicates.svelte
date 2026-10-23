@@ -117,7 +117,9 @@
       ok: t("dupes.confirm_ok"),
       run: async () => {
         try {
-          await invoke("delete", { paths, forever: false });
+          // Stopped half way: the list stays as it was until scanned again, and the line says how far.
+          const stopped = await invoke("delete", { paths, forever: false });
+          if (stopped) return void (ui.status = stopped);
           // What was in a trashed folder went with it; the waste is counted again as dupes.rs does.
           const drop = (g, key) => {
             const list = g[key].filter((x) => !inside(x.path ?? x, paths));

@@ -3,7 +3,7 @@
   // (handled in App, which reads the column count from `data-cols`).
   import { untrack } from "svelte";
   import { openItem, toggleMark, dragOut, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { invoke, convertFileSrc, previewKind, TAG_COLORS } from "./lib.js";
+  import { invoke, convertFileSrc, previewKind, TAG_COLORS, MEDIA_TOOL } from "./lib.js";
   import { ui } from "./app.svelte.js";
   import { t as tr } from "./i18n.svelte.js";
 
@@ -23,8 +23,16 @@
   const GAP = 6, PAD = 8, OVER = 2;
   const step = $derived(tileH + GAP);
   const rows = $derived(Math.ceil(t.items.length / cols));
-  const first = $derived(Math.max(0, Math.min(rows, Math.floor((top - PAD) / step)) - OVER));
-  const last = $derived(Math.min(rows, Math.ceil((top + height) / step) + OVER));
+  // Taller than WebKit lays out (a million files): a box of `MAX` pixels, scrolled through
+  // `scale` times faster; `at` is how far down the whole grid the view is (as in Rows).
+  const MAX = 2 ** 24;
+  const full = $derived(rows * step + 2 * PAD);
+  const box = $derived(Math.min(full, MAX));
+  const scale = $derived(box > height ? Math.max(1, (full - height) / (box - height)) : 1);
+  const at = $derived(top * scale);
+  const first = $derived(Math.max(0, Math.min(rows, Math.floor((at - PAD) / step)) - OVER));
+  const last = $derived(Math.min(rows, Math.ceil((at + height) / step) + OVER));
+  const padTop = $derived(Math.max(0, top + PAD + first * step - at));
 
   function measure() {
     cols = getComputedStyle(tiles).gridTemplateColumns.split(" ").length;
@@ -48,10 +56,11 @@
   // The cursor kept in view, as scrollIntoView would.
   $effect(() => {
     if (!grid || !height || t.cursor < 0) return;
-    t.items; // a new list brings its cursor into view too
+    t.items.listed; // a new list brings its cursor into view too
     const y = PAD + Math.floor(t.cursor / cols) * step;
-    if (y < grid.scrollTop) grid.scrollTop = y - PAD;
-    else if (y + tileH > grid.scrollTop + height) grid.scrollTop = y + tileH + PAD - height;
+    const now = grid.scrollTop * scale;
+    if (y < now) grid.scrollTop = (y - PAD) / scale;
+    else if (y + tileH > now + height) grid.scrollTop = (y + tileH + PAD - height) / scale;
     top = grid.scrollTop;
   });
 
@@ -75,7 +84,7 @@
   aria-label={t.dir}
   onscroll={(ev) => (top = ev.currentTarget.scrollTop)}
 >
-  <div class="tiles" bind:this={tiles} style:padding-top="{PAD + first * step}px" style:padding-bottom="{PAD + (rows - last) * step}px">
+  <div class="tiles" bind:this={tiles} style:padding-top="{padTop}px" style:padding-bottom="{Math.max(PAD, box - padTop - (last - first) * step)}px">
     {#each t.items.slice(first * cols, last * cols) as e, j (e.name === ".." ? "\0.." : e.path)}
       {@const i = first * cols + j}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -85,9 +94,11 @@
         aria-selected={i === t.cursor}
         class="tile"
         class:hidden={e.hidden}
-        class:marked={t.marked.has(e.path)}
+        class:marked={e.m}
         class:cursor={i === t.cursor}
         class:focused={active}
+        data-drop={e.is_dir && e.name !== ".." ? e.path : undefined}
+        class:drop={e.is_dir && ui.dropDir === e.path}
         draggable={e.name !== ".."}
         ondragstart={(ev) => {
           ev.preventDefault();
@@ -110,12 +121,41 @@
             {:catch}
               {@render icon(e)}
             {/await}
+          {:else if previewKind(e) === "gpx" && !e.online}
+            <!-- A GPX file's tracks, drawn by the core (gpx_map). -->
+            {#await invoke("gpx_map", { path: e.path }) then file}
+              {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+            {:catch}
+              {@render icon(e)}
+            {/await}
+          {:else if MEDIA_TOOL[previewKind(e)] && !previewKind(e).startsWith("audio") && !e.online}
+            <!-- A video's frame, a HEIC, GIMP or RAW photo: ffmpeg or ImageMagick makes it once,
+                 only when it runs without a pull (media_thumbnail). -->
+            {#await invoke("media_thumbnail", { path: e.path, tool: MEDIA_TOOL[previewKind(e)] }) then file}
+              {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+            {:catch}
+              {@render icon(e)}
+            {/await}
+          {:else if previewKind(e) === "drawio" && !e.online}
+            <!-- A .drawio.svg or .drawio.png shows itself; a .drawio file its first page, drawn
+                 once by draw.io when its exports are on (drawio_thumbnail). -->
+            {#if /\.(svg|png)$/i.test(e.name)}
+              <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
+            {:else if ui.cfg.settings.drawio}
+              {#await invoke("drawio_thumbnail", { path: e.path }) then file}
+                {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}
+              {:catch}
+                {@render icon(e)}
+              {/await}
+            {:else}
+              {@render icon(e)}
+            {/if}
           {:else}
             {@render icon(e)}
           {/if}
         </div>
-        <span class="label">
-          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span> {/if}{e.name}
+        <span class="label" dir="auto">
+          {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}{#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span> {/if}{t.models?.[e.name] ?? e.name}
         </span>
         {#if e.name !== ".."}<button class="more" tabindex="-1" title="{tr('action.action_menu')} ({ui.cfg.actions.action_menu?.[1] ?? ''})" aria-label={tr("action.action_menu")} onclick={(ev) => rowMenu(ev, t, i, onfocus)} ondblclick={(ev) => ev.stopPropagation()}>⋯</button>{/if}
       </div>
@@ -195,7 +235,6 @@
   .label {
     width: 100%;
     text-align: center;
-    unicode-bidi: plaintext;
     font-size: 0.9em;
     overflow: hidden;
     text-overflow: ellipsis;

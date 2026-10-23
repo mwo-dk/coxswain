@@ -23,10 +23,16 @@ use tauri::{Emitter, Manager};
 mod asset;
 mod bom;
 mod chess;
+mod compare;
+mod go;
 mod provenance;
 mod convert;
+mod ebook;
 mod preview;
 mod recent;
+mod work;
+mod tabs;
+mod viruses;
 
 pub struct Ctx {
     /// Replaced when Settings are saved.
@@ -61,13 +67,18 @@ pub struct Ctx {
     asking: Arc<std::sync::atomic::AtomicU64>,
     /// What Ctrl+Z undoes, the newest last; for this run.
     undo: Mutex<History>,
+    /// The Stop of the file operations started since the last Stop: the one running and those
+    /// waiting their turn, which a Stop keeps from starting. Replaced by each Stop.
+    job_stop: Mutex<Arc<std::sync::atomic::AtomicBool>>,
+    /// File operations run one at a time, in the order they were asked for.
+    job_turn: tauri::async_runtime::Mutex<()>,
     /// The app, set at start: what tells the window that sizes changed.
     app: std::sync::OnceLock<tauri::AppHandle>,
 }
 
 impl Ctx {
     /// Keep what can be undone of an operation, done now: the folders it changed are measured again.
-    fn remember(&self, rec: Record) {
+    pub(crate) fn remember(&self, rec: Record) {
         self.changed(&rec.touched());
         if let Ok(mut h) = self.undo.lock() {
             h.push(rec);
@@ -193,6 +204,14 @@ struct UiConfig {
     disk_endings: Vec<&'static str>,
     /// The endings of the old pictures the core reads (`pictures::endings`), without the dot.
     picture_endings: Vec<&'static str>,
+    /// What ffmpeg and ImageMagick take (`media`), by kind: `video`, `video_other`, `audio`,
+    /// `audio_other`, `heif`, `magick`, `raw`, and `pictures` (what *Convert or edit pictures* takes).
+    media_endings: BTreeMap<&'static str, Vec<&'static str>>,
+    /// What *Convert video or audio* and *Convert or edit pictures* offer, in their order, as
+    /// `media::Op::id`s; `clip:…` and `resize:…` ask for their values.
+    media_ops: [Vec<String>; 5],
+    /// Geodata's endings (`geo::endings`): `vector`, and `raster` (TIFF, geodata when GDAL says so).
+    geo_endings: BTreeMap<&'static str, Vec<&'static str>>,
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
@@ -200,12 +219,15 @@ struct UiConfig {
     guide_menu: String,
     guide_features: String,
     guide_themes: [&'static str; 4],
-    /// The line that installs each program Coxswain can use, on this system, where it knows one.
+    /// The line that installs each search tool and the icon font here, where Coxswain knows one
+    /// (a preview tool's comes with its engines, `preview_engines`).
     installs: BTreeMap<&'static str, Option<String>>,
     /// Ask's chat model as the user sees it: a built-in one by its name.
     ask_name: String,
     /// The trash gives back what went into it, so Ctrl+Z undoes a move to the trash.
     trash_restores: bool,
+    /// The endings of recordings whose speech can be transcribed (`transcribe::FORMATS`).
+    speech_endings: &'static [&'static str],
 }
 
 fn css(c: &str) -> Option<String> {
@@ -259,7 +281,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         levels: coxswain_core::settings::Level::ALL.iter().map(|l| (*l, l.costs())).collect(),
         config_path: Config::path(),
         gui: cfg.gui.clone(),
-        home: std::env::home_dir().unwrap_or_default(),
+        home: coxswain_core::dirs::home_dir().unwrap_or_default(),
         sep: std::path::MAIN_SEPARATOR,
         version: coxswain_core::update::VERSION,
         media_missing: coxswain_core::tools::media_missing(),
@@ -267,6 +289,9 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         archive_endings: coxswain_core::archive::endings(),
         disk_endings: coxswain_core::disk_image::endings(),
         picture_endings: coxswain_core::pictures::endings(),
+        media_endings: coxswain_core::media::endings(),
+        media_ops: coxswain_core::media::Program::ALL.map(|p| coxswain_core::media::Op::menu(p).iter().map(|o| o.id()).collect()),
+        geo_endings: coxswain_core::geo::endings(),
         guide: ctx.guide,
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
@@ -274,7 +299,8 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_themes: coxswain_core::guide::THEMES,
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
-        installs: ["tesseract", "pdftoppm", "soffice", "gs", "latex", "typst", "plantuml", "pandoc", "ocrmypdf", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
+        speech_endings: coxswain_core::transcribe::FORMATS,
+        installs: ["tesseract", "pdftoppm", "soffice", "gs", "nerd-font"].into_iter().map(|p| (p, coxswain_core::tools::install(p))).collect(),
     })
 }
 
@@ -290,6 +316,16 @@ fn save_settings(changes: serde_json::Map<String, serde_json::Value>, ctx: tauri
     if changes.keys().any(|k| coxswain_core::settings::find(k).is_some_and(|o| o.restarts_helper())) {
         ctx.index.restart();
     }
+    get_config(ctx)
+}
+
+/// Settings → Previews → Preview tools: how `kind` is made ("local", "container", "off"; ""
+/// follows How previews are made), written into config.toml and used at once.
+#[tauri::command(async)]
+fn set_preview_tool(kind: String, choice: String, ctx: tauri::State<Ctx>) -> Res<UiConfig> {
+    let path = coxswain_core::config::Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
+    let cfg = coxswain_core::preview_tools::set_choice(&path, &kind, &choice)?;
+    *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
     get_config(ctx)
 }
 
@@ -361,19 +397,20 @@ struct Item {
     tag: Option<String>,
 }
 
+/// What a listing says of its folder, besides the entries.
 #[derive(Serialize)]
-struct Listing {
+struct Meta {
     dir: PathBuf,
-    /// What an entry's path starts with when it is the folder's path and its name: those
-    /// entries come without a path (the page joins it), a third less JSON for a big folder.
-    prefix: String,
-    items: Vec<Item>,
     has_notes: bool,
     /// The archive the folder is inside, and whether something in it is locked.
     archive: Option<PathBuf>,
     locked: bool,
     /// That archive is a disk image: read-only.
     disk_image: bool,
+    /// Inside an archive inside another: read-only, looked into from a copy in the cache.
+    nested: bool,
+    /// That archive is a container image: its first tag (`container_image::title`).
+    image: Option<String>,
     /// The history the folder is in.
     history: Option<HistoryInfo>,
     /// The ZFS snapshot the folder is in, or the list of snapshots it is.
@@ -382,6 +419,9 @@ struct Listing {
     package: Option<String>,
     /// Files in it may belong to an installed package (`bsd::packages_here`).
     packages: bool,
+    /// In a model store's folder: the model each entry is (`local_models::names`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    models: Option<std::collections::HashMap<String, String>>,
 }
 
 /// A history being looked into: the file or folder it is of, and the commit looked into.
@@ -393,11 +433,14 @@ struct HistoryInfo {
     commit: Option<history::Commit>,
     /// A history's commits, the branches or the worktrees (what the list above a commit is).
     view: history::View,
+    /// HEAD's commits, every branch's, or those against the upstream.
+    scope: history::Scope,
+    /// Against the upstream: which, how far ahead and behind, and the last fetch.
+    upstream: Option<String>,
 }
 
-/// Async, as a compressed tar is read in full to list a folder in it.
-#[tauri::command]
-async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: tauri::State<'_, Ctx>) -> Res<Listing> {
+/// A folder's entries, sorted, and what the listing says of it.
+async fn read_listing(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool, ctx: &Ctx) -> Res<(Vec<Entry>, Meta)> {
     // Reading the folder (an archive's, a history's: git) blocks: not on the runtime's workers.
     let d = dir.clone();
     let (entries, inside, in_history, snapshot, package) = tauri::async_runtime::spawn_blocking(move || {
@@ -407,7 +450,8 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         if let Some((archive, _)) = &inside {
             coxswain_core::cloud::ask_for(archive);
         }
-        bfs::sort_in(&dir, &mut entries, sort, reverse);
+        // By size, folders as they are measured are sorted again (the page's `resortSoon`).
+        bfs::sort_in(&dir, &mut entries, sort, reverse, &Default::default());
         // By last commit: as the walk git did is known; else by name now, and the page sorts
         // again when `git_last` answers.
         if sort == SortKey::Commit
@@ -415,20 +459,19 @@ async fn list_dir(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: bool,
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
-        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), target: at.target, base: at.base, view: at.view });
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), upstream: (at.scope == history::Scope::Upstream && at.commit.is_none()).then(|| history::upstream_line(&at.base)).flatten(), target: at.target, base: at.base, view: at.view, scope: at.scope });
         let snapshot = coxswain_core::zfs::at(&dir);
         let package = coxswain_core::bsd::split(&dir).and_then(|f| coxswain_core::bsd::package_of(&f));
         Ok::<_, String>((entries, inside, in_history, snapshot, package))
     })
     .await
     .map_err(|e| e.to_string())??;
-    let st = ctx.state.lock().map_err(|e| e.to_string())?;
-    let cfg = ctx.cfg();
-    let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
-    let (prefix, items) = to_page(&dir, entries, |p| st.tags.get(p).cloned(), plain.as_ref());
+    let has_notes = ctx.state.lock().map_err(|e| e.to_string())?.notes.contains_key(&dir);
     let (archive, locked) = inside.map_or((None, false), |(a, locked)| (Some(a), locked));
     let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
-    Ok(Listing { has_notes: st.notes.contains_key(&dir), packages: coxswain_core::bsd::packages_here(&dir), dir, prefix, items, archive, locked, disk_image, history: in_history, snapshot, package })
+    let nested = archive.is_some() && coxswain_core::archive::nested_dir(&dir);
+    let image = archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title);
+    Ok((entries, Meta { nested, image, has_notes, packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, archive, locked, disk_image, history: in_history, snapshot, package }))
 }
 
 /// What a folder holds, for its preview: only the counts, not the panel's listing.
@@ -438,7 +481,7 @@ async fn dir_summary(dir: PathBuf, show_hidden: bool) -> Res<bfs::Summary> {
 }
 
 /// The entries as the page gets them: with their icon and tag, and without the path when it
-/// is `prefix` and the name (see `Listing::prefix`).
+/// is `prefix` and the name (see `tabs::Rows::prefix`).
 fn to_page(dir: &Path, entries: Vec<Entry>, tag: impl Fn(&Path) -> Option<String>, plain: Option<&Glyphs>) -> (String, Vec<Item>) {
     let joined = dir.join("x").to_string_lossy().into_owned();
     let prefix = joined.strip_suffix('x').unwrap_or_default().to_string();
@@ -461,6 +504,13 @@ struct GitLast {
     head: String,
     /// `None` when `head` is what the page said it had: the map it has holds.
     lasts: Option<std::sync::Arc<history::Lasts>>,
+}
+
+/// The graph column's rows for the commits `from..to` of the history listed at `dir` (`..` is
+/// none): worked out as far as the window in view, from what the listing read.
+#[tauri::command]
+fn history_graph(dir: PathBuf, from: usize, to: usize) -> Vec<coxswain_core::graph::Row> {
+    history::graph(&dir, from, to)
 }
 
 /// The last commit of each entry of `dir` (a work tree's folder or a history's), as git's one
@@ -560,6 +610,18 @@ async fn git_config(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(Option<Str
     .await
 }
 
+/// Whether `path` is a model Netron draws: for a `.h5`, whether its bytes hold a Keras model.
+#[tauri::command(async)]
+fn is_model(path: PathBuf) -> bool {
+    coxswain_core::neural::read(&path).is_some()
+}
+
+/// A status line's error in plain words (`fs::plain`).
+#[tauri::command]
+fn plain_error(raw: String) -> String {
+    coxswain_core::fs::plain(&raw)
+}
+
 /// The git tools installed here, in the order they are tried: for Settings.
 #[tauri::command(async)]
 fn git_tools() -> Vec<&'static str> {
@@ -608,7 +670,7 @@ struct Place {
 fn places() -> Vec<Place> {
     let p = |name: &str, dir: Option<PathBuf>, icon: &'static str| dir.filter(|d| d.is_dir()).map(|path| Place { name: coxswain_core::t!(name), path, icon });
     [
-        p("place.home", dirs::home_dir(), "\u{f015}"),
+        p("place.home", coxswain_core::dirs::home_dir(), "\u{f015}"),
         p("place.desktop", dirs::desktop_dir(), "\u{f108}"),
         p("place.documents", dirs::document_dir(), "\u{f0219}"),
         p("place.downloads", dirs::download_dir(), "\u{f019}"),
@@ -1263,10 +1325,58 @@ async fn index_action(what: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     tauri::async_runtime::spawn_blocking(move || match what.as_str() {
         "now" => index.index_now(),
         "forget" => index.forget(),
+        "pause" => index.transcribe_pause(true, false),
+        "resume" => index.transcribe_pause(false, false),
+        "stop_transcribing" => index.transcribe_pause(false, true),
         _ => index.restart(),
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// *Transcribe speech*'s question: the recordings among `paths` (folders gone through), and
+/// what to ask; or, with transcribing off, why.
+#[derive(Serialize)]
+struct TranscribePlan {
+    files: Vec<PathBuf>,
+    text: String,
+    off: bool,
+}
+
+#[tauri::command]
+async fn transcribe_plan(paths: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<TranscribePlan> {
+    let (cfg, index) = (ctx.cfg().clone(), ctx.index.clone());
+    if !cfg.search.whisper || !cfg.search.text {
+        return Ok(TranscribePlan { files: vec![], text: coxswain_core::t!("whisper.off"), off: true });
+    }
+    blocking(move || {
+        let survey = coxswain_core::transcribe::survey(&paths);
+        let rate = index.status().transcripts.and_then(|t| t.rate);
+        let text = if survey.files.is_empty() { coxswain_core::t!("whisper.none") } else { coxswain_core::transcribe::plan_text(&cfg, &survey, rate) };
+        Ok(TranscribePlan { files: survey.files, text, off: false })
+    })
+    .await
+}
+
+/// Hand `files` to the helper to transcribe: how many it took.
+#[tauri::command]
+async fn transcribe(files: Vec<PathBuf>, ctx: tauri::State<'_, Ctx>) -> Res<usize> {
+    let index = ctx.index.clone();
+    blocking(move || index.transcribe(&files).ok_or_else(|| coxswain_core::t!("whisper.no_helper"))).await
+}
+
+/// The transcript of a recording, done or under way, for the preview.
+#[tauri::command]
+async fn transcript(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<coxswain_core::transcribe::Transcript>> {
+    let index = ctx.index.clone();
+    blocking(move || Ok(index.transcript(&path))).await
+}
+
+/// The Whisper models to choose from, each with its size and whether it suits this machine.
+#[tauri::command]
+async fn whisper_models(ctx: tauri::State<'_, Ctx>) -> Res<Vec<(String, String)>> {
+    let cfg = ctx.cfg().clone();
+    blocking(move || Ok(coxswain_core::transcribe::choices(&cfg))).await
 }
 
 /// What Find shows: its rows, where the cursor starts, what can be searched (the footer), and
@@ -1338,7 +1448,7 @@ async fn find_read_too(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<UiConfig
 #[derive(Clone, Serialize)]
 #[serde(tag = "k", rename_all = "snake_case")]
 enum AskEvent {
-    Sources { paths: Vec<PathBuf>, read: String },
+    Sources { paths: Vec<PathBuf>, similar: Vec<usize>, read: String },
     Piece { text: String },
 }
 
@@ -1353,8 +1463,8 @@ async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<Pat
     tauri::async_runtime::spawn_blocking(move || {
         // The chat model loads while the sources are looked up.
         coxswain_core::meaning::warm(&cfg);
-        let sources = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here)?;
-        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect(), read: coxswain_core::ask::read(&sources) });
+        let (sources, similar) = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here)?;
+        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect(), similar, read: coxswain_core::ask::read(&sources) });
         // Stopped while searching: the model is not asked (a request it would work on alone).
         if asking.load(Ordering::SeqCst) != me {
             return Ok(());
@@ -1381,20 +1491,76 @@ fn resolve_path(base: PathBuf, input: String) -> PathBuf {
     resolve(&base, &input)
 }
 
+/// How far the file operation under way is, for its progress bar: the item it is on, of how
+/// many, its name, how many wait their turn behind it, and whether Stop was pressed.
+#[derive(Clone, Default, serde::Serialize)]
+struct JobProgress {
+    at: usize,
+    all: usize,
+    name: String,
+    waiting: usize,
+    stopping: bool,
+    #[serde(skip)]
+    stop: Arc<std::sync::atomic::AtomicBool>,
+}
+
+static JOB: Mutex<Option<JobProgress>> = Mutex::new(None);
+static WAITING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// `op` on `paths` (to `dst`), as both apps run it, on a blocking thread: a big copy must not
-/// hold one of the async runtime's few workers. The folders it changes are forgotten while it
-/// runs and measured again after, what can be undone goes into the history, and failures come
-/// back as one message.
-async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Option<String>) -> Res<()> {
+/// hold one of the async runtime's few workers. One at a time: one asked for while another runs
+/// waits its turn. The folders it changes are forgotten while it runs and measured again after,
+/// what can be undone goes into the history, and failures come back as one message. Stopped
+/// (`job_stop`), the line that says how far it got; one that waited is not started.
+async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Option<String>) -> Res<Option<String>> {
+    use std::sync::atomic::Ordering;
+    let stop = ctx.job_stop.lock().map_err(|e| e.to_string())?.clone();
+    WAITING.fetch_add(1, Ordering::SeqCst);
+    let turn = ctx.job_turn.lock().await;
+    WAITING.fetch_sub(1, Ordering::SeqCst);
+    if stop.load(Ordering::SeqCst) {
+        return Ok(Some(coxswain_core::undo::stopped_line(op, 0, paths.len())));
+    }
     let touched = op.touches(&paths, &dst);
     touched.iter().for_each(|p| ctx.sizer.forget(p));
-    let (failed, rec) = tauri::async_runtime::spawn_blocking(move || coxswain_core::undo::run(op, &paths, &dst, password.as_deref(), |_| {}))
-        .await
-        .map_err(|e| e.to_string())?;
+    let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
+    *JOB.lock().map_err(|e| e.to_string())? = Some(JobProgress { all: paths.len(), name: names.first().cloned().unwrap_or_default(), stop: stop.clone(), ..Default::default() });
+    let ran = tauri::async_runtime::spawn_blocking(move || {
+        coxswain_core::undo::run(op, &paths, &dst, password.as_deref(), &stop, |i| {
+            if let Some(p) = JOB.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+                (p.at, p.name) = (i, names.get(i).cloned().unwrap_or_default());
+            }
+        })
+    })
+    .await;
+    *JOB.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    drop(turn);
+    let ran = ran.map_err(|e| e.to_string())?;
     ctx.changed(&touched);
-    ctx.remember(rec);
-    let errors: Vec<String> = failed.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
-    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+    ctx.remember(ran.rec);
+    // One line for each item that failed: the page counts them for the title. Stopped as well,
+    // the failures are said; stopped alone, how far it got.
+    let errors: Vec<String> = ran.failed.iter().map(|(p, e)| format!("{}: {}", p.display(), e.to_string().replace('\n', " "))).collect();
+    if errors.is_empty() { Ok(ran.stopped) } else { Err(errors.join("\n")) }
+}
+
+/// The file operation under way, for its progress bar; `None` when none runs.
+#[tauri::command]
+fn job_progress() -> Option<JobProgress> {
+    let mut p = JOB.lock().unwrap_or_else(|e| e.into_inner()).clone()?;
+    p.waiting = WAITING.load(std::sync::atomic::Ordering::SeqCst);
+    p.stopping = p.stop.load(std::sync::atomic::Ordering::SeqCst);
+    Some(p)
+}
+
+/// Stop: the file operation under way stops (the file it is on removed, what is done kept),
+/// and those waiting their turn are not started. Operations asked for after it run.
+#[tauri::command]
+fn job_stop(ctx: tauri::State<Ctx>) -> Res<()> {
+    let mut stop = ctx.job_stop.lock().map_err(|e| e.to_string())?;
+    stop.store(true, std::sync::atomic::Ordering::SeqCst);
+    *stop = Arc::default();
+    Ok(())
 }
 
 /// Run `op` on every source, as an operation that can be undone (on a blocking thread, like
@@ -1417,13 +1583,13 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Res<T> + Send + 'static
 }
 
 #[tauri::command]
-async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn copy(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     // The password of a locked archive, held for this copy only.
     job(&ctx, Op::Copy, paths, resolve(&base, &dest), password).await
 }
 
 #[tauri::command]
-async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn rename(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     job(&ctx, Op::Move, paths, resolve(&base, &dest), password).await
 }
 
@@ -1437,7 +1603,7 @@ fn delete_plan(paths: Vec<PathBuf>, forever: bool, inside: bool) -> bfs::DeleteP
 /// To the trash, or gone for good with `forever` (as `delete_plan` says). Inside a locked 7z,
 /// `password` opens it.
 #[tauri::command]
-async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn delete(paths: Vec<PathBuf>, forever: bool, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     job(&ctx, if forever { Op::Forever } else { Op::Trash }, paths, PathBuf::new(), password).await
 }
 
@@ -1477,14 +1643,36 @@ async fn dir_sizes(paths: Vec<PathBuf>, tab: Option<String>, ctx: tauri::State<'
         .map_err(|e| e.to_string())
 }
 
+/// A planned rename, with both names as the list shows them (a newline as `␊`).
+#[derive(Serialize)]
+struct PlannedShown {
+    #[serde(flatten)]
+    plan: Planned,
+    from_shown: String,
+    to_shown: String,
+}
+
 #[tauri::command(async)]
-fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement: String, flags: Flags) -> Res<Vec<Planned>> {
+fn rename_plan(dir: PathBuf, selected: Vec<String>, pattern: String, replacement: String, flags: Flags) -> Res<Vec<PlannedShown>> {
     let existing: Vec<String> = std::fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
         .flatten()
         .map(|d| d.file_name().to_string_lossy().into_owned())
         .collect();
-    rename::plan(&selected, &existing, &pattern, &replacement, flags)
+    let plan = rename::plan(&selected, &existing, &pattern, &replacement, flags)?;
+    Ok(plan.into_iter().map(|p| PlannedShown { from_shown: rename::shown(&p.from), to_shown: rename::shown(&p.to), plan: p }).collect())
+}
+
+/// A name as the Rename field shows it: a control character as its picture.
+#[tauri::command]
+fn rename_shown(name: String) -> String {
+    rename::shown(&name)
+}
+
+/// The new name typed over `name` in the Rename field, or `None` when the text is as shown.
+#[tauri::command]
+fn rename_typed(name: String, typed: String) -> Option<String> {
+    rename::typed(&name, &typed)
 }
 
 #[tauri::command(async)]
@@ -1501,6 +1689,8 @@ fn rename_apply(dir: PathBuf, plan: Vec<Planned>, ctx: tauri::State<Ctx>) -> Res
 #[tauri::command]
 async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::undo::Undone> {
     let rec = ctx.undo.lock().map_err(|e| e.to_string())?.pop().ok_or_else(|| coxswain_core::t!("undo.nothing"))?;
+    // In turn with the file operations: never under a copy or a move that runs.
+    let _turn = ctx.job_turn.lock().await;
     let u = blocking(move || Ok(rec.undo(|_| {}))).await?;
     ctx.changed(&u.touched);
     Ok(u)
@@ -1527,6 +1717,27 @@ async fn edit_path(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     let mut line = coxswain_core::tools::Line::default();
     line.cmd = format!("{ed} {}", line.word(&path.to_string_lossy()));
     tauri::async_runtime::spawn_blocking(move || coxswain_core::tools::spawn_watched(line.command(), std::time::Duration::from_secs(1)).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
+}
+
+/// The built-in editor (Shift+F4): `path` read for editing (`edit::open`).
+#[tauri::command]
+async fn edit_open(path: PathBuf) -> Res<coxswain_core::edit::Doc> {
+    crate::here(&path)?;
+    blocking(move || coxswain_core::edit::open(&path)).await
+}
+
+/// The built-in editor's text saved as the file was read; `"changed"` when the file changed on
+/// the disk since `stamp` (none: saved over it whatever). The new stamp.
+#[tauri::command]
+async fn edit_save(path: PathBuf, text: String, encoding: coxswain_core::edit::Encoding, crlf: bool, stamp: Option<coxswain_core::edit::Stamp>) -> Res<coxswain_core::edit::Stamp> {
+    use coxswain_core::edit::SaveError;
+    blocking(move || {
+        coxswain_core::edit::save(&path, &text, encoding, crlf, stamp.as_ref()).map_err(|e| match e {
+            SaveError::Changed => "changed".to_string(),
+            e => e.to_string(),
+        })
+    })
+    .await
 }
 
 /// Lines of a hex dump, 16 bytes each: 64 KB. The UI says as much.
@@ -1567,6 +1778,8 @@ fn code_language(path: String, head: String) -> Option<&'static str> {
 struct ArchiveListing {
     entries: Vec<coxswain_core::archive::ArchiveEntry>,
     more: bool,
+    /// It is a container image, read-only (`archive::is_image`).
+    image: bool,
 }
 
 /// A preview reads only what is on the disk, or a file the user asked to download: never a file
@@ -1584,12 +1797,16 @@ fn cloud_fetch(path: PathBuf) {
 #[tauri::command]
 async fn archive_list(path: PathBuf) -> Res<ArchiveListing> {
     crate::here(&path)?;
-    let (entries, more) = blocking(move || coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())).await?;
-    Ok(ArchiveListing { entries, more })
+    let (entries, more, image) = blocking(move || {
+        let (entries, more) = coxswain_core::archive::list(&path, 2000).map_err(|e| e.to_string())?;
+        Ok::<_, String>((entries, more, coxswain_core::archive::is_image(&path)))
+    })
+    .await?;
+    Ok(ArchiveListing { entries, more, image })
 }
 
 #[tauri::command]
-async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+async fn extract(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     job(&ctx, Op::Extract, paths, resolve(&base, &dest), password).await
 }
 
@@ -1650,20 +1867,30 @@ async fn archive_peek(path: PathBuf) -> Res<PathBuf> {
 /// locked with `password` if one is given (a 7z's names too with `hide_names`). The password
 /// is kept in memory for this run only.
 #[tauri::command]
-async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<PathBuf> {
+async fn pack(paths: Vec<PathBuf>, base: PathBuf, dest: String, password: Option<String>, hide_names: bool, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
     let to = resolve(&base, &dest);
-    job(&ctx, Op::Pack { hide_names }, paths, to.clone(), password).await?;
+    let stopped = job(&ctx, Op::Pack { hide_names }, paths, to, password).await?;
     // The format is suggested next time, in both apps.
     ctx.edit_if(|st| ((), coxswain_core::archive::remember_format(st, &dest)))?;
-    Ok(to)
+    Ok(stopped)
+}
+
+/// What the pack dialog, or a copy into an archive, says when the disk may be short of room:
+/// the archive (`dest`, named relative to `base`) is written beside itself first.
+#[tauri::command]
+async fn pack_room(paths: Vec<PathBuf>, base: PathBuf, dest: String) -> Option<String> {
+    let to = resolve(&base, &dest);
+    let archive = coxswain_core::archive::split(&to).map_or(to, |(a, _)| a);
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::archive::short_of_room(&archive, &paths)).await.ok().flatten()
 }
 
 // ---------------------------------------------------------------- properties
 
 /// On a blocking thread: a folder's size is a walk of it, and the facts run `zfs` and `pkg`.
 #[tauri::command]
-async fn properties(path: PathBuf) -> Res<bfs::Props> {
-    blocking(move || bfs::properties(&path).map_err(|e| format!("{}: {e}", path.display()))).await
+async fn properties(path: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<bfs::Props> {
+    let cfg = ctx.cfg().preview.clone();
+    blocking(move || bfs::properties(&path).map(|p| coxswain_core::media::with_facts(p, &cfg, &path)).map_err(|e| format!("{}: {e}", path.display()))).await
 }
 
 /// The user flags named in `on` set on `path`, the others cleared (FreeBSD, macOS).
@@ -1763,21 +1990,119 @@ async fn paste(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(usize, bool)> {
 
 // ---------------------------------------------------------------- drag out, watching
 
-/// A native drag, so files can be dropped on other applications (and back on Coxswain).
+/// A native drag of `paths`, so they can be dropped on other applications (and back on
+/// Coxswain): what is only inside an archive or a git history is copied out first
+/// (`drag::out`). `image`: the drag image, a PNG the page drew at `scale`. Returns the paths
+/// dragged, which a drop back on a pane is known by.
 #[tauri::command]
-fn start_drag(paths: Vec<PathBuf>, window: tauri::Window) -> Res<()> {
-    let app = window.app_handle().clone();
-    app.run_on_main_thread(move || {
-        let icon = drag::Image::Raw(include_bytes!("../icons/32x32.png").to_vec());
-        #[cfg(all(unix, not(target_os = "macos")))]
-        let target = window.gtk_window();
-        #[cfg(not(all(unix, not(target_os = "macos"))))]
-        let target = Ok::<_, tauri::Error>(window.clone());
-        if let Ok(w) = target {
-            let _ = drag::start_drag(&w, drag::DragItem::Files(paths), icon, |_, _| {}, drag::Options::default());
-        }
-    })
-    .map_err(|e| e.to_string())
+async fn start_drag(paths: Vec<PathBuf>, image: Vec<u8>, scale: i32, window: tauri::Window) -> Res<Vec<PathBuf>> {
+    let real = blocking(move || coxswain_core::drag::out(&paths).map_err(|e| e.to_string())).await?;
+    let dragged = real.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    window
+        .app_handle()
+        .clone()
+        .run_on_main_thread(move || {
+            let _ = tx.send(native_drag(&window, dragged, image, scale));
+        })
+        .map_err(|e| e.to_string())?;
+    let started = tauri::async_runtime::spawn_blocking(move || rx.recv().unwrap_or(false)).await.map_err(|e| e.to_string())?;
+    // The button let go while the files were being copied out: they are ready for the next drag.
+    if !started {
+        return Err(coxswain_core::t!("drag.again"));
+    }
+    Ok(real)
+}
+
+/// GTK's own drag (the `drag` crate's GTK backend ended it before the other application had
+/// asked for the files, so drops on other applications got nothing). Copy only: another file
+/// manager must not move our files away by its own rules; a drop on a pane asks or goes by the
+/// keys held (`drop_keys`).
+#[cfg(all(unix, not(target_os = "macos")))]
+fn native_drag(window: &tauri::Window, paths: Vec<PathBuf>, image: Vec<u8>, scale: i32) -> bool {
+    use gtk::{gdk, gdk_pixbuf, glib, prelude::*};
+    use std::{cell::RefCell, rc::Rc};
+    let Ok(w) = window.gtk_window() else { return false };
+    // Started when the button is still down, or the drag would hang on the pointer.
+    let held = w.window().zip(w.display().default_seat().and_then(|s| s.pointer())).is_some_and(|(gw, p)| gw.device_position(&p).3.contains(gdk::ModifierType::BUTTON1_MASK));
+    if !held {
+        return false;
+    }
+    let uris: Vec<String> = paths.iter().filter_map(|p| glib::filename_to_uri(p, None).ok()).map(String::from).collect();
+    let targets = gtk::TargetList::new(&[]);
+    targets.add_uri_targets(0);
+    let get = w.connect_drag_data_get(move |_, _, data, _, _| {
+        data.set_uris(&uris.iter().map(String::as_str).collect::<Vec<_>>());
+    });
+    let Some(ctx) = w.drag_begin_with_coordinates(&targets, gdk::DragAction::COPY, 1, None, -1, -1) else {
+        w.disconnect(get);
+        return false;
+    };
+    let loader = gdk_pixbuf::PixbufLoader::new();
+    if loader.write(&image).and_then(|()| loader.close()).is_ok()
+        && let Some(surface) = loader.pixbuf().and_then(|pb| pb.create_surface(scale.max(1), w.window().as_ref()))
+    {
+        ctx.drag_set_icon_surface(&surface);
+    }
+    // The files are handed over after the drop: the handlers go when the drag has ended.
+    let ids = Rc::new(RefCell::new(vec![get]));
+    let end = w.connect_drag_end({
+        let ids = ids.clone();
+        move |w, _| ids.take().into_iter().for_each(|id| w.disconnect(id))
+    });
+    ids.borrow_mut().push(end);
+    true
+}
+
+#[cfg(not(all(unix, not(target_os = "macos"))))]
+fn native_drag(window: &tauri::Window, paths: Vec<PathBuf>, image: Vec<u8>, _scale: i32) -> bool {
+    drag::start_drag(window, drag::DragItem::Files(paths), drag::Image::Raw(image), |_, _| {}, drag::Options::default()).is_ok()
+}
+
+/// The keys held at a drop on a pane: copy (Ctrl; Option on macOS) or move (Shift; Command on
+/// macOS), as `drag::by_keys` reads them.
+#[tauri::command]
+async fn drop_keys(window: tauri::Window) -> Res<(bool, bool)> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    window
+        .app_handle()
+        .clone()
+        .run_on_main_thread(move || {
+            let _ = tx.send(held_keys(&window));
+        })
+        .map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || rx.recv().unwrap_or_default()).await.map_err(|e| e.to_string())
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn held_keys(window: &tauri::Window) -> (bool, bool) {
+    use gtk::{gdk, prelude::*};
+    let Ok(w) = window.gtk_window() else { return (false, false) };
+    let m = gdk::Keymap::for_display(&w.display()).map_or(0, |k| k.modifier_state());
+    let m = gdk::ModifierType::from_bits_truncate(m);
+    (m.contains(gdk::ModifierType::CONTROL_MASK), m.contains(gdk::ModifierType::SHIFT_MASK))
+}
+
+#[cfg(target_os = "macos")]
+fn held_keys(_: &tauri::Window) -> (bool, bool) {
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGEventSourceFlagsState(state: i32) -> u64;
+    }
+    // The combined session state; Option and Command.
+    let f = unsafe { CGEventSourceFlagsState(0) };
+    (f & 0x0008_0000 != 0, f & 0x0010_0000 != 0)
+}
+
+#[cfg(windows)]
+fn held_keys(_: &tauri::Window) -> (bool, bool) {
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn GetAsyncKeyState(key: i32) -> i16;
+    }
+    // VK_CONTROL, VK_SHIFT; the high bit is set while held.
+    let down = |k| unsafe { GetAsyncKeyState(k) } < 0;
+    (down(0x11), down(0x10))
 }
 
 /// Watch exactly these folders (not their subfolders).
@@ -1876,8 +2201,8 @@ pub struct SpaceTree {
     lists: Option<(u32, Arc<Vec<coxswain_core::space::TypeRow>>, Arc<Largest>)>,
 }
 
-/// The largest files: id, size, path.
-type Largest = Vec<(u32, u64, PathBuf)>;
+/// The largest files: id, bytes, path, and the model a store's blob is (`space::Tree::label`).
+type Largest = Vec<(u32, u64, PathBuf, Option<String>)>;
 
 /// Walk `dir` for Space, keeping every file's size; one walk at a time, `space_progress`
 /// meanwhile. The tree stays here for `space_view` until `space_close`. What it holds in all,
@@ -1974,15 +2299,15 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
             Some((z, ty, l)) if *z == zoom => (ty.clone(), l.clone()),
             _ => {
                 let ty = Arc::new(t.types(zoom));
-                let l: Arc<Largest> = Arc::new(t.largest(zoom, 100).into_iter().map(|i| (i, t.node(i).size, t.path(i))).collect());
+                let l: Arc<Largest> = Arc::new(t.largest(zoom, 100).into_iter().map(|i| (i, t.node(i).size, t.path(i), Some(t.label(i)).filter(|l| *l != t.node(i).label()).map(|l| l.into_owned()))).collect());
                 *lists = Some((zoom, ty.clone(), l.clone()));
                 (ty, l)
             }
         };
         let row: std::collections::HashMap<&str, i32> = types.iter().enumerate().map(|(i, r)| (r.ext.as_str(), i as i32)).collect();
-        // Rectangles under about 20 square pixels go into their folder's block of small files,
+        // Rectangles under about 10 × 10 pixels go into their folder's block of small files,
         // which also bounds what a flat folder of a million files sends.
-        let opts = Opts { pad: 2.0, head: 16.0, min_area: 20.0 };
+        let opts = Opts { pad: 2.0, head: 18.0, min_area: 100.0 };
         let tiles = t
             .layout(zoom, Rect { x: 0.0, y: 0.0, w, h }, &opts)
             .into_iter()
@@ -1990,14 +2315,15 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
                 let n = t.node(tile.id);
                 let r = tile.rect;
                 let labelled = match tile.kind {
-                    Kind::File => r.w >= 48.0 && r.h >= 18.0,
+                    // The window shows it only where it fits whole (or nearly).
+                    Kind::File => r.w >= 40.0 && r.h >= 16.0,
                     Kind::Folder => r.w >= opts.head * 4.0 && r.h >= opts.head * 3.0,
                     Kind::Mount => r.w >= 48.0 && r.h >= 16.0,
                     Kind::Small => false,
                 };
                 SpaceTile {
                     ty: if tile.kind == Kind::File { row.get(t.ext(tile.id).as_str()).copied().unwrap_or(-1) } else { -1 },
-                    name: labelled.then(|| n.label().into_owned()),
+                    name: labelled.then(|| t.label(tile.id).into_owned()),
                     size: n.size,
                     tile,
                 }
@@ -2006,7 +2332,7 @@ async fn space_view(zoom: u32, w: f32, h: f32, ctx: tauri::State<'_, Ctx>) -> Re
         let mut crumbs: Vec<(u32, String)> = vec![];
         let mut at = zoom;
         loop {
-            let name = if at == ROOT { t.root.display().to_string() } else { t.node(at).label().into_owned() };
+            let name = if at == ROOT { t.root.display().to_string() } else { t.label(at).into_owned() };
             crumbs.push((at, name));
             if at == ROOT {
                 break;
@@ -2142,6 +2468,15 @@ async fn open_keys(ctx: tauri::State<'_, Ctx>) -> Res<()> {
     edit_at(path, line, editor).await
 }
 
+/// A notice of a mistake in config.toml: the file in `editor` at its `line`, or with the
+/// desktop's default when no editor is set.
+#[tauri::command]
+async fn open_config_at(line: usize, ctx: tauri::State<'_, Ctx>) -> Res<()> {
+    let path = Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
+    let editor = ctx.cfg().editor.clone();
+    edit_at(path, line, editor).await
+}
+
 /// `path` in `editor` at `line`, or with the desktop's default when no editor is set.
 async fn edit_at(path: PathBuf, line: usize, editor: Option<String>) -> Res<()> {
     let Some(ed) = editor else { return open_path(path).await };
@@ -2220,10 +2555,14 @@ fn main() {
         _ => {}
     }
     coxswain_core::fs::lock_down();
+    // What a write of an archive cut short by a crash left beside it.
+    std::thread::spawn(coxswain_core::archive::clean_stale);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
         eprintln!("coxswain: {e}");
     }
+    // A mistake in config.toml costs only its setting, and a notice names its line; only a
+    // file that cannot be read at all leaves every default.
     let cfg = Config::load().unwrap_or_else(|e| {
         eprintln!("coxswain: {e}; using defaults");
         Config::default()
@@ -2236,17 +2575,13 @@ fn main() {
         eprintln!("coxswain-gui: {}", coxswain_core::t!("cli.no_display"));
         std::process::exit(1);
     }
-    // Validate early: a bad key in the config should not surface as a blank window.
-    if let Err(e) = cfg.keymap() {
-        eprintln!("coxswain: {e}");
-    }
     // Launched from the Dock, a macOS app gets the bare system PATH, so docker, podman,
     // pandoc and the rest of Homebrew are invisible.
     if cfg!(target_os = "macos") {
         coxswain_core::tools::login_path();
     }
     // Launched from a desktop menu the cwd is usually `/`; home is a better start.
-    let home = std::env::home_dir().unwrap_or_default();
+    let home = coxswain_core::dirs::home_dir().unwrap_or_default();
     let cwd = std::env::current_dir().ok().filter(|d| d.parent().is_some()).unwrap_or(home);
     // A folder's name need not be Unicode; the options are.
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
@@ -2295,10 +2630,13 @@ fn main() {
         measuring: Mutex::default(),
         asking: Arc::default(),
         undo: Mutex::default(),
+        job_stop: Mutex::default(),
+        job_turn: tauri::async_runtime::Mutex::new(()),
         app: std::sync::OnceLock::new(),
     };
     tauri::Builder::default()
         .manage(ctx)
+        .manage(tabs::Tabs::default())
         // Files for the page come through our own `asset:`, which keeps cloud files in the cloud.
         .register_asynchronous_uri_scheme_protocol("asset", |_, req, responder| {
             tauri::async_runtime::spawn_blocking(move || responder.respond(asset::respond(&req, coxswain_core::cloud::unasked)));
@@ -2313,21 +2651,39 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, list_dir, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
-            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_apply, undo, undo_next, open_path, edit_path, open_keys, scripts_folder,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, undo, undo_next, open_path, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
+            plain_error, is_model,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
-            clip_set, paste, start_drag, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
+            clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_moves, chess::chess_analyse, chess::chess_save_line, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            convert::convert, convert::images, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, dupes_scan,
-            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store
+            job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
+            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts
         ])
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")
-        // The last window closed: a Make PDF searchable run is stopped and waited for, so its
-        // container is killed and its scratch folder removed.
-        .run(|_, event| {
+        // The last window closed: a Make PDF searchable run, a conversion or Convert e-book is stopped
+        // and waited for, so its container is killed and its scratch folder removed; a file
+        // operation too, at the file it is on, so none is left half copied.
+        .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
+                if let Some(ctx) = app.try_state::<Ctx>() {
+                    let _ = job_stop(ctx);
+                }
                 convert::searchable_end();
+                convert::media_end();
+                ebook::end();
+                for _ in 0..100 {
+                    if JOB.lock().unwrap_or_else(|e| e.into_inner()).is_none() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                coxswain_core::archive::clean_up();
+                coxswain_core::drag::done();
+                work::work_end();
+                convert::export_end();
+                viruses::viruses_end();
             }
         });
 }
@@ -2335,6 +2691,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The app's tests keep their config, state and caches in a home of their own in the
+    /// temporary folder (`coxswain-core`'s `test-home`), never the developer's own.
+    #[test]
+    fn tests_never_reach_the_real_home() {
+        let mut all = coxswain_core::config::Config::paths();
+        all.push(("home", coxswain_core::dirs::home_dir()));
+        for (what, path) in all {
+            let path = path.unwrap_or_else(|| panic!("{what}: none"));
+            assert!(path.starts_with(std::env::temp_dir()), "{what}: {}", path.display());
+        }
+    }
 
     #[test]
     fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
@@ -2402,12 +2770,11 @@ mod perf {
         let t = std::time::Instant::now();
         let (mut entries, _) = bfs::list_with_archive(&dir, true).unwrap();
         bfs::sort(&mut entries, SortKey::Name, false);
-        let (prefix, items) = to_page(&dir, entries, |_| None, None);
-        let listing = Listing { has_notes: false, dir, prefix, items, archive: None, locked: false, disk_image: false, history: None, snapshot: None, package: None, packages: false };
-        println!("list_dir body (list, sort, icons): {:.0} ms", ms(t));
+        let (_, items) = to_page(&dir, entries, |_| None, None);
+        println!("listing (list, sort, icons): {:.0} ms", ms(t));
         let t = std::time::Instant::now();
-        let json = serde_json::to_vec(&listing).unwrap();
-        println!("list_dir to JSON: {:.0} ms, {:.1} MB for {} items", ms(t), json.len() as f64 / 1e6, listing.items.len());
+        let json = serde_json::to_vec(&items).unwrap();
+        println!("listing to JSON: {:.0} ms, {:.1} MB for {} items", ms(t), json.len() as f64 / 1e6, items.len());
         std::fs::write(bench.join("listing.json"), json).unwrap();
     }
 }

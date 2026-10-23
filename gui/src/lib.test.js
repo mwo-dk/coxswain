@@ -29,13 +29,6 @@ test("quote: single quotes for a Unix shell, double for Windows' cmd", async () 
   assert.equal(quote(""), "''");
 });
 
-test("globRe: whole name, any case, ? one character", async () => {
-  const { globRe } = await pick("globRe");
-  assert.ok(globRe("*.TXT").test("a.txt"));
-  assert.ok(globRe("caf?").test("café"));
-  assert.ok(!globRe("a.c").test("abc"), "a dot is a dot");
-});
-
 test("archive endings: the core's lists, the longest ending first", async () => {
   const { setArchiveEndings, isArchive, withEnding, takesPassword } = await pick("archive", "setArchiveEndings", "endingOf", "isArchive", "withEnding", "takesPassword");
   setArchiveEndings([[".tar.gz", ".tgz", ".tar", ".7z", ".zip"], [".7z", ".zip"]]);
@@ -61,28 +54,6 @@ test("old pictures: the core's endings, any case", async () => {
   assert.ok(!isOldPicture("a.tif"), "the list replaced");
 });
 
-test("natord and sortItems: as coxswain-core's fs::natord and fs::sort", async () => {
-  const { natord, sortItems } = await pick("isDigit", "byPoint", "natord", "sortItems");
-  assert.ok(natord("file2", "file10") < 0);
-  assert.equal(natord("a", "A"), 0);
-  assert.ok(natord("a", "B") < 0);
-  assert.equal(natord("01", "1"), 0);
-  assert.ok(natord("x", "x1") < 0);
-  const items = [
-    { name: "b.txt", is_dir: false, modified: 1, size: 5 },
-    { name: "..", is_dir: true },
-    { name: "a10.md", is_dir: false, modified: 3, size: 1 },
-    { name: "Docs", is_dir: true, modified: 2 },
-    { name: "a2.md", is_dir: false, modified: null, size: 9 },
-  ];
-  const names = (key, reverse = false) => sortItems(items, key, reverse).map((e) => e.name);
-  assert.deepEqual(names("name"), ["..", "Docs", "a2.md", "a10.md", "b.txt"]);
-  assert.deepEqual(names("name", true), ["..", "Docs", "b.txt", "a10.md", "a2.md"]);
-  assert.deepEqual(names("ext"), ["..", "Docs", "a2.md", "a10.md", "b.txt"]);
-  assert.deepEqual(names("time"), ["..", "Docs", "a10.md", "b.txt", "a2.md"], "newest first, none last");
-  assert.deepEqual(names("size"), ["..", "Docs", "a2.md", "b.txt", "a10.md"], "biggest first");
-});
-
 test("inside: the folder itself and below it, not a sibling that starts the same", async () => {
   const { inside } = await pick("inside");
   assert.ok(inside("/a/b", "/a/b", "/"));
@@ -91,4 +62,29 @@ test("inside: the folder itself and below it, not a sibling that starts the same
   assert.ok(inside("/a", "/", "/"));
   assert.ok(inside("C:\\x\\y", "C:\\", "\\"));
   assert.ok(!inside("C:\\xy", "C:\\x", "\\"));
+});
+
+test("isModel: model files, and a Core ML package only as a folder", async () => {
+  const { isModel } = await pick("isModel");
+  assert.ok(isModel({ name: "net.onnx", is_dir: false }));
+  assert.ok(isModel({ name: "Lander.TFLITE", is_dir: false }));
+  assert.ok(isModel({ name: "Thrust.mlpackage", is_dir: true }));
+  assert.ok(!isModel({ name: "Thrust.mlpackage", is_dir: false }));
+  assert.ok(!isModel({ name: "weights.pt", is_dir: false }));
+  // An HDF5 file is a model only when its bytes say so: Preview asks.
+  assert.ok(!isModel({ name: "survey.h5", is_dir: false }));
+  assert.ok(!isModel({ name: "onnx", is_dir: true }));
+});
+
+test("games files by their names", async () => {
+  const { chessFormat } = await pick("chessFormat");
+  assert.equal(chessFormat("Games.PGN.zst"), "pgn");
+  assert.equal(chessFormat("mates.fen"), "epd");
+  assert.equal(chessFormat("Shusaku.SGF"), "sgf");
+  assert.equal(chessFormat("club.PDN"), "pdn");
+  assert.equal(chessFormat("meijin.kifu"), "shogi");
+  assert.equal(chessFormat("ryuo.CSA"), "shogi");
+  assert.equal(chessFormat("club.pbn"), "pbn");
+  // A Polyglot book is known by its bytes, not its name.
+  assert.equal(chessFormat("book.bin"), "");
 });

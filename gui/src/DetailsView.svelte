@@ -1,6 +1,6 @@
 <script>
-  import { ui, load, byLast, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
-  import { size, date, day, age, ageColor, TAG_COLORS, tagName, sortItems, basename, HISTORY, SNAPSHOTS } from "./lib.js";
+  import { ui, sortTab, mark, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts, cmpGlyph, cmpClass, cmpLabel } from "./app.svelte.js";
+  import { size, date, day, age, ageColor, TAG_COLORS, tagName, basename, invoke } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
 
@@ -37,6 +37,28 @@
   /** Every row is this high (`--row`, set by applyTheme from the same two settings). */
   const rowH = $derived(Math.round(ui.cfg.gui.font_size * ui.cfg.gui.line_height));
 
+  // A history's list of commits: the graph's rows for the window in view (by commit id), which
+  // core works out only as far down as asked. Asked again each 16 rows scrolled.
+  const commits = $derived(!!t.history && !t.history.commit && t.history.view === "history");
+  const win = $derived(Math.floor(t.top / rowH / 16) * 16);
+  let graph = $state({});
+  $effect(() => {
+    if (!commits) return void (graph = {});
+    // Asked again when the list is read again (its graph is new then).
+    t.items.listed;
+    const [dir, from] = [t.dir, Math.max(0, win - 16)];
+    // 160 rows: a tall screenful and the margin around it.
+    invoke("history_graph", { dir, from, to: from + 160 }).then((rows) => {
+      if (dir !== t.dir) return;
+      graph = Object.fromEntries(rows.map((r) => [r.id, r]));
+    });
+  });
+  /** Lanes as wide as the widest row in view, at most 12. */
+  const lanes = $derived(Math.min(12, Math.max(0, ...Object.values(graph).map((r) => Math.max(r.node, ...r.up.flat(), ...r.down.flat()) + 1))));
+  const LANE = 12;
+  const x = (c) => c * LANE + LANE / 2;
+  const laneColour = (c) => `var(--lane-${c % 6})`;
+
   const g = $derived(ui.cfg.glyphs);
   const gitGlyph = (kind) =>
     ({ modified: g.modified, added: g.staged, untracked: g.untracked, deleted: g.deleted, renamed: g.renamed, conflict: g.conflict, ignored: g.ignored })[kind] ?? "";
@@ -56,25 +78,17 @@
 
   const ext = (e) => (!e.is_dir && e.name.lastIndexOf(".") > 0 ? e.name.slice(e.name.lastIndexOf(".") + 1) : "");
 
-  function sortBy(k) {
+  async function sortBy(k) {
     onfocus();
     t.reverse = t.sort === k && !t.reverse;
     t.sort = k;
-    // Sorted here: reading the folder again takes longer than the sort. A history, a list of
-    // snapshots, an archive or a package has an order of its own, which the backend keeps.
-    if (t.history || t.snapshot || t.archive || t.package || [HISTORY, SNAPSHOTS].includes(basename(t.dir))) return load(t);
-    const at = t.items[t.cursor]?.path;
-    t.items = k === "commit" && t.last ? byLast(t.items, t.last, t.reverse) : sortItems(t.items, k, t.reverse);
-    t.cursor = Math.max(0, t.items.findIndex((e) => e.path === at));
+    sortTab(t);
   }
   const arrow = (k) => (t.sort === k ? (t.reverse ? "\u{f0de}" : "\u{f0dd}") : "");
 
   function click(ev, i) {
     onfocus();
-    if (ev.shiftKey) {
-      const [a, b] = [Math.min(t.cursor, i), Math.max(t.cursor, i)];
-      for (let r = a; r <= b; r++) if (t.items[r].name !== "..") t.marked.add(t.items[r].path);
-    }
+    if (ev.shiftKey) mark(t, { range: [Math.min(t.cursor, i), Math.max(t.cursor, i)] });
     t.cursor = i;
     if (ev.ctrlKey || ev.metaKey) toggleMark(t, i);
   }
@@ -101,8 +115,12 @@
   </div>
   <Rows class="rows" items={t.items} {rowH} cursor={t.cursor} bind:top={t.top} role="listbox" tabindex="-1" aria-label={t.dir}>
     {#snippet row(e, i)}
+      {#if e.placeholder}
+        <div role="option" tabindex="-1" aria-selected={i === t.cursor} class="cols row" class:cursor={i === t.cursor} class:focused={active}></div>
+      {:else}
       {@const st = e.name === ".." ? undefined : (t.git?.files[e.name] ?? t.git?.all)}
-      {@const marked = t.marked.has(e.path)}
+      {@const marked = !!e.m}
+      {@const gr = commits ? graph[basename(e.path)] : undefined}
       <!-- Keyboard handling is global (App.svelte); rows are pointer targets. -->
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <div
@@ -114,6 +132,8 @@
         class:marked
         class:cursor={i === t.cursor}
         class:focused={active}
+        data-drop={e.is_dir && e.name !== ".." ? e.path : undefined}
+        class:drop={e.is_dir && ui.dropDir === e.path}
         draggable={e.name !== ".."}
         ondragstart={(ev) => {
           ev.preventDefault();
@@ -126,10 +146,27 @@
         onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}
       >
         <span class="name">
+          {#if gr}
+            <!-- Its lane, the lines from its children above and to its parents below. -->
+            <svg class="graph" width={lanes * LANE} height={rowH} aria-hidden="true">
+              {#each gr.up.filter(([a]) => a < lanes) as [a, b]}
+                <path d="M{x(a)} 0 C{x(a)} {rowH / 4} {x(b)} {rowH / 4} {x(b)} {rowH / 2}" stroke={laneColour(a)} />
+              {/each}
+              {#each gr.down.filter(([, c]) => c < lanes) as [b, c]}
+                <path d="M{x(b)} {rowH / 2} C{x(b)} {(rowH * 3) / 4} {x(c)} {(rowH * 3) / 4} {x(c)} {rowH}" stroke={laneColour(c)} />
+              {/each}
+              {#if gr.node < lanes}<circle cx={x(gr.node)} cy={rowH / 2} r="3.5" fill={laneColour(gr.node)} />{/if}
+            </svg>
+            {#if gr.side}<span class="side side-{gr.side}" title={tr(`history.side_${gr.side}`)}>{gr.side === "ahead" ? g.ahead : g.behind}</span>{/if}
+            {#each gr.refs ?? [] as r (r)}<span class="ref" class:head={r.startsWith("HEAD")}>{r}</span>{/each}
+          {:else}
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
-          <span class="label">{e.name}</span>
+          {/if}
+          <!-- In a model store: the model it is, then its hashed name (`local_models::names`). -->
+          <span class="label" dir="auto">{#if t.models?.[e.name]}{t.models[e.name]} <span class="hash">{e.name}</span>{:else}{e.name}{/if}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
+          {#if e.name !== ".." && t.cmp?.[e.name]}<span class="cmp cmp-{cmpClass(t, t.cmp[e.name])}" title={cmpLabel(t.cmp[e.name])}>{cmpGlyph(t, t.cmp[e.name])}</span>{/if}
           {#if e.online}<span class="cloud" title={tr("details.online")}>{g.cloud}</span>{/if}
           <!-- The action menu on this row, shown on the row under the mouse and the cursor's. -->
           {#if e.name !== ".."}<button class="more" tabindex="-1" title="{tr('action.action_menu')} ({ui.cfg.actions.action_menu?.[1] ?? ''})" aria-label={tr("action.action_menu")} onclick={(ev) => rowMenu(ev, t, i, onfocus)} ondblclick={(ev) => ev.stopPropagation()}>⋯</button>{/if}
@@ -156,6 +193,7 @@
         {/if}
         {#if shown.has("created")}<span class="time">{day(e.created)}</span>{/if}
       </div>
+      {/if}
     {/snippet}
   </Rows>
 </div>
@@ -257,11 +295,17 @@
   .more:hover {
     border-color: currentColor;
   }
-  /* A name goes the way its first letter does: ".git" stays ".git" under a right-to-left language. */
+  /* A name goes the way its first letter does (dir="auto"): ".git" stays ".git" under a
+     right-to-left language, and a long one keeps its start and ends in …; it is aligned as
+     the column is. */
   .label {
     overflow: hidden;
     text-overflow: ellipsis;
-    unicode-bidi: plaintext;
+    text-align: match-parent;
+  }
+  .hash {
+    opacity: 0.6;
+    font-size: 0.9em;
   }
   .icon {
     font-family: var(--icon-font);
@@ -314,6 +358,42 @@
     text-shadow: 0 0 2px rgb(0 0 0 / 0.6);
     line-height: 1.5;
   }
+  .graph {
+    flex: none;
+    overflow: visible;
+  }
+  .graph path {
+    fill: none;
+    stroke-width: 2;
+  }
+  .details {
+    --lane-0: var(--git-branch-fg);
+    --lane-1: var(--git-added-fg);
+    --lane-2: var(--git-modified-fg);
+    --lane-3: var(--git-renamed-fg);
+    --lane-4: var(--git-untracked-fg);
+    --lane-5: var(--symlink-fg);
+  }
+  /* Against the upstream: not pushed, not merged. */
+  .side {
+    flex: none;
+    font-weight: bold;
+  }
+  .side-ahead { color: var(--git-added-fg); }
+  .side-behind { color: var(--git-modified-fg); }
+  /* A branch tip's name: HEAD's filled. */
+  .ref {
+    flex: none;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    font-size: 0.8em;
+    border: 1px solid var(--git-branch-fg);
+    color: var(--git-branch-fg);
+  }
+  .ref.head {
+    background: var(--git-branch-fg);
+    color: var(--panel-bg);
+  }
   .tag {
     flex: none;
     width: 8px;
@@ -328,6 +408,13 @@
   .cloud {
     opacity: 0.7;
   }
+  .cmp { margin-left: 4px; font-weight: bold; }
+  .cmp-only_left { color: var(--git-added-fg); }
+  .cmp-newer_left { color: var(--git-modified-fg); }
+  .cmp-newer_right { color: var(--git-renamed-fg); }
+  .cmp-different { color: var(--git-conflict-fg); }
+  .cmp-same,
+  .cmp-only_right { color: var(--git-ignored-fg); }
   .git-modified { color: var(--git-modified-fg); }
   .git-added { color: var(--git-added-fg); }
   .git-untracked { color: var(--git-untracked-fg); }

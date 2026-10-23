@@ -16,7 +16,29 @@
 
   let { path, full = false } = $props();
 
-  const format = $derived(chessFormat(basename(path)));
+  // A .bin file comes here only when it is a Polyglot opening book (Preview, chess_is_book).
+  const format = $derived(/\.bin$/i.test(path) ? "book" : chessFormat(basename(path)));
+  // A PDN file: draughts games in the same table, on a board of their own, without openings,
+  // figurines or a book.
+  const draughts = $derived(format === "pdn");
+  // KIF and CSA: shogi, on its board with the pieces in hand.
+  const shogi = $derived(format === "shogi");
+  // PBN: bridge deals, at a table of four hands; the contract stands where the opening does.
+  const bridge = $derived(format === "pbn");
+  const table = $derived(format === "pgn" || draughts || shogi || bridge);
+  // A PGN file of xiangqi, as its tags say (chess_rows): its own board too.
+  let kind = $state("");
+  const xiangqi = $derived(kind === "xiangqi");
+  const other = $derived(draughts || xiangqi || shogi || bridge);
+  // F1 in the window: the feature of the file's games.
+  $effect(() => {
+    if (full && xiangqi && ui.modal?.kind === "chess" && ui.modal.path === path) ui.modal.feature = "xiangqi";
+  });
+  const columns = $derived(
+    bridge ? COLUMNS.filter(([c]) => !["eco", "white_elo", "black_elo"].includes(c)) : other ? COLUMNS.filter(([c]) => c !== "eco" && c !== "opening") : COLUMNS,
+  );
+  const BRIDGE_COL = { white: "bridge.col_ns", black: "bridge.col_ew", opening: "bridge.col_contract", moves: "bridge.col_tricks" };
+  const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   const ROW = 24;
   const COLUMNS = [
     ["number", "#"],
@@ -52,6 +74,25 @@
   let posAt = $state(0);
   let boardEl = $state();
   let movesEl = $state();
+  // The opening book's moves for the position shown (chess_book), and in a book of its own
+  // the positions before the one shown.
+  let book = $state(null);
+  let bookLine = $state([]);
+  // Playing on (chess_moves): the line played from the board, kept here until saved as a new
+  // PGN file or cleared ({ base: the move it is played from, moves, at: how many are shown });
+  // the legal moves of the position shown, the square clicked, and a promotion to choose.
+  let played = $state(null);
+  let legal = $state([]);
+  let picked = $state(null);
+  let promo = $state(null);
+  let said = $state("");
+  // The engine (chess_analyse): asked about each position while on.
+  let analysis = $state(false);
+  let engine = $state(null);
+  // The whole game analysed (chess_review): how far it is, asked again while it runs.
+  let review = $state(null);
+  // Find this position (chess_position_games): the games found, null before asking.
+  let posGames = $state(null);
 
   $effect(() => {
     const theme = ui.theme;
@@ -60,6 +101,7 @@
     invoke("chess_looks", { theme }).then((l) => {
       looks = l;
       letters = l.notation === "letters";
+      analysis = l.analysis;
     });
   });
 
@@ -80,11 +122,15 @@
     untrack(() => {
       game = null;
       at = null;
+      played = null;
       error = "";
       cursor = 0;
       first = 0;
       if (listEl) listEl.scrollTop = 0;
-      if (chessFormat(basename(p)) === "epd") {
+      bookLine = [];
+      if (/\.bin$/i.test(p)) {
+        game = { game: { start: START, nodes: [], roots: [], tags: [], result: "" }, layout: [], index: 0 };
+      } else if (chessFormat(basename(p)) === "epd") {
         invoke("chess_positions", { path: p }).then(
           (v) => p === path && ((positions = v), showPosition(0)),
           (e) => (error = String(e)),
@@ -102,6 +148,7 @@
   /** Back from a game to the table, which takes the keys. */
   function back() {
     game = null;
+    played = null;
     setTimeout(() => listEl?.focus(), 0);
   }
 
@@ -116,7 +163,7 @@
 
   let rowsSeq = 0;
   async function fetchRows() {
-    if (format !== "pgn") return;
+    if (!table) return;
     const p = path;
     const seq = ++rowsSeq;
     const n = Math.ceil(height / ROW) + 20;
@@ -126,6 +173,7 @@
       // An answer to an older scroll or filter that came in late: a newer one is on its way.
       if (p !== path || seq !== rowsSeq) return;
       progress = r.progress;
+      kind = r.format;
       total = r.total;
       rows = r.rows;
       first = from;
@@ -164,6 +212,9 @@
       const v = await invoke("chess_game", { path, index });
       game = { ...v, index };
       at = null;
+      played = null;
+      review = null;
+      said = "";
       error = v.error ?? "";
       setTimeout(() => boardEl?.focus(), 0);
     } catch (e) {
@@ -175,14 +226,16 @@
     const p = positions[i];
     if (!p) return;
     posAt = i;
+    played = null;
     game = { game: { start: p.fen ?? "", nodes: [], roots: [], tags: [], result: "" }, layout: p.about ? [{ t: "comment", text: p.about }] : [], index: i };
     at = null;
     error = p.fen ? "" : t("chess.no_position", { line: p.line });
   }
 
   const nodes = $derived(game?.game.nodes ?? []);
-  const fen = $derived(at == null ? game?.game.start : nodes[at]?.fen);
-  const last = $derived(at == null ? null : nodes[at]);
+  const inLine = $derived(played != null && played.at > 0);
+  const fen = $derived(inLine ? played.moves[played.at - 1].fen : at == null ? game?.game.start : nodes[at]?.fen);
+  const last = $derived(inLine ? played.moves[played.at - 1] : at == null ? null : nodes[at]);
   const pieces = $derived(looks ? (letters ? looks.letters : looks.figurines) : ["♔", "♕", "♖", "♗", "♘"]);
 
   /** The pieces on the board: 64 squares, a1 first. */
@@ -200,8 +253,286 @@
   }
   const board = $derived(squares(fen));
 
+  const SEAT = ["bridge.north", "bridge.east", "bridge.south", "bridge.west"];
+  const SEAT_TAG = ["North", "East", "South", "West"];
+  const SUIT = ["♠", "♥", "♦", "♣"];
+  /** A bridge table from its state (`bridge::State::text`): each seat's cards by suit as text
+   *  ("A K 10"), the trick's card per seat ("♠A"), the tricks won. */
+  function bridgeState(f) {
+    const [hands = "", trick = "", , ns = "0", ew = "0"] = (f ?? "").split(";");
+    const out = { hands: [[], [], [], []], trick: [null, null, null, null], won: [ns, ew] };
+    const shown = (r) => (r === "T" ? "10" : r);
+    for (const h of hands.split(" ")) {
+      const s = "NESW".indexOf(h[0]);
+      if (s < 0) continue;
+      out.hands[s] = h.slice(2).split(".").map((suit) => [...suit].map(shown).join(" "));
+    }
+    for (const c of trick.split(" ")) {
+      const s = "NESW".indexOf(c[0]);
+      if (s >= 0 && c.length >= 4) out.trick[s] = SUIT["SHDC".indexOf(c[2])] + shown(c.slice(3));
+    }
+    return out;
+  }
+  /** The auction's calls in rows West, North, East, South, from the seat that called first. */
+  function auctionRows(calls) {
+    const first = "NESW".indexOf(calls[0]);
+    const cells = [...Array([3, 0, 1, 2].indexOf(first < 0 ? 0 : first)).fill(""), ...calls.slice(1)];
+    const rows = [];
+    for (let i = 0; i < cells.length; i += 4) rows.push(cells.slice(i, i + 4));
+    return rows;
+  }
+
+  /** Shogi kanji by SFEN letter, plain and promoted (`shogi::glyph`). */
+  const SG = { P: "歩", L: "香", N: "桂", S: "銀", G: "金", B: "角", R: "飛", K: "玉" };
+  const SGP = { P: "と", L: "杏", N: "圭", S: "全", B: "馬", R: "龍" };
+  /** A shogi position from its SFEN: 81 cells (flipped when `flip`), each { k, promoted, up }
+   *  (up: drawn upright, the side at the bottom), and each side's hand as text ("歩2 角"). */
+  function sgView(f) {
+    const [placement = "", , handText = "-"] = (f ?? "").split(" ");
+    const cells = [];
+    for (const row of placement.split("/").slice(0, 9)) {
+      const r = [];
+      let plus = false;
+      for (const ch of row) {
+        if (ch === "+") plus = true;
+        else if (/\d/.test(ch)) r.push(...Array(Number(ch)).fill(null)), (plus = false);
+        else {
+          const up = ch.toUpperCase();
+          const sente = ch === up;
+          r.push(SG[up] ? { k: plus ? (SGP[up] ?? SG[up]) : up === "K" && !sente ? "王" : SG[up], file: (plus && up !== "G" && up !== "K" ? "p" : "") + up, promoted: plus, sente } : null);
+          plus = false;
+        }
+      }
+      cells.push(...[...r, ...Array(9).fill(null)].slice(0, 9));
+    }
+    while (cells.length < 81) cells.push(null);
+    const view = (flip ? cells.reverse() : cells).map((p) => p && { ...p, up: p.sente !== flip });
+    const hands = ["", ""];
+    let n = "";
+    for (const ch of handText === "-" ? "" : handText) {
+      if (/\d/.test(ch)) n += ch;
+      else if (SG[ch.toUpperCase()]) {
+        const side = ch === ch.toUpperCase() ? 0 : 1;
+        hands[side] += `${hands[side] ? " " : ""}${SG[ch.toUpperCase()]}${n && n !== "1" ? n : ""}`;
+        n = "";
+      }
+    }
+    return { cells: view, hands };
+  }
+
+  /** Xiangqi pieces by their FEN letter (`xiangqi::glyph`). */
+  const XQ = { K: "帥", A: "仕", B: "相", N: "傌", R: "俥", C: "炮", P: "兵", k: "將", a: "士", b: "象", n: "馬", r: "車", c: "砲", p: "卒" };
+  /** A xiangqi position's 90 points from its FEN, rows from Black's side; flipped when `flip`. */
+  function xqCells(f) {
+    const out = [];
+    for (const row of (f ?? "").split(" ")[0].split("/").slice(0, 10)) {
+      const r = [];
+      for (const ch of row) {
+        if (/\d/.test(ch)) r.push(...Array(Number(ch)).fill(null));
+        else r.push(XQ[ch] ? ch : null);
+      }
+      out.push(...[...r, ...Array(9).fill(null)].slice(0, 9));
+    }
+    while (out.length < 90) out.push(null);
+    return flip ? out.reverse() : out;
+  }
+
+  /** A draughts position (`draughts::cells`): rows from the top, a run of empty cells as its
+   *  count, M K White's man and king, m k Black's. */
+  function cells(f) {
+    const rows = (f ?? "").split(" ")[0].split("/").slice(0, 12);
+    const out = [];
+    let w = 0;
+    for (const row of rows) {
+      const r = [];
+      for (const m of row.matchAll(/(\d+)|([^\d])/g)) {
+        if (m[1]) r.push(...Array(Math.min(12, Number(m[1]))).fill(null));
+        else r.push(m[2]);
+      }
+      w = Math.max(w, Math.min(12, r.length));
+      out.push(r);
+    }
+    w = w || 1;
+    const h = out.length || 1;
+    return { w, h, cells: out.flatMap((r) => [...r, ...Array(w).fill(null)].slice(0, w)) };
+  }
+
+  // The book's moves, again for each position.
+  let bookSeq = 0;
+  $effect(() => {
+    const f = fen;
+    const p = path;
+    void ui.cfg;
+    const s = ++bookSeq;
+    if (!f || other) return void (book = null);
+    invoke("chess_book", { path: p, fen: f }).then(
+      (b) => s === bookSeq && (book = b),
+      () => {},
+    );
+  });
+
+  // The legal moves, again for each position.
+  let movesSeq = 0;
+  $effect(() => {
+    const f = fen;
+    const s = ++movesSeq;
+    picked = null;
+    promo = null;
+    legal = [];
+    if (f) invoke("chess_moves", { fen: f }).then((m) => s === movesSeq && (legal = m), () => {});
+  });
+  const targets = $derived(picked == null ? [] : legal.filter((m) => m.from === picked).map((m) => m.to));
+
+  // The engine, again for each position while it is on.
+  let engineSeq = 0;
+  $effect(() => {
+    const f = fen;
+    const s = ++engineSeq;
+    if (!analysis || !f || other) return void (engine = null);
+    engine = { fen: f, thinking: true };
+    invoke("chess_analyse", { fen: f }).then(
+      (a) => s === engineSeq && (engine = { fen: f, a }),
+      (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
+    );
+  });
+
+  /** A click on a square: a piece of the side to move is picked up, a square it can reach plays
+   * the move (a promotion asks for its piece). */
+  function clickSquare(sq) {
+    if (picked != null) {
+      const ms = legal.filter((m) => m.from === picked && m.to === sq);
+      if (ms.length > 1) return void (promo = ms);
+      if (ms.length) return playMove(ms[0]);
+    }
+    picked = picked !== sq && legal.some((m) => m.from === sq) ? sq : null;
+    boardEl?.focus();
+  }
+
+  /** A move played from the position shown: the game's own next move (or a variation's) is
+   * stepped to; any other starts the played line, or goes on with it after the move shown. */
+  function playMove(m) {
+    picked = null;
+    promo = null;
+    if (format === "book" && !inLine) {
+      bookLine.push(game.game.start);
+      game.game.start = m.fen;
+      return;
+    }
+    if (!inLine) {
+      const next = at == null ? game.game.roots : nodes[at].children;
+      const n = next.find((n) => nodes[n].fen === m.fen);
+      if (n != null) return void (at = n);
+      played = { base: at, moves: [m], at: 1 };
+      return;
+    }
+    played.moves = [...played.moves.slice(0, played.at), m];
+    played.at = played.moves.length;
+  }
+
+  /** The played line as a new PGN file next to this one: the game's moves to its base, then it. */
+  async function saveLine() {
+    if (!played) return void (said = t("chess.line_none"));
+    const sans = [];
+    for (let n = played.base; n != null; n = nodes[n].parent) sans.unshift(nodes[n].san);
+    try {
+      said = await invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: [...sans, ...played.moves.map((m) => m.san)] });
+    } catch (e) {
+      said = String(e);
+    }
+  }
+
+  /** The whole game analysed (g): started, or stopped while it runs; its state asked for. */
+  async function reviewAct(act) {
+    if (format !== "pgn" || !game) return;
+    const index = game.index;
+    try {
+      const r = await invoke("chess_review", { path, index, act });
+      if (game?.index === index) review = r;
+    } catch (e) {
+      said = String(e);
+    }
+  }
+  $effect(() => {
+    if (!review || review.done) return;
+    const timer = setInterval(() => reviewAct("state"), 700);
+    return () => clearInterval(timer);
+  });
+  async function saveReview() {
+    try {
+      said = await invoke("chess_review_save", { path, index: game.index });
+    } catch (e) {
+      said = String(e);
+    }
+  }
+  const CAP = 1000;
+  const share = (v) => 1 / (1 + Math.exp(-Math.max(-CAP, Math.min(CAP, v)) / 250));
+  /** An evaluation as shown (`review::shown`): +0.35, −1.20, #3, #−2. */
+  function shownEval(v) {
+    if (Math.abs(v) > CAP) return `#${v < 0 ? "−" : ""}${CAP + 100 - Math.abs(v)}`;
+    return `${v < 0 ? "−" : "+"}${(Math.abs(v) / 100).toFixed(2)}`;
+  }
+  // The position's evaluation from White's side: the game's analysis, else the engine's.
+  const evalNow = $derived.by(() => {
+    if (!inLine && review) {
+      const v = at == null ? review.start : review.plies.find((p) => p.node === at)?.cp;
+      if (v != null) return v;
+    }
+    const l = engine?.fen === fen ? engine.a?.lines?.[0] : null;
+    if (!l) return null;
+    if (l.mate != null) return l.mate > 0 ? CAP + 100 - Math.min(l.mate, 99) : -(CAP + 100 + Math.max(l.mate, -99));
+    return l.cp ?? null;
+  });
+  const marks = $derived(new Map((review?.plies ?? []).filter((p) => p.mark).map((p) => [p.node, p.mark])));
+  const MARK = { 2: "?", 4: "??", 5: "!?", 6: "?!" };
+  // The graph: the start and each move analysed, White's share from 0 to 100.
+  const points = $derived(review?.start == null ? [] : [{ node: null, v: review.start }, ...review.plies.map((p) => ({ node: p.node, v: p.cp, mark: p.mark }))]);
+  function graphClick(e) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const i = Math.round(((e.clientX - r.left) / r.width) * (points.length - 1));
+    if (points[i]) goto(points[i].node);
+    boardEl?.focus();
+  }
+
+  /** Find this position (p): the games in the search store that reach the board shown. */
+  async function findPosition() {
+    if (!fen || other) return;
+    said = t("chess.position_searching");
+    try {
+      const r = await invoke("chess_position_games", { path, fen });
+      if (r == null) (said = t("chess.position_off")), (posGames = null);
+      else if (!r.length) (said = t("chess.position_none")), (posGames = null);
+      else (said = ""), (posGames = r);
+    } catch (e) {
+      said = String(e);
+    }
+  }
+  /** A game found: this file's on the board, another file's in its own window. */
+  function openFound(g) {
+    posGames = null;
+    if (g.path === path) return void openGame(g.index);
+    ui.modal = { kind: "chess", path: g.path };
+    ui.chessAt = { path: g.path, index: g.index };
+  }
+
+  /** A move of the game shown: out of the played line, which stays. */
+  function goto(n) {
+    if (played) played.at = 0;
+    at = n;
+  }
+
+  /** A move's number as written: "12." for White's, "12…" for Black's when it starts a line. */
+  const numbered = (m, first) => (m.white ? `${m.number}.` : first ? `${m.number}…` : "");
+  const baseName = $derived(played?.base == null ? t("chess.line_start") : `${nodes[played.base].number}${nodes[played.base].white ? "." : "…"}${show(nodes[played.base].san).map(([x]) => x).join("")}`);
+
+  /** A book's move played: its position on the board, the one before kept for ←. */
+  function playBook(m) {
+    bookLine.push(game.game.start);
+    game.game.start = m.fen;
+  }
+
   /** A move as shown, in pieces: [text, figurine] (`chess::show_san`). */
   function show(san) {
+    if (other) return [[san, false]];
     const out = [];
     [...san].forEach((c, i) => {
       const k = "KQRBN".indexOf(c);
@@ -216,8 +547,25 @@
 
   function step(to) {
     if (!game) return;
+    // In the played line, → ← step it; → on the move it starts from enters it again. In a
+    // position, → ← step it whenever there is one.
+    if (played) {
+      const baseHere = played.at === 0 && (format !== "pgn" || at === played.base);
+      if (played.at > 0 || baseHere) {
+        if (to === "next") return void (played.at = Math.min(played.at + 1, played.moves.length));
+        if (to === "prev" && played.at > 0) return void played.at--;
+        if (to === "prev" && format !== "pgn") return;
+        played.at = 0;
+      }
+    }
     const g = game.game;
     const sibs = (n) => (nodes[n].parent == null ? g.roots : nodes[nodes[n].parent].children);
+    if (format === "book") {
+      if (to === "prev" && bookLine.length) game.game.start = bookLine.pop();
+      else if (to === "start" && bookLine.length) (game.game.start = bookLine[0]), (bookLine = []);
+      else if (to === "next" && book?.moves.length) playBook(book.moves[0]);
+      return;
+    }
     if (format === "epd") {
       if (to === "next") showPosition(Math.min(positions.length - 1, posAt + 1));
       else if (to === "prev") showPosition(Math.max(0, posAt - 1));
@@ -250,10 +598,18 @@
     const map = { ArrowRight: "next", ArrowLeft: "prev", Home: "start", End: "end", ArrowDown: "down", ArrowUp: "up" };
     if (map[e.key]) step(map[e.key]);
     else if (e.key === "f") flip = !flip;
-    else if (e.key === "n") letters = !letters;
-    else if (e.key === "PageDown" && format === "pgn") nextGame(1);
-    else if (e.key === "PageUp" && format === "pgn") nextGame(-1);
-    else if (e.key === "Escape" && format === "pgn" && game) back();
+    else if (e.key === "n" && !other) letters = !letters;
+    else if (e.key === "a" && !other) analysis = !analysis;
+    else if (e.key === "s" && !other) saveLine();
+    else if (e.key === "b" && !other && engine?.a?.lines[0]) playMove(engine.a.lines[0].best);
+    else if (e.key === "g" && format === "pgn" && !other) reviewAct(review && !review.done ? "stop" : "start");
+    else if (e.key === "w" && format === "pgn" && !other) saveReview();
+    else if (e.key === "p" && !other) findPosition();
+    else if (e.key === "c" && played) played = null;
+    else if (e.key === "Escape" && (picked != null || promo)) (picked = null), (promo = null);
+    else if (e.key === "PageDown" && table) nextGame(1);
+    else if (e.key === "PageUp" && table) nextGame(-1);
+    else if (e.key === "Escape" && table && game) back();
     else return;
     e.preventDefault();
     e.stopPropagation();
@@ -286,6 +642,8 @@
   const known = (v) => (v && v !== "?" && !v.startsWith("????") ? v : "");
   const PIECE = { k: "K", q: "Q", r: "R", b: "B", n: "N", p: "P" };
   const num = (v) => (v === "" || v == null ? null : Number(v) || null);
+  /** A number field as wide as its label, which is all it shows until something is typed. */
+  const fits = (label) => `calc(${[...label].length}ch + 2.5em)`;
   const pct = $derived(progress && progress.size ? Math.floor((progress.read * 100) / progress.size) : 0);
 </script>
 
@@ -298,11 +656,70 @@
   {@const lit = last && (last.from === sq || last.to === sq)}
   {@const x = i % 8}
   {@const y = Math.floor(i / 8)}
-  <rect {x} {y} width="1" height="1" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 1 : 0] : "#888"} />
-  {#if lit}<rect {x} {y} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
-  {#if p}<image href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} x={x + 0.04} y={y + 0.04} width="0.92" height="0.92" />{/if}
-  {#if y === 7}<text x={x + 0.94} y={y + 0.95} class="coord" text-anchor="end" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{"abcdefgh"[file]}</text>{/if}
-  {#if x === 0}<text x={x + 0.05} y={y + 0.22} class="coord" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+  <rect {x} {y} width="1" height="1" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 1 : 0] : "#888"} onclick={() => clickSquare(sq)} />
+  {#if picked === sq}<rect {x} {y} width="1" height="1" class="mark" fill="rgb(90 160 246 / 0.5)" />{/if}
+  {#if lit}<rect class="mark" {x} {y} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
+  {#if p}<image class="mark" href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} {x} {y} width="1" height="1" />{/if}
+  {#if targets.includes(sq)}<circle class="mark" cx={x + 0.5} cy={y + 0.5} r={p ? 0.45 : 0.15} fill={p ? "none" : "rgb(0 0 0 / 0.3)"} stroke={p ? "rgb(0 0 0 / 0.35)" : "none"} stroke-width="0.07" />{/if}
+  {#if y === 7}<text class="coord mark" x={x + 0.94} y={y + 0.95} text-anchor="end" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{"abcdefgh"[file]}</text>{/if}
+  {#if x === 0}<text class="coord mark" x={x + 0.05} y={y + 0.22} fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{rank + 1}</text>{/if}
+{/snippet}
+
+<!-- A shogi piece: a five-sided tile with its kanji (drawn for Coxswain, vendor/game-pieces),
+     Gote's turned round; a promoted piece in red; the last move's squares tinted. -->
+{#snippet sgPiece(p, i)}
+  {@const c = flip ? 80 - i : i}
+  {@const x = i % 9}
+  {@const y = Math.floor(i / 9)}
+  {#if last && (last.from === c || last.to === c)}<rect x={x + 0.03} y={y + 0.03} width="0.94" height="0.94" fill="rgb(246 224 90 / 0.5)" />{/if}
+  {#if p}
+    <image href={`vendor/game-pieces/shogi-${p.file}.svg`} x={x} y={y} width="1" height="1" transform={p.up ? "" : `rotate(180 ${x + 0.5} ${y + 0.5})`}><title>{p.k}</title></image>
+  {/if}
+{/snippet}
+
+<!-- The xiangqi board's lines: 9 files, 10 ranks, the river between ranks 5 and 6 that only the
+     edge files cross, the palaces' diagonals; the files numbered for both sides. -->
+{#snippet xqLines(ink)}
+  {#each Array(10) as _, y (y)}<line x1="0" y1={y} x2="8" y2={y} stroke={ink} stroke-width="0.04" />{/each}
+  {#each Array(9) as _, x (x)}
+    {#if x === 0 || x === 8}<line x1={x} y1="0" x2={x} y2="9" stroke={ink} stroke-width="0.04" />
+    {:else}<line x1={x} y1="0" x2={x} y2="4" stroke={ink} stroke-width="0.04" /><line x1={x} y1="5" x2={x} y2="9" stroke={ink} stroke-width="0.04" />{/if}
+    <text x={x} y="-0.45" class="coord" text-anchor="middle" fill={ink}>{flip ? "九八七六五四三二一"[x] : x + 1}</text>
+    <text x={x} y="9.65" class="coord" text-anchor="middle" fill={ink}>{flip ? x + 1 : "九八七六五四三二一"[x]}</text>
+  {/each}
+  {#each [[3, 0, 5, 2], [5, 0, 3, 2], [3, 7, 5, 9], [5, 7, 3, 9]] as [a, b, c, d], k (k)}<line x1={a} y1={b} x2={c} y2={d} stroke={ink} stroke-width="0.03" />{/each}
+  <text x="2" y="4.68" class="river" text-anchor="middle" fill={ink}>楚 河</text>
+  <text x="6" y="4.68" class="river" text-anchor="middle" fill={ink}>漢 界</text>
+{/snippet}
+
+<!-- A xiangqi piece: a disc with its character, Red's in red, Black's in black (drawn for
+     Coxswain, vendor/game-pieces); the last move's points ringed. -->
+{#snippet xqPiece(p, i)}
+  {@const c = flip ? 89 - i : i}
+  {@const x = i % 9}
+  {@const y = Math.floor(i / 9)}
+  {@const lit = last && (last.from === c || last.to === c)}
+  {#if lit}<circle cx={x} cy={y} r="0.47" fill="rgb(246 224 90 / 0.55)" />{/if}
+  {#if p}
+    <image href={`vendor/game-pieces/xiangqi-${p === p.toUpperCase() ? "r" : "b"}${p.toLowerCase()}.svg`} x={x - 0.46} y={y - 0.46} width="0.92" height="0.92" />
+  {/if}
+{/snippet}
+
+<!-- A draughts square: dark ones numbered, a man as a disc, a king as two discs stacked. -->
+{#snippet cell(d, i)}
+  {@const col = i % d.w}
+  {@const row = Math.floor(i / d.w)}
+  {@const x = flip ? d.w - 1 - col : col}
+  {@const y = flip ? d.h - 1 - row : row}
+  {@const c = x + y * d.w}
+  {@const dark = (x + y) % 2 === 1}
+  {@const p = d.cells[c]}
+  {@const lit = last && (last.from === c || last.to === c)}
+  <rect x={col} y={row} width="1" height="1" fill={looks ? looks.colours[dark ? 1 : 0] : dark ? "#769656" : "#eeeed2"} />
+  {#if lit}<rect x={col} y={row} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
+  {#if dark && !p}<text x={col + 0.06} y={row + 0.24} class="coord" fill={looks ? looks.colours[0] : "#000"}>{y * (d.w / 2) + Math.floor(x / 2) + 1}</text>{/if}
+  {#if p}<image href={`vendor/game-pieces/draughts-${p === p.toUpperCase() ? "w" : "b"}${p.toLowerCase() === "k" ? "k" : "m"}.svg`} x={col} y={row} width="1" height="1" />{/if}
 {/snippet}
 
 <div class="chess" class:full role={full ? "dialog" : undefined} aria-modal={full ? "true" : undefined} aria-label={full ? basename(path) : undefined}>
@@ -319,34 +736,150 @@
     <div class="game">
       <div class="side">
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-        <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
-          {#each Array(64) as _, i (i)}{@render square(i)}{/each}
-        </svg>
+        {#if draughts}
+          {@const d = cells(fen)}
+          <svg class="board chess-keys" viewBox="0 0 {d.w} {d.h}" tabindex="0" role="img" aria-label={t("draughts.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            {#each Array(d.w * d.h) as _, i (i)}{@render cell(d, i)}{/each}
+          </svg>
+        {:else if bridge}
+          {@const st = bridgeState(fen)}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+          <div class="bridge chess-keys" tabindex="0" role="img" aria-label={t("bridge.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            {#each [[0, "n"], [3, "w"], [1, "e"], [2, "s"]] as [s, area] (s)}
+              <div class="hand {area}">
+                <b>{t(SEAT[s])}</b> {tag(SEAT_TAG[s])}
+                {#each [0, 1, 2, 3] as su (su)}<div><span class:red={su === 1 || su === 2}>{SUIT[su]}</span> {st.hands[s][su] || "–"}</div>{/each}
+              </div>
+            {/each}
+            <div class="trick">
+              {#each [[0, "n"], [3, "w"], [1, "e"], [2, "s"]] as [s, area] (s)}<span class="card {area}" class:red={st.trick[s] && "♥♦".includes(st.trick[s][0])}>{st.trick[s] ?? ""}</span>{/each}
+            </div>
+          </div>
+          {#if tag("Contract")}<p class="meta">{t("bridge.contract", { contract: game.game.result.split(" ")[0], declarer: tag("Declarer") })}</p>{/if}
+          <p class="meta">{t("bridge.facts", { dealer: tag("Dealer"), vulnerable: tag("Vulnerable") })}</p>
+          <p class="meta">{t("bridge.tricks", { ns: st.won[0], ew: st.won[1] })}</p>
+          {#if tag("Auction")}
+            <p class="meta">{t("bridge.auction")}</p>
+            <table class="auction">
+              <thead><tr>{#each [3, 0, 1, 2] as s (s)}<th>{t(SEAT[s])}</th>{/each}</tr></thead>
+              <tbody>
+                {#each auctionRows(tag("Auction").split(" ")) as row, i (i)}<tr>{#each row as c, j (j)}<td class:red={c && /[♥♦]/.test(c)}>{c}</td>{/each}</tr>{/each}
+              </tbody>
+            </table>
+          {/if}
+        {:else if shogi}
+          {@const sg = sgView(fen)}
+          <p class="meta hand">{t(flip ? "shogi.hand_sente" : "shogi.hand_gote", { pieces: sg.hands[flip ? 0 : 1] || "–" })}</p>
+          <svg class="board sg chess-keys" viewBox="-0.2 -0.6 9.8 9.8" tabindex="0" role="img" aria-label={t("shogi.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            <rect x="-0.2" y="-0.6" width="9.8" height="9.8" fill={looks ? looks.colours[0] : "#e8c88a"} />
+            {#each Array(10) as _, k (k)}
+              <line x1={k} y1="0" x2={k} y2="9" stroke={looks ? looks.colours[1] : "#5a4020"} stroke-width="0.03" />
+              <line x1="0" y1={k} x2="9" y2={k} stroke={looks ? looks.colours[1] : "#5a4020"} stroke-width="0.03" />
+            {/each}
+            {#each Array(9) as _, k (k)}
+              <text x={k + 0.5} y="-0.18" class="coord" text-anchor="middle" fill={looks ? looks.colours[1] : "#5a4020"}>{"９８７６５４３２１"[flip ? 8 - k : k]}</text>
+              <text x="9.3" y={k + 0.58} class="coord" text-anchor="middle" fill={looks ? looks.colours[1] : "#5a4020"}>{"一二三四五六七八九"[flip ? 8 - k : k]}</text>
+            {/each}
+            {#each sg.cells as p, i (i)}{@render sgPiece(p, i)}{/each}
+          </svg>
+          <p class="meta hand">{t(flip ? "shogi.hand_gote" : "shogi.hand_sente", { pieces: sg.hands[flip ? 1 : 0] || "–" })}</p>
+        {:else if xiangqi}
+          {@const xq = xqCells(fen)}
+          <svg class="board xq chess-keys" viewBox="-0.8 -0.8 9.6 10.6" tabindex="0" role="img" aria-label={t("xiangqi.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            <rect x="-0.8" y="-0.8" width="9.6" height="10.6" fill={looks ? looks.colours[0] : "#e8c88a"} />
+            {@render xqLines(looks ? looks.colours[1] : "#5a4020")}
+            {#each xq as p, i (i)}{@render xqPiece(p, i)}{/each}
+          </svg>
+        {:else}
+        <div class="board-row">
+          {#if evalNow != null}
+            <div class="evalbar" class:flip title={shownEval(evalNow)}><div class="white" style:height="{share(evalNow) * 100}%"></div></div>
+          {/if}
+          <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
+            {#each Array(64) as _, i (i)}{@render square(i)}{/each}
+          </svg>
+        </div>
+        {/if}
         <div class="bar">
-          {#if format === "pgn"}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
+          {#if table}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
           <button class="icon" title={t("chess.start_tip")} aria-label={t("chess.start_tip")} onclick={() => step("start")}>|◀</button>
           <button class="icon" title={t("chess.prev_tip")} aria-label={t("chess.prev_tip")} onclick={() => step("prev")}>◀</button>
           <button class="icon" title={t("chess.next_tip")} aria-label={t("chess.next_tip")} onclick={() => step("next")}>▶</button>
           <button class="icon" title={t("chess.end_tip")} aria-label={t("chess.end_tip")} onclick={() => step("end")}>▶|</button>
-          <button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>
-          <button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>
+          {#if !bridge}<button title={t("chess.flip_tip")} class:on={flip} onclick={() => (flip = !flip)}>{t("chess.flip")}</button>{/if}
+          {#if !other}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
+          {#if !other}<button title={t("chess.engine_tip")} class:on={analysis} onclick={() => (analysis = !analysis)}>{t("chess.engine_btn")}</button>{/if}
+          {#if !other}<button title={t("chess.position_tip")} onclick={findPosition}>{t("chess.position_btn")}</button>{/if}
+          {#if format === "pgn" && !other}
+            <button title={t("chess.review_tip")} class:on={review && !review.done} onclick={() => reviewAct(review && !review.done ? "stop" : "start")}>{review && !review.done ? t("chess.review_stop") : t("chess.review_btn")}</button>
+            {#if review?.plies.length}<button title={t("chess.review_save_tip")} onclick={saveReview}>{t("chess.review_save")}</button>{/if}
+          {/if}
           {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
         </div>
-        {#if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : t("chess.white_to_move")}</p>{/if}
+        {#if promo}
+          <div class="bar promo">
+            <span class="meta">{t("chess.promote")}</span>
+            {#each promo as m (m.uci)}<button title={m.san} onclick={() => playMove(m)}><img alt={m.san} src={`vendor/chess-pieces/${m.white ? "w" : "b"}${m.promotion.toUpperCase()}.svg`} /></button>{/each}
+          </div>
+        {/if}
+        {#if bridge}{:else if fen && shogi}<p class="meta">{fen.split(" ")[1] === "w" ? t("shogi.gote_to_move") : t("shogi.sente_to_move")}</p>
+        {:else if fen}<p class="meta">{fen.split(" ")[1] === "b" ? t("chess.black_to_move") : xiangqi ? t("xiangqi.red_to_move") : t("chess.white_to_move")}{#if evalNow != null} · <b>{shownEval(evalNow)}</b>{/if}</p>{/if}
+        {#if points.length}
+          <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+          <svg class="graph" viewBox="0 0 {Math.max(1, points.length - 1)} 100" preserveAspectRatio="none" onclick={graphClick} role="img" aria-label={t("chess.review_graph")}>
+            <line x1="0" y1="50" x2={points.length - 1} y2="50" class="mid" />
+            <polyline points={points.map((p, i) => `${i},${100 - share(p.v) * 100}`).join(" ")} />
+            {#each points as p, i (i)}
+              {#if p.mark && p.mark !== 5}<line x1={i} y1="82" x2={i} y2="100" class="tick m{p.mark}" />{/if}
+              {#if !inLine && p.node === at}<line x1={i} y1="0" x2={i} y2="100" class="here" />{/if}
+            {/each}
+          </svg>
+        {/if}
+        {#if review}
+          <p class="meta">{review.error ?? (review.done ? t("chess.review_done", { engine: review.engine, marked: review.plies.filter((p) => p.mark && p.mark !== 5).length }) : t("chess.review_running", { n: review.plies.length, total: review.total }))}</p>
+        {/if}
       </div>
       <div class="moves" bind:this={movesEl}>
-        {#if format === "pgn"}
-          <p class="players"><b>{known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>
+        {#if table}
+          {#if bridge}<p class="players"><b>{[tag("North"), tag("South")].filter(known).join(", ")} – {[tag("East"), tag("West")].filter(known).join(", ")}</b> {game.game.result}</p>
+          {#if tag("Board")}<p class="meta">{t("bridge.board_n", { n: tag("Board") })}</p>{/if}
+          {:else}<p class="players"><b>{known(tag("Red")) || known(tag("White"))}{known(tag("WhiteElo")) ? ` (${tag("WhiteElo")})` : ""} – {known(tag("Black"))}{known(tag("BlackElo")) ? ` (${tag("BlackElo")})` : ""}</b> {game.game.result}</p>{/if}
           <p class="meta">{[known(tag("Event")), known(tag("Site")), known(tag("Date")), [tag("ECO"), tag("Opening")].join(" ").trim()].filter(Boolean).join(" · ")}</p>
+          {#if game.variant}<p class="meta">{game.variant}</p>{/if}
           <p class="meta">{t("chess.game_of", { n: game.index + 1, total: progress?.games ?? "" })}</p>
+        {:else if format === "book"}
+          <p class="players"><b>{t("chess.book_entries", { n: book?.entries ?? "" })}</b></p>
         {:else}
           <p class="players"><b>{t("chess.position_of", { n: posAt + 1, total: positions.length })}</b></p>
+        {/if}
+        {#if book && format === "book"}
+          {#if !book.moves.length}<p class="meta">{t("chess.book_none")}</p>{/if}
+          <table class="book">
+            <tbody>
+              {#each book.moves as m (m.uci)}
+                <tr>
+                  <td><button class="mv" title={t("chess.book_play_tip")} onclick={() => playBook(m)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button></td>
+                  <td class="n">{m.share.toFixed(1)} %</td>
+                  <td class="n">{m.weight}</td>
+                  <td class="meta">{m.learn ? t("chess.book_learn", { n: m.learn }) : ""}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {:else if book}
+          <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
+        {/if}
+        {#if engine}
+          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{/if}</p>
+          {#each engine.a?.lines ?? [] as l, k (k)}
+            <p class="engine-line"><b class="eval">{l.eval}</b> <button class="mv" title={t("chess.engine_play_tip")} onclick={() => playMove(l.best)}>{#each show(l.moves[0]) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button> <span class="meta">{l.moves.slice(1).map((s) => show(s).map(([x]) => x).join("")).join(" ")}</span></p>
+          {/each}
         {/if}
         <p class="text">
           {#each game.layout as tok, i (i)}
             {#if tok.t === "move"}
               {@const n = nodes[tok.node]}
-              <button class="mv" class:here={at === tok.node} class:var={n.depth > 0} onclick={() => (at = tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
+              <button class="mv" class:here={!inLine && at === tok.node} class:var={n.depth > 0} onclick={() => goto(tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}{#if marks.has(tok.node) && !n.nags.some((x) => x <= 6)}<span class="eng m{marks.get(tok.node)}">{MARK[marks.get(tok.node)]}</span>{/if}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
             {:else if tok.t === "comment"}
               <span class="comment">{tok.text}</span>{" "}
             {:else if tok.t === "open"}
@@ -358,22 +891,42 @@
             {/if}
           {/each}
         </p>
-        <p class="meta keys">{format === "pgn" ? t("chess.keys_game_gui") : t("chess.keys_position_gui")}</p>
+        {#if played}
+          <p class="text played">
+            <span class="comment">{t("chess.line_from", { move: baseName })}</span><br />
+            {#each played.moves as m, k (k)}<button class="mv" class:here={played.at === k + 1} onclick={() => (played.at = k + 1)}>{numbered(m, k === 0)}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{" "}{/each}
+          </p>
+          <div class="bar">
+            <button title={t("chess.line_save_tip")} onclick={saveLine}>{t("chess.line_save")}</button>
+            <button title={t("chess.line_clear_tip")} onclick={() => (played = null)}>{t("chess.line_clear")}</button>
+          </div>
+        {/if}
+        {#if said}<p class="meta">{said}</p>{/if}
+        {#if posGames}
+          <p class="players"><b>{t("chess.position_title", { n: posGames.length })}</b> <button class="mv" title={t("chess.close")} onclick={() => (posGames = null)}>×</button></p>
+          <ul class="found">
+            {#each posGames as g, k (k)}
+              <li><button class="mv" onclick={() => openFound(g)}>{t("chess.position_game", { file: g.name, n: g.index + 1 })}</button>{#if g.about}{" "}<span class="meta">{g.about}</span>{/if}</li>
+            {/each}
+          </ul>
+        {/if}
+        <p class="meta keys">{bridge ? t("bridge.keys_game_gui") : other ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
-  {:else if format === "pgn"}
+  {:else if table}
     <div class="filters">
       <input type="search" placeholder={t("chess.filter_player")} aria-label={t("chess.filter_player")} bind:value={query.player} />
-      <input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />
-      <select aria-label={t("chess.col_result")} bind:value={query.result}>
+      {#if bridge}<input type="search" placeholder={t("bridge.col_contract")} aria-label={t("bridge.col_contract")} bind:value={query.opening} />{/if}
+      {#if !other}<input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
+      {#if !bridge}<select aria-label={t("chess.col_result")} bind:value={query.result}>
         <option value="">{t("chess.result_any")}</option>
-        <option value="1-0">1-0</option>
-        <option value="0-1">0-1</option>
-        <option value="1/2-1/2">½-½</option>
-      </select>
-      <input class="num" type="number" placeholder={t("chess.year_from")} aria-label={t("chess.year_from")} value={query.from ?? ""} onchange={(e) => (query.from = num(e.currentTarget.value))} />
-      <input class="num" type="number" placeholder={t("chess.year_to")} aria-label={t("chess.year_to")} value={query.to ?? ""} onchange={(e) => (query.to = num(e.currentTarget.value))} />
-      <input class="num" type="number" placeholder={t("chess.filter_elo")} aria-label={t("chess.filter_elo")} value={query.elo ?? ""} onchange={(e) => (query.elo = num(e.currentTarget.value))} />
+        <option value="1-0">{draughts ? "2-0 · 1-0" : "1-0"}</option>
+        <option value="0-1">{draughts ? "0-2 · 0-1" : "0-1"}</option>
+        <option value="1/2-1/2">{draughts ? "1-1 · ½-½" : "½-½"}</option>
+      </select>{/if}
+      <input class="num" type="number" style:width={fits(t("chess.year_from"))} placeholder={t("chess.year_from")} aria-label={t("chess.year_from")} value={query.from ?? ""} onchange={(e) => (query.from = num(e.currentTarget.value))} />
+      <input class="num" type="number" style:width={fits(t("chess.year_to"))} placeholder={t("chess.year_to")} aria-label={t("chess.year_to")} value={query.to ?? ""} onchange={(e) => (query.to = num(e.currentTarget.value))} />
+      {#if !bridge}<input class="num" type="number" style:width={fits(t("chess.filter_elo"))} placeholder={t("chess.filter_elo")} aria-label={t("chess.filter_elo")} value={query.elo ?? ""} onchange={(e) => (query.elo = num(e.currentTarget.value))} />{/if}
       {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "chess", path })}>{"\u{f065}"}</button>{/if}
     </div>
     <p class="meta">
@@ -384,8 +937,8 @@
       <table>
         <thead>
           <tr>
-            {#each COLUMNS as [col, label] (col)}
-              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
+            {#each columns as [col, label] (col)}
+              <th class={col}><button onclick={() => sortBy(col)}>{label.includes(".") ? t(bridge && BRIDGE_COL[col] ? BRIDGE_COL[col] : xiangqi && col === "white" ? "xiangqi.col_red" : shogi && col === "white" ? "shogi.col_sente" : shogi && col === "black" ? "shogi.col_gote" : label) : label}{query.sort === col ? (query.desc ? " ↓" : " ↑") : ""}</button></th>
             {/each}
           </tr>
         </thead>
@@ -395,14 +948,14 @@
             <tr class:cursor={first + k === cursor} onclick={() => (cursor = first + k)} ondblclick={() => openGame(index)}>
               <td class="number">{r.n}</td>
               <td>{r.white}</td>
-              <td class="n">{r.white_elo ?? ""}</td>
+              {#if !bridge}<td class="n">{r.white_elo ?? ""}</td>{/if}
               <td>{r.black}</td>
-              <td class="n">{r.black_elo ?? ""}</td>
+              {#if !bridge}<td class="n">{r.black_elo ?? ""}</td>{/if}
               <td>{r.result}</td>
               <td>{r.date}</td>
               <td>{r.event}</td>
-              <td>{r.eco}</td>
-              <td>{r.opening}</td>
+              {#if !other}<td>{r.eco}</td>{/if}
+              {#if !other || bridge}<td>{r.opening}</td>{/if}
               <td class="n">{r.moves}</td>
             </tr>
           {/each}
@@ -481,7 +1034,7 @@
     padding: 2px 6px;
   }
   .filters .num {
-    flex: 0 1 6em;
+    flex: 0 1 auto;
   }
   .list {
     flex: 1;
@@ -552,10 +1105,85 @@
   .board:focus-visible {
     box-shadow: 0 0 0 2px var(--accent-bg);
   }
+  .bridge {
+    display: grid;
+    grid-template-areas: ". n ." "w t e" ". s .";
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+    outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .bridge:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .hand.n {
+    grid-area: n;
+  }
+  .hand.w {
+    grid-area: w;
+  }
+  .hand.e {
+    grid-area: e;
+  }
+  .hand.s {
+    grid-area: s;
+  }
+  .trick {
+    grid-area: t;
+    display: grid;
+    grid-template-areas: ". n ." "w . e" ". s .";
+    align-items: center;
+    justify-items: center;
+    font-weight: bold;
+  }
+  .card.n {
+    grid-area: n;
+  }
+  .card.w {
+    grid-area: w;
+  }
+  .card.e {
+    grid-area: e;
+  }
+  .card.s {
+    grid-area: s;
+  }
+  .red {
+    color: #e0303f;
+  }
+  .auction td,
+  .auction th {
+    padding: 0 10px 0 0;
+    text-align: start;
+  }
+  .board.sg {
+    aspect-ratio: 1;
+  }
+  .hand {
+    margin: 0;
+  }
+  .river {
+    font-size: 0.55px;
+    font-family: "Noto Serif CJK SC", "Noto Sans CJK SC", "Source Han Serif", "PingFang SC", "Microsoft YaHei", serif;
+  }
+  .board.xq {
+    aspect-ratio: 9.6 / 10.6;
+  }
   .coord {
     font-size: 0.17px;
     font-family: var(--font);
     font-weight: bold;
+  }
+  /* The theme's colours, not the system's grey buttons (WebKitGTK draws them in GTK's). */
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    cursor: pointer;
   }
   .bar {
     display: flex;
@@ -632,5 +1260,103 @@
   }
   .keys {
     margin-top: 6px;
+  }
+  /* The pieces and marks on the board let a click through to their square. */
+  .mark {
+    pointer-events: none;
+  }
+  .promo img {
+    width: 2em;
+    height: 2em;
+    display: block;
+  }
+  .board-row {
+    display: flex;
+    gap: 4px;
+  }
+  .board-row .board {
+    flex: 1;
+    min-width: 0;
+  }
+  /* The evaluation: White's share from the bottom (from the top on a flipped board). */
+  .evalbar {
+    width: 12px;
+    background: #222;
+    border: 1px solid var(--border-fg);
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .evalbar.flip {
+    flex-direction: column;
+  }
+  .evalbar .white {
+    background: #eee;
+    transition: height 0.3s;
+  }
+  .graph {
+    width: 100%;
+    height: 60px;
+    cursor: pointer;
+    border: 1px solid var(--border-fg);
+  }
+  .graph polyline {
+    fill: none;
+    stroke: var(--accent-bg, currentColor);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+  .graph .mid,
+  .graph .here {
+    stroke: currentColor;
+    opacity: 0.4;
+    vector-effect: non-scaling-stroke;
+  }
+  .graph .here {
+    opacity: 0.9;
+  }
+  .graph .tick {
+    stroke: currentColor;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .m6 {
+    color: #e0c040;
+    fill: #e0c040;
+  }
+  .m2 {
+    color: #e08030;
+    fill: #e08030;
+  }
+  .m4 {
+    color: #e04040;
+    fill: #e04040;
+  }
+  .m5 {
+    color: #40a0e0;
+  }
+  .eng {
+    font-weight: bold;
+  }
+  .found {
+    margin: 0 0 6px;
+    padding-inline-start: 1.2em;
+    max-height: 14em;
+    overflow: auto;
+  }
+  .engine-line {
+    margin: 0;
+    font-size: 0.9em;
+  }
+  .engine-line .eval {
+    display: inline-block;
+    min-width: 4em;
+    font-variant-numeric: tabular-nums;
+  }
+  .book {
+    border-collapse: collapse;
+    margin-block: 4px;
+  }
+  .book td {
+    padding: 0 8px 0 0;
   }
 </style>

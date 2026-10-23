@@ -5,14 +5,6 @@ import { isBomName, isProvenanceName } from "./sniff.js";
 
 export { invoke, convertFileSrc };
 
-/** A folder's listing. An entry whose path is the folder's and its name comes as the name
- *  only (a third less JSON for a big folder); here it gets its path again. */
-export async function listDir(args) {
-  const r = await invoke("list_dir", args);
-  for (const e of r.items) e.path ??= r.prefix + e.name;
-  return r;
-}
-
 const NAMED = {
   Enter: "Enter",
   Escape: "Esc",
@@ -180,56 +172,6 @@ export function ageColor(secs, look) {
   }
 }
 
-/** `*` and `?` wildcards, whole name, case-insensitive, as a RegExp to test many names with. */
-export function globRe(pattern) {
-  const re = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-  // `u`: `?` is one character, also outside the basic plane (an emoji).
-  return new RegExp(`^${re}$`, "iu");
-}
-
-const isDigit = (c) => c >= "0" && c <= "9";
-const byPoint = (x, y) => {
-  const [a, b] = [[...x], [...y]];
-  for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return a[i].codePointAt(0) - b[i].codePointAt(0);
-  return a.length - b.length;
-};
-
-/** Case-insensitive natural order, "file2" before "file10", as coxswain-core's fs::natord. */
-export function natord(a, b) {
-  const [x, y] = [[...a], [...b]];
-  let [i, j] = [0, 0];
-  for (;;) {
-    if (i >= x.length || j >= y.length) return x.length - i - (y.length - j);
-    if (isDigit(x[i]) && isDigit(y[j])) {
-      let [ei, ej] = [i, j];
-      while (ei < x.length && isDigit(x[ei])) ei++;
-      while (ej < y.length && isDigit(y[ej])) ej++;
-      const [na, nb] = [x.slice(i, ei).join("").replace(/^0+/, ""), y.slice(j, ej).join("").replace(/^0+/, "")];
-      const ord = na.length - nb.length || (na < nb ? -1 : na > nb ? 1 : 0);
-      if (ord) return ord;
-      [i, j] = [ei, ej];
-    } else {
-      const ord = byPoint(x[i].toLowerCase(), y[j].toLowerCase());
-      if (ord) return ord;
-      [i, j] = [i + 1, j + 1];
-    }
-  }
-}
-
-/** A listing sorted again by `key` ("name", "ext", "time", "size"; "commit" is by name), as
- *  coxswain-core's fs::sort: `..`, then folders, then files; `reverse` within each. */
-export function sortItems(items, key, reverse) {
-  const group = (e) => (e.name === ".." ? 0 : e.is_dir ? 1 : 2);
-  const ext = (e) => (!e.is_dir && e.name.lastIndexOf(".") > 0 ? e.name.slice(e.name.lastIndexOf(".") + 1) : "");
-  const down = (x, y) => ((y ?? -Infinity) > (x ?? -Infinity) ? 1 : (y ?? -Infinity) < (x ?? -Infinity) ? -1 : 0);
-  const by = {
-    ext: (a, b) => natord(ext(a), ext(b)),
-    time: (a, b) => down(a.modified, b.modified),
-    size: (a, b) => down(a.size, b.size),
-  }[key];
-  return [...items].sort((a, b) => group(a) - group(b) || (reverse ? -1 : 1) * ((by?.(a, b) ?? 0) || natord(a.name, b.name)));
-}
-
 /** Shell-quote a word the way coxswain-core's `quote` does: in double quotes for Windows'
  *  `cmd /C` (`win`), in single quotes for a Unix shell. */
 export const quote = (s, win = false) =>
@@ -278,6 +220,39 @@ const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"]
 const OLD = new Set();
 export const setPictureEndings = (all) => (OLD.clear(), all.forEach((x) => OLD.add(x)));
 export const isOldPicture = (name) => OLD.has(name.split(".").pop().toLowerCase());
+/** What ffmpeg and ImageMagick show (`media::endings`): an ending's kind (`video_other`,
+ *  `audio_other`, `heif`, `magick`, `raw`), and what each action takes. Set once the config
+ *  has come. */
+const MEDIA = new Map();
+const MEDIA_TAKES = { media: new Set(), pictures: new Set() };
+export function setMediaEndings(all) {
+  MEDIA.clear();
+  for (const kind of ["video_other", "audio_other", "heif", "magick", "raw"]) for (const x of all[kind] ?? []) MEDIA.set(x, kind);
+  MEDIA_TAKES.media = new Set(["video", "video_other", "audio", "audio_other"].flatMap((k) => all[k] ?? []));
+  MEDIA_TAKES.pictures = new Set(all.pictures ?? []);
+}
+const endingOfName = (name) => (name.includes(".") ? name.split(".").pop().toLowerCase() : "");
+/** A video or a song *Convert video or audio* takes; a picture *Convert or edit pictures* takes. */
+export const isMedia = (name) => MEDIA_TAKES.media.has(endingOfName(name));
+export const isEditable = (name) => MEDIA_TAKES.pictures.has(endingOfName(name));
+/** The media preview a kind gets its picture from (convert.rs `TOOLS`), for thumbnails. */
+export const MEDIA_TOOL = { video: "ffmpeg", video_other: "ffmpeg", audio: "waveform", audio_other: "waveform", heif: "heif", magick: "imagemagick", raw: "raw", geo: "gdal", scad: "openscad", kicad: "kicad_thumb" };
+/** Geodata (`geo::endings`): the vector endings, a map by GDAL (a GPX file's drawn without
+ *  it); TIFF is geodata only when GDAL finds it is a GeoTIFF. Set once the config has come. */
+const GEO = new Set();
+export const setGeoEndings = (all) => (GEO.clear(), (all.vector ?? []).forEach((x) => GEO.add(x)));
+/** A file *Convert geodata* may take: the backend leaves out a TIFF that is no GeoTIFF. */
+export const isGeo = (name) => GEO.has(endingOfName(name)) || /\.tiff?$/i.test(name);
+/** GeoJSON, KML and GPX are text: their preview shows the map or the source. */
+export const isGeoText = (name) => /\.(geojson|kml|gpx)$/i.test(name);
+/** An OpenSCAD model: *Export 3D model* takes it; its preview shows the model or the source. */
+export const isScad = (name) => /\.scad$/i.test(name);
+/** A KiCad schematic or board: *Export from KiCad* takes it. */
+export const isKicad = (name) => /\.kicad_(sch|pcb)$/i.test(name);
+/** A list of checksums, as `checksum::is_list` tells one. */
+/** The first part of a split file, as `split::joins_into` tells one: `name.001`. */
+export const isFirstPart = (name) => /.\.0*1$/.test(name) && /\.\d{3,}$/.test(name);
+export const isSums = (name) => /^(SHA256SUMS|SHA512SUMS|B3SUMS)|\.(sha256|sha512|b3)$/i.test(name);
 /** Tracker music: facts and sample names, no playback. */
 const TRACKER = ["mod", "xm", "s3m", "it"];
 const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
@@ -289,6 +264,10 @@ const CONVERTED = Object.fromEntries(
   Object.entries({
     graphviz: "dot gv",
     asciidoc: "adoc asciidoc",
+    // OpenSCAD models, drawn from what OpenSCAD makes of them (convert.rs `openscad`).
+    scad: "scad",
+    // KiCad: a schematic's sheets or a board's layers, a page each (convert.rs `kicad`).
+    kicad: "kicad_sch kicad_pcb",
     parquet: "parquet pq",
     latex: "tex ltx",
     typst: "typ",
@@ -314,6 +293,8 @@ const CONVERTED = Object.fromEntries(
     rst: "rst rest",
     drawio: "drawio dio",
     duckdb: "duckdb ddb",
+    // E-books calibre reads (`ebook`); a .pdb is one only by its header, so it is not here.
+    ebook: "mobi azw azw3 fb2 lit",
   }).flatMap(([kind, exts]) => exts.split(" ").map((e) => [e, kind])),
 );
 
@@ -331,7 +312,21 @@ export const CONVERTER = {
   plantuml: { tool: "plantuml", auto: true, verb: "convert.render" },
   ...Object.fromEntries(["d2", "ditaa", "svgbob", "pikchr", "nomnoml", "wavedrom", "vega", "vegalite", "dbml", "erd", "bytefield"].map((k) => [k, { tool: k, auto: true, verb: "convert.render" }])),
   rst: { tool: "pandoc", auto: true, verb: "convert.render" },
+  // ffmpeg and ImageMagick (`media`): a frame of a video no web view plays, a song's waveform,
+  // HEIC, GIMP and RAW photos.
+  video_other: { tool: "ffmpeg", auto: true, verb: "convert.render" },
+  audio_other: { tool: "waveform", auto: true, verb: "convert.render" },
+  heif: { tool: "heif", auto: true, verb: "convert.render" },
+  magick: { tool: "imagemagick", auto: true, verb: "convert.render" },
+  raw: { tool: "raw", auto: true, verb: "convert.render" },
+  // GDAL's map of geodata's own shapes (`geo`).
+  geo: { tool: "gdal", auto: true, verb: "convert.render" },
+  // OpenSCAD's model, drawn from its STL (`scad`).
+  scad: { tool: "openscad", auto: true, verb: "convert.render" },
+  kicad: { tool: "kicad", auto: true, verb: "convert.render" },
   duckdb: { tool: "duckdb", auto: true, verb: "convert.read_tables" },
+  // calibre makes the book an EPUB in a second or two, once it has stayed selected a moment.
+  ebook: { tool: "calibre", auto: true, wait: 400, verb: "convert.render" },
 };
 const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
 
@@ -365,7 +360,11 @@ export const HISTORY = "@history";
 /** The segments that lead to a repository's branches and worktrees (history::BRANCHES, WORKTREES). */
 export const BRANCHES = "@branches";
 export const WORKTREES = "@worktrees";
-export const MARKERS = [HISTORY, BRANCHES, WORKTREES];
+/** After `@history`: the commits of every branch. */
+export const ALL = "@all";
+/** After `@history`: the commits not pushed and not merged. */
+export const UPSTREAM = "@upstream";
+export const MARKERS = [HISTORY, BRANCHES, WORKTREES, ALL, UPSTREAM];
 /** The segment after a folder that lists its ZFS dataset's snapshots (zfs::MARKER), and the one
  *  after a file that lists its package's files (bsd::PACKAGE). */
 export const SNAPSHOTS = "@snapshots";
@@ -379,18 +378,34 @@ export const LOCKED = "locked: a password is needed";
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
-/** A chess file by its name: "pgn" (also packed), "epd" (EPD and FEN), or "" (`chess::format`). */
+/** A games file by its name: "pgn" (also packed), "epd" (EPD and FEN), "sgf" (Go), "pdn"
+ *  (draughts), "shogi" (KIF, CSA), "pbn" (bridge), or ""
+ *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
 export function chessFormat(name) {
   const n = name.toLowerCase();
   if (/\.pgn(\.gz|\.zst)?$/.test(n)) return "pgn";
   if (/\.(epd|fen)$/.test(n)) return "epd";
+  if (n.endsWith(".sgf")) return "sgf";
+  if (n.endsWith(".pdn")) return "pdn";
+  if (/\.(kif|kifu|csa)$/.test(n)) return "shogi";
+  if (n.endsWith(".pbn")) return "pbn";
   return "";
 }
 
+/** A draw.io diagram by its name (`export::is_drawio`): `.drawio`, `.dio`, or a picture with
+ *  the diagram in it, `.drawio.svg` and `.drawio.png`. */
+export const isDrawio = (name) => /\.(drawio|dio|drawio\.svg|drawio\.png)$/i.test(name);
+
+/** A neural network model Netron draws (`neural::named`); a Core ML package is a folder. A `.h5`
+ *  is one only when its bytes hold a Keras model (`is_model`, in Preview). */
+export const isModel = (item) => (item.is_dir ? /\.mlpackage$/i : /\.(onnx|tflite|mlmodel|keras)$/i).test(item.name);
+
 export function previewKind(item) {
   if (!item) return "none";
+  if (isModel(item)) return "netron";
   if (item.is_dir) return "folder";
-  if (chessFormat(item.name)) return "chess";
+  if (isDrawio(item.name)) return "drawio";
+  if (chessFormat(item.name)) return chessFormat(item.name) === "sgf" ? "go" : "chess";
   if (isProvenanceName(item.name)) return "provenance";
   if (isBomName(item.name)) return "bom";
   // A comic is a zip of pictures: shown page by page (Enter still opens it like a folder).
@@ -398,8 +413,12 @@ export function previewKind(item) {
   if (isArchive(item.name)) return "archive";
   // A .vhd or .img that turns out to be none is shown as text instead (Preview).
   if (diskName(item.name)) return "disk_image";
+  // A local model: its facts (`local_models::facts`), not a hex dump. A pickle is named, never read.
+  if (/\.(gguf|safetensors|pt|pth|ckpt)$|^pytorch_model.*\.bin$/i.test(item.name)) return "model";
   const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
   if (ext === "pdf") return "pdf";
+  // Geodata: a map of its own shapes, a GPX file's drawn without GDAL.
+  if (GEO.has(ext)) return ext === "gpx" ? "gpx" : "geo";
   if (FONT.includes(ext)) return "font";
   if (SHEET.includes(ext)) return "sheet";
   if (ext === "docx") return "docx";
@@ -409,6 +428,7 @@ export function previewKind(item) {
   const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", msg: "mail", dbf: "sqlite", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
   if (special[ext]) return special[ext];
   if (CONVERTED[ext]) return CONVERTED[ext];
+  if (MEDIA.has(ext)) return MEDIA.get(ext);
   if (IMAGE.includes(ext)) return "image";
   // A .hdr or .mod that is none (another program's header, Modula-2) is shown as text (Preview).
   if (OLD.has(ext)) return "picture";

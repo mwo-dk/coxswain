@@ -1,17 +1,19 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, openSpace } from "./app.svelte.js";
-  import { renderHtml, renderPptx, renderDrawio, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture } from "./lib.js";
+  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
+  import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
+  import NetronView from "./NetronView.svelte";
+  import GoView from "./GoView.svelte";
   import CopyLine from "./CopyLine.svelte";
   import DiskNext from "./DiskNext.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
-  let { output = null, onclearoutput, notesFocus = 0 } = $props();
+  let { output = null, onclearoutput, notesFocus = false, onnotesfocused } = $props();
 
   const pane = $derived(tab());
   const raw = $derived(item(pane));
@@ -54,9 +56,24 @@
   const online = $derived(!!raw?.online && !raw.is_dir && !fetched.includes(raw.path));
   /** A JSON (Lines) or XML file whose first bytes turned out to be a BOM's or provenance's: { path, kind }. */
   let sniffed = $state({ path: "", kind: "" });
+  /** GeoJSON, KML, GPX and OpenSCAD models with Source chosen: their text instead of their map
+   *  or model. */
+  const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && (isGeoText(e.name) || isScad(e.name)));
+  // A .h5 file holding a Keras model is drawn by Netron; any other HDF5 file is shown as before.
+  $effect(() => {
+    const cur = e;
+    if (!cur || cur.is_dir || !/\.h5$/i.test(cur.name) || sniffed.path === cur.path) return;
+    invoke("is_model", { path: cur.path }).then((yes) => yes && e?.path === cur.path && (sniffed = { path: cur.path, kind: "netron" }), () => {});
+  });
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );
+  /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
+   *  store gives it (`local_models::names`), as its own name says nothing. */
+  function storeModel(f) {
+    const m = f && !f.is_dir && pane.models?.[f.name];
+    return !!m && (!m.includes(" · ") || /\.(gguf|safetensors)$|pytorch_model.*\.bin$/i.test(m));
+  }
   let text = $state("");
   let html = $state("");
   let truncated = $state(false);
@@ -70,11 +87,22 @@
   /** A hex dump shows this much (read_text). */
   const HEX_LIMIT = 64 * 1024;
 
-  /** Draws a draw.io diagram into the element, again when it changes. */
+  /** Draws a draw.io diagram into the element, again when it changes; its pages are the tabs
+   *  above it, which pick the page through the viewer kept here. */
+  let drawioViewer = null;
+  let drawioPage = $state(0);
   function drawioView(el, xml) {
-    const draw = (x) => renderDrawio(el, x).catch((err) => (el.textContent = String(err?.message ?? err)));
+    const draw = (x) => {
+      drawioPage = 0;
+      drawioViewer = null;
+      renderDrawio(el, x).then((v) => (drawioViewer = v), (err) => (el.textContent = String(err?.message ?? err)));
+    };
     draw(xml);
     return { update: draw };
+  }
+  function showPage(i) {
+    drawioPage = i;
+    drawioViewer?.selectPage?.(i);
   }
   /** Markdown, Mermaid and data files: show the rendered result or tree, or the source. Kept across files. */
   const source = $derived(ui.previewSource === true);
@@ -125,6 +153,13 @@
           const d = await invoke("git_diff", { path: inHistory ? raw.path : cur.path });
           const h = d ? await highlightOff(d, "diff") : highlight(t("preview.no_changes"), "plaintext");
           if (e?.path === cur.path) h == null ? (text = d) : (html = h);
+          return;
+        }
+        // A Polyglot opening book: its moves on a board (ChessView), unless the source is asked for.
+        if (k === "text" && !src && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
+          if (e?.path !== cur.path) return;
+          ui.book = cur.path;
+          sniffed = { path: cur.path, kind: "chess" };
           return;
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
@@ -197,7 +232,12 @@
         else if (k === "font") r = await loadFont(cur.path);
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
         else if (deck) r = { slides: await renderPptx(cur.path) };
-        else if (k === "drawio") r = { drawio: (await invoke("read_text", { path: cur.path, max: 32 * 1024 * 1024 }))[0] };
+        else if (k === "drawio") {
+          // The file, or the diagram inside a .drawio.svg or .drawio.png (export::drawio_xml).
+          const xml = await invoke("drawio_xml", { path: cur.path });
+          r = xml ? { drawio: xml, pages: drawioPages(xml) } : { error: t("preview.drawio_none") };
+        }
+
         else r = { sheet: await readSheet(cur.path) };
       } catch (err) {
         r = { error: String(err?.message ?? err) };
@@ -326,18 +366,69 @@
     ownSaid = await invoke("disk_clear", { id: own.item, models: false, outside: false }).catch((err) => String(err));
   }
 
+  // A song's waveform above its player, a video's frame as the player's poster: made by ffmpeg
+  // when it runs without a pull (installed, or its image there), else none.
+  let still = $state(null);
+  $effect(() => {
+    const cur = e;
+    still = null;
+    if ((kind !== "audio" && kind !== "video") || !cur || online || inside) return;
+    const timer = setTimeout(async () => {
+      const file = await invoke("media_thumbnail", { path: cur.path, tool: kind === "audio" ? "waveform" : "ffmpeg" }).catch(() => null);
+      if (file && e?.path === cur.path) still = { path: cur.path, file };
+    }, 200);
+    return () => clearTimeout(timer);
+  });
+
   // Facts under any file: photo EXIF, audio tags, what an executable is built for.
   let facts = $state([]);
   $effect(() => {
     const cur = e;
     facts = [];
-    if (!cur || cur.is_dir || online) return;
+    if (!cur || (cur.is_dir && kind !== "netron") || online) return;
     const timer = setTimeout(async () => {
       const f = await invoke("file_facts", { path: cur.path }).catch(() => []);
       if (e?.path === cur.path) facts = f;
     }, 120);
     return () => clearTimeout(timer);
   });
+
+  // A GPX file's map: drawn by the core without GDAL (gpx_map), kept in the preview cache.
+  let gpxMap = $state(null);
+  $effect(() => {
+    const cur = e;
+    gpxMap = null;
+    if (kind !== "gpx" || !cur) return;
+    const timer = setTimeout(async () => {
+      const file = await invoke("gpx_map", { path: cur.path }).catch((err) => ({ error: String(err) }));
+      if (e?.path === cur.path) gpxMap = { path: cur.path, file };
+    }, 120);
+    return () => clearTimeout(timer);
+  });
+  /** A TIFF whose facts name a coordinate system is a GeoTIFF: *Convert geodata* takes it. */
+  const geoTiff = $derived(!!e && /\.tiff?$/i.test(e.name) && facts.some(([k]) => k === t("geo.crs")));
+  // A GeoTIFF of heights or measurements the picture reader cannot draw: GDAL's map of it instead.
+  $effect(() => {
+    if (kind === "picture" && pic?.error && geoTiff && e) sniffed = { path: e.path, kind: "geo" };
+  });
+  // A recording's transcript (Transcribe speech, `transcribe`): asked of the search helper, and
+  // again every few seconds while it is waiting or under way.
+  let heard = $state(null);
+  $effect(() => {
+    const cur = e;
+    heard = null;
+    if (!cur || cur.is_dir || online || !isSpeech(cur.name) || pane.archive) return;
+    let timer;
+    const ask = async () => {
+      const tr = await invoke("transcript", { path: cur.path }).catch(() => null);
+      if (e?.path !== cur.path) return;
+      heard = tr;
+      if (tr && !tr.finished && !tr.failed) timer = setTimeout(ask, 3000);
+    };
+    timer = setTimeout(ask, 150);
+    return () => clearTimeout(timer);
+  });
+  const clock = (s) => (s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`);
 
   const days = (secs) => Math.round(secs / 86400);
 
@@ -363,9 +454,24 @@
   // Previews made by an external tool (convert.rs): pick an engine, render, show the cached result.
   let conv = $state(null);
   const engineOf = (c) => c.engines.find((x) => x.id === ui.previewEngine[c.tool] && x.available) ?? c.engines.find((x) => x.available);
+  /** When no program is installed and the container would need a download or is not there:
+   *  the sentence that says what would show the file, the install line, and the container to
+   *  pull with (an engine), its size. */
+  function wouldOf(c) {
+    const local = c.engines.filter((x) => x.id.startsWith("local:"));
+    const ctr = c.engines.find((x) => x.id.startsWith("container:"));
+    if (local.some((x) => x.available) || (ctr?.available && !ctr.needs_pull)) return null;
+    const program = local[0]?.label;
+    const size = ctr?.size ? ` (${ctr.size})` : "";
+    // Kroki's diagram kinds have no program of their own to install: a container is the way.
+    const text = !program ? t("convert.container_only", { tool: c.tool }) : ctr?.available ? t("ptools.would", { program, size }) : ctr?.image ? t("ptools.would_runtime", { program, size }) : t("ptools.would_install", { program });
+    return { text, note: ctr && !ctr.available && ctr.image ? ctr.note : "", install: local.find((x) => x.install)?.install, pull: ctr?.available ? ctr : null };
+  }
   $effect(() => {
     const cur = e;
     const spec = CONVERTER[kind];
+    // A preview tool's choice changed (Preview with…, Settings): looked up again.
+    ui.toolsChanged;
     conv = null;
     if (!spec || !cur || diffing) return;
     let later;
@@ -392,7 +498,7 @@
     const id = setInterval(async () => {
       const p = await invoke("pull_progress").catch(() => ({}));
       const [image, line] = Object.entries(p)[0] ?? [];
-      pulling = image ? `${t("convert.pulling", { image })} ${line ?? ""}` : "";
+      pulling = image ? `${t("convert.pulling", { image: image.split("@")[0] })} ${line ?? ""}` : "";
     }, 500);
     return () => clearInterval(id);
   });
@@ -486,8 +592,13 @@
     );
     return () => (live = false);
   });
+  // Alt+N asks for the notes once: the field takes the focus and the request is spent, so it
+  // is not taken again each time the preview pane opens or the field is drawn anew.
   $effect(() => {
-    if (notesFocus) noteArea?.focus();
+    if (notesFocus && noteArea) {
+      noteArea.focus();
+      onnotesfocused?.();
+    }
   });
 
   async function saveNote() {
@@ -515,6 +626,7 @@
     try {
       const r = (await invoke("dir_sizes", { paths: [path] }))[path];
       if (r) p.sizes[path] = r[0];
+      resortSoon(p);
     } catch (err) {
       ui.status = String(err);
     }
@@ -602,6 +714,12 @@
           <button class:on={statement} onclick={() => (ui.previewSource = "statement")}>{t("provenance.statement")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
+      {:else if !diffing && (geoSource || ((kind === "geo" || kind === "gpx") && isGeoText(e.name)) || kind === "scad")}
+        <!-- GeoJSON, KML, GPX: the map of their shapes, or their text; a model, or its code. -->
+        <div class="modes" role="group" aria-label={t("preview.show")}>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{isScad(e.name) ? t("preview.rendered") : t("geo.map")}</button>
+          <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
+        </div>
       {:else if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
         <div class="modes" role="group" aria-label={t("preview.show")}>
           <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
@@ -612,7 +730,7 @@
     </header>
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="body" class:flush={(kind === "bom" || kind === "chess" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
+    <div class="body" class:flush={(kind === "bom" || kind === "chess" || kind === "go" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
@@ -647,6 +765,12 @@
         <BomView path={e.path} />
       {:else if kind === "chess"}
         <ChessView path={e.path} />
+      {:else if kind === "netron"}
+        <!-- The model's facts first, then its graph. -->
+        {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
+        {#key e.path}<NetronView path={e.path} dir={e.is_dir} />{/key}
+      {:else if kind === "go"}
+        <GoView path={e.path} />
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} />
       {:else if kind === "provenance" && !source}
@@ -733,14 +857,22 @@
           <div class="slides">
             {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
           </div>
-        {:else if !conv.engines.some((x) => x.available)}
-          <!-- What is missing · why · the line that installs it, or the place to choose a container. -->
-          {@const install = ui.cfg.installs[{ libreoffice: "soffice", ghostscript: "gs" }[conv.tool] ?? conv.tool]}
-          {@const onlyContainer = conv.engines.every((x) => x.id.startsWith("container:"))}
-          <p class="more">{t("preview.no_engine", { notes: conv.engines.map((x) => x.note).filter(Boolean).join(". ") })}</p>
-          <!-- Kroki's diagram kinds have no program of their own to install: a container is the way. -->
-          <p class="more">{#if onlyContainer}{t("convert.container_only", { tool: conv.tool })}{:else if install}{t("install.with")} <CopyLine line={install} />{:else}{t("install.get", { program: conv.engines[0]?.label ?? conv.tool })}{/if}
-            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews" })}>{t("preview.settings")}</button></p>
+        {:else if conv.engines[0]?.id === "off:"}
+          <!-- Off for this kind in Settings → Previews → Preview tools. -->
+          <p class="more">{conv.engines[0].note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "preview_tools" })}>{t("preview.settings")}</button></p>
+        {:else if conv.tool === "calibre" && !ui.cfg.settings.ebooks}
+          <!-- E-books only turned off: nothing to install. -->
+          <p class="more">{conv.engines[0]?.note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "ebooks" })}>{t("preview.settings")}</button></p>
+        {:else if wouldOf(conv)}
+          <!-- Nothing shows it without an install or a download: what would, with both ways. -->
+          {@const w = wouldOf(conv)}
+          <p class="more">{w.text}</p>
+          {#if w.note}<p class="more">{w.note}</p>{/if}
+          <p class="more">
+            {#if w.install}{t("install.with")} <CopyLine line={w.install} />{/if}
+            {#if w.pull}<button class="render" onclick={() => renderConv(w.pull.id)}>{t("ptools.pull", { size: w.pull.size ? ` (${w.pull.size})` : "" })}</button>{/if}
+            <button class="render" onclick={() => (ui.modal = { kind: "settings", section: ui.cfg.settings.preview_container === "off" ? "preview_container" : "preview_tools" })}>{t("preview.settings")}</button>
+          </p>
         {:else if conv.status === "idle"}
           <button class="render" onclick={() => renderConv()}>{t(conv.verb)}</button>
           <p class="more">{engineOf(conv)?.note}</p>
@@ -754,12 +886,28 @@
           {#if conv.result.instead}<p class="more">{conv.result.instead}</p>{/if}
           {#if conv.result.note}<details class="note"><summary>{t("preview.built_with_errors")}</summary><pre class="mono">{conv.result.note}</pre></details>{/if}
           <iframe class="pdf" src={convertFileSrc(conv.result.file) + "#zoom=page-width"} title={e.name}></iframe>
+        {:else if conv.result?.kind === "png"}
+          <!-- ffmpeg's frame or waveform, or a photo ImageMagick or ffmpeg drew (`media`). -->
+          {#if kind === "video_other" || kind === "audio_other"}<p class="more">{t(kind === "video_other" ? "media.frame_note" : "media.wave_note", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
+          <div class="media" class:checker={!["video_other", "audio_other"].includes(kind)}><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
         {:else if conv.result?.kind === "svg"}
           <div class="media svg"><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
         {:else if conv.result?.kind === "html"}
           <article class="markdown">{@html clean(conv.result.text)}</article>
         {:else if conv.result?.kind === "json"}
           {@render grid(jsonTable(conv.result.text))}
+        {:else if conv.result?.kind === "ebook"}
+          {@const b = conv.result.book}
+          <!-- calibre's EPUB of the book: its cover, title and authors, then its first chapter. -->
+          <div class="ebook">
+            {#if conv.result.file}<img class="cover" src={convertFileSrc(conv.result.file)} alt={t("preview.cover", { name: b.title || e.name })} />{/if}
+            <div>
+              {#if b.title}<h2 class="book">{b.title}</h2>{/if}
+              {#if b.authors}<p class="more">{b.authors}</p>{/if}
+              <p class="more"><button class="render" onclick={() => convertEbook([e.path])}>{t("action.convert_ebook")}</button></p>
+            </div>
+          </div>
+          {#if b.html}<article class="markdown">{@html clean(b.html)}</article>{:else}<p class="more">{t("err.no_readable_chapter")}</p>{/if}
         {/if}
       {:else if rich?.parquet}
         <p class="more">{t("preview.parquet_summary", { rows: tn("preview.rows", rich.parquet.rows), columns: tn("preview.columns", rich.parquet.schema.length) })}</p>
@@ -773,6 +921,19 @@
           {#each rich.slides as s, i (i)}<div class="slide">{@html s}</div>{/each}
         </div>
       {:else if rich?.drawio !== undefined}
+        <!-- Export: draw.io itself makes a PNG or SVG of each page, or one PDF, next to the file. -->
+        <p class="more">
+          {t("export.export_as")}
+          {#each ["png", "svg", "pdf"] as f (f)}<button class="render" title={t(`export.op.drawio_${f}`)} onclick={() => makeExport(false, `drawio_${f}`, [e.path])}>{f.toUpperCase()}</button> {/each}
+          <kbd>{ui.cfg.actions.drawio_export?.[1] ?? ""}</kbd>
+        </p>
+        {#if rich.pages.length > 1}
+          <div class="tabs drawio-tabs" role="tablist">
+            {#each rich.pages as name, i (i)}
+              <button role="tab" aria-selected={drawioPage === i} class:on={drawioPage === i} onclick={() => showPage(i)}>{name || t("export.page", { n: i + 1 })}</button>
+            {/each}
+          </div>
+        {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
         <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
@@ -809,13 +970,17 @@
       {:else if (kind === "video" || kind === "audio") && ui.cfg.media_missing}
         <!-- Showing a player without GStreamer's plugins would take the whole page down. -->
         <p class="more">{ui.cfg.media_missing} <button class="link" onclick={() => invoke("open_path", { path: e.path })}>{t("preview.media_open")}</button></p>
+      {:else if kind === "gpx"}
+        {#if gpxMap?.file?.error}<p class="more">{gpxMap.file.error}</p>{:else if gpxMap?.file}<div class="media svg"><img src={convertFileSrc(gpxMap.file)} alt={e.name} /></div>{/if}
       {:else if kind === "video"}
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
-          <video src={convertFileSrc(e.path)} controls preload="metadata"></video>
+          <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
+          <video src={convertFileSrc(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (sniffed = { path: e.path, kind: "video_other" })}></video>
         </div>
       {:else if kind === "audio"}
-        <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata"></audio></div>
+        {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
+        <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata" onerror={() => (sniffed = { path: e.path, kind: "audio_other" })}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
         <p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>
@@ -851,7 +1016,7 @@
           <p class="more">{archive.error}</p>
         {:else if archive}
           <!-- A mailbox opens like a folder of its messages, read-only. -->
-          {#if /\.mbox$/i.test(e.name)}<p class="more">{t("disk_image.next_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
+          {#if /\.mbox$/i.test(e.name) || archive.image}<p class="more">{t("disk_image.next_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
           <p class="more">{tn(archive.more ? "preview.archive_more" : "preview.archive", archive.entries.length)}</p>
           <ul class="archive mono">
             {#each archive.entries as a (a.name)}
@@ -864,7 +1029,12 @@
         <iframe class="page" sandbox="" srcdoc={page} title={e.name}></iframe>
         {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html && !source}
+        {#if kind === "asciidoc"}
+          <!-- Build PDF: Asciidoctor PDF writes it next to the document. -->
+          <p class="more"><button class="render" onclick={() => makeExport(true, "adoc_pdf", [e.path])}>{t("export.go_adoc")}</button> <kbd>{ui.cfg.actions.adoc_pdf?.[1] ?? ""}</kbd></p>
+        {/if}
         <article class="markdown">{@html html}</article>
+
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html}
         <pre class="mono code"><code class="hljs">{@html html}</code></pre>
       {:else if rich?.error}
@@ -932,9 +1102,32 @@
           {/if}
         </dl>
       {/if}
-      {#if facts.length}
+      {#if !e.is_dir && !inside && !pane.snapshot && !pane.package && (isMedia(e.name) || isEditable(e.name) || isScad(e.name) || isKicad(e.name) || kind === "geo" || kind === "gpx" || geoSource || geoTiff)}
+        <!-- ffmpeg's, ImageMagick's, GDAL's and OpenSCAD's work on it: offered under every video, song, photo, geodata and model. -->
+        {@const program = isKicad(e.name) ? 4 : isScad(e.name) ? 3 : kind === "geo" || kind === "gpx" || geoSource || geoTiff ? 2 : isEditable(e.name) ? 1 : 0}
+        {@const act = ["convert_media", "edit_pictures", "convert_geodata", "export_model", "export_kicad"][program]}
+        <p class="more"><button class="render" onclick={() => convertMedia(program, [e.path])}>{t(`action.${act}`)}</button>{#if ui.cfg.actions[act]?.[1]} <kbd>{ui.cfg.actions[act][1]}</kbd>{/if}</p>
+      {/if}
+      {#if e && !e.is_dir && isSpeech(e.name) && !pane.archive}
+        <!-- Its transcript, or Transcribe speech: done, under way, waiting, or given up. -->
+        <section class="transcript">
+          <h3>{t("whisper.transcript")}</h3>
+          {#if heard?.failed}
+            <p class="more err">{t("whisper.failed", { why: heard.text })}</p>
+          {:else if heard && !heard.finished}
+            <p class="more">{heard.place ? t("whisper.waiting", { n: heard.place }) : t("whisper.so_far", { time: clock(heard.done) })}</p>
+          {/if}
+          {#if heard?.text && !heard.failed}
+            <pre class="transcript-text">{heard.text}</pre>
+          {/if}
+          {#if !heard || heard.failed}
+            <p class="more"><button class="render" onclick={() => transcribe([e.path])}>{t("action.transcribe")}</button> <kbd>{ui.cfg.actions.transcribe?.[1] ?? ""}</kbd></p>
+          {/if}
+        </section>
+      {/if}
+      {#if facts.length && kind !== "netron"}
         <dl class="facts extra">
-          {#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
+          {#each facts as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}
         </dl>
       {/if}
     </div>
@@ -981,8 +1174,30 @@
     background: #fff;
     border-radius: var(--r);
   }
-  /* Diagrams are drawn for a white page, whatever the theme. */
+  .drawio-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  .drawio-tabs button {
+    font: inherit;
+    font-size: 0.85em;
+    padding: 2px 10px;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r) var(--r) 0 0;
+    background: var(--status-bg);
+    color: var(--panel-fg);
+    cursor: pointer;
+  }
+  .drawio-tabs button.on {
+    background: var(--cursor-bg);
+    color: var(--cursor-fg);
+  }
+  /* Diagrams are drawn for a white page, whatever the theme. Its toolbar's stacking stays
+     inside it, under the app's dialogs. */
   .drawio {
+    isolation: isolate;
     flex: 1;
     min-height: 240px;
     overflow: auto;
@@ -1081,6 +1296,11 @@
     max-width: 100%;
     max-height: 60vh;
     border-radius: var(--r);
+  }
+  /* A song's waveform: as wide as the pane, low, above its player. */
+  .media.wave img {
+    width: 100%;
+    max-height: 120px;
   }
   .pager {
     display: flex;
@@ -1286,6 +1506,17 @@
     margin: 0 0 8px;
     font-size: 1.1em;
   }
+  .ebook {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .ebook .cover {
+    max-width: 40%;
+    max-height: 280px;
+    box-shadow: 0 1px 6px #0006;
+  }
   .cert {
     margin-bottom: 14px;
   }
@@ -1382,6 +1613,12 @@
   }
   .hex {
     font-size: 0.8em;
+  }
+  .transcript-text {
+    white-space: pre-wrap;
+    font-family: var(--mono-font, monospace);
+    max-height: 24em;
+    overflow: auto;
   }
   .more {
     color: var(--hidden-fg);

@@ -1,6 +1,6 @@
 <script>
   import { tick } from "svelte";
-  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, gitFacts, gitMenu } from "./app.svelte.js";
+  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, openHistory, gitFacts, gitMenu } from "./app.svelte.js";
   import { invoke, basename, crumbs, size, MARKERS, SNAPSHOTS, PACKAGE, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
@@ -42,8 +42,10 @@
   }
 
 
-  const selBytes = $derived(t.items.filter((e) => t.marked.has(e.path)).reduce((a, e) => a + (e.is_dir ? t.sizes[e.path] ?? 0 : e.size), 0));
-  const count = $derived(t.items.length - (t.items[0]?.name === ".." ? 1 : 0));
+  // Folders as measured; inside an archive (or a list of snapshots) as listed.
+  const listedSizes = $derived((t.archive && !t.history) || (t.snapshot && !t.snapshot.snapshot));
+  const selBytes = $derived(listedSizes ? t.marks.bytes + t.marks.dir_bytes : t.marks.dirs.reduce((a, d) => a + (t.sizes[d] ?? 0), t.marks.bytes));
+  const count = $derived(t.items.length - (t.up ? 1 : 0));
   /** The ZFS footer: dataset, compression ratio, space (used of the quota when it has one). */
   const zfsLine = $derived(
     t.zfs &&
@@ -104,7 +106,7 @@
         {/each}
         {#if t.archive}
           <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
-          <span class="archive-badge" title={t.diskImage ? tr("disk_image.copy_out_hint", { archive: basename(t.archive) }) : tr("archive.inside_tip")}>{"\u{f410}"} {tr(t.diskImage ? "dialogs.readonly" : t.locked ? "archive.badge_locked" : "archive.badge")}</span>
+          <span class="archive-badge" title={t.diskImage ? tr("disk_image.copy_out_hint", { archive: basename(t.archive) }) : tr("archive.inside_tip")}>{"\u{f410}"} {t.image ? `${t.image} · ` : ""}{tr(t.diskImage || t.nested ? "dialogs.readonly" : t.locked ? "archive.badge_locked" : "archive.badge")}</span>
         {/if}
         {#if t.history}
           <!-- In a history: which file or folder, and which commit, so an old file is not taken for today's. -->
@@ -112,6 +114,15 @@
           <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr(`${t.history.view}.inside_tip`)}>
             {t.history.view === "history" ? "\u{f1da}" : "\u{e725}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : badgeOf(t.history)}
           </span>
+          {#if t.history.view === "history" && !c}
+            <!-- Which commits the list and its graph show: this branch's, or every branch's. -->
+            {@const keyOf = (s) => ui.cfg.actions[s === "upstream" ? "history_upstream" : "history_all"]?.[1] ?? ""}
+            <span class="scope" role="group">
+              {#each ["branch", "all", "upstream"] as s (s)}
+                <button class:on={t.history.scope === s} aria-pressed={t.history.scope === s} title={tr(`history.scope_${s}_tip`, { key: keyOf(s) })} onclick={() => t.history.scope !== s && openHistory(t, s === "branch" ? t.history.scope : s)}>{tr(`history.scope_${s}`)}</button>
+              {/each}
+            </span>
+          {/if}
         {/if}
         {#if t.snapshot}
           <!-- Among a dataset's snapshots: which, so an old file is not taken for today's. -->
@@ -145,7 +156,8 @@
   {/if}
 
   <footer class="foot">
-    <span>{tn("items", count)}{#if t.marked.size}&nbsp;· <b>{tn("pane.selected", t.marked.size, { size: size(selBytes) })}</b>{/if}</span>
+    <!-- Against the upstream: which, how far ahead and behind, and the last fetch. -->
+    <span>{tn("items", count)}{#if t.history?.upstream}&nbsp;· {t.history.upstream}{/if}{#if t.marks.count}&nbsp;· <b>{tn("pane.selected", t.marks.count, { size: size(selBytes) })}</b>{/if}</span>
     {#if t.hasNotes}<span class="note" title={tr("pane.has_notes")}>{"\u{f249}"}</span>{/if}
     <!-- On ZFS: the dataset and its space; a click lists the snapshots. -->
     {#if zfsLine}<button class="zfs-line" title={`${t.zfs.mountpoint}\n${tr("zfs.footer_tip", { key: ui.cfg.actions.snapshots?.[1] ?? "" })}`} onclick={() => openSnapshots(t)}>{zfsLine}</button>{/if}
@@ -310,6 +322,28 @@
     color: var(--accent-fg);
     background: var(--accent-bg);
     flex: none;
+  }
+  /* This branch | All branches, next to a history's badge. */
+  .scope {
+    display: flex;
+    flex: none;
+    margin-inline-start: 6px;
+    font-size: 0.8em;
+    border: 1px solid var(--accent-bg);
+    border-radius: var(--r-pill);
+    overflow: hidden;
+  }
+  .scope button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0 8px;
+    cursor: pointer;
+  }
+  .scope button.on {
+    color: var(--accent-fg);
+    background: var(--accent-bg);
   }
   .crumb {
     padding: 1px 6px;

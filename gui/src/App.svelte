@@ -3,10 +3,10 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, openSpace, addTab, closeTab, goBack, goForward, openItem, toggleMark, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, globRe, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
-  import { t, tn } from "./i18n.svelte.js";
+  import { invoke, keyString, basename, parent, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
+  import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
   import Preview from "./Preview.svelte";
@@ -17,6 +17,9 @@
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
+  import Editor from "./Editor.svelte";
+  import Compare from "./Compare.svelte";
+  import GoView from "./GoView.svelte";
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
@@ -27,17 +30,27 @@
   let main = $state();
   /** Command/script output shown in the preview pane. */
   let output = $state(null);
-  let notesFocus = $state(0);
+  let notesFocus = $state(false);
   let ready = $state(false);
 
   let update = $state(null);
-  // A problem with search is said in the status line; the rest waits under What's new.
-  const problem = $derived(ui.news.notices.find((n) => n.id.startsWith("error:")));
+  // A mistake in config.toml or a problem with search is said in the status line; the rest
+  // waits under What's new.
+  const problem = $derived(ui.news.notices.find((n) => n.config_line || n.id.startsWith("error:")));
   const newsCount = $derived(ui.news.notices.length + ui.news.unread.length);
   function actOn(n) {
+    // config.toml at the mistake's line; the notice stays until the file is mended.
+    if (n.config_line) return openConfigAt(n);
     if (n.settings) ui.modal = { kind: "settings", section: n.settings };
     dismissNotice(n);
   }
+  const openConfigAt = (n) => invoke("open_config_at", { line: n.config_line }).catch((e) => (ui.status = String(e)));
+  // An error on the status line in plain words, its first line only (coxswain_core::fs::plain,
+  // which puts the whole of it in helper.log).
+  $effect(() => {
+    const said = ui.status;
+    if (said) invoke("plain_error", { raw: String(said) }).then((p) => ui.status === said && p !== said && (ui.status = p), () => {});
+  });
   const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id)), () => {});
   init().then(
     () => {
@@ -78,17 +91,24 @@
   });
 
   // Folders open in any tab reread themselves when something changes in them; so does a
-  // repository's `.git` (a commit, a checkout), so the status and the last-commit column follow.
+  // repository's `.git` or Mercurial's store (a commit, a checkout; not `.hg` itself, which every
+  // `hg status` touches), or Jujutsu's operation heads (any jj command), so
+  // the status and the last-commit column follow.
   const allTabs = () => ui.panes.flatMap((p) => p.tabs);
-  const gitDir = (t) => t.git && `${t.git.root}${ui.cfg.sep}.git`;
+  const gitDirs = (t) => (t.git ? [`${t.git.root}${ui.cfg.sep}.git`, [t.git.root, ".hg", "store"].join(ui.cfg.sep), [t.git.root, ".jj", "repo", "op_heads", "heads"].join(ui.cfg.sep)] : []);
   $effect(() => {
     if (!ready) return;
-    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, gitDir(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
+    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, ...gitDirs(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
   });
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
+  // A tab in the background is read again when it is shown.
   listen("dir-changed", (ev) => {
-    for (const t of allTabs()) if (ev.payload.includes(t.dir) || ev.payload.includes(gitDir(t))) load(t);
+    const shown = visibleTabs();
+    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? load(t) : (t.unread = true);
+  });
+  $effect(() => {
+    if (ready) for (const t of visibleTabs()) if (t.unread) readWhenShown(t);
   });
   // A copy, move, delete or undo has ended: the folders it changed things in are measured again.
   listen("sizes-changed", (ev) => {
@@ -99,24 +119,48 @@
   });
 
   // Files dragged in from other applications, or from a pane (the drag is native, see dragOut).
-  const paneAt = ({ x, y }) => {
-    const el = document.elementFromPoint(x / devicePixelRatio, y / devicePixelRatio)?.closest("[data-pane]");
-    return el ? Number(el.dataset.pane) : null;
+  // The position is in CSS pixels on GTK and macOS, in device pixels on Windows. Under it: a
+  // pane, and a folder row or a sidebar place (`data-drop`), which a drop goes into.
+  const dropAt = ({ x, y }) => {
+    const k = ui.cfg.sep === "\\" ? devicePixelRatio : 1;
+    const el = document.elementFromPoint(x / k, y / k);
+    const pane = el?.closest("[data-pane]");
+    return { pane: pane ? Number(pane.dataset.pane) : null, dir: el?.closest("[data-drop]")?.dataset.drop ?? null };
   };
-  getCurrentWebview().onDragDropEvent(({ payload: p }) => {
-    if (p.type === "leave") return void (ui.dropPane = null);
-    const at = p.position ? paneAt(p.position) : null;
-    if (p.type !== "drop") return void (ui.dropPane = at);
-    ui.dropPane = null;
-    if (at === null || !p.paths.length) return;
-    const dest = tab(at).dir;
-    if (p.paths.every((x) => parent(x) === dest)) return; // dropped where it came from
-    const n = describe(p.paths);
-    const go = (isMove) => transferTo(p.paths, dest, dest, isMove, n);
+  const mac = /Macintosh/.test(navigator.userAgent);
+  let entered = [];
+  getCurrentWebview().onDragDropEvent(async ({ payload: p }) => {
+    if (p.type === "leave") return void (ui.dropPane = ui.dropDir = null);
+    if (p.type === "enter") entered = p.paths;
+    const paths = p.paths ?? entered;
+    const at = p.position ? dropAt(p.position) : { pane: null, dir: null };
+    // Not into a folder that is itself dragged.
+    const into = at.dir && !paths.includes(at.dir) && !ui.drag?.paths.includes(at.dir) ? at.dir : null;
+    const ro = at.pane === null ? null : readOnlyKey(tab(at.pane));
+    if (p.type !== "drop") {
+      ui.dropPane = ro || into ? null : at.pane;
+      ui.dropDir = ro ? null : into;
+      return;
+    }
+    ui.dropPane = ui.dropDir = null;
+    const dest = into ?? (at.pane === null ? null : tab(at.pane).dir);
+    if (!dest || !paths.length) return;
+    if (ro) return void (ui.status = t(ro));
+    // From a pane: from where the files really are (an archive, a history), as F5 there.
+    const own = ui.drag && ui.drag.real.length === paths.length && ui.drag.real.every((x, i) => x === paths[i]) ? ui.drag : null;
+    const from = own ? own.paths : paths;
+    if (from.every((x) => parent(x) === dest)) return; // dropped where it came from
+    const n = describe(from);
+    const fixed = own ? readOnlyKey(own.tab) : null;
+    const go = (isMove) => (isMove && fixed ? (ui.status = t(fixed)) : transferTo(from, dest, dest, isMove, n));
+    const [copy, mv] = await invoke("drop_keys").catch(() => [false, false]);
+    if (copy !== mv) return go(mv);
+    const hint = await invoke("hint_once", { id: "drop_keys" }).catch(() => false);
     ui.modal = {
       kind: "menu",
       feature: "drag_and_drop",
       title: t("app.drop_title", { what: n, folder: basename(dest) || dest }),
+      note: hint ? t("hint.drop_keys", { copy: mac ? "Option" : "Ctrl", move: mac ? "Command" : "Shift" }) : "",
       direct: true,
       filter: "",
       cursor: 0,
@@ -145,15 +189,30 @@
   }
 
 
+  /** The title over what failed of `paths` (as coxswain_core::undo::failure_title): for one
+   *  item "Could not copy …", for several how many went through and how many did not. `kind`
+   *  is copy, move, extract, trash, delete or pack; a pack is one archive, all or nothing. */
+  function failTitle(kind, paths, what) {
+    const all = paths.length;
+    if (all <= 1) return t(`error.${kind}`, { what });
+    return (lines) => {
+      const failed = kind === "pack" ? all : Math.min(lines, all);
+      const p = { done: num(all - failed), all: num(all) };
+      return { copy: () => tn("error.counted_copy", failed, p), move: () => tn("error.counted_move", failed, p), extract: () => tn("error.counted_extract", failed, p), trash: () => tn("error.counted_trash", failed, p), delete: () => tn("error.counted_delete", failed, p), pack: () => tn("error.counted_pack", failed, p) }[kind]();
+    };
+  }
+
   /** Run `start(password, only)`, saying meanwhile that `what` is being worked on; when only
    *  locked archives were in the way (every failure says so), ask for the password and run it
    *  again with that, for just the paths that failed. The password lives only in this call.
    *  A failure is shown under `fail`, which says what could not be done. */
   async function op(start, ok, what, fail, password = null, only = null) {
     ui.status = t("status.busy", { what });
+    const ended = watchJob(ui.status);
     try {
-      await (typeof start === "function" ? start(password, only) : start);
-      await refreshUndo(ok);
+      // Stopped: how far it got, instead of done.
+      const stopped = await (typeof start === "function" ? start(password, only) : start);
+      await refreshUndo(typeof stopped === "string" ? stopped : ok);
     } catch (e) {
       // What went well of it can be undone.
       refreshUndo();
@@ -175,27 +234,33 @@
         return;
       }
       ui.status = "";
-      ui.modal = failure(fail, e);
+      // A title made from how many failed: one line each.
+      ui.modal = failure(typeof fail === "function" ? fail(lines.length) : fail, e);
+    } finally {
+      ended();
     }
-    for (const p of ui.panes) for (const t of p.tabs) t.marked.clear();
+    await Promise.all(ui.panes.flatMap((p) => p.tabs).map((t) => t.marks.count && mark(t, "none")));
     await reloadAll();
   }
 
   /** Copy or move `paths` (named relative to `base`) to `dest`, with its status line and error. */
   const transferTo = (paths, base, dest, isMove, what = describe(paths)) =>
-    op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, t(isMove ? "error.move" : "error.copy", { what }));
+    op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, failTitle(isMove ? "move" : "copy", paths, what));
 
-  function transfer(isMove, dest = otherTab().dir) {
-    const paths = targets();
+  async function transfer(isMove, dest = otherTab().dir) {
+    const paths = await targets();
     if (!paths.length) return;
     const what = describe(paths);
     prompt(t(isMove ? "dialog.move" : "dialog.copy", { what }), t("dialog.to"), dest, t(isMove ? "verb.move" : "verb.copy"), (d) => {
       if (d.trim()) transferTo(paths, tab().dir, d, isMove, what);
     }, isMove ? "move_and_rename" : "copy");
+    // Into an archive it is written anew beside itself: the dialog says when room may be short.
+    const m = ui.modal;
+    if (otherTab().archive) invoke("pack_room", { paths, base: tab().dir, dest }).then((room) => room && ui.modal === m && (m.room = room), () => {});
   }
 
   async function remove(forever) {
-    const paths = targets();
+    const paths = await targets();
     if (!paths.length) return;
     const what = describe(paths);
     // For good inside an archive (it is written anew without them) and where the trash cannot
@@ -211,14 +276,14 @@
     const gone = plan.forever;
     // Where the trash gives nothing back, the status line says so.
     const said = gone ? t("status.deleted", { what }) : ui.cfg.trash_restores ? t("status.trashed", { what }) : `${t("status.trashed", { what })} · ${t("undo.no_restore_hint", { key: ui.cfg.actions.undo?.[1] ?? "" })}`;
-    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever: gone, password }), said, what, t(gone ? "error.delete" : "error.trash", { what }));
+    const run = () => op((password, only) => invoke("delete", { paths: only ?? paths, forever: gone, password }), said, what, failTitle(gone ? "delete" : "trash", paths, what));
     const text = t(plan.question, { what, archive: inside ? basename(inside) : "" });
     if (ui.cfg.confirm_delete || plan.must_confirm) ui.modal = { kind: "confirm", title: t("dialog.delete"), text, ok: t(gone ? "common.delete" : "app.move_to_trash"), run, feature: "delete" };
     else run();
   }
 
   async function clip(cut) {
-    const paths = targets();
+    const paths = await targets();
     if (!paths.length) return;
     try {
       await invoke("clip_set", { paths, cut });
@@ -255,10 +320,7 @@
 
   function markGroup(sel) {
     prompt(t(sel ? "app.mark_files" : "app.unmark_files"), t("app.matching"), "*", t(sel ? "verb.mark" : "verb.unmark"), (v) => {
-      const pats = v.split(/[\s;,]+/).filter(Boolean);
-      const t = tab();
-      const res = pats.map(globRe);
-      for (const e of t.items) if (!e.is_dir && res.some((r) => r.test(e.name))) sel ? t.marked.add(e.path) : t.marked.delete(e.path);
+      mark(tab(), { glob: { patterns: v, on: sel } });
     }, "marking");
   }
 
@@ -271,14 +333,14 @@
     const t = tab();
     t.reverse = t.sort === k && !t.reverse;
     t.sort = k;
-    load(t);
+    sortTab(t);
   }
 
-  function runScript(s) {
+  async function runScript(s) {
     const tb = tab();
     const e = item(tb);
     const file = e && e.name !== ".." ? e.path : null;
-    const selected = tb.items.filter((x) => tb.marked.has(x.path)).map((x) => x.path);
+    const selected = tb.marks.count ? (await pick(tb, "marked")).map((x) => x.path) : [];
     ui.status = t("app.running", { what: s.label });
     invoke("run_script", { user: s.user, path: s.path, dir: tb.dir, file, selected }).then(
       (text) => {
@@ -291,9 +353,14 @@
     );
   }
 
-  /** In a ZFS snapshot (or its list) nothing changes, nor in a package's list of files: said at
-   *  once, not after a prompt. */
-  const readOnly = () => (tab().snapshot || tab().package || tab().diskImage ? ((ui.status = t(tab().snapshot ? "zfs.read_only" : tab().package ? "pkg.read_only" : "disk_image.read_only")), true) : false);
+  /** In a git history, a ZFS snapshot (or its list) nothing changes, nor in a package's list of
+   *  files or a disk image: said at once, not after a prompt. */
+  const readOnly = () => {
+    const key = readOnlyKey(tab());
+    if (key) ui.status = t(key);
+    return !!key;
+  };
+  const readOnlyKey = (tb) => (tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : tb.nested ? "archive.nested_read_only" : null);
 
   const actions = {
     quit: () => getCurrentWindow().close(),
@@ -306,6 +373,8 @@
     open: () => openItem(tab()),
     parent: () => up(tab()) && cd(tab(), up(tab())),
     history: () => openHistory(),
+    history_all: () => openHistory(undefined, "all"),
+    history_upstream: () => openHistory(undefined, "upstream"),
     snapshots: () => openSnapshots(),
     package: () => openPackage(),
     // The flags are set in Properties.
@@ -317,9 +386,25 @@
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
     searchable_pdf: () => makeSearchable(),
-    chess: () => {
+    convert_media: () => convertMedia(0),
+    edit_pictures: () => convertMedia(1),
+    convert_geodata: () => convertMedia(2),
+    export_model: () => convertMedia(3),
+    convert_ebook: () => convertEbook(),
+    export_kicad: () => convertMedia(4),
+    make_checksums: () => makeChecksums(),
+    verify_checksums: () => verifyChecksums(),
+    transcribe: async () => transcribe(await targets()),
+    split_file: () => splitFile(),
+    join_parts: () => joinParts(),
+    adoc_pdf: () => makeExport(true),
+    drawio_export: () => makeExport(false),
+    scan_viruses: () => scanViruses(),
+    preview_with: () => previewWith(),
+    chess: async () => {
       const e = item(tab());
-      if (e && !e.is_dir && chessFormat(e.name)) ui.modal = { kind: "chess", path: e.path };
+      const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
+      if (e && !e.is_dir && (chessFormat(e.name) || book)) ui.modal = { kind: chessFormat(e.name) === "sgf" ? "go" : "chess", path: e.path, feature: { pdn: "draughts", shogi: "shogi", pbn: "bridge" }[chessFormat(e.name)] };
       else ui.status = t("chess.not_chess");
     },
     space_view: () => openSpace(),
@@ -331,14 +416,8 @@
     mark_group: () => markGroup(true),
     unmark_group: () => markGroup(false),
     // As in a file explorer: everything in the folder, files and folders, but `..`.
-    mark_all: () => {
-      const t = tab();
-      for (const e of t.items) if (e.name !== "..") t.marked.add(e.path);
-    },
-    invert_marks: () => {
-      const t = tab();
-      for (const e of t.items) if (!e.is_dir) t.marked.has(e.path) ? t.marked.delete(e.path) : t.marked.add(e.path);
-    },
+    mark_all: () => mark(tab(), "all"),
+    invert_marks: () => mark(tab(), "invert"),
     search: () => openFind("all"),
     search_text: () => openFind("in_files"),
     ask: () => openFind("ask"),
@@ -383,6 +462,27 @@
       if (tab().snapshot) return void (ui.status = t("zfs.read_only"));
       invoke("edit_path", { path: e.path }).catch((err) => (ui.status = String(err)));
     },
+    // The built-in editor, whatever F4 starts.
+    edit_here: () => {
+      const e = item();
+      if (!e || e.is_dir) return;
+      if (tab().archive) return void (ui.status = t("archive.copy_out_hint", { archive: basename(tab().archive) }));
+      if (tab().history) return void (ui.status = t("history.read_only"));
+      if (tab().snapshot) return void (ui.status = t("zfs.read_only"));
+      ui.modal = { kind: "editor", path: e.path };
+    },
+    // Two marked files, else the file under each pane's cursor, the left pane's on the left.
+    compare_folders: () => compareFolders(),
+    compare_files: async () => {
+      const tb = tab();
+      const marked = tb.marks.count === 2 ? (await pick(tb, "marked")).filter((x) => !x.is_dir) : [];
+      const file = (t) => (t && !t.archive && !t.history ? item(t) : null);
+      const fileOf = (e) => (e && !e.is_dir && e.name !== ".." ? e.path : null);
+      const pair = marked.length === 2 && !tb.archive && !tb.history ? [marked[0].path, marked[1].path] : [fileOf(file(tab(0))), fileOf(file(tab(1)))];
+      if (tb.archive || tb.history) return void (ui.status = t("compare.not_here"));
+      if (!pair[0] || !pair[1]) return void (ui.status = t("compare.pick_two"));
+      ui.modal = { kind: "compare", left: pair[0], right: pair[1] };
+    },
     copy: () => transfer(false),
     move: () => readOnly() || transfer(true),
     rename: () => {
@@ -390,11 +490,16 @@
       const e = item(tb);
       if (!e || e.name === ".." || readOnly()) return;
       const what = describe([e.path]);
-      prompt(t("dialog.rename", { what }), t("app.name_label"), e.name, t("verb.rename"), async (name) => {
-        if (!name.trim() || name === e.name) return;
-        await op((password, only) => invoke("rename", { paths: only ?? [e.path], base: tb.dir, dest: name, password }), t("status.renamed", { what }), what, t("error.rename", { what }));
-        await load(tb, tb.dir, name);
-      }, "move_and_rename");
+      // A newline or an escape in the name shows as its picture (␊, ␛), and comes back as it
+      // was: text left as shown renames nothing.
+      invoke("rename_shown", { name: e.name }).then((shown) =>
+        prompt(t("dialog.rename", { what }), t("app.name_label"), shown, t("verb.rename"), async (typed) => {
+          const name = typed.trim() ? await invoke("rename_typed", { name: e.name, typed }) : null;
+          if (name == null) return;
+          await op((password, only) => invoke("rename", { paths: only ?? [e.path], base: tb.dir, dest: name, password }), t("status.renamed", { what }), what, t("error.rename", { what }));
+          await load(tb, tb.dir, name);
+        }, "move_and_rename"),
+      );
     },
     action_menu: () => actionMenu(),
     new_folder: () =>
@@ -423,8 +528,9 @@
     },
     delete_forever: () => readOnly() || remove(true),
     clip_copy: () => clip(false),
-    clip_cut: () => clip(true),
+    clip_cut: () => readOnly() || clip(true),
     paste: async () => {
+      if (readOnly()) return;
       const dir = tab().dir;
       try {
         const [n, moved] = await invoke("paste", { dir });
@@ -447,16 +553,17 @@
       }
       ui.status = "";
     },
-    extract: () => {
-      const paths = targets().filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))));
+    extract: async () => {
+      // An OCI image layout's index.json opens as the image, so it unpacks as one too.
+      const paths = (await targets()).filter((p) => isArchive(basename(p)) || (ui.cfg.settings.disk_images && diskName(basename(p))) || ociIndex(tab(), { name: basename(p) }));
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
-        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, t("error.extract", { what }));
+        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, failTitle("extract", paths, what));
       }, "pack_and_extract");
     },
-    pack: () => {
-      const paths = targets();
+    pack: async () => {
+      const paths = await targets();
       if (!paths.length) return;
       const what = describe(paths);
       const name = paths.length === 1 ? basename(paths[0]).replace(/\.[^.]*$/, "") || basename(paths[0]) : basename(tab().dir) || "archive";
@@ -472,9 +579,11 @@
         run: (d, password, hideNames) => {
           const f = packFormat(ui.cfg.pack_formats, d);
           if (f) ui.packEnding = f.endings[0];
-          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, t("error.pack", { what }));
+          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, failTitle("pack", paths, what));
         },
       };
+      const m = ui.modal;
+      invoke("pack_room", { paths, base: tab().dir, dest: m.value }).then((room) => room && ui.modal === m && (m.room = room), () => {});
     },
     user_menu: async () => {
       const tb = tab();
@@ -531,28 +640,29 @@
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
     folder_sizes: async () => {
       const tb = tab();
-      const dirs = tb.marked.size ? targets(tb) : tb.items.filter((e) => e.is_dir && e.name !== "..").map((e) => e.path);
+      const dirs = tb.marks.count ? await targets(tb) : (await pick(tb, "dirs")).map((e) => e.path);
       // Inside an archive the sizes come with the listing.
       if (!dirs.length || tb.archive) return;
       ui.status = tn("app.measuring", dirs.length);
       await measureFolders(tb, dirs);
       ui.status = "";
     },
-    batch_rename: () => {
+    batch_rename: async () => {
+      if (readOnly()) return;
       const t = tab();
-      const names = (t.marked.size ? t.items.filter((e) => t.marked.has(e.path)) : t.items.filter((e) => e.name !== "..")).map((e) => e.name);
+      const names = (await pick(t, t.marks.count ? "marked" : "all")).map((e) => e.name);
       if (!names.length) return;
       ui.modal = { kind: "rename", dir: t.dir, names, pattern: "", replacement: "", ci: false, global: false, whole: false, plan: [], error: "" };
       dialogs.replan();
     },
-    tag: () => {
-      const paths = targets();
+    tag: async () => {
+      const paths = await targets();
       if (paths.length) ui.modal = { kind: "tag", paths };
     },
     notes: () => {
       output = null;
       ui.showPreview = true;
-      notesFocus++;
+      notesFocus = true;
     },
     columns: () => columnMenu(),
     duplicates: () => (ui.modal = { kind: "dupes" }),
@@ -575,7 +685,7 @@
   async function actionMenu() {
     const groups = await invoke("action_menu", { subject: subject() }).catch(() => []);
     if (!groups.length) return void (ui.status = t("menu.none"));
-    const paths = targets();
+    const paths = await targets();
     ui.modal = {
       kind: "menu",
       feature: "action_menu",
@@ -616,6 +726,11 @@
     if (ui.modal) {
       if (dialogs.handleKey(e, k)) e.preventDefault();
       return;
+    }
+    // Esc on the progress bar (its Stop has the focus): the file operation stops.
+    if (k === "Esc" && e.target.closest?.(".job")) {
+      e.preventDefault();
+      return stopJob();
     }
     // Typing in notes, the path bar or another field: leave it alone, except that Esc
     // leaves the field and function keys keep working (otherwise F3/F8 seem dead).
@@ -686,10 +801,9 @@
   function quickJump(e) {
     e.preventDefault();
     const t = tab();
-    // NFC on both sides: macOS keeps names decomposed (Hangul syllables, が as か + ゙), typing composes.
-    const q = ui.quick.normalize("NFC").toLowerCase();
-    const i = t.items.findIndex((x) => x.name.normalize("NFC").toLowerCase().startsWith(q));
-    if (i >= 0) t.cursor = i;
+    // Answers can come out of order: only the one for what is typed now counts.
+    const q = ui.quick;
+    invoke("tab_quick", { tab: t.id, query: q }).then((i) => ui.quick === q && i != null && (t.cursor = i), () => {});
   }
 
   const fkeys = $derived.by(() => {
@@ -724,7 +838,7 @@
       {#if ui.showPreview}
         <Splitter onmove={(dx) => (ui.previewW = clamp(ui.previewW - dx, 240, 900))} />
         <div class="side" style:width="min({ui.previewW}px, 60vw)">
-          <Preview {output} {notesFocus} onclearoutput={() => (output = null)} />
+          <Preview {output} {notesFocus} onnotesfocused={() => (notesFocus = false)} onclearoutput={() => (output = null)} />
         </div>
       {/if}
     </div>
@@ -738,10 +852,49 @@
         <span class="status" title={s.line}>{t(s.all > 1 ? "searchable.busy_of" : "searchable.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
         <button class="update" title={ui.cfg.actions.searchable_pdf?.[1] ?? ""} disabled={s.stopping} onclick={stopSearchable}>{t("searchable.stop")}</button>
       {/if}
+      {#if ui.job}
+        {@const j = ui.job}
+        <!-- A file operation under way: the item it is on, a bar of how far, and Stop (Esc stops too while it has the focus). -->
+        <span class="job">
+          <span class="status">{t(j.all > 1 ? "status.busy_of" : "status.busy", { what: j.name, n: j.at + 1, all: j.all })}{j.stopping ? ` · ${t("searchable.stopping")}` : ""}</span>
+          <progress max={Math.max(j.all, 1)} value={j.at} aria-label={t("status.busy", { what: j.name })}></progress>
+          <button class="update" title={t("searchable.stop_key", { key: "Esc" })} disabled={j.stopping} onclick={stopJob}>{t("searchable.stop")}</button>
+        </span>
+      {/if}
+      {#if ui.media}
+        {@const s = ui.media}
+        <!-- A conversion under way: which file, for how long, how far ffmpeg is or what it said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "media.busy_of" : "media.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopMedia}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.ebook}
+        {@const s = ui.ebook}
+        <!-- Convert e-book under way: which one, for how long, what calibre said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "ebook.busy_of" : "ebook.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" disabled={s.stopping} onclick={stopEbook}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.work}
+        {@const s = ui.work}
+        <!-- Checksums under way: which file of how many, how far. -->
+        <span class="status">{s.line || actionLabel(s.action)}{s.stopping ? ` · ${t("media.stopping")}` : ""}</span>
+        <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopWork}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.exporting}
+        {@const s = ui.exporting}
+        <!-- An export under way: which file, for how long, what the program said last. -->
+        <span class="status" title={s.line}>{t(s.all > 1 ? "export.busy_of" : "export.busy", { name: s.name, n: s.at + 1, all: s.all, seconds: Math.round((s.now - s.started) / 1000) })}{s.line ? ` · ${s.line}` : ""}</span>
+        <button class="update" title={actionLabel(s.action)} disabled={s.stopping} onclick={stopExport}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.viruses}
+        {@const v = ui.viruses}
+        <!-- Scan for viruses under way: the database's update or how many files are read. -->
+        <span class="status" title={v.line}>{v.line}, {Math.round((v.now - v.started) / 1000)} s</span>
+        <button class="update" title={ui.cfg.actions.scan_viruses?.[1] ?? ""} disabled={v.stopping} onclick={stopViruses}>{v.stopping ? t("searchable.stopping") : t("searchable.stop")}</button>
+      {/if}
       {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
       {#if problem && !update}
         <span class="notice">
-          <button class="update" onclick={() => actOn(problem)}>{problem.text}</button>
+          <button class="update" title={problem.config_line ? t("config.open_at", { line: problem.config_line }) : undefined} onclick={() => actOn(problem)}>{problem.text}</button>
           <button class="dismiss" title={t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(problem)}>×</button>
         </span>
       {/if}
@@ -761,7 +914,7 @@
     </label>
     <nav class="keybar" aria-label={t("app.fkeys")}>
       {#each fkeys as f (f.n)}
-        <button disabled={!f.act} onclick={() => f.act && actions[f.act]()}><kbd>F{f.n}</kbd><span>{f.label}</span></button>
+        <button disabled={!f.act} title={f.label} onclick={() => f.act && actions[f.act]()}><kbd>F{f.n}</kbd><span>{f.label}</span></button>
       {/each}
     </nav>
   </div>
@@ -774,6 +927,9 @@
 {#if ui.modal?.kind === "space"}<Space />{/if}
 {#if ui.modal?.kind === "bom"}<BomView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "chess"}<ChessView path={ui.modal.path} full />{/if}
+{#if ui.modal?.kind === "editor"}{#key ui.modal}<Editor />{/key}{/if}
+{#if ui.modal?.kind === "compare"}{#key ui.modal}<Compare />{/key}{/if}
+{#if ui.modal?.kind === "go"}<GoView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "provenance"}<ProvenanceView path={ui.modal.path} full />{/if}
 {#if ui.modal?.kind === "settings"}<Settings />{/if}
 {#if ui.modal?.kind === "setup"}<SetupSearch />{/if}
@@ -792,6 +948,11 @@
   }
   :global(#app) {
     height: 100%;
+  }
+  /* A folder row or a sidebar place a drop would go into. */
+  :global([data-drop].drop) {
+    outline: 2px dashed var(--accent-bg);
+    outline-offset: -2px;
   }
   :global(*::-webkit-scrollbar) {
     width: 10px;
@@ -901,6 +1062,11 @@
   .keybar button:disabled {
     opacity: 0.4;
     cursor: default;
+  }
+  /* A label longer than its tenth of the bar ends in …, whole in the tooltip. */
+  .keybar span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .keybar kbd {
     font-family: var(--mono-font), var(--scripts);
