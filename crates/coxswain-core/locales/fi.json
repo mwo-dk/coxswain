@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: avaa git-työkalussasi",
  "gittool.no_repo": "Ei git-tietovarastossa: täällä ei ole mitään avattavaa git-työkalussa",
  "gittool.not_found": "{name} ei löytynyt: asenna se tai valitse toinen git-työkalu kohdassa Asetukset → Toiminta",
+ "gittool.no_terminal": "{name} toimii päätteessä, eikä päätettä löytynyt: asenna jokin, tai valitse omalla ikkunallaan toimiva git-työkalu kohdassa Asetukset → Toiminta",
  "gittool.nothing": "Git-työkalua tai päätettä ei löytynyt: asenna lazygit, gitui tai tig, tai nimeä työkalusi kohdassa Asetukset → Toiminta",
  "gittool.opened": "{name} avattiin tietovarastossa",
  "gittool.shell": "Git-työkalua ei löytynyt: tietovarastoon avattiin komentotulkki",

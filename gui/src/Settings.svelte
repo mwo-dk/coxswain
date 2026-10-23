@@ -5,7 +5,7 @@
   // once (comments and layout kept) and applied without a restart.
   import { tick, untrack } from "svelte";
   import { ui, setPreviewTool, setTheme, themeIds, themeName, tab, showInTab, keysOf } from "./app.svelte.js";
-  import { invoke, size, parent } from "./lib.js";
+  import { invoke, size, parent, without } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
   import derafsh from "../../docs/flags/derafsh.svg?url";
@@ -491,17 +491,17 @@
       {#if words}
         <div class="chips">
           <!-- Unkeyed: config.toml may name an entry twice, and a repeated key stops the area showing. -->
-          {#each s[name] as w}
-            <span class="chip mono">{w}<button title={t("common.remove")} aria-label={t("common.remove")} onclick={() => set(name, s[name].filter((x) => x !== w))}>×</button></span>
+          {#each s[name] as w, i}
+            <span class="chip mono">{w}<button title={t("common.remove")} aria-label={t("common.remove")} onclick={() => set(name, without(s[name], i))}>×</button></span>
           {:else}
             <span class="hint">{none}</span>
           {/each}
         </div>
       {:else}
-        {#each s[name] as dir}
+        {#each s[name] as dir, i}
           <div class="folder">
             <span class="mono">{dir}{#if name === "text_roots"}<small class="hint">{rootInfo(dir)}</small>{/if}</span>
-            <button onclick={() => set(name, s[name].filter((d) => d !== dir))}>{t("common.remove")}</button>
+            <button onclick={() => set(name, without(s[name], i))}>{t("common.remove")}</button>
           </div>
         {:else}
           <span class="hint">{none}{#if name === "text_roots" && index?.roots?.[0]}{" · "}{rootInfo(index.roots[0][0])}{/if}</span>

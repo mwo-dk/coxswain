@@ -88,3 +88,9 @@ test("games files by their names", async () => {
   // A Polyglot book is known by its bytes, not its name.
   assert.equal(chessFormat("book.bin"), "");
 });
+
+test("without: one of two equal entries goes, the other stays", async () => {
+  const { without } = await pick("without");
+  assert.deepEqual(without(["/a", "/a", "/b"], 0), ["/a", "/b"]);
+  assert.deepEqual(without(["*.log"], 0), []);
+});

@@ -2342,6 +2342,7 @@
  "gittool.line_tip": "{key}: apri nel tuo strumento git",
  "gittool.no_repo": "Non in un repository git: non c’è nulla da aprire in uno strumento git",
  "gittool.not_found": "{name} non trovato: installalo, o scegli un altro strumento git in Impostazioni → Comportamento",
+ "gittool.no_terminal": "{name} funziona in un terminale, e non è stato trovato alcun terminale: installane uno, o scegli uno strumento git con una finestra propria in Impostazioni → Comportamento",
  "gittool.nothing": "Né strumento git né terminale trovati: installa lazygit, gitui o tig, o indica il tuo strumento in Impostazioni → Comportamento",
  "gittool.opened": "{name} aperto nel repository",
  "gittool.shell": "Nessuno strumento git trovato: si è aperta una shell nel repository",

@@ -330,9 +330,10 @@ pub fn clear_all(
     (freed, failed)
 }
 
-/// What clearing said: "search.db cleared: 284 KB freed."
+/// What clearing said: "search.db cleared: 284 KB freed." An image goes by its name without
+/// its digest, so the size freed still fits on a terminal's line.
 pub fn cleared(name: &str, freed: u64) -> String {
-    t!("disk.cleared", "name" => name, "size" => human(freed))
+    t!("disk.cleared", "name" => crate::images::short(name), "size" => human(freed))
 }
 
 // ---------------------------------------------------------------- outside the cache folder
@@ -725,6 +726,14 @@ mod tests {
 
     /// A name index and a search store, in folders of the test's own: each is told apart from
     /// any other file by what it holds, and its preview says what it holds.
+    /// A cleared image is named without its digest: the size freed is what must show.
+    #[test]
+    fn a_cleared_image_is_named_short() {
+        let said = cleared("docker.io/texlive/texlive:latest@sha256:e8148b126545105c4aeeaa212f8a7bd02d05b500351372881055e1e59ae67d33", 1 << 30);
+        assert!(said.starts_with("docker.io/texlive/texlive:latest ") && !said.contains("sha256"), "{said}");
+        assert!(cleared("search.db", 1).starts_with("search.db "));
+    }
+
     #[test]
     fn the_stores_are_known_by_what_they_hold() {
         let d = std::env::temp_dir().join(format!("coxswain-disk-{}", std::process::id()));

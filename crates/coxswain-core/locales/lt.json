@@ -2342,6 +2342,7 @@
  "gittool.line_tip": "{key}: atverti jūsų git įrankyje",
  "gittool.no_repo": "Ne git saugykloje: čia nėra ką atverti git įrankyje",
  "gittool.not_found": "{name} nerasta: įdiekite arba pasirinkite kitą git įrankį skiltyje Nustatymai → Elgsena",
+ "gittool.no_terminal": "{name} veikia terminale, o terminalo nerasta: įdiekite kurį nors arba skiltyje Nustatymai → Elgsena pasirinkite git įrankį su savo langu",
  "gittool.nothing": "Nerasta nei git įrankio, nei terminalo: įdiekite lazygit, gitui ar tig arba nurodykite savo įrankį skiltyje Nustatymai → Elgsena",
  "gittool.opened": "{name} atverta saugykloje",
  "gittool.shell": "Git įrankis nerastas: saugykloje atverta komandų eilutė",

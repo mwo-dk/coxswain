@@ -2342,6 +2342,7 @@
  "gittool.line_tip": "{key}: otevřít ve vašem nástroji pro git",
  "gittool.no_repo": "Nejste v repozitáři git: není tu co otevřít v nástroji pro git",
  "gittool.not_found": "{name} nebyl nalezen: nainstalujte jej, nebo zvolte jiný nástroj pro git v Nastavení → Chování",
+ "gittool.no_terminal": "{name} běží v terminálu a žádný terminál nebyl nalezen: nainstalujte některý, nebo zvolte nástroj pro git s vlastním oknem v Nastavení → Chování",
  "gittool.nothing": "Nenalezen nástroj pro git ani terminál: nainstalujte lazygit, gitui nebo tig, nebo zadejte svůj nástroj v Nastavení → Chování",
  "gittool.opened": "{name} otevřen v repozitáři",
  "gittool.shell": "Nástroj pro git nenalezen: v repozitáři se otevřel shell",

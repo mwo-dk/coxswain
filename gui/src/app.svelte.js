@@ -1490,6 +1490,8 @@ async function diffOnly(on) {
   ui.folders.diffOnly = on;
   await invoke("folders_diff_only", { on }).catch(() => {});
   await reloadAll();
+  // The summary stays on the status line: the key that chose this took it away.
+  if (ui.folders?.done && ui.folders.summary) ui.status = ui.folders.summary;
 }
 
 function stopFolders() {

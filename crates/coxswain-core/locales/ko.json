@@ -2242,6 +2242,7 @@
  "gittool.line_tip": "{key}: 사용하는 git 도구에서 열기",
  "gittool.no_repo": "git 저장소가 아닙니다: git 도구에서 열 것이 없습니다",
  "gittool.not_found": "{name}을(를) 찾을 수 없습니다: 설치하거나 설정 → 동작에서 다른 git 도구를 고르세요",
+ "gittool.no_terminal": "{name}은(는) 터미널에서 실행되는데 터미널을 찾을 수 없습니다: 터미널을 설치하거나 설정 → 동작에서 자체 창이 있는 git 도구를 고르세요",
  "gittool.nothing": "git 도구도 터미널도 찾을 수 없습니다: lazygit, gitui 또는 tig를 설치하거나 설정 → 동작에서 도구를 지정하세요",
  "gittool.opened": "저장소에서 {name}을(를) 열었습니다",
  "gittool.shell": "git 도구를 찾을 수 없습니다: 저장소에서 셸을 열었습니다",

@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: openen in je git-tool",
  "gittool.no_repo": "Niet in een git-repository: hier valt niets in een git-tool te openen",
  "gittool.not_found": "{name} is niet gevonden: installeer het, of kies een andere git-tool in Instellingen → Gedrag",
+ "gittool.no_terminal": "{name} draait in een terminal, en er is geen terminal gevonden: installeer er een, of kies in Instellingen → Gedrag een git-tool met een eigen venster",
  "gittool.nothing": "Geen git-tool en geen terminal gevonden: installeer lazygit, gitui of tig, of geef je tool op in Instellingen → Gedrag",
  "gittool.opened": "{name} geopend in de repository",
  "gittool.shell": "Geen git-tool gevonden: er is een shell geopend in de repository",
