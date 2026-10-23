@@ -693,6 +693,7 @@
  "compare.save": "Speichern",
  "compare.save_first": "Speichern Sie die kopierten Änderungen zuerst oder machen Sie sie rückgängig",
  "compare.saved": "Gespeichert",
+ "compare.seeking": "Suche den nächsten Unterschied… Esc hält an",
  "compare.show_all": "Wieder alles zeigen",
  "compare.side_by_side": "Nebeneinander",
  "compare.spaces": "Leerzeichen ignorieren",

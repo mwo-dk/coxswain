@@ -718,6 +718,7 @@
  "compare.save": "Guardar",
  "compare.save_first": "Guardá o deshacé primero los cambios copiados",
  "compare.saved": "Se guardó",
+ "compare.seeking": "Buscando la siguiente diferencia… Esc la detiene",
  "compare.show_all": "Mostrar todo de nuevo",
  "compare.side_by_side": "Lado a lado",
  "compare.spaces": "Ignorar espacios",

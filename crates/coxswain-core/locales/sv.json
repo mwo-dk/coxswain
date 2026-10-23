@@ -693,6 +693,7 @@
  "compare.save": "Spara",
  "compare.save_first": "Spara eller ångra de kopierade ändringarna först",
  "compare.saved": "Sparat",
+ "compare.seeking": "Letar efter nästa skillnad… Esc stoppar",
  "compare.show_all": "Visa allt igen",
  "compare.side_by_side": "Sida vid sida",
  "compare.spaces": "Ignorera blanksteg",

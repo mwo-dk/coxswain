@@ -32,6 +32,7 @@ pub struct Count {
     pub finished: bool,
 }
 
+#[derive(Clone)]
 pub struct Bytes {
     paths: [PathBuf; 2],
     pub len: [u64; 2],

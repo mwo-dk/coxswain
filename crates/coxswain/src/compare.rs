@@ -14,6 +14,9 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
 use unicode_width::UnicodeWidthChar;
 
 use crate::bom::faint;
@@ -22,6 +25,23 @@ use crate::viewer::{Point, Slots, paint, syntax_for};
 
 /// Columns from which two texts are shown side by side.
 const SPLIT_FROM: u16 = 120;
+
+/// Columns a hex row takes with both sides on one line: the offset, then 16 bytes and a bar
+/// a side.
+const HEX_ROW: u16 = 10 + 2 * (bytes::WIDTH as u16 * 3 + 2);
+
+/// Whether hex rows put the right side under the left: two sides do not fit beside each other.
+fn hex_stacked(width: u16) -> bool {
+    width < HEX_ROW
+}
+
+/// The next difference in a binary compare, looked for on a thread: what it finds, its stop
+/// (Esc), and which way it looks.
+struct Seeking {
+    found: Receiver<Option<u64>>,
+    stop: Arc<AtomicBool>,
+    back: bool,
+}
 
 pub enum Outcome {
     Stay,
@@ -52,6 +72,16 @@ pub struct Viewer {
     slots: Slots,
     /// The cursor was put on the first change, once the compare was ready.
     placed: bool,
+    seeking: Option<Seeking>,
+}
+
+impl Drop for Viewer {
+    /// Closed while looking for the next difference: the looking stops too.
+    fn drop(&mut self) {
+        if let Some(s) = &self.seeking {
+            s.stop.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 /// A file's name as it can be shown: a control character in it (an escape) would talk to the
@@ -76,6 +106,33 @@ impl Viewer {
             names: [name(left), name(right)],
             slots: HashMap::new(),
             placed: false,
+            seeking: None,
+        }
+    }
+
+    /// Looking for the next difference: the screen is drawn more often until it is found.
+    pub fn busy(&self) -> bool {
+        self.seeking.is_some()
+    }
+
+    /// The next difference of a binary compare, once its thread has found it (or that there is
+    /// none).
+    fn poll(&mut self) {
+        let Some(s) = &self.seeking else { return };
+        let found = match s.found.try_recv() {
+            Ok(r) => r,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => None,
+        };
+        let back = s.back;
+        self.seeking = None;
+        match found {
+            Some(r) => {
+                self.cur = r as usize;
+                self.top = self.cur.saturating_sub(self.page / 3);
+                self.said = None;
+            }
+            None => self.said = Some(t!(if back { "compare.no_earlier" } else { "compare.no_later" })),
         }
     }
 
@@ -159,6 +216,15 @@ impl Viewer {
             }
             return Outcome::Stay;
         }
+        // Esc stops looking for the next difference, before it closes anything.
+        if let Some(s) = self.seeking.take() {
+            if key.code == KeyCode::Esc {
+                s.stop.store(true, Ordering::Relaxed);
+                self.said = Some(t!("compare.stopped"));
+                return Outcome::Stay;
+            }
+            self.seeking = Some(s);
+        }
         self.said = None;
         let page = self.page.max(1) as isize;
         let view = self.view();
@@ -180,10 +246,21 @@ impl Viewer {
             KeyCode::Right if !key.alt => self.left += 8,
             _ if ch == Some('n') || ch == Some('p') || ch == Some('N') => {
                 let back = ch != Some('n');
-                let stop = self.s.stopped();
                 let next = match &*self.s.done() {
                     Some(Done::Text(c)) => c.next(view, self.cur, back),
-                    Some(Done::Bytes(b)) => b.next(self.cur as u64, back, &stop).ok().flatten().map(|r| r as usize),
+                    // Read a megabyte at a time, maybe to the end of a big file: on a thread,
+                    // picked up as the screen is drawn, Esc stopping it.
+                    Some(Done::Bytes(b)) => {
+                        if self.seeking.is_none() {
+                            let (tx, rx) = std::sync::mpsc::channel();
+                            let (b, row, stop) = (b.clone(), self.cur as u64, Arc::new(AtomicBool::new(false)));
+                            self.seeking = Some(Seeking { found: rx, stop: stop.clone(), back });
+                            std::thread::spawn(move || {
+                                let _ = tx.send(b.next(row, back, &stop).ok().flatten());
+                            });
+                        }
+                        return Outcome::Stay;
+                    }
                     _ => None,
                 };
                 match next {
@@ -238,6 +315,7 @@ impl Viewer {
     }
 
     pub fn draw(&mut self, f: &mut Frame, theme: &Theme) {
+        self.poll();
         let area = f.area();
         let base = sty(&theme.panel);
         let bg = base.bg.unwrap_or(Color::Reset);
@@ -262,6 +340,7 @@ impl Viewer {
         let info_text = match self.asking {
             Some(Asking::Close) => t!("compare.ask_close"),
             Some(Asking::Changed) => t!("compare.ask_changed"),
+            None if self.seeking.is_some() => t!("compare.seeking"),
             None => self.said.clone().unwrap_or_default(),
         };
         f.render_widget(Paragraph::new(fit(&info_text, inner.width as usize)).style(sty(&theme.status)), info);
@@ -271,6 +350,10 @@ impl Viewer {
     /// The summary line and the rows in sight.
     fn body(&mut self, theme: &Theme, width: u16, h: usize) -> (String, Vec<Line<'static>>) {
         let total = self.total();
+        // Hex rows of two lines each where the sides do not fit beside each other.
+        let stacked = self.s.kind == Kind::Binary && hex_stacked(width);
+        let h = if stacked { (h / 2).max(1) } else { h };
+        self.page = h;
         if self.cur < self.top {
             self.top = self.cur;
         } else if self.cur >= self.top + h {
@@ -308,7 +391,7 @@ impl Viewer {
                     format!("{} · {}", tn!("compare.bytes_differ", c.differ as usize), t!("compare.counting", "percent" => coxswain_core::settings::percent(c.done as usize, b.len[0].max(b.len[1]).max(1) as usize)))
                 };
                 let rows = b.rows(self.top as u64, h).unwrap_or_default();
-                let lines = rows.iter().enumerate().map(|(i, r)| self.hex_row(theme, r, self.top + i == self.cur, width)).collect();
+                let lines = rows.iter().enumerate().flat_map(|(i, r)| self.hex_row(theme, r, self.top + i == self.cur, stacked)).collect();
                 return (summary, lines);
             }
             Some(Done::Text(c)) => {
@@ -352,13 +435,15 @@ impl Viewer {
         (summary, lines)
     }
 
-    fn hex_row(&self, theme: &Theme, r: &bytes::HexRow, cursor: bool, width: u16) -> Line<'static> {
+    /// A hex row: the offset, then both sides' bytes, those that differ marked; the right side
+    /// on a line of its own under the left, `stacked`.
+    fn hex_row(&self, theme: &Theme, r: &bytes::HexRow, cursor: bool, stacked: bool) -> Vec<Line<'static>> {
         let base = sty(&theme.panel);
         let mark = sty(&theme.git_modified).add_modifier(Modifier::REVERSED);
-        let w = if width >= 150 { 16 } else { 8 };
-        let mut spans = vec![Span::styled(format!(" {:08x} ", r.offset), if cursor { sty(&theme.cursor) } else { faint(theme).bg(base.bg.unwrap_or(Color::Reset)) })];
-        for (side, other) in [(&r.left, &r.right), (&r.right, &r.left)] {
-            for i in 0..16usize.min(w * 2) {
+        let gutter = if cursor { sty(&theme.cursor) } else { faint(theme).bg(base.bg.unwrap_or(Color::Reset)) };
+        let side = |side: &Vec<u8>, other: &Vec<u8>| {
+            let mut spans = vec![];
+            for i in 0..bytes::WIDTH as usize {
                 let s = match side.get(i) {
                     Some(b) => format!("{b:02x}"),
                     None => "  ".into(),
@@ -368,8 +453,16 @@ impl Viewer {
                 spans.push(Span::styled(" ", base));
             }
             spans.push(Span::styled("│ ", base));
+            spans
+        };
+        let offset = Span::styled(format!(" {:08x} ", r.offset), gutter);
+        let (left, right) = (side(&r.left, &r.right), side(&r.right, &r.left));
+        if stacked {
+            let under = Span::styled(" ".repeat(10), gutter);
+            vec![Line::from([vec![offset], left].concat()), Line::from([vec![under], right].concat())]
+        } else {
+            vec![Line::from([vec![offset], left, right].concat())]
         }
-        Line::from(spans)
     }
 
     /// The text rows, coloured as the viewer colours code, the changed words marked.
@@ -462,6 +555,70 @@ impl Viewer {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn screen(v: &mut Viewer, w: u16, h: u16) -> String {
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let b = term.backend().buffer();
+        (0..h).map(|y| (0..w).map(|x| b[(x, y)].symbol()).collect::<String>() + "\n").collect()
+    }
+
+    fn ready(v: &mut Viewer) {
+        while v.s.done().is_none() {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn hex_rows_show_both_sides_whole_at_any_width() {
+        assert!(!hex_stacked(HEX_ROW) && hex_stacked(HEX_ROW - 1));
+        let d = std::env::temp_dir().join(format!("coxswain-compare-hex-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let (a, b) = (d.join("a.bin"), d.join("b.bin"));
+        std::fs::write(&a, (0u8..32).collect::<Vec<_>>()).unwrap();
+        std::fs::write(&b, (0u8..32).map(|x| x | 0xe0).collect::<Vec<_>>()).unwrap();
+        let mut v = Viewer::open(&a, &b);
+        ready(&mut v);
+        // Beside each other, and one under the other at 80 columns: the right side's last byte
+        // of a row is there either way.
+        for w in [HEX_ROW + 2, 80] {
+            let s = screen(&mut v, w, 12);
+            assert!(s.contains("0f │") && s.contains("ef │"), "{w} columns:\n{s}");
+        }
+        let s = screen(&mut v, 80, 12);
+        let row = s.lines().position(|l| l.contains("00000000")).unwrap();
+        assert!(s.lines().nth(row + 1).unwrap().contains("e0 e1"), "the right side under the left:\n{s}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn the_next_difference_is_looked_for_off_the_screen_and_esc_stops_it() {
+        let d = std::env::temp_dir().join(format!("coxswain-compare-seek-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let (a, b) = (d.join("a.bin"), d.join("b.bin"));
+        let mut x = vec![0u8; 4096];
+        std::fs::write(&a, &x).unwrap();
+        x[1000] = 1;
+        std::fs::write(&b, &x).unwrap();
+        let mut v = Viewer::open(&a, &b);
+        ready(&mut v);
+        let n = Key::new(KeyCode::Char('n'), false, false, false);
+        assert!(matches!(v.key(n, None), Outcome::Stay));
+        assert!(v.busy());
+        while v.busy() {
+            screen(&mut v, 120, 20);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(v.cur, 1000 / bytes::WIDTH as usize);
+        // Esc while looking stops the looking, not the window.
+        v.key(n, None);
+        assert!(v.busy());
+        assert!(matches!(v.key(Key::new(KeyCode::Esc, false, false, false), None), Outcome::Stay));
+        assert!(!v.busy());
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
     #[test]
     fn names_carry_no_escape_to_the_terminal() {
         let n = super::name(std::path::Path::new("/tmp/a\x1b]0;owned\x07\x1b[31m.txt"));

@@ -668,6 +668,7 @@
  "compare.save": "保存",
  "compare.save_first": "先にコピーした変更を保存するか、元に戻してください",
  "compare.saved": "保存しました",
+ "compare.seeking": "次の違いを探しています… Esc で停止",
  "compare.show_all": "すべて再表示",
  "compare.side_by_side": "左右に並べる",
  "compare.spaces": "空白を無視",
