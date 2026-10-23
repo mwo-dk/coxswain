@@ -2583,6 +2583,7 @@
  "local_models.fits_ram_not_gpu": "mieści się w pamięci ({ram} GB), nie na karcie graficznej ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "pamięć tego komputera jest nieznana",
  "local_models.here": "Na tym komputerze",
+ "local_models.header_too_big": "{format}: nagłówek przekracza {mb} MB, nie jest czytany",
  "local_models.layers": "Warstwy",
  "local_models.licence": "Licencja",
  "local_models.memory": "Pamięć do wczytania",

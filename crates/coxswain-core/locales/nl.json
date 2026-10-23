@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "past in het geheugen ({ram} GB), niet op de grafische kaart ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "het geheugen van deze computer is niet bekend",
  "local_models.here": "Op deze computer",
+ "local_models.header_too_big": "{format}: header groter dan {mb} MB, niet gelezen",
  "local_models.layers": "Lagen",
  "local_models.licence": "Licentie",
  "local_models.memory": "Geheugen om te laden",

@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "telpa atmintyje ({ram} GB), bet ne vaizdo plokštėje ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "šio kompiuterio atmintis nežinoma",
  "local_models.here": "Šiame kompiuteryje",
+ "local_models.header_too_big": "{format}: antraštė viršija {mb} MB, neskaitoma",
  "local_models.layers": "Sluoksniai",
  "local_models.licence": "Licencija",
  "local_models.memory": "Atmintis įkelti",

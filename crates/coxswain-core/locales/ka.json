@@ -2473,6 +2473,7 @@
  "local_models.fits_ram_not_gpu": "ეტევა მეხსიერებაში ({ram} GB), მაგრამ არა ვიდეობარათზე ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "ამ კომპიუტერის მეხსიერება უცნობია",
  "local_models.here": "ამ კომპიუტერზე",
+ "local_models.header_too_big": "{format}: სათაური {mb} მბ-ზე მეტია, არ იკითხება",
  "local_models.layers": "ფენები",
  "local_models.licence": "ლიცენზია",
  "local_models.memory": "ჩასატვირთად საჭირო მეხსიერება",

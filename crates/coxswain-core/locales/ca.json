@@ -2532,6 +2532,7 @@
  "local_models.fits_ram_not_gpu": "cap a la memòria ({ram} GB), no a la targeta gràfica ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "no se sap quanta memòria té aquesta màquina",
  "local_models.here": "En aquesta màquina",
+ "local_models.header_too_big": "{format}: la capçalera passa de {mb} MB, no es llegeix",
  "local_models.layers": "Capes",
  "local_models.licence": "Llicència",
  "local_models.memory": "Memòria per carregar-lo",

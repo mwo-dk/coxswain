@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "får plats i minnet ({ram} GB), inte på grafikkortet ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "den här datorns minne är okänt",
  "local_models.here": "På den här datorn",
+ "local_models.header_too_big": "{format}: huvudet är över {mb} MB och läses inte",
  "local_models.layers": "Lager",
  "local_models.licence": "Licens",
  "local_models.memory": "Minne för att läsa in",

@@ -44,14 +44,16 @@ pub fn names(dir: &Path) -> Option<Names> {
     };
     type Cache = HashMap<PathBuf, (Instant, Names)>;
     static CACHE: Mutex<Option<Cache>> = Mutex::new(None);
-    let mut c = CACHE.lock().unwrap_or_else(|e| e.into_inner());
-    let c = c.get_or_insert_with(HashMap::new);
-    if let Some((at, n)) = c.get(dir)
+    let cache = || CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((at, n)) = cache().as_ref().and_then(|c| c.get(dir))
         && at.elapsed() < Duration::from_secs(5)
     {
         return Some(n.clone());
     }
+    // Read without the lock: a slow disk holds up only this folder's asker.
     let n: Names = Arc::new(read(dir));
+    let mut c = cache();
+    let c = c.get_or_insert_with(HashMap::new);
     if c.len() > 64 {
         c.clear();
     }
@@ -159,7 +161,8 @@ fn ollama(blobs: &Path) -> HashMap<String, String> {
             let Ok(ft) = e.file_type() else { continue };
             if ft.is_dir() && parts.len() < 4 {
                 todo.push((e.path(), parts));
-            } else if ft.is_file() && parts.len() == 4 {
+            // A manifest only in the cloud is not downloaded to be named.
+            } else if ft.is_file() && parts.len() == 4 && !crate::cloud::keep_out(&e.path()) {
                 let model = ollama_name(&parts[0], &parts[1], &parts[2], &parts[3]);
                 for (digest, part) in manifest_layers(&e.path()) {
                     by.entry(digest).or_default().entry(part).or_default().insert(model.clone());
@@ -326,10 +329,24 @@ pub(crate) fn read(path: &Path) -> Option<(Vec<(String, String)>, Option<String>
         let mut head = [0u8; 9];
         f.read_exact(&mut head).ok()?;
         drop(f);
+        // A header past its cap is not read: the facts say so.
+        let too_big = |format: &str, cap: u64| Model {
+            format: t!("local_models.header_too_big", "format" => format, "mb" => cap >> 20),
+            file_bytes: len,
+            ..Model::default()
+        };
         if &head[..4] == b"GGUF" {
-            gguf(path, len).ok()?
+            match gguf(path, len) {
+                Ok(m) => m,
+                Err("past the end") if len > MAX_HEADER => too_big("GGUF", MAX_HEADER),
+                Err(_) => return None,
+            }
         } else if head[8] == b'{' || ext == "safetensors" {
-            safetensors(path, len).ok()?
+            match safetensors(path, len) {
+                Ok(m) => m,
+                Err(TOO_BIG) => too_big("safetensors", MAX_ST_HEADER),
+                Err(_) => return None,
+            }
         } else {
             return None;
         }
@@ -501,8 +518,9 @@ fn fits(need: u64, m: &crate::setup::Machine) -> String {
 
 // ---------------------------------------------------------------- GGUF
 
-/// Caps on what a header may claim: past one, the file is not read further.
-const MAX_HEADER: u64 = 256 << 20;
+/// Caps on what a header may claim: past one, the file is not read further. The largest
+/// headers (a vocabulary of 256,000 tokens and its merges) take a few tens of megabytes.
+const MAX_HEADER: u64 = 64 << 20;
 const MAX_STRING: u64 = 16 << 20;
 const MAX_KEY: u64 = 64 << 10;
 const MAX_KVS: u64 = 1 << 20;
@@ -511,6 +529,8 @@ const MAX_ARRAY: u64 = 1 << 26;
 const MAX_DIMS: u32 = 8;
 
 type Res<T> = Result<T, &'static str>;
+/// A header past its cap.
+const TOO_BIG: &str = "header too big";
 
 /// A file read from the start, no further than its length and `MAX_HEADER`.
 struct Reader {
@@ -784,8 +804,11 @@ fn gguf(path: &Path, len: u64) -> Res<Model> {
 
 // ---------------------------------------------------------------- safetensors
 
-/// The safetensors header's own cap.
-const MAX_ST_HEADER: u64 = 100_000_000;
+/// The most of a safetensors header read: the format allows 100 MB, which as JSON in memory
+/// takes ten times that; the largest models' headers take a few megabytes.
+const MAX_ST_HEADER: u64 = 16 << 20;
+/// The most of all the headers of a sharded model read together.
+const MAX_ST_HEADERS: u64 = 64 << 20;
 
 /// The header of a safetensors file, as JSON.
 fn st_header(path: &Path, len: u64) -> Res<(serde_json::Map<String, serde_json::Value>, u64)> {
@@ -794,8 +817,11 @@ fn st_header(path: &Path, len: u64) -> Res<(serde_json::Map<String, serde_json::
     f.read_exact(&mut b).map_err(|_| "short")?;
     let n = u64::from_le_bytes(b);
     let data = n.checked_add(8).ok_or("overflow")?;
-    if n > MAX_ST_HEADER || data > len {
+    if data > len {
         return Err("header length");
+    }
+    if n > MAX_ST_HEADER {
+        return Err(TOO_BIG);
     }
     let mut h = vec![0; n as usize];
     f.read_exact(&mut h).map_err(|_| "short")?;
@@ -875,8 +901,17 @@ fn sharded(path: &Path) -> Option<Model> {
         ..Model::default()
     };
     if here.len() == files.len() && here.len() <= 256 {
+        let mut read = 0u64;
         for p in &here {
             let len = std::fs::metadata(p).ok()?.len();
+            let mut b = [0u8; 8];
+            File::open(p).and_then(|mut f| f.read_exact(&mut b)).ok()?;
+            read = read.saturating_add(u64::from_le_bytes(b));
+            if read > MAX_ST_HEADERS {
+                m.tensors.clear();
+                m.format = t!("local_models.header_too_big", "format" => m.format.clone(), "mb" => MAX_ST_HEADERS >> 20);
+                break;
+            }
             let (h, data) = st_header(p, len).ok()?;
             m.tensors.extend(st_tensors(&h, data).ok()?);
             if m.tensors.len() as u64 > MAX_TENSORS {
@@ -1046,6 +1081,34 @@ pub(crate) mod tests {
             std::fs::write(&st, &b).unwrap();
             assert!(facts(&st).is_none(), "{h}");
         }
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn headers_past_their_caps_are_not_read_and_say_so() {
+        let d = folder("caps");
+        // A GGUF whose array of 70 MB runs past 64 MB: not read further.
+        let mut g = b"GGUF".to_vec();
+        g.extend(3u32.to_le_bytes());
+        g.extend(0u64.to_le_bytes());
+        g.extend(1u64.to_le_bytes());
+        g.extend(1u64.to_le_bytes());
+        g.extend(b"a");
+        g.extend(9u32.to_le_bytes());
+        // Of u16: two bytes each.
+        g.extend(2u32.to_le_bytes());
+        g.extend((35u64 << 20).to_le_bytes());
+        let p = d.join("big.gguf");
+        std::fs::write(&p, &g).unwrap();
+        File::options().write(true).open(&p).unwrap().set_len(100 << 20).unwrap();
+        let facts = super::facts(&p).unwrap();
+        assert!(facts[0].1.contains("64 MB"), "{facts:?}");
+        // A safetensors header of 17 MB: refused before it is read.
+        let p = d.join("big.safetensors");
+        std::fs::write(&p, (17u64 << 20).to_le_bytes()).unwrap();
+        File::options().write(true).open(&p).unwrap().set_len(20 << 20).unwrap();
+        let facts = super::facts(&p).unwrap();
+        assert!(facts[0].1.contains("16 MB"), "{facts:?}");
         std::fs::remove_dir_all(d).unwrap();
     }
 

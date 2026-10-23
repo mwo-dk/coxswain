@@ -2473,6 +2473,7 @@
  "local_models.fits_ram_not_gpu": "տեղավորվում է հիշողության մեջ ({ram} GB), ոչ վիդեոքարտում ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "այս համակարգչի հիշողությունը հայտնի չէ",
  "local_models.here": "Այս համակարգչում",
+ "local_models.header_too_big": "{format}․ վերնագիրը {mb} ՄԲ-ից ավելի է, չի կարդացվում",
  "local_models.layers": "Շերտեր",
  "local_models.licence": "Լիցենզիա",
  "local_models.memory": "Բեռնելու հիշողություն",

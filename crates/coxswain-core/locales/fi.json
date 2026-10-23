@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "mahtuu muistiin ({ram} GB), ei näytönohjaimelle ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "tämän koneen muistia ei tiedetä",
  "local_models.here": "Tällä koneella",
+ "local_models.header_too_big": "{format}: otsake on yli {mb} Mt, sitä ei lueta",
  "local_models.layers": "Kerrokset",
  "local_models.licence": "Lisenssi",
  "local_models.memory": "Muistia lataamiseen",

@@ -2583,6 +2583,7 @@
  "local_models.fits_ram_not_gpu": "вміщується в пам’яті ({ram} ГБ), але не на відеокарті ({gpu}, {gb} ГБ)",
  "local_models.fits_unknown": "пам’ять цього комп’ютера невідома",
  "local_models.here": "На цьому комп’ютері",
+ "local_models.header_too_big": "{format}: заголовок понад {mb} МБ, не читається",
  "local_models.layers": "Шари",
  "local_models.licence": "Ліцензія",
  "local_models.memory": "Пам’ять для завантаження",

@@ -2430,6 +2430,7 @@
  "local_models.fits_ram_not_gpu": "メモリには収まります ({ram} GB) が、グラフィックカードには収まりません ({gpu}、{gb} GB)",
  "local_models.fits_unknown": "このマシンのメモリは不明です",
  "local_models.here": "このマシンでは",
+ "local_models.header_too_big": "{format}: ヘッダーが {mb} MB を超えるため読み込みません",
  "local_models.layers": "層",
  "local_models.licence": "ライセンス",
  "local_models.memory": "読み込みに要るメモリ",

@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "χωράει στη μνήμη ({ram} GB), όχι στην κάρτα γραφικών ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "η μνήμη αυτού του υπολογιστή δεν είναι γνωστή",
  "local_models.here": "Σε αυτόν τον υπολογιστή",
+ "local_models.header_too_big": "{format}: η κεφαλίδα ξεπερνά τα {mb} MB, δεν διαβάζεται",
  "local_models.layers": "Επίπεδα",
  "local_models.licence": "Άδεια",
  "local_models.memory": "Μνήμη για φόρτωση",

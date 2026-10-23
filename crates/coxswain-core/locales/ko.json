@@ -2430,6 +2430,7 @@
  "local_models.fits_ram_not_gpu": "메모리에는 들어가지만 ({ram} GB) 그래픽 카드에는 안 들어감 ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "이 컴퓨터의 메모리를 알 수 없음",
  "local_models.here": "이 컴퓨터에서",
+ "local_models.header_too_big": "{format}: 헤더가 {mb}MB를 넘어 읽지 않습니다",
  "local_models.layers": "레이어",
  "local_models.licence": "라이선스",
  "local_models.memory": "불러오는 데 드는 메모리",

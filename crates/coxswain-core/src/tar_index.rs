@@ -144,8 +144,11 @@ fn crc32(b: &[u8]) -> u32 {
     c.sum()
 }
 
-/// The most bytes of an xz index read: 64 MB holds millions of blocks.
-const INDEX_MAX: u64 = 64 << 20;
+/// The most bytes of an xz index read, and the most blocks kept of it: a million blocks (24 MB
+/// in memory) is a terabyte in xz's own blocks of a megabyte or more. Past either, the file is
+/// read from its start, as one not in blocks.
+const INDEX_MAX: u64 = 16 << 20;
+const MOST_BLOCKS: u64 = 1 << 20;
 
 /// The stream header and blocks of an xz file of one stream, and where its index starts.
 /// `None` for anything else (several streams, padding after it, a damaged index): it is then
@@ -182,7 +185,7 @@ fn blocks(f: &mut File) -> io::Result<Option<([u8; 12], Vec<Block>, u64)>> {
         return Ok(None);
     }
     let mut i = 1;
-    let Some(n) = number(body, &mut i) else {
+    let Some(n) = number(body, &mut i).filter(|&n| n <= MOST_BLOCKS) else {
         return Ok(None);
     };
     let (mut out, mut start) = (vec![], 12u64);

@@ -2481,6 +2481,7 @@
  "local_models.fits_ram_not_gpu": "mahub mällu ({ram} GB), mitte videokaardile ({gpu}, {gb} GB)",
  "local_models.fits_unknown": "selle masina mälu pole teada",
  "local_models.here": "Selles masinas",
+ "local_models.header_too_big": "{format}: päis on üle {mb} MB, seda ei loeta",
  "local_models.layers": "Kihid",
  "local_models.licence": "Litsents",
  "local_models.memory": "Laadimiseks vaja mälu",
