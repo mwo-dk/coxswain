@@ -2,12 +2,16 @@ name: Termux
 
 # The terminal app as a Termux package: packaging/termux/coxswain/build.sh, built from this
 # checkout with termux-packages' own builder for aarch64, then installed and started in a
-# Termux image on an ARM runner. Every push to master, as part of the Release run; pull
-# requests only when Rust code, the lock file or the recipe change.
+# Termux image on an ARM runner. Nightly when master changed, and in every release; pull
+# requests only when the Cargo files, the platform files it builds or the recipe change.
 on:
-  workflow_call: # from release.yml, for every push to master
+  workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
   pull_request:
-    paths: ["crates/**", "Cargo.toml", "Cargo.lock", "packaging/termux/**", ".github/workflows/termux.yml"]
+    # Pull requests run this system only when its own packaging or workflow changes; every
+    # other change is tested on it nightly and in every Release run (CLAUDE.md, Shipping).
+    paths:
+      - "packaging/termux/**"
+      - ".github/workflows/termux.yml"
   workflow_dispatch:
 
 permissions:
@@ -26,6 +30,8 @@ env:
 jobs:
   build:
     name: Termux package (aarch64)
+    # A release pull request's (release/X.Y.Z) run is its Release run, after the merge.
+    if: ${{ !startsWith(github.head_ref, 'release/') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -89,6 +95,8 @@ jobs:
   # on a phone), with the Termux parts of the core (its trash too) tested there.
   cargo:
     name: Built and tested in Termux
+    # A release pull request's (release/X.Y.Z) run is its Release run, after the merge.
+    if: ${{ !startsWith(github.head_ref, 'release/') }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 90
     steps:

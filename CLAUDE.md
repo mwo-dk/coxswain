@@ -5,43 +5,68 @@ These rules hold for every contributor and every Claude session in this reposito
 ## Shipping
 
 - **Never a partial release: complete on every system and every channel, or not at all.** Every
-  installer and archive, each with its `.sha256`, one `SHA256SUMS` over all of them, and every
-  channel (crates.io, Homebrew, the FreeBSD port; WinGet within its week), or the release does not go out. No
-  `continue-on-error` on anything that makes a release file.
+  installer and archive, each with its `.sha256` (the bills of materials and
+  `THIRD-PARTY-NOTICES.md` have none: `SHA256SUMS` covers them), one `SHA256SUMS` over all of
+  them, and every channel (crates.io, Homebrew, the FreeBSD port; WinGet within its week), or the
+  release does not go out. No `continue-on-error` on anything that makes a release file.
 - **Releases are automatic, in one run.** The version lives only in `Cargo.toml`
-  (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`): it
-  runs CI and every system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix)
-  as parts of that run; when all pass and the version has no GitHub release yet, it makes a draft,
-  builds every platform, checks the draft against the full list of files
-  (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the `vX.Y.Z`
-  tag) and then updates each channel, retrying passing faults; a channel that still fails turns
-  the run red, named. WinGet is not in that run: `winget.yml` files the newest release there once
-  a week (one pull request per package, our older open ones closed as superseded), because its
-  moderators review each pull request by hand. A push to `master` without a new version only runs
-  the tests. When the run ends, `release-check.yml` installs the release and checks every channel,
-  WinGet within that week (no release left more than 8 days without a pull request). A new build target
-  goes into the matrix and into `packaging/release-assets.sh` together.
-- **Pull requests run the virtual machines only for platform code** (files with BSD or illumos
-  branches, `Cargo.toml`, `Cargo.lock`, `install/`, that system's `packaging/`), and Termux,
-  Flatpak and Nix only when what goes into them changes; every push to `master` runs all of them,
-  in its Release run. A new file with `cfg(target_os = …)` for those systems goes into
-  their workflows' `paths`. Branches need not be up to date with `master`: master's own runs
-  catch clashes.
+  (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`). It
+  first decides whether the version has a GitHub release yet. If not, it runs CI and every
+  system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) as parts of that
+  run; when all pass it makes a draft, builds every platform, checks the draft against the full
+  list of files (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the
+  `vX.Y.Z` tag) and then updates each channel, retrying passing faults; a channel that still
+  fails turns the run red, named. A push without a new version runs only what its pull request
+  ran: CI, and each system whose pull-request `paths` the push touches
+  (`.github/changed-systems.py`). WinGet is not in that run: `winget.yml` files the newest
+  release there on Mondays (one pull request per package, our older open ones closed as
+  superseded), because its moderators review each pull request by hand. When the run ends,
+  `release-check.yml` installs the release and checks every channel, WinGet within that week (no
+  release left more than 8 days without a pull request). A new build target goes into the matrix
+  and into `packaging/release-assets.sh` together.
+- **Nightly, every system** (`nightly.yml`, 02:17 UTC): when `master` changed since the last
+  nightly run that passed (and its head is not a release, which tested everything), every
+  system's workflow runs on it, so a fault no pull request caught shows up the next morning. Fix
+  a red nightly like a red master.
+- **Pull requests run the virtual machines only for their own packaging**: a system's workflow
+  (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) runs on a pull request only when that
+  system's `packaging/` or the workflow itself changes (Nix also `flake.nix`, `flake.lock`). All
+  other code, platform code included, is tested on every system by the nightly run and in every
+  Release run, the Saturday rehearsal among them; a red nightly is fixed like a red master. The
+  *Dependencies* workflow runs on a pull request only when a `Cargo.toml`, `Cargo.lock`,
+  `deny.toml`, `gui/package*.json` or `tools/bom/` changes. A release pull
+  request (branch `release/X.Y.Z`) starts none of them: its Release run tests every system. CI on
+  a pull request runs Linux, macOS and Windows on x64 (macOS on Apple Silicon), only Linux when it changes texts alone (docs, README, `changelog.d/`,
+  locales); the ARM machines
+  (`ubuntu-24.04-arm`, `windows-11-arm`) run only on pushes to `master` and in Release runs. The
+  only required check is *CI result*. Branches need not be up to date with `master`: master's
+  own runs catch clashes.
 - **Feature and fix PRs do not bump the version.** A user-visible change adds its changelog row as a
   file of its own, `changelog.d/<branch>.md` (below), and nothing else about the version, so PRs
-  do not clash on `Cargo.toml` or the changelog and can run and merge in any order.
-- **A release is a pull request of its own,** small and holding nothing else: it bumps the version
-  (patch when the waiting rows are all fixes, minor when any is a feature, major for breaking
-  config or key changes) in `[workspace.package]` and in the `coxswain-core` line under
-  `[workspace.dependencies]` (`=X.Y.Z`, the same), runs `cargo check` so `Cargo.lock` follows,
-  moves every `changelog.d/` row into one row for the new version in `docs/changelog.md` (version,
-  date, a plain-words summary naming each change with its docs links) and adds that row to the
-  table at the bottom of `README.md` (dropping its oldest, so it keeps ten), and deletes the
-  `changelog.d/` files. Its merge starts the release. Title it `Release X.Y.Z`.
-- **Releases are weekly, on Sunday:** one release PR with everything merged that week, so the
-  Monday `winget.yml` run takes it at once and users are not asked to update every day. Between
-  Sundays only a fix for a security hole, lost data or a crash gets a release of its own (a patch
-  release PR with just that fix's rows).
+  do not clash on `Cargo.toml` or the changelog and can run and merge in any order. A feature's
+  row ends with ` <!-- feature -->` after its last `|`; a fix's has nothing there.
+- **A release is a pull request of its own,** small and holding nothing else, on the branch
+  `release/X.Y.Z`, titled `Release X.Y.Z`. `packaging/release-pr.py` makes it: it bumps the
+  version (minor when any waiting row is marked a feature, patch otherwise; a major release, for
+  breaking config or key changes, is bumped by hand) in `[workspace.package]` and in the
+  `coxswain-core` line under `[workspace.dependencies]` (`=X.Y.Z`, the same), updates
+  `Cargo.lock` with it, moves every `changelog.d/` row into one row for the new version in
+  `docs/changelog.md` (version, date, the rows' texts and docs links joined, features first) and
+  adds that row to the table at the bottom of `README.md` (dropping its oldest, so it keeps ten),
+  and deletes the `changelog.d/` files. The row can be polished in the pull request. Its merge
+  starts the release.
+- **Releases are weekly, on Sunday, by themselves.** Saturday 06:17 UTC, when `changelog.d/` has
+  rows, the Release run rehearses tomorrow's release: it makes the release pull request's changes
+  on a branch `rehearsal/vX.Y.Z`, tests every system, builds every file into a draft, checks it
+  against `packaging/release-assets.sh`, runs `cargo publish --dry-run` for both crates and
+  `brew audit` on the formula and cask, then deletes the draft and the branch; nothing is
+  published and no tag made. A red rehearsal gives a day to fix. Sunday 06:17 UTC `release-pr.yml`
+  opens the release pull request with auto-merge on; it needs the secret `RELEASE_PR_TOKEN` (a
+  fine-grained token for this repository with Contents and Pull requests read and write: a pull
+  request made with `GITHUB_TOKEN` starts no checks) and fails naming it when missing. The Monday
+  `winget.yml` run then takes the release at once. Between Sundays only a fix for a security
+  hole, lost data or a crash gets a release of its own (a patch release PR, by hand, with just
+  that fix's rows, made with `packaging/release-pr.py`).
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
   pass on Linux, macOS and Windows, squash merge only. Work on a branch, open the PR with
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
@@ -50,7 +75,8 @@ These rules hold for every contributor and every Claude session in this reposito
   (`gh pr checks <n> --watch`), and when one fails read `gh run view <id> --log-failed`, fix,
   push, and watch again. Windows is the usual one (path separators, `;` in path lists, files
   still open). A PR is done when it is merged, not when it is opened.
-- **Watch master and every Release run to the end, and fix what fails without being asked.**
+- **Watch master, every Release run, the nightly run and the Saturday rehearsal to the end, and
+  fix what fails without being asked.**
   A failure that is GitHub's or a mirror's (a cancelled job, HTTP 5xx, a hung download) is rerun
   (`gh run rerun <id> --failed`); one of ours is fixed in a PR. A workflow-only PR whose checks
   are not required (the virtual machines, Termux, Flatpak) merges only after those checks have
@@ -74,6 +100,10 @@ These rules hold for every contributor and every Claude session in this reposito
   `cd gui && npx svelte-check && npm test && npm run build`. For preview changes, build the
   release and run `uv run tools/preview-check.py` (Linux, needs `broadwayd`): it opens a file of
   each kind in the real app, on a display of its own, and fails when one shows nothing.
+- **Test platform code in a VM before CI:** `tools/vms/rebuild/<vm>.sh` makes a FreeBSD,
+  OpenBSD, NetBSD or OmniOS virtual machine (unattended), and `tools/vms/test-in.sh <system>`
+  runs a checkout's tests in it (`tools/vms/README.md`). Use one before pushing a change to BSD
+  or illumos code, since pull requests run those systems only for platform files.
 - **Bills of materials:** a dependency that does cryptography needs its use described in
   `tools/bom/crypto.toml`, and an npm licence outside `deny.toml`'s list needs reading first;
   the *bills of materials* check fails until then (`tools/bom/README.md`).
@@ -96,7 +126,9 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Texts in every language.** User-facing strings go through `t!` / `t()` with keys in
   `crates/coxswain-core/locales/*.json`, translated into all of them (`en-AU`, `en-CA`, `en-NZ`,
   `de-AT` and `de-CH` only differ where they must; `de-CH` gets `de` with ss for ß by itself);
-  the i18n test fails on a missing key.
+  the i18n test fails on a missing key. A new language is marked new in `i18n::LANGUAGES`
+  (`Some("YYYY-MM-DD")`): the Sunday of the fourth weekly release after the one that brings it,
+  when the mark goes by itself.
 - **Nothing hidden.** Every capability can be found without reading the docs, in both apps:
   - it is reachable from something visible: the action menu (**Shift+F10**,
     `coxswain_core::menu`), the F9 command list, a button or a menu, not only by a key;
@@ -165,7 +197,7 @@ you add or change a feature, the docs change in the same PR.
   before pushing.
 - **Changelog:** every PR with a user-visible change adds one file, `changelog.d/<branch>.md`,
   holding one line: `| **What a user gets.** In plain words. | [Docs page](page.md#anchor) |`,
-  links written as from `docs/`. One file per PR, because rows in one shared table clash whenever
+  links written as from `docs/`, and ` <!-- feature -->` after it for a feature. One file per PR, because rows in one shared table clash whenever
   two PRs merge. `docs/changelog.md` and `README.md` are not touched: they show released versions
   only (the README the newest ten). The release PR (above) turns the `changelog.d/` rows into the
   version's row (version, date, what's new) in both tables and deletes the files.
@@ -219,6 +251,10 @@ process namespace: stopping it stops all it started, the search helper too. See 
 - Keys may be sent (`wtype`) only to the sandbox window, and only after checking that it has
   the focus. Never type into other windows, and never stop Coxswain processes by name: stop the
   sandbox's own processes.
+- **Stop only what you started, by its own PID.** Save `$!` (or use `timeout`) and kill that
+  PID. Never `kill -- -PGID` or `kill 0`, never `pkill`/`killall`/`pgrep … | kill` by name or
+  pattern, and never `rm -rf` or `find … -exec rm` over a folder others share: a group or pattern
+  kill once reached the owner's compositor and ended the whole desktop session.
 - Cyber for the desktop app, Classic blue (NC) for the terminal app.
 
 **Pictures stay current.** A PR that changes what a screen shows retakes the pictures and GIFs

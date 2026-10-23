@@ -1,0 +1,65 @@
+name: Release PR
+
+# Sundays at 06:17 UTC, when changelog.d/ has rows: the release pull request "Release X.Y.Z" on
+# release/X.Y.Z, made by packaging/release-pr.py (minor when a row ends with `<!-- feature -->`,
+# patch otherwise; a major release is made by hand), with auto-merge on. Its merge starts the
+# release (release.yml). The row it writes can be polished in the pull request before it merges.
+#
+# Needs RELEASE_PR_TOKEN: a pull request made with GITHUB_TOKEN starts no checks, so it could
+# never merge. A fine-grained token for mwo-dk/coxswain with Contents and Pull requests
+# read and write (CLAUDE.md, Shipping).
+on:
+  schedule:
+    - cron: "17 6 * * 0" # Sundays, 06:17 UTC
+  workflow_dispatch: # by hand: the same, now
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+jobs:
+  open:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: The token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error title=RELEASE_PR_TOKEN is not set::Create a fine-grained personal access token for the repository mwo-dk/coxswain with Contents: read and write and Pull requests: read and write, and save it as the repository secret RELEASE_PR_TOKEN (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - name: Open the release pull request
+        run: |
+          open=$(gh pr list -R "$REPO" --state open --search "head:release/" --json number,headRefName -q '[.[] | select(.headRefName | startswith("release/"))][0].number // empty')
+          if [ -n "$open" ]; then
+            echo "::notice title=Already open::release pull request #$open is open."; exit 0
+          fi
+          rc=0; v=$(python3 packaging/release-pr.py) || rc=$?
+          if [ "$rc" = 2 ]; then
+            echo "::notice title=Nothing to release::changelog.d/ has no rows this week."; exit 0
+          fi
+          [ "$rc" = 0 ] || exit "$rc"
+          # The commit is the token owner's, with GitHub's no-reply address.
+          read -r id login < <(gh api user -q '"\(.id) \(.login)"')
+          git switch -qc "release/$v"
+          git -c user.name="$login" -c user.email="$id+$login@users.noreply.github.com" commit -qam "Release $v"
+          git push -q "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "release/$v"
+          {
+            echo "The week's release, made by \`release-pr.yml\`: \`[workspace.package]\` and \`coxswain-core\` at $v, \`Cargo.lock\` with them, every \`changelog.d/\` row moved into $v's row in \`docs/changelog.md\` and \`README.md\`."
+            echo
+            echo "The row is the rows joined: polish it here if it needs it. The merge starts the release."
+          } > body.md
+          url=$(gh pr create -R "$REPO" --head "release/$v" --base master --title "Release $v" --body-file body.md)
+          gh pr merge -R "$REPO" --auto --squash "$url"
+          echo "::notice title=Release $v::$url, with auto-merge on."

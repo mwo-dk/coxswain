@@ -84,25 +84,25 @@ fn bootstrap(file: &Path) -> io::Result<()> {
 /// Where the registration lives, on the platforms that keep it in a file.
 fn file() -> Option<PathBuf> {
     if cfg!(target_os = "macos") {
-        Some(std::env::home_dir()?.join("Library/LaunchAgents/dk.mwo.coxswain.index.plist"))
+        Some(crate::dirs::home_dir()?.join("Library/LaunchAgents/dk.mwo.coxswain.index.plist"))
     } else if cfg!(windows) {
         None
     } else if crate::tools::flatpak().is_some() {
         // The host's own autostart folder: the Flatpak's config folder is not the session's.
         Some(
-            std::env::home_dir()?
+            crate::dirs::home_dir()?
                 .join(".config/autostart")
                 .join(format!("{NAME}.desktop")),
         )
     } else if autostart() {
         Some(
-            dirs::config_dir()?
+            crate::dirs::config_dir()?
                 .join("autostart")
                 .join(format!("{NAME}.desktop")),
         )
     } else {
         Some(
-            dirs::config_dir()?
+            crate::dirs::config_dir()?
                 .join("systemd/user")
                 .join(format!("{NAME}.service")),
         )

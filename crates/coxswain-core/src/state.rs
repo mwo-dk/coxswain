@@ -44,6 +44,10 @@ pub struct AppState {
     pub images_checked: u64,
     /// Container image -> Unix time a preview last ran in it (`images::stale`).
     pub images_used: BTreeMap<String, u64>,
+    /// What a newer Coxswain keeps here that this one does not know: saved as it was, so going
+    /// back to an older version and forward again loses none of it.
+    #[serde(flatten)]
+    pub newer: serde_json::Map<String, serde_json::Value>,
     /// The file is there but could not be read (no permission, say): it is never saved over.
     #[serde(skip)]
     pub unreadable: bool,
@@ -71,6 +75,7 @@ impl Default for AppState {
             hints_shown: BTreeMap::new(),
             images_checked: 0,
             images_used: BTreeMap::new(),
+            newer: serde_json::Map::new(),
             unreadable: false,
         }
     }
@@ -80,7 +85,7 @@ const RECENT_MAX: usize = 12;
 
 impl AppState {
     pub fn path() -> Option<PathBuf> {
-        Some(dirs::data_dir()?.join("coxswain").join("state.json"))
+        Some(crate::dirs::data_dir()?.join("coxswain").join("state.json"))
     }
 
     /// Missing file = defaults. A corrupt file (not JSON, not UTF-8) is moved aside to
@@ -259,6 +264,14 @@ mod tests {
             std::fs::set_permissions(&f, std::fs::Permissions::from_mode(0o600)).unwrap();
             assert_eq!(AppState::load_from(&f), s);
         }
+        // What a newer version wrote is saved again as it was.
+        std::fs::write(&f, r#"{"tags": {"/a": "red"}, "later_thing": {"x": [1, 2]}}"#).unwrap();
+        let older = AppState::load_from(&f);
+        older.save_to(&f).unwrap();
+        let back: serde_json::Value = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
+        assert_eq!(back["later_thing"], serde_json::json!({"x": [1, 2]}));
+        assert_eq!(back["tags"]["/a"], "red");
+        s.save_to(&f).unwrap();
         // A copy kept in memory takes what another app saved since.
         let mut kept = s.clone();
         let mut other = AppState::load_from(&f);

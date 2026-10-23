@@ -103,15 +103,15 @@ impl Opt {
         crate::i18n::tr(&format!("setting.{}.hint", self.name), &[])
     }
 
-    /// The `[search]` options the helper reads when it starts: a change restarts it. Ask's are
-    /// read by the app itself.
+    /// The `[search]` options the helper reads when it starts, and `[preview] ebooks` (calibre
+    /// reads e-books for the search): a change restarts it. Ask's are read by the app itself.
     pub fn restarts_helper(&self) -> bool {
-        self.path[0] == "search" && !self.name.starts_with("ask_")
+        (self.path[0] == "search" && !self.name.starts_with("ask_")) || self.name == "ebooks"
     }
 
     /// Optional in config.toml: empty means the key is taken out (the default applies).
     fn optional(&self) -> bool {
-        matches!(self.name, "editor" | "viewer" | "git_tool")
+        matches!(self.name, "editor" | "viewer" | "git_tool" | "chess_book" | "chess_engine")
     }
 }
 
@@ -151,6 +151,9 @@ pub const OPTIONS: &[Opt] = &[
     opt("search_history", &["search", "history"], Search, &[Disk]),
     opt("search_cloud", &["search", "cloud"], Search, &[Network]),
     opt("cloud_read", &["search", "cloud_read"], Search, &[Network]),
+    opt("search_tika", &["search", "tika"], Search, &[Disk, Cpu, Network]),
+    opt("search_whisper", &["search", "whisper"], Search, &[Disk, Cpu, Network]),
+    opt("whisper_model", &["search", "whisper_model"], Search, &[Disk]),
     opt("text_max_size", &["search", "text_max_size"], Search, &[]),
     opt("max_results", &["search", "max_results"], Search, &[]),
     opt("text_roots", &["search", "text_roots"], Search, &[]),
@@ -192,6 +195,7 @@ pub const OPTIONS: &[Opt] = &[
         &[Disk, Network],
     ),
     opt("latex_auto", &["preview", "latex_auto"], Previews, &[Cpu]),
+    opt("drawio", &["preview", "drawio"], Previews, &[Disk, Network, Cpu]),
     opt(
         "image_updates",
         &["preview", "image_updates"],
@@ -199,9 +203,18 @@ pub const OPTIONS: &[Opt] = &[
         &[Network, Disk],
     ),
     opt("image_prune", &["preview", "image_prune"], Previews, &[]),
+    opt("ebooks", &["preview", "ebooks"], Previews, &[Disk, Cpu, Network]),
+    opt("virus_scan", &["preview", "virus_scan"], Previews, &[Disk, Network]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
     opt("chess_notation", &["chess", "notation"], Previews, &[]),
     opt("chess_board", &["chess", "board"], Previews, &[]),
+    opt("chess_book", &["chess", "book"], Previews, &[]),
+    opt("chess_pieces", &["chess", "pieces"], Previews, &[]),
+    opt("chess_analysis", &["chess", "analysis"], Previews, &[Cpu]),
+    opt("chess_engine", &["chess", "engine"], Previews, &[]),
+    opt("chess_engine_time", &["chess", "engine_time"], Previews, &[]),
+    opt("chess_engine_lines", &["chess", "engine_lines"], Previews, &[]),
+    opt("chess_review_time", &["chess", "review_time"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),
@@ -224,6 +237,7 @@ pub const OPTIONS: &[Opt] = &[
         &[Cpu],
     ),
     opt("git_tool", &["git", "tool"], Behaviour, &[]),
+    opt("git_prefer_git", &["git", "prefer_git"], Behaviour, &[]),
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),
@@ -313,7 +327,7 @@ pub fn save_to(
 ) -> Result<Config, String> {
     let cfg = crate::config::update_config(path, |text| {
         let new_text = apply(text, changes)?;
-        let cfg = Config::parse(&new_text)?;
+        let cfg = Config::parse_saved(text, &new_text)?;
         Ok((Some(new_text), cfg))
     })?;
     crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
@@ -338,7 +352,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
 
 /// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const GROUPS: [(&str, Area); 2] = [("models", Search), ("disk", Privacy)];
+const GROUPS: [(&str, Area); 3] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
@@ -448,6 +462,10 @@ pub enum Part {
     Text,
     Meaning,
     Ask,
+    /// Apache Tika, for other formats: only while it is turned on.
+    Tika,
+    /// Transcripts with Whisper: only while it is turned on.
+    Whisper,
 }
 
 /// The one step a status line offers.
@@ -466,6 +484,10 @@ pub enum Step {
     TryIt,
     /// Time the model on a few passages.
     Bench,
+    /// Transcribing: pause, go on, or let every file waiting go.
+    Pause,
+    Resume,
+    StopTranscribing,
 }
 
 impl Step {
@@ -477,6 +499,9 @@ impl Step {
             Step::SetUp => "settings.step.set_up",
             Step::TryIt => "settings.step.try_it",
             Step::Bench => "settings.step.bench",
+            Step::Pause => "settings.step.pause",
+            Step::Resume => "settings.step.resume",
+            Step::StopTranscribing => "settings.step.stop_transcribing",
         })
     }
 }
@@ -721,7 +746,74 @@ pub fn status(
     if s.meaning && st.meaning_error.is_none() {
         meaning.poor = poor.iter().find(|p| !p.ask).cloned();
     }
-    vec![names, text, meaning, ask]
+    let mut lines = vec![names, text, meaning, ask];
+    if s.tika && s.text {
+        use crate::extract::tika::State;
+        let image = crate::images::short(&crate::config::PreviewConfig::default().images["tika"]).to_string();
+        let mut tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
+        match st.tika.as_ref().filter(|_| helper) {
+            None => {}
+            Some(State::Ready) => tika.text = t!("settings.status.tika_ready"),
+            Some(State::Pulling(progress)) => {
+                tika.text = t!("settings.status.tika_pulling", "image" => image);
+                tika.note = (!progress.is_empty()).then(|| progress.clone());
+            }
+            Some(State::NoRuntime) => {
+                tika.text = t!("settings.status.off");
+                tika.note = Some(t!("settings.status.tika_no_runtime"));
+                tika.bad = true;
+            }
+            Some(State::Failed(why)) => {
+                tika.text = t!("settings.status.off");
+                tika.note = Some(t!("settings.status.failed", "why" => why));
+                tika.bad = true;
+            }
+        }
+        lines.push(tika);
+    }
+    if s.whisper && s.text {
+        use crate::transcribe::State;
+        let mut w = line(Part::Whisper, "settings.status.whisper", t!("settings.status.not_running"));
+        if let Some(ts) = st.transcripts.as_ref().filter(|_| helper) {
+            w.text = t!("settings.status.whisper_counts", "done" => count(ts.done), "waiting" => count(ts.waiting));
+            match &ts.state {
+                State::Idle => {}
+                State::Working => {
+                    if let Some((path, pct)) = &ts.current {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy();
+                        w.note = Some(t!("settings.status.whisper_working", "name" => name, "percent" => pct));
+                    }
+                    if let Some(left) = ts.left.filter(|l| *l > 0) {
+                        let left = t!("settings.status.whisper_left", "time" => crate::transcribe::span(left));
+                        w.note = Some(w.note.take().map_or(left.clone(), |n| format!("{n} {left}")));
+                    }
+                    w.step = Some(Step::Pause);
+                }
+                State::Paused => {
+                    w.note = Some(t!("settings.status.whisper_paused"));
+                    w.step = Some(Step::Resume);
+                }
+                State::Battery => w.note = Some(t!("settings.status.paused")),
+                State::Downloading(done, total) => {
+                    w.note = Some(t!("settings.status.whisper_downloading", "done" => human(*done), "total" => human(*total)));
+                    w.bar = Some((*done as usize, *total as usize));
+                }
+                State::Pulling(progress) => {
+                    let image = crate::images::short(&crate::config::PreviewConfig::default().images["whisper"]).to_string();
+                    w.note = Some(format!("{} {progress}", t!("settings.status.tika_pulling", "image" => image)).trim().to_string());
+                }
+                State::Off(why) => {
+                    w.note = Some(t!("settings.status.failed", "why" => why));
+                    w.bad = true;
+                }
+            }
+            if ts.waiting > 0 && w.step.is_none() {
+                w.step = Some(Step::StopTranscribing);
+            }
+        }
+        lines.push(w);
+    }
+    lines
 }
 
 // ---------------------------------------------------------------- privacy
@@ -772,6 +864,18 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
             false,
         ));
     }
+    if s.whisper && s.text {
+        v.push(out("settings.out.whisper", "huggingface.co", false));
+        if let Ok(crate::transcribe::Engine::Container { image, .. }) = crate::transcribe::engine(cfg) {
+            v.push(out("settings.out.whisper_image", registry(&image), false));
+        }
+    }
+    if s.tika && s.text && cfg.preview.container != "off" {
+        let image = cfg.preview.images.get("tika").map_or("", String::as_str);
+        if !image.is_empty() {
+            v.push(out("settings.out.tika", registry(image), false));
+        }
+    }
     if cfg.preview.prefer != "local" && cfg.preview.container != "off" {
         let mut hosts: Vec<&str> = cfg
             .preview
@@ -790,6 +894,9 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
             };
             v.push(out(what, &hosts.join(", "), false));
         }
+    }
+    if cfg.preview.virus_scan {
+        v.push(out("settings.out.viruses", crate::viruses::SERVER, false));
     }
     v
 }
@@ -940,7 +1047,7 @@ mod tests {
             "on unless switched off"
         );
         assert_eq!(
-            cfg.preview.images["plantuml"], "docker.io/plantuml/plantuml:latest",
+            crate::images::short(&cfg.preview.images["plantuml"]), "docker.io/plantuml/plantuml:latest",
             "other defaults stay"
         );
         assert!(
@@ -1026,6 +1133,8 @@ mod tests {
             chat_loaded: None,
             error: Some("stalled".into()),
             clouds: vec![("OneDrive".into(), "/c".into())],
+            tika: None,
+            transcripts: None,
             outdated: None,
         };
         let mut state = crate::state::AppState::default();
@@ -1100,6 +1209,8 @@ mod tests {
             roots: vec![],
             tools: vec![],
             clouds: vec![],
+            tika: None,
+            transcripts: None,
             outdated: None,
         };
         s.text = true;

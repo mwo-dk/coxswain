@@ -60,7 +60,7 @@ const OWN: &[(&str, &[&str], bool)] = &[
     ),
     ("index", &["index.bin", "index.tmp"], true),
     ("previews", &["previews"], true),
-    ("peek", &["peek"], true),
+    ("peek", &["peek", "nested", "archive-index"], true),
     ("inside", &[], true),
     (
         "libreoffice",
@@ -68,6 +68,8 @@ const OWN: &[(&str, &[&str], bool)] = &[
         true,
     ),
     ("log", &["helper.log"], false),
+    // ClamAV's virus database (`viruses`), fetched again before the next scan.
+    ("clamav", &["clamav"], true),
 ];
 
 /// What `--disk clear` takes besides the rows' ids.
@@ -303,8 +305,8 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
             let image = item.id.trim_start_matches("image:");
             let (_, rt) = crate::tools::container_runtime(&cfg.preview)
                 .ok_or_else(crate::tools::no_runtime)?;
-            crate::images::remove(&rt, image)?;
-            return Ok(item.bytes);
+            // Only what no other image shares is freed.
+            return Ok(crate::images::remove_freeing(&rt, image)?.unwrap_or(item.bytes));
         }
     }
     Ok(item.bytes.saturating_sub(size(&item.paths)))
@@ -372,7 +374,7 @@ fn tectonic_caches() -> Vec<PathBuf> {
     if let Some(d) = std::env::var_os("TECTONIC_CACHE_DIR").filter(|d| !d.is_empty()) {
         return vec![d.into()];
     }
-    let Some(base) = dirs::cache_dir() else {
+    let Some(base) = crate::dirs::cache_dir() else {
         return vec![];
     };
     // Newer tectonic names it in lower case; Windows has the project's folder around it.

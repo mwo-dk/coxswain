@@ -4,41 +4,16 @@ name: illumos
 # tests, ZFS from end to end on a pool in a file, the archive packed as a release packs it,
 # installed with install/install-unix.sh, and the search helper's SMF service imported, refused
 # without a user, started as one, checked and stopped. Then the same archive installed and run
-# on OpenIndiana. Every push to master; pull requests only for this system's code.
+# on OpenIndiana. Nightly when master changed, and in every release; pull requests only for this system's code.
 # docs/systems/illumos.md.
 on:
-  workflow_call: # from release.yml, for every push to master
+  workflow_call: # from release.yml (a release or rehearsal; a master push touching the paths below) and nightly.yml
   pull_request:
-    # Pull requests run the machine only for code with branches for this system;
-    # every push to master runs it as part of the Release run (CLAUDE.md, Shipping).
+    # Pull requests run this system only when its own packaging or workflow changes; every
+    # other change is tested on it nightly and in every Release run (CLAUDE.md, Shipping).
     paths:
-      - "crates/coxswain-core/src/lib.rs"
-      - "crates/coxswain-core/src/machine.rs"
-      - "crates/coxswain-core/src/kq.rs"
-      - "crates/coxswain-core/src/ports.rs"
-      - "crates/coxswain-core/src/bsd.rs"
-      - "crates/coxswain-core/src/zfs.rs"
-      - "crates/coxswain-core/src/flags.rs"
-      - "crates/coxswain-core/src/service.rs"
-      - "crates/coxswain-core/src/fs.rs"
-      - "crates/coxswain-core/src/helper.rs"
-      - "crates/coxswain-core/src/index.rs"
-      - "crates/coxswain-core/src/tools.rs"
-      - "crates/coxswain-core/src/update.rs"
-      - "crates/coxswain-core/src/cloud.rs"
-      - "crates/coxswain-core/src/setup.rs"
-      - "crates/coxswain-core/src/menu.rs"
-      - "crates/coxswain-core/src/config.rs"
-      - "crates/coxswain-core/src/undo.rs"
-      - "crates/coxswain-core/src/xdg_trash.rs"
-      - "crates/coxswain-core/tests/zfs.rs"
-      - "**/Cargo.toml"
-      - "Cargo.lock"
-      - "install/**"
-      - "packaging/pack-unix.sh"
       - "packaging/illumos/**"
       - ".github/workflows/illumos.yml"
-      - ".github/actions/apt-install/**"
 
 permissions:
   contents: read
@@ -52,6 +27,8 @@ concurrency:
 jobs:
   omnios:
     name: OmniOS r151058
+    # A release pull request's (release/X.Y.Z) run is its Release run, after the merge.
+    if: ${{ !startsWith(github.head_ref, 'release/') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:

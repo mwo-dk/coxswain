@@ -49,7 +49,7 @@ const CP1252: [char; 32] = [
     '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}', 'ž', 'Ÿ',
 ];
 
-fn cp1252(bytes: &[u8]) -> String {
+pub(crate) fn cp1252(bytes: &[u8]) -> String {
     bytes.iter().map(|&b| if (0x80..0xa0).contains(&b) { CP1252[(b - 0x80) as usize] } else { b as char }).collect()
 }
 

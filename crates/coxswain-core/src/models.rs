@@ -20,6 +20,8 @@ pub enum For {
     Meaning,
     /// Ask: it answers.
     Ask,
+    /// Transcripts: Whisper's models, in one folder (`transcribe`).
+    Transcripts,
     /// Nothing any more: an unfinished download, an older version, files of no model.
     Leftover,
 }
@@ -60,6 +62,7 @@ impl Entry {
         let what = match self.what {
             For::Meaning => t!("models.for_meaning"),
             For::Ask => t!("models.for_ask"),
+            For::Transcripts => t!("models.for_transcripts"),
             For::Leftover => self.note.clone().unwrap_or_default(),
         };
         let mut parts = vec![
@@ -84,7 +87,7 @@ impl Entry {
 
 /// The date of `secs` since 1970, here.
 fn date(secs: u64) -> String {
-    let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
+    let t = crate::fs::epoch(secs);
     chrono::DateTime::<chrono::Local>::from(t)
         .format("%Y-%m-%d")
         .to_string()
@@ -153,7 +156,11 @@ fn list_in(dir: &Path, cfg: &SearchConfig, loaded: &Loaded) -> Vec<Entry> {
                 loaded: None,
                 summary: String::new(),
             };
-            if id == crate::meaning::folder_name() {
+            if id == crate::transcribe::FOLDER {
+                entry.name = "Whisper".into();
+                entry.what = For::Transcripts;
+                entry.in_use = cfg.whisper;
+            } else if id == crate::meaning::folder_name() {
                 entry.name = crate::meaning::MODEL.into();
                 if crate::meaning::installed_in(&path) {
                     entry.what = For::Meaning;
@@ -262,6 +269,10 @@ pub fn instead(
                 }
             };
             Some((changes, said))
+        }
+        For::Transcripts => {
+            changes.insert("search_whisper".into(), false.into());
+            Some((changes, t!("models.deleted_whisper_off")))
         }
         For::Leftover => None,
     }

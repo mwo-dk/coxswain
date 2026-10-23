@@ -13,8 +13,8 @@ The user-facing guide is [docs/systems/freebsd.md](../../docs/systems/freebsd.md
 
 `sysutils/coxswain` builds the terminal app with `USES=cargo` from the GitHub tag, and installs
 `bin/coxswain`, `bin/cox`, `coxswain(1)` and the rc.d script `coxswain_index` (with `%%PREFIX%%`).
-The desktop app is left out: it needs two crates patched from git (`[patch.crates-io]` in
-`Cargo.toml`) until their releases, which a port should not carry.
+The desktop app is left out: it needs tao (and tao-macros) patched from git (`[patch.crates-io]`
+in `Cargo.toml`) until its release, which a port should not carry.
 
 ### Updating it for a release
 
@@ -36,7 +36,7 @@ make clean && git -C /usr/ports add sysutils/coxswain && portlint -AC   # pkg in
 ```
 
 Copy `Makefile`, `Makefile.crates` and `distinfo` back here. `make cargo-crates` lists every
-crate in `Cargo.lock`, the desktop app's and the two git ones too: cargo needs them all to read
+crate in `Cargo.lock`, the desktop app's and the git ones too: cargo needs them all to read
 the workspace, though only the terminal app is built (`CARGO_BUILD_ARGS=--package coxswain`).
 Oniguruma comes from `devel/oniguruma` (`LIB_DEPENDS`), as the ports framework wants.
 

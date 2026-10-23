@@ -1,8 +1,10 @@
 //! What old files hold, said the same way in both apps: an old picture's format, size and
 //! colours, a tracker module's channels and samples, how many messages a mailbox has, how
-//! many pages a comic, a dBase table's records and fields. The desktop app shows them under
+//! many pages a comic, a dBase table's records and fields, what a local model holds
+//! (`local_models::facts`). The desktop app shows them under
 //! the preview, the terminal app in Properties (**Alt+Enter**); F3 in the terminal app pages
 //! them as text (`text_copy`), with a module's sample names and an Outlook message's text.
+//! A neural network model's facts come from `neural`.
 
 use std::path::{Path, PathBuf};
 
@@ -11,7 +13,14 @@ use crate::t;
 /// The facts of `path` as (label, value) lines; `None` for a file of none of these kinds, and
 /// for one only in the cloud (reading it would download it).
 pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
-    if crate::cloud::unasked(path) || !path.is_file() {
+    if crate::cloud::unasked(path) {
+        return None;
+    }
+    // A model; a Core ML package is a folder.
+    if crate::neural::named(path) {
+        return crate::neural::read(path).map(|m| crate::neural::facts(&m));
+    }
+    if !path.is_file() {
         return None;
     }
     if crate::pictures::named(path) {
@@ -19,6 +28,12 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     }
     if crate::music::named(path) {
         return crate::music::read(path).map(|m| crate::music::facts(&m));
+    }
+    if crate::archive::is_image(path) {
+        return crate::container_image::facts(path);
+    }
+    if let Some(f) = crate::local_models::facts(path) {
+        return Some(f);
     }
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     match ext.as_str() {
@@ -48,8 +63,8 @@ fn lines(facts: &[(String, String)]) -> String {
     facts.iter().map(|(k, v)| format!("{k}{}  {v}\n", " ".repeat(w - k.chars().count()))).collect()
 }
 
-/// What F3 shows in the terminal app for an old picture, a tracker module or an Outlook
-/// message: its facts (and a module's sample names, a message's headers, text and
+/// What F3 shows in the terminal app for an old picture, a tracker module, an Outlook
+/// message or an AsciiDoc document (as readable text): its facts (and a module's sample names, a message's headers, text and
 /// attachments) as text. `None`: the file is none of these, the viewer shows it as it is.
 pub fn as_text(path: &Path) -> Option<String> {
     text_and_format(path).map(|(text, _)| text)
@@ -76,6 +91,25 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
             }
         }
         return Some((out, format));
+    }
+    if crate::neural::named(path) {
+        let m = crate::neural::read(path)?;
+        return Some((crate::neural::text(&name, &m), m.format.clone()));
+    }
+    // A local model: its card, and a GGUF's chat template in full (the card folds it).
+    if let Some((f, template)) = crate::local_models::read(path) {
+        let format = f.iter().find(|(k, _)| *k == t!("facts.format")).map_or_else(String::new, |(_, v)| v.clone());
+        let mut out = format!("{name}\n\n{}", lines(&f));
+        if let Some(t) = template {
+            out += &format!("\n{}\n\n{}\n", t!("local_models.chat_template"), t.chars().take(200_000).collect::<String>());
+        }
+        return Some((out, format));
+    }
+    // An AsciiDoc document, formatted as text: its source is a key away in the editor.
+    if crate::export::is_adoc(path) {
+        let mut b = vec![];
+        std::io::Read::read_to_end(&mut std::io::Read::take(std::fs::File::open(path).ok()?, 8 << 20), &mut b).ok()?;
+        return Some((crate::export::adoc_text(&String::from_utf8_lossy(&b)), "AsciiDoc".into()));
     }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;

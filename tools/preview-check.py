@@ -88,6 +88,13 @@ def files(d):
                                 '<mxCell id="2" value="Lift-off $$x^2$$" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell>'
                                 '</root></mxGraphModel></diagram></mxfile>')
     (d / "l.md").write_text("# Orbit\n\nEnergy: $E = mc^2$\n\n$$\\int_0^1 x\\,dx$$\n")
+    # AsciiDoc with a Mermaid block, drawn in the app; a .drawio.svg with two pages in it, as tabs.
+    (d / "aa.adoc").write_text("= Guide\n\n[mermaid]\n----\nflowchart LR\n  A[Fuel] --> B[Orbit]\n----\n")
+    from html import escape
+    cell = '<mxCell id="2" value="{}" vertex="1" parent="1"><mxGeometry x="20" y="20" width="120" height="60" as="geometry"/></mxCell>'
+    page = lambda name, label: f'<diagram id="{name}" name="{name}"><mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>' + cell.format(label) + "</root></mxGraphModel></diagram>"
+    mx = "<mxfile>" + page("First", "Booster") + page("Second", "Lander") + "</mxfile>"
+    (d / "ab.drawio.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" content="{escape(mx)}"><rect width="10" height="10"/></svg>')
     pdf(d / "n.pdf", words=False)
     (d / "o.ps").write_text("%!PS\n/Helvetica findfont 24 scalefont setfont\n72 700 moveto (Rocket) show\nshowpage\n")
     (d / "p.d2").write_text("tank -> valve -> engine\n")
@@ -107,7 +114,37 @@ def files(d):
         return struct.pack("<H", 8) + b"".join(struct.pack("<HHII", *e) for e in entries) + struct.pack("<I", nxt) + bytes([v, v])
     second = 8 + len(page(8, 0, 0))
     (d / "v.tif").write_bytes(b"II*\0" + struct.pack("<I", 8) + page(8, second, 40) + page(second, 0, 200))
-    return {
+    (d / "w.fb2").write_text('<?xml version="1.0"?><FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0"><body><p>Rocket</p></body></FictionBook>')
+    # Neural network models, as the demo home has them (docs/screenshots/demo-models.py).
+    spec = importlib.util.spec_from_file_location("demo_models", REPO / "docs/screenshots/demo-models.py")
+    models = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(models)
+    models.write(d)
+    # A local model: a GGUF header with one key and one tensor, its facts in place of a hex dump.
+    s = lambda t: struct.pack("<Q", len(t)) + t.encode()
+    (d / "lm.gguf").write_bytes(b"GGUF" + struct.pack("<IQQ", 3, 1, 1) + s("general.architecture") + struct.pack("<I", 8) + s("llama")
+                               + s("token_embd.weight") + struct.pack("<IQQIQ", 2, 64, 100, 1, 0) + bytes(12800))
+    # A video no web view plays and a HEIC photo, made by an installed ffmpeg and ImageMagick.
+    run = lambda *a: subprocess.run(a, cwd=d, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    media = {}
+    if shutil.which("ffmpeg") and run("ffmpeg", "-f", "lavfi", "-i", "testsrc2=d=2:s=320x240", "-c:v", "mpeg4", "w.avi"):
+        # ffmpeg's frame of it, installed or in its container.
+        media["avi"] = ("w.avi", ".media img", "", 30)
+    if shutil.which("magick") and run("magick", "-size", "64x48", "plasma:", "x.heic"):
+        media["heic"] = ("x.heic", ".media img", "", 30)
+    # Geodata: a GPX walk, drawn by the core; a GeoJSON, drawn by an installed GDAL, else the note
+    # that says what is missing (its container is never pulled without a click).
+    (d / "y.gpx").write_text('<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg><trkpt lat="55.0" lon="12.0"/><trkpt lat="55.1" lon="12.2"/></trkseg></trk></gpx>')
+    (d / "z.geojson").write_text('{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[[12,55],[12.2,55.1]]}}]}')
+    media["gpx"] = ("y.gpx", ".media img", "", 10)
+    media["geojson"] = ("z.geojson", ".media img" if shutil.which("gdalinfo") else "p.more", "", 30)
+    # An OpenSCAD model: drawn from an installed OpenSCAD's STL, else the note.
+    (d / "za.scad").write_text("difference() { cube(20, center = true); sphere(13); }\n")
+    media["scad"] = ("za.scad", ".media img" if shutil.which("openscad") else "p.more", "", 60)
+    # A KiCad board with nothing on it but its outline: a PDF by an installed kicad-cli, else the note.
+    (d / "zb.kicad_pcb").write_text('(kicad_pcb (version 20241229) (generator "check") (general (thickness 1.6)) (paper "A5") (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user)) (net 0 "") (gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type default)) (fill no) (layer "Edge.Cuts")))\n')
+    media["kicad"] = ("zb.kicad_pcb", "iframe" if shutil.which("kicad-cli") else "p.more", "", 60)
+    return media | {
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
         "db": ("c.db", "table.db", "launch", 10),
@@ -122,6 +159,10 @@ def files(d):
         "math": ("l.md", "article .katex-display", "", 10),
         # With maths, which draw.io's viewer cannot load here: the diagram must still show.
         "drawio": ("m.drawio", ".drawio svg", "Lift-off", 20),
+        "adoc": ("aa.adoc", "article .diagram svg", "Orbit", 20),
+        # The diagram inside a picture, its pages as tabs.
+        "drawio_svg": ("ab.drawio.svg", ".drawio svg", "Booster", 20),
+        "drawio_tabs": ("ab.drawio.svg", ".drawio-tabs button", "Second", 20),
         "provenance": ("k.provenance.json", ".prov .flow", "matches the file here", 10),
         # A PDF without text: the line that offers Make PDF searchable.
         "scan": ("n.pdf", "p.more", "looks like a scan", 10),
@@ -137,6 +178,17 @@ def files(d):
         "mod": ("t.mod", "ul.archive", "greetings to the crew", 10),
         "mbox": ("u.mbox", "ul.archive", "Go for launch", 10),
         "tif": ("v.tif", ".pager", "2", 10),
+        # An e-book, with e-books off (as by default): where to turn calibre on.
+        "fb2": ("w.fb2", "p.more", "E-books", 10),
+        # Models: the core's facts, and Netron's graph drawn in its sandboxed frame (it says so
+        # by message once it is drawn).
+        "onnx_facts": ("rocket-vision.onnx", "dl.facts dd", "float32[batch,3,32,32]", 10),
+        "onnx": ("rocket-vision.onnx", ".netron[data-shown]", "", 30),
+        "tflite": ("lander.tflite", ".netron[data-shown]", "", 30),
+        "mlmodel": ("Thrust.mlmodel", ".netron[data-shown]", "", 30),
+        "mlpackage": ("Thrust.mlpackage", ".netron[data-shown]", "", 30),
+        "keras": ("lander.keras", ".netron[data-shown]", "", 30),
+        "gguf": ("lm.gguf", "dl.facts", "GGUF v3", 10),
     }
 
 
@@ -147,8 +199,8 @@ MEASURE = """(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // The preview pane: F3 shows it.
   if (!document.querySelector(".preview")) { key("F3"); await sleep(500); }
-  for (let i = 0; i < 30 && title() !== name; i++) { key("ArrowUp"); await sleep(5); }
-  for (let i = 0; i < 30 && title() !== name; i++) { key("ArrowDown"); await sleep(5); }
+  for (let i = 0; i < 80 && title() !== name; i++) { key("ArrowUp"); await sleep(5); }
+  for (let i = 0; i < 80 && title() !== name; i++) { key("ArrowDown"); await sleep(5); }
   if (title() !== name) return "not reached: " + (title() ?? "no preview pane") + " " + document.body.innerText.slice(0, 200);
   key("ArrowUp"); await sleep(300);
   const t0 = performance.now(); key("ArrowDown");

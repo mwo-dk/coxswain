@@ -19,6 +19,8 @@ pub struct Notice {
     pub settings: Option<&'static str>,
     /// A line to copy and run (an install command): shown with a Copy button.
     pub copy: Option<String>,
+    /// The line of config.toml it is about: shown with a button that opens the file there.
+    pub config_line: Option<usize>,
 }
 
 impl Notice {
@@ -28,8 +30,26 @@ impl Notice {
             text,
             settings,
             copy: None,
+            config_line: None,
         }
     }
+}
+
+/// One notice for each setting config.toml gives that could not be used (`Config::refused`):
+/// its line and what is wrong, while it stays wrong. The terminal app shows them in a dialog
+/// at start, the desktop app first in its status line.
+pub fn refused(cfg: &Config) -> Vec<Notice> {
+    cfg.refused
+        .iter()
+        .map(|r| Notice {
+            config_line: Some(r.line),
+            ..Notice::new(
+                format!("config:{}", r.problem),
+                t!("notice.config_refused", "line" => r.line, "problem" => r.problem),
+                None,
+            )
+        })
+        .collect()
 }
 
 /// About how long the files still to get their vectors take here: the files to go, times
@@ -56,7 +76,8 @@ pub fn next(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> 
 pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> Vec<Notice> {
     let version = crate::update::VERSION;
     let seen = |id: &str| state.notices_dismissed.iter().any(|d| d == id);
-    let mut all = vec![];
+    // A mistake in config.toml, before anything else: the terminal app has said it at start.
+    let mut all = if terminal { vec![] } else { refused(cfg) };
     // Version 2.0 renamed keys in config.toml: which, once.
     if !state.migrated.is_empty() {
         all.push(Notice::new(
@@ -64,6 +85,11 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             t!("notice.migrated", "changes" => state.migrated.join(", ")),
             Some("keys"),
         ));
+    }
+    // Actions in [keys] this version does not know (a newer one's, or a typo): left out, once.
+    if !cfg.unknown_actions.is_empty() {
+        let names = cfg.unknown_actions.join(", ");
+        all.push(Notice::new(format!("unknown-actions:{names}"), t!("notice.unknown_actions", "names" => names), Some("keys")));
     }
     // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
     if let Some(why) = &status.error {
@@ -151,10 +177,19 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         ));
     }
     // "Open in your git tool" found none: what to install, or where to name one. Once.
-    if crate::handoff::MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+    let missed = crate::handoff::MISSING.load(std::sync::atomic::Ordering::Relaxed);
+    if missed != 0 {
         let key = cfg.key_for(crate::config::Action::GitTool).unwrap_or("F9");
         let copy = crate::handoff::install();
-        let text = t!("notice.git_tool", "key" => key);
+        // What opened instead, as it was.
+        let text = t!(
+            match missed {
+                crate::handoff::OPENED_SHELL => "notice.git_tool_shell",
+                crate::handoff::OPENED_NOTHING => "notice.git_tool_nothing",
+                _ => "notice.git_tool",
+            },
+            "key" => key
+        );
         // The terminal app has no Copy button: the line is in the text.
         let text = match &copy {
             Some(line) => format!("{text} {line}"),
@@ -165,8 +200,16 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("git-tool", text, Some("git_tool"))
         });
     }
+    // A Jujutsu repository was opened and jj is not installed: git is asked where it can be.
+    if crate::vcs::JJ_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+        all.push(Notice::new("jj-missing", t!("notice.jj_missing"), None));
+    }
+    // A Mercurial repository was opened and hg is not installed.
+    if crate::vcs::HG_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
+        all.push(Notice::new("hg-missing", t!("notice.hg_missing"), None));
+    }
     // Home is on ZFS: its snapshots are a key away.
-    if !seen("zfs") && std::env::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
+    if !seen("zfs") && crate::dirs::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
         let key = cfg
             .key_for(crate::config::Action::Snapshots)
             .unwrap_or("F9");
@@ -275,7 +318,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         });
     }
     // A new translation in use: where to suggest a better word.
-    if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new) {
+    if let Some(l) = crate::i18n::find(crate::i18n::language()).filter(|l| l.new()) {
         let text = if terminal {
             t!("notice.language_new_tui", "language" => l.name)
         } else {
@@ -304,6 +347,20 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("tesseract", text, Some("search"))
         });
     }
+    // Apache Tika is turned on, but there is no podman or docker to run it in. Once.
+    if cfg.search.tika
+        && cfg.search.text
+        && status.tika == Some(crate::extract::tika::State::NoRuntime)
+    {
+        all.push(Notice::new("tika-runtime", t!("notice.tika_no_runtime"), Some("search_tika")));
+    }
+    // Transcribing is on, but cannot run here (no whisper.cpp, no podman or docker, no model).
+    if cfg.search.whisper
+        && cfg.search.text
+        && let Some(crate::transcribe::State::Off(why)) = status.transcripts.as_ref().map(|t| &t.state)
+    {
+        all.push(Notice::new("whisper-off", t!("notice.whisper_off", "why" => why), Some("search_whisper")));
+    }
     // Disk images open like folders, but no 7-Zip reads them: what to install. Once.
     if cfg.archive.disk_images && crate::disk_image::seven_zip().is_none() {
         let copy = crate::tools::install("7z");
@@ -314,6 +371,25 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         all.push(Notice {
             copy,
             ..Notice::new("7zip", text, Some("disk_images"))
+        });
+    }
+    // E-books are turned on, but neither calibre nor podman or docker is there to read them. Once.
+    if cfg.preview.ebooks
+        && let Err(why) = crate::ebook::how(&cfg.preview)
+    {
+        all.push(Notice {
+            copy: crate::tools::install("calibre"),
+            ..Notice::new("ebooks", why, Some("ebooks"))
+        });
+    }
+    // The chess view asks an engine about each position, but none is installed: what to install.
+    if cfg.chess.analysis
+        && let Err(text) = crate::chess::play::engine_for(cfg)
+    {
+        let copy = crate::chess::play::install();
+        all.push(Notice {
+            copy,
+            ..Notice::new("chess-engine", text, Some("chess_analysis"))
         });
     }
     all.retain(|n| !seen(&n.id));
@@ -458,6 +534,8 @@ mod tests {
             chat_loaded: None,
             error: None,
             clouds: vec![],
+            tika: None,
+            transcripts: None,
             outdated: None,
         };
         let mut state = AppState::default();

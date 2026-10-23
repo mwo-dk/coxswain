@@ -29,11 +29,25 @@ source = "https://github.com/jgraph/drawio"
 file = "gui/public/vendor/drawio/LICENSE"
 
 [[bundled]]
-name = "chess-art, Celtic pieces"
-what = "gui/public/vendor/chess-pieces/*.svg, the Celtic set of maurimo/chess-art in its white and black colours, the Inkscape metadata taken out."
+name = "Netron"
+what = "gui/public/vendor/netron: Netron v9.3.2's view, graph layout (its port of dagre) and ONNX, TensorFlow Lite, Core ML and Keras readers with their operator descriptions, unmodified but for its telemetry class cut out, bundled by gui/netron/build.mjs with Coxswain's host; index.html and grapher.css are Netron's."
 license = "MIT"
-source = "https://github.com/maurimo/chess-art"
+source = "https://github.com/lutzroeder/netron"
+file = "gui/public/vendor/netron/LICENSE"
+
+[[bundled]]
+name = "Chess pieces of Uray M. János"
+what = "gui/public/vendor/chess-pieces/*.svg, their copy in crates/coxswain/pieces/ (the terminal app's pictures) and the masks made from them in crates/coxswain-core/src/mosaic/chess.bin (the terminal app's pieces drawn from block characters), Uray M. János's set after Colin M.L. Burnett's Wikimedia chess pieces, renamed, the DOCTYPE and inner comments taken out, the drawings and attribution kept."
+license = "CC-BY-SA-3.0"
+source = "https://commons.wikimedia.org/wiki/Category:SVG_chess_pieces"
 file = "gui/public/vendor/chess-pieces/LICENSE"
+
+[[bundled]]
+name = "Noto Sans CJK (kanji outlines on the shogi tiles)"
+what = "gui/public/vendor/game-pieces/shogi-*.svg: the kanji are glyph outlines from Noto Sans CJK on tiles drawn for Coxswain's author's games project; no font file is included."
+license = "OFL-1.1"
+source = "https://github.com/notofonts/noto-cjk"
+file = "tools/bom/licenses/OFL-1.1.txt"
 
 [[bundled]]
 name = "lichess chess-openings"
