@@ -4238,6 +4238,7 @@
  "long.sample_here": "Steekproef hier",
  "long.inherit": "Zoals de mappen erboven ({value})",
  "long.more": "Lange bestanden die heel worden bewaard: {files}; ongeveer {size} meer op de schijf; ongeveer {time} om ze te lezen en hun vectoren te maken.",
+ "long.more_read": "Lange bestanden die heel worden bewaard: {files}; ongeveer {size} meer op de schijf; ongeveer {time} om ze te lezen.",
  "long.back": "Lange bestanden die weer een steekproef krijgen: {files}; maakt ongeveer {size} vrij; niets wordt opnieuw gelezen.",
  "long.none": "Geen lang bestand verandert nu; later gelezen bestanden volgen de keuze.",
  "long.unknown": "Wat dit kost, valt nu niet te zeggen: de zoekhulp antwoordt niet, of woorden in bestanden staat uit.",

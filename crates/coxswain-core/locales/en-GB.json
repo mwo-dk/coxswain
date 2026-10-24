@@ -4249,6 +4249,7 @@
  "long.sample_here": "Sample here",
  "long.inherit": "Like the folders above ({value})",
  "long.more": "Long files kept whole: {files}; about {size} more on the disk; about {time} to read them and make their vectors.",
+ "long.more_read": "Long files kept whole: {files}; about {size} more on the disk; about {time} to read them.",
  "long.back": "Long files sampled again: {files}; frees about {size}; nothing is read again.",
  "long.none": "No long file changes now; files read later follow the choice.",
  "long.unknown": "What this costs cannot be said now: the search helper does not answer, or words in files is off.",

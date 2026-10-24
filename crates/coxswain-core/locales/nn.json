@@ -4238,6 +4238,7 @@
  "long.sample_here": "Utval her",
  "long.inherit": "Som mappene over ({value})",
  "long.more": "Lange filer som vert haldne heile: {files}; om lag {size} meir på disken; om lag {time} til å lese dei og lage vektorane deira.",
+ "long.more_read": "Lange filer som vert haldne heile: {files}; om lag {size} meir på disken; om lag {time} til å lese dei.",
  "long.back": "Lange filer som får utval att: {files}; frigjer om lag {size}; ingenting vert lese på nytt.",
  "long.none": "Ingen lang fil endrar seg no; filer som vert lesne seinare, følgjer valet.",
  "long.unknown": "Kva dette kostar, kan ikkje seiast no: søkjehjelparen svarar ikkje, eller ord i filer er slått av.",

@@ -4335,6 +4335,7 @@
  "long.sample_here": "Échantillon ici",
  "long.inherit": "Comme les dossiers au-dessus ({value})",
  "long.more": "Fichiers longs gardés en entier : {files} ; environ {size} de plus sur le disque ; environ {time} pour les lire et faire leurs vecteurs.",
+ "long.more_read": "Fichiers longs gardés en entier : {files} ; environ {size} de plus sur le disque ; environ {time} pour les lire.",
  "long.back": "Fichiers longs de nouveau échantillonnés : {files} ; libère environ {size} ; rien n'est relu.",
  "long.none": "Aucun fichier long ne change maintenant ; les fichiers lus plus tard suivent le choix.",
  "long.unknown": "Ce que cela coûte ne peut pas être dit maintenant : l'assistant de recherche ne répond pas, ou les mots dans les fichiers sont désactivés.",

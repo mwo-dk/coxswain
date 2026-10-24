@@ -4238,6 +4238,7 @@
  "long.sample_here": "Udsnit her",
  "long.inherit": "Som mapperne ovenover ({value})",
  "long.more": "Lange filer der gemmes helt: {files}; omkring {size} mere på disken; omkring {time} til at læse dem og lave deres vektorer.",
+ "long.more_read": "Lange filer der gemmes helt: {files}; omkring {size} mere på disken; omkring {time} til at læse dem.",
  "long.back": "Lange filer der igen får udsnit: {files}; frigør omkring {size}; intet læses igen.",
  "long.none": "Ingen lang fil ændres nu; filer der læses senere, følger valget.",
  "long.unknown": "Hvad det koster, kan ikke siges nu: søgehjælperen svarer ikke, eller ord i filer er slået fra.",

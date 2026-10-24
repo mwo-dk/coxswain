@@ -4335,6 +4335,7 @@
  "long.sample_here": "Mostra aquí",
  "long.inherit": "Com les carpetes de damunt ({value})",
  "long.more": "Fitxers llargs desats sencers: {files}; uns {size} més al disc; uns {time} per llegir-los i fer-ne els vectors.",
+ "long.more_read": "Fitxers llargs desats sencers: {files}; uns {size} més al disc; uns {time} per llegir-los.",
  "long.back": "Fitxers llargs amb mostra de nou: {files}; allibera uns {size}; no es torna a llegir res.",
  "long.none": "Cap fitxer llarg no canvia ara; els fitxers llegits més tard segueixen l'elecció.",
  "long.unknown": "El que costa no es pot dir ara: l'ajudant de cerca no respon, o les paraules de dins dels fitxers estan desactivades.",

@@ -74,13 +74,14 @@ pub struct Cost {
 const READ_SPEED: f64 = 20e6;
 
 /// What a passage takes to get its vector here, in milliseconds: as the helper measured it
-/// (and kept), else the speed test of the engine `cfg` names; 0 when neither can be had.
+/// (and kept), else the speed test of the engine `cfg` names; 0 when meaning search is off or
+/// neither can be had.
 fn ms_per_passage(cfg: &SearchConfig, measured: usize) -> f64 {
-    if measured > 0 {
-        return measured as f64;
-    }
     if !cfg.meaning {
         return 0.0;
+    }
+    if measured > 0 {
+        return measured as f64;
     }
     crate::meaning::bench(cfg)
         .map(|(_, took)| took.as_secs_f64() * 1000.0 / crate::meaning::BENCH_PASSAGES as f64)
@@ -94,7 +95,9 @@ pub fn warning(cost: &Cost, cfg: &SearchConfig, measured: usize) -> String {
     if cost.files > 0 {
         let secs = cost.passages as f64 * ms_per_passage(cfg, measured) / 1000.0
             + cost.read as f64 / READ_SPEED;
-        parts.push(t!("long.more",
+        // Vectors are named only when meaning search will make them.
+        let key = if cfg.meaning { "long.more" } else { "long.more_read" };
+        parts.push(t!(key,
             "files" => crate::settings::count(cost.files),
             "size" => crate::settings::human(cost.bytes),
             "time" => crate::meaning::about(secs)));
@@ -266,6 +269,11 @@ mod tests {
         // 7,200 passages at 50 ms: six minutes.
         let w = warning(&c, &s, 50);
         assert!(w.contains('3') && w.contains("50.0 MB") && w.contains("6 minutes"), "{w}");
+        assert!(w.contains("vectors"), "{w}");
+        // Meaning search off: no vectors are made, so none are named or timed.
+        let off = SearchConfig { meaning: false, ..s.clone() };
+        let w = warning(&c, &off, 50);
+        assert!(!w.contains("vectors") && !w.contains("minutes") && w.contains("50.0 MB"), "{w}");
         let back = Cost { back: 2, freed: 3 << 30, ..Cost::default() };
         let w = warning(&back, &s, 50);
         assert!(w.contains("3.0 GB") && w.contains('2') && !w.contains("minutes"), "{w}");

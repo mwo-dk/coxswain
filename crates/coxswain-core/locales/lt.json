@@ -4335,6 +4335,7 @@
  "long.sample_here": "Imtis čia",
  "long.inherit": "Kaip aukštesni aplankai ({value})",
  "long.more": "Visi išlaikomi ilgi failai: {files}; apie {size} daugiau diske; apie {time} juos perskaityti ir padaryti jų vektorius.",
+ "long.more_read": "Visi išlaikomi ilgi failai: {files}; apie {size} daugiau diske; apie {time} juos perskaityti.",
  "long.back": "Ilgi failai vėl su imtimi: {files}; atlaisvina apie {size}; niekas neskaitoma iš naujo.",
  "long.none": "Joks ilgas failas dabar nesikeičia; vėliau skaitomi failai seka pasirinkimą.",
  "long.unknown": "Kiek tai kainuoja, dabar pasakyti negalima: paieškos pagalbininkas neatsako arba žodžiai failuose išjungti.",

@@ -4335,6 +4335,7 @@
  "long.sample_here": "Izlase šeit",
  "long.inherit": "Kā augstākās mapes ({value})",
  "long.more": "Pilnībā saglabātie garie faili: {files}; ap {size} vairāk diskā; ap {time}, lai tos nolasītu un izveidotu to vektorus.",
+ "long.more_read": "Pilnībā saglabātie garie faili: {files}; ap {size} vairāk diskā; ap {time}, lai tos nolasītu.",
  "long.back": "Garie faili atkal ar izlasi: {files}; atbrīvo ap {size}; nekas netiek lasīts no jauna.",
  "long.none": "Neviens garš fails tagad nemainās; vēlāk lasītie faili seko izvēlei.",
  "long.unknown": "Cik tas maksā, tagad nevar pateikt: meklēšanas palīgs neatbild vai vārdi failos ir izslēgti.",

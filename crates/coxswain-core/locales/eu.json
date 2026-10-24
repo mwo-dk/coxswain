@@ -4238,6 +4238,7 @@
  "long.sample_here": "Lagina hemen",
  "long.inherit": "Goiko karpetak bezala ({value})",
  "long.more": "Osorik gordeko diren fitxategi luzeak: {files}; {size} inguru gehiago diskoan; {time} inguru haiek irakurri eta haien bektoreak egiteko.",
+ "long.more_read": "Osorik gordeko diren fitxategi luzeak: {files}; {size} inguru gehiago diskoan; {time} inguru haiek irakurtzeko.",
  "long.back": "Berriro laginarekin geratzen diren fitxategi luzeak: {files}; {size} inguru askatzen ditu; ez da ezer berriro irakurtzen.",
  "long.none": "Ez da fitxategi luzerik aldatzen orain; geroago irakurritako fitxategiek aukera jarraitzen dute.",
  "long.unknown": "Honek zer balio duen ezin da orain esan: bilaketa-laguntzaileak ez du erantzuten, edo fitxategien barruko hitzak itzalita daude.",

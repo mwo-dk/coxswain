@@ -4338,6 +4338,7 @@
  "long.sample_here": "Vzorek zde",
  "long.inherit": "Jako složky nad ní ({value})",
  "long.more": "Dlouhé soubory uchovávané celé: {files}; asi o {size} víc na disku; asi {time} na jejich čtení a vytvoření vektorů.",
+ "long.more_read": "Dlouhé soubory uchovávané celé: {files}; asi o {size} víc na disku; asi {time} na jejich čtení.",
  "long.back": "Dlouhé soubory znovu se vzorkem: {files}; uvolní asi {size}; nic se nečte znovu.",
  "long.none": "Žádný dlouhý soubor se teď nemění; soubory čtené později se řídí volbou.",
  "long.unknown": "Kolik to stojí, teď nelze říct: pomocník hledání neodpovídá, nebo jsou slova v souborech vypnutá.",

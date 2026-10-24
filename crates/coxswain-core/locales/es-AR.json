@@ -4335,6 +4335,7 @@
  "long.sample_here": "Muestra acá",
  "long.inherit": "Como las carpetas de arriba ({value})",
  "long.more": "Archivos largos guardados enteros: {files}; unos {size} más en el disco; unos {time} para leerlos y hacer sus vectores.",
+ "long.more_read": "Archivos largos guardados enteros: {files}; unos {size} más en el disco; unos {time} para leerlos.",
  "long.back": "Archivos largos con muestra otra vez: {files}; libera unos {size}; no se vuelve a leer nada.",
  "long.none": "Ningún archivo largo cambia ahora; los archivos leídos después siguen la elección.",
  "long.unknown": "Lo que cuesta no se puede decir ahora: el ayudante de búsqueda no responde, o las palabras dentro de archivos están apagadas.",

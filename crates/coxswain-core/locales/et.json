@@ -4238,6 +4238,7 @@
  "long.sample_here": "Valim siin",
  "long.inherit": "Nagu ülemised kaustad ({value})",
  "long.more": "Tervikuna hoitavad pikad failid: {files}; umbes {size} rohkem kettal; umbes {time} nende lugemiseks ja vektorite tegemiseks.",
+ "long.more_read": "Tervikuna hoitavad pikad failid: {files}; umbes {size} rohkem kettal; umbes {time} nende lugemiseks.",
  "long.back": "Pikad failid jälle valimiga: {files}; vabastab umbes {size}; midagi ei loeta uuesti.",
  "long.none": "Ükski pikk fail praegu ei muutu; hiljem loetud failid järgivad valikut.",
  "long.unknown": "Mida see maksab, ei saa praegu öelda: otsinguabiline ei vasta või sõnad failides on välja lülitatud.",

@@ -4238,6 +4238,7 @@
  "long.sample_here": "Otos tässä",
  "long.inherit": "Kuten yläpuolen kansiot ({value})",
  "long.more": "Kokonaan säilytettävät pitkät tiedostot: {files}; noin {size} enemmän levyllä; noin {time} niiden lukemiseen ja vektorien tekemiseen.",
+ "long.more_read": "Kokonaan säilytettävät pitkät tiedostot: {files}; noin {size} enemmän levyllä; noin {time} niiden lukemiseen.",
  "long.back": "Pitkät tiedostot taas otoksena: {files}; vapauttaa noin {size}; mitään ei lueta uudelleen.",
  "long.none": "Mikään pitkä tiedosto ei muutu nyt; myöhemmin luettavat tiedostot noudattavat valintaa.",
  "long.unknown": "Mitä tämä maksaa, ei voi nyt sanoa: hakuapuri ei vastaa, tai sanat tiedostoissa on pois päältä.",

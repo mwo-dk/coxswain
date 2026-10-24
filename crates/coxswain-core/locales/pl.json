@@ -4432,6 +4432,7 @@
  "long.sample_here": "Próbka tutaj",
  "long.inherit": "Jak foldery powyżej ({value})",
  "long.more": "Długie pliki zachowywane w całości: {files}; około {size} więcej na dysku; około {time} na ich odczyt i zrobienie ich wektorów.",
+ "long.more_read": "Długie pliki zachowywane w całości: {files}; około {size} więcej na dysku; około {time} na ich odczyt.",
  "long.back": "Długie pliki znów z próbką: {files}; zwalnia około {size}; nic nie jest czytane ponownie.",
  "long.none": "Żaden długi plik się teraz nie zmienia; pliki czytane później idą za wyborem.",
  "long.unknown": "Nie da się teraz powiedzieć, ile to kosztuje: pomocnik wyszukiwania nie odpowiada albo słowa wewnątrz plików są wyłączone.",

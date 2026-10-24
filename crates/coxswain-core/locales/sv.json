@@ -4238,6 +4238,7 @@
  "long.sample_here": "Urval här",
  "long.inherit": "Som mapparna ovanför ({value})",
  "long.more": "Långa filer som sparas hela: {files}; omkring {size} mer på disken; omkring {time} att läsa dem och göra deras vektorer.",
+ "long.more_read": "Långa filer som sparas hela: {files}; omkring {size} mer på disken; omkring {time} att läsa dem.",
  "long.back": "Långa filer som får urval igen: {files}; frigör omkring {size}; inget läses om.",
  "long.none": "Ingen lång fil ändras nu; filer som läses senare följer valet.",
  "long.unknown": "Vad detta kostar kan inte sägas nu: sökhjälparen svarar inte, eller ord i filer är avstängt.",

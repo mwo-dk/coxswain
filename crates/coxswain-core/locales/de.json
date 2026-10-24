@@ -4238,6 +4238,7 @@
  "long.sample_here": "Auswahl hier",
  "long.inherit": "Wie die Ordner darüber ({value})",
  "long.more": "Lange Dateien, die ganz behalten werden: {files}; etwa {size} mehr auf der Festplatte; etwa {time}, um sie zu lesen und ihre Vektoren zu machen.",
+ "long.more_read": "Lange Dateien, die ganz behalten werden: {files}; etwa {size} mehr auf der Festplatte; etwa {time}, um sie zu lesen.",
  "long.back": "Lange Dateien, die wieder eine Auswahl bekommen: {files}; gibt etwa {size} frei; nichts wird neu gelesen.",
  "long.none": "Keine lange Datei ändert sich jetzt; später gelesene Dateien folgen der Wahl.",
  "long.unknown": "Was das kostet, lässt sich jetzt nicht sagen: der Suchhelfer antwortet nicht, oder Wörter in Dateien ist aus.",

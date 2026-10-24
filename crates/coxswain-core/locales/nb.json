@@ -4238,6 +4238,7 @@
  "long.sample_here": "Utvalg her",
  "long.inherit": "Som mappene over ({value})",
  "long.more": "Lange filer som beholdes hele: {files}; omkring {size} mer på disken; omkring {time} til å lese dem og lage vektorene deres.",
+ "long.more_read": "Lange filer som beholdes hele: {files}; omkring {size} mer på disken; omkring {time} til å lese dem.",
  "long.back": "Lange filer som får utvalg igjen: {files}; frigjør omkring {size}; ingenting leses på nytt.",
  "long.none": "Ingen lang fil endres nå; filer som leses senere, følger valget.",
  "long.unknown": "Hva dette koster, kan ikke sies nå: søkehjelperen svarer ikke, eller ord i filer er slått av.",

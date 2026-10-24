@@ -91,7 +91,9 @@ knows about each file, before anything is read:
   passage's vector and text, about 1 KB to 2 KB a passage.
 - **Time**: the extra passages at the speed the helper measured making vectors here (kept from
   one run to the next), or the speed test of [*Measure speed*](meaning.md#how-fast-is-it-here-and-would-another-model-be-faster)
-  when it has measured nothing yet, plus reading the files again.
+  when it has measured nothing yet, plus reading the files again. With [meaning
+  search](meaning.md) off no vectors are made, so the time is the reading alone and the line
+  ends *… to read them.*
 
 A line such as *Long files kept whole: 3; about 180 MB more on the disk; about 25 minutes to read
 them and make their vectors.* When the choice touches no long file now: *No long file changes

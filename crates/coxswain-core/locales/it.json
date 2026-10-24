@@ -4335,6 +4335,7 @@
  "long.sample_here": "Campione qui",
  "long.inherit": "Come le cartelle sopra ({value})",
  "long.more": "File lunghi tenuti interi: {files}; circa {size} in più sul disco; circa {time} per leggerli e fare i loro vettori.",
+ "long.more_read": "File lunghi tenuti interi: {files}; circa {size} in più sul disco; circa {time} per leggerli.",
  "long.back": "File lunghi di nuovo a campione: {files}; libera circa {size}; nulla viene riletto.",
  "long.none": "Nessun file lungo cambia ora; i file letti dopo seguono la scelta.",
  "long.unknown": "Quanto costa non si può dire ora: l'aiutante della ricerca non risponde, oppure le parole nei file sono spente.",
