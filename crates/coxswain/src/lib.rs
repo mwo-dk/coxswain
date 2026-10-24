@@ -471,6 +471,8 @@ pub enum Dialog {
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
     /// Switch to the branch `entry` of the list of branches `dir`.
     Switch { title: String, text: String, dir: PathBuf, entry: String },
+    /// Read the history at `to` from the Subversion or CVS server `server`? Asked once per server.
+    Server { title: String, text: String, server: String, to: PathBuf, feature: &'static str },
     /// Find: the query, the kind chip, whether it is limited to the panel's folder (`here`),
     /// what was found, the cursor (on a row of `find::rows`, or on a source of the answer), the
     /// first row in sight, and what shows. Ask's questions and answers are in `App::chat`.
@@ -560,6 +562,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Export { op, .. } => export_feature(*op),
         Dialog::VirusScan { .. } | Dialog::Viruses(_) => "virus_scan",
         Dialog::Switch { .. } => "git_branches",
+        Dialog::Server { feature, .. } => feature,
         Dialog::Menu { feature, .. } => feature,
         Dialog::Search { .. } => "find_file",
         Dialog::Bom(_) => "cbom",
@@ -984,6 +987,8 @@ fn virtual_list(dir: &Path) -> bool {
 
 impl App {
     fn new(cfg: Config, left: PathBuf, right: PathBuf) -> Result<App, String> {
+        // The servers a Subversion or CVS history may be read from.
+        coxswain_core::wc::allow(&coxswain_core::state::AppState::load().history_servers);
         let index = Client::start(&cfg.search);
         App::with_index(cfg, left, right, index)
     }
@@ -1955,7 +1960,12 @@ impl App {
         if p.git.is_none() {
             return self.status = Some(t!("history.no_repo"));
         }
-        self.cd(self.active, history::path_in(&target, scope, None));
+        let to = history::path_in(&target, scope, None);
+        // A Subversion or CVS history is on its server: asked once per server, before anything is sent.
+        if let Some(ask) = coxswain_core::wc::ask_first(&target) {
+            return self.dialog = Some(Dialog::Server { title: t!("history.ask_server_title"), text: ask.text(), feature: if ask.program == "svn" { "subversion" } else { "cvs" }, server: ask.server, to });
+        }
+        self.cd(self.active, to);
     }
 
     /// To the snapshots of the ZFS dataset the folder under the cursor (or this one) is on.
@@ -3703,6 +3713,21 @@ impl App {
                 }
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Switch { title, text, dir, entry }),
+            },
+            Dialog::Server { title, text, server, to, feature } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
+                    let mut st = coxswain_core::state::AppState::load();
+                    if !st.history_servers.contains(&server) {
+                        st.history_servers.push(server);
+                    }
+                    coxswain_core::wc::allow(&st.history_servers);
+                    if let Err(e) = st.save() {
+                        self.status = Some(e.to_string());
+                    }
+                    self.cd(self.active, to);
+                }
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Server { title, text, server, to, feature }),
             },
             Dialog::Search { mut query, mut chip, mut here, found, mut cursor, mut offset, mut show } => {
                 let rows = self.find_rows(&query, chip, &found);

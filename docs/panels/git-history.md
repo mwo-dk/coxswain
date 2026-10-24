@@ -168,8 +168,9 @@ folder.
   commit from git, reading jj's store.
 - In a Mercurial repository it runs `hg log`, `hg files`, `hg cat` and `hg diff`, never with the
   repository's own config.
-- A [Subversion](subversion.md) or [CVS](cvs.md) working copy has no history here: its server keeps
-  it, and Coxswain does not ask.
+- A [Subversion](subversion.md) or [CVS](cvs.md) working copy's history is on its server: **Ctrl+G**
+  asks once per server, then lists the commits from `svn log` or `cvs log`; the files at a commit
+  are not read.
 - It needs `git` (or `jj`, or `hg`) on your `PATH`, and a commit to start from: a new repository without commits
   has no history yet.
 

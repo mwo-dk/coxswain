@@ -92,7 +92,7 @@
   });
   $effect(() => {
     if (area === "previews") untrack(() => (loadTools(), loadPreviewCache()));
-    if (area === "privacy") untrack(loadDisk);
+    if (area === "privacy") untrack(() => (loadDisk(), loadServers()));
     if (area === "behaviour") invoke("git_tools").then((v) => (gitTools = v), () => {});
   });
 
@@ -357,6 +357,13 @@
     await invoke("clear_preview_cache").catch((e) => (error = String(e)));
     loadPreviewCache();
   }
+
+  // ------------------------------------------------------------ privacy: history servers
+
+  /** The Subversion and CVS servers said yes to, whose history may be read. */
+  let servers = $state([]);
+  const loadServers = () => invoke("get_state").then((st) => (servers = st.history_servers ?? []), () => {});
+  const forgetServer = (server) => invoke("history_forget", { server }).then(loadServers, (e) => (ui.status = String(e)));
 
   // ------------------------------------------------------------ privacy: disk use
 
@@ -1051,6 +1058,18 @@
               <span class="hint">{t("settings.privacy_nothing")}</span>
             {/each}
           </div>
+        </div>
+        <div class="opt" id="opt-history_servers">
+          <span class="lab">{t("settings.history_servers")}</span>
+          <div class="keys">
+            {#each servers as server (server)}
+              <span class="mono">{server}</span>
+              <span><button class="link" onclick={() => forgetServer(server)}>{t("settings.history_server_forget")}</button></span>
+            {:else}
+              <span class="hint">{t("settings.history_servers_none")}</span>
+            {/each}
+          </div>
+          <small class="hint">{t("settings.history_servers_hint")}</small>
         </div>
         <details class="group" id="opt-disk" class:flash={flash === "disk"}>
           <summary>{t("disk.title")} <span class="hint">{disk ? size(bytesOf(disk)) : ""}</span></summary>

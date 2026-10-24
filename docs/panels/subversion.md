@@ -5,9 +5,10 @@
 In a [Subversion](https://subversion.apache.org/) working copy, Coxswain shows its status the way
 it shows git's: the line at the bottom of the pane names `svn`, the revision and the branch, and
 each changed file carries its glyph. It reads only the working copy's own records,
-`.svn/wc.db`, so nothing is sent to the server and `svn` need not be installed. History,
-branches, update and commit stay with Subversion: **Alt+G** opens a terminal in the working copy
-for them. Both apps do this.
+`.svn/wc.db`, so nothing is sent to the server and `svn` need not be installed for that. The
+history comes from the server, and only once you say yes to that server: **Ctrl+G** asks first,
+then lists the commits with `svn log`. Branches, update and commit stay with Subversion: **Alt+G**
+opens a terminal in the working copy for them. Both apps do this.
 
 ![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy: src marked modified, TODO.txt unversioned, and at the right of the pane's footer the line svn r2 trunk with one modified and one unversioned file](../screenshots/svn-line.png)
 
@@ -15,7 +16,8 @@ for them. Both apps do this.
 
 - [What you see](#what-you-see)
 - [How a change is found](#how-a-change-is-found)
-- [History, update and commit](#history-update-and-commit)
+- [History from the server](#history-from-the-server)
+- [Branches, update and commit](#branches-update-and-commit)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
@@ -46,15 +48,49 @@ Keywords (`svn:keywords`) and line endings (`svn:eol-style`) are not expanded fo
 comparison: a file with them that was only touched may show as modified until `svn status` or
 `svn update` records its time again.
 
-## History, update and commit
+## History from the server
 
-Subversion keeps the history and the branches on its server, and Coxswain never contacts a
-server by itself. **Ctrl+G** and **Alt+B** in a working copy say so on the status line:
-*Subversion keeps its history and branches on the server, which Coxswain does not ask: Open in
-your git tool opens a terminal in the working copy for that.* **Alt+G** (*Open in your git tool*)
-opens a terminal there, in this terminal for the terminal app or a new window for the desktop
-app, where `svn log`, `svn update` and `svn commit` run as usual. A git tool is never opened for
-a working copy; a command of your own in *Settings → Behaviour → Git tool* is.
+Subversion keeps the history on its server, and Coxswain contacts a server only when you say so.
+**Ctrl+G** (*Git history*, also in the F9 command list and the Shift+F10 action menu) on a file,
+a folder or `..` in a working copy first asks, once per server:
+
+| | |
+|---|---|
+| The question | *Read the history from the server?* Subversion keeps this history on its server, `https://svn.example.org`. Coxswain asks it only with your yes: it runs `svn log`, which contacts that server and no other, and remembers your answer for that server. Settings → Privacy forgets it. |
+| Desktop app | A dialog with **Read the history** and **Cancel**; **Enter** reads, **Esc** cancels |
+| Terminal app | The same text in a box; **Enter** or **Y** reads, **Esc** or **N** cancels |
+
+With yes, the pane shows the history as for git: one entry per revision, named `r1234` and the
+first line of its message, newest first, with its date in *Modified* and its author in *Last
+commit* (desktop app) or on the info line (terminal app). A file's history follows its copies
+and renames, as `svn log` does. At most 2000 revisions are listed.
+
+- **What is sent:** `svn log --xml --non-interactive` on the working copy, which asks the
+  repository the working copy names in `.svn/wc.db` and nothing else. Your own Subversion
+  config (`~/.subversion`: passwords kept, proxies) holds as for any `svn` you run; it never
+  asks for a password: a server that needs one you have not saved refuses, and its reason shows
+  on the status line.
+- **The server named** is the repository's address without a user name: `https://host`,
+  `svn://host:3690`, `svn+ssh://host`, or the whole `file://` path for a repository on this
+  machine. A working copy whose address is anything else (another scheme, a host name starting
+  with `-`) is never read.
+- **Remembered** in the state file (`history_servers`), per server: every working copy of that
+  server reads its history without asking again. **Settings → Privacy and updates → History from
+  servers** lists them; **Forget** (desktop app) or **Delete** (terminal app) forgets one, and the
+  next **Ctrl+G** asks again.
+- **Slow or gone:** a server that does not answer within 30 seconds is left; the status line says
+  so. Without `svn` installed, a notice says to install it.
+- **Inside a revision:** opening an entry of the list says that its files are on the server; the
+  files at a revision, diffs and copies out are not read.
+
+## Branches, update and commit
+
+**Alt+B** in a working copy says on the status line: *Subversion keeps its branches and old files
+on the server: Open in your git tool opens a terminal in the working copy for that.* **Alt+G**
+(*Open in your git tool*) opens a terminal there, in this terminal for the terminal app or a new
+window for the desktop app, where `svn switch`, `svn update` and `svn commit` run as usual. A git
+tool is never opened for a working copy; a command of your own in *Settings → Behaviour → Git
+tool* is.
 
 ## In the terminal app
 
@@ -62,15 +98,27 @@ The same line and glyphs, in the panel's bottom border.
 
 ## Questions
 
-#### Why is there no history for a Subversion working copy?
+#### How do I see the history of a Subversion working copy?
 
-Subversion keeps it on its server, and Coxswain never contacts a server by itself. **Alt+G**
-opens a terminal in the working copy for `svn log` and `svn update`.
+**Ctrl+G** asks once whether Coxswain may read it from the server it names; with yes it runs
+`svn log` against that server only and lists the revisions, newest first. Settings → Privacy and
+updates → History from servers forgets the answer.
+
+#### Why does Ctrl+G ask before it shows anything?
+
+Subversion keeps the history on its server, and nothing leaves this machine unless you ask. The
+question names the server, so you know who is contacted; the answer holds for every working copy
+of that server.
 
 #### Does Coxswain need svn installed?
 
-No. It reads the working copy's own database, `.svn/wc.db`; `svn` is needed only for what you
-run yourself in the terminal.
+Not for the line and the marks: they come from the working copy's own database, `.svn/wc.db`.
+The history needs `svn`, run against the server you said yes to; without it a notice says so.
+
+#### Can I see the files as they were at a revision?
+
+No: the list shows the revisions, but their files stay on the server. **Alt+G** opens a terminal
+for `svn cat -r` or `svn diff -c`.
 
 #### Why is a file I only touched not shown as changed?
 

@@ -44,6 +44,8 @@ pub struct AppState {
     pub images_checked: u64,
     /// Container image -> Unix time a preview last ran in it (`images::stale`).
     pub images_used: BTreeMap<String, u64>,
+    /// The servers a Subversion or CVS history may be read from (`wc::server`): each asked once.
+    pub history_servers: Vec<String>,
     /// What a newer Coxswain keeps here that this one does not know: saved as it was, so going
     /// back to an older version and forward again loses none of it.
     #[serde(flatten)]
@@ -75,6 +77,7 @@ impl Default for AppState {
             hints_shown: BTreeMap::new(),
             images_checked: 0,
             images_used: BTreeMap::new(),
+            history_servers: vec![],
             newer: serde_json::Map::new(),
             unreadable: false,
         }

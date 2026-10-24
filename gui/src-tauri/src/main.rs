@@ -740,6 +740,33 @@ fn read_disks() -> Vec<Disk> {
     out
 }
 
+/// Before a history opens: the Subversion or CVS server it would be read from, when the user
+/// has not said yes to it yet (the question is asked), else none.
+#[tauri::command(async)]
+async fn history_server(path: PathBuf) -> Res<Option<coxswain_core::wc::Ask>> {
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::wc::ask_first(&path)).await.map_err(|e| e.to_string())
+}
+
+/// Yes to a server: its history may be read from now on (`AppState::history_servers`).
+#[tauri::command(async)]
+fn history_allow(server: String, ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(|st| {
+        if !st.history_servers.contains(&server) {
+            st.history_servers.push(server);
+        }
+        coxswain_core::wc::allow(&st.history_servers);
+    })
+}
+
+/// Settings → Privacy: a server forgotten, asked about again next time.
+#[tauri::command(async)]
+fn history_forget(server: String, ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(|st| {
+        st.history_servers.retain(|s| *s != server);
+        coxswain_core::wc::allow(&st.history_servers);
+    })
+}
+
 #[tauri::command(async)]
 fn get_state(ctx: tauri::State<Ctx>) -> Res<AppState> {
     ctx.state.lock().map(|s| s.clone()).map_err(|e| e.to_string())
@@ -2646,6 +2673,8 @@ fn main() {
             if coxswain_core::notices::started(&mut st) {
                 let _ = st.save();
             }
+            // The servers a Subversion or CVS history may be read from.
+            coxswain_core::wc::allow(&st.history_servers);
             st
         }),
         cfg: std::sync::RwLock::new(cfg),
@@ -2681,7 +2710,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, undo, undo_next, open_path, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, is_model,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
