@@ -1525,8 +1525,57 @@ export function compareFolders() {
       entry("2", f.diffOnly ? "compare.show_all" : "compare.differences_only", () => diffOnly(!f.diffOnly)),
       entry("3", f.mode === "quick" ? "compare.by_content" : "compare.by_size_date", () => startFolders(f.mode === "quick" ? "content" : "quick")),
       entry("4", "compare.stop_comparing", stopFolders),
+      entry("5", "compare.make_right", () => openSync(1)),
+      entry("6", "compare.make_left", () => openSync(0)),
     ],
   };
+}
+
+/** Make side `to` (0 left, 1 right) like the other (`coxswain_core::compare::sync`): the plan
+ *  is made at once; the dialog shows it, then runs it. */
+export async function openSync(to) {
+  try {
+    await invoke("sync_check", { to });
+  } catch (e) {
+    return void (ui.status = String(e));
+  }
+  const st = await invoke("folders_state").catch(() => null);
+  if (!st) return;
+  const name = (p) => basename(p) || p;
+  const [from, dest] = [st.roots[1 - to], st.roots[to]];
+  ui.modal = { kind: "sync", feature: "compare_folders", to, title: t("sync.title", { to: name(dest), from: name(from) }), dir: name(dest), delete: false, plan: null, summary: "", rows: [], busy: null, error: "" };
+  syncRun(ui.modal, false);
+}
+
+/** The plan (`writing` false), or the steps it shows; how far it is, polled. */
+export async function syncRun(m, writing) {
+  m.error = "";
+  m.busy = { writing, files: 0, stopping: false };
+  const poll = setInterval(async () => {
+    const n = await invoke("sync_progress").catch(() => null);
+    if (n != null && m.busy) m.busy.files = n;
+  }, 200);
+  try {
+    if (!writing) {
+      m.plan = null;
+      const r = await invoke("sync_plan", { to: m.to, delete: m.delete });
+      Object.assign(m, { plan: r.plan, rows: r.rows, summary: r.summary });
+      if (!r.plan.total) m.error = t("sync.none");
+      return;
+    }
+    const r = await invoke("sync_apply", { token: m.plan.token });
+    if (ui.modal === m) ui.modal = null;
+    await refreshUndo(r.summary);
+    // Compared again, so the marks show what is left.
+    if (ui.folders) await startFolders(ui.folders.mode);
+    await reloadAll();
+    if (r.failed.length) ui.modal = failure(t("sync.failed"), r.failed.join("\n"));
+  } catch (e) {
+    m.error = String(e);
+  } finally {
+    clearInterval(poll);
+    m.busy = null;
+  }
 }
 
 export async function startFolders(mode) {

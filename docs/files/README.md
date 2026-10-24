@@ -73,7 +73,7 @@ folder; **Ctrl+E** extracts it.*
 | *F9 → File flags* | in Properties | yes | Your own [file flags](properties.md#zfs-packages-and-file-flags) (FreeBSD, macOS) |
 | *F9 → Files of this package* | yes | yes | The files of the [package](properties.md#zfs-packages-and-file-flags) a file belongs to (FreeBSD) |
 | **Ctrl+D** | yes | no | [Find duplicates](duplicates.md) |
-| **Ctrl+F2** | yes | yes | [Compare folders](compare-folders.md): the two panels' folders, every entry marked, the differences marked for F5 |
+| **Ctrl+F2** | yes | yes | [Compare folders](compare-folders.md): the two panels' folders, every entry marked, the differences marked for F5, or one side made like the other |
 | **Shift+F2** | yes | yes | [Compare files](compare-files.md): the two cursors' files, or two marked ones, side by side |
 | **Alt+P** | yes | yes | [Make PDF searchable](searchable-pdf.md): a copy with the words of a scan in it |
 | *Shift+F10*, *F9 → Convert video or audio* | yes | yes | [Convert video or audio](convert-media.md): MP4, MP3, FLAC, the sound, a clip |

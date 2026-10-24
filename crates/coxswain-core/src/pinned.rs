@@ -311,6 +311,9 @@ struct Todo {
 }
 
 pub use imp::{Place, stat_of};
+/// Folders held open to make, move and remove entries in (`compare::sync`).
+#[cfg(unix)]
+pub mod dir;
 #[cfg(unix)]
 pub use imp::{extra_permissions, foreign_flags};
 
@@ -368,7 +371,7 @@ mod imp {
     }
 
     /// errno set to 0, so that a call which says nothing on failure (readdir) can be told apart.
-    fn clear_errno() {
+    pub(super) fn clear_errno() {
         // SAFETY: each returns this thread's errno.
         unsafe {
             #[cfg(target_os = "linux")]
@@ -655,7 +658,7 @@ mod imp {
         s.flags & !CARRIED != 0
     }
 
-    fn refuse_kind(k: Kind) -> std::io::Result<()> {
+    pub(super) fn refuse_kind(k: Kind) -> std::io::Result<()> {
         match k {
             Kind::File | Kind::Dir => Ok(()),
             Kind::Link => Err(other(t!("pinned.link"))),

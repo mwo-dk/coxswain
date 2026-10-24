@@ -2,7 +2,7 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses, openReplace, reloadAll } from "./app.svelte.js";
+  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses, openReplace, reloadAll, syncRun } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
@@ -36,7 +36,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", attrs: "permissions_and_dates", replace: "find_replace", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", attrs: "permissions_and_dates", sync: "compare_folders", replace: "find_replace", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -319,6 +319,24 @@
     return s;
   }
 
+  // ------------------------------------------------------------ make one side like the other
+
+  function syncKey(m, k) {
+    if (k === "Esc") {
+      if (!m.busy) close();
+      else if (!m.busy.stopping) (m.busy.stopping = true), invoke("sync_stop");
+    } else if (k === "Enter" && !m.busy) syncRun(m, m.plan?.total > 0);
+    else if (k === "Space" && !m.busy) (m.delete = !m.delete), syncRun(m, false);
+    else return false;
+    return true;
+  }
+
+  function syncState(m) {
+    const b = m.busy;
+    if (b) return `${t(b.writing ? "attrs.writing" : "attrs.looking", { files: tn("preview.files", b.files) })} · ${b.stopping ? t("attrs.stopping") : t("attrs.stop_key", { key: "Esc" })}`;
+    return m.plan ? m.summary : "";
+  }
+
   // ------------------------------------------------------------ find and replace
 
   /** A path as the list shows it: from the folder the files are in. */
@@ -545,6 +563,7 @@
     if (m.kind === "compare") return m.key?.(k, act, e) ?? false;
     if (m.kind === "replace") return replaceKey(m, k);
     if (m.kind === "attrs") return attrsKey(m, k);
+    if (m.kind === "sync") return syncKey(m, k);
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -964,6 +983,39 @@
           <button onclick={close} disabled={!!m.busy}>{t("common.cancel")}</button>
         </div>
         {@render keys(m.plan?.total ? tn("attrs.go", m.plan.total) : t("attrs.plan"))}
+      {:else if m.kind === "sync"}
+        <h2>{m.title}</h2>
+        <p class="meta">{t("sync.about", { undo: keysOf("undo")[0] ?? "" })}</p>
+        <div class="flags">
+          <label><input type="checkbox" checked={m.delete} onchange={() => syncKey(m, "Space")} disabled={!!m.busy} /> {t("sync.delete", { dir: m.dir })} <kbd>Space</kbd></label>
+        </div>
+        <p class="meta">{syncState(m)}</p>
+        {#if m.error}<p class="err">{m.error}</p>{/if}
+        {#if m.plan?.total}
+          <ul class="list sync-plan">
+            {#each m.rows as [act, path, older, gone], i (i)}
+              <li class:warn={older || gone}><span>{act}</span><span class="name">{path}</span><span>{older ? t("sync.older") : ""}</span></li>
+            {/each}
+            {#if m.plan.total > m.rows.length}<li class="more">{tn("attrs.more", m.plan.total - m.rows.length)}</li>{/if}
+          </ul>
+        {/if}
+        {#if m.plan?.refused.length}
+          <details><summary>{t("attrs.left_out", { n: m.plan.refused.length })}</summary>
+            <ul class="list skipped">{#each m.plan.refused as r, i (i)}<li class="why">{r}</li>{/each}</ul>
+          </details>
+        {/if}
+        <div class="buttons">
+          {#if m.busy}
+            <button disabled={m.busy.stopping} onclick={() => syncKey(m, "Esc")}>{t("searchable.stop")}</button>
+          {:else if m.plan?.total}
+            <button class="primary" onclick={() => syncRun(m, true)}>{t("sync.go", { n: m.plan.total })}</button>
+            <button onclick={() => syncRun(m, false)}>{t("attrs.plan")}</button>
+          {:else}
+            <button class="primary" onclick={() => syncRun(m, false)}>{t("attrs.plan")}</button>
+          {/if}
+          <button onclick={close} disabled={!!m.busy}>{t("common.cancel")}</button>
+        </div>
+        {@render keys(m.plan?.total ? t("sync.go", { n: m.plan.total }) : t("attrs.plan"))}
       {:else if m.kind === "replace"}
         {@const ticked = replaceTicked(m)}
         <h2>{m.title}</h2>
@@ -1135,6 +1187,7 @@
   .dialog.rename,
   .dialog.replace,
   .dialog.attrs,
+  .dialog.sync,
   .dialog.help {
     width: min(900px, 92vw);
   }
@@ -1799,6 +1852,35 @@
     text-overflow: ellipsis;
   }
   .attrs-plan .more {
+    color: var(--hidden-fg);
+  }
+  /* Make one side like the other: each step's word, its path, and why it stands out. */
+  .sync-plan {
+    overflow: auto;
+    max-height: 50vh;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: 16px;
+    font-family: var(--mono-font), var(--scripts);
+    font-size: 0.9em;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+    padding: 6px 10px;
+  }
+  .sync-plan li {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    white-space: nowrap;
+  }
+  .sync-plan .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sync-plan .warn {
+    color: var(--git-conflict-fg);
+  }
+  .sync-plan .more {
     color: var(--hidden-fg);
   }
 </style>

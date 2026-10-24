@@ -136,7 +136,7 @@ use coxswain_core::compare::folders::{Folders, Mode, State as FileState};
 /// The folders being compared (Compare folders, Ctrl+F2), shared with the panes.
 static FOLDERS: Mutex<Option<std::sync::Arc<Folders>>> = Mutex::new(None);
 
-fn folders() -> Res<std::sync::Arc<Folders>> {
+pub(crate) fn folders() -> Res<std::sync::Arc<Folders>> {
     FOLDERS.lock().unwrap_or_else(|e| e.into_inner()).clone().ok_or_else(|| "no compare open".into())
 }
 
