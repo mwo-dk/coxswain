@@ -153,13 +153,13 @@ fn zone_stream(f: &std::fs::File, create: bool) -> std::io::Result<std::fs::File
     Ok(std::fs::File::from(unsafe { std::os::windows::io::OwnedHandle::from_raw_handle(h as _) }))
 }
 
-/// The mark of a download (`Zone.Identifier`) carried from `from` to the new file `to`, so a
-/// program copied keeps the warning Windows shows before it runs. A file without one: nothing.
-fn carry_zone(from: &std::fs::File, to: &std::fs::File) -> std::io::Result<()> {
-    let Ok(mut z) = zone_stream(from, false) else { return Ok(()) };
+/// The mark of a download (`Zone.Identifier`) of `from`, to carry to its copy, so a program
+/// copied keeps the warning Windows shows before it runs. A file without one: none.
+fn zone_of(from: &std::fs::File) -> Option<Vec<u8>> {
+    let mut z = zone_stream(from, false).ok()?;
     let mut mark = vec![];
-    (&mut z).take(64 * 1024).read_to_end(&mut mark)?;
-    zone_stream(to, true)?.write_all(&mark)
+    (&mut z).take(64 * 1024).read_to_end(&mut mark).ok()?;
+    Some(mark)
 }
 
 /// Where the open `f` is now, as the system names it (its NT path: a volume needs no letter).
@@ -360,21 +360,42 @@ impl Dir {
             if stat_of(from)?.id != was.id || stat_of(&f)?.size != was.size {
                 return Err(changed());
             }
-            carry_zone(from, &f)?;
+            let zone = zone_of(from);
             set_basic(&f, if was.mode & HIDDEN != 0 { HIDDEN } else { NORMAL }, filetime(was.accessed), filetime(was.modified))?;
-            rename(&f, raw(&self.h), &n)
+            rename(&f, raw(&self.h), &n)?;
+            Ok(zone)
         })();
-        if let Err(e) = done {
-            // Deleted through its own handle, never by name.
-            let _ = delete(&f);
-            return Err(e);
+        let zone = match done {
+            Ok(z) => z,
+            Err(e) => {
+                // Deleted through its own handle, never by name.
+                let _ = delete(&f);
+                return Err(e);
+            }
+        };
+        let made = stat_of(&f)?;
+        if zone.is_none() && was.mode & READ_ONLY == 0 {
+            return Ok(made);
         }
-        // Read-only last (a read-only file could not be renamed in): written, it stays even
-        // should this fail.
-        if was.mode & READ_ONLY != 0 {
-            let _ = set_basic(&f, READ_ONLY | (was.mode & HIDDEN), 0, 0);
+        // The mark of a download and read-only come once it is in place: a stream cannot be
+        // added while the file is shared with no one, nor a read-only file renamed. Through a
+        // handle of its own, only to the very file put there; written, it stays even should
+        // this fail.
+        drop(f);
+        let Ok(g) = open_in(raw(&self.h), &n, READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, FILE_NON_DIRECTORY_FILE, SHARE_ALL) else { return Ok(made) };
+        if !stat_of(&g).is_ok_and(|s| s.id.same_file(&made.id)) {
+            return Ok(made);
         }
-        stat_of(&f)
+        if let Some(mark) = zone {
+            let _ = zone_stream(&g, true).and_then(|mut z| z.write_all(&mark));
+        }
+        // The times again (a new stream moves them), and read-only.
+        let attributes = match was.mode & (READ_ONLY | HIDDEN) {
+            0 => NORMAL,
+            a => a,
+        };
+        let _ = set_basic(&g, attributes, filetime(was.accessed), filetime(was.modified));
+        Ok(stat_of(&g).unwrap_or(made))
     }
 
     /// A new, empty folder `name` here, held open: made here and nothing else (one that is there
