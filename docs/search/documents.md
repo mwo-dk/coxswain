@@ -58,7 +58,9 @@ The formats themselves cannot be switched off one by one; leave a folder out ins
 ([Choosing the folders](folders.md)). At most 4 MB of text is kept from one file (text, code,
 CSV and logs keep up to 256 MB with [Long files](long-files.md) set to *Everything*), and at most 64 MB is
 unpacked from one part of a zipped document (`.docx`, `.xlsx`, `.epub` …), which is not a
-setting.
+setting. Word, OpenDocument, spreadsheet
+(`.xlsx`, `.ods`) and presentation files are read as they are unpacked, never a whole part in
+memory: one with a 60 MB part takes about 10 to 20 MB to read, where it took 25 to 95 MB.
 
 ## In the terminal app
 

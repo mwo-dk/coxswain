@@ -19,7 +19,7 @@ use std::path::Path;
 
 use quick_xml::events::{BytesStart, Event};
 
-use super::{MAX_ENTRY, MAX_TEXT, attr, page_text, start, utf8, xml_text};
+use super::{MAX_ENTRY, MAX_TEXT, attr, page_text, start, xml_text};
 
 /// The most sheets read of one workbook. Each is unpacked on its own.
 const MOST_SHEETS: usize = 256;
@@ -63,8 +63,9 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
             archive: super::open_zip(path, max)?,
             left: 4 * MAX_ENTRY,
         };
-        match zip.part("content.xml") {
-            Some(content) => ods(&content),
+        let mut content = None;
+        match zip.stream("content.xml", |xml| content = Some(ods(xml))) {
+            Some(()) => content.unwrap_or_default(),
             None => excel(&mut zip)?,
         }
     } else if head == COMPOUND {
@@ -368,11 +369,13 @@ enum Part<'a> {
 /// Walks an XML document part by part, until `each` says `false`. What is left of a broken
 /// document is walked, as far as it is UTF-8. An entity that the document made up is
 /// dropped, as in `xml_text`.
-fn walk(xml: &[u8], mut each: impl FnMut(Part) -> bool) {
-    let mut reader = quick_xml::Reader::from_str(utf8(xml));
+fn walk(xml: impl Read, mut each: impl FnMut(Part) -> bool) {
+    let mut reader = quick_xml::Reader::from_reader(super::Utf8::new(xml));
     reader.config_mut().check_end_names = false;
+    let mut buf = vec![];
     loop {
-        let more = match reader.read_event() {
+        buf.clear();
+        let more = match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => each(Part::Open(&e)),
             Ok(Event::Empty(e)) => {
                 each(Part::Open(&e)) && each(Part::Close(e.local_name().as_ref()))
@@ -412,6 +415,23 @@ impl Zip {
     /// Some writers call a part by a name with other capitals than they gave it, and some
     /// name the parts with the backslashes of Windows.
     fn part(&mut self, name: &str) -> Option<Vec<u8>> {
+        let mut bytes = vec![];
+        self.stream(name, |part| drop(part.read_to_end(&mut bytes)))?;
+        // Where a part is cut, it is cut between two characters.
+        if bytes.len() as u64 == MAX_ENTRY.min(self.left + bytes.len() as u64) {
+            bytes.truncate(
+                bytes
+                    .iter()
+                    .rposition(|byte| *byte < 0x80)
+                    .map_or(0, |at| at + 1),
+            );
+        }
+        Some(bytes)
+    }
+
+    /// `part`, handed to `read` as it is unpacked: never held whole. A part cut at
+    /// `MAX_ENTRY` is cut there, a character too, which the XML reader leaves out.
+    fn stream(&mut self, name: &str, read: impl FnOnce(&mut dyn Read)) -> Option<()> {
         let named = self
             .archive
             .file_names()
@@ -423,30 +443,19 @@ impl Zip {
                         .all(|(a, b)| (if a == b'\\' { b'/' } else { a }).eq_ignore_ascii_case(&b))
             })?
             .into_owned();
-        let (mut bytes, most) = (vec![], MAX_ENTRY.min(self.left));
-        let _ = self
-            .archive
-            .by_name(&named)
-            .ok()?
-            .take(most)
-            .read_to_end(&mut bytes);
-        self.left -= bytes.len() as u64;
-        // Where a part is cut, it is cut between two characters.
-        if bytes.len() as u64 == most {
-            bytes.truncate(
-                bytes
-                    .iter()
-                    .rposition(|byte| *byte < 0x80)
-                    .map_or(0, |at| at + 1),
-            );
-        }
-        Some(bytes)
+        let most = MAX_ENTRY.min(self.left);
+        let mut part = self.archive.by_name(&named).ok()?.take(most);
+        read(&mut part);
+        // What `read` left is read too: a part costs `left` all it unpacks to, as when whole.
+        let _ = std::io::copy(&mut part, &mut std::io::sink());
+        self.left -= most - part.limit();
+        Some(())
     }
 }
 
 /// The relations of a part: of each its name, its type and the part it leads to, which lies
 /// in `folder` unless it says where else.
-fn relations(xml: &[u8], folder: &str) -> Vec<[String; 3]> {
+fn relations(xml: impl Read, folder: &str) -> Vec<[String; 3]> {
     let mut all = vec![];
     walk(xml, |part| {
         if let Part::Open(e) = part
@@ -471,7 +480,7 @@ fn relations(xml: &[u8], folder: &str) -> Vec<[String; 3]> {
 /// relations of the file say where the workbook lies, the workbook names its sheets, and its
 /// own relations say in which part each of them lies.
 fn excel(zip: &mut Zip) -> Option<String> {
-    let whole = relations(&zip.part("_rels/.rels").unwrap_or_default(), "");
+    let whole = relations(&zip.part("_rels/.rels").unwrap_or_default()[..], "");
     let name = whole
         .iter()
         .find(|r| r[1].ends_with("/officeDocument"))
@@ -480,25 +489,18 @@ fn excel(zip: &mut Zip) -> Option<String> {
     let (folder, file) = name.split_at(name.rfind('/').map_or(0, |at| at + 1));
     let parts = relations(
         &zip.part(&format!("{folder}_rels/{file}.rels"))
-            .unwrap_or_default(),
+            .unwrap_or_default()[..],
         folder,
     );
-    let mut of_type = |kind: &str| {
-        parts
-            .iter()
-            .find(|p| p[1].ends_with(kind))
-            .and_then(|p| zip.part(&p[2]))
-            .unwrap_or_default()
-    };
-    let (strings, styles, records) = (
-        of_type("/sharedStrings"),
-        of_type("/styles"),
-        name.ends_with(".bin"),
-    );
-
+    let records = name.ends_with(".bin");
+    let of_type = |kind: &str| Some(parts.iter().find(|p| p[1].ends_with(kind))?[2].clone());
+    let (strings_part, styles_part) = (of_type("/sharedStrings"), of_type("/styles"));
     let (mut sheets, book) = match records {
         true => {
             let (sheets, from_1904) = xlsb_sheets(&workbook);
+            let mut part =
+                |name: Option<String>| name.and_then(|n| zip.part(&n)).unwrap_or_default();
+            let (strings, styles) = (part(strings_part), part(styles_part));
             (
                 sheets,
                 Book {
@@ -509,18 +511,30 @@ fn excel(zip: &mut Zip) -> Option<String> {
             )
         }
         false => {
-            let (sheets, from_1904) = xlsx_sheets(&workbook);
+            let (sheets, from_1904) = xlsx_sheets(&workbook[..]);
+            // Read as they are unpacked; an empty one when there is none.
+            let mut part = |name: Option<String>, read: &mut dyn FnMut(&mut dyn Read)| {
+                if name
+                    .and_then(|name| zip.stream(&name, &mut *read))
+                    .is_none()
+                {
+                    read(&mut std::io::empty());
+                }
+            };
+            let (mut strings, mut kinds) = (vec![], vec![]);
+            part(strings_part, &mut |xml| strings = xlsx_strings(xml));
+            part(styles_part, &mut |xml| kinds = xlsx_kinds(xml));
             (
                 sheets,
                 Book {
-                    strings: xlsx_strings(&strings),
-                    kinds: xlsx_kinds(&styles),
+                    strings,
+                    kinds,
                     from_1904,
                 },
             )
         }
     };
-    drop((workbook, strings, styles));
+    drop(workbook);
     // A workbook whose list of sheets cannot be read still has the sheets among its relations,
     // without their names.
     if sheets.is_empty() {
@@ -538,14 +552,14 @@ fn excel(zip: &mut Zip) -> Option<String> {
             return Some(out);
         }
         alone(&mut out, &name);
-        match parts
-            .iter()
-            .find(|p| p[0] == id)
-            .and_then(|p| zip.part(&p[2]))
-        {
-            Some(sheet) if records => xlsb_sheet(&sheet, &book, &mut out),
-            Some(sheet) => xlsx_sheet(&sheet, &book, &mut out),
-            None => {}
+        if let Some(p) = parts.iter().find(|p| p[0] == id) {
+            if records {
+                if let Some(sheet) = zip.part(&p[2]) {
+                    xlsb_sheet(&sheet, &book, &mut out);
+                }
+            } else {
+                zip.stream(&p[2], |sheet| xlsx_sheet(sheet, &book, &mut out));
+            }
         }
     }
     // The notes on the cells, after the sheets. Who wrote them and where they are shown is
@@ -562,19 +576,23 @@ fn excel(zip: &mut Zip) -> Option<String> {
             break;
         }
         line(&mut out);
-        match (zip.part(&name), name.ends_with(".bin")) {
-            (Some(notes), true) => xlsb_records(&notes, |id, data| {
-                if id == 0x27D {
-                    alone(&mut out, &xlsb_string(data, 1).unwrap_or_default().0);
-                }
-                out.len() <= MAX_TEXT
-            }),
-            (Some(notes), false) => out.push_str(&xml_text(
-                &notes,
-                &["comment"],
-                &["authors", "rPh", "AlternateContent"],
-            )),
-            (None, _) => {}
+        if name.ends_with(".bin") {
+            if let Some(notes) = zip.part(&name) {
+                xlsb_records(&notes, |id, data| {
+                    if id == 0x27D {
+                        alone(&mut out, &xlsb_string(data, 1).unwrap_or_default().0);
+                    }
+                    out.len() <= MAX_TEXT
+                });
+            }
+        } else {
+            zip.stream(&name, |notes| {
+                out.push_str(&super::xml_text_of(
+                    super::Utf8::new(notes),
+                    &["comment"],
+                    &["authors", "rPh", "AlternateContent"],
+                ))
+            });
         }
     }
     Some(out)
@@ -609,7 +627,7 @@ fn unescaped(text: String) -> String {
 
 /// The sheets of a workbook in XML, each with its name and the name of its relation, and
 /// whether day 0 is in 1904.
-fn xlsx_sheets(workbook: &[u8]) -> (Vec<(String, String)>, bool) {
+fn xlsx_sheets(workbook: impl Read) -> (Vec<(String, String)>, bool) {
     let (mut sheets, mut from_1904) = (vec![], false);
     walk(workbook, |part| {
         if let Part::Open(e) = part {
@@ -631,7 +649,7 @@ fn xlsx_sheets(workbook: &[u8]) -> (Vec<(String, String)>, bool) {
 
 /// The shared strings in XML. A string may lie in runs, which are read as one; how it is
 /// said aloud, which Japanese has beside the text, is left out.
-fn xlsx_strings(xml: &[u8]) -> Vec<String> {
+fn xlsx_strings(xml: impl Read) -> Vec<String> {
     let (mut strings, mut kept, mut one) = (vec![], 0, String::new());
     let (mut reading, mut aloud) = (false, false);
     walk(xml, |part| {
@@ -656,7 +674,7 @@ fn xlsx_strings(xml: &[u8]) -> Vec<String> {
 }
 
 /// The kind of every cell format in the styles in XML.
-fn xlsx_kinds(xml: &[u8]) -> Vec<Kind> {
+fn xlsx_kinds(xml: impl Read) -> Vec<Kind> {
     let (mut codes, mut formats, mut inside) = (HashMap::new(), vec![], false);
     let id = |e: &BytesStart| {
         attr(e, "numFmtId")
@@ -682,7 +700,7 @@ fn xlsx_kinds(xml: &[u8]) -> Vec<Kind> {
 }
 
 /// The rows of a sheet in XML.
-fn xlsx_sheet(xml: &[u8], book: &Book, out: &mut String) {
+fn xlsx_sheet(xml: impl Read, book: &Book, out: &mut String) {
     let (mut sort, mut format, mut value) = (String::new(), 0, String::new());
     let (mut reading, mut aloud) = (false, false);
     walk(xml, |part| {
@@ -856,7 +874,7 @@ fn xlsb_sheet(part: &[u8], book: &Book, out: &mut String) {
 /// An OpenDocument spreadsheet: tables of rows of cells. A cell has the text it shows, and a
 /// number or a date has its value beside it, which is read instead: the text follows the
 /// language of the one who wrote it (1.840,00 and 14/03/26), the value does not.
-fn ods(xml: &[u8]) -> String {
+fn ods(xml: impl Read) -> String {
     let (mut out, mut value, mut text, mut note) =
         (String::new(), None, String::new(), String::new());
     let (mut paragraphs, mut noting, mut signed, mut linked) = (0usize, false, false, false);
@@ -2650,18 +2668,18 @@ mod tests {
             }
             let mut out = String::new();
             xlsb_sheet(&bytes, &book, &mut out);
-            xlsx_sheet(&bytes, &book, &mut out);
+            xlsx_sheet(&bytes[..], &book, &mut out);
             let _ = (
                 xlsb_sheets(&bytes),
                 xlsb_strings(&bytes),
                 xlsb_kinds(&bytes),
-                xlsx_sheets(&bytes),
-                xlsx_strings(&bytes),
-                xlsx_kinds(&bytes),
+                xlsx_sheets(&bytes[..]),
+                xlsx_strings(&bytes[..]),
+                xlsx_kinds(&bytes[..]),
             );
             let _ = (
-                ods(&bytes),
-                relations(&bytes, ""),
+                ods(&bytes[..]),
+                relations(&bytes[..], ""),
                 xls_strings(&[&bytes[..bytes.len() / 2], &bytes[bytes.len() / 2..]]),
             );
             let _ = (workbook(&bytes), xls(&compound("Workbook", &bytes)));
@@ -2856,7 +2874,7 @@ mod tests {
         assert_eq!(utf16(&wide(&huge)).len(), MAX_TEXT);
         // Bytes that are no UTF-8 are read up to the first of them, and never copied.
         let mut out = String::new();
-        xlsx_sheet(&[&b"<worksheet><sheetData><row><c><v>1</v></c></row><row><c t=\"inlineStr\"><is><t>x"[..], &[0xFF; 100_000][..]].concat(), &Book::default(), &mut out);
+        xlsx_sheet(&[&b"<worksheet><sheetData><row><c><v>1</v></c></row><row><c t=\"inlineStr\"><is><t>x"[..], &[0xFF; 100_000][..]].concat()[..], &Book::default(), &mut out);
         assert_eq!(out, "1\n");
 
         // A string that claims more characters than the file has, and a record that claims

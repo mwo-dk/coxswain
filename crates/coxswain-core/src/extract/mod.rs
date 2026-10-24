@@ -363,6 +363,117 @@ impl std::io::Seek for Metered {
     }
 }
 
+/// Bytes read from `inner` as far as they are UTF-8, as `utf8` cuts them, a piece at a time:
+/// what a part of a zip is parsed through as it is unpacked, so no part is held whole. A
+/// character cut off at the end is left out, as is all after a byte that is no UTF-8.
+pub(crate) struct Utf8<R> {
+    inner: R,
+    buf: Box<[u8]>,
+    /// The bytes not yet handed on, `at..valid`, and those after them, `valid..filled`: the
+    /// start of a character whose rest is still to come.
+    at: usize,
+    valid: usize,
+    filled: usize,
+    /// How many bytes came from `inner`.
+    pub read: u64,
+    /// Whether a byte that is no UTF-8 (or a character cut off at the end) ended it, one was a
+    /// zero byte, and `inner` failed.
+    pub broken: bool,
+    pub zero: bool,
+    pub failed: bool,
+}
+
+impl<R: Read> Utf8<R> {
+    pub fn new(inner: R) -> Utf8<R> {
+        Utf8 {
+            inner,
+            // Small pieces: a zip that breaks off loses what it unpacked in the read that failed.
+            buf: vec![0; 8 << 10].into_boxed_slice(),
+            at: 0,
+            valid: 0,
+            filled: 0,
+            read: 0,
+            broken: false,
+            zero: false,
+            failed: false,
+        }
+    }
+
+    /// Reads the rest of `inner` without keeping it, so that `read` counts all of it, `broken`
+    /// and `zero` say what all of it holds, and a fault at its end (a zip checks a part's
+    /// checksum there) is in `failed`.
+    pub fn finish(mut self) -> Utf8<R> {
+        use std::io::BufRead;
+        while let Ok(n) = self.fill_buf().map(<[u8]>::len) {
+            if n == 0 {
+                break;
+            }
+            self.consume(n);
+        }
+        while !self.failed {
+            match self.inner.read(&mut self.buf) {
+                Ok(0) => break,
+                Ok(n) => self.read += n as u64,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(_) => self.failed = true,
+            }
+        }
+        self
+    }
+}
+
+impl<R: Read> Read for Utf8<R> {
+    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        let n = {
+            let have = std::io::BufRead::fill_buf(self)?;
+            let n = have.len().min(out.len());
+            out[..n].copy_from_slice(&have[..n]);
+            n
+        };
+        std::io::BufRead::consume(self, n);
+        Ok(n)
+    }
+}
+
+impl<R: Read> std::io::BufRead for Utf8<R> {
+    fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+        while self.at == self.valid && !self.broken {
+            // The start of a character moves to the front, and more is read after it.
+            self.buf.copy_within(self.valid..self.filled, 0);
+            (self.at, self.valid, self.filled) = (0, 0, self.filled - self.valid);
+            let n = match self.inner.read(&mut self.buf[self.filled..]) {
+                Ok(n) => n,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) => {
+                    self.failed = true;
+                    return Err(e);
+                }
+            };
+            if n == 0 {
+                // A character cut off at the end: no UTF-8 either.
+                self.broken |= self.filled > 0;
+                break;
+            }
+            self.read += n as u64;
+            let fresh = self.filled;
+            self.filled += n;
+            match std::str::from_utf8(&self.buf[..self.filled]) {
+                Ok(_) => self.valid = self.filled,
+                Err(e) => {
+                    self.valid = e.valid_up_to();
+                    self.broken = e.error_len().is_some();
+                }
+            }
+            self.zero |= self.buf[fresh.min(self.valid)..self.valid].contains(&0);
+        }
+        Ok(&self.buf[self.at..self.valid])
+    }
+
+    fn consume(&mut self, n: usize) {
+        self.at = (self.at + n).min(self.valid);
+    }
+}
+
 /// "slide10.xml" after "slide9.xml": digits compare as numbers.
 fn natural(name: &str) -> Vec<(String, u64)> {
     let mut parts = vec![];
@@ -387,23 +498,31 @@ fn unpack(entry: impl Read) -> Option<Vec<u8>> {
 /// is still returned. No more than `MAX_TEXT` bytes are built: one text may be as long as
 /// the document, which may be `MAX_ENTRY`.
 pub fn xml_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
+    tags_dropped(utf8(xml).as_bytes(), lines, skip, false)
+}
+
+/// `xml_text` of a document as it is read, `Utf8` cutting it as `utf8` cuts bytes: never more
+/// of it in memory than one piece between two tags.
+pub(crate) fn xml_text_of(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str]) -> String {
     tags_dropped(xml, lines, skip, false)
 }
 
 /// The text of a web page, as `xml_text` reads it, but an element in `lines` ends a line
 /// where it opens as well: a page closes no `<br>`, and often no `<td>` or `<li>`.
 pub fn page_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
-    tags_dropped(xml, lines, skip, true)
+    tags_dropped(utf8(xml).as_bytes(), lines, skip, true)
 }
 
-fn tags_dropped(xml: &[u8], lines: &[&str], skip: &[&str], opens: bool) -> String {
+/// The text of UTF-8 `xml`, read as it comes.
+fn tags_dropped(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str], opens: bool) -> String {
     use quick_xml::events::Event;
-    let mut reader = quick_xml::Reader::from_str(utf8(xml));
+    let mut reader = quick_xml::Reader::from_reader(xml);
     reader.config_mut().check_end_names = false;
-    let (mut out, mut skipping) = (String::new(), 0usize);
+    let (mut out, mut skipping, mut buf) = (String::new(), 0usize, vec![]);
     let named = |name: &str, among: &[&str]| among.iter().any(|one| one.eq_ignore_ascii_case(name));
     while out.len() < MAX_TEXT {
-        match reader.read_event() {
+        buf.clear();
+        match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) if skipping > 0 || named(e.local_name().as_ref(), skip) => {
                 skipping += 1
             }
