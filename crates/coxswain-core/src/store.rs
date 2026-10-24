@@ -1591,6 +1591,28 @@ impl Store {
         rows.collect()
     }
 
+    /// `unembedded_whole` without the text, which is read file by file (`body`), so a round
+    /// of many files does not hold all their texts at once: (id, path, kept whole).
+    fn unembedded_ids(&self, n: usize) -> rusqlite::Result<Vec<(i64, String, bool)>> {
+        let db = self.db.lock().unwrap();
+        let mut q = db.prepare(
+            "SELECT id, path, whole IS NOT NULL AND whole = modified FROM files WHERE has_text = 1 AND embedded IS NULL AND (modified <= ?2 OR settled = modified) ORDER BY modified DESC LIMIT ?1",
+        )?;
+        let rows = q.query_map([n as i64, self.quiet_since()], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        rows.collect()
+    }
+
+    /// The text kept of file `id`, empty when there is none.
+    fn body(&self, id: i64) -> rusqlite::Result<String> {
+        use rusqlite::OptionalExtension;
+        let db = self.db.lock().unwrap();
+        Ok(db
+            .query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get::<_, Option<String>>(0))
+            .optional()?
+            .flatten()
+            .unwrap_or_default())
+    }
+
     /// A file's passages' vectors, packed.
     fn put_vectors(&self, file: i64, vectors: &[Vec<u8>]) -> rusqlite::Result<()> {
         self.put_passages(file, vectors, None, None)
@@ -2939,13 +2961,12 @@ const DOCUMENT_MARGIN: usize = crate::extract::MAX_TEXT / 4;
 // ponytail: files the watcher brings get theirs in the next slice, or at the next scan within
 // ten minutes, once quiet (`QUIET`); the text is searchable by its words at once.
 fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::Result<bool> {
-    use crate::meaning::NoVectors;
     let Some(engine) = store.engine() else {
         return Ok(false);
     };
     store.model_is(&engine.id(), engine.digest().as_deref())?;
     loop {
-        let files = store.unembedded_whole(8)?;
+        let files = store.unembedded_ids(EMBED_ROUND)?;
         if files.is_empty() {
             if store.renewing.swap(0, Ordering::Relaxed) > 0 {
                 store
@@ -2956,83 +2977,174 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
             }
             return Ok(false);
         }
+        // The files' passages are made on a thread of their own while the model works on
+        // those before them, a few files ahead at most (`EMBED_AHEAD`): the queue holds the
+        // rest back. The model gets the passages of several files at once (`EMBED_FILL`), so a
+        // folder of short files fills its batches as one long file does.
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Prepared>(EMBED_AHEAD);
+        let done = std::thread::scope(|s| {
+            s.spawn(move || {
+                for (id, path, everything) in files {
+                    let Ok(body) = store.body(id) else { return };
+                    if tx.send(prepare(id, path, body, everything)).is_err() {
+                        return;
+                    }
+                }
+            });
+            let done = embed_round(store, &engine, &rx, stop, until);
+            // Stopped early: the thread stops at its next file, before the scope waits for it.
+            drop(rx);
+            done
+        })?;
+        if let Some(more) = done {
+            return Ok(more);
+        }
+    }
+}
+
+/// Files fetched to get their vectors at a time.
+const EMBED_ROUND: usize = 64;
+/// Files whose passages are made ahead of the model at most.
+const EMBED_AHEAD: usize = 4;
+/// Passages sent to the model together at least, of as many files as it takes (the round's
+/// last ones excepted): eight of the built-in model's batches on a processor, two on a GPU.
+const EMBED_FILL: usize = 64;
+
+/// A file made ready for the model: its passages, as shown to it.
+struct Prepared {
+    id: i64,
+    path: String,
+    /// Kept whole and too long to hold: read line by line again (`embed_streamed`).
+    streamed: bool,
+    texts: Vec<String>,
+    whole: Option<Vec<crate::meaning::Passage>>,
+    starts: Option<Vec<bool>>,
+}
+
+fn prepare(id: i64, path: String, body: String, everything: bool) -> Prepared {
+    // Kept whole, longer than what is kept of most files: read line by line again and
+    // a passage for every part of it, a batch at a time, never held whole.
+    if everything && long_text(&path, &body) {
+        return Prepared { id, path, streamed: true, texts: vec![], whole: None, starts: None };
+    }
+    // Kept whole: every passage, kept with the vectors when there are more than
+    // `meaning::passages` keeps (they are no longer what it cuts from the text), with
+    // where sections start for going back to *Sample*.
+    let (whole, starts) = if everything {
+        let (all, starts): (Vec<_>, Vec<_>) = crate::meaning::every_passage(&body, &path).into_iter().unzip();
+        if all.len() > crate::meaning::PASSAGES {
+            (Some(all), Some(starts))
+        } else {
+            (None, None)
+        }
+    } else {
+        (whole_passages(&path, &body), None)
+    };
+    let passages = whole.clone().unwrap_or_else(|| crate::meaning::passages(&body, &path));
+    let texts = passages.iter().map(|p| crate::meaning::shown_to_model(&path, p)).collect();
+    Prepared { id, path, streamed: false, texts, whole, starts }
+}
+
+/// The files of `rx` given their vectors, each written whole or not at all. `Some(true)` when
+/// stopped at `until`, `Some(false)` when stopped or the server is down, `None` when all are in.
+fn embed_round(
+    store: &Store,
+    engine: &crate::meaning::Engine,
+    rx: &std::sync::mpsc::Receiver<Prepared>,
+    stop: &AtomicBool,
+    until: Option<Instant>,
+) -> rusqlite::Result<Option<bool>> {
+    use crate::meaning::NoVectors;
+    let halted = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
+    let failed = |path: &str, e: String| {
+        store.note_error(Some(path), &e);
+        *store.meaning_error.lock().unwrap() = Some(e);
+    };
+    let refused = |id: i64| store.db.lock().unwrap().execute("UPDATE files SET embedded = 0 WHERE id = ?1", [id]);
+    let mut next = rx.recv().ok();
+    while next.is_some() {
         let (start, mut count) = (Instant::now(), 0);
-        for (id, path, body, everything) in files {
-            // Kept whole, longer than what is kept of most files: read line by line again and
-            // a passage for every part of it, a batch at a time, never held whole.
-            if everything && long_text(&path, &body) {
-                match embed_streamed(store, &engine, id, &path, stop)? {
-                    Streamed::Done(n) => count += n,
-                    Streamed::Stopped => return Ok(false),
-                    Streamed::Failed(NoVectors::Down(e)) => {
-                        store.note_error(Some(path.as_str()), &e);
-                        *store.meaning_error.lock().unwrap() = Some(e);
-                        return Ok(false);
+        let mut group: Vec<Prepared> = vec![];
+        let mut filled = 0;
+        while let Some(f) = next.take() {
+            if f.streamed {
+                if group.is_empty() {
+                    match embed_streamed(store, engine, f.id, &f.path, stop)? {
+                        Streamed::Done(n) => count += n,
+                        Streamed::Stopped => return Ok(Some(false)),
+                        Streamed::Failed(NoVectors::Down(e)) => {
+                            failed(&f.path, e);
+                            return Ok(Some(false));
+                        }
+                        Streamed::Failed(NoVectors::Refused(e)) => {
+                            failed(&f.path, e);
+                            refused(f.id)?;
+                        }
                     }
-                    Streamed::Failed(NoVectors::Refused(e)) => {
-                        store.note_error(Some(path.as_str()), &e);
-                        *store.meaning_error.lock().unwrap() = Some(e);
-                        store.db.lock().unwrap().execute("UPDATE files SET embedded = 0 WHERE id = ?1", [id])?;
-                    }
-                }
-                *store.meaning_error.lock().unwrap() = None;
-                continue;
-            }
-            // Kept whole: every passage, kept with the vectors when there are more than
-            // `meaning::passages` keeps (they are no longer what it cuts from the text), with
-            // where sections start for going back to *Sample*.
-            let (whole, starts) = if everything {
-                let (all, starts): (Vec<_>, Vec<_>) = crate::meaning::every_passage(&body, &path).into_iter().unzip();
-                if all.len() > crate::meaning::PASSAGES {
-                    (Some(all), Some(starts))
+                    *store.meaning_error.lock().unwrap() = None;
+                    next = rx.recv().ok();
                 } else {
-                    (None, None)
+                    // After the group before it.
+                    next = Some(f);
                 }
+                break;
+            }
+            if f.texts.is_empty() {
+                store.put_vectors(f.id, &[])?;
             } else {
-                (whole_passages(&path, &body), None)
-            };
-            let passages = whole.clone().unwrap_or_else(|| crate::meaning::passages(&body, &path));
-            let texts: Vec<String> = passages
-                .iter()
-                .map(|p| crate::meaning::shown_to_model(&path, p))
-                .collect();
-            count += texts.len();
-            if texts.is_empty() {
-                store.put_vectors(id, &[])?;
-                continue;
+                filled += f.texts.len();
+                group.push(f);
             }
-            // A server that does not answer: the file waits for the next scan, word search goes on.
-            let vectors = match engine.passages(&texts) {
-                Ok(v) => v,
+            next = rx.recv().ok();
+            if filled >= EMBED_FILL {
+                break;
+            }
+        }
+        count += filled;
+        if !group.is_empty() {
+            let texts: Vec<String> = group.iter().flat_map(|f| f.texts.iter().cloned()).collect();
+            // A server that does not answer: the files wait for the next scan, word search goes
+            // on. One that refuses the group is asked for each file of it alone, so a file it
+            // cannot take costs only itself.
+            let all = match engine.passages(&texts) {
+                Ok(v) if v.len() == texts.len() => Some(v),
+                Ok(_) | Err(NoVectors::Refused(_)) => None,
                 Err(NoVectors::Down(e)) => {
-                    store.note_error(Some(path.as_str()), &e);
-                    *store.meaning_error.lock().unwrap() = Some(e);
-                    return Ok(false);
-                }
-                Err(NoVectors::Refused(e)) => {
-                    store.note_error(Some(path.as_str()), &e);
-                    *store.meaning_error.lock().unwrap() = Some(e);
-                    store
-                        .db
-                        .lock()
-                        .unwrap()
-                        .execute("UPDATE files SET embedded = 0 WHERE id = ?1", [id])?;
-                    continue;
+                    failed(&group[0].path, e);
+                    return Ok(Some(false));
                 }
             };
-            *store.meaning_error.lock().unwrap() = None;
-            store.put_passages(
-                id,
-                &vectors
-                    .iter()
-                    .map(|v| crate::meaning::pack(v))
-                    .collect::<Vec<_>>(),
-                whole.as_deref(),
-                starts.as_deref(),
-            )?;
-            if stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed) {
-                return Ok(false);
+            let mut all = all.map(Vec::into_iter);
+            for f in &group {
+                let vectors = match &mut all {
+                    Some(all) => all.by_ref().take(f.texts.len()).collect(),
+                    None => match engine.passages(&f.texts) {
+                        Ok(v) => v,
+                        Err(NoVectors::Down(e)) => {
+                            failed(&f.path, e);
+                            return Ok(Some(false));
+                        }
+                        Err(NoVectors::Refused(e)) => {
+                            failed(&f.path, e);
+                            refused(f.id)?;
+                            continue;
+                        }
+                    },
+                };
+                *store.meaning_error.lock().unwrap() = None;
+                store.put_passages(
+                    f.id,
+                    &vectors.iter().map(|v| crate::meaning::pack(v)).collect::<Vec<_>>(),
+                    f.whole.as_deref(),
+                    f.starts.as_deref(),
+                )?;
+                if halted() {
+                    return Ok(Some(false));
+                }
             }
+        }
+        if halted() {
+            return Ok(Some(false));
         }
         // A passage's time with the rest after it (not a wait for the mains), for the time the
         // files still to go take: per passage, not per file, since the newest files go first
@@ -3053,9 +3165,10 @@ fn embed(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::
         store.ms_per_passage.store(ms, Ordering::Relaxed);
         store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('ms_per_passage', ?1)", [ms.to_string()])?;
         if until.is_some_and(|u| Instant::now() >= u) {
-            return Ok(true);
+            return Ok(Some(true));
         }
     }
+    Ok(None)
 }
 
 /// Where the roots are now: the ones to walk, and where the rows of those whose disk is not
@@ -5039,6 +5152,12 @@ mod tests {
                     .next()
                     .is_some_and(|l| l.contains("/embeddings "));
                 let reply = if openai { serde_json::json!({ "data": vectors.iter().map(|v| serde_json::json!({ "embedding": v })).collect::<Vec<_>>() }) } else { serde_json::json!({ "embeddings": vectors }) }.to_string();
+                // A text it cannot take: the whole request is refused, as a server does.
+                if v["input"].as_array().is_some_and(|a| a.iter().any(|t| t.as_str().is_some_and(|t| t.contains("REFUSE ME")))) {
+                    let reply = r#"{"error":"input refused"}"#;
+                    let _ = write!(c, "HTTP/1.1 400 Bad Request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}", reply.len());
+                    continue;
+                }
                 let _ = write!(
                     c,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}",
@@ -5047,6 +5166,96 @@ mod tests {
             }
         });
         url
+    }
+
+    #[test]
+    fn passages_of_many_files_go_to_the_model_together_and_come_back_to_each() {
+        let d = std::env::temp_dir().join(format!("coxswain-embed-batches-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        // Many short files of a passage or two, a few long ones, and one the server refuses
+        // in the middle of them.
+        for i in 0..150 {
+            let text = match i {
+                70 => "REFUSE ME ".repeat(30),
+                i if i % 25 == 0 => format!("long file {i} about apples and pears. ").repeat(400),
+                i => format!("note {i}: {} ", ["zebra", "quartz", "lemon", "harbour"][i % 4]).repeat(1 + i % 5),
+            };
+            std::fs::write(home.join(format!("doc-{i:03}.txt")), text).unwrap();
+        }
+        let cfg = SearchConfig {
+            text_roots: vec![home.clone()],
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        let store = Store::open(&d.join("search.db")).unwrap();
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.hurry.store(true, Ordering::Relaxed);
+        store.quiet.store(0, Ordering::Relaxed);
+        scan(&store, &cfg, &AtomicBool::new(false)).unwrap();
+        assert_eq!(store.meaning_counts(), (0, 149), "all but the refused one");
+        // Each file's vectors are the ones it gets alone, in its passages' order.
+        let engine = store.engine().unwrap();
+        let rows: Vec<(i64, String, String, Option<i64>)> = {
+            let db = store.db.lock().unwrap();
+            let mut q = db.prepare("SELECT f.id, f.path, coalesce(t.body, ''), f.embedded FROM files f LEFT JOIN text t ON t.rowid = f.id WHERE f.has_text = 1").unwrap();
+            q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect()
+        };
+        assert_eq!(rows.len(), 150);
+        let mut passages = 0;
+        for (id, path, body, embedded) in rows {
+            let texts: Vec<String> = crate::meaning::passages(&body, &path)
+                .iter()
+                .map(|p| crate::meaning::shown_to_model(&path, p))
+                .collect();
+            if path.ends_with("doc-070.txt") {
+                assert_eq!(embedded, Some(0), "refused alone");
+                continue;
+            }
+            let alone: Vec<Vec<u8>> = engine.passages(&texts).unwrap().iter().map(|v| crate::meaning::pack(v)).collect();
+            let kept: Vec<Vec<u8>> = {
+                let db = store.db.lock().unwrap();
+                let mut q = db.prepare("SELECT vector FROM chunks WHERE file = ?1 ORDER BY n").unwrap();
+                q.query_map([id], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+            };
+            assert!(kept == alone, "{path}");
+            passages += kept.len();
+        }
+        assert!(passages > 200, "{passages} passages");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Stopped with files still queued: the thread making their passages ends too, and only
+    /// whole files have vectors.
+    #[test]
+    fn a_stop_with_files_queued_ends_the_round() {
+        let d = std::env::temp_dir().join(format!("coxswain-embed-stop-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        for i in 0..40 {
+            std::fs::write(home.join(format!("doc-{i:02}.txt")), format!("zebra quartz {i} ").repeat(300)).unwrap();
+        }
+        let mut cfg = SearchConfig { text_roots: vec![home], history: false, ..SearchConfig::default() };
+        let store = Store::open(&d.join("search.db")).unwrap();
+        store.hurry.store(true, Ordering::Relaxed);
+        store.quiet.store(0, Ordering::Relaxed);
+        scan(&store, &cfg, &AtomicBool::new(false)).unwrap();
+        cfg.meaning = true;
+        cfg.meaning_engine = "ollama".into();
+        cfg.meaning_url = fake_embed_server();
+        cfg.meaning_model = "fake".into();
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        assert!(!embed(&store, &AtomicBool::new(true), None).unwrap());
+        let (waiting, done) = store.meaning_counts();
+        assert!(done > 0 && waiting + done == 40, "{waiting} waiting, {done} done");
+        let partial: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM files f WHERE embedded IS NULL AND EXISTS (SELECT 1 FROM chunks c WHERE c.file = f.id)", [], |r| r.get(0)).unwrap();
+        assert_eq!(partial, 0, "no file has a part of its vectors");
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     /// A search by meaning reads the text of the files it shows, not of every candidate.
