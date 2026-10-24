@@ -1032,7 +1032,8 @@ mod tests {
     fn tools_run_with_a_limit() {
         assert_eq!(which("no-such-program-coxswain"), None);
         assert!(this_app().is_ok());
-        if cfg!(unix) {
+        #[cfg(unix)]
+        {
             let sh = which("sh").unwrap();
             let args = |s: &str| {
                 [std::ffi::OsStr::new("-c"), std::ffi::OsStr::new(s)].map(|a| a.to_owned())
