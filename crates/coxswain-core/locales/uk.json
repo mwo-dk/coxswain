@@ -698,6 +698,8 @@
  "compare.folders_same": "Папки однакові",
  "compare.inline": "Один під одним",
  "compare.keys": "n p наступна, попередня зміна · v поруч чи ні · w пробіли · c регістр · > < копіювати зміну вправо, вліво · Ctrl+Z скасувати · F2 зберегти · Esc закрити",
+ "compare.keys_binary": "n p наступна, попередня зміна · Esc закрити",
+ "compare.keys_picture": "Esc закрити",
  "compare.keys_gui": "N наступна · P попередня · V поруч · Alt+→ Alt+← копіювати зміну · Ctrl+Z скасувати · F2 зберегти",
  "compare.mark_differences": "Позначити відмінності",
  "compare.marked": {

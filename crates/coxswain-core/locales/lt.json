@@ -676,6 +676,8 @@
  "compare.folders_same": "Aplankai vienodi",
  "compare.inline": "Vienas po kitu",
  "compare.keys": "n p kitas, ankstesnis pakeitimas · v šalia viena kito ar ne · w tarpai · c raidžių registras · > < kopijuoti pakeitimą į dešinę, kairę · Ctrl+Z atšaukti · F2 įrašyti · Esc uždaryti",
+ "compare.keys_binary": "n p kitas, ankstesnis pakeitimas · Esc uždaryti",
+ "compare.keys_picture": "Esc uždaryti",
  "compare.keys_gui": "N kitas · P ankstesnis · V šalia vienas kito · Alt+→ Alt+← kopijuoti pakeitimą · Ctrl+Z atšaukti · F2 įrašyti",
  "compare.mark_differences": "Pažymėti skirtumus",
  "compare.marked": {

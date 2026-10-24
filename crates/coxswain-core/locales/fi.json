@@ -654,6 +654,8 @@
  "compare.folders_same": "Kansiot ovat samanlaiset",
  "compare.inline": "Allekkain",
  "compare.keys": "n p seuraava, edellinen muutos · v rinnakkain tai ei · w välilyönnit · c isot ja pienet kirjaimet · > < kopioi muutos oikealle, vasemmalle · Ctrl+Z kumoa · F2 tallenna · Esc sulje",
+ "compare.keys_binary": "n p seuraava, edellinen muutos · Esc sulje",
+ "compare.keys_picture": "Esc sulje",
  "compare.keys_gui": "N seuraava · P edellinen · V rinnakkain · Alt+→ Alt+← kopioi muutos · Ctrl+Z kumoa · F2 tallenna",
  "compare.mark_differences": "Merkitse erot",
  "compare.marked": {

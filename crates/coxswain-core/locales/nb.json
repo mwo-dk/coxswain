@@ -654,6 +654,8 @@
  "compare.folders_same": "Mappene er like",
  "compare.inline": "Under hverandre",
  "compare.keys": "n p neste, forrige endring · v side ved side eller ikke · w mellomrom · c store/små bokstaver · > < kopier endringen til høyre, venstre · Ctrl+Z angre · F2 lagre · Esc lukk",
+ "compare.keys_binary": "n p neste, forrige endring · Esc lukk",
+ "compare.keys_picture": "Esc lukk",
  "compare.keys_gui": "N neste · P forrige · V side ved side · Alt+→ Alt+← kopier endringen · Ctrl+Z angre · F2 lagre",
  "compare.mark_differences": "Merk forskjellene",
  "compare.marked": {

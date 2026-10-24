@@ -632,6 +632,8 @@
  "compare.folders_same": "폴더가 같습니다",
  "compare.inline": "위아래로",
  "compare.keys": "n p 다음·이전 변경 · v 나란히 보기 전환 · w 공백 · c 대소문자 · > < 변경을 오른쪽·왼쪽으로 복사 · Ctrl+Z 실행 취소 · F2 저장 · Esc 닫기",
+ "compare.keys_binary": "n p 다음·이전 변경 · Esc 닫기",
+ "compare.keys_picture": "Esc 닫기",
  "compare.keys_gui": "N 다음 · P 이전 · V 나란히 · Alt+→ Alt+← 변경 복사 · Ctrl+Z 실행 취소 · F2 저장",
  "compare.mark_differences": "차이 표시",
  "compare.marked": {

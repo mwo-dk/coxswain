@@ -654,6 +654,8 @@
  "compare.folders_same": "საქაღალდეები ერთნაირია",
  "compare.inline": "ერთმანეთის ქვეშ",
  "compare.keys": "n p შემდეგი, წინა ცვლილება · v გვერდიგვერდ თუ არა · w ჰარები · c რეგისტრი · > < ცვლილების დაკოპირება მარჯვნივ, მარცხნივ · Ctrl+Z გაუქმება · F2 შენახვა · Esc დახურვა",
+ "compare.keys_binary": "n p შემდეგი, წინა ცვლილება · Esc დახურვა",
+ "compare.keys_picture": "Esc დახურვა",
  "compare.keys_gui": "N შემდეგი · P წინა · V გვერდიგვერდ · Alt+→ Alt+← ცვლილების დაკოპირება · Ctrl+Z გაუქმება · F2 შენახვა",
  "compare.mark_differences": "განსხვავებების მონიშვნა",
  "compare.marked": {

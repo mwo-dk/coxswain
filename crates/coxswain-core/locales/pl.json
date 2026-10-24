@@ -698,6 +698,8 @@
  "compare.folders_same": "Foldery są takie same",
  "compare.inline": "Jeden pod drugim",
  "compare.keys": "n p następna, poprzednia zmiana · v obok siebie lub nie · w spacje · c wielkość liter · > < kopiuj zmianę w prawo, w lewo · Ctrl+Z cofnij · F2 zapisz · Esc zamknij",
+ "compare.keys_binary": "n p następna, poprzednia zmiana · Esc zamknij",
+ "compare.keys_picture": "Esc zamknij",
  "compare.keys_gui": "N następna · P poprzednia · V obok siebie · Alt+→ Alt+← kopiuj zmianę · Ctrl+Z cofnij · F2 zapisz",
  "compare.mark_differences": "Zaznacz różnice",
  "compare.marked": {

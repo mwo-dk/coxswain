@@ -654,6 +654,8 @@
  "compare.folders_same": "Թղթապանակները նույնն են",
  "compare.inline": "Մեկը մյուսի տակ",
  "compare.keys": "n p հաջորդ, նախորդ փոփոխությունը · v կողք կողքի կամ ոչ · w բացատներ · c մեծատառեր · > < պատճենել փոփոխությունը աջ, ձախ · Ctrl+Z հետարկել · F2 պահպանել · Esc փակել",
+ "compare.keys_binary": "n p հաջորդ, նախորդ փոփոխությունը · Esc փակել",
+ "compare.keys_picture": "Esc փակել",
  "compare.keys_gui": "N հաջորդը · P նախորդը · V կողք կողքի · Alt+→ Alt+← պատճենել փոփոխությունը · Ctrl+Z հետարկել · F2 պահպանել",
  "compare.mark_differences": "Նշել տարբերությունները",
  "compare.marked": {

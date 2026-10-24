@@ -676,6 +676,8 @@
  "compare.folders_same": "התיקיות זהות",
  "compare.inline": "זה מתחת לזה",
  "compare.keys": "n p השינוי הבא, הקודם · v זה לצד זה או לא · w רווחים · c אותיות גדולות/קטנות · > < העתקת השינוי ימינה, שמאלה · Ctrl+Z ביטול · F2 שמירה · Esc סגירה",
+ "compare.keys_binary": "n p השינוי הבא, הקודם · Esc סגירה",
+ "compare.keys_picture": "Esc סגירה",
  "compare.keys_gui": "N הבא · P הקודם · V זה לצד זה · Alt+→ Alt+← העתקת השינוי · Ctrl+Z ביטול · F2 שמירה",
  "compare.mark_differences": "סימון ההבדלים",
  "compare.marked": {

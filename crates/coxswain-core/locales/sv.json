@@ -654,6 +654,8 @@
  "compare.folders_same": "Mapparna är likadana",
  "compare.inline": "Under varandra",
  "compare.keys": "n p nästa, föregående ändring · v sida vid sida eller inte · w blanksteg · c skiftläge · > < kopiera ändringen åt höger, vänster · Ctrl+Z ångra · F2 spara · Esc stäng",
+ "compare.keys_binary": "n p nästa, föregående ändring · Esc stäng",
+ "compare.keys_picture": "Esc stäng",
  "compare.keys_gui": "N nästa · P föregående · V sida vid sida · Alt+→ Alt+← kopiera ändringen · Ctrl+Z ångra · F2 spara",
  "compare.mark_differences": "Markera skillnaderna",
  "compare.marked": {
