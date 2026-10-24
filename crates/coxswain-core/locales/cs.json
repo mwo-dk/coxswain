@@ -4397,5 +4397,6 @@
  "sync.keys": "Enter plán · Space zaškrtne políčko · Esc zavřít",
  "sync.keys_plan": "Enter {go} · Space zaškrtne políčko · Esc zavřít",
  "undo.what.sync": "upravit {dir} podle {from}",
- "sync.moved_away": "Složka s nahrazeným nebo smazaným byla během běhu přesunuta, takže není v koši: {path}"
+ "sync.moved_away": "Složka s nahrazeným nebo smazaným byla během běhu přesunuta, takže není v koši: {path}",
+ "sync.no_mark": "Zkopírováno, ale značku stažení nebo jen pro čtení se nepodařilo přidat"
 }

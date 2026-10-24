@@ -4394,5 +4394,6 @@
  "sync.keys": "Enter plāns · Space atzīmē rūtiņu · Esc aizvērt",
  "sync.keys_plan": "Enter {go} · Space atzīmē rūtiņu · Esc aizvērt",
  "undo.what.sync": "padarīt {dir} kā {from}",
- "sync.moved_away": "Aizstātā vai dzēstā mape darbības laikā tika pārvietota, tāpēc tās nav atkritnē: {path}"
+ "sync.moved_away": "Aizstātā vai dzēstā mape darbības laikā tika pārvietota, tāpēc tās nav atkritnē: {path}",
+ "sync.no_mark": "Nokopēts, taču lejupielādes atzīmi vai tikai lasāmu nevarēja pievienot"
 }

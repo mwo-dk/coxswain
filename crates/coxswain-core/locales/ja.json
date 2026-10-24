@@ -4200,5 +4200,6 @@
  "sync.keys": "Enter 計画 · Space チェックを切替 · Esc 閉じる",
  "sync.keys_plan": "Enter {go} · Space チェックを切替 · Esc 閉じる",
  "undo.what.sync": "{dir} を {from} と同じにする",
- "sync.moved_away": "置き換えた物や削除した物のフォルダーが実行中に移動されたため、ごみ箱にはありません：{path}"
+ "sync.moved_away": "置き換えた物や削除した物のフォルダーが実行中に移動されたため、ごみ箱にはありません：{path}",
+ "sync.no_mark": "コピーしましたが、ダウンロードの印または読み取り専用を付けられませんでした"
 }

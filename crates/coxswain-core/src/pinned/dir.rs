@@ -225,8 +225,9 @@ impl Dir {
     /// A new file `name` here, with the bytes of `from` (as `was`): written beside under a name
     /// of its own (this user's alone, never one that is there, never through a link), given
     /// `was`'s permission bits (not set-user or set-group ID) and times, then linked in under
-    /// `name` only while nothing is there. Stopped half way, nothing is left. What it is now.
-    pub fn create_file(&self, name: &OsStr, from: &mut std::fs::File, was: &Stat, stop: &AtomicBool) -> std::io::Result<Stat> {
+    /// `name` only while nothing is there. Stopped half way, nothing is left. What it is now,
+    /// and that it got all `was` carries (as on Windows, where that may fall short).
+    pub fn create_file(&self, name: &OsStr, from: &mut std::fs::File, was: &Stat, stop: &AtomicBool) -> std::io::Result<(Stat, bool)> {
         let n = c(name)?;
         let tmp = temp_name(name);
         let dir = self.fd.as_raw_fd();
@@ -260,7 +261,7 @@ impl Dir {
         // SAFETY: the name beside, in the held folder: gone whether it was linked in or not.
         unsafe { libc::unlinkat(dir, tmp.as_ptr(), 0) };
         done?;
-        fstat(f.as_raw_fd())
+        Ok((fstat(f.as_raw_fd())?, true))
     }
 
     /// `tmp` here given the name `name` too, never over what is there: a hard link where the

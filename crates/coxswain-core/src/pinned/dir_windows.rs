@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
 use windows_sys::Wdk::Storage::FileSystem::{FILE_CREATE, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT, FileRenameInformation, NtCreateFile, NtSetInformationFile};
 use windows_sys::Win32::Foundation::{HANDLE, UNICODE_STRING};
-use windows_sys::Win32::Storage::FileSystem::{FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_RENAME_INFO, FileBasicInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, GetFileInformationByHandleEx, GetFinalPathNameByHandleW, SetFileInformationByHandle};
+use windows_sys::Win32::Storage::FileSystem::{FILE_BASIC_INFO, FILE_CASE_SENSITIVE_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_RENAME_INFO, FileBasicInfo, FileCaseSensitiveInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, GetFileInformationByHandleEx, GetFinalPathNameByHandleW, SetFileInformationByHandle};
 use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
 /// FILE_TRAVERSE: names in the folder can be opened through it.
@@ -219,6 +219,15 @@ impl Dir {
         stat_of(&self.h)
     }
 
+    /// Whether names here differ by case (the folder's case-sensitive flag, `fsutil file
+    /// setCaseSensitiveInfo`, as WSL sets it). Unknown: not.
+    pub fn case_sensitive(&self) -> bool {
+        let mut i = FILE_CASE_SENSITIVE_INFO { Flags: 0 };
+        // SAFETY: an open folder, `i` of the size given.
+        let ok = unsafe { GetFileInformationByHandleEx(raw(&self.h), FileCaseSensitiveInfo, std::ptr::from_mut(&mut i).cast(), std::mem::size_of::<FILE_CASE_SENSITIVE_INFO>() as u32) } != 0;
+        ok && i.Flags & 1 != 0
+    }
+
     /// The entry `name` here opened with `access`, never through a link: the reparse point itself.
     fn open(&self, name: &OsStr, access: u32, disposition: u32, options: u32, share: u32) -> std::io::Result<std::fs::File> {
         open_in(raw(&self.h), &wide(name)?, access, disposition, options, share)
@@ -336,8 +345,9 @@ impl Dir {
     /// of its own (made new, shared with no one, never through a link), given `was`'s times and
     /// hidden attribute, then renamed to `name` through its own handle, only while nothing is
     /// there, and made read-only after when `was` is. Stopped half way, nothing is left. What it
-    /// is now.
-    pub fn create_file(&self, name: &OsStr, from: &mut std::fs::File, was: &Stat, stop: &AtomicBool) -> std::io::Result<Stat> {
+    /// is now, and whether it got all `was` carries (false: in place without the mark of a
+    /// download or read-only).
+    pub fn create_file(&self, name: &OsStr, from: &mut std::fs::File, was: &Stat, stop: &AtomicBool) -> std::io::Result<(Stat, bool)> {
         let n = wide(name)?;
         let mut f = open_in(raw(&self.h), &temp_name(name), GENERIC_WRITE | READ_ATTRIBUTES | WRITE_ATTRIBUTES | DELETE, FILE_CREATE, FILE_NON_DIRECTORY_FILE, 0)?;
         let done = (|| {
@@ -375,27 +385,25 @@ impl Dir {
         };
         let made = stat_of(&f)?;
         if zone.is_none() && was.mode & READ_ONLY == 0 {
-            return Ok(made);
+            return Ok((made, true));
         }
         // The mark of a download and read-only come once it is in place: a stream cannot be
         // added while the file is shared with no one, nor a read-only file renamed. Through a
-        // handle of its own, only to the very file put there; written, it stays even should
-        // this fail.
+        // handle of its own, only to the very file put there, unchanged (the same change time,
+        // write time and size); written, it stays even should this fail, and that is said.
         drop(f);
-        let Ok(g) = open_in(raw(&self.h), &n, READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, FILE_NON_DIRECTORY_FILE, SHARE_ALL) else { return Ok(made) };
-        if !stat_of(&g).is_ok_and(|s| s.id.same_file(&made.id)) {
-            return Ok(made);
+        let Ok(g) = open_in(raw(&self.h), &n, READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, FILE_NON_DIRECTORY_FILE, SHARE_ALL) else { return Ok((made, false)) };
+        if !stat_of(&g).is_ok_and(|s| s.id == made.id && (s.size, s.modified) == (made.size, made.modified)) {
+            return Ok((made, false));
         }
-        if let Some(mark) = zone {
-            let _ = zone_stream(&g, true).and_then(|mut z| z.write_all(&mark));
-        }
+        let marked = zone.is_none_or(|mark| zone_stream(&g, true).and_then(|mut z| z.write_all(&mark)).is_ok());
         // The times again (a new stream moves them), and read-only.
         let attributes = match was.mode & (READ_ONLY | HIDDEN) {
             0 => NORMAL,
             a => a,
         };
-        let _ = set_basic(&g, attributes, filetime(was.accessed), filetime(was.modified));
-        Ok(stat_of(&g).unwrap_or(made))
+        let set = set_basic(&g, attributes, filetime(was.accessed), filetime(was.modified)).is_ok();
+        Ok((stat_of(&g).unwrap_or(made), marked && set))
     }
 
     /// A new, empty folder `name` here, held open: made here and nothing else (one that is there

@@ -4394,5 +4394,6 @@
  "sync.keys": "Enter planas · Space pažymi langelį · Esc uždaryti",
  "sync.keys_plan": "Enter {go} · Space pažymi langelį · Esc uždaryti",
  "undo.what.sync": "padaryti {dir} kaip {from}",
- "sync.moved_away": "Pakeisto ar ištrinto aplankas vykdymo metu buvo perkeltas, todėl jo nėra šiukšlinėje: {path}"
+ "sync.moved_away": "Pakeisto ar ištrinto aplankas vykdymo metu buvo perkeltas, todėl jo nėra šiukšlinėje: {path}",
+ "sync.no_mark": "Nukopijuota, bet atsisiuntimo žymės ar tik skaitymo nepavyko pridėti"
 }

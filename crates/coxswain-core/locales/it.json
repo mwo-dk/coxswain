@@ -4394,5 +4394,6 @@
  "sync.keys": "Enter piano · Space spunta la casella · Esc chiudi",
  "sync.keys_plan": "Enter {go} · Space spunta la casella · Esc chiudi",
  "undo.what.sync": "rendi {dir} come {from}",
- "sync.moved_away": "La cartella di ciò che è stato sostituito o eliminato è stata spostata durante l'esecuzione, quindi non è nel cestino: {path}"
+ "sync.moved_away": "La cartella di ciò che è stato sostituito o eliminato è stata spostata durante l'esecuzione, quindi non è nel cestino: {path}",
+ "sync.no_mark": "Copiato, ma non è stato possibile aggiungere il segno di download o la sola lettura"
 }

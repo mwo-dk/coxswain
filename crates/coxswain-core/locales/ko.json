@@ -4200,5 +4200,6 @@
  "sync.keys": "Enter 계획 · Space 체크 · Esc 닫기",
  "sync.keys_plan": "Enter {go} · Space 체크 · Esc 닫기",
  "undo.what.sync": "{dir}을(를) {from}과(와) 같게 만들기",
- "sync.moved_away": "바뀌거나 삭제된 항목의 폴더가 실행 중에 옮겨져 휴지통에 없습니다: {path}"
+ "sync.moved_away": "바뀌거나 삭제된 항목의 폴더가 실행 중에 옮겨져 휴지통에 없습니다: {path}",
+ "sync.no_mark": "복사했지만 다운로드 표시나 읽기 전용을 붙이지 못했습니다"
 }

@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plana · Space laukia markatzen du · Esc itxi",
  "sync.keys_plan": "Enter {go} · Space laukia markatzen du · Esc itxi",
  "undo.what.sync": "egin {dir} {from}(r)en berdin",
- "sync.moved_away": "Ordezkatutakoaren edo ezabatutakoaren karpeta martxan zegoela mugitu zen, beraz ez dago zakarrontzian: {path}"
+ "sync.moved_away": "Ordezkatutakoaren edo ezabatutakoaren karpeta martxan zegoela mugitu zen, beraz ez dago zakarrontzian: {path}",
+ "sync.no_mark": "Kopiatuta, baina ezin izan zaio deskargaren marka edo irakurtzeko soilik ezarri"
 }

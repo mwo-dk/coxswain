@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plan · Space vinkt het vakje aan · Esc sluiten",
  "sync.keys_plan": "Enter {go} · Space vinkt het vakje aan · Esc sluiten",
  "undo.what.sync": "{dir} gelijk maken aan {from}",
- "sync.moved_away": "De map met het vervangene of verwijderde is tijdens de uitvoering verplaatst, dus het staat niet in de prullenbak: {path}"
+ "sync.moved_away": "De map met het vervangene of verwijderde is tijdens de uitvoering verplaatst, dus het staat niet in de prullenbak: {path}",
+ "sync.no_mark": "Gekopieerd, maar de downloadmarkering of alleen-lezen kon niet worden toegevoegd"
 }

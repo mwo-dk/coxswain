@@ -4394,5 +4394,6 @@
  "sync.keys": "Enter plan · Space coche la case · Esc fermer",
  "sync.keys_plan": "Enter {go} · Space coche la case · Esc fermer",
  "undo.what.sync": "rendre {dir} comme {from}",
- "sync.moved_away": "Le dossier de ce qui a été remplacé ou supprimé a été déplacé pendant l'exécution, il n'est donc pas à la corbeille : {path}"
+ "sync.moved_away": "Le dossier de ce qui a été remplacé ou supprimé a été déplacé pendant l'exécution, il n'est donc pas à la corbeille : {path}",
+ "sync.no_mark": "Copié, mais la marque de téléchargement ou la lecture seule n'a pas pu être ajoutée"
 }
