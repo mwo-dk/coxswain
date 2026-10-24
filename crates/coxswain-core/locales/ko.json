@@ -3772,6 +3772,7 @@
  "split.size_bad": "250M이나 1.5G 같은 크기를 입력하세요",
  "split.taken": "{name}이(가) 이미 있습니다. 덮어쓰지 않습니다",
  "split.too_small": "파일({size})이 한 조각에 들어갑니다. 더 작은 크기를 고르세요",
+ "split.too_many": "{parts}개는 너무 많습니다 (최대 {most}개): 250M이나 1.5G처럼 더 큰 크기를 고르세요",
  "split.stopped": "중지됨. 만들다 만 것은 남기지 않았습니다",
  "split.not_first": "나눈 파일의 첫 조각이 아닙니다. name.001에 커서를 두세요",
  "split.no_file": "나눌 파일에 커서를 두세요",

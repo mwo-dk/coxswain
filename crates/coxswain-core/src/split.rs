@@ -108,7 +108,8 @@ pub fn split(file: &Path, size: u64, stop: &AtomicBool, mut at: impl FnMut(&Prog
     // A size typed without its unit ("1" for a byte): billions of parts, a list that would not
     // fit in memory and a folder of tiny files. More than this is no split anyone meant.
     if n > MOST_PARTS {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("split.size_bad")));
+        let (parts, most) = (crate::settings::count(n as usize), crate::settings::count(MOST_PARTS as usize));
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("split.too_many", "parts" => parts, "most" => most)));
     }
     let n = n as usize;
     let digits = n.to_string().len().max(3);
@@ -251,9 +252,17 @@ mod tests {
         assert!(join(&s.parts[0], true, &yes, |_| {}).is_err());
         assert_eq!(fs::read(&f).unwrap(), before);
         assert!(split(&g, 10 * MB, &no, |_| {}).is_err(), "it fits in one part");
-        // A byte a part (a size typed without its unit): refused before anything is written.
-        assert_eq!(split(&g, 1, &no, |_| {}).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        // A byte a part (a size typed without its unit): refused before anything is written, and
+        // said as too many parts, with the limit.
+        let e = split(&g, 1, &no, |_| {}).unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(e.to_string(), crate::t!("split.too_many", "parts" => crate::settings::count(2_500_000), "most" => crate::settings::count(100_000)));
         assert_eq!(fs::read_dir(&*d).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().starts_with("other")).count(), 1);
+        // A small file just over the limit is refused the same way.
+        let h = d.join("small.bin");
+        fs::write(&h, vec![7u8; 100_001]).unwrap();
+        assert_eq!(split(&h, 1, &no, |_| {}).unwrap_err().to_string(), crate::t!("split.too_many", "parts" => crate::settings::count(100_001), "most" => crate::settings::count(100_000)));
+        assert_eq!(fs::read_dir(&*d).unwrap().filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().starts_with("small")).count(), 1);
     }
 
     #[test]

@@ -3948,6 +3948,7 @@
  "split.size_bad": "Įveskite dydį, pvz., 250M ar 1.5G",
  "split.taken": "{name} jau yra: niekas neperrašoma",
  "split.too_small": "Failas ({size}) telpa į vieną dalį: pasirinkite mažesnį dydį",
+ "split.too_many": "{parts} dalių būtų per daug (daugiausia {most}): pasirinkite didesnį dydį, pvz., 250M arba 1.5G",
  "split.stopped": "Sustabdyta; nieko nebaigto neliko",
  "split.not_first": "Tai ne pirmoji padalyto failo dalis: užveskite žymeklį ant pavadinimas.001",
  "split.no_file": "Užveskite žymeklį ant failo, kurį dalysite",

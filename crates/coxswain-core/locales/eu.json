@@ -3860,6 +3860,7 @@
  "split.size_bad": "Idatzi tamaina bat, adibidez 250M edo 1.5G",
  "split.taken": "{name} badago jada: ez da ezer gainidazten",
  "split.too_small": "Fitxategia ({size}) zati batean sartzen da: aukeratu tamaina txikiago bat",
+ "split.too_many": "{parts} zati gehiegi lirateke (gehienez {most}): aukeratu tamaina handiagoa, adibidez 250M edo 1.5G",
  "split.stopped": "Geldituta; ez da ezer erdizka geratu",
  "split.not_first": "Ez da zatitutako fitxategi baten lehen zatia: jarri kurtsorea izena.001 gainean",
  "split.no_file": "Jarri kurtsorea zatitu beharreko fitxategi baten gainean",

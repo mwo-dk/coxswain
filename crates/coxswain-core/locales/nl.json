@@ -3860,6 +3860,7 @@
  "split.size_bad": "Typ een grootte zoals 250M of 1.5G",
  "split.taken": "{name} is er al: er wordt niets overschreven",
  "split.too_small": "Het bestand ({size}) past in één deel: kies een kleinere grootte",
+ "split.too_many": "{parts} delen zouden te veel zijn (hoogstens {most}): kies een grotere omvang, zoals 250M of 1.5G",
  "split.stopped": "Gestopt; er bleef niets half gemaakt achter",
  "split.not_first": "Niet het eerste deel van een gesplitst bestand: zet de cursor op naam.001",
  "split.no_file": "Zet de cursor op een bestand om te splitsen",

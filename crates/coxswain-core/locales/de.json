@@ -3860,6 +3860,7 @@
  "split.size_bad": "Geben Sie eine Größe wie 250M oder 1.5G ein",
  "split.taken": "{name} gibt es schon: nichts wird überschrieben",
  "split.too_small": "Die Datei ({size}) passt in einen Teil: wählen Sie eine kleinere Größe",
+ "split.too_many": "{parts} Teile wären zu viele (höchstens {most}): wähle eine größere Größe, etwa 250M oder 1.5G",
  "split.stopped": "Abgebrochen; nichts halb Fertiges blieb zurück",
  "split.not_first": "Nicht der erste Teil einer geteilten Datei: setzen Sie den Cursor auf name.001",
  "split.no_file": "Setzen Sie den Cursor auf eine Datei zum Teilen",

@@ -3948,6 +3948,7 @@
  "split.size_bad": "Ievadiet izmēru, piemēram, 250M vai 1.5G",
  "split.taken": "{name} jau ir: nekas netiek pārrakstīts",
  "split.too_small": "Fails ({size}) ietilpst vienā daļā: izvēlieties mazāku izmēru",
+ "split.too_many": "{parts} daļas būtu par daudz (ne vairāk kā {most}): izvēlieties lielāku izmēru, piemēram, 250M vai 1.5G",
  "split.stopped": "Apturēts; nekas nepabeigts netika atstāts",
  "split.not_first": "Tā nav sadalīta faila pirmā daļa: novietojiet kursoru uz nosaukums.001",
  "split.no_file": "Novietojiet kursoru uz sadalāmā faila",

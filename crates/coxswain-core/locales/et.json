@@ -3860,6 +3860,7 @@
  "split.size_bad": "Sisesta suurus, näiteks 250M või 1.5G",
  "split.taken": "{name} on juba olemas: midagi üle ei kirjutata",
  "split.too_small": "Fail ({size}) mahub ühte ossa: vali väiksem suurus",
+ "split.too_many": "{parts} osa oleks liiga palju (kõige rohkem {most}): vali suurem suurus, näiteks 250M või 1.5G",
  "split.stopped": "Peatatud; midagi poolikut ei jäänud",
  "split.not_first": "Pole jagatud faili esimene osa: vii kursor nimi.001 peale",
  "split.no_file": "Vii kursor jagatava faili peale",
