@@ -76,6 +76,8 @@ pub enum Row {
     Tick(bool, u64),
     /// Clear everything that can be built again, and the bytes that frees.
     ClearAll(u64),
+    /// A Subversion or CVS server said yes to: Delete forgets it.
+    Server(String),
     /// Preview tools: a kind of file, what is installed, its image, the choice. Enter takes
     /// the next choice, C copies the install line, P pulls the image, Delete removes it.
     PreviewTool(coxswain_core::preview_tools::Row),
@@ -101,6 +103,7 @@ impl Row {
             Row::Model(e) => format!("model:{}", e.id),
             Row::DeleteUnused(_) => "unused".into(),
             Row::Disk(i) => format!("disk:{}", i.id),
+            Row::Server(server) => format!("server:{server}"),
             Row::Tick(outside, _) => format!("tick:{outside}"),
             Row::ClearAll(_) => "clear_all".into(),
             Row::PreviewTool(r) => format!("ptool:{}", r.kind),
@@ -180,6 +183,8 @@ pub struct Settings {
     /// it asks every program and the container runtime.
     tools: Option<Vec<coxswain_core::preview_tools::Row>>,
     tools_rx: Option<mpsc::Receiver<(Vec<coxswain_core::preview_tools::Row>, Option<String>)>>,
+    /// The servers a Subversion or CVS history may be read from (`AppState::history_servers`).
+    servers: Vec<String>,
 }
 
 /// How to install a search tool that is missing, asked of the system once per tool: it looks
@@ -219,6 +224,7 @@ impl Settings {
             models: None,
             tools: None,
             tools_rx: None,
+            servers: st.history_servers.clone(),
         };
         s.go(app, section);
         s
@@ -390,6 +396,11 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
                 let to = if o.local { format!("{} ({})", o.to, t!("settings.privacy_local")) } else { o.to };
                 v.push(Row::Info(o.what.clone(), to, o.what));
             }
+            v.push(Row::Head(t!("settings.history_servers"), "history_servers"));
+            if s.servers.is_empty() {
+                v.push(Row::Info(t!("settings.history_servers_none"), String::new(), t!("settings.history_servers_hint")));
+            }
+            v.extend(s.servers.iter().cloned().map(Row::Server));
             // Disk use: Coxswain's own folder, the built-in models, then what it caused outside.
             use coxswain_core::disk::{self, Kind};
             v.push(Row::Head(t!("disk.title"), "disk"));
@@ -665,6 +676,16 @@ impl App {
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
                     Some(Row::Disk(i)) if i.bytes > 0 => s.mode = Mode::ConfirmClear(i.id.clone()),
                     Some(Row::Status(l)) if l.also == Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
+                    Some(Row::Server(server)) => {
+                        let mut st = coxswain_core::state::AppState::load();
+                        st.history_servers.retain(|x| x != server);
+                        coxswain_core::wc::allow(&st.history_servers);
+                        s.said = Some(match st.save() {
+                            Ok(()) => (t!("settings.history_server_forgotten", "server" => server), false),
+                            Err(e) => (e.to_string(), true),
+                        });
+                        s.servers = st.history_servers;
+                    }
                     _ => {}
                 },
                 (_, Some('c' | 'C')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
@@ -1315,6 +1336,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(vec![Span::styled(fit(&format!(" {mark} {}", p.text), w.saturating_sub(button.width())), colour), Span::styled(button, st)]));
                 }
                 Row::Model(e) => lines.push(pair(&format!(" {}", e.name), &e.line(), st)),
+                Row::Server(server) => lines.push(pair(&format!(" {server}"), &format!("[{}]", t!("settings.history_server_forget")), st)),
                 Row::DeleteUnused(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("models.delete_unused", "size" => cs::human(*n))), w), st))),
                 // The name, its size, what clearing costs: the cost is what tells the rows apart.
                 Row::Disk(i) => {
@@ -1497,6 +1519,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 text.push(Span::styled(format!("  {}", t!("models.keys_tui")), dim));
             }
             Some(Row::DeleteUnused(_)) => text.push(Span::raw(t!("models.hint"))),
+            Some(Row::Server(_)) => text.push(Span::raw(t!("settings.history_servers_hint"))),
             Some(Row::Disk(i)) => {
                 let at = i.paths.first().map(|p| format!(" · {}", p.display())).unwrap_or_default();
                 text.push(Span::raw(format!("{} {}: {}", i.what, t!("disk.cost_label"), i.cost)));
@@ -1533,6 +1556,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };

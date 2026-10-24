@@ -212,6 +212,15 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     if crate::vcs::HG_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
         all.push(Notice::new("hg-missing", t!("notice.hg_missing"), None));
     }
+    // A Subversion or CVS history was asked for, and its program is not installed.
+    for (flag, id, system, program) in [
+        (&crate::wc::SVN_MISSING, "svn-missing", "Subversion", "svn"),
+        (&crate::wc::CVS_MISSING, "cvs-missing", "CVS", "cvs"),
+    ] {
+        if flag.load(std::sync::atomic::Ordering::Relaxed) {
+            all.push(Notice::new(id, t!("notice.wc_tool_missing", "system" => system, "program" => program), None));
+        }
+    }
     // Home is on ZFS: its snapshots are a key away.
     if !seen("zfs") && crate::dirs::home_dir().is_some_and(|h| crate::zfs::dataset_of(&h).is_some()) {
         let key = cfg

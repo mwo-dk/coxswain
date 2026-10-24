@@ -650,10 +650,11 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(keys(&prompt.verb())).centered(), c);
         }
-        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } => {
+        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } => {
             let verb = match app.dialog.as_ref() {
                 Some(Dialog::Confirm { forever: false, .. }) => t!("app.move_to_trash"),
                 Some(Dialog::Confirm { .. }) => t!("common.delete"),
+                Some(Dialog::Server { .. }) => t!("history.ask_server_yes"),
                 _ => t!("verb.switch"),
             };
             let p = Paragraph::new(text.as_str()).centered().wrap(Wrap { trim: true });

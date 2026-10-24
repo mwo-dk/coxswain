@@ -5,8 +5,10 @@
 In a [CVS](https://www.nongnu.org/cvs/) working copy, Coxswain shows its status the way it shows
 git's: the line at the bottom of the pane names `cvs` and the branch or tag, and each changed
 file carries its glyph. It reads only the `CVS/Entries` files in each folder, so nothing is sent
-to the server and `cvs` need not be installed. History, update and commit stay with CVS:
-**Alt+G** opens a terminal in the folder for them. Both apps do this.
+to the server and `cvs` need not be installed for that. The history comes from the server, and
+only once you say yes to that server: **Ctrl+G** asks first, then lists the commits from
+`cvs log`. Update and commit stay with CVS: **Alt+G** opens a terminal in the folder for them.
+Both apps do this.
 
 ![The terminal app in Classic blue: the CVS working copy kite on the left with src marked modified and notes.txt unknown, the line cvs HEAD with its counts in the panel's bottom border; on the right the Subversion working copy balloon with svn r2 trunk](../screenshots/cvs-line.png)
 
@@ -14,7 +16,8 @@ to the server and `cvs` need not be installed. History, update and commit stay w
 
 - [What you see](#what-you-see)
 - [How a change is found](#how-a-change-is-found)
-- [History, update and commit](#history-update-and-commit)
+- [History from the server](#history-from-the-server)
+- [Branches, update and commit](#branches-update-and-commit)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
@@ -41,13 +44,43 @@ As CVS does, from `CVS/Entries` and `CVS/Entries.Log`:
 A file only touched counts as modified, as it does for CVS itself, until `cvs update` sets its
 time again.
 
-## History, update and commit
+## History from the server
 
-CVS keeps the history and the branches on its server, and Coxswain never contacts a server by
-itself. **Ctrl+G** and **Alt+B** say so on the status line: *CVS keeps its history and branches on
-the server, which Coxswain does not ask: Open in your git tool opens a terminal in the working copy
-for that.* **Alt+G** opens a terminal in the folder, where `cvs log`, `cvs update` and
-`cvs commit` run as usual.
+CVS keeps the history on its server, and Coxswain contacts a server only when you say so.
+**Ctrl+G** (*Git history*, also in the F9 command list and the Shift+F10 action menu) in a working
+copy first asks, once per server, as for [Subversion](subversion.md#history-from-the-server):
+*Read the history from the server?* naming the server (`pserver://cvs.example.org`,
+`ext://host`, or the folder of a repository on this machine). The desktop app shows a dialog
+(**Read the history** or **Cancel**), the terminal app a box (**Enter** or **Y** reads, **Esc** or
+**N** cancels).
+
+![The terminal app in Classic blue in ~/projects/kite, a CVS working copy, with the box Read the history from the server?: CVS keeps this history on its server, /home/demo/repos/cvsroot, and the key line Enter Read the history · Esc Cancel](../screenshots/tui-cvs-ask.png)
+
+With yes, Coxswain runs `cvs -f -d <root> log -N` in the folder (`-f`: your `~/.cvsrc` is not
+read; `-d`: the root of the folder asked about, for every folder below too, whatever their own
+`CVS/Root` says) and shows the result as a history:
+
+- CVS keeps a history per file. Revisions with the same commit id (CVS 1.12), or else the same
+  author and message within five minutes, are one entry: its date in *Modified*, its author in
+  *Last commit* (desktop app) or on the info line (terminal app), and the first line of its
+  message as its name. At most 2000 are listed.
+- **Which roots:** `:pserver:` and `:ext:` (through `CVS_RSH`, ssh by default) to a host name,
+  and a repository on this machine (`/path`, `:local:`, `:fork:`). Any other method, options
+  after the method (`:ext;CVS_RSH=…:`) or a user or host starting with `-` is never handed to
+  `cvs`. A password in `CVS/Root` is never shown; the question names the method and the host.
+- **Remembered** in the state file per server; **Settings → Privacy and updates → History from
+  servers** lists them, and **Forget** (desktop app) or **Delete** (terminal app) forgets one.
+- **Slow or gone:** a server that does not answer within 30 seconds is left, and the status line
+  says so. Without `cvs` installed, a notice says to install it.
+- Opening an entry says its files are on the server: the files at a commit are not read.
+
+![The terminal app's kite/@history after the yes: 931c59a Spar a little longer, f5ba70a Longer spar, red sail, e2921d6 Initial revision and 927fee3 Start the kite, newest first](../screenshots/tui-cvs-history.png)
+
+## Branches, update and commit
+
+**Alt+B** says on the status line: *CVS keeps its branches and old files on the server: Open in
+your git tool opens a terminal in the working copy for that.* **Alt+G** opens a terminal in the
+folder, where `cvs update` and `cvs commit` run as usual.
 
 ## In the terminal app
 
@@ -55,10 +88,17 @@ The same line and glyphs, in the panel's bottom border.
 
 ## Questions
 
-#### Why is there no history for a CVS working copy?
+#### How do I see the history of a CVS working copy?
 
-CVS keeps it on its server, and Coxswain never contacts a server by itself. **Alt+G** opens a
-terminal in the folder for `cvs log` and `cvs update`.
+**Ctrl+G** asks once whether Coxswain may read it from the server it names; with yes it runs
+`cvs log` there and groups the files' revisions into commits. Settings → Privacy and updates →
+History from servers forgets the answer.
+
+#### Why are some commits split in two?
+
+CVS records each file on its own. Coxswain joins revisions with the same commit id, or the same
+author and message within five minutes; a commit that took longer, or whose files carry different
+messages, shows as more than one entry.
 
 #### How does Coxswain know a file changed?
 

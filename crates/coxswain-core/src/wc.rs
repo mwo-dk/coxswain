@@ -1,7 +1,8 @@
 //! Subversion and CVS working copies, read from their own records only: `.svn/wc.db` (a
 //! SQLite database) and the `CVS/Entries` files. No server is asked and no program run, so a
-//! working copy of a server far away, or gone, shows at once. Only the status: history, update
-//! and commit are the server's, and go to a terminal (`handoff`).
+//! working copy of a server far away, or gone, shows at once. The history is the server's: it is
+//! read with `svn log` or `cvs log` only once the user has said yes to that server (`server`,
+//! `allow`), and nothing else is asked of it. Update and commit go to a terminal (`handoff`).
 
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -9,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use crate::branches::Branch;
 use crate::git::{FileStatus, Kind, Status};
-use crate::history::Commit;
+use crate::history::{At, Commit};
 use crate::vcs::Vcs;
 
 /// One file's status, counted, and its folders up to the root marked.
@@ -441,6 +442,245 @@ fn same_bytes(a: std::fs::File, b: std::fs::File, cap: u64) -> bool {
     }
 }
 
+/// The URL of the repository the working copy at `root` is from, as `wc.db` has it.
+fn svn_url(root: &Path) -> Option<String> {
+    let db = root.join(".svn/wc.db");
+    if !std::fs::symlink_metadata(&db).is_ok_and(|m| m.is_file()) {
+        return None;
+    }
+    let conn = svn_db(&db)?;
+    let mut q = conn.prepare("SELECT root FROM repository LIMIT 2").ok()?;
+    let roots: Vec<String> = q.query_map([], |r| r.get(0)).ok()?.flatten().collect();
+    match &roots[..] {
+        [one] => Some(one.clone()),
+        _ => None,
+    }
+}
+
+/// A host name as a server is named: letters, digits, `.`, `-`, `_`, never starting with `-`
+/// (an option to ssh), or an IPv6 address in brackets.
+fn host_ok(h: &str) -> bool {
+    let v6 = h.starts_with('[') && h.ends_with(']') && h.len() > 2 && h[1..h.len() - 1].bytes().all(|b| b.is_ascii_hexdigit() || b == b':');
+    v6 || (!h.is_empty()
+        && !h.starts_with('-')
+        && h.len() <= 253
+        && h.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_')))
+}
+
+/// The server of a Subversion repository URL, as the question names it: `https://host[:port]`
+/// (no user), or the whole `file://` URL for a repository on this machine. `None` for a URL
+/// Coxswain will not hand to svn: another scheme, or a host that is no host name.
+pub fn svn_server_of(url: &str) -> Option<String> {
+    let (scheme, rest) = url.split_once("://")?;
+    if url.chars().any(|c| c.is_control()) {
+        return None;
+    }
+    if scheme == "file" {
+        return Some(url.trim_end_matches('/').to_string());
+    }
+    if !matches!(scheme, "http" | "https" | "svn" | "svn+ssh") {
+        return None;
+    }
+    let auth = rest.split('/').next()?;
+    let hostport = auth.rsplit_once('@').map_or(auth, |(_, h)| h);
+    let (host, port) = match hostport.rsplit_once(':') {
+        Some((h, p)) if !h.ends_with(':') && !p.contains(']') => (h, Some(p)),
+        _ => (hostport, None),
+    };
+    if !host_ok(host) || port.is_some_and(|p| p.is_empty() || p.len() > 5 || !p.bytes().all(|b| b.is_ascii_digit())) {
+        return None;
+    }
+    Some(match port {
+        Some(p) => format!("{scheme}://{host}:{p}"),
+        None => format!("{scheme}://{host}"),
+    })
+}
+
+/// Servers said yes to (`AppState::history_servers`), as the apps hand them over.
+static ALLOWED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// The servers whose history may be read: the apps pass them at start and after each change.
+pub fn allow(servers: &[String]) {
+    *ALLOWED.lock().unwrap_or_else(|e| e.into_inner()) = servers.to_vec();
+}
+
+fn allowed(server: &str) -> bool {
+    ALLOWED.lock().unwrap_or_else(|e| e.into_inner()).iter().any(|s| s == server)
+}
+
+/// The server the history of the Subversion or CVS working copy `path` is in is read from,
+/// named as the question and Settings name it. `None` elsewhere, and for a working copy whose
+/// server Coxswain would not contact (a scheme or a host it does not take).
+pub fn server(path: &Path) -> Option<String> {
+    match crate::vcs::of(path).name() {
+        "svn" => svn_server_of(&svn_url(&svn_root(path)?)?),
+        "cvs" => cvs_root_of(&cvs_dir(path)?).map(|(id, _)| id),
+        _ => None,
+    }
+}
+
+/// The question asked before a Subversion or CVS history is read: the server, and the system
+/// and its program, as the question names them.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct Ask {
+    pub server: String,
+    pub system: &'static str,
+    pub program: &'static str,
+}
+
+impl Ask {
+    /// The question's text.
+    pub fn text(&self) -> String {
+        crate::t!("history.ask_server_text", "system" => self.system, "server" => &self.server, "program" => self.program)
+    }
+}
+
+/// The question is due before the history of `path` is opened: when it is a Subversion or CVS
+/// working copy whose server was not said yes to.
+pub fn ask_first(path: &Path) -> Option<Ask> {
+    let server = server(path).filter(|s| !allowed(s))?;
+    let (system, program) = match crate::vcs::of(path).name() {
+        "svn" => ("Subversion", "svn"),
+        _ => ("CVS", "cvs"),
+    };
+    Some(Ask { server, system, program })
+}
+
+/// Not said yes to: refused, naming the server.
+fn not_asked(server: &str) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::PermissionDenied,
+        crate::t!("vcs.server_not_asked", "server" => server),
+    )
+}
+
+/// Subversion or CVS is not installed: the notice is due.
+pub static SVN_MISSING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub static CVS_MISSING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn need(program: &str, system: &str, flag: &std::sync::atomic::AtomicBool) -> io::Result<()> {
+    if crate::user_menu::installed(program) {
+        return Ok(());
+    }
+    flag.store(true, std::sync::atomic::Ordering::Relaxed);
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        crate::t!("notice.wc_tool_missing", "system" => system, "program" => program),
+    ))
+}
+
+/// What a server read may print: more is cut.
+const SERVER_MAX: usize = 32 << 20;
+/// How long a server read may take.
+const SERVER_TIME: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// What `c` prints, at most `SERVER_MAX` bytes within `SERVER_TIME`, and whether it was cut.
+/// Its complaint is the error when it fails without printing.
+fn from_server(mut c: std::process::Command) -> io::Result<(Vec<u8>, bool)> {
+    use std::io::Read;
+    c.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        // Messages in English, dates as the tools write them by default.
+        .env("LC_ALL", "C");
+    let mut child = c.spawn()?;
+    let (mut out, mut err) = (child.stdout.take().ok_or_else(|| io::Error::other("no output"))?, child.stderr.take());
+    let errs = std::thread::spawn(move || {
+        let mut e = vec![];
+        if let Some(err) = err.as_mut() {
+            let _ = err.take(64 << 10).read_to_end(&mut e);
+        }
+        e
+    });
+    // Stopped when it takes too long: the read below then ends.
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        let late = rx.recv_timeout(SERVER_TIME) == Err(std::sync::mpsc::RecvTimeoutError::Timeout);
+        let _ = child.kill();
+        (late, child.wait())
+    });
+    let mut buf = vec![];
+    let _ = (&mut out).take(SERVER_MAX as u64 + 1).read_to_end(&mut buf);
+    let cut = buf.len() > SERVER_MAX;
+    buf.truncate(SERVER_MAX);
+    drop(out);
+    drop(tx);
+    let (late, status) = watch.join().map_err(|_| io::Error::other("watch"))?;
+    let status = status?;
+    let errs = errs.join().unwrap_or_default();
+    if late {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, crate::t!("vcs.server_slow")));
+    }
+    if !status.success() && !cut && buf.is_empty() {
+        let why = String::from_utf8_lossy(&errs).trim().lines().last().unwrap_or_default().to_string();
+        return Err(io::Error::other(if why.is_empty() { "failed".to_string() } else { why }));
+    }
+    Ok((buf, cut))
+}
+
+/// `svn log --xml` as commits, newest first: `r<revision>`, its time, author and first line.
+pub fn parse_svn_log(xml: &[u8]) -> Vec<Commit> {
+    use quick_xml::events::Event;
+    let xml = String::from_utf8_lossy(xml);
+    let mut r = quick_xml::Reader::from_str(&xml);
+    let (mut out, mut now, mut text) = (vec![], None::<Commit>, String::new());
+    loop {
+        match r.read_event() {
+            Ok(Event::Start(e)) => {
+                text.clear();
+                if e.local_name().as_ref() == "logentry" {
+                    let rev = e
+                        .attributes()
+                        .flatten()
+                        .find(|a| a.key.local_name().as_ref() == "revision")
+                        .and_then(|a| a.value.parse::<u64>().ok());
+                    now = rev.map(|rev| Commit { hash: format!("r{rev}"), ..Default::default() });
+                }
+            }
+            Ok(Event::Text(t)) => text.push_str(&t.xml_content(quick_xml::XmlVersion::Implicit1_0)),
+            Ok(Event::GeneralRef(g)) => match g.resolve_char_ref() {
+                Ok(Some(c)) => text.push(c),
+                _ => text.push_str(quick_xml::escape::resolve_xml_entity(&g).unwrap_or_default()),
+            },
+            Ok(Event::End(e)) => {
+                match (e.local_name().as_ref(), now.as_mut()) {
+                    ("author", Some(c)) => c.author = text.trim().to_string(),
+                    ("date", Some(c)) => {
+                        c.time = chrono::DateTime::parse_from_rfc3339(text.trim()).map_or(0, |d| d.timestamp().max(0) as u64)
+                    }
+                    ("msg", Some(c)) => c.subject = text.trim().lines().next().unwrap_or_default().to_string(),
+                    ("logentry", _) => out.extend(now.take()),
+                    _ => {}
+                }
+                text.clear();
+            }
+            // No DTD: svn never writes one, and refusing it rules out entity expansion.
+            Ok(Event::DocType(_)) | Ok(Event::Eof) | Err(_) => break,
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The history of `spec` (`.` or a name in `base`) from the Subversion server, once said yes to.
+fn svn_log(base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+    let root = svn_root(base).ok_or_else(|| on_server("Subversion"))?;
+    let server = svn_url(&root).and_then(|u| svn_server_of(&u)).ok_or_else(|| on_server("Subversion"))?;
+    if !allowed(&server) {
+        return Err(not_asked(&server));
+    }
+    need("svn", "Subversion", &SVN_MISSING)?;
+    let mut c = crate::tools::command("svn");
+    c.current_dir(base).args(["log", "--xml", "--non-interactive", "--limit", &(max + 1).to_string(), "--"]);
+    // A trailing `@`: a name with `@` in it is never taken for a revision.
+    c.arg(format!("{spec}@"));
+    let (out, cut) = from_server(c)?;
+    let mut commits = parse_svn_log(&out);
+    let more = cut || commits.len() > max;
+    commits.truncate(max);
+    Ok((commits, more))
+}
+
 pub(crate) struct Svn;
 
 impl Vcs for Svn {
@@ -450,9 +690,25 @@ impl Vcs for Svn {
     fn status(&self, dir: &Path) -> Option<Status> {
         svn_status(&svn_root(dir)?)
     }
-    fn log(&self, _: &Path, _: &str, _: usize) -> io::Result<(Vec<Commit>, bool)> {
+    fn log(&self, base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+        svn_log(base, spec, max)
+    }
+    fn show(&self, _: &Path, _: &str) -> io::Result<Commit> {
         Err(on_server("Subversion"))
     }
+    fn tree(&self, _: &Path, _: &str, _: &str) -> io::Result<Vec<(String, &'static str, u64)>> {
+        Err(on_server("Subversion"))
+    }
+    fn read(&self, _: &Path, _: &str, _: &str, _: usize) -> io::Result<(Vec<u8>, bool)> {
+        Err(on_server("Subversion"))
+    }
+    fn diff(&self, _: &Path, _: &str, _: &str) -> io::Result<Vec<u8>> {
+        Err(on_server("Subversion"))
+    }
+    fn export(&self, _: &At, _: &str, _: &Path) -> io::Result<()> {
+        Err(on_server("Subversion"))
+    }
+
     fn branches(&self, _: &Path) -> io::Result<Vec<Branch>> {
         Err(on_server("Subversion"))
     }
@@ -651,6 +907,155 @@ pub fn cvs_status(root: &Path) -> Option<Status> {
     Some(st)
 }
 
+/// The folder whose `CVS/Root` names the server for `path`: the folder itself, or the one a
+/// file is in.
+fn cvs_dir(path: &Path) -> Option<PathBuf> {
+    let has = |d: &Path| d.join("CVS/Root").is_file();
+    [path, path.parent()?].into_iter().find(|d| has(d)).map(Path::to_path_buf)
+}
+
+/// The server of the CVS working copy folder `dir`, from its `CVS/Root`: how the question
+/// names it (`pserver://host`, `ext://host:port`, or the folder of a repository on this
+/// machine), and the root to hand to `cvs -d`. `None` for a root Coxswain will not hand over:
+/// another method, options after the method (`:ext;CVS_RSH=…:`), or a host or user that is
+/// no name (one starting with `-` would be an option to ssh).
+pub fn cvs_root_of(dir: &Path) -> Option<(String, String)> {
+    let f = std::fs::File::open(dir.join("CVS/Root")).ok()?;
+    let mut line = String::new();
+    io::BufRead::read_line(&mut io::BufReader::new(io::Read::take(f, 4096)), &mut line).ok()?;
+    parse_cvs_root(line.trim_end_matches(['\n', '\r']))
+}
+
+/// `parse_cvs_root` of the text of a `CVS/Root`.
+pub fn parse_cvs_root(root: &str) -> Option<(String, String)> {
+    if root.is_empty() || root.chars().any(|c| c.is_control()) || root.contains(';') {
+        return None;
+    }
+    if root.starts_with('/') {
+        return Some((root.to_string(), root.to_string()));
+    }
+    let (method, rest) = match root.strip_prefix(':') {
+        Some(r) => r.split_once(':')?,
+        None => ("ext", root),
+    };
+    match method {
+        "local" | "fork" => return rest.starts_with('/').then(|| (rest.to_string(), root.to_string())),
+        "pserver" | "ext" => {}
+        _ => return None,
+    }
+    let slash = rest.find('/')?;
+    let (before, path) = (&rest[..slash], &rest[slash..]);
+    if path.len() < 2 {
+        return None;
+    }
+    let (user, hostport) = match before.rsplit_once('@') {
+        Some((u, h)) => (Some(u.split(':').next().unwrap_or_default()), h),
+        None => (None, before),
+    };
+    let hostport = hostport.trim_end_matches(':');
+    let (host, port) = match hostport.split_once(':') {
+        Some((h, p)) => (h, Some(p)),
+        None => (hostport, None),
+    };
+    let name_ok = |u: &str| !u.is_empty() && !u.starts_with('-') && u.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'));
+    if !host_ok(host) || host.starts_with('[') || user.is_some_and(|u| !name_ok(u)) || port.is_some_and(|p| p.is_empty() || p.len() > 5 || !p.bytes().all(|b| b.is_ascii_digit())) {
+        return None;
+    }
+    let id = match port {
+        Some(p) => format!("{method}://{host}:{p}"),
+        None => format!("{method}://{host}"),
+    };
+    Some((id, root.to_string()))
+}
+
+/// A CVS date: `2026/10/01 12:00:00` (CVS 1.11) or `2026-10-01 12:00:00 +0000` (1.12), in UTC.
+fn cvs_log_time(s: &str) -> Option<u64> {
+    let s = s.trim();
+    let fixed = chrono::DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S %z").map(|d| d.timestamp());
+    let t = fixed.or_else(|_| {
+        chrono::NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M:%S").map(|d| d.and_utc().timestamp())
+    });
+    t.ok().filter(|t| *t >= 0).map(|t| t as u64)
+}
+
+/// `cvs log` as commits, newest first. CVS keeps a history per file: revisions with the same
+/// commit id (CVS 1.12), or else the same author and message within five minutes, are one
+/// commit, named by that id or a hash of the three.
+pub fn parse_cvs_log(out: &str) -> Vec<Commit> {
+    // (time, author, message, commit id)
+    let mut revs: Vec<(u64, String, String, Option<String>)> = vec![];
+    let mut lines = out.lines().peekable();
+    while let Some(line) = lines.next() {
+        if !line.starts_with("revision ") {
+            continue;
+        }
+        let Some(date) = lines.next().filter(|l| l.starts_with("date: ")) else { continue };
+        let mut fields = HashMap::new();
+        for part in date.split(';') {
+            if let Some((k, v)) = part.trim().split_once(": ") {
+                fields.insert(k.trim().to_string(), v.trim().to_string());
+            }
+        }
+        let Some(time) = fields.get("date").and_then(|d| cvs_log_time(d)) else { continue };
+        let mut msg = vec![];
+        while let Some(l) = lines.peek() {
+            if *l == "----------------------------" || l.starts_with("=============") {
+                break;
+            }
+            let l = lines.next().unwrap_or_default();
+            if !l.starts_with("branches: ") || !msg.is_empty() {
+                msg.push(l);
+            }
+        }
+        let author = fields.remove("author").unwrap_or_default();
+        revs.push((time, author, msg.join("\n"), fields.remove("commitid")));
+    }
+    revs.sort_by(|a, b| b.0.cmp(&a.0));
+    // Each commit with its whole message, to tell commits apart.
+    let mut out: Vec<(Commit, String, Option<String>)> = vec![];
+    for (time, author, msg, id) in revs {
+        let same = out.iter().position(|(c, m, i)| match (&id, i) {
+            (Some(id), Some(i)) => id == i,
+            (None, None) => c.author == author && *m == msg && c.time.abs_diff(time) <= 300,
+            _ => false,
+        });
+        if same.is_some() {
+            continue;
+        }
+        let hash = id.clone().unwrap_or_else(|| {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            (time, &author, &msg).hash(&mut h);
+            format!("{:016x}", h.finish())
+        });
+        let subject = msg.lines().next().unwrap_or_default().to_string();
+        out.push((Commit { hash, time, author, subject, ..Default::default() }, msg, id));
+    }
+    out.into_iter().map(|(c, ..)| c).collect()
+}
+
+/// The history of `spec` (`.` or a name in `base`) from the CVS server, once said yes to.
+fn cvs_log(base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+    let dir = cvs_dir(&base.join(spec)).ok_or_else(|| on_server("CVS"))?;
+    let (server, root) = cvs_root_of(&dir).ok_or_else(|| on_server("CVS"))?;
+    if !allowed(&server) {
+        return Err(not_asked(&server));
+    }
+    need("cvs", "CVS", &CVS_MISSING)?;
+    let mut c = crate::tools::command("cvs");
+    // `-f`: no ~/.cvsrc; `-d`: the root asked about, for every folder below too, whatever their
+    // own `CVS/Root` says.
+    c.current_dir(base).args(["-f", "-q", "-d", &root, "log", "-N"]);
+    if spec != "." {
+        c.args(["--", spec]);
+    }
+    let (out, cut) = from_server(c)?;
+    let mut commits = parse_cvs_log(&String::from_utf8_lossy(&out));
+    let more = cut || commits.len() > max;
+    commits.truncate(max);
+    Ok((commits, more))
+}
+
 pub(crate) struct Cvs;
 
 impl Vcs for Cvs {
@@ -660,7 +1065,22 @@ impl Vcs for Cvs {
     fn status(&self, dir: &Path) -> Option<Status> {
         cvs_status(&cvs_root(dir)?)
     }
-    fn log(&self, _: &Path, _: &str, _: usize) -> io::Result<(Vec<Commit>, bool)> {
+    fn log(&self, base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
+        cvs_log(base, spec, max)
+    }
+    fn show(&self, _: &Path, _: &str) -> io::Result<Commit> {
+        Err(on_server("CVS"))
+    }
+    fn tree(&self, _: &Path, _: &str, _: &str) -> io::Result<Vec<(String, &'static str, u64)>> {
+        Err(on_server("CVS"))
+    }
+    fn read(&self, _: &Path, _: &str, _: &str, _: usize) -> io::Result<(Vec<u8>, bool)> {
+        Err(on_server("CVS"))
+    }
+    fn diff(&self, _: &Path, _: &str, _: &str) -> io::Result<Vec<u8>> {
+        Err(on_server("CVS"))
+    }
+    fn export(&self, _: &At, _: &str, _: &Path) -> io::Result<()> {
         Err(on_server("CVS"))
     }
     fn branches(&self, _: &Path) -> io::Result<Vec<Branch>> {
@@ -787,6 +1207,130 @@ mod tests {
         assert_eq!(k("build"), Some(Kind::Ignored));
         assert_eq!(st.prompt(&crate::config::Glyphs::ascii()), "svn: r2 trunk +1 ~1 -1 ?1");
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    fn allow_also(server: &str) {
+        ALLOWED.lock().unwrap_or_else(|e| e.into_inner()).push(server.to_string());
+    }
+
+    #[test]
+    fn wc_servers_are_named_and_hostile_ones_refused() {
+        assert_eq!(svn_server_of("https://ada@svn.example.org/repos/x").as_deref(), Some("https://svn.example.org"));
+        assert_eq!(svn_server_of("svn://svn.example.org:3690/x").as_deref(), Some("svn://svn.example.org:3690"));
+        assert_eq!(svn_server_of("svn+ssh://[::1]/x").as_deref(), Some("svn+ssh://[::1]"));
+        assert_eq!(svn_server_of("file:///srv/repo/").as_deref(), Some("file:///srv/repo"));
+        for bad in ["svn+ssh://-oProxyCommand=x/r", "svn+evil://host/r", "https://ho st/r", "https://h:99999999/r", "https://h\n/r", "nonsense"] {
+            assert_eq!(svn_server_of(bad), None, "{bad}");
+        }
+        let id = |r: &str| parse_cvs_root(r).map(|(id, _)| id);
+        assert_eq!(id(":pserver:anon@cvs.example.org:/cvsroot").as_deref(), Some("pserver://cvs.example.org"));
+        assert_eq!(id(":pserver:anon:secret@cvs.example.org:2401/cvsroot").as_deref(), Some("pserver://cvs.example.org:2401"));
+        assert_eq!(id(":ext:ada@cvs.example.org:/cvs").as_deref(), Some("ext://cvs.example.org"));
+        assert_eq!(id("ada@cvs.example.org:/cvs").as_deref(), Some("ext://cvs.example.org"));
+        assert_eq!(id("/var/cvs").as_deref(), Some("/var/cvs"));
+        assert_eq!(id(":local:/var/cvs").as_deref(), Some("/var/cvs"));
+        for bad in [":ext:-oProxyCommand=x:/cvs", ":ext:-l@host:/cvs", ":ext;CVS_RSH=sh:host:/cvs", ":gserver:host:/cvs", ":ext:host", ":fork:relative", ":ext:ho st:/cvs", ""] {
+            assert_eq!(parse_cvs_root(bad), None, "{bad}");
+        }
+    }
+
+    #[test]
+    fn wc_logs_are_read() {
+        let xml = br#"<?xml version="1.0" encoding="UTF-8"?>
+<log>
+<logentry revision="3"><author>ada</author><date>2026-10-01T12:00:00.123456Z</date><msg>Fix &amp; tidy &#x263A;
+more</msg></logentry>
+<logentry revision="2"><date>2026-09-30T08:00:00.000000Z</date><msg></msg></logentry>
+</log>"#;
+        let c = parse_svn_log(xml);
+        assert_eq!(c.len(), 2);
+        assert_eq!((c[0].hash.as_str(), c[0].author.as_str(), c[0].subject.as_str()), ("r3", "ada", "Fix & tidy \u{263A}"));
+        assert_eq!(c[0].time, 1_790_856_000);
+        assert_eq!((c[1].hash.as_str(), c[1].author.as_str()), ("r2", ""));
+        assert!(parse_svn_log(b"<!DOCTYPE x [<!ENTITY a \"b\">]><log/>").is_empty());
+        let log = "\nRCS file: /cvs/p/a.txt,v\nWorking file: a.txt\nhead: 1.2\n----------------------------\nrevision 1.2\ndate: 2026/10/01 12:00:05;  author: ada;  state: Exp;  lines: +1 -0;\nsecond\nwith more\n----------------------------\nrevision 1.1\ndate: 2026/09/30 08:00:00;  author: bob;  state: Exp;\nbranches:  1.1.2;\nfirst one\n=============================================================================\n\nRCS file: /cvs/p/b.txt,v\nWorking file: b.txt\n----------------------------\nrevision 1.2\ndate: 2026/10/01 12:00:00;  author: ada;  state: Exp;  lines: +1 -0;\nsecond\nwith more\n----------------------------\nrevision 1.1\ndate: 2026-09-29 10:00:00 +0000;  author: cy;  state: Exp;  commitid: 10065A1B2C3;\nthird\n=============================================================================\n";
+        let c = parse_cvs_log(log);
+        let subjects: Vec<&str> = c.iter().map(|c| c.subject.as_str()).collect();
+        assert_eq!(subjects, ["second", "first one", "third"], "{c:?}");
+        assert_eq!((c[0].time, c[0].author.as_str()), (1_790_856_005, "ada"));
+        assert_eq!(c[2].hash, "10065A1B2C3");
+    }
+
+    /// A real Subversion repository (`file://`) and a real CVS one (local): nothing is read
+    /// until the server was said yes to, then the history of the working copy and of a file
+    /// lists its commits, newest first; opening a commit says it is on the server.
+    #[test]
+    fn wc_history_from_the_server_once_allowed() {
+        if crate::user_menu::installed("svn") && crate::user_menu::installed("svnadmin") {
+            let d = top("svn-log");
+            let run = |dir: &Path, args: &[&str]| {
+                let ok = std::process::Command::new(args[0]).current_dir(dir).args(&args[1..]).env("HOME", &d)
+                    .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().unwrap();
+                assert!(ok.success(), "{args:?}");
+            };
+            run(&d, &["svnadmin", "create", "repo"]);
+            let url = format!("file://{}/repo", d.display());
+            run(&d, &["svn", "mkdir", "-q", "-m", "layout", &format!("{url}/trunk")]);
+            run(&d, &["svn", "checkout", "-q", &format!("{url}/trunk"), "wc"]);
+            let wc = d.join("wc");
+            std::fs::write(wc.join("a@b.txt"), "a\n").unwrap();
+            run(&wc, &["svn", "add", "-q", "a@b.txt@"]);
+            run(&wc, &["svn", "commit", "-q", "-m", "first one"]);
+            std::fs::write(wc.join("a@b.txt"), "a\nc\n").unwrap();
+            run(&wc, &["svn", "commit", "-q", "-m", "second\nmore"]);
+            run(&wc, &["svn", "update", "-q"]);
+            let server = server(&wc).expect("a server");
+            assert_eq!(server, url);
+            assert_eq!(ask_first(&wc.join("a@b.txt")).map(|a| (a.server, a.program)), Some((url.clone(), "svn")));
+            let e = Svn.log(&wc, ".", 10).unwrap_err();
+            assert_eq!(e.kind(), io::ErrorKind::PermissionDenied, "{e}");
+            allow_also(&server);
+            assert_eq!(ask_first(&wc), None);
+            let (all, more) = Svn.log(&wc, ".", 10).unwrap();
+            let names: Vec<&str> = all.iter().map(|c| c.hash.as_str()).collect();
+            assert_eq!((names, more), (vec!["r3", "r2", "r1"], false));
+            assert_eq!(all[0].subject, "second");
+            let (one, more) = Svn.log(&wc, "a@b.txt", 1).unwrap();
+            assert_eq!((one.len(), more), (1, true));
+            let at = crate::history::split(&wc.join("a@b.txt").join(crate::history::MARKER)).unwrap();
+            let list = crate::history::list(&at.target.join(crate::history::MARKER), &at).unwrap();
+            assert_eq!(list.len(), 3, "{list:?}");
+            assert!(list[1].name.contains("second"), "{list:?}");
+            assert!(Svn.tree(&wc, "r2", "").is_err());
+            std::fs::remove_dir_all(d).unwrap();
+        }
+        if crate::user_menu::installed("cvs") {
+            let d = top("cvs-log");
+            let root = d.join("cvsroot");
+            let run = |dir: &Path, args: &[&str]| {
+                let ok = std::process::Command::new(args[0]).current_dir(dir).args(&args[1..]).env("HOME", &d).env("CVSROOT", &root)
+                    .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().unwrap();
+                assert!(ok.success(), "{args:?}");
+            };
+            run(&d, &["cvs", "-f", "-q", "init"]);
+            std::fs::create_dir(d.join("import")).unwrap();
+            std::fs::write(d.join("import/a.txt"), "a\n").unwrap();
+            std::fs::write(d.join("import/b.txt"), "b\n").unwrap();
+            run(&d.join("import"), &["cvs", "-f", "-q", "import", "-m", "first one", "proj", "vendor", "start"]);
+            run(&d, &["cvs", "-f", "-q", "checkout", "proj"]);
+            let wc = d.join("proj");
+            // CVS sees a change by the file's time, in whole seconds.
+            std::thread::sleep(std::time::Duration::from_millis(1100));
+            std::fs::write(wc.join("a.txt"), "a\nc\n").unwrap();
+            std::fs::write(wc.join("b.txt"), "b\nc\n").unwrap();
+            run(&wc, &["cvs", "-f", "-q", "commit", "-m", "both changed"]);
+            let server = server(&wc).expect("a server");
+            assert_eq!(server, root.display().to_string());
+            assert_eq!(Cvs.log(&wc, ".", 10).unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+            allow_also(&server);
+            let (all, _) = Cvs.log(&wc, ".", 10).unwrap();
+            let subjects: Vec<&str> = all.iter().map(|c| c.subject.as_str()).collect();
+            assert_eq!(subjects[0], "both changed", "{all:?}");
+            assert!(subjects.contains(&"first one") || subjects.contains(&"Initial revision"), "{all:?}");
+            let (one, _) = Cvs.log(&wc, "a.txt", 10).unwrap();
+            assert_eq!(one[0].subject, "both changed");
+            std::fs::remove_dir_all(d).unwrap();
+        }
     }
 
     /// A hostile wc.db (an unpacked archive's): paths that climb out or are absolute are never

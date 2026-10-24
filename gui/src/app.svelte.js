@@ -408,7 +408,20 @@ export function openHistory(tb = tab(), scope = "branch") {
   if (tb.archive || tb.history) return void (ui.status = tr("history.not_here"));
   if (!tb.git) return void (ui.status = tr("history.no_repo"));
   const target = e && e.name !== ".." ? e.path : tb.dir;
-  return cd(tb, `${target.replace(/[\\/]$/, "")}${s}${HISTORY}${seg(scope)}`);
+  const go = () => cd(tb, `${target.replace(/[\\/]$/, "")}${s}${HISTORY}${seg(scope)}`);
+  // A Subversion or CVS history is on its server: asked once per server, before anything is sent.
+  return invoke("history_server", { path: target }).then((ask) => {
+    if (!ask) return go();
+    ui.modal = {
+      kind: "confirm",
+      feature: ask.program === "svn" ? "subversion" : "cvs",
+      title: tr("history.ask_server_title"),
+      text: tr("history.ask_server_text", { system: ask.system, server: ask.server, program: ask.program }),
+      ok: tr("history.ask_server_yes"),
+      safe: true,
+      run: () => invoke("history_allow", { server: ask.server }).then(go, (err) => (ui.status = String(err))),
+    };
+  }, go);
 }
 
 /** To the ZFS snapshots of the folder under the cursor (of the tab's folder on `..` or a file).
