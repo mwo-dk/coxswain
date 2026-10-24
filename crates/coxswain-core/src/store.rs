@@ -5754,6 +5754,10 @@ mod tests {
         let notes: String = (0..400).map(|i| format!("Chapter {i}. The crew checked the fuel, the valves and the pressure of tank {i} before the launch.\n\n")).collect::<String>().repeat(6);
         std::fs::write(home.join("notes.txt"), &notes).unwrap();
         std::fs::write(home.join("short.txt"), "a short note about the launch window and nothing more").unwrap();
+        // A Word file with more text than is kept: its passages come from all of it.
+        let paras: String = (0..80_000).map(|i| format!("<w:p><w:r><w:t>Report {i} of the mission control room, all systems nominal</w:t></w:r></w:p>")).collect();
+        let report = format!("<w:document xmlns:w=\"w\"><w:body>{paras}<w:p><w:r><w:t>the capsule splashed down near the lighthouse at dawn and the crew was well</w:t></w:r></w:p></w:body></w:document>");
+        crate::extract::tests::zip_file(&home.join("report.docx"), &[("word/document.xml", report.as_bytes())]);
         let sample = SearchConfig {
             text_roots: vec![home.clone()],
             meaning: true,
@@ -5772,7 +5776,7 @@ mod tests {
         let id = |name: &str| -> i64 {
             store.db.lock().unwrap().query_row("SELECT id FROM files WHERE path = ?1", [home.join(name).to_string_lossy()], |r| r.get(0)).unwrap()
         };
-        let (big, notes_id, short) = (id("big.log"), id("notes.txt"), id("short.txt"));
+        let (big, notes_id, short, docx) = (id("big.log"), id("notes.txt"), id("short.txt"), id("report.docx"));
         let vectors = |file: i64| -> Vec<Vec<u8>> {
             let db = store.db.lock().unwrap();
             let mut q = db.prepare("SELECT vector FROM chunks WHERE file = ?1 ORDER BY n").unwrap();
@@ -5784,14 +5788,17 @@ mod tests {
             std::fs::metadata(d.join("search.db")).unwrap().len()
         };
         let (big_sampled, notes_sampled, big_text) = (vectors(big), vectors(notes_id), body(big));
-        assert_eq!((big_sampled.len(), notes_sampled.len()), (crate::meaning::PASSAGES, crate::meaning::PASSAGES));
+        let docx_sampled = vectors(docx);
+        assert_eq!((big_sampled.len(), notes_sampled.len(), docx_sampled.len()), (crate::meaning::PASSAGES, crate::meaning::PASSAGES, crate::meaning::PASSAGES));
+        let kept: Vec<String> = store.db.lock().unwrap().prepare("SELECT passage FROM chunks WHERE file = ?1 AND passage IS NOT NULL ORDER BY n").unwrap().query_map([docx], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert!(kept.last().is_some_and(|p| p.contains("lighthouse")), "Sample: the Word file's passages reach its end");
         assert!(big_text.len() <= crate::extract::MAX_TEXT);
         assert_eq!(store.search("harbour", None, 10).total, 0, "Sample keeps the first 4 MB of text");
         let short_vectors = vectors(short);
 
         // The warning: the two long files, more passages and room, the log read again.
         let cost = store.long_files_cost(&crate::long_files::Rule::of(&everything)).unwrap();
-        assert_eq!((cost.files, cost.back), (2, 0), "{cost:?}");
+        assert_eq!((cost.files, cost.back), (3, 0), "{cost:?}");
         assert!(cost.passages > 5000 && cost.bytes > (1 << 20) && cost.read >= log.len() as u64, "{cost:?}");
         assert_eq!(store.long_files_cost(&crate::long_files::Rule::of(&sample)).unwrap(), crate::long_files::Cost::default(), "nothing changes");
         let small = size();
@@ -5799,6 +5806,8 @@ mod tests {
         scan(&store, &everything, &go).unwrap();
         let (big_all, notes_all) = (vectors(big), vectors(notes_id));
         assert!(big_all.len() > 5000 && notes_all.len() > crate::meaning::PASSAGES, "{} {}", big_all.len(), notes_all.len());
+        // Its first 4 MB of text would give about 5,800.
+        assert!(vectors(docx).len() >= 7900, "Everything: a passage for every part of the whole Word file: {}", vectors(docx).len());
         assert_eq!(store.search("harbour", None, 10).total, 1, "Everything keeps all the text");
         assert!(body(big).len() > crate::extract::MAX_TEXT);
         assert_eq!(vectors(short), short_vectors, "a short file stays as it was");
@@ -5813,13 +5822,14 @@ mod tests {
 
         // The cost of going back, then going back: nothing read or embedded again.
         let back = store.long_files_cost(&crate::long_files::Rule::of(&sample)).unwrap();
-        assert_eq!((back.files, back.back), (0, 2), "{back:?}");
+        assert_eq!((back.files, back.back), (0, 3), "{back:?}");
         assert!(back.freed > (1 << 20), "{back:?}");
         store.long_files_changed(&crate::long_files::Rule::of(&sample)).unwrap();
         assert_eq!(store.unread_count().unwrap(), 0, "nothing is read again");
         assert!(store.unembedded(8).unwrap().is_empty(), "no vectors are made again");
         assert_eq!(vectors(big), big_sampled, "the log's vectors are Sample's");
         assert_eq!(vectors(notes_id), notes_sampled, "the notes' vectors are Sample's");
+        assert_eq!(vectors(docx), docx_sampled, "the Word file's vectors are Sample's");
         assert_eq!(body(big), big_text, "the text is cut back as reading would cut it");
         assert_eq!(store.search("harbour", None, 10).total, 0);
         let mode: i64 = store.db.lock().unwrap().pragma_query_value(None, "auto_vacuum", |r| r.get(0)).unwrap();
