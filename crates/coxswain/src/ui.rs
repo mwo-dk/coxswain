@@ -155,6 +155,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::Bom(v)) => v.draw(f, &theme),
         Some(Dialog::Provenance(v)) => v.draw(f, &theme),
         Some(Dialog::GitConfig(v)) => v.draw(f, &theme),
+        Some(Dialog::Replace(v)) => v.draw(f, &theme),
         Some(Dialog::View { v, .. }) => v.draw(f, &theme),
         Some(Dialog::Edit { e, .. }) => e.draw(f, &theme),
         Some(Dialog::Compare(v)) => v.draw(f, &theme),
@@ -753,7 +754,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Compare(_) | Dialog::Chess(_) | Dialog::Go(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::Replace(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Compare(_) | Dialog::Chess(_) | Dialog::Go(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 
@@ -813,7 +814,11 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     }
     f.render_widget(Paragraph::new(Line::from(spans)), chips);
     f.render_widget(Paragraph::new(fit(&find::footer(&now), foot.width as usize)).style(dim), foot);
-    let keys_text = if answer { t!("find.keys_answer_tui") } else { t!("find.keys_tui", "scope" => scope_key) };
+    let keys_text = if answer {
+        t!("find.keys_answer_tui")
+    } else {
+        format!("{} · {}", t!("find.keys_tui", "scope" => scope_key), t!("replace.in_find", "key" => app.key_label(Action::Replace)))
+    };
     f.render_widget(Paragraph::new(fit(&keys_text, keys.width as usize)).centered(), keys);
 
     if show == crate::Show::Syntax {
@@ -1137,6 +1142,7 @@ fn help_text(app: &App, width: usize) -> Vec<Line<'static>> {
     v.push(Line::from(keys(t!("help.adoc_pdf"))));
     v.push(Line::from(keys(t!("help.drawio_export"))));
     v.push(Line::from(keys(t!("help.scan_viruses", "key" => key(Action::ScanViruses)))));
+    v.push(Line::from(keys(t!("help.replace", "key" => key(Action::Replace), "undo" => key(Action::Undo)))));
     v.push(Line::from(keys(t!("help.chess", "key" => key(Action::Chess), "view" => key(Action::View)))));
     v.push(Line::from(keys(t!("help.space", "key" => key(Action::SpaceView)))));
     v.push(Line::from(""));

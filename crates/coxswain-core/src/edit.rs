@@ -109,7 +109,7 @@ pub fn open(path: &Path) -> Result<Doc, String> {
 }
 
 /// Bytes as text in the encoding they are in; `None` when they are no text.
-fn decode(bytes: &[u8]) -> Option<(String, Encoding)> {
+pub(crate) fn decode(bytes: &[u8]) -> Option<(String, Encoding)> {
     let utf16 = |rest: &[u8], unit: fn([u8; 2]) -> u16| {
         if rest.len() % 2 == 1 {
             return None;

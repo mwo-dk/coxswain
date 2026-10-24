@@ -21,10 +21,11 @@ folder; **Ctrl+E** extracts it.*
 | [Move and rename (F6)](move-and-rename.md) | Moving, renaming in place (**Shift+F6**), moves across disks |
 | [New folder (F7)](new-folder.md) | Making a folder, or a whole path of folders at once |
 | [Delete: trash (F8) or for good (Shift+F8)](delete.md) | The trash, deleting for good, the question and how to skip it |
-| [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs and extracts; what is refused and why |
+| [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs, extracts and find-and-replaces; what is refused and why |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](clipboard.md) | Copy and cut through the system clipboard, shared with other file managers |
 | [Drag and drop](drag-and-drop.md) | Dragging files out to other applications (out of archives too), between panes, onto folders and in |
 | [Batch rename (Ctrl+M)](batch-rename.md) | Renaming many files with a regular expression and a counter, previewed |
+| [Find and replace across files (Alt+R)](find-and-replace.md) | Replacing text or a regular expression in many files, every change previewed first, undone in one step |
 | [Archives as folders](archives.md) | Opening zip, tar and 7z like folders; copying in, out and between; formats; why not RAR |
 | [Pack (Alt+F5) and extract (Ctrl+E)](pack-and-extract.md) | Making a new archive, and unpacking one into a folder of its own |
 | [Passwords for encrypted zip and 7z](archive-passwords.md) | The password question, and how long Coxswain keeps a password |
@@ -64,6 +65,7 @@ folder; **Ctrl+E** extracts it.*
 | **Ctrl+C**, **Ctrl+X**, **Ctrl+V** | yes | no | [Clipboard](clipboard.md) copy, cut, paste |
 | Drag with the mouse | yes | drops in only | [Drag and drop](drag-and-drop.md) |
 | **Ctrl+M** | yes | no | [Batch rename](batch-rename.md) |
+| **Alt+R** | yes | yes | [Find and replace](find-and-replace.md) across the marked files or Find's results |
 | **Alt+Enter** | yes | yes (shown, not changed) | [Properties and permissions](properties.md), with ZFS, package and file flags |
 | **Alt+Z** | yes | yes | [ZFS snapshots](zfs-snapshots.md) of the folder's dataset |
 | *F9 → File flags* | in Properties | yes | Your own [file flags](properties.md#zfs-packages-and-file-flags) (FreeBSD, macOS) |

@@ -297,4 +297,4 @@ cache folder and opened from there, read-only: copy it out with **F5** to change
 ([Limits](#limits)).
 
 ---
-[← Previous: Batch rename (Ctrl+M)](batch-rename.md) · [Next: Pack and extract →](pack-and-extract.md)
+[← Previous: Find and replace across files (Alt+R)](find-and-replace.md) · [Next: Pack and extract →](pack-and-extract.md)

@@ -109,4 +109,4 @@ On macOS and Windows the disk does not mind the case: `b.txt` and `B.txt` are on
 rename would write over it. On Linux they are two files, and it is no conflict.
 
 ---
-[← Previous: Drag and drop](drag-and-drop.md) · [Next: Archives as folders →](archives.md)
+[← Previous: Drag and drop](drag-and-drop.md) · [Next: Find and replace across files (Alt+R) →](find-and-replace.md)

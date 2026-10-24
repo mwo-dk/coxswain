@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -655,6 +655,7 @@
       ui.modal = { kind: "rename", dir: t.dir, names, pattern: "", replacement: "", ci: false, global: false, whole: false, plan: [], error: "" };
       dialogs.replan();
     },
+    replace: () => openReplace(),
     tag: async () => {
       const paths = await targets();
       if (paths.length) ui.modal = { kind: "tag", paths };

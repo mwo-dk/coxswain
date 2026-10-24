@@ -3,7 +3,7 @@
 # Undo (Ctrl+Z)
 
 **Ctrl+Z** undoes the last file operation: a copy, a move or rename, a batch rename, a new
-folder, a move to the trash, a pack or an extract. Press it again for the one before, up to 20
+folder, a move to the trash, a pack, an extract or a find and replace. Press it again for the one before, up to 20
 back. Both apps have it, with the same key.
 
 Before anything goes back, Coxswain checks that each file is still as the operation left it.
@@ -34,6 +34,7 @@ for good.
 | Move to the trash | **F8**, **Delete** | Takes the files out of the trash, back where they were | the trash can give them back (below), and nothing is at that place now |
 | Pack | **Alt+F5** | Moves the new archive to the trash | the archive is unchanged |
 | Extract | **Ctrl+E** | Moves the folder it made to the trash | the folder and everything in it are unchanged |
+| [Find and replace](find-and-replace.md) | **Alt+R** | Writes every file of the batch back as it was, from the copy kept aside | the file is unchanged since the replace |
 
 A stopped operation ([Stopping it](copy.md#stopping-it)) is undone as far as it went: the
 items copied, extracted or trashed before the Stop, a folder copied or extracted in part, and
