@@ -1484,8 +1484,17 @@
     gap: 4px 8px;
     align-items: center;
   }
+  /* The image's words wrap; Pull and Remove stay together at the end, never on a line alone. */
+  .ptool-image {
+    flex-wrap: nowrap;
+  }
   .ptool-image small {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow-wrap: anywhere;
+  }
+  .ptool-image button {
+    flex: none;
   }
   .ptool-use small {
     flex: 1 1 14em;
