@@ -82,6 +82,9 @@ struct Step {
     dst: Option<Stat>,
     /// When that is a folder: every entry in it, by its path under it, as the plan saw it.
     inside: Option<Inside>,
+    /// Its own name, where it differs from the source's in case only (Windows): what it is set
+    /// aside and put back as.
+    dst_name: Option<OsString>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -268,7 +271,7 @@ mod imp {
             rel.iter().fold(root.clone(), |p, n| p.join(n))
         }
 
-        fn push(&mut self, rel: Rel, act: Act, src: Option<Stat>, dst: Option<Stat>, inside: Option<Inside>) {
+        fn push(&mut self, rel: Rel, act: Act, src: Option<Stat>, dst: Option<Stat>, inside: Option<Inside>, dst_name: Option<OsString>) {
             if self.plan.total >= MOST {
                 if !self.full {
                     self.said.say(&self.path(1, &rel), t!("pinned.full", "n" => MOST));
@@ -291,7 +294,8 @@ mod imp {
                 let is_dir = shown_stat.kind == Kind::Dir || inside.is_some();
                 self.plan.rows.push(Row { path: shown(&rel), act, is_dir, size: shown_stat.size, older, inside: inside.as_ref().map(|i| i.len()) });
             }
-            self.steps.push(Step { rel, act, src, dst, inside });
+            let dst_name = dst_name.filter(|n| Some(n) != rel.last());
+            self.steps.push(Step { rel, act, src, dst, inside, dst_name });
         }
 
         fn busy(&self) -> bool {
@@ -320,9 +324,9 @@ mod imp {
             }
         }
 
-        /// A source entry to copy over (`dst`: what it replaces, in `d`), and all inside it when
-        /// a folder.
-        fn copy(&mut self, s: &Dir, d: Option<&Dir>, rel: Rel, a: Stat, dst: Option<Stat>) {
+        /// A source entry to copy over (`dst`: what it replaces, in `d`, and its own name), and
+        /// all inside it when a folder.
+        fn copy(&mut self, s: &Dir, d: Option<&Dir>, rel: Rel, a: Stat, dst: Option<(Stat, OsString)>) {
             match a.kind {
                 Kind::Other => return self.said.say(&self.path(0, &rel), t!("pinned.special")),
                 // Making a link needs a right of its own on Windows: links are left out there.
@@ -335,6 +339,7 @@ mod imp {
                 Kind::Dir if self.a_root(&a.id) => return self.said.say(&self.path(0, &rel), t!("sync.nested")),
                 _ => {}
             }
+            let (dst, dst_name) = dst.unzip();
             let inside = match (d, dst) {
                 (Some(d), Some(y)) => match self.inside(d, &rel, y) {
                     Ok(i) => i,
@@ -343,7 +348,7 @@ mod imp {
                 _ => None,
             };
             let act = if dst.is_some() { Act::Replace } else { Act::Copy };
-            self.push(rel.clone(), act, Some(a), dst, inside);
+            self.push(rel.clone(), act, Some(a), dst, inside, dst_name);
             if a.kind == Kind::Dir {
                 let name = rel.last().cloned().unwrap_or_default();
                 match s.sub(&name, a.id, false) {
@@ -361,12 +366,11 @@ mod imp {
             if rel.len() >= self.deepest {
                 return self.said.say(&self.path(0, &rel), t!("pinned.too_deep", "n" => self.deepest));
             }
-            // The run's own folder aside, at the top, is no one's entry.
-            let top = rel.is_empty();
+            let fold = folds(s, d);
             let list = |side: usize, dir: &Dir, me: &mut Self| match dir.names() {
                 Ok(n) => {
-                    let mut n = n.into_iter().filter(|n| !(top && n.to_string_lossy().starts_with(ASIDE))).collect::<Vec<_>>();
-                    n.sort_by(|x, y| by_name(x, y).then_with(|| x.cmp(y)));
+                    let mut n = n.into_iter().filter(|n| !ours(n)).collect::<Vec<_>>();
+                    n.sort_by(|x, y| by_name(fold, x, y).then_with(|| x.cmp(y)));
                     Some(n)
                 }
                 Err(e) => {
@@ -385,11 +389,12 @@ mod imp {
             let (mut i, mut j) = (0, 0);
             while (i < a.len() || j < b.len()) && !self.busy() {
                 let order = match (a.get(i), b.get(j)) {
-                    (Some(x), Some(y)) => by_name(x, y),
+                    (Some(x), Some(y)) => by_name(fold, x, y),
                     (Some(_), None) => std::cmp::Ordering::Less,
                     _ => std::cmp::Ordering::Greater,
                 };
                 let name = if order == std::cmp::Ordering::Greater { b[j].clone() } else { a[i].clone() };
+                let dst_name = (order != std::cmp::Ordering::Less).then(|| b[j].clone());
                 let mut sub = rel.clone();
                 sub.push(name.clone());
                 self.progress.files.fetch_add(1, Ordering::Relaxed);
@@ -422,20 +427,20 @@ mod imp {
                             self.said.say(&self.path(1, &sub), t!("pinned.other_disk"));
                         } else if self.delete {
                             if let Ok(inside) = self.inside(d.expect("listed"), &sub, y) {
-                                self.push(sub, Act::Delete, None, Some(y), inside);
+                                self.push(sub, Act::Delete, None, Some(y), inside, None);
                             }
                         } else {
                             self.plan.extra += 1;
                         }
                     }
-                    (Some(x), Some(y)) => self.both(s, d.expect("listed"), sub, x, y),
+                    (Some(x), Some(y)) => self.both(s, d.expect("listed"), sub, x, (y, dst_name.expect("on both"))),
                     (None, None) => {}
                 }
             }
         }
 
         /// An entry on both sides.
-        fn both(&mut self, s: &Dir, d: &Dir, rel: Rel, x: Stat, y: Stat) {
+        fn both(&mut self, s: &Dir, d: &Dir, rel: Rel, x: Stat, (y, dst_name): (Stat, OsString)) {
             let name = rel.last().cloned().unwrap_or_default();
             if x.kind == Kind::Other {
                 return self.said.say(&self.path(0, &rel), t!("pinned.special"));
@@ -481,20 +486,46 @@ mod imp {
                 _ => false,
             };
             if !alike {
-                self.copy(s, Some(d), rel, x, Some(y));
+                self.copy(s, Some(d), rel, x, Some((y, dst_name)));
             }
         }
     }
 
-    /// How two names pair up and sort: as they are; on Windows, whose file systems take a name
-    /// whatever its case, by their lower-case text, so `README` on one side and `Readme` on the
-    /// other are one entry (replaced, the copy taking the source's name) rather than a copy that
-    /// finds its name taken and a deletion.
-    fn by_name(a: &OsStr, b: &OsStr) -> std::cmp::Ordering {
+    /// Whether names pair up whatever their case: on Windows, unless either folder is marked
+    /// case-sensitive (where `README` and `Readme` are two entries).
+    fn folds(s: &Dir, d: Option<&Dir>) -> bool {
         #[cfg(windows)]
-        return a.to_string_lossy().to_lowercase().cmp(&b.to_string_lossy().to_lowercase());
+        return !s.case_sensitive() && !d.is_some_and(Dir::case_sensitive);
         #[cfg(not(windows))]
+        {
+            let _ = (s, d);
+            false
+        }
+    }
+
+    /// How two names pair up and sort: as they are; with `fold` (Windows), whose file systems
+    /// take a name whatever its case, as Windows compares them (ordinal, case ignored), so
+    /// `README` on one side and `Readme` on the other are one entry (replaced, the copy taking
+    /// the source's name) rather than a copy that finds its name taken and a deletion.
+    fn by_name(fold: bool, a: &OsStr, b: &OsStr) -> std::cmp::Ordering {
+        #[cfg(windows)]
+        if fold {
+            use std::os::windows::ffi::OsStrExt;
+            let (x, y): (Vec<u16>, Vec<u16>) = (a.encode_wide().collect(), b.encode_wide().collect());
+            // SAFETY: two buffers of the lengths given. CSTR_LESS_THAN 1, CSTR_EQUAL 2,
+            // CSTR_GREATER_THAN 3; 0 on failure, never for names this short.
+            let r = unsafe { windows_sys::Win32::Globalization::CompareStringOrdinal(x.as_ptr(), x.len() as i32, y.as_ptr(), y.len() as i32, 1) };
+            return (r - 2).cmp(&0);
+        }
+        let _ = fold;
         a.cmp(b)
+    }
+
+    /// The run's own entries, never compared nor copied: a folder aside (`.coxswain-sync-…`),
+    /// at any depth, and a file being written that could not be removed (`.name.coxswain-….tmp`).
+    fn ours(n: &OsStr) -> bool {
+        let n = n.to_string_lossy();
+        n.starts_with(ASIDE) || (n.starts_with('.') && n.contains(".coxswain-") && n.ends_with(".tmp"))
     }
 
     /// Every entry in the folder `d`, by its path under it, through folder handles, never
@@ -731,22 +762,26 @@ mod imp {
             let dd = dst.top();
             // Then what is there goes aside: a folder only with nothing in it changed since.
             let mut kept = None;
+            // The target's entry by its own name (it may differ in case), and where it is put back.
+            let there = step.dst_name.as_ref().unwrap_or(name);
+            let mut back = step.rel.clone();
+            *back.last_mut().expect("a name") = there.clone();
             if let (Some(was), Some(a)) = (step.dst, aside.as_ref()) {
-                let k_name = kept_name(k, name);
+                let k_name = kept_name(k, there);
                 let unchanged = match &step.inside {
                     None => Ok(()),
                     Some(inside) => dd
-                        .sub(name, was.id, false)
+                        .sub(there, was.id, false)
                         .and_then(|sub| tree(&sub, was.id.dev, usize::MAX, stop))
                         .and_then(|now| if now == **inside { Ok(()) } else { Err(crate::pinned::changed()) }),
                 };
-                if let Err(e) = unchanged.and_then(|()| dd.move_to(name, was.id, a, &k_name)) {
+                if let Err(e) = unchanged.and_then(|()| dd.move_to(there, was.id, a, &k_name)) {
                     failed.push(format!("{}: {e}", at(to).display()));
                     dst.lost(&step.rel);
                     continue;
                 }
                 if step.act == Act::Delete {
-                    undo.kept.push((step.rel.clone(), k_name, was));
+                    undo.kept.push((back, k_name, was));
                     deleted += 1;
                     continue;
                 }
@@ -754,7 +789,12 @@ mod imp {
             }
             let Some((was, source)) = source else { continue };
             let made = match source {
-                From::File(mut f) => dd.create_file(name, &mut f, &was, stop).map(|m| (m, None)),
+                From::File(mut f) => dd.create_file(name, &mut f, &was, stop).map(|(m, whole)| {
+                    if !whole {
+                        failed.push(format!("{}: {}", at(to).display(), t!("sync.no_mark")));
+                    }
+                    (m, None)
+                }),
                 From::Link(l) => dd.make_link(name, &l).map(|m| (m, None)),
                 From::Dir => dd.make_dir(name).and_then(|nd| Ok((nd.stat()?, Some(nd)))),
             };
@@ -762,7 +802,7 @@ mod imp {
                 Ok((m, nd)) => {
                     undo.made.push((step.rel.clone(), m));
                     if let Some(k) = kept {
-                        undo.kept.push((step.rel.clone(), k.0, k.1));
+                        undo.kept.push((back, k.0, k.1));
                     }
                     if let Some(nd) = nd {
                         made_dirs.insert(step.rel.clone(), m.id);
@@ -774,10 +814,10 @@ mod imp {
                 Err(e) => {
                     // A replace that could not be made: what was there comes back at once.
                     if let (Some((k_name, old)), Some(a)) = (kept, aside.as_ref())
-                        && let Err(back) = a.move_back(&k_name, old.id, dd, name)
+                        && let Err(e) = a.move_back(&k_name, old.id, dd, there)
                     {
-                        undo.kept.push((step.rel.clone(), k_name, old));
-                        failed.push(format!("{}: {back}", at(to).display()));
+                        undo.kept.push((back, k_name, old));
+                        failed.push(format!("{}: {e}", at(to).display()));
                     }
                     let stopped = stop.load(Ordering::Relaxed) && e.kind() == std::io::ErrorKind::Interrupted;
                     if !stopped || step.act == Act::Replace {
@@ -1245,10 +1285,70 @@ mod tests {
         assert!(names.contains(&"Readme.txt".to_string()) && names.contains(&"src".to_string()), "{names:?}");
         assert_eq!(fs::read_to_string(r.join("Readme.txt")).unwrap(), "new text");
         assert_eq!(fs::read_to_string(r.join("src/a")).unwrap(), "a");
+        // Set aside under its own name, and put back as it was named.
+        let aside = fs::read_dir(&r).unwrap().map(|e| e.unwrap().path()).find(|p| p.file_name().unwrap().to_string_lossy().starts_with(ASIDE)).unwrap();
+        let kept: Vec<_> = fs::read_dir(&aside).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+        assert!(kept.iter().all(|k| k.ends_with("README.TXT")), "{kept:?}");
         let u = done.record.undo(|_| {});
         assert!(u.refused.is_empty(), "{:?}", u.refused);
         assert_eq!(fs::read_to_string(r.join("README.TXT")).unwrap(), "old");
+        let names: Vec<_> = fs::read_dir(&r).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+        assert!(names.contains(&"README.TXT".to_string()), "{names:?}");
         assert!(!r.join("src/a").exists());
+    }
+
+    /// Names pair up as the file system takes them, case aside: where it takes two names for
+    /// one (Greek final sigma, title case), so does the plan, and the other way round.
+    #[cfg(windows)]
+    #[test]
+    fn names_pair_up_as_windows_compares_them() {
+        let (_d, l, r) = pair("sync-case-fold");
+        let pairs = [("a\u{3c2}", "a\u{3c3}"), ("\u{1c5}", "\u{1c6}"), ("x\u{df}", "x\u{1e9e}"), ("\u{130}", "i"), ("caf\u{e9}", "CAF\u{c9}")];
+        let mut same = 0;
+        for (a, b) in pairs {
+            fs::write(r.join(b), "old").unwrap();
+            old(&r.join(b));
+            same += usize::from(r.join(a).exists());
+            fs::write(l.join(a), "new").unwrap();
+        }
+        assert!(same >= 1, "the plain accent pair is one name");
+        let p = plan_of(&l, &r, false);
+        assert_eq!((p.replaces, p.copies, p.extra), (same, pairs.len() - same, pairs.len() - same), "{:?}", p.rows);
+    }
+
+    /// In a folder marked case-sensitive (as WSL makes them) two names that differ in case are
+    /// two entries.
+    #[cfg(windows)]
+    #[test]
+    fn a_case_sensitive_folder_pairs_names_as_they_are() {
+        let (_d, l, r) = pair("sync-case-sensitive");
+        let on = std::process::Command::new("fsutil").args(["file", "setCaseSensitiveInfo"]).arg(&r).arg("enable").output();
+        if !on.is_ok_and(|o| o.status.success()) {
+            eprintln!("fsutil cannot mark a folder case-sensitive here: not tested");
+            return;
+        }
+        fs::write(l.join("Readme.txt"), "new").unwrap();
+        fs::write(r.join("README.TXT"), "old").unwrap();
+        let p = plan_of(&l, &r, true);
+        assert_eq!((p.copies, p.replaces, p.deletes), (1, 0, 1), "{:?}", p.rows);
+        let done = run(&p);
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        assert_eq!(fs::read_to_string(r.join("Readme.txt")).unwrap(), "new");
+        assert!(!r.join("README.TXT").exists());
+    }
+
+    /// What a run leaves of its own (a folder aside, a file half written it could not remove)
+    /// is never compared, copied nor deleted, at any depth.
+    #[test]
+    fn the_runs_own_leftovers_are_left_alone_at_any_depth() {
+        let (_d, l, r) = pair("sync-leftovers");
+        fs::create_dir_all(l.join("sub")).unwrap();
+        fs::create_dir_all(r.join(format!("sub/{ASIDE}20261024-1-2"))).unwrap();
+        fs::write(r.join(format!("sub/{ASIDE}20261024-1-2/0-f")), "x").unwrap();
+        fs::write(r.join("sub/.f.coxswain-1-2-3.tmp"), "half").unwrap();
+        fs::write(l.join(".g.coxswain-4-5-6.tmp"), "half").unwrap();
+        let p = plan_of(&l, &r, true);
+        assert_eq!(p.total, 0, "{:?}", p.rows);
     }
 
     /// On Windows a copy keeps the mark of a download, and another name of a file (a hard link,

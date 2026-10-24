@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plan · Space huker av · Esc lukk",
  "sync.keys_plan": "Enter {go} · Space huker av · Esc lukk",
  "undo.what.sync": "gjør {dir} lik {from}",
- "sync.moved_away": "Mappen med det som ble erstattet eller slettet ble flyttet bort under kjøringen, så den ligger ikke i papirkurven: {path}"
+ "sync.moved_away": "Mappen med det som ble erstattet eller slettet ble flyttet bort under kjøringen, så den ligger ikke i papirkurven: {path}",
+ "sync.no_mark": "Kopiert, men merket for en nedlasting eller skrivebeskyttelse kunne ikke settes"
 }

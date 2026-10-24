@@ -52,12 +52,12 @@ pub fn deepest() -> usize {
 /// The lines of what was left out kept at most; the rest are counted.
 pub const SAID: usize = 1_000;
 
-/// Which entry, as it was: device and inode (on Windows volume serial and file index), and when
+/// Which entry, as it was: device and inode (on Windows volume serial and 128-bit file ID), and when
 /// its entry last changed (ctime; on Windows the change time), to the nanosecond.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Id {
     pub dev: u64,
-    pub ino: u64,
+    pub ino: u128,
     pub ctime: (i64, u32),
 }
 
@@ -99,7 +99,7 @@ pub struct Stat {
 /// Where a change was made, for undo: the folder (device and inode) and the file as written.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pin {
-    pub dir: (u64, u64),
+    pub dir: (u64, u128),
     pub file: Id,
     /// For a file written anew, its content (BLAKE3): undo then asks for the same file (device
     /// and inode) with that very content, not for its ctime, which some file systems move by
@@ -330,7 +330,7 @@ mod imp {
     /// A folder held open, and what it is.
     pub struct Held {
         fd: OwnedFd,
-        id: (u64, u64),
+        id: (u64, u128),
     }
 
     /// An entry's folder, held open, and its name there.
@@ -357,7 +357,7 @@ mod imp {
             _ => Kind::Other,
         };
         Stat {
-            id: Id { dev: st.st_dev as u64, ino: st.st_ino as u64, ctime: (st.st_ctime as i64, cn as u32) },
+            id: Id { dev: st.st_dev as u64, ino: st.st_ino as u128, ctime: (st.st_ctime as i64, cn as u32) },
             kind,
             mode: st.st_mode as u32 & 0o7777,
             nlink: st.st_nlink as u64,
@@ -490,7 +490,7 @@ mod imp {
 
     impl Place {
         /// The folder `path` is in, opened again (for undo) and checked to be the folder `dir`.
-        pub fn reopen(path: &Path, dir: (u64, u64)) -> std::io::Result<Place> {
+        pub fn reopen(path: &Path, dir: (u64, u128)) -> std::io::Result<Place> {
             let (parent, name) = split(path)?;
             let held = open_dir(parent)?;
             if held.id != dir {
@@ -499,7 +499,7 @@ mod imp {
             Ok(Place { dir: Arc::new(held), name })
         }
 
-        pub fn dir_id(&self) -> (u64, u64) {
+        pub fn dir_id(&self) -> (u64, u128) {
             self.dir.id
         }
 
@@ -800,7 +800,7 @@ mod imp {
     use windows_sys::Win32::Foundation::{HANDLE, LocalFree, RtlNtStatusToDosError, UNICODE_STRING};
     use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
     use windows_sys::Win32::Security::{ACL, EqualSid, GetSecurityDescriptorControl, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID};
-    use windows_sys::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_REMOTE_PROTOCOL_INFO, FILE_RENAME_INFO, FILE_STREAM_INFO, FileBasicInfo, FileRemoteProtocolInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, FileStreamInfo, GetFileInformationByHandle, GetFileInformationByHandleEx, GetVolumeInformationByHandleW, SetFileInformationByHandle};
+    use windows_sys::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_ID_INFO, FILE_REMOTE_PROTOCOL_INFO, FILE_RENAME_INFO, FILE_STREAM_INFO, FileBasicInfo, FileRemoteProtocolInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, FileIdInfo, FileStreamInfo, GetFileInformationByHandle, GetFileInformationByHandleEx, GetVolumeInformationByHandleW, SetFileInformationByHandle};
     use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
     /// FILE_FLAG_BACKUP_SEMANTICS (folders open too) | FILE_FLAG_OPEN_REPARSE_POINT (a link is
@@ -823,7 +823,7 @@ mod imp {
     /// A folder held open, and what it is.
     pub struct Held {
         h: OwnedHandle,
-        id: (u64, u64),
+        id: (u64, u128),
     }
 
     /// An entry's folder, held open, and its name there.
@@ -875,6 +875,16 @@ mod imp {
         if unsafe { GetFileInformationByHandle(f.as_raw_handle() as _, &mut i) } == 0 {
             return Err(last());
         }
+        // The 128-bit file ID (FILE_ID_INFO): ReFS's do not fit in the 64 bits of nFileIndex,
+        // which NTFS's are, zero-extended. Where the call is not known, those 64 bits.
+        // SAFETY: zeroes are a valid FILE_ID_INFO, which the call fills in.
+        let mut fid: FILE_ID_INFO = unsafe { std::mem::zeroed() };
+        // SAFETY: the handle is open for the call, `fid` outlives it and its size is given.
+        let ino = if unsafe { GetFileInformationByHandleEx(f.as_raw_handle() as _, FileIdInfo, std::ptr::from_mut(&mut fid).cast(), std::mem::size_of::<FILE_ID_INFO>() as u32) } != 0 {
+            u128::from_le_bytes(fid.FileId.Identifier)
+        } else {
+            u128::from(i.nFileIndexHigh) << 32 | u128::from(i.nFileIndexLow)
+        };
         let b = basic(f)?;
         let ft = m.file_type();
         // A reparse point of any kind (link, junction, mount point, cloud placeholder) is a link.
@@ -891,7 +901,7 @@ mod imp {
         Ok(Stat {
             // The change time, and (as NTFS may bring that up to date only later) the last write
             // and the size folded in: a file written meanwhile is not taken for the same.
-            id: Id { dev: i.dwVolumeSerialNumber as u64, ino: (i.nFileIndexHigh as u64) << 32 | i.nFileIndexLow as u64, ctime: (b.ChangeTime, (b.LastWriteTime as u64 ^ m.len().wrapping_mul(0x9e37_79b9)) as u32) },
+            id: Id { dev: u64::from(i.dwVolumeSerialNumber), ino, ctime: (b.ChangeTime, (b.LastWriteTime as u64 ^ m.len().wrapping_mul(0x9e37_79b9)) as u32) },
             kind,
             mode: m.file_attributes() & 3,
             nlink: i.nNumberOfLinks as u64,
@@ -1120,7 +1130,7 @@ mod imp {
 
     impl Place {
         /// The folder `path` is in, opened again (for undo) and checked to be the folder `dir`.
-        pub fn reopen(path: &Path, dir: (u64, u64)) -> std::io::Result<Place> {
+        pub fn reopen(path: &Path, dir: (u64, u128)) -> std::io::Result<Place> {
             let (parent, name) = split(path)?;
             let held = open_dir(parent)?;
             if held.id != dir {
@@ -1129,7 +1139,7 @@ mod imp {
             Ok(Place { dir: Arc::new(held), name })
         }
 
-        pub fn dir_id(&self) -> (u64, u64) {
+        pub fn dir_id(&self) -> (u64, u128) {
             self.dir.id
         }
 

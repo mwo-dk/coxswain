@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plan · Space bockar i rutan · Esc stäng",
  "sync.keys_plan": "Enter {go} · Space bockar i rutan · Esc stäng",
  "undo.what.sync": "gör {dir} som {from}",
- "sync.moved_away": "Mappen med det som ersattes eller togs bort flyttades under körningen, så den finns inte i papperskorgen: {path}"
+ "sync.moved_away": "Mappen med det som ersattes eller togs bort flyttades under körningen, så den finns inte i papperskorgen: {path}",
+ "sync.no_mark": "Kopierad, men nedladdningsmärket eller skrivskyddet kunde inte läggas till"
 }

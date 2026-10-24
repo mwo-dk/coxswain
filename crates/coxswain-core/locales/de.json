@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter planen · Space setzt das Häkchen · Esc schließen",
  "sync.keys_plan": "Enter {go} · Space setzt das Häkchen · Esc schließen",
  "undo.what.sync": "{dir} wie {from} machen",
- "sync.moved_away": "Der Ordner des Ersetzten oder Gelöschten wurde während des Laufs verschoben, deshalb liegt es nicht im Papierkorb: {path}"
+ "sync.moved_away": "Der Ordner des Ersetzten oder Gelöschten wurde während des Laufs verschoben, deshalb liegt es nicht im Papierkorb: {path}",
+ "sync.no_mark": "Kopiert, aber die Download-Markierung oder der Schreibschutz ließ sich nicht setzen"
 }

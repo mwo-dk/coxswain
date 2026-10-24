@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plan · Space sætter flueben · Esc luk",
  "sync.keys_plan": "Enter {go} · Space sætter flueben · Esc luk",
  "undo.what.sync": "gør {dir} som {from}",
- "sync.moved_away": "Mappen med det erstattede eller slettede blev flyttet væk under kørslen, så den er ikke i papirkurven: {path}"
+ "sync.moved_away": "Mappen med det erstattede eller slettede blev flyttet væk under kørslen, så den er ikke i papirkurven: {path}",
+ "sync.no_mark": "Kopieret, men mærket for en download eller skrivebeskyttelse kunne ikke sættes på"
 }

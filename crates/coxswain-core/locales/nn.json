@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plan · Space hakar av · Esc lukk",
  "sync.keys_plan": "Enter {go} · Space hakar av · Esc lukk",
  "undo.what.sync": "gjer {dir} lik {from}",
- "sync.moved_away": "Mappa med det som vart erstatta eller sletta vart flytta bort under køyringa, så ho ligg ikkje i papirkorga: {path}"
+ "sync.moved_away": "Mappa med det som vart erstatta eller sletta vart flytta bort under køyringa, så ho ligg ikkje i papirkorga: {path}",
+ "sync.no_mark": "Kopiert, men merket for ei nedlasting eller skrivevern kunne ikkje setjast"
 }

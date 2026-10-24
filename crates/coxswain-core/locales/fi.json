@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter suunnitelma · Space valitsee ruudun · Esc sulje",
  "sync.keys_plan": "Enter {go} · Space valitsee ruudun · Esc sulje",
  "undo.what.sync": "tee {dir} samanlaiseksi kuin {from}",
- "sync.moved_away": "Korvatun tai poistetun kansio siirrettiin pois ajon aikana, joten se ei ole roskakorissa: {path}"
+ "sync.moved_away": "Korvatun tai poistetun kansio siirrettiin pois ajon aikana, joten se ei ole roskakorissa: {path}",
+ "sync.no_mark": "Kopioitu, mutta latauksen merkintää tai vain luku -tilaa ei voitu lisätä"
 }

@@ -4491,5 +4491,6 @@
  "sync.keys": "Enter plan · Space zaznacza pole · Esc zamknij",
  "sync.keys_plan": "Enter {go} · Space zaznacza pole · Esc zamknij",
  "undo.what.sync": "zrób {dir} jak {from}",
- "sync.moved_away": "Folder zastąpionych lub usuniętych elementów został w trakcie przeniesiony, więc nie ma ich w Koszu: {path}"
+ "sync.moved_away": "Folder zastąpionych lub usuniętych elementów został w trakcie przeniesiony, więc nie ma ich w Koszu: {path}",
+ "sync.no_mark": "Skopiowano, ale nie udało się dodać znacznika pobrania ani tylko do odczytu"
 }

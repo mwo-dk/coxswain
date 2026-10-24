@@ -4297,5 +4297,6 @@
  "sync.keys": "Enter plaan · Space märgib ruudu · Esc sulge",
  "sync.keys_plan": "Enter {go} · Space märgib ruudu · Esc sulge",
  "undo.what.sync": "tee {dir} samasuguseks nagu {from}",
- "sync.moved_away": "Asendatu või kustutatu kaust viidi käivituse ajal ära, seega seda pole prügikastis: {path}"
+ "sync.moved_away": "Asendatu või kustutatu kaust viidi käivituse ajal ära, seega seda pole prügikastis: {path}",
+ "sync.no_mark": "Kopeeritud, kuid allalaadimise märki või kirjutuskaitset ei saanud lisada"
 }

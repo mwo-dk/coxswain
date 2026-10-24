@@ -4394,5 +4394,6 @@
  "sync.keys": "Enter plan · Space marca la casilla · Esc cerrar",
  "sync.keys_plan": "Enter {go} · Space marca la casilla · Esc cerrar",
  "undo.what.sync": "dejar {dir} como {from}",
- "sync.moved_away": "La carpeta de lo reemplazado o eliminado se movió durante la ejecución, así que no está en la papelera: {path}"
+ "sync.moved_away": "La carpeta de lo reemplazado o eliminado se movió durante la ejecución, así que no está en la papelera: {path}",
+ "sync.no_mark": "Copiado, pero no se pudo agregar la marca de descarga o el solo lectura"
 }

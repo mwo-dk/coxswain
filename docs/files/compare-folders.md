@@ -130,7 +130,9 @@ app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in th
 - A copy keeps the permission bits and dates of its source, but never set-user or set-group ID;
   where the target cannot give it the source's group, the group gets no rights on it.
 - A file is written beside under a name of its own and put in place only where nothing is, so a
-  file never ends up half written under its real name.
+  file never ends up half written under its real name. The run's own leftovers, a
+  *.coxswain-sync-…* folder or a half-written *.name.coxswain-….tmp* file, are never compared,
+  copied nor deleted, at any depth.
 - What it replaces or deletes is moved, not copied, into one folder of its own at the target's
   top (*.coxswain-sync-…*), which then goes to the bin as one item: open it there to see
   everything one run took away. Where the bin cannot take it (Termux, Windows, another disk than the
@@ -153,12 +155,16 @@ differ there:
   a program (WinFsp, Dokan), the server opens names by their path and could follow a junction
   swapped in there, so the plan says *On a network share, where the server would open it by its
   path: not written.* and changes nothing.
-- File names that differ only in case are one name to Windows, and so to the plan: *Readme.txt*
-  on the left and *README.TXT* on the right are one entry, compared as usual; when it is
-  replaced, the copy takes the left side's name. A folder keeps its own.
+- File names that differ only in case are one name to Windows, and so to the plan, compared as
+  Windows compares them: *Readme.txt* on the left and *README.TXT* on the right are one entry,
+  compared as usual; when it is replaced, the copy takes the left side's name, and *README.TXT*
+  is set aside, and put back by **Ctrl+Z**, under its own. A folder keeps its own. In a folder
+  marked case-sensitive (as WSL makes them) they are two entries, as on Linux.
 - A copy keeps its dates, its *hidden* and *read-only* attributes and the mark of a download
   (the warning Windows shows before running a program from the internet); there are no
-  permission bits to carry. Another data stream is not copied.
+  permission bits to carry. Another data stream is not copied. When the mark or read-only cannot
+  be added, the copy stays and the run lists it: *Copied, but the mark of a download or read-only
+  could not be added*.
 - A file with another name elsewhere (a hard link) is left out: anyone may link a file they
   cannot read into a folder they can write, and the copy would read it with your rights.
 - The folder that holds what was replaced or deleted (*.coxswain-sync-…*) does not go to the
