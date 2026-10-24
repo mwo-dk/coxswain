@@ -5226,6 +5226,8 @@ mod tests {
             passages += kept.len();
         }
         assert!(passages > 200, "{passages} passages");
+        // Closed first: Windows does not remove a file still open.
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -5255,6 +5257,8 @@ mod tests {
         assert!(done > 0 && waiting + done == 40, "{waiting} waiting, {done} done");
         let partial: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM files f WHERE embedded IS NULL AND EXISTS (SELECT 1 FROM chunks c WHERE c.file = f.id)", [], |r| r.get(0)).unwrap();
         assert_eq!(partial, 0, "no file has a part of its vectors");
+        // Closed first: Windows does not remove a file still open.
+        drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
 
