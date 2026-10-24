@@ -235,11 +235,11 @@ release build, under other load.
 |---|--:|--:|--:|---|
 | pdf 20 MB, text only (2,000 pages) | 33 | 1.71 | 107 | 4096 KB of text, 256 passages (read 1.69 s) |
 | pdf 150 MB, text and pictures (1,000 pages) | 153 | 0.61 | 156 | 2811 KB of text, 256 passages (read 0.59 s) |
-| docx, 60 MB document.xml | 22 | 0.21 | 11 | 4081 KB of text, 256 passages (read 0.13 s) |
-| docx, 200 MB document.xml | 75 | 0.31 | 11 | 4081 KB of text, 256 passages (read 0.21 s) |
-| xlsx, 60 MB sheet, 200,000 strings | 16 | 0.72 | 21 | 4096 KB of text, 256 passages (read 0.66 s) |
-| pptx, 60 MB slide | 22 | 0.42 | 12 | 4096 KB of text, 256 passages (read 0.32 s) |
-| odt, 60 MB content.xml | 23 | 0.18 | 11 | 4081 KB of text, 256 passages (read 0.12 s) |
+| docx, 60 MB document.xml | 22 | 0.07 | 11 | 4081 KB of text, 256 passages (read 0.05 s) |
+| docx, 200 MB document.xml | 75 | 0.08 | 11 | 4081 KB of text, 256 passages (read 0.06 s) |
+| xlsx, 60 MB sheet, 200,000 strings | 16 | 0.27 | 21 | 4096 KB of text, 256 passages (read 0.24 s) |
+| pptx, 60 MB slide | 22 | 0.15 | 12 | 4096 KB of text, 256 passages (read 0.13 s) |
+| odt, 60 MB content.xml | 23 | 0.08 | 11 | 4081 KB of text, 256 passages (read 0.05 s) |
 | epub, 60 MB chapter | 24 | 0.24 | 68 | 4096 KB of text, 256 passages (read 0.21 s) |
 | html, 60 MB | 63 | 0.09 | 65 | 4096 KB of text, 256 passages (read 0.07 s) |
 | log 300 MB | 315 | 0.32 | 301 | 4096 KB of text, 256 passages (read 0.30 s) |
@@ -273,8 +273,7 @@ What the numbers say:
 - **Memory grows with the input** in plain text, code, CSV and logs (the whole file is read to
   keep its first 4 MB), in PDF (about the file's size), and in EPUB and web pages, which hold a
   chapter or the page whole (about its size). Word, OpenDocument, spreadsheet and presentation
-  files are parsed as they are unpacked and stay near 10 to 20 MB whatever the part's size (the
-  rows above for them were measured on a busy machine, so their times run high).
+  files are parsed as they are unpacked and stay near 10 to 20 MB whatever the part's size.
 - **Archives stay flat in memory**: entries are copied out as they are unpacked. Time is what
   grows: a compressed tar is unpacked from its start to be listed, as is a solid 7z for each
   entry taken out of it. An entry of a tar listed before is unpacked from a place near it when
