@@ -875,6 +875,8 @@
  "disk.hint": "Každé místo, kde Coxswain něco uchovává, s velikostí, umístěním a tím, co stojí jeho vymazání. Nic z toho není vaše vlastní práce: vše se v případě potřeby znovu vytvoří nebo znovu stáhne.",
  "disk.image.cost": "znovu se stáhne, až ho náhled příště bude potřebovat (Nastavení → Náhledy → Stáhnout)",
  "disk.image.what": "Obraz kontejneru pro náhledy {tool}, v {runtime}.",
+ "disk.image.former": "Dřívější výchozí obraz pro náhledy {tool}, který Coxswain už nepoužívá.",
+ "disk.image.former_cost": "nic nestojí: žádný náhled ho už nepotřebuje",
  "disk.index.cost": "znovu se sestaví sám; Najít podle názvu několik minut čeká",
  "disk.index.what": "Index názvů, uložený, aby Najít měl každý název hned při spuštění pomocníka.",
  "disk.inside.cost": "nic; pomocník, který právě čte archiv, si svou složku ponechá",

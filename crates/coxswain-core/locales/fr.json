@@ -875,6 +875,8 @@
  "disk.hint": "Chaque endroit où Coxswain garde des choses, avec sa taille, son emplacement et ce que coûte de le vider. Rien ici n’est votre propre travail : tout est refait, ou téléchargé à nouveau, quand il le faut.",
  "disk.image.cost": "téléchargée à nouveau la prochaine fois qu’un aperçu en a besoin (Réglages → Aperçus → Télécharger)",
  "disk.image.what": "L’image de conteneur pour les aperçus {tool}, dans {runtime}.",
+ "disk.image.former": "Une ancienne image par défaut pour les aperçus {tool}, que Coxswain n’utilise plus.",
+ "disk.image.former_cost": "ne coûte rien : aucun aperçu n’en a plus besoin",
  "disk.index.cost": "refait tout seul ; Rechercher par nom attend quelques minutes",
  "disk.index.what": "L’index des noms, enregistré pour que Rechercher ait tous les noms d’un coup quand l’assistant de recherche démarre.",
  "disk.inside.cost": "rien ; un assistant qui lit une archive en ce moment garde son dossier",

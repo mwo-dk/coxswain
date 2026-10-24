@@ -904,6 +904,8 @@
  "disk.hint": "Każde miejsce, w którym Coxswain coś trzyma, z rozmiarem, położeniem i tym, ile kosztuje wyczyszczenie. Nic tu nie jest Twoją pracą: wszystko jest w razie potrzeby tworzone albo pobierane ponownie.",
  "disk.image.cost": "pobierany ponownie, gdy podgląd będzie go następnym razem potrzebował (Ustawienia → Podglądy → Pobierz)",
  "disk.image.what": "Obraz kontenera dla podglądów {tool}, w {runtime}.",
+ "disk.image.former": "Dawny domyślny obraz dla podglądów {tool}, którego Coxswain już nie używa.",
+ "disk.image.former_cost": "nic nie kosztuje: żaden podgląd go już nie potrzebuje",
  "disk.index.cost": "budowany ponownie sam; Znajdź po nazwie czeka kilka minut",
  "disk.index.what": "Indeks nazw, zapisany, aby Znajdź miał każdą nazwę od razu, gdy pomocnik się uruchamia.",
  "disk.inside.cost": "nic; pomocnik, który teraz odczytuje archiwum, zachowuje swój folder",

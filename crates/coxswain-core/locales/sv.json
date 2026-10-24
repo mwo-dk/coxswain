@@ -846,6 +846,8 @@
  "disk.hint": "Varje plats där Coxswain sparar saker, med storlek, var den finns och vad det kostar att rensa den. Inget här är ditt eget arbete: allt görs om, eller hämtas igen, när det behövs.",
  "disk.image.cost": "hämtas igen nästa gång en förhandsvisning behöver den (Inställningar → Förhandsvisningar → Hämta)",
  "disk.image.what": "Containeravbilden för förhandsvisningar med {tool}, i {runtime}.",
+ "disk.image.former": "En tidigare standardavbild för {tool}-förhandsvisningar, som Coxswain inte längre använder.",
+ "disk.image.former_cost": "kostar ingenting: ingen förhandsvisning behöver den längre",
  "disk.index.cost": "byggs om av sig självt; Hitta på namn väntar några minuter",
  "disk.index.what": "Namnindexet, sparat så att Hitta har alla namn direkt när sökhjälparen startar.",
  "disk.inside.cost": "inget; en sökhjälpare som läser ett arkiv just nu behåller sin mapp",

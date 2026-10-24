@@ -846,6 +846,8 @@
  "disk.hint": "Coxswain-ek gauzak gordetzen dituen leku guztiak, bakoitzaren tamaina, non dagoen eta garbitzeak zer kostatzen duen. Hemen ez dago zure lanik: dena berriro egiten edo deskargatzen da behar denean.",
  "disk.image.cost": "berriro deskargatzen da aurrebista batek hurrengoan behar duenean (Ezarpenak → Aurrebistak → Deskargatu)",
  "disk.image.what": "{tool} aurrebistetarako edukiontzi-irudia, {runtime}-(e)n.",
+ "disk.image.former": "{tool} aurrebistetarako lehengo irudi lehenetsia, Coxswain-ek jada erabiltzen ez duena.",
+ "disk.image.former_cost": "ez du ezer kostatzen: ez du aurrebista batek ere behar",
  "disk.index.cost": "berez eraikitzen da berriro; izenez Bilatu-k minutu batzuk itxaroten ditu",
  "disk.index.what": "Izen-indizea, gordea Bilatu-k izen guztiak berehala izan ditzan laguntzailea abiatzen denean.",
  "disk.inside.cost": "ezer ez; orain artxibo bat irakurtzen ari den laguntzaileak bere karpeta gordetzen du",

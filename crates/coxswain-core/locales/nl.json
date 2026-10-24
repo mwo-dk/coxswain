@@ -846,6 +846,8 @@
  "disk.hint": "Elke plek waar Coxswain dingen bewaart, met de grootte, waar het staat en wat wissen kost. Niets hier is je eigen werk: alles wordt opnieuw gemaakt, of opnieuw gedownload, wanneer het nodig is.",
  "disk.image.cost": "opnieuw gedownload de volgende keer dat een voorvertoning hem nodig heeft (Instellingen → Voorvertoningen → Ophalen)",
  "disk.image.what": "De container-image voor {tool}-voorvertoningen, in {runtime}.",
+ "disk.image.former": "Een eerdere standaardimage voor {tool}-voorbeelden, die Coxswain niet meer gebruikt.",
+ "disk.image.former_cost": "kost niets: geen voorbeeld heeft hem nog nodig",
  "disk.index.cost": "vanzelf opnieuw gebouwd; Zoeken op naam wacht een paar minuten",
  "disk.index.what": "De naamindex, opgeslagen zodat Zoeken meteen elke naam heeft als de zoekhulp start.",
  "disk.inside.cost": "niets; een zoekhulp die nu een archief leest houdt zijn map",

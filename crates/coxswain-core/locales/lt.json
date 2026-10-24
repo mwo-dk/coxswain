@@ -875,6 +875,8 @@
  "disk.hint": "Kiekviena vieta, kur Coxswain ką nors laiko, su dydžiu, vieta ir tuo, ką kainuoja ją išvalyti. Nieko čia nėra jūsų pačių darbas: viskas vėl sukuriama arba atsisiunčiama, kai prireikia.",
  "disk.image.cost": "atsisiunčiamas iš naujo, kai peržiūrai jo kitą kartą prireikia (Parametrai → Peržiūros → Atsisiųsti)",
  "disk.image.what": "Konteinerio atvaizdas {tool} peržiūroms, aplinkoje {runtime}.",
+ "disk.image.former": "Ankstesnis numatytasis {tool} peržiūrų atvaizdas, kurio Coxswain nebenaudoja.",
+ "disk.image.former_cost": "nieko nekainuoja: jo nebereikia jokiai peržiūrai",
  "disk.index.cost": "sukuriamas iš naujo savaime; Ieškoti pagal pavadinimą laukia kelias minutes",
  "disk.index.what": "Pavadinimų indeksas, išsaugotas, kad Ieškoti iškart turėtų visus pavadinimus, kai paleidžiama pagalbinė programa.",
  "disk.inside.cost": "nieko; archyvą dabar skaitanti pagalbinė programa pasilieka savo aplanką",

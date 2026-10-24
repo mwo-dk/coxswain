@@ -875,6 +875,8 @@
  "disk.hint": "Katra vieta, kur Coxswain glabā lietas, ar tās izmēru, atrašanās vietu un to, ko maksā tās notīrīšana. Nekas šeit nav jūsu pašu darbs: viss tiek izveidots vai lejupielādēts no jauna, kad vajag.",
  "disk.image.cost": "tiek lejupielādēts no jauna, kad priekšskatījumam tas nākamreiz vajadzīgs (Iestatījumi → Priekšskatījumi → Lejupielādēt)",
  "disk.image.what": "Konteinera attēls {tool} priekšskatījumiem, vidē {runtime}.",
+ "disk.image.former": "Agrākais noklusējuma attēls {tool} priekšskatījumiem, ko Coxswain vairs neizmanto.",
+ "disk.image.former_cost": "neko nemaksā: nevienam priekšskatījumam tas vairs nav vajadzīgs",
  "disk.index.cost": "tiek izveidots no jauna pats; Meklēt pēc nosaukuma gaida dažas minūtes",
  "disk.index.what": "Nosaukumu indekss, saglabāts, lai Meklēt uzreiz būtu visi nosaukumi, kad palīgs startē.",
  "disk.inside.cost": "nekas; palīgs, kas tieši tagad lasa arhīvu, patur savu mapi",

@@ -412,18 +412,41 @@ pub fn pulled(cfg: &PreviewConfig, rt: &Path) -> Vec<String> {
     v
 }
 
+/// Images that were the default for a tool once, under another name: (the image as it was set,
+/// the `[preview.images]` key it was for). `superseded` replaces them, and Disk use lists them.
+pub const FORMER: &[(&str, &str)] = &[("docker.io/dstmodders/imagemagick:latest", "imagemagick")];
+
+/// The `[preview.images]` key `image` was once the default for, under any tag or digest.
+pub fn former(image: &str) -> Option<&'static str> {
+    let name = |i: &str| {
+        let i = short(i);
+        let i = i.strip_prefix("docker.io/").unwrap_or(i);
+        let slash = i.rfind('/').map_or(0, |at| at + 1);
+        i[..i[slash..].find(':').map_or(i.len(), |c| slash + c)].to_string()
+    };
+    FORMER.iter().find(|(old, _)| name(old) == name(image)).map(|(_, key)| *key)
+}
+
 /// Copies of default images Coxswain ran in that no tool is set to now, each with the default
 /// that took its place: the same name and tag under another digest, so an older pin, or the
-/// bare tag from before it was pinned. Only defaults replace: an image of the user's own, or
-/// one they set before, is never part of it.
+/// bare tag from before it was pinned; or a former default under another name (`FORMER`),
+/// always looked for, since it may have been pulled and never used. Only defaults replace: an
+/// image of the user's own, or one they set before, is never part of it.
 pub fn superseded(cfg: &PreviewConfig, st: &AppState) -> Vec<(String, String)> {
     let defaults = crate::preview_tools::default_images();
     let set: Vec<&String> = cfg.images.values().filter(|i| !i.is_empty() && defaults.values().any(|d| d == *i)).collect();
     let all: Vec<&String> = cfg.images.values().collect();
-    st.images_used
-        .keys()
-        .filter(|old| !all.contains(old))
-        .filter_map(|old| set.iter().find(|new| short(new) == short(old)).map(|new| (old.clone(), new.to_string())))
+    let mut olds: Vec<&str> = st.images_used.keys().map(String::as_str).collect();
+    olds.extend(FORMER.iter().map(|(old, _)| *old).filter(|old| !st.images_used.contains_key(*old)));
+    olds.into_iter()
+        .filter(|old| !all.iter().any(|i| i.as_str() == *old))
+        .filter_map(|old| {
+            let new = match former(old) {
+                Some(key) => cfg.images.get(key).filter(|i| set.contains(i)),
+                None => set.iter().find(|new| short(new) == short(old)).copied(),
+            };
+            new.map(|new| (old.to_string(), new.clone()))
+        })
         .collect()
 }
 
@@ -669,11 +692,22 @@ mod tests {
         }
         let mut got = superseded(&cfg, &st);
         got.sort();
+        let magick = cfg.images["imagemagick"].clone();
         assert_eq!(
             got,
-            [(tag.clone(), latex.clone()), (format!("{tag}@sha256:old"), latex)],
-            "another tag, the one in use, the user's own and a default the user replaced stay"
+            [("docker.io/dstmodders/imagemagick:latest".into(), magick.clone()), (tag.clone(), latex.clone()), (format!("{tag}@sha256:old"), latex)],
+            "another tag, the one in use, the user's own and a default the user replaced stay; a former default is always looked for"
         );
+        // The former ImageMagick default, under another tag too, makes way for today's; not
+        // when ImageMagick is set to an image of the user's own, nor when it is set to it.
+        assert_eq!((former("dstmodders/imagemagick:7.1"), former("docker.io/dstmodders/imagemagick@sha256:x"), former("docker.io/dstmodders/ffmpeg:latest")), (Some("imagemagick"), Some("imagemagick"), None));
+        let mut st = AppState::default();
+        used(&mut st, "docker.io/dstmodders/imagemagick:7.1", 1);
+        assert!(superseded(&cfg, &st).contains(&("docker.io/dstmodders/imagemagick:7.1".into(), magick)));
+        cfg.images.insert("imagemagick".into(), "ghcr.io/me/magick:1".into());
+        assert!(superseded(&cfg, &st).iter().all(|(old, _)| former(old).is_none()));
+        cfg.images.insert("imagemagick".into(), FORMER[0].0.into());
+        assert!(superseded(&cfg, &st).iter().all(|(old, _)| old != FORMER[0].0));
     }
 
     /// A runtime that has the images named in `has` and writes what it removes to `rm.log`.

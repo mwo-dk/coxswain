@@ -846,6 +846,8 @@
  "disk.hint": "Kvar stad Coxswain lagrar noko, med storleik, kvar det ligg og kva det kostar å tømme det. Ingenting her er ditt eige arbeid: alt blir laga på nytt, eller lasta ned på nytt, når det trengst.",
  "disk.image.cost": "blir lasta ned på nytt neste gong ei førehandsvising treng det (Innstillingar → Førehandsvisingar → Hent)",
  "disk.image.what": "Container-imaget for førehandsvisingar med {tool}, i {runtime}.",
+ "disk.image.former": "Eit tidlegare standardbilete for {tool}-førehandsvisingar, som Coxswain ikkje lenger brukar.",
+ "disk.image.former_cost": "kostar ingenting: inga førehandsvising treng det lenger",
  "disk.index.cost": "blir bygd på nytt av seg sjølv; Søk etter namn ventar nokre minutt",
  "disk.index.what": "Namneindeksen, lagra slik at Søk har alle namn med ein gong når hjelparen startar.",
  "disk.inside.cost": "ingenting; ein hjelpar som les eit arkiv, held no på mappa si",
