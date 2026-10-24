@@ -186,7 +186,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Does a ✓ in the provenance view mean the file is safe?** No: it means the file here is the one the provenance names; the provenance itself is not verified. [Answer](previews/provenance.md#does-a--mean-the-file-is-safe)
 - **Can I play chess against an engine?** Play your own moves from any position, and an installed Stockfish shows its best lines (**a**) and plays its best move (**b**). [Answer](previews/chess.md#can-i-play-against-an-engine)
 - **Does playing a move change my PGN file?** No: your line stays in the view, and *Save as new PGN* writes a new file next to it. [Answer](previews/chess-play.md#does-playing-a-move-change-my-pgn-file)
-- **Does it read ChessBase files?** Not yet: export them to PGN. [Answer](previews/chess.md#does-it-read-chessbase-files)
+- **Does it read ChessBase files?** Not yet: export them to PGN. SCID 4 databases (`.si4`) are read. [Answer](previews/chess.md#does-it-read-chessbase-files)
 - **Does Coxswain run a neural network model to show it?** No: it reads the file's structure only, reads no pickle, and Netron's frame has no network. [Answer](previews/neural-networks.md#does-coxswain-run-the-model)
 - **Why is my PyTorch `.pt` file not drawn?** It is a Python pickle (TorchScript holds code): export the model to ONNX to see it. [Answer](previews/neural-networks.md#why-is-my-pytorch-pt-file-not-shown)
 - **Why does the opening book line not show?** No Polyglot book was found: name one in *Settings → Previews → Opening book*, or put it next to the PGN file. [Answer](previews/chess.md#why-does-the-book-line-not-show)

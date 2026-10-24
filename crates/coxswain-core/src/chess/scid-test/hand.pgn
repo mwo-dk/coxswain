@@ -1,0 +1,72 @@
+[Event "Paris"]
+[Site "Paris FRA"]
+[Date "1858.11.02"]
+[Round "?"]
+[White "Morphy, Paul"]
+[Black "Duke Karl / Count Isouard"]
+[Result "1-0"]
+[ECO "C41"]
+[Annotator "Demo"]
+[WhiteElo "2690"]
+
+{Before the game.} 1.e4 e5 2.Nf3 d6 3.d4 Bg4 {A weak move already: the bishop is given for a knight.} 4.dxe5
+Bxf3 5.Qxf3 dxe5 6.Bc4 Nf6 7.Qb3 Qe7 8.Nc3 c6 9.Bg5 b5 $2 10.Nxb5! cxb5 11.Bxb5+ Nbd7
+12.O-O-O Rd8 13.Rxd7! Rxd7 14.Rd1 Qe6 15.Bxd7+ Nxd7 (15...Qxd7 16.Qb8+ Ke7 (16...Qd8 17.Qxd8#) 17.Qxe5+ Kd8
+18.Bxf6+ gxf6 19.Qxf6+ $18) 16.Qb8+!! Nxb8 17.Rd8# {The Opera Game.} 1-0
+
+[Event "Promotions"]
+[Site "Test"]
+[Date "2026.10.24"]
+[Round "1"]
+[White "Weiß, Jürgen"]
+[Black "Smith, Ann"]
+[Result "0-1"]
+[SetUp "1"]
+[FEN "4k3/1P4P1/8/8/8/8/1p4p1/R3K2R w KQ - 0 1"]
+[MyTag "something"]
+
+1.b8=N g1=Q+ 2.Rxg1 bxa1=R+ 3.Ke2 Kf7 4.g8=B+ Kxg8 5.Nc6 Rxg1 0-1
+
+[Event "En passant and castling"]
+[Site "Test"]
+[Date "2026.??.??"]
+[Round "2"]
+[White "A"]
+[Black "B"]
+[Result "1/2-1/2"]
+[BlackElo "1500"]
+
+1.e4 Nf6 2.e5 d5 3.exd6 e5 4.Nf3 Nc6 5.Bc4 Be6 6.O-O Qxd6 7.d4 O-O-O 8.d5 Nb4 9.a3 c5 10.dxc6 Kb8 11.Qe2 -- 12.cxb7 Kxb7 1/2-1/2
+
+[Event "Unfinished"]
+[WhiteCountry "DEN"]
+[BlackCountry "NOR"]
+[PlyCount "3"]
+[EventDate "2026.10.01"]
+[Opening "Queen's Gambit"]
+[Variation "Accepted"]
+[Source "Me"]
+[Setup "x"]
+[White "?"]
+[Black "?"]
+[Result "*"]
+
+1.d4 d5 2.c4 *
+
+[Event "Black castles long"]
+[White "C"]
+[Black "D"]
+[Result "1/2-1/2"]
+[SetUp "1"]
+[FEN "r3k2r/pp1n1ppp/8/2p5/8/8/PPP2PPP/R3K2R b KQkq - 0 1"]
+
+1...O-O-O 2.O-O Nb6 3.Rfe1 Rd2 4.Re8+ Rxe8 5.Kf1 Rxc2 1/2-1/2
+
+[Event "White pieces spread"]
+[White "E"]
+[Black "F"]
+[Result "1/2-1/2"]
+[SetUp "1"]
+[FEN "4k3/8/2N5/8/1B6/8/4P3/4K2R w K - 0 1"]
+
+1.O-O Kd7 2.Na5 Kc7 3.e4 Kb6 4.Bf8 Kxa5 1/2-1/2

@@ -94,7 +94,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Data](data.md) | JSON, YAML and TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
 | [Cryptography bills of materials](bom.md) | CycloneDX CBOMs as a rated tree or sunburst, filters, Found in, comparing two scans; the terminal app's own viewer |
 | [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
-| [Chess games](chess.md) | PGN files as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; Polyglot opening books' moves; both apps, the terminal app full screen |
+| [Chess games](chess.md) | PGN files and SCID databases as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; Polyglot opening books' moves; both apps, the terminal app full screen |
 | [Game pieces in the terminal](game-pieces.md) | The terminal app's chess pieces drawn from block characters (octants, sextants, quadrants or half blocks) after the desktop app's pictures, as large as the window allows; figurines on a small board |
 | [Chess: playing on and the engine](chess-play.md) | Your own moves played from any position, kept as a line beside the game and saved only as a new PGN file; an installed Stockfish's best lines and evaluation; both apps |
 | [Go games](go.md) | SGF files as a list of games, each on a board stepped through with its captures, variations and comments; both apps, the terminal app full screen |
@@ -138,7 +138,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.onnx` `.tflite` `.mlmodel` `.mlpackage` `.keras`, a Keras `.h5` | The model's facts and its graph, drawn by Netron | [Neural network models](neural-networks.md) |
 | `.cdx.json` `.cdx.xml` `.cbom.json`, CycloneDX JSON/XML | Rated tree, sunburst, compare | [Cryptography bills of materials](bom.md) |
 | `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
-| `.pgn` `.pgn.gz` `.pgn.zst` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |
+| `.pgn` `.pgn.gz` `.pgn.zst` `.si4` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |
 | `.bin` (a Polyglot book) | The board at the start, the book's moves with their weights | [Chess games](chess.md#opening-books) |
 | `.sgf` | A list of Go games, a game on a board with its stones and variations | [Go games](go.md) |
 | `.pdn` | A table of draughts games, a game on a numbered board with its moves | [Draughts games](draughts.md) |

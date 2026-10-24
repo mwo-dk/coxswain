@@ -79,6 +79,7 @@ test("isModel: model files, and a Core ML package only as a folder", async () =>
 test("games files by their names", async () => {
   const { chessFormat } = await pick("chessFormat");
   assert.equal(chessFormat("Games.PGN.zst"), "pgn");
+  assert.equal(chessFormat("Club.si4"), "pgn");
   assert.equal(chessFormat("mates.fen"), "epd");
   assert.equal(chessFormat("Shusaku.SGF"), "sgf");
   assert.equal(chessFormat("club.PDN"), "pdn");

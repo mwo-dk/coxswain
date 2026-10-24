@@ -9,6 +9,7 @@ pub mod openings;
 pub mod pgn;
 pub mod play;
 pub mod review;
+pub mod scid;
 pub mod polyglot;
 
 pub use games::{Library, Progress, Query, Row, Sort};
@@ -23,7 +24,7 @@ use crate::config::Theme;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Format {
-    /// Games: `.pgn`, `.pgn.gz`, `.pgn.zst`.
+    /// Games: `.pgn`, `.pgn.gz`, `.pgn.zst`, and a SCID database's `.si4` (`scid`).
     Pgn,
     /// Positions, one a line: `.epd`, `.fen`.
     Epd,
@@ -45,7 +46,8 @@ pub enum Format {
 /// The chess file `path` is, by its name.
 pub fn format(path: &Path) -> Option<Format> {
     let n = path.file_name()?.to_string_lossy().to_ascii_lowercase();
-    if [".pgn", ".pgn.gz", ".pgn.zst"].iter().any(|e| n.ends_with(e)) {
+    // A SCID database is shown by its index, as a PGN file is (`scid`).
+    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4"].iter().any(|e| n.ends_with(e)) {
         Some(Format::Pgn)
     } else if n.ends_with(".epd") || n.ends_with(".fen") {
         Some(Format::Epd)
@@ -322,6 +324,7 @@ mod tests {
     #[test]
     fn names_and_positions() {
         assert_eq!(format(Path::new("/a/Games.PGN.gz")), Some(Format::Pgn));
+        assert_eq!(format(Path::new("/a/Club.si4")), Some(Format::Pgn));
         assert_eq!(format(Path::new("x.fen")), Some(Format::Epd));
         assert_eq!(format(Path::new("x.gz")), None);
         let p = positions("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - bm Qxf7#; id \"mate\";\n\nnonsense\n8/8/8/8/8/8/8/K6k b - - 3 60\n");
