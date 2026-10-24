@@ -425,6 +425,8 @@ mod imp {
                     (None, Some(y)) => {
                         if y.kind == Kind::Dir && y.id.dev != self.devs[1] {
                             self.said.say(&self.path(1, &sub), t!("pinned.other_disk"));
+                        } else if y.kind == Kind::Other {
+                            self.said.say(&self.path(1, &sub), t!("pinned.special"));
                         } else if self.delete {
                             if let Ok(inside) = self.inside(d.expect("listed"), &sub, y) {
                                 self.push(sub, Act::Delete, None, Some(y), inside, None);
@@ -444,6 +446,9 @@ mod imp {
             let name = rel.last().cloned().unwrap_or_default();
             if x.kind == Kind::Other {
                 return self.said.say(&self.path(0, &rel), t!("pinned.special"));
+            }
+            if y.kind == Kind::Other {
+                return self.said.say(&self.path(1, &rel), t!("pinned.special"));
             }
             if y.kind == Kind::Dir && y.id.dev != self.devs[1] {
                 return self.said.say(&self.path(1, &rel), t!("pinned.other_disk"));
@@ -542,6 +547,11 @@ mod imp {
                 }
                 let st = d.stat_at(&name)?;
                 rel.push(name.clone());
+                // A pipe set aside would hang a bin that copies (another disk): left as it is.
+                if st.kind == Kind::Other {
+                    let at = rel.iter().fold(PathBuf::new(), |p, n| p.join(n));
+                    return Err(std::io::Error::other(format!("{}: {}", at.display(), t!("pinned.special"))));
+                }
                 out.push((rel.clone(), st.id));
                 if st.kind == Kind::Dir {
                     if st.id.dev != dev {
@@ -660,12 +670,20 @@ mod imp {
     }
 
     /// The name of the `k`th entry set aside: its number, and as much of its own name as fits.
-    fn kept_name(k: usize, name: &OsString) -> OsString {
+    pub(super) fn kept_name(k: usize, name: &OsString) -> OsString {
         #[cfg(unix)]
         {
             use std::os::unix::ffi::{OsStrExt, OsStringExt};
             let mut v = format!("{k}-").into_bytes();
-            v.extend(name.as_bytes().iter().take(200));
+            let b = name.as_bytes();
+            // Cut between characters: half a one is refused where names must be UTF-8 (APFS, ZFS).
+            let mut end = b.len().min(200);
+            if let Ok(s) = std::str::from_utf8(b) {
+                while !s.is_char_boundary(end) {
+                    end -= 1;
+                }
+            }
+            v.extend(&b[..end]);
             OsString::from_vec(v)
         }
         #[cfg(windows)]
@@ -685,7 +703,7 @@ mod imp {
         if cfg!(windows) {
             return apply_to(plan, stop, progress, |_| Err(std::io::Error::other(t!("undo.no_trash"))));
         }
-        apply_to(plan, stop, progress, |p| if crate::fs::trash_takes(&[p.to_path_buf()]) { crate::fs::trash_named(p, None) } else { Err(std::io::Error::other(t!("undo.no_trash"))) })
+        apply_to(plan, stop, progress, |p| if crate::fs::trash_takes(&[p.to_path_buf()]) && crate::fs::trash_renames(p) { crate::fs::trash_named(p, None) } else { Err(std::io::Error::other(t!("undo.no_trash"))) })
     }
 
     /// What is copied over, reached as planned.
@@ -848,7 +866,7 @@ mod imp {
                     && root.stat_at(&name).is_ok_and(|now| now.id.same_file(&st.id));
                 match if same { trash(&path).ok() } else { None } {
                     // Gone from the target's top, and not to another place in it.
-                    Some(n) if root.stat_at(&name).is_err() && a.parent_is_not(&root) => undo.trashed = Some(n.unwrap_or_default()),
+                    Some(n) if root.stat_at(&name).is_err() && (a.parent_is_not(&root) || a.stat().is_ok_and(|s| s.nlink == 0)) => undo.trashed = Some(n.unwrap_or_default()),
                     Some(_) => failed.push(t!("sync.moved_away", "path" => path.display())),
                     None => kept_at = Some(path),
                 }
@@ -903,6 +921,14 @@ mod imp {
                 }
             }
         };
+        // A folder the run made got its source's bits (perhaps no w): writable again, so
+        // what is in it can be taken out. (Windows' read-only folder does not keep it in.)
+        #[cfg(unix)]
+        for (rel, st) in &u.made {
+            if st.kind == Kind::Dir {
+                let _ = open(rel).and_then(|d| d.writable());
+            }
+        }
         // What the run made, the last first: a folder after what is in it.
         for (rel, st) in u.made.iter().rev() {
             let r = open(&rel[..rel.len() - 1]).and_then(|d| d.remove(rel.last().expect("a name"), st));
@@ -1160,6 +1186,73 @@ mod tests {
         let done = run(&p);
         assert_eq!(done.copied, 0);
         assert!(!r.join("f").exists() && !r.join("pipe").exists());
+    }
+
+    #[cfg(unix)]
+    fn mkfifo(p: &Path) {
+        let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
+        // SAFETY: a NUL-terminated path.
+        assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+    }
+
+    /// A pipe in the target is never set aside: a bin that copies (another disk) would hang
+    /// on it. Only in the target, against a file, or deep in a folder that would go: left.
+    #[cfg(unix)]
+    #[test]
+    fn pipes_in_the_target_are_left_where_they_are() {
+        let (_d, l, r) = pair("sync-fifo-target");
+        mkfifo(&r.join("only"));
+        fs::write(l.join("clash"), "x").unwrap();
+        mkfifo(&r.join("clash"));
+        fs::create_dir_all(r.join("gone/deep")).unwrap();
+        mkfifo(&r.join("gone/deep/pipe"));
+        let p = plan_of(&l, &r, true);
+        assert_eq!(p.total, 0, "{:?}", p.rows);
+        assert_eq!(p.refused.len(), 3, "{:?}", p.refused);
+        assert!(p.refused.iter().any(|l| l.contains("deep/pipe")), "{:?}", p.refused);
+    }
+
+    /// The bin copied the folder aside over and deleted it (another disk): it is in the bin,
+    /// not said to have gone somewhere else. Only a freedesktop.org bin copies: macOS's and
+    /// Windows' move (and a folder removed while held need not show 0 links on APFS).
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    #[test]
+    fn a_folder_aside_the_bin_copied_counts_as_in_the_bin() {
+        let (_d, l, r) = pair("sync-bin-copied");
+        fs::write(r.join("extra"), "x").unwrap();
+        let done = imp::apply_to(&plan_of(&l, &r, true), &AtomicBool::new(false), &Progress::default(), |p| fs::remove_dir_all(p).map(|()| None)).unwrap();
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        assert!(done.kept_at.is_none() && done.deleted == 1);
+    }
+
+    /// A copied folder without write bits (0555) is taken away by undo, with what is in it.
+    #[cfg(unix)]
+    #[test]
+    fn undo_takes_away_a_copied_read_only_folder() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_d, l, r) = pair("sync-ro-dir");
+        fs::create_dir_all(l.join("ro/in")).unwrap();
+        fs::write(l.join("ro/in/f"), "x").unwrap();
+        fs::set_permissions(l.join("ro/in"), fs::Permissions::from_mode(0o555)).unwrap();
+        fs::set_permissions(l.join("ro"), fs::Permissions::from_mode(0o555)).unwrap();
+        let done = run(&plan_of(&l, &r, false));
+        assert_eq!(done.copied, 3, "{:?}", done.failed);
+        assert_eq!(fs::metadata(r.join("ro")).unwrap().permissions().mode() & 0o777, 0o555);
+        let u = done.record.undo(|_| {});
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert!(!r.join("ro").exists());
+        fs::set_permissions(l.join("ro"), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(l.join("ro/in"), fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// A long name set aside is cut between characters, never inside one.
+    #[cfg(unix)]
+    #[test]
+    fn a_kept_name_is_cut_between_characters() {
+        let name = OsString::from("€".repeat(100));
+        let kept = imp::kept_name(7, &name);
+        let s = kept.to_str().expect("still UTF-8");
+        assert!(s.starts_with("7-") && s.len() <= 202 && s.len() >= 200, "{}", s.len());
     }
 
     #[test]

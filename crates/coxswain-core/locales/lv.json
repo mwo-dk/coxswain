@@ -1442,7 +1442,7 @@
  "feature.compare_files.title": "Salīdzināt failus",
  "feature.compare_files.what": "{compare_files} rāda divus failus blakus: mainītas teksta vai dokumenta rindas un vārdus, attēlus pikselis pa pikselim, citus failus baits pa baitam.",
  "feature.compare_folders.a1": "Pēc izmēra un izmaiņu laika (divu sekunžu starpība tiek uzskatīta par vienādu) vai baitu pa baitam, ja izvēlēts izvēlnē, ko {compare_folders} atver, kamēr notiek salīdzināšana.",
- "feature.compare_folders.a2": "Tās izvēlnē: Padarīt labo kā kreiso vai Padarīt kreiso kā labo vispirms saplāno katru kopēšanu, aizstāšanu un dzēšanu, aizstāto vai dzēsto nosūta uz atkritni, un {undo} to atsauc. Vai atzīmējiet atšķirības un nospiediet {copy}.",
+ "feature.compare_folders.a2": "Tās izvēlnē: Padarīt labo kā kreiso vai Padarīt kreiso kā labo vispirms saplāno katru kopēšanu, aizstāšanu un dzēšanu, aizstāto vai dzēsto nosūta uz atkritni, un {undo} to atsauc. Vai atzīmējiet atšķirības un nospiediet {copy}. Windows sistēmā un diskā, uz kuru miskaste varētu tikai kopēt, tas paliek mapē .coxswain-sync-… mērķa augšā.",
  "feature.compare_folders.a3": "Nē: saite tiek salīdzināta pēc tā, kur tā norāda, un tajā nekad neieiet, tāpēc nekas ārpus abām mapēm netiek lasīts.",
  "feature.compare_folders.q1": "Kā tiek salīdzināti divi faili ar vienādu nosaukumu?",
  "feature.compare_folders.q2": "Kā padarīt vienu pusi kā otru?",

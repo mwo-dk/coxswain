@@ -1393,7 +1393,7 @@
  "feature.compare_files.title": "Dateien vergleichen",
  "feature.compare_files.what": "{compare_files} zeigt zwei Dateien nebeneinander: geänderte Zeilen und Wörter eines Textes oder Dokuments, Bilder Pixel für Pixel, andere Dateien Byte für Byte.",
  "feature.compare_folders.a1": "Nach Größe und Änderungszeit (zwei Sekunden Abstand gelten als gleich) oder Byte für Byte, wenn im Menü gewählt, das {compare_folders} während eines Vergleichs öffnet.",
- "feature.compare_folders.a2": "Im Menü: Rechts wie links machen oder Links wie rechts machen plant erst jedes Kopieren, Ersetzen und Löschen, schickt Ersetztes und Gelöschtes in den Papierkorb, und {undo} macht es rückgängig. Oder markieren Sie die Unterschiede und drücken {copy}.",
+ "feature.compare_folders.a2": "Im Menü: Rechts wie links machen oder Links wie rechts machen plant erst jedes Kopieren, Ersetzen und Löschen, schickt Ersetztes und Gelöschtes in den Papierkorb, und {undo} macht es rückgängig. Oder markieren Sie die Unterschiede und drücken {copy}. Unter Windows und auf einem Datenträger, auf den der Papierkorb nur kopieren könnte, bleibt es stattdessen in einem Ordner .coxswain-sync-… oben im Ziel.",
  "feature.compare_folders.a3": "Nein: Eine Verknüpfung wird danach verglichen, wohin sie zeigt, und nie betreten, also wird nichts außerhalb der beiden Ordner gelesen.",
  "feature.compare_folders.q1": "Wie werden zwei Dateien mit gleichem Namen verglichen?",
  "feature.compare_folders.q2": "Wie mache ich eine Seite wie die andere?",

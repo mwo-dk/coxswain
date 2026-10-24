@@ -1442,7 +1442,7 @@
  "feature.compare_files.title": "Porovnat soubory",
  "feature.compare_files.what": "{compare_files} zobrazí dva soubory vedle sebe: změněné řádky a slova textu nebo dokumentu, obrázky pixel po pixelu, ostatní soubory bajt po bajtu.",
  "feature.compare_folders.a1": "Podle velikosti a času změny (rozdíl dvou sekund se bere jako stejné), nebo bajt po bajtu, když to zvolíte v nabídce, kterou {compare_folders} otevře při zapnutém porovnání.",
- "feature.compare_folders.a2": "V její nabídce: Pravou stranu jako levou nebo Levou stranu jako pravou nejdřív naplánuje každé kopírování, nahrazení a smazání, nahrazené či smazané pošle do koše a {undo} to vrátí. Nebo označte rozdíly a stiskněte {copy}.",
+ "feature.compare_folders.a2": "V její nabídce: Pravou stranu jako levou nebo Levou stranu jako pravou nejdřív naplánuje každé kopírování, nahrazení a smazání, nahrazené či smazané pošle do koše a {undo} to vrátí. Nebo označte rozdíly a stiskněte {copy}. Ve Windows a na disku, kam by to koš mohl jen zkopírovat, to místo toho zůstane ve složce .coxswain-sync-… nahoře v cíli.",
  "feature.compare_folders.a3": "Ne: odkaz se porovnává podle toho, kam ukazuje, a nikdy se do něj nevstupuje, takže se nic mimo obě složky nečte.",
  "feature.compare_folders.q1": "Jak se porovnají dva soubory se stejným názvem?",
  "feature.compare_folders.q2": "Jak upravím jednu stranu podle druhé?",

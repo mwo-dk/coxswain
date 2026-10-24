@@ -50,6 +50,6 @@
  "sync.act_delete": "to the trash",
  "sync.done": "Copied {copied}, replaced {replaced}, to the trash {deleted}",
  "sync.kept": "The trash could not take what was replaced or deleted: it is in {path}",
- "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the trash, and {undo} undoes it. Or mark the differences and press {copy}.",
+ "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the trash, and {undo} undoes it. Or mark the differences and press {copy}. On Windows, and on a disk the bin could only copy to, it stays in a .coxswain-sync-… folder at the target's top instead.",
  "sync.moved_away": "The folder holding what was replaced or deleted was moved during the run, so it is not in the trash: {path}"
 }

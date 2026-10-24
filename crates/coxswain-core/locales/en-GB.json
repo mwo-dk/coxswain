@@ -1361,7 +1361,7 @@
  "feature.compare_files.title": "Compare files",
  "feature.compare_files.what": "{compare_files} shows two files side by side: changed lines and words of a text or document, pictures pixel by pixel, other files byte by byte.",
  "feature.compare_folders.a1": "By size and time of change (two seconds apart count the same), or byte by byte when chosen from the menu {compare_folders} opens while a compare is on.",
- "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the bin, and {undo} undoes it. Or mark the differences and press {copy}.",
+ "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the bin, and {undo} undoes it. Or mark the differences and press {copy}. On Windows, and on a disk the bin could only copy to, it stays in a .coxswain-sync-… folder at the target's top instead.",
  "feature.compare_folders.a3": "No: a link is compared by where it points and is never walked into, so nothing outside the two folders is read.",
  "feature.compare_folders.q1": "How are two files with the same name compared?",
  "feature.compare_folders.q2": "How do I make one side like the other?",

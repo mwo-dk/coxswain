@@ -1393,7 +1393,7 @@
  "feature.compare_files.title": "Vertaa tiedostoja",
  "feature.compare_files.what": "{compare_files} näyttää kaksi tiedostoa rinnakkain: tekstin tai asiakirjan muuttuneet rivit ja sanat, kuvat pikseli pikseliltä, muut tiedostot tavu tavulta.",
  "feature.compare_folders.a1": "Koon ja muutosajan mukaan (kahden sekunnin ero lasketaan samaksi) tai tavu tavulta, kun valitset sen valikosta, jonka {compare_folders} avaa vertailun ollessa päällä.",
- "feature.compare_folders.a2": "Sen valikosta: Tee oikeasta samanlainen kuin vasen tai Tee vasemmasta samanlainen kuin oikea suunnittelee ensin jokaisen kopioinnin, korvauksen ja poiston, lähettää korvatun tai poistetun roskakoriin, ja {undo} kumoaa sen. Tai merkitse erot ja paina {copy}.",
+ "feature.compare_folders.a2": "Sen valikosta: Tee oikeasta samanlainen kuin vasen tai Tee vasemmasta samanlainen kuin oikea suunnittelee ensin jokaisen kopioinnin, korvauksen ja poiston, lähettää korvatun tai poistetun roskakoriin, ja {undo} kumoaa sen. Tai merkitse erot ja paina {copy}. Windowsissa ja levyllä, jolle roskakori voisi vain kopioida, se jää sen sijaan kansioon .coxswain-sync-… kohteen ylimmälle tasolle.",
  "feature.compare_folders.a3": "Ei: linkkiä verrataan sen mukaan, mihin se osoittaa, eikä siihen koskaan mennä, joten mitään kahden kansion ulkopuolelta ei lueta.",
  "feature.compare_folders.q1": "Miten kaksi samannimistä tiedostoa verrataan?",
  "feature.compare_folders.q2": "Miten teen toisesta puolesta toisen kaltaisen?",

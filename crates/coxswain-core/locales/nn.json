@@ -1393,7 +1393,7 @@
  "feature.compare_files.title": "Samanlikn filer",
  "feature.compare_files.what": "{compare_files} viser to filer side ved side: endra linjer og ord i ein tekst eller eit dokument, bilete piksel for piksel, andre filer byte for byte.",
  "feature.compare_folders.a1": "Etter storleik og endringstid (to sekund frå kvarandre tel som likt), eller byte for byte når det blir valt i menyen {compare_folders} opnar medan ei samanlikning pågår.",
- "feature.compare_folders.a2": "Frå menyen: Gjer høgre lik venstre eller Gjer venstre lik høgre planlegg fyrst kvar kopiering, erstatning og sletting, sender det som vert erstatta eller sletta til papirkorga, og {undo} angrar det. Eller merk skilnadene og trykk {copy}.",
+ "feature.compare_folders.a2": "Frå menyen: Gjer høgre lik venstre eller Gjer venstre lik høgre planlegg fyrst kvar kopiering, erstatning og sletting, sender det som vert erstatta eller sletta til papirkorga, og {undo} angrar det. Eller merk skilnadene og trykk {copy}. På Windows, og på ein disk papirkorga berre kunne kopiere til, blir det i staden liggjande i ei mappe .coxswain-sync-… øvst i målet.",
  "feature.compare_folders.a3": "Nei: ei lenkje vert samanlikna etter kvar ho peikar, og ein går aldri inn i ho, så ingenting utanfor dei to mappene vert lese.",
  "feature.compare_folders.q1": "Korleis blir to filer med same namn samanlikna?",
  "feature.compare_folders.q2": "Korleis gjer eg den eine sida lik den andre?",

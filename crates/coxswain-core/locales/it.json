@@ -1442,7 +1442,7 @@
  "feature.compare_files.title": "Confronta file",
  "feature.compare_files.what": "{compare_files} mostra due file affiancati: righe e parole modificate di un testo o documento, immagini pixel per pixel, altri file byte per byte.",
  "feature.compare_folders.a1": "Per dimensione e ora di modifica (due secondi di scarto contano come uguali), oppure byte per byte se scelto dal menu che {compare_folders} apre mentre un confronto è attivo.",
- "feature.compare_folders.a2": "Dal suo menu: Rendi la destra come la sinistra o Rendi la sinistra come la destra pianifica prima ogni copia, sostituzione ed eliminazione, manda nel cestino ciò che sostituisce o elimina, e {undo} annulla tutto. Oppure segna le differenze e premi {copy}.",
+ "feature.compare_folders.a2": "Dal suo menu: Rendi la destra come la sinistra o Rendi la sinistra come la destra pianifica prima ogni copia, sostituzione ed eliminazione, manda nel cestino ciò che sostituisce o elimina, e {undo} annulla tutto. Oppure segna le differenze e premi {copy}. Su Windows, e su un disco dove il cestino potrebbe solo copiarlo, resta invece in una cartella .coxswain-sync-… in cima alla destinazione.",
  "feature.compare_folders.a3": "No: un collegamento è confrontato per dove punta e non vi si entra mai, quindi nulla fuori dalle due cartelle viene letto.",
  "feature.compare_folders.q1": "Come si confrontano due file con lo stesso nome?",
  "feature.compare_folders.q2": "Come rendo un lato come l'altro?",

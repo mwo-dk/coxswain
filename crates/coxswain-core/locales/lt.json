@@ -1442,7 +1442,7 @@
  "feature.compare_files.title": "Palyginti failus",
  "feature.compare_files.what": "{compare_files} rodo du failus šalia vienas kito: pakeistas teksto ar dokumento eilutes ir žodžius, paveikslėlius pikselis po pikselio, kitus failus baitas po baito.",
  "feature.compare_folders.a1": "Pagal dydį ir keitimo laiką (dviejų sekundžių skirtumas laikomas vienodu) arba baitas po baito, jei pasirinkta meniu, kurį {compare_folders} atidaro vykstant palyginimui.",
- "feature.compare_folders.a2": "Jo meniu: Padaryti dešinę kaip kairę arba Padaryti kairę kaip dešinę pirmiausia suplanuoja kiekvieną kopijavimą, pakeitimą ir ištrynimą, pakeistą ar ištrintą siunčia į šiukšlinę, o {undo} tai atšaukia. Arba pažymėkite skirtumus ir paspauskite {copy}.",
+ "feature.compare_folders.a2": "Jo meniu: Padaryti dešinę kaip kairę arba Padaryti kairę kaip dešinę pirmiausia suplanuoja kiekvieną kopijavimą, pakeitimą ir ištrynimą, pakeistą ar ištrintą siunčia į šiukšlinę, o {undo} tai atšaukia. Arba pažymėkite skirtumus ir paspauskite {copy}. Windows sistemoje ir diske, į kurį šiukšlinė galėtų tik nukopijuoti, tai lieka aplanke .coxswain-sync-… paskirties viršuje.",
  "feature.compare_folders.a3": "Ne: nuoroda lyginama pagal tai, kur ji rodo, ir į ją niekada neinama, todėl niekas už dviejų aplankų ribų neskaitoma.",
  "feature.compare_folders.q1": "Kaip lyginami du vienodo pavadinimo failai?",
  "feature.compare_folders.q2": "Kaip padaryti vieną pusę kaip kitą?",

@@ -1442,7 +1442,7 @@
  "feature.compare_files.title": "Comparar archivos",
  "feature.compare_files.what": "{compare_files} muestra dos archivos lado a lado: líneas y palabras cambiadas de un texto o documento, imágenes píxel por píxel, otros archivos byte por byte.",
  "feature.compare_folders.a1": "Por tamaño y hora de modificación (dos segundos de diferencia cuentan como iguales), o byte por byte si lo elegís en el menú que abre {compare_folders} mientras hay una comparación en curso.",
- "feature.compare_folders.a2": "Desde su menú: Dejar la derecha como la izquierda o Dejar la izquierda como la derecha planifica primero cada copia, reemplazo y eliminación, manda lo reemplazado o eliminado a la papelera, y {undo} lo deshace. O marcá las diferencias y apretá {copy}.",
+ "feature.compare_folders.a2": "Desde su menú: Dejar la derecha como la izquierda o Dejar la izquierda como la derecha planifica primero cada copia, reemplazo y eliminación, manda lo reemplazado o eliminado a la papelera, y {undo} lo deshace. O marcá las diferencias y apretá {copy}. En Windows, y en un disco al que la papelera solo podría copiarlo, queda en cambio en una carpeta .coxswain-sync-… en la raíz del destino.",
  "feature.compare_folders.a3": "No: un enlace se compara por adónde apunta y nunca se entra en él, así que no se lee nada fuera de las dos carpetas.",
  "feature.compare_folders.q1": "¿Cómo se comparan dos archivos con el mismo nombre?",
  "feature.compare_folders.q2": "¿Cómo dejo un lado como el otro?",

@@ -321,6 +321,16 @@ impl Dir {
         set_times(self.fd.as_raw_fd(), was)
     }
 
+    /// This folder writable by its owner, so what is in it can be taken out.
+    pub fn writable(&self) -> std::io::Result<()> {
+        let mode = self.stat()?.mode;
+        // SAFETY: an open folder, and its bits.
+        if mode & 0o200 == 0 && unsafe { libc::fchmod(self.fd.as_raw_fd(), (mode | 0o200) as libc::mode_t) } != 0 {
+            return Err(last());
+        }
+        Ok(())
+    }
+
     /// A new link `name` here pointing at `to` (never followed), only while nothing is there.
     pub fn make_link(&self, name: &OsStr, to: &OsStr) -> std::io::Result<Stat> {
         let n = c(name)?;
