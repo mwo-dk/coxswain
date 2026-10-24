@@ -1393,7 +1393,7 @@
  "feature.compare_files.title": "Bestanden vergelijken",
  "feature.compare_files.what": "{compare_files} toont twee bestanden naast elkaar: gewijzigde regels en woorden van een tekst of document, afbeeldingen pixel voor pixel, andere bestanden byte voor byte.",
  "feature.compare_folders.a1": "Op grootte en wijzigingstijd (twee seconden verschil telt als gelijk), of byte voor byte als je dat kiest in het menu dat {compare_folders} opent terwijl een vergelijking loopt.",
- "feature.compare_folders.a2": "In het menu: Rechts gelijk maken aan links of Links gelijk maken aan rechts plant eerst elke kopie, vervanging en verwijdering, stuurt wat het vervangt of verwijdert naar de prullenbak, en {undo} maakt het ongedaan. Of markeer de verschillen en druk op {copy}.",
+ "feature.compare_folders.a2": "In het menu: Rechts gelijk maken aan links of Links gelijk maken aan rechts plant eerst elke kopie, vervanging en verwijdering, stuurt wat het vervangt of verwijdert naar de prullenbak, en {undo} maakt het ongedaan. Of markeer de verschillen en druk op {copy}. Op Windows, en op een schijf waar de prullenbak alleen naartoe zou kunnen kopiëren, blijft het in plaats daarvan in een map .coxswain-sync-… bovenaan het doel.",
  "feature.compare_folders.a3": "Nee: een koppeling wordt vergeleken op waar ze naar wijst en wordt nooit betreden, dus niets buiten de twee mappen wordt gelezen.",
  "feature.compare_folders.q1": "Hoe worden twee bestanden met dezelfde naam vergeleken?",
  "feature.compare_folders.q2": "Hoe maak ik de ene kant gelijk aan de andere?",

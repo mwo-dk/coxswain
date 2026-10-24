@@ -1393,7 +1393,7 @@
  "feature.compare_files.title": "Konparatu fitxategiak",
  "feature.compare_files.what": "{compare_files} bi fitxategi erakusten ditu alboz albo: testu edo dokumentu baten lerro eta hitz aldatuak, irudiak pixelez pixel, beste fitxategiak bytez byte.",
  "feature.compare_folders.a1": "Tamaina eta aldaketa-orduaren arabera (bi segundoko aldea berdintzat jotzen da), edo byte bakoitza, konparazioa martxan dagoenean {compare_folders}-k irekitzen duen menutik hautatuta.",
- "feature.compare_folders.a2": "Bere menuan: Egin eskuinekoa ezkerrekoaren berdin edo Egin ezkerrekoa eskuinekoaren berdin aukerak lehenik kopia, ordezkapen eta ezabaketa guztiak planifikatzen ditu, ordezkatzen edo ezabatzen duena zakarrontzira bidaltzen du, eta {undo}(e)k desegiten du. Edo markatu desberdintasunak eta sakatu {copy}.",
+ "feature.compare_folders.a2": "Bere menuan: Egin eskuinekoa ezkerrekoaren berdin edo Egin ezkerrekoa eskuinekoaren berdin aukerak lehenik kopia, ordezkapen eta ezabaketa guztiak planifikatzen ditu, ordezkatzen edo ezabatzen duena zakarrontzira bidaltzen du, eta {undo}(e)k desegiten du. Edo markatu desberdintasunak eta sakatu {copy}. Windowsen, eta zakarrontziak soilik kopiatu ahal izango lukeen disko batean, helburuaren goialdeko .coxswain-sync-… karpeta batean geratzen da horren ordez.",
  "feature.compare_folders.a3": "Ez: esteka bat nora seinalatzen duenaren arabera alderatzen da eta ez da inoiz barruan sartzen, beraz bi karpetetatik kanpo ezer ez da irakurtzen.",
  "feature.compare_folders.q1": "Nola konparatzen dira izen bereko bi fitxategi?",
  "feature.compare_folders.q2": "Nola egin alde bat bestearen berdin?",

@@ -1442,7 +1442,7 @@
  "feature.compare_files.title": "Comparer des fichiers",
  "feature.compare_files.what": "{compare_files} montre deux fichiers côte à côte : lignes et mots modifiés d'un texte ou d'un document, images pixel par pixel, autres fichiers octet par octet.",
  "feature.compare_folders.a1": "Par taille et heure de modification (deux secondes d'écart comptent pour identiques), ou octet par octet si vous le choisissez dans le menu qu'ouvre {compare_folders} pendant une comparaison.",
- "feature.compare_folders.a2": "Depuis son menu : Rendre la droite comme la gauche ou Rendre la gauche comme la droite prévoit d'abord chaque copie, remplacement et suppression, envoie ce qu'il remplace ou supprime à la corbeille, et {undo} l'annule. Ou marquez les différences et appuyez sur {copy}.",
+ "feature.compare_folders.a2": "Depuis son menu : Rendre la droite comme la gauche ou Rendre la gauche comme la droite prévoit d'abord chaque copie, remplacement et suppression, envoie ce qu'il remplace ou supprime à la corbeille, et {undo} l'annule. Ou marquez les différences et appuyez sur {copy}. Sous Windows, et sur un disque où la corbeille ne pourrait que copier, il reste plutôt dans un dossier .coxswain-sync-… en haut de la cible.",
  "feature.compare_folders.a3": "Non : un lien est comparé selon sa cible et n'est jamais parcouru, donc rien hors des deux dossiers n'est lu.",
  "feature.compare_folders.q1": "Comment deux fichiers du même nom sont-ils comparés ?",
  "feature.compare_folders.q2": "Comment rendre un côté comme l'autre ?",

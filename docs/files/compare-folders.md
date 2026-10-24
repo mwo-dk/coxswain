@@ -222,13 +222,16 @@ right* (**5** or **6** in the menu): it replaces what differs, the old one going
 #### Does it delete anything?
 
 Comparing only reads and marks. *Make … like …* deletes what is only on the target side only
-when you tick *Also delete …*, and then to the bin; what it replaces goes to the bin too.
-**Ctrl+Z** brings all of it back.
+when you tick *Also delete …*, and then to the bin; what it replaces goes to the bin too. On
+Windows, and on a disk the bin could only copy to, it stays instead in a *.coxswain-sync-…*
+folder at the target's top. **Ctrl+Z** brings all of it back.
 
 #### How do I get back what a run replaced or deleted?
 
 **Ctrl+Z** right after puts everything back where it was. Later, open the bin: the run's items
-are in one folder there, *.coxswain-sync-* followed by the date and time.
+are in one folder there, *.coxswain-sync-* followed by the date and time. On Windows, and on a
+disk the bin could only copy to, that folder stays at the target's top instead, and the status
+line names it.
 
 #### Why did the run leave some files as they are?
 

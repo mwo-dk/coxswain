@@ -1393,7 +1393,7 @@
  "feature.compare_files.title": "Jämför filer",
  "feature.compare_files.what": "{compare_files} visar två filer sida vid sida: ändrade rader och ord i en text eller ett dokument, bilder pixel för pixel, andra filer byte för byte.",
  "feature.compare_folders.a1": "Efter storlek och ändringstid (två sekunders skillnad räknas som lika), eller byte för byte när det väljs i menyn som {compare_folders} öppnar medan en jämförelse pågår.",
- "feature.compare_folders.a2": "Från menyn: Gör höger som vänster eller Gör vänster som höger planerar först varje kopiering, ersättning och borttagning, skickar det som ersätts eller tas bort till papperskorgen, och {undo} ångrar det. Eller markera skillnaderna och tryck {copy}.",
+ "feature.compare_folders.a2": "Från menyn: Gör höger som vänster eller Gör vänster som höger planerar först varje kopiering, ersättning och borttagning, skickar det som ersätts eller tas bort till papperskorgen, och {undo} ångrar det. Eller markera skillnaderna och tryck {copy}. På Windows, och på en disk dit papperskorgen bara kunde kopiera, stannar det i stället i en mapp .coxswain-sync-… överst i målet.",
  "feature.compare_folders.a3": "Nej: en länk jämförs efter vart den pekar och går aldrig in i den, så inget utanför de två mapparna läses.",
  "feature.compare_folders.q1": "Hur jämförs två filer med samma namn?",
  "feature.compare_folders.q2": "Hur gör jag den ena sidan som den andra?",
