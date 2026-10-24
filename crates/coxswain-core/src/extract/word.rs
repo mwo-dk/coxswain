@@ -135,27 +135,29 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         ..Styles::default()
     };
     for (name, format) in [("word/styles.xml", &WORD), ("styles.xml", &OPEN)] {
-        if let Some(xml) = unpack(&mut zip, name, room) {
-            room -= xml.len() as u64;
-            read(&xml, format, &mut String::new(), &mut styles);
+        // What a broken part defined is forgotten, as if it had not been read.
+        let before = (styles.by.clone(), styles.paragraph.clone(), styles.all);
+        if let Some(read) = stream(&mut zip, name, room, |xml| read(xml, format, &mut String::new(), &mut styles)) {
+            room -= read;
+        } else {
+            (styles.by, styles.paragraph, styles.all) = before;
         }
     }
     for (_, format, name) in parts.iter().take(MAX_PARTS) {
         if out.len() >= MAX_TEXT || room == 0 {
             break;
         }
-        let Some(xml) = unpack(&mut zip, name, room) else {
-            continue;
-        };
-        room -= xml.len() as u64;
         let mut text = String::new();
-        match format {
-            Some(format) => read(&xml, format, &mut text, &mut styles),
+        let Some(read) = stream(&mut zip, name, room, |xml| match format {
+            Some(format) => read(xml, format, &mut text, &mut styles),
             None => {
                 let (lines, skip) = super::slides::OPENDOCUMENT;
-                text = super::xml_text(&xml, lines, skip);
+                text = super::xml_text_of(xml, lines, skip);
             }
-        }
+        }) else {
+            continue;
+        };
+        room -= read;
         // The styles of an OpenDocument file hold a header and a footer for every kind of page,
         // used or not, and a watermark is in all ten of them: each line of them once.
         if name == "styles.xml" {
@@ -172,8 +174,18 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     (!out.trim().is_empty()).then_some(out)
 }
 
-/// One part of the zip, unpacked, no more than `room` bytes of it. A part cut off there is
-/// read as far as it goes.
+/// One part of the zip, no more than `room` bytes of it, handed to `parse` as it is unpacked,
+/// as far as it is UTF-8; a part cut off there is read as far as it goes. How many bytes it
+/// unpacked to, or `None` when it is not there or a fault in the zip broke it off, and what
+/// `parse` made of it is to be dropped.
+fn stream(zip: &mut Zip, name: &str, room: u64, parse: impl FnOnce(&mut dyn std::io::BufRead)) -> Option<u64> {
+    let mut xml = super::Utf8::new(zip.by_name(name).ok()?.take(room));
+    parse(&mut xml);
+    let xml = xml.finish();
+    (!xml.failed).then_some(xml.read)
+}
+
+/// One part of the zip, unpacked, no more than `room` bytes of it.
 fn unpack(zip: &mut Zip, name: &str, room: u64) -> Option<Vec<u8>> {
     let mut bytes = vec![];
     zip.by_name(name)
@@ -243,11 +255,12 @@ struct Run {
     style: Option<String>,
 }
 
-/// Adds the text of one part to `out`, as far as it is UTF-8. What is left of a broken part is
+/// Adds the text of one part to `out`, read as it comes: as far as it is UTF-8. What is left of a broken part is
 /// still read. The styles it defines go into `styles`.
-fn read(xml: &[u8], format: &Format, out: &mut String, styles: &mut Styles) {
+fn read(xml: impl std::io::BufRead, format: &Format, out: &mut String, styles: &mut Styles) {
     use quick_xml::events::Event;
-    let mut reader = quick_xml::Reader::from_str(super::utf8(xml));
+    let mut reader = quick_xml::Reader::from_reader(xml);
+    let mut buf = vec![];
     // An end without a start, or an "&" on its own, is no reason to stop reading.
     let config = reader.config_mut();
     (
@@ -283,7 +296,8 @@ fn read(xml: &[u8], format: &Format, out: &mut String, styles: &mut Styles) {
                 break;
             }
         }
-        let event = match reader.read_event() {
+        buf.clear();
+        let event = match reader.read_event_into(&mut buf) {
             Ok(Event::Eof) | Err(_) => break,
             Ok(event) => event,
         };
@@ -1006,7 +1020,7 @@ mod tests {
                 for with in [b'<', b'>', b'&', b'/', b'"', 0, 0xFF] {
                     let mut changed = xml.to_vec();
                     changed[at] = with;
-                    read(&changed, format, &mut String::new(), &mut Styles::default());
+                    read(crate::extract::utf8(&changed).as_bytes(), format, &mut String::new(), &mut Styles::default());
                 }
             }
         }
@@ -1026,7 +1040,7 @@ mod tests {
         // An end without a start counts nothing below zero, and the text after it is read.
         let mut out = String::new();
         read(
-            b"</w:tc></w:t></w:moveFrom></w:p><w:p><w:t>Still read</w:t>",
+            &b"</w:tc></w:t></w:moveFrom></w:p><w:p><w:t>Still read</w:t>"[..],
             &WORD,
             &mut out,
             &mut Styles::default(),

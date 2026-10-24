@@ -11,7 +11,7 @@
 use std::io::Read;
 use std::path::Path;
 
-use super::{MAX_ENTRY, MAX_TEXT, start, xml_text};
+use super::{MAX_ENTRY, MAX_TEXT, start};
 
 type Zip = zip::ZipArchive<super::Metered>;
 /// How a part is read by `xml_text`: the elements that end a line, and those left out.
@@ -189,19 +189,24 @@ fn linked(relations: &str) -> impl Iterator<Item = String> {
 /// `false` when nothing more is to be read: the text is as long as it may be, or `room` is
 /// used up.
 fn add(out: &mut String, zip: &mut Zip, name: &str, room: &mut u64) -> bool {
-    if let Some(xml) = part(zip, name, room) {
-        let (lines, skip) = if name.starts_with("ppt/charts/") {
-            CHART
-        } else if name.starts_with("ppt/") {
-            SLIDE
-        } else {
-            OPENDOCUMENT
-        };
-        out.push_str(start(
-            &xml_text(xml.as_bytes(), lines, skip),
-            MAX_TEXT.saturating_sub(out.len()),
-        ));
-        out.push('\n');
+    let (lines, skip) = if name.starts_with("ppt/charts/") {
+        CHART
+    } else if name.starts_with("ppt/") {
+        SLIDE
+    } else {
+        OPENDOCUMENT
+    };
+    // Read as it is unpacked: no part is held whole, only its text.
+    if let Ok(entry) = zip.by_name(name) {
+        let mut xml = super::Utf8::new(entry.take(room.saturating_add(1)));
+        let text = super::xml_text_of(&mut xml, lines, skip);
+        let xml = xml.finish();
+        let fits = xml.read <= *room;
+        *room = room.saturating_sub(TOLL.max(xml.read));
+        if !xml.failed && fits && !xml.broken && !xml.zero {
+            out.push_str(start(&text, MAX_TEXT.saturating_sub(out.len())));
+            out.push('\n');
+        }
     }
     out.len() <= MAX_TEXT && *room > 0
 }
