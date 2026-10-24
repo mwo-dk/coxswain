@@ -6,12 +6,13 @@
 //! O_NOFOLLOW)` in the folder above, listed through its handle, and every entry looked at with
 //! `fstatat(AT_SYMLINK_NOFOLLOW)`: after the root nothing is looked up by path. It keeps a `Set`:
 //! every entry it will touch and every folder on the way to one, each as `(device, inode, ctime
-//! with nanoseconds)`.
+//! with nanoseconds)` and the path it was met at.
 //!
 //! The run walks the same way, but goes only into folders in that set and hands on only entries
-//! in it: an entry or folder whose identity or ctime is not exactly what the plan saw (swapped,
-//! renamed in, written meanwhile, on a network or whole-second file system alike) is left as it
-//! is. Nothing compares a ctime with the local clock. Files are opened in their held folder,
+//! in it: an entry or folder whose identity, ctime or path is not exactly what the plan saw
+//! (swapped, renamed in, renamed away, written meanwhile) is left as it is. The path counts on its
+//! own: where a file system's clock ticks coarsely (OpenBSD's every 10 ms) an entry renamed in the
+//! same tick keeps its ctime, but not its name. Nothing compares a ctime with the local clock. Files are opened in their held folder,
 //! never through a link, never blocking on a pipe, and checked to be that very file and a file
 //! or folder before a byte is read. A file is written anew only through its folder's handle: a
 //! file beside it (0600, its group, then its mode) renamed over it in that folder (`renameat`).
@@ -23,7 +24,7 @@
 
 use crate::t;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -112,17 +113,17 @@ pub struct Pin {
 /// The entries a plan will touch, and the folders on the way to them.
 #[derive(Clone, Debug, Default)]
 pub struct Set {
-    touch: HashSet<Id>,
-    route: HashSet<Id>,
+    touch: HashMap<Id, PathBuf>,
+    route: HashMap<Id, PathBuf>,
 }
 
 impl Set {
     /// `node` is to be touched: it, and every folder the walk went through to reach it.
     pub fn add(&mut self, node: &Node) {
-        self.touch.insert(node.stat.id);
+        self.touch.insert(node.stat.id, node.path.clone());
         let mut up = node.chain.as_deref();
         while let Some(l) = up {
-            if !self.route.insert(l.id) {
+            if self.route.insert(l.id, l.path.clone()).is_some() {
                 break;
             }
             up = l.up.as_deref();
@@ -131,7 +132,12 @@ impl Set {
 
     /// `id` is already to be touched (a file reached twice).
     pub fn has(&self, id: &Id) -> bool {
-        self.touch.contains(id)
+        self.touch.contains_key(id)
+    }
+
+    /// Whether `id` met at `path` is in `map` as the plan saw it.
+    fn met(map: &HashMap<Id, PathBuf>, id: &Id, path: &Path) -> bool {
+        map.get(id).is_some_and(|p| p == path)
     }
 
     /// How many entries are to be touched.
@@ -147,6 +153,7 @@ impl Set {
 /// The folders a node was reached through, nearest first.
 struct Chain {
     id: Id,
+    path: PathBuf,
     up: Option<Arc<Chain>>,
 }
 
@@ -262,7 +269,7 @@ pub fn walk(roots: &[PathBuf], w: &Walk, stop: &AtomicBool, said: &mut Said, mut
         }
         let (touch, route) = match w.only {
             None => (true, true),
-            Some(set) => (set.touch.contains(&stat.id), set.route.contains(&stat.id)),
+            Some(set) => (Set::met(&set.touch, &stat.id, &t.path), Set::met(&set.route, &stat.id, &t.path)),
         };
         let node = Node { path: t.path, stat, depth: t.depth, place, chain: t.chain };
         if touch {
@@ -290,7 +297,7 @@ pub fn walk(roots: &[PathBuf], w: &Walk, stop: &AtomicBool, said: &mut Said, mut
         }
         match imp::list(&node) {
             Ok(children) => {
-                let chain = Some(Arc::new(Chain { id: stat.id, up: node.chain.clone() }));
+                let chain = Some(Arc::new(Chain { id: stat.id, path: node.path.clone(), up: node.chain.clone() }));
                 todo.extend(children.into_iter().rev().map(|(path, place)| Todo { path, place: Some(place), depth: node.depth + 1, chain: chain.clone() }));
             }
             Err(e) => said.say(&node.path, e.to_string()),
@@ -590,8 +597,10 @@ mod imp {
             // SAFETY: just opened, owned here.
             let mut f = std::fs::File::from(unsafe { OwnedFd::from_raw_fd(fd) });
             let done = (|| {
-                // SAFETY: the file just made; its group as the old file has it, then its mode.
-                if unsafe { libc::fchown(f.as_raw_fd(), u32::MAX as libc::uid_t, old.gid as libc::gid_t) } != 0 {
+                // Its group as the old file has it (when it is not already: changing it needs a
+                // right a sandbox may lack), then its mode.
+                // SAFETY: the file just made.
+                if fstat(f.as_raw_fd())?.gid != old.gid && unsafe { libc::fchown(f.as_raw_fd(), u32::MAX as libc::uid_t, old.gid as libc::gid_t) } != 0 {
                     return Err(last());
                 }
                 // SAFETY: as above.
@@ -1115,7 +1124,8 @@ mod tests {
         assert_eq!(std::fs::read_dir(&*d).unwrap().count(), 2);
         // A setgid file is not written anew (it would lose the bit, or keep it for new content).
         std::fs::write(d.join("s"), "old").unwrap();
-        std::fs::set_permissions(d.join("s"), std::fs::Permissions::from_mode(0o2755)).unwrap();
+        // A sandbox may refuse the bit (Nix's build sandbox): then no such file can be there.
+        let _ = std::fs::set_permissions(d.join("s"), std::fs::Permissions::from_mode(0o2755));
         let p = Place::reopen(&d.join("s"), pins[0].dir).unwrap();
         if p.stat().unwrap().mode & 0o2000 != 0 {
             assert!(p.rewrite(p.stat().unwrap().id, b"new").is_err());
