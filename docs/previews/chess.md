@@ -248,6 +248,10 @@ same keys in both apps (**Space** for the preview pane in the desktop app, **F3*
 *Open games* in **Shift+F10** and **F9**). The other files of the database are not opened on their
 own.
 
+![Morphy's Opera Game read from a ChessBase database, Classics.cbh, in the desktop app's chess window: the board at 15…Nxd7, the moves beside it with the variation 15…Qxd7 in brackets, Game 1 of 3](../screenshots/gui-chess-cbh.png)
+
+![The terminal app's table of games of Classics.cbh: three games of the 1850s with players, result, date, event, ECO, opening and moves, the key line below](../screenshots/tui-chess-cbh.png)
+
 - **The table** comes from the `.cbh` file alone, a record of 46 bytes a game, so a database of
   millions of games fills it as quickly as a PGN file: the players as *Last, First*, their
   Elo, the result, the date, the tournament as the event, and the ECO code with its opening's

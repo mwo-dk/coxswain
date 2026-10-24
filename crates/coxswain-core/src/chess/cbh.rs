@@ -1004,6 +1004,143 @@ pub(crate) mod tests {
         assert!(cut.is_empty());
     }
 
+    /// Writes the games of a PGN file (`COXSWAIN_CBH_PGN`) as a ChessBase database
+    /// (`COXSWAIN_CBH_OUT`, a `.cbh` path), every move in the two-byte form: the screenshots'
+    /// demo database (`docs/screenshots/demo-home.sh`). Tags: players, event, site, date,
+    /// result, Elo and ECO.
+    #[test]
+    #[ignore]
+    fn write_demo_base() {
+        let text = std::fs::read_to_string(std::env::var("COXSWAIN_CBH_PGN").unwrap()).unwrap();
+        let n = write_base(&text, &PathBuf::from(std::env::var("COXSWAIN_CBH_OUT").unwrap()));
+        eprintln!("{n} games");
+    }
+
+    /// Castling both ways, a promotion, and a variation, in the two-byte form, read back as
+    /// they were written.
+    #[test]
+    fn two_byte_moves_read_back() {
+        let d = dir("two");
+        let p = d.join("two.cbh");
+        let text = "[White \"Morphy, Paul\"]\n[Black \"Duke Karl\"]\n[Result \"1-0\"]\n\n1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 15. Bxd7+ Nxd7 ( 15... Qxd7 16. Qb8+ Ke7 ) 16. Qb8+ Nxb8 17. Rd8# 1-0\n\n[White \"A\"]\n[Black \"B\"]\n[Result \"*\"]\n\n1. e4 d5 2. exd5 c6 3. dxc6 Nf6 4. cxb7 Nbd7 5. bxa8=N e6 6. Nf3 Bc5 7. Be2 O-O 8. O-O *\n";
+        assert_eq!(write_base(text, &p), 2);
+        let opera = pgn(&p, 1).unwrap();
+        assert!(opera.contains("12. O-O-O Rd8") && opera.contains("( 15... Qxd7 16. Qb8+ Ke7 ) 16. Qb8+ Nxb8 17. Rd8# 1-0"), "{opera}");
+        let other = pgn(&p, 2).unwrap();
+        assert!(other.contains("5. bxa8=N e6") && other.contains("7. Be2 O-O 8. O-O *"), "{other}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// The games of PGN `text` written as a ChessBase database at `out`; how many.
+    fn write_base(text: &str, out: &Path) -> usize {
+        let (mut players, mut events): (Vec<String>, Vec<(String, String)>) = (vec![], vec![]);
+        let (mut cbh, mut cbg) = (vec![0u8; 46], vec![0u8; 10]);
+        cbh[3..5].copy_from_slice(&46u16.to_be_bytes());
+        for chunk in text.split("\n\n[").filter(|c| !c.trim().is_empty()) {
+            let g = pgn::parse(&if chunk.starts_with('[') { chunk.to_string() } else { format!("[{chunk}") });
+            let tag = |k: &str| g.tag(k).unwrap_or("").to_string();
+            let id = |name: String, list: &mut Vec<String>| match list.iter().position(|n| *n == name) {
+                Some(i) => i as u32,
+                None => {
+                    list.push(name);
+                    list.len() as u32 - 1
+                }
+            };
+            let (w, b) = (id(tag("White"), &mut players), id(tag("Black"), &mut players));
+            let ev = (tag("Event"), tag("Site"));
+            let t = events.iter().position(|e| *e == ev).unwrap_or_else(|| {
+                events.push(ev);
+                events.len() - 1
+            }) as u32;
+            // Depth first, the main line first; 254 before a move with alternatives after it.
+            let (mut bytes, mut plies) = (vec![], 0u32);
+            let mut todo: Vec<Option<(u32, bool)>> = vec![];
+            let push = |todo: &mut Vec<Option<(u32, bool)>>, kids: &[u32]| {
+                if kids.is_empty() {
+                    todo.push(None);
+                }
+                for (i, &k) in kids.iter().enumerate().rev() {
+                    todo.push(Some((k, i + 1 < kids.len())));
+                }
+            };
+            push(&mut todo, &g.roots);
+            while let Some(step) = todo.pop() {
+                let Some((n, branch)) = step else {
+                    bytes.push(enc(255, plies));
+                    continue;
+                };
+                if branch {
+                    bytes.push(enc(254, plies));
+                }
+                let node = &g.nodes[n as usize];
+                let sq = |i: u8| (i % 8) * 8 + i / 8;
+                let promo = match node.san.split('=').nth(1).and_then(|p| p.chars().next()) {
+                    Some('R') => 1u16,
+                    Some('B') => 2,
+                    Some('N') => 3,
+                    _ => 0,
+                };
+                let word = sq(node.from.unwrap()) as u16 | (sq(node.to.unwrap()) as u16) << 6 | promo << 12;
+                bytes.extend([enc(235, plies), enc((word >> 8) as u8, plies), enc(word as u8, plies)]);
+                plies += 1;
+                push(&mut todo, &node.children);
+            }
+            let at = cbg.len() as u32;
+            let size = 4 + bytes.len() as u32;
+            cbg.extend([0, (size >> 16) as u8, (size >> 8) as u8, size as u8]);
+            cbg.extend(bytes);
+            let mut r = [0u8; 46];
+            r[0] = 1;
+            r[1..5].copy_from_slice(&at.to_be_bytes());
+            r[0x09..0x0c].copy_from_slice(&w.to_be_bytes()[1..]);
+            r[0x0c..0x0f].copy_from_slice(&b.to_be_bytes()[1..]);
+            r[0x0f..0x12].copy_from_slice(&t.to_be_bytes()[1..]);
+            let mut d = tag("Date").split('.').map(|p| p.parse::<u32>().unwrap_or(0)).collect::<Vec<_>>();
+            d.resize(3, 0);
+            r[0x18..0x1b].copy_from_slice(&(d[0] << 9 | d[1] << 5 | d[2]).to_be_bytes()[1..]);
+            r[0x1b] = match tag("Result").as_str() {
+                "1-0" => 2,
+                "0-1" => 0,
+                "1/2-1/2" => 1,
+                _ => 3,
+            };
+            let elo = |k: &str| tag(k).parse::<u16>().unwrap_or(0).to_be_bytes();
+            r[0x1f..0x21].copy_from_slice(&elo("WhiteElo"));
+            r[0x21..0x23].copy_from_slice(&elo("BlackElo"));
+            let e = tag("ECO");
+            if let [l @ b'A'..=b'E', x, y] = e.as_bytes() {
+                let code = (l - b'A') as u16 * 100 + ((x - b'0') * 10 + (y - b'0')) as u16;
+                r[0x23..0x25].copy_from_slice(&((code + 1) * 128).to_be_bytes());
+            }
+            r[0x2d] = g.main_line().len().div_ceil(2).min(255) as u8;
+            cbh.extend(r);
+        }
+        let names: Vec<Vec<(usize, String)>> = players
+            .iter()
+            .map(|p| match p.split_once(", ") {
+                Some((last, first)) => vec![(0, last.to_string()), (30, first.to_string())],
+                None => vec![(0, p.clone())],
+            })
+            .collect();
+        let refs: Vec<Vec<(usize, &str)>> = names.iter().map(|r| r.iter().map(|(a, s)| (*a, s.as_str())).collect()).collect();
+        let refs: Vec<&[(usize, &str)]> = refs.iter().map(|r| r.as_slice()).collect();
+        std::fs::write(out, cbh).unwrap();
+        std::fs::write(out.with_extension("cbg"), cbg).unwrap();
+        std::fs::write(out.with_extension("cbp"), entities(58, &refs)).unwrap();
+        let ev: Vec<[(usize, &str); 2]> = events.iter().map(|(e, s)| [(0, e.as_str()), (40, s.as_str())]).collect();
+        let ev: Vec<&[(usize, &str)]> = ev.iter().map(|r| r.as_slice()).collect();
+        std::fs::write(out.with_extension("cbt"), entities(90, &ev)).unwrap();
+        // It reads back as the PGN it came from: every game whole.
+        let mut n = 0;
+        scan(out, &|| false, &|_| {}, |g| {
+            assert!(!pgn(out, g.record).unwrap().contains(&crate::t!("chess.cbh_cut")));
+            n += 1;
+            true
+        })
+        .unwrap();
+        n
+    }
+
     #[test]
     fn a_set_up_start_reads_as_fen() {
         // White king e1, black king e8, White to move, no castling, move 40: a square at a time.
