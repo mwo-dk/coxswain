@@ -209,7 +209,7 @@ impl Viewer {
                 KeyCode::Home => self.cursor = 0,
                 KeyCode::End => self.cursor = n - 1,
                 KeyCode::Char(' ') | KeyCode::Insert => self.toggle(),
-                KeyCode::Enter if self.ticked().0 > 0 && replace::WRITES => self.start(true),
+                KeyCode::Enter if self.ticked().0 > 0 => self.start(true),
                 _ => {}
             }
             return Outcome::Stay;
@@ -283,9 +283,6 @@ impl Viewer {
         let mut s = t!("replace.ticked", "changes" => tn!("replace.changes", changes), "files" => tn!("preview.files", files));
         if !plan.skipped.is_empty() || plan.binary > 0 {
             s += &format!(" · {}", t!("replace.left_out", "n" => plan.skipped.len() + plan.more + plan.binary));
-        }
-        if !replace::WRITES {
-            s += &format!(" · {}", t!("replace.windows"));
         }
         if plan.full {
             s += &format!(" · {}", t!("replace.full", "n" => replace::MOST_CHANGES));

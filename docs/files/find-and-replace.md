@@ -6,10 +6,8 @@
 files and folders, or the files [Find](../search/find-file.md) lists. Before anything is written,
 every change is shown with its file, its line, the line before and after; untick any change or
 a whole file, then write. Each file keeps its encoding, its line endings and its permissions, and
-**Ctrl+Z** puts the whole batch back in one step. Both apps have it, with the same key. On Windows it previews only, for now: the dialog shows every
-change and says *Writing is not available on Windows yet*; nothing is written. There it looks only
-at the marked files, not into folders: a marked folder is listed under *Left out* with *Not gone
-into on Windows yet: mark the files themselves.*
+**Ctrl+Z** puts the whole batch back in one step. Both apps have it, with the same key, on every
+system, Windows included.
 
 ![The desktop app's Find and replace in rocket: Find fuel, Replace with propellant, docs/launch-plan.md and src/engine.rs with their changes, each line shown before and after, one change unticked and struck through, and the button Replace 5 in 2 files](../screenshots/find-replace-gui.png)
 
@@ -77,6 +75,8 @@ narrow the search*.
 | Files with other hard links | Writing one would change it under its other names too, outside what you chose; listed |
 | Another user's file (on Unix) | Written anew it would become yours; listed |
 | Files with an ACL, extended attributes or file flags (`chflags`) | Written anew they would lose them; listed (SELinux's label is no reason). Where Coxswain cannot tell, the file is left as it is |
+| On Windows: a file with other permissions or another owner than a new file in its folder would get, other data streams (the mark of a downloaded file among them), extended attributes, or attributes beyond hidden, archive and not indexed (system, compressed, encrypted, sparse) | Written anew it would lose them, or be opened to others; listed as *Has extra permissions or attributes: left as it is.* |
+| On Windows: a file on a network share | The server opens it by its path, so a junction swapped in on the server could lead the write elsewhere; listed as *On a network share, where the server would open it by its path: not written.* |
 | Programs that run as their owner or group (setuid, setgid) | Written anew they would lose that, or keep it for new content; listed |
 | Links, to files or folders | Never followed: a link out of the folder would change files elsewhere; listed |
 | `.git`, `.hg`, `.svn`, `.jj`, `_darcs` folders | A repository's own files: a change there breaks it; not looked into |
@@ -95,9 +95,10 @@ to write: **Alt+R** says *Find and replace works on folders on a disk, not here.
   stay where they are.
 - **Safely.** The new text goes to a file beside it, made for you alone, given the file's group
   and then its permissions, and renamed over the file in the same folder: a failure halfway
-  leaves the file as it was.
+  leaves the file as it was. On Windows the file beside it is made and renamed through the
+  folder's own handle as well, and keeps the file's hidden attribute and its creation date.
 - **Only the files previewed, as previewed.** The preview goes through the folders by their
-  handles, never through a link, and notes each file it read and each folder on the way to one:
+  handles, never through a link (on Windows never through a junction or mount point either), and notes each file it read and each folder on the way to one:
   which file it is and when its entry last changed, and for a file its content. The writing goes
   the same way, only into those folders, and writes a file only while it is still exactly that
   file with that content. A file saved by another program, moved, swapped or put there

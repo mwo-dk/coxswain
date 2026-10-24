@@ -17,10 +17,13 @@
 //! or folder before a byte is read. A file is written anew only through its folder's handle: a
 //! file beside it (0600, its group, then its mode) renamed over it in that folder (`renameat`).
 //!
-//! On Windows only the marked entries themselves are met, never what is inside a folder
-//! (`RECURSES`), each checked by volume, file index and change time through a handle of its own
-//! that never follows a link: good for a preview and for changing those entries through that
-//! handle, not for writing files anew (`WRITES`).
+//! On Windows the same, through NT handles: each folder opened relative to the one above
+//! (`NtCreateFile` with its handle as the root, `FILE_OPEN_REPARSE_POINT`, so a junction or link
+//! is opened as itself and never gone into), listed through its handle
+//! (`FileIdBothDirectoryInfo`), every entry known by volume serial, file index, change time, last
+//! write and size. A file is written anew beside itself in its held folder and renamed over it
+//! there (`FileRenameInformation` relative to the folder's handle), only with the old file's
+//! owner and permissions, and never when it has other streams or extended attributes.
 
 use crate::t;
 use serde::{Deserialize, Serialize};
@@ -48,11 +51,6 @@ pub fn deepest() -> usize {
 }
 /// The lines of what was left out kept at most; the rest are counted.
 pub const SAID: usize = 1_000;
-/// Whether files can be written anew through their folder's handle: not on Windows yet.
-pub const WRITES: bool = cfg!(unix);
-/// Whether a walk goes into folders: not on Windows yet, where a folder could only be listed by
-/// its path (a folder swapped for a junction would be followed). There only the roots are met.
-pub const RECURSES: bool = cfg!(unix);
 
 /// Which entry, as it was: device and inode (on Windows volume serial and file index), and when
 /// its entry last changed (ctime; on Windows the change time), to the nanosecond.
@@ -199,7 +197,7 @@ pub struct Node {
     pub path: PathBuf,
     pub stat: Stat,
     pub depth: usize,
-    /// Where it is: its folder, held open, and its name there (on Windows its path).
+    /// Where it is: its folder, held open, and its name there.
     pub place: Place,
     chain: Option<Arc<Chain>>,
 }
@@ -278,10 +276,7 @@ pub fn walk(roots: &[PathBuf], w: &Walk, stop: &AtomicBool, said: &mut Said, mut
                 break;
             }
         }
-        if !RECURSES && w.recursive && w.only.is_none() && stat.kind == Kind::Dir {
-            said.say(&node.path, t!("pinned.no_folders"));
-        }
-        if !(RECURSES && w.recursive && route && stat.kind == Kind::Dir) {
+        if !(w.recursive && route && stat.kind == Kind::Dir) {
             continue;
         }
         // Not onto another disk or mount (as `find -xdev`): a dead network mount would hang it.
@@ -790,39 +785,93 @@ mod imp {
 #[cfg(windows)]
 mod imp {
     use super::*;
+    use std::ffi::OsString;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
     use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
-    use std::os::windows::io::AsRawHandle;
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
+    use windows_sys::Wdk::Storage::FileSystem::{FILE_CREATE, FILE_DIRECTORY_FILE, FILE_EA_INFORMATION, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT, FILE_SYNCHRONOUS_IO_NONALERT, FileEaInformation, FileRenameInformation, NtCreateFile, NtQueryInformationFile, NtSetInformationFile};
+    use windows_sys::Win32::Foundation::{HANDLE, LocalFree, RtlNtStatusToDosError, UNICODE_STRING};
+    use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
+    use windows_sys::Win32::Security::{ACL, EqualSid, GetSecurityDescriptorControl, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID};
+    use windows_sys::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_REMOTE_PROTOCOL_INFO, FILE_RENAME_INFO, FILE_STREAM_INFO, FileBasicInfo, FileRemoteProtocolInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, FileStreamInfo, GetFileInformationByHandle, GetFileInformationByHandleEx, SetFileInformationByHandle};
+    use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
     /// FILE_FLAG_BACKUP_SEMANTICS (folders open too) | FILE_FLAG_OPEN_REPARSE_POINT (a link is
     /// opened itself, never what it points at).
     const FLAGS: u32 = 0x0200_0000 | 0x0020_0000;
-    /// FILE_READ_ATTRIBUTES.
     const READ_ATTRIBUTES: u32 = 0x80;
+    const WRITE_ATTRIBUTES: u32 = 0x100;
+    const LIST_DIRECTORY: u32 = 0x1;
+    const GENERIC_READ: u32 = 0x8000_0000;
+    const GENERIC_WRITE: u32 = 0x4000_0000;
+    const DELETE: u32 = 0x1_0000;
+    const READ_CONTROL: u32 = 0x2_0000;
+    const SYNCHRONIZE: u32 = 0x10_0000;
+    /// Read, write and delete: others may go on using the entry, as `std::fs` lets them.
+    const SHARE_ALL: u32 = 7;
+    /// Attributes a file written anew carries over: hidden, archive, normal, not indexed. Any
+    /// other (system, compressed, encrypted, sparse, read-only …) and it is left as it is.
+    const CARRIED: u32 = 0x2 | 0x20 | 0x80 | 0x2000;
 
-    /// An entry's path: Windows has no handle-relative walk here yet.
+    /// A folder held open, and what it is.
+    pub struct Held {
+        h: OwnedHandle,
+        id: (u64, u64),
+    }
+
+    /// An entry's folder, held open, and its name there.
     #[derive(Clone)]
     pub struct Place {
-        path: PathBuf,
-        dir: (u64, u64),
+        dir: Arc<Held>,
+        name: Vec<u16>,
+    }
+
+    fn last() -> std::io::Error {
+        std::io::Error::last_os_error()
+    }
+
+    fn nt(status: i32) -> std::io::Error {
+        // SAFETY: a plain conversion of a status code.
+        std::io::Error::from_raw_os_error(unsafe { RtlNtStatusToDosError(status) } as i32)
+    }
+
+    /// `name` opened in the folder `dir` itself, never through a link (FILE_OPEN_REPARSE_POINT):
+    /// nothing is looked up by path. A name that is no plain name (a separator, a stream, `..`)
+    /// is refused, so it cannot lead out of the folder.
+    fn open_in(dir: HANDLE, name: &[u16], access: u32, disposition: u32, options: u32, share: u32) -> std::io::Result<std::fs::File> {
+        let plain = !name.is_empty() && name != [b'.' as u16] && name != [b'.' as u16, b'.' as u16] && !name.iter().any(|&c| c == b'\\' as u16 || c == b'/' as u16 || c == b':' as u16 || c == 0);
+        if !plain || name.len() > 32_000 {
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+        }
+        let us = UNICODE_STRING { Length: (name.len() * 2) as u16, MaximumLength: (name.len() * 2) as u16, Buffer: name.as_ptr() as *mut u16 };
+        // OBJ_CASE_INSENSITIVE, as CreateFile asks.
+        let oa = OBJECT_ATTRIBUTES { Length: std::mem::size_of::<OBJECT_ATTRIBUTES>() as u32, RootDirectory: dir, ObjectName: &us, Attributes: 0x40, SecurityDescriptor: std::ptr::null(), SecurityQualityOfService: std::ptr::null() };
+        let mut h: HANDLE = std::ptr::null_mut();
+        // SAFETY: zeroes are a valid IO_STATUS_BLOCK, which the call fills in.
+        let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
+        // SAFETY: an open folder handle, a name that outlives the call, `h` and `io` ours to fill;
+        // synchronous, so the handle works as a std File.
+        let st = unsafe { NtCreateFile(&mut h, access | SYNCHRONIZE, &oa, &mut io, std::ptr::null(), 0x80, share, disposition, options | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, std::ptr::null(), 0) };
+        if st < 0 {
+            return Err(nt(st));
+        }
+        // SAFETY: just opened, owned here.
+        Ok(std::fs::File::from(unsafe { OwnedHandle::from_raw_handle(h as _) }))
     }
 
     /// What the open `f` is, from its handle.
     pub fn stat_of(f: &std::fs::File) -> std::io::Result<Stat> {
-        use windows_sys::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, FILE_BASIC_INFO, FileBasicInfo, GetFileInformationByHandle, GetFileInformationByHandleEx};
         let m = f.metadata()?;
         // SAFETY: zeroes are a valid BY_HANDLE_FILE_INFORMATION, which the call fills in.
         let mut i: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
         // SAFETY: the handle is open for the call and `i` outlives it.
         if unsafe { GetFileInformationByHandle(f.as_raw_handle() as _, &mut i) } == 0 {
-            return Err(std::io::Error::last_os_error());
+            return Err(last());
         }
-        // SAFETY: zeroes are a valid FILE_BASIC_INFO, which the call fills in.
-        let mut b: FILE_BASIC_INFO = unsafe { std::mem::zeroed() };
-        // SAFETY: as above, with the size of `b` given.
-        if unsafe { GetFileInformationByHandleEx(f.as_raw_handle() as _, FileBasicInfo, std::ptr::from_mut(&mut b).cast(), std::mem::size_of::<FILE_BASIC_INFO>() as u32) } == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
+        let b = basic(f)?;
         let ft = m.file_type();
+        // A reparse point of any kind (link, junction, mount point, cloud placeholder) is a link.
         let kind = if ft.is_symlink() || m.file_attributes() & 0x400 != 0 {
             Kind::Link
         } else if ft.is_dir() {
@@ -849,57 +898,215 @@ mod imp {
         })
     }
 
-    /// The entry at `path` itself (a link is opened as the link), with `access`.
-    pub fn open_path(path: &Path, access: u32) -> std::io::Result<(std::fs::File, Stat)> {
-        let f = std::fs::OpenOptions::new().access_mode(access).custom_flags(FLAGS).open(path)?;
-        let s = stat_of(&f)?;
-        Ok((f, s))
+    fn basic(f: &std::fs::File) -> std::io::Result<FILE_BASIC_INFO> {
+        // SAFETY: zeroes are a valid FILE_BASIC_INFO, which the call fills in.
+        let mut b: FILE_BASIC_INFO = unsafe { std::mem::zeroed() };
+        // SAFETY: the handle is open for the call, `b` outlives it and its size is given.
+        if unsafe { GetFileInformationByHandleEx(f.as_raw_handle() as _, FileBasicInfo, std::ptr::from_mut(&mut b).cast(), std::mem::size_of::<FILE_BASIC_INFO>() as u32) } == 0 {
+            return Err(last());
+        }
+        Ok(b)
     }
 
-    fn dir_of(path: &Path) -> std::io::Result<(u64, u64)> {
-        let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).ok_or_else(|| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
-        let (_, s) = open_path(parent, READ_ATTRIBUTES)?;
-        Ok((s.id.dev, s.id.ino))
+    /// The folder at `path`, opened as itself: its real path (a link on the way resolved once,
+    /// here), opened as a folder without following a link at its end.
+    fn open_dir(path: &Path) -> std::io::Result<Held> {
+        let path = if path.as_os_str().is_empty() { Path::new(".") } else { path };
+        let f = std::fs::OpenOptions::new().access_mode(LIST_DIRECTORY | READ_ATTRIBUTES | SYNCHRONIZE).custom_flags(FLAGS).open(std::fs::canonicalize(path)?)?;
+        let s = stat_of(&f)?;
+        match s.kind {
+            Kind::Dir => Ok(Held { h: f.into(), id: (s.id.dev, s.id.ino) }),
+            Kind::Link => Err(other(t!("pinned.link"))),
+            _ => Err(std::io::Error::from(std::io::ErrorKind::NotADirectory)),
+        }
+    }
+
+    fn split(path: &Path) -> std::io::Result<(&Path, Vec<u16>)> {
+        let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+        };
+        Ok((parent, name.encode_wide().collect()))
     }
 
     pub(super) fn root(path: &Path) -> std::io::Result<Place> {
-        Ok(Place { path: path.to_path_buf(), dir: dir_of(path)? })
+        let (parent, name) = split(path)?;
+        Ok(Place { dir: Arc::new(open_dir(parent)?), name })
     }
 
-    /// Never called: no walk goes into folders here (`RECURSES`).
-    pub(super) fn list(_: &Node) -> std::io::Result<Vec<(PathBuf, Place)>> {
-        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+    /// The names in the folder `node` (opened in its own folder, checked to be it), listed
+    /// through that handle, in order.
+    pub(super) fn list(node: &Node) -> std::io::Result<Vec<(PathBuf, Place)>> {
+        let p = &node.place;
+        let f = open_in(p.dir.h.as_raw_handle() as _, &p.name, LIST_DIRECTORY | READ_ATTRIBUTES, FILE_OPEN, FILE_DIRECTORY_FILE, SHARE_ALL)?;
+        let s = stat_of(&f)?;
+        if s.kind == Kind::Link {
+            return Err(other(t!("pinned.link")));
+        }
+        // The very folder that was looked at, not one swapped in since.
+        if s.kind != Kind::Dir || !s.id.same_file(&node.stat.id) {
+            return Err(changed());
+        }
+        let mut names: Vec<Vec<u16>> = vec![];
+        // 64 KiB, aligned for the records the call writes.
+        let mut buf = vec![0u64; 8 * 1024];
+        let mut class = FileIdBothDirectoryRestartInfo;
+        loop {
+            // SAFETY: an open folder, a buffer of the length given.
+            if unsafe { GetFileInformationByHandleEx(f.as_raw_handle() as _, class, buf.as_mut_ptr().cast(), (buf.len() * 8) as u32) } == 0 {
+                let e = last();
+                // ERROR_NO_MORE_FILES: the end. Anything else cuts the listing short: said.
+                if e.raw_os_error() == Some(18) {
+                    break;
+                }
+                return Err(e);
+            }
+            class = FileIdBothDirectoryInfo;
+            let base = buf.as_ptr().cast::<u8>();
+            let mut at = 0usize;
+            loop {
+                if at + std::mem::size_of::<FILE_ID_BOTH_DIR_INFO>() > buf.len() * 8 {
+                    return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
+                }
+                // SAFETY: a record the call wrote at `at`, inside the buffer (checked above).
+                let e = unsafe { base.add(at).cast::<FILE_ID_BOTH_DIR_INFO>() };
+                // SAFETY: as above; unaligned reads, whatever the offsets.
+                let (next, len) = unsafe { (std::ptr::addr_of!((*e).NextEntryOffset).read_unaligned(), std::ptr::addr_of!((*e).FileNameLength).read_unaligned()) };
+                let name_at = at + std::mem::offset_of!(FILE_ID_BOTH_DIR_INFO, FileName);
+                if name_at + len as usize > buf.len() * 8 {
+                    return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
+                }
+                // SAFETY: the name's bytes, inside the buffer (checked above), copied out.
+                let name: Vec<u16> = unsafe { std::slice::from_raw_parts(base.add(name_at), len as usize) }.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+                if name != [b'.' as u16] && name != [b'.' as u16, b'.' as u16] {
+                    names.push(name);
+                }
+                if next == 0 {
+                    break;
+                }
+                at += next as usize;
+            }
+        }
+        names.sort();
+        let held = Arc::new(Held { h: f.into(), id: (s.id.dev, s.id.ino) });
+        Ok(names.into_iter().map(|n| (node.path.join(OsString::from_wide(&n)), Place { dir: held.clone(), name: n })).collect())
+    }
+
+    /// Something a file written anew would lose: other attributes than `CARRIED`, other data
+    /// streams (the mark of the web among them), extended attributes. Fails closed.
+    fn extra(f: &std::fs::File, attributes: u32) -> bool {
+        if attributes & !CARRIED != 0 {
+            return true;
+        }
+        // SAFETY: zeroes are a valid FILE_EA_INFORMATION and IO_STATUS_BLOCK, filled in by the call.
+        let (mut ea, mut io): (FILE_EA_INFORMATION, IO_STATUS_BLOCK) = unsafe { (std::mem::zeroed(), std::mem::zeroed()) };
+        // SAFETY: an open file, `ea` of the size given.
+        let st = unsafe { NtQueryInformationFile(f.as_raw_handle() as _, &mut io, std::ptr::from_mut(&mut ea).cast(), std::mem::size_of::<FILE_EA_INFORMATION>() as u32, FileEaInformation) };
+        // A file system that keeps none (STATUS_INVALID_PARAMETER, _NOT_SUPPORTED,
+        // _INVALID_DEVICE_REQUEST) has none to lose; any other failure counts as some.
+        if st < 0 && !matches!(st as u32, 0xC000_000D | 0xC000_00BB | 0xC000_0010) || st >= 0 && ea.EaSize != 0 {
+            return true;
+        }
+        let mut buf = vec![0u64; 8 * 1024];
+        // SAFETY: an open file, a buffer of the length given.
+        if unsafe { GetFileInformationByHandleEx(f.as_raw_handle() as _, FileStreamInfo, buf.as_mut_ptr().cast(), (buf.len() * 8) as u32) } == 0 {
+            // A file system with no streams at all (FAT) has none to lose.
+            return !matches!(last().raw_os_error(), Some(1 | 38 | 50 | 87));
+        }
+        let base = buf.as_ptr().cast::<u8>();
+        let mut at = 0usize;
+        loop {
+            if at + std::mem::size_of::<FILE_STREAM_INFO>() > buf.len() * 8 {
+                return true;
+            }
+            // SAFETY: a record the call wrote, inside the buffer (checked above).
+            let e = unsafe { base.add(at).cast::<FILE_STREAM_INFO>() };
+            // SAFETY: as above.
+            let (next, len) = unsafe { (std::ptr::addr_of!((*e).NextEntryOffset).read_unaligned(), std::ptr::addr_of!((*e).StreamNameLength).read_unaligned()) };
+            let name_at = at + std::mem::offset_of!(FILE_STREAM_INFO, StreamName);
+            if name_at + len as usize > buf.len() * 8 {
+                return true;
+            }
+            // SAFETY: the name's bytes, inside the buffer.
+            let name = unsafe { std::slice::from_raw_parts(base.add(name_at), len as usize) };
+            let data: Vec<u8> = "::$DATA".encode_utf16().flat_map(u16::to_le_bytes).collect();
+            if name != data.as_slice() {
+                return true;
+            }
+            if next == 0 {
+                return false;
+            }
+            at += next as usize;
+        }
+    }
+
+    /// The owner and permissions (DACL) of `f`, to compare.
+    fn security(f: &std::fs::File) -> std::io::Result<(PSID, Vec<u8>, PSECURITY_DESCRIPTOR, u16)> {
+        let (mut owner, mut dacl, mut sd): (PSID, *mut ACL, PSECURITY_DESCRIPTOR) = (std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut());
+        // SAFETY: an open handle with READ_CONTROL; the pointers point into `sd`, freed by the caller.
+        let e = unsafe { GetSecurityInfo(f.as_raw_handle() as _, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &mut owner, std::ptr::null_mut(), &mut dacl, std::ptr::null_mut(), &mut sd) };
+        if e != 0 {
+            return Err(std::io::Error::from_raw_os_error(e as i32));
+        }
+        // SAFETY: a DACL inside `sd`, `AclSize` bytes long; a null one (everyone may) is empty.
+        let bytes = if dacl.is_null() { vec![] } else { unsafe { std::slice::from_raw_parts(dacl.cast::<u8>(), (*dacl).AclSize as usize) }.to_vec() };
+        // Whether the DACL is protected (inheritance turned off), from the descriptor's control.
+        let (mut control, mut rev) = (0u16, 0u32);
+        // SAFETY: the descriptor just got, and two values to fill.
+        unsafe { GetSecurityDescriptorControl(sd, &mut control, &mut rev) };
+        Ok((owner, bytes, sd, control & 0x1000))
+    }
+
+    /// Whether `new` has the very owner and permissions `old` has: a file written anew must not
+    /// be opened to others, or given to another owner.
+    fn same_security(old: &std::fs::File, new: &std::fs::File) -> bool {
+        let (a, b) = (security(old), security(new));
+        // SAFETY: two SIDs inside their descriptors, still held.
+        let same = matches!((&a, &b), (Ok(a), Ok(b)) if !a.0.is_null() && !b.0.is_null() && unsafe { EqualSid(a.0, b.0) } != 0 && a.1 == b.1 && !a.1.is_empty() && a.3 == b.3);
+        // SAFETY: each descriptor GetSecurityInfo gave, freed once.
+        for sd in [a, b].into_iter().flatten() {
+            unsafe { LocalFree(sd.2) };
+        }
+        same
     }
 
     impl Place {
+        /// The folder `path` is in, opened again (for undo) and checked to be the folder `dir`.
         pub fn reopen(path: &Path, dir: (u64, u64)) -> std::io::Result<Place> {
-            if dir_of(path)? != dir {
+            let (parent, name) = split(path)?;
+            let held = open_dir(parent)?;
+            if held.id != dir {
                 return Err(changed());
             }
-            Ok(Place { path: path.to_path_buf(), dir })
+            Ok(Place { dir: Arc::new(held), name })
         }
 
         pub fn dir_id(&self) -> (u64, u64) {
-            self.dir
+            self.dir.id
         }
 
+        fn open_in(&self, access: u32, disposition: u32, options: u32, share: u32) -> std::io::Result<std::fs::File> {
+            open_in(self.dir.h.as_raw_handle() as _, &self.name, access, disposition, options, share)
+        }
+
+        /// The entry as it is now, opened in its folder, never through a link.
         pub fn stat(&self) -> std::io::Result<Stat> {
-            open_path(&self.path, READ_ATTRIBUTES).map(|(_, s)| s)
+            stat_of(&self.open_in(READ_ATTRIBUTES, FILE_OPEN, 0, SHARE_ALL)?)
         }
 
-        /// The entry opened to read (GENERIC_READ, FILE_READ_ATTRIBUTES) as itself and checked
-        /// through that handle to be `want` exactly and a file or folder.
+        /// The entry opened to read in its folder, as itself (a link is opened as the link), and
+        /// checked through that handle to be `want` exactly and a file or folder.
         pub fn open(&self, want: Id) -> std::io::Result<(std::fs::File, Stat)> {
-            self.open_with(want, 0x8000_0000 | READ_ATTRIBUTES)
+            self.open_with(want, GENERIC_READ | READ_ATTRIBUTES)
         }
 
-        /// As `open`, to change its attributes and times (FILE_WRITE_ATTRIBUTES), not to read.
+        /// As `open`, to change its attributes and times, not to read.
         pub fn open_to_change(&self, want: Id) -> std::io::Result<(std::fs::File, Stat)> {
-            self.open_with(want, READ_ATTRIBUTES | 0x100)
+            self.open_with(want, READ_ATTRIBUTES | WRITE_ATTRIBUTES)
         }
 
         fn open_with(&self, want: Id, access: u32) -> std::io::Result<(std::fs::File, Stat)> {
-            let (f, s) = open_path(&self.path, access)?;
+            let f = self.open_in(access, FILE_OPEN, 0, SHARE_ALL).map_err(|e| if e.kind() == std::io::ErrorKind::PermissionDenied { other(t!("pinned.no_open")) } else { e })?;
+            let s = stat_of(&f)?;
             match s.kind {
                 Kind::Link => return Err(other(t!("pinned.link"))),
                 Kind::Other => return Err(other(t!("pinned.special"))),
@@ -911,11 +1118,129 @@ mod imp {
             Ok((f, s))
         }
 
-        /// Not on Windows yet (`WRITES`).
-        pub fn rewrite(&self, _want: Id, _bytes: &[u8]) -> std::io::Result<Id> {
-            Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+        /// The file written anew with `bytes`: a new file beside it, made in the same held folder
+        /// (never one that is there, never through a link), with the old file's owner and
+        /// permissions (else not written), its attributes and creation time, filled, flushed and
+        /// renamed over it in that folder (`FileRenameInformation` relative to the folder's
+        /// handle). Only while the name is still `want` exactly (a plain file with no other hard
+        /// links). What it is now, for undo.
+        pub fn rewrite(&self, want: Id, bytes: &[u8]) -> std::io::Result<Id> {
+            use std::io::Write;
+            // First exactly `want`; right before the rename the same file still.
+            let check = |exact: bool| -> std::io::Result<Stat> {
+                let s = self.stat()?;
+                match s.kind {
+                    Kind::Link => return Err(other(t!("pinned.link"))),
+                    Kind::Other => return Err(other(t!("pinned.special"))),
+                    _ => {}
+                }
+                if s.kind != Kind::File || if exact { s.id != want } else { !s.id.same_file(&want) } {
+                    return Err(changed());
+                }
+                if s.nlink > 1 {
+                    return Err(other(t!("pinned.hard_link")));
+                }
+                Ok(s)
+            };
+            check(true)?;
+            // Not on a network share: a server opens by path and would follow a junction swapped
+            // in on its side (SMB has no opens relative to a handle).
+            // SAFETY: zeroes are a valid FILE_REMOTE_PROTOCOL_INFO, which the call fills in; it
+            // succeeds only for a folder on a network share.
+            let mut remote: FILE_REMOTE_PROTOCOL_INFO = unsafe { std::mem::zeroed() };
+            // SAFETY: the held folder, `remote` of the size given.
+            if unsafe { GetFileInformationByHandleEx(self.dir.h.as_raw_handle() as _, FileRemoteProtocolInfo, std::ptr::from_mut(&mut remote).cast(), std::mem::size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32) } != 0 {
+                return Err(other(t!("pinned.remote")));
+            }
+            let old = self.open_in(READ_CONTROL | READ_ATTRIBUTES, FILE_OPEN, FILE_NON_DIRECTORY_FILE, SHARE_ALL)?;
+            if stat_of(&old)?.id != want {
+                return Err(changed());
+            }
+            let was = basic(&old)?;
+            if extra(&old, was.FileAttributes) {
+                return Err(other(t!("pinned.extra")));
+            }
+            let dir = self.dir.h.as_raw_handle() as HANDLE;
+            // A name of its own (process, time), short whatever the file's name.
+            let stem: String = String::from_utf16_lossy(&self.name).chars().filter(|c| !matches!(c, '\\' | '/' | ':')).take(40).collect();
+            let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
+            let tmp: Vec<u16> = format!(".{stem}.coxswain-{}-{nanos}.tmp", std::process::id()).encode_utf16().collect();
+            // A new file only, shared with no one while it is made.
+            let mut f = open_in(dir, &tmp, GENERIC_WRITE | READ_ATTRIBUTES | DELETE | READ_CONTROL, FILE_CREATE, FILE_NON_DIRECTORY_FILE, 0)?;
+            // The folder's inherited permissions would open it to others the old file was closed
+            // to, or the old file is someone else's: then it is not written at all.
+            let same = same_security(&old, &f);
+            // Closed before the rename, which an open old file would stop.
+            drop(old);
+            let done = (|| {
+                if !same {
+                    return Err(other(t!("pinned.extra")));
+                }
+                f.write_all(bytes)?;
+                // Its attributes and creation time as the old file has them; times of 0 are
+                // left as they are.
+                let info = FILE_BASIC_INFO { CreationTime: was.CreationTime, LastAccessTime: 0, LastWriteTime: 0, ChangeTime: 0, FileAttributes: if was.FileAttributes & CARRIED == 0 { 0x80 } else { was.FileAttributes & CARRIED } };
+                // SAFETY: the file just made, `info` of the size given.
+                if unsafe { SetFileInformationByHandle(f.as_raw_handle() as _, FileBasicInfo, std::ptr::from_ref(&info).cast(), std::mem::size_of::<FILE_BASIC_INFO>() as u32) } == 0 {
+                    return Err(last());
+                }
+                f.sync_all()?;
+                // Still the file the plan saw, right before it is replaced.
+                check(false)?;
+                // FILE_RENAME_INFORMATION: replace, in the held folder, under the old name.
+                let head = std::mem::offset_of!(FILE_RENAME_INFO, FileName);
+                let size = head + self.name.len() * 2;
+                let mut buf = vec![0u64; size.div_ceil(8) + 1];
+                // SAFETY: the buffer holds the struct and the name (sized above), aligned for it.
+                unsafe {
+                    let r = buf.as_mut_ptr().cast::<FILE_RENAME_INFO>();
+                    (*r).RootDirectory = dir;
+                    (*r).FileNameLength = (self.name.len() * 2) as u32;
+                    std::ptr::copy_nonoverlapping(self.name.as_ptr(), buf.as_mut_ptr().cast::<u8>().add(head).cast::<u16>(), self.name.len());
+                }
+                // POSIX semantics first (FILE_RENAME_REPLACE_IF_EXISTS | FILE_RENAME_POSIX_SEMANTICS):
+                // the old file goes even while a scanner holds it open; where a file system or an
+                // older Windows lacks it, the plain rename that replaces.
+                for (class, flags) in [(65, 0x1 | 0x2), (FileRenameInformation, 0x1)] {
+                    // SAFETY: as above; Flags overlays ReplaceIfExists (its low byte).
+                    unsafe { (*buf.as_mut_ptr().cast::<FILE_RENAME_INFO>()).Anonymous.Flags = flags };
+                    // SAFETY: zeroes are a valid IO_STATUS_BLOCK.
+                    let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
+                    // SAFETY: the file just made (opened with DELETE), the rename record of the size given.
+                    // Never shorter than the record itself (a one-letter name).
+                    let st = unsafe { NtSetInformationFile(f.as_raw_handle() as _, &mut io, buf.as_ptr().cast(), size.max(std::mem::size_of::<FILE_RENAME_INFO>()) as u32, class) };
+                    if st >= 0 {
+                        return Ok(());
+                    }
+                    // STATUS_INVALID_PARAMETER, STATUS_INVALID_INFO_CLASS, STATUS_NOT_SUPPORTED.
+                    if class == FileRenameInformation || !matches!(st as u32, 0xC000_000D | 0xC000_0003 | 0xC000_00BB) {
+                        return Err(nt(st));
+                    }
+                }
+                Ok(())
+            })();
+            if let Err(e) = done {
+                // Deleted through its own handle, never by name.
+                let gone = FILE_DISPOSITION_INFO { DeleteFile: true };
+                // SAFETY: the file just made, opened with DELETE.
+                unsafe { SetFileInformationByHandle(f.as_raw_handle() as _, FileDispositionInfo, std::ptr::from_ref(&gone).cast(), std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32) };
+                return Err(e);
+            }
+            // Written: what it is now, for undo; never an error here, which would cost the kept
+            // copy its undo. One not to be told is recorded with no time, which undo refuses.
+            Ok(stat_of(&f).map_or(Id { ctime: (-1, 0), ..want }, |s| s.id))
         }
     }
+}
+
+/// For tests: `link` made a link to the folder `target`: a symbolic link, on Windows a junction
+/// (which needs no right of its own).
+#[cfg(test)]
+pub(crate) fn link_dir(target: &Path, link: &Path) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).unwrap();
+    #[cfg(windows)]
+    assert!(std::process::Command::new("cmd").arg("/C").arg("mklink").arg("/J").arg(link).arg(target).output().unwrap().status.success());
 }
 
 #[cfg(test)]
@@ -956,12 +1281,10 @@ mod tests {
         let (set, said) = plan(&roots, false, |_| true);
         assert_eq!((set.len(), said.lines.len()), (2, 0));
         assert_eq!(run(&roots, &set).0.len(), 2);
-        // Into folders only where a folder is walked through its handle.
         let (set, said) = plan(&[d.to_path_buf()], true, files);
-        assert_eq!((set.len(), said.lines.len()), if RECURSES { (2, 0) } else { (0, 1) });
+        assert_eq!((set.len(), said.lines.len()), (2, 0));
     }
 
-    #[cfg(unix)]
     #[test]
     fn the_run_meets_only_what_the_plan_saw() {
         let d = crate::fs::Scratch::named("pinned-1");
@@ -976,12 +1299,10 @@ mod tests {
     }
 
     /// Time enough for a file system's timestamps (a tick of the clock) to move on.
-    #[cfg(unix)]
     fn tick() {
         std::thread::sleep(std::time::Duration::from_millis(30));
     }
 
-    #[cfg(unix)]
     #[test]
     fn what_changed_since_the_plan_is_not_met() {
         let d = crate::fs::Scratch::named("pinned-1b");
@@ -1000,7 +1321,6 @@ mod tests {
         assert!(seen.is_empty(), "{seen:?}");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_folder_swapped_for_a_link_after_the_plan_leads_nowhere() {
         let (d, out) = (crate::fs::Scratch::named("pinned-swap"), crate::fs::Scratch::named("pinned-swap-out"));
@@ -1009,18 +1329,17 @@ mod tests {
         std::fs::write(out.join("f"), "x").unwrap();
         let (set, _) = plan(&[d.to_path_buf()], true, files);
         std::fs::rename(d.join("sub"), d.join("moved")).unwrap();
-        std::os::unix::fs::symlink(&*out, d.join("sub")).unwrap();
+        link_dir(&out, &d.join("sub"));
         let (seen, _) = run(&[d.to_path_buf()], &set);
         assert!(seen.is_empty(), "{seen:?}");
         // The root itself swapped: passed over.
         let (set, _) = plan(&[d.join("moved")], true, files);
         std::fs::rename(d.join("moved"), d.join("moved2")).unwrap();
-        std::os::unix::fs::symlink(&*out, d.join("moved")).unwrap();
+        link_dir(&out, &d.join("moved"));
         let (seen, _) = run(&[d.join("moved")], &set);
         assert!(seen.is_empty(), "{seen:?}");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_folder_renamed_in_after_the_plan_is_not_gone_into() {
         let (d, out) = (crate::fs::Scratch::named("pinned-in"), crate::fs::Scratch::named("pinned-in-out"));
@@ -1036,7 +1355,6 @@ mod tests {
         assert!(seen.is_empty(), "{seen:?}");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_folder_swapped_between_listing_and_opening_is_refused() {
         let (d, out) = (crate::fs::Scratch::named("pinned-race"), crate::fs::Scratch::named("pinned-race-out"));
@@ -1057,6 +1375,44 @@ mod tests {
         });
         assert!(!seen.iter().any(|p| p.ends_with("secret")), "{seen:?}");
         assert_eq!(said.lines.len(), 1, "{said:?}");
+        // A link (on Windows a junction) swapped in at that moment: never gone into.
+        let (stop, mut said, mut seen) = (AtomicBool::new(false), Said::default(), vec![]);
+        let d = crate::fs::Scratch::named("pinned-race-2");
+        std::fs::write(out.join("secret"), "x").unwrap();
+        std::fs::create_dir(d.join("sub2")).unwrap();
+        let mut swapped = false;
+        walk(&[d.to_path_buf()], &Walk { recursive: true, ..Default::default() }, &stop, &mut said, |n| {
+            seen.push(n.path.clone());
+            if n.path.ends_with("sub2") && !swapped {
+                std::fs::remove_dir(d.join("sub2")).unwrap();
+                link_dir(&out, &d.join("sub2"));
+                swapped = true;
+            }
+            true
+        });
+        assert!(swapped && !seen.iter().any(|p| p.ends_with("secret")), "{seen:?}");
+        assert_eq!(said.lines.len(), 1, "{said:?}");
+    }
+
+    #[test]
+    fn links_are_met_as_links_and_never_opened_or_gone_into() {
+        let (d, out) = (crate::fs::Scratch::named("pinned-links"), crate::fs::Scratch::named("pinned-links-out"));
+        std::fs::write(out.join("secret"), "x").unwrap();
+        link_dir(&out, &d.join("j"));
+        std::fs::write(d.join("f"), "x").unwrap();
+        let (stop, mut said, mut met) = (AtomicBool::new(false), Said::default(), vec![]);
+        walk(&[d.to_path_buf()], &Walk { recursive: true, ..Default::default() }, &stop, &mut said, |n| {
+            met.push((n.path.file_name().unwrap().to_string_lossy().into_owned(), n.stat.kind, n.open().is_ok()));
+            true
+        });
+        met.retain(|m| m.0 != d.file_name().unwrap().to_string_lossy());
+        met.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(met, [("f".to_string(), Kind::File, true), ("j".to_string(), Kind::Link, false)]);
+        // A file's name swapped for a link after the plan: not met.
+        let (set, _) = plan(&[d.join("f")], false, files);
+        std::fs::remove_file(d.join("f")).unwrap();
+        link_dir(&out, &d.join("f"));
+        assert!(run(&[d.join("f")], &set).0.is_empty());
     }
 
     #[cfg(unix)]
@@ -1133,7 +1489,57 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(windows)]
+    #[test]
+    fn rewriting_on_windows_goes_beside_keeps_hidden_and_created_and_refuses_streams_and_hard_links() {
+        use std::os::windows::fs::MetadataExt;
+        let d = crate::fs::Scratch::named("pinned-rewrite-win");
+        let a = d.join("a");
+        std::fs::write(&a, "old").unwrap();
+        assert!(std::process::Command::new("attrib").arg("+h").arg(&a).output().unwrap().status.success());
+        let created = std::fs::metadata(&a).unwrap().creation_time();
+        tick();
+        let (stop, mut said) = (AtomicBool::new(false), Said::default());
+        let mut pins = vec![];
+        walk(std::slice::from_ref(&a), &Walk::default(), &stop, &mut said, |n| {
+            let new = n.place.rewrite(n.stat.id, b"new").unwrap();
+            assert!(!new.same_file(&n.stat.id));
+            pins.push(Pin { dir: n.place.dir_id(), file: new, sum: None });
+            // Not twice: it is not the file it was.
+            assert!(n.place.rewrite(n.stat.id, b"again").is_err());
+            true
+        });
+        assert_eq!(std::fs::read_to_string(&a).unwrap(), "new");
+        let m = std::fs::metadata(&a).unwrap();
+        assert!(m.file_attributes() & 2 != 0, "{:x}", m.file_attributes());
+        assert_eq!(m.creation_time(), created);
+        // Undo: back in the same folder, only to the file as written.
+        let p = Place::reopen(&a, pins[0].dir).unwrap();
+        let now = p.stat().unwrap().id;
+        assert!(now.same_file(&pins[0].file));
+        p.rewrite(now, b"old").unwrap();
+        assert_eq!(std::fs::read_to_string(&a).unwrap(), "old");
+        // Another data stream (as the mark of a download): refused, it would be lost.
+        std::fs::write(d.join("s"), "old").unwrap();
+        std::fs::write(d.join("s:Zone.Identifier"), "[ZoneTransfer]\r\nZoneId=3\r\n").unwrap();
+        let p = Place::reopen(&d.join("s"), pins[0].dir).unwrap();
+        assert_eq!(p.rewrite(p.stat().unwrap().id, b"new").unwrap_err().to_string(), t!("pinned.extra"));
+        assert_eq!(std::fs::read_to_string(d.join("s")).unwrap(), "old");
+        // A hard link: refused, never written through.
+        std::fs::write(d.join("b"), "b").unwrap();
+        std::fs::hard_link(d.join("b"), d.join("c")).unwrap();
+        let p = Place::reopen(&d.join("b"), pins[0].dir).unwrap();
+        assert!(p.rewrite(p.stat().unwrap().id, b"x").is_err());
+        assert_eq!(std::fs::read_to_string(d.join("c")).unwrap(), "b");
+        // A junction in a file's place: refused.
+        std::fs::create_dir(d.join("t")).unwrap();
+        link_dir(&d.join("t"), &d.join("j"));
+        let p = Place::reopen(&d.join("j"), pins[0].dir).unwrap();
+        assert!(p.rewrite(p.stat().unwrap().id, b"x").is_err());
+        // No file beside is left behind: a, s, b, c, t, j.
+        assert_eq!(std::fs::read_dir(&*d).unwrap().count(), 6);
+    }
+
     #[test]
     fn undo_refuses_another_folder() {
         let (d, out) = (crate::fs::Scratch::named("pinned-undo"), crate::fs::Scratch::named("pinned-undo-out"));
@@ -1147,7 +1553,7 @@ mod tests {
         });
         let pin = pin.unwrap();
         std::fs::rename(d.join("sub"), d.join("moved")).unwrap();
-        std::os::unix::fs::symlink(&*out, d.join("sub")).unwrap();
+        link_dir(&out, &d.join("sub"));
         assert!(Place::reopen(&d.join("sub/a"), pin.dir).is_err());
     }
 
@@ -1203,7 +1609,6 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
     #[test]
     fn stop_and_depth() {
         let d = crate::fs::Scratch::named("pinned-deep");
