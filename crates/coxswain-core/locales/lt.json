@@ -2359,6 +2359,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Rangas",
  "go.col_size": "Lenta",
+ "go.finding": "Ieškoma rezultato partijos… Esc sustabdo",
  "go.keys_game": "← → ėjimas · ↓ ↑ kitas variantas · Home End · PgUp PgDn kita partija · Esc partijos",
  "go.keys_game_gui": "Spustelėkite lentą, tada ← → ėjimas · ↓ ↑ kitas variantas · Home End · PgUp PgDn kita partija · Esc partijos. Spustelėjus variantą, jis parodomas.",
  "go.keys_list": "Enter atidaryti · ↑ ↓ pasirinkti · Esc uždaryti",

@@ -2359,6 +2359,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Úroveň",
  "go.col_size": "Deska",
+ "go.finding": "Hledá se partie z výsledku… Esc zastaví",
  "go.keys_game": "← → tah · ↓ ↑ jiná varianta · Home End · PgUp PgDn jiná partie · Esc partie",
  "go.keys_game_gui": "Klepněte na desku, pak ← → tah · ↓ ↑ jiná varianta · Home End · PgUp PgDn jiná partie · Esc partie. Klepnutí na variantu ji zobrazí.",
  "go.keys_list": "Enter otevřít · ↑ ↓ vybrat · Esc zavřít",

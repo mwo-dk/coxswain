@@ -2359,6 +2359,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Niveau",
  "go.col_size": "Goban",
+ "go.finding": "Recherche de la partie du résultat… Échap arrête",
  "go.keys_game": "← → pas · ↓ ↑ autre variante · Home End · PgUp PgDn autre partie · Esc parties",
  "go.keys_game_gui": "Cliquez sur le goban, puis ← → pas · ↓ ↑ autre variante · Home End · PgUp PgDn autre partie · Esc parties. Un clic sur une variante l’affiche.",
  "go.keys_list": "Enter ouvrir · ↑ ↓ choisir · Esc fermer",

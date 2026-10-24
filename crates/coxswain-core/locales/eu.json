@@ -2309,6 +2309,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Maila",
  "go.col_size": "Taula",
+ "go.finding": "Emaitzaren partida bilatzen… Esc-ek gelditzen du",
  "go.keys_game": "← → urratsa · ↓ ↑ beste aldaera · Home End · PgUp PgDn beste partida · Esc partidak",
  "go.keys_game_gui": "Egin klik taulan, gero ← → urratsa · ↓ ↑ beste aldaera · Home End · PgUp PgDn beste partida · Esc partidak. Aldaera baten gaineko klikak erakusten du.",
  "go.keys_list": "Enter ireki · ↑ ↓ aukeratu · Esc itxi",

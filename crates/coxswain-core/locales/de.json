@@ -2309,6 +2309,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Rang",
  "go.col_size": "Brett",
+ "go.finding": "Die Partie des Treffers wird gesucht… Esc bricht ab",
  "go.keys_game": "← → Zug · ↓ ↑ andere Variante · Home End · PgUp PgDn andere Partie · Esc Partien",
  "go.keys_game_gui": "Brett anklicken, dann ← → Zug · ↓ ↑ andere Variante · Home End · PgUp PgDn andere Partie · Esc Partien. Ein Klick auf eine Variante zeigt sie.",
  "go.keys_list": "Enter öffnen · ↑ ↓ wählen · Esc schließen",

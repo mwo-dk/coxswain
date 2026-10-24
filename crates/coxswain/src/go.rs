@@ -13,6 +13,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, mpsc};
 
 use crate::bom::faint;
 use crate::chess::Outcome;
@@ -40,11 +42,25 @@ pub struct Viewer {
     pictures: Option<crate::pictures::Pieces>,
     /// Whether the file was looked at for having one game only.
     single: bool,
+    /// A Find hit's game being looked for, on a thread of its own (up to 1 GiB of the file is
+    /// read): its answer, and what stops it (Esc).
+    finding: Option<(mpsc::Receiver<Option<u32>>, Arc<AtomicBool>)>,
+    /// The hit's game, opened once the list has reached it.
+    want: Option<usize>,
 }
 
 fn rgb(hex: &str) -> Color {
     let v = u32::from_str_radix(hex.trim_start_matches('#'), 16).unwrap_or(0xc8a060);
     Color::Rgb((v >> 16) as u8, (v >> 8) as u8, v as u8)
+}
+
+/// Closed while a Find hit's game is looked for: the looking stops.
+impl Drop for Viewer {
+    fn drop(&mut self) {
+        if let Some((_, stop)) = &self.finding {
+            stop.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 impl Viewer {
@@ -53,7 +69,7 @@ impl Viewer {
         let [light, _] = coxswain_core::chess::board_colours(theme, &cfg.chess.board);
         let pieces = crate::pieces::pieces(cfg);
         let pictures = if pieces == Pieces::Pictures { crate::pictures::support().map(crate::pictures::Pieces::new) } else { None };
-        let mut v = Viewer { path: path.to_path_buf(), games, cursor: 0, offset: 0, open: None, wood: rgb(&light), said: None, pieces, pictures, single: false };
+        let mut v = Viewer { path: path.to_path_buf(), games, cursor: 0, offset: 0, open: None, wood: rgb(&light), said: None, pieces, pictures, single: false, finding: None, want: None };
         if pieces != Pieces::Pictures && cfg.chess.pieces == "pictures" {
             v.said = Some(t!("chess.pictures_none"));
         }
@@ -61,9 +77,46 @@ impl Viewer {
         Ok(v)
     }
 
-    /// A file of one game opens on its board, once its list is read.
+    /// Looks for the game of a Find hit's `snippet` on a thread of its own, and opens it when
+    /// found; the table is there meanwhile, and Esc stops the looking.
+    pub fn at_hit(&mut self, snippet: String) {
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        let (path, s) = (self.path.clone(), stop.clone());
+        std::thread::spawn(move || tx.send(go::game_of_hit(&path, &snippet, &s)));
+        self.finding = Some((rx, stop));
+        self.said = Some(t!("go.finding"));
+    }
+
+    /// A file of one game opens on its board, once its list is read; a Find hit's game once it
+    /// is found and listed.
     pub fn poll(&mut self) {
-        if !self.single && self.open.is_none() {
+        if let Some((rx, _)) = &self.finding {
+            match rx.try_recv() {
+                Ok(i) => {
+                    self.finding = None;
+                    self.said = None;
+                    self.want = i.map(|i| i as usize);
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.finding = None;
+                    self.said = None;
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+            }
+        }
+        if let Some(i) = self.want {
+            let p = self.games.progress();
+            if p.games > i || p.done {
+                self.want = None;
+                self.single = true;
+                // Not over a game opened meanwhile.
+                if i < p.games && self.open.is_none() {
+                    self.show(i);
+                }
+            }
+        }
+        if !self.single && self.open.is_none() && self.finding.is_none() && self.want.is_none() {
             let p = self.games.progress();
             if p.done {
                 self.single = true;
@@ -72,6 +125,16 @@ impl Viewer {
                 }
             }
         }
+    }
+
+    /// Whether a Find hit's game is being looked for.
+    pub fn finding(&self) -> bool {
+        self.finding.is_some()
+    }
+
+    /// The game open on the board (from 0).
+    pub fn shown(&self) -> Option<usize> {
+        self.open.as_ref().map(|o| o.index)
     }
 
     /// Opens game `i` (from 0) at its start.
@@ -90,7 +153,18 @@ impl Viewer {
         if action == Some(Action::Quit) {
             return Outcome::Close;
         }
-        self.said = None;
+        // Esc while a Find hit's game is looked for stops the looking: the table stays. Other
+        // keys move in the table meanwhile, and the note stays.
+        if let Some((_, stop)) = &self.finding {
+            if key.code == KeyCode::Esc {
+                stop.store(true, Ordering::Relaxed);
+                self.finding = None;
+                self.said = None;
+                return Outcome::Stay;
+            }
+        } else {
+            self.said = None;
+        }
         let n = self.games.progress().games;
         let Some(o) = self.open.as_mut() else {
             match key.code {

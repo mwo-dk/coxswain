@@ -2359,6 +2359,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Nivel",
  "go.col_size": "Tablero",
+ "go.finding": "Buscando la partida del resultado… Esc detiene",
  "go.keys_game": "← → jugada · ↓ ↑ otra variante · Home End · PgUp PgDn otra partida · Esc partidas",
  "go.keys_game_gui": "Hacé clic en el tablero y después ← → jugada · ↓ ↑ otra variante · Home End · PgUp PgDn otra partida · Esc partidas. Un clic en una variante la muestra.",
  "go.keys_list": "Enter abrir · ↑ ↓ elegir · Esc cerrar",

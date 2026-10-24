@@ -2409,6 +2409,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Ranga",
  "go.col_size": "Plansza",
+ "go.finding": "Szukanie partii z wyniku… Esc zatrzymuje",
  "go.keys_game": "← → krok · ↓ ↑ inny wariant · Home End · PgUp PgDn inna partia · Esc partie",
  "go.keys_game_gui": "Kliknij planszę, potem ← → krok · ↓ ↑ inny wariant · Home End · PgUp PgDn inna partia · Esc partie. Kliknięcie wariantu go pokazuje.",
  "go.keys_list": "Enter otwórz · ↑ ↓ wybierz · Esc zamknij",

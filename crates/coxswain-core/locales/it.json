@@ -2359,6 +2359,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Grado",
  "go.col_size": "Goban",
+ "go.finding": "Ricerca della partita del risultato… Esc interrompe",
  "go.keys_game": "← → avanti/indietro · ↓ ↑ altra variante · Home End · PgUp PgDn altra partita · Esc partite",
  "go.keys_game_gui": "Clicca il goban, poi ← → avanti/indietro · ↓ ↑ altra variante · Home End · PgUp PgDn altra partita · Esc partite. Un clic su una variante la mostra.",
  "go.keys_list": "Invio apre · ↑ ↓ scegli · Esc chiudi",

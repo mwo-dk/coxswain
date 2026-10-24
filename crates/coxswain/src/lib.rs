@@ -2130,8 +2130,9 @@ impl App {
         if coxswain_core::chess::format(path) == Some(coxswain_core::chess::Format::Sgf) {
             return match go::Viewer::open(path, &self.cfg, &self.theme) {
                 Ok(mut v) => {
-                    if let Some(i) = hit.and_then(|s| coxswain_core::go::game_of_hit(path, &s)) {
-                        v.show(i as usize);
+                    // Looked for on a thread: it may read up to 1 GiB of the file.
+                    if let Some(s) = hit {
+                        v.at_hit(s);
                     }
                     self.dialog = Some(Dialog::Go(Box::new(v)));
                 }
@@ -5418,6 +5419,60 @@ mod tests {
         app.status = None;
         app.folders_run(FoldersRun::DiffOnly);
         assert_eq!(app.status.as_deref(), Some(summary.as_str()));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A Find hit in a large SGF file: its game is looked for on a thread, so opening the file
+    /// returns at once and the UI keeps answering (it read the whole file first, up to 1 GiB);
+    /// "Finding the game" shows meanwhile, the game opens when found, and Esc stops the looking.
+    #[test]
+    fn a_hit_in_a_large_sgf_file_is_found_off_the_ui_thread() {
+        use std::io::Write;
+        let d = std::env::temp_dir().join(format!("coxswain-test-sgf-hit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("big.sgf");
+        // As many games as are listed, each with a long comment: some 40 MB; the hit is the last.
+        let n = coxswain_core::go::MAX_GAMES;
+        let note = "a long comment on the opening ".repeat(12);
+        let mut f = std::io::BufWriter::new(std::fs::File::create(&p).unwrap());
+        for i in 0..n {
+            writeln!(f, "(;SZ[19]PB[Black{i}]PW[White{i}]RE[B+R];B[pd]C[{note}];W[dp];B[pp];W[dd])").unwrap();
+        }
+        drop(f);
+        let (o, c) = coxswain_core::store::MARK;
+        let snippet = format!("{o}Black{}{c} – White{}", n - 1, n - 1);
+        let mut app = app(d.clone(), d.clone());
+        let mut state = app.index.state();
+        // Opened, the looking stopped by Esc: both at once.
+        let start = Instant::now();
+        app.chess(&p, Some(snippet.clone()));
+        app.tick(&mut state);
+        app.dialog_key(Key { code: KeyCode::Esc, ctrl: false, alt: false, shift: false });
+        assert!(start.elapsed() < Duration::from_millis(500), "the UI waited {:?}", start.elapsed());
+        let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
+        assert!(!v.finding(), "Esc stops the looking; the table stays");
+        app.dialog = None;
+        // Opened again and left to find it: the UI loop keeps turning meanwhile.
+        let start = Instant::now();
+        app.chess(&p, Some(snippet));
+        assert!(start.elapsed() < Duration::from_millis(500), "the UI waited {:?}", start.elapsed());
+        let mut turns = 0;
+        let end = Instant::now() + Duration::from_secs(120);
+        loop {
+            let t = Instant::now();
+            app.tick(&mut state);
+            assert!(t.elapsed() < Duration::from_millis(500), "a turn of the UI loop took {:?}", t.elapsed());
+            turns += 1;
+            let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
+            if let Some(i) = v.shown() {
+                assert_eq!(i, n - 1);
+                break;
+            }
+            assert!(Instant::now() < end, "the game was never found");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(turns > 1, "found before the first turn: the file is too small to show anything");
         let _ = std::fs::remove_dir_all(&d);
     }
 

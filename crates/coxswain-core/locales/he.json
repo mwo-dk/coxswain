@@ -2359,6 +2359,7 @@
  "go.col_komi": "קומי",
  "go.col_rank": "דרגה",
  "go.col_size": "לוח",
+ "go.finding": "מחפש את המשחק של התוצאה… Esc עוצר",
  "go.keys_game": "← → צעד · ↓ ↑ וריאציה אחרת · Home End · PgUp PgDn משחק אחר · Esc משחקים",
  "go.keys_game_gui": "לחצו על הלוח, ואז ← → צעד · ↓ ↑ וריאציה אחרת · Home End · PgUp PgDn משחק אחר · Esc משחקים. לחיצה על וריאציה מציגה אותה.",
  "go.keys_list": "Enter פתיחה · ↑ ↓ בחירה · Esc סגירה",

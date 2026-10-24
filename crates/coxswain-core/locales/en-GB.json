@@ -2309,6 +2309,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Rank",
  "go.col_size": "Board",
+ "go.finding": "Finding the game of the hit… Esc stops",
  "go.keys_game": "← → step · ↓ ↑ other variation · Home End · PgUp PgDn other game · Esc games",
  "go.keys_game_gui": "Click the board, then ← → step · ↓ ↑ other variation · Home End · PgUp PgDn other game · Esc games. A click on a variation shows it.",
  "go.keys_list": "Enter open · ↑ ↓ choose · Esc close",

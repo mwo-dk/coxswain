@@ -2259,6 +2259,7 @@
  "go.col_komi": "덤",
  "go.col_rank": "기력",
  "go.col_size": "판 크기",
+ "go.finding": "찾은 대국을 찾는 중… Esc로 중지",
  "go.keys_game": "← → 앞뒤로 · ↓ ↑ 다른 변화 · Home End · PgUp PgDn 다른 대국 · Esc 대국 목록",
  "go.keys_game_gui": "바둑판을 클릭한 다음 ← → 앞뒤로 · ↓ ↑ 다른 변화 · Home End · PgUp PgDn 다른 대국 · Esc 대국 목록. 변화를 클릭하면 그 변화를 보여 줍니다.",
  "go.keys_list": "Enter 열기 · ↑ ↓ 선택 · Esc 닫기",

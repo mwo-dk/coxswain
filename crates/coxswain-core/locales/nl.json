@@ -2309,6 +2309,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Rang",
  "go.col_size": "Bord",
+ "go.finding": "De partij van de treffer wordt gezocht… Esc stopt",
  "go.keys_game": "← → stap · ↓ ↑ andere variant · Home End · PgUp PgDn andere partij · Esc partijen",
  "go.keys_game_gui": "Klik op het bord, dan ← → stap · ↓ ↑ andere variant · Home End · PgUp PgDn andere partij · Esc partijen. Een klik op een variant toont die.",
  "go.keys_list": "Enter openen · ↑ ↓ kiezen · Esc sluiten",

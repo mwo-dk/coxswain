@@ -730,15 +730,15 @@ impl Collection {
 
 /// The games of the SGF file at `path`, as it streams by (the search store, and Find's hits):
 /// 1 GiB of it at most.
-fn scan_file(path: &Path, each: impl FnMut(Info) -> bool) -> io::Result<()> {
+fn scan_file(path: &Path, stop: &AtomicBool, each: impl FnMut(Info) -> bool) -> io::Result<()> {
     let r = crate::chess::games::reader(path, Arc::default(), 1 << 30)?;
-    scan_from(BufReader::with_capacity(1 << 16, r.take(1 << 30)), &AtomicBool::new(false), each).map(|_| ())
+    scan_from(BufReader::with_capacity(1 << 16, r.take(1 << 30)), stop, each).map(|_| ())
 }
 
 /// The search store's text of an SGF file: a line per game (`Info::line`), up to `max` bytes.
 pub fn search_text(path: &Path, max: usize) -> Option<String> {
     let mut out = String::new();
-    scan_file(path, |g| {
+    scan_file(path, &AtomicBool::new(false), |g| {
         let line = g.line();
         if out.len() + line.len() + 1 > max {
             return false;
@@ -752,10 +752,14 @@ pub fn search_text(path: &Path, max: usize) -> Option<String> {
 }
 
 /// The game a Find hit in an SGF file is about, by its snippet: its index, from 0
-/// (`chess::games::Hit`).
-pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
+/// (`chess::games::Hit`). It reads up to 1 GiB of the file: call it on a thread of its own;
+/// `stop` ends it early, with nothing found.
+pub fn game_of_hit(path: &Path, snippet: &str, stop: &AtomicBool) -> Option<u32> {
     let mut hit = crate::chess::games::Hit::new(snippet)?;
-    scan_file(path, |g| hit.feed(&g.line())).ok()?;
+    scan_file(path, stop, |g| hit.feed(&g.line())).ok()?;
+    if stop.load(Ordering::Relaxed) {
+        return None;
+    }
     hit.found()
 }
 
@@ -941,8 +945,8 @@ mod tests {
         let text = search_text(&p, 1 << 20).unwrap();
         assert_eq!(text.lines().count(), 2);
         let (o, cl) = crate::store::MARK;
-        assert_eq!(game_of_hit(&p, &format!("{o}Kim{cl} – Lee")), Some(1));
-        assert_eq!(game_of_hit(&p, &format!("…{o}Gennan{cl} Inseki 8d")), Some(0));
+        assert_eq!(game_of_hit(&p, &format!("{o}Kim{cl} – Lee"), &AtomicBool::new(false)), Some(1));
+        assert_eq!(game_of_hit(&p, &format!("…{o}Gennan{cl} Inseki 8d"), &AtomicBool::new(false)), Some(0));
         assert!(crate::extract::text_of(&p, TWO.len() as u64, 1 << 20).is_some_and(|t| t.contains("Shusaku")));
         std::fs::remove_dir_all(&d).unwrap();
     }
