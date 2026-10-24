@@ -1303,9 +1303,9 @@ more</msg></logentry>
             let d = top("cvs-log");
             let root = d.join("cvsroot");
             let run = |dir: &Path, args: &[&str]| {
-                let ok = std::process::Command::new(args[0]).current_dir(dir).args(&args[1..]).env("HOME", &d).env("CVSROOT", &root)
-                    .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().unwrap();
-                assert!(ok.success(), "{args:?}");
+                let o = std::process::Command::new(args[0]).current_dir(dir).args(&args[1..]).env("HOME", &d).env("CVSROOT", &root)
+                    .stdin(std::process::Stdio::null()).output().unwrap();
+                assert!(o.status.success(), "{args:?}: {}", String::from_utf8_lossy(&o.stderr));
             };
             run(&d, &["cvs", "-f", "-q", "init"]);
             std::fs::create_dir(d.join("import")).unwrap();
