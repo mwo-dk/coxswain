@@ -704,6 +704,7 @@ impl Library {
                 .name("chess-games".into())
                 .spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, super::Format::Pgn, limits, || false))?;
             return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base) });
+        }
         if super::cbh::is_cbh(path) {
             let (sh, st, rd, p) = (shared.clone(), stop.clone(), read.clone(), path.to_path_buf());
             std::thread::Builder::new()
