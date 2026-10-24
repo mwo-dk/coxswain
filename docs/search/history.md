@@ -2,8 +2,8 @@
 
 # Git history in search
 
-Find searches the history of your git repositories (and of Jujutsu ones with `.git` next to
-`.jj`; not of [Mercurial](../panels/mercurial.md) ones) as well as your files: the message of
+Find searches the history of your git, [Mercurial](../panels/mercurial.md) and
+[Jujutsu](../panels/jujutsu.md) repositories as well as your files: the message of
 every commit, who wrote it, and the paths it changed. Type `fuel valve` in Find and
 the commit *Fix the fuel valve* is found under *History*, marked as a commit; **Enter** opens the repository as
 it was at that commit. With [search by meaning](meaning.md) on, commits about your words are
@@ -51,8 +51,8 @@ Find's footer, *text of 31,208 files*, counts the commits kept as well.
 
 | | |
 |---|---|
-| Which repositories | Every git work tree (a folder holding `.git`) inside the [folders read](folders.md), outside the folders left out (`node_modules`, hidden folders, `.nosearch`) |
-| Which commits | The newest 2000 reachable from HEAD of each repository |
+| Which repositories | Every git work tree (a folder holding `.git`), Mercurial repository (`.hg`) and Jujutsu repository (`.jj`; with `.git` next to it, git's) inside the [folders read](folders.md), outside the folders left out (`node_modules`, hidden folders, `.nosearch`) |
+| Which commits | The newest 2000 reachable from HEAD of each repository: in Mercurial from the working folder's commit (`.`), in Jujutsu from the parent of the working-copy commit (`@-`) |
 | What of each | Its short id, author, date, the whole message, and up to 200 paths it changed. Never the files' contents at that commit: those are searched as files on disk |
 | When | At each scan of the helper (at its start and every ten minutes). A repository whose HEAD moved on gets only the new commits; one whose history was rewritten (rebase, reset) is read again; one that is gone loses its commits |
 | How fast | 2000 commits of a big repository take git well under a second; the helper rests after each repository as it does after reading files |
@@ -99,6 +99,14 @@ file as it was, open the commit and preview it ([Git history as folders](../pane
 
 No. They stay in the store on your machine. With search by meaning on a server, their text goes
 to that server for vectors, as your files' text does ([Servers](servers.md)).
+
+#### Does it search Mercurial and Jujutsu repositories?
+
+Yes, both apps. Mercurial's commits come from `hg log`, run without the repository's own
+`.hg/hgrc` (its hooks and extensions never run), so `hg` must be installed. A Jujutsu repository
+with `.git` next to `.jj` is read as git's; one without is read from Jujutsu's own store below
+`.jj`, with `jj` asked only which commit is the working copy's parent. Subversion and CVS keep
+their history on a server and are not searched.
 
 #### Can I keep one repository's history out?
 

@@ -238,7 +238,7 @@ flags start a new one.
 | `ask_code_model` | string | `""` | The chat model for questions about code, on the same server, e.g. `qwen3-coder:30b`. Empty: Ask's own ([A model for code questions](../search/ask-code.md#a-model-for-code-questions)) |
 | `ask_think` | bool | `false` | Let Ask's chat model think before it answers (Qwen3, DeepSeek-R1 …). Off: it is asked not to, so the first word comes at once ([Thinking](../search/ask.md#thinking)) |
 | `ask_context` | number | `8192` (2,048 to 131,072) | The tokens a server's chat model is given: sources, question and answer together. Ollama is asked for this context (`num_ctx`); an OpenAI-style server must be set to at least as much. Not used by the built-in models ([How much it reads](../search/ask.md#how-much-it-reads)) |
-| `history` | bool | `true` | Keep the history of the git repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Find's words in files and by meaning ([History in search](../search/history.md)) |
+| `history` | bool | `true` | Keep the history of the git, Mercurial and Jujutsu repositories in the folders read: commit messages, authors and changed paths of the newest 2000 commits of each, found by Find's words in files and by meaning ([History in search](../search/history.md)) |
 
 Changing `meaning_engine` or `meaning_model` makes the helper work out the vectors again,
 since vectors of two models cannot be compared.

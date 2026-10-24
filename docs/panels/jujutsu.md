@@ -8,9 +8,9 @@ the nearest bookmark, each changed file carries its glyph, **Ctrl+G** lists the 
 file or folder and **Alt+B** the bookmarks, as folders. It only reads: nothing is committed,
 moved or snapshotted. Both apps do this, through the `jj` program you have installed.
 
-![The desktop app (Cyber) in ~/projects/lander, a Jujutsu repository: docs and src marked, and at the right of the pane's footer the line jj pypkupsz main with one added and one modified file](../screenshots/jj-line.png)
+![The desktop app (Cyber) in ~/projects/lander, a Jujutsu repository without .git, the sidebar hidden: docs and src marked, the Last commit column with 2026-10-15 Ada on docs and src and 2026-10-10 Ada on README.md, and at the right of the pane's footer the line jj xkpqlmnu main with one added and one modified file](../screenshots/jj-line.png)
 
-![The terminal app in Classic blue: lander on the left with the line jj pypkupsz main and its counts in the panel's bottom border, rocket on the right with its git line](../screenshots/tui-jj-line.png)
+![The terminal app in Classic blue: lander on the left with the cursor on src, its last commit d337448 2026-10-15 16:20 Ada on the info line and the line jj xkpqlmnu main with its counts in the panel's bottom border, rocket on the right with its git line](../screenshots/tui-jj-line.png)
 
 ## Contents
 
@@ -89,7 +89,10 @@ manager or [jj's install page](https://jj-vcs.github.io/jj/latest/install-and-se
 | *Settings → Behaviour → Use git where Jujutsu is too* | `prefer_git` under `[git]` | `false` |
 
 The other git settings (`last_commit`, `tool`) hold for a Jujutsu repository too. The
-*Last commit* column comes from git, so it shows only in a repository with `.git` next to `.jj`.
+*Last commit* column and Find's [commit search](../search/history.md) start at the parent of the
+working-copy commit (`@-`, what git next to Jujutsu calls HEAD), so the working-copy commit's own
+changes have none yet. In a repository without `.git` next to `.jj`, `jj` names that commit and
+git reads the commits from Jujutsu's own store below `.jj`; nothing is written.
 
 ## In the terminal app
 
