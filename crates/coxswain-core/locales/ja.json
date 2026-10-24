@@ -2242,6 +2242,7 @@
  "gittool.line_tip": "{key}: お使いの git ツールで開く",
  "gittool.no_repo": "git リポジトリではありません: git ツールで開くものはありません",
  "gittool.not_found": "{name} が見つかりません: インストールするか、設定 → 動作 で別の git ツールを選んでください",
+ "gittool.no_terminal": "{name} は端末で動きますが、端末が見つかりません: 端末をインストールするか、設定 → 動作 で独自のウィンドウを持つ git ツールを選んでください",
  "gittool.nothing": "git ツールも端末も見つかりません: lazygit、gitui か tig をインストールするか、設定 → 動作 でツールを指定してください",
  "gittool.opened": "リポジトリで {name} を開きました",
  "gittool.shell": "git ツールが見つかりません: リポジトリでシェルを開きました",

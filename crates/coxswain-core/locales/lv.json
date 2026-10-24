@@ -2342,6 +2342,7 @@
  "gittool.line_tip": "{key}: atvērt savā git rīkā",
  "gittool.no_repo": "Nav git repozitorijā: šeit nav ko atvērt git rīkā",
  "gittool.not_found": "{name} netika atrasts: instalējiet to vai izvēlieties citu git rīku sadaļā Iestatījumi → Uzvedība",
+ "gittool.no_terminal": "{name} darbojas terminālī, bet neviens terminālis netika atrasts: instalējiet kādu vai sadaļā Iestatījumi → Uzvedība izvēlieties git rīku ar savu logu",
  "gittool.nothing": "Nav atrasts ne git rīks, ne terminālis: instalējiet lazygit, gitui vai tig vai norādiet savu rīku sadaļā Iestatījumi → Uzvedība",
  "gittool.opened": "{name} atvērts repozitorijā",
  "gittool.shell": "Git rīks nav atrasts: repozitorijā atvērta čaula",

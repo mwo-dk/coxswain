@@ -63,6 +63,8 @@ export function keyString(e) {
 
 /** Whether `path` is `folder` or below it; `folder` may end with `sep` (a root). */
 export const inside = (path, folder, sep) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+/** `list` without its entry at `i`: one of two equal entries (config.toml may name one twice) goes, not both. */
+export const without = (list, i) => list.filter((_, j) => j !== i);
 export const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 export const parent = (p) => {
   const sep = p.includes("\\") && !p.includes("/") ? "\\" : "/";

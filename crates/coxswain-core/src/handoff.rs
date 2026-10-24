@@ -265,6 +265,8 @@ enum Missing {
     NotFound(String),
     /// No tool, and no terminal to open either.
     Nothing,
+    /// The tool found runs in a terminal, and there is no terminal to open it in.
+    NoTerminal(String),
 }
 
 impl Missing {
@@ -273,6 +275,7 @@ impl Missing {
             Missing::NoRepo => t!("gittool.no_repo"),
             Missing::NotFound(name) => t!("gittool.not_found", "name" => name),
             Missing::Nothing => t!("gittool.nothing"),
+            Missing::NoTerminal(name) => t!("gittool.no_terminal", "name" => name),
         }
     }
 }
@@ -385,7 +388,7 @@ fn plan(
         } else if in_terminal {
             let (sh, flag) = if os == "windows" { ("cmd", "/C") } else { ("sh", "-c") };
             let (p, a) = in_emulator(os, &root, &[sh.into(), flag.into(), cmd], has, var)
-                .ok_or(Missing::Nothing)?;
+                .ok_or_else(|| Missing::NoTerminal(first.clone()))?;
             Run::Spawn(p, a)
         } else {
             Run::Line(cmd)
@@ -422,7 +425,8 @@ fn plan(
         Run::Here(words.join(" "))
     } else {
         let inner: Vec<String> = std::iter::once(f.program).chain(f.args).collect();
-        let (p, a) = in_emulator(os, &root, &inner, has, var).ok_or(Missing::Nothing)?;
+        let (p, a) = in_emulator(os, &root, &inner, has, var)
+            .ok_or_else(|| Missing::NoTerminal(f.name.to_string()))?;
         Run::Spawn(p, a)
     };
     Ok(Handoff { root, name, run })
@@ -670,6 +674,16 @@ mod tests {
         assert_eq!(
             none.plan("linux", "", &none.repo, false, X),
             Err(Missing::Nothing)
+        );
+        // A terminal tool and no terminal: the tool is named, not said to be missing.
+        let tig = Fake::new("tig-alone", &["tig"]);
+        assert_eq!(
+            tig.plan("linux", "", &tig.repo, false, X),
+            Err(Missing::NoTerminal("tig".into()))
+        );
+        assert_eq!(
+            tig.plan("linux", "tig -C %d", &tig.repo, false, X),
+            Err(Missing::NoTerminal("tig".into()))
         );
     }
 

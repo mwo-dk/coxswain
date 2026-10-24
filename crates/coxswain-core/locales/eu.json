@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: ireki zure git tresnan",
  "gittool.no_repo": "Ez zaude git biltegi batean: ez dago git tresnan irekitzeko ezer",
  "gittool.not_found": "Ez da {name} aurkitu: instalatu, edo aukeratu beste git tresna bat Ezarpenak → Portaera atalean",
+ "gittool.no_terminal": "{name} terminal batean exekutatzen da, eta ez da terminalik aurkitu: instalatu bat, edo aukeratu leiho propioa duen git tresna bat Ezarpenak → Portaera atalean",
  "gittool.nothing": "Ez da git tresnarik ez terminalik aurkitu: instalatu lazygit, gitui edo tig, edo adierazi zure tresna Ezarpenak → Portaera atalean",
  "gittool.opened": "{name} biltegian ireki da",
  "gittool.shell": "Ez da git tresnarik aurkitu: shell bat ireki da biltegian",

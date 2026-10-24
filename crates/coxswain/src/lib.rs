@@ -2927,6 +2927,11 @@ impl App {
                     }
                 }
                 self.reload();
+                // The summary stays on the status line: the key that chose this took it away.
+                let found = c.f.found();
+                if found.done {
+                    self.status = Some(found.error.clone().unwrap_or_else(|| found.summary()));
+                }
             }
             FoldersRun::Again(mode) => self.folders_start(mode),
             FoldersRun::Stop => {
@@ -5167,6 +5172,32 @@ mod tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    /// Differences only (Ctrl+F2, 2) keeps the compare's summary on the status line: the key
+    /// that chose it took the line away, and a hint stood there instead.
+    #[test]
+    fn differences_only_keeps_the_summary() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-diff-only-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (l, r) = (d.join("l"), d.join("r"));
+        std::fs::create_dir_all(&l).unwrap();
+        std::fs::create_dir_all(&r).unwrap();
+        std::fs::write(l.join("only.txt"), "x").unwrap();
+        std::fs::write(l.join("same.txt"), "s").unwrap();
+        std::fs::write(r.join("same.txt"), "s").unwrap();
+        let mut app = app(l, r);
+        app.folders_start(coxswain_core::compare::folders::Mode::Quick);
+        let c = app.panels[0].cmp.clone().unwrap();
+        let end = Instant::now() + Duration::from_secs(20);
+        while !c.f.found().done && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let summary = c.f.found().summary();
+        app.status = None;
+        app.folders_run(FoldersRun::DiffOnly);
+        assert_eq!(app.status.as_deref(), Some(summary.as_str()));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// A box a background job opens while the editor is open waits for the editor to close:

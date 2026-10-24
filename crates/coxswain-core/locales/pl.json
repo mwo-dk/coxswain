@@ -2392,6 +2392,7 @@
  "gittool.line_tip": "{key}: otwórz w swoim narzędziu git",
  "gittool.no_repo": "Nie w repozytorium git: nie ma tu czego otwierać w narzędziu git",
  "gittool.not_found": "Nie znaleziono {name}: zainstaluj je albo wybierz inne narzędzie git w Ustawienia → Zachowanie",
+ "gittool.no_terminal": "{name} działa w terminalu, a nie znaleziono żadnego terminala: zainstaluj jakiś albo wybierz narzędzie git z własnym oknem w Ustawienia → Zachowanie",
  "gittool.nothing": "Nie znaleziono ani narzędzia git, ani terminala: zainstaluj lazygit, gitui lub tig albo wskaż swoje narzędzie w Ustawienia → Zachowanie",
  "gittool.opened": "Otwarto {name} w repozytorium",
  "gittool.shell": "Nie znaleziono narzędzia git: w repozytorium otwarto powłokę",

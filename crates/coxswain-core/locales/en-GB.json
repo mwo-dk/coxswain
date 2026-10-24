@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: open in your git tool",
  "gittool.no_repo": "Not in a git repository: there is nothing to open in a git tool",
  "gittool.not_found": "{name} was not found: install it, or choose another git tool in Settings → Behaviour",
+ "gittool.no_terminal": "{name} runs in a terminal, and no terminal was found: install one, or choose a git tool with a window of its own in Settings → Behaviour",
  "gittool.nothing": "No git tool and no terminal found: install lazygit, gitui or tig, or name your tool in Settings → Behaviour",
  "gittool.opened": "Opened {name} in the repository",
  "gittool.shell": "No git tool found: a shell opened in the repository",

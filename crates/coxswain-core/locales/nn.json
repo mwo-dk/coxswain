@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: opne i Git-verktøyet ditt",
  "gittool.no_repo": "Ikkje i eit Git-repo: det er ingenting å opne i eit Git-verktøy",
  "gittool.not_found": "{name} vart ikkje funne: installer det, eller vel eit anna Git-verktøy i Innstillingar → Åtferd",
+ "gittool.no_terminal": "{name} køyrer i ein terminal, og ingen terminal vart funnen: installer ein, eller vel eit Git-verktøy med eige vindauge i Innstillingar → Åtferd",
  "gittool.nothing": "Fann ikkje noko Git-verktøy og ingen terminal: installer lazygit, gitui eller tig, eller oppgi verktøyet ditt i Innstillingar → Åtferd",
  "gittool.opened": "Opna {name} i repoet",
  "gittool.shell": "Fann ikkje noko Git-verktøy: eit skal vart opna i repoet",

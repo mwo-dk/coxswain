@@ -249,7 +249,9 @@ tool, in the repository's top folder, wherever in it the panel is.
 | No tool installed | Your shell, in this terminal, in the repository; `exit` brings the panels back | A terminal window in the repository |
 
 The status line says *Opened lazygit in the repository*, or *No git tool found: a terminal
-opened in the repository*. After that, a notice says once what to install, with the line to
+opened in the repository*. When a terminal tool is installed but no terminal is (the desktop
+app), it says so by name: *tig runs in a terminal, and no terminal was found: install one, or
+choose a git tool with a window of its own in Settings → Behaviour*. After that, a notice says once what to install, with the line to
 copy (lazygit, else tig, for your system's package manager), and where to name a tool. The key
 is also on the git line's tooltip (desktop app) and in **F1**. Outside a repository the action
 is not in the menus, and the key says *Not in a git repository*.

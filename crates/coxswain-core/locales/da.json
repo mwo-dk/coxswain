@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: åbn i dit git-værktøj",
  "gittool.no_repo": "Ikke i et git-repository: her er intet at åbne i et git-værktøj",
  "gittool.not_found": "{name} blev ikke fundet: installér det, eller vælg et andet git-værktøj i Indstillinger → Adfærd",
+ "gittool.no_terminal": "{name} kører i en terminal, og der blev ikke fundet nogen terminal: installér en, eller vælg et git-værktøj med sit eget vindue i Indstillinger → Adfærd",
  "gittool.nothing": "Hverken git-værktøj eller terminal fundet: installér lazygit, gitui eller tig, eller angiv dit værktøj i Indstillinger → Adfærd",
  "gittool.opened": "Åbnede {name} i repositoryet",
  "gittool.shell": "Intet git-værktøj fundet: en skal blev åbnet i repositoryet",

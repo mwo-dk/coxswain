@@ -65,7 +65,7 @@ reads both files instead, a megabyte at a time, and stops at the first byte that
 | Key | Entry | Does |
 |---|---|---|
 | **1** | *Mark the differences* | Marks, in both panels, what is only there, newer there or different: ready for **F5** |
-| **2** | *Show the differences only* / *Show everything again* | Leaves what is the same out of both panels |
+| **2** | *Show the differences only* / *Show everything again* | Leaves what is the same out of both panels; the summary stays on the status line |
 | **3** | *Compare again, byte by byte* / *by size and date* | Starts again the other way |
 | **4** | *Stop comparing* | The marks go, and everything shows again |
 

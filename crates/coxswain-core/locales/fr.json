@@ -2342,6 +2342,7 @@
  "gittool.line_tip": "{key} : ouvrir dans votre outil git",
  "gittool.no_repo": "Pas dans un dépôt git : rien à ouvrir dans un outil git",
  "gittool.not_found": "{name} est introuvable : installez-le, ou choisissez un autre outil git dans Réglages → Comportement",
+ "gittool.no_terminal": "{name} s’exécute dans un terminal, et aucun terminal n’a été trouvé : installez-en un, ou choisissez un outil git avec sa propre fenêtre dans Réglages → Comportement",
  "gittool.nothing": "Ni outil git ni terminal trouvé : installez lazygit, gitui ou tig, ou indiquez votre outil dans Réglages → Comportement",
  "gittool.opened": "{name} ouvert dans le dépôt",
  "gittool.shell": "Aucun outil git trouvé : un shell s’est ouvert dans le dépôt",

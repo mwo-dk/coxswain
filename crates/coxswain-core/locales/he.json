@@ -2342,6 +2342,7 @@
  "gittool.line_tip": "{key}: פתיחה בכלי ה־git שלך",
  "gittool.no_repo": "לא במאגר git: אין כאן מה לפתוח בכלי git",
  "gittool.not_found": "{name} לא נמצא: יש להתקין אותו, או לבחור כלי git אחר בהגדרות → התנהגות",
+ "gittool.no_terminal": "‏{name} רץ במסוף, ולא נמצא מסוף: יש להתקין מסוף, או לבחור כלי git עם חלון משלו בהגדרות → התנהגות",
  "gittool.nothing": "לא נמצא כלי git וגם לא מסוף: יש להתקין lazygit,‏ gitui או tig, או לציין את הכלי שלך בהגדרות → התנהגות",
  "gittool.opened": "{name} נפתח במאגר",
  "gittool.shell": "לא נמצא כלי git: נפתחה מעטפת במאגר",

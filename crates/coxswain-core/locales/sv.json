@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: öppna i ditt git-verktyg",
  "gittool.no_repo": "Inte i ett git-förråd: här finns inget att öppna i ett git-verktyg",
  "gittool.not_found": "{name} hittades inte: installera det, eller välj ett annat git-verktyg i Inställningar → Beteende",
+ "gittool.no_terminal": "{name} körs i en terminal, och ingen terminal hittades: installera en, eller välj ett git-verktyg med eget fönster i Inställningar → Beteende",
  "gittool.nothing": "Varken git-verktyg eller terminal hittades: installera lazygit, gitui eller tig, eller ange ditt verktyg i Inställningar → Beteende",
  "gittool.opened": "Öppnade {name} i förrådet",
  "gittool.shell": "Inget git-verktyg hittades: ett skal öppnades i förrådet",

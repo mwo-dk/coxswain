@@ -2292,6 +2292,7 @@
  "gittool.line_tip": "{key}: ava oma git-tööriistas",
  "gittool.no_repo": "Pole git-hoidlas: siin pole midagi git-tööriistas avada",
  "gittool.not_found": "{name} ei leitud: paigalda see või vali muu git-tööriist jaotises Seaded → Käitumine",
+ "gittool.no_terminal": "{name} töötab terminalis, kuid terminali ei leitud: paigalda mõni või vali jaotises Seaded → Käitumine oma aknaga git-tööriist",
  "gittool.nothing": "Ei leitud git-tööriista ega terminali: paigalda lazygit, gitui või tig või nimeta oma tööriist jaotises Seaded → Käitumine",
  "gittool.opened": "{name} avati hoidlas",
  "gittool.shell": "Git-tööriista ei leitud: hoidlas avati käsukest",
