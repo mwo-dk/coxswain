@@ -547,7 +547,8 @@ mod tests {
     #[test]
     fn reads_games_as_scid_writes_them() {
         let base = Base::open(&dir().join("test.si4")).unwrap();
-        let reference = std::fs::read_to_string(dir().join("ref.txt")).unwrap();
+        // A Windows checkout may give it CRLF line ends.
+        let reference = std::fs::read_to_string(dir().join("ref.txt")).unwrap().replace("\r\n", "\n");
         let games: Vec<&str> = reference.split("=== ").skip(1).collect();
         assert_eq!(base.count as usize, games.len());
         for (n, want) in games.iter().enumerate() {
