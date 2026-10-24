@@ -157,6 +157,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Some(Dialog::GitConfig(v)) => v.draw(f, &theme),
         Some(Dialog::Replace(v)) => v.draw(f, &theme),
         Some(Dialog::Attrs(v)) => v.draw(f, &theme),
+        Some(Dialog::Sync(v)) => v.draw(f, &theme),
         Some(Dialog::View { v, .. }) => v.draw(f, &theme),
         Some(Dialog::Edit { e, .. }) => e.draw(f, &theme),
         Some(Dialog::Compare(v)) => v.draw(f, &theme),
@@ -756,7 +757,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             }
         }
         Dialog::Search { .. } => search(f, app, full),
-        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::Replace(_) | Dialog::Attrs(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Compare(_) | Dialog::Chess(_) | Dialog::Go(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
+        Dialog::Bom(_) | Dialog::Provenance(_) | Dialog::GitConfig(_) | Dialog::Replace(_) | Dialog::Attrs(_) | Dialog::Sync(_) | Dialog::View { .. } | Dialog::Edit { .. } | Dialog::Compare(_) | Dialog::Chess(_) | Dialog::Go(_) | Dialog::Space(_) | Dialog::Settings(_) | Dialog::Guide(_) => {}
     }
 }
 

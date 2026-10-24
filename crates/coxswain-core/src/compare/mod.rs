@@ -8,6 +8,7 @@
 
 pub mod bytes;
 pub mod folders;
+pub mod sync;
 pub mod text;
 
 use serde::Serialize;

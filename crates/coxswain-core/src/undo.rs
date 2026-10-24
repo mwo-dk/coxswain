@@ -30,6 +30,8 @@ pub enum Kind {
     Replace,
     /// Permissions and dates changed (`attrs`): each item keeps what its file had before.
     Attrs,
+    /// One folder made like another (`compare::sync`): what it made and what it set aside.
+    Sync,
 }
 
 /// What a file or folder was. `deep` (for what undo would take away): every entry inside a
@@ -84,6 +86,8 @@ pub struct Record {
     made: Vec<PathBuf>,
     /// When it started, in seconds since the epoch: what the trash holds from before is not its.
     since: i64,
+    /// For `Sync`: the folder made like `items[0].from`, and how to undo it.
+    sync: Option<std::sync::Arc<crate::compare::sync::Undo>>,
 }
 
 fn name(p: &Path) -> String {
@@ -203,6 +207,7 @@ impl Record {
             items: vec![],
             made: vec![],
             since: crate::fs::now() as i64 - 1,
+            sync: None,
         }
     }
 
@@ -242,6 +247,12 @@ impl Record {
     /// A file whose bits or times were changed (`attrs`), and what it had before.
     pub fn done_attrs(&mut self, path: &Path, before: crate::attrs::Was, after: crate::attrs::Was, pin: crate::pinned::Pin) {
         self.items.push(Item { from: path.to_path_buf(), to: path.to_path_buf(), stamp: None, was: Some((before, after)), pin: Some(pin) });
+    }
+
+    /// `to` made like `from` (`compare::sync`), and how to undo it.
+    pub fn done_sync(&mut self, from: &Path, u: std::sync::Arc<crate::compare::sync::Undo>) {
+        self.items.push(Item { from: from.to_path_buf(), to: u.touched(), stamp: None, was: None, pin: None });
+        self.sync = Some(u);
     }
 
     /// The operation on `src`, as `fs` and `archive` do it (`dst`: where to, for a copy, a move
@@ -315,7 +326,7 @@ impl Record {
                     made.iter().for_each(|p| self.done(p, p));
                 }
             }
-            Kind::Pack | Kind::Replace | Kind::Attrs => {
+            Kind::Pack | Kind::Replace | Kind::Attrs | Kind::Sync => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "a pack is done with archive::create_locked, a replace with replace::apply",
@@ -375,6 +386,7 @@ impl Record {
                 t!("undo.what.extract", "what" => what(&first.from), "dir" => into(&first.to))
             }
             Kind::Replace => t!("undo.what.replace", "what" => what(&first.to)),
+            Kind::Sync => t!("undo.what.sync", "dir" => name(&first.to), "from" => name(&first.from)),
         }
     }
 
@@ -400,7 +412,9 @@ impl Record {
         let mut done = 0;
         // What came back where it was, for the apps to put the cursor on.
         let mut back = vec![];
-        if self.kind == Kind::Rename {
+        if let Some(u) = self.sync.as_ref().filter(|_| self.kind == Kind::Sync) {
+            (done, refused) = u.undo(|path, name| restore(path, name, self.since));
+        } else if self.kind == Kind::Rename {
             let (n, r) = self.undo_renames();
             (done, refused) = (n, r);
             // Back under its old name: that name is there and the new one is not.
@@ -518,6 +532,8 @@ impl Record {
                 };
                 crate::attrs::undo(&item.to, pin, before, after).map_err(|e| err(&item.to, e))
             }
+            // Undone as a whole (`compare::sync`), never item by item.
+            Kind::Sync => Err(format!("{}: {}", item.to.display(), t!("undo.changed"))),
         }
     }
 

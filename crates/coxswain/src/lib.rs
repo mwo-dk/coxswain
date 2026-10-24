@@ -1,6 +1,7 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
 mod attrs;
+mod sync;
 mod bom;
 mod chess;
 mod pieces;
@@ -449,6 +450,8 @@ pub enum FoldersRun {
     DiffOnly,
     Again(coxswain_core::compare::folders::Mode),
     Stop,
+    /// Make the side given (0 left, 1 right) like the other.
+    Make(usize),
 }
 
 pub struct MenuItem {
@@ -517,6 +520,8 @@ pub enum Dialog {
     Replace(Box<replace::Viewer>),
     /// Permissions and dates in bulk (`attrs`).
     Attrs(Box<attrs::Viewer>),
+    /// Make one side like the other (`compare::sync`).
+    Sync(Box<sync::Viewer>),
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
@@ -570,6 +575,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::GitConfig(_) => "git_config",
         Dialog::Replace(_) => "find_replace",
         Dialog::Attrs(_) => "permissions_and_dates",
+        Dialog::Sync(_) => "compare_folders",
         Dialog::View { .. } => "view_and_edit",
         Dialog::Edit { .. } => "editor",
         Dialog::Compare(_) => "compare_files",
@@ -2172,6 +2178,27 @@ impl App {
         self.after_op(ok, t!("attrs.failed"), done.failed);
     }
 
+    /// One side has been made like the other: said on the status line, kept for undo; the
+    /// compare starts again, so the marks show what is left.
+    fn sync_done(&mut self, done: Result<coxswain_core::compare::sync::Applied, String>) {
+        let done = match done {
+            Ok(d) => d,
+            Err(e) => return self.dialog = Some(failure(t!("sync.failed"), &e)),
+        };
+        let mut ok = done.summary();
+        if let Some(p) = &done.kept_at {
+            ok += &format!(" · {}", t!("sync.kept", "path" => p.display()));
+        }
+        if !done.record.is_empty() {
+            ok += &format!(" · {}", t!("undo.hint", "key" => self.key_label(Action::Undo)));
+            self.undo.push(done.record);
+        }
+        if let Some(c) = self.panels[0].cmp.clone() {
+            self.folders_start(c.f.mode);
+        }
+        self.after_op(ok, t!("sync.failed"), done.failed);
+    }
+
     /// Find and replace (`replace`) in `files` (Find's results), else the marked entries, the
     /// one under the cursor or, on `..`, the panel's folder.
     fn replace(&mut self, from_find: Option<(Vec<PathBuf>, String)>) {
@@ -3004,6 +3031,8 @@ impl App {
             item("2", t!(if c.diff_only { "compare.show_all" } else { "compare.differences_only" }), FoldersRun::DiffOnly),
             item("3", t!(if other == Mode::Content { "compare.by_content" } else { "compare.by_size_date" }), FoldersRun::Again(other)),
             item("4", t!("compare.stop_comparing"), FoldersRun::Stop),
+            item("5", t!("compare.make_right"), FoldersRun::Make(1)),
+            item("6", t!("compare.make_left"), FoldersRun::Make(0)),
         ];
         self.dialog = Some(Dialog::Menu { title: self.action_label(Action::CompareFolders), filter: String::new(), items, cursor: 0, direct: true, feature: "compare_folders" });
     }
@@ -3049,6 +3078,14 @@ impl App {
                 }
             }
             FoldersRun::Again(mode) => self.folders_start(mode),
+            FoldersRun::Make(to) => {
+                let (from, dest) = (c.f.roots[1 - to].clone(), c.f.roots[to].clone());
+                if let Err(e) = coxswain_core::compare::sync::check(&from, &dest) {
+                    return self.status = Some(e);
+                }
+                let undo = self.key_label(Action::Undo);
+                self.dialog = Some(Dialog::Sync(Box::new(sync::Viewer::new(from, dest, c.f.mode, undo.to_string()))));
+            }
             FoldersRun::Stop => {
                 c.f.stop();
                 let all = c.diff_only;
@@ -4078,6 +4115,10 @@ impl App {
                 attrs::Outcome::Stay => self.dialog = Some(Dialog::Attrs(v)),
                 attrs::Outcome::Close => {}
             },
+            Dialog::Sync(mut v) => match v.key(key, action) {
+                sync::Outcome::Stay => self.dialog = Some(Dialog::Sync(v)),
+                sync::Outcome::Close => {}
+            },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
                 git_config::Outcome::Close => {}
@@ -4354,6 +4395,12 @@ impl App {
         {
             self.dialog = None;
             self.attrs_done(done);
+        }
+        if let Some(Dialog::Sync(v)) = &mut self.dialog
+            && let Some(done) = v.poll()
+        {
+            self.dialog = None;
+            self.sync_done(done);
         }
         if matches!(self.dialog, Some(Dialog::Search { .. })) && self.slow.0.is_none_or(|at| at.elapsed() >= Duration::from_secs(1)) {
             let poor = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);

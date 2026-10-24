@@ -4,9 +4,8 @@
 
 **Ctrl+F2** compares the left panel's folder with the right panel's, in both apps: every file and
 folder under them, matched by its path. Both panels then mark each entry: only on this side,
-newer here, older here, different or the same. Mark the differences and copy them with **F5**.
-Making one side like the other (copying, writing over and deleting after a plan) comes in a
-later version.
+newer here, older here, different or the same. Mark the differences and copy them with **F5**,
+or make one side like the other in one step, after a plan that lists every change.
 
 ![The desktop app comparing two folders: in the left pane a + beside a file only there and a > beside a newer one, in the right pane a < beside the older copy, and the summary on the status line](../screenshots/compare-folders-gui.png)
 *Two copies of a project compared: **+** only here, **>** newer here, **<** older here, **≠**
@@ -18,6 +17,7 @@ different, **=** the same. The status line sums it up.*
 - [What the marks mean](#what-the-marks-mean)
 - [The menu](#the-menu)
 - [Copying the differences](#copying-the-differences)
+- [Making one side like the other](#making-one-side-like-the-other)
 - [Links](#links)
 - [Archives, container images, snapshots and histories](#archives-container-images-snapshots-and-histories)
 - [Big trees](#big-trees)
@@ -68,13 +68,81 @@ reads both files instead, a megabyte at a time, and stops at the first byte that
 | **2** | *Show the differences only* / *Show everything again* | Leaves what is the same out of both panels; the summary stays on the status line |
 | **3** | *Compare again, byte by byte* / *by size and date* | Starts again the other way |
 | **4** | *Stop comparing* | The marks go, and everything shows again |
+| **5** | *Make right like left* | Plans, then copies and replaces until the right folder is like the left ([below](#making-one-side-like-the-other)) |
+| **6** | *Make left like right* | The same the other way |
 
 ## Copying the differences
 
 *Mark the differences* (**1**) marks them in both panels; the status line says *Marked 4: F5
 copies them to the other side*. **F5** then copies the marked entries of the active panel, as
 any copy does ([Copy](copy.md)): it never writes over a file that is there, so a newer file goes
-across only where the other side has none. **Ctrl+Z** undoes the copy.
+across only where the other side has none. **Ctrl+Z** undoes the copy. To write over what differs
+as well, make one side like the other.
+
+## Making one side like the other
+
+*Make right like left* (**5** in the menu) makes the right folder hold what the left one holds;
+*Make left like right* (**6**) the other way. A window titled *Make rocket like Backups* (the
+target first) opens and plans at once: it walks both folders again and lists every step, one
+line each:
+
+| Step | Means |
+|---|---|
+| *copy* | Only on the source side: copied over (a folder with all inside it, a link as a link) |
+| *replace* | On both sides, not alike: the target's goes to the bin, the source's is copied over |
+| *to the bin* | Only on the target side: deleted, to the bin (only when ticked) |
+
+![The desktop app's window Make rocket-backup like rocket: the tick box Also delete what is only in rocket-backup (to the bin) ticked, the line 4 steps: 1 to copy, 2 to replace, 1 to the bin, and the steps replace Cargo.toml, copy README.md, to the bin notes-2023.txt in orange, replace src/main.rs, with the buttons Make them alike (4), Plan and Cancel](../screenshots/compare-sync-gui.png)
+*Make right like left in the desktop app: the plan, before anything changes.*
+
+Above the list a line sums it up: *5 steps: 3 to copy, 1 to replace, 1 to the bin (12 KB to
+copy)*, and how many entries are only on the target side and kept. A step that writes an older
+file over a newer one says *older over newer*, and it and every deletion stand out (bold in the
+terminal app, in the git *conflict* colour in the desktop app). What the plan could not look at
+(a pipe or device, a folder on another disk) is listed under *left out*.
+
+**Deleting is off** until you tick *Also delete what is only in rocket (to the bin)*: **Space**
+in either app, or the box in the desktop app. Ticking plans again. Off, what is only on the
+target side is kept, and the summary counts it.
+
+**Enter** (or the *Make them alike* button) then runs the plan; **Esc** while it runs stops it
+after the file it is on, and a file stopped half way is not left behind. When it is done the
+status line says *Copied 3, replaced 1, to the bin 1*, and the compare starts again, so the marks
+show what is left (its summary, *The folders are the same*, then takes the status line). **Ctrl+Z** undoes the whole run: what it replaced or deleted comes back out of
+the bin first, then what it copied is taken away (only while it is as the run left it) and the
+old entries go back to where they were. A Mac's bin (and a Flatpak's) gives nothing back to an
+app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in the bin to open.
+
+### What it touches, and what it never does
+
+- Two files are alike as Compare folders sees them: the same size and at most two seconds apart,
+  or byte by byte when the compare was started that way.
+- The run touches only what the plan listed, each entry checked to be the very one the plan saw
+  (the same file, unchanged since). One that was written, swapped for another, or renamed in
+  meanwhile is left as it is, and the run says so at the end.
+- It reaches every entry through the folders it opened from the two folders you compare, one
+  inside the other, never by its path again, and never through a link: a folder swapped for a
+  link after the plan is not followed, so nothing outside the two folders is read or changed.
+- A folder that goes to the bin (deleted, or replaced by a file) shows how many entries go with
+  it, *src/ (12 items)*, and goes only when nothing in it changed since the plan.
+- Pipes, devices and sockets are never opened nor copied.
+- A copy keeps the permission bits and dates of its source, but never set-user or set-group ID;
+  where the target cannot give it the source's group, the group gets no rights on it.
+- A file is written beside under a name of its own and put in place only where nothing is, so a
+  file never ends up half written under its real name.
+- What it replaces or deletes is moved, not copied, into one folder of its own at the target's
+  top (*.coxswain-sync-…*), which then goes to the bin as one item: open it there to see
+  everything one run took away. Where the bin cannot take it (Termux, another disk than the
+  bin's), it stays in that folder and the status line names it. A hard link that is replaced is
+  only renamed away: the file it shares with another name keeps its bytes.
+
+It needs both sides to be folders on this computer: not an archive, a container image, a
+snapshot or a history (*Only two folders on this computer can be made alike…*), and neither
+inside the other.
+
+**On Windows not yet**: there Coxswain does not yet go into folders through their own handles,
+which the run needs, so *5* and *6* say *Making one folder like the other is not available on
+Windows yet.* Copy the marked differences with **F5** there.
 
 ## Links
 
@@ -106,7 +174,12 @@ levels not compared (marked different)*.
 on the line under the panels.*
 
 The same marks in the column before the name, in the theme's git colours, and the same menu
-(**Ctrl+F2**, then **1** to **4**).
+(**Ctrl+F2**, then **1** to **6**). *Make right like left* and *Make left like right* fill the
+screen: the tick box, the summary, the steps, and the keys at the bottom (**Enter**, **Space**,
+**Esc**, **↑** **↓** to scroll).
+
+![The terminal app in Classic blue with the full-screen Make rocket-backup like rocket: [x] Also delete what is only in rocket-backup (to the bin), the summary line, then replace Cargo.toml, copy README.md, to the bin notes-2023.txt in bold and replace src/main.rs, and the keys Enter Make them alike (4) · Space ticks the box · Esc close at the bottom](../screenshots/compare-sync-tui.png)
+*The same plan in the terminal app: deletions and older-over-newer steps in bold.*
 
 ## Questions
 
@@ -118,12 +191,29 @@ bytes.
 
 #### Why does F5 not copy a newer file over the older one?
 
-Copy never writes over a file that is there. Delete the older one first (**F8**, to the trash),
-then copy. Making one side like the other in one step comes in a later version.
+Copy never writes over a file that is there. Use *Make right like left* or *Make left like
+right* (**5** or **6** in the menu): it replaces what differs, the old one going to the bin.
 
 #### Does it delete anything?
 
-No. Compare folders only reads and marks; **F5** copies what you marked, as any copy does.
+Comparing only reads and marks. *Make … like …* deletes what is only on the target side only
+when you tick *Also delete …*, and then to the bin; what it replaces goes to the bin too.
+**Ctrl+Z** brings all of it back.
+
+#### How do I get back what a run replaced or deleted?
+
+**Ctrl+Z** right after puts everything back where it was. Later, open the bin: the run's items
+are in one folder there, *.coxswain-sync-* followed by the date and time.
+
+#### Why did the run leave some files as they are?
+
+They changed after the plan: written, replaced or renamed in. The run touches only what the plan
+saw, exactly; plan again (**Enter** on *Plan*) to take them in.
+
+#### Can I make an archive or a snapshot like a folder?
+
+No: both sides must be folders on this computer. An archive, image, snapshot or history can be
+compared and copied from with **F5**, not made alike.
 
 #### Does it follow links to other folders?
 

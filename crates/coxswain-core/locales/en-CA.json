@@ -43,5 +43,13 @@
  "undo.no_restore_hint": "{key} cannot bring it back here: restore it from the system's trash",
  "undo.no_trash": "cannot go to the trash from here, so it is left as it is",
  "undo.not_in_trash": "no longer in the trash",
- "undo.what.trash": "move {what} to the trash"
+ "undo.what.trash": "move {what} to the trash",
+ "sync.delete": "Also delete what is only in {dir} (to the trash)",
+ "sync.about": "Plan first: every copy, replacement and deletion is listed before anything changes. What is replaced or deleted goes to the trash; {undo} undoes it all.",
+ "sync.planned": "{n} steps: {copies} to copy, {replaces} to replace, {deletes} to the trash ({size} to copy)",
+ "sync.act_delete": "to the trash",
+ "sync.done": "Copied {copied}, replaced {replaced}, to the trash {deleted}",
+ "sync.kept": "The trash could not take what was replaced or deleted: it is in {path}",
+ "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the trash, and {undo} undoes it. Or mark the differences and press {copy}.",
+ "sync.moved_away": "The folder holding what was replaced or deleted was moved during the run, so it is not in the trash: {path}"
 }
