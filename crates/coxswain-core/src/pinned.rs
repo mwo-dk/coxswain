@@ -9,7 +9,7 @@
 //! with nanoseconds)` and the path it was met at.
 //!
 //! The run walks the same way, but goes only into folders in that set and hands on only entries
-//! in it: an entry or folder whose identity, ctime or path is not exactly what the plan saw
+//! in it: an entry or folder whose identity, ctime, kind or path is not exactly what the plan saw
 //! (swapped, renamed in, renamed away, written meanwhile) is left as it is. The path counts on its
 //! own: where a file system's clock ticks coarsely (OpenBSD's every 10 ms) an entry renamed in the
 //! same tick keeps its ctime, but not its name. Nothing compares a ctime with the local clock. Files are opened in their held folder,
@@ -111,17 +111,17 @@ pub struct Pin {
 /// The entries a plan will touch, and the folders on the way to them.
 #[derive(Clone, Debug, Default)]
 pub struct Set {
-    touch: HashMap<Id, PathBuf>,
-    route: HashMap<Id, PathBuf>,
+    touch: HashMap<Id, (PathBuf, Kind)>,
+    route: HashMap<Id, (PathBuf, Kind)>,
 }
 
 impl Set {
     /// `node` is to be touched: it, and every folder the walk went through to reach it.
     pub fn add(&mut self, node: &Node) {
-        self.touch.insert(node.stat.id, node.path.clone());
+        self.touch.insert(node.stat.id, (node.path.clone(), node.stat.kind));
         let mut up = node.chain.as_deref();
         while let Some(l) = up {
-            if self.route.insert(l.id, l.path.clone()).is_some() {
+            if self.route.insert(l.id, (l.path.clone(), Kind::Dir)).is_some() {
                 break;
             }
             up = l.up.as_deref();
@@ -133,9 +133,11 @@ impl Set {
         self.touch.contains_key(id)
     }
 
-    /// Whether `id` met at `path` is in `map` as the plan saw it.
-    fn met(map: &HashMap<Id, PathBuf>, id: &Id, path: &Path) -> bool {
-        map.get(id).is_some_and(|p| p == path)
+    /// Whether `id` met at `path` as a `kind` is in `map` as the plan saw it. The kind counts on
+    /// its own: a file swapped for a link within one clock tick may get the freed inode back,
+    /// and with it the same ctime (OpenBSD's FFS).
+    fn met(map: &HashMap<Id, (PathBuf, Kind)>, id: &Id, path: &Path, kind: Kind) -> bool {
+        map.get(id).is_some_and(|(p, k)| p == path && *k == kind)
     }
 
     /// How many entries are to be touched.
@@ -267,7 +269,7 @@ pub fn walk(roots: &[PathBuf], w: &Walk, stop: &AtomicBool, said: &mut Said, mut
         }
         let (touch, route) = match w.only {
             None => (true, true),
-            Some(set) => (Set::met(&set.touch, &stat.id, &t.path), Set::met(&set.route, &stat.id, &t.path)),
+            Some(set) => (Set::met(&set.touch, &stat.id, &t.path, stat.kind), Set::met(&set.route, &stat.id, &t.path, stat.kind)),
         };
         let node = Node { path: t.path, stat, depth: t.depth, place, chain: t.chain };
         if touch {

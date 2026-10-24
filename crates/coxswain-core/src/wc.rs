@@ -1303,9 +1303,9 @@ more</msg></logentry>
             let d = top("cvs-log");
             let root = d.join("cvsroot");
             let run = |dir: &Path, args: &[&str]| {
-                let ok = std::process::Command::new(args[0]).current_dir(dir).args(&args[1..]).env("HOME", &d).env("CVSROOT", &root)
-                    .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().unwrap();
-                assert!(ok.success(), "{args:?}");
+                let o = std::process::Command::new(args[0]).current_dir(dir).args(&args[1..]).env("HOME", &d).env("CVSROOT", &root)
+                    .stdin(std::process::Stdio::null()).output().unwrap();
+                assert!(o.status.success(), "{args:?}: {}", String::from_utf8_lossy(&o.stderr));
             };
             run(&d, &["cvs", "-f", "-q", "init"]);
             std::fs::create_dir(d.join("import")).unwrap();
@@ -1314,11 +1314,13 @@ more</msg></logentry>
             run(&d.join("import"), &["cvs", "-f", "-q", "import", "-m", "first one", "proj", "vendor", "start"]);
             run(&d, &["cvs", "-f", "-q", "checkout", "proj"]);
             let wc = d.join("proj");
-            // CVS sees a change by the file's time, in whole seconds.
+            // A second revision by a second import, not a commit: GNU CVS refuses to commit as
+            // root (CI's virtual machines run the tests as root). Revisions are dated in whole
+            // seconds, so the second is a second later.
             std::thread::sleep(std::time::Duration::from_millis(1100));
-            std::fs::write(wc.join("a.txt"), "a\nc\n").unwrap();
-            std::fs::write(wc.join("b.txt"), "b\nc\n").unwrap();
-            run(&wc, &["cvs", "-f", "-q", "commit", "-m", "both changed"]);
+            std::fs::write(d.join("import/a.txt"), "a\nc\n").unwrap();
+            std::fs::write(d.join("import/b.txt"), "b\nc\n").unwrap();
+            run(&d.join("import"), &["cvs", "-f", "-q", "import", "-m", "both changed", "proj", "vendor", "second"]);
             let server = server(&wc).expect("a server");
             assert_eq!(server, root.display().to_string());
             assert_eq!(Cvs.log(&wc, ".", 10).unwrap_err().kind(), io::ErrorKind::PermissionDenied);

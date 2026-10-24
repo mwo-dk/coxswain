@@ -1094,7 +1094,11 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let (_d, l, r) = pair("sync-setid");
         fs::write(l.join("tool"), "#!/bin/sh").unwrap();
-        fs::set_permissions(l.join("tool"), fs::Permissions::from_mode(0o4755)).unwrap();
+        // Nix's build sandbox refuses setting the bit (EPERM): then there is nothing to test.
+        if let Err(e) = fs::set_permissions(l.join("tool"), fs::Permissions::from_mode(0o4755)) {
+            assert_eq!(e.kind(), std::io::ErrorKind::PermissionDenied, "{e}");
+            return eprintln!("skipped: setting the setuid bit is refused here ({e})");
+        }
         let done = run(&plan_of(&l, &r, false));
         assert_eq!(done.copied, 1, "{:?}", done.failed);
         assert_eq!(fs::metadata(r.join("tool")).unwrap().permissions().mode() & 0o7777, 0o755);
