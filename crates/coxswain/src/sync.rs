@@ -222,7 +222,7 @@ fn row(r: &sync::Row) -> String {
     s
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
