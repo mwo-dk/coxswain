@@ -14,7 +14,7 @@
 unset CDPATH
 REPO=${COXSWAIN_SELFTEST_REPO:-mwo-dk/coxswain}
 VERSION=""
-BREW=0 KEEP=0 NO_ASK=0 DRY=0 CI_MODE=0 OUT="" TERM_BIN=""
+BREW=0 KEEP=0 NO_ASK=0 DRY=0 CI_MODE=0 DND=0 OUT="" TERM_BIN=""
 
 usage() {
   cat <<'EOF'
@@ -32,6 +32,7 @@ Coxswain self-test for macOS
                      and screenshots in --out (default ./selftest-out), a summary in
                      $GITHUB_STEP_SUMMARY, exit 1 on any FAIL
   --terminal-bin P   use the terminal app at P instead of the downloaded one (a local build)
+  --dnd              only drag and drop in the desktop app: you drag, the test checks the files
   --dry-run          on a system other than macOS: run the parts that are not macOS-specific
   --help             this text
 
@@ -59,6 +60,7 @@ while [ $# -gt 0 ]; do
     --ci) CI_MODE=1; NO_ASK=1 ;;
     --terminal-bin) TERM_BIN=${2:-}; shift ;;
     --terminal-bin=*) TERM_BIN=${1#*=} ;;
+    --dnd) DND=1 ;;
     --dry-run) DRY=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1 (see --help)" >&2; exit 2 ;;
@@ -71,6 +73,7 @@ if [ -n "$VERSION" ] && ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$';
   echo "Not a version: $VERSION (want X.Y.Z)" >&2; exit 2
 fi
 if [ "$CI_MODE" = 1 ] && [ "$BREW" = 1 ]; then echo "--ci and --brew do not go together." >&2; exit 2; fi
+if [ "$DND" = 1 ] && [ "$NO_ASK" = 1 ]; then echo "--dnd needs you at the Mac: not with --no-ask or --ci." >&2; exit 2; fi
 MAC=0; [ "$(uname -s)" = Darwin ] && MAC=1
 if [ "$MAC" = 0 ] && [ "$DRY" = 0 ]; then
   echo "This self-test is for macOS. On another system, --dry-run runs the parts that are not macOS-specific." >&2
@@ -268,8 +271,12 @@ main() {
   make_demo
   if [ "$BREW" = 1 ]; then brew_install; else get_release; fi
   check_signatures
-  test_terminal
-  test_desktop
+  if [ "$DND" = 1 ]; then
+    test_dnd
+  else
+    test_terminal
+    test_desktop
+  fi
   finish
 }
 
@@ -980,6 +987,82 @@ test_desktop() {
 
   [ "$NO_ASK" = 1 ] && { result SKIP "by-hand checklist" "--no-ask"; return; }
   by_hand
+}
+
+# ---------------------------------------------------------------------------------------------
+# Drag and drop (--dnd): you drag, the test looks at the files. docs/files/drag-and-drop.md.
+
+# dnd_step N TEXT CHECK...: say what to do, wait for Enter (s skips), then CHECK must hold
+# within 5 s (a drop copies on a thread).
+dnd_step() {
+  local name=$1 text=$2 a i=0; shift 2
+  printf '\n  %s\n      Enter when done, s to skip: ' "$text"
+  read -r a </dev/tty || a=s
+  case "$a" in [sS]*) result SKIP "$name" "skipped"; return ;; esac
+  while ! "$@" && [ $i -lt 10 ]; do sleep 0.5; i=$((i + 1)); done
+  if "$@"; then result PASS "$name" "the files say so"
+  else result FAIL "$name" "not as expected: $(cd "$FHOME" && find demo right finder-in finder-out -maxdepth 2 2>/dev/null | sort | tr '\n' ' ')"; fi
+}
+# dnd_ask NAME TEXT: what only you can see, y/n/s
+dnd_ask() {
+  local a note
+  printf '\n  %s\n      y/n/s? ' "$2"
+  read -r a </dev/tty || a=s
+  case "$a" in
+    [yY]*) result PASS "$1" "by hand" ;;
+    [nN]*) printf '      What happened? (Enter to leave it out) '; read -r note </dev/tty || note=""
+      result FAIL "$1" "by hand${note:+: $note}" ;;
+    *) result SKIP "$1" "skipped" ;;
+  esac
+}
+# shellcheck disable=SC2329 # called through dnd_step
+both() { [ -f "$1" ] && [ -f "$2" ]; }
+# shellcheck disable=SC2329
+moved() { [ ! -e "$1" ] && [ -f "$2" ]; }
+
+test_dnd() {
+  section "Drag and drop"
+  if [ "$MAC" = 0 ]; then result SKIP "drag and drop" "macOS only"; return; fi
+  [ -n "$APP" ] || { result SKIP "drag and drop" "no Coxswain.app"; return; }
+  local exe
+  exe=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist" 2>/dev/null)
+  GUI_EXE="$APP/Contents/MacOS/$exe"
+  [ -x "$GUI_EXE" ] || { result FAIL "desktop app program" "no $GUI_EXE"; return; }
+  local IN=$FHOME/finder-in OUTF=$FHOME/finder-out
+  mkdir -p "$IN" "$OUTF" "$DEMO/into"
+  for f in dnd-option dnd-command dnd-menu dnd-folder dnd-esc; do echo "$f" >"$DEMO/$f.txt"; done
+  echo "from Finder" >"$IN/from-finder.txt"
+  echo "to Finder" >"$RIGHT/to-finder.txt"
+  say "The desktop app opens with demo/ on the left and right/ on the right, and two Finder"
+  say "windows: finder-in and finder-out (both in the test's temporary folder)."
+  say "Skip the first-run guide (Esc) if it shows. Do each drag with the mouse or trackpad, then"
+  say "press Enter here; the test checks the files."
+  start_gui gui-dnd.log "$DEMO" "$RIGHT"
+  sleep 3
+  open "$IN" "$OUTF" 2>/dev/null || result NOTE "Finder windows" "could not open them: open $IN by hand"
+  dnd_step "Option at the drop copies" "Drag dnd-option.txt from the left pane onto the right pane, holding Option as you let go." both "$DEMO/dnd-option.txt" "$RIGHT/dnd-option.txt"
+  dnd_step "Command at the drop moves" "Drag dnd-command.txt from the left pane onto the right pane, holding Command as you let go." moved "$DEMO/dnd-command.txt" "$RIGHT/dnd-command.txt"
+  dnd_step "the drop menu: c copies" "Drag dnd-menu.txt onto the right pane with no key held: a menu \"Drop ... in right\" opens; press c." both "$DEMO/dnd-menu.txt" "$RIGHT/dnd-menu.txt"
+  dnd_step "onto a folder's row" "Drag dnd-folder.txt onto the row of the folder into/ in the left pane, holding Option." both "$DEMO/dnd-folder.txt" "$DEMO/into/dnd-folder.txt"
+  dnd_step "Esc cancels a drag" "Start dragging dnd-esc.txt, press Esc while dragging, then let go over the right pane." moved "$RIGHT/dnd-esc.txt" "$DEMO/dnd-esc.txt"
+  dnd_step "in from Finder" "Drag from-finder.txt from the Finder window finder-in onto the right pane, holding Option." both "$IN/from-finder.txt" "$RIGHT/from-finder.txt"
+  dnd_step "out to Finder" "Drag to-finder.txt from the right pane into the Finder window finder-out." both "$RIGHT/to-finder.txt" "$OUTF/to-finder.txt"
+  if [ -f "$DEMO/bundle.zip" ]; then
+    dnd_step "out of an archive to Finder" "In the left pane open bundle.zip (Enter), then the folder bundle; drag inside-archive.txt into finder-out." test -f "$OUTF/inside-archive.txt"
+  else
+    result SKIP "out of an archive to Finder" "no zip archive"
+  fi
+  dnd_ask "the picture under the pointer" "While dragging, did a small picture under the pointer show the file's icon and name (or how many files)?"
+  dnd_ask "the dashed outline" "While dragging over a pane or a folder's row, did it get a dashed outline?"
+  say ""
+  say "  Last: close the two Finder windows, and press Cmd+Q in the desktop app."
+  local i=0
+  while kill -0 "$GUI_PID" 2>/dev/null && [ $i -lt 60 ]; do sleep 0.5; i=$((i + 1)); done
+  if kill -0 "$GUI_PID" 2>/dev/null; then
+    result NOTE "the app is still open" "stopped by the test"; stop_gui "desktop app, drag and drop"
+  else
+    result PASS "the app has ended" "nothing left running"
+  fi
 }
 
 CHECKS="The window shows the demo folder (left) and right/ (right); the first-run guide can be skipped

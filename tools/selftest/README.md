@@ -56,6 +56,7 @@ out of it there. Shift+F8 deletes the demo file for good instead.
 | `--out DIR` | the report and screenshots to `DIR` |
 | `--ci` | unattended on GitHub's macOS runners: `--no-ask`, screenshots, `--out` (default `./selftest-out`), the report in `$GITHUB_STEP_SUMMARY`, `::error` for each FAIL, exit 1 on any |
 | `--terminal-bin PATH` | a local build of the terminal app instead of the download |
+| `--dnd` | only [drag and drop](../../docs/files/drag-and-drop.md) in the desktop app: it opens with demo/ and right/ and two Finder windows (`finder-in`, `finder-out` in the fake home); you do each drag it names (Option copies, Command moves, the drop menu's c, onto a folder's row, Esc, in from Finder, out to Finder, out of a zip) and press Enter, and it checks the files; the drag picture and the dashed outline are y/n. Not with `--no-ask` or `--ci` |
 | `--dry-run` | on Linux: what is not macOS-specific (the script refuses other systems without it) |
 
 ## In CI
