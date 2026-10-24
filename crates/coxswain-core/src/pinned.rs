@@ -482,6 +482,35 @@ mod imp {
         Ok(names.into_iter().map(|n| (node.path.join(OsStr::from_bytes(n.as_bytes())), Place { dir: held.clone(), name: n })).collect())
     }
 
+    /// Whether the folder `dir` is on a local disk that NTFS or ReFS keeps, where an open relative
+    /// to a handle stays one. Fails closed: anything not known to be so is not.
+    fn local_disk(dir: HANDLE) -> bool {
+        // FILE_FS_DEVICE_INFORMATION: device type, characteristics.
+        let mut dev = [0u32; 2];
+        // SAFETY: zeroes are a valid IO_STATUS_BLOCK.
+        let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
+        // SAFETY: the held folder, `dev` of the size given.
+        let st = unsafe { NtQueryVolumeInformationFile(dir, &mut io, dev.as_mut_ptr().cast(), 8, FileFsDeviceInformation) };
+        // FILE_DEVICE_DISK, and not FILE_REMOTE_DEVICE.
+        if st < 0 || dev[0] != 0x07 || dev[1] & 0x10 != 0 {
+            return false;
+        }
+        // A network redirector answers this; a local file system refuses it as invalid (87).
+        // SAFETY: zeroes are a valid FILE_REMOTE_PROTOCOL_INFO, which the call fills in.
+        let mut remote: FILE_REMOTE_PROTOCOL_INFO = unsafe { std::mem::zeroed() };
+        // SAFETY: the held folder, `remote` of the size given.
+        if unsafe { GetFileInformationByHandleEx(dir, FileRemoteProtocolInfo, std::ptr::from_mut(&mut remote).cast(), std::mem::size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32) } != 0 || last().raw_os_error() != Some(87) {
+            return false;
+        }
+        let mut fs = [0u16; 64];
+        // SAFETY: the held folder, and a buffer for the file system's name of the length given.
+        if unsafe { GetVolumeInformationByHandleW(dir, std::ptr::null_mut(), 0, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), fs.as_mut_ptr(), fs.len() as u32) } == 0 {
+            return false;
+        }
+        let name = String::from_utf16_lossy(&fs[..fs.iter().position(|&c| c == 0).unwrap_or(fs.len())]);
+        name == "NTFS" || name == "ReFS"
+    }
+
     impl Place {
         /// The folder `path` is in, opened again (for undo) and checked to be the folder `dir`.
         pub fn reopen(path: &Path, dir: (u64, u64)) -> std::io::Result<Place> {
@@ -790,11 +819,11 @@ mod imp {
     use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
     use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
-    use windows_sys::Wdk::Storage::FileSystem::{FILE_CREATE, FILE_DIRECTORY_FILE, FILE_EA_INFORMATION, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT, FILE_SYNCHRONOUS_IO_NONALERT, FileEaInformation, FileRenameInformation, NtCreateFile, NtQueryInformationFile, NtSetInformationFile};
+    use windows_sys::Wdk::Storage::FileSystem::{FILE_CREATE, FILE_DIRECTORY_FILE, FILE_EA_INFORMATION, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_OPEN_REPARSE_POINT, FILE_SYNCHRONOUS_IO_NONALERT, FileEaInformation, FileRenameInformation, FileFsDeviceInformation, NtCreateFile, NtQueryInformationFile, NtQueryVolumeInformationFile, NtSetInformationFile};
     use windows_sys::Win32::Foundation::{HANDLE, LocalFree, RtlNtStatusToDosError, UNICODE_STRING};
     use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
     use windows_sys::Win32::Security::{ACL, EqualSid, GetSecurityDescriptorControl, DACL_SECURITY_INFORMATION, OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID};
-    use windows_sys::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_REMOTE_PROTOCOL_INFO, FILE_RENAME_INFO, FILE_STREAM_INFO, FileBasicInfo, FileRemoteProtocolInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, FileStreamInfo, GetFileInformationByHandle, GetFileInformationByHandleEx, SetFileInformationByHandle};
+    use windows_sys::Win32::Storage::FileSystem::{BY_HANDLE_FILE_INFORMATION, FILE_BASIC_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_REMOTE_PROTOCOL_INFO, FILE_RENAME_INFO, FILE_STREAM_INFO, FileBasicInfo, FileRemoteProtocolInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, FileStreamInfo, GetFileInformationByHandle, GetFileInformationByHandleEx, GetVolumeInformationByHandleW, SetFileInformationByHandle};
     use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
     /// FILE_FLAG_BACKUP_SEMANTICS (folders open too) | FILE_FLAG_OPEN_REPARSE_POINT (a link is
@@ -1052,7 +1081,11 @@ mod imp {
         // Whether the DACL is protected (inheritance turned off), from the descriptor's control.
         let (mut control, mut rev) = (0u16, 0u32);
         // SAFETY: the descriptor just got, and two values to fill.
-        unsafe { GetSecurityDescriptorControl(sd, &mut control, &mut rev) };
+        if unsafe { GetSecurityDescriptorControl(sd, &mut control, &mut rev) } == 0 {
+            // SAFETY: the descriptor GetSecurityInfo gave, not used again.
+            unsafe { LocalFree(sd) };
+            return Err(last());
+        }
         Ok((owner, bytes, sd, control & 0x1000))
     }
 
@@ -1067,6 +1100,35 @@ mod imp {
             unsafe { LocalFree(sd.2) };
         }
         same
+    }
+
+    /// Whether the folder `dir` is on a local disk that NTFS or ReFS keeps, where an open relative
+    /// to a handle stays one. Fails closed: anything not known to be so is not.
+    fn local_disk(dir: HANDLE) -> bool {
+        // FILE_FS_DEVICE_INFORMATION: device type, characteristics.
+        let mut dev = [0u32; 2];
+        // SAFETY: zeroes are a valid IO_STATUS_BLOCK.
+        let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
+        // SAFETY: the held folder, `dev` of the size given.
+        let st = unsafe { NtQueryVolumeInformationFile(dir, &mut io, dev.as_mut_ptr().cast(), 8, FileFsDeviceInformation) };
+        // FILE_DEVICE_DISK, and not FILE_REMOTE_DEVICE.
+        if st < 0 || dev[0] != 0x07 || dev[1] & 0x10 != 0 {
+            return false;
+        }
+        // A network redirector answers this; a local file system refuses it as invalid (87).
+        // SAFETY: zeroes are a valid FILE_REMOTE_PROTOCOL_INFO, which the call fills in.
+        let mut remote: FILE_REMOTE_PROTOCOL_INFO = unsafe { std::mem::zeroed() };
+        // SAFETY: the held folder, `remote` of the size given.
+        if unsafe { GetFileInformationByHandleEx(dir, FileRemoteProtocolInfo, std::ptr::from_mut(&mut remote).cast(), std::mem::size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32) } != 0 || last().raw_os_error() != Some(87) {
+            return false;
+        }
+        let mut fs = [0u16; 64];
+        // SAFETY: the held folder, and a buffer for the file system's name of the length given.
+        if unsafe { GetVolumeInformationByHandleW(dir, std::ptr::null_mut(), 0, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), fs.as_mut_ptr(), fs.len() as u32) } == 0 {
+            return false;
+        }
+        let name = String::from_utf16_lossy(&fs[..fs.iter().position(|&c| c == 0).unwrap_or(fs.len())]);
+        name == "NTFS" || name == "ReFS"
     }
 
     impl Place {
@@ -1143,13 +1205,9 @@ mod imp {
                 Ok(s)
             };
             check(true)?;
-            // Not on a network share: a server opens by path and would follow a junction swapped
-            // in on its side (SMB has no opens relative to a handle).
-            // SAFETY: zeroes are a valid FILE_REMOTE_PROTOCOL_INFO, which the call fills in; it
-            // succeeds only for a folder on a network share.
-            let mut remote: FILE_REMOTE_PROTOCOL_INFO = unsafe { std::mem::zeroed() };
-            // SAFETY: the held folder, `remote` of the size given.
-            if unsafe { GetFileInformationByHandleEx(self.dir.h.as_raw_handle() as _, FileRemoteProtocolInfo, std::ptr::from_mut(&mut remote).cast(), std::mem::size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32) } != 0 {
+            // Only on a local NTFS or ReFS disk: a network share's server, or a file system in user
+            // mode (WinFsp, Dokan), opens by path and could follow a junction swapped in there.
+            if !local_disk(self.dir.h.as_raw_handle() as _) {
                 return Err(other(t!("pinned.remote")));
             }
             let old = self.open_in(READ_CONTROL | READ_ATTRIBUTES, FILE_OPEN, FILE_NON_DIRECTORY_FILE, SHARE_ALL)?;

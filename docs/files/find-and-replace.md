@@ -76,7 +76,7 @@ narrow the search*.
 | Another user's file (on Unix) | Written anew it would become yours; listed |
 | Files with an ACL, extended attributes or file flags (`chflags`) | Written anew they would lose them; listed (SELinux's label is no reason). Where Coxswain cannot tell, the file is left as it is |
 | On Windows: a file with other permissions or another owner than a new file in its folder would get, other data streams (the mark of a downloaded file among them), extended attributes, or attributes beyond hidden, archive and not indexed (system, compressed, encrypted, sparse) | Written anew it would lose them, or be opened to others; listed as *Has extra permissions or attributes: left as it is.* |
-| On Windows: a file on a network share | The server opens it by its path, so a junction swapped in on the server could lead the write elsewhere; listed as *On a network share, where the server would open it by its path: not written.* |
+| On Windows: a file on a network share, or on a disk that is not NTFS or ReFS (FAT, exFAT, a file system mounted by a program such as WinFsp or Dokan) | It may be opened by its path, so a junction swapped in there could lead the write elsewhere; listed as *On a network share, where the server would open it by its path: not written.* |
 | Programs that run as their owner or group (setuid, setgid) | Written anew they would lose that, or keep it for new content; listed |
 | Links, to files or folders | Never followed: a link out of the folder would change files elsewhere; listed |
 | `.git`, `.hg`, `.svn`, `.jj`, `_darcs` folders | A repository's own files: a change there breaks it; not looked into |
