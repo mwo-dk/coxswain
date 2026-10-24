@@ -44,6 +44,10 @@ resvg = { version = "0.48", default-features = false }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# Windows Terminal's answer about pictures, read through the console's input (`pictures`).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_System_Console", "Win32_System_Threading"] }
+
 # Tests get a home of their own in the temporary folder (`coxswain_core::dirs`).
 [dev-dependencies]
 coxswain-core = { workspace = true, features = ["test-home"] }

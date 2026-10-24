@@ -1,0 +1,1 @@
+| **Chess pieces as pictures in Windows Terminal.** The terminal app asks Windows Terminal (1.22 and later) whether it draws sixel, through the console, and draws the desktop app's pieces on the board there; the old console keeps block characters. | [Pictures, where the terminal shows them](previews/game-pieces.md#pictures-where-the-terminal-shows-them) |
