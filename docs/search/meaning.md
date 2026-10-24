@@ -115,7 +115,9 @@ files are still to go, and *· 2 files changing* while files changed in the last
   text or more: it is read twice as it is unpacked, for at most 20 seconds each time. [Long files](long-files.md) set to *Everything*, for every folder or one,
   lift the cap: every passage gets a vector, and search by words keeps all the text. Each vector (384 numbers) is packed into a byte a number and kept in
   `search.db`.
-- **When:** the [helper](helper.md) makes them a few files at a time, and not on
+- **When:** the [helper](helper.md) makes them a few files at a time (the passages of several
+  short files go to the model together, 64 at least, so their batches are full; a few files' passages
+  are made ahead while the model works), each file's vectors written whole, and not on
   [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
   the work took; with a [server](servers.md) it rests a quarter of that, since the work is the
   server's. New and changed files get

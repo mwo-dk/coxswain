@@ -543,11 +543,17 @@ impl Embedder {
     /// scores nothing, so the ones after it keep their place.
     pub fn passages(&self, texts: &[String]) -> Vec<Vec<f32>> {
         let texts: Vec<String> = texts.iter().map(|t| format!("passage: {t}")).collect();
-        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
-        self.embed(&texts)
-            .into_iter()
-            .map(|v| if v.is_empty() { vec![0.0; DIMS] } else { v })
-            .collect()
+        // By length, so each batch is padded to about its own length: passages of several
+        // files, short and long mixed, would otherwise each cost as much as the longest. The
+        // padding is masked, so each vector is the same either way.
+        let mut order: Vec<usize> = (0..texts.len()).collect();
+        order.sort_by_key(|&i| texts[i].len());
+        let sorted: Vec<&str> = order.iter().map(|&i| texts[i].as_str()).collect();
+        let mut out = vec![vec![]; texts.len()];
+        for (i, v) in order.into_iter().zip(self.embed(&sorted)) {
+            out[i] = if v.is_empty() { vec![0.0; DIMS] } else { v };
+        }
+        out
     }
 
     /// The vectors of `texts`, empty where there is none, in batches. A GPU that fails moves

@@ -328,7 +328,12 @@ rests):
 | Built-in model, CPU (two threads) | 40 min | 60 min | 16 MB | 21 MB |
 | Ollama bge-m3, RTX 4070 Laptop GPU | 1.9 min | 3.9 min | 23 MB | 40 MB |
 
-On the CPU the built-in model takes a file's passages 8 at a time (on a Mac's GPU 32): 15
+On the CPU the built-in model takes passages 8 at a time (on a Mac's GPU 32), shortest first
+so each batch is padded only to about its own length, and the passages of several short files
+together (64 at least), so their batches are full: 400 Markdown files of under 3 KB (1,320
+passages) got their vectors in 186–201 s instead of 215–309 s (about a quarter less, measured on
+a shared 32-thread Linux machine, so the spread is wide); mixing files without sorting made it
+slower (400 s). With one file at a time, the model got 15
 passages of 100 words a second on its two threads, where one by one gave 12
 (`perf_meaning_cpu_and_gpu`). Without *Read now*, the helper rests as long as it worked, so
 the first pass takes about twice as long. Short files cost what they did: a file of up to 960 words has the same passages as
