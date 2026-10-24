@@ -921,7 +921,9 @@ pub fn last_changes_since(
         None if crate::cloud::git_kept_out(dir) => return None,
         None => (dir.to_path_buf(), "HEAD".to_string(), String::new()),
     };
-    let oid = rev_oid(&base, &rev)?;
+    // git, or the system keeping the folder: Mercurial, Jujutsu with no `.git` of its own.
+    let vcs = crate::vcs::of(&base);
+    let oid = vcs.commit_id(&base, &rev)?;
     if have == Some(oid.as_str()) {
         return Some((oid, None));
     }
@@ -932,7 +934,7 @@ pub fn last_changes_since(
     if cached {
         return Some((oid, None));
     }
-    let (lasts, whole) = walk(&base, &oid, &inner).ok()?;
+    let (lasts, whole) = vcs.lasts(&base, &oid, &inner).ok()?;
     let lasts = Arc::new(lasts);
     // A walk git was stopped in (it took too long) is not kept: the next look goes further.
     if whole {
@@ -942,7 +944,7 @@ pub fn last_changes_since(
 }
 
 /// The commit `rev` names.
-fn rev_oid(base: &Path, rev: &str) -> Option<String> {
+pub(crate) fn rev_oid(base: &Path, rev: &str) -> Option<String> {
     let out = run({
         let mut c = git_with(base, &[]);
         c.args(["rev-parse", "--verify", "-q", &format!("{rev}^{{commit}}")]);
@@ -956,7 +958,7 @@ fn rev_oid(base: &Path, rev: &str) -> Option<String> {
 /// commit of each branch too (hashed), as any of them moving changes it.
 fn list_key(at: &At) -> Option<String> {
     if at.scope == Scope::Branch {
-        return rev_oid(&at.base, "HEAD");
+        return crate::vcs::of(&at.base).commit_id(&at.base, "HEAD");
     }
     let mut c = git_with(&at.base, &[]);
     c.args(["rev-parse"]).args(match at.scope {
@@ -1045,7 +1047,7 @@ fn commits_of(at: &At) -> io::Result<Arc<Vec<Commit>>> {
 
 /// The walk: the names `rev` has in the folder, then the commits from `rev` back, each name
 /// taking the first that changed something at or below it, until every name has one.
-fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
+pub(crate) fn walk(base: &Path, rev: &str, inner: &str) -> io::Result<(Lasts, bool)> {
     let spec = inner_spec(inner);
     let prefix = if inner.is_empty() {
         String::new()
@@ -1133,6 +1135,17 @@ pub fn sort_by_last(entries: &mut [Entry], lasts: &Lasts, reverse: bool) {
 /// changed (at most 200).
 pub fn for_search(
     root: &Path,
+    head: &str,
+    since: Option<&str>,
+    max: usize,
+) -> io::Result<Vec<(String, u64, String)>> {
+    crate::vcs::of(root).for_search(root, head, since, max)
+}
+
+/// `for_search` from git.
+pub(crate) fn git_for_search(
+    root: &Path,
+    head: &str,
     since: Option<&str>,
     max: usize,
 ) -> io::Result<Vec<(String, u64, String)>> {
@@ -1146,12 +1159,19 @@ pub fn for_search(
         "--format=%x1e%H%x1f%at%x1f%an%x1f%ad%x1f%B",
         "-n",
         &max.to_string(),
-        "HEAD",
+        head,
     ]);
     if let Some(s) = since {
         c.arg(format!("^{s}"));
     }
     c.arg("--");
+    search_records(c)
+}
+
+/// What a log for the search store prints, NUL-separated: a record per commit (`\x1e`, then id,
+/// time (seconds, maybe followed by a space and more), author, date and message, `\x1f`
+/// between), then the paths it changed, one record each.
+pub(crate) fn search_records(c: Command) -> io::Result<Vec<(String, u64, String)>> {
     let mut out: Vec<(String, u64, String, usize)> = vec![];
     records(c, 0, |rec| {
         if rec.first() == Some(&0x1e) {
@@ -1163,6 +1183,7 @@ pub fn for_search(
                     &hash[..hash.len().min(7)],
                     body.trim_end()
                 );
+                let time = time.split(' ').next().unwrap_or_default();
                 out.push((hash.to_string(), time.parse().unwrap_or(0), text, 0));
             }
             return true;
@@ -1186,17 +1207,19 @@ pub fn for_search(
 
 /// HEAD's commit id at `root`, and whether `old` is an ancestor of it (history only grew).
 pub fn head(root: &Path, old: Option<&str>) -> Option<(String, bool)> {
-    let mut c = git(root);
-    c.args(["rev-parse", "--verify", "-q", "HEAD^{commit}"]);
-    let now = String::from_utf8(run(c).ok()?).ok()?.trim().to_string();
-    let grew = old.is_some_and(|old| {
-        let mut c = git(root);
-        c.args(["merge-base", "--is-ancestor", old, &now])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
-        c.status().is_ok_and(|s| s.success())
-    });
+    let vcs = crate::vcs::of(root);
+    let now = vcs.commit_id(root, "HEAD")?;
+    let grew = old.is_some_and(|old| vcs.grew(root, old, &now));
     Some((now, grew))
+}
+
+/// Whether git has `old` as an ancestor of `now`.
+pub(crate) fn git_grew(root: &Path, old: &str, now: &str) -> bool {
+    let mut c = git(root);
+    c.args(["merge-base", "--is-ancestor", old, now])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    c.status().is_ok_and(|s| s.success())
 }
 
 /// The store's key of a commit of the repository at `root`: not a path on disk, so no folder
@@ -1508,7 +1531,7 @@ pub(crate) mod tests {
         commit_as(&d, "Bob", 1_700_100_000, "Fix the fuel valve");
         let (two, grew) = head(&d, Some(&one)).unwrap();
         assert!(grew);
-        let all = for_search(&d, None, 10).unwrap();
+        let all = for_search(&d, "HEAD", None, 10).unwrap();
         assert_eq!(all.len(), 2);
         assert_eq!(
             all[1].2,
@@ -1517,9 +1540,9 @@ pub(crate) mod tests {
                 &one[..7]
             )
         );
-        let new = for_search(&d, Some(&one), 10).unwrap();
+        let new = for_search(&d, "HEAD", Some(&one), 10).unwrap();
         assert_eq!((new.len(), new[0].0.as_str()), (1, two.as_str()));
-        assert!(for_search(&d, Some(&two), 10).unwrap().is_empty());
+        assert!(for_search(&d, "HEAD", Some(&two), 10).unwrap().is_empty());
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -1556,7 +1579,7 @@ pub(crate) mod tests {
                 && diff(&split(&path(&d.join("a.txt"), Some(&commit.hash)).join("a.txt")).unwrap())
                     .is_ok()
         );
-        assert!(last_changes(&d).is_some() && for_search(&d, None, 10).is_ok());
+        assert!(last_changes(&d).is_some() && for_search(&d, "HEAD", None, 10).is_ok());
         assert!(!mark.exists(), "the repository's gpg.program ran");
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -1871,6 +1894,6 @@ fn history_timings() {
         last_changes(&commits[1000].path).map_or(0, |l| l.len())
     });
     time("for the search store, 2000", &|| {
-        for_search(&root, None, 2000).unwrap().len()
+        for_search(&root, "HEAD", None, 2000).unwrap().len()
     });
 }

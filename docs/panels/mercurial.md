@@ -52,8 +52,10 @@ app) for a Mercurial repository too.
 
 A file's history goes on past its renames (`hg log --follow`); a folder's is its path as it is.
 There is no upstream, ahead or behind: Mercurial keeps no record of a remote branch to count from.
-The *Last commit* column and Find's [commit search](../search/history.md) are git's: they do not
-cover a Mercurial repository. **F5** out of a commit keeps each file's executable bit and links,
+The *Last commit* column (the info line in the terminal app) comes from `hg log` too: one walk of
+the newest 5000 commits for the folder, kept until the working folder's commit moves. Find's
+[commit search](../search/history.md) keeps the newest 2000 commits of each Mercurial repository
+in the folders read. **F5** out of a commit keeps each file's executable bit and links,
 and gives everything the commit's time.
 
 ## Switching and new bookmarks

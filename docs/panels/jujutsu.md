@@ -89,7 +89,10 @@ manager or [jj's install page](https://jj-vcs.github.io/jj/latest/install-and-se
 | *Settings → Behaviour → Use git where Jujutsu is too* | `prefer_git` under `[git]` | `false` |
 
 The other git settings (`last_commit`, `tool`) hold for a Jujutsu repository too. The
-*Last commit* column comes from git, so it shows only in a repository with `.git` next to `.jj`.
+*Last commit* column and Find's [commit search](../search/history.md) start at the parent of the
+working-copy commit (`@-`, what git next to Jujutsu calls HEAD), so the working-copy commit's own
+changes have none yet. In a repository without `.git` next to `.jj`, `jj` names that commit and
+git reads the commits from Jujutsu's own store below `.jj`; nothing is written.
 
 ## In the terminal app
 

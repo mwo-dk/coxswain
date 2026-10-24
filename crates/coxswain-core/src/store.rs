@@ -2159,7 +2159,13 @@ fn walk(
             if kind.is_dir() && crate::fs::protected(&path) {
                 continue;
             }
-            if entry.file_name() == ".git" {
+            // A repository's history is searched too: git's, Mercurial's, and Jujutsu's where
+            // it has no `.git` of its own (with one, it is git's).
+            let name = entry.file_name();
+            if name == ".git"
+                || (kind.is_dir() && name == ".hg")
+                || (kind.is_dir() && name == ".jj" && !dir.join(".git").exists())
+            {
                 found.repos.push(dir.clone());
             }
             if kind.is_dir() {
@@ -2835,7 +2841,7 @@ fn history(
             store.apply(&[rows(repo)], &[], &[], false, None)?;
         }
         let Ok(commits) =
-            crate::history::for_search(repo, old.as_deref().filter(|_| grew), HISTORY_MAX)
+            crate::history::for_search(repo, &head, old.as_deref().filter(|_| grew), HISTORY_MAX)
         else {
             continue;
         };
@@ -3628,6 +3634,48 @@ mod tests {
         // Windows lets nobody delete a database that is open.
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    /// A Mercurial repository's commits are found too, each opening as its history folder.
+    fn store_keeps_the_history_of_mercurial() {
+        if !crate::user_menu::installed("hg") {
+            return;
+        }
+        let home = std::env::temp_dir().join(format!("coxswain-store-hg-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(&home).unwrap();
+        let hg = |args: &[&str]| {
+            let ok = std::process::Command::new("hg")
+                .current_dir(&home)
+                .args(args)
+                .env("HGRCPATH", "")
+                .env("HGUSER", "Ada <ada@example.org>")
+                .stdout(std::process::Stdio::null())
+                .status()
+                .unwrap();
+            assert!(ok.success(), "hg {args:?}");
+        };
+        hg(&["init"]);
+        std::fs::write(home.join("engine.rs"), "fn main() {}\n").unwrap();
+        hg(&["add"]);
+        hg(&["commit", "-m", "Tune the rocket engine", "-d", "1700000000 0"]);
+        let cfg = SearchConfig {
+            text_roots: vec![home.clone()],
+            ..SearchConfig::default()
+        };
+        let db = home.with_extension("db");
+        let (store, go) = (Store::open(&db).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let found = store.search("rocket", None, 10).hits;
+        assert_eq!(found.len(), 1);
+        let at = crate::history::split(&found[0].path).expect("a commit's history folder");
+        assert_eq!(at.target, home);
+        assert!(crate::history::show(&home, at.commit.as_deref().unwrap()).is_ok());
+        assert_eq!(store.search("engine.rs", None, 10).hits.len(), 1, "by a path it changed");
+        drop(store);
+        let _ = std::fs::remove_file(&db);
+        std::fs::remove_dir_all(home).unwrap();
     }
 
     #[test]
