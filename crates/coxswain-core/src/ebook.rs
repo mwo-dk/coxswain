@@ -287,7 +287,7 @@ fn go(
     said: &mut dyn FnMut(Said),
 ) -> Result<(), String> {
     let mut c = crate::tools::hosted(c);
-    c.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
+    crate::tools::own_group(&mut c).stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(if untar.is_some() { Stdio::piped() } else { Stdio::null() })
         .stderr(Stdio::piped());
     let mut child = c.spawn().map_err(|e| e.to_string())?;
@@ -300,11 +300,10 @@ fn go(
     let lines = crate::searchable::follow(&mut child);
     let (began, mut last) = (Instant::now(), Vec::<String>::new());
     let end = |child: &mut std::process::Child| {
-        let _ = child.kill();
+        crate::tools::kill_tree(child);
         if let Some((rt, name)) = kill {
             let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
         }
-        let _ = child.wait();
     };
     let status = loop {
         while let Ok(l) = lines.try_recv() {
@@ -320,6 +319,7 @@ fn go(
         }
         if began.elapsed() > timeout {
             end(&mut child);
+            crate::tools::note_too_long();
             return Err(t!("ebook.took_too_long"));
         }
         if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {

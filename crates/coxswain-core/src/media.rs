@@ -653,7 +653,7 @@ fn watch(
     keep: u64,
 ) -> Result<Vec<u8>, String> {
     let mut c = crate::tools::hosted(c);
-    let mut child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let mut child = crate::tools::own_group(&mut c).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let lines = crate::searchable::follow(&mut child);
     let mut so = child.stdout.take().ok_or("stdout")?;
     let reader = std::thread::spawn(move || {
@@ -684,11 +684,10 @@ fn watch(
         }
         let late = timeout.is_some_and(|t| start.elapsed() > t);
         if stop.load(Ordering::Relaxed) || late {
-            let _ = child.kill();
+            crate::tools::kill_tree(&mut child);
             if let Some((rt, name)) = &kill {
                 let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
             }
-            let _ = child.wait();
             return Err(if late { t!("convert.timed_out", "seconds" => timeout.unwrap_or_default().as_secs()) } else { t!("media.stopped") });
         }
         if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
@@ -1066,7 +1065,7 @@ pub fn probe_file(cfg: &PreviewConfig, path: &Path) -> Option<Probe> {
         }
     };
     let mut c = crate::tools::hosted(c);
-    let mut child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let mut child = crate::tools::own_group(&mut c).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
     let mut so = child.stdout.take()?;
     let reader = std::thread::spawn(move || {
         let mut s = String::new();

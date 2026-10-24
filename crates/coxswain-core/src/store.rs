@@ -250,7 +250,7 @@ impl Store {
             ));
         }
         if version != VERSION {
-            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS errors; DROP TABLE IF EXISTS positions;")?;
+            db.execute_batch("DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS text; DROP TABLE IF EXISTS skipped; DROP TABLE IF EXISTS hashes; DROP TABLE IF EXISTS roots; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS errors; DROP TABLE IF EXISTS positions; DROP TABLE IF EXISTS slow;")?;
             db.pragma_update(None, "user_version", VERSION)?;
         }
         // The duplicate finder writes hashes from the app while the helper scans.
@@ -272,7 +272,8 @@ impl Store {
              CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS transcripts(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, length INTEGER, done INTEGER NOT NULL DEFAULT 0, text TEXT NOT NULL DEFAULT '', finished INTEGER NOT NULL DEFAULT 0, asked INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS positions(hash INTEGER NOT NULL, file INTEGER NOT NULL, game INTEGER NOT NULL, PRIMARY KEY(hash, file, game)) WITHOUT ROWID;
-             CREATE INDEX IF NOT EXISTS positions_file ON positions(file);",
+             CREATE INDEX IF NOT EXISTS positions_file ON positions(file);
+             CREATE TABLE IF NOT EXISTS slow(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL);",
         )?;
         // Search by meaning came later: a store from before gets the column, and keeps its text.
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
@@ -427,7 +428,7 @@ impl Store {
         self.cleared.store(true, Ordering::SeqCst);
         let db = self.db.lock().unwrap();
         // The vacuum goes to the write-ahead log first: written back and emptied, the room is free.
-        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM positions; DELETE FROM errors; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
+        let done = db.execute_batch("DELETE FROM text; DELETE FROM files; DELETE FROM skipped; DELETE FROM hashes; DELETE FROM chunks; DELETE FROM positions; DELETE FROM errors; DELETE FROM slow; VACUUM; PRAGMA wal_checkpoint(TRUNCATE);");
         // Read again whatever came of it: each statement commits on its own, so a vacuum that
         // fails still leaves the rows gone.
         self.commit_signs(|| Ok(()), SignsChange::Reset)?;
@@ -1269,6 +1270,26 @@ impl Store {
                 .execute(params![id, whole])?;
         }
         tx.commit()
+    }
+
+    /// Whether the file `id` ran past a program's time limit as it is now: it is not read
+    /// again until it changes (`slow`, 2.33), however often its program comes and goes.
+    fn too_long(&self, id: i64) -> bool {
+        self.db.lock().unwrap().query_row(
+            "SELECT 1 FROM files f JOIN slow s ON s.path = f.path AND s.size = f.size AND s.modified = f.modified WHERE f.id = ?1",
+            [id],
+            |_| Ok(()),
+        ).is_ok()
+    }
+
+    /// The file `id` ran past a program's time limit: kept as it is now, for `too_long`.
+    // ponytail: rows of files gone since stay; a few bytes each, cleared by Forget.
+    fn mark_too_long(&self, id: i64) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute(
+            "INSERT OR REPLACE INTO slow(path, size, modified) SELECT path, size, modified FROM files WHERE id = ?1",
+            [id],
+        )?;
+        Ok(())
     }
 
     /// Files read, in one transaction. `text` is `None` for a file without text.
@@ -3095,11 +3116,20 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         for (id, path, size) in &batch {
             let keep = rule.whole(Path::new(path));
             let cap = if keep { crate::extract::EVERYTHING_TEXT } else { crate::extract::MAX_TEXT };
+            // A file that ran past a program's time limit (a LibreOffice that never ends) is
+            // not given another two minutes each time its program comes back, until it changes.
             let text = if left_out_file(path, cfg) {
                 None
+            } else if store.too_long(*id) {
+                store.transcript_of(*id)
             } else {
-                crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap)
-                    .or_else(|| store.transcript_of(*id))
+                crate::tools::took_too_long();
+                let text = crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap);
+                if text.is_none() && crate::tools::took_too_long() {
+                    store.mark_too_long(*id)?;
+                    store.note_error(Some(path), "took too long");
+                }
+                text.or_else(|| store.transcript_of(*id))
             };
             held += text.as_ref().map_or(0, String::len);
             whole.push((*id, keep, text.is_some()));
@@ -4579,6 +4609,22 @@ mod tests {
         // The file gone, its positions go with it.
         store.apply(&[path.clone()], &[], &[], false, None).unwrap();
         assert!(store.games_at(nf3, 10).unwrap().is_empty());
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn store_keeps_a_file_that_took_too_long_until_it_changes() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-slow-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        store.apply(&[], &[("/h/old.doc".into(), 10, 1, false)], &[], false, None).unwrap();
+        let id = store.unread_disk(0, 10).unwrap()[0].0;
+        assert!(!store.too_long(id));
+        store.mark_too_long(id).unwrap();
+        assert!(store.too_long(id), "not read again while it is as it was");
+        store.apply(&[], &[("/h/old.doc".into(), 12, 2, false)], &[], false, None).unwrap();
+        assert!(!store.too_long(id), "read again once it changed");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

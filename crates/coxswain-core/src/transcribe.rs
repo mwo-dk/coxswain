@@ -357,7 +357,7 @@ fn run_cli(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<
         crate::images::bounds_work(path, image);
     }
     let mut c = command(engine, model, file, start, secs, scratch, &name).ok_or("no command")?;
-    let child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let child = crate::tools::own_group(&mut c).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     // Long enough for the slowest model on a slow machine: three times as long as the part
     // plays, at least half an hour.
     let most = Duration::from_secs((secs.unwrap_or(CHUNK) * 3).max(1800));
@@ -390,8 +390,7 @@ fn watch(mut child: std::process::Child, most: Duration, stop: &dyn Fn() -> bool
         }
         let late = began.elapsed() > most;
         if stop() || late {
-            let _ = child.kill();
-            let _ = child.wait();
+            crate::tools::kill_tree(&mut child);
             gone();
             return if late { Err(t!("whisper.too_long")) } else { Ok(None) };
         }

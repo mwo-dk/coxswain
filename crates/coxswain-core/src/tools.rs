@@ -797,7 +797,51 @@ pub fn spawn_watched(mut c: Command, grace: Duration) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Wait for `child`, killing it when it runs past `timeout`.
+/// `c` started in a process group of its own (Unix), so `kill_tree` ends what it starts too:
+/// LibreOffice's `soffice` is a launcher whose `soffice.bin` outlived a time limit by days.
+pub fn own_group(c: &mut Command) -> &mut Command {
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(c, 0);
+    c
+}
+
+/// `child` and everything it started, ended, and reaped. On Unix the group is killed only when
+/// `child` leads it, which is a group `own_group` made; on Windows `taskkill /T` ends its tree.
+pub fn kill_tree(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        // Not reaped yet, so the pid is still this child's and its group ours.
+        let pid = child.id() as libc::pid_t;
+        if unsafe { libc::getpgid(pid) } == pid {
+            unsafe { libc::kill(-pid, libc::SIGKILL) };
+        }
+    }
+    #[cfg(windows)]
+    let _ = command("taskkill")
+        .args(["/T", "/F", "/PID", &child.id().to_string()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+thread_local! {
+    static TOO_LONG: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether a program `wait` ran on this thread ran past its time limit since the last call.
+pub fn took_too_long() -> bool {
+    TOO_LONG.with(|t| t.replace(false))
+}
+
+/// Notes on this thread that a program ran past its time limit, for `took_too_long`.
+pub fn note_too_long() {
+    TOO_LONG.with(|t| t.set(true));
+}
+
+/// Wait for `child`, ending it and what it started (`kill_tree`) when it runs past `timeout`.
 pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus> {
     let start = Instant::now();
     loop {
@@ -805,8 +849,8 @@ pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus>
             return Ok(status);
         }
         if start.elapsed() > timeout {
-            let _ = child.kill();
-            let _ = child.wait();
+            kill_tree(child);
+            note_too_long();
             return Err(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 "took too long",
@@ -853,7 +897,8 @@ pub fn capture(
             v
         })
     }
-    c.stdin(Stdio::null())
+    own_group(&mut c)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = c.spawn()?;
@@ -987,7 +1032,8 @@ mod tests {
     fn tools_run_with_a_limit() {
         assert_eq!(which("no-such-program-coxswain"), None);
         assert!(this_app().is_ok());
-        if cfg!(unix) {
+        #[cfg(unix)]
+        {
             let sh = which("sh").unwrap();
             let args = |s: &str| {
                 [std::ffi::OsStr::new("-c"), std::ffi::OsStr::new(s)].map(|a| a.to_owned())
@@ -1014,6 +1060,22 @@ mod tests {
                 start.elapsed() < Duration::from_secs(30),
                 "stopped at the time limit"
             );
+            assert!(took_too_long() && !took_too_long(), "noted once");
+            // A launcher whose child outlives it, as LibreOffice's soffice and soffice.bin:
+            // both are gone at the time limit, not only the launcher.
+            let dir = std::env::temp_dir().join(format!("coxswain-tree-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let pid = dir.join("pid");
+            let script = format!("sleep 600 & echo $! > '{}'; wait", pid.display());
+            assert_eq!(run(&script, 1000, 100), None);
+            let child: i32 = std::fs::read_to_string(&pid).unwrap().trim().parse().unwrap();
+            let gone = Instant::now();
+            // Killed, then reaped by init: gone within moments.
+            while unsafe { libc::kill(child, 0) } == 0 && gone.elapsed() < Duration::from_secs(10) {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            assert_ne!(unsafe { libc::kill(child, 0) }, 0, "the forked child is gone too");
+            std::fs::remove_dir_all(&dir).unwrap();
         }
     }
 

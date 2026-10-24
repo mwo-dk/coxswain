@@ -95,7 +95,10 @@ a word may be read wrong, and then it is found only as it was read.
 
 None of its own. The programs are found on `PATH` (and in the usual install folders on Windows and
 macOS). They run at the lowest priority the system offers, with a time limit of two minutes a
-file. The usual limits apply: `text_max_size` (20 MB) and the [folders read](folders.md).
+file. At the limit the program is stopped with everything it started (LibreOffice's `soffice`
+hands the work to a `soffice.bin` of its own, which goes too), and the file is kept as one that
+took too long: it is not read again until it changes, and the preview of `search.db` lists it
+among [its latest errors](../previews/data.md#coxswains-own-index-and-store). The usual limits apply: `text_max_size` (20 MB) and the [folders read](folders.md).
 
 ## In the terminal app
 
