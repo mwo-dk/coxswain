@@ -183,7 +183,7 @@ mindmap
 | [Move and rename (F6)](files/move-and-rename.md) | Moving, renaming in place, across disks, into archives |
 | [New folder (F7)](files/new-folder.md) | One folder or a whole path, also inside archives |
 | [Delete: trash (F8) or for good (Shift+F8)](files/delete.md) | Trash (F8), for good (Shift+F8), taking out of an archive, turning the question off |
-| [Undo (Ctrl+Z)](files/undo.md) | Ctrl+Z, both apps: the last 20 copies, moves, renames, new folders, trashings, packs, extracts and find-and-replaces; checked first, never overwrites; not Shift+F8 |
+| [Undo (Ctrl+Z)](files/undo.md) | Ctrl+Z, both apps: the last 20 copies, moves, renames, new folders, trashings, packs, extracts, find-and-replaces and changes of permissions and dates; checked first, never overwrites; not Shift+F8 |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](files/clipboard.md) | Ctrl+C / Ctrl+X / Ctrl+V shared with other file managers, name (2) |
 | [Drag and drop](files/drag-and-drop.md) | Out to other apps (out of archives too), between panes, onto folders, in; the copy/move menu, Ctrl and Shift |
 | [Batch rename (Ctrl+M)](files/batch-rename.md) | Batch rename (Ctrl+M, desktop): regex, groups, {n:3} counter, live preview, conflicts |
@@ -195,6 +195,7 @@ mindmap
 | [Container images](files/container-images.md) | A docker save, podman save or OCI image opened with Enter as one read-only folder of its merged layers (whiteouts honoured); tags, platforms, layers, entrypoint in the preview and Properties |
 | [Your local models, by name](files/local-models.md) | Ollama blobs (`sha256-…`) shown as `llama3.2:3b`, Hugging Face `models--org--name` as `org/name`, in the panels and Space; GGUF and safetensors facts (architecture, parameters, quantisation, layers), memory to load and whether it fits; pickles never opened |
 | [Properties and permissions](files/properties.md) | Properties (Alt+Enter, both apps): size, dates, owner, permissions and read-only; ZFS dataset, FreeBSD package, file flags (chflags) |
+| [Permissions and dates in bulk (Alt+M)](files/permissions-and-dates.md) | Alt+M, both apps: chmod-style bits (644, u+x,go-w, a+X) or read-only and hidden on Windows, and modified dates (now, a date, another file's) for the marked files, into folders if asked; planned first; one undo |
 | [Finding duplicates](files/duplicates.md) | Files and whole folders, across disks, safe removal to the trash |
 | [Compare files (Shift+F2)](files/compare-files.md) | Shift+F2, both apps: side by side or one under the other, changed words, spaces and case set aside, next change, copy a change across and save; documents by their text, pictures by their pixels (overlay and difference in the desktop app), other files as hex |
 | [Compare folders (Ctrl+F2)](files/compare-folders.md) | Ctrl+F2, both apps: two folders recursively, by size and date or byte by byte; + > < ≠ = in both panels as found; differences only; mark differences and F5; links compared as links; archives, images, snapshots and histories read-only; Stop |

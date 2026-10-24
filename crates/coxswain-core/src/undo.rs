@@ -28,6 +28,8 @@ pub enum Kind {
     Extract,
     /// Text replaced in files (`replace`): `from` is the file as it was, kept aside, `to` the file.
     Replace,
+    /// Permissions and dates changed (`attrs`): each item keeps what its file had before.
+    Attrs,
 }
 
 /// What a file or folder was. `deep` (for what undo would take away): every entry inside a
@@ -65,6 +67,8 @@ struct Item {
     /// its name in Coxswain's own trash (Termux, illumos), else empty.
     to: PathBuf,
     stamp: Option<Stamp>,
+    /// For `Attrs`: the bits and times the file had before.
+    was: Option<(crate::attrs::Was, crate::attrs::Was)>,
     /// Where a change in place was made (`pinned`): the folder, and the file as it was left.
     /// Undo goes back only in that folder, and only to that very file, unchanged since.
     pin: Option<crate::pinned::Pin>,
@@ -224,6 +228,7 @@ impl Record {
             from: from.to_path_buf(),
             to: to.to_path_buf(),
             stamp,
+            was: None,
             pin: None,
         });
     }
@@ -231,7 +236,12 @@ impl Record {
     /// A file changed where it is (`replace`, `attrs`): `from` what undo takes back (the file
     /// as it was, kept aside), `file` the file, `pin` where and what it is now.
     pub fn done_pinned(&mut self, from: &Path, file: &Path, pin: crate::pinned::Pin) {
-        self.items.push(Item { from: from.to_path_buf(), to: file.to_path_buf(), stamp: None, pin: Some(pin) });
+        self.items.push(Item { from: from.to_path_buf(), to: file.to_path_buf(), stamp: None, was: None, pin: Some(pin) });
+    }
+
+    /// A file whose bits or times were changed (`attrs`), and what it had before.
+    pub fn done_attrs(&mut self, path: &Path, before: crate::attrs::Was, after: crate::attrs::Was, pin: crate::pinned::Pin) {
+        self.items.push(Item { from: path.to_path_buf(), to: path.to_path_buf(), stamp: None, was: Some((before, after)), pin: Some(pin) });
     }
 
     /// The operation on `src`, as `fs` and `archive` do it (`dst`: where to, for a copy, a move
@@ -305,7 +315,7 @@ impl Record {
                     made.iter().for_each(|p| self.done(p, p));
                 }
             }
-            Kind::Pack | Kind::Replace => {
+            Kind::Pack | Kind::Replace | Kind::Attrs => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "a pack is done with archive::create_locked, a replace with replace::apply",
@@ -360,6 +370,7 @@ impl Record {
             Kind::Mkdir => t!("undo.what.mkdir", "what" => format!("\"{}\"", name(&first.from))),
             Kind::Trash => t!("undo.what.trash", "what" => what(&first.from)),
             Kind::Pack => t!("undo.what.pack", "what" => format!("\"{}\"", name(&first.to))),
+            Kind::Attrs => t!("undo.what.attrs", "what" => what(&first.to)),
             Kind::Extract => {
                 t!("undo.what.extract", "what" => what(&first.from), "dir" => into(&first.to))
             }
@@ -498,6 +509,14 @@ impl Record {
                     let _ = fs::remove_dir(dir);
                 }
                 Ok(())
+            }
+            // The bits and times it had, given back: only what the change changed, and only to
+            // the very entry it left, unchanged since.
+            Kind::Attrs => {
+                let (Some((before, after)), Some(pin)) = (item.was, item.pin.clone()) else {
+                    return Err(format!("{}: {}", item.to.display(), t!("undo.gone")));
+                };
+                crate::attrs::undo(&item.to, pin, before, after).map_err(|e| err(&item.to, e))
             }
         }
     }

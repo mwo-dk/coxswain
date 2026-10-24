@@ -258,6 +258,8 @@ actions! {
     BatchRename = "batch_rename", "Batch rename", Files, ["Ctrl+M"];
     // Text replaced across files, previewed first (`replace`): Alt+R, free in both apps.
     Replace = "replace", "Find and replace", Files, ["Alt+R"];
+    // Permission bits and dates of many files at once, planned first (`attrs`): M for mode.
+    Attrs = "attrs", "Permissions and dates", Files, ["Alt+M"];
     Tag = "tag", "Colour tag", Files, ["Alt+T"];
     // ZFS and FreeBSD: a folder's snapshots, a file's flags and the files of its package.
     Snapshots = "snapshots", "ZFS snapshots", Files, ["Alt+Z"];

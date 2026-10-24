@@ -104,7 +104,7 @@ it. Nothing is changed there; instead:
 
 | To | In the terminal app |
 |---|---|
-| Change the permissions | The command line: `chmod 755 deploy.sh` ([The command line](../commands/command-line.md)) |
+| Change the permissions | **Alt+M**: [Permissions and dates](permissions-and-dates.md) of the marked files, planned first |
 | Change your file flags | *F9 → File flags* on the file: a line with the flags set, to edit (`nodump hidden`); the flags you may set are named above it, and the others you leave out are cleared |
 | List a package's files | *F9 → Files of this package* on the file |
 
@@ -117,7 +117,7 @@ administrator rights; use `sudo chown` on the command line.
 
 #### Does changing a folder's permissions change the files in it?
 
-No, only the folder itself. For everything inside, use `chmod -R` on the command line.
+No, only the folder itself. For everything inside, mark it and press **Alt+M** with *Into folders, all the way down* ticked ([Permissions and dates](permissions-and-dates.md)).
 
 #### What do the four-digit values mean?
 
@@ -157,9 +157,9 @@ out with **F5** first ([Archives as folders](archives.md#limits)).
 
 #### How do I change permissions in the terminal app?
 
-Its window (**Alt+Enter**) only shows the facts. Change permissions on the command line
-(`chmod 755 deploy.sh`), and your file flags with **F9** → *File flags* on the file
+Its window (**Alt+Enter**) only shows the facts. Change permissions with **Alt+M**
+([Permissions and dates](permissions-and-dates.md)), and your file flags with **F9** → *File flags* on the file
 ([In the terminal app](#in-the-terminal-app)).
 
 ---
-[← Previous: Your local models, by name](local-models.md) · [Next: Finding duplicates →](duplicates.md)
+[← Previous: Your local models, by name](local-models.md) · [Next: Permissions and dates in bulk (Alt+M) →](permissions-and-dates.md)

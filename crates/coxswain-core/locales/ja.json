@@ -2065,7 +2065,7 @@
  "feature.undo.q2": "元に戻すと「その後に変更された」と出ました。ファイルを開いただけです。",
  "feature.undo.q3": "Coxswain を再起動したあとでも元に戻せますか？",
  "feature.undo.title": "元に戻す",
- "feature.undo.what": "{undo} は最後のファイル操作 (コピー、移動、名前の変更、新規フォルダー、ごみ箱への移動、圧縮、展開、検索と置換) を、最大 20 回前まで元に戻します。",
+ "feature.undo.what": "{undo} は最後のファイル操作 (コピー、移動、名前の変更、新規フォルダー、ごみ箱への移動、圧縮、展開、アクセス許可と日時) を、最大 20 回前まで元に戻します。",
  "feature.updates.a1": "いいえ。知らせるだけです。更新はインストールした方法に任せるので、パッケージマネージャーが管理を続けます。",
  "feature.updates.a2": "動いているアプリが古いものだからです: Coxswain のウィンドウとターミナルアプリをすべて終了して、起動し直してください。coxswain --version で今のバージョンが分かります。",
  "feature.updates.a3": "更新してください。または 設定 → プライバシーと更新 で「新しいバージョンを確認」をオフにします。ボタンは次の 1 時間ごとの確認か、アプリの次の起動で消えます。",
@@ -4076,5 +4076,56 @@
  "replace.with": "置換後:",
  "replace.word": "単語単位",
  "replace.writing": "ファイルを書き込み中 ({n}/{all})",
- "undo.what.replace": "{what} の置換"
+ "undo.what.replace": "{what} の置換",
+ "action.attrs": "アクセス許可と日時",
+ "attrs.about": "chmod と同じ形式のアクセス許可 (644、u+x,go-w、a+X)。日時は 今、2026-10-21 14:30、またはその日時を使うファイルの名前。変更はすべて先に表示されます。",
+ "attrs.about_windows": "属性: -w 読み取り専用、+w 書き込み可、+h 隠し、-h 表示。日時は 今、2026-10-21 14:30、またはその日時を使うファイルの名前。変更はすべて先に表示されます。",
+ "attrs.accessed": "アクセス日時も",
+ "attrs.bad_date": "日時でもここにあるファイルでもありません: {date}。今、2026-10-21 14:30、またはファイル名を入力してください。",
+ "attrs.bad_mode": "chmod が受け付けるアクセス許可ではありません: {mode}。644、u+x,go-w、a+X のように入力してください。",
+ "attrs.busy": "アクセス許可と日時はすでに変更中です。",
+ "attrs.date": "日時:",
+ "attrs.done": {
+  "other": "{n} 個の項目を変更しました"
+ },
+ "attrs.failed": "一部の項目はそのままにしました",
+ "attrs.go": {
+  "other": "{n} 個の項目を変更"
+ },
+ "attrs.hidden": "隠し",
+ "attrs.keys_fields": "Tab 次のフィールド · Space チェック · Enter 計画 · Esc 閉じる",
+ "attrs.keys_plan": "Enter {go} · Tab フィールドへ · Esc 閉じる",
+ "attrs.left_out": "{n} 個を除外",
+ "attrs.looking": "確認中: {files}",
+ "attrs.mode": "アクセス許可:",
+ "attrs.more": {
+  "other": "… ほか {n} 個"
+ },
+ "attrs.none": "何も変わりません。",
+ "attrs.not_here": "アクセス許可と日時はディスク上のフォルダーで変更します。ここではできません。",
+ "attrs.nothing": "アクセス許可、日時、またはその両方を入力してください。",
+ "attrs.nothing_marked": "変更するファイルをマークするか、カーソルを 1 つに置いてください。",
+ "attrs.now": "今",
+ "attrs.plan": "計画",
+ "attrs.planned": {
+  "other": "{n} 個の項目が変わります"
+ },
+ "attrs.read_only": "読み取り専用",
+ "attrs.recursive": "フォルダーの中まで、すべての階層",
+ "attrs.stop_key": "{key} で停止",
+ "attrs.stopped_early": "停止: それまでに確認した分のみ",
+ "attrs.stopping": "停止中…",
+ "attrs.title": "{what} のアクセス許可と日時",
+ "attrs.writing": "変更中: {files}",
+ "feature.permissions_and_dates.a1": "マークして {attrs} を押し、アクセス許可に u+x と入力して Enter を押します。計画に各ファイルの変更前と変更後が表示され、もう一度 Enter で変更します。",
+ "feature.permissions_and_dates.a2": "はい。日時にそのファイルの名前を入力します。今 や 2026-10-21 14:30 のような日時も使えます。",
+ "feature.permissions_and_dates.a3": "{undo} で、まとめて変更したすべてのファイルのアクセス許可と日時が元に戻ります。その後に変更されたファイルはそのままにし、その旨を表示します。",
+ "feature.permissions_and_dates.q1": "フォルダー内のすべてのスクリプトを実行可能にするには？",
+ "feature.permissions_and_dates.q2": "多くのファイルに 1 つのファイルの日時を付けられますか？",
+ "feature.permissions_and_dates.q3": "元に戻すには？",
+ "feature.permissions_and_dates.title": "アクセス許可と日時の一括変更",
+ "feature.permissions_and_dates.what": "アクセス許可のビットを設定・追加・削除し (Windows では読み取り専用と隠し)、多くのファイルの更新日時をまとめて設定します。必要ならフォルダーの中まで。先に計画を表示し、1 回で元に戻せます。",
+ "help.attrs": "{key}: マークしたファイルのアクセス許可と日時を設定します。必要ならフォルダーの中まで。計画で先にすべての変更を表示し、{undo} で元に戻します。",
+ "undo.what.attrs": "{what} のアクセス許可と日時",
+ "attrs.no_recursion": "フォルダーの中までは Windows ではまだ使えません。マークした項目だけが変わります。"
 }

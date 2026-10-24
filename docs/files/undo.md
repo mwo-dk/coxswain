@@ -3,7 +3,7 @@
 # Undo (Ctrl+Z)
 
 **Ctrl+Z** undoes the last file operation: a copy, a move or rename, a batch rename, a new
-folder, a move to the trash, a pack, an extract or a find and replace. Press it again for the one before, up to 20
+folder, a move to the trash, a pack, an extract, a find and replace or a change of permissions and dates. Press it again for the one before, up to 20
 back. Both apps have it, with the same key.
 
 Before anything goes back, Coxswain checks that each file is still as the operation left it.
@@ -35,6 +35,7 @@ for good.
 | Pack | **Alt+F5** | Moves the new archive to the trash | the archive is unchanged |
 | Extract | **Ctrl+E** | Moves the folder it made to the trash | the folder and everything in it are unchanged |
 | [Find and replace](find-and-replace.md) | **Alt+R** | Writes every file of the batch back as it was, from the copy kept aside | the file is unchanged since the replace |
+| [Permissions and dates](permissions-and-dates.md) | **Alt+M** | Gives every file its old permissions (or attributes) and dates back | the entry is unchanged since the change, in the same folder |
 
 A stopped operation ([Stopping it](copy.md#stopping-it)) is undone as far as it went: the
 items copied, extracted or trashed before the Stop, a folder copied or extracted in part, and
@@ -50,7 +51,7 @@ Never undone:
   of a [git history](../panels/git-history.md), can be undone like any copy.
 - A copy into a folder that was already there and got merged: undo would take away files that
   were there before. Coxswain does not keep that copy in the history.
-- Changing permissions, tags and notes, git switches, scripts from the user menu.
+- Changing permissions in Properties (**Alt+Enter**), tags and notes, git switches, scripts from the user menu.
 
 ## How to use it
 

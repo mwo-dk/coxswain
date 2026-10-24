@@ -21,7 +21,7 @@ folder; **Ctrl+E** extracts it.*
 | [Move and rename (F6)](move-and-rename.md) | Moving, renaming in place (**Shift+F6**), moves across disks |
 | [New folder (F7)](new-folder.md) | Making a folder, or a whole path of folders at once |
 | [Delete: trash (F8) or for good (Shift+F8)](delete.md) | The trash, deleting for good, the question and how to skip it |
-| [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs, extracts and find-and-replaces; what is refused and why |
+| [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs, extracts, find-and-replaces and changes of permissions and dates; what is refused and why |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](clipboard.md) | Copy and cut through the system clipboard, shared with other file managers |
 | [Drag and drop](drag-and-drop.md) | Dragging files out to other applications (out of archives too), between panes, onto folders and in |
 | [Batch rename (Ctrl+M)](batch-rename.md) | Renaming many files with a regular expression and a counter, previewed |
@@ -33,6 +33,7 @@ folder; **Ctrl+E** extracts it.*
 | [Container images](container-images.md) | **Enter** opens a `docker save` / `podman save` tar or an OCI image layout as one read-only folder of its merged layers; its tags, platforms and layers in the preview |
 | [Your local models, by name](local-models.md) | Ollama's sha256 blobs and the Hugging Face cache named by model; a GGUF's or safetensors file's facts, the memory it needs and whether it fits |
 | [Properties and permissions](properties.md) | Sizes, dates, owner, and changing the permission bits |
+| [Permissions and dates in bulk (Alt+M)](permissions-and-dates.md) | Permission bits and modified dates of many files at once, into folders if asked, planned first, undone in one step |
 | [Finding duplicates](duplicates.md) | Duplicate files and whole duplicate folders, across disks, removed safely |
 | [Compare files (Shift+F2)](compare-files.md) | Two files side by side: changed lines and words of texts and documents, pictures by their pixels, other files byte by byte; a change copied across and saved |
 | [Compare folders (Ctrl+F2)](compare-folders.md) | The left folder against the right, recursively, by size and date or byte by byte: marks in both panels, differences only, mark and copy, make one side like the other after a plan |
@@ -67,6 +68,7 @@ folder; **Ctrl+E** extracts it.*
 | **Ctrl+M** | yes | no | [Batch rename](batch-rename.md) |
 | **Alt+R** | yes | yes | [Find and replace](find-and-replace.md) across the marked files or Find's results |
 | **Alt+Enter** | yes | yes (shown, not changed) | [Properties and permissions](properties.md), with ZFS, package and file flags |
+| **Alt+M** | yes | yes | [Permissions and dates](permissions-and-dates.md) of the marked files, in bulk |
 | **Alt+Z** | yes | yes | [ZFS snapshots](zfs-snapshots.md) of the folder's dataset |
 | *F9 → File flags* | in Properties | yes | Your own [file flags](properties.md#zfs-packages-and-file-flags) (FreeBSD, macOS) |
 | *F9 → Files of this package* | yes | yes | The files of the [package](properties.md#zfs-packages-and-file-flags) a file belongs to (FreeBSD) |

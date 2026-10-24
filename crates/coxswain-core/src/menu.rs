@@ -164,6 +164,7 @@ impl Action {
             BatchRename => n > 1 && disk,
             // The marked entries, the one under the cursor, or on `..` the folder.
             Replace => disk,
+            Attrs => n > 0 && disk,
             NewFolder => s.writable(),
             ClipCopy => n > 0 && disk,
             Properties => s.single() && disk,
