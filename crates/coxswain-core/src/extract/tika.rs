@@ -398,7 +398,7 @@ enum Asked {
 /// `MAX_TEXT` of it.
 fn ask(t: &Tika, request: &[u8]) -> Asked {
     let mut c: Command = crate::tools::command(&t.rt);
-    c.args(["exec", "-i", &t.name, "bash", "-c", ASK])
+    crate::tools::own_group(&mut c).args(["exec", "-i", &t.name, "bash", "-c", ASK])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());

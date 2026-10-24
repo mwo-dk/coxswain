@@ -200,7 +200,7 @@ fn run(how: &How, pdf: &Path, stop: &AtomicBool, said: &mut impl FnMut(Said)) ->
             }
         };
         let mut c = crate::tools::hosted(c);
-        let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+        let mut child = crate::tools::own_group(&mut c).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
         let lines = follow(&mut child);
         let mut last = vec![];
         let status = loop {
@@ -212,11 +212,10 @@ fn run(how: &How, pdf: &Path, stop: &AtomicBool, said: &mut impl FnMut(Said)) ->
                 }
             }
             if stop.load(Ordering::Relaxed) {
-                let _ = child.kill();
+                crate::tools::kill_tree(&mut child);
                 if let Some((rt, name)) = &kill {
                     let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
                 }
-                let _ = child.wait();
                 return Err(t!("searchable.stopped"));
             }
             if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {

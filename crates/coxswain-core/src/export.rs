@@ -477,7 +477,7 @@ fn drawio_command(how: &How, input: &Path, out: &Path, args: &[String]) -> Resul
 /// lines said as they come; `stop` kills it (and its container).
 fn go((c, name): (Command, Option<String>), how: &How, stdin: Option<Vec<u8>>, out: Option<&Path>, stop: &AtomicBool, said: &mut impl FnMut(Said)) -> Result<(), String> {
     let mut c = crate::tools::hosted(c);
-    c.stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() })
+    crate::tools::own_group(&mut c).stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(if out.is_some() { Stdio::piped() } else { Stdio::null() })
         .stderr(Stdio::piped());
     let mut child = c.spawn().map_err(|e| e.to_string())?;
@@ -532,11 +532,10 @@ fn go((c, name): (Command, Option<String>), how: &How, stdin: Option<Vec<u8>>, o
 
 /// `child` killed, and its container, by name: killing podman's client leaves it running.
 fn kill(child: &mut Child, how: &How, name: Option<&str>) {
-    let _ = child.kill();
+    crate::tools::kill_tree(child);
     if let (How::Container { path, .. }, Some(name)) = (how, name) {
         let _ = crate::tools::command(path).args(["kill", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
     }
-    let _ = child.wait();
 }
 
 /// The lines `child` writes to its standard error, as they come.
@@ -947,7 +946,7 @@ pub fn diagram_svg(cfg: &PreviewConfig, kind: &str, text: &str) -> Result<String
 /// within `timeout`.
 fn feed(c: Command, input: &[u8], timeout: Duration) -> Result<Vec<u8>, String> {
     let mut c = crate::tools::hosted(c);
-    let mut child = c.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let mut child = crate::tools::own_group(&mut c).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let data = input.to_vec();
     if let Some(mut pipe) = child.stdin.take() {
         std::thread::spawn(move || {

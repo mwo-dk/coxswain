@@ -1054,7 +1054,7 @@ pub async fn pdf_scanned(path: PathBuf) -> bool {
 /// Run to completion within `timeout`; on timeout kill it (and its container).
 fn wait(c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<()> {
     let mut c = coxswain_core::tools::hosted(c);
-    let mut child = c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let mut child = coxswain_core::tools::own_group(&mut c).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let err = child.stderr.take();
     let reader = std::thread::spawn(move || err.map(tail).unwrap_or_default());
     let status = wait_child(&mut child, timeout, container)?;
@@ -1065,7 +1065,7 @@ fn wait(c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<
 /// Run with `input` on stdin and its stdout saved as `file`.
 fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, container: Option<(&Path, &str)>) -> Res<()> {
     let mut c = coxswain_core::tools::hosted(c);
-    let mut child = c.stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let mut child = coxswain_core::tools::own_group(&mut c).stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     if let (Some(p), Some(mut stdin)) = (input, child.stdin.take()) {
         let data = std::fs::read(p).map_err(|e| e.to_string())?;
         std::thread::spawn(move || {
