@@ -504,9 +504,7 @@ impl<'a> Text<'a> {
     }
 
     pub fn extend(&mut self, chars: impl IntoIterator<Item = char>) {
-        for c in chars {
-            self.push(c);
-        }
+        self.push_str(&chars.into_iter().collect::<String>());
     }
 
     pub fn push_str(&mut self, text: &str) {
