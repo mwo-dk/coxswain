@@ -108,7 +108,8 @@ target side is kept, and the summary counts it.
 **Enter** (or the *Make them alike* button) then runs the plan; **Esc** while it runs stops it
 after the file it is on, and a file stopped half way is not left behind. When it is done the
 status line says *Copied 3, replaced 1, to the bin 1*, and the compare starts again, so the marks
-show what is left (its summary, *The folders are the same*, then takes the status line). **Ctrl+Z** undoes the whole run: what it replaced or deleted comes back out of
+show what is left: its summary follows the run's result on the status line, *Copied 3, replaced
+1, to the bin 1 · Ctrl+Z undoes it · The folders are the same*. **Ctrl+Z** undoes the whole run: what it replaced or deleted comes back out of
 the bin first, then what it copied is taken away (only while it is as the run left it) and the
 old entries go back to where they were. A Mac's bin (and a Flatpak's) gives nothing back to an
 app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in the bin to open.
