@@ -60,25 +60,9 @@ pub fn tidied_up_to(path: &Path, code: bool, cap: usize) -> Option<String> {
 /// Each line of the text of the file at `path` as `tidied` makes it (its first `MAX_WHOLE` bytes), handed
 /// to `f` as it is read: the file is never held whole. `None` when it has no text.
 pub fn each_line(path: &Path, code: bool, f: &mut dyn FnMut(&str)) -> Option<()> {
-    let mut t = super::Tidy::whole(code);
-    let mut first = true;
+    let mut lines = super::TidyLines::new(code, f);
     raw_lines(path, MAX_WHOLE, &mut |l| {
-        t.push(l);
-        // What was added: the line, after one line break (two before a blank line in code)
-        // unless it is the first.
-        let piece = t.drain();
-        if piece.is_empty() {
-            return true;
-        }
-        let line = piece.trim_start_matches('\n');
-        let breaks = piece.len() - line.len();
-        if !first {
-            for _ in 1..breaks {
-                f("");
-            }
-        }
-        first = false;
-        f(line);
+        lines.line(l);
         true
     })
 }

@@ -19,7 +19,7 @@ use std::path::Path;
 
 use quick_xml::events::{BytesStart, Event};
 
-use super::{MAX_ENTRY, MAX_TEXT, attr, page_text, start, xml_text};
+use super::{MAX_ENTRY, MAX_TEXT, Text, attr, page_text, start, xml_text};
 
 /// The most sheets read of one workbook. Each is unpacked on its own.
 const MOST_SHEETS: usize = 256;
@@ -59,15 +59,9 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         .read_to_end(&mut head)
         .ok()?;
     let text = if head.starts_with(b"PK") {
-        let mut zip = Zip {
-            archive: super::open_zip(path, max)?,
-            left: 4 * MAX_ENTRY,
-        };
-        let mut content = None;
-        match zip.stream("content.xml", |xml| content = Some(ods(xml))) {
-            Some(()) => content.unwrap_or_default(),
-            None => excel(&mut zip)?,
-        }
+        let mut out = Text::new();
+        read_into(path, max, &mut out)?;
+        out.end()
     } else if head == COMPOUND {
         let mut file = vec![];
         std::fs::File::open(path)
@@ -106,10 +100,29 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     (!text.trim().is_empty()).then_some(text)
 }
 
+/// The text of a workbook in a zip (`.xlsx`, `.xlsm`, `.xlsb`, `.ods`) onto `out`. When `out`
+/// goes to a sink (`Text::to`), every part is read whole, as far as `WHOLE` allows.
+pub(super) fn read_into(path: &Path, max: u64, out: &mut Text) -> Option<()> {
+    let whole = out.whole();
+    let mut zip = Zip {
+        archive: super::open_zip(path, max)?,
+        left: if whole { WHOLE } else { 4 * MAX_ENTRY },
+        most: if whole { WHOLE } else { MAX_ENTRY },
+    };
+    if zip.stream("content.xml", |xml| ods(xml, out)).is_none() {
+        excel(&mut zip, out)?;
+    }
+    Some(())
+}
+
+/// The most unpacked of a workbook, and of one part of it, for the passages of the whole
+/// workbook, read as it is unpacked.
+const WHOLE: u64 = 4 << 30;
+
 // ---------------------------------------------------------------- the text, as it grows
 
 /// Starts a line, unless the text is at the start of one.
-fn line(out: &mut String) {
+fn line(out: &mut Text) {
     if !out.is_empty() && !out.ends_with('\n') {
         out.push('\n');
     }
@@ -123,7 +136,7 @@ fn add(built: &mut String, text: &str) {
 
 /// Adds a cell to the line, after a tab when it is not the first. A line break inside a cell
 /// becomes a space, so that a row stays a line.
-fn cell(out: &mut String, text: &str) {
+fn cell(out: &mut Text, text: &str) {
     let text = start(text, MAX_TEXT.saturating_sub(out.len()));
     if text.is_empty() {
         return;
@@ -135,7 +148,7 @@ fn cell(out: &mut String, text: &str) {
 }
 
 /// A text on a line of its own: the name of a sheet, a note on a cell.
-fn alone(out: &mut String, text: &str) {
+fn alone(out: &mut Text, text: &str) {
     line(out);
     cell(out, text);
     line(out);
@@ -405,6 +418,8 @@ fn walk(xml: impl Read, mut each: impl FnMut(Part) -> bool) {
 struct Zip {
     archive: zip::ZipArchive<super::Metered>,
     left: u64,
+    /// The most unpacked of one part: `MAX_ENTRY`.
+    most: u64,
 }
 
 impl Zip {
@@ -418,7 +433,7 @@ impl Zip {
         let mut bytes = vec![];
         self.stream(name, |part| drop(part.read_to_end(&mut bytes)))?;
         // Where a part is cut, it is cut between two characters.
-        if bytes.len() as u64 == MAX_ENTRY.min(self.left + bytes.len() as u64) {
+        if bytes.len() as u64 == self.most.min(self.left + bytes.len() as u64) {
             bytes.truncate(
                 bytes
                     .iter()
@@ -443,7 +458,7 @@ impl Zip {
                         .all(|(a, b)| (if a == b'\\' { b'/' } else { a }).eq_ignore_ascii_case(&b))
             })?
             .into_owned();
-        let most = MAX_ENTRY.min(self.left);
+        let most = self.most.min(self.left);
         let mut part = self.archive.by_name(&named).ok()?.take(most);
         read(&mut part);
         // What `read` left is read too: a part costs `left` all it unpacks to, as when whole.
@@ -479,7 +494,7 @@ fn relations(xml: impl Read, folder: &str) -> Vec<[String; 3]> {
 /// A workbook of Excel since 2007: parts in a zip, written as XML or as records. The
 /// relations of the file say where the workbook lies, the workbook names its sheets, and its
 /// own relations say in which part each of them lies.
-fn excel(zip: &mut Zip) -> Option<String> {
+fn excel(zip: &mut Zip, out: &mut Text) -> Option<()> {
     let whole = relations(&zip.part("_rels/.rels").unwrap_or_default()[..], "");
     let name = whole
         .iter()
@@ -546,19 +561,18 @@ fn excel(zip: &mut Zip) -> Option<String> {
             .collect();
     }
 
-    let mut out = String::new();
     for (name, id) in sheets {
         if out.len() > MAX_TEXT {
-            return Some(out);
+            return Some(());
         }
-        alone(&mut out, &name);
+        alone(out, &name);
         if let Some(p) = parts.iter().find(|p| p[0] == id) {
             if records {
                 if let Some(sheet) = zip.part(&p[2]) {
-                    xlsb_sheet(&sheet, &book, &mut out);
+                    xlsb_sheet(&sheet, &book, out);
                 }
             } else {
-                zip.stream(&p[2], |sheet| xlsx_sheet(sheet, &book, &mut out));
+                zip.stream(&p[2], |sheet| xlsx_sheet(sheet, &book, out));
             }
         }
     }
@@ -575,27 +589,28 @@ fn excel(zip: &mut Zip) -> Option<String> {
         if out.len() > MAX_TEXT {
             break;
         }
-        line(&mut out);
+        line(out);
         if name.ends_with(".bin") {
             if let Some(notes) = zip.part(&name) {
                 xlsb_records(&notes, |id, data| {
                     if id == 0x27D {
-                        alone(&mut out, &xlsb_string(data, 1).unwrap_or_default().0);
+                        alone(out, &xlsb_string(data, 1).unwrap_or_default().0);
                     }
                     out.len() <= MAX_TEXT
                 });
             }
         } else {
             zip.stream(&name, |notes| {
-                out.push_str(&super::xml_text_of(
+                super::xml_text_onto(
                     super::Utf8::new(notes),
                     &["comment"],
                     &["authors", "rPh", "AlternateContent"],
-                ))
+                    out,
+                )
             });
         }
     }
-    Some(out)
+    Some(())
 }
 
 /// Text as Excel writes it in XML, where a character that XML has no place for is written
@@ -700,7 +715,7 @@ fn xlsx_kinds(xml: impl Read) -> Vec<Kind> {
 }
 
 /// The rows of a sheet in XML.
-fn xlsx_sheet(xml: impl Read, book: &Book, out: &mut String) {
+fn xlsx_sheet(xml: impl Read, book: &Book, out: &mut Text) {
     let (mut sort, mut format, mut value) = (String::new(), 0, String::new());
     let (mut reading, mut aloud) = (false, false);
     walk(xml, |part| {
@@ -844,7 +859,7 @@ fn xlsb_kinds(part: &[u8]) -> Vec<Kind> {
 
 /// The rows of a sheet in records. A cell begins with its column in four bytes and its
 /// format in three and a byte of flags; its value follows.
-fn xlsb_sheet(part: &[u8], book: &Book, out: &mut String) {
+fn xlsb_sheet(part: &[u8], book: &Book, out: &mut Text) {
     xlsb_records(part, |id, data| {
         let format = le32(data, 4).map_or(0, |f| f & 0xFF_FFFF) as usize;
         let shown = match id {
@@ -874,9 +889,8 @@ fn xlsb_sheet(part: &[u8], book: &Book, out: &mut String) {
 /// An OpenDocument spreadsheet: tables of rows of cells. A cell has the text it shows, and a
 /// number or a date has its value beside it, which is read instead: the text follows the
 /// language of the one who wrote it (1.840,00 and 14/03/26), the value does not.
-fn ods(xml: impl Read) -> String {
-    let (mut out, mut value, mut text, mut note) =
-        (String::new(), None, String::new(), String::new());
+fn ods(xml: impl Read, out: &mut Text) {
+    let (mut value, mut text, mut note) = (None, String::new(), String::new());
     let (mut paragraphs, mut noting, mut signed, mut linked) = (0usize, false, false, false);
     walk(xml, |part| {
         let written = if noting { &mut note } else { &mut text };
@@ -888,9 +902,9 @@ fn ods(xml: impl Read) -> String {
             Part::Open(e) => match e.local_name().as_ref() {
                 "table" => match attr(e, "name").unwrap_or_default() {
                     name if name.starts_with('\'') && name.contains("'#") => linked = true,
-                    name => alone(&mut out, &name),
+                    name => alone(out, &name),
                 },
-                "table-row" => line(&mut out),
+                "table-row" => line(out),
                 "table-cell" | "covered-table-cell" => {
                     value = ods_value(e);
                     text.clear();
@@ -911,9 +925,9 @@ fn ods(xml: impl Read) -> String {
             Part::Close("table-cell" | "covered-table-cell") => {
                 // OnlyOffice writes what went wrong in a formula as a string.
                 if !ERRORS.contains(&text.trim()) {
-                    cell(&mut out, value.as_deref().unwrap_or(&text));
+                    cell(out, value.as_deref().unwrap_or(&text));
                 }
-                cell(&mut out, &note);
+                cell(out, &note);
                 (value, noting, signed, paragraphs) = (None, false, false, 0);
                 text.clear();
                 note.clear();
@@ -926,7 +940,6 @@ fn ods(xml: impl Read) -> String {
         }
         out.len() <= MAX_TEXT
     });
-    out
 }
 
 /// The value of a cell that is a number or a date, as it is read.
@@ -1021,7 +1034,7 @@ fn xls(file: &[u8]) -> Option<String> {
 
     // The sheets of a workbook lie one after the other, so all of them are no longer than the
     // stream. A file that points every sheet at the same records is stopped by that.
-    let (mut out, mut left) = (String::new(), stream.len());
+    let (mut out, mut left) = (Text::new(), stream.len());
     for (start, sort, name) in sheets {
         alone(&mut out, &name);
         // A chart or a macro has a sheet of its own, with no cells.
@@ -1055,7 +1068,7 @@ fn xls(file: &[u8]) -> Option<String> {
             }
         }
     }
-    Some(out)
+    Some(out.end())
 }
 
 /// The cell of a record, if it is one, added to its row. A cell begins with its row, its
@@ -1066,7 +1079,7 @@ fn xls_cell(
     book: &Book,
     unicode: bool,
     row: &mut Option<u16>,
-    out: &mut String,
+    out: &mut Text,
 ) {
     let format = le16(data, 4).unwrap_or(0) as usize;
     let truth = |value: &u8| String::from(if *value != 0 { "TRUE" } else { "FALSE" });
@@ -1404,6 +1417,13 @@ fn workbook(file: &[u8]) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    /// `ods` of a whole document, its text kept.
+    fn ods_of(xml: &[u8]) -> String {
+        let mut out = Text::new();
+        ods(xml, &mut out);
+        out.end()
+    }
+
     use super::*;
     use crate::extract::tests::{folder, zip_file};
     use crate::extract::text_of;
@@ -2666,7 +2686,7 @@ mod tests {
                 let at = pair[0] as usize * 251 % bytes.len();
                 bytes[at] = pair[1];
             }
-            let mut out = String::new();
+            let mut out = Text::new();
             xlsb_sheet(&bytes, &book, &mut out);
             xlsx_sheet(&bytes[..], &book, &mut out);
             let _ = (
@@ -2678,7 +2698,7 @@ mod tests {
                 xlsx_kinds(&bytes[..]),
             );
             let _ = (
-                ods(&bytes[..]),
+                ods_of(&bytes[..]),
                 relations(&bytes[..], ""),
                 xls_strings(&[&bytes[..bytes.len() / 2], &bytes[bytes.len() / 2..]]),
             );
@@ -2716,7 +2736,7 @@ mod tests {
         let rows =
             format!("<row><c t=\"inlineStr\"><is><t>{long}</t></is></c><c><v>1840</v></c></row>")
                 .repeat(6000);
-        let mut out = String::new();
+        let mut out = Text::new();
         xlsx_sheet(
             format!("<worksheet><sheetData>{rows}</sheetData></worksheet>").as_bytes(),
             &Book::default(),
@@ -2726,11 +2746,11 @@ mod tests {
         let rows = [record(0, &[0; 4]), cell_of(0x06, 0, 0, &counted(&long))]
             .concat()
             .repeat(6000);
-        let mut out = String::new();
+        let mut out = Text::new();
         xlsb_sheet(&rows, &Book::default(), &mut out);
         assert!(full(&out), "{}", out.len());
         let rows = times(1, &[shown("", &long)]).repeat(6000);
-        assert!(full(&ods(format!(
+        assert!(full(&ods_of(format!(
             "<d xmlns:table=\"t\" xmlns:text=\"x\"><table:table>{rows}</table:table></d>"
         )
         .as_bytes())));
@@ -2783,11 +2803,14 @@ mod tests {
         let zip = |left: usize| Zip {
             archive: crate::extract::open_zip(&d.join("large.xlsx"), u64::MAX).unwrap(),
             left: left as u64,
+            most: MAX_ENTRY,
         };
-        let read = excel(&mut zip(workbook.len()
-            + relations.len()
-            + 3 * row.len()
-            + 60));
+        let mut out = Text::new();
+        let read = excel(
+            &mut zip(workbook.len() + relations.len() + 3 * row.len() + 60),
+            &mut out,
+        )
+        .map(|()| out.end());
         assert_eq!(
             read,
             Some(format!("Long\n{long}\n{long}\n{long}\nNext\n")),
@@ -2848,13 +2871,13 @@ mod tests {
         );
         assert!(one.len() == 2 && one[0].len() == MAX_TEXT && one[1] == "next");
         let huge = "a".repeat(MAX_TEXT + 100);
-        let mut out = String::new();
+        let mut out = Text::new();
         let rows = format!(
             "<worksheet><sheetData><row><c t=\"inlineStr\"><is><t>{huge}</t></is></c></row><row><c><v>1</v></c></row></sheetData></worksheet>"
         );
         xlsx_sheet(rows.as_bytes(), &Book::default(), &mut out);
         assert_eq!(out.len(), MAX_TEXT + 1, "{}", out.len());
-        let mut out = String::new();
+        let mut out = Text::new();
         xlsb_sheet(
             &[
                 cell_of(0x06, 0, 0, &counted(&huge)),
@@ -2870,12 +2893,12 @@ mod tests {
             "<d xmlns:table=\"t\" xmlns:text=\"x\"><table:table table:name=\"{huge}\">{}</table:table></d>",
             times(1, &[shown("", &huge)])
         );
-        assert_eq!(ods(table.as_bytes()).len(), MAX_TEXT + 1);
+        assert_eq!(ods_of(table.as_bytes()).len(), MAX_TEXT + 1);
         assert_eq!(utf16(&wide(&huge)).len(), MAX_TEXT);
         // Bytes that are no UTF-8 are read up to the first of them, and never copied.
-        let mut out = String::new();
+        let mut out = Text::new();
         xlsx_sheet(&[&b"<worksheet><sheetData><row><c><v>1</v></c></row><row><c t=\"inlineStr\"><is><t>x"[..], &[0xFF; 100_000][..]].concat()[..], &Book::default(), &mut out);
-        assert_eq!(out, "1\n");
+        assert_eq!(&*out, "1\n");
 
         // A string that claims more characters than the file has, and a record that claims
         // more bytes.
@@ -2884,13 +2907,13 @@ mod tests {
             xls_string(&[0xFF, 0xFF, 1, b'a', 0, b'b'], 0, 2, true).as_deref(),
             Some("a")
         );
-        let mut out = String::new();
+        let mut out = Text::new();
         xlsb_sheet(
             &[0x06, 0xFF, 0xFF, 0xFF, 0x7F, 0, 0],
             &Book::default(),
             &mut out,
         );
-        assert_eq!(out, "");
+        assert_eq!(&*out, "");
 
         // More sheets than are read, none of which is in the file.
         let sheets: String = (0..10_000)

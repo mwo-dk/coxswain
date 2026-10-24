@@ -571,12 +571,12 @@ impl Store {
         self.reader_changed("readers", tag, ends)
     }
 
-    /// Files read line by line whose text was cut at `extract::MAX_TEXT` get their passages and
-    /// vectors made again, once (under `key`, at `tag`; an older app leaves a newer tag be):
-    /// they are now made from the whole file. Their text stays.
+    /// Files of a `kind` whose text was cut at `extract::MAX_TEXT` (no more than `margin` below
+    /// it) get their passages and vectors made again, once (under `key`, at `tag`; an older app
+    /// leaves a newer tag be): they are now made from the whole file. Their text stays.
     /// Gone through `PART` files at a time, the store's lock let go between them: a search
     /// waits for one part, not for the whole store's text to be measured.
-    fn long_passages(&self, key: &str, tag: &str) -> rusqlite::Result<()> {
+    fn long_passages(&self, key: &str, tag: &str, margin: usize, kind: fn(&Path) -> bool) -> rusqlite::Result<()> {
         const PART: i64 = 2000;
         let before: String = self
             .db
@@ -592,13 +592,13 @@ impl Store {
             let mut db = self.db.lock().unwrap();
             let part: Vec<(i64, String, bool)> = db
                 .prepare_cached("SELECT f.id, f.path, length(CAST(t.body AS BLOB)) + ?1 >= ?2 FROM files f JOIN text t ON t.rowid = f.id WHERE f.embedded = 1 AND f.id > ?3 ORDER BY f.id LIMIT ?4")?
-                .query_map(rusqlite::params![LONG_MARGIN as i64, crate::extract::MAX_TEXT as i64, after, PART], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .query_map(rusqlite::params![margin as i64, crate::extract::MAX_TEXT as i64, after, PART], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
                 .collect::<rusqlite::Result<_>>()?;
             let Some(last) = part.last().map(|p| p.0) else { break };
             after = last;
             let tx = db.transaction()?;
             for (id, path, long) in part {
-                if long && crate::extract::streams(Path::new(&path)) {
+                if long && kind(Path::new(&path)) {
                     tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
                 }
             }
@@ -2618,7 +2618,10 @@ fn scan_for(
     store.large_unread("readers.large", "1", cfg.text_max_size)?;
     // Their passages and those of every text, code, CSV or log file with more text than is
     // kept are made from the whole file (2.33): only those files get their vectors again, once.
-    store.long_passages("passages.whole", "1")?;
+    store.long_passages("passages.whole", "1", LONG_MARGIN, crate::extract::streams)?;
+    // So are those of Word, OpenDocument, workbook and presentation files with nearly as much
+    // text as is kept, or more (2.33): only those get their vectors again, once.
+    store.long_passages("passages.documents", "1", DOCUMENT_MARGIN, crate::extract::whole_document)?;
     // What is kept of long files, *Sample* or *Everything* (2.34): only the long files whose
     // folder's choice changed are read again, get their vectors again, or are cut back.
     store.long_files_changed(&crate::long_files::Rule::of(cfg))?;
@@ -2756,9 +2759,20 @@ fn hash(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::R
 /// The passages of a file whose text is longer than what is kept of it (`body`, cut at
 /// `extract::MAX_TEXT`), made from the whole file (its first gigabyte), read twice line by
 /// line: `cap`'s choice spread over all of it, not only its start. `None` for every other file (its passages are
-/// cut from `body`), and for one that cannot be read now. Text, code, CSV and logs only, the
-/// kinds read line by line (`extract::streams`).
+/// cut from `body`), and for one that cannot be read now. Text, code, CSV and logs, the
+/// kinds read line by line (`extract::streams`), and Word, OpenDocument, workbook and
+/// presentation files, read as they are unpacked (`extract::whole_lines`).
 fn whole_passages(path: &str, body: &str) -> Option<Vec<crate::meaning::Passage>> {
+    // A document's text is cut before it is tidied, so it may end well below the limit. One
+    // that was not cut gives the same passages read whole: it costs two readings, no more.
+    if crate::extract::whole_document(Path::new(path)) {
+        if body.len() + DOCUMENT_MARGIN < crate::extract::MAX_TEXT {
+            return None;
+        }
+        return crate::meaning::passages_streamed(path, &mut |f| {
+            crate::extract::whole_lines(Path::new(path), f).is_some()
+        });
+    }
     // Near the limit: the next line did not fit. A text that was not cut gives the same
     // passages read whole, so a file taken for cut costs a reading, never other passages.
     if body.len() + LONG_MARGIN < crate::extract::MAX_TEXT || !crate::extract::streams(Path::new(path)) {
@@ -2914,6 +2928,9 @@ const HELD_TEXT: usize = 64 << 20;
 
 /// How far below `extract::MAX_TEXT` a text may end and still be one that was cut.
 const LONG_MARGIN: usize = 64 << 10;
+/// The same for a document, whose text is cut before it is tidied: blank space the tidying
+/// takes away is little: the line breaks between paragraphs, the spaces after cells.
+const DOCUMENT_MARGIN: usize = crate::extract::MAX_TEXT / 4;
 
 /// Give the passages of files with text their vectors, when search by meaning is on: a few
 /// files at a time, resting as long as the work took, never on battery unless *Index now*.
@@ -5647,6 +5664,33 @@ mod tests {
     }
 
     /// Long texts are found part by part: one past the first part is marked as well, and
+    /// A Word file with more text than is kept gets its passages from the whole file, its end
+    /// too; a short one gets those of its text.
+    #[test]
+    fn a_long_document_gets_its_passages_from_the_whole_file() {
+        let d = std::env::temp_dir().join(format!("coxswain-long-docx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let docx = |name: &str, n: usize, last: &str| {
+            let mut body: String = (0..n).map(|i| format!("<w:p><w:r><w:t>launch {i} of the rocket with its crew and fuel, all well</w:t></w:r></w:p>")).collect();
+            body.push_str(&format!("<w:p><w:r><w:t>{last}</w:t></w:r></w:p>"));
+            let p = d.join(name);
+            crate::extract::tests::zip_file(&p, &[("word/document.xml", format!("<w:document xmlns:w=\"w\"><w:body>{body}</w:body></w:document>").as_bytes())]);
+            p
+        };
+        let long = docx("long.docx", 80_000, "the ship reached the harbour at dawn and the crew went ashore");
+        let path = long.to_string_lossy().into_owned();
+        let body = crate::extract::text_of(&long, std::fs::metadata(&long).unwrap().len(), u64::MAX).unwrap();
+        let whole = whole_passages(&path, &body).expect("long: from the whole file");
+        assert_eq!(whole.len(), crate::meaning::PASSAGES);
+        assert!(whole.last().unwrap().text.contains("harbour"));
+        assert!(!crate::meaning::passages(&body, &path).iter().any(|p| p.text.contains("harbour")));
+        let short = docx("short.docx", 30, "the harbour");
+        let body = crate::extract::text_of(&short, std::fs::metadata(&short).unwrap().len(), u64::MAX).unwrap();
+        assert!(whole_passages(&short.to_string_lossy(), &body).is_none());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     /// only a file read line by line.
     #[test]
     fn long_passages_are_found_past_the_first_part() {
@@ -5666,7 +5710,7 @@ mod tests {
             }
             tx.commit().unwrap();
         }
-        store.long_passages("passages.test", "1").unwrap();
+        store.long_passages("passages.test", "1", LONG_MARGIN, crate::extract::streams).unwrap();
         let renewed: Vec<i64> = store.db.lock().unwrap().prepare("SELECT id FROM files WHERE embedded IS NULL").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
         assert_eq!(renewed, [2400], "the long log, past the first part; not the PDF");
         drop(store);

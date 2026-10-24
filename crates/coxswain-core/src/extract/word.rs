@@ -26,6 +26,9 @@ const MAX_PARTS: usize = 100;
 /// must not be the choice of who made the file. A document with this much XML has more text
 /// than is kept, well before its end.
 const MAX_XML: u64 = 16 * 1024 * 1024;
+/// The most XML read of one file for the passages of the whole document (`super::whole_lines`),
+/// read as it is unpacked; `TIME` stops it sooner.
+const WHOLE_XML: u64 = 4 << 30;
 
 /// The most time one file is read for: what is read by then is its text. A file can make each
 /// piece of text cost more than the last (runs opened and never closed, each asked whether it
@@ -106,6 +109,15 @@ static OPEN: Format = Format {
 /// The text of a Word or OpenDocument file: its body, then its headers, footers, notes and
 /// comments. `None` when the file is no such document, has no text, or is larger than `max`.
 pub fn text(path: &Path, max: u64) -> Option<String> {
+    let mut out = super::Text::new();
+    read_into(path, max, &mut out)?;
+    let out = out.end();
+    (!out.trim().is_empty()).then_some(out)
+}
+
+/// `text` onto `out`. When `out` goes to a sink (`Text::to`), the whole document is read, as
+/// far as `TIME` allows: its parts go to the sink as they are read, but the styles' headers.
+pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<()> {
     let mut zip = super::open_zip(path, max)?;
     // An OpenDocument file with a password keeps its parts under their names, as ciphertext.
     if unpack(&mut zip, "META-INF/manifest.xml", 1 << 20)
@@ -128,7 +140,8 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         })
         .collect();
     parts.sort_by_cached_key(|(at, _, name)| (*at, super::natural(name)));
-    let (mut out, mut room) = (String::new(), MAX_XML);
+    let whole = out.whole();
+    let mut room = if whole { WHOLE_XML } else { MAX_XML };
     // The styles first, to know which of them hide their text.
     let mut styles = Styles {
         until: Some(std::time::Instant::now() + TIME),
@@ -137,7 +150,7 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     for (name, format) in [("word/styles.xml", &WORD), ("styles.xml", &OPEN)] {
         // What a broken part defined is forgotten, as if it had not been read.
         let before = (styles.by.clone(), styles.paragraph.clone(), styles.all);
-        if let Some(read) = stream(&mut zip, name, room, |xml| read(xml, format, &mut String::new(), &mut styles)) {
+        if let Some(read) = stream(&mut zip, name, room, |xml| read(xml, format, &mut super::Text::new(), &mut styles)) {
             room -= read;
         } else {
             (styles.by, styles.paragraph, styles.all) = before;
@@ -147,17 +160,22 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         if out.len() >= MAX_TEXT || room == 0 {
             break;
         }
-        let mut text = String::new();
+        // Read straight onto `out` when it goes to a sink: a part cut off by a fault in the zip
+        // gives what it gave until then. Else held until the part is whole.
+        let direct = whole && name != "styles.xml";
+        let mut text = super::Text::new();
+        let onto = if direct { &mut *out } else { &mut text };
         let Some(read) = stream(&mut zip, name, room, |xml| match format {
-            Some(format) => read(xml, format, &mut text, &mut styles),
+            Some(format) => read(xml, format, onto, &mut styles),
             None => {
                 let (lines, skip) = super::slides::OPENDOCUMENT;
-                text = super::xml_text_of(xml, lines, skip);
+                super::xml_text_onto(xml, lines, skip, onto);
             }
         }) else {
             continue;
         };
         room -= read;
+        let mut text = text.end();
         // The styles of an OpenDocument file hold a header and a footer for every kind of page,
         // used or not, and a watermark is in all ten of them: each line of them once.
         if name == "styles.xml" {
@@ -168,10 +186,10 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
                 .collect::<Vec<_>>()
                 .join("\n");
         }
-        keep(&mut out, &text);
-        keep(&mut out, "\n");
+        keep(out, &text);
+        keep(out, "\n");
     }
-    (!out.trim().is_empty()).then_some(out)
+    Some(())
 }
 
 /// One part of the zip, no more than `room` bytes of it, handed to `parse` as it is unpacked,
@@ -215,8 +233,8 @@ fn among(names: &[&str], name: QName) -> bool {
 }
 
 /// Adds `text` to `out`, as much of it as `MAX_TEXT` leaves room for.
-fn keep(out: &mut String, text: &str) {
-    super::push_within(out, text, MAX_TEXT);
+fn keep(out: &mut super::Text, text: &str) {
+    super::keep_within(out, text, MAX_TEXT);
 }
 
 /// The styles of a document, by name: the one each is based on, and whether it hides its text
@@ -257,7 +275,7 @@ struct Run {
 
 /// Adds the text of one part to `out`, read as it comes: as far as it is UTF-8. What is left of a broken part is
 /// still read. The styles it defines go into `styles`.
-fn read(xml: impl std::io::BufRead, format: &Format, out: &mut String, styles: &mut Styles) {
+fn read(xml: impl std::io::BufRead, format: &Format, out: &mut super::Text, styles: &mut Styles) {
     use quick_xml::events::Event;
     let mut reader = quick_xml::Reader::from_reader(xml);
     let mut buf = vec![];
@@ -1016,15 +1034,15 @@ mod tests {
         );
         for (xml, format) in [(body.as_bytes(), &WORD), (content.as_bytes(), &OPEN)] {
             for at in 0..xml.len() {
-                read(&xml[..at], format, &mut String::new(), &mut Styles::default());
+                read(&xml[..at], format, &mut crate::extract::Text::new(), &mut Styles::default());
                 for with in [b'<', b'>', b'&', b'/', b'"', 0, 0xFF] {
                     let mut changed = xml.to_vec();
                     changed[at] = with;
-                    read(crate::extract::utf8(&changed).as_bytes(), format, &mut String::new(), &mut Styles::default());
+                    read(crate::extract::utf8(&changed).as_bytes(), format, &mut crate::extract::Text::new(), &mut Styles::default());
                 }
             }
         }
-        let mut left = String::new();
+        let mut left = crate::extract::Text::new();
         read(
             &body.as_bytes()[..body.find("paragraph").unwrap()],
             &WORD,
@@ -1038,7 +1056,7 @@ mod tests {
         );
 
         // An end without a start counts nothing below zero, and the text after it is read.
-        let mut out = String::new();
+        let mut out = crate::extract::Text::new();
         read(
             &b"</w:tc></w:t></w:moveFrom></w:p><w:p><w:t>Still read</w:t>"[..],
             &WORD,
@@ -1059,7 +1077,7 @@ mod tests {
             ..Styles::default()
         };
         let began = std::time::Instant::now();
-        read(xml.as_bytes(), &WORD, &mut String::new(), &mut styles);
+        read(xml.as_bytes(), &WORD, &mut crate::extract::Text::new(), &mut styles);
         assert!(began.elapsed() < std::time::Duration::from_secs(10), "{:?}", began.elapsed());
     }
 
@@ -1071,12 +1089,12 @@ mod tests {
             "<w:tbl><w:tr><w:tc><w:p>".repeat(deep),
             "</w:p></w:tc></w:tr></w:tbl>".repeat(deep)
         );
-        let mut out = String::new();
+        let mut out = crate::extract::Text::new();
         read(nested.as_bytes(), &WORD, &mut out, &mut Styles::default());
         assert_eq!(tidy(&out), "At the bottom");
 
         let laughs = "<!DOCTYPE l [<!ENTITY a \"ha\"><!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;\">]><w:p><w:r><w:t>Said &b;&b;&b; once</w:t></w:r></w:p>";
-        let mut out = String::new();
+        let mut out = crate::extract::Text::new();
         read(laughs.as_bytes(), &WORD, &mut out, &mut Styles::default());
         assert_eq!(
             tidy(&out),
