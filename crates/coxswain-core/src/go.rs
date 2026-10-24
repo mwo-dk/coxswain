@@ -5,14 +5,18 @@
 //!
 //! Any bytes at all are read without a panic, and without recursion: the reader keeps its own
 //! stack, so a file nested a million variations deep costs memory (up to `MAX_NODES`), never
-//! the stack.
+//! the stack. A collection is read as it streams by (`chess::lex`), game by game, never whole:
+//! the list fills as it goes, and a game is read from where it starts when it is opened.
 
+use crate::chess::lex::{Lexer, Sgf};
 use serde::Serialize;
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
-/// The most of a file read: an SGF collection of tens of thousands of games is a few MB.
-pub const MAX_FILE: u64 = 64 << 20;
+/// The most of one game read to show it.
+pub const MAX_GAME: u64 = 64 << 20;
 /// The most games listed of one file.
 pub const MAX_GAMES: usize = 100_000;
 /// The most nodes (moves and set-up positions) of one game with its variations: a big joseki
@@ -25,8 +29,6 @@ pub const MAX_SETUP: usize = 250_000;
 pub const MAX_TEXT: usize = 64 << 10;
 /// The largest board SGF allows.
 pub const MAX_SIZE: u8 = 52;
-/// Values kept of one property (`AB[aa][ab]…`): a full 52 × 52 board's setup fits.
-const MAX_VALUES: usize = 4096;
 
 /// The file endings of SGF files, for the search store.
 pub const ENDINGS: [&str; 1] = [".sgf"];
@@ -34,87 +36,6 @@ pub const ENDINGS: [&str; 1] = [".sgf"];
 /// Whether the file is an SGF file, by its name.
 pub fn is_sgf(path: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("sgf"))
-}
-
-/// A piece of SGF.
-#[derive(Debug, PartialEq)]
-enum Tok<'a> {
-    Open,
-    Close,
-    Node,
-    /// A property: its name (its capital letters: FF[3]'s `AddBlack` is `AB`) and its values,
-    /// still escaped.
-    Prop(String, Vec<&'a [u8]>),
-}
-
-/// SGF's pieces, each with the byte it starts at. What is no SGF is skipped.
-struct Lexer<'a> {
-    b: &'a [u8],
-    i: usize,
-}
-
-impl<'a> Iterator for Lexer<'a> {
-    type Item = (usize, Tok<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let b = self.b;
-        while self.i < b.len() {
-            let at = self.i;
-            match b[at] {
-                b'(' => {
-                    self.i += 1;
-                    return Some((at, Tok::Open));
-                }
-                b')' => {
-                    self.i += 1;
-                    return Some((at, Tok::Close));
-                }
-                b';' => {
-                    self.i += 1;
-                    return Some((at, Tok::Node));
-                }
-                c if c.is_ascii_uppercase() => {
-                    let mut name = String::new();
-                    while self.i < b.len() && b[self.i].is_ascii_alphabetic() {
-                        if b[self.i].is_ascii_uppercase() && name.len() < 8 {
-                            name.push(b[self.i] as char);
-                        }
-                        self.i += 1;
-                    }
-                    let mut values = vec![];
-                    loop {
-                        while self.i < b.len() && b[self.i].is_ascii_whitespace() {
-                            self.i += 1;
-                        }
-                        if self.i >= b.len() || b[self.i] != b'[' {
-                            break;
-                        }
-                        let start = self.i + 1;
-                        let mut j = start;
-                        while j < b.len() && b[j] != b']' {
-                            j += if b[j] == b'\\' { 2 } else { 1 };
-                        }
-                        let end = j.min(b.len());
-                        // Read on past the rest: a 52 × 52 board's setup needs 2704.
-                        if values.len() < MAX_VALUES {
-                            values.push(&b[start..end]);
-                        }
-                        self.i = (end + 1).min(b.len());
-                    }
-                    if values.is_empty() {
-                        continue;
-                    }
-                    return Some((at, Tok::Prop(name, values)));
-                }
-                _ => self.i += 1,
-            }
-        }
-        None
-    }
-}
-
-fn lex(b: &[u8]) -> Lexer<'_> {
-    Lexer { b, i: 0 }
 }
 
 /// A value as text: escapes undone, a soft line break (`\` before it) taken out, UTF-8 or the
@@ -249,64 +170,73 @@ impl Info {
     }
 }
 
-/// The games of an SGF file's bytes: where each is, and what its first node says. One pass, no
-/// game read in full.
-fn scan(b: &[u8]) -> (Vec<Info>, bool) {
-    let mut out = vec![];
+/// The games of an SGF text as it streams by, in order: where each is and what its first node
+/// says, each handed to `each` until it says to stop. One pass, no game read in full; past the
+/// first node only the moves' names are read, not their values. True when it stopped at
+/// `MAX_GAMES`.
+fn scan_from(r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(Info) -> bool) -> io::Result<bool> {
+    let mut lex = Lexer::new(r);
     let mut depth = 0usize;
     let mut info = Info::new();
+    let mut listed = 0usize;
     // Nodes of the game so far; on its main line still (the first variation of each branch).
     let (mut nodes, mut main) = (0usize, true);
-    let mut root: Vec<(String, &[u8])> = vec![];
-    let finish_root = |info: &mut Info, root: &mut Vec<(String, &[u8])>| {
+    let mut root: Vec<(String, Vec<u8>)> = vec![];
+    let finish_root = |info: &mut Info, root: &mut Vec<(String, Vec<u8>)>| {
         // The charset first: the names are read with it.
         if let Some((_, v)) = root.iter().find(|(k, _)| k == "CA") {
             info.charset = text(v, "", true);
         }
         for (k, v) in root.drain(..) {
-            info.set(&k, v);
+            info.set(&k, &v);
         }
     };
-    for (at, tok) in lex(b) {
+    while let Some((at, tok)) = lex.sgf(depth > 0 && nodes == 1)? {
         match tok {
-            Tok::Open if depth == 0 => {
+            Sgf::Open if depth == 0 => {
+                if stop.load(Ordering::Relaxed) {
+                    return Ok(false);
+                }
                 depth = 1;
                 info = Info::new();
-                info.offset = at as u64;
+                info.offset = at;
                 (nodes, main) = (0, true);
             }
-            Tok::Open => depth += 1,
-            Tok::Close if depth == 0 => {}
-            Tok::Close => {
+            Sgf::Open => depth += 1,
+            Sgf::Close if depth == 0 => {}
+            Sgf::Close => {
                 depth -= 1;
                 if nodes == 1 {
                     finish_root(&mut info, &mut root);
                 }
                 if depth == 0 {
-                    info.len = (at + 1) as u64 - info.offset;
+                    info.len = at + 1 - info.offset;
                     if nodes > 0 {
-                        info.n = out.len() as u32 + 1;
-                        out.push(std::mem::replace(&mut info, Info::new()));
-                        if out.len() >= MAX_GAMES {
-                            return (out, true);
+                        listed += 1;
+                        info.n = listed as u32;
+                        if !each(std::mem::replace(&mut info, Info::new())) {
+                            return Ok(false);
+                        }
+                        if listed >= MAX_GAMES {
+                            return Ok(true);
                         }
                     }
                 } else {
                     main = false;
                 }
             }
-            Tok::Node if depth > 0 => {
+            Sgf::Node if depth > 0 => {
                 if nodes == 1 {
                     finish_root(&mut info, &mut root);
                 }
                 nodes += 1;
             }
-            Tok::Node => {}
-            Tok::Prop(name, values) if depth > 0 => {
+            Sgf::Node => {}
+            Sgf::Prop(name, mut values) if depth > 0 => {
                 // The facts of the game: one value each, and at most so many.
                 if nodes == 1 && root.len() < 256 {
-                    if let Some(v) = values.first() {
-                        root.push((name.clone(), v));
+                    if !values.is_empty() {
+                        root.push((name.clone(), values.swap_remove(0)));
                     }
                 } else if main && (name == "B" || name == "W") {
                     info.moves += 1;
@@ -315,7 +245,7 @@ fn scan(b: &[u8]) -> (Vec<Info>, bool) {
                     info.moves += 1;
                 }
             }
-            Tok::Prop(..) => {}
+            Sgf::Prop(..) => {}
         }
     }
     // A game never closed: to the end of the file.
@@ -323,11 +253,22 @@ fn scan(b: &[u8]) -> (Vec<Info>, bool) {
         if nodes == 1 {
             finish_root(&mut info, &mut root);
         }
-        info.len = b.len() as u64 - info.offset;
-        info.n = out.len() as u32 + 1;
-        out.push(info);
+        info.len = lex.at - info.offset;
+        info.n = listed as u32 + 1;
+        each(info);
     }
-    (out, false)
+    Ok(false)
+}
+
+/// The games of an SGF text in memory (`scan_from`), and whether there were more.
+fn scan(b: &[u8]) -> (Vec<Info>, bool) {
+    let mut out = vec![];
+    let capped = scan_from(b, &AtomicBool::new(false), |i| {
+        out.push(i);
+        true
+    })
+    .unwrap_or(false);
+    (out, capped)
 }
 
 /// A move: whose, and where (`None`: a pass).
@@ -380,9 +321,10 @@ pub fn parse(b: &[u8]) -> Game {
     let mut stack: Vec<Option<u32>> = vec![];
     let mut started = false;
     let mut setup = 0usize;
-    for (_, tok) in lex(b) {
+    let mut lex = Lexer::new(b);
+    while let Ok(Some((_, tok))) = lex.sgf(true) {
         match tok {
-            Tok::Open => {
+            Sgf::Open => {
                 // A second game tree in the same bytes: not this game's.
                 if started && stack.is_empty() {
                     break;
@@ -390,13 +332,13 @@ pub fn parse(b: &[u8]) -> Game {
                 started = true;
                 stack.push(cur);
             }
-            Tok::Close => {
+            Sgf::Close => {
                 cur = stack.pop().flatten();
                 if stack.is_empty() {
                     break;
                 }
             }
-            Tok::Node => {
+            Sgf::Node => {
                 if g.nodes.len() >= MAX_NODES {
                     g.capped = true;
                     break;
@@ -414,12 +356,12 @@ pub fn parse(b: &[u8]) -> Game {
                 }
                 cur = Some(id);
             }
-            Tok::Prop(name, values) => {
+            Sgf::Prop(name, values) => {
                 let Some(at) = cur else { continue };
                 let n = &mut g.nodes[at as usize];
                 match name.as_str() {
                     "B" | "W" if n.mv.is_none() => {
-                        let p = point(values[0]).filter(|&(x, y)| x < w && y < h);
+                        let p = point(&values[0]).filter(|&(x, y)| x < w && y < h);
                         n.mv = Some(Move { black: name == "B", at: p });
                         n.number += 1;
                     }
@@ -429,7 +371,7 @@ pub fn parse(b: &[u8]) -> Game {
                             "AW" => 2,
                             _ => 0,
                         };
-                        for v in values {
+                        for v in &values {
                             // One point, or a rectangle of them: `aa:cc`.
                             let (a, z) = match v.iter().position(|&c| c == b':') {
                                 Some(i) => (point(&v[..i]), point(&v[i + 1..])),
@@ -448,11 +390,11 @@ pub fn parse(b: &[u8]) -> Game {
                             }
                         }
                     }
-                    "C" => n.comment = text(values[0], &g.info.charset, false),
-                    "N" => n.name = text(values[0], &g.info.charset, true),
+                    "C" => n.comment = text(&values[0], &g.info.charset, false),
+                    "N" => n.name = text(&values[0], &g.info.charset, true),
                     "PL" => n.player = Some(matches!(values[0].trim_ascii().first(), Some(b'B' | b'b' | b'1'))),
                     "MN" => {
-                        if let Ok(m) = text(values[0], "", true).parse::<u32>() {
+                        if let Ok(m) = text(&values[0], "", true).parse::<u32>() {
                             n.number = m;
                         }
                     }
@@ -652,61 +594,138 @@ fn play(p: &mut Position, seen: &mut [bool], budget: &mut u64, black: bool, x: u
     }
 }
 
-/// An SGF file's games: their list, each read in full when it is opened.
+/// An SGF file's games: their list, read on a thread of its own and filling as it goes, each
+/// game read in full when it is opened.
 pub struct Collection {
     pub path: PathBuf,
-    pub games: Vec<Info>,
-    /// Stopped at `MAX_GAMES` or `MAX_FILE`: only the first games are listed.
-    pub capped: bool,
+    listed: Arc<Mutex<Listed>>,
+    read: Arc<AtomicU64>,
+    size: u64,
+    stop: Arc<AtomicBool>,
+}
+
+#[derive(Default)]
+struct Listed {
+    games: Vec<Info>,
+    done: bool,
+    /// Stopped at `MAX_GAMES`: only the first games are listed.
+    capped: bool,
+    error: Option<String>,
+}
+
+impl Drop for Collection {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+    }
 }
 
 impl Collection {
+    /// Starts listing the file's games.
     pub fn open(path: &Path) -> io::Result<Collection> {
-        let mut b = vec![];
-        let size = std::fs::File::open(path)?.take(MAX_FILE).read_to_end(&mut b)? as u64;
-        let (games, capped) = scan(&b);
-        let big = size >= MAX_FILE && std::fs::metadata(path).is_ok_and(|m| m.len() > MAX_FILE);
-        Ok(Collection { path: path.to_path_buf(), games, capped: capped || big })
+        let size = std::fs::metadata(path)?.len();
+        let read = Arc::new(AtomicU64::new(0));
+        let r = crate::chess::games::reader(path, read.clone(), u64::MAX)?;
+        let listed = Arc::new(Mutex::new(Listed::default()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let (l, st) = (listed.clone(), stop.clone());
+        std::thread::Builder::new().name("go-games".into()).spawn(move || {
+            let lock = || l.lock().unwrap_or_else(|e| e.into_inner());
+            let (mut batch, mut last, mut n) = (vec![], std::time::Instant::now(), 0usize);
+            let res = scan_from(BufReader::with_capacity(1 << 16, r), &st, |info| {
+                batch.push(info);
+                n += 1;
+                // The first games at once, then a batch every so often.
+                if n <= 2 || last.elapsed().as_millis() >= 50 {
+                    lock().games.append(&mut batch);
+                    last = std::time::Instant::now();
+                }
+                true
+            });
+            let mut l = lock();
+            l.games.append(&mut batch);
+            l.done = true;
+            match res {
+                Ok(capped) => l.capped = capped,
+                Err(e) => l.error = Some(e.to_string()),
+            }
+        })?;
+        Ok(Collection { path: path.to_path_buf(), listed, read, size, stop })
     }
 
-    /// Game `i` (from 0), read now.
+    fn lock(&self) -> std::sync::MutexGuard<'_, Listed> {
+        self.listed.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// How far the list has come.
+    pub fn progress(&self) -> crate::chess::Progress {
+        let l = self.lock();
+        crate::chess::Progress { games: l.games.len(), done: l.done, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, capped: l.capped, error: l.error.clone() }
+    }
+
+    /// Up to `n` of the games listed so far, from the `from`th (from 0).
+    pub fn games(&self, from: usize, n: usize) -> Vec<Info> {
+        self.lock().games.iter().skip(from).take(n).cloned().collect()
+    }
+
+    /// Game `i` of the list (from 0), once listed.
+    pub fn info(&self, i: usize) -> Option<Info> {
+        self.lock().games.get(i).cloned()
+    }
+
+    /// Waits until `n` games are listed or the list is done.
+    pub fn wait(&self, n: usize) {
+        loop {
+            let l = self.lock();
+            if l.games.len() >= n || l.done {
+                return;
+            }
+            drop(l);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// Game `i` (from 0), read now; waits for the list to reach it.
     pub fn game(&self, i: usize) -> io::Result<Game> {
-        let info = self.games.get(i).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
+        self.wait(i + 1);
+        let info = self.info(i).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
         let mut f = std::fs::File::open(&self.path)?;
         f.seek(SeekFrom::Start(info.offset))?;
         let mut b = vec![];
-        f.take(info.len).read_to_end(&mut b)?;
+        f.take(info.len.min(MAX_GAME)).read_to_end(&mut b)?;
         let mut g = parse(&b);
         g.info.n = info.n;
         Ok(g)
     }
 }
 
+/// The games of the SGF file at `path`, as it streams by (the search store, and Find's hits):
+/// 1 GiB of it at most.
+fn scan_file(path: &Path, each: impl FnMut(Info) -> bool) -> io::Result<()> {
+    let r = crate::chess::games::reader(path, Arc::default(), 1 << 30)?;
+    scan_from(BufReader::with_capacity(1 << 16, r.take(1 << 30)), &AtomicBool::new(false), each).map(|_| ())
+}
+
 /// The search store's text of an SGF file: a line per game (`Info::line`), up to `max` bytes.
 pub fn search_text(path: &Path, max: usize) -> Option<String> {
-    let c = Collection::open(path).ok()?;
     let mut out = String::new();
-    for g in &c.games {
+    scan_file(path, |g| {
         let line = g.line();
         if out.len() + line.len() + 1 > max {
-            break;
+            return false;
         }
         out.push_str(&line);
         out.push('\n');
-    }
+        true
+    })
+    .ok()?;
     (!out.trim().is_empty()).then_some(out)
 }
 
 /// The game a Find hit in an SGF file is about, by its snippet: its index, from 0
 /// (`chess::games::Hit`).
 pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
-    let c = Collection::open(path).ok()?;
     let mut hit = crate::chess::games::Hit::new(snippet)?;
-    for g in &c.games {
-        if !hit.feed(&g.line()) {
-            break;
-        }
-    }
+    scan_file(path, |g| hit.feed(&g.line())).ok()?;
     hit.found()
 }
 
@@ -851,11 +870,12 @@ mod tests {
         let t = format!("(;A{}B[ok])", "[]".repeat(1_000_000));
         let (games, _) = scan(t.as_bytes());
         assert_eq!(games.len(), 1);
-        let n = lex(t.as_bytes()).map(|(_, tok)| match tok {
-            Tok::Prop(_, v) => v.len(),
+        let mut lex = Lexer::new(t.as_bytes());
+        let n = std::iter::from_fn(|| lex.sgf(true).unwrap()).map(|(_, tok)| match tok {
+            Sgf::Prop(_, v) => v.len(),
             _ => 0,
         });
-        assert!(n.max().unwrap() <= MAX_VALUES);
+        assert!(n.max().unwrap() <= crate::chess::lex::MAX_VALUES);
         // A board filled with one group, played on again and again: capped in time.
         let t = format!("(;SZ[52]AB[aa:ZY]{})", ";B[aa];W[]".repeat(125_000));
         let g = parse(t.as_bytes());
@@ -883,7 +903,8 @@ mod tests {
         let p = d.join("two.sgf");
         std::fs::write(&p, TWO).unwrap();
         let c = Collection::open(&p).unwrap();
-        assert_eq!(c.games.len(), 2);
+        c.wait(usize::MAX);
+        assert_eq!(c.progress().games, 2);
         assert_eq!(c.game(1).unwrap().info.black, "Kim");
         assert_eq!(c.game(1).unwrap().info.n, 2);
         assert!(c.game(2).is_err());

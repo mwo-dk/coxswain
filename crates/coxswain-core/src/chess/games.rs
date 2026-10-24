@@ -96,43 +96,18 @@ pub(crate) fn text(b: &[u8]) -> std::borrow::Cow<'_, str> {
     }
 }
 
-/// The longest line kept: the rest of a longer one is read past, not kept, so that a file of
-/// one endless line cannot fill the memory.
-pub const MAX_LINE: usize = 1 << 20;
+pub use super::lex::MAX_LINE;
+use super::lex::Lexer;
 /// The most of one game read to show it.
 pub const MAX_GAME: u32 = 16 << 20;
 
-/// A line of `r` into `line`, at most `MAX_LINE` bytes of it: how many bytes it had, 0 at the end.
-fn read_line(r: &mut impl BufRead, line: &mut Vec<u8>) -> io::Result<usize> {
-    line.clear();
-    let mut n = 0;
-    loop {
-        let buf = match r.fill_buf() {
-            Ok(b) => b,
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-            Err(e) => return Err(e),
-        };
-        if buf.is_empty() {
-            return Ok(n);
-        }
-        let (take, done) = match memchr::memchr(b'\n', buf) {
-            Some(i) => (i + 1, true),
-            None => (buf.len(), false),
-        };
-        let room = MAX_LINE.saturating_sub(line.len());
-        line.extend_from_slice(&buf[..take.min(room)]);
-        r.consume(take);
-        n += take;
-        if done {
-            return Ok(n);
-        }
-    }
-}
-
 /// The games of `r`, in order, each handed to `each` until it says to stop. Never fails on
 /// what it reads: lines that are no PGN are taken for moves, and skipped there.
-/// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's.
-pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+/// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's. `full`: the moves
+/// counted to the end of each game (`Head::plies`); else past its first moves only where its
+/// comments start and end is looked at, to know where the next game starts.
+pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, full: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    let mut r = Lexer::new(r);
     if matches!(format, super::Format::Kif | super::Format::Csa) {
         return scan_shogi(&mut r, stop, format, each);
     }
@@ -141,14 +116,14 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format
     }
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
     let mut line = Vec::new();
-    let mut at = 0u64;
     let (mut has_tags, mut has_moves, mut in_brace, mut depth) = (false, false, false, 0u32);
     loop {
-        let mut n = read_line(&mut r, &mut line)?;
+        let mut at = r.at;
+        let n = r.line(&mut line)?;
         // A byte order mark before the first tag is no part of the game.
         if at == 0 && line.starts_with(b"\xEF\xBB\xBF") {
             line.drain(..3);
-            (at, n) = (3, n - 3);
+            at = 3;
         }
         // An unclosed `{` ends at the next game's first tag, at the start of a line.
         if in_brace && line.starts_with(b"[Event \"") {
@@ -189,18 +164,17 @@ pub(crate) fn scan(mut r: impl BufRead, stop: &AtomicBool, format: super::Format
             has_tags = true;
         } else if !trimmed.is_empty() && (trimmed[0] != b'%' || in_brace) {
             has_moves = true;
-            moves(&text(&line), &mut head, &mut in_brace, &mut depth);
+            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full);
         }
-        at += n as u64;
     }
 }
 
 /// The games of a KIF or CSA file (`crate::shogi`), read as they stream by: a CSA file's games
 /// end at a line of `/`, a KIF file is one game. Each game is read in full for its tags and
 /// moves, up to `MAX_GAME` bytes of it.
-fn scan_shogi(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+fn scan_shogi(r: &mut Lexer<impl BufRead>, stop: &AtomicBool, format: super::Format, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let (mut game, mut line) = (Vec::new(), Vec::new());
-    let (mut at, mut start) = (0u64, 0u64);
+    let mut start = 0u64;
     let mut emit = |game: &mut Vec<u8>, start: u64, end: u64| -> bool {
         let keep = game.iter().any(|c| !c.is_ascii_whitespace());
         let g = crate::shogi::parse(&crate::shogi::decode(game), format);
@@ -218,8 +192,8 @@ fn scan_shogi(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut
         each(&head)
     };
     loop {
-        let n = read_line(&mut r, &mut line)?;
-        if n == 0 {
+        let at = r.at;
+        if r.line(&mut line)? == 0 {
             emit(&mut game, start, at);
             return Ok(());
         }
@@ -227,23 +201,21 @@ fn scan_shogi(mut r: impl BufRead, stop: &AtomicBool, format: super::Format, mut
             if !emit(&mut game, start, at) || stop.load(Ordering::Relaxed) {
                 return Ok(());
             }
-            at += n as u64;
-            start = at;
+            start = r.at;
             continue;
         }
         if game.len() + line.len() <= MAX_GAME as usize {
             game.extend_from_slice(&line);
         }
-        at += n as u64;
     }
 }
 
 /// The deals of a PBN file (`crate::bridge`), read as they stream by: a deal ends at an empty
 /// line before the next one's tags. Each deal is read in full, up to `MAX_GAME` bytes of it;
 /// a tag whose value is `#` takes the deal before's, as PBN says.
-fn scan_pbn(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+fn scan_pbn(r: &mut Lexer<impl BufRead>, stop: &AtomicBool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let (mut game, mut line) = (Vec::new(), Vec::new());
-    let (mut at, mut start, mut blank) = (0u64, 0u64, true);
+    let (mut start, mut blank) = (0u64, true);
     let mut last: HashMap<String, String> = HashMap::new();
     let mut emit = |game: &mut Vec<u8>, start: u64, end: u64| -> bool {
         if !game.iter().any(|c| !c.is_ascii_whitespace()) {
@@ -272,8 +244,8 @@ fn scan_pbn(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(&Head) 
         each(&head)
     };
     loop {
-        let n = read_line(&mut r, &mut line)?;
-        if n == 0 {
+        let at = r.at;
+        if r.line(&mut line)? == 0 {
             emit(&mut game, start, at);
             return Ok(());
         }
@@ -291,14 +263,28 @@ fn scan_pbn(mut r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(&Head) 
         if game.len() + line.len() <= MAX_GAME as usize {
             game.extend_from_slice(&line);
         }
-        at += n as u64;
     }
 }
 
-/// A line of movetext: counts the main line's moves and keeps the first few.
-fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32) {
+/// A line of movetext: counts the main line's moves and keeps the first few. Not `full`, once
+/// the first few are kept, only where comments start and end is looked at.
+fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32, full: bool) {
     let mut s = line;
     while !s.is_empty() {
+        if !full && head.sans.len() >= FIRST_MOVES {
+            loop {
+                let b = s.as_bytes();
+                if *in_brace {
+                    let Some(e) = memchr::memchr(b'}', b) else { return };
+                    (s, *in_brace) = (&s[e + 1..], false);
+                } else {
+                    match memchr::memchr2(b'{', b';', b) {
+                        Some(i) if b[i] == b'{' => (s, *in_brace) = (&s[i + 1..], true),
+                        _ => return,
+                    }
+                }
+            }
+        }
         if *in_brace {
             match s.find('}') {
                 Some(e) => {
@@ -394,7 +380,7 @@ impl Default for Limits {
 
 /// The file's text, unpacked as it is read (up to `unpacked` bytes); `read` counts the file's
 /// own bytes.
-fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dyn Read + Send>> {
+pub(crate) fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dyn Read + Send>> {
     let f = BufReader::new(Counted { inner: File::open(path)?, read });
     Ok(match pack(path) {
         Pack::None => Box::new(f),
@@ -411,7 +397,7 @@ pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Res
     }
     let format = kind(path);
     let r = reader(path, Arc::default(), 1 << 30)?;
-    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, each)
+    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, false, each)
 }
 
 /// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
@@ -702,7 +688,7 @@ impl Library {
         let (sh, st) = (shared.clone(), stop.clone());
         let format = kind(path);
         std::thread::Builder::new().name("chess-games".into()).spawn(move || {
-            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
+            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
         })?;
         Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None })
     }
@@ -1057,7 +1043,7 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
         }
         return Ok(());
     }
-    let mut r = BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?);
+    let mut r = Lexer::new(BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?));
     let (mut line, mut game, mut n, mut rows) = (Vec::new(), String::new(), 0u32, 0usize);
     // Moves seen in this game, and how deep in a { } comment the reading is.
     let (mut moves, mut brace) = (false, 0i32);
@@ -1075,7 +1061,7 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
         *n += 1;
     };
     loop {
-        if n >= POSITION_GAMES || rows >= POSITION_ROWS || stop() || read_line(&mut r, &mut line)? == 0 {
+        if n >= POSITION_GAMES || rows >= POSITION_ROWS || stop() || r.line(&mut line)? == 0 {
             break;
         }
         let l = text(&line);
@@ -1164,7 +1150,7 @@ mod tests {
     fn a_byte_order_mark_is_no_game() {
         let text = format!("\u{feff}{TWO}");
         let mut events = vec![];
-        scan(text.as_bytes(), &AtomicBool::new(false), super::super::Format::Pgn, |h| {
+        scan(text.as_bytes(), &AtomicBool::new(false), super::super::Format::Pgn, true, |h| {
             events.push((h.offset, h.tags[EVENT].clone()));
             true
         })
@@ -1246,10 +1232,6 @@ mod tests {
         assert!(l.row(0).unwrap().white.len() <= pgn::MAX_TAG);
         assert!(l.text(0).unwrap().len() <= MAX_GAME as usize);
         assert_eq!(l.row(1).unwrap().white, "B");
-        let mut line = vec![];
-        let mut r = io::Cursor::new(vec![b'y'; 3 * MAX_LINE]);
-        assert_eq!(read_line(&mut r, &mut line).unwrap(), 3 * MAX_LINE);
-        assert_eq!(line.len(), MAX_LINE);
     }
 
     /// A small packed file of endless tiny games stops at the limits, with what it read.

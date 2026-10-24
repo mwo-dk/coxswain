@@ -19,8 +19,11 @@
   let looks = $state(null);
   let error = $state("");
   let games = $state([]);
-  let capped = $state(false);
-  let loaded = $state(false);
+  // How far the list has come: it fills as the file is read (`go_games` again until done).
+  let progress = $state(null);
+  const loaded = $derived(!!progress?.done);
+  const capped = $derived(!!progress?.capped);
+  const pct = $derived(progress && progress.size ? Math.floor((progress.read * 100) / progress.size) : 0);
   let cursor = $state(0);
   let listEl = $state();
   // The game on the board: its index, facts and tree; the node shown and its position.
@@ -45,26 +48,32 @@
     };
   });
 
-  // A new file: its games, and a game of its own at once when it has only one.
+  // A new file: its games as they are read, and a game of its own at once when it has only one.
   $effect(() => {
     const p = path;
+    let timer = 0;
     untrack(() => {
       game = null;
       pos = null;
       error = "";
       cursor = 0;
-      loaded = false;
-      invoke("go_games", { path: p }).then(
-        (r) => {
-          if (p !== path) return;
-          games = r.games;
-          capped = r.capped;
-          loaded = true;
-          if (r.games.length === 1 && !ui.goAt) openGame(0);
-        },
-        (e) => (error = String(e)),
-      );
+      games = [];
+      progress = null;
+      const more = (first) =>
+        invoke("go_games", { path: p, from: games.length }).then(
+          (r) => {
+            if (p !== path) return;
+            if (r.games.length) games = games.concat(r.games);
+            progress = r.progress;
+            if (r.progress.error) error = r.progress.error;
+            if (first && r.progress.done && games.length === 1 && !ui.goAt) openGame(0);
+            if (!r.progress.done) timer = setTimeout(() => more(false), 300);
+          },
+          (e) => (error = String(e)),
+        );
+      more(true);
     });
+    return () => clearTimeout(timer);
   });
 
   $effect(() => {
@@ -245,7 +254,7 @@
     <div class="bar">
       {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "go", path })}>{"\u{f065}"}</button>{/if}
     </div>
-    <p class="meta">{t("chess.games", { shown: games.length, total: games.length })}{#if capped} · {t("chess.capped", { n: games.length })}{/if}</p>
+    <p class="meta">{t("chess.games", { shown: games.length, total: games.length })}{#if progress && !progress.done} · {t("chess.reading", { percent: pct })}{/if}{#if capped} · {t("chess.capped", { n: games.length })}{/if}</p>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="list chess-keys" tabindex="0" role="grid" aria-label={basename(path)} bind:this={listEl} onkeydown={onListKey}>
       <table>

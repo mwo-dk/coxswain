@@ -32,15 +32,21 @@ fn game(path: &Path, index: usize) -> Res<Arc<Game>> {
 
 #[derive(Serialize)]
 pub struct Games {
+    /// The games listed since the `from`th.
     games: Vec<Info>,
-    capped: bool,
+    progress: coxswain_core::chess::Progress,
 }
 
+/// The games listed so far from the `from`th (from 0): the list fills as the file is read, and
+/// the view asks again until `progress.done`.
 #[tauri::command]
-pub async fn go_games(path: PathBuf) -> Res<Games> {
+pub async fn go_games(path: PathBuf, from: usize) -> Res<Games> {
     tauri::async_runtime::spawn_blocking(move || {
         let c = collection(&path)?;
-        Ok(Games { games: c.games.clone(), capped: c.capped })
+        // Enough of the list to know whether the file has one game only.
+        c.wait(from.max(2));
+        let progress = c.progress();
+        Ok(Games { games: c.games(from, usize::MAX), progress })
     })
     .await
     .map_err(|e| e.to_string())?

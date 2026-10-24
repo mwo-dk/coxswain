@@ -48,6 +48,8 @@ fn rgb(hex: &str) -> Color {
 impl Viewer {
     pub fn open(path: &Path, cfg: &coxswain_core::config::Config, theme: &Theme) -> std::io::Result<Viewer> {
         let games = Collection::open(path)?;
+        // Enough of the list to know whether the file has one game only.
+        games.wait(2);
         let [light, _] = coxswain_core::chess::board_colours(theme, &cfg.chess.board);
         let pieces = crate::pieces::pieces(cfg);
         let pictures = if pieces == Pieces::Pictures { crate::pictures::support().map(crate::pictures::Pieces::new) } else { None };
@@ -55,7 +57,7 @@ impl Viewer {
         if pieces != Pieces::Pictures && cfg.chess.pieces == "pictures" {
             v.said = Some(t!("chess.pictures_none"));
         }
-        if v.games.games.len() == 1 {
+        if v.games.progress().games == 1 {
             v.show(0);
         }
         Ok(v)
@@ -78,7 +80,7 @@ impl Viewer {
             return Outcome::Close;
         }
         self.said = None;
-        let n = self.games.games.len();
+        let n = self.games.progress().games;
         let Some(o) = self.open.as_mut() else {
             match key.code {
                 KeyCode::Esc => return Outcome::Close,
@@ -158,10 +160,15 @@ impl Viewer {
         let base = sty(&theme.dialog);
         let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
         let w = area.width as usize;
-        let games = &self.games.games;
-        let mut state = t!("chess.games", "shown" => games.len(), "total" => games.len());
-        if self.games.capped {
-            state = format!("{state} · {}", t!("chess.capped", "n" => games.len()));
+        // The list fills as the file is read: what is listed so far.
+        let p = self.games.progress();
+        let mut state = t!("chess.games", "shown" => p.games, "total" => p.games);
+        if !p.done {
+            let pct = (p.read * 100).checked_div(p.size).unwrap_or(0);
+            state = format!("{state} · {}", t!("chess.reading", "percent" => pct));
+        }
+        if p.capped {
+            state = format!("{state} · {}", t!("chess.capped", "n" => p.games));
         }
         f.render_widget(Paragraph::new(fit(&state, w)).style(dim), Rect { height: 1, ..area });
         let fixed = [5usize, 5, 5, 8, 10, 5, 5, 4, 5];
@@ -188,7 +195,10 @@ impl Viewer {
         ]);
         f.render_widget(Paragraph::new(fit(&head, w)).style(base.add_modifier(Modifier::BOLD)), Rect { y: area.y + 1, height: 1, ..area });
         let h = area.height.saturating_sub(2) as usize;
-        if games.is_empty() {
+        if p.games == 0 {
+            if !p.done {
+                return;
+            }
             f.render_widget(Paragraph::new(fit(&t!("go.no_games"), w)).style(dim), Rect { y: area.y + 2, height: 1, ..area });
             return;
         }
@@ -197,7 +207,7 @@ impl Viewer {
         } else if self.cursor >= self.offset + h {
             self.offset = self.cursor + 1 - h;
         }
-        for (k, g) in games.iter().enumerate().skip(self.offset).take(h) {
+        for (k, g) in self.games.games(self.offset, h).into_iter().enumerate().map(|(k, g)| (k + self.offset, g)) {
             let event = [g.event.as_str(), g.name.as_str()].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ");
             let text = row([
                 g.n.to_string(),
@@ -375,7 +385,7 @@ impl Viewer {
             facts.push(i.rules.clone());
         }
         out.push(Line::styled(fit(&facts.join(" · "), w), dim));
-        out.push(Line::styled(fit(&t!("chess.game_of", "n" => o.index + 1, "total" => self.games.games.len()), w), dim));
+        out.push(Line::styled(fit(&t!("chess.game_of", "n" => o.index + 1, "total" => self.games.progress().games), w), dim));
         out.push(Line::from(""));
         let total = g.nodes[g.end_of_line(o.at) as usize].number;
         let mv = g.move_text(o.at);
