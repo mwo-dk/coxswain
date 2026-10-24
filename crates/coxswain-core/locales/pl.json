@@ -4277,5 +4277,18 @@
  "ptools.would": "Zainstaluj {program} albo pobierz jego obraz{size}.",
  "ptools.would_runtime": "Zainstaluj {program} albo zainstaluj podman lub docker i pobierz jego obraz{size}.",
  "ptools.would_install": "Zainstaluj {program}.",
- "ptools.pull": "Pobierz jego obraz{size}"
+ "ptools.pull": "Pobierz jego obraz{size}",
+ "pinned.changed": "To już nie ten sam plik: pozostawiony bez zmian.",
+ "pinned.link": "Dowiązanie: pozostawione bez zmian i nieśledzone.",
+ "pinned.too_deep": "Głębiej niż {n} folderów: zawartość pozostaje bez zmian.",
+ "pinned.no_open": "Nie udało się otworzyć: pozostawiony bez zmian.",
+ "pinned.hard_link": "Twarde dowiązanie: pozostawione bez zmian, aby nie zmieniły się też jego inne nazwy.",
+ "pinned.not_yours": "Plik innego użytkownika: pozostawiony bez zmian, aby nadal był jego.",
+ "pinned.extra": "Ma dodatkowe uprawnienia lub atrybuty: pozostawiony bez zmian.",
+ "pinned.special": "Ani plik, ani folder: pozostawiony bez zmian.",
+ "pinned.missed": "Zmienione od planu, pozostawione bez zmian: {n}",
+ "pinned.no_folders": "W Windows nie wchodzi jeszcze do folderów: zaznacz same pliki.",
+ "pinned.setid": "Uruchamia się jako właściciel lub grupa (setuid, setgid): pozostawiony bez zmian.",
+ "pinned.other_disk": "Na innym dysku lub punkcie montowania: nie wchodzi.",
+ "pinned.full": "Zatrzymano przy {n}: zaznacz mniej."
 }

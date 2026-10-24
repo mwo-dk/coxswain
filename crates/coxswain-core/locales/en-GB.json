@@ -4108,5 +4108,18 @@
  "ptools.would": "Install {program}, or pull its image{size}.",
  "ptools.would_runtime": "Install {program}, or install podman or docker and pull its image{size}.",
  "ptools.would_install": "Install {program}.",
- "ptools.pull": "Pull its image{size}"
+ "ptools.pull": "Pull its image{size}",
+ "pinned.changed": "Not the same file any more: left as it is.",
+ "pinned.link": "A link: left as it is, and not followed.",
+ "pinned.too_deep": "More than {n} folders deep: what is inside is left as it is.",
+ "pinned.no_open": "Could not be opened: left as it is.",
+ "pinned.hard_link": "A hard link: left as it is, so its other names do not change too.",
+ "pinned.not_yours": "Another user's file: left as it is, so it stays theirs.",
+ "pinned.extra": "Has extra permissions or attributes: left as it is.",
+ "pinned.special": "Not a file nor a folder: left as it is.",
+ "pinned.missed": "Changed since the plan, left as they are: {n}",
+ "pinned.no_folders": "Not gone into on Windows yet: mark the files themselves.",
+ "pinned.setid": "Runs as its owner or group (setuid, setgid): left as it is.",
+ "pinned.other_disk": "On another disk or mount: not gone into.",
+ "pinned.full": "Stopped at {n}: mark fewer items."
 }

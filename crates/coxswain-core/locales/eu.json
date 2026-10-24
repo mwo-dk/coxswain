@@ -4097,5 +4097,18 @@
  "ptools.would": "Instalatu {program}, edo deskargatu haren irudia{size}.",
  "ptools.would_runtime": "Instalatu {program}, edo instalatu podman edo docker eta deskargatu haren irudia{size}.",
  "ptools.would_install": "Instalatu {program}.",
- "ptools.pull": "Deskargatu haren irudia{size}"
+ "ptools.pull": "Deskargatu haren irudia{size}",
+ "pinned.changed": "Ez da jada fitxategi bera: dagoen bezala uzten da.",
+ "pinned.link": "Esteka bat: dagoen bezala uzten da, eta ez da jarraitzen.",
+ "pinned.too_deep": "{n} karpeta baino sakonago: barrukoa dagoen bezala uzten da.",
+ "pinned.no_open": "Ezin izan da ireki: dagoen bezala uzten da.",
+ "pinned.hard_link": "Esteka gogorra: dagoen bezala uzten da, beste izenak ere alda ez daitezen.",
+ "pinned.not_yours": "Beste erabiltzaile baten fitxategia: dagoen bezala uzten da, harena izaten jarrai dezan.",
+ "pinned.extra": "Baimen edo atributu gehigarriak ditu: dagoen bezala uzten da.",
+ "pinned.special": "Ez da fitxategia ez karpeta: dagoen bezala uzten da.",
+ "pinned.missed": "Planetik aldatuak, dauden bezala uzten dira: {n}",
+ "pinned.no_folders": "Windowsen ez da oraindik karpetetan sartzen: markatu fitxategiak beraiek.",
+ "pinned.setid": "Bere jabe edo talde gisa exekutatzen da (setuid, setgid): dagoen bezala uzten da.",
+ "pinned.other_disk": "Beste disko edo muntaketa batean: ez da sartzen.",
+ "pinned.full": "{n}-n gelditu da: markatu gutxiago."
 }

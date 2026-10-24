@@ -4097,5 +4097,18 @@
  "ptools.would": "Asenna {program} tai lataa sen levykuva{size}.",
  "ptools.would_runtime": "Asenna {program} tai asenna podman tai docker ja lataa sen levykuva{size}.",
  "ptools.would_install": "Asenna {program}.",
- "ptools.pull": "Lataa sen levykuva{size}"
+ "ptools.pull": "Lataa sen levykuva{size}",
+ "pinned.changed": "Ei enää sama tiedosto: jätetään ennalleen.",
+ "pinned.link": "Linkki: jätetään ennalleen eikä sitä seurata.",
+ "pinned.too_deep": "Yli {n} kansion syvyydessä: sisältö jätetään ennalleen.",
+ "pinned.no_open": "Ei voitu avata: jätetään ennalleen.",
+ "pinned.hard_link": "Kova linkki: jätetään ennalleen, jotta sen muut nimet eivät muutu.",
+ "pinned.not_yours": "Toisen käyttäjän tiedosto: jätetään ennalleen, jotta se pysyy hänen omanaan.",
+ "pinned.extra": "Siinä on lisäoikeuksia tai -määritteitä: jätetään ennalleen.",
+ "pinned.special": "Ei tiedosto eikä kansio: jätetään ennalleen.",
+ "pinned.missed": "Muuttuneet suunnitelman jälkeen, jätetään ennalleen: {n}",
+ "pinned.no_folders": "Windowsissa kansioihin ei vielä mennä: merkitse itse tiedostot.",
+ "pinned.setid": "Ajetaan omistajanaan tai ryhmänään (setuid, setgid): jätetään ennalleen.",
+ "pinned.other_disk": "Toisella levyllä tai liitoksessa: ei mennä sisään.",
+ "pinned.full": "Pysähtyi {n} kohdalla: merkitse vähemmän."
 }

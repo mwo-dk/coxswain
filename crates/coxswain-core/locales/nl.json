@@ -4097,5 +4097,18 @@
  "ptools.would": "Installeer {program}, of haal zijn image op{size}.",
  "ptools.would_runtime": "Installeer {program}, of installeer podman of docker en haal zijn image op{size}.",
  "ptools.would_install": "Installeer {program}.",
- "ptools.pull": "Zijn image ophalen{size}"
+ "ptools.pull": "Zijn image ophalen{size}",
+ "pinned.changed": "Niet meer hetzelfde bestand: gelaten zoals het is.",
+ "pinned.link": "Een koppeling: gelaten zoals hij is, en niet gevolgd.",
+ "pinned.too_deep": "Meer dan {n} mappen diep: de inhoud blijft zoals hij is.",
+ "pinned.no_open": "Kon niet worden geopend: gelaten zoals het is.",
+ "pinned.hard_link": "Een harde koppeling: gelaten zoals ze is, zodat haar andere namen niet mee veranderen.",
+ "pinned.not_yours": "Bestand van een andere gebruiker: gelaten zoals het is, zodat het van hen blijft.",
+ "pinned.extra": "Heeft extra rechten of attributen: gelaten zoals het is.",
+ "pinned.special": "Geen bestand en geen map: gelaten zoals het is.",
+ "pinned.missed": "Gewijzigd sinds het plan, gelaten zoals ze zijn: {n}",
+ "pinned.no_folders": "Op Windows wordt er nog niet in mappen gekeken: markeer de bestanden zelf.",
+ "pinned.setid": "Draait als zijn eigenaar of groep (setuid, setgid): gelaten zoals het is.",
+ "pinned.other_disk": "Op een andere schijf of koppeling: niet in gekeken.",
+ "pinned.full": "Gestopt bij {n}: markeer minder."
 }

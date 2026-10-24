@@ -4187,5 +4187,18 @@
  "ptools.would": "Instal·leu {program}, o descarregueu-ne la imatge{size}.",
  "ptools.would_runtime": "Instal·leu {program}, o instal·leu podman o docker i descarregueu-ne la imatge{size}.",
  "ptools.would_install": "Instal·leu {program}.",
- "ptools.pull": "Descarrega'n la imatge{size}"
+ "ptools.pull": "Descarrega'n la imatge{size}",
+ "pinned.changed": "Ja no és el mateix fitxer: es deixa tal com és.",
+ "pinned.link": "Un enllaç: es deixa com està i no se segueix.",
+ "pinned.too_deep": "Més de {n} carpetes de fondària: el que hi ha dins es deixa tal com és.",
+ "pinned.no_open": "No s'ha pogut obrir: es deixa tal com és.",
+ "pinned.hard_link": "Un enllaç dur: es deixa tal com és, perquè els altres noms no canviïn també.",
+ "pinned.not_yours": "Fitxer d'un altre usuari: es deixa tal com és, perquè continuï sent seu.",
+ "pinned.extra": "Té permisos o atributs addicionals: es deixa tal com és.",
+ "pinned.special": "No és un fitxer ni una carpeta: es deixa tal com és.",
+ "pinned.missed": "Canviats des del pla, es deixen tal com són: {n}",
+ "pinned.no_folders": "Encara no s'hi entra a Windows: marqueu els fitxers mateixos.",
+ "pinned.setid": "S'executa com el seu propietari o grup (setuid, setgid): es deixa tal com és.",
+ "pinned.other_disk": "En un altre disc o muntatge: no s'hi entra.",
+ "pinned.full": "Aturat a {n}: marqueu menys elements."
 }
