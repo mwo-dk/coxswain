@@ -9,9 +9,9 @@ and **Alt+B** the bookmarks and branches, as folders. **Alt+S** switches to a bo
 branch and *New branch here* makes a bookmark, as for git; nothing else is written. Both apps do
 this, through the `hg` program you have installed.
 
-![The desktop app (Cyber) in ~/projects/glider, a Mercurial repository: src marked modified, NOTES.txt unknown, and at the right of the pane's footer the line hg main with one modified and one unknown file](../screenshots/hg-line.png)
+![The desktop app (Cyber) in ~/projects/glider, a Mercurial repository, the sidebar hidden: src marked modified, NOTES.txt unknown, the Last commit column with 2026-10-20 Ada on docs and src and 2026-10-12 Bob on README.md, and at the right of the pane's footer the line hg main with one modified and one unknown file](../screenshots/hg-line.png)
 
-![The terminal app in Classic blue: glider on the left with the line hg main and its counts in the panel's bottom border, rocket on the right with its git line](../screenshots/tui-hg-line.png)
+![The terminal app in Classic blue: glider on the left with the cursor on src, its last commit 61a26d4 2026-10-20 18:40 Ada on the info line and the line hg main with its counts in the panel's bottom border, rocket on the right with its git line](../screenshots/tui-hg-line.png)
 
 ## Contents
 
