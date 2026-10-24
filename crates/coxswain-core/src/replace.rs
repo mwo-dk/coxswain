@@ -22,9 +22,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-/// Whether the changes are written: not on Windows yet, where only the preview is offered.
-pub const WRITES: bool = pinned::WRITES;
-
 /// The changes a plan keeps at most: past them it stops looking, and says so.
 pub const MOST_CHANGES: usize = 20_000;
 /// How much of a long line a change shows on each side of what it replaces.
@@ -560,11 +557,6 @@ pub(crate) fn write_back(path: &Path, bytes: &[u8], pin: Pin) -> std::io::Result
 /// Write the ticked changes of `picks` in the files of `plan`, as the plan read them; `stop`
 /// ends it between files.
 pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress) -> Result<Applied, String> {
-    // ponytail: no handle-relative write on Windows yet (NtCreateFile and FileRenameInfo
-    // relative to the folder's handle): there the preview shows what would change, nothing more.
-    if !WRITES {
-        return Err(t!("replace.windows"));
-    }
     let q = &plan.query;
     let re = q.compile()?;
     let template = q.template();
@@ -666,22 +658,18 @@ mod tests {
         plan(roots, q, &AtomicBool::new(false), &Progress::default()).unwrap()
     }
 
-    #[cfg(unix)]
     fn apply_all(plan: &Plan) -> Applied {
         apply(plan, &picks(plan), &AtomicBool::new(false), &Progress::default()).unwrap()
     }
 
-    #[cfg(unix)]
     fn run(roots: &[PathBuf], q: &Query) -> (Plan, Applied) {
         let plan = plan_of(roots, q);
         let done = apply_all(&plan);
         (plan, done)
     }
 
-    #[cfg(unix)]
     #[test]
     fn plans_then_writes_keeping_encoding_line_endings_and_permissions() {
-        use std::os::unix::fs::PermissionsExt;
         let d = crate::fs::Scratch::named("replace-1");
         let a = d.join("a.txt");
         std::fs::write(&a, "one foo\r\ntwo\nfoo foo\r\n").unwrap();
@@ -693,7 +681,8 @@ mod tests {
         std::fs::write(d.join("bin.dat"), b"foo\0foo").unwrap();
         std::fs::create_dir(d.join(".git")).unwrap();
         std::fs::write(d.join(".git/config"), "foo").unwrap();
-        std::fs::set_permissions(&a, std::fs::Permissions::from_mode(0o751)).unwrap();
+        #[cfg(unix)]
+        std::fs::set_permissions(&a, std::os::unix::fs::PermissionsExt::from_mode(0o751)).unwrap();
         let (plan, done) = run(&[d.to_path_buf()], &q("foo", "bär"));
         assert_eq!(plan.files.len(), 3);
         assert_eq!(plan.binary, 1);
@@ -708,7 +697,8 @@ mod tests {
         assert_eq!(std::fs::read(&utf16).unwrap(), want);
         assert_eq!(std::fs::read(&latin).unwrap(), b"caf\xe9 b\xe4r\n");
         assert_eq!(std::fs::read(d.join(".git/config")).unwrap(), b"foo");
-        assert_eq!(std::fs::metadata(&a).unwrap().permissions().mode() & 0o777, 0o751);
+        #[cfg(unix)]
+        assert_eq!(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(&a).unwrap().permissions()) & 0o777, 0o751);
         // One undo puts every file back as it was.
         let undone = done.record.undo(|_| {});
         assert_eq!((undone.done, undone.refused.len()), (3, 0), "{:?}", undone.refused);
@@ -716,7 +706,6 @@ mod tests {
         assert_eq!(std::fs::read(&utf16).unwrap(), bytes);
     }
 
-    #[cfg(unix)]
     #[test]
     fn unticked_changes_stay_and_a_file_changed_since_is_left() {
         let d = crate::fs::Scratch::named("replace-2");
@@ -738,7 +727,6 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&a).unwrap(), "mine now");
     }
 
-    #[cfg(unix)]
     #[test]
     fn regex_case_and_whole_words() {
         let d = crate::fs::Scratch::named("replace-3");
@@ -794,7 +782,6 @@ mod tests {
         assert!(std::fs::symlink_metadata(&a).unwrap().file_type().is_symlink());
     }
 
-    #[cfg(unix)]
     #[test]
     fn hard_links_are_left_out_and_never_written_through() {
         let d = crate::fs::Scratch::named("replace-hardlink");
@@ -814,7 +801,6 @@ mod tests {
         assert_eq!(std::fs::read_to_string(d.join("theirs")).unwrap(), "foo");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_file_moved_away_and_replaced_after_the_plan_is_left() {
         let d = crate::fs::Scratch::named("replace-moved");
@@ -829,7 +815,6 @@ mod tests {
         assert_eq!(std::fs::read_to_string(d.join("old.txt")).unwrap(), "foo");
     }
 
-    #[cfg(unix)]
     #[test]
     fn empty_matches_do_not_shift_which_change_is_left_out() {
         let d = crate::fs::Scratch::named("replace-empty");
@@ -845,7 +830,6 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&a).unwrap(), "Z y x");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_full_plan_writes_only_the_changes_it_listed() {
         let d = crate::fs::Scratch::named("replace-listed");
@@ -858,10 +842,8 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&a).unwrap(), "y y x x");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_folder_swapped_for_a_link_after_the_plan_is_not_written_and_undo_keeps_to_its_folder() {
-        use std::os::unix::fs::PermissionsExt;
         let (d, out) = (crate::fs::Scratch::named("replace-dirswap"), crate::fs::Scratch::named("replace-dirswap-out"));
         std::fs::create_dir(d.join("sub")).unwrap();
         std::fs::write(d.join("sub/a"), "foo").unwrap();
@@ -871,25 +853,26 @@ mod tests {
         std::fs::File::options().write(true).open(out.join("a")).unwrap().set_modified(t).unwrap();
         let plan = plan_of(&[d.to_path_buf()], &q("foo", "bar"));
         std::fs::rename(d.join("sub"), d.join("moved")).unwrap();
-        std::os::unix::fs::symlink(&*out, d.join("sub")).unwrap();
+        crate::pinned::link_dir(&out, &d.join("sub"));
         let done = apply_all(&plan);
         assert_eq!((done.files, done.failed.len()), (0, 1), "{:?}", done.failed);
         assert_eq!(std::fs::read_to_string(out.join("a")).unwrap(), "foo");
         // Written where it is: the file beside takes the file's own permissions.
-        std::fs::set_permissions(d.join("moved/a"), std::fs::Permissions::from_mode(0o640)).unwrap();
+        #[cfg(unix)]
+        std::fs::set_permissions(d.join("moved/a"), std::os::unix::fs::PermissionsExt::from_mode(0o640)).unwrap();
         let (_, done) = run(&[d.join("moved/a")], &q("foo", "bar"));
-        assert_eq!(done.files, 1);
-        assert_eq!(std::fs::metadata(d.join("moved/a")).unwrap().permissions().mode() & 0o777, 0o640);
+        assert_eq!(done.files, 1, "{:?}", done.failed);
+        #[cfg(unix)]
+        assert_eq!(std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(d.join("moved/a")).unwrap().permissions()) & 0o777, 0o640);
         // Its folder swapped for a link before the undo: refused, nothing written outside.
         std::fs::rename(d.join("moved"), d.join("moved2")).unwrap();
-        std::os::unix::fs::symlink(&*out, d.join("moved")).unwrap();
+        crate::pinned::link_dir(&out, &d.join("moved"));
         let undone = done.record.undo(|_| {});
         assert_eq!((undone.done, undone.refused.len()), (0, 1));
         assert_eq!(std::fs::read_to_string(out.join("a")).unwrap(), "foo");
         assert_eq!(std::fs::read_to_string(d.join("moved2/a")).unwrap(), "bar");
     }
 
-    #[cfg(unix)]
     #[test]
     fn a_folder_renamed_in_after_the_plan_is_not_written() {
         let (d, out) = (crate::fs::Scratch::named("replace-renamed-in"), crate::fs::Scratch::named("replace-renamed-in-out"));
@@ -906,7 +889,6 @@ mod tests {
         assert_eq!(std::fs::read_to_string(out.join("was/a")).unwrap(), "foo");
     }
 
-    #[cfg(unix)]
     #[test]
     fn the_run_writes_only_the_content_the_plan_read_and_undo_only_the_file_it_wrote() {
         let d = crate::fs::Scratch::named("replace-pinned");
@@ -983,17 +965,6 @@ mod tests {
         assert!(held.is_dir());
         assert!(!dead.exists());
         let _ = std::fs::remove_dir_all(&held);
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn on_windows_it_previews_and_never_writes() {
-        let d = crate::fs::Scratch::named("replace-windows");
-        std::fs::write(d.join("a"), "foo").unwrap();
-        let plan = plan_of(&[d.join("a")], &q("foo", "bar"));
-        assert_eq!(plan.changes(), 1, "{:?}", plan.skipped);
-        assert!(apply(&plan, &picks(&plan), &AtomicBool::new(false), &Progress::default()).is_err());
-        assert_eq!(std::fs::read_to_string(d.join("a")).unwrap(), "foo");
     }
 
     #[test]

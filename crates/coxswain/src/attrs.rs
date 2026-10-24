@@ -35,7 +35,7 @@ struct Job {
 }
 
 /// The boxes: the access time (Unix only) and into folders.
-const BOXES: usize = if coxswain_core::attrs::RECURSIVE { 2 } else { 0 };
+const BOXES: usize = if cfg!(windows) { 1 } else { 2 };
 
 pub struct Viewer {
     roots: Vec<PathBuf>,
@@ -57,7 +57,7 @@ impl Viewer {
             many => tn!("items", many.len()),
         };
         // Into folders by default when only folders are marked: what else would be meant.
-        let recursive = attrs::RECURSIVE && roots.iter().all(|p| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()));
+        let recursive = roots.iter().all(|p| std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir()));
         Viewer {
             title: t!("attrs.title", "what" => what),
             roots,
@@ -157,7 +157,7 @@ impl Viewer {
             KeyCode::Down | KeyCode::PageDown if rows > 0 => self.top = (self.top + if key.code == KeyCode::Down { 1 } else { 10 }).min(rows - 1),
             KeyCode::Up | KeyCode::PageUp => self.top = self.top.saturating_sub(if key.code == KeyCode::Up { 1 } else { 10 }),
             KeyCode::Char(' ') if self.focus >= 2 => {
-                let b = if self.focus == 2 { &mut self.spec.accessed } else { &mut self.spec.recursive };
+                let b = if self.focus == 2 && BOXES == 2 { &mut self.spec.accessed } else { &mut self.spec.recursive };
                 *b = !*b;
                 self.plan = None;
             }
@@ -254,12 +254,11 @@ impl Viewer {
             f.render_widget(Paragraph::new(crate::ui::fit_left(&format!("{value}{cursor}"), v.width as usize)).style(style), v);
         }
         let mut boxes = vec![];
+        // The time of last access: Unix only (Windows keeps its own).
         if BOXES == 2 {
             boxes.push((t!("attrs.accessed"), self.spec.accessed));
-            boxes.push((t!("attrs.recursive"), self.spec.recursive));
-        } else {
-            f.render_widget(Paragraph::new(fit(&t!("attrs.no_recursion"), w)).style(dim), opts_a);
         }
+        boxes.push((t!("attrs.recursive"), self.spec.recursive));
         let mut x = opts_a.x;
         for (k, (label, on)) in boxes.into_iter().enumerate() {
             let s = format!("[{}] {label}", if on { "x" } else { " " });

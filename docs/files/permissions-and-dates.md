@@ -28,8 +28,8 @@ file that would change, before and after; nothing changes until you press **Ente
 3. Type the permissions, the date, or both. Leave a field empty to keep what the files have.
 4. Tick *Access time too* (Unix) to set the time of last access as well, and *Into folders, all
    the way down* to reach everything inside the marked folders. It is ticked already when only
-   folders are marked. On Windows *Into folders* is not available yet: only the marked items change,
-   and the dialog says so.
+   folders are marked. On Windows only *Into folders* is there: Windows keeps the time of last
+   access itself.
 5. Press **Enter** (*Plan*). The list shows every file that changes, its permissions and its
    date before → after.
 6. Press **Enter** again (*Change 12 items*). **Esc** or *Cancel* closes without changing
@@ -83,7 +83,8 @@ time of last access to the same; Windows keeps its own.
 
 ## What is left out
 
-- **Links** are never followed nor changed: *A link: left as it is, and not followed.*
+- **Links** are never followed nor changed: *A link: left as it is, and not followed.* On Windows
+  that means junctions, mount points and files only in the cloud too.
 - **Only what the plan saw.** The plan goes through the folders by their handles, never through
   a link, and notes each entry that changes and each folder on the way to one: which file it is
   and when its entry last changed. The run goes the same way, only into those folders, and

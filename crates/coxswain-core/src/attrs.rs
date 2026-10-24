@@ -24,9 +24,6 @@ pub const SHOWN: usize = 2_000;
 /// The entries a plan changes at most: past them it stops, and says so.
 pub const MOST: usize = 100_000;
 
-/// Whether "Into folders" is offered: not on Windows yet, whose walk goes by path.
-pub const RECURSIVE: bool = pinned::RECURSES;
-
 /// What to change, as typed.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -218,7 +215,7 @@ fn when(spec: &Spec, base: &Path) -> Result<Option<(i64, u32)>, String> {
 }
 
 fn walk_spec<'a>(spec: &Spec, only: Option<&'a Set>) -> Walk<'a> {
-    Walk { recursive: spec.recursive && RECURSIVE, skip: &[], only }
+    Walk { recursive: spec.recursive, skip: &[], only }
 }
 
 /// What `said` holds, as lines, with "… and N more".
@@ -558,10 +555,9 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(d.join("a"), d.join("link")).unwrap();
         let spec = Spec { mode: if cfg!(windows) { "-w".into() } else { "u+x".into() }, date: "2020-01-02 03:04".into(), accessed: true, recursive: true };
-        // Into folders where it is offered; else every entry marked.
-        let roots = if RECURSIVE { vec![d.to_path_buf()] } else { ["a", "sub", "sub/b"].iter().map(|f| d.join(f)).collect() };
+        let roots = vec![d.to_path_buf()];
         let plan = plan_of(&roots, &spec, &d);
-        assert_eq!(plan.total, if RECURSIVE { 4 } else { 3 }, "{plan:?}");
+        assert_eq!(plan.total, 4, "{plan:?}");
         #[cfg(unix)]
         assert_eq!(plan.refused.len(), 1);
         let before = now_of(&d.join("sub/b"));

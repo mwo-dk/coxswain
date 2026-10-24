@@ -321,8 +321,6 @@
 
   // ------------------------------------------------------------ find and replace
 
-  /** Windows: the preview only, for now (`replace::WRITES`). */
-  const REPLACE_WRITES = typeof navigator === "undefined" || !/Windows/.test(navigator.userAgent);
   /** A path as the list shows it: from the folder the files are in. */
   const replaceRel = (m, p) => (m.base && p.startsWith(m.base) ? p.slice(m.base.length).replace(/^[\\/]+/, "") : "") || p;
   function replaceTicked(m) {
@@ -373,7 +371,7 @@
       else if (!m.busy.stopping) (m.busy.stopping = true), invoke("replace_stop");
     } else if (k === "Enter" && !m.busy) {
       const write = !!m.plan?.files.length && replaceTicked(m).changes > 0;
-      if (!write || REPLACE_WRITES) replaceRun(m, write);
+      replaceRun(m, write);
     }
     else return false;
     return true;
@@ -391,7 +389,6 @@
     let s = t("replace.ticked", { changes: tn("replace.changes", changes), files: tn("preview.files", files) });
     const out = m.plan.skipped.length + m.plan.more + m.plan.binary;
     if (out) s += ` · ${t("replace.left_out", { n: out })}`;
-    if (!REPLACE_WRITES) s += ` · ${t("replace.windows")}`;
     if (m.plan.full) s += ` · ${t("replace.full", { n: num(20000) })}`;
     else if (m.plan.stopped) s += ` · ${t("replace.stopped_early")}`;
     return s;
@@ -938,7 +935,7 @@
         </div>
         <div class="flags">
           {#if !WINDOWS}<label><input type="checkbox" bind:checked={m.spec.accessed} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("attrs.accessed")}</label>{/if}
-          {#if WINDOWS}<span class="meta">{t("attrs.no_recursion")}</span>{:else}<label><input type="checkbox" bind:checked={m.spec.recursive} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("attrs.recursive")}</label>{/if}
+          <label><input type="checkbox" bind:checked={m.spec.recursive} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("attrs.recursive")}</label>
         </div>
         <p class="meta">{attrsState(m)}</p>
         {#if m.error}<p class="err">{m.error}</p>{/if}
@@ -1003,7 +1000,7 @@
           {#if m.busy}
             <button disabled={m.busy.stopping} onclick={() => replaceKey(m, "Esc")}>{t("searchable.stop")}</button>
           {:else if m.plan?.files.length}
-            <button class="primary" disabled={!ticked.changes || !REPLACE_WRITES} onclick={() => replaceRun(m, true)}>{tn("replace.go", ticked.changes, { files: tn("preview.files", ticked.files) })}</button>
+            <button class="primary" disabled={!ticked.changes} onclick={() => replaceRun(m, true)}>{tn("replace.go", ticked.changes, { files: tn("preview.files", ticked.files) })}</button>
             <button onclick={() => replaceRun(m, false)}>{t("replace.preview_again")}</button>
           {:else}
             <button class="primary" disabled={!m.query.find} onclick={() => replaceRun(m, false)}>{t("replace.preview")}</button>
