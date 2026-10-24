@@ -188,6 +188,12 @@ it as any PGN file: the preview pane (**Space**) or **Alt+K** in the desktop app
 **Alt+K** in the terminal app, *Open games* in the action menu (**Shift+F10**) and **F9**. The
 `.sg4` and `.sn4` files beside it are read with it; on their own they show as other files do.
 
+![A SCID database, club.si4, open in the desktop app's chess window: the table of its three games with Morphy, Paul – Duke Karl / Count Isouard first, their results, dates, events, ECO codes and openings, the filter fields above](../screenshots/gui-chess-scid.png)
+
+![The first game of club.si4 on the desktop app's board at 3…Bg4, the comment after it in italics and the variation 15…Qxd7 in brackets, the buttons under the board](../screenshots/gui-chess-scid-game.png)
+
+![The terminal app's table of the same SCID database: three games, Morphy's first and lit, the filter keys on the line below](../screenshots/tui-chess-scid.png)
+
 The table fills from the index as it streams by, and a game's moves are read from the `.sg4`
 file only when you open it, so a base of millions of games opens as quickly as a PGN file of
 the same size. Each game shows on the board with its variations, comments, annotation glyphs
