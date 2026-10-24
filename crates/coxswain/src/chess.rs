@@ -1120,16 +1120,20 @@ impl Viewer {
             _ => vec![],
         };
         if self.other_game() {
-            let (lines, board_w) = if self.bridge() {
-                self.bridge_table(dim)
+            let (lines, board_w, placed) = if self.bridge() {
+                let (l, w) = self.bridge_table(dim);
+                (l, w, vec![])
             } else if self.xiangqi() {
-                self.xiangqi_board(dim)
+                self.xiangqi_board(area, dim)
             } else if self.shogi() {
-                self.shogi_board(dim)
+                self.shogi_board(area, dim)
             } else {
                 self.draughts_board(area, dim)
             };
             f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
+            if let Some(pics) = self.pictures.as_mut() {
+                pics.place(f.buffer_mut(), (area.x, area.y), area, placed);
+            }
             return self.draw_moves(f, theme, area, board_w, vec![]);
         }
         // The board: as big as fits, a square twice as wide as high, the moves beside it.
@@ -1138,7 +1142,7 @@ impl Viewer {
         let squares = chess::squares(fen.as_deref().unwrap_or(""));
         let mut lines: Vec<Line> = vec![];
         // The squares with a piece, for its picture: where, which and on what colour.
-        let mut placed: Vec<(Rect, char, Color)> = vec![];
+        let mut placed: Vec<crate::pictures::Placed> = vec![];
         for row in 0..8u16 {
             let rank = if self.flip { row } else { 7 - row };
             let mut rows: Vec<Vec<Span>> = (0..cell_h).map(|sub| vec![Span::styled(if sub == cell_h / 2 { format!("{} ", rank + 1) } else { "  ".into() }, dim)]).collect();
@@ -1151,7 +1155,7 @@ impl Viewer {
                     colour = tint(colour, (0xf6, 0xe0, 0x5a));
                 }
                 if let (Pieces::Pictures, Some(p)) = (pieces, squares[sq as usize]) {
-                    placed.push((Rect::new(area.x + 2 + col * cell_w, area.y + row * cell_h, cell_w, cell_h), p, colour));
+                    placed.push((Rect::new(2 + col * cell_w, row * cell_h, cell_w, cell_h), crate::pictures::Picture::of(crate::pictures::chess(p)), colour));
                 }
                 let piece = squares[sq as usize].map(|p| crate::pieces::Piece {
                     name: p,
@@ -1208,20 +1212,15 @@ impl Viewer {
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
         // Each picture over its square's figurine, which stays where one cannot be made.
         if let Some(pics) = self.pictures.as_mut() {
-            for (r, p, colour) in placed {
-                if r.right() <= area.right() && r.bottom() <= area.bottom() {
-                    pics.draw(f.buffer_mut(), r, p, colour);
-                }
-            }
-            pics.finish(f.buffer_mut());
+            pics.place(f.buffer_mut(), (area.x, area.y), area, placed);
         }
         self.draw_moves(f, theme, area, board_w, book);
     }
 
     /// A draughts board from the position shown: dark squares numbered, men ● and kings ♚ in
     /// white and black, the last move's squares tinted.
-    fn draughts_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16) {
-        let Some(o) = &self.open else { return (vec![], 0) };
+    fn draughts_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16, Vec<crate::pictures::Placed>) {
+        let Some(o) = &self.open else { return (vec![], 0, vec![]) };
         let g = &o.game;
         let fen = match o.at {
             Some(n) => g.nodes[n as usize].fen.clone(),
@@ -1234,6 +1233,7 @@ impl Viewer {
         let w = cells.iter().map(Vec::len).max().unwrap_or(0).max(1) as u16;
         let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, &mosaic::DRAUGHTS, w, h, (area.width * 3 / 5).max(area.width.saturating_sub(40)), area.height.saturating_sub(1));
         let mut lines = vec![];
+        let mut placed = vec![];
         for row in 0..h {
             let y = if self.flip { h - 1 - row } else { row };
             let mut rows: Vec<Vec<Span>> = vec![vec![]; cell_h as usize];
@@ -1245,7 +1245,11 @@ impl Viewer {
                 if last.is_some_and(|(a, b)| a == Some(cell) || b == Some(cell)) {
                     colour = tint(colour, (0xf6, 0xe0, 0x5a));
                 }
-                let piece = cells.get(y as usize).and_then(|r| r.get(x as usize)).copied().flatten().map(|p| crate::pieces::Piece {
+                let at = cells.get(y as usize).and_then(|r| r.get(x as usize)).copied().flatten();
+                if let (Pieces::Pictures, Some(p)) = (pieces, at) {
+                    placed.push((Rect::new(col * cell_w, row * cell_h, cell_w, cell_h), crate::pictures::Picture::of(crate::pictures::draughts(p)), colour));
+                }
+                let piece = at.map(|p| crate::pieces::Piece {
                     name: p,
                     figurine: if p.eq_ignore_ascii_case(&'k') { "♚" } else { "●" },
                     colour: if p.is_ascii_uppercase() { Color::Rgb(255, 255, 255) } else { Color::Rgb(0, 0, 0) },
@@ -1265,14 +1269,15 @@ impl Viewer {
         }
         let white = fen.split_whitespace().nth(1) != Some("b");
         lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
-        (lines, cell_w * w)
+        (lines, cell_w * w, placed)
     }
 
     /// A xiangqi board: 9 files by 10 ranks of lines on the theme's wood, the river between
     /// the fifth and sixth ranks, the palaces' centres marked ╳, the pieces as their characters
-    /// in red and black, the last move's points tinted.
-    fn xiangqi_board(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
-        let Some(o) = &self.open else { return (vec![], 0) };
+    /// in red and black, the last move's points tinted. With room, the pieces are discs drawn
+    /// from block characters with their character on them, or the desktop app's pictures.
+    fn xiangqi_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16, Vec<crate::pictures::Placed>) {
+        let Some(o) = &self.open else { return (vec![], 0, vec![]) };
         let g = &o.game;
         let fen = match o.at {
             Some(n) => g.nodes[n as usize].fen.clone(),
@@ -1283,6 +1288,10 @@ impl Viewer {
         let cells = coxswain_core::xiangqi::cells(&fen);
         let wood = self.board[0];
         let ink = Style::default().bg(wood).fg(Color::Rgb(70, 50, 30));
+        let (pieces, cols, rows) = crate::pieces::points(self.pieces, 9, 10, (area.width * 3 / 5).max(area.width.saturating_sub(40)), area.height.saturating_sub(3));
+        if pieces != Pieces::Figurines {
+            return self.xiangqi_drawn(&fen, &cells, last, pieces, cols, rows, dim);
+        }
         let mut lines = vec![];
         let files = |red: bool| -> String {
             let n: Vec<String> = if red { ["九", "八", "七", "六", "五", "四", "三", "二", "一"].map(String::from).to_vec() } else { (1..=9).map(|n| format!("{n} ")).collect() };
@@ -1336,7 +1345,78 @@ impl Viewer {
         lines.push(Line::styled(files(!self.flip), dim));
         let red = fen.split_whitespace().nth(1) != Some("b");
         lines.push(Line::styled(t!(if red { "xiangqi.red_to_move" } else { "chess.black_to_move" }), dim));
-        (lines, 18)
+        (lines, 18, vec![])
+    }
+
+    /// The xiangqi board with points of `cols` × `rows` cells: each piece a light disc with
+    /// its character, or its picture; the river the gap in the lines between the fifth and
+    /// sixth ranks.
+    #[allow(clippy::too_many_arguments)]
+    fn xiangqi_drawn(&self, fen: &str, cells: &[Option<char>], last: Option<(Option<u8>, Option<u8>)>, pieces: Pieces, cols: u16, rows: u16, dim: Style) -> (Vec<Line<'static>>, u16, Vec<crate::pictures::Placed>) {
+        use crate::pieces::{DOWN, LEFT, RIGHT, UP};
+        let wood = self.board[0];
+        let ink_rgb = (70, 50, 30);
+        let mut placed = vec![];
+        let names = |red: bool| -> Line<'static> {
+            let n: Vec<String> = if red { ["九", "八", "七", "六", "五", "四", "三", "二", "一"].map(String::from).to_vec() } else { (1..=9).map(|n| n.to_string()).collect() };
+            let n: Vec<String> = if self.flip { n.into_iter().rev().collect() } else { n };
+            // Each name over its file's line, in the middle of its point.
+            let mut s = String::new();
+            for name in n {
+                let w = unicode_width::UnicodeWidthStr::width(name.as_str()) as u16;
+                let left = ((cols - w) / 2) as usize;
+                s.push_str(&format!("{}{name}{}", " ".repeat(left), " ".repeat((cols - w) as usize - left)));
+            }
+            Line::styled(s, dim)
+        };
+        let mut lines = vec![names(self.flip)];
+        for row in 0..10u16 {
+            let y = if self.flip { 9 - row } else { row } as usize;
+            let mut grids = vec![];
+            for col in 0..9u16 {
+                let x = if self.flip { 8 - col } else { col } as usize;
+                let c = x + y * 9;
+                let mut bg = wood;
+                if last.is_some_and(|(a, b)| a == Some(c as u8) || b == Some(c as u8)) {
+                    bg = tint(wood, (0xf6, 0xe0, 0x5a));
+                }
+                let edge = col == 0 || col == 8;
+                let mut lines = 0;
+                if row > 0 && (row != 5 || edge) {
+                    lines |= UP;
+                }
+                if row < 9 && (row != 4 || edge) {
+                    lines |= DOWN;
+                }
+                if col > 0 {
+                    lines |= LEFT;
+                }
+                if col < 8 {
+                    lines |= RIGHT;
+                }
+                let mid = if x == 4 && (y == 1 || y == 8) { '╳' } else { crate::pieces::junction(lines) };
+                let ink = Style::default().bg(bg).fg(Color::Rgb(ink_rgb.0, ink_rgb.1, ink_rgb.2));
+                let mut grid = crate::pieces::point(cols, rows, lines, mid, ink);
+                if let Some(p) = cells.get(c).copied().flatten() {
+                    let disc = mosaic::Shape::Disc { dark: false }.draw(crate::pieces::glyphs(pieces), cols as usize, rows as usize);
+                    crate::pieces::put(&mut grid, &disc, bg);
+                    let fg = if p.is_ascii_uppercase() { Color::Rgb(200, 20, 30) } else { Color::Rgb(0, 0, 0) };
+                    crate::pieces::label(&mut grid, coxswain_core::xiangqi::glyph(p), fg, crate::pieces::light());
+                    if pieces == Pieces::Pictures {
+                        let pic = crate::pictures::Picture { lines, ink: ink_rgb, ..crate::pictures::Picture::of(crate::pictures::xiangqi(p)) };
+                        placed.push((Rect::new(col * cols, 1 + row * rows, cols, rows), pic, bg));
+                    }
+                }
+                grids.push(grid);
+            }
+            for sub in 0..rows as usize {
+                lines.push(Line::from(crate::pieces::spans(&grids, sub)));
+            }
+        }
+        lines.push(names(!self.flip));
+        let red = fen.split_whitespace().nth(1) != Some("b");
+        lines.push(Line::styled(t!(if red { "xiangqi.red_to_move" } else { "chess.black_to_move" }), dim));
+        (lines, cols * 9, placed)
     }
 
     /// A bridge deal round the table: North above, West and East beside, South below, each
@@ -1424,9 +1504,9 @@ impl Viewer {
     /// (as KIF's board diagrams write them) and in another colour; the files numbered ９ to １
     /// above, the ranks 一 to 九 beside; the pieces in hand above (Gote's) and below (Sente's);
     /// the last move's squares tinted.
-    fn shogi_board(&self, dim: Style) -> (Vec<Line<'static>>, u16) {
+    fn shogi_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16, Vec<crate::pictures::Placed>) {
         use coxswain_core::shogi;
-        let Some(o) = &self.open else { return (vec![], 0) };
+        let Some(o) = &self.open else { return (vec![], 0, vec![]) };
         let g = &o.game;
         let sfen = match o.at {
             Some(n) => g.nodes[n as usize].fen.clone(),
@@ -1447,6 +1527,51 @@ impl Viewer {
         const FILES: [&str; 9] = ["９", "８", "７", "６", "５", "４", "３", "２", "１"];
         const RANKS: [&str; 9] = ["一", "二", "三", "四", "五", "六", "七", "八", "九"];
         let files: Vec<&str> = if self.flip { FILES.iter().rev().copied().collect() } else { FILES.to_vec() };
+        let (pieces, cols, rows) = crate::pieces::tiles(self.pieces, 9, 9, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(3), area.height.saturating_sub(5));
+        if pieces != Pieces::Figurines {
+            // Each piece a tile pointing away from its player, its name on it, or its picture;
+            // the squares in two shades of the wood.
+            let mut placed = vec![];
+            let pad = " ".repeat(cols as usize / 2 - 1);
+            lines.push(Line::styled(files.iter().map(|f| format!("{pad}{f}{pad}")).collect::<String>(), dim));
+            for row in 0..9u16 {
+                let y = if self.flip { 8 - row } else { row } as usize;
+                let mut grids = vec![];
+                for col in 0..9u16 {
+                    let x = if self.flip { 8 - col } else { col } as usize;
+                    let c = x + y * 9;
+                    let mut bg = if (row + col).is_multiple_of(2) { wood } else { crate::pieces::darker(wood) };
+                    if last.is_some_and(|(a, b)| a == Some(c as u8) || b == Some(c as u8)) {
+                        bg = tint(wood, (0xf6, 0xe0, 0x5a));
+                    }
+                    let mut grid = crate::pieces::blank(cols, rows, bg);
+                    if let Some(p) = cells.get(c).copied().flatten() {
+                        let gote = p.sente == self.flip;
+                        let tile = mosaic::Shape::Tile { up: !gote }.draw(crate::pieces::glyphs(pieces), cols as usize, rows as usize);
+                        crate::pieces::put(&mut grid, &tile, bg);
+                        // A promoted piece's name in red, as on the desktop app's tiles.
+                        let fg = if p.promoted { Color::Rgb(160, 20, 30) } else { Color::Rgb(0, 0, 0) };
+                        crate::pieces::label(&mut grid, shogi::glyph(p), fg, crate::pieces::light());
+                        if pieces == Pieces::Pictures {
+                            let pic = crate::pictures::Picture { turn: gote, ..crate::pictures::Picture::of(crate::pictures::shogi(p.kind, p.promoted)) };
+                            placed.push((Rect::new(col * cols, 2 + row * rows, cols, rows), pic, bg));
+                        }
+                    }
+                    grids.push(grid);
+                }
+                for sub in 0..rows as usize {
+                    let mut spans = crate::pieces::spans(&grids, sub);
+                    if sub == rows as usize / 2 {
+                        spans.push(Span::styled(format!(" {}", RANKS[y]), dim));
+                    }
+                    lines.push(Line::from(spans));
+                }
+            }
+            lines.push(Line::styled(hand(bottom), dim));
+            let sente = sfen.split_whitespace().nth(1) != Some("w");
+            lines.push(Line::styled(t!(if sente { "shogi.sente_to_move" } else { "shogi.gote_to_move" }), dim));
+            return (lines, cols * 9 + 3, placed);
+        }
         lines.push(Line::styled(files.iter().map(|f| format!(" {f}")).collect::<String>(), dim));
         for row in 0..9usize {
             let y = if self.flip { 8 - row } else { row };
@@ -1475,7 +1600,7 @@ impl Viewer {
         lines.push(Line::styled(hand(bottom), dim));
         let sente = sfen.split_whitespace().nth(1) != Some("w");
         lines.push(Line::styled(t!(if sente { "shogi.sente_to_move" } else { "shogi.gote_to_move" }), dim));
-        (lines, 30)
+        (lines, 30, vec![])
     }
 
     /// Beside the board: who played, then the moves.
@@ -1954,11 +2079,23 @@ mod tests {
         for _ in 0..3 {
             v.key(key(KeyCode::Right), None);
         }
+        v.pieces = Pieces::Figurines;
         let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         // A wide character's second cell is drawn as a space here.
         let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
         assert!(s.contains("Hu") && s.contains("马二进三") && s.contains("centre") && s.contains('俥') && s.contains('將') && s.contains('楚'), "{s}");
+        // With room: discs of block characters, each with its character, on points of 7 × 3.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Quadrants);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(160, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let b = term.backend().buffer();
+        let rows: Vec<String> = (0..40).map(|y| (0..160).map(|x| b[(x, y)].symbol()).collect()).collect();
+        let s = rows.join("\n");
+        assert!(s.contains('俥') && s.contains('將') && s.contains('▐') && s.contains('╳') && !s.contains('楚'), "{s}");
+        // The river: no line crosses it between the edges.
+        let board = |r: &String| r.chars().take(66).filter(|c| !c.is_whitespace()).collect::<String>();
+        assert!(rows.iter().any(|r| board(r) == "║││"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 
@@ -1983,10 +2120,18 @@ mod tests {
         for _ in 0..4 {
             v.key(key(KeyCode::Right), None);
         }
+        v.pieces = Pieces::Figurines;
         let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect::<String>().replace(' ', "");
         assert!(s.contains("羽生") && s.contains("△同") && s.contains("角道") && s.contains("v香") && s.contains('角'), "{s}");
+        // With room: tiles of block characters with their names, Gote's pointing down.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Halves);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(160, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let b = term.backend().buffer();
+        let s: String = (0..40).map(|y| (0..160).map(|x| b[(x, y)].symbol()).collect::<String>() + "\n").collect();
+        assert!(s.contains('香') && s.contains('▄') && s.contains('▀') && !s.contains("v香"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 

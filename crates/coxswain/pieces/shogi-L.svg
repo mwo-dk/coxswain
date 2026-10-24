@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: lance.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#241c14">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M279 110H733V16H279ZM279 166V255H733V166ZM205 316V-80H279V-44H733V-78H810V316ZM778 833C633 794 364 768 138 757C146 740 155 712 157 693C254 697 358 704 460 714V610H57V542H380C292 448 159 363 37 321C54 306 76 278 87 260C221 314 367 420 460 538V343H538V537C634 427 784 324 916 272C926 290 948 318 965 332C845 373 710 454 620 542H944V610H538V722C649 735 753 752 835 773Z"/>
+  </g>
+</svg>

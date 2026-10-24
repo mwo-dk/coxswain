@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made by tools/xiangqi-outlines.py from xiangqi-rr.svg (1ed69fd283ec13d8): the character as Noto Serif CJK TC Bold's outline (SIL Open Font License 1.1).
+
+	Xiangqi: red 俥, a character on a disc.
+	Drawn for Coxswain's author's games project and given to Coxswain under its MIT
+	licence; restyled to sit beside the chess set: 45×45, black lines 1.5 wide, a soft
+	shading.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+	<defs><radialGradient id="g" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="#FBF3E2"/><stop offset="1" stop-color="#E6D3AE"/></radialGradient></defs>
+	<circle cx="22.5" cy="22.5" r="20" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+	<circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#8a2626" stroke-width="1"/>
+	<path transform="translate(10.548 31.620) scale(0.02400 -0.02400)" fill="#8a2626" d="M339 571V184H356C404 184 455 210 455 221V250H561V118H298L306 90H561V-90H583C628 -90 679 -61 679 -48V90H954C969 90 980 95 982 105C938 146 863 203 863 203L798 118H679V250H791V201H810C851 201 907 225 908 233V523C929 527 943 536 949 544L835 631L780 571H679V669H940C955 669 965 674 968 685C924 724 853 780 853 780L789 697H679V801C706 805 713 815 716 830L561 845V697H320L328 669H561V571H461L339 619ZM561 397V278H455V397ZM561 426H455V542H561ZM679 397H791V278H679ZM679 426V542H791V426ZM217 850C177 657 95 460 14 335L26 327C68 360 108 398 145 442V-89H167C213 -89 261 -64 263 -55V533C282 537 290 544 293 553L239 572C277 635 310 704 339 780C361 779 374 788 379 801Z"/>
+</svg>

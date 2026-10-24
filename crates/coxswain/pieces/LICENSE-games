@@ -1,0 +1,15 @@
+Game pieces (draughts-*.svg, go-*.svg, xiangqi-*.svg, shogi-*.svg)
+
+The draughts, Go and xiangqi pieces and the shogi tiles were drawn by Coxswain's author for
+his games project and are part of Coxswain under its MIT licence (see LICENSE at the top of
+the repository). They were restyled for Coxswain to sit beside the chess pieces.
+
+The kanji on the shogi tiles are glyph outlines from Noto Sans CJK, Copyright 2014-2021 Adobe
+(http://www.adobe.com/), with Reserved Font Name 'Source'; licensed under the SIL Open Font
+License, Version 1.1 (tools/bom/licenses/OFL-1.1.txt). No font file is included: only the
+outlines of the characters a shogi set is printed with.
+
+The terminal app's xiangqi pieces (xiangqi-*.svg here) are the desktop app's with the character
+as a glyph outline from Noto Serif CJK TC Bold, Copyright 2017-2021 Adobe
+(http://www.adobe.com/), with Reserved Font Name 'Source'; licensed under the SIL Open Font
+License, Version 1.1, made by tools/xiangqi-outlines.py. No font file is included.

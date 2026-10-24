@@ -5,6 +5,7 @@
 
 use coxswain_core::config::{Action, Key, KeyCode, Theme};
 use coxswain_core::go::{self, Collection, Game};
+use coxswain_core::mosaic::{Pieces, Shape};
 use coxswain_core::t;
 use ratatui::Frame;
 use ratatui::layout::{Margin, Rect};
@@ -33,6 +34,10 @@ pub struct Viewer {
     /// The board's wood: the theme's light square colour.
     wood: Color,
     said: Option<String>,
+    /// How the stones are drawn (`[chess] pieces`), and their pictures where the terminal
+    /// shows them.
+    pieces: Pieces,
+    pictures: Option<crate::pictures::Pieces>,
 }
 
 fn rgb(hex: &str) -> Color {
@@ -44,7 +49,12 @@ impl Viewer {
     pub fn open(path: &Path, cfg: &coxswain_core::config::Config, theme: &Theme) -> std::io::Result<Viewer> {
         let games = Collection::open(path)?;
         let [light, _] = coxswain_core::chess::board_colours(theme, &cfg.chess.board);
-        let mut v = Viewer { path: path.to_path_buf(), games, cursor: 0, offset: 0, open: None, wood: rgb(&light), said: None };
+        let pieces = crate::pieces::pieces(cfg);
+        let pictures = if pieces == Pieces::Pictures { crate::pictures::support().map(crate::pictures::Pieces::new) } else { None };
+        let mut v = Viewer { path: path.to_path_buf(), games, cursor: 0, offset: 0, open: None, wood: rgb(&light), said: None, pieces, pictures };
+        if pieces != Pieces::Pictures && cfg.chess.pieces == "pictures" {
+            v.said = Some(t!("chess.pictures_none"));
+        }
         if v.games.games.len() == 1 {
             v.show(0);
         }
@@ -225,53 +235,121 @@ impl Viewer {
         let stars = go::stars(bw, bh);
         let wood = Style::default().bg(self.wood);
         let line = Style::default().bg(self.wood).fg(Color::Rgb(70, 50, 30));
+        let (pieces, cols, rows) = crate::pieces::points(self.pieces, bw as u16, bh as u16, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(8), area.height.saturating_sub(2));
         let mut lines: Vec<Line> = vec![];
+        let mut placed = vec![];
+        if pieces != Pieces::Figurines {
+            // Stones drawn from block characters, or their pictures, on points of `cols` ×
+            // `rows` cells; the letters and numbers over the middles of the points.
+            use crate::pieces::{DOWN, LEFT, RIGHT, UP};
+            let mut names = String::from("    ");
+            for x in 0..bw {
+                let name = go::point_name(bw, bh, x, 0);
+                let c = name.split(|c: char| c.is_ascii_digit() && bw <= 25 || c == '-').next().unwrap_or("");
+                let w = c.chars().count().min(cols as usize);
+                let left = (cols as usize - w) / 2;
+                names.push_str(&format!("{}{c}{}", " ".repeat(left), " ".repeat(cols as usize - w - left)));
+            }
+            lines.push(Line::styled(names.clone(), dim));
+            for y in 0..bh {
+                let row = bh as u32 - y as u32;
+                let mut grids = vec![];
+                for x in 0..bw {
+                    let mut l = 0;
+                    if y > 0 {
+                        l |= UP;
+                    }
+                    if y + 1 < bh {
+                        l |= DOWN;
+                    }
+                    if x > 0 {
+                        l |= LEFT;
+                    }
+                    if x + 1 < bw {
+                        l |= RIGHT;
+                    }
+                    let mid = if l == 15 && stars.contains(&(x, y)) { '╋' } else { crate::pieces::junction(l) };
+                    let mut grid = crate::pieces::point(cols, rows, l, mid, line);
+                    match (p.at(x, y), letter(x, y)) {
+                        (s @ (1 | 2), _) => {
+                            let disc = Shape::Disc { dark: s == 1 }.draw(crate::pieces::glyphs(pieces), cols as usize, rows as usize);
+                            crate::pieces::put(&mut grid, &disc, self.wood);
+                            // The last stone played: a red dot in its middle.
+                            if p.last == Some((x, y)) {
+                                let under = if s == 1 { Color::Rgb(0x16, 0x16, 0x16) } else { crate::pieces::light() };
+                                crate::pieces::label(&mut grid, '●', Color::Rgb(200, 30, 30), under);
+                            }
+                            if pieces == Pieces::Pictures {
+                                let pic = crate::pictures::Picture { lines: l, ink: (70, 50, 30), mark: p.last == Some((x, y)), ..crate::pictures::Picture::of(crate::pictures::go(s == 1)) };
+                                placed.push((Rect::new(4 + x as u16 * cols, 1 + y as u16 * rows, cols, rows), pic, self.wood));
+                            }
+                        }
+                        (_, Some(c)) => crate::pieces::label(&mut grid, c, Color::Rgb(180, 0, 0), self.wood),
+                        _ => {}
+                    }
+                    grids.push(grid);
+                }
+                for sub in 0..rows as usize {
+                    let mid = sub == rows as usize / 2;
+                    let mut spans = vec![Span::styled(if mid { format!("{row:>3} ") } else { "    ".into() }, dim)];
+                    spans.extend(crate::pieces::spans(&grids, sub));
+                    spans.push(Span::styled(if mid { format!(" {row}") } else { String::new() }, dim));
+                    lines.push(Line::from(spans));
+                }
+            }
+            lines.push(Line::styled(names, dim));
+        }
         // Column letters above and below.
-        let mut cols = String::from("    ");
+        let mut cols_line = String::from("    ");
         for x in 0..bw {
             let name = go::point_name(bw, bh, x, 0);
             let c = name.split(|c: char| c.is_ascii_digit() && bw <= 25 || c == '-').next().unwrap_or("");
-            cols.push_str(&format!("{c:<2}"));
+            cols_line.push_str(&format!("{c:<2}"));
         }
-        lines.push(Line::styled(cols.clone(), dim));
-        for y in 0..bh {
-            let row = bh as u32 - y as u32;
-            let mut spans = vec![Span::styled(format!("{row:>3} "), dim)];
-            for x in 0..bw {
-                let stone = p.at(x, y);
-                let last = p.last == Some((x, y));
-                let mark = if last { "◉" } else { "●" };
-                let (glyph, style) = match (stone, letter(x, y)) {
-                    (1, _) => (mark.to_string(), wood.fg(Color::Rgb(0, 0, 0)).add_modifier(Modifier::BOLD)),
-                    (2, _) => (mark.to_string(), wood.fg(Color::Rgb(255, 255, 255)).add_modifier(Modifier::BOLD)),
-                    (_, Some(c)) => (c.to_string(), wood.fg(Color::Rgb(180, 0, 0)).add_modifier(Modifier::BOLD)),
-                    _ => {
-                        let (l, r, t, b) = (x == 0, x + 1 == bw, y == 0, y + 1 == bh);
-                        let g = match (t, b, l, r) {
-                            (true, _, true, _) => "┌",
-                            (true, _, _, true) => "┐",
-                            (_, true, true, _) => "└",
-                            (_, true, _, true) => "┘",
-                            (true, ..) => "┬",
-                            (_, true, ..) => "┴",
-                            (_, _, true, _) => "├",
-                            (_, _, _, true) => "┤",
-                            _ if stars.contains(&(x, y)) => "╋",
-                            _ => "┼",
-                        };
-                        (g.to_string(), line)
-                    }
-                };
-                spans.push(Span::styled(glyph, style));
-                // The line on to the next point.
-                spans.push(Span::styled(if x + 1 < bw { "─" } else { " " }, line));
+        if pieces == Pieces::Figurines {
+            lines.push(Line::styled(cols_line.clone(), dim));
+            for y in 0..bh {
+                let row = bh as u32 - y as u32;
+                let mut spans = vec![Span::styled(format!("{row:>3} "), dim)];
+                for x in 0..bw {
+                    let stone = p.at(x, y);
+                    let last = p.last == Some((x, y));
+                    let mark = if last { "◉" } else { "●" };
+                    let (glyph, style) = match (stone, letter(x, y)) {
+                        (1, _) => (mark.to_string(), wood.fg(Color::Rgb(0, 0, 0)).add_modifier(Modifier::BOLD)),
+                        (2, _) => (mark.to_string(), wood.fg(Color::Rgb(255, 255, 255)).add_modifier(Modifier::BOLD)),
+                        (_, Some(c)) => (c.to_string(), wood.fg(Color::Rgb(180, 0, 0)).add_modifier(Modifier::BOLD)),
+                        _ => {
+                            let (l, r, t, b) = (x == 0, x + 1 == bw, y == 0, y + 1 == bh);
+                            let g = match (t, b, l, r) {
+                                (true, _, true, _) => "┌",
+                                (true, _, _, true) => "┐",
+                                (_, true, true, _) => "└",
+                                (_, true, _, true) => "┘",
+                                (true, ..) => "┬",
+                                (_, true, ..) => "┴",
+                                (_, _, true, _) => "├",
+                                (_, _, _, true) => "┤",
+                                _ if stars.contains(&(x, y)) => "╋",
+                                _ => "┼",
+                            };
+                            (g.to_string(), line)
+                        }
+                    };
+                    spans.push(Span::styled(glyph, style));
+                    // The line on to the next point.
+                    spans.push(Span::styled(if x + 1 < bw { "─" } else { " " }, line));
+                }
+                spans.push(Span::styled(format!(" {row}"), dim));
+                lines.push(Line::from(spans));
             }
-            spans.push(Span::styled(format!(" {row}"), dim));
-            lines.push(Line::from(spans));
+            lines.push(Line::styled(cols_line, dim));
         }
-        lines.push(Line::styled(cols, dim));
-        let board_w = 4 + 2 * bw as u16 + 4;
+        let board_w = 4 + cols * bw as u16 + 4;
         f.render_widget(Paragraph::new(lines), Rect { width: board_w.min(area.width), ..area });
+        if let Some(pics) = self.pictures.as_mut() {
+            pics.place(f.buffer_mut(), (area.x, area.y), area, placed);
+        }
         // Beside it: the game, then the move and what goes on from it.
         let right = Rect { x: area.x + board_w + 1, width: area.width.saturating_sub(board_w + 1), ..area };
         if right.width < 12 {
@@ -348,12 +426,21 @@ mod tests {
         for _ in 0..2 {
             v.key(key(KeyCode::Right), None);
         }
+        v.pieces = Pieces::Figurines;
         let backend = ratatui::backend::TestBackend::new(100, 30);
         let mut term = ratatui::Terminal::new(backend).unwrap();
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
         assert!(screen.contains("Kim") && screen.contains("A comment") && screen.contains("2 ○ E7") && screen.contains("A 3 ● C7"), "{screen}");
         assert!(screen.contains('●') && screen.contains('┼') && screen.contains('A'));
+        // With room: stones of block characters on points of 7 × 3, the next moves' letters.
+        v.pieces = Pieces::Mosaic(coxswain_core::mosaic::Glyphs::Sextants);
+        let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(160, 40)).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        let b = term.backend().buffer();
+        let s: String = (0..40).map(|y| (0..160).map(|x| b[(x, y)].symbol()).collect::<String>() + "\n").collect();
+        assert!(s.contains('●') && s.contains('╋') && s.contains("─┼─") && s.contains('A') && s.chars().any(|c| ('\u{1FB00}'..='\u{1FB3B}').contains(&c)), "{s}");
+        v.pieces = Pieces::Figurines;
         // Into the variation and on.
         v.key(key(KeyCode::Right), None);
         v.key(key(KeyCode::Down), None);

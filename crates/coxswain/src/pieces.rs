@@ -125,3 +125,150 @@ fn luma(c: Color) -> f32 {
         _ => 0.5,
     }
 }
+
+/// The lines from a point of a board of lines (Go, xiangqi).
+pub const UP: u8 = 1;
+pub const DOWN: u8 = 2;
+pub const LEFT: u8 = 4;
+pub const RIGHT: u8 = 8;
+
+/// The box character where `lines` meet.
+pub fn junction(lines: u8) -> char {
+    match lines {
+        14 => '┬',
+        13 => '┴',
+        11 => '├',
+        7 => '┤',
+        10 => '┌',
+        6 => '┐',
+        9 => '└',
+        5 => '┘',
+        12 => '─',
+        3 => '│',
+        _ => '┼',
+    }
+}
+
+/// A board of points on lines (`files` × `ranks`, Go, xiangqi) in `width` × `height` cells:
+/// how its pieces are drawn and a point's size in cells. Drawn pieces get points of an odd
+/// number of rows, three or more, and twice as many columns and one, so that the lines run
+/// through a cell's middle; otherwise the characters on points of one row and two columns.
+pub fn points(pieces: Pieces, files: u16, ranks: u16, width: u16, height: u16) -> (Pieces, u16, u16) {
+    let rows = (height / ranks).min(width.saturating_sub(files) / files / 2);
+    let rows = if rows.is_multiple_of(2) { rows.saturating_sub(1) } else { rows };
+    if pieces != Pieces::Figurines && rows >= 3 {
+        return (pieces, rows * 2 + 1, rows);
+    }
+    (Pieces::Figurines, 2, 1)
+}
+
+/// A board of squares for tiles (shogi): three rows or more a square, twice as many columns;
+/// otherwise the characters on the small board.
+pub fn tiles(pieces: Pieces, files: u16, ranks: u16, width: u16, height: u16) -> (Pieces, u16, u16) {
+    let rows = (height / ranks).min(width / files / 2);
+    if pieces != Pieces::Figurines && rows >= 3 {
+        return (pieces, rows * 2, rows);
+    }
+    (Pieces::Figurines, 2, 1)
+}
+
+/// The block characters a shape is drawn with: the chosen ones, half blocks under a picture
+/// (seen only where it cannot be made).
+pub fn glyphs(pieces: Pieces) -> coxswain_core::mosaic::Glyphs {
+    match pieces {
+        Pieces::Mosaic(g) => g,
+        _ => coxswain_core::mosaic::Glyphs::Halves,
+    }
+}
+
+/// A point or square as cells, row by row: each cell's text (empty after a wide character)
+/// and style.
+pub type Grid = Vec<Vec<(String, Style)>>;
+
+/// An empty square of colour `bg`.
+pub fn blank(cols: u16, rows: u16, bg: Color) -> Grid {
+    vec![vec![(" ".to_string(), Style::default().bg(bg)); cols as usize]; rows as usize]
+}
+
+/// An empty point: its `lines` out from the middle cell, which shows `mid`, in `ink`.
+pub fn point(cols: u16, rows: u16, lines: u8, mid: char, ink: Style) -> Grid {
+    let (cx, cy) = ((cols - 1) / 2, rows / 2);
+    (0..rows)
+        .map(|r| {
+            (0..cols)
+                .map(|c| {
+                    let ch = if r == cy && c == cx {
+                        mid
+                    } else if r == cy && ((c < cx && lines & LEFT != 0) || (c > cx && lines & RIGHT != 0)) {
+                        '─'
+                    } else if c == cx && ((r < cy && lines & UP != 0) || (r > cy && lines & DOWN != 0)) {
+                        '│'
+                    } else {
+                        ' '
+                    };
+                    (ch.to_string(), ink)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// A shape over a point or square of colour `square`: its cells where they show the piece,
+/// the point's own (its lines) where they show only the square.
+pub fn put(grid: &mut Grid, shape: &[coxswain_core::mosaic::Cell], square: Color) {
+    let tone = |t: Tone| match t {
+        Tone::Square => square,
+        Tone::Light => LIGHT,
+        Tone::Dark => DARK,
+    };
+    let cols = grid.first().map_or(0, Vec::len);
+    for (k, c) in shape.iter().enumerate() {
+        if c.fg == Tone::Square && c.bg == Tone::Square {
+            continue;
+        }
+        if let Some(cell) = grid.get_mut(k / cols.max(1)).and_then(|r| r.get_mut(k % cols)) {
+            *cell = (c.ch.to_string(), Style::default().fg(tone(c.fg)).bg(tone(c.bg)));
+        }
+    }
+}
+
+/// `text` (one character, wide or not) in the middle of a point or square, bold in `fg` on
+/// `bg`: a piece's name on its shape, a variation's letter.
+pub fn label(grid: &mut Grid, text: char, fg: Color, bg: Color) {
+    use unicode_width::UnicodeWidthChar;
+    let w = text.width().unwrap_or(1).max(1);
+    let (rows, cols) = (grid.len(), grid.first().map_or(0, Vec::len));
+    if rows == 0 || cols < w {
+        return;
+    }
+    let (r, c) = (rows / 2, (cols - w) / 2);
+    grid[r][c] = (text.to_string(), Style::default().fg(fg).bg(bg).add_modifier(Modifier::BOLD));
+    for k in 1..w {
+        grid[r][c + k].0.clear();
+    }
+}
+
+/// The colour of a shape's light part, under its name.
+pub fn light() -> Color {
+    LIGHT
+}
+
+/// Grids side by side as rows of spans, one span per run of one style.
+pub fn spans(row: &[Grid], sub: usize) -> Vec<Span<'static>> {
+    let mut out: Vec<Span<'static>> = vec![];
+    for (text, style) in row.iter().flat_map(|g| g[sub].iter()) {
+        match out.last_mut() {
+            Some(s) if s.style == *style => s.content.to_mut().push_str(text),
+            _ => out.push(Span::styled(text.clone(), *style)),
+        }
+    }
+    out
+}
+
+/// A colour a tenth darker: every other square of a board of one colour (shogi).
+pub fn darker(c: Color) -> Color {
+    match c {
+        Color::Rgb(r, g, b) => Color::Rgb((r as u16 * 9 / 10) as u8, (g as u16 * 9 / 10) as u8, (b as u16 * 9 / 10) as u8),
+        c => c,
+    }
+}

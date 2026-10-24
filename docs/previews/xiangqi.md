@@ -13,6 +13,8 @@ is taken goes. Both apps have it. Coxswain only reads: it does not play or check
 
 ![The terminal app's xiangqi view in Classic blue: the board drawn with box lines on the theme's wood, the pieces as red and black characters, the river line 楚 河 漢 界, files numbered 1 to 9 at the top and 九 to 一 at the bottom, the moves beside it](../screenshots/tui-xiangqi.png)
 
+![The terminal app's xiangqi view in Classic blue on a taller window: the same game with each piece a light disc drawn from block characters, its character in red or black on it, the lines running between them, the river the gap where only the edge files cross, the palaces' centres ╳](../screenshots/tui-xiangqi-discs.png)
+
 - [Using it](#using-it)
 - [The table of games](#the-table-of-games)
 - [A game on the board](#a-game-on-the-board)
@@ -67,6 +69,12 @@ the edge files cross it. The palaces have their diagonals in the desktop app; th
 marks their centres ╳. The files are numbered as each side counts them: Black's 1 to 9 along
 the top, Red's 九 to 一 along the bottom, both from that side's right. The points the last move
 went from and to are ringed yellow in the desktop app and tinted in the terminal app.
+
+Where the window has room for points of three rows (about 38 rows and 110 columns), the
+terminal app draws each piece as a light disc of block characters with its character on it as
+text, and the river is the gap in the lines; where the terminal shows pictures, the desktop
+app's discs themselves ([Game pieces in the terminal](game-pieces.md)). On a smaller window
+the pieces are their characters on the lines, with the river's words between the banks.
 
 Beside the board: the players and the result, the event, place and date, *Game 2 of 7*, then the
 moves as the file writes them, with move numbers, comments in italics and variations in

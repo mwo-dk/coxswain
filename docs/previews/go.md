@@ -12,6 +12,8 @@ reads: it does not play, check or score.
 
 ![The terminal app's Go view in Classic blue: the same game at move 127, the board drawn with box lines and ● stones in black and white, the last one ◉, coordinates around it, the move, captures and the comment beside it, the key line below](../screenshots/tui-go.png)
 
+![The terminal app's Go view on a taller window: a 9×9 game with its stones as round discs drawn from block characters on the lines, the last one with a red dot](../screenshots/tui-go-stones.png)
+
 - [Using it](#using-it)
 - [The list of games](#the-list-of-games)
 - [A game on the board](#a-game-on-the-board)
@@ -56,7 +58,12 @@ the cursor, **PgUp**, **PgDn**, **Home** and **End** further.
 ## A game on the board
 
 The board shows the position after the move you are on. Stones are black and white; the last
-stone played has a ring in the desktop app and is ◉ in the terminal app. The star points are
+stone played has a ring in the desktop app and is ◉ in the terminal app. Where the window has
+room for points of three rows (a 9×9 board in about 34 rows and 120 columns, a 19×19 one in
+about 64 rows and 200 columns), the
+terminal app draws each stone as a round disc of block characters on the lines, the last one
+with a red dot, and where the terminal shows pictures the desktop app's stones themselves
+([Game pieces in the terminal](game-pieces.md)). The star points are
 drawn on 9×9, 13×13 and 19×19 boards (and other square ones from 7×7). Columns are lettered A to
 T without I, rows numbered from the bottom, as Go players write them (`Q16`); a board wider than
 25 columns numbers its columns too (`27-3`).
@@ -128,10 +135,13 @@ board says *Only the first … moves and variations: the game has more than Coxs
 
 *Settings → Previews → Chess board* sets the board's colour in both apps: from the theme
 (`theme`, the default) or the wood of a tournament board (`green`, `brown`), as for chess.
+*Game pieces in the terminal* sets how the terminal app draws the stones, as the other games'
+pieces ([Game pieces in the terminal](game-pieces.md#the-setting)).
 
 | Setting | `config.toml` | Values |
 |---|---|---|
 | *Chess board* | `[chess] board` | `theme` (default), `green`, `brown` |
+| *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `pictures`, `octants`, `sextants`, `quadrants`, `halves`, `figurines` |
 
 ## Questions
 

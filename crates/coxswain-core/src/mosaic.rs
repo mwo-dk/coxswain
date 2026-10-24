@@ -241,82 +241,149 @@ impl Set {
     ) -> Option<Vec<Cell>> {
         let k = self.names.find(name)?;
         let mask = &self.data[8 + k * SIZE * SIZE..][..SIZE * SIZE];
-        let (dx, dy) = glyphs.dots();
-        let (w, h) = (cols * dx, rows * dy);
-        // The square in units of a cell's width; the piece a little larger than in its SVG,
-        // whose box leaves a margin.
-        let side = (cols as f32).min(rows as f32 * 2.0);
-        let (ox, oy) = ((cols as f32 - side) / 2.0, (rows as f32 * 2.0 - side) / 2.0);
+        // The piece a little larger than in its SVG, whose box leaves a margin.
         let zoom = 1.15;
-        let mut tones = vec![Tone::Square; w * h];
-        const N: usize = 4;
-        for j in 0..h {
-            for i in 0..w {
-                let (mut cover, mut dark) = (0.0, 0.0);
-                for sy in 0..N {
-                    for sx in 0..N {
-                        let x = (i as f32 + (sx as f32 + 0.5) / N as f32) / dx as f32;
-                        let y = (j as f32 + (sy as f32 + 0.5) / N as f32) * 2.0 / dy as f32;
-                        let u = (((x - ox) / side - 0.5) / zoom + 0.5) * SIZE as f32;
-                        let v = (((y - oy) / side - 0.5) / zoom + 0.5) * SIZE as f32;
-                        if u < 0.0 || v < 0.0 || u >= SIZE as f32 || v >= SIZE as f32 {
-                            continue;
+        Some(paint(glyphs, cols, rows, Some(halo), |x, y| {
+            let u = ((x - 0.5) / zoom + 0.5) * SIZE as f32;
+            let v = ((y - 0.5) / zoom + 0.5) * SIZE as f32;
+            if u < 0.0 || v < 0.0 || u >= SIZE as f32 || v >= SIZE as f32 {
+                return (0.0, 0.0);
+            }
+            let b = mask[v as usize * SIZE + u as usize];
+            ((b >> 4) as f32 / 15.0, (b & 15) as f32 / 15.0)
+        }))
+    }
+}
+
+/// A plain shape a piece is drawn as, its character written on it as text: Go's stones,
+/// xiangqi's discs, shogi's tiles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shape {
+    /// A disc, dark or light.
+    Disc { dark: bool },
+    /// A shogi tile (light), its point up (Sente's) or down (Gote's).
+    Tile { up: bool },
+}
+
+impl Shape {
+    /// The shape on a square of `cols` × `rows` cells, as `Set::draw`, without an outline: a
+    /// light shape stands out on the board by itself, and a dark one is all edge.
+    pub fn draw(self, glyphs: Glyphs, cols: usize, rows: usize) -> Vec<Cell> {
+        // The desktop app's tile (shogi-*.svg), in its box of 45.
+        const TILE: [(f32, f32); 5] = [
+            (22.5, 3.5),
+            (33.6, 8.6),
+            (36.4, 41.0),
+            (8.6, 41.0),
+            (11.4, 8.6),
+        ];
+        paint(glyphs, cols, rows, None, |x, y| {
+            let inside = match self {
+                Shape::Disc { .. } => (x - 0.5).powi(2) + (y - 0.5).powi(2) <= 0.47 * 0.47,
+                Shape::Tile { up } => {
+                    let (px, py) = (x * 45.0, if up { y } else { 1.0 - y } * 45.0);
+                    // Crossings of a ray to the right.
+                    let mut odd = false;
+                    for i in 0..TILE.len() {
+                        let ((x1, y1), (x2, y2)) = (TILE[i], TILE[(i + 1) % TILE.len()]);
+                        if (y1 > py) != (y2 > py) && px < x1 + (py - y1) * (x2 - x1) / (y2 - y1) {
+                            odd = !odd;
                         }
-                        let b = mask[v as usize * SIZE + u as usize];
-                        cover += (b >> 4) as f32 / 15.0;
-                        dark += (b & 15) as f32 / 15.0;
                     }
+                    odd
                 }
-                let n = (N * N) as f32;
-                let (cover, dark) = (cover / n, dark / n);
-                if cover >= 0.45 {
-                    tones[j * w + i] = if dark / cover >= 0.5 {
-                        Tone::Dark
-                    } else {
-                        Tone::Light
-                    };
+            };
+            let dark = matches!(self, Shape::Disc { dark: true });
+            if inside {
+                (1.0, dark as u8 as f32)
+            } else {
+                (0.0, 0.0)
+            }
+        })
+    }
+}
+
+/// A piece on a square of `cols` × `rows` cells (each twice as high as wide), row by row:
+/// `at(x, y)` says how much of the point (x, y) of the square (0 to 1 across and down) the
+/// piece covers and how much of that is dark. `outline`: drawn round it, as a picture's edge;
+/// `Some(true)` gives a dark piece a light one, for a dark square.
+fn paint(
+    glyphs: Glyphs,
+    cols: usize,
+    rows: usize,
+    outline: Option<bool>,
+    at: impl Fn(f32, f32) -> (f32, f32),
+) -> Vec<Cell> {
+    let (dx, dy) = glyphs.dots();
+    let (w, h) = (cols * dx, rows * dy);
+    // The square in units of a cell's width.
+    let side = (cols as f32).min(rows as f32 * 2.0);
+    let (ox, oy) = ((cols as f32 - side) / 2.0, (rows as f32 * 2.0 - side) / 2.0);
+    let mut tones = vec![Tone::Square; w * h];
+    const N: usize = 4;
+    for j in 0..h {
+        for i in 0..w {
+            let (mut cover, mut dark) = (0.0, 0.0);
+            for sy in 0..N {
+                for sx in 0..N {
+                    let x = (i as f32 + (sx as f32 + 0.5) / N as f32) / dx as f32;
+                    let y = (j as f32 + (sy as f32 + 0.5) / N as f32) * 2.0 / dy as f32;
+                    let (c, d) = at((x - ox) / side, (y - oy) / side);
+                    cover += c;
+                    dark += d;
                 }
             }
+            let n = (N * N) as f32;
+            let (cover, dark) = (cover / n, dark / n);
+            if cover >= 0.45 {
+                tones[j * w + i] = if dark / cover >= 0.5 {
+                    Tone::Dark
+                } else {
+                    Tone::Light
+                };
+            }
         }
-        // The outline: dark, but a dark piece's light on a dark square (`halo`).
-        let lights = tones.iter().filter(|&&t| t == Tone::Light).count();
-        let darks = tones.iter().filter(|&&t| t == Tone::Dark).count();
-        let edge = if lights < darks && halo {
-            Tone::Light
-        } else {
-            Tone::Dark
+    }
+    // The outline: dark, but a dark piece's light on a dark square (`halo`).
+    let lights = tones.iter().filter(|&&t| t == Tone::Light).count();
+    let darks = tones.iter().filter(|&&t| t == Tone::Dark).count();
+    let edge = if lights < darks && outline == Some(true) {
+        Tone::Light
+    } else {
+        Tone::Dark
+    };
+    {
+        let out = |i: isize, j: isize| {
+            i < 0
+                || j < 0
+                || i >= w as isize
+                || j >= h as isize
+                || tones[j as usize * w + i as usize] == Tone::Square
         };
-        {
-            let out = |i: isize, j: isize| {
-                i < 0
-                    || j < 0
-                    || i >= w as isize
-                    || j >= h as isize
-                    || tones[j as usize * w + i as usize] == Tone::Square
-            };
-            let rim: Vec<usize> = (0..w * h)
-                .filter(|&p| tones[p] != Tone::Square)
-                .filter(|&p| {
-                    let (i, j) = ((p % w) as isize, (p / w) as isize);
-                    out(i - 1, j) || out(i + 1, j) || out(i, j - 1) || out(i, j + 1)
-                })
-                .collect();
+        let rim: Vec<usize> = (0..w * h)
+            .filter(|&p| tones[p] != Tone::Square)
+            .filter(|&p| {
+                let (i, j) = ((p % w) as isize, (p / w) as isize);
+                out(i - 1, j) || out(i + 1, j) || out(i, j - 1) || out(i, j + 1)
+            })
+            .collect();
+        if outline.is_some() {
             for p in rim {
                 tones[p] = edge;
             }
         }
-        let mut cells = Vec::with_capacity(cols * rows);
-        for r in 0..rows {
-            for c in 0..cols {
-                let dots: Vec<Tone> = (0..dy)
-                    .flat_map(|y| (0..dx).map(move |x| (y, x)))
-                    .map(|(y, x)| tones[(r * dy + y) * w + c * dx + x])
-                    .collect();
-                cells.push(cell(glyphs, &dots));
-            }
-        }
-        Some(cells)
     }
+    let mut cells = Vec::with_capacity(cols * rows);
+    for r in 0..rows {
+        for c in 0..cols {
+            let dots: Vec<Tone> = (0..dy)
+                .flat_map(|y| (0..dx).map(move |x| (y, x)))
+                .map(|(y, x)| tones[(r * dy + y) * w + c * dx + x])
+                .collect();
+            cells.push(cell(glyphs, &dots));
+        }
+    }
+    cells
 }
 
 /// One cell from its dots: the two commonest tones (the square's first on a tie), a dot of the
@@ -376,6 +443,38 @@ mod tests {
                 set.svgs[0]
             );
         }
+    }
+
+    #[test]
+    fn shapes_are_round_and_pointed() {
+        // A disc in half blocks, 8 × 4 cells: the corners the square's, the middle the stone's.
+        let disc = Shape::Disc { dark: true }.draw(Glyphs::Halves, 8, 4);
+        assert_eq!(disc[0].bg, Tone::Square);
+        assert_eq!(disc[0].ch, ' ');
+        let mid = disc[2 * 8 + 4];
+        assert!(mid.fg == Tone::Dark && mid.bg == Tone::Dark);
+        // A tile pointing up is one pointing down upside down.
+        let up = Shape::Tile { up: true }.draw(Glyphs::Halves, 8, 4);
+        let down = Shape::Tile { up: false }.draw(Glyphs::Halves, 8, 4);
+        let flip = |c: Cell| match c.ch {
+            '▀' => '▄',
+            '▄' => '▀',
+            ch => ch,
+        };
+        for r in 0..4 {
+            for c in 0..8 {
+                let (a, b) = (up[r * 8 + c], down[(3 - r) * 8 + c]);
+                assert_eq!(flip(a), b.ch, "{r} {c}");
+            }
+        }
+        // Its point is narrower than its foot.
+        let width = |row: &[Cell]| {
+            row.iter()
+                .filter(|c| c.fg != Tone::Square || c.bg != Tone::Square)
+                .count()
+        };
+        let big = Shape::Tile { up: true }.draw(Glyphs::Halves, 16, 8);
+        assert!(width(&big[..16]) < width(&big[16 * 7..]));
     }
 
     #[test]
