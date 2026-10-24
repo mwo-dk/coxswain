@@ -37,7 +37,7 @@ enum Kind {
 
 /// How a tar is compressed.
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Pack {
+pub(crate) enum Pack {
     None,
     Gz,
     Bz2,
@@ -188,6 +188,16 @@ fn not_archive(path: &Path) -> io::Error {
 
 /// A tar, its compression undone as it is read.
 fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
+    tar_reader_noting(path, k, None)
+}
+
+/// A tar, its compression undone as it is read, the places a gzip or zstd can later be
+/// unpacked from noted in `note`.
+fn tar_reader_noting(
+    path: &Path,
+    k: Kind,
+    note: Option<crate::tar_index::Points>,
+) -> io::Result<tar::Archive<Box<dyn Read>>> {
     let Kind::Tar(pack) = k else {
         return Err(not_archive(path));
     };
@@ -195,12 +205,10 @@ fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
     let f = BufReader::new(crate::stop::Reader(File::open(path)?));
     let r: Box<dyn Read> = match pack {
         Pack::None => Box::new(f),
-        Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f)),
+        Pack::Gz => Box::new(crate::tar_index::Gz::new(f, note)),
         Pack::Bz2 => Box::new(bzip2::read::MultiBzDecoder::new(f)),
         Pack::Xz => Box::new(lzma_rust2::XzReader::new(f, true)),
-        Pack::Zst => {
-            Box::new(ruzstd::decoding::StreamingDecoder::new(f).map_err(io::Error::other)?)
-        }
+        Pack::Zst => Box::new(crate::tar_index::Zst::new(f, note)),
     };
     Ok(tar::Archive::new(r))
 }
@@ -1235,7 +1243,8 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
         }
     } else {
         let (mut all, mut whole) = (vec![], true);
-        tar_named_at(tar_reader(archive, k)?.entries()?, |name, _, e, at| {
+        let points = crate::tar_index::Points::default();
+        tar_named_at(tar_reader_noting(archive, k, Some(points.clone()))?.entries()?, |name, _, e, at| {
             let h = e.header();
             all.push(crate::tar_index::Listed {
                 name: name.clone(),
@@ -1250,6 +1259,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
         })?;
         if whole {
             crate::tar_index::save(archive, &all);
+            crate::tar_index::save_points(archive, &points.borrow());
         }
     }
     Ok(out)
@@ -1981,21 +1991,21 @@ fn copy_entries(
         }
         *used |= locked;
     } else {
-        // One file of a compressed tar: from the block it starts in, when that is known and the
-        // file is in blocks (an xz in blocks), not from the start.
+        // One file of a compressed tar: from a place before it, when its place is known and the
+        // file can be unpacked from there (an xz in blocks, a gzip or a zstd of frames listed
+        // whole before), not from the start.
         let Kind::Tar(pack) = k else { unreachable!() };
         let from = crate::tar_index::load(archive)
             .and_then(|all| all.into_iter().find(|l| l.name == inner && !l.dir))
             .map(|l| -> io::Result<Option<Box<dyn Read>>> {
-                Ok(match pack {
-                    Pack::Xz => match crate::tar_index::xz_from(archive, l.at)? {
-                        Some((mut r, skip)) => {
-                            io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
-                            Some(r)
+                Ok(match crate::tar_index::from(archive, pack, l.at)? {
+                    Some((mut r, skip)) => {
+                        if io::copy(&mut (&mut r).take(skip), &mut io::sink())? != skip {
+                            return Err(io::ErrorKind::UnexpectedEof.into());
                         }
-                        None => None,
-                    },
-                    _ => None,
+                        Some(r)
+                    }
+                    None => None,
                 })
             })
             .transpose()?
