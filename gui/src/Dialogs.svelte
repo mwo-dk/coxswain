@@ -2,7 +2,8 @@
   // Every modal: prompts, confirmations, find file, menus, batch rename, tags, help.
   // App forwards keys through `handleKey`; returning true means "handled".
   import { tick, untrack } from "svelte";
-  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses } from "./app.svelte.js";
+  import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses, openReplace, reloadAll } from "./app.svelte.js";
+  import { failure } from "./errors.js";
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -35,7 +36,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", replace: "find_replace", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -264,6 +265,98 @@
     }
   }
 
+  // ------------------------------------------------------------ find and replace
+
+  /** Windows: the preview only, for now (`replace::WRITES`). */
+  const REPLACE_WRITES = typeof navigator === "undefined" || !/Windows/.test(navigator.userAgent);
+  /** A path as the list shows it: from the folder the files are in. */
+  const replaceRel = (m, p) => (m.base && p.startsWith(m.base) ? p.slice(m.base.length).replace(/^[\\/]+/, "") : "") || p;
+  function replaceTicked(m) {
+    let changes = 0, files = 0;
+    for (const tk of m.ticks) {
+      const n = tk.filter(Boolean).length;
+      changes += n;
+      if (n) files++;
+    }
+    return { changes, files };
+  }
+
+  /** The plan (`writing` false), or the writing of what is ticked; how far it is, polled. */
+  async function replaceRun(m, writing) {
+    m.error = "";
+    m.busy = { writing, files: 0, changes: 0, all: 0, stopping: false };
+    const poll = setInterval(async () => {
+      const p = await invoke("replace_progress").catch(() => null);
+      if (p && m.busy) [m.busy.files, m.busy.changes] = p;
+    }, 200);
+    try {
+      if (!writing) {
+        m.plan = null;
+        const plan = await invoke("replace_plan", { roots: m.roots, query: $state.snapshot(m.query) });
+        m.ticks = plan.files.map((f) => f.changes.map(() => true));
+        m.plan = plan;
+        if (!plan.files.length) m.error = t("replace.none", { looked: tn("preview.files", plan.looked) });
+        return;
+      }
+      const picks = m.plan.files.flatMap((f, i) => (m.ticks[i].some(Boolean) ? [{ file: i, skip: m.ticks[i].flatMap((on, j) => (on ? [] : [j])) }] : []));
+      m.busy.all = picks.length;
+      const r = await invoke("replace_apply", { picks, token: m.plan.token });
+      close();
+      await refreshUndo(r.summary);
+      reloadAll();
+      if (r.failed.length) ui.modal = failure(t("replace.failed"), r.failed.join("\n"));
+    } catch (e) {
+      m.error = String(e);
+    } finally {
+      clearInterval(poll);
+      m.busy = null;
+    }
+  }
+
+  function replaceKey(m, k) {
+    if (k === "Esc") {
+      if (!m.busy) close();
+      else if (!m.busy.stopping) (m.busy.stopping = true), invoke("replace_stop");
+    } else if (k === "Enter" && !m.busy) {
+      const write = !!m.plan?.files.length && replaceTicked(m).changes > 0;
+      if (!write || REPLACE_WRITES) replaceRun(m, write);
+    }
+    else return false;
+    return true;
+  }
+
+  /** What the line under the options says: how far it is, or what Replace would do. */
+  function replaceState(m) {
+    const b = m.busy;
+    if (b) {
+      const line = b.writing ? t("replace.writing", { n: Math.min(b.files + 1, b.all), all: b.all }) : t("replace.looking", { files: tn("preview.files", b.files), changes: tn("replace.changes", b.changes) });
+      return `${line} · ${b.stopping ? t("replace.stopping") : t("replace.stop_key", { key: "Esc" })}`;
+    }
+    if (!m.plan) return t("replace.about");
+    const { changes, files } = replaceTicked(m);
+    let s = t("replace.ticked", { changes: tn("replace.changes", changes), files: tn("preview.files", files) });
+    const out = m.plan.skipped.length + m.plan.more + m.plan.binary;
+    if (out) s += ` · ${t("replace.left_out", { n: out })}`;
+    if (!REPLACE_WRITES) s += ` · ${t("replace.windows")}`;
+    if (m.plan.full) s += ` · ${t("replace.full", { n: num(20000) })}`;
+    else if (m.plan.stopped) s += ` · ${t("replace.stopped_early")}`;
+    return s;
+  }
+
+  /** Find's files, for Find and replace: those it lists, what was searched in them typed in. */
+  function replaceFound(m) {
+    const files = [...new Set((m.out?.rows ?? []).filter((r) => r.row === "hit" && !r.hit.is_dir && !isHistory(r.hit.path)).map((r) => r.hit.path))];
+    const text = m.chip === "in_files" || prefix(m.query).kind === "in_files";
+    const dirs = files.map(parent);
+    let base = dirs[0] ?? "";
+    const under = (d) => d === base || d.startsWith(/[\\/]$/.test(base) ? base : base + (base.includes("\\") ? "\\" : "/"));
+    while (base && !dirs.every(under)) {
+      const up = parent(base);
+      base = up === base ? "" : up;
+    }
+    openReplace(files, base, text ? prefix(m.query).rest.trim() : "");
+  }
+
   // ------------------------------------------------------------ tags
 
   async function setTag(color) {
@@ -337,6 +430,7 @@
       else m.show = "syntax";
     }
     else if (act === "search") refind(m, { here: !m.here });
+    else if (act === "replace" && !answer) replaceFound(m);
     else if (act === "search_text") refind(m, { chip: m.chip === "in_files" ? "all" : "in_files", show: "list" });
     else if (act === "ask" || k === "Ctrl+Enter") {
       // Ask not set up: the answer's place says what it needs.
@@ -398,6 +492,7 @@
     if (m.kind === "space") return m.key?.(k, act) ?? false;
     if (m.kind === "editor") return m.key?.(k, act, e) ?? false;
     if (m.kind === "compare") return m.key?.(k, act, e) ?? false;
+    if (m.kind === "replace") return replaceKey(m, k);
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -778,7 +873,51 @@
           </ul>
         {/if}
         <p class="meta">{m.out?.footer ?? ""}</p>
-        <p class="meta">{answer ? t("find.keys_answer_gui") : t("find.keys_gui", { scope: scopeKey })}</p>
+        <p class="meta">{answer ? t("find.keys_answer_gui") : t("find.keys_gui", { scope: scopeKey })}{#if !answer && m.out?.rows?.some((r) => r.row === "hit" && !r.hit.is_dir)} · <button class="link" onclick={() => replaceFound(m)}>{t("replace.in_find_button")}</button> <kbd>{keysOf("replace")[0] ?? ""}</kbd>{/if}</p>
+      {:else if m.kind === "replace"}
+        {@const ticked = replaceTicked(m)}
+        <h2>{m.title}</h2>
+        <div class="grid2">
+          <label>{t("replace.find")}<input bind:this={input} bind:value={m.query.find} oninput={() => (m.plan = null)} disabled={!!m.busy} spellcheck="false" /></label>
+          <label>{t("replace.with")}<input bind:value={m.query.with} oninput={() => (m.plan = null)} disabled={!!m.busy} spellcheck="false" placeholder={m.query.regex ? "$1 · ${name}" : ""} /></label>
+        </div>
+        <div class="flags">
+          <label><input type="checkbox" bind:checked={m.query.regex} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("replace.regex")}</label>
+          <label><input type="checkbox" bind:checked={m.query.case} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("replace.case")}</label>
+          <label><input type="checkbox" bind:checked={m.query.word} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("replace.word")}</label>
+        </div>
+        <p class="meta">{replaceState(m)}</p>
+        {#if m.error}<p class="err">{m.error}</p>{/if}
+        {#if m.plan?.files.length}
+          <ul class="list changes">
+            {#each m.plan.files as f, i (f.path)}
+              {@const all = m.ticks[i].every(Boolean)}
+              <li class="file"><label><input type="checkbox" checked={all} indeterminate={!all && m.ticks[i].some(Boolean)} onchange={() => (m.ticks[i] = m.ticks[i].map(() => !all))} /> <b>{replaceRel(m, f.path)}</b> <span class="count">({f.changes.length})</span></label></li>
+              {#each f.changes as c, j (j)}
+                <li class="change" class:off={!m.ticks[i][j]}>
+                  <label><input type="checkbox" bind:checked={m.ticks[i][j]} /><span class="line">{c.line}</span><span class="before">− {c.before}</span><span class="after">+ {c.after}</span></label>
+                </li>
+              {/each}
+            {/each}
+          </ul>
+        {/if}
+        {#if m.plan?.skipped.length}
+          <details><summary>{t("replace.left_out_head")} ({m.plan.skipped.length})</summary>
+            <ul class="list skipped">{#each m.plan.skipped as sk (sk.path)}<li>{replaceRel(m, sk.path)} <span class="why">{sk.why}</span></li>{/each}</ul>
+          </details>
+        {/if}
+        <div class="buttons">
+          {#if m.busy}
+            <button disabled={m.busy.stopping} onclick={() => replaceKey(m, "Esc")}>{t("searchable.stop")}</button>
+          {:else if m.plan?.files.length}
+            <button class="primary" disabled={!ticked.changes || !REPLACE_WRITES} onclick={() => replaceRun(m, true)}>{tn("replace.go", ticked.changes, { files: tn("preview.files", ticked.files) })}</button>
+            <button onclick={() => replaceRun(m, false)}>{t("replace.preview_again")}</button>
+          {:else}
+            <button class="primary" disabled={!m.query.find} onclick={() => replaceRun(m, false)}>{t("replace.preview")}</button>
+          {/if}
+          <button onclick={close} disabled={!!m.busy}>{t("common.cancel")}</button>
+        </div>
+        {@render keys(m.plan?.files.length ? t("replace.replace") : t("replace.preview"))}
       {:else if m.kind === "rename"}
         <h2>{tn("dialogs.rename_title", m.names.length)}</h2>
         <div class="grid2">
@@ -904,6 +1043,7 @@
   }
   .dialog.search,
   .dialog.rename,
+  .dialog.replace,
   .dialog.help {
     width: min(900px, 92vw);
   }
@@ -1386,6 +1526,55 @@
   .why {
     font-family: var(--font), var(--scripts);
     font-size: 0.85em;
+  }
+  /* Find and replace: a file's line, then each change with its line number, before and after. */
+  .changes {
+    flex: 1;
+    overflow: auto;
+    max-height: 55vh;
+    font-family: var(--mono-font), var(--scripts);
+    font-size: 0.9em;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+    padding: 6px 10px;
+  }
+  .changes .file label {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .changes .change label {
+    display: grid;
+    grid-template-columns: auto 4em 1fr;
+    column-gap: 8px;
+    padding-left: 1.5em;
+  }
+  .changes .change span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre;
+  }
+  .changes .line {
+    color: var(--hidden-fg);
+    text-align: right;
+    grid-row: span 2;
+  }
+  .changes .before {
+    color: var(--git-deleted-fg);
+  }
+  .changes .after {
+    grid-column: 3;
+    color: var(--git-added-fg);
+  }
+  .changes .off .after {
+    color: var(--hidden-fg);
+    text-decoration: line-through;
+  }
+  .skipped {
+    font-size: 0.9em;
   }
   .tags {
     display: grid;

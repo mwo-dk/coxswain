@@ -162,6 +162,8 @@ impl Action {
             Move | Delete => n > 0 && s.writable(),
             Rename => s.single() && s.writable(),
             BatchRename => n > 1 && disk,
+            // The marked entries, the one under the cursor, or on `..` the folder.
+            Replace => disk,
             NewFolder => s.writable(),
             ClipCopy => n > 0 && disk,
             Properties => s.single() && disk,

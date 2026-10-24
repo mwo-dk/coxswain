@@ -66,6 +66,7 @@ mod ports;
 pub mod preview_tools;
 pub mod provenance;
 pub mod rename;
+pub mod replace;
 pub mod scad;
 pub mod split;
 pub mod searchable;

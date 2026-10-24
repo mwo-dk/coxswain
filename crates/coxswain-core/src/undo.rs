@@ -26,6 +26,8 @@ pub enum Kind {
     Trash,
     Pack,
     Extract,
+    /// Text replaced in files (`replace`): `from` is the file as it was, kept aside, `to` the file.
+    Replace,
 }
 
 /// What a file or folder was. `deep` (for what undo would take away): every entry inside a
@@ -63,6 +65,9 @@ struct Item {
     /// its name in Coxswain's own trash (Termux, illumos), else empty.
     to: PathBuf,
     stamp: Option<Stamp>,
+    /// Where a change in place was made (`pinned`): the folder, and the file as it was left.
+    /// Undo goes back only in that folder, and only to that very file, unchanged since.
+    pin: Option<crate::pinned::Pin>,
 }
 
 /// One operation, as far as it can be undone.
@@ -219,7 +224,14 @@ impl Record {
             from: from.to_path_buf(),
             to: to.to_path_buf(),
             stamp,
+            pin: None,
         });
+    }
+
+    /// A file changed where it is (`replace`, `attrs`): `from` what undo takes back (the file
+    /// as it was, kept aside), `file` the file, `pin` where and what it is now.
+    pub fn done_pinned(&mut self, from: &Path, file: &Path, pin: crate::pinned::Pin) {
+        self.items.push(Item { from: from.to_path_buf(), to: file.to_path_buf(), stamp: None, pin: Some(pin) });
     }
 
     /// The operation on `src`, as `fs` and `archive` do it (`dst`: where to, for a copy, a move
@@ -293,10 +305,10 @@ impl Record {
                     made.iter().for_each(|p| self.done(p, p));
                 }
             }
-            Kind::Pack => {
+            Kind::Pack | Kind::Replace => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "a pack is done with archive::create_locked",
+                    "a pack is done with archive::create_locked, a replace with replace::apply",
                 ));
             }
         }
@@ -306,9 +318,10 @@ impl Record {
     /// The paths it touches, to read again after it is undone.
     pub fn touched(&self) -> Vec<PathBuf> {
         let trash = self.kind == Kind::Trash;
+        let kept = self.kind == Kind::Replace;
         self.items
             .iter()
-            .flat_map(|i| [Some(i.from.clone()), (!trash).then(|| i.to.clone())])
+            .flat_map(|i| [(!kept).then(|| i.from.clone()), (!trash).then(|| i.to.clone())])
             .flatten()
             .collect()
     }
@@ -350,6 +363,22 @@ impl Record {
             Kind::Extract => {
                 t!("undo.what.extract", "what" => what(&first.from), "dir" => into(&first.to))
             }
+            Kind::Replace => t!("undo.what.replace", "what" => what(&first.to)),
+        }
+    }
+
+    /// What it kept aside to be undone (a replace's files as they were), removed: once it can
+    /// no longer be undone.
+    pub fn forget(&self) {
+        if self.kind == Kind::Replace {
+            for i in &self.items {
+                let _ = fs::remove_file(&i.from);
+                if let Some(dir) = i.from.parent() {
+                    crate::replace::release(dir);
+                    let _ = fs::remove_file(dir.join(".lock"));
+                    let _ = fs::remove_dir(dir);
+                }
+            }
         }
     }
 
@@ -384,6 +413,8 @@ impl Record {
                     Err(why) => refused.push(why),
                 }
             }
+            // Undone once, never again: what it kept aside for that goes, refused or not.
+            self.forget();
             for m in self.made.iter().rev() {
                 let _ = fs::remove_dir(m);
             }
@@ -456,6 +487,17 @@ impl Record {
             Kind::Trash => {
                 Self::free(&item.from)?;
                 restore(&item.from, &item.to, self.since).map_err(|e| err(&item.from, e))
+            }
+            // The file as it was, written back over it; the copy kept aside goes.
+            Kind::Replace => {
+                let pin = item.pin.clone().ok_or_else(|| format!("{}: {}", item.to.display(), t!("undo.changed")))?;
+                let was = crate::replace::read_kept(&item.from).map_err(|e| err(&item.from, e))?;
+                crate::replace::write_back(&item.to, &was, pin).map_err(|e| err(&item.to, e))?;
+                let _ = fs::remove_file(&item.from);
+                if let Some(dir) = item.from.parent() {
+                    let _ = fs::remove_dir(dir);
+                }
+                Ok(())
             }
         }
     }
@@ -695,8 +737,10 @@ impl History {
         if r.is_empty() {
             return false;
         }
-        if self.list.len() == KEEP {
-            self.list.pop_front();
+        if self.list.len() == KEEP
+            && let Some(old) = self.list.pop_front()
+        {
+            old.forget();
         }
         self.list.push_back(r);
         self.pushed += 1;

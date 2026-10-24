@@ -8,6 +8,7 @@ mod ebook;
 mod pictures;
 mod git_config;
 mod provenance;
+mod replace;
 mod guide;
 mod settings;
 mod setup;
@@ -507,6 +508,8 @@ pub enum Dialog {
     /// Convert `books` into `to`, or (`None`) pull calibre's image to view the book? `text` says
     /// what it writes, which calibre runs and what a first run pulls.
     Ebook { title: String, text: String, to: Option<&'static str>, books: Vec<PathBuf> },
+    /// Find and replace across files (`replace`).
+    Replace(Box<replace::Viewer>),
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
@@ -557,6 +560,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Bom(_) => "cbom",
         Dialog::Provenance(_) => "provenance",
         Dialog::GitConfig(_) => "git_config",
+        Dialog::Replace(_) => "find_replace",
         Dialog::View { .. } => "view_and_edit",
         Dialog::Edit { .. } => "editor",
         Dialog::Compare(_) => "compare_files",
@@ -959,6 +963,15 @@ fn job_op(op: Option<Transfer>) -> coxswain_core::undo::Op {
 }
 
 /// A folder listed by a program (git, zfs, pkg), which can take a while: read on a thread.
+/// The folder all of `files` are in, for showing their paths short.
+fn common_dir(files: &[PathBuf]) -> Option<PathBuf> {
+    let mut dir = files.first()?.parent()?.to_path_buf();
+    while !files.iter().all(|f| f.starts_with(&dir)) {
+        dir = dir.parent()?.to_path_buf();
+    }
+    Some(dir)
+}
+
 fn virtual_list(dir: &Path) -> bool {
     history::is_history(dir) || coxswain_core::zfs::split(dir).is_some() || coxswain_core::bsd::split(dir).is_some()
 }
@@ -1482,6 +1495,7 @@ impl App {
             Action::NewBranch => self.new_branch(),
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
+            Action::Replace => self.replace(None),
             Action::SearchablePdf => self.searchable_pdf(),
             Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
             Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
@@ -2113,6 +2127,43 @@ impl App {
 
     /// The git config as git uses it in the panel's folder, read now, full screen. Outside a
     /// repository: the system and global config.
+    /// Find and replace (`replace`) in `files` (Find's results), else the marked entries, the
+    /// one under the cursor or, on `..`, the panel's folder.
+    fn replace(&mut self, from_find: Option<(Vec<PathBuf>, String)>) {
+        let dir = self.panel().dir.clone();
+        if self.panel().subject().place != coxswain_core::menu::Place::Disk && from_find.is_none() {
+            return self.status = Some(t!("replace.not_here"));
+        }
+        let (roots, find, base) = match from_find {
+            Some((files, find)) => {
+                let base = common_dir(&files).unwrap_or_default();
+                (files, find, base)
+            }
+            None => {
+                let t = self.panel().targets();
+                (if t.is_empty() { vec![dir.clone()] } else { t }, String::new(), dir)
+            }
+        };
+        if roots.is_empty() {
+            return self.status = Some(t!("replace.no_files"));
+        }
+        self.dialog = Some(Dialog::Replace(Box::new(replace::Viewer::new(roots, base, find))));
+    }
+
+    /// A replace has been written: what came of it on the status line, kept for undo.
+    fn replaced(&mut self, done: Result<coxswain_core::replace::Applied, String>) {
+        let done = match done {
+            Ok(d) => d,
+            Err(e) => return self.dialog = Some(failure(t!("replace.failed"), &e)),
+        };
+        let mut ok = done.summary();
+        if !done.record.is_empty() {
+            ok += &format!(" · {}", t!("undo.hint", "key" => self.key_label(Action::Undo)));
+            self.undo.push(done.record);
+        }
+        self.after_op(ok, t!("replace.failed"), done.failed);
+    }
+
     fn git_config(&mut self) {
         let p = self.panel();
         let dir = history::split(&p.dir).map_or_else(|| p.dir.clone(), |at| at.base);
@@ -3642,6 +3693,17 @@ impl App {
                             asked = true;
                         }
                     }
+                    // Find and replace in the files listed, what was searched for in them typed in.
+                    _ if action == Some(Action::Replace) && !answer => {
+                        let mut files: Vec<PathBuf> = vec![];
+                        for h in found.names.hits.iter().chain(&found.in_files.hits) {
+                            if !h.is_dir && !history::is_history(&h.path) && !files.contains(&h.path) {
+                                files.push(h.path.clone());
+                            }
+                        }
+                        let text = chip == Kind::InFiles || prefix == Some(Kind::InFiles);
+                        return self.replace(Some((files, if text { question } else { String::new() })));
+                    }
                     (KeyCode::Tab, _) => {
                         chip = chip.next(key.shift);
                         query = find::parse(&query).1.to_string();
@@ -3919,6 +3981,10 @@ impl App {
                 chess::Outcome::Stay => self.dialog = Some(Dialog::Go(v)),
                 chess::Outcome::Close | chess::Outcome::Open(..) => {}
             },
+            Dialog::Replace(mut v) => match v.key(key, action) {
+                replace::Outcome::Stay => self.dialog = Some(Dialog::Replace(v)),
+                replace::Outcome::Close => {}
+            },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
                 git_config::Outcome::Close => {}
@@ -4184,6 +4250,12 @@ impl App {
 
     fn tick(&mut self, last_state: &mut State) {
         self.poll_folders();
+        if let Some(Dialog::Replace(v)) = &mut self.dialog
+            && let Some(done) = v.poll()
+        {
+            self.dialog = None;
+            self.replaced(done);
+        }
         if matches!(self.dialog, Some(Dialog::Search { .. })) && self.slow.0.is_none_or(|at| at.elapsed() >= Duration::from_secs(1)) {
             let poor = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);
             self.slow = (Some(Instant::now()), poor);

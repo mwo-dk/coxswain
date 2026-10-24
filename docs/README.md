@@ -183,10 +183,11 @@ mindmap
 | [Move and rename (F6)](files/move-and-rename.md) | Moving, renaming in place, across disks, into archives |
 | [New folder (F7)](files/new-folder.md) | One folder or a whole path, also inside archives |
 | [Delete: trash (F8) or for good (Shift+F8)](files/delete.md) | Trash (F8), for good (Shift+F8), taking out of an archive, turning the question off |
-| [Undo (Ctrl+Z)](files/undo.md) | Ctrl+Z, both apps: the last 20 copies, moves, renames, new folders, trashings, packs and extracts; checked first, never overwrites; not Shift+F8 |
+| [Undo (Ctrl+Z)](files/undo.md) | Ctrl+Z, both apps: the last 20 copies, moves, renames, new folders, trashings, packs, extracts and find-and-replaces; checked first, never overwrites; not Shift+F8 |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](files/clipboard.md) | Ctrl+C / Ctrl+X / Ctrl+V shared with other file managers, name (2) |
 | [Drag and drop](files/drag-and-drop.md) | Out to other apps (out of archives too), between panes, onto folders, in; the copy/move menu, Ctrl and Shift |
 | [Batch rename (Ctrl+M)](files/batch-rename.md) | Batch rename (Ctrl+M, desktop): regex, groups, {n:3} counter, live preview, conflicts |
+| [Find and replace across files (Alt+R)](files/find-and-replace.md) | Alt+R, both apps: text or a regex in the marked files or Find's results; every change previewed and untickable; encoding, line endings and permissions kept; one undo |
 | [Archives as folders](files/archives.md) | Zip/tar/7z opened with Enter; copy in, out, between; formats; what is rewritten; why not RAR; limits |
 | [Pack (Alt+F5) and extract (Ctrl+E)](files/pack-and-extract.md) | Pack (Alt+F5) into any archive format by its name, extract (Ctrl+E) into a new folder |
 | [Passwords for encrypted zip and 7z](files/archive-passwords.md) | Passwords for locked zip and 7z: when asked, kept in memory for the app run, never saved |

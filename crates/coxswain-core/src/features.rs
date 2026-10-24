@@ -241,6 +241,7 @@ pub const FEATURES: &[Feature] = &[
     ),
     f("drag_and_drop", "files/drag-and-drop.md", &[]),
     f("batch_rename", "files/batch-rename.md", &[BatchRename]),
+    f("find_replace", "files/find-and-replace.md", &[Replace, Search, Undo]),
     f(
         "archives",
         "files/archives.md",

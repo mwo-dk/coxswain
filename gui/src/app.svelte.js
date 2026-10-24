@@ -981,6 +981,22 @@ export function stopViruses() {
   invoke("viruses_stop");
 }
 
+/** Find and replace across files (`coxswain_core::replace`): in `roots` (Find's results), else
+ *  the marked entries, the one under the cursor or, on `..`, the tab's folder; paths shown from
+ *  `base`, `find` typed in. */
+export async function openReplace(roots, base, find = "") {
+  const tb = tab();
+  if (!roots) {
+    if (tb.archive || tb.history || tb.snapshot || tb.package || tb.diskImage) return void (ui.status = t("replace.not_here"));
+    roots = await targets(tb);
+    if (!roots.length) roots = [tb.dir];
+    base = tb.dir;
+  }
+  if (!roots.length) return void (ui.status = t("replace.no_files"));
+  const what = roots.length === 1 ? basename(roots[0]) || roots[0] : tn("items", roots.length);
+  ui.modal = { kind: "replace", title: t("replace.title", { what }), roots, base, query: { find, with: "", regex: false, case: false, word: false }, plan: null, ticks: [], busy: null, error: "" };
+}
+
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
  *  full window. Only folders on a disk. */
 export function openSpace(tb = tab(), dir) {
