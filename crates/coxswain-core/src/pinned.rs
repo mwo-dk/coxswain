@@ -482,35 +482,6 @@ mod imp {
         Ok(names.into_iter().map(|n| (node.path.join(OsStr::from_bytes(n.as_bytes())), Place { dir: held.clone(), name: n })).collect())
     }
 
-    /// Whether the folder `dir` is on a local disk that NTFS or ReFS keeps, where an open relative
-    /// to a handle stays one. Fails closed: anything not known to be so is not.
-    fn local_disk(dir: HANDLE) -> bool {
-        // FILE_FS_DEVICE_INFORMATION: device type, characteristics.
-        let mut dev = [0u32; 2];
-        // SAFETY: zeroes are a valid IO_STATUS_BLOCK.
-        let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
-        // SAFETY: the held folder, `dev` of the size given.
-        let st = unsafe { NtQueryVolumeInformationFile(dir, &mut io, dev.as_mut_ptr().cast(), 8, FileFsDeviceInformation) };
-        // FILE_DEVICE_DISK, and not FILE_REMOTE_DEVICE.
-        if st < 0 || dev[0] != 0x07 || dev[1] & 0x10 != 0 {
-            return false;
-        }
-        // A network redirector answers this; a local file system refuses it as invalid (87).
-        // SAFETY: zeroes are a valid FILE_REMOTE_PROTOCOL_INFO, which the call fills in.
-        let mut remote: FILE_REMOTE_PROTOCOL_INFO = unsafe { std::mem::zeroed() };
-        // SAFETY: the held folder, `remote` of the size given.
-        if unsafe { GetFileInformationByHandleEx(dir, FileRemoteProtocolInfo, std::ptr::from_mut(&mut remote).cast(), std::mem::size_of::<FILE_REMOTE_PROTOCOL_INFO>() as u32) } != 0 || last().raw_os_error() != Some(87) {
-            return false;
-        }
-        let mut fs = [0u16; 64];
-        // SAFETY: the held folder, and a buffer for the file system's name of the length given.
-        if unsafe { GetVolumeInformationByHandleW(dir, std::ptr::null_mut(), 0, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), fs.as_mut_ptr(), fs.len() as u32) } == 0 {
-            return false;
-        }
-        let name = String::from_utf16_lossy(&fs[..fs.iter().position(|&c| c == 0).unwrap_or(fs.len())]);
-        name == "NTFS" || name == "ReFS"
-    }
-
     impl Place {
         /// The folder `path` is in, opened again (for undo) and checked to be the folder `dir`.
         pub fn reopen(path: &Path, dir: (u64, u64)) -> std::io::Result<Place> {
