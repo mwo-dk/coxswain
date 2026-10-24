@@ -126,7 +126,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `edit_pictures` | none | `convert_geodata` | none |
 | `export_model` | none | `history_all` | **Alt+A** |
 | `make_checksums` | **Alt+H** | `verify_checksums` | none |
-| `history_upstream` | **Alt+Y** | | |
+| `history_upstream` | **Alt+Y** | `long_files` | none |
 | `split_file` | **Alt+X** | `join_parts` | none |
 | `attrs` | **Alt+M** | | |
 | `chess` | **Alt+K** | `edit_here` | **Shift+F4** |

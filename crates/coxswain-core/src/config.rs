@@ -309,6 +309,9 @@ actions! {
     // Whisper: the speech of a recording, or of every one in a folder, into the search store
     // (`transcribe`). No key of its own: the action menu, F9 and the preview offer it.
     Transcribe = "transcribe", "Transcribe speech", Search, [];
+    // What search keeps of a folder's long files, Sample or Everything (`long_files`): from
+    // the action menu on a folder and F9, no key of its own.
+    LongFiles = "long_files", "Long files: sample or everything…", Search, [];
     // Git, the most used first.
     History = "history", "Git history", Git, ["Ctrl+G"];
     // In a history: every branch's commits in the graph, or this branch's again. A for all.
@@ -1643,6 +1646,13 @@ pub struct SearchConfig {
     /// The Whisper model: `tiny`, `base`, `small` or `large-v3-turbo`; empty: the one this
     /// machine runs well.
     pub whisper_model: String,
+    /// What search keeps of a long file: "sample" (its first 4 MB of text for words, 256
+    /// passages spread over all of it for meaning) or "everything" (all its text, a passage for
+    /// every part of it). `long_files_everything` and `long_files_sample` set it per folder,
+    /// the deepest one listed deciding (`long_files::Rule`).
+    pub long_files: String,
+    pub long_files_everything: Vec<PathBuf>,
+    pub long_files_sample: Vec<PathBuf>,
 }
 
 /// The trees the kernel makes up, never indexed: Linux's `/proc`, `/sys`, `/dev` and `/run`;
@@ -1687,6 +1697,9 @@ impl Default for SearchConfig {
             tika: false,
             whisper: false,
             whisper_model: String::new(),
+            long_files: "sample".into(),
+            long_files_everything: vec![],
+            long_files_sample: vec![],
         }
     }
 }

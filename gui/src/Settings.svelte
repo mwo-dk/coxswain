@@ -48,7 +48,20 @@
       error = String(e);
     }
   }
-  const set = (name, value) => save({ [name]: value });
+  // What is kept of long files: what the change reads again, adds or frees, said first.
+  let longChange = $state(null);
+  async function set(name, value) {
+    const changes = { [name]: value };
+    if (!name.startsWith("long_files")) return save(changes);
+    const why = await invoke("long_files_change", { changes }).catch(() => null);
+    if (!why) return save(changes);
+    longChange = { why, go: () => save(changes) };
+  }
+  function keepLong() {
+    longChange = null;
+    const el = document.getElementById("in-long_files");
+    if (el) el.value = s.long_files;
+  }
 
   // ------------------------------------------------------------ areas, and where it opens
 
@@ -740,6 +753,17 @@
             <!-- Only on a Mac, where the built-in model can run on the GPU. -->
             {#if !server && (index?.meaning_runs?.metal || index?.meaning_runs?.cpu_why)}
               {@render check("meaning_device", s.meaning_device === "cpu", (v) => set("meaning_device", v ? "cpu" : "auto"))}
+            {/if}
+            <!-- Sample or Everything, for every folder and for some; a change says its cost first. -->
+            {@render choice("long_files", [["sample", t("settings.long_files.sample")], ["everything", t("settings.long_files.everything")]])}
+            {@render list("long_files_everything", t("settings.search_names_only_none"))}
+            {@render list("long_files_sample", t("settings.search_names_only_none"))}
+            {#if longChange}
+              <p><strong>{longChange.why}</strong></p>
+              <div class="buttons">
+                <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>
+                <button onclick={keepLong}>{t("common.cancel")}</button>
+              </div>
             {/if}
           </details>
 

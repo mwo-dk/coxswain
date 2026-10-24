@@ -59,6 +59,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Cloud files](cloud-files.md) | OneDrive, Dropbox, Google Drive, Proton Drive, iCloud: files only online are found by name, never downloaded |
 | [Removable disks](removable-disks.md) | USB and external disks: kept while unplugged, found again anywhere |
 | [Search by meaning](meaning.md) | The built-in multilingual model: turning it on, what it finds, *Measure speed* and `coxswain --meaning bench` |
+| [Long files: sample or everything](long-files.md) | What search keeps of long logs, books and data: a sample (the default) or all the text and every passage, for every folder or one, with what it costs said first |
 | [Search by meaning on a server](servers.md) | Ollama, Lemonade, LM Studio or any server with the OpenAI API |
 | [Ask](ask.md) | Questions answered from your files by your own chat model, with numbered sources |
 | [Ask about code](ask-code.md) | Code read as code, cut at its functions and classes, and a map of a project for questions about it as a whole |

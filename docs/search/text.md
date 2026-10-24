@@ -67,7 +67,7 @@ not searched.* with *Read this folder too* ([all states](find-file.md#when-somet
 | | |
 |---|---|
 | **Which folders** | Your home folder, unless you choose others ([Choosing the folders](folders.md)) |
-| **Which files** | Anything that is plain text (code, Markdown, logs, configuration …), the [documents](documents.md) Coxswain reads, [diagrams](diagrams.md) as sentences, the files [inside archives](archives.md), and with installed programs, [scans and older Office files](scans.md). Up to 20 MB each (`text_max_size`), and at most 4 MB of text from one file |
+| **Which files** | Anything that is plain text (code, Markdown, logs, configuration …), the [documents](documents.md) Coxswain reads, [diagrams](diagrams.md) as sentences, the files [inside archives](archives.md), and with installed programs, [scans and older Office files](scans.md). Up to 20 MB each (`text_max_size`), and at most 4 MB of text from one file (text, code, CSV and logs: all of it with [Long files](long-files.md) → *Everything*) |
 | **Left out** | Hidden folders (names starting with a dot); folders named `node_modules`, `target`, `build`, `dist`, `out`, `vendor`, `__pycache__` or `Trash` (`text_exclude`); folders marked *Names only*; any folder holding a file named `.nosearch`; pictures, video and other files without text; symbolic links; files locked with a password, inside archives too; the files inside archives in caches and programs' folders ([Which archives](archives.md#which-archives)) |
 | **When** | In the background, by the [search helper](helper.md): a batch of files, then a rest as long as the work took (at most two seconds), so it runs at about half speed. Not while a laptop is on its [battery](battery.md). Changes are read within seconds |
 | **Also kept** | Every file's size and date, and the total of each folder left out, so [folder sizes](../panels/folder-sizes.md) are sums; the hashes of files that share a size, for [Duplicates](../files/duplicates.md) |
@@ -174,7 +174,9 @@ it is then filled again from the start.
 #### Why is only part of a very large file found?
 
 At most 4 MB of text is kept from one file, and a very long PDF is read for three seconds. Words
-past that are not in the store.
+past that are not in the store. *Everything* for its folder (the action menu → *Long files:
+sample or everything…*) keeps all the text of text, code, CSV and logs, up to 256 MB
+([Long files](long-files.md)).
 
 ---
 [← Previous: Name syntax](name-syntax.md) · [Next: Documents it reads →](documents.md)

@@ -79,7 +79,7 @@ script or a picture on the web gets nothing from the web ([HTML pages](../previe
 |---|---|---|---|
 | **Update check**, when the app starts, then once a day while it is open | A request to `api.github.com` for the latest release's version number, with `User-Agent: coxswain/X.Y.Z` | Both apps, by themselves | `check_updates = false`, or untick *Settings → Privacy and updates → Check for a new version* ([Update checks](updates.md)) |
 | **Model download**, once | The three files of multilingual-e5-small (about 465 MB) from `huggingface.co` | You: *Download the model* in Settings, or `coxswain --meaning on` | Do not turn search by meaning on, or use a server |
-| **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, with the file's name and two folders) and everything you type in Find while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to my-server to be read for meaning.* |
+| **Search by meaning on another machine** | The text of your files (all of it, up to 256 passages each, every passage of long files set to *Everything*, with the file's name and two folders) and everything you type in Find while search by meaning is on, to that server | You: a *Server* that is not on this machine | Use the built-in model or a server on `localhost`. Settings warns: *The text of your files, with their names and folders, is sent to my-server to be read for meaning.* |
 | **Chat model download**, once | The Qwen3 model and its tokenizer (1.0 GB, or 2.3 GB for the 4B one) from `huggingface.co` | You: *Download … and use* in Settings or the guide, or `coxswain --meaning ask builtin:qwen3-1.7b` | Use a chat model on a server, or none |
 | **Ask** | With the [built-in chat model](../search/ask-builtin.md): nothing. Otherwise the question, the questions and answers before it in this Find, and the excerpts of the closest files with their paths (for a question about the folder as a whole also its README, project files, folder tree and docs index), as much as `ask_context` holds, to the chat model on the server (Ollama on this machine with the built-in model). Nothing is stored | You: asking in Find (**Ctrl+Enter** / **Alt+Enter**, or **Enter** on the *Ask* row) ([Ask](../search/ask.md)). With Find's scope on a folder, only excerpts of that folder are sent | Leave *Chat model* empty, or use a server on `localhost` |
 | **Ollama pull** | Ollama downloads the model from its registry | You: *Pull bge-m3 with Ollama* or `coxswain --meaning ollama` | Do not pull |
@@ -152,7 +152,7 @@ can open.)
 #### What does a remote embedding server get exactly?
 
 The passages of each file with text in the folders read (the whole text, up to 256 passages of
-about 120 words), each with a first line naming the file, the two folders it is in and, in
+about 120 words; every passage of long files set to *Everything*, [Long files](../search/long-files.md)), each with a first line naming the file, the two folders it is in and, in
 Markdown, the heading above it (`budget.md · rocket/notes · Fuel`); and what you type in Find
 while search by meaning is on (from two letters on, as you type). Not the full path. Before 1.39.0 it got
 the first eight passages, without the line.

@@ -307,7 +307,8 @@ Yes, since 1.39.0: every passage of a file has a vector, up to 256 of them (abou
 the passage that answers can come from the last chapter. Each passage is matched with the file's
 name, its folder and its Markdown heading in front of it, so *what does the rocket plan say about
 the launch window?* finds the section under *Launch window* in `rocket/plan.md`. A file longer
-than that has its start, end, section starts and passages evenly between. Right after the update,
+than that has its start, end, section starts and passages evenly between, unless its folder is
+set to *Everything* ([Long files](long-files.md)), where every passage has one. Right after the update,
 the vectors are being [renewed](meaning.md#why-is-search-by-meaning-re-reading-everything); a file
 waiting for its new ones gives no passages yet.
 

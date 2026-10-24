@@ -110,7 +110,8 @@ files are still to go, and *· 2 files changing* while files changed in the last
   CSV or log file with more text than that has its passages chosen from the whole file, read
   line by line twice (once to count them, once to keep the chosen ones), never held whole: a
   300 MB log gets its 256 passages from its start to its end, and those passages are kept with
-  their vectors. Of a file larger than 1 GB, its first gigabyte is read that way. Each vector (384 numbers) is packed into a byte a number and kept in
+  their vectors. Of a file larger than 1 GB, its first gigabyte is read that way. [Long files](long-files.md) set to *Everything*, for every folder or one,
+  lift the cap: every passage gets a vector, and search by words keeps all the text. Each vector (384 numbers) is packed into a byte a number and kept in
   `search.db`.
 - **When:** the [helper](helper.md) makes them a few files at a time, and not on
   [battery](battery.md) unless you press *Read now*. With the built-in model it rests as long as
@@ -204,6 +205,7 @@ For a GPU on those, use [Ollama or another server](servers.md).
 | *Made by* | `meaning_engine` | `"builtin"`, `"ollama"` or `"openai"` | `"builtin"` |
 | *Server*, *Model*, *API key from the environment variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | strings | `""` |
 | *Use the CPU only* (on a Mac) | `meaning_device` | `"auto"` or `"cpu"` | `"auto"` |
+| *Long files* | `long_files` | `"sample"` or `"everything"` | `"sample"` ([Long files](long-files.md)) |
 
 The last three are for [servers](servers.md). Search by meaning also needs `text = true`.
 
@@ -308,14 +310,17 @@ Yes, since 1.39.0: the whole text gets vectors, up to 256 passages (about 25,000
 file has its start, its end, the start of each section and passages evenly between. Search by
 words keeps the first 4 MB of a file's text. A text, code, CSV or log file with more text than
 that has its passages spread over the whole file (since coxswain 2.33.0); other documents rarely
-have that much text. Before 1.39.0 only the first 960 words counted.
+have that much text. To give every part of a long file a vector of its own, choose *Everything*
+for its folder ([Long files](long-files.md)). Before 1.39.0 only the first 960 words counted.
 
 #### Why is search by meaning re-reading everything?
 
 Once after an update that changes how files are cut into passages: 1.39.0 (whole documents,
 not the first 960 words) and 2.18.0 (code cut at its functions and classes, with its lines,
 [Ask about code](ask-code.md)); 2.33.0 made again only the vectors of text, code, CSV and log
-files with more than 4 MB of text, whose passages now come from the whole file. Vectors made the old way cannot be mixed with the new ones. The
+files with more than 4 MB of text, whose passages now come from the whole file. Choosing
+*Everything* for long files reads those files again or makes their vectors again, once
+([What is read again](long-files.md#what-is-read-again)). Vectors made the old way cannot be mixed with the new ones. The
 helper notices it when it opens the store, drops the old vectors and makes new ones in the
 background, the most recently changed files first. The text is not read again, except files
 of code once with their indentation, and search by words works all the while. Both
@@ -376,4 +381,4 @@ Search by meaning works on the text the helper keeps, so it needs *Words inside 
 *Names, text and meaning* and the button *Download the model … and turn on* turn them on with it.
 
 ---
-[← Previous: Removable disks](removable-disks.md) · [Next: Search by meaning on a server →](servers.md)
+[← Previous: Removable disks](removable-disks.md) · [Next: Long files: sample or everything →](long-files.md)

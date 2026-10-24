@@ -222,7 +222,7 @@ flags start a new one.
 | `whisper` | bool | `false` | Transcribe the speech of recordings and videos you choose with Whisper, in the background; the model is downloaded from Hugging Face when turned on ([Transcripts of speech](../search/transcripts.md)) |
 | `whisper_model` | string | `""` | The Whisper model: `"tiny"`, `"base"`, `"small"`, `"large-v3-turbo"`; empty: the one this machine runs well |
 | `tika` | bool | `false` | Read OneNote, XPS, CHM, Outlook data files and other formats no reader here knows with Apache Tika, in a container without network; pulls `images.tika` (about 190 MB) when turned on ([Other formats with Apache Tika](../search/tika.md)) |
-| `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read, except plain text, code, CSV and logs, which are read line by line up to 4 MB of text whatever their size ([Documents it reads](../search/documents.md)); a PGN, PDN, KIF, CSA or PBN file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games), [Draughts games](../previews/draughts.md#finding-games)); an SGF file only within this limit ([Go games](../previews/go.md#finding-games)) |
+| `text_max_size` | number (bytes) | `20971520` (20 MB) | Larger files are not read, except plain text, code, CSV and logs, which are read line by line up to 4 MB of text whatever their size (up to 256 MB with `long_files = "everything"`) ([Documents it reads](../search/documents.md)); a PGN, PDN, KIF, CSA or PBN file is, up to 4 MB of lines of its games ([Chess games](../previews/chess.md#finding-games), [Draughts games](../previews/draughts.md#finding-games)); an SGF file only within this limit ([Go games](../previews/go.md#finding-games)) |
 | `archives` | bool | `true` | Look inside the zip, 7z and tar archives in the folders read, less caches and build output: their files are found by name and by their text ([Inside archives](../search/archives.md)) |
 | `archives_everywhere` | bool | `false` | Look inside every archive the name index sees, caches and programs' folders too, for their names ([Which archives](../search/archives.md#which-archives)) |
 | `meaning` | bool | `false` | Search by meaning ([Search by meaning](../search/meaning.md)) |
@@ -230,6 +230,9 @@ flags start a new one.
 | `meaning_url` | string | `""` | The server. Empty for Ollama on this machine (`http://localhost:11434`); for `"openai"` the base URL, for example `http://localhost:8000/api/v1` |
 | `meaning_model` | string | `""` | The server's embedding model, for example `bge-m3` (the Ollama suggestion) |
 | `meaning_key_env` | string | `""` | The name of the environment variable that holds the server's API key. The key itself is never in this file |
+| `long_files` | string | `"sample"` | What search keeps of a long file: `"sample"` (its first 4 MB of text for words, 256 passages spread over all of it for meaning) or `"everything"` (all its text, up to 256 MB, and a passage for every part of it) ([Long files](../search/long-files.md)) |
+| `long_files_everything` | list of paths | `[]` | Folders whose long files are kept whole, whatever `long_files` says; the deepest folder listed in this list or the next decides ([Long files](../search/long-files.md#one-folder)) |
+| `long_files_sample` | list of paths | `[]` | Folders whose long files are sampled, whatever `long_files` says |
 | `meaning_device` | string | `"auto"` | Where the built-in model runs: `"auto"` (a Mac's GPU through Metal when it has one whose results match the CPU's, the CPU elsewhere) or `"cpu"` (the CPU only). Only Macs have a choice ([Search by meaning](../search/meaning.md#on-a-macs-gpu)) |
 | `ask_model` | string | `""` | The chat model that answers in [Ask](../search/ask.md), on the server above (Ollama on this machine with the built-in model), e.g. `qwen3:8b`; or a built-in one, `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or `builtin:qwen3-14b` ([Ask without a server](../search/ask-builtin.md)). Empty: Ask is not set up |
 | `ask_code_model` | string | `""` | The chat model for questions about code, on the same server, e.g. `qwen3-coder:30b`. Empty: Ask's own ([A model for code questions](../search/ask-code.md#a-model-for-code-questions)) |
@@ -393,6 +396,8 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Made by* | `meaning_engine` | `[search] meaning_engine` |
 | | *Server*, *Model*, *API key from the environment variable* | `meaning_url`, `meaning_model`, `meaning_key_env` | `[search] meaning_url`, `meaning_model`, `meaning_key_env` |
 | | *Use the CPU only* (on a Mac) | `meaning_device` | `[search] meaning_device` |
+| | *Long files* | `long_files` | `[search] long_files` |
+| | *Folders kept whole*, *Folders sampled* | `long_files_everything`, `long_files_sample` | `[search] long_files_everything`, `long_files_sample` |
 | *Finding files → Details → Ask* | *Chat model* | `ask_model` | `[search] ask_model` |
 | | *Model for code questions* | `ask_code_model` | `[search] ask_code_model` |
 | | *Let the model think first* | `ask_think` | `[search] ask_think` |

@@ -786,7 +786,8 @@
             <li>
               <button class:cursor={i === m.cursor} onclick={() => run(it)} onmouseenter={() => (m.cursor = i)}>
                 {#if it.icon}<span class="glyph">{it.icon}</span>{/if}
-                <span class="grow">{it.label}</span>
+                <!-- A second line that wraps: what a choice would cost (Long files). -->
+                <span class="grow">{it.label}{#if it.sub}<span class="sub">{it.sub}</span>{/if}</span>
                 {#if it.key}<kbd>{it.key}</kbd>{/if}
               </button>
             </li>
@@ -1348,6 +1349,15 @@
   }
   .grow {
     flex: 1;
+  }
+  .grow:has(.sub) {
+    min-width: 0;
+  }
+  .grow .sub {
+    display: block;
+    white-space: normal;
+    font-size: 0.9em;
+    opacity: 0.8;
   }
   kbd {
     font-family: var(--mono-font), var(--scripts);

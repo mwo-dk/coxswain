@@ -76,7 +76,7 @@ Six groups: *What is read* (open at first), *Folders*, *Meaning*, *Ask*, *Built-
 | | *Transcribe speech with Whisper* | `whisper` | bool, `false` | Recordings and videos you choose are transcribed in the background; the model is downloaded from Hugging Face when ticked ([Transcripts of speech](transcripts.md)) |
 | | *Whisper model* (while the one above is on) | `whisper_model` | text, `""` = chosen for this machine | `tiny`, `base`, `small`, `large-v3-turbo`, each with its size, *recommended* or *slow here* |
 | | *Programs that read more* | | | tesseract, pdftoppm and LibreOffice, each ✓ or ✗ *not installed*; a missing one with the line that installs it and **Copy** ([Installing what is missing](scans.md#installing-what-is-missing)) |
-| | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only; plain text, code, CSV and logs are read whatever their size, their first 4 MB of text |
+| | *Largest file read (MB)* | `text_max_size` | bytes, 20 MB | Larger files are found by name only; plain text, code, CSV and logs are read whatever their size, their first 4 MB of text (all of it with *Long files* → *Everything*) |
 | | *Most hits* | `max_results` | number, `10000` | The most rows Find lists for one kind of hit |
 | Folders | *Folders read* | `text_roots` | list, `[]` = *Your home folder* | [Choosing the folders](folders.md) |
 | | *Names only* | `names_only` | list, `[]` | [Choosing the folders](folders.md) |
@@ -90,6 +90,8 @@ Six groups: *What is read* (open at first), *Folders*, *Meaning*, *Ask*, *Built-
 | | *Model* | `meaning_model` | string, `""` | The server's model; empty is `bge-m3` for Ollama. **Pull bge-m3 with Ollama** when Ollama lacks it |
 | | *API key from the environment variable* | `meaning_key_env` | string, `""` | OpenAI API only: the variable that holds the key |
 | | *Use the CPU only* | `meaning_device` | `"auto"` / `"cpu"`, `"auto"` | On a Mac only ([on a Mac's GPU](meaning.md#on-a-macs-gpu)) |
+| | *Long files* | `long_files` | `"sample"` / `"everything"`, `"sample"` | *Sample*: the first 4 MB of a long file's text and 256 passages spread over it; *Everything*: all its text and every passage. A change says first what it costs, with **Apply** and **Cancel** ([Long files](long-files.md)) |
+| | *Folders kept whole*, *Folders sampled* | `long_files_everything`, `long_files_sample` | lists, `[]` | Folders that differ from *Long files*, the deepest listed deciding; also set by the action menu on a folder ([One folder](long-files.md#one-folder)) |
 | Ask | *Chat model* | `ask_model` | string, `""` | Chat models only; `builtin:qwen3-1.7b`, `builtin:qwen3-4b` or `builtin:qwen3-14b` for a built-in one. **Try it** asks a test question ([Ask](ask.md)) |
 | | *Chat model*, the list | none | | The server's chat models and the built-in ones under where each runs, with size and speed; a pick downloads a built-in one first, with a bar ([Ask without a server](ask-builtin.md)) |
 | | *Model for code questions* | `ask_code_model` | string, `""` (*Same as Ask*) | The chat model that answers questions about code, on the same server, such as `qwen3-coder:30b` ([A model for code questions](ask-code.md#a-model-for-code-questions)) |

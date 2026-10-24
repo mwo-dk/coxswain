@@ -27,7 +27,7 @@ pub const AREAS: [Area; 7] = Area::ALL;
 const GROUPS: &[(&str, &str, &[&str])] = &[
     ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "search_tika", "search_whisper", "whisper_model", "text_max_size", "max_results"]),
     ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
-    ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device"]),
+    ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device", "long_files", "long_files_everything", "long_files_sample"]),
     ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
 ];
 
@@ -471,6 +471,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         "image_updates" => pairs(&[("off", "settings.image_updates_off"), ("weekly", "settings.image_updates_weekly"), ("monthly", "settings.image_updates_monthly")]),
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
         "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
+        "long_files" => pairs(&[("sample", "settings.long_files.sample"), ("everything", "settings.long_files.everything")]),
         "chess_notation" => pairs(&[("figurines", "settings.chess_figurines"), ("letters", "settings.chess_letters")]),
         "chess_pieces" => pairs(&[
             ("auto", "settings.chess_pieces_auto"),
@@ -1083,7 +1084,11 @@ impl App {
             return self.dialog = Some(Dialog::Settings(s));
         }
         let st = self.index.status();
-        if let Some(why) = coxswain_core::meaning::change_notice(&self.cfg.search, &new.search, st.meaning_done, st.meaning_passages) {
+        let index = &self.index;
+        let why = coxswain_core::meaning::change_notice(&self.cfg.search, &new.search, st.meaning_done, st.meaning_passages)
+            // What is kept of long files: what the change reads, adds or frees, first.
+            .or_else(|| coxswain_core::long_files::change_notice(&self.cfg.search, &new.search, st.meaning_ms_per_passage, |r| index.long_files_cost(r)));
+        if let Some(why) = why {
             s.mode = Mode::Confirm(why, changes);
             return self.dialog = Some(Dialog::Settings(s));
         }
@@ -1413,6 +1418,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let explain = Rect { x: inner.x + 1, y: y + 1, height: 2, width: inner.width - 3 };
     let mut text: Vec<Span> = vec![];
     match &s.mode {
+        // A change of what is kept of long files, or of the vectors' model.
+        Mode::Confirm(why, changes) if changes.keys().any(|k| k.starts_with("long_files")) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("common.apply"), t!("common.cancel")), red)),
         Mode::Confirm(why, _) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("settings.meaning_change_go"), t!("settings.meaning_change_keep")), red)),
         Mode::ConfirmDelete(id) => {
             let name = rows.iter().find_map(|r| match r {

@@ -1601,7 +1601,7 @@ pub fn ollama_pull(url: &str, model: &str, p: &Progress) -> io::Result<()> {
 }
 
 /// A passage of a file, and the Markdown heading it sits under ("" for none).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Passage {
     pub text: String,
     pub heading: String,
@@ -1613,6 +1613,13 @@ pub struct Passage {
 /// `OVERLAP` words shared; `PASSAGES` at most. The same text always gives the same passages:
 /// a vector is found again by its number.
 pub fn passages(text: &str, path: &str) -> Vec<Passage> {
+    cap(every_passage(text, path))
+}
+
+/// Every passage `passages` would choose from, with whether each starts a section: no cap.
+/// What *Everything* (`long_files`) gives a long file; `chosen` over it is what `passages`
+/// keeps, so going back to *Sample* needs no reading.
+pub fn every_passage(text: &str, path: &str) -> Vec<(Passage, bool)> {
     let markdown = is_markdown(path);
     // (passage, whether it starts a section)
     let mut all: Vec<(Passage, bool)> = if crate::code::is_code(path) {
@@ -1623,8 +1630,7 @@ pub fn passages(text: &str, path: &str) -> Vec<Passage> {
     if all.is_empty() {
         all = prose(text, markdown);
     }
-    let all = all.into_iter().filter_map(|(p, starts)| Some((kept(p)?, starts))).collect();
-    cap(all)
+    all.into_iter().filter_map(|(p, starts)| Some((kept(p)?, starts))).collect()
 }
 
 /// Prose in passages of about `WORDS` words, with whether each starts a section.
@@ -1760,6 +1766,29 @@ pub fn passages_streamed(
     (i == n).then_some(out)
 }
 
+/// Every passage of a whole file read once line by line through `lines` (as for
+/// `passages_streamed`, without its cap), each to `emit` with whether it starts a section as
+/// soon as it is whole: the file is never held whole. `emit` returns false to stop; `None`
+/// when the file could not be read or `emit` stopped.
+pub fn every_passage_streamed(
+    path: &str,
+    lines: &mut dyn FnMut(&mut dyn FnMut(&str)) -> bool,
+    emit: &mut dyn FnMut(Passage, bool) -> bool,
+) -> Option<()> {
+    let mut b = Prose::new(is_markdown(path));
+    let mut go = true;
+    let mut each = |p: Passage, starts: bool| {
+        if go && let Some(p) = kept(p) {
+            go = emit(p, starts);
+        }
+    };
+    if !lines(&mut |l| b.line(l, &mut each)) {
+        return None;
+    }
+    b.end(&mut each);
+    go.then_some(())
+}
+
 /// At most `PASSAGES` of `all`.
 fn cap(all: Vec<(Passage, bool)>) -> Vec<Passage> {
     let heads: Vec<usize> = (0..all.len()).filter(|&i| all[i].1).collect();
@@ -1777,7 +1806,7 @@ fn cap(all: Vec<(Passage, bool)>) -> Vec<Passage> {
 /// Which of `n` passages are kept, those in `heads` starting a section; `None`: all of them.
 /// Too many: the start and the end, the first passage of each section (up to half), and
 /// passages evenly spread over the rest.
-fn chosen(n: usize, heads: &[usize]) -> Option<Vec<bool>> {
+pub(crate) fn chosen(n: usize, heads: &[usize]) -> Option<Vec<bool>> {
     if n <= PASSAGES {
         return None;
     }

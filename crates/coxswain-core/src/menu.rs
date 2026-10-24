@@ -190,6 +190,7 @@ impl Action {
             DrawioExport => s.drawios > 0 && disk,
             ScanViruses => n > 0 && disk,
             PreviewWith => s.single() && s.previewed == 1 && disk,
+            LongFiles => s.single() && s.folders == 1 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
             Branches => s.git && disk,
@@ -296,6 +297,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
     ),
+    // After "folder": what search keeps of a folder's long files is not guessed.
+    ("long_files", &[("key", Action::ActionMenu)]),
     (
         "file",
         &[
@@ -340,7 +343,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "chess" => disk && s.single() && s.chess == 1,
         "image" => disk && s.single() && s.images == 1,
         "local_model" => disk && s.single() && s.local_models == 1,
-        "folder" => disk && s.single() && s.folders == 1,
+        "folder" | "long_files" => disk && s.single() && s.folders == 1,
         "file" => disk && s.single() && s.files == 1 && s.archives == 0,
         "branches" => s.place == Place::Branches && s.single(),
         "history" | "upstream" => s.place == Place::History,
@@ -710,6 +713,11 @@ mod tests {
             "{text}"
         );
         shown.insert("folder".to_string(), TIMES);
+        // Then what search keeps of the folder's long files, by the action menu.
+        let (id, text) = pick(&folder, &cfg, &shown).unwrap();
+        assert_eq!(id, "long_files");
+        assert!(text.contains("Shift+F10"), "{text}");
+        shown.insert("long_files".to_string(), TIMES);
         assert_eq!(pick(&folder, &cfg, &shown), None);
         // A big folder, or a drive: where the space goes.
         let big = Subject { big: true, ..folder.clone() };
