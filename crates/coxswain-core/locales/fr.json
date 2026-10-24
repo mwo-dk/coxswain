@@ -3951,6 +3951,7 @@
  "split.size_bad": "Tapez une taille comme 250M ou 1.5G",
  "split.taken": "{name} existe déjà : rien n'est écrasé",
  "split.too_small": "Le fichier ({size}) tient en une partie : choisissez une taille plus petite",
+ "split.too_many": "{parts} parties, ce serait trop (au plus {most}) : choisissez une taille plus grande, comme 250M ou 1.5G",
  "split.stopped": "Arrêté ; rien d'inachevé n'a été laissé",
  "split.not_first": "Pas la première partie d'un fichier découpé : placez le curseur sur nom.001",
  "split.no_file": "Placez le curseur sur un fichier à découper",

@@ -3874,6 +3874,7 @@
  "split.size_bad": "Type a size such as 250M or 1.5G",
  "split.taken": "{name} is there already: nothing is written over",
  "split.too_small": "The file ({size}) fits in one part: choose a smaller size",
+ "split.too_many": "{parts} parts would be too many (at most {most}): choose a larger size, such as 250M or 1.5G",
  "split.stopped": "Stopped; nothing half made was left",
  "split.not_first": "Not the first part of a split file: put the cursor on name.001",
  "split.no_file": "Put the cursor on a file to split",

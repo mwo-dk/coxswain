@@ -4039,6 +4039,7 @@
  "split.size_bad": "Wpisz rozmiar, np. 250M lub 1.5G",
  "split.taken": "{name} już istnieje: nic nie zostanie nadpisane",
  "split.too_small": "Plik ({size}) mieści się w jednej części: wybierz mniejszy rozmiar",
+ "split.too_many": "{parts} części to za dużo (najwyżej {most}): wybierz większy rozmiar, np. 250M lub 1.5G",
  "split.stopped": "Zatrzymano; nie zostało nic niedokończonego",
  "split.not_first": "To nie jest pierwsza część podzielonego pliku: ustaw kursor na nazwa.001",
  "split.no_file": "Ustaw kursor na pliku do podzielenia",

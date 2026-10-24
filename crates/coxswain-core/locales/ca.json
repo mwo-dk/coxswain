@@ -3951,6 +3951,7 @@
  "split.size_bad": "Escriviu una mida com 250M o 1.5G",
  "split.taken": "{name} ja hi és: no se sobreescriu res",
  "split.too_small": "El fitxer ({size}) cap en una part: trieu una mida més petita",
+ "split.too_many": "{parts} parts serien massa (com a màxim {most}): tria una mida més gran, com ara 250M o 1.5G",
  "split.stopped": "Aturat; no ha quedat res a mig fer",
  "split.not_first": "No és la primera part d'un fitxer dividit: poseu el cursor sobre nom.001",
  "split.no_file": "Poseu el cursor sobre un fitxer per dividir",

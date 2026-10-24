@@ -3863,6 +3863,7 @@
  "split.size_bad": "Skriv en storlek som 250M eller 1.5G",
  "split.taken": "{name} finns redan: inget skrivs över",
  "split.too_small": "Filen ({size}) ryms i en del: välj en mindre storlek",
+ "split.too_many": "{parts} delar vore för många (högst {most}): välj en större storlek, till exempel 250M eller 1.5G",
  "split.stopped": "Stoppad; inget halvfärdigt lämnades kvar",
  "split.not_first": "Inte första delen av en uppdelad fil: ställ markören på namn.001",
  "split.no_file": "Ställ markören på en fil att dela upp",

@@ -3952,6 +3952,7 @@
  "split.size_bad": "Zadejte velikost jako 250M nebo 1.5G",
  "split.taken": "{name} už existuje: nic se nepřepíše",
  "split.too_small": "Soubor ({size}) se vejde do jedné části: zvolte menší velikost",
+ "split.too_many": "{parts} částí by bylo příliš mnoho (nejvýše {most}): zvolte větší velikost, například 250M nebo 1.5G",
  "split.stopped": "Zastaveno; nic nedokončeného nezůstalo",
  "split.not_first": "Není to první část rozděleného souboru: dejte kurzor na název.001",
  "split.no_file": "Dejte kurzor na soubor k rozdělení",

@@ -3863,6 +3863,7 @@
  "split.size_bad": "Kirjoita koko, kuten 250M tai 1.5G",
  "split.taken": "{name} on jo olemassa: mitään ei kirjoiteta päälle",
  "split.too_small": "Tiedosto ({size}) mahtuu yhteen osaan: valitse pienempi koko",
+ "split.too_many": "{parts} osaa olisi liikaa (enintään {most}): valitse suurempi koko, esimerkiksi 250M tai 1.5G",
  "split.stopped": "Pysäytetty; mitään keskeneräistä ei jäänyt",
  "split.not_first": "Ei jaetun tiedoston ensimmäinen osa: vie kohdistin nimi.001:n kohdalle",
  "split.no_file": "Vie kohdistin jaettavan tiedoston kohdalle",

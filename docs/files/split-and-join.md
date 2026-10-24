@@ -41,7 +41,8 @@ against `name.sha256`. Both apps; nothing else needs to be installed.
 
 The file itself stays as it was. Parts are numbered with three digits (`.001` to `.999`), more
 when there are more. A size that would make more than 100,000 parts (`1` is one byte, not 1 GB)
-is refused with *Type a size such as 250M or 1.5G*, before anything is written.
+is refused with *2,500,000 parts would be too many (at most 100,000): choose a larger size, such as
+250M or 1.5G*, before anything is written, whatever the file's size.
 
 ## Joining the parts
 

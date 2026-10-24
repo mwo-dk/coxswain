@@ -1,0 +1,1 @@
+| **Split says when a size makes too many parts.** A size that would cut a file into more than 100,000 parts (`1` is one byte) is refused with how many parts it would make and the limit, instead of asking for a size again. | [Split and join](files/split-and-join.md#splitting-a-file) |

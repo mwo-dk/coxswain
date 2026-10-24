@@ -3951,6 +3951,7 @@
  "split.size_bad": "Escribí un tamaño como 250M o 1.5G",
  "split.taken": "{name} ya existe: no se sobrescribe nada",
  "split.too_small": "El archivo ({size}) entra en una parte: elegí un tamaño menor",
+ "split.too_many": "{parts} partes serían demasiadas (como mucho {most}): elegí un tamaño mayor, como 250M o 1.5G",
  "split.stopped": "Detenido; no quedó nada a medio hacer",
  "split.not_first": "No es la primera parte de un archivo dividido: poné el cursor sobre nombre.001",
  "split.no_file": "Poné el cursor sobre un archivo para dividir",
