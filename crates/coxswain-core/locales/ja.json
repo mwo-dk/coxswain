@@ -3002,6 +3002,7 @@
  "settings.step.pause": "一時停止",
  "settings.step.resume": "再開",
  "settings.step.stop_transcribing": "残りを取りやめる",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "この Mac のメモリ",
  "setup.code_no_card": "ここにはグラフィックカードがありません。コード用のモデルはプロセッサーで動き、質問のモデルより遅くなります。ここでは「質問と同じ」を選びます。",
  "setup.code_too_large": "{model} には約 {gb} GB が必要で、{gpu} の {room} GB を超えます。一部がプロセッサーで動き、質問のモデルと入れ替わります。ここでは「質問と同じ」のほうが速いです。",

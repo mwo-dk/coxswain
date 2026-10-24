@@ -621,7 +621,10 @@
               {#if l.part === "ask" && trial}<br /><small class="hint" class:err={trial.error}>{trial.busy ? t("common.loading") : trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</small>{/if}
               {#if l.part === "meaning" && bench}<br /><small class="hint" class:err={bench.error}>{bench.busy ? t("common.loading") : bench.error ?? bench.text}</small>{/if}
             </span>
-            {#if l.step}<button disabled={(trial?.busy && l.step === "try_it") || (bench?.busy && l.step === "bench")} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button>{:else}<span></span>{/if}
+            {#if l.step}<span class="steps"
+                ><button disabled={(trial?.busy && l.step === "try_it") || (bench?.busy && l.step === "bench")} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button
+                >{#if l.also}<button onclick={() => step({ step: l.also })}>{t(`settings.step.${l.also}`)}</button>{/if}</span
+              >{:else}<span></span>{/if}
           {/each}
         </div>
 
@@ -1253,6 +1256,11 @@
     border: 1px solid var(--border-fg);
     border-radius: var(--r);
     max-width: 52em;
+  }
+  .status .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .status .link.strong {
     font-weight: bold;

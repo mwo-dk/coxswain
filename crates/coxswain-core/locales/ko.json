@@ -3002,6 +3002,7 @@
  "settings.step.pause": "일시 정지",
  "settings.step.resume": "계속",
  "settings.step.stop_transcribing": "나머지 그만두기",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "이 Mac의 메모리",
  "setup.code_no_card": "여기에는 그래픽 카드가 없습니다. 코드용 모델은 프로세서에서 돌아 질문하기의 모델보다 느립니다. 여기서는 질문하기와 같음이 맞습니다.",
  "setup.code_too_large": "{model}은(는) 약 {gb}GB가 필요해 {gpu}의 {room}GB보다 많습니다. 일부는 프로세서에서 돌고 질문하기의 모델과 번갈아 올라갑니다. 여기서는 질문하기와 같음이 더 빠릅니다.",

@@ -3152,6 +3152,7 @@
  "settings.step.pause": "השהה",
  "settings.step.resume": "המשך",
  "settings.step.stop_transcribing": "וותר על השאר",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "‏הזיכרון של המק הזה",
  "setup.code_no_card": "‏אין כאן כרטיס גרפי: מודל לקוד היה רץ על המעבד, לאט יותר מזה של שאלה. 'כמו שאלה' הוא הבחירה כאן.",
  "setup.code_too_large": "‏{model} צריך כ-{gb} GB, יותר ממה שיש ל-{gpu} ({room} GB): הוא היה רץ חלקית על המעבד ומתחלף עם המודל של שאלה. 'כמו שאלה' מהיר יותר כאן.",

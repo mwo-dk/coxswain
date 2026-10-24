@@ -520,6 +520,8 @@ pub struct Line {
     /// The note is a problem, not news.
     pub bad: bool,
     pub step: Option<Step>,
+    /// A second step beside it: "Let the rest go" while transcribing or paused.
+    pub also: Option<Step>,
     /// The model chosen is a poor choice here: what to say, and the better one.
     pub poor: Option<crate::setup::Poor>,
     /// Work under way: files done of all, for a progress bar.
@@ -645,6 +647,7 @@ pub fn status(
         note: None,
         bad: false,
         step: None,
+        also: None,
         poor: None,
         bar: None,
     };
@@ -810,8 +813,12 @@ pub fn status(
                     w.bad = true;
                 }
             }
-            if ts.waiting > 0 && w.step.is_none() {
-                w.step = Some(Step::StopTranscribing);
+            if ts.waiting > 0 {
+                match w.step {
+                    None => w.step = Some(Step::StopTranscribing),
+                    Some(Step::Pause | Step::Resume) => w.also = Some(Step::StopTranscribing),
+                    Some(_) => {}
+                }
             }
         }
         lines.push(w);
@@ -1297,6 +1304,19 @@ mod tests {
             footer.contains(&crate::tn!("find.meaning_changing", 1)),
             "{footer}"
         );
+        // Transcribing or paused with files waiting: both steps, so the rest can be let go.
+        s.whisper = true;
+        let whisper = |state, waiting| {
+            let ts = crate::transcribe::Status { waiting, state, ..Default::default() };
+            let st = Status { transcripts: Some(ts), ..st.clone() };
+            let l = status(&s, &st, true, &[]).into_iter().find(|l| l.part == Part::Whisper).unwrap();
+            (l.step, l.also)
+        };
+        use crate::transcribe::State as T;
+        assert_eq!(whisper(T::Working, 3), (Some(Step::Pause), Some(Step::StopTranscribing)));
+        assert_eq!(whisper(T::Paused, 3), (Some(Step::Resume), Some(Step::StopTranscribing)));
+        assert_eq!(whisper(T::Working, 0), (Some(Step::Pause), None));
+        assert_eq!(whisper(T::Idle, 3), (Some(Step::StopTranscribing), None));
     }
 
     #[test]

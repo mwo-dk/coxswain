@@ -3077,6 +3077,7 @@
  "settings.step.pause": "Peata",
  "settings.step.resume": "Jätka",
  "settings.step.stop_transcribing": "Jäta ülejäänud",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "selle Maci mälu",
  "setup.code_no_card": "Siin pole graafikakaarti: koodimudel töötaks protsessoril, aeglasemalt kui Küsi oma. Sama mis Küsi on siin valik.",
  "setup.code_too_large": "{model} vajab umbes {gb} GB, rohkem kui {gpu} omab ({room} GB): see töötaks osaliselt protsessoril ja vahetuks Küsi mudeliga. Sama mis Küsi on siin kiirem.",

@@ -3069,6 +3069,7 @@
  "settings.step.pause": "مکث",
  "settings.step.resume": "ادامه",
  "settings.step.stop_transcribing": "رها کردن بقیه",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "حافظهٔ این مک",
  "setup.code_no_card": "اینجا کارت گرافیک نیست: مدل کد روی پردازنده اجرا می‌شد، کندتر از مدل پرسش. «مانند پرسش» انتخاب اینجاست.",
  "setup.code_too_large": "{model} حدود {gb} گیگابایت می‌خواهد، بیش از آنچه {gpu} دارد ({room} گیگابایت): بخشی از آن روی پردازنده اجرا می‌شد و با مدل پرسش جابه‌جا می‌شد. «مانند پرسش» اینجا سریع‌تر است.",

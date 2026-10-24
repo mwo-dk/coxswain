@@ -3152,6 +3152,7 @@
  "settings.step.pause": "Apturēt",
  "settings.step.resume": "Turpināt",
  "settings.step.stop_transcribing": "Atstāt pārējo",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "šī Mac atmiņa",
  "setup.code_no_card": "Šeit nav grafiskās kartes: koda modelis darbotos procesorā, lēnāk nekā Jautāt modelis. Tāpat kā Jautāt ir izvēle šeit.",
  "setup.code_too_large": "{model} vajag aptuveni {gb} GB, vairāk nekā ir {gpu} ({room} GB): tas darbotos daļēji procesorā un mainītos ar Jautāt modeli. Tāpat kā Jautāt šeit ir ātrāk.",

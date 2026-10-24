@@ -3077,6 +3077,7 @@
  "settings.step.pause": "Pause",
  "settings.step.resume": "Hald fram",
  "settings.step.stop_transcribing": "La resten gå",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "minnet i denne Macen",
  "setup.code_no_card": "Ikkje noko grafikkort her: ein modell for kode ville køyrt på prosessoren, tregare enn Spør sin eigen. Same som Spør er valet her.",
  "setup.code_too_large": "{model} treng om lag {gb} GB, meir enn {gpu} har ({room} GB): han ville køyrt delvis på prosessoren og bytt plass med modellen til Spør. Same som Spør er raskare her.",

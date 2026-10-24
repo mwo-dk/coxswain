@@ -3077,6 +3077,7 @@
  "settings.step.pause": "Gelditu",
  "settings.step.resume": "Jarraitu",
  "settings.step.stop_transcribing": "Utzi gainerakoak",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "Mac honen memoria",
  "setup.code_no_card": "Ez dago txartel grafikorik hemen: kode-eredu bat prozesadorean ibiliko litzateke, Galdetu-rena baino motelago. Galdetu bezala da aukera hemen.",
  "setup.code_too_large": "{model}-ek {gb} GB inguru behar ditu, {gpu}-k dituenak baino gehiago ({room} GB): partez prozesadorean ibiliko litzateke eta Galdetu-ren ereduarekin txandakatuko litzateke. Galdetu bezala azkarragoa da hemen.",
