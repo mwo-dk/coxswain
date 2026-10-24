@@ -1026,6 +1026,7 @@ dependencies = [
  "mail-parser",
  "md-5 0.11.0",
  "memchr",
+ "miniz_oxide 0.9.1",
  "notify",
  "parquet",
  "pdf-extract",

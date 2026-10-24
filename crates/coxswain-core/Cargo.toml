@@ -61,6 +61,8 @@ getrandom = "0.4"
 bzip2 = "0.6.1"
 lzma-rust2 = "0.23"
 ruzstd = "0.9.0"
+# A gzip unpacked from a block boundary in its middle (a compressed tar's restart points).
+miniz_oxide = { version = "0.9.1", features = ["block-boundary"] }
 sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.

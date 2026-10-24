@@ -275,8 +275,11 @@ What the numbers say:
   whole (xlsx, pptx, epub, a web page: about the part's size). Word and OpenDocument texts stay
   near 25 MB whatever the part's size.
 - **Archives stay flat in memory**: entries are copied out as they are unpacked. Time is what
-  grows: a compressed tar is unpacked from its start to be listed and again for each entry taken
-  out of it (the peek of its last entry costs two full passes), as is a solid 7z.
+  grows: a compressed tar is unpacked from its start to be listed, as is a solid 7z for each
+  entry taken out of it. An entry of a tar listed before is unpacked from a place near it when
+  there is one (an `.xz` in blocks, any `.gz`, a `.zst` of several frames): the last file of a
+  1.3 GB `.tar.gz` comes out in 0.05 s instead of 2 s; out of a `.tar.bz2` or a `.tar.zst` of
+  one frame it is unpacked from the start.
 - **An archive inside an archive** is not opened; its peek is a copy on disk, flat in memory.
 - **A PGN collection's table** costs 48 bytes a game (7 million games, 332 MB) and shows its
   first games within 0.2 s; its search text stops after 4 MB. An SGF collection is read whole up

@@ -201,8 +201,14 @@ through an installed 7-Zip instead, read-only, like a disk image
   next time, in this run or a later one, it opens at once while the archive does not change. A
   file taken out of a `.tar.xz` made in blocks (xz 5.6 and later make them by default, and
   `xz -T`) is unpacked from the block it starts in, not from the start: the last file of a 2 GB
-  `.tar.xz` comes out in a moment. Out of a `.tar.gz`, `.tar.bz2` or `.tar.zst` a file is still
-  unpacked from the start up to it.
+  `.tar.xz` comes out in a moment. A `.tar.gz` gets places it can be unpacked from on that first
+  reading, one every 4 MB unpacked (with the 32 KB before each, about 2 MB kept for a 1 GB
+  tar), and a `.tar.zst` of several frames (`pzstd`, `zstd --long` in parts) the place each
+  frame starts; these are kept beside its list, so a file taken out of either is unpacked from
+  the last such place before it. A `.tar.zst` of one frame (what `zstd` makes, `-T` too) and a
+  `.tar.bz2` are still unpacked from the start up to the file. So is a `.tar.gz` you opened
+  with an older Coxswain until it changes, and one made of a few very large deflate blocks
+  (zlib-ng's fastest level): it has no places between them.
 - **No overwriting:** a name that already exists inside, or at the target outside, is refused
   with `… exists`, as between folders.
 - **Permissions that come out:** a file or folder from a zip or a tar keeps its executable bit,
