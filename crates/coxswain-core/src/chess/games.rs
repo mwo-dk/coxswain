@@ -89,7 +89,7 @@ impl Head {
 }
 
 /// Bytes as text: UTF-8, else Windows-1252 (old PGN files are Latin-1).
-fn text(b: &[u8]) -> std::borrow::Cow<'_, str> {
+pub(crate) fn text(b: &[u8]) -> std::borrow::Cow<'_, str> {
     match std::str::from_utf8(b) {
         Ok(s) => s.into(),
         Err(_) => encoding_rs::WINDOWS_1252.decode_without_bom_handling(b).0,
@@ -406,14 +406,42 @@ fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dy
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     // The search store reads every PGN file: 1 GiB unpacked of each is plenty.
+    if super::scid::is_scid(path) {
+        return scan_scid(&super::scid::Base::open(path)?, &AtomicBool::new(false), &Arc::default(), each);
+    }
     let format = kind(path);
     let r = reader(path, Arc::default(), 1 << 30)?;
     scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, each)
 }
 
+/// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
+/// the index is its `offset`. `read` counts the index bytes read, for the progress.
+fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+    base.entries(|n, e| {
+        let mut head = Head { offset: n as u64, len: 0, tags: Default::default(), plies: e.plies, sans: vec![], format: super::Format::Pgn };
+        head.tags[WHITE] = base.white(e).to_string();
+        head.tags[BLACK] = base.black(e).to_string();
+        head.tags[EVENT] = base.event(e).to_string();
+        head.tags[SITE] = base.site(e).to_string();
+        head.tags[DATE] = e.date.clone();
+        head.tags[ECO] = e.eco.clone();
+        head.tags[RESULT] = ["*", "1-0", "0-1", "1/2-1/2"][e.result as usize & 3].to_string();
+        for (i, elo) in [(WHITE_ELO, e.white_elo), (BLACK_ELO, e.black_elo)] {
+            if elo > 0 {
+                head.tags[i] = elo.to_string();
+            }
+        }
+        read.fetch_add(47, Ordering::Relaxed);
+        each(&head) && !stop.load(Ordering::Relaxed)
+    })
+}
+
 /// Whose games a PGN-family file holds: draughts for `.pdn`, xiangqi when the first tags of a
 /// PGN file say so (`xiangqi::is_xiangqi`), else chess.
 pub fn kind(path: &Path) -> super::Format {
+    if super::scid::is_scid(path) {
+        return super::Format::Pgn;
+    }
     if let Some(f @ (super::Format::Pdn | super::Format::Kif | super::Format::Csa | super::Format::Pbn)) = super::format(path) {
         return f;
     }
@@ -635,6 +663,8 @@ pub struct Library {
     size: u64,
     stop: Arc<AtomicBool>,
     source: Mutex<Source>,
+    /// A SCID database's names and files, when the file is one (`scid`).
+    scid: Option<Arc<super::scid::Base>>,
 }
 
 impl Drop for Library {
@@ -653,17 +683,28 @@ impl Library {
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
         let size = std::fs::metadata(path)?.len();
         let read = Arc::new(AtomicU64::new(0));
+        let shared = Arc::new(Mutex::new(Shared::default()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let source = Mutex::new(Source { path: path.to_path_buf(), open: None });
+        if super::scid::is_scid(path) {
+            let base = Arc::new(super::scid::Base::open(path)?);
+            let (sh, st, b, rd) = (shared.clone(), stop.clone(), base.clone(), read.clone());
+            std::thread::Builder::new()
+                .name("chess-games".into())
+                .spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, super::Format::Pgn, limits, || false))?;
+            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base) });
+        }
         let r = reader(path, read.clone(), limits.unpacked)?;
         // What the packed file unpacked to: at the limit, the rest of it was left.
         let unpacked = Arc::new(AtomicU64::new(0));
         let packed = pack(path) != Pack::None;
         let r: Box<dyn Read + Send> = Box::new(Counted { inner: r, read: unpacked.clone() });
-        let shared = Arc::new(Mutex::new(Shared::default()));
-        let stop = Arc::new(AtomicBool::new(false));
         let (sh, st) = (shared.clone(), stop.clone());
         let format = kind(path);
-        std::thread::Builder::new().name("chess-games".into()).spawn(move || index(r, &sh, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked))?;
-        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source: Mutex::new(Source { path: path.to_path_buf(), open: None }) })
+        std::thread::Builder::new().name("chess-games".into()).spawn(move || {
+            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
+        })?;
+        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None })
     }
 
     pub fn progress(&self) -> Progress {
@@ -773,6 +814,9 @@ impl Library {
             let r = s.recs.get(i as usize).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
             (r.offset, r.len)
         };
+        if let Some(base) = &self.scid {
+            return base.pgn(offset as u32);
+        }
         let bytes = self.source.lock().unwrap_or_else(|e| e.into_inner()).read(offset, len)?;
         // KIF and CSA files are often in Shift_JIS.
         Ok(match self.format {
@@ -796,7 +840,7 @@ impl Library {
 
 /// The pass over the games: their records, handed over in batches so the table fills.
 /// `cut`: the packed file was unpacked as far as the limits allow.
-fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, shared: &Mutex<Shared>, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
     let chess = format == super::Format::Pgn;
     // What the names cost so far: their bytes, twice (the list and the lookup), and the rest.
     let mut names = 0usize;
@@ -826,7 +870,7 @@ fn index(r: Box<dyn Read + Send>, shared: &Mutex<Shared>, stop: &AtomicBool, for
         s.recs.append(batch);
     };
     let mut last = std::time::Instant::now();
-    let res = scan(BufReader::with_capacity(1 << 16, r), stop, format, |h| {
+    let res = feed(&mut |h| {
         if games >= limits.games || names >= limits.names {
             capped = true;
             return false;
@@ -976,6 +1020,19 @@ pub fn game_of_hit(path: &Path, snippet: &str) -> Option<u32> {
     hit.found()
 }
 
+/// The Polyglot keys of the positions `g` reaches on its main line, each once, sorted.
+fn main_line_keys(g: &pgn::Game) -> Vec<u64> {
+    let mut keys: Vec<u64> = g
+        .main_line()
+        .iter()
+        .map_while(|&i| g.nodes[i as usize].fen.as_deref().and_then(pgn::board))
+        .map(|b| super::polyglot::key(&b))
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys
+}
+
 /// The most games of one file whose positions the search store keeps, and the most positions.
 pub const POSITION_GAMES: u32 = 100_000;
 pub const POSITION_ROWS: usize = 2_000_000;
@@ -986,6 +1043,20 @@ pub const POSITION_ROWS: usize = 2_000_000;
 /// never has more than one game in memory. Up to `POSITION_GAMES` games and `POSITION_ROWS`
 /// positions; `stop` is asked between games, and true ends it there.
 pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32, &[u64])) -> io::Result<()> {
+    if super::scid::is_scid(path) {
+        let base = super::scid::Base::open(path)?;
+        let mut rows = 0usize;
+        for n in 0..base.count.min(POSITION_GAMES) {
+            if rows >= POSITION_ROWS || stop() {
+                break;
+            }
+            let mut keys = main_line_keys(&super::pgn::parse(&base.pgn(n)?));
+            keys.truncate(POSITION_ROWS - rows);
+            rows += keys.len();
+            each(n, &keys);
+        }
+        return Ok(());
+    }
     let mut r = BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?);
     let (mut line, mut game, mut n, mut rows) = (Vec::new(), String::new(), 0u32, 0usize);
     // Moves seen in this game, and how deep in a { } comment the reading is.
@@ -997,14 +1068,7 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
         }
         let g = super::pgn::parse(game);
         game.clear();
-        let mut keys: Vec<u64> = g
-            .main_line()
-            .iter()
-            .map_while(|&i| g.nodes[i as usize].fen.as_deref().and_then(super::pgn::board))
-            .map(|b| super::polyglot::key(&b))
-            .collect();
-        keys.sort_unstable();
-        keys.dedup();
+        let mut keys = main_line_keys(&g);
         keys.truncate(POSITION_ROWS.saturating_sub(*rows));
         *rows += keys.len();
         each(*n, &keys);
