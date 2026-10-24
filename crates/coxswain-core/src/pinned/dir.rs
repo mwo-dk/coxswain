@@ -390,8 +390,9 @@ fn rename_new(a: RawFd, from: &CStr, b: RawFd, to: &CStr) -> std::io::Result<()>
     let taken = || other(t!("sync.taken"));
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
+        // The system call itself: the static musl build's C library has no renameat2.
         // SAFETY: two open folders and two NUL-terminated names; never over what is there.
-        if unsafe { libc::renameat2(a, from.as_ptr(), b, to.as_ptr(), libc::RENAME_NOREPLACE as _) } == 0 {
+        if unsafe { libc::syscall(libc::SYS_renameat2, a, from.as_ptr(), b, to.as_ptr(), libc::RENAME_NOREPLACE) } == 0 {
             return Ok(());
         }
         let e = last();
