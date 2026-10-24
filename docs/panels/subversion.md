@@ -56,11 +56,11 @@ a folder or `..` in a working copy first asks, once per server:
 
 | | |
 |---|---|
-| The question | *Read the history from the server?* Subversion keeps this history on its server, `https://svn.example.org`. Coxswain asks it only with your yes: it runs `svn log`, which contacts that server and no other, and remembers your answer for that server. Settings → Privacy forgets it. |
+| The question | *Read the history from the server?* Subversion keeps this history on its server, `https://svn.example.org`. Coxswain asks it only with your yes: it runs `svn log`, which contacts that server and no other, and remembers your answer for that server. Settings → Privacy and updates forgets it. |
 | Desktop app | A dialog with **Read the history** and **Cancel**; **Enter** reads, **Esc** cancels |
 | Terminal app | The same text in a box; **Enter** or **Y** reads, **Esc** or **N** cancels |
 
-![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy, with the question Read the history from the server? over the panes: Subversion keeps this history on its server, file:///home/demo/repos/balloon, and the buttons Read the history and Cancel](../screenshots/svn-ask.png)
+![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy, with the question Read the history from the server? over the panes: Subversion keeps this history on its server, file:///home/demo/repos/balloon, … Settings → Privacy and updates forgets it, and the buttons Read the history and Cancel](../screenshots/svn-ask.png)
 
 With yes, the pane shows the history as for git: one entry per revision, named `r1234` and the
 first line of its message, newest first, with its date in *Modified* and its author in *Last

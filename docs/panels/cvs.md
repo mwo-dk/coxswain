@@ -54,7 +54,7 @@ copy first asks, once per server, as for [Subversion](subversion.md#history-from
 (**Read the history** or **Cancel**), the terminal app a box (**Enter** or **Y** reads, **Esc** or
 **N** cancels).
 
-![The terminal app in Classic blue in ~/projects/kite, a CVS working copy, with the box Read the history from the server?: CVS keeps this history on its server, /home/demo/repos/cvsroot, and the key line Enter Read the history · Esc Cancel](../screenshots/tui-cvs-ask.png)
+![The terminal app in Classic blue in ~/projects/kite, a CVS working copy, with the box Read the history from the server?: CVS keeps this history on its server, /home/demo/repos/cvsroot, … Settings → Privacy and updates forgets it, and the key line Enter Read the history · Esc Cancel](../screenshots/tui-cvs-ask.png)
 
 With yes, Coxswain runs `cvs -f -d <root> log -N` in the folder (`-f`: your `~/.cvsrc` is not
 read; `-d`: the root of the folder asked about, for every folder below too, whatever their own
