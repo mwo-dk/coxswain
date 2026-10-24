@@ -1148,6 +1148,7 @@ mod tests {
         assert!(!r.join("f").exists() && !r.join("pipe").exists());
     }
 
+    #[cfg(unix)]
     fn mkfifo(p: &Path) {
         let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
         // SAFETY: a NUL-terminated path.
@@ -1156,6 +1157,7 @@ mod tests {
 
     /// A pipe in the target is never set aside: a bin that copies (another disk) would hang
     /// on it. Only in the target, against a file, or deep in a folder that would go: left.
+    #[cfg(unix)]
     #[test]
     fn pipes_in_the_target_are_left_where_they_are() {
         let (_d, l, r) = pair("sync-fifo-target");
@@ -1171,7 +1173,9 @@ mod tests {
     }
 
     /// The bin copied the folder aside over and deleted it (another disk): it is in the bin,
-    /// not said to have gone somewhere else.
+    /// not said to have gone somewhere else. Only a freedesktop.org bin copies: macOS's and
+    /// Windows' move (and a folder removed while held need not show 0 links on APFS).
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     #[test]
     fn a_folder_aside_the_bin_copied_counts_as_in_the_bin() {
         let (_d, l, r) = pair("sync-bin-copied");
@@ -1182,6 +1186,7 @@ mod tests {
     }
 
     /// A copied folder without write bits (0555) is taken away by undo, with what is in it.
+    #[cfg(unix)]
     #[test]
     fn undo_takes_away_a_copied_read_only_folder() {
         use std::os::unix::fs::PermissionsExt;
@@ -1201,6 +1206,7 @@ mod tests {
     }
 
     /// A long name set aside is cut between characters, never inside one.
+    #[cfg(unix)]
     #[test]
     fn a_kept_name_is_cut_between_characters() {
         let name = OsString::from("€".repeat(100));
