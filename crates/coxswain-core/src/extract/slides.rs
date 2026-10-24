@@ -11,7 +11,7 @@
 use std::io::Read;
 use std::path::Path;
 
-use super::{MAX_ENTRY, MAX_TEXT, start};
+use super::{MAX_ENTRY, MAX_TEXT};
 
 type Zip = zip::ZipArchive<super::Metered>;
 /// How a part is read by `xml_text`: the elements that end a line, and those left out.
@@ -101,9 +101,24 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 /// The text, when all the parts read unpack to no more than `room` together. One part may
 /// unpack to `MAX_ENTRY` and a file may hold thousands of parts: without a limit for them
 /// together, a small file could keep the reader busy for hours.
-fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
+fn within(path: &Path, max: u64, room: u64) -> Option<String> {
+    let mut out = super::Text::new();
+    read_into(path, max, room, &mut out)?;
+    let out = clean(out.end());
+    (!out.trim().is_empty()).then_some(out)
+}
+
+/// The text with the words of fields that were never filled in left out.
+pub(super) fn clean(text: String) -> String {
+    UNKNOWN
+        .iter()
+        .fold(text, |text, unknown| text.replace(unknown, ""))
+}
+
+/// `within` onto `out`, its words of empty fields still in (`clean`). When `out` goes to a
+/// sink (`Text::to`), a part's text goes onto it as it is read.
+pub(super) fn read_into(path: &Path, max: u64, mut room: u64, out: &mut super::Text) -> Option<()> {
     let mut zip = super::open_zip(path, max)?;
-    let mut out = String::new();
     if zip.index_for_name("content.xml").is_some() {
         // The slides, then what is set into them as documents of their own, each in its folder.
         let objects: Vec<String> = zip
@@ -114,14 +129,11 @@ fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
             .collect();
         let _ = std::iter::once("content.xml".to_string())
             .chain(objects)
-            .all(|name| add(&mut out, &mut zip, &name, &mut room));
+            .all(|name| add(out, &mut zip, &name, &mut room));
     } else {
-        powerpoint(&mut out, &mut zip, &mut room);
+        powerpoint(out, &mut zip, &mut room);
     }
-    let out = UNKNOWN
-        .iter()
-        .fold(out, |out, unknown| out.replace(unknown, ""));
-    (!out.trim().is_empty()).then_some(out)
+    Some(())
 }
 
 /// The slides in the order of their numbers, each followed by what belongs to it. Every part
@@ -129,7 +141,7 @@ fn within(path: &Path, max: u64, mut room: u64) -> Option<String> {
 // ponytail: the order the slides are shown in is written in `ppt/presentation.xml`, and is the
 // order of their numbers only when the program that moved a slide gave the parts new names.
 // The words found are the same either way; read the order from there if it comes to matter.
-fn powerpoint(out: &mut String, zip: &mut Zip, room: &mut u64) {
+fn powerpoint(out: &mut super::Text, zip: &mut Zip, room: &mut u64) {
     let mut slides: Vec<(u64, String)> = zip
         .file_names()
         .filter_map(Result::ok)
@@ -154,7 +166,7 @@ fn powerpoint(out: &mut String, zip: &mut Zip, room: &mut u64) {
 
 /// Adds the text of a part, then of the parts that its relations name, then of those that
 /// theirs name, and so on for `steps` steps. `false` when nothing more is to be read.
-fn follow(out: &mut String, zip: &mut Zip, name: &str, room: &mut u64, steps: u8) -> bool {
+fn follow(out: &mut super::Text, zip: &mut Zip, name: &str, room: &mut u64, steps: u8) -> bool {
     // The part before its relations: should those take all the room, the part is read.
     let more = add(out, zip, name, room);
     let Some((folder, file)) = name.rsplit_once('/').filter(|_| more && steps > 0) else {
@@ -188,7 +200,7 @@ fn linked(relations: &str) -> impl Iterator<Item = String> {
 /// Adds the text of one part, with a line break after it, so that a slide ends a line.
 /// `false` when nothing more is to be read: the text is as long as it may be, or `room` is
 /// used up.
-fn add(out: &mut String, zip: &mut Zip, name: &str, room: &mut u64) -> bool {
+fn add(out: &mut super::Text, zip: &mut Zip, name: &str, room: &mut u64) -> bool {
     let (lines, skip) = if name.starts_with("ppt/charts/") {
         CHART
     } else if name.starts_with("ppt/") {
@@ -196,15 +208,21 @@ fn add(out: &mut String, zip: &mut Zip, name: &str, room: &mut u64) -> bool {
     } else {
         OPENDOCUMENT
     };
-    // Read as it is unpacked: no part is held whole, only its text.
+    // Read as it is unpacked: no part is held whole, only its text, and not even that when
+    // the text goes to a sink: there a broken part gives what it gave until it broke.
     if let Ok(entry) = zip.by_name(name) {
         let mut xml = super::Utf8::new(entry.take(room.saturating_add(1)));
-        let text = super::xml_text_of(&mut xml, lines, skip);
+        let text = if out.whole() {
+            super::xml_text_onto(&mut xml, lines, skip, out);
+            String::new()
+        } else {
+            super::xml_text_of(&mut xml, lines, skip)
+        };
         let xml = xml.finish();
         let fits = xml.read <= *room;
         *room = room.saturating_sub(TOLL.max(xml.read));
-        if !xml.failed && fits && !xml.broken && !xml.zero {
-            out.push_str(start(&text, MAX_TEXT.saturating_sub(out.len())));
+        if out.whole() || (!xml.failed && fits && !xml.broken && !xml.zero) {
+            super::keep_within(out, &text, MAX_TEXT);
             out.push('\n');
         }
     }

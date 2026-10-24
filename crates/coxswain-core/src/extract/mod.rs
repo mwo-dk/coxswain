@@ -122,6 +122,84 @@ pub fn text_up_to(path: &Path, size: u64, max: u64, cap: usize) -> Option<String
     (!text.trim().is_empty()).then_some(text)
 }
 
+/// Lines of text, tidied as `tidy` (or `tidy_code`) tidies them, each handed to `f` as it is
+/// made, without its line break: an empty one for a blank line kept in code.
+pub(crate) struct TidyLines<'f> {
+    t: Tidy,
+    first: bool,
+    f: &'f mut dyn FnMut(&str),
+}
+
+impl<'f> TidyLines<'f> {
+    pub fn new(code: bool, f: &'f mut dyn FnMut(&str)) -> TidyLines<'f> {
+        TidyLines {
+            t: Tidy::whole(code),
+            first: true,
+            f,
+        }
+    }
+
+    pub fn line(&mut self, l: &str) {
+        self.t.push(l);
+        // What was added: the line, after one line break (two before a blank line in code)
+        // unless it is the first.
+        let piece = self.t.drain();
+        if piece.is_empty() {
+            return;
+        }
+        let line = piece.trim_start_matches('\n');
+        let breaks = piece.len() - line.len();
+        if !self.first {
+            for _ in 1..breaks {
+                (self.f)("");
+            }
+        }
+        self.first = false;
+        (self.f)(line);
+    }
+}
+
+/// Whether the file is a document whose passages can be made from all of it (`whole_lines`):
+/// Word and OpenDocument text, workbooks of XML in a zip and presentations.
+pub(crate) fn whole_document(path: &Path) -> bool {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
+    matches!(
+        ext.as_str(),
+        "docx" | "docm" | "dotx" | "odt" | "ott" | "xlsx" | "xlsm" | "ods" | "pptx" | "ppsx" | "potx" | "odp"
+    )
+}
+
+/// The most XML unpacked of one document for its passages (`whole_lines`), read as it is
+/// unpacked: no part of it is held.
+const WHOLE_ROOM: u64 = 4 << 30;
+
+/// Each line of the whole text of such a document (`whole_document`), tidied as `text_of`
+/// tidies it, to `f` as it is read: not cut at `MAX_TEXT`, and never held whole. The same lines
+/// as `text_of` gives, for a document with less text than that. `None` when the file cannot
+/// be read, or a reader gave up.
+pub(crate) fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
+    if !whole_document(path) || crate::cloud::keep_out(path) {
+        return None;
+    }
+    let ext = path.extension()?.to_str()?.to_ascii_lowercase();
+    let slides = matches!(ext.as_str(), "pptx" | "ppsx" | "potx" | "odp");
+    let mut lines = TidyLines::new(false, f);
+    let mut sink = |chunk: &str| {
+        let chunk = if slides { slides::clean(chunk.to_string()) } else { chunk.to_string() };
+        chunk.lines().for_each(|l| lines.line(l));
+    };
+    let mut out = Text::to(&mut sink);
+    let read = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match ext.as_str() {
+        "xlsx" | "xlsm" | "ods" => sheet::read_into(path, u64::MAX, &mut out),
+        _ if slides => slides::read_into(path, u64::MAX, WHOLE_ROOM, &mut out),
+        _ => word::read_into(path, u64::MAX, &mut out),
+    }))
+    .ok()
+    .flatten();
+    out.end();
+    read
+}
+
 /// Code as `tidy` leaves text, but with each line's indentation and one blank line where it
 /// has some.
 pub fn tidy_code(text: &str) -> String {
@@ -301,6 +379,11 @@ pub(crate) fn push_within(out: &mut String, text: &str, most: usize) {
     out.push_str(start(text, most.saturating_sub(out.len())));
 }
 
+/// `push_within` for a reader's `Text`.
+pub(crate) fn keep_within(out: &mut Text, text: &str, most: usize) {
+    out.push_str(start(text, most.saturating_sub(out.len())));
+}
+
 // ---------------------------------------------------------------- for the readers
 
 /// The value of the element's attribute of that name, whatever its prefix. A malformed
@@ -360,6 +443,94 @@ impl Read for Metered {
 impl std::io::Seek for Metered {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         self.file.seek(pos)
+    }
+}
+
+/// Text as a reader makes it: kept, as far as the reader keeps it (`MAX_TEXT`), or handed on
+/// to a sink a few lines at a time and never held whole (`Text::to`), for the passages of a
+/// whole document (`whole_lines`). A reader stops when its text is `MAX_TEXT` long: `len` is
+/// what is held, so a reader whose text goes to a sink reads the whole file.
+pub(crate) struct Text<'a> {
+    held: String,
+    last: Option<char>,
+    sink: Option<&'a mut dyn FnMut(&str)>,
+}
+
+impl std::ops::Deref for Text<'_> {
+    type Target = str;
+
+    /// The text held: all of it, unless it goes to a sink.
+    fn deref(&self) -> &str {
+        &self.held
+    }
+}
+
+impl<'a> Text<'a> {
+    pub fn new() -> Text<'a> {
+        Text {
+            held: String::new(),
+            last: None,
+            sink: None,
+        }
+    }
+
+    /// Text handed to `sink` as it is made, whole lines at a time, the last at `end`.
+    pub fn to(sink: &'a mut dyn FnMut(&str)) -> Text<'a> {
+        Text {
+            sink: Some(sink),
+            ..Text::new()
+        }
+    }
+
+    /// Whether the text goes to a sink.
+    pub fn whole(&self) -> bool {
+        self.sink.is_some()
+    }
+
+    pub fn len(&self) -> usize {
+        self.held.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.last.is_none()
+    }
+
+    pub fn ends_with(&self, c: char) -> bool {
+        self.last == Some(c)
+    }
+
+    pub fn push(&mut self, c: char) {
+        self.push_str(c.encode_utf8(&mut [0; 4]));
+    }
+
+    pub fn extend(&mut self, chars: impl IntoIterator<Item = char>) {
+        self.push_str(&chars.into_iter().collect::<String>());
+    }
+
+    pub fn push_str(&mut self, text: &str) {
+        let Some(last) = text.chars().next_back() else {
+            return;
+        };
+        self.held.push_str(text);
+        self.last = Some(last);
+        // Whole lines go to the sink, the last line break looked for only in what came.
+        if self.held.len() >= 1 << 16
+            && let Some(sink) = self.sink.as_mut()
+            && let Some(at) = text.rfind('\n')
+        {
+            let at = self.held.len() - text.len() + at;
+            sink(&self.held[..=at]);
+            self.held.drain(..=at);
+        }
+    }
+
+    /// The text kept, or what is left of it for the sink, handed to it.
+    pub fn end(mut self) -> String {
+        if let Some(sink) = self.sink.as_mut() {
+            sink(&self.held);
+            self.held.clear();
+        }
+        self.held
     }
 }
 
@@ -498,27 +669,38 @@ fn unpack(entry: impl Read) -> Option<Vec<u8>> {
 /// is still returned. No more than `MAX_TEXT` bytes are built: one text may be as long as
 /// the document, which may be `MAX_ENTRY`.
 pub fn xml_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
-    tags_dropped(utf8(xml).as_bytes(), lines, skip, false)
+    let mut out = Text::new();
+    tags_dropped(utf8(xml).as_bytes(), lines, skip, false, &mut out);
+    out.end()
 }
 
 /// `xml_text` of a document as it is read, `Utf8` cutting it as `utf8` cuts bytes: never more
 /// of it in memory than one piece between two tags.
 pub(crate) fn xml_text_of(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str]) -> String {
-    tags_dropped(xml, lines, skip, false)
+    let mut out = Text::new();
+    tags_dropped(xml, lines, skip, false, &mut out);
+    out.end()
+}
+
+/// `xml_text_of` onto `out`.
+pub(crate) fn xml_text_onto(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str], out: &mut Text) {
+    tags_dropped(xml, lines, skip, false, out)
 }
 
 /// The text of a web page, as `xml_text` reads it, but an element in `lines` ends a line
 /// where it opens as well: a page closes no `<br>`, and often no `<td>` or `<li>`.
 pub fn page_text(xml: &[u8], lines: &[&str], skip: &[&str]) -> String {
-    tags_dropped(utf8(xml).as_bytes(), lines, skip, true)
+    let mut out = Text::new();
+    tags_dropped(utf8(xml).as_bytes(), lines, skip, true, &mut out);
+    out.end()
 }
 
 /// The text of UTF-8 `xml`, read as it comes.
-fn tags_dropped(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str], opens: bool) -> String {
+fn tags_dropped(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str], opens: bool, out: &mut Text) {
     use quick_xml::events::Event;
     let mut reader = quick_xml::Reader::from_reader(xml);
     reader.config_mut().check_end_names = false;
-    let (mut out, mut skipping, mut buf) = (String::new(), 0usize, vec![]);
+    let (mut skipping, mut buf) = (0usize, vec![]);
     let named = |name: &str, among: &[&str]| among.iter().any(|one| one.eq_ignore_ascii_case(name));
     while out.len() < MAX_TEXT {
         buf.clear();
@@ -538,10 +720,10 @@ fn tags_dropped(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str], opens
                 out.push('\n')
             }
             Ok(Event::Text(t)) if skipping == 0 => {
-                out.push_str(start(&t.into_inner(), MAX_TEXT - out.len()))
+                out.push_str(start(&t.into_inner(), MAX_TEXT.saturating_sub(out.len())))
             }
             Ok(Event::CData(t)) if skipping == 0 => {
-                out.push_str(start(&t.into_inner(), MAX_TEXT - out.len()))
+                out.push_str(start(&t.into_inner(), MAX_TEXT.saturating_sub(out.len())))
             }
             // &amp; and &#233; arrive on their own. An entity the document made up is dropped:
             // none is ever looked up or unfolded, so none can grow without end.
@@ -564,7 +746,6 @@ fn tags_dropped(xml: impl std::io::BufRead, lines: &[&str], skip: &[&str], opens
             _ => {}
         }
     }
-    out
 }
 
 #[cfg(test)]
@@ -591,6 +772,55 @@ pub(crate) mod tests {
             zip.write_all(bytes).unwrap();
         }
         zip.finish().unwrap();
+    }
+
+    /// A Word, OpenDocument, workbook or presentation file gives `whole_lines` the lines of
+    /// `text_of` when it has less text than is kept, and all its text when it has more: the
+    /// same start, and the end too.
+    #[test]
+    fn whole_lines_are_the_text_of_a_document_and_go_past_what_is_kept() {
+        let d = folder("whole-lines");
+        let docx = |p: &str| format!("<w:document xmlns:w=\"w\"><w:body>{p}</w:body></w:document>");
+        let odt = |p: &str| format!("<office:document-content xmlns:office=\"o\" xmlns:text=\"t\"><office:body><office:text>{p}</office:text></office:body></office:document-content>");
+        let pptx = |p: &str| format!("<p:sld xmlns:p=\"p\" xmlns:a=\"a\"><p:cSld><p:spTree><p:sp><p:txBody>{p}</p:txBody></p:sp></p:spTree></p:cSld></p:sld>");
+        let xlsx = |p: &str| format!("<worksheet><sheetData>{p}</sheetData></worksheet>");
+        let rels = r#"<Relationships><Relationship Id="rId1" Type="x/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#;
+        let book = r#"<workbook><sheets><sheet name="Fuel" r:id="rId1"/></sheets></workbook>"#;
+        let write = |name: &str, n: usize| {
+            let line = |i: usize| format!("crew {i} checks the  valve and\tthe fuel line, harbour");
+            let paras: String = (0..n).map(|i| match name {
+                "a.docx" => format!("<w:p><w:r><w:t>{}</w:t></w:r></w:p>", line(i)),
+                "a.odt" => format!("<text:p>{}</text:p>", line(i)),
+                "a.pptx" => format!("<a:p><a:r><a:t>{}</a:t></a:r></a:p>", line(i)),
+                _ => format!("<row><c t=\"inlineStr\"><is><t>{}</t></is></c><c><v>{i}</v></c></row>", line(i)),
+            }).collect();
+            let p = d.join(name);
+            match name {
+                "a.docx" => zip_file(&p, &[("word/document.xml", docx(&paras).as_bytes())]),
+                "a.odt" => zip_file(&p, &[("content.xml", odt(&paras).as_bytes())]),
+                "a.pptx" => zip_file(&p, &[("ppt/slides/slide1.xml", pptx(&paras).as_bytes())]),
+                _ => zip_file(&p, &[("xl/workbook.xml", book.as_bytes()), ("xl/_rels/workbook.xml.rels", rels.as_bytes()), ("xl/worksheets/sheet1.xml", xlsx(&paras).as_bytes())]),
+            }
+            p
+        };
+        for name in ["a.docx", "a.odt", "a.pptx", "a.xlsx"] {
+            for n in [3usize, 120_000] {
+                let p = write(name, n);
+                let text = text_of(&p, std::fs::metadata(&p).unwrap().len(), u64::MAX).unwrap();
+                let mut lines = vec![];
+                whole_lines(&p, &mut |l| lines.push(l.to_string())).unwrap();
+                let whole = lines.join("\n");
+                if n == 3 {
+                    assert_eq!(whole, text, "{name}: less than is kept, the same text");
+                } else {
+                    assert!(text.len() <= MAX_TEXT && whole.len() > MAX_TEXT + MAX_TEXT / 2, "{name}: {} {}", text.len(), whole.len());
+                    assert!(whole.starts_with(&text[..text.len() - 200]), "{name}: the same start");
+                    assert!(whole.contains(&format!("crew {} checks", n - 1)), "{name}: to the end");
+                }
+            }
+        }
+        assert!(whole_lines(&d.join("a.docx").with_extension("pdf"), &mut |_| {}).is_none());
+        let _ = std::fs::remove_dir_all(d);
     }
 
     #[test]

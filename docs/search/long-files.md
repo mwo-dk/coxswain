@@ -72,7 +72,7 @@ A hint on the status line names the action menu a few times when the cursor is o
 |---|---|---|
 | Text for words, of text, code, CSV and logs | The first 4 MB | All of it, up to 256 MB a file |
 | Text for words, of PDF, Word, slides and other documents | The first 4 MB | The first 4 MB: their readers stop there |
-| Passages for meaning | 256 at most: the first 16, the last 4, the first under each heading, the rest spread evenly over the whole file | One for every part of the file, about 120 words each |
+| Passages for meaning | 256 at most: the first 16, the last 4, the first under each heading, the rest spread evenly over the whole file | One for every part of the file, about 120 words each (of a PDF, of its first 4 MB of text) |
 | A short file (under 4 MB of text and 256 passages) | All of it | The same: nothing differs |
 | Files inside archives, git commits | Sampled | Sampled: *Everything* is for files on disk |
 
@@ -173,9 +173,11 @@ vectors, the text is cut back to its first 4 MB and the store gives the room bac
 
 #### Does Everything keep all the text of a big PDF?
 
-No. PDF, Word, slides and the other documents have readers that stop at 4 MB of text; Everything
-gives every part of that text a passage. Text, code, CSV and logs keep all of theirs, up to
-256 MB a file.
+No. PDF, Word, slides and the other documents have readers that stop at 4 MB of text for
+search by words. For meaning, Word, OpenDocument, spreadsheet (`.xlsx`, `.ods`) and
+presentation files are read again as they are unpacked, so Everything gives every part of the
+whole file a passage; a PDF gets a passage for every part of its first 4 MB of text. Text, code,
+CSV and logs keep all of theirs, up to 256 MB a file.
 
 #### Why is the time only a guess?
 
