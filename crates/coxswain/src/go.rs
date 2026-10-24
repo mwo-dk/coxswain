@@ -38,6 +38,8 @@ pub struct Viewer {
     /// shows them.
     pieces: Pieces,
     pictures: Option<crate::pictures::Pieces>,
+    /// Whether the file was looked at for having one game only.
+    single: bool,
 }
 
 fn rgb(hex: &str) -> Color {
@@ -48,19 +50,28 @@ fn rgb(hex: &str) -> Color {
 impl Viewer {
     pub fn open(path: &Path, cfg: &coxswain_core::config::Config, theme: &Theme) -> std::io::Result<Viewer> {
         let games = Collection::open(path)?;
-        // Enough of the list to know whether the file has one game only.
-        games.wait(2);
         let [light, _] = coxswain_core::chess::board_colours(theme, &cfg.chess.board);
         let pieces = crate::pieces::pieces(cfg);
         let pictures = if pieces == Pieces::Pictures { crate::pictures::support().map(crate::pictures::Pieces::new) } else { None };
-        let mut v = Viewer { path: path.to_path_buf(), games, cursor: 0, offset: 0, open: None, wood: rgb(&light), said: None, pieces, pictures };
+        let mut v = Viewer { path: path.to_path_buf(), games, cursor: 0, offset: 0, open: None, wood: rgb(&light), said: None, pieces, pictures, single: false };
         if pieces != Pieces::Pictures && cfg.chess.pieces == "pictures" {
             v.said = Some(t!("chess.pictures_none"));
         }
-        if v.games.progress().games == 1 {
-            v.show(0);
-        }
+        v.poll();
         Ok(v)
+    }
+
+    /// A file of one game opens on its board, once its list is read.
+    pub fn poll(&mut self) {
+        if !self.single && self.open.is_none() {
+            let p = self.games.progress();
+            if p.done {
+                self.single = true;
+                if p.games == 1 {
+                    self.show(0);
+                }
+            }
+        }
     }
 
     /// Opens game `i` (from 0) at its start.
@@ -431,6 +442,9 @@ mod tests {
         std::fs::write(&p, "(;SZ[9]PB[Kim]PW[Lee]KM[6.5];B[ee];W[ec]C[A comment](;B[cc])(;B[gc]))(;SZ[13]PB[Two];B[aa])").unwrap();
         let cfg = coxswain_core::config::Config::default();
         let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        // The list is read on a thread: all of it, then the table.
+        v.games.wait(usize::MAX);
+        v.poll();
         assert!(v.open.is_none(), "two games: the table first");
         v.key(key(KeyCode::Enter), None);
         for _ in 0..2 {

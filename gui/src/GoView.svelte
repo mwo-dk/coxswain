@@ -52,6 +52,8 @@
   $effect(() => {
     const p = path;
     let timer = 0;
+    // This run of the effect only: a late answer after the view moved on is dropped.
+    let alive = true;
     untrack(() => {
       game = null;
       pos = null;
@@ -59,21 +61,26 @@
       cursor = 0;
       games = [];
       progress = null;
-      const more = (first) =>
+      const more = () =>
         invoke("go_games", { path: p, from: games.length }).then(
           (r) => {
-            if (p !== path) return;
+            if (!alive) return;
             if (r.games.length) games = games.concat(r.games);
             progress = r.progress;
             if (r.progress.error) error = r.progress.error;
-            if (first && r.progress.done && games.length === 1 && !ui.goAt) openGame(0);
-            if (!r.progress.done) timer = setTimeout(() => more(false), 300);
+            const all = r.progress.done && games.length >= r.progress.games;
+            if (all && games.length === 1 && !game && !ui.goAt) openGame(0);
+            // More listed than taken: at once; else when the file has been read further.
+            if (!all) timer = setTimeout(more, games.length < r.progress.games ? 0 : 300);
           },
-          (e) => (error = String(e)),
+          (e) => alive && (error = String(e)),
         );
-      more(true);
+      more();
     });
-    return () => clearTimeout(timer);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   });
 
   $effect(() => {
@@ -254,7 +261,7 @@
     <div class="bar">
       {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "go", path })}>{"\u{f065}"}</button>{/if}
     </div>
-    <p class="meta">{t("chess.games", { shown: games.length, total: games.length })}{#if progress && !progress.done} · {t("chess.reading", { percent: pct })}{/if}{#if capped} · {t("chess.capped", { n: games.length })}{/if}</p>
+    <p class="meta">{t("chess.games", { shown: games.length, total: progress?.games ?? games.length })}{#if progress && !progress.done} · {t("chess.reading", { percent: pct })}{/if}{#if capped} · {t("chess.capped", { n: progress?.games ?? games.length })}{/if}</p>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="list chess-keys" tabindex="0" role="grid" aria-label={basename(path)} bind:this={listEl} onkeydown={onListKey}>
       <table>

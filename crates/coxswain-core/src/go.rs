@@ -27,6 +27,8 @@ pub const MAX_NODES: usize = 250_000;
 pub const MAX_SETUP: usize = 250_000;
 /// The longest text kept of one property (a comment).
 pub const MAX_TEXT: usize = 64 << 10;
+/// The longest fact of a game kept for the list (a player's name, an event).
+const MAX_FACT: usize = 512;
 /// The largest board SGF allows.
 pub const MAX_SIZE: u8 = 52;
 
@@ -122,7 +124,18 @@ impl Info {
 
     /// A property of the first node.
     fn set(&mut self, name: &str, raw: &[u8]) {
-        let v = || text(raw, &self.charset, true);
+        // A fact of the list kept short: a list of 100,000 games stays small, whatever the file.
+        let v = || {
+            let mut s = text(raw, &self.charset, true);
+            if s.len() > MAX_FACT {
+                let mut end = MAX_FACT;
+                while !s.is_char_boundary(end) {
+                    end -= 1;
+                }
+                s.truncate(end);
+            }
+            s
+        };
         match name {
             "PB" => self.black = v(),
             "PW" => self.white = v(),
@@ -192,11 +205,12 @@ fn scan_from(r: impl BufRead, stop: &AtomicBool, mut each: impl FnMut(Info) -> b
         }
     };
     while let Some((at, tok)) = lex.sgf(depth > 0 && nodes == 1)? {
+        // Asked at every piece: one endless game is let go too.
+        if stop.load(Ordering::Relaxed) {
+            return Ok(false);
+        }
         match tok {
             Sgf::Open if depth == 0 => {
-                if stop.load(Ordering::Relaxed) {
-                    return Ok(false);
-                }
                 depth = 1;
                 info = Info::new();
                 info.offset = at;
@@ -629,6 +643,14 @@ impl Collection {
         let stop = Arc::new(AtomicBool::new(false));
         let (l, st) = (listed.clone(), stop.clone());
         std::thread::Builder::new().name("go-games".into()).spawn(move || {
+            // Done however the pass ends, a panic too: nobody waits for ever.
+            struct Done(Arc<Mutex<Listed>>);
+            impl Drop for Done {
+                fn drop(&mut self) {
+                    self.0.lock().unwrap_or_else(|e| e.into_inner()).done = true;
+                }
+            }
+            let _done = Done(l.clone());
             let lock = || l.lock().unwrap_or_else(|e| e.into_inner());
             let (mut batch, mut last, mut n) = (vec![], std::time::Instant::now(), 0usize);
             let res = scan_from(BufReader::with_capacity(1 << 16, r), &st, |info| {
@@ -674,9 +696,15 @@ impl Collection {
 
     /// Waits until `n` games are listed or the list is done.
     pub fn wait(&self, n: usize) {
+        self.wait_up_to(n, std::time::Duration::MAX);
+    }
+
+    /// `wait`, for `most` at the most.
+    pub fn wait_up_to(&self, n: usize, most: std::time::Duration) {
+        let start = std::time::Instant::now();
         loop {
             let l = self.lock();
-            if l.games.len() >= n || l.done {
+            if l.games.len() >= n || l.done || start.elapsed() >= most {
                 return;
             }
             drop(l);
@@ -694,6 +722,8 @@ impl Collection {
         f.take(info.len.min(MAX_GAME)).read_to_end(&mut b)?;
         let mut g = parse(&b);
         g.info.n = info.n;
+        // Longer than read: the note above the board says so.
+        g.capped |= info.len > MAX_GAME;
         Ok(g)
     }
 }

@@ -42,7 +42,8 @@ move*. **F1** → *Features* → *Go games* has the keys and the questions below
 A file of more than one game opens on its list; a file of one game opens on its board at once.
 The list fills while the file is read, game by game, never the whole file at once: the line
 above it says *Games: 1,234 of 1,234 · reading, 40 %* until it is done, and you can open a game
-before then.
+before then. The desktop app adds the rows 2,000 at a time, so there the first number can trail
+the second for a moment (*Games: 4,000 of 100,000*).
 
 | Column | What it shows |
 |---|---|

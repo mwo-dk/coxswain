@@ -4424,6 +4424,9 @@ impl App {
         if let Some(Dialog::Chess(v)) = &mut self.dialog {
             v.poll();
         }
+        if let Some(Dialog::Go(v)) = &mut self.dialog {
+            v.poll();
+        }
         if let Some(Dialog::View { v, .. }) = &mut self.dialog {
             v.poll();
         }

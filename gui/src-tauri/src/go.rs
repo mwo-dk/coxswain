@@ -37,16 +37,18 @@ pub struct Games {
     progress: coxswain_core::chess::Progress,
 }
 
-/// The games listed so far from the `from`th (from 0): the list fills as the file is read, and
-/// the view asks again until `progress.done`.
+/// Up to 2,000 of the games listed so far from the `from`th (from 0): the list fills as the
+/// file is read, and the view asks again until it has them all and `progress.done`.
 #[tauri::command]
 pub async fn go_games(path: PathBuf, from: usize) -> Res<Games> {
     tauri::async_runtime::spawn_blocking(move || {
         let c = collection(&path)?;
-        // Enough of the list to know whether the file has one game only.
-        c.wait(from.max(2));
+        // The first answer waits a little for the first games, not for the whole file.
+        c.wait_up_to(from.max(2), std::time::Duration::from_millis(250));
         let progress = c.progress();
-        Ok(Games { games: c.games(from, usize::MAX), progress })
+        // ponytail: the table draws every row; 2,000 at a time keeps the window answering while
+        // it grows. A table that draws only the rows in view would take 100,000 at once.
+        Ok(Games { games: c.games(from, 2000), progress })
     })
     .await
     .map_err(|e| e.to_string())?
