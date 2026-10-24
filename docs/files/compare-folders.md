@@ -126,15 +126,17 @@ app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in th
   link after the plan is not followed, so nothing outside the two folders is read or changed.
 - A folder that goes to the bin (deleted, or replaced by a file) shows how many entries go with
   it, *src/ (12 items)*, and goes only when nothing in it changed since the plan.
-- Pipes, devices and sockets are never opened nor copied.
+- Pipes, devices and sockets are never opened nor copied. One in the target, or in a target folder
+  that would go, is left where it is and listed under *left out*.
 - A copy keeps the permission bits and dates of its source, but never set-user or set-group ID;
   where the target cannot give it the source's group, the group gets no rights on it.
 - A file is written beside under a name of its own and put in place only where nothing is, so a
   file never ends up half written under its real name.
 - What it replaces or deletes is moved, not copied, into one folder of its own at the target's
   top (*.coxswain-sync-…*), which then goes to the bin as one item: open it there to see
-  everything one run took away. Where the bin cannot take it (Termux, Windows, another disk than the
-  bin's), it stays in that folder and the status line names it. A hard link that is replaced is
+  everything one run took away. Where the bin cannot take it by a move (Termux, Windows, another
+  disk without a bin of its own at its top), it stays in that folder and the status line names
+  it. A hard link that is replaced is
   only renamed away: the file it shares with another name keeps its bytes.
 
 It needs both sides to be folders on this computer: not an archive, a container image, a

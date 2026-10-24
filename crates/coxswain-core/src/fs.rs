@@ -1181,6 +1181,48 @@ pub fn trash_takes(paths: &[PathBuf]) -> bool {
     }
 }
 
+/// Whether `trash` moves `path` there by a rename, never by copying it over and deleting it
+/// (which reads every file in it, and hangs on a pipe). A freedesktop.org bin falls back to
+/// copying when `path` is on another disk than the home bin and the top of its disk has no bin
+/// for this user (`.Trash/<uid>`, or a `.Trash-<uid>` it may make).
+pub(crate) fn trash_renames(path: &Path) -> bool {
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let Ok(dev) = fs::symlink_metadata(path).map(|m| m.dev()) else { return false };
+        // On the home bin's disk (its nearest folder that exists).
+        let home = crate::dirs::data_dir().map(|d| d.join("Trash"));
+        if home.is_some_and(|t| t.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev)) {
+            return true;
+        }
+        // ponytail: the top is the highest folder on the same device, not the mount point the
+        // trash crate looks up; a nested btrfs subvolume reads as a disk of its own.
+        let top = path.ancestors().skip(1).take_while(|a| fs::metadata(a).is_ok_and(|m| m.dev() == dev)).last();
+        // SAFETY: getuid cannot fail.
+        top.is_some_and(|t| disk_bin(t, unsafe { libc::getuid() }, dev))
+    }
+    #[cfg(not(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris")))))]
+    {
+        let _ = path;
+        true
+    }
+}
+
+/// Whether the disk whose top folder is `top` (device `dev`) has a bin for `uid`, as the trash
+/// crate looks for it: `.Trash/<uid>` in a shared `.Trash` with the sticky bit, else
+/// `.Trash-<uid>`, made here when missing (as the bin would make it).
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn disk_bin(top: &Path, uid: u32, dev: u64) -> bool {
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let here = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && m.dev() == dev);
+    let shared = top.join(".Trash");
+    if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.permissions().mode() & 0o1000 != 0) && here(&shared.join(uid.to_string())) {
+        return true;
+    }
+    let own = top.join(format!(".Trash-{uid}"));
+    here(&own) || (fs::create_dir(&own).is_ok() && here(&own))
+}
+
 /// What deleting does, decided the same in both apps.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 pub struct DeletePlan {
@@ -1858,6 +1900,36 @@ const KINDS: &[io::ErrorKind] = &[
 
 #[cfg(test)]
 mod tests {
+    /// A disk's top folder the user cannot write (another disk mounted at a folder root
+    /// owns) has no bin of the user's: what would go there is not copied to the home bin.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    #[test]
+    fn a_disk_top_without_a_bin_of_the_users_takes_nothing() {
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let d = super::Scratch::named("disk-bin");
+        let (top, uid) = (d.join("top"), 4_000_000_000u32);
+        std::fs::create_dir(&top).unwrap();
+        let dev = std::fs::metadata(&top).unwrap().dev();
+        std::fs::set_permissions(&top, std::fs::Permissions::from_mode(0o555)).unwrap();
+        // Root writes anyway: nothing to tell then.
+        let root = std::fs::create_dir(top.join("probe")).is_ok();
+        if !root {
+            assert!(!super::disk_bin(&top, uid, dev));
+        }
+        std::fs::set_permissions(&top, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let _ = std::fs::remove_dir(top.join("probe"));
+        // A writable top: its .Trash-<uid> is made.
+        assert!(super::disk_bin(&top, uid, dev));
+        assert!(top.join(format!(".Trash-{uid}")).is_dir());
+        // Or a shared, sticky .Trash with the user's folder in it.
+        let other = d.join("other");
+        std::fs::create_dir_all(other.join(".Trash").join(uid.to_string())).unwrap();
+        std::fs::set_permissions(other.join(".Trash"), std::fs::Permissions::from_mode(0o1777)).unwrap();
+        std::fs::set_permissions(&other, std::fs::Permissions::from_mode(0o555)).unwrap();
+        assert!(super::disk_bin(&other, uid, dev));
+        std::fs::set_permissions(&other, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
     #[test]
     fn plain_says_system_errors_in_words() {
         let e = io::Error::from_raw_os_error(if cfg!(windows) { 5 } else { 13 });
