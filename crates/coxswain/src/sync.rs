@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 
 use crate::bom::faint;
-use crate::ui::{fit, sty};
+use crate::ui::{fit, sty, wrap};
 
 pub enum Outcome {
     Stay,
@@ -188,9 +188,11 @@ impl Viewer {
         let inner = block.inner(area).inner(Margin::new(1, 0));
         f.render_widget(block, area);
         let w = inner.width as usize;
+        // The explanation is longer than a terminal is wide in every language: wrapped.
+        let about = wrap(&t!("sync.about", "undo" => self.undo_key), w);
         let [about_a, box_a, state_a, rule1, body, rule2, foot] =
-            Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Length(1), Constraint::Length(1), Constraint::Min(1), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
-        f.render_widget(Paragraph::new(fit(&t!("sync.about", "undo" => self.undo_key), w)).style(dim), about_a);
+            Layout::vertical([Constraint::Length(about.len() as u16), Constraint::Length(1), Constraint::Length(1), Constraint::Length(1), Constraint::Min(1), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
+        f.render_widget(Paragraph::new(about.into_iter().map(Line::from).collect::<Vec<_>>()).style(dim), about_a);
         let tick = format!("[{}] {}", if self.delete { "x" } else { " " }, t!("sync.delete", "dir" => name(&self.to)));
         f.render_widget(Paragraph::new(fit(&tick, w)).style(sty(&theme.dialog_input)), box_a);
         let err = self.said.is_some() && self.plan.is_none();
@@ -265,6 +267,8 @@ mod tests {
         term.draw(|f| v.draw(f, &Theme::default())).unwrap();
         let screen: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
         assert!(screen.contains("new.txt") && !screen.contains("extra.txt"), "{screen}");
+        // The explanation, longer than the screen is wide, is wrapped, not cut: its last words show.
+        assert!(screen.contains("undoes it all."), "{screen}");
         v.key(key(KeyCode::Enter), None);
         let done = wait(&mut v).expect("made alike").unwrap();
         assert_eq!(done.copied, 1);

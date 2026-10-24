@@ -1,0 +1,1 @@
+| **The terminal app shows the whole explanation when making one folder like the other.** It is wrapped over as many lines as it needs instead of being cut at the window's edge. | [Compare folders](files/compare-folders.md#making-one-side-like-the-other) |

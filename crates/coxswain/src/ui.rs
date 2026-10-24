@@ -1054,7 +1054,7 @@ pub(crate) fn dstyle(t: &config::Theme) -> Style {
 
 /// `s` in lines of at most `width` columns, broken at spaces, or anywhere in a word that does
 /// not fit (Japanese has no spaces).
-fn wrap(s: &str, width: usize) -> Vec<String> {
+pub(crate) fn wrap(s: &str, width: usize) -> Vec<String> {
     let width = width.max(8);
     let (mut out, mut line, mut w) = (vec![], String::new(), 0);
     for word in s.split_inclusive(' ') {

@@ -179,7 +179,7 @@ The same marks in the column before the name, in the theme's git colours, and th
 screen: the tick box, the summary, the steps, and the keys at the bottom (**Enter**, **Space**,
 **Esc**, **↑** **↓** to scroll).
 
-![The terminal app in Classic blue with the full-screen Make rocket-backup like rocket: [x] Also delete what is only in rocket-backup (to the bin), the summary line, then replace Cargo.toml, copy README.md, to the bin notes-2023.txt in bold and replace src/main.rs, and the keys Enter Make them alike (4) · Space ticks the box · Esc close at the bottom](../screenshots/compare-sync-tui.png)
+![The terminal app in Classic blue with the full-screen Make rocket-backup like rocket: the explanation over two lines, [x] Also delete what is only in rocket-backup (to the bin), the summary line, then replace Cargo.toml, copy README.md, to the bin notes-2023.txt in bold and replace src/main.rs, and the keys Enter Make them alike (4) · Space ticks the box · Esc close at the bottom](../screenshots/compare-sync-tui.png)
 *The same plan in the terminal app: deletions and older-over-newer steps in bold.*
 
 ## Questions
