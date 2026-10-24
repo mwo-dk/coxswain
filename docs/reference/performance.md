@@ -265,8 +265,8 @@ release build, under other load.
 | 7z solid: peek the last entry | 108 | 2.93 | 4 | 0 MB copy |
 | pgn 2 GB, 7 million games: games table | 1982 | 19.86 | 332 | 7000000 games (first 1,000 after 0.20 s) |
 | pgn 2 GB: search text | 1982 | 0.09 | 10 | 4096 KB of text, 256 passages (read 0.07 s) |
-| sgf 300 MB collection: games list | 315 | 0.34 | 100 | 68257 games, capped |
-| sgf 300 MB: search text | 315 | 0.38 | 101 | 3612 KB of text, 256 passages (read 0.36 s) |
+| sgf 300 MB collection: games list | 315 | 1.26 | 53 | 100000 games, capped |
+| sgf 300 MB: search text | 315 | 0.68 | 9 | 4096 KB of text, 256 passages (read 0.63 s) |
 
 What the numbers say:
 
@@ -282,8 +282,9 @@ What the numbers say:
   one frame it is unpacked from the start.
 - **An archive inside an archive** is not opened; its peek is a copy on disk, flat in memory.
 - **A PGN collection's table** costs 48 bytes a game (7 million games, 332 MB) and shows its
-  first games within 0.2 s; its search text stops after 4 MB. An SGF collection is read whole up
-  to 64 MB and its games listed from that.
+  first games within 0.2 s; its search text stops after 4 MB. An SGF collection is read game by game
+  as it streams by (before, whole up to 64 MB: 100 MB at its peak and 68,257 games); its list
+  fills while it is read, up to 100,000 games.
 
 ### Search by meaning: whole documents
 

@@ -5,6 +5,7 @@
 //! files keep English SAN.
 
 pub mod games;
+pub(crate) mod lex;
 pub mod openings;
 pub mod pgn;
 pub mod play;

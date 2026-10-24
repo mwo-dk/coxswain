@@ -1,0 +1,1 @@
+| **Big Go collections open at once.** An SGF file is read game by game as it streams by, no longer up to 64 MB in one piece: its list fills while you look, in both apps, whatever the file's size; every game file (PGN, PDN, SGF, KIF, CSA, PBN) is read by one shared reader. | [Go](previews/go.md#how-big-a-collection-can-it-open) |

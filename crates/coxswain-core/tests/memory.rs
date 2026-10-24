@@ -893,11 +893,11 @@ fn memory_case() {
             }
         }
         Do::Sgf => match coxswain_core::go::Collection::open(&case.input) {
-            Ok(c) => format!(
-                "{} games{}",
-                c.games.len(),
-                if c.capped { ", capped" } else { "" }
-            ),
+            Ok(c) => {
+                c.wait(usize::MAX);
+                let p = c.progress();
+                format!("{} games{}", p.games, if p.capped { ", capped" } else { "" })
+            }
             Err(e) => format!("error: {e}"),
         },
         Do::Peek(inner) => match archive::peek(&case.input.join(inner)) {

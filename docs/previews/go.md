@@ -40,6 +40,10 @@ move*. **F1** → *Features* → *Go games* has the keys and the questions below
 ## The list of games
 
 A file of more than one game opens on its list; a file of one game opens on its board at once.
+The list fills while the file is read, game by game, never the whole file at once: the line
+above it says *Games: 1,234 of 1,234 · reading, 40 %* until it is done, and you can open a game
+before then. The desktop app adds the rows 2,000 at a time, so there the first number can trail
+the second for a moment (*Games: 4,000 of 100,000*).
 
 | Column | What it shows |
 |---|---|
@@ -125,9 +129,9 @@ Games of other kinds in SGF (`GM` other than 1) are shown on the same board. Mar
 board in a file (triangles, labels, territory) are not shown.
 
 Broken games are read as far as they go; nothing in a file can stop the app, and no nesting of
-variations, however deep, can run it out of stack. A file is read up to 64 MB and its first
-100,000 games are listed (past 100,000 games or 64 MB the line above the list adds *the first … games only: the
-file has more than Coxswain reads*); one game is read up to 250,000 moves with its
+variations, however deep, can run it out of stack. A file's first 100,000 games are listed,
+whatever its size (past 100,000 games the line above the list adds *the first … games only: the
+file has more than Coxswain reads*); one game is read up to 64 MB and 250,000 moves with its
 variations and 250,000 set-up stones, a comment up to 64 KB; past that the line above the
 board says *Only the first … moves and variations: the game has more than Coxswain reads*.
 
@@ -160,6 +164,12 @@ app a click on a variation in the list beside the board shows it.
 
 SGF files (`.sgf`) with one game or many, on any board from 1×1 to 52×52, in UTF-8 or the
 charset the file names. See [Files it reads](#files-it-reads).
+
+#### How big a collection can it open?
+
+Any size: the list is read as the file streams by, one game at a time, and fills while you look
+(*reading, … %* above it). The memory it takes grows with the list, not with the file; the first
+100,000 games are listed. Opening a game reads only that game, from where it starts.
 
 #### Why are the names in a Chinese, Japanese or Korean file garbled?
 
