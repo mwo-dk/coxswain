@@ -289,7 +289,10 @@ class Terminal:
         return subprocess.run(["tmux", "-f", "/dev/null", "-S", self.sock, *a], capture_output=True, text=True, env=_env()).stdout
 
     def __enter__(self):
-        cmd = " ".join([str(SANDBOX), "env", f"LANG={self.lang}", "COLORTERM=truecolor", "coxswain", *self.args])
+        # TMUX goes through (the sandbox clears the environment), so the app knows it runs in
+        # tmux and draws pictures (chess pieces, previews) in block characters: the sixel tmux
+        # offers is not in what capture-pane takes, and those pictures came out blank.
+        cmd = " ".join([str(SANDBOX), "env", f"LANG={self.lang}", "COLORTERM=truecolor", 'TMUX="$TMUX"', "coxswain", *self.args])
         self.tmux("new-session", "-d", "-s", "t", "-x", str(self.cols), "-y", str(self.rows), cmd)
         return self
 
