@@ -180,6 +180,7 @@ report. Each item is marked PASS, FAIL, SKIP or NOTE.
 | Does it remove anything in my home? | No. It removes only its own folder under `/tmp`; anything that appeared in your home is named in the report, with the line that removes it |
 | Can I turn on *Start with my session* in it? | No: that would hand the test's search helper to your session. If it happens, the report says so and gives the `launchctl bootout` line that undoes it |
 | Homebrew instead? | `--brew` tests what Homebrew has installed already; what is missing it installs after you say yes, and offers to remove again |
+| Drag and drop? | `--dnd` tests only that: the desktop app opens with two Finder windows of the test's folder, it says what to drag (with **Option**, with **Command**, with no key and the menu, onto a folder, **Esc**, in from Finder, out to Finder, out of a zip), and after each it checks the files itself |
 
 The same script runs after every release on GitHub's Mac runners, Apple silicon and Intel.
 `--help` lists the options; [tools/selftest](../../tools/selftest/README.md) has the details.
