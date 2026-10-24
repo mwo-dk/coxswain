@@ -106,8 +106,10 @@ whisper.cpp.
   **Show me**, which opens Settings at the option).
 - **The status line** after it: *Taken in to transcribe: 14. F12 → Finding files shows how far.*
 - **Settings → Finding files**, the *Speech* line in the status block (both apps): *Transcribed:
-  3 · waiting: 11*, under it *Now: interview.m4a, 40 %. About 52 min left.*, and its button:
-  **Pause** while it works, **Go on** while paused, **Let the rest go** while files wait. While
+  3 · waiting: 11*, under it *Now: interview.m4a, 40 %. About 52 min left.*, and its buttons:
+  **Pause** while it works, **Go on** while paused, and **Let the rest go** beside either while
+  files wait (alone when nothing is under way). The terminal app shows them as *[Pause] [Let the
+  rest go]*: **Enter** on the line takes the first, **Delete** lets the rest go. While
   the model downloads: *Downloading the model from Hugging Face: …* with a progress bar; on
   battery: *Paused while the machine runs on its battery.*; when it cannot run, why, in red.
 - **The desktop app's preview** of a recording or video, under the player: *Transcript* with the
@@ -131,7 +133,8 @@ whisper.cpp.
   and holds five seconds is done after its first part. A pause lasts until **Go on**, or until the helper starts again.
 - **On battery** it waits, as all reading does ([Battery](battery.md)), and goes on by itself on
   mains power.
-- **Let the rest go** forgets every file still waiting; the transcripts done stay.
+- **Let the rest go** forgets every file still waiting, also while one is under way or paused
+  (**Delete** on the *Speech* line in the terminal app); the transcripts done stay.
 - **A file that changes** (another recording saved over it) is transcribed again, by itself, the
   next time the helper reads it: it was asked for once. One that does not change is never done
   again.

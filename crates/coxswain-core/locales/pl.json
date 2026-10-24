@@ -3227,6 +3227,7 @@
  "settings.step.pause": "Wstrzymaj",
  "settings.step.resume": "Wznów",
  "settings.step.stop_transcribing": "Porzuć resztę",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "pamięć tego Maca",
  "setup.code_no_card": "Brak karty graficznej: model do kodu działałby na procesorze, wolniej niż model Zapytaj. Jak Zapytaj to tu właściwy wybór.",
  "setup.code_too_large": "{model} potrzebuje około {gb} GB, więcej niż ma {gpu} ({room} GB): działałby częściowo na procesorze i zamieniał się z modelem Zapytaj. Jak Zapytaj jest tu szybsze.",

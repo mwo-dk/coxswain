@@ -3152,6 +3152,7 @@
  "settings.step.pause": "Pozastavit",
  "settings.step.resume": "Pokračovat",
  "settings.step.stop_transcribing": "Zbytek nechat být",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "paměť tohoto Macu",
  "setup.code_no_card": "Není tu grafická karta: model pro kód by běžel na procesoru, pomaleji než model Dotaz. Stejně jako Dotaz je tu volba.",
  "setup.code_too_large": "{model} potřebuje asi {gb} GB, víc, než má {gpu} ({room} GB): běžel by zčásti na procesoru a střídal by se s modelem Dotaz. Stejně jako Dotaz je tu rychlejší.",

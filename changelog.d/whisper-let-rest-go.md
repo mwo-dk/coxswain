@@ -1,0 +1,1 @@
+| **Let the rest go while transcribing.** The *Speech* line in Settings shows **Let the rest go** beside **Pause** and **Go on**, so the files waiting can be dropped while one is under way or paused (terminal app: **Delete** on the line). | [Transcripts of speech](search/transcripts.md#pausing-the-battery-and-changed-files) |

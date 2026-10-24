@@ -3077,6 +3077,7 @@
  "settings.step.pause": "Anhalten",
  "settings.step.resume": "Weiter",
  "settings.step.stop_transcribing": "Den Rest fallen lassen",
+ "settings.step.also_tui": "Entf: {step}",
  "setup.code_mac_memory": "der Speicher dieses Macs",
  "setup.code_no_card": "Keine Grafikkarte hier: Ein Modell für Code liefe auf dem Prozessor, langsamer als das von Fragen. Wie Fragen ist hier die Wahl.",
  "setup.code_too_large": "{model} braucht etwa {gb} GB, mehr als die {gpu} hat ({room} GB): Es liefe teils auf dem Prozessor und wechselte mit dem Modell von Fragen. Wie Fragen ist hier schneller.",

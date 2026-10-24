@@ -3077,6 +3077,7 @@
  "settings.step.pause": "Pauzeren",
  "settings.step.resume": "Doorgaan",
  "settings.step.stop_transcribing": "De rest laten gaan",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "het geheugen van deze Mac",
  "setup.code_no_card": "Geen grafische kaart hier: een model voor code zou op de processor draaien, trager dan dat van Vragen. Zelfde als Vragen is hier de keuze.",
  "setup.code_too_large": "{model} heeft ongeveer {gb} GB nodig, meer dan de {gpu} heeft ({room} GB): het zou deels op de processor draaien en wisselen met het model van Vragen. Zelfde als Vragen is hier sneller.",

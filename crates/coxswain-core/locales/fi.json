@@ -3077,6 +3077,7 @@
  "settings.step.pause": "Keskeytä",
  "settings.step.resume": "Jatka",
  "settings.step.stop_transcribing": "Jätä loput",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "tämän Macin muisti",
  "setup.code_no_card": "Täällä ei ole näytönohjainta: koodimalli toimisi suorittimella, hitaammin kuin Kysyn oma. Sama kuin Kysy on valinta täällä.",
  "setup.code_too_large": "{model} tarvitsee noin {gb} Gt, enemmän kuin {gpu} sisältää ({room} Gt): se toimisi osin suorittimella ja vaihtaisi paikkaa Kysyn mallin kanssa. Sama kuin Kysy on täällä nopeampi.",

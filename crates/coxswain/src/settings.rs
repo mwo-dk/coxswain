@@ -663,6 +663,7 @@ impl App {
                     Some(Row::PreviewTool(r)) => self.tool_remove(&mut s, r),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
                     Some(Row::Disk(i)) if i.bytes > 0 => s.mode = Mode::ConfirmClear(i.id.clone()),
+                    Some(Row::Status(l)) if l.also == Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
                     _ => {}
                 },
                 (_, Some('c' | 'C')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
@@ -1274,7 +1275,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::Status(l) => {
                     let step = match l.poor.as_ref().and_then(|p| p.button.clone()) {
                         Some(b) => format!(" ! [{b}]"),
-                        None => l.step.map(|x| format!(" [{}]", x.label())).unwrap_or_default(),
+                        None => l.step.into_iter().chain(l.also).map(|x| format!(" [{}]", x.label())).collect(),
                     };
                     let label = format!(" {}", fit(&l.label, 9));
                     let bar = l.bar.map(|(done, total)| format!(" {} {} %", cs::bar(done, total, 10), cs::percent(done, total))).unwrap_or_default();
@@ -1468,6 +1469,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 match note {
                     Some((n, bad)) => text.push(Span::styled(n, if bad { red } else { base })),
                     None => text.push(Span::raw(l.text.clone())),
+                }
+                if let Some(also) = l.also {
+                    text.push(Span::styled(format!("  {}", t!("settings.step.also_tui", "step" => also.label())), dim));
                 }
             }
             Some(Row::SetUp) => text.push(Span::raw(t!("setup.open_hint"))),

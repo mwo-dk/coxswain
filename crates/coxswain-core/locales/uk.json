@@ -3227,6 +3227,7 @@
  "settings.step.pause": "Пауза",
  "settings.step.resume": "Продовжити",
  "settings.step.stop_transcribing": "Відпустити решту",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "пам’ять цього Mac",
  "setup.code_no_card": "Тут немає відеокарти: модель для коду працювала б на процесорі, повільніше за модель Запитання. Як Запитання — вибір тут.",
  "setup.code_too_large": "{model} потребує близько {gb} ГБ, більше, ніж має {gpu} ({room} ГБ): вона працювала б частково на процесорі й мінялася б із моделлю Запитання. Як Запитання тут швидше.",

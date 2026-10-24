@@ -3069,6 +3069,7 @@
  "settings.step.pause": "პაუზა",
  "settings.step.resume": "გაგრძელება",
  "settings.step.stop_transcribing": "დანარჩენის გაშვება",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "ამ Mac-ის მეხსიერება",
  "setup.code_no_card": "აქ ვიდეობარათი არ არის: კოდის მოდელი პროცესორზე იმუშავებდა, შეკითხვა-ს მოდელზე ნელა. „როგორც შეკითხვა“ აქ არჩევანია.",
  "setup.code_too_large": "{model}-ს დაახლოებით {gb} GB სჭირდება, მეტი, ვიდრე {gpu}-ს აქვს ({room} GB): ნაწილობრივ პროცესორზე იმუშავებდა და შეკითხვა-ს მოდელს შეენაცვლებოდა. „როგორც შეკითხვა“ აქ უფრო სწრაფია.",

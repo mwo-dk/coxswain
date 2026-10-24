@@ -3152,6 +3152,7 @@
  "settings.step.pause": "Pristabdyti",
  "settings.step.resume": "Tęsti",
  "settings.step.stop_transcribing": "Palikti likusius",
+ "settings.step.also_tui": "Delete: {step}",
  "setup.code_mac_memory": "šio Mac atmintis",
  "setup.code_no_card": "Čia nėra vaizdo plokštės: kodo modelis veiktų procesoriuje, lėčiau nei Klausti modelis. Kaip Klausti čia yra pasirinkimas.",
  "setup.code_too_large": "{model} reikia apie {gb} GB, daugiau nei turi {gpu} ({room} GB): jis iš dalies veiktų procesoriuje ir keistųsi su Klausti modeliu. Kaip Klausti čia greičiau.",

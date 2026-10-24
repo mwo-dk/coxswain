@@ -3152,6 +3152,7 @@
  "settings.step.pause": "Pause",
  "settings.step.resume": "Reprendre",
  "settings.step.stop_transcribing": "Laisser le reste",
+ "settings.step.also_tui": "Suppr : {step}",
  "setup.code_mac_memory": "la mémoire de ce Mac",
  "setup.code_no_card": "Pas de carte graphique ici : un modèle pour le code tournerait sur le processeur, plus lentement que celui de Demander. Comme Demander est le choix ici.",
  "setup.code_too_large": "{model} demande environ {gb} Go, plus que n'en a la {gpu} ({room} Go) : il tournerait en partie sur le processeur et s'échangerait avec le modèle de Demander. Comme Demander est plus rapide ici.",
