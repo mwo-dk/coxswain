@@ -133,7 +133,7 @@ app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in th
   file never ends up half written under its real name.
 - What it replaces or deletes is moved, not copied, into one folder of its own at the target's
   top (*.coxswain-sync-…*), which then goes to the bin as one item: open it there to see
-  everything one run took away. Where the bin cannot take it (Termux, another disk than the
+  everything one run took away. Where the bin cannot take it (Termux, Windows, another disk than the
   bin's), it stays in that folder and the status line names it. A hard link that is replaced is
   only renamed away: the file it shares with another name keeps its bytes.
 
@@ -141,9 +141,31 @@ It needs both sides to be folders on this computer: not an archive, a container 
 snapshot or a history (*Only two folders on this computer can be made alike…*), and neither
 inside the other.
 
-**On Windows not yet**: there Coxswain does not yet go into folders through their own handles,
-which the run needs, so *5* and *6* say *Making one folder like the other is not available on
-Windows yet.* Copy the marked differences with **F5** there.
+**On Windows** the run works the same way, through the folders' own handles: every name is
+opened in the folder held above it, a junction or link is opened itself and never followed, and
+each move or removal goes through the handle of the very entry that was checked. Some things
+differ there:
+
+- Links and junctions are not copied (making one needs a right of its own on Windows): the plan
+  lists each under *left out*, *A link: left as it is, and not followed.* One only on the target
+  side is still moved aside itself when deleting is ticked, never gone into.
+- Both folders must be on a local NTFS or ReFS disk. On a network share, or a file system run by
+  a program (WinFsp, Dokan), the server opens names by their path and could follow a junction
+  swapped in there, so the plan says *On a network share, where the server would open it by its
+  path: not written.* and changes nothing.
+- File names that differ only in case are one name to Windows, and so to the plan: *Readme.txt*
+  on the left and *README.TXT* on the right are one entry, compared as usual; when it is
+  replaced, the copy takes the left side's name. A folder keeps its own.
+- A copy keeps its dates, its *hidden* and *read-only* attributes and the mark of a download
+  (the warning Windows shows before running a program from the internet); there are no
+  permission bits to carry. Another data stream is not copied.
+- A file with another name elsewhere (a hard link) is left out: anyone may link a file they
+  cannot read into a folder they can write, and the copy would read it with your rights.
+- The folder that holds what was replaced or deleted (*.coxswain-sync-…*) does not go to the
+  bin: the bin takes and gives back by path, which a junction put in its place could lead
+  elsewhere. It stays at the target's top, the status line names it (*What was replaced or
+  deleted is kept in …: delete that folder once you no longer need it*), and **Ctrl+Z** undoes
+  the run from it as everywhere else.
 
 ## Links
 

@@ -79,8 +79,8 @@ pub async fn sync_apply(token: u64, ctx: tauri::State<'_, crate::Ctx>) -> Res<Do
     end();
     let done = r.map_err(|e| e.to_string())??;
     let mut summary = done.summary();
-    if let Some(p) = &done.kept_at {
-        summary += &format!(" · {}", coxswain_core::t!("sync.kept", "path" => p.display()));
+    if let Some(k) = done.kept_text() {
+        summary += &format!(" · {k}");
     }
     let out = Done { summary, failed: done.failed.clone() };
     if !done.record.is_empty() {

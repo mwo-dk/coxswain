@@ -314,6 +314,9 @@ pub use imp::{Place, stat_of};
 /// Folders held open to make, move and remove entries in (`compare::sync`).
 #[cfg(unix)]
 pub mod dir;
+#[cfg(windows)]
+#[path = "pinned/dir_windows.rs"]
+pub mod dir;
 #[cfg(unix)]
 pub use imp::{extra_permissions, foreign_flags};
 
@@ -803,16 +806,16 @@ mod imp {
     /// FILE_FLAG_BACKUP_SEMANTICS (folders open too) | FILE_FLAG_OPEN_REPARSE_POINT (a link is
     /// opened itself, never what it points at).
     const FLAGS: u32 = 0x0200_0000 | 0x0020_0000;
-    const READ_ATTRIBUTES: u32 = 0x80;
-    const WRITE_ATTRIBUTES: u32 = 0x100;
-    const LIST_DIRECTORY: u32 = 0x1;
-    const GENERIC_READ: u32 = 0x8000_0000;
-    const GENERIC_WRITE: u32 = 0x4000_0000;
-    const DELETE: u32 = 0x1_0000;
+    pub(super) const READ_ATTRIBUTES: u32 = 0x80;
+    pub(super) const WRITE_ATTRIBUTES: u32 = 0x100;
+    pub(super) const LIST_DIRECTORY: u32 = 0x1;
+    pub(super) const GENERIC_READ: u32 = 0x8000_0000;
+    pub(super) const GENERIC_WRITE: u32 = 0x4000_0000;
+    pub(super) const DELETE: u32 = 0x1_0000;
     const READ_CONTROL: u32 = 0x2_0000;
-    const SYNCHRONIZE: u32 = 0x10_0000;
+    pub(super) const SYNCHRONIZE: u32 = 0x10_0000;
     /// Read, write and delete: others may go on using the entry, as `std::fs` lets them.
-    const SHARE_ALL: u32 = 7;
+    pub(super) const SHARE_ALL: u32 = 7;
     /// Attributes a file written anew carries over: hidden, archive, normal, not indexed. Any
     /// other (system, compressed, encrypted, sparse, read-only …) and it is left as it is.
     const CARRIED: u32 = 0x2 | 0x20 | 0x80 | 0x2000;
@@ -834,7 +837,7 @@ mod imp {
         std::io::Error::last_os_error()
     }
 
-    fn nt(status: i32) -> std::io::Error {
+    pub(super) fn nt(status: i32) -> std::io::Error {
         // SAFETY: a plain conversion of a status code.
         std::io::Error::from_raw_os_error(unsafe { RtlNtStatusToDosError(status) } as i32)
     }
@@ -842,7 +845,7 @@ mod imp {
     /// `name` opened in the folder `dir` itself, never through a link (FILE_OPEN_REPARSE_POINT):
     /// nothing is looked up by path. A name that is no plain name (a separator, a stream, `..`)
     /// is refused, so it cannot lead out of the folder.
-    fn open_in(dir: HANDLE, name: &[u16], access: u32, disposition: u32, options: u32, share: u32) -> std::io::Result<std::fs::File> {
+    pub(super) fn open_in(dir: HANDLE, name: &[u16], access: u32, disposition: u32, options: u32, share: u32) -> std::io::Result<std::fs::File> {
         let plain = !name.is_empty() && name != [b'.' as u16] && name != [b'.' as u16, b'.' as u16] && !name.iter().any(|&c| c == b'\\' as u16 || c == b'/' as u16 || c == b':' as u16 || c == 0);
         if !plain || name.len() > 32_000 {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
@@ -1078,7 +1081,7 @@ mod imp {
 
     /// Whether the folder `dir` is on a local disk that NTFS or ReFS keeps, where an open relative
     /// to a handle stays one. Fails closed: anything not known to be so is not.
-    fn local_disk(dir: HANDLE) -> bool {
+    pub(super) fn local_disk(dir: HANDLE) -> bool {
         let (st, dev, remote, fs) = disk(dir);
         // FILE_DEVICE_DISK and not FILE_REMOTE_DEVICE (a network redirector's volume is neither),
         // no network protocol answering for it, and a file system known to open by handle

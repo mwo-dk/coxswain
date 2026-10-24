@@ -2191,8 +2191,8 @@ impl App {
             Err(e) => return self.dialog = Some(failure(t!("sync.failed"), &e)),
         };
         let mut ok = done.summary();
-        if let Some(p) = &done.kept_at {
-            ok += &format!(" · {}", t!("sync.kept", "path" => p.display()));
+        if let Some(k) = done.kept_text() {
+            ok += &format!(" · {k}");
         }
         if !done.record.is_empty() {
             ok += &format!(" · {}", t!("undo.hint", "key" => self.key_label(Action::Undo)));

@@ -27,13 +27,11 @@ use crate::pinned::{Id, Kind, Said, Stat};
 use crate::t;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-/// Whether one side can be made like the other here.
-pub const AVAILABLE: bool = cfg!(unix);
 /// The plan shows at most this many rows; the run takes them all.
 pub const SHOWN: usize = 2_000;
 /// The steps a plan holds at most: past them it stops, and says so.
@@ -180,9 +178,6 @@ fn lines(said: Said, out: &mut Vec<String>) {
 /// Why `from` and `to` cannot be made alike, if they cannot: not two folders on this computer
 /// (an archive, an image, a snapshot, a history), the same folder, or one inside the other.
 pub fn check(from: &Path, to: &Path) -> Result<(), String> {
-    if !AVAILABLE {
-        return Err(t!("sync.not_windows"));
-    }
     let real = |p: &Path| std::fs::canonicalize(p).ok().filter(|r| std::fs::symlink_metadata(r).is_ok_and(|m| m.is_dir()));
     let (Some(a), Some(b)) = (real(from), real(to)) else { return Err(t!("sync.not_here")) };
     if a.starts_with(&b) || b.starts_with(&a) {
@@ -206,6 +201,13 @@ impl Applied {
     pub fn summary(&self) -> String {
         t!("sync.done", "copied" => self.copied, "replaced" => self.replaced, "deleted" => self.deleted)
     }
+
+    /// Where what was replaced or deleted is, when it did not go to the bin, as the status line
+    /// says it.
+    pub fn kept_text(&self) -> Option<String> {
+        let p = self.kept_at.as_ref()?;
+        Some(if cfg!(windows) { t!("sync.kept_windows", "path" => p.display()) } else { t!("sync.kept", "path" => p.display()) })
+    }
 }
 
 /// What undo needs: where the run made what, and where it set what aside.
@@ -224,18 +226,7 @@ pub struct Undo {
     trashed: Option<String>,
 }
 
-#[cfg(unix)]
 pub use imp::{apply, plan};
-
-#[cfg(not(unix))]
-pub fn plan(_from: &Path, _to: &Path, _mode: Mode, _delete: bool, _stop: &AtomicBool, _progress: &Progress) -> Result<Plan, String> {
-    Err(t!("sync.not_windows"))
-}
-
-#[cfg(not(unix))]
-pub fn apply(_plan: &Plan, _stop: &AtomicBool, _progress: &Progress) -> Result<Applied, String> {
-    Err(t!("sync.not_windows"))
-}
 
 impl Undo {
     /// The target folder, to read again once undone.
@@ -247,18 +238,11 @@ impl Undo {
     /// only once empty), then what it set aside put back where it was, never over what is there.
     /// `restore` brings the folder aside back out of the bin. How many were undone, and why the
     /// others were not.
-    #[cfg(unix)]
     pub fn undo(&self, restore: impl Fn(&Path, &Path) -> std::io::Result<()>) -> (usize, Vec<String>) {
         imp::undo(self, restore)
     }
-
-    #[cfg(not(unix))]
-    pub fn undo(&self, _restore: impl Fn(&Path, &Path) -> std::io::Result<()>) -> (usize, Vec<String>) {
-        (0, vec![t!("sync.not_windows")])
-    }
 }
 
-#[cfg(unix)]
 mod imp {
     use super::*;
     use crate::pinned::dir::Dir;
@@ -341,6 +325,12 @@ mod imp {
         fn copy(&mut self, s: &Dir, d: Option<&Dir>, rel: Rel, a: Stat, dst: Option<Stat>) {
             match a.kind {
                 Kind::Other => return self.said.say(&self.path(0, &rel), t!("pinned.special")),
+                // Making a link needs a right of its own on Windows: links are left out there.
+                Kind::Link if cfg!(windows) => return self.said.say(&self.path(0, &rel), t!("pinned.link")),
+                // Windows lets anyone link a file they cannot read into a folder they can write:
+                // its bytes would be copied with this user's rights. Another name of a file is
+                // left out there.
+                Kind::File if cfg!(windows) && a.nlink > 1 => return self.said.say(&self.path(0, &rel), t!("pinned.hard_link")),
                 Kind::Dir if a.id.dev != self.devs[0] => return self.said.say(&self.path(0, &rel), t!("pinned.other_disk")),
                 Kind::Dir if self.a_root(&a.id) => return self.said.say(&self.path(0, &rel), t!("sync.nested")),
                 _ => {}
@@ -374,7 +364,11 @@ mod imp {
             // The run's own folder aside, at the top, is no one's entry.
             let top = rel.is_empty();
             let list = |side: usize, dir: &Dir, me: &mut Self| match dir.names() {
-                Ok(n) => Some(n.into_iter().filter(|n| !(top && n.to_string_lossy().starts_with(ASIDE))).collect::<Vec<_>>()),
+                Ok(n) => {
+                    let mut n = n.into_iter().filter(|n| !(top && n.to_string_lossy().starts_with(ASIDE))).collect::<Vec<_>>();
+                    n.sort_by(|x, y| by_name(x, y).then_with(|| x.cmp(y)));
+                    Some(n)
+                }
                 Err(e) => {
                     me.said.say(&me.path(side, &rel), e.to_string());
                     None
@@ -391,7 +385,7 @@ mod imp {
             let (mut i, mut j) = (0, 0);
             while (i < a.len() || j < b.len()) && !self.busy() {
                 let order = match (a.get(i), b.get(j)) {
-                    (Some(x), Some(y)) => x.cmp(y),
+                    (Some(x), Some(y)) => by_name(x, y),
                     (Some(_), None) => std::cmp::Ordering::Less,
                     _ => std::cmp::Ordering::Greater,
                 };
@@ -490,6 +484,17 @@ mod imp {
                 self.copy(s, Some(d), rel, x, Some(y));
             }
         }
+    }
+
+    /// How two names pair up and sort: as they are; on Windows, whose file systems take a name
+    /// whatever its case, by their lower-case text, so `README` on one side and `Readme` on the
+    /// other are one entry (replaced, the copy taking the source's name) rather than a copy that
+    /// finds its name taken and a deletion.
+    fn by_name(a: &OsStr, b: &OsStr) -> std::cmp::Ordering {
+        #[cfg(windows)]
+        return a.to_string_lossy().to_lowercase().cmp(&b.to_string_lossy().to_lowercase());
+        #[cfg(not(windows))]
+        a.cmp(b)
     }
 
     /// Every entry in the folder `d`, by its path under it, through folder handles, never
@@ -625,14 +630,30 @@ mod imp {
 
     /// The name of the `k`th entry set aside: its number, and as much of its own name as fits.
     fn kept_name(k: usize, name: &OsString) -> OsString {
-        use std::os::unix::ffi::{OsStrExt, OsStringExt};
-        let mut v = format!("{k}-").into_bytes();
-        v.extend(name.as_bytes().iter().take(200));
-        OsString::from_vec(v)
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::{OsStrExt, OsStringExt};
+            let mut v = format!("{k}-").into_bytes();
+            v.extend(name.as_bytes().iter().take(200));
+            OsString::from_vec(v)
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::ffi::{OsStrExt, OsStringExt};
+            let mut v: Vec<u16> = format!("{k}-").encode_utf16().collect();
+            v.extend(name.encode_wide().take(200));
+            OsString::from_wide(&v)
+        }
     }
 
     /// Take the steps of `plan`, each only on the entries exactly as the plan saw them.
     pub fn apply(plan: &Plan, stop: &AtomicBool, progress: &Progress) -> Result<Applied, String> {
+        // On Windows the folder aside stays at the target's top: the bin takes and gives back
+        // only by path (the shell's), which a junction swapped in there would lead elsewhere,
+        // and the folder held by its handle is what undo works through.
+        if cfg!(windows) {
+            return apply_to(plan, stop, progress, |_| Err(std::io::Error::other(t!("undo.no_trash"))));
+        }
         apply_to(plan, stop, progress, |p| if crate::fs::trash_takes(&[p.to_path_buf()]) { crate::fs::trash_named(p, None) } else { Err(std::io::Error::other(t!("undo.no_trash"))) })
     }
 
@@ -866,10 +887,19 @@ mod imp {
     }
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pinned::link_dir;
     use std::fs;
+
+    /// A link to a folder (a junction on Windows) removed, not what it points at.
+    fn unlink_dir(p: &Path) {
+        #[cfg(unix)]
+        fs::remove_file(p).unwrap();
+        #[cfg(windows)]
+        fs::remove_dir(p).unwrap();
+    }
 
     fn plan_of(l: &Path, r: &Path, delete: bool) -> Plan {
         plan(l, r, Mode::Quick, delete, &AtomicBool::new(false), &Progress::default()).unwrap()
@@ -908,17 +938,24 @@ mod tests {
         fs::write(r.join("changed"), "old").unwrap();
         old(&r.join("changed"));
         fs::write(r.join("extra"), "only right").unwrap();
+        // A link is copied as a link; on Windows it is left out, and said.
+        #[cfg(unix)]
         std::os::unix::fs::symlink("same", l.join("link")).unwrap();
+        #[cfg(windows)]
+        link_dir(&l.join("new"), &l.join("link"));
+        let copies = if cfg!(unix) { 4 } else { 3 };
         // Kept unless deleting is asked for.
         let p = plan_of(&l, &r, false);
-        assert_eq!((p.copies, p.replaces, p.deletes, p.extra), (4, 1, 0, 1), "{:?}", p.rows);
+        assert_eq!((p.copies, p.replaces, p.deletes, p.extra), (copies, 1, 0, 1), "{:?}", p.rows);
+        assert_eq!(p.refused.len(), usize::from(cfg!(windows)), "{:?}", p.refused);
         let p = plan_of(&l, &r, true);
         assert_eq!(p.deletes, 1);
         let done = run(&p);
         assert!(done.failed.is_empty(), "{:?}", done.failed);
-        assert_eq!((done.copied, done.replaced, done.deleted), (4, 1, 1));
+        assert_eq!((done.copied, done.replaced, done.deleted), (copies, 1, 1));
         assert_eq!(fs::read_to_string(r.join("new/deep/f")).unwrap(), "deep");
         assert_eq!(fs::read_to_string(r.join("changed")).unwrap(), "new text");
+        #[cfg(unix)]
         assert_eq!(fs::read_link(r.join("link")).unwrap(), Path::new("same"));
         assert!(!r.join("extra").exists());
         // What was replaced or deleted is in the folder aside, which the plan never shows.
@@ -938,6 +975,7 @@ mod tests {
 
     /// With the real bin, in CI only: the folder aside goes there as one item, and undo brings
     /// it back out.
+    #[cfg(not(windows))]
     #[test]
     fn the_bin_takes_the_folder_aside_and_undo_brings_it_back() {
         if std::env::var_os("CI").is_none() || !crate::undo::trash_restores() {
@@ -984,6 +1022,7 @@ mod tests {
         assert!(!done.failed.is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn set_id_bits_are_not_copied() {
         use std::os::unix::fs::PermissionsExt;
@@ -1020,18 +1059,18 @@ mod tests {
         let p = plan_of(&l, &r, true);
         assert_eq!((p.copies, p.replaces), (1, 1));
         fs::rename(r.join("sub"), d.join("moved")).unwrap();
-        std::os::unix::fs::symlink(&out, r.join("sub")).unwrap();
+        link_dir(&out, &r.join("sub"));
         let done = run(&p);
         assert_eq!(done.copied + done.replaced, 0);
         assert!(!done.failed.is_empty());
         assert_eq!(fs::read_to_string(out.join("f")).unwrap(), "precious");
         assert!(!out.join("g").exists());
         // The source side swapped: nothing read from outside.
-        fs::remove_file(r.join("sub")).unwrap();
+        unlink_dir(&r.join("sub"));
         fs::rename(d.join("moved"), r.join("sub")).unwrap();
         let p = plan_of(&l, &r, true);
         fs::rename(l.join("sub"), d.join("lmoved")).unwrap();
-        std::os::unix::fs::symlink(&out, l.join("sub")).unwrap();
+        link_dir(&out, &l.join("sub"));
         let done = run(&p);
         assert_eq!(done.copied + done.replaced, 0, "{:?}", done.failed);
         assert_eq!(fs::read_to_string(r.join("sub/f")).unwrap(), "old");
@@ -1062,6 +1101,7 @@ mod tests {
         assert!(!r.join("b").exists(), "a file renamed in on the source side is not read");
     }
 
+    #[cfg(unix)]
     #[test]
     fn pipes_are_never_opened_nor_copied() {
         let (_d, l, r) = pair("sync-fifo");
@@ -1097,8 +1137,12 @@ mod tests {
         // Undo brings the very link back.
         let u = done.record.undo(|_| {});
         assert!(u.refused.is_empty(), "{:?}", u.refused);
-        use std::os::unix::fs::MetadataExt;
-        assert_eq!(fs::metadata(r.join("f")).unwrap().ino(), fs::metadata(&out).unwrap().ino());
+        assert_eq!(fs::read_to_string(r.join("f")).unwrap(), "precious");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            assert_eq!(fs::metadata(r.join("f")).unwrap().ino(), fs::metadata(&out).unwrap().ino());
+        }
     }
 
     #[test]
@@ -1133,5 +1177,115 @@ mod tests {
         // Stopping the plan: what was looked at until then.
         let p = plan(&l, &r, Mode::Quick, true, &stop, &Progress::default()).unwrap();
         assert!(p.stopped && p.total == 0);
+    }
+
+    /// A junction in the target, there at the plan: deleted means moved aside itself, never
+    /// gone into; what it points at is untouched, and undo puts the junction back.
+    #[test]
+    fn a_link_in_the_target_goes_aside_itself() {
+        let (d, l, r) = pair("sync-link-aside");
+        let out = d.join("outside");
+        fs::create_dir_all(&out).unwrap();
+        fs::write(out.join("f"), "precious").unwrap();
+        link_dir(&out, &r.join("j"));
+        let p = plan_of(&l, &r, true);
+        assert_eq!(p.deletes, 1, "{:?}", p.rows);
+        let done = run(&p);
+        assert_eq!(done.deleted, 1, "{:?}", done.failed);
+        assert!(fs::symlink_metadata(r.join("j")).is_err());
+        assert_eq!(fs::read_to_string(out.join("f")).unwrap(), "precious");
+        let u = done.record.undo(|_| {});
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert!(fs::symlink_metadata(r.join("j")).is_ok());
+        assert_eq!(fs::read_to_string(r.join("j/f")).unwrap(), "precious");
+        assert_eq!(fs::read_dir(&out).unwrap().count(), 1);
+    }
+
+    /// The folder for what goes aside is the run's own: a junction swapped in for a folder the
+    /// run is about to fill, after the plan, is not followed, on the target's top or deeper.
+    #[test]
+    fn a_junction_swapped_in_deep_down_leads_nowhere() {
+        let (d, l, r) = pair("sync-deep-swap");
+        let out = d.join("outside");
+        fs::create_dir_all(&out).unwrap();
+        fs::create_dir_all(l.join("a/b")).unwrap();
+        fs::create_dir_all(r.join("a/b")).unwrap();
+        fs::write(l.join("a/b/new"), "new").unwrap();
+        fs::write(r.join("a/b/gone"), "x").unwrap();
+        let p = plan_of(&l, &r, true);
+        assert_eq!((p.copies, p.deletes), (1, 1), "{:?}", p.rows);
+        // The middle folder swapped for a junction to a copy of it outside.
+        fs::create_dir_all(out.join("b")).unwrap();
+        fs::write(out.join("b/gone"), "x").unwrap();
+        fs::rename(r.join("a"), d.join("moved")).unwrap();
+        link_dir(&out, &r.join("a"));
+        let done = run(&p);
+        assert_eq!(done.copied + done.deleted, 0, "{:?}", done.failed);
+        assert!(!out.join("b/new").exists());
+        assert_eq!(fs::read_to_string(out.join("b/gone")).unwrap(), "x");
+    }
+
+    /// On Windows a name is one name whatever its case: `README.TXT` on the target is replaced
+    /// by the source's `Readme.txt`, which keeps the source's case; undo brings the old one back.
+    #[cfg(windows)]
+    #[test]
+    fn names_that_differ_in_case_only_are_one_entry_on_windows() {
+        let (_d, l, r) = pair("sync-case");
+        fs::write(l.join("Readme.txt"), "new text").unwrap();
+        fs::write(r.join("README.TXT"), "old").unwrap();
+        old(&r.join("README.TXT"));
+        fs::create_dir_all(l.join("Src")).unwrap();
+        fs::create_dir_all(r.join("src")).unwrap();
+        fs::write(l.join("Src/a"), "a").unwrap();
+        let p = plan_of(&l, &r, true);
+        assert_eq!((p.copies, p.replaces, p.deletes), (1, 1, 0), "{:?}", p.rows);
+        let done = run(&p);
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        let names: Vec<_> = fs::read_dir(&r).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).filter(|n| !n.starts_with(ASIDE)).collect();
+        assert!(names.contains(&"Readme.txt".to_string()) && names.contains(&"src".to_string()), "{names:?}");
+        assert_eq!(fs::read_to_string(r.join("Readme.txt")).unwrap(), "new text");
+        assert_eq!(fs::read_to_string(r.join("src/a")).unwrap(), "a");
+        let u = done.record.undo(|_| {});
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert_eq!(fs::read_to_string(r.join("README.TXT")).unwrap(), "old");
+        assert!(!r.join("src/a").exists());
+    }
+
+    /// On Windows a copy keeps the mark of a download, and another name of a file (a hard link,
+    /// which anyone may make to a file they cannot read) is left out, not read.
+    #[cfg(windows)]
+    #[test]
+    fn windows_keeps_the_mark_of_a_download_and_leaves_hard_links_out() {
+        let (d, l, r) = pair("sync-zone");
+        fs::write(l.join("setup.exe"), "MZ").unwrap();
+        fs::write(PathBuf::from(format!("{}:Zone.Identifier", l.join("setup.exe").display())), "[ZoneTransfer]\r\nZoneId=3\r\n").unwrap();
+        fs::write(d.join("secret"), "secret").unwrap();
+        fs::hard_link(d.join("secret"), l.join("linked")).unwrap();
+        let p = plan_of(&l, &r, true);
+        assert_eq!(p.copies, 1, "{:?}", p.rows);
+        assert_eq!(p.refused.len(), 1, "{:?}", p.refused);
+        let done = run(&p);
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        assert!(done.kept_at.is_none());
+        assert_eq!(fs::read_to_string(PathBuf::from(format!("{}:Zone.Identifier", r.join("setup.exe").display()))).unwrap(), "[ZoneTransfer]\r\nZoneId=3\r\n");
+        assert!(!r.join("linked").exists());
+    }
+
+    /// On Windows the folder aside stays at the target's top (never handed to the shell's bin
+    /// by its path), and the status line says where.
+    #[cfg(windows)]
+    #[test]
+    fn windows_keeps_the_folder_aside_in_the_target() {
+        let (_d, l, r) = pair("sync-aside-win");
+        fs::write(r.join("extra"), "x").unwrap();
+        let done = apply(&plan_of(&l, &r, true), &AtomicBool::new(false), &Progress::default()).unwrap();
+        assert_eq!(done.deleted, 1, "{:?}", done.failed);
+        let kept = done.kept_at.clone().expect("kept in the target");
+        assert!(kept.starts_with(&r));
+        assert!(done.kept_text().unwrap().contains(&kept.display().to_string()));
+        let u = done.record.undo(|_| {});
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert_eq!(fs::read_to_string(r.join("extra")).unwrap(), "x");
+        assert_eq!(fs::read_dir(&r).unwrap().count(), 1);
     }
 }
