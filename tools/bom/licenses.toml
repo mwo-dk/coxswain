@@ -44,7 +44,14 @@ file = "gui/public/vendor/chess-pieces/LICENSE"
 
 [[bundled]]
 name = "Noto Sans CJK (kanji outlines on the shogi tiles)"
-what = "gui/public/vendor/game-pieces/shogi-*.svg: the kanji are glyph outlines from Noto Sans CJK on tiles drawn for Coxswain's author's games project; no font file is included."
+what = "gui/public/vendor/game-pieces/shogi-*.svg: the kanji are glyph outlines from Noto Sans CJK on tiles drawn for Coxswain's author's games project; their copy in crates/coxswain/pieces/ (the terminal app's pictures); no font file is included."
+license = "OFL-1.1"
+source = "https://github.com/notofonts/noto-cjk"
+file = "tools/bom/licenses/OFL-1.1.txt"
+
+[[bundled]]
+name = "Noto Serif CJK (characters on the terminal app's xiangqi pieces)"
+what = "crates/coxswain/pieces/xiangqi-*.svg: the desktop app's xiangqi discs with each character as a glyph outline from Noto Serif CJK TC Bold, made by tools/xiangqi-outlines.py, for the terminal app's pictures (drawn without fonts); no font file is included."
 license = "OFL-1.1"
 source = "https://github.com/notofonts/noto-cjk"
 file = "tools/bom/licenses/OFL-1.1.txt"

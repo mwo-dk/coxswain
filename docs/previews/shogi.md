@@ -11,7 +11,7 @@ it. Coxswain only reads: it does not play or check a game.
 
 ![A shogi game in the desktop app's window (Alt+K): the 9×9 board on the Cyber theme's colours, the pieces as five-sided tiles with their kanji, Gote's turned round, the last move's squares tinted, Gote's pieces in hand above the board and Sente's below, beside it the players Ada Vance – Kenji Mori and the moves in Japanese with a comment and a variation](../screenshots/gui-shogi.png)
 
-![The terminal app's shogi view in Classic blue: the board as rows of kanji, Gote's pieces written with a v before them in red, empty squares ・, the files ９ to １ above and the ranks 一 to 九 beside, the pieces in hand above and below, the moves beside it](../screenshots/tui-shogi.png)
+![The terminal app's shogi view in Classic blue: the board's squares in two shades of the theme's colour, each piece a light five-sided tile drawn from block characters with its kanji on it, Gote's tiles pointing down, the last move's squares tinted, the files 9 to 1 above and the ranks 一 to 九 beside, the pieces in hand above and below, the moves beside it](../screenshots/tui-shogi.png)
 
 - [Using it](#using-it)
 - [The table of games](#the-table-of-games)
@@ -60,10 +60,14 @@ the keys at once, in the preview pane click it first. Terminal: **Enter**.
 
 Sente is at the bottom. Each piece is its kanji: 歩 香 桂 銀 金 角 飛 and the kings 玉 (Sente's)
 and 王 (Gote's); promoted, と 杏 圭 全 馬 龍. In the desktop app a piece is a five-sided tile, Gote's
-turned round, a promoted one written in red. In the terminal app Gote's pieces have a `v` before
-them and are red, as KIF's board diagrams write them; an empty square is `・`. The files are
-numbered ９ to １ above the board, the ranks 一 to 九 beside it. The squares the last move went
-from and to are tinted yellow.
+turned round, a promoted one written in red. The terminal app draws the same where the window
+has room for squares of three rows (about 36 rows and 100 columns): each piece a light tile
+drawn from block characters with its kanji on it as text, Gote's pointing down, a promoted one's
+kanji in red, on squares in two shades of the board's colour; where the terminal shows pictures,
+the desktop app's tiles themselves ([Game pieces in the terminal](game-pieces.md)). On a
+smaller window Gote's pieces have a `v` before them and are red, as KIF's board diagrams write
+them, and an empty square is `・`. The files are numbered ９ to １ above the board, the ranks 一
+to 九 beside it. The squares the last move went from and to are tinted yellow.
 
 Above the board: *Gote in hand:* and the pieces Gote holds (`歩2 角`); below it *Sente in
 hand:*; `–` for none. Under them: *Sente (▲) to move* or *Gote (△) to move*.
@@ -128,8 +132,9 @@ KIF (`.kif` in Shift_JIS, `.kifu` in UTF-8) with their variations and comments, 
 
 #### Why are Gote's pieces marked v?
 
-Gote's pieces point the other way: the desktop app turns them round, the terminal app writes
-them with a `v` before them and in red, as KIF's board diagrams do.
+Gote's pieces point the other way: the desktop app turns them round, and so does the terminal
+app when the window has room for tiles (Gote's point down). On a smaller window the terminal
+app writes them with a `v` before them and in red, as KIF's board diagrams do.
 
 #### Why does a game stop showing positions halfway?
 

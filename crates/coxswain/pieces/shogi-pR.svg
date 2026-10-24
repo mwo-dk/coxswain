@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: dragon.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#a8321f">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M121 673C138 633 153 581 158 546H42V481H503V546H380C396 581 415 627 433 672L373 688H485V753H308V840H235V753H60V688H364C355 650 337 595 321 560L369 546H170L222 560C216 594 199 647 182 687ZM168 237H383V164H168ZM168 290V360H383V290ZM97 416V-78H168V111H383V3C383 -9 379 -12 367 -12C355 -13 318 -13 276 -11C285 -30 297 -59 301 -79C357 -79 397 -78 424 -67C449 -55 456 -35 456 2V416ZM553 434V29C553 -55 581 -74 675 -74C696 -74 840 -74 860 -74C937 -74 958 -47 967 44C946 49 917 59 901 71C897 3 890 -11 855 -11C825 -11 705 -11 683 -11C634 -11 626 -4 626 29V72H913V121H626V185H903V235H626V296H908V346H626V408H909V617H626V698H948V761H626V840H553V557H836V467H553Z"/>
+  </g>
+</svg>

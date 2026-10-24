@@ -1,5 +1,6 @@
-//! Pictures on the terminal board: the chess pieces as the desktop app's own drawings (Uray M.
-//! János's set, `pieces/`), where the terminal shows images. The terminal is asked once what it
+//! Pictures on the terminal boards: the pieces of chess, draughts, Go, shogi and xiangqi as the
+//! desktop app's own drawings (`pieces/`: Uray M. János's chess set, the games' own), where
+//! the terminal shows images. The terminal is asked once what it
 //! can do: kitty's graphics protocol (kitty, Ghostty), drawn through its Unicode placeholders so
 //! a picture is a run of characters in the frame like any other and goes when they are drawn
 //! over; or sixel (foot, WezTerm, xterm with sixel, mlterm, tmux built with it), one picture per
@@ -254,8 +255,85 @@ fn cell_from_winsize() -> Option<(u16, u16)> {
     (w > 0 && h > 0).then_some((w, h))
 }
 
-/// The pieces' drawings, the desktop app's (a test keeps them the same).
-fn svg(piece: char) -> &'static [u8] {
+/// What a picture shows: a piece's drawing, turned round (a Gote shogi piece), on a point of a
+/// board of lines (`crate::pieces::UP` …, drawn in `ink` through the middle cell), marked with
+/// a red dot (the last Go stone played).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Picture {
+    pub svg: &'static [u8],
+    pub turn: bool,
+    pub lines: u8,
+    pub ink: (u8, u8, u8),
+    pub mark: bool,
+}
+
+impl Picture {
+    pub fn of(svg: &'static [u8]) -> Picture {
+        Picture { svg, turn: false, lines: 0, ink: (0, 0, 0), mark: false }
+    }
+}
+
+/// A picture's place on a board: its cells (from the board's top left), what and on what colour.
+pub type Placed = (Rect, Picture, Color);
+
+/// The draughts men and kings, as `coxswain_core::draughts::cells` names them.
+pub fn draughts(p: char) -> &'static [u8] {
+    match p {
+        'M' => include_bytes!("../pieces/draughts-wm.svg"),
+        'K' => include_bytes!("../pieces/draughts-wk.svg"),
+        'k' => include_bytes!("../pieces/draughts-bk.svg"),
+        _ => include_bytes!("../pieces/draughts-bm.svg"),
+    }
+}
+
+/// A Go stone.
+pub fn go(black: bool) -> &'static [u8] {
+    if black { include_bytes!("../pieces/go-b.svg") } else { include_bytes!("../pieces/go-w.svg") }
+}
+
+/// A shogi piece by its kind (`coxswain_core::shogi::Piece`), promoted or not.
+pub fn shogi(kind: char, promoted: bool) -> &'static [u8] {
+    match (kind, promoted) {
+        ('R', false) => include_bytes!("../pieces/shogi-R.svg"),
+        ('R', true) => include_bytes!("../pieces/shogi-pR.svg"),
+        ('B', false) => include_bytes!("../pieces/shogi-B.svg"),
+        ('B', true) => include_bytes!("../pieces/shogi-pB.svg"),
+        ('G', _) => include_bytes!("../pieces/shogi-G.svg"),
+        ('S', false) => include_bytes!("../pieces/shogi-S.svg"),
+        ('S', true) => include_bytes!("../pieces/shogi-pS.svg"),
+        ('N', false) => include_bytes!("../pieces/shogi-N.svg"),
+        ('N', true) => include_bytes!("../pieces/shogi-pN.svg"),
+        ('L', false) => include_bytes!("../pieces/shogi-L.svg"),
+        ('L', true) => include_bytes!("../pieces/shogi-pL.svg"),
+        ('P', false) => include_bytes!("../pieces/shogi-P.svg"),
+        ('P', true) => include_bytes!("../pieces/shogi-pP.svg"),
+        _ => include_bytes!("../pieces/shogi-K.svg"),
+    }
+}
+
+/// A xiangqi piece as `coxswain_core::xiangqi::cells` names it, Red's in capitals: the
+/// desktop app's with its character as an outline (`tools/xiangqi-outlines.py`).
+pub fn xiangqi(p: char) -> &'static [u8] {
+    match p {
+        'K' => include_bytes!("../pieces/xiangqi-rk.svg"),
+        'A' => include_bytes!("../pieces/xiangqi-ra.svg"),
+        'B' => include_bytes!("../pieces/xiangqi-rb.svg"),
+        'N' => include_bytes!("../pieces/xiangqi-rn.svg"),
+        'R' => include_bytes!("../pieces/xiangqi-rr.svg"),
+        'C' => include_bytes!("../pieces/xiangqi-rc.svg"),
+        'P' => include_bytes!("../pieces/xiangqi-rp.svg"),
+        'k' => include_bytes!("../pieces/xiangqi-bk.svg"),
+        'a' => include_bytes!("../pieces/xiangqi-ba.svg"),
+        'b' => include_bytes!("../pieces/xiangqi-bb.svg"),
+        'n' => include_bytes!("../pieces/xiangqi-bn.svg"),
+        'r' => include_bytes!("../pieces/xiangqi-br.svg"),
+        'c' => include_bytes!("../pieces/xiangqi-bc.svg"),
+        _ => include_bytes!("../pieces/xiangqi-bp.svg"),
+    }
+}
+
+/// The chess pieces' drawings, the desktop app's (a test keeps them the same).
+pub fn chess(piece: char) -> &'static [u8] {
     match piece {
         'K' => include_bytes!("../pieces/wK.svg"),
         'Q' => include_bytes!("../pieces/wQ.svg"),
@@ -272,15 +350,46 @@ fn svg(piece: char) -> &'static [u8] {
     }
 }
 
-/// A piece on a square of colour `bg`, `w` × `h` pixels: straight RGBA, opaque.
-fn raster(piece: char, bg: (u8, u8, u8), w: u32, h: u32) -> Option<tiny_skia::Pixmap> {
-    let tree = usvg::Tree::from_data(svg(piece), &usvg::Options::default()).ok()?;
+/// A piece on a square of colour `bg`, `cols` × `rows` cells of `cell` pixels: straight RGBA,
+/// opaque. A point's lines run through the middle of its middle cell, as the box characters
+/// of the points around it.
+fn raster(pic: Picture, bg: (u8, u8, u8), cols: u16, rows: u16, cell: (u16, u16)) -> Option<tiny_skia::Pixmap> {
+    use crate::pieces::{DOWN, LEFT, RIGHT, UP};
+    let (w, h) = (cols as u32 * cell.0 as u32, rows as u32 * cell.1 as u32);
+    let tree = usvg::Tree::from_data(pic.svg, &usvg::Options::default()).ok()?;
     let mut pm = tiny_skia::Pixmap::new(w, h)?;
     pm.fill(tiny_skia::Color::from_rgba8(bg.0, bg.1, bg.2, 255));
+    if pic.lines != 0 {
+        let (cx, cy) = (((cols - 1) / 2) as f32 * cell.0 as f32 + cell.0 as f32 / 2.0, (rows / 2) as f32 * cell.1 as f32 + cell.1 as f32 / 2.0);
+        // Whole pixels, so that a line is sharp.
+        let t = (cell.0 / 8).max(1) as f32;
+        let (cx, cy) = ((cx - t / 2.0).round() + t / 2.0, (cy - t / 2.0).round() + t / 2.0);
+        let mut paint = tiny_skia::Paint::default();
+        paint.set_color_rgba8(pic.ink.0, pic.ink.1, pic.ink.2, 255);
+        let (wf, hf) = (w as f32, h as f32);
+        for (bit, x, y, rw, rh) in [(UP, cx - t / 2.0, 0.0, t, cy + t / 2.0), (DOWN, cx - t / 2.0, cy - t / 2.0, t, hf - cy + t / 2.0), (LEFT, 0.0, cy - t / 2.0, cx + t / 2.0, t), (RIGHT, cx - t / 2.0, cy - t / 2.0, wf - cx + t / 2.0, t)] {
+            if pic.lines & bit != 0
+                && let Some(r) = tiny_skia::Rect::from_xywh(x, y, rw, rh)
+            {
+                pm.fill_rect(r, &paint, tiny_skia::Transform::identity(), None);
+            }
+        }
+    }
     let side = w.min(h) as f32 * 0.95;
     let s = side / tree.size().width().max(tree.size().height());
-    let t = tiny_skia::Transform::from_row(s, 0.0, 0.0, s, (w as f32 - side) / 2.0, (h as f32 - side) / 2.0);
+    let mut t = tiny_skia::Transform::from_row(s, 0.0, 0.0, s, (w as f32 - side) / 2.0, (h as f32 - side) / 2.0);
+    if pic.turn {
+        t = t.post_concat(tiny_skia::Transform::from_rotate_at(180.0, w as f32 / 2.0, h as f32 / 2.0));
+    }
     resvg::render(&tree, t, &mut pm.as_mut());
+    if pic.mark
+        && let Some(dot) = tiny_skia::PathBuilder::from_circle(w as f32 / 2.0, h as f32 / 2.0, side * 0.14)
+    {
+        let mut paint = tiny_skia::Paint::default();
+        paint.set_color_rgba8(200, 30, 30, 255);
+        paint.anti_alias = true;
+        pm.fill_path(&dot, &paint, tiny_skia::FillRule::Winding, tiny_skia::Transform::identity(), None);
+    }
     Some(pm)
 }
 
@@ -306,7 +415,7 @@ enum Made {
 }
 
 /// A picture: the piece, the square's colour and its size in cells.
-type Look = (char, (u8, u8, u8), u16, u16);
+type Look = (Picture, (u8, u8, u8), u16, u16);
 
 /// The pictures of one board, made as they are needed and kept until it closes; kitty's are
 /// taken out of the terminal then.
@@ -323,18 +432,30 @@ impl Pieces {
         Pieces { support, made: HashMap::new(), before: vec![], now: vec![] }
     }
 
-    /// Draws `piece` over the cells of `area`, a square of colour `bg`. False when it could
+    /// Draws each picture of a board whose top left cell is `at`, those within `clip`, then
+    /// `finish`es the frame.
+    pub fn place(&mut self, buf: &mut Buffer, at: (u16, u16), clip: Rect, placed: Vec<Placed>) {
+        for (r, pic, bg) in placed {
+            let r = Rect { x: r.x + at.0, y: r.y + at.1, ..r };
+            if r.right() <= clip.right() && r.bottom() <= clip.bottom() {
+                self.draw(buf, r, pic, bg);
+            }
+        }
+        self.finish(buf);
+    }
+
+    /// Draws `pic` over the cells of `area`, a square of colour `bg`. False when it could
     /// not be made: the characters stay.
-    pub fn draw(&mut self, buf: &mut Buffer, area: Rect, piece: char, bg: Color) -> bool {
+    pub fn draw(&mut self, buf: &mut Buffer, area: Rect, pic: Picture, bg: Color) -> bool {
         let Color::Rgb(r, g, b) = bg else { return false };
         if area.width as usize > MARKS.len() || area.height as usize > MARKS.len() || area.is_empty() {
             return false;
         }
         let s = self.support;
-        let key = (piece, (r, g, b), area.width, area.height);
+        let key = (pic, (r, g, b), area.width, area.height);
         let made = self.made.entry(key).or_insert_with(|| {
             let (w, h) = (area.width as u32 * s.cell.0 as u32, area.height as u32 * s.cell.1 as u32);
-            let pm = raster(piece, (r, g, b), w, h)?;
+            let pm = raster(pic, (r, g, b), area.width, area.height, s.cell)?;
             Some(match s.kind {
                 Kind::Kitty => {
                     let id = next_id();
@@ -525,14 +646,66 @@ mod tests {
         let gui = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gui/public/vendor/chess-pieces");
         for n in ["K", "Q", "R", "B", "N", "P"] {
             for (side, p) in [("w", n.chars().next().unwrap()), ("b", n.to_ascii_lowercase().chars().next().unwrap())] {
-                assert_eq!(std::fs::read(gui.join(format!("{side}{n}.svg"))).unwrap(), svg(p), "{side}{n}.svg");
+                assert_eq!(std::fs::read(gui.join(format!("{side}{n}.svg"))).unwrap(), chess(p), "{side}{n}.svg");
             }
         }
     }
 
     #[test]
+    fn game_pieces_are_the_desktop_apps() {
+        let gui = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gui/public/vendor/game-pieces");
+        let read = |f: &str| std::fs::read(gui.join(f)).unwrap().into_iter().filter(|&b| b != b'\r').collect::<Vec<u8>>();
+        let ours = |b: &[u8]| b.iter().copied().filter(|&b| b != b'\r').collect::<Vec<u8>>();
+        for (f, p) in [("draughts-wm", 'M'), ("draughts-wk", 'K'), ("draughts-bm", 'm'), ("draughts-bk", 'k')] {
+            assert_eq!(read(&format!("{f}.svg")), ours(draughts(p)), "{f}");
+        }
+        assert_eq!(read("go-b.svg"), ours(go(true)));
+        assert_eq!(read("go-w.svg"), ours(go(false)));
+        for k in ['K', 'R', 'B', 'G', 'S', 'N', 'L', 'P'] {
+            assert_eq!(read(&format!("shogi-{k}.svg")), ours(shogi(k, false)), "{k}");
+            if k != 'G' && k != 'K' {
+                assert_eq!(read(&format!("shogi-p{k}.svg")), ours(shogi(k, true)), "+{k}");
+            }
+        }
+        // Xiangqi's: made from the desktop app's as it is now, with no text left in them.
+        let fnv = |d: &[u8]| d.iter().fold(0xCBF2_9CE4_8422_2325u64, |h, &b| (h ^ b as u64).wrapping_mul(0x0100_0000_01B3));
+        for p in "KABNRCPkabnrcp".chars() {
+            let f = format!("xiangqi-{}{}.svg", if p.is_ascii_uppercase() { 'r' } else { 'b' }, p.to_ascii_lowercase());
+            let svg = String::from_utf8(xiangqi(p).to_vec()).unwrap();
+            assert!(svg.contains(&format!("from {f} ({:016x})", fnv(&read(&f)))) && !svg.contains("<text"), "{f} changed: run uv run tools/xiangqi-outlines.py");
+        }
+    }
+
+    #[test]
+    fn a_stone_on_its_lines() {
+        use crate::pieces::{DOWN, LEFT, RIGHT, UP};
+        let pic = Picture { lines: UP | DOWN | LEFT | RIGHT, ink: (1, 2, 3), ..Picture::of(go(true)) };
+        // A point of 7 × 3 cells of 8 × 16: the lines through the middle cell's middle, (28, 24).
+        let pm = raster(pic, (200, 150, 100), 7, 3, (8, 16)).unwrap();
+        let at = |x: u32, y: u32| pm.pixel(x, y).map(|p| (p.red(), p.green(), p.blue())).unwrap();
+        assert_eq!(at(0, 0), (200, 150, 100));
+        assert_eq!(at(0, 24), (1, 2, 3));
+        assert_eq!(at(28, 0), (1, 2, 3));
+        assert_eq!(at(55, 24), (1, 2, 3));
+        // The stone over the middle, dark.
+        let (r, g, b) = at(28, 24);
+        assert!(r < 90 && g < 90 && b < 90, "{r} {g} {b}");
+        // The last stone played: a red dot in its middle.
+        let pm = raster(Picture { mark: true, ..pic }, (200, 150, 100), 7, 3, (8, 16)).unwrap();
+        assert_eq!(pm.pixel(28, 24).map(|p| (p.red(), p.green(), p.blue())), Some((200, 30, 30)));
+        // Turned round: the same picture upside down.
+        let up = raster(Picture::of(shogi('L', false)), (200, 150, 100), 6, 3, (8, 16)).unwrap();
+        let down = raster(Picture { turn: true, ..Picture::of(shogi('L', false)) }, (200, 150, 100), 6, 3, (8, 16)).unwrap();
+        let near = |a: Option<tiny_skia::PremultipliedColorU8>, b: Option<tiny_skia::PremultipliedColorU8>| {
+            let (a, b) = (a.unwrap(), b.unwrap());
+            [(a.red(), b.red()), (a.green(), b.green()), (a.blue(), b.blue())].iter().all(|(x, y)| x.abs_diff(*y) <= 4)
+        };
+        assert!(near(up.pixel(24, 5), down.pixel(23, 42)) && !near(up.pixel(24, 5), up.pixel(23, 42)));
+    }
+
+    #[test]
     fn a_piece_drawn_as_sixel() {
-        let pm = raster('N', (0x76, 0x96, 0x56), 40, 34).unwrap();
+        let pm = raster(Picture::of(chess('N')), (0x76, 0x96, 0x56), 5, 2, (8, 17)).unwrap();
         // The corner is the square's colour, the middle has the knight's black outline or white.
         assert_eq!(&pm.data()[..4], &[0x76, 0x96, 0x56, 0xff]);
         assert!(pm.data().chunks_exact(4).any(|p| p[..3] == [0, 0, 0]));
@@ -543,7 +716,7 @@ mod tests {
         // In a frame: the sequence in the first cell taking one column, the rest skipped.
         let mut p = Pieces::new(Support { kind: Kind::Sixel, cell: (8, 17), tmux: false });
         let mut buf = Buffer::empty(Rect::new(0, 0, 10, 4));
-        assert!(p.draw(&mut buf, Rect::new(2, 1, 5, 2), 'q', Color::Rgb(1, 2, 3)));
+        assert!(p.draw(&mut buf, Rect::new(2, 1, 5, 2), Picture::of(chess('q')), Color::Rgb(1, 2, 3)));
         assert!(buf[(2, 1)].symbol().starts_with("\x1bP"));
         assert_eq!(buf[(3, 1)].diff_option, CellDiffOption::Skip);
         assert_eq!(buf[(6, 2)].diff_option, CellDiffOption::Skip);

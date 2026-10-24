@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made by tools/xiangqi-outlines.py from xiangqi-ba.svg (7fff844ccea2f3fa): the character as Noto Serif CJK TC Bold's outline (SIL Open Font License 1.1).
+
+	Xiangqi: black 士, a character on a disc.
+	Drawn for Coxswain's author's games project and given to Coxswain under its MIT
+	licence; restyled to sit beside the chess set: 45×45, black lines 1.5 wide, a soft
+	shading.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+	<defs><radialGradient id="g" cx="0.38" cy="0.32" r="0.75"><stop offset="0" stop-color="#FBF3E2"/><stop offset="1" stop-color="#E6D3AE"/></radialGradient></defs>
+	<circle cx="22.5" cy="22.5" r="20" fill="url(#g)" stroke="#000" stroke-width="1.5"/>
+	<circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#1a1a1a" stroke-width="1"/>
+	<path transform="translate(10.488 32.064) scale(0.02400 -0.02400)" fill="#1a1a1a" d="M92 -8 100 -37H888C903 -37 914 -32 917 -21C868 22 786 84 786 84L714 -8H563V453H935C950 453 961 458 964 469C916 511 834 572 834 572L763 481H563V790C590 794 597 804 600 818L434 834V481H37L46 453H434V-8Z"/>
+</svg>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Shogi: pawn.
+	The tile is drawn for Coxswain's author's games project; the kanji is a glyph outline
+	from Noto Sans CJK (SIL Open Font License 1.1, see LICENSE-shogi). Restyled to sit beside
+	the chess set: black lines 1.5 wide.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 45 45">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6E4BA"/><stop offset="1" stop-color="#E2C68A"/></linearGradient></defs>
+  <path d="M 22.5,3.5 L 33.6,8.6 L 36.4,41 L 8.6,41 L 11.4,8.6 Z" fill="url(#g)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <g fill="#241c14">
+    <path transform="translate(11.00 37.00) scale(0.02300 -0.02300)" d="M261 421C214 344 139 267 64 216C83 205 115 182 131 168C203 224 285 311 338 397ZM682 384C757 321 843 230 879 169L944 212C905 274 817 362 742 422ZM707 280C630 91 447 12 139 -16C154 -35 169 -64 176 -88C501 -49 698 43 783 256ZM204 761V524H56V453H463V223C463 211 459 208 444 207C428 207 375 207 317 209C327 189 338 161 341 140C418 140 468 140 498 151C530 162 539 183 539 222V453H946V524H540V654H850V723H540V840H463V524H279V761Z"/>
+  </g>
+</svg>
