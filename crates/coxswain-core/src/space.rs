@@ -618,7 +618,7 @@ pub fn family(ext: &str) -> Family {
                 "pdf", "doc", "docx", "odt", "rtf", "txt", "md", "epub", "xls", "xlsx", "ods",
                 "ppt", "pptx", "odp", "pages", "numbers", "key", "tex", "rst", "adoc", "eml",
                 "mbox", "djvu", "mobi", "azw3", "html", "htm", "msg", "ps", "eps", "xps", "oxps",
-                "typ", "chm", "cbz", "cbr", "cb7", "cbt", "pgn", "epd", "fen", "sgf", "pdn", "kif", "kifu", "csa", "pbn", "wmf", "emf", "docm", "dotx", "ott", "ppsx",
+                "typ", "chm", "cbz", "cbr", "cb7", "cbt", "pgn", "cbh", "epd", "fen", "sgf", "pdn", "kif", "kifu", "csa", "pbn", "wmf", "emf", "docm", "dotx", "ott", "ppsx",
                 "potx", "otp", "fodt", "fods", "fodp", "fodg", "cdr", "pmd",
             ],
         ),

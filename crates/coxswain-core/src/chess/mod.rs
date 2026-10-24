@@ -4,6 +4,7 @@
 //! the view only, and an installed engine asked about it. Moves are shown in figurines (♘f3) or in the letters of the app's language; the
 //! files keep English SAN.
 
+pub mod cbh;
 pub mod games;
 pub(crate) mod lex;
 pub mod openings;
@@ -25,7 +26,8 @@ use crate::config::Theme;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Format {
-    /// Games: `.pgn`, `.pgn.gz`, `.pgn.zst`, and a SCID database's `.si4` (`scid`).
+    /// Games: `.pgn`, `.pgn.gz`, `.pgn.zst`, a SCID database's `.si4` (`scid`), and a ChessBase
+    /// database's `.cbh` (`cbh`), each read as the PGN it holds.
     Pgn,
     /// Positions, one a line: `.epd`, `.fen`.
     Epd,
@@ -48,7 +50,7 @@ pub enum Format {
 pub fn format(path: &Path) -> Option<Format> {
     let n = path.file_name()?.to_string_lossy().to_ascii_lowercase();
     // A SCID database is shown by its index, as a PGN file is (`scid`).
-    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4"].iter().any(|e| n.ends_with(e)) {
+    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4", ".cbh"].iter().any(|e| n.ends_with(e)) {
         Some(Format::Pgn)
     } else if n.ends_with(".epd") || n.ends_with(".fen") {
         Some(Format::Epd)
@@ -328,6 +330,7 @@ mod tests {
         assert_eq!(format(Path::new("/a/Club.si4")), Some(Format::Pgn));
         assert_eq!(format(Path::new("x.fen")), Some(Format::Epd));
         assert_eq!(format(Path::new("x.gz")), None);
+        assert_eq!(format(Path::new("Mega.CBH")), Some(Format::Pgn));
         let p = positions("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - bm Qxf7#; id \"mate\";\n\nnonsense\n8/8/8/8/8/8/8/K6k b - - 3 60\n");
         assert_eq!(p.len(), 3);
         assert!(p[0].fen.is_some() && p[0].about.starts_with("bm Qxf7#"));

@@ -157,7 +157,7 @@ pub fn save_beside(source: &Path, word: &str, text: &str) -> std::io::Result<Pat
     let dir = source.parent().unwrap_or(Path::new("."));
     let name = source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let lower = name.to_ascii_lowercase();
-    let cut = [".pgn.gz", ".pgn.zst", ".pgn", ".si4", ".epd", ".fen", ".bin"]
+    let cut = [".pgn.gz", ".pgn.zst", ".pgn", ".si4", ".cbh", ".epd", ".fen", ".bin"]
         .iter()
         .find(|e| lower.ends_with(*e))
         .map_or(name.len(), |e| name.len() - e.len());

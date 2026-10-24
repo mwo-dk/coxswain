@@ -7,7 +7,8 @@ variations and comments. A **SCID database** (`.si4` with its `.sg4` and `.sn4`)
 in SCID's own files. Coxswain shows either as a **table of games** you can filter and sort,
 and each game as a **board with its moves**, stepped through move by move. **EPD** and **FEN**
 files hold positions; Coxswain shows each on the board. A **Polyglot opening book** (`.bin`)
-adds its moves for each position, with their weights. Both apps have it. Coxswain reads the
+adds its moves for each position, with their weights. A **ChessBase database** (`.cbh`) is
+read like a PGN file. Both apps have it. Coxswain reads the
 files and never changes them: you can [play on from any position and ask an installed
 engine](chess-play.md), and your moves are saved only as a new file when you ask. Go games (SGF),
 draughts games (PDN), xiangqi games (PGN with `[Game "Chinese Chess"]`), shogi games (KIF, CSA) and bridge
@@ -26,13 +27,14 @@ deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draught
 - [Notation and the board](#notation-and-the-board)
 - [SCID databases](#scid-databases)
 - [Finding games](#finding-games)
+- [ChessBase databases](#chessbase-databases)
 - [Files it reads](#files-it-reads)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
 
 ## Using it
 
-**Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.epd` or `.fen` file, or
+**Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.cbh`, `.epd` or `.fen` file, or
 a `.bin` file that is a Polyglot book, and the preview pane (**Space**) shows its games,
 positions or book moves. **⤢** at the top right, **Alt+K**
 or *Open games* in the action menu (**Shift+F10**) and the command list (**F9**) open it in a
@@ -237,6 +239,41 @@ positions of each file are kept, read game by game. A PGN file is read for Find 
 further, and of a packed file no more than 1 GB unpacked. Find finds only those; the table
 always has them all.
 
+## ChessBase databases
+
+A ChessBase database is a `.cbh` file and the files beside it under the same name: `.cbg` holds
+the moves, `.cbp` the players, `.cbt` the tournaments, `.cba` the annotations, and more for
+ChessBase's own use. Put the cursor on the `.cbh` file: it opens as a PGN file does, with the
+same keys in both apps (**Space** for the preview pane in the desktop app, **F3** or **Alt+K**,
+*Open games* in **Shift+F10** and **F9**). The other files of the database are not opened on their
+own.
+
+- **The table** comes from the `.cbh` file alone, a record of 46 bytes a game, so a database of
+  millions of games fills it as quickly as a PGN file: the players as *Last, First*, their
+  Elo, the result, the date, the tournament as the event, and the ECO code with its opening's
+  name. **Moves** is the count ChessBase keeps (at most 255). Deleted games and ChessBase's
+  guiding texts are left out, so **#** counts the games shown, not ChessBase's game numbers.
+- **A game** is read from the `.cbg` file when it is opened, with its variations, and shown on
+  the board as a PGN game is. Its moves are checked one by one: a game whose moves cannot be
+  read to the end (a damaged file, a move that cannot be played) shows the moves read, and the
+  comment above them says *The rest of this game could not be read from the ChessBase
+  database.*
+- **Set-up positions** are read: the game starts from its position, as a PGN game with a `FEN`
+  tag does.
+- **Find** reads a `.cbh` file as a line per game and keeps the positions of its games, as it
+  does a PGN file's ([Finding games](#finding-games)). A store made before this release reads
+  each `.cbh` file once, for the first time; no other file is read again.
+- **Nothing is written** to the database. *Save as new PGN* (**s**) and saving an analysed game
+  (**w**) write a new PGN file next to it ([Save as new PGN](chess-play.md#save-as-new-pgn)):
+  `Mega line.pgn` for `Mega.cbh`.
+
+Not read: the annotations in `.cba` (comments, symbols, arrows, coloured squares), Chess960
+games, ChessBase's newer `.2cbh` format, its archives (`.cbv`, `.cbz`), and games past the
+first 4 GB of a `.cbg` file. Without the `.cbg` file every game shows the note and no moves;
+without `.cbp` or `.cbt` the names are empty. Every file is read with care for damage: a
+record's size and every name's number are checked before they are used, a game is read up to
+16 MB, and up to 50,000 moves and 64 levels of variations.
+
 ## Files it reads
 
 | Ending | What |
@@ -244,6 +281,7 @@ always has them all.
 | `.pgn` | Games, in PGN: tags, moves in SAN, variations, comments in `{ }` and after `;`, NAGs (`$1` … `$255`), null moves (`--` or `Z0`, shown as `--`: the other side moves next), results. Files in Windows-1252 (old Latin-1 files) and files that start with a byte order mark are read too |
 | `.pgn.gz`, `.pgn.zst` | The same, packed with gzip or Zstandard |
 | `.si4` (with `.sg4`, `.sn4`) | A SCID 4 database: the same games, in SCID's files ([SCID databases](#scid-databases)) |
+| `.cbh` | A ChessBase database, with its `.cbg`, `.cbp` and `.cbt` files beside it ([ChessBase databases](#chessbase-databases)) |
 | `.epd`, `.fen` | Positions, one a line |
 | `.bin` | A Polyglot opening book (the format of Polyglot, the book tool, used by most chess programs): its moves for each position, read by a binary search |
 
@@ -252,8 +290,8 @@ takes no more than the table can hold: the first 10,000,000 games, 256 MB of nam
 events, openings), and a packed file unpacked to no more than 64 GB. Past that, the line above
 the table adds *the first 10000000 games only: the file has more than Coxswain reads*. One game
 is read up to 16 MB, a line up to 1 MB and a tag up to 4 KB.
-Chess960 games with a `FEN` tag are read; SCID 4 databases are; ChessBase (`.cbh`, `.cbv`), SCID 5
-(`.si5`) and other databases are not.
+Chess960 games with a `FEN` tag are read; SCID 4 and ChessBase databases are. ChessBase's archives
+(`.cbv`, `.cbz`), its newer `.2cbh` format, SCID 5 (`.si5`) and other databases are not.
 
 ## Settings and config.toml
 
@@ -292,9 +330,20 @@ games.
 
 #### Does it read ChessBase files?
 
-Not yet: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID 4 databases (`.si4`), EPD, FEN and Polyglot books, Go
+Yes, a ChessBase database (`.cbh`, with its `.cbg`, `.cbp` and `.cbt` files beside it): its
+games, players, tournaments and moves with their variations, but not its annotations, its
+Chess960 games, the newer `.2cbh` format or its `.cbv` and `.cbz` archives
+([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID 4 databases (`.si4`), EPD, FEN and Polyglot books, Go
 games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) , xiangqi
-games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). Export ChessBase games to PGN to read them here.
+games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For the annotations, export the games to PGN in ChessBase.
+
+#### Why does a ChessBase game end with a note?
+
+Its moves could not be read to the end: the comment above them says *The rest of this game
+could not be read from the ChessBase database.* The moves before that point are shown and
+checked. It happens with a damaged `.cbg` file, a game stored with a move that cannot be
+played (some imported online games have one), a Chess960 game, or when the `.cbg` file is
+missing. ChessBase itself may still show such a game; export it to PGN there to read it whole.
 
 #### How do I open a SCID database?
 
