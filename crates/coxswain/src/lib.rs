@@ -1,5 +1,6 @@
 //! Coxswain TUI: two panels, a command line and a function-key bar, Norton Commander style.
 
+mod attrs;
 mod bom;
 mod chess;
 mod pieces;
@@ -510,6 +511,8 @@ pub enum Dialog {
     Ebook { title: String, text: String, to: Option<&'static str>, books: Vec<PathBuf> },
     /// Find and replace across files (`replace`).
     Replace(Box<replace::Viewer>),
+    /// Permissions and dates in bulk (`attrs`).
+    Attrs(Box<attrs::Viewer>),
     /// A file in the built-in viewer, full screen (F3); `back`: the dialog it was opened from
     /// (a BOM's source), shown again when it closes.
     View { v: Box<viewer::Viewer>, back: Option<Box<Dialog>> },
@@ -561,6 +564,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Provenance(_) => "provenance",
         Dialog::GitConfig(_) => "git_config",
         Dialog::Replace(_) => "find_replace",
+        Dialog::Attrs(_) => "permissions_and_dates",
         Dialog::View { .. } => "view_and_edit",
         Dialog::Edit { .. } => "editor",
         Dialog::Compare(_) => "compare_files",
@@ -1496,6 +1500,7 @@ impl App {
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
             Action::Replace => self.replace(None),
+            Action::Attrs => self.attrs(),
             Action::SearchablePdf => self.searchable_pdf(),
             Action::ConvertMedia => self.media_menu(coxswain_core::media::Program::Ffmpeg),
             Action::EditPictures => self.media_menu(coxswain_core::media::Program::Magick),
@@ -2127,6 +2132,33 @@ impl App {
 
     /// The git config as git uses it in the panel's folder, read now, full screen. Outside a
     /// repository: the system and global config.
+    /// Permissions and dates (`attrs`) of the marked entries, or the one under the cursor.
+    fn attrs(&mut self) {
+        if self.panel().subject().place != coxswain_core::menu::Place::Disk {
+            return self.status = Some(t!("attrs.not_here"));
+        }
+        let roots = self.panel().targets();
+        if roots.is_empty() {
+            return self.status = Some(t!("attrs.nothing_marked"));
+        }
+        let base = self.panel().dir.clone();
+        self.dialog = Some(Dialog::Attrs(Box::new(attrs::Viewer::new(roots, base))));
+    }
+
+    /// Permissions and dates have been changed: said on the status line, kept for undo.
+    fn attrs_done(&mut self, done: Result<coxswain_core::attrs::Applied, String>) {
+        let done = match done {
+            Ok(d) => d,
+            Err(e) => return self.dialog = Some(failure(t!("attrs.failed"), &e)),
+        };
+        let mut ok = done.summary();
+        if !done.record.is_empty() {
+            ok += &format!(" · {}", t!("undo.hint", "key" => self.key_label(Action::Undo)));
+            self.undo.push(done.record);
+        }
+        self.after_op(ok, t!("attrs.failed"), done.failed);
+    }
+
     /// Find and replace (`replace`) in `files` (Find's results), else the marked entries, the
     /// one under the cursor or, on `..`, the panel's folder.
     fn replace(&mut self, from_find: Option<(Vec<PathBuf>, String)>) {
@@ -3985,6 +4017,10 @@ impl App {
                 replace::Outcome::Stay => self.dialog = Some(Dialog::Replace(v)),
                 replace::Outcome::Close => {}
             },
+            Dialog::Attrs(mut v) => match v.key(key, action) {
+                attrs::Outcome::Stay => self.dialog = Some(Dialog::Attrs(v)),
+                attrs::Outcome::Close => {}
+            },
             Dialog::GitConfig(mut v) => match v.key(key, action) {
                 git_config::Outcome::Stay => self.dialog = Some(Dialog::GitConfig(v)),
                 git_config::Outcome::Close => {}
@@ -4255,6 +4291,12 @@ impl App {
         {
             self.dialog = None;
             self.replaced(done);
+        }
+        if let Some(Dialog::Attrs(v)) = &mut self.dialog
+            && let Some(done) = v.poll()
+        {
+            self.dialog = None;
+            self.attrs_done(done);
         }
         if matches!(self.dialog, Some(Dialog::Search { .. })) && self.slow.0.is_none_or(|at| at.elapsed() >= Duration::from_secs(1)) {
             let poor = coxswain_core::setup::poor(&self.cfg.search, false).into_iter().find(|p| p.ask);

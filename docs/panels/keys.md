@@ -103,6 +103,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Ctrl+M** | Batch rename | `batch_rename` | Rename the marked files by pattern ([Batch rename](../files/batch-rename.md)) | – |
 | **Alt+R** | Find and replace | `replace` | Replace text in the marked files or Find's results, previewed first ([Find and replace](../files/find-and-replace.md)) | The same |
 | **Alt+T** | Colour tag | `tag` | Tag the marked files ([Colour tags](../organise/tags.md)) | – |
+| **Alt+M** | Permissions and dates | `attrs` | Permission bits and dates of the marked files, planned first ([Permissions and dates](../files/permissions-and-dates.md)) | The same |
 | **Alt+Z** | ZFS snapshots | `snapshots` | The snapshots of the folder's ZFS dataset, as folders ([ZFS snapshots](../files/zfs-snapshots.md)) | The same |
 | **Ctrl+F2** | Compare folders | `compare_folders` | The two panes' folders compared, every entry marked; again: its menu ([Compare folders](../files/compare-folders.md)) | The same |
 | **Shift+F2** | Compare files | `compare_files` | The two files side by side in a window: text, documents, pictures, bytes ([Compare files](../files/compare-files.md)) | The same, full screen; one under the other below 120 columns |

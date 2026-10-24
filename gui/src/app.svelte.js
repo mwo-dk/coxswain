@@ -997,6 +997,20 @@ export async function openReplace(roots, base, find = "") {
   ui.modal = { kind: "replace", title: t("replace.title", { what }), roots, base, query: { find, with: "", regex: false, case: false, word: false }, plan: null, ticks: [], busy: null, error: "" };
 }
 
+/** Permissions and dates in bulk (`coxswain_core::attrs`) of the marked entries, or the one
+ *  under the cursor. */
+export async function openAttrs() {
+  const tb = tab();
+  if (tb.archive || tb.history || tb.snapshot || tb.package || tb.diskImage) return void (ui.status = t("attrs.not_here"));
+  const picked = tb.marks.count ? await pick(tb, "marked") : [item(tb)].filter((e) => e && e.name !== "..");
+  const roots = picked.map((e) => e.path);
+  if (!roots.length) return void (ui.status = t("attrs.nothing_marked"));
+  const what = roots.length === 1 ? basename(roots[0]) || roots[0] : tn("items", roots.length);
+  // Into folders by default when only folders are marked.
+  const dirs = !/Windows/.test(navigator.userAgent) && picked.every((e) => e.is_dir);
+  ui.modal = { kind: "attrs", title: t("attrs.title", { what }), roots, base: tb.dir, spec: { mode: "", date: "", accessed: false, recursive: dirs }, plan: null, rows: [], busy: null, error: "" };
+}
+
 /** Space on `dir` (default: the folder under the cursor, else the tab's): where the space goes,
  *  full window. Only folders on a disk. */
 export function openSpace(tb = tab(), dir) {

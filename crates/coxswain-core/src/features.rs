@@ -273,6 +273,7 @@ pub const FEATURES: &[Feature] = &[
         "files/properties.md",
         &[Properties, Flags, Package],
     ),
+    f("permissions_and_dates", "files/permissions-and-dates.md", &[Attrs, Undo]),
     f("duplicates", "files/duplicates.md", &[Duplicates]),
     f("compare_files", "files/compare-files.md", &[CompareFiles]),
     f("compare_folders", "files/compare-folders.md", &[CompareFolders, Copy]),

@@ -36,7 +36,7 @@
 
   /** The feature (`coxswain_core::features`) each kind of window is about, for F1 in it; a
    *  modal's own `feature` wins. */
-  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", replace: "find_replace", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
+  const FEATURE_OF = { pack: "pack_and_extract", props: "properties", rename: "batch_rename", attrs: "permissions_and_dates", replace: "find_replace", tag: "tags", settings: "settings_window", dupes: "duplicates", bom: "cbom", chess: "chess", editor: "editor", compare: "compare_files", go: "go", provenance: "provenance", guide: "first_run", setup: "search_setup", search: "find_file" };
 
   /** F1 → Features, filtered to the feature of the window `from` (none: all of them). */
   export function features(from) {
@@ -263,6 +263,60 @@
     } catch (e) {
       m.error = String(e);
     }
+  }
+
+  // ------------------------------------------------------------ permissions and dates
+
+  const WINDOWS = typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
+  const attrsRel = (m, p) => (m.base && p.startsWith(m.base) ? p.slice(m.base.length).replace(/^[\\/]+/, "") : "") || p;
+
+  /** The plan (`writing` false), or the changes it shows; how far it is, polled. */
+  async function attrsRun(m, writing) {
+    m.error = "";
+    m.busy = { writing, files: 0, stopping: false };
+    const poll = setInterval(async () => {
+      const n = await invoke("attrs_progress").catch(() => null);
+      if (n != null && m.busy) m.busy.files = n;
+    }, 200);
+    const args = { roots: m.roots, spec: $state.snapshot(m.spec), base: m.base };
+    try {
+      if (!writing) {
+        m.plan = null;
+        const r = await invoke("attrs_plan", args);
+        Object.assign(m, { plan: r.plan, rows: r.rows });
+        if (!r.plan.total) m.error = t("attrs.none");
+        return;
+      }
+      const r = await invoke("attrs_apply", { token: m.plan.token });
+      close();
+      await refreshUndo(r.summary);
+      reloadAll();
+      if (r.failed.length) ui.modal = failure(t("attrs.failed"), r.failed.join("\n"));
+    } catch (e) {
+      m.error = String(e);
+    } finally {
+      clearInterval(poll);
+      m.busy = null;
+    }
+  }
+
+  function attrsKey(m, k) {
+    if (k === "Esc") {
+      if (!m.busy) close();
+      else if (!m.busy.stopping) (m.busy.stopping = true), invoke("attrs_stop");
+    } else if (k === "Enter" && !m.busy) attrsRun(m, m.plan?.total > 0);
+    else return false;
+    return true;
+  }
+
+  function attrsState(m) {
+    const b = m.busy;
+    if (b) return `${t(b.writing ? "attrs.writing" : "attrs.looking", { files: tn("preview.files", b.files) })} · ${b.stopping ? t("attrs.stopping") : t("attrs.stop_key", { key: "Esc" })}`;
+    if (!m.plan) return t(WINDOWS ? "attrs.about_windows" : "attrs.about");
+    let s = tn("attrs.planned", m.plan.total);
+    if (m.plan.refused.length) s += ` · ${t("attrs.left_out", { n: m.plan.refused.length })}`;
+    if (m.plan.stopped) s += ` · ${t("attrs.stopped_early")}`;
+    return s;
   }
 
   // ------------------------------------------------------------ find and replace
@@ -493,6 +547,7 @@
     if (m.kind === "editor") return m.key?.(k, act, e) ?? false;
     if (m.kind === "compare") return m.key?.(k, act, e) ?? false;
     if (m.kind === "replace") return replaceKey(m, k);
+    if (m.kind === "attrs") return attrsKey(m, k);
     if (k === "Esc") return close(), true;
     switch (m.kind) {
       case "input":
@@ -874,6 +929,43 @@
         {/if}
         <p class="meta">{m.out?.footer ?? ""}</p>
         <p class="meta">{answer ? t("find.keys_answer_gui") : t("find.keys_gui", { scope: scopeKey })}{#if !answer && m.out?.rows?.some((r) => r.row === "hit" && !r.hit.is_dir)} · <button class="link" onclick={() => replaceFound(m)}>{t("replace.in_find_button")}</button> <kbd>{keysOf("replace")[0] ?? ""}</kbd>{/if}</p>
+      {:else if m.kind === "attrs"}
+        <h2>{m.title}</h2>
+        <div class="grid2">
+          <label>{t("attrs.mode")}<input bind:this={input} bind:value={m.spec.mode} oninput={() => (m.plan = null)} disabled={!!m.busy} spellcheck="false" placeholder={WINDOWS ? "-w · +h" : "644 · u+x,go-w · a+X"} /></label>
+          <label>{t("attrs.date")}<input bind:value={m.spec.date} oninput={() => (m.plan = null)} disabled={!!m.busy} spellcheck="false" placeholder={`${t("attrs.now")} · 2026-10-21 14:30`} /></label>
+        </div>
+        <div class="flags">
+          {#if !WINDOWS}<label><input type="checkbox" bind:checked={m.spec.accessed} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("attrs.accessed")}</label>{/if}
+          {#if WINDOWS}<span class="meta">{t("attrs.no_recursion")}</span>{:else}<label><input type="checkbox" bind:checked={m.spec.recursive} onchange={() => (m.plan = null)} disabled={!!m.busy} /> {t("attrs.recursive")}</label>{/if}
+        </div>
+        <p class="meta">{attrsState(m)}</p>
+        {#if m.error}<p class="err">{m.error}</p>{/if}
+        {#if m.plan?.total}
+          <ul class="list attrs-plan">
+            {#each m.rows as [path, mode, date] (path)}
+              <li><span class="name">{attrsRel(m, path)}</span><span>{mode}</span><span>{date}</span></li>
+            {/each}
+            {#if m.plan.total > m.rows.length}<li class="more">{tn("attrs.more", m.plan.total - m.rows.length)}</li>{/if}
+          </ul>
+        {/if}
+        {#if m.plan?.refused.length}
+          <details><summary>{t("attrs.left_out", { n: m.plan.refused.length })}</summary>
+            <ul class="list skipped">{#each m.plan.refused as r, i (i)}<li class="why">{r}</li>{/each}</ul>
+          </details>
+        {/if}
+        <div class="buttons">
+          {#if m.busy}
+            <button disabled={m.busy.stopping} onclick={() => attrsKey(m, "Esc")}>{t("searchable.stop")}</button>
+          {:else if m.plan?.total}
+            <button class="primary" onclick={() => attrsRun(m, true)}>{tn("attrs.go", m.plan.total)}</button>
+            <button onclick={() => attrsRun(m, false)}>{t("attrs.plan")}</button>
+          {:else}
+            <button class="primary" disabled={!m.spec.mode.trim() && !m.spec.date.trim()} onclick={() => attrsRun(m, false)}>{t("attrs.plan")}</button>
+          {/if}
+          <button onclick={close} disabled={!!m.busy}>{t("common.cancel")}</button>
+        </div>
+        {@render keys(m.plan?.total ? tn("attrs.go", m.plan.total) : t("attrs.plan"))}
       {:else if m.kind === "replace"}
         {@const ticked = replaceTicked(m)}
         <h2>{m.title}</h2>
@@ -1044,6 +1136,7 @@
   .dialog.search,
   .dialog.rename,
   .dialog.replace,
+  .dialog.attrs,
   .dialog.help {
     width: min(900px, 92vw);
   }
@@ -1674,5 +1767,31 @@
   }
   code {
     font-family: var(--mono-font), var(--scripts);
+  }
+  /* Permissions and dates: each file, then its bits and its date, before → after. */
+  .attrs-plan {
+    overflow: auto;
+    max-height: 55vh;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    column-gap: 16px;
+    font-family: var(--mono-font), var(--scripts);
+    font-size: 0.9em;
+    border: 1px solid var(--border-fg);
+    border-radius: var(--r);
+    padding: 6px 10px;
+  }
+  .attrs-plan li {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    white-space: nowrap;
+  }
+  .attrs-plan .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .attrs-plan .more {
+    color: var(--hidden-fg);
   }
 </style>

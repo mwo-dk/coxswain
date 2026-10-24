@@ -2065,7 +2065,7 @@
  "feature.undo.q2": "실행 취소가 그 뒤에 바뀌었다고 합니다. 파일을 열기만 했는데요.",
  "feature.undo.q3": "Coxswain을 다시 시작한 뒤에도 되돌릴 수 있나요?",
  "feature.undo.title": "실행 취소",
- "feature.undo.what": "{undo}는 마지막 파일 작업(복사, 이동, 이름 바꾸기, 새 폴더, 휴지통으로 이동, 압축, 압축 풀기, 찾아 바꾸기)을 최대 20개까지 되돌립니다.",
+ "feature.undo.what": "{undo}는 마지막 파일 작업(복사, 이동, 이름 바꾸기, 새 폴더, 휴지통으로 이동, 압축, 압축 풀기, 권한과 날짜)을 최대 20개까지 되돌립니다.",
  "feature.updates.a1": "아니요. 알려 주기만 합니다. 업데이트는 설치한 방법에 맡기므로 패키지 관리자가 계속 관리합니다.",
  "feature.updates.a2": "실행 중인 앱이 이전 버전입니다: Coxswain 창과 터미널 앱을 모두 종료하고 다시 시작하세요. coxswain --version으로 지금 버전을 볼 수 있습니다.",
  "feature.updates.a3": "업데이트하세요. 또는 설정 → 개인 정보 및 업데이트에서 새 버전 확인을 끄세요. 단추는 다음 한 시간 주기 확인 때나 앱을 다시 시작할 때 사라집니다.",
@@ -4076,5 +4076,56 @@
  "replace.with": "바꿀 내용:",
  "replace.word": "단어 단위",
  "replace.writing": "파일 쓰는 중 {n}/{all}",
- "undo.what.replace": "{what}에서 바꾸기"
+ "undo.what.replace": "{what}에서 바꾸기",
+ "action.attrs": "권한과 날짜",
+ "attrs.about": "chmod 형식의 권한 (644, u+x,go-w, a+X); 날짜는 지금, 2026-10-21 14:30 또는 날짜를 가져올 파일의 이름. 모든 변경은 먼저 보여 줍니다.",
+ "attrs.about_windows": "특성: -w 읽기 전용, +w 쓰기 가능, +h 숨김, -h 표시; 날짜는 지금, 2026-10-21 14:30 또는 날짜를 가져올 파일의 이름. 모든 변경은 먼저 보여 줍니다.",
+ "attrs.accessed": "액세스 시간도",
+ "attrs.bad_date": "날짜도 여기 있는 파일도 아닙니다: {date}. 지금, 2026-10-21 14:30 또는 파일 이름을 입력하세요.",
+ "attrs.bad_mode": "chmod 형식의 권한이 아닙니다: {mode}. 644, u+x,go-w 또는 a+X처럼 입력하세요.",
+ "attrs.busy": "이미 권한과 날짜를 바꾸는 중입니다.",
+ "attrs.date": "날짜:",
+ "attrs.done": {
+  "other": "항목 {n}개를 바꿨습니다"
+ },
+ "attrs.failed": "일부 항목은 그대로 두었습니다",
+ "attrs.go": {
+  "other": "항목 {n}개 바꾸기"
+ },
+ "attrs.hidden": "숨김",
+ "attrs.keys_fields": "Tab 다음 칸 · Space 상자 선택 · Enter 계획 · Esc 닫기",
+ "attrs.keys_plan": "Enter {go} · Tab 입력 칸 · Esc 닫기",
+ "attrs.left_out": "{n}개 제외",
+ "attrs.looking": "살펴보는 중: {files}",
+ "attrs.mode": "권한:",
+ "attrs.more": {
+  "other": "… 외 {n}개"
+ },
+ "attrs.none": "바뀌는 것이 없습니다.",
+ "attrs.not_here": "권한과 날짜는 디스크의 폴더에서 바꿉니다. 여기서는 안 됩니다.",
+ "attrs.nothing": "권한이나 날짜, 또는 둘 다 입력하세요.",
+ "attrs.nothing_marked": "바꿀 파일을 표시하거나 커서를 하나에 두세요.",
+ "attrs.now": "지금",
+ "attrs.plan": "계획",
+ "attrs.planned": {
+  "other": "항목 {n}개가 바뀝니다"
+ },
+ "attrs.read_only": "읽기 전용",
+ "attrs.recursive": "폴더 안으로, 끝까지",
+ "attrs.stop_key": "{key} 중지",
+ "attrs.stopped_early": "중지됨: 그때까지 살펴본 것만",
+ "attrs.stopping": "중지하는 중…",
+ "attrs.title": "권한과 날짜: {what}",
+ "attrs.writing": "바꾸는 중: {files}",
+ "feature.permissions_and_dates.a1": "파일을 표시하고 {attrs} 키를 누른 뒤 권한에 u+x를 입력하고 Enter를 누르세요. 계획에 각 파일의 전후가 나오고, Enter를 한 번 더 누르면 바뀝니다.",
+ "feature.permissions_and_dates.a2": "네. 날짜에 그 파일의 이름을 입력하세요. 지금이나 2026-10-21 14:30 같은 날짜도 됩니다.",
+ "feature.permissions_and_dates.a3": "{undo} 키로 묶음의 모든 파일이 이전 권한과 날짜로 돌아갑니다. 그 사이 바뀐 파일은 그대로 두고 알려 줍니다.",
+ "feature.permissions_and_dates.q1": "폴더의 모든 스크립트를 실행 가능하게 하려면?",
+ "feature.permissions_and_dates.q2": "여러 파일에 한 파일의 날짜를 줄 수 있나요?",
+ "feature.permissions_and_dates.q3": "되돌리려면?",
+ "feature.permissions_and_dates.title": "권한과 날짜 한꺼번에 바꾸기",
+ "feature.permissions_and_dates.what": "권한 비트를 설정하거나 더하고 빼며(Windows에서는 읽기 전용과 숨김) 여러 파일의 수정한 날짜를 한 번에 설정합니다. 원하면 폴더 안까지, 먼저 계획을 보여 주고 한 번에 되돌립니다.",
+ "help.attrs": "{key}: 표시한 파일의 권한과 날짜를 설정합니다. 원하면 폴더 안까지. 계획이 먼저 모든 변경을 보여 주고, {undo} 키로 되돌립니다.",
+ "undo.what.attrs": "{what} 권한과 날짜",
+ "attrs.no_recursion": "폴더 안까지는 Windows에서 아직 쓸 수 없습니다. 표시한 항목만 바뀝니다."
 }
