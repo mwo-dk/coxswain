@@ -72,10 +72,12 @@ jobs:
         with:
           release: ${{ matrix.release }}
           usesh: true
+          # Compiling coxswain-core's tests needs more than the default 6 GB (rustc was killed).
+          mem: 12288
           prepare: pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
             set -e
-            export CARGO_HOME="$PWD/.cargo-freebsd" COXSWAIN_SLOW_CI=1
+            export CARGO_HOME="$PWD/.cargo-freebsd" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             freebsd-version
             rustc -V
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
