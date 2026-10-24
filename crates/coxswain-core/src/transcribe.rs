@@ -221,7 +221,30 @@ fn threads() -> usize {
 /// The script the container runs: the part of the sound wanted, as whisper.cpp reads it, then
 /// whisper-cli on it, both at the lowest priority. `$1` is the file, `$2` and `$3` the start and
 /// length in seconds, `$4` the model, `$5` the threads; none of them is read as an option.
-const SCRIPT: &str = r#"nice -n 19 ffmpeg -nostdin -loglevel error -ss "$2" -t "$3" -i "file:$1" -vn -ar 16000 -ac 1 -f wav /tmp/a.wav && nice -n 19 whisper-cli -m "/models/$4" -f /tmp/a.wav -l auto -np -t "$5""#;
+/// It says first how many bytes the part has as WAV (`HEARD`), and runs whisper-cli only on a
+/// second of sound or more: a part past the end of the sound has none.
+const SCRIPT: &str = r#"nice -n 19 ffmpeg -nostdin -loglevel error -ss "$2" -t "$3" -i "file:$1" -vn -ar 16000 -ac 1 -f wav /tmp/a.wav && n=$(wc -c < /tmp/a.wav) && echo "coxswain-wav $n" && { [ "$n" -ge 32044 ] || exit 0; } && nice -n 19 whisper-cli -m "/models/$4" -f /tmp/a.wav -l auto -np -t "$5""#;
+/// The line `SCRIPT` starts its output with.
+const HEARD: &str = "coxswain-wav ";
+
+/// Seconds of sound in a WAV of `bytes` as ffmpeg writes it here: 16 kHz, mono, 16 bits.
+fn heard(bytes: u64) -> u64 {
+    bytes.saturating_sub(44) / 32_000
+}
+
+/// After a part of `CHUNK` seconds from `from` of sound said to last `length`, of which
+/// `heard` seconds came (when known): how far it is done, whether it is finished, and its
+/// length. A part shorter than asked is the end of the sound, whatever its header claims: the
+/// length is cut to it, so a file that claims ten hours and has five seconds is not gone
+/// through ten minutes at a time on nothing.
+fn after_part(from: u64, length: Option<u64>, heard: Option<u64>) -> (u64, bool, Option<u64>) {
+    let done = length.map_or(from + CHUNK, |l| (from + CHUNK).min(l));
+    match heard {
+        // Two seconds spare: ffmpeg may cut a hair short.
+        Some(h) if h + 2 < done - from => (from + h, true, Some(from + h)),
+        _ => (done, length.is_none_or(|l| done >= l), length),
+    }
+}
 
 /// The command for `secs` seconds of `file` from `start` (`secs` None: to its end).
 #[allow(clippy::too_many_arguments)]
@@ -297,17 +320,35 @@ pub fn clock(secs: u64) -> String {
     }
 }
 
-/// Transcribe `secs` seconds of `file` from `start`; `stop` ends it at once (None then).
-fn run(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>, stop: &dyn Fn() -> bool) -> Result<Option<String>, String> {
+/// Transcribe `secs` seconds of `file` from `start`; `stop` ends it at once (None then). With
+/// the text, the seconds of sound the part had, when it was cut by ffmpeg.
+fn run(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>, stop: &dyn Fn() -> bool) -> Result<Option<(String, Option<u64>)>, String> {
     let scratch = crate::fs::Scratch::new().map_err(|e| e.to_string())?;
     if let Engine::Local { ffmpeg: Some(ff), .. } = engine {
         cut(ff, file, start, secs, &scratch)?;
+        let came = heard(std::fs::metadata(scratch.join("a.wav")).map_or(0, |m| m.len()));
+        // Past the end of the sound: nothing for whisper-cli.
+        if came == 0 {
+            return Ok(Some((String::new(), Some(0))));
+        }
+        return run_cli(engine, model, file, start, secs, stop, &scratch).map(|o| o.map(|t| (lines(&t, start), Some(came))));
     }
     if let Engine::Local { ffmpeg: None, .. } = engine
         && !ext(file).is_some_and(|e| PLAIN.contains(&e.as_str()))
     {
         return Err(t!("whisper.needs_ffmpeg"));
     }
+    run_cli(engine, model, file, start, secs, stop, &scratch).map(|o| {
+        o.map(|out| {
+            // The container's first line: the bytes of the part it cut.
+            let came = out.lines().next().and_then(|l| l.strip_prefix(HEARD)).and_then(|n| n.trim().parse().ok()).map(heard);
+            (lines(&out, start), came)
+        })
+    })
+}
+
+/// whisper-cli run (in the container, after its ffmpeg): what it printed.
+fn run_cli(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>, stop: &dyn Fn() -> bool, scratch: &Path) -> Result<Option<String>, String> {
     static N: AtomicU64 = AtomicU64::new(0);
     let name = format!("coxswain-whisper-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
     // Whether the runtime can bound memory and processes is found once, apart, by a probe;
@@ -315,7 +356,7 @@ fn run(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>
     if let Engine::Container { path, image, .. } = engine {
         crate::images::bounds_work(path, image);
     }
-    let mut c = command(engine, model, file, start, secs, &scratch, &name).ok_or("no command")?;
+    let mut c = command(engine, model, file, start, secs, scratch, &name).ok_or("no command")?;
     let child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     // Long enough for the slowest model on a slow machine: three times as long as the part
     // plays, at least half an hour.
@@ -324,7 +365,7 @@ fn run(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>
     if !out.status.success() {
         return Err(last_line(&out.stderr));
     }
-    Ok(Some(lines(&String::from_utf8_lossy(&out.stdout), start)))
+    Ok(Some(String::from_utf8_lossy(&out.stdout).into_owned()))
 }
 
 /// Wait for `child` up to `most`, its output kept within bounds; None when `stop` said so
@@ -675,10 +716,9 @@ fn one_part(store: &Store, engine: &Engine, model: &Path, next: crate::store::Wa
     let stopped = || stop.load(Ordering::Relaxed) || PAUSED.load(Ordering::Relaxed) || crate::machine::on_battery();
     match run(engine, model, &path, next.done, secs, &stopped) {
         Ok(None) => {}
-        Ok(Some(text)) => {
-            let done = if whole { length.unwrap_or(0) } else { length.map_or(next.done + CHUNK, |l| (next.done + CHUNK).min(l)) };
-            let finished = whole || length.is_none_or(|l| done >= l);
-            let heard = if whole { length } else { Some(CHUNK.min(length.unwrap_or(CHUNK).saturating_sub(next.done))) };
+        Ok(Some((text, came))) => {
+            let (done, finished, length) = if whole { (length.unwrap_or(0), true, length) } else { after_part(next.done, length, came) };
+            let heard = if whole { length } else { Some(done - next.done) };
             if let Some(h) = heard.filter(|h| *h >= 30) {
                 let _ = store.transcribe_measured(began.elapsed().as_secs_f64() / h as f64);
             }
@@ -707,6 +747,22 @@ mod tests {
         let s = survey(std::slice::from_ref(&d));
         assert_eq!((s.files.len(), s.seconds, s.unknown), (3, 0, 3));
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_header_that_claims_ten_hours_ends_with_the_sound() {
+        let ten_hours = Some(36_000);
+        // Five seconds of sound: the first part is the last, and the length is cut to it.
+        assert_eq!(after_part(0, ten_hours, Some(heard(44 + 5 * 32_000))), (5, true, Some(5)));
+        // A whole part goes on; the last, shorter one ends where the length says.
+        assert_eq!(after_part(0, ten_hours, Some(CHUNK)), (CHUNK, false, ten_hours));
+        assert_eq!(after_part(1200, Some(1205), Some(5)), (1205, true, Some(1205)));
+        // A part past the end of the sound has none, and finishes it.
+        assert_eq!(after_part(CHUNK, ten_hours, Some(heard(44))), (CHUNK, true, Some(CHUNK)));
+        // Not known how much came: as the length says.
+        assert_eq!(after_part(0, ten_hours, None), (CHUNK, false, ten_hours));
+        // The container says it first, before whisper-cli's lines.
+        assert!(SCRIPT.contains(&format!("echo \"{HEARD}$n\"")) && SCRIPT.contains("-ge 32044 ] || exit 0"));
     }
 
     #[test]
@@ -775,8 +831,12 @@ mod tests {
         let model = PathBuf::from(std::env::var("COXSWAIN_WHISPER_MODEL").unwrap());
         let audio = PathBuf::from(std::env::var("COXSWAIN_WHISPER_AUDIO").unwrap());
         let engine = engine(&Config::default()).unwrap();
-        let text = run(&engine, &model, &audio, 0, Some(CHUNK), &|| false).unwrap().unwrap();
+        let (text, came) = run(&engine, &model, &audio, 0, Some(CHUNK), &|| false).unwrap().unwrap();
         assert!(text.to_lowercase().contains("country"), "{text}");
+        // Shorter than a part: what came says so, so it is the last.
+        assert!(came.is_some_and(|c| c > 0 && c < CHUNK), "{came:?}");
+        // A part past the end of the sound has none, and no text.
+        assert_eq!(run(&engine, &model, &audio, CHUNK, Some(CHUNK), &|| false).unwrap().unwrap(), (String::new(), Some(0)));
         let started = Instant::now();
         let stop_soon = || started.elapsed() > Duration::from_millis(300);
         assert_eq!(run(&engine, &model, &audio, 0, Some(CHUNK), &stop_soon).unwrap(), None, "stopped");

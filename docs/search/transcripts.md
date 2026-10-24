@@ -126,7 +126,9 @@ whisper.cpp.
 - **Pause** stops the part under way at once; **Go on** does that part again. A recording is
   transcribed ten minutes at a time, so a pause, the battery or a restart of the helper loses at
   most ten minutes of work; a file whose length is not known, or one an installed whisper.cpp
-  reads without ffmpeg, goes whole, and loses that file's work. A pause lasts until **Go on**, or until the helper starts again.
+  reads without ffmpeg, goes whole, and loses that file's work. A part shorter than ten minutes
+  is the end of the sound, whatever the file's header claims: a file that says it lasts ten hours
+  and holds five seconds is done after its first part. A pause lasts until **Go on**, or until the helper starts again.
 - **On battery** it waits, as all reading does ([Battery](battery.md)), and goes on by itself on
   mains power.
 - **Let the rest go** forgets every file still waiting; the transcripts done stay.
