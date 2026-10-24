@@ -781,6 +781,9 @@ pub struct App {
     waiting: Vec<Dialog>,
     /// Compare folders' summary was put on the status line once it was done.
     folders_said: bool,
+    /// What a run that made one side like the other did: kept in front of the compare's
+    /// summary when it is compared again after it.
+    folders_lead: Option<String>,
     quit: bool,
     /// Under the pack, copy or move dialog's field: that the disk may be short of room to write
     /// into an archive (`archive::short_of_room`). Cleared by each new input dialog.
@@ -1092,6 +1095,7 @@ impl App {
             space_back: None,
             waiting: Vec::new(),
             folders_said: false,
+            folders_lead: None,
             quit: false,
             input_note: None,
             cfg,
@@ -2195,6 +2199,7 @@ impl App {
         }
         if let Some(c) = self.panels[0].cmp.clone() {
             self.folders_start(c.f.mode);
+            self.folders_lead = Some(ok.clone());
         }
         self.after_op(ok, t!("sync.failed"), done.failed);
     }
@@ -3044,6 +3049,7 @@ impl App {
             self.panels[side].cmp = Some(Cmp { f: f.clone(), side, diff_only });
         }
         self.folders_said = false;
+        self.folders_lead = None;
         self.status = Some(t!("compare.comparing", "n" => 0));
     }
 
@@ -3107,8 +3113,12 @@ impl App {
             return;
         }
         let found = c.f.found();
+        let lead = |s: String| match &self.folders_lead {
+            Some(l) => format!("{l} · {s}"),
+            None => s,
+        };
         if found.done {
-            let line = found.error.clone().unwrap_or_else(|| found.summary());
+            let line = lead(found.error.clone().unwrap_or_else(|| found.summary()));
             drop(found);
             self.folders_said = true;
             self.status = Some(line);
@@ -3117,7 +3127,7 @@ impl App {
             }
         } else {
             drop(found);
-            self.status = Some(t!("compare.comparing", "n" => coxswain_core::settings::count(c.f.seen.load(std::sync::atomic::Ordering::Relaxed) as usize)));
+            self.status = Some(lead(t!("compare.comparing", "n" => coxswain_core::settings::count(c.f.seen.load(std::sync::atomic::Ordering::Relaxed) as usize))));
         }
     }
 
@@ -5393,6 +5403,36 @@ mod tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         App::with_index(cfg, left, right, index).unwrap()
+    }
+
+    /// After a run that made one side like the other, the compare that starts again keeps the
+    /// run's result (Copied …) on the status line, in front of its own summary.
+    #[test]
+    #[cfg(unix)]
+    fn a_sync_run_keeps_its_result_on_the_status_line() {
+        use coxswain_core::compare::{folders::Mode, sync};
+        let d = std::env::temp_dir().join(format!("coxswain-test-sync-said-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (l, r) = (d.join("l"), d.join("r"));
+        std::fs::create_dir_all(&l).unwrap();
+        std::fs::create_dir_all(&r).unwrap();
+        std::fs::write(l.join("new.txt"), "x").unwrap();
+        let mut app = app(l.clone(), r.clone());
+        app.folders_start(Mode::Quick);
+        let (stop, progress) = (std::sync::atomic::AtomicBool::new(false), sync::Progress::default());
+        let plan = sync::plan(&l, &r, Mode::Quick, false, &stop, &progress).unwrap();
+        let done = sync::apply(&plan, &stop, &progress).unwrap();
+        let said = done.summary();
+        app.sync_done(Ok(done));
+        let c = app.panels[0].cmp.clone().unwrap();
+        let end = Instant::now() + Duration::from_secs(20);
+        while !c.f.found().done && Instant::now() < end {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        app.poll_folders();
+        let status = app.status.clone().unwrap_or_default();
+        assert!(status.starts_with(&said) && status.ends_with(&c.f.found().summary()), "{status}");
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// Differences only (Ctrl+F2, 2) keeps the compare's summary on the status line: the key

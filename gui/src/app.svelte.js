@@ -1501,7 +1501,8 @@ async function pollFolders() {
   const st = await invoke("folders_state").catch(() => null);
   if (!st || !ui.folders) return;
   Object.assign(ui.folders, st);
-  ui.status = st.summary;
+  // After a run that made one side like the other, what it did stays in front of the summary.
+  ui.status = ui.folders.lead ? `${ui.folders.lead} · ${st.summary}` : st.summary;
   for (const t of visibleTabs()) await cmpStates(t);
   if (!st.done) folderTimer = setTimeout(pollFolders, 300);
   else if (ui.folders.diffOnly) await reloadAll();
@@ -1566,8 +1567,8 @@ export async function syncRun(m, writing) {
     const r = await invoke("sync_apply", { token: m.plan.token });
     if (ui.modal === m) ui.modal = null;
     await refreshUndo(r.summary);
-    // Compared again, so the marks show what is left.
-    if (ui.folders) await startFolders(ui.folders.mode);
+    // Compared again, so the marks show what is left; the run's result stays on the status line.
+    if (ui.folders) await startFolders(ui.folders.mode, ui.status);
     await reloadAll();
     if (r.failed.length) ui.modal = failure(t("sync.failed"), r.failed.join("\n"));
   } catch (e) {
@@ -1578,7 +1579,7 @@ export async function syncRun(m, writing) {
   }
 }
 
-export async function startFolders(mode) {
+export async function startFolders(mode, lead = "") {
   const [l, r] = [tab(0), tab(1)];
   const keep = ui.folders?.diffOnly;
   if (!ui.dual || !l || !r) return void (ui.status = t("compare.two_panes"));
@@ -1587,7 +1588,7 @@ export async function startFolders(mode) {
   } catch (e) {
     return void (ui.status = String(e));
   }
-  ui.folders = { mode, diffOnly: false, done: false, summary: "" };
+  ui.folders = { mode, diffOnly: false, done: false, summary: "", lead };
   if (keep) await diffOnly(true);
   pollFolders();
 }
