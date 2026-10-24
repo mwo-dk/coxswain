@@ -1077,10 +1077,11 @@ mod imp {
     /// to a handle stays one. Fails closed: anything not known to be so is not.
     fn local_disk(dir: HANDLE) -> bool {
         let (st, dev, remote, fs) = disk(dir);
-        // FILE_DEVICE_DISK, FILE_DEVICE_SECURE_OPEN and not FILE_REMOTE_DEVICE (a network
-        // redirector's volume is neither), no network protocol answering for it, and a file
-        // system known to open by handle (never FUSE's or Dokan's, whatever else they say).
-        st >= 0 && dev[0] == 0x07 && dev[1] & 0x100 != 0 && dev[1] & 0x10 == 0 && !remote && (fs == "NTFS" || fs == "ReFS")
+        // FILE_DEVICE_DISK and not FILE_REMOTE_DEVICE (a network redirector's volume is neither),
+        // no network protocol answering for it, and a file system known to open by handle
+        // (never FUSE's or Dokan's, whatever else they say). FILE_DEVICE_SECURE_OPEN is no test:
+        // a local NTFS volume does not report it (0x20020 on GitHub's Windows runner).
+        st >= 0 && dev[0] == 0x07 && dev[1] & 0x10 == 0 && !remote && (fs == "NTFS" || fs == "ReFS")
     }
 
     /// What `local_disk` goes by: the device query's status, its device type and
