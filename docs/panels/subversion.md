@@ -60,10 +60,14 @@ a folder or `..` in a working copy first asks, once per server:
 | Desktop app | A dialog with **Read the history** and **Cancel**; **Enter** reads, **Esc** cancels |
 | Terminal app | The same text in a box; **Enter** or **Y** reads, **Esc** or **N** cancels |
 
+![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy, with the question Read the history from the server? over the panes: Subversion keeps this history on its server, file:///home/demo/repos/balloon, and the buttons Read the history and Cancel](../screenshots/svn-ask.png)
+
 With yes, the pane shows the history as for git: one entry per revision, named `r1234` and the
 first line of its message, newest first, with its date in *Modified* and its author in *Last
 commit* (desktop app) or on the info line (terminal app). A file's history follows its copies
 and renames, as `svn log` does. At most 2000 revisions are listed.
+
+![The desktop app's balloon/@history after the yes: r4 Bigger envelope, r3 Add the burner, r2 Start the balloon and r1 Make the layout, newest first, and the line svn r4 trunk in the footer](../screenshots/svn-history.png)
 
 - **What is sent:** `svn log --xml --non-interactive` on the working copy, which asks the
   repository the working copy names in `.svn/wc.db` and nothing else. Your own Subversion

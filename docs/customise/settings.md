@@ -231,7 +231,7 @@ active pane, made first when it is not there yet ([Scripts](../commands/scripts.
 
 ## Privacy and updates
 
-![Settings at Privacy and updates: Check for a new version, What can leave this machine, the closed heading Disk use 6.2 MB, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
+![Settings at Privacy and updates: Check for a new version, What can leave this machine, History from servers with file:///home/demo/repos/balloon and its Forget link, the closed heading Disk use 2.0 MB, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
 
 | Part | Does | Key |
 |---|---|---|

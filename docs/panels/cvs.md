@@ -54,6 +54,8 @@ copy first asks, once per server, as for [Subversion](subversion.md#history-from
 (**Read the history** or **Cancel**), the terminal app a box (**Enter** or **Y** reads, **Esc** or
 **N** cancels).
 
+![The terminal app in Classic blue in ~/projects/kite, a CVS working copy, with the box Read the history from the server?: CVS keeps this history on its server, /home/demo/repos/cvsroot, and the key line Enter Read the history · Esc Cancel](../screenshots/tui-cvs-ask.png)
+
 With yes, Coxswain runs `cvs -f -d <root> log -N` in the folder (`-f`: your `~/.cvsrc` is not
 read; `-d`: the root of the folder asked about, for every folder below too, whatever their own
 `CVS/Root` says) and shows the result as a history:
@@ -71,6 +73,8 @@ read; `-d`: the root of the folder asked about, for every folder below too, what
 - **Slow or gone:** a server that does not answer within 30 seconds is left, and the status line
   says so. Without `cvs` installed, a notice says to install it.
 - Opening an entry says its files are on the server: the files at a commit are not read.
+
+![The terminal app's kite/@history after the yes: 931c59a Spar a little longer, f5ba70a Longer spar, red sail, e2921d6 Initial revision and 927fee3 Start the kite, newest first](../screenshots/tui-cvs-history.png)
 
 ## Branches, update and commit
 
