@@ -164,23 +164,32 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
     v
 }
 
-/// The container images of `[preview] images` that podman or docker has, by their exact names.
+/// The container images of `[preview] images` that podman or docker has, by their exact names;
+/// and a former default no tool is set to any more (`images::FORMER`), said as such, to clear.
 fn image_items(cfg: &PreviewConfig) -> Vec<Item> {
-    let Some((name, rt)) = crate::tools::container_runtime(cfg) else {
-        return vec![];
-    };
+    crate::tools::container_runtime(cfg).map_or_else(Vec::new, |(name, rt)| images_in(cfg, name, &rt))
+}
+
+fn images_in(cfg: &PreviewConfig, name: &str, rt: &std::path::Path) -> Vec<Item> {
     let mut seen = std::collections::HashSet::new();
+    let former = crate::images::FORMER.iter().map(|(image, tool)| (tool.to_string(), image.to_string(), true));
     cfg.images
         .iter()
-        .filter(|(_, image)| !image.is_empty() && seen.insert(image.to_string()))
-        .filter_map(|(tool, image)| {
-            let bytes = crate::tools::image_size(&rt, image)?;
+        .map(|(tool, image)| (tool.clone(), image.clone(), false))
+        .chain(former)
+        .filter(|(_, image, _)| !image.is_empty() && seen.insert(image.to_string()))
+        .filter_map(|(tool, image, former)| {
+            let bytes = crate::tools::image_size(rt, &image)?;
             Some(Item {
                 id: format!("image:{image}"),
                 name: image.clone(),
-                what: crate::images::about(tool, image)
-                    .unwrap_or_else(|| t!("disk.image.what", "tool" => tool, "runtime" => name)),
-                cost: t!("disk.image.cost"),
+                what: if former {
+                    t!("disk.image.former", "tool" => tool)
+                } else {
+                    crate::images::about(&tool, &image)
+                        .unwrap_or_else(|| t!("disk.image.what", "tool" => tool, "runtime" => name))
+                },
+                cost: t!(if former { "disk.image.former_cost" } else { "disk.image.cost" }),
                 bytes,
                 paths: vec![],
                 kind: Kind::Outside,
@@ -732,6 +741,30 @@ mod tests {
         let said = cleared("docker.io/texlive/texlive:latest@sha256:e8148b126545105c4aeeaa212f8a7bd02d05b500351372881055e1e59ae67d33", 1 << 30);
         assert!(said.starts_with("docker.io/texlive/texlive:latest ") && !said.contains("sha256"), "{said}");
         assert!(cleared("search.db", 1).starts_with("search.db "));
+    }
+
+    /// A runtime that has today's ImageMagick and the former default: the former is listed,
+    /// said as no longer used, to clear.
+    #[cfg(unix)]
+    #[test]
+    fn a_former_default_image_is_listed_to_clear() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-disk-former-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cfg = PreviewConfig::default();
+        let now = cfg.images["imagemagick"].clone();
+        let rt = d.join("podman");
+        std::fs::write(&rt, format!("#!/bin/sh\n[ \"$1 $2\" = 'image inspect' ] && grep -qxF \"$5\" {}/has && echo 1000\n", d.display())).unwrap();
+        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(d.join("has"), format!("{now}\ndocker.io/dstmodders/imagemagick:latest\n")).unwrap();
+        let items = images_in(&cfg, "podman", &rt);
+        let names: Vec<&str> = items.iter().map(|i| i.name.as_str()).collect();
+        assert_eq!(names, [now.as_str(), "docker.io/dstmodders/imagemagick:latest"]);
+        assert_eq!((items[1].id.as_str(), &items[1].what, &items[1].cost), ("image:docker.io/dstmodders/imagemagick:latest", &t!("disk.image.former", "tool" => "imagemagick"), &t!("disk.image.former_cost")));
+        // Not there: no row.
+        std::fs::write(d.join("has"), format!("{now}\n")).unwrap();
+        assert_eq!(images_in(&cfg, "podman", &rt).len(), 1);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

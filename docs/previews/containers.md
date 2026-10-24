@@ -229,6 +229,13 @@ day; texts and Settings show the name without the digest.
   new pin of each image whose old one Coxswain ran in, and removes the copy of the old one by
   its name. A pull that fails keeps the old copy for the next round. Without it, the next
   preview that needs the image asks to pull it, as for a first run.
+- **A former default goes the same way.** ImageMagick's default was
+  `docker.io/dstmodders/imagemagick:latest` before Coxswain made its own image. With *Keep
+  images up to date* on, a round that finds it pulls today's ImageMagick image and removes the
+  old one by its name, under any tag, whether a preview ran in it or it was only pulled.
+  Without the option it stays until you clear it in [Disk use](../reference/disk-use.md), which
+  lists it as a former default. Not when `[preview.images] imagemagick` is set to an image of
+  your own, or to that old one.
 - **An image you set is yours.** One you set under `[preview.images]` (with or without a
   digest) is never rewritten nor replaced: Coxswain pulls and runs exactly that.
 

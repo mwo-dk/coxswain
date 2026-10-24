@@ -846,6 +846,8 @@
  "disk.hint": "Iga koht, kus Coxswain asju hoiab, koos suuruse, asukoha ja sellega, mida tühjendamine maksab. Miski siin pole sinu enda töö: kõik tehakse uuesti või laaditakse uuesti alla, kui vaja.",
  "disk.image.cost": "laaditakse uuesti, kui eelvaade seda järgmine kord vajab (Sätted → Eelvaated → Laadi)",
  "disk.image.what": "Konteineritõmmis {tool} eelvaadete jaoks, keskkonnas {runtime}.",
+ "disk.image.former": "Varasem vaikimisi tõmmis {tool} eelvaadete jaoks, mida Coxswain enam ei kasuta.",
+ "disk.image.former_cost": "ei maksa midagi: ükski eelvaade seda enam ei vaja",
  "disk.index.cost": "koostatakse ise uuesti; Otsi nime järgi ootab mõne minuti",
  "disk.index.what": "Nimeindeks, salvestatud, et Otsi saaks kõik nimed kohe, kui abiline käivitub.",
  "disk.inside.cost": "mitte midagi; parajasti arhiivi lugev abiline jätab oma kausta alles",

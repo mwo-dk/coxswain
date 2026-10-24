@@ -846,6 +846,8 @@
  "disk.hint": "Hvert sted Coxswain lagrer noe, med størrelse, hvor det ligger og hva det koster å tømme det. Ingenting her er ditt eget arbeid: alt lages på nytt, eller lastes ned på nytt, når det trengs.",
  "disk.image.cost": "lastes ned på nytt neste gang en forhåndsvisning trenger det (Innstillinger → Forhåndsvisninger → Hent)",
  "disk.image.what": "Container-imaget for forhåndsvisninger med {tool}, i {runtime}.",
+ "disk.image.former": "Et tidligere standardbilde for {tool}-forhåndsvisninger, som Coxswain ikke lenger bruker.",
+ "disk.image.former_cost": "koster ingenting: ingen forhåndsvisning trenger det lenger",
  "disk.index.cost": "bygges på nytt av seg selv; Søk etter navn venter noen minutter",
  "disk.index.what": "Navneindeksen, lagret slik at Søk har alle navn med en gang når hjelperen starter.",
  "disk.inside.cost": "ingenting; en hjelper som leser et arkiv, beholder nå mappen sin",

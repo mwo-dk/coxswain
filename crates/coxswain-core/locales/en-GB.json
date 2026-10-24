@@ -814,6 +814,8 @@
  "disk.hint": "Every place Coxswain keeps things, with its size, where it is and what clearing it costs. Nothing here is your own work: it is all made again, or downloaded again, when needed.",
  "disk.image.cost": "downloaded again the next time a preview needs it (Settings → Previews → Pull)",
  "disk.image.what": "The container image for {tool} previews, in {runtime}.",
+ "disk.image.former": "A former default image for {tool} previews, which Coxswain no longer uses.",
+ "disk.image.former_cost": "costs nothing: no preview needs it any more",
  "disk.index.cost": "built again on its own; Find by name waits a few minutes",
  "disk.index.what": "The name index, saved so Find has every name at once when the helper starts.",
  "disk.inside.cost": "nothing; a helper reading an archive now keeps its folder",

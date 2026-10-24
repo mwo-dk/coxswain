@@ -846,6 +846,8 @@
  "disk.hint": "Jokainen paikka, johon Coxswain tallentaa asioita, kokoineen ja sijainteineen, ja mitä tyhjentäminen maksaa. Mikään täällä ei ole omaa työtäsi: kaikki tehdään tai ladataan uudelleen, kun sitä tarvitaan.",
  "disk.image.cost": "ladataan uudelleen, kun esikatselu seuraavan kerran tarvitsee sitä (Asetukset → Esikatselut → Nouda)",
  "disk.image.what": "Konttikuva {tool}-esikatseluja varten, ympäristössä {runtime}.",
+ "disk.image.former": "Aiempi oletuslevykuva {tool}-esikatseluille, jota Coxswain ei enää käytä.",
+ "disk.image.former_cost": "ei maksa mitään: mikään esikatselu ei enää tarvitse sitä",
  "disk.index.cost": "rakennetaan uudelleen itsestään; Etsi nimellä odottaa muutaman minuutin",
  "disk.index.what": "Nimi-indeksi, tallennettu, jotta Etsi saa kaikki nimet heti, kun apuri käynnistyy.",
  "disk.inside.cost": "ei mitään; arkistoa juuri lukeva apuri säilyttää kansionsa",

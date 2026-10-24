@@ -1,0 +1,1 @@
+| **The old ImageMagick image can go.** `docker.io/dstmodders/imagemagick`, ImageMagick's default image before Coxswain made its own, is listed in Disk use as a former default to clear, and *Keep images up to date*, when on, replaces it with today's and removes it. Nothing is removed without one of those. | [Containers](previews/containers.md#pinned-images) |

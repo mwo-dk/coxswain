@@ -846,6 +846,8 @@
  "disk.hint": "Alle steder, Coxswain gemmer ting, med størrelse, placering og hvad det koster at rydde dem. Intet her er dit eget arbejde: det hele laves igen eller hentes igen, når der er brug for det.",
  "disk.image.cost": "hentes igen, næste gang et eksempel har brug for det (Indstillinger → Eksempler → Hent)",
  "disk.image.what": "Container-imaget til {tool}-eksempler, i {runtime}.",
+ "disk.image.former": "Et tidligere standardbillede til {tool}-forhåndsvisninger, som Coxswain ikke længere bruger.",
+ "disk.image.former_cost": "koster intet: ingen forhåndsvisning har brug for det mere",
  "disk.index.cost": "bygges igen af sig selv; Find på navn venter et par minutter",
  "disk.index.what": "Navneindekset, gemt så Find har alle navne med det samme, når hjælperen starter.",
  "disk.inside.cost": "intet; en hjælper, der læser et arkiv lige nu, beholder sin mappe",

@@ -875,6 +875,8 @@
  "disk.hint": "Ogni posto in cui Coxswain tiene qualcosa, con la sua dimensione, dove si trova e cosa costa svuotarlo. Niente qui è lavoro tuo: tutto viene rifatto, o scaricato di nuovo, quando serve.",
  "disk.image.cost": "scaricata di nuovo la prossima volta che un’anteprima ne ha bisogno (Impostazioni → Anteprime → Scarica)",
  "disk.image.what": "L’immagine del container per le anteprime {tool}, in {runtime}.",
+ "disk.image.former": "Un'immagine che era quella predefinita per le anteprime {tool} e che Coxswain non usa più.",
+ "disk.image.former_cost": "non costa nulla: nessuna anteprima ne ha più bisogno",
  "disk.index.cost": "ricostruito da solo; Trova per nome aspetta qualche minuto",
  "disk.index.what": "L’indice dei nomi, salvato perché Trova abbia subito ogni nome quando l’assistente di ricerca si avvia.",
  "disk.inside.cost": "niente; un assistente che sta leggendo un archivio tiene la sua cartella",

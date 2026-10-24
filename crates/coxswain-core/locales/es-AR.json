@@ -875,6 +875,8 @@
  "disk.hint": "Cada lugar donde Coxswain guarda cosas, con su tamaño, dónde está y lo que cuesta vaciarlo. Nada de esto es trabajo tuyo: todo se vuelve a hacer, o a descargar, cuando hace falta.",
  "disk.image.cost": "se vuelve a descargar la próxima vez que una vista previa la necesita (Configuración → Vistas previas → Descargar)",
  "disk.image.what": "La imagen del contenedor para las vistas previas de {tool}, en {runtime}.",
+ "disk.image.former": "Una imagen que antes era la predeterminada para las vistas previas de {tool} y que Coxswain ya no usa.",
+ "disk.image.former_cost": "no cuesta nada: ninguna vista previa la necesita",
  "disk.index.cost": "se vuelve a armar solo; Buscar por nombre espera unos minutos",
  "disk.index.what": "El índice de nombres, guardado para que Buscar tenga todos los nombres de una vez cuando arranca el asistente de búsqueda.",
  "disk.inside.cost": "nada; un asistente que está leyendo un archivo comprimido conserva su carpeta",

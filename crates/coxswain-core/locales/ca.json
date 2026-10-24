@@ -875,6 +875,8 @@
  "disk.hint": "Cada lloc on el Coxswain desa coses, amb la seva mida, on és i què costa buidar-lo. Res d'això no és feina vostra: tot es torna a fer, o a baixar, quan cal.",
  "disk.image.cost": "es torna a baixar la propera vegada que una previsualització la necessita (Paràmetres → Previsualitzacions → Baixa)",
  "disk.image.what": "La imatge del contenidor per a les previsualitzacions de {tool}, a {runtime}.",
+ "disk.image.former": "Una imatge que abans era la predeterminada per a les previsualitzacions de {tool} i que Coxswain ja no fa servir.",
+ "disk.image.former_cost": "no costa res: cap previsualització la necessita",
  "disk.index.cost": "es torna a construir sol; Cerca pel nom espera uns minuts",
  "disk.index.what": "L'índex de noms, desat perquè Cerca tingui tots els noms de cop quan s'inicia l'assistent de cerca.",
  "disk.inside.cost": "res; un assistent que ara llegeix un arxiu conserva la seva carpeta",

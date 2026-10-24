@@ -846,6 +846,8 @@
  "disk.hint": "Jeder Ort, an dem Coxswain etwas ablegt, mit Größe, Ort und dem, was das Leeren kostet. Nichts davon ist Ihre eigene Arbeit: alles wird bei Bedarf neu erstellt oder neu heruntergeladen.",
  "disk.image.cost": "wird neu heruntergeladen, wenn eine Vorschau es das nächste Mal braucht (Einstellungen → Vorschauen → Laden)",
  "disk.image.what": "Das Container-Image für {tool}-Vorschauen, in {runtime}.",
+ "disk.image.former": "Ein früheres Standard-Image für {tool}-Vorschauen, das Coxswain nicht mehr verwendet.",
+ "disk.image.former_cost": "kostet nichts: keine Vorschau braucht es mehr",
  "disk.index.cost": "wird von selbst neu erstellt; Suchen nach Namen wartet einige Minuten",
  "disk.index.what": "Der Namensindex, gespeichert, damit Suchen jeden Namen sofort hat, wenn der Suchhelfer startet.",
  "disk.inside.cost": "nichts; ein Suchhelfer, der gerade ein Archiv liest, behält seinen Ordner",
