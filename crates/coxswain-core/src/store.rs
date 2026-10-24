@@ -2763,31 +2763,33 @@ fn hash(store: &Store, stop: &AtomicBool, until: Option<Instant>) -> rusqlite::R
 /// kinds read line by line (`extract::streams`), and Word, OpenDocument, workbook and
 /// presentation files, read as they are unpacked (`extract::whole_lines`).
 fn whole_passages(path: &str, body: &str) -> Option<Vec<crate::meaning::Passage>> {
-    // A document's text is cut before it is tidied, so it may end well below the limit. One
-    // that was not cut gives the same passages read whole: it costs two readings, no more.
-    if crate::extract::whole_document(Path::new(path)) {
-        if body.len() + DOCUMENT_MARGIN < crate::extract::MAX_TEXT {
-            return None;
-        }
-        return crate::meaning::passages_streamed(path, &mut |f| {
-            crate::extract::whole_lines(Path::new(path), f).is_some()
-        });
-    }
     // Near the limit: the next line did not fit. A text that was not cut gives the same
     // passages read whole, so a file taken for cut costs a reading, never other passages.
-    if body.len() + LONG_MARGIN < crate::extract::MAX_TEXT || !crate::extract::streams(Path::new(path)) {
+    if !long_text(path, body) {
         return None;
     }
-    let code = crate::code::is_code(path);
-    crate::meaning::passages_streamed(path, &mut |f| {
-        crate::extract::plain::each_line(Path::new(path), code, f).is_some()
-    })
+    crate::meaning::passages_streamed(path, &mut |f| whole_lines(path, f))
+}
+
+/// Each line of the whole text of the file at `path`, as `whole_passages` reads it, to `f`.
+/// `false` when it cannot be read now.
+fn whole_lines(path: &str, f: &mut dyn FnMut(&str)) -> bool {
+    let p = Path::new(path);
+    if crate::extract::whole_document(p) {
+        crate::extract::whole_lines(p, f).is_some()
+    } else {
+        crate::extract::plain::each_line(p, crate::code::is_code(path), f).is_some()
+    }
 }
 
 /// Whether `body`, the text kept of the file at `path`, is as long as what is kept of most files
-/// or longer, and of a kind read line by line: its passages come from the file itself.
+/// or longer, and of a kind read line by line or a document read as it is unpacked
+/// (`extract::whole_document`): its passages come from the file itself. A document's text is
+/// cut before it is tidied, so it may end further below the limit.
 fn long_text(path: &str, body: &str) -> bool {
-    body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && crate::extract::streams(Path::new(path))
+    let p = Path::new(path);
+    (body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && crate::extract::streams(p))
+        || (body.len() + DOCUMENT_MARGIN >= crate::extract::MAX_TEXT && crate::extract::whole_document(p))
 }
 
 /// How a file kept whole got its vectors (`embed_streamed`).
@@ -2813,13 +2815,12 @@ fn embed_streamed(
     stop: &AtomicBool,
 ) -> rusqlite::Result<Streamed> {
     let had = store.db.lock().unwrap().execute("DELETE FROM chunks WHERE file = ?1", [id])? > 0;
-    let code = crate::code::is_code(path);
     let (mut batch, mut packed) = (Vec::with_capacity(STREAM_BATCH), vec![]);
     let mut halt: Option<rusqlite::Result<Streamed>> = None;
     // A file that cannot be read now has no passages, as one without text.
     crate::meaning::every_passage_streamed(
         path,
-        &mut |f| crate::extract::plain::each_line(Path::new(path), code, f).is_some(),
+        &mut |f| whole_lines(path, f),
         &mut |p, starts| {
             batch.push((p, starts));
             if batch.len() < STREAM_BATCH {
