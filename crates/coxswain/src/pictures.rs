@@ -6,8 +6,8 @@
 //! square written in its top left cell. Inside tmux, kitty's pictures go through only where
 //! `allow-passthrough` is on already; it is never turned on. Each picture is drawn with
 //! resvg to the square's size in pixels, on the square's own colour, once per piece, colour and
-//! size. Elsewhere (no answer, the Linux console, Windows' console) the board keeps its
-//! characters.
+//! size. Windows Terminal draws sixel too, and is asked through the console's input. Elsewhere
+//! (no answer, the Linux console, Windows' own console) the board keeps its characters.
 
 use ratatui::buffer::{Buffer, CellDiffOption};
 use ratatui::layout::Rect;
@@ -144,9 +144,70 @@ fn ask() -> Option<Support> {
     Some(Support { kind, cell, tmux: tmux && kind == Kind::Kitty })
 }
 
-#[cfg(not(unix))]
+/// Windows Terminal (1.22 and later) draws sixel; only it is asked, as the console it runs is
+/// the one sure to answer at once. It draws a picture in cells of 10 × 20 of its own pixels,
+/// whatever the font, and says so to `CSI 16 t`.
+#[cfg(windows)]
+fn ask() -> Option<Support> {
+    if env("WT_SESSION").is_empty() {
+        return None;
+    }
+    let reply = parse(&read_reply("\x1b[16t\x1b[c")?);
+    (reply.done && reply.sixel).then(|| Support { kind: Kind::Sixel, cell: reply.cell.unwrap_or((10, 20)), tmux: false })
+}
+
+#[cfg(not(any(unix, windows)))]
 fn ask() -> Option<Support> {
     None
+}
+
+/// The same on Windows: the answer comes through the console's input as key presses, with its
+/// virtual terminal input on for the while; the console's mode is put back after.
+#[cfg(windows)]
+fn read_reply(q: &str) -> Option<Vec<u8>> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::Console::{ENABLE_VIRTUAL_TERMINAL_INPUT, GetConsoleMode, INPUT_RECORD, KEY_EVENT, ReadConsoleInputW, SetConsoleMode};
+    use windows_sys::Win32::System::Threading::WaitForSingleObject;
+    // Where crossterm reads keys: the console's input, whatever standard input is.
+    let conin = std::fs::OpenOptions::new().read(true).write(true).open("CONIN$").ok()?;
+    let h = conin.as_raw_handle();
+    let mut mode = 0;
+    if unsafe { GetConsoleMode(h, &mut mode) } == 0 || unsafe { SetConsoleMode(h, mode | ENABLE_VIRTUAL_TERMINAL_INPUT) } == 0 {
+        return None;
+    }
+    let got = (|| {
+        let mut out = std::io::stdout();
+        out.write_all(q.as_bytes()).ok()?;
+        out.flush().ok()?;
+        let until = std::time::Instant::now() + std::time::Duration::from_millis(1000);
+        let mut units: Vec<u16> = vec![];
+        loop {
+            let left = until.saturating_duration_since(std::time::Instant::now()).as_millis() as u32;
+            if left == 0 || unsafe { WaitForSingleObject(h, left) } != 0 {
+                return None;
+            }
+            let mut recs = [INPUT_RECORD::default(); 64];
+            let mut n = 0u32;
+            if unsafe { ReadConsoleInputW(h, recs.as_mut_ptr(), recs.len() as u32, &mut n) } == 0 {
+                return None;
+            }
+            for r in &recs[..n as usize] {
+                if r.EventType as u32 == KEY_EVENT {
+                    let k = unsafe { r.Event.KeyEvent };
+                    let c = unsafe { k.uChar.UnicodeChar };
+                    if k.bKeyDown != 0 && c != 0 {
+                        units.push(c);
+                    }
+                }
+            }
+            let got = String::from_utf16_lossy(&units).into_bytes();
+            if parse(&got).done {
+                return Some(got);
+            }
+        }
+    })();
+    unsafe { SetConsoleMode(h, mode) };
+    got
 }
 
 /// Writes the query and reads the answer, up to the device attributes or a second at most:

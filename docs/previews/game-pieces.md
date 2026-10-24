@@ -50,15 +50,17 @@ opens, and waits a second at most for the answer:
 |---|---|
 | kitty, Ghostty | kitty's graphics protocol |
 | foot, WezTerm, xterm with sixel, mlterm, Konsole | sixel |
+| Windows Terminal 1.22 and later | sixel, asked through the console when `WT_SESSION` says it is Windows Terminal |
 | inside tmux | kitty's protocol, when the terminal outside is kitty or Ghostty and `allow-passthrough` is on in tmux (`set -g allow-passthrough on`); Coxswain does not turn it on |
-| the Linux console, Windows' own console, anything else | none: the pieces are drawn from block characters, as below |
+| the Linux console, Windows' own console (conhost, without Windows Terminal), anything else | none: the pieces are drawn from block characters, as below |
 
 A square gets a picture when the board is large enough for squares of two rows or more; a
 small window keeps the figurines. The pieces are drawn on the square's own colour, the
 last move's squares tinted, and a picture goes with its piece when you step on, flip the
 board or close the view. With **pictures** chosen and a terminal that shows none, the line
 above the keys says *This terminal shows no pictures: the pieces are drawn from block
-characters.* Windows Terminal is not asked yet: on Windows the board keeps block characters.
+characters.* On Windows only Windows Terminal is asked; an older Windows Terminal answers
+that it has no sixel, and the board keeps block characters.
 
 *As fine as the terminal draws* (`auto`, the default) and *Pictures, where the terminal shows
 them* (`pictures`) draw pictures where the terminal shows them, block characters elsewhere;
@@ -101,9 +103,16 @@ pieces = "sextants"
 #### Why does the terminal board show no pictures?
 
 The terminal did not say it shows them: it is not one of kitty, Ghostty, foot, WezTerm, xterm
-with sixel, mlterm or Konsole, or it runs inside tmux without `allow-passthrough`, or on
-Windows. The pieces are drawn from block characters then. A small window gives squares too
+with sixel, mlterm, Konsole or Windows Terminal 1.22 or later, or it runs inside tmux without
+`allow-passthrough`, or on Windows in the console without Windows Terminal. The pieces are drawn from block characters then. A small window gives squares too
 small for pictures too: make it larger, and the board takes pictures again.
+
+#### Does Windows Terminal show the pictures?
+
+Yes, from version 1.22, which draws sixel. Coxswain asks it the first time a board opens,
+through the console's own input, and waits a second at most. In Windows' own console window
+(conhost) and in older versions of Windows Terminal the pieces are drawn from block
+characters.
 
 #### The pieces show as boxes or gaps.
 
