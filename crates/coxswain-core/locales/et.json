@@ -2310,6 +2310,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Järk",
  "go.col_size": "Laud",
+ "go.finding": "Otsin tabamuse partiid… Esc peatab",
  "go.keys_game": "← → samm · ↓ ↑ teine variant · Home End · PgUp PgDn teine partii · Esc partiid",
  "go.keys_game_gui": "Klõpsa lauda, siis ← → samm · ↓ ↑ teine variant · Home End · PgUp PgDn teine partii · Esc partiid. Klõps variandil näitab seda.",
  "go.keys_list": "Enter ava · ↑ ↓ vali · Esc sulge",

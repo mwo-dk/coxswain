@@ -2360,6 +2360,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Rangs",
  "go.col_size": "Galdiņš",
+ "go.finding": "Meklē rezultāta partiju… Esc aptur",
  "go.keys_game": "← → soļot · ↓ ↑ cits variants · Home End · PgUp PgDn cita partija · Esc partijas",
  "go.keys_game_gui": "Noklikšķiniet uz galdiņa, tad ← → soļot · ↓ ↑ cits variants · Home End · PgUp PgDn cita partija · Esc partijas. Klikšķis uz varianta to parāda.",
  "go.keys_list": "Enter atvērt · ↑ ↓ izvēlēties · Esc aizvērt",

@@ -2302,6 +2302,7 @@
  "go.col_komi": "کومی",
  "go.col_rank": "رتبه",
  "go.col_size": "صفحه",
+ "go.finding": "در حال یافتن بازیِ این نتیجه… Esc متوقف می‌کند",
  "go.keys_game": "← → گام · ↓ ↑ تغییر دیگر · Home End · PgUp PgDn بازی دیگر · Esc بازی‌ها",
  "go.keys_game_gui": "روی صفحه کلیک کنید، سپس ← → گام · ↓ ↑ تغییر دیگر · Home End · PgUp PgDn بازی دیگر · Esc بازی‌ها. کلیک روی یک تغییر آن را نشان می‌دهد.",
  "go.keys_list": "Enter باز کردن · ↑ ↓ انتخاب · Esc بستن",

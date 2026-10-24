@@ -113,7 +113,7 @@ pub async fn go_position(path: PathBuf, index: usize, node: u32) -> Res<Position
 /// The game a Find hit in an SGF file is about, from its snippet.
 #[tauri::command]
 pub async fn go_hit(path: PathBuf, snippet: String) -> Option<u32> {
-    tauri::async_runtime::spawn_blocking(move || go::game_of_hit(&path, &snippet)).await.ok().flatten()
+    tauri::async_runtime::spawn_blocking(move || go::game_of_hit(&path, &snippet, &std::sync::atomic::AtomicBool::new(false))).await.ok().flatten()
 }
 
 /// The last view of `path` closed: its games are let go.

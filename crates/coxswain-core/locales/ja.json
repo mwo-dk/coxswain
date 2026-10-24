@@ -2260,6 +2260,7 @@
  "go.col_komi": "コミ",
  "go.col_rank": "段級位",
  "go.col_size": "路盤",
+ "go.finding": "ヒットした対局を探しています… Esc で中止",
  "go.keys_game": "← → 手を進める・戻す · ↓ ↑ 別の変化 · Home End · PgUp PgDn 別の対局 · Esc 対局一覧",
  "go.keys_game_gui": "盤をクリックしてから ← → 手を進める・戻す · ↓ ↑ 別の変化 · Home End · PgUp PgDn 別の対局 · Esc 対局一覧。変化をクリックするとその変化を表示します。",
  "go.keys_list": "Enter 開く · ↑ ↓ 選択 · Esc 閉じる",

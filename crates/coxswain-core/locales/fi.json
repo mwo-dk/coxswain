@@ -2310,6 +2310,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Taso",
  "go.col_size": "Lauta",
+ "go.finding": "Etsitään osuman peliä… Esc keskeyttää",
  "go.keys_game": "← → askel · ↓ ↑ toinen variaatio · Home End · PgUp PgDn toinen peli · Esc pelit",
  "go.keys_game_gui": "Napsauta lautaa, sitten ← → askel · ↓ ↑ toinen variaatio · Home End · PgUp PgDn toinen peli · Esc pelit. Variaation napsautus näyttää sen.",
  "go.keys_list": "Enter avaa · ↑ ↓ valitse · Esc sulje",

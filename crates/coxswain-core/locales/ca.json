@@ -2360,6 +2360,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Nivell",
  "go.col_size": "Tauler",
+ "go.finding": "S'està cercant la partida del resultat… Esc ho atura",
  "go.keys_game": "← → jugada · ↓ ↑ una altra variant · Home End · PgUp PgDn una altra partida · Esc partides",
  "go.keys_game_gui": "Cliqueu el tauler i després ← → jugada · ↓ ↑ una altra variant · Home End · PgUp PgDn una altra partida · Esc partides. Un clic en una variant la mostra.",
  "go.keys_list": "Enter obre · ↑ ↓ tria · Esc tanca",

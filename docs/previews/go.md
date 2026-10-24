@@ -113,7 +113,9 @@ The search store reads an SGF file as a line per game: the players with their ra
 game's name, event, round, place, date and result. So **Find** (**Ctrl+F**) finds a game by a
 player's name or a tournament (`Shusaku`, `Honinbo`). A hit opens that game: in the desktop app
 on the board in the preview pane, in the terminal app in the Go view. The moves and comments
-are not in the store.
+are not in the store. In a large file the game is looked for while the list of games shows,
+which takes a moment: the terminal app says *Finding the game of the hit… Esc stops* under the
+list meanwhile, and **Esc** stops the looking and leaves the list open.
 
 A store made before this release reads every `.sgf` file again once, for this: only `.sgf`
 files, nothing else. An SGF file larger than *Largest file read (MB)* (`[search]

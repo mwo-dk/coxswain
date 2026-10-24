@@ -2310,6 +2310,7 @@
  "go.col_komi": "Komi",
  "go.col_rank": "Rang",
  "go.col_size": "Bräde",
+ "go.finding": "Letar upp partiet för träffen… Esc stoppar",
  "go.keys_game": "← → steg · ↓ ↑ annan variant · Home End · PgUp PgDn annat parti · Esc partier",
  "go.keys_game_gui": "Klicka på brädet, sedan ← → steg · ↓ ↑ annan variant · Home End · PgUp PgDn annat parti · Esc partier. Ett klick på en variant visar den.",
  "go.keys_list": "Enter öppna · ↑ ↓ välj · Esc stäng",
