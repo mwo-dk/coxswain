@@ -654,6 +654,8 @@
  "compare.folders_same": "De mappen zijn gelijk",
  "compare.inline": "Onder elkaar",
  "compare.keys": "n p volgende, vorige wijziging · v naast elkaar of niet · w spaties · c hoofdletters · > < wijziging naar rechts, links kopiëren · Ctrl+Z ongedaan maken · F2 opslaan · Esc sluiten",
+ "compare.keys_binary": "n p volgende, vorige wijziging · Esc sluiten",
+ "compare.keys_picture": "Esc sluiten",
  "compare.keys_gui": "N volgende · P vorige · V naast elkaar · Alt+→ Alt+← wijziging kopiëren · Ctrl+Z ongedaan maken · F2 opslaan",
  "compare.mark_differences": "De verschillen markeren",
  "compare.marked": {

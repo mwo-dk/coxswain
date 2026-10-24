@@ -676,6 +676,8 @@
  "compare.folders_same": "Las carpetas son iguales",
  "compare.inline": "Uno debajo del otro",
  "compare.keys": "n p cambio siguiente, anterior · v lado a lado o no · w espacios · c mayúsculas · > < copiar el cambio a la derecha, a la izquierda · Ctrl+Z deshacer · F2 guardar · Esc cerrar",
+ "compare.keys_binary": "n p cambio siguiente, anterior · Esc cerrar",
+ "compare.keys_picture": "Esc cerrar",
  "compare.keys_gui": "N siguiente · P anterior · V lado a lado · Alt+→ Alt+← copiar el cambio · Ctrl+Z deshacer · F2 guardar",
  "compare.mark_differences": "Marcar las diferencias",
  "compare.marked": {

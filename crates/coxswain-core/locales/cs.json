@@ -676,6 +676,8 @@
  "compare.folders_same": "Složky jsou stejné",
  "compare.inline": "Pod sebou",
  "compare.keys": "n p další, předchozí změna · v vedle sebe nebo ne · w mezery · c velikost písmen · > < zkopírovat změnu doprava, doleva · Ctrl+Z zpět · F2 uložit · Esc zavřít",
+ "compare.keys_binary": "n p další, předchozí změna · Esc zavřít",
+ "compare.keys_picture": "Esc zavřít",
  "compare.keys_gui": "N další · P předchozí · V vedle sebe · Alt+→ Alt+← zkopírovat změnu · Ctrl+Z zpět · F2 uložit",
  "compare.mark_differences": "Označit rozdíly",
  "compare.marked": {

@@ -654,6 +654,8 @@
  "compare.folders_same": "Die Ordner sind gleich",
  "compare.inline": "Untereinander",
  "compare.keys": "n p nächste, vorige Änderung · v nebeneinander oder nicht · w Leerzeichen · c Groß-/Kleinschreibung · > < Änderung nach rechts, links kopieren · Ctrl+Z rückgängig · F2 speichern · Esc schließen",
+ "compare.keys_binary": "n p nächste, vorige Änderung · Esc schließen",
+ "compare.keys_picture": "Esc schließen",
  "compare.keys_gui": "N nächste · P vorige · V nebeneinander · Alt+→ Alt+← Änderung kopieren · Ctrl+Z rückgängig · F2 speichern",
  "compare.mark_differences": "Unterschiede markieren",
  "compare.marked": {

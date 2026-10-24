@@ -654,6 +654,8 @@
  "compare.folders_same": "Οι φάκελοι είναι ίδιοι",
  "compare.inline": "Η μία κάτω από την άλλη",
  "compare.keys": "n p επόμενη, προηγούμενη αλλαγή · v δίπλα δίπλα ή όχι · w κενά · c πεζά/κεφαλαία · > < αντιγραφή αλλαγής δεξιά, αριστερά · Ctrl+Z αναίρεση · F2 αποθήκευση · Esc κλείσιμο",
+ "compare.keys_binary": "n p επόμενη, προηγούμενη αλλαγή · Esc κλείσιμο",
+ "compare.keys_picture": "Esc κλείσιμο",
  "compare.keys_gui": "N επόμενη · P προηγούμενη · V δίπλα δίπλα · Alt+→ Alt+← αντιγραφή αλλαγής · Ctrl+Z αναίρεση · F2 αποθήκευση",
  "compare.mark_differences": "Επισήμανση των διαφορών",
  "compare.marked": {

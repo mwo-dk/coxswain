@@ -632,6 +632,8 @@
  "compare.folders_same": "フォルダーは同じです",
  "compare.inline": "上下に並べる",
  "compare.keys": "n p 次・前の変更 · v 左右に並べる/切り替え · w 空白 · c 大文字小文字 · > < 変更を右・左へコピー · Ctrl+Z 元に戻す · F2 保存 · Esc 閉じる",
+ "compare.keys_binary": "n p 次・前の変更 · Esc 閉じる",
+ "compare.keys_picture": "Esc 閉じる",
  "compare.keys_gui": "N 次へ · P 前へ · V 左右に並べる · Alt+→ Alt+← 変更をコピー · Ctrl+Z 元に戻す · F2 保存",
  "compare.mark_differences": "違いをマーク",
  "compare.marked": {

@@ -654,6 +654,8 @@
  "compare.folders_same": "Mapperne er ens",
  "compare.inline": "Under hinanden",
  "compare.keys": "n p næste, forrige ændring · v side om side eller ej · w mellemrum · c store/små bogstaver · > < kopiér ændringen til højre, venstre · Ctrl+Z fortryd · F2 gem · Esc luk",
+ "compare.keys_binary": "n p næste, forrige ændring · Esc luk",
+ "compare.keys_picture": "Esc luk",
  "compare.keys_gui": "N næste · P forrige · V side om side · Alt+→ Alt+← kopiér ændringen · Ctrl+Z fortryd · F2 gem",
  "compare.mark_differences": "Markér forskellene",
  "compare.marked": {

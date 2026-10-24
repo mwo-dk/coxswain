@@ -654,6 +654,8 @@
  "compare.folders_same": "پوشه‌ها یکسان‌اند",
  "compare.inline": "یکی زیر دیگری",
  "compare.keys": "n p تغییر بعدی، قبلی · v کنار هم یا نه · w فاصله‌ها · c بزرگی و کوچکی حروف · > < کپی تغییر به راست، به چپ · Ctrl+Z واگرد · F2 ذخیره · Esc بستن",
+ "compare.keys_binary": "n p تغییر بعدی، قبلی · Esc بستن",
+ "compare.keys_picture": "Esc بستن",
  "compare.keys_gui": "N بعدی · P قبلی · V کنار هم · Alt+→ Alt+← کپی تغییر · Ctrl+Z واگرد · F2 ذخیره",
  "compare.mark_differences": "علامت‌گذاری تفاوت‌ها",
  "compare.marked": {

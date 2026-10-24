@@ -622,6 +622,8 @@
  "compare.folders_same": "The folders are the same",
  "compare.inline": "One under the other",
  "compare.keys": "n p next, previous change · v side by side or not · w spaces · c case · > < copy the change right, left · Ctrl+Z undo · F2 save · Esc close",
+ "compare.keys_binary": "n p next, previous change · Esc close",
+ "compare.keys_picture": "Esc close",
  "compare.keys_gui": "N next · P previous · V side by side · Alt+→ Alt+← copy the change · Ctrl+Z undo · F2 save",
  "compare.mark_differences": "Mark the differences",
  "compare.marked": {

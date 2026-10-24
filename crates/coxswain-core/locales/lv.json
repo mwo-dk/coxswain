@@ -676,6 +676,8 @@
  "compare.folders_same": "Mapes ir vienādas",
  "compare.inline": "Viens zem otra",
  "compare.keys": "n p nākamā, iepriekšējā izmaiņa · v blakus vai nē · w atstarpes · c burtu reģistrs · > < kopēt izmaiņu pa labi, pa kreisi · Ctrl+Z atsaukt · F2 saglabāt · Esc aizvērt",
+ "compare.keys_binary": "n p nākamā, iepriekšējā izmaiņa · Esc aizvērt",
+ "compare.keys_picture": "Esc aizvērt",
  "compare.keys_gui": "N nākamā · P iepriekšējā · V blakus · Alt+→ Alt+← kopēt izmaiņu · Ctrl+Z atsaukt · F2 saglabāt",
  "compare.mark_differences": "Atzīmēt atšķirības",
  "compare.marked": {

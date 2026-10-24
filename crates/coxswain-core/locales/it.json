@@ -676,6 +676,8 @@
  "compare.folders_same": "Le cartelle sono uguali",
  "compare.inline": "Uno sotto l'altro",
  "compare.keys": "n p modifica successiva, precedente · v affiancati o no · w spazi · c maiuscole · > < copia la modifica a destra, a sinistra · Ctrl+Z annulla · F2 salva · Esc chiudi",
+ "compare.keys_binary": "n p modifica successiva, precedente · Esc chiudi",
+ "compare.keys_picture": "Esc chiudi",
  "compare.keys_gui": "N successiva · P precedente · V affiancati · Alt+→ Alt+← copia la modifica · Ctrl+Z annulla · F2 salva",
  "compare.mark_differences": "Segna le differenze",
  "compare.marked": {

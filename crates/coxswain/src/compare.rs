@@ -327,7 +327,11 @@ impl Viewer {
         f.render_widget(Clear, area);
         let inner = block.inner(area);
         f.render_widget(block, area);
-        let keys = t!("compare.keys");
+        let keys = t!(match self.s.kind {
+            Kind::Binary => "compare.keys_binary",
+            Kind::Picture => "compare.keys_picture",
+            Kind::Text | Kind::Document => "compare.keys",
+        });
         let foot_h = if unicode_width::UnicodeWidthStr::width(keys.as_str()) > inner.width as usize { 2 } else { 1 };
         let [head, body, info, foot] = Layout::vertical([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1), Constraint::Length(foot_h)]).areas(inner);
         self.split = area.width >= SPLIT_FROM;
@@ -602,6 +606,9 @@ mod tests {
         std::fs::write(&b, &x).unwrap();
         let mut v = Viewer::open(&a, &b);
         ready(&mut v);
+        // The key line is a binary compare's, not the text compare's.
+        let s = screen(&mut v, 120, 20);
+        assert!(s.contains(&t!("compare.keys_binary")) && !s.contains(&t!("compare.keys")), "{s}");
         let n = Key::new(KeyCode::Char('n'), false, false, false);
         assert!(matches!(v.key(n, None), Outcome::Stay));
         assert!(v.busy());

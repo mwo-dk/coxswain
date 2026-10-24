@@ -654,6 +654,8 @@
  "compare.folders_same": "Karpetak berdinak dira",
  "compare.inline": "Bata bestearen azpian",
  "compare.keys": "n p hurrengo, aurreko aldaketa · v alboz albo ala ez · w zuriuneak · c maiuskulak · > < kopiatu aldaketa eskuinera, ezkerrera · Ctrl+Z desegin · F2 gorde · Esc itxi",
+ "compare.keys_binary": "n p hurrengo, aurreko aldaketa · Esc itxi",
+ "compare.keys_picture": "Esc itxi",
  "compare.keys_gui": "N hurrengoa · P aurrekoa · V alboz albo · Alt+→ Alt+← kopiatu aldaketa · Ctrl+Z desegin · F2 gorde",
  "compare.mark_differences": "Markatu desberdintasunak",
  "compare.marked": {

@@ -108,7 +108,8 @@ says *That side cannot be changed here*.
   while you look (*12 bytes differ · the first at 0x1f40*); **N** and **P** go to the next and
   previous row with a difference. In a big file that looking can take a while: the status line
   says *Looking for the next difference… Esc stops*, the screen still scrolls, and **Esc** stops
-  the looking (not the window).
+  the looking (not the window). The terminal app's key line names only what works here: *n p
+  next, previous change · Esc close* (and only *Esc close* for pictures).
 
 A text file against a PDF compares the text with the PDF's text; a text file against any other
 binary file compares bytes.
