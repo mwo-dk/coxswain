@@ -567,7 +567,7 @@
  "chess.keys_game": "← → tah · ↓ ↑ do varianty a zpět · Home End · m zahrát tah · a engine · b nejlepší tah · p najít pozici · g analyzovat partii · w uložit s komentáři · f otočit · n zápis · PgUp PgDn jiná partie · Esc partie",
  "chess.keys_game_gui": "Klikněte na šachovnici, pak ← → tah · ↓ ↑ do varianty a zpět · Home End · a engine · b nejlepší tah · p najít pozici · g analyzovat partii · w uložit s komentáři · f otočit · n zápis · PgUp PgDn jiná partie · Esc partie. Klik na tah ho ukáže; klik na figuru a pak na pole hraje dál odtud.",
  "chess.keys_list": "Enter otevřít · / hráč · o zahájení · r výsledek · y roky · e rating · s řadit · S obrátit · c vymazat · Esc zavřít",
- "chess.keys_list_gui": "Enter nebo dvojklik otevře partii · klepnutí na záhlaví řadí podle něj, další klepnutí pořadí obrátí",
+ "chess.keys_list_gui": "Enter nebo dvojklik otevře partii · klepnutí na záhlaví řadí podle něj, další klepnutí pořadí obrátí · Esc zpět ke složkám",
  "chess.keys_pick": "Pište pro zúžení (Nf3, e4, O-O) · ← → vybrat · Enter zahrát · Esc zrušit",
  "chess.keys_position": "← → pozice · Home End · m zahrát tah · a engine · b nejlepší tah · p najít pozici · f otočit · n zápis · Esc zavřít",
  "chess.keys_position_gui": "Klikněte na šachovnici, pak ← → pozice · Home End · a engine · b nejlepší tah · p najít pozici · f otočit · n zápis. Klik na figuru a pak na pole hraje dál odtud.",

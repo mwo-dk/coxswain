@@ -1750,7 +1750,7 @@ impl Viewer {
                 words.push((t!("chess.pick_none"), dim, false));
             }
             let room = (right.height as usize).saturating_sub(head.len());
-            head.extend(wrap(words, w, base, room));
+            head.extend(wrap(words, w, base, room, None));
             f.render_widget(Paragraph::new(head), right);
             return;
         }
@@ -1774,7 +1774,14 @@ impl Viewer {
         }
         // The moves, word by word, wrapped; the line with the move shown is kept in view.
         let mut words: Vec<(String, Style, bool)> = vec![];
-        for tok in &o.layout {
+        // The move shown, its variations and the other moves from its position: kept in view.
+        let end = o.layout.iter().position(|t| matches!(t, Token::Move { node, .. } if o.at == Some(*node))).map(|i| chess::pgn::view_end(&o.layout, i));
+        let mut keep = None;
+        for (i, tok) in o.layout.iter().enumerate() {
+            if end == Some(i) {
+                // Its last word, once this token's words are in.
+                keep = Some(usize::MAX);
+            }
             match tok {
                 Token::Move { node, number } => {
                     let n = &g.nodes[*node as usize];
@@ -1807,6 +1814,9 @@ impl Viewer {
                 Token::Close { .. } => words.push((")".into(), dim, false)),
                 Token::Result { text } => words.push((text.clone(), base.add_modifier(Modifier::BOLD), false)),
             }
+            if keep == Some(usize::MAX) {
+                keep = words.len().checked_sub(1);
+            }
         }
         // The line played on from the board, on lines of its own after the game.
         if let Some(l) = &self.played {
@@ -1829,7 +1839,7 @@ impl Viewer {
             words.push((t!("chess.line_keys"), dim, false));
         }
         let room = (right.height as usize).saturating_sub(head.len());
-        head.extend(wrap(words, w, base, room));
+        head.extend(wrap(words, w, base, room, keep));
         f.render_widget(Paragraph::new(head), right);
     }
 
@@ -1851,13 +1861,15 @@ impl Viewer {
     }
 }
 
-/// Words wrapped to lines `w` wide (`"\n"` starts a new one), the lines around the word
-/// marked `here` kept in view: `room` lines at most.
-fn wrap(words: Vec<(String, Style, bool)>, w: usize, base: Style, room: usize) -> Vec<Line<'static>> {
+/// Words wrapped to lines `w` wide (`"\n"` starts a new one), `room` lines at most: the word
+/// marked `here` kept in view, and the words after it up to the word `keep` while there is
+/// room (the variations at the move shown).
+fn wrap(words: Vec<(String, Style, bool)>, w: usize, base: Style, room: usize, keep: Option<usize>) -> Vec<Line<'static>> {
     let mut body: Vec<Vec<Span>> = vec![vec![]];
     let mut used = 0;
     let mut here_line = 0;
-    for (text, style, here) in words {
+    let mut keep_line = 0;
+    for (k, (text, style, here)) in words.into_iter().enumerate() {
         if text == "\n" {
             body.push(vec![]);
             used = 0;
@@ -1876,10 +1888,15 @@ fn wrap(words: Vec<(String, Style, bool)>, w: usize, base: Style, room: usize) -
         if here {
             here_line = body.len() - 1;
         }
+        if keep == Some(k) {
+            keep_line = body.len() - 1;
+        }
         used += tw;
         body.last_mut().expect("one line at least").push(Span::styled(text, style));
     }
-    let top = here_line.saturating_sub(room.saturating_sub(2));
+    // The move shown a line from the bottom, or higher when what follows it needs the room;
+    // never above the top.
+    let top = here_line.saturating_sub(room.saturating_sub(2)).max((keep_line + 1).saturating_sub(room)).min(here_line);
     body.into_iter().skip(top).take(room).map(Line::from).collect()
 }
 
@@ -1906,6 +1923,24 @@ mod tests {
 
     fn key(code: KeyCode) -> Key {
         Key { code, ctrl: false, alt: false, shift: false }
+    }
+
+    /// The move shown keeps the variations after it in view when there is room: before, it
+    /// sat a line from the bottom and they were cut off in a short window.
+    #[test]
+    fn the_variations_after_the_move_shown_stay_in_view() {
+        let words = |here: usize| -> Vec<(String, Style, bool)> { (0..40).map(|k| (format!("w{k:02}"), Style::default(), k == here)).collect() };
+        let text = |lines: Vec<Line<'static>>| lines.iter().map(|l| l.spans.iter().map(|s| s.content.to_string()).collect::<String>()).collect::<Vec<_>>();
+        // 4 words a line (w00 w01 w02 w03), 5 lines of room; the move shown on the 7th line.
+        let at = |here, keep| text(wrap(words(here), 15, Style::default(), 5, keep));
+        assert_eq!(at(24, None)[3], "w24 w25 w26 w27", "without a variation: a line from the bottom");
+        // Its variations up to w35 (the 9th line): scrolled on until w35 is on the last line.
+        let shown = at(24, Some(35));
+        assert_eq!((shown[2].as_str(), shown[4].as_str()), ("w24 w25 w26 w27", "w32 w33 w34 w35"));
+        // More than there is room for: the move shown stays, on the top line.
+        assert_eq!(at(4, Some(39))[0], "w04 w05 w06 w07");
+        // Near the start: nothing scrolls.
+        assert_eq!(at(1, Some(6))[0], "w00 w01 w02 w03");
     }
 
     #[test]

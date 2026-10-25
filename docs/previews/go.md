@@ -56,7 +56,7 @@ list of 100,000 games opens and scrolls as quickly as one of ten.
 | **Moves** | How many moves the main line has |
 
 **Opening a game.** Desktop: **Enter** or a double-click; in the window (**Alt+K**) the list has
-the keys at once, in the preview pane click it first. Terminal: **Enter**. **↑** and **↓** move
+the keys at once, in the preview pane click it first (**Esc** there gives the keys back to the panels). Terminal: **Enter**. **↑** and **↓** move
 the cursor, **PgUp**, **PgDn**, **Home** and **End** further.
 
 ## A game on the board

@@ -11,7 +11,7 @@
   // is shown as text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, basename, chessFormat } from "./lib.js";
+  import { invoke, basename, chessFormat, viewEnd } from "./lib.js";
   import { t } from "./i18n.svelte.js";
 
   let { path, full = false } = $props();
@@ -591,7 +591,26 @@
       const i = s.indexOf(at);
       at = s[Math.max(0, Math.min(s.length - 1, i + (to === "down" ? 1 : -1)))];
     }
-    setTimeout(() => movesEl?.querySelector(".here")?.scrollIntoView({ block: "nearest" }), 0);
+    setTimeout(keepInView, 0);
+  }
+
+  /** The move shown in view in the moves, and after it, while there is room, its variations
+   *  and the other moves from its position (`viewEnd`): before, it was scrolled to the
+   *  bottom edge and they stayed out of sight in a short pane. Only the moves scroll. */
+  function keepInView() {
+    const here = movesEl?.querySelector(".here");
+    if (!here) return;
+    const i = game.layout.findIndex((t) => t.t === "move" && t.node === at);
+    const end = (i < 0 ? null : movesEl.querySelector(`[data-tok="${viewEnd(game.layout, i)}"]`)) ?? here;
+    const box = movesEl.getBoundingClientRect();
+    const top = here.getBoundingClientRect().top - box.top + movesEl.scrollTop;
+    const bottom = end.getBoundingClientRect().bottom - box.top + movesEl.scrollTop;
+    const view = movesEl.clientHeight;
+    // The end at the bottom when it is below; the move shown never above the top.
+    let y = movesEl.scrollTop;
+    if (bottom > y + view) y = bottom - view;
+    if (top < y) y = top;
+    movesEl.scrollTop = y;
   }
 
   function nextGame(by) {
@@ -897,13 +916,13 @@
           {#each game.layout as tok, i (i)}
             {#if tok.t === "move"}
               {@const n = nodes[tok.node]}
-              <button class="mv" class:here={!inLine && at === tok.node} class:var={n.depth > 0} onclick={() => goto(tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}{#if marks.has(tok.node) && !n.nags.some((x) => x <= 6)}<span class="eng m{marks.get(tok.node)}">{MARK[marks.get(tok.node)]}</span>{/if}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
+              <button class="mv" data-tok={i} class:here={!inLine && at === tok.node} class:var={n.depth > 0} onclick={() => goto(tok.node)}>{tok.number ?? ""}{#each show(n.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{glued(n.nags)}{#if marks.has(tok.node) && !n.nags.some((x) => x <= 6)}<span class="eng m{marks.get(tok.node)}">{MARK[marks.get(tok.node)]}</span>{/if}</button>{#if apart(n.nags)}<span class="nag">{apart(n.nags)}</span>{/if}{" "}
             {:else if tok.t === "comment"}
-              <span class="comment">{tok.text}</span>{" "}
+              <span class="comment" data-tok={i}>{tok.text}</span>{" "}
             {:else if tok.t === "open"}
-              <span class="paren">(</span>
+              <span class="paren" data-tok={i}>(</span>
             {:else if tok.t === "close"}
-              <span class="paren">)</span>{" "}
+              <span class="paren" data-tok={i}>)</span>{" "}
             {:else if tok.t === "result"}
               <b>{tok.text}</b>
             {/if}
@@ -994,7 +1013,7 @@
     flex: 1;
     gap: 6px;
     padding: 8px 12px;
-    container-type: inline-size;
+    container-type: size;
   }
   .chess.full {
     position: fixed;
@@ -1097,19 +1116,43 @@
     background: var(--cursor-bg);
     color: var(--cursor-fg);
   }
+  /* The board beside the moves; each scrolls on its own, so the move shown and its variations
+     can be kept in view without the board going out of it. */
   .game {
     display: flex;
-    flex-wrap: wrap;
     gap: 12px;
     min-height: 0;
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
   }
   .side {
     flex: 0 1 min(100%, 420px);
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  /* A narrow pane (the preview): the board over the moves, at most half as high as the view,
+     so the moves keep the rest. Before, the moves wrapped under a full-width board and showed
+     two lines in a short window. */
+  @container (max-width: 700px) {
+    .game {
+      flex-direction: column;
+    }
+    .side {
+      flex: none;
+      overflow: visible;
+    }
+    .side > .board,
+    .board-row {
+      width: min(100%, 50cqh);
+      align-self: center;
+    }
+    .moves {
+      flex: 1 1 0;
+      min-height: 5em;
+    }
   }
   .full .side {
     flex-basis: min(100%, 60vh);

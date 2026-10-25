@@ -548,7 +548,7 @@
  "chess.keys_game": "← → askel · ↓ ↑ variaatioon ja takaisin · Home End · m pelaa siirto · a moottori · b paras siirto · p etsi asema · g analysoi peli · w tallenna kommentoituna · f käännä · n merkintätapa · PgUp PgDn toinen peli · Esc pelit",
  "chess.keys_game_gui": "Napsauta lautaa, sitten ← → askel · ↓ ↑ variaatioon ja takaisin · Home End · a moottori · b paras siirto · p etsi asema · g analysoi peli · w tallenna kommentoituna · f käännä · n merkintätapa · PgUp PgDn toinen peli · Esc pelit. Siirron napsautus näyttää sen; nappulan ja sitten ruudun napsautus jatkaa peliä tästä.",
  "chess.keys_list": "Enter avaa · / pelaaja · o avaus · r tulos · y vuodet · e luokitus · s lajittele · S käänteinen · c tyhjennä · Esc sulje",
- "chess.keys_list_gui": "Enter tai kaksoisnapsautus avaa pelin · otsikon napsautus lajittelee sen mukaan, uusi napsautus kääntää järjestyksen",
+ "chess.keys_list_gui": "Enter tai kaksoisnapsautus avaa pelin · otsikon napsautus lajittelee sen mukaan, uusi napsautus kääntää järjestyksen · Esc takaisin kansioihin",
  "chess.keys_pick": "Kirjoita rajataksesi (Nf3, e4, O-O) · ← → valitse · Enter pelaa · Esc peruuta",
  "chess.keys_position": "← → asema · Home End · m pelaa siirto · a moottori · b paras siirto · p etsi asema · f käännä · n merkintätapa · Esc sulje",
  "chess.keys_position_gui": "Napsauta lautaa, sitten ← → asema · Home End · a moottori · b paras siirto · p etsi asema · f käännä · n merkintätapa. Nappulan ja sitten ruudun napsautus jatkaa peliä tästä.",

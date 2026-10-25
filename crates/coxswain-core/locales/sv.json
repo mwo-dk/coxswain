@@ -548,7 +548,7 @@
  "chess.keys_game": "← → steg · ↓ ↑ in i en variant och tillbaka · Home End · m spela ett drag · a motor · b bästa drag · p hitta ställning · g analysera parti · w spara kommenterat · f vänd · n notation · PgUp PgDn annat parti · Esc partier",
  "chess.keys_game_gui": "Klicka på brädet, sedan ← → steg · ↓ ↑ in i en variant och tillbaka · Home End · a motor · b bästa drag · p hitta ställning · g analysera parti · w spara kommenterat · f vänd · n notation · PgUp PgDn annat parti · Esc partier. Ett klick på ett drag visar det; ett klick på en pjäs och sedan på en ruta spelar vidare härifrån.",
  "chess.keys_list": "Enter öppna · / spelare · o öppning · r resultat · y år · e betyg · s sortera · S omvänd · c rensa · Esc stäng",
- "chess.keys_list_gui": "Enter eller dubbelklick öppnar ett parti · ett klick på en rubrik sorterar efter den, igen vänder ordningen",
+ "chess.keys_list_gui": "Enter eller dubbelklick öppnar ett parti · ett klick på en rubrik sorterar efter den, igen vänder ordningen · Esc tillbaka till mapparna",
  "chess.keys_pick": "Skriv för att avgränsa (Nf3, e4, O-O) · ← → välj · Enter spela · Esc avbryt",
  "chess.keys_position": "← → position · Home End · m spela ett drag · a motor · b bästa drag · p hitta ställning · f vänd · n notation · Esc stäng",
  "chess.keys_position_gui": "Klicka på brädet, sedan ← → position · Home End · a motor · b bästa drag · p hitta ställning · f vänd · n notation. Ett klick på en pjäs och sedan på en ruta spelar vidare härifrån.",

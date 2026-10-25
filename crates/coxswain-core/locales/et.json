@@ -548,7 +548,7 @@
  "chess.keys_game": "← → samm · ↓ ↑ variandisse ja tagasi · Home End · m käi käik · a mootor · b parim käik · p leia seis · g analüüsi partii · w salvesta kommenteeritult · f pööra · n kirjaviis · PgUp PgDn teine partii · Esc partiid",
  "chess.keys_game_gui": "Klõpsa lauda, siis ← → samm · ↓ ↑ variandisse ja tagasi · Home End · a mootor · b parim käik · p leia seis · g analüüsi partii · w salvesta kommenteeritult · f pööra · n kirjaviis · PgUp PgDn teine partii · Esc partiid. Klõps käigul näitab seda; klõps nupul ja siis ruudul jätkab mängu siit.",
  "chess.keys_list": "Enter ava · / mängija · o avang · r tulemus · y aastad · e reiting · s sorteeri · S vastupidi · c tühjenda · Esc sulge",
- "chess.keys_list_gui": "Enter või topeltklõps avab partii · klõps pealkirjal sorteerib selle järgi, uuesti klõps pöörab ümber",
+ "chess.keys_list_gui": "Enter või topeltklõps avab partii · klõps pealkirjal sorteerib selle järgi, uuesti klõps pöörab ümber · Esc tagasi kaustade juurde",
  "chess.keys_pick": "Kirjuta kitsendamiseks (Nf3, e4, O-O) · ← → vali · Enter käi · Esc loobu",
  "chess.keys_position": "← → positsioon · Home End · m käi käik · a mootor · b parim käik · p leia seis · f pööra · n kirjaviis · Esc sulge",
  "chess.keys_position_gui": "Klõpsa lauda, siis ← → positsioon · Home End · a mootor · b parim käik · p leia seis · f pööra · n kirjaviis. Klõps nupul ja siis ruudul jätkab mängu siit.",

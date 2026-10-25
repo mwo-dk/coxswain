@@ -529,7 +529,7 @@
  "chess.keys_game": "← → 앞뒤로 · ↓ ↑ 변화로 들어가기와 나오기 · Home End · m 수 두기 · a 엔진 · b 최선의 수 · p 국면 찾기 · g 대국 분석 · w 주석 저장 · f 뒤집기 · n 표기 · PgUp PgDn 다른 대국 · Esc 대국 목록",
  "chess.keys_game_gui": "체스판을 클릭한 다음 ← → 앞뒤로 · ↓ ↑ 변화로 들어가기와 나오기 · Home End · a 엔진 · b 최선의 수 · p 국면 찾기 · g 대국 분석 · w 주석 저장 · f 뒤집기 · n 표기 · PgUp PgDn 다른 대국 · Esc 대국 목록. 수를 클릭하면 그 수를 보여 주고, 기물을 클릭한 다음 칸을 클릭하면 여기서부터 이어서 둡니다.",
  "chess.keys_list": "Enter 열기 · / 기사 · o 오프닝 · r 결과 · y 연도 · e 레이팅 · s 정렬 · S 역순 · c 지우기 · Esc 닫기",
- "chess.keys_list_gui": "Enter 또는 더블 클릭으로 대국 열기 · 제목을 클릭하면 그 기준으로 정렬, 다시 클릭하면 역순",
+ "chess.keys_list_gui": "Enter 또는 더블 클릭으로 대국 열기 · 제목을 클릭하면 그 기준으로 정렬, 다시 클릭하면 역순 · Esc 폴더로 돌아가기",
  "chess.keys_pick": "입력해서 좁히기 (Nf3, e4, O-O) · ← → 선택 · Enter 두기 · Esc 취소",
  "chess.keys_position": "← → 포지션 · Home End · m 수 두기 · a 엔진 · b 최선의 수 · p 국면 찾기 · f 뒤집기 · n 표기 · Esc 닫기",
  "chess.keys_position_gui": "체스판을 클릭한 다음 ← → 포지션 · Home End · a 엔진 · b 최선의 수 · p 국면 찾기 · f 뒤집기 · n 표기. 기물을 클릭한 다음 칸을 클릭하면 여기서부터 이어서 둡니다.",

@@ -112,3 +112,28 @@ test("looksLikeDhtml: a DhtmlXQ xiangqi game by its name and first bytes", async
   assert.ok(looksLikeDhtml("game.che", "  [DhtmlXQ_title]") && looksLikeDhtml("g.TXT", "[dhtmlxq]"));
   assert.ok(!looksLikeDhtml("main.rs", "[DhtmlXQ]") && !looksLikeDhtml("README", "# [DhtmlXQ]"));
 });
+
+test("viewEnd: the move shown keeps its variations and the other moves from its position in view", async () => {
+  const { viewEnd } = await pick("viewEnd");
+  // 2.O-O Nc6 (2…a5 3.bxa5) 3.Bb2 a6 {Controls b5} (3…g6) 4.Rfd1 1-0
+  const m = { t: "move" };
+  const L = [m, m, { t: "open" }, m, m, { t: "close" }, m, m, { t: "comment" }, { t: "open" }, m, { t: "close" }, m, { t: "result" }];
+  assert.equal(viewEnd(L, 0), 5, "on 2.O-O: 2…Nc6 and its variation 2…a5, not 3.Bb2");
+  assert.equal(viewEnd(L, 1), 6, "on 2…Nc6: its variation and 3.Bb2");
+  assert.equal(viewEnd(L, 6), 11, "on 3.Bb2: 3…a6, its comment and its variation");
+  assert.equal(viewEnd(L, 3), 5, "in a variation: up to its end");
+  assert.equal(viewEnd(L, 12), 12, "the last move");
+});
+
+test("keyOwner: Esc in a game's list or board gives the keys back to the panels", async () => {
+  const { keyOwner } = await pick("keyOwner");
+  const inView = { closest: (s) => (s.includes(".chess-keys") ? {} : null) };
+  const outside = { closest: () => null };
+  // The game list in the preview pane kept every key but F1-F12: arrows and Esc did nothing
+  // there with one game, and the panels never got them back.
+  assert.equal(keyOwner(inView, "Down"), "view");
+  assert.equal(keyOwner(inView, "Esc"), "panels");
+  assert.equal(keyOwner(inView, "F3"), "theirs");
+  assert.equal(keyOwner(outside, "Down"), "theirs");
+  assert.equal(keyOwner(undefined, "Esc"), "theirs");
+});

@@ -241,6 +241,31 @@ pub enum Token {
     Result { text: String },
 }
 
+/// The last token of `layout` to keep in view with the move at `i`: the move, the variations
+/// that replace it, the next move and the variations that replace that one (the other moves
+/// from the position shown), with their comments; up to the move after, or the end of the
+/// variation it is in. Both apps scroll the moves so that this much shows when there is room.
+pub fn view_end(layout: &[Token], i: usize) -> usize {
+    let (mut depth, mut moves, mut end) = (0u32, 0, i);
+    for (j, tok) in layout.iter().enumerate().skip(i + 1) {
+        match tok {
+            Token::Open { .. } => depth += 1,
+            Token::Close { .. } if depth == 0 => return j,
+            Token::Close { .. } => depth -= 1,
+            Token::Move { .. } if depth == 0 => {
+                moves += 1;
+                if moves == 2 {
+                    return end;
+                }
+            }
+            Token::Result { .. } => return end,
+            _ => {}
+        }
+        end = j;
+    }
+    end
+}
+
 /// The annotation `!`, `?`, `!!`, `??`, `!?` or `?!` as its NAG number.
 pub(crate) fn suffix_nag(s: &str) -> Option<u8> {
     Some(match s {
@@ -785,6 +810,37 @@ mod tests {
 6.Bc4 Nf6 7.Qb3 Qe7 8.Nc3 c6 9.Bg5 b5 $2 10.Nxb5! cxb5 11.Bxb5+ Nbd7 12.O-O-O Rd8
 13.Rxd7 Rxd7 14.Rd1 Qe6 15.Bxd7+ Nxd7 (15...Qxd7 16.Qb8+ Ke7 17.Qxe5+ (17.Bxf6+ gxf6) 17...Kd8) 16.Qb8+ Nxb8 17.Rd8# 1-0
 "#;
+
+    /// The moves kept in view with the move shown: its own variations, the next move and the
+    /// next move's variations (the other moves from the position shown), not the move after.
+    #[test]
+    fn the_variations_at_the_move_shown_are_kept_in_view() {
+        let g = parse("1. d4 Nf6 2. O-O Nc6 (2... a5 3. bxa5 $11) 3. Bb2 $14 a6 {Controls b5} (3... g6 4. Rfd1 (4. Nxd5 Qxd5)) 4. Rfd1 g6 1-0");
+        let l = g.layout();
+        let at = |san: &str| l.iter().position(|t| matches!(t, Token::Move { node, .. } if g.nodes[*node as usize].san == san)).unwrap();
+        let shown = |i: usize| -> Vec<String> {
+            l[i..=view_end(&l, i)]
+                .iter()
+                .map(|t| match t {
+                    Token::Move { node, .. } => g.nodes[*node as usize].san.clone(),
+                    Token::Open { .. } => "(".into(),
+                    Token::Close { .. } => ")".into(),
+                    Token::Comment { text } => format!("{{{text}}}"),
+                    Token::Result { text } => text.clone(),
+                })
+                .collect()
+        };
+        // On 2.O-O: the next move 2…Nc6 and its variation 2…a5, not 3.Bb2.
+        assert_eq!(shown(at("O-O")), ["O-O", "Nc6", "(", "a5", "bxa5", ")"]);
+        // On 2…Nc6: its own variation, then 3.Bb2, which has none, up to 3…a6.
+        assert_eq!(shown(at("Nc6")), ["Nc6", "(", "a5", "bxa5", ")", "Bb2"]);
+        // On 3.Bb2: 3…a6 with its comment and its variation, a variation in it too.
+        assert_eq!(shown(at("Bb2")), ["Bb2", "a6", "{Controls b5}", "(", "g6", "Rfd1", "(", "Nxd5", "Qxd5", ")", ")"]);
+        // In a variation: up to its end.
+        assert_eq!(shown(at("a5")), ["a5", "bxa5", ")"]);
+        // The last move: the result is not needed.
+        assert_eq!(shown(l.len() - 2), ["g6"]);
+    }
 
     #[test]
     fn comments_draw_squares_and_arrows() {
