@@ -1,0 +1,1 @@
+| **The terminal app's Settings shows each row's explanation whole.** The box at the bottom grows to the lines it needs, at 80×24 and in every language, and the rows above scroll; it used to cut long explanations after two lines. | [Settings](customise/settings.md#in-the-terminal-app) |

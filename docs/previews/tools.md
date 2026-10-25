@@ -117,7 +117,7 @@ no image **Enter** skips *Container*, and the keys are **Enter**, **C** and **O*
 none) to name an image. The
 terminal app has no **Try**: it shows no rendered preview.
 
-![The terminal app's Settings, Previews: the options, then Preview tools, a line per kind with its choice and what is used now](../screenshots/tui-previews-tools.png)
+![The terminal app's Settings, Previews: the chess engines, then Preview tools, a line per kind with its choice and what is used now; Office documents under the cursor, its explanation at the bottom whole on three lines: what is installed, its container image and every extension it covers](../screenshots/tui-previews-tools.png)
 
 ## Preview with…
 

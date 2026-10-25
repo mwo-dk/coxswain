@@ -1402,6 +1402,136 @@ fn find(query: &str) -> Vec<&'static Opt> {
 
 // ---------------------------------------------------------------- drawing
 
+/// What the row under the cursor is (or what a question waits for), as the bottom box shows it.
+fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
+    let cfg = &app.cfg;
+    let level = cs::level(&cfg.search);
+    let base = dstyle(&app.theme);
+    let dim = base.add_modifier(Modifier::DIM);
+    let red = base.fg(Color::Red);
+    let mut text: Vec<Span> = vec![];
+    match &s.mode {
+        // A change of what is kept of long files, or of the vectors' model.
+        Mode::Confirm(why, changes) if changes.keys().any(|k| k.starts_with("long_files")) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("common.apply"), t!("common.cancel")), red)),
+        Mode::Confirm(why, _) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("settings.meaning_change_go"), t!("settings.meaning_change_keep")), red)),
+        Mode::ConfirmDelete(id) => {
+            let name = rows.iter().find_map(|r| match r {
+                Row::Model(e) if e.id == *id => Some(e.name.clone()),
+                _ => None,
+            });
+            text.push(Span::styled(format!("{} {}", t!("models.confirm", "model" => name.unwrap_or_default()), t!("models.confirm_tui")), red));
+        }
+        // What goes, exactly, before it goes.
+        Mode::ConfirmClear(id) => {
+            let goes: Vec<String> = if id == CLEAR_ALL {
+                s.disk.iter().filter(|i| coxswain_core::disk::clearable_bytes(std::slice::from_ref(*i), s.ticks.0, s.ticks.1) > 0).map(|i| i.name.clone()).collect()
+            } else {
+                s.disk.iter().filter(|i| i.id == *id).map(|i| format!("{} ({}) · {}", i.paths.first().map(|p| p.display().to_string()).unwrap_or_else(|| i.name.clone()), cs::human(i.bytes), i.cost)).collect()
+            };
+            text.push(Span::styled(format!("{} {}. {}", t!("disk.confirm"), goes.join(", "), t!("disk.confirm_tui")), red));
+        }
+        Mode::Find { query, at } => {
+            if let Some(o) = find(query).get(*at) {
+                text.push(Span::raw(o.hint()));
+            }
+        }
+        _ => match rows.get(s.cursor) {
+            Some(Row::Opt(o)) => {
+                text.push(Span::raw(o.hint()));
+                if o.name == "ask_context" {
+                    let a = coxswain_core::setup::context_advice(&cfg.search, coxswain_core::setup::look(false).as_deref());
+                    if let Some(n) = a.suggest {
+                        text.push(Span::styled(format!(" {} {}", a.why, t!("setup.context_use", "n" => n)), red));
+                    }
+                }
+                for c in o.costs {
+                    text.push(Span::styled(format!(" [{}]", c.label()), if *c == cs::Cost::Leaves { red } else { dim }));
+                }
+                let key = if o.path.len() > 1 { format!("[{}] {}", o.path[..o.path.len() - 1].join("."), o.path[o.path.len() - 1]) } else { o.path[0].to_string() };
+                text.push(Span::styled(format!("  {key}"), dim));
+            }
+            Some(Row::Level(l)) => {
+                text.push(Span::raw(t!(&format!("settings.level.{}.hint", l.id()))));
+                for c in l.costs() {
+                    text.push(Span::styled(format!(" [{}]", c.label()), if *c == cs::Cost::Leaves { red } else { dim }));
+                }
+                if level.is_none() {
+                    text.push(Span::styled(format!(" {}", t!("settings.level.custom")), red));
+                }
+            }
+            Some(Row::Status(l)) if l.poor.is_some() => text.push(Span::styled(l.poor.as_ref().map(|p| p.text.clone()).unwrap_or_default(), red)),
+            Some(Row::Status(l)) => {
+                let note = match (l.part, &s.trial) {
+                    (cs::Part::Ask, Some((said, bad))) => Some((said.clone(), *bad)),
+                    _ => l.note.clone().map(|n| (n, l.bad)),
+                };
+                match note {
+                    Some((n, bad)) => text.push(Span::styled(n, if bad { red } else { base })),
+                    None => text.push(Span::raw(l.text.clone())),
+                }
+                if let Some(also) = l.also {
+                    text.push(Span::styled(format!("  {}", t!("settings.step.also_tui", "step" => also.label())), dim));
+                }
+            }
+            Some(Row::SetUp) => text.push(Span::raw(t!("setup.open_hint"))),
+            Some(Row::Guide) => text.push(Span::raw(t!("guide.show_again_hint"))),
+            Some(Row::EditKeys) => text.push(Span::raw(t!("settings.keys_hint"))),
+            Some(Row::Tool(_, false, Some(line))) => text.push(Span::raw(t!("install.copy_tui", "command" => line))),
+            Some(Row::Tool(name, false, None)) => text.push(Span::raw(t!("install.get", "program" => name))),
+            Some(Row::Tool(name, true, _)) => text.push(Span::raw(t!(&format!("settings.search_tool_{name}")))),
+            Some(Row::Service) => text.push(Span::raw(t!("setup.service_hint"))),
+            Some(Row::Info(_, _, hint)) => text.push(Span::raw(hint.clone())),
+            Some(Row::Go(_, value)) => text.push(Span::raw(value.clone())),
+            Some(Row::Notice(n)) => text.push(Span::raw(n.text.clone())),
+            Some(Row::Poor(p)) => text.push(Span::raw(p.text.clone())),
+            Some(Row::Model(e)) => {
+                text.push(Span::raw(e.folder.display().to_string()));
+                text.push(Span::styled(format!("  {}", t!("models.keys_tui")), dim));
+            }
+            Some(Row::DeleteUnused(_)) => text.push(Span::raw(t!("models.hint"))),
+            Some(Row::Server(_)) => text.push(Span::raw(t!("settings.history_servers_hint"))),
+            Some(Row::Disk(i)) => {
+                let at = i.paths.first().map(|p| format!(" · {}", p.display())).unwrap_or_default();
+                text.push(Span::raw(format!("{} {}: {}", i.what, t!("disk.cost_label"), i.cost)));
+                text.push(Span::styled(at, dim));
+            }
+            Some(Row::Tick(true, _)) => text.push(Span::raw(t!("disk.outside_hint"))),
+            Some(Row::Tick(false, _)) => text.push(Span::raw(t!("models.hint"))),
+            Some(Row::ClearAll(_)) => text.push(Span::raw(t!("disk.clear_all_hint"))),
+            Some(Row::Engine(e)) => {
+                let mut parts: Vec<String> = e.note.iter().cloned().collect();
+                if let Some(line) = &e.install {
+                    parts.push(format!("{} {line}", t!("install.with")));
+                }
+                parts.extend(e.site.map(String::from));
+                text.push(Span::raw(parts.join(" · ")));
+            }
+            Some(Row::EngineTest) => text.push(Span::raw(t!("chess.engine_test_hint"))),
+            Some(Row::EngineReset) => text.push(Span::raw(t!("chess.engine_reset_hint"))),
+            Some(Row::EngineOpt(o)) => text.push(Span::raw(option_about(&o.option))),
+            Some(Row::PreviewTool(r)) => {
+                let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
+                let mut parts = vec![if installed.is_empty() { t!("ptools.installed_none") } else { t!("ptools.installed", "programs" => installed.join(", ")) }];
+                if let (true, Some(line)) = (installed.is_empty(), &r.install) {
+                    parts.push(format!("{} {line}", t!("install.with")));
+                }
+                for i in &r.images {
+                    let state = match (i.pulled, &i.download) {
+                        (Some(b), _) => t!("settings.image_pulled", "size" => cs::human(b)),
+                        (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
+                        (None, None) => t!("settings.image_not_pulled"),
+                    };
+                    parts.push(if i.image.is_empty() { t!("ptools.container_none", "key" => i.key) } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
+                }
+                parts.push(r.exts.clone());
+                text.push(Span::raw(parts.join(" · ")));
+            }
+            _ => {}
+        },
+    }
+    text
+}
+
 /// Full screen: areas left, rows right, the selected row explained at the bottom.
 pub fn draw(f: &mut Frame, app: &mut App) {
     // The models on the disk, read again only when what is loaded changed.
@@ -1444,7 +1574,12 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
     // Areas on the left, a third of the width at most.
     let aw = AREAS.iter().map(|a| a.label().width()).max().unwrap_or(10).min(inner.width as usize / 3) + 2;
-    let body_h = inner.height - 4;
+    // The explanation whole: its box grows to the lines it needs, the rows above giving way
+    // (they scroll); three rows are kept for them.
+    let explain_w = inner.width - 3;
+    let text = Paragraph::new(Line::from(explain(app, s, &rows))).wrap(Wrap { trim: true });
+    let explain_h = (text.line_count(explain_w) as u16).clamp(2, inner.height.saturating_sub(5).max(2));
+    let body_h = inner.height - 2 - explain_h;
     for (i, a) in AREAS.iter().enumerate().take(body_h as usize) {
         let st = if *a == s.area { selected } else { base };
         f.render_widget(Paragraph::new(fit(&format!(" {}", a.label()), aw)).style(st), Rect { x: inner.x, y: inner.y + i as u16, width: aw as u16, height: 1 });
@@ -1663,135 +1798,15 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     }
     f.render_widget(Paragraph::new(lines.into_iter().skip(offset).take(height).collect::<Vec<_>>()), right);
 
-    // The bottom: a rule, what the row is (two lines), the keys or what was done.
+    // The bottom: a rule, what the row is (as many lines as it needs), the keys or what was done.
     let y = inner.y + body_h;
     let rule = format!("{}┴{}", "─".repeat(aw), "─".repeat((inner.width as usize).saturating_sub(aw + 1)));
     f.render_widget(Paragraph::new(rule).style(border), Rect { y, height: 1, ..inner });
     let Some(Dialog::Settings(s)) = &app.dialog else { return };
     // One column short: ratatui lets a wide letter that wraps at the edge spill over the frame.
-    let explain = Rect { x: inner.x + 1, y: y + 1, height: 2, width: inner.width - 3 };
-    let mut text: Vec<Span> = vec![];
-    match &s.mode {
-        // A change of what is kept of long files, or of the vectors' model.
-        Mode::Confirm(why, changes) if changes.keys().any(|k| k.starts_with("long_files")) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("common.apply"), t!("common.cancel")), red)),
-        Mode::Confirm(why, _) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("settings.meaning_change_go"), t!("settings.meaning_change_keep")), red)),
-        Mode::ConfirmDelete(id) => {
-            let name = rows.iter().find_map(|r| match r {
-                Row::Model(e) if e.id == *id => Some(e.name.clone()),
-                _ => None,
-            });
-            text.push(Span::styled(format!("{} {}", t!("models.confirm", "model" => name.unwrap_or_default()), t!("models.confirm_tui")), red));
-        }
-        // What goes, exactly, before it goes.
-        Mode::ConfirmClear(id) => {
-            let goes: Vec<String> = if id == CLEAR_ALL {
-                s.disk.iter().filter(|i| coxswain_core::disk::clearable_bytes(std::slice::from_ref(*i), s.ticks.0, s.ticks.1) > 0).map(|i| i.name.clone()).collect()
-            } else {
-                s.disk.iter().filter(|i| i.id == *id).map(|i| format!("{} ({}) · {}", i.paths.first().map(|p| p.display().to_string()).unwrap_or_else(|| i.name.clone()), cs::human(i.bytes), i.cost)).collect()
-            };
-            text.push(Span::styled(format!("{} {}. {}", t!("disk.confirm"), goes.join(", "), t!("disk.confirm_tui")), red));
-        }
-        Mode::Find { query, at } => {
-            if let Some(o) = find(query).get(*at) {
-                text.push(Span::raw(o.hint()));
-            }
-        }
-        _ => match rows.get(s.cursor) {
-            Some(Row::Opt(o)) => {
-                text.push(Span::raw(o.hint()));
-                if o.name == "ask_context" {
-                    let a = coxswain_core::setup::context_advice(&cfg.search, coxswain_core::setup::look(false).as_deref());
-                    if let Some(n) = a.suggest {
-                        text.push(Span::styled(format!(" {} {}", a.why, t!("setup.context_use", "n" => n)), red));
-                    }
-                }
-                for c in o.costs {
-                    text.push(Span::styled(format!(" [{}]", c.label()), if *c == cs::Cost::Leaves { red } else { dim }));
-                }
-                let key = if o.path.len() > 1 { format!("[{}] {}", o.path[..o.path.len() - 1].join("."), o.path[o.path.len() - 1]) } else { o.path[0].to_string() };
-                text.push(Span::styled(format!("  {key}"), dim));
-            }
-            Some(Row::Level(l)) => {
-                text.push(Span::raw(t!(&format!("settings.level.{}.hint", l.id()))));
-                for c in l.costs() {
-                    text.push(Span::styled(format!(" [{}]", c.label()), if *c == cs::Cost::Leaves { red } else { dim }));
-                }
-                if level.is_none() {
-                    text.push(Span::styled(format!(" {}", t!("settings.level.custom")), red));
-                }
-            }
-            Some(Row::Status(l)) if l.poor.is_some() => text.push(Span::styled(l.poor.as_ref().map(|p| p.text.clone()).unwrap_or_default(), red)),
-            Some(Row::Status(l)) => {
-                let note = match (l.part, &s.trial) {
-                    (cs::Part::Ask, Some((said, bad))) => Some((said.clone(), *bad)),
-                    _ => l.note.clone().map(|n| (n, l.bad)),
-                };
-                match note {
-                    Some((n, bad)) => text.push(Span::styled(n, if bad { red } else { base })),
-                    None => text.push(Span::raw(l.text.clone())),
-                }
-                if let Some(also) = l.also {
-                    text.push(Span::styled(format!("  {}", t!("settings.step.also_tui", "step" => also.label())), dim));
-                }
-            }
-            Some(Row::SetUp) => text.push(Span::raw(t!("setup.open_hint"))),
-            Some(Row::Guide) => text.push(Span::raw(t!("guide.show_again_hint"))),
-            Some(Row::EditKeys) => text.push(Span::raw(t!("settings.keys_hint"))),
-            Some(Row::Tool(_, false, Some(line))) => text.push(Span::raw(t!("install.copy_tui", "command" => line))),
-            Some(Row::Tool(name, false, None)) => text.push(Span::raw(t!("install.get", "program" => name))),
-            Some(Row::Tool(name, true, _)) => text.push(Span::raw(t!(&format!("settings.search_tool_{name}")))),
-            Some(Row::Service) => text.push(Span::raw(t!("setup.service_hint"))),
-            Some(Row::Info(_, _, hint)) => text.push(Span::raw(hint.clone())),
-            Some(Row::Go(_, value)) => text.push(Span::raw(value.clone())),
-            Some(Row::Notice(n)) => text.push(Span::raw(n.text.clone())),
-            Some(Row::Poor(p)) => text.push(Span::raw(p.text.clone())),
-            Some(Row::Model(e)) => {
-                text.push(Span::raw(e.folder.display().to_string()));
-                text.push(Span::styled(format!("  {}", t!("models.keys_tui")), dim));
-            }
-            Some(Row::DeleteUnused(_)) => text.push(Span::raw(t!("models.hint"))),
-            Some(Row::Server(_)) => text.push(Span::raw(t!("settings.history_servers_hint"))),
-            Some(Row::Disk(i)) => {
-                let at = i.paths.first().map(|p| format!(" · {}", p.display())).unwrap_or_default();
-                text.push(Span::raw(format!("{} {}: {}", i.what, t!("disk.cost_label"), i.cost)));
-                text.push(Span::styled(at, dim));
-            }
-            Some(Row::Tick(true, _)) => text.push(Span::raw(t!("disk.outside_hint"))),
-            Some(Row::Tick(false, _)) => text.push(Span::raw(t!("models.hint"))),
-            Some(Row::ClearAll(_)) => text.push(Span::raw(t!("disk.clear_all_hint"))),
-            Some(Row::Engine(e)) => {
-                let mut parts: Vec<String> = e.note.iter().cloned().collect();
-                if let Some(line) = &e.install {
-                    parts.push(format!("{} {line}", t!("install.with")));
-                }
-                parts.extend(e.site.map(String::from));
-                text.push(Span::raw(parts.join(" · ")));
-            }
-            Some(Row::EngineTest) => text.push(Span::raw(t!("chess.engine_test_hint"))),
-            Some(Row::EngineReset) => text.push(Span::raw(t!("chess.engine_reset_hint"))),
-            Some(Row::EngineOpt(o)) => text.push(Span::raw(option_about(&o.option))),
-            Some(Row::PreviewTool(r)) => {
-                let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
-                let mut parts = vec![if installed.is_empty() { t!("ptools.installed_none") } else { t!("ptools.installed", "programs" => installed.join(", ")) }];
-                if let (true, Some(line)) = (installed.is_empty(), &r.install) {
-                    parts.push(format!("{} {line}", t!("install.with")));
-                }
-                for i in &r.images {
-                    let state = match (i.pulled, &i.download) {
-                        (Some(b), _) => t!("settings.image_pulled", "size" => cs::human(b)),
-                        (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
-                        (None, None) => t!("settings.image_not_pulled"),
-                    };
-                    parts.push(if i.image.is_empty() { t!("ptools.container_none", "key" => i.key) } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
-                }
-                parts.push(r.exts.clone());
-                text.push(Span::raw(parts.join(" · ")));
-            }
-            _ => {}
-        },
-    }
-    f.render_widget(Paragraph::new(Line::from(text)).wrap(Wrap { trim: true }), explain);
-    let keys = Rect { x: inner.x + 1, y: y + 3, height: 1, width: inner.width - 2 };
+    let explain = Rect { x: inner.x + 1, y: y + 1, height: explain_h, width: explain_w };
+    f.render_widget(text, explain);
+    let keys = Rect { x: inner.x + 1, y: y + 1 + explain_h, height: 1, width: inner.width - 2 };
     let (line, st) = match (&s.said, &s.mode) {
         (Some((said, bad)), _) => (said.clone(), if *bad { red } else { dim }),
         (None, Mode::Edit(_) | Mode::EngineEdit(_)) => (crate::ui::keys(&t!("verb.save")), dim),
@@ -2163,6 +2178,49 @@ mod tests {
         let mut all: Vec<&str> = cs::OPTIONS.iter().filter(|o| o.area == Area::Looks).map(|o| o.name).collect();
         all.sort();
         assert_eq!(names, all);
+    }
+
+    /// At 80×24, in English and in the language whose texts are widest, every row's
+    /// explanation shows whole in the box at the bottom. The language is the whole process's,
+    /// so this runs in a process of its own.
+    #[test]
+    fn every_explanation_shows_whole_at_80_by_24() {
+        if std::env::var_os("COXSWAIN_EXPLAIN_TEST").is_none() {
+            let out = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["settings::tests::every_explanation_shows_whole_at_80_by_24", "--exact", "--test-threads=1"])
+                .env("COXSWAIN_EXPLAIN_TEST", "1")
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stdout));
+            return;
+        }
+        let width = |code: &str| coxswain_core::i18n::catalogue(code).values().filter_map(Value::as_str).map(|v| v.width()).sum::<usize>();
+        let widest = coxswain_core::i18n::LANGUAGES.iter().map(|l| l.code).max_by_key(|c| width(c)).unwrap();
+        let d = crate::test_dir("panels");
+        let squeeze = |t: &str| t.chars().filter(|c| !c.is_whitespace() && *c != '║').collect::<String>();
+        for lang in ["en-GB", widest] {
+            coxswain_core::i18n::set_language(lang);
+            for area in AREAS {
+                let mut app = app(&d);
+                app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, area.id()))));
+                let mut last = None;
+                loop {
+                    let lines = screen(&mut app, 80, 24);
+                    let s = settings(&app);
+                    let rows = rows(&app, s);
+                    let want: String = explain(&app, s, &rows).iter().map(|x| x.content.as_ref()).collect();
+                    let rule = lines.iter().position(|l| l.contains('┴')).unwrap();
+                    let shown = lines[rule + 1..22].concat();
+                    assert_eq!(squeeze(&shown), squeeze(&want), "{lang}, {}, row {}", area.id(), s.cursor);
+                    if last == Some(s.cursor) {
+                        break;
+                    }
+                    last = Some(s.cursor);
+                    key(&mut app, KeyCode::Down);
+                }
+            }
+        }
+        coxswain_core::i18n::set_language("en-GB");
     }
 
     /// Every section can be walked to its last row by Down, drawn between keys as the app does,

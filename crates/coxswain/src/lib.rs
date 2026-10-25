@@ -6398,7 +6398,9 @@ mod wide_letters {
             for _ in 0..settings::AREAS.len() {
                 let s = draw(&mut app);
                 same_columns(&s, "║", 1..23);
-                same_columns(&s, "│", 1..19);
+                // The bar runs down to the rule over the explanation, which takes the lines it needs.
+                let rule = (1..23).find(|&y| s[y].iter().any(|c| c == "┴")).unwrap();
+                same_columns(&s, "│", 1..rule);
                 app.dialog_key(Key::new(KeyCode::Right, false, false, false));
             }
         }
