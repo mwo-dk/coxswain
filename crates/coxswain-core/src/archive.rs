@@ -4437,6 +4437,7 @@ mod tests {
         uncache(&first);
         let err = crate::fs::list(&first, true).unwrap_err().to_string();
         assert!(err.contains("go.7z.002"), "{err}");
+        clean_up();
         std::fs::remove_dir_all(d).unwrap();
     }
 
