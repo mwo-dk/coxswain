@@ -63,7 +63,7 @@ qemu-system-x86_64 -name $NAME-install -machine q35,accel=kvm -cpu host -smp 4 -
 MONITOR=monitor.sock $SERIAL serial.sock install.log sleep=2 'keys=set tty com0\r' timeout=30 'wait=boot> ' 'send=boot\r' \
   timeout=120 'wait=\(A\)utoinstall or \(S\)hell\? ' 'send=a\r' 'wait=Response file location\?.*\] ' \
   "send=http://10.0.2.2:$HTTP_PORT/install.conf\r" timeout=2400 'wait=CONGRATULATIONS' timeout=120 'wait=rebooting'
-echo quit | socat - UNIX-CONNECT:monitor.sock >/dev/null; sleep 1; rm -f qemu.pid serial.sock monitor.sock
+echo quit | socat - UNIX-CONNECT:monitor.sock >/dev/null; wait_off 30; rm -f serial.sock monitor.sock
 kill "$HTTP_PID"; HTTP_PID=; rm -rf "$H"
 
 DISK=openbsd.raw
