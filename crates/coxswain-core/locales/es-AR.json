@@ -550,8 +550,14 @@
  "chess.engine_missing": "No se encontró un motor de ajedrez: instalá Stockfish (stockfishchess.org) o indicá un motor UCI en Configuración → Vistas previas → Motor de ajedrez",
  "chess.engine_missing_install": "No se encontró un motor de ajedrez: instalá Stockfish ({command}) o indicá un motor UCI en Configuración → Vistas previas → Motor de ajedrez",
  "chess.engine_no_best": "El motor todavía no tiene jugada para esta posición: a lo activa",
+ "chess.engine_only_lines": {
+  "one": "El motor tiene solo {n} línea acá",
+  "many": "El motor tiene solo {n} líneas acá",
+  "other": "El motor tiene solo {n} líneas acá"
+ },
  "chess.engine_or_image": "O descargá la imagen de Stockfish de Coxswain en Configuración → Vistas previas → Imágenes de contenedor: así corre en un contenedor, sin red.",
- "chess.engine_lines_keys": "1–5 recorrer una línea",
+ "chess.engine_line_key": "1 recorrer la línea",
+ "chess.engine_lines_keys": "1–{n} recorrer una línea",
  "chess.engine_browse": "Línea {n}, jugada {at} de {total} · ← → paso · Enter la juega hasta acá · Esc vuelve a la partida",
  "chess.engine_line_tip": "Mostrar la línea {n} en el tablero hasta esta jugada, sin jugarla ({n}, después ← →)",
  "chess.engine_browse_play": "Jugar esta línea",

@@ -531,8 +531,13 @@
  "chess.engine_missing": "Ingen sjakkmotor funnet: installer Stockfish (stockfishchess.org), eller oppgi en UCI-motor i Innstillinger → Forhåndsvisninger → Sjakkmotor",
  "chess.engine_missing_install": "Ingen sjakkmotor funnet: installer Stockfish ({command}), eller oppgi en UCI-motor i Innstillinger → Forhåndsvisninger → Sjakkmotor",
  "chess.engine_no_best": "Motoren har ennå ikke noe trekk for denne stillingen: a slår den på",
+ "chess.engine_only_lines": {
+  "one": "Motoren har bare {n} variant her",
+  "other": "Motoren har bare {n} varianter her"
+ },
  "chess.engine_or_image": "Eller hent Coxswains Stockfish-image i Innstillinger → Forhåndsvisninger → Container-images: da kjører den i en container, uten nettverk.",
- "chess.engine_lines_keys": "1–5 gå gjennom en variant",
+ "chess.engine_line_key": "1 gå gjennom varianten",
+ "chess.engine_lines_keys": "1–{n} gå gjennom en variant",
  "chess.engine_browse": "Variant {n}, trekk {at} av {total} · ← → trekk · Enter spiller den hit · Esc tilbake til partiet",
  "chess.engine_line_tip": "Vis variant {n} på brettet til og med dette trekket uten å spille den ({n}, deretter ← →)",
  "chess.engine_browse_play": "Spill denne varianten",

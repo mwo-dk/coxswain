@@ -12,7 +12,7 @@
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
   import { invoke, basename, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
-  import { t } from "./i18n.svelte.js";
+  import { t, tn } from "./i18n.svelte.js";
 
   let { path, full = false } = $props();
 
@@ -453,7 +453,9 @@
   /** The engine's line `k` (from 0) of the game's position, stepped into at move `at`. */
   function browseLine(k, at = 1) {
     const l = engine?.fen === gameFen ? engine.a?.lines?.[k] : null;
-    if (!l?.steps?.length) return void (said = t("chess.engine_no_best"));
+    const n = engine?.fen === gameFen ? (engine.a?.lines?.length ?? 0) : 0;
+    // The engine answered with fewer lines than the one asked for.
+    if (!l?.steps?.length) return void (said = k >= n && n > 0 ? tn("chess.engine_only_lines", n) : t("chess.engine_no_best"));
     browse = { k, steps: l.steps, at };
     boardEl?.focus();
   }
@@ -715,7 +717,10 @@
   const PIECE = { k: "K", q: "Q", r: "R", b: "B", n: "N", p: "P" };
   const num = (v) => (v === "" || v == null ? null : Number(v) || null);
   /** A number field as wide as its label, which is all it shows until something is typed. */
-  const fits = (label) => `calc(${[...label].length}ch + 2.5em)`;
+  /** A width that holds `label` whole (wide characters count twice), with the field's padding. */
+  const fits = (label) => `calc(${[...label].reduce((n, c) => n + (c.codePointAt(0) >= 0x2e80 ? 2 : 1), 0)}ch + 2.5em)`;
+  /** A text filter as wide as its placeholder, never cut, but no wider than the pane. */
+  const whole = (label) => `flex-basis: ${fits(label)}; min-width: min(100%, ${fits(label)})`;
   const pct = $derived(progress && progress.size ? Math.floor((progress.read * 100) / progress.size) : 0);
 </script>
 
@@ -955,7 +960,7 @@
           <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
         {/if}
         {#if engine}
-          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.lines.length} · {t("chess.engine_lines_keys")}{/if}{/if}</p>
+          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.lines.length === 1} · {t("chess.engine_line_key")}{:else if engine.a.lines.length} · {t("chess.engine_lines_keys", { n: engine.a.lines.length })}{/if}{/if}</p>
           {#each engine.a?.lines ?? [] as l, k (k)}
             {@const on = browse?.k === k ? browse.at : 0}
             <p class="engine-line"><button class="mv line-no" class:here={on > 0} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k)}>{k + 1}</button> <b class="eval">{l.eval}</b> {#each l.steps ?? [] as m, i (i)}<button class="mv" class:later={on ? i >= on : i > 0} class:here={on === i + 1} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k, i + 1)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{" "}{/each}</p>
@@ -1008,9 +1013,9 @@
     </div>
   {:else if table}
     <div class="filters">
-      <input type="search" placeholder={t("chess.filter_player")} aria-label={t("chess.filter_player")} bind:value={query.player} />
-      {#if bridge}<input type="search" placeholder={t("bridge.col_contract")} aria-label={t("bridge.col_contract")} bind:value={query.opening} />{/if}
-      {#if !other}<input type="search" placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
+      <input type="search" style={whole(t("chess.filter_player"))} placeholder={t("chess.filter_player")} aria-label={t("chess.filter_player")} bind:value={query.player} />
+      {#if bridge}<input type="search" style={whole(t("bridge.col_contract"))} placeholder={t("bridge.col_contract")} aria-label={t("bridge.col_contract")} bind:value={query.opening} />{/if}
+      {#if !other}<input type="search" style={whole(t("chess.filter_opening"))} placeholder={t("chess.filter_opening")} aria-label={t("chess.filter_opening")} bind:value={query.opening} />{/if}
       {#if !bridge}<select aria-label={t("chess.col_result")} bind:value={query.result}>
         <option value="">{t("chess.result_any")}</option>
         <option value="1-0">{draughts ? "2-0 · 1-0" : "1-0"}</option>

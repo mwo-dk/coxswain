@@ -531,8 +531,13 @@
  "chess.engine_missing": "موتور شطرنجی پیدا نشد: Stockfish را نصب کنید (stockfishchess.org) یا در تنظیمات → پیش‌نمایش‌ها → موتور شطرنج یک موتور UCI مشخص کنید",
  "chess.engine_missing_install": "موتور شطرنجی پیدا نشد: Stockfish را نصب کنید ({command}) یا در تنظیمات → پیش‌نمایش‌ها → موتور شطرنج یک موتور UCI مشخص کنید",
  "chess.engine_no_best": "موتور هنوز برای این موقعیت حرکتی ندارد: a آن را روشن می‌کند",
+ "chess.engine_only_lines": {
+  "one": "موتور اینجا فقط {n} خط دارد",
+  "other": "موتور اینجا فقط {n} خط دارد"
+ },
  "chess.engine_or_image": "یا ایمیج Stockfish کاکسوین را از تنظیمات → پیش‌نمایش‌ها → ایمیج‌های کانتینر دریافت کنید: آنگاه در یک کانتینر، بدون شبکه، اجرا می‌شود.",
- "chess.engine_lines_keys": "1–5 مرور یک خط",
+ "chess.engine_line_key": "1 مرور خط",
+ "chess.engine_lines_keys": "1–{n} مرور یک خط",
  "chess.engine_browse": "خط {n}، حرکت {at} از {total} · ← → گام · Enter آن را تا اینجا بازی می‌کند · Esc بازگشت به بازی",
  "chess.engine_line_tip": "نمایش خط {n} روی صفحه تا این حرکت، بدون بازی کردن آن ({n}، سپس ← →)",
  "chess.engine_browse_play": "بازی این خط",

@@ -550,8 +550,14 @@
  "chess.engine_missing": "לא נמצא מנוע שחמט: התקינו Stockfish (stockfishchess.org) או ציינו מנוע UCI בהגדרות → תצוגות מקדימות → מנוע שחמט",
  "chess.engine_missing_install": "לא נמצא מנוע שחמט: התקינו Stockfish ({command}) או ציינו מנוע UCI בהגדרות → תצוגות מקדימות → מנוע שחמט",
  "chess.engine_no_best": "למנוע עדיין אין מהלך לעמדה הזו: a מפעיל אותו",
+ "chess.engine_only_lines": {
+  "one": "למנוע יש כאן רק קו {n}",
+  "two": "למנוע יש כאן רק {n} קווים",
+  "other": "למנוע יש כאן רק {n} קווים"
+ },
  "chess.engine_or_image": "או משכו את תמונת Stockfish של Coxswain בהגדרות → תצוגות מקדימות → תמונות קונטיינר: אז הוא רץ במכולה, בלי רשת.",
- "chess.engine_lines_keys": "1–5 מעבר על קו",
+ "chess.engine_line_key": "1 מעבר על הקו",
+ "chess.engine_lines_keys": "1–{n} מעבר על קו",
  "chess.engine_browse": "קו {n}, מסע {at} מתוך {total} · ← → צעד · Enter משחק אותו עד כאן · Esc חזרה למשחק",
  "chess.engine_line_tip": "הצגת קו {n} על הלוח עד מסע זה, בלי לשחק אותו ({n}, ואז ← →)",
  "chess.engine_browse_play": "שחק את הקו הזה",

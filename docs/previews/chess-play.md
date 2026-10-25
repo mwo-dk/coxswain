@@ -11,9 +11,9 @@ position on the board, and **analyse a whole game**: an evaluation bar beside th
 the game under it, and the moves that lose marked `?!`, `?` or `??`, written out as an annotated
 PGN file when you ask. Both apps have it.
 
-![The Opera Game in the desktop app with a line played on from 15…Nxd7: 16.Qc3 f6 17.Qc8+ under the moves as Your line, with Save as new PGN and Clear; Engine on, Stockfish 17.1 at depth 21 above the moves with its two lines for Black, numbered 1 and 2; line 1 stepped through to its second move, Be3, which is marked and shown on the board, with Line 1, move 2 of 12 under the lines and the buttons Play this line and Back to the game](../screenshots/gui-chess-play.png)
+![The Opera Game in the desktop app at 15…Nxd7: Engine on, Stockfish 17.1 at depth 20 above the moves with 1–3 step through a line and its three lines numbered 1 to 3; line 1 (mate in two: Qb8+ Nxb8 Rd8#) stepped through to its second move, Nxb8, which is marked and shown on the board, with Line 1, move 2 of 3 under the lines and the buttons Play this line and Back to the game](../screenshots/gui-chess-play.png)
 
-![The terminal app in the Opera Game with a line played on from 15…Nxd7: 16.Qb7 f6 17.Qc8+, its pieces drawn in block characters; above the moves Stockfish 17.1 at depth 19 with 1–5 step through a line, its two lines numbered 1 and 2, line 1 stepped through to its second move, Be3, marked and shown on the board, and Line 1, move 2 of 12 under the lines with the keys](../screenshots/tui-chess-play.png)
+![The terminal app in the Opera Game at 15…Nxd7, its pieces drawn in block characters; above the moves Stockfish 17.1 at depth 20 with 1–3 step through a line, its three lines numbered 1 to 3, line 1 (mate in two: Qb8+ Nxb8 Rd8#) stepped through to its second move, Nxb8, marked and shown on the board, and Line 1, move 2 of 3 under the lines with the keys](../screenshots/tui-chess-play.png)
 
 - [Playing a move](#playing-a-move)
 - [Your line](#your-line)
@@ -202,8 +202,11 @@ Beside each is what it takes and the engine's default. A value you set is writte
 under `[chess.engines."<engine>"]`, by the engine's name without its version (`Stockfish`, `Lc0`),
 so each engine keeps its own options when you switch, and an engine upgraded keeps them too. One not
 set is not sent: the engine's own default applies. *Default* beside an option (desktop) or
-**Delete** on it (terminal) takes it out again; **Reset to engine defaults** takes out all of this
-engine's. *Open config.toml* (desktop) or **O** on an option (terminal) opens config.toml at the
+**Delete** on it (terminal) takes it out again, and the engine's table with its last option;
+**Reset to engine defaults** takes out all of this engine's. A value the engine does not take is
+refused with the reason: the desktop app shows the stored value again, the terminal app keeps
+what you typed to be mended. In the terminal app **Enter** opens the field with the value (or
+the engine's default) selected, so typing replaces it. *Open config.toml* (desktop) or **O** on an option (terminal) opens config.toml at the
 engine's table, for options typed there by hand.
 
 ```toml
@@ -235,7 +238,10 @@ analysis starts the engine afresh. The container Stockfish takes the same option
 
 ## Stepping through an engine line
 
-Each of the engine's lines is numbered, and its heading says *1–5 step through a line*. To see
+Each of the engine's lines is numbered, and its heading names the keys of the lines it shows:
+*1–3 step through a line* for three lines, *1 steps through the line* for one (a position with a single legal move,
+or *Engine lines* set to 1, leaves one). A number with no line, such as **2** when the engine
+shows one, says *The engine has only 1 line here* in the status line. To see
 where a line leads without playing it, as you would step through a variation of the game:
 
 | | Desktop app | Terminal app |

@@ -531,8 +531,13 @@
  "chess.engine_missing": "Males mootorit ei leitud: paigalda Stockfish (stockfishchess.org) või määra UCI mootor jaotises Sätted → Eelvaated → Males mootor",
  "chess.engine_missing_install": "Males mootorit ei leitud: paigalda Stockfish ({command}) või määra UCI mootor jaotises Sätted → Eelvaated → Males mootor",
  "chess.engine_no_best": "Mootoril pole sellele positsioonile veel käiku: a lülitab selle sisse",
+ "chess.engine_only_lines": {
+  "one": "Mootoril on siin ainult {n} variant",
+  "other": "Mootoril on siin ainult {n} varianti"
+ },
  "chess.engine_or_image": "Või tõmba Coxswaini Stockfishi tõmmis: Sätted → Eelvaated → Konteineri tõmmised. Siis töötab see konteineris, ilma võrguta.",
- "chess.engine_lines_keys": "1–5 läbi variandi",
+ "chess.engine_line_key": "1 läbi variandi",
+ "chess.engine_lines_keys": "1–{n} läbi variandi",
  "chess.engine_browse": "Variant {n}, käik {at}/{total} · ← → samm · Enter mängib selle siiani · Esc tagasi partiisse",
  "chess.engine_line_tip": "Näita varianti {n} laual kuni selle käiguni, seda mängimata ({n}, siis ← →)",
  "chess.engine_browse_play": "Mängi see variant",

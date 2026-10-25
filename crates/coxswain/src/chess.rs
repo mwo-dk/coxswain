@@ -9,7 +9,7 @@ use coxswain_core::chess::review::{self, Review, Reviewer};
 use coxswain_core::chess::{self, Format, Library, Notation, Position, Query, Sort, Token};
 use coxswain_core::config::{Action, Key, KeyCode, Theme};
 use coxswain_core::mosaic::{self, Pieces};
-use coxswain_core::t;
+use coxswain_core::{t, tn};
 use ratatui::Frame;
 use ratatui::layout::{Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -382,12 +382,14 @@ impl Viewer {
     /// The engine's line `k` (from 0) of the game's position, stepped into at its first move.
     fn browse_line(&mut self, k: usize) {
         let root = self.game_now().0;
-        let steps = match &self.analysed {
-            Some((f, Ok(a))) if Some(f) == root.as_ref() => a.lines.get(k).map(|l| l.steps.clone()).unwrap_or_default(),
-            _ => vec![],
+        let (steps, lines) = match &self.analysed {
+            Some((f, Ok(a))) if Some(f) == root.as_ref() => (a.lines.get(k).map(|l| l.steps.clone()).unwrap_or_default(), a.lines.len()),
+            _ => (vec![], 0),
         };
         match root.filter(|_| !steps.is_empty()) {
             Some(root) => self.browse = Some(Browse { root, k, steps, at: 1 }),
+            // The engine answered with fewer lines than the one asked for.
+            None if k >= lines && lines > 0 => self.said = Some(tn!("chess.engine_only_lines", lines)),
             None => self.said = Some(t!("chess.engine_no_best")),
         }
     }
@@ -1952,8 +1954,10 @@ impl Viewer {
             Some((f, Ok(a))) if Some(f) == fen.as_ref() => {
                 let browse = self.browsing();
                 let mut head = t!("chess.engine", "name" => a.engine, "depth" => a.depth);
-                if !a.lines.is_empty() {
-                    head = format!("{head} · {}", t!("chess.engine_lines_keys"));
+                match a.lines.len() {
+                    0 => {}
+                    1 => head = format!("{head} · {}", t!("chess.engine_line_key")),
+                    n => head = format!("{head} · {}", t!("chess.engine_lines_keys", "n" => n)),
                 }
                 let mut out = vec![Line::styled(fit(&head, w), dim)];
                 for (k, l) in a.lines.iter().enumerate() {
@@ -2194,6 +2198,11 @@ mod tests {
         };
         let a = Analysis { lines: vec![line(&["e7e5", "g1f3"]), line(&["c7c5", "g1f3", "d7d6"])], ..Default::default() };
         v.analysed = Some((root.clone(), Ok(a)));
+        // The heading names the keys there are; a number past them says how many there are.
+        let head: String = v.engine_lines(&chess::pieces(Notation::Letters), &Theme::default(), 100)[0].spans.iter().map(|s| s.content.as_ref()).collect();
+        assert!(head.contains(&t!("chess.engine_lines_keys", "n" => 2)), "{head}");
+        v.key(key(KeyCode::Char('5')), None);
+        assert_eq!((v.browse.is_none(), v.said.take()), (true, Some(tn!("chess.engine_only_lines", 2))));
         // 2: the second line at its first move; → on, the game and the engine stay at 1.e4.
         v.key(key(KeyCode::Char('2')), None);
         assert_eq!(v.now().0.as_deref(), Some(v.analysed.as_ref().unwrap().1.as_ref().unwrap().lines[1].steps[0].fen.as_str()));

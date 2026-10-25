@@ -499,8 +499,13 @@
  "chess.engine_missing": "No chess engine found: install Stockfish (stockfishchess.org), or name a UCI engine in Settings → Previews → Chess engine",
  "chess.engine_missing_install": "No chess engine found: install Stockfish ({command}), or name a UCI engine in Settings → Previews → Chess engine",
  "chess.engine_no_best": "The engine has no move for this position yet: a turns it on",
+ "chess.engine_only_lines": {
+  "one": "The engine has only {n} line here",
+  "other": "The engine has only {n} lines here"
+ },
  "chess.engine_or_image": "Or pull Coxswain's Stockfish image in Settings → Previews → Container images: it then runs in a container, without network.",
- "chess.engine_lines_keys": "1–5 step through a line",
+ "chess.engine_line_key": "1 steps through the line",
+ "chess.engine_lines_keys": "1–{n} step through a line",
  "chess.engine_browse": "Line {n}, move {at} of {total} · ← → step · Enter plays it up to here · Esc back to the game",
  "chess.engine_line_tip": "Show line {n} on the board up to this move, without playing it ({n}, then ← →)",
  "chess.engine_browse_play": "Play this line",

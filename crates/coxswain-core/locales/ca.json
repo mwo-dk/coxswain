@@ -550,8 +550,14 @@
  "chess.engine_missing": "No s'ha trobat cap motor d'escacs: instal·leu Stockfish (stockfishchess.org) o indiqueu un motor UCI a Paràmetres → Previsualitzacions → Motor d’escacs",
  "chess.engine_missing_install": "No s'ha trobat cap motor d'escacs: instal·leu Stockfish ({command}) o indiqueu un motor UCI a Paràmetres → Previsualitzacions → Motor d’escacs",
  "chess.engine_no_best": "El motor encara no té cap jugada per a aquesta posició: a l'activa",
+ "chess.engine_only_lines": {
+  "one": "El motor només té {n} línia aquí",
+  "many": "El motor només té {n} línies aquí",
+  "other": "El motor només té {n} línies aquí"
+ },
  "chess.engine_or_image": "O baixeu la imatge de Stockfish de Coxswain a Paràmetres → Previsualitzacions → Imatges de contenidor: s'executa en un contenidor, sense xarxa.",
- "chess.engine_lines_keys": "1–5 recórrer una línia",
+ "chess.engine_line_key": "1 recórrer la línia",
+ "chess.engine_lines_keys": "1–{n} recórrer una línia",
  "chess.engine_browse": "Línia {n}, jugada {at} de {total} · ← → pas · Retorn la juga fins aquí · Esc torna a la partida",
  "chess.engine_line_tip": "Mostra la línia {n} al tauler fins a aquesta jugada, sense jugar-la ({n}, després ← →)",
  "chess.engine_browse_play": "Juga aquesta línia",

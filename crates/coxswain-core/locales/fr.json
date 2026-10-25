@@ -550,8 +550,14 @@
  "chess.engine_missing": "Aucun moteur d’échecs trouvé : installez Stockfish (stockfishchess.org) ou indiquez un moteur UCI dans Réglages → Aperçus → Moteur d’échecs",
  "chess.engine_missing_install": "Aucun moteur d’échecs trouvé : installez Stockfish ({command}) ou indiquez un moteur UCI dans Réglages → Aperçus → Moteur d’échecs",
  "chess.engine_no_best": "Le moteur n’a pas encore de coup pour cette position : a l’active",
+ "chess.engine_only_lines": {
+  "one": "Le moteur n’a ici que {n} ligne",
+  "many": "Le moteur n’a ici que {n} lignes",
+  "other": "Le moteur n’a ici que {n} lignes"
+ },
  "chess.engine_or_image": "Ou récupérez l'image Stockfish de Coxswain dans Réglages → Aperçus → Images de conteneur : il s'exécute alors dans un conteneur, sans réseau.",
- "chess.engine_lines_keys": "1–5 parcourir une ligne",
+ "chess.engine_line_key": "1 parcourir la ligne",
+ "chess.engine_lines_keys": "1–{n} parcourir une ligne",
  "chess.engine_browse": "Ligne {n}, coup {at} sur {total} · ← → pas · Entrée la joue jusqu’ici · Échap retour à la partie",
  "chess.engine_line_tip": "Montrer la ligne {n} sur l’échiquier jusqu’à ce coup, sans la jouer ({n}, puis ← →)",
  "chess.engine_browse_play": "Jouer cette ligne",

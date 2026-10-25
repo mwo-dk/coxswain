@@ -512,8 +512,12 @@
  "chess.engine_missing": "체스 엔진을 찾지 못했습니다: Stockfish(stockfishchess.org)를 설치하거나 설정 → 미리 보기 → 체스 엔진에서 UCI 엔진을 지정하세요",
  "chess.engine_missing_install": "체스 엔진을 찾지 못했습니다: Stockfish({command})를 설치하거나 설정 → 미리 보기 → 체스 엔진에서 UCI 엔진을 지정하세요",
  "chess.engine_no_best": "엔진에 아직 이 포지션의 수가 없습니다: a로 켭니다",
+ "chess.engine_only_lines": {
+  "other": "여기서 엔진의 수순은 {n}개뿐입니다"
+ },
  "chess.engine_or_image": "또는 설정 → 미리 보기 → 컨테이너 이미지에서 Coxswain의 Stockfish 이미지를 받으세요. 그러면 네트워크 없는 컨테이너에서 실행됩니다.",
- "chess.engine_lines_keys": "1–5 수순 따라가기",
+ "chess.engine_line_key": "1 수순 따라가기",
+ "chess.engine_lines_keys": "1–{n} 수순 따라가기",
  "chess.engine_browse": "수순 {n}, {total}수 중 {at}수 · ← → 이동 · Enter 여기까지 두기 · Esc 대국으로 돌아가기",
  "chess.engine_line_tip": "수순 {n}을 이 수까지 보드에 표시하고 두지는 않음 ({n}, 그다음 ← →)",
  "chess.engine_browse_play": "이 수순 두기",

@@ -77,7 +77,7 @@ A window over the panels, titled *Settings* with a gear:
   tooltip, such as `[search] text`.
 - **At the bottom**: *Settings are stored in /home/me/.config/coxswain/config.toml* until you
   change something, then *Saved to /home/me/.config/coxswain/config.toml*. When a change is
-  refused, the reason shows there in red instead.
+  refused, the reason shows there in red instead, and the field shows the stored value again.
 
 The badges say what an option costs:
 
@@ -335,7 +335,7 @@ one.
 | **↑** **↓**, **PageUp** **PageDown**, **Home** **End** | Move over the rows; headings are skipped |
 | **←** **→**, **Tab** / **Shift+Tab** | The area before or after (round the end) |
 | **Space** | A switch (`[x]` / `[ ]`) flips; a choice takes its next value; a level, a step or a button is taken |
-| **Enter** | A text or number field opens in place for typing, then **Enter** saves and **Esc** keeps the old value (**Ctrl+U** empties it). A choice opens its values under it: **↑** **↓** and **Enter** take one. A list opens its items: **Delete** removes the one under the cursor, typing goes into the *+ Add* field under them and **Enter** adds it, **Esc** closes the list. On anything else, as **Space** |
+| **Enter** | A text or number field opens in place with its value selected (shown reversed): the first key typed replaces it, **Backspace** clears it, then **Enter** saves and **Esc** keeps the old value (**Ctrl+U** empties it). A value refused stays in the field with the reason in red, to be mended or left with **Esc**. A choice opens its values under it: **↑** **↓** and **Enter** take one. A list opens its items: **Delete** removes the one under the cursor, typing goes into the *+ Add* field under them and **Enter** adds it, **Esc** closes the list. On anything else, as **Space** |
 | **/** | *Find a setting*: type, and the options whose label, explanation or config key hold the words are listed with their area; **Enter** goes there, **Esc** comes back |
 | **Esc**, **F10** | Close Settings (a field, list or search open: close that first) |
 
