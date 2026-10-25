@@ -32,7 +32,7 @@ pub(crate) struct Listed {
 const KEPT: usize = 256;
 /// Bytes of names a kept list holds at most: an archive of a few megabytes can name 50,000
 /// entries of 64 KB each, gigabytes to keep. Such a list is not kept; the archive is listed again.
-const KEPT_NAMES: usize = 64 << 20;
+pub(crate) const KEPT_NAMES: usize = 64 << 20;
 /// What is kept changes form: an older form is never read.
 const FORM: &str = "1";
 
@@ -42,6 +42,12 @@ fn folder() -> Option<PathBuf> {
 
 /// The file the list of `archive`, as it is now, is kept in.
 fn file_for(archive: &Path) -> Option<PathBuf> {
+    kept_file(archive, "")
+}
+
+/// The file what is kept of `archive` as it is now goes in, `part` naming which (empty: its
+/// list; a container image's tree or one of its layers: `container_image`).
+pub(crate) fn kept_file(archive: &Path, part: &str) -> Option<PathBuf> {
     let m = std::fs::metadata(archive).ok()?;
     #[cfg(unix)]
     let (dev, ino) = {
@@ -63,6 +69,8 @@ fn file_for(archive: &Path) -> Option<PathBuf> {
         h.update(&n.to_le_bytes());
     }
     h.update(&when.to_le_bytes());
+    // Nothing for a list, so a list kept before keeps its name.
+    h.update(part.as_bytes());
     Some(folder()?.join(format!("{}.json", &h.finalize().to_hex()[..32])))
 }
 
@@ -70,19 +78,17 @@ fn file_for(archive: &Path) -> Option<PathBuf> {
 pub(crate) fn load(archive: &Path) -> Option<Vec<Listed>> {
     // Only of an archive that can be read now: what a user may no longer read is not told.
     File::open(archive).ok()?;
-    let f = File::open(file_for(archive)?).ok()?;
-    serde_json::from_reader(io::BufReader::new(f)).ok()
+    load_json(&file_for(archive)?)
 }
 
-/// What a write cut short (`.tmp`, `.seek-tmp`) or a list never kept (a `.seek` with no `.json`,
-/// an archive with too many names) left in `dir`, a day old: removed, so the count of lists is
-/// all there is.
+/// What a write cut short (`.tmp`, `.seek-tmp`) left in `dir`, a day old: removed, so the count
+/// of lists is all there is. A `.seek` with no `.json` is a layer's points (or those of a list
+/// never kept): it counts as a list of its own and goes, the oldest first, past `KEPT`.
 fn strays(dir: &Path) {
     for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let p = e.path();
         let stray = match p.extension().and_then(|x| x.to_str()) {
             Some("tmp" | "seek-tmp") => true,
-            Some("seek") => !p.with_extension("json").exists(),
             _ => false,
         };
         let old = || e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().unwrap_or_default().as_secs() > 24 * 3600);
@@ -98,20 +104,32 @@ pub(crate) fn save(archive: &Path, all: &[Listed]) {
     if all.iter().map(|l| l.name.len()).sum::<usize>() > KEPT_NAMES {
         return;
     }
-    let (Some(to), Some(dir)) = (file_for(archive), folder()) else {
-        return;
-    };
-    if crate::fs::private_dir(&dir).is_err() {
-        return;
+    if let Some(to) = file_for(archive) {
+        save_json(&to, all);
     }
-    strays(&dir);
-    let mut old: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(&dir)
+}
+
+/// The files kept, but those that hold the restart points of a list kept next to them.
+fn kept(dir: &Path) -> Vec<(std::time::SystemTime, PathBuf)> {
+    std::fs::read_dir(dir)
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
-        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
-        .collect();
+        .map(|e| e.path())
+        .filter(|p| match p.extension().and_then(|x| x.to_str()) {
+            Some("json") => true,
+            // A layer's points have no list of their own: they count as one.
+            Some("seek") => !p.with_extension("json").exists(),
+            _ => false,
+        })
+        .filter_map(|p| Some((std::fs::metadata(&p).ok()?.modified().ok()?, p)))
+        .collect()
+}
+
+/// Makes room for one more: the oldest go past `KEPT`, a list with its points.
+fn make_room(dir: &Path) {
+    strays(dir);
+    let mut old = kept(dir);
     if old.len() >= KEPT {
         old.sort();
         for (_, p) in &old[..=old.len() - KEPT] {
@@ -119,15 +137,29 @@ pub(crate) fn save(archive: &Path, all: &[Listed]) {
             let _ = std::fs::remove_file(p.with_extension("seek"));
         }
     }
+}
+
+/// Keeps `value` at `to` (a `kept_file`), written whole or not at all.
+pub(crate) fn save_json<T: Serialize + ?Sized>(to: &Path, value: &T) {
+    let Some(dir) = folder() else { return };
+    if crate::fs::private_dir(&dir).is_err() {
+        return;
+    }
+    make_room(&dir);
     let tmp = to.with_extension("tmp");
     let written = File::create(&tmp).and_then(|f| {
         let mut w = io::BufWriter::new(f);
-        serde_json::to_writer(&mut w, all).map_err(io::Error::other)?;
+        serde_json::to_writer(&mut w, value).map_err(io::Error::other)?;
         io::Write::flush(&mut w)
     });
-    if written.and_then(|()| std::fs::rename(&tmp, &to)).is_err() {
+    if written.and_then(|()| std::fs::rename(&tmp, to)).is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
+}
+
+/// What `save_json` kept at `to`, if it can be read.
+pub(crate) fn load_json<T: serde::de::DeserializeOwned>(to: &Path) -> Option<T> {
+    serde_json::from_reader(io::BufReader::new(File::open(to).ok()?)).ok()
 }
 
 // ---------------------------------------------------------------- xz in blocks
@@ -290,8 +322,8 @@ fn xz_from(path: &Path, at: u64) -> io::Result<Option<(Box<dyn Read>, u64)>> {
 /// In a zstd, the start of a frame, which needs nothing before it.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Point {
-    file: u64,
-    out: u64,
+    pub(crate) file: u64,
+    pub(crate) out: u64,
     bits: u8,
     bit_buf: u8,
     window: Vec<u8>,
@@ -383,7 +415,7 @@ impl<R: io::BufRead> Gz<R> {
     }
 
     /// Unpacked from `p` on, `src` read from `p.file` on.
-    fn from(src: R, p: &Point) -> Self {
+    pub(crate) fn from(src: R, p: &Point) -> Self {
         use miniz_oxide::inflate::core::{BlockBoundaryState, DecompressorOxide};
         let mut g = Gz::new(src, None);
         g.dec = Box::new(DecompressorOxide::from_block_boundary_state(&BlockBoundaryState {
@@ -573,7 +605,7 @@ impl<R: io::BufRead> Zst<R> {
     }
 
     /// Unpacked from the frame at `p` on, `src` read from `p.file` on.
-    fn from(src: R, p: &Point) -> Self {
+    pub(crate) fn from(src: R, p: &Point) -> Self {
         let mut z = Zst::new(src, None);
         (z.src.n, z.out) = (p.file, p.out);
         z
@@ -984,9 +1016,21 @@ const POINTS_MAGIC: &[u8; 8] = b"CXSEEK1\n";
 
 /// Keeps the restart points of `archive`, if there is more than one: one at its start is no use.
 pub(crate) fn save_points(archive: &Path, all: &[Point]) {
-    let Some(to) = points_file(archive) else {
-        return;
-    };
+    if let Some(to) = points_file(archive) {
+        save_points_to(&to, all);
+    }
+}
+
+/// Keeps `all` at `to` (a `.seek` file), unless none is past the start.
+pub(crate) fn save_points_to(to: &Path, all: &[Point]) {
+    let to = to.to_path_buf();
+    // Points of their own (a container image's layer) count as one kept: room is made first.
+    if let Some(dir) = folder().filter(|_| !to.with_extension("json").exists()) {
+        if crate::fs::private_dir(&dir).is_err() {
+            return;
+        }
+        make_room(&dir);
+    }
     if all.iter().filter(|p| p.out > 0).count() == 0 {
         let _ = std::fs::remove_file(&to);
         return;
@@ -1014,7 +1058,12 @@ pub(crate) fn save_points(archive: &Path, all: &[Point]) {
 
 /// The kept restart points of `archive`, in order, if they can be read whole.
 fn load_points(archive: &Path) -> Option<Vec<Point>> {
-    let b = std::fs::read(points_file(archive)?).ok()?;
+    load_points_from(&points_file(archive)?)
+}
+
+/// The restart points kept at `from` (a `.seek` file), in order, if they can be read whole.
+pub(crate) fn load_points_from(from: &Path) -> Option<Vec<Point>> {
+    let b = std::fs::read(from).ok()?;
     let mut b = b.strip_prefix(POINTS_MAGIC.as_slice())?;
     let mut take = |n: usize| -> Option<&[u8]> {
         let (h, t) = b.split_at_checked(n)?;
@@ -1091,10 +1140,10 @@ mod tests {
         }
         std::fs::write(d.join("f.tmp"), "now").unwrap();
         strays(&d);
-        for n in ["a.json", "a.seek", "e.tmp-new", "f.tmp"] {
+        for n in ["a.json", "a.seek", "b.seek", "e.tmp-new", "f.tmp"] {
             assert!(d.join(n).exists(), "{n}");
         }
-        for n in ["b.seek", "c.tmp", "d.seek-tmp"] {
+        for n in ["c.tmp", "d.seek-tmp"] {
             assert!(!d.join(n).exists(), "{n}");
         }
         let _ = std::fs::remove_dir_all(&d);

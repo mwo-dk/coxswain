@@ -74,9 +74,10 @@ program is needed.
 | Mailbox | `.mbox`: one `.eml` file a message | yes | no: read-only | none |
 | Container image | a `.tar` from `docker save` or `podman save`, an OCI layout's `index.json`: its layers merged | yes | no: read-only | none ([Container images](container-images.md)) |
 
-A comic, a mailbox and a container image open like folders, but search does not look into them
-as archives: a mailbox is read as mail ([Old pictures and files](../previews/old-formats.md#mailboxes)),
-and a container image is found by its own name ([Container images](container-images.md#safe-with-any-image)).
+A comic and a mailbox open like folders, but search does not look into them as archives: a
+mailbox is read as mail ([Old pictures and files](../previews/old-formats.md#mailboxes)). A
+container image's `.tar` is searched as the files of its merged layers, never its blobs
+([Container images](container-images.md#in-search)).
 
 Endings are recognised in any case (`.ZIP`). A file is taken for an archive by its name only,
 with one exception: a plain `.tar` holding a container image (a `manifest.json` or `oci-layout`
@@ -189,8 +190,8 @@ through an installed 7-Zip instead, read-only, like a disk image
   written anew. A tar whose long-name record is over 64 KB is not opened.
 - **Batch rename and properties** do not look inside archives. A folder inside shows the
   size of the files in it, as listed; nothing is measured. **Search** does: Find gets the
-  files in the archives of your home folder by name and by their text (not those of a container
-  image, found by its own name), and follows their changes
+  files in the archives of your home folder by name and by their text (of a container image,
+  the files of its merged layers), and follows their changes
   ([Inside archives](../search/archives.md)). Pack (**Alt+F5**) takes files on
   disk, not entries of another archive.
 - **Symbolic links** on disk are left out when added to an archive, since what they point at may

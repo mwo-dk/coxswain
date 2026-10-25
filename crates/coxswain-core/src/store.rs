@@ -4834,6 +4834,29 @@ mod tests {
     }
 
     #[test]
+    fn store_reads_the_files_of_a_container_image() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-image-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        use crate::container_image::tests::{docker_tar, tar_of};
+        let low = tar_of(&[("app/", b""), ("app/readme.txt", b"the payload manifest"), ("app/old.txt", b"obsolete gizmo")]);
+        // Gzip-packed: a whiteout takes the old file away.
+        let high = tar_of(&[("app/.wh.old.txt", b""), ("app/new.txt", b"fresh widget")]);
+        let img = home.join("demo-image.tar");
+        std::fs::write(&img, docker_tar(&[low, high])).unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let paths = |q: &str| store.search(q, None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
+        assert_eq!(paths("payload"), [img.join("app").join("readme.txt")]);
+        assert_eq!(paths("widget"), [img.join("app").join("new.txt")]);
+        assert_eq!(paths("gizmo"), Vec::<PathBuf>::new(), "taken away by a later layer");
+        assert_eq!(paths("RepoTags"), Vec::<PathBuf>::new(), "never the image's own blobs");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
     fn store_reads_inside_archives_and_follows_their_changes() {
         let d = std::env::temp_dir().join(format!("coxswain-store-arc-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);

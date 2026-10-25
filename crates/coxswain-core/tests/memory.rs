@@ -633,8 +633,8 @@ fn packed(src: &Path, to: &Path, tool: &[&str]) -> io::Result<()> {
 }
 
 /// A `docker save` tar: `manifest.json`, a config, and `layers` layer tars of about `each`
-/// bytes, the last holding `last.txt`.
-fn image(to: &Path, layers: usize, each: u64) -> io::Result<()> {
+/// bytes (gzipped with `gz`), the last holding `etc/last.txt` after its data.
+fn image(to: &Path, layers: usize, each: u64, gz: bool) -> io::Result<()> {
     let mut b = tar::Builder::new(BufWriter::new(std::fs::File::create(to)?));
     let mut names = vec![];
     for l in 0..layers {
@@ -651,7 +651,12 @@ fn image(to: &Path, layers: usize, each: u64) -> io::Result<()> {
             h.set_mode(0o644);
             layer.append_data(&mut h, "etc/last.txt", &b"last\n"[..])?;
         }
-        let bytes = layer.into_inner()?;
+        let mut bytes = layer.into_inner()?;
+        if gz {
+            let mut w = flate2::write::GzEncoder::new(vec![], flate2::Compression::fast());
+            w.write_all(&bytes)?;
+            bytes = w.finish()?;
+        }
         let name = format!("{:064x}/layer.tar", l + 1);
         let mut h = tar::Header::new_gnu();
         h.set_size(bytes.len() as u64);
@@ -877,17 +882,27 @@ fn cases() -> Vec<Case> {
             Do::Peek("data/last.txt"),
         );
     }
-    let img = input("image-10-layers.tar", |p| image(p, 10, 50 * MB));
-    add(
-        "container image, 10 layers of 50 MB: list",
-        img.clone(),
-        Do::List,
-    );
-    add(
-        "container image: peek the last layer",
-        img,
-        Do::Peek(LAST_LAYER),
-    );
+    // Each case is a process of its own with the same cache: a list keeps what the peeks
+    // after it use.
+    for (file, what, gz) in [("image-10-layers.tar", "", false), ("image-10-gz-layers.tar", "gzip ", true)] {
+        let img = input(file, |p| image(p, 10, 50 * MB, gz));
+        add(
+            &format!("container image, 10 {what}layers of 50 MB: list"),
+            img.clone(),
+            Do::List,
+        );
+        add(
+            &format!("container image, {what}layers: peek a file at the end of the last layer"),
+            img.clone(),
+            Do::Peek("etc/last.txt"),
+        );
+        add(
+            &format!("container image, {what}layers: copy out the last layer's 50 MB file"),
+            img.clone(),
+            Do::CopyOut("usr/share/layer9/data.txt"),
+        );
+        add(&format!("container image, {what}layers: list again, in a new run"), img, Do::List);
+    }
     let seven = tar.as_ref().and_then(|_| {
         input("solid.7z", |p| {
             let src = dir().join("solid-src");
@@ -1003,9 +1018,6 @@ fn sgf(to: &Path, bytes: u64) -> io::Result<()> {
     }
     f.flush()
 }
-
-const LAST_LAYER: &str =
-    "000000000000000000000000000000000000000000000000000000000000000a/layer.tar";
 
 // ---------------------------------------------------------------- measuring
 
