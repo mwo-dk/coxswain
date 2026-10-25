@@ -553,6 +553,14 @@ fn epub(to: &Path) -> io::Result<()> {
     ])
 }
 
+/// A page saved with its picture inside it: a tag of 30 MB between two paragraphs.
+fn picture_inside(to: &Path) -> io::Result<()> {
+    let mut page = b"<!doctype html><html><body><p>Before the picture</p><img alt=\"A chart\" src=\"data:image/png;base64,".to_vec();
+    page.extend(std::iter::repeat_n(b'A', 30 * MB as usize));
+    page.extend_from_slice(b"\"><p>After the picture</p></body></html>");
+    std::fs::write(to, page)
+}
+
 fn html(to: &Path) -> io::Result<()> {
     std::fs::write(
         to,
@@ -794,6 +802,21 @@ fn cases() -> Vec<Case> {
         Do::Read,
     );
     add("html, 60 MB", input("huge.html", html), Do::Read);
+    add(
+        "epub, the same, passages from the whole file",
+        input("huge-chapter.epub", epub),
+        Do::Whole,
+    );
+    add(
+        "html, the same, passages from the whole file",
+        input("huge.html", html),
+        Do::Whole,
+    );
+    add(
+        "html, a 30 MB picture inside a tag",
+        input("picture-inside.html", picture_inside),
+        Do::Read,
+    );
     add(
         "log 300 MB",
         input("big.log", |p| plain(p, 300 * MB, "log")),

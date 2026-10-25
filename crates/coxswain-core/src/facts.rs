@@ -64,7 +64,7 @@ fn lines(facts: &[(String, String)]) -> String {
 }
 
 /// What F3 shows in the terminal app for an old picture, a tracker module, an Outlook
-/// message, a workbook or an AsciiDoc document (as readable text): its facts (and a module's sample names, a message's headers, text and
+/// message, a workbook, a book or an AsciiDoc document (as readable text): its facts (and a module's sample names, a message's headers, text and
 /// attachments) as text. `None`: the file is none of these, the viewer shows it as it is.
 pub fn as_text(path: &Path) -> Option<String> {
     text_and_format(path).map(|(text, _)| text)
@@ -117,6 +117,11 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
     if matches!(ext.as_str(), "xlsx" | "xlsm" | "xlsb" | "xls" | "ods") {
         let text = crate::extract::sheet::text(path, u64::MAX)?;
         return Some((text, if ext == "ods" { "OpenDocument" } else { "Excel" }.into()));
+    }
+    // A book: its title and authors, then its chapters, as the search reads them (the first
+    // 4 MB of text).
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("epub")) {
+        return Some((crate::extract::book::text(path, u64::MAX)?, "EPUB".into()));
     }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;
@@ -184,6 +189,15 @@ mod tests {
             ("xl/worksheets/sheet1.xml", br#"<worksheet><sheetData><row><c t="inlineStr"><is><t>Tank</t></is></c><c><v>1840</v></c></row></sheetData></worksheet>"#),
         ]);
         assert_eq!(text_and_format(&book), Some(("Fuel\nTank\t1840".into(), "Excel".into())));
+        // A book: its text, for F3 in the terminal app.
+        let book = d.join("voyage.epub");
+        crate::extract::tests::zip_file(&book, &[
+            ("META-INF/container.xml", b"<rootfile full-path='p.opf'/>"),
+            ("p.opf", b"<package><metadata><dc:title>Voyage</dc:title></metadata><manifest><item id='c' href='c.xhtml'/></manifest><spine><itemref idref='c'/></spine></package>"),
+            ("c.xhtml", b"<html><body><p>The harbour at dawn</p></body></html>"),
+        ]);
+        let (text, format) = text_and_format(&book).unwrap();
+        assert!(text.starts_with("Voyage\n") && text.contains("The harbour at dawn") && format == "EPUB", "{text:?}");
         assert!(of(&d.join("notes.txt")).is_none());
         std::fs::remove_dir_all(d).unwrap();
     }

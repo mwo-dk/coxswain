@@ -20,7 +20,7 @@ use std::sync::LazyLock;
 
 use encoding_rs::{Encoding, ISO_2022_JP, UTF_8, WINDOWS_1252};
 
-use super::{MAX_ENTRY, MAX_TEXT};
+use super::{MAX_ENTRY, MAX_TEXT, Text, keep_within};
 
 /// Elements that are part of a line: one may begin or end inside a word, as the runs of a
 /// word processor do, so nothing is put between them. Every other element, known or not,
@@ -55,44 +55,73 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     if std::fs::metadata(path).ok()?.len() > max {
         return None;
     }
-    let mut out = String::new();
+    let mut out = Text::new();
+    read_into(path, &mut out)?;
+    let out = out.end();
+    (!out.trim().is_empty()).then_some(out)
+}
+
+/// The text of a book or a page onto `out`, read as it comes: a page and each chapter of a
+/// book a piece at a time, never whole. When `out` goes to a sink (`Text::to`), all of it is
+/// read, as far as `WHOLE` allows of a book.
+pub(super) fn read_into(path: &Path, out: &mut Text) -> Option<()> {
+    // All of it is read for `TIME` at most: what is read by then is its text.
+    let until = out.whole().then(|| std::time::Instant::now() + TIME);
+    let on = move || until.is_none_or(|until| std::time::Instant::now() < until);
     if path
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("epub"))
     {
-        book(path, &mut out)?;
+        book(path, out, &on)
     } else {
-        let mut bytes = vec![];
-        std::fs::File::open(path)
-            .ok()?
-            .take(max)
-            .read_to_end(&mut bytes)
-            .ok()?;
-        page(&decoded(&bytes)?, &mut out, true);
+        let encoding = sniff(std::fs::File::open(path).ok()?)?;
+        let mut page = Decoded::new(std::fs::File::open(path).ok()?, encoding);
+        page_from(&mut |buf| on() && page.more(buf), out, true, (WINDOW, CAP));
+        Some(())
     }
-    (!out.trim().is_empty()).then_some(out)
 }
+
+/// The most time a whole book or page is read for, for its passages (`read_into`).
+const TIME: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// The most unpacked of all the chapters of a book for the passages of the whole book.
+const WHOLE: u64 = 4 << 30;
+/// How much of a page is decoded ahead of the scanner, and how long one piece of it (a tag, a
+/// script, a comment, a run of text) may grow before it is gone through as it comes instead of
+/// held whole: a page in one file with its pictures inside its tags has tags of megabytes.
+const WINDOW: usize = 256 << 10;
+const CAP: usize = 4 << 20;
+/// The most of a chapter shown in the preview.
+const SHOWN: usize = 1 << 20;
 
 // ---------------------------------------------------------------- a book
 
 /// The text of an EPUB, onto `out`: its title and authors, then its chapters in reading order.
-fn book(path: &Path, out: &mut String) -> Option<()> {
-    walk(path, out, |out, chapter| {
-        page(chapter, out, false);
+fn book(path: &Path, out: &mut Text, on: &dyn Fn() -> bool) -> Option<()> {
+    let room = if out.whole() { WHOLE } else { MAX_ENTRY };
+    walk(path, room, out, |out, chapter| {
+        page_from(&mut |buf| on() && chapter(buf), out, false, (WINDOW, CAP));
         out.push('\n');
-        true
+        out.len() <= MAX_TEXT && on()
     })
     .map(drop)
 }
 
-/// The title of a book and the inside of the `<body>` of its first chapter with more than 60
-/// words, which a cover or a title page has not. `None` when the file is no book; no chapter
-/// when none has that many words.
+/// The title of a book and the inside of the `<body …>` of its first chapter with more than 60
+/// words, which a cover or a title page has not: the first megabyte of it. `None` when the
+/// file is no book; no chapter when none has that many words.
 pub fn first_chapter(path: &Path) -> Option<(String, Option<String>)> {
-    let (mut head, mut found) = (String::new(), None);
-    let title = walk(path, &mut head, |_, chapter| {
-        let inside = body(chapter);
-        let mut words = String::new();
+    let (mut head, mut found) = (Text::new(), None);
+    let title = walk(path, MAX_ENTRY, &mut head, |_, chapter| {
+        let mut shown = String::new();
+        while shown.len() < SHOWN && chapter(&mut shown) {}
+        let mut shown = super::start(&shown, SHOWN).to_string();
+        // A chapter cut short is cut before a tag, not inside one.
+        if shown.len() == SHOWN {
+            shown.truncate(shown.rfind('<').unwrap_or(shown.len()));
+        }
+        let inside = body(&shown);
+        let mut words = Text::new();
         page(inside, &mut words, false);
         if words.split_whitespace().nth(60).is_none() {
             return true;
@@ -113,12 +142,17 @@ fn body(page: &str) -> &str {
     &page[start..end.unwrap_or(page.len())]
 }
 
-/// The book's title and authors onto `out`, then each chapter in reading order, decoded,
-/// handed to `each` with `out` until it answers `false`. Gives the book's first title.
+/// More text of a chapter onto the string: `false` once it has no more.
+type Chapter<'c> = dyn FnMut(&mut String) -> bool + 'c;
+
+/// The book's title and authors onto `out`, then each chapter in reading order, decoded as it
+/// is unpacked, handed to `each` with `out` until it answers `false`. All the chapters together
+/// unpack to no more than `room`. Gives the book's first title.
 fn walk(
     path: &Path,
-    out: &mut String,
-    mut each: impl FnMut(&mut String, &str) -> bool,
+    room: u64,
+    out: &mut Text,
+    mut each: impl FnMut(&mut Text, &mut Chapter) -> bool,
 ) -> Option<String> {
     let mut zip = super::open_zip(path, u64::MAX)?;
     // The files of the zip by their names as a link would give them, for a package that
@@ -144,11 +178,10 @@ fn walk(
         .rsplit_once('/')
         .map_or(vec![], |(folder, _)| folder.split('/').collect());
     let (title, chapters) = contents(&decoded(&file(&package, 8 << 20)?)?, out);
-    // All the chapters together may unpack to what one entry may. Every name in the spine
-    // costs 4096 bytes at the least, found or not, and a file is read once however many
-    // names lead to it: so a book that names one large chapter a thousand times is not read
-    // a thousand times, nor is an empty one opened a million times.
-    let (mut room, mut read) = (MAX_ENTRY as usize, HashSet::new());
+    // Every name in the spine costs 4096 bytes of the room at the least, found or not, and a
+    // file is read once however many names lead to it: so a book that names one large chapter
+    // a thousand times is not read a thousand times, nor is an empty one opened a million times.
+    let (mut room, mut read) = (room, HashSet::new());
     for chapter in chapters {
         let Some(left) = room.checked_sub(4096).filter(|_| out.len() <= MAX_TEXT) else {
             break;
@@ -158,16 +191,24 @@ fn walk(
         if !read.insert(key(&name)) {
             continue;
         }
-        let Some(bytes) = file(&name, room) else {
+        let Some(name) = names.get(&key(&name)) else {
             continue;
         };
-        let Some(left) = room.checked_sub(bytes.len()) else {
-            break;
+        // Its encoding, from all of it, then its text as it is unpacked again; no more of it
+        // than the room left, and none of one that says it is larger.
+        let Some(encoding) = zip
+            .by_name(name)
+            .ok()
+            .filter(|entry| entry.size() <= room)
+            .and_then(|entry| sniff(entry.take(room)))
+        else {
+            continue;
         };
-        room = left;
-        if let Some(chapter) = decoded(&bytes)
-            && !each(out, &chapter)
-        {
+        let Ok(entry) = zip.by_name(name) else { continue };
+        let mut text = Decoded::new(entry.take(room), encoding);
+        let go = each(out, &mut |buf| text.more(buf));
+        room = room.saturating_sub(text.read);
+        if !go {
             break;
         }
     }
@@ -177,7 +218,7 @@ fn walk(
 /// What the package file of a book says: its title and its authors, put onto `out` as the
 /// first lines, and the files of its chapters in reading order, as the package names them,
 /// each once. Gives its first title, too.
-fn contents(package: &str, out: &mut String) -> (String, Vec<String>) {
+fn contents(package: &str, out: &mut Text) -> (String, Vec<String>) {
     let (mut titles, mut authors, mut line) = (String::new(), String::new(), None);
     let (mut files, mut spine): (HashMap<String, String>, Vec<String>) = (HashMap::new(), vec![]);
     for piece in Pieces::of(package) {
@@ -198,7 +239,7 @@ fn contents(package: &str, out: &mut String) -> (String, Vec<String>) {
                 "creator" if !empty => line = Some(&mut authors),
                 _ => line = None,
             },
-            Piece::Text(text) => line.iter_mut().for_each(|line| unescape(text, line)),
+            Piece::Text(text) => line.iter_mut().for_each(|line| unescape_into(text, line)),
             Piece::Literal(text) => line
                 .iter_mut()
                 .for_each(|line| super::push_within(line, text, MAX_TEXT + 1)),
@@ -207,7 +248,7 @@ fn contents(package: &str, out: &mut String) -> (String, Vec<String>) {
     }
     let title = titles.lines().next().unwrap_or_default().trim().to_string();
     for text in [titles, authors] {
-        super::push_within(out, &text, MAX_TEXT + 1);
+        super::keep_within(out, &text, MAX_TEXT + 1);
     }
     (
         title,
@@ -245,11 +286,8 @@ fn key(name: &str) -> String {
 /// that, or nearly, whatever the page says; else in the encoding the page declares; else in
 /// Windows-1252, as a browser does. `None` for bytes that are no text.
 pub(super) fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
-    // UTF-32 begins with the mark of UTF-16 and would be read as it, a zero between letters.
-    if bytes.starts_with(b"\xff\xfe\0\0") || bytes.starts_with(b"\0\0\xfe\xff") {
-        return None;
-    }
-    if let Some((encoding, mark)) = Encoding::for_bom(bytes) {
+    let encoding = sniff(bytes)?;
+    if let Some((_, mark)) = Encoding::for_bom(bytes) {
         let rest = &bytes[mark..];
         return Some(if encoding == UTF_8 {
             String::from_utf8_lossy(rest)
@@ -257,24 +295,63 @@ pub(super) fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
             encoding.decode_without_bom_handling(rest).0
         });
     }
-    let head = &bytes[..bytes.len().min(8192)];
-    if head.contains(&0) {
+    if encoding == UTF_8 {
+        return Some(match std::str::from_utf8(bytes) {
+            Ok(text) => text.into(),
+            Err(_) => String::from_utf8_lossy(bytes),
+        });
+    }
+    Some(encoding.decode_without_bom_handling(bytes).0)
+}
+
+/// The encoding `decoded` reads a page in, from the page as it is read: its byte order mark,
+/// what its first bytes declare, and whether all of it is UTF-8. `None` for bytes that are no
+/// text.
+fn sniff(mut page: impl Read) -> Option<&'static Encoding> {
+    let mut head = vec![];
+    page.by_ref().take(1 << 16).read_to_end(&mut head).ok()?;
+    // UTF-32 begins with the mark of UTF-16 and would be read as it, a zero between letters.
+    if head.starts_with(b"\xff\xfe\0\0") || head.starts_with(b"\0\0\xfe\xff") {
+        return None;
+    }
+    if let Some((encoding, _)) = Encoding::for_bom(&head) {
+        return Some(encoding);
+    }
+    let first = &head[..head.len().min(8192)];
+    if first.contains(&0) {
         return None;
     }
     let declared = DECLARED
-        .captures(&HIDDEN.replace_all(head, &b""[..]))
+        .captures(&HIDDEN.replace_all(first, &b""[..]))
         .and_then(|found| Encoding::for_label(&found[1]));
     // ISO-2022-JP writes Japanese in the bytes of ASCII, so it is read as it says before
     // the bytes are tried as UTF-8, which they always are.
     if declared == Some(ISO_2022_JP) {
-        return Some(ISO_2022_JP.decode_without_bom_handling(bytes).0);
+        return Some(ISO_2022_JP);
     }
-    if let Ok(text) = std::str::from_utf8(bytes) {
-        return Some(text.into());
+    // UTF-8 through and through, read in pieces: a character may be cut between two.
+    let (mut held, mut piece, mut whole) = (head.clone(), vec![0; 1 << 16], true);
+    loop {
+        match std::str::from_utf8(&held) {
+            Ok(_) => held.clear(),
+            Err(e) if e.error_len().is_some() => {
+                whole = false;
+                break;
+            }
+            Err(e) => drop(held.drain(..e.valid_up_to())),
+        }
+        match page.read(&mut piece) {
+            Ok(0) => {
+                whole = held.is_empty();
+                break;
+            }
+            Ok(n) => held.extend_from_slice(&piece[..n]),
+            Err(_) => break,
+        }
     }
     // UTF-8 with a byte or two broken is still UTF-8, whatever the page declares.
-    if super::nearly_utf8(bytes) {
-        return Some(String::from_utf8_lossy(bytes));
+    if whole || super::nearly_utf8(&head) {
+        return Some(UTF_8);
     }
     // A page that says UTF-16 in letters of one byte each is not UTF-16, and a label that
     // encoding_rs answers with its replacement encoding would be one U+FFFD for the whole
@@ -282,26 +359,214 @@ pub(super) fn decoded(bytes: &[u8]) -> Option<Cow<'_, str>> {
     Some(
         declared
             .filter(|e| e.is_ascii_compatible())
-            .unwrap_or(WINDOWS_1252)
-            .decode_without_bom_handling(bytes)
-            .0,
+            .unwrap_or(WINDOWS_1252),
     )
 }
 
-/// The text of a page, onto `out`: what is between its tags, with a line for each block. The
-/// `<title>` of the page is text when `titled`; a chapter's is the book's, once per chapter.
-fn page(page: &str, out: &mut String, titled: bool) {
-    let mut pieces = Pieces::of(page);
-    while let Some(piece) = pieces.next() {
+/// A page decoded as it is read, a piece at a time.
+struct Decoded<R> {
+    inner: R,
+    decoder: encoding_rs::Decoder,
+    piece: Vec<u8>,
+    done: bool,
+    /// How many bytes were read.
+    read: u64,
+}
+
+impl<R: Read> Decoded<R> {
+    fn new(inner: R, encoding: &'static Encoding) -> Decoded<R> {
+        Decoded {
+            inner,
+            decoder: encoding.new_decoder_with_bom_removal(),
+            piece: vec![0; 1 << 16],
+            done: false,
+            read: 0,
+        }
+    }
+
+    /// Adds the next piece of the text to `buf`; `false` once there is no more.
+    fn more(&mut self, buf: &mut String) -> bool {
+        if self.done {
+            return false;
+        }
+        let n = loop {
+            match self.inner.read(&mut self.piece) {
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Ok(n) => break n,
+                Err(_) => break 0,
+            }
+        };
+        self.read += n as u64;
+        self.done = n == 0;
+        let bytes = &self.piece[..n];
+        buf.reserve(
+            self.decoder
+                .max_utf8_buffer_length(bytes.len())
+                .unwrap_or(bytes.len() * 3 + 16),
+        );
+        let _ = self.decoder.decode_to_string(bytes, buf, self.done);
+        !self.done
+    }
+}
+
+/// The text of a whole page in memory, onto `out`: what is between its tags, with a line for
+/// each block. The `<title>` of the page is text when `titled`; a chapter's is the book's, once
+/// per chapter.
+fn page(page: &str, out: &mut Text, titled: bool) {
+    let mut whole = Some(page.to_string());
+    page_from(&mut |buf| whole.take().is_some_and(|page| {
+        buf.push_str(&page);
+        true
+    }), out, titled, (usize::MAX, usize::MAX));
+}
+
+/// What a piece of a page that is longer than the room for it is gone through as, as it comes:
+/// a comment, a script or style that is left out up to its end, a title or text box whose text
+/// is its inside as written, a literal section, or a tag (pictures, in their attributes).
+enum Through {
+    Comment,
+    LeftOut(String),
+    Written(String, bool),
+    Literal,
+    Tag,
+}
+
+/// The text of a page that `more` adds to as it is read, onto `out`. No more of the page is
+/// held than `window` ahead and one piece: a piece that grows past `cap` is gone through as it
+/// comes (`Through`), the rest of a page whose script never ends left out as a browser does.
+fn page_from(more: &mut Chapter, out: &mut Text, titled: bool, (window, cap): (usize, usize)) {
+    let (mut buf, mut ended, mut begun) = (String::new(), false, false);
+    let mut through: Option<Through> = None;
+    while out.len() <= MAX_TEXT {
+        while !ended && buf.len() < window {
+            ended = !more(&mut buf);
+        }
+        // A piece too long to hold, as far as the page is read.
+        if let Some(how) = through.take() {
+            let keep = |buf: &str, tail: usize| buf.floor_char_boundary(buf.len().saturating_sub(tail));
+            let (end, past, again) = match &how {
+                Through::Comment => match buf.find("-->").into_iter().chain(buf.find("--!>")).min() {
+                    Some(at) => (at, at + if buf[at..].starts_with("-->") { 3 } else { 4 }, false),
+                    None => (keep(&buf, 3), keep(&buf, 3), true),
+                },
+                Through::Literal => match buf.find("]]>") {
+                    Some(at) => (at, at + 3, false),
+                    None => (keep(&buf, 2), keep(&buf, 2), true),
+                },
+                Through::Tag => match buf.find('>') {
+                    Some(at) => (at, at + 1, false),
+                    None => (buf.len(), buf.len(), true),
+                },
+                Through::LeftOut(name) | Through::Written(name, _) => {
+                    let mut pieces = Pieces { page: &buf, at: 0, ended, wanted: false, begun: true };
+                    let at = pieces.leave_out(name).len();
+                    match pieces.wanted {
+                        false => (at, at, false),
+                        // Not a character of a reference or of the closing tag is cut.
+                        true => (keep(&buf, name.len() + 40), keep(&buf, name.len() + 40), true),
+                    }
+                }
+            };
+            let (end, past) = if ended && again { (buf.len(), buf.len()) } else { (end, past) };
+            match &how {
+                Through::Written(_, true) => unescape(&buf[..end], out),
+                Through::Literal => keep_within(out, &buf[..end], MAX_TEXT + 1),
+                _ => {}
+            }
+            buf.drain(..past);
+            begun = true;
+            if again && !ended {
+                through = Some(how);
+                ended = !more(&mut buf);
+            }
+            continue;
+        }
+        let mut pieces = Pieces { page: &buf, at: 0, ended, wanted: false, begun };
+        scan(&mut pieces, out, titled);
+        let (at, wanted) = (pieces.at, pieces.wanted);
+        if !wanted {
+            break;
+        }
+        // A piece that goes on past what is read: more is read, unless it is too long to hold.
+        if buf.len() - at >= cap {
+            let rest = &buf[at..];
+            through = Some(if rest.starts_with("<!--") {
+                buf.drain(..at + 4);
+                Through::Comment
+            } else if rest.starts_with("<![CDATA[") {
+                buf.drain(..at + 9);
+                Through::Literal
+            } else if rest.starts_with('<') {
+                let mut tag = Pieces { page: rest, at: 0, ended: true, wanted: false, begun: true };
+                match tag.next() {
+                    Some(Piece::Open(name, _, false)) if tag.at < rest.len() && among(local(name), &LEFT_OUT) => {
+                        let (name, past) = (name.to_string(), tag.at);
+                        buf.drain(..at + past);
+                        Through::LeftOut(name)
+                    }
+                    Some(Piece::Open(name, _, false)) if tag.at < rest.len() && among(local(name), &WRITTEN) => {
+                        let shown = titled || !local(name).eq_ignore_ascii_case("title");
+                        let (name, past) = (name.to_string(), tag.at);
+                        buf.drain(..at + past);
+                        Through::Written(name, shown)
+                    }
+                    // The mark of a footnote whose next pieces are too long to tell: no mark.
+                    Some(Piece::Open(..)) if tag.at < rest.len() => {
+                        let past = tag.at;
+                        buf.drain(..at + past);
+                        begun = true;
+                        continue;
+                    }
+                    _ => {
+                        buf.drain(..at + 1);
+                        Through::Tag
+                    }
+                }
+            } else {
+                // Text without a tag in it: all but its last bytes, and not from a `&` near
+                // its end on, where a reference may be cut.
+                let low = buf.ceil_char_boundary(at + 1);
+                let mut cut = buf.floor_char_boundary(buf.len().saturating_sub(64)).max(low);
+                if let Some(amp) = buf[low..cut].rfind('&').map(|amp| low + amp)
+                    && cut - amp < 40
+                {
+                    cut = amp;
+                }
+                let mut text = Pieces { page: &buf[..cut], at, ended: true, wanted: false, begun };
+                scan(&mut text, out, titled);
+                buf.drain(..cut);
+                begun = true;
+                continue;
+            });
+            begun = true;
+            continue;
+        }
+        begun |= !buf[..at].trim().is_empty();
+        buf.drain(..at);
+        if !ended {
+            let before = buf.len();
+            while !ended && buf.len() == before {
+                ended = !more(&mut buf);
+            }
+        }
+    }
+}
+
+/// The pieces of a page onto `out`, until the page ends or a piece goes on past what is read
+/// of it (`Pieces::wanted`): `pieces.at` is where that piece begins.
+fn scan(pieces: &mut Pieces, out: &mut Text, titled: bool) {
+    loop {
         if out.len() > MAX_TEXT {
             break;
         }
+        let begins = pieces.at;
+        let Some(piece) = pieces.next() else { break };
         match piece {
             // Blank space around a text lays the page out and says nothing: one space of it
             // is kept, so that the room for text is filled with words and not with it.
             Piece::Text(text) => {
                 let inner = text.trim();
-                if text.starts_with(char::is_whitespace) && !out.ends_with(char::is_whitespace) {
+                if text.starts_with(char::is_whitespace) && !out.last().is_some_and(char::is_whitespace) {
                     out.push(' ');
                 }
                 unescape(inner, out);
@@ -310,12 +575,20 @@ fn page(page: &str, out: &mut String, titled: bool) {
                     out.push(' ');
                 }
             }
-            Piece::Literal(text) => out.push_str(super::start(text, MAX_TEXT + 1 - out.len())),
+            Piece::Literal(text) => keep_within(out, text, MAX_TEXT + 1),
             Piece::Open(name, _, false) if among(local(name), &LEFT_OUT) => {
                 pieces.leave_out(name);
+                if pieces.wanted {
+                    pieces.at = begins;
+                    break;
+                }
             }
             Piece::Open(name, _, false) if among(local(name), &WRITTEN) => {
                 let written = pieces.leave_out(name);
+                if pieces.wanted {
+                    pieces.at = begins;
+                    break;
+                }
                 if titled || !local(name).eq_ignore_ascii_case("title") {
                     unescape(written, out);
                 }
@@ -326,15 +599,20 @@ fn page(page: &str, out: &mut String, titled: bool) {
             Piece::Open(name, inside, _) if local(name).eq_ignore_ascii_case("img") => {
                 let says = attributes(inside, 0, "alt").2.unwrap_or_default();
                 let between = if says.chars().count() == 1 { "" } else { " " };
-                *out += between;
+                out.push_str(between);
                 unescape(says, out);
-                *out += between;
+                out.push_str(between);
             }
             // The mark of a footnote is written against the word before it and, where the
             // note is, against its first word. It is a word of its own.
             Piece::Open(name, _, false) if among(local(name), &["a", "sup"]) => {
-                if let Some(mark) = pieces.mark(name) {
-                    if out.ends_with(char::is_alphanumeric) {
+                let mark = pieces.mark(name);
+                if pieces.wanted {
+                    pieces.at = begins;
+                    break;
+                }
+                if let Some(mark) = mark {
+                    if out.last().is_some_and(char::is_alphanumeric) {
                         out.push(' ');
                     }
                     unescape(mark, out);
@@ -366,14 +644,27 @@ enum Piece<'a> {
 
 /// A page, piece by piece. Every piece begins where the one before it ended and is at least
 /// one byte long, so the pieces end when the page does.
+///
+/// `page` may be only what is read so far of a page (`ended` false): a piece that may go on
+/// past it is not given, and `wanted` says so.
 struct Pieces<'a> {
     page: &'a str,
     at: usize,
+    ended: bool,
+    wanted: bool,
+    /// Whether the page had more than blank space before `page`.
+    begun: bool,
 }
 
 impl<'a> Pieces<'a> {
     fn of(page: &'a str) -> Pieces<'a> {
-        Pieces { page, at: 0 }
+        Pieces {
+            page,
+            at: 0,
+            ended: true,
+            wanted: false,
+            begun: false,
+        }
     }
 
     /// Leaves out what follows, up to the closing tag of `name`, and gives it as it is
@@ -391,9 +682,14 @@ impl<'a> Pieces<'a> {
                     .get(at + 2 + name.len())
                     .is_none_or(|b| b.is_ascii_whitespace() || matches!(b, b'/' | b'>'))
         };
-        let end = memchr::memchr_iter(b'<', rest)
-            .find(|&at| closes(at))
-            .unwrap_or(rest.len());
+        // Where the page read so far ends too soon to tell, more of it is wanted.
+        let unsure = |at: usize| !self.ended && rest.len() < at + 3 + name.len();
+        let found = memchr::memchr_iter(b'<', rest).find(|&at| unsure(at) || closes(at));
+        if !self.ended && found.is_none_or(unsure) {
+            self.wanted = true;
+            return "";
+        }
+        let end = found.unwrap_or(rest.len());
         let written = &self.page[self.at..self.at + end];
         self.at += end;
         written
@@ -408,11 +704,18 @@ impl<'a> Pieces<'a> {
             Pieces {
                 page: self.page,
                 at: self.at,
+                ended: self.ended,
+                wanted: false,
+                begun: true,
             },
             None,
         );
         for _ in 0..8 {
-            match peek.next()? {
+            let Some(piece) = peek.next() else {
+                self.wanted = peek.wanted;
+                return None;
+            };
+            match piece {
                 Piece::Text(written) if text.is_none() => text = Some(written.trim()),
                 Piece::Close(inner) if inner.eq_ignore_ascii_case(name) => {
                     let text = text?;
@@ -439,6 +742,23 @@ impl<'a> Iterator for Pieces<'a> {
     type Item = Piece<'a>;
 
     fn next(&mut self) -> Option<Piece<'a>> {
+        let begins = self.at;
+        // A `<` near the end may begin a comment or a literal section, or end a text.
+        if !self.ended && self.page.len() - self.at < 9 {
+            self.wanted = true;
+            return None;
+        }
+        let piece = self.piece();
+        if !self.ended && self.at >= self.page.len() {
+            (self.at, self.wanted) = (begins, true);
+            return None;
+        }
+        piece
+    }
+}
+
+impl<'a> Pieces<'a> {
+    fn piece(&mut self) -> Option<Piece<'a>> {
         loop {
             let rest = &self.page[self.at..];
             let bytes = rest.as_bytes();
@@ -486,6 +806,7 @@ impl<'a> Iterator for Pieces<'a> {
                 // The kind of document, first in the page, may declare entities of its own
                 // between `[` and `]`, with a `>` in each.
                 if bytes[1] == b'!'
+                    && !self.begun
                     && self.page[..self.at].trim_end().is_empty()
                     && let Some(open) = rest[..end].find('[')
                 {
@@ -554,7 +875,7 @@ fn attributes<'a>(tag: &'a str, mut at: usize, wanted: &str) -> (usize, bool, Op
 /// The value of an attribute of a tag, from the tag's inside.
 fn attribute(inside: &str, name: &str) -> Option<String> {
     let mut value = String::new();
-    unescape(attributes(inside, 0, name).2?, &mut value);
+    unescape_into(attributes(inside, 0, name).2?, &mut value);
     Some(value)
 }
 
@@ -569,15 +890,24 @@ fn among(name: &str, names: &[&str]) -> bool {
 
 /// Text as it is written in a page, onto `out` as it is meant: `é` for `&eacute;`. No more of
 /// it than fills `out` to `MAX_TEXT`; what is meant is never longer than what is written.
-fn unescape(text: &str, out: &mut String) {
+fn unescape(text: &str, out: &mut Text) {
     let mut rest = super::start(text, (MAX_TEXT + 1).saturating_sub(out.len()));
+    let mut meant = String::with_capacity(rest.len());
     while let Some(at) = rest.find('&') {
-        out.push_str(&rest[..at]);
+        meant.push_str(&rest[..at]);
         let (character, length) = reference(&rest[at..]).unwrap_or(('&', 1));
-        out.push(character);
+        meant.push(character);
         rest = &rest[at + length..];
     }
-    out.push_str(rest);
+    meant.push_str(rest);
+    out.push_str(&meant);
+}
+
+/// `unescape` onto a string.
+fn unescape_into(text: &str, out: &mut String) {
+    let mut meant = Text::new();
+    unescape(super::start(text, (MAX_TEXT + 1).saturating_sub(out.len())), &mut meant);
+    out.push_str(&meant.end());
 }
 
 /// The character that the start of `text` stands for, and how many bytes of `text` say so:
@@ -664,6 +994,55 @@ mod tests {
     use crate::extract::tests::{folder, zip_file};
     use crate::extract::text_of;
 
+    /// The text of a page read `step` bytes at a time, a piece longer than `cap` gone through
+    /// as it comes.
+    fn streamed(page: &str, step: usize, cap: usize) -> String {
+        let mut at = 0;
+        let mut more = |buf: &mut String| {
+            let end = page.ceil_char_boundary(at + step);
+            buf.push_str(&page[at..end]);
+            at = end;
+            at < page.len()
+        };
+        let mut out = Text::new();
+        page_from(&mut more, &mut out, true, (step, cap));
+        out.end()
+    }
+
+    /// Every page of these tests, read in pieces, gives the text it gives whole, and a piece
+    /// too long to hold is gone through: a picture in its tag, a script, a comment.
+    #[test]
+    fn page_read_in_pieces_is_the_page_read_whole() {
+        let pages = [
+            CHAPTER.to_string(),
+            "<p>Caf&eacute; <a href='n1'><sup>[1]</sup></a>end</p><textarea>a &lt; b</textarea><![CDATA[x < y]]><!-- c --> &amp;".into(),
+            "  \n<!DOCTYPE x [<!ENTITY a \"b>\">]><p>after</p>".into(),
+            "<script>let a = '</scr' + 'ipt>'; </script ><p>shown</p><style>p{}</style>after".into(),
+        ];
+        for page in &pages {
+            let mut whole = String::new();
+            self::page(page, &mut whole, true);
+            for step in 1..12 {
+                assert_eq!(streamed(page, step, usize::MAX), whole, "{page:?} in pieces of {step}");
+            }
+        }
+        let picture = format!("<p>Before</p><img src=\"data:image/png;base64,{}\" alt=\"Chart\"><p>After</p>", "A".repeat(5000));
+        assert_eq!(streamed(&picture, 64, 1000).split_whitespace().collect::<Vec<_>>(), ["Before", "After"], "a tag too long: its picture and words gone");
+        let script = format!("<p>Before</p><script>{}</script><p>After</p><!--{}--><p>End</p><title>{}</title>", "x = 1;".repeat(1000), "note ".repeat(1000), "Fyret ".repeat(500));
+        let read = streamed(&script, 64, 1000);
+        assert_eq!(read.split_whitespace().take(3).collect::<Vec<_>>(), ["Before", "After", "End"]);
+        assert_eq!(read.matches("Fyret").count(), 500, "a long title is read as it comes");
+        let text = format!("<p>{}</p>", "lighthouse &amp; harbour ".repeat(1000));
+        assert_eq!(streamed(&text, 64, 1000).matches("&").count(), 1000, "no reference is cut");
+    }
+
+    /// The text of a whole page in memory onto a string.
+    fn page(page: &str, out: &mut String, titled: bool) {
+        let mut text = Text::new();
+        super::page(page, &mut text, titled);
+        out.push_str(&text.end());
+    }
+
     /// What the store gets of a file with this name and these bytes.
     fn read(folder: &Path, name: &str, bytes: &[u8]) -> Option<String> {
         std::fs::write(folder.join(name), bytes).unwrap();
@@ -714,7 +1093,7 @@ mod tests {
         );
         let started = std::time::Instant::now();
         let mut out = String::new();
-        super::page(&page, &mut out, false);
+        self::page(&page, &mut out, false);
         assert!(
             started.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)),
             "{:?}",
@@ -722,7 +1101,7 @@ mod tests {
         );
         assert_eq!(out.trim(), "kept");
         let mut out = String::new();
-        super::page(
+        self::page(
             "  \n<!DOCTYPE x [<!ENTITY a \"b>\">]><p>after</p>",
             &mut out,
             false,
@@ -1129,11 +1508,16 @@ mod tests {
                 .collect();
             let mut out = String::new();
             page(&soup, &mut out, true);
+            // Read a few bytes at a time, the page gives the same text; with little room for
+            // a piece, pieces are gone through as they come, and no more is made.
+            let step = 1 + next() % 7;
+            assert_eq!(streamed(&soup, step, usize::MAX), out, "{soup:?} in pieces of {step}");
+            assert!(streamed(&soup, step, 1 + next() % 16).len() <= soup.len() + 2, "{soup:?}");
             assert!(
                 out.len() <= soup.len(),
                 "what is meant is never longer than what is written: {soup:?} gave {out:?}"
             );
-            let (chapters, name) = (contents(&soup, &mut out).1, named(&[&soup], &soup));
+            let (chapters, name) = (contents(&soup, &mut Text::new()).1, named(&[&soup], &soup));
             assert!(chapters.len() <= soup.len() && name.len() <= 2 * soup.len() + 1);
         }
 

@@ -2654,6 +2654,11 @@ fn scan_for(
     store.long_passages("passages.workbooks", "1", DOCUMENT_MARGIN, |p| {
         p.extension().is_some_and(|e| e.eq_ignore_ascii_case("xls") || e.eq_ignore_ascii_case("xlsb"))
     })?;
+    // And those of books and web pages (2.34): only those with nearly as much text as is kept,
+    // or more, get their vectors again, once.
+    store.long_passages("passages.books", "1", DOCUMENT_MARGIN, |p| {
+        p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["epub", "html", "htm", "xhtml"].iter().any(|b| e.eq_ignore_ascii_case(b)))
+    })?;
     // What is kept of long files, *Sample* or *Everything* (2.34): only the long files whose
     // folder's choice changed are read again, get their vectors again, or are cut back.
     store.long_files_changed(&crate::long_files::Rule::of(cfg))?;

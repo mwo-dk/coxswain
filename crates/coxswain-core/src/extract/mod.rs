@@ -160,12 +160,13 @@ impl<'f> TidyLines<'f> {
 }
 
 /// Whether the file is a document whose passages can be made from all of it (`whole_lines`):
-/// Word and OpenDocument text, workbooks and presentations.
+/// Word and OpenDocument text, workbooks, presentations, books and web pages.
 pub(crate) fn whole_document(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     matches!(
         ext.as_str(),
         "docx" | "docm" | "dotx" | "odt" | "ott" | "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" | "pptx" | "ppsx" | "potx" | "odp"
+            | "epub" | "html" | "htm" | "xhtml"
     )
 }
 
@@ -195,6 +196,7 @@ pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
             out.push_str(&sheet::text(path, MAX_ENTRY)?);
             Some(())
         }),
+        "epub" | "html" | "htm" | "xhtml" => book::read_into(path, &mut out),
         _ if slides => slides::read_into(path, u64::MAX, WHOLE_ROOM, &mut out),
         _ => word::read_into(path, u64::MAX, &mut out),
     }))
@@ -503,6 +505,11 @@ impl<'a> Text<'a> {
         self.last == Some(c)
     }
 
+    /// The last character of the text, held or handed on.
+    pub fn last(&self) -> Option<char> {
+        self.last
+    }
+
     pub fn push(&mut self, c: char) {
         self.push_str(c.encode_utf8(&mut [0; 4]));
     }
@@ -796,6 +803,7 @@ pub(crate) mod tests {
                 "a.docx" => format!("<w:p><w:r><w:t>{}</w:t></w:r></w:p>", line(i)),
                 "a.odt" => format!("<text:p>{}</text:p>", line(i)),
                 "a.pptx" => format!("<a:p><a:r><a:t>{}</a:t></a:r></a:p>", line(i)),
+                "a.html" | "a.epub" => format!("<p>{}</p>\n", line(i)),
                 _ => format!("<row><c t=\"inlineStr\"><is><t>{}</t></is></c><c><v>{i}</v></c></row>", line(i)),
             }).collect();
             let p = d.join(name);
@@ -803,11 +811,17 @@ pub(crate) mod tests {
                 "a.docx" => zip_file(&p, &[("word/document.xml", docx(&paras).as_bytes())]),
                 "a.odt" => zip_file(&p, &[("content.xml", odt(&paras).as_bytes())]),
                 "a.pptx" => zip_file(&p, &[("ppt/slides/slide1.xml", pptx(&paras).as_bytes())]),
+                "a.html" => std::fs::write(&p, format!("<html><head><title>Crew</title></head><body>{paras}</body></html>")).unwrap(),
+                "a.epub" => zip_file(&p, &[
+                    ("META-INF/container.xml", b"<rootfile full-path='p.opf'/>"),
+                    ("p.opf", b"<package><metadata><dc:title>Crew</dc:title></metadata><manifest><item id='c' href='c.xhtml'/></manifest><spine><itemref idref='c'/></spine></package>"),
+                    ("c.xhtml", format!("<html><body>{paras}</body></html>").as_bytes()),
+                ]),
                 _ => zip_file(&p, &[("xl/workbook.xml", book.as_bytes()), ("xl/_rels/workbook.xml.rels", rels.as_bytes()), ("xl/worksheets/sheet1.xml", xlsx(&paras).as_bytes())]),
             }
             p
         };
-        for name in ["a.docx", "a.odt", "a.pptx", "a.xlsx"] {
+        for name in ["a.docx", "a.odt", "a.pptx", "a.xlsx", "a.html", "a.epub"] {
             for n in [3usize, 120_000] {
                 let p = write(name, n);
                 let text = text_of(&p, std::fs::metadata(&p).unwrap().len(), u64::MAX).unwrap();

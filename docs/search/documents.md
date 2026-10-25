@@ -37,7 +37,7 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 | Mail | `.eml` `.mbox`, Outlook `.msg` | Subject, sender, receivers, the message and the names of its attachments |
 | Chess, xiangqi, Go, draughts and shogi games, bridge deals | `.pgn` `.pgn.gz` `.pgn.zst`, `.si4` (SCID), `.sgf`, `.pdn`, `.kif` `.kifu` `.csa`, `.pbn` | A line per game: the players (with their ranks in SGF), event, place, date, the opening (PGN) and the result ([Chess](../previews/chess.md#finding-games), [Go](../previews/go.md#finding-games), [Draughts](../previews/draughts.md#finding-games), [Xiangqi](../previews/xiangqi.md#finding-games), [Shogi](../previews/shogi.md#finding-games), [Bridge](../previews/bridge.md#finding-deals)) |
 | dBase tables | `.dbf` | The field names and the records ([Old pictures and files](../previews/old-formats.md#dbase-tables)) |
-| Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup |
+| Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup: what a browser shows, not scripts, styles or comments; the words a picture stands for (its `alt`) |
 | Notebooks | Jupyter `.ipynb` | The cells, with what they printed |
 | Diagrams | draw.io `.drawio` `.dio`, Mermaid `.mmd` `.mermaid`, Graphviz `.dot` `.gv`, PlantUML `.puml` `.plantuml` `.pu` `.iuml` `.wsd` | The words in the boxes, and [a sentence per arrow](diagrams.md) |
 | Markdown | `.md` `.markdown` `.mdx` | The text, and a sentence per arrow of each Mermaid block |
@@ -71,7 +71,8 @@ setting. Word, OpenDocument, spreadsheet
 (`.xlsx`, `.xlsm`, `.xlsb`, `.ods`) and presentation files are read as they are unpacked, never a
 whole part in memory: one with a 60 MB part takes about 10 to 20 MB to read, where it took 25 to
 95 MB. An old `.xls` is read record by record from the file, a sheet where it lies, never the
-whole file in memory.
+whole file in memory. A web page and each chapter of a book are read as they come: a 60 MB page
+or chapter takes a few megabytes, where it took about 65 MB.
 
 ## In the terminal app
 
@@ -131,6 +132,16 @@ Before the update that brought this, an `.xlsb` was found only by the first cell
 Excel writes the cells after it in a short form, which was not read. After the update, every
 `.xlsb` is read again once, and each `.xls` with about 3 MB of text or more gets its vectors made
 again once; nothing else is read again.
+
+#### Is a large EPUB or web page read whole?
+
+A page and each chapter of a book are read as they come, a piece at a time, never whole: a
+60 MB page or chapter costs a few megabytes of memory. A page saved with its pictures inside
+it is read too; a tag longer than 4 MB (a picture written into it) is passed over, and the
+words of its `alt` with it. With about 3 MB of text or more, its passages for
+[search by meaning](meaning.md) come from the whole book or page, not only its first 4 MB.
+After the update that brought this, those books and pages get their vectors made again, once;
+nothing is read again for search by words.
 
 #### Are the attachments of a mail read?
 
