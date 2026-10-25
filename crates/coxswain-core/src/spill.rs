@@ -359,7 +359,8 @@ mod tests {
     /// What a run notes is what the next start reads: each folder once, as the sweep parses it.
     #[test]
     fn a_noted_folder_is_listed_once_in_this_runs_list() {
-        let d = folder("noted").join("odd \"name\"\nline");
+        // Quotes and a line break, where the system allows them in a name.
+        let d = folder("noted").join(if cfg!(windows) { "odd name" } else { "odd \"name\"\nline" });
         std::fs::create_dir_all(&d).unwrap();
         staging_in(&d);
         staging_in(&d);
