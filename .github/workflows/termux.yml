@@ -110,7 +110,12 @@ jobs:
             set -e
             # A mirror answers an error now and then (429 Too Many Requests from one, for hours):
             # a later try is from the primary repository, with a fresh index.
-            sh /src/packaging/pkg-retry.sh pkg install -y rust clang binutils jq
+            # The primary repository (a CDN) from the start: pkg picks a mirror at random, and one
+            # served 220 MB at 41 kB/s (89 minutes, past the job's limit).
+            echo "deb https://packages-cf.termux.dev/apt/termux-main stable main" > $PREFIX/etc/apt/sources.list
+            rm -rf $PREFIX/etc/termux/chosen_mirrors
+            apt-get update -q
+            sh /src/packaging/pkg-retry.sh apt-get install -y rust clang binutils jq
             cp -r /src ~/src && cd ~/src
             # A stale mirror can serve an old rustc (1.92 once, when a locked crate needed 1.93).
             # The newest rust-version among the locked crates for Android is what it must reach;
