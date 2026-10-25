@@ -63,9 +63,10 @@ jobs:
               awk -F '\t' -v t="$1 version $2" '$2 ~ /^(New|Add|Update) version: / && substr($2, index($2, ": ") + 2) == t { print $1; exit }'
           }
           # Not on WinGet yet: our open New-Package pull request for $id moves to $v in place. Its
-          # manifests are the old version's with the version, the installers' SHA-256 and the
-          # release date changed (komac 2.16's `new` asks on a terminal even with --dry-run, and
-          # `update` needs a listed package). A New-Package pull request holds one version.
+          # manifests are the old version's with the version, the installers' SHA-256, the
+          # release date and the release notes (none; the URL to the new ones) changed (komac
+          # 2.16's `new` asks on a terminal even with --dry-run, and `update` needs a listed
+          # package). A New-Package pull request holds one version.
           update_new() {
             id="$1"; shift
             pr=$(gh pr list -R microsoft/winget-pkgs --state open --author "$me" --search "$id version in:title" --limit 100 \
@@ -95,7 +96,11 @@ jobs:
               mkdir "fork/$dir/$v"
               for f in "fork/$dir/$old"/*.yaml; do
                 # Komac writes CRLF; edited as LF (winget-pkgs' .gitattributes stores YAML as LF).
-                sed -e 's/\r$//' -e "s/${old//./\\.}/$v/g" "$f" > "fork/$dir/$v/${f##*/}"
+                # The old version's release notes would stay with the new one: ReleaseNotes goes
+                # (its text, continuation lines too) and ReleaseNotesUrl points at $TAG's notes.
+                sed -e 's/\r$//' -e "s/${old//./\\.}/$v/g" "$f" |
+                  awk -v u="ReleaseNotesUrl: $notes" '/^ReleaseNotes:/ { skip = 1; next } skip && /^([ \t]|$)/ { next }
+                    { skip = 0 } /^ReleaseNotesUrl:/ { $0 = u } { print }' > "fork/$dir/$v/${f##*/}"
               done
               inst="fork/$dir/$v/$id.installer.yaml"
               [ "$(grep -c '^  InstallerUrl: ' "$inst")" = "$#" ] || { echo "::error::$inst has not one installer for each of: $*"; return 1; }

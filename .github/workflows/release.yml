@@ -62,6 +62,7 @@ jobs:
       sha: ${{ steps.v.outputs.sha }}
       release: ${{ steps.v.outputs.release }}
       rehearsal: ${{ steps.v.outputs.rehearsal }}
+      check: ${{ steps.v.outputs.check }}
       ci: ${{ steps.sys.outputs.ci }}
       freebsd: ${{ steps.sys.outputs.freebsd }}
       netbsd: ${{ steps.sys.outputs.netbsd }}
@@ -92,9 +93,14 @@ jobs:
           fi
           if [ "$REHEARSAL" = true ]; then
             # The version tomorrow's release pull request makes; exit 2: no rows, nothing to rehearse.
-            next=$(python3 packaging/release-pr.py --next) || {
+            # Exit 3: the current version has no published release, so tomorrow's would skip it.
+            rc=0; next=$(python3 packaging/release-pr.py --next) || rc=$?
+            if [ "$rc" = 2 ]; then
               echo "::notice title=No rehearsal::changelog.d/ has no rows: nothing to release tomorrow."
-              { echo release=false; echo none=true; } >> "$GITHUB_OUTPUT"; exit 0; }
+              { echo release=false; echo none=true; } >> "$GITHUB_OUTPUT"; exit 0
+            elif [ "$rc" != 0 ]; then
+              echo "::error title=No rehearsal::release-pr.py --next failed (exit $rc), see above: tomorrow's release pull request would fail too."; exit 1
+            fi
             echo "::notice title=Rehearsal::v$next, as tomorrow's release pull request makes it. Nothing is published."
             { echo "tag=v$next"; echo release=true; echo rehearsal=true; } >> "$GITHUB_OUTPUT"; exit 0
           fi
@@ -102,12 +108,13 @@ jobs:
           # A push releases only when it is the one that bumped the version (the release pull
           # request's merge). A later push while that release is still unpublished (its run still
           # going, or failed) would start another full release run for the same tag: v2.33.0
-          # had three. It runs only what its pull request ran; a failed release run is rerun
-          # (`gh run rerun`, still the bump's push) or started by hand (workflow_dispatch).
+          # had three. It runs only what its pull request ran. A failed release run is fixed, then
+          # Release is started by hand on master (workflow_dispatch). Until then the `unreleased`
+          # job turns each such push's run red, naming the version, so it is not left unpublished.
           parent="$(git show HEAD^:Cargo.toml 2>/dev/null | sed -n 's/^version = "\(.*\)"/\1/p' | head -1)"
           if [ "$EVENT" = push ] && [ "$parent" = "$version" ]; then
             echo "::notice title=Tests only::this push did not bump the version ($tag): it tests what its pull request tested."
-            echo release=false >> "$GITHUB_OUTPUT"; exit 0
+            { echo release=false; echo check=true; } >> "$GITHUB_OUTPUT"; exit 0
           fi
           if draft="$(gh release view "$tag" --json isDraft -q .isDraft 2>err)"; then
             if [ "$draft" = false ]; then
@@ -137,6 +144,21 @@ jobs:
             git fetch -q --depth=1 origin "$BEFORE" || true # gone (a forced push): every system runs
             python3 .github/changed-systems.py "$BEFORE" HEAD | tee -a "$GITHUB_OUTPUT"
           fi
+
+  # A push that did not bump the version, while that version has no published release and no
+  # other Release run is under way: its release run failed and nothing would publish it.
+  unreleased:
+    needs: version
+    if: needs.version.outputs.check == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: .github/unreleased.sh
 
   # Every system's own workflow, as part of this run. Pull requests run them by themselves.
   # A release and a rehearsal need every one to pass (the draft job checks).

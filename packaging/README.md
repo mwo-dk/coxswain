@@ -59,7 +59,11 @@ match the list exactly.
 `taps/generate.sh` writes the Homebrew formula and cask from a release's `SHA256SUMS`; the
 Saturday rehearsal audits both (`brew audit`).
 
-`release-pr.py` makes the release pull request's changes; `release-pr.yml` runs it on Sundays.
+`release-pr.py` makes the release pull request's changes; `release-pr.yml` runs it on Sundays. It
+refuses (exit 3) while the version in `Cargo.toml` has no published release, so a failed release
+is never bumped past; finish it first (fix, then `gh workflow run release.yml` on `master`), or
+pass `--unreleased-ok` to skip it on purpose. Until then `.github/unreleased.sh` turns the
+Release runs of later pushes and the nightly run red, naming the version.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the
 `publish-new` and `publish-update` scopes, then
@@ -69,7 +73,7 @@ Saturday rehearsal audits both (`brew audit`).
 #446561 and #446560; `mwo-dk.Coxswain` again as #453867). While a package is not listed yet,
 `winget.yml` moves its open New-Package pull request to the newest release in place (that
 version's manifests instead of the old one's, and the title), so it keeps its place in the
-moderators' queue; `release-check.yml` reports that package's lag but does not fail on it. It runs on Mondays at 06:00 UTC (and by hand: *Actions → WinGet → Run
+moderators' queue, and its release notes link to that version; `release-check.yml` reports that package's lag, and fails once a release has waited more than 15 days (two weekly runs) without the pull request moved to it. It runs on Mondays at 06:00 UTC (and by hand: *Actions → WinGet → Run
 workflow*) and files only the newest release, one pull request per package, then closes our
 older open pull requests for that package with "Superseded by #N". WinGet's moderators review
 every pull request by hand, and one per release (several a day at times) stalled them; so WinGet

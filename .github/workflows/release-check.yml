@@ -147,7 +147,8 @@ jobs:
               echo "::error title=WinGet::could not read winget-pkgs' pull requests for $id"; bad=1; continue
             fi
             # Not listed yet: its New-Package pull request is moved to the newest release in place
-            # (winget.yml), and its lag is told, not failed: it waits on Microsoft's first review.
+            # (winget.yml), and its lag is told, not failed, for 15 days (two weekly runs): it
+            # waits on Microsoft's first review, but a pull request not moved on by then is.
             if [ "$listed" = 1 ] && [ -z "$filed" ]; then
               echo "::notice title=WinGet::$id is not listed on WinGet yet and has no pull request of ours open."; continue
             fi
@@ -162,6 +163,9 @@ jobs:
             days=$(( (now - $(date -d "$at" +%s)) / 86400 ))
             if [ "$days" -gt 8 ] && [ "$listed" = 0 ]; then
               echo "::error title=WinGet::$id: newest pull request is for ${filed:-no version}, but $tag has waited $days days for one (filed weekly by winget.yml)"; bad=1
+            elif [ "$days" -gt 15 ]; then
+              # Not listed: two weekly runs should have moved its New-Package pull request on by now.
+              echo "::error title=WinGet::$id is not listed yet and its New-Package pull request is still for $filed, but $tag has waited $days days (winget.yml moves it to the newest release weekly)"; bad=1
             else
               echo "::notice title=WinGet::$id: newest pull request is for ${filed:-no version}; $tag and later wait for winget.yml's weekly run ($days days so far)"
             fi
