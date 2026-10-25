@@ -39,6 +39,8 @@ pub(crate) struct Head {
     pub tags: [String; WANTED.len()],
     pub plies: u32,
     pub sans: Vec<String>,
+    /// The game's bytes, up to `MAX_GAME` of them, when `scan` is asked to keep them.
+    pub text: Vec<u8>,
     /// A chess game (`Pgn`), else draughts (`Pdn`) or xiangqi, which have no openings by name.
     pub format: super::Format,
 }
@@ -97,7 +99,7 @@ pub(crate) fn text(b: &[u8]) -> std::borrow::Cow<'_, str> {
 }
 
 pub use super::lex::MAX_LINE;
-use super::lex::Lexer;
+use super::lex::{Lexer, Movetext, Tok};
 /// The most of one game read to show it.
 pub const MAX_GAME: u32 = 16 << 20;
 
@@ -105,8 +107,9 @@ pub const MAX_GAME: u32 = 16 << 20;
 /// what it reads: lines that are no PGN are taken for moves, and skipped there.
 /// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's. `full`: the moves
 /// counted to the end of each game (`Head::plies`); else past its first moves only where its
-/// comments start and end is looked at, to know where the next game starts.
-pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, full: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+/// comments start and end is looked at, to know where the next game starts. `keep`: each game's
+/// bytes kept in `Head::text` (PGN, PDN and xiangqi), its moves not looked at.
+pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, full: bool, keep: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let mut r = Lexer::new(r);
     if matches!(format, super::Format::Kif | super::Format::Csa) {
         return scan_shogi(&mut r, stop, format, each);
@@ -114,7 +117,7 @@ pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, fu
     if format == super::Format::Pbn {
         return scan_pbn(&mut r, stop, each);
     }
-    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format };
+    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: vec![], format };
     let mut line = Vec::new();
     let (mut has_tags, mut has_moves, mut in_brace, mut depth) = (false, false, false, 0u32);
     loop {
@@ -136,6 +139,7 @@ pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, fu
             head.offset = at;
             head.plies = 0;
             head.sans.clear();
+            head.text.clear();
         };
         let trimmed = line.trim_ascii_start();
         let is_tag = n > 0 && !in_brace && trimmed.first() == Some(&b'[');
@@ -154,6 +158,9 @@ pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, fu
         if new || (!has_tags && !has_moves) {
             starts(&mut head);
         }
+        if keep && head.text.len() + line.len() <= MAX_GAME as usize {
+            head.text.extend_from_slice(&line);
+        }
         if is_tag {
             if let Some((k, v)) = pgn::tag_pair(&text(&line))
                 // Xiangqi names its first player Red.
@@ -164,7 +171,7 @@ pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, fu
             has_tags = true;
         } else if !trimmed.is_empty() && (trimmed[0] != b'%' || in_brace) {
             has_moves = true;
-            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full);
+            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full, keep);
         }
     }
 }
@@ -182,7 +189,7 @@ fn scan_shogi(r: &mut Lexer<impl BufRead>, stop: &AtomicBool, format: super::For
         if !keep {
             return true;
         }
-        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.main_line().len() as u32, sans: vec![], format };
+        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.main_line().len() as u32, sans: vec![], text: vec![], format };
         for (k, v) in &g.tags {
             if let Some(i) = WANTED.iter().position(|w| w.eq_ignore_ascii_case(k)) {
                 head.tags[i] = v.clone();
@@ -232,7 +239,7 @@ fn scan_pbn(r: &mut Lexer<impl BufRead>, stop: &AtomicBool, mut each: impl FnMut
             }
         }
         let (pairs, contract) = crate::bridge::summary(&g);
-        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.nodes.len() as u32, sans: vec![], format: super::Format::Pbn };
+        let mut head = Head { offset: start, len: end - start, tags: Default::default(), plies: g.nodes.len() as u32, sans: vec![], text: vec![], format: super::Format::Pbn };
         let tag = |k: &str| g.tag(k).unwrap_or("").to_string();
         head.tags[WHITE] = pairs[0].clone();
         head.tags[BLACK] = pairs[1].clone();
@@ -267,64 +274,49 @@ fn scan_pbn(r: &mut Lexer<impl BufRead>, stop: &AtomicBool, mut each: impl FnMut
 }
 
 /// A line of movetext: counts the main line's moves and keeps the first few. Not `full`, once
-/// the first few are kept, only where comments start and end is looked at.
-fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32, full: bool) {
-    let mut s = line;
-    while !s.is_empty() {
-        if !full && head.sans.len() >= FIRST_MOVES {
-            loop {
-                let b = s.as_bytes();
-                if *in_brace {
-                    let Some(e) = memchr::memchr(b'}', b) else { return };
-                    (s, *in_brace) = (&s[e + 1..], false);
-                } else {
-                    match memchr::memchr2(b'{', b';', b) {
-                        Some(i) if b[i] == b'{' => (s, *in_brace) = (&s[i + 1..], true),
-                        _ => return,
-                    }
-                }
-            }
-        }
-        if *in_brace {
-            match s.find('}') {
-                Some(e) => {
-                    s = &s[e + 1..];
-                    *in_brace = false;
-                }
-                None => return,
-            }
-            continue;
-        }
-        let c = s.chars().next().unwrap_or(' ');
-        match c {
-            '{' => *in_brace = true,
-            ';' => return,
-            '(' => *depth = depth.saturating_add(1),
-            ')' => *depth = depth.saturating_sub(1),
-            c if c.is_whitespace() => {}
-            _ => {
-                let end = s.find(|c: char| c.is_whitespace() || "{}();".contains(c)).unwrap_or(s.len()).max(c.len_utf8());
-                let w = &s[..end];
-                s = &s[end..];
-                if *depth == 0
-                    && !w.starts_with('$')
-                    && let Word::Move(san, _) = match head.format {
-                        super::Format::Pdn if crate::draughts::is_move(w) => Word::Move(w, None),
-                        super::Format::Xiangqi if crate::xiangqi::is_move(w) => Word::Move(w, None),
-                        super::Format::Pdn | super::Format::Xiangqi => Word::Other,
-                        _ => pgn::word(w),
-                    }
-                {
+/// the first few are kept, only where comments start and end is looked at; `skim`, only that.
+fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32, full: bool, skim: bool) {
+    let mut toks = Movetext::new(line, *in_brace);
+    while !skim && (full || head.sans.len() < FIRST_MOVES) {
+        let Some(tok) = toks.next() else {
+            *in_brace = toks.in_brace;
+            return;
+        };
+        match tok {
+            Tok::Open => *depth = depth.saturating_add(1),
+            Tok::Close => *depth = depth.saturating_sub(1),
+            Tok::Word(w) if *depth == 0 => {
+                let mv = match head.format {
+                    super::Format::Pdn if crate::draughts::is_move(w) => Word::Move(w, None),
+                    super::Format::Xiangqi if crate::xiangqi::is_move(w) => Word::Move(w, None),
+                    super::Format::Pdn | super::Format::Xiangqi => Word::Other,
+                    _ => pgn::word(w),
+                };
+                if let Word::Move(san, _) = mv {
                     head.plies = head.plies.saturating_add(1);
                     if head.sans.len() < FIRST_MOVES {
                         head.sans.push(san.to_string());
                     }
                 }
-                continue;
+            }
+            _ => {}
+        }
+    }
+    // Past the first moves, not `full`: only where comments start and end.
+    let (mut s, mut open) = (toks.rest(), toks.in_brace);
+    loop {
+        let b = s.as_bytes();
+        if open {
+            let Some(e) = memchr::memchr(b'}', b) else { break };
+            (s, open) = (&s[e + 1..], false);
+        } else {
+            match memchr::memchr2(b'{', b';', b) {
+                Some(i) if b[i] == b'{' => (s, open) = (&s[i + 1..], true),
+                _ => break,
             }
         }
-        s = &s[c.len_utf8()..];
     }
+    *in_brace = open;
 }
 
 /// Counts the bytes read through it, for the progress.
@@ -400,14 +392,14 @@ pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Res
     }
     let format = kind(path);
     let r = reader(path, Arc::default(), 1 << 30)?;
-    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, false, each)
+    scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, false, false, each)
 }
 
 /// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
 /// the index is its `offset`. `read` counts the index bytes read, for the progress.
 fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     base.entries(|n, e| {
-        let mut head = Head { offset: n as u64, len: 0, tags: Default::default(), plies: e.plies, sans: vec![], format: super::Format::Pgn };
+        let mut head = Head { offset: n as u64, len: 0, tags: Default::default(), plies: e.plies, sans: vec![], text: vec![], format: super::Format::Pgn };
         head.tags[WHITE] = base.white(e).to_string();
         head.tags[BLACK] = base.black(e).to_string();
         head.tags[EVENT] = base.event(e).to_string();
@@ -428,7 +420,7 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
 /// The games of a ChessBase database (`cbh`), as the pass over a PGN file sees them: a game's
 /// `offset` is its record in the `.cbh` file.
 fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], format: super::Format::Pgn };
+    let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: vec![], format: super::Format::Pgn };
     super::cbh::scan(path, &|| stop.load(Ordering::Relaxed), &|n| read.store(n, Ordering::Relaxed), |g| {
         for t in &mut head.tags {
             t.clear();
@@ -720,7 +712,7 @@ impl Library {
         let (sh, st) = (shared.clone(), stop.clone());
         let format = kind(path);
         std::thread::Builder::new().name("chess-games".into()).spawn(move || {
-            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
+            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
         })?;
         Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None })
     }
@@ -1078,17 +1070,9 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
         }
         return Ok(());
     }
-    let (mut line, mut game, mut n, mut rows) = (Vec::new(), String::new(), 0u32, 0usize);
-    // Moves seen in this game, and how deep in a { } comment the reading is.
-    let (mut moves, mut brace) = (false, 0i32);
-    let mut flush = |game: &mut String, n: &mut u32, rows: &mut usize| {
-        if game.trim().is_empty() {
-            game.clear();
-            return;
-        }
-        let g = super::pgn::parse(game);
-        game.clear();
-        let mut keys = main_line_keys(&g);
+    let (mut n, mut rows) = (0u32, 0usize);
+    let mut flush = |game: &str, n: &mut u32, rows: &mut usize| {
+        let mut keys = main_line_keys(&super::pgn::parse(game));
         keys.truncate(POSITION_ROWS.saturating_sub(*rows));
         *rows += keys.len();
         each(*n, &keys);
@@ -1105,39 +1089,19 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
             if rows >= POSITION_ROWS || stop() {
                 break;
             }
-            game = super::cbh::pgn(path, r).unwrap_or_else(|_| "*\n".into());
-            flush(&mut game, &mut n, &mut rows);
+            flush(&super::cbh::pgn(path, r).unwrap_or_else(|_| "*\n".into()), &mut n, &mut rows);
         }
         return Ok(());
     }
-    let mut r = Lexer::new(BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?));
-    loop {
-        if n >= POSITION_GAMES || rows >= POSITION_ROWS || stop() || r.line(&mut line)? == 0 {
-            break;
+    // The games as the table cuts them (`scan`), so a game's index here is its row's.
+    let r = BufReader::with_capacity(1 << 16, reader(path, Arc::default(), 1 << 30)?);
+    scan(r, &AtomicBool::new(false), super::Format::Pgn, false, true, |h| {
+        if n >= POSITION_GAMES || rows >= POSITION_ROWS || stop() {
+            return false;
         }
-        let l = text(&line);
-        let t = l.trim_start_matches('\u{feff}').trim_start();
-        if brace == 0 && t.starts_with('[') && moves {
-            flush(&mut game, &mut n, &mut rows);
-            moves = false;
-        }
-        if !t.starts_with('[') || brace > 0 {
-            if !t.is_empty() {
-                moves = true;
-            }
-            brace = (brace + t.matches('{').count() as i32 - t.matches('}').count() as i32).max(0);
-        }
-        if game.len() < MAX_GAME as usize {
-            game.push_str(&l);
-            if !l.ends_with('\n') {
-                game.push('\n');
-            }
-        }
-    }
-    if n < POSITION_GAMES && rows < POSITION_ROWS && !stop() {
-        flush(&mut game, &mut n, &mut rows);
-    }
-    Ok(())
+        flush(&text(&h.text), &mut n, &mut rows);
+        true
+    })
 }
 
 #[cfg(test)]
@@ -1166,6 +1130,19 @@ mod tests {
         assert!(seen.iter().all(|(_, k)| !k.contains(&after(crate::chess::pgn::START))));
         // The first game's 4.dxe5 is in it alone; the comment with a [ line does not split a game.
         assert_eq!((seen[0].1.len(), seen[1].1.len()), (7, 5));
+    }
+
+    /// Find this position names a game by its row: positions are read from the games as the
+    /// table cuts them, an unclosed comment and a lone Event tag too.
+    #[test]
+    fn positions_by_the_tables_games() {
+        let text = "[Event \"a\"]\n\n1.e4 {never closed\n\n[Event \"b\"]\n\n1.d4 d5 *\n[Event \"x\"]\n[Event \"c\"]\n\n1.c4 $1 e5 *\n";
+        let (l, d) = lib(text.as_bytes(), "odd.pgn");
+        let mut seen = vec![];
+        positions(&d.0.join("odd.pgn"), &|| false, |n, keys| seen.push((n, keys.len()))).unwrap();
+        assert_eq!(l.progress().games, 4);
+        assert_eq!(seen, [(0, 1), (1, 2), (2, 0), (3, 2)]);
+        assert_eq!((l.row(3).unwrap().moves, l.row(3).unwrap().opening.as_str()), (1, "English Opening: King's English Variation"));
     }
 
     fn lib(text: &[u8], name: &str) -> (Library, tempdir::Dir) {
@@ -1201,7 +1178,7 @@ mod tests {
     fn a_byte_order_mark_is_no_game() {
         let text = format!("\u{feff}{TWO}");
         let mut events = vec![];
-        scan(text.as_bytes(), &AtomicBool::new(false), super::super::Format::Pgn, true, |h| {
+        scan(text.as_bytes(), &AtomicBool::new(false), super::super::Format::Pgn, true, false, |h| {
             events.push((h.offset, h.tags[EVENT].clone()));
             true
         })

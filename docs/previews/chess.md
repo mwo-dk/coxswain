@@ -227,6 +227,12 @@ took in, sorted by file, so a position of millions of games is answered as quick
 one. It needs *Words in files* on (*Settings → Search*); without it the line under the
 board says so, and *No game in the search store reaches this position* when none does.
 
+*game 3* is the table's third row: the positions are read from the games as the table cuts the
+file apart, by the same reader, so a comment left open or an `Event` tag with no game after it
+counts the same in both. A file the store read with Coxswain 2.33.0 or earlier keeps its
+positions until it changes; when it held such a game, a hit after it could open the game next
+to the right one.
+
 ![The Opera Game at 2…d6 in the desktop app with Find this position pressed: Games that reach this position: 1, and below it classics.pgn · game 1 with Morphy, Paul – Duke Karl / Count Isouard 1-0 1858.11.02; Find this position beside Engine under the board](../screenshots/gui-chess-position.png)
 
 A store made before this release reads every PGN file again once, for the positions: only

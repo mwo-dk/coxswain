@@ -483,11 +483,11 @@ fn word(w: &str) -> Word<'_> {
 /// The first move of a game's movetext, outside variations and comments.
 fn first_move(moves: &str) -> Option<&str> {
     let mut depth = 0u32;
-    for tok in pgn::lex(moves) {
+    for tok in crate::chess::lex::Movetext::new(moves, false) {
         match tok {
-            pgn::Lex::Open => depth += 1,
-            pgn::Lex::Close => depth = depth.saturating_sub(1),
-            pgn::Lex::Word(w) if depth == 0 => {
+            crate::chess::lex::Tok::Open => depth += 1,
+            crate::chess::lex::Tok::Close => depth = depth.saturating_sub(1),
+            crate::chess::lex::Tok::Word(w) if depth == 0 => {
                 if let Word::Move(m, _) = word(w) {
                     return Some(m);
                 }
