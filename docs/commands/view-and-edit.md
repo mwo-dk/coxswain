@@ -139,7 +139,7 @@ The exceptions: **F3** on a CycloneDX BOM opens the terminal app's own
 the built-in viewer (or in `viewer`'s program), and **Esc** there goes back to the BOM or the
 provenance; `bom_viewer = false` or `provenance_viewer = false` makes F3 show the source straight
 away. **F3** on a chess, Go or draughts file (`.pgn`, `.pgn.gz`, `.pgn.zst`, `.epd`, `.fen`, `.sgf`,
-`.pdn`, `.kif`, `.kifu`, `.csa`, `.pbn`, or a `.bin` Polyglot book) opens its games, positions or book moves full screen
+`.pdn`, `.kif`, `.kifu`, `.csa`, `.pbn`, a `.bin` Polyglot book, or a DhtmlXQ xiangqi game with no ending, `.che`, `.txt` or `.dhtmlxq`) opens its games, positions or book moves full screen
 ([Chess games](../previews/chess.md), [Go games](../previews/go.md),
 [Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md), [Shogi games](../previews/shogi.md), [Bridge deals](../previews/bridge.md)), and on a neural network
 model (`.onnx`, `.tflite`, `.mlmodel`, `.keras`, a Keras `.h5`) its facts card: format, inputs
@@ -221,7 +221,7 @@ it, so an editor it opens still shows.
 
 No: the editor would change a copy, and the change would be lost. Copy it out with **F5** first
 ([Archives as folders](../files/archives.md)). **F3** in the terminal app views it (a copy goes
-to the viewer), and the desktop app's preview pane shows it.
+to the viewer; a games file opens in the games view), and the desktop app's preview pane shows it.
 
 #### F4 on a hit in Find: does the search close?
 

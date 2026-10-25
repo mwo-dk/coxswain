@@ -105,3 +105,10 @@ test("sameEntry: a new listing of an unchanged file is the same entry; any chang
   assert.ok(!sameEntry(a, { ...a, size: 10 }) && !sameEntry(a, { ...a, modified: 6 }));
   assert.ok(!sameEntry(a, { ...a, online: true }) && !sameEntry(a, null) && !sameEntry(undefined, a));
 });
+
+test("looksLikeDhtml: a DhtmlXQ xiangqi game by its name and first bytes", async () => {
+  const { looksLikeDhtml } = await pick("looksLikeDhtml");
+  assert.ok(looksLikeDhtml("0001-对兵互进右马局", "﻿[DhtmlXQ]\n[DhtmlXQ_ver]x"));
+  assert.ok(looksLikeDhtml("game.che", "  [DhtmlXQ_title]") && looksLikeDhtml("g.TXT", "[dhtmlxq]"));
+  assert.ok(!looksLikeDhtml("main.rs", "[DhtmlXQ]") && !looksLikeDhtml("README", "# [DhtmlXQ]"));
+});

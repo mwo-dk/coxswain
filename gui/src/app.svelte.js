@@ -69,7 +69,8 @@ export const ui = $state({
   chessAt: null,
   /** A Find hit's game in an SGF file: { path, index }, for GoView. */
   goAt: null,
-  /** The last .bin file the preview found to be a Polyglot book, for the action menu. */
+  /** The last file the preview found to be games by its bytes (a Polyglot book, a DhtmlXQ
+   *  xiangqi game), for the action menu. */
   book: "",
   /** Settings → What's new: the notices not dismissed, and the versions not read. */
   news: { notices: [], unread: [] },

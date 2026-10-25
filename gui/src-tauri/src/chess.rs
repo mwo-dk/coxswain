@@ -168,6 +168,13 @@ pub async fn chess_is_book(path: PathBuf) -> bool {
     tauri::async_runtime::spawn_blocking(move || chess::polyglot::is_book(&path)).await.unwrap_or(false)
 }
 
+/// Whether the file is games known by its bytes (`chess::sniff`): a Polyglot book, a DhtmlXQ
+/// xiangqi game. For Open games on a file with no games name.
+#[tauri::command]
+pub async fn chess_sniffed(path: PathBuf) -> bool {
+    crate::here(&path).is_ok() && tauri::async_runtime::spawn_blocking(move || chess::sniff(&path).is_some()).await.unwrap_or(false)
+}
+
 /// The legal moves of the position `fen`, each with the position after it (`chess::play`).
 #[tauri::command]
 pub fn chess_moves(fen: String) -> Vec<chess::play::Played> {

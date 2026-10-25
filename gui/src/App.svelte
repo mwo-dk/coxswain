@@ -404,7 +404,8 @@
     long_files: () => longFiles(),
     chess: async () => {
       const e = item(tab());
-      const book = e && !e.is_dir && /\.bin$/i.test(e.name) && (await invoke("chess_is_book", { path: e.path }));
+      // Known by its bytes: a Polyglot book, a DhtmlXQ xiangqi game (`chess::sniff`).
+      const book = e && !e.is_dir && !chessFormat(e.name) && (await invoke("chess_sniffed", { path: e.path }).catch(() => false));
       if (e && !e.is_dir && (chessFormat(e.name) || book)) ui.modal = { kind: chessFormat(e.name) === "sgf" ? "go" : "chess", path: e.path, feature: { pdn: "draughts", shogi: "shogi", pbn: "bridge" }[chessFormat(e.name)] };
       else ui.status = t("chess.not_chess");
     },

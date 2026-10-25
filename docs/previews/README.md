@@ -99,7 +99,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | [Chess: playing on and the engine](chess-play.md) | Your own moves played from any position, kept as a line beside the game and saved only as a new PGN file; an installed Stockfish's best lines and evaluation; both apps |
 | [Go games](go.md) | SGF files as a list of games, each on a board stepped through with its captures, variations and comments; both apps, the terminal app full screen |
 | [Draughts games](draughts.md) | PDN files as a table of games, each on a numbered board with its captures, kings and variations; international and English draughts; both apps, the terminal app full screen |
-| [Xiangqi games](xiangqi.md) | Chinese chess in PGN files as a table of games, each on a board with the river and palaces and its pieces as characters; ICCS, WXF and Chinese notation; both apps, the terminal app full screen |
+| [Xiangqi games](xiangqi.md) | Chinese chess in PGN and DhtmlXQ files (the xiangqi websites' format, inside a zip too) as a table of games, each on a board with the river and palaces and its pieces as characters; ICCS, WXF and Chinese notation; both apps, the terminal app full screen |
 | [Shogi games](shogi.md) | KIF and CSA files as a table of games, each on a 9×9 board with the pieces in hand, drops and promotions, variations and comments; both apps, the terminal app full screen |
 | [Bridge deals](bridge.md) | PBN files as a table of deals, each as four hands round the table with its auction and play trick by trick; both apps, the terminal app full screen |
 | [Neural network models](neural-networks.md) | ONNX, TensorFlow Lite, Core ML and Keras models: inputs, outputs, nodes and parameters in both apps; the graph drawn by Netron, offline, in the desktop app |
@@ -143,6 +143,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.sgf` | A list of Go games, a game on a board with its stones and variations | [Go games](go.md) |
 | `.pdn` | A table of draughts games, a game on a numbered board with its moves | [Draughts games](draughts.md) |
 | `.pgn` with `[Game "Chinese Chess"]` | A table of xiangqi games, a game on a board with the river and palaces | [Xiangqi games](xiangqi.md) |
+| A DhtmlXQ game (no ending, `.che`, `.txt` or `.dhtmlxq`, starts with `[DhtmlXQ`) | The xiangqi game on its board | [Xiangqi games](xiangqi.md#dhtmlxq-games) |
 | `.kif` `.kifu` `.csa` | A table of shogi games, a game on a board with the pieces in hand | [Shogi games](shogi.md) |
 | `.pbn` | A table of bridge deals, a deal as four hands with its auction and tricks | [Bridge deals](bridge.md) |
 | Pictures, video, audio, fonts | Image, player, sample text | [Media](media.md#formats) |

@@ -11,7 +11,7 @@ adds its moves for each position, with their weights. A **ChessBase database** (
 read like a PGN file. Both apps have it. Coxswain reads the
 files and never changes them: you can [play on from any position and ask an installed
 engine](chess-play.md), and your moves are saved only as a new file when you ask. Go games (SGF),
-draughts games (PDN), xiangqi games (PGN with `[Game "Chinese Chess"]`), shogi games (KIF, CSA) and bridge
+draughts games (PDN), xiangqi games (PGN with `[Game "Chinese Chess"]`, and DhtmlXQ), shogi games (KIF, CSA) and bridge
 deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draughts.md),
 [Xiangqi games](xiangqi.md), [Shogi games](shogi.md), [Bridge deals](bridge.md).
 
@@ -387,7 +387,7 @@ evaluations, coloured squares and arrows on the board) and its Chess960 games, a
 archives as the database they hold, but not the newer `.2cbh` format or password-protected
 `.cbz` archives ([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID databases (`.si4`, `.si5`), EPD, FEN and Polyglot books, Go
 games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) , xiangqi
-games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For a `.2cbh` database or a password-protected `.cbz` archive, export the games to PGN in ChessBase.
+games in PGN and DhtmlXQ ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For a `.2cbh` database or a password-protected `.cbz` archive, export the games to PGN in ChessBase.
 
 #### Why does a ChessBase game end with a note?
 

@@ -68,10 +68,10 @@ pub fn format(path: &Path) -> Option<Format> {
     }
 }
 
-/// The games file `path` is: `format`, and for a `.bin` file, whether its bytes are a
-/// Polyglot book's. It reads the file, so it is for one file the user is on, not a listing.
+/// The games file `path` is: `format`, for a `.bin` file whether its bytes are a Polyglot
+/// book's, and for any other whether they are a DhtmlXQ xiangqi game's (read as PGN). It reads the file, so it is for one file the user is on, not a listing.
 pub fn sniff(path: &Path) -> Option<Format> {
-    format(path).or_else(|| polyglot::is_book(path).then_some(Format::Book))
+    format(path).or_else(|| polyglot::is_book(path).then_some(Format::Book)).or_else(|| games::is_dhtml(path).then_some(Format::Pgn))
 }
 
 /// The file endings of PGN files, for the search store.
