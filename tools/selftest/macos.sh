@@ -886,7 +886,7 @@ if {$havegit} {
   }
   t "Ctrl+G git history" "$demo/repo/README.md" {
     s "the panel shows the branch" "" {\smain\s} 10
-    s "Ctrl+G lists the file's commits" $key(C-g) {First stroke} 15
+    s "Ctrl+G lists the file's commits" $key(C-g) {First} 15
   }
 } else {
   foreach n {"Alt+C git config" "Alt+B git branches" "Ctrl+G git history"} { result SKIP $n "" "no git repository" }
@@ -1208,7 +1208,7 @@ EOF
     if [ -n "$SHOT_LIST" ]; then echo; echo "## Screenshots"; for p in $SHOT_LIST; do echo; echo "![$p]($p)"; done; fi
   } >"$report"
   # Nothing personal in it: the real home is written as ~.
-  sed "s#$REAL_HOME#~#g" "$report" >"$report.tmp" && mv "$report.tmp" "$report"
+  LC_ALL=C sed "s#$REAL_HOME#~#g" "$report" >"$report.tmp" && mv "$report.tmp" "$report"
 
   dir=""
   if [ -n "$OUT" ]; then dir=$OUT
@@ -1216,7 +1216,7 @@ EOF
     dir="$REAL_HOME/Desktop"
   fi
   # The pictures' links follow the names they get there.
-  sed "s#(desktop-#(coxswain-selftest-$stamp-desktop-#" "$report" >"$WORK/report-out.md"
+  LC_ALL=C sed "s#(desktop-#(coxswain-selftest-$stamp-desktop-#" "$report" >"$WORK/report-out.md"
   if [ -n "$dir" ] && cp "$WORK/report-out.md" "$dir/coxswain-selftest-$stamp.md" 2>/dev/null; then
     for p in $SHOT_LIST; do cp "$SHOTS/$p" "$dir/coxswain-selftest-$stamp-$p" 2>/dev/null; done
     REPORT="$dir/coxswain-selftest-$stamp.md"
