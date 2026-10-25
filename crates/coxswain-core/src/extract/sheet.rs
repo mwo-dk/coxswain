@@ -53,14 +53,14 @@ const XML_2003_SKIP: [&str; 7] = [
 
 /// Whether the file is a workbook in a zip or a compound file, by its first bytes; `None`
 /// when it cannot be read.
-pub(super) fn packed(path: &Path) -> Option<bool> {
+pub(super) fn packed_file(path: &Path) -> Option<bool> {
     let mut head = vec![];
     std::fs::File::open(path).ok()?.take(8).read_to_end(&mut head).ok()?;
     Some(head.starts_with(b"PK") || head == COMPOUND)
 }
 
 pub fn text(path: &Path, max: u64) -> Option<String> {
-    let text = if packed(path)? {
+    let text = if packed_file(path)? {
         let mut out = Text::new();
         read_into(path, max, &mut out)?;
         out.end()

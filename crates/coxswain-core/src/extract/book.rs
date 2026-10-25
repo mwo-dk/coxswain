@@ -204,7 +204,8 @@ fn walk(
         };
         let mut sniffed = entry.take(room);
         let encoding = sniff(&mut sniffed);
-        room -= room - sniffed.limit();
+        room = sniffed.limit();
+        drop(sniffed);
         let Some(encoding) = encoding else {
             continue;
         };
