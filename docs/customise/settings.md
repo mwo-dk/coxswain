@@ -181,12 +181,12 @@ Opening this area asks the container runtime which images it has.
 
 ## Looks
 
-![Settings at Looks: the languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, a line, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
 
 | Option | Does | Key |
 |---|---|---|
 | *Language* | The language in use with its flag, a filter, then *Automatic* and every language by region, by its own name ([Languages](languages.md)) | `language` |
-| *For: Desktop app / Terminal app* | Which app's theme the swatches below choose. A terminal app already running takes a new one when it starts again; its own Settings change it at once ([Themes](themes.md)) | |
+| *For: Desktop app / Terminal app* | Set off from the languages by a line. Which app's theme the swatches below choose. A terminal app already running takes a new one when it starts again; its own Settings change it at once ([Themes](themes.md)) | |
 | *Theme of the desktop app* / *Theme of the terminal app* | Every built-in theme as a swatch in its own colours, under the headings of its group (*Coxswain's own*, *File managers of the DOS years*, *Windows*, *Mac*, *Other desktops*, *Home computers*), then your own `[themes.<name>]` under *Your own* ([Themes](themes.md#what-you-see)) | `[gui] theme` / `theme` |
 | *Icons and git glyphs* | *Nerd Font* or *Plain characters (ASCII)* ([Glyphs and fonts](glyphs-and-fonts.md)) | `glyphs` |
 | *Font* | The interface font, as a CSS font list. Greyed out under a theme that brings its own font (every theme but Dark, Light, Nord and Tokyo Night: Cyber, Classic blue (NC) and the other file managers draw in the monospaced font, the Windows and Mac themes in their era's), with the line *Cyber draws its text in a font of its own: the font above applies to the other themes.* ([Looks](looks.md)) | `[gui] font` |
@@ -339,9 +339,12 @@ as text in brackets (`[disk space]`, `[can leave this machine]` in red) and its 
 |---|---|
 | Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, *[ Show the guide again ]* (the [first-run guide](../panels/first-run.md)), the tips not dismissed yet, and what the versions you have not read brought |
 | Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*, and *Tika* and *Speech* while they are on), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*; *Programs that read more*, each `✓` or `✗` with the line that installs a missing one (**Space** copies it to the terminal's clipboard, see below); *Built-in models*, each with its size and state (**Enter** opens its folder in the panel, **Delete** deletes it, **U** unloads it) and *Delete all not in use*; and *Start with my session* under *Background reading* |
-| Previews, Looks, Behaviour | Their options. The desktop app's own (fonts, text size, row height, its theme, previews) are there too, since both apps share `config.toml` |
+| Previews, Behaviour | Their options. The desktop app's own (previews and the like) are there too, since both apps share `config.toml` |
+| Looks | First what both apps use: *Language* and *Icons and git glyphs*. Then, under the heading *Terminal app*, *Theme of the terminal app*; and under *Desktop app* that app's own: its theme, *Font*, *Monospaced font*, *Icon font*, *Text size* and *Row height*, there since both apps share `config.toml`. **Enter** on *Language* or a theme opens its list right under the row; **Esc** closes it |
 | Keys | First the row *Change keys in config.toml, under [keys]*: **Enter** opens your editor there. Then every action the terminal app has, under its group, with its keys; read-only, as in the desktop app. No scripts folder line: **F2** → *Open the scripts folder* goes there ([Scripts](../commands/scripts.md)) |
 | Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to; *Disk use*, each place with its size (**Enter** shows it in the panel, **Delete** clears it, the search store and the preview cache among them) and *Clear everything that can be built again*; where things are kept, the version |
+
+![The terminal app's Settings at Looks, Classic blue: Language (under the cursor) and Icons and git glyphs, then the heading Terminal app with Theme of the terminal app, then the heading Desktop app with its theme, Font, Monospaced font, Icon font, Text size and Row height](../screenshots/tui-settings-looks.png)
 
 A level that needs a model starts the [setup guide](../search/setup.md) (`coxswain
 --setup-search`) on the plain terminal, as **Set up…** does; Settings is back when it ends,

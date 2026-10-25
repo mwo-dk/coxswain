@@ -31,6 +31,14 @@ const GROUPS: &[(&str, &str, &[&str])] = &[
     ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
 ];
 
+/// Looks, by group: its heading (none for what both apps use), its name, its options. A test
+/// checks that every option of the area is in one.
+const LOOKS: [(Option<&str>, &str, &[&str]); 3] = [
+    (None, "looks_both", &["language", "glyphs"]),
+    (Some("settings.theme_tui"), "looks_tui", &["tui_theme"]),
+    (Some("settings.theme_gui"), "looks_gui", &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
+];
+
 /// Text options that are a switch: (name, value when on, value when off).
 const SWITCHES: &[(&str, &str, &str)] = &[("search_cloud", "all", "local-only"), ("meaning_device", "cpu", "auto")];
 
@@ -435,6 +443,16 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             match &s.tools {
                 Some(tools) => v.extend(tools.iter().cloned().map(Row::PreviewTool)),
                 None => v.push(Row::Info(t!("common.loading"), String::new(), t!("ptools.hint"))),
+            }
+        }
+        // What both apps share first; then each app's own under its name, so a desktop app's
+        // setting never reads as part of the row above it.
+        Area::Looks => {
+            for (head, id, names) in LOOKS {
+                if let Some(head) = head {
+                    v.push(Row::Head(t!(head), id));
+                }
+                v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
             }
         }
         area => v.extend(opts(area)),
@@ -1847,5 +1865,49 @@ mod tests {
         let s = Settings::open(&app, "ask");
         assert_eq!(s.area, Area::Overview, "the section names of 1.x are gone");
         assert_eq!(step(&rows, 0, -1), 0);
+    }
+
+    /// Looks names the app each theme and font is for: every option of the area once, the
+    /// desktop app's under its heading, never right under Language.
+    #[test]
+    fn looks_rows_stand_under_their_app() {
+        let d = crate::test_dir("panels");
+        let app = app(&d);
+        let s = Settings::open(&app, "looks");
+        let rows = rows(&app, &s);
+        let mut names: Vec<&str> = rows.iter().filter_map(|r| if let Row::Opt(o) = r { Some(o.name) } else { None }).collect();
+        assert_eq!(names[..2], ["language", "glyphs"]);
+        let gui = rows.iter().position(|r| r.id() == Some("looks_gui")).unwrap();
+        assert!(rows.iter().position(|r| r.id() == Some("theme")).unwrap() > gui);
+        names.sort();
+        let mut all: Vec<&str> = cs::OPTIONS.iter().filter(|o| o.area == Area::Looks).map(|o| o.name).collect();
+        all.sort();
+        assert_eq!(names, all);
+    }
+
+    /// Every section can be walked to its last row by Down, drawn between keys as the app does,
+    /// at every common terminal size: no row (a choice, a list) keeps the cursor.
+    #[test]
+    fn every_row_of_every_section_is_reached() {
+        let d = crate::test_dir("panels");
+        for (w, h) in [(80, 24), (100, 30), (140, 40), (200, 60)] {
+            for area in AREAS {
+                let mut app = app(&d);
+                app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, area.id()))));
+                screen(&mut app, w, h);
+                let want: Vec<String> = rows(&app, settings(&app)).iter().filter(|r| r.selectable()).map(Row::key).collect();
+                let mut seen = vec![];
+                for _ in 0..want.len() + 2 {
+                    let s = settings(&app);
+                    let k = rows(&app, s).get(s.cursor).map(Row::key).unwrap_or_default();
+                    if seen.last() != Some(&k) {
+                        seen.push(k);
+                    }
+                    key(&mut app, KeyCode::Down);
+                    screen(&mut app, w, h);
+                }
+                assert_eq!(seen, want, "{} at {w}×{h}", area.id());
+            }
+        }
     }
 }
