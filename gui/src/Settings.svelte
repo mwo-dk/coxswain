@@ -91,7 +91,7 @@
     untrack(() => go(section));
   });
   $effect(() => {
-    if (area === "previews") untrack(() => (loadTools(), loadPreviewCache()));
+    if (area === "previews") untrack(() => (loadTools(), loadPreviewCache(), loadEngines()));
     if (area === "privacy") untrack(() => (loadDisk(), loadServers()));
     if (area === "behaviour") invoke("git_tools").then((v) => (gitTools = v), () => {});
   });
@@ -348,9 +348,43 @@
     ui.showPreview = true;
     showInPanel(path);
   }
+  const limits = $derived([["time", t("settings.chess_limit_time")], ["depth", t("settings.chess_limit_depth")], ["nodes", t("settings.chess_limit_nodes")]]);
   const preferLabel = (v) => t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[v] ?? "settings.prefer_auto");
   const installed = (r) => r.programs.filter((p) => p.path);
   const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
+  // ------------------------------------------------------------ the chess engine
+  /** The known engines (only looked for, never run), and what Test engine read: the chosen
+   *  engine's name and options, "testing" while it runs, or why it could not. */
+  let engines = $state([]);
+  let engine = $state(null);
+  const loadEngines = () => invoke("chess_engines").then((v) => (engines = v), () => (engines = []));
+  async function chooseEngine(program) {
+    engine = null;
+    await set("chess_engine", program === "stockfish" ? "" : program);
+    loadEngines();
+  }
+  async function testEngine() {
+    engine = "testing";
+    engine = await invoke("chess_engine_test").catch((e) => ({ error: String(e) }));
+  }
+  /** An option of the tested engine set (null: back to its default), or all of them reset. */
+  async function setEngineOption(name, value, reset = false) {
+    error = "";
+    try {
+      engine = await invoke("chess_engine_set", { name, value, reset });
+      saved = true;
+    } catch (e) {
+      error = String(e);
+    }
+  }
+  async function engineConfig() {
+    await invoke("chess_engine_config", { key: engine?.key ?? "Stockfish" }).catch(() => {});
+    openConfig();
+  }
+  const optionValue = (o) => (o.value ?? (o.kind === "spin" ? Number(o.default) : o.kind === "check" ? o.default === "true" : o.default));
+  const optionAbout = (o) =>
+    `${o.kind === "spin" ? t("chess.option_spin", { min: o.min ?? 0, max: o.max ?? 0 }) : o.kind === "check" ? t("chess.option_check") : o.kind === "combo" ? t("chess.option_combo", { values: o.vars.join(", ") }) : t("chess.option_string")} · ${t("chess.engine_default", { value: o.default === "" ? "—" : o.default })}`;
+
   let previewCache = $state(null);
   const loadPreviewCache = () => invoke("preview_cache").then((v) => (previewCache = v), () => (previewCache = null));
   async function clearPreviewCache() {
@@ -931,10 +965,67 @@
         {@render text("chess_book", t("settings.chess_book_auto"))}
         {@render choice("chess_pieces", [["auto", t("settings.chess_pieces_auto")], ["pictures", t("settings.chess_pieces_pictures")], ["octants", t("settings.chess_pieces_octants")], ["sextants", t("settings.chess_pieces_sextants")], ["quadrants", t("settings.chess_pieces_quadrants")], ["halves", t("settings.chess_pieces_halves")], ["figurines", t("settings.chess_pieces_figurines")]])}
         {@render check("chess_analysis")}
+        <div class="opt" id="opt-chess_engines" class:flash={flash === "chess_engines"}>
+          <span class="lab">{t("chess.engines_title")}</span>
+          <div class="ptools">
+            <p class="hint">{t("chess.engines_hint")}</p>
+            <div class="engines" role="radiogroup" aria-label={t("chess.engines_title")}>
+              {#each engines as e (e.program)}
+                <div class="ptool">
+                  <label class="ptool-head"><input type="radio" name="chess-engine" checked={e.chosen} onchange={() => chooseEngine(e.program)} /> <b>{e.name}</b> <small class="hint mono">{e.program}</small></label>
+                  {#if e.path}<small class="mono">{e.path}</small>{:else}<small>{t("chess.engine_not_found")}{#if e.install} · {t("install.with")} <CopyLine line={e.install} />{/if}</small>{/if}
+                  {#if e.note}<small class="hint">{e.note}</small>{/if}
+                  {#if !e.path && e.site}<small><button class="link" onclick={() => invoke("open_path", { path: e.site })}>{e.site}</button></small>{/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
         {@render text("chess_engine", t("settings.chess_engine_auto"))}
+        <div class="opt" id="opt-chess_engine_options">
+          <span class="lab">{t("chess.engine_options")}</span>
+          <div class="buttons">
+            <button disabled={engine === "testing"} title={t("chess.engine_test_hint")} onclick={testEngine}>{engine === "testing" ? t("chess.engine_testing") : t("chess.engine_test")}</button>
+            {#if engine?.options}<button title={t("chess.engine_reset_hint")} onclick={() => setEngineOption("", null, true)}>{t("chess.engine_reset")}</button>{/if}
+            <button onclick={engineConfig}>{t("settings.open_config")}</button>
+          </div>
+          {#if engine?.error}<p class="hint err">{engine.error}</p>{/if}
+          {#if engine?.options}
+            <p class="hint">{t("chess.engine_tested", { name: engine.name })} · {t("chess.engine_options_hint")}</p>
+            {#if !engine.options.length}<p class="hint">{t("chess.engine_options_none")}</p>{/if}
+            <div class="engine-opts">
+              {#each engine.options as o (o.name)}
+                <label class="field" for="eopt-{o.name}" title={optionAbout(o)}>{o.name}</label>
+                <div class="eopt">
+                  {#if o.kind === "check"}
+                    <input id="eopt-{o.name}" type="checkbox" checked={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.checked)} />
+                  {:else if o.kind === "combo"}
+                    <select id="eopt-{o.name}" value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value)}>
+                      {#each o.vars as v (v)}<option value={v}>{v}</option>{/each}
+                    </select>
+                  {:else if o.kind === "spin"}
+                    <input id="eopt-{o.name}" class="short" type="number" min={o.min} max={o.max} value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, Number(ev.currentTarget.value))} />
+                  {:else}
+                    <input id="eopt-{o.name}" value={optionValue(o)} maxlength="1024" spellcheck="false" onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value)} />
+                  {/if}
+                  {#if o.value != null}<button class="link" title={t("chess.engine_default", { value: o.default || "—" })} onclick={() => setEngineOption(o.name, null)}>{t("chess.option_default_button")}</button>{/if}
+                  <small class="hint">{optionAbout(o)}</small>
+                </div>
+              {/each}
+            </div>
+            {#each engine.ignored as [n, why] (n)}<p class="hint err">✗ {n}: {why}</p>{/each}
+          {/if}
+          <p class="hint">{t("chess.engine_options_more")}</p>
+        </div>
+        {@render choice("chess_engine_limit", limits)}
         {@render num("chess_engine_time", 100, 60000, 100)}
+        {@render num("chess_engine_depth", 1, 99)}
+        {@render num("chess_engine_nodes", 1000, 10000000000, 1000)}
         {@render num("chess_engine_lines", 1, 5)}
+        {@render choice("chess_review_limit", limits)}
         {@render num("chess_review_time", 100, 10000, 100)}
+        {@render num("chess_review_depth", 1, 99)}
+        {@render num("chess_review_nodes", 1000, 10000000000, 1000)}
         {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
         {@render check("image_prune")}
         <p class="hint">{t("settings.previews_more")}</p>
@@ -1470,6 +1561,19 @@
   }
   .keys > span {
     overflow-wrap: anywhere;
+  }
+  .engine-opts {
+    display: grid;
+    grid-template-columns: minmax(8em, max-content) 1fr;
+    gap: 0.3em 0.8em;
+    align-items: start;
+    margin: 0.4em 0;
+  }
+  .eopt {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2em 0.6em;
+    align-items: center;
   }
   .ptools {
     display: grid;

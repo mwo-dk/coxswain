@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 use crate::ui::Cols;
+use coxswain_core::chess::play;
 
 /// The areas, in the order of the list on the left.
 pub const AREAS: [Area; 7] = Area::ALL;
@@ -43,7 +44,7 @@ const LOOKS: [(Option<&str>, &str, &[&str]); 3] = [
 const SWITCHES: &[(&str, &str, &str)] = &[("search_cloud", "all", "local-only"), ("meaning_device", "cpu", "auto")];
 
 /// Number options: (name, least, most, scale): `text_max_size` is kept in bytes, typed in MB.
-const NUMBERS: &[(&str, f64, f64, f64)] = &[("text_max_size", 1.0, 4096.0, 1_048_576.0), ("max_results", 10.0, 1_000_000.0, 1.0), ("ask_context", 2048.0, 131_072.0, 1.0), ("preview_timeout", 10.0, 3600.0, 1.0), ("chess_engine_time", 100.0, 60_000.0, 1.0), ("chess_engine_lines", 1.0, 5.0, 1.0), ("chess_review_time", 100.0, 10_000.0, 1.0), ("font_size", 9.0, 28.0, 1.0), ("line_height", 1.2, 3.0, 1.0)];
+const NUMBERS: &[(&str, f64, f64, f64)] = &[("text_max_size", 1.0, 4096.0, 1_048_576.0), ("max_results", 10.0, 1_000_000.0, 1.0), ("ask_context", 2048.0, 131_072.0, 1.0), ("preview_timeout", 10.0, 3600.0, 1.0), ("chess_engine_time", 100.0, 60_000.0, 1.0), ("chess_engine_lines", 1.0, 5.0, 1.0), ("chess_review_time", 100.0, 10_000.0, 1.0), ("chess_engine_depth", 1.0, 99.0, 1.0), ("chess_review_depth", 1.0, 99.0, 1.0), ("chess_engine_nodes", 1000.0, 10_000_000_000.0, 1.0), ("chess_review_nodes", 1000.0, 10_000_000_000.0, 1.0), ("font_size", 9.0, 28.0, 1.0), ("line_height", 1.2, 3.0, 1.0)];
 
 /// Lists of names and patterns, not of folders.
 const WORDS: &[&str] = &["text_exclude", "name_exclude"];
@@ -89,6 +90,16 @@ pub enum Row {
     /// Preview tools: a kind of file, what is installed, its image, the choice. Enter takes
     /// the next choice, C copies the install line, P pulls the image, Delete removes it.
     PreviewTool(coxswain_core::preview_tools::Row),
+    /// Chess: a known engine, found or not (only looked for, never run). Enter chooses it, C
+    /// copies the line that installs it.
+    Engine(play::Listed),
+    /// Chess: *Test engine*: runs the chosen engine and reads its name and options.
+    EngineTest,
+    /// Chess: one of the engine's own options. Enter changes it, Delete gives it back the
+    /// engine's default.
+    EngineOpt(play::Shown),
+    /// Chess: every option of the engine back to its own default.
+    EngineReset,
 }
 
 impl Row {
@@ -115,6 +126,10 @@ impl Row {
             Row::Tick(outside, _) => format!("tick:{outside}"),
             Row::ClearAll(_) => "clear_all".into(),
             Row::PreviewTool(r) => format!("ptool:{}", r.kind),
+            Row::Engine(e) => format!("engine:{}", e.program),
+            Row::EngineTest => "engine_test".into(),
+            Row::EngineOpt(o) => format!("eopt:{}", o.option.name),
+            Row::EngineReset => "engine_reset".into(),
         }
     }
 
@@ -141,6 +156,8 @@ pub enum Mode {
     List { at: usize, new: String },
     /// A choice's values, the cursor on one.
     Pick(usize),
+    /// One of the chess engine's options typed in place (a number or a text).
+    EngineEdit(String),
     /// Find a setting: the words, the cursor on a result.
     Find { query: String, at: usize },
     /// Another model reads every file's meaning again: why, and the change that waits for a yes.
@@ -193,6 +210,11 @@ pub struct Settings {
     tools_rx: Option<mpsc::Receiver<(Vec<coxswain_core::preview_tools::Row>, Option<String>)>>,
     /// The servers a Subversion or CVS history may be read from (`AppState::history_servers`).
     servers: Vec<String>,
+    /// Chess: the known engines, looked for when Previews opens; what *Test engine* read from
+    /// the chosen one (on a thread), or why it could not.
+    engines: Vec<play::Listed>,
+    engine: Option<Result<play::EngineInfo, String>>,
+    engine_rx: Option<mpsc::Receiver<Result<play::EngineInfo, String>>>,
 }
 
 /// How to install a search tool that is missing, asked of the system once per tool: it looks
@@ -233,6 +255,9 @@ impl Settings {
             tools: None,
             tools_rx: None,
             servers: st.history_servers.clone(),
+            engines: vec![],
+            engine: None,
+            engine_rx: None,
         };
         s.go(app, section);
         s
@@ -248,6 +273,7 @@ impl Settings {
         }
         if area == Area::Previews {
             self.load_tools(app, None);
+            self.engines = play::listed(&app.cfg);
         }
         let rows = rows(app, self);
         let start = at.and_then(|at| rows.iter().position(|r| r.id() == Some(at))).unwrap_or(0);
@@ -281,6 +307,14 @@ impl Settings {
 
     /// The answer to Ask's test question, when it has come.
     pub fn poll(&mut self) {
+        if let Some(r) = self.engine_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.engine_rx = None;
+            self.said = Some(match &r {
+                Ok(i) => (t!("chess.engine_tested", "name" => &i.name), false),
+                Err(e) => (e.clone(), true),
+            });
+            self.engine = Some(r);
+        }
         if let Some((rows, said)) = self.tools_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.tools_rx = None;
             self.tools = Some(rows);
@@ -439,6 +473,22 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
         }
         Area::Previews => {
             v.extend(opts(Area::Previews));
+            v.push(Row::Head(t!("chess.engines_title"), "chess_engines"));
+            v.extend(s.engines.iter().cloned().map(Row::Engine));
+            v.push(Row::EngineTest);
+            match &s.engine {
+                Some(Ok(info)) => {
+                    v.push(Row::Info(t!("chess.engine_tested", "name" => &info.name), String::new(), t!("chess.engine_options_hint")));
+                    if info.options.is_empty() {
+                        v.push(Row::Info(t!("chess.engine_options_none"), String::new(), t!("chess.engine_options_hint")));
+                    }
+                    v.extend(info.options.iter().cloned().map(Row::EngineOpt));
+                    v.extend(info.ignored.iter().map(|(n, why)| Row::Info(format!("✗ {n}"), why.clone(), t!("chess.option_ignored_hint"))));
+                    v.push(Row::EngineReset);
+                }
+                Some(Err(e)) => v.push(Row::Info(t!("chess.engine_test_failed"), e.clone(), e.clone())),
+                None => {}
+            }
             v.push(Row::Head(t!("ptools.title"), "preview_tools"));
             match &s.tools {
                 Some(tools) => v.extend(tools.iter().cloned().map(Row::PreviewTool)),
@@ -511,6 +561,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             ("halves", "settings.chess_pieces_halves"),
             ("figurines", "settings.chess_pieces_figurines"),
         ]),
+        "chess_engine_limit" | "chess_review_limit" => pairs(&[("time", "settings.chess_limit_time"), ("depth", "settings.chess_limit_depth"), ("nodes", "settings.chess_limit_nodes")]),
         "chess_board" => pairs(&[("theme", "settings.chess_board_theme"), ("green", "settings.chess_board_green"), ("brown", "settings.chess_board_brown")]),
         "whisper_model" => coxswain_core::transcribe::choices(cfg),
         "meaning_engine" => vec![
@@ -612,6 +663,17 @@ pub(crate) fn choice_label(name: &str, value: &str) -> String {
 }
 
 /// A number as typed: a whole one without decimals.
+/// What a chess engine's option takes, and its default.
+pub(crate) fn option_about(o: &play::UciOption) -> String {
+    let what = match o.kind.as_str() {
+        "spin" => t!("chess.option_spin", "min" => o.min.unwrap_or(0), "max" => o.max.unwrap_or(0)),
+        "check" => t!("chess.option_check"),
+        "combo" => t!("chess.option_combo", "values" => o.vars.join(", ")),
+        _ => t!("chess.option_string"),
+    };
+    format!("{what} · {}", t!("chess.engine_default", "value" => if o.default.is_empty() { "—" } else { o.default.as_str() }))
+}
+
 fn number_text(n: f64) -> String {
     // Kept as f32 in config.toml (1.9 reads back as 1.899999976…): two decimals at most.
     let n = (n * 100.0).round() / 100.0;
@@ -691,6 +753,7 @@ impl App {
                 (_, Some('/')) => s.mode = Mode::Find { query: String::new(), at: 0 },
                 (KeyCode::Delete, _) => match rows.get(s.cursor) {
                     Some(Row::PreviewTool(r)) => self.tool_remove(&mut s, r),
+                    Some(Row::EngineOpt(o)) => return self.engine_option(s, &o.option.name.clone(), None),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
                     Some(Row::Disk(i)) if i.bytes > 0 => s.mode = Mode::ConfirmClear(i.id.clone()),
                     Some(Row::Status(l)) if l.also == Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
@@ -706,6 +769,24 @@ impl App {
                     }
                     _ => {}
                 },
+                (_, Some('c' | 'C')) if matches!(rows.get(s.cursor), Some(Row::Engine(_))) => {
+                    if let Some(Row::Engine(e)) = rows.get(s.cursor) {
+                        let line = e.install.clone().or_else(|| e.site.map(String::from)).unwrap_or_else(|| e.program.clone());
+                        crate::guide::copy(&line);
+                        s.said = Some((t!("guide.copied", "command" => line), false));
+                    }
+                }
+                (_, Some('o' | 'O')) if matches!(rows.get(s.cursor), Some(Row::EngineOpt(_) | Row::EngineTest | Row::EngineReset)) => {
+                    let key = match &s.engine {
+                        Some(Ok(i)) => i.key.clone(),
+                        _ => "Stockfish".into(),
+                    };
+                    match Config::prepare_chess_engine(&key) {
+                        Ok((path, line)) => self.edit_at(&path, line),
+                        Err(e) => s.said = Some((e, true)),
+                    }
+                }
+                (KeyCode::Enter, _) | (_, Some(' ')) if matches!(rows.get(s.cursor), Some(Row::Engine(_) | Row::EngineTest | Row::EngineOpt(_) | Row::EngineReset)) => return self.engine_enter(s, &rows),
                 (_, Some('c' | 'C')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
                     if let Some(Row::PreviewTool(r)) = rows.get(s.cursor) {
                         match &r.install {
@@ -797,6 +878,23 @@ impl App {
                 }
                 _ => s.mode = Mode::Edit(text),
             },
+            Mode::EngineEdit(mut text) => {
+                let Some(Row::EngineOpt(o)) = rows.get(s.cursor) else { return self.dialog = Some(Dialog::Settings(s)) };
+                match (key.code, ch) {
+                    _ if esc => {}
+                    (KeyCode::Enter, _) => return self.engine_option(s, &o.option.name.clone(), Some(Value::String(text))),
+                    (KeyCode::Backspace, _) => {
+                        text.pop();
+                        s.mode = Mode::EngineEdit(text);
+                    }
+                    (KeyCode::Char('u'), None) if key.ctrl => s.mode = Mode::EngineEdit(String::new()),
+                    (_, Some(c)) => {
+                        text.push(c);
+                        s.mode = Mode::EngineEdit(text);
+                    }
+                    _ => s.mode = Mode::EngineEdit(text),
+                }
+            }
             Mode::List { mut at, mut new } => {
                 let o = opt.expect("a list");
                 let mut items: Vec<String> = value.as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default();
@@ -1146,6 +1244,79 @@ impl App {
     }
 
     /// Written to config.toml and used at once; the helper restarts when it reads one of them.
+    /// Enter on a chess engine's row: a known engine chosen, *Test engine* run, an option
+    /// changed (a switch flipped, a combo's next value, else typed), every option reset.
+    fn engine_enter(&mut self, mut s: Box<Settings>, rows: &[Row]) {
+        match rows.get(s.cursor) {
+            Some(Row::Engine(e)) => {
+                let program = e.program.clone();
+                for l in &mut s.engines {
+                    l.chosen = l.program == program;
+                }
+                s.engine = None;
+                return self.settings_change(s, Map::from_iter([("chess_engine".to_string(), Value::from(play::choose(&program)))]));
+            }
+            Some(Row::EngineTest) if s.engine_rx.is_none() => {
+                let cfg = self.cfg.clone();
+                let (tx, rx) = mpsc::channel();
+                std::thread::spawn(move || tx.send(play::info(&cfg)));
+                s.engine_rx = Some(rx);
+                s.said = Some((t!("chess.engine_testing"), false));
+            }
+            Some(Row::EngineOpt(o)) => {
+                let now = o.value.as_ref().map_or_else(|| o.option.default.clone(), |v| v.as_str().map_or_else(|| v.to_string(), String::from));
+                let name = o.option.name.clone();
+                match o.option.kind.as_str() {
+                    "check" => return self.engine_option(s, &name, Some(Value::Bool(now != "true"))),
+                    "combo" if !o.option.vars.is_empty() => {
+                        let vars = &o.option.vars;
+                        let next = vars.iter().position(|v| v.eq_ignore_ascii_case(&now)).map_or(0, |i| (i + 1) % vars.len());
+                        return self.engine_option(s, &name, Some(Value::String(vars[next].clone())));
+                    }
+                    _ => s.mode = Mode::EngineEdit(now),
+                }
+            }
+            Some(Row::EngineReset) => {
+                if let (Some(Ok(info)), Some(path)) = (&s.engine, s.path.clone()) {
+                    match play::reset_options(&path, &info.key) {
+                        Ok(cfg) => {
+                            self.cfg = cfg;
+                            s.said = Some((t!("chess.engine_reset_done", "engine" => &info.key), false));
+                        }
+                        Err(e) => s.said = Some((e, true)),
+                    }
+                }
+                if let Some(Ok(i)) = &mut s.engine {
+                    i.refresh(&self.cfg.chess);
+                }
+            }
+            _ => {}
+        }
+        self.dialog = Some(Dialog::Settings(s));
+    }
+
+    /// The chess engine's option `name` set to `value` (None: the engine's default) in
+    /// config.toml, after `play::set_option` checked it; a value refused is typed again.
+    fn engine_option(&mut self, mut s: Box<Settings>, name: &str, value: Option<Value>) {
+        let (Some(Ok(info)), Some(path)) = (&s.engine, s.path.clone()) else { return self.dialog = Some(Dialog::Settings(s)) };
+        match play::set_option(&path, info, name, value.as_ref()) {
+            Ok(cfg) => {
+                self.cfg = cfg;
+                s.said = Some((t!("settings.saved", "path" => path.display()), false));
+                if let Some(Ok(i)) = &mut s.engine {
+                    i.refresh(&self.cfg.chess);
+                }
+            }
+            Err(e) => {
+                s.said = Some((e, true));
+                if let Some(Value::String(text)) = value {
+                    s.mode = Mode::EngineEdit(text);
+                }
+            }
+        }
+        self.dialog = Some(Dialog::Settings(s));
+    }
+
     /// Delete on a preview tool: its pulled images removed.
     fn tool_remove(&mut self, s: &mut Settings, r: &coxswain_core::preview_tools::Row) {
         let Some((_, rt)) = coxswain_core::tools::container_runtime(&self.cfg.preview) else {
@@ -1378,6 +1549,38 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     lines.push(Line::from(Span::styled(fit(&format!(" {} {label}", if on { "[x]" } else { "[ ]" }), w), st)));
                 }
                 Row::ClearAll(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("disk.clear_all", "size" => cs::human(*n))), w), st))),
+                Row::Engine(e) => {
+                    let mark = if e.chosen { "(•)" } else { "( )" };
+                    let value = match (&e.path, &e.install) {
+                        (Some(p), _) => p.display().to_string(),
+                        (None, Some(line)) => format!("{} {line}", t!("install.with")),
+                        (None, None) => t!("chess.engine_not_found"),
+                    };
+                    lines.push(pair(&format!(" {mark} {}", e.name), &value, st));
+                }
+                Row::EngineTest => {
+                    let label = if s.engine_rx.is_some() { t!("chess.engine_testing") } else { t!("chess.engine_test") };
+                    lines.push(Line::from(Span::styled(fit(&format!(" [ {label} ]"), w), st)));
+                }
+                Row::EngineReset => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("chess.engine_reset")), w), st))),
+                Row::EngineOpt(o) => {
+                    let label = format!("     {}", o.option.name);
+                    match &s.mode {
+                        Mode::EngineEdit(text) if here => {
+                            let vw = w.saturating_sub(lw);
+                            let field = fit_left(text, vw.saturating_sub(1));
+                            cursor_at = Some(Position::new(right.x + (lw + field.width()) as u16, 0));
+                            lines.push(Line::from(vec![Span::styled(format!("{} ", fit(&label, lw - 1)), base), Span::styled(fit(&field, vw), selected)]));
+                        }
+                        _ => {
+                            let value = match &o.value {
+                                Some(v) => v.as_str().map_or_else(|| v.to_string(), String::from),
+                                None => t!("chess.engine_default", "value" => if o.option.default.is_empty() { "—" } else { o.option.default.as_str() }),
+                            };
+                            lines.push(pair(&label, &value, st));
+                        }
+                    }
+                }
                 // The kind, then what is used and the choice.
                 Row::PreviewTool(r) => {
                     let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else if r.choice == "container" && !r.container { t!("ptools.choice.container_no_image") } else { t!(&format!("ptools.choice.{}", r.choice)) };
@@ -1556,6 +1759,17 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             Some(Row::Tick(true, _)) => text.push(Span::raw(t!("disk.outside_hint"))),
             Some(Row::Tick(false, _)) => text.push(Span::raw(t!("models.hint"))),
             Some(Row::ClearAll(_)) => text.push(Span::raw(t!("disk.clear_all_hint"))),
+            Some(Row::Engine(e)) => {
+                let mut parts: Vec<String> = e.note.iter().cloned().collect();
+                if let Some(line) = &e.install {
+                    parts.push(format!("{} {line}", t!("install.with")));
+                }
+                parts.extend(e.site.map(String::from));
+                text.push(Span::raw(parts.join(" · ")));
+            }
+            Some(Row::EngineTest) => text.push(Span::raw(t!("chess.engine_test_hint"))),
+            Some(Row::EngineReset) => text.push(Span::raw(t!("chess.engine_reset_hint"))),
+            Some(Row::EngineOpt(o)) => text.push(Span::raw(option_about(&o.option))),
             Some(Row::PreviewTool(r)) => {
                 let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
                 let mut parts = vec![if installed.is_empty() { t!("ptools.installed_none") } else { t!("ptools.installed", "programs" => installed.join(", ")) }];
@@ -1580,7 +1794,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let keys = Rect { x: inner.x + 1, y: y + 3, height: 1, width: inner.width - 2 };
     let (line, st) = match (&s.said, &s.mode) {
         (Some((said, bad)), _) => (said.clone(), if *bad { red } else { dim }),
-        (None, Mode::Edit(_)) => (crate::ui::keys(&t!("verb.save")), dim),
+        (None, Mode::Edit(_) | Mode::EngineEdit(_)) => (crate::ui::keys(&t!("verb.save")), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::Engine(_))) => (t!("chess.engines_keys_tui"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::EngineOpt(_))) => (t!("chess.option_keys_tui"), dim),
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
@@ -1682,6 +1898,70 @@ mod tests {
         key(&mut app, KeyCode::Enter);
         assert_eq!(app.cfg.preview.tools.get("latex").map(String::as_str), Some("local"));
         assert!(std::fs::read_to_string(d.join("config.toml")).unwrap().contains("latex = \"local\""));
+    }
+
+    /// Chess engines: the known ones listed, Test engine reads a fake engine's options, a
+    /// switch flips and a number is typed, each written under its table in config.toml; a
+    /// number out of range is refused; Reset takes them all out.
+    #[cfg(unix)]
+    #[test]
+    fn chess_engine_options_set_in_place() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::test_dir("panels");
+        let engine = d.join("fake-engine");
+        std::fs::write(&engine, "#!/bin/sh\nwhile read l; do case \"$l\" in uci) echo 'id name Fake 2.0'; echo 'option name Threads type spin default 1 min 1 max 512'; echo 'option name Ponder type check default false'; echo 'option name UCI_LimitStrength type check default false'; echo uciok;; quit) exit 0;; esac; done\n").unwrap();
+        std::fs::set_permissions(&engine, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut app = app(&d);
+        app.cfg.chess.engine = engine.display().to_string();
+        let mut s = Settings::open(&app, "chess_engines");
+        let config = d.join("config.toml");
+        s.path = Some(config.clone());
+        let listed = rows(&app, &s).iter().filter(|r| matches!(r, Row::Engine(_))).count();
+        assert_eq!(listed, coxswain_core::chess::play::KNOWN.len());
+        s.cursor = rows(&app, &s).iter().position(|r| matches!(r, Row::EngineTest)).unwrap();
+        app.dialog = Some(Dialog::Settings(Box::new(s)));
+        key(&mut app, KeyCode::Enter);
+        let t = std::time::Instant::now();
+        loop {
+            let Some(Dialog::Settings(s)) = app.dialog.as_mut() else { panic!("settings closed") };
+            s.poll();
+            if s.engine.is_some() || t.elapsed() > coxswain_core::test_limit(std::time::Duration::from_secs(20)) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let at = |app: &App, name: &str| rows(app, settings(app)).iter().position(|r| matches!(r, Row::EngineOpt(o) if o.option.name == name));
+        // Ponder is Coxswain's own: not shown.
+        assert!(at(&app, "Ponder").is_none());
+        let strength = at(&app, "UCI_LimitStrength").expect("options read");
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = strength;
+        }
+        key(&mut app, KeyCode::Enter);
+        let threads = at(&app, "Threads").unwrap();
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = threads;
+        }
+        key(&mut app, KeyCode::Enter);
+        key(&mut app, KeyCode::Backspace);
+        typed(&mut app, "100000");
+        key(&mut app, KeyCode::Enter);
+        assert!(matches!(settings(&app).mode, Mode::EngineEdit(_)), "a number out of range is typed again");
+        for _ in 0..6 {
+            key(&mut app, KeyCode::Backspace);
+        }
+        typed(&mut app, "1");
+        key(&mut app, KeyCode::Enter);
+        let text = std::fs::read_to_string(&config).unwrap();
+        assert!(text.contains("[chess.engines.Fake]") && text.contains("UCI_LimitStrength = true") && text.contains("Threads = 1"), "{text}");
+        assert_eq!(app.cfg.chess.engines["Fake"]["Threads"].as_integer(), Some(1));
+        let reset = rows(&app, settings(&app)).iter().position(|r| matches!(r, Row::EngineReset)).unwrap();
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = reset;
+        }
+        key(&mut app, KeyCode::Enter);
+        assert!(!std::fs::read_to_string(&config).unwrap().contains("Threads"));
+        assert!(app.cfg.chess.engines.get("Fake").is_none_or(|t| t.is_empty()));
     }
 
     /// The themes stand under their groups' headings, your own last; the next one skips a heading.

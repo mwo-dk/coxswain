@@ -215,9 +215,15 @@ pub const OPTIONS: &[Opt] = &[
     opt("chess_pieces", &["chess", "pieces"], Previews, &[]),
     opt("chess_analysis", &["chess", "analysis"], Previews, &[Cpu]),
     opt("chess_engine", &["chess", "engine"], Previews, &[]),
+    opt("chess_engine_limit", &["chess", "engine_limit"], Previews, &[]),
     opt("chess_engine_time", &["chess", "engine_time"], Previews, &[]),
+    opt("chess_engine_depth", &["chess", "engine_depth"], Previews, &[]),
+    opt("chess_engine_nodes", &["chess", "engine_nodes"], Previews, &[]),
     opt("chess_engine_lines", &["chess", "engine_lines"], Previews, &[]),
+    opt("chess_review_limit", &["chess", "review_limit"], Previews, &[]),
     opt("chess_review_time", &["chess", "review_time"], Previews, &[]),
+    opt("chess_review_depth", &["chess", "review_depth"], Previews, &[]),
+    opt("chess_review_nodes", &["chess", "review_nodes"], Previews, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),
@@ -355,7 +361,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
 
 /// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const GROUPS: [(&str, Area); 3] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews)];
+const GROUPS: [(&str, Area); 4] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews), ("chess_engines", Previews)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.

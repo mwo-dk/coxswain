@@ -185,16 +185,16 @@ pub fn chess_moves(fen: String) -> Vec<chess::play::Played> {
 static ASKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// What the installed engine (`[chess] engine`, else Stockfish) says about the position `fen`,
-/// after `[chess] engine_time`. It runs on this machine; nothing is sent anywhere.
+/// as `[chess]` says (its limit, lines and the engine's options). It runs on this machine;
+/// nothing is sent anywhere.
 #[tauri::command]
 pub async fn chess_analyse(fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<chess::play::Analysis> {
     use std::sync::atomic::Ordering;
     let cfg = ctx.cfg().clone();
-    let (ms, lines) = (cfg.chess.engine_time, cfg.chess.engine_lines);
     let me = ASKED.fetch_add(1, Ordering::Relaxed) + 1;
     tauri::async_runtime::spawn_blocking(move || {
         let program = chess::play::engine_for(&cfg)?;
-        chess::play::analyse(&program, &fen, ms, lines, &|| ASKED.load(Ordering::Relaxed) != me).map_err(|e| e.to_string())
+        chess::play::analyse(&program, &cfg.chess, &fen, &|| ASKED.load(Ordering::Relaxed) != me).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -222,7 +222,6 @@ static REVIEW: Mutex<Option<(PathBuf, u32, chess::review::Reviewer)>> = Mutex::n
 #[tauri::command]
 pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<chess::review::Review>> {
     let cfg = ctx.cfg().clone();
-    let ms = cfg.chess.review_time;
     tauri::async_runtime::spawn_blocking(move || {
         let mut cur = REVIEW.lock().unwrap_or_else(|e| e.into_inner());
         if cur.as_ref().is_some_and(|(p, i, _)| *p != path || *i != index) {
@@ -232,7 +231,7 @@ pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::St
             "start" => {
                 let program = chess::play::engine_for(&cfg)?;
                 let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
-                *cur = Some((path, index, chess::review::Reviewer::start(&program, ms, &game)));
+                *cur = Some((path, index, chess::review::Reviewer::start(&program, &cfg.chess, &game)));
             }
             "stop" => {
                 if let Some((.., r)) = cur.as_ref() {

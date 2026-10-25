@@ -9,7 +9,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use super::pgn::{self, Game, Token};
-use super::play::{Engine, Program};
+use super::play::{Engine, Limit, Program};
+use crate::config::ChessConfig;
 
 /// What a lost advantage is worth, in centipawns from the mover's side: at least this much is
 /// `?!` (an inaccuracy), `?` (a mistake), `??` (a blunder). Evaluations count up to
@@ -103,9 +104,19 @@ fn line(game: &Game) -> Vec<u32> {
     game.main_line().into_iter().take_while(|&n| game.nodes[n as usize].fen.is_some()).collect()
 }
 
-/// Where the analysis of `game` by `engine` at `ms` a position is kept: the cache, by a hash of
-/// all three, so another engine or time is another analysis.
-fn cached(engine: &str, ms: u32, game: &Game) -> Option<PathBuf> {
+/// What tells one analysis from another beside the engine and the moves: the limit a position
+/// and the engines' options. Time alone gives the milliseconds, as before there were others,
+/// so games analysed then still come from the cache.
+fn settings(chess: &ChessConfig) -> String {
+    match Limit::of(chess, true) {
+        Limit::Time(ms) if chess.engines.is_empty() => ms.to_string(),
+        limit => format!("{limit:?} {:?}", chess.engines),
+    }
+}
+
+/// Where the analysis of `game` by `engine` with `settings` is kept: the cache, by a hash of
+/// all three, so another engine, limit or option is another analysis.
+fn cached(engine: &str, settings: &str, game: &Game) -> Option<PathBuf> {
     // FNV-1a: stable across builds, unlike the standard hasher.
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     let mut feed = |s: &str| {
@@ -114,7 +125,7 @@ fn cached(engine: &str, ms: u32, game: &Game) -> Option<PathBuf> {
         }
     };
     feed(engine);
-    feed(&ms.to_string());
+    feed(settings);
     feed(&game.start);
     for n in game.main_line() {
         feed(&game.nodes[n as usize].san);
@@ -135,12 +146,13 @@ impl Drop for Reviewer {
 }
 
 impl Reviewer {
-    /// Analyses the main line of `game` with the engine at `program`, `ms` a position. A game
-    /// analysed before (same engine, time and moves) comes from the cache at once.
-    pub fn start(program: &Program, ms: u32, game: &Game) -> Reviewer {
+    /// Analyses the main line of `game` with the engine at `program`, each position as `chess`
+    /// says (`review_limit` and the engine's options). A game analysed before (same engine,
+    /// settings and moves) comes from the cache at once.
+    pub fn start(program: &Program, chess: &ChessConfig, game: &Game) -> Reviewer {
         let plies = line(game);
         let key = program.key();
-        let file = cached(&key, ms, game);
+        let file = cached(&key, &settings(chess), game);
         let shared = Arc::new(Mutex::new(Review { total: plies.len(), ..Default::default() }));
         let stop = Arc::new(AtomicBool::new(false));
         if let Some(r) = file.as_ref().and_then(|f| std::fs::read(f).ok()).and_then(|b| serde_json::from_slice::<Review>(&b).ok())
@@ -151,9 +163,9 @@ impl Reviewer {
             return Reviewer { shared, stop };
         }
         let (s, st, g) = (shared.clone(), stop.clone(), game.clone());
-        let program = program.clone();
+        let (program, chess) = (program.clone(), chess.clone());
         std::thread::spawn(move || {
-            let r = run(&program, ms, &g, &plies, &s, &st);
+            let r = run(&program, &chess, &g, &plies, &s, &st);
             let mut out = s.lock().unwrap_or_else(|e| e.into_inner());
             out.done = true;
             if let Err(e) = r {
@@ -180,16 +192,19 @@ impl Reviewer {
     }
 }
 
-fn run(program: &Program, ms: u32, game: &Game, plies: &[u32], shared: &Mutex<Review>, stop: &AtomicBool) -> std::io::Result<()> {
+fn run(program: &Program, chess: &ChessConfig, game: &Game, plies: &[u32], shared: &Mutex<Review>, stop: &AtomicBool) -> std::io::Result<()> {
     let halt = || stop.load(Ordering::Relaxed);
     let mut engine = Engine::start(program, &halt)?;
+    // Options it does not take: the live analysis says so; the game is analysed without them.
+    engine.configure(chess)?;
+    let limit = Limit::of(chess, true);
     shared.lock().unwrap_or_else(|e| e.into_inner()).engine = engine.name.clone();
     // The position before each move: its score, the engine's line, and how much worse its
     // second choice is (from the mover's side).
     let mut before: Option<(i32, Vec<String>, Option<i32>)> = None;
     let fens = std::iter::once(game.start.clone()).chain(plies.iter().map(|&n| game.nodes[n as usize].fen.clone().unwrap_or_default()));
     for (i, fen) in fens.enumerate() {
-        let a = engine.think(&fen, ms, 2, &halt)?;
+        let a = engine.think(&fen, limit, 2, &halt)?;
         let b = pgn::board(&fen).ok_or_else(|| std::io::Error::other("no position"))?;
         let white = b.side_to_move() == cozy_chess::Color::White;
         let v = match a.lines.first().and_then(|l| score(l.cp, l.mate)) {
@@ -363,12 +378,17 @@ mod tests {
             }
             r.now()
         };
-        let r = wait(&Reviewer::start(&Program::Installed(p.clone()), 50, &g));
+        let chess = ChessConfig { review_time: 50, ..Default::default() };
+        // Time alone keys the cache as before limits and options were settings.
+        assert_eq!(settings(&chess), "50");
+        let deep = ChessConfig { review_limit: "depth".into(), ..chess.clone() };
+        assert_ne!(cached("x", &settings(&deep), &g), cached("x", &settings(&chess), &g));
+        let r = wait(&Reviewer::start(&Program::Installed(p.clone()), &chess, &g));
         assert_eq!((r.engine.as_str(), r.plies.len(), r.error.as_deref()), ("Fake 2", 3, None));
         assert_eq!(r.plies[0].cp, -20);
         // From the cache, even with the engine gone.
         std::fs::remove_file(&p).unwrap();
-        let again = Reviewer::start(&Program::Installed(p.clone()), 50, &g).now();
+        let again = Reviewer::start(&Program::Installed(p.clone()), &chess, &g).now();
         assert!(again.done && again.plies.len() == 3, "{again:?}");
         std::fs::remove_dir_all(&d).unwrap();
     }

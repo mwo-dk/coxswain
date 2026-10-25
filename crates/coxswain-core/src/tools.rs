@@ -575,19 +575,16 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "lazygit",
             "JesseDuffield.lazygit",
         ],
-        // The chess engine the chess view asks (`chess::play`). IPS and winget: none to name.
+        // The chess engines Settings lists (`chess::play::KNOWN`), from official repositories
+        // only: Arch has them in the AUR alone, IPS has none. Fruit on FreeBSD and in Homebrew
+        // is another program of that name.
         "stockfish" => [
-            "stockfish",
-            "stockfish",
-            "stockfish",
-            "",
-            "stockfish",
-            "stockfish",
-            "stockfish",
-            "stockfish",
-            "stockfish",
-            "",
+            "stockfish", "stockfish", "stockfish", "", "", "stockfish", "stockfish", "stockfish", "stockfish", "Stockfish.Stockfish",
         ],
+        "lc0" => ["", "", "", "", "", "", "", "", "lc0", ""],
+        "ethereal-chess" => ["", "", "", "", "", "ethereal-chess", "", "", "", ""],
+        "fruit" => ["", "fruit", "", "", "", "", "fruit", "", "", ""],
+        "fairy-stockfish" => ["", "", "", "", "", "fairy-stockfish", "", "", "fairy-stockfish", ""],
         "tig" => [
             "tig", "tig", "", "ooce/application/tig", "tig", "tig", "tig", "tig", "tig", "",
         ],

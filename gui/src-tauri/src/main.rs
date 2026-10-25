@@ -332,6 +332,49 @@ fn set_preview_tool(kind: String, choice: String, ctx: tauri::State<Ctx>) -> Res
     get_config(ctx)
 }
 
+/// Settings → Previews → Chess engines: the known engines, each found or not (only looked
+/// for, never run), with the line that installs it.
+#[tauri::command]
+fn chess_engines(ctx: tauri::State<Ctx>) -> Vec<coxswain_core::chess::play::Listed> {
+    coxswain_core::chess::play::listed(&ctx.cfg())
+}
+
+/// What *Test engine* read last: the options the next changes are checked against.
+static ENGINE_INFO: std::sync::Mutex<Option<coxswain_core::chess::play::EngineInfo>> = std::sync::Mutex::new(None);
+
+/// *Test engine*: runs the chosen engine, reads its name and options, and stops it.
+#[tauri::command]
+async fn chess_engine_test(ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::chess::play::EngineInfo> {
+    let cfg = ctx.cfg().clone();
+    blocking(move || {
+        let info = coxswain_core::chess::play::info(&cfg)?;
+        *ENGINE_INFO.lock().unwrap_or_else(|e| e.into_inner()) = Some(info.clone());
+        Ok(info)
+    })
+    .await
+}
+
+/// One of the tested engine's options set (`value` null: back to the engine's default), or
+/// with `reset` all of them; checked, written into config.toml under `[chess.engines]` and
+/// used at once. The engine's options as they are now.
+#[tauri::command(async)]
+fn chess_engine_set(name: String, value: Option<serde_json::Value>, reset: bool, ctx: tauri::State<Ctx>) -> Res<coxswain_core::chess::play::EngineInfo> {
+    use coxswain_core::chess::play;
+    let path = coxswain_core::config::Config::path().ok_or_else(|| coxswain_core::t!("err.no_config_folder"))?;
+    let mut held = ENGINE_INFO.lock().unwrap_or_else(|e| e.into_inner());
+    let info = held.as_mut().ok_or_else(|| coxswain_core::t!("chess.engine_test_first"))?;
+    let cfg = if reset { play::reset_options(&path, &info.key)? } else { play::set_option(&path, info, &name, value.as_ref())? };
+    info.refresh(&cfg.chess);
+    *ctx.cfg.write().map_err(|e| e.to_string())? = cfg;
+    Ok(info.clone())
+}
+
+/// config.toml opened at the table of the chess engine `key`'s options, in the editor.
+#[tauri::command(async)]
+fn chess_engine_config(key: String) -> Res<(PathBuf, usize)> {
+    coxswain_core::config::Config::prepare_chess_engine(&key)
+}
+
 /// Settings → Finding files: one line for each part of search, with its next step.
 #[tauri::command]
 async fn search_status(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::settings::Line>> {
@@ -2715,7 +2758,7 @@ fn main() {
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, is_model,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
-            clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess::chess_save_line, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
+            clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess_engines, chess_engine_test, chess_engine_set, chess_engine_config, chess::chess_save_line, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, long_files_change, long_files_choices, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts
