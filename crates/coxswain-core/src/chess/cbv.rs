@@ -284,6 +284,32 @@ fn lz<W: Write>(d: &[u8], o: &mut Out<W>) -> io::Result<()> {
     Ok(())
 }
 
+/// The archives a `Library` reads now, once per reader: their unpacking is never evicted.
+static IN_USE: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// An archive in use for as long as this lives (`hold`).
+pub(crate) struct Held(PathBuf);
+
+/// Marks `cbv` in use until the `Held` is dropped: its unpacked files are kept meanwhile.
+pub(crate) fn hold(cbv: &Path) -> Held {
+    IN_USE.lock().unwrap_or_else(|e| e.into_inner()).push(cbv.to_path_buf());
+    Held(cbv.to_path_buf())
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let mut in_use = IN_USE.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(i) = in_use.iter().position(|p| *p == self.0) {
+            in_use.swap_remove(i);
+        }
+    }
+}
+
+/// Tells other runs' sweeps (`archive::sweep`, a day unchanged) that this run's folder is in use.
+fn touch(run: &Path) {
+    let _ = File::open(run).and_then(|f| f.set_modified(std::time::SystemTime::now()));
+}
+
 /// Archives unpacked in this run: by path, size and time, the `.cbh` file in the cache.
 type Unpacked = (PathBuf, u64, Option<std::time::SystemTime>, PathBuf);
 static UNPACKED: Mutex<Vec<Unpacked>> = Mutex::new(Vec::new());
@@ -302,6 +328,9 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     let current = |done: &[Unpacked]| done.iter().find(|d| d.0 == cbv && d.1 == size && d.2 == time && d.3.is_file()).map(|d| d.3.clone());
     // The lock is held only to look and to note: other archives open while this one unpacks.
     if let Some(out) = current(&UNPACKED.lock().unwrap_or_else(|e| e.into_inner())) {
+        if let Some(run) = out.parent().and_then(Path::parent) {
+            touch(run);
+        }
         return Ok(out);
     }
     let mut f = File::open(cbv)?;
@@ -364,16 +393,20 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
         let _ = std::fs::remove_dir_all(&part);
         return Err(e);
     }
-    // This archive's older unpacking goes, then the oldest past the four last kept (the search
-    // store reading many archives keeps no more than that in the cache).
+    // This archive's older unpacking goes, then the oldest not in use past the four last kept
+    // (the search store reading many archives keeps no more than that in the cache). When all
+    // are in use, there are more for a while.
     let mut gone: Vec<Unpacked> = vec![];
     done.retain(|d| d.0 != cbv || {
         gone.push(d.clone());
         false
     });
+    let in_use = IN_USE.lock().unwrap_or_else(|e| e.into_inner());
     while done.len() >= KEPT {
-        gone.push(done.remove(0));
+        let Some(i) = done.iter().position(|d| !in_use.contains(&d.0)) else { break };
+        gone.push(done.remove(i));
     }
+    drop(in_use);
     for old in gone {
         if let Some(d) = old.3.parent()
             && d != dir
@@ -383,6 +416,7 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     }
     let out = dir.join("db.cbh");
     done.push((cbv.to_path_buf(), size, time, out.clone()));
+    touch(&run);
     Ok(out)
 }
 
@@ -580,6 +614,24 @@ mod tests {
         let cut = d.join("Cut.cbv");
         std::fs::write(&cut, &out[..out.len() - 10]).unwrap();
         assert!(unpacked(&cut).is_err());
+        // Five newer archives do not take the files of one still read: the oldest unused go.
+        let mine = unpacked(&cbv).unwrap();
+        let others: Vec<PathBuf> = (0..5).map(|i| d.join(format!("Other{i}.cbv"))).collect();
+        let theirs: Vec<PathBuf> = others
+            .iter()
+            .map(|o| {
+                std::fs::write(o, &out).unwrap();
+                unpacked(o).unwrap()
+            })
+            .collect();
+        assert!(mine.is_file(), "in use, kept");
+        assert_eq!(lib.game(0).unwrap().main_line().len(), 5);
+        assert!(!theirs[0].exists() && theirs[4].is_file(), "the oldest unused went");
+        // Read no more: its files go when the next archive comes.
+        drop(lib);
+        std::fs::write(&others[0], [&out[..], &[0]].concat()).unwrap();
+        unpacked(&others[0]).unwrap();
+        assert!(!mine.exists(), "no longer in use, evicted");
         std::fs::remove_dir_all(&d).unwrap();
     }
 

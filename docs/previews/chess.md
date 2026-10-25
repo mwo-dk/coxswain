@@ -301,7 +301,7 @@ own.
 - **Archives** (`.cbv`, ChessBase's *backup* of a database in one file) open as the database
   they hold, with the same keys: the files its games need are unpacked once into Coxswain's
   own folder in the cache (`coxswain/cbv/` there, removed a day later; the last four archives
-  are kept at a time), and the archive is never changed. Its first database is read; pictures
+  are kept at a time, and one still open in the preview is never removed), and the archive is never changed. Its first database is read; pictures
   and other files in it are left. An archive that says it unpacks to far more than its packed
   bytes could hold, to more than 16 GB, or to more than the disk has free (keeping 1 GB) is
   refused with a message before anything is written; the bar shows the unpacking, then the

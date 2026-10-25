@@ -682,6 +682,8 @@ pub struct Library {
     source: Mutex<Source>,
     /// A SCID database's names and files, when the file is one (`scid`).
     scid: Option<Arc<super::scid::Base>>,
+    /// A ChessBase archive's unpacked files, kept while this reads them (`cbv::hold`).
+    _held: Option<super::cbv::Held>,
 }
 
 impl Drop for Library {
@@ -709,7 +711,7 @@ impl Library {
             std::thread::Builder::new()
                 .name("chess-games".into())
                 .spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, super::Format::Pgn, limits, || false))?;
-            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base) });
+            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base), _held: None });
         }
         if super::cbh::is_cbh(path) {
             // An archive is unpacked first, then read: its bar has both (`scan_cbh`).
@@ -718,7 +720,8 @@ impl Library {
             std::thread::Builder::new()
                 .name("chess-games".into())
                 .spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, each), &sh, super::Format::Pgn, limits, || false))?;
-            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: None });
+            let _held = super::cbv::is_cbv(path).then(|| super::cbv::hold(path));
+            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: None, _held });
         }
         let r = reader(path, read.clone(), limits.unpacked)?;
         // What the packed file unpacked to: at the limit, the rest of it was left.
@@ -730,7 +733,7 @@ impl Library {
         std::thread::Builder::new().name("chess-games".into()).spawn(move || {
             index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
         })?;
-        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None })
+        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None, _held: None })
     }
 
     pub fn progress(&self) -> Progress {

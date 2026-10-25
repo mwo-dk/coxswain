@@ -1661,8 +1661,14 @@ pub(crate) fn peek_folder() -> io::Result<PathBuf> {
 
 /// The runs' folders in `base` last written more than `age` ago, removed.
 pub(crate) fn sweep(base: &Path, age: std::time::Duration) {
+    sweep_but(base, age, None);
+}
+
+/// `sweep`, leaving the folder named `keep` (this run's own) whatever its age.
+fn sweep_but(base: &Path, age: std::time::Duration, keep: Option<&str>) {
     for old in std::fs::read_dir(base).into_iter().flatten().flatten() {
-        if old
+        if keep.is_none_or(|k| old.file_name() != k)
+            && old
             .metadata()
             .and_then(|m| m.modified())
             .is_ok_and(|t| t.elapsed().unwrap_or_default() > age)
@@ -1679,8 +1685,10 @@ pub(crate) fn run_folder(sub: &str, fresh: bool) -> io::Result<PathBuf> {
     let base = crate::helper::folder()
         .ok_or_else(|| io::Error::other(crate::t!("err.no_cache_folder")))?
         .join(sub);
-    sweep(&base, std::time::Duration::from_secs(24 * 3600));
-    let run = base.join(std::process::id().to_string());
+    // This run's own folder stays however long ago it last changed: what is in it may be in use.
+    let pid = std::process::id().to_string();
+    sweep_but(&base, std::time::Duration::from_secs(24 * 3600), Some(&pid));
+    let run = base.join(&pid);
     if fresh {
         let _ = std::fs::remove_dir_all(&run);
     }
