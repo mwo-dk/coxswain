@@ -632,7 +632,7 @@ fn store_report(path: &Path, bytes: u64, f: crate::store::Facts) -> Report {
                         crate::i18n::date_time(*at),
                         p.as_deref().unwrap_or("")
                     ),
-                    what.clone(),
+                    crate::store::shown_error(what),
                 )
             })
             .collect()

@@ -1,0 +1,1 @@
+| **The search store's details count a long file with the vectors of a part among the files with vectors, and show the store's own errors in your language.** *Took too long*, *could not be read to its end* and *read only in part* are translated; the number of files with vectors now adds up with the passages. | [Data files](previews/data.md#coxswains-own-index-and-store) |
