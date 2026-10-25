@@ -707,6 +707,75 @@ fn zip_big(to: &Path, name: &str, bytes: u64) -> io::Result<()> {
     Ok(())
 }
 
+/// A zip of `n` small text files in folders of 1,000, deflated: a listing as long as a photo
+/// library's or a source tree's.
+fn zip_many(to: &Path, n: usize) -> io::Result<()> {
+    let mut z = zip::ZipWriter::new(BufWriter::new(std::fs::File::create(to)?));
+    let o = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .compression_level(Some(1));
+    let mut w = Words::new(47);
+    for i in 0..n {
+        z.start_file(format!("d{:03}/f{i:06}.txt", i / 1000), o)
+            .map_err(io::Error::other)?;
+        z.write_all(w.line(12).as_bytes())?;
+    }
+    z.finish().map_err(io::Error::other)?;
+    Ok(())
+}
+
+/// A 7z of `n` small Go games, in solid blocks of 10,000, as a collection of a few hundred
+/// thousand games is packed: a list of contents of over 64 MB.
+fn seven_many(to: &Path, n: usize) -> io::Result<()> {
+    let mut w = sevenz_rust2::ArchiveWriter::create(to).map_err(io::Error::other)?;
+    let mut words = Words::new(61);
+    for start in (0..n).step_by(10_000) {
+        let (mut entries, mut readers) = (vec![], vec![]);
+        for i in start..(start + 10_000).min(n) {
+            let name = if i + 1 == n {
+                "kgs-19-2019-games/last.sgf".to_string()
+            } else {
+                format!("kgs-19-2019-games/{:02}/{}-vs-{}-{i:07}.sgf", i % 12, words.word().to_string(), words.word().to_string())
+            };
+            entries.push(sevenz_rust2::ArchiveEntry::new_file(&name));
+            let game = format!("(;GM[1]FF[4]SZ[19]PB[{}]PW[{}];B[pd];W[dp];B[pp];W[dd])\n", words.word().to_string(), words.word().to_string());
+            readers.push(sevenz_rust2::SourceReader::from(io::Cursor::new(game.into_bytes())));
+        }
+        w.push_archive_entries(entries, readers).map_err(io::Error::other)?;
+    }
+    w.finish().map_err(io::Error::other)?;
+    Ok(())
+}
+
+/// A folder for search to read: a zip of 200 text files of 1 MB, a tar.gz of the same, and a
+/// zip of one 100 MB text file.
+fn search_folder(to: &Path) -> io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    let mut z = zip::ZipWriter::new(BufWriter::new(std::fs::File::create(to.join("notes.zip"))?));
+    let o = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .compression_level(Some(1));
+    let mut b = tar::Builder::new(vec![]);
+    for i in 0..200 {
+        let mut data = vec![];
+        write_text(&mut data, MB, 500 + i, |w, _| w.line(14))?;
+        z.start_file(format!("notes/n{i:03}.txt"), o).map_err(io::Error::other)?;
+        z.write_all(&data)?;
+        let mut h = tar::Header::new_gnu();
+        h.set_size(data.len() as u64);
+        h.set_mode(0o644);
+        b.append_data(&mut h, format!("notes/n{i:03}.txt"), &data[..])?;
+    }
+    z.finish().map_err(io::Error::other)?;
+    let mut gz = flate2::write::GzEncoder::new(
+        BufWriter::new(std::fs::File::create(to.join("notes.tar.gz"))?),
+        flate2::Compression::fast(),
+    );
+    gz.write_all(&b.into_inner()?)?;
+    gz.finish()?.flush()?;
+    zip_big(&to.join("big.zip"), "big.txt", 100 * MB)
+}
+
 // ---------------------------------------------------------------- the cases
 
 #[derive(Clone, Copy)]
@@ -726,6 +795,8 @@ enum Do {
     Games,
     /// The games list of an SGF collection (`go::Collection`).
     Sgf,
+    /// `store::scan` of a folder, archives read inside: their files' text in the store.
+    Search,
 }
 
 struct Case {
@@ -935,6 +1006,45 @@ fn cases() -> Vec<Case> {
         seven,
         Do::Peek("zz-last.txt"),
     );
+    let many = input("many-200k.zip", |p| zip_many(p, 200_000));
+    add("zip, 200,000 entries: list", many.clone(), Do::List);
+    add(
+        "zip, 200,000 entries: peek the last entry",
+        many,
+        Do::Peek("d199/f199999.txt"),
+    );
+    let games = input("games-900k.7z", |p| seven_many(p, 900_000));
+    add("7z, 900,000 games, a 90 MB list: list", games.clone(), Do::List);
+    add(
+        "7z, 900,000 games: peek the last entry",
+        games,
+        Do::Peek("kgs-19-2019-games/last.sgf"),
+    );
+    let bz = tar
+        .as_ref()
+        .and_then(|t| input("big.tar.bz2", |p| packed(t, p, &["bzip2", "-1", "-c"])));
+    add("tar.bz2 2 GB: list", bz.clone(), Do::List);
+    add("tar.bz2 2 GB: peek the last entry", bz, Do::Peek("data/last.txt"));
+    let inner = input("inner.tar", |p| tar_of(p, 5, 40 * MB))
+        .and_then(|t| input("inner.tar.gz", |p| packed(&t, p, &["gzip", "-1", "-c"])));
+    let outer = inner.and_then(|i| {
+        input("outer.tar", |p| {
+            let mut b = tar::Builder::new(BufWriter::new(std::fs::File::create(p)?));
+            b.append_path_with_name(&i, "inner.tar.gz")?;
+            b.into_inner()?.flush()
+        })
+    });
+    let outer = outer.and_then(|o| input("outer.tar.gz", |p| packed(&o, p, &["gzip", "-1", "-c"])));
+    add(
+        "tar.gz in tar.gz (inner 200 MB): peek an entry of the inner",
+        outer,
+        Do::Peek("inner.tar.gz/data/last.txt"),
+    );
+    add(
+        "search inside archives: zip and tar.gz of 200 × 1 MB, zip of 100 MB",
+        input("search-archives", search_folder),
+        Do::Search,
+    );
     // Game files.
     let pgn_file = input("games-2g.pgn", |p| pgn(p, 7_000_000));
     add(
@@ -1043,7 +1153,11 @@ fn memory_case() {
         .into_iter()
         .find(|c| *c.name == *name)
         .expect("a case of that name");
-    let size = std::fs::metadata(&case.input).unwrap().len();
+    // A folder's size is its files'.
+    let size = match std::fs::read_dir(&case.input) {
+        Ok(d) => d.flatten().filter_map(|e| e.metadata().ok()).map(|m| m.len()).sum(),
+        Err(_) => std::fs::metadata(&case.input).unwrap().len(),
+    };
     // The peak so far is forgotten: from here on it is this case's.
     std::fs::write("/proc/self/clear_refs", "5").expect("Linux 4.0 or later");
     let base = status("VmRSS:");
@@ -1122,6 +1236,24 @@ fn memory_case() {
             }
             Err(e) => format!("error: {e}"),
         },
+        Do::Search => {
+            use coxswain_core::store::{self, Store};
+            let db = dir().join("search-archives.db");
+            let _ = std::fs::remove_file(&db);
+            let cfg = coxswain_core::config::SearchConfig {
+                text_roots: vec![case.input.clone()],
+                archives: true,
+                text_max_size: u64::MAX,
+                ..Default::default()
+            };
+            let store = Store::open(&db).unwrap();
+            store.hurry.store(true, std::sync::atomic::Ordering::Relaxed);
+            store::scan(&store, &cfg, &std::sync::atomic::AtomicBool::new(false)).unwrap();
+            let r = format!("{} texts", store.texts());
+            drop(store);
+            let _ = std::fs::remove_file(&db);
+            r
+        }
         Do::Peek(inner) => match archive::peek(&case.input.join(inner)) {
             Ok(p) => format!(
                 "{:.0} MB copy",

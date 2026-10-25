@@ -138,18 +138,24 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | Entries of one archive | the first 50,000 | The rest are not found |
 | A compressed tar, to be listed | 256 MB | It is found by its own name only, since a compressed tar must be unpacked from its start to be listed; once you have opened it, its kept list is used and its files are found by name too ([Archives as folders](../files/archives.md#limits)) |
 | A 7z or compressed tar, to be read for text | 256 MB | Its names are found, its text is not read |
-| One file inside | 20 MB (`text_max_size`) | Its name is found, its text is not read |
-| Read out of one archive | 128 MB | The files after that are found by name only |
+| One file inside | 20 MB (`text_max_size`), except text, code, CSV and logs | Its name is found, its text is not read. Text, code, CSV and logs are read as they are unpacked, whatever their size, as on disk: their first 4 MB of text kept (256 MB with [Long files](long-files.md) set to *Everything*) |
+| Copied out of one archive to be read | 128 MB | PDFs, Word files and the other documents after that are found by name only; text, code, CSV and logs are never copied, so this does not hold them back |
 | How deep | 64 folders | Deeper entries, and entries named with `..`, are left out |
-| A 7z's packed list of contents | 16 MB, unpacked | Search does not look into it; it is found by its own name. As a folder it opens up to 64 MB (about 900,000 files); past that: *This 7z's list of contents unpacks to … MB, more than the 64 MB Coxswain opens*. The list is unpacked into memory before anything else, so a crafted 7z could otherwise fill it |
+| A 7z's packed list of contents | 16 MB, unpacked | Search does not look into it; it is found by its own name. As a folder it opens however long its list is, up to 4 million files ([Archives as folders](../files/archives.md#limits)) |
 | A 7z split into parts (`.7z.001`) | | Found by its own name only; it opens as a folder ([Archives as folders](../files/archives.md#limits)) |
 | A zip split into parts (`.zip` with `.z01` …) | | Looked into as a zip, its parts read as one; one needing zip64 is found by its own name only ([Archives as folders](../files/archives.md#limits)) |
 
-- **An archive inside an archive** is not looked into: the inner one is found by its name.
+- **An archive inside an archive** (a zip, tar or 7z inside another) is looked into too, three
+  deep, up to 256 MB each: its files are found by name and by their text, named through it
+  (`bundle.zip/site.tar.gz/notes.txt`), and **Enter** on a hit opens it as any archive inside
+  an archive opens. To be read it is copied into Coxswain's cache folder (`coxswain/search-nested/`,
+  readable by you alone) and the copy is deleted at once. A deeper one, or a larger one, is found
+  by its own name only. Its files count towards the archive's 50,000.
 - **Folder sizes and Duplicates** see an archive as the one file it is on disk; its contents are
   never counted twice.
-- Files inside are unpacked one at a time into Coxswain's cache folder, readable by you alone,
-  read, and deleted at once.
+- Text, code, CSV and logs inside are read as they are unpacked, never copied to the disk. Other
+  files (PDFs, Word files, workbooks, …) are unpacked one at a time into Coxswain's cache folder,
+  readable by you alone, read, and deleted at once: their readers need a file.
 
 ## Settings and config.toml
 
@@ -197,7 +203,14 @@ One of these: the archive is larger than 256 MB (a compressed tar is listed by u
 so larger ones are found by their own name only, until you have opened one once); the file is past the archive's first 50,000
 entries; the archive is not in a folder that is read, or is in a hidden one; it is a container image
 larger than 256 MB not opened yet ([Container images](../files/container-images.md#in-search)); or, for its text,
-the file is larger than 20 MB or comes after the first 128 MB read out of the archive.
+a document (PDF, Word file, …) larger than 20 MB or after the first 128 MB of documents copied
+out of the archive. Text, code, CSV and logs are read whatever their size.
+
+#### Does Find look inside a zip inside a zip?
+
+Yes, three archives deep, each up to 256 MB: a file in `bundle.zip/site.tar.gz` is found by its name
+and its text as any file in an archive is, its path through both. **Enter** on the hit opens the
+inner archive as a folder ([Limits](#limits)).
 
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?
 
@@ -209,11 +222,12 @@ entries found by name.
 
 #### Why does a 7z say its list of contents is too big?
 
-Its list of contents is packed, and says it unpacks to more than 64 MB. A 7z unpacks that list
-into memory before anything else and makes room for every file it names, and a real one takes a
-few hundred kilobytes even for tens of thousands of files (61 MB for 900,000), so Coxswain does
-not open it: not as a folder, not in a preview. Search looks only into a 7z whose list is under
-16 MB. Open a larger one with 7-Zip if you trust where it came from.
+Coxswain reads a 7z's list as it is unpacked, holding only the names and sizes, so a 7z of
+900,000 files opens as a folder in about a second and 200 MB of memory. It says its list is too
+big only when it must hand the 7z to the library that reads the list whole into memory: its names
+are locked with a password, it is packed in a way Coxswain does not read itself, or a whole folder
+of it is copied out; then a list over 64 MB unpacked is refused. Search looks only into a 7z whose
+list is under 16 MB. Open a larger one with 7-Zip if you trust where it came from.
 
 #### Can search find files in a locked archive?
 

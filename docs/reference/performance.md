@@ -281,6 +281,21 @@ release build, under other load.
 | sgf 300 MB collection: games list | 315 | 1.26 | 53 | 100000 games, capped |
 | sgf 300 MB: search text | 315 | 0.68 | 9 | 4096 KB of text, 256 passages (read 0.63 s) |
 
+Large listings, archives inside archives and search inside archives, before and after 2.35
+(measured on 2026-10-26, same machine and build; *before* is `master` at 2.33.1). The `.tar.bz2`
+list *after* is its list kept from the run before; listed the first time it takes as long as before.
+
+| Case | Input MB | Before: s / peak MB | After: s / peak MB | Result after |
+|---|--:|--:|--:|---|
+| zip, 200,000 entries: list | 38 | 0.38 / 69 | 0.11 / 31 | 200000 entries |
+| zip, 200,000 entries: peek the last entry | 38 | 0.52 / 97 | 0.04 / 25 | 0 MB copy |
+| 7z, 900,000 games, a 90 MB list: list | 16 | refused | 0.99 / 194 | 900000 entries |
+| 7z, 900,000 games: peek the last entry | 16 | refused | 3.31 / 186 | 0 MB copy |
+| tar.bz2 2 GB: list | 755 | 52.42 / 2 | 0.00 / 1 (kept) | 21 entries |
+| tar.bz2 2 GB: peek the last entry | 755 | 0.10 / 2 | 0.13 / 2 | 0 MB copy |
+| tar.gz in tar.gz (inner 200 MB): peek an entry of the inner | 96 | 0.78 / 4 | 0.97 / 6 | 0 MB copy |
+| search inside archives: zip and tar.gz of 200 × 1 MB, zip of 100 MB | 302 | 10.77 / 144, 255 texts | 8.87 / 110, 401 texts | every file read |
+
 What the numbers say:
 
 - **Memory grows with the input** in plain text, code, CSV and logs (the whole file is read to
@@ -298,6 +313,11 @@ What the numbers say:
   from the last place before it (one every 4 MB) instead of from its layer's start: the end of
   the last of ten 50 MB gzip layers in 0.28 s instead of 2.69 s.
 - **An archive inside an archive** is not opened; its peek is a copy on disk, flat in memory.
+- **A zip's directory and a 7z's list are read as they come** (2.35): a zip of 200,000 entries
+  is listed in half the memory, one of its files found without building its directory; a 7z of
+  900,000 files is listed holding about 200 bytes a file, where before its list was refused
+  (and took 600 MB under 64 MB). Search reads text, code, CSV and logs inside archives as they
+  are unpacked, writing what it read every 64 MB, so it reads every file and holds less.
 - **A PGN collection's table** costs 48 bytes a game (7 million games, 332 MB) and shows its
   first games within 0.2 s; its search text stops after 4 MB. An SGF collection is read game by game
   as it streams by (before, whole up to 64 MB: 100 MB at its peak and 68,257 games); its list

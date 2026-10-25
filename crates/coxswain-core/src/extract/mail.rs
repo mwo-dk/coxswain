@@ -125,11 +125,40 @@ pub struct Listed {
 /// piece at a time, for the lines that start messages, and then the headers of each.
 pub fn mailbox(path: &Path) -> std::io::Result<Vec<Listed>> {
     use std::io::{Seek, SeekFrom};
+    let mut f = std::fs::File::open(path)?;
+    let total = f.metadata()?.len();
+    let mut starts = starts(&mut f)?;
+    starts.truncate(MAX_MESSAGES);
+    let mut out = Vec::with_capacity(starts.len());
+    let mut head = vec![0u8; 64 * 1024];
+    for (i, &at) in starts.iter().enumerate() {
+        let end = starts.get(i + 1).copied().unwrap_or(total).min(total);
+        f.seek(SeekFrom::Start(at))?;
+        let n = f.read(&mut head[..(end.saturating_sub(at) as usize).min(64 * 1024)])?;
+        let raw = &head[..n];
+        // The bytes after the line that parts the messages.
+        let skip = if raw.starts_with(b"From ") { memchr(b'\n', raw).map_or(raw.len(), |e| e + 1) } else { 0 };
+        let (kept, _) = split(&raw[skip..]);
+        let h = headers(&kept);
+        let from = h.from.split(" <").next().unwrap_or_default().trim_matches('"').to_string();
+        out.push(Listed { start: at + skip as u64, len: end.saturating_sub(at + skip as u64), secs: h.secs, from, subject: h.subject });
+    }
+    Ok(out)
+}
+
+/// How many messages the mailbox at `path` holds, as `mailbox` lists them, and whether there
+/// are more than it lists: their starts found, nothing of them read.
+pub fn count(path: &Path) -> std::io::Result<(usize, bool)> {
+    let n = starts(&mut std::fs::File::open(path)?)?.len();
+    Ok((n.min(MAX_MESSAGES), n > MAX_MESSAGES))
+}
+
+/// Where the messages of the mailbox in `f` start, up to one past `MAX_MESSAGES`.
+fn starts(f: &mut std::fs::File) -> std::io::Result<Vec<u64>> {
+    use std::io::{Seek, SeekFrom};
     static START: LazyLock<Regex> =
         LazyLock::new(|| pattern(r"(?m-u)^From .*\d\d:\d\d.*[ +-]\d{4}[ \t\r]*$"));
     const PIECE: usize = 8 << 20;
-    let mut f = std::fs::File::open(path)?;
-    let total = f.metadata()?.len();
     let (mut starts, mut buf, mut base, mut eof) = (vec![], Vec::with_capacity(PIECE), 0u64, false);
     while !eof && starts.len() <= MAX_MESSAGES {
         let had = buf.len();
@@ -157,22 +186,7 @@ pub fn mailbox(path: &Path) -> std::io::Result<Vec<Listed>> {
             starts.insert(0, 0);
         }
     }
-    starts.truncate(MAX_MESSAGES);
-    let mut out = Vec::with_capacity(starts.len());
-    let mut head = vec![0u8; 64 * 1024];
-    for (i, &at) in starts.iter().enumerate() {
-        let end = starts.get(i + 1).copied().unwrap_or(total).min(total);
-        f.seek(SeekFrom::Start(at))?;
-        let n = f.read(&mut head[..(end.saturating_sub(at) as usize).min(64 * 1024)])?;
-        let raw = &head[..n];
-        // The bytes after the line that parts the messages.
-        let skip = if raw.starts_with(b"From ") { memchr(b'\n', raw).map_or(raw.len(), |e| e + 1) } else { 0 };
-        let (kept, _) = split(&raw[skip..]);
-        let h = headers(&kept);
-        let from = h.from.split(" <").next().unwrap_or_default().trim_matches('"').to_string();
-        out.push(Listed { start: at + skip as u64, len: end.saturating_sub(at + skip as u64), secs: h.secs, from, subject: h.subject });
-    }
-    Ok(out)
+    Ok(starts)
 }
 
 /// The first message of a file, for a preview: its headers one by one, its body and its

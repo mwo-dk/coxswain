@@ -235,11 +235,14 @@ through an installed 7-Zip instead, read-only, like a disk image
   say so: *Games: 412 of 430 files are games: open it, and each shows on the board* (under the
   desktop app's preview, in the terminal app's **Alt+Enter**). **Enter** opens it like a folder,
   and the preview (**F3** and **Alt+K** in the terminal app) shows each game on the board.
-- **A 7z's list of contents** is read whole, into memory, when it is opened: one with a list over
-  64 MB unpacked (about 900,000 files) is not opened, with a message that says how large it
-  is. A 7z of 900,000 small files (a 61 MB list) takes about 600 MB of memory while it is open
-  and a second to list. Search looks only into a 7z whose list is under 16 MB. A file taken out
-  of a 7z made of many blocks is unpacked from its own block, not from the start.
+- **A 7z's list of contents** is read as it is unpacked, holding only each file's name, size
+  and date: a 7z of 900,000 small files opens as a folder, and one of its files is shown or
+  copied out, in about a second and 200 MB of memory, up to 4 million files. A 7z whose names are locked with a
+  password, or one packed with something other than LZMA, LZMA2 or nothing (BCJ, PPMd, BZip2,
+  …), and copying a folder of a 7z out, go through a library that reads the whole list into
+  memory: there a list over 64 MB unpacked (about 900,000 files) is refused, with a message
+  that says how large it is. Search looks only into a 7z whose list is under 16 MB. A file taken
+  out of a 7z made of many blocks is unpacked from its own block, not from the start.
 - **Large compressed tars** are read from the start the first time they are opened, as the
   format has no list of its contents. That list is then kept in the cache folder
   (`coxswain/archive-index/`, by the archive's path, size, date and, on Unix, its inode), so the
@@ -362,9 +365,11 @@ the whole archive, read-only. A `.z01` part says on its facts which `.zip` it op
 
 #### Why does a 7z say its list of contents is too large?
 
-Its list of files unpacks to more than 64 MB, about 900,000 files, and would take a gigabyte or
-more of memory, so Coxswain neither opens nor extracts it. Unpack it with 7-Zip (`7z x`)
-([Limits](#limits)).
+Coxswain reads a 7z's list as it is unpacked, so most 7z files open whatever their length, up to
+4 million files. A 7z whose names are locked, one packed in a way Coxswain does not read itself,
+or a folder of it being copied out, goes through a library that reads the whole list into memory,
+and there a list over 64 MB (about 900,000 files) would take a gigabyte or more, so it is refused.
+Copy single files out of it, or unpack it with 7-Zip (`7z x`) ([Limits](#limits)).
 
 #### Can I open an archive inside an archive?
 

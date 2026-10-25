@@ -149,6 +149,13 @@ pub fn pdf_layer(path: &Path, size: u64, max: u64) -> Option<String> {
     (!text.trim().is_empty()).then_some(text)
 }
 
+/// `text_up_to` of a file of a kind read line by line (`streams`), read from `from` as it comes
+/// (a file inside an archive, as it is unpacked): never copied anywhere first.
+pub(crate) fn text_from(path: &Path, from: &mut dyn Read, cap: usize) -> Option<String> {
+    let text = plain::tidied_from(from, crate::code::is_code(&path.to_string_lossy()), cap)?;
+    (!text.trim().is_empty()).then_some(text)
+}
+
 /// Lines of text, tidied as `tidy` (or `tidy_code`) tidies them, each handed to `f` as it is
 /// made, without its line break: an empty one for a blank line kept in code.
 pub(crate) struct TidyLines<'f> {

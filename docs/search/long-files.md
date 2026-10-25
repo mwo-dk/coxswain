@@ -74,7 +74,8 @@ A hint on the status line names the action menu a few times when the cursor is o
 | Text for words, of PDF, Word, slides and other documents | The first 4 MB | The first 4 MB: their readers stop there |
 | Passages for meaning | 256 at most: the first 16, the last 4, the first under each heading, the rest spread evenly over the whole file | One for every part of the file, about 120 words each (of a PDF, of its first 4 MB of text) |
 | A short file (under 4 MB of text and 256 passages) | All of it | The same: nothing differs |
-| Files inside archives, git commits | Sampled | Sampled: *Everything* is for files on disk |
+| Files inside archives | Sampled | As on disk: read out of the archive again as it is unpacked, never copied (a document, from a copy of up to 256 MB) |
+| Git commits | Sampled | Sampled: *Everything* is for files |
 
 A text, code, CSV or log file kept whole is read line by line, never held whole, and its passages
 go to the model 64 at a time. Its passages are kept in `search.db` with their vectors, with where
