@@ -97,7 +97,8 @@ The file keeps its real name; **Shift+F6** renames it.
 
 **A folder that cannot be read** (it was deleted, or you may not open it): the panel goes up
 to the nearest folder it can list. The terminal app shows the error in red on the info line,
-cut to the panel's width, and whole on the status line; the desktop app shows it above the list
+whole: one wider than the panel wraps onto up to four rows under the list (a longer one ends in
+`…`), and it is whole on the status line too; the desktop app shows it above the list
 or in the status line.
 
 ## The title bar: the version
