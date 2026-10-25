@@ -5,7 +5,9 @@
 Every place Coxswain keeps things on the disk, in one list: what each is, its size, where it is,
 what clearing it costs, and a button that clears it. What Coxswain caused outside its own folder
 (Tectonic's cache, container images it pulled for previews) is listed too, and cleared only when
-you ask for it by name. [Where things are kept](where-things-are-kept.md) has every path on each
+you ask for it by name, and your own files Coxswain keeps aside (the quarantine, find and
+replace's undo copies, what a folder sync set aside) last, each removed only on its own click.
+[Where things are kept](where-things-are-kept.md) has every path on each
 system; this page is about the room they take and getting it back.
 
 ![Settings at Privacy and updates with Disk use open: search.db 1.6 MB with "read again on its own, at half speed", index.bin, previews/, peek/, libreoffice-profile/, helper.log and the built-in model Qwen3 14B, each with its size, what clearing costs, Show in panel and Clear](../screenshots/settings-disk-use.png)
@@ -51,10 +53,18 @@ system; this page is about the room they take and getting it back.
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, *Whisper*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice (*Whisper* in use: transcribing is turned off) | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
 | A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
+| `quarantine/` (under *Your own files*) | Files you moved into quarantine after a [virus scan](../files/virus-scan.md#the-quarantine-folder), with `quarantine.log`; shown when it holds any | Not removed here: it has **Show in panel** only. They are yours: delete them in a panel once you are sure | No |
+| `coxswain-replace-…/` (under *Your own files*) | Your files as they were before a [find and replace](../files/find-and-replace.md), so it can be undone (256 MB at most per replace); shown when there are some | **Remove** takes only those of apps that have ended (their finds and replaces can no longer be undone); a running app keeps its own | No |
+| `.coxswain-sync-…/` (under *Your own files*) | What a [folder sync](../files/compare-folders.md#where-did-my-replaced-files-go) that has ended replaced or deleted, where the bin could not take it (Windows, a disk without a bin); one row per folder, its line naming the synced folder | **Remove** deletes it for good | No |
 
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
 says what it holds. The total of all rows is beside the heading *Disk use*.
+
+Your own files come last, under *Your own files, kept aside by Coxswain*: the quarantine, the
+undo copies of find and replace, and what a folder sync set aside. They are never in *Clear
+everything*; each goes only by its own **Remove** (the quarantine has none), whose first click
+turns into *Remove /path for good? Click again*.
 
 Sizes are measured when the area opens: the folders on disk at once, the container images a
 moment later (podman or docker is asked about each image by its exact name).
@@ -126,7 +136,7 @@ what clearing costs and its path, and the key line *Enter: show in panel · Dele
 |---|---|
 | **↑** **↓** | Moves between the rows |
 | **Enter** | On a row: Settings closes and the active panel opens its folder, the cursor on the file |
-| **Delete** | On a row: the bottom turns red, *This goes: /path (size) · what it costs. Enter clears it, Esc keeps it* |
+| **Delete** | On a row: the bottom turns red, *This goes: /path (size) · what it costs. Enter clears it, Esc keeps it*; on a row under *Your own files* it removes (the key line says *Delete: remove*), and on `quarantine/` it does nothing (*Enter: show in panel*) |
 | **Enter** (asked) | Clears it; the key line says *previews/ cleared: 12.4 MB freed.* |
 | **Esc** (asked) | Keeps it |
 | **Space** or **Enter** | On *Also the built-in models not in use* or *Also what Coxswain caused outside its folder*: ticks it |
@@ -159,6 +169,7 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
+| `coxswain --disk clear replace`, `coxswain --disk clear sync:.coxswain-sync-…` | Your own files: prints *This goes:* with the exact path and its size, then asks *[y/N]*. `quarantine` is refused: delete those files yourself |
 | `coxswain --disk clear rebuildable` | Every row that is built again on its own: *Cleared: 12.9 MB freed.* |
 
 A value it does not know is refused with the names it takes and exit status 2, like every other
@@ -174,7 +185,7 @@ system's ([Where things are kept](where-things-are-kept.md#on-each-system)).
 
 #### What can I clear without losing anything?
 
-Everything in the list but your models and what is outside comes back by itself. **Clear
+Everything in the list but your models, what is outside and your own files comes back by itself. **Clear
 everything that can be built again** takes the search store, the name index, previews, archive
 copies, LibreOffice profiles and ClamAV's virus database. The cost is time: the search store is read again at half speed
 (**Read now** in Settings → *Finding files* reads at full speed), and Find by name waits for the
@@ -202,6 +213,14 @@ the desktop app's duplicate finder waits for it. With no helper, the file is del
 
 Only images named in `[preview] images` are Coxswain's. Tectonic's cache is listed when a LaTeX
 preview made it; one that was there before Coxswain first ran tectonic is yours and not shown.
+
+#### Why are the quarantine and a sync's folder listed, when nothing here is my work?
+
+Everything else in the list is Coxswain's and comes back by itself. The rows under *Your own
+files, kept aside by Coxswain* are yours: files you put in quarantine, your files as they were
+before a find and replace, and what a folder sync replaced or deleted where the bin could not
+take it. They are shown so the room they take is not hidden, and they go only when you remove
+each one; *Clear everything* never takes them.
 
 #### Why does helper.log not go with Clear everything?
 
