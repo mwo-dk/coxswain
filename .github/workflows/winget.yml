@@ -6,9 +6,11 @@ name: WinGet
 # stalled them. Our older pull requests still open for a package are closed as superseded by the
 # newest one, so a package never has more than one open. release-check.yml holds the lag to a week.
 #
-# Only updates: the first version of each package is submitted by hand, and until Microsoft has
-# listed it the run says so and skips it. A version that has its pull request (open or merged)
-# is not filed again. Needs WINGET_TOKEN: a classic token with public_repo, from the account whose
+# The first version of each package is submitted by hand. Until Microsoft has listed it, its open
+# New-Package pull request is moved to the newest release in place (that version's manifests
+# instead of the old one's, and the title), so it keeps its place in the moderators' queue; with
+# no such pull request the run says so and skips the package. A version that has its pull request
+# (open or merged) is not filed again. Needs WINGET_TOKEN: a classic token with public_repo, from the account whose
 # fork of winget-pkgs the pull requests come from (packaging/README.md).
 on:
   schedule:
@@ -36,7 +38,7 @@ jobs:
         if: env.WINGET_TOKEN != ''
         with:
           persist-credentials: false
-      - name: Open winget-pkgs pull requests, close the ones they supersede
+      - name: File winget-pkgs pull requests, close the ones they supersede
         if: env.WINGET_TOKEN != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -60,13 +62,75 @@ jobs:
               -q '.[] | select(.state != "CLOSED") | "\(.number)\t\(.title)"' |
               awk -F '\t' -v t="$1 version $2" '$2 ~ /^(New|Add|Update) version: / && substr($2, index($2, ": ") + 2) == t { print $1; exit }'
           }
+          # Not on WinGet yet: our open New-Package pull request for $id moves to $v in place. Its
+          # manifests are the old version's with the version, the installers' SHA-256 and the
+          # release date changed (komac 2.16's `new` asks on a terminal even with --dry-run, and
+          # `update` needs a listed package). A New-Package pull request holds one version.
+          update_new() {
+            id="$1"; shift
+            pr=$(gh pr list -R microsoft/winget-pkgs --state open --author "$me" --search "$id version in:title" --limit 100 \
+              --json number,title,headRefName,headRepositoryOwner -q '.[] | "\(.number)\t\(.title)\t\(.headRefName)\t\(.headRepositoryOwner.login)"') || return 1
+            n="" old="" branch="" owner=""
+            while IFS=$'\t' read -r num title ref own; do
+              [[ "$title" =~ ^New\ package:\ (.+)\ version\ ([0-9][^ ]*)$ ]] && [ "${BASH_REMATCH[1]}" = "$id" ] || continue
+              n="$num" old="${BASH_REMATCH[2]}" branch="$ref" owner="$own"; break
+            done <<<"$pr"
+            if [ -z "$n" ]; then
+              echo "::notice::$id is not on WinGet yet and has no open New-Package pull request of ours; its first version is filed by hand."; return 0
+            fi
+            [ "$owner" = "$me" ] || { echo "::error::microsoft/winget-pkgs#$n comes from $owner, not $me"; return 1; }
+            if [ "$old" = "$v" ]; then echo "$id $v has its pull request already: microsoft/winget-pkgs#$n"; return 0; fi
+            if [ "$(printf '%s\n' "$old" "$v" | sort -V | tail -1)" != "$v" ]; then
+              echo "::notice::microsoft/winget-pkgs#$n holds $id $old, newer than $v: left as it is"; return 0
+            fi
+            first=$(printf %s "${id:0:1}" | tr '[:upper:]' '[:lower:]')
+            dir="manifests/$first/${id//.//}"
+            rm -rf fork
+            packaging/retry.sh git clone -q --depth 1 --filter=blob:none --sparse --branch "$branch" "https://github.com/$owner/winget-pkgs.git" fork || return 1
+            git -C fork sparse-checkout set "$dir" || return 1
+            # Version folders on the branch: the old one, or the new one when a run pushed it and
+            # then failed to retitle the pull request.
+            have=$(find "fork/$dir" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*' -printf '%f\n')
+            if [ "$have" = "$old" ]; then
+              mkdir "fork/$dir/$v"
+              for f in "fork/$dir/$old"/*.yaml; do
+                # Komac writes CRLF; edited as LF (winget-pkgs' .gitattributes stores YAML as LF).
+                sed -e 's/\r$//' -e "s/${old//./\\.}/$v/g" "$f" > "fork/$dir/$v/${f##*/}"
+              done
+              inst="fork/$dir/$v/$id.installer.yaml"
+              [ "$(grep -c '^  InstallerUrl: ' "$inst")" = "$#" ] || { echo "::error::$inst has not one installer for each of: $*"; return 1; }
+              for url in "$@"; do
+                grep -qxF "  InstallerUrl: $url" "$inst" || { echo "::error::$inst has no installer $url"; return 1; }
+                rm -f installer.bin
+                packaging/retry.sh curl -fsSL -o installer.bin "$url" || return 1
+                sha=$(sha256sum installer.bin | cut -d ' ' -f 1 | tr a-f A-F)
+                awk -v u="  InstallerUrl: $url" -v s="$sha" '$0 == u { hit = 1; print; next }
+                  hit && /^  InstallerSha256: / { $0 = "  InstallerSha256: " s; hit = 0 } { print }' "$inst" > "$inst.new" && mv "$inst.new" "$inst"
+                grep -qx "  InstallerSha256: $sha" "$inst" || { echo "::error::no SHA-256 written for $url"; return 1; }
+              done
+              day=$(gh release view "$TAG" -R "$REPO" --json publishedAt -q .publishedAt | cut -c 1-10) || return 1
+              sed -i "s/^ReleaseDate: .*/ReleaseDate: $day/" "$inst"
+              git -C fork rm -rq "$dir/$old" && git -C fork add "$dir/$v" || return 1
+              git -C fork -c user.name="$me" -c user.email="$me@users.noreply.github.com" commit -qm "New package: $id version $v" || return 1
+              git -C fork show --stat HEAD
+              # The token reaches git through a credential helper, never in a URL or the log.
+              # shellcheck disable=SC2016 # $WINGET_TOKEN is expanded by the helper, not here
+              packaging/retry.sh git -C fork -c credential.helper= \
+                -c credential.helper='!f() { echo username=x-access-token; echo "password=$WINGET_TOKEN"; }; f' \
+                push -q "https://github.com/$owner/winget-pkgs.git" "HEAD:refs/heads/$branch" || return 1
+            elif [ "$have" != "$v" ]; then
+              echo "::error::$branch holds ${have//$'\n'/ } under $dir, not $old alone"; return 1
+            fi
+            GH_TOKEN="$WINGET_TOKEN" packaging/retry.sh gh pr edit "$n" -R microsoft/winget-pkgs --title "New package: $id version $v" || return 1
+            echo "$id $v: microsoft/winget-pkgs#$n, moved from $old in place"
+          }
           update() {
             id="$1"; shift
             rm -f komac.log
             # Listed: winget-pkgs has a manifest folder for one of its versions.
             listed=0; packaging/winget-listed.sh "$id" || listed=$?
             case $listed in
-              1) echo "::notice::$id is not on WinGet yet; its first version waits for Microsoft's review."; return 0 ;;
+              1) update_new "$id" "$@"; return ;;
               2) return 1 ;;
             esac
             has=0; packaging/winget-listed.sh "$id" "$v" "$me" || has=$?

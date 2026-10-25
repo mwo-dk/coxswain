@@ -66,8 +66,10 @@ Saturday rehearsal audits both (`brew audit`).
 `gh secret set CARGO_REGISTRY_TOKEN -R mwo-dk/coxswain`.
 
 **WinGet:** the first version of each package was submitted by hand (microsoft/winget-pkgs
-#446561 and #446560); `winget.yml` only adds later versions, and says so and skips while a
-package is not listed yet. It runs on Mondays at 06:00 UTC (and by hand: *Actions → WinGet → Run
+#446561 and #446560; `mwo-dk.Coxswain` again as #453867). While a package is not listed yet,
+`winget.yml` moves its open New-Package pull request to the newest release in place (that
+version's manifests instead of the old one's, and the title), so it keeps its place in the
+moderators' queue; `release-check.yml` reports that package's lag but does not fail on it. It runs on Mondays at 06:00 UTC (and by hand: *Actions → WinGet → Run
 workflow*) and files only the newest release, one pull request per package, then closes our
 older open pull requests for that package with "Superseded by #N". WinGet's moderators review
 every pull request by hand, and one per release (several a day at times) stalled them; so WinGet
