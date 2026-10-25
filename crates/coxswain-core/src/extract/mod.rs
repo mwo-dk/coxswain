@@ -454,6 +454,9 @@ pub(crate) struct Text<'a> {
     held: String,
     last: Option<char>,
     sink: Option<&'a mut dyn FnMut(&str)>,
+    /// The time spent in the sink (a model making the vectors of each batch of passages):
+    /// not the reader's, so it does not count against a reader's time limit.
+    pub waited: std::time::Duration,
 }
 
 impl std::ops::Deref for Text<'_> {
@@ -471,6 +474,7 @@ impl<'a> Text<'a> {
             held: String::new(),
             last: None,
             sink: None,
+            waited: std::time::Duration::ZERO,
         }
     }
 
@@ -519,7 +523,9 @@ impl<'a> Text<'a> {
             && let Some(at) = text.rfind('\n')
         {
             let at = self.held.len() - text.len() + at;
+            let began = std::time::Instant::now();
             sink(&self.held[..=at]);
+            self.waited += began.elapsed();
             self.held.drain(..=at);
         }
     }
