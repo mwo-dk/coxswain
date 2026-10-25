@@ -126,7 +126,7 @@ set and no engine found, a notice says so once, with the line that installs Stoc
 
 ## Choosing an engine
 
-<!-- screenshot: gui-chess-engines.png: Settings → Previews in the desktop app at Chess engines, Stockfish chosen and found, the other engines not installed with their install lines, Test engine pressed and the engine's options below -->
+![Settings → Previews in the desktop app at Chess engines: Stockfish chosen, found at /home/demo/engines/stockfish; Leela Chess Zero, Berserk, Ethereal, RubiChess, Koivisto, Igel, Arasan, Fruit and Fairy-Stockfish not installed, each with its site, Leela's note about its network file, Fruit's and Fairy-Stockfish's notes](../screenshots/gui-chess-engines.png)
 
 *Settings → Previews → Chess engines* lists the UCI engines Coxswain knows, in both apps. For each
 it shows where it is installed, or *not installed* with the line that installs it on this system
@@ -181,7 +181,9 @@ default `14`) and *Whole-game positions* (`review_nodes`, default `300000`).
 
 ## The engine's own options
 
-<!-- screenshot: tui-chess-engines.png: Settings → Previews in the terminal app at Chess engines: the engines with ( ) and (•), Test engine, Engine: Stockfish 17.1, its options Threads, Hash, Skill Level, UCI_LimitStrength and UCI_Elo with their values -->
+![Engine options in the desktop app after Test engine: Engine: Stockfish 17.1, Reset to engine defaults and Open config.toml, then its options as fields: Threads 4 and Hash 256 with Default beside them, Skill Level 20, UCI_LimitStrength a tick box, UCI_Elo 1800, SyzygyPath, EvalFile, each with what it takes and its default](../screenshots/gui-chess-engine-options.png)
+
+![The same in the terminal app: Chess engines with (•) Stockfish and ( ) for the others, not installed, [ Test engine ], Engine: Stockfish 17.1, its options with Threads 4, Hash 256, UCI_Elo 1800 chosen and the others at their defaults; below, a whole number from 1320 to 3190 · default 1320 and the keys Enter change · Delete engine default · O config.toml](../screenshots/tui-chess-engines.png)
 
 Every UCI engine names its own options when it starts: Stockfish's `Threads`, `Hash`, `Skill
 Level`, `UCI_LimitStrength` and `UCI_Elo`, Leela Chess Zero's `WeightsFile` and `Backend`. **Test
