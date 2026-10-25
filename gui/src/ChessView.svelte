@@ -17,7 +17,8 @@
   let { path, full = false } = $props();
 
   // A .bin file comes here only when it is a Polyglot opening book (Preview, chess_is_book).
-  const format = $derived(/\.bin$/i.test(path) ? "book" : chessFormat(basename(path)));
+  // A games file known by its bytes, not its name (a DhtmlXQ xiangqi game): read as PGN.
+  const format = $derived(/\.bin$/i.test(path) ? "book" : chessFormat(basename(path)) || "pgn");
   // A PDN file: draughts games in the same table, on a board of their own, without openings,
   // figurines or a book.
   const draughts = $derived(format === "pdn");

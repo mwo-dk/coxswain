@@ -53,7 +53,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Chess games (**F3** or **Alt+K** on a PGN, EPD or FEN file or a Polyglot book), full screen: the games as a table with a filter, a game on a board with its moves (pieces drawn from block characters), or the book's moves | [Chess games](../previews/chess.md) · [Game pieces in the terminal](../previews/game-pieces.md) |
 | Go games (**F3** or **Alt+K** on an SGF file), full screen: the games as a list, a game on a board of Unicode stones with its captures, variations and comments | [Go games](../previews/go.md) |
 | Draughts games (**F3** or **Alt+K** on a PDN file), full screen: the chess table of games, a game on a numbered board of coloured squares with ● men and ♚ kings, its captures and variations | [Draughts games](../previews/draughts.md) |
-| Xiangqi games (**F3** or **Alt+K** on a PGN file whose tags say `Game "Chinese Chess"`), full screen: the chess table of games, a game on a board of box lines with the river and the pieces as red and black characters | [Xiangqi games](../previews/xiangqi.md) |
+| Xiangqi games (**F3** or **Alt+K** on a PGN file whose tags say `Game "Chinese Chess"`, or a DhtmlXQ game), full screen: the chess table of games, a game on a board of box lines with the river and the pieces as red and black characters | [Xiangqi games](../previews/xiangqi.md) |
 | Shogi games (**F3** or **Alt+K** on a KIF or CSA file), full screen: the chess table of games, a game on a board of kanji with Gote's pieces marked v, the pieces in hand, variations and comments | [Shogi games](../previews/shogi.md) |
 | Bridge deals (**F3** or **Alt+K** on a PBN file), full screen: the table of deals with pairs, contract and result, a deal as four hands round the table with its auction, trick by trick | [Bridge deals](../previews/bridge.md) |
 | A viewer for build provenance (**F3** on one): inputs → build → outputs, the outputs checked against the files here, compare | [Build provenance](../previews/provenance.md) |
@@ -312,7 +312,7 @@ leave them out.
 #### How do I open a file inside a zip in the terminal app?
 
 To look at it: **Enter** on the zip to go inside, the cursor on the file, **F3**. A copy goes to
-your viewer; a locked file asks for its password first. To edit it or open it in another
+your viewer (a games file opens in the games view); a locked file asks for its password first. To edit it or open it in another
 program, copy it out with **F5** first: **Enter** and **F4** on a file inside only say
 *tools.zip is an archive: F5 copies this file out of it*.
 

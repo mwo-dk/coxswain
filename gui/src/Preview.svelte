@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -172,6 +172,12 @@
         }
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
         if (e?.path !== cur.path) return;
+        // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
+        if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
+          ui.book = cur.path;
+          sniffed = { path: cur.path, kind: "chess" };
+          return;
+        }
         truncated = trunc;
         binary = bin;
         if (!bin && (k === "data" || k === "text" || k === "jsonl") && /\.(json|jsonl|ndjson)$/i.test(cur.name) && looksLikeProvenance(s)) {

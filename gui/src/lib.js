@@ -394,6 +394,10 @@ export function chessFormat(name) {
   return "";
 }
 
+/** A DhtmlXQ xiangqi game (`games::is_dhtml`): a name such files have (no ending, `.che`,
+ *  `.txt`, `.dhtmlxq`) and text that starts with `[DhtmlXQ`. */
+export const looksLikeDhtml = (name, text) => (!name.includes(".") || /\.(che|txt|dhtmlxq)$/i.test(name)) && /^\uFEFF?\s*\[DhtmlXQ/i.test(text);
+
 /** A draw.io diagram by its name (`export::is_drawio`): `.drawio`, `.dio`, or a picture with
  *  the diagram in it, `.drawio.svg` and `.drawio.png`. */
 export const isDrawio = (name) => /\.(drawio|dio|drawio\.svg|drawio\.png)$/i.test(name);

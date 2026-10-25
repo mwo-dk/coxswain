@@ -333,12 +333,14 @@ impl<R: Read> Read for Counted<R> {
     }
 }
 
-/// How the file is packed, by its name.
+/// How the file is packed, by its name; a DhtmlXQ game by its first bytes, read as the PGN it
+/// is turned into (`xiangqi::dhtml_to_pgn`).
 #[derive(Clone, Copy, PartialEq)]
 enum Pack {
     None,
     Gz,
     Zst,
+    Dhtml,
 }
 
 fn pack(path: &Path) -> Pack {
@@ -347,9 +349,22 @@ fn pack(path: &Path) -> Pack {
         Pack::Gz
     } else if n.ends_with(".zst") {
         Pack::Zst
+    } else if is_dhtml(path) {
+        Pack::Dhtml
     } else {
         Pack::None
     }
+}
+
+/// Whether the file at `path` is a DhtmlXQ game, by its first bytes: only a name such files
+/// have (no ending, `.che`, `.txt`, `.dhtmlxq`), and never one only in the cloud.
+pub(crate) fn is_dhtml(path: &Path) -> bool {
+    let named = path.extension().is_none_or(|e| ["che", "txt", "dhtmlxq"].iter().any(|x| e.eq_ignore_ascii_case(x)));
+    if !named || crate::cloud::unasked(path) {
+        return false;
+    }
+    let mut head = [0u8; 64];
+    crate::fs::open_regular(path).and_then(|mut f| read_full(&mut f, &mut head)).is_ok_and(|n| crate::xiangqi::is_dhtml(&head[..n]))
 }
 
 /// What one file may cost: a file of endless tiny games, or a small packed file that unpacks
@@ -378,6 +393,12 @@ pub(crate) fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Re
         Pack::None => Box::new(f),
         Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f).take(unpacked)),
         Pack::Zst => Box::new(ruzstd::decoding::StreamingDecoder::new(f).map_err(io::Error::other)?.take(unpacked)),
+        Pack::Dhtml => {
+            let mut text = vec![];
+            f.take(crate::xiangqi::DHTML_MAX).read_to_end(&mut text)?;
+            let pgn = crate::xiangqi::dhtml_to_pgn(&String::from_utf8_lossy(&text));
+            Box::new(io::Cursor::new(pgn.into_bytes()).take(unpacked))
+        }
     })
 }
 

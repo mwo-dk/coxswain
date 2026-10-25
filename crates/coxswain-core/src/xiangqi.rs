@@ -365,6 +365,155 @@ pub fn glyph(p: char) -> char {
     }
 }
 
+/// Whether a file's first bytes are a DhtmlXQ game's (`[DhtmlXQ]`, `[DhtmlXQ_ver]`…): the
+/// format of the Chinese web viewers of that name, and of the files of game sites built on it
+/// (often with no ending at all, or `.che`, `.txt`). One game a file.
+pub fn is_dhtml(head: &[u8]) -> bool {
+    let head = head.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(head);
+    let head = &head[head.iter().position(|b| !b.is_ascii_whitespace()).unwrap_or(head.len())..];
+    head.len() >= 8 && head[..8].eq_ignore_ascii_case(b"[DhtmlXQ")
+}
+
+/// The most of a DhtmlXQ file read: one game, with its variations and comments.
+pub const DHTML_MAX: u64 = 16 << 20;
+
+/// A DhtmlXQ game as xiangqi PGN, which the games table and the board read as any other: its
+/// tags, the start position from `binit` (32 pieces as column and row, `99` for one taken),
+/// the moves of `movelist` (four digits each, from and to) in ICCS, its variations
+/// (`move_A_B_C`: line C instead of line A's move B) and its comments (`commentN` after the
+/// Nth move, `commentC_N` in line C), `||` a new line.
+pub fn dhtml_to_pgn(text: &str) -> String {
+    use std::collections::{BTreeMap, HashMap};
+    use std::fmt::Write;
+    // `[DhtmlXQ_key]value[/DhtmlXQ_key]`, any key, read left to right without a pattern engine.
+    let mut tags: HashMap<String, String> = HashMap::new();
+    let mut rest = text;
+    while let Some(at) = rest.find("[DhtmlXQ_") {
+        let after = &rest[at + 9..];
+        let Some(end) = after.find(']') else { break };
+        let key = &after[..end];
+        let body = &after[end + 1..];
+        let close = format!("[/DhtmlXQ_{key}]");
+        let Some(stop) = body.find(&close) else {
+            rest = body;
+            continue;
+        };
+        tags.entry(key.to_ascii_lowercase()).or_insert_with(|| body[..stop].trim().to_string());
+        rest = &body[stop + close.len()..];
+    }
+    let tag = |k: &str| tags.get(k).map(String::as_str).unwrap_or("");
+    let digits = |s: &str| s.bytes().filter(u8::is_ascii_digit).map(|b| b - b'0').collect::<Vec<u8>>();
+    // The start: the standard one, unless `binit` says otherwise.
+    let mut cells = [None; W * H];
+    let binit = digits(tag("binit"));
+    if binit.len() >= 64 {
+        const PIECES: &[u8; 16] = b"RNBAKABNRCCPPPPP";
+        for i in 0..32 {
+            let (x, y) = (binit[2 * i] as usize, binit[2 * i + 1] as usize);
+            if x < W && y < H {
+                let p = PIECES[i % 16] as char;
+                cells[x + y * W] = Some(if i < 16 { p } else { p.to_ascii_lowercase() });
+            }
+        }
+    } else {
+        cells.copy_from_slice(&Board::from_fen(START).expect("the start position").cells);
+    }
+    let moves = |s: &str| digits(s).chunks_exact(4).map(|c| (c[0], c[1], c[2], c[3])).collect::<Vec<_>>();
+    let main = moves(tag("movelist"));
+    // Black first (a problem with Black to move): the first move's piece says so.
+    let red = main.first().is_none_or(|&(x, y, _, _)| (x as usize) >= W || (y as usize) >= H || cells[x as usize + y as usize * W].is_none_or(|p| p.is_ascii_uppercase()));
+    let start = Board { cells, red, number: 1 };
+    // Variations by the line and move they branch from; their moves and where they start.
+    type Moves = Vec<(u8, u8, u8, u8)>;
+    let mut lines: HashMap<u32, (u32, Moves)> = HashMap::new();
+    let mut from: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
+    lines.insert(0, (1, main));
+    for (k, v) in &tags {
+        let n: Vec<u32> = k.strip_prefix("move_").map(|r| r.split('_').filter_map(|x| x.parse().ok()).collect()).unwrap_or_default();
+        if let [a, b, c] = n[..]
+            && c != 0
+            && b > 0
+            && !lines.contains_key(&c)
+        {
+            lines.insert(c, (b, moves(v)));
+            from.entry((a, b)).or_default().push(c);
+        }
+    }
+    let comment = |line: u32, ply: u32| {
+        let k = if line == 0 { format!("comment{ply}") } else { format!("comment{line}_{ply}") };
+        let c = tag(&k).replace("||", "\n").replace(['{', '}'], "");
+        let c = c.trim();
+        if c.is_empty() { String::new() } else { format!("{{{c}}} ") }
+    };
+    let iccs = |(a, b, c, d): (u8, u8, u8, u8)| {
+        let f = |x: u8, y: u8| format!("{}{}", (b'a' + x.min(25)) as char, 9i32 - y as i32);
+        format!("{}{}", f(a, b), f(c, d))
+    };
+    let first_black = !red;
+    let number = |ply: u32| (ply + u32::from(first_black)).div_ceil(2);
+    let is_red = |ply: u32| (ply % 2 == 1) != first_black;
+    let mut out = String::new();
+    let result = match tag("result") {
+        "红胜" | "紅勝" | "红先胜" | "1-0" => "1-0",
+        "黑胜" | "黑勝" | "0-1" => "0-1",
+        "和局" | "和棋" | "和" | "1/2-1/2" => "1/2-1/2",
+        _ => "*",
+    };
+    let date = tag("date").replace(['-', '/'], ".");
+    let event = if tag("event").is_empty() { tag("title") } else { tag("event") };
+    out.push_str("[Game \"Chinese Chess\"]\n");
+    for (k, v) in [("Event", event), ("Site", tag("place")), ("Date", &date), ("Round", tag("round")), ("Red", tag("red")), ("Black", tag("black")), ("Opening", tag("open")), ("Result", result)] {
+        if !v.is_empty() {
+            let _ = writeln!(out, "[{k} \"{}\"]", v.replace(['"', '\\', '\n', '\r'], " "));
+        }
+    }
+    let fen = start.fen();
+    if fen != Board::from_fen(START).expect("the start position").fen() {
+        let _ = writeln!(out, "[FEN \"{fen} - - 0 1\"]\n[SetUp \"1\"]");
+    }
+    out.push('\n');
+    out.push_str(&comment(0, 0));
+    // Each line's moves, a variation in brackets after the move it stands for: without recursion,
+    // a stack of (line, its next move); a line seen once, so no file loops it.
+    let mut stack = vec![(0u32, 0usize, true)];
+    let mut seen = std::collections::HashSet::from([0u32]);
+    while let Some((line, i, fresh)) = stack.pop() {
+        let (b, mvs) = &lines[&line];
+        if i >= mvs.len() {
+            // An empty variation is none.
+            if i == 0 {
+                continue;
+            }
+            if line != 0 {
+                out.push_str(") ");
+            }
+            continue;
+        }
+        let ply = b + i as u32;
+        if i == 0 && line != 0 {
+            out.push_str("( ");
+        }
+        if is_red(ply) {
+            let _ = write!(out, "{}. ", number(ply));
+        } else if fresh {
+            let _ = write!(out, "{}... ", number(ply));
+        }
+        let _ = write!(out, "{} ", iccs(mvs[i]));
+        out.push_str(&comment(line, ply));
+        stack.push((line, i + 1, false));
+        // Pushed last, written first: the variations of this move, each opening its bracket.
+        let kids: Vec<u32> = from.get(&(line, ply)).into_iter().flatten().copied().filter(|c| seen.insert(*c)).collect();
+        if !kids.is_empty() {
+            // The move after them starts a new run of numbers.
+            stack.last_mut().expect("pushed above").2 = true;
+        }
+        stack.extend(kids.into_iter().rev().map(|c| (c, 0, true)));
+    }
+    out.push_str(result);
+    out.push('\n');
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -456,6 +605,81 @@ mod tests {
         assert!(text.contains("Wang – Zhao") && !text.contains("h2e2"), "{text}");
         let (o, c) = crate::store::MARK;
         assert_eq!(crate::chess::games::game_of_hit(&p, &format!("{o}Zhao{c}")), Some(1));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A DhtmlXQ game as the community databases keep it: a byte order mark, tags on lines of
+    /// their own, the pieces by column and row, two variations (one inside the other) and comments.
+    const DHTML: &str = "\u{feff}[DhtmlXQ]\n[DhtmlXQ_ver]www_vietcotuong_com[/DhtmlXQ_ver]\n[DhtmlXQ_title]0001-对兵互进右马局[/DhtmlXQ_title]\n[DhtmlXQ_event][/DhtmlXQ_event]\n[DhtmlXQ_date]2009-11-26[/DhtmlXQ_date]\n[DhtmlXQ_place]华山[/DhtmlXQ_place]\n[DhtmlXQ_red]布局圣手[/DhtmlXQ_red]\n[DhtmlXQ_black]兰帝[/DhtmlXQ_black]\n[DhtmlXQ_result]红胜[/DhtmlXQ_result]\n[DhtmlXQ_open]E42 对兵互进右马局[/DhtmlXQ_open]\n[DhtmlXQ_binit]0919293949596979891777062646668600102030405060708012720323436383[/DhtmlXQ_binit]\n[DhtmlXQ_movelist]262563641927[/DhtmlXQ_movelist]\n[DhtmlXQ_comment0]A start||on two lines[/DhtmlXQ_comment0]\n[DhtmlXQ_comment2]Black {answers}[/DhtmlXQ_comment2]\n[DhtmlXQ_move_0_2_1]70621927[/DhtmlXQ_move_0_2_1]\n[DhtmlXQ_move_1_3_2]7747[/DhtmlXQ_move_1_3_2]\n[DhtmlXQ_comment1_2]Or the horse[/DhtmlXQ_comment1_2]\n";
+
+    #[test]
+    fn a_dhtml_game_read_as_pgn() {
+        assert!(is_dhtml(DHTML.as_bytes()) && is_dhtml(b"  [dhtmlxq_ver]") && !is_dhtml(b"[Event \"x\"]") && !is_dhtml(b"[Dht"));
+        let pgn = dhtml_to_pgn(DHTML);
+        assert!(is_xiangqi(pgn.as_bytes()), "{pgn}");
+        for tag in ["[Event \"0001-对兵互进右马局\"]", "[Site \"华山\"]", "[Date \"2009.11.26\"]", "[Red \"布局圣手\"]", "[Black \"兰帝\"]", "[Result \"1-0\"]", "[Opening \"E42 对兵互进右马局\"]"] {
+            assert!(pgn.contains(tag), "{tag} in {pgn}");
+        }
+        // The usual start needs no FEN.
+        assert!(!pgn.contains("[FEN"), "{pgn}");
+        let g = parse(&pgn);
+        assert_eq!(g.error, None, "{pgn}");
+        let main: Vec<&str> = g.main_line().iter().map(|&n| g.nodes[n as usize].san.as_str()).collect();
+        assert_eq!(main.len(), 3, "{pgn}");
+        // The pawn on c3 steps up; Black's on g6 answers; the horse.
+        assert_eq!(main[0], "c3c4");
+        // Both variations played out: 2 + 1 moves besides the main line's 3.
+        assert_eq!(g.nodes.len(), 6, "{pgn}");
+        assert!(pgn.contains("{A start\non two lines}") && pgn.contains("{Black answers}") && pgn.contains("{Or the horse}"), "{pgn}");
+        assert!(pgn.contains("( 1... h9g7 {Or the horse} 2. b0c2 ( 2. h2e2 ) ) "), "{pgn}");
+    }
+
+    #[test]
+    fn a_dhtml_problem_with_black_to_move() {
+        // Red's king on e0 (column 4, row 9) alone, Black's king on e9 and a chariot on a9 (pieces 4, 20, 16; row 0 is Black's side).
+        let mut b = "99".repeat(32);
+        b.replace_range(8..10, "49");
+        b.replace_range(32..34, "00");
+        b.replace_range(40..42, "40");
+        let pgn = dhtml_to_pgn(&format!("[DhtmlXQ_binit]{b}[/DhtmlXQ_binit][DhtmlXQ_movelist]0001[/DhtmlXQ_movelist]"));
+        assert!(pgn.contains("[FEN \"r3k4/9/9/9/9/9/9/9/9/4K4 b - - 0 1\"]"), "{pgn}");
+        assert!(pgn.contains("1... a9a8"), "{pgn}");
+        let g = parse(&pgn);
+        assert_eq!((g.error.as_deref(), g.main_line().len()), (None, 1));
+    }
+
+    #[test]
+    fn whatever_the_dhtml() {
+        for t in ["", "[DhtmlXQ_", "[DhtmlXQ_movelist]", "[DhtmlXQ_movelist]99999999[/DhtmlXQ_movelist]", "[DhtmlXQ_binit]12[/DhtmlXQ_binit]",
+            "[DhtmlXQ_move_0_0_0]1234[/DhtmlXQ_move_0_0_0][DhtmlXQ_move_5_1_5]1234[/DhtmlXQ_move_5_1_5][DhtmlXQ_move_1_1_1][/DhtmlXQ_move_1_1_1]",
+            "[DhtmlXQ_red]\"\\\n[/DhtmlXQ_red][DhtmlXQ_comment0]}}{{[/DhtmlXQ_comment0]", "[DhtmlXQ_é]é[/DhtmlXQ_é]"] {
+            let _ = parse(&dhtml_to_pgn(t));
+        }
+        // A thousand variations each inside the last: written without recursion, read within the depth kept.
+        let deep: String = (1..1000).map(|c| format!("[DhtmlXQ_move_{}_{}_{c}]26256364[/DhtmlXQ_move_{}_{}_{c}]", c - 1, c, c - 1, c)).collect();
+        let pgn = std::thread::Builder::new().stack_size(256 * 1024).spawn(move || dhtml_to_pgn(&format!("[DhtmlXQ_movelist]2625[/DhtmlXQ_movelist]{deep}"))).unwrap().join().unwrap();
+        assert_eq!(pgn.matches('(').count(), pgn.matches(')').count());
+    }
+
+    #[test]
+    fn a_dhtml_file_in_the_table() {
+        let d = std::env::temp_dir().join(format!("coxswain-xqd-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("0001-对兵互进右马局");
+        std::fs::write(&p, DHTML).unwrap();
+        assert_eq!(crate::chess::sniff(&p), Some(crate::chess::Format::Pgn));
+        assert_eq!(crate::chess::games::kind(&p), crate::chess::Format::Xiangqi);
+        let lib = crate::chess::Library::open(&p).unwrap();
+        while !lib.progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let r = lib.row(0).unwrap();
+        assert_eq!((r.white.as_str(), r.black.as_str(), r.moves), ("布局圣手", "兰帝", 2));
+        assert_eq!(lib.game(0).unwrap().error, None);
+        // Any other file with no ending is no game, and a PGN file stays one.
+        let other = d.join("README");
+        std::fs::write(&other, "[DhtmX").unwrap();
+        assert_eq!(crate::chess::sniff(&other), None);
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

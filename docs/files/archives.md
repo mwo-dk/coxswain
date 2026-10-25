@@ -42,7 +42,7 @@ and **F5** from another panel copies into it. Copies between two archives work t
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
 | **Enter** on a file | Says on the status line that it must be copied out first | |
 | **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
-| **F3** (terminal app) | Views the file: a copy of it goes to your viewer | |
+| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game; not a SCID or ChessBase database, whose other files stay in the archive) opens in the games view, as outside the archive | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
 | **Alt+F5** | [Packs](pack-and-extract.md) files on disk into a new archive | |
 
@@ -254,7 +254,8 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. Coxswain copies just that file out, into its cache folder, and shows
 the copy. Nothing next to the archive is written, and the copy goes when you look at the next
-file.
+file. A games file shows as outside the archive: its table of games, a game on its board
+([Xiangqi games](../previews/xiangqi.md#using-it)).
 
 #### Why can I not edit a file inside an archive with F4?
 

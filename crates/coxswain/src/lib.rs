@@ -1892,8 +1892,15 @@ impl App {
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
     fn peek(&mut self, path: PathBuf) {
         match coxswain_core::archive::peek(&path) {
-            // Games show on their board, as on disk.
-            Ok(copy) if coxswain_core::chess::sniff(&copy).is_some() => self.chess(&copy, None),
+            // Games (a PGN file, a DhtmlXQ xiangqi game): on their board, as outside. Not a SCID
+            // or ChessBase database: its other files stay in the archive.
+            Ok(copy)
+                if coxswain_core::chess::sniff(&copy).is_some()
+                    && !coxswain_core::chess::scid::is_scid(&copy)
+                    && !coxswain_core::chess::cbh::is_cbh(&copy) =>
+            {
+                self.chess(&copy, None)
+            }
             Ok(copy) => self.view_or_edit(Action::View, &copy),
             Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
                 self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
