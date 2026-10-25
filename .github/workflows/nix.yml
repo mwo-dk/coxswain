@@ -81,14 +81,15 @@ jobs:
         run: |
           deps=".#coxswain.cargoArtifacts"
           [ "$RUNNER_OS" = Linux ] && deps="$deps .#coxswain-gui.cargoArtifacts"
-          # The daemon (root) may have made folders in it while it looked for paths there.
-          sudo rm -rf nix-deps
-          # With their closure (the crates' sources), less what cache.nixos.org has.
-          nix copy --to "file://$PWD/nix-deps?compression=zstd" $deps
+          # With their closure (the crates' sources), less what cache.nixos.org has. Made apart:
+          # the daemon (root) makes folders in nix-deps while it looks for paths there.
+          nix copy --to "file://$PWD/nix-deps.new?compression=zstd" $deps
           nix path-info -r $deps | cut -c12-43 | xargs -P 16 -I{} sh -c \
-            'curl -sfI -o /dev/null https://cache.nixos.org/{}.narinfo || exit 0; rm -f "nix-deps/$(sed -n "s/^URL: //p" nix-deps/{}.narinfo)" nix-deps/{}.narinfo'
-          ls nix-deps/*.narinfo | wc -l
-          du -sh nix-deps
+            'curl -sfI -o /dev/null https://cache.nixos.org/{}.narinfo || exit 0; rm -f "nix-deps.new/$(sed -n "s/^URL: //p" nix-deps.new/{}.narinfo)" nix-deps.new/{}.narinfo'
+          ls nix-deps.new/*.narinfo | wc -l
+          du -sh nix-deps.new
+          sudo rm -rf nix-deps
+          mv nix-deps.new nix-deps
       - if: steps.deps.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
