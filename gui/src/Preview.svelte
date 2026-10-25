@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -16,7 +16,15 @@
   let { output = null, onclearoutput, notesFocus = false, onnotesfocused } = $props();
 
   const pane = $derived(tab());
-  const raw = $derived(item(pane));
+  // The entry under the cursor, kept as the same object while a new listing of the folder (a
+  // download growing next to it, a file saved there) brings it back unchanged: every preview
+  // below reloads when it changes, and a big archive's list blanked and came back on each one.
+  let kept = null;
+  const raw = $derived.by(() => {
+    const now = item(pane);
+    if (!sameEntry(now, kept)) kept = now;
+    return kept;
+  });
   // A file inside an archive is not on disk: it is previewed through a copy out of it, made
   // when the cursor rests on it. A locked one waits for its password.
   // So is one in a history: the copy is the file as it was at that commit.
