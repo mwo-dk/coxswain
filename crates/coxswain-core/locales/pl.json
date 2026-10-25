@@ -3364,7 +3364,7 @@
  "setting.theme": "Motyw aplikacji desktopowej",
  "setting.theme.hint": "Jej kolory, a w niektórych motywach także własna czcionka i kształty.",
  "setting.tui_theme": "Motyw aplikacji terminalowej",
- "setting.tui_theme.hint": "Kolory aplikacji terminalowej, z tej samej listy motywów. Nowy obowiązuje po ponownym uruchomieniu.",
+ "setting.tui_theme.hint": "Kolory aplikacji terminalowej, z tej samej listy motywów. Wybrany w jej własnych Ustawieniach nowy motyw widać od razu; wybrany w aplikacji desktopowej lub w config.toml, działająca już aplikacja terminalowa przyjmuje go po ponownym uruchomieniu.",
  "setting.viewer": "Przeglądarka (aplikacja terminalowa)",
  "setting.viewer.hint": "Program, w którym F3 pokazuje plik. Puste: wbudowana przeglądarka, która wyróżnia kod; p przekazuje tam plik do $PAGER, a w przeciwnym razie do less.",
  "setting.watch": "Śledź zmiany na bieżąco",

@@ -3214,7 +3214,7 @@
  "setting.theme": "Töölauarakenduse kujundus",
  "setting.theme.hint": "Selle värvid ning mõne kujunduse puhul ka oma font ja kujud.",
  "setting.tui_theme": "Terminalirakenduse kujundus",
- "setting.tui_theme.hint": "Terminalirakenduse värvid samast kujunduste loendist. Uus kujundus rakendub, kui rakendus uuesti käivitub.",
+ "setting.tui_theme.hint": "Terminalirakenduse värvid samast kujunduste loendist. Rakenduse enda sätetes valitud uus kujundus rakendub kohe; töölauarakenduses või failis config.toml valituna võtab juba töötav terminalirakendus selle kasutusele, kui see uuesti käivitub.",
  "setting.viewer": "Vaatur (terminalirakendus)",
  "setting.viewer.hint": "Programm, milles F3 faili näitab. Tühi: sisseehitatud vaatur, mis tõstab koodi esile; seal annab p faili programmile $PAGER, muidu less.",
  "setting.watch": "Jälgi muudatusi kohe",

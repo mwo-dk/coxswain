@@ -1,0 +1,1 @@
+| **The hint under *Theme of the terminal app* says when the new theme shows.** Chosen in the terminal app's own Settings it shows at once; chosen in the desktop app or in config.toml, a terminal app already running takes it when it starts again. It used to say only the second, in every language. | [Settings](customise/settings.md#looks) |

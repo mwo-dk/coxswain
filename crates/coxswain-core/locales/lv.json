@@ -3289,7 +3289,7 @@
  "setting.theme": "Darbvirsmas lietotnes motīvs",
  "setting.theme.hint": "Tās krāsas, un dažiem motīviem arī savs fonts un formas.",
  "setting.tui_theme": "Termināļa lietotnes motīvs",
- "setting.tui_theme.hint": "Termināļa lietotnes krāsas no tā paša motīvu saraksta. Jaunais motīvs tiek izmantots pēc lietotnes restartēšanas.",
+ "setting.tui_theme.hint": "Termināļa lietotnes krāsas no tā paša motīvu saraksta. Izvēlēts tās pašas iestatījumos, jaunais motīvs redzams uzreiz; izvēlētu darbvirsmas lietotnē vai config.toml, jau palaista termināļa lietotne to izmanto pēc restartēšanas.",
  "setting.viewer": "Skatītājs (termināļa lietotne)",
  "setting.viewer.hint": "Programma, kurā F3 parāda failu. Tukšs: iebūvētais skatītājs, kas iekrāso kodu; tajā p nodod failu $PAGER, citādi less.",
  "setting.watch": "Sekot izmaiņām, tiklīdz tās notiek",

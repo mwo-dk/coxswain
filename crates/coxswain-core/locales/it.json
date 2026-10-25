@@ -3289,7 +3289,7 @@
  "setting.theme": "Tema dell’app desktop",
  "setting.theme.hint": "I suoi colori e, con alcuni temi, un proprio font e proprie forme.",
  "setting.tui_theme": "Tema dell’app da terminale",
- "setting.tui_theme.hint": "I colori dell’app da terminale, dalla stessa lista di temi. Prende quello nuovo al prossimo avvio.",
+ "setting.tui_theme.hint": "I colori dell’app da terminale, dalla stessa lista di temi. Scelto nelle sue Impostazioni, il nuovo si vede subito; scelto nell’app desktop o in config.toml, un’app da terminale già aperta lo prende al prossimo avvio.",
  "setting.viewer": "Visualizzatore (app da terminale)",
  "setting.viewer.hint": "Il programma in cui F3 mostra un file. Vuoto: il visualizzatore integrato, che evidenzia il codice; lì p passa il file a $PAGER, altrimenti less.",
  "setting.watch": "Segui le modifiche mentre avvengono",

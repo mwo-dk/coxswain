@@ -3289,7 +3289,7 @@
  "setting.theme": "Motiv desktopové aplikace",
  "setting.theme.hint": "Její barvy a u některých motivů i vlastní písmo a tvary.",
  "setting.tui_theme": "Motiv terminálové aplikace",
- "setting.tui_theme.hint": "Barvy terminálové aplikace ze stejného seznamu motivů. Nový použije, až se znovu spustí.",
+ "setting.tui_theme.hint": "Barvy terminálové aplikace ze stejného seznamu motivů. Zvolený v jejím vlastním Nastavení se projeví hned; zvolený v desktopové aplikaci nebo v config.toml použije už spuštěná terminálová aplikace, až se znovu spustí.",
  "setting.viewer": "Prohlížeč (terminálová aplikace)",
  "setting.viewer.hint": "Program, ve kterém F3 zobrazí soubor. Prázdné: vestavěný prohlížeč, který zvýrazňuje kód; p v něm předá soubor do $PAGER, jinak less.",
  "setting.watch": "Sledovat změny průběžně",
