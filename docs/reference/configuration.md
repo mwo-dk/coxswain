@@ -348,9 +348,21 @@ How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draught
 | `book` | string | `""` | A Polyglot opening book (`.bin`) whose moves the board shows for each position (`~` is the home folder, a relative path starts from the game file's folder). Empty, or not a book: the first book in the game file's own folder ([Opening books](../previews/chess.md#opening-books)) |
 | `analysis` | bool | `false` | Ask the chess engine about each position as soon as a game opens; off, **a** (*Engine*) in the view asks it ([The engine](../previews/chess-play.md#the-engine)) |
 | `engine` | string | `""` | The UCI engine: a program's name or a path (`~` is the home folder). Empty: `stockfish` when it is installed. Nothing is downloaded |
+| `engine_limit` | string | `"time"` | What ends the engine's thinking about a position: `"time"` (`engine_time`), `"depth"` (`engine_depth`) or `"nodes"` (`engine_nodes`); a depth or number is stopped after 60 seconds ([How long the engine thinks](../previews/chess-play.md#how-long-the-engine-thinks)) |
 | `engine_time` | integer | `1000` | How long the engine thinks about a position, in milliseconds (100 to 60000) |
+| `engine_depth` | integer | `20` | How many half-moves deep it looks, by depth (1 to 99) |
+| `engine_nodes` | integer | `1000000` | How many positions it searches, by nodes (1000 and up) |
 | `engine_lines` | integer | `3` | How many of the engine's best lines are shown (1 to 5) |
+| `review_limit` | string | `"time"` | The same for each position of a game analysed as a whole: `"time"`, `"depth"` or `"nodes"` |
 | `review_time` | integer | `500` | How long the engine thinks about each position when a whole game is analysed (**g**), in milliseconds (100 to 10000) ([Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) |
+| `review_depth` | integer | `14` | Half-moves deep for each position of a whole game, by depth (1 to 99) |
+| `review_nodes` | integer | `300000` | Positions searched for each position of a whole game, by nodes |
+
+`[chess.engines."<engine>"]`, one table for each engine by its name without its version
+(`[chess.engines.Stockfish]`, `[chess.engines.Lc0]`): the engine's own UCI options, `name = value`
+(`Threads = 4`, `UCI_Elo = 1800`, `WeightsFile = "~/lc0/net.pb.gz"`). Only options the engine lists
+are sent, with values that fit them; Settings sets them after *Test engine* ([The engine's own
+options](../previews/chess-play.md#the-engines-own-options)).
 
 ## What has no key
 
@@ -418,9 +430,15 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Opening book* | `chess_book` | `[chess] book` |
 | | *Chess engine on* | `chess_analysis` | `[chess] analysis` |
 | | *Chess engine* | `chess_engine` | `[chess] engine` |
+| | *Engine stops after* | `chess_engine_limit` | `[chess] engine_limit` |
 | | *Engine time (ms)* | `chess_engine_time` | `[chess] engine_time` |
+| | *Engine depth* | `chess_engine_depth` | `[chess] engine_depth` |
+| | *Engine positions* | `chess_engine_nodes` | `[chess] engine_nodes` |
 | | *Engine lines* | `chess_engine_lines` | `[chess] engine_lines` |
+| | *Whole-game analysis stops after* | `chess_review_limit` | `[chess] review_limit` |
 | | *Analysis time a move (ms)* | `chess_review_time` | `[chess] review_time` |
+| | *Whole-game depth* | `chess_review_depth` | `[chess] review_depth` |
+| | *Whole-game positions* | `chess_review_nodes` | `[chess] review_nodes` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

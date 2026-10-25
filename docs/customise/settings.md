@@ -174,10 +174,18 @@ Opening this area asks the container runtime which images it has.
 | *Opening book* | A path to a Polyglot `.bin` book whose moves the chess board shows; empty: *The first book next to the game file* (`chess_book`, [Opening books](../previews/chess.md#opening-books)) | `[chess] book` |
 | *Game pieces in the terminal* | *As fine as the terminal draws*, *Pictures, where the terminal shows them*, *Octants*, *Sextants*, *Quadrants*, *Half blocks*, *Figurines*: how the terminal app draws the pieces (`chess_pieces`, [Game pieces in the terminal](../previews/game-pieces.md)) | `[chess] pieces` |
 | *Chess engine on* | Off: the engine is asked only after *Engine* (**a**) in the view (`chess_analysis`, [The engine](../previews/chess-play.md#the-engine)) | `[chess] analysis` |
+| *Chess engines* | The UCI engines Coxswain knows, each found or *not installed* with its install line; choosing one sets *Chess engine* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) | `[chess] engine` |
 | *Chess engine* | A UCI engine's program or path; empty: *Stockfish, when installed* (`chess_engine`) | `[chess] engine` |
+| *Engine options* | *Test engine* runs the chosen engine and lists its own options to set (threads, hash, strength, network file …); *Reset to engine defaults* ([The engine's own options](../previews/chess-play.md#the-engines-own-options)) | `[chess.engines."<engine>"]` |
+| *Engine stops after* | *Time*, *Depth* or *Positions searched* (`chess_engine_limit`, [How long the engine thinks](../previews/chess-play.md#how-long-the-engine-thinks)) | `[chess] engine_limit` |
 | *Engine time (ms)* | 100 to 60000: how long the engine thinks about a position (`chess_engine_time`) | `[chess] engine_time` |
+| *Engine depth* | 1 to 99 half-moves, when it stops by depth (`chess_engine_depth`) | `[chess] engine_depth` |
+| *Engine positions* | How many positions it searches, when it stops by positions searched (`chess_engine_nodes`) | `[chess] engine_nodes` |
 | *Engine lines* | 1 to 5: how many of its best lines are shown (`chess_engine_lines`) | `[chess] engine_lines` |
+| *Whole-game analysis stops after* | *Time*, *Depth* or *Positions searched*, for each position of a game analysed as a whole (`chess_review_limit`) | `[chess] review_limit` |
 | *Analysis time a move (ms)* | 100 to 10000: how long the engine thinks about each position of a game analysed as a whole (`chess_review_time`, [Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) | `[chess] review_time` |
+| *Whole-game depth* | 1 to 99 half-moves (`chess_review_depth`) | `[chess] review_depth` |
+| *Whole-game positions* | Positions searched for each position (`chess_review_nodes`) | `[chess] review_nodes` |
 
 ## Looks
 

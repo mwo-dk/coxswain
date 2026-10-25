@@ -19,6 +19,9 @@ PGN file when you ask. Both apps have it.
 - [Your line](#your-line)
 - [Save as new PGN](#save-as-new-pgn)
 - [The engine](#the-engine)
+- [Choosing an engine](#choosing-an-engine)
+- [How long the engine thinks](#how-long-the-engine-thinks)
+- [The engine's own options](#the-engines-own-options)
 - [Analysing a whole game](#analysing-a-whole-game)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
@@ -95,17 +98,18 @@ that one. Press **a** (or *Engine*) again to stop asking.
 
 **What it needs.** An engine installed on this computer: Coxswain never downloads one and nothing
 is sent anywhere. It talks UCI to the engine over its standard input and output and starts it
-anew for each position, for *Engine time* (1 second unless set). With no engine found the line
-says how to install Stockfish here:
+anew for each position, for *Engine time* (1 second unless set; [How long the engine
+thinks](#how-long-the-engine-thinks)). With no engine found the line says how to install
+Stockfish here:
 
 | System | Install Stockfish |
 |---|---|
 | FreeBSD | `pkg install stockfish` |
 | NetBSD | `pkgin install stockfish` |
 | OpenBSD | `pkg_add stockfish` |
-| Linux | `sudo pacman -S stockfish`, `sudo apt install stockfish`, `sudo dnf install stockfish`, `sudo zypper install stockfish` |
+| Linux | `sudo apt install stockfish`, `sudo dnf install stockfish`, `sudo zypper install stockfish`; on Arch Linux it is only in the AUR |
 | macOS | `brew install stockfish` |
-| Windows | Download it from stockfishchess.org, then name `stockfish.exe` in *Settings → Previews → Chess engine* |
+| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org and name `stockfish.exe` in *Settings → Previews → Chess engine* |
 
 **Without an installed engine.** When no Stockfish is installed and podman or docker is,
 Coxswain runs Stockfish from its own container image, `ghcr.io/mwo-dk/coxswain-stockfish`
@@ -117,9 +121,113 @@ pulled, the line under the board says so. *Settings → Previews → Preview
 tools → Chess engine (Stockfish)* (`[preview.tools] chess_engine = "container"`) uses the image even
 with Stockfish installed, *Installed* (`"local"`) never, *Off* (`"off"`) neither.
 
-Any other UCI engine works too (Leela Chess Zero's `lc0`, Ethereal, Berserk): name its program or
-path in *Chess engine*. With *Chess engine on* set and no engine found, a notice says so once, with
-the line that installs Stockfish.
+Any other UCI engine works too ([Choosing an engine](#choosing-an-engine)). With *Chess engine on*
+set and no engine found, a notice says so once, with the line that installs Stockfish.
+
+## Choosing an engine
+
+<!-- screenshot: gui-chess-engines.png: Settings → Previews in the desktop app at Chess engines, Stockfish chosen and found, the other engines not installed with their install lines, Test engine pressed and the engine's options below -->
+
+*Settings → Previews → Chess engines* lists the UCI engines Coxswain knows, in both apps. For each
+it shows where it is installed, or *not installed* with the line that installs it on this system
+(only from official packages) and its official site. Settings only looks whether the program is
+there, on your PATH or in `/usr/games`; it never runs an engine until you press **Test engine**.
+
+- Desktop app: click the round button before an engine to choose it.
+- Terminal app: **↑** **↓** to an engine, **Enter** chooses it, **C** copies its install line (or its
+  site when it has none).
+
+Choosing Stockfish leaves `[chess] engine` empty, so Coxswain's Stockfish container image is still
+used when no Stockfish is installed. Choosing another sets `[chess] engine` to its program's name.
+Any engine not on the list: type its program's name or path in *Chess engine* (`~` is your home
+folder).
+
+| Engine | Program | Install | Note |
+|---|---|---|---|
+| Stockfish | `stockfish` | FreeBSD `pkg install stockfish`; NetBSD `pkgin install stockfish`; OpenBSD `pkg_add stockfish`; Debian and Ubuntu `sudo apt install stockfish`; Fedora `sudo dnf install stockfish`; openSUSE `sudo zypper install stockfish`; macOS `brew install stockfish`; Windows `winget install --id Stockfish.Stockfish -e` | The default |
+| Leela Chess Zero | `lc0` | macOS `brew install lc0`; elsewhere from [lczero.org](https://lczero.org/play/download/) | Needs a network (weights) file: download one from lczero.org, then set its path in the engine's `WeightsFile` option ([The engine's own options](#the-engines-own-options)); `Backend` picks the GPU or CPU code |
+| Berserk | `berserk` | [Its releases](https://github.com/jhonnold/berserk/releases) | |
+| Ethereal | `ethereal-chess` (Debian), `ethereal` | Debian and Ubuntu `sudo apt install ethereal-chess`; elsewhere [from its source](https://github.com/AndyGrant/Ethereal) | |
+| RubiChess | `RubiChess` | [Its releases](https://github.com/Matthies/RubiChess/releases) | |
+| Koivisto | `Koivisto` | [Its releases](https://github.com/Luecx/Koivisto/releases) | |
+| Igel | `igel` | [Its releases](https://github.com/vshcherbyna/igel/releases) | |
+| Arasan | `arasanx-64` | [arasanchess.org](https://www.arasanchess.org/) | |
+| Fruit | `fruit` | NetBSD `pkgin install fruit`; Fedora `sudo dnf install fruit` | Fruit 2.1 from 2005; it has no official site any more. FreeBSD's and Homebrew's `fruit` are another program |
+| Fairy-Stockfish | `fairy-stockfish` | Debian and Ubuntu `sudo apt install fairy-stockfish`; macOS `brew install fairy-stockfish`; elsewhere [its releases](https://github.com/fairy-stockfish/Fairy-Stockfish/releases) | Plays chess variants too (xiangqi, shogi and more); Coxswain asks it about chess |
+
+A downloaded engine whose program has another name (`stockfish-windows-x86-64-avx2.exe`) is found
+by its path in *Chess engine*. Crafty is not listed: it speaks the xboard protocol, not UCI.
+Komodo Dragon is not listed either: its site has closed.
+
+## How long the engine thinks
+
+*Engine stops after* chooses what ends the engine's thinking about a position:
+
+| Choice | `[chess] engine_limit` | Sent to the engine | Set by |
+|---|---|---|---|
+| *Time* (default) | `"time"` | `go movetime 1000` | *Engine time (ms)*, `engine_time` |
+| *Depth* | `"depth"` | `go depth 20` | *Engine depth*, `engine_depth`: 1 to 99 half-moves, default `20` |
+| *Positions searched* | `"nodes"` | `go nodes 1000000` | *Engine positions*, `engine_nodes`: 1000 and up, default `1000000` |
+
+A depth or a number of positions gives the same answer on any machine, only sooner or later; a time
+gives a deeper answer on a faster one. So that a slow engine or a large number never keeps the view
+waiting, an engine that has not answered after 60 seconds (after its time and 5 seconds, by time) is
+told to stop and gives its best line so far.
+
+A whole game analysed with **g** has the same three of its own: *Whole-game analysis stops after*
+(`review_limit`), *Analysis time a move (ms)* (`review_time`), *Whole-game depth* (`review_depth`,
+default `14`) and *Whole-game positions* (`review_nodes`, default `300000`).
+
+## The engine's own options
+
+<!-- screenshot: tui-chess-engines.png: Settings → Previews in the terminal app at Chess engines: the engines with ( ) and (•), Test engine, Engine: Stockfish 17.1, its options Threads, Hash, Skill Level, UCI_LimitStrength and UCI_Elo with their values -->
+
+Every UCI engine names its own options when it starts: Stockfish's `Threads`, `Hash`, `Skill
+Level`, `UCI_LimitStrength` and `UCI_Elo`, Leela Chess Zero's `WeightsFile` and `Backend`. **Test
+engine** under *Engine options* runs the chosen engine, shows its name (*Engine: Stockfish 17.1*)
+and lists its options, each as the control its kind asks for:
+
+| Kind | Desktop app | Terminal app |
+|---|---|---|
+| A number (`spin`) | A number field, from its least to its most | **Enter**, type the number, **Enter** |
+| On or off (`check`) | A tick box | **Enter** switches it |
+| One of several (`combo`) | A list | **Enter** takes the next value |
+| A text (`string`) | A text field | **Enter**, type it, **Enter** |
+
+Beside each is what it takes and the engine's default. A value you set is written to config.toml
+under `[chess.engines."<engine>"]`, by the engine's name without its version (`Stockfish`, `Lc0`),
+so each engine keeps its own options when you switch, and an engine upgraded keeps them too. One not
+set is not sent: the engine's own default applies. *Default* beside an option (desktop) or
+**Delete** on it (terminal) takes it out again; **Reset to engine defaults** takes out all of this
+engine's. *Open config.toml* (desktop) or **O** on an option (terminal) opens config.toml at the
+engine's table, for options typed there by hand.
+
+```toml
+[chess.engines.Stockfish]
+Threads = 4
+Hash = 256
+UCI_Elo = 1800
+
+[chess.engines.Lc0]
+WeightsFile = "~/lc0/BT4-1024x15x32h.pb.gz"
+Backend = "eigen"
+```
+
+**Checked before it is sent.** A value is sent only when the engine lists the option and the value
+fits it: a number within the engine's least and most, true or false, one of the listed values, a
+text of at most 1024 characters with no line break. Coxswain also keeps `Threads` to this
+computer's logical processors and `Hash` (in MB) to half its memory, or 1 GB in Coxswain's Stockfish
+container (which may use 3 GB). The values go to the engine as UCI `setoption` lines on its
+standard input, never through a shell. An option the engine does not list, or a value that does
+not fit, is not sent: Settings lists it under the options with why, and the first analysis of the
+session says *Options for Stockfish not sent: …* on the line under the board.
+
+**Strength.** Setting `UCI_Elo` also turns `UCI_LimitStrength` on, unless you set that yourself.
+Stockfish also has `Skill Level`, 0 to 20. Engines that offer neither play at full strength.
+
+Coxswain sets `MultiPV` (from *Engine lines*), `UCI_Chess960` (for Chess960 positions) and `Ponder`
+itself, so they are not shown; nor are an engine's buttons (such as `Clear Hash`), since each
+analysis starts the engine afresh. The container Stockfish takes the same options.
 
 ## Analysing a whole game
 
@@ -174,10 +282,18 @@ show the evaluations and marks from it.
 | Setting | `config.toml` | Values |
 |---|---|---|
 | *Chess engine on* | `[chess] analysis` | `false` (default): the engine is asked only after **a** or *Engine*; `true`: as soon as a game opens |
+| *Chess engines* | `[chess] engine` | The known engines to choose from ([Choosing an engine](#choosing-an-engine)) |
 | *Chess engine* | `[chess] engine` | A program's name or a path (`~` is your home folder); empty (default): `stockfish` when it is installed |
+| *Engine options* | `[chess.engines."<engine>"]` | The engine's own options, after *Test engine* ([The engine's own options](#the-engines-own-options)) |
+| *Engine stops after* | `[chess] engine_limit` | `"time"` (default), `"depth"` or `"nodes"` ([How long the engine thinks](#how-long-the-engine-thinks)) |
 | *Engine time (ms)* | `[chess] engine_time` | How long the engine thinks about a position: 100 to 60000, default `1000` |
+| *Engine depth* | `[chess] engine_depth` | How many half-moves deep it looks: 1 to 99, default `20` |
+| *Engine positions* | `[chess] engine_nodes` | How many positions it searches: 1000 and up, default `1000000` |
 | *Engine lines* | `[chess] engine_lines` | How many of its best lines are shown: 1 to 5, default `3` |
+| *Whole-game analysis stops after* | `[chess] review_limit` | The same for a whole game: `"time"` (default), `"depth"` or `"nodes"` |
 | *Analysis time a move (ms)* | `[chess] review_time` | How long the engine thinks about each position when a whole game is analysed: 100 to 10000, default `500` |
+| *Whole-game depth* | `[chess] review_depth` | 1 to 99, default `14` |
+| *Whole-game positions* | `[chess] review_nodes` | 1000 and up, default `300000` |
 
 ```toml
 [chess]
@@ -185,6 +301,11 @@ analysis = true
 engine = "~/engines/stockfish"
 engine_time = 3000
 engine_lines = 1
+review_limit = "depth"
+review_depth = 16
+
+[chess.engines.Stockfish]
+Threads = 2
 ```
 
 **a** in the view turns the engine on or off for now; *Chess engine on* sets what a view starts
@@ -201,8 +322,9 @@ game file; the game file is never written to.
 #### Why does it say no chess engine was found?
 
 Coxswain uses an engine installed on this computer and never downloads one. Install Stockfish
-(the line under the board names the command for your system), or, when it is installed outside
-your PATH or you use another engine, name its program in *Settings → Previews → Chess engine*.
+(the line under the board names the command for your system), or choose another in *Settings →
+Previews → Chess engines*, which shows each known engine's install line. When it is installed
+outside your PATH, name its path in *Chess engine*.
 
 #### How do I play a move in the terminal app?
 
@@ -218,8 +340,34 @@ instead. Play another move to start your line.
 #### How strong is the engine, and can I make it think longer?
 
 As strong as the engine you installed: Stockfish at one second a move is far stronger than any
-human. *Engine time (ms)* sets how long it thinks about each position; the depth on the line
-shows how far it got.
+human. *Engine time (ms)* sets how long it thinks about each position, or *Engine stops after* →
+*Depth* makes it look a set number of half-moves deep; the depth on the line shows how far it got.
+More `Threads` and `Hash` in its options let it look deeper in the same time.
+
+#### Can I make the engine weaker, to play against?
+
+When it offers them: press *Test engine*, then set `UCI_Elo` (Coxswain turns `UCI_LimitStrength` on
+with it) or Stockfish's `Skill Level` (0 is the weakest). Engines that offer neither play at full
+strength.
+
+#### Does Settings run the engines it lists?
+
+No. It only looks whether each program is there. An engine runs when you press *Test engine*, and
+when the chess view asks it about a position.
+
+#### How do I use Leela Chess Zero?
+
+Install `lc0` (`brew install lc0` on a Mac, else from lczero.org) and download a network file from
+lczero.org. Choose *Leela Chess Zero* in *Chess engines*, press *Test engine*, and type the
+network file's path in its `WeightsFile` option. Without a GPU, set `Backend` to `eigen` or
+`blas`.
+
+#### Why is an option I set not used?
+
+The engine does not list it, or the value does not fit it (a number outside its range, more
+`Threads` than this computer has processors). Settings lists it under the engine's options with why
+after *Test engine*, and the first analysis says *Options for … not sent* once a session. An option
+set for one engine is never sent to another.
 
 #### Can I play a game against the engine?
 
@@ -240,8 +388,9 @@ once.
 
 #### Does the engine slow the computer down?
 
-It uses one processor core for *Engine time* each time the position changes, then stops, and one
-core while a game is analysed. Nothing runs while *Engine* is off and no game is being analysed.
+It uses one processor core (more when you set its `Threads`) for *Engine time* each time the
+position changes, then stops, and the same while a game is analysed. Nothing runs while *Engine* is
+off and no game is being analysed.
 
 ---
 [← Previous: Game pieces in the terminal](game-pieces.md) · [Next: Go games →](go.md)

@@ -397,7 +397,11 @@
     if (!analysis || !f || other) return void (engine = null);
     engine = { fen: f, thinking: true };
     invoke("chess_analyse", { fen: f }).then(
-      (a) => s === engineSeq && (engine = { fen: f, a }),
+      (a) => {
+        // Options set for the engine that it did not take: said once a session.
+        if (a.note) said = a.note;
+        if (s === engineSeq) engine = { fen: f, a };
+      },
       (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
     );
   });

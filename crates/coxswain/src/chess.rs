@@ -113,13 +113,12 @@ pub struct Viewer {
     analysis: bool,
     /// The engine (`play::engine_for`), found when the view opens; or why there is none.
     program: Result<play::Program, String>,
-    engine_time: u32,
-    engine_lines: u32,
+    /// `[chess]`: the engine's limits, lines and options.
+    chess: coxswain_core::config::ChessConfig,
     thinking: Option<Thinking>,
     analysed: Option<(String, Result<Analysis, String>)>,
-    /// The game analysed as a whole (`g`), and the time it gives a position.
+    /// The game analysed as a whole (`g`).
     review: Option<Reviewer>,
-    review_time: u32,
     /// The search helper, and Find this position: the games it found (file, index) and the one
     /// chosen; asked on a thread.
     index: Option<Arc<coxswain_core::helper::Client>>,
@@ -209,12 +208,10 @@ impl Viewer {
             picking: None,
             analysis: cfg.chess.analysis,
             program: play::engine_for(cfg),
-            engine_time: cfg.chess.engine_time,
-            engine_lines: cfg.chess.engine_lines,
+            chess: cfg.chess.clone(),
             thinking: None,
             analysed: None,
             review: None,
-            review_time: cfg.chess.review_time,
             index: None,
             finding: None,
             found: None,
@@ -381,6 +378,12 @@ impl Viewer {
         if let Some(t) = &self.thinking
             && let Ok(r) = t.rx.try_recv()
         {
+            // Options set for the engine that it did not take: said once a session.
+            if let Ok(note) = r.as_ref().map(|a| a.note.clone())
+                && note.is_some()
+            {
+                self.said = note;
+            }
             self.analysed = Some((t.fen.clone(), r));
             self.thinking = None;
         }
@@ -406,9 +409,9 @@ impl Viewer {
         };
         let (tx, rx) = std::sync::mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
-        let (f, s, ms, n) = (fen.clone(), stop.clone(), self.engine_time, self.engine_lines);
+        let (f, s, chess) = (fen.clone(), stop.clone(), self.chess.clone());
         std::thread::spawn(move || {
-            let r = play::analyse(&program, &f, ms, n, &|| s.load(Ordering::Relaxed)).map_err(|e| e.to_string());
+            let r = play::analyse(&program, &chess, &f, &|| s.load(Ordering::Relaxed)).map_err(|e| e.to_string());
             let _ = tx.send(r);
         });
         self.thinking = Some(Thinking { fen, rx, stop });
@@ -522,7 +525,7 @@ impl Viewer {
         }
         let Some(o) = &self.open else { return };
         match &self.program {
-            Ok(program) => self.review = Some(Reviewer::start(program, self.review_time, &o.game)),
+            Ok(program) => self.review = Some(Reviewer::start(program, &self.chess, &o.game)),
             Err(why) => self.said = Some(why.clone()),
         }
     }

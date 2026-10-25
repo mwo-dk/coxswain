@@ -1824,11 +1824,23 @@ pub struct ChessConfig {
     /// How long the engine thinks about each position of a game analysed as a whole, in
     /// milliseconds.
     pub review_time: u32,
+    /// What ends the engine's thinking about a position: `time` (`engine_time`), `depth`
+    /// (`engine_depth` half-moves) or `nodes` (`engine_nodes` positions searched).
+    pub engine_limit: String,
+    pub engine_depth: u32,
+    pub engine_nodes: u64,
+    /// The same for a game analysed as a whole: `time` (`review_time`), `depth`, `nodes`.
+    pub review_limit: String,
+    pub review_depth: u32,
+    pub review_nodes: u64,
+    /// The engines' own UCI options (`Threads`, `Hash`, `UCI_Elo` …), by engine name without
+    /// its version (`[chess.engines.Stockfish]`): sent to it when it offers them.
+    pub engines: std::collections::BTreeMap<String, std::collections::BTreeMap<String, toml::Value>>,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500 }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500, engine_limit: "time".into(), engine_depth: 20, engine_nodes: 1_000_000, review_limit: "time".into(), review_depth: 14, review_nodes: 300_000, engines: Default::default() }
     }
 }
 
@@ -2051,6 +2063,14 @@ impl Config {
     /// the line to open it at. Without that section, a commented example is added.
     pub fn prepare_images(key: &str) -> Result<(PathBuf, usize), String> {
         prepare_at(|l| l.starts_with("[preview.images]"), &format!("# An image of your own for a preview tool: docs/previews/containers.md\n# [preview.images]\n# {key} = \"registry.example/{key}:latest\"\n"))
+    }
+
+    /// config.toml ready at the table of the chess engine `key`'s own options
+    /// (`[chess.engines.Stockfish]`): the line to open it at. Without it, a commented example.
+    pub fn prepare_chess_engine(key: &str) -> Result<(PathBuf, usize), String> {
+        let quoted = if key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') { key.to_string() } else { format!("\"{}\"", key.replace('"', "")) };
+        let head = format!("[chess.engines.{quoted}]");
+        prepare_at(|l| l.starts_with(&head), &format!("# The chess engine's own options, as it names them: docs/previews/chess-play.md\n# {head}\n# Threads = 4\n"))
     }
 
     /// Where Coxswain keeps things, (what, path), for `--paths`.
