@@ -251,8 +251,11 @@ fn sweep_staging_in(dir: &Path) {
 /// (`alive`); at the start of both apps and the search helper.
 pub fn register() {
     let mut j = JOURNAL.lock().unwrap_or_else(|e| e.into_inner());
-    if j.is_none() {
+    if j.is_none() && !NO_JOURNAL.load(std::sync::atomic::Ordering::Relaxed) {
         *j = open_journal();
+        if j.is_none() {
+            NO_JOURNAL.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 }
 
