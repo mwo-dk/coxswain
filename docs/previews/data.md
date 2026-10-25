@@ -84,9 +84,9 @@ store by its tables), so a copy elsewhere, under another name, is shown too; *Wh
 |---|---|
 | The first part | Files known, files read for their text, waiting to be read, without text to read, only in the cloud (not read), when a file was last read, the size with the write-ahead log, where |
 | *Files read, by kind* | The twelve extensions with the most files read, then *N other kinds*, git commits and files inside archives |
-| *Meaning* | Passages with their vectors and the files they are of, the model that made them, files waiting for theirs |
+| *Meaning* | Passages with their vectors and the files they are of (a long file with the vectors of the part read in time counts too), the model that made them, files waiting for theirs |
 | *Size per part* | Text, vectors, duplicate hashes, files and sizes, the rest: SQLite's own count of each table's pages |
-| *Latest errors* | The last ten, newest first: when, the file, what (a server that refused a file, a scan that failed) |
+| *Latest errors* | The last ten, newest first: when, the file, what (a server that refused a file, a scan that failed, *took too long*, *could not be read to its end*, *read only in part*), the store's own words in your language |
 
 Above them: **Settings at Disk use** opens Settings at *Privacy and updates* → *Disk use*
 ([Disk use](../reference/disk-use.md)), and on the one Coxswain uses **Clear** (a second click

@@ -1583,7 +1583,7 @@ impl Store {
         (
             db.query_row(TO_GO, [self.quiet_since()], |r| r.get::<_, i64>(0))
                 .unwrap_or(0) as usize,
-            count("SELECT count(*) FROM files WHERE embedded = 1"),
+            count(WITH_VECTORS),
         )
     }
 
@@ -2262,7 +2262,7 @@ pub fn facts(path: &Path) -> Result<Facts, String> {
         cloud: count("SELECT count(*) FROM files WHERE cloud = 1"),
         waiting: count("SELECT count(*) FROM files WHERE has_text IS NULL"),
         passages: count("SELECT count(*) FROM chunks WHERE file > 0"),
-        with_vectors: count("SELECT count(*) FROM files WHERE embedded = 1"),
+        with_vectors: count(WITH_VECTORS),
         model: meta("meaning_model").unwrap_or_default(),
         read_at: meta("read_at").and_then(|v| v.parse().ok()),
         ..Default::default()
@@ -2340,6 +2340,27 @@ pub(crate) fn roots(cfg: &SearchConfig) -> Vec<PathBuf> {
     } else {
         cfg.text_roots.clone()
     }
+}
+
+/// Files that have their vectors: done (with or without passages), and those kept with the
+/// vectors they had or of a part read (`embedded` 2 or 3) that have some.
+const WITH_VECTORS: &str =
+    "SELECT count(*) FROM files f WHERE embedded = 1 OR (embedded IN (2, 3) AND EXISTS (SELECT 1 FROM chunks c WHERE c.file = f.id))";
+
+/// The errors the store notes in words of its own, as they are kept (in English, so every
+/// version reads them alike), with the key of the words they are shown in (`disk`).
+pub(crate) const NOTED: [(&str, &str); 3] = [
+    ("took too long", "disk.report.error.too_long"),
+    ("could not be read to its end", "disk.report.error.unread"),
+    ("read only in part: its reader's time ran out", "disk.report.error.part"),
+];
+
+/// A noted error as it is shown: in the user's language when it is one of the store's own.
+pub(crate) fn shown_error(what: &str) -> String {
+    NOTED
+        .iter()
+        .find(|(kept, _)| *kept == what)
+        .map_or_else(|| what.to_string(), |(_, key)| crate::t!(*key))
 }
 
 fn now() -> u64 {
@@ -3229,12 +3250,12 @@ fn embed_round(
                         }
                         // Tried again when it changes, or at the next scan when it could not be
                         // opened (`embed_streamed`).
-                        Streamed::Unread => store.note_error(Some(&f.path), "could not be read to its end"),
+                        Streamed::Unread => store.note_error(Some(&f.path), NOTED[1].0),
                         // Read again as it is now, and then given its vectors.
                         Streamed::Moved => {}
                         Streamed::Part(n) => {
                             count += n;
-                            store.note_error(Some(&f.path), "read only in part: its reader's time ran out");
+                            store.note_error(Some(&f.path), NOTED[2].0);
                         }
                     }
                     *store.meaning_error.lock().unwrap() = None;
@@ -3416,7 +3437,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                 let text = crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap);
                 if text.is_none() && crate::tools::took_too_long() {
                     store.mark_too_long(*id)?;
-                    store.note_error(Some(path), "took too long");
+                    store.note_error(Some(path), NOTED[0].0);
                 }
                 text.or_else(|| store.transcript_of(*id))
             };
@@ -6189,6 +6210,34 @@ mod tests {
             let end = embed_streamed(&store, &engine, id, path, &mut moves, &AtomicBool::new(false)).unwrap();
             assert!(matches!(end, Streamed::Moved), "gone: {gone}");
             assert_eq!((rows(id), rows(-id)), (n as i64, 0), "gone: {gone}");
+        }
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Files with vectors count those kept with the vectors of a part or the ones they had,
+    /// so they add up with the passages; the store's own errors are shown in the user's words.
+    #[test]
+    fn files_with_vectors_count_those_with_a_part_and_errors_are_shown_translated() {
+        let d = std::env::temp_dir().join(format!("coxswain-with-vectors-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        {
+            let db = store.db.lock().unwrap();
+            // (embedded, has passages): done without and with, kept, a part, kept with none,
+            // refused, waiting.
+            for (id, (embedded, chunks)) in [(Some(1), false), (Some(1), true), (Some(2), true), (Some(3), true), (Some(2), false), (Some(0), false), (None::<i64>, true)].into_iter().enumerate() {
+                db.execute("INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, 1, 0, 1, ?3)", params![id as i64 + 1, format!("/r/{id}.txt"), embedded]).unwrap();
+                if chunks {
+                    db.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, 0, x'00')", [id as i64 + 1]).unwrap();
+                }
+            }
+        }
+        assert_eq!(store.meaning_counts().1, 4);
+        assert_eq!(shown_error("HTTP 500"), "HTTP 500");
+        for (kept, key) in NOTED {
+            assert_ne!(shown_error(kept), *key, "{key} has words");
         }
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
