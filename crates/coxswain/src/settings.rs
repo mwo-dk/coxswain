@@ -1882,6 +1882,70 @@ mod tests {
         assert!(std::fs::read_to_string(d.join("config.toml")).unwrap().contains("latex = \"local\""));
     }
 
+    /// Chess engines: the known ones listed, Test engine reads a fake engine's options, a
+    /// switch flips and a number is typed, each written under its table in config.toml; a
+    /// number out of range is refused; Reset takes them all out.
+    #[cfg(unix)]
+    #[test]
+    fn chess_engine_options_set_in_place() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::test_dir("panels");
+        let engine = d.join("fake-engine");
+        std::fs::write(&engine, "#!/bin/sh\nwhile read l; do case \"$l\" in uci) echo 'id name Fake 2.0'; echo 'option name Threads type spin default 1 min 1 max 512'; echo 'option name Ponder type check default false'; echo 'option name UCI_LimitStrength type check default false'; echo uciok;; quit) exit 0;; esac; done\n").unwrap();
+        std::fs::set_permissions(&engine, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut app = app(&d);
+        app.cfg.chess.engine = engine.display().to_string();
+        let mut s = Settings::open(&app, "chess_engines");
+        let config = d.join("config.toml");
+        s.path = Some(config.clone());
+        let listed = rows(&app, &s).iter().filter(|r| matches!(r, Row::Engine(_))).count();
+        assert_eq!(listed, coxswain_core::chess::play::KNOWN.len());
+        s.cursor = rows(&app, &s).iter().position(|r| matches!(r, Row::EngineTest)).unwrap();
+        app.dialog = Some(Dialog::Settings(Box::new(s)));
+        key(&mut app, KeyCode::Enter);
+        let t = std::time::Instant::now();
+        loop {
+            let Some(Dialog::Settings(s)) = app.dialog.as_mut() else { panic!("settings closed") };
+            s.poll();
+            if s.engine.is_some() || t.elapsed() > coxswain_core::test_limit(std::time::Duration::from_secs(20)) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let at = |app: &App, name: &str| rows(app, settings(app)).iter().position(|r| matches!(r, Row::EngineOpt(o) if o.option.name == name));
+        // Ponder is Coxswain's own: not shown.
+        assert!(at(&app, "Ponder").is_none());
+        let strength = at(&app, "UCI_LimitStrength").expect("options read");
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = strength;
+        }
+        key(&mut app, KeyCode::Enter);
+        let threads = at(&app, "Threads").unwrap();
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = threads;
+        }
+        key(&mut app, KeyCode::Enter);
+        key(&mut app, KeyCode::Backspace);
+        typed(&mut app, "100000");
+        key(&mut app, KeyCode::Enter);
+        assert!(matches!(settings(&app).mode, Mode::EngineEdit(_)), "a number out of range is typed again");
+        for _ in 0..6 {
+            key(&mut app, KeyCode::Backspace);
+        }
+        typed(&mut app, "1");
+        key(&mut app, KeyCode::Enter);
+        let text = std::fs::read_to_string(&config).unwrap();
+        assert!(text.contains("[chess.engines.Fake]") && text.contains("UCI_LimitStrength = true") && text.contains("Threads = 1"), "{text}");
+        assert_eq!(app.cfg.chess.engines["Fake"]["Threads"].as_integer(), Some(1));
+        let reset = rows(&app, settings(&app)).iter().position(|r| matches!(r, Row::EngineReset)).unwrap();
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = reset;
+        }
+        key(&mut app, KeyCode::Enter);
+        assert!(!std::fs::read_to_string(&config).unwrap().contains("Threads"));
+        assert!(app.cfg.chess.engines.get("Fake").is_none_or(|t| t.is_empty()));
+    }
+
     /// The themes stand under their groups' headings, your own last; the next one skips a heading.
     #[test]
     fn themes_are_listed_by_group() {

@@ -266,19 +266,27 @@ pub struct Listed {
 
 /// The known engines here. Stockfish is chosen by an empty `[chess] engine` too (then
 /// Coxswain's Stockfish image when none is installed).
+/// A path in `[chess] engine` to a known engine's program (`~/engines/stockfish`) counts as
+/// that engine, found there and chosen.
 pub fn listed(cfg: &crate::config::Config) -> Vec<Listed> {
     let chosen = cfg.chess.engine.trim();
+    let own = (chosen.starts_with('~') || chosen.contains(['/', '\\'])).then(|| engine(chosen)).flatten();
+    let named = |p: &Path, k: &Known| {
+        let n = p.file_stem().and_then(|n| n.to_str()).unwrap_or_default();
+        k.programs.contains(&n)
+    };
     KNOWN
         .iter()
         .map(|k| {
-            let found = k.programs.iter().find_map(|p| find(p).map(|path| (*p, path)));
+            let by_path = own.as_ref().filter(|p| named(p, k)).map(|p| (chosen, p.clone()));
+            let found = by_path.clone().or_else(|| k.programs.iter().find_map(|p| find(p).map(|path| (*p, path))));
             let program = found.as_ref().map_or(k.programs[0], |f| f.0).to_string();
             Listed {
                 name: k.name,
                 site: k.site,
                 note: k.note.map(|n| crate::t!(n)),
                 install: found.is_none().then(|| crate::tools::install(k.programs[0])).flatten(),
-                chosen: k.programs.contains(&chosen) || (chosen.is_empty() && k.programs[0] == "stockfish"),
+                chosen: by_path.is_some() || k.programs.contains(&chosen) || (chosen.is_empty() && k.programs[0] == "stockfish"),
                 path: found.map(|f| f.1),
                 program,
             }
@@ -1041,6 +1049,20 @@ mod tests {
         assert_eq!(engine_key("Lc0 v0.31.2"), "Lc0");
         assert_eq!(engine_key("Stockfish dev-20250101-abc"), "Stockfish");
         assert_eq!(engine_key("Komodo Dragon 3.3"), "Komodo Dragon");
+        // A path to a known engine's program is that engine, chosen; the rest are not.
+        #[cfg(unix)]
+        {
+            let d = std::env::temp_dir().join(format!("coxswain-listed-{}", std::process::id()));
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::write(d.join("lc0"), "").unwrap();
+            let mut cfg = crate::config::Config::default();
+            cfg.chess.engine = d.join("lc0").display().to_string();
+            let l = listed(&cfg);
+            let lc0 = l.iter().find(|e| e.name == "Leela Chess Zero").unwrap();
+            assert!(lc0.chosen && lc0.path.is_some() && lc0.program == cfg.chess.engine);
+            assert_eq!(l.iter().filter(|e| e.chosen).count(), 1);
+            std::fs::remove_dir_all(&d).unwrap();
+        }
         let mut cfg = crate::config::ChessConfig::default();
         assert_eq!(Limit::of(&cfg, false), Limit::Time(1000));
         cfg.engine_limit = "depth".into();

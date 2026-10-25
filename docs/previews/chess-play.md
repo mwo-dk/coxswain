@@ -140,7 +140,8 @@ there, on your PATH or in `/usr/games`; it never runs an engine until you press 
 Choosing Stockfish leaves `[chess] engine` empty, so Coxswain's Stockfish container image is still
 used when no Stockfish is installed. Choosing another sets `[chess] engine` to its program's name.
 Any engine not on the list: type its program's name or path in *Chess engine* (`~` is your home
-folder).
+folder). `coxswain-gui --settings=chess_engines` (or `coxswain --settings=chess_engines`) opens
+Settings here.
 
 | Engine | Program | Install | Note |
 |---|---|---|---|
