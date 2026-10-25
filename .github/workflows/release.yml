@@ -57,6 +57,9 @@ jobs:
   # Releases only from this repository's master.
   version:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: read # a rehearsal: release-pr.py reads the milestone's open issues
     outputs:
       tag: ${{ steps.v.outputs.tag }}
       sha: ${{ steps.v.outputs.sha }}
@@ -94,6 +97,7 @@ jobs:
           if [ "$REHEARSAL" = true ]; then
             # The version tomorrow's release pull request makes; exit 2: no rows, nothing to rehearse.
             # Exit 3: the current version has no published release, so tomorrow's would skip it.
+            # Exit 4: the new version's milestone still has open issues (listed).
             rc=0; next=$(python3 packaging/release-pr.py --next) || rc=$?
             if [ "$rc" = 2 ]; then
               echo "::notice title=No rehearsal::changelog.d/ has no rows: nothing to release tomorrow."
@@ -215,6 +219,7 @@ jobs:
     permissions:
       contents: write
       actions: write # sees whether another run still works on a draft, and stops a rehearsal
+      issues: read # a rehearsal: release-pr.py reads the milestone's open issues
     runs-on: ubuntu-24.04
     outputs:
       id: ${{ steps.create.outputs.id }}

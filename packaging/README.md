@@ -62,7 +62,10 @@ Saturday rehearsal audits both (`brew audit`).
 `release-pr.py` makes the release pull request's changes; `release-pr.yml` runs it on Sundays. It
 refuses (exit 3) while the version in `Cargo.toml` has no published release, so a failed release
 is never bumped past; finish it first (fix, then `gh workflow run release.yml` on `master`), or
-pass `--unreleased-ok` to skip it on purpose. Until then `.github/unreleased.sh` turns the
+pass `--unreleased-ok` to skip it on purpose. It also refuses (exit 4, listing them) while the
+new version's GitHub milestone (`X.Y.Z`) has open issues, those labelled `post-release` or titled
+"After the release…" aside: a release is done when its milestone is empty. `--open-issues-ok`
+releases anyway, the owner's decision only. Until then `.github/unreleased.sh` turns the
 Release runs of later pushes and the nightly run red, naming the version.
 
 **crates.io:** make a token at <https://crates.io/settings/tokens> with the

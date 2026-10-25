@@ -5,7 +5,8 @@ name: Release PR
 # patch otherwise; a major release is made by hand), with auto-merge on. Its merge starts the
 # release (release.yml). The row it writes can be polished in the pull request before it merges.
 # It refuses (red, named) while the version in Cargo.toml has no published release: a release run
-# that failed, or one still under way, is finished first (release-pr.py exits 3).
+# that failed, or one still under way, is finished first (release-pr.py exits 3). It also refuses
+# while the new version's milestone has open issues (exit 4, listed): done = milestone empty.
 #
 # Needs RELEASE_PR_TOKEN: a pull request made with GITHUB_TOKEN starts no checks, so it could
 # never merge. A fine-grained token for mwo-dk/coxswain with Contents and Pull requests
@@ -17,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  issues: read # the milestone's open issues (release-pr.py)
 
 concurrency:
   group: release-pr
@@ -53,6 +55,9 @@ jobs:
           fi
           if [ "$rc" = 3 ]; then
             echo "::error title=Current version not released::release-pr.py refuses to bump past a version with no published release (see above). Finish that release first: fix, then start Release by hand on master."; exit 3
+          fi
+          if [ "$rc" = 4 ]; then
+            echo "::error title=Milestone not done::the new version's milestone has open issues (listed above). Close them or move them on, then run Release PR by hand; or the owner runs packaging/release-pr.py --open-issues-ok."; exit 4
           fi
           [ "$rc" = 0 ] || exit "$rc"
           # The commit is the token owner's, with GitHub's no-reply address.
