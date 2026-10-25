@@ -104,7 +104,8 @@ files removed by then are left out. Only the file contents are asked of the serv
   `.hg` or `.jj` folder is never copied out. Each file is written as it comes. A file over 1 GB,
   or one the server stops sending part way, is refused, and nothing of that copy is left.
   Before a drag the files are counted ([Drag and drop](../files/drag-and-drop.md)); CVS lists no
-  sizes, so the 200 MB limit there is not checked.
+  sizes, so the bytes are counted as they are written: a drag that passes 200 MB stops, what it
+  wrote is removed, and the status line says it is too much to copy out for a drag.
 - **Branch commits:** a commit on a branch shows its own files at the branch's revisions and
   the rest of the folder as on the main line then.
 - **Large commits:** a diff covers at most 200 files, 2 MB and about 30 seconds; when the commit

@@ -54,8 +54,9 @@ pub trait Vcs: Sync {
     fn diff(&self, base: &Path, rev: &str, inner: &str) -> io::Result<Vec<u8>> {
         crate::history::git_diff(base, rev, inner)
     }
-    /// The file or folder `at` names, as it was at `rev`, written to `to` (not there yet).
-    fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
+    /// The file or folder `at` names, as it was at `rev`, written to `to` (not there yet), at
+    /// most `max` bytes in all where the size is not known before (CVS): more is refused.
+    fn export(&self, at: &At, rev: &str, to: &Path, _max: u64) -> io::Result<()> {
         crate::history::git_write_tree(at, rev, to)
     }
     /// The full id of the commit `rev` names; `HEAD` is the one the working copy stands on.
@@ -846,7 +847,7 @@ impl Vcs for Hg {
         crate::history::run(c)
     }
 
-    fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
+    fn export(&self, at: &At, rev: &str, to: &Path, _max: u64) -> io::Result<()> {
         need_hg()?;
         let root = hg_root(&at.base).ok_or_else(|| io::Error::other("no repository"))?;
         let rel = from_root(&root, &at.base, &at.inner);
@@ -1408,7 +1409,7 @@ mod tests {
         missing(Hg.tree(&top, "abc", "").unwrap_err());
         missing(Hg.read(&top, "abc", "a", 10).unwrap_err());
         missing(Hg.diff(&top, "abc", "").unwrap_err());
-        missing(Hg.export(&at, "abc", &top.join("out")).unwrap_err());
+        missing(Hg.export(&at, "abc", &top.join("out"), u64::MAX).unwrap_err());
         missing(crate::branches::switch(&list, "main").unwrap_err());
         NO_HG.with(|n| n.set(false));
         std::fs::remove_dir_all(top).unwrap();
