@@ -197,13 +197,15 @@ fn walk(
             continue;
         };
         // Its encoding, from all of it, then its text as it is unpacked again; no more of it
-        // than the room left, and none of one that says it is larger.
-        let Some(encoding) = zip
-            .by_name(name)
-            .ok()
-            .filter(|entry| entry.size() <= room)
-            .and_then(|entry| sniff(entry.take(room)))
-        else {
+        // than the room left, and none of one that says it is larger. Both unpackings cost
+        // the room: a book of many large chapters is not unpacked twice for nothing.
+        let Some(entry) = zip.by_name(name).ok().filter(|entry| entry.size() <= room) else {
+            continue;
+        };
+        let mut sniffed = entry.take(room);
+        let encoding = sniff(&mut sniffed);
+        room -= room - sniffed.limit();
+        let Some(encoding) = encoding else {
             continue;
         };
         let Ok(entry) = zip.by_name(name) else { continue };
@@ -1694,6 +1696,37 @@ mod tests {
             let (lines, late) = read(reader, Some(std::time::Duration::ZERO), std::time::Duration::ZERO);
             assert!(lines < n && late, "{lines}");
         }
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Finding a chapter's encoding unpacks it once more: that costs the room of the book too,
+    /// so a book of large chapters is not unpacked twice over for each of them.
+    #[test]
+    fn finding_the_encoding_of_a_chapter_costs_its_room() {
+        let d = folder("book-sniff-room");
+        let blank = " ".repeat(300 << 10);
+        let package = "<item id='a' href='a.html'/><item id='b' href='b.html'/><item id='c' href='c.html'/>\
+            <spine><itemref idref='a'/><itemref idref='b'/><itemref idref='c'/></spine>";
+        let entries = [
+            ("META-INF/container.xml", "<rootfile full-path='p.opf'/>"),
+            ("p.opf", package),
+            ("a.html", &blank),
+            ("b.html", &blank),
+            ("c.html", "<p>Thirdwords</p>"),
+        ];
+        zip_file(&d.join("a.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
+        // Two chapters of 300 KB unpacked twice each are more than 1 MB: the third is not reached.
+        let read = |room: u64| {
+            let mut out = Text::new();
+            walk(&d.join("a.epub"), room, &mut out, |out, chapter| {
+                page_from(chapter, out, false, (WINDOW, CAP));
+                true
+            })
+            .unwrap();
+            out.end()
+        };
+        assert!(!read(1 << 20).contains("Thirdwords"));
+        assert!(read(2 << 20).contains("Thirdwords"));
         let _ = std::fs::remove_dir_all(d);
     }
 }

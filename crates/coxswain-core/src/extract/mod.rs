@@ -191,8 +191,12 @@ pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
     };
     let mut out = Text::to(&mut sink);
     let read = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match ext.as_str() {
-        // A web page or text named `.xls` is read as `text_of` reads it.
+        // A web page or text named `.xls` is read as `text_of` reads it; a workbook its reader
+        // gave up on is not read again, which would give its first lines twice.
         "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" => sheet::read_into(path, u64::MAX, &mut out).or_else(|| {
+            if sheet::packed(path)? {
+                return None;
+            }
             out.push_str(&sheet::text(path, MAX_ENTRY)?);
             Some(())
         }),
