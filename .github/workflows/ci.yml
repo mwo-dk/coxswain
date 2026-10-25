@@ -99,9 +99,9 @@ jobs:
         shell: pwsh
         run: |
           $t = [IO.Path]::GetTempPath(); "temp: $t"
-          fsutil fsinfo volumeinfo ($t.Substring(0,3))
+          Get-Volume | Format-Table -AutoSize DriveLetter, FileSystemType, FileSystemLabel, Size | Out-String
           fsutil devdrv query ($t.Substring(0,2))
-          fsutil fsinfo volumeinfo ($env:GITHUB_WORKSPACE.Substring(0,3))
+          "workspace: $env:GITHUB_WORKSPACE"
           $f = Join-Path $t 'tick-probe'
           $seen = @{}
           for ($i = 0; $i -lt 200; $i++) { [IO.File]::WriteAllText($f, "$i"); $seen[[IO.File]::GetLastWriteTimeUtc($f).Ticks] = 1 }

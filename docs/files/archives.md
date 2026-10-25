@@ -131,6 +131,12 @@ file's name in its cache folder; if the app or the computer stops in the middle 
 power), the next start removes that file, and only that: never another file ending in
 `.coxswain-tmp`.
 
+The new archive is always dated after the old one: when the clock has not moved on since the
+old one was written (Windows dates files by a clock that moves in steps of several
+milliseconds), it is dated a millisecond later, or two seconds on a FAT disk, which keeps no
+finer time. Each list Coxswain keeps of an archive's contents is told apart by its size and
+date, so it is never shown for the archive as it is now.
+
 | Format | How it is written anew |
 |---|---|
 | Zip | Every entry that stays is copied over as it is, compressed and (if locked) still locked: nothing is unpacked. New files are compressed with Deflate. Quick even for large zips. |

@@ -2380,6 +2380,27 @@ pub fn short_of_room(archive: &Path, sources: &[PathBuf]) -> Option<String> {
     })
 }
 
+/// Date `tmp`, the archive written anew, after `archive` as it was. Every list kept of an
+/// archive (this run's, the compressed tars' index kept between runs, another app's) is told
+/// apart by its size and modified time; Windows dates a file by a clock that moves in ticks of
+/// up to 16 ms, so a rewrite of the same size within one (a renamed tar, a short name moved)
+/// looked unchanged and showed its old contents. Up a millisecond, or two seconds where the
+/// file system keeps no finer time (FAT).
+fn dated_after(tmp: &Path, archive: &Path) {
+    let Ok(old) = std::fs::metadata(archive).and_then(|m| m.modified()) else {
+        return;
+    };
+    let Ok(f) = File::options().write(true).open(tmp) else {
+        return;
+    };
+    for step in [1, 2000] {
+        if f.metadata().and_then(|m| m.modified()).is_ok_and(|t| t > old) {
+            break;
+        }
+        let _ = f.set_modified(old + std::time::Duration::from_millis(step));
+    }
+}
+
 /// Write `archive` anew: each old entry by what `keep` says of its name (`None`: left out,
 /// `Some(name)`: kept under that name, as it was, locked or not), then `add`. Into a new
 /// file first, which then takes the old one's place, so a failure leaves the archive whole.
@@ -2639,10 +2660,13 @@ fn rewrite(
     })();
     let done = match written {
         // As private as the archive was.
-        Ok(()) => std::fs::metadata(archive)
-            .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
-            .or_else(|e| if exists { Err(e) } else { Ok(()) })
-            .and_then(|_| std::fs::rename(&tmp, archive)),
+        Ok(()) => {
+            dated_after(&tmp, archive);
+            std::fs::metadata(archive)
+                .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
+                .or_else(|e| if exists { Err(e) } else { Ok(()) })
+                .and_then(|_| std::fs::rename(&tmp, archive))
+        }
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(&plain);
