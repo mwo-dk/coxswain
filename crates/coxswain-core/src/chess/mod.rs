@@ -26,7 +26,7 @@ use crate::config::Theme;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Format {
-    /// Games: `.pgn`, `.pgn.gz`, `.pgn.zst`, a SCID database's `.si4` (`scid`), and a ChessBase
+    /// Games: `.pgn`, `.pgn.gz`, `.pgn.zst`, a SCID database's `.si4` or `.si5` (`scid`), and a ChessBase
     /// database's `.cbh` (`cbh`), each read as the PGN it holds.
     Pgn,
     /// Positions, one a line: `.epd`, `.fen`.
@@ -50,7 +50,7 @@ pub enum Format {
 pub fn format(path: &Path) -> Option<Format> {
     let n = path.file_name()?.to_string_lossy().to_ascii_lowercase();
     // A SCID database is shown by its index, as a PGN file is (`scid`).
-    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4", ".cbh"].iter().any(|e| n.ends_with(e)) {
+    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4", ".si5", ".cbh"].iter().any(|e| n.ends_with(e)) {
         Some(Format::Pgn)
     } else if n.ends_with(".epd") || n.ends_with(".fen") {
         Some(Format::Epd)
@@ -328,6 +328,7 @@ mod tests {
     fn names_and_positions() {
         assert_eq!(format(Path::new("/a/Games.PGN.gz")), Some(Format::Pgn));
         assert_eq!(format(Path::new("/a/Club.si4")), Some(Format::Pgn));
+        assert_eq!(format(Path::new("/a/Club.si5")), Some(Format::Pgn));
         assert_eq!(format(Path::new("x.fen")), Some(Format::Epd));
         assert_eq!(format(Path::new("x.gz")), None);
         assert_eq!(format(Path::new("Mega.CBH")), Some(Format::Pgn));

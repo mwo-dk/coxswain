@@ -80,6 +80,7 @@ test("games files by their names", async () => {
   const { chessFormat } = await pick("chessFormat");
   assert.equal(chessFormat("Games.PGN.zst"), "pgn");
   assert.equal(chessFormat("Club.si4"), "pgn");
+  assert.equal(chessFormat("Club.si5"), "pgn");
   assert.equal(chessFormat("mates.fen"), "epd");
   assert.equal(chessFormat("Shusaku.SGF"), "sgf");
   assert.equal(chessFormat("club.PDN"), "pdn");
