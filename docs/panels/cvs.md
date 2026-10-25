@@ -101,9 +101,15 @@ files removed by then are left out. Only the file contents are asked of the serv
   `CVS/Update.prog`; none of them reads `CVSROOT/modules`, whose `-o` and `-e` programs run on
   checkout and export.
 - **Copied out** files get the commit's date. The executable bit is not carried over. A `.git`,
-  `.hg` or `.jj` folder is never copied out. A file over 1 GB is refused.
+  `.hg` or `.jj` folder is never copied out. Each file is written as it comes. A file over 1 GB,
+  or one the server stops sending part way, is refused, and nothing of that copy is left.
+  Before a drag the files are counted ([Drag and drop](../files/drag-and-drop.md)); CVS lists no
+  sizes, so the 200 MB limit there is not checked.
 - **Branch commits:** a commit on a branch shows its own files at the branch's revisions and
-  the rest of the folder as on the main line then. A diff covers at most 200 files.
+  the rest of the folder as on the main line then.
+- **Large commits:** a diff covers at most 200 files, 2 MB and about 30 seconds; when the commit
+  changed more, its first line says *Cut short: this commit changed more than Coxswain shows in
+  one diff.*
 
 ## Branches, update and commit
 

@@ -2428,6 +2428,7 @@
  "history.no_repo": "Ikke i et Git-repo: det finnes ingen historikk her",
  "history.not_here": "Historikk gjelder filene og mappene i et Git-arbeidstre på disken",
  "history.not_in_commit": "{path} er ikke i commit {rev}",
+ "history.diff_cut": "Forkortet: denne commiten endret mer enn Coxswain viser i én diff.",
  "history.older": "eldre",
  "history.open": "Historikk for {name}",
  "history.pick_commit": "Velg en commit først",

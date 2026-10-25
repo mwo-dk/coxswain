@@ -2478,6 +2478,7 @@
  "history.no_repo": "Non in un repository git: qui non c'è cronologia",
  "history.not_here": "La cronologia riguarda file e cartelle di un albero di lavoro git sul disco",
  "history.not_in_commit": "{path} non è nel commit {rev}",
+ "history.diff_cut": "Troncato: questo commit ha cambiato più di quanto Coxswain mostri in un diff.",
  "history.older": "più vecchio",
  "history.open": "Cronologia di {name}",
  "history.pick_commit": "Scegli prima un commit",

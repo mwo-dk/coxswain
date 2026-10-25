@@ -483,7 +483,11 @@ pub fn svn_server_of(url: &str) -> Option<String> {
         return None;
     }
     let auth = rest.split('/').next()?;
-    let hostport = auth.rsplit_once('@').map_or(auth, |(_, h)| h);
+    let (user, hostport) = auth.rsplit_once('@').map_or((None, auth), |(u, h)| (Some(u), h));
+    // A user is no option to ssh, written plainly or `%`-escaped.
+    if user.is_some_and(|u| u.starts_with('-') || u.get(..3).is_some_and(|p| p.eq_ignore_ascii_case("%2d"))) {
+        return None;
+    }
     let (host, port) = match hostport.rsplit_once(':') {
         Some((h, p)) if !h.ends_with(':') && !p.contains(']') => (h, Some(p)),
         _ => (hostport, None),
@@ -575,9 +579,10 @@ const SERVER_MAX: usize = 32 << 20;
 /// How long a server read may take.
 const SERVER_TIME: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// What `c` prints, at most `max` bytes within `SERVER_TIME`, and whether it was cut.
-/// Its complaint is the error when it fails without printing.
-fn from_server(mut c: std::process::Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
+/// Runs `c`: at most `max` bytes of what it prints go to `out`, within `SERVER_TIME`. Returns
+/// whether it was cut, and its complaint when it failed (a run cut short was stopped, so that
+/// is no failure).
+fn run_server(mut c: std::process::Command, out: &mut dyn io::Write, max: usize) -> io::Result<(bool, Option<String>)> {
     use std::io::Read;
     c.stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
@@ -585,7 +590,7 @@ fn from_server(mut c: std::process::Command, max: usize) -> io::Result<(Vec<u8>,
         // Messages in English, dates as the tools write them by default.
         .env("LC_ALL", "C");
     let mut child = c.spawn()?;
-    let (mut out, mut err) = (child.stdout.take().ok_or_else(|| io::Error::other("no output"))?, child.stderr.take());
+    let (mut stdout, mut err) = (child.stdout.take().ok_or_else(|| io::Error::other("no output"))?, child.stderr.take());
     let errs = std::thread::spawn(move || {
         let mut e = vec![];
         if let Some(err) = err.as_mut() {
@@ -600,23 +605,54 @@ fn from_server(mut c: std::process::Command, max: usize) -> io::Result<(Vec<u8>,
         let _ = child.kill();
         (late, child.wait())
     });
-    let mut buf = vec![];
-    let _ = (&mut out).take(max as u64 + 1).read_to_end(&mut buf);
-    let cut = buf.len() > max;
-    buf.truncate(max);
-    drop(out);
+    let copied = io::copy(&mut (&mut stdout).take(max as u64), out);
+    let cut = copied.is_ok() && stdout.read(&mut [0u8]).is_ok_and(|n| n > 0);
+    drop(stdout);
     drop(tx);
     let (late, status) = watch.join().map_err(|_| io::Error::other("watch"))?;
     let status = status?;
     let errs = errs.join().unwrap_or_default();
+    // Writing failed (a full disk): that is the error.
+    copied?;
     if late {
         return Err(io::Error::new(io::ErrorKind::TimedOut, crate::t!("vcs.server_slow")));
     }
-    if !status.success() && !cut && buf.is_empty() {
+    let failed = (!status.success() && !cut).then(|| {
         let why = String::from_utf8_lossy(&errs).trim().lines().last().unwrap_or_default().to_string();
-        return Err(io::Error::other(if why.is_empty() { "failed".to_string() } else { why }));
+        if why.is_empty() { "failed".to_string() } else { why }
+    });
+    Ok((cut, failed))
+}
+
+/// What `c` prints, at most `max` bytes, and whether it was cut: kept even when it then fails
+/// (`cvs diff` fails when files differ, `cvs log` on a file it cannot read); its complaint is
+/// the error only when it printed nothing. Never for a file's bytes: `file_from_server`.
+fn from_server(c: std::process::Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
+    let mut buf = vec![];
+    match run_server(c, &mut buf, max)? {
+        (_, Some(why)) if buf.is_empty() => Err(io::Error::other(why)),
+        (cut, _) => Ok((buf, cut)),
     }
-    Ok((buf, cut))
+}
+
+/// As `from_server`, but a run that fails is an error even after it printed part: a file's
+/// bytes, a listing of what is copied out.
+fn file_from_server(c: std::process::Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
+    let mut buf = vec![];
+    match run_server(c, &mut buf, max)? {
+        (_, Some(why)) => Err(io::Error::other(why)),
+        (cut, None) => Ok((buf, cut)),
+    }
+}
+
+/// A file copied out, written as it comes into `out`, never held whole: refused when the run
+/// fails or the file is larger than `OUT_MAX`.
+fn file_to(c: std::process::Command, out: &mut std::fs::File, name: &str) -> io::Result<()> {
+    match run_server(c, out, OUT_MAX)? {
+        (_, Some(why)) => Err(io::Error::other(why)),
+        (true, None) => Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{name}: larger than 1 GB"))),
+        (false, None) => Ok(()),
+    }
 }
 
 /// What svn's XML holds, as `svn_xml` walks it: an element's start with its attributes, and its
@@ -831,7 +867,7 @@ fn svn_url_at(base: &Path, n: u64, inner: &str) -> io::Result<String> {
 fn svn_cat(url: &str, max: usize) -> io::Result<(Vec<u8>, bool)> {
     let mut c = svn();
     c.args(["cat", "--", url]);
-    from_server(c, max)
+    file_from_server(c, max)
 }
 
 /// The history of `spec` (`.` or a name in `base`) from the Subversion server, once said yes to.
@@ -858,7 +894,7 @@ fn svn_log(base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool
 /// itself; what `cat` fetches it by). Never outside `to` nor a repository's folder there
 /// (`vcs::safe_out`); each file and folder gets `when` as its time. Files only: links and the
 /// executable bit are not carried over.
-fn write_out(to: &Path, when: std::time::SystemTime, files: Vec<(String, String)>, cat: impl Fn(&str) -> io::Result<Vec<u8>>) -> io::Result<()> {
+fn write_out(to: &Path, when: std::time::SystemTime, files: Vec<(String, String)>, cat: impl Fn(&str, &mut std::fs::File) -> io::Result<()>) -> io::Result<()> {
     let files: Vec<(PathBuf, String)> = files
         .into_iter()
         .filter(|(rest, _)| crate::vcs::safe_out(rest))
@@ -869,24 +905,63 @@ fn write_out(to: &Path, when: std::time::SystemTime, files: Vec<(String, String)
         if let Some(dir) = dst.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        let bytes = cat(src)?;
         let mut f = std::fs::File::create_new(dst)?;
-        io::Write::write_all(&mut f, &bytes)?;
+        cat(src, &mut f)?;
         let _ = f.set_modified(when);
     }
     crate::vcs::date_folders(to, files.iter().map(|(d, _)| d.as_path()), when);
     Ok(())
 }
 
+/// What a CVS commit's diff may hold, all its files together: more is cut. `history::diff`
+/// shows 512K characters.
+const DIFF_MAX: usize = 2 << 20;
+
 /// What a file copied out may hold: more is refused, not cut.
 const OUT_MAX: usize = 1 << 30;
 
-/// The whole file, or refused when it is larger than `OUT_MAX`.
-fn whole((bytes, cut): (Vec<u8>, bool), name: &str) -> io::Result<Vec<u8>> {
-    if cut {
-        return Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{name}: larger than 1 GB")));
+/// What copying `at` out at `rev` writes: (the path below the copy, `""` for a file itself;
+/// its URL with the revision; its size). Refused when the server's list fails or is cut.
+fn svn_out(at: &At, rev: &str) -> io::Result<Vec<(String, String, u64)>> {
+    let n = svn_rev(rev)?;
+    let url = svn_url_at(&at.base, n, &at.inner)?;
+    let mut c = svn();
+    c.args(["info", "--xml", "--", &url]);
+    let is_dir = parse_svn_list(&file_from_server(c, 1 << 20)?.0).first().is_some_and(|e| e.1);
+    let mut c = svn();
+    c.args(["list", "--xml"]);
+    if is_dir {
+        c.arg("-R");
     }
-    Ok(bytes)
+    c.args(["--", &url]);
+    let (xml, cut) = file_from_server(c, SERVER_MAX)?;
+    if cut {
+        return Err(io::Error::new(io::ErrorKind::FileTooLarge, "svn list: more than 32 MB"));
+    }
+    let list = parse_svn_list(&xml);
+    let files: Vec<(String, String, u64)> = if is_dir {
+        let (at_url, _) = url.rsplit_once('@').unwrap_or((&url, ""));
+        list.into_iter()
+            .filter(|(p, dir, _)| !dir && p.split('/').all(name_ok) && crate::vcs::safe_out(p))
+            .map(|(p, _, size)| (p.clone(), format!("{at_url}/{}@{n}", uri_path(&p)), size))
+            .collect()
+    } else {
+        list.into_iter().take(1).map(|(.., size)| (String::new(), url.clone(), size)).collect()
+    };
+    if files.is_empty() {
+        return Err(not_in(&at.inner, rev));
+    }
+    Ok(files)
+}
+
+/// What copying a Subversion or CVS `at` out at `rev` takes: bytes and files. CVS lists no
+/// sizes without reading every file, so its bytes are 0; a file copied out is written as it
+/// comes, never held whole.
+pub(crate) fn measure(at: &At, rev: &str) -> io::Result<(u64, usize)> {
+    if crate::vcs::of(&at.base).name() == "svn" {
+        return Ok(svn_out(at, rev)?.iter().fold((0, 0), |(b, n), f| (b + f.2, n + 1)));
+    }
+    Ok((0, cvs_out(&*cvs_known(&at.base)?, at, rev)?.len()))
 }
 
 pub(crate) struct Svn;
@@ -935,32 +1010,13 @@ impl Vcs for Svn {
         Ok(from_server(c, SERVER_MAX)?.0)
     }
     fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
-        let n = svn_rev(rev)?;
-        let url = svn_url_at(&at.base, n, &at.inner)?;
         let when = crate::fs::epoch(self.show(&at.base, rev)?.time);
-        let mut c = svn();
-        c.args(["info", "--xml", "--", &url]);
-        let is_dir = parse_svn_list(&from_server(c, 1 << 20)?.0).first().is_some_and(|e| e.1);
-        let files = if is_dir {
+        let files = svn_out(at, rev)?.into_iter().map(|(rest, src, _)| (rest, src)).collect();
+        write_out(to, when, files, |src, f| {
             let mut c = svn();
-            c.args(["list", "--xml", "-R", "--", &url]);
-            let (xml, cut) = from_server(c, SERVER_MAX)?;
-            if cut {
-                return Err(io::Error::new(io::ErrorKind::FileTooLarge, "svn list: more than 32 MB"));
-            }
-            let (at_url, _) = url.rsplit_once('@').unwrap_or((&url, ""));
-            parse_svn_list(&xml)
-                .into_iter()
-                .filter(|(p, dir, _)| !dir && p.split('/').all(name_ok))
-                .map(|(p, ..)| (p.clone(), format!("{at_url}/{}@{n}", uri_path(&p))))
-                .collect()
-        } else {
-            vec![(String::new(), url)]
-        };
-        if files.is_empty() {
-            return Err(not_in(&at.inner, rev));
-        }
-        write_out(to, when, files, |src| whole(svn_cat(src, OUT_MAX)?, src))
+            c.args(["cat", "--", src]);
+            file_to(c, f, src)
+        })
     }
 
     fn branches(&self, _: &Path) -> io::Result<Vec<Branch>> {
@@ -1296,15 +1352,19 @@ fn parse_cvs_revs(out: &str) -> Vec<CvsRev> {
 /// or a hash of the three.
 fn cvs_commits(revs: &[CvsRev]) -> Vec<(Commit, Vec<usize>)> {
     let mut out: Vec<(Commit, Vec<usize>)> = vec![];
+    // The commits by their id, and those without one by author and message (newest first).
+    let mut by_id: HashMap<&str, usize> = HashMap::new();
+    let mut by_text: HashMap<(&str, &str), Vec<usize>> = HashMap::new();
     for (i, r) in revs.iter().enumerate() {
-        let same = out.iter().position(|(c, m)| {
-            let first = &revs[m[0]];
-            match (&r.id, &first.id) {
-                (Some(id), Some(i)) => id == i,
-                (None, None) => c.author == r.author && first.msg == r.msg && c.time.abs_diff(r.time) <= 300,
-                _ => false,
-            }
-        });
+        // Revisions come newest first, so a commit is never older than `r`: the first one
+        // within five minutes is the first whose time is at most five minutes later.
+        let same = match &r.id {
+            Some(id) => by_id.get(id.as_str()).copied(),
+            None => by_text.get(&(r.author.as_str(), r.msg.as_str())).and_then(|cs| {
+                let at = cs.partition_point(|&c| out[c].0.time.abs_diff(r.time) > 300);
+                cs.get(at).copied()
+            }),
+        };
         if let Some(at) = same {
             out[at].1.push(i);
             continue;
@@ -1315,6 +1375,12 @@ fn cvs_commits(revs: &[CvsRev]) -> Vec<(Commit, Vec<usize>)> {
             (r.time, &r.author, &r.msg).hash(&mut h);
             format!("{:016x}", h.finish())
         });
+        match &r.id {
+            Some(id) => {
+                by_id.insert(id, out.len());
+            }
+            None => by_text.entry((&r.author, &r.msg)).or_default().push(out.len()),
+        }
         let subject = r.msg.lines().next().unwrap_or_default().to_string();
         out.push((Commit { hash, time: r.time, author: r.author.clone(), subject, ..Default::default() }, vec![i]));
     }
@@ -1422,9 +1488,14 @@ fn cvs_before(num: &str) -> Option<String> {
 
 /// The file `r` at its revision, at most `max` bytes, and whether there was more.
 fn cvs_cat(base: &Path, r: &CvsRev, max: usize) -> io::Result<(Vec<u8>, bool)> {
+    file_from_server(cvs_cat_cmd(base, r)?, max)
+}
+
+/// The run that prints the file `r` at its revision.
+fn cvs_cat_cmd(base: &Path, r: &CvsRev) -> io::Result<std::process::Command> {
     let mut c = cvs(base, &cvs_here(base)?);
     c.args(["update", "-p", "-r", &r.num, "--", &r.file]);
-    from_server(c, max)
+    Ok(c)
 }
 
 /// The history of `spec` (`.` or a name in `base`) from the CVS server, once said yes to: the
@@ -1441,6 +1512,24 @@ fn cvs_log(base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool
     let more = cut || commits.len() > max;
     commits.truncate(max);
     Ok((commits, more))
+}
+
+/// What copying `at` out at `rev` writes: (the path below the copy, `""` for a file itself;
+/// the file in the log).
+fn cvs_out(log: &CvsLog, at: &At, rev: &str) -> io::Result<Vec<(String, String)>> {
+    let prefix = format!("{}/", at.inner);
+    let files: Vec<(String, String)> = log
+        .files_at(rev)?
+        .into_iter()
+        .filter_map(|r| {
+            let rest = if at.inner.is_empty() { r.file.as_str() } else if r.file == at.inner { "" } else { r.file.strip_prefix(&prefix)? };
+            crate::vcs::safe_out(rest).then(|| (rest.to_string(), r.file.clone()))
+        })
+        .collect();
+    if files.is_empty() {
+        return Err(not_in(&at.inner, rev));
+    }
+    Ok(files)
 }
 
 pub(crate) struct Cvs;
@@ -1490,17 +1579,28 @@ impl Vcs for Cvs {
             .collect();
         revs.sort_by(|a, b| a.file.cmp(&b.file));
         let mut out = vec![];
-        // ponytail: one cvs run a file, at most 200; one `cvs rdiff` if large commits matter.
+        // At most 200 files, `DIFF_MAX` bytes and about `SERVER_TIME` in all; more is cut, and
+        // the diff says so at its top.
+        // ponytail: one cvs run a file; one `cvs rdiff` if large commits matter.
+        let until = std::time::Instant::now() + SERVER_TIME;
+        let mut cut = revs.len() > 200;
         for r in revs.iter().take(200) {
+            let room = DIFF_MAX.saturating_sub(out.len());
+            if room == 0 || std::time::Instant::now() > until {
+                cut = true;
+                break;
+            }
             match cvs_before(&r.num) {
                 Some(before) => {
                     let mut c = cvs(base, &root);
                     c.args(["diff", "-N", "-u", "-r", &before, "-r", &r.num, "--", &r.file]);
-                    out.extend(from_server(c, SERVER_MAX)?.0);
+                    let (bytes, more) = from_server(c, room)?;
+                    out.extend(bytes);
+                    cut |= more;
                 }
                 // The first revision: all of it is new.
                 None => {
-                    let (text, _) = cvs_cat(base, r, 1 << 20)?;
+                    let (text, _) = cvs_cat(base, r, room.min(1 << 20))?;
                     let text = String::from_utf8_lossy(&text);
                     let lines: Vec<&str> = text.lines().collect();
                     out.extend(format!("Index: {f}\n--- /dev/null\n+++ {f}\t{num}\n@@ -0,0 +1,{n} @@\n", f = r.file, num = r.num, n = lines.len()).bytes());
@@ -1510,27 +1610,21 @@ impl Vcs for Cvs {
                 }
             }
         }
+        if cut {
+            let mut note = format!("{}\n", crate::t!("history.diff_cut")).into_bytes();
+            note.append(&mut out);
+            out = note;
+        }
         Ok(out)
     }
     fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
         let log = cvs_known(&at.base)?;
         let when = crate::fs::epoch(log.commit(rev)?.0.time);
-        let prefix = format!("{}/", at.inner);
-        let files: Vec<(String, String)> = log
-            .files_at(rev)?
-            .into_iter()
-            .filter_map(|r| {
-                let rest = if at.inner.is_empty() { r.file.as_str() } else if r.file == at.inner { "" } else { r.file.strip_prefix(&prefix)? };
-                Some((rest.to_string(), r.file.clone()))
-            })
-            .collect();
-        if files.is_empty() {
-            return Err(not_in(&at.inner, rev));
-        }
+        let files = cvs_out(&log, at, rev)?;
         let files_at = log.files_at(rev)?;
-        write_out(to, when, files, |file| {
+        write_out(to, when, files, |file, f| {
             let r = files_at.iter().find(|r| r.file == file).ok_or_else(|| not_in(file, rev))?;
-            whole(cvs_cat(&at.base, r, OUT_MAX)?, file)
+            file_to(cvs_cat_cmd(&at.base, r)?, f, file)
         })
     }
     fn branches(&self, _: &Path) -> io::Result<Vec<Branch>> {
@@ -1669,6 +1763,8 @@ mod tests {
         assert_eq!(svn_server_of("svn://svn.example.org:3690/x").as_deref(), Some("svn://svn.example.org:3690"));
         assert_eq!(svn_server_of("svn+ssh://[::1]/x").as_deref(), Some("svn+ssh://[::1]"));
         assert_eq!(svn_server_of("file:///srv/repo/").as_deref(), Some("file:///srv/repo"));
+        assert_eq!(svn_server_of("svn+ssh://-oProxyCommand=x@svn.example.org/x"), None);
+        assert_eq!(svn_server_of("svn+ssh://%2DoProxyCommand=x@svn.example.org/x"), None);
         for bad in ["svn+ssh://-oProxyCommand=x/r", "svn+evil://host/r", "https://ho st/r", "https://h:99999999/r", "https://h\n/r", "nonsense"] {
             assert_eq!(svn_server_of(bad), None, "{bad}");
         }
@@ -1776,6 +1872,9 @@ more</msg></logentry>
             assert!(!copied.join("sub/.git").exists());
             let one = crate::history::copy_out(&file, &out).unwrap();
             assert_eq!(std::fs::read(one).unwrap(), b"a\n");
+            // Sizes as the server lists them, before a drag.
+            assert_eq!(crate::history::measure(&file).unwrap(), (2, 1));
+            assert_eq!(crate::history::measure(&r4).unwrap(), (2, 1));
             std::fs::remove_dir_all(d).unwrap();
         }
         if crate::user_menu::installed("cvs") {
@@ -1836,10 +1935,78 @@ more</msg></logentry>
             std::fs::create_dir(&out).unwrap();
             let copied = crate::history::copy_out(&crate::history::split(&first).unwrap(), &out).unwrap();
             assert_eq!(std::fs::read(copied.join("b.txt")).unwrap(), b"b\n");
+            assert_eq!(crate::history::measure(&crate::history::split(&first).unwrap()).unwrap(), (0, 2));
             assert!(hist.starts_with(&wc));
             assert!(!d.join("ran").exists(), "CVS/Update.prog ran");
+            // A commit of more than 200 files: its diff is cut, and says so at its top.
+            std::fs::create_dir(d.join("many-in")).unwrap();
+            for i in 0..201 {
+                std::fs::write(d.join(format!("many-in/f{i}.txt")), "x\n").unwrap();
+            }
+            run(&d.join("many-in"), &["cvs", "-f", "-q", "import", "-m", "many", "many", "vendor", "one"]);
+            run(&d, &["cvs", "-f", "-q", "checkout", "many"]);
+            let many = d.join("many");
+            let (all, _) = Cvs.log(&many, ".", 10).unwrap();
+            let at = crate::history::split(&crate::history::path(&many, Some(&all[0].hash))).unwrap();
+            let diff = crate::history::diff(&at).unwrap();
+            assert!(diff.starts_with(&crate::t!("history.diff_cut")), "{}", &diff[..diff.len().min(200)]);
             std::fs::remove_dir_all(d).unwrap();
         }
+    }
+
+    /// A server run that fails after printing part: a listing keeps what came, a file's
+    /// bytes are an error, a file copied out is refused; a run cut short is no failure.
+    #[cfg(unix)]
+    #[test]
+    fn wc_server_run_that_fails_is_not_a_whole_file() {
+        let sh = |script: &str| {
+            let mut c = std::process::Command::new("sh");
+            c.args(["-c", script]);
+            c
+        };
+        assert_eq!(from_server(sh("printf abc; exit 1"), 100).unwrap(), (b"abc".to_vec(), false));
+        assert!(from_server(sh("echo no >&2; exit 1"), 100).unwrap_err().to_string().contains("no"));
+        assert!(file_from_server(sh("printf abc; echo half >&2; exit 1"), 100).unwrap_err().to_string().contains("half"));
+        assert_eq!(file_from_server(sh("printf abcdef; exit 1"), 3).unwrap(), (b"abc".to_vec(), true));
+        assert_eq!(file_from_server(sh("printf abc"), 3).unwrap(), (b"abc".to_vec(), false));
+        let d = top("server-run");
+        let mut f = std::fs::File::create(d.join("f")).unwrap();
+        assert!(file_to(sh("printf abc; exit 1"), &mut f, "f").is_err());
+        let mut f = std::fs::File::create(d.join("g")).unwrap();
+        file_to(sh("printf abc"), &mut f, "g").unwrap();
+        assert_eq!(std::fs::read(d.join("g")).unwrap(), b"abc");
+        // A copy out that fails half way leaves nothing (`history::copy_out` removes it).
+        let out = d.join("out");
+        let files = vec![("a".to_string(), "printf a".to_string()), ("b/c".to_string(), "printf c; exit 1".to_string())];
+        assert!(write_out(&out, std::time::SystemTime::now(), files, |src, f| file_to(sh(src), f, src)).is_err());
+        assert_eq!(std::fs::read(out.join("a")).unwrap(), b"a");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// CVS revisions grouped into commits: by commit id, or by author and message within five
+    /// minutes of a commit's newest revision, the first such commit when two are.
+    #[test]
+    fn wc_cvs_commits_grouped() {
+        let rev = |file: &str, time: u64, author: &str, msg: &str, id: Option<&str>| CvsRev {
+            file: file.into(),
+            num: "1.1".into(),
+            time,
+            dead: false,
+            author: author.into(),
+            msg: msg.into(),
+            id: id.map(Into::into),
+        };
+        let revs = vec![
+            rev("a", 2000, "ada", "x", None),
+            rev("b", 1990, "ada", "x", Some("ID")),
+            rev("c", 1800, "ada", "x", None),
+            rev("d", 1650, "ada", "x", None),
+            rev("e", 1600, "bob", "x", None),
+            rev("f", 1500, "ada", "x", Some("ID")),
+            rev("g", 1400, "ada", "x", None),
+        ];
+        let groups: Vec<Vec<usize>> = cvs_commits(&revs).into_iter().map(|(_, m)| m).collect();
+        assert_eq!(groups, [vec![0, 2], vec![1, 5], vec![3, 6], vec![4]]);
     }
 
     /// A hostile wc.db (an unpacked archive's): paths that climb out or are absolute are never

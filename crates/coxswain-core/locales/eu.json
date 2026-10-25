@@ -2428,6 +2428,7 @@
  "history.no_repo": "Ez dago git biltegi batean: hemen ez dago historiarik",
  "history.not_here": "Historia diskoko git lan-zuhaitz bateko fitxategi eta karpetentzat da",
  "history.not_in_commit": "{path} ez dago {rev} commit-ean",
+ "history.diff_cut": "Moztuta: commit honek Coxswain-ek diff batean erakusten duena baino gehiago aldatu zuen.",
  "history.older": "zaharragoa",
  "history.open": "{name}(r)en historia",
  "history.pick_commit": "Aukeratu commit bat lehenik",

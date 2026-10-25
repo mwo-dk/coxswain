@@ -2428,6 +2428,7 @@
  "history.no_repo": "Pole giti hoidlas: siin pole ajalugu",
  "history.not_here": "Ajalugu on kettal oleva giti tööpuu failidel ja kaustadel",
  "history.not_in_commit": "{path} pole commitis {rev}",
+ "history.diff_cut": "Lühendatud: see commit muutis rohkem, kui Coxswain ühes diffis näitab.",
  "history.older": "vanem",
  "history.open": "{name} ajalugu",
  "history.pick_commit": "Vali kõigepealt commit",

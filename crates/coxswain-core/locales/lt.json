@@ -2478,6 +2478,7 @@
  "history.no_repo": "Ne git saugykloje: čia istorijos nėra",
  "history.not_here": "Istorija yra disko git darbo medžio failams ir aplankams",
  "history.not_in_commit": "{path} nėra commit {rev}",
+ "history.diff_cut": "Sutrumpinta: šis commit pakeitė daugiau, nei Coxswain rodo viename diff.",
  "history.older": "senesnis",
  "history.open": "{name} istorija",
  "history.pick_commit": "Pirmiausia pasirinkite commit",

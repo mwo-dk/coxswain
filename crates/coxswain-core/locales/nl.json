@@ -2428,6 +2428,7 @@
  "history.no_repo": "Niet in een git-repository: hier is geen geschiedenis",
  "history.not_here": "Geschiedenis is er voor bestanden en mappen van een git-werkmap op schijf",
  "history.not_in_commit": "{path} staat niet in commit {rev}",
+ "history.diff_cut": "Ingekort: deze commit veranderde meer dan Coxswain in één diff toont.",
  "history.older": "ouder",
  "history.open": "Geschiedenis van {name}",
  "history.pick_commit": "Kies eerst een commit",

@@ -2378,6 +2378,7 @@
  "history.no_repo": "git 저장소가 아닙니다: 여기에는 기록이 없습니다",
  "history.not_here": "기록은 디스크에 있는 git 작업 트리의 파일과 폴더에만 있습니다",
  "history.not_in_commit": "{path}이(가) 커밋 {rev}에 없습니다",
+ "history.diff_cut": "잘림: 이 커밋은 Coxswain이 한 diff에 보여 주는 것보다 많이 바꾸었습니다.",
  "history.older": "이전",
  "history.open": "{name}의 기록",
  "history.pick_commit": "먼저 커밋을 고르세요",

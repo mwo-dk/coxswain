@@ -2428,6 +2428,7 @@
  "history.no_repo": "Ei git-repositoriossa: täällä ei ole historiaa",
  "history.not_here": "Historia on levyllä olevan git-työpuun tiedostoille ja kansioille",
  "history.not_in_commit": "{path} ei ole commitissa {rev}",
+ "history.diff_cut": "Lyhennetty: tämä commit muutti enemmän kuin Coxswain näyttää yhdessä diffissä.",
  "history.older": "vanhempi",
  "history.open": "Kohteen {name} historia",
  "history.pick_commit": "Valitse ensin commit",

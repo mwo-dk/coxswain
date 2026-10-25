@@ -2528,6 +2528,7 @@
  "history.no_repo": "Не в репозиторії git: тут немає історії",
  "history.not_here": "Історія доступна для файлів і папок робочого дерева git на диску",
  "history.not_in_commit": "{path} немає в коміті {rev}",
+ "history.diff_cut": "Скорочено: цей коміт змінив більше, ніж Coxswain показує в одному diff.",
  "history.older": "давніше",
  "history.open": "Історія {name}",
  "history.pick_commit": "Спершу виберіть коміт",

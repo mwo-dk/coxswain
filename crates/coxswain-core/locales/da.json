@@ -2428,6 +2428,7 @@
  "history.no_repo": "Ikke i et git-repository: her er ingen historik",
  "history.not_here": "Historik findes for filer og mapper i et git-arbejdstræ på disken",
  "history.not_in_commit": "{path} er ikke i commit {rev}",
+ "history.diff_cut": "Afkortet: dette commit ændrede mere, end Coxswain viser i én diff.",
  "history.older": "ældre",
  "history.open": "Historik for {name}",
  "history.pick_commit": "Vælg først et commit",

@@ -646,10 +646,8 @@ pub fn measure(at: &At) -> io::Result<(u64, usize)> {
             crate::t!("history.pick_commit"),
         )
     })?;
-    // ponytail: a Subversion or CVS server is not asked for sizes before a drag; ask it (svn
-    // list -R) if drags of large old folders need the limit.
     if matches!(crate::vcs::of(&at.base).name(), "svn" | "cvs") {
-        return Ok((0, 1));
+        return crate::wc::measure(at, rev);
     }
     let mut c = git(&at.base);
     let spec = if at.inner.is_empty() { "." } else { &at.inner };

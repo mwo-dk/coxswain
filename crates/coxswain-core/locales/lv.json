@@ -2478,6 +2478,7 @@
  "history.no_repo": "Nav git repozitorijā: šeit nav vēstures",
  "history.not_here": "Vēsture ir git darba koka failiem un mapēm diskā",
  "history.not_in_commit": "{path} nav commit {rev}",
+ "history.diff_cut": "Saīsināts: šis commit mainīja vairāk, nekā Coxswain rāda vienā diff.",
  "history.older": "vecāks",
  "history.open": "{name} vēsture",
  "history.pick_commit": "Vispirms izvēlieties commit",

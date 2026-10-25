@@ -2478,6 +2478,7 @@
  "history.no_repo": "No és un repositori git: aquí no hi ha historial",
  "history.not_here": "L'historial és per als fitxers i carpetes d'un arbre de treball de git al disc",
  "history.not_in_commit": "{path} no és al commit {rev}",
+ "history.diff_cut": "Retallat: aquest commit va canviar més del que Coxswain mostra en un diff.",
  "history.older": "més antic",
  "history.open": "Historial de {name}",
  "history.pick_commit": "Primer tria un commit",

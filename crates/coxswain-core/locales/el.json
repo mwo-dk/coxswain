@@ -2428,6 +2428,7 @@
  "history.no_repo": "Δεν είναι σε αποθετήριο git: εδώ δεν υπάρχει ιστορικό",
  "history.not_here": "Το ιστορικό αφορά τα αρχεία και τους φακέλους ενός δέντρου εργασίας git στον δίσκο",
  "history.not_in_commit": "Το {path} δεν υπάρχει στο commit {rev}",
+ "history.diff_cut": "Περικόπηκε: αυτό το commit άλλαξε περισσότερα από όσα δείχνει το Coxswain σε ένα diff.",
  "history.older": "παλαιότερα",
  "history.open": "Ιστορικό του {name}",
  "history.pick_commit": "Διάλεξε πρώτα ένα commit",

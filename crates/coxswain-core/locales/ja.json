@@ -2378,6 +2378,7 @@
  "history.no_repo": "git リポジトリではないため、履歴はありません",
  "history.not_here": "履歴は、ディスク上の git 作業ツリーにあるファイルとフォルダーが対象です",
  "history.not_in_commit": "{path} はコミット {rev} にありません",
+ "history.diff_cut": "途中までです: このコミットの変更は Coxswain が1つの diff で表示できる量を超えています。",
  "history.older": "以前",
  "history.open": "{name} の履歴",
  "history.pick_commit": "先にコミットを選んでください",
