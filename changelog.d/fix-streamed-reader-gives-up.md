@@ -1,0 +1,1 @@
+| **A long file kept whole (*Everything*) that cannot be read to its end keeps the vectors it had.** Before, a file whose reading stopped part way was taken as done with the passages of only its first part, and the vectors it had before were gone; now it keeps them and is tried again at the next scan. | [Long files](search/long-files.md#what-each-keeps) |
