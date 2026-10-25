@@ -1515,11 +1515,15 @@ mod tests {
         fs::write(l.join("secret.txt"), "secret").unwrap();
         let ok = std::process::Command::new("cipher").arg("/e").arg(l.join("secret.txt")).output().is_ok_and(|o| o.status.success());
         if !ok || fs::metadata(l.join("secret.txt")).unwrap().file_attributes() & 0x4000 == 0 {
+            // GitHub's Windows runners have EFS: there it must be tested.
+            assert!(std::env::var_os("GITHUB_ACTIONS").is_none(), "cipher /e failed on CI");
             eprintln!("EFS is not available here: not tested");
             return;
         }
         let done = run(&plan_of(&l, &r, false));
         let t = r.join("secret.txt");
+        // On CI, an NTFS disk with EFS: the copy is made, encrypted.
+        assert!(std::env::var_os("GITHUB_ACTIONS").is_none() || t.exists(), "{:?}", done.failed);
         if t.exists() {
             assert!(done.failed.is_empty(), "{:?}", done.failed);
             assert_ne!(fs::metadata(&t).unwrap().file_attributes() & 0x4000, 0, "the copy is encrypted");
