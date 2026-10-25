@@ -4,7 +4,7 @@
 
 Find searches the history of your git, [Mercurial](../panels/mercurial.md) and
 [Jujutsu](../panels/jujutsu.md) repositories as well as your files: the message of
-every commit, who wrote it, and the paths it changed. Type `fuel valve` in Find and
+every commit, who wrote it, the paths and the functions it changed. Type `fuel valve` in Find and
 the commit *Fix the fuel valve* is found under *History*, marked as a commit; type `parse_config`
 and the commits that changed that function are found too; **Enter** opens the repository as
 it was at that commit. With [search by meaning](meaning.md) on, commits about your words are
