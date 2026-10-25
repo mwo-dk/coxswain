@@ -82,6 +82,22 @@ the upstream archives they name, kept on Alpine's mirrors. The image's label
 Dockerfile's `FROM` line, or a package added, rechecks this table
 (`apk list -I` in the build stage).
 
+### DuckDB
+
+`ghcr.io/mwo-dk/coxswain-duckdb` (`packaging/images/duckdb`, built by
+`.github/workflows/duckdb-image.yml`) holds DuckDB's released command line for Linux with musl,
+unchanged and checked by its digest, and the libraries it needs from Alpine, in an otherwise
+empty image:
+
+| Licence | What |
+|---|---|
+| MIT | DuckDB (`/licenses/duckdb`, its own `LICENSE` at the release's tag), musl |
+| GPL-3.0-or-later WITH GCC-exception-3.1 | libstdc++, libgcc (Alpine's packages, unmodified) |
+
+Alpine's packages, with their versions and licences, are listed in the image at
+`/licenses/alpine-packages`; their source is Alpine's, as above. A new DuckDB release or Alpine
+release in the Dockerfile rechecks this table.
+
 ## Known noise
 
 cargo-about logs errors about GPL-2.0 while scanning `libdbus-sys`, which carries D-Bus's C
