@@ -1,0 +1,79 @@
+name: DuckDB image
+
+# Coxswain's own DuckDB image (packaging/images/duckdb), for amd64 and arm64, pushed to
+# ghcr.io/mwo-dk/coxswain-duckdb:latest. Built again every week like the ImageMagick image, so
+# Alpine's library updates reach it; the same release and packages give the same image
+# (timestamps at 1970, no attestations), so an unchanged week pushes an unchanged digest.
+# Coxswain pins the digest (crates/coxswain-core/src/preview_tools.rs). Pull requests build it
+# without pushing.
+on:
+  push:
+    branches: [master]
+    paths:
+      - packaging/images/duckdb/**
+      - .github/workflows/duckdb-image.yml
+  pull_request:
+    paths:
+      - packaging/images/duckdb/**
+      - .github/workflows/duckdb-image.yml
+  schedule:
+    - cron: "57 3 * * 6" # Saturdays, 03:57 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: duckdb-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/mwo-dk/coxswain-duckdb
+      PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to ghcr.io
+        if: env.PUSH == 'true'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+      - name: It reads a DuckDB file, held as Coxswain holds it
+        run: |
+          docker buildx build packaging/images/duckdb --load -t coxswain-duckdb:test
+          mkdir -m 777 db
+          docker run --rm --network=none --user 0:0 -v "$PWD/db:/w" coxswain-duckdb:test /w/t.duckdb \
+            -c "CREATE TABLE ships(name TEXT, crew INT); INSERT INTO ships VALUES ('Rocket', 8), ('Bell', 4);"
+          docker run --rm --network=none --read-only --tmpfs /tmp:rw,size=1g --cap-drop=ALL \
+            --security-opt no-new-privileges --memory=3g --pids-limit=256 \
+            --mount "type=bind,source=$PWD/db,target=/src,readonly" coxswain-duckdb:test \
+            -readonly -json /src/t.duckdb \
+            -c "SELECT schema_name, table_name, estimated_size AS rows, column_count AS columns FROM duckdb_tables() ORDER BY 1, 2" > out.json
+          grep -q '"table_name":"ships","rows":2,"columns":2' out.json || { cat out.json; echo "::error::the tables were not read"; exit 1; }
+          if docker run --rm --entrypoint sh coxswain-duckdb:test -c true 2>/dev/null; then
+            echo "::error::the image has a shell"; exit 1
+          fi
+      - name: Build, and push from master
+        run: |
+          export SOURCE_DATE_EPOCH=0
+          docker buildx build packaging/images/duckdb \
+            --platform linux/amd64,linux/arm64 --pull --no-cache \
+            --provenance=false --sbom=false \
+            --output "type=image,name=$IMAGE:latest,push=$PUSH,rewrite-timestamp=true" \
+            --metadata-file meta.json
+          if [ "$PUSH" = true ]; then
+            echo "::notice title=Pushed::$IMAGE:latest@$(jq -r '."containerimage.digest"' meta.json)"
+          fi
