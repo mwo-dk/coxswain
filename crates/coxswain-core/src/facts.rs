@@ -1,7 +1,7 @@
 //! What old files hold, said the same way in both apps: an old picture's format, size and
 //! colours, a tracker module's channels and samples, how many messages a mailbox has, how
 //! many pages a comic, a dBase table's records and fields, what a local model holds
-//! (`local_models::facts`). The desktop app shows them under
+//! (`local_models::facts`), which part of a 7z split into parts a file is. The desktop app shows them under
 //! the preview, the terminal app in Properties (**Alt+Enter**); F3 in the terminal app pages
 //! them as text (`text_copy`), with a module's sample names and an Outlook message's text.
 //! A neural network model's facts come from `neural`.
@@ -19,6 +19,10 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     // A model; a Core ML package is a folder.
     if crate::neural::named(path) {
         return crate::neural::read(path).map(|m| crate::neural::facts(&m));
+    }
+    // A later part of a 7z split into parts: by its name, nothing read (inside an archive too).
+    if let Some((n, first)) = crate::archive::part_of(&path.file_name()?.to_string_lossy()) {
+        return Some(vec![(t!("facts.part"), t!("facts.part_of", "n" => n, "first" => first))]);
     }
     if !path.is_file() {
         return None;

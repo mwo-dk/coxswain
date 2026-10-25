@@ -971,7 +971,7 @@
  "disk_image.partition": "Partición {n}",
  "disk_image.partition_value": "{kind}, {size}, desde {start}",
  "disk_image.raw": "Imagen de disco cruda",
- "disk_image.read_only": "Solo lectura: Coxswain nunca escribe en una imagen de disco, un archivo de ayuda CHM, una historieta CBR, un buzón ni una imagen de contenedor. Copiá sus archivos afuera.",
+ "disk_image.read_only": "Solo lectura: Coxswain nunca escribe en una imagen de disco, un archivo de ayuda CHM, una historieta CBR, un buzón, una imagen de contenedor ni un 7z dividido en partes. Copiá sus archivos afuera.",
  "drag.too_much": "Demasiado para sacarlo al arrastrar (más de 200 MB o 2.000 archivos) — F5 lo copia afuera",
  "drag.locked": "Bloqueado con contraseña — F5 lo copia afuera y pide la contraseña",
  "drag.again": "Copiado afuera para arrastrarlo — arrastralo de nuevo",
@@ -1241,6 +1241,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "otra CPU",
  "facts.pages": "Páginas",
+ "facts.part": "Parte",
+ "facts.part_of": "{n} de un 7z dividido en partes: se abre desde {first}",
  "facts.palette": {
   "many": "{n} colores de una paleta",
   "one": "{n} color de una paleta",

@@ -971,7 +971,7 @@
  "disk_image.partition": "Skaidinys {n}",
  "disk_image.partition_value": "{kind}, {size}, nuo {start}",
  "disk_image.raw": "Neapdorotas disko atvaizdas",
- "disk_image.read_only": "Tik skaityti: Coxswain niekada nerašo į disko atvaizdą, CHM žinyno failą, CBR komiksą, pašto dėžutę ar konteinerio atvaizdą. Vietoj to nukopijuokite jo failus.",
+ "disk_image.read_only": "Tik skaityti: Coxswain niekada nerašo į disko atvaizdą, CHM žinyno failą, CBR komiksą, pašto dėžutę, konteinerio atvaizdą ar į dalis padalytą 7z. Vietoj to nukopijuokite jo failus.",
  "drag.too_much": "Per daug, kad būtų išimta tempiant (daugiau nei 200 MB arba 2 000 failų) — F5 nukopijuoja tai lauk",
  "drag.locked": "Užrakinta slaptažodžiu — F5 nukopijuoja tai lauk ir paklausia slaptažodžio",
  "drag.again": "Nukopijuota lauk tempimui — tempkite dar kartą",
@@ -1241,6 +1241,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "kitas procesorius",
  "facts.pages": "Puslapiai",
+ "facts.part": "Dalis",
+ "facts.part_of": "{n} į dalis padalyto 7z: jis atveriamas iš {first}",
  "facts.palette": {
   "few": "{n} spalvos iš paletės",
   "one": "{n} spalva iš paletės",

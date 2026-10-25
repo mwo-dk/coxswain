@@ -1000,7 +1000,7 @@
  "disk_image.partition": "Partycja {n}",
  "disk_image.partition_value": "{kind}, {size}, od {start}",
  "disk_image.raw": "Surowy obraz dysku",
- "disk_image.read_only": "Tylko do odczytu: Coxswain nigdy nie zapisuje do obrazu dysku, pliku pomocy CHM, komiksu CBR, skrzynki pocztowej ani obrazu kontenera. Zamiast tego skopiuj z niego pliki.",
+ "disk_image.read_only": "Tylko do odczytu: Coxswain nigdy nie zapisuje do obrazu dysku, pliku pomocy CHM, komiksu CBR, skrzynki pocztowej, obrazu kontenera ani 7z podzielonego na części. Zamiast tego skopiuj z niego pliki.",
  "drag.too_much": "Za dużo, by wyjąć przeciąganiem (ponad 200 MB lub 2000 plików) — F5 kopiuje to na zewnątrz",
  "drag.locked": "Zablokowane hasłem — F5 kopiuje to na zewnątrz i pyta o hasło",
  "drag.again": "Skopiowano na zewnątrz do przeciągnięcia — przeciągnij jeszcze raz",
@@ -1288,6 +1288,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "inny procesor",
  "facts.pages": "Strony",
+ "facts.part": "Część",
+ "facts.part_of": "{n} z 7z podzielonego na części: otwiera się z {first}",
  "facts.palette": {
   "few": "{n} kolory z palety",
   "many": "{n} kolorów z palety",

@@ -971,7 +971,7 @@
  "disk_image.partition": "Oddíl {n}",
  "disk_image.partition_value": "{kind}, {size}, od {start}",
  "disk_image.raw": "Surový obraz disku",
- "disk_image.read_only": "Jen pro čtení: Coxswain nikdy nezapisuje do obrazu disku, souboru nápovědy CHM, komiksu CBR, poštovní schránky ani obrazu kontejneru. Zkopírujte z něj soubory ven.",
+ "disk_image.read_only": "Jen pro čtení: Coxswain nikdy nezapisuje do obrazu disku, souboru nápovědy CHM, komiksu CBR, poštovní schránky, obrazu kontejneru ani 7z rozděleného na části. Zkopírujte z něj soubory ven.",
  "drag.too_much": "Příliš mnoho na vytažení tažením (přes 200 MB nebo 2 000 souborů) — F5 to zkopíruje ven",
  "drag.locked": "Zamčeno heslem — F5 to zkopíruje ven a zeptá se na heslo",
  "drag.again": "Zkopírováno ven pro přetažení — přetáhněte to znovu",
@@ -1241,6 +1241,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "jiný procesor",
  "facts.pages": "Stránky",
+ "facts.part": "Část",
+ "facts.part_of": "{n} z 7z rozděleného na části: otevírá se z {first}",
  "facts.palette": {
   "few": "{n} barvy z palety",
   "one": "{n} barva z palety",

@@ -942,7 +942,7 @@
  "disk_image.partition": "Partitsioon {n}",
  "disk_image.partition_value": "{kind}, {size}, alates {start}",
  "disk_image.raw": "Toores kettatõmmis",
- "disk_image.read_only": "Ainult lugemiseks: Coxswain ei kirjuta kunagi kettatõmmisesse, CHM abifaili, CBR koomiksisse, postkasti ega konteineritõmmisesse. Kopeeri selle failid hoopis välja.",
+ "disk_image.read_only": "Ainult lugemiseks: Coxswain ei kirjuta kunagi kettatõmmisesse, CHM abifaili, CBR koomiksisse, postkasti, konteineritõmmisesse ega osadeks jagatud 7z-faili. Kopeeri selle failid hoopis välja.",
  "drag.too_much": "Liiga palju, et lohistamiseks välja võtta (üle 200 MB või 2000 faili) — F5 kopeerib selle välja",
  "drag.locked": "Parooliga lukus — F5 kopeerib selle välja ja küsib parooli",
  "drag.again": "Lohistamiseks välja kopeeritud — lohista uuesti",
@@ -1194,6 +1194,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "muu protsessor",
  "facts.pages": "Lehed",
+ "facts.part": "Osa",
+ "facts.part_of": "{n} osadeks jagatud 7z-failist: see avaneb failist {first}",
  "facts.palette": {
   "one": "{n} värv paletist",
   "other": "{n} värvi paletist"

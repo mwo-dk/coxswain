@@ -942,7 +942,7 @@
  "disk_image.partition": "{n}. partizioa",
  "disk_image.partition_value": "{kind}, {size}, {start}-(e)tik",
  "disk_image.raw": "Disko-irudi gordina",
- "disk_image.read_only": "Irakurtzeko soilik: Coxswainek ez du inoiz idazten disko-irudi, CHM laguntza-fitxategi, CBR komiki, postontzi edo edukiontzi-irudi batean. Kopiatu bere fitxategiak kanpora.",
+ "disk_image.read_only": "Irakurtzeko soilik: Coxswainek ez du inoiz idazten disko-irudi, CHM laguntza-fitxategi, CBR komiki, postontzi, edukiontzi-irudi edo zatitan banatutako 7z batean. Kopiatu bere fitxategiak kanpora.",
  "drag.too_much": "Gehiegi da arrastatzean ateratzeko (200 MB edo 2.000 fitxategi baino gehiago) — F5-ek kanpora kopiatzen du",
  "drag.locked": "Pasahitzarekin blokeatuta — F5-ek kanpora kopiatzen du eta pasahitza eskatzen du",
  "drag.again": "Arrastatzeko kanpora kopiatuta — arrastatu berriro",
@@ -1194,6 +1194,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "beste PUZ bat",
  "facts.pages": "Orriak",
+ "facts.part": "Zatia",
+ "facts.part_of": "Zatitan banatutako 7z baten {n}. zatia: {first} fitxategitik irekitzen da",
  "facts.palette": {
   "one": "paleta bateko kolore {n}",
   "other": "paleta bateko {n} kolore"

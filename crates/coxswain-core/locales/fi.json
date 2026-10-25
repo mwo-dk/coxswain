@@ -942,7 +942,7 @@
  "disk_image.partition": "Osio {n}",
  "disk_image.partition_value": "{kind}, {size}, alkaen {start}",
  "disk_image.raw": "Raaka levykuva",
- "disk_image.read_only": "Vain luku: Coxswain ei koskaan kirjoita levykuvaan, CHM-ohjetiedostoon, CBR-sarjakuvaan, postilaatikkoon tai konttikuvaan. Kopioi sen tiedostot ulos.",
+ "disk_image.read_only": "Vain luku: Coxswain ei koskaan kirjoita levykuvaan, CHM-ohjetiedostoon, CBR-sarjakuvaan, postilaatikkoon, konttikuvaan tai osiin jaettuun 7z-tiedostoon. Kopioi sen tiedostot ulos.",
  "drag.too_much": "Liikaa purettavaksi vetämistä varten (yli 200 Mt tai 2 000 tiedostoa) — F5 kopioi sen ulos",
  "drag.locked": "Lukittu salasanalla — F5 kopioi sen ulos ja kysyy salasanaa",
  "drag.again": "Kopioitu ulos vetämistä varten — vedä uudelleen",
@@ -1194,6 +1194,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "muu suoritin",
  "facts.pages": "Sivut",
+ "facts.part": "Osa",
+ "facts.part_of": "{n}, osiin jaettu 7z: se avataan tiedostosta {first}",
  "facts.palette": {
   "one": "{n} väri paletista",
   "other": "{n} väriä paletista"

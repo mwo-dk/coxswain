@@ -942,7 +942,7 @@
  "disk_image.partition": "Partition {n}",
  "disk_image.partition_value": "{kind}, {size}, från {start}",
  "disk_image.raw": "Rå diskavbild",
- "disk_image.read_only": "Skrivskyddad: Coxswain skriver aldrig i en diskavbild, en CHM-hjälpfil, en CBR-serietidning, en brevlåda eller en containeravbild. Kopiera ut filerna i stället.",
+ "disk_image.read_only": "Skrivskyddad: Coxswain skriver aldrig i en diskavbild, en CHM-hjälpfil, en CBR-serietidning, en brevlåda, en containeravbild eller en 7z delad i delar. Kopiera ut filerna i stället.",
  "drag.too_much": "För mycket att packa upp för en dragning (över 200 MB eller 2 000 filer) — F5 kopierar ut det",
  "drag.locked": "Låst med lösenord — F5 kopierar ut det och frågar efter lösenordet",
  "drag.again": "Utkopierat för dragningen — dra det igen",
@@ -1194,6 +1194,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "annan processor",
  "facts.pages": "Sidor",
+ "facts.part": "Del",
+ "facts.part_of": "{n} av en 7z delad i delar: den öppnas från {first}",
  "facts.palette": {
   "one": "{n} färg från en palett",
   "other": "{n} färger från en palett"
