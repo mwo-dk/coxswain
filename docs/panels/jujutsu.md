@@ -76,6 +76,12 @@ opens your own tool in the repository ([Open in your git tool](git.md#open-in-yo
 the one named in *Settings → Behaviour → Git tool* (a jj tool such as `jjui` can be named there
 as a command, `%d` being the repository), else the first git tool installed, else a terminal.
 
+Coxswain never lets a repository's own config run a program. jj checks no signatures for it
+(the programs that would check them are set to none), and a repository that still keeps its
+config file inside `.jj` (a folder you downloaded, not yet opened by your own jj, which would
+move that file into your config) is not given to jj at all: the line and history come from git
+there, as when jj is not installed.
+
 ## What it needs
 
 The `jj` program on your `PATH`. Without it, a notice says so once, and where the repository
