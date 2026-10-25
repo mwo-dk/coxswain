@@ -61,6 +61,19 @@ struct PlayedLine {
     at: usize,
 }
 
+/// A position on the board, and the squares of the move that led to it.
+type Shown = (Option<String>, Option<(Option<u8>, Option<u8>)>);
+
+/// One of the engine's lines stepped through without playing it (1–5, then ← →): the position
+/// the engine was asked about, the line's place among its lines, its moves, and how many of them
+/// are shown (1 at least). It ends when the game's position changes.
+struct Browse {
+    root: String,
+    k: usize,
+    steps: Vec<Played>,
+    at: usize,
+}
+
 /// The engine asked about a position, on a thread: its position, the answer, and the flag
 /// that stops it.
 struct Thinking {
@@ -109,6 +122,8 @@ pub struct Viewer {
     /// to narrow it, the move chosen).
     played: Option<PlayedLine>,
     picking: Option<(String, usize)>,
+    /// An engine line being stepped through: the board shows it, the engine stays on the game.
+    browse: Option<Browse>,
     /// The engine: asked about each position while `analysis` is on.
     analysis: bool,
     /// The engine (`play::engine_for`), found when the view opens; or why there is none.
@@ -206,6 +221,7 @@ impl Viewer {
             pick: 0,
             played: None,
             picking: None,
+            browse: None,
             analysis: cfg.chess.analysis,
             program: play::engine_for(cfg),
             chess: cfg.chess.clone(),
@@ -285,6 +301,7 @@ impl Viewer {
                     self.said = game.error.as_ref().map(|e| t!("chess.cannot_play", "move" => e));
                     self.open = Some(Open { index, game, layout, at: None });
                     self.played = None;
+                    self.browse = None;
                     self.review = None;
                 }
                 Err(e) => self.said = Some(e.to_string()),
@@ -346,8 +363,46 @@ impl Viewer {
         self.lib.as_ref().is_some_and(|l| l.format == Format::Pdn)
     }
 
-    /// The position on the board, and the squares of the move that led to it.
-    fn now(&self) -> (Option<String>, Option<(Option<u8>, Option<u8>)>) {
+    /// The position on the board, and the squares of the move that led to it: an engine line's
+    /// move while one is stepped through, else the game's (or your line's).
+    fn now(&self) -> Shown {
+        if let Some(b) = self.browsing() {
+            let m = &b.steps[b.at - 1];
+            return (Some(m.fen.clone()), Some((Some(m.from), Some(m.to))));
+        }
+        self.game_now()
+    }
+
+    /// The engine line stepped through, while the game is still at the position it was asked
+    /// about.
+    fn browsing(&self) -> Option<&Browse> {
+        self.browse.as_ref().filter(|b| self.game_now().0.as_deref() == Some(b.root.as_str()))
+    }
+
+    /// The engine's line `k` (from 0) of the game's position, stepped into at its first move.
+    fn browse_line(&mut self, k: usize) {
+        let root = self.game_now().0;
+        let steps = match &self.analysed {
+            Some((f, Ok(a))) if Some(f) == root.as_ref() => a.lines.get(k).map(|l| l.steps.clone()).unwrap_or_default(),
+            _ => vec![],
+        };
+        match root.filter(|_| !steps.is_empty()) {
+            Some(root) => self.browse = Some(Browse { root, k, steps, at: 1 }),
+            None => self.said = Some(t!("chess.engine_no_best")),
+        }
+    }
+
+    /// The engine line stepped through, played into the game up to the move shown, as moves
+    /// played on the board are.
+    fn play_browsed(&mut self) {
+        let Some(b) = self.browse.take().filter(|b| self.game_now().0.as_deref() == Some(b.root.as_str())) else { return };
+        for m in b.steps.into_iter().take(b.at) {
+            self.play(m);
+        }
+    }
+
+    /// The game's position (or your line's), whatever engine line is stepped through.
+    fn game_now(&self) -> Shown {
         if let Some(l) = self.played.as_ref().filter(|l| l.at > 0) {
             let m = &l.moves[l.at - 1];
             return (Some(m.fen.clone()), Some((Some(m.from), Some(m.to))));
@@ -364,7 +419,7 @@ impl Viewer {
 
     /// The squares and arrows the game's comments draw on the position shown ([%csl], [%cal]).
     fn drawn(&self) -> Vec<chess::pgn::Mark> {
-        if self.played.as_ref().is_some_and(|l| l.at > 0) {
+        if self.played.as_ref().is_some_and(|l| l.at > 0) || self.browsing().is_some() {
             return vec![];
         }
         let Some(o) = &self.open else { return vec![] };
@@ -387,7 +442,8 @@ impl Viewer {
             self.analysed = Some((t.fen.clone(), r));
             self.thinking = None;
         }
-        let fen = self.now().0.filter(|_| self.analysis && self.open.is_some());
+        // The game's position: an engine line stepped through leaves the engine on it.
+        let fen = self.game_now().0.filter(|_| self.analysis && self.open.is_some());
         let Some(fen) = fen else {
             if let Some(t) = self.thinking.take() {
                 t.stop.store(true, Ordering::Relaxed);
@@ -420,6 +476,8 @@ impl Viewer {
     /// A move played from the position shown: the game's own next move (or a variation's) is
     /// stepped to; any other starts or goes on with the played line, cut after the move shown.
     fn play(&mut self, m: Played) {
+        // From an engine line stepped through: the line up to there first.
+        self.play_browsed();
         let in_line = self.played.as_ref().is_some_and(|l| l.at > 0);
         if self.book_only && !in_line {
             if let Some(o) = self.open.as_mut() {
@@ -550,6 +608,18 @@ impl Viewer {
     /// The evaluation of the position shown, from White's side: the game's analysis, else the
     /// engine's for this position.
     fn eval_now(&self, r: Option<&Review>, fen: Option<&str>) -> Option<i32> {
+        let cp = |l: &play::EngineLine| match (l.mate, l.cp) {
+            (Some(m), _) if m > 0 => Some(review::CAP + 100 - m.min(99)),
+            (Some(m), _) if m < 0 => Some(-(review::CAP + 100 + m.max(-99))),
+            (_, c) => c,
+        };
+        // An engine line stepped through: its own evaluation.
+        if let Some(b) = self.browsing() {
+            return match &self.analysed {
+                Some((_, Ok(a))) => a.lines.get(b.k).and_then(cp),
+                _ => None,
+            };
+        }
         let in_line = self.played.as_ref().is_some_and(|l| l.at > 0);
         if let (Some(r), Some(o), false) = (r, &self.open, in_line) {
             let v = match o.at {
@@ -561,11 +631,7 @@ impl Viewer {
             }
         }
         match &self.analysed {
-            Some((f, Ok(a))) if Some(f.as_str()) == fen => a.lines.first().and_then(|l| match (l.mate, l.cp) {
-                (Some(m), _) if m > 0 => Some(review::CAP + 100 - m.min(99)),
-                (Some(m), _) if m < 0 => Some(-(review::CAP + 100 + m.max(-99))),
-                (_, c) => c,
-            }),
+            Some((f, Ok(a))) if Some(f.as_str()) == fen => a.lines.first().and_then(cp),
             _ => None,
         }
     }
@@ -775,10 +841,43 @@ impl Viewer {
         if self.found.is_some() {
             return self.found_key(key);
         }
+        // An engine line stepped through: → ← step it, Enter plays it up to the move shown, Esc
+        // (or ← on its first move) goes back to the game. f, n, m and 1–5 keep it; any other
+        // key leaves it and does what it does in the game.
+        if self.browsing().is_some()
+            && let Some(b) = self.browse.as_mut()
+        {
+            match key.code {
+                KeyCode::Right => {
+                    b.at = (b.at + 1).min(b.steps.len());
+                    return Outcome::Stay;
+                }
+                KeyCode::Left if b.at > 1 => {
+                    b.at -= 1;
+                    return Outcome::Stay;
+                }
+                KeyCode::Left | KeyCode::Esc => {
+                    self.browse = None;
+                    return Outcome::Stay;
+                }
+                KeyCode::Enter => {
+                    self.play_browsed();
+                    return Outcome::Stay;
+                }
+                KeyCode::Char('f' | 'n' | 'm' | '1'..='5') => {}
+                _ => self.browse = None,
+            }
+        } else {
+            self.browse = None;
+        }
         // Playing on, the engine, the played line: the same in a game, a position and a book;
         // not on a draughts board.
         match key.code {
             _ if self.other_game() => {}
+            KeyCode::Char(c @ '1'..='5') => {
+                self.browse_line(c as usize - '1' as usize);
+                return Outcome::Stay;
+            }
             KeyCode::Char('m') => {
                 self.picking = Some((String::new(), 0));
                 if self.pick_list("").is_empty() {
@@ -1244,7 +1343,7 @@ impl Viewer {
             for k in 0..values.len().min(n) {
                 // More moves than room: every so many.
                 let (node, v) = values[k * values.len() / values.len().min(n)];
-                let here = self.open.as_ref().is_some_and(|o| o.at == node) && !self.played.as_ref().is_some_and(|l| l.at > 0);
+                let here = self.open.as_ref().is_some_and(|o| o.at == node) && !self.played.as_ref().is_some_and(|l| l.at > 0) && self.browsing().is_none();
                 let bar = BARS[((review::share(v) * 7.99) as usize).min(7)];
                 spans.push(Span::styled(bar, if here { sty(&theme.dialog_input) } else { base }));
             }
@@ -1646,7 +1745,6 @@ impl Viewer {
 
     /// Beside the board: who played, then the moves.
     fn draw_moves(&mut self, f: &mut Frame, theme: &Theme, area: Rect, board_w: u16, book: Vec<BookMove>) {
-        let now = self.now().0;
         let picks = self.picking.as_ref().map(|(text, sel)| (self.pick_list(text), *sel));
         let base = sty(&theme.dialog);
         let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
@@ -1698,9 +1796,7 @@ impl Viewer {
         let book_name = self.book.as_ref().and_then(|b| b.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if self.book_only && picks.is_none() {
             if self.analysis {
-                for l in self.engine_lines(now.as_deref(), &pieces) {
-                    head.push(Line::styled(fit(&l, w), dim));
-                }
+                head.extend(self.engine_lines(&pieces, theme, w));
             }
             head.push(Line::from(""));
             if book.is_empty() {
@@ -1725,9 +1821,7 @@ impl Viewer {
             head.push(Line::styled(fit(&text, w), dim));
         }
         if self.analysis {
-            for l in self.engine_lines(now.as_deref(), &pieces) {
-                head.push(Line::styled(fit(&l, w), dim));
-            }
+            head.extend(self.engine_lines(&pieces, theme, w));
         }
         let review_state = rev.as_ref().map(|r| {
             if let Some(e) = &r.error {
@@ -1846,20 +1940,43 @@ impl Viewer {
         f.render_widget(Paragraph::new(head), right);
     }
 
-    /// What the engine says about the position `fen`, as a line: its name, depth, evaluation,
-    /// best move and line; or that it thinks, or why it cannot.
-    fn engine_lines(&self, fen: Option<&str>, pieces: &[String; 5]) -> Vec<String> {
+    /// What the engine says about the game's position: its name and depth, then its lines,
+    /// numbered for 1–5, each with its evaluation and moves; the line stepped through lit up to
+    /// the move shown, that move as the game's move shown is. Or that it thinks, or why it
+    /// cannot.
+    fn engine_lines(&self, pieces: &[String; 5], theme: &Theme, w: usize) -> Vec<Line<'static>> {
+        let base = sty(&theme.dialog);
+        let dim = faint(theme).bg(base.bg.unwrap_or(Color::Reset));
+        let fen = self.game_now().0;
         match &self.analysed {
-            Some((f, Ok(a))) if Some(f.as_str()) == fen => {
-                let mut out = vec![t!("chess.engine", "name" => a.engine, "depth" => a.depth)];
-                for l in &a.lines {
-                    let moves: Vec<String> = l.moves.iter().map(|s| chess::show_san(s, pieces)).collect();
-                    out.push(format!("{:>6}  {}", l.eval, moves.join(" ")));
+            Some((f, Ok(a))) if Some(f) == fen.as_ref() => {
+                let browse = self.browsing();
+                let mut head = t!("chess.engine", "name" => a.engine, "depth" => a.depth);
+                if !a.lines.is_empty() {
+                    head = format!("{head} · {}", t!("chess.engine_lines_keys"));
+                }
+                let mut out = vec![Line::styled(fit(&head, w), dim)];
+                for (k, l) in a.lines.iter().enumerate() {
+                    let at = browse.filter(|b| b.k == k).map_or(0, |b| b.at);
+                    let mut spans = vec![Span::styled(format!("{} {:>6} ", k + 1, l.eval), if at > 0 { base } else { dim })];
+                    for (i, san) in l.moves.iter().enumerate() {
+                        let style = match (i + 1).cmp(&at) {
+                            std::cmp::Ordering::Less => base,
+                            std::cmp::Ordering::Equal => sty(&theme.dialog_input),
+                            std::cmp::Ordering::Greater => dim,
+                        };
+                        spans.push(Span::styled(" ", dim));
+                        spans.push(Span::styled(chess::show_san(san, pieces), style));
+                    }
+                    out.push(Line::from(spans));
+                }
+                if let Some(b) = browse {
+                    out.push(Line::styled(fit(&t!("chess.engine_browse", "n" => b.k + 1, "at" => b.at, "total" => b.steps.len()), w), dim));
                 }
                 out
             }
-            Some((f, Err(e))) if Some(f.as_str()) == fen => vec![e.clone()],
-            _ => vec![t!("chess.engine_thinking")],
+            Some((f, Err(e))) if Some(f) == fen.as_ref() => vec![Line::styled(fit(e, w), dim)],
+            _ => vec![Line::styled(fit(&t!("chess.engine_thinking"), w), dim)],
         }
     }
 }
@@ -2038,6 +2155,89 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
         assert_eq!(v.open.as_ref().map(|o| o.index), Some(1));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// An engine line stepped through without playing it: 1–5 choose it, → ← step it, the
+    /// engine stays on the game's position, Esc goes back, Enter plays it into your line.
+    #[test]
+    fn an_engine_line_stepped_through() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-chess-lines-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "1.e4 e5 2.Nf3 Nc6 *\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        v.key(key(KeyCode::Right), None);
+        let root = v.now().0.unwrap();
+        // The engine's two lines from 1.e4, as it would give them.
+        let line = |ucis: &[&str]| {
+            let mut f = root.clone();
+            let steps: Vec<Played> = ucis
+                .iter()
+                .map(|u| {
+                    let m = play::play(&f, u).unwrap();
+                    f = m.fen.clone();
+                    m
+                })
+                .collect();
+            play::EngineLine { moves: steps.iter().map(|m| m.san.clone()).collect(), best: steps.first().cloned(), steps, ..Default::default() }
+        };
+        let a = Analysis { lines: vec![line(&["e7e5", "g1f3"]), line(&["c7c5", "g1f3", "d7d6"])], ..Default::default() };
+        v.analysed = Some((root.clone(), Ok(a)));
+        // 2: the second line at its first move; → on, the game and the engine stay at 1.e4.
+        v.key(key(KeyCode::Char('2')), None);
+        assert_eq!(v.now().0.as_deref(), Some(v.analysed.as_ref().unwrap().1.as_ref().unwrap().lines[1].steps[0].fen.as_str()));
+        v.key(key(KeyCode::Right), None);
+        v.key(key(KeyCode::Right), None);
+        v.key(key(KeyCode::Right), None);
+        assert_eq!(v.browsing().map(|b| b.at), Some(3), "→ stops at its last move");
+        assert_eq!(v.game_now().0.as_deref(), Some(root.as_str()));
+        v.poll_engine();
+        assert!(v.thinking.is_none(), "the engine is not asked about the line's positions");
+        let o = v.open.as_ref().unwrap();
+        assert_eq!(o.game.nodes[o.at.unwrap() as usize].san, "e4");
+        // Numbered, the line stepped through lit up to the move shown, and where it is.
+        let lines = v.engine_lines(&chess::pieces(Notation::Letters), &Theme::default(), 100);
+        let text: Vec<String> = lines.iter().map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect()).collect();
+        assert!(text[2].starts_with("2 ") && text[2].ends_with("c5 Nf3 d6"), "{text:?}");
+        assert_eq!(lines[2].spans.last().unwrap().style, sty(&Theme::default().dialog_input), "d6, the move shown");
+        assert_eq!(text.len(), 4, "{text:?}");
+        // ← back a move, ← on its first move back to the game; Esc too.
+        v.key(key(KeyCode::Left), None);
+        assert_eq!(v.browsing().map(|b| b.at), Some(2));
+        v.key(key(KeyCode::Left), None);
+        v.key(key(KeyCode::Left), None);
+        assert!(v.browse.is_none());
+        assert_eq!(v.now().0.as_deref(), Some(root.as_str()));
+        v.key(key(KeyCode::Char('2')), None);
+        v.key(key(KeyCode::Esc), None);
+        assert!(v.browse.is_none() && v.open.is_some(), "Esc leaves the line, not the game");
+        // Enter plays it up to the move shown: c5 is no move of the game, so it is your line.
+        v.key(key(KeyCode::Char('2')), None);
+        v.key(key(KeyCode::Right), None);
+        v.key(key(KeyCode::Enter), None);
+        assert!(v.browse.is_none());
+        assert_eq!(v.played.as_ref().map(|l| l.moves.iter().map(|m| m.san.as_str()).collect::<Vec<_>>()), Some(vec!["c5", "Nf3"]));
+        // The first line is the game's own: played, it steps the game.
+        v.played = None;
+        v.key(key(KeyCode::Char('1')), None);
+        v.key(key(KeyCode::Right), None);
+        v.key(key(KeyCode::Enter), None);
+        let o = v.open.as_ref().unwrap();
+        assert_eq!((o.game.nodes[o.at.unwrap() as usize].san.as_str(), v.played.is_none()), ("Nf3", true));
+        // A line the engine does not have: said, nothing stepped.
+        v.key(key(KeyCode::Char('5')), None);
+        assert!(v.browse.is_none() && v.said.is_some());
         std::fs::remove_dir_all(&d).unwrap();
     }
 

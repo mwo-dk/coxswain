@@ -11,7 +11,7 @@
   // text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, basename } from "./lib.js";
+  import { invoke, basename, keysToBoard } from "./lib.js";
   import { t } from "./i18n.svelte.js";
 
   let { path, full = false } = $props();
@@ -215,7 +215,8 @@
   {#if error}<p class="note">{error}</p>{/if}
 
   {#if game && pos}
-    <div class="game">
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+    <div class="game" onclick={(e) => keysToBoard(e.target, e.detail) && boardEl?.focus()}>
       <div class="side">
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
         <svg class="board chess-keys" viewBox="-1.5 -1.5 {pos.width + 2} {pos.height + 2}" tabindex="0" role="img" aria-label={t("go.board")} bind:this={boardEl} onkeydown={onBoardKey}>

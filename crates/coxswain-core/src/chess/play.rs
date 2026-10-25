@@ -200,6 +200,9 @@ pub struct EngineLine {
     /// Its first move, and the line in English SAN, played from the position.
     pub best: Option<Played>,
     pub moves: Vec<String>,
+    /// Its moves as played, each with the position after it: what stepping through the line
+    /// shows on the board without playing it into the game.
+    pub steps: Vec<Played>,
 }
 
 /// The most lines asked for (`[chess] engine_lines`).
@@ -901,6 +904,7 @@ impl Engine {
                             let Some(p) = play(&f, m) else { break };
                             f = p.fen.clone();
                             line.moves.push(p.san.clone());
+                            line.steps.push(p.clone());
                             line.best.get_or_insert(p);
                         }
                         // A mated position has no move, but its score still counts.
@@ -1000,6 +1004,9 @@ mod tests {
         assert_eq!((one.cp, one.eval.as_str()), (Some(-30), "−0.30"));
         assert_eq!(one.best.as_ref().unwrap().san, "e5");
         assert_eq!(one.moves, ["e5", "Nf3", "Nc6"]);
+        // Each move with the position after it, to step through without playing it.
+        assert_eq!(one.steps.iter().map(|p| p.san.as_str()).collect::<Vec<_>>(), one.moves);
+        assert_eq!(one.steps[2].fen, "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3");
         // Black to move and mating: plus for Black is minus from White's side.
         assert_eq!((two.mate, two.eval.as_str(), two.moves[0].as_str()), (Some(4), "#4", "c5"));
         assert!(analyse(&Program::Installed(p.clone()), &single, fen, &|| true).is_err());

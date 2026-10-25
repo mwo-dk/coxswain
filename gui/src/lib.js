@@ -407,6 +407,26 @@ export function keyOwner(el, k) {
   return k === "Esc" ? "panels" : "view";
 }
 
+/** A click in a game's view (chess, Go, draughts, shogi, xiangqi, bridge) that gives the keys
+ *  back to its board: one with the mouse (`detail` > 0) on a button there (Engine, Analyse game,
+ *  Flip, a move …). A button clicked kept the focus, and ← → ↑ ↓ no longer stepped the game.
+ *  Enter or Space on a button (`detail` 0) leaves the focus on it, so Tab goes on from there. */
+export function keysToBoard(target, detail) {
+  return detail > 0 && !!target?.closest?.("button");
+}
+
+/** A key on the chess board while one of the engine's lines is stepped through (`b`: { k, steps,
+ *  at }, `at` moves of `steps` shown): → ← step it, ← on its first move or Esc go back to the
+ *  game (null), Enter plays it up to the move shown ("play"). f, n and 1–5 keep it and are
+ *  the board's; any other key ends it and is the board's too. (`chess.rs`'s `game_key`.) */
+export function browseKey(b, key) {
+  if (key === "ArrowRight") return { browse: { ...b, at: Math.min(b.at + 1, b.steps.length) }, used: true };
+  if (key === "ArrowLeft" && b.at > 1) return { browse: { ...b, at: b.at - 1 }, used: true };
+  if (key === "ArrowLeft" || key === "Escape") return { browse: null, used: true };
+  if (key === "Enter") return { browse: b, used: "play" };
+  return { browse: ["f", "n", "1", "2", "3", "4", "5"].includes(key) ? b : null, used: false };
+}
+
 /** A games file by its name: "pgn" (also packed, a SCID database's .si4 or .si5 and a ChessBase database's .cbh), "epd" (EPD and FEN), "sgf" (Go), "pdn"
  *  (draughts), "shogi" (KIF, CSA), "pbn" (bridge), or ""
  *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
