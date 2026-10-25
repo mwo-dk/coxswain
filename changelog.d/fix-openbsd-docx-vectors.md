@@ -1,0 +1,1 @@
+| **A long Word or OpenDocument text kept whole (*Everything*) gets a passage for every part of it with a slow model too.** The time the model took counted as reading time, so after 20 seconds the rest of the file was left without passages. | [Long files](search/long-files.md#what-each-keeps) |

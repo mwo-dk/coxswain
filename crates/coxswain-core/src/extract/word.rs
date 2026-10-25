@@ -164,6 +164,7 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
         // gives what it gave until then. Else held until the part is whole.
         let direct = whole && name != "styles.xml";
         let mut text = super::Text::new();
+        text.waited = out.waited;
         let onto = if direct { &mut *out } else { &mut text };
         let Some(read) = stream(&mut zip, name, room, |xml| match format {
             Some(format) => read(xml, format, onto, &mut styles),
@@ -310,7 +311,9 @@ fn read(xml: impl std::io::BufRead, format: &Format, out: &mut super::Text, styl
         work += 1;
         if work >= check {
             check = work + (1 << 16);
-            if styles.until.is_some_and(|u| std::time::Instant::now() >= u) {
+            // The time the text's sink took is not reading: the model working on the passages
+            // of a document kept whole would cut it off at `TIME`.
+            if styles.until.is_some_and(|u| std::time::Instant::now() >= u + out.waited) {
                 break;
             }
         }
@@ -1079,6 +1082,28 @@ mod tests {
         let began = std::time::Instant::now();
         read(xml.as_bytes(), &WORD, &mut crate::extract::Text::new(), &mut styles);
         assert!(began.elapsed() < std::time::Duration::from_secs(10), "{:?}", began.elapsed());
+    }
+
+    /// A document kept whole goes to a model a batch of passages at a time as it is read: the
+    /// time the model takes is not reading, so a slow one gets the whole document, not what
+    /// was read within `TIME`.
+    #[test]
+    fn the_time_a_sink_takes_is_not_reading_time() {
+        let n = 50_000;
+        let xml: String = (0..n).map(|i| format!("<w:p><w:r><w:t>Report {i} of the mission control room</w:t></w:r></w:p>")).collect();
+        let mut styles = Styles {
+            until: Some(std::time::Instant::now() + std::time::Duration::from_millis(500)),
+            ..Styles::default()
+        };
+        let mut lines = 0;
+        let mut sink = |chunk: &str| {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            lines += chunk.lines().filter(|l| l.starts_with("Report")).count();
+        };
+        let mut out = crate::extract::Text::to(&mut sink);
+        read(xml.as_bytes(), &WORD, &mut out, &mut styles);
+        out.end();
+        assert_eq!(lines, n);
     }
 
     #[test]
