@@ -81,11 +81,21 @@ go to the model 64 at a time. Its passages are kept in `search.db` with their ve
 each section starts.
 
 A file kept whole that cannot be read to its end keeps the vectors it had: a part of it never
-takes the place of all of it. A Word or OpenDocument text, book or web page is read for at most
-20 seconds, the time the model takes on its passages not counted; one that needs longer, or
-whose reader stops at a fault, is noted among the store's [latest
+takes the place of all of it. One whose reader stops at a fault is noted among the store's [latest
 errors](../previews/data.md#coxswains-own-index-and-store) as *could not be read to its end* and
-is not tried again until it changes. One that is not there when it is looked at (a disk
+is not tried again until it changes.
+
+A Word or OpenDocument text, book or web page is read for at most 20 seconds, the time the model
+takes on its passages not counted. One that needs longer:
+
+- **with no vectors yet** gets those of the part read in that time, rather than none, and is
+  noted among the latest errors as *read only in part: its reader's time ran out*. The next day
+  (at the first scan 24 hours later) it is read once more; out of time again, it keeps the larger
+  of the two parts and is not read again until it changes;
+- **with the vectors of all of it** from before keeps them, and is not read again until it
+  changes.
+
+Search by meaning finds such a file by its part read, as it finds any other. One that is not there when it is looked at (a disk
 unplugged) is tried again at the next scan. A file that changes or goes while it is read gets
 nothing of what was read: it is read again as it is now.
 

@@ -2125,7 +2125,7 @@ mod tests {
             let p = d.join(name);
             let text = text_of(&p, std::fs::metadata(&p).unwrap().len(), u64::MAX).unwrap();
             let mut lines = vec![];
-            crate::extract::whole_lines(&p, &mut |l| lines.push(l.to_string())).unwrap();
+            assert!(crate::extract::whole_lines(&p, &mut |l| lines.push(l.to_string())).unwrap());
             let whole = lines.join("\n");
             assert!(text.len() <= MAX_TEXT && whole.len() > MAX_TEXT, "{name}: {} {}", text.len(), whole.len());
             assert!(whole.starts_with(&text[..text.len() - 200]), "{name}: the same start");

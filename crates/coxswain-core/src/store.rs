@@ -279,7 +279,8 @@ impl Store {
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
         // they have, 0 when the server refused the file (tried again at the next scan), 2 when
         // a file kept whole could not be read to its end as it is (tried again when it changes;
-        // 2.34, an older version leaves it be).
+        // 2.34, an older version leaves it be), 3 when such a file has the vectors of the part
+        // read before its reader's time ran out, and is read once more a day later (`partial`).
         if db.prepare("SELECT embedded FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN embedded INTEGER")?;
         }
@@ -318,6 +319,12 @@ impl Store {
         // it unchanged since the one before, so it counts as quiet while that date stays.
         if db.prepare("SELECT settled FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN settled INTEGER")?;
+        }
+        // Vectors of a part came later (2.34): `partial` is when a file kept whole whose reader
+        // ran out of time was given the vectors of the part it read; NULL when its vectors are
+        // of all of it.
+        if db.prepare("SELECT partial FROM files LIMIT 0").is_err() {
+            db.execute_batch("ALTER TABLE files ADD COLUMN partial INTEGER")?;
         }
         // The files still to get their vectors, newest first, without a look at the rest.
         db.execute_batch("CREATE INDEX IF NOT EXISTS files_unembedded ON files(modified) WHERE has_text = 1 AND embedded IS NULL")?;
@@ -1071,7 +1078,7 @@ impl Store {
             }
             tx.prepare_cached(
                 "INSERT INTO files(path, size, modified, has_text, cloud) VALUES (?1, ?2, ?3, NULL, ?4)
-                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, cloud = excluded.cloud, settled = NULL",
+                 ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, partial = NULL, cloud = excluded.cloud, settled = NULL",
             )?
             .execute(params![path, *size as i64, modified, cloud.then_some(1)])?;
         }
@@ -1094,7 +1101,7 @@ impl Store {
                 }
                 tx.prepare_cached(
                     "INSERT INTO files(path, size, modified, has_text, inside) VALUES (?1, ?2, ?3, NULL, 1)
-                     ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, inside = 1",
+                     ON CONFLICT(path) DO UPDATE SET size = excluded.size, modified = excluded.modified, has_text = NULL, embedded = NULL, partial = NULL, inside = 1",
                 )?
                 .execute(params![path, *size as i64, *modified as i64])?;
             }
@@ -1450,6 +1457,16 @@ impl Store {
             .map(drop)
     }
 
+    /// The files whose vectors are tried again at a scan at `now`: those the server refused,
+    /// and those given the vectors of a part a day before (`PART_AGAIN`).
+    fn again(&self, now: u64) -> rusqlite::Result<()> {
+        self.db.lock().unwrap().execute(
+            "UPDATE files SET embedded = NULL WHERE embedded = 0 OR (embedded = 3 AND partial <= ?1)",
+            [now.saturating_sub(PART_AGAIN) as i64],
+        )?;
+        Ok(())
+    }
+
     /// Hashes of files that are gone or changed, wherever they are, go.
     fn prune_hashes(&self) -> rusqlite::Result<()> {
         let rows: Vec<(String, u64, u64)> = {
@@ -1654,7 +1671,7 @@ impl Store {
                 params![file, n as i64, v, p.map(|p| p.text.as_str()), p.map(|p| p.heading.as_str()), starts.and_then(|s| s.get(n))],
             )?;
         }
-        tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [file])?;
+        tx.execute("UPDATE files SET embedded = 1, partial = NULL WHERE id = ?1", [file])?;
         self.commit_signs(
             || tx.commit(),
             SignsChange::Put(file, vectors.to_vec(), had),
@@ -2744,13 +2761,10 @@ fn scan_for(
     store.prune_hashes()?;
     store.drop_staged()?;
     // Files the server refused last time get one more try per scan; one it refuses for good
-    // costs one quick answer every ten minutes, and never holds up the rest.
+    // costs one quick answer every ten minutes, and never holds up the rest. One given the
+    // vectors of a part (its reader's time ran out) is read once more a day later.
     if store.engine().is_some() {
-        store
-            .db
-            .lock()
-            .unwrap()
-            .execute("UPDATE files SET embedded = NULL WHERE embedded = 0", [])?;
+        store.again(now())?;
     }
     backlog(store, stop, slice)
 }
@@ -2836,11 +2850,17 @@ fn whole_passages(path: &str, body: &str) -> Option<Vec<crate::meaning::Passage>
 /// Each line of the whole text of the file at `path`, as `whole_passages` reads it, to `f`.
 /// `false` when it cannot be read now.
 fn whole_lines(path: &str, f: &mut dyn FnMut(&str)) -> bool {
+    whole_read(path, f) == Some(true)
+}
+
+/// `whole_lines`, saying how far it got: `Some(true)` to the end, `Some(false)` when the
+/// reader's time ran out part way, `None` when the file cannot be read now.
+fn whole_read(path: &str, f: &mut dyn FnMut(&str)) -> Option<bool> {
     let p = Path::new(path);
     if crate::extract::whole_document(p) {
-        crate::extract::whole_lines(p, f).is_some()
+        crate::extract::whole_lines(p, f)
     } else {
-        crate::extract::plain::each_line(p, crate::code::is_code(path), f).is_some()
+        crate::extract::plain::each_line(p, crate::code::is_code(path), f).map(|()| true)
     }
 }
 
@@ -2864,7 +2884,13 @@ enum Streamed {
     Unread,
     /// The file changed or went while it was read: its vectors wait for it as it is now.
     Moved,
+    /// The reader's time ran out: the file has the vectors of the part read, this many
+    /// passages, or kept the vectors it had (0).
+    Part(usize),
 }
+
+/// How long a file given the vectors of a part waits before it is read once more.
+const PART_AGAIN: u64 = 24 * 3600;
 
 /// Passages that go to the model at a time, for a file kept whole.
 const STREAM_BATCH: usize = 64;
@@ -2878,29 +2904,49 @@ const STREAM_BATCH: usize = 64;
 /// again until it changes (`embedded` 2), for a reader that gives up gives up again; one that
 /// is not there now (a disk unplugged) or is left in the cloud is tried at the next scan. Changed or gone while it
 /// was read, nothing is written: what was read is no longer the file.
+///
+/// A reader whose time runs out (`lines` gives `Some(false)`) is not a reader that gave up:
+/// a file with no vectors gets those of the part read, rather than none, marked `partial`
+/// (`embedded` 3), and is read once more a day later (`PART_AGAIN`, at a scan). Out of time
+/// again, it keeps the larger of the two parts and waits until it changes (2). A file whose
+/// vectors are of all of it keeps them (2).
 fn embed_streamed(
     store: &Store,
     engine: &crate::meaning::Engine,
     id: i64,
     path: &str,
-    lines: &mut dyn FnMut(&mut dyn FnMut(&str)) -> bool,
+    lines: &mut dyn FnMut(&mut dyn FnMut(&str)) -> Option<bool>,
     stop: &AtomicBool,
 ) -> rusqlite::Result<Streamed> {
     // Rows left under `-id` by a stream cut off go when the file streams again, or with the
     // file (`apply`, `drop_staged`).
     let staged = -id;
     // The file as it was when it was read: written only while it still is.
-    let row: (i64, i64) = {
+    // With the vectors it has: how many, and whether they are of a part (`partial`).
+    let (row, had, partial): ((i64, i64), usize, bool) = {
         let db = store.db.lock().unwrap();
         db.execute("DELETE FROM chunks WHERE file = ?1", [staged])?;
-        match db.query_row("SELECT size, modified FROM files WHERE id = ?1 AND path = ?2", params![id, path], |r| Ok((r.get(0)?, r.get(1)?))) {
+        let (size, modified, partial) = match db.query_row("SELECT size, modified, partial IS NOT NULL FROM files WHERE id = ?1 AND path = ?2", params![id, path], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))) {
             Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(Streamed::Moved),
             row => row?,
+        };
+        let had: i64 = db.query_row("SELECT count(*) FROM chunks WHERE file = ?1", [id], |r| r.get(0))?;
+        ((size, modified), had as usize, partial)
+    };
+    // Out of time, the part read is kept unless the file has the vectors of all of it.
+    let keep_part = had == 0 || partial;
+    let mut late = false;
+    let mut lines = |f: &mut dyn FnMut(&str)| match lines(f) {
+        Some(true) => true,
+        Some(false) => {
+            late = true;
+            false
         }
+        None => false,
     };
     let (mut batch, mut packed) = (Vec::with_capacity(STREAM_BATCH), vec![]);
     let mut halt: Option<rusqlite::Result<Streamed>> = None;
-    let read = crate::meaning::every_passage_streamed(path, lines, &mut |p, starts| {
+    let read = crate::meaning::every_passage_streamed(path, &mut lines, &mut |p, starts| {
         batch.push((p, starts));
         if batch.len() < STREAM_BATCH {
             return true;
@@ -2915,25 +2961,54 @@ fn embed_streamed(
     });
     let mut end = match halt {
         Some(h) => h?,
-        None if read.is_none() => Streamed::Unread,
+        None if read.is_none() && !(late && keep_part) => Streamed::Unread,
         None => match put_batch(store, engine, staged, path, &mut batch, &mut packed, stop)? {
             Some(h) => h,
+            None if late => Streamed::Part(packed.len()),
             None => Streamed::Done(packed.len()),
         },
     };
+    if late && !keep_part && matches!(end, Streamed::Unread) {
+        end = Streamed::Part(0);
+    }
     // Looked at, not opened: opening a file left in the cloud may bring it down.
     let there = matches!(end, Streamed::Unread) && std::fs::metadata(path).is_ok() && !crate::cloud::keep_out(Path::new(path));
     let mut db = store.db.lock().unwrap();
     let tx = db.transaction()?;
     let same = "WHERE id = ?2 AND path = ?3 AND size = ?4 AND modified = ?5";
-    let set = |embedded: i64| tx.execute(&format!("UPDATE files SET embedded = ?1 {same}"), params![embedded, id, path, row.0, row.1]);
+    // `embedded`, and `partial` as it is (`None`), cleared (0) or now.
+    let set = |embedded: i64, part: Option<u64>| match part {
+        None => tx.execute(&format!("UPDATE files SET embedded = ?1 {same}"), params![embedded, id, path, row.0, row.1]),
+        Some(at) => tx.execute(
+            &format!("UPDATE files SET embedded = ?1, partial = ?6 {same}"),
+            params![embedded, id, path, row.0, row.1, (at > 0).then_some(at as i64)],
+        ),
+    };
     let done = match end {
-        Streamed::Done(_) => set(1)? == 1,
+        Streamed::Done(_) => set(1, Some(0))? == 1,
         Streamed::Unread => {
-            if set(if there { 2 } else { 0 })? == 0 {
+            if set(if there { 2 } else { 0 }, None)? == 0 {
                 end = Streamed::Moved;
             }
             false
+        }
+        // The first part read: kept, and read once more a day later.
+        Streamed::Part(n) if had == 0 => {
+            let changed = set(3, Some(now()))? == 0;
+            if changed {
+                end = Streamed::Moved;
+            }
+            !changed && n > 0
+        }
+        // A second part, or the vectors of all of it: the larger kept, until it changes.
+        Streamed::Part(n) => {
+            let changed = set(2, None)? == 0;
+            if changed {
+                end = Streamed::Moved;
+            } else if n <= had {
+                end = Streamed::Part(0);
+            }
+            !changed && n > had
         }
         _ => false,
     };
@@ -3141,7 +3216,7 @@ fn embed_round(
         while let Some(f) = next.take() {
             if f.streamed {
                 if group.is_empty() {
-                    match embed_streamed(store, engine, f.id, &f.path, &mut |l| whole_lines(&f.path, l), stop)? {
+                    match embed_streamed(store, engine, f.id, &f.path, &mut |l| whole_read(&f.path, l), stop)? {
                         Streamed::Done(n) => count += n,
                         Streamed::Stopped => return Ok(Some(false)),
                         Streamed::Failed(NoVectors::Down(e)) => {
@@ -3157,6 +3232,10 @@ fn embed_round(
                         Streamed::Unread => store.note_error(Some(&f.path), "could not be read to its end"),
                         // Read again as it is now, and then given its vectors.
                         Streamed::Moved => {}
+                        Streamed::Part(n) => {
+                            count += n;
+                            store.note_error(Some(&f.path), "read only in part: its reader's time ran out");
+                        }
                     }
                     *store.meaning_error.lock().unwrap() = None;
                     next = rx.recv().ok();
@@ -6061,24 +6140,32 @@ mod tests {
         let line = |i: usize| format!("line {i} of the engine log, pressure nominal and valves closed");
         let mut gives_up = |f: &mut dyn FnMut(&str)| {
             (0..5000).for_each(|i| f(&line(i)));
-            false
+            None
         };
         let end = embed_streamed(&store, &engine, id, path, &mut gives_up, &AtomicBool::new(false)).unwrap();
         assert!(matches!(end, Streamed::Unread));
         assert_eq!((rows(id), rows(-id), embedded()), (3, 0, Some(2)), "the vectors before stay, the part read goes, not tried again as it is");
         // The next scan leaves it be; a change of the file brings it back (`apply`).
-        store.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE embedded = 0", []).unwrap();
+        store.again(now() + 2 * PART_AGAIN).unwrap();
         assert_eq!(embedded(), Some(2));
         again();
         let mut whole = |f: &mut dyn FnMut(&str)| {
             (0..5000).for_each(|i| f(&line(i)));
-            true
+            Some(true)
         };
         let Streamed::Done(n) = embed_streamed(&store, &engine, id, path, &mut whole, &AtomicBool::new(false)).unwrap() else {
             panic!("read to its end")
         };
         assert!(n > 64, "{n}");
         assert_eq!((rows(id), rows(-id), embedded()), (n as i64, 0, Some(1)));
+        // Out of time, it keeps the vectors of all of it it has.
+        again();
+        let mut late = |f: &mut dyn FnMut(&str)| {
+            (0..1000).for_each(|i| f(&line(i)));
+            Some(false)
+        };
+        assert!(matches!(embed_streamed(&store, &engine, id, path, &mut late, &AtomicBool::new(false)).unwrap(), Streamed::Part(0)));
+        assert_eq!((rows(id), rows(-id), embedded()), (n as i64, 0, Some(2)));
         // One that cannot be opened now is tried at the next scan.
         std::fs::remove_file(&file).unwrap();
         again();
@@ -6097,12 +6184,79 @@ mod tests {
                 .unwrap();
                 drop(db);
                 (2500..5000).for_each(|i| f(&line(i)));
-                true
+                Some(true)
             };
             let end = embed_streamed(&store, &engine, id, path, &mut moves, &AtomicBool::new(false)).unwrap();
             assert!(matches!(end, Streamed::Moved), "gone: {gone}");
             assert_eq!((rows(id), rows(-id)), (n as i64, 0), "gone: {gone}");
         }
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file kept whole whose reader runs out of its time, with no vectors yet, gets those of
+    /// the part read, marked partial, rather than none; a day later it is read once more, and
+    /// out of time again it keeps the larger part and waits until it changes. Read to its end,
+    /// its vectors are of all of it.
+    #[test]
+    fn a_file_kept_whole_out_of_time_keeps_the_part_read_and_is_read_again_a_day_later() {
+        let d = std::env::temp_dir().join(format!("coxswain-streamed-part-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let cfg = SearchConfig {
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        let engine = store.engine().unwrap();
+        let id = 9i64;
+        let file = d.join("long.epub");
+        std::fs::write(&file, "on the disk").unwrap();
+        let path = file.to_str().unwrap();
+        store.db.lock().unwrap().execute("INSERT INTO files(id, path, size, modified, has_text) VALUES (?1, ?2, 1, 0, 1)", params![id, path]).unwrap();
+        let rows = |file: i64| -> i64 { store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks WHERE file = ?1", [file], |r| r.get(0)).unwrap() };
+        let state = || -> (Option<i64>, bool) {
+            store.db.lock().unwrap().query_row("SELECT embedded, partial IS NOT NULL FROM files WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+        };
+        let line = |i: usize| format!("chapter {i}: the crew checks the valves and the pressure holds");
+        let late = |lines: usize| {
+            move |f: &mut dyn FnMut(&str)| {
+                (0..lines).for_each(|i| f(&line(i)));
+                Some(false)
+            }
+        };
+        let embed = |reader: &mut dyn FnMut(&mut dyn FnMut(&str)) -> Option<bool>| embed_streamed(&store, &engine, id, path, reader, &AtomicBool::new(false)).unwrap();
+        let Streamed::Part(first) = embed(&mut late(3000)) else { panic!("a part") };
+        assert!(first > 64, "{first}");
+        assert_eq!((rows(id), rows(-id), state()), (first as i64, 0, (Some(3), true)));
+        // Not before a day has gone by.
+        store.again(now()).unwrap();
+        assert_eq!(state(), (Some(3), true));
+        store.again(now() + PART_AGAIN + 60).unwrap();
+        assert_eq!(state(), (None, true));
+        // Out of time again, further: the larger part, and no more tries until it changes.
+        let Streamed::Part(second) = embed(&mut late(6000)) else { panic!("a part") };
+        assert!(second > first, "{second} {first}");
+        assert_eq!((rows(id), rows(-id), state()), (second as i64, 0, (Some(2), true)));
+        store.again(now() + 3 * PART_AGAIN).unwrap();
+        assert_eq!(state(), (Some(2), true));
+        // A shorter part does not take the place of a longer one.
+        store.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id]).unwrap();
+        assert!(matches!(embed(&mut late(1000)), Streamed::Part(0)));
+        assert_eq!((rows(id), rows(-id), state()), (second as i64, 0, (Some(2), true)));
+        // Read to its end: all of it, no longer partial.
+        store.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id]).unwrap();
+        let mut whole = |f: &mut dyn FnMut(&str)| {
+            (0..6000).for_each(|i| f(&line(i)));
+            Some(true)
+        };
+        let Streamed::Done(all) = embed(&mut whole) else { panic!("read to its end") };
+        assert!(all >= second);
+        assert_eq!((rows(id), rows(-id), state()), (all as i64, 0, (Some(1), false)));
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

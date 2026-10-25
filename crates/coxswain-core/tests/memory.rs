@@ -1057,8 +1057,7 @@ fn memory_case() {
                     n += l.len();
                     lines += 1;
                     f(l)
-                })
-                .is_some()
+                }) == Some(true)
             });
             format!(
                 "{:.0} MB of text read twice, {} passages",

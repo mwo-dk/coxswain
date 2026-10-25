@@ -176,9 +176,10 @@ const WHOLE_ROOM: u64 = 4 << 30;
 
 /// Each line of the whole text of such a document (`whole_document`), tidied as `text_of`
 /// tidies it, to `f` as it is read: not cut at `MAX_TEXT`, and never held whole. The same lines
-/// as `text_of` gives, for a document with less text than that. `None` when the file cannot
-/// be read, or a reader gave up (its time ran out: `Text::late`).
-pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
+/// as `text_of` gives, for a document with less text than that. `Some(true)` when it was read
+/// to its end, `Some(false)` when its reader's time ran out part way (`Text::late`: the lines
+/// given are its start), `None` when the file cannot be read or a reader gave up.
+pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<bool> {
     if !whole_document(path) || crate::cloud::keep_out(path) {
         return None;
     }
@@ -206,7 +207,7 @@ pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
     }))
     .ok()
     .flatten()
-    .filter(|_| !out.late);
+    .map(|()| !out.late);
     out.end();
     read
 }
@@ -852,7 +853,7 @@ pub(crate) mod tests {
                 let p = write(name, n);
                 let text = text_of(&p, std::fs::metadata(&p).unwrap().len(), u64::MAX).unwrap();
                 let mut lines = vec![];
-                whole_lines(&p, &mut |l| lines.push(l.to_string())).unwrap();
+                assert!(whole_lines(&p, &mut |l| lines.push(l.to_string())).unwrap());
                 let whole = lines.join("\n");
                 if n == 3 {
                     assert_eq!(whole, text, "{name}: less than is kept, the same text");
