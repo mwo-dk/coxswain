@@ -531,8 +531,13 @@
  "chess.engine_missing": "Shakkimoottoria ei löytynyt: asenna Stockfish (stockfishchess.org) tai anna UCI-moottori kohdassa Asetukset → Esikatselut → Shakkimoottori",
  "chess.engine_missing_install": "Shakkimoottoria ei löytynyt: asenna Stockfish ({command}) tai anna UCI-moottori kohdassa Asetukset → Esikatselut → Shakkimoottori",
  "chess.engine_no_best": "Moottorilla ei ole vielä siirtoa tälle asemalle: a kytkee sen päälle",
+ "chess.engine_only_lines": {
+  "one": "Moottorilla on tässä vain {n} muunnelma",
+  "other": "Moottorilla on tässä vain {n} muunnelmaa"
+ },
  "chess.engine_or_image": "Tai lataa Coxswainin Stockfish-levykuva: Asetukset → Esikatselut → Konttikuvat. Se toimii silloin kontissa ilman verkkoa.",
- "chess.engine_lines_keys": "1–5 käy muunnelma läpi",
+ "chess.engine_line_key": "1 käy muunnelma läpi",
+ "chess.engine_lines_keys": "1–{n} käy muunnelma läpi",
  "chess.engine_browse": "Muunnelma {n}, siirto {at}/{total} · ← → askel · Enter pelaa sen tähän asti · Esc takaisin peliin",
  "chess.engine_line_tip": "Näytä muunnelma {n} laudalla tähän siirtoon asti pelaamatta sitä ({n}, sitten ← →)",
  "chess.engine_browse_play": "Pelaa tämä muunnelma",

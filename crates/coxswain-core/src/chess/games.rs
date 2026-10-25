@@ -356,10 +356,20 @@ fn pack(path: &Path) -> Pack {
     }
 }
 
+/// Whether a file of this name may be a DhtmlXQ game: no ending, `.che`, `.txt`, `.dhtmlxq`, or
+/// an "ending" that is no file type's but part of the name (`001-1.古谱的启示`): not 1 to 8
+/// ASCII letters and digits.
+pub fn dhtml_name(name: &str) -> bool {
+    match name.rsplit_once('.') {
+        None | Some(("", _)) => true,
+        Some((_, e)) => ["che", "txt", "dhtmlxq"].iter().any(|x| e.eq_ignore_ascii_case(x)) || !(1..=8).contains(&e.len()) || !e.bytes().all(|b| b.is_ascii_alphanumeric()),
+    }
+}
+
 /// Whether the file at `path` is a DhtmlXQ game, by its first bytes: only a name such files
-/// have (no ending, `.che`, `.txt`, `.dhtmlxq`), and never one only in the cloud.
+/// may have (`dhtml_name`), and never one only in the cloud.
 pub(crate) fn is_dhtml(path: &Path) -> bool {
-    let named = path.extension().is_none_or(|e| ["che", "txt", "dhtmlxq"].iter().any(|x| e.eq_ignore_ascii_case(x)));
+    let named = path.file_name().is_some_and(|n| dhtml_name(&n.to_string_lossy()));
     if !named || crate::cloud::unasked(path) {
         return false;
     }

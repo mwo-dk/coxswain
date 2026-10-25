@@ -569,8 +569,15 @@
  "chess.engine_missing": "Nie znaleziono silnika szachowego: zainstaluj Stockfish (stockfishchess.org) lub podaj silnik UCI w Ustawienia → Podglądy → Silnik szachowy",
  "chess.engine_missing_install": "Nie znaleziono silnika szachowego: zainstaluj Stockfish ({command}) lub podaj silnik UCI w Ustawienia → Podglądy → Silnik szachowy",
  "chess.engine_no_best": "Silnik nie ma jeszcze ruchu dla tej pozycji: a go włącza",
+ "chess.engine_only_lines": {
+  "one": "Silnik ma tu tylko {n} linię",
+  "few": "Silnik ma tu tylko {n} linie",
+  "many": "Silnik ma tu tylko {n} linii",
+  "other": "Silnik ma tu tylko {n} linii"
+ },
  "chess.engine_or_image": "Albo pobierz obraz Stockfish od Coxswaina w Ustawienia → Podglądy → Obrazy kontenerów: wtedy działa w kontenerze, bez sieci.",
- "chess.engine_lines_keys": "1–5 przejdź przez linię",
+ "chess.engine_line_key": "1 przejdź przez linię",
+ "chess.engine_lines_keys": "1–{n} przejdź przez linię",
  "chess.engine_browse": "Linia {n}, ruch {at} z {total} · ← → krok · Enter rozgrywa ją dotąd · Esc powrót do partii",
  "chess.engine_line_tip": "Pokaż linię {n} na szachownicy do tego ruchu, bez rozgrywania jej ({n}, potem ← →)",
  "chess.engine_browse_play": "Rozegraj tę linię",

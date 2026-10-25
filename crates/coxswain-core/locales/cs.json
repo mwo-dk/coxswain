@@ -550,8 +550,14 @@
  "chess.engine_missing": "Šachový engine nenalezen: nainstalujte Stockfish (stockfishchess.org) nebo zadejte engine UCI v Nastavení → Náhledy → Šachový engine",
  "chess.engine_missing_install": "Šachový engine nenalezen: nainstalujte Stockfish ({command}) nebo zadejte engine UCI v Nastavení → Náhledy → Šachový engine",
  "chess.engine_no_best": "Engine zatím pro tuto pozici nemá tah: a ho zapne",
+ "chess.engine_only_lines": {
+  "one": "Motor tu má jen {n} variantu",
+  "few": "Motor tu má jen {n} varianty",
+  "other": "Motor tu má jen {n} variant"
+ },
  "chess.engine_or_image": "Nebo stáhněte obraz Stockfish od Coxswainu v Nastavení → Náhledy → Obrazy kontejnerů: pak běží v kontejneru bez sítě.",
- "chess.engine_lines_keys": "1–5 projít variantu",
+ "chess.engine_line_key": "1 projít variantu",
+ "chess.engine_lines_keys": "1–{n} projít variantu",
  "chess.engine_browse": "Varianta {n}, tah {at} z {total} · ← → krok · Enter ji zahraje sem · Esc zpět k partii",
  "chess.engine_line_tip": "Ukázat variantu {n} na šachovnici až po tento tah, bez zahrání ({n}, pak ← →)",
  "chess.engine_browse_play": "Zahrát tuto variantu",

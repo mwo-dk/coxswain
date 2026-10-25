@@ -531,8 +531,13 @@
  "chess.engine_missing": "საჭადრაკო ძრავა ვერ მოიძებნა: დააყენეთ Stockfish (stockfishchess.org) ან მიუთითეთ UCI ძრავა განყოფილებაში პარამეტრები → გადახედვები → საჭადრაკო ძრავა",
  "chess.engine_missing_install": "საჭადრაკო ძრავა ვერ მოიძებნა: დააყენეთ Stockfish ({command}) ან მიუთითეთ UCI ძრავა განყოფილებაში პარამეტრები → გადახედვები → საჭადრაკო ძრავა",
  "chess.engine_no_best": "ძრავას ამ პოზიციისთვის ჯერ სვლა არ აქვს: a რთავს მას",
+ "chess.engine_only_lines": {
+  "one": "ძრავას აქ მხოლოდ {n} ხაზი აქვს",
+  "other": "ძრავას აქ მხოლოდ {n} ხაზი აქვს"
+ },
  "chess.engine_or_image": "ან ჩამოტვირთეთ Coxswain-ის Stockfish-ის იმიჯი: პარამეტრები → გადახედვები → კონტეინერების იმიჯები. მაშინ ის კონტეინერში, ქსელის გარეშე ეშვება.",
- "chess.engine_lines_keys": "1–5 ხაზის გავლა",
+ "chess.engine_line_key": "1 ხაზის გავლა",
+ "chess.engine_lines_keys": "1–{n} ხაზის გავლა",
  "chess.engine_browse": "ხაზი {n}, სვლა {at} / {total} · ← → ნაბიჯი · Enter თამაშობს მას აქამდე · Esc პარტიაში დაბრუნება",
  "chess.engine_line_tip": "ხაზი {n}-ის ჩვენება დაფაზე ამ სვლამდე, თამაშის გარეშე ({n}, შემდეგ ← →)",
  "chess.engine_browse_play": "ამ ხაზის თამაში",

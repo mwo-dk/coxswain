@@ -512,8 +512,12 @@
  "chess.engine_missing": "チェスエンジンが見つかりません：Stockfish (stockfishchess.org) をインストールするか、設定 → プレビュー → チェスエンジンで UCI エンジンを指定してください",
  "chess.engine_missing_install": "チェスエンジンが見つかりません：Stockfish ({command}) をインストールするか、設定 → プレビュー → チェスエンジンで UCI エンジンを指定してください",
  "chess.engine_no_best": "エンジンはまだこの局面の手を出していません：a でオンにします",
+ "chess.engine_only_lines": {
+  "other": "ここでのエンジンの読み筋は{n}本だけです"
+ },
  "chess.engine_or_image": "または 設定 → プレビュー → コンテナーイメージ で Coxswain の Stockfish イメージを取得してください。ネットワークなしのコンテナで動きます。",
- "chess.engine_lines_keys": "1–5 で読み筋をたどる",
+ "chess.engine_line_key": "1 で読み筋をたどる",
+ "chess.engine_lines_keys": "1–{n} で読み筋をたどる",
  "chess.engine_browse": "読み筋 {n}・{total} 手中 {at} 手目 · ← → 進む・戻る · Enter でここまで指す · Esc で対局に戻る",
  "chess.engine_line_tip": "読み筋 {n} をこの手まで盤に表示（指さない）（{n}、続いて ← →）",
  "chess.engine_browse_play": "この読み筋を指す",

@@ -2205,14 +2205,32 @@ impl Config {
     }
 
     /// `text` (a config.toml) without the key at `keys`, so its default applies; the rest kept.
+    /// A table this leaves empty goes too (`[chess.engines.Stockfish]` without its last
+    /// option), and its parents when they are left empty, unless a comment sits on it.
     pub fn unset(text: &str, keys: &[&str]) -> Result<String, String> {
+        fn at<'a>(doc: &'a mut toml_edit::DocumentMut, keys: &[&str]) -> Option<&'a mut dyn toml_edit::TableLike> {
+            keys.iter().try_fold(doc.as_table_mut() as &mut dyn toml_edit::TableLike, |t, k| t.get_mut(k).and_then(|i| i.as_table_like_mut()))
+        }
+        fn commented(d: &toml_edit::Decor) -> bool {
+            [d.prefix(), d.suffix()].into_iter().any(|r| r.and_then(|r| r.as_str()).is_some_and(|s| s.contains('#')))
+        }
         let mut doc: toml_edit::DocumentMut = text.parse().map_err(|e| format!("config: {e}"))?;
         let (last, parents) = keys.split_last().ok_or("config: no key")?;
-        let table = parents.iter().try_fold(doc.as_table_mut() as &mut dyn toml_edit::TableLike, |t, k| {
-            t.get_mut(k).and_then(|i| i.as_table_like_mut())
-        });
-        if let Some(t) = table {
-            t.remove(last);
+        if at(&mut doc, parents).and_then(|t| t.remove(last)).is_none() {
+            return Ok(doc.to_string());
+        }
+        for depth in (1..=parents.len()).rev() {
+            let (name, up) = parents[..depth].split_last().expect("depth is at least 1");
+            let Some(t) = at(&mut doc, up) else { break };
+            let empty = match t.get(name) {
+                Some(toml_edit::Item::Table(x)) => x.is_empty() && !commented(x.decor()),
+                Some(toml_edit::Item::Value(toml_edit::Value::InlineTable(x))) => x.is_empty() && !commented(x.decor()),
+                _ => false,
+            };
+            if !empty {
+                break;
+            }
+            t.remove(name);
         }
         Ok(doc.to_string())
     }
@@ -2434,6 +2452,20 @@ mod tests {
             assert!(!back.contains("\"z\""), "{back}");
             Config::parse(&back).unwrap();
         }
+    }
+
+    #[test]
+    fn config_unset_drops_the_tables_it_empties() {
+        let text = "[chess]\nanalysis = true\n\n[chess.engines.Stockfish]\nThreads = 4\n\n[keys]\ncopy = [\"F5\"]\n";
+        let back = Config::unset(text, &["chess", "engines", "Stockfish", "Threads"]).unwrap();
+        assert_eq!(back, "[chess]\nanalysis = true\n\n[keys]\ncopy = [\"F5\"]\n");
+        // A table with something left, or a comment on it, stays; a key not there changes nothing.
+        let two = "[chess.engines.Stockfish]\nThreads = 4\nHash = 64\n";
+        assert_eq!(Config::unset(two, &["chess", "engines", "Stockfish", "Hash"]).unwrap(), "[chess.engines.Stockfish]\nThreads = 4\n");
+        let noted = "# mine\n[chess.engines.Stockfish]\nThreads = 4\n";
+        assert_eq!(Config::unset(noted, &["chess", "engines", "Stockfish", "Threads"]).unwrap(), "# mine\n[chess.engines.Stockfish]\n");
+        let empty = "[chess]\n";
+        assert_eq!(Config::unset(empty, &["chess", "nothing"]).unwrap(), empty);
     }
 
     #[test]

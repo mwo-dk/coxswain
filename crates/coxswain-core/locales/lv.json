@@ -550,8 +550,14 @@
  "chess.engine_missing": "Šaha dzinējs nav atrasts: instalējiet Stockfish (stockfishchess.org) vai norādiet UCI dzinēju sadaļā Iestatījumi → Priekšskatījumi → Šaha dzinējs",
  "chess.engine_missing_install": "Šaha dzinējs nav atrasts: instalējiet Stockfish ({command}) vai norādiet UCI dzinēju sadaļā Iestatījumi → Priekšskatījumi → Šaha dzinējs",
  "chess.engine_no_best": "Dzinējam vēl nav gājiena šai pozīcijai: a to ieslēdz",
+ "chess.engine_only_lines": {
+  "zero": "Dzinējam šeit ir tikai {n} variantu",
+  "one": "Dzinējam šeit ir tikai {n} variants",
+  "other": "Dzinējam šeit ir tikai {n} varianti"
+ },
  "chess.engine_or_image": "Vai lejupielādējiet Coxswain Stockfish attēlu: Iestatījumi → Priekšskatījumi → Konteineru attēli. Tad tas darbojas konteinerā, bez tīkla.",
- "chess.engine_lines_keys": "1–5 iziet cauri variantam",
+ "chess.engine_line_key": "1 iziet cauri variantam",
+ "chess.engine_lines_keys": "1–{n} iziet cauri variantam",
  "chess.engine_browse": "Variants {n}, gājiens {at} no {total} · ← → solis · Enter to izspēlē līdz šejienei · Esc atpakaļ uz partiju",
  "chess.engine_line_tip": "Rādīt variantu {n} uz galdiņa līdz šim gājienam, to neizspēlējot ({n}, tad ← →)",
  "chess.engine_browse_play": "Izspēlēt šo variantu",

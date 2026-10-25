@@ -550,8 +550,14 @@
  "chess.engine_missing": "Šachmatų variklio nerasta: įdiekite Stockfish (stockfishchess.org) arba nurodykite UCI variklį skiltyje Parametrai → Peržiūros → Šachmatų variklis",
  "chess.engine_missing_install": "Šachmatų variklio nerasta: įdiekite Stockfish ({command}) arba nurodykite UCI variklį skiltyje Parametrai → Peržiūros → Šachmatų variklis",
  "chess.engine_no_best": "Variklis dar neturi ėjimo šiai pozicijai: a jį įjungia",
+ "chess.engine_only_lines": {
+  "one": "Variklis čia turi tik {n} variantą",
+  "few": "Variklis čia turi tik {n} variantus",
+  "other": "Variklis čia turi tik {n} variantų"
+ },
  "chess.engine_or_image": "Arba atsisiųskite Coxswain Stockfish atvaizdą: Parametrai → Peržiūros → Konteinerių atvaizdai. Tada jis veikia konteineryje, be tinklo.",
- "chess.engine_lines_keys": "1–5 peržiūrėti variantą",
+ "chess.engine_line_key": "1 peržiūrėti variantą",
+ "chess.engine_lines_keys": "1–{n} peržiūrėti variantą",
  "chess.engine_browse": "Variantas {n}, ėjimas {at} iš {total} · ← → žingsnis · Enter sužaidžia iki čia · Esc atgal į partiją",
  "chess.engine_line_tip": "Rodyti variantą {n} lentoje iki šio ėjimo jo nesužaidžiant ({n}, tada ← →)",
  "chess.engine_browse_play": "Sužaisti šį variantą",

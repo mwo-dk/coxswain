@@ -531,8 +531,13 @@
  "chess.engine_missing": "Geen schaakengine gevonden: installeer Stockfish (stockfishchess.org) of geef een UCI-engine op in Instellingen → Voorvertoningen → Schaakengine",
  "chess.engine_missing_install": "Geen schaakengine gevonden: installeer Stockfish ({command}) of geef een UCI-engine op in Instellingen → Voorvertoningen → Schaakengine",
  "chess.engine_no_best": "De engine heeft nog geen zet voor deze stelling: a zet hem aan",
+ "chess.engine_only_lines": {
+  "one": "De engine heeft hier maar {n} lijn",
+  "other": "De engine heeft hier maar {n} lijnen"
+ },
  "chess.engine_or_image": "Of haal Coxswains Stockfish-image op in Instellingen → Voorvertoningen → Container-images: dan draait hij in een container, zonder netwerk.",
- "chess.engine_lines_keys": "1–5 een lijn doorlopen",
+ "chess.engine_line_key": "1 de lijn doorlopen",
+ "chess.engine_lines_keys": "1–{n} een lijn doorlopen",
  "chess.engine_browse": "Lijn {n}, zet {at} van {total} · ← → stap · Enter speelt hem tot hier · Esc terug naar de partij",
  "chess.engine_line_tip": "Lijn {n} tot deze zet op het bord tonen, zonder hem te spelen ({n}, dan ← →)",
  "chess.engine_browse_play": "Deze lijn spelen",

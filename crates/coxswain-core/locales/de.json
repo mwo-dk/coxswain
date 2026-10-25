@@ -531,8 +531,13 @@
  "chess.engine_missing": "Keine Schach-Engine gefunden: Stockfish installieren (stockfishchess.org) oder in Einstellungen → Vorschauen → Schach-Engine eine UCI-Engine angeben",
  "chess.engine_missing_install": "Keine Schach-Engine gefunden: Stockfish installieren ({command}) oder in Einstellungen → Vorschauen → Schach-Engine eine UCI-Engine angeben",
  "chess.engine_no_best": "Die Engine hat für diese Stellung noch keinen Zug: a schaltet sie ein",
+ "chess.engine_only_lines": {
+  "one": "Die Engine hat hier nur {n} Variante",
+  "other": "Die Engine hat hier nur {n} Varianten"
+ },
  "chess.engine_or_image": "Oder laden Sie Coxswains Stockfish-Image unter Einstellungen → Vorschauen → Container-Images: Es läuft dann in einem Container, ohne Netzwerk.",
- "chess.engine_lines_keys": "1–5 eine Variante durchgehen",
+ "chess.engine_line_key": "1 die Variante durchgehen",
+ "chess.engine_lines_keys": "1–{n} eine Variante durchgehen",
  "chess.engine_browse": "Variante {n}, Zug {at} von {total} · ← → Zug · Enter spielt sie bis hier · Esc zurück zur Partie",
  "chess.engine_line_tip": "Variante {n} bis zu diesem Zug auf dem Brett zeigen, ohne sie zu spielen ({n}, dann ← →)",
  "chess.engine_browse_play": "Diese Variante spielen",

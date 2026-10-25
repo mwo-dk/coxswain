@@ -177,6 +177,9 @@ pub struct Settings {
     pub cursor: usize,
     offset: usize,
     pub mode: Mode,
+    /// The value in `Mode::Edit` or `Mode::EngineEdit` is still the one it opened with, shown
+    /// selected: the first key typed replaces it, Backspace clears it.
+    pub selected: bool,
     /// The config.toml written to (a test's own).
     pub path: Option<PathBuf>,
     /// What the last change did: saved, or why not.
@@ -239,6 +242,7 @@ impl Settings {
             cursor: 0,
             offset: 0,
             mode: Mode::Browse,
+            selected: false,
             path: Config::path(),
             said: None,
             trial_rx: None,
@@ -832,6 +836,7 @@ impl App {
                 }
                 (KeyCode::Enter, _) if opt.is_some() => {
                     let o = opt.unwrap();
+                    s.selected = true;
                     s.mode = match kind(o, &self.cfg, &value) {
                         Kind::Text => Mode::Edit(value.as_str().unwrap_or_default().to_string()),
                         Kind::Number(_, _, scale) => Mode::Edit(number_text(value.as_f64().unwrap_or(0.0) / scale)),
@@ -844,6 +849,11 @@ impl App {
                 _ => {}
             },
             Mode::Edit(mut text) => match (key.code, ch) {
+                _ if std::mem::take(&mut s.selected) && (ch.is_some() || key.code == KeyCode::Backspace) && !esc => {
+                    text.clear();
+                    text.extend(ch);
+                    s.mode = Mode::Edit(text);
+                }
                 _ if esc => {}
                 (KeyCode::Enter, _) => {
                     let o = opt.expect("editing an option");
@@ -882,6 +892,11 @@ impl App {
                 let Some(Row::EngineOpt(o)) = rows.get(s.cursor) else { return self.dialog = Some(Dialog::Settings(s)) };
                 match (key.code, ch) {
                     _ if esc => {}
+                    _ if std::mem::take(&mut s.selected) && (ch.is_some() || key.code == KeyCode::Backspace) => {
+                        text.clear();
+                        text.extend(ch);
+                        s.mode = Mode::EngineEdit(text);
+                    }
                     (KeyCode::Enter, _) => return self.engine_option(s, &o.option.name.clone(), Some(Value::String(text))),
                     (KeyCode::Backspace, _) => {
                         text.pop();
@@ -947,7 +962,10 @@ impl App {
                     KeyCode::PageUp => s.mode = Mode::Pick(pick_step(&c, at.saturating_sub(10), -1)),
                     KeyCode::PageDown => s.mode = Mode::Pick(pick_step(&c, at + 10, 1)),
                     KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model" | "git_tool") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
-                        OTHER => s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string()),
+                        OTHER => {
+                            s.selected = true;
+                            s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string());
+                        }
                         SET_UP => self.setup_guide(),
                         _ => s.mode = Mode::Pick(at),
                     },
@@ -1273,7 +1291,10 @@ impl App {
                         let next = vars.iter().position(|v| v.eq_ignore_ascii_case(&now)).map_or(0, |i| (i + 1) % vars.len());
                         return self.engine_option(s, &name, Some(Value::String(vars[next].clone())));
                     }
-                    _ => s.mode = Mode::EngineEdit(now),
+                    _ => {
+                        s.selected = true;
+                        s.mode = Mode::EngineEdit(now);
+                    }
                 }
             }
             Some(Row::EngineReset) => {
@@ -1705,7 +1726,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                             let vw = w.saturating_sub(lw);
                             let field = fit_left(text, vw.saturating_sub(1));
                             cursor_at = Some(Position::new(right.x + (lw + field.width()) as u16, 0));
-                            lines.push(Line::from(vec![Span::styled(format!("{} ", fit(&label, lw - 1)), base), Span::styled(fit(&field, vw), selected)]));
+                            lines.push(Line::from(vec![Span::styled(format!("{} ", fit(&label, lw - 1)), base), Span::styled(fit(&field, vw), if s.selected { selected.add_modifier(Modifier::REVERSED) } else { selected })]));
                         }
                         _ => {
                             let value = match &o.value {
@@ -1739,7 +1760,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                             let vw = w.saturating_sub(lw);
                             let field = fit_left(text, vw.saturating_sub(1));
                             cursor_at = Some(Position::new(right.x + (lw + field.width()) as u16, 0));
-                            lines.push(Line::from(vec![Span::styled(format!("{} ", fit(&label, lw - 1)), base), Span::styled(fit(&field, vw), selected)]));
+                            lines.push(Line::from(vec![Span::styled(format!("{} ", fit(&label, lw - 1)), base), Span::styled(fit(&field, vw), if s.selected { selected.add_modifier(Modifier::REVERSED) } else { selected })]));
                         }
                         Mode::List { at, new } if here => {
                             lines.push(pair(&label, "", head));
@@ -1957,11 +1978,12 @@ mod tests {
         if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
             s.cursor = threads;
         }
+        // Not set yet: the default opens selected, and what is typed replaces it.
         key(&mut app, KeyCode::Enter);
-        key(&mut app, KeyCode::Backspace);
+        assert!(settings(&app).selected);
         typed(&mut app, "100000");
         key(&mut app, KeyCode::Enter);
-        assert!(matches!(settings(&app).mode, Mode::EngineEdit(_)), "a number out of range is typed again");
+        assert!(matches!(&settings(&app).mode, Mode::EngineEdit(t) if t == "100000"), "a number out of range is typed again");
         for _ in 0..6 {
             key(&mut app, KeyCode::Backspace);
         }
@@ -1970,6 +1992,23 @@ mod tests {
         let text = std::fs::read_to_string(&config).unwrap();
         assert!(text.contains("[chess.engines.Fake]") && text.contains("UCI_LimitStrength = true") && text.contains("Threads = 1"), "{text}");
         assert_eq!(app.cfg.chess.engines["Fake"]["Threads"].as_integer(), Some(1));
+        // Delete on each option set: the engine's table goes with its last one.
+        for name in ["Threads", "UCI_LimitStrength"] {
+            let at = at(&app, name).unwrap();
+            if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+                s.cursor = at;
+            }
+            key(&mut app, KeyCode::Delete);
+        }
+        let text = std::fs::read_to_string(&config).unwrap();
+        assert!(!text.contains("[chess.engines"), "{text}");
+        let threads = at(&app, "Threads").unwrap();
+        if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
+            s.cursor = threads;
+        }
+        key(&mut app, KeyCode::Enter);
+        typed(&mut app, "1");
+        key(&mut app, KeyCode::Enter);
         let reset = rows(&app, settings(&app)).iter().position(|r| matches!(r, Row::EngineReset)).unwrap();
         if let Some(Dialog::Settings(s)) = app.dialog.as_mut() {
             s.cursor = reset;
@@ -2102,6 +2141,13 @@ mod tests {
         typed(&mut app, "00");
         key(&mut app, KeyCode::Enter);
         assert_eq!(Config::parse(&std::fs::read_to_string(&path).unwrap()).unwrap().search.max_results, 500);
+        // Enter again: the value opens selected, shown reversed, and the first key replaces it.
+        key(&mut app, KeyCode::Enter);
+        let scr = screen(&mut app, 80, 24);
+        assert!(scr.iter().any(|l| l.contains("500")), "{scr:#?}");
+        typed(&mut app, "250");
+        key(&mut app, KeyCode::Enter);
+        assert_eq!(Config::parse(&std::fs::read_to_string(&path).unwrap()).unwrap().search.max_results, 250);
 
         // A list: a folder added (resolved from the panel's folder), then removed.
         let mut s = Settings::open(&app, "names_only");

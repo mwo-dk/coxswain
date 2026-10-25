@@ -137,7 +137,10 @@ each a file with no ending). A game is a list of tags in brackets:
 ```
 
 Coxswain knows such a file by its first bytes, `[DhtmlXQ`, when its name has no ending or ends
-in `.che`, `.txt` or `.dhtmlxq`, and reads it as one game:
+in `.che`, `.txt` or `.dhtmlxq`, and reads it as one game. A dot inside the name does not make an
+ending: in `001-1.古谱的启示` or `002.Opening game` what follows the dot is no file type's (not one
+to eight plain letters and digits), so such files are looked at too. Only their first 64 bytes
+are read, and never those of a file kept only in the cloud.
 
 | Tag | Read as |
 |---|---|
@@ -193,7 +196,8 @@ full screen. To keep a collection at hand, copy it out of the zip with **F5**.
 
 #### Why does a file with no ending show as a xiangqi game?
 
-Its first bytes are `[DhtmlXQ`: it is a DhtmlXQ game, as xiangqi websites keep them. Any other
+Its first bytes are `[DhtmlXQ`: it is a DhtmlXQ game, as xiangqi websites keep them. The same
+goes for a name whose dot starts no file type's ending, such as `001-1.古谱的启示`. Any other
 file with no ending shows as before.
 
 #### Why does my xiangqi file open as chess?

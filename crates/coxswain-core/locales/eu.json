@@ -531,8 +531,13 @@
  "chess.engine_missing": "Ez da xake-motorrik aurkitu: instalatu Stockfish (stockfishchess.org), edo adierazi UCI motor bat hemen: Ezarpenak → Aurrebistak → Xake-motorra",
  "chess.engine_missing_install": "Ez da xake-motorrik aurkitu: instalatu Stockfish ({command}), edo adierazi UCI motor bat hemen: Ezarpenak → Aurrebistak → Xake-motorra",
  "chess.engine_no_best": "Motorrak ez du oraindik jokaldirik posizio honetarako: a-k aktibatzen du",
+ "chess.engine_only_lines": {
+  "one": "Motorrak {n} lerro baino ez du hemen",
+  "other": "Motorrak {n} lerro baino ez ditu hemen"
+ },
  "chess.engine_or_image": "Edo deskargatu Coxswain-en Stockfish irudia hemen: Ezarpenak → Aurrebistak → Edukiontzi-irudiak. Edukiontzi batean exekutatzen da orduan, sarerik gabe.",
- "chess.engine_lines_keys": "1–5 lerro bat zeharkatu",
+ "chess.engine_line_key": "1 lerroa zeharkatu",
+ "chess.engine_lines_keys": "1–{n} lerro bat zeharkatu",
  "chess.engine_browse": "{n}. lerroa, {at}/{total} jokaldia · ← → urratsa · Enter-ek hona arte jokatzen du · Esc partidara itzuli",
  "chess.engine_line_tip": "Erakutsi {n}. lerroa taulan jokaldi honetaraino, jokatu gabe ({n}, gero ← →)",
  "chess.engine_browse_play": "Jokatu lerro hau",

@@ -46,6 +46,14 @@
       loadIndex();
     } catch (e) {
       error = String(e);
+      // A refused value does not stay in its field: the stored one is shown again.
+      for (const name of Object.keys(changes)) {
+        const el = document.getElementById(`in-${name}`);
+        // A list's field adds an item, a choice holds only its values: neither keeps a refused one.
+        if (el?.tagName !== "INPUT" || Array.isArray(s[name])) continue;
+        if (el.type === "checkbox") el.checked = !!s[name];
+        else el.value = el.type === "number" ? s[name] / (Number(el.dataset.scale) || 1) : (s[name] ?? "");
+      }
     }
   }
   // What is kept of long files: what the change reads again, adds or frees, said first.
@@ -368,13 +376,16 @@
     engine = await invoke("chess_engine_test").catch((e) => ({ error: String(e) }));
   }
   /** An option of the tested engine set (null: back to its default), or all of them reset. */
-  async function setEngineOption(name, value, reset = false) {
+  async function setEngineOption(name, value, reset = false, el = null) {
     error = "";
     try {
       engine = await invoke("chess_engine_set", { name, value, reset });
       saved = true;
     } catch (e) {
       error = String(e);
+      // A refused value does not stay in its field: the stored one (or the default) is shown again.
+      const o = engine?.options?.find((o) => o.name === name);
+      if (el && o) el.type === "checkbox" ? (el.checked = optionValue(o)) : (el.value = optionValue(o));
     }
   }
   async function engineConfig() {
@@ -527,7 +538,7 @@
   {@render field(name, control)}
 {/snippet}
 {#snippet num(name, min, max, stepBy = 1, scale = 1)}
-  {#snippet control()}<input id="in-{name}" class="short" type="number" {min} {max} step={stepBy} value={s[name] / scale} onchange={(e) => number(e, name, scale)} />{/snippet}
+  {#snippet control()}<input id="in-{name}" class="short" type="number" {min} {max} step={stepBy} data-scale={scale} value={s[name] / scale} onchange={(e) => number(e, name, scale)} />{/snippet}
   {@render field(name, control)}
 {/snippet}
 {#snippet choice(name, pairs)}
@@ -998,15 +1009,15 @@
                 <label class="field" for="eopt-{o.name}" title={optionAbout(o)}>{o.name}</label>
                 <div class="eopt">
                   {#if o.kind === "check"}
-                    <input id="eopt-{o.name}" type="checkbox" checked={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.checked)} />
+                    <input id="eopt-{o.name}" type="checkbox" checked={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.checked, false, ev.currentTarget)} />
                   {:else if o.kind === "combo"}
-                    <select id="eopt-{o.name}" value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value)}>
+                    <select id="eopt-{o.name}" value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value, false, ev.currentTarget)}>
                       {#each o.vars as v (v)}<option value={v}>{v}</option>{/each}
                     </select>
                   {:else if o.kind === "spin"}
-                    <input id="eopt-{o.name}" class="short" type="number" min={o.min} max={o.max} value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, Number(ev.currentTarget.value))} />
+                    <input id="eopt-{o.name}" class="short" type="number" min={o.min} max={o.max} value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, Number(ev.currentTarget.value), false, ev.currentTarget)} />
                   {:else}
-                    <input id="eopt-{o.name}" value={optionValue(o)} maxlength="1024" spellcheck="false" onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value)} />
+                    <input id="eopt-{o.name}" value={optionValue(o)} maxlength="1024" spellcheck="false" onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value, false, ev.currentTarget)} />
                   {/if}
                   {#if o.value != null}<button class="link" title={t("chess.engine_default", { value: o.default || "—" })} onclick={() => setEngineOption(o.name, null)}>{t("chess.option_default_button")}</button>{/if}
                   <small class="hint">{optionAbout(o)}</small>

@@ -550,8 +550,14 @@
  "chess.engine_missing": "Nessun motore scacchistico trovato: installa Stockfish (stockfishchess.org) oppure indica un motore UCI in Impostazioni → Anteprime → Motore scacchistico",
  "chess.engine_missing_install": "Nessun motore scacchistico trovato: installa Stockfish ({command}) oppure indica un motore UCI in Impostazioni → Anteprime → Motore scacchistico",
  "chess.engine_no_best": "Il motore non ha ancora una mossa per questa posizione: a lo attiva",
+ "chess.engine_only_lines": {
+  "one": "Il motore qui ha solo {n} linea",
+  "many": "Il motore qui ha solo {n} linee",
+  "other": "Il motore qui ha solo {n} linee"
+ },
  "chess.engine_or_image": "Oppure scarica l'immagine Stockfish di Coxswain in Impostazioni → Anteprime → Immagini container: gira allora in un container, senza rete.",
- "chess.engine_lines_keys": "1–5 scorri una linea",
+ "chess.engine_line_key": "1 scorri la linea",
+ "chess.engine_lines_keys": "1–{n} scorri una linea",
  "chess.engine_browse": "Linea {n}, mossa {at} di {total} · ← → passo · Invio la gioca fin qui · Esc torna alla partita",
  "chess.engine_line_tip": "Mostra la linea {n} sulla scacchiera fino a questa mossa, senza giocarla ({n}, poi ← →)",
  "chess.engine_browse_play": "Gioca questa linea",

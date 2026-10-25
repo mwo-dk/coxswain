@@ -111,6 +111,7 @@ test("looksLikeDhtml: a DhtmlXQ xiangqi game by its name and first bytes", async
   assert.ok(looksLikeDhtml("0001-对兵互进右马局", "﻿[DhtmlXQ]\n[DhtmlXQ_ver]x"));
   assert.ok(looksLikeDhtml("game.che", "  [DhtmlXQ_title]") && looksLikeDhtml("g.TXT", "[dhtmlxq]"));
   assert.ok(!looksLikeDhtml("main.rs", "[DhtmlXQ]") && !looksLikeDhtml("README", "# [DhtmlXQ]"));
+  assert.ok(looksLikeDhtml("001-1.古谱的启示", "[DhtmlXQ]") && looksLikeDhtml("002.Opening game", "[DhtmlXQ]") && looksLikeDhtml(".hidden", "[DhtmlXQ]"));
 });
 
 test("viewEnd: the move shown keeps its variations and the other moves from its position in view", async () => {
