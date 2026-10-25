@@ -4,6 +4,8 @@ name: Release PR
 # release/X.Y.Z, made by packaging/release-pr.py (minor when a row ends with `<!-- feature -->`,
 # patch otherwise; a major release is made by hand), with auto-merge on. Its merge starts the
 # release (release.yml). The row it writes can be polished in the pull request before it merges.
+# It refuses (red, named) while the version in Cargo.toml has no published release: a release run
+# that failed, or one still under way, is finished first (release-pr.py exits 3).
 #
 # Needs RELEASE_PR_TOKEN: a pull request made with GITHUB_TOKEN starts no checks, so it could
 # never merge. A fine-grained token for mwo-dk/coxswain with Contents and Pull requests
@@ -48,6 +50,9 @@ jobs:
           rc=0; v=$(python3 packaging/release-pr.py) || rc=$?
           if [ "$rc" = 2 ]; then
             echo "::notice title=Nothing to release::changelog.d/ has no rows this week."; exit 0
+          fi
+          if [ "$rc" = 3 ]; then
+            echo "::error title=Current version not released::release-pr.py refuses to bump past a version with no published release (see above). Finish that release first: fix, then start Release by hand on master."; exit 3
           fi
           [ "$rc" = 0 ] || exit "$rc"
           # The commit is the token owner's, with GitHub's no-reply address.

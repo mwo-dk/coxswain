@@ -12,7 +12,7 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Releases are automatic, in one run.** The version lives only in `Cargo.toml`
   (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`). It
   first decides whether the version has a GitHub release yet. If not, and this push is the one
-  that bumped it (later pushes test only; a failed release run is rerun), it runs CI and every
+  that bumped it (later pushes test only), it runs CI and every
   system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) as parts of that
   run; when all pass it makes a draft, builds every platform, checks the draft against the full
   list of files (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the
@@ -26,6 +26,13 @@ These rules hold for every contributor and every Claude session in this reposito
   `release-check.yml` installs the release and checks every channel, WinGet within that week (no
   release left more than 8 days without a pull request). A new build target goes into the matrix
   and into `packaging/release-assets.sh` together.
+- **A failed release run: fix, then start Release by hand.** When the bump's release run fails on
+  a fault of ours, fix it in a PR, then run `gh workflow run release.yml` on `master` (a rerun
+  would build the old commit, and the fix's own push only tests). Until that version is
+  published, every Release run of a later push and the nightly run go red naming it
+  (`.github/unreleased.sh`), and `packaging/release-pr.py` refuses to bump past it (exit 3;
+  `--unreleased-ok` skips it, the owner's decision only), so the Sunday release pull request
+  waits for it.
 - **Nightly, every system** (`nightly.yml`, 02:17 UTC): when `master` changed since the last
   nightly run that passed (and its head is not a release, which tested everything), every
   system's workflow runs on it, so a fault no pull request caught shows up the next morning. Fix

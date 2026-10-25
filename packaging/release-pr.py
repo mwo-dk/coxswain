@@ -2,14 +2,18 @@
 """The release pull request's changes, made in the checkout it runs in (CLAUDE.md, Shipping).
 
     packaging/release-pr.py --next    print the next version and change nothing
+    --unreleased-ok                   (with either) go on although the current version has no
+                                      published GitHub release (the owner's decision only)
     packaging/release-pr.py           make the release: print the version, then
         bump [workspace.package] and coxswain-core's `=X.Y.Z` in Cargo.toml, Cargo.lock with them
         (cargo update --workspace), every changelog.d/ row moved into one row for the version in
         docs/changelog.md and README.md (which keeps ten), and the changelog.d/ files deleted.
 
 A minor release when any row ends with `<!-- feature -->`, a patch release otherwise; a major one
-is made by hand. Exits 2, changing nothing, when changelog.d/ has no rows. Run from the
-repository's root.
+is made by hand. Exits 2, changing nothing, when changelog.d/ has no rows. Exits 3, changing
+nothing, when the current version has no published GitHub release (`gh release view`): bumping
+past it would leave it unpublished for good (2.33.0 was), so its release run is finished first.
+Run from the repository's root.
 """
 import datetime
 import re
@@ -21,7 +25,25 @@ FEATURE = "<!-- feature -->"
 LINK = re.compile(r"\]\(([^)]+)\)")
 
 
+def published(tag: str) -> bool:
+    """Whether `tag` has a published (not draft) GitHub release; exits on any other gh fault."""
+    try:
+        r = subprocess.run(["gh", "release", "view", tag, "--json", "isDraft", "-q", ".isDraft"],
+                           capture_output=True, text=True)
+    except FileNotFoundError:
+        sys.exit("release-pr.py: gh is needed to see whether the current version is released "
+                 "(or pass --unreleased-ok)")
+    if r.returncode == 0:
+        return r.stdout.strip() == "false"
+    if "release not found" in r.stderr:
+        return False
+    sys.exit(f"release-pr.py: gh release view {tag} failed: {r.stderr.strip()}")
+
+
 def main() -> int:
+    args = sys.argv[1:]
+    unreleased_ok = "--unreleased-ok" in args
+    args = [a for a in args if a != "--unreleased-ok"]
     frags = sorted(Path("changelog.d").glob("*.md"))
     if not frags:
         print("changelog.d/ has no rows: nothing to release.", file=sys.stderr)
@@ -31,11 +53,17 @@ def main() -> int:
     cargo = Path("Cargo.toml").read_text(encoding="utf-8")
     old = re.search(r'^\[workspace\.package\]\n(?:.*\n)*?version = "(\d+)\.(\d+)\.(\d+)"', cargo, re.M)
     major, minor, patch = map(int, old.groups())
+    was = ".".join(old.groups())
+    if not unreleased_ok and not published(f"v{was}"):
+        print(f"release-pr.py: v{was}, the version in Cargo.toml, has no published GitHub release. "
+              f"A new release would skip it for good. Finish its release first: fix what failed, "
+              f"then start Release by hand (gh workflow run release.yml). To skip v{was} on "
+              f"purpose, pass --unreleased-ok.", file=sys.stderr)
+        return 3
     new = f"{major}.{minor + 1}.0" if features else f"{major}.{minor}.{patch + 1}"
     print(new)
-    if sys.argv[1:] == ["--next"]:
+    if args == ["--next"]:
         return 0
-    was = ".".join(old.groups())
 
     count = 0
     cargo, n = re.subn(rf'^version = "{re.escape(was)}"$', f'version = "{new}"', cargo, count=1, flags=re.M)
