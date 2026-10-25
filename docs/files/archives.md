@@ -143,8 +143,9 @@ date, so it is never shown for the archive as it is now.
 | Tar, plain or compressed | Every entry is read and written into a plain tar next to the archive (`….coxswain-tar`), which is then compressed into the new file: gzip and bzip2 at their default level, xz at level 6, zstd at its fastest level. A compressed tar is unpacked and packed again in full, so it takes as long as packing it would, and its size may differ afterwards. |
 | 7z | 7z cannot copy entries as they are: every entry is unpacked and packed again (LZMA2) on its way from the old file to the new, keeping its dates and attributes. Nothing is written to the temp folder. A 7z with locked contents needs its password for this ([Passwords](archive-passwords.md)). |
 
-Copying **from one archive into another** goes through a folder of its own in the system's temp
-folder (`coxswain-archive-…`), which is removed afterwards.
+Copying **from one archive into another** goes through a folder of its own in the cache
+(`scratch/<run>-<n>`, [Where things are kept](../reference/where-things-are-kept.md)), which is
+removed afterwards, or at the next start when the app was ended half way.
 
 Free space needed: room for the new archive next to the old one, and for a tar also the
 unpacked tar. When the disk has less free space than the archive and what goes into it, the pack

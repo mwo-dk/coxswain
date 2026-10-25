@@ -42,6 +42,8 @@ system; this page is about the room they take and getting it back.
 | `index.bin` | The name index, saved so Find has every name at once when the helper starts | Built again on its own: Find by name waits a few minutes on a large disk | Yes |
 | `previews/` | PDFs, SVGs and pages made by LaTeX, LibreOffice, PlantUML and pandoc, and the EPUBs and covers calibre made of e-books; those not shown for 30 days go by themselves, and past 4 GB the ones shown longest ago | Made again the next time each file is shown | Yes |
 | `peek/` | Files copied out of archives to be previewed or viewed, and archives inside archives you opened (`nested/`), and what compressed tars hold and the places they can be unpacked from (`archive-index/`) | Copied again the next time | Yes |
+| `scratch/` (with `media/`, `geo/`, `ocr/`, `export/`, `clamscan/`, `drag/`, `provenance/`) | The work of conversions, searchable PDFs, virus scans, exports and drags, one folder per run | Nothing: only runs that ended are cleared, a run working now keeps its folder | Yes |
+| `chess/` (with `cbv/`) | Chess analyses kept (the newest 1000), and ChessBase archives unpacked to be read (up to 16 GB each) | A game is analysed again, an archive unpacked again when opened; an archive a running app has open stays | Yes |
 | `inside-…/` | Left-overs of the search helper reading files inside archives; shown only when there are some | Nothing. A folder a running helper is using now is kept | Yes |
 | `libreoffice-profile/` (and `libreoffice-index-profile/`) | LibreOffice's own profiles for previews and for reading old Office files | Made again the next time LibreOffice runs | Yes |
 | `clamav/` | ClamAV's virus database, for [Scan for viruses](../files/virus-scan.md); shown when there is one | Fetched again from database.clamav.net before the next virus scan | Yes |
@@ -77,6 +79,9 @@ How each is cleared:
   once. With no helper running, the files are deleted.
 - **The name index** is deleted, then a running helper is asked to make way for a new one, which
   builds the index again and saves it.
+- **A folder of runs' folders** (`peek/`, `nested/`, `scratch/`, `media/` …, `cbv/`): only the
+  folders of runs that ended go. Each running app and search helper holds its own list in
+  `staging/`, so a copy it shows now or a conversion it runs now is never taken from under it.
 - **A built-in model in use** gives way first: Ask or search by meaning takes the recommended
   choice, saved, and the line says which (as under [Built-in models](../search/models.md)).
 - **A container image** is removed with `podman image rm <name>` (or docker's). No container is
@@ -151,7 +156,7 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | Command | Does |
 |---|---|
 | `coxswain --disk clear store` | Empties the search store, through the helper when one runs: *search.db cleared: 284 KB freed.* |
-| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`) | Clears that row |
+| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
 | `coxswain --disk clear rebuildable` | Every row that is built again on its own: *Cleared: 12.9 MB freed.* |

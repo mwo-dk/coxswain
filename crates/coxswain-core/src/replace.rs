@@ -466,7 +466,7 @@ fn keep_dir() -> std::io::Result<PathBuf> {
 
 /// Folders kept by runs of an app that has ended (it can undo them no more): removed, when they
 /// are this user's own and no running app holds their lock.
-fn sweep() {
+pub(crate) fn sweep() {
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;

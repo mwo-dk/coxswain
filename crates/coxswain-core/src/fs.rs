@@ -491,18 +491,24 @@ fn out_of_archive(src: &Path) -> Option<(PathBuf, String)> {
     }
 }
 
-/// A folder of its own under the temp folder, removed when dropped.
+/// A folder of its own in the cache's `scratch/` (`<pid>-<n>`), removed when dropped; what a
+/// run that ended without dropping it left goes at the next start (`spill::sweep_ended`), and
+/// Disk use shows it. On disk, not in a temp folder that may be memory.
 pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(crate) fn new() -> io::Result<Scratch> {
         static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let dir = std::env::temp_dir().join(format!(
-            "coxswain-archive-{}-{}",
+        let base = crate::helper::folder()
+            .ok_or_else(|| io::Error::other(crate::t!("err.no_cache_folder")))?
+            .join("scratch");
+        private_dir(&base)?;
+        let dir = base.join(format!(
+            "{}-{}",
             std::process::id(),
             N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
-        // Made here, never one that is there: the temp folder is everyone's.
+        // Made here, never one that is there.
         fs::create_dir(&dir)?;
         private_dir(&dir)?;
         Ok(Scratch(dir))
