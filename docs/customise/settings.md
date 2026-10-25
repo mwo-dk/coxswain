@@ -324,6 +324,10 @@ Folders after the flag open in the panels, as without it: `coxswain --settings=s
 The first few times, the empty command line says so too: *Ctrl+, / F12 opens Settings: theme,
 keys, language and every other option*.
 
+A label longer than its column goes on over the line below, its value beside its first line, so
+no label is cut at 80×24 in any language: *Theme of the terminal app* under *Terminal app*, for
+one.
+
 ### The keys
 
 | Key | Does |

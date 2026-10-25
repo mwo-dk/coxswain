@@ -586,26 +586,42 @@ fn copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error {
     }
 }
 
+/// Why the 7z split into parts whose first part is `path` does not open: a part is missing
+/// (`archive.part_missing`, naming it). `None` for any other file, and one with all its parts.
+pub fn missing_part(path: &Path) -> Option<String> {
+    if !in_parts(path) {
+        return None;
+    }
+    part_missing(&mut Joined::open(path).ok()?, path).ok().flatten()
+}
+
+/// `missing_part` on the parts opened: read from their start, left there.
+fn part_missing(file: &mut Joined, path: &Path) -> io::Result<Option<String>> {
+    if !in_parts(path) {
+        return Ok(None);
+    }
+    // Parts that stop short of its list of contents: one is missing.
+    let mut start = [0u8; 32];
+    let mut why = None;
+    if file.read(&mut start)? == 32 && start[..6] == *b"7z\xBC\xAF\x27\x1C" {
+        let at = u64::from_le_bytes(start[12..20].try_into().unwrap());
+        let len = u64::from_le_bytes(start[20..28].try_into().unwrap());
+        if 32u64.saturating_add(at).saturating_add(len) > file.len {
+            let first = path.file_name().unwrap_or_default().to_string_lossy();
+            let missing = part_name(&first, file.parts.len() as u32 + 1);
+            why = Some(crate::t!("archive.part_missing", "name" => missing));
+        }
+    }
+    file.seek(io::SeekFrom::Start(0))?;
+    Ok(why)
+}
+
 /// A 7z, opened with `password` (none: an empty one).
 fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::ArchiveReader<Joined>> {
     let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
     let mut file = Joined::open(path)?;
-    // A 7z split into parts whose parts stop short of its list of contents: one is missing.
-    if in_parts(path) {
-        let mut start = [0u8; 32];
-        if file.read(&mut start)? == 32 && start[..6] == *b"7z\xBC\xAF\x27\x1C" {
-            let at = u64::from_le_bytes(start[12..20].try_into().unwrap());
-            let len = u64::from_le_bytes(start[20..28].try_into().unwrap());
-            if 32u64.saturating_add(at).saturating_add(len) > file.len {
-                let first = path.file_name().unwrap_or_default().to_string_lossy();
-                let missing = part_name(&first, file.parts.len() as u32 + 1);
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    crate::t!("archive.part_missing", "name" => missing),
-                ));
-            }
-        }
-        file.seek(io::SeekFrom::Start(0))?;
+    if let Some(why) = part_missing(&mut file, path)? {
+        return Err(io::Error::new(io::ErrorKind::NotFound, why));
     }
     let size = seven_header_size(&mut file)?;
     if size > SEVEN_HEADER_MAX {
@@ -4432,11 +4448,14 @@ mod tests {
         // Its preview lists it, all its parts there.
         assert_eq!(list(&peek(&inside).unwrap(), 10).unwrap().0.len(), 3);
         assert_eq!(std::fs::read_to_string(peek(&inside.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
+        assert_eq!(missing_part(&first), None, "all its parts there");
         // A part missing: it fails, never reads past it, and names the part.
         std::fs::remove_file(parts.join("go.7z.002")).unwrap();
         uncache(&first);
         let err = crate::fs::list(&first, true).unwrap_err().to_string();
         assert!(err.contains("go.7z.002"), "{err}");
+        assert!(missing_part(&first).is_some_and(|m| err.contains(&m)), "{err}");
+        assert_eq!(missing_part(&parts.join("go.7z.003")), None, "only the first part says it");
         clean_up();
         std::fs::remove_dir_all(d).unwrap();
     }

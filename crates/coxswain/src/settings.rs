@@ -1504,6 +1504,7 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
                     parts.push(format!("{} {line}", t!("install.with")));
                 }
                 parts.extend(e.site.map(String::from));
+                parts.retain(|p| !p.is_empty());
                 text.push(Span::raw(parts.join(" · ")));
             }
             Some(Row::EngineTest) => text.push(Span::raw(t!("chess.engine_test_hint"))),
@@ -1523,13 +1524,43 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
                     };
                     parts.push(if i.image.is_empty() { t!("ptools.container_none", "key" => i.key) } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
                 }
+                // ClamAV reads any file: no endings, and no separator left dangling.
                 parts.push(r.exts.clone());
+                parts.retain(|p| !p.is_empty());
                 text.push(Span::raw(parts.join(" · ")));
             }
             _ => {}
         },
     }
     text
+}
+
+/// A row's label and its value, the value in its column from `lw` of `w`. A label longer than
+/// its column goes on over the lines below, under its first word, so none is cut; without a
+/// value (a switch, a heading) the label has the whole width.
+fn label_lines(label: &str, value: &str, st: Style, w: usize, lw: usize) -> Vec<Line<'static>> {
+    let lw = if value.is_empty() { w } else { lw };
+    // The mark before the words: " [x] ", "     ", " ✓ ".
+    let spaces = label.trim_start_matches(' ');
+    let words = [" [x] ", " [ ] "]
+        .iter()
+        .find_map(|m| label.strip_prefix(m))
+        .or_else(|| spaces.split_once(' ').filter(|(mark, _)| ["✓", "✗", "·", "!"].contains(mark)).map(|(_, rest)| rest))
+        .unwrap_or(spaces);
+    let lead = label.width() - words.width();
+    let room = (lw - 1).saturating_sub(lead);
+    if label.width() < lw || room < 8 {
+        return vec![Line::from(vec![Span::styled(format!("{} ", fit(label, lw - 1)), st), Span::styled(fit(value, w - lw), st)])];
+    }
+    crate::ui::wrap(words, room)
+        .into_iter()
+        .enumerate()
+        .map(|(i, part)| {
+            let head = if i == 0 { label[..label.len() - words.len()].to_string() } else { " ".repeat(lead) };
+            let value = if i == 0 { value } else { "" };
+            Line::from(vec![Span::styled(format!("{} ", fit(&format!("{head}{part}"), lw - 1)), st), Span::styled(fit(value, w - lw), st)])
+        })
+        .collect()
 }
 
 /// Full screen: areas left, rows right, the selected row explained at the bottom.
@@ -1620,11 +1651,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             if here {
                 cursor_line = lines.len();
             }
-            let pair = |label: &str, value: &str, st: Style| {
-                // Without a value (a switch, a heading) the label has the whole width.
-                let lw = if value.is_empty() { w } else { lw };
-                Line::from(vec![Span::styled(format!("{} ", fit(label, lw - 1)), st), Span::styled(fit(value, w - lw), st)])
-            };
+            let pair = |label: &str, value: &str, st: Style| label_lines(label, value, st, w, lw);
             match row {
                 Row::Head(text, _) => {
                     if !lines.is_empty() {
@@ -1651,7 +1678,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::EditKeys => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("settings.keys_change")), w), st))),
                 Row::Tool(name, there, line) => {
                     let value = if *there { String::new() } else { line.clone().unwrap_or_else(|| t!("settings.search_tool_missing")) };
-                    lines.push(pair(&format!(" {} {}", if *there { "✓" } else { "✗" }, t!(&format!("settings.search_tool_{name}"))), &value, st));
+                    lines.extend(pair(&format!(" {} {}", if *there { "✓" } else { "✗" }, t!(&format!("settings.search_tool_{name}"))), &value, st));
                 }
                 Row::Service => {
                     let mark = if s.service { "[x]" } else { "[ ]" };
@@ -1659,8 +1686,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 }
                 // A path keeps its tail, the informative part; a sentence (what a version brought)
                 // keeps its start.
-                Row::Info(label, value, _) if Path::new(value).is_absolute() || value.starts_with('~') => lines.push(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
-                Row::Info(label, value, _) => lines.push(pair(&format!(" {label}"), value, st)),
+                Row::Info(label, value, _) if Path::new(value).is_absolute() || value.starts_with('~') => lines.extend(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
+                Row::Info(label, value, _) => lines.extend(pair(&format!(" {label}"), value, st)),
                 Row::Go(area, value) => lines.push(Line::from(vec![Span::styled(fit(&format!(" {}", area.label()), aw.max(14)), if here { selected } else { head }), Span::styled(fit(value, w.saturating_sub(aw.max(14))), st)])),
                 Row::Notice(n) => lines.push(Line::from(Span::styled(fit(&format!(" • {}", n.text), w), st))),
                 Row::Poor(p) => {
@@ -1669,8 +1696,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     let (mark, colour) = if p.tip { ("·", st) } else { ("!", if here { st } else { red }) };
                     lines.push(Line::from(vec![Span::styled(fit(&format!(" {mark} {}", p.text), w.saturating_sub(button.width())), colour), Span::styled(button, st)]));
                 }
-                Row::Model(e) => lines.push(pair(&format!(" {}", e.name), &e.line(), st)),
-                Row::Server(server) => lines.push(pair(&format!(" {server}"), &format!("[{}]", t!("settings.history_server_forget")), st)),
+                Row::Model(e) => lines.extend(pair(&format!(" {}", e.name), &e.line(), st)),
+                Row::Server(server) => lines.extend(pair(&format!(" {server}"), &format!("[{}]", t!("settings.history_server_forget")), st)),
                 Row::DeleteUnused(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("models.delete_unused", "size" => cs::human(*n))), w), st))),
                 // The name, its size, what clearing costs: the cost is what tells the rows apart.
                 Row::Disk(i) => {
@@ -1691,7 +1718,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         (None, Some(line)) => format!("{} {line}", t!("install.with")),
                         (None, None) => t!("chess.engine_not_found"),
                     };
-                    lines.push(pair(&format!(" {mark} {}", e.name), &value, st));
+                    lines.extend(pair(&format!(" {mark} {}", e.name), &value, st));
                 }
                 Row::EngineTest => {
                     let label = if s.engine_rx.is_some() { t!("chess.engine_testing") } else { t!("chess.engine_test") };
@@ -1712,7 +1739,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                                 Some(v) => v.as_str().map_or_else(|| v.to_string(), String::from),
                                 None => t!("chess.engine_default", "value" => if o.option.default.is_empty() { "—" } else { o.option.default.as_str() }),
                             };
-                            lines.push(pair(&label, &value, st));
+                            lines.extend(pair(&label, &value, st));
                         }
                     }
                 }
@@ -1725,7 +1752,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         Some(line) => format!("{} {line}", t!("common.loading")),
                         None => r.uses.clone(),
                     };
-                    lines.push(pair(&format!(" {} {}", if r.missing { "✗" } else { "✓" }, r.title), &if choice.is_empty() { uses } else { format!("{uses} · {choice}") }, if r.missing && !here { red } else { st }));
+                    lines.extend(pair(&format!(" {} {}", if r.missing { "✗" } else { "✓" }, r.title), &if choice.is_empty() { uses } else { format!("{uses} · {choice}") }, if r.missing && !here { red } else { st }));
                 }
                 Row::Opt(o) => {
                     let value = &values[o.name];
@@ -1742,7 +1769,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                             lines.push(Line::from(vec![Span::styled(format!("{} ", fit(&label, lw - 1)), base), Span::styled(fit(&field, vw), selected)]));
                         }
                         Mode::List { at, new } if here => {
-                            lines.push(pair(&label, "", head));
+                            lines.extend(pair(&label, "", head));
                             let items: Vec<&str> = value.as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
                             for (j, item) in items.iter().enumerate() {
                                 if j == *at {
@@ -1759,7 +1786,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                             lines.push(Line::from(vec![Span::styled(prompt.clone(), base), Span::styled(fit(&field, w.saturating_sub(prompt.width())), selected)]));
                         }
                         Mode::Pick(at) if here => {
-                            lines.push(pair(&label, "", head));
+                            lines.extend(pair(&label, "", head));
                             if let Kind::Choice(c) = kind(o, cfg, value) {
                                 for (j, (v, name)) in c.iter().enumerate() {
                                     if v == HEAD {
@@ -1774,7 +1801,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                                 }
                             }
                         }
-                        _ => lines.push(pair(&label, &shown(o, cfg, value), st)),
+                        _ => lines.extend(pair(&label, &shown(o, cfg, value), st)),
                     }
                 }
             }
@@ -1977,6 +2004,70 @@ mod tests {
         key(&mut app, KeyCode::Enter);
         assert!(!std::fs::read_to_string(&config).unwrap().contains("Threads"));
         assert!(app.cfg.chess.engines.get("Fake").is_none_or(|t| t.is_empty()));
+    }
+
+    /// At 80 columns no label is cut, in any language: a long one goes on over the lines below,
+    /// its value on its first line.
+    #[test]
+    fn labels_are_whole_at_80_columns() {
+        use coxswain_core::i18n::{tr_in, LANGUAGES};
+        let words = |s: &str| s.split_whitespace().collect::<String>();
+        for lang in LANGUAGES {
+            // The widths `draw` gives the rows on a terminal 80 wide: its frame takes two.
+            let aw = AREAS.iter().map(|a| tr_in(lang.code, &format!("settings.area.{}", a.id())).width()).max().unwrap().min(78 / 3) + 2;
+            let w = 78 - aw - 2;
+            let lw = (w * 11 / 20).max(12).min(w);
+            for o in cs::OPTIONS {
+                let label = tr_in(lang.code, &format!("setting.{}", o.name));
+                for mark in [" [ ] ", "     "] {
+                    let lines = label_lines(&format!("{mark}{label}"), "Classic blue (NC)", Style::default(), w, lw);
+                    let text: Vec<String> = lines.iter().map(|l| l.spans[0].content.to_string()).collect();
+                    assert!(text.iter().all(|t| !t.contains('…') && t.width() == lw), "{}: {}: {text:?}", lang.code, o.name);
+                    assert_eq!(words(&text.concat()), words(&format!("{}{label}", mark.trim())), "{}: {}", lang.code, o.name);
+                    assert!(lines[0].spans[1].content.starts_with("Classic blue"));
+                }
+            }
+        }
+        // Short ones stay on one line.
+        assert_eq!(label_lines(" [x] Icons", "On", Style::default(), 55, 30).len(), 1);
+    }
+
+    /// Under its heading at 80 × 24, the terminal app's theme is named whole.
+    #[test]
+    fn the_terminal_theme_is_named_whole() {
+        let d = crate::test_dir("panels");
+        let mut app = app(&d);
+        app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "tui_theme"))));
+        let text = screen(&mut app, 80, 24).iter().map(|l| l.split('│').nth(1).unwrap_or_default().trim().to_string()).collect::<Vec<_>>().join(" ");
+        assert!(text.contains(&t!("settings.theme_tui")), "{text}");
+        // Its value beside its first line, the rest of it on the next.
+        let label = text.replace(&choice_label("tui_theme", "nc"), "").replace('║', "");
+        assert!(words_in(&label, &t!("setting.tui_theme")), "{text}");
+    }
+
+    fn words_in(text: &str, label: &str) -> bool {
+        let text: Vec<&str> = text.split_whitespace().collect();
+        let label: Vec<&str> = label.split_whitespace().collect();
+        text.windows(label.len()).any(|w| w == label.as_slice())
+    }
+
+    /// A preview tool's explanation leaves no separator dangling where it has no file endings
+    /// to list (ClamAV reads any file).
+    #[test]
+    fn no_dangling_separator_without_endings() {
+        let d = crate::test_dir("panels");
+        let app = app(&d);
+        let mut s = Settings::open(&app, "preview_tools");
+        while s.tools.is_none() {
+            s.poll();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let rows_now = rows(&app, &s);
+        for kind in ["viruses", "latex"] {
+            s.cursor = rows_now.iter().position(|r| matches!(r, Row::PreviewTool(t) if t.kind == kind)).unwrap();
+            let text: String = explain(&app, &s, &rows_now).iter().map(|sp| sp.content.to_string()).collect();
+            assert!(!text.trim_end().ends_with('·') && !text.contains("·  ·") && !text.contains("· ·"), "{kind}: {text}");
+        }
     }
 
     /// The themes stand under their groups' headings, your own last; the next one skips a heading.

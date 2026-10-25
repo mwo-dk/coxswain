@@ -1286,6 +1286,9 @@ impl App {
                     if let Some(n) = keep {
                         p.select_name(&n);
                     }
+                    // Whole on the status line, as a listing from the thread says it: the
+                    // panel's info line cuts it to the panel's width.
+                    self.status = p.error.clone();
                     return;
                 } else {
                     return self.listed(d, k, r);
@@ -1649,6 +1652,13 @@ impl App {
                             return self.peek(e);
                         }
                         return self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    }
+                    // A 7z split into parts with one missing: which one, on the status line,
+                    // rather than its first part's bytes.
+                    if a == Action::View
+                        && let Some(why) = coxswain_core::archive::missing_part(&e)
+                    {
+                        return self.status = Some(why);
                     }
                     // In a snapshot: viewed as it is there; never edited.
                     if a != Action::View && coxswain_core::zfs::in_snapshot(&e).is_some() {
@@ -6092,6 +6102,41 @@ mod tests {
         app.cd(0, z.clone());
         assert_eq!(app.panels[0].dir, d, "nothing to list without it: back in its folder");
         assert!(matches!(&app.dialog, Some(Dialog::Input { prompt: Prompt::Unlock(0, dir), .. }) if *dir == z), "asked for the password");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A 7z split into parts with one missing: Enter and F3 say which on the status line,
+    /// whole over its lines at 80 columns, where the panel's info line cuts it.
+    #[test]
+    fn a_missing_part_is_said_whole() {
+        use ratatui::backend::TestBackend;
+        let d = std::env::temp_dir().join(format!("coxswain-test-parts-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // Its start says its list of contents lies past the part there: the second is missing.
+        let mut head = b"7z\xBC\xAF\x27\x1C\x00\x04\0\0\0\0".to_vec();
+        head.extend(5000u64.to_le_bytes());
+        head.extend(100u64.to_le_bytes());
+        head.extend([0u8; 4]);
+        head.resize(1000, 0);
+        std::fs::write(d.join("6d.7z.001"), &head).unwrap();
+        std::fs::write(d.join("6d.7z.003"), b"rest").unwrap();
+        let mut app = app(d.clone(), d.clone());
+        let at = app.panels[0].entries.iter().position(|e| e.name == "6d.7z.001").unwrap();
+        app.panels[0].cursor = at;
+        app.act(Action::View);
+        assert!(app.dialog.is_none(), "not its bytes");
+        let said = app.status.clone().unwrap_or_default();
+        assert_eq!(said, t!("archive.part_missing", "name" => "6d.7z.002"));
+        app.status = None;
+        app.act(Action::Open);
+        assert_eq!(app.panels[0].dir, d, "back in its folder");
+        assert_eq!(app.status.as_deref(), Some(said.as_str()));
+        let mut term = ratatui::Terminal::new(TestBackend::new(80, 24)).unwrap();
+        term.draw(|f| ui::draw(f, &mut app)).unwrap();
+        let buf = term.backend().buffer();
+        let rows: Vec<String> = (0..24).map(|y| (0..80).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>().trim_end().to_string()).collect();
+        assert_eq!(rows[21..23].join(" "), said, "{rows:#?}");
         let _ = std::fs::remove_dir_all(d);
     }
 

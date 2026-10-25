@@ -233,7 +233,10 @@ itself writes them.
 The search store reads a PGN file as a line per game: the players, event, site, date, ECO code
 with the opening's name, and result. So **Find** (**Ctrl+F**) finds a game by a player's name,
 a tournament or an opening (`Philidor`, `Morphy Paris`). A hit opens that game: in the desktop
-app on the board in the preview pane, in the terminal app in the game view.
+app on the board in the preview pane, in the terminal app in the game view. A SCID or ChessBase
+database is read from its `.si4`, `.si5` or `.cbh` file; the files beside it (`.sg4`, `.sn4`,
+`.sg5`, `.sn5`, `.cbg`, `.cba`, `.cbp`, `.cbt` and ChessBase's others) are not read as text, so
+they are no hits of their own.
 
 **Find this position.** The store also keeps, for each game, the positions its main line
 reaches (as Polyglot keys, 8 bytes each). On any board, a game's, an EPD position's, a book's or
