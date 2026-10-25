@@ -197,22 +197,44 @@ impl Vcs for Git {
 struct Jj;
 
 /// `jj` in `dir`, reading only: no snapshot of the working copy (which would write an
-/// operation, and import git's refs), no pager, no colour.
+/// operation, and import git's refs), no pager, no colour, and no signature checks: a
+/// repository's own config may name the program that checks them (and alias a template's words
+/// to `signature`), which would run it; an empty one runs nothing.
 fn jj(dir: &Path) -> Command {
     let mut c = crate::tools::command("jj");
     c.current_dir(dir)
         .args(["--ignore-working-copy", "--no-pager", "--color=never"])
+        .args(["gpg", "gpgsm", "ssh"].map(|b| format!("--config=signing.backends.{b}.program=\"\"")))
         .stdin(Stdio::null());
     c
 }
 
-/// Whether `jj` runs here; when not, the notice is due and git is asked instead.
-fn jj_here() -> bool {
+/// Whether `jj` runs for the repository at `dir`; when not, git is asked instead (and when jj
+/// is missing, its notice is due). A repository whose own config file is still inside it, not
+/// yet moved out by the user's own jj (`config-id` missing), may have come from anywhere: jj
+/// would move it into the user's config and follow it, so jj is not run there.
+fn jj_here(dir: &Path) -> bool {
     let here = crate::user_menu::installed("jj");
     if !here {
         JJ_MISSING.store(true, Ordering::Relaxed);
     }
-    here
+    here && !jj_config_inside(dir)
+}
+
+/// Whether the Jujutsu repository at `dir` keeps a config file of its own that jj would take
+/// in (a plain file, not jj's link to the moved one, with no `…-id` beside it).
+fn jj_config_inside(dir: &Path) -> bool {
+    let Some(root) = jj_root(dir) else { return false };
+    let dot = root.join(".jj");
+    let repo = match std::fs::read_to_string(dot.join("repo")) {
+        Ok(to) => dot.join(to.trim()),
+        Err(_) => dot.join("repo"),
+    };
+    let inside = |file: PathBuf, id: PathBuf| {
+        std::fs::symlink_metadata(&file).is_ok_and(|m| m.is_file()) && !id.exists()
+    };
+    inside(repo.join("config.toml"), repo.join("config-id"))
+        || inside(dot.join("workspace-config.toml"), dot.join("workspace-config-id"))
 }
 
 /// A Jujutsu string literal: `"…"` with `\` and `"` escaped.
@@ -235,7 +257,7 @@ impl Vcs for Jj {
 
     fn status(&self, dir: &Path) -> Option<Status> {
         let root = jj_root(dir)?;
-        if !jj_here() {
+        if !jj_here(&root) {
             return Status::read_git(dir);
         }
         // Next to git, git's own status is live (jj's is as of the last jj command), and git
@@ -281,7 +303,7 @@ impl Vcs for Jj {
     }
 
     fn log(&self, base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool)> {
-        if !jj_here() {
+        if !jj_here(base) {
             return Git.log(base, spec, max);
         }
         let mut c = jj(base);
@@ -309,7 +331,7 @@ impl Vcs for Jj {
     /// next to Jujutsu calls HEAD): the store below `.jj` has no HEAD of its own. git reads the
     /// rest from that store by the commit's id.
     fn commit_id(&self, base: &Path, rev: &str) -> Option<String> {
-        if rev != "HEAD" || jj_store(base).is_none() || !jj_here() {
+        if rev != "HEAD" || jj_store(base).is_none() || !jj_here(base) {
             return crate::history::rev_oid(base, rev);
         }
         let mut c = jj(base);
@@ -322,7 +344,7 @@ impl Vcs for Jj {
     }
 
     fn branches(&self, dir: &Path) -> io::Result<Vec<Branch>> {
-        if !jj_here() {
+        if !jj_here(dir) {
             return Git.branches(dir);
         }
         let mut c = jj(dir);
@@ -1051,6 +1073,31 @@ pub fn parse_hg_branches(marks: &str, named: &str, here: &str) -> Vec<Branch> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A Jujutsu repository that brings its own config file (not yet moved out by the user's
+    /// jj) is not given to jj; once moved (`config-id` beside it), or with none, it is.
+    #[test]
+    fn vcs_jj_config_inside_a_repository_is_not_followed() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-jj-config-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let repo = d.join(".jj/repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        assert!(!jj_config_inside(&d));
+        std::fs::write(repo.join("config.toml"), "[template-aliases]\ncommit_id = 'signature'\n").unwrap();
+        assert!(jj_config_inside(&d));
+        std::fs::write(repo.join("config-id"), "1").unwrap();
+        assert!(!jj_config_inside(&d));
+        std::fs::write(d.join(".jj/workspace-config.toml"), "").unwrap();
+        assert!(jj_config_inside(&d));
+        // A second workspace: `repo` names the first one's, whose config counts.
+        let w = d.join("w");
+        std::fs::create_dir_all(w.join(".jj")).unwrap();
+        std::fs::write(w.join(".jj/repo"), repo.to_str().unwrap()).unwrap();
+        assert!(!jj_config_inside(&w));
+        std::fs::remove_file(repo.join("config-id")).unwrap();
+        assert!(jj_config_inside(&w));
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn vcs_jj_summary_and_renames() {
