@@ -12,7 +12,7 @@ run in it with one command. They run under KVM with user-mode networking and are
 | NetBSD 10.1 | the official live image | 2224 | :3 (5903) | none |
 | OmniOS r151058 | the official cloud image, cloud-init | 2225 | :4 (5904) | none |
 
-Each has 4 vCPUs, 4 GB of memory and a sparse disk of 24 to 32 GB, user `test` with
+Each has 4 vCPUs, 4 GB of memory and a sparse disk of 24 GB (FreeBSD 80 GB: it also builds the desktop app), user `test` with
 passwordless sudo or doas, and Coxswain installed by its install script (`install/install-freebsd.sh` on FreeBSD,
 `install/install-unix.sh` on the others).
 
@@ -73,7 +73,7 @@ It starts the VM when it is down (and stops it afterwards only then), copies the
 `~/coxswain-src` in the VM without `target/`, `node_modules/` and `.git` (rsync, or tar when the
 VM has none; `gui/dist` goes along when built, else an empty one lets the desktop app compile),
 runs cargo there with its target folder in the VM (`~/coxswain-target`, so the next run is
-incremental), streams the output and exits with cargo's status. Several VMs at once are fine;
+incremental; cleared first when the VM's free disk is less than it), streams the output and exits with cargo's status. Several VMs at once are fine;
 one `test-in.sh` per VM at a time.
 
 ```sh
