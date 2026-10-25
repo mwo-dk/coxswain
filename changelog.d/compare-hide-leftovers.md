@@ -1,1 +1,0 @@
-| **Compare folders leaves a sync run's own leftovers out.** The *.coxswain-sync-…* folder a run keeps what it replaced in, and a half-written *.name.coxswain-….tmp* file, get no mark, so two folders made alike show as the same. | [Compare folders](files/compare-folders.md#why-does-compare-folders-not-mark-a-sync-runs-leftovers) |
