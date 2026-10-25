@@ -4201,6 +4201,7 @@
  "pinned.too_deep": "Più di {n} cartelle di profondità: il contenuto è lasciato com’è.",
  "pinned.no_open": "Impossibile aprirlo: lasciato com’è.",
  "pinned.hard_link": "Un collegamento fisico: lasciato com’è, perché non cambino anche gli altri suoi nomi.",
+ "pinned.efs": "Cifrato (EFS): qui non si è potuto copiarlo cifrato, quindi non è stato copiato.",
  "pinned.not_yours": "File di un altro utente: lasciato com’è, perché resti suo.",
  "pinned.extra": "Ha permessi o attributi in più: lasciato com’è.",
  "pinned.special": "Né un file né una cartella: lasciato com’è.",
@@ -4395,5 +4396,5 @@
  "sync.keys_plan": "Enter {go} · Space spunta la casella · Esc chiudi",
  "undo.what.sync": "rendi {dir} come {from}",
  "sync.moved_away": "La cartella di ciò che è stato sostituito o eliminato è stata spostata durante l'esecuzione, quindi non è nel cestino: {path}",
- "sync.no_mark": "Copiato, ma non è stato possibile aggiungere il segno di download o la sola lettura"
+ "sync.no_mark": "Copiato, ma non è stato possibile aggiungere il segno di download, un altro flusso di dati o la sola lettura"
 }

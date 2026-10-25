@@ -7,7 +7,7 @@
 //! or a file system in user mode, opens by path and could follow a junction swapped in there.
 //! The same calls as `dir.rs` on Unix.
 
-use super::imp::{DELETE, GENERIC_READ, GENERIC_WRITE, LIST_DIRECTORY, READ_ATTRIBUTES, SHARE_ALL, SYNCHRONIZE, WRITE_ATTRIBUTES, local_disk, nt, open_in};
+use super::imp::{DELETE, GENERIC_READ, GENERIC_WRITE, LIST_DIRECTORY, READ_ATTRIBUTES, SHARE_ALL, SYNCHRONIZE, WRITE_ATTRIBUTES, basic, create_in, local_disk, nt, open_in};
 use super::{Id, Kind, Stat, changed, other, stat_of};
 use crate::t;
 use std::ffi::{OsStr, OsString};
@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use windows_sys::Wdk::Foundation::OBJECT_ATTRIBUTES;
 use windows_sys::Wdk::Storage::FileSystem::{FILE_CREATE, FILE_DIRECTORY_FILE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, FILE_SYNCHRONOUS_IO_NONALERT, FileRenameInformation, NtCreateFile, NtSetInformationFile};
 use windows_sys::Win32::Foundation::{HANDLE, UNICODE_STRING};
-use windows_sys::Win32::Storage::FileSystem::{FILE_BASIC_INFO, FILE_CASE_SENSITIVE_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_RENAME_INFO, FileBasicInfo, FileCaseSensitiveInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, GetFileInformationByHandleEx, GetFinalPathNameByHandleW, SetFileInformationByHandle};
+use windows_sys::Win32::Storage::FileSystem::{FILE_BASIC_INFO, FILE_CASE_SENSITIVE_INFO, FILE_DISPOSITION_INFO, FILE_ID_BOTH_DIR_INFO, FILE_RENAME_INFO, FILE_STREAM_INFO, FileBasicInfo, FileCaseSensitiveInfo, FileDispositionInfo, FileIdBothDirectoryInfo, FileIdBothDirectoryRestartInfo, FileStreamInfo, GetFileInformationByHandleEx, GetFinalPathNameByHandleW, SetFileInformationByHandle};
 use windows_sys::Win32::System::IO::IO_STATUS_BLOCK;
 
 /// FILE_TRAVERSE: names in the folder can be opened through it.
@@ -34,6 +34,8 @@ const COLLISION: i32 = 0xC000_0035_u32 as i32;
 const READ_ONLY: u32 = 0x1;
 const HIDDEN: u32 = 0x2;
 const NORMAL: u32 = 0x80;
+/// Encrypted by EFS: a copy is made encrypted too, or not at all.
+const ENCRYPTED: u32 = 0x4000;
 
 /// A folder held open.
 pub struct Dir {
@@ -112,6 +114,10 @@ fn rename(f: &std::fs::File, to: HANDLE, name: &[u16]) -> std::io::Result<()> {
 fn delete(f: &std::fs::File) -> std::io::Result<()> {
     // FILE_DISPOSITION_INFORMATION_EX: DELETE | POSIX_SEMANTICS | IGNORE_READONLY_ATTRIBUTE.
     let flags: u32 = 0x1 | 0x2 | 0x10;
+    #[cfg(test)]
+    if OLD_DELETE.get() {
+        return plain_delete(f);
+    }
     // SAFETY: zeroes are a valid IO_STATUS_BLOCK.
     let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
     // SAFETY: an open handle (with DELETE), four bytes of flags; class 64 is
@@ -125,24 +131,49 @@ fn delete(f: &std::fs::File) -> std::io::Result<()> {
     if !matches!(st as u32, 0xC000_000D | 0xC000_0003 | 0xC000_00BB) {
         return Err(nt(st));
     }
+    plain_delete(f)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test's: delete as an older Windows does, without POSIX semantics.
+    pub(crate) static OLD_DELETE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The plain delete of an older Windows, which refuses a read-only file: read-only is taken off
+/// first, through the same handle (opened with write-attributes), and put back if the delete is
+/// still refused.
+fn plain_delete(f: &std::fs::File) -> std::io::Result<()> {
+    let was = basic(f).map(|b| b.FileAttributes).unwrap_or(0);
+    let read_only = was & READ_ONLY != 0;
+    if read_only {
+        set_basic(f, match was & !READ_ONLY { 0 => NORMAL, a => a }, 0, 0)?;
+    }
     let gone = FILE_DISPOSITION_INFO { DeleteFile: true };
-    // SAFETY: as above, the plain record.
+    // SAFETY: an open handle (with DELETE), the plain record of the size given.
     if unsafe { SetFileInformationByHandle(raw(f), FileDispositionInfo, std::ptr::from_ref(&gone).cast(), std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32) } == 0 {
-        return Err(last());
+        let e = last();
+        if read_only {
+            let _ = set_basic(f, was, 0, 0);
+        }
+        return Err(e);
     }
     Ok(())
 }
 
-/// The data stream `:Zone.Identifier` of the open file `f` (the mark a download carries),
-/// opened through the file's own handle: to read it (`create` false) or as a new one.
-fn zone_stream(f: &std::fs::File, create: bool) -> std::io::Result<std::fs::File> {
-    let name: Vec<u16> = ":Zone.Identifier".encode_utf16().collect();
+/// The data stream `name` (`:name:$DATA`) of the open file `f`, opened through the file's own
+/// handle, never by a path: to read it (`create` false) or as a new one, to be written and, if
+/// it cannot be whole, deleted through its handle.
+fn stream(f: &std::fs::File, name: &[u16], create: bool) -> std::io::Result<std::fs::File> {
+    if name.first() != Some(&(b':' as u16)) || name.iter().any(|&c| c == b'\\' as u16 || c == b'/' as u16 || c == 0) || name.len() > 600 {
+        return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+    }
     let us = UNICODE_STRING { Length: (name.len() * 2) as u16, MaximumLength: (name.len() * 2) as u16, Buffer: name.as_ptr() as *mut u16 };
     let oa = OBJECT_ATTRIBUTES { Length: std::mem::size_of::<OBJECT_ATTRIBUTES>() as u32, RootDirectory: raw(f), ObjectName: &us, Attributes: 0x40, SecurityDescriptor: std::ptr::null(), SecurityQualityOfService: std::ptr::null() };
     let mut h: HANDLE = std::ptr::null_mut();
     // SAFETY: zeroes are a valid IO_STATUS_BLOCK, which the call fills in.
     let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
-    let (access, disposition, share) = if create { (GENERIC_WRITE, FILE_CREATE, 0) } else { (GENERIC_READ, FILE_OPEN, SHARE_ALL) };
+    let (access, disposition, share) = if create { (GENERIC_WRITE | DELETE, FILE_CREATE, 0) } else { (GENERIC_READ, FILE_OPEN, SHARE_ALL) };
     // SAFETY: an open file handle, a stream name that outlives the call, `h` and `io` ours to
     // fill; synchronous, so the handle works as a std File.
     let st = unsafe { NtCreateFile(&mut h, access | SYNCHRONIZE, &oa, &mut io, std::ptr::null(), 0x80, share, disposition, FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, std::ptr::null(), 0) };
@@ -153,13 +184,81 @@ fn zone_stream(f: &std::fs::File, create: bool) -> std::io::Result<std::fs::File
     Ok(std::fs::File::from(unsafe { std::os::windows::io::OwnedHandle::from_raw_handle(h as _) }))
 }
 
-/// The mark of a download (`Zone.Identifier`) of `from`, to carry to its copy, so a program
-/// copied keeps the warning Windows shows before it runs. A file without one: none.
-fn zone_of(from: &std::fs::File) -> Option<Vec<u8>> {
-    let mut z = zone_stream(from, false).ok()?;
-    let mut mark = vec![];
-    (&mut z).take(64 * 1024).read_to_end(&mut mark).ok()?;
-    Some(mark)
+/// The data streams of the open file `f` besides its own (`:name:$DATA`), with their sizes:
+/// the mark of a download (`:Zone.Identifier`, the warning Windows shows before a program from
+/// the internet runs) and any other. None on a file system without them (FAT).
+fn streams(f: &std::fs::File) -> std::io::Result<Vec<(Vec<u16>, u64)>> {
+    let mut buf = vec![0u64; 8 * 1024];
+    loop {
+        // SAFETY: an open file, a buffer of the length given.
+        if unsafe { GetFileInformationByHandleEx(raw(f), FileStreamInfo, buf.as_mut_ptr().cast(), (buf.len() * 8) as u32) } != 0 {
+            break;
+        }
+        let e = last();
+        match e.raw_os_error() {
+            // ERROR_HANDLE_EOF: none at all; and a file system without streams.
+            Some(38 | 1 | 50 | 87) => return Ok(vec![]),
+            // ERROR_MORE_DATA: a larger buffer, up to 4 MB.
+            Some(234) if buf.len() < (512 << 10) => buf.resize(buf.len() * 4, 0),
+            _ => return Err(e),
+        }
+    }
+    let (base, end) = (buf.as_ptr().cast::<u8>(), buf.len() * 8);
+    let main: Vec<u16> = "::$DATA".encode_utf16().collect();
+    let (mut out, mut at) = (vec![], 0usize);
+    loop {
+        if at + std::mem::size_of::<FILE_STREAM_INFO>() > end {
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
+        }
+        // SAFETY: a record the call wrote, inside the buffer (checked above); unaligned reads.
+        let e = unsafe { base.add(at).cast::<FILE_STREAM_INFO>() };
+        // SAFETY: as above.
+        let (next, len, size) = unsafe { (std::ptr::addr_of!((*e).NextEntryOffset).read_unaligned(), std::ptr::addr_of!((*e).StreamNameLength).read_unaligned(), std::ptr::addr_of!((*e).StreamSize).read_unaligned()) };
+        let name_at = at + std::mem::offset_of!(FILE_STREAM_INFO, StreamName);
+        if name_at + len as usize > end {
+            return Err(std::io::Error::from(std::io::ErrorKind::InvalidData));
+        }
+        // SAFETY: the name's bytes, inside the buffer (checked above), copied out.
+        let name: Vec<u16> = unsafe { std::slice::from_raw_parts(base.add(name_at), len as usize) }.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        if name != main {
+            out.push((name, u64::try_from(size).unwrap_or(0)));
+        }
+        if next == 0 {
+            return Ok(out);
+        }
+        at += next as usize;
+    }
+}
+
+/// The stream `name` of `from` (`size` bytes as listed) written into a new stream of `to`, a
+/// megabyte at a time; one cut short (stopped, or changed meanwhile) is deleted again.
+fn copy_stream(from: &std::fs::File, to: &std::fs::File, name: &[u16], size: u64, stop: &AtomicBool) -> std::io::Result<()> {
+    let mut src = stream(from, name, false)?;
+    let mut dst = stream(to, name, true)?;
+    let done = (|| {
+        let mut buf = vec![0u8; (1 << 20).min(size as usize + 1)];
+        let mut left = size + 1;
+        while left > 0 {
+            if stop.load(Ordering::Relaxed) {
+                return Err(std::io::Error::from(std::io::ErrorKind::Interrupted));
+            }
+            let want = buf.len().min(usize::try_from(left).unwrap_or(usize::MAX));
+            let k = read_full(&mut src, &mut buf[..want])?;
+            if k == 0 {
+                break;
+            }
+            dst.write_all(&buf[..k])?;
+            left -= k as u64;
+        }
+        if left != 1 {
+            return Err(changed());
+        }
+        Ok(())
+    })();
+    if done.is_err() {
+        let _ = delete(&dst);
+    }
+    done
 }
 
 /// Where the open `f` is now, as the system names it (its NT path: a volume needs no letter).
@@ -344,12 +443,25 @@ impl Dir {
     /// A new file `name` here, with the bytes of `from` (as `was`): written beside under a name
     /// of its own (made new, shared with no one, never through a link), given `was`'s times and
     /// hidden attribute, then renamed to `name` through its own handle, only while nothing is
-    /// there, and made read-only after when `was` is. Stopped half way, nothing is left. What it
-    /// is now, and whether it got all `was` carries (false: in place without the mark of a
-    /// download or read-only).
+    /// there, then given its other data streams (the mark of a download among them) and made
+    /// read-only after when `was` is. Encrypted (EFS), it is made encrypted or not at all.
+    /// Stopped half way, nothing is left. What it is now, and whether it got all `was` carries
+    /// (false: in place without a stream or read-only).
     pub fn create_file(&self, name: &OsStr, from: &mut std::fs::File, was: &Stat, stop: &AtomicBool) -> std::io::Result<(Stat, bool)> {
         let n = wide(name)?;
-        let mut f = open_in(raw(&self.h), &temp_name(name), GENERIC_WRITE | READ_ATTRIBUTES | WRITE_ATTRIBUTES | DELETE, FILE_CREATE, FILE_NON_DIRECTORY_FILE, 0)?;
+        // An encrypted file (EFS) is made encrypted, for this user, before a byte goes in; where
+        // that cannot be (FAT, ReFS, EFS turned off), it is not copied: never as plain data.
+        let encrypted = basic(from)?.FileAttributes & ENCRYPTED != 0;
+        let access = GENERIC_WRITE | READ_ATTRIBUTES | WRITE_ATTRIBUTES | DELETE;
+        let made_new = create_in(raw(&self.h), &temp_name(name), access, FILE_CREATE, FILE_NON_DIRECTORY_FILE, 0, if encrypted { ENCRYPTED } else { NORMAL });
+        let mut f = match made_new {
+            Err(_) if encrypted => return Err(other(t!("pinned.efs"))),
+            r => r?,
+        };
+        if encrypted && !basic(&f).is_ok_and(|b| b.FileAttributes & ENCRYPTED != 0) {
+            let _ = delete(&f);
+            return Err(other(t!("pinned.efs")));
+        }
         let done = (|| {
             let mut buf = vec![0u8; 1 << 20];
             // At most the size it had, and one byte more to tell it grew: a file still being
@@ -370,12 +482,13 @@ impl Dir {
             if stat_of(from)?.id != was.id || stat_of(&f)?.size != was.size {
                 return Err(changed());
             }
-            let zone = zone_of(from);
+            // Its other streams, as they are now; one that cannot be listed is said, not lost.
+            let extra = streams(from).ok();
             set_basic(&f, if was.mode & HIDDEN != 0 { HIDDEN } else { NORMAL }, filetime(was.accessed), filetime(was.modified))?;
             rename(&f, raw(&self.h), &n)?;
-            Ok(zone)
+            Ok(extra)
         })();
-        let zone = match done {
+        let extra = match done {
             Ok(z) => z,
             Err(e) => {
                 // Deleted through its own handle, never by name.
@@ -384,19 +497,21 @@ impl Dir {
             }
         };
         let made = stat_of(&f)?;
-        if zone.is_none() && was.mode & READ_ONLY == 0 {
+        if extra.as_ref().is_some_and(Vec::is_empty) && was.mode & READ_ONLY == 0 {
             return Ok((made, true));
         }
-        // The mark of a download and read-only come once it is in place: a stream cannot be
-        // added while the file is shared with no one, nor a read-only file renamed. Through a
-        // handle of its own, only to the very file put there, unchanged (the same change time,
-        // write time and size); written, it stays even should this fail, and that is said.
+        // Other streams (the mark of a download among them) and read-only come once it is in
+        // place: a stream cannot be added while the file is shared with no one, nor a read-only
+        // file renamed. Through a handle of its own, only to the very file put there, unchanged
+        // (the same change time, write time and size); written, it stays even should this fail,
+        // and that is said.
         drop(f);
         let Ok(g) = open_in(raw(&self.h), &n, READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, FILE_NON_DIRECTORY_FILE, SHARE_ALL) else { return Ok((made, false)) };
         if !stat_of(&g).is_ok_and(|s| s.id == made.id && (s.size, s.modified) == (made.size, made.modified)) {
             return Ok((made, false));
         }
-        let marked = zone.is_none_or(|mark| zone_stream(&g, true).and_then(|mut z| z.write_all(&mark)).is_ok());
+        // Each stream tried, whatever became of the one before.
+        let marked = extra.is_some_and(|all| all.iter().filter(|(name, size)| copy_stream(from, &g, name, *size, stop).is_err()).count() == 0);
         // The times again (a new stream moves them), and read-only.
         let attributes = match was.mode & (READ_ONLY | HIDDEN) {
             0 => NORMAL,
@@ -454,7 +569,9 @@ impl Dir {
     /// very one (`same_file`) with the size and time it was left with; a folder only when empty.
     /// Removed through the handle checked.
     pub fn remove(&self, name: &OsStr, want: &Stat) -> std::io::Result<()> {
-        let e = self.open(name, DELETE | READ_ATTRIBUTES, FILE_OPEN, 0, SHARE_ALL)?;
+        // Write-attributes too: an older Windows deletes a read-only file only once read-only
+        // is taken off (`plain_delete`).
+        let e = self.open(name, DELETE | READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, 0, SHARE_ALL)?;
         let s = stat_of(&e)?;
         let same = s.id.same_file(&want.id) && s.kind == want.kind && (s.kind == Kind::Dir || (s.size, s.modified) == (want.size, want.modified));
         if !same {

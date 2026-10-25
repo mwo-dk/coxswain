@@ -1472,6 +1472,65 @@ mod tests {
         assert!(!r.join("linked").exists());
     }
 
+    /// Every other data stream comes along, the mark of a download among them, a large one too.
+    #[cfg(windows)]
+    #[test]
+    fn windows_copies_other_data_streams() {
+        let (_d, l, r) = pair("sync-streams");
+        let stream = |p: &Path, s: &str| PathBuf::from(format!("{}:{s}", p.display()));
+        let big: Vec<u8> = (0..3_000_000u32).map(|i| (i % 251) as u8).collect();
+        fs::write(l.join("f"), "main").unwrap();
+        fs::write(stream(&l.join("f"), "notes"), "a note").unwrap();
+        fs::write(stream(&l.join("f"), "big"), &big).unwrap();
+        fs::write(stream(&l.join("f"), "Zone.Identifier"), "[ZoneTransfer]\r\nZoneId=3\r\n").unwrap();
+        let mut ro = fs::metadata(l.join("f")).unwrap().permissions();
+        ro.set_readonly(true);
+        fs::set_permissions(l.join("f"), ro).unwrap();
+        let done = run(&plan_of(&l, &r, false));
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        let t = r.join("f");
+        assert_eq!(fs::read_to_string(&t).unwrap(), "main");
+        assert_eq!(fs::read_to_string(stream(&t, "notes")).unwrap(), "a note");
+        assert!(fs::read(stream(&t, "big")).unwrap() == big);
+        assert!(fs::read_to_string(stream(&t, "Zone.Identifier")).unwrap().contains("ZoneId=3"));
+        assert!(fs::metadata(&t).unwrap().permissions().readonly(), "read-only after the streams");
+        // Undo as an older Windows deletes (no POSIX semantics): read-only is taken off first.
+        crate::pinned::dir::OLD_DELETE.set(true);
+        let u = done.record.undo(|_| {});
+        crate::pinned::dir::OLD_DELETE.set(false);
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert!(!t.exists());
+        let mut rw = fs::metadata(l.join("f")).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        rw.set_readonly(false);
+        fs::set_permissions(l.join("f"), rw).unwrap();
+    }
+
+    /// An encrypted file (EFS) is copied encrypted, or not at all: never as plain data.
+    #[cfg(windows)]
+    #[test]
+    fn windows_copies_an_encrypted_file_encrypted_or_not_at_all() {
+        use std::os::windows::fs::MetadataExt;
+        let (_d, l, r) = pair("sync-efs");
+        fs::write(l.join("secret.txt"), "secret").unwrap();
+        let ok = std::process::Command::new("cipher").arg("/e").arg(l.join("secret.txt")).output().is_ok_and(|o| o.status.success());
+        if !ok || fs::metadata(l.join("secret.txt")).unwrap().file_attributes() & 0x4000 == 0 {
+            eprintln!("EFS is not available here: not tested");
+            return;
+        }
+        let done = run(&plan_of(&l, &r, false));
+        let t = r.join("secret.txt");
+        if t.exists() {
+            assert!(done.failed.is_empty(), "{:?}", done.failed);
+            assert_ne!(fs::metadata(&t).unwrap().file_attributes() & 0x4000, 0, "the copy is encrypted");
+            assert_eq!(fs::read_to_string(&t).unwrap(), "secret");
+        } else {
+            assert!(done.failed.iter().any(|f| f.contains(&t!("pinned.efs"))), "{:?}", done.failed);
+        }
+        let leftovers: Vec<_> = fs::read_dir(&r).unwrap().map(|e| e.unwrap().file_name()).filter(|n| n != "secret.txt").collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
+    }
+
     /// On Windows the folder aside stays at the target's top (never handed to the shell's bin
     /// by its path), and the status line says where.
     #[cfg(windows)]

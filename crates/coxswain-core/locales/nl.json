@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Meer dan {n} mappen diep: de inhoud blijft zoals hij is.",
  "pinned.no_open": "Kon niet worden geopend: gelaten zoals het is.",
  "pinned.hard_link": "Een harde koppeling: gelaten zoals ze is, zodat haar andere namen niet mee veranderen.",
+ "pinned.efs": "Versleuteld (EFS): kon hier niet versleuteld worden gekopieerd, dus het is niet gekopieerd.",
  "pinned.not_yours": "Bestand van een andere gebruiker: gelaten zoals het is, zodat het van hen blijft.",
  "pinned.extra": "Heeft extra rechten of attributen: gelaten zoals het is.",
  "pinned.special": "Geen bestand en geen map: gelaten zoals het is.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space vinkt het vakje aan · Esc sluiten",
  "undo.what.sync": "{dir} gelijk maken aan {from}",
  "sync.moved_away": "De map met het vervangene of verwijderde is tijdens de uitvoering verplaatst, dus het staat niet in de prullenbak: {path}",
- "sync.no_mark": "Gekopieerd, maar de downloadmarkering of alleen-lezen kon niet worden toegevoegd"
+ "sync.no_mark": "Gekopieerd, maar de downloadmarkering, een andere gegevensstroom of alleen-lezen kon niet worden toegevoegd"
 }

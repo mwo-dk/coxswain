@@ -848,6 +848,11 @@ mod imp {
     /// nothing is looked up by path. A name that is no plain name (a separator, a stream, `..`)
     /// is refused, so it cannot lead out of the folder.
     pub(super) fn open_in(dir: HANDLE, name: &[u16], access: u32, disposition: u32, options: u32, share: u32) -> std::io::Result<std::fs::File> {
+        create_in(dir, name, access, disposition, options, share, 0x80)
+    }
+
+    /// `open_in`, a file made new getting `attributes` (encrypted, for one: EFS).
+    pub(super) fn create_in(dir: HANDLE, name: &[u16], access: u32, disposition: u32, options: u32, share: u32, attributes: u32) -> std::io::Result<std::fs::File> {
         let plain = !name.is_empty() && name != [b'.' as u16] && name != [b'.' as u16, b'.' as u16] && !name.iter().any(|&c| c == b'\\' as u16 || c == b'/' as u16 || c == b':' as u16 || c == 0);
         if !plain || name.len() > 32_000 {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
@@ -860,7 +865,7 @@ mod imp {
         let mut io: IO_STATUS_BLOCK = unsafe { std::mem::zeroed() };
         // SAFETY: an open folder handle, a name that outlives the call, `h` and `io` ours to fill;
         // synchronous, so the handle works as a std File.
-        let st = unsafe { NtCreateFile(&mut h, access | SYNCHRONIZE, &oa, &mut io, std::ptr::null(), 0x80, share, disposition, options | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, std::ptr::null(), 0) };
+        let st = unsafe { NtCreateFile(&mut h, access | SYNCHRONIZE, &oa, &mut io, std::ptr::null(), attributes, share, disposition, options | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, std::ptr::null(), 0) };
         if st < 0 {
             return Err(nt(st));
         }
@@ -916,7 +921,7 @@ mod imp {
         })
     }
 
-    fn basic(f: &std::fs::File) -> std::io::Result<FILE_BASIC_INFO> {
+    pub(super) fn basic(f: &std::fs::File) -> std::io::Result<FILE_BASIC_INFO> {
         // SAFETY: zeroes are a valid FILE_BASIC_INFO, which the call fills in.
         let mut b: FILE_BASIC_INFO = unsafe { std::mem::zeroed() };
         // SAFETY: the handle is open for the call, `b` outlives it and its size is given.

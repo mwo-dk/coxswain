@@ -4201,6 +4201,7 @@
  "pinned.too_deep": "Más de {n} carpetas de profundidad: lo que hay adentro se deja como está.",
  "pinned.no_open": "No se pudo abrir: se deja como está.",
  "pinned.hard_link": "Un vínculo duro: se deja como está, para que sus otros nombres no cambien también.",
+ "pinned.efs": "Cifrado (EFS): no se pudo copiar cifrado acá, así que no se copió.",
  "pinned.not_yours": "Archivo de otro usuario: se deja como está, para que siga siendo suyo.",
  "pinned.extra": "Tiene permisos o atributos adicionales: se deja como está.",
  "pinned.special": "No es un archivo ni una carpeta: se deja como está.",
@@ -4395,5 +4396,5 @@
  "sync.keys_plan": "Enter {go} · Space marca la casilla · Esc cerrar",
  "undo.what.sync": "dejar {dir} como {from}",
  "sync.moved_away": "La carpeta de lo reemplazado o eliminado se movió durante la ejecución, así que no está en la papelera: {path}",
- "sync.no_mark": "Copiado, pero no se pudo agregar la marca de descarga o el solo lectura"
+ "sync.no_mark": "Copiado, pero no se pudo agregar la marca de descarga, otro flujo de datos o el solo lectura"
 }

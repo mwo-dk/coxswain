@@ -163,11 +163,15 @@ differ there:
   compared as usual; when it is replaced, the copy takes the left side's name, and *README.TXT*
   is set aside, and put back by **Ctrl+Z**, under its own. A folder keeps its own. In a folder
   marked case-sensitive (as WSL makes them) they are two entries, as on Linux.
-- A copy keeps its dates, its *hidden* and *read-only* attributes and the mark of a download
-  (the warning Windows shows before running a program from the internet); there are no
-  permission bits to carry. Another data stream is not copied. When the mark or read-only cannot
-  be added, the copy stays and the run lists it: *Copied, but the mark of a download or read-only
-  could not be added*.
+- A copy keeps its dates, its *hidden* and *read-only* attributes and every other data stream
+  of the file, the mark of a download among them (the warning Windows shows before running a
+  program from the internet); there are no permission bits to carry. When a stream or read-only
+  cannot be added, the copy stays and the run lists it: *Copied, but the mark of a download,
+  another data stream or read-only could not be added*.
+- A file encrypted with EFS (*Encrypt contents to secure data*) is copied encrypted, for you,
+  never as plain data. Where the target cannot hold it encrypted (FAT, ReFS, EFS turned off),
+  it is not copied and the run lists it: *Encrypted (EFS): it could not be copied encrypted
+  here, so it was not copied.*
 - A file with another name elsewhere (a hard link) is left out: anyone may link a file they
   cannot read into a folder they can write, and the copy would read it with your rights.
 - The folder that holds what was replaced or deleted (*.coxswain-sync-…*) does not go to the
@@ -247,6 +251,13 @@ It is Coxswain's, not yours: the folder a run keeps what it replaced or deleted 
 made alike show **=** and *The folders are the same* even while one still holds them. The panel
 still lists them (with hidden files shown, **Alt+.**): delete one like any other folder (**F8**)
 once you no longer need what it holds.
+
+#### Does it copy alternate data streams and encrypted files on Windows?
+
+Yes. Every data stream of a file comes along (the mark of a download, *Zone.Identifier*, among
+them), and a file encrypted with EFS is made encrypted at the target before a byte is written.
+Where the target cannot encrypt (a FAT stick, ReFS), the file is not copied and the run says so,
+rather than leaving a plain copy of it.
 
 #### Why did the run leave some files as they are?
 

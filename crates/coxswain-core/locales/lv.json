@@ -4201,6 +4201,7 @@
  "pinned.too_deep": "Dziļāk par {n} mapēm: saturs atstāts, kā ir.",
  "pinned.no_open": "Neizdevās atvērt: atstāts, kā ir.",
  "pinned.hard_link": "Cietā saite: atstāta, kā ir, lai nemainītos arī tās citi nosaukumi.",
+ "pinned.efs": "Šifrēts (EFS): šeit to nevarēja nokopēt šifrētu, tāpēc tas netika nokopēts.",
  "pinned.not_yours": "Cita lietotāja fails: atstāts, kā ir, lai paliktu viņa.",
  "pinned.extra": "Tam ir papildu atļaujas vai atribūti: atstāts, kā ir.",
  "pinned.special": "Nav ne fails, ne mape: atstāts, kā ir.",
@@ -4395,5 +4396,5 @@
  "sync.keys_plan": "Enter {go} · Space atzīmē rūtiņu · Esc aizvērt",
  "undo.what.sync": "padarīt {dir} kā {from}",
  "sync.moved_away": "Aizstātā vai dzēstā mape darbības laikā tika pārvietota, tāpēc tās nav atkritnē: {path}",
- "sync.no_mark": "Nokopēts, taču lejupielādes atzīmi vai tikai lasāmu nevarēja pievienot"
+ "sync.no_mark": "Nokopēts, taču lejupielādes atzīmi, citu datu plūsmu vai tikai lasāmu nevarēja pievienot"
 }
