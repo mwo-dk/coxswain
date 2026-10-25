@@ -3196,7 +3196,11 @@ struct Prepared {
 
 fn prepare(id: i64, path: String, body: String, everything: bool) -> Prepared {
     // Kept whole, longer than what is kept of most files: read line by line again and
-    // a passage for every part of it, a batch at a time, never held whole.
+    // a passage for every part of it, a batch at a time, never held whole. Never a file inside
+    // an archive: those are not marked kept whole (`mark_whole`, `long_rows`), for their path
+    // opens nothing to read again (test `long_files_everything_leaves_a_long_text_inside_an_archive_sampled`).
+    // ponytail: such an entry keeps its first 4 MB; streaming it from the archive into
+    // `whole_lines` is planned for 2.35.
     if everything && long_text(&path, &body) {
         return Prepared { id, path, streamed: true, texts: vec![], whole: None, starts: None };
     }
@@ -6488,6 +6492,56 @@ mod tests {
         // A scan after it changes nothing more.
         scan(&store, &sample, &go).unwrap();
         assert_eq!(vectors(big), big_sampled);
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A long text inside an archive in a folder kept whole keeps the text read from it (4 MB)
+    /// and its passages, as any file inside an archive: it is not read again line by line
+    /// through its path, which no file has, so no error is noted and nothing is tried again.
+    #[test]
+    fn long_files_everything_leaves_a_long_text_inside_an_archive_sampled() {
+        let d = std::env::temp_dir().join(format!("coxswain-long-inside-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        let mut log = String::new();
+        let mut i = 0;
+        while log.len() < crate::extract::MAX_TEXT + (1 << 20) {
+            log.push_str(&format!("line {i} of the engine log, pressure nominal and valves closed\n"));
+            i += 1;
+        }
+        crate::extract::tests::zip_file(&home.join("logs.zip"), &[("big.log", log.as_bytes())]);
+        let cfg = SearchConfig {
+            text_roots: vec![home.clone()],
+            long_files_everything: vec![home.clone()],
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        store.hurry.store(true, Ordering::Relaxed);
+        let entry = home.join("logs.zip").join("big.log").to_string_lossy().into_owned();
+        let row = || -> (i64, Option<i64>, Option<i64>, i64, i64) {
+            let db = store.db.lock().unwrap();
+            let (id, embedded, whole): (i64, Option<i64>, Option<i64>) =
+                db.query_row("SELECT id, embedded, whole FROM files WHERE path = ?1", [&entry], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+            let chunks = db.query_row("SELECT count(*) FROM chunks WHERE file = ?1", [id], |r| r.get(0)).unwrap();
+            let errors = db.query_row("SELECT count(*) FROM errors WHERE path = ?1", [&entry], |r| r.get(0)).unwrap();
+            (id, embedded, whole, chunks, errors)
+        };
+        for round in 0..2 {
+            scan(&store, &cfg, &go).unwrap();
+            let (id, embedded, whole, chunks, errors) = row();
+            let body: String = store.db.lock().unwrap().query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0)).unwrap();
+            assert!(body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && body.len() <= crate::extract::MAX_TEXT, "round {round}: {}", body.len());
+            assert_eq!((embedded, whole), (Some(1), None), "round {round}: given its vectors, not kept whole");
+            assert_eq!(chunks, crate::meaning::PASSAGES as i64, "round {round}: the passages of the text kept");
+            assert_eq!(errors, 0, "round {round}: no error noted");
+        }
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
