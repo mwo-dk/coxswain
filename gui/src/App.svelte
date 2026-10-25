@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
+  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -385,6 +385,14 @@
     new_branch: () => newBranch(),
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
+    // The preview with who changed each line; a function's history is asked there or in the editor.
+    blame: () => {
+      const e = item();
+      if (!e || e.is_dir || e.name === "..") return;
+      ui.previewBlame = !(ui.previewBlame && ui.showPreview);
+      ui.showPreview = true;
+    },
+    line_history: () => (ui.status = t("blame.history_where_gui", { view: keyOf("view"), edit: keyOf("edit_here"), key: keyOf("line_history") })),
     searchable_pdf: () => makeSearchable(),
     convert_media: () => convertMedia(0),
     edit_pictures: () => convertMedia(1),

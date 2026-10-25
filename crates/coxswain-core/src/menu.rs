@@ -208,6 +208,7 @@ impl Action {
             Notes => disk,
             Chess => s.single() && s.chess == 1 && matches!(s.place, Place::Disk | Place::Archive),
             Worktrees | GitTool | GitConfig => s.git && disk,
+            Blame | LineHistory => s.git && disk && s.single() && s.files == 1,
             // A recording, or with transcribing on a folder of them too.
             Transcribe => disk && (s.speech > 0 || (s.whisper && s.folders > 0)),
             // Find, anywhere; duplicates among the folders, or in this one.
@@ -303,6 +304,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
     ),
+    // Before "file": who changed each line is not guessed.
+    ("blame", &[("key", Action::Blame), ("history", Action::LineHistory)]),
     // After "folder": what search keeps of a folder's long files is not guessed.
     ("long_files", &[("key", Action::ActionMenu)]),
     (
@@ -355,6 +358,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "branches" => s.place == Place::Branches && s.single(),
         "history" | "upstream" => s.place == Place::History,
         "git" | "git_tool" => disk && s.git,
+        "blame" => disk && s.git && s.single() && s.files == 1 && s.archives == 0,
         "zfs" => disk && s.zfs,
         "space" => disk && s.big,
         _ => false,

@@ -10,8 +10,8 @@
   // on the disk since it was opened is not saved over without asking. The text is kept on the
   // modal, so F1 → Features and back keeps it; undo is this window's own.
   import { tick } from "svelte";
-  import { ui, reloadAll } from "./app.svelte.js";
-  import { invoke, basename } from "./lib.js";
+  import { ui, reloadAll, keyOf, lineHistory } from "./app.svelte.js";
+  import { invoke, basename, parent } from "./lib.js";
   import { t } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
 
@@ -44,7 +44,12 @@
     for (let i = m.text?.indexOf("\n") ?? -1; i >= 0; i = m.text.indexOf("\n", i + 1)) n++;
     return n;
   });
-  const numbers = $derived(Array.from({ length: lines }, (_, i) => i + 1).join("\n"));
+  /** Who changed each line beside its number (`blame`), until the text is changed. */
+  const numbers = $derived(Array.from({ length: lines }, (_, i) => (m.blame ? `${m.blame.commits[m.blame.lines[i]]?.margin ?? ""}  ` : "") + (i + 1)).join("\n"));
+  /** In a repository: blame and a function's history can be asked. */
+  let git = $state(false);
+  let gitBusy = $state(false);
+  invoke("git_lines_here", { dir: parent(m.path) }).then((v) => (git = v), () => {});
   const html = $derived(
     m.text != null && m.text.length <= HIGHLIGHT_MOST && m.lang && hljs.getLanguage(m.lang) ? hljs.highlight(m.text + "\n", { language: m.lang }).value : "",
   );
@@ -101,7 +106,47 @@
     before = null;
     kept.redo = [];
     m.text = area.value;
+    unblame();
     where();
+  }
+
+  /** The lines moved: who changed them is no longer known. */
+  function unblame() {
+    if (!m.blame) return;
+    m.blame = null;
+    said = t("blame.edited");
+  }
+
+  async function toggleBlame() {
+    if (!git) return void (said = t("blame.not_here"));
+    if (m.blame) return void ((m.blame = null), (said = t("blame.off")));
+    if (dirty) return void (said = t("blame.save_first"));
+    said = t("blame.reading");
+    gitBusy = true;
+    try {
+      const b = await invoke("git_blame", { path: m.path });
+      if (m.text === m.saved) m.blame = b;
+      said = b.cut ? t("blame.cut", { n: b.lines.length }) : t("blame.shown");
+    } catch (e) {
+      said = String(e);
+    }
+    gitBusy = false;
+  }
+
+  /** The function the caret is in, or the lines selected. */
+  async function trace() {
+    if (!git) return void (said = t("blame.not_here"));
+    const v = area.value;
+    const lineAt = (at) => v.slice(0, at).split("\n").length - 1;
+    const a = lineAt(area.selectionStart);
+    let b = lineAt(area.selectionEnd);
+    if (b > a && v[area.selectionEnd - 1] === "\n") b--;
+    said = t("blame.tracing");
+    gitBusy = true;
+    m.at = area.selectionStart;
+    await lineHistory(m.path, v, a, b);
+    gitBusy = false;
+    said = ui.status;
   }
 
   function push(state) {
@@ -116,6 +161,7 @@
     kept.redo = [];
     area.setRangeText(s, area.selectionStart, area.selectionEnd, "end");
     m.text = area.value;
+    unblame();
     where();
   }
 
@@ -124,6 +170,7 @@
     if (!s) return void (said = t(from === kept.undo ? "editor.nothing_to_undo" : "editor.nothing_to_redo"));
     to.push({ text: area.value, start: area.selectionStart, end: area.selectionEnd, kind: "restore" });
     area.value = m.text = s.text;
+    unblame();
     area.setSelectionRange(s.start, s.end);
     show(s.start);
   }
@@ -285,7 +332,8 @@
     const inField = e?.target === area;
     const inBar = e?.target?.closest?.(".bar");
     if (k === "Esc") {
-      if (asking) asking = null;
+      if (gitBusy) invoke("git_lines_cancel"), (gitBusy = false), (said = t("blame.stopped"));
+      else if (asking) asking = null;
       else if (bar) (bar = null), area?.focus();
       else tryClose();
       return true;
@@ -293,6 +341,8 @@
     if (!m.doc) return false;
     if (k === "Ctrl+s" || k === "F2") return save(), true;
     if (act === "quit") return tryClose(), true;
+    if (act === "blame") return toggleBlame(), true;
+    if (act === "line_history") return trace(), true;
     if (k === "Ctrl+f" || k === "F7") return open("find"), true;
     if (k === "Shift+F7") return find(), true;
     if (k === "Ctrl+r") return open("replace"), true;
@@ -317,6 +367,10 @@
       <button disabled={!m.doc} onclick={() => open("find")}>{t("viewer.search")} <kbd>Ctrl+F</kbd></button>
       <button disabled={!m.doc} onclick={() => open("replace")}>{t("editor.replace")} <kbd>Ctrl+R</kbd></button>
       <button disabled={!m.doc} onclick={() => open("line")}>{t("viewer.go_to_line")} <kbd>Ctrl+G</kbd></button>
+      {#if git}
+        <button class:on={!!m.blame} disabled={!m.doc} title={t("blame.tip", { key: keyOf("blame") })} onclick={toggleBlame}>{t("blame.button")} <kbd>{keyOf("blame")}</kbd></button>
+        <button disabled={!m.doc} title={t("blame.history_tip")} onclick={trace}>{t("action.line_history")} <kbd>{keyOf("line_history")}</kbd></button>
+      {/if}
       <button onclick={tryClose}>{t("common.close")} <kbd>Esc</kbd></button>
     </span>
   </header>

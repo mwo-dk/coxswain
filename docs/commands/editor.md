@@ -40,7 +40,8 @@ closes, the search is there as it was. In the terminal app's [viewer](view-and-e
 
 ## Keys
 
-The keys inside the editor are fixed: `[keys]` changes only **Shift+F4** itself (`edit_here`).
+The keys inside the editor are fixed: `[keys]` changes only **Shift+F4** itself (`edit_here`),
+and the two git keys below (`blame`, `line_history`).
 
 | Key | Does |
 |---|---|
@@ -58,6 +59,8 @@ The keys inside the editor are fixed: `[keys]` changes only **Shift+F4** itself 
 | **Shift+F7** | The next hit |
 | **Ctrl+R** | Replace: what to find, **Enter**, what to put in its place, **Enter**: every hit is replaced, as one step of undo |
 | **Ctrl+G** | Go to a line: its number, **Enter** |
+| **Alt+L** | In a repository: [who changed each line](../panels/git-blame.md), beside the line numbers, until you change the text |
+| **Alt+J** | In a repository: the [history of the function](../panels/git-line-history.md) the cursor is in, or of the lines selected |
 | **Esc**, **F10** | Close; with changes, the question below. **Esc** in a find or replace line closes that line only |
 | **F1** | F1 → Features at *The built-in editor*; **Esc** there comes back to your text |
 

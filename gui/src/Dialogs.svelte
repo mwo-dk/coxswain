@@ -7,6 +7,7 @@
   import { Channel } from "@tauri-apps/api/core";
   import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
+  import { hljs } from "./hl.js";
   import { KINDS, prefix, nextKind, step } from "./find.js";
   import DiskNext from "./DiskNext.svelte";
 
@@ -464,7 +465,7 @@
   const parts = (s) => s.split(/\{(\w+)\}/);
 
   // Screen-reader name for modals that have no title of their own.
-  const KIND_LABEL = { help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
+  const KIND_LABEL = { linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
 
   // ------------------------------------------------------------ pack
 
@@ -638,6 +639,12 @@
       case "provenance":
         // windows with fields and buttons of their own: Esc (above) closes them, Enter is theirs
         return false;
+      case "linehistory": {
+        // The list scrolls; every other key stays here.
+        const by = { Up: -40, Down: 40, PageUp: -400, PageDown: 400, Home: -1e9, End: 1e9 }[k];
+        if (by) listEl?.scrollBy({ top: by });
+        return true;
+      }
       case "help":
         if (!(act === "help" || (k === "Enter" && m.tab !== "features"))) return false;
         close();
@@ -703,6 +710,20 @@
           <button onclick={close}>{t("common.cancel")}</button>
         </div>
         {@render keys(m.ok)}
+      {:else if m.kind === "linehistory"}
+        <!-- The commits that changed a function (or some lines), newest first, each change under it. -->
+        <h2>{m.h.name ? t("blame.title_function", { name: basename(m.path), function: m.h.name }) : t("blame.title_lines", { name: basename(m.path), from: m.h.from, to: m.h.to })}</h2>
+        <p class="meta">{t("blame.commits", { n: m.h.changes.length })}{#if m.h.more} · {t("blame.more_changes", { n: m.h.changes.length })}{/if}</p>
+        <div class="lhlist" bind:this={listEl}>
+          {#each m.h.changes as c, i (c.commit.hash)}
+            <details open={i === 0}>
+              <summary><span class="mono">{c.commit.hash.slice(0, 7)}</span> · {c.commit.author} · {date(c.commit.time)} · <b>{c.commit.subject}</b></summary>
+              <pre class="mono code"><code class="hljs">{@html hljs.highlight(c.diff, { language: "diff" }).value}</code></pre>
+            </details>
+          {/each}
+        </div>
+        <div class="buttons"><button class="primary" onclick={close}>{t("common.close")}</button></div>
+        <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
@@ -1251,6 +1272,29 @@
   .gclist.vlist select {
     width: auto;
   }
+  .dialog.linehistory {
+    width: min(1100px, 94vw);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .lhlist {
+    overflow: auto;
+    min-height: 0;
+  }
+  .lhlist summary {
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  .lhlist pre {
+    margin: 4px 0 10px;
+    font-size: 0.9em;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .lhlist :global(.hljs-addition) { color: var(--git-added-fg); }
+  .lhlist :global(.hljs-deletion) { color: var(--git-deleted-fg); }
+  .lhlist :global(.hljs-meta) { color: var(--git-renamed-fg); }
   .gclist {
     list-style: none;
     margin: 0;

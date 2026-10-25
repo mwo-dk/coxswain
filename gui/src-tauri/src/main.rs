@@ -521,6 +521,53 @@ async fn read_listing(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: b
     Ok((entries, Meta { nested, image, has_notes, packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, archive, locked, disk_image, history: in_history, snapshot, package }))
 }
 
+/// The stop of the blame or function history being read: a new one stops the one before.
+static GIT_LINES: Mutex<Option<Arc<std::sync::atomic::AtomicBool>>> = Mutex::new(None);
+
+fn git_lines_stop() -> Arc<std::sync::atomic::AtomicBool> {
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    if let Some(old) = GIT_LINES.lock().unwrap_or_else(|e| e.into_inner()).replace(stop.clone()) {
+        old.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    stop
+}
+
+/// Who changed each line of the file at `path` (`blame::blame`).
+#[tauri::command]
+async fn git_blame(path: PathBuf) -> Res<coxswain_core::blame::Blame> {
+    let stop = git_lines_stop();
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::blame::blame(&path, &stop).map_err(|e| e.to_string())).await.map_err(|e| e.to_string())?
+}
+
+/// The commits that changed the function at `line` (from 0), or lines `line..=to`.
+#[tauri::command]
+async fn git_line_history(path: PathBuf, text: Option<String>, line: usize, to: usize) -> Res<coxswain_core::blame::History> {
+    let stop = git_lines_stop();
+    tauri::async_runtime::spawn_blocking(move || {
+        let text = match text {
+            Some(t) => t,
+            None => String::from_utf8_lossy(&std::fs::read(&path).map_err(|e| e.to_string())?).into_owned(),
+        };
+        coxswain_core::blame::line_history(&path, &text, line, to, &stop).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Esc while blame or a history is read: it stops.
+#[tauri::command]
+fn git_lines_cancel() {
+    if let Some(s) = GIT_LINES.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        s.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+/// Whether the folder is in a repository blame can ask.
+#[tauri::command]
+fn git_lines_here(dir: PathBuf) -> bool {
+    coxswain_core::blame::in_repository(&dir)
+}
+
 /// What a folder holds, for its preview: only the counts, not the panel's listing.
 #[tauri::command]
 async fn dir_summary(dir: PathBuf, show_hidden: bool) -> Res<bfs::Summary> {
@@ -2767,7 +2814,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_config, action_menu, hint, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
-            plain_error, is_model,
+            plain_error, is_model, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, opens_as_folder, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess_engines, chess_engine_test, chess_engine_set, chess_engine_config, chess::chess_save_line, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, logs::log_open, logs::log_close, logs::log_state, logs::log_rows, logs::log_shape, logs::log_row_of, logs::log_follow, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

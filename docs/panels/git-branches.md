@@ -242,4 +242,4 @@ It is bound to *Git branches*. Set `branches = []` in `[keys]` to give it back t
 or start the quick search with another letter.
 
 ---
-[← Previous: Git history as folders](git-history.md) · [Next: Git config →](git-config.md)
+[← Previous: History of a function](git-line-history.md) · [Next: Git config →](git-config.md)

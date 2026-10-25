@@ -1066,6 +1066,57 @@ pub(crate) fn passages(text: &str, path: &str) -> Vec<(Passage, bool)> {
         .collect()
 }
 
+/// Every named item of code and the items inside it, as (first line, end, name), lines from
+/// 0, the end not in it; names say where they are ("impl Store › fn passages"). Not cut to a
+/// size, as passages are: an item is whole, from its comments to its last line.
+pub fn items(text: &str, path: &str) -> Vec<(usize, usize, String)> {
+    let Some(l) = lang(path) else { return vec![] };
+    let ls = lines(text, l);
+    let mut out = vec![];
+    nest(&ls, 0, ls.len(), "", &mut out);
+    out
+}
+
+fn nest(ls: &[Line], a: usize, b: usize, outer: &str, out: &mut Vec<(usize, usize, String)>) {
+    let Some(level) = ls[a..b]
+        .iter()
+        .filter(|l| !l.blank() && !is_note(l.text) && !is_closer(l.text))
+        .map(Line::level)
+        .min()
+    else {
+        return;
+    };
+    let starts = starts(ls, a, b, level);
+    for (i, &s) in starts.iter().enumerate() {
+        let mut e = starts.get(i + 1).copied().unwrap_or(b);
+        // Not the blank lines after it, nor the end of the block it is in.
+        while e > s + 1 && (ls[e - 1].blank() || is_closer(ls[e - 1].text) && ls[e - 1].level() < level) {
+            e -= 1;
+        }
+        let own = name_of(ls, s, e);
+        let name = within(outer, own.clone());
+        if !own.is_empty() {
+            out.push((s, e, name.clone()));
+        }
+        // What is inside: the lines deeper than the item's first one.
+        let Some(head) = (s..e).find(|&j| !ls[j].blank() && !is_note(ls[j].text)) else { continue };
+        let first = (head + 1..e).find(|&j| !ls[j].blank() && !is_note(ls[j].text) && !is_closer(ls[j].text) && ls[j].level() > ls[head].level());
+        if let Some(first) = first {
+            nest(ls, first, e, &name, out);
+        }
+    }
+}
+
+/// The innermost named item holding line `at` (from 0): (first line, end, name).
+pub fn item_at(text: &str, path: &str, at: usize) -> Option<(usize, usize, String)> {
+    items(text, path)
+        .into_iter()
+        .filter(|(a, b, _)| (*a..*b).contains(&at))
+        // A variable inside a function is not what is asked about: the function is.
+        .filter(|(_, _, name)| name.rsplit_once(" › ").is_none_or(|(_, last)| !["let ", "const ", "var ", "val "].iter().any(|w| last.starts_with(w))))
+        .min_by_key(|(a, b, _)| b - a)
+}
+
 // ---------------------------------------------------------------- the map of a project
 
 /// Folders a project's map does not go into: what is built or fetched, not written.
@@ -1649,6 +1700,14 @@ pub fn map(dir: &Path, room: usize, skip: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_item_at_a_line_is_its_function_not_a_variable_in_it() {
+        let text = "impl Engine {\n    fn burn(&mut self) {\n        let used = 1;\n        used\n    }\n}\n";
+        assert_eq!(item_at(text, "e.rs", 2), Some((1, 5, "impl Engine › fn burn".into())));
+        assert_eq!(item_at(text, "e.rs", 0).map(|i| i.2), Some("impl Engine".into()));
+        assert_eq!(item_at("just words\n", "notes.txt", 0), None);
+    }
 
     fn cut_up(text: &str, path: &str) -> Vec<(String, String)> {
         passages(text, path)

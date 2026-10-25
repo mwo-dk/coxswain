@@ -28,6 +28,8 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [Space: where the space goes](space.md) | **Alt+U**: a folder or a drive as a treemap, every file a rectangle by its size and coloured by its kind; the bytes by type, the largest files, zooming, clean-up with Delete |
 | [Git in the panels](git.md) | The git line with the upstream, last fetch and remote, glyphs per file, the last commit per file, the diff, recent repositories, **Alt+G** to open your git tool |
 | [Git history as folders](git-history.md) | **Ctrl+G**: a file's or folder's commits with a graph of branches and merges (**Alt+A**: all branches; **Alt+Y**: against the upstream), the files as they were, their diff, copying an old version out |
+| [Who changed each line](git-blame.md) | **Alt+L**: commit, author and date before each line of a file, in the viewer, the editor and the preview pane |
+| [History of a function](git-line-history.md) | **Alt+J**: the commits that changed the function the cursor is in (or the lines selected), each with its change |
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [Git config](git-config.md) | **Alt+C**: the git config as git uses it, each value with its scope and file, secrets hidden; read-only |
 | [Jujutsu in the panels](jujutsu.md) | A Jujutsu repository through `jj`: the line, the history (**Ctrl+G**) and the bookmarks (**Alt+B**), read-only |
@@ -80,6 +82,8 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+A** | Yes | Yes | In a git history: every branch's commits and their graph, or this branch's again |
 | **Alt+Y** | Yes | Yes | In a git history: the commits not pushed and not merged, as of the last fetch |
 | **Alt+B** / **Alt+W** | Yes | Yes | The repository's branches / worktrees |
+| **Alt+L** | The preview with [who changed each line](git-blame.md) | The viewer with who changed each line | On a file in a repository; in the viewer and the editor too |
+| **Alt+J** | – (in the editor: the [function's history](git-line-history.md)) | – (in the viewer and the editor: the function's history) | Says where to ask it on a file in the panel |
 | **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md), [Go games](../previews/go.md), [Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md) , [Shogi games](../previews/shogi.md) and [Bridge deals](../previews/bridge.md): a PGN (chess or xiangqi), a DhtmlXQ xiangqi game, SGF, PDN, KIF, CSA or PBN file's games, an EPD or FEN file's positions, a Polyglot book's moves |
 | **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |
 | **Alt+U** | Yes | Yes | [Space](space.md): where the space goes, as a treemap |

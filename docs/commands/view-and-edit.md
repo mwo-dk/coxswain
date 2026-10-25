@@ -57,6 +57,8 @@ said; the key line at the bottom lists the keys.
 | **g** | Go to a line: type its number, **Enter** |
 | **l** | Line numbers on and off |
 | **w** | Wrap long lines on and off |
+| **Alt+L** | In a repository: [who changed each line](../panels/git-blame.md): commit, author and date before each line, **Alt+L** again puts it away |
+| **Alt+J** | In a repository: the [history of the function](../panels/git-line-history.md) at the line found or gone to (else at the top of the screen); **Esc** comes back |
 | **p** | Hand the file to your pager: `$PAGER`, else `less` (`more` on Windows) |
 | **h** | On a facts card (an old picture, a module, a [local model](../files/local-models.md#in-the-terminal-app), a neural network model): the file itself, a hex dump for a binary one; **Esc** comes back to the card |
 | **F** | Follow the file as it is written; **E** stops following at the next error ([Logs](../previews/logs.md#following-a-log)) |
