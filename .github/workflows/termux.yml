@@ -150,7 +150,8 @@ jobs:
             cargo build --release --locked -p coxswain
             /target/release/coxswain --version
             sh packaging/target-cache.sh prune release
-            chmod -R a+rwX /target
+            # What is in it, readable for the runner's save (the mount point is the runner's own).
+            find /target -mindepth 1 -exec chmod a+rwX {} +
           '
       - uses: ./.github/actions/target-cache
         with:
