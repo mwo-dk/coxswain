@@ -78,6 +78,8 @@ repositories alone.
 | Turning it off | Says first that the changes go and the room comes back. The helper takes them out when it starts, before anything else, gives the room back to the disk (`search.db` is made smaller), and the status says *Changes of commits taken out at 14:05: 48 MB freed* |
 | Disk use | Its own row, *search.db: changes of commits*, with its size ([Disk use](../reference/disk-use.md)); clearing it turns the option off |
 
+![Settings in the desktop app, Cyber, at Finding files → What is read: Git history ticked, Text of each commit's changes just ticked, and under it Reading the changes of 13 commits in 2 repositories adds about 11.7 KB to search.db and takes about 1 s in the background. Nothing leaves the machine., with Apply and Cancel](../screenshots/changes-cost-gui.png)
+
 In the terminal app the same, in **F12** → *Finding files* → *What is read*: the cost shows red
 at the bottom, **Enter** applies it, **Esc** keeps the setting as it was.
 

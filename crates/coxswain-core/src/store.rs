@@ -1626,7 +1626,10 @@ impl Store {
         let db = self.db.lock().unwrap();
         db.execute_batch("INSERT INTO text(text) VALUES ('optimize');")?;
         if db.pragma_query_value(None, "auto_vacuum", |r| r.get::<_, i32>(0))? == 2 {
-            db.execute_batch("PRAGMA incremental_vacuum;")?;
+            // Each step frees a page: stepped to its end.
+            let mut q = db.prepare("PRAGMA incremental_vacuum")?;
+            let mut rows = q.query([])?;
+            while rows.next()?.is_some() {}
         } else {
             db.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
         }
@@ -3856,6 +3859,8 @@ fn drop_changes(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<Option<u6
     if gone.is_empty() {
         return Ok(None);
     }
+    // What the file holds, the write-ahead log written back first.
+    store.db.lock().unwrap().execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
     let before = store.bytes();
     for root in gone {
         let (from, to) = below(crate::history::key(Path::new(root), "").trim_end_matches(std::path::MAIN_SEPARATOR));
@@ -4900,6 +4905,42 @@ mod tests {
         std::fs::remove_dir_all(home).unwrap();
         for end in ["db", "db-wal", "db-shm"] {
             let _ = std::fs::remove_file(db.with_extension(end));
+        }
+    }
+
+    #[test]
+    fn taking_out_the_changes_of_commits_gives_the_room_back() {
+        // A store made now gives back pages as it goes; one from before is vacuumed whole once.
+        for old in [false, true] {
+            let d = std::env::temp_dir().join(format!("coxswain-store-changes-{old}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&d);
+            std::fs::create_dir_all(&d).unwrap();
+            if old {
+                Connection::open(d.join("search.db")).unwrap().execute_batch("PRAGMA auto_vacuum = NONE; CREATE TABLE before(a);").unwrap();
+            }
+            let store = Store::open(&d.join("search.db")).unwrap();
+            let root = d.join("repo");
+            let commits: Vec<(String, u64, String)> = (0..40).map(|i| (format!("{:012x}{:028x}", i + 1, 0), 1_700_000_000 + i, format!("commit {i}"))).collect();
+            store.put_commits(&root, &commits, HISTORY_MAX).unwrap();
+            // Text that does not compress into a few pages: every line its own words.
+            let diff = |i: u64| (0..1500).map(|n| format!("+ line {n} of change {i} word{}x{}\n", n * 7919 % 10007, i * 31)).collect::<String>();
+            let rows: Vec<(String, u64, String)> = commits.iter().map(|(h, t, _)| (h.clone(), *t, diff(*t))).collect();
+            store.put_changes(&root, &rows).unwrap();
+            let n: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE has_text = 2", [], |r| r.get(0)).unwrap();
+            assert_eq!(n, 40);
+            store.db.lock().unwrap().execute("INSERT INTO meta(key, value) VALUES (?1, 'x')", [format!("changes:{}", key(&root).unwrap())]).unwrap();
+            store.db.lock().unwrap().execute_batch("PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+            let before = store.bytes();
+            let freed = drop_changes(&store, &SearchConfig::default()).unwrap().expect("they were kept");
+            assert!(freed > before / 2, "{freed} of {before}");
+            assert_eq!(store.bytes(), before - freed);
+            assert_eq!(store.changes_freed().map(|f| f.0), Some(freed));
+            // The commits stay.
+            assert_eq!(store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE has_text = 1", [], |r| r.get::<_, i64>(0)).unwrap(), 40);
+            assert_eq!(drop_changes(&store, &SearchConfig::default()).unwrap(), None, "nothing left to take out");
+            assert_eq!(store.db.lock().unwrap().pragma_query_value(None, "auto_vacuum", |r| r.get::<_, i32>(0)).unwrap(), 2);
+            drop(store);
+            let _ = std::fs::remove_dir_all(&d);
         }
     }
 
