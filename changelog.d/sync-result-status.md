@@ -1,1 +1,0 @@
-| **Compare folders keeps what a run did on the status line.** After *Make right like left* or *Make left like right*, the run's result (Copied 3, replaced 1, to the bin 1) stays in front of the compare's summary instead of being replaced by it, in both apps. | [Compare folders](files/compare-folders.md#making-one-side-like-the-other) |

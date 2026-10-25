@@ -1,1 +1,0 @@
-| **Safer update check.** The library that checks the update server's certificate no longer accepts certificates that lead to a distrusted intermediate (RUSTSEC-2026-0382). | [Privacy and updates](reference/privacy.md) |

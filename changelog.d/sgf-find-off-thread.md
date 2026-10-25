@@ -1,1 +1,0 @@
-| **Opening a Find hit in a large SGF file no longer freezes the terminal app.** The hit's game is looked for on a thread of its own while the list of games shows, with *Finding the game of the hit… Esc stops* under it; **Esc** stops the looking. | [Go](previews/go.md#finding-games) |

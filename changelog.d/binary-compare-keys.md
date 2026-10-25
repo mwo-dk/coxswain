@@ -1,1 +1,0 @@
-| **The terminal app's binary compare shows its own keys.** Comparing two binary files (or two pictures) now shows the keys that work there, **n** **p** and **Esc**, instead of the text compare's. | [Compare files](files/compare-files.md#documents-pictures-and-other-files) |
