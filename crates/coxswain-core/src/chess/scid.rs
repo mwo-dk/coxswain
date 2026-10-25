@@ -26,6 +26,9 @@ const NAMES_HEADER: usize = 36;
 const ENTRY5: u64 = 56;
 /// The most bytes of a names file read: SCID's largest bases keep a few tens of MB of names.
 pub const MAX_NAMES: u64 = 256 << 20;
+/// The most names, of all four kinds, a SCID 5 names file may hold: far more than the largest
+/// databases have, and a few hundred megabytes at most in memory.
+const MAX_NAMES5: u32 = 1 << 24;
 
 /// Whether `path` is a SCID index file by its name.
 pub fn is_scid(path: &Path) -> bool {
@@ -334,7 +337,7 @@ fn read_names5(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
     let mut bytes = vec![];
     File::open(path)?.take(MAX_NAMES).read_to_end(&mut bytes)?;
     let mut out: [Vec<Box<str>>; 4] = Default::default();
-    let mut at = 0;
+    let (mut at, mut names) = (0, 0u32);
     while at < bytes.len() {
         let mut v = 0u64;
         let mut shift = 0;
@@ -350,6 +353,11 @@ fn read_names5(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
         let (len, kind) = ((v >> 3) as usize, (v & 7) as usize);
         let Some(name) = bytes.get(at..at.saturating_add(len)) else { break };
         let Some(list) = out.get_mut(kind) else { break };
+        // A name may be a byte long: without a cap, a file of such names would ask for gigabytes.
+        names += 1;
+        if names > MAX_NAMES5 {
+            return Err(bad("names"));
+        }
         list.push(super::games::text(name).trim().into());
         at += len;
     }
@@ -716,6 +724,20 @@ mod tests {
         }
         assert_eq!(lib.progress().games, 29);
         assert_eq!(lib.row(2).unwrap().event, base.event(&base.entry(3).unwrap()));
+        // Find this position numbers games by their rows too: row 2 is SCID's game 3, and the
+        // deleted game's positions are not there.
+        let mut found = vec![];
+        super::super::games::positions(&si5, &|| false, |n, keys| found.push((n, keys.to_vec()))).unwrap();
+        assert_eq!(found.iter().map(|f| f.0).collect::<Vec<_>>(), (0..29).collect::<Vec<_>>());
+        let keys_of = |n: u32| {
+            let g = super::super::pgn::parse(&base.pgn(n).unwrap());
+            let mut k: Vec<u64> = g.main_line().iter().map_while(|&i| g.nodes[i as usize].fen.as_deref().and_then(super::super::pgn::board)).map(|b| super::super::polyglot::key(&b)).collect();
+            k.sort_unstable();
+            k.dedup();
+            k
+        };
+        assert_eq!(found[2].1, keys_of(3));
+        assert_ne!(keys_of(2), keys_of(3));
         std::fs::remove_dir_all(&d).unwrap();
         // Names cut off, kinds past the four, a length past the end: what was read, no panic.
         let p = std::env::temp_dir().join(format!("coxswain-scid5-{}.sn5", std::process::id()));
@@ -723,6 +745,11 @@ mod tests {
             std::fs::write(&p, bytes).unwrap();
             assert!(read_names5(&p).unwrap().iter().all(|l| l.is_empty()));
         }
+        // A file of empty names, a byte each: refused once past the most names, not gigabytes asked for.
+        std::fs::write(&p, vec![0u8; MAX_NAMES5 as usize + 1]).unwrap();
+        assert!(read_names5(&p).is_err());
+        std::fs::write(&p, vec![0u8; 1000]).unwrap();
+        assert_eq!(read_names5(&p).unwrap()[0].len(), 1000);
         let _ = std::fs::remove_file(&p);
     }
 

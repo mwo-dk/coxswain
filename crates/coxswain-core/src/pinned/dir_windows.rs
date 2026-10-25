@@ -570,8 +570,12 @@ impl Dir {
     /// Removed through the handle checked.
     pub fn remove(&self, name: &OsStr, want: &Stat) -> std::io::Result<()> {
         // Write-attributes too: an older Windows deletes a read-only file only once read-only
-        // is taken off (`plain_delete`).
-        let e = self.open(name, DELETE | READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, 0, SHARE_ALL)?;
+        // is taken off (`plain_delete`). Where the file's rights grant delete but not that, it
+        // is opened without it: a current Windows deletes it all the same.
+        let e = match self.open(name, DELETE | READ_ATTRIBUTES | WRITE_ATTRIBUTES, FILE_OPEN, 0, SHARE_ALL) {
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => self.open(name, DELETE | READ_ATTRIBUTES, FILE_OPEN, 0, SHARE_ALL)?,
+            r => r?,
+        };
         let s = stat_of(&e)?;
         let same = s.id.same_file(&want.id) && s.kind == want.kind && (s.kind == Kind::Dir || (s.size, s.modified) == (want.size, want.modified));
         if !same {
