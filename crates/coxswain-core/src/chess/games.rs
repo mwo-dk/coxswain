@@ -384,7 +384,7 @@ pub(crate) fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Re
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     if super::cbh::is_cbh(path) {
-        return scan_cbh(path, &AtomicBool::new(false), &AtomicU64::new(0), each);
+        return scan_cbh(path, &AtomicBool::new(false), &AtomicU64::new(0), 0, each);
     }
     // The search store reads every PGN file: 1 GiB unpacked of each is plenty.
     if super::scid::is_scid(path) {
@@ -418,10 +418,24 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
 }
 
 /// The games of a ChessBase database (`cbh`), as the pass over a PGN file sees them: a game's
-/// `offset` is its record in the `.cbh` file.
-fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+/// `offset` is its record in the `.cbh` file. `read` is told how far of `size` it is: an
+/// archive's (`.cbv`) `size` is twice its own, the first half its unpacking (stopped by `stop`
+/// too), the second its `.cbh` file read.
+fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, size: u64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: vec![], format: super::Format::Pgn };
-    super::cbh::scan(path, &|| stop.load(Ordering::Relaxed), &|n| read.store(n, Ordering::Relaxed), |g| {
+    let share = |n: u64, of: u64, base: u64| read.store(base + (n.min(of) as u128 * (size / 2) as u128 / of.max(1) as u128) as u64, Ordering::Relaxed);
+    let (path, cbh_len) = if super::cbv::is_cbv(path) {
+        let p = super::cbv::unpacked_with(path, &|| stop.load(Ordering::Relaxed), &|n, of| share(n, of, 0))?;
+        let len = std::fs::metadata(&p)?.len();
+        (p, Some(len))
+    } else {
+        (path.to_path_buf(), None)
+    };
+    let progress = |n: u64| match cbh_len {
+        Some(len) => share(n, len, size / 2),
+        None => read.store(n, Ordering::Relaxed),
+    };
+    super::cbh::scan(&path, &|| stop.load(Ordering::Relaxed), &progress, |g| {
         for t in &mut head.tags {
             t.clear();
         }
@@ -698,10 +712,12 @@ impl Library {
             return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base) });
         }
         if super::cbh::is_cbh(path) {
+            // An archive is unpacked first, then read: its bar has both (`scan_cbh`).
+            let size = if super::cbv::is_cbv(path) { size.saturating_mul(2) } else { size };
             let (sh, st, rd, p) = (shared.clone(), stop.clone(), read.clone(), path.to_path_buf());
             std::thread::Builder::new()
                 .name("chess-games".into())
-                .spawn(move || index(|each| scan_cbh(&p, &st, &rd, each), &sh, super::Format::Pgn, limits, || false))?;
+                .spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, each), &sh, super::Format::Pgn, limits, || false))?;
             return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: None });
         }
         let r = reader(path, read.clone(), limits.unpacked)?;
