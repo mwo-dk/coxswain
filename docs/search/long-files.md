@@ -174,7 +174,7 @@ vectors, the text is cut back to its first 4 MB and the store gives the room bac
 #### Does Everything keep all the text of a big PDF?
 
 No. PDF, Word, slides and the other documents have readers that stop at 4 MB of text for
-search by words. For meaning, Word, OpenDocument, spreadsheet (`.xlsx`, `.ods`) and
+search by words. For meaning, Word, OpenDocument, spreadsheet (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`, `.ods`) and
 presentation files are read again as they are unpacked, so Everything gives every part of the
 whole file a passage; a PDF gets a passage for every part of its first 4 MB of text. Text, code,
 CSV and logs keep all of theirs, up to 256 MB a file.

@@ -64,7 +64,7 @@ fn lines(facts: &[(String, String)]) -> String {
 }
 
 /// What F3 shows in the terminal app for an old picture, a tracker module, an Outlook
-/// message or an AsciiDoc document (as readable text): its facts (and a module's sample names, a message's headers, text and
+/// message, a workbook or an AsciiDoc document (as readable text): its facts (and a module's sample names, a message's headers, text and
 /// attachments) as text. `None`: the file is none of these, the viewer shows it as it is.
 pub fn as_text(path: &Path) -> Option<String> {
     text_and_format(path).map(|(text, _)| text)
@@ -110,6 +110,13 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
         let mut b = vec![];
         std::io::Read::read_to_end(&mut std::io::Read::take(std::fs::File::open(path).ok()?, 8 << 20), &mut b).ok()?;
         return Some((crate::export::adoc_text(&String::from_utf8_lossy(&b)), "AsciiDoc".into()));
+    }
+    // A workbook: its sheets as text, a row a line, the cells of a row apart by a tab, as the
+    // search reads them (the first 4 MB of text).
+    let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if matches!(ext.as_str(), "xlsx" | "xlsm" | "xlsb" | "xls" | "ods") {
+        let text = crate::extract::sheet::text(path, u64::MAX)?;
+        return Some((text, if ext == "ods" { "OpenDocument" } else { "Excel" }.into()));
     }
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("msg")) {
         let m = crate::extract::msg::summary(path)?;
@@ -169,6 +176,14 @@ mod tests {
         let msg = d.join("launch.msg");
         crate::extract::msg::tests::message(&msg);
         assert!(as_text(&msg).unwrap().contains("trajectory.pdf"));
+        // A workbook: its sheets as text, for F3 in the terminal app.
+        let book = d.join("fuel.xlsx");
+        crate::extract::tests::zip_file(&book, &[
+            ("xl/workbook.xml", br#"<workbook><sheets><sheet name="Fuel" r:id="rId1"/></sheets></workbook>"#),
+            ("xl/_rels/workbook.xml.rels", br#"<Relationships><Relationship Id="rId1" Type="x/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#),
+            ("xl/worksheets/sheet1.xml", br#"<worksheet><sheetData><row><c t="inlineStr"><is><t>Tank</t></is></c><c><v>1840</v></c></row></sheetData></worksheet>"#),
+        ]);
+        assert_eq!(text_and_format(&book), Some(("Fuel\nTank\t1840".into(), "Excel".into())));
         assert!(of(&d.join("notes.txt")).is_none());
         std::fs::remove_dir_all(d).unwrap();
     }

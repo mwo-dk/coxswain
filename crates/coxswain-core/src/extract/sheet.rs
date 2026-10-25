@@ -58,25 +58,17 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         .take(8)
         .read_to_end(&mut head)
         .ok()?;
-    let text = if head.starts_with(b"PK") {
+    let text = if head.starts_with(b"PK") || head == COMPOUND {
         let mut out = Text::new();
         read_into(path, max, &mut out)?;
         out.end()
-    } else if head == COMPOUND {
-        let mut file = vec![];
-        std::fs::File::open(path)
-            .ok()?
-            .take(max)
-            .read_to_end(&mut file)
-            .ok()?;
-        xls(&file)?
     } else {
         // Programs on the web give the name `.xls` to a page with a table, to XML and to
         // text with tabs or commas in it.
         let mut bytes = vec![];
         std::fs::File::open(path)
             .ok()?
-            .take(max)
+            .take(max.min(MAX_ENTRY))
             .read_to_end(&mut bytes)
             .ok()?;
         // As a page named .html is read: by its mark, as UTF-8 or nearly, in the encoding it
@@ -100,9 +92,23 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
     (!text.trim().is_empty()).then_some(text)
 }
 
-/// The text of a workbook in a zip (`.xlsx`, `.xlsm`, `.xlsb`, `.ods`) onto `out`. When `out`
-/// goes to a sink (`Text::to`), every part is read whole, as far as `WHOLE` allows.
+/// The text of a workbook in a zip (`.xlsx`, `.xlsm`, `.xlsb`, `.ods`) or a compound file
+/// (`.xls`) onto `out`, read as it is unpacked. When `out` goes to a sink (`Text::to`), every
+/// part is read whole, as far as `WHOLE` allows. `None` for a file that is neither: a web page
+/// or text named as a workbook (`text`).
 pub(super) fn read_into(path: &Path, max: u64, out: &mut Text) -> Option<()> {
+    let mut file = std::fs::File::open(path).ok()?;
+    if file.metadata().ok()?.len() > max {
+        return None;
+    }
+    let mut head = [0; 8];
+    file.read_exact(&mut head).ok()?;
+    if head == COMPOUND {
+        return xls(file, out);
+    }
+    if !head.starts_with(b"PK") {
+        return None;
+    }
     let whole = out.whole();
     let mut zip = Zip {
         archive: super::open_zip(path, max)?,
@@ -500,7 +506,6 @@ fn excel(zip: &mut Zip, out: &mut Text) -> Option<()> {
         .iter()
         .find(|r| r[1].ends_with("/officeDocument"))
         .map_or("xl/workbook.xml", |r| &r[2]);
-    let workbook = zip.part(name)?;
     let (folder, file) = name.split_at(name.rfind('/').map_or(0, |at| at + 1));
     let parts = relations(
         &zip.part(&format!("{folder}_rels/{file}.rels"))
@@ -508,48 +513,37 @@ fn excel(zip: &mut Zip, out: &mut Text) -> Option<()> {
         folder,
     );
     let records = name.ends_with(".bin");
+    let mut listed = None;
+    zip.stream(name, |workbook| {
+        listed = Some(match records {
+            true => xlsb_sheets(workbook),
+            false => xlsx_sheets(workbook),
+        })
+    })?;
+    let (mut sheets, from_1904) = listed?;
     let of_type = |kind: &str| Some(parts.iter().find(|p| p[1].ends_with(kind))?[2].clone());
     let (strings_part, styles_part) = (of_type("/sharedStrings"), of_type("/styles"));
-    let (mut sheets, book) = match records {
-        true => {
-            let (sheets, from_1904) = xlsb_sheets(&workbook);
-            let mut part =
-                |name: Option<String>| name.and_then(|n| zip.part(&n)).unwrap_or_default();
-            let (strings, styles) = (part(strings_part), part(styles_part));
-            (
-                sheets,
-                Book {
-                    strings: xlsb_strings(&strings),
-                    kinds: xlsb_kinds(&styles),
-                    from_1904,
-                },
-            )
-        }
-        false => {
-            let (sheets, from_1904) = xlsx_sheets(&workbook[..]);
-            // Read as they are unpacked; an empty one when there is none.
-            let mut part = |name: Option<String>, read: &mut dyn FnMut(&mut dyn Read)| {
-                if name
-                    .and_then(|name| zip.stream(&name, &mut *read))
-                    .is_none()
-                {
-                    read(&mut std::io::empty());
-                }
-            };
-            let (mut strings, mut kinds) = (vec![], vec![]);
-            part(strings_part, &mut |xml| strings = xlsx_strings(xml));
-            part(styles_part, &mut |xml| kinds = xlsx_kinds(xml));
-            (
-                sheets,
-                Book {
-                    strings,
-                    kinds,
-                    from_1904,
-                },
-            )
+    // Read as they are unpacked; an empty one when there is none.
+    let mut part = |name: Option<String>, read: &mut dyn FnMut(&mut dyn Read)| {
+        if name
+            .and_then(|name| zip.stream(&name, &mut *read))
+            .is_none()
+        {
+            read(&mut std::io::empty());
         }
     };
-    drop(workbook);
+    let (mut strings, mut kinds) = (vec![], vec![]);
+    part(strings_part, &mut |part| {
+        strings = if records { xlsb_strings(part) } else { xlsx_strings(part) }
+    });
+    part(styles_part, &mut |part| {
+        kinds = if records { xlsb_kinds(part) } else { xlsx_kinds(part) }
+    });
+    let book = Book {
+        strings,
+        kinds,
+        from_1904,
+    };
     // A workbook whose list of sheets cannot be read still has the sheets among its relations,
     // without their names.
     if sheets.is_empty() {
@@ -567,13 +561,10 @@ fn excel(zip: &mut Zip, out: &mut Text) -> Option<()> {
         }
         alone(out, &name);
         if let Some(p) = parts.iter().find(|p| p[0] == id) {
-            if records {
-                if let Some(sheet) = zip.part(&p[2]) {
-                    xlsb_sheet(&sheet, &book, out);
-                }
-            } else {
-                zip.stream(&p[2], |sheet| xlsx_sheet(sheet, &book, out));
-            }
+            zip.stream(&p[2], |sheet| match records {
+                true => xlsb_sheet(sheet, &book, out),
+                false => xlsx_sheet(sheet, &book, out),
+            });
         }
     }
     // The notes on the cells, after the sheets. Who wrote them and where they are shown is
@@ -591,14 +582,14 @@ fn excel(zip: &mut Zip, out: &mut Text) -> Option<()> {
         }
         line(out);
         if name.ends_with(".bin") {
-            if let Some(notes) = zip.part(&name) {
-                xlsb_records(&notes, |id, data| {
+            zip.stream(&name, |notes| {
+                xlsb_records(notes, |id, data| {
                     if id == 0x27D {
                         alone(out, &xlsb_string(data, 1).unwrap_or_default().0);
                     }
                     out.len() <= MAX_TEXT
-                });
-            }
+                })
+            });
         } else {
             zip.stream(&name, |notes| {
                 super::xml_text_onto(
@@ -762,30 +753,42 @@ fn xlsx_sheet(xml: impl Read, book: &Book, out: &mut Text) {
     });
 }
 
-/// Walks the records of a part of a `.xlsb`, until `each` says `false` or a record does not
-/// fit in the part. A record is its number, its length and that many bytes; both numbers are
-/// written seven bits to a byte, the eighth saying that another byte follows.
-fn xlsb_records(part: &[u8], mut each: impl FnMut(u32, &[u8]) -> bool) {
-    let packed = |at: &mut usize, most: usize| {
+/// Walks the records of a part of a `.xlsb` as it is read, until `each` says `false` or a
+/// record does not fit in the part. A record is its number, its length and that many bytes;
+/// both numbers are written seven bits to a byte, the eighth saying that another byte
+/// follows. Only one record is held at a time, and one longer than `MOST_RECORD` is passed
+/// over unread: no cell, string or format is that long.
+fn xlsb_records(part: impl Read, mut each: impl FnMut(u32, &[u8]) -> bool) {
+    let mut part = std::io::BufReader::new(part);
+    let packed = |part: &mut std::io::BufReader<_>, most: usize| {
         let mut value = 0;
         for place in 0..most {
-            let byte = *part.get(*at)?;
-            *at += 1;
-            value |= ((byte & 0x7F) as u32) << (7 * place);
-            if byte & 0x80 == 0 {
+            let mut byte = [0];
+            part.read_exact(&mut byte).ok()?;
+            value |= ((byte[0] & 0x7F) as u32) << (7 * place);
+            if byte[0] & 0x80 == 0 {
                 break;
             }
         }
         Some(value)
     };
-    let mut at = 0;
-    while let (Some(id), Some(length)) = (packed(&mut at, 2), packed(&mut at, 4))
-        && let Some(data) = part.get(at..).and_then(|rest| rest.get(..length as usize))
-        && each(id, data)
-    {
-        at += data.len();
+    let mut data = vec![];
+    while let (Some(id), Some(length)) = (packed(&mut part, 2), packed(&mut part, 4)) {
+        data.clear();
+        if length as usize > MOST_RECORD {
+            if std::io::copy(&mut (&mut part).take(length as u64), &mut std::io::sink()).ok() != Some(length as u64) {
+                return;
+            }
+            continue;
+        }
+        if (&mut part).take(length as u64).read_to_end(&mut data).ok() != Some(length as usize) || !each(id, &data) {
+            return;
+        }
     }
 }
+
+/// The longest record of a `.xlsb` that is read: a string of 32,767 characters is 64 KB.
+const MOST_RECORD: usize = 1 << 20;
 
 /// A string in a record of a `.xlsb`, and where it ends: the number of its characters in
 /// four bytes, then the characters in UTF-16. A string that is not there has all bits set
@@ -801,7 +804,7 @@ fn xlsb_string(data: &[u8], at: usize) -> Option<(String, usize)> {
     Some((utf16(bytes), at + 4 + bytes.len()))
 }
 
-fn xlsb_sheets(workbook: &[u8]) -> (Vec<(String, String)>, bool) {
+fn xlsb_sheets(workbook: impl Read) -> (Vec<(String, String)>, bool) {
     let (mut sheets, mut from_1904) = (vec![], false);
     xlsb_records(workbook, |id, data| {
         match id {
@@ -822,7 +825,7 @@ fn xlsb_sheets(workbook: &[u8]) -> (Vec<(String, String)>, bool) {
     (sheets, from_1904)
 }
 
-fn xlsb_strings(part: &[u8]) -> Vec<String> {
+fn xlsb_strings(part: impl Read) -> Vec<String> {
     let (mut strings, mut kept) = (vec![], 0);
     // A byte of flags comes before the string. One that cannot be read still takes its place.
     xlsb_records(part, |id, data| {
@@ -836,7 +839,7 @@ fn xlsb_strings(part: &[u8]) -> Vec<String> {
     strings
 }
 
-fn xlsb_kinds(part: &[u8]) -> Vec<Kind> {
+fn xlsb_kinds(part: impl Read) -> Vec<Kind> {
     let (mut codes, mut formats, mut inside) = (HashMap::new(), vec![], false);
     xlsb_records(part, |id, data| {
         match id {
@@ -858,9 +861,25 @@ fn xlsb_kinds(part: &[u8]) -> Vec<Kind> {
 }
 
 /// The rows of a sheet in records. A cell begins with its column in four bytes and its
-/// format in three and a byte of flags; its value follows.
-fn xlsb_sheet(part: &[u8], book: &Book, out: &mut Text) {
+/// format in three and a byte of flags; its value follows. A short cell, as Excel writes the
+/// cells of a row after its first, leaves the column out: it is the next.
+fn xlsb_sheet(part: impl Read, book: &Book, out: &mut Text) {
     xlsb_records(part, |id, data| {
+        if (0x0C..=0x12).contains(&id) {
+            let format = le32(data, 0).map_or(0, |f| f & 0xFF_FFFF) as usize;
+            let shown = match id {
+                0x0D => packed(data, 4).map(|v| book.number(v, format)),
+                0x0F => data
+                    .get(4)
+                    .map(|v| String::from(if *v != 0 { "TRUE" } else { "FALSE" })),
+                0x10 => real(data, 4).map(|v| book.number(v, format)),
+                0x11 => xlsb_string(data, 4).map(|s| s.0),
+                0x12 => le32(data, 4).map(|at| book.string(at as usize)),
+                _ => None,
+            };
+            cell(out, &shown.unwrap_or_default());
+            return out.len() <= MAX_TEXT;
+        }
         let format = le32(data, 4).map_or(0, |f| f & 0xFF_FFFF) as usize;
         let shown = match id {
             0x00 => {
@@ -969,29 +988,34 @@ fn ods_value(cell: &BytesStart) -> Option<String> {
 /// A workbook of Excel before 2007: records, each its number and its length in two bytes
 /// and then that many bytes. First come those of the workbook, with the names of the sheets
 /// and where each begins, the formats and the shared strings; then those of each sheet.
-fn xls(file: &[u8]) -> Option<String> {
-    let mut stream = workbook(file)?;
+///
+/// The records are read from the file as they come, sector by sector of the compound file,
+/// one record at a time: a sheet is read where it lies, never the whole stream in memory.
+fn xls<F: Read + std::io::Seek>(file: F, out: &mut Text) -> Option<()> {
+    let (stream, length) = workbook(file)?;
+    let mut records = Records {
+        stream: std::io::BufReader::new(stream),
+        at: 0,
+        data: vec![],
+        cipher: None,
+    };
     // A workbook whose structure is protected is encrypted, with a password that Excel keeps
-    // for the ones nobody gave. The record that says so lies among the first.
-    let mut at = 0;
-    while let (Some(id), Some(length)) = (le16(&stream, at), le16(&stream, at + 2))
+    // for the ones nobody gave. The record that says so lies among the first; the cipher
+    // counts from the start of the stream.
+    while let Some((id, data)) = records.next()
         && id != 0x000A
     {
         if id == 0x002F {
-            stream = unlocked(&stream, at + 4)?;
+            records.cipher = Some(unlock(data)?);
             break;
         }
-        at += 4 + length as usize;
     }
-    let record = |at: usize| {
-        let rest = stream.get(at..)?;
-        let data = rest.get(4..)?.get(..le16(rest, 2)? as usize)?;
-        Some((le16(rest, 0)?, data, at + 4 + data.len()))
-    };
+    records.seek(0)?;
 
-    let (mut codes, mut formats, mut sheets, mut shared) = (HashMap::new(), vec![], vec![], vec![]);
-    let (mut unicode, mut from_1904, mut at, mut last) = (true, false, 0, 0);
-    while let Some((id, data, next)) = record(at) {
+    let (mut codes, mut formats, mut sheets) = (HashMap::new(), vec![], vec![]);
+    let (mut shared, mut held): (Vec<Vec<u8>>, usize) = (vec![], 0);
+    let (mut unicode, mut from_1904, mut last) = (true, false, 0);
+    while let Some((id, data)) = records.next() {
         match id {
             // Since 1997 text is Unicode; before, it was in the characters of the writer's country.
             0x0809 => unicode = le16(data, 0) != Some(0x0500),
@@ -1010,43 +1034,48 @@ fn xls(file: &[u8]) -> Option<String> {
             // A sheet: where it begins, how it is shown, what it is, and its name.
             0x0085 if sheets.len() < MOST_SHEETS => {
                 sheets.push((
-                    le32(data, 0).unwrap_or(u32::MAX) as usize,
+                    le32(data, 0).unwrap_or(u32::MAX) as u64,
                     data.get(5).copied(),
                     xls_string(data, 6, 1, unicode).unwrap_or_default(),
                 ));
             }
-            // The shared strings run on over the records that follow them.
-            0x00FC => shared.push(data),
-            0x003C if last == 0x00FC => shared.push(data),
+            // The shared strings run on over the records that follow them. No more of them
+            // is held than the strings kept of them may be (`keep`).
+            0x00FC | 0x003C
+                if (id == 0x00FC || last == 0x00FC) && held <= MAX_ENTRY as usize =>
+            {
+                held += data.len();
+                shared.push(data.to_vec());
+            }
             0x000A => break,
             _ => {}
         }
         if id != 0x003C {
             last = id;
         }
-        at = next;
     }
     let book = Book {
-        strings: xls_strings(&shared),
+        strings: xls_strings(&shared.iter().map(Vec::as_slice).collect::<Vec<_>>()),
         kinds: kinds(&codes, &formats),
         from_1904,
     };
+    drop(shared);
 
     // The sheets of a workbook lie one after the other, so all of them are no longer than the
     // stream. A file that points every sheet at the same records is stopped by that.
-    let (mut out, mut left) = (Text::new(), stream.len());
+    let mut left = length;
     for (start, sort, name) in sheets {
-        alone(&mut out, &name);
+        alone(out, &name);
         // A chart or a macro has a sheet of its own, with no cells.
-        if sort != Some(0) {
+        if sort != Some(0) || records.seek(start).is_none() {
             continue;
         }
-        let (mut at, mut depth, mut row, mut note) = (start, 0, None, 0);
-        while let Some((id, data, next)) = record(at)
-            && out.len() <= MAX_TEXT
+        let (mut depth, mut row, mut note) = (0, None, 0);
+        while out.len() <= MAX_TEXT
             && left > 0
+            && let Some((id, data)) = records.next()
         {
-            (at, left) = (next, left.saturating_sub(4 + data.len()));
+            left = left.saturating_sub(4 + data.len() as u64);
             match id {
                 // A chart in a sheet has records of its own, from a beginning to an end.
                 0x0809 => depth += 1,
@@ -1058,17 +1087,129 @@ fn xls(file: &[u8]) -> Option<String> {
                 0x003C if note > 0 => {
                     let wide = data.first().is_some_and(|flags| flags & 1 != 0);
                     alone(
-                        &mut out,
+                        out,
                         &xls_characters(data.get(1..).unwrap_or_default(), note, wide),
                     );
                     (note, row) = (0, None);
                 }
-                _ if depth == 1 => xls_cell(id, data, &book, unicode, &mut row, &mut out),
+                _ if depth == 1 => xls_cell(id, data, &book, unicode, &mut row, out),
                 _ => {}
             }
         }
     }
-    Some(out.end())
+    Some(())
+}
+
+/// The records of a workbook's stream, read one at a time, decrypted when it is locked.
+struct Records<S> {
+    stream: S,
+    /// Where the next record begins.
+    at: u64,
+    /// The data of the last record read.
+    data: Vec<u8>,
+    cipher: Option<Cipher>,
+}
+
+impl<S: Read + std::io::Seek> Records<S> {
+    fn seek(&mut self, at: u64) -> Option<()> {
+        self.stream.seek(std::io::SeekFrom::Start(at)).ok()?;
+        self.at = at;
+        Some(())
+    }
+
+    /// The next record's number and data; `None` at the end of the stream, or where a
+    /// record is cut off.
+    fn next(&mut self) -> Option<(u16, &[u8])> {
+        let mut head = [0; 4];
+        self.stream.read_exact(&mut head).ok()?;
+        let (id, length) = (
+            u16::from_le_bytes([head[0], head[1]]),
+            u16::from_le_bytes([head[2], head[3]]) as usize,
+        );
+        self.data.resize(length, 0);
+        self.stream.read_exact(&mut self.data).ok()?;
+        let from = self.at + 4;
+        self.at = from + length as u64;
+        // The headers of the records are in the clear, as are a few records and the first
+        // four bytes of a sheet's entry in the list of sheets; the cipher counts on over them
+        // all the same.
+        if let Some(cipher) = &mut self.cipher {
+            let clear = matches!(
+                id,
+                0x0809 | 0x002F | 0x00E1 | 0x0138 | 0x0194 | 0x0195 | 0x0196
+            );
+            for (place, byte) in self.data.iter_mut().enumerate() {
+                let mask = cipher.mask(from + place as u64);
+                if !clear && !(id == 0x0085 && place < 4) {
+                    *byte ^= mask;
+                }
+            }
+        }
+        Some((id, &self.data))
+    }
+}
+
+/// The cipher of a locked workbook, keyed anew for every 1024 bytes of the stream, and where
+/// in the stream its next byte falls.
+struct Cipher {
+    key: [u8; 16],
+    block: u64,
+    rc4: Rc4,
+    next: u64,
+}
+
+impl Cipher {
+    fn block(key: &[u8; 16], number: u64) -> Rc4 {
+        Rc4::new(&md5(&[&key[..5], &(number as u32).to_le_bytes()].concat()))
+    }
+
+    /// The byte the cipher gives at `position` of the stream. Read on, it only runs on; read
+    /// from elsewhere, it is keyed for that block and run to the place.
+    fn mask(&mut self, position: u64) -> u8 {
+        if position / 1024 != self.block || position < self.next {
+            self.block = position / 1024;
+            self.rc4 = Cipher::block(&self.key, self.block);
+            self.next = self.block * 1024;
+        }
+        while self.next < position {
+            self.rc4.next();
+            self.next += 1;
+        }
+        self.next += 1;
+        self.rc4.next()
+    }
+}
+
+/// The cipher of a workbook encrypted with RC4 and the password that Excel uses when nobody
+/// gave one, `VelvetSweatshop`: a workbook whose structure is protected is written that way,
+/// and opens everywhere without a question. `None` when the password is another, or the
+/// cipher is another: that workbook is locked, and has no text to read. `header` is the data
+/// of the record that says so.
+fn unlock(header: &[u8]) -> Option<Cipher> {
+    if header.get(..6)? != [1, 0, 1, 0, 1, 0] {
+        return None;
+    }
+    let (salt, verifier, hash) = (header.get(6..22)?, header.get(22..38)?, header.get(38..54)?);
+    let password: Vec<u8> = "VelvetSweatshop"
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect();
+    let key = md5(&[&md5(&password)[..5], salt].concat().repeat(16));
+    let mut first = Cipher::block(&key, 0);
+    let verifier: Vec<u8> = verifier
+        .iter()
+        .chain(hash)
+        .map(|byte| byte ^ first.next())
+        .collect();
+    if md5(&verifier[..16])[..] != verifier[16..] {
+        return None;
+    }
+    Some(Cipher {
+        rc4: Cipher::block(&key, 0),
+        key,
+        block: 0,
+        next: 0,
+    })
 }
 
 /// The cell of a record, if it is one, added to its row. A cell begins with its row, its
@@ -1223,60 +1364,6 @@ fn xls_strings(records: &[&[u8]]) -> Vec<String> {
     strings
 }
 
-/// The stream with its records decrypted, when it is encrypted with RC4 and the password that
-/// Excel uses when nobody gave one, `VelvetSweatshop`: a workbook whose structure is
-/// protected is written that way, and opens everywhere without a question. `None` when the
-/// password is another, or the cipher is another: that workbook is locked, and has no text
-/// to read. `filepass` is where the record that says so begins, after its header.
-///
-/// The cipher is keyed from the password and the salt of the record, anew for every 1024
-/// bytes of the stream. The headers of the records are in the clear, as are a few records
-/// and the first four bytes of a sheet's entry in the list of sheets; the cipher counts on
-/// over them all the same.
-fn unlocked(stream: &[u8], filepass: usize) -> Option<Vec<u8>> {
-    let header = stream.get(filepass..)?;
-    if header.get(..6)? != [1, 0, 1, 0, 1, 0] {
-        return None;
-    }
-    let (salt, verifier, hash) = (header.get(6..22)?, header.get(22..38)?, header.get(38..54)?);
-    let password: Vec<u8> = "VelvetSweatshop"
-        .encode_utf16()
-        .flat_map(u16::to_le_bytes)
-        .collect();
-    let key = md5(&[&md5(&password)[..5], salt].concat().repeat(16));
-    let block =
-        |number: usize| Rc4::new(&md5(&[&key[..5], &(number as u32).to_le_bytes()].concat()));
-    let mut first = block(0);
-    let verifier: Vec<u8> = verifier
-        .iter()
-        .chain(hash)
-        .map(|byte| byte ^ first.next())
-        .collect();
-    if md5(&verifier[..16])[..] != verifier[16..] {
-        return None;
-    }
-
-    let (mut out, mut at, mut cipher) = (stream.to_vec(), 0, block(0));
-    while let (Some(id), Some(length)) = (le16(&out, at), le16(&out, at + 2)) {
-        let (from, to) = (at + 4, (at + 4 + length as usize).min(out.len()));
-        let clear = matches!(
-            id,
-            0x0809 | 0x002F | 0x00E1 | 0x0138 | 0x0194 | 0x0195 | 0x0196
-        );
-        for (position, byte) in out.iter_mut().enumerate().take(to).skip(at) {
-            if position % 1024 == 0 {
-                cipher = block(position / 1024);
-            }
-            let mask = cipher.next();
-            if position >= from && !clear && !(id == 0x0085 && position < from + 4) {
-                *byte ^= mask;
-            }
-        }
-        at = to;
-    }
-    Some(out)
-}
-
 /// The stream cipher RC4: a permutation of the bytes, stirred by the key and then by itself.
 struct Rc4 {
     state: [u8; 256],
@@ -1309,76 +1396,75 @@ fn md5(message: &[u8]) -> [u8; 16] {
     <md5::Md5 as md5::Digest>::digest(message).into()
 }
 
-/// The stream with the workbook in a compound file: `Workbook`, or `Book` before 1997.
+/// Read and seek, for a stream of a compound file.
+trait Stream: Read + std::io::Seek {}
+impl<T: Read + std::io::Seek> Stream for T {}
+
+/// The stream with the workbook in a compound file, `Workbook`, or `Book` before 1997, and
+/// its length: read from the file as it is asked for.
 ///
 /// A compound file is a small file system. It is cut in sectors, a table says for each
 /// sector which one follows it in its stream, and a directory names the streams with their
 /// first sector and their length. A stream of less than 4096 bytes lies in small sectors
 /// in a stream of its own, with a table of its own. Whatever the file says, nothing is read
-/// that is not in it, and no stream is followed for longer than the file is.
-fn workbook(file: &[u8]) -> Option<Vec<u8>> {
-    /// The bytes of a stream: its pieces in the order of the table, `length` bytes at most.
-    fn stream<'a>(
-        first: u32,
-        table: &[u32],
-        length: usize,
-        piece: impl Fn(u32) -> Option<&'a [u8]>,
-    ) -> Vec<u8> {
-        let (mut bytes, mut at) = (vec![], first);
-        while bytes.len() < length
-            && let Some(more) = piece(at).filter(|more| !more.is_empty())
-        {
-            bytes.extend_from_slice(more);
-            at = table.get(at as usize).copied().unwrap_or(u32::MAX);
-        }
-        bytes.truncate(length);
-        bytes
-    }
+/// that is not in it, and no stream is followed for longer than the file is. The table is
+/// held, four bytes for each sector of the file; the streams are not.
+fn workbook<'f, F: Read + std::io::Seek + 'f>(mut file: F) -> Option<(Box<dyn Stream + 'f>, u64)> {
+    use std::io::SeekFrom;
     let numbers = |bytes: &[u8]| {
         bytes
             .chunks_exact(4)
             .map(|n| u32::from_le_bytes([n[0], n[1], n[2], n[3]]))
             .collect::<Vec<_>>()
     };
-
-    let (shift, small_shift) = (le16(file, 30)?, le16(file, 32)?);
-    if !file.starts_with(&COMPOUND) || !(9..=12).contains(&shift) || small_shift > shift {
+    let end = file.seek(SeekFrom::End(0)).ok()?;
+    let mut header = [0u8; 512];
+    file.seek(SeekFrom::Start(0)).ok()?;
+    file.read_exact(&mut header).ok()?;
+    let (shift, small_shift) = (le16(&header, 30)?, le16(&header, 32)?);
+    if !header.starts_with(&COMPOUND) || !(9..=12).contains(&shift) || small_shift > shift {
         return None;
     }
-    let (size, small) = (1usize << shift, 1usize << small_shift);
+    let (size, small) = (1u64 << shift, 1u64 << small_shift);
     // The first sector lies after the header, which is as long as a sector. The last may be
     // cut short.
-    let sector = |at: u32| {
-        file.get((at as usize).checked_add(1)?.checked_mul(size)?..)
-            .map(|rest| &rest[..rest.len().min(size)])
+    let sector = |file: &mut F, at: u32| {
+        let from = (at as u64 + 1) * size;
+        if from >= end {
+            return None;
+        }
+        let mut bytes = vec![];
+        file.seek(SeekFrom::Start(from)).ok()?;
+        file.by_ref().take(size).read_to_end(&mut bytes).ok()?;
+        Some(bytes)
     };
 
     // The sectors that hold the table: 109 of them are named in the header, the rest in
     // sectors of their own, each of which ends with the number of the next. No more of them
     // are read than would hold a table of all the sectors the file has room for.
-    let most = file.len() / size / (size / 4) + 1;
-    let mut holders: Vec<u32> = numbers(file.get(76..512)?);
-    let mut next = le32(file, 68)?;
+    let most = (end / size / (size / 4) + 1) as usize;
+    let mut holders: Vec<u32> = numbers(&header[76..512]);
+    let mut next = le32(&header, 68)?;
     while holders.len() < most
-        && let Some(more) = sector(next).map(numbers)
+        && let Some(more) = sector(&mut file, next).map(|bytes| numbers(&bytes))
         && let Some((following, named)) = more.split_last()
     {
         holders.extend_from_slice(named);
         next = *following;
     }
     holders.truncate(most);
-    let table: Vec<u32> = holders
-        .iter()
-        .filter_map(|at| sector(*at))
-        .flat_map(numbers)
-        .collect();
+    let mut table = vec![];
+    for at in holders {
+        if let Some(bytes) = sector(&mut file, at) {
+            table.extend(numbers(&bytes));
+        }
+    }
 
     // Of the directory, 128 bytes name a stream: the name in UTF-16 and its length in bytes
     // with the zero that ends it, what it is (2 is a stream), its first sector and its length.
     // ponytail: the first stream of the name is taken, wherever it lies in the tree of the
     // directory. A workbook that lies inside another as an object could come first; follow
     // the tree from the root if that is ever seen.
-    let directory = stream(le32(file, 48)?, &table, file.len(), sector);
     let name_of = |entry: &[u8]| {
         utf16(
             &entry[..(le16(entry, 64).unwrap_or(0) as usize)
@@ -1386,33 +1472,123 @@ fn workbook(file: &[u8]) -> Option<Vec<u8>> {
                 .min(64)],
         )
     };
-    let named = |name: &str| {
-        directory
-            .chunks_exact(128)
-            .find(|entry| entry[66] == 2 && name_of(entry).eq_ignore_ascii_case(name))
-    };
-    let found = named("Workbook").or_else(|| named("Book"))?;
-    let (first, length) = (
-        le32(found, 116)?,
-        (le32(found, 120)? as usize).min(file.len()),
-    );
-    if length >= le32(file, 56)? as usize {
-        return Some(stream(first, &table, length, sector));
+    let (mut root, mut found, mut book) = (None, None, None);
+    let directory = chain(le32(&header, 48)?, &table, end, size, end);
+    let mut entry = [0u8; 128];
+    let mut place = 0;
+    while found.is_none() && read_in(&mut file, &directory, size, place, &mut entry) == 128 {
+        place += 128;
+        root.get_or_insert(entry);
+        if entry[66] == 2 {
+            let name = name_of(&entry);
+            if name.eq_ignore_ascii_case("Workbook") {
+                found = Some(entry);
+            } else if book.is_none() && name.eq_ignore_ascii_case("Book") {
+                book = Some(entry);
+            }
+        }
     }
-    // The first name in the directory is the root, and its stream is the one of the small sectors.
-    let root = directory.get(..128)?;
-    let smalls = stream(
-        le32(root, 116)?,
-        &table,
-        (le32(root, 120)? as usize).min(file.len()),
-        sector,
-    );
-    let small_table = numbers(&stream(le32(file, 60)?, &table, file.len(), sector));
-    Some(stream(first, &small_table, length, |at| {
-        smalls
-            .get((at as usize).checked_mul(small)?..)
-            .map(|rest| &rest[..rest.len().min(small)])
-    }))
+    let found = found.or(book)?;
+    let (first, length) = (le32(&found, 116)?, (le32(&found, 120)? as u64).min(end));
+    if length >= le32(&header, 56)? as u64 {
+        let sectors = chain(first, &table, length, size, end);
+        return Some((
+            Box::new(Chain {
+                file,
+                sectors,
+                size,
+                length,
+                at: 0,
+            }),
+            length,
+        ));
+    }
+    // The first name in the directory is the root, and its stream is the one of the small
+    // sectors. A workbook in small sectors is less than 4096 bytes, and is read whole.
+    let root = root?;
+    let smalls = chain(le32(&root, 116)?, &table, (le32(&root, 120)? as u64).min(end), size, end);
+    let small_table = chain(le32(&header, 60)?, &table, end, size, end);
+    let (mut bytes, mut at, mut piece) = (vec![], first, vec![0u8; small as usize]);
+    while (bytes.len() as u64) < length {
+        let n = read_in(&mut file, &smalls, size, at as u64 * small, &mut piece);
+        if n == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&piece[..n]);
+        let mut next = [0u8; 4];
+        at = match read_in(&mut file, &small_table, size, at as u64 * 4, &mut next) {
+            4 => u32::from_le_bytes(next),
+            _ => u32::MAX,
+        };
+    }
+    bytes.truncate(length as usize);
+    Some((Box::new(std::io::Cursor::new(bytes)), length))
+}
+
+/// The sectors of a stream that begins at `first`, in the order of the table: as many as
+/// hold `length` bytes, and only those that lie in the file, `end` bytes long.
+fn chain(first: u32, table: &[u32], length: u64, size: u64, end: u64) -> Vec<u32> {
+    let (mut sectors, mut at) = (vec![], first);
+    while (sectors.len() as u64) * size < length && (at as u64 + 1) * size < end {
+        sectors.push(at);
+        at = table.get(at as usize).copied().unwrap_or(u32::MAX);
+    }
+    sectors
+}
+
+/// Reads into `buf` from `position` of the stream in `sectors`, as far as one read of the
+/// file goes: across sectors that lie one after the other. How many bytes were read.
+fn read_in(file: &mut (impl Read + std::io::Seek), sectors: &[u32], size: u64, position: u64, buf: &mut [u8]) -> usize {
+    let mut done = 0;
+    while done < buf.len() {
+        let place = position + done as u64;
+        let Some(&first) = sectors.get((place / size) as usize) else { break };
+        let within = place % size;
+        // Sectors that follow one another in the file are read at once.
+        let mut run = 1;
+        while sectors.get((place / size) as usize + run) == Some(&(first + run as u32)) {
+            run += 1;
+        }
+        let most = ((run as u64 * size - within) as usize).min(buf.len() - done);
+        if file.seek(std::io::SeekFrom::Start((first as u64 + 1) * size + within)).is_err() {
+            break;
+        }
+        match file.read(&mut buf[done..done + most]) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => done += n,
+        }
+    }
+    done
+}
+
+/// A stream of a compound file, read from the file as it is asked for.
+struct Chain<F> {
+    file: F,
+    sectors: Vec<u32>,
+    size: u64,
+    length: u64,
+    at: u64,
+}
+
+impl<F: Read + std::io::Seek> Read for Chain<F> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let most = buf.len().min(self.length.saturating_sub(self.at) as usize);
+        let n = read_in(&mut self.file, &self.sectors, self.size, self.at, &mut buf[..most]);
+        self.at += n as u64;
+        Ok(n)
+    }
+}
+
+impl<F> std::io::Seek for Chain<F> {
+    fn seek(&mut self, to: std::io::SeekFrom) -> std::io::Result<u64> {
+        let at = match to {
+            std::io::SeekFrom::Start(at) => Some(at),
+            std::io::SeekFrom::Current(by) => self.at.checked_add_signed(by),
+            std::io::SeekFrom::End(by) => self.length.checked_add_signed(by),
+        };
+        self.at = at.ok_or_else(|| std::io::Error::other("before the start"))?;
+        Ok(self.at)
+    }
 }
 
 #[cfg(test)]
@@ -1427,6 +1603,39 @@ mod tests {
     use super::*;
     use crate::extract::tests::{folder, zip_file};
     use crate::extract::text_of;
+
+    /// The text of a `.xls` in memory.
+    fn xls(file: &[u8]) -> Option<String> {
+        let mut out = Text::new();
+        super::xls(std::io::Cursor::new(file), &mut out)?;
+        Some(out.end())
+    }
+
+    /// The workbook stream of a compound file in memory, read whole.
+    fn workbook(file: &[u8]) -> Option<Vec<u8>> {
+        let (mut stream, _) = super::workbook(std::io::Cursor::new(file))?;
+        let mut bytes = vec![];
+        stream.read_to_end(&mut bytes).ok()?;
+        Some(bytes)
+    }
+
+    /// A stream with its records run through the cipher of `VelvetSweatshop`, keyed by the
+    /// record at `filepass`: the cipher is its own inverse, so this locks a plain stream.
+    fn unlocked(stream: &[u8], filepass: usize) -> Option<Vec<u8>> {
+        let mut records = Records {
+            stream: std::io::Cursor::new(stream),
+            at: 0,
+            data: vec![],
+            cipher: Some(unlock(stream.get(filepass..)?)?),
+        };
+        let mut out = vec![];
+        while let Some((id, data)) = records.next() {
+            out.extend(id.to_le_bytes());
+            out.extend((data.len() as u16).to_le_bytes());
+            out.extend(data);
+        }
+        Some(out)
+    }
 
     const RELATION: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
@@ -1850,6 +2059,67 @@ mod tests {
             ]
             .concat(),
         )
+    }
+
+    /// The short cells Excel writes after the first of a row, without their column.
+    #[test]
+    fn xlsb_reads_short_cells() {
+        let book = Book {
+            strings: vec!["shared".into()],
+            kinds: vec![Kind::Number, Kind::Date],
+            from_1904: false,
+        };
+        let short = |id: u32, format: u32, value: &[u8]| record(id, &[&format.to_le_bytes()[..], value].concat());
+        let rows = [
+            record(0, &[0; 4]),
+            cell_of(0x06, 0, 0, &counted("Tank")),
+            short(0x0D, 0, &whole(1840)),
+            short(0x10, 1, &46084.0f64.to_le_bytes()),
+            short(0x11, 0, &counted("Blåbær")),
+            short(0x12, 0, &0u32.to_le_bytes()),
+            short(0x0F, 0, &[1]),
+        ]
+        .concat();
+        let mut out = Text::new();
+        xlsb_sheet(&rows[..], &book, &mut out);
+        assert_eq!(&*out, "Tank\t1840\t2026-03-03\tBlåbær\tshared\tTRUE");
+    }
+
+    /// A `.xls` and a `.xlsb` with more text than is kept give all of it to the passages of
+    /// the whole file, read as they come, and the first `MAX_TEXT` of it to the search.
+    #[test]
+    fn whole_xls_and_xlsb_go_past_what_is_kept() {
+        let d = folder("sheet-whole");
+        let line = |i: usize| format!("crew {i} checks the valve and the fuel line of the harbour tank, then the pumps and the gauges, ok");
+        let rows = 52_000;
+        // A .xls: the list of sheets, then a sheet of a string a row.
+        let cells: Vec<u8> = (0..rows).flat_map(|i| at(0x0204, i as u16, 0, 0, &marked(&line(i), 2))).collect();
+        let globals = |start: usize| [begin(5), listed(start, 0, "Fuel"), END.to_vec()].concat();
+        let stream = [globals(globals(0).len()), begin(16), cells, END.to_vec()].concat();
+        std::fs::write(d.join("long.xls"), compound("Workbook", &stream)).unwrap();
+        // A .xlsb: the same rows as records.
+        let sheet: Vec<u8> = (0..rows).flat_map(|i| [record(0, &[0; 4]), cell_of(0x06, 0, 0, &counted(&line(i)))].concat()).collect();
+        let workbook = [record(0x83, &[]), record(0x8F, &[]), record(0x9C, &[&[0u8; 4][..], &1u32.to_le_bytes(), &counted("rId1"), &counted("Fuel")].concat()), record(0x90, &[]), record(0x84, &[])].concat();
+        zip_file(
+            &d.join("long.xlsb"),
+            &[
+                ("_rels/.rels", relations_of(&[("officeDocument", "xl/workbook.bin")]).as_bytes()),
+                ("xl/workbook.bin", &workbook),
+                ("xl/_rels/workbook.bin.rels", relations_of(&[("worksheet", "worksheets/sheet1.bin")]).as_bytes()),
+                ("xl/worksheets/sheet1.bin", &sheet),
+            ],
+        );
+        for name in ["long.xls", "long.xlsb"] {
+            let p = d.join(name);
+            let text = text_of(&p, std::fs::metadata(&p).unwrap().len(), u64::MAX).unwrap();
+            let mut lines = vec![];
+            crate::extract::whole_lines(&p, &mut |l| lines.push(l.to_string())).unwrap();
+            let whole = lines.join("\n");
+            assert!(text.len() <= MAX_TEXT && whole.len() > MAX_TEXT, "{name}: {} {}", text.len(), whole.len());
+            assert!(whole.starts_with(&text[..text.len() - 200]), "{name}: the same start");
+            assert!(whole.contains(&line(rows - 1)) && !text.contains(&line(rows - 1)), "{name}: to the end");
+        }
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     /// The stream of a workbook as Excel wrote it from 1997 to 2003.
@@ -2687,12 +2957,12 @@ mod tests {
                 bytes[at] = pair[1];
             }
             let mut out = Text::new();
-            xlsb_sheet(&bytes, &book, &mut out);
+            xlsb_sheet(&bytes[..], &book, &mut out);
             xlsx_sheet(&bytes[..], &book, &mut out);
             let _ = (
-                xlsb_sheets(&bytes),
-                xlsb_strings(&bytes),
-                xlsb_kinds(&bytes),
+                xlsb_sheets(&bytes[..]),
+                xlsb_strings(&bytes[..]),
+                xlsb_kinds(&bytes[..]),
                 xlsx_sheets(&bytes[..]),
                 xlsx_strings(&bytes[..]),
                 xlsx_kinds(&bytes[..]),
@@ -2747,7 +3017,7 @@ mod tests {
             .concat()
             .repeat(6000);
         let mut out = Text::new();
-        xlsb_sheet(&rows, &Book::default(), &mut out);
+        xlsb_sheet(&rows[..], &Book::default(), &mut out);
         assert!(full(&out), "{}", out.len());
         let rows = times(1, &[shown("", &long)]).repeat(6000);
         assert!(full(&ods_of(format!(
@@ -2838,7 +3108,7 @@ mod tests {
             6000
         );
         assert_eq!(
-            xlsb_strings(&record(0x13, &[&[0u8][..], &counted(&long)].concat()).repeat(6000)).len(),
+            xlsb_strings(&record(0x13, &[&[0u8][..], &counted(&long)].concat()).repeat(6000)[..]).len(),
             6000
         );
         assert_eq!(
@@ -2884,11 +3154,12 @@ mod tests {
                 record(0, &[0; 4]),
                 cell_of(0x02, 0, 0, &whole(1)),
             ]
-            .concat(),
+            .concat()[..],
             &Book::default(),
             &mut out,
         );
-        assert_eq!(out.len(), MAX_TEXT + 1, "{}", out.len());
+        // A record longer than any cell's is passed over unread, and the next row is read.
+        assert_eq!(&*out, "1");
         let table = format!(
             "<d xmlns:table=\"t\" xmlns:text=\"x\"><table:table table:name=\"{huge}\">{}</table:table></d>",
             times(1, &[shown("", &huge)])
@@ -2909,7 +3180,7 @@ mod tests {
         );
         let mut out = Text::new();
         xlsb_sheet(
-            &[0x06, 0xFF, 0xFF, 0xFF, 0x7F, 0, 0],
+            &[0x06u8, 0xFF, 0xFF, 0xFF, 0x7F, 0, 0][..],
             &Book::default(),
             &mut out,
         );

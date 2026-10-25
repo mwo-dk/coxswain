@@ -11,6 +11,15 @@ code.
 ![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](../screenshots/search-find-groups.png)
 *One search finds the word in code, a diagram, YAML, a log, a mail and a LaTeX file.*
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [Formats](#formats)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: every file of these kinds inside a [folder read](folders.md) is read by the
@@ -59,8 +68,10 @@ The formats themselves cannot be switched off one by one; leave a folder out ins
 CSV and logs keep up to 256 MB with [Long files](long-files.md) set to *Everything*), and at most 64 MB is
 unpacked from one part of a zipped document (`.docx`, `.xlsx`, `.epub` …), which is not a
 setting. Word, OpenDocument, spreadsheet
-(`.xlsx`, `.ods`) and presentation files are read as they are unpacked, never a whole part in
-memory: one with a 60 MB part takes about 10 to 20 MB to read, where it took 25 to 95 MB.
+(`.xlsx`, `.xlsm`, `.xlsb`, `.ods`) and presentation files are read as they are unpacked, never a
+whole part in memory: one with a 60 MB part takes about 10 to 20 MB to read, where it took 25 to
+95 MB. An old `.xls` is read record by record from the file, a sheet where it lies, never the
+whole file in memory.
 
 ## In the terminal app
 
@@ -107,6 +118,19 @@ Yes. The notes on the cells of an `.xlsx`, `.xlsm`, `.xlsb` or `.ods` are read a
 without who wrote them; an `.xls`'s notes are not. In a PDF, what a filled-in form field, a stamp
 or a note shows on the page is found. The text of a sticky note that only shows in its pop-up is
 not.
+
+#### Are old `.xls` and binary `.xlsb` workbooks read?
+
+Yes, in Coxswain itself, nothing installed: every sheet's values, as in an `.xlsx`, and an `.xls`
+locked only by Excel's own password for a protected structure. They are read as they come, a
+sheet at a time, so a large one costs a few megabytes of memory: a 75 MB `.xls` about 30 MB. With
+about 3 MB of text or more, their passages for [search by meaning](meaning.md) come from the
+whole workbook, not only its first 4 MB.
+
+Before the update that brought this, an `.xlsb` was found only by the first cell of each row:
+Excel writes the cells after it in a short form, which was not read. After the update, every
+`.xlsb` is read again once, and each `.xls` with about 3 MB of text or more gets its vectors made
+again once; nothing else is read again.
 
 #### Are the attachments of a mail read?
 

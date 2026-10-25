@@ -228,7 +228,7 @@ Peak memory and time of each reader and archive kind on large and deeply nested 
 `memory_table` in `crates/coxswain-core/tests/memory.rs` (each case in a process of its own, its
 peak resident memory from `/proc`). Readers are given no size limit here: today
 `[search] text_max_size` (20 MB) keeps the larger files out of the search store, and every
-reader keeps at most 4 MB of text. Measured on 2026-10-21 on a 32-thread Linux machine, NVMe,
+reader keeps at most 4 MB of text. Measured on 2026-10-21 (the `.xls` and `.xlsb` rows on 2026-10-25) on a 32-thread Linux machine, NVMe,
 release build, under other load.
 
 | Case | Input MB | Seconds | Peak RSS MB | Result |
@@ -238,6 +238,10 @@ release build, under other load.
 | docx, 60 MB document.xml | 22 | 0.07 | 11 | 4081 KB of text, 256 passages (read 0.05 s) |
 | docx, 200 MB document.xml | 75 | 0.08 | 11 | 4081 KB of text, 256 passages (read 0.06 s) |
 | xlsx, 60 MB sheet, 200,000 strings | 16 | 0.27 | 21 | 4096 KB of text, 256 passages (read 0.24 s) |
+| xls, 60 MB in sheets, 200,000 strings | 75 | 0.32 | 29 | 4096 KB of text, 256 passages (read 0.23 s); 162 MB before 2.34 |
+| xls, the same, passages from the whole file | 75 | 10.31 | 25 | 112 MB of text read twice, 256 passages |
+| xlsb, 60 MB sheet, 200,000 strings | 21 | 0.50 | 28 | 4096 KB of text, 256 passages (read 0.46 s); 88 MB before 2.34 |
+| xlsb, the same, passages from the whole file | 21 | 7.29 | 23 | 88 MB of text read twice, 256 passages |
 | pptx, 60 MB slide | 22 | 0.15 | 12 | 4096 KB of text, 256 passages (read 0.13 s) |
 | odt, 60 MB content.xml | 23 | 0.08 | 11 | 4081 KB of text, 256 passages (read 0.05 s) |
 | epub, 60 MB chapter | 24 | 0.24 | 68 | 4096 KB of text, 256 passages (read 0.21 s) |

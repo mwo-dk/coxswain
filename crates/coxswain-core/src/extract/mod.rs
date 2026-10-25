@@ -160,12 +160,12 @@ impl<'f> TidyLines<'f> {
 }
 
 /// Whether the file is a document whose passages can be made from all of it (`whole_lines`):
-/// Word and OpenDocument text, workbooks of XML in a zip and presentations.
+/// Word and OpenDocument text, workbooks and presentations.
 pub(crate) fn whole_document(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     matches!(
         ext.as_str(),
-        "docx" | "docm" | "dotx" | "odt" | "ott" | "xlsx" | "xlsm" | "ods" | "pptx" | "ppsx" | "potx" | "odp"
+        "docx" | "docm" | "dotx" | "odt" | "ott" | "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" | "pptx" | "ppsx" | "potx" | "odp"
     )
 }
 
@@ -177,7 +177,7 @@ const WHOLE_ROOM: u64 = 4 << 30;
 /// tidies it, to `f` as it is read: not cut at `MAX_TEXT`, and never held whole. The same lines
 /// as `text_of` gives, for a document with less text than that. `None` when the file cannot
 /// be read, or a reader gave up.
-pub(crate) fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
+pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
     if !whole_document(path) || crate::cloud::keep_out(path) {
         return None;
     }
@@ -190,7 +190,11 @@ pub(crate) fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
     };
     let mut out = Text::to(&mut sink);
     let read = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match ext.as_str() {
-        "xlsx" | "xlsm" | "ods" => sheet::read_into(path, u64::MAX, &mut out),
+        // A web page or text named `.xls` is read as `text_of` reads it.
+        "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" => sheet::read_into(path, u64::MAX, &mut out).or_else(|| {
+            out.push_str(&sheet::text(path, MAX_ENTRY)?);
+            Some(())
+        }),
         _ if slides => slides::read_into(path, u64::MAX, WHOLE_ROOM, &mut out),
         _ => word::read_into(path, u64::MAX, &mut out),
     }))

@@ -357,6 +357,154 @@ fn xlsx(to: &Path) -> io::Result<()> {
     ])
 }
 
+/// A record of a `.xls`: its number, its length and its data.
+fn biff(out: &mut Vec<u8>, id: u16, data: &[u8]) {
+    out.extend(id.to_le_bytes());
+    out.extend((data.len() as u16).to_le_bytes());
+    out.extend(data);
+}
+
+/// A `.xls` of about `PART` bytes: 200,000 shared strings, then sheets of 65,536 rows of four
+/// strings and four numbers each, as many as fill it; in a compound file (`cfb`).
+fn xls(to: &Path) -> io::Result<()> {
+    let strings = 200_000u32;
+    let mut w = Words::new(31);
+    // The shared strings, each whole in one record; a record full goes on in the next.
+    let (mut sst, mut records) = (vec![], vec![]);
+    sst.extend(strings.to_le_bytes());
+    sst.extend(strings.to_le_bytes());
+    for _ in 0..strings {
+        let line = w.line(6);
+        let line = &line[..line.len().min(200)];
+        if sst.len() + 3 + line.len() > 8224 {
+            records.push(std::mem::take(&mut sst));
+        }
+        sst.extend((line.len() as u16).to_le_bytes());
+        sst.push(0);
+        sst.extend(line.as_bytes());
+    }
+    records.push(sst);
+    let sheet = |w: &mut Words| {
+        let mut out = vec![];
+        biff(&mut out, 0x0809, &[0, 6, 16, 0]);
+        for row in 0..=u16::MAX {
+            for column in 0..8u16 {
+                let mut data = [&row.to_le_bytes()[..], &column.to_le_bytes(), &[0, 0]].concat();
+                if column % 2 == 0 {
+                    data.extend((w.next() as u32 % strings).to_le_bytes());
+                    biff(&mut out, 0x00FD, &data);
+                } else {
+                    data.extend(((w.next() as u32 % 100_000) << 2 | 2).to_le_bytes());
+                    biff(&mut out, 0x027E, &data);
+                }
+            }
+        }
+        biff(&mut out, 0x000A, &[]);
+        out
+    };
+    let mut sheets = vec![];
+    let mut size = 0;
+    while size < PART as usize {
+        let s = sheet(&mut w);
+        size += s.len();
+        sheets.push(s);
+    }
+    let globals = |starts: &[usize]| {
+        let mut out = vec![];
+        biff(&mut out, 0x0809, &[0, 6, 5, 0]);
+        for (n, start) in starts.iter().enumerate() {
+            let name = format!("Data {}", n + 1);
+            let data = [&(*start as u32).to_le_bytes()[..], &[0, 0], &[name.len() as u8, 0], name.as_bytes()].concat();
+            biff(&mut out, 0x0085, &data);
+        }
+        for (n, r) in records.iter().enumerate() {
+            biff(&mut out, if n == 0 { 0x00FC } else { 0x003C }, r);
+        }
+        biff(&mut out, 0x000A, &[]);
+        out
+    };
+    let head = globals(&vec![0; sheets.len()]).len();
+    let starts: Vec<usize> = sheets
+        .iter()
+        .scan(head, |at, s| {
+            let start = *at;
+            *at += s.len();
+            Some(start)
+        })
+        .collect();
+    let mut file = cfb::CompoundFile::create(std::fs::File::create(to)?)?;
+    let mut stream = file.create_stream("Workbook")?;
+    stream.write_all(&globals(&starts))?;
+    for s in &sheets {
+        stream.write_all(s)?;
+    }
+    drop(stream);
+    file.flush()
+}
+
+/// A record of a `.xlsb`: its number and length seven bits to a byte, then its data.
+fn brt(out: &mut Vec<u8>, id: u32, data: &[u8]) {
+    let mut id = id;
+    loop {
+        let more = id >= 0x80;
+        out.push(id as u8 & 0x7F | if more { 0x80 } else { 0 });
+        id >>= 7;
+        if !more {
+            break;
+        }
+    }
+    let mut length = data.len();
+    while length >= 0x80 {
+        out.push(length as u8 | 0x80);
+        length >>= 7;
+    }
+    out.push(length as u8);
+    out.extend(data);
+}
+
+/// A `.xlsb` with a sheet of about `PART` bytes in records and 200,000 shared strings.
+fn xlsb(to: &Path) -> io::Result<()> {
+    let strings = 200_000u32;
+    let mut w = Words::new(37);
+    let counted = |text: &str| {
+        let units: Vec<u16> = text.encode_utf16().collect();
+        [&(units.len() as u32).to_le_bytes()[..], &units.iter().flat_map(|u| u.to_le_bytes()).collect::<Vec<u8>>()].concat()
+    };
+    let mut sst = vec![];
+    for _ in 0..strings {
+        brt(&mut sst, 0x13, &[&[0u8][..], &counted(&w.line(6))].concat());
+    }
+    let mut sheet = vec![];
+    let mut row = 0u32;
+    while (sheet.len() as u64) < PART {
+        brt(&mut sheet, 0x00, &[&row.to_le_bytes()[..], &[0; 21]].concat());
+        for column in 0..8u32 {
+            let head = [&column.to_le_bytes()[..], &[0, 0, 0, 0]].concat();
+            if column % 2 == 0 {
+                brt(&mut sheet, 0x07, &[&head[..], &(w.next() as u32 % strings).to_le_bytes()].concat());
+            } else {
+                brt(&mut sheet, 0x02, &[&head[..], &((w.next() as u32 % 100_000) << 2 | 2).to_le_bytes()].concat());
+            }
+        }
+        row += 1;
+    }
+    let mut book = vec![];
+    brt(&mut book, 0x83, &[]);
+    brt(&mut book, 0x8F, &[]);
+    brt(&mut book, 0x9C, &[&[0u8; 4][..], &1u32.to_le_bytes(), &counted("rId1"), &counted("Data")].concat());
+    brt(&mut book, 0x90, &[]);
+    brt(&mut book, 0x84, &[]);
+    let rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    zip_of(to, &[
+        ("[Content_Types].xml", br#"<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/workbook.bin" ContentType="application/vnd.ms-excel.sheet.binary.macroEnabled.main"/><Override PartName="/xl/worksheets/sheet1.bin" ContentType="application/vnd.ms-excel.worksheet"/><Override PartName="/xl/sharedStrings.bin" ContentType="application/vnd.ms-excel.sharedStrings"/></Types>"#),
+        ("_rels/.rels", format!(r#"<Relationships><Relationship Id="rId1" Type="{rel}/officeDocument" Target="xl/workbook.bin"/></Relationships>"#).as_bytes()),
+        ("xl/workbook.bin", &book),
+        ("xl/_rels/workbook.bin.rels", format!(r#"<Relationships><Relationship Id="rId1" Type="{rel}/worksheet" Target="worksheets/sheet1.bin"/><Relationship Id="rId2" Type="{rel}/sharedStrings" Target="sharedStrings.bin"/></Relationships>"#).as_bytes()),
+        ("xl/sharedStrings.bin", &sst),
+        ("xl/worksheets/sheet1.bin", &sheet),
+    ])
+}
+
 fn pptx(to: &Path) -> io::Result<()> {
     let slide = xml_part(
         PART,
@@ -552,6 +700,9 @@ fn zip_big(to: &Path, name: &str, bytes: u64) -> io::Result<()> {
 enum Do {
     /// `extract::text_of` with no size limit, then `meaning::passages` of the text.
     Read,
+    /// `meaning::passages_streamed` of the whole file (`extract::whole_lines`), as search by
+    /// meaning makes the passages of a document with more text than is kept.
+    Whole,
     /// `archive::list`, the whole archive.
     List,
     /// `archive::copy_out` of an entry into a fresh folder.
@@ -606,6 +757,26 @@ fn cases() -> Vec<Case> {
         "xlsx, 60 MB sheet, 200,000 strings",
         input("huge-sheet.xlsx", xlsx),
         Do::Read,
+    );
+    add(
+        "xls, 60 MB in sheets, 200,000 strings",
+        input("huge-sheets.xls", xls),
+        Do::Read,
+    );
+    add(
+        "xlsb, 60 MB sheet, 200,000 strings",
+        input("huge-sheet.xlsb", xlsb),
+        Do::Read,
+    );
+    add(
+        "xls, the same, passages from the whole file",
+        input("huge-sheets.xls", xls),
+        Do::Whole,
+    );
+    add(
+        "xlsb, the same, passages from the whole file",
+        input("huge-sheet.xlsb", xlsb),
+        Do::Whole,
     );
     add(
         "pptx, 60 MB slide",
@@ -853,6 +1024,23 @@ fn memory_case() {
             format!(
                 "{:.0} KB of text, {passages} passages (read {read:.2} s)",
                 n as f64 / 1024.0
+            )
+        }
+        Do::Whole => {
+            let path = case.input.to_string_lossy();
+            let (mut n, mut lines) = (0usize, 0usize);
+            let passages = meaning::passages_streamed(&path, &mut |f| {
+                extract::whole_lines(&case.input, &mut |l| {
+                    n += l.len();
+                    lines += 1;
+                    f(l)
+                })
+                .is_some()
+            });
+            format!(
+                "{:.0} MB of text read twice, {} passages",
+                n as f64 / 2.0 / 1e6,
+                passages.map_or(0, |p| p.len())
             )
         }
         Do::List => match archive::list(&case.input, usize::MAX) {
