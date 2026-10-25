@@ -26,9 +26,9 @@ const NAMES_HEADER: usize = 36;
 const ENTRY5: u64 = 56;
 /// The most bytes of a names file read: SCID's largest bases keep a few tens of MB of names.
 pub const MAX_NAMES: u64 = 256 << 20;
-/// The most names, of all four kinds, a SCID 5 names file may hold: far more than the largest
-/// databases have, and a few hundred megabytes at most in memory.
-const MAX_NAMES5: u32 = 1 << 24;
+/// The most names, of all four kinds, a names file (SCID 4 or 5) may hold: far more than the
+/// largest databases have, and a few hundred megabytes at most in memory.
+const MAX_NAME_COUNT: u32 = 1 << 24;
 
 /// Whether `path` is a SCID index file by its name.
 pub fn is_scid(path: &Path) -> bool {
@@ -300,6 +300,10 @@ fn read_names(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
         return Err(bad("names"));
     }
     let u24 = |i: usize| u32::from_be_bytes([0, bytes[i], bytes[i + 1], bytes[i + 2]]);
+    // Four counts of up to 16M each: refused past the most names in all, not gigabytes asked for.
+    if (0..4).map(|k| u24(12 + 3 * k)).sum::<u32>() > MAX_NAME_COUNT {
+        return Err(bad("names"));
+    }
     let mut out: [Vec<Box<str>>; 4] = Default::default();
     let mut at = NAMES_HEADER;
     for (kind, list) in out.iter_mut().enumerate() {
@@ -355,7 +359,7 @@ fn read_names5(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
         let Some(list) = out.get_mut(kind) else { break };
         // A name may be a byte long: without a cap, a file of such names would ask for gigabytes.
         names += 1;
-        if names > MAX_NAMES5 {
+        if names > MAX_NAME_COUNT {
             return Err(bad("names"));
         }
         list.push(super::games::text(name).trim().into());
@@ -746,10 +750,16 @@ mod tests {
             assert!(read_names5(&p).unwrap().iter().all(|l| l.is_empty()));
         }
         // A file of empty names, a byte each: refused once past the most names, not gigabytes asked for.
-        std::fs::write(&p, vec![0u8; MAX_NAMES5 as usize + 1]).unwrap();
+        std::fs::write(&p, vec![0u8; MAX_NAME_COUNT as usize + 1]).unwrap();
         assert!(read_names5(&p).is_err());
         std::fs::write(&p, vec![0u8; 1000]).unwrap();
         assert_eq!(read_names5(&p).unwrap()[0].len(), 1000);
+        // SCID 4: a header that claims 16M names of each kind is refused; the real file reads.
+        let mut sn4 = std::fs::read(dir().join("test.sn4")).unwrap();
+        sn4[12..24].fill(0xff);
+        std::fs::write(&p, &sn4).unwrap();
+        assert!(read_names(&p).is_err());
+        assert!(read_names(&dir().join("test.sn4")).is_ok());
         let _ = std::fs::remove_file(&p);
     }
 

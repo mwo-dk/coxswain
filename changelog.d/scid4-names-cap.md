@@ -1,0 +1,1 @@
+| **A SCID names file that claims millions upon millions of names is refused.** A `.sn4` or `.sn5` file holding more than 16 million names in all no longer makes the table or the search helper ask for a gigabyte or more of memory; the database is not opened, as with any other damaged file. | [SCID databases](previews/chess.md#scid-databases) |
