@@ -43,7 +43,21 @@ let
     ];
     env.RUSTONIG_SYSTEM_LIBONIG = true;
   };
-  cargoArtifacts = craneLib.buildDepsOnly (common // { cargoCheckCommand = "true"; });
+  cargoArtifacts = craneLib.buildDepsOnly (
+    removeAttrs common [ "src" ]
+    // {
+      # The workspace's crates stubbed out, but not vendor/candle-core: a dependency of theirs
+      # (`[patch.crates-io]` in Cargo.toml), built for real.
+      dummySrc = craneLib.mkDummySrc {
+        inherit (common) src;
+        extraDummyScript = ''
+          rm -rf $out/vendor/candle-core
+          cp -r --no-preserve=mode ${../../vendor/candle-core} $out/vendor/candle-core
+        '';
+      };
+      cargoCheckCommand = "true";
+    }
+  );
 in
 craneLib.buildPackage (
   common

@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+# Line tables only, as in the virtual machines: a failing test still names its file and line, the
+# build is quicker and its cache (rust-cache, from master) smaller, which leaves room
+# in the repository's 10 GB for the systems' caches (.github/actions/target-cache).
+env:
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
 # A newer push to a pull request cancels its older run. Called from release.yml, the group is that
 # run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
