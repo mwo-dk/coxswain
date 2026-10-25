@@ -126,6 +126,9 @@ fn parts(path: &Path) -> io::Result<(&Path, String)> {
 /// Which system keeps `dir`, for what this module asks: git (Jujutsu with its git store too),
 /// Mercurial, or none that can answer.
 fn system(dir: &Path) -> io::Result<&'static str> {
+    if !in_repository(dir) {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, t!("blame.not_here")));
+    }
     match crate::vcs::of(dir).name() {
         "git" | "jj" => Ok("git"),
         "hg" => Ok("hg"),
@@ -437,7 +440,11 @@ mod tests {
         std::fs::create_dir_all(&d).unwrap();
         let f = d.join("a.txt");
         std::fs::write(&f, "a\n").unwrap();
-        assert!(blame(&f, &AtomicBool::new(false)).is_err());
+        // Unless the temporary folder is itself in a repository.
+        if !in_repository(&d) {
+            assert_eq!(blame(&f, &AtomicBool::new(false)).unwrap_err().kind(), io::ErrorKind::Unsupported);
+            assert_eq!(line_history(&f, "a\n", 0, 0, &AtomicBool::new(false)).unwrap_err().kind(), io::ErrorKind::Unsupported);
+        }
         let _ = std::fs::remove_dir_all(&d);
     }
 
