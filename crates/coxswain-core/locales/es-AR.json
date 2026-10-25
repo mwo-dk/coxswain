@@ -313,6 +313,7 @@
   "other": "No se pudieron copiar {n} mensajes; los demás sí."
  },
  "archive.nested_read_only": "Solo lectura: es un archivo comprimido dentro de otro, abierto desde una copia. Copiá el archivo interior afuera con F5 para cambiarlo",
+ "archive.part_missing": "Falta {name}: un 7z dividido en partes solo se abre con todas sus partes, numeradas sin huecos",
  "archive.nested_too_deep": "Los archivos comprimidos dentro de otros se abren hasta {depth} niveles: copiá este afuera con F5 para abrirlo",
  "archive.overlapping": "Los archivos de este zip comparten sus bytes comprimidos, así que se descomprimiría en mucho más de lo que contiene: puede estar hecho para llenar el disco. Todavía se puede copiar un archivo suyo",
  "archive.pack_confirm": "La contraseña de nuevo:",

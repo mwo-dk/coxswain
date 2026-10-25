@@ -199,13 +199,15 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **A 7z split into parts** by 7-Zip (`games.7z.001`, `games.7z.002`, …) opens from its first
   part: **Enter** on `games.7z.001` shows what the whole archive holds, its parts read one after
   the other, as one file. The other parts stay ordinary files in the list; their facts (under the
-  desktop app's preview; **Alt+Enter** in the terminal app, for parts on disk) say *Part: 2 of a 7z split into
+  desktop app's preview; **Alt+Enter** in the terminal app, on the status line inside an
+  archive) say *Part: 2 of a 7z split into
   parts: it opens from games.7z.001*. It is read-only, as a disk image is: the badge and the
   panel title say *Read-only*. All its parts must be there, numbered without a gap; with one
-  missing, it does not open. Inside another archive it opens too, its parts copied together into
+  missing, it does not open, and says which: *games.7z.002 is missing: a 7z split into parts
+  opens only with all its parts, numbered without a gap*. Inside another archive it opens too, its parts copied together into
   the cache folder (the limits above count them together). Search finds it by its own name only.
 - **A 7z's list of contents** is read whole, into memory, when it is opened: one with a list over
-  128 MB unpacked (about two million files) is not opened, with a message that says how large it
+  64 MB unpacked (about 900,000 files) is not opened, with a message that says how large it
   is. A 7z of 900,000 small files (a 61 MB list) takes about 600 MB of memory while it is open
   and a second to list. Search looks only into a 7z whose list is under 16 MB. A file taken out
   of a 7z made of many blocks is unpacked from its own block, not from the start.
@@ -322,8 +324,8 @@ whole archive, read-only. The `.002` and later parts are the same archive: open 
 
 #### Why does a 7z say its list of contents is too large?
 
-Its list of files unpacks to more than 128 MB, about two million files, and would take gigabytes
-of memory, so Coxswain neither opens nor extracts it. Unpack it with 7-Zip (`7z x`)
+Its list of files unpacks to more than 64 MB, about 900,000 files, and would take a gigabyte or
+more of memory, so Coxswain neither opens nor extracts it. Unpack it with 7-Zip (`7z x`)
 ([Limits](#limits)).
 
 #### Can I open an archive inside an archive?

@@ -308,6 +308,7 @@
   "other": "{n} berichten konden niet worden gekopieerd; de andere wel."
  },
  "archive.nested_read_only": "Alleen-lezen: dit is een archief in een archief, geopend vanuit een kopie. Kopieer het binnenste archief eruit met F5 om het te wijzigen",
+ "archive.part_missing": "{name} ontbreekt: een in delen gesplitste 7z opent alleen met al zijn delen, zonder gat genummerd",
  "archive.nested_too_deep": "Archieven in archieven openen tot {depth} niveaus diep: kopieer dit eruit met F5 om het te openen",
  "archive.overlapping": "De bestanden in deze zip delen hun ingepakte bytes, dus hij zou uitpakken tot veel meer dan hij bevat: hij kan gemaakt zijn om de schijf te vullen. Eén bestand eruit kan nog wel gekopieerd worden",
  "archive.pack_confirm": "Het wachtwoord nogmaals:",

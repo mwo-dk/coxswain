@@ -313,6 +313,7 @@
   "other": "{n} zpráv se nepodařilo zkopírovat; ostatní ano."
  },
  "archive.nested_read_only": "Jen pro čtení: toto je archiv v archivu, otevřený z kopie. Chcete-li ho změnit, zkopírujte vnitřní archiv ven klávesou F5",
+ "archive.part_missing": "Chybí {name}: 7z rozdělený na části se otevře jen se všemi částmi, číslovanými bez mezery",
  "archive.nested_too_deep": "Archivy v archivech se otevírají nejvýše do hloubky {depth}: zkopírujte tento ven klávesou F5 a otevřete ho",
  "archive.overlapping": "Soubory tohoto zipu sdílejí své zabalené bajty, takže by se rozbalil na mnohem víc, než obsahuje: může být vytvořen k zaplnění disku. Jeden jeho soubor lze stále zkopírovat",
  "archive.pack_confirm": "Heslo znovu:",

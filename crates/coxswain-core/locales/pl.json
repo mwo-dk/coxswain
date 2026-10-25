@@ -318,6 +318,7 @@
   "other": "Nie udało się skopiować {n} wiadomości; pozostałe tak."
  },
  "archive.nested_read_only": "Tylko do odczytu: to archiwum w archiwum, otwarte z kopii. Aby je zmienić, skopiuj wewnętrzne archiwum na zewnątrz klawiszem F5",
+ "archive.part_missing": "Brak {name}: 7z podzielony na części otwiera się tylko ze wszystkimi częściami, numerowanymi bez luk",
  "archive.nested_too_deep": "Archiwa w archiwach otwierają się najwyżej do {depth} poziomów: skopiuj to na zewnątrz klawiszem F5, aby je otworzyć",
  "archive.overlapping": "Pliki tego zipa współdzielą spakowane bajty, więc rozpakowałby się do znacznie więcej, niż zawiera: może być zrobiony, by zapełnić dysk. Pojedynczy plik nadal można z niego skopiować",
  "archive.pack_confirm": "Hasło jeszcze raz:",

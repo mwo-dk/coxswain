@@ -2043,6 +2043,10 @@ impl App {
             _ => p.dir.clone(),
         };
         if virtual_list(&path) || coxswain_core::zfs::split(&p.dir).is_some() || !path.exists() {
+            // A later part of a 7z split into parts, inside an archive: which part, by its name.
+            if let Some((n, first)) = coxswain_core::archive::part_of(&path.file_name().unwrap_or_default().to_string_lossy()) {
+                return self.status = Some(format!("{}: {}", t!("facts.part"), t!("facts.part_of", "n" => n, "first" => first)));
+            }
             return self.status = Some(t!("tui.props_not_here"));
         }
         let (tx, rx) = mpsc::channel();

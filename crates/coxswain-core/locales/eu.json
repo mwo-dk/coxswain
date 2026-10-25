@@ -308,6 +308,7 @@
   "other": "Ezin izan dira {n} mezu kanpora kopiatu; besteak bai."
  },
  "archive.nested_read_only": "Irakurtzeko soilik: artxibo baten barruko artxiboa da, kopia batetik irekia. Kopiatu barneko artxiboa kanpora F5 bidez aldatzeko",
+ "archive.part_missing": "{name} falta da: zatitan banatutako 7z bat zati guztiekin bakarrik irekitzen da, hutsunerik gabe zenbakituta",
  "archive.nested_too_deep": "Artxiboen barruko artxiboak {depth} mailaraino irekitzen dira: kopiatu hau kanpora F5 bidez irekitzeko",
  "archive.overlapping": "Zip honetako fitxategiek byte konprimituak partekatzen dituzte, beraz duena baino askoz gehiago deskonprimituko luke: diskoa betetzeko egina egon daiteke. Haren fitxategi bat kopiatu daiteke oraindik",
  "archive.pack_confirm": "Pasahitza berriro:",
