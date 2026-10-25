@@ -664,6 +664,8 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
         return copy_entry(src, to);
     }
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    // Noted first: a crash before the rename leaves it for the next start to remove.
+    crate::spill::staging_in(to.parent().unwrap_or(Path::new(".")));
     // Made here, never one that is there (nor a link to one): the destination may be shared.
     let mut tries = 0;
     let tmp = loop {
@@ -858,6 +860,7 @@ fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::
 /// A passing name beside `to` for its copy while it is written: `.name.coxswain-tmp-…`.
 fn beside(to: &Path) -> PathBuf {
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    crate::spill::staging_in(to.parent().unwrap_or(Path::new(".")));
     to.with_file_name(format!(
         ".{}.coxswain-tmp-{}-{}",
         to.file_name().unwrap_or_default().to_string_lossy(),

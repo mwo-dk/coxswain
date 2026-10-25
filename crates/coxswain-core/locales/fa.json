@@ -3336,7 +3336,7 @@
  "settings.prefer_local": "فقط برنامه‌های نصب‌شده",
  "settings.preview_cache": "پیش‌نمایش‌های ساخته‌شده تاکنون",
  "settings.preview_cache_clear": "پاک کردن",
- "settings.preview_cache_size": "{size} در حافظه‌ی نهان؛ وقتی منبع تغییر کند دوباره ساخته می‌شود",
+ "settings.preview_cache_size": "{size} در حافظه‌ی نهان؛ وقتی منبع تغییر کند دوباره ساخته می‌شود؛ آن‌هایی که ۳۰ روز نمایش داده نشوند خودبه‌خود پاک می‌شوند",
  "settings.previews_more": "ایمیج‌های دیگر در config.toml زیر [preview.images] تنظیم می‌شوند.",
  "settings.privacy_local": "این دستگاه",
  "settings.privacy_nothing": "هیچ چیز از این دستگاه بیرون نمی‌رود.",

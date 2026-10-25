@@ -3420,7 +3420,7 @@
  "settings.prefer_local": "Solo programmi installati",
  "settings.preview_cache": "Anteprime fatte finora",
  "settings.preview_cache_clear": "Svuota",
- "settings.preview_cache_size": "{size} nella cache; rifatte quando cambia una sorgente",
+ "settings.preview_cache_size": "{size} nella cache; rifatte quando cambia una sorgente; quelle non mostrate da 30 giorni si cancellano da sole",
  "settings.previews_more": "Le altre immagini si impostano in config.toml sotto [preview.images].",
  "settings.privacy_local": "questo computer",
  "settings.privacy_nothing": "Nulla esce da questo computer.",

@@ -3496,7 +3496,7 @@
  "settings.prefer_local": "Лише встановлені програми",
  "settings.preview_cache": "Створені попередні перегляди",
  "settings.preview_cache_clear": "Очистити",
- "settings.preview_cache_size": "{size} у кеші; створюються знову, коли джерело змінюється",
+ "settings.preview_cache_size": "{size} у кеші; створюються знову, коли джерело змінюється; ті, що не показувалися 30 днів, видаляються самі",
  "settings.previews_more": "Інші образи задаються в config.toml у [preview.images].",
  "settings.privacy_local": "цей комп’ютер",
  "settings.privacy_nothing": "Ніщо не залишає цей комп’ютер.",

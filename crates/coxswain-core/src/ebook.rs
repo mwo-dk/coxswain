@@ -400,7 +400,11 @@ pub fn shown(dir: &Path) -> Option<Preview> {
 pub fn preview(how: &How, path: &Path, dir: &Path, timeout: Duration, said: &mut dyn FnMut(Said)) -> Result<Preview, String> {
     let _ = std::fs::remove_dir_all(dir);
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let made = make(how, path, Want::Preview, dir, &AtomicBool::new(false), timeout, said);
+    let made = {
+        // Until calibre returns: one cut short is made again, never shown half written.
+        let _making = crate::spill::Making::new(dir);
+        make(how, path, Want::Preview, dir, &AtomicBool::new(false), timeout, said)
+    };
     if let Err(e) = made {
         let _ = std::fs::remove_dir_all(dir);
         return Err(e);
@@ -414,7 +418,9 @@ pub fn cache_dir(path: &Path) -> Option<PathBuf> {
     let meta = std::fs::metadata(path).ok()?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), TOOL).hash(&mut h);
-    Some(crate::dirs::cache_dir()?.join("coxswain").join("previews").join(format!("{:016x}", h.finish())))
+    let dir = crate::spill::previews_dir()?.join(format!("{:016x}", h.finish()));
+    crate::spill::used(&dir);
+    Some(dir)
 }
 
 /// The preview as text, for the terminal app's viewer (F3): the book's title and authors,

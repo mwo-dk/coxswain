@@ -165,8 +165,16 @@ struct Book {
 }
 
 /// Where the result for `path` goes; `main` is the document it builds (`latex::main_file`).
+/// Looked up means shown: its date moves, so the cache keeps it (`spill::prune_previews`).
 pub(crate) fn cache_dir(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<PathBuf> {
-    Ok(previews_dir()?.join(cache_name(path, main, tool, engine)?))
+    let dir = previews_dir()?.join(cache_name(path, main, tool, engine)?);
+    coxswain_core::spill::used(&dir);
+    Ok(dir)
+}
+
+/// The result `file` in `out` is there and whole: no run making it was cut short.
+fn made(out: &Path, file: &Path) -> bool {
+    file.is_file() && !coxswain_core::spill::half_made(out)
 }
 
 /// The name of `cache_dir`'s folder: a hash of the file as it is now and how it is made.
@@ -231,7 +239,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
                 _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note, instead, book: None },
             }))
         };
-        if file.is_file() {
+        if made(&out, &file) {
             return done(file);
         }
         if cached_only {
@@ -239,6 +247,8 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         }
         let _ = std::fs::remove_dir_all(&out);
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        // Until this build returns: a build cut short (killed, the power gone) is made again.
+        let making = coxswain_core::spill::Making::new(&out);
         match run(&cfg, &tool, &engine, &main, &out, &file) {
             Ok(()) if file.is_file() => done(file),
             // A document with an error still makes a PDF: shown, with the error above it.
@@ -257,6 +267,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
                     for other in engines(&cfg, &tool).into_iter().filter(|x| x.available && !x.needs_pull && x.id != engine) {
                         let _ = std::fs::remove_dir_all(&out);
                         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+                        making.again();
                         if run(&cfg, &tool, &other.id, &main, &out, &file).is_ok() || file.is_file() {
                             let said = why.lines().next().unwrap_or_default().to_string();
                             let _ = std::fs::write(out.join("instead.txt"), t!("convert.built_instead", "engine" => other.label, "failed" => first, "why" => said));
@@ -295,6 +306,8 @@ pub fn keep(app: tauri::AppHandle) {
         loop {
             std::thread::sleep(Duration::from_secs(wait));
             wait = 3600;
+            // A desktop app open for weeks keeps its preview cache in bounds too.
+            coxswain_core::spill::prune_previews();
             let ctx = app.state::<crate::Ctx>();
             let cfg = ctx.cfg().preview.clone();
             // No runtime, or containers off.
@@ -1317,14 +1330,15 @@ pub async fn media_thumbnail(path: PathBuf, tool: String, ctx: tauri::State<'_, 
         let Some(eng) = engines(&cfg, &tool).into_iter().find(|e| e.available && !e.needs_pull) else { return Ok(None) };
         let out = cache_dir(&path, &path, &tool, &eng.id)?;
         let (_, file) = output(&tool, &path, &out);
-        if file.is_file() {
+        if made(&out, &file) {
             return Ok(Some(file));
         }
         let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-        if file.is_file() {
+        if made(&out, &file) {
             return Ok(Some(file));
         }
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        let _making = coxswain_core::spill::Making::new(&out);
         build(&cfg, &tool, &eng.id, &path, &out, &file, None).map(|_| file.is_file().then_some(file))
     })
     .await
@@ -1652,11 +1666,15 @@ pub async fn adoc_diagram(kind: String, text: String, ctx: tauri::State<'_, crat
         ("adoc-diagram", &kind, &text).hash(&mut h);
         let dir = previews_dir()?.join(format!("{:016x}", h.finish()));
         let svg = dir.join("diagram.svg");
-        if let Ok(kept) = std::fs::read_to_string(&svg) {
+        coxswain_core::spill::used(&dir);
+        if !coxswain_core::spill::half_made(&dir)
+            && let Ok(kept) = std::fs::read_to_string(&svg)
+        {
             return Ok(kept);
         }
         let drawn = coxswain_core::export::diagram_svg(&cfg, &kind, &text)?;
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let _making = coxswain_core::spill::Making::new(&dir);
         std::fs::write(&svg, &drawn).map_err(|e| e.to_string())?;
         Ok(drawn)
     })

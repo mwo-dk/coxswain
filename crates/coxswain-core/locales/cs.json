@@ -3420,7 +3420,7 @@
  "settings.prefer_local": "Jen nainstalované programy",
  "settings.preview_cache": "Dosud vytvořené náhledy",
  "settings.preview_cache_clear": "Vymazat",
- "settings.preview_cache_size": "{size} v mezipaměti; vytvoří se znovu, když se zdroj změní",
+ "settings.preview_cache_size": "{size} v mezipaměti; vytvoří se znovu, když se zdroj změní; ty nezobrazené 30 dní se smažou samy",
  "settings.previews_more": "Ostatní obrazy se nastavují v config.toml pod [preview.images].",
  "settings.privacy_local": "tento počítač",
  "settings.privacy_nothing": "Nic neopouští tento počítač.",

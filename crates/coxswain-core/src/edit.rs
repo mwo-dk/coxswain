@@ -352,15 +352,29 @@ fn renamed_over_safely(_: &std::fs::File, _: &std::fs::Metadata) -> bool {
 fn beside(target: &Path, bytes: &[u8], old: Option<&std::fs::Metadata>) -> Result<(), (std::io::Error, bool)> {
     let dir = target.parent().unwrap_or(Path::new("."));
     let name = target.file_name().unwrap_or_default().to_string_lossy();
-    let tmp = dir.join(format!(".{name}.coxswain-{}.tmp", std::process::id()));
     let mut o = std::fs::OpenOptions::new();
     o.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
-    let mut f = o.open(&tmp).map_err(|e| {
-        let no_room = matches!(e.kind(), std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem);
-        (e, no_room)
-    })?;
+    // Noted first: a crash before the rename leaves it for the next start to remove.
+    crate::spill::staging_in(dir);
+    // A name of its own (process, count, time): one a crashed run with the same process id left
+    // is never in the way, and a name taken meanwhile is tried again with another.
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let mut tries = 0;
+    let (tmp, mut f) = loop {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.subsec_nanos());
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let tmp = dir.join(format!(".{name}.coxswain-{}-{n}-{nanos:x}.tmp", std::process::id()));
+        match o.open(&tmp) {
+            Ok(f) => break (tmp, f),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && tries < 8 => tries += 1,
+            Err(e) => {
+                let no_room = matches!(e.kind(), std::io::ErrorKind::PermissionDenied | std::io::ErrorKind::ReadOnlyFilesystem);
+                return Err((e, no_room));
+            }
+        }
+    };
     let done = (|| {
         #[cfg(unix)]
         if let Some(m) = old {
@@ -1003,13 +1017,14 @@ mod tests {
         std::fs::write(&p, "as it was\n").unwrap();
         #[cfg(unix)]
         {
-            // Something in the way of the file beside it that is no lack of room: said, not
-            // written in place. (Windows calls a folder in the way "access denied".)
-            let tmp = d.join(format!(".notes.txt.coxswain-{}.tmp", std::process::id()));
-            std::fs::create_dir(&tmp).unwrap();
-            assert!(matches!(save(&p, "new\n", Encoding::Utf8, false, None), Err(SaveError::Io(_))));
-            assert_eq!(std::fs::read_to_string(&p).unwrap(), "as it was\n");
-            std::fs::remove_dir(&tmp).unwrap();
+            // What a crashed run with this process id left beside it (the old fixed name) is not
+            // in the way: the save takes a name of its own, and the left-over is not touched.
+            let left = d.join(format!(".notes.txt.coxswain-{}.tmp", std::process::id()));
+            std::fs::create_dir(&left).unwrap();
+            save(&p, "new\n", Encoding::Utf8, false, None).unwrap();
+            assert_eq!(std::fs::read_to_string(&p).unwrap(), "new\n");
+            std::fs::write(&p, "as it was\n").unwrap();
+            std::fs::remove_dir(&left).unwrap();
             use std::os::unix::fs::{MetadataExt, PermissionsExt};
             let ino = |p: &Path| std::fs::metadata(p).unwrap().ino();
             // A private file stays private, its group kept; renamed over.

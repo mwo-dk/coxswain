@@ -78,6 +78,7 @@ pub mod setup;
 pub mod shogi;
 pub mod sizes;
 pub mod space;
+pub mod spill;
 pub mod state;
 mod stop;
 pub mod store;

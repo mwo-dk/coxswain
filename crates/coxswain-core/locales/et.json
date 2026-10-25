@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Ainult installitud programme",
  "settings.preview_cache": "Seni tehtud eelvaated",
  "settings.preview_cache_clear": "Tühjenda",
- "settings.preview_cache_size": "{size} vahemälus; tehakse uuesti, kui allikas muutub",
+ "settings.preview_cache_size": "{size} vahemälus; tehakse uuesti, kui allikas muutub; 30 päeva näitamata jäänud kustutatakse ise",
  "settings.previews_more": "Teised tõmmised seatakse failis config.toml jaotises [preview.images].",
  "settings.privacy_local": "see masin",
  "settings.privacy_nothing": "Midagi ei lahku sellest masinast.",

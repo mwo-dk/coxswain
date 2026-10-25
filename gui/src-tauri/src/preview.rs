@@ -79,6 +79,7 @@ fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Optio
         let side = side.clamp(64, 4096);
         let cached = |side: u32| -> Res<(PathBuf, PathBuf, Option<OldPicture>)> {
             let out = previews.join(crate::convert::cache_name(path, path, "picture", &format!("{page}-{side}"))?);
+            coxswain_core::spill::used(&out);
             let (file, count) = (out.join("picture.png"), out.join("pages.txt"));
             let pages = std::fs::read_to_string(&count).ok().and_then(|s| s.trim().parse().ok());
             let hit = pages.filter(|_| file.is_file()).map(|pages| OldPicture { file: file.clone(), pages });

@@ -3496,7 +3496,7 @@
  "settings.prefer_local": "Tylko zainstalowanych programów",
  "settings.preview_cache": "Dotychczas utworzone podglądy",
  "settings.preview_cache_clear": "Wyczyść",
- "settings.preview_cache_size": "{size} w pamięci podręcznej; tworzone ponownie, gdy zmieni się źródło",
+ "settings.preview_cache_size": "{size} w pamięci podręcznej; tworzone ponownie, gdy zmieni się źródło; te niepokazywane od 30 dni znikają same",
  "settings.previews_more": "Pozostałe obrazy ustawia się w config.toml w [preview.images].",
  "settings.privacy_local": "ten komputer",
  "settings.privacy_nothing": "Nic nie opuszcza tego komputera.",

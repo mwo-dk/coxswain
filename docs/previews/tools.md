@@ -191,13 +191,18 @@ file's path, size and modification time, the tool and the engine; for LaTeX also
 change in the document's folder. So:
 
 - A file renders once and shows at once afterwards, also after a restart.
-- Editing it makes the next render fresh; the old result is simply no longer used.
+- Editing it makes the next render fresh; the old result is no longer used, and goes with the
+  others not shown for 30 days.
 - Each engine has its own result, so switching back and forth costs nothing after the first run.
 
 *Settings → Previews → Previews made so far* shows how much room they take
-(*84.2 MB in the cache; made again when a source changes*). **Clear** empties the cache (it is
-greyed when the cache is empty); every preview is then made again when next shown. See [Where
-things are kept](../reference/where-things-are-kept.md).
+(*84.2 MB in the cache; made again when a source changes; those not shown for 30 days go by
+themselves*). **Clear** empties the cache (it is greyed when the cache is empty); every preview
+is then made again when next shown. The cache keeps itself in bounds: at each start of either
+app, and every hour while the desktop app runs, the previews not shown for 30 days go, and
+past 4 GB the ones shown longest ago go first. A build cut short (the app killed, the power
+gone) is never shown half made: it is made again the next time. See [Where things are
+kept](../reference/where-things-are-kept.md).
 
 ## What you see
 
@@ -364,7 +369,8 @@ also found in its usual install folder.
 #### How much room do previews take, and can I free it?
 
 *Settings → Previews → Previews made so far* shows the size; **Clear** frees it.
-Nothing is lost: previews are made again when shown.
+Nothing is lost: previews are made again when shown. You need not clear it to keep it small:
+previews not shown for 30 days go by themselves, and the cache never keeps more than 4 GB.
 
 #### Can I use a tool from a container even though it is installed?
 

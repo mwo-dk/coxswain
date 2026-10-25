@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Nur installierte Programme",
  "settings.preview_cache": "Bisher erstellte Vorschauen",
  "settings.preview_cache_clear": "Leeren",
- "settings.preview_cache_size": "{size} im Cache; neu erstellt, wenn sich eine Quelle ändert",
+ "settings.preview_cache_size": "{size} im Cache; neu erstellt, wenn sich eine Quelle ändert; was 30 Tage nicht gezeigt wurde, wird von selbst gelöscht",
  "settings.previews_more": "Die übrigen Images werden in config.toml unter [preview.images] gesetzt.",
  "settings.privacy_local": "dieser Rechner",
  "settings.privacy_nothing": "Nichts verlässt diesen Rechner.",

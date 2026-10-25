@@ -201,7 +201,7 @@ fn view(cfg: &coxswain_core::config::PreviewConfig, book: &std::path::Path, said
     }
     let how = ebook::how(cfg)?;
     let dir = ebook::cache_dir(book).ok_or_else(|| t!("err.no_cache_folder"))?;
-    let p = match ebook::shown(&dir) {
+    let p = match ebook::shown(&dir).filter(|_| !coxswain_core::spill::half_made(&dir)) {
         Some(p) => p,
         None => ebook::preview(&how, book, &dir, Duration::from_secs(cfg.timeout.max(10)), said)?,
     };

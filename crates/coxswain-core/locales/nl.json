@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Alleen geïnstalleerde programma's",
  "settings.preview_cache": "Tot nu toe gemaakte voorbeelden",
  "settings.preview_cache_clear": "Wissen",
- "settings.preview_cache_size": "{size} in de cache; opnieuw gemaakt als een bron verandert",
+ "settings.preview_cache_size": "{size} in de cache; opnieuw gemaakt als een bron verandert; wat 30 dagen niet getoond is, verdwijnt vanzelf",
  "settings.previews_more": "De andere images stel je in config.toml in onder [preview.images].",
  "settings.privacy_local": "deze computer",
  "settings.privacy_nothing": "Er gaat niets van deze computer af.",

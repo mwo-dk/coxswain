@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Vain asennettuja ohjelmia",
  "settings.preview_cache": "Tähän asti tehdyt esikatselut",
  "settings.preview_cache_clear": "Tyhjennä",
- "settings.preview_cache_size": "{size} välimuistissa; tehdään uudelleen, kun lähde muuttuu",
+ "settings.preview_cache_size": "{size} välimuistissa; tehdään uudelleen, kun lähde muuttuu; 30 päivään näyttämättömät poistetaan itsestään",
  "settings.previews_more": "Muut levykuvat asetetaan config.toml-tiedostossa kohdassa [preview.images].",
  "settings.privacy_local": "tämä kone",
  "settings.privacy_nothing": "Mitään ei lähde tältä koneelta.",
