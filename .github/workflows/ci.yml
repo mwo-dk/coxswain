@@ -56,7 +56,7 @@ jobs:
       # The ARM machines run on every push to master and every release (called from release.yml),
       # not on pull requests; a pull request of texts only runs Linux. A skipped matrix entry is simply absent, so "CI result" is unaffected.
       matrix:
-        os: ${{ fromJSON(github.event_name != 'pull_request' && '["ubuntu-24.04", "ubuntu-24.04-arm", "macos-latest", "windows-latest", "windows-11-arm"]' || needs.changes.outputs.native == 'true' && '["ubuntu-24.04", "macos-latest", "windows-latest"]' || '["ubuntu-24.04"]') }}
+        os: ${{ fromJSON(github.event_name != 'pull_request' && '["ubuntu-24.04", "ubuntu-24.04-arm", "macos-latest", "windows-latest", "windows-11-arm"]' || needs.changes.outputs.native == 'true' && '["ubuntu-24.04", "macos-latest", "windows-latest", "windows-11-arm"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -93,6 +93,22 @@ jobs:
           npm test
           npm run build
 
+      - name: TEMP diagnostics (remove before merge)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $t = [IO.Path]::GetTempPath(); "temp: $t"
+          fsutil fsinfo volumeinfo ($t.Substring(0,3))
+          fsutil devdrv query ($t.Substring(0,2))
+          fsutil fsinfo volumeinfo ($env:GITHUB_WORKSPACE.Substring(0,3))
+          $f = Join-Path $t 'tick-probe'
+          $seen = @{}
+          for ($i = 0; $i -lt 200; $i++) { [IO.File]::WriteAllText($f, "$i"); $seen[[IO.File]::GetLastWriteTimeUtc($f).Ticks] = 1 }
+          "distinct mtimes in 200 quick writes: $($seen.Count)"
+          Remove-Item $f
+      - name: TEMP the stamp test first (remove before merge)
+        run: cargo test -p coxswain-core --locked --lib -- an_archive_written_anew archive_takes_files_in_renames_and_packs
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked
 

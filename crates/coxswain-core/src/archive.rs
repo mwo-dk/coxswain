@@ -3878,6 +3878,32 @@ mod tests {
     }
 
     #[test]
+    fn an_archive_written_anew_never_keeps_its_size_and_time() {
+        // Every list kept of an archive (this run's, the compressed tars' index between runs,
+        // another app's) is told apart by its size and modified time: a rewrite that keeps both
+        // (a tar renamed within the clock's tick) would show the old contents.
+        let d = std::env::temp_dir().join(format!("coxswain-test-stamp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a1"), "one").unwrap();
+        for pack in ["s.tar", "s.tar.gz"] {
+            let zp = d.join(pack);
+            create(&zp, &[d.join("a1")]).unwrap();
+            let mut name = "a1";
+            for _ in 0..30 {
+                let before = stamp(&zp).unwrap();
+                let to = if name == "a1" { "a2" } else { "a1" };
+                rename_in(&zp, name, to, None).unwrap();
+                name = to;
+                assert_ne!(stamp(&zp).unwrap(), before, "{pack}");
+                let listed: Vec<_> = items(&zp).unwrap().iter().map(|i| i.name.clone()).collect();
+                assert_eq!(listed, [name], "{pack}");
+            }
+        }
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
     fn archive_takes_files_in_renames_and_packs() {
         let d = std::env::temp_dir().join(format!("coxswain-test-crud-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
@@ -3922,7 +3948,7 @@ mod tests {
                 "not into itself"
             );
             assert!(rename_in(&zp, "docs", "docs", None).is_err());
-            assert_eq!(names(&zp.join("docs")), ["a.txt"]);
+            assert_eq!(names(&zp.join("docs")), ["a.txt"], "{pack}");
             // Copied in under a new name: not one folder too deep (docs/b.txt/b.txt).
             assert_eq!(
                 crate::fs::copy(&d.join("src/deep/b.txt"), &zp.join("docs/c.txt")).unwrap(),
