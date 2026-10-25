@@ -80,7 +80,9 @@ are off); the terminal app's says *Settings: F12 → Previews*.
 | Failed | A dialog *Could not make the PDF searchable* with OCRmyPDF's last lines, per file | The same, full screen |
 
 Whether a PDF is a scan is worked out by the search's own PDF reader once the PDF has been shown
-for a second, at most three seconds, for PDFs up to 15 MB, and the answer is kept for that file
+for a second, for PDFs up to 15 MB. It reads a page at a time and stops at the first words, so a
+PDF with text is known as one within a moment; one without is read for at most three seconds. The
+answer is kept for that file
 until it changes: fewer than 20 letters on its pages counts as none. A larger PDF gets only the
 button. A PDF locked with a password
 counts as a scan too, as no text can be read of it; OCRmyPDF then says it cannot open it.

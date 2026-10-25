@@ -9,9 +9,9 @@
 //! sides of them:
 //! - before: `heavy` weighs the objects of the file and `tables` looks through its tables
 //!   before lopdf reads them, `rebuilt` makes a table anew when the file's own cannot be
-//!   used, `at_load` is there for every object it loads, `calm` goes through the loaded
-//!   document, takes out what they cannot take and measures what is left, and `affordable`
-//!   says whether a page can be read within bounds;
+//!   used, `at_load` is there for every object it loads, `Calm` goes through what each page
+//!   reaches just before it is read, takes out what they cannot take and measures what is
+//!   left, and `affordable` says whether a page can be read within bounds;
 //! - around: a thread with a stack of a known size, every page read on its own behind
 //!   `catch_unwind`, the clock looked at between pages and between characters;
 //! - after: `Words` makes words and lines of the characters and the places they were drawn at.
@@ -97,6 +97,33 @@ const SYMBOL: &str = "32 /space /exclam /universal /numbersign /existential /per
 /// The text of a PDF file, or `None`: no text in it (a scan), a password needed to open it,
 /// not a PDF, larger than `max`.
 pub fn text(path: &Path, max: u64) -> Option<String> {
+    let mut text = String::new();
+    pages(path, max, &mut |page| {
+        text.push_str(page);
+        true
+    })?;
+    (!text.trim().is_empty()).then_some(text)
+}
+
+/// `text` tidied as the store keeps it (`super::tidy`): each page tidied as it is read, and the
+/// reading stopped once the text is full, so the text is never held whole untidied. The same
+/// text as `super::tidy` makes of `text`.
+pub fn tidied(path: &Path, max: u64) -> Option<String> {
+    let (mut tidy, mut any) = (super::Tidy::new(false), false);
+    pages(path, max, &mut |page| {
+        any |= !page.trim().is_empty();
+        page.lines().all(|l| tidy.push(l))
+    })?;
+    any.then_some(tidy.out)
+}
+
+/// The text of a PDF file a page at a time, each page to `f` as soon as it is read, ending a
+/// line; what lies on top of a page comes after it, as a page of its own, and a page without
+/// text is not given. Only what a page draws is made ready before it is read (`Calm`), so the
+/// first page comes without the rest of the document gone through. `f` says whether to go on.
+/// `None`: not a PDF, larger than `max`, or no document to be loaded from it. All the pages
+/// given are the text `text` gives, as far as `f` went.
+pub fn pages(path: &Path, max: u64, f: &mut (dyn FnMut(&str) -> bool + Send)) -> Option<()> {
     let mut bytes = vec![];
     std::fs::File::open(path)
         .ok()?
@@ -125,7 +152,7 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
         .stack_size(STACK);
     std::thread::scope(|scope| {
         reader
-            .spawn_scoped(scope, || read(bytes, until))
+            .spawn_scoped(scope, || read(bytes, until, f))
             .ok()?
             .join()
             .ok()?
@@ -135,7 +162,7 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 const THREAD: &str = "pdf";
 static QUIET: std::sync::Once = std::sync::Once::new();
 
-fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
+fn read(mut bytes: Vec<u8>, until: Instant, f: &mut dyn FnMut(&str) -> bool) -> Option<()> {
     new_sentinel();
     // Whatever stands before the header, a mail gateway's line or a byte order mark, is no
     // part of the file: the places its tables point at are counted from the header.
@@ -158,7 +185,7 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
     }
     let mut doc = doc?;
     drop(bytes);
-    let known = calm(&mut doc, until);
+    let mut calm = Calm::new(&doc, until);
     let pages: Vec<ObjectId> = doc.page_iter().take(MAX_PAGES).collect();
     // pdf-extract is asked for one page at a time and goes through the tree of pages to find
     // it, which for page 2000 of 2000 is all of them. It is given a tree with one page in it.
@@ -173,25 +200,39 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
     let (tree, above) = ((free - 1, 0), (free, 0));
     doc.catalog_mut().ok()?.set("Pages", tree);
 
-    let mut text = String::new();
+    // The text of the page being read, and how much was handed on before it.
+    let (mut text, mut given) = (String::new(), 0);
     let mut costs = HashMap::new();
     'pages: for page in pages {
         // The page, then what lies on top of it, each as a page of its own.
         for on_top in std::iter::once(None).chain(on_top(&doc, page).into_iter().map(Some)) {
-            if Instant::now() > until || text.len() > MAX_TEXT {
+            if Instant::now() > until || given > MAX_TEXT {
                 break 'pages;
             }
+            let look = on_top.is_some();
             let page = on_top.map_or(page, |look| {
                 doc.objects.insert(above, look.into());
                 above
             });
-            let (fits, hushed) = affordable(&mut doc, &known, &mut costs, page);
+            // A look is made anew, its resources too: what was found to cost of resources at
+            // the same place in memory before is no cost of these.
+            if look {
+                costs.clear();
+            }
+            // What the page draws, made ready; not read when the time ran out first.
+            match calm.ready(&mut doc, page, look) {
+                None => break 'pages,
+                // A stream weighed before weighs something else now.
+                Some(true) => costs.clear(),
+                Some(false) => {}
+            }
+            let (fits, hushed) = affordable(&mut doc, &calm.known, &mut costs, page);
             if fits {
                 let mut one = Dictionary::new();
                 one.set("Type", "Pages");
                 one.set("Kids", vec![Object::Reference(page)]);
                 doc.objects.insert(tree, one.into());
-                let mut words = Words::new(&mut text, until);
+                let mut words = Words::new(&mut text, given, until);
                 // A page pdf-extract gives up on keeps what was read of it.
                 let _ = catch_unwind(AssertUnwindSafe(|| {
                     pdf_extract::output_doc_page(&doc, &mut words, 1)
@@ -200,9 +241,16 @@ fn read(mut bytes: Vec<u8>, until: Instant) -> Option<String> {
             }
             // The forms hushed for this page, which other pages may draw within bounds.
             doc.objects.extend(hushed);
+            if !text.is_empty() {
+                given += text.len();
+                if !f(&text) {
+                    break 'pages;
+                }
+                text.clear();
+            }
         }
     }
-    (!text.trim().is_empty()).then_some(text)
+    Some(())
 }
 
 /// The document loaded by lopdf, with its tables looked through first and its objects held
@@ -906,77 +954,223 @@ impl Known {
     }
 }
 
-/// The document made safe to hand to pdf-extract, and what is known of its streams after.
-fn calm(doc: &mut Document, until: Instant) -> HashMap<ObjectId, Known> {
-    let ids: Vec<ObjectId> = doc.objects.keys().copied().collect();
-    // Each object is taken out to be mended, so that the others can be looked at meanwhile.
-    let mut mending = Mending {
-        plain: HashMap::new(),
-        widths: MAX_WIDTHS,
-        until,
-    };
-    for id in &ids {
-        if let Some(mut object) = doc.objects.insert(*id, Object::Null) {
-            mend(&mut object, doc, &mut mending, 2 * DEPTH);
-            doc.objects.insert(*id, object);
+/// What has been made safe of a document to hand to pdf-extract: the objects the pages read so
+/// far reach (`reach`), mended (`mend`), their streams unpacked within bounds and weighed, or
+/// hushed (`settle`), and the hidden text of those pages marked (`hide`). A page is made ready
+/// just before it is read: the first page of a long document is read without the others gone
+/// through, and the clock is used for the pages that are read.
+struct Calm {
+    /// The content of every page: written anew when it has what pdf-extract passes over.
+    drawn: HashSet<ObjectId>,
+    mending: Mending,
+    mended: HashSet<ObjectId>,
+    settled: HashSet<ObjectId>,
+    known: HashMap<ObjectId, Known>,
+    /// The streams that may draw text unseen, which `hide` goes through.
+    suspects: HashSet<ObjectId>,
+    /// What content written anew may still take, all of it together: it is kept unpacked.
+    room: u64,
+    hidden: Hidden,
+    until: Instant,
+}
+
+impl Calm {
+    fn new(doc: &Document, until: Instant) -> Calm {
+        Calm {
+            drawn: doc
+                .page_iter()
+                .take(MAX_PAGES)
+                .flat_map(|page| doc.get_page_contents(page))
+                .collect(),
+            mending: Mending {
+                plain: HashMap::new(),
+                applied: HashSet::new(),
+                widths: MAX_WIDTHS,
+                until,
+            },
+            mended: HashSet::new(),
+            settled: HashSet::new(),
+            known: HashMap::new(),
+            suspects: HashSet::new(),
+            room: MAX_ENTRY,
+            hidden: Hidden::default(),
+            until,
         }
     }
-    let mut plain = mending.plain;
-    // Content written anew is kept unpacked, all of it together within bounds.
-    let mut room = MAX_ENTRY;
-    let drawn: HashSet<ObjectId> = doc
-        .page_iter()
-        .take(MAX_PAGES)
-        .flat_map(|page| doc.get_page_contents(page))
-        .collect();
-    let mut known = HashMap::new();
-    // The streams that may draw text unseen, which `hide` goes through.
-    let mut suspects = HashSet::new();
-    for id in ids {
-        let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
-            continue;
+
+    /// Makes what the page (or the look of an annotation, `look`) draws safe to read. `None`:
+    /// the time ran out before all it reaches was found, and it is not to be read. `Some(true)`:
+    /// a stream weighed before has changed.
+    fn ready(&mut self, doc: &mut Document, page: ObjectId, look: bool) -> Option<bool> {
+        let reached = reach(doc, page, &self.mended, self.until)?;
+        // The look of an annotation is a page made here, at the same number each time: it is
+        // mended each time, and never counted as mended.
+        let made = |id: ObjectId| look && id == page;
+        // Each object is taken out to be mended, so that the others can be looked at meanwhile.
+        let named = self.mending.plain.len();
+        for &id in &reached {
+            if (made(id) || self.mended.insert(id))
+                && let Some(mut object) = doc.objects.insert(id, Object::Null)
+            {
+                mend(&mut object, doc, &mut self.mending, 2 * DEPTH);
+                doc.objects.insert(id, object);
+            }
+        }
+        // A stream settled before as something else that a font now names is settled again as
+        // what the font makes of it.
+        let again: Vec<ObjectId> = if self.mending.plain.len() > named {
+            let settled = &self.settled;
+            self.mending
+                .plain
+                .iter()
+                .filter(|(id, (_, content))| !content.is_empty() && settled.contains(id))
+                .map(|(id, _)| *id)
+                .collect()
+        } else {
+            vec![]
         };
-        match plain.remove(&id) {
-            Some((_, content)) if !content.is_empty() => stream.set_plain_content(content),
-            _ if is(stream, b"Subtype", b"Image") => hush(stream),
+        let changed = !again.is_empty();
+        let new: Vec<ObjectId> = reached
+            .into_iter()
+            .filter(|id| self.settled.insert(*id))
+            .chain(again)
+            .collect();
+        for id in new {
+            self.settle(doc, id);
+        }
+        let hid = !look
+            && hide(
+                doc,
+                &mut self.known,
+                &self.suspects,
+                &mut self.room,
+                &mut self.hidden,
+                page,
+                self.until,
+            );
+        Some(changed || hid)
+    }
+
+    /// A stream put in the place of what a font names, hushed, or unpacked within bounds and
+    /// weighed; the content of a page or a form written anew when it has what
+    /// pdf-extract passes over (`rewritten`).
+    fn settle(&mut self, doc: &mut Document, id: ObjectId) {
+        let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
+            return;
+        };
+        let plain = self
+            .mending
+            .plain
+            .get_mut(&id)
+            .map(|(_, content)| std::mem::take(content))
+            .filter(|content| !content.is_empty());
+        match plain {
+            Some(content) => {
+                self.mending.applied.insert(id);
+                stream.set_plain_content(content);
+            }
+            None if is(stream, b"Subtype", b"Image") => hush(stream),
             // An attachment or the metadata, which pdf-extract never reads: not unpacked to
             // be weighed, at times many MB that would use up the time for the pages.
-            _ if is(stream, b"Type", b"EmbeddedFile") || is(stream, b"Type", b"Metadata") => {
+            None if is(stream, b"Type", b"EmbeddedFile") || is(stream, b"Type", b"Metadata") => {
                 hush(stream);
-                continue;
+                return;
             }
-            _ => {}
+            None => {}
         }
-        let content = if Instant::now() < until {
+        let content = if Instant::now() < self.until {
             unpacked(stream, MAX_ENTRY)
         } else {
             None
         };
         let Some(content) = content else {
             hush(stream);
-            continue;
+            return;
         };
         let as_is = Known::of(&content);
         if suspect(&content) {
-            suspects.insert(id);
+            self.suspects.insert(id);
         }
         let shown =
-            as_is.weight <= MAX_CONTENT && (drawn.contains(&id) || is(stream, b"Subtype", b"Form"));
+            as_is.weight <= MAX_CONTENT && (self.drawn.contains(&id) || is(stream, b"Subtype", b"Form"));
         match shown
             .then(|| rewritten(&content))
             .flatten()
-            .filter(|written| written.len() as u64 <= room)
+            .filter(|written| written.len() as u64 <= self.room)
         {
             Some(written) => {
-                room -= written.len() as u64;
-                known.insert(id, Known::of(&written));
+                self.room -= written.len() as u64;
+                self.known.insert(id, Known::of(&written));
                 stream.set_plain_content(written);
             }
-            None => drop(known.insert(id, as_is)),
+            None => drop(self.known.insert(id, as_is)),
         }
     }
-    hide(doc, &mut known, &suspects, room, until);
-    known
+}
+
+/// The keys of a page that lead away from what it draws: up the tree of pages (only the
+/// resources it inherits are followed there), to what lies on top (`on_top` reads that), to
+/// the threads it is in and the actions it runs.
+const AWAY: [&[u8]; 4] = [b"Parent", b"Annots", b"B", b"AA"];
+
+/// The objects pdf-extract may go to when it reads this page: the page, all it names but the
+/// keys that lead `AWAY`, the resources it inherits, and all that those name, whatever the key:
+/// a resource may be named anything; not those `done` for a page before, nor what they name,
+/// which was reached with them. `None`: out of time.
+fn reach(
+    doc: &Document,
+    page: ObjectId,
+    done: &HashSet<ObjectId>,
+    until: Instant,
+) -> Option<Vec<ObjectId>> {
+    let start = doc.objects.get(&page)?;
+    let (mut found, mut seen) = (vec![page], HashSet::from([page]));
+    let mut dict = start.as_dict().ok();
+    let mut todo: Vec<&Object> = dict
+        .into_iter()
+        .flat_map(|d| d.iter())
+        .filter(|(key, _)| !AWAY.contains(&&key[..]))
+        .map(|(_, item)| item)
+        .collect();
+    // What the page inherits from those above it. Each of them is mended with the page, for
+    // resources written into it, but only its resources are followed.
+    for _ in 0..DEPTH {
+        let Some((id, parent)) = dict
+            .and_then(|d| d.get(b"Parent").ok())
+            .and_then(|o| o.as_reference().ok())
+            .and_then(|id| Some((id, doc.get_dictionary(id).ok()?)))
+        else {
+            break;
+        };
+        if !done.contains(&id) && seen.insert(id) {
+            found.push(id);
+        }
+        todo.extend(parent.get(b"Resources").ok());
+        dict = Some(parent);
+    }
+    let mut steps = 0usize;
+    while let Some(object) = todo.pop() {
+        steps += 1;
+        if steps.is_multiple_of(4096) && Instant::now() > until {
+            return None;
+        }
+        match object {
+            Object::Reference(id) => {
+                if !done.contains(id)
+                    && seen.insert(*id)
+                    && let Some(object) = doc.objects.get(id)
+                {
+                    found.push(*id);
+                    todo.push(object);
+                }
+            }
+            Object::Array(items) => todo.extend(items),
+            Object::Dictionary(dict) => todo.extend(dict.iter().map(|(_, item)| item)),
+            Object::Stream(stream) => todo.extend(stream.dict.iter().map(|(_, item)| item)),
+            _ => {}
+        }
+    }
+    Some(found)
 }
 
 // ---------------------------------------------------------------- hidden text
@@ -1028,7 +1222,16 @@ struct Page {
     picture: bool,
 }
 
-/// Every page's content gone through in the order it is drawn, its streams one after the other
+/// What `hide` has found so far, of the pages read before.
+#[derive(Default)]
+struct Hidden {
+    seen: HashSet<(ObjectId, Paint, bool, bool)>,
+    shows: HashMap<ObjectId, Vec<bool>>,
+    /// Of each stream marked: the shows marked hidden, and its content as it was.
+    marked: HashMap<ObjectId, (Vec<bool>, Vec<u8>)>,
+}
+
+/// The page's content gone through in the order it is drawn, its streams one after the other
 /// and each form where it is drawn, with the graphics state as it goes. Text drawn invisibly is
 /// hidden text: in render mode 3 or 7 but over a picture drawn before it (a scan's words),
 /// wholly transparent, or white (in any colour space whose white is known) where nothing was
@@ -1037,77 +1240,93 @@ struct Page {
 ///
 /// Every marked stream begins and ends with its text seen, and so does every form it draws:
 /// a stream's marks say nothing about what is drawn after it. A stream drawn more than once,
-/// a form in several places, hides only the text that is hidden wherever it is drawn.
+/// a form on several pages, hides only the text that is hidden wherever it has been drawn so
+/// far: drawn where its text is seen, its marks are taken away again for the pages after.
 ///
-/// Only the pages that may draw text unseen are gone through: one of whose streams or forms
-/// is a `suspect`, or has a graphics state that makes paint clear.
+/// Only a page that may draw text unseen is gone through: one of whose streams or forms is a
+/// `suspect`, or has a graphics state that makes paint clear. `true`: marks were changed.
 fn hide(
     doc: &mut Document,
     known: &mut HashMap<ObjectId, Known>,
     suspects: &HashSet<ObjectId>,
-    mut room: u64,
+    room: &mut u64,
+    hidden: &mut Hidden,
+    page: ObjectId,
     until: Instant,
-) {
-    // ponytail: a third of the time left, so a long manual full of white boxes keeps most of
-    // its pages' text; pages past it are read as drawn, hidden text and all.
-    let now = Instant::now();
-    let until = now + until.saturating_duration_since(now) / 3;
+) -> bool {
+    let resources = doc.get_page_resources(page).ok().and_then(|(own, ids)| {
+        own.cloned().or_else(|| ids.first().and_then(|id| doc.get_dictionary(*id).ok().cloned()))
+    });
+    let contents = doc.get_page_contents(page);
+    let mut looked = HashSet::new();
+    if !contents.iter().any(|id| suspects.contains(id))
+        && !may_hide(doc, resources.as_ref(), suspects, &mut looked, DEPTH, until)
+    {
+        return false;
+    }
     let mut walk = Walk {
         doc: &*doc,
         known: &*known,
+        kept: &hidden.marked,
         until,
-        seen: HashSet::new(),
-        shows: HashMap::new(),
+        seen: std::mem::take(&mut hidden.seen),
+        shows: std::mem::take(&mut hidden.shows),
+        touched: vec![],
     };
-    let pages: Vec<_> = walk.doc.page_iter().collect();
-    for (n, &page) in pages.iter().enumerate() {
-        if n >= MAX_PAGES || Instant::now() >= until {
-            // ponytail: what the pages left draw is not known, so the forms (which any page
-            // may draw) and the streams of those pages keep no marks: their hidden text is read.
-            let left: HashSet<_> = pages[n..].iter().flat_map(|p| walk.doc.get_page_contents(*p)).collect();
-            let contents: HashSet<_> = pages[..n].iter().flat_map(|p| walk.doc.get_page_contents(*p)).collect();
-            walk.shows.retain(|id, _| contents.contains(id) && !left.contains(id));
-            break;
-        }
-        let resources = walk.doc.get_page_resources(page).ok().and_then(|(own, ids)| {
-            own.cloned().or_else(|| ids.first().and_then(|id| walk.doc.get_dictionary(*id).ok().cloned()))
-        });
-        let (mut paint, mut drawn) = (Paint::default(), Page::default());
-        let contents = walk.doc.get_page_contents(page);
-        let mut looked = HashSet::new();
-        if !contents.iter().any(|id| suspects.contains(id))
-            && !may_hide(walk.doc, resources.as_ref(), suspects, &mut looked, DEPTH, until)
-        {
-            continue;
-        }
-        for id in &contents {
-            walk.stream(*id, resources.as_ref(), &mut paint, &mut drawn, DEPTH);
-        }
+    let (mut paint, mut drawn) = (Paint::default(), Page::default());
+    for id in &contents {
+        walk.stream(*id, resources.as_ref(), &mut paint, &mut drawn, DEPTH);
     }
-    let shows = walk.shows;
-    for (id, hidden) in shows {
-        if !hidden.contains(&true) {
+    let Walk {
+        seen, shows, touched, ..
+    } = walk;
+    (hidden.seen, hidden.shows) = (seen, shows);
+    let mut changed = false;
+    for id in touched {
+        let Some(shows) = hidden.shows.get(&id) else {
+            continue;
+        };
+        let hides = shows.contains(&true);
+        if hidden.marked.get(&id).map_or(!hides, |(had, _)| had == shows) {
             continue;
         }
-        let Some(written) = doc
-            .objects
-            .get(&id)
-            .and_then(|o| o.as_stream().ok())
-            .and_then(|s| unpacked(s, MAX_ENTRY))
-            .and_then(|content| of_lopdf(|| Content::decode(&content)))
-            .and_then(|c| of_lopdf(|| Content { operations: marked(c.operations, &hidden) }.encode()))
+        let Some(Object::Stream(stream)) = doc.objects.get(&id) else {
+            continue;
+        };
+        let Some(original) = hidden
+            .marked
+            .remove(&id)
+            .map(|(_, content)| content)
+            .or_else(|| unpacked(stream, MAX_ENTRY).map(Cow::into_owned))
         else {
             continue;
         };
-        if written.len() as u64 > room {
-            break;
-        }
-        if let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) {
-            room -= written.len() as u64;
-            known.insert(id, Known::of(&written));
-            stream.set_plain_content(written);
+        let written = hides
+            .then(|| {
+                of_lopdf(|| Content::decode(&original))
+                    .and_then(|c| of_lopdf(|| Content { operations: marked(c.operations, shows) }.encode()))
+            })
+            .flatten();
+        let Some(Object::Stream(stream)) = doc.objects.get_mut(&id) else {
+            continue;
+        };
+        changed = true;
+        // The marks and the content as it was are both kept, within the room for both.
+        match written.filter(|w| (w.len() + original.len()) as u64 <= *room) {
+            Some(written) => {
+                *room -= (written.len() + original.len()) as u64;
+                known.insert(id, Known::of(&written));
+                stream.set_plain_content(written);
+                hidden.marked.insert(id, (shows.clone(), original));
+            }
+            // Seen where it was drawn now, or no room: as it was.
+            None => {
+                known.insert(id, Known::of(&original));
+                stream.set_plain_content(original);
+            }
         }
     }
+    changed
 }
 
 /// Whether what these resources draw may hide text: a form that is a `suspect` (or one of its
@@ -1287,6 +1506,10 @@ fn marked(operations: Vec<Operation>, hidden: &[bool]) -> Vec<Operation> {
 struct Walk<'a> {
     doc: &'a Document,
     known: &'a HashMap<ObjectId, Known>,
+    /// The content as it was of the streams marked for the pages before.
+    kept: &'a HashMap<ObjectId, (Vec<bool>, Vec<u8>)>,
+    /// The streams gone through for this page.
+    touched: Vec<ObjectId>,
     until: Instant,
     /// Streams gone through, with how the page stood when they were: drawn again the same
     /// way, a stream hides the same text, and is not gone through again.
@@ -1300,6 +1523,7 @@ struct Walk<'a> {
 impl Walk<'_> {
     /// Hidden only where it was each time before.
     fn found(&mut self, id: ObjectId, hidden: Vec<bool>) {
+        self.touched.push(id);
         match self.shows.get_mut(&id) {
             Some(had) => {
                 for (i, h) in had.iter_mut().enumerate() {
@@ -1330,7 +1554,11 @@ impl Walk<'_> {
             page.painted = true;
             return;
         }
-        let Some(operations) = unpacked(stream, MAX_ENTRY)
+        let Some(operations) = self
+            .kept
+            .get(&id)
+            .map(|(_, content)| Cow::Borrowed(&content[..]))
+            .or_else(|| unpacked(stream, MAX_ENTRY))
             .and_then(|content| of_lopdf(|| Content::decode(&content)))
             .map(|c| c.operations)
         else {
@@ -1626,6 +1854,8 @@ enum Use {
 struct Mending {
     /// The streams to put something in the place of, with what, and as what they were first named.
     plain: HashMap<ObjectId, (Use, Vec<u8>)>,
+    /// The streams whose content was put in place (`Calm::settle`), taken out of `plain`.
+    applied: HashSet<ObjectId>,
     /// How many widths of characters may still be written out.
     widths: usize,
     until: Instant,
@@ -1664,6 +1894,7 @@ fn mend(object: &mut Object, doc: &Document, mending: &mut Mending, depth: usize
 fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
     let Mending {
         plain,
+        applied,
         widths,
         until,
     } = mending;
@@ -1697,7 +1928,7 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
                         },
                     )
                 });
-                *as_what == used && !content.is_empty()
+                *as_what == used && (!content.is_empty() || applied.contains(&id))
             }
             None => key != b"ToUnicode" || matches!(named, Object::Name(n) if n == b"Identity-H"),
         };
@@ -2215,6 +2446,8 @@ const MAX_LINE: usize = 1 << 16;
 /// The characters of a page as pdf-extract draws them, made into words and lines.
 struct Words<'a> {
     text: &'a mut String,
+    /// The text of the pages before, already handed on.
+    given: usize,
     line: Vec<Drawn>,
     last: Option<Spot>,
     /// A new string of characters starts. Only there is a gap looked for: within a string the
@@ -2228,9 +2461,10 @@ struct Words<'a> {
 }
 
 impl<'a> Words<'a> {
-    fn new(text: &'a mut String, until: Instant) -> Self {
+    fn new(text: &'a mut String, given: usize, until: Instant) -> Self {
         Words {
             text,
+            given,
             line: vec![],
             last: None,
             start: true,
@@ -2296,7 +2530,7 @@ impl<'a> Words<'a> {
     /// Stops pdf-extract when the time or the room is used up.
     fn go_on(&mut self) -> Result<(), OutputError> {
         self.seen += 1;
-        if self.text.len() + self.line.len() > MAX_TEXT
+        if self.given + self.text.len() + self.line.len() > MAX_TEXT
             || (self.seen.is_multiple_of(64) && Instant::now() > self.until)
         {
             return Err(OutputError::FormatError(std::fmt::Error));
@@ -2925,6 +3159,32 @@ mod tests {
     }
 
     #[test]
+    fn pdf_form_hidden_on_one_page_and_seen_on_the_next_is_read_where_seen() {
+        // White on an empty page 1, black on page 2, white again on page 3: hidden only where
+        // it was hidden every time so far, so on page 1 alone (read before page 2 is looked at).
+        let form = stream(
+            "/Type /XObject /Subtype /Form /BBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> >>",
+            b"BT /F1 12 Tf 72 400 Td (Formtext) Tj ET",
+        );
+        let page = |content: u32| format!("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> /XObject << /X 4 0 R >> >> /Contents {content} 0 R >>").into_bytes();
+        let objects = vec![
+            CATALOG.to_vec(),
+            b"<< /Type /Pages /Kids [5 0 R 6 0 R 7 0 R] /Count 3 >>".to_vec(),
+            HELVETICA.to_vec(),
+            form,
+            page(8),
+            page(9),
+            page(10),
+            stream("", b"q 1 1 1 rg /X Do Q BT /F1 12 Tf 72 700 Td (One) Tj ET"),
+            // White set and put back: a page that may hide text, which is gone through.
+            stream("", b"q 1 1 1 rg Q 0 0 0 rg 0 0 10 10 re f /X Do BT /F1 12 Tf 72 700 Td (Two) Tj ET"),
+            stream("", b"q 1 1 1 rg /X Do Q BT /F1 12 Tf 72 700 Td (Three) Tj ET"),
+        ];
+        let text = read("form-pages", &pdf(&objects)).unwrap();
+        assert_eq!(text.lines().collect::<Vec<_>>(), ["One", "Formtext", "Two", "Formtext", "Three"], "{text}");
+    }
+
+    #[test]
     fn pdf_keeps_the_invisible_words_over_a_scan() {
         // An OCR layer: the picture, then its words in render mode 3.
         let content = b"q 100 0 0 100 0 0 cm /Im1 Do Q BT 3 Tr /F1 12 Tf 72 720 Td (Scanned words) Tj ET";
@@ -3306,15 +3566,89 @@ mod tests {
             &[stream("", HELLO)],
         ))
         .unwrap();
-        let known = calm(&mut doc, Instant::now() + TIME);
+        let mut calm = Calm::new(&doc, Instant::now() + TIME);
+        let page = doc.page_iter().next().unwrap();
+        calm.ready(&mut doc, page, false).unwrap();
         for id in [(4, 0), (5, 0)] {
-            assert!(!known.contains_key(&id));
+            calm.settle(&mut doc, id);
+            assert!(!calm.known.contains_key(&id));
             let Ok(Object::Stream(s)) = doc.get_object(id) else {
                 panic!("{id:?} is no stream");
             };
             assert_eq!(s.content, b"\n");
         }
-        assert!(known.contains_key(&(7, 0)), "the page's content is weighed");
+        assert!(calm.known.contains_key(&(7, 0)), "the page's content is weighed");
+    }
+
+    #[test]
+    fn pdf_pages_are_made_ready_one_at_a_time() {
+        let pages: Vec<Vec<u8>> = (1..=3)
+            .map(|n| packed("", format!("BT /F1 12 Tf 72 720 Td (Page {n}) Tj ET").as_bytes()))
+            .collect();
+        let mut doc = Document::load_mem(&document(FONT, &[], &pages)).unwrap();
+        let ids: Vec<ObjectId> = doc.page_iter().collect();
+        let contents = |doc: &Document, page| doc.get_page_contents(page)[0];
+        let mut calm = Calm::new(&doc, Instant::now() + TIME);
+        calm.ready(&mut doc, ids[0], false).unwrap();
+        // The first page's content is weighed, the others' are not even unpacked yet.
+        assert!(calm.known.contains_key(&contents(&doc, ids[0])));
+        for &later in &ids[1..] {
+            let id = contents(&doc, later);
+            assert!(!calm.settled.contains(&id) && !calm.known.contains_key(&id));
+            let Ok(Object::Stream(s)) = doc.get_object(id) else { panic!() };
+            assert!(s.dict.has(b"Filter"), "still packed");
+        }
+        // Each page is handed on as it is read, and the reader stops when told to.
+        let folder = folder("pdf-pages");
+        let path = folder.join("three.pdf");
+        std::fs::write(&path, document(FONT, &[], &pages)).unwrap();
+        let mut given = vec![];
+        pages_of(&path, &mut given, 2);
+        assert_eq!(given, ["Page 1\n", "Page 2\n"]);
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    #[test]
+    fn pdf_page_reaches_resources_by_any_name() {
+        // Resources named as the keys a page leads away by are reached all the same.
+        let form = packed("/Type /XObject /Subtype /Form /BBox [0 0 9 9]", b"0 0 1 1 re f");
+        let doc = Document::load_mem(&document(
+            "/XObject << /Annots 4 0 R /Parent 4 0 R /A 4 0 R >>",
+            &[form],
+            &[stream("", b"/A Do")],
+        ))
+        .unwrap();
+        let page = doc.page_iter().next().unwrap();
+        let reached = reach(&doc, page, &HashSet::new(), Instant::now() + TIME).unwrap();
+        assert!(reached.contains(&(4, 0)), "{reached:?}");
+        assert_eq!(reach(&doc, page, &HashSet::new(), Instant::now() - TIME).map(|_| ()), Some(()), "a short walk ends before the clock is looked at");
+    }
+
+    #[test]
+    fn pdf_resources_written_into_the_tree_of_pages_are_mended() {
+        // A font written into the resources of the tree, not an object of its own: it is mended
+        // with the page that inherits it, its map from codes to characters written anew.
+        let objects = vec![
+            CATALOG.to_vec(),
+            b"<< /Type /Pages /Kids [5 0 R] /Count 1 /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 3 0 R >> >> >> >>".to_vec(),
+            stream("", b"1 beginbfrange <41> <5A> <0041> endbfrange"),
+            stream("", b"BT /F1 12 Tf 72 700 Td (INHERITED) Tj ET"),
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>".to_vec(),
+        ];
+        let mut doc = Document::load_mem(&pdf(&objects)).unwrap();
+        let page = doc.page_iter().next().unwrap();
+        let mut calm = Calm::new(&doc, Instant::now() + TIME);
+        calm.ready(&mut doc, page, false).unwrap();
+        assert!(calm.mended.contains(&(2, 0)), "the tree's node is mended");
+        assert!(calm.mending.applied.contains(&(3, 0)), "the map is written anew");
+    }
+
+    fn pages_of(path: &Path, given: &mut Vec<String>, most: usize) {
+        super::pages(path, u64::MAX, &mut |page| {
+            given.push(page.to_string());
+            given.len() < most
+        })
+        .unwrap();
     }
 
     #[test]
@@ -3683,12 +4017,21 @@ mod tests {
             })
             .collect();
         let file = document(FONT, &[], &pages);
-        let text = super::read(file.clone(), Instant::now() + Duration::from_secs(60)).unwrap();
+        let whole = |until| {
+            let mut text = String::new();
+            super::read(file.clone(), until, &mut |page| {
+                text.push_str(page);
+                true
+            })
+            .map(|()| text)
+            .filter(|t| !t.is_empty())
+        };
+        let text = whole(Instant::now() + Duration::from_secs(60)).unwrap();
         assert_eq!(
             (text.lines().count(), text.lines().last()),
             (300, Some("Page 300 of many"))
         );
-        assert_eq!(super::read(file, Instant::now()), None);
+        assert_eq!(whole(Instant::now()), None);
     }
 
     #[test]

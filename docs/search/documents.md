@@ -11,6 +11,15 @@ code.
 ![The desktop app's Find with "engine" typed: In files with main.rs, sequence.puml, launch-pad.drawio and engine.rs and their passages, engine highlighted, then About this and History](../screenshots/search-find-groups.png)
 *One search finds the word in code, a diagram, YAML, a log, a mail and a LaTeX file.*
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [Formats](#formats)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 Nothing to do: every file of these kinds inside a [folder read](folders.md) is read by the
@@ -20,7 +29,7 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 
 | Kind | Files | What is read |
 |---|---|---|
-| PDF | `.pdf` | The text, and what is drawn on top of the pages: filled-in form fields, stamps and notes as they show on the page; a very long document is read for three seconds, which is most of it. Text the page does not show is left out ([hidden text](#does-coxswain-read-hidden-text)). A PDF without text is a scan: see [Scans](scans.md) |
+| PDF | `.pdf` | The text, and what is drawn on top of the pages: filled-in form fields, stamps and notes as they show on the page; read a page at a time, each page made ready just before it is read, for at most three seconds: a long document gives its first pages at once and as many after them as the time allows. Text the page does not show is left out ([hidden text](#does-coxswain-read-hidden-text)). A PDF without text is a scan: see [Scans](scans.md) |
 | Word and OpenDocument text | `.docx` `.docm` `.dotx` `.odt` `.ott` | The text, with headers, footers, footnotes and comments; in an OpenDocument file also the charts and formulas set into it. Hidden text is left out ([hidden text](#does-coxswain-read-hidden-text)) |
 | Rich text | `.rtf` | The text |
 | Spreadsheets | `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Every sheet: the values, not the formulas, and the notes on the cells (not in `.xls`) |
@@ -89,8 +98,10 @@ meaning and never given to [Ask](ask.md) as a source. Left out are:
   painted on the page before it, forms included.
 
 Invisible text over a scanned picture drawn before it is kept: it is the scan's words, which an
-OCR program put there. A very long PDF is looked through for hidden text for a third of its
-reading time; pages after that are read as they are drawn. After the
+OCR program put there. Each page of a PDF is looked through for hidden text just before it is
+read. A form drawn on several pages, such as a letterhead, hides its text only where it was hidden
+on every page that drew it so far: drawn white on an empty page 1 and black on page 2, its words
+are left out of page 1 and read on page 2. After the
 update that brought this, every PDF and Word file is read again once, and its passages for search
 by meaning are made again. That takes in PDFs of scanned pages: when [OCR](scans.md) is on
 (tesseract and pdftoppm installed), each is read by OCR once more, which takes a while when there
@@ -125,9 +136,19 @@ by the words of its first 4 MB ([Long files](long-files.md) set to *Everything* 
 
 #### Why does a long PDF miss words near its end?
 
-A PDF is read for at most three seconds, which covers most documents but not every page of a very
-long one. Its words are also cut at 4 MB of text, even with *Everything*: a PDF's reader stops
+A PDF is read for at most three seconds, a page at a time from the first, which covers most
+documents but not every page of a very long one. Only what a page draws is made ready before it is
+read, so the time goes to the pages themselves: a manual of a few thousand pages gives its first
+few hundred. Its words are also cut at 4 MB of text, even with *Everything*: a PDF's reader stops
 there ([Long files](long-files.md#does-everything-keep-all-the-text-of-a-big-pdf)).
+
+#### Why was a long PDF read by OCR, slowly, though it has text?
+
+Earlier versions went through a long PDF whole before its first page was read. When that
+took the three seconds, no page was read, the PDF counted as a scan and, with [OCR](scans.md) on,
+its first 30 pages were read by tesseract, which took a minute or more. Now its pages are read from
+the first, and a PDF with text is never taken for a scan for being long. A PDF read before keeps the
+text it got until the file changes.
 
 #### Does opening a document for search change it, or start Word?
 
