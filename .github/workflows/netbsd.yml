@@ -70,10 +70,9 @@ jobs:
             /usr/sbin/pkg_add pkgin || true
             # The image has no X: the base system's X sets (libraries, headers and .pc files, Xvfb and its fonts),
             # checked against the release's SHA512, before pkgsrc's GTK and WebKitGTK, which link to them.
-            u=https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-$(uname -r)/amd64/binary/sets
-            (cd /var/tmp && ftp -V -o SHA512 "$u/SHA512" && for s in xbase xcomp xfont xserver; do ftp -V -o $s.tar.xz "$u/$s.tar.xz" &&
-              grep -F "($s.tar.xz)" SHA512 > $s.sum && cksum -c $s.sum && tar -xJpf $s.tar.xz -C / && rm $s.* || exit 1; done) || exit 1
-            pkgin -y install rust pkgconf webkit-gtk41 nerd-fonts-Symbols || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
+            sh packaging/pkg-retry.sh sh -c 'u=https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-$(uname -r)/amd64/binary/sets && cd /var/tmp && ftp -V -o SHA512 "$u/SHA512" && for s in xbase xcomp xfont xserver; do ftp -V -o $s.tar.xz "$u/$s.tar.xz" &&
+              grep -F "($s.tar.xz)" SHA512 > $s.sum && cksum -c $s.sum && tar -xJpf $s.tar.xz -C / && rm $s.* || exit 1; done' || exit 1
+            sh packaging/pkg-retry.sh pkgin -y install rust pkgconf webkit-gtk41 nerd-fonts-Symbols || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
           run: |
             set -e
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1

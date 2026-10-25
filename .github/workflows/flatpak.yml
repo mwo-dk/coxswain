@@ -60,6 +60,10 @@ jobs:
         with:
           name: flatpak-sources
           path: packaging/flatpak
+      # The SDK extensions from Flathub first, with tries (packaging/pkg-retry.sh); the build
+      # below finds them installed. Same installation as the action's own --install-deps-from.
+      - name: Build dependencies
+        run: sh packaging/pkg-retry.sh flatpak-builder --install-deps-from=flathub --install-deps-only "$RUNNER_TEMP/flatpak-deps" "$MANIFEST"
       - uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
         with:
           manifest-path: ${{ env.MANIFEST }}
@@ -107,8 +111,9 @@ jobs:
           packages: flatpak xvfb dbus-x11
       - name: Flatpak and the GNOME runtime
         run: |
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y --noninteractive flathub org.gnome.Platform//51
+          set -e
+          sh packaging/pkg-retry.sh flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sh packaging/pkg-retry.sh flatpak install --user -y --noninteractive flathub org.gnome.Platform//51
           flatpak install --user -y --noninteractive coxswain.flatpak
       # The window opens and stays up, and its search helper runs inside the sandbox. A crash
       # or a missing library ends it before the time is up.
