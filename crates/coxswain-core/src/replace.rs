@@ -506,6 +506,18 @@ pub(crate) fn sweep() {
             }
         }
     }
+    // Windows: the temp folder is this user's own; a folder goes when its run ended
+    // (`spill::in_use`), and one a live run holds cannot be removed while its lock file is open.
+    #[cfg(not(unix))]
+    for e in std::fs::read_dir(std::env::temp_dir()).into_iter().flatten().flatten() {
+        let p = e.path();
+        if e.file_name().to_string_lossy().starts_with("coxswain-replace-")
+            && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+            && !crate::spill::in_use(&p)
+        {
+            let _ = std::fs::remove_dir_all(&p);
+        }
+    }
 }
 
 /// A new folder for this user alone, made so (0700) from the start, never one that is there.

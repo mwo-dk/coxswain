@@ -281,6 +281,7 @@ fn pid_of(name: &str) -> Option<u32> {
     let rest = name
         .strip_prefix("inside-")
         .or_else(|| name.strip_prefix("coxswain-archive-"))
+        .or_else(|| name.strip_prefix("coxswain-replace-"))
         .unwrap_or(name);
     rest.split('-').next()?.parse().ok()
 }
@@ -573,6 +574,7 @@ mod tests {
         assert_eq!(pid_of("4242-7"), Some(4242));
         assert_eq!(pid_of("inside-4242"), Some(4242));
         assert_eq!(pid_of("coxswain-archive-4242-0"), Some(4242));
+        assert_eq!(pid_of("coxswain-replace-4242-0123abcd"), Some(4242));
         assert_eq!(pid_of("part-3"), None);
         assert_eq!(pid_of("0123abcd.json"), None);
     }
