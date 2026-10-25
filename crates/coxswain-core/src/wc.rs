@@ -647,9 +647,12 @@ fn file_from_server(c: std::process::Command, max: usize) -> io::Result<(Vec<u8>
 
 /// A file copied out, written as it comes into `out`, never held whole: refused when the run
 /// fails or the file is larger than `OUT_MAX`.
-fn file_to(c: std::process::Command, out: &mut std::fs::File, name: &str) -> io::Result<()> {
-    match run_server(c, out, OUT_MAX)? {
+fn file_to(c: std::process::Command, out: &mut std::fs::File, name: &str, cap: u64) -> io::Result<()> {
+    let cap = cap.min(OUT_MAX as u64) as usize;
+    match run_server(c, out, cap)? {
         (_, Some(why)) => Err(io::Error::other(why)),
+        // Cut by what a drag may take in all, not by the size of one file.
+        (true, None) if cap < OUT_MAX => Err(io::Error::new(io::ErrorKind::FileTooLarge, crate::t!("drag.too_much"))),
         (true, None) => Err(io::Error::new(io::ErrorKind::FileTooLarge, format!("{name}: larger than 1 GB"))),
         (false, None) => Ok(()),
     }
@@ -893,29 +896,41 @@ fn svn_log(base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool
 /// Files fetched one by one into `to` (not there yet): (the path below `to`, `""` for `to`
 /// itself; what `cat` fetches it by). Never outside `to` nor a repository's folder there
 /// (`vcs::safe_out`); each file and folder gets `when` as its time. Files only: links and the
-/// executable bit are not carried over.
-fn write_out(to: &Path, when: std::time::SystemTime, files: Vec<(String, String)>, cat: impl Fn(&str, &mut std::fs::File) -> io::Result<()>) -> io::Result<()> {
+/// executable bit are not carried over. `cat` gets the bytes still allowed of `max` in all.
+fn write_out(to: &Path, when: std::time::SystemTime, files: Vec<(String, String)>, max: u64, cat: impl Fn(&str, &mut std::fs::File, u64) -> io::Result<()>) -> io::Result<()> {
     let files: Vec<(PathBuf, String)> = files
         .into_iter()
         .filter(|(rest, _)| crate::vcs::safe_out(rest))
         .map(|(rest, src)| (if rest.is_empty() { to.to_path_buf() } else { to.join(rest) }, src))
         .collect();
     // ponytail: one program run a file; one batch read if large folders copied out are slow.
+    let mut used = 0;
     for (dst, src) in &files {
         if let Some(dir) = dst.parent() {
             std::fs::create_dir_all(dir)?;
         }
         let mut f = std::fs::File::create_new(dst)?;
-        cat(src, &mut f)?;
+        cat(src, &mut f, max - used)?;
+        used += f.metadata()?.len().min(max - used);
         let _ = f.set_modified(when);
     }
     crate::vcs::date_folders(to, files.iter().map(|(d, _)| d.as_path()), when);
     Ok(())
 }
 
-/// What a CVS commit's diff may hold, all its files together: more is cut. `history::diff`
-/// shows 512K characters.
+/// What a Subversion or CVS commit's diff may hold, all its files together: more is cut.
+/// `history::diff` shows 512K characters.
 const DIFF_MAX: usize = 2 << 20;
+
+/// A diff cut short says so on its first line.
+fn cut_note(diff: Vec<u8>, cut: bool) -> Vec<u8> {
+    if !cut {
+        return diff;
+    }
+    let mut out = format!("{}\n", crate::t!("history.diff_cut")).into_bytes();
+    out.extend(diff);
+    out
+}
 
 /// What a file copied out may hold: more is refused, not cut.
 const OUT_MAX: usize = 1 << 30;
@@ -1007,15 +1022,16 @@ impl Vcs for Svn {
         let mut c = svn();
         // `--internal-diff`: never the diff program the user's own config names.
         c.args(["diff", "--internal-diff", "-c", &n.to_string(), "--", &svn_url_at(base, n, inner)?]);
-        Ok(from_server(c, SERVER_MAX)?.0)
+        let (out, cut) = from_server(c, DIFF_MAX)?;
+        Ok(cut_note(out, cut))
     }
-    fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
+    fn export(&self, at: &At, rev: &str, to: &Path, max: u64) -> io::Result<()> {
         let when = crate::fs::epoch(self.show(&at.base, rev)?.time);
         let files = svn_out(at, rev)?.into_iter().map(|(rest, src, _)| (rest, src)).collect();
-        write_out(to, when, files, |src, f| {
+        write_out(to, when, files, max, |src, f, room| {
             let mut c = svn();
             c.args(["cat", "--", src]);
-            file_to(c, f, src)
+            file_to(c, f, src, room)
         })
     }
 
@@ -1610,21 +1626,16 @@ impl Vcs for Cvs {
                 }
             }
         }
-        if cut {
-            let mut note = format!("{}\n", crate::t!("history.diff_cut")).into_bytes();
-            note.append(&mut out);
-            out = note;
-        }
-        Ok(out)
+        Ok(cut_note(out, cut))
     }
-    fn export(&self, at: &At, rev: &str, to: &Path) -> io::Result<()> {
+    fn export(&self, at: &At, rev: &str, to: &Path, max: u64) -> io::Result<()> {
         let log = cvs_known(&at.base)?;
         let when = crate::fs::epoch(log.commit(rev)?.0.time);
         let files = cvs_out(&log, at, rev)?;
         let files_at = log.files_at(rev)?;
-        write_out(to, when, files, |file, f| {
+        write_out(to, when, files, max, |file, f, room| {
             let r = files_at.iter().find(|r| r.file == file).ok_or_else(|| not_in(file, rev))?;
-            file_to(cvs_cat_cmd(&at.base, r)?, f, file)
+            file_to(cvs_cat_cmd(&at.base, r)?, f, file, room)
         })
     }
     fn branches(&self, _: &Path) -> io::Result<Vec<Branch>> {
@@ -1875,6 +1886,14 @@ more</msg></logentry>
             // Sizes as the server lists them, before a drag.
             assert_eq!(crate::history::measure(&file).unwrap(), (2, 1));
             assert_eq!(crate::history::measure(&r4).unwrap(), (2, 1));
+            // A diff longer than is shown is cut, and says so on its first line.
+            std::fs::write(wc.join("big.txt"), "a line of text to make a long diff\n".repeat(80_000)).unwrap();
+            run(&wc, &["svn", "add", "-q", "big.txt"]);
+            run(&wc, &["svn", "commit", "-q", "-m", "big"]);
+            let big = crate::history::split(&wc.join("big.txt").join(crate::history::MARKER).join("r6")).unwrap();
+            let diff = crate::history::diff(&big).unwrap();
+            assert!(diff.starts_with(&crate::t!("history.diff_cut")), "{}", &diff[..200]);
+            assert!(!crate::history::diff(&file3).unwrap().starts_with(&crate::t!("history.diff_cut")));
             std::fs::remove_dir_all(d).unwrap();
         }
         if crate::user_menu::installed("cvs") {
@@ -1936,6 +1955,14 @@ more</msg></logentry>
             let copied = crate::history::copy_out(&crate::history::split(&first).unwrap(), &out).unwrap();
             assert_eq!(std::fs::read(copied.join("b.txt")).unwrap(), b"b\n");
             assert_eq!(crate::history::measure(&crate::history::split(&first).unwrap()).unwrap(), (0, 2));
+            // CVS lists no sizes: a drag's limit is counted while writing, and passing it
+            // leaves nothing.
+            let out2 = d.join("out2");
+            std::fs::create_dir(&out2).unwrap();
+            let e = crate::history::copy_out_within(&crate::history::split(&first).unwrap(), &out2, 3).unwrap_err();
+            assert_eq!(e.to_string(), crate::t!("drag.too_much"));
+            assert_eq!(std::fs::read_dir(&out2).unwrap().count(), 0);
+            crate::history::copy_out_within(&crate::history::split(&first).unwrap(), &out2, 4).unwrap();
             assert!(hist.starts_with(&wc));
             assert!(!d.join("ran").exists(), "CVS/Update.prog ran");
             // A commit of more than 200 files: its diff is cut, and says so at its top.
@@ -1971,14 +1998,20 @@ more</msg></logentry>
         assert_eq!(file_from_server(sh("printf abc"), 3).unwrap(), (b"abc".to_vec(), false));
         let d = top("server-run");
         let mut f = std::fs::File::create(d.join("f")).unwrap();
-        assert!(file_to(sh("printf abc; exit 1"), &mut f, "f").is_err());
+        assert!(file_to(sh("printf abc; exit 1"), &mut f, "f", u64::MAX).is_err());
         let mut f = std::fs::File::create(d.join("g")).unwrap();
-        file_to(sh("printf abc"), &mut f, "g").unwrap();
+        file_to(sh("printf abc"), &mut f, "g", u64::MAX).unwrap();
+        let mut f = std::fs::File::create(d.join("h")).unwrap();
+        assert_eq!(file_to(sh("printf abc"), &mut f, "h", 2).unwrap_err().to_string(), crate::t!("drag.too_much"));
         assert_eq!(std::fs::read(d.join("g")).unwrap(), b"abc");
         // A copy out that fails half way leaves nothing (`history::copy_out` removes it).
         let out = d.join("out");
         let files = vec![("a".to_string(), "printf a".to_string()), ("b/c".to_string(), "printf c; exit 1".to_string())];
-        assert!(write_out(&out, std::time::SystemTime::now(), files, |src, f| file_to(sh(src), f, src)).is_err());
+        assert!(write_out(&out, std::time::SystemTime::now(), files, u64::MAX, |src, f, room| file_to(sh(src), f, src, room)).is_err());
+        // What a drag may take in all: the second file finds no room left.
+        let files = vec![("a".to_string(), "printf ab".to_string()), ("b".to_string(), "printf cd".to_string())];
+        let e = write_out(&d.join("out2"), std::time::SystemTime::now(), files, 3, |src, f, room| file_to(sh(src), f, src, room)).unwrap_err();
+        assert_eq!(e.to_string(), crate::t!("drag.too_much"));
         assert_eq!(std::fs::read(out.join("a")).unwrap(), b"a");
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -35,8 +35,10 @@ pub fn out(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
         return Ok(to.clone());
     }
     let (mut bytes, mut files) = (0, 0);
+    let mut measured = std::collections::HashMap::new();
     for p in paths.iter().filter(|p| virt(p)) {
         let (b, n) = measure(p)?;
+        measured.insert(p, b);
         bytes += b;
         files += n;
     }
@@ -54,16 +56,34 @@ pub fn out(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
     // One a crashed run with the same process id may have left.
     let _ = fs::remove_dir_all(&dir);
     crate::fs::private_dir(&dir)?;
-    let to = paths
-        .iter()
-        .map(|p| {
-            if virt(p) {
-                crate::fs::copy_locked(p, &dir, None)
-            } else {
-                Ok(p.clone())
-            }
-        })
-        .collect::<io::Result<Vec<_>>>()?;
+    // CVS lists no sizes (measured as 0): what a history copy writes is counted against what
+    // is left instead, and a drag that passes it is refused with nothing kept.
+    let mut left = MAX_BYTES - bytes;
+    let mut copy = |p: &PathBuf| -> io::Result<PathBuf> {
+        if !virt(p) {
+            return Ok(p.clone());
+        }
+        let Some(at) = crate::history::split(p) else {
+            return crate::fs::copy_locked(p, &dir, None);
+        };
+        // Its measured bytes are in `bytes` already: only what is beyond them counts.
+        let known = measured.get(p).copied().unwrap_or(0);
+        let to = crate::history::copy_out_within(&at, &dir, left + known)?;
+        let written = if to.is_dir() {
+            crate::fs::dir_size(&to).0
+        } else {
+            fs::metadata(&to)?.len()
+        };
+        left = left.saturating_sub(written.saturating_sub(known));
+        Ok(to)
+    };
+    let to = match paths.iter().map(&mut copy).collect::<io::Result<Vec<_>>>() {
+        Ok(to) => to,
+        Err(e) => {
+            let _ = fs::remove_dir_all(&dir);
+            return Err(e);
+        }
+    };
     *last = Some((paths.to_vec(), to.clone(), Instant::now()));
     Ok(to)
 }

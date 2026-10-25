@@ -116,6 +116,8 @@ when you look:
   list gives the sizes, so a folder too large to drag is refused
   ([Drag and drop](../files/drag-and-drop.md)).
 - **Slow:** each step has 30 seconds; a copy out of a large folder runs `svn cat` once per file.
+- **Large revisions:** a diff stops at 2 MB; its first line then says *Cut short: this commit
+  changed more than Coxswain shows in one diff.*
 - **Only reads:** nothing is committed, switched or updated; the working copy is not touched.
 
 ## Branches, update and commit

@@ -662,6 +662,12 @@ pub fn measure(at: &At) -> io::Result<(u64, usize)> {
 /// `dest`, as `fs::copy` would: into it when it is a folder. Returns where it landed; whatever
 /// was written is removed when it fails.
 pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
+    copy_out_within(at, dest, u64::MAX)
+}
+
+/// `copy_out`, refused (and removed) once it has written `max` bytes: a drag's limit, for a
+/// history whose sizes are not known before (CVS).
+pub fn copy_out_within(at: &At, dest: &Path, max: u64) -> io::Result<PathBuf> {
     let rev = at.commit.as_deref().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -689,7 +695,7 @@ pub fn copy_out(at: &At, dest: &Path) -> io::Result<PathBuf> {
             crate::t!("err.exists", "path" => to.display()),
         ));
     }
-    let r = crate::vcs::of(&at.base).export(at, rev, &to);
+    let r = crate::vcs::of(&at.base).export(at, rev, &to, max);
     if r.is_err() {
         let _ = if to.is_dir() {
             std::fs::remove_dir_all(&to)
