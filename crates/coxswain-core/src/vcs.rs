@@ -868,14 +868,7 @@ impl Vcs for Hg {
                     None => continue,
                 }
             };
-            // Never outside `to`, and never a repository made there, whatever the commit holds
-            // (as `git_write_tree` refuses them).
-            let normal = Path::new(rest).components().all(|c| matches!(c, std::path::Component::Normal(_)));
-            let repo = |s: &str| {
-                let s = s.trim_end_matches(['.', ' ']).to_ascii_lowercase();
-                matches!(s.as_str(), ".git" | ".hg" | ".jj" | "git~1")
-            };
-            if !normal || rest.contains('\\') || rest.split('/').any(|s| matches!(s, "." | "..") || repo(s)) {
+            if !safe_out(rest) {
                 continue;
             }
             files.push((flags.to_string(), path.to_string(), if rest.is_empty() { to.to_path_buf() } else { to.join(rest) }));
@@ -915,18 +908,7 @@ impl Vcs for Hg {
             #[cfg(not(unix))]
             std::fs::write(dst, &target)?;
         }
-        // Folders last: writing into one sets its time to now.
-        let dirs: HashSet<&Path> = files
-            .iter()
-            .flat_map(|(_, _, dst)| dst.ancestors().skip(1).take_while(|d| d.starts_with(to)))
-            .collect();
-        for dir in dirs {
-            let mut o = std::fs::OpenOptions::new();
-            o.read(true);
-            #[cfg(windows)]
-            std::os::windows::fs::OpenOptionsExt::custom_flags(o.write(true), 0x0200_0000); // FILE_FLAG_BACKUP_SEMANTICS: a folder
-            let _ = o.open(dir).and_then(|f| f.set_modified(when));
-        }
+        date_folders(to, files.iter().map(|(_, _, dst)| dst.as_path()), when);
         Ok(())
     }
 
@@ -1025,6 +1007,32 @@ impl Vcs for Hg {
 }
 
 /// hg's message, or its complaint as the error.
+/// Whether `rest`, a path below a folder being copied out of a history (`""`: the folder
+/// itself), stays inside it and makes no repository there, whatever the commit holds (as
+/// `git_write_tree` refuses them): no `..`, no `\\`, no `.git`, `.hg` or `.jj` (nor what Windows
+/// reads as one).
+pub(crate) fn safe_out(rest: &str) -> bool {
+    let normal = Path::new(rest).components().all(|c| matches!(c, std::path::Component::Normal(_)));
+    let repo = |s: &str| {
+        let s = s.trim_end_matches(['.', ' ']).to_ascii_lowercase();
+        matches!(s.as_str(), ".git" | ".hg" | ".jj" | "git~1")
+    };
+    normal && !rest.contains('\\') && !rest.split('/').any(|s| matches!(s, "." | "..") || repo(s))
+}
+
+/// The folders above the files `dsts` written into `to` get `when` as their time, last:
+/// writing into one sets its time to now.
+pub(crate) fn date_folders<'a>(to: &Path, dsts: impl Iterator<Item = &'a Path>, when: std::time::SystemTime) {
+    let dirs: HashSet<&Path> = dsts.flat_map(|dst| dst.ancestors().skip(1).take_while(|d| d.starts_with(to))).collect();
+    for dir in dirs {
+        let mut o = std::fs::OpenOptions::new();
+        o.read(true);
+        #[cfg(windows)]
+        std::os::windows::fs::OpenOptionsExt::custom_flags(o.write(true), 0x0200_0000); // FILE_FLAG_BACKUP_SEMANTICS: a folder
+        let _ = o.open(dir).and_then(|f| f.set_modified(when));
+    }
+}
+
 fn said(mut c: Command) -> io::Result<String> {
     let o = c.output()?;
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
