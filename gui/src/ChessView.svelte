@@ -11,7 +11,7 @@
   // is shown as text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, basename, chessFormat, viewEnd } from "./lib.js";
+  import { invoke, basename, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
   import { t } from "./i18n.svelte.js";
 
   let { path, full = false } = $props();
@@ -90,6 +90,10 @@
   // The engine (chess_analyse): asked about each position while on.
   let analysis = $state(false);
   let engine = $state(null);
+  // One of the engine's lines stepped through without playing it (1–5, a click on its move):
+  // { k: its place, steps: its moves with their positions, at: how many are shown }. The board
+  // shows it; the engine stays on the game's position, and a change of it ends the stepping.
+  let browse = $state(null);
   // The whole game analysed (chess_review): how far it is, asked again while it runs.
   let review = $state(null);
   // Find this position (chess_position_games): the games found, null before asking.
@@ -235,10 +239,15 @@
 
   const nodes = $derived(game?.game.nodes ?? []);
   const inLine = $derived(played != null && played.at > 0);
-  const fen = $derived(inLine ? played.moves[played.at - 1].fen : at == null ? game?.game.start : nodes[at]?.fen);
-  const last = $derived(inLine ? played.moves[played.at - 1] : at == null ? null : nodes[at]);
+  const gameFen = $derived(inLine ? played.moves[played.at - 1].fen : at == null ? game?.game.start : nodes[at]?.fen);
+  const fen = $derived(browse ? browse.steps[browse.at - 1].fen : gameFen);
+  const last = $derived(browse ? browse.steps[browse.at - 1] : inLine ? played.moves[played.at - 1] : at == null ? null : nodes[at]);
+  $effect(() => {
+    void gameFen;
+    browse = null;
+  });
   // The squares and arrows the game's comments draw on this position ([%csl], [%cal]).
-  const drawn = $derived(inLine ? [] : at == null ? (game?.game.marks ?? []) : (nodes[at]?.marks ?? []));
+  const drawn = $derived(inLine || browse ? [] : at == null ? (game?.game.marks ?? []) : (nodes[at]?.marks ?? []));
   const MARK_COLOUR = { G: "rgb(21 120 27 / 0.8)", R: "rgb(200 30 30 / 0.8)", Y: "rgb(230 160 0 / 0.85)", B: "rgb(0 48 136 / 0.8)" };
   /** A square's centre on the board as drawn (flipped or not). */
   const centre = (sq) => [(flip ? 7 - (sq % 8) : sq % 8) + 0.5, (flip ? Math.floor(sq / 8) : 7 - Math.floor(sq / 8)) + 0.5];
@@ -389,10 +398,10 @@
   });
   const targets = $derived(picked == null ? [] : legal.filter((m) => m.from === picked).map((m) => m.to));
 
-  // The engine, again for each position while it is on.
+  // The engine, again for each of the game's positions while it is on (not an engine line's).
   let engineSeq = 0;
   $effect(() => {
-    const f = fen;
+    const f = gameFen;
     const s = ++engineSeq;
     if (!analysis || !f || other) return void (engine = null);
     engine = { fen: f, thinking: true };
@@ -421,6 +430,8 @@
   /** A move played from the position shown: the game's own next move (or a variation's) is
    * stepped to; any other starts the played line, or goes on with it after the move shown. */
   function playMove(m) {
+    // From an engine line stepped through: the line up to there first.
+    if (browse) playBrowsed();
     picked = null;
     promo = null;
     if (format === "book" && !inLine) {
@@ -437,6 +448,22 @@
     }
     played.moves = [...played.moves.slice(0, played.at), m];
     played.at = played.moves.length;
+  }
+
+  /** The engine's line `k` (from 0) of the game's position, stepped into at move `at`. */
+  function browseLine(k, at = 1) {
+    const l = engine?.fen === gameFen ? engine.a?.lines?.[k] : null;
+    if (!l?.steps?.length) return void (said = t("chess.engine_no_best"));
+    browse = { k, steps: l.steps, at };
+    boardEl?.focus();
+  }
+
+  /** The engine line stepped through, played up to the move shown, as moves played on the
+   * board are: into the game where it goes on with the game, else into your line. */
+  function playBrowsed() {
+    const b = browse;
+    browse = null;
+    for (const m of b?.steps.slice(0, b.at) ?? []) playMove(m);
   }
 
   /** The played line as a new PGN file next to this one: the game's moves to its base, then it. */
@@ -483,14 +510,18 @@
   }
   // The position's evaluation from White's side: the game's analysis, else the engine's.
   const evalNow = $derived.by(() => {
+    const cp = (l) => (l.mate != null ? (l.mate > 0 ? CAP + 100 - Math.min(l.mate, 99) : -(CAP + 100 + Math.max(l.mate, -99))) : (l.cp ?? null));
+    // An engine line stepped through: its own evaluation.
+    if (browse) {
+      const l = engine?.a?.lines?.[browse.k];
+      return l ? cp(l) : null;
+    }
     if (!inLine && review) {
       const v = at == null ? review.start : review.plies.find((p) => p.node === at)?.cp;
       if (v != null) return v;
     }
     const l = engine?.fen === fen ? engine.a?.lines?.[0] : null;
-    if (!l) return null;
-    if (l.mate != null) return l.mate > 0 ? CAP + 100 - Math.min(l.mate, 99) : -(CAP + 100 + Math.max(l.mate, -99));
-    return l.cp ?? null;
+    return l ? cp(l) : null;
   });
   const marks = $derived(new Map((review?.plies ?? []).filter((p) => p.mark).map((p) => [p.node, p.mark])));
   const MARK = { 2: "?", 4: "??", 5: "!?", 6: "?!" };
@@ -624,11 +655,23 @@
   }
 
   function onBoardKey(e) {
+    // An engine line stepped through (`browseKey`).
+    if (browse) {
+      const r = browseKey(browse, e.key);
+      if (r.used === "play") playBrowsed();
+      else browse = r.browse;
+      if (r.used) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
     const map = { ArrowRight: "next", ArrowLeft: "prev", Home: "start", End: "end", ArrowDown: "down", ArrowUp: "up" };
     if (map[e.key]) step(map[e.key]);
     else if (e.key === "f") flip = !flip;
     else if (e.key === "n" && !other) letters = !letters;
     else if (e.key === "a" && !other) analysis = !analysis;
+    else if (/^[1-5]$/.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey && !other) browseLine(+e.key - 1);
     else if (e.key === "s" && !other) saveLine();
     else if (e.key === "b" && !other && engine?.a?.lines[0]) playMove(engine.a.lines[0].best);
     else if (e.key === "g" && format === "pgn" && !other) reviewAct(review && !review.done ? "stop" : "start");
@@ -763,7 +806,8 @@
   {#if error}<p class="note">{error}</p>{/if}
 
   {#if game}
-    <div class="game">
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+    <div class="game" onclick={(e) => keysToBoard(e.target, e.detail) && boardEl?.focus()}>
       <div class="side">
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
         {#if draughts}
@@ -872,7 +916,7 @@
             <polyline points={points.map((p, i) => `${i},${100 - share(p.v) * 100}`).join(" ")} />
             {#each points as p, i (i)}
               {#if p.mark && p.mark !== 5}<line x1={i} y1="82" x2={i} y2="100" class="tick m{p.mark}" />{/if}
-              {#if !inLine && p.node === at}<line x1={i} y1="0" x2={i} y2="100" class="here" />{/if}
+              {#if !inLine && !browse && p.node === at}<line x1={i} y1="0" x2={i} y2="100" class="here" />{/if}
             {/each}
           </svg>
         {/if}
@@ -911,10 +955,18 @@
           <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
         {/if}
         {#if engine}
-          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{/if}</p>
+          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.lines.length} · {t("chess.engine_lines_keys")}{/if}{/if}</p>
           {#each engine.a?.lines ?? [] as l, k (k)}
-            <p class="engine-line"><b class="eval">{l.eval}</b> <button class="mv" title={t("chess.engine_play_tip")} onclick={() => playMove(l.best)}>{#each show(l.moves[0]) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button> <span class="meta">{l.moves.slice(1).map((s) => show(s).map(([x]) => x).join("")).join(" ")}</span></p>
+            {@const on = browse?.k === k ? browse.at : 0}
+            <p class="engine-line"><button class="mv line-no" class:here={on > 0} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k)}>{k + 1}</button> <b class="eval">{l.eval}</b> {#each l.steps ?? [] as m, i (i)}<button class="mv" class:later={on ? i >= on : i > 0} class:here={on === i + 1} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k, i + 1)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{" "}{/each}</p>
           {/each}
+          {#if browse}
+            <p class="meta">{t("chess.engine_browse", { n: browse.k + 1, at: browse.at, total: browse.steps.length })}</p>
+            <div class="bar">
+              <button title={t("chess.engine_browse_play_tip")} onclick={playBrowsed}>{t("chess.engine_browse_play")}</button>
+              <button title={t("chess.engine_browse_back_tip")} onclick={() => (browse = null)}>{t("chess.engine_browse_back")}</button>
+            </div>
+          {/if}
         {/if}
         <p class="text">
           {#each game.layout as tok, i (i)}
@@ -1411,6 +1463,15 @@
   .engine-line {
     margin: 0;
     font-size: 0.9em;
+  }
+  .engine-line .mv.later {
+    font-weight: normal;
+    opacity: 0.75;
+  }
+  .engine-line .line-no {
+    font-weight: normal;
+    opacity: 0.75;
+    min-width: 1.4em;
   }
   .engine-line .eval {
     display: inline-block;

@@ -11,9 +11,9 @@ position on the board, and **analyse a whole game**: an evaluation bar beside th
 the game under it, and the moves that lose marked `?!`, `?` or `??`, written out as an annotated
 PGN file when you ask. Both apps have it.
 
-![The Opera Game in the desktop app with a line played on from 15…Nxd7: 16.Qxe6+ fxe6 17.Rxd7 under the moves as Your line, with Save as new PGN and Clear; Engine on, Stockfish 17.1 at depth 21 above the moves with its three best lines for Black, −4.55, +5.25 and +5.29](../screenshots/gui-chess-play.png)
+![The Opera Game in the desktop app with a line played on from 15…Nxd7: 16.Qc3 f6 17.Qc8+ under the moves as Your line, with Save as new PGN and Clear; Engine on, Stockfish 17.1 at depth 21 above the moves with its two lines for Black, numbered 1 and 2; line 1 stepped through to its second move, Be3, which is marked and shown on the board, with Line 1, move 2 of 12 under the lines and the buttons Play this line and Back to the game](../screenshots/gui-chess-play.png)
 
-![The terminal app at 15…Nxd7 of the Opera Game, its pieces drawn in block characters: the engine's three lines (#2 with ♕b8+, +3.76, +3.27) above, Play a move with qxe typed, the two queen moves left, ♕e3 and ♕xe6+, the first chosen and tinted on the board, the key line below](../screenshots/tui-chess-play.png)
+![The terminal app in the Opera Game with a line played on from 15…Nxd7: 16.Qb7 f6 17.Qc8+, its pieces drawn in block characters; above the moves Stockfish 17.1 at depth 19 with 1–5 step through a line, its two lines numbered 1 and 2, line 1 stepped through to its second move, Be3, marked and shown on the board, and Line 1, move 2 of 12 under the lines with the keys](../screenshots/tui-chess-play.png)
 
 - [Playing a move](#playing-a-move)
 - [Your line](#your-line)
@@ -22,6 +22,7 @@ PGN file when you ask. Both apps have it.
 - [Choosing an engine](#choosing-an-engine)
 - [How long the engine thinks](#how-long-the-engine-thinks)
 - [The engine's own options](#the-engines-own-options)
+- [Stepping through an engine line](#stepping-through-an-engine-line)
 - [Analysing a whole game](#analysing-a-whole-game)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
@@ -86,15 +87,15 @@ how deep it looked, *Stockfish 17.1 · depth 22*, then its best lines, the best 
 its evaluation from White's side and its moves:
 
 ```
- +0.35  ♘f3 d5 g3 ♘f6 ♗g2
- +0.28  d4 ♘f6 c4 e6
- +0.20  e4 c5 ♘f3
+1  +0.35  ♘f3 d5 g3 ♘f6 ♗g2
+2  +0.28  d4 ♘f6 c4 e6
+3  +0.20  e4 c5 ♘f3
 ```
 
 `+0.35` is about a third of a pawn better for White, `−1.20` a pawn and more for Black, `#3` White
 mates in three, `#−2` Black mates in two. While it thinks the line says *The engine is thinking…*.
-**b** plays the engine's best move; in the desktop app a click on the first move of any line plays
-that one. Press **a** (or *Engine*) again to stop asking.
+**b** plays the engine's best move. **1** to **5** step through a line without playing it
+([below](#stepping-through-an-engine-line)). Press **a** (or *Engine*) again to stop asking.
 
 **What it needs.** An engine installed on this computer: Coxswain never downloads one and nothing
 is sent anywhere. It talks UCI to the engine over its standard input and output and starts it
@@ -232,6 +233,37 @@ Coxswain sets `MultiPV` (from *Engine lines*), `UCI_Chess960` (for Chess960 posi
 itself, so they are not shown; nor are an engine's buttons (such as `Clear Hash`), since each
 analysis starts the engine afresh. The container Stockfish takes the same options.
 
+## Stepping through an engine line
+
+Each of the engine's lines is numbered, and its heading says *1–5 step through a line*. To see
+where a line leads without playing it, as you would step through a variation of the game:
+
+| | Desktop app | Terminal app |
+|---|---|---|
+| Show a line, at its first move | **1** to **5** (click the board first), or a click on its number | **1** to **5** |
+| Show a line up to one of its moves | A click on that move | **1** to **5**, then **→** |
+| Next / previous move of the line | **→** / **←** | The same |
+| Back to the game | **Esc**, **←** on the line's first move, or *Back to the game* | **Esc**, or **←** on the line's first move |
+| Play the line up to the move shown | **Enter**, or *Play this line* | **Enter** |
+| Another line | Its number | The same |
+
+What you see: the board shows the line's position with its last move tinted, and the line's
+evaluation stands beside the board. In the list of lines, the line's moves up to the one shown
+are lit, that move is marked as the game's move shown is, the rest stays grey, and under the
+lines *Line 2, move 3 of 8* says where you are, with the keys. The game's moves and your line stay
+where they were, and the engine stays on the game's position: it is not asked about the line's
+positions, so the lines do not change under you while you step through one.
+
+**Playing the line** (**Enter**) plays its moves up to the one shown as if you had played them
+on the board: where they are the game's own moves, the game steps on; from the first move that
+is not, they become [your line](#your-line). A piece moved on the board while a line is shown
+(**m** in the terminal app) is played after the line up to there, in the same way.
+
+**f** and **n** (flip, notation) keep the line shown; any other key, or a click on a game move,
+goes back to the game first and then does what it does there. So does anything that changes the
+game's position. Without the engine on, or before it has answered, **1** to **5** say *The engine
+has no move for this position yet*.
+
 ## Analysing a whole game
 
 **Analyse game** under the board (desktop) or **g** (both apps) has the engine evaluate every
@@ -339,6 +371,19 @@ tinted on the board before you play it.
 
 It is the move the game plays there, or one of its variations: Coxswain steps to it in the game
 instead. Play another move to start your line.
+
+#### How do I look through one of the engine's lines without playing it?
+
+Press **1** to **5** for that line (in the desktop app click the board first, or click one of the
+line's moves). The board shows it while the game stays where it is; **→** **←** step through it,
+**Enter** plays it up to the move shown, **Esc** goes back to the game. See
+[Stepping through an engine line](#stepping-through-an-engine-line).
+
+#### Does the engine think about the line I am stepping through?
+
+No. It stays on the game's position, so its lines stay as they are while you step through one.
+The evaluation beside the board is the line's own. Back at the game, or once a line is played,
+the engine is asked about the new position as usual.
 
 #### How strong is the engine, and can I make it think longer?
 

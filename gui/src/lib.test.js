@@ -137,3 +137,31 @@ test("keyOwner: Esc in a game's list or board gives the keys back to the panels"
   assert.equal(keyOwner(outside, "Down"), "theirs");
   assert.equal(keyOwner(undefined, "Esc"), "theirs");
 });
+
+test("browseKey: an engine line stepped through, back to the game, played", async () => {
+  const { browseKey } = await pick("browseKey");
+  const b = { k: 1, steps: ["c5", "Nf3", "d6"], at: 1 };
+  assert.deepEqual(browseKey(b, "ArrowRight"), { browse: { ...b, at: 2 }, used: true });
+  assert.equal(browseKey({ ...b, at: 3 }, "ArrowRight").browse.at, 3, "→ stops at its last move");
+  assert.equal(browseKey({ ...b, at: 3 }, "ArrowLeft").browse.at, 2);
+  assert.deepEqual(browseKey(b, "ArrowLeft"), { browse: null, used: true }, "← on its first move: the game");
+  assert.deepEqual(browseKey({ ...b, at: 2 }, "Escape"), { browse: null, used: true });
+  assert.deepEqual(browseKey(b, "Enter"), { browse: b, used: "play" });
+  // The board's own: kept for flip, notation and another line; ended for the rest.
+  assert.deepEqual(browseKey(b, "f"), { browse: b, used: false });
+  assert.deepEqual(browseKey(b, "3"), { browse: b, used: false });
+  assert.deepEqual(browseKey(b, "Home"), { browse: null, used: false });
+  assert.deepEqual(browseKey(b, "b"), { browse: null, used: false });
+});
+
+test("keysToBoard: a button clicked in a game's view gives the arrows back to the board", async () => {
+  const { keysToBoard } = await pick("keysToBoard");
+  const button = { closest: (s) => (s === "button" ? {} : null) };
+  const square = { closest: () => null };
+  // Engine, Analyse game, Flip, a move: clicked, the focus stayed on the button and ← → were dead.
+  assert.equal(keysToBoard(button, 1), true);
+  // Enter or Space on a focused button: it stays focused, Tab goes on from there.
+  assert.equal(keysToBoard(button, 0), false);
+  assert.equal(keysToBoard(square, 1), false);
+  assert.equal(keysToBoard(undefined, 1), false);
+});
