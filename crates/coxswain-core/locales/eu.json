@@ -3214,7 +3214,7 @@
  "setting.theme": "Mahaigaineko aplikazioaren gaia",
  "setting.theme.hint": "Bere koloreak, eta gai batzuekin beren letra-tipoa eta formak.",
  "setting.tui_theme": "Terminal-aplikazioaren gaia",
- "setting.tui_theme.hint": "Terminal-aplikazioaren koloreak, gai-zerrenda beretik. Berriro abiarazten denean hartzen du berria.",
+ "setting.tui_theme.hint": "Terminal-aplikazioaren koloreak, gai-zerrenda beretik. Bere Ezarpenetan aukeratuta, berria berehala ikusten da; mahaigaineko aplikazioan edo config.toml-en aukeratuta, dagoeneko martxan dagoen terminal-aplikazioak berriro abiarazten denean hartzen du.",
  "setting.viewer": "Ikustailea (terminal-aplikazioa)",
  "setting.viewer.hint": "F3 teklak fitxategi bat erakusteko erabiltzen duen programa. Hutsik: ikustaile integratua, kodea nabarmentzen duena; han p teklak fitxategia $PAGER programari pasatzen dio, bestela less.",
  "setting.watch": "Jarraitu aldaketak gertatu ahala",

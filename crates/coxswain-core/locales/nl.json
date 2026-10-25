@@ -3214,7 +3214,7 @@
  "setting.theme": "Thema van de desktop-app",
  "setting.theme.hint": "De kleuren, en bij sommige thema's een eigen lettertype en eigen vormen.",
  "setting.tui_theme": "Thema van de terminal-app",
- "setting.tui_theme.hint": "De kleuren van de terminal-app, uit dezelfde lijst thema's. Hij neemt het nieuwe over als hij opnieuw start.",
+ "setting.tui_theme.hint": "De kleuren van de terminal-app, uit dezelfde lijst thema's. Gekozen in zijn eigen Instellingen is het nieuwe meteen te zien; gekozen in de desktop-app of in config.toml neemt een terminal-app die al draait het over als hij opnieuw start.",
  "setting.viewer": "Viewer (terminal-app)",
  "setting.viewer.hint": "Het programma waarin F3 een bestand toont. Leeg: de ingebouwde viewer, die code markeert; p geeft het bestand daar aan $PAGER, anders less.",
  "setting.watch": "Wijzigingen meteen volgen",

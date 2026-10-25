@@ -3139,7 +3139,7 @@
  "setting.theme": "데스크톱 앱 테마",
  "setting.theme.hint": "색상, 그리고 일부 테마는 자체 글꼴과 모양도.",
  "setting.tui_theme": "터미널 앱 테마",
- "setting.tui_theme.hint": "같은 테마 목록에서 고르는 터미널 앱의 색상. 다시 시작할 때 새 테마가 적용됩니다.",
+ "setting.tui_theme.hint": "같은 테마 목록에서 고르는 터미널 앱의 색상. 터미널 앱 자체의 설정에서 고르면 바로 적용되고, 데스크톱 앱이나 config.toml에서 고르면 이미 실행 중인 터미널 앱은 다시 시작할 때 적용합니다.",
  "setting.viewer": "뷰어 (터미널 앱)",
  "setting.viewer.hint": "F3으로 파일을 보여 주는 프로그램. 비어 있으면: 코드를 강조하는 내장 뷰어. 거기서 p는 파일을 $PAGER, 없으면 less에 넘깁니다.",
  "setting.watch": "변경 사항 바로 따라가기",

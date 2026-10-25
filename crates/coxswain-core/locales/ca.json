@@ -3289,7 +3289,7 @@
  "setting.theme": "Tema de l'aplicació d'escriptori",
  "setting.theme.hint": "Els seus colors i, amb alguns temes, la seva pròpia lletra i formes.",
  "setting.tui_theme": "Tema de l'aplicació de terminal",
- "setting.tui_theme.hint": "Els colors de l'aplicació de terminal, de la mateixa llista de temes. Agafa el nou quan es torna a iniciar.",
+ "setting.tui_theme.hint": "Els colors de l'aplicació de terminal, de la mateixa llista de temes. Triat als seus propis Paràmetres, el nou es veu de seguida; triat a l'aplicació d'escriptori o a config.toml, una aplicació de terminal que ja s'executa l'agafa quan es torna a iniciar.",
  "setting.viewer": "Visor (aplicació de terminal)",
  "setting.viewer.hint": "El programa en què F3 mostra un fitxer. Buit: el visor integrat, que ressalta el codi; allà p passa el fitxer a $PAGER o, si no n'hi ha, a less.",
  "setting.watch": "Segueix els canvis a mesura que passen",

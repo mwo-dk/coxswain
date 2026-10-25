@@ -3214,7 +3214,7 @@
  "setting.theme": "Tema i skrivebordsprogrammet",
  "setting.theme.hint": "Dets farver og, med nogle temaer, deres egen skrift og former.",
  "setting.tui_theme": "Tema i terminalprogrammet",
- "setting.tui_theme.hint": "Terminalprogrammets farver, fra samme liste af temaer. Det nye tema bruges, når programmet starter igen.",
+ "setting.tui_theme.hint": "Terminalprogrammets farver, fra samme liste af temaer. Vælges det i programmets egne Indstillinger, ses det nye tema med det samme; vælges det i skrivebordsprogrammet eller i config.toml, bruger et terminalprogram, der allerede kører, det, når det starter igen.",
  "setting.viewer": "Fremviser (terminalprogrammet)",
  "setting.viewer.hint": "Det program, F3 viser en fil i. Tom: den indbyggede fremviser, som fremhæver kode; p giver der filen til $PAGER, ellers less.",
  "setting.watch": "Følg ændringer, mens de sker",

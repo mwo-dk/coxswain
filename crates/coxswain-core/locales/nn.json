@@ -3214,7 +3214,7 @@
  "setting.theme": "Tema for skrivebordsappen",
  "setting.theme.hint": "Fargane, og for nokre tema ei eiga skrift og eigne former.",
  "setting.tui_theme": "Tema for terminalappen",
- "setting.tui_theme.hint": "Fargane i terminalappen, frå den same lista over tema. Det nye blir teke i bruk når appen startar igjen.",
+ "setting.tui_theme.hint": "Fargane i terminalappen, frå den same lista over tema. Vald i appen sine eigne Innstillingar viser det nye seg med ein gong; vald i skrivebordsappen eller i config.toml blir det teke i bruk av ein terminalapp som alt køyrer når han startar igjen.",
  "setting.viewer": "Visingsprogram (terminalappen)",
  "setting.viewer.hint": "Programmet F3 viser ei fil i. Tomt: det innebygde visingsprogrammet, som uthevar kode; p der gir fila vidare til $PAGER, elles less.",
  "setting.watch": "Følg endringar medan dei skjer",

@@ -3214,7 +3214,7 @@
  "setting.theme": "Työpöytäsovelluksen teema",
  "setting.theme.hint": "Sen värit, ja joissakin teemoissa myös oma fontti ja muodot.",
  "setting.tui_theme": "Päätesovelluksen teema",
- "setting.tui_theme.hint": "Päätesovelluksen värit samasta teemaluettelosta. Uusi teema otetaan käyttöön, kun sovellus käynnistyy uudelleen.",
+ "setting.tui_theme.hint": "Päätesovelluksen värit samasta teemaluettelosta. Sovelluksen omissa Asetuksissa valittu uusi teema näkyy heti; työpöytäsovelluksessa tai config.toml-tiedostossa valitun teeman jo käynnissä oleva päätesovellus ottaa käyttöön, kun se käynnistyy uudelleen.",
  "setting.viewer": "Katseluohjelma (päätesovellus)",
  "setting.viewer.hint": "Ohjelma, jossa F3 näyttää tiedoston. Tyhjä: sisäinen katseluohjelma, joka korostaa koodin; siellä p antaa tiedoston ohjelmalle $PAGER, muuten less.",
  "setting.watch": "Seuraa muutoksia niiden tapahtuessa",

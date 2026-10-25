@@ -3289,7 +3289,7 @@
  "setting.theme": "Darbalaukio programos tema",
  "setting.theme.hint": "Jos spalvos, o kai kurių temų – ir savas šriftas bei formos.",
  "setting.tui_theme": "Terminalo programos tema",
- "setting.tui_theme.hint": "Terminalo programos spalvos iš to paties temų sąrašo. Naujoji pritaikoma, kai programa paleidžiama iš naujo.",
+ "setting.tui_theme.hint": "Terminalo programos spalvos iš to paties temų sąrašo. Pasirinkta pačios programos parametruose, naujoji matoma iš karto; pasirinktą darbalaukio programoje ar config.toml jau veikianti terminalo programa pritaiko, kai paleidžiama iš naujo.",
  "setting.viewer": "Žiūryklė (terminalo programa)",
  "setting.viewer.hint": "Programa, kurioje F3 parodo failą. Tuščia: įtaisyta žiūryklė, kuri paryškina kodą; joje p perduoda failą $PAGER, kitu atveju less.",
  "setting.watch": "Sekti pakeitimus iškart",
