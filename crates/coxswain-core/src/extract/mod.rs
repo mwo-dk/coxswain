@@ -50,7 +50,7 @@ fn reader(path: &Path) -> Option<Reader> {
     }
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
     Some(match ext.as_str() {
-        "pdf" => |path, max| pdf::text(path, max).or_else(|| installed::scanned_pdf(path)),
+        "pdf" => |path, max| pdf::tidied(path, max).or_else(|| installed::scanned_pdf(path)),
         "docx" | "docm" | "dotx" | "odt" | "ott" => word::text,
         "xlsx" | "xlsm" | "xls" | "xlsb" | "ods" => sheet::text,
         "pptx" | "ppsx" | "potx" | "odp" => slides::text,

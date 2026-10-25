@@ -92,13 +92,20 @@ pub fn is_pdf(path: &Path) -> bool {
 }
 
 /// A PDF without text on its pages, a scan: the preview offers to make it searchable. Read
-/// with the search's own reader, three seconds at most; a file over 15 MB is not looked at.
+/// with the search's own reader, a page at a time until one has text, three seconds at most;
+/// a file over 15 MB is not looked at.
 pub fn scanned(path: &Path) -> bool {
     const MAX: u64 = 15_000_000;
-    is_pdf(path)
-        && std::fs::metadata(path).is_ok_and(|m| m.len() <= MAX)
-        && crate::extract::pdf::text(path, MAX)
-            .is_none_or(|t| t.chars().filter(|c| c.is_alphanumeric()).count() < 20)
+    const LETTERS: usize = 20;
+    if !is_pdf(path) || !std::fs::metadata(path).is_ok_and(|m| m.len() <= MAX) {
+        return false;
+    }
+    let mut letters = 0;
+    let read = crate::extract::pdf::pages(path, MAX, &mut |page| {
+        letters += page.chars().filter(|c| c.is_alphanumeric()).count();
+        letters < LETTERS
+    });
+    read.is_none() || letters < LETTERS
 }
 
 /// Where the copy of `pdf` goes: `name.searchable.pdf`, else `name.searchable 2.pdf` and on,
