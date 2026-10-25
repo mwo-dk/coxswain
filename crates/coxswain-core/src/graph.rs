@@ -272,6 +272,22 @@ mod tests {
 
     #[test]
     fn rows_are_worked_out_only_as_far_as_asked() {
+        // No work per row that grows with the list (a copy of the commits, a parent looked for
+        // by scanning): 8 times the commits cost about 8 times, not 64. Before the long list
+        // below, which such work would make take hours.
+        let line = |n: usize| -> Arc<Vec<Commit>> {
+            Arc::new(
+                (0..n)
+                    .map(|i| c(&format!("{i:040}"), &[&format!("{:040}", i + 1)]))
+                    .collect(),
+            )
+        };
+        let (small, large) = (line(2_000), line(16_000));
+        crate::assert_costs_at_most(
+            20,
+            || assert_eq!(Layout::new(small.clone()).rows(1_950, 2_000).len(), 50),
+            || assert_eq!(Layout::new(large.clone()).rows(15_950, 16_000).len(), 50),
+        );
         let commits: Vec<Commit> = (0..100_000)
             .map(|i| c(&format!("{i:040}"), &[&format!("{:040}", i + 1)]))
             .collect();
