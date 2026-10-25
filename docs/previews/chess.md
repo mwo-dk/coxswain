@@ -3,8 +3,8 @@
 # Chess games
 
 A **PGN** file holds chess games: who played, where and when, and every move, often with
-variations and comments. A **SCID database** (`.si4` with its `.sg4` and `.sn4`) holds the same,
-in SCID's own files. Coxswain shows either as a **table of games** you can filter and sort,
+variations and comments. A **SCID database** (`.si4` with its `.sg4` and `.sn4`, or SCID 5's
+`.si5` with its `.sg5` and `.sn5`) holds the same, in SCID's own files. Coxswain shows either as a **table of games** you can filter and sort,
 and each game as a **board with its moves**, stepped through move by move. **EPD** and **FEN**
 files hold positions; Coxswain shows each on the board. A **Polyglot opening book** (`.bin`)
 adds its moves for each position, with their weights. A **ChessBase database** (`.cbh`) is
@@ -34,7 +34,7 @@ deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draught
 
 ## Using it
 
-**Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.cbh`, `.epd` or `.fen` file, or
+**Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.si5`, `.cbh`, `.epd` or `.fen` file, or
 a `.bin` file that is a Polyglot book, and the preview pane (**Space**) shows its games,
 positions or book moves. **⤢** at the top right, **Alt+K**
 or *Open games* in the action menu (**Shift+F10**) and the command list (**F9**) open it in a
@@ -185,10 +185,11 @@ chess characters of your font (♚ ♛ ♜ ♝ ♞ ♟), white and black, on col
 
 SCID (and Scid vs. PC) keeps a database as three files side by side: `club.si4` (the index:
 a few bytes a game with its players, event, date, result, ratings and ECO code), `club.sg4`
-(the games' moves) and `club.sn4` (the names). Put the cursor on the **`.si4`** file and open
-it as any PGN file: the preview pane (**Space**) or **Alt+K** in the desktop app, **F3** or
+(the games' moves) and `club.sn4` (the names). SCID 5 writes its newer format the same way, as
+`club.si5`, `club.sg5` and `club.sn5`. Put the cursor on the **`.si4`** or **`.si5`** file and
+open it as any PGN file: the preview pane (**Space**) or **Alt+K** in the desktop app, **F3** or
 **Alt+K** in the terminal app, *Open games* in the action menu (**Shift+F10**) and **F9**. The
-`.sg4` and `.sn4` files beside it are read with it; on their own they show as other files do.
+two files beside it are read with it; on their own they show as other files do.
 
 ![A SCID database, club.si4, open in the desktop app's chess window: the table of its three games with Morphy, Paul – Duke Karl / Count Isouard first, their results, dates, events, ECO codes and openings, the filter fields above](../screenshots/gui-chess-scid.png)
 
@@ -197,16 +198,17 @@ it as any PGN file: the preview pane (**Space**) or **Alt+K** in the desktop app
 ![The terminal app's table of the same SCID database: three games, Morphy's first and lit, the filter keys on the line below](../screenshots/tui-chess-scid.png)
 
 The table fills from the index as it streams by, and a game's moves are read from the `.sg4`
-file only when you open it, so a base of millions of games opens as quickly as a PGN file of
+(`.sg5`) file only when you open it, so a base of millions of games opens as quickly as a PGN file of
 the same size. Each game shows on the board with its variations, comments, annotation glyphs
 (`$1` … `$255`), null moves and its own start position when it has one, and its extra tags
 (*Annotator*, *Opening*, *Source* and the rest) with its header. A line of your own is saved
 as a new PGN file ([Chess: playing on](chess-play.md)); the database is never changed.
 
-**What is not read:** the newer SCID 5 format (`.si5`, `.sg5`, `.sn5`); SCID's flags, its
-*deleted* mark (a game marked deleted but not yet compacted away still shows) and the event's
-date kept in the index. The names file is read whole, up to 256 MB; one game up to 128 KB, as
-SCID itself writes them.
+A SCID 5 base also gives each game its *EventDate* tag from the index, and leaves out a game
+SCID marked deleted but has not compacted away yet. **What is not read:** in a SCID 4 base the
+*deleted* mark (such a game still shows) and the event's date kept in the index; SCID's other
+flags in either. The names file is read whole, up to 256 MB; one game up to 128 KB, as SCID
+itself writes them.
 
 ## Finding games
 
@@ -238,7 +240,7 @@ to the right one.
 A store made before this release reads every PGN file again once, for the positions: only
 `.pgn`, `.pgn.gz` and `.pgn.zst` files, nothing else. SCID databases are found and their
 positions kept the same way; a store made before Coxswain read them reads every `.si4` file once
-again for them (nothing else). Up to 100,000 games and 2,000,000
+again for them, and one made before it read SCID 5 every `.si5` file once (nothing else). Up to 100,000 games and 2,000,000
 positions of each file are kept, read game by game. A PGN file is read for Find whatever its size
 (*Largest file read (MB)*, `[search] text_max_size`, does not apply to it), but the store keeps
 4 MB of lines of it: about the first 40,000 games of a big file, read from its start and no
@@ -291,6 +293,7 @@ record's size and every name's number are checked before they are used, a game i
 | `.pgn` | Games, in PGN: tags, moves in SAN, variations, comments in `{ }` and after `;`, NAGs (`$1` … `$255`), null moves (`--` or `Z0`, shown as `--`: the other side moves next), results. Files in Windows-1252 (old Latin-1 files) and files that start with a byte order mark are read too |
 | `.pgn.gz`, `.pgn.zst` | The same, packed with gzip or Zstandard |
 | `.si4` (with `.sg4`, `.sn4`) | A SCID 4 database: the same games, in SCID's files ([SCID databases](#scid-databases)) |
+| `.si5` (with `.sg5`, `.sn5`) | A SCID 5 database: the same, in SCID 5's newer files ([SCID databases](#scid-databases)) |
 | `.cbh` | A ChessBase database, with its `.cbg`, `.cbp` and `.cbt` files beside it ([ChessBase databases](#chessbase-databases)) |
 | `.epd`, `.fen` | Positions, one a line |
 | `.bin` | A Polyglot opening book (the format of Polyglot, the book tool, used by most chess programs): its moves for each position, read by a binary search |
@@ -300,8 +303,8 @@ takes no more than the table can hold: the first 10,000,000 games, 256 MB of nam
 events, openings), and a packed file unpacked to no more than 64 GB. Past that, the line above
 the table adds *the first 10000000 games only: the file has more than Coxswain reads*. One game
 is read up to 16 MB, a line up to 1 MB and a tag up to 4 KB.
-Chess960 games with a `FEN` tag are read; SCID 4 and ChessBase databases are. ChessBase's archives
-(`.cbv`, `.cbz`), its newer `.2cbh` format, SCID 5 (`.si5`) and other databases are not.
+Chess960 games with a `FEN` tag are read; SCID 4, SCID 5 and ChessBase databases are. ChessBase's archives
+(`.cbv`, `.cbz`), its newer `.2cbh` format and other databases are not.
 
 ## Settings and config.toml
 
@@ -343,7 +346,7 @@ games.
 Yes, a ChessBase database (`.cbh`, with its `.cbg`, `.cbp` and `.cbt` files beside it): its
 games, players, tournaments and moves with their variations, but not its annotations, its
 Chess960 games, the newer `.2cbh` format or its `.cbv` and `.cbz` archives
-([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID 4 databases (`.si4`), EPD, FEN and Polyglot books, Go
+([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID databases (`.si4`, `.si5`), EPD, FEN and Polyglot books, Go
 games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) , xiangqi
 games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For the annotations, export the games to PGN in ChessBase.
 
@@ -358,9 +361,9 @@ missing. ChessBase itself may still show such a game; export it to PGN there to 
 #### How do I open a SCID database?
 
 Put the cursor on its `.si4` file (the index; the `.sg4` and `.sn4` files must sit beside it
-under the same name) and press **Alt+K**, or **Space** for the preview in the desktop app and
-**F3** in the terminal app. The table shows its games like a PGN file's. A `.si5` database of
-SCID 5 is not read yet: export it to PGN or to the SCID 4 format in SCID.
+under the same name), or for a SCID 5 database its `.si5` file (with `.sg5` and `.sn5`), and
+press **Alt+K**, or **Space** for the preview in the desktop app and **F3** in the terminal app.
+The table shows its games like a PGN file's.
 
 #### Why does a SCID game show fewer moves than the table says?
 

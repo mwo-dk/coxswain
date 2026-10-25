@@ -380,12 +380,12 @@ export const LOCKED = "locked: a password is needed";
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
-/** A games file by its name: "pgn" (also packed, a SCID database's .si4 and a ChessBase database's .cbh), "epd" (EPD and FEN), "sgf" (Go), "pdn"
+/** A games file by its name: "pgn" (also packed, a SCID database's .si4 or .si5 and a ChessBase database's .cbh), "epd" (EPD and FEN), "sgf" (Go), "pdn"
  *  (draughts), "shogi" (KIF, CSA), "pbn" (bridge), or ""
  *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
 export function chessFormat(name) {
   const n = name.toLowerCase();
-  if (/\.(pgn(\.gz|\.zst)?|si4|cbh)$/.test(n)) return "pgn";
+  if (/\.(pgn(\.gz|\.zst)?|si[45]|cbh)$/.test(n)) return "pgn";
   if (/\.(epd|fen)$/.test(n)) return "epd";
   if (n.endsWith(".sgf")) return "sgf";
   if (n.endsWith(".pdn")) return "pdn";

@@ -2634,6 +2634,8 @@ fn scan_for(
     store.reader_changed("readers.pgn", "2", &crate::chess::PGN_ENDINGS)?;
     // SCID databases (2.33): their index files are read as a line per game and its positions.
     store.reader_changed("readers.scid", "1", &[".si4"])?;
+    // SCID 5 databases (2.34): read for the first time, as SCID 4's are; only `.si5` files.
+    store.reader_changed("readers.scid5", "1", &[".si5"])?;
     // ChessBase databases (2.33): a line per game and their positions, as PGN files; read once.
     store.reader_changed("readers.cbh", "1", &[".cbh"])?;
     // SGF files: a line per game (players, ranks, event, place, date, result), read once again.
