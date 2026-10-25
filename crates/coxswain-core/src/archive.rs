@@ -2955,6 +2955,13 @@ pub fn create_locked(
 mod tests {
     use super::*;
 
+    /// Held by every test that makes copies of archives inside archives: they share `NESTED`
+    /// and its folder, which `clean_up` empties, so they run one at a time.
+    fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
+        static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        ONE.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// A crash while an archive was written anew: at the next start the file it was writing
     /// goes, the archive is as it was, and nothing else is touched.
     #[test]
@@ -3037,6 +3044,7 @@ mod tests {
 
     #[test]
     fn an_archive_inside_an_archive_opens_from_a_copy_and_is_never_changed() {
+        let _alone = nested_alone();
         let d = crate::pictures::tests::folder("nested");
         // inner.tar.gz (deep/note.txt) in mid.zip, in outer.zip beside top.txt.
         let src = d.join("src");
@@ -4370,6 +4378,7 @@ mod tests {
 
     #[test]
     fn a_7z_split_into_parts_opens_from_its_first_part_read_only() {
+        let _alone = nested_alone();
         let d = crate::pictures::tests::folder("parts");
         let names = ["a.sgf", "b.sgf", "c.sgf"];
         let whole = d.join("whole.7z");
