@@ -169,8 +169,8 @@ folder.
 - In a Mercurial repository it runs `hg log`, `hg files`, `hg cat` and `hg diff`, never with the
   repository's own config.
 - A [Subversion](subversion.md) or [CVS](cvs.md) working copy's history is on its server: **Ctrl+G**
-  asks once per server, then lists the commits from `svn log` or `cvs log`; the files at a commit
-  are not read.
+  asks once per server, then lists the commits from `svn log` or `cvs log`; inside a commit the
+  files, diffs and copies out are read from that server (`svn cat`, `cvs update -p`).
 - It needs `git` (or `jj`, or `hg`) on your `PATH`, and a commit to start from: a new repository without commits
   has no history yet.
 

@@ -244,6 +244,14 @@ pub fn split(path: &Path) -> Option<At> {
         Some(c) if (4..=40).contains(&c.len()) && c.bytes().all(|b| b.is_ascii_hexdigit()) => {
             Some(c.clone())
         }
+        // Subversion's `r12`, CVS's commit ids.
+        Some(c)
+            if c.len() <= 40
+                && c.bytes().all(|b| b.is_ascii_alphanumeric())
+                && matches!(crate::vcs::of(&base).name(), "svn" | "cvs") =>
+        {
+            Some(c.clone())
+        }
         Some(_) => return None,
         None => None,
     };
@@ -638,6 +646,11 @@ pub fn measure(at: &At) -> io::Result<(u64, usize)> {
             crate::t!("history.pick_commit"),
         )
     })?;
+    // ponytail: a Subversion or CVS server is not asked for sizes before a drag; ask it (svn
+    // list -R) if drags of large old folders need the limit.
+    if matches!(crate::vcs::of(&at.base).name(), "svn" | "cvs") {
+        return Ok((0, 1));
+    }
     let mut c = git(&at.base);
     let spec = if at.inner.is_empty() { "." } else { &at.inner };
     c.args(["ls-tree", "-r", "-z", "-l", rev, "--", spec]);

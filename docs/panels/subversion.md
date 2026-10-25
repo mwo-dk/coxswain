@@ -7,7 +7,8 @@ it shows git's: the line at the bottom of the pane names `svn`, the revision and
 each changed file carries its glyph. It reads only the working copy's own records,
 `.svn/wc.db`, so nothing is sent to the server and `svn` need not be installed for that. The
 history comes from the server, and only once you say yes to that server: **Ctrl+G** asks first,
-then lists the commits with `svn log`. Branches, update and commit stay with Subversion: **Alt+G**
+then lists the commits with `svn log`, and **Enter** on one shows its files as they were, with
+their changes, read-only. Branches, update and commit stay with Subversion: **Alt+G**
 opens a terminal in the working copy for them. Both apps do this.
 
 ![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy: src marked modified, TODO.txt unversioned, and at the right of the pane's footer the line svn r2 trunk with one modified and one unversioned file](../screenshots/svn-line.png)
@@ -17,6 +18,7 @@ opens a terminal in the working copy for them. Both apps do this.
 - [What you see](#what-you-see)
 - [How a change is found](#how-a-change-is-found)
 - [History from the server](#history-from-the-server)
+- [Inside a revision](#inside-a-revision)
 - [Branches, update and commit](#branches-update-and-commit)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
@@ -56,7 +58,7 @@ a folder or `..` in a working copy first asks, once per server:
 
 | | |
 |---|---|
-| The question | *Read the history from the server?* Subversion keeps this history on its server, `https://svn.example.org`. Coxswain asks it only with your yes: it runs `svn log`, which contacts that server and no other, and remembers your answer for that server. Settings → Privacy and updates forgets it. |
+| The question | *Read the history from the server?* Subversion keeps this history on its server, `https://svn.example.org`. Coxswain asks it only with your yes: it runs `svn` (for the list of commits, and for the files and changes of a commit you open), which contacts that server and no other, and remembers your answer for that server. Settings → Privacy and updates forgets it. |
 | Desktop app | A dialog with **Read the history** and **Cancel**; **Enter** reads, **Esc** cancels |
 | Terminal app | The same text in a box; **Enter** or **Y** reads, **Esc** or **N** cancels |
 
@@ -70,7 +72,9 @@ and renames, as `svn log` does. At most 2000 revisions are listed.
 ![The desktop app's balloon/@history after the yes: r4 Bigger envelope, r3 Add the burner, r2 Start the balloon and r1 Make the layout, newest first, and the line svn r4 trunk in the footer](../screenshots/svn-history.png)
 
 - **What is sent:** `svn log --xml --non-interactive` on the working copy, which asks the
-  repository the working copy names in `.svn/wc.db` and nothing else. Your own Subversion
+  repository the working copy names in `.svn/wc.db` and nothing else; inside a revision
+  `svn info`, `svn list`, `svn cat` and `svn diff` on that repository's URLs ([Inside a
+  revision](#inside-a-revision)). Your own Subversion
   config (`~/.subversion`: passwords kept, proxies) holds as for any `svn` you run; it never
   asks for a password: a server that needs one you have not saved refuses, and its reason shows
   on the status line.
@@ -84,8 +88,32 @@ and renames, as `svn log` does. At most 2000 revisions are listed.
   next **Ctrl+G** asks again.
 - **Slow or gone:** a server that does not answer within 30 seconds is left; the status line says
   so. Without `svn` installed, a notice says to install it.
-- **Inside a revision:** opening an entry of the list says that its files are on the server; the
-  files at a revision, diffs and copies out are not read.
+
+## Inside a revision
+
+**Enter** on a revision in the list opens the folder as it was then, read-only, as a [git
+commit](git-history.md#what-works-in-a-history) does: the path ends in `@history/r4`, and
+**Backspace** leads back to the list. Everything in it is asked of the server you said yes to,
+when you look:
+
+| What | Desktop app | Terminal app | What runs |
+|---|---|---|---|
+| The folder at that revision | The pane lists it, with the files' sizes then and the revision's date | The panel lists it | `svn list --xml` |
+| A file as it was | **Space** or **F3**: the preview pane | **F3**: the built-in viewer, on a copy | `svn cat` |
+| What the revision changed | **Diff** at the top of the preview pane | – | `svn diff --internal-diff -c` |
+| A copy out | **F5** on a file, a folder or a revision in the list, to the other pane | The same | `svn cat`, one file at a time |
+
+![The desktop app (Cyber) in balloon/@history/r4, with the badge commit r4 in the path bar: burner, envelope.txt and README.md as they were at that revision, envelope.txt under the cursor, and the preview pane on Diff showing what r4 changed in it: Envelope 2200 m3 became 2800 m3 and the line Colour: red and white was added](../screenshots/svn-revision.png)
+
+- **Where the folder was then:** a folder moved or renamed since is found where it was at that
+  revision (`svn info -r`), within the same repository; for a revision from before the folder
+  existed, the status line shows svn's answer that it was not found.
+- **Copied out** files get the revision's date. Links and the executable bit come out as plain
+  files; `svn:externals` are not followed, so no other repository is asked. A `.git`, `.hg` or
+  `.jj` folder in the repository is never copied out, so no repository (with its hooks) is made
+  in your folder. A file over 1 GB is refused.
+- **Slow:** each step has 30 seconds; a copy out of a large folder runs `svn cat` once per file.
+- **Only reads:** nothing is committed, switched or updated; the working copy is not touched.
 
 ## Branches, update and commit
 
@@ -121,8 +149,9 @@ The history needs `svn`, run against the server you said yes to; without it a no
 
 #### Can I see the files as they were at a revision?
 
-No: the list shows the revisions, but their files stay on the server. **Alt+G** opens a terminal
-for `svn cat -r` or `svn diff -c`.
+Yes: **Enter** on the revision in the history shows its folder as it was, read from the server
+you said yes to. **F3** shows a file, the desktop app's **Diff** what the revision changed in it,
+and **F5** copies it out.
 
 #### Why is a file I only touched not shown as changed?
 

@@ -7,7 +7,8 @@ git's: the line at the bottom of the pane names `cvs` and the branch or tag, and
 file carries its glyph. It reads only the `CVS/Entries` files in each folder, so nothing is sent
 to the server and `cvs` need not be installed for that. The history comes from the server, and
 only once you say yes to that server: **Ctrl+G** asks first, then lists the commits from
-`cvs log`. Update and commit stay with CVS: **Alt+G** opens a terminal in the folder for them.
+`cvs log`, and **Enter** on one shows its files as they were, with their changes, read-only.
+Update and commit stay with CVS: **Alt+G** opens a terminal in the folder for them.
 Both apps do this.
 
 ![The terminal app in Classic blue: the CVS working copy kite on the left with src marked modified and notes.txt unknown, the line cvs HEAD with its counts in the panel's bottom border; on the right the Subversion working copy balloon with svn r2 trunk](../screenshots/cvs-line.png)
@@ -17,6 +18,7 @@ Both apps do this.
 - [What you see](#what-you-see)
 - [How a change is found](#how-a-change-is-found)
 - [History from the server](#history-from-the-server)
+- [Inside a commit](#inside-a-commit)
 - [Branches, update and commit](#branches-update-and-commit)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
@@ -72,9 +74,36 @@ read; `-d`: the root of the folder asked about, for every folder below too, what
   servers** lists them, and **Forget** (desktop app) or **Delete** (terminal app) forgets one.
 - **Slow or gone:** a server that does not answer within 30 seconds is left, and the status line
   says so. Without `cvs` installed, a notice says to install it.
-- Opening an entry says its files are on the server: the files at a commit are not read.
+- **A file's history** is the commits of its folder that touched it, so a commit has the same
+  name in both.
 
 ![The terminal app's kite/@history after the yes: 931c59a Spar a little longer, f5ba70a Longer spar, red sail, e2921d6 Initial revision and 927fee3 Start the kite, newest first](../screenshots/tui-cvs-history.png)
+
+## Inside a commit
+
+**Enter** on a commit in the list opens the folder as it was then, read-only, as a [git
+commit](git-history.md#what-works-in-a-history) does; **Backspace** leads back to the list. The
+folder comes from the log already read: each file at its revision in that commit, or else at
+its last revision before it on the main line (the trunk, or the vendor branch an import leaves);
+files removed by then are left out. Only the file contents are asked of the server:
+
+| What | Desktop app | Terminal app | What runs |
+|---|---|---|---|
+| The folder at that commit | The pane lists it with the commit's date; sizes show as 0, as CVS lists none without reading every file | The same | Nothing: the log read for the list |
+| A file as it was | **Space** or **F3**: the preview pane | **F3**: the built-in viewer, on a copy | `cvs update -p -r <revision>` |
+| What the commit changed | **Diff** at the top of the preview pane: each file's change against its revision before | – | `cvs diff -N -u -r <before> -r <revision>` |
+| A copy out | **F5** on a file, a folder or a commit in the list, to the other pane | The same | `cvs update -p`, one file at a time |
+
+![The terminal app in Classic blue inside a commit of kite: the panel titled /home/demo/projects/kite/@history/38962ab664a4 [commit 38962ab] lists frame.txt, line.txt and README.txt as they were at Longer spar, red sail, each dated with the commit and sized 0](../screenshots/tui-cvs-commit.png)
+
+- **Nothing a working copy names runs:** only `log`, `update -p` and `diff` are run, always with
+  `-f` and `-d <root>`. `update -p` writes nothing to the working copy and runs no
+  `CVS/Update.prog`; none of them reads `CVSROOT/modules`, whose `-o` and `-e` programs run on
+  checkout and export.
+- **Copied out** files get the commit's date. The executable bit is not carried over. A `.git`,
+  `.hg` or `.jj` folder is never copied out. A file over 1 GB is refused.
+- **Branch commits:** a commit on a branch shows its own files at the branch's revisions and
+  the rest of the folder as on the main line then. A diff covers at most 200 files.
 
 ## Branches, update and commit
 
@@ -93,6 +122,12 @@ The same line and glyphs, in the panel's bottom border.
 **Ctrl+G** asks once whether Coxswain may read it from the server it names; with yes it runs
 `cvs log` there and groups the files' revisions into commits. Settings → Privacy and updates →
 History from servers forgets the answer.
+
+#### Can I see the files as they were at a commit?
+
+Yes: **Enter** on the commit in the history shows its folder as it was. **F3** shows a file
+(read with `cvs update -p` from the server you said yes to), the desktop app's **Diff** what the
+commit changed in it, and **F5** copies it out.
 
 #### Why are some commits split in two?
 
