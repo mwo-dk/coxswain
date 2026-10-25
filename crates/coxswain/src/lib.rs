@@ -5465,6 +5465,9 @@ mod tests {
     /// A Find hit in a large SGF file: its game is looked for on a thread, so opening the file
     /// returns at once and the UI keeps answering (it read the whole file first, up to 1 GiB);
     /// "Finding the game" shows meanwhile, the game opens when found, and Esc stops the looking.
+    /// The limits are 2 s, not less: the BSD test machines are slow and loaded, and a turn there
+    /// once took 580 ms. What proves the looking is off the UI thread is that the game shows only
+    /// after more than one turn; the blocking code found it before the first.
     #[test]
     fn a_hit_in_a_large_sgf_file_is_found_off_the_ui_thread() {
         use std::io::Write;
@@ -5489,20 +5492,20 @@ mod tests {
         app.chess(&p, Some(snippet.clone()));
         app.tick(&mut state);
         app.dialog_key(Key { code: KeyCode::Esc, ctrl: false, alt: false, shift: false });
-        assert!(start.elapsed() < Duration::from_millis(500), "the UI waited {:?}", start.elapsed());
+        assert!(start.elapsed() < Duration::from_secs(2), "the UI waited {:?}", start.elapsed());
         let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
         assert!(!v.finding(), "Esc stops the looking; the table stays");
         app.dialog = None;
         // Opened again and left to find it: the UI loop keeps turning meanwhile.
         let start = Instant::now();
         app.chess(&p, Some(snippet));
-        assert!(start.elapsed() < Duration::from_millis(500), "the UI waited {:?}", start.elapsed());
+        assert!(start.elapsed() < Duration::from_secs(2), "the UI waited {:?}", start.elapsed());
         let mut turns = 0;
         let end = Instant::now() + Duration::from_secs(120);
         loop {
             let t = Instant::now();
             app.tick(&mut state);
-            assert!(t.elapsed() < Duration::from_millis(500), "a turn of the UI loop took {:?}", t.elapsed());
+            assert!(t.elapsed() < Duration::from_secs(2), "a turn of the UI loop took {:?}", t.elapsed());
             turns += 1;
             let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
             if let Some(i) = v.shown() {
