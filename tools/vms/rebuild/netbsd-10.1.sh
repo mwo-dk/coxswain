@@ -33,7 +33,7 @@ MONITOR=monitor.sock $SERIAL serial.sock install.log sleep=1.5 'keys=3' sleep=1 
   'send=boot -s\r' timeout=180 'wait=RETURN for /bin/sh:' 'send=\r' 'wait=# ' \
   "send=mount -uw / && mkdir -p -m 700 /root/.ssh && echo '$KEY' >/root/.ssh/authorized_keys && sync && mount -ur / && echo KEY-DONE\r" \
   'wait=KEY-DONE\s' 'wait=# ' 'send=exit\r' timeout=600 'wait=rebooting'
-echo quit | socat - UNIX-CONNECT:monitor.sock >/dev/null; sleep 1; rm -f qemu.pid serial.sock
+echo quit | socat - UNIX-CONNECT:monitor.sock >/dev/null; wait_off 30; rm -f serial.sock
 
 say "second boot, packages"
 ./start.sh
