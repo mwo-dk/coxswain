@@ -206,12 +206,16 @@ fn tar_reader_noting(
     let r: Box<dyn Read> = match pack {
         Pack::None => Box::new(f),
         Pack::Gz => Box::new(crate::tar_index::Gz::new(f, note)),
+        Pack::Bz2 if note.is_some() => Box::new(crate::tar_index::Bz::new(f, note)),
         Pack::Bz2 => Box::new(bzip2::read::MultiBzDecoder::new(f)),
         Pack::Xz => Box::new(lzma_rust2::XzReader::new(f, true)),
         Pack::Zst => Box::new(crate::tar_index::Zst::new(f, note)),
     };
     Ok(tar::Archive::new(r))
 }
+
+/// What is unpacked at most after a tar's end, to reach the end of its bzip2 stream.
+const TAR_TRAIL: u64 = 16 << 20;
 
 /// The most bytes of a tar's long name or PAX record: the tar crate reads those whole into
 /// memory, however large a crafted header says they are.
@@ -1244,7 +1248,8 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
     } else {
         let (mut all, mut whole) = (vec![], true);
         let points = crate::tar_index::Points::default();
-        tar_named_at(tar_reader_noting(archive, k, Some(points.clone()))?.entries()?, |name, _, e, at| {
+        let mut tar = tar_reader_noting(archive, k, Some(points.clone()))?;
+        tar_named_at(tar.entries()?, |name, _, e, at| {
             let h = e.header();
             all.push(crate::tar_index::Listed {
                 name: name.clone(),
@@ -1258,6 +1263,11 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             Ok(go)
         })?;
         if whole {
+            // What follows the tar's end (zeros filling its last record, as a rule) is
+            // unpacked too: a bzip2's points are kept only once its stream's end checks them.
+            if k == Kind::Tar(Pack::Bz2) {
+                let _ = io::copy(&mut tar.into_inner().take(TAR_TRAIL), &mut io::sink());
+            }
             crate::tar_index::save(archive, &all);
             crate::tar_index::save_points(archive, &points.borrow());
         }
