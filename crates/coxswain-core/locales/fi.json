@@ -308,6 +308,7 @@
   "other": "{n} viestiä ei voitu kopioida ulos; muut kopioitiin."
  },
  "archive.nested_read_only": "Vain luku: tämä on arkisto arkiston sisällä, avattu kopiosta. Kopioi sisempi arkisto ulos F5:llä muuttaaksesi sitä",
+ "archive.part_missing": "{name} puuttuu: osiin jaettu 7z aukeaa vain kaikkien osiensa kanssa, numeroituna ilman aukkoja",
  "archive.nested_too_deep": "Arkistojen sisällä olevat arkistot avautuvat enintään {depth} tason syvyyteen: kopioi tämä ulos F5:llä avataksesi sen",
  "archive.overlapping": "Tämän zipin tiedostot jakavat pakatut tavunsa, joten se purkautuisi paljon suuremmaksi kuin mitä se sisältää: se voi olla tehty täyttämään levy. Yhden sen tiedoston voi silti kopioida ulos",
  "archive.pack_confirm": "Salasana uudelleen:",

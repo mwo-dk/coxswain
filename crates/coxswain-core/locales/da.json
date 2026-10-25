@@ -308,6 +308,7 @@
   "other": "{n} beskeder kunne ikke kopieres ud; de andre blev."
  },
  "archive.nested_read_only": "Skrivebeskyttet: dette er et arkiv i et arkiv, åbnet fra en kopi. Kopiér det indre arkiv ud med F5 for at ændre det",
+ "archive.part_missing": "{name} mangler: en 7z delt i dele åbner kun med alle sine dele, nummereret uden huller",
  "archive.nested_too_deep": "Arkiver i arkiver åbnes højst {depth} niveauer ned: kopiér dette ud med F5 for at åbne det",
  "archive.overlapping": "Filerne i denne zip deler deres pakkede bytes, så den ville pakkes ud til langt mere, end den fylder: den kan være lavet til at fylde disken. En enkelt fil fra den kan stadig kopieres ud",
  "archive.pack_confirm": "Adgangskoden igen:",

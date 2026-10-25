@@ -590,6 +590,23 @@ fn copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error {
 fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::ArchiveReader<Joined>> {
     let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
     let mut file = Joined::open(path)?;
+    // A 7z split into parts whose parts stop short of its list of contents: one is missing.
+    if in_parts(path) {
+        let mut start = [0u8; 32];
+        if file.read(&mut start)? == 32 && start[..6] == *b"7z\xBC\xAF\x27\x1C" {
+            let at = u64::from_le_bytes(start[12..20].try_into().unwrap());
+            let len = u64::from_le_bytes(start[20..28].try_into().unwrap());
+            if 32u64.saturating_add(at).saturating_add(len) > file.len {
+                let first = path.file_name().unwrap_or_default().to_string_lossy();
+                let missing = part_name(&first, file.parts.len() as u32 + 1);
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    crate::t!("archive.part_missing", "name" => missing),
+                ));
+            }
+        }
+        file.seek(io::SeekFrom::Start(0))?;
+    }
     let size = seven_header_size(&mut file)?;
     if size > SEVEN_HEADER_MAX {
         return Err(io::Error::other(
@@ -607,10 +624,10 @@ fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::Archiv
 /// The most a 7z's packed list of contents may unpack to: it is unpacked whole, into memory,
 /// before anything is read, so a few bytes that unpack to gigabytes would take as much.
 /// The crate also makes room for every file the list names before reading them, over a
-/// hundred bytes each, however few bytes the list gives each. 128 MB lets a real one name about
-/// two million files (a collection of Go games in one 7z names 900,000 in 61 MB, and takes
-/// about 600 MB of memory to list).
-const SEVEN_HEADER_MAX: u64 = 128 << 20;
+/// hundred bytes each, however few bytes the list gives each. 64 MB lets a real one name about
+/// 900,000 files (a collection of Go games in one 7z names 891,188 in 61 MB, and takes about
+/// 600 MB of memory to list).
+const SEVEN_HEADER_MAX: u64 = 64 << 20;
 
 /// What a 7z's packed list of contents (its encoded header) says it unpacks to, the largest of
 /// its streams; 0 when it is not packed. Read from the archive's own bytes, before opening it.
@@ -4266,7 +4283,18 @@ mod tests {
             1 << 31
         );
         let err = list(&p, 10).unwrap_err().to_string();
-        assert!(err.contains("2048") && err.contains("128 MB"), "{err}");
+        assert!(err.contains("2048") && err.contains("64 MB"), "{err}");
+        // At the limit it is opened (and fails as the broken header it is); a byte past, refused.
+        for (claim, refused) in [(SEVEN_HEADER_MAX, false), (SEVEN_HEADER_MAX + 1, true)] {
+            let mut b = bomb.clone();
+            let at = b.len() - 6;
+            b[at..at + 4].copy_from_slice(&(claim as u32).to_le_bytes());
+            let p = d.join("edge.7z");
+            std::fs::write(&p, &b).unwrap();
+            assert_eq!(seven_header_size(&mut File::open(&p).unwrap()).unwrap(), claim);
+            let err = list(&p, 10).unwrap_err().to_string();
+            assert_eq!(err.contains("64 MB"), refused, "{claim}: {err}");
+        }
         assert!(peek(&p.join("a.txt")).is_err() && search_entries(&p, bomb.len() as u64).is_none());
         // Real ones, their headers packed, and locked with their names: read as before.
         for i in 0..200 {
@@ -4395,10 +4423,11 @@ mod tests {
         // Its preview lists it, all its parts there.
         assert_eq!(list(&peek(&inside).unwrap(), 10).unwrap().0.len(), 3);
         assert_eq!(std::fs::read_to_string(peek(&inside.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
-        // A part missing: it fails, never reads past it.
-        std::fs::remove_file(parts.join("go.7z.003")).unwrap();
+        // A part missing: it fails, never reads past it, and names the part.
+        std::fs::remove_file(parts.join("go.7z.002")).unwrap();
         uncache(&first);
-        assert!(crate::fs::list(&first, true).is_err());
+        let err = crate::fs::list(&first, true).unwrap_err().to_string();
+        assert!(err.contains("go.7z.002"), "{err}");
         std::fs::remove_dir_all(d).unwrap();
     }
 

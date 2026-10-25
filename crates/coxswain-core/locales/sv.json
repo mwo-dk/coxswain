@@ -308,6 +308,7 @@
   "other": "{n} meddelanden kunde inte kopieras ut; de andra kopierades."
  },
  "archive.nested_read_only": "Skrivskyddat: detta är ett arkiv i ett arkiv, öppnat från en kopia. Kopiera ut det inre arkivet med F5 för att ändra det",
+ "archive.part_missing": "{name} saknas: en 7z delad i delar öppnas bara med alla sina delar, numrerade utan luckor",
  "archive.nested_too_deep": "Arkiv i arkiv öppnas högst {depth} nivåer ner: kopiera ut detta med F5 för att öppna det",
  "archive.overlapping": "Filerna i den här zip-filen delar sina packade byte, så den skulle packas upp till långt mer än den innehåller: den kan vara gjord för att fylla disken. En enskild fil ur den kan fortfarande kopieras ut",
  "archive.pack_confirm": "Lösenordet igen:",

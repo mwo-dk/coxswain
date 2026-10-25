@@ -308,6 +308,7 @@
   "other": "{n} meldinger kunne ikke kopieres ut; de andre ble det."
  },
  "archive.nested_read_only": "Skrivebeskyttet: dette er et arkiv i et arkiv, åpnet fra en kopi. Kopier det indre arkivet ut med F5 for å endre det",
+ "archive.part_missing": "{name} mangler: en 7z delt i deler åpnes bare med alle delene, nummerert uten hull",
  "archive.nested_too_deep": "Arkiver i arkiver åpnes høyst {depth} nivåer ned: kopier dette ut med F5 for å åpne det",
  "archive.overlapping": "Filene i denne zip-en deler de pakkede bytene sine, så den ville pakkes ut til langt mer enn den inneholder: den kan være laget for å fylle disken. Én fil fra den kan fortsatt kopieres ut",
  "archive.pack_confirm": "Passordet en gang til:",

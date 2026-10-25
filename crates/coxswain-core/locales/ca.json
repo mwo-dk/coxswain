@@ -313,6 +313,7 @@
   "other": "No s'han pogut copiar {n} missatges; els altres sí."
  },
  "archive.nested_read_only": "Només lectura: és un arxiu dins d'un arxiu, obert des d'una còpia. Copieu l'arxiu interior a fora amb F5 per canviar-lo",
+ "archive.part_missing": "Falta {name}: un 7z dividit en parts només s’obre amb totes les parts, numerades sense buits",
  "archive.nested_too_deep": "Els arxius dins d'arxius s'obren fins a {depth} nivells: copieu aquest a fora amb F5 per obrir-lo",
  "archive.overlapping": "Els fitxers d'aquest zip comparteixen els bytes comprimits, així que es desempaquetaria en molt més del que conté: pot estar fet per omplir el disc. Encara se'n pot copiar un fitxer",
  "archive.pack_confirm": "La contrasenya de nou:",
