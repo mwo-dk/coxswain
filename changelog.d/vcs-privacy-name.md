@@ -1,1 +1,0 @@
-| **The Subversion and CVS history question names Settings → Privacy and updates,** the area where its answer is forgotten, by its full name. | [Subversion](panels/subversion.md#history-from-the-server) |

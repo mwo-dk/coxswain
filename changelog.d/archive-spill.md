@@ -1,1 +1,0 @@
-| **An archive inside an archive opens like a folder.** **Enter** on a zip, tar or 7z inside another opens it too, eight deep: it is copied once into the cache folder and looked into there, read-only, so memory stays flat however large it is. | [Archives as folders](files/archives.md#limits) | <!-- feature -->

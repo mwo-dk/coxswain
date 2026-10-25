@@ -1,1 +1,0 @@
-| **A marked Polyglot book offers Open games again in the desktop app.** With one `.bin` opening book marked (**Insert**), the action menu (**Shift+F10**) offers its games as it does with the cursor on it; the menu and the hints count marked files the same way in both apps, disk images known by their first bytes. | [Chess games](previews/chess.md#opening-books) |

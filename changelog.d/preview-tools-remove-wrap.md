@@ -1,1 +1,0 @@
-| **Pull and Remove stay side by side.** In *Settings → Previews → Preview tools* a long image name (LaTeX's) wraps its own words, and **Pull** and **Remove** stay together at the end of its line instead of **Remove** dropping to a line of its own. | [Containers](previews/containers.md#pulling-and-removing-images) |

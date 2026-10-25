@@ -1,1 +1,0 @@
-| **Smaller programs.** The released terminal and desktop apps leave out their symbol table: about 11 % and 13 % smaller downloads and installs. | [Performance](reference/performance.md#why-is-the-program-file-so-large) |

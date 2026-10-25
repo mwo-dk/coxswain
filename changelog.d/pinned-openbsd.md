@@ -1,1 +1,0 @@
-| **Find and replace and Permissions and dates keep to the very files they planned on OpenBSD too.** A file or folder renamed away after the plan is left, even where the clock ticks too coarsely to show the rename. | [Find and replace](files/find-and-replace.md) |

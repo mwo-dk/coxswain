@@ -1,1 +1,0 @@
-| **New chess pieces in the desktop app.** The board draws clean, modern pieces: white with a black outline and black, with the squares showing through around them, on every theme. They are Uray M. János's set after the Wikimedia pieces, under CC BY-SA 3.0. | [Chess](previews/chess.md#notation-and-the-board) |

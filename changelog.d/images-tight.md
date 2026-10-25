@@ -1,1 +1,0 @@
-| **Every container runs held tight.** LaTeX, LibreOffice, PlantUML, pandoc, Typst, Kroki and OCRmyPDF now run as ffmpeg, ImageMagick, Whisper, Tika, calibre and the chess engine do: on a read-only root with a small /tmp, bounded memory and processes, no capabilities and no way to gain privileges. | [What a container may do](previews/containers.md#what-a-container-may-do) |

@@ -1,1 +1,0 @@
-| **"New" on a language lasts about a month.** Settings marks a fresh translation *new* for four weekly releases after the one that brought it, then the mark goes by itself; Czech, Polish, Ukrainian, Greek, Persian, Armenian, Georgian, Japanese and Korean are no longer marked, Norwegian is until 15 November 2026. | [Languages](customise/languages.md#the-languages) |
