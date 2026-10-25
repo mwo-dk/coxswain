@@ -3916,7 +3916,7 @@ mod tests {
                 writer.put_vectors(b, &[v.clone(), v]).unwrap();
                 done.send(()).unwrap();
             });
-            wait.recv_timeout(Duration::from_secs(10))
+            wait.recv_timeout(crate::test_limit(Duration::from_secs(10)))
                 .expect("a write waited for the signs");
         });
         // The next search has both, each file's passages once.

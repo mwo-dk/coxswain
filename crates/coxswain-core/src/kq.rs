@@ -151,7 +151,7 @@ mod tests {
                 std::fs::write(dir.join(format!("tree{i}/a/b/{f}")), "x").unwrap();
             }
             let e = rx
-                .recv_timeout(Duration::from_secs(5))
+                .recv_timeout(crate::test_limit(Duration::from_secs(5)))
                 .expect("an event, every time")
                 .unwrap();
             assert!(e.paths.contains(&dir), "{e:?}");
@@ -176,7 +176,7 @@ mod tests {
         b.commit().unwrap();
         std::fs::write(dir.join("tree1/new"), "x").unwrap();
         let e = rx
-            .recv_timeout(Duration::from_secs(5))
+            .recv_timeout(crate::test_limit(Duration::from_secs(5)))
             .expect("a folder added in a batch")
             .unwrap();
         assert!(e.paths.contains(&dir.join("tree1")), "{e:?}");

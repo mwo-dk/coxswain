@@ -149,10 +149,13 @@ pub fn probe_url(url: &str, key: Option<&str>) -> Option<Found> {
     probe_at(&places, key).into_iter().next()
 }
 
+/// How long a server that answered is given to list or try its models.
+const SLOW_ANSWER: Duration = Duration::from_secs(30);
+
 /// What answers at `url` as a server of `kind`, with its models and what they can do.
 fn ask_server(kind: Kind, url: &str, key: Option<&str>) -> Option<Found> {
     let quick = agent(Duration::from_millis(800));
-    let slow = agent(Duration::from_secs(30));
+    let slow = agent(SLOW_ANSWER);
     let url = url.trim_end_matches('/');
     let openai = |kind, models| {
         Some(Found {
@@ -1825,9 +1828,10 @@ mod tests {
             None,
         );
         assert!(found.is_empty(), "{found:?}");
-        // Under the 30 seconds of the slow agent, with room for a busy machine.
+        // Given up by the quick agent: sooner than the slow one would have. The time is waiting
+        // on a socket, not work, so a slow machine adds little to it.
         assert!(
-            start.elapsed() < Duration::from_secs(20),
+            start.elapsed() < SLOW_ANSWER,
             "{:?}",
             start.elapsed()
         );

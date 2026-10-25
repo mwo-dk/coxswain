@@ -102,6 +102,12 @@ These rules hold for every contributor and every Claude session in this reposito
   `cd gui && npx svelte-check && npm test && npm run build`. For preview changes, build the
   release and run `uv run tools/preview-check.py` (Linux, needs `broadwayd`): it opens a file of
   each kind in the real app, on a display of its own, and fails when one shows nothing.
+- **No clock in a test's proof.** The BSD and illumos VMs are 5-10 times slower than Linux. A
+  test proves "quick" by counting the work, by the state the code is in (still looking after a
+  turn of the UI loop), or against a plain input timed on the same machine
+  (`coxswain_core::assert_costs_at_most`, also n against 8n for linear work). A time limit only
+  guards against a hang, and every one, waits for a thread too, goes through
+  `coxswain_core::test_limit`.
 - **Test platform code in a VM before CI:** `tools/vms/rebuild/<vm>.sh` makes a FreeBSD,
   OpenBSD, NetBSD or OmniOS virtual machine (unattended), and `tools/vms/test-in.sh <system>`
   runs a checkout's tests in it (`tools/vms/README.md`). Use one before pushing a change to BSD

@@ -358,7 +358,7 @@ mod tests {
         let g = pgn::parse("1.e4 e5 2.Nf3 *");
         let wait = |r: &Reviewer| {
             let t = std::time::Instant::now();
-            while !r.now().done && t.elapsed().as_secs() < 20 {
+            while !r.now().done && t.elapsed() < crate::test_limit(std::time::Duration::from_secs(20)) {
                 std::thread::sleep(std::time::Duration::from_millis(10));
             }
             r.now()

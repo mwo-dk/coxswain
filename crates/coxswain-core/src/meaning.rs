@@ -2116,7 +2116,7 @@ mod tests {
         cancel.store(true, Ordering::Relaxed);
         let at = Instant::now();
         assert!(hung.read(&mut [0; 8]).is_err());
-        assert!(at.elapsed() < Duration::from_secs(5));
+        assert!(at.elapsed() < crate::test_limit(Duration::from_secs(5)));
     }
 
     #[test]
@@ -2261,11 +2261,9 @@ mod tests {
             asked < 3
         })
         .unwrap();
-        // The timeout is minutes; a busy machine can take seconds to stop.
-        assert!(
-            start.elapsed() < Duration::from_secs(60),
-            "stopped while waiting, not after the timeout"
-        );
+        // Stopped while waiting, counted: asked while no byte had come, and not again once it
+        // said stop. The clock only guards against a hang.
+        assert!(start.elapsed() < crate::test_limit(Duration::from_secs(60)));
         assert_eq!(asked, 3);
         let mut heads = server.join().unwrap();
         heads.sort();

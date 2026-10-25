@@ -278,14 +278,12 @@ mod tests {
         let mut l = Layout::new(Arc::new(commits));
         assert_eq!(l.rows(0, 50).len(), 50);
         assert_eq!(l.rows.len(), 50);
-        // A window at the far end of 100,000 commits. 30 s, not less: a slow BSD test machine
-        // once took 11 s; worked out quadratically it would take hours.
-        let t = std::time::Instant::now();
+        // A window at the far end of 100,000 commits: each row worked out once, and each costs
+        // a pass over the lanes, which stay as few as the branches (one line: one lane). Lanes
+        // that piled up would make it quadratic. Counted, not timed.
         assert_eq!(l.rows(99_950, 100_000).len(), 50);
-        assert!(
-            t.elapsed() < std::time::Duration::from_secs(30),
-            "{:?}",
-            t.elapsed()
-        );
+        assert_eq!(l.rows.len(), 100_000);
+        assert!(l.lanes.len() <= 1, "{} lanes", l.lanes.len());
+        assert!(l.rows.iter().all(|r| r.up.len() + r.down.len() <= 2));
     }
 }

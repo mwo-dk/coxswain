@@ -1081,7 +1081,7 @@ mod tests {
         };
         let began = std::time::Instant::now();
         read(xml.as_bytes(), &WORD, &mut crate::extract::Text::new(), &mut styles);
-        assert!(began.elapsed() < std::time::Duration::from_secs(10), "{:?}", began.elapsed());
+        assert!(began.elapsed() < crate::test_limit(std::time::Duration::from_secs(10)), "{:?}", began.elapsed());
     }
 
     /// A document kept whole goes to a model a batch of passages at a time as it is read: the

@@ -774,7 +774,7 @@ mod tests {
         });
         let start = std::time::Instant::now();
         assert!(pull_until(&rt, image, &stop).is_err());
-        assert!(start.elapsed() < std::time::Duration::from_secs(5), "{:?}", start.elapsed());
+        assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)), "{:?}", start.elapsed());
         assert!(crate::tools::image_size(&rt, image).is_none(), "not pulled");
         assert!(!pulling().contains_key(image));
     }

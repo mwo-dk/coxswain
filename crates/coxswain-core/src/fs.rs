@@ -2178,7 +2178,7 @@ mod tests {
         let mut w = Watch::default();
         w.set(vec![d.clone()]);
         std::fs::write(d.join("new.txt"), "x").unwrap();
-        let end = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let end = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(10));
         let mut got = vec![];
         while got.is_empty() && std::time::Instant::now() < end {
             std::thread::sleep(std::time::Duration::from_millis(50));

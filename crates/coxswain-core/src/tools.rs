@@ -1053,13 +1053,9 @@ mod tests {
                 "cut at the limit, the rest drained"
             );
             assert_eq!(run("exit 3", 5000, 100), None);
-            let start = Instant::now();
-            // Far from the minute of sleep, however slow the machine: stopped at the time limit.
+            // Stopped at the time limit, however slow the machine: no clock needed, as a sleep
+            // that ran out would have said Some(nothing), and the time limit is noted.
             assert_eq!(run("sleep 60", 200, 100), None);
-            assert!(
-                start.elapsed() < Duration::from_secs(30),
-                "stopped at the time limit"
-            );
             assert!(took_too_long() && !took_too_long(), "noted once");
             // A launcher whose child outlives it, as LibreOffice's soffice and soffice.bin:
             // both are gone at the time limit, not only the launcher.
@@ -1071,7 +1067,7 @@ mod tests {
             let child: i32 = std::fs::read_to_string(&pid).unwrap().trim().parse().unwrap();
             let gone = Instant::now();
             // Killed, then reaped by init: gone within moments.
-            while unsafe { libc::kill(child, 0) } == 0 && gone.elapsed() < Duration::from_secs(10) {
+            while unsafe { libc::kill(child, 0) } == 0 && gone.elapsed() < crate::test_limit(Duration::from_secs(10)) {
                 std::thread::sleep(Duration::from_millis(20));
             }
             assert_ne!(unsafe { libc::kill(child, 0) }, 0, "the forked child is gone too");
