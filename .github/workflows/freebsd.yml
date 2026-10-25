@@ -75,6 +75,7 @@ jobs:
           recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: ${{ matrix.release }}
           usesh: true
           # Compiling coxswain-core's tests needs more than the default 6 GB (rustc was killed).
@@ -122,6 +123,7 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: ${{ matrix.release }}
           usesh: true
           envs: TAG

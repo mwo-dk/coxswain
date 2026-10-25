@@ -68,6 +68,7 @@ jobs:
           recommends: false
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "10.1"
           usesh: true
           custom-shell-name: vmsh
