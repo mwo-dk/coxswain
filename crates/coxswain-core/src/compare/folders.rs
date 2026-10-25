@@ -185,9 +185,10 @@ fn file_state(a: &crate::fs::Entry, b: &crate::fs::Entry, mode: Mode, stop: &Ato
     if a.modified.abs_diff(b.modified) <= SLACK { State::Same } else { newer() }
 }
 
-/// The entries of `dir` by name, `..` left out; none when it cannot be listed.
+/// The entries of `dir` by name, `..` and a sync run's own leftovers (`sync::ours`) left out:
+/// those are Coxswain's, not the user's, and would keep two folders made alike from being the same.
 fn entries(dir: &Path) -> Vec<crate::fs::Entry> {
-    let mut v: Vec<_> = crate::fs::list(dir, true).unwrap_or_default().into_iter().filter(|e| !e.is_parent()).collect();
+    let mut v: Vec<_> = crate::fs::list(dir, true).unwrap_or_default().into_iter().filter(|e| !e.is_parent() && !super::sync::ours(&e.name)).collect();
     v.sort_by(|a, b| a.name.cmp(&b.name));
     v
 }
@@ -354,6 +355,26 @@ mod tests {
         assert_eq!(f.found().counts.get(&State::OnlyRight).map(|c| c.0), Some(1), "a folder only there counts");
         assert!(State::OnlyLeft.ahead(0) && !State::OnlyLeft.ahead(1) && State::NewerRight.ahead(1));
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_sync_runs_leftovers_are_not_compared() {
+        let d = super::super::tests::tempfile_dir("folders-leftovers");
+        let (l, r) = (d.join("l"), d.join("r"));
+        for p in [&l, &r] {
+            std::fs::create_dir_all(p.join("sub")).unwrap();
+            std::fs::write(p.join("sub/a.txt"), "a").unwrap();
+        }
+        std::fs::create_dir_all(r.join(".coxswain-sync-2026-10-25-120000/k-a.txt")).unwrap();
+        std::fs::write(r.join("sub/.a.txt.coxswain-1-2-3.tmp"), "half").unwrap();
+        std::fs::write(l.join(".coxswain-notes"), "the user's").unwrap();
+        let (found, stop, seen) = (Mutex::default(), AtomicBool::default(), AtomicU64::default());
+        Walk { mode: Mode::Content, found: &found, stop: &stop, seen: &seen, deepest: DEEPEST }.folder(&l, &r, "", 0);
+        let found = found.into_inner().unwrap();
+        assert_eq!(found.states.get("sub"), Some(&State::Same), "a half-written file is not compared");
+        assert!(!found.states.keys().any(|k| k.contains("coxswain-sync") || k.ends_with(".tmp")), "{:?}", found.states);
+        assert_eq!(found.states.get(".coxswain-notes"), Some(&State::OnlyLeft), "only the run's own names are left out");
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

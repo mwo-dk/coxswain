@@ -133,7 +133,8 @@ app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in th
 - A file is written beside under a name of its own and put in place only where nothing is, so a
   file never ends up half written under its real name. The run's own leftovers, a
   *.coxswain-sync-…* folder or a half-written *.name.coxswain-….tmp* file, are never compared,
-  copied nor deleted, at any depth.
+  copied nor deleted, at any depth, and comparing leaves them out too: they get no mark, and
+  two folders made alike show as the same while one still holds them.
 - What it replaces or deletes is moved, not copied, into one folder of its own at the target's
   top (*.coxswain-sync-…*), which then goes to the bin as one item: open it there to see
   everything one run took away. Where the bin cannot take it by a move (Termux, Windows, another
@@ -238,6 +239,14 @@ folder at the target's top. **Ctrl+Z** brings all of it back.
 are in one folder there, *.coxswain-sync-* followed by the date and time. On Windows, and on a
 disk the bin could only copy to, that folder stays at the target's top instead, and the status
 line names it.
+
+#### Why does Compare folders not mark a sync run's leftovers?
+
+It is Coxswain's, not yours: the folder a run keeps what it replaced or deleted in, or a
+*.name.coxswain-….tmp* file a run could not finish. Comparing leaves them out, so two folders
+made alike show **=** and *The folders are the same* even while one still holds them. The panel
+still lists them (with hidden files shown, **Alt+.**): delete one like any other folder (**F8**)
+once you no longer need what it holds.
 
 #### Why did the run leave some files as they are?
 

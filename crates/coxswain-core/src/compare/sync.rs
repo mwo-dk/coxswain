@@ -41,6 +41,13 @@ pub const ASIDE: &str = ".coxswain-sync-";
 /// Times of change two seconds apart are the same (FAT), as Compare folders has it.
 const SLACK: i64 = 2;
 
+/// The run's own entries, never compared nor copied (here and in Compare folders): a folder
+/// aside (`.coxswain-sync-…`), at any depth, and a file being written that could not be removed
+/// (`.name.coxswain-….tmp`).
+pub fn ours(n: &str) -> bool {
+    n.starts_with(ASIDE) || (n.starts_with('.') && n.contains(".coxswain-") && n.ends_with(".tmp"))
+}
+
 /// What a step does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -526,11 +533,8 @@ mod imp {
         a.cmp(b)
     }
 
-    /// The run's own entries, never compared nor copied: a folder aside (`.coxswain-sync-…`),
-    /// at any depth, and a file being written that could not be removed (`.name.coxswain-….tmp`).
     fn ours(n: &OsStr) -> bool {
-        let n = n.to_string_lossy();
-        n.starts_with(ASIDE) || (n.starts_with('.') && n.contains(".coxswain-") && n.ends_with(".tmp"))
+        super::ours(&n.to_string_lossy())
     }
 
     /// Every entry in the folder `d`, by its path under it, through folder handles, never
