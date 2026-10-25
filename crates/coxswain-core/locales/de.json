@@ -309,6 +309,8 @@
  },
  "archive.nested_read_only": "Schreibgeschützt: Dies ist ein Archiv in einem Archiv, aus einer Kopie geöffnet. Kopieren Sie das innere Archiv mit F5 heraus, um es zu ändern",
  "archive.part_missing": "{name} fehlt: Ein in Teile zerlegtes 7z öffnet sich nur mit allen Teilen, lückenlos nummeriert",
+ "archive.zip_part_missing": "{name} fehlt: Ein in Teile zerlegtes Zip öffnet sich nur mit allen Teilen, lückenlos nummeriert",
+ "archive.zip_parts_zip64": "Ein so großes in Teile zerlegtes Zip (zip64) wird nicht gelesen: zuerst seine Teile zusammenfügen (zip -s 0)",
  "archive.nested_too_deep": "Archive in Archiven öffnen sich höchstens {depth} Ebenen tief: Kopieren Sie dieses mit F5 heraus, um es zu öffnen",
  "archive.overlapping": "Die Dateien dieses Zip teilen sich ihre gepackten Bytes, es würde also zu weit mehr entpackt, als es enthält: Es könnte gebaut sein, um die Festplatte zu füllen. Eine einzelne Datei daraus lässt sich weiterhin herauskopieren",
  "archive.pack_confirm": "Das Passwort noch einmal:",
@@ -1210,11 +1212,14 @@
  "facts.macos_universal": "macOS Universal",
  "facts.made_with": "Erstellt mit",
  "facts.messages": "Nachrichten",
+ "facts.games": "Partien",
+ "facts.games_in": "{n} von {total} Dateien sind Partien: öffnen, dann erscheint jede auf dem Brett",
  "facts.mono": "Mono",
  "facts.other_cpu": "andere CPU",
  "facts.pages": "Seiten",
  "facts.part": "Teil",
  "facts.part_of": "{n} eines in Teile zerlegten 7z: es wird über {first} geöffnet",
+ "facts.zip_part_of": "{n} eines in Teile zerlegten Zip: es wird über {last} geöffnet",
  "facts.palette": {
   "one": "{n} Farbe aus einer Palette",
   "other": "{n} Farben aus einer Palette"

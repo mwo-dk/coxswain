@@ -309,6 +309,8 @@
  },
  "archive.nested_read_only": "Irakurtzeko soilik: artxibo baten barruko artxiboa da, kopia batetik irekia. Kopiatu barneko artxiboa kanpora F5 bidez aldatzeko",
  "archive.part_missing": "{name} falta da: zatitan banatutako 7z bat zati guztiekin bakarrik irekitzen da, hutsunerik gabe zenbakituta",
+ "archive.zip_part_missing": "{name} falta da: zatitan banatutako zip bat zati guztiekin bakarrik irekitzen da, hutsunerik gabe zenbakituta",
+ "archive.zip_parts_zip64": "Hain handia den zatitan banatutako zip bat (zip64) ez da irakurtzen: lotu lehenik bere zatiak (zip -s 0)",
  "archive.nested_too_deep": "Artxiboen barruko artxiboak {depth} mailaraino irekitzen dira: kopiatu hau kanpora F5 bidez irekitzeko",
  "archive.overlapping": "Zip honetako fitxategiek byte konprimituak partekatzen dituzte, beraz duena baino askoz gehiago deskonprimituko luke: diskoa betetzeko egina egon daiteke. Haren fitxategi bat kopiatu daiteke oraindik",
  "archive.pack_confirm": "Pasahitza berriro:",
@@ -1210,11 +1212,14 @@
  "facts.macos_universal": "macOS unibertsala",
  "facts.made_with": "Honekin egina",
  "facts.messages": "Mezuak",
+ "facts.games": "Partidak",
+ "facts.games_in": "{total} fitxategietatik {n} partidak dira: ireki eta bakoitza taulan agertzen da",
  "facts.mono": "mono",
  "facts.other_cpu": "beste PUZ bat",
  "facts.pages": "Orriak",
  "facts.part": "Zatia",
  "facts.part_of": "Zatitan banatutako 7z baten {n}. zatia: {first} fitxategitik irekitzen da",
+ "facts.zip_part_of": "Zatitan banatutako zip baten {n}. zatia: {last} fitxategitik irekitzen da",
  "facts.palette": {
   "one": "paleta bateko kolore {n}",
   "other": "paleta bateko {n} kolore"

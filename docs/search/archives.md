@@ -143,6 +143,7 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | How deep | 64 folders | Deeper entries, and entries named with `..`, are left out |
 | A 7z's packed list of contents | 16 MB, unpacked | Search does not look into it; it is found by its own name. As a folder it opens up to 64 MB (about 900,000 files); past that: *This 7z's list of contents unpacks to … MB, more than the 64 MB Coxswain opens*. The list is unpacked into memory before anything else, so a crafted 7z could otherwise fill it |
 | A 7z split into parts (`.7z.001`) | | Found by its own name only; it opens as a folder ([Archives as folders](../files/archives.md#limits)) |
+| A zip split into parts (`.zip` with `.z01` …) | | Looked into as a zip, its parts read as one; one needing zip64 is found by its own name only ([Archives as folders](../files/archives.md#limits)) |
 
 - **An archive inside an archive** is not looked into: the inner one is found by its name.
 - **Folder sizes and Duplicates** see an archive as the one file it is on disk; its contents are
