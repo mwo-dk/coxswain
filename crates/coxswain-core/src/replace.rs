@@ -492,11 +492,14 @@ fn sweep() {
                 continue;
             }
             let lock = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(e.path().join(".lock"));
+            let old = |t: i64| t < crate::fs::now() as i64 - 600;
             let free = match &lock {
+                // A lock no one holds, made long ago: its run has ended. A new one is left, since a
+                // run locks it only just after making it.
                 // SAFETY: an open file; the lock, if got, goes with the handle.
-                Ok(f) => (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }) == 0,
+                Ok(f) => f.metadata().is_ok_and(|l| old(l.mtime())) && (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }) == 0,
                 // No lock at all: one being made this moment is left; an old one goes.
-                Err(_) => m.mtime() < crate::fs::now() as i64 - 600,
+                Err(_) => old(m.mtime()),
             };
             if free {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -954,8 +957,15 @@ mod tests {
         private_dir(&dead).unwrap();
         std::fs::write(dead.join(".lock"), "").unwrap();
         std::fs::write(dead.join("0"), "was").unwrap();
+        // A lock just made and not yet held is a run starting: left, by this and every other
+        // test's sweep, so none removes the folder while it is still being filled.
+        sweep();
+        assert!(dead.join("0").exists());
+        let lock = std::fs::OpenOptions::new().write(true).open(dead.join(".lock")).unwrap();
+        lock.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600)).unwrap();
+        drop(lock);
         // Another test's run may hold the dead folder's lock for a moment while it sweeps it too.
-        for _ in 0..50 {
+        for _ in 0..250 {
             sweep();
             if !dead.exists() {
                 break;
