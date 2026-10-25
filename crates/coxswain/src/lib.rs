@@ -2452,10 +2452,12 @@ impl App {
                 (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
                 (None, None) => t!("settings.image_not_pulled"),
             }),
-            None => t!("ptools.container_none"),
+            // No image: Container cannot run it, so it is no choice here.
+            None => String::new(),
         };
         let mut items: Vec<MenuItem> = [("", default), ("local", local), ("container", container), ("off", t!("ptools.choice.off"))]
             .into_iter()
+            .filter(|(_, label)| !label.is_empty())
             .enumerate()
             .map(|(i, (c, label))| MenuItem { key: (i + 1).to_string(), label: format!("{label}{}", now(c)), run: MenuRun::PreviewTool(kind.id, c), group: None })
             .collect();

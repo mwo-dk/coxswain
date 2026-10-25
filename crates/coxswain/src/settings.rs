@@ -699,11 +699,20 @@ impl App {
                         }
                     }
                 }
+                // No image: config.toml at `[preview.images]`, to name one.
+                (_, Some('o' | 'O')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => {
+                    if let Some(Row::PreviewTool(r)) = rows.get(s.cursor) {
+                        match coxswain_core::config::Config::prepare_images(r.images.first().map_or(r.kind, |i| i.key)) {
+                            Ok((path, line)) => self.edit_at(&path, line),
+                            Err(e) => s.said = Some((e, true)),
+                        }
+                    }
+                }
                 (_, Some('p' | 'P')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
                     if let Some(Row::PreviewTool(r)) = rows.get(s.cursor) {
                         let images: Vec<String> = r.images.iter().filter(|i| !i.image.is_empty()).map(|i| i.image.clone()).collect();
                         if images.is_empty() {
-                            s.said = Some((t!("ptools.container_none"), false));
+                            s.said = Some((t!("ptools.container_none", "key" => r.images.first().map_or(r.kind, |i| i.key)), false));
                         } else {
                             s.said = Some((t!("convert.pulling", "image" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")), false));
                             s.load_tools(self, Some(images));
@@ -890,7 +899,8 @@ impl App {
             Some(Row::PreviewTool(r)) if !r.can_choose => {}
             Some(Row::PreviewTool(r)) => {
                 // The next choice: Default, Installed program, Container, Off.
-                let order = ["", "local", "container", "off"];
+                // Container only when an image is set: without one it cannot run.
+                let order: Vec<&str> = ["", "local", "container", "off"].into_iter().filter(|c| r.container || *c != "container").collect();
                 let next = order[(order.iter().position(|c| *c == r.choice).unwrap_or(0) + 1) % order.len()];
                 let Some(path) = s.path.clone() else {
                     s.said = Some((t!("err.no_config_folder"), true));
@@ -1352,7 +1362,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::ClearAll(n) => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("disk.clear_all", "size" => cs::human(*n))), w), st))),
                 // The kind, then what is used and the choice.
                 Row::PreviewTool(r) => {
-                    let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else { t!(&format!("ptools.choice.{}", r.choice)) };
+                    let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else if r.choice == "container" && !r.container { t!("ptools.choice.container_no_image") } else { t!(&format!("ptools.choice.{}", r.choice)) };
                     // What is used first: the choice is long when it is the default.
                     let pulling = coxswain_core::images::pulling();
                     let uses = match r.images.iter().find_map(|i| pulling.get(&i.image)) {
@@ -1540,7 +1550,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
                         (None, None) => t!("settings.image_not_pulled"),
                     };
-                    parts.push(if i.image.is_empty() { t!("ptools.container_none") } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
+                    parts.push(if i.image.is_empty() { t!("ptools.container_none", "key" => i.key) } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
                 }
                 parts.push(r.exts.clone());
                 text.push(Span::raw(parts.join(" · ")));
@@ -1557,6 +1567,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };

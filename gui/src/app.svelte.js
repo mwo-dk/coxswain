@@ -627,14 +627,14 @@ export async function previewWith(e = item(tab())) {
   }
   const installed = r.programs.filter((p) => p.path).map((p) => (p.version ? `${p.name} ${p.version}` : p.name));
   const im = r.images.find((i) => i.image);
-  const container = im ? `${t("ptools.choice.container")}: ${im.image.split("@")[0].split("/").pop()} (${im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled")})` : t("ptools.container_none");
+  const container = im ? `${t("ptools.choice.container")}: ${im.image.split("@")[0].split("/").pop()} (${im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled")})` : null;
   const prefer = t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[ui.cfg.settings.preview_prefer] ?? "settings.prefer_auto");
   const choices = [
     ["", t("ptools.choice.default", { value: prefer })],
     ["local", `${t("ptools.choice.local")}: ${installed.length ? installed.join(", ") : t("convert.not_installed", { program: r.programs[0]?.name ?? "" })}`],
     ["container", container],
     ["off", t("ptools.choice.off")],
-  ];
+  ].filter(([, label]) => label != null); // No image: Container cannot run it.
   const set = (c) => setPreviewTool(r, c).then(() => (ui.status = t("ptools.chosen", { kind: r.title })), (err) => (ui.status = String(err)));
   const items = choices.map(([c, label], i) => ({ key: String(i + 1), label: r.choice === c ? `${label} · ${t("ptools.current")}` : label, run: () => set(c) }));
   if (!installed.length && r.install) items.push({ key: "c", label: t("ptools.menu_copy", { line: r.install }), run: () => invoke("copy_text", { text: r.install }).then(() => (ui.status = t("guide.copied", { command: r.install })), (err) => (ui.status = String(err))) });

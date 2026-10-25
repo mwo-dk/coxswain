@@ -72,8 +72,9 @@ pub const IMAGES: &[Image] = &[
     // The programs of a dozen diagram kinds.
     Image { key: "kroki", default: "docker.io/yuzutech/kroki:latest@sha256:a4341ac44cd2590124da7142d13fdf5d83eadc2b94c023d018a2227695a30da1", download: 1200, disk: 2830 },
     Image { key: "pandoc", default: "docker.io/pandoc/core:latest@sha256:62518bfb6833705dc90a1634d8d879299bd820b3f74ad3b32fba8b618452553a", download: 57, disk: 246 },
-    // No official image; set one you trust (see docs/previews/containers.md).
-    Image { key: "duckdb", default: "", download: 0, disk: 0 },
+    // Coxswain's own: DuckDB's released command line and its three libraries, nothing else
+    // (packaging/images/duckdb); DuckDB publishes no image.
+    Image { key: "duckdb", default: "ghcr.io/mwo-dk/coxswain-duckdb:latest@sha256:942c4bfba0ab676eb4bdd772ae7deeff4efa59bff9060d4165249db1953fef3e", download: 25, disk: 76 },
     // A static ffmpeg and ffprobe, rebuilt with each release (`media`).
     Image { key: "ffmpeg", default: "docker.io/mwader/static-ffmpeg:latest@sha256:ac3ffd0125b2a783c5d3e8e2bbb1fe2505708a3b558e6af216276aa853ade09a", download: 126, disk: 315 },
     // Coxswain's own ImageMagick 7 on Alpine, with HEIC, AVIF and RAW (packaging/images/imagemagick,
@@ -377,6 +378,9 @@ pub struct Row {
     pub sample: bool,
     /// `[preview.tools]` has a choice for it (`can_choose`).
     pub can_choose: bool,
+    /// An image is set for it, so *Container* can make its previews; without one (DuckDB's,
+    /// GhostXPS's have no default) *Container* falls back to the installed program.
+    pub container: bool,
 }
 
 /// The version a program says, first line, cached for the session: `--version` asked once per
@@ -467,12 +471,17 @@ fn row(cfg: &PreviewConfig, k: &'static Kind, found: &HashMap<&str, Program>, ru
         let image = crate::images::short(&i.image).rsplit('/').next().unwrap_or_default().to_string();
         if i.pulled.is_some() { t!("ptools.uses_container", "runtime" => *rt, "image" => image) } else { t!("ptools.uses_pull", "runtime" => *rt, "image" => image) }
     });
+    let imaged = images.iter().any(|i| !i.image.is_empty());
     let uses = match how {
         "off" => Some(t!("ptools.choice.off")),
         "local" => local,
+        // No image to run: the previews use the installed program (`container.or(local)` where
+        // they are made), and the row says why.
+        "container" if !imaged => local.map(|l| t!("ptools.uses_no_image", "engine" => l)),
         "container" => container.or(local),
         _ => local.or(container),
     };
+    let program = programs.first().map(|p| p.name);
     Row {
         kind: k.id,
         tools: k.tools.iter().map(|t| t.id).collect(),
@@ -483,9 +492,14 @@ fn row(cfg: &PreviewConfig, k: &'static Kind, found: &HashMap<&str, Program>, ru
         images,
         choice,
         missing: uses.is_none(),
-        uses: uses.unwrap_or_else(|| t!("ptools.uses_nothing")),
+        uses: uses.unwrap_or_else(|| match program {
+            // Nothing to pull: only an install helps.
+            Some(p) if !imaged => t!("ptools.uses_install", "program" => p),
+            _ => t!("ptools.uses_nothing"),
+        }),
         sample: k.sample.is_some(),
         can_choose: can_choose(k.id),
+        container: imaged,
     }
 }
 
@@ -675,6 +689,34 @@ mod tests {
         assert_eq!(diagrams.images.iter().map(|i| i.key).collect::<Vec<_>>(), ["plantuml", "kroki"]);
         for r in &rows {
             assert!(!r.title.starts_with("ptools."), "{}: no title", r.kind);
+        }
+    }
+
+    /// A kind with no image (`duckdb = ""`): *Container* cannot run it, so the row offers no
+    /// pull and says the installed program is used, or that only installing it helps.
+    #[test]
+    fn ptools_a_kind_without_an_image_offers_no_container() {
+        crate::i18n::set_language("en-GB");
+        let mut cfg = PreviewConfig { container: "off".into(), ..Default::default() };
+        cfg.tools.insert("databases".into(), "container".into());
+        assert!(row_of(&cfg, "databases").unwrap().container, "Coxswain's own image by default");
+        cfg.images.insert("duckdb".into(), String::new());
+        let installed = crate::tools::which("duckdb").is_some();
+        let r = row_of(&cfg, "databases").unwrap();
+        assert!(!r.container, "no image, no container");
+        assert_eq!(r.missing, !installed);
+        if installed {
+            assert!(r.uses.contains("no container image"), "{}", r.uses);
+        } else {
+            assert_eq!(r.uses, "nothing: install duckdb");
+        }
+        assert!(row_of(&cfg, "latex").unwrap().container);
+        // An image of the user's own: Container is a choice again.
+        cfg.images.insert("duckdb".into(), "ghcr.io/me/duckdb".into());
+        let r = row_of(&cfg, "databases").unwrap();
+        assert!(r.container);
+        if !installed {
+            assert!(r.uses.contains("pull its image"), "{}", r.uses);
         }
     }
 }

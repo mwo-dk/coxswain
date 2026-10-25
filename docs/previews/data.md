@@ -104,8 +104,10 @@ there, or coxswain --disk clear index*.
 
 ## Settings and config.toml
 
-None for the built-in formats. DuckDB uses `[preview.images] duckdb` (default `""`: no
-container, as DuckDB has no official image) and the rest of [`[preview]`](tools.md#settings-and-configtoml).
+None for the built-in formats. DuckDB uses `[preview.images] duckdb` (default
+`ghcr.io/mwo-dk/coxswain-duckdb:latest`, pinned: Coxswain's own image of DuckDB's released
+command line, as DuckDB publishes none; `""` for no container, which takes *Container* out of
+its choices) and the rest of [`[preview]`](tools.md#settings-and-configtoml).
 
 ## In the terminal app
 
@@ -154,8 +156,13 @@ shows.
 
 #### Why does a DuckDB file need a program, when SQLite does not?
 
-SQLite is built into the app; DuckDB's file format needs DuckDB itself. Install `duckdb`, or set
-an image you trust whose entry point is `duckdb` under `[preview.images] duckdb`.
+SQLite is built into the app; DuckDB's file format needs DuckDB itself. Install `duckdb`, or
+pull Coxswain's DuckDB image (Settings → Previews → Preview tools, **Pull** on the *DuckDB
+databases* row, about 25 MB; terminal app: **P** there), or press **Read tables** in the preview,
+which pulls it the first time. With `[preview.images] duckdb = ""` that row says *Used now:
+nothing: install duckdb* and *Container: no image; name one under [preview.images] duckdb in
+config.toml* with **Open config.toml** (terminal app: **O**), *Container (no image)* is greyed
+out, and a *Container* choice made before uses the installed `duckdb`.
 
 #### Why is a certificate shown in yellow?
 

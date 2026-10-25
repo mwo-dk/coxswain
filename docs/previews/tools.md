@@ -44,7 +44,7 @@ the app's own list (`crates/coxswain-core/src/preview_tools.rs`); a test fails w
 | [PostScript and XPS](documents.md#postscript-and-xps) (`postscript`) | `.ps` `.eps` `.xps` `.oxps` | `gs`, `gswin64c`, `gxps` | `ghostscript`: `docker.io/jbarlow83/ocrmypdf-alpine:latest` (about 310 MB to download, 850 MB on disk)<br>`gxps`: none; set one you trust |
 | [Diagrams](diagrams.md) (`diagrams`) | `.puml` `.plantuml` `.pu` `.iuml` `.wsd` `.d2` `.ditaa` `.bob` `.svgbob` `.pikchr` `.nomnoml` `.noml` `.wavedrom` `.vg` `.vega` `.vl` `.vegalite` `.dbml` `.er` `.erd` `.bytefield` | `plantuml`, `d2`, `svgbob`, `pikchr`, `erd` | `plantuml`: `docker.io/plantuml/plantuml:latest` (about 141 MB to download, 353 MB on disk)<br>`kroki`: `docker.io/yuzutech/kroki:latest` (about 1.2 GB to download, 2.8 GB on disk) |
 | [reStructuredText](documents.md) (`markup`) | `.rst` `.rest` | `pandoc` | `pandoc`: `docker.io/pandoc/core:latest` (about 57 MB to download, 246 MB on disk) |
-| [DuckDB databases](data.md) (`databases`) | `.duckdb` `.ddb` | `duckdb` | `duckdb`: none; set one you trust |
+| [DuckDB databases](data.md) (`databases`) | `.duckdb` `.ddb` | `duckdb` | `duckdb`: `ghcr.io/mwo-dk/coxswain-duckdb:latest` (about 25 MB to download, 76 MB on disk) |
 | [Video and sound](media.md#video-and-sound-with-ffmpeg) (`video`) | `.avi` `.wmv` `.flv` `.mpg` `.mpeg` `.m2v` `.ts` `.m2ts` `.mts` `.3gp` `.3g2` `.vob` `.asf` `.rm` `.rmvb` `.divx` `.ogm` `.f4v` `.mxf` `.dv` `.nut` `.wma` `.ape` `.ac3` `.dts` `.amr` `.aiff` `.aif` `.au` `.mka` `.wv` `.tta` `.caf` `.w64` `.mp2` `.oga` `.spx` `.ra` | `ffmpeg` | `ffmpeg`: `docker.io/mwader/static-ffmpeg:latest` (about 126 MB to download, 315 MB on disk) |
 | [Pictures (HEIC, RAW, GIMP)](media.md#photos-only-imagemagick-or-ffmpeg-reads) (`pictures`) | `.heic` `.heif` `.xcf` `.dpx` `.cin` `.fits` `.fts` `.sgi` `.sun` `.ras` `.xwd` `.pict` `.pct` `.miff` `.wbmp` `.dng` `.cr2` `.cr3` `.crw` `.nef` `.nrw` `.arw` `.srf` `.sr2` `.orf` `.rw2` `.raf` `.pef` `.srw` `.x3f` `.erf` `.kdc` `.dcr` `.mrw` `.3fr` `.iiq` `.rwl` | `magick`, `ffmpeg` | `imagemagick`: `ghcr.io/mwo-dk/coxswain-imagemagick:latest` (about 21 MB to download, 52 MB on disk) |
 | [Circuits and boards (KiCad)](kicad.md) (`kicad`) | `.kicad_sch` `.kicad_pcb` | `kicad-cli` | `kicad`: `docker.io/kicad/kicad:9.0.9` (about 476 MB to download, 1.7 GB on disk) |
@@ -92,9 +92,9 @@ your click.
 |---|---|
 | The kind and its file endings | *LaTeX .tex .ltx* |
 | *Installed: latexmk 4.86, pdflatex 3.141592653* | The programs found, with the version each says; *Installed: none* when there is none, then *Install it:* with the line for this system and **Copy** |
-| *Container: docker.io/texlive/texlive:latest, Pulled, 5.9 GB* | Its image and whether the runtime has it (*Not pulled (2.8 GB)*), with **Pull** (also updates) and **Remove**; hover it for what the image gives and costs |
-| *Used now: latexmk 4.86* | What makes these previews now; *podman with texlive:latest, once pulled* when the container is used and its image is still to come; *nothing: install the program, or pull its image* in red when nothing can |
-| The choice | *Default (An installed program, else a container)*, *Installed program*, *Container*, *Off* |
+| *Container: docker.io/texlive/texlive:latest, Pulled, 5.9 GB* | Its image and whether the runtime has it (*Not pulled (2.8 GB)*), with **Pull** (also updates) and **Remove**; hover it for what the image gives and costs. An image with none set (GhostXPS's by default, or one set to `""`) says *Container: no image; name one under [preview.images] duckdb in config.toml*, with **Open config.toml** |
+| *Used now: latexmk 4.86* | What makes these previews now; *podman with texlive:latest, once pulled* when the container is used and its image is still to come; *nothing: install the program, or pull its image* in red when nothing can; *nothing: install duckdb* when the kind has no image (`duckdb = ""`), as there is nothing to pull; *duckdb 2.0.0: no container image is set, so the installed program* when the choice is *Container* but no image is set |
+| The choice | *Default (An installed program, else a container)*, *Installed program*, *Container*, *Off*; for a kind with no image *Container (no image)* is greyed out |
 | **Try** | Writes a small sample of the kind (a `.tex`, a `.puml` …) into the cache folder, closes Settings and shows it in the panel with the preview open |
 
 The choice is kept under `[preview.tools]` in `config.toml`:
@@ -103,15 +103,18 @@ The choice is kept under `[preview.tools]` in `config.toml`:
 |---|---|---|
 | *Default (…)* | no entry | The kind follows *How previews are made* (`prefer`) |
 | *Installed program* | `"local"` | Only an installed program is the default; the container stays a button in the preview |
-| *Container* | `"container"` | The container first, even when a program is installed |
+| *Container* | `"container"` | The container first, even when a program is installed. A kind with no image (`[preview.images] duckdb = ""`) cannot run in one: the installed program is used, and *Used now* says so |
 | *Off* | `"off"` | No tool makes these previews, their thumbnails or their facts in **Properties** (ffprobe, GDAL): the preview says *Previews of these files by a tool are off (Settings → Previews → Preview tools).* with a **Settings → Previews** button. Conversions you ask for (Convert video or audio, Make PDF searchable …) still run, as *Default* |
 
 A choice made here wins over an engine button clicked in the preview for that kind. In the
 terminal app each row is one line, *✓ LaTeX* with what is used and the choice, *tectonic 0.17.0 ·
 Default (…)* (*✗* in red, *nothing: install the program, or pull its image*, when nothing can
-make them); under the list are what is installed, the container and the file endings, and the
-keys **Enter** (the next choice), **C** (copy the install line), **P** (pull the image) and
-**Delete** (remove it). The
+make them; *nothing: install duckdb* for a kind with no image, `duckdb = ""`); under the list are what is
+installed, the container and the file endings, and the keys **Enter** (the next choice),
+**C** (copy the install line), **P** (pull the image) and **Delete** (remove it). On a kind with
+no image **Enter** skips *Container*, and the keys are **Enter**, **C** and **O**, which opens
+`config.toml` in your editor at `[preview.images]` (adding a commented example when there is
+none) to name an image. The
 terminal app has no **Try**: it shows no rendered preview.
 
 ![The terminal app's Settings, Previews: the options, then Preview tools, a line per kind with its choice and what is used now](../screenshots/tui-previews-tools.png)
@@ -126,7 +129,8 @@ list (**F9**) and in F1 → Features → *Previews made by tools*.
 2. Press **Shift+F10** and choose *Preview with…*. A menu titled *Preview with… LaTeX* lists:
    - **1** *Default (An installed program, else a container)*,
    - **2** *Installed program: latexmk 4.86* (or *Installed program: openscad is not installed*),
-   - **3** *Container: texlive:latest (Not pulled (2.8 GB))*,
+   - **3** *Container: texlive:latest (Not pulled (2.8 GB))*, left out for a kind with no
+     image (`[preview.images] duckdb = ""`), so *Off* moves up to **3**,
    - **4** *Off*,
    - **C** *Copy the install line: sudo pacman -S …*, when no program is installed,
    - **S** *Settings → Preview tools (pull, remove, versions)…*.
@@ -163,7 +167,7 @@ run (conversions, Make PDF searchable, a video's facts in **Properties**).
    `libreoffice` is usually a link to `soffice`, so only one shows) and the container, labelled
    by runtime and image, e.g. **podman texlive:latest**. When none of the programs is
    installed, the first is shown greyed out; hover it for the reason (*tectonic is not
-   installed*). The container is greyed with *No image for duckdb: set [preview.images] duckdb
+   installed*). The container is greyed with *No image for gxps: set [preview.images] gxps
    in the config* or *Neither podman nor docker is installed*.
 2. **The default.** Without a pick of yours, the first available engine is used, in the order
    the kind's choice gives (`[preview.tools]`), else `prefer`: `auto` puts installed programs first and the container last (ImageMagick:
