@@ -203,11 +203,14 @@ through an installed 7-Zip instead, read-only, like a disk image
   `xz -T`) is unpacked from the block it starts in, not from the start: the last file of a 2 GB
   `.tar.xz` comes out in a moment. A `.tar.gz` gets places it can be unpacked from on that first
   reading, one every 4 MB unpacked (with the 32 KB before each, about 2 MB kept for a 1 GB
-  tar), and a `.tar.zst` of several frames (`pzstd`, `zstd --long` in parts) the place each
-  frame starts; these are kept beside its list, so a file taken out of either is unpacked from
-  the last such place before it. A `.tar.zst` of one frame (what `zstd` makes, `-T` too) and a
-  `.tar.bz2` are still unpacked from the start up to the file. So is a `.tar.gz` you opened
-  with an older Coxswain until it changes, and one made of a few very large deflate blocks
+  tar), a `.tar.zst` of several frames (`pzstd`, `zstd --long` in parts) the place each
+  frame starts, and a `.tar.bz2` the place a bzip2 block starts, one every 4 MB unpacked (a few
+  bytes each, about 11 KB for a 1.3 GB tar; `bzip2` and `pbzip2` alike); these are kept beside
+  its list, so a file taken out of any of them is unpacked from the last such place before it:
+  the last file of a 1.3 GB `.tar.bz2` comes out in 0.05 s instead of 19 s. A `.tar.zst` of
+  one frame (what `zstd` makes, `-T` too) is still unpacked from the start up to the file. So
+  is a `.tar.gz` or `.tar.bz2` you opened with an older Coxswain until it changes, and a
+  `.tar.gz` made of a few very large deflate blocks
   (zlib-ng's fastest level): it has no places between them.
 - **No overwriting:** a name that already exists inside, or at the target outside, is refused
   with `… exists`, as between folders.
