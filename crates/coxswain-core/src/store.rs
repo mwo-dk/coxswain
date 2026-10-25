@@ -2872,9 +2872,9 @@ const STREAM_BATCH: usize = 64;
 /// where sections start, under `-id` until the last is in; then they take the place of the
 /// file's vectors before and the file is done (`embedded`). Stopped, refused or not read to
 /// the end, the rows written go and the vectors before stay: a part of the file never takes
-/// the place of all of it. Not read to the end while it can still be opened, it is not tried
+/// the place of all of it. Not read to the end while it is still there, it is not tried
 /// again until it changes (`embedded` 2), for a reader that gives up gives up again; one that
-/// cannot be opened now (a disk unplugged) is tried at the next scan. Changed or gone while it
+/// is not there now (a disk unplugged) or is left in the cloud is tried at the next scan. Changed or gone while it
 /// was read, nothing is written: what was read is no longer the file.
 fn embed_streamed(
     store: &Store,
@@ -2919,7 +2919,8 @@ fn embed_streamed(
             None => Streamed::Done(packed.len()),
         },
     };
-    let opens = matches!(end, Streamed::Unread) && std::fs::File::open(path).is_ok();
+    // Looked at, not opened: opening a file left in the cloud may bring it down.
+    let there = matches!(end, Streamed::Unread) && std::fs::metadata(path).is_ok() && !crate::cloud::keep_out(Path::new(path));
     let mut db = store.db.lock().unwrap();
     let tx = db.transaction()?;
     let same = "WHERE id = ?2 AND path = ?3 AND size = ?4 AND modified = ?5";
@@ -2927,7 +2928,7 @@ fn embed_streamed(
     let done = match end {
         Streamed::Done(_) => set(1)? == 1,
         Streamed::Unread => {
-            if set(if opens { 2 } else { 0 })? == 0 {
+            if set(if there { 2 } else { 0 })? == 0 {
                 end = Streamed::Moved;
             }
             false
