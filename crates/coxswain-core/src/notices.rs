@@ -584,6 +584,8 @@ mod tests {
             tika: None,
             transcripts: None,
             outdated: None,
+            changes_left: 0,
+            changes_freed: None,
         };
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.

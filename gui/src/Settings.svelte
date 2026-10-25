@@ -60,15 +60,18 @@
   let longChange = $state(null);
   async function set(name, value) {
     const changes = { [name]: value };
-    if (!name.startsWith("long_files")) return save(changes);
+    if (!name.startsWith("long_files") && !name.startsWith("search_commit_changes")) return save(changes);
     const why = await invoke("long_files_change", { changes }).catch(() => null);
     if (!why) return save(changes);
-    longChange = { why, go: () => save(changes) };
+    longChange = { why, name, go: () => save(changes) };
   }
   function keepLong() {
+    const name = longChange?.name;
     longChange = null;
     const el = document.getElementById("in-long_files");
     if (el) el.value = s.long_files;
+    const box = document.querySelector(`#opt-${name} input[type=checkbox]`);
+    if (box) box.checked = !!s[name];
   }
 
   // ------------------------------------------------------------ areas, and where it opens
@@ -706,6 +709,18 @@
             {@render check("search_archives")}
             {#if s.search_archives}{@render check("search_archives_everywhere", undefined, undefined, true)}{/if}
             {@render check("search_history")}
+            {#if s.search_history}
+              {@render check("search_commit_changes", undefined, undefined, true)}
+              {#if !s.search_commit_changes}{@render list("search_commit_changes_in", t("settings.search_names_only_none"))}{/if}
+              {#if longChange?.name.startsWith("search_commit_changes")}
+                <!-- The room and time it takes, or what turning it off frees, said before it is saved. -->
+                <p><strong>{longChange.why}</strong></p>
+                <div class="buttons">
+                  <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>
+                  <button onclick={keepLong}>{t("common.cancel")}</button>
+                </div>
+              {/if}
+            {/if}
             {@render check("search_cloud", s.search_cloud === "all", (v) => set("search_cloud", v ? "all" : "local-only"))}
             {#if s.search_cloud !== "all"}
               <!-- The clouds found, offered first; then the folders read anyway. -->
@@ -813,7 +828,7 @@
             {@render choice("long_files", [["sample", t("settings.long_files.sample")], ["everything", t("settings.long_files.everything")]])}
             {@render list("long_files_everything", t("settings.search_names_only_none"))}
             {@render list("long_files_sample", t("settings.search_names_only_none"))}
-            {#if longChange}
+            {#if longChange && !longChange.name.startsWith("search_commit_changes")}
               <p><strong>{longChange.why}</strong></p>
               <div class="buttons">
                 <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>

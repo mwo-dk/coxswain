@@ -62,6 +62,8 @@ pub struct Store {
     db: Mutex<Connection>,
     /// Files still to be read in the scan under way.
     pub pending: AtomicUsize,
+    /// Commits whose changes are being read now (`commit_changes`), 0 when none.
+    pub changes_left: AtomicUsize,
     /// "Index now": no rests until the backlog is done.
     pub hurry: AtomicBool,
     /// Set by `clear`: the scan under way stops, and a new one begins.
@@ -233,6 +235,8 @@ impl Store {
 
     pub fn open(path: &Path) -> rusqlite::Result<Store> {
         let db = Connection::open(path)?;
+        // A new store gives back the room of what is taken out of it (`reclaim`).
+        db.pragma_update(None, "auto_vacuum", "INCREMENTAL")?;
         #[cfg(unix)]
         let _ = std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600));
         // A new store gives back the room of what it drops bit by bit (`compact`); one from
@@ -343,6 +347,7 @@ impl Store {
         Ok(Store {
             db: Mutex::new(db),
             pending: AtomicUsize::new(0),
+            changes_left: AtomicUsize::new(0),
             hurry: AtomicBool::new(false),
             cleared: AtomicBool::new(false),
             walked: Mutex::default(),
@@ -1574,7 +1579,7 @@ impl Store {
         tx.commit()?;
         let (from, to) =
             below(crate::history::key(root, "").trim_end_matches(std::path::MAIN_SEPARATOR));
-        let mut q = db.prepare("SELECT path FROM files WHERE path > ?1 AND path < ?2 ORDER BY modified DESC LIMIT -1 OFFSET ?3")?;
+        let mut q = db.prepare("SELECT path FROM files WHERE path > ?1 AND path < ?2 AND has_text = 1 ORDER BY modified DESC LIMIT -1 OFFSET ?3")?;
         let old: Vec<String> = q
             .query_map(params![from, to, max as i64], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
@@ -1585,6 +1590,47 @@ impl Store {
         } else {
             self.apply(&old, &[], &[], false, None)
         }
+    }
+
+    /// What commits of the repository at `root` changed, (id, time, text), as rows found by
+    /// their words (`has_text` 2: no vectors are made of them). A commit the store no longer
+    /// keeps gets none.
+    fn put_changes(&self, root: &Path, rows: &[(String, u64, String)]) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        for (hash, time, text) in rows {
+            if tx.query_row("SELECT 1 FROM files WHERE path = ?1", [crate::history::key(root, hash)], |_| Ok(())).is_err() {
+                continue;
+            }
+            if tx.execute(
+                "INSERT OR IGNORE INTO files(path, size, modified, has_text) VALUES (?1, ?2, ?3, 2)",
+                params![crate::history::changes_key(root, hash), text.len() as i64, *time as i64],
+            )? == 1
+            {
+                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![tx.last_insert_rowid(), text])?;
+            }
+        }
+        tx.commit()
+    }
+
+    /// What taking out the changes of commits freed last time, and when.
+    pub fn changes_freed(&self) -> Option<(u64, u64)> {
+        let v: String = self.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = 'changes_freed'", [], |r| r.get(0)).ok()?;
+        let (a, b) = v.split_once(' ')?;
+        Some((a.parse().ok()?, b.parse().ok()?))
+    }
+
+    /// The room of rows taken out given back to the disk: the text index merged, then the
+    /// free pages handed back (a store from before incremental vacuum is vacuumed whole once).
+    fn reclaim(&self) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        db.execute_batch("INSERT INTO text(text) VALUES ('optimize');")?;
+        if db.pragma_query_value(None, "auto_vacuum", |r| r.get::<_, i32>(0))? == 2 {
+            db.execute_batch("PRAGMA incremental_vacuum;")?;
+        } else {
+            db.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
+        }
+        db.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
     }
 
     /// Files that share their size with another and have no current hash: (path, size, modified).
@@ -2344,6 +2390,9 @@ pub struct Facts {
     /// on their own.
     pub kinds: Vec<(String, usize)>,
     pub commits: usize,
+    /// Commits whose changes are kept (`commit_changes`), and the bytes of their text.
+    pub changes: usize,
+    pub changes_bytes: u64,
     pub inside: usize,
     /// Files with no text to read, files only in the cloud (not read), files still to read.
     pub no_text: usize,
@@ -2416,7 +2465,9 @@ pub fn facts(path: &Path) -> Result<Facts, String> {
     let mut f = Facts {
         files: count("SELECT count(*) FROM files WHERE path NOT LIKE 'git:%' AND inside IS NULL"),
         read: count("SELECT count(*) FROM files WHERE has_text = 1"),
-        commits: count("SELECT count(*) FROM files WHERE path LIKE 'git:%'"),
+        commits: count("SELECT count(*) FROM files WHERE path LIKE 'git:%' AND has_text = 1"),
+        changes: count("SELECT count(*) FROM files WHERE has_text = 2"),
+        changes_bytes: count("SELECT coalesce(sum(size), 0) FROM files WHERE has_text = 2") as u64,
         inside: count("SELECT count(*) FROM files WHERE has_text = 1 AND inside IS NOT NULL"),
         no_text: count("SELECT count(*) FROM files WHERE has_text = 0 AND cloud IS NULL"),
         cloud: count("SELECT count(*) FROM files WHERE cloud = 1"),
@@ -2523,7 +2574,7 @@ pub(crate) fn shown_error(what: &str) -> String {
         .map_or_else(|| what.to_string(), |(_, key)| crate::t!(*key))
 }
 
-fn now() -> u64 {
+pub(crate) fn now() -> u64 {
     std::time::SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
@@ -2808,6 +2859,8 @@ fn scan_for(
     slice: Option<Duration>,
 ) -> rusqlite::Result<bool> {
     let began = now();
+    // Changes no longer kept go at once, before the walk.
+    drop_changes(store, cfg)?;
     let (roots, offline) = place(store, cfg)?;
     let tika = crate::extract::tika::extensions();
     let ebooks = crate::ebook::extensions();
@@ -2952,7 +3005,7 @@ fn scan_for(
     } else {
         vec![]
     };
-    if history(store, &repos, &kept, stop)? {
+    if history(store, cfg, &repos, &kept, stop)? {
         return Ok(false);
     }
 
@@ -3740,7 +3793,85 @@ fn read_inside(archive: &Path, files: Vec<(i64, String)>, max: u64) -> Vec<(i64,
 }
 
 /// Commits a repository keeps in the store at most, newest first.
-const HISTORY_MAX: usize = 2000;
+pub const HISTORY_MAX: usize = 2000;
+
+/// Whether the text of the changes of the repository at `repo`'s commits is kept
+/// (`commit_changes`, or a folder of `commit_changes_in` holds it).
+pub fn changes_on(cfg: &SearchConfig, repo: &Path) -> bool {
+    cfg.history && (cfg.commit_changes || cfg.commit_changes_in.iter().any(|f| repo.starts_with(f)))
+}
+
+/// The repositories whose history the store at `path` keeps, read without writing anything.
+pub fn repositories(path: &Path) -> Vec<PathBuf> {
+    let Ok(db) = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX) else {
+        return vec![];
+    };
+    db.prepare("SELECT substr(key, 9) FROM meta WHERE key LIKE 'history:%'")
+        .and_then(|mut q| q.query_map([], |r| r.get::<_, String>(0))?.collect())
+        .map(|v: Vec<String>| v.into_iter().map(PathBuf::from).collect())
+        .unwrap_or_default()
+}
+
+/// Bytes of the text of commits' changes the store at `path` keeps (`commit_changes`), read
+/// without writing anything.
+pub fn changes_bytes(path: &Path) -> u64 {
+    Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
+        .and_then(|db| db.query_row("SELECT coalesce(sum(size), 0) FROM files WHERE has_text = 2", [], |r| r.get::<_, i64>(0)))
+        .unwrap_or(0) as u64
+}
+
+/// What turning on the changes of commits costs, or turning them off frees, said before it is
+/// saved: `None` when neither changes.
+pub fn changes_notice(old: &SearchConfig, new: &SearchConfig) -> Option<String> {
+    let repos = Store::path().map(|p| repositories(&p)).unwrap_or_default();
+    let (on, off): (Vec<&PathBuf>, Vec<&PathBuf>) = (
+        repos.iter().filter(|r| changes_on(new, r) && !changes_on(old, r)).collect(),
+        repos.iter().filter(|r| !changes_on(new, r) && changes_on(old, r)).collect(),
+    );
+    if !on.is_empty() {
+        let (commits, bytes) = on.iter().fold((0, 0), |(c, b), r| {
+            let (n, m) = crate::history::changes_cost(r, HISTORY_MAX);
+            (c + n, b + m)
+        });
+        // git shows some 20 MB of changes a second, and the store takes them in about as fast.
+        let secs = (bytes / (10 << 20)).max(1);
+        return Some(crate::t!("changes.cost", "repos" => on.len(), "commits" => crate::settings::count(commits), "size" => crate::settings::human(bytes * 2), "secs" => secs));
+    }
+    if !off.is_empty() {
+        return Some(crate::t!("changes.off", "repos" => off.len()));
+    }
+    // On with no repository read yet: the cost comes with the first scan.
+    (new.commit_changes && !old.commit_changes || new.commit_changes_in.len() > old.commit_changes_in.len()).then(|| crate::t!("changes.cost_unknown"))
+}
+
+/// Take out the changes of the repositories whose changes are no longer kept, and give the
+/// room back: the bytes freed, when there were some.
+fn drop_changes(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<Option<u64>> {
+    let roots: Vec<String> = {
+        let db = store.db.lock().unwrap();
+        let mut q = db.prepare("SELECT substr(key, 9) FROM meta WHERE key LIKE 'changes:%'")?;
+        q.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?
+    };
+    let gone: Vec<&String> = roots.iter().filter(|r| !changes_on(cfg, Path::new(r))).collect();
+    if gone.is_empty() {
+        return Ok(None);
+    }
+    let before = store.bytes();
+    for root in gone {
+        let (from, to) = below(crate::history::key(Path::new(root), "").trim_end_matches(std::path::MAIN_SEPARATOR));
+        let paths: Vec<String> = {
+            let db = store.db.lock().unwrap();
+            let mut q = db.prepare("SELECT path FROM files WHERE path > ?1 AND path < ?2 AND has_text = 2")?;
+            q.query_map([&from, &to], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?
+        };
+        store.apply(&paths, &[], &[], false, None)?;
+        store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = ?1", [format!("changes:{root}")])?;
+    }
+    store.reclaim()?;
+    let freed = before.saturating_sub(store.bytes());
+    store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('changes_freed', ?1)", [format!("{freed} {}", now())])?;
+    Ok(Some(freed))
+}
 
 /// The history of the repositories in `repos`: commit messages, authors and changed paths,
 /// searched like the files' text. A repository whose HEAD moved on gets the new commits only;
@@ -3748,6 +3879,7 @@ const HISTORY_MAX: usize = 2000;
 /// not plugged in, `kept`) loses its commits. `true` when stopped.
 fn history(
     store: &Store,
+    cfg: &SearchConfig,
     repos: &[PathBuf],
     kept: &[(String, String)],
     stop: &AtomicBool,
@@ -3796,11 +3928,15 @@ fn history(
             return Ok(true);
         }
         let Some(root) = key(repo) else { continue };
-        let old = meta(&format!("history:{root}"));
+        // Commits kept before they had the names of the functions they changed are read
+        // again, once.
+        let named = meta(&format!("history_names:{root}")).is_some();
+        let old = meta(&format!("history:{root}")).filter(|_| named);
         let Some((head, grew)) = crate::history::head(repo, old.as_deref()) else {
             continue;
         };
         if old.as_deref() == Some(head.as_str()) {
+            changes(store, cfg, repo, &root, &head, stop)?;
             continue;
         }
         let start = Instant::now();
@@ -3815,9 +3951,35 @@ fn history(
         };
         store.put_commits(repo, &commits, HISTORY_MAX)?;
         set(&format!("history:{root}"), Some(&head))?;
+        set(&format!("history_names:{root}"), Some("1"))?;
         store.rest(start, stop);
+        changes(store, cfg, repo, &root, &head, stop)?;
     }
     Ok(false)
+}
+
+/// The text of what the commits of `repo` changed, when it is kept: those after the ones read
+/// last time, or all again when the history was rewritten. Counted in `changes_left` meanwhile.
+fn changes(store: &Store, cfg: &SearchConfig, repo: &Path, root: &str, head: &str, stop: &AtomicBool) -> rusqlite::Result<()> {
+    if !changes_on(cfg, repo) || stop.load(Ordering::Relaxed) {
+        return Ok(());
+    }
+    let k = format!("changes:{root}");
+    let old: Option<String> = store.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = ?1", [&k], |r| r.get(0)).ok();
+    if old.as_deref() == Some(head) {
+        return Ok(());
+    }
+    let start = Instant::now();
+    let since = old.filter(|o| crate::history::head(repo, Some(o)).is_some_and(|(_, grew)| grew));
+    let (from, to) = below(crate::history::key(repo, "").trim_end_matches(std::path::MAIN_SEPARATOR));
+    let wanted: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE path > ?1 AND path < ?2 AND has_text = 1", [&from, &to], |r| r.get(0))?;
+    store.changes_left.store(wanted as usize, Ordering::Relaxed);
+    let rows = crate::history::changes_for_search(repo, head, since.as_deref(), HISTORY_MAX).unwrap_or_default();
+    store.put_changes(repo, &rows)?;
+    store.changes_left.store(0, Ordering::Relaxed);
+    store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [&k, head])?;
+    store.rest(start, stop);
+    Ok(())
 }
 
 /// The store's sizes are as of now.
@@ -4714,6 +4876,26 @@ mod tests {
         )
         .unwrap();
         assert_eq!((rows(), hits("fuel").len()), (0, 0));
+
+        // The text of the changes, turned on: found by a word only the diff has; no vectors.
+        let on = SearchConfig { commit_changes: true, ..cfg.clone() };
+        scan(&store, &on, &go).unwrap();
+        let found = hits("valve");
+        assert!(found.iter().any(|h| h.snippet.as_deref().is_some_and(|s| s.contains("changes"))), "{found:?}");
+        assert!(found.iter().filter(|h| crate::history::is_history(&h.path)).all(|h| crate::history::split(&h.path).is_some_and(|at| at.commit.is_some() && at.inner.is_empty())), "a change goes to its commit: {:?}", found.iter().map(|h| h.path.clone()).collect::<Vec<_>>());
+        let changed = |store: &Store| store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE has_text = 2", [], |r| r.get::<_, i64>(0)).unwrap();
+        assert_eq!(changed(&store), 2);
+        assert_eq!(rows(), 4, "two commits and their changes");
+        scan(&store, &on, &go).unwrap();
+        assert_eq!(changed(&store), 2, "nothing new: nothing read again");
+        // Off again: they go before the walk, and the room is said.
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((changed(&store), rows()), (0, 2));
+        assert!(store.changes_freed().is_some());
+        // For one repository's folder alone.
+        let one = SearchConfig { commit_changes_in: vec![home.clone()], ..cfg.clone() };
+        scan(&store, &one, &go).unwrap();
+        assert_eq!(changed(&store), 2);
         drop(store);
         std::fs::remove_dir_all(home).unwrap();
         for end in ["db", "db-wal", "db-shm"] {

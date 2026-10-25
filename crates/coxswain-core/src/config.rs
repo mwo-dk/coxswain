@@ -1637,6 +1637,12 @@ pub struct SearchConfig {
     /// Keep the history of the git repositories in the text roots too: commit messages,
     /// authors and changed paths (the newest 2000 commits of each), found like text.
     pub history: bool,
+    /// Keep the text of what each of those commits changed too (its diff, at most 64 KB a
+    /// commit and 64 MB a repository), for every repository: off by default, as it can make the
+    /// store much larger. `commit_changes_in` turns it on for the repositories below these
+    /// folders alone.
+    pub commit_changes: bool,
+    pub commit_changes_in: Vec<PathBuf>,
     /// Files that are only in the cloud (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud,
     /// cloud mounts on Linux): "local-only" finds them by name and never reads them, as reading
     /// one downloads it; "all" reads them like the rest.
@@ -1698,6 +1704,8 @@ impl Default for SearchConfig {
             archives: true,
             archives_everywhere: false,
             history: true,
+            commit_changes: false,
+            commit_changes_in: vec![],
             cloud: "local-only".into(),
             cloud_read: vec![],
             tika: false,

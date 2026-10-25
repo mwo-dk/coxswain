@@ -115,7 +115,12 @@ pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
 
 /// Run `c` and give `f` what it prints, record by record (split at `sep`), until `f` says
 /// enough, the output ends, or `BUDGET` passes. `true` when it was cut short.
-pub(crate) fn records(mut c: Command, sep: u8, mut f: impl FnMut(&[u8]) -> bool) -> io::Result<bool> {
+pub(crate) fn records(c: Command, sep: u8, f: impl FnMut(&[u8]) -> bool) -> io::Result<bool> {
+    records_within(c, sep, BUDGET, f)
+}
+
+/// `records`, git given `budget`.
+pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: impl FnMut(&[u8]) -> bool) -> io::Result<bool> {
     let mut child = c.stdout(Stdio::piped()).stderr(Stdio::null()).spawn()?;
     let out = child
         .stdout
@@ -123,7 +128,7 @@ pub(crate) fn records(mut c: Command, sep: u8, mut f: impl FnMut(&[u8]) -> bool)
         .ok_or_else(|| io::Error::other("no output"))?;
     let (done, wait) = std::sync::mpsc::channel::<()>();
     let watch = std::thread::spawn(move || {
-        let late = wait.recv_timeout(BUDGET) == Err(std::sync::mpsc::RecvTimeoutError::Timeout);
+        let late = wait.recv_timeout(budget) == Err(std::sync::mpsc::RecvTimeoutError::Timeout);
         let _ = child.kill();
         let _ = child.wait();
         late
@@ -1186,7 +1191,60 @@ pub(crate) fn git_for_search(
         c.arg(format!("^{s}"));
     }
     c.arg("--");
-    search_records(c)
+    let mut commits = search_records(c)?;
+    // The names of the functions each changed, from its diff's hunk headers and the items it
+    // added or took out: "who last changed parse_config?" is then answered from the store.
+    let names = changed_names(root, head, since, max);
+    for (hash, _, text) in &mut commits {
+        if let Some(n) = names.get(hash).filter(|n| !n.is_empty()) {
+            text.push_str("\nChanged functions: ");
+            text.push_str(&n.join(", "));
+        }
+    }
+    Ok(commits)
+}
+
+/// Names a commit keeps for search at most.
+const NAMES: usize = 40;
+/// How long git may take to show the changes of the commits read for search.
+const NAMES_BUDGET: Duration = Duration::from_secs(30);
+
+/// The functions (and other named items) each commit after `since` changed, by commit id: the
+/// name in each hunk's header (`@@ -1,2 +1,3 @@ fn parse_config(…)`), and each item a line it
+/// added or took out starts. At most `NAMES` a commit; what git shows in `NAMES_BUDGET`.
+fn changed_names(root: &Path, head: &str, since: Option<&str>, max: usize) -> HashMap<String, Vec<String>> {
+    let mut c = git(root);
+    c.args(["log", "-p", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--format=%x1e%H", "-n", &max.to_string(), head]);
+    if let Some(s) = since {
+        c.arg(format!("^{s}"));
+    }
+    c.arg("--");
+    let mut out: HashMap<String, Vec<String>> = HashMap::new();
+    let mut cur: Option<String> = None;
+    let _ = records_within(c, b'\n', NAMES_BUDGET, |line| {
+        if let Some(id) = line.strip_prefix(b"\x1e") {
+            cur = Some(String::from_utf8_lossy(id).into_owned());
+            return true;
+        }
+        let Some(names) = cur.as_ref().map(|c| out.entry(c.clone()).or_default()) else { return true };
+        if names.len() >= NAMES {
+            return true;
+        }
+        let name = if line.starts_with(b"@@ ") {
+            // `@@ -a,b +c,d @@ context`: the context after the second `@@`.
+            let s = String::from_utf8_lossy(line);
+            s.splitn(3, "@@").nth(2).map(str::trim).filter(|t| !t.is_empty()).and_then(crate::code::item_name)
+        } else if (line.starts_with(b"+") || line.starts_with(b"-")) && !line.starts_with(b"+++") && !line.starts_with(b"---") {
+            crate::code::keyword_item(&String::from_utf8_lossy(&line[1..]))
+        } else {
+            None
+        };
+        if let Some(n) = name.filter(|n| !names.contains(n)) {
+            names.push(n);
+        }
+        true
+    });
+    out
 }
 
 /// What a log for the search store prints, NUL-separated: a record per commit (`\x1e`, then id,
@@ -1249,9 +1307,85 @@ pub fn key(root: &Path, hash: &str) -> String {
     format!("git:{}", path(root, Some(hash)).display())
 }
 
-/// The history path a store key names.
+/// The last segment of the store's key of a commit's changes, after the commit's own.
+pub const CHANGES: &str = "@changes";
+
+/// The store's key of the text of what a commit changed: below the commit's, so whatever
+/// takes the commit away takes it too.
+pub fn changes_key(root: &Path, hash: &str) -> String {
+    format!("{}{}{CHANGES}", key(root, hash), std::path::MAIN_SEPARATOR)
+}
+
+/// The history path a store key names: a commit's changes go to the commit.
 pub fn from_key(key: &str) -> Option<PathBuf> {
-    key.strip_prefix("git:").map(PathBuf::from)
+    let k = key.strip_prefix("git:")?;
+    let k = k.strip_suffix(CHANGES).map_or(k, |k| k.trim_end_matches(['/', '\\']));
+    Some(PathBuf::from(k))
+}
+
+/// Bytes of one commit's changes kept for search at most; the rest of it is left out.
+pub const CHANGE_MOST: usize = 64 << 10;
+/// Bytes of a repository's changes kept for search at most.
+pub const CHANGES_MOST: usize = 64 << 20;
+
+/// What the commits of `root` after `since` (all when `None`, at most `max`) changed, for the
+/// store: (id, time, text), the text starting with which commit it is, then its diff, at most
+/// `CHANGE_MOST` of each and `CHANGES_MOST` in all. git only (Jujutsu through its git).
+pub fn changes_for_search(root: &Path, head: &str, since: Option<&str>, max: usize) -> io::Result<Vec<(String, u64, String)>> {
+    if crate::vcs::of(root).name() == "hg" {
+        return Ok(vec![]);
+    }
+    let mut c = git(root);
+    c.args(["log", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--date=short", "--format=%x1e%H%x1f%at%x1f%an%x1f%ad", "-n", &max.to_string(), head]);
+    if let Some(s) = since {
+        c.arg(format!("^{s}"));
+    }
+    c.arg("--");
+    let (mut out, mut total): (Vec<(String, u64, String)>, usize) = (vec![], 0);
+    records_within(c, b'\n', NAMES_BUDGET * 4, |line| {
+        if let Some(head) = line.strip_prefix(b"\x1e") {
+            let s = String::from_utf8_lossy(head);
+            let f: Vec<&str> = s.splitn(4, '\x1f').collect();
+            if let [hash, time, author, date] = f[..] {
+                let text = format!("commit {} · {author} · {date} · changes\n", &hash[..hash.len().min(7)]);
+                total += text.len();
+                out.push((hash.to_string(), time.parse().unwrap_or(0), text));
+            }
+            return total < CHANGES_MOST;
+        }
+        if let Some(last) = out.last_mut().filter(|l| l.2.len() < CHANGE_MOST) {
+            let room = CHANGE_MOST - last.2.len();
+            let s = String::from_utf8_lossy(&line[..line.len().min(room)]);
+            total += s.len() + 1;
+            last.2.push_str(&s);
+            last.2.push('\n');
+        }
+        total < CHANGES_MOST
+    })?;
+    Ok(out)
+}
+
+/// What `changes_for_search` would keep of the commits of `root`, said before it is turned on:
+/// (commits, bytes), from git's count of the lines each changed.
+pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
+    let mut c = git(root);
+    c.args(["log", "--shortstat", "--no-renames", "--format=%x1e", "-n", &max.to_string(), "HEAD", "--"]);
+    let (mut commits, mut bytes, mut this) = (0usize, 0u64, 0u64);
+    let _ = records_within(c, b'\n', NAMES_BUDGET, |line| {
+        if line.starts_with(b"\x1e") {
+            bytes += this.min(CHANGE_MOST as u64);
+            this = 200;
+            commits += 1;
+            return true;
+        }
+        // ` 3 files changed, 10 insertions(+), 2 deletions(-)`: some 40 bytes a line.
+        let s = String::from_utf8_lossy(line);
+        let lines: u64 = s.split(',').skip(1).filter_map(|p| p.split_whitespace().next()?.parse::<u64>().ok()).sum();
+        this += lines * 40;
+        true
+    });
+    bytes += this.min(CHANGE_MOST as u64);
+    (commits, bytes.min(CHANGES_MOST as u64))
 }
 
 #[cfg(test)]
@@ -1564,6 +1698,14 @@ pub(crate) mod tests {
         let new = for_search(&d, "HEAD", Some(&one), 10).unwrap();
         assert_eq!((new.len(), new[0].0.as_str()), (1, two.as_str()));
         assert!(for_search(&d, "HEAD", Some(&two), 10).unwrap().is_empty());
+        // A change to a function names it.
+        std::fs::write(d.join("engine.rs"), "fn ignite() {\n    spark();\n}\n\nfn parse_config() {\n    a();\n}\n").unwrap();
+        commit_as(&d, "Cy", 1_700_200_000, "Add the parser");
+        std::fs::write(d.join("engine.rs"), "fn ignite() {\n    spark();\n}\n\nfn parse_config() {\n    b();\n}\n").unwrap();
+        commit_as(&d, "Di", 1_700_300_000, "Read the new key");
+        let all = for_search(&d, "HEAD", None, 10).unwrap();
+        assert!(all[0].2.ends_with("\nChanged functions: fn parse_config"), "{}", all[0].2);
+        assert!(all[1].2.contains("Changed functions: fn ignite, fn parse_config"), "{}", all[1].2);
         std::fs::remove_dir_all(d).unwrap();
     }
 

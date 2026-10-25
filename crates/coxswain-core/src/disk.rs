@@ -147,6 +147,20 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             });
         }
     }
+    // The text of commits' changes inside search.db, when kept: turned off, the room comes back.
+    if let Some(bytes) = crate::store::Store::path().map(|p| crate::store::changes_bytes(&p)).filter(|b| *b > 0) {
+        v.push(Item {
+            id: "changes".into(),
+            name: t!("disk.changes.name"),
+            what: t!("disk.changes.what"),
+            cost: t!("disk.changes.cost"),
+            bytes,
+            paths: vec![],
+            kind: Kind::Own,
+            rebuildable: false,
+            in_use: false,
+        });
+    }
     for e in crate::models::list(&cfg.search, loaded) {
         v.push(Item {
             id: e.id.clone(),
@@ -323,6 +337,15 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
     };
     match (item.kind, item.id.as_str()) {
         (Kind::Own, "store") if crate::helper::runs() && cfg.search.text => helper.forget(),
+        // Turned off: the helper takes them out when it starts, and gives the room back.
+        (Kind::Own, "changes") => {
+            let off = serde_json::json!({ "search_commit_changes": false, "search_commit_changes_in": [] });
+            crate::settings::save(off.as_object().ok_or("changes")?)?;
+            if crate::helper::runs() {
+                helper.restart();
+            }
+            return Ok(item.bytes);
+        }
         (Kind::Own, "index") => {
             gone(&item.paths)?;
             if crate::helper::runs() {
@@ -751,6 +774,9 @@ fn store_report(path: &Path, bytes: u64, f: crate::store::Facts) -> Report {
     }
     if f.commits > 0 {
         kinds.push((t!("disk.report.commits"), count(f.commits)));
+    }
+    if f.changes > 0 {
+        kinds.push((t!("disk.report.changes"), format!("{} · {}", count(f.changes), human(f.changes_bytes))));
     }
     if f.inside > 0 {
         kinds.push((t!("disk.report.inside"), count(f.inside)));
