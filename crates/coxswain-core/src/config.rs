@@ -2047,6 +2047,12 @@ impl Config {
         prepare_at(|l| l.starts_with("[keys]"), KEYS_EXAMPLE)
     }
 
+    /// config.toml ready at `[preview.images]`, to name an image for `key` (one set to `""`):
+    /// the line to open it at. Without that section, a commented example is added.
+    pub fn prepare_images(key: &str) -> Result<(PathBuf, usize), String> {
+        prepare_at(|l| l.starts_with("[preview.images]"), &format!("# An image of your own for a preview tool: docs/previews/containers.md\n# [preview.images]\n# {key} = \"registry.example/{key}:latest\"\n"))
+    }
+
     /// Where Coxswain keeps things, (what, path), for `--paths`.
     pub fn paths() -> Vec<(&'static str, Option<PathBuf>)> {
         vec![

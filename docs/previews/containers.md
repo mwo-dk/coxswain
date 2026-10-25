@@ -81,7 +81,7 @@ a little larger or smaller.
 | `docker.io/asciidoctor/docker-asciidoctor:latest` (default for Asciidoctor) | [Build PDF of AsciiDoc](../files/asciidoc-pdf.md): a PDF of an `.adoc` document next to it, when you ask; the preview needs no image | about 665 MB | about 1.5 GB | A few seconds of processor time per document, only when you ask |
 | `docker.io/rlespinasse/drawio-desktop-headless:latest` (default for draw.io, used only with *Export draw.io diagrams* on) | [Export draw.io diagram](../files/drawio-export.md): PNG, SVG or PDF of a diagram next to it, and its thumbnail in the grid view | about 560 MB | about 1.3 GB | draw.io starts a browser for each export: a second or two of processor time and a few hundred MB of memory |
 | `docker.io/clamav/clamav-debian:1.5_base@sha256:dfe9…` (default for ClamAV) | [Scan for viruses](../files/virus-scan.md), once turned on: only the files you choose, only when you ask | about 80 MB | about 240 MB | Busy only when you ask: about 1.5 GB of memory while it scans, and its virus database (about 110 MB) in the cache |
-| one you set for DuckDB | The tables of `.duckdb` files, with their columns and row counts | depends on the image | depends on the image | Light: one quick read of the file |
+| `ghcr.io/mwo-dk/coxswain-duckdb:latest` (default for DuckDB) | The tables of `.duckdb` files, with their columns and row counts, when no DuckDB is installed | about 25 MB | about 76 MB | Light: one quick read of the file |
 | one you set for GhostXPS (`gxps`) | XPS and OpenXPS documents shown as a PDF | depends on the image | depends on the image | Light |
 
 Where each image comes from, and why it is the one:
@@ -97,6 +97,7 @@ Where each image comes from, and why it is the one:
 | `kicad/kicad:9.0.9` | The KiCad project's own image of its newest release (the one without 3D models of parts; `-full` adds them at several GB). Pinned to its digest: a Coxswain release moves it on | KiCad GPL-3.0-or-later, its libraries CC-BY-SA-4.0 with an exception for what you make with them | With every KiCad release (every month or two in 2026) |
 | `mwo-dk/coxswain-stockfish:latest` | Coxswain itself (`packaging/images/stockfish`): Stockfish 17.1's released source and its two evaluation networks, each checked by its digest, built statically into an image that holds nothing else (no shell) | Stockfish GPL-3.0 | Built again every week; a new Stockfish release with a Coxswain release |
 | `openscad/openscad:trixie.2026-10-19` | The OpenSCAD project's own image of a dated snapshot (its last release, 2021.01, has no Manifold and no image of its own worth taking). Pinned to its digest: a Coxswain release moves it on | OpenSCAD GPL-2.0-or-later, the libraries in it theirs (CGAL GPL-3.0-or-later, Manifold Apache-2.0, Qt LGPL-3.0 …) | A snapshot every week in 2026 |
+| `mwo-dk/coxswain-duckdb:latest` | Coxswain itself (`packaging/images/duckdb`): DuckDB 2.0.0's released command line for Linux, checked by its digest and unchanged, with musl, libstdc++ and libgcc from Alpine, and nothing else (no shell); DuckDB publishes no image of its own | DuckDB MIT, musl MIT, libstdc++ and libgcc GPL-3.0-or-later with the GCC runtime exception | Built again every week; a new DuckDB release with a Coxswain release |
 | `mwo-dk/coxswain-imagemagick:latest` | Coxswain itself (`packaging/images/imagemagick`): Alpine's ImageMagick 7 with libheif (HEIC, AVIF) and LibRaw (RAW), Coxswain's policy built in, and no shell or package manager; ImageMagick publishes no image of its own | ImageMagick's licence (Apache-2.0 style), libheif LGPL-3.0, LibRaw LGPL-2.1 or CDDL-1.0, the rest of Alpine's packages theirs | Built again every week for Alpine's security updates |
 | `apache/tika:4.1.0` | The Apache Tika project. Pinned to its digest: a Coxswain release moves it on | Apache-2.0 | With every Tika release (monthly in 2026) |
 | `linuxserver/calibre:9.16.0` | [LinuxServer.io](https://www.linuxserver.io/), an organisation that rebuilds it for every calibre release, for amd64 and arm64; calibre publishes no image of its own. Coxswain runs only calibre's `ebook-convert` and `ebook-meta` in it, never the desktop it serves, and more tightly than the others ([How calibre runs](ebooks.md#how-calibre-runs)) | calibre GPL-3.0, the image's own files GPL-3.0 | Weekly; Coxswain pins the release it was tested with, and a newer Coxswain moves the pin |
@@ -282,7 +283,7 @@ default.
 | – | `[preview.images] ocrmypdf` | `"docker.io/jbarlow83/ocrmypdf-alpine:latest@sha256:…"` (pinned) |
 | – | `[preview.images] asciidoctor` | `"docker.io/asciidoctor/docker-asciidoctor:latest@sha256:…"` (pinned) |
 | – | `[preview.images] drawio` | `"docker.io/rlespinasse/drawio-desktop-headless:latest@sha256:…"` (pinned) |
-| – | `[preview.images] duckdb` | `""` (none) |
+| – | `[preview.images] duckdb` | `"ghcr.io/mwo-dk/coxswain-duckdb:latest@sha256:…"` (pinned) ([Data](data.md)) |
 | – | `[preview.images] gxps` | `""` (none) |
 | – | `[preview.images] ffmpeg` | `"docker.io/mwader/static-ffmpeg:latest@sha256:…"` (pinned) |
 | – | `[preview.images] imagemagick` | `"ghcr.io/mwo-dk/coxswain-imagemagick:latest@sha256:…"` (pinned) |
@@ -298,8 +299,10 @@ default.
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 
-An empty image means that tool never uses a container. DuckDB and GhostXPS have no image
-Coxswain picks for you. An image you set must provide the command Coxswain runs: `soffice` for
+An empty image means that tool never uses a container: Settings → Previews → Preview tools then
+greys out *Container* for its kind and says *Container: no image; name one under
+[preview.images] … in config.toml*, with **Open config.toml** (terminal app: **O**). GhostXPS has
+no image Coxswain picks for you. An image you set must provide the command Coxswain runs: `soffice` for
 LibreOffice, `typst` as the entry point for Typst, `gs` and `gxps` on its `PATH` (Coxswain sets
 `--entrypoint`), `ocrmypdf` as the entry point for OCRmyPDF, Kroki's program names (`d2`,
 `ditaa`, `svgbob`, `pikchr`, `nomnoml`, `wavedrom`, `vega`, `dbml`, `erd`, `bytefield`) on its
@@ -405,10 +408,12 @@ a current LibreOffice, rebuilt every few weeks, and small for what it holds (abo
 Coxswain runs only `soffice` in it, once per file, with no network; Gotenberg's own server never
 starts.
 
-#### Why is DuckDB not offered as a container?
+#### Where does the DuckDB image come from?
 
-DuckDB publishes no image, and Coxswain will not pick an unofficial one for you. Set one you
-trust under `[preview.images] duckdb`.
+DuckDB publishes no image, so Coxswain makes its own, `ghcr.io/mwo-dk/coxswain-duckdb`: DuckDB's
+released command line, checked by its digest and unchanged, with the three libraries it needs
+and nothing else. Its recipe is `packaging/images/duckdb/Dockerfile`. To use another, set it
+under `[preview.images] duckdb`; set `""` for none.
 
 #### Kroki's image is 1.2 GB. Do I need it for one D2 file?
 

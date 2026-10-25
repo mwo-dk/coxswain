@@ -904,7 +904,8 @@
                 {#if !installed(r).length && r.install}<small>{t("install.with")} <CopyLine line={r.install} /></small>{/if}
                 {#each r.images as im (im.key)}
                   <div class="ptool-image" title={im.about ?? ""}>
-                    <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none")}</small>
+                    <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none", { key: im.key })}</small>
+                    {#if !im.image}<button onclick={openConfig}>{t("settings.open_config")}</button>{/if}
                     {#if im.image && !tools.no_runtime}
                       <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t("settings.pull")}</button>
                       <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
@@ -916,7 +917,7 @@
                   {#if r.can_choose}<select aria-label={t("ptools.choice")} value={r.choice} onchange={(e) => setTool(r, e.currentTarget.value)}>
                     <option value="">{t("ptools.choice.default", { value: preferLabel(s.preview_prefer) })}</option>
                     <option value="local">{t("ptools.choice.local")}</option>
-                    <option value="container">{t("ptools.choice.container")}</option>
+                    <option value="container" disabled={!r.container}>{t(r.container ? "ptools.choice.container" : "ptools.choice.container_no_image")}</option>
                     <option value="off">{t("ptools.choice.off")}</option>
                   </select>{/if}
                   {#if r.sample}<button title={t("ptools.try_hint")} onclick={() => tryTool(r)}>{t("ptools.try")}</button>{/if}
