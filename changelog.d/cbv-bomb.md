@@ -1,0 +1,1 @@
+| **A ChessBase archive cannot fill the memory or the disk.** A `.cbv` file that claims far more than it holds, more than 16 GB or more than the disk has free is refused at once; the rest are unpacked a piece at a time, closing the preview stops it, and its bar moves as it goes. | [ChessBase databases](previews/chess.md#chessbase-databases) |

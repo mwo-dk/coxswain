@@ -302,7 +302,10 @@ own.
   they hold, with the same keys: the files its games need are unpacked once into Coxswain's
   own folder in the cache (`coxswain/cbv/` there, removed a day later; the last four archives
   are kept at a time), and the archive is never changed. Its first database is read; pictures
-  and other files in it are left. *Save as new PGN* writes next to the archive. Find reads a
+  and other files in it are left. An archive that says it unpacks to far more than its packed
+  bytes could hold, to more than 16 GB, or to more than the disk has free (keeping 1 GB) is
+  refused with a message before anything is written; the bar shows the unpacking, then the
+  reading, and closing the preview stops both. *Save as new PGN* writes next to the archive. Find reads a
   `.cbv` file as it does a `.cbh` one; a store made before this release reads each `.cbv` file
   once, for the first time.
 - **Find** reads a `.cbh` file as a line per game and keeps the positions of its games, as it
@@ -384,7 +387,7 @@ evaluations, coloured squares and arrows on the board) and its Chess960 games, a
 archives as the database they hold, but not the newer `.2cbh` format or password-protected
 `.cbz` archives ([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID databases (`.si4`, `.si5`), EPD, FEN and Polyglot books, Go
 games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) , xiangqi
-games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For a `.2cbh` database or an archive, export the games to PGN in ChessBase.
+games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For a `.2cbh` database or a password-protected `.cbz` archive, export the games to PGN in ChessBase.
 
 #### Why does a ChessBase game end with a note?
 

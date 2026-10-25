@@ -550,6 +550,9 @@ pub(crate) fn shown_squares(b: &Board, mv: Move) -> (u8, u8) {
 /// `crate::draughts`. The rest (tags, comments, variations, NAGs, results) is the same.
 pub(crate) trait Rules {
     type Board: Clone;
+    /// Whether comments' `[%csl]` and `[%cal]` squares and arrows are taken out for the board:
+    /// an 8×8 chess board's only.
+    const MARKS: bool = false;
     /// The position the game starts from, by its tags (a FEN tag) and its first moves, and its
     /// FEN; the start position when the tags say nothing.
     fn start(&self, tags: &[(String, String)], moves: &str) -> (Self::Board, String);
@@ -567,6 +570,7 @@ pub(crate) struct Chess;
 
 impl Rules for Chess {
     type Board = Board;
+    const MARKS: bool = true;
 
     fn start(&self, tags: &[(String, String)], _: &str) -> (Board, String) {
         tags.iter()
@@ -633,6 +637,9 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
     let mut before = String::new();
     // The last token was a move: a comment now is about it.
     let mut after_move = false;
+    // A variation just opened, and the marks of comments at its start, kept for its first move:
+    // they belong to the variation, not to the main line's move it replaces.
+    let (mut opened, mut held) = (false, Vec::new());
     let mut depth = 0u32;
     // Inside a variation nested too deep: how many brackets are open there.
     let mut skip = 0u32;
@@ -652,10 +659,11 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
                 // Its squares and arrows belong to the position shown with it: after the move
                 // it follows, else the one before the next move.
                 let marks = match cur {
+                    _ if opened => &mut held,
                     Some(n) => &mut g.nodes[n as usize].marks,
                     None => &mut g.marks,
                 };
-                let c = take_marks(c, marks);
+                let c = if R::MARKS { take_marks(c, marks) } else { c.split_whitespace().collect::<Vec<_>>().join(" ") };
                 if c.is_empty() {
                     continue;
                 }
@@ -680,6 +688,7 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
                 cur = cur.and_then(|n| g.nodes[n as usize].parent);
                 depth += 1;
                 after_move = false;
+                opened = true;
             }
             Tok::Close => {
                 if let Some(back) = stack.pop() {
@@ -687,6 +696,7 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
                     depth -= 1;
                 }
                 after_move = false;
+                (opened, held) = (false, vec![]);
             }
             Tok::Word(w) => match rules.word(w) {
                 Word::Result(r) => {
@@ -720,6 +730,7 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
                         depth,
                         before: std::mem::take(&mut before),
                         nags: nag.into_iter().collect(),
+                        marks: std::mem::take(&mut held),
                         ..Node::default()
                     };
                     let mut after = None;
@@ -747,6 +758,7 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
                     }
                     cur = Some(id);
                     after_move = true;
+                    opened = false;
                 }
             },
         }
@@ -782,6 +794,11 @@ mod tests {
         let n = &g.nodes[0];
         assert_eq!(n.marks, vec![Mark { colour: 'G', from: 6, to: 21 }, Mark { colour: 'R', from: 11, to: 27 }, Mark { colour: 'R', from: 53, to: 53 }]);
         assert_eq!(n.after, "Good [%clk 0:05:00]");
+        // At a variation's start: on its first move, not on the main line's move it replaces.
+        let g = parse("1. e4 ({[%csl Gd4]} 1. d4 d5) 1... e5");
+        assert!(g.nodes[0].marks.is_empty());
+        assert_eq!(g.nodes[1].san, "d4");
+        assert_eq!(g.nodes[1].marks, vec![Mark { colour: 'G', from: 27, to: 27 }]);
         // A Chess960 position's FEN reads back the same, its castling in Shredder-FEN.
         let b = board("4k3/p7/8/8/8/8/8/5KR1 w G - 0 1").unwrap();
         assert_eq!(fen(&b), "4k3/p7/8/8/8/8/8/5KR1 w G - 0 1");
