@@ -1,0 +1,56 @@
+# The compiled dependencies (target/) of a build in a virtual machine or container, kept between
+# runs: called once before the machine starts (restore) and once after the build (save: true),
+# with packaging/target-cache.sh around the build inside. The key holds the name (system,
+# release, profile), Cargo.lock and the machine's `rustc -vV`; the restore takes the newest
+# cache of the same name, the same Cargo.lock first. A new key is saved only when one of those
+# changed, so older keys go unused and GitHub's LRU eviction (10 GB per repository, 7 days
+# unused) drops them first. Caches written by a pull request are seen only by that pull request.
+name: target cache
+description: Restore or save target/ for a build in a virtual machine or container.
+inputs:
+  name:
+    description: System, release and profile, e.g. openbsd-7.9-debug.
+    required: true
+  save:
+    description: "true: save after the build; otherwise restore."
+    default: "false"
+  matched:
+    description: On the save, the restore's matched-key output (nothing is saved under the same key).
+    default: ""
+outputs:
+  matched-key:
+    description: The key of the restored cache, or nothing.
+    value: ${{ steps.restore.outputs.cache-matched-key }}
+runs:
+  using: composite
+  steps:
+    - id: restore
+      if: inputs.save != 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: target
+        key: target-v1-${{ inputs.name }}-${{ hashFiles('Cargo.lock') }}
+        restore-keys: |
+          target-v1-${{ inputs.name }}-${{ hashFiles('Cargo.lock') }}-
+          target-v1-${{ inputs.name }}-
+    - id: key
+      if: inputs.save == 'true'
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        LOCK: ${{ hashFiles('Cargo.lock') }}
+      run: |
+        # From a virtual machine: its target/ as it left it (packaging/target-cache.sh prune).
+        if [ -d target.vm ]; then rm -rf target && mv target.vm target; fi
+        rustc=$(sha256sum target/rustc-v | cut -c1-16)
+        echo "key=target-v1-$NAME-$LOCK-$rustc" >> "$GITHUB_OUTPUT"
+        du -sh target
+    - if: inputs.save == 'true' && inputs.matched != steps.key.outputs.key
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: target
+        key: ${{ steps.key.outputs.key }}
+    # Not needed any more; a later step in the machine would only be sent it again.
+    - if: inputs.save == 'true'
+      shell: bash
+      run: rm -rf target

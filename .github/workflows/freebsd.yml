@@ -62,6 +62,11 @@ jobs:
           path: .cargo-freebsd
           key: freebsd-${{ matrix.release }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: freebsd-${{ matrix.release }}-cargo-
+      # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      - id: target
+        uses: ./.github/actions/target-cache
+        with:
+          name: freebsd-${{ matrix.release }}-debug
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10
@@ -80,13 +85,20 @@ jobs:
             export CARGO_HOME="$PWD/.cargo-freebsd" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             freebsd-version
             rustc -V
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked --no-run
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
             # ZFS from end to end on a pool in a file: snapshots as folders, the diff, a copy
             # restored, the refusals, file flags. The VM runs as root.
             kldload zfs 2>/dev/null || true
             COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked
-            # Only the cache goes back to the runner, not the build.
-            rm -rf target
+            # Back to the runner: the cache and target/'s dependencies.
+            sh packaging/target-cache.sh prune debug
+      - uses: ./.github/actions/target-cache
+        with:
+          name: freebsd-${{ matrix.release }}-debug
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
 
   port:
     if: github.event_name == 'workflow_dispatch' && github.workflow == 'FreeBSD'

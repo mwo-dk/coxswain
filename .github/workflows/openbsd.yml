@@ -56,6 +56,11 @@ jobs:
           path: .cargo-vm
           key: openbsd-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: openbsd-cargo-
+      # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      - id: target
+        uses: ./.github/actions/target-cache
+        with:
+          name: openbsd-7.9-debug
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10
@@ -75,10 +80,18 @@ jobs:
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             uname -a
             rustc -V
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked --no-run
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
             cargo build -p coxswain -p coxswain-gui --locked
             mkdir -p out && cp target/debug/coxswain target/debug/coxswain-gui out/
-            rm -rf target
+            # Back to the runner: the cache, the programs and target/'s dependencies.
+            sh packaging/target-cache.sh prune debug
+      - uses: ./.github/actions/target-cache
+        with:
+          name: openbsd-7.9-debug
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
 
       - name: The desktop app starts and draws its window
         shell: vmsh {0}

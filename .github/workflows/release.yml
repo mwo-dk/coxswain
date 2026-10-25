@@ -513,6 +513,11 @@ jobs:
         with:
           packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
           recommends: false
+      # The compiled dependencies (target/) of the last release build here: .github/actions/target-cache.
+      - id: target
+        uses: ./.github/actions/target-cache
+        with:
+          name: freebsd-14.5-release
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           release: "14.5"
@@ -520,10 +525,16 @@ jobs:
           prepare: sh packaging/pkg-retry.sh pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
             set -e
-            cargo build --release --locked -p coxswain -p coxswain-gui
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out
             cp target/release/coxswain target/release/coxswain-gui out/
-            rm -rf target
+            sh packaging/target-cache.sh prune release
+      - uses: ./.github/actions/target-cache
+        with:
+          name: freebsd-14.5-release
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
@@ -588,6 +599,11 @@ jobs:
         with:
           packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
           recommends: false
+      # The compiled dependencies (target/) of the last release build here: .github/actions/target-cache.
+      - id: target
+        uses: ./.github/actions/target-cache
+        with:
+          name: ${{ matrix.sys }}-release
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
@@ -602,9 +618,10 @@ jobs:
             sh packaging/pkg-retry.sh pkgin -y install rust pkgconf webkit-gtk41 || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
           run: |
             set -e
-            cargo build --release --locked -p coxswain -p coxswain-gui
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
-            rm -rf target
+            sh packaging/target-cache.sh prune release
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         if: matrix.sys == 'openbsd'
         with:
@@ -615,9 +632,10 @@ jobs:
             sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg
           run: |
             set -e
-            cargo build --release --locked -p coxswain -p coxswain-gui
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
-            rm -rf target
+            sh packaging/target-cache.sh prune release
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         if: matrix.sys == 'illumos'
         with:
@@ -627,9 +645,16 @@ jobs:
           prepare: sh packaging/pkg-retry.sh pkg install build-essential ooce/developer/rust
           run: |
             set -e
-            PATH="/opt/ooce/bin:$PATH" cargo build --release --locked -p coxswain
+            export PATH="/opt/ooce/bin:$PATH"
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain
             mkdir out && cp target/release/coxswain out/
-            rm -rf target
+            sh packaging/target-cache.sh prune release
+      - uses: ./.github/actions/target-cache
+        with:
+          name: ${{ matrix.sys }}-release
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
