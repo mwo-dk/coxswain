@@ -18,9 +18,15 @@
 
   let looks = $state(null);
   let error = $state("");
-  let games = $state([]);
-  // How far the list has come: it fills as the file is read (`go_games` again until done).
+  // The rows in view and a few around them (`go_games` from `first`): the list draws only those,
+  // so a collection of 100,000 games scrolls as one of ten. Asked again on a scroll, and twice a
+  // second while the file is read.
+  const ROW = 24;
+  let rows = $state([]);
+  let first = $state(0);
+  let height = $state(400);
   let progress = $state(null);
+  const total = $derived(progress?.games ?? 0);
   const loaded = $derived(!!progress?.done);
   const capped = $derived(!!progress?.capped);
   const pct = $derived(progress && progress.size ? Math.floor((progress.read * 100) / progress.size) : 0);
@@ -48,40 +54,50 @@
     };
   });
 
+  let rowsSeq = 0;
+  async function fetchRows() {
+    const p = path;
+    const seq = ++rowsSeq;
+    const from = Math.max(0, Math.floor((listEl?.scrollTop ?? 0) / ROW) - 10);
+    try {
+      const r = await invoke("go_games", { path: p, from, n: Math.ceil(height / ROW) + 20 });
+      // An answer to an older scroll, or about the file before: a newer one is on its way.
+      if (p !== path || seq !== rowsSeq) return;
+      rows = r.games;
+      first = from;
+      progress = r.progress;
+      if (r.progress.error) error = r.progress.error;
+      if (r.progress.done && r.progress.games === 1 && !game && !ui.goAt) openGame(0);
+    } catch (e) {
+      if (seq === rowsSeq) error = String(e);
+    }
+  }
+
   // A new file: its games as they are read, and a game of its own at once when it has only one.
   $effect(() => {
-    const p = path;
-    let timer = 0;
-    // This run of the effect only: a late answer after the view moved on is dropped.
-    let alive = true;
+    void path;
     untrack(() => {
       game = null;
       pos = null;
       error = "";
       cursor = 0;
-      games = [];
+      rows = [];
+      first = 0;
       progress = null;
-      const more = () =>
-        invoke("go_games", { path: p, from: games.length }).then(
-          (r) => {
-            if (!alive) return;
-            if (r.games.length) games = games.concat(r.games);
-            progress = r.progress;
-            if (r.progress.error) error = r.progress.error;
-            const all = r.progress.done && games.length >= r.progress.games;
-            if (all && games.length === 1 && !game && !ui.goAt) openGame(0);
-            // More listed than taken: at once; else when the file has been read further.
-            if (!all) timer = setTimeout(more, games.length < r.progress.games ? 0 : 300);
-          },
-          (e) => alive && (error = String(e)),
-        );
-      more();
+      if (listEl) listEl.scrollTop = 0;
+      fetchRows();
     });
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
+    const timer = setInterval(() => {
+      if (!progress?.done) fetchRows();
+    }, 500);
+    return () => clearInterval(timer);
   });
+
+  // One request a frame, however many scroll events it brings.
+  let scrollFrame = 0;
+  function onscroll() {
+    if (!scrollFrame) scrollFrame = requestAnimationFrame(() => ((scrollFrame = 0), fetchRows()));
+  }
 
   $effect(() => {
     if (full && listEl) listEl.focus();
@@ -145,7 +161,7 @@
 
   function nextGame(by) {
     const i = game.index + by;
-    if (i >= 0 && i < games.length) openGame(i);
+    if (i >= 0 && i < total) openGame(i);
   }
 
   function onBoardKey(e) {
@@ -153,22 +169,25 @@
     if (map[e.key]) step(map[e.key]);
     else if (e.key === "PageDown") nextGame(1);
     else if (e.key === "PageUp") nextGame(-1);
-    else if (e.key === "Escape" && games.length > 1) back();
+    else if (e.key === "Escape" && total > 1) back();
     else return;
     e.preventDefault();
     e.stopPropagation();
   }
 
   function onListKey(e) {
-    const n = games.length;
+    const n = total;
     const go = (i) => {
       cursor = Math.max(0, Math.min(n - 1, i));
-      listEl.querySelector(`tr[data-i="${cursor}"]`)?.scrollIntoView({ block: "nearest" });
+      const top = cursor * ROW;
+      if (top < listEl.scrollTop) listEl.scrollTop = top;
+      else if (top + ROW > listEl.scrollTop + listEl.clientHeight - ROW) listEl.scrollTop = top + 2 * ROW - listEl.clientHeight;
     };
+    const page = Math.max(1, Math.floor(height / ROW) - 2);
     if (e.key === "ArrowDown") go(cursor + 1);
     else if (e.key === "ArrowUp") go(cursor - 1);
-    else if (e.key === "PageDown") go(cursor + 20);
-    else if (e.key === "PageUp") go(cursor - 20);
+    else if (e.key === "PageDown") go(cursor + page);
+    else if (e.key === "PageUp") go(cursor - page);
     else if (e.key === "Home") go(0);
     else if (e.key === "End") go(n - 1);
     else if (e.key === "Enter" && n) openGame(cursor);
@@ -229,7 +248,7 @@
           {/each}
         </svg>
         <div class="bar">
-          {#if games.length > 1}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
+          {#if total > 1}<button title={t("chess.back_tip")} onclick={back}>{t("chess.back")}</button>{/if}
           <button class="icon" title={t("chess.start_tip")} aria-label={t("chess.start_tip")} onclick={() => step("start")}>|◀</button>
           <button class="icon" title={t("chess.prev_tip")} aria-label={t("chess.prev_tip")} onclick={() => step("prev")}>◀</button>
           <button class="icon" title={t("chess.next_tip")} aria-label={t("chess.next_tip")} onclick={() => step("next")}>▶</button>
@@ -241,7 +260,7 @@
         {#if info.black || info.white || info.result}<p class="players"><b>{info.black || info.white ? players(info) : ""}</b> {info.result}</p>{/if}
         <p class="meta">{[info.name, info.event, info.round, info.place, info.date].filter(Boolean).join(" · ")}</p>
         <p class="meta">{[`${t("go.col_size")} ${pos.width === pos.height ? pos.width : `${pos.width}×${pos.height}`}`, info.komi && `${t("go.col_komi")} ${info.komi}`, info.handicap && info.handicap !== "0" && `${t("go.col_handicap")} ${info.handicap}`, info.rules].filter(Boolean).join(" · ")}</p>
-        <p class="meta">{t("chess.game_of", { n: game.index + 1, total: games.length })}</p>
+        <p class="meta">{t("chess.game_of", { n: game.index + 1, total })}</p>
         <p class="now">{pos.text ? `${pos.text}  (${t("go.move_of", { n: pos.number, total: pos.total })})` : t("go.start")}</p>
         <p class="meta">{pos.black_next ? t("chess.black_to_move") : t("chess.white_to_move")}</p>
         <p>{t("go.captures", { black: pos.captures[0], white: pos.captures[1] })}</p>
@@ -261,9 +280,9 @@
     <div class="bar">
       {#if !full}<button class="icon-btn" title={t("chess.window")} onclick={() => (ui.modal = { kind: "go", path })}>{"\u{f065}"}</button>{/if}
     </div>
-    <p class="meta">{t("chess.games", { shown: games.length, total: progress?.games ?? games.length })}{#if progress && !progress.done} · {t("chess.reading", { percent: pct })}{/if}{#if capped} · {t("chess.capped", { n: progress?.games ?? games.length })}{/if}</p>
+    <p class="meta">{t("chess.games", { shown: total, total })}{#if progress && !progress.done} · {t("chess.reading", { percent: pct })}{/if}{#if capped} · {t("chess.capped", { n: total })}{/if}</p>
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div class="list chess-keys" tabindex="0" role="grid" aria-label={basename(path)} bind:this={listEl} onkeydown={onListKey}>
+    <div class="list chess-keys" tabindex="0" role="grid" aria-label={basename(path)} bind:this={listEl} bind:clientHeight={height} {onscroll} onkeydown={onListKey}>
       <table>
         <thead>
           <tr>
@@ -271,8 +290,10 @@
           </tr>
         </thead>
         <tbody>
-          {#each games as g, i (i)}
-            <tr data-i={i} class:cursor={i === cursor} onclick={() => (cursor = i)} ondblclick={() => openGame(i)}>
+          <tr style:height="{first * ROW}px"></tr>
+          {#each rows as g, k (first + k)}
+            {@const i = first + k}
+            <tr class:cursor={i === cursor} onclick={() => (cursor = i)} ondblclick={() => openGame(i)}>
               <td class="n">{g.n}</td>
               <td>{g.black}</td>
               <td>{g.black_rank}</td>
@@ -287,9 +308,10 @@
               <td class="n">{g.moves}</td>
             </tr>
           {/each}
+          <tr style:height="{Math.max(0, total - first - rows.length) * ROW}px"></tr>
         </tbody>
       </table>
-      {#if loaded && !games.length}<p class="meta">{t("go.no_games")}</p>{/if}
+      {#if loaded && !total}<p class="meta">{t("go.no_games")}</p>{/if}
     </div>
     <p class="meta keys">{t("go.keys_list_gui")}</p>
   {/if}

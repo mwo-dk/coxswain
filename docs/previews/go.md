@@ -42,8 +42,8 @@ move*. **F1** → *Features* → *Go games* has the keys and the questions below
 A file of more than one game opens on its list; a file of one game opens on its board at once.
 The list fills while the file is read, game by game, never the whole file at once: the line
 above it says *Games: 1,234 of 1,234 · reading, 40 %* until it is done, and you can open a game
-before then. The desktop app adds the rows 2,000 at a time, so there the first number can trail
-the second for a moment (*Games: 4,000 of 100,000*).
+before then. Both apps draw only the rows in view and fetch the next ones as you scroll, so a
+list of 100,000 games opens and scrolls as quickly as one of ten.
 
 | Column | What it shows |
 |---|---|
@@ -171,7 +171,7 @@ charset the file names. See [Files it reads](#files-it-reads).
 
 Any size: the list is read as the file streams by, one game at a time, and fills while you look
 (*reading, … %* above it). The memory it takes grows with the list, not with the file; the first
-100,000 games are listed. Opening a game reads only that game, from where it starts.
+100,000 games are listed, and only the rows in view are drawn, so scrolling stays smooth. Opening a game reads only that game, from where it starts.
 
 #### Why are the names in a Chinese, Japanese or Korean file garbled?
 

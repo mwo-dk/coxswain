@@ -1,0 +1,1 @@
+| **A Go collection of 100,000 games scrolls smoothly in the desktop app.** The list draws only the rows in view and fetches the next ones as you scroll, as the chess table does, no longer every row it has read; the keys, the cursor and opening a game work as before. | [Go](previews/go.md#the-list-of-games) |
