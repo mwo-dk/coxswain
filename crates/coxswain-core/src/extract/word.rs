@@ -143,14 +143,15 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
     let whole = out.whole();
     let mut room = if whole { WHOLE_XML } else { MAX_XML };
     // The styles first, to know which of them hide their text.
-    let mut styles = Styles {
-        until: Some(std::time::Instant::now() + TIME),
-        ..Styles::default()
-    };
+    // Read for `TIME` at most, the sink's time not counted (`Text::late`).
+    out.until = Some(std::time::Instant::now() + TIME);
+    let mut styles = Styles::default();
     for (name, format) in [("word/styles.xml", &WORD), ("styles.xml", &OPEN)] {
         // What a broken part defined is forgotten, as if it had not been read.
         let before = (styles.by.clone(), styles.paragraph.clone(), styles.all);
-        if let Some(read) = stream(&mut zip, name, room, |xml| read(xml, format, &mut super::Text::new(), &mut styles)) {
+        let mut none = super::Text::new();
+        none.until = out.until;
+        if let Some(read) = stream(&mut zip, name, room, |xml| read(xml, format, &mut none, &mut styles)) {
             room -= read;
         } else {
             (styles.by, styles.paragraph, styles.all) = before;
@@ -164,7 +165,7 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
         // gives what it gave until then. Else held until the part is whole.
         let direct = whole && name != "styles.xml";
         let mut text = super::Text::new();
-        text.waited = out.waited;
+        (text.waited, text.until) = (out.waited, out.until);
         let onto = if direct { &mut *out } else { &mut text };
         let Some(read) = stream(&mut zip, name, room, |xml| match format {
             Some(format) => read(xml, format, onto, &mut styles),
@@ -176,6 +177,7 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
             continue;
         };
         room -= read;
+        out.late |= text.late;
         let mut text = text.end();
         // The styles of an OpenDocument file hold a header and a footer for every kind of page,
         // used or not, and a watermark is in all ten of them: each line of them once.
@@ -246,8 +248,6 @@ struct Styles {
     /// Word's paragraph style for paragraphs that name none, and its defaults for all text.
     paragraph: Option<String>,
     all: Option<bool>,
-    /// When reading stops (`TIME` after it started); never, when `None`.
-    until: Option<std::time::Instant>,
 }
 
 impl Styles {
@@ -313,7 +313,7 @@ fn read(xml: impl std::io::BufRead, format: &Format, out: &mut super::Text, styl
             check = work + (1 << 16);
             // The time the text's sink took is not reading: the model working on the passages
             // of a document kept whole would cut it off at `TIME`.
-            if styles.until.is_some_and(|u| std::time::Instant::now() >= u + out.waited) {
+            if out.late() {
                 break;
             }
         }
@@ -1075,12 +1075,10 @@ mod tests {
     fn a_document_of_runs_never_closed_is_read_within_its_time() {
         let n = 200_000;
         let xml = format!("<w:p>{}<w:t>{}</w:t></w:p>", "<w:r>".repeat(n), "x<b/>".repeat(n));
-        let mut styles = Styles {
-            until: Some(std::time::Instant::now() + std::time::Duration::from_secs(1)),
-            ..Styles::default()
-        };
+        let mut out = crate::extract::Text::new();
+        out.until = Some(std::time::Instant::now() + std::time::Duration::from_secs(1));
         let began = std::time::Instant::now();
-        read(xml.as_bytes(), &WORD, &mut crate::extract::Text::new(), &mut styles);
+        read(xml.as_bytes(), &WORD, &mut out, &mut Styles::default());
         assert!(began.elapsed() < crate::test_limit(std::time::Duration::from_secs(10)), "{:?}", began.elapsed());
     }
 
@@ -1096,10 +1094,6 @@ mod tests {
         let began = std::time::Instant::now();
         read(xml.as_bytes(), &WORD, &mut crate::extract::Text::to(&mut |_: &str| {}), &mut Styles::default());
         let time = began.elapsed() * 2 + std::time::Duration::from_millis(200);
-        let mut styles = Styles {
-            until: Some(std::time::Instant::now() + time),
-            ..Styles::default()
-        };
         let (mut lines, mut first) = (0, true);
         let mut sink = |chunk: &str| {
             if std::mem::take(&mut first) {
@@ -1108,7 +1102,9 @@ mod tests {
             lines += chunk.lines().filter(|l| l.starts_with("Report")).count();
         };
         let mut out = crate::extract::Text::to(&mut sink);
-        read(xml.as_bytes(), &WORD, &mut out, &mut styles);
+        out.until = Some(std::time::Instant::now() + time);
+        read(xml.as_bytes(), &WORD, &mut out, &mut Styles::default());
+        assert!(!out.late);
         out.end();
         assert_eq!(lines, n);
     }
