@@ -895,7 +895,9 @@ impl Viewer {
             _ if action == Some(Action::LineHistory) && self.git.is_some() => {
                 let row = self.found.unwrap_or(self.top);
                 let line = self.rows_at(row, row + 1).first().map_or(row, |r| r.0);
-                let text = std::fs::read(&self.path).map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+                // A file too big to blame is followed by its lines alone.
+                let small = std::fs::metadata(&self.path).is_ok_and(|m| m.len() <= 32 << 20);
+                let text = small.then(|| std::fs::read(&self.path).ok()).flatten().map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
                 let path = self.path.clone();
                 self.said = self.git.as_mut().map(|g| g.trace(&path, text, line, line));
             }

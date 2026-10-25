@@ -546,6 +546,8 @@ async fn git_line_history(path: PathBuf, text: Option<String>, line: usize, to: 
     tauri::async_runtime::spawn_blocking(move || {
         let text = match text {
             Some(t) => t,
+            // A file too big to blame is followed by its lines alone.
+            None if std::fs::metadata(&path).is_ok_and(|m| m.len() > 32 << 20) => String::new(),
             None => String::from_utf8_lossy(&std::fs::read(&path).map_err(|e| e.to_string())?).into_owned(),
         };
         coxswain_core::blame::line_history(&path, &text, line, to, &stop).map_err(|e| e.to_string())
