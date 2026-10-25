@@ -2478,6 +2478,7 @@
  "history.no_repo": "לא במאגר git: אין כאן היסטוריה",
  "history.not_here": "היסטוריה קיימת לקבצים ולתיקיות של עץ עבודה של git בדיסק",
  "history.not_in_commit": "{path} אינו ב־commit {rev}",
+ "history.diff_cut": "קוצר: ה־commit הזה שינה יותר ממה ש־Coxswain מציג ב־diff אחד.",
  "history.older": "ישן יותר",
  "history.open": "ההיסטוריה של {name}",
  "history.pick_commit": "בחרו קודם commit",

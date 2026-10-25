@@ -2420,6 +2420,7 @@
  "history.no_repo": "git-ის რეპოზიტორიაში არ ხართ: აქ ისტორია არ არის",
  "history.not_here": "ისტორია დისკზე არსებული git-ის სამუშაო ხის ფაილებისა და საქაღალდეებისთვისაა",
  "history.not_in_commit": "{path} კომიტში {rev} არ არის",
+ "history.diff_cut": "შემოკლებულია: ამ კომიტმა იმაზე მეტი შეცვალა, ვიდრე Coxswain ერთ diff-ში აჩვენებს.",
  "history.older": "უფრო ძველი",
  "history.open": "ისტორია: {name}",
  "history.pick_commit": "ჯერ აირჩიეთ კომიტი",

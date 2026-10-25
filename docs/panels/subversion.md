@@ -111,7 +111,10 @@ when you look:
 - **Copied out** files get the revision's date. Links and the executable bit come out as plain
   files; `svn:externals` are not followed, so no other repository is asked. A `.git`, `.hg` or
   `.jj` folder in the repository is never copied out, so no repository (with its hooks) is made
-  in your folder. A file over 1 GB is refused.
+  in your folder. Each file is written as it comes. A file over 1 GB, or one the server stops
+  sending part way, is refused, and nothing of that copy is left. Before a drag, the server's
+  list gives the sizes, so a folder too large to drag is refused
+  ([Drag and drop](../files/drag-and-drop.md)).
 - **Slow:** each step has 30 seconds; a copy out of a large folder runs `svn cat` once per file.
 - **Only reads:** nothing is committed, switched or updated; the working copy is not touched.
 

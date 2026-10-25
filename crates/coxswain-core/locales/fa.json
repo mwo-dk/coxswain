@@ -2420,6 +2420,7 @@
  "history.no_repo": "درون یک مخزن git نیستید: اینجا تاریخچه‌ای نیست",
  "history.not_here": "تاریخچه برای فایل‌ها و پوشه‌های یک درخت کاری git روی دیسک است",
  "history.not_in_commit": "{path} در کامیت {rev} نیست",
+ "history.diff_cut": "کوتاه شد: این کامیت بیش از آنچه Coxswain در یک diff نشان می‌دهد تغییر داد.",
  "history.older": "قدیمی‌تر",
  "history.open": "تاریخچه‌ی {name}",
  "history.pick_commit": "اول یک کامیت انتخاب کنید",

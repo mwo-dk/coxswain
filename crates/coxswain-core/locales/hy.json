@@ -2420,6 +2420,7 @@
  "history.no_repo": "Git պահոցում չէ․ այստեղ պատմություն չկա",
  "history.not_here": "Պատմությունը սկավառակի վրա գտնվող git աշխատանքային ծառի ֆայլերի և թղթապանակների համար է",
  "history.not_in_commit": "{path}-ը {rev} commit-ում չկա",
+ "history.diff_cut": "Կրճատված է. այս commit-ը փոխել է ավելին, քան Coxswain-ը ցույց է տալիս մեկ diff-ում։",
  "history.older": "ավելի հին",
  "history.open": "{name}-ի պատմությունը",
  "history.pick_commit": "Նախ ընտրեք commit",

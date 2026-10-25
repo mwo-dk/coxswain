@@ -2428,6 +2428,7 @@
  "history.no_repo": "Nicht in einem Git-Repository: hier gibt es keinen Verlauf",
  "history.not_here": "Einen Verlauf haben Dateien und Ordner eines Git-Arbeitsverzeichnisses auf der Platte",
  "history.not_in_commit": "{path} ist nicht in Commit {rev}",
+ "history.diff_cut": "Gekürzt: Dieser Commit hat mehr geändert, als Coxswain in einem Diff zeigt.",
  "history.older": "älter",
  "history.open": "Verlauf von {name}",
  "history.pick_commit": "Wähle zuerst einen Commit",

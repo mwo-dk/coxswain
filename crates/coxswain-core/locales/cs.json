@@ -2478,6 +2478,7 @@
  "history.no_repo": "Není v repozitáři gitu: žádná historie tu není",
  "history.not_here": "Historie je pro soubory a složky pracovního stromu gitu na disku",
  "history.not_in_commit": "{path} v commitu {rev} není",
+ "history.diff_cut": "Zkráceno: tento commit změnil víc, než Coxswain ukáže v jednom diffu.",
  "history.older": "starší",
  "history.open": "Historie {name}",
  "history.pick_commit": "Nejdřív vyberte commit",

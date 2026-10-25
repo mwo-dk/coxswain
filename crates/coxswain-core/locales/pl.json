@@ -2528,6 +2528,7 @@
  "history.no_repo": "To nie jest repozytorium git: nie ma tu historii",
  "history.not_here": "Historia dotyczy plików i folderów drzewa roboczego git na dysku",
  "history.not_in_commit": "{path} nie ma w commicie {rev}",
+ "history.diff_cut": "Skrócono: ten commit zmienił więcej, niż Coxswain pokazuje w jednym diffie.",
  "history.older": "dawniej",
  "history.open": "Historia {name}",
  "history.pick_commit": "Najpierw wybierz commit",

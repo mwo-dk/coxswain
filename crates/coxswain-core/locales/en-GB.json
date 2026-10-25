@@ -2428,6 +2428,7 @@
  "history.no_repo": "Not in a git repository: there is no history here",
  "history.not_here": "History is for the files and folders of a git work tree on disk",
  "history.not_in_commit": "{path} is not in commit {rev}",
+ "history.diff_cut": "Cut short: this commit changed more than Coxswain shows in one diff.",
  "history.older": "older",
  "history.open": "History of {name}",
  "history.pick_commit": "Pick a commit first",
