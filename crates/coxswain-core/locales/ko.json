@@ -913,7 +913,7 @@
  "disk_image.partition": "파티션 {n}",
  "disk_image.partition_value": "{kind}, {size}, 시작 {start}",
  "disk_image.raw": "raw 디스크 이미지",
- "disk_image.read_only": "읽기 전용: Coxswain은 디스크 이미지, CHM 도움말 파일, CBR 만화, 메일함, 컨테이너 이미지에 쓰지 않습니다. 대신 파일을 밖으로 복사하세요.",
+ "disk_image.read_only": "읽기 전용: Coxswain은 디스크 이미지, CHM 도움말 파일, CBR 만화, 메일함, 컨테이너 이미지, 분할된 7z에 쓰지 않습니다. 대신 파일을 밖으로 복사하세요.",
  "drag.too_much": "끌어서 꺼내기에는 너무 많습니다 (200 MB 또는 파일 2,000개 초과) — F5로 꺼내어 복사하세요",
  "drag.locked": "암호로 잠겨 있습니다 — F5로 꺼내어 복사하면 암호를 묻습니다",
  "drag.again": "끌기 위해 꺼내 두었습니다 — 다시 끌어 주세요",
@@ -1147,6 +1147,8 @@
  "facts.mono": "모노",
  "facts.other_cpu": "기타 CPU",
  "facts.pages": "페이지",
+ "facts.part": "분할",
+ "facts.part_of": "분할된 7z의 {n}번째 부분: {first}에서 엽니다",
  "facts.palette": {
   "other": "팔레트의 {n}색"
  },

@@ -609,7 +609,7 @@ pub fn family(ext: &str) -> Family {
             &[
                 "zip", "gz", "tgz", "xz", "txz", "zst", "7z", "rar", "tar", "bz2", "tbz", "lz",
                 "lz4", "lzma", "cab", "jar", "war", "apk", "whl", "crate", "nupkg", "tbz2", "tzst",
-                "vsix",
+                "vsix", "001",
             ],
         ),
         (

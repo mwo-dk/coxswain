@@ -58,6 +58,8 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".tzst", Kind::Tar(Pack::Zst)),
     (".tar", Kind::Tar(Pack::None)),
     (".7z", Kind::SevenZ),
+    // The first part of a 7z split into parts: the parts are read joined, never written.
+    (".7z.001", Kind::SevenZ),
     (".zip", Kind::Zip),
     (".jar", Kind::Zip),
     (".apk", Kind::Zip),
@@ -114,7 +116,89 @@ pub fn opens(path: &Path) -> bool {
 
 /// `archive` is opened like a folder read-only: a disk image, a mailbox or a container image.
 pub fn read_only(archive: &Path) -> bool {
-    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image))
+    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image)) || in_parts(archive)
+}
+
+/// `name` is the first part of a 7z split into parts by 7-Zip (`x.7z.001`; `.002` … next to it).
+fn in_parts(name: &Path) -> bool {
+    name.to_string_lossy().to_ascii_lowercase().ends_with(".7z.001")
+}
+
+/// The number of a later part of a 7z split into parts (`x.7z.002`: 2), and the name of its
+/// first part (`x.7z.001`); `None` for any other name, the first part's too.
+pub fn part_of(name: &str) -> Option<(u32, String)> {
+    let (first, n) = name.rsplit_once('.')?;
+    if n.len() < 3 || !n.bytes().all(|b| b.is_ascii_digit()) || !first.to_ascii_lowercase().ends_with(".7z") {
+        return None;
+    }
+    let n: u32 = n.parse().ok()?;
+    (n > 1).then(|| (n, format!("{first}.{:0w$}", 1, w = 3)))
+}
+
+/// The name of part `n` of the 7z split into parts whose first part is `first` (`x.7z.001`).
+fn part_name(first: &str, n: u32) -> String {
+    format!("{}{n:03}", &first[..first.len() - 3])
+}
+
+/// The files of a 7z read as one: `x.7z` alone, or every part of one split into parts, from
+/// its first, `x.7z.001`, to the last of `x.7z.002` … that is there.
+struct Joined {
+    /// Each part, and where in the whole it starts.
+    parts: Vec<(File, u64)>,
+    len: u64,
+    at: u64,
+}
+
+impl Joined {
+    fn open(path: &Path) -> io::Result<Joined> {
+        let mut paths = vec![path.to_path_buf()];
+        if in_parts(path) {
+            let first = path.to_string_lossy().into_owned();
+            for n in 2..=999 {
+                let p = PathBuf::from(part_name(&first, n));
+                if !p.is_file() {
+                    break;
+                }
+                paths.push(p);
+            }
+        }
+        let (mut parts, mut len) = (vec![], 0);
+        for p in paths {
+            let f = File::open(p)?;
+            let size = f.metadata()?.len();
+            parts.push((f, len));
+            len += size;
+        }
+        Ok(Joined { parts, len, at: 0 })
+    }
+}
+
+impl Read for Joined {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let i = self.parts.partition_point(|(_, start)| *start <= self.at).saturating_sub(1);
+        let end = self.parts.get(i + 1).map_or(self.len, |(_, s)| *s);
+        if self.at >= end || buf.is_empty() {
+            return Ok(0);
+        }
+        let (f, start) = &mut self.parts[i];
+        f.seek(io::SeekFrom::Start(self.at - *start))?;
+        let want = buf.len().min(usize::try_from(end - self.at).unwrap_or(usize::MAX));
+        let n = f.read(&mut buf[..want])?;
+        self.at += n as u64;
+        Ok(n)
+    }
+}
+
+impl Seek for Joined {
+    fn seek(&mut self, to: io::SeekFrom) -> io::Result<u64> {
+        let at = match to {
+            io::SeekFrom::Start(n) => Some(n),
+            io::SeekFrom::End(d) => self.len.checked_add_signed(d),
+            io::SeekFrom::Current(d) => self.at.checked_add_signed(d),
+        };
+        self.at = at.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "a seek before the start"))?;
+        Ok(self.at)
+    }
 }
 
 /// `archive` is a container image (`container_image`).
@@ -503,9 +587,9 @@ fn copy_error(err: io::Error, noting: &Noting, locked: bool) -> io::Error {
 }
 
 /// A 7z, opened with `password` (none: an empty one).
-fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::ArchiveReader<File>> {
+fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::ArchiveReader<Joined>> {
     let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
-    let mut file = File::open(path)?;
+    let mut file = Joined::open(path)?;
     let size = seven_header_size(&mut file)?;
     if size > SEVEN_HEADER_MAX {
         return Err(io::Error::other(
@@ -523,13 +607,14 @@ fn seven(path: &Path, password: Option<&str>) -> io::Result<sevenz_rust2::Archiv
 /// The most a 7z's packed list of contents may unpack to: it is unpacked whole, into memory,
 /// before anything is read, so a few bytes that unpack to gigabytes would take as much.
 /// The crate also makes room for every file the list names before reading them, over a
-/// hundred bytes each, however few bytes the list gives each: 16 MB still lets a real one name
-/// well over 100,000 files.
-const SEVEN_HEADER_MAX: u64 = 16 << 20;
+/// hundred bytes each, however few bytes the list gives each. 128 MB lets a real one name about
+/// two million files (a collection of Go games in one 7z names 900,000 in 61 MB, and takes
+/// about 600 MB of memory to list).
+const SEVEN_HEADER_MAX: u64 = 128 << 20;
 
 /// What a 7z's packed list of contents (its encoded header) says it unpacks to, the largest of
 /// its streams; 0 when it is not packed. Read from the archive's own bytes, before opening it.
-fn seven_header_size(file: &mut File) -> io::Result<u64> {
+fn seven_header_size(file: &mut (impl Read + Seek)) -> io::Result<u64> {
     let bad = || io::Error::new(io::ErrorKind::InvalidData, "a broken 7z header");
     let mut start = [0u8; 32];
     if file.read(&mut start)? < 32 || start[..6] != *b"7z\xBC\xAF\x27\x1C" {
@@ -993,10 +1078,14 @@ fn spilled(archive: &Path, name: &str) -> io::Result<PathBuf> {
 
 /// `spilled`'s copy, made: what the archive claims is looked at first.
 fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
-    let claimed = items(archive)?
-        .iter()
-        .find(|it| it.name == name && !it.dir)
-        .map_or(0, |it| it.size);
+    let all = items(archive)?;
+    let size_of = |n: &str| all.iter().find(|it| it.name == n && !it.dir).map(|it| it.size);
+    // A 7z split into parts is copied with all its parts there, next to each other.
+    let mut names = vec![name.to_string()];
+    if in_parts(Path::new(name)) {
+        names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| size_of(n).is_some()));
+    }
+    let claimed: u64 = names.iter().map(|n| size_of(n).unwrap_or(0)).sum();
     if claimed > NESTED_MAX {
         return Err(too_large(name));
     }
@@ -1007,19 +1096,26 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
     );
     let _ = std::fs::remove_dir_all(&dir);
     crate::fs::private_dir(&dir)?;
-    let copy = dir.join(name.rsplit('/').next().unwrap_or("archive"));
-    let made = copy_out_with(
-        archive,
-        name,
-        &copy,
-        password_for(archive, None).as_deref(),
-        Copy {
-            limit: NESTED_MAX,
-            ..Copy::default()
-        },
-    );
-    let size = match made.and_then(|()| std::fs::metadata(&copy)) {
-        Ok(m) => m.len(),
+    let base_name = |n: &str| dir.join(n.rsplit('/').next().unwrap_or("archive"));
+    let copy = base_name(name);
+    let mut left = NESTED_MAX;
+    let made = names.iter().try_fold(0, |size, n| {
+        copy_out_with(
+            archive,
+            n,
+            &base_name(n),
+            password_for(archive, None).as_deref(),
+            Copy {
+                limit: left,
+                ..Copy::default()
+            },
+        )?;
+        let m = std::fs::metadata(base_name(n))?.len();
+        left = left.saturating_sub(m);
+        Ok::<_, io::Error>(size + m)
+    });
+    let size = match made {
+        Ok(m) => m,
         Err(e) => {
             let _ = std::fs::remove_dir_all(&dir);
             return Err(e);
@@ -1282,6 +1378,16 @@ pub(crate) const SEARCH_ENTRIES: usize = 50_000;
 /// A compressed tar or a 7z is unpacked from its start to be read, a compressed tar even to be
 /// listed: larger ones are found by their own name only.
 pub(crate) const SEARCH_UNPACK: u64 = 256 << 20;
+/// The most a 7z's list of contents unpacks to for search to look into it: what it reads stays
+/// small in memory. A 7z split into parts is found by its own name only.
+const SEARCH_SEVEN_HEADER: u64 = 16 << 20;
+
+fn search_skips_seven(archive: &Path) -> bool {
+    in_parts(archive)
+        || Joined::open(archive)
+            .and_then(|mut f| seven_header_size(&mut f))
+            .map_or(true, |h| h > SEARCH_SEVEN_HEADER)
+}
 /// The most bytes read out of one archive for its files' text.
 pub(crate) const SEARCH_READ: u64 = 128 << 20;
 
@@ -1329,6 +1435,9 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     }
     // A container image is found by its own name: its blobs are no files of its own.
     if k == Kind::Tar(Pack::None) && crate::container_image::is_image(archive) {
+        return None;
+    }
+    if k == Kind::SevenZ && search_skips_seven(archive) {
         return None;
     }
     // Never a password given in this run: what search knows is what anyone sees.
@@ -1387,6 +1496,9 @@ pub(crate) fn search_read(
             }
         }
         Kind::SevenZ => {
+            if search_skips_seven(archive) {
+                return Ok(());
+            }
             let mut r = seven(archive, None)?;
             if seven_locked(r.archive()) {
                 return Ok(());
@@ -1612,6 +1724,11 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
             io::ErrorKind::InvalidInput,
             crate::t!("err.is_folder", "name" => inner),
         ));
+    }
+    // The first part of a 7z split into parts: looked at with all its parts beside it, from
+    // the copy opening it makes (`spilled`).
+    if in_parts(Path::new(&inner)) {
+        return spilled(&archive, &inner);
     }
     if it.size > PEEK_MAX {
         return Err(too_large(&inner));
@@ -1973,7 +2090,9 @@ fn copy_entries(
         let mut r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
         let mut failed = None;
-        r.for_each_entries(|e, from| {
+        let mut each = |e: &sevenz_rust2::ArchiveEntry,
+                        from: &mut dyn Read|
+         -> Result<bool, sevenz_rust2::Error> {
             let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
             // Read past, not skipped: in a solid 7z the next entry comes from the same stream.
             let Some(path) = place(&name) else {
@@ -2002,7 +2121,24 @@ fn copy_entries(
             }
             // The one file asked for is out: nothing after it is unpacked.
             Ok(e.is_directory || name != inner)
-        })
+        };
+        // One file: only its own block is unpacked, not those before it (a 7z in many blocks).
+        let a = r.archive();
+        let one = a
+            .files
+            .iter()
+            .position(|f| !f.is_directory && f.name.replace('\\', "/") == inner);
+        match one.map(|i| (i, a.stream_map.file_block_index[i])) {
+            Some((_, Some(b))) => {
+                let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
+                sevenz_rust2::BlockDecoder::new(1, b, a, &pw, &mut Joined::open(archive)?)
+                    .for_each_entries(&mut each)
+                    .map(drop)
+            }
+            // An empty file is in no block.
+            Some((i, None)) => each(&a.files[i], &mut io::empty()).map(drop),
+            None => r.for_each_entries(each),
+        }
         .map_err(seven_error)?;
         if let Some(err) = failed {
             return Err(err);
@@ -2225,7 +2361,7 @@ fn rewrite(
     hide_names: bool,
 ) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    if matches!(k, Kind::Disk | Kind::Mbox) {
+    if matches!(k, Kind::Disk | Kind::Mbox) || in_parts(archive) {
         return Err(crate::disk_image::read_only());
     }
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
@@ -4130,7 +4266,7 @@ mod tests {
             1 << 31
         );
         let err = list(&p, 10).unwrap_err().to_string();
-        assert!(err.contains("2048") && err.contains("16 MB"), "{err}");
+        assert!(err.contains("2048") && err.contains("128 MB"), "{err}");
         assert!(peek(&p.join("a.txt")).is_err() && search_entries(&p, bomb.len() as u64).is_none());
         // Real ones, their headers packed, and locked with their names: read as before.
         for i in 0..200 {
@@ -4201,6 +4337,68 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["b.txt", "c.txt"]
         );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_7z_split_into_parts_opens_from_its_first_part_read_only() {
+        let d = crate::pictures::tests::folder("parts");
+        let names = ["a.sgf", "b.sgf", "c.sgf"];
+        let whole = d.join("whole.7z");
+        let mut w = sevenz_rust2::ArchiveWriter::create(&whole).unwrap();
+        let text = |n: &str| format!("(;GM[1]SZ[19]C[{n}]{})", ";B[pd];W[dp]".repeat(400));
+        let entries = names.iter().map(|n| {
+            let mut e = sevenz_rust2::ArchiveEntry::new_file(n);
+            e.size = text(n).len() as u64;
+            e
+        });
+        let readers = names
+            .iter()
+            .map(|n| sevenz_rust2::SourceReader::new(std::io::Cursor::new(text(n).into_bytes())))
+            .collect();
+        w.push_archive_entries(entries.collect(), readers).unwrap();
+        w.finish().unwrap();
+        // Cut as 7-Zip cuts it: bytes in turn, the header at the end of the last part.
+        let bytes = std::fs::read(&whole).unwrap();
+        let cut = bytes.len().div_ceil(3);
+        let parts = d.join("parts");
+        std::fs::create_dir_all(&parts).unwrap();
+        for (i, c) in bytes.chunks(cut).enumerate() {
+            std::fs::write(parts.join(format!("go.7z.{:03}", i + 1)), c).unwrap();
+        }
+        let first = parts.join("go.7z.001");
+        assert!(opens(&first) && is_archive(&first) && read_only(&first) && !read_only(&whole));
+        assert!(!opens(&parts.join("go.7z.002")));
+        let facts = crate::facts::of(&parts.join("go.7z.002")).unwrap();
+        assert!(facts[0].1.contains("go.7z.001") && facts[0].1.starts_with('2'), "{facts:?}");
+        assert_eq!(part_of("go.7z.003"), Some((3, "go.7z.001".into())));
+        assert_eq!((part_of("go.7z.001"), part_of("go.7z"), part_of("x.zip.002")), (None, None, None));
+        let listed = |dir: &Path| -> Vec<String> {
+            crate::fs::list(dir, true).unwrap().into_iter().map(|e| e.name).collect()
+        };
+        assert_eq!(listed(&first), ["..", "a.sgf", "b.sgf", "c.sgf"]);
+        assert_eq!(std::fs::read_to_string(peek(&first.join("c.sgf")).unwrap()).unwrap(), text("c.sgf"));
+        let out = extract(&first, &d).unwrap();
+        assert_eq!((out.file_name().unwrap(), std::fs::read_to_string(out.join("a.sgf")).unwrap()), ("go".as_ref(), text("a.sgf")));
+        // Nothing is written into it.
+        assert!(search_entries(&first, cut as u64).is_none() && search_entries(&whole, 1).is_some());
+        assert!(add(&first, &[("x.sgf".into(), whole.clone())], None).is_err());
+        assert!(remove(&first, &["a.sgf".into()], None).is_err());
+        assert!(crate::fs::copy(&whole, &first).is_err());
+        assert_eq!(std::fs::read(&first).unwrap(), bytes[..cut]);
+        // Inside another archive, with all its parts copied out next to each other.
+        let outer = d.join("outer.zip");
+        create(&outer, std::slice::from_ref(&parts)).unwrap();
+        let inside = outer.join("parts").join("go.7z.001");
+        assert!(opens_inside(&inside));
+        assert_eq!(listed(&inside), ["..", "a.sgf", "b.sgf", "c.sgf"]);
+        // Its preview lists it, all its parts there.
+        assert_eq!(list(&peek(&inside).unwrap(), 10).unwrap().0.len(), 3);
+        assert_eq!(std::fs::read_to_string(peek(&inside.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
+        // A part missing: it fails, never reads past it.
+        std::fs::remove_file(parts.join("go.7z.003")).unwrap();
+        uncache(&first);
+        assert!(crate::fs::list(&first, true).is_err());
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -4430,3 +4628,4 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
     }
 }
+

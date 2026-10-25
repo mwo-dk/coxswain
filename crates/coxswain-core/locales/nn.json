@@ -942,7 +942,7 @@
  "disk_image.partition": "Partisjon {n}",
  "disk_image.partition_value": "{kind}, {size}, frå {start}",
  "disk_image.raw": "Rått diskbilete",
- "disk_image.read_only": "Skriveverna: Coxswain skriv aldri i eit diskbilete, ei CHM-hjelpefil, ein CBR-teikneserie, ei postkasse eller eit containerbilete. Kopier heller filene ut.",
+ "disk_image.read_only": "Skriveverna: Coxswain skriv aldri i eit diskbilete, ei CHM-hjelpefil, ein CBR-teikneserie, ei postkasse, eit containerbilete eller ei 7z delt i delar. Kopier heller filene ut.",
  "drag.too_much": "For mykje å pakke ut for eit drag (over 200 MB eller 2 000 filer) — F5 kopierer det ut",
  "drag.locked": "Låst med passord — F5 kopierer det ut og spør om passordet",
  "drag.again": "Kopiert ut for draget — dra det att",
@@ -1194,6 +1194,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "anna CPU",
  "facts.pages": "Sider",
+ "facts.part": "Del",
+ "facts.part_of": "{n} av ei 7z delt i delar: ho blir opna frå {first}",
  "facts.palette": {
   "one": "{n} farge frå ein palett",
   "other": "{n} fargar frå ein palett"

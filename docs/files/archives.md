@@ -67,6 +67,7 @@ program is needed.
 | Tar with xz | `.tar.xz`, `.txz` | yes | yes | none |
 | Tar with zstd | `.tar.zst`, `.tzst` | yes | yes | none |
 | 7z | `.7z` | yes | yes (LZMA2) | AES to read and when packing; also locked file names |
+| 7z split into parts | `.7z.001`, with `.002`, `.003` … beside it | yes: the parts read as one | no: read-only | as a 7z |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 | Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
@@ -164,8 +165,8 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **An archive inside an archive** opens like the outer one: **Enter** on `mid.zip` inside
   `outer.zip` shows its files, and so on, eight archives deep. Each inner archive is copied once
   into the cache folder (`coxswain/nested/`, readable by you alone) and looked into there, so it
-  takes disk space as large as it unpacks to (16 GB at most, counted as it comes out), never
-  memory. It is **read-only**: the badge (desktop app) and the panel title (terminal app) say
+  takes disk space as large as it unpacks to (512 MB at most, counted as it comes out, and 2 GB
+  for all the copies kept), never memory; a larger one says to copy it out with **F5**. It is **read-only**: the badge (desktop app) and the panel title (terminal app) say
   *Read-only*, and **F6**, **F7**, **F8**, **Shift+F6** and copies into it say on the status line
   that it is an archive inside an archive. Copy it out with **F5** to change it. The copies stay
   while the archive outside them does not change; past eight the oldest goes, and all go when the
@@ -195,6 +196,19 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Changing a locked archive:** in a zip, locked files stay locked, and files you add are
   locked with its password (AES-256). A locked 7z that you change is written anew locked with
   the same password (its names too, when they were), the key made as 7-Zip makes it.
+- **A 7z split into parts** by 7-Zip (`games.7z.001`, `games.7z.002`, …) opens from its first
+  part: **Enter** on `games.7z.001` shows what the whole archive holds, its parts read one after
+  the other, as one file. The other parts stay ordinary files in the list; their facts (under the
+  desktop app's preview; **Alt+Enter** in the terminal app, for parts on disk) say *Part: 2 of a 7z split into
+  parts: it opens from games.7z.001*. It is read-only, as a disk image is: the badge and the
+  panel title say *Read-only*. All its parts must be there, numbered without a gap; with one
+  missing, it does not open. Inside another archive it opens too, its parts copied together into
+  the cache folder (the limits above count them together). Search finds it by its own name only.
+- **A 7z's list of contents** is read whole, into memory, when it is opened: one with a list over
+  128 MB unpacked (about two million files) is not opened, with a message that says how large it
+  is. A 7z of 900,000 small files (a 61 MB list) takes about 600 MB of memory while it is open
+  and a second to list. Search looks only into a 7z whose list is under 16 MB. A file taken out
+  of a 7z made of many blocks is unpacked from its own block, not from the start.
 - **Large compressed tars** are read from the start the first time they are opened, as the
   format has no list of its contents. That list is then kept in the cache folder
   (`coxswain/archive-index/`, by the archive's path, size, date and, on Unix, its inode), so the
@@ -298,6 +312,18 @@ system opens `.rar` files with.
 
 The desktop app tints the pane, marks the archive's name in the path and shows the *archive*
 badge; the terminal app adds `[archive]` to the panel title.
+
+#### Can I open a 7z split into parts (.7z.001, .7z.002)?
+
+Yes: **Enter** on the `.001` file, beside the others or inside another archive. It shows the
+whole archive, read-only. The `.002` and later parts are the same archive: open the first
+([Limits](#limits)).
+
+#### Why does a 7z say its list of contents is too large?
+
+Its list of files unpacks to more than 128 MB, about two million files, and would take gigabytes
+of memory, so Coxswain neither opens nor extracts it. Unpack it with 7-Zip (`7z x`)
+([Limits](#limits)).
 
 #### Can I open an archive inside an archive?
 

@@ -173,6 +173,15 @@ Any size: the list is read as the file streams by, one game at a time, and fills
 (*reading, … %* above it). The memory it takes grows with the list, not with the file; the first
 100,000 games are listed, and only the rows in view are drawn, so scrolling stays smooth. Opening a game reads only that game, from where it starts.
 
+#### Can I look at the games in a 7z of thousands of SGF files?
+
+Yes: **Enter** on the archive opens it like a folder, and each `.sgf` file in it shows on the
+board as on disk, from a copy made when it is looked at: in the desktop app's preview pane, and
+in the terminal app with **F3** or **Alt+K**. That works inside another archive too
+(a zip of 7z files), and for a 7z split into parts (`games.7z.001`, `.002` …), opened from its
+first part. In an archive of 400,000 games, a game shows in under half a second
+([Archives as folders](../files/archives.md#limits)).
+
 #### Why are the names in a Chinese, Japanese or Korean file garbled?
 
 The file is in another charset than it says: Coxswain reads UTF-8 first, then the charset the

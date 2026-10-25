@@ -971,7 +971,7 @@
  "disk_image.partition": "Partició {n}",
  "disk_image.partition_value": "{kind}, {size}, des de {start}",
  "disk_image.raw": "Imatge de disc en brut",
- "disk_image.read_only": "Només de lectura: Coxswain mai no escriu en una imatge de disc, un fitxer d'ajuda CHM, un còmic CBR, una bústia o una imatge de contenidor. Copieu-ne els fitxers a fora.",
+ "disk_image.read_only": "Només de lectura: Coxswain mai no escriu en una imatge de disc, un fitxer d'ajuda CHM, un còmic CBR, una bústia, una imatge de contenidor o un 7z dividit en parts. Copieu-ne els fitxers a fora.",
  "drag.too_much": "Massa per treure-ho en arrossegar (més de 200 MB o 2.000 fitxers) — F5 ho copia a fora",
  "drag.locked": "Bloquejat amb contrasenya — F5 ho copia a fora i demana la contrasenya",
  "drag.again": "Copiat a fora per arrossegar-lo — torneu a arrossegar-lo",
@@ -1241,6 +1241,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "altra CPU",
  "facts.pages": "Pàgines",
+ "facts.part": "Part",
+ "facts.part_of": "{n} d’un 7z dividit en parts: s’obre des de {first}",
  "facts.palette": {
   "many": "{n} de colors d'una paleta",
   "one": "{n} color d'una paleta",

@@ -913,7 +913,7 @@
  "disk_image.partition": "パーティション {n}",
  "disk_image.partition_value": "{kind}、{size}、開始 {start}",
  "disk_image.raw": "raw ディスクイメージ",
- "disk_image.read_only": "読み取り専用: Coxswain はディスクイメージ、CHM ヘルプファイル、CBR コミック、メールボックス、コンテナーイメージに書き込みません。代わりにファイルをコピーして取り出してください。",
+ "disk_image.read_only": "読み取り専用: Coxswain はディスクイメージ、CHM ヘルプファイル、CBR コミック、メールボックス、コンテナーイメージ、分割された 7zに書き込みません。代わりにファイルをコピーして取り出してください。",
  "drag.too_much": "ドラッグで取り出すには多すぎます (200 MB または 2,000 ファイル超) — F5 で取り出してコピーします",
  "drag.locked": "パスワードで保護されています — F5 で取り出してコピーし、パスワードを尋ねます",
  "drag.again": "ドラッグ用に取り出しました — もう一度ドラッグしてください",
@@ -1147,6 +1147,8 @@
  "facts.mono": "モノラル",
  "facts.other_cpu": "その他の CPU",
  "facts.pages": "ページ",
+ "facts.part": "分割",
+ "facts.part_of": "分割された 7z の {n} 番目: {first} から開きます",
  "facts.palette": {
   "other": "パレットの {n} 色"
  },

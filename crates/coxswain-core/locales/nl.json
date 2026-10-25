@@ -942,7 +942,7 @@
  "disk_image.partition": "Partitie {n}",
  "disk_image.partition_value": "{kind}, {size}, vanaf {start}",
  "disk_image.raw": "Ruwe schijfkopie",
- "disk_image.read_only": "Alleen-lezen: Coxswain schrijft nooit in een schijfkopie, een CHM-helpbestand, een CBR-strip, een mailbox of een containerimage. Kopieer de bestanden er in plaats daarvan uit.",
+ "disk_image.read_only": "Alleen-lezen: Coxswain schrijft nooit in een schijfkopie, een CHM-helpbestand, een CBR-strip, een mailbox, een containerimage of een in delen gesplitste 7z. Kopieer de bestanden er in plaats daarvan uit.",
  "drag.too_much": "Te veel om uit te pakken voor een sleep (meer dan 200 MB of 2.000 bestanden) — F5 kopieert het eruit",
  "drag.locked": "Vergrendeld met een wachtwoord — F5 kopieert het eruit en vraagt om het wachtwoord",
  "drag.again": "Eruit gekopieerd om te slepen — sleep het opnieuw",
@@ -1194,6 +1194,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "andere CPU",
  "facts.pages": "Pagina's",
+ "facts.part": "Deel",
+ "facts.part_of": "{n} van een in delen gesplitste 7z: die opent vanaf {first}",
  "facts.palette": {
   "one": "{n} kleur uit een palet",
   "other": "{n} kleuren uit een palet"

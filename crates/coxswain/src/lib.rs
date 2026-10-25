@@ -1892,6 +1892,8 @@ impl App {
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
     fn peek(&mut self, path: PathBuf) {
         match coxswain_core::archive::peek(&path) {
+            // Games show on their board, as on disk.
+            Ok(copy) if coxswain_core::chess::sniff(&copy).is_some() => self.chess(&copy, None),
             Ok(copy) => self.view_or_edit(Action::View, &copy),
             Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
                 self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
@@ -2131,6 +2133,19 @@ impl App {
     /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
     /// FEN file's positions.
     fn chess(&mut self, path: &Path, hit: Option<String>) {
+        // Inside an archive: from a copy, as F3 views any file there.
+        let copy;
+        let path = if !path.exists() && coxswain_core::archive::split(path).is_some() {
+            match coxswain_core::archive::peek(path) {
+                Ok(c) => {
+                    copy = c;
+                    &copy
+                }
+                Err(e) => return self.status = Some(e.to_string()),
+            }
+        } else {
+            path
+        };
         if coxswain_core::chess::format(path) == Some(coxswain_core::chess::Format::Sgf) {
             return match go::Viewer::open(path, &self.cfg, &self.theme) {
                 Ok(mut v) => {

@@ -942,7 +942,7 @@
  "disk_image.partition": "Partition {n}",
  "disk_image.partition_value": "{kind}, {size}, ab {start}",
  "disk_image.raw": "Rohes Disk-Image",
- "disk_image.read_only": "Schreibgeschützt: Coxswain schreibt nie in ein Disk-Image, eine CHM-Hilfedatei, einen CBR-Comic, ein Postfach oder ein Container-Image. Kopieren Sie stattdessen die Dateien heraus.",
+ "disk_image.read_only": "Schreibgeschützt: Coxswain schreibt nie in ein Disk-Image, eine CHM-Hilfedatei, einen CBR-Comic, ein Postfach, ein Container-Image oder ein in Teile zerlegtes 7z. Kopieren Sie stattdessen die Dateien heraus.",
  "drag.too_much": "Zu viel zum Herausholen beim Ziehen (über 200 MB oder 2.000 Dateien) — F5 kopiert es heraus",
  "drag.locked": "Mit Passwort gesperrt — F5 kopiert es heraus und fragt nach dem Passwort",
  "drag.again": "Zum Ziehen herauskopiert — ziehen Sie es noch einmal",
@@ -1194,6 +1194,8 @@
  "facts.mono": "Mono",
  "facts.other_cpu": "andere CPU",
  "facts.pages": "Seiten",
+ "facts.part": "Teil",
+ "facts.part_of": "{n} eines in Teile zerlegten 7z: es wird über {first} geöffnet",
  "facts.palette": {
   "one": "{n} Farbe aus einer Palette",
   "other": "{n} Farben aus einer Palette"

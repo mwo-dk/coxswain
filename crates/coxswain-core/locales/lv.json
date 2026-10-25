@@ -971,7 +971,7 @@
  "disk_image.partition": "Nodalījums {n}",
  "disk_image.partition_value": "{kind}, {size}, no {start}",
  "disk_image.raw": "Neapstrādāts diska attēls",
- "disk_image.read_only": "Tikai lasāms: Coxswain nekad neraksta diska attēlā, CHM palīdzības failā, CBR komiksā, pastkastē vai konteinera attēlā. Tā vietā izkopējiet tā failus.",
+ "disk_image.read_only": "Tikai lasāms: Coxswain nekad neraksta diska attēlā, CHM palīdzības failā, CBR komiksā, pastkastē, konteinera attēlā vai daļās sadalītā 7z. Tā vietā izkopējiet tā failus.",
  "drag.too_much": "Par daudz, lai izvilktu, velkot (vairāk nekā 200 MB vai 2000 failu) — F5 to nokopē ārā",
  "drag.locked": "Bloķēts ar paroli — F5 to nokopē ārā un prasa paroli",
  "drag.again": "Nokopēts ārā vilkšanai — velciet vēlreiz",
@@ -1241,6 +1241,8 @@
  "facts.mono": "mono",
  "facts.other_cpu": "cits procesors",
  "facts.pages": "Lappuses",
+ "facts.part": "Daļa",
+ "facts.part_of": "{n}. daļa no daļās sadalīta 7z: to atver no {first}",
  "facts.palette": {
   "one": "{n} krāsa no paletes",
   "other": "{n} krāsas no paletes",
