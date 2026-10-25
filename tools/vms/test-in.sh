@@ -17,7 +17,9 @@
 # node_modules/ and .git; gui/dist goes along when built, else an empty one is made), runs
 # cargo there with a target folder that stays in the VM (~/coxswain-target, so later runs are
 # incremental, until the VM's free disk is less than that folder: then it starts afresh), streams
-# the output and exits with cargo's status.
+# the output and exits with cargo's status. As in CI: debug info is line tables only, and the data
+# size limit is raised to the hard one (OpenBSD's 1.5 GB soft limit makes rustc abort on
+# coxswain-core).
 # The VMs are in $COXSWAIN_VMS (default $XDG_DATA_HOME/coxswain-vms), made by tools/vms/rebuild/;
 # a VM is used only through its folder's start.sh, ssh.sh and stop.sh, so a folder made by hand
 # works too when it has them.
@@ -84,7 +86,7 @@ vm 'cd && [ -d coxswain-target ] || exit 0; used=$(du -sk coxswain-target | cut 
   [ "$free" -ge "$used" ] || { echo "== $((free / 1048576)) GB free in the VM, $((used / 1048576)) GB of old builds: clearing them"; rm -rf coxswain-target; }'
 echo "== cargo $ARGS"
 set +e
-vm "PATH=\$PATH:/usr/local/bin:/usr/pkg/bin:/opt/ooce/bin; export PATH; cd coxswain-src && CARGO_TARGET_DIR=\$HOME/coxswain-target cargo $ARGS"
+vm "PATH=\$PATH:/usr/local/bin:/usr/pkg/bin:/opt/ooce/bin; export PATH; ulimit -d \$(ulimit -H -d) 2>/dev/null; cd coxswain-src && CARGO_PROFILE_DEV_DEBUG=line-tables-only CARGO_TARGET_DIR=\$HOME/coxswain-target cargo $ARGS"
 rc=$?
 echo "== exit status $rc"
 exit $rc

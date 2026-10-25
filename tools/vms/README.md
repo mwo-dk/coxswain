@@ -73,7 +73,9 @@ It starts the VM when it is down (and stops it afterwards only then), copies the
 `~/coxswain-src` in the VM without `target/`, `node_modules/` and `.git` (rsync, or tar when the
 VM has none; `gui/dist` goes along when built, else an empty one lets the desktop app compile),
 runs cargo there with its target folder in the VM (`~/coxswain-target`, so the next run is
-incremental; cleared first when the VM's free disk is less than it), streams the output and exits with cargo's status. Several VMs at once are fine;
+incremental; cleared first when the VM's free disk is less than it), streams the output and exits
+with cargo's status. As in CI, debug info is line tables only and the data size limit is raised
+to the hard one (OpenBSD's soft limit makes rustc abort). Several VMs at once are fine;
 one `test-in.sh` per VM at a time.
 
 ```sh
