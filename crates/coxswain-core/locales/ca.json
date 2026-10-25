@@ -3420,7 +3420,7 @@
  "settings.prefer_local": "Només programes instal·lats",
  "settings.preview_cache": "Previsualitzacions fetes fins ara",
  "settings.preview_cache_clear": "Buida",
- "settings.preview_cache_size": "{size} a la memòria cau; es refan quan canvia una font",
+ "settings.preview_cache_size": "{size} a la memòria cau; es refan quan canvia una font; els que no es mostren en 30 dies s'esborren sols",
  "settings.previews_more": "Les altres imatges es configuren a config.toml sota [preview.images].",
  "settings.privacy_local": "aquest ordinador",
  "settings.privacy_nothing": "No surt res d'aquest ordinador.",

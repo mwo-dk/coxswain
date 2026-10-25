@@ -59,7 +59,8 @@ shows the search store and *Built-in models* each model with its folder ([Built-
 | `nested/` | `~/.cache/coxswain/nested/<run>/` | Archives inside archives you opened, each copied out once to be looked into ([Archives as folders](../files/archives.md#limits)); the oldest goes past eight, all of them when the app ends, and left-overs of a run that crashed go after a day. Counted with the copies to look at in [Disk use](disk-use.md) | Yes, any time |
 | `archive-index/` | `~/.cache/coxswain/archive-index/` | What the compressed tars you opened hold, where each file starts in them and (`.seek`) the places a `.tar.gz`, `.tar.bz2` or `.tar.zst` can be unpacked from, so they open at once the next time ([Archives as folders](../files/archives.md#limits)); 256 at most, the oldest go first. Counted with the copies to look at in [Disk use](disk-use.md) | Yes, any time |
 | `inside-<n>/` | `~/.cache/coxswain/inside-<n>/` | The search helper reading the text of a file [inside an archive](../search/archives.md): one file at a time, deleted as soon as it is read, the folder when the archive is done | Yes, when no helper runs |
-| `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc, calibre for e-books), one folder per file and engine | Yes: Settings → *Previews* → *Previews made so far* → *Clear* does it |
+| `previews/` | `~/.cache/coxswain/previews/` | PDFs, SVGs and pages made by tools (LaTeX, LibreOffice, PlantUML, pandoc, calibre for e-books), one folder per file and engine; those not shown for 30 days go by themselves, and past 4 GB the ones shown longest ago | Yes: Settings → *Previews* → *Previews made so far* → *Clear* does it |
+| `staging/` | `~/.cache/coxswain/staging/<run>` | The folders a running app wrote passing names in (a copy's `.name.coxswain-tmp-…`, a save's `.name.coxswain-….tmp`), so the next start removes what a run that crashed or was killed left there | Yes, when no Coxswain runs |
 | `index.addr`, `index.lock` | `~/.cache/coxswain/` | The helper's port and token (readable by you alone), and its lock | Only while no helper runs |
 | `helper.log` | `~/.cache/coxswain/` | When the helper started and left, and what failed; the whole text of an error the status line said short (readable by you alone) | Yes; it is emptied past 1 MB, or by **Clear** in Disk use |
 | `made-outside.txt` | `~/.cache/coxswain/` | The folders Coxswain made outside its own (Tectonic's cache, made by a LaTeX preview), so [Disk use](disk-use.md#outside-coxswains-folder) lists only those | Yes; Disk use then no longer lists them |
@@ -107,7 +108,7 @@ folder.
   hidden folder, also on macOS and Windows where it is not hidden), so the index never holds
   itself, its previews or the copies looked at. Its files are still found by name.
 - Settings → *Previews*: *Previews made so far*: *12.4 MB in the cache; made again
-  when a source changes*, with *Clear*.
+  when a source changes; those not shown for 30 days go by themselves*, with *Clear*.
 - Settings → *Privacy and updates* → *Disk use* (the total beside its heading): every row with
   its size, what clearing costs, **Show in panel** and **Clear** ([Disk use](disk-use.md)).
 - **Space** (or **F3** in the terminal app) on `index.bin` or `search.db` shows what it holds

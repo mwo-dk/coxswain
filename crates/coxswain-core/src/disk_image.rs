@@ -869,6 +869,7 @@ pub(crate) fn copy_tree(image: &Path, inner: &str, entries: &[Entry], to: &Path)
         to.file_name().unwrap_or_default().to_string_lossy(),
         std::process::id()
     ));
+    crate::spill::staging_in(parent);
     let _ = std::fs::remove_dir_all(&stage);
     std::fs::create_dir(&stage)?;
     let r = (|| -> io::Result<()> {

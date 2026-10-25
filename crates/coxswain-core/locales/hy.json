@@ -3336,7 +3336,7 @@
  "settings.prefer_local": "Միայն տեղադրված ծրագրեր",
  "settings.preview_cache": "Մինչ այժմ ստեղծված նախադիտումներ",
  "settings.preview_cache_clear": "Մաքրել",
- "settings.preview_cache_size": "{size} քեշում․ նորից են ստեղծվում, երբ աղբյուրը փոխվում է",
+ "settings.preview_cache_size": "{size} քեշում․ նորից են ստեղծվում, երբ աղբյուրը փոխվում է․ 30 օր չցուցադրվածները ջնջվում են ինքնաբերաբար",
  "settings.previews_more": "Մյուս պատկերները սահմանվում են config.toml-ում՝ [preview.images]-ի տակ։",
  "settings.privacy_local": "այս համակարգիչը",
  "settings.privacy_nothing": "Ոչինչ չի լքում այս համակարգիչը։",

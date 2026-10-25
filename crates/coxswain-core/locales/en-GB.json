@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Installed programs only",
  "settings.preview_cache": "Previews made so far",
  "settings.preview_cache_clear": "Clear",
- "settings.preview_cache_size": "{size} in the cache; made again when a source changes",
+ "settings.preview_cache_size": "{size} in the cache; made again when a source changes; those not shown for 30 days go by themselves",
  "settings.previews_more": "The other images are set in config.toml under [preview.images].",
  "settings.privacy_local": "this machine",
  "settings.privacy_nothing": "Nothing leaves this machine.",

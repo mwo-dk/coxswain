@@ -3268,7 +3268,7 @@
  "settings.prefer_local": "インストール済みのプログラムのみ",
  "settings.preview_cache": "作成済みのプレビュー",
  "settings.preview_cache_clear": "クリア",
- "settings.preview_cache_size": "キャッシュに {size}。元のファイルが変わると作り直します",
+ "settings.preview_cache_size": "キャッシュに {size}。元のファイルが変わると作り直します。30 日表示されなかったものは自動で消えます",
  "settings.previews_more": "その他のイメージは config.toml の [preview.images] で設定します。",
  "settings.privacy_local": "このコンピューター",
  "settings.privacy_nothing": "このコンピューターの外には何も出ません。",

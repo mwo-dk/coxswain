@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Bare installerte programmer",
  "settings.preview_cache": "Forhåndsvisninger laget så langt",
  "settings.preview_cache_clear": "Tøm",
- "settings.preview_cache_size": "{size} i hurtigbufferen; lages på nytt når en kilde endres",
+ "settings.preview_cache_size": "{size} i hurtigbufferen; lages på nytt når en kilde endres; de som ikke er vist på 30 dager, slettes av seg selv",
  "settings.previews_more": "De andre imagene settes i config.toml under [preview.images].",
  "settings.privacy_local": "denne maskinen",
  "settings.privacy_nothing": "Ingenting forlater denne maskinen.",

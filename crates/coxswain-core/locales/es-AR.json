@@ -3420,7 +3420,7 @@
  "settings.prefer_local": "Solo programas instalados",
  "settings.preview_cache": "Vistas previas hechas hasta ahora",
  "settings.preview_cache_clear": "Vaciar",
- "settings.preview_cache_size": "{size} en la caché; se rehacen cuando cambia una fuente",
+ "settings.preview_cache_size": "{size} en la caché; se rehacen cuando cambia una fuente; las que no se muestran en 30 días se borran solas",
  "settings.previews_more": "Las demás imágenes se configuran en config.toml bajo [preview.images].",
  "settings.privacy_local": "esta máquina",
  "settings.privacy_nothing": "Nada sale de esta máquina.",

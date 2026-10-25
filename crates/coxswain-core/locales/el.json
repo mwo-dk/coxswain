@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Μόνο εγκατεστημένα προγράμματα",
  "settings.preview_cache": "Προεπισκοπήσεις μέχρι τώρα",
  "settings.preview_cache_clear": "Εκκαθάριση",
- "settings.preview_cache_size": "{size} στην cache· δημιουργούνται ξανά όταν αλλάζει μια πηγή",
+ "settings.preview_cache_size": "{size} στην cache· δημιουργούνται ξανά όταν αλλάζει μια πηγή· όσες δεν εμφανίστηκαν για 30 ημέρες σβήνονται μόνες τους",
  "settings.previews_more": "Οι άλλες εικόνες ορίζονται στο config.toml κάτω από το [preview.images].",
  "settings.privacy_local": "αυτός ο υπολογιστής",
  "settings.privacy_nothing": "Τίποτα δεν φεύγει από αυτόν τον υπολογιστή.",

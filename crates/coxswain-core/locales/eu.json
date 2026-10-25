@@ -3344,7 +3344,7 @@
  "settings.prefer_local": "Instalatutako programak soilik",
  "settings.preview_cache": "Orain arte egindako aurrebistak",
  "settings.preview_cache_clear": "Garbitu",
- "settings.preview_cache_size": "{size} cachean; iturburu bat aldatzean berriro egiten dira",
+ "settings.preview_cache_size": "{size} cachean; iturburu bat aldatzean berriro egiten dira; 30 egunean erakutsi ez direnak berez ezabatzen dira",
  "settings.previews_more": "Beste irudiak config.toml fitxategian ezartzen dira, [preview.images] atalean.",
  "settings.privacy_local": "makina hau",
  "settings.privacy_nothing": "Ezer ez da ateratzen makina honetatik.",

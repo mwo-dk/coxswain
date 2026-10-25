@@ -64,7 +64,9 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
   which is not copied`): a pipe would wait for ever.
 - A new folder is copied under a passing name beside the target (`.photos.coxswain-tmp-…`) and
   gets its name only when it is complete, so a copy that fails half way leaves nothing behind
-  and can simply be tried again. A copy you stop keeps what it copied (below). A move to
+  and can simply be tried again. When the app itself is ended half way (killed, a crash, the
+  power gone), the next start of either app removes that passing copy, and only names of its
+  own made by the run that ended (noted in `staging/` in the cache folder). A copy you stop keeps what it copied (below). A move to
   another disk goes file by file instead ([Move and rename](move-and-rename.md#how-does-a-move-across-disks-work)).
 - **Nothing is ever written over.** A file that already exists at the target is an error
   (`/home/me/b/a.txt exists`), and a folder cannot be copied into itself (*A folder cannot be
@@ -196,6 +198,13 @@ the target. The files are added; a name that is already there is refused. See
 Yes: **Esc** on the progress line in the terminal app, **Stop** (or **Esc** while it has the
 focus) in the desktop app. The file it was on is removed, what was copied stays, and **Ctrl+Z**
 takes that away again. See [Stopping it](#stopping-it).
+
+#### The app crashed during a copy. Is a half copy left in the target?
+
+Only until the next start of either app. A copy is written under a passing name
+(`.photos.coxswain-tmp-…`) that becomes the real name only when it is whole, and each run notes
+the folders it writes such names in. The next start removes what a run that ended without
+finishing left there: names of its own, of that run, never a file of yours.
 
 #### Why does the copy seem to do nothing for a while?
 

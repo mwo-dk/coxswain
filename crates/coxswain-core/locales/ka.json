@@ -3336,7 +3336,7 @@
  "settings.prefer_local": "მხოლოდ დაყენებული პროგრამები",
  "settings.preview_cache": "აქამდე შექმნილი გადახედვები",
  "settings.preview_cache_clear": "გასუფთავება",
- "settings.preview_cache_size": "ქეშში {size}; ხელახლა იქმნება, როცა წყარო იცვლება",
+ "settings.preview_cache_size": "ქეშში {size}; ხელახლა იქმნება, როცა წყარო იცვლება; 30 დღე უჩვენებელი თავისით იშლება",
  "settings.previews_more": "დანარჩენი იმიჯები config.toml-ში [preview.images]-ის ქვეშ დგინდება.",
  "settings.privacy_local": "ეს კომპიუტერი",
  "settings.privacy_nothing": "ამ კომპიუტერს არაფერი ტოვებს.",

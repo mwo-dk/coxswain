@@ -3420,7 +3420,7 @@
  "settings.prefer_local": "תוכנות מותקנות בלבד",
  "settings.preview_cache": "תצוגות מקדימות שנוצרו עד כה",
  "settings.preview_cache_clear": "ניקוי",
- "settings.preview_cache_size": "{size} במטמון; נוצרות מחדש כשמקור משתנה",
+ "settings.preview_cache_size": "{size} במטמון; נוצרות מחדש כשמקור משתנה; אלה שלא הוצגו 30 יום נמחקות מעצמן",
  "settings.previews_more": "שאר האימג'ים נקבעים ב-config.toml תחת [preview.images].",
  "settings.privacy_local": "המחשב הזה",
  "settings.privacy_nothing": "שום דבר לא יוצא מהמחשב הזה.",

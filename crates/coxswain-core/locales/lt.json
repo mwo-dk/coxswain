@@ -3420,7 +3420,7 @@
  "settings.prefer_local": "Tik įdiegtas programas",
  "settings.preview_cache": "Iki šiol sukurtos peržiūros",
  "settings.preview_cache_clear": "Išvalyti",
- "settings.preview_cache_size": "{size} podėlyje; sukuriama iš naujo, kai pasikeičia šaltinis",
+ "settings.preview_cache_size": "{size} podėlyje; sukuriama iš naujo, kai pasikeičia šaltinis; 30 dienų nerodyti ištrinami savaime",
  "settings.previews_more": "Kiti atvaizdai nustatomi config.toml skyriuje [preview.images].",
  "settings.privacy_local": "šis kompiuteris",
  "settings.privacy_nothing": "Niekas neišeina iš šio kompiuterio.",
