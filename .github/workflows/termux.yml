@@ -111,7 +111,7 @@ jobs:
             # A mirror answers an error now and then (429 Too Many Requests from one, for hours):
             # a later try is from the primary repository, with a fresh index.
             # The primary repository (a CDN) from the start: pkg picks a mirror at random, and one
-            # served 220 MB at 41 kB/s (89 minutes, past the job's limit).
+            # served 220 MB at 41 kB/s (89 minutes, past the time limit of the job).
             echo "deb https://packages-cf.termux.dev/apt/termux-main stable main" > $PREFIX/etc/apt/sources.list
             rm -rf $PREFIX/etc/termux/chosen_mirrors
             apt-get update -q
