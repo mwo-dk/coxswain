@@ -87,7 +87,9 @@ pub fn prune_previews() {
 fn prune_in(dir: &Path, age: Duration, most: u64) {
     let mut kept: Vec<(SystemTime, u64, PathBuf)> = vec![];
     for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let Ok(m) = std::fs::symlink_metadata(e.path()) else { continue };
+        let Ok(m) = std::fs::symlink_metadata(e.path()) else {
+            continue;
+        };
         let Ok(when) = m.modified() else { continue };
         if !m.is_dir() {
             continue;
@@ -128,7 +130,10 @@ fn staging_dir() -> Option<PathBuf> {
 /// A passing name is about to be written in `dir`: noted once per folder in this run, so a crash
 /// leaves a list of where to look. Folders inside a passing one go with it and are not noted.
 pub(crate) fn staging_in(dir: &Path) {
-    if dir.components().any(|c| ours(&c.as_os_str().to_string_lossy(), None)) {
+    if dir
+        .components()
+        .any(|c| ours(&c.as_os_str().to_string_lossy(), None))
+    {
         return;
     }
     let mut j = JOURNAL.lock().unwrap_or_else(|e| e.into_inner());
@@ -151,7 +156,10 @@ fn open_journal() -> Option<Journal> {
         .open(dir.join(std::process::id().to_string()))
         .ok()?;
     file.try_lock().ok()?;
-    Some(Journal { file, seen: Default::default() })
+    Some(Journal {
+        file,
+        seen: Default::default(),
+    })
 }
 
 /// A passing name: a copy's `.name.coxswain-tmp-<pid>-…` (a file or a folder), a disk image's
@@ -186,12 +194,21 @@ fn sweep_staging_in(dir: &Path) {
         if pid == me || pid.parse::<u32>().is_err() {
             continue;
         }
-        let Ok(list) = std::fs::OpenOptions::new().read(true).write(true).open(e.path()) else { continue };
+        let Ok(list) = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(e.path())
+        else {
+            continue;
+        };
         if list.try_lock().is_err() {
             continue;
         }
         let text = std::fs::read_to_string(e.path()).unwrap_or_default();
-        for folder in text.lines().filter_map(|l| serde_json::from_str::<String>(l).ok()) {
+        for folder in text
+            .lines()
+            .filter_map(|l| serde_json::from_str::<String>(l).ok())
+        {
             for left in std::fs::read_dir(&folder).into_iter().flatten().flatten() {
                 if !ours(&left.file_name().to_string_lossy(), Some(&pid)) {
                     continue;
@@ -225,11 +242,13 @@ mod tests {
         d
     }
 
+    /// A folder's date set back (unix: Windows cannot open a folder for it, so those tests are unix's).
+    #[cfg(unix)]
     fn age(p: &Path, days: u64) {
         let t = SystemTime::now() - Duration::from_secs(days * 24 * 3600);
-        std::fs::File::open(p).and_then(|f| f.set_modified(t)).unwrap_or_else(|_| {
-            // A folder cannot be opened for its date on Windows: the test is then about files.
-        });
+        std::fs::File::open(p)
+            .and_then(|f| f.set_modified(t))
+            .unwrap();
     }
 
     #[test]
@@ -245,7 +264,10 @@ mod tests {
         used(&d.join("shown"));
         prune_in(&d, PREVIEWS_KEPT, PREVIEWS_MOST);
         assert!(!d.join("old").exists());
-        assert!(d.join("shown/out.pdf").exists(), "shown again: its date moved");
+        assert!(
+            d.join("shown/out.pdf").exists(),
+            "shown again: its date moved"
+        );
         assert!(d.join("new/out.pdf").exists());
         let _ = std::fs::remove_dir_all(&d);
     }
@@ -287,7 +309,10 @@ mod tests {
         assert!(ours(".disk.77.coxswain-tmp", Some("77")));
         assert!(!ours(".a.txt.coxswain-tmp-770-3", Some("77")));
         assert!(!ours(".a.txt.coxswain-tmp-78-3", Some("77")));
-        assert!(!ours("a.txt.coxswain-tmp-77-3", Some("77")), "no leading dot: the user's");
+        assert!(
+            !ours("a.txt.coxswain-tmp-77-3", Some("77")),
+            "no leading dot: the user's"
+        );
         assert!(!ours(".a.77.coxswain-tmp.txt", Some("77")));
         assert!(ours(".notes.txt.coxswain-77-0-1f.tmp", Some("77")));
         assert!(!ours(".notes.txt.coxswain-770-0-1f.tmp", Some("77")));
@@ -313,7 +338,11 @@ mod tests {
         // A live run's list, held: left alone with what it names.
         let live = lists.join("4243");
         std::fs::write(&live, format!("{line}\n")).unwrap();
-        let held = std::fs::OpenOptions::new().read(true).write(true).open(&live).unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&live)
+            .unwrap();
         held.lock().unwrap();
         sweep_staging_in(&lists);
         assert!(!target.join(".photos.coxswain-tmp-4242-0-a").exists());
@@ -337,7 +366,11 @@ mod tests {
         staging_in(&d.join(".x.coxswain-tmp-1-0-a"));
         let list = staging_dir().unwrap().join(std::process::id().to_string());
         let text = std::fs::read_to_string(list).unwrap();
-        let ours: Vec<String> = text.lines().filter_map(|l| serde_json::from_str(l).ok()).filter(|l: &String| l.contains("coxswain-spill-noted")).collect();
+        let ours: Vec<String> = text
+            .lines()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .filter(|l: &String| l.contains("coxswain-spill-noted"))
+            .collect();
         assert_eq!(ours, vec![d.to_string_lossy().into_owned()], "{text}");
         let _ = std::fs::remove_dir_all(d.parent().unwrap());
     }
