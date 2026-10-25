@@ -1,10 +1,10 @@
 # The compiled dependencies (target/) of a build in a virtual machine or container, kept between
 # runs: called once before the machine starts (restore) and once after the build (save: true),
 # with packaging/target-cache.sh around the build inside. The key holds the name (system,
-# release, profile), Cargo.lock and the machine's `rustc -vV`; the restore takes the newest
-# cache of the same name, the same Cargo.lock first. A new key is saved only when one of those
-# changed, so older keys go unused and GitHub's LRU eviction (10 GB per repository, 7 days
-# unused) drops them first. Caches written by a pull request are seen only by that pull request.
+# release, profile), vendor/, Cargo.lock and the machine's `rustc -vV`; the restore takes the
+# newest cache of the same name and vendor/, the same Cargo.lock first. A new key is saved only
+# when one of those changed, so older keys go unused and GitHub's LRU eviction (10 GB per
+# repository, 7 days unused) drops them first. Caches written by a pull request are seen only by that pull request.
 name: target cache
 description: Restore or save target/ for a build in a virtual machine or container.
 inputs:
@@ -29,16 +29,22 @@ runs:
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: target
-        key: target-v1-${{ inputs.name }}-${{ hashFiles('Cargo.lock') }}
+        key: target-v1-${{ inputs.name }}-${{ hashFiles('vendor/**') }}-${{ hashFiles('Cargo.lock') }}
         restore-keys: |
-          target-v1-${{ inputs.name }}-${{ hashFiles('Cargo.lock') }}-
-          target-v1-${{ inputs.name }}-
+          target-v1-${{ inputs.name }}-${{ hashFiles('vendor/**') }}-${{ hashFiles('Cargo.lock') }}-
+          target-v1-${{ inputs.name }}-${{ hashFiles('vendor/**') }}-
+    # The vendored crates (vendor/, path dependencies) are fingerprinted by their files' times, and
+    # a checkout makes them new: an old fixed time keeps their compiled copy, and candle's crates
+    # built on it, from being built again. Their content is in the key, so a change starts clean.
+    - if: inputs.save != 'true'
+      shell: bash
+      run: if [ -d vendor ]; then find vendor -exec touch -h -d @946684800 {} +; fi
     - id: key
       if: inputs.save == 'true'
       shell: bash
       env:
         NAME: ${{ inputs.name }}
-        LOCK: ${{ hashFiles('Cargo.lock') }}
+        LOCK: ${{ hashFiles('vendor/**') }}-${{ hashFiles('Cargo.lock') }}
       run: |
         # From a virtual machine: its target/ as it left it (packaging/target-cache.sh prune).
         if [ -d target.vm ]; then rm -rf target && mv target.vm target; fi
