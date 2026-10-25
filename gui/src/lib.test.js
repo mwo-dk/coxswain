@@ -96,3 +96,12 @@ test("without: one of two equal entries goes, the other stays", async () => {
   assert.deepEqual(without(["/a", "/a", "/b"], 0), ["/a", "/b"]);
   assert.deepEqual(without(["*.log"], 0), []);
 });
+
+test("sameEntry: a new listing of an unchanged file is the same entry; any change is not", async () => {
+  const { sameEntry } = await pick("sameEntry");
+  const a = { name: "x.zip", path: "/d/x.zip", is_dir: false, size: 9, modified: 5, icon: { glyph: "z" } };
+  assert.ok(sameEntry(a, { ...a, icon: { glyph: "z" } }) && sameEntry(null, null));
+  assert.ok(!sameEntry(a, { ...a, icon: { glyph: "y" } }));
+  assert.ok(!sameEntry(a, { ...a, size: 10 }) && !sameEntry(a, { ...a, modified: 6 }));
+  assert.ok(!sameEntry(a, { ...a, online: true }) && !sameEntry(a, null) && !sameEntry(undefined, a));
+});

@@ -402,6 +402,12 @@ export const isDrawio = (name) => /\.(drawio|dio|drawio\.svg|drawio\.png)$/i.tes
  *  is one only when its bytes hold a Keras model (`is_model`, in Preview). */
 export const isModel = (item) => (item.is_dir ? /\.mlpackage$/i : /\.(onnx|tflite|mlmodel|keras)$/i).test(item.name);
 
+/** Whether two listed entries say the same of the same file: every field alike, its icon too (a
+ *  new listing of an unchanged file). A changed size, date or anything else makes them differ. */
+export function sameEntry(a, b) {
+  return a === b || (!!a && !!b && JSON.stringify(a) === JSON.stringify(b));
+}
+
 export function previewKind(item) {
   if (!item) return "none";
   if (isModel(item)) return "netron";
