@@ -608,7 +608,7 @@ mod tests {
         let backend = ratatui::backend::TestBackend::new(100, 30);
         let mut term = ratatui::Terminal::new(backend).unwrap();
         let start = Instant::now();
-        while v.tree.is_none() && start.elapsed() < Duration::from_secs(20) {
+        while v.tree.is_none() && start.elapsed() < coxswain_core::test_limit(Duration::from_secs(20)) {
             term.draw(|f| v.draw(f, &Theme::default())).unwrap();
             std::thread::sleep(Duration::from_millis(5));
         }

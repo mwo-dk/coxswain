@@ -104,9 +104,14 @@ pub mod xiangqi;
 pub mod zfs;
 
 /// The time limit for a test that guards against a hang or a blow-up (a crafted input that must
-/// not take minutes): `normal` in a release build, ten times it and at least two minutes in a
-/// debug build, and twice that again with `COXSWAIN_SLOW_CI=1` (the virtual machines in CI, slow
-/// and busy). A limit stays tight where it can, and a slow machine does not stop a release.
+/// not take minutes), and for a test's wait for what a thread does: `normal` in a release build,
+/// ten times it and at least two minutes in a debug build, and twice that again on a slow
+/// machine: with `COXSWAIN_SLOW_CI=1` (the virtual machines in CI) and on the BSDs and illumos,
+/// which are tested in virtual machines 5-10 times slower than Linux. Every time limit in a test
+/// goes through here, so all scale alike; a limit only ever guards against a hang, whose bad
+/// path is hours. What must be quick by a smaller margin is proved without a clock: by counting
+/// the work, by the state the code is in, or against a good input timed on the same machine
+/// (`assert_costs_at_most`).
 #[doc(hidden)]
 pub fn test_limit(normal: std::time::Duration) -> std::time::Duration {
     let limit = if cfg!(debug_assertions) {
@@ -114,11 +119,46 @@ pub fn test_limit(normal: std::time::Duration) -> std::time::Duration {
     } else {
         normal
     };
-    if std::env::var_os("COXSWAIN_SLOW_CI").is_some_and(|v| v == "1") {
+    if slow_test_machine() {
         limit * 2
     } else {
         limit
     }
+}
+
+/// Whether the tests run on a slow machine: `COXSWAIN_SLOW_CI=1`, or a BSD or illumos.
+pub(crate) fn slow_test_machine() -> bool {
+    cfg!(any(
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "illumos",
+        target_os = "solaris"
+    )) || std::env::var_os("COXSWAIN_SLOW_CI").is_some_and(|v| v == "1")
+}
+
+/// That `bad` (a crafted input) costs at most `times` what `good` (a plain one of the same
+/// size) does, or that work grows no faster than it should (`good` at size n, `bad` at 8n and
+/// `times` 20: linear work takes 8 times as long, quadratic 64):
+/// both timed here and now, so a slow or busy machine slows both alike and only the ratio
+/// counts. Busy moments only ever add time, so each is tried again, up to five times, and the
+/// least time of each is compared. Each should take some milliseconds at least, to be measured.
+#[doc(hidden)]
+pub fn assert_costs_at_most(times: u32, mut good: impl FnMut(), mut bad: impl FnMut()) {
+    let time = |f: &mut dyn FnMut()| {
+        let t = std::time::Instant::now();
+        f();
+        t.elapsed()
+    };
+    let (mut g, mut b) = (std::time::Duration::MAX, std::time::Duration::MAX);
+    for _ in 0..5 {
+        g = g.min(time(&mut good));
+        b = b.min(time(&mut bad));
+        if b <= g * times {
+            return;
+        }
+    }
+    panic!("{b:?} against {g:?}: more than {times} times as long");
 }
 
 /// The watcher for folders: kqueue folder by folder on the BSDs (`kq`), event ports on illumos

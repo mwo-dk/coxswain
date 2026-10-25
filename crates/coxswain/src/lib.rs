@@ -5426,7 +5426,7 @@ mod tests {
         let said = done.summary();
         app.sync_done(Ok(done));
         let c = app.panels[0].cmp.clone().unwrap();
-        let end = Instant::now() + Duration::from_secs(20);
+        let end = Instant::now() + coxswain_core::test_limit(Duration::from_secs(20));
         while !c.f.found().done && Instant::now() < end {
             std::thread::sleep(Duration::from_millis(20));
         }
@@ -5451,7 +5451,7 @@ mod tests {
         let mut app = app(l, r);
         app.folders_start(coxswain_core::compare::folders::Mode::Quick);
         let c = app.panels[0].cmp.clone().unwrap();
-        let end = Instant::now() + Duration::from_secs(20);
+        let end = Instant::now() + coxswain_core::test_limit(Duration::from_secs(20));
         while !c.f.found().done && Instant::now() < end {
             std::thread::sleep(Duration::from_millis(20));
         }
@@ -5465,9 +5465,9 @@ mod tests {
     /// A Find hit in a large SGF file: its game is looked for on a thread, so opening the file
     /// returns at once and the UI keeps answering (it read the whole file first, up to 1 GiB);
     /// "Finding the game" shows meanwhile, the game opens when found, and Esc stops the looking.
-    /// The limits are 2 s, not less: the BSD test machines are slow and loaded, and a turn there
-    /// once took 580 ms. What proves the looking is off the UI thread is that the game shows only
-    /// after more than one turn; the blocking code found it before the first.
+    /// No clock: what proves the looking is off the UI thread is that the first turn of the UI
+    /// loop after opening is still looking, and that the game shows only after more than one
+    /// turn (opening or a turn that waited for it would show it at the first).
     #[test]
     fn a_hit_in_a_large_sgf_file_is_found_off_the_ui_thread() {
         use std::io::Write;
@@ -5487,25 +5487,24 @@ mod tests {
         let snippet = format!("{o}Black{}{c} – White{}", n - 1, n - 1);
         let mut app = app(d.clone(), d.clone());
         let mut state = app.index.state();
-        // Opened, the looking stopped by Esc: both at once.
-        let start = Instant::now();
+        let looking = |app: &App| {
+            let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
+            v.finding() && v.shown().is_none()
+        };
+        // Opened: still looking after a turn, then the looking stopped by Esc.
         app.chess(&p, Some(snippet.clone()));
         app.tick(&mut state);
+        assert!(looking(&app), "the game was found before the UI turned");
         app.dialog_key(Key { code: KeyCode::Esc, ctrl: false, alt: false, shift: false });
-        assert!(start.elapsed() < Duration::from_secs(2), "the UI waited {:?}", start.elapsed());
         let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
         assert!(!v.finding(), "Esc stops the looking; the table stays");
         app.dialog = None;
         // Opened again and left to find it: the UI loop keeps turning meanwhile.
-        let start = Instant::now();
         app.chess(&p, Some(snippet));
-        assert!(start.elapsed() < Duration::from_secs(2), "the UI waited {:?}", start.elapsed());
         let mut turns = 0;
-        let end = Instant::now() + Duration::from_secs(120);
+        let end = Instant::now() + coxswain_core::test_limit(Duration::from_secs(120));
         loop {
-            let t = Instant::now();
             app.tick(&mut state);
-            assert!(t.elapsed() < Duration::from_secs(2), "a turn of the UI loop took {:?}", t.elapsed());
             turns += 1;
             let Some(Dialog::Go(v)) = &app.dialog else { panic!("no Go view") };
             if let Some(i) = v.shown() {
@@ -5757,7 +5756,7 @@ mod tests {
         app.panels[0].select_name("a.txt");
         app.follow_disk();
         std::fs::write(d.join("b.txt"), "").unwrap();
-        let end = Instant::now() + Duration::from_secs(10);
+        let end = Instant::now() + coxswain_core::test_limit(Duration::from_secs(10));
         while !app.panels[0].entries.iter().any(|e| e.name == "b.txt") && Instant::now() < end {
             std::thread::sleep(Duration::from_millis(50));
             app.follow_disk();
@@ -5783,7 +5782,7 @@ mod tests {
         assert_eq!(git_sides(&app.panels, &[d.join(".git/index")]), [0, 1]);
         // A read under way is not started twice: it is marked to run once more. The reads
         // the app started itself must be over first, or one ends between the two lines.
-        let end = Instant::now() + Duration::from_secs(10);
+        let end = Instant::now() + coxswain_core::test_limit(Duration::from_secs(10));
         while !app.git_busy.lock().unwrap().is_empty() && Instant::now() < end {
             std::thread::sleep(Duration::from_millis(20));
         }
@@ -5812,7 +5811,7 @@ mod tests {
         assert_eq!(names(&app), [".."], "only the way out while it is read");
         assert!(app.status.is_some(), "the status line says it is being read");
         drop(held);
-        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        let (dir, keep, r) = app.list_rx.recv_timeout(coxswain_core::test_limit(Duration::from_secs(10))).unwrap();
         app.listed(dir, keep, r);
         assert_eq!(names(&app), ["..", "inner", "a.txt"]);
         assert!(app.status.is_none(), "and no longer says so");
@@ -5841,7 +5840,7 @@ mod tests {
         app.key_typed(Key::new(KeyCode::Tab, false, false, false));
         assert_eq!(app.active, 1, "a key answers meanwhile");
         drop(held);
-        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        let (dir, keep, r) = app.list_rx.recv_timeout(coxswain_core::test_limit(Duration::from_secs(10))).unwrap();
         app.listed(dir, keep, r);
         assert_eq!(names(&app, 0), ["..", "inner", "a.txt"]);
         assert_eq!(names(&app, 1), ["..", "inner", "a.txt"], "one listing, both panels");
@@ -5861,7 +5860,7 @@ mod tests {
         assert_eq!((app.panels[0].dir.as_path(), app.panels[0].entries.len()), (h.as_path(), 0), "not listed yet");
         assert!(app.status.is_some(), "the status line says it is being read");
         while app.panels[0].dir == h {
-            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            let (dir, keep, r) = app.list_rx.recv_timeout(coxswain_core::test_limit(Duration::from_secs(10))).unwrap();
             app.listed(dir, keep, r);
         }
         assert_eq!(app.panels[0].dir, d.join("sub"), "not a repository: back to the folder");
@@ -5956,14 +5955,14 @@ mod tests {
         let gone = commit.join("no-such-folder");
         app.cd(0, gone.clone());
         while app.panels[0].dir == gone {
-            let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+            let (dir, keep, r) = app.list_rx.recv_timeout(coxswain_core::test_limit(Duration::from_secs(10))).unwrap();
             app.listed(dir, keep, r);
         }
         let why = app.panels[0].error.clone();
         assert!(why.is_some());
         assert_eq!(app.panels[0].dir, commit, "back to the commit");
         // The commit, listed on its thread.
-        let (dir, keep, r) = app.list_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        let (dir, keep, r) = app.list_rx.recv_timeout(coxswain_core::test_limit(Duration::from_secs(10))).unwrap();
         app.listed(dir, keep, r);
         assert!(!app.panels[0].entries.is_empty(), "the commit is listed");
         assert_eq!(app.status, why, "the reason stays on the status line");

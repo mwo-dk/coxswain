@@ -314,15 +314,19 @@ mod tests {
     #[test]
     fn scad_refuses_a_model_of_many_screen_sized_triangles_at_once() {
         crate::i18n::set_language("en-GB");
-        // Two million triangles, each nearly the whole picture: hours of drawing, refused, within
-        // 30 s (a slow BSD test machine once took 6 s).
+        // Two million triangles, each nearly the whole picture: hours of drawing, refused by the
+        // work counted first, not by the deadline: that is a day away, and the refusal comes
+        // within a hang guard's time.
         let big = [[-1.0f32, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, 0.5]];
         let tris = vec![big; 2_000_000];
         let start = std::time::Instant::now();
-        assert_eq!(picture(&tris, W, H, start + DRAW_TIME).unwrap_err(), t!("scad.too_large"));
-        assert!(start.elapsed() < std::time::Duration::from_secs(30), "{:?}", start.elapsed());
+        let day = start + std::time::Duration::from_secs(24 * 3600);
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || tx.send(picture(&tris, W, H, day).map(drop)));
+        let refused = rx.recv_timeout(crate::test_limit(std::time::Duration::from_secs(30)));
+        assert_eq!(refused.expect("drawn, not refused").unwrap_err(), t!("scad.too_large"));
         // A past deadline stops even work under the budget.
-        assert!(picture(&tris[..100], W, H, start).is_err());
+        assert!(picture(&[big; 100], W, H, start).is_err());
     }
 
     #[test]

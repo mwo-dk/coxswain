@@ -1957,7 +1957,7 @@ mod tests {
         let (o, c) = coxswain_core::store::MARK;
         v.at_hit(format!("{o}B{c}"));
         let start = Instant::now();
-        while v.open.is_none() && start.elapsed().as_secs() < 10 {
+        while v.open.is_none() && start.elapsed() < coxswain_core::test_limit(std::time::Duration::from_secs(10)) {
             v.poll();
             std::thread::sleep(std::time::Duration::from_millis(2));
         }

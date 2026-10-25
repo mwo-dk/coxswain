@@ -574,7 +574,7 @@ mod tests {
         let t = std::time::Instant::now();
         let soon = || t.elapsed() > std::time::Duration::from_millis(300);
         assert!(analyse(&Program::Installed(silent), fen, 100, 1, &soon).is_err());
-        assert!(t.elapsed() < std::time::Duration::from_secs(5));
+        assert!(t.elapsed() < crate::test_limit(std::time::Duration::from_secs(5)));
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

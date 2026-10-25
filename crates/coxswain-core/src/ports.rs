@@ -208,7 +208,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(20));
             std::fs::write(dir.join(format!("new{i}")), "x").unwrap();
             let e = rx
-                .recv_timeout(std::time::Duration::from_secs(5))
+                .recv_timeout(crate::test_limit(std::time::Duration::from_secs(5)))
                 .expect("an event, every time")
                 .unwrap();
             assert!(e.paths.contains(&dir), "{e:?}");

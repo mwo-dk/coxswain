@@ -1348,7 +1348,7 @@ Bookmark {\*\bkmkstart hiddenbookmark}marked{\*\bkmkend hiddenbookmark} text.\pa
         let (done, waiting) = std::sync::mpsc::channel();
         let asked = pipe.clone();
         std::thread::spawn(move || done.send(text(&asked, 1000)));
-        let answer = waiting.recv_timeout(std::time::Duration::from_secs(3));
+        let answer = waiting.recv_timeout(crate::test_limit(std::time::Duration::from_secs(3)));
         if answer.is_err() {
             // The reader waits. A writer that opens the pipe and says nothing lets it go.
             drop(std::fs::OpenOptions::new().write(true).open(&pipe));

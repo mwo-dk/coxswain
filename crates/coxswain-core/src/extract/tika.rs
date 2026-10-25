@@ -522,18 +522,29 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn tika_that_will_not_start_fails_once_and_backs_off() {
+        use std::os::unix::fs::PermissionsExt;
         let rt = |p: &str| crate::tools::which(p).unwrap();
-        // `true` "runs" every command and answers nothing: a server that never comes up.
-        let silent = Tika { rt: rt("true"), image: "img".into(), name: "n".into() };
+        // A runtime that "runs" every command, noting it, and answers nothing: a server that
+        // never comes up.
+        let dir = std::env::temp_dir().join(format!("coxswain-tika-silent-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (fake, log) = (dir.join("runtime"), dir.join("log"));
+        std::fs::write(&fake, format!("#!/bin/sh\necho \"$1\" >> '{}'\n", log.display())).unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let runs = || std::fs::read_to_string(&log).unwrap_or_default().lines().filter(|l| *l == "run").count();
+        let silent = Tika { rt: fake.clone(), image: "img".into(), name: "n".into() };
         let began = Instant::now();
         let e = start(&silent).unwrap_err();
         assert!(e.contains("did not start within") && began.elapsed() >= START, "{e}");
         assert_eq!(*FAILED.lock().unwrap(), Some(e.clone()));
         assert!(backing_off());
-        let began = Instant::now();
+        let ran = runs();
+        assert!(ran > 0);
+        // Backing off: no new start, counted.
         assert_eq!(read(&silent, b"x", Path::new("a.one")), None);
         assert_eq!(start(&silent).unwrap_err(), e);
-        assert!(began.elapsed() < Duration::from_secs(1), "no new start: {:?}", began.elapsed());
+        assert_eq!(runs(), ran, "no new start");
+        std::fs::remove_dir_all(&dir).unwrap();
         // Past the back-off, a runtime that refuses to run it: the reason it gave.
         *FAILED_AT.lock().unwrap() = Some(Instant::now() - BACK_OFF);
         let refusing = Tika { rt: rt("false"), ..silent };
@@ -557,7 +568,7 @@ mod tests {
         let started = Instant::now();
         let again = read(&t, &bytes, Path::new(&doc)).unwrap_or_default();
         assert_eq!(text, again);
-        assert!(started.elapsed() < Duration::from_secs(5), "a running server: {:?}", started.elapsed());
+        assert!(started.elapsed() < crate::test_limit(Duration::from_secs(5)), "a running server: {:?}", started.elapsed());
         kill(&t);
     }
 }

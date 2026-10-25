@@ -1917,7 +1917,7 @@ more</msg></logentry>
         assert!(std::process::Command::new("mkfifo").arg(&fifo).status().unwrap().success());
         let t = std::time::Instant::now();
         assert!(open_plain(&fifo).is_err());
-        assert!(t.elapsed() < std::time::Duration::from_secs(2));
+        assert!(t.elapsed() < crate::test_limit(std::time::Duration::from_secs(2)));
         assert!(open_plain(&d.join("f")).is_ok());
         let wc = d.join("wc");
         std::fs::create_dir_all(d.join("elsewhere")).unwrap();
@@ -1936,7 +1936,7 @@ more</msg></logentry>
         }
         let t = std::time::Instant::now();
         assert!(svn_status(&real).is_some());
-        assert!(t.elapsed() < std::time::Duration::from_secs(2));
+        assert!(t.elapsed() < crate::test_limit(std::time::Duration::from_secs(2)));
         std::fs::remove_dir_all(d).unwrap();
     }
 

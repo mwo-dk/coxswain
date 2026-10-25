@@ -1854,7 +1854,7 @@ pub(crate) mod tests {
         let n = crate::fs::list(&list, true).unwrap().len() - 1;
         assert_eq!(n, MAX_COMMITS);
         assert_eq!(graph(&list, n - 30, n).len(), 30);
-        assert!(t.elapsed() < BUDGET + Duration::from_secs(1), "{:?}", t.elapsed());
+        assert!(t.elapsed() < crate::test_limit(BUDGET + Duration::from_secs(1)), "{:?}", t.elapsed());
         std::fs::remove_dir_all(d).unwrap();
     }
 }

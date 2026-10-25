@@ -144,8 +144,9 @@ pub fn pages(path: &Path, max: u64, f: &mut (dyn FnMut(&str) -> bool + Send)) ->
             }
         }));
     });
-    // The virtual machines in CI are slow and busy: the tests' files get four times as long there.
-    let slow = cfg!(test) && std::env::var_os("COXSWAIN_SLOW_CI").is_some_and(|v| v == "1");
+    // The virtual machines the tests run in are slow and busy: the tests' files get four times
+    // as long there.
+    let slow = cfg!(test) && crate::slow_test_machine();
     let until = Instant::now() + if slow { TIME * 4 } else { TIME };
     let reader = std::thread::Builder::new()
         .name(THREAD.into())
@@ -2984,7 +2985,7 @@ mod tests {
         let mut page = Dictionary::new();
         page.set("XObject", Object::Dictionary(forms));
         let none = HashSet::new();
-        let later = Instant::now() + Duration::from_secs(60);
+        let later = Instant::now() + crate::test_limit(Duration::from_secs(60));
         assert!(!super::may_hide(&doc, Some(&page), &none, &mut HashSet::new(), DEPTH, later));
         assert!(super::may_hide(&doc, Some(&page), &none, &mut HashSet::new(), DEPTH, Instant::now()));
     }
@@ -3222,17 +3223,24 @@ mod tests {
 
     #[test]
     fn pdf_map_of_ranges_to_nothing_is_counted_out_quickly() {
-        // Each range once walked 65536 codes that a lone surrogate keeps from the map.
-        let map = [
-            &b"1 beginbfrange "[..],
-            &b"<0000> <FFFF> <D800> ".repeat(100_000),
-            b"endbfrange 1 beginbfchar <0041> <0061> endbfchar",
-        ]
-        .concat();
-        let start = Instant::now();
-        let out = String::from_utf8(map_of(&map)).unwrap();
-        assert!(start.elapsed() < Duration::from_secs(5));
+        // Each range once walked 65536 codes that a lone surrogate keeps from the map: against
+        // as many ranges of one code each, timed alike, that was thousands of times as long.
+        let map = |range: &[u8]| {
+            [
+                &b"1 beginbfrange "[..],
+                &range.repeat(100_000),
+                b"endbfrange 1 beginbfchar <0041> <0061> endbfchar",
+            ]
+            .concat()
+        };
+        let (plain, empty) = (map(b"<0000> <0000> <0041> "), map(b"<0000> <FFFF> <D800> "));
+        let out = String::from_utf8(map_of(&empty)).unwrap();
         assert!(out.ends_with("endbfrange\n"));
+        crate::assert_costs_at_most(
+            10,
+            || drop(map_of(&plain)),
+            || drop(map_of(&empty)),
+        );
     }
 
     #[test]
@@ -4026,7 +4034,7 @@ mod tests {
             .map(|()| text)
             .filter(|t| !t.is_empty())
         };
-        let text = whole(Instant::now() + Duration::from_secs(60)).unwrap();
+        let text = whole(Instant::now() + crate::test_limit(Duration::from_secs(60))).unwrap();
         assert_eq!(
             (text.lines().count(), text.lines().last()),
             (300, Some("Page 300 of many"))
@@ -4202,14 +4210,21 @@ mod tests {
     #[test]
     fn pdf_of_trailer_words_alone_is_rebuilt_quickly() {
         // Each word was once read to the end of the file: minutes for this, hours for 20 MB.
-        let file = [
-            &b"%PDF-1.4\n1 0 obj 1 endobj "[..],
-            &b"trailer ".repeat(100_000),
-        ]
-        .concat();
-        let start = Instant::now();
-        assert!(rebuilt(&file).is_some());
-        assert!(start.elapsed() < Duration::from_secs(10));
+        // Eight times the words take about eight times as long, not sixty-four.
+        let file = |words: usize| {
+            [
+                &b"%PDF-1.4\n1 0 obj 1 endobj "[..],
+                &b"trailer ".repeat(words),
+            ]
+            .concat()
+        };
+        let (small, large) = (file(12_500), file(100_000));
+        assert!(rebuilt(&large).is_some());
+        crate::assert_costs_at_most(
+            20,
+            || drop(rebuilt(&small)),
+            || drop(rebuilt(&large)),
+        );
     }
 
     #[test]

@@ -370,12 +370,12 @@ mod tests {
         assert_eq!(within(&BUSY, Duration::from_millis(50), slow), None, "gave up");
         assert_eq!(within(&BUSY, Duration::from_secs(5), || ()), None, "the first still looks");
         GO.store(true, std::sync::atomic::Ordering::SeqCst);
-        let until = std::time::Instant::now() + Duration::from_secs(30);
+        let until = std::time::Instant::now() + crate::test_limit(Duration::from_secs(30));
         while BUSY.load(std::sync::atomic::Ordering::SeqCst) && std::time::Instant::now() < until {
             std::thread::sleep(Duration::from_millis(20));
         }
-        assert_eq!(within(&BUSY, Duration::from_secs(5), || 7), Some(7), "back once it is done");
-        assert!(places_within(Duration::from_secs(30)).is_some());
+        assert_eq!(within(&BUSY, crate::test_limit(Duration::from_secs(5)), || 7), Some(7), "back once it is done");
+        assert!(places_within(crate::test_limit(Duration::from_secs(30))).is_some());
     }
 
     #[test]
