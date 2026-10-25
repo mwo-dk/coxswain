@@ -214,6 +214,11 @@ fn read(mut bytes: Vec<u8>, until: Instant, f: &mut dyn FnMut(&str) -> bool) -> 
                 doc.objects.insert(above, look.into());
                 above
             });
+            // A look is made anew, its resources too: what was found to cost of resources at
+            // the same place in memory before is no cost of these.
+            if look {
+                costs.clear();
+            }
             // What the page draws, made ready; not read when the time ran out first.
             match calm.ready(&mut doc, page, look) {
                 None => break 'pages,
@@ -1127,15 +1132,19 @@ fn reach(
         .filter(|(key, _)| !AWAY.contains(&&key[..]))
         .map(|(_, item)| item)
         .collect();
-    // What the page inherits from those above it.
+    // What the page inherits from those above it. Each of them is mended with the page, for
+    // resources written into it, but only its resources are followed.
     for _ in 0..DEPTH {
-        let Some(parent) = dict
+        let Some((id, parent)) = dict
             .and_then(|d| d.get(b"Parent").ok())
             .and_then(|o| o.as_reference().ok())
-            .and_then(|id| doc.get_dictionary(id).ok())
+            .and_then(|id| Some((id, doc.get_dictionary(id).ok()?)))
         else {
             break;
         };
+        if !done.contains(&id) && seen.insert(id) {
+            found.push(id);
+        }
         todo.extend(parent.get(b"Resources").ok());
         dict = Some(parent);
     }
@@ -3613,6 +3622,25 @@ mod tests {
         let reached = reach(&doc, page, &HashSet::new(), Instant::now() + TIME).unwrap();
         assert!(reached.contains(&(4, 0)), "{reached:?}");
         assert_eq!(reach(&doc, page, &HashSet::new(), Instant::now() - TIME).map(|_| ()), Some(()), "a short walk ends before the clock is looked at");
+    }
+
+    #[test]
+    fn pdf_resources_written_into_the_tree_of_pages_are_mended() {
+        // A font written into the resources of the tree, not an object of its own: it is mended
+        // with the page that inherits it, its map from codes to characters written anew.
+        let objects = vec![
+            CATALOG.to_vec(),
+            b"<< /Type /Pages /Kids [5 0 R] /Count 1 /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 3 0 R >> >> >> >>".to_vec(),
+            stream("", b"1 beginbfrange <41> <5A> <0041> endbfrange"),
+            stream("", b"BT /F1 12 Tf 72 700 Td (INHERITED) Tj ET"),
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>".to_vec(),
+        ];
+        let mut doc = Document::load_mem(&pdf(&objects)).unwrap();
+        let page = doc.page_iter().next().unwrap();
+        let mut calm = Calm::new(&doc, Instant::now() + TIME);
+        calm.ready(&mut doc, page, false).unwrap();
+        assert!(calm.mended.contains(&(2, 0)), "the tree's node is mended");
+        assert!(calm.mending.applied.contains(&(3, 0)), "the map is written anew");
     }
 
     fn pages_of(path: &Path, given: &mut Vec<String>, most: usize) {
