@@ -61,7 +61,8 @@ jobs:
 
       - name: Build
         working-directory: termux-packages
-        run: ./scripts/run-docker.sh ./build-package.sh -I -a aarch64 coxswain
+        # -I fetches the dependencies' packages from Termux's repository: tried again on a passing fault.
+        run: ../coxswain/packaging/retry.sh ./scripts/run-docker.sh ./build-package.sh -I -a aarch64 coxswain
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -108,14 +109,8 @@ jobs:
           docker run --rm -e COXSWAIN_SLOW_CI=1 -v "$PWD:/src:ro" termux/termux-docker:aarch64 bash -c '
             set -e
             # A mirror answers an error now and then (429 Too Many Requests from one, for hours):
-            # try again from the primary repository, with a fresh index.
-            for i in 1 2 3 4; do
-              pkg install -y rust clang binutils jq >/dev/null && break
-              [ "$i" = 4 ] && exit 1
-              echo "deb https://packages.termux.dev/apt/termux-main stable main" > $PREFIX/etc/apt/sources.list
-              rm -rf $PREFIX/etc/termux/chosen_mirrors
-              sleep $((i * 15)); apt-get update -q >/dev/null 2>&1 || true
-            done
+            # a later try is from the primary repository, with a fresh index.
+            sh /src/packaging/pkg-retry.sh pkg install -y rust clang binutils jq
             cp -r /src ~/src && cd ~/src
             # A stale mirror can serve an old rustc (1.92 once, when a locked crate needed 1.93).
             # The newest rust-version among the locked crates for Android is what it must reach;

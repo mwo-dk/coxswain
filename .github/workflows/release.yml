@@ -5,8 +5,9 @@ name: Release
 # Release (which creates the tag) and updates crates.io, Homebrew and the FreeBSD port. WinGet is
 # not updated here: winget.yml files the newest release there once a week.
 # A push without a new version runs only what its pull request ran: CI, and each system whose
-# pull-request `paths` the push touches (.github/changed-systems.py). nightly.yml runs every
-# system at night when master changed.
+# pull-request `paths` the push touches (.github/changed-systems.py). So does a later push while
+# the new version is still unreleased: only the push that bumped it (or a run by hand) releases.
+# nightly.yml runs every system at night when master changed.
 # To release, merge a release pull request: it bumps `version` in Cargo.toml and moves the
 # changelog.d/ rows into the version's row (CLAUDE.md); release-pr.yml opens it on Sundays.
 #
@@ -75,10 +76,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2 # the parent too: did this push bump the version?
       - id: v
         env:
           REF: ${{ github.ref }}
           REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
           REHEARSAL: ${{ github.event_name == 'schedule' || inputs.rehearsal == true }}
         run: |
           version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
@@ -96,6 +99,16 @@ jobs:
             { echo "tag=v$next"; echo release=true; echo rehearsal=true; } >> "$GITHUB_OUTPUT"; exit 0
           fi
           tag="v$version"
+          # A push releases only when it is the one that bumped the version (the release pull
+          # request's merge). A later push while that release is still unpublished (its run still
+          # going, or failed) would start another full release run for the same tag: v2.33.0
+          # had three. It runs only what its pull request ran; a failed release run is rerun
+          # (`gh run rerun`, still the bump's push) or started by hand (workflow_dispatch).
+          parent="$(git show HEAD^:Cargo.toml 2>/dev/null | sed -n 's/^version = "\(.*\)"/\1/p' | head -1)"
+          if [ "$EVENT" = push ] && [ "$parent" = "$version" ]; then
+            echo "::notice title=Tests only::this push did not bump the version ($tag): it tests what its pull request tested."
+            echo release=false >> "$GITHUB_OUTPUT"; exit 0
+          fi
           if draft="$(gh release view "$tag" --json isDraft -q .isDraft 2>err)"; then
             if [ "$draft" = false ]; then
               echo "::notice title=Tests only::$tag is released already: this run tests what its pull request tested."
@@ -169,7 +182,7 @@ jobs:
     uses: ./.github/workflows/nix.yml
 
   # The gate, then the draft. One release run for a version at a time: a second run for the same
-  # version (a later commit that did not bump it) waits here, then sees the first run's draft and
+  # version (one started by hand, or a rerun) waits here, then sees the first run's draft and
   # leaves the release to it, or its published release and stops.
   draft:
     needs: [version, test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos, test-termux, test-flatpak, test-nix]
@@ -482,7 +495,7 @@ jobs:
         with:
           release: "14.5"
           usesh: true
-          prepare: pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
+          prepare: sh packaging/pkg-retry.sh pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
             set -e
             cargo build --release --locked -p coxswain -p coxswain-gui
@@ -562,10 +575,9 @@ jobs:
             /usr/sbin/pkg_add pkgin || true
             # The image has no X: the base system's X sets (libraries, headers and .pc files),
             # checked against the release's SHA512, before pkgsrc's GTK and WebKitGTK, which link to them.
-            u=https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-$(uname -r)/amd64/binary/sets
-            (cd /var/tmp && ftp -V -o SHA512 "$u/SHA512" && for s in xbase xcomp; do ftp -V -o $s.tar.xz "$u/$s.tar.xz" &&
-              grep -F "($s.tar.xz)" SHA512 > $s.sum && cksum -c $s.sum && tar -xJpf $s.tar.xz -C / && rm $s.* || exit 1; done) || exit 1
-            pkgin -y install rust pkgconf webkit-gtk41 || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
+            sh packaging/pkg-retry.sh sh -c 'u=https://archive.netbsd.org/pub/NetBSD-archive/NetBSD-$(uname -r)/amd64/binary/sets && cd /var/tmp && ftp -V -o SHA512 "$u/SHA512" && for s in xbase xcomp; do ftp -V -o $s.tar.xz "$u/$s.tar.xz" &&
+              grep -F "($s.tar.xz)" SHA512 > $s.sum && cksum -c $s.sum && tar -xJpf $s.tar.xz -C / && rm $s.* || exit 1; done' || exit 1
+            sh packaging/pkg-retry.sh pkgin -y install rust pkgconf webkit-gtk41 || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
           run: |
             set -e
             cargo build --release --locked -p coxswain -p coxswain-gui
@@ -577,8 +589,8 @@ jobs:
           release: "7.9"
           usesh: true
           prepare: |
-            pkg_add -u
-            pkg_add rust webkitgtk41 librsvg
+            sh packaging/pkg-retry.sh pkg_add -u
+            sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg
           run: |
             set -e
             cargo build --release --locked -p coxswain -p coxswain-gui
@@ -590,7 +602,7 @@ jobs:
           release: "r151058"
           usesh: true
           mem: 12288
-          prepare: pkg install build-essential ooce/developer/rust
+          prepare: sh packaging/pkg-retry.sh pkg install build-essential ooce/developer/rust
           run: |
             set -e
             PATH="/opt/ooce/bin:$PATH" cargo build --release --locked -p coxswain
@@ -792,7 +804,7 @@ jobs:
           release: "14.5"
           usesh: true
           envs: TAG
-          prepare: pkg install -y git rust oniguruma portlint
+          prepare: sh packaging/pkg-retry.sh pkg install -y git rust oniguruma portlint
           # Three tries: the ports tree and the distfiles come from far away. About 15 minutes each.
           run: |
             for i in 1 2 3; do

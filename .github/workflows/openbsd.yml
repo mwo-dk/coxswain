@@ -68,8 +68,8 @@ jobs:
           usesh: true
           custom-shell-name: vmsh
           prepare: |
-            pkg_add -u
-            pkg_add rust webkitgtk41 librsvg symbolsonly-nerd-fonts
+            sh packaging/pkg-retry.sh pkg_add -u
+            sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg symbolsonly-nerd-fonts
           run: |
             set -e
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
@@ -158,8 +158,8 @@ jobs:
           usesh: true
           custom-shell-name: vmsh
           prepare: |
-            pkg_add -u
-            pkg_add rust cargo-generate-vendor oniguruma sqlite3
+            sh packaging/pkg-retry.sh pkg_add -u
+            sh packaging/pkg-retry.sh pkg_add rust cargo-generate-vendor oniguruma sqlite3
           run: |
             set -e
             ftp -o /tmp/ports.tar.gz https://cdn.openbsd.org/pub/OpenBSD/7.9/ports.tar.gz

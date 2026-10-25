@@ -11,7 +11,8 @@ These rules hold for every contributor and every Claude session in this reposito
   release does not go out. No `continue-on-error` on anything that makes a release file.
 - **Releases are automatic, in one run.** The version lives only in `Cargo.toml`
   (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`). It
-  first decides whether the version has a GitHub release yet. If not, it runs CI and every
+  first decides whether the version has a GitHub release yet. If not, and this push is the one
+  that bumped it (later pushes test only; a failed release run is rerun), it runs CI and every
   system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) as parts of that
   run; when all pass it makes a draft, builds every platform, checks the draft against the full
   list of files (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the
