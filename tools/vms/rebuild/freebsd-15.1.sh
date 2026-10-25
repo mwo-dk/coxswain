@@ -1,7 +1,7 @@
 #!/bin/sh
 # Rebuild the FreeBSD 15.1 test VM from scratch, unattended (about 10 minutes).
 # Uses the official FreeBSD-15.1-RELEASE-amd64-BASIC-CLOUDINIT-ufs.raw.xz (download.freebsd.org,
-# SHA-256 checked, cached), grown to 32 GB (it grows its root itself on first boot), set up by
+# SHA-256 checked, cached), grown to 80 GB (it grows its root itself on first boot), set up by
 # nuageinit from a NoCloud seed disk (user test, key), then pkg packages and Coxswain; leaves it
 # stopped. The disk is wiped; the folder's ssh key and password are kept.
 NAME=freebsd-15.1 IDX=0
@@ -19,7 +19,7 @@ echo "$IMG: SHA-256 OK"
 DISK=freebsd.raw
 rm -f "$DIR/$DISK"
 xz -dc "$C/$IMG" >"$DIR/$DISK"
-truncate -s 32G "$DIR/$DISK"
+truncate -s 80G "$DIR/$DISK"
 
 KEY=$(cat "$DIR/id_ed25519.pub")
 HASH=$(printf '%s' "$USER_PW" | openssl passwd -6 -stdin)
@@ -79,9 +79,9 @@ wait_off 120
 rm -f "$DIR/seed.img"
 write_readme "FreeBSD 15.1 (amd64) virtual machine, with Coxswain" \
 "  The official $IMG (download.freebsd.org, SHA-256 checked
-  against CHECKSUM.SHA256, cached in $C), grown to 32 GB (growfs on first boot), set up
+  against CHECKSUM.SHA256, cached in $C), grown to 80 GB (growfs on first boot), set up
   by nuageinit from a NoCloud seed disk that is removed afterwards. UFS root, 4 GB swap file
-  /usr/swap0. Disk $DISK: sparse 32 GB raw." \
+  /usr/swap0. Disk $DISK: sparse 80 GB raw." \
 "Installed
   pkg: rust, pkgconf, git, rsync, tmux, node22, npm-node22, sudo, 7-zip and the desktop app's
   build libraries (webkit2-gtk_41, gtk3, libsoup3, librsvg2-rust). Coxswain (terminal app and
