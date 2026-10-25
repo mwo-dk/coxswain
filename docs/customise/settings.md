@@ -339,7 +339,8 @@ Every change is saved at once: the bottom line says *Saved to …/config.toml*, 
 file was not written. While a field is open for typing, the bottom says *Enter Save · Esc
 Cancel*. The bottom also shows, for the row under the cursor, its one-line explanation, its costs
 as text in brackets (`[disk space]`, `[can leave this machine]` in red) and its key in
-`config.toml`.
+`config.toml`, always whole: in a small terminal or a long language the box grows to the lines it
+needs and the rows above it scroll.
 
 ### What each area holds
 
