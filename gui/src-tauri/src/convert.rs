@@ -227,9 +227,11 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         let (kind, file) = output(&tool, &main, &out);
         // What the build said is kept next to its result, so the next look says it too.
         let said = |what: &str| std::fs::read_to_string(out.join(what)).ok().filter(|s| !s.is_empty());
+        // Shown means whole: a build's `.making` mark goes only here, so one that failed or was
+        // cut short is made again next time.
         let done = |file: PathBuf| -> Res<Option<Converted>> {
             let (note, instead) = (said("note.txt"), said("instead.txt"));
-            Ok(Some(match kind {
+            let shown = Some(match kind {
                 "pdf" | "svg" | "png" => Converted { kind, file: Some(file), text: None, note, instead, book: None },
                 "ebook" => {
                     let p = coxswain_core::ebook::shown(&out).ok_or_else(|| t!("convert.no_result"))?;
@@ -237,7 +239,9 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
                     Converted { kind, file: p.cover, text: None, note, instead, book: Some(Book { title: p.title, authors: p.authors, html }) }
                 }
                 _ => Converted { kind, file: None, text: Some(std::fs::read_to_string(&file).map_err(|e| e.to_string())?), note, instead, book: None },
-            }))
+            });
+            coxswain_core::spill::whole(&out);
+            Ok(shown)
         };
         if made(&out, &file) {
             return done(file);
@@ -247,8 +251,8 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
         }
         let _ = std::fs::remove_dir_all(&out);
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
-        // Until this build returns: a build cut short (killed, the power gone) is made again.
-        let making = coxswain_core::spill::Making::new(&out);
+        // Until it is shown whole (`done`): a build cut short or failed is made again.
+        coxswain_core::spill::begin(&out);
         match run(&cfg, &tool, &engine, &main, &out, &file) {
             Ok(()) if file.is_file() => done(file),
             // A document with an error still makes a PDF: shown, with the error above it.
@@ -267,7 +271,7 @@ pub async fn convert(path: PathBuf, tool: String, engine: String, cached_only: b
                     for other in engines(&cfg, &tool).into_iter().filter(|x| x.available && !x.needs_pull && x.id != engine) {
                         let _ = std::fs::remove_dir_all(&out);
                         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
-                        making.again();
+                        coxswain_core::spill::begin(&out);
                         if run(&cfg, &tool, &other.id, &main, &out, &file).is_ok() || file.is_file() {
                             let said = why.lines().next().unwrap_or_default().to_string();
                             let _ = std::fs::write(out.join("instead.txt"), t!("convert.built_instead", "engine" => other.label, "failed" => first, "why" => said));
@@ -1338,8 +1342,13 @@ pub async fn media_thumbnail(path: PathBuf, tool: String, ctx: tauri::State<'_, 
             return Ok(Some(file));
         }
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
-        let _making = coxswain_core::spill::Making::new(&out);
-        build(&cfg, &tool, &eng.id, &path, &out, &file, None).map(|_| file.is_file().then_some(file))
+        coxswain_core::spill::begin(&out);
+        build(&cfg, &tool, &eng.id, &path, &out, &file, None).map(|_| {
+            file.is_file().then(|| {
+                coxswain_core::spill::whole(&out);
+                file
+            })
+        })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -1473,9 +1482,11 @@ pub async fn gpx_map(path: PathBuf) -> Res<Option<PathBuf>> {
     tauri::async_runtime::spawn_blocking(move || {
         let out = cache_dir(&path, &path, "gpx", "coxswain")?;
         let file = out.join("map.svg");
-        if !file.is_file() {
+        if !file.is_file() || coxswain_core::spill::half_made(&out) {
             std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+            coxswain_core::spill::begin(&out);
             std::fs::write(&file, coxswain_core::geo::gpx_map(&path)?).map_err(|e| e.to_string())?;
+            coxswain_core::spill::whole(&out);
         }
         Ok(Some(file))
     })
@@ -1621,7 +1632,7 @@ pub async fn drawio_thumbnail(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) 
     tauri::async_runtime::spawn_blocking(move || {
         let out = cache_dir(&path, &path, "drawio-thumb", "")?;
         let png = out.join("thumb.png");
-        if png.is_file() {
+        if made(&out, &png) {
             return Ok(Some(png));
         }
         // A thumbnail that could not be made is not tried again until the file changes.
@@ -1629,8 +1640,12 @@ pub async fn drawio_thumbnail(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) 
             return Ok(None);
         }
         std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+        coxswain_core::spill::begin(&out);
         match coxswain_core::export::drawio_thumbnail(&cfg, &path, &png, 256, Duration::from_secs(cfg.timeout.max(10))) {
-            Ok(()) => Ok(Some(png)),
+            Ok(()) => {
+                coxswain_core::spill::whole(&out);
+                Ok(Some(png))
+            }
             Err(_) => {
                 let _ = std::fs::write(out.join("none"), "");
                 Ok(None)
@@ -1674,8 +1689,9 @@ pub async fn adoc_diagram(kind: String, text: String, ctx: tauri::State<'_, crat
         }
         let drawn = coxswain_core::export::diagram_svg(&cfg, &kind, &text)?;
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let _making = coxswain_core::spill::Making::new(&dir);
+        coxswain_core::spill::begin(&dir);
         std::fs::write(&svg, &drawn).map_err(|e| e.to_string())?;
+        coxswain_core::spill::whole(&dir);
         Ok(drawn)
     })
     .await

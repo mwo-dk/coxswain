@@ -351,7 +351,8 @@ fn renamed_over_safely(_: &std::fs::File, _: &std::fs::Metadata) -> bool {
 /// whether to write in place instead: no new file can be made there, or the group not given.
 fn beside(target: &Path, bytes: &[u8], old: Option<&std::fs::Metadata>) -> Result<(), (std::io::Error, bool)> {
     let dir = target.parent().unwrap_or(Path::new("."));
-    let name = target.file_name().unwrap_or_default().to_string_lossy();
+    // Short whatever the file's name, so a name near the system's limit still saves.
+    let name: String = target.file_name().unwrap_or_default().to_string_lossy().chars().take(40).collect();
     let mut o = std::fs::OpenOptions::new();
     o.write(true).create_new(true);
     #[cfg(unix)]

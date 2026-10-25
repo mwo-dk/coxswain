@@ -4,7 +4,7 @@
 //! `.name.coxswain-<pid>-….tmp`) are noted, so the next start removes what a run that was killed
 //! or crashed left in the user's folders.
 
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -40,25 +40,16 @@ pub fn used(dir: &Path) {
     }
 }
 
-/// `dir` is being made: `.making` in it until the guard goes, so a run cut short is made again
-/// the next time, never shown half written.
-pub struct Making(PathBuf);
-
-impl Making {
-    pub fn new(dir: &Path) -> Making {
-        let _ = std::fs::write(dir.join(MAKING), "");
-        Making(dir.join(MAKING))
-    }
-    /// Marked again, after its folder was emptied and made anew.
-    pub fn again(&self) {
-        let _ = std::fs::write(&self.0, "");
-    }
+/// `dir` is being made: `.making` in it until `whole` says the result is complete. A run cut
+/// short (killed, the power gone) or one that failed leaves it, so what is there is made again
+/// the next time, never shown as a whole preview.
+pub fn begin(dir: &Path) {
+    let _ = std::fs::write(dir.join(MAKING), "");
 }
 
-impl Drop for Making {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
+/// The preview in `dir` is complete: `begin`'s mark goes.
+pub fn whole(dir: &Path) {
+    let _ = std::fs::remove_file(dir.join(MAKING));
 }
 
 /// A run that made a preview in `dir` never ended.
@@ -83,19 +74,25 @@ pub fn prune_previews() {
 }
 
 /// The folders in `dir` not shown for `age` removed, then the ones shown longest ago until all
-/// of them take no more than `most`.
+/// of them take no more than `most`. Each is first renamed `.gone-…`, so a look meanwhile finds
+/// none and makes it anew, never a folder half removed; a `.gone-…` a cut prune left goes too.
 fn prune_in(dir: &Path, age: Duration, most: u64) {
     let mut kept: Vec<(SystemTime, u64, PathBuf)> = vec![];
     for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
         let Ok(m) = std::fs::symlink_metadata(e.path()) else {
             continue;
         };
-        let Ok(when) = m.modified() else { continue };
         if !m.is_dir() {
             continue;
         }
-        if when.elapsed().unwrap_or_default() > age {
+        if name.starts_with(".gone-") {
             let _ = std::fs::remove_dir_all(e.path());
+            continue;
+        }
+        let Ok(when) = m.modified() else { continue };
+        if when.elapsed().unwrap_or_default() > age {
+            gone(&e.path());
         } else {
             kept.push((when, crate::fs::dir_size(&e.path()).0, e.path()));
         }
@@ -106,9 +103,18 @@ fn prune_in(dir: &Path, age: Duration, most: u64) {
         if total <= most {
             break;
         }
-        if std::fs::remove_dir_all(&path).is_ok() {
-            total = total.saturating_sub(bytes);
-        }
+        gone(&path);
+        // Counted as gone even when it could not go, so no newer one goes in its stead.
+        total = total.saturating_sub(bytes);
+    }
+}
+
+/// A preview folder renamed out of the way, then removed.
+fn gone(path: &Path) {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    let aside = path.with_file_name(format!(".gone-{name}-{}", std::process::id()));
+    if std::fs::rename(path, &aside).is_ok() {
+        let _ = std::fs::remove_dir_all(&aside);
     }
 }
 
@@ -122,6 +128,8 @@ struct Journal {
 }
 
 static JOURNAL: Mutex<Option<Journal>> = Mutex::new(None);
+/// The list could not be made (no cache folder, a lock refused): not tried again for each file.
+static NO_JOURNAL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn staging_dir() -> Option<PathBuf> {
     Some(crate::helper::folder()?.join("staging"))
@@ -136,9 +144,16 @@ pub(crate) fn staging_in(dir: &Path) {
     {
         return;
     }
+    use std::sync::atomic::Ordering;
+    if NO_JOURNAL.load(Ordering::Relaxed) {
+        return;
+    }
     let mut j = JOURNAL.lock().unwrap_or_else(|e| e.into_inner());
     if j.is_none() {
         *j = open_journal();
+        if j.is_none() {
+            NO_JOURNAL.store(true, Ordering::Relaxed);
+        }
     }
     let Some(j) = j.as_mut() else { return };
     if j.seen.insert(dir.to_path_buf()) {
@@ -150,8 +165,10 @@ pub(crate) fn staging_in(dir: &Path) {
 fn open_journal() -> Option<Journal> {
     let dir = staging_dir()?;
     crate::fs::private_dir(&dir).ok()?;
+    // Readable too: Windows locks only a handle that may read or write the whole file.
     let file = std::fs::OpenOptions::new()
         .create(true)
+        .read(true)
         .append(true)
         .open(dir.join(std::process::id().to_string()))
         .ok()?;
@@ -194,7 +211,7 @@ fn sweep_staging_in(dir: &Path) {
         if pid == me || pid.parse::<u32>().is_err() {
             continue;
         }
-        let Ok(list) = std::fs::OpenOptions::new()
+        let Ok(mut list) = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
             .open(e.path())
@@ -204,7 +221,9 @@ fn sweep_staging_in(dir: &Path) {
         if list.try_lock().is_err() {
             continue;
         }
-        let text = std::fs::read_to_string(e.path()).unwrap_or_default();
+        // Read through the handle that holds the lock: Windows refuses any other.
+        let mut text = String::new();
+        let _ = list.read_to_string(&mut text);
         for folder in text
             .lines()
             .filter_map(|l| serde_json::from_str::<String>(l).ok())
@@ -220,8 +239,9 @@ fn sweep_staging_in(dir: &Path) {
                 };
             }
         }
-        drop(list);
+        // Removed while still held, so no run takes it up between.
         let _ = std::fs::remove_file(e.path());
+        drop(list);
     }
 }
 
@@ -234,6 +254,7 @@ pub fn at_start() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Seek;
 
     fn folder(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-spill-{name}-{}", std::process::id()));
@@ -289,16 +310,25 @@ mod tests {
     }
 
     #[test]
-    fn a_preview_cut_short_is_half_made_until_its_guard_goes() {
+    fn a_preview_cut_short_or_failed_is_half_made_until_it_is_whole() {
         let d = folder("making");
-        {
-            let _m = Making::new(&d);
-            assert!(half_made(&d));
-        }
-        assert!(!half_made(&d));
-        // A kill: the guard never drops.
-        std::mem::forget(Making::new(&d));
+        begin(&d);
+        // Killed here, or the build failed: the mark stays.
         assert!(half_made(&d));
+        whole(&d);
+        assert!(!half_made(&d));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_cut_prune_leaves_nothing_half_removed() {
+        let d = folder("gone");
+        std::fs::create_dir_all(d.join(".gone-abc-1/x")).unwrap();
+        std::fs::create_dir(d.join("kept")).unwrap();
+        prune_in(&d, PREVIEWS_KEPT, PREVIEWS_MOST);
+        assert!(!d.join(".gone-abc-1").exists());
+        assert!(d.join("kept").exists());
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -360,13 +390,23 @@ mod tests {
     #[test]
     fn a_noted_folder_is_listed_once_in_this_runs_list() {
         // Quotes and a line break, where the system allows them in a name.
-        let d = folder("noted").join(if cfg!(windows) { "odd name" } else { "odd \"name\"\nline" });
+        let d = folder("noted").join(if cfg!(windows) {
+            "odd name"
+        } else {
+            "odd \"name\"\nline"
+        });
         std::fs::create_dir_all(&d).unwrap();
         staging_in(&d);
         staging_in(&d);
         staging_in(&d.join(".x.coxswain-tmp-1-0-a"));
-        let list = staging_dir().unwrap().join(std::process::id().to_string());
-        let text = std::fs::read_to_string(list).unwrap();
+        // Through the handle that holds it, as Windows wants.
+        let mut text = String::new();
+        {
+            let mut j = JOURNAL.lock().unwrap();
+            let f = &mut j.as_mut().unwrap().file;
+            f.seek(std::io::SeekFrom::Start(0)).unwrap();
+            f.read_to_string(&mut text).unwrap();
+        }
         let ours: Vec<String> = text
             .lines()
             .filter_map(|l| serde_json::from_str(l).ok())

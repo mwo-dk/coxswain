@@ -199,9 +199,12 @@ change in the document's folder. So:
 (*84.2 MB in the cache; made again when a source changes; those not shown for 30 days go by
 themselves*). **Clear** empties the cache (it is greyed when the cache is empty); every preview
 is then made again when next shown. The cache keeps itself in bounds: at each start of either
-app, and every hour while the desktop app runs, the previews not shown for 30 days go, and
-past 4 GB the ones shown longest ago go first. A build cut short (the app killed, the power
-gone) is never shown half made: it is made again the next time. See [Where things are
+app, and every six hours while the desktop app runs, the previews not shown for 30 days go,
+and when the cache is then past 4 GB the ones shown longest ago go first (the size is looked at
+only then, so it can pass 4 GB for a while between). The first start after the update to this
+version removes the previews not shown for 30 days at once; they are made again when next
+shown. A build cut short (the app killed, the power gone) or one that failed is never shown
+half made: it is made again the next time. See [Where things are
 kept](../reference/where-things-are-kept.md).
 
 ## What you see
@@ -370,7 +373,8 @@ also found in its usual install folder.
 
 *Settings → Previews → Previews made so far* shows the size; **Clear** frees it.
 Nothing is lost: previews are made again when shown. You need not clear it to keep it small:
-previews not shown for 30 days go by themselves, and the cache never keeps more than 4 GB.
+previews not shown for 30 days go by themselves, and past 4 GB the ones shown longest ago go
+(looked at each start and every six hours).
 
 #### Can I use a tool from a container even though it is installed?
 

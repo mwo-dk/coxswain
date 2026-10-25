@@ -400,15 +400,14 @@ pub fn shown(dir: &Path) -> Option<Preview> {
 pub fn preview(how: &How, path: &Path, dir: &Path, timeout: Duration, said: &mut dyn FnMut(Said)) -> Result<Preview, String> {
     let _ = std::fs::remove_dir_all(dir);
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    let made = {
-        // Until calibre returns: one cut short is made again, never shown half written.
-        let _making = crate::spill::Making::new(dir);
-        make(how, path, Want::Preview, dir, &AtomicBool::new(false), timeout, said)
-    };
+    // Until calibre has made it whole: one cut short is made again, never shown half written.
+    crate::spill::begin(dir);
+    let made = make(how, path, Want::Preview, dir, &AtomicBool::new(false), timeout, said);
     if let Err(e) = made {
         let _ = std::fs::remove_dir_all(dir);
         return Err(e);
     }
+    crate::spill::whole(dir);
     shown(dir).ok_or_else(|| t!("convert.no_result"))
 }
 
