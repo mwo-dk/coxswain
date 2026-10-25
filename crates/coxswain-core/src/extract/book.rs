@@ -65,18 +65,20 @@ pub fn text(path: &Path, max: u64) -> Option<String> {
 /// book a piece at a time, never whole. When `out` goes to a sink (`Text::to`), all of it is
 /// read, as far as `WHOLE` allows of a book.
 pub(super) fn read_into(path: &Path, out: &mut Text) -> Option<()> {
-    // All of it is read for `TIME` at most: what is read by then is its text.
-    let until = out.whole().then(|| std::time::Instant::now() + TIME);
-    let on = move || until.is_none_or(|until| std::time::Instant::now() < until);
+    // All of it is read for `TIME` at most, the sink's time not counted; one read no further
+    // than that is `late`, and not read to its end.
+    if out.whole() {
+        out.until = Some(std::time::Instant::now() + TIME);
+    }
     if path
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("epub"))
     {
-        book(path, out, &on)
+        book(path, out)
     } else {
         let encoding = sniff(std::fs::File::open(path).ok()?)?;
         let mut page = Decoded::new(std::fs::File::open(path).ok()?, encoding);
-        page_from(&mut |buf| on() && page.more(buf), out, true, (WINDOW, CAP));
+        page_from(&mut |buf| page.more(buf), out, true, (WINDOW, CAP));
         Some(())
     }
 }
@@ -97,12 +99,12 @@ const SHOWN: usize = 1 << 20;
 // ---------------------------------------------------------------- a book
 
 /// The text of an EPUB, onto `out`: its title and authors, then its chapters in reading order.
-fn book(path: &Path, out: &mut Text, on: &dyn Fn() -> bool) -> Option<()> {
+fn book(path: &Path, out: &mut Text) -> Option<()> {
     let room = if out.whole() { WHOLE } else { MAX_ENTRY };
     walk(path, room, out, |out, chapter| {
-        page_from(&mut |buf| on() && chapter(buf), out, false, (WINDOW, CAP));
+        page_from(chapter, out, false, (WINDOW, CAP));
         out.push('\n');
-        out.len() <= MAX_TEXT && on()
+        out.len() <= MAX_TEXT && !out.late()
     })
     .map(drop)
 }
@@ -195,13 +197,16 @@ fn walk(
             continue;
         };
         // Its encoding, from all of it, then its text as it is unpacked again; no more of it
-        // than the room left, and none of one that says it is larger.
-        let Some(encoding) = zip
-            .by_name(name)
-            .ok()
-            .filter(|entry| entry.size() <= room)
-            .and_then(|entry| sniff(entry.take(room)))
-        else {
+        // than the room left, and none of one that says it is larger. Both unpackings cost
+        // the room: a book of many large chapters is not unpacked twice for nothing.
+        let Some(entry) = zip.by_name(name).ok().filter(|entry| entry.size() <= room) else {
+            continue;
+        };
+        let mut sniffed = entry.take(room);
+        let encoding = sniff(&mut sniffed);
+        room = sniffed.limit();
+        drop(sniffed);
+        let Some(encoding) = encoding else {
             continue;
         };
         let Ok(entry) = zip.by_name(name) else { continue };
@@ -437,7 +442,7 @@ enum Through {
 fn page_from(more: &mut Chapter, out: &mut Text, titled: bool, (window, cap): (usize, usize)) {
     let (mut buf, mut ended, mut begun) = (String::new(), false, false);
     let mut through: Option<Through> = None;
-    while out.len() <= MAX_TEXT {
+    while out.len() <= MAX_TEXT && !out.late() {
         while !ended && buf.len() < window {
             ended = !more(&mut buf);
         }
@@ -1631,5 +1636,98 @@ mod tests {
             "{} bytes",
             out.len()
         );
+    }
+
+    /// A book or page kept whole goes to a model a batch of passages at a time as it is read:
+    /// the time the model takes is not reading, so a slow one gets all of it, not what was
+    /// read within `TIME`. One whose own time runs out is `late`: not read to its end.
+    #[test]
+    fn the_time_a_sink_takes_is_not_reading_time() {
+        let n = 50_000;
+        let html: String = (0..n).map(|i| format!("<p>Report {i} of the mission control room</p>\n")).collect();
+        let d = folder("book-slow-sink");
+        let mid = html.len() / 2 + html[html.len() / 2..].find("<p>").unwrap();
+        let package = "<item id='a' href='a.html'/><item id='b' href='b.html'/><spine><itemref idref='a'/><itemref idref='b'/></spine>";
+        let entries = [
+            ("META-INF/container.xml", "<rootfile full-path='p.opf'/>"),
+            ("p.opf", package),
+            ("a.html", &html[..mid]),
+            ("b.html", &html[mid..]),
+        ];
+        let epub = d.join("a.epub");
+        zip_file(&epub, &entries.map(|(name, text)| (name, text.as_bytes())));
+        let page = |out: &mut Text| {
+            let mut at = 0;
+            let mut more = |buf: &mut String| {
+                let end = (at + (64 << 10)).min(html.len());
+                buf.push_str(&html[at..end]);
+                at = end;
+                at < html.len()
+            };
+            page_from(&mut more, out, true, (WINDOW, CAP));
+        };
+        let book = |out: &mut Text| {
+            book(&epub, out).unwrap();
+        };
+        // The lines read, and whether the reader ran out of its `time`; the sink takes `slow`
+        // the first time.
+        let read = |reader: &dyn Fn(&mut Text), time: Option<std::time::Duration>, slow: std::time::Duration| {
+            let (mut lines, mut first) = (0, true);
+            let mut sink = |chunk: &str| {
+                if std::mem::take(&mut first) {
+                    std::thread::sleep(slow);
+                }
+                lines += chunk.lines().filter(|l| l.starts_with("Report")).count();
+            };
+            let mut out = Text::to(&mut sink);
+            out.until = time.map(|t| std::time::Instant::now() + t);
+            reader(&mut out);
+            let late = out.late;
+            out.end();
+            (lines, late)
+        };
+        for reader in [&page as &dyn Fn(&mut Text), &book] {
+            // The reader is given twice what reading takes on this machine, however slow, and
+            // the sink takes twice that, once.
+            let began = std::time::Instant::now();
+            assert_eq!(read(reader, None, std::time::Duration::ZERO), (n, false));
+            let time = began.elapsed() * 2 + std::time::Duration::from_millis(200);
+            assert_eq!(read(reader, Some(time), time * 2), (n, false));
+            // Out of time: stopped, and said to be.
+            let (lines, late) = read(reader, Some(std::time::Duration::ZERO), std::time::Duration::ZERO);
+            assert!(lines < n && late, "{lines}");
+        }
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Finding a chapter's encoding unpacks it once more: that costs the room of the book too,
+    /// so a book of large chapters is not unpacked twice over for each of them.
+    #[test]
+    fn finding_the_encoding_of_a_chapter_costs_its_room() {
+        let d = folder("book-sniff-room");
+        let blank = " ".repeat(300 << 10);
+        let package = "<item id='a' href='a.html'/><item id='b' href='b.html'/><item id='c' href='c.html'/>\
+            <spine><itemref idref='a'/><itemref idref='b'/><itemref idref='c'/></spine>";
+        let entries = [
+            ("META-INF/container.xml", "<rootfile full-path='p.opf'/>"),
+            ("p.opf", package),
+            ("a.html", &blank),
+            ("b.html", &blank),
+            ("c.html", "<p>Thirdwords</p>"),
+        ];
+        zip_file(&d.join("a.epub"), &entries.map(|(name, text)| (name, text.as_bytes())));
+        // Two chapters of 300 KB unpacked twice each are more than 1 MB: the third is not reached.
+        let read = |room: u64| {
+            let mut out = Text::new();
+            walk(&d.join("a.epub"), room, &mut out, |out, chapter| {
+                page_from(chapter, out, false, (WINDOW, CAP));
+                true
+            })
+            .unwrap();
+            out.end()
+        };
+        assert!(!read(1 << 20).contains("Thirdwords"));
+        assert!(read(2 << 20).contains("Thirdwords"));
+        let _ = std::fs::remove_dir_all(d);
     }
 }

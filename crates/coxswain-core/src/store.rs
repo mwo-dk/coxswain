@@ -277,7 +277,9 @@ impl Store {
         )?;
         // Search by meaning came later: a store from before gets the column, and keeps its text.
         // `embedded` is NULL until the file's passages have their vectors in `chunks`, 1 when
-        // they have, 0 when the server refused the file (tried again at the next scan).
+        // they have, 0 when the server refused the file (tried again at the next scan), 2 when
+        // a file kept whole could not be read to its end as it is (tried again when it changes;
+        // 2.34, an older version leaves it be).
         if db.prepare("SELECT embedded FROM files LIMIT 0").is_err() {
             db.execute_batch("ALTER TABLE files ADD COLUMN embedded INTEGER")?;
         }
@@ -2860,6 +2862,8 @@ enum Streamed {
     Failed(crate::meaning::NoVectors),
     /// The file could not be read to its end (gone, a reader that gave up).
     Unread,
+    /// The file changed or went while it was read: its vectors wait for it as it is now.
+    Moved,
 }
 
 /// Passages that go to the model at a time, for a file kept whole.
@@ -2870,7 +2874,10 @@ const STREAM_BATCH: usize = 64;
 /// where sections start, under `-id` until the last is in; then they take the place of the
 /// file's vectors before and the file is done (`embedded`). Stopped, refused or not read to
 /// the end, the rows written go and the vectors before stay: a part of the file never takes
-/// the place of all of it.
+/// the place of all of it. Not read to the end while it is still there, it is not tried
+/// again until it changes (`embedded` 2), for a reader that gives up gives up again; one that
+/// is not there now (a disk unplugged) or is left in the cloud is tried at the next scan. Changed or gone while it
+/// was read, nothing is written: what was read is no longer the file.
 fn embed_streamed(
     store: &Store,
     engine: &crate::meaning::Engine,
@@ -2882,7 +2889,15 @@ fn embed_streamed(
     // Rows left under `-id` by a stream cut off go when the file streams again, or with the
     // file (`apply`, `drop_staged`).
     let staged = -id;
-    store.db.lock().unwrap().execute("DELETE FROM chunks WHERE file = ?1", [staged])?;
+    // The file as it was when it was read: written only while it still is.
+    let row: (i64, i64) = {
+        let db = store.db.lock().unwrap();
+        db.execute("DELETE FROM chunks WHERE file = ?1", [staged])?;
+        match db.query_row("SELECT size, modified FROM files WHERE id = ?1 AND path = ?2", params![id, path], |r| Ok((r.get(0)?, r.get(1)?))) {
+            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(Streamed::Moved),
+            row => row?,
+        }
+    };
     let (mut batch, mut packed) = (Vec::with_capacity(STREAM_BATCH), vec![]);
     let mut halt: Option<rusqlite::Result<Streamed>> = None;
     let read = crate::meaning::every_passage_streamed(path, lines, &mut |p, starts| {
@@ -2898,7 +2913,7 @@ fn embed_streamed(
             }
         }
     });
-    let end = match halt {
+    let mut end = match halt {
         Some(h) => h?,
         None if read.is_none() => Streamed::Unread,
         None => match put_batch(store, engine, staged, path, &mut batch, &mut packed, stop)? {
@@ -2906,15 +2921,32 @@ fn embed_streamed(
             None => Streamed::Done(packed.len()),
         },
     };
+    // Looked at, not opened: opening a file left in the cloud may bring it down.
+    let there = matches!(end, Streamed::Unread) && std::fs::metadata(path).is_ok() && !crate::cloud::keep_out(Path::new(path));
     let mut db = store.db.lock().unwrap();
-    if !matches!(end, Streamed::Done(_)) {
-        db.execute("DELETE FROM chunks WHERE file = ?1", [staged])?;
+    let tx = db.transaction()?;
+    let same = "WHERE id = ?2 AND path = ?3 AND size = ?4 AND modified = ?5";
+    let set = |embedded: i64| tx.execute(&format!("UPDATE files SET embedded = ?1 {same}"), params![embedded, id, path, row.0, row.1]);
+    let done = match end {
+        Streamed::Done(_) => set(1)? == 1,
+        Streamed::Unread => {
+            if set(if there { 2 } else { 0 })? == 0 {
+                end = Streamed::Moved;
+            }
+            false
+        }
+        _ => false,
+    };
+    if !done {
+        if matches!(end, Streamed::Done(_)) {
+            end = Streamed::Moved;
+        }
+        tx.execute("DELETE FROM chunks WHERE file = ?1", [staged])?;
+        tx.commit()?;
         return Ok(end);
     }
-    let tx = db.transaction()?;
     let had = tx.execute("DELETE FROM chunks WHERE file = ?1", [id])? > 0;
     tx.execute("UPDATE chunks SET file = ?1 WHERE file = ?2", [id, staged])?;
-    tx.execute("UPDATE files SET embedded = 1 WHERE id = ?1", [id])?;
     store.commit_signs(|| tx.commit(), SignsChange::Put(id, packed, had))?;
     Ok(end)
 }
@@ -3120,11 +3152,11 @@ fn embed_round(
                             failed(&f.path, e);
                             refused(f.id)?;
                         }
-                        // Tried again at the next scan, as a file the server refused.
-                        Streamed::Unread => {
-                            store.note_error(Some(&f.path), "could not be read to its end");
-                            refused(f.id)?;
-                        }
+                        // Tried again when it changes, or at the next scan when it could not be
+                        // opened (`embed_streamed`).
+                        Streamed::Unread => store.note_error(Some(&f.path), "could not be read to its end"),
+                        // Read again as it is now, and then given its vectors.
+                        Streamed::Moved => {}
                     }
                     *store.meaning_error.lock().unwrap() = None;
                     next = rx.recv().ok();
@@ -5993,7 +6025,9 @@ mod tests {
 
     /// A file kept whole whose reader gives up part way is not done with a part of its
     /// passages: the vectors it had stay, nothing is left under its staged rows, and it is
-    /// tried again at the next scan. Read to its end, its new vectors take their place.
+    /// not tried again until it changes (`embedded` 2), or at the next scan when it cannot be
+    /// opened now. Read to its end, its new vectors take their place. A file that changed or
+    /// went while it was read gets nothing of what was read.
     #[test]
     fn a_file_kept_whole_read_part_way_keeps_the_vectors_it_had() {
         let d = std::env::temp_dir().join(format!("coxswain-streamed-unread-{}", std::process::id()));
@@ -6009,7 +6043,10 @@ mod tests {
         };
         store.set_engine(crate::meaning::Engine::from_config(&cfg));
         let engine = store.engine().unwrap();
-        let (id, path) = (7i64, "/r/long.log");
+        let id = 7i64;
+        let file = d.join("long.log");
+        std::fs::write(&file, "on the disk").unwrap();
+        let path = file.to_str().unwrap();
         {
             let db = store.db.lock().unwrap();
             db.execute("INSERT INTO files(id, path, size, modified, has_text) VALUES (?1, ?2, 1, 0, 1)", params![id, path]).unwrap();
@@ -6019,6 +6056,7 @@ mod tests {
         }
         let rows = |file: i64| -> i64 { store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks WHERE file = ?1", [file], |r| r.get(0)).unwrap() };
         let embedded = || -> Option<i64> { store.db.lock().unwrap().query_row("SELECT embedded FROM files WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
+        let again = || store.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id]).unwrap();
         // A reader that gives up after 5,000 lines, well past the first batches.
         let line = |i: usize| format!("line {i} of the engine log, pressure nominal and valves closed");
         let mut gives_up = |f: &mut dyn FnMut(&str)| {
@@ -6027,7 +6065,11 @@ mod tests {
         };
         let end = embed_streamed(&store, &engine, id, path, &mut gives_up, &AtomicBool::new(false)).unwrap();
         assert!(matches!(end, Streamed::Unread));
-        assert_eq!((rows(id), rows(-id), embedded()), (3, 0, None), "the vectors before stay, the part read goes");
+        assert_eq!((rows(id), rows(-id), embedded()), (3, 0, Some(2)), "the vectors before stay, the part read goes, not tried again as it is");
+        // The next scan leaves it be; a change of the file brings it back (`apply`).
+        store.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE embedded = 0", []).unwrap();
+        assert_eq!(embedded(), Some(2));
+        again();
         let mut whole = |f: &mut dyn FnMut(&str)| {
             (0..5000).for_each(|i| f(&line(i)));
             true
@@ -6037,6 +6079,30 @@ mod tests {
         };
         assert!(n > 64, "{n}");
         assert_eq!((rows(id), rows(-id), embedded()), (n as i64, 0, Some(1)));
+        // One that cannot be opened now is tried at the next scan.
+        std::fs::remove_file(&file).unwrap();
+        again();
+        assert!(matches!(embed_streamed(&store, &engine, id, path, &mut gives_up, &AtomicBool::new(false)).unwrap(), Streamed::Unread));
+        assert_eq!((rows(id), rows(-id), embedded()), (n as i64, 0, Some(0)));
+        // Changed, or gone, while it was read: nothing of it is written.
+        for gone in [false, true] {
+            again();
+            let mut moves = |f: &mut dyn FnMut(&str)| {
+                (0..2500).for_each(|i| f(&line(i)));
+                let db = store.db.lock().unwrap();
+                match gone {
+                    false => db.execute("UPDATE files SET size = 2 WHERE id = ?1", [id]),
+                    true => db.execute("DELETE FROM files WHERE id = ?1", [id]),
+                }
+                .unwrap();
+                drop(db);
+                (2500..5000).for_each(|i| f(&line(i)));
+                true
+            };
+            let end = embed_streamed(&store, &engine, id, path, &mut moves, &AtomicBool::new(false)).unwrap();
+            assert!(matches!(end, Streamed::Moved), "gone: {gone}");
+            assert_eq!((rows(id), rows(-id)), (n as i64, 0), "gone: {gone}");
+        }
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

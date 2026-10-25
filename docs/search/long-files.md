@@ -80,6 +80,15 @@ A text, code, CSV or log file kept whole is read line by line, never held whole,
 go to the model 64 at a time. Its passages are kept in `search.db` with their vectors, with where
 each section starts.
 
+A file kept whole that cannot be read to its end keeps the vectors it had: a part of it never
+takes the place of all of it. A Word or OpenDocument text, book or web page is read for at most
+20 seconds, the time the model takes on its passages not counted; one that needs longer, or
+whose reader stops at a fault, is noted among the store's [latest
+errors](../previews/data.md#coxswains-own-index-and-store) as *could not be read to its end* and
+is not tried again until it changes. One that is not there when it is looked at (a disk
+unplugged) is tried again at the next scan. A file that changes or goes while it is read gets
+nothing of what was read: it is read again as it is now.
+
 ## What it costs
 
 Room on the disk and time, for the long files only. The cost is worked out from what the store

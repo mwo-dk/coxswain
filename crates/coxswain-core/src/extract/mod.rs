@@ -177,7 +177,7 @@ const WHOLE_ROOM: u64 = 4 << 30;
 /// Each line of the whole text of such a document (`whole_document`), tidied as `text_of`
 /// tidies it, to `f` as it is read: not cut at `MAX_TEXT`, and never held whole. The same lines
 /// as `text_of` gives, for a document with less text than that. `None` when the file cannot
-/// be read, or a reader gave up.
+/// be read, or a reader gave up (its time ran out: `Text::late`).
 pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
     if !whole_document(path) || crate::cloud::keep_out(path) {
         return None;
@@ -191,8 +191,12 @@ pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
     };
     let mut out = Text::to(&mut sink);
     let read = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match ext.as_str() {
-        // A web page or text named `.xls` is read as `text_of` reads it.
+        // A web page or text named `.xls` is read as `text_of` reads it; a workbook its reader
+        // gave up on is not read again, which would give its first lines twice.
         "xlsx" | "xlsm" | "xlsb" | "xls" | "ods" => sheet::read_into(path, u64::MAX, &mut out).or_else(|| {
+            if sheet::packed_file(path)? {
+                return None;
+            }
             out.push_str(&sheet::text(path, MAX_ENTRY)?);
             Some(())
         }),
@@ -201,7 +205,8 @@ pub fn whole_lines(path: &Path, f: &mut dyn FnMut(&str)) -> Option<()> {
         _ => word::read_into(path, u64::MAX, &mut out),
     }))
     .ok()
-    .flatten();
+    .flatten()
+    .filter(|_| !out.late);
     out.end();
     read
 }
@@ -463,6 +468,10 @@ pub(crate) struct Text<'a> {
     /// The time spent in the sink (a model making the vectors of each batch of passages):
     /// not the reader's, so it does not count against a reader's time limit.
     pub waited: std::time::Duration,
+    /// When the reader's time is up (`late`); never, when `None`.
+    pub until: Option<std::time::Instant>,
+    /// Whether the reader stopped at `until`, before the end of the file.
+    pub late: bool,
 }
 
 impl std::ops::Deref for Text<'_> {
@@ -481,6 +490,8 @@ impl<'a> Text<'a> {
             last: None,
             sink: None,
             waited: std::time::Duration::ZERO,
+            until: None,
+            late: false,
         }
     }
 
@@ -490,6 +501,15 @@ impl<'a> Text<'a> {
             sink: Some(sink),
             ..Text::new()
         }
+    }
+
+    /// Whether the reader's time is up: `until` has passed, the time the sink took not
+    /// counted, so a slow model never cuts a file short. Once it is, the text is `late`.
+    pub fn late(&mut self) -> bool {
+        self.late |= self
+            .until
+            .is_some_and(|u| std::time::Instant::now() >= u + self.waited);
+        self.late
     }
 
     /// Whether the text goes to a sink.

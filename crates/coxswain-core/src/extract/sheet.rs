@@ -51,14 +51,16 @@ const XML_2003_SKIP: [&str; 7] = [
     "AutoFilter",
 ];
 
-pub fn text(path: &Path, max: u64) -> Option<String> {
+/// Whether the file is a workbook in a zip or a compound file, by its first bytes; `None`
+/// when it cannot be read.
+pub(super) fn packed_file(path: &Path) -> Option<bool> {
     let mut head = vec![];
-    std::fs::File::open(path)
-        .ok()?
-        .take(8)
-        .read_to_end(&mut head)
-        .ok()?;
-    let text = if head.starts_with(b"PK") || head == COMPOUND {
+    std::fs::File::open(path).ok()?.take(8).read_to_end(&mut head).ok()?;
+    Some(head.starts_with(b"PK") || head == COMPOUND)
+}
+
+pub fn text(path: &Path, max: u64) -> Option<String> {
+    let text = if packed_file(path)? {
         let mut out = Text::new();
         read_into(path, max, &mut out)?;
         out.end()
@@ -1422,7 +1424,9 @@ fn workbook<'f, F: Read + std::io::Seek + 'f>(mut file: F) -> Option<(Box<dyn St
     file.seek(SeekFrom::Start(0)).ok()?;
     file.read_exact(&mut header).ok()?;
     let (shift, small_shift) = (le16(&header, 30)?, le16(&header, 32)?);
-    if !header.starts_with(&COMPOUND) || !(9..=12).contains(&shift) || small_shift > shift {
+    // Small sectors are 64 bytes, as the format says: one byte each would make a small
+    // stream cost a read of the file for every byte.
+    if !header.starts_with(&COMPOUND) || !(9..=12).contains(&shift) || small_shift != 6 {
         return None;
     }
     let (size, small) = (1u64 << shift, 1u64 << small_shift);
@@ -1490,7 +1494,9 @@ fn workbook<'f, F: Read + std::io::Seek + 'f>(mut file: F) -> Option<(Box<dyn St
     }
     let found = found.or(book)?;
     let (first, length) = (le32(&found, 116)?, (le32(&found, 120)? as u64).min(end));
-    if length >= le32(&header, 56)? as u64 {
+    // Streams of 4096 bytes and more lie in the sectors of the file, as the format says,
+    // whatever the header names (at 56): a small stream is read whole, so it stays small.
+    if length >= SMALL_CUTOFF {
         let sectors = chain(first, &table, length, size, end);
         return Some((
             Box::new(Chain {
@@ -1525,6 +1531,9 @@ fn workbook<'f, F: Read + std::io::Seek + 'f>(mut file: F) -> Option<(Box<dyn St
     Some((Box::new(std::io::Cursor::new(bytes)), length))
 }
 
+/// The length below which a stream of a compound file lies in small sectors.
+const SMALL_CUTOFF: u64 = 4096;
+
 /// The sectors of a stream that begins at `first`, in the order of the table: as many as
 /// hold `length` bytes, and only those that lie in the file, `end` bytes long.
 fn chain(first: u32, table: &[u32], length: u64, size: u64, end: u64) -> Vec<u32> {
@@ -1544,9 +1553,12 @@ fn read_in(file: &mut (impl Read + std::io::Seek), sectors: &[u32], size: u64, p
         let place = position + done as u64;
         let Some(&first) = sectors.get((place / size) as usize) else { break };
         let within = place % size;
-        // Sectors that follow one another in the file are read at once.
+        // Sectors that follow one another in the file are read at once, as many as are asked
+        // for: not the whole run each time, which would make a long stream cost its square.
         let mut run = 1;
-        while sectors.get((place / size) as usize + run) == Some(&(first + run as u32)) {
+        while (run as u64 * size) < within + (buf.len() - done) as u64
+            && sectors.get((place / size) as usize + run) == Some(&(first + run as u32))
+        {
             run += 1;
         }
         let most = ((run as u64 * size - within) as usize).min(buf.len() - done);
@@ -2345,6 +2357,26 @@ mod tests {
             (seed >> 24) as u8
         };
         (0..count).map(|_| next()).collect()
+    }
+
+    /// A compound file whose header names other sizes of small sectors than the format's, or
+    /// another length below which streams lie in them, is no trouble: one byte a small sector
+    /// is refused, and a long stream is read from the sectors of the file whatever the header
+    /// says, never a byte at a time from small ones.
+    #[test]
+    fn a_compound_file_with_crafted_small_sectors_is_read_as_the_format_says() {
+        let stream = chance(1 << 20, 7);
+        let file = compound("Workbook", &stream);
+        assert_eq!(workbook(&file).as_deref(), Some(&stream[..]));
+        let mut cutoff = file.clone();
+        cutoff[56..60].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert_eq!(workbook(&cutoff).as_deref(), Some(&stream[..]));
+        let mut tiny = cutoff.clone();
+        tiny[32..34].copy_from_slice(&0u16.to_le_bytes());
+        assert!(workbook(&tiny).is_none());
+        // A small stream is still read from its small sectors.
+        let small = chance(3000, 9);
+        assert_eq!(workbook(&compound("Workbook", &small)).as_deref(), Some(&small[..]));
     }
 
     #[test]

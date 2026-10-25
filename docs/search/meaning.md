@@ -112,7 +112,8 @@ files are still to go, and *· 2 files changing* while files changed in the last
   300 MB log gets its 256 passages from its start to its end, and those passages are kept with
   their vectors. Of a file larger than 1 GB, its first gigabyte is read that way. So does a
   Word, OpenDocument, spreadsheet (`.xlsx`, `.xlsm`, `.xlsb`, `.xls`, `.ods`) or presentation file, book (`.epub`) or web page with about 3 MB of
-  text or more: it is read twice as it is unpacked, for at most 20 seconds each time. [Long files](long-files.md) set to *Everything*, for every folder or one,
+  text or more: it is read twice as it is unpacked (a Word or OpenDocument text, book or web
+  page for at most 20 seconds each time, the time the model takes not counted). [Long files](long-files.md) set to *Everything*, for every folder or one,
   lift the cap: every passage gets a vector, and search by words keeps all the text. Each vector (384 numbers) is packed into a byte a number and kept in
   `search.db`.
 - **When:** the [helper](helper.md) makes them a few files at a time (the passages of several
