@@ -2646,6 +2646,9 @@ fn scan_for(
     store.reader_changed("readers.shogi", "1", &crate::shogi::ENDINGS)?;
     // PBN files: a line per bridge deal (the pairs, event, place, date, contract and result), read once again.
     store.reader_changed("readers.pbn", "1", &crate::bridge::ENDINGS)?;
+    // `.xlsb` cells after the first of a row, which Excel writes short (2.34): every `.xlsb`
+    // is read again, once, and gets its vectors again.
+    store.reader_changed("readers.xlsb", "1", &[".xlsb"])?;
     // Outlook messages and dBase tables have readers of their own: read once again.
     store.reader_changed("readers.msg-dbf", "1", &[".msg", ".dbf"])?;
     // Apache Tika, once it is turned on and its image is there: its own version, so a change
@@ -2664,6 +2667,16 @@ fn scan_for(
     // So are those of Word, OpenDocument, workbook and presentation files with nearly as much
     // text as is kept, or more (2.33): only those get their vectors again, once.
     store.long_passages("passages.documents", "1", DOCUMENT_MARGIN, crate::extract::whole_document)?;
+    // And those of `.xls` and `.xlsb` workbooks (2.34): only those with nearly as much text as
+    // is kept, or more, get their vectors again, once.
+    store.long_passages("passages.workbooks", "1", DOCUMENT_MARGIN, |p| {
+        p.extension().is_some_and(|e| e.eq_ignore_ascii_case("xls") || e.eq_ignore_ascii_case("xlsb"))
+    })?;
+    // And those of books and web pages (2.34): only those with nearly as much text as is kept,
+    // or more, get their vectors again, once.
+    store.long_passages("passages.books", "1", DOCUMENT_MARGIN, |p| {
+        p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["epub", "html", "htm", "xhtml"].iter().any(|b| e.eq_ignore_ascii_case(b)))
+    })?;
     // What is kept of long files, *Sample* or *Everything* (2.34): only the long files whose
     // folder's choice changed are read again, get their vectors again, or are cut back.
     store.long_files_changed(&crate::long_files::Rule::of(cfg))?;

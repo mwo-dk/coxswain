@@ -132,7 +132,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.pptx` `.pptm` `.ppsx` `.potx` | Slides at once, exact view after | [Office](office.md) |
 | `.doc` `.odt` `.rtf` `.ppt` `.odp` `.vsdx`, `.wps` `.wri` `.wpd` `.wk1` `.123`, `.wmf` `.emf` and more | PDF made by LibreOffice | [Office](office.md#formats) |
 | `.json` `.yaml` `.toml`, `.jsonl` | Tree, table | [Data](data.md#formats) |
-| `.csv` `.tsv` `.xlsx` `.xls` `.ods` | Table, a button per sheet | [Data](data.md#formats) |
+| `.csv` `.tsv` `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Table, a button per sheet | [Data](data.md#formats) |
 | `.db` `.sqlite`, `.parquet`, `.duckdb` | Tables, rows, schema | [Data](data.md#formats) |
 | `.pem` `.crt` `.cer` `.der`, `.plist` | Certificate facts, XML | [Data](data.md#formats) |
 | `.onnx` `.tflite` `.mlmodel` `.mlpackage` `.keras`, a Keras `.h5` | The model's facts and its graph, drawn by Netron | [Neural network models](neural-networks.md) |

@@ -37,7 +37,7 @@ Nothing to do: every file of these kinds inside a [folder read](folders.md) is r
 | Mail | `.eml` `.mbox`, Outlook `.msg` | Subject, sender, receivers, the message and the names of its attachments |
 | Chess, xiangqi, Go, draughts and shogi games, bridge deals | `.pgn` `.pgn.gz` `.pgn.zst`, `.si4` `.si5` (SCID), `.sgf`, `.pdn`, `.kif` `.kifu` `.csa`, `.pbn` | A line per game: the players (with their ranks in SGF), event, place, date, the opening (PGN) and the result ([Chess](../previews/chess.md#finding-games), [Go](../previews/go.md#finding-games), [Draughts](../previews/draughts.md#finding-games), [Xiangqi](../previews/xiangqi.md#finding-games), [Shogi](../previews/shogi.md#finding-games), [Bridge](../previews/bridge.md#finding-deals)) |
 | dBase tables | `.dbf` | The field names and the records ([Old pictures and files](../previews/old-formats.md#dbase-tables)) |
-| Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup |
+| Books and web pages | `.epub` `.html` `.htm` `.xhtml` | The text, without the markup: what a browser shows, not scripts, styles or comments; the words a picture stands for (its `alt`) |
 | Notebooks | Jupyter `.ipynb` | The cells, with what they printed |
 | Diagrams | draw.io `.drawio` `.dio`, Mermaid `.mmd` `.mermaid`, Graphviz `.dot` `.gv`, PlantUML `.puml` `.plantuml` `.pu` `.iuml` `.wsd` | The words in the boxes, and [a sentence per arrow](diagrams.md) |
 | Markdown | `.md` `.markdown` `.mdx` | The text, and a sentence per arrow of each Mermaid block |
@@ -68,8 +68,11 @@ The formats themselves cannot be switched off one by one; leave a folder out ins
 CSV and logs keep up to 256 MB with [Long files](long-files.md) set to *Everything*), and at most 64 MB is
 unpacked from one part of a zipped document (`.docx`, `.xlsx`, `.epub` …), which is not a
 setting. Word, OpenDocument, spreadsheet
-(`.xlsx`, `.ods`) and presentation files are read as they are unpacked, never a whole part in
-memory: one with a 60 MB part takes about 10 to 20 MB to read, where it took 25 to 95 MB.
+(`.xlsx`, `.xlsm`, `.xlsb`, `.ods`) and presentation files are read as they are unpacked, never a
+whole part in memory: one with a 60 MB part takes about 10 to 20 MB to read, where it took 25 to
+95 MB. An old `.xls` is read record by record from the file, a sheet where it lies, never the
+whole file in memory. A web page and each chapter of a book are read as they come: a 60 MB page
+or chapter takes a few megabytes, where it took about 65 MB.
 
 ## In the terminal app
 
@@ -118,6 +121,29 @@ Yes. The notes on the cells of an `.xlsx`, `.xlsm`, `.xlsb` or `.ods` are read a
 without who wrote them; an `.xls`'s notes are not. In a PDF, what a filled-in form field, a stamp
 or a note shows on the page is found. The text of a sticky note that only shows in its pop-up is
 not.
+
+#### Are old `.xls` and binary `.xlsb` workbooks read?
+
+Yes, in Coxswain itself, nothing installed: every sheet's values, as in an `.xlsx`, and an `.xls`
+locked only by Excel's own password for a protected structure. They are read as they come, a
+sheet at a time, so a large one costs a few megabytes of memory: a 75 MB `.xls` about 30 MB. With
+about 3 MB of text or more, their passages for [search by meaning](meaning.md) come from the
+whole workbook, not only its first 4 MB.
+
+Before the update that brought this, an `.xlsb` was found only by the first cell of each row:
+Excel writes the cells after it in a short form, which was not read. After the update, every
+`.xlsb` is read again once, and each `.xls` with about 3 MB of text or more gets its vectors made
+again once; nothing else is read again.
+
+#### Is a large EPUB or web page read whole?
+
+A page and each chapter of a book are read as they come, a piece at a time, never whole: a
+60 MB page or chapter costs a few megabytes of memory. A page saved with its pictures inside
+it is read too; a tag longer than 4 MB (a picture written into it) is passed over, and the
+words of its `alt` with it. With about 3 MB of text or more, its passages for
+[search by meaning](meaning.md) come from the whole book or page, not only its first 4 MB.
+After the update that brought this, those books and pages get their vectors made again, once;
+nothing is read again for search by words.
 
 #### Are the attachments of a mail read?
 

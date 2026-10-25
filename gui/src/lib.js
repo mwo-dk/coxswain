@@ -330,7 +330,7 @@ export const CONVERTER = {
   // calibre makes the book an EPUB in a second or two, once it has stayed selected a moment.
   ebook: { tool: "calibre", auto: true, wait: 400, verb: "convert.render" },
 };
-const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xls", "ods"];
+const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xlsb", "xls", "ods"];
 
 /** Every archive ending, longest first, and those of archives that take a password: the
  *  core's (`archive::endings`), set once the config has come (`setArchiveEndings`). */

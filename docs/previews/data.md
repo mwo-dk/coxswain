@@ -30,7 +30,7 @@ certificates as the facts that matter, with expiry coloured.
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
-| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in the built-in viewer; a database or Parquet file as its tables and first rows |
+| **Space** / **F3** | Shows or hides the pane | **F3** opens the file in the built-in viewer; a database or Parquet file as its tables and first rows, a workbook as its sheets' text |
 | **Enter** | Opens the file in its program | The same |
 
 ## Formats
@@ -39,7 +39,7 @@ certificates as the facts that matter, with expiry coloured.
 |---|---|---|
 | `.json`, `.geojson`, `.yaml`, `.yml`, `.toml` | A tree with counts per level (`{12}` keys, `[3]` items); strings, numbers, booleans and `null` coloured; at most 500 entries per level, then *… 120 more* | Built in, [yaml](https://eemeli.org/yaml/), [smol-toml](https://github.com/squirrelchat/smol-toml) |
 | `.jsonl`, `.ndjson` | The first 200 lines as a table, one column per key; a line that is not JSON shows under *(not JSON)* | Built in |
-| `.csv`, `.tsv`, `.xlsx`, `.xlsm`, `.xls`, `.ods` | The first 200 rows as a table, a button per sheet | [SheetJS](https://sheetjs.com/) |
+| `.csv`, `.tsv`, `.xlsx`, `.xlsm`, `.xlsb`, `.xls`, `.ods` | The first 200 rows as a table, a button per sheet | [SheetJS](https://sheetjs.com/) |
 | `.dbf` | A dBase table: its fields and first 200 records | Built in: [Old pictures and files](old-formats.md#dbase-tables) |
 | `.db`, `.sqlite`, `.sqlite3`, `.db3` | Every table and view (*name (view)*) with its row count; click a name for its schema and first rows (open already when there are three tables or fewer) | [SQLite](https://sqlite.org/), opened read-only |
 | `.parquet`, `.pq` | Row and column counts, the first 200 rows, and **Schema** (column, type, repetition) | [hyparquet](https://github.com/hyparam/hyparquet), with Snappy, Gzip, Zstd, Brotli and LZ4 |
@@ -110,7 +110,10 @@ container, as DuckDB has no official image) and the rest of [`[preview]`](tools.
 ## In the terminal app
 
 No preview pane (tables and trees are drawn by the desktop app's webview). **F3** shows the text
-of JSON, YAML, TOML, CSV and PEM files in the built-in viewer; Coxswain's own `index.bin` and
+of JSON, YAML, TOML, CSV and PEM files in the built-in viewer. A workbook (`.xlsx`, `.xlsm`,
+`.xlsb`, `.xls`, `.ods`) shows as text, as search reads it: each sheet's name on a line, then a
+line per row with its cells apart by a tab, values and not formulas, then the notes on the cells
+(the first 4 MB of text). Coxswain's own `index.bin` and
 `search.db` as [what they hold](#coxswains-own-index-and-store). On a SQLite database (`.db`, `.sqlite`,
 `.sqlite3`, `.db3`) it pages its tables instead: each with its row count, its `CREATE` statement
 and its first 20 rows as aligned columns. On a Parquet file: its row count, its columns with their

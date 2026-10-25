@@ -32,7 +32,7 @@ LibreOffice makes of them.
 |---|---|---|
 | `.pptx` `.pptm` `.ppsx` `.potx` | The slides at once: layout, text, pictures and tables ([pptx-to-html](https://github.com/javier-mora/pptx-to-html)); not every font, colour scheme, effect or chart | LibreOffice's PDF |
 | `.docx` | The document, by mammoth ([Documents](documents.md)) | – (never goes to LibreOffice) |
-| `.xlsx` `.xlsm` `.xls` `.ods` | The sheets as tables, by SheetJS ([Data](data.md)) | – |
+| `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | The sheets as tables, by SheetJS ([Data](data.md)) | – |
 | `.doc` `.docm` `.dotx` `.odt` `.ott` `.rtf` | – | LibreOffice's PDF |
 | `.ppt` `.pps` `.pot` `.odp` `.otp` | – | LibreOffice's PDF |
 | `.odg` `.vsd` `.vsdx` `.pub` | – | LibreOffice's PDF |
