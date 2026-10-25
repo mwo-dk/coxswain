@@ -23,6 +23,10 @@ let
     strictDeps = true;
     cargoExtraArgs = "--locked -p coxswain";
     cargoTestExtraArgs = "-p coxswain-core";
+    # The tests in the test profile, as `cargo test` runs them (CI too), not with the release
+    # profile's link-time optimisation of every test program: minutes instead of a quarter hour.
+    cargoTestCommand = "cargo test";
+    env.CARGO_PROFILE_DEV_DEBUG = "line-tables-only";
     nativeBuildInputs = [ pkg-config ];
     # The tokenizer for search by meaning links oniguruma: the system's, not a copy built from C.
     buildInputs = [ oniguruma ];

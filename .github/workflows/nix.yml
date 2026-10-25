@@ -81,9 +81,13 @@ jobs:
         run: |
           deps=".#coxswain.cargoArtifacts"
           [ "$RUNNER_OS" = Linux ] && deps="$deps .#coxswain-gui.cargoArtifacts"
-          rm -rf nix-deps
-          nix copy --to "file://$PWD/nix-deps?compression=none" $deps
-          nix path-info -rsSh $deps
+          # The daemon (root) may have made folders in it while it looked for paths there.
+          sudo rm -rf nix-deps
+          # With their closure (the crates' sources), less what cache.nixos.org has.
+          nix copy --to "file://$PWD/nix-deps?compression=zstd" $deps
+          nix path-info -r $deps | cut -c12-43 | xargs -P 16 -I{} sh -c \
+            'curl -sfI -o /dev/null https://cache.nixos.org/{}.narinfo || exit 0; rm -f "nix-deps/$(sed -n "s/^URL: //p" nix-deps/{}.narinfo)" nix-deps/{}.narinfo'
+          ls nix-deps/*.narinfo | wc -l
           du -sh nix-deps
       - if: steps.deps.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
