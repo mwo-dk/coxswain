@@ -17,10 +17,10 @@ the way the languages are listed by region:
 
 Each app has its own theme, so the two can differ, and you can [make your own](own-theme.md).
 
-![Settings at Looks in the desktop app: the For switch on Desktop app, then the theme swatches under their group headings, Coxswain's own with Cyber chosen, File managers of the DOS years, Windows and Mac](../screenshots/settings-looks-themes.png)
+![Settings at Looks in the desktop app: the line that ends the languages, the For switch on Desktop app, then the theme swatches under their group headings, Coxswain's own with Cyber chosen, File managers of the DOS years, Windows and Mac](../screenshots/settings-looks-themes.png)
 *Settings → Looks in the desktop app: the swatches under their groups.*
 
-![The terminal app's Settings at Looks with the list of themes open: the headings Coxswain's own, File managers of the DOS years and Windows in the list, Classic blue (NC) marked as chosen](../screenshots/tui-settings-themes.png)
+![The terminal app's Settings at Looks with the list of themes open under the heading Terminal app, below Language and Icons and git glyphs: the headings Coxswain's own, File managers of the DOS years and Windows in the list, Classic blue (NC) marked as chosen](../screenshots/tui-settings-themes.png)
 *The terminal app's own Settings: the same groups, as headings in the list.*
 
 ![Nine of the Windows and Mac themes side by side in the desktop app, light and dark, each with its own sidebar, selection colour and chrome](../screenshots/gui-themes.png)

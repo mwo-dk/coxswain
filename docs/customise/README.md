@@ -8,7 +8,7 @@ change the most used parts at once; everything else is set in one file, `config.
 both apps read. These pages walk
 through each part, with the keys and the exact `config.toml` lines.
 
-![Settings at Looks: the languages under their regions, the For switch on Desktop app, and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the languages under their regions, a line, then the For switch on Desktop app, and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
 *The Settings window at Looks: the language, the theme, glyphs and fonts.*
 
 | Page | What it covers |

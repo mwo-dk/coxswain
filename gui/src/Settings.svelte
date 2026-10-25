@@ -967,7 +967,8 @@
           <p class="hint">{t("setting.language.hint")} <button class="link" onclick={() => invoke("open_path", { path: ui.cfg.improve_url })}>{t("settings.language_improve")}</button></p>
         </div>
 
-        <div class="opt" id="opt-{themeFor}" class:flash={flash === "theme" || flash === "tui_theme"} title={keyOf(themeFor)}>
+        <!-- A line between: the themes are not part of the language list above. -->
+        <div class="opt apart" id="opt-{themeFor}" class:flash={flash === "theme" || flash === "tui_theme"} title={keyOf(themeFor)}>
           <div class="for" role="radiogroup" aria-label={t("settings.theme_for")}>
             <span class="lab">{t("settings.theme_for")}</span>
             <label><input type="radio" name="themefor" checked={themeFor === "theme"} onchange={() => (themeFor = "theme")} /> {t("settings.theme_gui")}</label>
@@ -1232,6 +1233,11 @@
     max-width: 48em;
     border-radius: var(--r);
     transition: background 0.4s;
+  }
+  .opt.apart {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-fg);
   }
   .opt.sub {
     margin-inline-start: 24px;
