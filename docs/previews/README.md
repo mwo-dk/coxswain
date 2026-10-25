@@ -138,7 +138,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.onnx` `.tflite` `.mlmodel` `.mlpackage` `.keras`, a Keras `.h5` | The model's facts and its graph, drawn by Netron | [Neural network models](neural-networks.md) |
 | `.cdx.json` `.cdx.xml` `.cbom.json`, CycloneDX JSON/XML | Rated tree, sunburst, compare | [Cryptography bills of materials](bom.md) |
 | `.intoto.jsonl` `.sigstore.json` `.build.slsa` `provenance.json`, in-toto JSON | Inputs → build → outputs, checks, compare | [Build provenance](provenance.md) |
-| `.pgn` `.pgn.gz` `.pgn.zst` `.si4` `.si5` `.cbh` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |
+| `.pgn` `.pgn.gz` `.pgn.zst` `.si4` `.si5` `.cbh` `.cbv` `.epd` `.fen` | A table of games, a game on a board with its moves, positions | [Chess games](chess.md) |
 | `.bin` (a Polyglot book) | The board at the start, the book's moves with their weights | [Chess games](chess.md#opening-books) |
 | `.sgf` | A list of Go games, a game on a board with its stones and variations | [Go games](go.md) |
 | `.pdn` | A table of draughts games, a game on a numbered board with its moves | [Draughts games](draughts.md) |

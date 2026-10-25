@@ -2638,6 +2638,8 @@ fn scan_for(
     store.reader_changed("readers.scid5", "1", &[".si5"])?;
     // ChessBase databases (2.33): a line per game and their positions, as PGN files; read once.
     store.reader_changed("readers.cbh", "1", &[".cbh"])?;
+    // ChessBase archives (2.34): read for the first time, as the database they hold.
+    store.reader_changed("readers.cbv", "1", &[".cbv"])?;
     // SGF files: a line per game (players, ranks, event, place, date, result), read once again.
     store.reader_changed("readers.sgf", "1", &crate::go::ENDINGS)?;
     // PDN files: a line per draughts game (players, event, place, date, result), read once again.

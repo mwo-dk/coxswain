@@ -153,7 +153,7 @@ impl Book {
                     weight,
                     share: if total == 0 { 0.0 } else { weight as f32 * 100.0 / total as f32 },
                     learn,
-                    fen: after.to_string(),
+                    fen: super::pgn::fen(&after),
                 }
             })
             .collect();

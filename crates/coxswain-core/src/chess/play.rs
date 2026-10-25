@@ -42,7 +42,7 @@ fn played(b: &Board, m: cozy_chess::Move) -> Played {
     Played {
         san: pgn::san(b, m),
         uci: super::polyglot::uci(b, m),
-        fen: after.to_string(),
+        fen: pgn::fen(&after),
         from,
         to,
         white: b.side_to_move() == Color::White,
@@ -157,7 +157,7 @@ pub fn save_beside(source: &Path, word: &str, text: &str) -> std::io::Result<Pat
     let dir = source.parent().unwrap_or(Path::new("."));
     let name = source.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let lower = name.to_ascii_lowercase();
-    let cut = [".pgn.gz", ".pgn.zst", ".pgn", ".si4", ".si5", ".cbh", ".epd", ".fen", ".bin"]
+    let cut = [".pgn.gz", ".pgn.zst", ".pgn", ".si4", ".si5", ".cbh", ".cbv", ".epd", ".fen", ".bin"]
         .iter()
         .find(|e| lower.ends_with(*e))
         .map_or(name.len(), |e| name.len() - e.len());
@@ -410,9 +410,11 @@ impl Engine {
         let fen = pgn::full_fen(fen);
         let b = pgn::board(&fen).ok_or_else(|| std::io::Error::other("no position"))?;
         let wanted = lines.clamp(1, MAX_LINES) as usize;
+        // Castling in Shredder-FEN (`pgn::fen`): a Chess960 position, which the engine must be told.
+        let chess960 = fen.split(' ').nth(2).is_some_and(|c| c.chars().any(|c| !"KQkq-".contains(c)));
         write!(
             self.stdin,
-            "setoption name MultiPV value {wanted}\nisready\nposition fen {fen}\ngo movetime {}\n",
+            "setoption name UCI_Chess960 value {chess960}\nsetoption name MultiPV value {wanted}\nisready\nposition fen {fen}\ngo movetime {}\n",
             ms.clamp(50, 600_000)
         )?;
         self.stdin.flush()?;

@@ -385,7 +385,7 @@ export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
  *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */
 export function chessFormat(name) {
   const n = name.toLowerCase();
-  if (/\.(pgn(\.gz|\.zst)?|si[45]|cbh)$/.test(n)) return "pgn";
+  if (/\.(pgn(\.gz|\.zst)?|si[45]|cbh|cbv)$/.test(n)) return "pgn";
   if (/\.(epd|fen)$/.test(n)) return "epd";
   if (n.endsWith(".sgf")) return "sgf";
   if (n.endsWith(".pdn")) return "pdn";

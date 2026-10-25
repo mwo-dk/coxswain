@@ -5,6 +5,7 @@
 //! files keep English SAN.
 
 pub mod cbh;
+pub mod cbv;
 pub mod games;
 pub(crate) mod lex;
 pub mod openings;
@@ -50,7 +51,7 @@ pub enum Format {
 pub fn format(path: &Path) -> Option<Format> {
     let n = path.file_name()?.to_string_lossy().to_ascii_lowercase();
     // A SCID database is shown by its index, as a PGN file is (`scid`).
-    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4", ".si5", ".cbh"].iter().any(|e| n.ends_with(e)) {
+    if [".pgn", ".pgn.gz", ".pgn.zst", ".si4", ".si5", ".cbh", ".cbv"].iter().any(|e| n.ends_with(e)) {
         Some(Format::Pgn)
     } else if n.ends_with(".epd") || n.ends_with(".fen") {
         Some(Format::Epd)
@@ -329,6 +330,7 @@ mod tests {
         assert_eq!(format(Path::new("/a/Games.PGN.gz")), Some(Format::Pgn));
         assert_eq!(format(Path::new("/a/Club.si4")), Some(Format::Pgn));
         assert_eq!(format(Path::new("/a/Club.si5")), Some(Format::Pgn));
+        assert_eq!(format(Path::new("/a/Mega.CBV")), Some(Format::Pgn));
         assert_eq!(format(Path::new("x.fen")), Some(Format::Epd));
         assert_eq!(format(Path::new("x.gz")), None);
         assert_eq!(format(Path::new("Mega.CBH")), Some(Format::Pgn));
