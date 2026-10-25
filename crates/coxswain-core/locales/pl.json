@@ -4291,6 +4291,7 @@
  "pinned.too_deep": "Głębiej niż {n} folderów: zawartość pozostaje bez zmian.",
  "pinned.no_open": "Nie udało się otworzyć: pozostawiony bez zmian.",
  "pinned.hard_link": "Twarde dowiązanie: pozostawione bez zmian, aby nie zmieniły się też jego inne nazwy.",
+ "pinned.efs": "Zaszyfrowany (EFS): nie dało się go tu skopiować zaszyfrowanego, więc nie został skopiowany.",
  "pinned.not_yours": "Plik innego użytkownika: pozostawiony bez zmian, aby nadal był jego.",
  "pinned.extra": "Ma dodatkowe uprawnienia lub atrybuty: pozostawiony bez zmian.",
  "pinned.special": "Ani plik, ani folder: pozostawiony bez zmian.",
@@ -4492,5 +4493,5 @@
  "sync.keys_plan": "Enter {go} · Space zaznacza pole · Esc zamknij",
  "undo.what.sync": "zrób {dir} jak {from}",
  "sync.moved_away": "Folder zastąpionych lub usuniętych elementów został w trakcie przeniesiony, więc nie ma ich w Koszu: {path}",
- "sync.no_mark": "Skopiowano, ale nie udało się dodać znacznika pobrania ani tylko do odczytu"
+ "sync.no_mark": "Skopiowano, ale nie udało się dodać znacznika pobrania, innego strumienia danych ani tylko do odczytu"
 }

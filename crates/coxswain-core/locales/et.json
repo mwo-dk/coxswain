@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Sügavamal kui {n} kausta: sisu jäetakse nii, nagu on.",
  "pinned.no_open": "Ei saanud avada: jäetakse nii, nagu on.",
  "pinned.hard_link": "Kõva link: jäetakse nii, nagu on, et selle teised nimed ei muutuks.",
+ "pinned.efs": "Krüpteeritud (EFS): seda ei saanud siia krüpteeritult kopeerida, seega jäi see kopeerimata.",
  "pinned.not_yours": "Teise kasutaja fail: jäetakse nii, nagu on, et see jääks tema omaks.",
  "pinned.extra": "Sellel on lisaõigused või -atribuudid: jäetakse nii, nagu on.",
  "pinned.special": "Pole fail ega kaust: jäetakse nii, nagu on.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space märgib ruudu · Esc sulge",
  "undo.what.sync": "tee {dir} samasuguseks nagu {from}",
  "sync.moved_away": "Asendatu või kustutatu kaust viidi käivituse ajal ära, seega seda pole prügikastis: {path}",
- "sync.no_mark": "Kopeeritud, kuid allalaadimise märki või kirjutuskaitset ei saanud lisada"
+ "sync.no_mark": "Kopeeritud, kuid allalaadimise märki, muud andmevoogu või kirjutuskaitset ei saanud lisada"
 }

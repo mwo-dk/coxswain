@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Mehr als {n} Ordner tief: Was darin liegt, bleibt, wie es ist.",
  "pinned.no_open": "Ließ sich nicht öffnen: bleibt, wie es ist.",
  "pinned.hard_link": "Ein harter Link: bleibt, wie er ist, damit sich seine anderen Namen nicht mitändern.",
+ "pinned.efs": "Verschlüsselt (EFS): ließ sich hier nicht verschlüsselt kopieren, also wurde es nicht kopiert.",
  "pinned.not_yours": "Datei eines anderen Benutzers: bleibt, wie sie ist, damit sie seine bleibt.",
  "pinned.extra": "Hat zusätzliche Berechtigungen oder Attribute: bleibt, wie sie ist.",
  "pinned.special": "Weder Datei noch Ordner: bleibt, wie es ist.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space setzt das Häkchen · Esc schließen",
  "undo.what.sync": "{dir} wie {from} machen",
  "sync.moved_away": "Der Ordner des Ersetzten oder Gelöschten wurde während des Laufs verschoben, deshalb liegt es nicht im Papierkorb: {path}",
- "sync.no_mark": "Kopiert, aber die Download-Markierung oder der Schreibschutz ließ sich nicht setzen"
+ "sync.no_mark": "Kopiert, aber die Download-Markierung, ein anderer Datenstrom oder der Schreibschutz ließ sich nicht setzen"
 }

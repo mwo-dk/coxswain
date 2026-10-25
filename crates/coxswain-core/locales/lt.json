@@ -4201,6 +4201,7 @@
  "pinned.too_deep": "Giliau nei {n} aplankų: turinys paliekamas, kaip yra.",
  "pinned.no_open": "Nepavyko atverti: paliekama, kaip yra.",
  "pinned.hard_link": "Kietoji nuoroda: paliekama, kaip yra, kad nepasikeistų ir kiti jos vardai.",
+ "pinned.efs": "Šifruota (EFS): čia nepavyko nukopijuoti šifruotos, todėl nenukopijuota.",
  "pinned.not_yours": "Kito naudotojo failas: paliekama, kaip yra, kad liktų jo.",
  "pinned.extra": "Turi papildomų teisių arba atributų: paliekama, kaip yra.",
  "pinned.special": "Nei failas, nei aplankas: paliekama, kaip yra.",
@@ -4395,5 +4396,5 @@
  "sync.keys_plan": "Enter {go} · Space pažymi langelį · Esc uždaryti",
  "undo.what.sync": "padaryti {dir} kaip {from}",
  "sync.moved_away": "Pakeisto ar ištrinto aplankas vykdymo metu buvo perkeltas, todėl jo nėra šiukšlinėje: {path}",
- "sync.no_mark": "Nukopijuota, bet atsisiuntimo žymės ar tik skaitymo nepavyko pridėti"
+ "sync.no_mark": "Nukopijuota, bet atsisiuntimo žymės, kito duomenų srauto ar tik skaitymo nepavyko pridėti"
 }

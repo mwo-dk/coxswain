@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Mere end {n} mapper dybt: indholdet efterlades som det er.",
  "pinned.no_open": "Kunne ikke åbnes: efterladt som den er.",
  "pinned.hard_link": "Et hårdt link: efterladt som det er, så dets andre navne ikke også ændres.",
+ "pinned.efs": "Krypteret (EFS): kunne ikke kopieres krypteret hertil, så den blev ikke kopieret.",
  "pinned.not_yours": "En anden brugers fil: efterladt som den er, så den forbliver deres.",
  "pinned.extra": "Har ekstra tilladelser eller attributter: efterladt som den er.",
  "pinned.special": "Hverken en fil eller en mappe: efterladt som den er.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space sætter flueben · Esc luk",
  "undo.what.sync": "gør {dir} som {from}",
  "sync.moved_away": "Mappen med det erstattede eller slettede blev flyttet væk under kørslen, så den er ikke i papirkurven: {path}",
- "sync.no_mark": "Kopieret, men mærket for en download eller skrivebeskyttelse kunne ikke sættes på"
+ "sync.no_mark": "Kopieret, men mærket for en download, en anden datastrøm eller skrivebeskyttelse kunne ikke sættes på"
 }

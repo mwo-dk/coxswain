@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Djupare än {n} mappar: innehållet lämnas som det är.",
  "pinned.no_open": "Kunde inte öppnas: lämnas som den är.",
  "pinned.hard_link": "En hård länk: lämnas som den är, så att dess andra namn inte ändras också.",
+ "pinned.efs": "Krypterad (EFS): kunde inte kopieras krypterad hit, så den kopierades inte.",
  "pinned.not_yours": "En annan användares fil: lämnas som den är, så att den förblir deras.",
  "pinned.extra": "Har extra behörigheter eller attribut: lämnas som den är.",
  "pinned.special": "Varken en fil eller en mapp: lämnas som den är.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space bockar i rutan · Esc stäng",
  "undo.what.sync": "gör {dir} som {from}",
  "sync.moved_away": "Mappen med det som ersattes eller togs bort flyttades under körningen, så den finns inte i papperskorgen: {path}",
- "sync.no_mark": "Kopierad, men nedladdningsmärket eller skrivskyddet kunde inte läggas till"
+ "sync.no_mark": "Kopierad, men nedladdningsmärket, en annan dataström eller skrivskyddet kunde inte läggas till"
 }

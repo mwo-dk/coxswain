@@ -4204,6 +4204,7 @@
  "pinned.too_deep": "Hlouběji než {n} složek: obsah je ponechán, jak je.",
  "pinned.no_open": "Nelze otevřít: ponechán, jak je.",
  "pinned.hard_link": "Pevný odkaz: ponechán, jak je, aby se nezměnila i jeho další jména.",
+ "pinned.efs": "Šifrováno (EFS): sem jej nešlo zkopírovat šifrovaně, a tak nebyl zkopírován.",
  "pinned.not_yours": "Soubor jiného uživatele: ponechán, jak je, aby zůstal jeho.",
  "pinned.extra": "Má další oprávnění nebo atributy: ponechán, jak je.",
  "pinned.special": "Není to soubor ani složka: ponecháno, jak je.",
@@ -4398,5 +4399,5 @@
  "sync.keys_plan": "Enter {go} · Space zaškrtne políčko · Esc zavřít",
  "undo.what.sync": "upravit {dir} podle {from}",
  "sync.moved_away": "Složka s nahrazeným nebo smazaným byla během běhu přesunuta, takže není v koši: {path}",
- "sync.no_mark": "Zkopírováno, ale značku stažení nebo jen pro čtení se nepodařilo přidat"
+ "sync.no_mark": "Zkopírováno, ale značku stažení, jiný datový proud nebo jen pro čtení se nepodařilo přidat"
 }

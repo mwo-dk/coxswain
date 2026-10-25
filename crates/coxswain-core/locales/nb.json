@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Mer enn {n} mapper dypt: innholdet latt være som det er.",
  "pinned.no_open": "Kunne ikke åpnes: latt være som den er.",
  "pinned.hard_link": "En hard lenke: latt være som den er, så de andre navnene ikke endres også.",
+ "pinned.efs": "Kryptert (EFS): kunne ikke kopieres kryptert hit, så den ble ikke kopiert.",
  "pinned.not_yours": "En annen brukers fil: latt være som den er, så den forblir deres.",
  "pinned.extra": "Har ekstra tillatelser eller attributter: latt være som den er.",
  "pinned.special": "Verken en fil eller en mappe: latt være som den er.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space huker av · Esc lukk",
  "undo.what.sync": "gjør {dir} lik {from}",
  "sync.moved_away": "Mappen med det som ble erstattet eller slettet ble flyttet bort under kjøringen, så den ligger ikke i papirkurven: {path}",
- "sync.no_mark": "Kopiert, men merket for en nedlasting eller skrivebeskyttelse kunne ikke settes"
+ "sync.no_mark": "Kopiert, men merket for en nedlasting, en annen datastrøm eller skrivebeskyttelse kunne ikke settes"
 }

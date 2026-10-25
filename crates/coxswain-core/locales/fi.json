@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "Yli {n} kansion syvyydessä: sisältö jätetään ennalleen.",
  "pinned.no_open": "Ei voitu avata: jätetään ennalleen.",
  "pinned.hard_link": "Kova linkki: jätetään ennalleen, jotta sen muut nimet eivät muutu.",
+ "pinned.efs": "Salattu (EFS): sitä ei voitu kopioida tänne salattuna, joten sitä ei kopioitu.",
  "pinned.not_yours": "Toisen käyttäjän tiedosto: jätetään ennalleen, jotta se pysyy hänen omanaan.",
  "pinned.extra": "Siinä on lisäoikeuksia tai -määritteitä: jätetään ennalleen.",
  "pinned.special": "Ei tiedosto eikä kansio: jätetään ennalleen.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space valitsee ruudun · Esc sulje",
  "undo.what.sync": "tee {dir} samanlaiseksi kuin {from}",
  "sync.moved_away": "Korvatun tai poistetun kansio siirrettiin pois ajon aikana, joten se ei ole roskakorissa: {path}",
- "sync.no_mark": "Kopioitu, mutta latauksen merkintää tai vain luku -tilaa ei voitu lisätä"
+ "sync.no_mark": "Kopioitu, mutta latauksen merkintää, muuta tietovirtaa tai vain luku -tilaa ei voitu lisätä"
 }

@@ -4111,6 +4111,7 @@
  "pinned.too_deep": "{n} karpeta baino sakonago: barrukoa dagoen bezala uzten da.",
  "pinned.no_open": "Ezin izan da ireki: dagoen bezala uzten da.",
  "pinned.hard_link": "Esteka gogorra: dagoen bezala uzten da, beste izenak ere alda ez daitezen.",
+ "pinned.efs": "Zifratuta (EFS): ezin izan da hona zifratuta kopiatu, beraz ez da kopiatu.",
  "pinned.not_yours": "Beste erabiltzaile baten fitxategia: dagoen bezala uzten da, harena izaten jarrai dezan.",
  "pinned.extra": "Baimen edo atributu gehigarriak ditu: dagoen bezala uzten da.",
  "pinned.special": "Ez da fitxategia ez karpeta: dagoen bezala uzten da.",
@@ -4298,5 +4299,5 @@
  "sync.keys_plan": "Enter {go} · Space laukia markatzen du · Esc itxi",
  "undo.what.sync": "egin {dir} {from}(r)en berdin",
  "sync.moved_away": "Ordezkatutakoaren edo ezabatutakoaren karpeta martxan zegoela mugitu zen, beraz ez dago zakarrontzian: {path}",
- "sync.no_mark": "Kopiatuta, baina ezin izan zaio deskargaren marka edo irakurtzeko soilik ezarri"
+ "sync.no_mark": "Kopiatuta, baina ezin izan zaio deskargaren marka, beste datu-fluxu bat edo irakurtzeko soilik ezarri"
 }
