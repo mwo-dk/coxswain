@@ -143,7 +143,10 @@ pub(crate) fn date(secs: u64) -> String {
 }
 
 pub fn draw(f: &mut Frame, app: &mut App) {
-    let [main, cmd, keys] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(f.area());
+    // A long message on the status line takes the lines it needs, four at most: it is often
+    // why something did not open, and cut it would not say.
+    let status_h = status_text(app).map_or(1, |s| wrap(&s, f.area().width as usize).len().clamp(1, 4)) as u16;
+    let [main, cmd, keys] = Layout::vertical([Constraint::Min(0), Constraint::Length(status_h), Constraint::Length(1)]).areas(f.area());
     let [l, r] = Layout::horizontal([Constraint::Percentage(50); 2]).areas(main);
     app.areas = [l, r];
     panel(f, app, 0, l);
@@ -507,19 +510,31 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     f.render_widget(Paragraph::new(info), Rect { y: sep_y + 1, height: 1, ..inner });
 }
 
+/// What the status line shows instead of the command line: quick search, else the status
+/// while the command line is empty.
+fn status_text(app: &App) -> Option<String> {
+    if let Some(q) = &app.quick {
+        return Some(t!("quick_search", "query" => q));
+    }
+    app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "))
+}
+
 fn cmdline(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     let st = sty(&t.cmdline);
-    let text = if let Some(q) = &app.quick {
-        t!("quick_search", "query" => q)
-    } else if let Some(s) = &app.status {
-        if app.cmdline.is_empty() { s.clone() } else { String::new() }
-    } else {
-        String::new()
-    };
-    let (line, cursor) = if !text.is_empty() {
-        (Line::from(Span::styled(fit(&text, area.width as usize), st)), None)
-    } else {
+    if let Some(text) = status_text(app) {
+        let (w, h) = (area.width as usize, area.height.max(1) as usize);
+        let mut parts = wrap(&text, w);
+        // Past the lines it has, the rest on the last one, cut.
+        if parts.len() > h {
+            let rest = parts.split_off(h - 1).join(" ");
+            parts.push(rest);
+        }
+        let lines: Vec<Line> = parts.iter().map(|l| Line::from(Span::styled(fit(l, w), st))).collect();
+        f.render_widget(Paragraph::new(lines).style(st), area);
+        return;
+    }
+    let (line, cursor) = {
         let prompt = format!("{}> ", fit_left(&app.panel().dir.to_string_lossy(), area.width as usize / 2));
         let x = area.x + (prompt.width() + app.cmdline.width()) as u16;
         let full = format!("{prompt}{}", app.cmdline);
@@ -1069,7 +1084,8 @@ pub(crate) fn wrap(s: &str, width: usize) -> Vec<String> {
         for c in word.chars() {
             let cw = c.width().unwrap_or(0);
             if w + cw > width && c != ' ' {
-                out.push(std::mem::take(&mut line));
+                // A space before a wide word's letters is not kept at the line's end.
+                out.push(std::mem::take(&mut line).trim_end().to_string());
                 w = 0;
             }
             line.push(c);

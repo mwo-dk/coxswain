@@ -96,8 +96,9 @@ and the dialogs, so the columns stay straight and nothing in a name can talk to 
 The file keeps its real name; **Shift+F6** renames it.
 
 **A folder that cannot be read** (it was deleted, or you may not open it): the panel goes up
-to the nearest folder it can list. The terminal app shows the error in red on the info line;
-the desktop app shows it above the list or in the status line.
+to the nearest folder it can list. The terminal app shows the error in red on the info line,
+cut to the panel's width, and whole on the status line; the desktop app shows it above the list
+or in the status line.
 
 ## The title bar: the version
 
@@ -117,7 +118,9 @@ after it starts; terminals that show titles show it in their title bar or tab.
 ## The status line
 
 Messages go to the command line row and stay until the next key: *Refreshed*, `Copied "a.txt"`,
-`Moved 3 items to the bin`, `Opened report.pdf`, `Not a folder: /tmp/x`, and errors.
+`Moved 3 items to the bin`, `Opened report.pdf`, `Not a folder: /tmp/x`, and errors. In the
+terminal app a message longer than the row takes the rows it needs above the F-key bar, four at
+most, the panels giving way until the next key.
 
 Two kinds of message come by themselves:
 

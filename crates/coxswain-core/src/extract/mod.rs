@@ -49,6 +49,9 @@ fn reader(path: &Path) -> Option<Reader> {
         return Some(|path, _| crate::chess::games::search_text(path, MAX_TEXT));
     }
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
+    if chess_companion(path, &ext) {
+        return Some(|_, _| None);
+    }
     Some(match ext.as_str() {
         "pdf" => |path, max| pdf::tidied(path, max).or_else(|| installed::scanned_pdf(path)),
         "docx" | "docm" | "dotx" | "odt" | "ott" => word::text,
@@ -79,6 +82,20 @@ fn reader(path: &Path) -> Option<Reader> {
         e if crate::ebook::FORMATS.contains(&e) => crate::ebook::text,
         _ => return None,
     })
+}
+
+/// The files of a SCID or ChessBase database beside the one it is read from (`.si4`, `.si5`,
+/// `.cbh`): their games and names are found through it, so on their own they have no text.
+/// Binary, though a names file reads like text in places.
+pub const CHESS_COMPANIONS: [&str; 18] = [
+    "sg4", "sn4", "sg5", "sn5", "cbg", "cba", "cbp", "cbt", "cbc", "cbs", "cbe", "cbj", "cbtt", "cbm", "cbb", "cbgi",
+    "cbpi", "cbl",
+];
+
+/// Whether `path` (ending `ext`, lower case) is such a file. A `.cbt` only beside its `.cbh`:
+/// a comic in a tar is named so too.
+fn chess_companion(path: &Path, ext: &str) -> bool {
+    CHESS_COMPANIONS.contains(&ext) && (ext != "cbt" || path.with_extension("cbh").exists() || path.with_extension("CBH").exists())
 }
 
 /// Whether the file at `path` is read line by line (`plain::tidied`), whatever its size: text,
@@ -799,6 +816,31 @@ pub(crate) mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    #[test]
+    fn chess_companions_have_no_text() {
+        let d = folder("companions");
+        let names = b"Scid.sn\0)ParisJParis FRA ?`Morphy, Paul and more names to read as text";
+        for f in ["test.sn5", "test.sg4", "Big.cbp", "Big.CBG"] {
+            std::fs::write(d.join(f), names).unwrap();
+            assert_eq!(text_of(&d.join(f), names.len() as u64, 1 << 20), None, "{f}");
+        }
+        // `.cbt`: a ChessBase file beside its `.cbh`, else a comic in a tar, read as ever.
+        let words = b")ParisJParis FRA ?`Morphy, Paul and more names to read as text";
+        for f in ["test.sn5", "Big.cbp"] {
+            std::fs::write(d.join(f), words).unwrap();
+            assert_eq!(text_of(&d.join(f), words.len() as u64, 1 << 20), None, "{f}, without a zero byte");
+        }
+        std::fs::write(d.join("comic.cbt"), words).unwrap();
+        assert!(text_of(&d.join("comic.cbt"), words.len() as u64, 1 << 20).is_some());
+        std::fs::write(d.join("Big.cbt"), names).unwrap();
+        std::fs::write(d.join("Big.cbh"), b"").unwrap();
+        assert_eq!(text_of(&d.join("Big.cbt"), names.len() as u64, 1 << 20), None);
+        // The same words in a text file are found.
+        std::fs::write(d.join("notes.txt"), words).unwrap();
+        assert!(text_of(&d.join("notes.txt"), words.len() as u64, 1 << 20).is_some_and(|t| t.contains("Morphy")));
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// A zip file with these entries, as office files are.

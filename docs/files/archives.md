@@ -204,7 +204,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   parts: it opens from games.7z.001*. It is read-only, as a disk image is: the badge and the
   panel title say *Read-only*. All its parts must be there, numbered without a gap; with one
   missing, it does not open, and says which: *games.7z.002 is missing: a 7z split into parts
-  opens only with all its parts, numbered without a gap*. Inside another archive it opens too, its parts copied together into
+  opens only with all its parts, numbered without a gap*. **Enter** or **F3** on its first part
+  says so on the status line, whole (in the terminal app over two rows at 80 columns), rather
+  than showing its bytes. Inside another archive it opens too, its parts copied together into
   the cache folder (the limits above count them together). Search finds it by its own name only.
 - **A 7z's list of contents** is read whole, into memory, when it is opened: one with a list over
   64 MB unpacked (about 900,000 files) is not opened, with a message that says how large it

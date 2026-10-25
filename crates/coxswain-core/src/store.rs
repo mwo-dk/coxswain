@@ -2682,6 +2682,11 @@ fn scan_for(
     store.reader_changed("readers.cbh", "1", &[".cbh"])?;
     // ChessBase archives (2.34): read for the first time, as the database they hold.
     store.reader_changed("readers.cbv", "1", &[".cbv"])?;
+    // The other files of SCID and ChessBase databases (`.sn5`, `.cbg`, …) have no text of
+    // their own (2.34): what was read of them goes at once, and they are passed over once
+    // more, to stay without. Only files with those endings.
+    let ends: Vec<String> = crate::extract::CHESS_COMPANIONS.iter().map(|e| format!(".{e}")).collect();
+    store.reader_dropped("readers.chess-companions", "1", &ends)?;
     // SGF files: a line per game (players, ranks, event, place, date, result), read once again.
     store.reader_changed("readers.sgf", "1", &crate::go::ENDINGS)?;
     // PDN files: a line per draughts game (players, event, place, date, result), read once again.
