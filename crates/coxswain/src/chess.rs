@@ -608,7 +608,7 @@ impl Viewer {
     }
 
     /// The evaluation of the position shown, from White's side: the game's analysis, else the
-    /// engine's for this position.
+    /// engine's for this position, else the one the game's comment gives.
     fn eval_now(&self, r: Option<&Review>, fen: Option<&str>) -> Option<i32> {
         let cp = |l: &play::EngineLine| match (l.mate, l.cp) {
             (Some(m), _) if m > 0 => Some(review::CAP + 100 - m.min(99)),
@@ -632,10 +632,12 @@ impl Viewer {
                 return v;
             }
         }
-        match &self.analysed {
+        let engine = match &self.analysed {
             Some((f, Ok(a))) if Some(f.as_str()) == fen => a.lines.first().and_then(cp),
             _ => None,
-        }
+        };
+        // Else the game's own, from its comment (`[%eval]`, a ChessBase evaluation).
+        engine.or_else(|| self.open.as_ref().filter(|_| !in_line).and_then(|o| o.at).and_then(|n| self.open.as_ref()?.game.nodes.get(n as usize)?.eval))
     }
 
     /// A key while the move list is open: typing narrows it, ↑ ↓ choose, Enter plays.

@@ -310,25 +310,25 @@ fn touch(run: &Path) {
     let _ = File::open(run).and_then(|f| f.set_modified(std::time::SystemTime::now()));
 }
 
-/// Archives unpacked in this run: by path, size and time, the `.cbh` file in the cache.
-type Unpacked = (PathBuf, u64, Option<std::time::SystemTime>, PathBuf);
+/// Archives unpacked in this run: by path, size and time, the `.cbh` files in the cache.
+type Unpacked = (PathBuf, u64, Option<std::time::SystemTime>, Vec<PathBuf>);
 static UNPACKED: Mutex<Vec<Unpacked>> = Mutex::new(Vec::new());
 
-/// The `.cbh` file of the database archive `cbv` holds, unpacked into this run's folder in the
-/// cache (with the files beside it its games need) when it is not there yet as the archive is
-/// now. Only one database, the archive's first `.cbh`; its pictures and the rest are left.
-pub fn unpacked(cbv: &Path) -> io::Result<PathBuf> {
+/// The `.cbh` files of the databases archive `cbv` holds, in the archive's order, unpacked into
+/// this run's folder in the cache (with the files beside each its games need) when they are not
+/// there yet as the archive is now. Pictures and the rest are left.
+pub fn unpacked(cbv: &Path) -> io::Result<Vec<PathBuf>> {
     unpacked_with(cbv, &|| false, &|_, _| {})
 }
 
 /// `unpacked`, asking `stop` between blocks and telling `progress` the packed bytes read of all.
-pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn Fn(u64, u64)) -> io::Result<PathBuf> {
+pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn Fn(u64, u64)) -> io::Result<Vec<PathBuf>> {
     let meta = std::fs::metadata(cbv)?;
     let (size, time) = (meta.len(), meta.modified().ok());
-    let current = |done: &[Unpacked]| done.iter().find(|d| d.0 == cbv && d.1 == size && d.2 == time && d.3.is_file()).map(|d| d.3.clone());
+    let current = |done: &[Unpacked]| done.iter().find(|d| d.0 == cbv && d.1 == size && d.2 == time && d.3.iter().all(|p| p.is_file())).map(|d| d.3.clone());
     // The lock is held only to look and to note: other archives open while this one unpacks.
     if let Some(out) = current(&UNPACKED.lock().unwrap_or_else(|e| e.into_inner())) {
-        if let Some(run) = out.parent().and_then(Path::parent) {
+        if let Some(run) = out.first().and_then(|p| p.parent()).and_then(Path::parent) {
             touch(run);
         }
         return Ok(out);
@@ -337,8 +337,10 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     let list = members(&mut f)?;
     // Members at the root only (`name.ext`), never a folder's (`name.ext\file`).
     let root = |m: &Member| !m.name.contains(['\\', '/']);
-    let cbh = list.iter().find(|m| root(m) && m.name.to_ascii_lowercase().ends_with(".cbh")).ok_or_else(|| bad("no .cbh in it"))?;
-    let stem = cbh.name[..cbh.name.len() - 4].to_string();
+    let stems: Vec<&str> = list.iter().filter(|m| root(m) && m.name.to_ascii_lowercase().ends_with(".cbh")).map(|m| &m.name[..m.name.len() - 4]).collect();
+    if stems.is_empty() {
+        return Err(bad("no .cbh in it"));
+    }
     let run = crate::archive::run_folder("cbv", false)?;
     let dir = run.join(format!("{:016x}", {
         use std::hash::{Hash, Hasher};
@@ -346,13 +348,14 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
         (cbv, size, time).hash(&mut h);
         h.finish()
     }));
+    // Each database's files, as `db<n>.<ext>` (`n` its place among the `.cbh` members).
     let mut wanted: HashMap<String, &Member> = HashMap::new();
     for m in list.iter().filter(|m| root(m)) {
         if let Some((s, ext)) = m.name.rsplit_once('.')
-            && s.eq_ignore_ascii_case(&stem)
+            && let Some(n) = stems.iter().position(|stem| s.eq_ignore_ascii_case(stem))
             && NEEDED.contains(&ext.to_ascii_lowercase().as_str())
         {
-            wanted.insert(ext.to_ascii_lowercase(), m);
+            wanted.insert(format!("db{n}.{}", ext.to_ascii_lowercase()), m);
         }
     }
     // What it would unpack to, weighed before a byte is written.
@@ -372,9 +375,9 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     let part = run.join(format!("part-{}", PART.fetch_add(1, Ordering::Relaxed)));
     crate::fs::private_dir(&part)?;
     let mut read = 0u64;
-    let written = wanted.iter().try_for_each(|(ext, m)| {
+    let written = wanted.iter().try_for_each(|(name, m)| {
         f.seek(SeekFrom::Start(m.at))?;
-        let to = File::create(part.join(format!("db.{ext}")))?;
+        let to = File::create(part.join(name))?;
         unpack(&mut f, m.packed, m.size, to, stop, &mut |n| progress(read + n, packed))?;
         read += m.packed;
         Ok(())
@@ -408,13 +411,13 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     }
     drop(in_use);
     for old in gone {
-        if let Some(d) = old.3.parent()
+        if let Some(d) = old.3.first().and_then(|p| p.parent())
             && d != dir
         {
             let _ = std::fs::remove_dir_all(d);
         }
     }
-    let out = dir.join("db.cbh");
+    let out: Vec<PathBuf> = (0..stems.len()).map(|n| dir.join(format!("db{n}.cbh"))).collect();
     done.push((cbv.to_path_buf(), size, time, out.clone()));
     touch(&run);
     Ok(out)
@@ -562,19 +565,8 @@ mod tests {
         }
     }
 
-    /// A database packed into an archive (stored blocks, a picture in a folder of its own beside
-    /// it) opens as the database: the table, a game, Find's line; the archive is left as it was.
-    #[test]
-    fn an_archive_opens_as_its_database() {
-        let d = std::env::temp_dir().join(format!("coxswain-cbv-{}", std::process::id()));
-        std::fs::create_dir_all(&d).unwrap();
-        let mut moves = super::super::cbh::tests::RUY.to_vec();
-        moves.push(255);
-        let cbh = super::super::cbh::tests::base(&d, "Games", &moves);
-        let mut files: Vec<(String, Vec<u8>)> = vec![("Games.cbh\\pic.bmp".into(), vec![1, 2, 3])];
-        for ext in ["cbh", "cbg", "cba", "cbp", "cbt"] {
-            files.push((format!("Games.{ext}"), std::fs::read(cbh.with_extension(ext)).unwrap()));
-        }
+    /// An archive of `files` (name, bytes), each in stored blocks of 1000 bytes.
+    fn archive(files: &[(String, Vec<u8>)]) -> Vec<u8> {
         let rec = 173usize;
         let mut out = vec![8u8, 0, files.len() as u8, 0, rec as u8, 0, 3, 0];
         let streams: Vec<Vec<u8>> = files
@@ -600,6 +592,52 @@ mod tests {
             at += st.len();
         }
         out.extend(streams.concat());
+        out
+    }
+
+    /// An archive of two databases lists the games of both, the second's after the first's,
+    /// and each opens from its own files.
+    #[test]
+    fn every_database_of_an_archive_is_read() {
+        let d = std::env::temp_dir().join(format!("coxswain-cbv-two-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let mut long = super::super::cbh::tests::RUY.to_vec();
+        long.push(255);
+        let short = [128u8, 128, 255];
+        let mut files: Vec<(String, Vec<u8>)> = vec![];
+        for (name, moves) in [("Games", &long[..]), ("More", &short[..])] {
+            let cbh = super::super::cbh::tests::base(&d, name, moves);
+            for ext in ["cbh", "cbg", "cba", "cbp", "cbt"] {
+                files.push((format!("{name}.{ext}"), std::fs::read(cbh.with_extension(ext)).unwrap()));
+            }
+        }
+        let cbv = d.join("Two.cbv");
+        std::fs::write(&cbv, archive(&files)).unwrap();
+        assert_eq!(unpacked(&cbv).unwrap().len(), 2);
+        let lib = super::super::Library::open(&cbv).unwrap();
+        while !lib.progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(lib.progress().games, 2);
+        assert_eq!(lib.game(0).unwrap().main_line().len(), 5);
+        assert_eq!(lib.game(1).unwrap().main_line().len(), 2);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A database packed into an archive (stored blocks, a picture in a folder of its own beside
+    /// it) opens as the database: the table, a game, Find's line; the archive is left as it was.
+    #[test]
+    fn an_archive_opens_as_its_database() {
+        let d = std::env::temp_dir().join(format!("coxswain-cbv-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let mut moves = super::super::cbh::tests::RUY.to_vec();
+        moves.push(255);
+        let cbh = super::super::cbh::tests::base(&d, "Games", &moves);
+        let mut files: Vec<(String, Vec<u8>)> = vec![("Games.cbh\\pic.bmp".into(), vec![1, 2, 3])];
+        for ext in ["cbh", "cbg", "cba", "cbp", "cbt"] {
+            files.push((format!("Games.{ext}"), std::fs::read(cbh.with_extension(ext)).unwrap()));
+        }
+        let out = archive(&files);
         let cbv = d.join("Games.cbv");
         std::fs::write(&cbv, &out).unwrap();
         let lib = super::super::Library::open(&cbv).unwrap();
@@ -617,21 +655,21 @@ mod tests {
         // Five newer archives do not take the files of one still read: the oldest unused go.
         let mine = unpacked(&cbv).unwrap();
         let others: Vec<PathBuf> = (0..5).map(|i| d.join(format!("Other{i}.cbv"))).collect();
-        let theirs: Vec<PathBuf> = others
+        let theirs: Vec<Vec<PathBuf>> = others
             .iter()
             .map(|o| {
                 std::fs::write(o, &out).unwrap();
                 unpacked(o).unwrap()
             })
             .collect();
-        assert!(mine.is_file(), "in use, kept");
+        assert!(mine[0].is_file(), "in use, kept");
         assert_eq!(lib.game(0).unwrap().main_line().len(), 5);
-        assert!(!theirs[0].exists() && theirs[4].is_file(), "the oldest unused went");
+        assert!(!theirs[0][0].exists() && theirs[4][0].is_file(), "the oldest unused went");
         // Read no more: its files go when the next archive comes.
         drop(lib);
         std::fs::write(&others[0], [&out[..], &[0]].concat()).unwrap();
         unpacked(&others[0]).unwrap();
-        assert!(!mine.exists(), "no longer in use, evicted");
+        assert!(!mine[0].exists(), "no longer in use, evicted");
         std::fs::remove_dir_all(&d).unwrap();
     }
 
@@ -641,10 +679,9 @@ mod tests {
     #[ignore]
     fn a_real_archive_reads_whole() {
         let p = PathBuf::from(std::env::var("COXSWAIN_CBV").unwrap());
-        let cbh = unpacked(&p).unwrap();
         let (mut games, mut cut) = (0, vec![]);
-        super::super::cbh::scan(&cbh, &|| false, &|_| {}, |g| {
-            let text = super::super::cbh::pgn(&cbh, g.record).unwrap();
+        super::super::cbh::scan(&p, &|| false, &|_| {}, |g| {
+            let text = super::super::cbh::pgn(&p, g.record).unwrap();
             games += 1;
             if text.contains(&crate::t!("chess.cbh_cut")) {
                 cut.push(g.record);

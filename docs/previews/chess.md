@@ -296,7 +296,8 @@ own.
 - **Annotations** from the `.cba` file come with the moves: texts before and after a move (in
   every language the game has, one after the other), symbols (`!`, `?!`, `±` …), coloured
   squares and arrows ([Arrows and coloured squares](#a-game-on-the-board)), the engine's
-  evaluation as `[%eval 1.50,22]` (pawns, then the depth; `#3` a mate) and the time spent as
+  evaluation as `[%eval 1.50,22]` (pawns, then the depth; `#3` a mate), also shown as the
+  evaluation bar beside the board ([Analysing a whole game](chess-play.md#analysing-a-whole-game)), and the time spent as
   `[%emt 0:01:05]`. The game's own text goes before the first move. Training questions,
   pictures, sounds, videos and the rest are left out. A `.cba` record that is not the game's is
   left out whole and the moves show without it.
@@ -313,8 +314,9 @@ own.
 - **Archives** (`.cbv`, ChessBase's *backup* of a database in one file) open as the database
   they hold, with the same keys: the files its games need are unpacked once into Coxswain's
   own folder in the cache (`coxswain/cbv/` there, removed a day later; the last four archives
-  are kept at a time, and one still open in the preview is never removed), and the archive is never changed. Its first database is read; pictures
-  and other files in it are left. An archive that says it unpacks to far more than its packed
+  are kept at a time, and one still open in the preview is never removed), and the archive is never changed. An archive
+  holding several databases lists the games of all of them, one database after the other, in
+  one table; pictures and other files in it are left. An archive that says it unpacks to far more than its packed
   bytes could hold, to more than 16 GB, or to more than the disk has free (keeping 1 GB) is
   refused with a message before anything is written; the bar shows the unpacking, then the
   reading, and closing the preview stops both. *Save as new PGN* writes next to the archive. Find reads a

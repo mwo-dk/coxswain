@@ -138,8 +138,8 @@ each a file with no ending). A game is a list of tags in brackets:
 
 Coxswain knows such a file by its first bytes, `[DhtmlXQ`, when its name has no ending or ends
 in `.che`, `.txt` or `.dhtmlxq`, and reads it as one game. A dot inside the name does not make an
-ending: in `001-1.古谱的启示` or `002.Opening game` what follows the dot is no file type's (not one
-to eight plain letters and digits), so such files are looked at too. Only their first 64 bytes
+ending: in `001-1.古谱的启示`, `002.Opening game` or `game.abc` what follows the dot is no file
+type Coxswain knows, so such files are looked at too; `game.json` or `game.png` are not. Only their first 64 bytes
 are read, and never those of a file kept only in the cloud.
 
 | Tag | Read as |

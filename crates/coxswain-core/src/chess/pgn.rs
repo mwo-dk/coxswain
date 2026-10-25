@@ -43,6 +43,25 @@ pub struct Node {
     pub depth: u32,
     /// Coloured squares and arrows its comments draw on the board (`[%csl]`, `[%cal]`).
     pub marks: Vec<Mark>,
+    /// The evaluation its comment after it gives (`[%eval 1.50,22]`), from White's side as
+    /// `review` keeps them (centipawns; a mate past `review::CAP`): for the bar by the board.
+    pub eval: Option<i32>,
+}
+
+/// The evaluation of comment `c`'s `[%eval …]`: `1.50`, `-0.3`, `#3`, `#-2`, a depth after a
+/// comma left out; as `review` keeps them. None without one, or for `#0`.
+pub fn comment_eval(c: &str) -> Option<i32> {
+    let i = c.find("[%eval ")?;
+    let v = c[i + 7..].split([']', ',', ' ']).next()?.trim();
+    let cap = super::review::CAP;
+    match v.strip_prefix('#') {
+        Some(m) => match m.parse::<i32>().ok()? {
+            0 => None,
+            m if m > 0 => Some(cap + 100 - m.min(99)),
+            m => Some(-(cap + 100 + m.max(-99))),
+        },
+        None => v.parse::<f64>().ok().filter(|p| p.is_finite()).map(|p| (p * 100.0).round().clamp(-cap as f64, cap as f64) as i32),
+    }
 }
 
 /// A coloured square (`from` == `to`) or an arrow a comment draws on the board: `[%csl Gd4]`,
@@ -681,6 +700,12 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
             Tok::Close if skip > 0 => skip -= 1,
             _ if skip > 0 => {}
             Tok::Comment(c) => {
+                // An evaluation after a move is the position's after it.
+                if let (Some(n), true, false) = (cur, after_move, opened)
+                    && let Some(v) = comment_eval(c)
+                {
+                    g.nodes[n as usize].eval = Some(v);
+                }
                 // Its squares and arrows belong to the position shown with it: after the move
                 // it follows, else the one before the next move.
                 let marks = match cur {
@@ -844,6 +869,12 @@ mod tests {
 
     #[test]
     fn comments_draw_squares_and_arrows() {
+        let e = parse("1. e4 {[%eval 0.35,20]} e5 {[%eval -1.5]} 2. Qh5 {[%eval #3]} Nc6 {[%eval #-2] x} 3. Bc4 {[%eval #0]}");
+        let evals: Vec<Option<i32>> = e.nodes.iter().map(|n| n.eval).collect();
+        let cap = super::super::review::CAP;
+        assert_eq!(evals, [Some(35), Some(-150), Some(cap + 97), Some(-(cap + 98)), None]);
+        assert_eq!(comment_eval("[%eval 999]"), Some(cap));
+        assert_eq!(comment_eval("[%eval NaN]"), None);
         let g = parse("{[%csl Ye4]} 1. e4 {Good [%cal Gg1f3, Rd2d4,Xa1a2,Gz9a1] [%clk 0:05:00] [%csl Rf7]} e5");
         assert_eq!(g.marks, vec![Mark { colour: 'Y', from: 28, to: 28 }]);
         assert_eq!(g.comment, "");

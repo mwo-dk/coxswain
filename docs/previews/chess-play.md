@@ -110,7 +110,7 @@ Stockfish here:
 | OpenBSD | `pkg_add stockfish` |
 | Linux | `sudo apt install stockfish`, `sudo dnf install stockfish`, `sudo zypper install stockfish`; on Arch Linux it is only in the AUR |
 | macOS | `brew install stockfish` |
-| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org and name `stockfish.exe` in *Settings → Previews → Chess engine* |
+| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org into a folder on your PATH (its long name, `stockfish-windows-x86-64-avx2.exe`, is found as it is), or name its path in *Settings → Previews → Chess engine* |
 
 **Without an installed engine.** When no Stockfish is installed and podman or docker is,
 Coxswain runs Stockfish from its own container image, `ghcr.io/mwo-dk/coxswain-stockfish`
@@ -132,7 +132,7 @@ set and no engine found, a notice says so once, with the line that installs Stoc
 *Settings → Previews → Chess engines* lists the UCI engines Coxswain knows, in both apps. For each
 it shows where it is installed, or *not installed* with the line that installs it on this system
 (only from official packages) and its official site. Settings only looks whether the program is
-there, on your PATH or in `/usr/games`; it never runs an engine until you press **Test engine**.
+there, on your PATH or in `/usr/games` (on Windows also in WinGet's package folders); it never runs an engine until you press **Test engine**.
 
 - Desktop app: click the round button before an engine to choose it.
 - Terminal app: **↑** **↓** to an engine, **Enter** chooses it, **C** copies its install line (or its
@@ -157,8 +157,11 @@ Settings here.
 | Fruit | `fruit` | NetBSD `pkgin install fruit`; Fedora `sudo dnf install fruit` | Fruit 2.1 from 2005; it has no official site any more. FreeBSD's and Homebrew's `fruit` are another program |
 | Fairy-Stockfish | `fairy-stockfish` | Debian and Ubuntu `sudo apt install fairy-stockfish`; macOS `brew install fairy-stockfish`; elsewhere [its releases](https://github.com/fairy-stockfish/Fairy-Stockfish/releases) | Plays chess variants too (xiangqi, shogi and more); Coxswain asks it about chess |
 
-A downloaded engine whose program has another name (`stockfish-windows-x86-64-avx2.exe`) is found
-by its path in *Chess engine*. Crafty is not listed: it speaks the xboard protocol, not UCI.
+On Windows a downloaded engine that kept its long name (`stockfish-windows-x86-64-avx2.exe`,
+`RubiChess-…-x86-64-avx2.exe`) is found by the start of its name in a folder on your PATH or in
+WinGet's package folders. Your Downloads folder is never searched, since whatever lands there would
+run as the engine: move the file to a folder on your PATH, or name its path in *Chess engine*.
+Elsewhere, a program with another name is found by its path in *Chess engine*. Crafty is not listed: it speaks the xboard protocol, not UCI.
 Komodo Dragon is not listed either: its site has closed.
 
 ## How long the engine thinks
@@ -286,6 +289,11 @@ What it shows:
 | The game | A graph under the board: White's share after each move, the move on the board marked by a line, a tick under each marked move. A click on the graph goes to that move | A row of `▁▂▃▅▇` under the board, one a move, the one on the board highlighted |
 | The marks | `?!`, `?`, `??` and `!?` after the moves, in yellow, orange, red and blue | The same marks after the moves |
 | When it is done | *Stockfish 17.1: the game analysed, 5 moves marked* | The same |
+
+The bar and the `+0.35` show the game's analysis when there is one; else the engine's evaluation
+of the position on the board, when it has one; else the evaluation the game itself gives after
+the move, in a `[%eval 1.50]` comment (a ChessBase database's annotations, a lichess export). So
+a game that comes with its evaluations shows them as you step through it, with no engine.
 
 **How a move is marked.** By how much it lowers the engine's evaluation for the side that played
 it, from the position before to the position after, each counted up to ten pawns either way (so
