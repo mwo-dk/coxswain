@@ -139,6 +139,16 @@ pub fn text_up_to(path: &Path, size: u64, max: u64, cap: usize) -> Option<String
     (!text.trim().is_empty()).then_some(text)
 }
 
+/// The text of a PDF's own text layer, as `text_of` gives it, never by OCR: `None` for a scan
+/// (or one that cannot be read now).
+pub fn pdf_layer(path: &Path, size: u64, max: u64) -> Option<String> {
+    if size == 0 || size > max || crate::cloud::keep_out(path) {
+        return None;
+    }
+    let text = tidy(&std::panic::catch_unwind(|| pdf::tidied(path, max)).ok().flatten()?);
+    (!text.trim().is_empty()).then_some(text)
+}
+
 /// Lines of text, tidied as `tidy` (or `tidy_code`) tidies them, each handed to `f` as it is
 /// made, without its line break: an empty one for a blank line kept in code.
 pub(crate) struct TidyLines<'f> {
