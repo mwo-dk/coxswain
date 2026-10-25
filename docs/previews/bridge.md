@@ -54,7 +54,7 @@ player, **o** contract, **y** years, **c** clears them; type, then **Enter**.
 takes the next column, **S** reverses.
 
 **Opening a deal.** Desktop: **Enter** or a double-click; in the window (**Alt+K**) the table has
-the keys at once, in the preview pane click it first. Terminal: **Enter**.
+the keys at once, in the preview pane click it first (**Esc** there gives the keys back to the panels). Terminal: **Enter**.
 
 ## A deal at the table
 

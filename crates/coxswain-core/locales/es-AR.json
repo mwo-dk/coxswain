@@ -567,7 +567,7 @@
  "chess.keys_game": "← → jugada · ↓ ↑ a una variante y de vuelta · Home End · m jugar una jugada · a motor · b mejor jugada · p buscar posición · g analizar partida · w guardar anotada · f girar · n notación · PgUp PgDn otra partida · Esc partidas",
  "chess.keys_game_gui": "Hacé clic en el tablero, luego ← → jugada · ↓ ↑ a una variante y de vuelta · Home End · a motor · b mejor jugada · p buscar posición · g analizar partida · w guardar anotada · f girar · n notación · PgUp PgDn otra partida · Esc partidas. Un clic en una jugada la muestra; un clic en una pieza y luego en una casilla sigue jugando desde acá.",
  "chess.keys_list": "Enter abrir · / jugador · o apertura · r resultado · y años · e Elo · s ordenar · S invertir · c limpiar · Esc cerrar",
- "chess.keys_list_gui": "Enter o un doble clic abre una partida · un clic en un encabezado ordena por él, otro lo invierte",
+ "chess.keys_list_gui": "Enter o un doble clic abre una partida · un clic en un encabezado ordena por él, otro lo invierte · Esc vuelve a las carpetas",
  "chess.keys_pick": "Escribí para acotar (Nf3, e4, O-O) · ← → elegir · Enter jugar · Esc cancelar",
  "chess.keys_position": "← → posición · Home End · m jugar una jugada · a motor · b mejor jugada · p buscar posición · f girar · n notación · Esc cerrar",
  "chess.keys_position_gui": "Hacé clic en el tablero, luego ← → posición · Home End · a motor · b mejor jugada · p buscar posición · f girar · n notación. Un clic en una pieza y luego en una casilla sigue jugando desde acá.",

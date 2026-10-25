@@ -567,7 +567,7 @@
  "chess.keys_game": "← → jugada · ↓ ↑ dins d'una variant i enrere · Home End · m jugar una jugada · a motor · b millor jugada · p cerca posició · g analitza la partida · w desa anotada · f gira · n notació · PgUp PgDn una altra partida · Esc partides",
  "chess.keys_game_gui": "Feu clic al tauler, després ← → jugada · ↓ ↑ dins d'una variant i enrere · Home End · a motor · b millor jugada · p cerca posició · g analitza la partida · w desa anotada · f gira · n notació · PgUp PgDn una altra partida · Esc partides. Un clic en una jugada la mostra; un clic en una peça i després en una casella continua jugant des d'aquí.",
  "chess.keys_list": "Enter obre · / jugador · o obertura · r resultat · y anys · e Elo · s ordena · S inverteix · c neteja · Esc tanca",
- "chess.keys_list_gui": "Enter o un doble clic obre una partida · un clic en un encapçalament ordena per aquesta columna, un altre la inverteix",
+ "chess.keys_list_gui": "Enter o un doble clic obre una partida · un clic en un encapçalament ordena per aquesta columna, un altre la inverteix · Esc torna a les carpetes",
  "chess.keys_pick": "Escriviu per acotar (Nf3, e4, O-O) · ← → trieu · Enter jugueu · Esc cancel·la",
  "chess.keys_position": "← → posició · Home End · m jugar una jugada · a motor · b millor jugada · p cerca posició · f gira · n notació · Esc tanca",
  "chess.keys_position_gui": "Feu clic al tauler, després ← → posició · Home End · a motor · b millor jugada · p cerca posició · f gira · n notació. Un clic en una peça i després en una casella continua jugant des d'aquí.",

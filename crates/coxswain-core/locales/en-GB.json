@@ -516,7 +516,7 @@
  "chess.keys_game": "← → step · ↓ ↑ variation · Home End · m play a move · a engine · b best move · p find position · g analyse game · w save annotated · f flip · n notation · PgUp PgDn other game · Esc games",
  "chess.keys_game_gui": "Click the board, then ← → step · ↓ ↑ into a variation and back · Home End · a engine · b best move · p find position · g analyse the game · w save it annotated · f flip · n notation · PgUp PgDn other game · Esc games. A click on a move shows it; a click on a piece, then on a square, plays on from here.",
  "chess.keys_list": "Enter open · / player · o opening · r result · y years · e rating · s sort · S reverse · c clear · Esc close",
- "chess.keys_list_gui": "Enter or a double-click opens a game · a click on a heading sorts by it, again reverses",
+ "chess.keys_list_gui": "Enter or a double-click opens a game · a click on a heading sorts by it, again reverses · Esc back to the folders",
  "chess.keys_pick": "Type to narrow (Nf3, e4, O-O) · ← → choose · Enter play · Esc cancel",
  "chess.keys_position": "← → position · Home End · m play a move · a engine · b best move · p find position · f flip · n notation · Esc close",
  "chess.keys_position_gui": "Click the board, then ← → position · Home End · a engine · b best move · p find position · f flip · n notation. A click on a piece, then on a square, plays on from here.",

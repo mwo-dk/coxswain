@@ -548,7 +548,7 @@
  "chess.keys_game": "← → stap · ↓ ↑ in een variant en terug · Home End · m een zet spelen · a engine · b beste zet · p stelling zoeken · g partij analyseren · w geannoteerd opslaan · f draaien · n notatie · PgUp PgDn andere partij · Esc partijen",
  "chess.keys_game_gui": "Klik op het bord, dan ← → stap · ↓ ↑ in een variant en terug · Home End · a engine · b beste zet · p stelling zoeken · g partij analyseren · w geannoteerd opslaan · f draaien · n notatie · PgUp PgDn andere partij · Esc partijen. Een klik op een zet toont die; een klik op een stuk en dan op een veld speelt vanaf hier verder.",
  "chess.keys_list": "Enter openen · / speler · o opening · r uitslag · y jaren · e rating · s sorteren · S omkeren · c wissen · Esc sluiten",
- "chess.keys_list_gui": "Enter of dubbelklik opent een partij · een klik op een kop sorteert erop, nogmaals draait om",
+ "chess.keys_list_gui": "Enter of dubbelklik opent een partij · een klik op een kop sorteert erop, nogmaals draait om · Esc terug naar de mappen",
  "chess.keys_pick": "Typ om te verfijnen (Nf3, e4, O-O) · ← → kiezen · Enter spelen · Esc annuleren",
  "chess.keys_position": "← → stelling · Home End · m een zet spelen · a engine · b beste zet · p stelling zoeken · f draaien · n notatie · Esc sluiten",
  "chess.keys_position_gui": "Klik op het bord, dan ← → stelling · Home End · a engine · b beste zet · p stelling zoeken · f draaien · n notatie. Een klik op een stuk en dan op een veld speelt vanaf hier verder.",

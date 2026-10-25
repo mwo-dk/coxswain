@@ -567,7 +567,7 @@
  "chess.keys_game": "← → pas · ↓ ↑ entrer dans une variante et en sortir · Home End · m jouer un coup · a moteur · b meilleur coup · p chercher la position · g analyser la partie · w enregistrer annotée · f retourner · n notation · PgUp PgDn autre partie · Esc parties",
  "chess.keys_game_gui": "Cliquez sur l’échiquier, puis ← → pas · ↓ ↑ entrer dans une variante et en sortir · Home End · a moteur · b meilleur coup · p chercher la position · g analyser la partie · w enregistrer annotée · f retourner · n notation · PgUp PgDn autre partie · Esc parties. Un clic sur un coup l’affiche ; un clic sur une pièce, puis sur une case, joue à partir d’ici.",
  "chess.keys_list": "Enter ouvrir · / joueur · o ouverture · r résultat · y années · e classement · s trier · S inverser · c effacer · Esc fermer",
- "chess.keys_list_gui": "Enter ou un double-clic ouvre une partie · un clic sur un en-tête trie selon cette colonne, un second inverse l’ordre",
+ "chess.keys_list_gui": "Enter ou un double-clic ouvre une partie · un clic sur un en-tête trie selon cette colonne, un second inverse l’ordre · Échap revient aux dossiers",
  "chess.keys_pick": "Tapez pour restreindre (Nf3, e4, O-O) · ← → choisir · Enter jouer · Esc annuler",
  "chess.keys_position": "← → position · Home End · m jouer un coup · a moteur · b meilleur coup · p chercher la position · f retourner · n notation · Esc fermer",
  "chess.keys_position_gui": "Cliquez sur l’échiquier, puis ← → position · Home End · a moteur · b meilleur coup · p chercher la position · f retourner · n notation. Un clic sur une pièce, puis sur une case, joue à partir d’ici.",

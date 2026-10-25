@@ -586,7 +586,7 @@
  "chess.keys_game": "← → krok · ↓ ↑ do wariantu i z powrotem · Home End · m zagraj ruch · a silnik · b najlepszy ruch · p znajdź pozycję · g analizuj partię · w zapisz z komentarzem · f obróć · n notacja · PgUp PgDn inna partia · Esc partie",
  "chess.keys_game_gui": "Kliknij szachownicę, potem ← → krok · ↓ ↑ do wariantu i z powrotem · Home End · a silnik · b najlepszy ruch · p znajdź pozycję · g analizuj partię · w zapisz z komentarzem · f obróć · n notacja · PgUp PgDn inna partia · Esc partie. Kliknięcie ruchu pokazuje go; kliknięcie bierki, a potem pola, gra dalej stąd.",
  "chess.keys_list": "Enter otwórz · / gracz · o debiut · r wynik · y lata · e ranking · s sortuj · S odwróć · c wyczyść · Esc zamknij",
- "chess.keys_list_gui": "Enter lub dwukrotne kliknięcie otwiera partię · kliknięcie nagłówka sortuje według niego, ponowne odwraca",
+ "chess.keys_list_gui": "Enter lub dwukrotne kliknięcie otwiera partię · kliknięcie nagłówka sortuje według niego, ponowne odwraca · Esc wraca do folderów",
  "chess.keys_pick": "Pisz, by zawęzić (Nf3, e4, O-O) · ← → wybierz · Enter zagraj · Esc anuluj",
  "chess.keys_position": "← → pozycja · Home End · m zagraj ruch · a silnik · b najlepszy ruch · p znajdź pozycję · f obróć · n notacja · Esc zamknij",
  "chess.keys_position_gui": "Kliknij szachownicę, potem ← → pozycja · Home End · a silnik · b najlepszy ruch · p znajdź pozycję · f obróć · n notacja. Kliknięcie bierki, a potem pola, gra dalej stąd.",

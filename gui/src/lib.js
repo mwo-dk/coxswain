@@ -380,6 +380,33 @@ export const LOCKED = "locked: a password is needed";
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
 /** How the preview pane should show a file. */
+/** The last token of a game's `layout` to keep in view with the move at token `i`: the move,
+ *  the variations that replace it, the next move and its variations, with their comments
+ *  (`chess::pgn::view_end`, which the terminal app uses). */
+export function viewEnd(layout, i) {
+  let depth = 0;
+  let moves = 0;
+  let end = i;
+  for (let j = i + 1; j < layout.length; j++) {
+    const t = layout[j].t;
+    if (t === "open") depth++;
+    else if (t === "close" && depth === 0) return j;
+    else if (t === "close") depth--;
+    else if (t === "move" && depth === 0 && ++moves === 2) return end;
+    else if (t === "result") return end;
+    end = j;
+  }
+  return end;
+}
+
+/** What the panels do with a key pressed in a view that has keys of its own (a game's board or
+ *  list, the BOM tree): "theirs" when it is not in one or is a function key, "panels" for Esc,
+ *  which gives the keys back to the panels (blurring the view), "view" for the rest. */
+export function keyOwner(el, k) {
+  if (!el?.closest?.(".bom-keys, .chess-keys") || /^F\d+$/.test(k)) return "theirs";
+  return k === "Esc" ? "panels" : "view";
+}
+
 /** A games file by its name: "pgn" (also packed, a SCID database's .si4 or .si5 and a ChessBase database's .cbh), "epd" (EPD and FEN), "sgf" (Go), "pdn"
  *  (draughts), "shogi" (KIF, CSA), "pbn" (bridge), or ""
  *  (`chess::format`). A Polyglot book (.bin) is known by its bytes: `chess_is_book`. */

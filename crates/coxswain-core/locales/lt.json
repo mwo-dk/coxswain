@@ -567,7 +567,7 @@
  "chess.keys_game": "← → ėjimas · ↓ ↑ į variantą ir atgal · Home End · m padaryti ėjimą · a variklis · b geriausias ėjimas · p rasti poziciją · g analizuoti partiją · w įrašyti su komentarais · f apversti · n žymėjimas · PgUp PgDn kita partija · Esc partijos",
  "chess.keys_game_gui": "Spustelėkite lentą, tada ← → ėjimas · ↓ ↑ į variantą ir atgal · Home End · a variklis · b geriausias ėjimas · p rasti poziciją · g analizuoti partiją · w įrašyti su komentarais · f apversti · n žymėjimas · PgUp PgDn kita partija · Esc partijos. Spustelėjus ėjimą jis parodomas; spustelėjus figūrą, tada langelį, žaidžiama toliau nuo čia.",
  "chess.keys_list": "Enter atidaryti · / žaidėjas · o debiutas · r rezultatas · y metai · e reitingas · s rūšiuoti · S atvirkščiai · c išvalyti · Esc uždaryti",
- "chess.keys_list_gui": "Enter arba dvigubas spustelėjimas atidaro partiją · spustelėjus antraštę rūšiuojama pagal ją, dar kartą – atvirkščiai",
+ "chess.keys_list_gui": "Enter arba dvigubas spustelėjimas atidaro partiją · spustelėjus antraštę rūšiuojama pagal ją, dar kartą – atvirkščiai · Esc grįžta į aplankus",
  "chess.keys_pick": "Rašykite, kad susiaurintumėte (Nf3, e4, O-O) · ← → rinktis · Enter žaisti · Esc atšaukti",
  "chess.keys_position": "← → pozicija · Home End · m padaryti ėjimą · a variklis · b geriausias ėjimas · p rasti poziciją · f apversti · n žymėjimas · Esc uždaryti",
  "chess.keys_position_gui": "Spustelėkite lentą, tada ← → pozicija · Home End · a variklis · b geriausias ėjimas · p rasti poziciją · f apversti · n žymėjimas. Spustelėjus figūrą, tada langelį, žaidžiama toliau nuo čia.",

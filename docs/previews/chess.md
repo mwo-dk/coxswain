@@ -78,7 +78,7 @@ terminal app: **/** player, **o** opening, **r** cycles the result, **y** years 
 
 **Opening a game.** Desktop: **Enter** or a double-click. In the window (**Alt+K**) the table has
 the keys at once, and again after **Esc** or *Back* from a game; in the preview pane click the
-table first. Terminal: **Enter**.
+table first, and **Esc** there gives the keys back to the panels. Terminal: **Enter**.
 
 ## A game on the board
 
@@ -92,6 +92,13 @@ The moves are written out as in a book: move numbers, the main line in bold, eac
 brackets after the move it replaces (dimmer), comments in italics, and annotation glyphs: `!`,
 `?`, `!!`, `??`, `!?`, `?!` on the move, and `±`, `⩲`, `=`, `∞`, `+−` and the rest of the
 standard NAGs after it.
+
+**The move you are on stays in view**, and after it, while there is room, its variations and
+the other moves from its position: the next move and the variations that replace it. Only the
+moves scroll; the board stays put. In the desktop app's preview pane, when it is narrow, the
+board stands over the moves at most half as high as the pane, so the moves keep the rest. When
+the variations need more lines than there are, the move you are on goes to the top line and the
+rest follows below it: scroll the moves (desktop) or make the window taller.
 
 **Arrows and coloured squares.** A comment can draw on the board, as ChessBase and Lichess write
 it: `[%csl Gd4,Re5]` colours squares and `[%cal Gb3f7]` draws arrows, in green (`G`), red
@@ -116,7 +123,7 @@ shows none. ChessBase's annotations come in this way ([ChessBase databases](#che
 | **g**, **w** | Analyse the whole game, save it annotated ([Analysing a whole game](chess-play.md#analysing-a-whole-game)) | The same |
 | **p** | Find this position: the games that reach it ([Finding games](#finding-games)) | The same |
 | **PgDn** / **PgUp** | The next / previous game of the table | The same |
-| **Esc** | Back to the table (*Games* too) | Back to the table |
+| **Esc** | Back to the table (*Games* too); on the table in the preview pane, the keys back to the panels | Back to the table |
 | A click on a move | Shows it | – |
 
 The desktop app also has **|◀ ◀ ▶ ▶|** under the board. A move that cannot be played (a typing
@@ -365,6 +372,21 @@ book = "~/chess/books/gm2600.bin"
 **n** and *Flip* in the view change only what you see now; Settings sets what it starts with.
 
 ## Questions
+
+#### Why do I see the variations at a move on one computer and not on another?
+
+The moves scroll to keep the move you are on in view, and after it its variations and the
+other moves from its position while there is room. How much room there is depends on the
+window: in a short terminal or a short preview pane the moves have only a few lines, so a long
+variation can need more than there are. Then the move you are on is on the top line and the
+rest is below it: scroll the moves (desktop app) or make the window taller.
+
+#### Why do the arrow keys not move the cursor after I looked at a game?
+
+In the desktop app's preview pane a click on the table or a game gives that game the keys: the
+arrows step its moves or its table. **Esc** goes from a game back to the table, and **Esc** on
+the table gives the keys back to the panels (a click on a panel does too). With one game in the
+file the table's arrows have nothing to move, so they seem to do nothing until then.
 
 #### Can I play against an engine?
 

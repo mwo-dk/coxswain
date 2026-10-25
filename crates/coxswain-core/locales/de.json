@@ -548,7 +548,7 @@
  "chess.keys_game": "← → Zug · ↓ ↑ in eine Variante und zurück · Home End · m Zug spielen · a Engine · b bester Zug · p Stellung finden · g Partie analysieren · w kommentiert speichern · f drehen · n Notation · PgUp PgDn andere Partie · Esc Partien",
  "chess.keys_game_gui": "Brett anklicken, dann ← → Zug · ↓ ↑ in eine Variante und zurück · Home End · a Engine · b bester Zug · p Stellung finden · g Partie analysieren · w kommentiert speichern · f drehen · n Notation · PgUp PgDn andere Partie · Esc Partien. Ein Klick auf einen Zug zeigt ihn; ein Klick auf eine Figur, dann auf ein Feld, spielt von hier aus weiter.",
  "chess.keys_list": "Enter öffnen · / Spieler · o Eröffnung · r Ergebnis · y Jahre · e Elo · s sortieren · S umkehren · c löschen · Esc schließen",
- "chess.keys_list_gui": "Enter oder Doppelklick öffnet eine Partie · ein Klick auf eine Überschrift sortiert danach, noch einmal kehrt um",
+ "chess.keys_list_gui": "Enter oder Doppelklick öffnet eine Partie · ein Klick auf eine Überschrift sortiert danach, noch einmal kehrt um · Esc zurück zu den Ordnern",
  "chess.keys_pick": "Tippen zum Eingrenzen (Nf3, e4, O-O) · ← → wählen · Enter spielen · Esc abbrechen",
  "chess.keys_position": "← → Stellung · Home End · m Zug spielen · a Engine · b bester Zug · p Stellung finden · f drehen · n Notation · Esc schließen",
  "chess.keys_position_gui": "Brett anklicken, dann ← → Stellung · Home End · a Engine · b bester Zug · p Stellung finden · f drehen · n Notation. Ein Klick auf eine Figur, dann auf ein Feld, spielt von hier aus weiter.",

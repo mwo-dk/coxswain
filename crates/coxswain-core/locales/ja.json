@@ -529,7 +529,7 @@
  "chess.keys_game": "← → 手を進める・戻す · ↓ ↑ 変化に入る・戻る · Home End · m 手を指す · a エンジン · b 最善手 · p 局面を検索 · g 対局を解析 · w 注釈付きで保存 · f 反転 · n 表記 · PgUp PgDn 別の対局 · Esc 対局一覧",
  "chess.keys_game_gui": "盤をクリックしてから ← → 手を進める・戻す · ↓ ↑ 変化に入る・戻る · Home End · a エンジン · b 最善手 · p 局面を検索 · g 対局を解析 · w 注釈付きで保存 · f 反転 · n 表記 · PgUp PgDn 別の対局 · Esc 対局一覧。指し手をクリックするとその手を表示し、駒、続けてマスをクリックするとここから指し続けます。",
  "chess.keys_list": "Enter 開く · / 棋士 · o オープニング · r 結果 · y 年 · e レーティング · s 並べ替え · S 逆順 · c クリア · Esc 閉じる",
- "chess.keys_list_gui": "Enter またはダブルクリックで対局を開く · 見出しをクリックでその列で並べ替え、もう一度クリックで逆順",
+ "chess.keys_list_gui": "Enter またはダブルクリックで対局を開く · 見出しをクリックでその列で並べ替え、もう一度クリックで逆順 · Esc でフォルダーに戻る",
  "chess.keys_pick": "入力して絞り込み (Nf3, e4, O-O) · ← → 選ぶ · Enter 指す · Esc キャンセル",
  "chess.keys_position": "← → 局面 · Home End · m 手を指す · a エンジン · b 最善手 · p 局面を検索 · f 反転 · n 表記 · Esc 閉じる",
  "chess.keys_position_gui": "盤をクリックしてから ← → 局面 · Home End · a エンジン · b 最善手 · p 局面を検索 · f 反転 · n 表記。駒、続けてマスをクリックするとここから指し続けます。",

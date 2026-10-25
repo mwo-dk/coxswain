@@ -548,7 +548,7 @@
  "chess.keys_game": "← → trekk for trekk · ↓ ↑ inn i ein variant og tilbake · Home End · m spel eit trekk · a motor · b beste trekk · p finn stilling · g analyser parti · w lagre kommentert · f snu · n notasjon · PgUp PgDn anna parti · Esc parti",
  "chess.keys_game_gui": "Klikk på brettet, så ← → trekk for trekk · ↓ ↑ inn i ein variant og tilbake · Home End · a motor · b beste trekk · p finn stilling · g analyser parti · w lagre kommentert · f snu · n notasjon · PgUp PgDn anna parti · Esc parti. Eit klikk på eit trekk viser det; eit klikk på ei brikke og så på eit felt spelar vidare herfrå.",
  "chess.keys_list": "Enter opne · / spelar · o opning · r resultat · y år · e rating · s sorter · S omvendt · c tøm · Esc lukk",
- "chess.keys_list_gui": "Enter eller eit dobbeltklikk opnar eit parti · eit klikk på ei overskrift sorterer etter ho, eit klikk til snur rekkjefølgja",
+ "chess.keys_list_gui": "Enter eller eit dobbeltklikk opnar eit parti · eit klikk på ei overskrift sorterer etter ho, eit klikk til snur rekkjefølgja · Esc tilbake til mappene",
  "chess.keys_pick": "Skriv for å avgrense (Nf3, e4, O-O) · ← → vel · Enter spel · Esc avbryt",
  "chess.keys_position": "← → stilling · Home End · m spel eit trekk · a motor · b beste trekk · p finn stilling · f snu · n notasjon · Esc lukk",
  "chess.keys_position_gui": "Klikk på brettet, så ← → stilling · Home End · a motor · b beste trekk · p finn stilling · f snu · n notasjon. Eit klikk på ei brikke og så på eit felt spelar vidare herfrå.",

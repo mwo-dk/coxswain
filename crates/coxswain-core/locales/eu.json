@@ -548,7 +548,7 @@
  "chess.keys_game": "← → urratsa · ↓ ↑ aldaerara eta atzera · Home End · m jokaldi bat egin · a motorra · b jokaldirik onena · p bilatu posizioa · g aztertu partida · w gorde iruzkinduta · f biratu · n idazkera · PgUp PgDn beste partida · Esc partidak",
  "chess.keys_game_gui": "Egin klik taulan, gero ← → urratsa · ↓ ↑ aldaerara eta atzera · Home End · a motorra · b jokaldirik onena · p bilatu posizioa · g aztertu partida · w gorde iruzkinduta · f biratu · n idazkera · PgUp PgDn beste partida · Esc partidak. Jokaldi bati klik eginez erakusten da; pieza bati eta gero laukiari klik eginez hemendik aurrera jokatzen da.",
  "chess.keys_list": "Enter ireki · / jokalaria · o irekiera · r emaitza · y urteak · e puntuazioa · s ordenatu · S alderantzikatu · c garbitu · Esc itxi",
- "chess.keys_list_gui": "Enter edo klik bikoitzak partida irekitzen du · goiburu baten gaineko klikak horren arabera ordenatzen du, berriro klik eginez alderantzikatzen da",
+ "chess.keys_list_gui": "Enter edo klik bikoitzak partida irekitzen du · goiburu baten gaineko klikak horren arabera ordenatzen du, berriro klik eginez alderantzikatzen da · Esc karpetetara itzultzen da",
  "chess.keys_pick": "Idatzi mugatzeko (Nf3, e4, O-O) · ← → aukeratu · Enter jokatu · Esc utzi",
  "chess.keys_position": "← → posizioa · Home End · m jokaldi bat egin · a motorra · b jokaldirik onena · p bilatu posizioa · f biratu · n idazkera · Esc itxi",
  "chess.keys_position_gui": "Egin klik taulan, gero ← → posizioa · Home End · a motorra · b jokaldirik onena · p bilatu posizioa · f biratu · n idazkera. Pieza bati eta gero laukiari klik eginez hemendik aurrera jokatzen da.",

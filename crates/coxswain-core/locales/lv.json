@@ -567,7 +567,7 @@
  "chess.keys_game": "← → soļot · ↓ ↑ variantā un atpakaļ · Home End · m izdarīt gājienu · a dzinējs · b labākais gājiens · p atrast pozīciju · g analizēt partiju · w saglabāt anotētu · f apgriezt · n pieraksts · PgUp PgDn cita partija · Esc partijas",
  "chess.keys_game_gui": "Noklikšķiniet uz galdiņa, tad ← → soļot · ↓ ↑ variantā un atpakaļ · Home End · a dzinējs · b labākais gājiens · p atrast pozīciju · g analizēt partiju · w saglabāt anotētu · f apgriezt · n pieraksts · PgUp PgDn cita partija · Esc partijas. Klikšķis uz gājiena to parāda; klikšķis uz figūras un tad uz lauciņa turpina spēli no šejienes.",
  "chess.keys_list": "Enter atvērt · / spēlētājs · o atklātne · r rezultāts · y gadi · e reitings · s kārtot · S apgriezt kārtību · c notīrīt · Esc aizvērt",
- "chess.keys_list_gui": "Enter vai dubultklikšķis atver partiju · klikšķis uz virsraksta kārto pēc tā, vēlreiz apgriež kārtību",
+ "chess.keys_list_gui": "Enter vai dubultklikšķis atver partiju · klikšķis uz virsraksta kārto pēc tā, vēlreiz apgriež kārtību · Esc atpakaļ pie mapēm",
  "chess.keys_pick": "Rakstiet, lai sašaurinātu (Nf3, e4, O-O) · ← → izvēlēties · Enter spēlēt · Esc atcelt",
  "chess.keys_position": "← → pozīcija · Home End · m izdarīt gājienu · a dzinējs · b labākais gājiens · p atrast pozīciju · f apgriezt · n pieraksts · Esc aizvērt",
  "chess.keys_position_gui": "Noklikšķiniet uz galdiņa, tad ← → pozīcija · Home End · a dzinējs · b labākais gājiens · p atrast pozīciju · f apgriezt · n pieraksts. Klikšķis uz figūras un tad uz lauciņa turpina spēli no šejienes.",

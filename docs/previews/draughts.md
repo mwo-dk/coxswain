@@ -59,7 +59,7 @@ either way. In the terminal app: **/** player, **r** cycles the result, **y** ye
 takes the next column, **S** reverses.
 
 **Opening a game.** Desktop: **Enter** or a double-click; in the window (**Alt+K**) the table has
-the keys at once, in the preview pane click it first. Terminal: **Enter**.
+the keys at once, in the preview pane click it first (**Esc** there gives the keys back to the panels). Terminal: **Enter**.
 
 ## A game on the board
 
