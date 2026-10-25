@@ -278,11 +278,12 @@ mod tests {
         let mut l = Layout::new(Arc::new(commits));
         assert_eq!(l.rows(0, 50).len(), 50);
         assert_eq!(l.rows.len(), 50);
-        // A window at the far end of 100,000 commits.
+        // A window at the far end of 100,000 commits. 30 s, not less: a slow BSD test machine
+        // once took 11 s; worked out quadratically it would take hours.
         let t = std::time::Instant::now();
         assert_eq!(l.rows(99_950, 100_000).len(), 50);
         assert!(
-            t.elapsed() < std::time::Duration::from_secs(2),
+            t.elapsed() < std::time::Duration::from_secs(30),
             "{:?}",
             t.elapsed()
         );

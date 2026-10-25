@@ -314,12 +314,13 @@ mod tests {
     #[test]
     fn scad_refuses_a_model_of_many_screen_sized_triangles_at_once() {
         crate::i18n::set_language("en-GB");
-        // Two million triangles, each nearly the whole picture: hours of drawing, refused.
+        // Two million triangles, each nearly the whole picture: hours of drawing, refused, within
+        // 30 s (a slow BSD test machine once took 6 s).
         let big = [[-1.0f32, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, 0.5]];
         let tris = vec![big; 2_000_000];
         let start = std::time::Instant::now();
         assert_eq!(picture(&tris, W, H, start + DRAW_TIME).unwrap_err(), t!("scad.too_large"));
-        assert!(start.elapsed() < std::time::Duration::from_secs(5), "{:?}", start.elapsed());
+        assert!(start.elapsed() < std::time::Duration::from_secs(30), "{:?}", start.elapsed());
         // A past deadline stops even work under the budget.
         assert!(picture(&tris[..100], W, H, start).is_err());
     }
