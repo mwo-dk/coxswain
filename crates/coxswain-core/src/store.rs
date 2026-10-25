@@ -683,7 +683,7 @@ impl Store {
     /// The files with as many passages as `meaning::PASSAGES` keeps or more, and how many.
     fn capped(&self) -> rusqlite::Result<HashMap<i64, usize>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare("SELECT file, count(*) FROM chunks GROUP BY file HAVING count(*) >= ?1")?;
+        let mut q = db.prepare("SELECT file, count(*) FROM chunks WHERE file > 0 GROUP BY file HAVING count(*) >= ?1")?;
         q.query_map([crate::meaning::PASSAGES as i64], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? as usize)))?
             .collect()
     }
@@ -1020,6 +1020,8 @@ impl Store {
         let deletes = [
             format!("DELETE FROM text WHERE rowid IN ({ids})"),
             format!("DELETE FROM chunks WHERE file IN ({ids})"),
+            // With the rows of a file kept whole still being written (`embed_streamed`).
+            format!("DELETE FROM chunks WHERE file IN (SELECT -id FROM files WHERE {at})"),
             format!("DELETE FROM positions WHERE file IN ({ids})"),
             format!("DELETE FROM files WHERE {at}"),
             format!("DELETE FROM hashes WHERE {at}"),
@@ -1046,6 +1048,8 @@ impl Store {
             tx.prepare_cached("DELETE FROM positions WHERE file = ?1")?
                 .execute([id])?;
             if whole {
+                tx.prepare_cached("DELETE FROM chunks WHERE file = ?1")?
+                    .execute([-id])?;
                 tx.prepare_cached("DELETE FROM files WHERE id = ?1")?
                     .execute([id])?;
             }
@@ -1433,6 +1437,17 @@ impl Store {
         rows.collect()
     }
 
+    /// Rows a file kept whole was given while it streamed (`embed_streamed`, under `-id`)
+    /// whose file is gone: left by a stream cut off (the app closed, a crash). A file still
+    /// streaming has its row in `files`, so its rows stay.
+    fn drop_staged(&self) -> rusqlite::Result<()> {
+        self.db
+            .lock()
+            .unwrap()
+            .execute("DELETE FROM chunks WHERE file < 0 AND -file NOT IN (SELECT id FROM files)", [])
+            .map(drop)
+    }
+
     /// Hashes of files that are gone or changed, wherever they are, go.
     fn prune_hashes(&self) -> rusqlite::Result<()> {
         let rows: Vec<(String, u64, u64)> = {
@@ -1567,7 +1582,7 @@ impl Store {
         self.db
             .lock()
             .unwrap()
-            .query_row("SELECT count(*) FROM chunks", [], |r| r.get::<_, i64>(0))
+            .query_row("SELECT count(*) FROM chunks WHERE file > 0", [], |r| r.get::<_, i64>(0))
             .unwrap_or(0) as usize
     }
 
@@ -2227,7 +2242,7 @@ pub fn facts(path: &Path) -> Result<Facts, String> {
         no_text: count("SELECT count(*) FROM files WHERE has_text = 0 AND cloud IS NULL"),
         cloud: count("SELECT count(*) FROM files WHERE cloud = 1"),
         waiting: count("SELECT count(*) FROM files WHERE has_text IS NULL"),
-        passages: count("SELECT count(*) FROM chunks"),
+        passages: count("SELECT count(*) FROM chunks WHERE file > 0"),
         with_vectors: count("SELECT count(*) FROM files WHERE embedded = 1"),
         model: meta("meaning_model").unwrap_or_default(),
         read_at: meta("read_at").and_then(|v| v.parse().ok()),
@@ -2706,6 +2721,7 @@ fn scan_for(
     }
 
     store.prune_hashes()?;
+    store.drop_staged()?;
     // Files the server refused last time get one more try per scan; one it refuses for good
     // costs one quick answer every ten minutes, and never holds up the rest.
     if store.engine().is_some() {
@@ -2844,8 +2860,8 @@ fn embed_streamed(
     lines: &mut dyn FnMut(&mut dyn FnMut(&str)) -> bool,
     stop: &AtomicBool,
 ) -> rusqlite::Result<Streamed> {
-    // ponytail: rows left under `-id` by a crash go when the file is streamed again; those of
-    // a file deleted meanwhile stay (searches never read them).
+    // Rows left under `-id` by a stream cut off go when the file streams again, or with the
+    // file (`apply`, `drop_staged`).
     let staged = -id;
     store.db.lock().unwrap().execute("DELETE FROM chunks WHERE file = ?1", [staged])?;
     let (mut batch, mut packed) = (Vec::with_capacity(STREAM_BATCH), vec![]);
@@ -6002,6 +6018,73 @@ mod tests {
         };
         assert!(n > 64, "{n}");
         assert_eq!((rows(id), rows(-id), embedded()), (n as i64, 0, Some(1)));
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Rows a file kept whole was given while it streamed go with the file, and those of a
+    /// file already gone at the next scan; those of a file still there stay, and none of them
+    /// is counted as passages.
+    #[test]
+    fn staged_rows_go_with_their_file() {
+        let d = std::env::temp_dir().join(format!("coxswain-staged-rows-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        {
+            let db = store.db.lock().unwrap();
+            for (id, path) in [(7i64, "/r/a.log"), (8, "/r/b.log")] {
+                db.execute("INSERT INTO files(id, path, size, modified, has_text) VALUES (?1, ?2, 1, 0, 1)", params![id, path]).unwrap();
+            }
+            for file in [7i64, -7, -8, -9] {
+                db.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, 0, ?2)", params![file, vec![1u8; 8]]).unwrap();
+            }
+        }
+        let staged = || -> Vec<i64> { store.db.lock().unwrap().prepare("SELECT file FROM chunks WHERE file < 0 ORDER BY file DESC").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect() };
+        assert_eq!(store.passage_count(), 1, "staged rows are no passages");
+        store.apply(&["/r/b.log".to_string()], &[], &[], true, None).unwrap();
+        assert_eq!(staged(), [-7, -9], "the deleted file's go with it");
+        store.drop_staged().unwrap();
+        assert_eq!(staged(), [-7], "those of a file gone go at the scan; a file still streaming keeps its own");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file kept whole that cannot be read to its end is marked as one the server refused:
+    /// tried again at the next scan, its error noted, the vectors it had kept, and the round
+    /// goes on.
+    #[test]
+    fn a_round_marks_a_file_not_read_to_its_end_for_the_next_scan() {
+        let d = std::env::temp_dir().join(format!("coxswain-round-unread-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let cfg = SearchConfig {
+            meaning: true,
+            meaning_engine: "ollama".into(),
+            meaning_url: fake_embed_server(),
+            meaning_model: "fake".into(),
+            ..SearchConfig::default()
+        };
+        store.set_engine(crate::meaning::Engine::from_config(&cfg));
+        let engine = store.engine().unwrap();
+        // Not there: it cannot be read now.
+        let path = d.join("gone.log").to_string_lossy().into_owned();
+        {
+            let db = store.db.lock().unwrap();
+            db.execute("INSERT INTO files(id, path, size, modified, has_text) VALUES (5, ?1, 1, 0, 1)", [&path]).unwrap();
+            db.execute("INSERT INTO chunks(file, n, vector) VALUES (5, 0, ?1)", [vec![1u8; 8]]).unwrap();
+        }
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        tx.send(Prepared { id: 5, path: path.clone(), streamed: true, texts: vec![], whole: None, starts: None }).unwrap();
+        drop(tx);
+        assert_eq!(embed_round(&store, &engine, &rx, &AtomicBool::new(false), None).unwrap(), None, "the round goes on");
+        let db = store.db.lock().unwrap();
+        let embedded: Option<i64> = db.query_row("SELECT embedded FROM files WHERE id = 5", [], |r| r.get(0)).unwrap();
+        let chunks: i64 = db.query_row("SELECT count(*) FROM chunks WHERE file = 5", [], |r| r.get(0)).unwrap();
+        let noted: i64 = db.query_row("SELECT count(*) FROM errors WHERE path = ?1", [&path], |r| r.get(0)).unwrap();
+        assert_eq!((embedded, chunks, noted), (Some(0), 1, 1));
+        drop(db);
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
