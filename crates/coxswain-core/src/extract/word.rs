@@ -1091,13 +1091,20 @@ mod tests {
     fn the_time_a_sink_takes_is_not_reading_time() {
         let n = 50_000;
         let xml: String = (0..n).map(|i| format!("<w:p><w:r><w:t>Report {i} of the mission control room</w:t></w:r></w:p>")).collect();
+        // The reader is given twice what reading takes on this machine, however slow, and the
+        // sink takes twice that, once.
+        let began = std::time::Instant::now();
+        read(xml.as_bytes(), &WORD, &mut crate::extract::Text::to(&mut |_: &str| {}), &mut Styles::default());
+        let time = began.elapsed() * 2 + std::time::Duration::from_millis(200);
         let mut styles = Styles {
-            until: Some(std::time::Instant::now() + std::time::Duration::from_millis(500)),
+            until: Some(std::time::Instant::now() + time),
             ..Styles::default()
         };
-        let mut lines = 0;
+        let (mut lines, mut first) = (0, true);
         let mut sink = |chunk: &str| {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            if std::mem::take(&mut first) {
+                std::thread::sleep(time * 2);
+            }
             lines += chunk.lines().filter(|l| l.starts_with("Report")).count();
         };
         let mut out = crate::extract::Text::to(&mut sink);
