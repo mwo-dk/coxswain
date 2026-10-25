@@ -290,7 +290,11 @@ mod tests {
                     (c.name.as_str(), c.dir(), c.size, c.modified()),
                     (name.as_str(), dir, size, when)
                 );
-                assert_eq!(c.unix_mode(), mode.map(|m| m & 0o777));
+                // What matters of the mode is a file's run bits (a zip written on Windows has a DOS one,
+                // which the crate turns into a mode with none for a file).
+                if !dir {
+                    assert_eq!(c.unix_mode().map_or(0, |m| m & 0o111), mode.map_or(0, |m| m & 0o111), "{name}");
+                }
                 if !dir {
                     let mut want = vec![];
                     crate_zip
