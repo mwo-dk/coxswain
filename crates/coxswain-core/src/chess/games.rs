@@ -1057,16 +1057,23 @@ pub const POSITION_ROWS: usize = 2_000_000;
 /// positions; `stop` is asked between games, and true ends it there.
 pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32, &[u64])) -> io::Result<()> {
     if super::scid::is_scid(path) {
+        // The games as the table lists them (`scan_scid`: deleted ones left out), so a game's
+        // index here is its row's, not its place in the SCID index.
         let base = super::scid::Base::open(path)?;
+        let mut games = vec![];
+        base.entries(|n, _| {
+            games.push(n);
+            games.len() < POSITION_GAMES as usize
+        })?;
         let mut rows = 0usize;
-        for n in 0..base.count.min(POSITION_GAMES) {
+        for (row, n) in (0u32..).zip(games) {
             if rows >= POSITION_ROWS || stop() {
                 break;
             }
             let mut keys = main_line_keys(&super::pgn::parse(&base.pgn(n)?));
             keys.truncate(POSITION_ROWS - rows);
             rows += keys.len();
-            each(n, &keys);
+            each(row, &keys);
         }
         return Ok(());
     }

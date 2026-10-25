@@ -1506,6 +1506,23 @@ mod tests {
         fs::set_permissions(l.join("f"), rw).unwrap();
     }
 
+    /// A copy whose rights grant delete but not changing its attributes is still taken back.
+    #[cfg(windows)]
+    #[test]
+    fn windows_undo_needs_no_write_attributes() {
+        let (_d, l, r) = pair("sync-no-wa");
+        fs::write(l.join("f"), "main").unwrap();
+        let done = run(&plan_of(&l, &r, false));
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        let t = r.join("f");
+        // Everyone (S-1-1-0) denied write-attributes; delete stays allowed.
+        let st = std::process::Command::new("icacls").arg(&t).args(["/deny", "*S-1-1-0:(WA)"]).status().unwrap();
+        assert!(st.success());
+        let u = done.record.undo(|_| {});
+        assert!(u.refused.is_empty(), "{:?}", u.refused);
+        assert!(!t.exists());
+    }
+
     /// An encrypted file (EFS) is copied encrypted, or not at all: never as plain data.
     #[cfg(windows)]
     #[test]
