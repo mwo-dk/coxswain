@@ -109,7 +109,7 @@ app: the squares tinted, an arrow's end square in its colour and its start light
 arrows written under the board in their colours, `→ b3–f7`. A move you play on from there
 shows none. ChessBase's annotations come in this way ([ChessBase databases](#chessbase-databases)).
 
-![The Opera Game at 7.Qb3 read from an annotated ChessBase database in the desktop app: a green arrow from b3 to f7, f7 and b7 tinted red, the comment with the engine's evaluation beside the moves](../screenshots/gui-chess-cbh-notes.png)
+![The Opera Game at 7.Qb3 read from an annotated ChessBase database in the desktop app: a green arrow from b3 to f7, f7 and b7 tinted red, the comment with the engine's evaluation beside the moves, and that evaluation on the bar beside the board and as +1.50 under it, with no engine running](../screenshots/gui-chess-cbh-notes.png)
 
 | Key | Desktop app | Terminal app |
 |---|---|---|

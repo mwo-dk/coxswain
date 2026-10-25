@@ -256,6 +256,8 @@ where a line leads without playing it, as you would step through a variation of 
 | Play the line up to the move shown | **Enter**, or *Play this line* | **Enter** |
 | Another line | Its number | The same |
 
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/gui-chess-engine-line.png"><img src="../screenshots/gui-chess-engine-line.gif" alt="The Opera Game in the desktop app at 15...Nxd7 with Stockfish's three lines: 1 shows the first line's first move on the board, the right arrow steps on to the mate, Esc goes back to the game; then 2 shows the second line and the right arrow steps through three of its moves, the line's moves lit as they are shown, and Esc goes back"></picture>
+
 What you see: the board shows the line's position with its last move tinted, and the line's
 evaluation stands beside the board. In the list of lines, the line's moves up to the one shown
 are lit, that move is marked as the game's move shown is, the rest stays grey, and under the
