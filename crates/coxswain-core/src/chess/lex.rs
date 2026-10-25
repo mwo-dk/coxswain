@@ -2,7 +2,8 @@
 //! KIF and CSA (`shogi`), PBN (`bridge`) by lines, SGF (`go`) by its pieces. It reads through a
 //! buffer, never the whole file, and knows the byte each line or piece starts at, so a pass
 //! over a collection of millions of games keeps one game's worth at most, and a game is read
-//! again later from where it starts.
+//! again later from where it starts. The movetext of PGN, PDN, xiangqi and PBN is cut into its
+//! pieces here too (`Movetext`), by the pass over a file line by line and by a game's reader.
 
 use std::io::{self, BufRead};
 
@@ -170,6 +171,113 @@ impl<R: BufRead> Lexer<R> {
     }
 }
 
+/// A piece of movetext. Move numbers and results are words too.
+#[derive(Debug, PartialEq)]
+pub enum Tok<'a> {
+    Word(&'a str),
+    /// A `{ }` comment (as much of it as this text holds) or a `;` one to the end of the line.
+    Comment(&'a str),
+    Open,
+    Close,
+    Nag(u8),
+}
+
+/// The pieces of a movetext: a whole game's, or a line of one at a time, `in_brace` carried from
+/// the line before (a `{` comment still open) and read back after.
+pub struct Movetext<'a> {
+    s: &'a str,
+    pub in_brace: bool,
+    /// At the start of a line: a `%` there escapes the line.
+    line_start: bool,
+}
+
+impl<'a> Movetext<'a> {
+    pub fn new(s: &'a str, in_brace: bool) -> Movetext<'a> {
+        Movetext { s, in_brace, line_start: true }
+    }
+
+    /// What is left to read.
+    pub fn rest(&self) -> &'a str {
+        self.s
+    }
+
+    /// The comment's text up to its `}` (read past), else to the end, still open.
+    fn comment(&mut self) -> Tok<'a> {
+        let s = self.s;
+        match memchr::memchr(b'}', s.as_bytes()) {
+            Some(e) => {
+                (self.s, self.in_brace) = (&s[e + 1..], false);
+                Tok::Comment(&s[..e])
+            }
+            None => {
+                self.s = "";
+                Tok::Comment(s)
+            }
+        }
+    }
+
+    /// The text from `i` to the next end of line, which is left.
+    fn to_eol(&self, i: usize) -> usize {
+        memchr::memchr(b'\n', &self.s.as_bytes()[i..]).map_or(self.s.len(), |e| i + e)
+    }
+}
+
+impl<'a> Iterator for Movetext<'a> {
+    type Item = Tok<'a>;
+
+    fn next(&mut self) -> Option<Tok<'a>> {
+        loop {
+            if self.in_brace && !self.s.is_empty() {
+                self.line_start = false;
+                return Some(self.comment());
+            }
+            let s = self.s;
+            let c = *s.as_bytes().first()?;
+            let line_start = std::mem::replace(&mut self.line_start, false);
+            let tok = match c {
+                b'{' => {
+                    (self.s, self.in_brace) = (&s[1..], true);
+                    return Some(self.comment());
+                }
+                b';' => {
+                    let end = self.to_eol(1);
+                    self.s = &s[end..];
+                    Tok::Comment(&s[1..end])
+                }
+                // An escape line: skipped.
+                b'%' if line_start => {
+                    self.s = &s[self.to_eol(0)..];
+                    continue;
+                }
+                b'(' | b')' => {
+                    self.s = &s[1..];
+                    if c == b'(' { Tok::Open } else { Tok::Close }
+                }
+                b'$' => {
+                    let end = s[1..].find(|c: char| !c.is_ascii_digit()).map_or(s.len(), |e| 1 + e);
+                    self.s = &s[end..];
+                    match s[1..end].parse::<u16>() {
+                        Ok(n @ 1..=255) => Tok::Nag(n as u8),
+                        _ => continue,
+                    }
+                }
+                c if c.is_ascii_whitespace() => {
+                    self.s = &s[1..];
+                    self.line_start = c == b'\n';
+                    continue;
+                }
+                _ => {
+                    let end = s.find(|c: char| c.is_whitespace() || "{}();$".contains(c)).unwrap_or(s.len());
+                    let end = end.max(s.chars().next().map_or(1, char::len_utf8));
+                    self.s = &s[end..];
+                    Tok::Word(&s[..end])
+                }
+            };
+            return Some(tok);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +320,28 @@ mod tests {
         let mut l = Lexer::new(&b"(;AB[aa][bb]"[..]);
         let last = std::iter::from_fn(|| l.sgf(false).unwrap()).last().unwrap();
         assert_eq!(last.1, Sgf::Prop("AB".into(), vec![vec![], vec![]]));
+    }
+
+    #[test]
+    fn movetext_whole_or_by_lines() {
+        use Tok::*;
+        let text = "%esc\n1.e4 $1 e5!? {a\nb} (1...c5 ; x\n) 2.Nf3 $300 1-0";
+        let whole: Vec<_> = Movetext::new(text, false).collect();
+        assert_eq!(
+            whole,
+            [Word("1.e4"), Nag(1), Word("e5!?"), Comment("a\nb"), Open, Word("1...c5"), Comment(" x"), Close, Word("2.Nf3"), Word("1-0")]
+        );
+        // Line by line, the comment open across the break comes in two pieces.
+        let mut in_brace = false;
+        let mut lines = vec![];
+        for l in text.split_inclusive('\n') {
+            let mut m = Movetext::new(l, in_brace);
+            lines.extend(&mut m);
+            in_brace = m.in_brace;
+        }
+        assert_eq!(lines[3..5], [Comment("a\n"), Comment("b")]);
+        assert_eq!(lines.len(), whole.len() + 1);
+        assert_eq!(Movetext::new("e4 {open", false).last(), Some(Comment("open")));
     }
 
     /// An endless line, an endless value, endless values: only so much kept.

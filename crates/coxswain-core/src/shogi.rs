@@ -6,7 +6,8 @@
 //! Reading only: moves are played as written, not checked against the rules.
 //!
 //! Any text at all is read without a panic and without recursion: the moves are read line by
-//! line, every line and every game capped (`MAX_LINE`, `pgn::MAX_MOVES`, `MAX_GAMES`).
+//! line, every line and every game capped (`MAX_LINE`, `pgn::MAX_MOVES`); a file's games are cut
+//! apart as it streams by (`chess::games`).
 
 use crate::chess::pgn::{Game, Node};
 use crate::chess::Format;
@@ -15,8 +16,6 @@ use crate::chess::Format;
 pub const ENDINGS: [&str; 3] = [".kif", ".kifu", ".csa"];
 /// The most of one line looked at: a line of a real file is short.
 const MAX_LINE: usize = 4096;
-/// The most games of one CSA file.
-pub const MAX_GAMES: usize = 100_000;
 /// The most variations (`変化：`) of one KIF game.
 pub const MAX_BRANCHES: usize = 10_000;
 
@@ -636,7 +635,7 @@ fn csa_piece(s: &str) -> Option<(char, bool)> {
     })
 }
 
-/// A CSA game read and played out (one game; `split_csa` cuts a file at its `/` lines).
+/// A CSA game read and played out (one game; `chess::games` cuts a file at its `/` lines).
 fn csa(text: &str) -> Game {
     let mut r = Reading::new();
     let mut at: Option<u32> = None;
@@ -782,34 +781,6 @@ pub fn parse(text: &str, format: Format) -> Game {
     if format == Format::Csa { csa(text) } else { kif(text) }
 }
 
-/// The games of a file's bytes, each as its byte range: CSA files can hold several, cut at a
-/// line of `/` (a byte Shift_JIS never uses inside a character); a KIF file is one game. The
-/// table reads files as they stream by (`chess::games`); this is for a text in memory.
-pub fn split(b: &[u8], format: Format) -> Vec<(usize, usize)> {
-    if format != Format::Csa {
-        return vec![(0, b.len())];
-    }
-    let blank = |r: &[u8]| r.iter().all(|c| c.is_ascii_whitespace());
-    let mut out = vec![];
-    let (mut start, mut at) = (0, 0);
-    for l in b.split_inclusive(|&c| c == b'\n') {
-        if l.trim_ascii() == b"/" {
-            if !blank(&b[start..at]) {
-                out.push((start, at));
-            }
-            start = at + l.len();
-            if out.len() >= MAX_GAMES {
-                return out;
-            }
-        }
-        at += l.len();
-    }
-    if !blank(&b[start..]) {
-        out.push((start, b.len()));
-    }
-    out
-}
-
 /// The shogi format of a file name: `Kif` or `Csa`.
 pub fn format(name: &str) -> Option<Format> {
     let n = name.to_ascii_lowercase();
@@ -868,13 +839,13 @@ mod tests {
     #[test]
     fn a_csa_file_of_two_games() {
         let text = "V2.2\nN+Habu\nN-Sato\n$EVENT:Test\nPI\n+\n+7776FU\nT1\n-3334FU\n+8822UM\n-3122GI\n+0045KA\n%TORYO\n/\nN+A\nN-B\nPI82HI22KA\n-\n-3334FU,T3\n+7776FU\n'** a comment\n%SENNICHITE\n";
-        let games = split(text.as_bytes(), Format::Csa);
+        let games: Vec<&str> = text.split("/\n").collect();
         assert_eq!(games.len(), 2);
-        let g = parse(&text[games[0].0..games[0].1], Format::Csa);
+        let g = parse(games[0], Format::Csa);
         assert_eq!((g.error.clone(), g.result.as_str(), g.tag("White")), (None, "1-0", Some("Habu")));
         let k = parse(KIF, Format::Kif);
         assert_eq!(last(&g), k.nodes[k.main_line()[4] as usize].fen.clone().unwrap());
-        let g = parse(&text[games[1].0..games[1].1], Format::Csa);
+        let g = parse(games[1], Format::Csa);
         assert_eq!((g.error.clone(), g.result.as_str()), (None, "1/2-1/2"));
         assert!(g.start.starts_with("lnsgkgsnl/7b1/") || g.start.starts_with("lnsgkgsnl/9/"), "{}", g.start);
         assert!(g.start.contains(" w "));
@@ -907,8 +878,8 @@ mod tests {
             }
         }
         for t in ["", "+", "P9", "P0+FU", "P1+FU+FU+FU+FU+FU+FU+FU+FU+FU+FU+FU", "P+00FU00FU00XX", "P-99", "+0000FU", "+9999OU", "-7776FU", "+7776FUé", "PI99999999", "P+é00FU", "%TORYO\n+7776FU", "/\n/\n/"] {
-            for (a, b) in split(t.as_bytes(), Format::Csa) {
-                let g = parse(&t[a..b], Format::Csa);
+            for part in t.split("/\n") {
+                let g = parse(part, Format::Csa);
                 for n in &g.nodes {
                     let _ = n.fen.as_deref().map(view);
                 }
@@ -940,9 +911,6 @@ mod tests {
         assert_eq!(g.error, None);
         assert!(g.nodes.len() < 500 + MAX_BRANCHES + 1);
         assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(3)), "{:?}", start.elapsed());
-        // Thousands of games: listed up to MAX_GAMES.
-        let games = "+7776FU\n/\n".repeat(MAX_GAMES + 10);
-        assert_eq!(split(games.as_bytes(), Format::Csa).len(), MAX_GAMES);
     }
 
     #[test]

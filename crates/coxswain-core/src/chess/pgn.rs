@@ -5,6 +5,7 @@
 
 use cozy_chess::{Board, Color, File, Move, Piece, Rank, Square};
 use serde::Serialize;
+use super::lex::{Movetext, Tok};
 
 /// How deep variations may nest, and how many moves a game may have with its variations:
 /// far more than any real game, and what a made-up file cannot turn into gigabytes.
@@ -212,71 +213,6 @@ pub fn tag_pair(line: &str) -> Option<(String, String)> {
     // No closing quote: the value runs to the end, less a closing bracket.
     let name = name.chars().take(64).collect();
     Some((name, value.trim_end().trim_end_matches(']').trim_end_matches('"').to_string()))
-}
-
-/// The movetext's tokens.
-#[derive(Debug, PartialEq)]
-pub(crate) enum Lex<'a> {
-    Word(&'a str),
-    Comment(&'a str),
-    Open,
-    Close,
-    Nag(u8),
-}
-
-/// The movetext of a game, as tokens. Move numbers and results are words too.
-pub(crate) fn lex(text: &str) -> Vec<Lex<'_>> {
-    let b = text.as_bytes();
-    let mut out = vec![];
-    let mut i = 0;
-    while i < b.len() {
-        let c = b[i];
-        match c {
-            b'{' => {
-                let end = text[i + 1..].find('}').map_or(b.len(), |e| i + 1 + e);
-                out.push(Lex::Comment(&text[i + 1..end]));
-                i = end + 1;
-            }
-            b';' => {
-                let end = text[i + 1..].find('\n').map_or(b.len(), |e| i + 1 + e);
-                out.push(Lex::Comment(&text[i + 1..end]));
-                i = end;
-            }
-            // An escape line: skipped.
-            b'%' if i == 0 || b[i - 1] == b'\n' => {
-                i = text[i..].find('\n').map_or(b.len(), |e| i + e);
-            }
-            b'(' => {
-                out.push(Lex::Open);
-                i += 1;
-            }
-            b')' => {
-                out.push(Lex::Close);
-                i += 1;
-            }
-            b'$' => {
-                let end = text[i + 1..]
-                    .find(|c: char| !c.is_ascii_digit())
-                    .map_or(b.len(), |e| i + 1 + e);
-                if let Ok(n) = text[i + 1..end].parse::<u16>()
-                    && (1..=255).contains(&n)
-                {
-                    out.push(Lex::Nag(n as u8));
-                }
-                i = end.max(i + 1);
-            }
-            c if c.is_ascii_whitespace() => i += 1,
-            _ => {
-                let end = text[i..]
-                    .find(|c: char| c.is_whitespace() || "{}();$".contains(c))
-                    .map_or(b.len(), |e| i + e);
-                let end = end.max(i + text[i..].chars().next().map_or(1, char::len_utf8));
-                out.push(Lex::Word(&text[i..end]));
-                i = end;
-            }
-        }
-    }
-    out
 }
 
 /// A word of the movetext, sorted.
@@ -645,13 +581,13 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
         None => Some(first.clone()),
         Some(n) => boards[n as usize].clone(),
     };
-    for tok in lex(rest) {
+    for tok in Movetext::new(rest, false) {
         match tok {
             // Variations nested deeper than any game needs are skipped, whole.
-            Lex::Open if skip > 0 || depth >= MAX_DEPTH => skip += 1,
-            Lex::Close if skip > 0 => skip -= 1,
+            Tok::Open if skip > 0 || depth >= MAX_DEPTH => skip += 1,
+            Tok::Close if skip > 0 => skip -= 1,
             _ if skip > 0 => {}
-            Lex::Comment(c) => {
+            Tok::Comment(c) => {
                 let c = c.split_whitespace().collect::<Vec<_>>().join(" ");
                 if c.is_empty() {
                     continue;
@@ -666,26 +602,26 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
                 }
                 target.push_str(&c);
             }
-            Lex::Nag(n) => {
+            Tok::Nag(n) => {
                 if let Some(at) = cur {
                     g.nodes[at as usize].nags.push(n);
                 }
             }
-            Lex::Open => {
+            Tok::Open => {
                 // A variation replaces the last move: it starts from the position before it.
                 stack.push(cur);
                 cur = cur.and_then(|n| g.nodes[n as usize].parent);
                 depth += 1;
                 after_move = false;
             }
-            Lex::Close => {
+            Tok::Close => {
                 if let Some(back) = stack.pop() {
                     cur = back;
                     depth -= 1;
                 }
                 after_move = false;
             }
-            Lex::Word(w) => match rules.word(w) {
+            Tok::Word(w) => match rules.word(w) {
                 Word::Result(r) => {
                     if depth == 0 {
                         g.result = if r == "½-½" { "1/2-1/2".into() } else { r.to_string() };

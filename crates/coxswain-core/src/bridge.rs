@@ -8,6 +8,7 @@
 //! game's moves. Any text at all is read without a panic and without recursion; every list is
 //! capped (13 tricks, `MAX_BIDS` calls).
 
+use crate::chess::lex::{Movetext, Tok};
 use crate::chess::pgn::{self, Game, Node};
 
 /// The file endings of PBN files, for the search store.
@@ -195,17 +196,10 @@ fn sections(text: &str) -> Sections {
     for line in text.lines().take(10_000) {
         let l: String = line.chars().take(4096).collect();
         let t = l.trim();
-        if in_brace {
-            if let Some(i) = t.find('}') {
-                in_brace = false;
-                let _ = i;
-            }
+        if !in_brace && (t.starts_with('%') || t.is_empty()) {
             continue;
         }
-        if t.starts_with('%') || t.is_empty() {
-            continue;
-        }
-        if t.starts_with('[') {
+        if !in_brace && t.starts_with('[') {
             if let Some((k, v)) = pgn::tag_pair(t) {
                 section = if k.eq_ignore_ascii_case("Auction") {
                     "auction"
@@ -220,31 +214,21 @@ fn sections(text: &str) -> Sections {
             }
             continue;
         }
-        // Comments in braces: kept when they stand alone, skipped in the sections.
+        // Comments in braces, over lines too: kept, and no part of the sections.
         let mut words = vec![];
-        let mut rest = t;
-        while !rest.is_empty() {
-            if let Some(b) = rest.find('{') {
-                words.extend(rest[..b].split_whitespace().map(str::to_string));
-                match rest[b + 1..].find('}') {
-                    Some(e) => {
-                        if s.comment.len() < 4096 {
-                            s.comment.push_str(rest[b + 1..b + 1 + e].trim());
-                            s.comment.push(' ');
-                        }
-                        rest = &rest[b + 2 + e..];
-                    }
-                    None => {
-                        in_brace = true;
-                        rest = "";
-                    }
+        let mut toks = Movetext::new(t, in_brace);
+        for tok in &mut toks {
+            match tok {
+                Tok::Word(w) => words.push(w.to_string()),
+                Tok::Comment(c) if s.comment.len() < 4096 => {
+                    s.comment.push_str(c.trim());
+                    s.comment.push(' ');
                 }
-            } else {
-                words.extend(rest.split_whitespace().map(str::to_string));
-                rest = "";
+                _ => {}
             }
         }
-        let words: Vec<String> = words.into_iter().filter(|w| !(w.starts_with('=') && w.ends_with('=')) && !w.starts_with('$')).collect();
+        in_brace = toks.in_brace;
+        let words: Vec<String> = words.into_iter().filter(|w| !(w.starts_with('=') && w.ends_with('='))).collect();
         match section {
             "auction" => {
                 for w in words {
@@ -400,6 +384,14 @@ S2 SA S9 S6
         let t3 = State::from_text(g.nodes[2].fen.as_deref().unwrap());
         assert_eq!((t3.trick[0].0, t3.leader, t3.won), (1, Some(0), [1, 2]));
         assert_eq!(State::from_text(&t2.text()), t2);
+    }
+
+    /// A comment over lines is kept whole, its lines no calls or cards.
+    #[test]
+    fn comments_over_lines() {
+        let g = parse(&DEAL.replace("3NT AP", "3NT {strong\n1D AP} AP"));
+        assert_eq!(g.tag("Auction"), Some("N 1♣ Pass 1♦ Pass 3NT AP"));
+        assert_eq!(g.comment, "strong 1D AP");
     }
 
     #[test]
