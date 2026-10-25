@@ -236,6 +236,11 @@
   const inLine = $derived(played != null && played.at > 0);
   const fen = $derived(inLine ? played.moves[played.at - 1].fen : at == null ? game?.game.start : nodes[at]?.fen);
   const last = $derived(inLine ? played.moves[played.at - 1] : at == null ? null : nodes[at]);
+  // The squares and arrows the game's comments draw on this position ([%csl], [%cal]).
+  const drawn = $derived(inLine ? [] : at == null ? (game?.game.marks ?? []) : (nodes[at]?.marks ?? []));
+  const MARK_COLOUR = { G: "rgb(21 120 27 / 0.8)", R: "rgb(200 30 30 / 0.8)", Y: "rgb(230 160 0 / 0.85)", B: "rgb(0 48 136 / 0.8)" };
+  /** A square's centre on the board as drawn (flipped or not). */
+  const centre = (sq) => [(flip ? 7 - (sq % 8) : sq % 8) + 0.5, (flip ? Math.floor(sq / 8) : 7 - Math.floor(sq / 8)) + 0.5];
   const pieces = $derived(looks ? (letters ? looks.letters : looks.figurines) : ["♔", "♕", "♖", "♗", "♘"]);
 
   /** The pieces on the board: 64 squares, a1 first. */
@@ -660,6 +665,7 @@
   <rect {x} {y} width="1" height="1" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 1 : 0] : "#888"} onclick={() => clickSquare(sq)} />
   {#if picked === sq}<rect {x} {y} width="1" height="1" class="mark" fill="rgb(90 160 246 / 0.5)" />{/if}
   {#if lit}<rect class="mark" {x} {y} width="1" height="1" fill="rgb(246 224 90 / 0.45)" />{/if}
+  {#each drawn.filter((m) => m.from === sq && m.to === sq) as m, k (k)}<rect class="mark" {x} {y} width="1" height="1" fill={MARK_COLOUR[m.colour]} opacity="0.6" />{/each}
   {#if p}<image class="mark" href={`vendor/chess-pieces/${p === p.toUpperCase() ? "w" : "b"}${PIECE[p.toLowerCase()]}.svg`} {x} {y} width="1" height="1" />{/if}
   {#if targets.includes(sq)}<circle class="mark" cx={x + 0.5} cy={y + 0.5} r={p ? 0.45 : 0.15} fill={p ? "none" : "rgb(0 0 0 / 0.3)"} stroke={p ? "rgb(0 0 0 / 0.35)" : "none"} stroke-width="0.07" />{/if}
   {#if y === 7}<text class="coord mark" x={x + 0.94} y={y + 0.95} text-anchor="end" fill={looks ? looks.colours[(rank + file) % 2 === 0 ? 0 : 1] : "#000"}>{"abcdefgh"[file]}</text>{/if}
@@ -797,6 +803,17 @@
           {/if}
           <svg class="board chess-keys" viewBox="0 0 8 8" tabindex="0" role="img" aria-label={t("chess.board")} bind:this={boardEl} onkeydown={onBoardKey}>
             {#each Array(64) as _, i (i)}{@render square(i)}{/each}
+            {#each drawn.filter((m) => m.from !== m.to) as m, k (k)}
+              {@const [x1, y1] = centre(m.from)}
+              {@const [x2, y2] = centre(m.to)}
+              {@const len = Math.hypot(x2 - x1, y2 - y1)}
+              {@const ux = (x2 - x1) / len}
+              {@const uy = (y2 - y1) / len}
+              <g class="mark" fill={MARK_COLOUR[m.colour]} stroke={MARK_COLOUR[m.colour]}>
+                <line x1={x1} y1={y1} x2={x2 - ux * 0.35} y2={y2 - uy * 0.35} stroke-width="0.16" stroke-linecap="round" />
+                <polygon points="{x2},{y2} {x2 - ux * 0.45 - uy * 0.25},{y2 - uy * 0.45 + ux * 0.25} {x2 - ux * 0.45 + uy * 0.25},{y2 - uy * 0.45 - ux * 0.25}" stroke="none" />
+              </g>
+            {/each}
           </svg>
         </div>
         {/if}

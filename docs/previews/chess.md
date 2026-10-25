@@ -34,7 +34,7 @@ deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draught
 
 ## Using it
 
-**Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.si5`, `.cbh`, `.epd` or `.fen` file, or
+**Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.si5`, `.cbh`, `.cbv`, `.epd` or `.fen` file, or
 a `.bin` file that is a Polyglot book, and the preview pane (**Space**) shows its games,
 positions or book moves. **⤢** at the top right, **Alt+K**
 or *Open games* in the action menu (**Shift+F10**) and the command list (**F9**) open it in a
@@ -92,6 +92,17 @@ The moves are written out as in a book: move numbers, the main line in bold, eac
 brackets after the move it replaces (dimmer), comments in italics, and annotation glyphs: `!`,
 `?`, `!!`, `??`, `!?`, `?!` on the move, and `±`, `⩲`, `=`, `∞`, `+−` and the rest of the
 standard NAGs after it.
+
+**Arrows and coloured squares.** A comment can draw on the board, as ChessBase and Lichess write
+it: `[%csl Gd4,Re5]` colours squares and `[%cal Gb3f7]` draws arrows, in green (`G`), red
+(`R`), yellow (`Y`) or blue (`B`). They show with the position of the move the comment follows
+(a comment before the first move: the start position), and the comment shows its text without
+them. Desktop app: the squares tinted under the pieces and the arrows drawn over them. Terminal
+app: the squares tinted, an arrow's end square in its colour and its start lighter, and the
+arrows written under the board in their colours, `→ b3–f7`. A move you play on from there
+shows none. ChessBase's annotations come in this way ([ChessBase databases](#chessbase-databases)).
+
+![The Opera Game at 7.Qb3 read from an annotated ChessBase database in the desktop app: a green arrow from b3 to f7, f7 and b7 tinted red, the comment with the engine's evaluation beside the moves](../screenshots/gui-chess-cbh-notes.png)
 
 | Key | Desktop app | Terminal app |
 |---|---|---|
@@ -270,8 +281,30 @@ own.
   read to the end (a damaged file, a move that cannot be played) shows the moves read, and the
   comment above them says *The rest of this game could not be read from the ChessBase
   database.*
+- **Annotations** from the `.cba` file come with the moves: texts before and after a move (in
+  every language the game has, one after the other), symbols (`!`, `?!`, `±` …), coloured
+  squares and arrows ([Arrows and coloured squares](#a-game-on-the-board)), the engine's
+  evaluation as `[%eval 1.50,22]` (pawns, then the depth; `#3` a mate) and the time spent as
+  `[%emt 0:01:05]`. The game's own text goes before the first move. Training questions,
+  pictures, sounds, videos and the rest are left out. A `.cba` record that is not the game's is
+  left out whole and the moves show without it.
 - **Set-up positions** are read: the game starts from its position, as a PGN game with a `FEN`
-  tag does.
+  tag does. An older database often stores a set-up position without the castling rights its
+  moves use: such a right is added when the king and rook stand where it needs them, and the
+  game says *The set-up position did not hold castling rights its moves use; they were added.*
+- **Chess960 games** (Fischer Random) start from their own position, with the tag
+  `Variant "Chess960"` and a `FEN` in Shredder-FEN (`HAha`), and castle as Chess960 does: the
+  move list writes `O-O` and `O-O-O`, the board puts king and rook on their squares, and the
+  engine is told the game is Chess960.
+- **Databases past 4 GB** (a `.cbg` or `.cba` file that big) keep their games' places in a
+  `.cbj` file beside them; it is read for those.
+- **Archives** (`.cbv`, ChessBase's *backup* of a database in one file) open as the database
+  they hold, with the same keys: the files its games need are unpacked once into Coxswain's
+  own folder in the cache (`coxswain/cbv/` there, removed a day later; the last four archives
+  are kept at a time), and the archive is never changed. Its first database is read; pictures
+  and other files in it are left. *Save as new PGN* writes next to the archive. Find reads a
+  `.cbv` file as it does a `.cbh` one; a store made before this release reads each `.cbv` file
+  once, for the first time.
 - **Find** reads a `.cbh` file as a line per game and keeps the positions of its games, as it
   does a PGN file's ([Finding games](#finding-games)). A store made before this release reads
   each `.cbh` file once, for the first time; no other file is read again.
@@ -279,9 +312,10 @@ own.
   (**w**) write a new PGN file next to it ([Save as new PGN](chess-play.md#save-as-new-pgn)):
   `Mega line.pgn` for `Mega.cbh`.
 
-Not read: the annotations in `.cba` (comments, symbols, arrows, coloured squares), Chess960
-games, ChessBase's newer `.2cbh` format, its archives (`.cbv`, `.cbz`), and games past the
-first 4 GB of a `.cbg` file. Without the `.cbg` file every game shows the note and no moves;
+Not read: ChessBase's newer `.2cbh` format (how it stores moves is not publicly known), its
+password-protected archives (`.cbz`, a name comic books use too: unpack them in ChessBase), and
+Chess960 games in ChessBase's second Chess960 encoding (they show the note, as a damaged game
+does). Without the `.cbg` file every game shows the note and no moves;
 without `.cbp` or `.cbt` the names are empty. Every file is read with care for damage: a
 record's size and every name's number are checked before they are used, a game is read up to
 16 MB, and up to 50,000 moves and 64 levels of variations.
@@ -294,7 +328,8 @@ record's size and every name's number are checked before they are used, a game i
 | `.pgn.gz`, `.pgn.zst` | The same, packed with gzip or Zstandard |
 | `.si4` (with `.sg4`, `.sn4`) | A SCID 4 database: the same games, in SCID's files ([SCID databases](#scid-databases)) |
 | `.si5` (with `.sg5`, `.sn5`) | A SCID 5 database: the same, in SCID 5's newer files ([SCID databases](#scid-databases)) |
-| `.cbh` | A ChessBase database, with its `.cbg`, `.cbp` and `.cbt` files beside it ([ChessBase databases](#chessbase-databases)) |
+| `.cbh` | A ChessBase database, with its `.cbg`, `.cbp` and `.cbt` files beside it, and its `.cba` (annotations) and `.cbj` (past 4 GB) when it has them ([ChessBase databases](#chessbase-databases)) |
+| `.cbv` | A ChessBase archive: the database it holds ([ChessBase databases](#chessbase-databases)) |
 | `.epd`, `.fen` | Positions, one a line |
 | `.bin` | A Polyglot opening book (the format of Polyglot, the book tool, used by most chess programs): its moves for each position, read by a binary search |
 
@@ -303,8 +338,8 @@ takes no more than the table can hold: the first 10,000,000 games, 256 MB of nam
 events, openings), and a packed file unpacked to no more than 64 GB. Past that, the line above
 the table adds *the first 10000000 games only: the file has more than Coxswain reads*. One game
 is read up to 16 MB, a line up to 1 MB and a tag up to 4 KB.
-Chess960 games with a `FEN` tag are read; SCID 4, SCID 5 and ChessBase databases are. ChessBase's archives
-(`.cbv`, `.cbz`), its newer `.2cbh` format and other databases are not.
+Chess960 games with a `FEN` tag are read; SCID 4, SCID 5 and ChessBase databases and archives (`.cbv`) are.
+ChessBase's password-protected archives (`.cbz`), its newer `.2cbh` format and other databases are not.
 
 ## Settings and config.toml
 
@@ -344,19 +379,20 @@ games.
 #### Does it read ChessBase files?
 
 Yes, a ChessBase database (`.cbh`, with its `.cbg`, `.cbp` and `.cbt` files beside it): its
-games, players, tournaments and moves with their variations, but not its annotations, its
-Chess960 games, the newer `.2cbh` format or its `.cbv` and `.cbz` archives
-([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID databases (`.si4`, `.si5`), EPD, FEN and Polyglot books, Go
+games, players, tournaments and moves with their variations, its annotations (texts, symbols,
+evaluations, coloured squares and arrows on the board) and its Chess960 games, and its `.cbv`
+archives as the database they hold, but not the newer `.2cbh` format or password-protected
+`.cbz` archives ([ChessBase databases](#chessbase-databases)). Besides that: PGN (also packed as `.pgn.gz` or `.pgn.zst`), SCID databases (`.si4`, `.si5`), EPD, FEN and Polyglot books, Go
 games in SGF ([Go games](go.md)), draughts games in PDN ([Draughts games](draughts.md)) , xiangqi
-games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For the annotations, export the games to PGN in ChessBase.
+games in PGN ([Xiangqi games](xiangqi.md)) , shogi games in KIF and CSA ([Shogi games](shogi.md)) and bridge deals in PBN ([Bridge deals](bridge.md)). For a `.2cbh` database or an archive, export the games to PGN in ChessBase.
 
 #### Why does a ChessBase game end with a note?
 
 Its moves could not be read to the end: the comment above them says *The rest of this game
 could not be read from the ChessBase database.* The moves before that point are shown and
 checked. It happens with a damaged `.cbg` file, a game stored with a move that cannot be
-played (some imported online games have one), a Chess960 game, or when the `.cbg` file is
-missing. ChessBase itself may still show such a game; export it to PGN there to read it whole.
+played (some imported online games have one), a Chess960 game in ChessBase's second Chess960
+encoding, or when the `.cbg` file is missing. ChessBase itself may still show such a game; export it to PGN there to read it whole.
 
 #### How do I open a SCID database?
 
@@ -369,6 +405,21 @@ The table shows its games like a PGN file's.
 
 The table's *Moves* come from the index; the board plays each move from the `.sg4` file. A move
 that does not play (a damaged file) ends the game there, as a broken PGN game does.
+
+#### Why does a game show arrows or coloured squares?
+
+Its comments draw them: `[%cal Gb3f7]` is a green arrow from b3 to f7, `[%csl Rf7]` a red f7,
+as ChessBase, Lichess and other programs write them, and as a ChessBase database's annotations
+come in. They show with the move the comment follows and leave the comment's text; in the
+terminal app the arrows are also written under the board (`→ b3–f7`). A PGN file keeps them as
+they are: Coxswain never changes it.
+
+#### Why does a ChessBase game say castling rights were added?
+
+The game starts from a set-up position whose stored castling rights lack one that its moves use
+(older databases stored none). The right is added when the king and the rook stand where it
+needs them, so the game reads to its end, and the comment before the moves says so. Where they
+do not stand there, the game stops at that castling with the usual note.
 
 #### How do I see moves in my own language's letters?
 

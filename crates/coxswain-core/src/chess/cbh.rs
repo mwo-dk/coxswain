@@ -1,7 +1,9 @@
 //! ChessBase databases (docs/previews/chess.md#chessbase-databases): a `.cbh` file and the files
 //! beside it under the same name, `.cbg` (the moves), `.cbp` (players) and `.cbt` (tournaments).
 //! Each game is read as the PGN it holds, so the table, the board and the search take it as they
-//! take a PGN file's games (`games`). Read only; annotations (`.cba`) are not read.
+//! take a PGN file's games (`games`). Read only. A game's annotations (`.cba`: texts, symbols,
+//! coloured squares, arrows, evaluations, times) become its PGN comments and NAGs; Chess960
+//! games (encoding 10) start from their own position.
 //!
 //! The layout follows the public descriptions of the format: the MIT-licensed `cbvault`
 //! (github.com/itshak/cbvault, from `oschess-cb-bridge`) and `asdfjkl/cbh2pgn`. Facts only: no
@@ -29,9 +31,15 @@ const MAX_ENTITY: u64 = 64 << 10;
 /// Names kept from the entity files while the games are listed.
 const MAX_CACHE: usize = 200_000;
 
-/// Whether `path` is a ChessBase database's header file, by its name.
+/// Whether `path` is a ChessBase database's header file, or an archive of one (`cbv`), by its
+/// name.
 pub fn is_cbh(path: &Path) -> bool {
-    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("cbh"))
+    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("cbh")) || super::cbv::is_cbv(path)
+}
+
+/// The `.cbh` file to read for `path`: itself, or an archive's unpacked one.
+fn header(path: &Path) -> io::Result<PathBuf> {
+    if super::cbv::is_cbv(path) { super::cbv::unpacked(path) } else { Ok(path.to_path_buf()) }
 }
 
 /// The file beside `cbh` with the ending `ext`: the same case first, else any case.
@@ -220,6 +228,7 @@ fn open_cbh(path: &Path) -> io::Result<(File, u64)> {
 /// The games of the database at `path`, in order, each handed to `each` until it says to stop;
 /// `read` is told the bytes of the `.cbh` file read so far.
 pub(crate) fn scan(path: &Path, stop: &dyn Fn() -> bool, read: &dyn Fn(u64), mut each: impl FnMut(&Listed) -> bool) -> io::Result<()> {
+    let path = &header(path)?;
     let (f, records) = open_cbh(path)?;
     let mut names = Names::open(path);
     let mut r = io::BufReader::with_capacity(1 << 16, f);
@@ -246,6 +255,7 @@ pub(crate) fn scan(path: &Path, stop: &dyn Fn() -> bool, read: &dyn Fn(u64), mut
 
 /// Game `record` of the database at `path` as PGN: its tags, then its moves and variations.
 pub fn pgn(path: &Path, record: u32) -> io::Result<String> {
+    let path = &header(path)?;
     let (mut f, records) = open_cbh(path)?;
     if record == 0 || record as u64 >= records {
         return Err(io::Error::new(io::ErrorKind::NotFound, "no such game"));
@@ -258,10 +268,22 @@ pub fn pgn(path: &Path, record: u32) -> io::Result<String> {
     }
     let mut tags = tags(&rec, &mut Names::open(path));
     let result = tags.iter().find(|t| t.0 == "Result").map_or("*".to_string(), |t| t.1.clone());
-    let (game, cut) = match read_game(&sibling(path, "cbg"), be(&rec[1..5]) as u64) {
+    let (cbg, cba) = (sibling(path, "cbg"), sibling(path, "cba"));
+    let short = (be(&rec[1..5]), be(&rec[5..9]));
+    let past_4gb = [&cbg, &cba].iter().any(|p| p.metadata().is_ok_and(|m| m.len() >> 32 != 0));
+    let (moves, notes) = if past_4gb { wide(path, record, short) } else { (short.0 as u64, short.1 as u64) };
+    let (mut game, cut) = match read_game(&cbg, moves) {
         Ok(bytes) => decode(&bytes),
         Err(_) => (Tree::default(), true),
     };
+    let notes = match notes {
+        0 => vec![],
+        at => annotations(&cba, at, record),
+    };
+    game.annotate(&notes);
+    if game.chess960 {
+        tags.push(("Variant", "Chess960".into()));
+    }
     if let Some(fen) = &game.fen {
         tags.push(("SetUp", "1".into()));
         tags.push(("FEN", fen.clone()));
@@ -271,13 +293,44 @@ pub fn pgn(path: &Path, record: u32) -> io::Result<String> {
         out.push_str(&format!("[{k} \"{}\"]\n", v.replace('\\', "\\\\").replace('"', "\\\"")));
     }
     out.push('\n');
+    if game.added_rights {
+        out.push_str(&format!("{{{}}} ", crate::t!("chess.cbh_castling").replace(['{', '}'], "")));
+    }
     if cut {
         out.push_str(&format!("{{{}}} ", crate::t!("chess.cbh_cut").replace(['{', '}'], "")));
+    }
+    if !game.comment.is_empty() {
+        out.push_str(&format!("{{{}}} ", game.comment));
     }
     out.push_str(&game.movetext());
     out.push_str(&result);
     out.push('\n');
     Ok(out)
+}
+
+/// Game `id`'s `.cbg` and `.cba` offsets from the `.cbj` file, which a database whose `.cbg`
+/// or `.cba` is past 4 GB keeps them in: after a 32-byte header (a version, the record size and
+/// the count, little-endian), a record a game, the annotations' offset at 0x0c and the moves'
+/// at 0x1e (8 bytes each, big-endian). The `.cbh` file's own (`short`, their low 32 bits) when
+/// there is none or it disagrees with them.
+fn wide(cbh: &Path, id: u32, short: (u32, u32)) -> (u64, u64) {
+    let read = || -> io::Result<(u64, u64)> {
+        let mut f = File::open(sibling(cbh, "cbj"))?;
+        let mut h = [0u8; 32];
+        f.read_exact(&mut h)?;
+        let (size, count) = (le_i32(&h, 4), le_i32(&h, 8));
+        if !(0x26..=4096).contains(&size) || id == 0 || id as i64 > count as i64 {
+            return Err(io::ErrorKind::InvalidData.into());
+        }
+        f.seek(SeekFrom::Start(32 + size as u64 * (id as u64 - 1)))?;
+        let mut r = [0u8; 0x26];
+        f.read_exact(&mut r)?;
+        let long = |at: usize| u64::from_be_bytes(r[at..at + 8].try_into().unwrap_or_default());
+        let (moves, notes) = (long(0x1e), long(0x0c));
+        let agrees = |w: u64, s: u32| w >> 63 == 0 && w as u32 == s;
+        if agrees(moves, short.0) && agrees(notes, short.1) { Ok((moves, notes)) } else { Err(io::ErrorKind::InvalidData.into()) }
+    };
+    read().unwrap_or((short.0 as u64, short.1 as u64))
 }
 
 /// A game's record in the `.cbg` file: a flags byte, its size in 3 bytes (these 4 counted), the
@@ -301,6 +354,153 @@ fn read_game(cbg: &Path, at: u64) -> io::Result<Vec<u8>> {
     Ok(out)
 }
 
+/// The most bytes of a game's annotation record; real ones are a few kilobytes.
+const MAX_NOTES: u64 = 16 << 20;
+
+/// One annotation of a game: the move it belongs to (counted in stored order; -1 the game as
+/// a whole), its type and its data.
+pub(crate) struct Note {
+    at: i32,
+    kind: u8,
+    data: Vec<u8>,
+}
+
+/// Game `id`'s annotations from its record at `at` in the `.cba` file: a 14-byte head (the
+/// game's number in 3 bytes, `01 00 0e 0e`, the count plus one, the record's size in 4), then
+/// each annotation with a 6-byte head (its move in 3 signed bytes, its type, its size in 2,
+/// the head counted). None at all when the head is not this game's; those before a damaged
+/// one when one is.
+fn annotations(cba: &Path, at: u64, id: u32) -> Vec<Note> {
+    let read = || -> io::Result<Vec<u8>> {
+        let mut f = File::open(cba)?;
+        let len = f.metadata()?.len();
+        f.seek(SeekFrom::Start(at))?;
+        let mut head = [0u8; 14];
+        f.read_exact(&mut head)?;
+        let size = be(&head[10..14]) as u64;
+        if be(&head[0..3]) != id || head[3..7] != [1, 0, 0x0e, 0x0e] || !(14..=MAX_NOTES).contains(&size) || at + size > len {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "not this game's annotations"));
+        }
+        let mut rec = head.to_vec();
+        rec.resize(size as usize, 0);
+        f.read_exact(&mut rec[14..])?;
+        Ok(rec)
+    };
+    let Ok(rec) = read() else { return vec![] };
+    let mut out = vec![];
+    let mut i = 14;
+    while let Some(h) = rec.get(i..i + 6) {
+        let size = be(&h[4..6]) as usize;
+        if size < 6 || i + size > rec.len() {
+            break;
+        }
+        let at = ((be(&h[0..3]) << 8) as i32) >> 8;
+        out.push(Note { at, kind: h[3], data: rec[i + 6..i + size].to_vec() });
+        i += size;
+    }
+    out
+}
+
+/// A square of the annotations, numbered from 1 a file at a time (a1 = 1, a2 = 2, b1 = 9).
+fn note_square(n: u8) -> Option<String> {
+    (1..=64).contains(&n).then(|| format!("{}{}", (b'a' + (n - 1) / 8) as char, (n - 1) % 8 + 1))
+}
+
+/// The colour letter `[%csl]` and `[%cal]` write: green, yellow, red.
+fn note_colour(c: u8) -> Option<char> {
+    match c {
+        2 => Some('G'),
+        3 => Some('Y'),
+        4 => Some('R'),
+        _ => None,
+    }
+}
+
+/// An annotation's text as a comment holds it: to its first NUL, UTF-8 else Windows-1252,
+/// braces as brackets, line breaks and control characters as spaces.
+fn note_text(b: &[u8]) -> String {
+    let end = b.iter().position(|&c| c == 0).unwrap_or(b.len());
+    let t = super::games::text(&b[..end]).replace('{', "(").replace('}', ")");
+    t.split(|c: char| c.is_whitespace() || c.is_control()).filter(|w| !w.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+impl Tree {
+    /// Puts the annotations `notes` on the moves: NAGs, comments before the move, and after it
+    /// the evaluation, the time spent, the coloured squares and arrows, then the texts. Those of
+    /// the game go before the first move, those past the last move after the main line's last.
+    fn annotate(&mut self, notes: &[Note]) {
+        #[derive(Default)]
+        struct Parts {
+            eval: Vec<String>,
+            squares: Vec<String>,
+            arrows: Vec<String>,
+            text: Vec<String>,
+            before: Vec<String>,
+            nags: Vec<u8>,
+        }
+        let last = self.roots.first().map(|&r| {
+            let mut n = r;
+            while let Some(&c) = self.nodes[n as usize].children.first() {
+                n = c;
+            }
+            n as usize
+        });
+        let game = self.nodes.len();
+        let mut parts: HashMap<usize, Parts> = HashMap::new();
+        for n in notes {
+            let to = match n.at {
+                a if a < 0 => game,
+                a if (a as usize) < game => a as usize,
+                _ => last.unwrap_or(game),
+            };
+            let p = parts.entry(to).or_default();
+            let d = &n.data[..];
+            match n.kind {
+                0x02 | 0x82 if d.len() > 2 => {
+                    let t = note_text(&d[2..]);
+                    if !t.is_empty() {
+                        if n.kind == 0x82 { &mut p.before } else { &mut p.text }.push(t);
+                    }
+                }
+                0x03 => p.nags.extend(d.iter().take(3).filter(|&&x| x != 0)),
+                0x04 => p.squares.extend(d.chunks_exact(2).filter_map(|c| Some(format!("{}{}", note_colour(c[0])?, note_square(c[1])?)))),
+                0x05 => p.arrows.extend(d.chunks_exact(3).filter_map(|c| Some(format!("{}{}{}", note_colour(c[0])?, note_square(c[1])?, note_square(c[2])?)))),
+                0x21 if d.len() == 6 => {
+                    let short = |i: usize| i16::from_le_bytes([d[i], d[i + 1]]);
+                    let (value, kind, depth) = (short(0), short(2), short(4));
+                    let score = match kind {
+                        1 if value == 0 => continue,
+                        1 => format!("#{value}"),
+                        _ => format!("{:.2}", value as f64 / 100.0),
+                    };
+                    p.eval.push(if depth > 0 { format!("[%eval {score},{depth}]") } else { format!("[%eval {score}]") });
+                }
+                0x07 if d.len() == 4 && d[1] < 60 && d[2] < 60 => p.eval.push(format!("[%emt {}:{:02}:{:02}]", d[0], d[1], d[2])),
+                _ => {}
+            }
+        }
+        for (to, p) in parts {
+            let mut after = p.eval;
+            if !p.squares.is_empty() {
+                after.push(format!("[%csl {}]", p.squares.join(",")));
+            }
+            if !p.arrows.is_empty() {
+                after.push(format!("[%cal {}]", p.arrows.join(",")));
+            }
+            after.extend(p.text);
+            let (after, before) = (after.join(" "), p.before.join(" "));
+            if to == game {
+                self.comment = [before, after].iter().filter(|s| !s.is_empty()).cloned().collect::<Vec<_>>().join(" ");
+                continue;
+            }
+            let node = &mut self.nodes[to];
+            node.nags.extend(p.nags);
+            node.before = before;
+            node.after = after;
+        }
+    }
+}
+
 /// A move of the tree: its SAN, the move it follows, the moves that follow it (the first is
 /// the main one), and its number.
 struct Node {
@@ -309,6 +509,10 @@ struct Node {
     children: Vec<u32>,
     white: bool,
     number: u32,
+    /// Its NAGs and its comments before and after it, from the annotations.
+    nags: Vec<u8>,
+    before: String,
+    after: String,
 }
 
 /// A game's moves as stored: the start's FEN when it is set up, and the moves in stored order.
@@ -318,6 +522,12 @@ struct Tree {
     nodes: Vec<Node>,
     /// The first moves of the game.
     roots: Vec<u32>,
+    /// A Chess960 game (encoding 10).
+    chess960: bool,
+    /// The set-up position lacked castling rights its moves use, and they were added.
+    added_rights: bool,
+    /// The comment before the first move.
+    comment: String,
 }
 
 impl Tree {
@@ -348,20 +558,29 @@ impl Tree {
                     let node = &self.nodes[n as usize];
                     let alts: &[u32] = if alternatives { &siblings(n)[1..] } else { &[] };
                     if let Some(&next) = node.children.first() {
-                        todo.push(Step::Line(next, true, !alts.is_empty()));
+                        todo.push(Step::Line(next, true, !alts.is_empty() || !node.after.is_empty()));
                     }
                     for &a in alts.iter().rev() {
                         todo.push(Step::Close);
                         todo.push(Step::Line(a, false, true));
                         todo.push(Step::Open);
                     }
+                    if !node.before.is_empty() {
+                        out.push_str(&format!("{{{}}} ", node.before));
+                    }
                     if node.white {
                         out.push_str(&format!("{}. ", node.number));
-                    } else if numbered {
+                    } else if numbered || !node.before.is_empty() {
                         out.push_str(&format!("{}... ", node.number));
                     }
                     out.push_str(&node.san);
                     out.push(' ');
+                    for n in &node.nags {
+                        out.push_str(&format!("${n} "));
+                    }
+                    if !node.after.is_empty() {
+                        out.push_str(&format!("{{{}}} ", node.after));
+                    }
                 }
             }
         }
@@ -487,7 +706,7 @@ impl Lists {
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-/// The byte tables of the encodings read: mode 0 and 4 (one byte a move), 5 (two).
+/// The byte tables of the encodings read: mode 0, 4 and 10 (one byte a move), 5 (two).
 const MODE_0: [u8; 256] = [
     0xa2, 0x95, 0x43, 0xf5, 0xc1, 0x3d, 0x4a, 0x6c, 0x53, 0x83, 0xcc, 0x7c, 0xff, 0xae, 0x68, 0xad,
     0xd1, 0x92, 0x8b, 0x8d, 0x35, 0x81, 0x5e, 0x74, 0x26, 0x8e, 0xab, 0xca, 0xfd, 0x9a, 0xf3, 0xa0,
@@ -544,11 +763,42 @@ const MODE_5: [u8; 256] = [
     0x92, 0xed, 0x66, 0x59, 0x0a, 0xbf, 0x6c, 0x51, 0x91, 0x52, 0xf2, 0x0c, 0x9d, 0xab, 0xba, 0xe7,
 ];
 
+/// Encoding 10: Chess960 games, one byte a move as in 4.
+const MODE_10: [u8; 256] = [
+    0x38, 0x50, 0x64, 0xcc, 0x9f, 0x56, 0x6f, 0x73, 0x4d, 0x41, 0x66, 0xa2, 0xc6, 0xb9, 0x96, 0x47,
+    0xee, 0xcf, 0xb1, 0x6d, 0x48, 0x4f, 0x44, 0x20, 0x15, 0xbe, 0x82, 0x09, 0x34, 0x99, 0xeb, 0x1a,
+    0x33, 0x7c, 0xab, 0x59, 0x00, 0x22, 0x24, 0xb0, 0xb4, 0xfa, 0x85, 0xdd, 0x57, 0xf3, 0xd9, 0xd2,
+    0x8a, 0x8d, 0x70, 0xb5, 0x6e, 0x43, 0xa7, 0x0b, 0x27, 0x08, 0xea, 0xb3, 0x94, 0x1c, 0x63, 0x1b,
+    0x2b, 0xc5, 0x0c, 0xd4, 0x3f, 0x37, 0xe8, 0xde, 0xa6, 0x23, 0xef, 0x06, 0xfd, 0x3e, 0xc1, 0x40,
+    0x32, 0xdf, 0x2d, 0xc8, 0xd0, 0x0f, 0xf1, 0xe2, 0x7a, 0x95, 0xec, 0x3c, 0xca, 0x49, 0x11, 0xe0,
+    0x25, 0xd8, 0x30, 0xfe, 0x2e, 0xba, 0xdc, 0xaa, 0x53, 0x4c, 0xd1, 0x5e, 0x67, 0x8b, 0x0d, 0x9e,
+    0xa9, 0xbf, 0x05, 0x78, 0x35, 0xc4, 0xb6, 0xa4, 0x4b, 0xd6, 0x04, 0x52, 0xa8, 0x76, 0x2c, 0xbd,
+    0xae, 0x39, 0xb2, 0xe3, 0x03, 0x81, 0x17, 0x9a, 0x3d, 0x68, 0xc0, 0x65, 0x92, 0xc9, 0xf7, 0x77,
+    0x16, 0xff, 0xf5, 0xe1, 0x1e, 0x36, 0xbb, 0x86, 0x8e, 0xf9, 0x9d, 0xd5, 0x6b, 0xf4, 0x74, 0x80,
+    0x2f, 0x7b, 0x14, 0x97, 0x29, 0xe5, 0x4a, 0x02, 0x93, 0x5c, 0xcb, 0xa1, 0x58, 0x79, 0xf8, 0x5f,
+    0x26, 0x28, 0x8f, 0x7e, 0xa5, 0xed, 0xd3, 0x89, 0xc7, 0x88, 0x9b, 0x54, 0x87, 0x60, 0xda, 0xf0,
+    0x45, 0x3a, 0xc2, 0x84, 0x90, 0x21, 0xf6, 0xf2, 0x5a, 0x2a, 0x55, 0x18, 0x61, 0x01, 0xfb, 0xe6,
+    0x8c, 0x6a, 0x12, 0xb8, 0x62, 0x83, 0x98, 0x10, 0x71, 0x5b, 0xe4, 0xad, 0xdb, 0x42, 0x0a, 0xcd,
+    0x46, 0xd7, 0x72, 0x07, 0xce, 0x19, 0xb7, 0x3b, 0x31, 0x9c, 0x51, 0xc3, 0x69, 0xa3, 0x91, 0xe9,
+    0x0e, 0x1f, 0xfc, 0x75, 0x6c, 0x1d, 0x7d, 0xe7, 0xaf, 0x5d, 0xa0, 0xbc, 0x13, 0x7f, 0xac, 0x4e,
+];
+
 /// Reads a game's record (`read_game`) into its tree; true when it could not be read to the end.
+/// A set-up game whose castling moves its stored rights lack (older databases store none) is
+/// read again with each such right added, when the position holds it (king and rook in
+/// place); the tree then says so.
 fn decode(rec: &[u8]) -> (Tree, bool) {
-    let mut d = Decoder { tree: Tree::default(), cur: None, stack: vec![], branch_next: false, plies: 0, ended: false };
-    let ok = d.run(rec).is_ok();
-    (d.tree, !ok)
+    let mut add = 0u8;
+    loop {
+        let mut d = Decoder { tree: Tree::default(), cur: None, stack: vec![], branch_next: false, plies: 0, ended: false, missing: 0 };
+        let ok = d.run(rec, add).is_ok();
+        let set_up = rec.first().is_some_and(|f| f & 0x40 != 0);
+        if !ok && set_up && d.missing != 0 && add & d.missing == 0 {
+            add |= d.missing;
+            continue;
+        }
+        return (d.tree, !ok);
+    }
 }
 
 struct Decoder {
@@ -561,6 +811,8 @@ struct Decoder {
     /// Moves read, which the byte tables are keyed by.
     plies: u32,
     ended: bool,
+    /// The castling right (`setup_fen`'s bits) whose absence stopped the reading.
+    missing: u8,
 }
 
 const KING: [(i8, i8); 8] = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)];
@@ -570,22 +822,33 @@ const ROOK: [(i8, i8); 2] = [(0, 1), (1, 0)];
 const BISHOP: [(i8, i8); 2] = [(1, 1), (1, -1)];
 
 impl Decoder {
-    fn run(&mut self, rec: &[u8]) -> Result<(), ()> {
+    /// Reads record `rec`, a set-up start given the castling rights `add` too.
+    fn run(&mut self, rec: &[u8], add: u8) -> Result<(), ()> {
         let flags = *rec.first().ok_or(())?;
+        let mode = flags & 0x3f;
+        // Chess960 games are set up, and name their kings' and castling rooks' squares in 8
+        // bytes after the position.
+        let chess960 = matches!(mode, 10 | 11);
         let mut at = 4;
         let mut board = Board::default();
         if flags & 0x40 != 0 {
             let start = rec.get(4..32).ok_or(())?;
-            let fen = setup_fen(start).ok_or(())?;
+            let named = if chess960 { Some(rec.get(32..40).ok_or(())?) } else { None };
+            let fen = setup_fen(start, named, add).ok_or(())?;
             board = pgn::board(&fen).ok_or(())?;
-            self.tree.fen = Some(board.to_string());
-            at = 32;
+            self.tree.added_rights = add != 0 && setup_fen(start, named, 0) != Some(fen);
+            self.tree.fen = Some(pgn::fen(&board));
+            at = if chess960 { 40 } else { 32 };
+        } else if chess960 {
+            return Err(());
         }
-        let (table, pre, simple) = match flags & 0x3f {
+        self.tree.chess960 = chess960;
+        let (table, pre, simple) = match mode {
             0 => (&MODE_0, true, false),
             4 => (&MODE_4, false, false),
             5 => (&MODE_5, false, true),
-            // Chess960 (10, 11) and the rest are not read.
+            10 => (&MODE_10, false, false),
+            // Encoding 11 (Chess960 too) and the rest are not known.
             _ => return Err(()),
         };
         let mut lists = Lists::scan(&board)?;
@@ -603,7 +866,7 @@ impl Decoder {
                 if w & 0x8000 != 0 {
                     self.start_variation()?;
                 }
-                let mv = by_squares(&board, w & 0x3fff)?;
+                let mv = by_squares(&board, w & 0x3fff, chess960).map_err(|m| self.missing = m)?;
                 self.play(&mut board, &mut lists, mv)?;
                 if w & 0x4000 != 0 {
                     self.end_line(&mut board, &mut lists)?;
@@ -620,12 +883,12 @@ impl Decoder {
                     let pair = s.get(i..i + 2).ok_or(())?;
                     i += 2;
                     let w = (tr(pair[0], self.plies) as u16) << 8 | tr(pair[1], self.plies) as u16;
-                    let mv = by_squares(&board, w)?;
+                    let mv = by_squares(&board, w, chess960).map_err(|m| self.missing = m)?;
                     self.play(&mut board, &mut lists, mv)?;
                 }
                 237..=253 => return Err(()),
                 code => {
-                    let mv = by_code(&board, &lists, code)?;
+                    let mv = by_code(&board, &lists, code).map_err(|m| self.missing = m)?;
                     self.play(&mut board, &mut lists, mv)?;
                 }
             }
@@ -675,9 +938,10 @@ impl Decoder {
                 *board = board.null_move().ok_or(())?;
                 "--".into()
             }
+
         };
         let id = self.tree.nodes.len() as u32;
-        self.tree.nodes.push(Node { san, parent: self.cur, children: vec![], white, number });
+        self.tree.nodes.push(Node { san, parent: self.cur, children: vec![], white, number, nags: vec![], before: String::new(), after: String::new() });
         match self.cur {
             Some(p) => self.tree.nodes[p as usize].children.push(id),
             None => self.tree.roots.push(id),
@@ -698,25 +962,34 @@ fn step(from: u8, (dx, dy): (i8, i8)) -> Square {
     square(x as u8 * 8 + y as u8)
 }
 
-/// Castling for the side to move, as cozy-chess writes it: the king onto its rook.
-fn castle(b: &Board, short: bool) -> Result<Option<Move>, ()> {
+/// Castling for the side to move, as cozy-chess writes it: the king onto its rook. Without
+/// the right, its bit as `setup_fen` counts them (1 White's long, 2 White's short, 4 and 8
+/// Black's).
+fn castle(b: &Board, short: bool) -> Result<Option<Move>, u8> {
     let us = b.side_to_move();
     let rights = b.castle_rights(us);
-    let file = if short { rights.short } else { rights.long }.ok_or(())?;
+    let bit = (if short { 2 } else { 1 }) << if us == Color::White { 0 } else { 2 };
+    let file = if short { rights.short } else { rights.long }.ok_or(bit)?;
     let king = b.king(us);
     Ok(Some(Move { from: king, to: Square::new(file, king.rank()), promotion: None }))
 }
 
-/// A move given by its squares (the two-byte form): from, to, and the promotion piece.
-fn by_squares(b: &Board, w: u16) -> Result<Option<Move>, ()> {
+/// A move given by its squares (the two-byte form): from, to, and the promotion piece. In a
+/// Chess960 game castling is the king's square named twice, the g or c square of its rank.
+fn by_squares(b: &Board, w: u16, chess960: bool) -> Result<Option<Move>, u8> {
     let (from, to) = ((w & 63) as u8, (w >> 6 & 63) as u8);
-    if from == to {
-        return if w & 0x0fff == 0 { Ok(None) } else { Err(()) };
-    }
     let (f, t) = (square(from), square(to));
     let us = b.side_to_move();
     let back = if us == Color::White { Rank::First } else { Rank::Eighth };
-    if b.piece_on(f) == Some(Piece::King) && f == Square::new(cozy_chess::File::E, back) && t.rank() == back {
+    if from == to {
+        return match t.file() {
+            _ if w & 0x0fff == 0 => Ok(None),
+            cozy_chess::File::G if chess960 && t.rank() == back => castle(b, true),
+            cozy_chess::File::C if chess960 && t.rank() == back => castle(b, false),
+            _ => Err(0),
+        };
+    }
+    if !chess960 && b.piece_on(f) == Some(Piece::King) && f == Square::new(cozy_chess::File::E, back) && t.rank() == back {
         match t.file() {
             cozy_chess::File::G => return castle(b, true),
             cozy_chess::File::C => return castle(b, false),
@@ -729,7 +1002,7 @@ fn by_squares(b: &Board, w: u16) -> Result<Option<Move>, ()> {
 }
 
 /// A one-byte move: a piece by its kind and number, and how it moves.
-fn by_code(b: &Board, l: &Lists, code: u8) -> Result<Option<Move>, ()> {
+fn by_code(b: &Board, l: &Lists, code: u8) -> Result<Option<Move>, u8> {
     let us = b.side_to_move();
     let line = |k: u8, dirs: &[(i8, i8)]| {
         let (d, s) = (dirs[(k / 7) as usize], (k % 7 + 1) as i8);
@@ -754,10 +1027,10 @@ fn by_code(b: &Board, l: &Lists, code: u8) -> Result<Option<Move>, ()> {
             let (pawn, how) = ((code - 111) / 4, (code - 111) % 4);
             let f: i8 = if us == Color::White { 1 } else { -1 };
             let delta = [(0, f), (0, 2 * f), (f, f), (-f, f)][how as usize];
-            let from = l.pawns[us as usize][pawn as usize].ok_or(())?;
+            let from = l.pawns[us as usize][pawn as usize].ok_or(0)?;
             let to = step(from, delta);
             if matches!(to.rank(), Rank::First | Rank::Eighth) {
-                return Err(());
+                return Err(0);
             }
             return Ok(Some(Move { from: square(from), to, promotion: None }));
         }
@@ -766,16 +1039,19 @@ fn by_code(b: &Board, l: &Lists, code: u8) -> Result<Option<Move>, ()> {
         199..=212 => (1, 2, line(code - 199, &ROOK)),
         213..=226 => (2, 2, line(code - 213, &BISHOP)),
         227..=234 => (3, 2, KNIGHT[(code - 227) as usize]),
-        _ => return Err(()),
+        _ => return Err(0),
     };
-    let from = *l.kinds[us as usize][kind].get(index).ok_or(())?;
+    let from = *l.kinds[us as usize][kind].get(index).ok_or(0)?;
     Ok(Some(Move { from: square(from), to: step(from, delta), promotion: None }))
 }
 
 /// The FEN of a set-up start: a marker byte, the side to move and en passant file, the castling
 /// rights, the move number, then the board, a square at a time (a1, a2 … h8): a 0 bit for an
-/// empty one, else a 1 bit, a colour bit (1 Black) and 3 bits of piece.
-fn setup_fen(s: &[u8]) -> Option<String> {
+/// empty one, else a 1 bit, a colour bit (1 Black) and 3 bits of piece. Castling rights (bits
+/// 1 White's long, 2 White's short, 4 and 8 Black's; `add` adds more) only where the position
+/// holds them: for a Chess960 game (`named`: the kings' squares, then the rooks' of White's
+/// short and long and Black's, then the position's number) in Shredder-FEN.
+fn setup_fen(s: &[u8], named: Option<&[u8]>, add: u8) -> Option<String> {
     let mut cells = [None; 64];
     let mut pos = 0usize;
     let mut bit = || -> Option<u8> {
@@ -816,7 +1092,40 @@ fn setup_fen(s: &[u8]) -> Option<String> {
         }
     }
     let black = s[1] & 0x10 != 0;
-    let castling: String = [(2, 'K'), (1, 'Q'), (8, 'k'), (4, 'q')].iter().filter(|(b, _)| s[2] & b != 0).map(|x| x.1).collect();
+    let rights = (s[2] | add) & 0x0f;
+    let mut castling = String::new();
+    for (bit, white, short) in [(2u8, true, true), (1, true, false), (8, false, true), (4, false, false)] {
+        if rights & bit == 0 {
+            continue;
+        }
+        let rank = if white { 0 } else { 7 };
+        let ours = |f: usize, p: char| cells[rank * 8 + f] == Some(if white { p.to_ascii_uppercase() } else { p });
+        let Some(king) = (0..8).find(|&f| ours(f, 'k')) else { continue };
+        // A square the 8 bytes name, when it is on this side's back rank: its file.
+        let name = |i: usize| named.and_then(|n| n.get(i)).filter(|&&q| q < 64 && (q % 8) as usize == rank).map(|&q| (q / 8) as usize);
+        let wing = |f: usize| ours(f, 'r') && (f > king) == short;
+        let i = match (white, short) {
+            (true, true) => 2,
+            (true, false) => 3,
+            (false, true) => 4,
+            (false, false) => 5,
+        };
+        let rook = match named {
+            _ if name(if white { 0 } else { 1 }).is_some_and(|k| k != king) => None,
+            Some(_) => name(i).filter(|&f| wing(f)).or_else(|| {
+                let mut files = (0..8).filter(|&f| wing(f));
+                if short { files.next_back() } else { files.next() }
+            }),
+            None => Some(if short { 7 } else { 0 }).filter(|&f| king == 4 && wing(f)),
+        };
+        let Some(rook) = rook else { continue };
+        let c = match named {
+            Some(_) => (b'a' + rook as u8) as char,
+            None if short => 'k',
+            None => 'q',
+        };
+        castling.push(if white { c.to_ascii_uppercase() } else { c });
+    }
     let ep = match s[1] & 0x0f {
         f @ 1..=8 => format!("{}{}", (b'a' + f - 1) as char, if black { 3 } else { 6 }),
         _ => "-".into(),
@@ -864,15 +1173,37 @@ pub(crate) mod tests {
                 plies += 1;
             }
         }
+        base_with(dir, name, 0, &bytes, None)
+    }
+
+    /// A database of one game: its `.cbg` record of `flags` and `body` (a set-up start, the
+    /// moves' bytes), and its `.cba` record of `notes` (position, type, data) when given.
+    fn base_with(dir: &Path, name: &str, flags: u8, body: &[u8], notes: Option<&[(i32, u8, Vec<u8>)]>) -> PathBuf {
         let mut cbg = vec![0u8; 10];
-        let size = (4 + bytes.len()) as u32;
-        cbg.extend([0, (size >> 16) as u8, (size >> 8) as u8, size as u8]);
-        cbg.extend(bytes);
+        let size = (4 + body.len()) as u32;
+        cbg.extend([flags, (size >> 16) as u8, (size >> 8) as u8, size as u8]);
+        cbg.extend(body);
+        let mut cba = vec![0u8; 26];
+        if let Some(notes) = notes {
+            let mut items = vec![];
+            for (at, kind, data) in notes {
+                items.extend(&at.to_be_bytes()[1..]);
+                items.push(*kind);
+                items.extend(((6 + data.len()) as u16).to_be_bytes());
+                items.extend(data);
+            }
+            cba.extend([0, 0, 1, 1, 0, 0x0e, 0x0e, 0, 0, notes.len() as u8 + 1]);
+            cba.extend(((14 + items.len()) as u32).to_be_bytes());
+            cba.extend(items);
+        }
         let mut cbh = vec![0u8; 46];
         cbh[3..5].copy_from_slice(&46u16.to_be_bytes());
         let mut r = [0u8; 46];
         r[0] = 1;
         r[1..5].copy_from_slice(&10u32.to_be_bytes());
+        if notes.is_some() {
+            r[5..9].copy_from_slice(&26u32.to_be_bytes());
+        }
         r[0x0c..0x0f].copy_from_slice(&[0, 0, 1]);
         let d: u32 = 1858 << 9 | 11 << 5 | 2;
         r[0x18..0x1b].copy_from_slice(&d.to_be_bytes()[1..]);
@@ -889,6 +1220,7 @@ pub(crate) mod tests {
         let p = dir.join(format!("{name}.cbh"));
         std::fs::write(&p, cbh).unwrap();
         std::fs::write(p.with_extension("cbg"), cbg).unwrap();
+        std::fs::write(p.with_extension("cba"), cba).unwrap();
         std::fs::write(p.with_extension("cbp"), entities(58, &[&[(0, "Morphy"), (30, "Paul")], &[(0, "Duke Karl")]])).unwrap();
         std::fs::write(p.with_extension("cbt"), entities(90, &[&[(0, "Paris"), (40, "Paris Opera")]])).unwrap();
         p
@@ -979,7 +1311,7 @@ pub(crate) mod tests {
             }
         }
         // A start position bit stream of nothing but pieces.
-        assert!(setup_fen(&[0xff; 28]).is_none());
+        assert!(setup_fen(&[0xff; 28], None, 0).is_none());
         let d = dir("hostile");
         let p = d.join("bad.cbh");
         // Not 46-byte records; no files beside it.
@@ -1037,6 +1369,54 @@ pub(crate) mod tests {
         let text = std::fs::read_to_string(std::env::var("COXSWAIN_CBH_PGN").unwrap()).unwrap();
         let n = write_base(&text, &PathBuf::from(std::env::var("COXSWAIN_CBH_OUT").unwrap()));
         eprintln!("{n} games");
+    }
+
+    /// The screenshots' annotated database (`COXSWAIN_CBH_OUT`, a `.cbh` path): the Opera Game
+    /// with ChessBase annotations: texts, symbols, coloured squares, arrows and evaluations.
+    #[test]
+    #[ignore]
+    fn write_annotated_demo() {
+        let out = PathBuf::from(std::env::var("COXSWAIN_CBH_OUT").unwrap());
+        let text = "[Event \"Paris\"]\n[Site \"Paris Opera\"]\n[Date \"1858.11.02\"]\n[White \"Morphy, Paul\"]\n[Black \"Duke Karl / Count Isouard\"]\n[Result \"1-0\"]\n[ECO \"C41\"]\n\n1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0\n";
+        assert_eq!(write_base(text, &out), 1);
+        let t = |s: &str| [&[0u8, 42][..], s.as_bytes()].concat();
+        let sq = |s: &str| (s.as_bytes()[0] - b'a') * 8 + (s.as_bytes()[1] - b'1') + 1;
+        let eval = |v: i16, depth: i16| [v, 0, depth].iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<u8>>();
+        let notes: Vec<(i32, u8, Vec<u8>)> = vec![
+            (-1, 0x02, t("Paris, at the opera: Morphy plays the Duke and the Count in their box.")),
+            (5, 0x02, t("A weak move already: the bishop is given for a knight.")),
+            (5, 0x03, vec![6, 0, 0]),
+            (5, 0x05, vec![4, sq("g4"), sq("f3")]),
+            (12, 0x02, t("Morphy develops with tempo; the queen eyes f7 and b7.")),
+            (12, 0x04, vec![4, sq("f7"), 4, sq("b7")]),
+            (12, 0x05, vec![2, sq("b3"), sq("f7")]),
+            (12, 0x21, eval(150, 22)),
+            (17, 0x03, vec![2, 0, 0]),
+            (18, 0x03, vec![1, 0, 0]),
+            (18, 0x05, vec![2, sq("c3"), sq("b5")]),
+            (30, 0x03, vec![3, 0, 0]),
+            (30, 0x02, t("The queen is given to open the d-file.")),
+            (30, 0x05, vec![2, sq("b3"), sq("b8")], ),
+            (30, 0x05, vec![4, sq("d1"), sq("d8")]),
+            (32, 0x04, vec![4, sq("e8")]),
+            (32, 0x02, t("Mate.")),
+        ];
+        let mut items = vec![];
+        for (at, kind, data) in &notes {
+            items.extend(&at.to_be_bytes()[1..]);
+            items.push(*kind);
+            items.extend(((6 + data.len()) as u16).to_be_bytes());
+            items.extend(data);
+        }
+        let mut cba = vec![0u8; 26];
+        cba.extend([0, 0, 1, 1, 0, 0x0e, 0x0e, 0, 0, notes.len() as u8 + 1]);
+        cba.extend(((14 + items.len()) as u32).to_be_bytes());
+        cba.extend(items);
+        std::fs::write(out.with_extension("cba"), cba).unwrap();
+        let mut cbh = std::fs::read(&out).unwrap();
+        cbh[46 + 5..46 + 9].copy_from_slice(&26u32.to_be_bytes());
+        std::fs::write(&out, cbh).unwrap();
+        eprintln!("{}", pgn(&out, 1).unwrap());
     }
 
     /// Castling both ways, a promotion, and a variation, in the two-byte form, read back as
@@ -1164,6 +1544,149 @@ pub(crate) mod tests {
         n
     }
 
+
+    /// The 28 bytes of a set-up start: White to move, castling `rights`, move 1, the pieces
+    /// `(square a1 = 0, letter)` a square at a time as ChessBase counts them (a1, a2 … h8).
+    fn start(rights: u8, pieces: &[(u8, char)]) -> Vec<u8> {
+        let mut bits = vec![];
+        for n in 0..64u8 {
+            let sq = square(n);
+            let at = sq.rank() as u8 * 8 + sq.file() as u8;
+            match pieces.iter().find(|p| p.0 == at) {
+                Some(&(_, c)) => {
+                    let code = b" kqnbrp".iter().position(|&x| x == c.to_ascii_lowercase() as u8).unwrap() as u8;
+                    bits.extend([1, c.is_ascii_lowercase() as u8, code >> 2 & 1, code >> 1 & 1, code & 1]);
+                }
+                None => bits.push(0),
+            }
+        }
+        let mut s = vec![1u8, 0, rights, 1];
+        for c in bits.chunks(8) {
+            s.push(c.iter().enumerate().fold(0u8, |b, (i, &v)| b | v << (7 - i)));
+        }
+        s.resize(28, 0);
+        s
+    }
+
+    #[test]
+    fn offsets_past_4_gb_come_from_the_cbj_file() {
+        let d = dir("cbj");
+        let p = d.join("big.cbh");
+        let mut cbj = vec![0u8; 32];
+        cbj[0..4].copy_from_slice(&11i32.to_le_bytes());
+        cbj[4..8].copy_from_slice(&120i32.to_le_bytes());
+        cbj[8..12].copy_from_slice(&2i32.to_le_bytes());
+        for (moves, notes) in [(5u64 << 32 | 10, 1u64 << 32 | 26), (7, 0)] {
+            let mut r = [0u8; 120];
+            r[0x0c..0x14].copy_from_slice(&notes.to_be_bytes());
+            r[0x1e..0x26].copy_from_slice(&moves.to_be_bytes());
+            cbj.extend(r);
+        }
+        std::fs::write(p.with_extension("cbj"), cbj).unwrap();
+        assert_eq!(wide(&p, 1, (10, 26)), (5 << 32 | 10, 1 << 32 | 26));
+        // Disagreeing low bits, a game past its records, no file: the .cbh file's own.
+        assert_eq!(wide(&p, 2, (8, 0)), (8, 0));
+        assert_eq!(wide(&p, 3, (9, 1)), (9, 1));
+        assert_eq!(wide(&d.join("none.cbh"), 1, (10, 26)), (10, 26));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A move's byte in encoding 10, `plies` moves before it.
+    fn enc10(v: u8, plies: u32) -> u8 {
+        MODE_10.iter().position(|&x| x == v.wrapping_add(plies as u8)).unwrap() as u8
+    }
+
+    #[test]
+    fn annotations_become_comments_symbols_squares_arrows_and_evaluations() {
+        let d = dir("notes");
+        let mut moves = RUY.to_vec();
+        moves.push(255);
+        let (mut bytes, mut plies) = (vec![], 0u32);
+        for &m in &moves {
+            bytes.push(enc(m, plies));
+            if m < 235 {
+                plies += 1;
+            }
+        }
+        let text = |s: &str| [&[0u8, 42][..], s.as_bytes()].concat();
+        let notes = vec![
+            (-1, 0x02, text("A {famous} game")),
+            (0, 0x02, text("Best by test")),
+            (0, 0x03, vec![1, 0, 0]),
+            // e4 green; an arrow d2-d4 in red; colour 9 is not known and left out.
+            (0, 0x04, vec![2, 36, 9, 1]),
+            (0, 0x05, vec![4, 26, 28]),
+            (0, 0x21, [35i16, 0, 20].iter().flat_map(|v| v.to_le_bytes()).collect()),
+            (1, 0x82, text("Now")),
+            (1, 0x07, vec![0, 1, 5, 0]),
+            // A mate in 3 for Black, an unknown type, and one past the last move.
+            (2, 0x21, [-3i16, 1, 0].iter().flat_map(|v| v.to_le_bytes()).collect()),
+            (2, 0x99, vec![1, 2, 3]),
+            (99, 0x02, text("The end")),
+        ];
+        let p = base_with(&d, "notes", 0, &bytes, Some(&notes));
+        let text = pgn(&p, 1).unwrap();
+        assert!(text.contains("{A (famous) game} 1. e4 $1 {[%eval 0.35,20] [%csl Ge4] [%cal Rd2d4] Best by test} {Now} 1... e5 {[%emt 0:01:05]} 2. Nf3 {[%eval #-3]}"), "{text}");
+        assert!(text.contains("3. Bb5 {The end} 1-0"), "{text}");
+        let g = pgn::parse(&text);
+        assert_eq!(g.error, None);
+        let first = &g.nodes[g.roots[0] as usize];
+        assert_eq!(first.marks, vec![pgn::Mark { colour: 'G', from: 28, to: 28 }, pgn::Mark { colour: 'R', from: 11, to: 27 }]);
+        // PGN reads a comment before a move as one after the move before it.
+        assert_eq!(first.after, "[%eval 0.35,20] Best by test Now");
+        // A record that is not this game's: no annotations, the moves all the same.
+        let cba = p.with_extension("cba");
+        let mut b = std::fs::read(&cba).unwrap();
+        b[28] = 7;
+        std::fs::write(&cba, b).unwrap();
+        assert!(pgn(&p, 1).unwrap().contains("1. e4 e5 2. Nf3"));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_chess960_game_castles_from_its_own_position() {
+        let d = dir("960");
+        // White: king f1, rook g1; Black: king e8, pawn a7. White's short castling swaps them.
+        let mut body = start(2, &[(5, 'K'), (6, 'R'), (60, 'k'), (48, 'p')]);
+        // The kings f1 and e8, the rooks: White's short g1, none else; position 0.
+        body.extend([40, 39, 48, 64, 64, 64, 0, 0]);
+        body.extend([enc10(9, 0), enc10(111, 1), enc10(255, 2)]);
+        let p = base_with(&d, "c960", 0x40 | 10, &body, None);
+        let text = pgn(&p, 1).unwrap();
+        assert!(text.contains("[Variant \"Chess960\"]") && text.contains("[FEN \"4k3/p7/8/8/8/8/8/5KR1 w G - 0 1\"]"), "{text}");
+        assert!(text.contains("1. O-O a6 1-0"), "{text}");
+        let g = pgn::parse(&text);
+        assert_eq!(g.error, None);
+        assert_eq!(g.nodes[0].fen.as_deref(), Some("4k3/p7/8/8/8/8/8/5RK1 b - - 1 1"));
+        // The same castling in the two-byte form: the king's g1 named twice.
+        let mut body = start(2, &[(5, 'K'), (6, 'R'), (60, 'k'), (48, 'p')]);
+        body.extend([40, 39, 48, 64, 64, 64, 0, 0]);
+        let w: u16 = 48 | 48 << 6;
+        body.extend([enc10(235, 0), enc10((w >> 8) as u8, 0), enc10(w as u8, 0), enc10(111, 1), enc10(255, 2)]);
+        let p = base_with(&d, "two", 0x40 | 10, &body, None);
+        assert!(pgn(&p, 1).unwrap().contains("1. O-O a6 1-0"));
+        // Encoding 11 is not known: the game says it was cut.
+        let p = base_with(&d, "eleven", 0x40 | 11, &body, None);
+        assert!(pgn(&p, 1).unwrap().contains(&crate::t!("chess.cbh_cut")));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_set_up_game_gets_the_castling_rights_its_moves_use() {
+        let d = dir("rights");
+        // King e1 and rook h1, no rights stored; 1. O-O Ke7.
+        let body = |pieces: &[(u8, char)]| [start(0, pieces), vec![enc(9, 0), enc(5, 1), enc(255, 2)]].concat();
+        let p = base_with(&d, "rights", 0x40, &body(&[(4, 'K'), (7, 'R'), (60, 'k')]), None);
+        let text = pgn(&p, 1).unwrap();
+        assert!(text.contains("[FEN \"4k3/8/8/8/8/8/8/4K2R w K - 0 1\"]") && text.contains("1. O-O Ke7 1-0"), "{text}");
+        assert!(text.contains(&crate::t!("chess.cbh_castling")) && !text.contains(&crate::t!("chess.cbh_cut")), "{text}");
+        // Without the rook the right cannot be: the game stops there and says so.
+        let p = base_with(&d, "none", 0x40, &body(&[(4, 'K'), (60, 'k')]), None);
+        let text = pgn(&p, 1).unwrap();
+        assert!(text.contains(&crate::t!("chess.cbh_cut")) && !text.contains(&crate::t!("chess.cbh_castling")), "{text}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
     #[test]
     fn a_set_up_start_reads_as_fen() {
         // White king e1, black king e8, White to move, no castling, move 40: a square at a time.
@@ -1184,6 +1707,6 @@ pub(crate) mod tests {
             s.push(b);
         }
         s.resize(28, 0);
-        assert_eq!(setup_fen(&s).unwrap(), "4k3/8/8/8/8/8/8/4K3 w - - 0 40");
+        assert_eq!(setup_fen(&s, None, 0).unwrap(), "4k3/8/8/8/8/8/8/4K3 w - - 0 40");
     }
 }

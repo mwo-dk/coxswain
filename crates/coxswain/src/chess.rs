@@ -365,6 +365,18 @@ impl Viewer {
         }
     }
 
+    /// The squares and arrows the game's comments draw on the position shown ([%csl], [%cal]).
+    fn drawn(&self) -> Vec<chess::pgn::Mark> {
+        if self.played.as_ref().is_some_and(|l| l.at > 0) {
+            return vec![];
+        }
+        let Some(o) = &self.open else { return vec![] };
+        match o.at {
+            Some(n) => o.game.nodes[n as usize].marks.clone(),
+            None => o.game.marks.clone(),
+        }
+    }
+
     fn poll_engine(&mut self) {
         if let Some(t) = &self.thinking
             && let Ok(r) = t.rx.try_recv()
@@ -1140,6 +1152,13 @@ impl Viewer {
         let (pieces, cell_w, cell_h) = crate::pieces::layout(self.pieces, &mosaic::CHESS, 8, 8, (area.width * 3 / 5).max(area.width.saturating_sub(40)).saturating_sub(2), area.height.saturating_sub(2));
         let fen = now.clone();
         let squares = chess::squares(fen.as_deref().unwrap_or(""));
+        let drawn = self.drawn();
+        let mark_rgb = |c: char| match c {
+            'G' => (21, 160, 27),
+            'R' => (220, 30, 30),
+            'Y' => (240, 180, 0),
+            _ => (40, 90, 220),
+        };
         let mut lines: Vec<Line> = vec![];
         // The squares with a piece, for its picture: where, which and on what colour.
         let mut placed: Vec<crate::pictures::Placed> = vec![];
@@ -1153,6 +1172,12 @@ impl Viewer {
                 let mut colour = if pieces == Pieces::Figurines { self.board[!light as usize] } else { self.squares[!light as usize] };
                 if last.is_some_and(|(a, b)| a == Some(sq) || b == Some(sq)) {
                     colour = tint(colour, (0xf6, 0xe0, 0x5a));
+                }
+                // A coloured square, or an arrow's end, in its colour; an arrow's start lighter.
+                if let Some(m) = drawn.iter().find(|m| m.to == sq) {
+                    colour = tint(colour, mark_rgb(m.colour));
+                } else if let Some(m) = drawn.iter().find(|m| m.from == sq) {
+                    colour = tint(tint(colour, mark_rgb(m.colour)), (0xff, 0xff, 0xff));
                 }
                 if let (Pieces::Pictures, Some(p)) = (pieces, squares[sq as usize]) {
                     placed.push((Rect::new(2 + col * cell_w, row * cell_h, cell_w, cell_h), crate::pictures::Picture::of(crate::pictures::chess(p)), colour));
@@ -1180,6 +1205,19 @@ impl Viewer {
         if let Some(fen) = &fen {
             let white = fen.split_whitespace().nth(1) == Some("w");
             lines.push(Line::styled(t!(if white { "chess.white_to_move" } else { "chess.black_to_move" }), dim));
+        }
+        // The arrows, which squares alone cannot show: `→ d2–d4` in their colours.
+        let name = |sq: u8| format!("{}{}", (b'a' + sq % 8) as char, sq / 8 + 1);
+        let arrows: Vec<Span> = drawn
+            .iter()
+            .filter(|m| m.from != m.to)
+            .map(|m| {
+                let (r, g, b) = mark_rgb(m.colour);
+                Span::styled(format!(" {}–{}", name(m.from), name(m.to)), dim.fg(Color::Rgb(r, g, b)).add_modifier(Modifier::BOLD))
+            })
+            .collect();
+        if !arrows.is_empty() {
+            lines.push(Line::from([vec![Span::styled("→", dim)], arrows].concat()));
         }
         let board_w = 2 + cell_w * 8;
         // The evaluation as a bar, and the game's as a row of bars, one a move.

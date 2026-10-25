@@ -41,6 +41,68 @@ pub struct Node {
     pub number: u32,
     /// 0 on the main line, 1 in a variation, 2 in a variation of one, …
     pub depth: u32,
+    /// Coloured squares and arrows its comments draw on the board (`[%csl]`, `[%cal]`).
+    pub marks: Vec<Mark>,
+}
+
+/// A coloured square (`from` == `to`) or an arrow a comment draws on the board: `[%csl Gd4]`,
+/// `[%cal Re2e4]`. The colour is `G`, `R`, `Y` or `B`; squares a1 = 0, h8 = 63.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct Mark {
+    pub colour: char,
+    pub from: u8,
+    pub to: u8,
+}
+
+/// Comment `c` without its `[%csl …]` and `[%cal …]` commands, which are added to `marks`.
+pub fn take_marks(c: &str, marks: &mut Vec<Mark>) -> String {
+    let mut out = String::new();
+    let mut rest = c;
+    while let Some(i) = rest.find("[%c") {
+        let Some(end) = rest[i..].find(']').map(|e| i + e) else { break };
+        let cmd = &rest[i + 2..end];
+        let arrows = cmd.starts_with("cal ");
+        if !arrows && !cmd.starts_with("csl ") {
+            out.push_str(&rest[..=end]);
+            rest = &rest[end + 1..];
+            continue;
+        }
+        out.push_str(&rest[..i]);
+        rest = &rest[end + 1..];
+        let sq = |s: &[u8]| match s {
+            [f @ b'a'..=b'h', r @ b'1'..=b'8'] => Some((r - b'1') * 8 + (f - b'a')),
+            _ => None,
+        };
+        for item in cmd[4..].split(',').map(str::trim) {
+            let b = item.as_bytes();
+            let Some((&c, squares)) = b.split_first() else { continue };
+            let colour = (c as char).to_ascii_uppercase();
+            if !"GRYB".contains(colour) || marks.len() >= 256 {
+                continue;
+            }
+            let (from, to) = match (arrows, squares.len()) {
+                (false, 2) => (sq(squares), sq(squares)),
+                (true, 4) => (sq(&squares[..2]), sq(&squares[2..])),
+                _ => continue,
+            };
+            if let (Some(from), Some(to)) = (from, to) {
+                marks.push(Mark { colour, from, to });
+            }
+        }
+    }
+    out.push_str(rest);
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A position's FEN; Shredder-FEN's castling (`HAha`) when a right is not the corner rook's
+/// with the king on its e-square (Chess960), so that `board` reads it back the same.
+pub fn fen(b: &Board) -> String {
+    let plain = Color::ALL.iter().all(|&c| {
+        let r = b.castle_rights(c);
+        (r.short.is_none() && r.long.is_none())
+            || (b.king(c).file() == File::E && r.short.is_none_or(|f| f == File::H) && r.long.is_none_or(|f| f == File::A))
+    });
+    if plain { b.to_string() } else { format!("{b:#}") }
 }
 
 /// A game read in full.
@@ -51,6 +113,8 @@ pub struct Game {
     pub start: String,
     /// A comment before the first move.
     pub comment: String,
+    /// The squares and arrows that comment draws on the start position.
+    pub marks: Vec<Mark>,
     pub nodes: Vec<Node>,
     /// The first moves: the game's, then other first moves (variations of it).
     pub roots: Vec<u32>,
@@ -276,22 +340,19 @@ pub fn full_fen(fen: &str) -> String {
 /// pieces do not allow are dropped, and an en passant square that cannot be taken too.
 pub fn board(fen: &str) -> Option<Board> {
     let full = full_fen(fen);
-    if let Ok(b) = Board::from_fen(&full, false) {
+    // Shredder-FEN's castling (HAha) too, for Chess960, before anything is dropped.
+    let read = |f: &str| Board::from_fen(f, false).or_else(|_| Board::from_fen(f, true)).ok();
+    if let Some(b) = read(&full) {
         return Some(b);
     }
     let mut f: Vec<&str> = full.split(' ').collect();
     if f.len() == 6 {
         f[3] = "-";
-        if let Ok(b) = Board::from_fen(&f.join(" "), false) {
+        if let Some(b) = read(&f.join(" ")) {
             return Some(b);
         }
         f[2] = "-";
-        if let Ok(b) = Board::from_fen(&f.join(" "), false) {
-            return Some(b);
-        }
-        // Shredder-FEN's castling (HAha), for Chess960.
-        let f: Vec<&str> = full.split(' ').collect();
-        return Board::from_fen(&f.join(" "), true).ok();
+        return read(&f.join(" "));
     }
     None
 }
@@ -526,13 +587,13 @@ impl Rules for Chess {
         // A null move (`--`, or `Z0`): the turn passes.
         if san == "--" || san == "Z0" {
             let nb = b.null_move()?;
-            return Some((nb.clone(), nb.to_string(), None, None));
+            return Some((nb.clone(), fen(&nb), None, None));
         }
         let mv = san_move(b, san)?;
         let (from, to) = shown_squares(b, mv);
         let mut nb = b.clone();
         nb.play_unchecked(mv);
-        Some((nb.clone(), nb.to_string(), Some(from), Some(to)))
+        Some((nb.clone(), fen(&nb), Some(from), Some(to)))
     }
 }
 
@@ -588,7 +649,13 @@ pub(crate) fn parse_with<R: Rules>(text: &str, rules: &R) -> Game {
             Tok::Close if skip > 0 => skip -= 1,
             _ if skip > 0 => {}
             Tok::Comment(c) => {
-                let c = c.split_whitespace().collect::<Vec<_>>().join(" ");
+                // Its squares and arrows belong to the position shown with it: after the move
+                // it follows, else the one before the next move.
+                let marks = match cur {
+                    Some(n) => &mut g.nodes[n as usize].marks,
+                    None => &mut g.marks,
+                };
+                let c = take_marks(c, marks);
                 if c.is_empty() {
                     continue;
                 }
@@ -706,6 +773,20 @@ mod tests {
 6.Bc4 Nf6 7.Qb3 Qe7 8.Nc3 c6 9.Bg5 b5 $2 10.Nxb5! cxb5 11.Bxb5+ Nbd7 12.O-O-O Rd8
 13.Rxd7 Rxd7 14.Rd1 Qe6 15.Bxd7+ Nxd7 (15...Qxd7 16.Qb8+ Ke7 17.Qxe5+ (17.Bxf6+ gxf6) 17...Kd8) 16.Qb8+ Nxb8 17.Rd8# 1-0
 "#;
+
+    #[test]
+    fn comments_draw_squares_and_arrows() {
+        let g = parse("{[%csl Ye4]} 1. e4 {Good [%cal Gg1f3, Rd2d4,Xa1a2,Gz9a1] [%clk 0:05:00] [%csl Rf7]} e5");
+        assert_eq!(g.marks, vec![Mark { colour: 'Y', from: 28, to: 28 }]);
+        assert_eq!(g.comment, "");
+        let n = &g.nodes[0];
+        assert_eq!(n.marks, vec![Mark { colour: 'G', from: 6, to: 21 }, Mark { colour: 'R', from: 11, to: 27 }, Mark { colour: 'R', from: 53, to: 53 }]);
+        assert_eq!(n.after, "Good [%clk 0:05:00]");
+        // A Chess960 position's FEN reads back the same, its castling in Shredder-FEN.
+        let b = board("4k3/p7/8/8/8/8/8/5KR1 w G - 0 1").unwrap();
+        assert_eq!(fen(&b), "4k3/p7/8/8/8/8/8/5KR1 w G - 0 1");
+        assert_eq!(fen(&Board::default()), START);
+    }
 
     #[test]
     fn the_opera_game_plays_out() {
