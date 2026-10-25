@@ -58,7 +58,7 @@ fn temp_name(name: &OsStr) -> CString {
     let stem: String = name.to_string_lossy().chars().take(40).collect();
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
-    CString::new(format!(".{stem}.coxswain-{}-{nanos}-{n}.tmp", std::process::id()).replace('\0', "")).unwrap_or_default()
+    CString::new(format!(".{stem}.coxswain-{}-{nanos}-{n}.tmp", crate::spill::run()).replace('\0', "")).unwrap_or_default()
 }
 
 impl Dir {

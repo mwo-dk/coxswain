@@ -1189,10 +1189,10 @@ pub fn clean_up() {
     let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
     kept.clear();
     if let Some(d) = crate::helper::folder() {
-        let me = std::process::id().to_string();
-        let _ = std::fs::remove_dir_all(d.join("nested").join(&me));
+        let me = crate::spill::run();
+        let _ = std::fs::remove_dir_all(d.join("nested").join(me));
         // ChessBase archives this run unpacked (up to 16 GB each): no other run reads them.
-        let _ = std::fs::remove_dir_all(d.join("cbv").join(&me));
+        let _ = std::fs::remove_dir_all(d.join("cbv").join(me));
     }
 }
 
@@ -1834,16 +1834,15 @@ fn sweep_but(base: &Path, age: std::time::Duration, keep: Option<&str>) {
 }
 
 /// This run's own folder in the cache's `sub`, for this user's eyes only (a copy may be of a
-/// locked file). Folders left by earlier runs go after a day; `fresh` empties this run's too,
-/// which may be one a crashed run with the same process id left.
+/// locked file). Folders left by runs that ended go after a day; `fresh` empties this run's too.
 pub(crate) fn run_folder(sub: &str, fresh: bool) -> io::Result<PathBuf> {
     let base = crate::helper::folder()
         .ok_or_else(|| io::Error::other(crate::t!("err.no_cache_folder")))?
         .join(sub);
     // This run's own folder stays however long ago it last changed: what is in it may be in use.
-    let pid = std::process::id().to_string();
-    sweep_but(&base, std::time::Duration::from_secs(24 * 3600), Some(&pid));
-    let run = base.join(&pid);
+    let me = crate::spill::run();
+    sweep_but(&base, std::time::Duration::from_secs(24 * 3600), Some(me));
+    let run = base.join(me);
     if fresh {
         let _ = std::fs::remove_dir_all(&run);
     }
@@ -1943,20 +1942,26 @@ fn copy_entries(
     };
     let left = std::cell::Cell::new(how.limit);
     // `secs`: the entry's modified time, which the file out of the archive keeps (0: none).
+    // Written under a passing name (noted, so a kill leaves nothing that looks whole) and given
+    // its own only when whole.
     let write = |path: &Path, from: &mut dyn Read, secs: u64| -> io::Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let mut f = File::create_new(path)?;
+        if std::fs::symlink_metadata(path).is_ok() {
+            return Err(crate::fs::exists(path));
+        }
+        let tmp = crate::fs::beside(path);
+        let mut f = File::create_new(&tmp)?;
         // Stop is looked at on every read; a file stopped or failed half way goes.
         let n = io::copy(
             &mut crate::stop::Reader(from.take(left.get().saturating_add(1))),
             &mut f,
         )
-        .inspect_err(|_| drop(std::fs::remove_file(path)))?;
+        .inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
         if n > left.get() {
             drop(f);
-            let _ = std::fs::remove_file(path);
+            let _ = std::fs::remove_file(&tmp);
             return Err(too_large(
                 &path.file_name().unwrap_or_default().to_string_lossy(),
             ));
@@ -1965,7 +1970,8 @@ fn copy_entries(
         if secs > 0 {
             let _ = f.set_modified(crate::fs::epoch(secs));
         }
-        Ok(())
+        drop(f);
+        crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     if k == Kind::Image {
@@ -2300,76 +2306,6 @@ fn writing_lock() -> io::Result<Option<File>> {
     Ok(Some(f))
 }
 
-/// What `rewrite` writes beside an archive, listed in Coxswain's cache folder while it does (the
-/// lock above held), so a crash leaves the list `clean_stale` goes by at the next start. The
-/// list goes when the write ends, however it ends.
-struct Pending(Option<PathBuf>);
-
-const PENDING: &str = "archive-writing.pending";
-
-impl Pending {
-    fn new(files: &[&Path]) -> Pending {
-        let Some(list) = crate::helper::folder().map(|d| d.join(PENDING)) else {
-            return Pending(None);
-        };
-        let names: Vec<String> = files.iter().map(|f| f.to_string_lossy().into_owned()).collect();
-        let text = serde_json::to_string(&names).unwrap_or_default();
-        Pending(std::fs::write(&list, text).ok().map(|_| list))
-    }
-}
-
-impl Drop for Pending {
-    fn drop(&mut self) {
-        if let Some(list) = &self.0 {
-            let _ = std::fs::remove_file(list);
-        }
-    }
-}
-
-/// At start: remove what a write of an archive that never ended (a crash, the power going)
-/// left beside it, as `rewrite` listed it: only those files, with the endings it gives them,
-/// and only while no other window is writing one.
-pub fn clean_stale() {
-    if let Some(dir) = crate::helper::folder() {
-        clean_stale_in(&dir);
-    }
-}
-
-/// `clean_stale`, with the list and the lock in `dir`.
-fn clean_stale_in(dir: &Path) {
-    if !dir.join(PENDING).exists() {
-        return;
-    }
-    let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
-    let Ok(lock) = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(dir.join("archive-writing.lock"))
-    else {
-        return;
-    };
-    // Another window writing holds the lock: its list is live.
-    if lock.try_lock().is_err() {
-        return;
-    }
-    let names: Vec<String> = std::fs::read_to_string(dir.join(PENDING))
-        .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or_default();
-    for name in names {
-        let p = PathBuf::from(name);
-        let ours = p.file_name().is_some_and(|n| {
-            let n = n.to_string_lossy();
-            n.ends_with(".coxswain-tmp") || n.ends_with(".coxswain-tar")
-        });
-        if ours && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_file()) {
-            let _ = std::fs::remove_file(&p);
-        }
-    }
-    let _ = std::fs::remove_file(dir.join(PENDING));
-}
-
 /// What the pack and copy dialogs say when the disk may be short of room to write `sources`
 /// into `archive` (a new one, or one that is there): it is written beside it first, and one that
 /// is there takes a second copy of itself while that runs. `None`: room enough, or not known.
@@ -2426,12 +2362,13 @@ fn rewrite(
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
     let _all = writing_lock()?;
     let name = archive.file_name().unwrap_or_default().to_string_lossy();
-    // With the process's id: apps that do not share the lock above (a Flatpak's own cache
-    // folder, another user or machine on a shared folder) never write into each other's. A
-    // file left by a crash is removed at the next start (`clean_stale`).
-    let tmp = archive.with_file_name(format!("{name}.{}.coxswain-tmp", std::process::id()));
-    let plain = archive.with_file_name(format!("{name}.{}.coxswain-tar", std::process::id()));
-    let _pending = Pending::new(&[&tmp, &plain]);
+    // Passing names with the run's own name: apps that do not share the lock above (a Flatpak's
+    // own cache folder, another user or machine on a shared folder) never write into each
+    // other's. Noted in this run's list, so what a crash left goes at the next start.
+    let me = crate::spill::run();
+    crate::spill::staging_in(archive.parent().unwrap_or(Path::new(".")));
+    let tmp = archive.with_file_name(format!(".{name}.{me}.coxswain-tmp"));
+    let plain = archive.with_file_name(format!(".{name}-tar.{me}.coxswain-tmp"));
     let exists = archive.exists();
     let mut used = false;
     let written = (|| -> io::Result<()> {
@@ -3007,39 +2944,42 @@ mod tests {
         ONE.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// A crash while an archive was written anew: at the next start the file it was writing
-    /// goes, the archive is as it was, and nothing else is touched.
+    /// FAT keeps a file's time in steps of two seconds, exFAT in steps of 10 ms: an archive
+    /// written anew within one step of the old one is still dated after it, so no list of the
+    /// archive takes it for unchanged. CI makes such disks on Windows and names them in
+    /// `COXSWAIN_FAT_DIRS` (`;` between them there, `:` elsewhere).
     #[test]
-    fn what_a_crashed_write_left_is_cleaned_at_start() {
-        let d = crate::fs::Scratch::named("stale-pack");
-        let cache = d.join("cache");
-        std::fs::create_dir_all(&cache).unwrap();
-        let zip = d.join("keep.zip");
-        std::fs::write(d.join("a.txt"), "a").unwrap();
-        create(&zip, &[d.join("a.txt")]).unwrap();
-        let old = std::fs::read(&zip).unwrap();
-        let (tmp, other) = (d.join("keep.zip.coxswain-tmp"), d.join("mine.coxswain-tmp"));
-        std::fs::write(&tmp, "half").unwrap();
-        std::fs::write(&other, "not listed").unwrap();
-        let listed = vec![tmp.to_string_lossy().into_owned(), zip.to_string_lossy().into_owned()];
-        std::fs::write(cache.join(PENDING), serde_json::to_string(&listed).unwrap()).unwrap();
-        clean_stale_in(&cache);
-        assert!(!tmp.exists(), "the file a write left goes");
-        assert_eq!(std::fs::read(&zip).unwrap(), old, "the archive, though listed, is not its kind");
-        assert!(other.exists(), "nothing it did not list");
-        assert!(!cache.join(PENDING).exists());
-        // While a write runs, its list is live and left alone (another window holds the lock).
-        std::fs::write(&tmp, "half").unwrap();
-        std::fs::write(cache.join(PENDING), serde_json::to_string(&listed).unwrap()).unwrap();
-        let held = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(cache.join("archive-writing.lock")).unwrap();
-        held.lock().unwrap();
-        let other_process = std::thread::spawn({
-            let cache = cache.clone();
-            move || clean_stale_in(&cache)
-        });
-        other_process.join().unwrap();
-        assert!(tmp.exists(), "a live write's file stays");
-        drop(held);
+    #[ignore = "needs COXSWAIN_FAT_DIRS: folders on FAT32 or exFAT disks"]
+    fn on_a_fat_disk_a_rewrite_is_dated_after_the_old_archive() {
+        let dirs = std::env::var_os("COXSWAIN_FAT_DIRS").expect("COXSWAIN_FAT_DIRS");
+        let mut seen = 0;
+        for dir in std::env::split_paths(&dirs).filter(|d| !d.as_os_str().is_empty()) {
+            let (archive, tmp) = (dir.join("old.zip"), dir.join("new.zip"));
+            std::fs::write(&archive, "old").unwrap();
+            std::fs::write(&tmp, "new").unwrap();
+            // The same time, as a write within one step gives.
+            let t = std::fs::metadata(&archive).unwrap().modified().unwrap();
+            File::options().write(true).open(&tmp).unwrap().set_modified(t).unwrap();
+            dated_after(&tmp, &archive);
+            let (old, new) = (std::fs::metadata(&archive).unwrap().modified().unwrap(), std::fs::metadata(&tmp).unwrap().modified().unwrap());
+            assert!(new > old, "{}: {new:?} is not after {old:?}", dir.display());
+            // And no further than the step needs: two seconds at most.
+            assert!(new.duration_since(old).unwrap() <= std::time::Duration::from_millis(2001), "{}", dir.display());
+            // A whole rewrite there too: the archive renamed into, dated after.
+            let zip = dir.join("keep.zip");
+            std::fs::write(dir.join("a.txt"), "a").unwrap();
+            std::fs::write(dir.join("b.txt"), "b").unwrap();
+            create(&zip, &[dir.join("a.txt"), dir.join("b.txt")]).unwrap();
+            let before = std::fs::metadata(&zip).unwrap().modified().unwrap();
+            remove(&zip, &["b.txt".to_string()], None).unwrap();
+            let after = std::fs::metadata(&zip).unwrap().modified().unwrap();
+            assert!(after > before, "{}: a rewrite kept its date", dir.display());
+            for f in [archive, tmp, zip, dir.join("a.txt"), dir.join("b.txt")] {
+                let _ = std::fs::remove_file(f);
+            }
+            seen += 1;
+        }
+        assert!(seen > 0, "no folder in COXSWAIN_FAT_DIRS");
     }
 
     #[test]

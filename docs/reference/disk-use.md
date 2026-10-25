@@ -52,6 +52,8 @@ system; this page is about the room they take and getting it back.
 | `helper.log` | When the search helper started and left, and what failed; the whole text of an error the status line said short | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, *Whisper*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice (*Whisper* in use: transcribing is turned off) | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
+| *Typst* | Typst's cache of packages, made by a Typst preview | Downloaded again the next time typst builds a document that uses a package, yours too | Only when ticked |
+| *KiCad* | kicad-cli's cache, made by a KiCad preview or export | Made again the next time kicad-cli runs, yours too | Only when ticked |
 | A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
 | `quarantine/` (under *Your own files*) | Files you moved into quarantine after a [virus scan](../files/virus-scan.md#the-quarantine-folder), with `quarantine.log`; shown when it holds any | Not removed here: it has **Show in panel** only. They are yours: delete them in a panel once you are sure | No |
 | `coxswain-replace-…/` (under *Your own files*) | Your files as they were before a [find and replace](../files/find-and-replace.md), so it can be undone (256 MB at most per replace); shown when there are some | **Remove** takes only those of apps that have ended (their finds and replaces can no longer be undone); a running app keeps its own | No |
@@ -108,6 +110,11 @@ Coxswain lists only what it caused, matched exactly:
   only when Coxswain made it: when a LaTeX preview runs tectonic and its cache folder was not
   there before, Coxswain notes the folder in `made-outside.txt` in its cache folder. A Tectonic
   cache you had before is never listed.
+- **Typst's package cache** (`typst/` in the system's cache folder: `~/.cache/typst` on the BSDs
+  and Linux, `~/Library/Caches/typst` on macOS, `%LOCALAPPDATA%\typst` on Windows, or
+  `TYPST_PACKAGE_CACHE_PATH`) and **kicad-cli's cache** (`kicad/` in the same folder), the same
+  way: only when an installed typst or kicad-cli run by a preview or export made it. kicad-cli's
+  settings (`~/.config/kicad`) are never listed: an installed KiCad keeps your own settings there.
 - **Container images** named in `[preview] images` (by default
   `docker.io/texlive/texlive:latest`, `docker.io/plantuml/plantuml:latest`,
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
@@ -213,6 +220,7 @@ the desktop app's duplicate finder waits for it. With no helper, the file is del
 
 Only images named in `[preview] images` are Coxswain's. Tectonic's cache is listed when a LaTeX
 preview made it; one that was there before Coxswain first ran tectonic is yours and not shown.
+Typst's and kicad-cli's caches are listed the same way.
 
 #### Why are the quarantine and a sync's folder listed, when nothing here is my work?
 

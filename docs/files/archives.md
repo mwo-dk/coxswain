@@ -120,9 +120,9 @@ tools show for a zip Coxswain made). A folder made inside an archive (**F7**) is
 **Reading never changes the archive.** Browsing, copying out and extracting only read it.
 
 **Every change writes the archive anew.** Adding, renaming, moving within, making a folder and
-taking out all write a complete new archive next to the old one, in a file ending in
-`.coxswain-tmp` (`tools.zip.4711.coxswain-tmp` for `tools.zip`, the number being the app's
-process id, so two apps never write the same file). Only when it is complete does it
+taking out all write a complete new archive next to the old one, in a hidden file ending in
+`.coxswain-tmp` (`.tools.zip.4711_9f3a1c2b.coxswain-tmp` for `tools.zip`, the middle part naming
+the app's run, so two apps never write the same file). Only when it is complete does it
 take the old one's place, with a rename in the same folder. If anything fails on the way, or
 you stop it ([Stopping it](copy.md#stopping-it)), the new file is removed and the archive is
 exactly as it was, byte for byte. One archive is written at a time, also across the apps and
@@ -140,7 +140,7 @@ date, so it is never shown for the archive as it is now.
 | Format | How it is written anew |
 |---|---|
 | Zip | Every entry that stays is copied over as it is, compressed and (if locked) still locked: nothing is unpacked. New files are compressed with Deflate. Quick even for large zips. |
-| Tar, plain or compressed | Every entry is read and written into a plain tar next to the archive (`….coxswain-tar`), which is then compressed into the new file: gzip and bzip2 at their default level, xz at level 6, zstd at its fastest level. A compressed tar is unpacked and packed again in full, so it takes as long as packing it would, and its size may differ afterwards. |
+| Tar, plain or compressed | Every entry is read and written into a plain tar next to the archive (a hidden `.…-tar.….coxswain-tmp`), which is then compressed into the new file: gzip and bzip2 at their default level, xz at level 6, zstd at its fastest level. A compressed tar is unpacked and packed again in full, so it takes as long as packing it would, and its size may differ afterwards. |
 | 7z | 7z cannot copy entries as they are: every entry is unpacked and packed again (LZMA2) on its way from the old file to the new, keeping its dates and attributes. Nothing is written to the temp folder. A 7z with locked contents needs its password for this ([Passwords](archive-passwords.md)). |
 
 Copying **from one archive into another** goes through a folder of its own in the cache
@@ -286,10 +286,11 @@ the target of **F5**.
 
 #### Is it safe to change an archive? What if the power goes off?
 
-The archive is written anew into a `.coxswain-tmp` file next to it and only then renamed over the
-old one. Until that rename the old archive is untouched; if something fails, the new file is
-removed, also when you stop it. After a crash, or the power going, the next start of Coxswain
-removes the `….coxswain-tmp` (or `….coxswain-tar`) file that write left, and nothing else.
+The archive is written anew into a hidden `.….coxswain-tmp` file next to it and only then renamed
+over the old one. Until that rename the old archive is untouched; if something fails, the new file
+is removed, also when you stop it. After a crash, or the power going, the next start of Coxswain
+removes the `.….coxswain-tmp` files that write left (the run notes the folder as it starts), and
+nothing else.
 
 #### Can I change one archive from the desktop app and the terminal app at once?
 

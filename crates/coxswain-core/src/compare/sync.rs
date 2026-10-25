@@ -670,7 +670,7 @@ mod imp {
     /// The name of the folder aside: when, and which run.
     fn aside_name() -> OsString {
         let now = chrono::Local::now().format("%Y%m%d-%H%M%S");
-        OsString::from(format!("{ASIDE}{now}-{}-{}", std::process::id(), crate::pinned::token()))
+        OsString::from(format!("{ASIDE}{now}-{}-{}", crate::spill::run(), crate::pinned::token()))
     }
 
     /// The name of the `k`th entry set aside: its number, and as much of its own name as fits.
@@ -813,6 +813,10 @@ mod imp {
                 kept = Some((k_name, was));
             }
             let Some((was, source)) = source else { continue };
+            // A file comes in under a passing name: noted, so a crash leaves it for the next start.
+            if matches!(source, From::File(_)) {
+                crate::spill::staging_in(at(to).parent().unwrap_or(to));
+            }
             let made = match source {
                 From::File(mut f) => dd.create_file(name, &mut f, &was, stop).map(|(m, whole)| {
                     if !whole {

@@ -439,7 +439,7 @@ fn keep_dir() -> std::io::Result<PathBuf> {
         let n = RUN.fetch_add(1, Ordering::Relaxed);
         let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
         let salt = blake3::hash(format!("{}-{n}-{nanos}-{:p}", std::process::id(), &last).as_bytes()).to_hex();
-        let dir = std::env::temp_dir().join(format!("coxswain-replace-{}-{}", std::process::id(), &salt[..16]));
+        let dir = std::env::temp_dir().join(format!("coxswain-replace-{}-{}", crate::spill::run(), &salt[..16]));
         match private_dir(&dir) {
             Ok(()) => {
                 let mut o = std::fs::OpenOptions::new();
@@ -504,7 +504,7 @@ pub(crate) fn sweep() {
         let Ok(rd) = std::fs::read_dir(&tmp) else { return };
         // SAFETY: geteuid has no preconditions.
         let me = unsafe { libc::geteuid() };
-        let own = format!("coxswain-replace-{}-", std::process::id());
+        let own = format!("coxswain-replace-{}-", crate::spill::run());
         for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             // This app's own folders are never swept, whatever its locks say (NFS, Solaris).

@@ -66,7 +66,10 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
   gets its name only when it is complete, so a copy that fails half way leaves nothing behind
   and can simply be tried again. When the app itself is ended half way (killed, a crash, the
   power gone), the next start of either app removes that passing copy, and only names of its
-  own made by the run that ended (noted in `staging/` in the cache folder). A copy you stop keeps what it copied (below). A move to
+  own made by the run that ended (noted in `staging/` in the cache folder). The same holds for a
+  file copied out of an archive, a history or a version-control export, and for one Sync folders
+  brings over: each comes in under a passing name and takes its own only when whole, so a kill
+  never leaves a cut-off file under the real name. A copy you stop keeps what it copied (below). A move to
   another disk goes file by file instead ([Move and rename](move-and-rename.md#how-does-a-move-across-disks-work)).
 - **Nothing is ever written over.** A file that already exists at the target is an error
   (`/home/me/b/a.txt exists`), and a folder cannot be copied into itself (*A folder cannot be
