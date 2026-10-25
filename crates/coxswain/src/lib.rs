@@ -5517,6 +5517,23 @@ mod tests {
             std::thread::sleep(Duration::from_millis(10));
         }
         assert!(turns > 1, "found before the first turn: the file is too small to show anything");
+        // Opening it reads nothing of the file on the UI thread (it once read all of it before
+        // the looking started): it costs about what opening a file of one game does.
+        let small = d.join("small.sgf");
+        std::fs::write(&small, format!("(;SZ[19]PB[Black0]PW[White0]RE[B+R];B[pd]C[{note}];W[dp])\n")).unwrap();
+        let mut other = self::app(d.clone(), d.clone());
+        let hit = format!("{o}Black{}{c} – White{}", n - 1, n - 1);
+        coxswain_core::assert_costs_at_most(
+            20,
+            || {
+                other.chess(&small, Some(hit.clone()));
+                other.dialog = None;
+            },
+            || {
+                app.chess(&p, Some(hit.clone()));
+                app.dialog = None;
+            },
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 

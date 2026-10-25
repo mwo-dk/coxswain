@@ -1053,10 +1053,20 @@ mod tests {
                 "cut at the limit, the rest drained"
             );
             assert_eq!(run("exit 3", 5000, 100), None);
-            // Stopped at the time limit, however slow the machine: no clock needed, as a sleep
-            // that ran out would have said Some(nothing), and the time limit is noted.
-            assert_eq!(run("sleep 60", 200, 100), None);
-            assert!(took_too_long() && !took_too_long(), "noted once");
+            // Stopped at the time limit, not waited for: a sleep that ran out would have said
+            // Some(nothing), the time limit is noted, and the call returns long before the sleep
+            // would end (600 s, past the hang guard on the slowest machine).
+            let (tx, rx) = std::sync::mpsc::channel();
+            let (sh2, a) = (sh.clone(), args("sleep 600"));
+            std::thread::spawn(move || {
+                let out = output(&sh2, &a.iter().map(|a| a.as_os_str()).collect::<Vec<_>>(), Duration::from_millis(200), 100);
+                let _ = tx.send((out, took_too_long(), took_too_long()));
+            });
+            let (out, noted, again) = rx
+                .recv_timeout(crate::test_limit(Duration::from_secs(5)))
+                .expect("the sleep was waited for, not stopped at the time limit");
+            assert_eq!(out, None);
+            assert!(noted && !again, "noted once");
             // A launcher whose child outlives it, as LibreOffice's soffice and soffice.bin:
             // both are gone at the time limit, not only the launcher.
             let dir = std::env::temp_dir().join(format!("coxswain-tree-{}", std::process::id()));
