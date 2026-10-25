@@ -20,7 +20,8 @@ These rules hold for every contributor and every Claude session in this reposito
   ran: CI, and each system whose pull-request `paths` the push touches
   (`.github/changed-systems.py`). WinGet is not in that run: `winget.yml` files the newest
   release there on Mondays (one pull request per package, our older open ones closed as
-  superseded), because its moderators review each pull request by hand. When the run ends,
+  superseded; a package not yet listed has its New-Package pull request moved to the new version
+  in place, keeping its place in the queue), because its moderators review each pull request by hand. When the run ends,
   `release-check.yml` installs the release and checks every channel, WinGet within that week (no
   release left more than 8 days without a pull request). A new build target goes into the matrix
   and into `packaging/release-assets.sh` together.
