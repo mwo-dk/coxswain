@@ -8,8 +8,11 @@ the built-in editor and in the desktop app's preview pane. Lines you changed sin
 commit say *not committed yet*. From a line, the [history of its function](git-line-history.md)
 is one key or one click away.
 
-<!-- screenshot: blame-tui.png: the terminal app's viewer in Classic blue on engine.rs with the blame margin (short id, author, date) before each line and the key line naming Alt+L and Alt+J -->
-<!-- screenshot: blame-gui.png: the desktop app's preview pane in Cyber on engine.rs with Who changed on: each line's commit, author and date in grey before it, one not committed in yellow -->
+![The terminal app's viewer in Classic blue on engine.rs: before each line its commit, author and date, fea8824 Demo User 2026-10-24 on most and 6596a7d Ada 2026-10-25 on line 13, then the line numbers; the key line ends with Alt+L who changed each line and Alt+J history of this function](../screenshots/blame-tui.png)
+*The terminal app: **Alt+L** in the viewer.*
+
+![The desktop app in Cyber with engine.rs under the cursor and the preview pane showing Who changed: each line's commit, author and date in grey before it, and the hint to click a line's commit for the history of its function](../screenshots/blame-gui.png)
+*The desktop app: the preview pane with* Who changed *on.*
 
 ## Contents
 

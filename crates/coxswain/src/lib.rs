@@ -3193,7 +3193,7 @@ impl App {
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
         match editor::Editor::open(file) {
             Ok(e) => {
-                let mut e = e.git_keys(&self.key_label(Action::Blame), &self.key_label(Action::LineHistory));
+                let mut e = e.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
                 if let Some(n) = line {
                     e.buf.go_to(n);
                 }
@@ -3226,7 +3226,7 @@ impl App {
             Ok(v) => {
                 // What the log keys do is not guessed: said the first few times a log is viewed.
                 let v = if v.is_log() && coxswain_core::menu::once("viewer_log", &self.cfg) { v.saying(t!("viewer.log_hint")) } else { v };
-                let v = v.git_keys(&self.key_label(Action::Blame), &self.key_label(Action::LineHistory));
+                let v = v.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
                 self.dialog = Some(Dialog::View { v: Box::new(v), back });
             }
             Err(e) => {

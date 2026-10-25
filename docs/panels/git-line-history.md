@@ -7,7 +7,11 @@ with its author, date and subject and what it changed there. With lines selected
 those lines instead. It is `git log -L`, in both apps: in the viewer, the built-in editor and
 the desktop app's [who changed each line](git-blame.md) view.
 
-<!-- screenshot: line-history-gui.png: the desktop app's History of a function window in Cyber over the editor: engine.rs › fn stop, three commits with author and date, the newest open showing its coloured diff -->
+![The desktop app in Cyber: the window engine.rs › impl Engine › fn burn with Commits: 2, the newest, 6596a7d by Ada, Fix the fuel valve, open with its diff of the function, and the older one, Add the engine, closed](../screenshots/line-history-gui.png)
+*The desktop app: a click on line 13's commit in the preview.*
+
+![The terminal app in Classic blue: a viewer titled engine.rs › impl Engine › fn burn with each commit's line, its subject and its change coloured as a diff](../screenshots/line-history-tui.png)
+*The terminal app: **Alt+J** on the line found by* /valve*.*
 
 ## Contents
 

@@ -286,7 +286,7 @@ impl Editor {
         let sel = key.shift;
         match key.code {
             _ if matches!(action, Some(Action::Blame | Action::LineHistory)) && self.git.is_none() => self.said = Some(t!("blame.not_here")),
-            _ if action == Some(Action::Blame) && self.buf.dirty() && !self.git.as_ref().is_some_and(|g| g.blame.is_some()) => self.said = Some(t!("blame.save_first")),
+            _ if action == Some(Action::Blame) && self.buf.dirty() && self.git.as_ref().is_none_or(|g| g.blame.is_none()) => self.said = Some(t!("blame.save_first")),
             _ if action == Some(Action::Blame) => {
                 let path = self.path.clone();
                 self.said = self.git.as_mut().map(|g| g.toggle_blame(&path));

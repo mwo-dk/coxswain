@@ -45,7 +45,7 @@
     return n;
   });
   /** Who changed each line beside its number (`blame`), until the text is changed. */
-  const numbers = $derived(Array.from({ length: lines }, (_, i) => (m.blame ? `${m.blame.commits[m.blame.lines[i]]?.margin ?? ""}  ` : "") + (i + 1)).join("\n"));
+  const numbers = $derived(Array.from({ length: lines }, (_, i) => (m.blame ? `${(m.blame.commits[m.blame.lines[i]]?.margin ?? "").padEnd(31)}  ${String(i + 1).padStart(String(lines).length)}` : i + 1)).join("\n"));
   /** In a repository: blame and a function's history can be asked. */
   let git = $state(false);
   let gitBusy = $state(false);

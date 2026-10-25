@@ -643,6 +643,7 @@
         // The list scrolls; every other key stays here.
         const by = { Up: -40, Down: 40, PageUp: -400, PageDown: 400, Home: -1e9, End: 1e9 }[k];
         if (by) listEl?.scrollBy({ top: by });
+        else if (k === "Enter") close();
         return true;
       }
       case "help":
