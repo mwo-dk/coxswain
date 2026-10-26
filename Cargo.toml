@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/coxswain-core", "crates/coxswain", "gui/src-tauri"]
 
 [workspace.package]
-version = "2.33.1"
+version = "2.34.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/mwo-dk/coxswain"
@@ -15,7 +15,7 @@ categories = ["command-line-utilities", "filesystem"]
 # `version` is the workspace version, exactly (bumped with it): crates.io needs one, and
 # `cargo install coxswain --version X` then builds X's own library, not the newest 2.x.
 [workspace.dependencies]
-coxswain-core = { path = "crates/coxswain-core", version = "=2.33.1" }
+coxswain-core = { path = "crates/coxswain-core", version = "=2.34.0" }
 
 [profile.release]
 lto = "thin"
