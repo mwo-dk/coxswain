@@ -1432,7 +1432,7 @@
  "feature.configuration.what": "Molemmat sovellukset lukevat yhden config.toml-tiedoston; aseta vain se, mitä muutat. Jokainen avain, sen oletus ja sen kohta asetuksissa.",
  "feature.container_images.a1": "Ne, jotka kontti näkisi: kerrokset järjestyksessä, ilman tiedostoja, jotka myöhempi kerros poistaa. {copy} kopioi tiedostoja ulos yhdistetystä puusta.",
  "feature.container_images.a2": "Mene kansioon ja paina {open} sen index.json-tiedoston kohdalla: kuva aukeaa kansiona, tunniste paneelin otsikossa.",
- "feature.container_images.a3": "Kyllä, nimen ja tekstin perusteella, kuten arkiston sisältä: sen yhdistettyjen kerrosten tiedostot, ei koskaan sen blobeja. Yli 256 MB:n kuvaan katsotaan, kun olet avannut sen kerran näppäimellä {open}.",
+ "feature.container_images.a3": "Kyllä, nimen ja tekstin perusteella, kuten arkiston sisältä: sen yhdistettyjen kerrosten tiedostot, ei koskaan sen blobeja. Yli 256 Mt:n konttikuvaan katsotaan, kun olet avannut sen kerran näppäimellä {open}.",
  "feature.container_images.q1": "Mitkä kerrosten tiedostot näen?",
  "feature.container_images.q2": "Miten avaan OCI-rakenteen kansion?",
  "feature.container_images.q3": "Löytääkö haku konttikuvan sisällä olevat tiedostot?",

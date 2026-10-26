@@ -1432,7 +1432,7 @@
  "feature.configuration.what": "Beide apps lezen één config.toml; stel alleen in wat je wijzigt. Elke sleutel, de standaardwaarde en het onderdeel in Instellingen.",
  "feature.container_images.a1": "Die een container zou zien: de lagen op volgorde toegepast, zonder bestanden die een latere laag verwijdert. {copy} kopieert bestanden uit die samengevoegde boom.",
  "feature.container_images.a2": "Ga de map in en druk op {open} op de index.json: de image opent als een map, met de tag in de titel van het paneel.",
- "feature.container_images.a3": "Ja, op naam en op hun tekst, zoals in een archief: de bestanden van de samengevoegde lagen, nooit de blobs. Een image groter dan 256 MB wordt doorzocht zodra u het een keer met {open} hebt geopend.",
+ "feature.container_images.a3": "Ja, op naam en op hun tekst, zoals in een archief: de bestanden van de samengevoegde lagen, nooit de blobs. Een image groter dan 256 MB wordt doorzocht zodra je het een keer met {open} hebt geopend.",
  "feature.container_images.q1": "Welke bestanden uit de lagen zie ik?",
  "feature.container_images.q2": "Hoe open ik een OCI-indelingsmap?",
  "feature.container_images.q3": "Vindt zoeken de bestanden in een image?",
