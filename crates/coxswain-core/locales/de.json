@@ -2654,6 +2654,7 @@
  "news.new": "neu",
  "news.show_me": "Zeigen",
  "news.title": "Neuigkeiten",
+ "news.whole_tui": "Enter zeigt alles im Betrachter.",
  "notice.cjk_font": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen die Zeichen womöglich als Kästchen. Installiere eine, zum Beispiel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) oder google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Es ist keine japanische oder koreanische Schrift installiert, daher erscheinen ihre Zeichen womöglich als Kästchen. Installieren Sie eine mit: {cmd}",
  "notice.cloud": "{names} gefunden: Dateien, die nur online sind, werden nur nach Namen gefunden, es wird also nichts heruntergeladen. In den Einstellungen änderbar",

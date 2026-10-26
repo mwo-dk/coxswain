@@ -2706,6 +2706,7 @@
  "news.new": "nuevo",
  "news.show_me": "Mostrame",
  "news.title": "Novedades",
+ "news.whole_tui": "Enter lo muestra entero en el visor.",
  "notice.cjk_font": "No hay ninguna fuente japonesa ni coreana instalada, así que los caracteres pueden verse como cuadraditos. Instalá una, por ejemplo noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "No hay ninguna fuente japonesa ni coreana instalada, así que sus letras pueden verse como cuadros. Instalá una con: {cmd}",
  "notice.cloud": "Se encontró {names}: los archivos que están solo en línea se encuentran solo por nombre, así que no se descarga nada. Cambialo en Configuración",

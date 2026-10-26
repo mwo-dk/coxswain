@@ -315,6 +315,12 @@ impl Viewer {
         })
     }
 
+    /// Long lines wrapped from the start, as **w** does: a text of paragraphs, not of lines.
+    pub fn wrapped(mut self) -> Viewer {
+        self.wrap = true;
+        self
+    }
+
     /// A text copy shown as the file it was made of: its name and format in the title.
     pub fn made_of(mut self, of: &Path, kind: String) -> Viewer {
         self.title = of.file_name().map_or_else(|| of.display().to_string(), |n| n.to_string_lossy().into_owned());

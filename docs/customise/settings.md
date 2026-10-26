@@ -318,6 +318,7 @@ explanations and costs: both apps read them from one description in `coxswain-co
 | `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `search_meaning`, `ask_model`, `language`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
 | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 | **Enter** on a tip under *What's new* in Overview | The tip's area, as *Show me* in the desktop app; the tip is not shown again |
+| **Enter** on a version under *What's new* in Overview | The built-in viewer with all it brought, wrapped; **Esc** comes back ([Notices and what's new](../panels/notices.md#why-does-a-version-end-in--in-the-terminal-app)) |
 
 Folders after the flag open in the panels, as without it: `coxswain --settings=search ~/src`.
 

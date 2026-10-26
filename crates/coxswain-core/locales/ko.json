@@ -2602,6 +2602,7 @@
  "news.new": "새",
  "news.show_me": "보기",
  "news.title": "새로운 기능",
+ "news.whole_tui": "Enter를 누르면 뷰어에 전체가 표시됩니다.",
  "notice.cjk_font": "일본어나 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. noto-fonts-cjk(Arch), fonts-noto-cjk(Debian, Ubuntu), google-noto-sans-cjk-fonts(Fedora) 등을 설치하세요.",
  "notice.cjk_font_cmd": "일본어 또는 한국어 글꼴이 설치되어 있지 않아 글자가 네모로 보일 수 있습니다. 다음 명령으로 설치하세요: {cmd}",
  "notice.cloud": "{names}을(를) 찾았습니다: 온라인 전용 파일은 이름으로만 찾으므로 아무것도 다운로드하지 않습니다. 설정에서 바꿀 수 있습니다",

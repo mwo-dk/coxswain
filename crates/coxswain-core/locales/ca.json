@@ -2706,6 +2706,7 @@
  "news.new": "nou",
  "news.show_me": "Mostra-m'ho",
  "news.title": "Novetats",
+ "news.whole_tui": "Enter ho mostra tot al visor.",
  "notice.cjk_font": "No hi ha cap tipus de lletra japonès ni coreà instal·lat, així que els caràcters es poden veure com a quadrets. Instal·la’n un, per exemple noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "No hi ha cap tipus de lletra japonès o coreà instal·lat, i les seves lletres poden aparèixer com a quadres. Instal·leu-ne un amb: {cmd}",
  "notice.cloud": "S'ha trobat {names}: els fitxers que només són en línia es troben només pel nom, així que no es baixa res. Canvia-ho a la Configuració",

@@ -2654,6 +2654,7 @@
  "news.new": "berria",
  "news.show_me": "Erakutsi",
  "news.title": "Berritasunak",
+ "news.whole_tui": "Enter-ek dena erakusten du ikustailean.",
  "notice.cjk_font": "Ez dago japoniar edo korear letra-tiporik instalatuta, eta beraz karaktereak laukitxo gisa ager daitezke. Instalatu bat, adibidez noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) edo google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Ez dago japoniar edo korear letra-tiporik instalatuta, eta haien letrak laukitxo gisa ager daitezke. Instalatu bat honela: {cmd}",
  "notice.cloud": "{names} aurkitu da: linean soilik dauden fitxategiak izenez soilik aurkitzen dira, beraz ez da ezer deskargatzen. Aldatu Ezarpenetan",

@@ -4854,8 +4854,7 @@ fn whats_new(all: bool) {
         unread
     };
     for c in shown {
-        let text: String = c.parts.iter().map(|(t, url)| url.as_ref().map_or_else(|| t.clone(), |u| format!("{t} <{u}>"))).collect();
-        println!("{}  {}\n  {text}\n", c.version, c.date);
+        println!("{}  {}\n  {}\n", c.version, c.date, notices::text(&c));
     }
     notices::read(&mut st);
     let _ = st.save();

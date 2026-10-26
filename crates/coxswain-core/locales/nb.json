@@ -2654,6 +2654,7 @@
  "news.new": "ny",
  "news.show_me": "Vis meg",
  "news.title": "Nytt",
+ "news.whole_tui": "Enter viser alt i fremviseren.",
  "notice.cjk_font": "Ingen japansk eller koreansk skrift er installert, så tegnene kan vises som bokser. Installer en, for eksempel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) eller google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Ingen japansk eller koreansk skrift er installert, så tegnene kan vises som bokser. Installer en med: {cmd}",
  "notice.cloud": "Fant {names}: filer som bare ligger på nettet, finnes bare etter navn, så ingenting lastes ned. Endre i Innstillinger",

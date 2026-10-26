@@ -428,6 +428,28 @@ pub fn changes() -> Vec<Change> {
     )
 }
 
+/// A version's whole text, its links written out after their labels: `coxswain --whats-new`
+/// and the terminal app's viewer.
+pub fn text(c: &Change) -> String {
+    c.parts
+        .iter()
+        .map(|(t, url)| url.as_ref().map_or_else(|| t.clone(), |u| format!("{t} <{u}>")))
+        .collect()
+}
+
+/// A version's whole text in a file of the cache, for the terminal app's viewer: Enter on a
+/// version under *What's new*.
+pub fn text_file(c: &Change) -> std::io::Result<std::path::PathBuf> {
+    let name: String = c
+        .version
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '.')
+        .collect();
+    let to = crate::archive::run_folder("news", false)?.join(format!("coxswain-{name}.txt"));
+    std::fs::write(&to, format!("Coxswain {}  {}\n\n{}\n", c.version, c.date, text(c)))?;
+    Ok(to)
+}
+
 fn changelog(readme: &str, base: &str) -> Vec<Change> {
     // `## Changelog` in the README, `# Changelog` on its docs page.
     let Some((_, table)) = readme.split_once("# Changelog") else {

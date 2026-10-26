@@ -2654,6 +2654,7 @@
  "news.new": "uus",
  "news.show_me": "Näita",
  "news.title": "Mis on uut",
+ "news.whole_tui": "Enter näitab kõike vaaturis.",
  "notice.cjk_font": "Jaapani ega korea fonti pole paigaldatud, seega võivad tähed paista kastikestena. Paigalda mõni, näiteks noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) või google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Jaapani ega korea fonti pole paigaldatud, seega võivad nende märgid paista kastidena. Paigaldage see käsuga: {cmd}",
  "notice.cloud": "Leiti {names}: ainult võrgus olevad failid leitakse ainult nime järgi, nii et midagi ei laadita alla. Muuda seadetes",
