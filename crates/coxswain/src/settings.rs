@@ -2306,7 +2306,7 @@ mod tests {
         key(&mut app, KeyCode::Enter);
         typed(&mut app, "mail");
         key(&mut app, KeyCode::Enter);
-        let mail = std::fs::canonicalize(d.join("mail")).unwrap();
+        let mail = coxswain_core::fs::canonical(&d.join("mail")).unwrap();
         assert_eq!(app.cfg.search.names_only, [mail]);
         let scr = screen(&mut app, 80, 24);
         assert!(scr.iter().any(|l| l.contains("− ") && l.contains("mail")), "{scr:#?}");
