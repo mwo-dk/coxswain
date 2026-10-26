@@ -1,0 +1,1 @@
+| **The preview of an archive split into parts inside another archive keeps its copy while it shows.** A 7z or zip in parts inside a zip or tar, previewed, could in rare cases lose its unpacked copy to newer ones before the preview opened it; the copy is now kept until the next such preview. | [Archives as folders](files/archives.md#limits) |
