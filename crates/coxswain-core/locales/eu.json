@@ -4395,5 +4395,7 @@
  "disk.replace.cost": "amaitutako aplikazioen bilatu eta ordeztuak ezin dira desegin jada; martxan dagoen aplikazio batek bereak gordetzen ditu",
  "disk.sync.what": "Karpeta-sinkronizazio batek {folder}(e)n ordezkatu edo ezabatu zituen {n} fitxategi, hemen gordeak zakarrontziak ezin izan zituelako hartu.",
  "disk.sync.cost": "betiko joaten dira",
- "branches.lfs_risk": "Ez da aldatu: biltegi honen beraren konfigurazioak {key} ezartzen du, eta git-lfs-ek hari jarraituko lioke fitxategiak idaztean: programa bat exekuta lezake edo zure saio-hasiera beste nonbaitera bidal lezake. Biltegiaz fidatzen bazara, aldatu adarra git bera erabiliz."
+ "branches.lfs_risk": "Ez da aldatu: biltegi honen beraren konfigurazioak {key} ezartzen du, eta git-lfs-ek hari jarraituko lioke fitxategiak idaztean: programa bat exekuta lezake edo zure saio-hasiera beste nonbaitera bidal lezake. Biltegiaz fidatzen bazara, aldatu adarra git bera erabiliz.",
+ "branches.config_hook": "Ez da aldatu: biltegi honen beraren konfigurazioak {key} ezartzen du, git-ek aldaketan exekutatuko lukeen hook bat. Biltegiaz fidatzen bazara, aldatu adarra git bera erabiliz.",
+ "branches.worktree_elsewhere": "Ez da aldatu: biltegi honen konfigurazioak bere fitxategiak {dir} karpetan jartzen ditu, ez {root} karpetan, eta aldaketak hor idatziko luke. Hori nahi baduzu, aldatu adarra git bera erabiliz."
 }

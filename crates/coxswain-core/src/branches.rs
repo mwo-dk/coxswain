@@ -206,6 +206,37 @@ fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
     }
 }
 
+/// A switch or a new branch updates refs and the work tree: refused where the repository's own
+/// config would have git run a program for it, by a hook set in config (`hook.<name>.command`,
+/// which `core.hooksPath` does not stop), or where it puts the work tree somewhere else
+/// (`core.worktree`), so a checkout would write outside the folder the app shows.
+fn changes_refs_safely(base: &Path) -> io::Result<()> {
+    let mut c = crate::tools::command("git");
+    c.arg("-C")
+        .arg(base)
+        .args(["config", "--show-scope", "--name-only", "--get-regexp", r"^hook\."])
+        .env("GIT_CONFIG_COUNT", "0")
+        .stdin(std::process::Stdio::null());
+    let out = c.output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+    if let Some(key) = out.lines().find_map(|l| {
+        let (scope, key) = l.split_once('\t')?;
+        matches!(scope, "local" | "worktree").then(|| key.to_string())
+    }) {
+        return Err(io::Error::other(crate::t!("branches.config_hook", "key" => key)));
+    }
+    // The folder that holds `.git` (a folder, or a file in a submodule or a linked worktree) is
+    // the work tree; `core.worktree` may name another.
+    let here = dunce::canonicalize(base)?;
+    let Some(root) = here.ancestors().find(|a| a.join(".git").exists()) else { return Ok(()) };
+    let mut top = history::git(base);
+    top.args(["rev-parse", "--show-toplevel"]);
+    let top = String::from_utf8_lossy(&history::run(top)?).trim().to_string();
+    if dunce::canonicalize(&top).ok().as_deref() != Some(root) {
+        return Err(io::Error::other(crate::t!("branches.worktree_elsewhere", "dir" => top, "root" => root.display().to_string())));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 thread_local! {
     /// A test's own user config for `lfs_risk`, in place of the machine's.
@@ -293,6 +324,7 @@ pub(crate) fn git_switch(dir: &Path, entry: &str) -> io::Result<String> {
             crate::t!("branches.bad_name", "name" => b.name),
         ));
     }
+    changes_refs_safely(&at.base)?;
     writes_files_safely(&at.base, &b.name)?;
     let mut c = history::git(&at.base);
     c.arg("switch");
@@ -320,6 +352,7 @@ pub(crate) fn git_create(dir: &Path, name: &str, from: Option<&str>) -> io::Resu
             crate::t!("branches.bad_name", "name" => name),
         ));
     }
+    changes_refs_safely(&base)?;
     let start = match from.filter(|e| {
         *e != ".."
             && history::split(dir)
@@ -661,6 +694,62 @@ mod tests {
         assert_eq!(lfs_risk(&d, "assets"), None);
         TEST_GLOBAL.with(|g| *g.borrow_mut() = None);
         let _ = std::fs::remove_dir_all(&home);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A hook set in the repository's own config (`hook.<name>.command`), which `core.hooksPath`
+    /// does not stop, and a `core.worktree` that points outside: a switch and a new branch are
+    /// refused before git runs.
+    #[test]
+    fn a_switch_is_refused_where_the_repository_sets_a_hook_or_a_work_tree_elsewhere() {
+        let Some(d) = repo("config-hook") else { return };
+        let g = |args: &[&str]| {
+            let ok = crate::tools::command("git")
+                .arg("-C")
+                .arg(&d)
+                .args(["-c", "user.name=Ada", "-c", "user.email=ada@example.org"])
+                .args(args)
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok, "git {args:?}");
+        };
+        std::fs::write(d.join("a.txt"), "one\n").unwrap();
+        g(&["add", "-A"]);
+        g(&["commit", "-q", "-m", "first"]);
+        g(&["branch", "other"]);
+        let marker = d.with_file_name(format!("{}-PWNED", d.file_name().unwrap().to_string_lossy()));
+        let _ = std::fs::remove_file(&marker);
+        g(&["config", "hook.x.command", &format!("touch {}", marker.display())]);
+        g(&["config", "--add", "hook.x.event", "post-checkout"]);
+        g(&["config", "--add", "hook.x.event", "reference-transaction"]);
+        let list = history::path_of(&d, View::Branches);
+        let e = switch(&list, "other").unwrap_err().to_string();
+        assert!(e.contains("hook.x."), "{e}");
+        assert!(create(&list, "new", None).is_err());
+        assert!(create(&d, "new", None).is_err());
+        assert!(!marker.exists(), "a hook from the repository's config ran");
+        // The premise, where git runs hooks from config (2.46 and later): git as Coxswain runs
+        // it, without the refusal, does run it; core.hooksPath=/dev/null does not stop it.
+        let mut c = history::git(&d);
+        c.args(["switch", "-q", "other"]);
+        assert!(c.status().unwrap().success());
+        eprintln!("this git runs hooks from config: {}", marker.exists());
+        let _ = std::fs::remove_file(&marker);
+        g(&["switch", "-q", "main"]);
+        g(&["config", "--remove-section", "hook.x"]);
+
+        // core.worktree pointing outside the folder.
+        let outside = d.with_file_name(format!("{}-outside", d.file_name().unwrap().to_string_lossy()));
+        std::fs::create_dir_all(&outside).unwrap();
+        g(&["config", "core.worktree", &outside.display().to_string()]);
+        let e = switch(&list, "other").unwrap_err().to_string();
+        assert!(e.contains(&*outside.file_name().unwrap().to_string_lossy()), "{e}");
+        assert!(create(&d, "new2", None).is_err());
+        assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0, "a checkout wrote outside");
+        g(&["config", "--unset", "core.worktree"]);
+        switch(&list, "other").unwrap();
+        let _ = std::fs::remove_dir_all(&outside);
         let _ = std::fs::remove_dir_all(&d);
     }
 

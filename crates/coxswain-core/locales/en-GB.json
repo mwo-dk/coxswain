@@ -4406,5 +4406,7 @@
  "disk.replace.cost": "finds and replaces of apps that have ended can no longer be undone; a running app keeps its own",
  "disk.sync.what": "{n} files a folder sync replaced or deleted in {folder}, kept here because the bin could not take them.",
  "disk.sync.cost": "they are gone for good",
- "branches.lfs_risk": "Not switched: this repository's own config sets {key}, which git-lfs would follow while writing the files: it could run a program or send your login elsewhere. Switch branches with git itself if you trust the repository."
+ "branches.lfs_risk": "Not switched: this repository's own config sets {key}, which git-lfs would follow while writing the files: it could run a program or send your login elsewhere. Switch branches with git itself if you trust the repository.",
+ "branches.config_hook": "Not switched: this repository's own config sets {key}, a hook git would run on the switch. Switch branches with git itself if you trust the repository.",
+ "branches.worktree_elsewhere": "Not switched: this repository's config puts its files in {dir}, not in {root}, so a switch would write there. Switch branches with git itself if that is meant."
 }

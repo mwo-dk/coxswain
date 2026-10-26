@@ -4493,5 +4493,7 @@
  "disk.replace.cost": "pasibaigusių programų paieškų ir pakeitimų nebebus galima atšaukti; veikianti programa savo pasilieka",
  "disk.sync.what": "{n} failų, kuriuos aplankų sinchronizavimas pakeitė ar ištrynė aplanke {folder}, laikomi čia, nes šiukšlinė negalėjo jų priimti.",
  "disk.sync.cost": "jie dingsta visam laikui",
- "branches.lfs_risk": "Neperjungta: pačios šios saugyklos konfigūracija nustato {key}, kuriuo git-lfs vadovautųsi rašydamas failus: jis galėtų paleisti programą arba nusiųsti jūsų prisijungimo duomenis kitur. Jei pasitikite saugykla, šaką perjunkite pačiu git."
+ "branches.lfs_risk": "Neperjungta: pačios šios saugyklos konfigūracija nustato {key}, kuriuo git-lfs vadovautųsi rašydamas failus: jis galėtų paleisti programą arba nusiųsti jūsų prisijungimo duomenis kitur. Jei pasitikite saugykla, šaką perjunkite pačiu git.",
+ "branches.config_hook": "Neperjungta: pačios šios saugyklos konfigūracija nustato {key} – kabliuką (hook), kurį git paleistų perjungiant. Jei pasitikite saugykla, šaką perjunkite pačiu git.",
+ "branches.worktree_elsewhere": "Neperjungta: šios saugyklos konfigūracija jos failus deda į {dir}, o ne į {root}, todėl perjungimas rašytų ten. Jei taip ir norima, šaką perjunkite pačiu git."
 }

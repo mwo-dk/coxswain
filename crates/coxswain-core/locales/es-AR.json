@@ -4493,5 +4493,7 @@
  "disk.replace.cost": "los buscar y reemplazar de apps que ya terminaron no se pueden deshacer más; una app abierta conserva los suyos",
  "disk.sync.what": "{n} archivos que una sincronización de carpetas reemplazó o eliminó en {folder}, guardados acá porque la papelera no pudo recibirlos.",
  "disk.sync.cost": "se van para siempre",
- "branches.lfs_risk": "No se cambió: la configuración propia de este repositorio define {key}, que git-lfs seguiría al escribir los archivos: podría ejecutar un programa o mandar tu inicio de sesión a otro lado. Cambiá de rama con git mismo si confiás en el repositorio."
+ "branches.lfs_risk": "No se cambió: la configuración propia de este repositorio define {key}, que git-lfs seguiría al escribir los archivos: podría ejecutar un programa o mandar tu inicio de sesión a otro lado. Cambiá de rama con git mismo si confiás en el repositorio.",
+ "branches.config_hook": "No se cambió: la configuración propia de este repositorio define {key}, un hook que git ejecutaría al cambiar. Cambiá de rama con git mismo si confiás en el repositorio.",
+ "branches.worktree_elsewhere": "No se cambió: la configuración de este repositorio pone sus archivos en {dir}, no en {root}, así que un cambio escribiría ahí. Cambiá de rama con git mismo si es lo que querés."
 }
