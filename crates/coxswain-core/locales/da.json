@@ -2410,7 +2410,7 @@
  "help.syntax": "Find (Everything-syntaks):",
  "help.tagline": "Coxswain {version} — styrmanden, der får arbejdet gjort.",
  "help.title": "Hjælp",
- "help.viewer": "{view} viser filen i den indbyggede fremviser, fremhævet i temaets farver: / søger, n og N går til den næste og den forrige, g går til en linje, l og w slår linjenumre og ombrydning til og fra, p giver den til din pager, h på et faktakort viser selve filen, {edit} redigerer den. viewer i config.toml angiver et andet program til {view}. I en log: F følger den, mens den skrives, E stopper ved næste fejl, e viser advarsler og fejl, derefter kun fejl, & beholder linjerne med en tekst eller et felts navn=værdi, c viser dens felter som kolonner, z folder stakspor.",
+ "help.viewer": "{view} viser filen i den indbyggede fremviser, fremhævet i temaets farver: / søger, n og N går til den næste og den forrige, g går til en linje, l og w slår linjenumre og ombrydning til og fra, p giver den til din pager, h på et faktakort viser selve filen, {edit} redigerer den. viewer i config.toml angiver et andet program til {view}. I en log: F følger den, mens den skrives, E stopper ved næste fejl, e viser advarsler og fejl, derefter kun fejl, & beholder linjerne med en tekst eller et felts navn=værdi, c viser dens felter som kolonner, z folder stakspor. I et repository viser {blame}, hvem der ændrede hver linje, og {line_history} historikken for funktionen ved linjen, i fremviseren som i den indbyggede editor.",
  "hint.archive": "Enter åbner det som en mappe · {extract} pakker det ud",
  "hint.branches": "{switch} skifter til grenen under markøren",
  "hint.chess": "{key} åbner partierne: en tabel, derefter et bræt med hvert træk",

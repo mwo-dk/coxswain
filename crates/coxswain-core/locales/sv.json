@@ -2410,7 +2410,7 @@
  "help.syntax": "Hitta (Everything-syntax):",
  "help.tagline": "Coxswain {version} — styrmannen som får jobbet gjort.",
  "help.title": "Hjälp",
- "help.viewer": "{view} visar filen i den inbyggda visaren, markerad i temats färger: / söker, n och N går till nästa och föregående, g går till en rad, l och w slår på och av radnummer och radbrytning, p lämnar den till din pager, h på ett faktakort visar själva filen, {edit} redigerar den. viewer i config.toml anger ett annat program för {view}. I en logg: F följer den medan den skrivs, E stannar vid nästa fel, e visar varningar och fel, sedan bara fel, & behåller raderna med en text eller ett fälts namn=värde, c visar dess fält som kolumner, z viker ihop stackspår.",
+ "help.viewer": "{view} visar filen i den inbyggda visaren, markerad i temats färger: / söker, n och N går till nästa och föregående, g går till en rad, l och w slår på och av radnummer och radbrytning, p lämnar den till din pager, h på ett faktakort visar själva filen, {edit} redigerar den. viewer i config.toml anger ett annat program för {view}. I en logg: F följer den medan den skrivs, E stannar vid nästa fel, e visar varningar och fel, sedan bara fel, & behåller raderna med en text eller ett fälts namn=värde, c visar dess fält som kolumner, z viker ihop stackspår. I ett förråd visar {blame} vem som ändrade varje rad och {line_history} historiken för funktionen vid raden, i visaren och i den inbyggda redigeraren.",
  "hint.archive": "Enter öppnar det som en mapp · {extract} packar upp det",
  "hint.branches": "{switch} byter till grenen under markören",
  "hint.chess": "{key} öppnar dess partier: en tabell, sedan ett bräde med varje drag",

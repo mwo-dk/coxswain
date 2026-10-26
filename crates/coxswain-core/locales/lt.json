@@ -2461,7 +2461,7 @@
  "help.syntax": "Ieškoti (Everything sintaksė):",
  "help.tagline": "Coxswain {version} – vairininkas, kuris atlieka darbą.",
  "help.title": "Žinynas",
- "help.viewer": "{view} parodo failą įtaisytoje žiūryklėje, paryškintą temos spalvomis: / ieško, n ir N pereina prie kito ir ankstesnio, g pereina į eilutę, l ir w įjungia ir išjungia eilučių numerius ir laužymą, p perduoda failą jūsų puslapiavimo programai, h duomenų kortelėje parodo patį failą, {edit} jį taiso. viewer config.toml faile nurodo kitą programą {view}. Žurnale: F seka jį, kol jis rašomas, E sustoja ties kita klaida, e rodo įspėjimus ir klaidas, paskui tik klaidas, & palieka eilutes su tekstu arba lauko pavadinimu=reikšme, c rodo jo laukus kaip stulpelius, z suskleidžia dėklo pėdsakus.",
+ "help.viewer": "{view} parodo failą įtaisytoje žiūryklėje, paryškintą temos spalvomis: / ieško, n ir N pereina prie kito ir ankstesnio, g pereina į eilutę, l ir w įjungia ir išjungia eilučių numerius ir laužymą, p perduoda failą jūsų puslapiavimo programai, h duomenų kortelėje parodo patį failą, {edit} jį taiso. viewer config.toml faile nurodo kitą programą {view}. Žurnale: F seka jį, kol jis rašomas, E sustoja ties kita klaida, e rodo įspėjimus ir klaidas, paskui tik klaidas, & palieka eilutes su tekstu arba lauko pavadinimu=reikšme, c rodo jo laukus kaip stulpelius, z suskleidžia dėklo pėdsakus. Saugykloje {blame} rodo, kas pakeitė kiekvieną eilutę, o {line_history} – eilutės funkcijos istoriją, ir peržiūros programoje, ir įtaisytajame redaktoriuje.",
  "hint.archive": "Enter atveria jį kaip aplanką · {extract} išskleidžia",
  "hint.branches": "{switch} perjungia į šaką po žymekliu",
  "hint.chess": "{key} atidaro jo partijas: lentelė, tada lenta su visais ėjimais",

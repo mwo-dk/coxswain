@@ -2461,7 +2461,7 @@
  "help.syntax": "Meklēt (Everything sintakse):",
  "help.tagline": "Coxswain {version} — stūrmanis, kas padara darbu.",
  "help.title": "Palīdzība",
- "help.viewer": "{view} parāda failu iebūvētajā skatītājā, iekrāsotu motīva krāsās: / meklē, n un N pāriet uz nākamo un iepriekšējo, g pāriet uz rindu, l un w ieslēdz un izslēdz rindu numurus un aplaušanu, p nodod failu jūsu lapotājam, h faktu kartītē parāda pašu failu, {edit} to rediģē. viewer failā config.toml norāda citu programmu darbībai {view}. Žurnālā: F tam seko, kamēr to raksta, E apstājas pie nākamās kļūdas, e rāda brīdinājumus un kļūdas, tad tikai kļūdas, & atstāj rindas ar tekstu vai lauka nosaukumu=vērtību, c rāda tā laukus kā kolonnas, z sakļauj steka izsekojumus.",
+ "help.viewer": "{view} parāda failu iebūvētajā skatītājā, iekrāsotu motīva krāsās: / meklē, n un N pāriet uz nākamo un iepriekšējo, g pāriet uz rindu, l un w ieslēdz un izslēdz rindu numurus un aplaušanu, p nodod failu jūsu lapotājam, h faktu kartītē parāda pašu failu, {edit} to rediģē. viewer failā config.toml norāda citu programmu darbībai {view}. Žurnālā: F tam seko, kamēr to raksta, E apstājas pie nākamās kļūdas, e rāda brīdinājumus un kļūdas, tad tikai kļūdas, & atstāj rindas ar tekstu vai lauka nosaukumu=vērtību, c rāda tā laukus kā kolonnas, z sakļauj steka izsekojumus. Repozitorijā {blame} parāda, kas mainīja katru rindu, un {line_history} rindas funkcijas vēsturi, gan skatītājā, gan iebūvētajā redaktorā.",
  "hint.archive": "Enter atver to kā mapi · {extract} izpako",
  "hint.branches": "{switch} pārslēdz uz zaru zem kursora",
  "hint.chess": "{key} atver tā partijas: tabulu, tad galdiņu ar katru gājienu",

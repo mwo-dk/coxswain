@@ -46,6 +46,12 @@ stops it (*Stopped*). In the desktop app's preview a *Stop* link does the same.
 - **Desktop app, editor:** the margin goes in front of the line numbers. The *Who changed*
   button is lit while it shows.
 
+![The desktop app's editor in Cyber on engine.rs with Who changed on: before each line number its commit, author and date in grey, Ada 2026-10-25 on line 13, Demo User 2026-10-24 on the others](../screenshots/blame-editor-gui.png)
+*The desktop app: **Alt+L** in the editor.*
+
+![The terminal app's built-in editor in Classic blue on engine.rs: the blame margin before the line numbers, the status line saying Who changed each line: commit, author and date before each line, the key line ending with Alt+L and Alt+J](../screenshots/blame-editor-tui.png)
+*The terminal app: **Alt+L** in the built-in editor.*
+
 In the editor, typing puts it away (*The lines changed: save, then ask who changed them
 again*), since the lines no longer match; with changes not saved it is not shown
 at all (*Save first*).

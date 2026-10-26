@@ -2410,7 +2410,7 @@
  "help.syntax": "Find (Everything syntax):",
  "help.tagline": "Coxswain {version} — the one at the helm who gets the work done.",
  "help.title": "Help",
- "help.viewer": "{view} shows the file in the built-in viewer, highlighted in the theme's colours: / searches, n and N go to the next and the one before, g goes to a line, l and w turn line numbers and wrapping on and off, p hands it to your pager, h on a facts card shows the file itself, {edit} edits it. viewer in config.toml names another program for {view}. In a log: F follows it as it is written, E stops at the next error, e shows warnings and errors, then errors only, & keeps the lines with a text or a field's name=value, c shows its fields as columns, z folds stack traces.",
+ "help.viewer": "{view} shows the file in the built-in viewer, highlighted in the theme's colours: / searches, n and N go to the next and the one before, g goes to a line, l and w turn line numbers and wrapping on and off, p hands it to your pager, h on a facts card shows the file itself, {edit} edits it. viewer in config.toml names another program for {view}. In a log: F follows it as it is written, E stops at the next error, e shows warnings and errors, then errors only, & keeps the lines with a text or a field's name=value, c shows its fields as columns, z folds stack traces. In a repository, {blame} shows who changed each line and {line_history} the history of the function at the line, in the viewer and the built-in editor alike.",
  "hint.archive": "Enter opens it like a folder · {extract} extracts it",
  "hint.branches": "{switch} switches to the branch under the cursor",
  "hint.chess": "{key} opens its games: a table, then a board with every move",

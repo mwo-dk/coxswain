@@ -2461,7 +2461,7 @@
  "help.syntax": "Najít (syntaxe Everything):",
  "help.tagline": "Coxswain {version} — kormidelník, který práci dotáhne.",
  "help.title": "Nápověda",
- "help.viewer": "{view} zobrazí soubor ve vestavěném prohlížeči, zvýrazněný v barvách motivu: / hledá, n a N přejdou na další a předchozí, g přejde na řádek, l a w zapínají a vypínají čísla řádků a zalamování, p ho předá vašemu pageru, h na kartě údajů ukáže samotný soubor, {edit} ho upraví. viewer v config.toml určuje jiný program pro {view}. V protokolu: F ho sleduje, jak se zapisuje, E se zastaví u další chyby, e ukáže varování a chyby, pak jen chyby, & ponechá řádky s textem nebo název=hodnota pole, c ukáže jeho pole jako sloupce, z sbalí výpisy zásobníku.",
+ "help.viewer": "{view} zobrazí soubor ve vestavěném prohlížeči, zvýrazněný v barvách motivu: / hledá, n a N přejdou na další a předchozí, g přejde na řádek, l a w zapínají a vypínají čísla řádků a zalamování, p ho předá vašemu pageru, h na kartě údajů ukáže samotný soubor, {edit} ho upraví. viewer v config.toml určuje jiný program pro {view}. V protokolu: F ho sleduje, jak se zapisuje, E se zastaví u další chyby, e ukáže varování a chyby, pak jen chyby, & ponechá řádky s textem nebo název=hodnota pole, c ukáže jeho pole jako sloupce, z sbalí výpisy zásobníku. V repozitáři {blame} ukáže, kdo změnil každý řádek, a {line_history} historii funkce na řádku, v prohlížeči i ve vestavěném editoru.",
  "hint.archive": "Enter ho otevře jako složku · {extract} ho rozbalí",
  "hint.branches": "{switch} přepne na větev pod kurzorem",
  "hint.chess": "{key} otevře partie: tabulku, pak šachovnici se všemi tahy",
