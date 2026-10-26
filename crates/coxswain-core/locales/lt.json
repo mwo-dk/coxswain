@@ -970,7 +970,7 @@
  "disk.typst.what": "Typst paketų podėlis, sukurtas, kai Coxswain pirmą kartą sukūrė Typst peržiūrą.",
  "disk.typst.cost": "atsiunčiamas iš naujo, kai typst kitą kartą kurs dokumentą, kuris naudoja paketą, ir jūsų",
  "disk.kicad.what": "kicad-cli podėlis, sukurtas, kai Coxswain pirmą kartą juo sukūrė KiCad peržiūrą ar eksportą.",
- "disk.kicad.cost": "sukuriamas iš naujo, kai kicad-cli kitą kartą paleidžiamas, ir jums",
+ "disk.kicad.cost": "sukuriamas iš naujo, kai kicad-cli kitą kartą paleidžiamas, taip pat kai jį paleidžiate jūs",
  "disk.title": "Disko naudojimas",
  "disk_image.cbr": "CBR komiksas (RAR)",
  "disk_image.chm": "CHM žinyno failas",

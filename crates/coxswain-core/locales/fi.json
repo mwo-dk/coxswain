@@ -1487,7 +1487,7 @@
  "feature.disk_images.title": "Levykuvat, CHM ja CBR",
  "feature.disk_images.what": "Näyttää, mitä .iso, .dmg, .vhd, .vhdx, .vmdk tai .qcow2 sisältää; kun ”Avaa levykuvat, CHM ja CBR kuin kansiot” on päällä, {open} avaa sen, .chm-ohjetiedoston tai .cbr-sarjakuvan kuin kansion, vain luettavaksi, 7-Zipin kautta.",
  "feature.disk_use.a1": "Kaikki luettelossa paitsi mallisi palaa itsestään. Tyhjennä kaikki, minkä voi rakentaa uudelleen vie hakutietokannan, nimi-indeksin, esikatselut ja kopiot; tietokanta luetaan sitten uudelleen puolella nopeudella. Otsikon Omat tiedostosi alla olevat rivit (karanteeni, kumoamiskopiot, synkronoinnin sivuun siirtämät) ovat omiasi: niitä ei koskaan tyhjennetä muiden mukana, kukin poistuu vain omalla Poista-painikkeellaan.",
- "feature.disk_use.a2": "Ei. Vain [preview] images -kohdassa nimetyt kuvat ja Coxswainin itse tekemä Tectonicin, Typstin tai kicad-clin välimuisti luetellaan, ja kukin lähtee vain omalla napsautuksellaan, sen jälkeen kun tarkka luettelo on näytetty.",
+ "feature.disk_use.a2": "Ei. Vain [preview] images -kohdassa nimetyt konttikuvat ja Coxswainin itse tekemä Tectonicin, Typstin tai kicad-clin välimuisti luetellaan, ja kukin lähtee vain omalla napsautuksellaan, sen jälkeen kun tarkka luettelo on näytetty.",
  "feature.disk_use.a3": "{disk_use} komentoluettelossa ({menu}), Asetukset ({settings}) → Yksityisyys ja päivitykset → Levyn käyttö, tai coxswain --disk päätteessä.",
  "feature.disk_use.q1": "Mitä voin tyhjentää menettämättä mitään?",
  "feature.disk_use.q2": "Poistaako se omia konttikuviani tai välimuistejani?",

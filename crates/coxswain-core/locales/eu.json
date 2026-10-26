@@ -940,7 +940,7 @@
  "disk.typst.what": "Typst-en paketeen cachea, Coxswain-ek Typst aurrebista bat lehen aldiz sortu zuenean egina.",
  "disk.typst.cost": "berriro deskargatzen da typst-ek pakete bat erabiltzen duen dokumentu bat sortzen duen hurrengo aldian, zureak ere bai",
  "disk.kicad.what": "kicad-cli-ren cachea, Coxswain-ek harekin KiCad aurrebista edo esportazio bat lehen aldiz egin zuenean egina.",
- "disk.kicad.cost": "berriro egiten da kicad-cli exekutatzen den hurrengo aldian, zuretzat ere bai",
+ "disk.kicad.cost": "berriro egiten da kicad-cli exekutatzen den hurrengo aldian, zuk exekutatzen duzunean ere bai",
  "disk.title": "Diskoaren erabilera",
  "disk_image.cbr": "CBR komikia (RAR)",
  "disk_image.chm": "CHM laguntza-fitxategia",

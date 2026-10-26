@@ -970,7 +970,7 @@
  "disk.typst.what": "Mezipaměť balíčků programu Typst, vytvořená, když Coxswain poprvé sestavil náhled Typst.",
  "disk.typst.cost": "stáhne se znovu, až typst příště sestaví dokument, který používá balíček, i ten váš",
  "disk.kicad.what": "Mezipaměť programu kicad-cli, vytvořená, když s ním Coxswain poprvé sestavil náhled nebo export KiCad.",
- "disk.kicad.cost": "vytvoří se znovu, až se kicad-cli příště spustí, i pro vás",
+ "disk.kicad.cost": "vytvoří se znovu, až se kicad-cli příště spustí, i ten váš",
  "disk.title": "Využití disku",
  "disk_image.cbr": "Komiks CBR (RAR)",
  "disk_image.chm": "Soubor nápovědy CHM",
@@ -4492,7 +4492,7 @@
  "disk.quarantine.cost": "zde se neodstraňují: jsou to vaše soubory; smažte je v panelu, až si budete jisti, nebo některý zkopírujte zpět",
  "disk.replace.what": "Vaše soubory, jak byly před hledáním a nahrazením, aby to šlo vrátit (nejvýš 256 MB na jedno nahrazení).",
  "disk.kicad_settings.what": "Nastavení kicad-cli, použité, když ho spustil náhled. Nainstalovaný KiCad tu má vaše vlastní nastavení, proto ho Coxswain nikdy nemaže.",
- "disk.kicad_settings.cost": "zde se neodstraňuje: KiCad tu má vaše vlastní nastavení",
+ "disk.kicad_settings.cost": "zde se neodstraňuje: KiCad tam má vaše vlastní nastavení",
  "disk.replace.cost": "hledání a nahrazení aplikací, které skončily, už nepůjde vrátit; běžící aplikace si svá ponechá",
  "disk.sync.what": "Soubory ({n}), které synchronizace složek nahradila nebo smazala v {folder}, ponechané zde, protože je koš nemohl převzít.",
  "disk.sync.cost": "zmizí natrvalo"

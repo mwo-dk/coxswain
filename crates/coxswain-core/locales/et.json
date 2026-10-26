@@ -940,7 +940,7 @@
  "disk.typst.what": "Typsti pakettide vahemälu, mis tekkis, kui Coxswain esimest korda Typsti eelvaate koostas.",
  "disk.typst.cost": "laaditakse uuesti alla, kui typst järgmine kord paketti kasutava dokumendi koostab, ka sinu oma",
  "disk.kicad.what": "kicad-cli vahemälu, mis tekkis, kui Coxswain esimest korda sellega KiCadi eelvaate või ekspordi tegi.",
- "disk.kicad.cost": "tehakse uuesti, kui kicad-cli järgmine kord käivitub, ka sinu jaoks",
+ "disk.kicad.cost": "tehakse uuesti, kui kicad-cli järgmine kord käivitub, ka siis, kui sina selle käivitad",
  "disk.title": "Kettakasutus",
  "disk_image.cbr": "CBR koomiks (RAR)",
  "disk_image.chm": "CHM abifail",

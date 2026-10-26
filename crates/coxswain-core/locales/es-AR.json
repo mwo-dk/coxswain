@@ -970,7 +970,7 @@
  "disk.typst.what": "La caché de paquetes de Typst, creada cuando Coxswain hizo por primera vez una vista previa de Typst.",
  "disk.typst.cost": "se descarga de nuevo la próxima vez que typst compile un documento que use un paquete, también los tuyos",
  "disk.kicad.what": "La caché de kicad-cli, creada cuando Coxswain hizo por primera vez con él una vista previa o una exportación de KiCad.",
- "disk.kicad.cost": "se vuelve a crear la próxima vez que se ejecute kicad-cli, también para vos",
+ "disk.kicad.cost": "se vuelve a crear la próxima vez que se ejecute kicad-cli, también cuando lo ejecutás vos",
  "disk.title": "Uso del disco",
  "disk_image.cbr": "Historieta CBR (RAR)",
  "disk_image.chm": "Archivo de ayuda CHM",
