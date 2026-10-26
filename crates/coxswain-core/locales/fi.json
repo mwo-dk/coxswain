@@ -2654,6 +2654,7 @@
  "news.new": "uusi",
  "news.show_me": "Näytä",
  "news.title": "Uutta",
+ "news.whole_tui": "Enter näyttää kaiken katselimessa.",
  "notice.cjk_font": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna jokin, esimerkiksi noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) tai google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Japanin- tai koreankielistä fonttia ei ole asennettu, joten merkit voivat näkyä laatikkoina. Asenna fontti komennolla: {cmd}",
  "notice.cloud": "Löytyi {names}: vain verkossa olevat tiedostot löytyvät vain nimellä, joten mitään ei ladata. Muuta asetuksista",

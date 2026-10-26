@@ -2654,6 +2654,7 @@
  "news.new": "ny",
  "news.show_me": "Visa mig",
  "news.title": "Nyheter",
+ "news.whole_tui": "Enter visar allt i visaren.",
  "notice.cjk_font": "Inget japanskt eller koreanskt typsnitt är installerat, så tecknen kan visas som rutor. Installera ett, till exempel noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) eller google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Inget japanskt eller koreanskt typsnitt är installerat, så deras tecken kan visas som rutor. Installera ett med: {cmd}",
  "notice.cloud": "Hittade {names}: filer som bara finns online hittas bara på namn, så inget hämtas. Ändra i Inställningar",

@@ -2706,6 +2706,7 @@
  "news.new": "jauns",
  "news.show_me": "Parādīt",
  "news.title": "Jaunumi",
+ "news.whole_tui": "Enter parāda visu skatītājā.",
  "notice.cjk_font": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc burti var izskatīties kā kvadrātiņi. Instalē kādu, piemēram, noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) vai google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Nav instalēts neviens japāņu vai korejiešu fonts, tāpēc to burti var izskatīties kā kvadrātiņi. Instalējiet to ar: {cmd}",
  "notice.cloud": "Atrasts {names}: faili, kas ir tikai tiešsaistē, tiek atrasti tikai pēc nosaukuma, tāpēc nekas netiek lejupielādēts. Mainiet iestatījumos",

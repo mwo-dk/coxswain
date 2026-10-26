@@ -2706,6 +2706,7 @@
  "news.new": "nouveau",
  "news.show_me": "Me montrer",
  "news.title": "Nouveautés",
+ "news.whole_tui": "Entrée affiche tout dans la visionneuse.",
  "notice.cjk_font": "Aucune police japonaise ou coréenne n’est installée : les caractères peuvent s’afficher comme des carrés. Installez-en une, par exemple noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) ou google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Aucune police japonaise ou coréenne n'est installée : leurs caractères peuvent s'afficher sous forme de carrés. Installez-en une avec : {cmd}",
  "notice.cloud": "{names} trouvé : les fichiers uniquement en ligne sont trouvés par leur nom seulement, rien n'est donc téléchargé. Modifiable dans les Paramètres",

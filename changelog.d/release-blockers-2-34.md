@@ -1,0 +1,1 @@
+| **A long version under What's new is no longer cut off in the terminal app.** Settings → Overview shows as much of what a version brought as fits, ending in "…", and Enter shows all of it in the built-in viewer. | [Notices and what's new](panels/notices.md#why-does-a-version-end-in--in-the-terminal-app) |

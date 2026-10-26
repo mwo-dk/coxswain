@@ -2654,6 +2654,7 @@
  "news.new": "nieuw",
  "news.show_me": "Laat zien",
  "news.title": "Wat is er nieuw",
+ "news.whole_tui": "Enter toont alles in de viewer.",
  "notice.cjk_font": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus de tekens kunnen als vakjes verschijnen. Installeer er een, bijvoorbeeld noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) of google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Er is geen Japans of Koreaans lettertype geïnstalleerd, dus hun tekens kunnen als vakjes verschijnen. Installeer er een met: {cmd}",
  "notice.cloud": "{names} gevonden: bestanden die alleen online staan worden alleen op naam gevonden, dus er wordt niets gedownload. Wijzig in Instellingen",

@@ -288,7 +288,7 @@ def check_stale_versions(v: str) -> None:
         for n, line in enumerate(read(page).splitlines(), 1):
             for m in OWN_VERSION.finditer(line):
                 history = re.search(r"\b(until|before|since|after|from)\W*$", line[: m.start()], re.I) or re.match(
-                    r"\s+and (later|earlier)", line[m.end() :]
+                    r"\s+(and|or) (later|earlier)", line[m.end() :]
                 )  # "until Coxswain 1.17.0", "2.1.1 and later": history, not an example
                 if (int(m.group(1)), int(m.group(2))) < now and not history:
                     error(f"{rel(page)}:{n}", f"{m.group(0)}: an old version as an example; say X.Y.Z")

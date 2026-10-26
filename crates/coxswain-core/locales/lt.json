@@ -2706,6 +2706,7 @@
  "news.new": "nauja",
  "news.show_me": "Parodyti",
  "news.title": "Kas naujo",
+ "news.whole_tui": "Enter parodo viską peržiūros programoje.",
  "notice.cjk_font": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl raidės gali būti rodomos kaip kvadratėliai. Įdiekite kurį nors, pavyzdžiui, noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) arba google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "Neįdiegtas joks japonų ar korėjiečių šriftas, todėl jų rašmenys gali būti rodomi kaip langeliai. Įdiekite jį komanda: {cmd}",
  "notice.cloud": "Rasta {names}: failai, kurie yra tik internete, randami tik pagal pavadinimą, todėl niekas neatsisiunčiama. Pakeiskite nustatymuose",
