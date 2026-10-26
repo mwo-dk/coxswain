@@ -240,11 +240,10 @@ pub fn installed() -> Vec<&'static str> {
 }
 
 /// The handoff from `dir` with the tool `[git] tool` names, for the terminal app (`terminal`)
-/// or the desktop app. Nothing is run; outside a repository, the reason it cannot be.
-pub fn handoff(tool: &str, dir: &Path, terminal: bool) -> Result<Handoff, String> {
-    let var = |v: &str| std::env::var(v).ok().filter(|s| !s.is_empty());
-    let has = |p: &str| crate::user_menu::installed(p);
-    let r = plan(os(), tool, dir, terminal, &look, &has, &var);
+/// or the desktop app; a terminal window is the one config.toml's `terminal` (`term`) names.
+/// Nothing is run; outside a repository, the reason it cannot be.
+pub fn handoff(tool: &str, term: &str, dir: &Path, terminal: bool) -> Result<Handoff, String> {
+    let r = crate::terminals::here(|s| plan(tool, term, dir, terminal, &look, s));
     let missed = match &r {
         Ok(Handoff { name: None, run: Run::Here(_), .. }) => OPENED_SHELL,
         Ok(Handoff { name: None, .. }) => OPENED_TERMINAL,
@@ -326,17 +325,17 @@ fn vars(mut s: String, var: &dyn Fn(&str) -> Option<String>) -> Option<String> {
     Some(s)
 }
 
-/// The handoff on `os`, with programs found by `look` (a tool's places), `has` (a terminal on
-/// PATH) and the environment `var`.
+/// The handoff on the system `s` says (its programs on PATH, environment and terminals), with
+/// tools found by `look` (a tool's places) and the terminal `term` names.
 fn plan(
-    os: &str,
     tool: &str,
+    term: &str,
     dir: &Path,
     terminal: bool,
     look: &dyn Fn(&str) -> Option<PathBuf>,
-    has: &dyn Fn(&str) -> bool,
-    var: &dyn Fn(&str) -> Option<String>,
+    s: &crate::terminals::Sys,
 ) -> Result<Handoff, Missing> {
+    let (os, var) = (s.os, s.var);
     // Only inside a repository; asking git would run a program for that.
     let root = dir
         .ancestors()
@@ -387,9 +386,8 @@ fn plan(
             Run::Here(cmd)
         } else if in_terminal {
             let (sh, flag) = if os == "windows" { ("cmd", "/C") } else { ("sh", "-c") };
-            let (p, a) = in_emulator(os, &root, &[sh.into(), flag.into(), cmd], has, var)
-                .ok_or_else(|| Missing::NoTerminal(first.clone()))?;
-            Run::Spawn(p, a)
+            in_emulator(term, &root, &[sh.into(), flag.into(), cmd], s)
+                .ok_or_else(|| Missing::NoTerminal(first.clone()))?
         } else {
             Run::Line(cmd)
         };
@@ -405,8 +403,7 @@ fn plan(
             let sh = if os == "windows" { "cmd".into() } else { var("SHELL").unwrap_or_else(|| "sh".into()) };
             Run::Here(quote(&sh))
         } else {
-            let (p, a) = in_emulator(os, &root, &[], has, var).ok_or(Missing::Nothing)?;
-            Run::Spawn(p, a)
+            in_emulator(term, &root, &[], s).ok_or(Missing::Nothing)?
         };
         return Ok(Handoff {
             root,
@@ -425,81 +422,19 @@ fn plan(
         Run::Here(words.join(" "))
     } else {
         let inner: Vec<String> = std::iter::once(f.program).chain(f.args).collect();
-        let (p, a) = in_emulator(os, &root, &inner, has, var)
-            .ok_or_else(|| Missing::NoTerminal(f.name.to_string()))?;
-        Run::Spawn(p, a)
+        in_emulator(term, &root, &inner, s)
+            .ok_or_else(|| Missing::NoTerminal(f.name.to_string()))?
     };
     Ok(Handoff { root, name, run })
 }
 
 /// A new terminal window in `root` running `inner` (a program and its arguments), or the shell
-/// when `inner` is empty: Terminal on a Mac, Windows Terminal (else a console) on Windows,
-/// `$TERMINAL` or the first terminal installed elsewhere, as F2's *Open a terminal here*.
-fn in_emulator(
-    os: &str,
-    root: &Path,
-    inner: &[String],
-    has: &dyn Fn(&str) -> bool,
-    var: &dyn Fn(&str) -> Option<String>,
-) -> Option<(String, Vec<String>)> {
-    let dir = root.to_string_lossy().into_owned();
-    let owned = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-    match os {
-        "android" => None,
-        "macos" if inner.is_empty() => Some(("open".into(), owned(&["-a", "Terminal", &dir]))),
-        "macos" => {
-            // Terminal runs a line through AppleScript, which takes `"` and `\` escaped.
-            let line = format!(
-                "cd {} && {}",
-                quote(&dir),
-                inner.iter().map(|a| quote(a)).collect::<Vec<_>>().join(" ")
-            );
-            let line = line.replace('\\', "\\\\").replace('"', "\\\"");
-            Some((
-                "osascript".into(),
-                owned(&[
-                    "-e",
-                    &format!("tell application \"Terminal\" to do script \"{line}\""),
-                    "-e",
-                    "tell application \"Terminal\" to activate",
-                ]),
-            ))
-        }
-        "windows" => {
-            let inner = if inner.is_empty() {
-                vec!["powershell".to_string()]
-            } else {
-                inner.to_vec()
-            };
-            // The window starts in `root` (the spawn's own folder), so no path is on a line that
-            // cmd.exe or wt parses: either would run what follows a `&`, `;` or `|` in a folder name.
-            Some(if has("wt") {
-                ("wt".into(), [owned(&["-d", "."]), inner].concat())
-            } else {
-                ("cmd".into(), [owned(&["/C", "start", ""]), inner].concat())
-            })
-        }
-        _ => {
-            let line = crate::user_menu::emulator(has, var)?;
-            let mut words = line.split_whitespace().map(String::from);
-            let program = words.next()?;
-            let mut args: Vec<String> = words.collect();
-            if !inner.is_empty() {
-                // How each terminal is told what to run: most take -e.
-                let name = Path::new(&program).file_name().unwrap_or_default();
-                let run: &[&str] = match name.to_string_lossy().as_ref() {
-                    "foot" | "kitty" => &[],
-                    "gnome-terminal" | "ptyxis" => &["--"],
-                    "wezterm" => &["start", "--"],
-                    "xfce4-terminal" | "mate-terminal" | "terminator" => &["-x"],
-                    _ => &["-e"],
-                };
-                args.extend(owned(run));
-                args.extend(inner.iter().cloned());
-            }
-            Some((program, args))
-        }
-    }
+/// when `inner` is empty: the terminal `term` names, as F2's *Open a terminal here* opens it.
+fn in_emulator(term: &str, root: &Path, inner: &[String], s: &crate::terminals::Sys) -> Option<Run> {
+    Some(match crate::terminals::open(term, &root.to_string_lossy(), inner, s)? {
+        crate::terminals::How::Spawn(p, a) => Run::Spawn(p, a),
+        crate::terminals::How::Line(l) => Run::Line(l),
+    })
 }
 
 /// Start `h` (a `Run::Spawn` or `Run::Line`) in its repository, on its own: in a Flatpak, on
@@ -578,7 +513,9 @@ mod tests {
                     .find(|(k, _)| *k == v)
                     .map(|(_, x)| x.to_string())
             };
-            plan(os, tool, dir, terminal, &look, &has, &var)
+            let app = |_: &str| false;
+            let s = crate::terminals::Sys { os, has: &has, var: &var, app: &app, delegated: None };
+            plan(tool, "", dir, terminal, &look, &s)
         }
     }
 
@@ -607,7 +544,8 @@ mod tests {
         assert_eq!(h.name.as_deref(), Some("lazygit"), "lazygit first");
         // The desktop app: a terminal tool in a new terminal.
         let h = f.plan("linux", "", &src, false, X).unwrap();
-        assert_eq!(h.run, spawn("foot", &["lazygit"]));
+        let at = format!("--working-directory={}", f.repo.display());
+        assert_eq!(h.run, spawn("foot", &[&at, "lazygit"]));
         // No terminal tools: the desktop clients, in order.
         for t in ["lazygit", "gitui", "tig"] {
             std::fs::remove_file(f.bin.join(t)).unwrap();
@@ -657,7 +595,7 @@ mod tests {
         let h = f.plan("linux", "", &f.repo, false, X).unwrap();
         assert_eq!(
             (h.name, h.run),
-            (None, spawn("kitty", &[])),
+            (None, spawn("kitty", &["--directory", &repo])),
             "a terminal in the repository"
         );
         let h = f.plan("windows", "", &f.repo, false, &[]).unwrap();
@@ -691,13 +629,14 @@ mod tests {
     fn handoff_commands_per_terminal_and_system() {
         let f = Fake::new("terms", &["tig", "gnome-terminal", "wt"]);
         let h = f.plan("linux", "", &f.repo, false, X).unwrap();
-        assert_eq!(h.run, spawn("gnome-terminal", &["--", "tig"]));
+        let at = format!("--working-directory={}", f.repo.display());
+        assert_eq!(h.run, spawn("gnome-terminal", &[&at, "--", "tig"]));
         let own = [("DISPLAY", ":0"), ("TERMINAL", "wezterm"), ("SHELL", "sh")];
         std::fs::write(f.bin.join("wezterm"), "").unwrap();
         let h = f.plan("netbsd", "", &f.repo, false, &own).unwrap();
         assert_eq!(
             h.run,
-            spawn("wezterm", &["start", "--", "tig"]),
+            spawn("wezterm", &["start", "--cwd", &f.repo.to_string_lossy(), "--", "tig"]),
             "$TERMINAL first"
         );
         let h = f.plan("windows", "", &f.repo, false, &[]).unwrap();
@@ -790,7 +729,7 @@ mod tests {
             Err(Missing::NoRepo)
         );
         MISSING.store(0, Ordering::Relaxed);
-        assert!(handoff("", &outside, true).is_err());
+        assert!(handoff("", "", &outside, true).is_err());
         assert_eq!(MISSING.load(Ordering::Relaxed), 0, "not a missing tool");
     }
 

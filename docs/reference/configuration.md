@@ -113,6 +113,7 @@ yourself: [keys] mkdir → new_folder.` The old names are not read any more: an 
 | `folder_sizes` | bool | `true` | Measure folders in the background. The desktop app starts from it, then keeps its own switch ([Folder sizes](../panels/folder-sizes.md)) | Both |
 | `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, else the [built-in editor](../commands/editor.md). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
 | `viewer` | string | none | A program for the terminal app's **F3**; unset, the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer) | Terminal |
+| `terminal` | string | none | The terminal *Open a terminal here* (**F2**, **t**) and *Open in your git tool* open: a name as Settings lists it (`"ghostty"`, `"kitty"`, `"iterm2"`, `"wt"`, `"pwsh"`) or a command, `{dir}` being the folder (`"footclient -D {dir}"`). Unset: Terminal on a Mac, Windows' *Default terminal application*, else `$TERMINAL` or the first found ([Choosing the terminal](../commands/user-menu.md#choosing-the-terminal)) | Both |
 | `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the built-in viewer ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
 | `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the built-in viewer ([Build provenance](../previews/provenance.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
@@ -464,6 +465,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | | *Use git where Jujutsu is too* | `git_prefer_git` | `[git] prefer_git` |
 | | *Editor* | `editor` | `editor` |
 | | *Viewer (terminal app)* | `viewer` | `viewer` |
+| | *Terminal* | `terminal` | `terminal` |
 | | *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `bom_viewer` |
 | | *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `provenance_viewer` |
 | *Privacy and updates* | *Check for a new version* | `check_updates` | `check_updates` |

@@ -2174,7 +2174,7 @@ impl App {
         let p = self.panel();
         // From the branches and the history too: their repository.
         let dir = history::split(&p.dir).map_or_else(|| p.dir.clone(), |at| at.base);
-        let h = match handoff::handoff(&self.cfg.git.tool, &dir, true) {
+        let h = match handoff::handoff(&self.cfg.git.tool, self.cfg.terminal.as_deref().unwrap_or_default(), &dir, true) {
             Ok(h) => h,
             Err(e) => return self.status = Some(e),
         };

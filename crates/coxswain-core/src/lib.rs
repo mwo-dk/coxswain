@@ -85,6 +85,7 @@ pub mod spill;
 pub mod state;
 mod stop;
 pub mod store;
+pub mod terminals;
 pub mod tables;
 mod tar_index;
 pub mod termux;

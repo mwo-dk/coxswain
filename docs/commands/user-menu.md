@@ -13,6 +13,7 @@ cursor or the marked files into a command.
 
 - [How to use it](#how-to-use-it)
 - [The entries it comes with](#the-entries-it-comes-with)
+- [Choosing the terminal](#choosing-the-terminal)
 - [Your own entries](#your-own-entries)
 - [Ready-made entries to copy](#ready-made-entries-to-copy)
 - [What you see](#what-you-see)
@@ -43,11 +44,11 @@ terminal without a desktop, no hash on a folder or `..`, no `git status` outside
 
 | Key | Label | Does | Shown |
 |---|---|---|---|
-| `t` | Open a terminal here | A new terminal window in the active panel's folder | When a terminal is found (below) |
+| `t` | Open a terminal here | A new terminal window in the active panel's folder: the one you chose ([below](#choosing-the-terminal)), else the system's | When a terminal is found (below) |
 | `h` | SHA-256 of the file | The SHA-256 of the file under the cursor, shown with its name (`wait`) | On a file |
 | `s` | git status | `git status` (`wait`) | In a git repository, with git installed |
 
-The commands per system (the first one installed is taken):
+The commands per system when no terminal is chosen (the first one installed is taken):
 
 | System | Open a terminal here | SHA-256 of the file |
 |---|---|---|
@@ -56,12 +57,60 @@ The commands per system (the first one installed is taken):
 | illumos | the same | `digest -v -a sha256 -- %f`, else `sha256sum` |
 | Linux | the same | `sha256sum -- %f`, else `shasum -a 256 -- %f` |
 | Android (Termux) | not offered: Termux is the terminal | `sha256sum -- %f` |
-| macOS | `open -a Terminal .` | `shasum -a 256 -- %f` |
-| Windows | `start "" wt -d .` (Windows Terminal), else `start "" powershell` | `certutil -hashfile %f SHA256` |
+| macOS | `open -a Terminal %d` | `shasum -a 256 -- %f` |
+| Windows | Windows' *Default terminal application*: Windows Terminal (`start "" wt -d .`) or the console (`start "" powershell`); when it is *Let Windows decide*, Windows Terminal when installed, else the console | `certutil -hashfile %f SHA256` |
 
 On the BSDs, illumos and Linux the terminal is only offered on a desktop (`$WAYLAND_DISPLAY` or
 `$DISPLAY` set), not on a text console or over ssh. It is started with `nohup … &`, so it stays
-open when Coxswain quits. `$TERMINAL` is taken when the program it names is installed.
+open when Coxswain quits. `$TERMINAL` is taken when the program it names is installed. A
+terminal Coxswain knows is told the folder with its own flag (below), so one that keeps a
+single process running (kitty, WezTerm, GNOME Terminal) opens there too.
+
+## Choosing the terminal
+
+*Open a terminal here*, and *Open in your git tool* (**Alt+G**) when it opens a terminal, use the
+terminal you choose under **Settings → Behaviour → Programs → Terminal**, in both apps. The list
+holds *Automatic: …* (what opens when none is chosen, named), the terminals found on this
+machine, and *Another command…*, which shows a field (desktop app) or a line to type in
+(terminal app) for a command of your own. In `config.toml` it is the top-level key `terminal`:
+a name from the table below (any case; the name Settings shows works too), or a command, `{dir}`
+being the folder. Leave it out for *Automatic*.
+
+| System | Found | Name | Opens in the folder with |
+|---|---|---|---|
+| FreeBSD, the other BSDs, illumos, Linux | on `PATH` | `foot` | `foot --working-directory=<folder>` |
+| | | `alacritty` | `alacritty --working-directory <folder>` |
+| | | `kitty` | `kitty --directory <folder>` |
+| | | `wezterm` | `wezterm start --cwd <folder>` |
+| | | `ghostty` | `ghostty --working-directory=<folder>` |
+| | | `konsole`, `qterminal` | `--workdir <folder>` |
+| | | `gnome-terminal`, `ptyxis`, `kgx`, `xfce4-terminal`, `mate-terminal`, `lxterminal`, `terminator`, `tilix` | `--working-directory=<folder>` |
+| | | `urxvt` | `urxvt -cd <folder>` |
+| | | `st` | `st -d <folder>` |
+| | | `xterm`, `x-terminal-emulator` | started in the folder |
+| macOS | in `/Applications` or `~/Applications` (Terminal always) | `terminal` (Terminal) | `open -a Terminal <folder>` |
+| | | `iterm2` (iTerm2) | `open -a iTerm <folder>` |
+| | the app there, else on `PATH` | `ghostty`, `alacritty`, `kitty`, `wezterm` | `open -na Ghostty --args --working-directory=<folder>` and the like, or the program on `PATH` with the flags above |
+| Windows | on `PATH` (cmd and Windows PowerShell always) | `wt` (Windows Terminal) | `wt -d .` |
+| | | `pwsh` (PowerShell 7) | `pwsh -WorkingDirectory .` in a new console |
+| | | `powershell` (Windows PowerShell), `cmd` | started in the folder, in a new console |
+| | | `alacritty`, `wezterm` | `alacritty --working-directory .`, `wezterm start --cwd .` |
+
+On Windows the folder is always `.`, the folder the terminal starts in, so no folder name is
+ever on a line that `cmd.exe` or Windows Terminal reads: a name with `&` in it could run what
+follows. A command of your own gets `.` for `{dir}` there too; elsewhere `{dir}` is the folder,
+quoted for the shell.
+
+When *Open in your git tool* runs a terminal tool (lazygit, tig) in a new window, it is put after
+the terminal's own flag for a program (`-e`, `--`, `-x`, or none for kitty and foot); on a Mac
+Terminal and iTerm2 type the line into their new window. With a command of your own, the tool
+follows your command after the flag its first word's terminal takes (`-e` for one Coxswain does
+not know).
+
+```toml
+terminal = "ghostty"                      # by name
+# terminal = "footclient -D {dir}"        # a command of your own
+```
 
 ## Your own entries
 
@@ -157,7 +206,9 @@ too (Windows 10 and later): `command = "tar -czf ..\\folder.tar.gz ."`.
 
 ## Settings and config.toml
 
-No Settings item: the menu is edited in `config.toml`, reached with **F2**, **+**.
+The menu is edited in `config.toml`, reached with **F2**, **+**. The terminal *Open a terminal
+here* opens is the one Settings item: **Settings → Behaviour → Programs → Terminal**, the key
+`terminal` ([Choosing the terminal](#choosing-the-terminal)).
 
 | Key | Type | Default | Means |
 |---|---|---|---|
@@ -168,6 +219,7 @@ No Settings item: the menu is edited in `config.toml`, reached with **F2**, **+*
 | `[[user_menu]]` `when` | `"file"` or `"git"` | none (always) | Offer the entry only on a file, or only in a git repository |
 | `user_menu` left out | – | the entries above | No `[[user_menu]]` at all: the entries F2 comes with |
 | `[keys]` `user_menu` | list of keys | `["F2"]` | The key that opens the menu |
+| `terminal` | text | none (automatic) | The terminal *Open a terminal here* opens: a name (`"ghostty"`, `"wt"`) or a command, `{dir}` the folder |
 
 The shell is `sh -c` on Linux, the BSDs, illumos, Termux and macOS, in both apps, whatever your
 `$SHELL` is, and `cmd /S /C` on Windows: the names are quoted for `sh`, and fish, nushell, xonsh
@@ -210,8 +262,34 @@ them from `coxswain --dump-config`.
 It is left out when there is nothing to open: on the BSDs, illumos and Linux when no terminal
 from the list above is installed and `$TERMINAL` names none, or when there is no desktop
 (neither `$WAYLAND_DISPLAY` nor `$DISPLAY` is set: a text console, ssh); in Termux, which is the
-terminal already. Set `$TERMINAL` to yours (`export TERMINAL=footclient`), or add your own entry
-with the command your terminal needs.
+terminal already. Choose yours under **Settings → Behaviour → Programs → Terminal**
+(*Another command…* takes any command, `{dir}` the folder), or set `$TERMINAL`
+(`export TERMINAL=footclient`).
+
+#### How do I make Coxswain open Ghostty?
+
+**Settings → Behaviour → Programs → Terminal**, then *Ghostty* from the list: it is there when
+Ghostty is installed (on a Mac in `/Applications` or `~/Applications`, elsewhere on `PATH`). The
+setting is saved at once; **F2**, **t** then opens Ghostty in the panel's folder
+(`--working-directory=`), and *Open in your git tool* opens lazygit or tig in Ghostty too. In
+`config.toml` it is `terminal = "ghostty"`. Any other terminal works the same way, or with
+*Another command…* and a command of your own, `{dir}` being the folder.
+
+#### I chose a terminal and Windows still opens another one.
+
+A console program (PowerShell, cmd) opens in whatever Windows' *Default terminal application*
+says (Settings → System → For developers → Terminal in Windows 11): with *Windows Terminal* there,
+choosing `powershell` opens PowerShell in a Windows Terminal tab. Choose *Windows Console Host*
+there for a console window of its own, or choose Alacritty or WezTerm in Coxswain, which open
+their own windows.
+
+#### Why does my terminal open in my home folder and not in the panel's folder?
+
+A terminal that keeps one process running for all its windows (a `footclient` server, kitty
+with `single-instance`, WezTerm with a GUI already open) starts each window in its own folder
+unless it is told the folder. Coxswain tells the terminals it knows with their own flag (the
+table above); for a command of your own put `{dir}` where your terminal takes the folder, as in
+`footclient -D {dir}`.
 
 #### Why does *SHA-256 of the file* not show?
 

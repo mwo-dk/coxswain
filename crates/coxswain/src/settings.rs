@@ -652,6 +652,16 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             v.push((OTHER.to_string(), t!("settings.git_tool_other")));
             v
         }
+        // The terminals installed here, what opens when none is named first; then a command
+        // of one's own.
+        "terminal" => {
+            let (auto, found) = coxswain_core::terminals::for_settings();
+            let auto = auto.unwrap_or_else(|| t!("settings.terminal_none"));
+            let mut v = vec![(String::new(), t!("settings.git_tool_auto", "name" => auto))];
+            v.extend(found.iter().map(|(n, l)| (n.to_string(), l.to_string())));
+            v.push((OTHER.to_string(), t!("settings.git_tool_other")));
+            v
+        }
         "language" => std::iter::once(("auto".to_string(), t!("settings.language_auto"))).chain(coxswain_core::i18n::LANGUAGES.iter().map(|l| (l.code.to_string(), l.name.to_string()))).collect(),
         "theme" | "tui_theme" => {
             // Under the headings of their groups, as the desktop app lists them; your own last.
@@ -774,10 +784,8 @@ fn on(o: &Opt, value: &Value) -> Option<bool> {
 impl App {
     /// A key in Settings. Saving happens here, at once.
     pub fn settings_key(&mut self, mut s: Box<Settings>, key: Key, action: Option<Action>) {
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(c),
-            _ => None,
-        };
+        // As typed: a key keeps its letters lowercase with Shift apart.
+        let ch = crate::typed(&key);
         let esc = key.code == KeyCode::Esc;
         s.said = None;
         let rows = rows(self, &s);
@@ -1021,7 +1029,7 @@ impl App {
                     KeyCode::Down => s.mode = Mode::Pick(pick_step(&c, at + 1, 1)),
                     KeyCode::PageUp => s.mode = Mode::Pick(pick_step(&c, at.saturating_sub(10), -1)),
                     KeyCode::PageDown => s.mode = Mode::Pick(pick_step(&c, at + 10, 1)),
-                    KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model" | "git_tool") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
+                    KeyCode::Enter if matches!(o.name, "ask_model" | "ask_code_model" | "git_tool" | "terminal") && c[at.min(c.len() - 1)].0.starts_with('\u{1}') => match c[at.min(c.len() - 1)].0.as_str() {
                         OTHER => {
                             s.selected = true;
                             s.mode = Mode::Edit(value.as_str().unwrap_or_default().to_string());
@@ -2082,6 +2090,24 @@ mod tests {
         let Some(Dialog::Settings(s)) = app.dialog.take() else { panic!("settings closed") };
         app.settings_save(s, changes);
         assert!(!app.cfg.search.commit_changes);
+    }
+
+    /// The terminal: picked from those found, or a command of one's own typed with its capitals.
+    #[test]
+    fn terminal_command_keeps_its_capitals() {
+        let d = crate::test_dir("panels");
+        let mut app = app(&d);
+        let mut s = Settings::open(&app, "terminal");
+        s.path = Some(d.join("config.toml"));
+        let Kind::Choice(c) = kind(cs::find("terminal").unwrap(), &app.cfg, &Value::from("")) else { panic!("a choice") };
+        assert_eq!(c.first().map(|v| v.0.as_str()), Some(""), "Automatic first");
+        assert_eq!(c.last().map(|v| v.0.as_str()), Some(OTHER), "Another command… last");
+        s.mode = Mode::Pick(c.len() - 1);
+        app.dialog = Some(Dialog::Settings(Box::new(s)));
+        key(&mut app, KeyCode::Enter);
+        typed(&mut app, "footclient -D {dir}");
+        key(&mut app, KeyCode::Enter);
+        assert_eq!(app.cfg.terminal.as_deref(), Some("footclient -D {dir}"));
     }
 
     /// Preview tools: a row per kind once read; Enter takes the next choice and writes it.

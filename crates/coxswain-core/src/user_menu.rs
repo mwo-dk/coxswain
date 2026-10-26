@@ -18,7 +18,7 @@ pub enum When {
 
 /// What F2 offers in `dir` with `file` under the cursor.
 pub fn entries(cfg: &Config, dir: &Path, file: Option<&Path>) -> Vec<UserCommand> {
-    let list = cfg.user_menu.clone().unwrap_or_else(builtin);
+    let list = cfg.user_menu.clone().unwrap_or_else(|| builtin(cfg.terminal.as_deref().unwrap_or_default()));
     list.into_iter()
         .filter(|u| fits(u.when, dir, file))
         .collect()
@@ -32,9 +32,9 @@ fn fits(when: Option<When>, dir: &Path, file: Option<&Path>) -> bool {
     }
 }
 
-/// The built-in entries for this system, labels in the current language. What is installed is
-/// looked up once.
-fn builtin() -> Vec<UserCommand> {
+/// The built-in entries for this system with the terminal `terminal` names (config.toml's),
+/// labels in the current language. What is installed is looked up once.
+fn builtin(terminal: &str) -> Vec<UserCommand> {
     static FOUND: std::sync::OnceLock<Vec<UserCommand>> = std::sync::OnceLock::new();
     let found = FOUND.get_or_init(|| {
         let os = if crate::termux::active() {
@@ -42,17 +42,28 @@ fn builtin() -> Vec<UserCommand> {
         } else {
             std::env::consts::OS
         };
-        defaults(os, &installed, &|v| {
-            std::env::var(v).ok().filter(|s| !s.is_empty())
-        })
+        defaults(os, &installed)
     });
-    found
-        .iter()
+    // The terminal's line, again only when the setting changed.
+    static LINE: std::sync::Mutex<Option<(String, Option<String>)>> = std::sync::Mutex::new(None);
+    let mut line = LINE.lock().unwrap_or_else(|e| e.into_inner());
+    if line.as_ref().is_none_or(|(t, _)| t != terminal) {
+        *line = Some((terminal.to_string(), crate::terminals::here(|s| crate::terminals::line(terminal, s))));
+    }
+    let open = line.as_ref().and_then(|(_, l)| l.clone());
+    open.map(terminal_entry)
+        .into_iter()
+        .chain(found.iter().cloned())
         .map(|u| UserCommand {
             label: crate::t!(&u.label),
-            ..u.clone()
+            ..u
         })
         .collect()
+}
+
+/// F2's *Open a terminal here* with the shell line that opens it.
+fn terminal_entry(command: String) -> UserCommand {
+    UserCommand { key: "t".into(), label: "usermenu.terminal".into(), command, wait: false, when: None }
 }
 
 /// A program on PATH; on Windows also an app alias (Windows Terminal's `wt`), which is not a
@@ -70,13 +81,9 @@ pub(crate) fn installed(program: &str) -> bool {
             }))
 }
 
-/// The built-in entries on `os` (`std::env::consts::OS`, or `android` in Termux), with the
-/// programs `has` finds and the environment `var`; labels are i18n keys.
-fn defaults(
-    os: &str,
-    has: &dyn Fn(&str) -> bool,
-    var: &dyn Fn(&str) -> Option<String>,
-) -> Vec<UserCommand> {
+/// The built-in entries on `os` (`std::env::consts::OS`, or `android` in Termux) after the
+/// terminal's (`terminals::line`), with the programs `has` finds; labels are i18n keys.
+fn defaults(os: &str, has: &dyn Fn(&str) -> bool) -> Vec<UserCommand> {
     let entry =
         |key: &str, label: &str, command: String, wait: bool, when: Option<When>| UserCommand {
             key: key.into(),
@@ -86,9 +93,6 @@ fn defaults(
             when,
         };
     let mut out = vec![];
-    if let Some(c) = terminal(os, has, var) {
-        out.push(entry("t", "usermenu.terminal", c, false, None));
-    }
     if let Some(c) = sha256(os, has) {
         out.push(entry("h", "usermenu.sha256", c, true, Some(When::File)));
     }
@@ -102,62 +106,6 @@ fn defaults(
         ));
     }
     out
-}
-
-/// Common terminals, in order, for when neither `$TERMINAL` nor `x-terminal-emulator` is there.
-const TERMINALS: &[&str] = &[
-    "x-terminal-emulator",
-    "foot",
-    "alacritty",
-    "kitty",
-    "wezterm",
-    "ghostty",
-    "konsole",
-    "gnome-terminal",
-    "ptyxis",
-    "kgx",
-    "xfce4-terminal",
-    "mate-terminal",
-    "lxterminal",
-    "qterminal",
-    "terminator",
-    "tilix",
-    "urxvt",
-    "st",
-    "xterm",
-];
-
-/// A new terminal window in the folder the command runs in, left running on its own.
-fn terminal(
-    os: &str,
-    has: &dyn Fn(&str) -> bool,
-    var: &dyn Fn(&str) -> Option<String>,
-) -> Option<String> {
-    match os {
-        // Termux: the app already is the terminal.
-        "android" => None,
-        "macos" => Some("open -a Terminal .".into()),
-        "windows" => Some(
-            if has("wt") {
-                r#"start "" wt -d ."#
-            } else {
-                r#"start "" powershell"#
-            }
-            .into(),
-        ),
-        _ => Some(format!("nohup {} >/dev/null 2>&1 &", emulator(has, var)?)),
-    }
-}
-
-/// The terminal emulator on Linux, the BSDs and illumos: `$TERMINAL` when it is installed,
-/// else the first of `TERMINALS`. None without a desktop (a console, ssh): no window to open.
-pub(crate) fn emulator(
-    has: &dyn Fn(&str) -> bool,
-    var: &dyn Fn(&str) -> Option<String>,
-) -> Option<String> {
-    var("WAYLAND_DISPLAY").or_else(|| var("DISPLAY"))?;
-    let own = var("TERMINAL").filter(|t| t.split_whitespace().next().is_some_and(has));
-    own.or_else(|| TERMINALS.iter().find(|t| has(t)).map(|t| t.to_string()))
 }
 
 /// The file's SHA-256 with the tool the system has.
@@ -204,7 +152,8 @@ fn example() -> String {
     struct Menu {
         user_menu: Vec<UserCommand>,
     }
-    let mut user_menu = builtin();
+    let terminal = crate::config::Config::load().ok().and_then(|c| c.terminal).unwrap_or_default();
+    let mut user_menu = builtin(&terminal);
     user_menu.push(UserCommand {
         key: "z".into(),
         label: "Zip the marked files".into(),
@@ -346,14 +295,9 @@ mod tests {
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
-    fn menu(os: &str, programs: &[&str], env: &[(&str, &str)]) -> Vec<(String, String)> {
+    fn menu(os: &str, programs: &[&str], _env: &[(&str, &str)]) -> Vec<(String, String)> {
         let has = |p: &str| programs.contains(&p);
-        let var = |v: &str| {
-            env.iter()
-                .find(|(k, _)| *k == v)
-                .map(|(_, x)| x.to_string())
-        };
-        defaults(os, &has, &var)
+        defaults(os, &has)
             .into_iter()
             .map(|u| (u.key, u.command))
             .collect()
@@ -367,58 +311,6 @@ mod tests {
     }
 
     const X: &[(&str, &str)] = &[("DISPLAY", ":0")];
-
-    #[test]
-    fn user_menu_terminal_per_os() {
-        assert_eq!(
-            command("macos", &[], &[], "t").as_deref(),
-            Some("open -a Terminal .")
-        );
-        assert_eq!(
-            command("windows", &["wt"], &[], "t").as_deref(),
-            Some(r#"start "" wt -d ."#)
-        );
-        assert_eq!(
-            command("windows", &[], &[], "t").as_deref(),
-            Some(r#"start "" powershell"#),
-            "no Windows Terminal: PowerShell"
-        );
-        assert_eq!(
-            command("linux", &["xterm", "x-terminal-emulator"], X, "t").as_deref(),
-            Some("nohup x-terminal-emulator >/dev/null 2>&1 &")
-        );
-        assert_eq!(
-            command("freebsd", &["xterm", "kitty"], X, "t").as_deref(),
-            Some("nohup kitty >/dev/null 2>&1 &")
-        );
-        let own = [("WAYLAND_DISPLAY", "wayland-0"), ("TERMINAL", "foot")];
-        assert_eq!(
-            command("linux", &["foot", "xterm"], &own, "t").as_deref(),
-            Some("nohup foot >/dev/null 2>&1 &"),
-            "$TERMINAL first"
-        );
-        let gone = [("DISPLAY", ":0"), ("TERMINAL", "nowhere")];
-        assert_eq!(
-            command("openbsd", &["xterm"], &gone, "t").as_deref(),
-            Some("nohup xterm >/dev/null 2>&1 &"),
-            "a $TERMINAL that is not installed is passed over"
-        );
-        assert_eq!(
-            command("linux", &[], X, "t"),
-            None,
-            "no terminal installed: hidden"
-        );
-        assert_eq!(
-            command("linux", &["xterm"], &[], "t"),
-            None,
-            "no display: hidden"
-        );
-        assert_eq!(
-            command("android", &["xterm"], X, "t"),
-            None,
-            "Termux is the terminal"
-        );
-    }
 
     #[test]
     fn user_menu_sha256_per_os() {
@@ -468,7 +360,7 @@ mod tests {
             .into_iter()
             .map(|(k, _)| k)
             .collect();
-        assert_eq!(keys, ["t", "h", "s"]);
+        assert_eq!(keys, ["h", "s"], "the terminal's comes first, from terminals::line");
     }
 
     /// The defaults of the system the tests run on (CI runs them on each one), where its tool
@@ -476,7 +368,7 @@ mod tests {
     #[test]
     fn user_menu_defaults_here() {
         let here: Vec<(String, String)> =
-            builtin().into_iter().map(|u| (u.key, u.command)).collect();
+            builtin("").into_iter().map(|u| (u.key, u.command)).collect();
         let h = here.iter().find(|(k, _)| k == "h").map(|(_, c)| c.as_str());
         let want = match std::env::consts::OS {
             "windows" => Some(("certutil", "certutil -hashfile %f SHA256")),
@@ -489,7 +381,7 @@ mod tests {
             assert_eq!(h, Some(command), "{tool}");
         }
         if cfg!(target_os = "macos") {
-            assert!(here.iter().any(|(_, c)| c == "open -a Terminal ."));
+            assert!(here.iter().any(|(_, c)| c == "open -a Terminal %d"));
         }
     }
 
