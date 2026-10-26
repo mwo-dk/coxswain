@@ -4596,7 +4596,7 @@
  "feature.git_line_history.title": "Cronologia di una funzione",
  "feature.git_line_history.what": "{line_history} elenca i commit che hanno cambiato la funzione al cursore, o le righe selezionate, ognuno con la sua modifica.",
  "feature.git_line_history.q1": "Quale funzione prende?",
- "feature.git_line_history.a1": "L’elemento con nome più interno al cursore, ritrovato per nome nell’ultimo commit. Seleziona delle righe per seguire quelle.",
+ "feature.git_line_history.a1": "L’elemento con nome più interno al cursore, ritrovato per nome nell’ultimo commit. Seleziona delle righe per seguire invece quelle.",
  "feature.git_line_history.q2": "Perché dice che la funzione non è nell’ultimo commit?",
  "feature.git_line_history.a2": "È nuova o rinominata da allora, quindi non ha ancora una cronologia. Prima fanne il commit.",
  "feature.git_line_history.q3": "Dove lo chiedo nell’anteprima dell’app desktop?",

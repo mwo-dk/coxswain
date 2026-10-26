@@ -4596,7 +4596,7 @@
  "feature.git_line_history.title": "Historique d’une fonction",
  "feature.git_line_history.what": "{line_history} liste les commits qui ont modifié la fonction sous le curseur, ou les lignes sélectionnées, chacun avec sa modification.",
  "feature.git_line_history.q1": "Quelle fonction prend-il ?",
- "feature.git_line_history.a1": "L’élément nommé le plus intérieur au curseur, retrouvé par son nom dans le dernier commit. Sélectionnez des lignes pour suivre celles-ci.",
+ "feature.git_line_history.a1": "L’élément nommé le plus intérieur au curseur, retrouvé par son nom dans le dernier commit. Sélectionnez des lignes pour suivre plutôt celles-ci.",
  "feature.git_line_history.q2": "Pourquoi dit-il que la fonction n’est pas dans le dernier commit ?",
  "feature.git_line_history.a2": "Elle est nouvelle ou renommée depuis, elle n’a donc pas encore d’historique. Commitez-la d’abord.",
  "feature.git_line_history.q3": "Où le demander dans l’aperçu de l’application de bureau ?",
