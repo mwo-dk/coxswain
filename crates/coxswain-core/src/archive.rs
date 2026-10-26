@@ -763,7 +763,7 @@ static LAST: std::sync::Mutex<Vec<Looked>> = std::sync::Mutex::new(Vec::new());
 type Looked = (PathBuf, Stamp, Arc<Items>);
 const LAST_KEPT: usize = 4;
 /// The most the lists kept take together (`Items::bytes`), the newest always kept.
-const LAST_BYTES: usize = 128 << 20;
+const LAST_BYTES: usize = if cfg!(test) { 4 << 20 } else { 128 << 20 };
 
 type Stamp = (u64, Option<std::time::SystemTime>);
 
@@ -3747,6 +3747,31 @@ mod tests {
 
     /// Held by every test that makes copies of archives inside archives: they share `NESTED`
     /// and its folder, which `clean_up` empties, so they run one at a time.
+    /// A list kept compact: names one after another, unsound ones left out but counted; and
+    /// a large one pushes the others out, so one list of millions is all that is kept.
+    #[test]
+    fn kept_lists_are_compact_and_one_large_one_is_kept_alone() {
+        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false };
+        let items: Items = [item("a/b.txt"), item("../out"), item("c")].into_iter().collect();
+        assert_eq!((items.len(), items.seen), (2, 3));
+        let names: Vec<&str> = items.iter().map(|it| it.name).collect();
+        assert_eq!(names, ["a/b.txt", "c"]);
+        let big = |n: usize| {
+            let mut i = Items::default();
+            i.push(Item { name: "x".repeat(n), ..item("") });
+            Arc::new(i.done())
+        };
+        let stamp = (0, None);
+        let (one, two, small) = (Path::new("/kept/one.7z"), Path::new("/kept/two.7z"), Path::new("/kept/small.zip"));
+        keep_items(small, stamp, big(10));
+        keep_items(one, stamp, big(LAST_BYTES * 3 / 4));
+        assert!(cached(small, stamp).is_some() && cached(one, stamp).is_some());
+        keep_items(two, stamp, big(LAST_BYTES * 3 / 4));
+        assert!(cached(two, stamp).is_some(), "the newest is kept");
+        assert!(cached(one, stamp).is_none() && cached(small, stamp).is_none(), "the older went to make room");
+        LAST.lock().unwrap().retain(|(p, ..)| !p.starts_with("/kept"));
+    }
+
     fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
         static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
         ONE.lock().unwrap_or_else(|e| e.into_inner())
