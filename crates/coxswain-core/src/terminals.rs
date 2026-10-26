@@ -3,8 +3,17 @@
 //! open in a folder, and to run a program there (the git tool's handoff). Nothing is started
 //! here; F2's built-in entry and the handoff start what this says.
 
-use crate::config::quote;
 use std::path::Path;
+
+/// `s` quoted for `sh`, the shell every system but Windows runs these lines in (and what the
+/// tests expect on any machine they run on).
+fn quote(s: &str) -> String {
+    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "-_./+,:@=".contains(c)) {
+        s.to_string()
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
+}
 
 /// A terminal Coxswain knows: its name in config.toml, the name Settings shows, and where it
 /// is found (a program on PATH; on a Mac also an app in /Applications or ~/Applications).
