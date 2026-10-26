@@ -306,6 +306,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: boms
+          save-if: false # the Dependencies workflow keeps it, from master
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -361,7 +362,8 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # No rust-cache here or in `terminal`: twelve caches written once a week would push the
+      # nightly systems' and CI's out of the repository's 10 GB (and were gone by the next week).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -453,9 +455,6 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          key: ${{ matrix.target }}
       # Static musl binaries on Linux run on any distribution.
       - env:
           TARGET: ${{ matrix.target }}
@@ -513,11 +512,6 @@ jobs:
         with:
           packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
           recommends: false
-      # The compiled dependencies (target/) of the last release build here: .github/actions/target-cache.
-      - id: target
-        uses: ./.github/actions/target-cache
-        with:
-          name: freebsd-14.5-release
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
@@ -526,16 +520,10 @@ jobs:
           prepare: sh packaging/pkg-retry.sh pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
             set -e
-            sh packaging/target-cache.sh check
-            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain -p coxswain-gui
+            cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out
             cp target/release/coxswain target/release/coxswain-gui out/
-            sh packaging/target-cache.sh prune release
-      - uses: ./.github/actions/target-cache
-        with:
-          name: freebsd-14.5-release
-          save: true
-          matched: ${{ steps.target.outputs.matched-key }}
+            rm -rf target
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
@@ -600,11 +588,6 @@ jobs:
         with:
           packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
           recommends: false
-      # The compiled dependencies (target/) of the last release build here: .github/actions/target-cache.
-      - id: target
-        uses: ./.github/actions/target-cache
-        with:
-          name: ${{ matrix.sys }}-release
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
@@ -620,10 +603,9 @@ jobs:
             sh packaging/pkg-retry.sh pkgin -y install rust pkgconf webkit-gtk41 || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
           run: |
             set -e
-            sh packaging/target-cache.sh check
-            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain -p coxswain-gui
+            cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
-            sh packaging/target-cache.sh prune release
+            rm -rf target
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         if: matrix.sys == 'openbsd'
         with:
@@ -635,10 +617,9 @@ jobs:
             sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg
           run: |
             set -e
-            sh packaging/target-cache.sh check
-            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain -p coxswain-gui
+            cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
-            sh packaging/target-cache.sh prune release
+            rm -rf target
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         if: matrix.sys == 'illumos'
         with:
@@ -649,16 +630,9 @@ jobs:
           prepare: sh packaging/pkg-retry.sh pkg install build-essential ooce/developer/rust
           run: |
             set -e
-            export PATH="/opt/ooce/bin:$PATH"
-            sh packaging/target-cache.sh check
-            sh packaging/target-cache.sh retry cargo build --release --locked -p coxswain
+            PATH="/opt/ooce/bin:$PATH" cargo build --release --locked -p coxswain
             mkdir out && cp target/release/coxswain out/
-            sh packaging/target-cache.sh prune release
-      - uses: ./.github/actions/target-cache
-        with:
-          name: ${{ matrix.sys }}-release
-          save: true
-          matched: ${{ steps.target.outputs.matched-key }}
+            rm -rf target
       - name: Package and upload
         env:
           GH_TOKEN: ${{ github.token }}
