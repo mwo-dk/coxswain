@@ -10,7 +10,7 @@ replace's undo copies, what a folder sync set aside) last, each removed only on 
 [Where things are kept](where-things-are-kept.md) has every path on each
 system; this page is about the room they take and getting it back.
 
-![Settings at Privacy and updates with Disk use open: search.db 1.6 MB with "read again on its own, at half speed", index.bin, previews/, peek/, libreoffice-profile/, helper.log and the built-in model Qwen3 14B, each with its size, what clearing costs, Show in panel and Clear](../screenshots/settings-disk-use.png)
+![Settings at Privacy and updates with Disk use open, 62.0 MB in all: search.db 1.7 MB with "read again on its own, at half speed", index.bin, previews/, peek/ and libreoffice-profile/, each with its size, what clearing costs, Show in panel and Clear](../screenshots/settings-disk-use.png)
 *Settings → Privacy and updates → Disk use in the desktop app.*
 
 ## Contents
@@ -81,7 +81,7 @@ moment later (podman or docker is asked about each image by its exact name).
   too; the size on the button follows. The first click lists exactly what goes (*This goes:
   /home/me/.cache/coxswain/search.db, …*) and turns the button into *Clear these? Click again*.
 
-![Disk use scrolled down: the model Qwen3 14B, the Outside Coxswain's folder heading with Tectonic 1.7 MB, both boxes ticked, the line This goes: with each path, and the button Clear these? Click again](../screenshots/settings-disk-clear-all.png)
+![Disk use scrolled down: Typst 4.1 MB under Outside Coxswain's folder, the group Your own files, kept aside by Coxswain with quarantine/ 342 KB and only Show in panel, the box Also what Coxswain caused outside its folder (5.7 MB) ticked, the line This goes: with each path (scratch and chess among them, tectonic and typst last), and the button Clear these? Click again](../screenshots/settings-disk-clear-all.png)
 
 How each is cleared:
 
@@ -137,7 +137,7 @@ the exact path or image name before the second click.
 *Disk use*: each row shows its name, size and what clearing costs; the bottom says what it holds,
 what clearing costs and its path, and the key line *Enter: show in panel · Delete: clear*.
 
-![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log and Qwen3 14B, the rows Clear everything that can be built again (1.8 MB), Also the built-in models not in use, Also what Coxswain caused outside its folder, then Outside Coxswain's folder with Tectonic](../screenshots/tui-settings-disk.png)
+![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log, clamav/, scratch/ 45.8 MB and chess/ 2.0 MB, the rows Clear everything that can be built again (55.8 MB) and Also what Coxswain caused outside its folder, then Outside Coxswain's folder with Tectonic and Typst, and Your own files, kept aside by Coxswain with quarantine/](../screenshots/tui-settings-disk.png)
 
 | Key | Does |
 |---|---|
