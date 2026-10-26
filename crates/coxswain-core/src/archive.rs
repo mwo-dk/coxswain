@@ -61,6 +61,8 @@ const ENDINGS: &[(&str, Kind)] = &[
     // The first part of a 7z split into parts: the parts are read joined, never written.
     (".7z.001", Kind::SevenZ),
     (".zip", Kind::Zip),
+    // A zip split into parts (7-Zip's -v, or `split`): read joined, never written.
+    (".zip.001", Kind::Zip),
     (".jar", Kind::Zip),
     (".apk", Kind::Zip),
     (".nupkg", Kind::Zip),
@@ -125,15 +127,37 @@ pub fn opens(path: &Path) -> bool {
     named_kind(path).is_some()
 }
 
+/// What Enter does on `path` on the disk when it opens like a folder (`enter`).
+pub(crate) fn opens_as(path: &Path) -> Option<crate::enter::Enter> {
+    kind(path).map(enter_of)
+}
+
+/// What Enter does on the file `path` inside an archive when it opens like a folder there.
+pub(crate) fn opens_inside_as(path: &Path) -> Option<crate::enter::Enter> {
+    opens_inside(path).then(|| ending_kind(path).or_else(|| ends_in(path, OPEN_ONLY)).map_or(crate::enter::Enter::DiskImage, enter_of))
+}
+
+fn enter_of(k: Kind) -> crate::enter::Enter {
+    use crate::enter::Enter;
+    match k {
+        Kind::Zip | Kind::Tar(_) | Kind::SevenZ => Enter::Archive,
+        Kind::Disk => Enter::DiskImage,
+        Kind::Mbox => Enter::Mailbox,
+        Kind::Image => Enter::Image,
+    }
+}
+
 /// `archive` is opened like a folder read-only: a disk image, a mailbox, a container image, or
 /// an archive split into parts.
 pub fn read_only(archive: &Path) -> bool {
     matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image)) || in_parts(archive) || split_zip(archive)
 }
 
-/// `name` is the first part of a 7z split into parts by 7-Zip (`x.7z.001`; `.002` … next to it).
+/// `name` is the first part of a 7z or zip split into parts by 7-Zip or `split` (`x.7z.001`,
+/// `x.zip.001`; `.002` … next to it).
 fn in_parts(name: &Path) -> bool {
-    name.to_string_lossy().to_ascii_lowercase().ends_with(".7z.001")
+    let n = name.to_string_lossy().to_ascii_lowercase();
+    n.ends_with(".7z.001") || n.ends_with(".zip.001")
 }
 
 /// The number of a later part of a 7z split into parts (`x.7z.002`: 2), and the name of its
@@ -177,9 +201,9 @@ fn part_name(first: &str, n: u32) -> String {
     format!("{}{n:03}", &first[..first.len() - 3])
 }
 
-/// The files of an archive read as one: `x.7z` alone, every part of one split into parts, from
-/// its first, `x.7z.001`, to the last of `x.7z.002` … that is there, or a zip split into parts
-/// (`spanned`).
+/// The files of a 7z or zip read as one: `x.7z` alone, every part of one split into parts, from
+/// its first, `x.7z.001` (or `x.zip.001`), to the last of `.002` … that is there, or a zip split
+/// into parts (`spanned`).
 struct Joined {
     /// Each part, and where in the whole it starts.
     parts: Vec<(File, u64)>,
@@ -1206,9 +1230,11 @@ fn resolve(archive: &Path, inner: &str, into: bool) -> io::Result<(PathBuf, Stri
 }
 
 /// Whether the file `path` inside an archive opens like a folder too: by its name alone, an
-/// archive, a comic or a mailbox (a disk image inside one does not open).
+/// archive, a comic or a mailbox, and a disk image by its sure name while those open (looked
+/// into from a copy, as an archive inside one is).
 pub fn opens_inside(path: &Path) -> bool {
     ending_kind(path).or_else(|| ends_in(path, OPEN_ONLY)).is_some()
+        || (crate::disk_image::open_on() && crate::disk_image::sure(path))
 }
 
 /// Whether `inner` of `archive` lies inside an archive inside it, where nothing is changed.
@@ -2634,7 +2660,7 @@ fn rewrite(
             };
             used = pw.is_some();
             if exists {
-                let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?))
+                let mut z = zip::ZipArchive::new(BufReader::new(Joined::open(archive)?))
                     .map_err(io::Error::other)?;
                 let mut first_locked = None;
                 for i in 0..z.len() {
@@ -3275,6 +3301,61 @@ mod tests {
         let name = message_name(0, 3, &long);
         assert!(name.len() <= 3 + 1 + 100 + 4 && !name.contains('\u{202e}'), "{name}");
         assert!(is_comic(Path::new("a.CBZ")) && !is_comic(&mbox));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_zip_split_into_parts_opens_as_one_read_only() {
+        let d = crate::pictures::tests::folder("zip-parts");
+        let src = d.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        // Bytes that do not pack, so the parts hold the entries' data too.
+        let noise: Vec<u8> = (0..60_000u32).map(|i| (i.wrapping_mul(2654435761) >> 13) as u8).collect();
+        std::fs::write(src.join("noise.bin"), &noise).unwrap();
+        std::fs::write(src.join("note.txt"), b"in parts").unwrap();
+        let whole = d.join("whole.zip");
+        create(&whole, &[src.join("noise.bin"), src.join("note.txt")]).unwrap();
+        let bytes = std::fs::read(&whole).unwrap();
+        for (i, part) in bytes.chunks(25_000).enumerate() {
+            std::fs::write(d.join(format!("split.zip.{:03}", i + 1)), part).unwrap();
+        }
+        let first = d.join("split.zip.001");
+        assert!(opens(&first) && read_only(&first));
+        let names: Vec<String> = crate::fs::list(&first, true).unwrap().into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["..", "noise.bin", "note.txt"]);
+        assert_eq!(std::fs::read(peek(&first.join("note.txt")).unwrap()).unwrap(), b"in parts");
+        assert_eq!(std::fs::read(peek(&first.join("noise.bin")).unwrap()).unwrap(), noise);
+        assert_eq!(crate::enter::enter(&first, false, crate::enter::Place::Disk), crate::enter::Enter::Archive);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_games_database_looked_at_inside_an_archive_brings_the_files_beside_it() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("peek-base");
+        let src = d.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        for n in ["Club.cbh", "Club.cbg", "Club.CBA", "club.si4", "club.sg4", "club.sn4", "other.cbg"] {
+            std::fs::write(src.join(n), n).unwrap();
+        }
+        // On its own in a zip, and two levels down (zip in tar.gz in zip).
+        let zip = d.join("games.zip");
+        create(&zip, &[src.clone()]).unwrap();
+        let mid = d.join("mid.tar.gz");
+        create(&mid, std::slice::from_ref(&zip)).unwrap();
+        let outer = d.join("outer.zip");
+        create(&outer, std::slice::from_ref(&mid)).unwrap();
+        for at in [zip.join("src"), outer.join("mid.tar.gz/games.zip/src")] {
+            let cbh = peek(&at.join("Club.cbh")).unwrap();
+            let beside = |n: &str| cbh.with_file_name(n);
+            assert_eq!(std::fs::read(beside("Club.cbg")).unwrap(), b"Club.cbg", "{at:?}");
+            assert!(beside("Club.CBA").is_file() && !beside("other.cbg").exists());
+            let si4 = peek(&at.join("club.si4")).unwrap();
+            assert!(si4.with_file_name("club.sg4").is_file() && si4.with_file_name("club.sn4").is_file());
+            // Any other file comes alone.
+            let one = peek(&at.join("other.cbg")).unwrap();
+            assert_eq!(std::fs::read_dir(one.parent().unwrap()).unwrap().count(), 1);
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 

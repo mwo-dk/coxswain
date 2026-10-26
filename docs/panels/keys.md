@@ -42,7 +42,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 
 | Key | Action (F9 name) | Config name | Desktop app | Terminal app |
 |---|---|---|---|---|
-| **Enter** | Open | `open` | Open a folder or archive here, a file in its program | The same; a program runs in the panel's folder |
+| **Enter** | Open | `open` | Go into a folder, an archive, a disk or container image or a mailbox; open games, positions and opening books in the games window (a file of one game on its board); any other file in its program ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | The same, full screen; a program runs in the panel's folder |
 | **Up** / **Down** | Up / Down | `up` / `down` | The cursor ([Moving around](moving.md)) | The same |
 | **Ctrl+PageUp**, **Backspace** | Parent folder | `parent` | Up to the parent folder | The same |
 | **PageUp**, **Left** | Page up | `page_up` | A page up (columns view: **Left** goes up; thumbnails: one tile left) | A page up |

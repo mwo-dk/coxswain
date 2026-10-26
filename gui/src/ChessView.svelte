@@ -183,10 +183,16 @@
       rows = r.rows;
       first = from;
       error = r.progress.error ?? "";
+      // A file of one game opens on its board, once it is read to its end (`enter`).
+      if (lonePath !== p && r.progress.done) {
+        lonePath = p;
+        if (r.progress.games === 1 && !game && !ui.chessAt) openGame(0);
+      }
     } catch (e) {
       if (seq === rowsSeq) error = String(e);
     }
   }
+  let lonePath = null;
 
   // The table, again when the filter changes, and twice a second while the file is read.
   $effect(() => {

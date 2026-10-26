@@ -19,7 +19,7 @@ the desktop app collects its output.
 | [Scripts](scripts.md) | The `scripts` folder: every program in it is an entry of **F2** in both apps, run with the marked files as arguments |
 | [View and edit, F3 and F4](view-and-edit.md) | The viewer and the editor: `viewer`, `editor`, `$PAGER`, `$VISUAL`, `$EDITOR`, and why **F3** is the preview in the desktop app |
 | [The built-in editor, Shift+F4](editor.md) | Editing a text file inside Coxswain: keys, find and replace, undo, what saving keeps (encoding, line endings, permissions), a file changed elsewhere |
-| [Opening files](opening-files.md) | **Enter** and a double-click: folders, archives, programs, and files in their default application |
+| [Opening files](opening-files.md) | **Enter** and a double-click: folders, archives, disk and container images, games on their board, programs, and files in their default application; what **F3** does on each |
 
 ## Keys at a glance
 

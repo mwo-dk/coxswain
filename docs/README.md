@@ -111,7 +111,7 @@ mindmap
 | [Scripts](commands/scripts.md) | The scripts folder, run from F2 in both apps with the marked files as arguments |
 | [View and edit, F3 and F4](commands/view-and-edit.md) | View and edit (F3, F4): viewer, editor, $PAGER, $VISUAL, $EDITOR, the preview pane in the desktop app |
 | [The built-in editor, Shift+F4](commands/editor.md) | Editing inside Coxswain in both apps: keys, find and replace, undo, go to line, saving with the file's encoding, line endings and permissions, a file changed on the disk meanwhile |
-| [Opening files](commands/opening-files.md) | Enter and double-click on folders, archives, programs and files, default applications |
+| [Opening files](commands/opening-files.md) | Enter and double-click on folders, archives, disk and container images, games, programs and files, default applications; what Enter and F3 do on each kind |
 
 ## [Search](search/README.md)
 

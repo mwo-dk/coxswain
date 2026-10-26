@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { Paged, SPAN } from "./paged.svelte.js";
-import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskName, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -1305,19 +1305,52 @@ export function refreshDisks() {
 /** An OCI image layout's index.json in `tb`: it opens as the image (`container_image::layout_index`). */
 export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" && !tb.archive && tb.oci;
 
-/** Enter / double-click: folders open in place, files in their default application. */
-export function openItem(tb, i = tb.cursor) {
+/** Enter / double-click (`enter::enter`): into anything that holds things (a folder, an archive,
+ *  a disk or container image, a mailbox); games, positions and opening books in the games window,
+ *  a file of one game on its board; any other file in its default application. */
+export async function openItem(tb, i = tb.cursor) {
   const e = tb.items.at(i);
   if (!e) return;
-  // An archive opens like a folder, an archive inside one too (from a copy in the cache); its
-  // files are copied out with F5.
-  if (e.is_dir || isArchive(e.name) || ociIndex(tb, e)) return cd(tb, e.path);
-  if (tb.archive) return void (ui.status = t(tb.diskImage ? "disk_image.copy_out_hint" : "archive.copy_out_hint", { archive: basename(tb.archive) }));
-  // A disk image opens like a folder while that option is on (and a .vhd only when it is one).
-  if (ui.cfg.settings.disk_images && diskName(e.name)) {
-    return invoke("opens_as_folder", { path: e.path }).then((yes) => (yes ? cd(tb, e.path) : openFile(tb, e)), (err) => (ui.status = String(err)));
+  if (e.is_dir) return cd(tb, e.path);
+  const inside = !!tb.archive;
+  let on;
+  try {
+    on = await invoke("enter_on", { path: e.path, isDir: false, inside });
+  } catch (err) {
+    return void (ui.status = String(err));
   }
+  if (["archive", "disk_image", "image", "mailbox"].includes(on.enter)) return cd(tb, e.path);
+  if (!(tb.history || tb.package) && (await gamesOf(e, on, inside))) return;
+  if (tb.archive) return void (ui.status = t(tb.diskImage ? "disk_image.copy_out_hint" : "archive.copy_out_hint", { archive: basename(tb.archive) }));
   openFile(tb, e);
+}
+
+/** Games, positions or an opening book (`on`: `enter_on`'s answer, asked when not given) open in
+ *  the games window: Enter and Open games (Alt+K). Inside an archive a .bin is told by a copy's
+ *  bytes. Whether they opened. */
+export async function gamesOf(e, on, inside = !!tab().archive) {
+  on ??= await invoke("enter_on", { path: e.path, isDir: false, inside }).catch(() => null);
+  if (!on) return false;
+  if (["games", "positions", "book"].includes(on.enter)) return (await openGames(e.path, inside), true);
+  if (!on.maybe_games) return false;
+  const copy = await invoke("archive_peek", { path: e.path }).catch(() => null);
+  if (!copy || !(await invoke("chess_sniffed", { path: copy }).catch(() => false))) return false;
+  await openGames(copy, false);
+  return true;
+}
+
+/** The games window on `path` (inside an archive: on a copy of it), as Open games does. */
+export async function openGames(path, inside) {
+  let file = path;
+  if (inside) {
+    try {
+      file = await invoke("archive_peek", { path });
+    } catch (err) {
+      return void (ui.status = String(err));
+    }
+  }
+  const f = chessFormat(basename(file));
+  ui.modal = { kind: f === "sgf" ? "go" : "chess", path: file, feature: { pdn: "draughts", shogi: "shogi", pbn: "bridge" }[f] };
 }
 
 /** A file opened as it is: in its default application, or its place said. */

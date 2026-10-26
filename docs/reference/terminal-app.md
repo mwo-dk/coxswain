@@ -50,12 +50,12 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | The command line (with `cd`) and the user menu (**F2**) with the scripts folder's scripts | [The command line](../commands/command-line.md), [The user menu](../commands/user-menu.md), [Scripts](../commands/scripts.md) |
 | View (**F3**) and edit (**F4**) in your own programs | [View and edit](../commands/view-and-edit.md) |
 | A viewer for CycloneDX cryptography BOMs (**F3** on one): the rated tree, a half-block sunburst, filters and compare | [Cryptography bills of materials](../previews/bom.md) |
-| Chess games (**F3** or **Alt+K** on a PGN, EPD or FEN file or a Polyglot book), full screen: the games as a table with a filter, a game on a board with its moves (pieces drawn from block characters), or the book's moves | [Chess games](../previews/chess.md) · [Game pieces in the terminal](../previews/game-pieces.md) |
-| Go games (**F3** or **Alt+K** on an SGF file), full screen: the games as a list, a game on a board of Unicode stones with its captures, variations and comments | [Go games](../previews/go.md) |
-| Draughts games (**F3** or **Alt+K** on a PDN file), full screen: the chess table of games, a game on a numbered board of coloured squares with ● men and ♚ kings, its captures and variations | [Draughts games](../previews/draughts.md) |
-| Xiangqi games (**F3** or **Alt+K** on a PGN file whose tags say `Game "Chinese Chess"`, or a DhtmlXQ game), full screen: the chess table of games, a game on a board of box lines with the river and the pieces as red and black characters | [Xiangqi games](../previews/xiangqi.md) |
-| Shogi games (**F3** or **Alt+K** on a KIF or CSA file), full screen: the chess table of games, a game on a board of kanji with Gote's pieces marked v, the pieces in hand, variations and comments | [Shogi games](../previews/shogi.md) |
-| Bridge deals (**F3** or **Alt+K** on a PBN file), full screen: the table of deals with pairs, contract and result, a deal as four hands round the table with its auction, trick by trick | [Bridge deals](../previews/bridge.md) |
+| Chess games (**Enter**, **F3** or **Alt+K** on a PGN, EPD or FEN file or a Polyglot book), full screen: the games as a table with a filter, a game on a board with its moves (pieces drawn from block characters), or the book's moves | [Chess games](../previews/chess.md) · [Game pieces in the terminal](../previews/game-pieces.md) |
+| Go games (**Enter**, **F3** or **Alt+K** on an SGF file), full screen: the games as a list, a game on a board of Unicode stones with its captures, variations and comments | [Go games](../previews/go.md) |
+| Draughts games (**Enter**, **F3** or **Alt+K** on a PDN file), full screen: the chess table of games, a game on a numbered board of coloured squares with ● men and ♚ kings, its captures and variations | [Draughts games](../previews/draughts.md) |
+| Xiangqi games (**Enter**, **F3** or **Alt+K** on a PGN file whose tags say `Game "Chinese Chess"`, or a DhtmlXQ game), full screen: the chess table of games, a game on a board of box lines with the river and the pieces as red and black characters | [Xiangqi games](../previews/xiangqi.md) |
+| Shogi games (**Enter**, **F3** or **Alt+K** on a KIF or CSA file), full screen: the chess table of games, a game on a board of kanji with Gote's pieces marked v, the pieces in hand, variations and comments | [Shogi games](../previews/shogi.md) |
+| Bridge deals (**Enter**, **F3** or **Alt+K** on a PBN file), full screen: the table of deals with pairs, contract and result, a deal as four hands round the table with its auction, trick by trick | [Bridge deals](../previews/bridge.md) |
 | A viewer for build provenance (**F3** on one): inputs → build → outputs, the outputs checked against the files here, compare | [Build provenance](../previews/provenance.md) |
 | Copy (**F5**), move and rename (**F6**), new folder (**F7**), delete to the trash (**F8**) or for good (**Shift+F8**) | [Files](../files/README.md) |
 | Archives as folders: look inside, copy and move in and out, take out, extract (**Ctrl+E**), pack (**Alt+F5**), passwords | [Archives in the terminal app](#archives-in-the-terminal-app) |
@@ -106,6 +106,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | **Shift+F4** | The [built-in editor](../commands/editor.md), full screen | The built-in editor, in a window |
 | **Ctrl+O** | Shows the terminal with the last command's output, *Panels hidden · any key brings them back* under it; any key comes back ([The command line](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) | One pane or two |
 | **Enter** on a program | Runs it in the panel's folder and waits for Enter | Hands it to the desktop |
+| **Enter** on games, positions or an opening book | Opens them full screen, a file of one game on its board | Opens them in the games window |
 | **Enter** on another file | Opens it in its default application | Opens it in its default application |
 | A command's output | In the terminal, the panels hidden meanwhile | In the preview pane |
 | `wait` in `[[user_menu]]` | Waits for Enter afterwards (`-- press Enter --`) | Shows the output even when there is none |

@@ -139,6 +139,9 @@ pub struct Viewer {
     index: Option<Arc<coxswain_core::helper::Client>>,
     finding: Option<Receiver<Option<Vec<(PathBuf, u32)>>>>,
     found: Option<(Vec<(PathBuf, u32)>, usize)>,
+    /// Whether the file was looked at for having one game only (`Some`), and whether it has:
+    /// that game opens on its board, and Esc there closes the view.
+    lone: Option<bool>,
 }
 
 impl Drop for Viewer {
@@ -231,6 +234,7 @@ impl Viewer {
             index: None,
             finding: None,
             found: None,
+            lone: None,
         };
         match chess::sniff(path) {
             Some(Format::Pgn) => {
@@ -314,6 +318,14 @@ impl Viewer {
             self.counted = p.games;
             self.asked = Instant::now();
             self.cursor = self.cursor.min(self.ids.len().saturating_sub(1));
+        }
+        // A file of one game opens on its board, once it is read to its end.
+        if self.lone.is_none() && p.done {
+            let one = p.games == 1 && self.want.is_none() && self.hit.is_none() && self.open.is_none();
+            self.lone = Some(one);
+            if one {
+                self.show_game(0);
+            }
         }
         // The hit's game, once the table has it.
         if let Some(n) = self.want
@@ -980,6 +992,8 @@ impl Viewer {
         };
         match key.code {
             _ if epd && !matches!(key.code, KeyCode::Char(_)) => {}
+            // A file of one game has no table to go back to.
+            KeyCode::Esc if self.lone == Some(true) && self.played.is_none() && self.review.is_none() => return Outcome::Close,
             KeyCode::Esc => {
                 self.open = None;
                 self.played = None;

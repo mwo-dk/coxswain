@@ -26,6 +26,7 @@ pub mod disk_image;
 pub mod drag;
 pub mod dupes;
 pub mod edit;
+pub mod enter;
 pub mod ebook;
 pub mod export;
 pub mod extract;

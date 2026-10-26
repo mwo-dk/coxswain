@@ -81,6 +81,9 @@ The keys shown are the ones in force: rebind *Rename* in `[keys]` and the menu s
 
 While the command line is empty, the status line shows one short hint that fits what is under
 the cursor, in a dim colour. The first ones teach the menu itself; then they teach keys.
+Before the hint, on an entry where **Enter** does more than open a folder or hand a file to its
+program, the line says what it does, for as long as the cursor is there: *Enter: Open archive*,
+*Enter: Open games*, *Enter: Open container image* … ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)).
 
 ![The terminal app with the cursor on README.md: the command line reads /home/demo/projects/rocket> and, dimmed after it, Shift+F10 / Menu: what you can do with this](../screenshots/action-menu-hint-tui.png)
 
@@ -99,7 +102,7 @@ the cursor, in a dim colour. The first ones teach the menu itself; then they tea
 | Files inside an archive | *Inside an archive: F5 copies files out to the other panel* |
 | Files inside a disk image, CHM, CBR, mailbox or container image | *Read-only here: F5 copies files out to the other panel* |
 | A disk image while opening them is off | *Shift+F10 / Menu → Open disk images, CHM and CBR like folders looks inside it* ([Disk images](../files/disk-images.md)) |
-| An archive | *Enter opens it like a folder · Ctrl+E extracts it* |
+| An archive | *Ctrl+E extracts it* (the line already starts *Enter: Open archive*, [What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) |
 | A PDF, or PDFs marked | *Alt+P makes a scanned PDF searchable: a copy with its words in it* ([Make PDF searchable](../files/searchable-pdf.md)) |
 | A KiCad schematic or board | *Shift+F10 / Menu on a KiCad schematic or board: export it as PDF, SVG, a bill of materials or Gerbers* ([KiCad](../previews/kicad.md#export-from-kicad)) |
 | An OpenSCAD model | *Shift+F10 / Menu on an OpenSCAD model: export it as STL or 3MF* ([OpenSCAD models](../previews/openscad.md#export-3d-model)) |

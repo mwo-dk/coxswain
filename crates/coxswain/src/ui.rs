@@ -555,10 +555,13 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
         let x = area.x + (prompt.width() + app.cmdline.width()) as u16;
         let full = format!("{prompt}{}", app.cmdline);
         let mut line = Line::from(Span::styled(fit_left(&full, area.width as usize), st));
-        // While the line is empty: a hint that fits what is under the cursor, dimmed.
-        if let (Some((_, hint)), true, None) = (&app.hint, app.cmdline.is_empty(), &app.dialog) {
+        // While the line is empty: what Enter does here, and a hint that fits what is under the
+        // cursor, dimmed.
+        let enter = app.enter_on.as_ref().and_then(|(_, l)| l.as_deref());
+        let said: Vec<&str> = enter.into_iter().chain(app.hint.as_ref().map(|(_, h)| h.as_str())).collect();
+        if let (false, true, None) = (said.is_empty(), app.cmdline.is_empty(), &app.dialog) {
             let room = (area.width as usize).saturating_sub(prompt.width());
-            line.push_span(Span::styled(fit(hint, room), st.add_modifier(Modifier::DIM)));
+            line.push_span(Span::styled(fit(&said.join(" · "), room), st.add_modifier(Modifier::DIM)));
         }
         (line, Some(x.min(area.right().saturating_sub(1))))
     };

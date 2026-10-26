@@ -26,14 +26,14 @@ reads: it does not play, check or score.
 ## Using it
 
 **Desktop app.** Put the cursor on a `.sgf` file and the preview pane (**Space**) shows its
-games, or its board when the file has one game. **⤢** at the top right, **Alt+K** or *Open
+games, or its board when the file has one game. **Enter**, a double-click, **⤢** at the top right, **Alt+K** or *Open
 games* in the action menu (**Shift+F10**) and the command list (**F9**) open it in a window of
 its own; **Esc** closes that window.
 
-**Terminal app.** **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
+**Terminal app.** **Enter**, **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
 the action menu (**Shift+F10**) and **F9**. **Esc** closes it.
 
-It is the same action as for [chess games](chess.md): the first few times the cursor rests on
+It is the same action as for [chess games](chess.md): while the cursor is on it the command line (the status bar in the desktop app) says *Enter: Open games*, and the first few times the cursor rests on
 an SGF file, the status line says *Alt+K opens its games: a table, then a board with every
 move*. **F1** → *Features* → *Go games* has the keys and the questions below.
 

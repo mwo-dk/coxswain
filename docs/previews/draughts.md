@@ -25,14 +25,14 @@ play or check a game.
 ## Using it
 
 **Desktop app.** Put the cursor on a `.pdn` file and the preview pane (**Space**) shows its
-table of games. **⤢** at the top right, **Alt+K** or *Open games* in the action menu
+table of games. **Enter**, a double-click, **⤢** at the top right, **Alt+K** or *Open games* in the action menu
 (**Shift+F10**) and the command list (**F9**) open it in a window of its own; **Esc** closes
 that window.
 
-**Terminal app.** **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
+**Terminal app.** **Enter**, **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
 the action menu (**Shift+F10**) and **F9**. **Esc** closes it.
 
-It is the same action as for chess and [Go games](go.md): the first few times the cursor rests
+It is the same action as for chess and [Go games](go.md): while the cursor is on it the command line (the status bar in the desktop app) says *Enter: Open games*, and the first few times the cursor rests
 on a PDN file, the status line says *Alt+K opens its games: a table, then a board with every
 move*. **F1** → *Features* → *Draughts games* has the keys and the questions below.
 
