@@ -4492,5 +4492,6 @@
  "disk.replace.what": "Jūsu faili tādi, kādi tie bija pirms meklēšanas un aizstāšanas, lai to varētu atsaukt (ne vairāk kā 256 MB katrai aizstāšanai).",
  "disk.replace.cost": "beigušos lietotņu meklēšanas un aizstāšanas vairs nevarēs atsaukt; strādājoša lietotne savējās patur",
  "disk.sync.what": "{n} faili, ko mapju sinhronizācija aizstāja vai dzēsa mapē {folder}, glabāti šeit, jo atkritne tos nevarēja pieņemt.",
- "disk.sync.cost": "tie pazūd uz visiem laikiem"
+ "disk.sync.cost": "tie pazūd uz visiem laikiem",
+ "branches.lfs_risk": "Nav pārslēgts: šīs krātuves pašas konfigurācija iestata {key}, kam git-lfs sekotu, rakstot failus: tas varētu palaist programmu vai nosūtīt jūsu pieteikšanās datus citur. Ja uzticaties krātuvei, pārslēdziet zaru ar pašu git."
 }

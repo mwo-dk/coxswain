@@ -4590,5 +4590,6 @@
  "disk.replace.what": "Twoje pliki takie, jakie były przed znajdź i zamień, aby dało się to cofnąć (najwyżej 256 MB na jedno zastąpienie).",
  "disk.replace.cost": "znajdź i zamień w aplikacjach, które się zakończyły, nie da się już cofnąć; działająca aplikacja zachowuje swoje",
  "disk.sync.what": "Pliki ({n}), które synchronizacja folderów zastąpiła lub usunęła w {folder}, trzymane tutaj, bo Kosz nie mógł ich przyjąć.",
- "disk.sync.cost": "znikają na zawsze"
+ "disk.sync.cost": "znikają na zawsze",
+ "branches.lfs_risk": "Nie przełączono: własna konfiguracja tego repozytorium ustawia {key}, za czym git-lfs podążałby przy zapisywaniu plików: mógłby uruchomić program albo wysłać twoje dane logowania gdzie indziej. Jeśli ufasz repozytorium, przełącz gałąź samym gitem."
 }

@@ -4394,5 +4394,6 @@
  "disk.replace.what": "Dina filer som de var före en sök och ersätt, så att den kan ångras (högst 256 MB per ersättning).",
  "disk.replace.cost": "sök och ersätt i appar som har avslutats kan inte längre ångras; en app som körs behåller sina",
  "disk.sync.what": "{n} filer som en mappsynkronisering ersatte eller tog bort i {folder}, sparade här eftersom papperskorgen inte kunde ta emot dem.",
- "disk.sync.cost": "de är borta för gott"
+ "disk.sync.cost": "de är borta för gott",
+ "branches.lfs_risk": "Inte bytt: förrådets egen konfiguration sätter {key}, som git-lfs skulle följa när det skriver filerna: det kunde köra ett program eller skicka din inloggning någon annanstans. Byt gren med git själv om du litar på förrådet."
 }

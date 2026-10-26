@@ -4394,5 +4394,6 @@
  "disk.replace.what": "Je bestanden zoals ze waren vóór een zoeken en vervangen, zodat het ongedaan kan worden gemaakt (hoogstens 256 MB per vervanging).",
  "disk.replace.cost": "zoeken en vervangen van apps die gestopt zijn, kan niet meer ongedaan worden gemaakt; een draaiende app houdt de zijne",
  "disk.sync.what": "{n} bestanden die een mapsynchronisatie in {folder} verving of verwijderde, hier bewaard omdat de prullenbak ze niet kon opnemen.",
- "disk.sync.cost": "ze zijn voorgoed weg"
+ "disk.sync.cost": "ze zijn voorgoed weg",
+ "branches.lfs_risk": "Niet gewisseld: de eigen config van deze repository stelt {key} in, dat git-lfs zou volgen bij het schrijven van de bestanden: het zou een programma kunnen uitvoeren of je inloggegevens ergens anders heen kunnen sturen. Wissel van branch met git zelf als je de repository vertrouwt."
 }

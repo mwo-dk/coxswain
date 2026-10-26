@@ -4492,5 +4492,6 @@
  "disk.replace.what": "Tus archivos como eran antes de un buscar y reemplazar, para poder deshacerlo (256 MB como máximo por reemplazo).",
  "disk.replace.cost": "los buscar y reemplazar de apps que ya terminaron no se pueden deshacer más; una app abierta conserva los suyos",
  "disk.sync.what": "{n} archivos que una sincronización de carpetas reemplazó o eliminó en {folder}, guardados acá porque la papelera no pudo recibirlos.",
- "disk.sync.cost": "se van para siempre"
+ "disk.sync.cost": "se van para siempre",
+ "branches.lfs_risk": "No se cambió: la configuración propia de este repositorio define {key}, que git-lfs seguiría al escribir los archivos: podría ejecutar un programa o mandar tu inicio de sesión a otro lado. Cambiá de rama con git mismo si confiás en el repositorio."
 }
