@@ -1438,7 +1438,7 @@ impl Store {
     }
 
     /// The container image reader changed (`key` at `tag`; an older app leaves a newer tag be):
-    /// every image tar the store knows is listed again, so the files of its merged layers are
+    /// every image tar (and OCI layout's `index.json`) the store knows is listed again, so the files of its merged layers are
     /// known and read, once. Nothing else is redone. With search inside archives off there is
     /// nothing inside them: only the tag is kept. The tars are looked at with the store let go.
     fn image_reader_changed(&self, key: &str, tag: &str, on: bool) -> rusqlite::Result<()> {
@@ -1452,7 +1452,8 @@ impl Store {
                 return Ok(());
             }
             if on {
-                db.prepare("SELECT path FROM files WHERE inside IS NULL AND path LIKE '%.tar'")?
+                // Image tars, and OCI layouts by their `index.json`.
+                db.prepare("SELECT path FROM files WHERE inside IS NULL AND (path LIKE '%.tar' OR path LIKE '%index.json')")?
                     .query_map([], |r| r.get(0))?
                     .collect::<rusqlite::Result<_>>()?
             } else {
@@ -5248,6 +5249,14 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         let hits = store.search("spaceship", None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
         assert_eq!(hits, [layout.join("index.json").join("srv").join("motd.txt")]);
+        // As a store made before layouts were looked into left it: listed again, once.
+        {
+            let db = store.db.lock().unwrap();
+            db.execute("DELETE FROM files WHERE inside IS NOT NULL", []).unwrap();
+            db.execute("DELETE FROM meta WHERE key = 'readers.image'", []).unwrap();
+        }
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.search("spaceship", None, 10).hits.len(), 1, "a known layout listed again");
         drop(store);
         let _ = std::fs::remove_dir_all(&d);
     }

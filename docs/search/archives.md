@@ -48,8 +48,8 @@ and tar compressed with gzip, bzip2, xz or zstd (`.tar.gz`, `.tgz`, `.tar.bz2`, 
 extension: a PDF in a zip is read as a PDF ([Documents it reads](documents.md)). A plain `.tar`
 that is a container image (`docker save`, `podman save`) is searched as the files of its merged
 layers, what **Enter** shows in it, never its blobs: one larger than 256 MB only once it has
-been opened ([Container images](../files/container-images.md#in-search)). An OCI layout
-folder's `index.json` is not looked into.
+been opened ([Container images](../files/container-images.md#in-search)). So is an OCI layout
+folder, from its `index.json`.
 
 ## What you see
 
