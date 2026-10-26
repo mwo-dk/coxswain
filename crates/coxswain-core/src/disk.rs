@@ -70,6 +70,14 @@ const OWN: &[(&str, &[&str], bool)] = &[
     ("log", &["helper.log"], false),
     // ClamAV's virus database (`viruses`), fetched again before the next scan.
     ("clamav", &["clamav"], true),
+    // The work of conversions, scans and drags, one folder per run (`spill::RUN_FOLDERS`).
+    (
+        "work",
+        &["scratch", "media", "geo", "ocr", "export", "clamscan", "drag", "provenance"],
+        true,
+    ),
+    // Chess analyses kept, and ChessBase archives unpacked to be read.
+    ("chess", &["chess", "cbv"], true),
 ];
 
 /// What `--disk clear` takes besides the rows' ids.
@@ -294,7 +302,17 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
                 }
             }
         }
-        (Kind::Own, _) => gone(&item.paths)?,
+        // A folder of runs' folders: only those of runs that ended, so what a running app or
+        // helper is working on now stays (`spill::in_use`).
+        (Kind::Own, _) => {
+            for p in &item.paths {
+                if p.file_name().is_some_and(|n| crate::spill::by_run(&n.to_string_lossy())) {
+                    crate::spill::clear_ended_in(p).map_err(|e| fail(p, e))?;
+                } else {
+                    remove(p).map_err(|e| fail(p, e))?;
+                }
+            }
+        }
         (Kind::Model, _) => {
             let all = crate::models::list(&cfg.search, &helper.loaded());
             let e = all

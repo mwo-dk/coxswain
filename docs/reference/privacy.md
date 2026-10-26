@@ -56,9 +56,9 @@ users of the machine cannot ask it anything.
 Reading your documents for search is done by Coxswain itself, with no network. Installed
 programs it may use (tesseract, pdftoppm, LibreOffice, and calibre for e-books, installed or in a
 container with `--network=none`) run locally and write only into a
-temporary folder that is removed afterwards. Containers for previews run with `--network=none`.
-Files copied out of an archive on the way to another archive pass through a temporary folder of
-their own, removed afterwards.
+work folder in Coxswain's cache (`scratch/`), removed afterwards. Containers for previews run with
+`--network=none`. Files copied out of an archive on the way to another archive pass through a work
+folder of their own there, removed afterwards.
 
 **Files only in the cloud** (OneDrive, Dropbox, Google Drive, Proton Drive, iCloud, cloud mounts
 on Linux) are never read unless you open one: reading them would make the cloud app download

@@ -133,6 +133,26 @@ fn cached(engine: &str, settings: &str, game: &Game) -> Option<PathBuf> {
     Some(crate::dirs::cache_dir()?.join("coxswain").join("chess").join(format!("{h:016x}.json")))
 }
 
+/// How many analyses the cache keeps: the oldest go past it (a few KB each).
+const KEPT: usize = 1000;
+
+/// The newest `most` analyses in `dir` kept, the rest removed.
+fn keep_newest(dir: &Path, most: usize) {
+    let mut all: Vec<(std::time::SystemTime, std::path::PathBuf)> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
+        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+        .collect();
+    if all.len() > most {
+        all.sort();
+        for (_, p) in &all[..all.len() - most] {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+}
+
 /// A game being analysed, on a thread of its own; dropped or stopped, the engine stops too.
 pub struct Reviewer {
     shared: Arc<Mutex<Review>>,
@@ -176,7 +196,10 @@ impl Reviewer {
                 && std::fs::create_dir_all(f.parent().unwrap_or(Path::new("."))).is_ok()
                 && let Ok(json) = serde_json::to_vec(&*out)
             {
-                let _ = std::fs::write(f, json);
+                let _ = std::fs::write(&f, json);
+                if let Some(dir) = f.parent() {
+                    keep_newest(dir, KEPT);
+                }
             }
         });
         Reviewer { shared, stop }
@@ -308,6 +331,24 @@ pub fn annotated_pgn(game: &Game, r: &Review) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[cfg(unix)]
+    fn the_analysis_cache_keeps_its_newest() {
+        let d = std::env::temp_dir().join(format!("coxswain-review-kept-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for (i, days) in [(0, 3), (1, 2), (2, 1)] {
+            let f = d.join(format!("{i}.json"));
+            std::fs::write(&f, "{}").unwrap();
+            let t = std::time::SystemTime::now() - std::time::Duration::from_secs(days * 86400);
+            std::fs::File::options().write(true).open(&f).unwrap().set_modified(t).unwrap();
+        }
+        keep_newest(&d, 2);
+        assert!(!d.join("0.json").exists());
+        assert!(d.join("1.json").exists() && d.join("2.json").exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn marks_by_what_is_lost() {

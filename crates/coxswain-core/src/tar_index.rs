@@ -74,6 +74,24 @@ pub(crate) fn load(archive: &Path) -> Option<Vec<Listed>> {
     serde_json::from_reader(io::BufReader::new(f)).ok()
 }
 
+/// What a write cut short (`.tmp`, `.seek-tmp`) or a list never kept (a `.seek` with no `.json`,
+/// an archive with too many names) left in `dir`, a day old: removed, so the count of lists is
+/// all there is.
+fn strays(dir: &Path) {
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let p = e.path();
+        let stray = match p.extension().and_then(|x| x.to_str()) {
+            Some("tmp" | "seek-tmp") => true,
+            Some("seek") => !p.with_extension("json").exists(),
+            _ => false,
+        };
+        let old = || e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().unwrap_or_default().as_secs() > 24 * 3600);
+        if stray && old() {
+            let _ = std::fs::remove_file(&p);
+        }
+    }
+}
+
 /// Keeps the whole list of `archive`, written whole or not at all; the oldest lists go past
 /// `KEPT`.
 pub(crate) fn save(archive: &Path, all: &[Listed]) {
@@ -86,6 +104,7 @@ pub(crate) fn save(archive: &Path, all: &[Listed]) {
     if crate::fs::private_dir(&dir).is_err() {
         return;
     }
+    strays(&dir);
     let mut old: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(&dir)
         .into_iter()
         .flatten()
@@ -1058,6 +1077,28 @@ pub(crate) fn from(path: &Path, pack: crate::archive::Pack, at: u64) -> io::Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What a cut write or a list never kept left goes after a day; a list and its points stay.
+    #[test]
+    fn strays_of_the_archive_index_go_after_a_day() {
+        let d = std::env::temp_dir().join(format!("coxswain-tar-strays-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 86400);
+        for n in ["a.json", "a.seek", "b.seek", "c.tmp", "d.seek-tmp", "e.tmp-new"] {
+            std::fs::write(d.join(n), "x").unwrap();
+            std::fs::File::options().write(true).open(d.join(n)).unwrap().set_modified(old).unwrap();
+        }
+        std::fs::write(d.join("f.tmp"), "now").unwrap();
+        strays(&d);
+        for n in ["a.json", "a.seek", "e.tmp-new", "f.tmp"] {
+            assert!(d.join(n).exists(), "{n}");
+        }
+        for n in ["b.seek", "c.tmp", "d.seek-tmp"] {
+            assert!(!d.join(n).exists(), "{n}");
+        }
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     #[test]
     fn an_xz_in_blocks_is_read_from_the_block_an_offset_is_in() {

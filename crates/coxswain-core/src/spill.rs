@@ -245,8 +245,160 @@ fn sweep_staging_in(dir: &Path) {
     }
 }
 
-/// At each start of either app: both of the above.
+// ---------------------------------------------------------------- runs alive and ended
+
+/// This run's list, made now and held while it lives, so other runs can tell it is alive
+/// (`alive`); at the start of both apps and the search helper.
+pub fn register() {
+    let mut j = JOURNAL.lock().unwrap_or_else(|e| e.into_inner());
+    if j.is_none() && !NO_JOURNAL.load(std::sync::atomic::Ordering::Relaxed) {
+        *j = open_journal();
+        if j.is_none() {
+            NO_JOURNAL.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+}
+
+/// Whether the run with process id `pid` lives: `Some(true)` while it holds its list,
+/// `Some(false)` when its list is there and free (it ended), `None` when it has none (it ran
+/// before lists were kept, or its list was swept).
+pub fn alive(pid: u32) -> Option<bool> {
+    if pid == std::process::id() {
+        return Some(true);
+    }
+    let list = staging_dir()?.join(pid.to_string());
+    let f = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(list)
+        .ok()?;
+    Some(f.try_lock().is_err())
+}
+
+/// The process id a run's folder is named by: `<pid>`, `<pid>-<n>`, `inside-<pid>`,
+/// `coxswain-archive-<pid>-<n>`.
+fn pid_of(name: &str) -> Option<u32> {
+    let rest = name
+        .strip_prefix("inside-")
+        .or_else(|| name.strip_prefix("coxswain-archive-"))
+        .or_else(|| name.strip_prefix("coxswain-replace-"))
+        .unwrap_or(name);
+    rest.split('-').next()?.parse().ok()
+}
+
+/// `alive` for a run's folder named `name`; `None` for a name no run's id gives.
+pub(crate) fn alive_by_name(name: &str) -> Option<bool> {
+    alive(pid_of(name)?)
+}
+
+/// A day: how long the folder of a run that keeps no list (an older version) is left alone.
+const DAY: Duration = Duration::from_secs(24 * 3600);
+
+/// A run's folder at `path` that a live run may be using: its run holds its list, or it keeps
+/// none and the folder changed within a day. Names no run's id gives are never in use.
+pub(crate) fn in_use(path: &Path) -> bool {
+    let Some(pid) = path.file_name().and_then(|n| pid_of(&n.to_string_lossy())) else {
+        return false;
+    };
+    match alive(pid) {
+        Some(live) => live,
+        None => std::fs::metadata(path)
+            .and_then(|m| m.modified())
+            .is_ok_and(|t| t.elapsed().unwrap_or_default() <= DAY),
+    }
+}
+
+/// The folders in the cache's `sub` named by runs: what goes when their run ended.
+const RUN_FOLDERS: &[&str] = &[
+    "scratch",
+    "media",
+    "geo",
+    "ocr",
+    "export",
+    "clamscan",
+    "peek",
+    "nested",
+    "cbv",
+    "provenance",
+];
+
+/// Every run's folder in `dir` whose run ended, removed (never through a link).
+pub(crate) fn clear_ended_in(dir: &Path) -> std::io::Result<()> {
+    let mut last = Ok(());
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let p = e.path();
+        if !std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir()) || in_use(&p) {
+            continue;
+        }
+        if let Err(err) = std::fs::remove_dir_all(&p)
+            && err.kind() != std::io::ErrorKind::NotFound
+        {
+            last = Err(err);
+        }
+    }
+    last
+}
+
+/// Whether `name` in the cache folder is one of `RUN_FOLDERS`: cleared run by run.
+pub(crate) fn by_run(name: &str) -> bool {
+    RUN_FOLDERS.contains(&name)
+}
+
+/// At start: the work folders of runs that ended (a crash, a kill, the power gone) removed: in
+/// the cache, `RUN_FOLDERS` and the search helper's `inside-<pid>`; in the temp folder, the
+/// `coxswain-archive-…` an older version kept there, and find-and-replace's undo copies of
+/// runs that ended. A folder a live run uses stays (`in_use`).
+pub fn sweep_ended() {
+    if let Some(cache) = crate::helper::folder() {
+        for sub in RUN_FOLDERS {
+            let _ = clear_ended_in(&cache.join(sub));
+        }
+        for e in std::fs::read_dir(&cache).into_iter().flatten().flatten() {
+            let p = e.path();
+            if e.file_name().to_string_lossy().starts_with("inside-")
+                && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir())
+                && !in_use(&p)
+            {
+                let _ = std::fs::remove_dir_all(&p);
+            }
+        }
+    }
+    sweep_old_temp(&std::env::temp_dir());
+    crate::replace::sweep();
+}
+
+/// `coxswain-archive-<pid>-<n>` in the temp folder (where versions before this one kept their
+/// scratch), of runs that ended: only this user's own folders, never through a link.
+fn sweep_old_temp(tmp: &Path) {
+    for e in std::fs::read_dir(tmp).into_iter().flatten().flatten() {
+        let p = e.path();
+        if !e
+            .file_name()
+            .to_string_lossy()
+            .starts_with("coxswain-archive-")
+        {
+            continue;
+        }
+        let Ok(m) = std::fs::symlink_metadata(&p) else {
+            continue;
+        };
+        #[cfg(unix)]
+        // SAFETY: geteuid has no preconditions.
+        let mine = std::os::unix::fs::MetadataExt::uid(&m) == unsafe { libc::geteuid() };
+        #[cfg(not(unix))]
+        let mine = true;
+        if m.is_dir() && mine && !in_use(&p) {
+            let _ = std::fs::remove_dir_all(&p);
+        }
+    }
+}
+
+/// At each start of either app and the search helper: this run's list made, what runs that
+/// ended left removed, and the preview cache kept in bounds. Runs that ended are swept before
+/// their lists go (`sweep_staging`), so their folders are known as theirs.
 pub fn at_start() {
+    register();
+    sweep_ended();
     sweep_staging();
     prune_previews();
 }
@@ -414,6 +566,84 @@ mod tests {
             .collect();
         assert_eq!(ours, vec![d.to_string_lossy().into_owned()], "{text}");
         let _ = std::fs::remove_dir_all(d.parent().unwrap());
+    }
+
+    #[test]
+    fn a_runs_folders_are_known_by_their_id() {
+        assert_eq!(pid_of("4242"), Some(4242));
+        assert_eq!(pid_of("4242-7"), Some(4242));
+        assert_eq!(pid_of("inside-4242"), Some(4242));
+        assert_eq!(pid_of("coxswain-archive-4242-0"), Some(4242));
+        assert_eq!(pid_of("coxswain-replace-4242-0123abcd"), Some(4242));
+        assert_eq!(pid_of("part-3"), None);
+        assert_eq!(pid_of("0123abcd.json"), None);
+    }
+
+    /// The crash case for work folders: a run that ended (its list free) loses its folder at
+    /// once, a live run (its list held) keeps its own however old, and one with no list keeps
+    /// it for a day.
+    #[test]
+    #[cfg(unix)]
+    fn an_ended_runs_work_goes_and_a_live_runs_stays_however_old() {
+        let lists = staging_dir().unwrap();
+        crate::fs::private_dir(&lists).unwrap();
+        let d = folder("ended");
+        // Ids no real process of this test has: far above any pid_max.
+        let (ended, live, none_new, none_old) =
+            (4_000_001u32, 4_000_002u32, 4_000_003u32, 4_000_004u32);
+        std::fs::write(lists.join(ended.to_string()), "").unwrap();
+        std::fs::write(lists.join(live.to_string()), "").unwrap();
+        let held = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(lists.join(live.to_string()))
+            .unwrap();
+        held.lock().unwrap();
+        for pid in [ended, live, none_new, none_old] {
+            std::fs::create_dir_all(d.join(format!("{pid}-0")).join("in")).unwrap();
+        }
+        age(&d.join(format!("{live}-0")), 3);
+        age(&d.join(format!("{none_old}-0")), 3);
+        std::fs::write(d.join("not-a-run"), "x").unwrap();
+        clear_ended_in(&d).unwrap();
+        assert!(
+            !d.join(format!("{ended}-0")).exists(),
+            "ended: gone at once"
+        );
+        assert!(
+            d.join(format!("{live}-0/in")).exists(),
+            "live: kept, however old"
+        );
+        assert!(
+            d.join(format!("{none_new}-0/in")).exists(),
+            "no list, new: kept"
+        );
+        assert!(
+            !d.join(format!("{none_old}-0")).exists(),
+            "no list, a day old: gone"
+        );
+        assert!(d.join("not-a-run").exists());
+        drop(held);
+        for pid in [ended, live] {
+            let _ = std::fs::remove_file(lists.join(pid.to_string()));
+        }
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// An older version's scratch in the temp folder: a link is never followed.
+    #[test]
+    #[cfg(unix)]
+    fn old_scratch_in_the_temp_folder_goes_but_never_through_a_link() {
+        let d = folder("oldtemp");
+        let outside = d.join("outside");
+        std::fs::create_dir_all(outside.join("k")).unwrap();
+        std::fs::create_dir_all(d.join("coxswain-archive-4000005-0/a")).unwrap();
+        age(&d.join("coxswain-archive-4000005-0"), 3);
+        std::os::unix::fs::symlink(&outside, d.join("coxswain-archive-4000006-0")).unwrap();
+        sweep_old_temp(&d);
+        assert!(!d.join("coxswain-archive-4000005-0").exists());
+        assert!(outside.join("k").exists());
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// A link named like a passing name is removed as a link, never followed.
