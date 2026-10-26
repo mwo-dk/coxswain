@@ -5,12 +5,10 @@
 Every place Coxswain keeps things on the disk, in one list: what each is, its size, where it is,
 what clearing it costs, and a button that clears it. What Coxswain caused outside its own folder
 (Tectonic's cache, container images it pulled for previews) is listed too, and cleared only when
-you ask for it by name, and your own files Coxswain keeps aside (the quarantine, find and
-replace's undo copies, what a folder sync set aside) last, each removed only on its own click.
-[Where things are kept](where-things-are-kept.md) has every path on each
+you ask for it by name. [Where things are kept](where-things-are-kept.md) has every path on each
 system; this page is about the room they take and getting it back.
 
-![Settings at Privacy and updates with Disk use open, 62.0 MB in all: search.db 1.7 MB with "read again on its own, at half speed", index.bin, previews/, peek/ and libreoffice-profile/, each with its size, what clearing costs, Show in panel and Clear](../screenshots/settings-disk-use.png)
+![Settings at Privacy and updates with Disk use open: search.db 1.6 MB with "read again on its own, at half speed", index.bin, previews/, peek/, libreoffice-profile/, helper.log and the built-in model Qwen3 14B, each with its size, what clearing costs, Show in panel and Clear](../screenshots/settings-disk-use.png)
 *Settings → Privacy and updates → Disk use in the desktop app.*
 
 ## Contents
@@ -52,23 +50,11 @@ system; this page is about the room they take and getting it back.
 | `helper.log` | When the search helper started and left, and what failed; the whole text of an error the status line said short | The record is gone. It is emptied, not deleted, since the helper writes to it | No |
 | A built-in model (*Qwen3 4B*, *multilingual-e5-small*, *Whisper*, a left-over) | Its weights ([Built-in models](../search/models.md)) | Downloaded again when needed; the one in use gives way to the recommended choice (*Whisper* in use: transcribing is turned off) | Only when ticked, and never the one in use |
 | *Tectonic* | Tectonic's cache of TeX packages, made by a LaTeX preview | Downloaded again the next time tectonic builds a document, yours too | Only when ticked |
-| *Typst* | Typst's cache of packages, made by a Typst preview | Downloaded again the next time typst builds a document that uses a package, yours too | Only when ticked |
-| *KiCad* | kicad-cli's cache, made by a KiCad preview or export | Made again the next time kicad-cli runs, yours too | Only when ticked |
 | A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
-| `quarantine/` (under *Your own files*) | Files you moved into quarantine after a [virus scan](../files/virus-scan.md#the-quarantine-folder), with `quarantine.log`; shown when it holds any | Not removed here: it has **Show in panel** only. They are yours: delete them in a panel once you are sure | No |
-| `kicad/` (under *Your own files*) | kicad-cli's settings (`~/.config/kicad` on the BSDs and Linux, `~/Library/Preferences/kicad` on macOS, `%APPDATA%\kicad` on Windows); shown once a KiCad preview or export has run an installed kicad-cli | Not removed here: it has **Show in panel** only. An installed KiCad keeps your own settings there, so Coxswain never clears it | No |
-| `coxswain-replace-…/` (under *Your own files*) | Your files as they were before a [find and replace](../files/find-and-replace.md), so it can be undone (256 MB at most per replace); shown when there are some | **Remove** takes only those of apps that have ended (their finds and replaces can no longer be undone); a running app keeps its own | No |
-| `.coxswain-sync-…/` (under *Your own files*) | What a [folder sync](../files/compare-folders.md#where-did-my-replaced-files-go) that has ended replaced or deleted, where the bin could not take it (Windows, a disk without a bin); one row per folder, its line naming the synced folder | **Remove** deletes it for good | No |
 
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
 says what it holds. The total of all rows is beside the heading *Disk use*.
-
-Your own files come last, under *Your own files, kept aside by Coxswain*: the quarantine,
-KiCad's settings, the undo copies of find and replace, and what a folder sync set aside. They are
-never in *Clear everything*; each goes only by its own **Remove** (the quarantine and KiCad's
-settings have none), whose first click
-turns into *Remove /path for good? Click again*.
 
 Sizes are measured when the area opens: the folders on disk at once, the container images a
 moment later (podman or docker is asked about each image by its exact name).
@@ -83,7 +69,7 @@ moment later (podman or docker is asked about each image by its exact name).
   too; the size on the button follows. The first click lists exactly what goes (*This goes:
   /home/me/.cache/coxswain/search.db, …*) and turns the button into *Clear these? Click again*.
 
-![Disk use scrolled down: Typst 4.1 MB under Outside Coxswain's folder, the group Your own files, kept aside by Coxswain with quarantine/ 342 KB and only Show in panel, the box Also what Coxswain caused outside its folder (5.7 MB) ticked, the line This goes: with each path (scratch and chess among them, tectonic and typst last), and the button Clear these? Click again](../screenshots/settings-disk-clear-all.png)
+![Disk use scrolled down: the model Qwen3 14B, the Outside Coxswain's folder heading with Tectonic 1.7 MB, both boxes ticked, the line This goes: with each path, and the button Clear these? Click again](../screenshots/settings-disk-clear-all.png)
 
 How each is cleared:
 
@@ -112,13 +98,6 @@ Coxswain lists only what it caused, matched exactly:
   only when Coxswain made it: when a LaTeX preview runs tectonic and its cache folder was not
   there before, Coxswain notes the folder in `made-outside.txt` in its cache folder. A Tectonic
   cache you had before is never listed.
-- **Typst's package cache** (`typst/` in the system's cache folder: `~/.cache/typst` on the BSDs
-  and Linux, `~/Library/Caches/typst` on macOS, `%LOCALAPPDATA%\typst` on Windows, or
-  `TYPST_PACKAGE_CACHE_PATH`) and **kicad-cli's cache** (`kicad/` in the same folder), the same
-  way: only when an installed typst or kicad-cli run by a preview or export made it. kicad-cli's
-  settings (`~/.config/kicad`) are listed under *Your own files* once a preview has run it,
-  whoever made them, with **Show in panel** and no Clear: an installed KiCad keeps your own
-  settings there.
 - **Container images** named in `[preview] images` (by default
   `docker.io/texlive/texlive:latest`, `docker.io/plantuml/plantuml:latest`,
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
@@ -141,13 +120,13 @@ the exact path or image name before the second click.
 *Disk use*: each row shows its name, size and what clearing costs; the bottom says what it holds,
 what clearing costs and its path, and the key line *Enter: show in panel · Delete: clear*.
 
-![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log, clamav/, scratch/ 45.8 MB and chess/ 2.0 MB, the rows Clear everything that can be built again (55.8 MB) and Also what Coxswain caused outside its folder, then Outside Coxswain's folder with Tectonic and Typst, and Your own files, kept aside by Coxswain with quarantine/](../screenshots/tui-settings-disk.png)
+![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log and Qwen3 14B, the rows Clear everything that can be built again (1.8 MB), Also the built-in models not in use, Also what Coxswain caused outside its folder, then Outside Coxswain's folder with Tectonic](../screenshots/tui-settings-disk.png)
 
 | Key | Does |
 |---|---|
 | **↑** **↓** | Moves between the rows |
 | **Enter** | On a row: Settings closes and the active panel opens its folder, the cursor on the file |
-| **Delete** | On a row: the bottom turns red, *This goes: /path (size) · what it costs. Enter clears it, Esc keeps it*; on a row under *Your own files* it removes (the key line says *Delete: remove*), and on `quarantine/` it does nothing (*Enter: show in panel*) |
+| **Delete** | On a row: the bottom turns red, *This goes: /path (size) · what it costs. Enter clears it, Esc keeps it* |
 | **Enter** (asked) | Clears it; the key line says *previews/ cleared: 12.4 MB freed.* |
 | **Esc** (asked) | Keeps it |
 | **Space** or **Enter** | On *Also the built-in models not in use* or *Also what Coxswain caused outside its folder*: ticks it |
@@ -180,7 +159,6 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
-| `coxswain --disk clear replace`, `coxswain --disk clear sync:.coxswain-sync-…` | Your own files: prints *This goes:* with the exact path and its size, then asks *[y/N]*. `quarantine` and `kicad-settings` are refused: delete those files yourself |
 | `coxswain --disk clear rebuildable` | Every row that is built again on its own: *Cleared: 12.9 MB freed.* |
 
 A value it does not know is refused with the names it takes and exit status 2, like every other
@@ -196,7 +174,7 @@ system's ([Where things are kept](where-things-are-kept.md#on-each-system)).
 
 #### What can I clear without losing anything?
 
-Everything in the list but your models, what is outside and your own files comes back by itself. **Clear
+Everything in the list but your models and what is outside comes back by itself. **Clear
 everything that can be built again** takes the search store, the name index, previews, archive
 copies, LibreOffice profiles and ClamAV's virus database. The cost is time: the search store is read again at half speed
 (**Read now** in Settings → *Finding files* reads at full speed), and Find by name waits for the
@@ -224,16 +202,6 @@ the desktop app's duplicate finder waits for it. With no helper, the file is del
 
 Only images named in `[preview] images` are Coxswain's. Tectonic's cache is listed when a LaTeX
 preview made it; one that was there before Coxswain first ran tectonic is yours and not shown.
-Typst's and kicad-cli's caches are listed the same way.
-
-#### Why are the quarantine and a sync's folder listed, when nothing here is my work?
-
-Everything else in the list is Coxswain's and comes back by itself. The rows under *Your own
-files, kept aside by Coxswain* are yours: files you put in quarantine, KiCad's settings (which a
-preview's kicad-cli uses, and an installed KiCad shares), your files as they were
-before a find and replace, and what a folder sync replaced or deleted where the bin could not
-take it. They are shown so the room they take is not hidden, and they go only when you remove
-each one; *Clear everything* never takes them.
 
 #### Why does helper.log not go with Clear everything?
 

@@ -139,9 +139,7 @@ app: there **Ctrl+Z** says so and changes nothing, and the run's folder is in th
   top (*.coxswain-sync-…*), which then goes to the bin as one item: open it there to see
   everything one run took away. Where the bin cannot take it by a move (Termux, Windows, another
   disk without a bin of its own at its top), it stays in that folder and the status line names
-  it. A run cut short (the app closed, killed or the power gone) leaves the folder where it is;
-  the next start of either app sends it to the bin as a finished run would, and says so once
-  ([Where did my replaced files go?](#where-did-my-replaced-files-go)). A hard link that is replaced is
+  it. A hard link that is replaced is
   only renamed away: the file it shares with another name keeps its bytes.
 
 It needs both sides to be folders on this computer: not an archive, a container image, a
@@ -180,9 +178,7 @@ differ there:
   bin: the bin takes and gives back by path, which a junction put in its place could lead
   elsewhere. It stays at the target's top, the status line names it (*What was replaced or
   deleted is kept in …: delete that folder once you no longer need it*), and **Ctrl+Z** undoes
-  the run from it as everywhere else. Once the app has ended, *Settings → Privacy and updates →
-  Disk use* lists the folder under *Your own files, kept aside by Coxswain*, with its size and
-  **Remove**.
+  the run from it as everywhere else.
 
 ## Links
 
@@ -246,29 +242,7 @@ folder at the target's top. **Ctrl+Z** brings all of it back.
 **Ctrl+Z** right after puts everything back where it was. Later, open the bin: the run's items
 are in one folder there, *.coxswain-sync-* followed by the date and time. On Windows, and on a
 disk the bin could only copy to, that folder stays at the target's top instead, and the status
-line names it. A run cut short leaves it at the target's top until the next start, which sends it to the
-bin and says so ([Where did my replaced files go?](#where-did-my-replaced-files-go)).
-
-#### Where did my replaced files go?
-
-A run moves everything it replaces or deletes into one folder at the target's top,
-*.coxswain-sync-* followed by the date, the time and the run, and sends that folder to the bin
-as one item when it ends. Open the bin to find it; **Ctrl+Z** right after the run puts it all
-back instead.
-
-When the run is cut short (the app is closed, killed, or the power goes), the folder stays in
-the target. The next start of either app or the search helper sends it to the bin, as a finished
-run would, and a notice says so once: *A folder sync that ended before it was finished had set
-aside 214 files (1.2 MB) it replaced or deleted in /home/me/rocket. They are in the bin now,
-where you can restore them; Ctrl+Z no longer undoes that sync.* The desktop app lists it under
-*Settings → What's new*; the terminal app shows it on the status line.
-
-Where the bin cannot take the folder (on Windows, where a sync never uses the bin, and on a
-disk without a bin of its own), it stays where it is. The notice then names the folder and says
-to remove it in *Settings → Privacy and updates → Disk use* once you no longer need it; there it
-is listed under *Your own files, kept aside by Coxswain* with its folder, size, **Show in panel**
-and **Remove** (**Delete** in the terminal app, `coxswain --disk clear sync:<name>` on the command
-line, which asks first). Nothing in it is removed without that click.
+line names it.
 
 #### Why does Compare folders not mark a sync run's leftovers?
 

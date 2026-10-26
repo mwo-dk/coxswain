@@ -149,7 +149,7 @@ Every line, level and option, with what it shows, its key and its default:
 
 ## Previews
 
-![The desktop app's Settings at Previews, in the Cyber theme: E-books with calibre and Export draw.io diagrams with their cost badges, Timeout (seconds) 120, Previews made so far (3.3 MB in the cache, those not shown for 30 days go by themselves) with Clear, and Preview tools: the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Not pulled (2.8 GB), Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB)](../screenshots/previews-tools-settings.png)
+![The desktop app's Settings at Previews, in the Cyber theme: E-books with calibre and Export draw.io diagrams with their cost badges, Timeout (seconds) 120, Previews made so far with Clear, and Preview tools: the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Pulled, 5.5 GB with Pull and Remove, Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB) and Pull](../screenshots/previews-tools-settings.png)
 
 For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like.
 Opening this area asks the container runtime which images it has.
@@ -356,7 +356,7 @@ needs and the rows above it scroll.
 | Previews, Behaviour | Their options. The desktop app's own (previews and the like) are there too, since both apps share `config.toml` |
 | Looks | First what both apps use: *Language* and *Icons and git glyphs*. Then, under the heading *Terminal app*, *Theme of the terminal app*; and under *Desktop app* that app's own: its theme, *Font*, *Monospaced font*, *Icon font*, *Text size* and *Row height*, there since both apps share `config.toml`. **Enter** on *Language* or a theme opens its list right under the row; **Esc** closes it |
 | Keys | First the row *Change keys in config.toml, under [keys]*: **Enter** opens your editor there. Then every action the terminal app has, under its group, with its keys; read-only, as in the desktop app. No scripts folder line: **F2** → *Open the scripts folder* goes there ([Scripts](../commands/scripts.md)) |
-| Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to; *Disk use*, each place with its size (**Enter** shows it in the panel, **Delete** clears it, the search store and the preview cache among them; on a row under *Your own files* **Delete** removes it after you confirm, and on *quarantine/* it does nothing) and *Clear everything that can be built again*; where things are kept, the version |
+| Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to; *Disk use*, each place with its size (**Enter** shows it in the panel, **Delete** clears it, the search store and the preview cache among them) and *Clear everything that can be built again*; where things are kept, the version |
 
 ![The terminal app's Settings at Looks, Classic blue: Language (under the cursor) and Icons and git glyphs, then the heading Terminal app with Theme of the terminal app, then the heading Desktop app with its theme, Font, Monospaced font, Icon font, Text size and Row height](../screenshots/tui-settings-looks.png)
 

@@ -165,9 +165,7 @@ into a PDF, with `-dSAFER` so the file cannot touch yours. Install `gs`, or let 
 #### Why does my Typst document fail in the container but build with typst?
 
 It imports a package from Typst Universe (`#import "@preview/…"`). The container has no network,
-so it cannot fetch it; an installed typst can, and keeps it in its cache (`~/.cache/typst`).
-When a preview made that cache, [Disk use](../reference/disk-use.md#outside-coxswains-folder)
-lists it as *Typst*, with its size and Clear.
+so it cannot fetch it; an installed typst can, and keeps it in its cache.
 
 #### Why is an XPS file not shown?
 

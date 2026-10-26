@@ -1023,7 +1023,7 @@ mod facts {
         );
         assert_eq!(
             f.parent().unwrap().file_name().unwrap().to_string_lossy(),
-            crate::spill::run(),
+            std::process::id().to_string(),
             "a name never makes a path"
         );
         let bom = crate::bom::load(&f).unwrap();

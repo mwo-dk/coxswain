@@ -3530,7 +3530,7 @@ fn read_inside(archive: &Path, files: Vec<(i64, String)>, max: u64) -> Vec<(i64,
         .map(|(id, inner)| (inner.clone(), *id))
         .collect();
     let mut texts: HashMap<i64, Option<String>> = files.iter().map(|(id, _)| (*id, None)).collect();
-    let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}", crate::spill::run())));
+    let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}", std::process::id())));
     if let Some(dir) = dir.as_ref().filter(|d| std::fs::create_dir_all(d).is_ok()) {
         #[cfg(unix)]
         let _ = std::fs::set_permissions(dir, std::os::unix::fs::PermissionsExt::from_mode(0o700));

@@ -127,10 +127,6 @@ locked in quarantine and was left where it is*; *Bin* may still take it). On Win
 found, where it came from and where it went, so a file that was wrongly found can be put back
 by hand (copy it back, then give it its permissions again).
 
-Settings → *Privacy and updates* → [Disk use](../reference/disk-use.md#the-rows) lists the folder
-as *quarantine/* under *Your own files, kept aside by Coxswain*, with its size and **Show in
-panel**, and no Clear: what is in it is yours, deleted in a panel once you are sure.
-
 *Bin* puts it in the bin, from where your desktop puts it back. *Leave it* does nothing.
 
 Both act only on the file that was found. Coxswain notes each one as the scan finds it (which

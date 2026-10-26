@@ -857,7 +857,7 @@ impl Scratch {
                 let _ = std::fs::remove_dir_all(e.path());
             }
         }
-        let dir = base.join(format!("{}-{}", crate::spill::run(), N.fetch_add(1, Ordering::Relaxed)));
+        let dir = base.join(format!("{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         Ok(Scratch(dir))
     }
