@@ -114,7 +114,7 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
   `cd gui && npx svelte-check && npm test && npm run build`. For workflow changes
   `python3 tools/workflow-shell-check.py` (`bash -n` and shellcheck on every `run:` script and
-  every `bash -c '…'` inside one; the docs job runs it). For preview changes, build the
+  every `bash -c '…'` or `bash -c "…"` inside one; the docs job runs it). For preview changes, build the
   release and run `uv run tools/preview-check.py` (Linux, needs `broadwayd`): it opens a file of
   each kind in the real app, on a display of its own, and fails when one shows nothing.
 - **No clock in a test's proof.** The BSD and illumos VMs are 5-10 times slower than Linux. A

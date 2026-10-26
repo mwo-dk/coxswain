@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Checks the shell scripts in .github/workflows before any of them runs (CI, docs job).
+r"""Checks the shell scripts in .github/workflows before any of them runs (CI, docs job).
 
 Every `run:` (and a VM action's `prepare:`) block goes through `bash -n` and shellcheck, and so
-does every script inside a single-quoted `bash -c '…'` / `sh -c '…'` in them: an apostrophe in a
-comment there once broke a job only after a long VM or container start. `${{ … }}` expressions
-stand in as a plain word. A step with `shell: vmsh {0}` (a BSD VM's /bin/sh) is checked as sh, one
-with `shell: pwsh` or `python` is skipped. Prints `file:line: …` for each fault, exits 1 on any.
+does every script inside a `bash -c '…'` / `sh -c '…'` in them: an apostrophe in a comment there
+once broke a job only after a long VM or container start. A double-quoted `bash -c "…"` is
+checked as the inner shell gets it: the outer shell's escapes (\$ \" \\ \`) undone and its own
+expansions ($VER, $(…), ${…}, `…`) a plain word. `${{ … }}` expressions stand in as a plain word.
+A step with `shell: vmsh {0}` (a BSD VM's /bin/sh) is checked as sh, one with `shell: pwsh` or
+`python` is skipped. Prints `file:line: …` for each fault, exits 1 on any.
 
     python3 tools/workflow-shell-check.py [workflow.yml …]   (default: .github/workflows/*.yml)
 
@@ -20,7 +22,7 @@ from pathlib import Path
 
 KEY = re.compile(r"^(\s*)(- )?(run|prepare):[ \t]*(.*)$")
 EXPR = re.compile(r"\$\{\{.*?\}\}")
-INNER = re.compile(r"\b(?:bash|sh)\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*c\s+'")
+INNER = re.compile(r"\b(?:bash|sh)\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*c\s+['\"]")
 # Off in every script: SC2016 ($ in single quotes is what `bash -c '…'` is for), SC1091 (sourced
 # files are not followed), and style: SC2129, SC2034 (a retry loop's unused `i`), SC2155 (a step
 # fails on its own line anyway), SC2174 (mkdir -m -p of one folder).
@@ -78,9 +80,59 @@ def blocks(path: Path):
             yield i + 1, value + "\n", dialect
 
 
+def outer_expanded(s: str) -> str:
+    """The text of a double-quoted string `s` (from just after its `"`) as the command it starts
+    gets it: backslash escapes undone, each outer expansion a plain word. ValueError when it
+    does not close."""
+    out, i = [], 0
+    while i < len(s):
+        c = s[i]
+        if c == '"':
+            return "".join(out)
+        if c == "\\" and i + 1 < len(s) and s[i + 1] in '$`"\\\n':
+            out.append("" if s[i + 1] == "\n" else s[i + 1])
+            i += 2
+            continue
+        if c == "`":
+            end = s.find("`", i + 1)
+            if end < 0:
+                break
+            out.append("OUTER")
+            i = end + 1
+            continue
+        if c == "$" and i + 1 < len(s):
+            nxt = s[i + 1]
+            if nxt in "({":
+                close, depth, j = ")" if nxt == "(" else "}", 0, i + 1
+                while j < len(s):
+                    depth += s[j] == nxt
+                    depth -= s[j] == close
+                    if depth == 0:
+                        break
+                    j += 1
+                if j == len(s):
+                    break
+                out.append("OUTER")
+                i = j + 1
+                continue
+            if (m := re.match(r"[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?$!-]", s[i + 1:])):
+                out.append("OUTER")
+                i += 1 + m.end()
+                continue
+        out.append(c)
+        i += 1
+    raise ValueError("No closing quotation")
+
+
 def inner(script: str):
-    """(line offset, script) for each `bash -c '…'` / `sh -c '…'` inside a script."""
+    """(line offset, script) for each `bash -c '…'` / `sh -c '…'` / `bash -c "…"` inside a script."""
     for m in INNER.finditer(script):
+        if script[m.end() - 1] == '"':
+            try:
+                yield script.count("\n", 0, m.start()), outer_expanded(script[m.end():]), None
+            except ValueError as e:
+                yield script.count("\n", 0, m.start()), None, str(e)
+            continue
         lex = shlex.shlex(script[m.end() - 1:], posix=True)
         lex.whitespace_split = True
         lex.commenters = ""
@@ -111,6 +163,8 @@ def check(where: str, script: str, dialect: str) -> list[str]:
 
 
 def main() -> int:
+    # The double-quoted case, on what the termux step does.
+    assert outer_expanded('[ \\"\\$i\\" = 4 ] && v=$VER $(a "b") `c` ${D}\\\nx" tail') == '[ "$i" = 4 ] && v=OUTER OUTER OUTER OUTERx'
     files = [Path(a) for a in sys.argv[1:]] or sorted(Path(".github/workflows").glob("*.yml"))
     faults, count = [], 0
     for f in files:
@@ -119,7 +173,7 @@ def main() -> int:
             faults += check(f"{f}:{line}", script, dialect)
             for off, text, err in inner(script):
                 if err:
-                    faults.append(f"{f}:{line + off}: bash -c '…': {err}")
+                    faults.append(f"{f}:{line + off}: bash -c: {err}")
                     continue
                 count += 1
                 # The inner script runs in a container or VM: sh unless it says bash.

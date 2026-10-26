@@ -161,7 +161,7 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
       - run: python3 tools/docs-check.py
-      # The workflows' own shell scripts, and those inside `bash -c '…'` in them: bash -n and
+      # The workflows' own shell scripts, and those inside `bash -c '…'` or `"…"` in them: bash -n and
       # shellcheck, so a quoting slip fails here in seconds, not after a VM has started.
       - run: python3 tools/workflow-shell-check.py
       # Every theme, action, config.toml key, flag and feature has its mention in docs/. `test`
