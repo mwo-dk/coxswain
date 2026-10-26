@@ -1798,6 +1798,43 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
             .open(&to)
             .and_then(|f| f.set_modified(when));
     }
+    // A ChessBase or SCID database is read with the files beside it under its name (`.cbg`,
+    // `.sg4` …): those come along, so its games show as outside.
+    if (crate::chess::cbh::is_cbh(&to) && !crate::chess::cbv::is_cbv(&to)) || crate::chess::scid::is_scid(&to) {
+        let (folder, stem) = match inner.rsplit_once('/') {
+            Some((f, n)) => (format!("{f}/"), n),
+            None => (String::new(), inner.as_str()),
+        };
+        let stem = stem.rsplit_once('.').map_or(stem, |(s, _)| s);
+        let all = items(&archive)?;
+        let beside: Vec<&Item> = all
+            .iter()
+            .filter(|i| {
+                !i.dir
+                    && i.name != inner
+                    && i.name.strip_prefix(&folder).is_some_and(|n| {
+                        !n.contains('/')
+                            && n.rsplit_once('.').is_some_and(|(s, _)| s.eq_ignore_ascii_case(stem))
+                    })
+            })
+            .collect();
+        if beside.iter().map(|i| i.size).sum::<u64>() > PEEK_MAX {
+            return Err(too_large(&inner));
+        }
+        let dir = to.parent().unwrap_or(Path::new("."));
+        for i in beside {
+            copy_out_with(
+                &archive,
+                &i.name,
+                &dir.join(&i.name[folder.len()..]),
+                password_for(&archive, None).as_deref(),
+                Copy {
+                    limit: PEEK_MAX,
+                    ..Copy::default()
+                },
+            )?;
+        }
+    }
     Ok(to)
 }
 
