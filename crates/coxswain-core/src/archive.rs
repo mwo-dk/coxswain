@@ -2787,7 +2787,7 @@ fn copy_entries(
         let file = all.iter().find(|it| it.name == inner && !it.dir);
         if let Some(it) = file {
             *any = true;
-            let path = place(&it.name).ok_or_else(|| io::Error::other(crate::t!("disk_image.read_only")))?;
+            let path = place(it.name).ok_or_else(|| io::Error::other(crate::t!("disk_image.read_only")))?;
             return crate::disk_image::read_file(archive, inner, it.size, &mut |r| write(&path, r, it.modified));
         }
         if !inner.is_empty() && !all.iter().any(|it| it.name.starts_with(&prefix)) {
