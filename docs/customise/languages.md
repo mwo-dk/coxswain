@@ -397,9 +397,8 @@ and "Commands". A better short word is welcome; see
 ## Improving a translation
 
 The translations were written with care but have not all been checked by native speakers yet.
-The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean, Persian, Armenian,
-Georgian, Norwegian Bokmål and Nynorsk) need a native reader most, then Basque,
-Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
+The ones Settings marks *new* need a native reader most, then the newer ones: Polish, Czech,
+Ukrainian, Greek, Japanese, Korean, Persian, Armenian, Georgian, Basque, Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
 
 - **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the
   language, the text as it is (or where it shows) and what it should say. No setup needed.
