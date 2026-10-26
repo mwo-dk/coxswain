@@ -1729,6 +1729,11 @@
     gap: 10px;
     align-items: baseline;
   }
+  /* Its second-click question names the whole path: it wraps, the row's text keeps its width. */
+  .disk-buttons .danger {
+    max-width: 24em;
+    overflow-wrap: anywhere;
+  }
   .danger-row {
     margin-top: 10px;
     padding-top: 10px;
