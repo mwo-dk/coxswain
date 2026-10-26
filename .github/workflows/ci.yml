@@ -94,6 +94,32 @@ jobs:
           npm run build
 
       - run: cargo test --workspace --locked
+      # FAT32 and exFAT keep coarser times than NTFS: an archive written anew there must still
+      # be dated after the old one. Two small virtual disks, made, tested on and taken off.
+      - name: Archive dates on FAT32 and exFAT
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dirs = @()
+          foreach ($d in @(@{fs='fat32'; l='R'}, @{fs='exfat'; l='S'})) {
+            $vhd = Join-Path $env:RUNNER_TEMP "$($d.fs).vhdx"
+            $script = Join-Path $env:RUNNER_TEMP "$($d.fs).txt"
+            "create vdisk file=`"$vhd`" maximum=256 type=expandable", "select vdisk file=`"$vhd`"",
+              "attach vdisk", "convert mbr", "create partition primary", "format fs=$($d.fs) quick",
+              "assign letter=$($d.l)" | Set-Content $script
+            diskpart /s $script
+            if ($LASTEXITCODE) { exit 1 }
+            $dirs += "$($d.l):\"
+          }
+          $env:COXSWAIN_FAT_DIRS = $dirs -join ';'
+          cargo test -p coxswain-core --locked --lib on_a_fat_disk -- --ignored
+          $code = $LASTEXITCODE
+          foreach ($fs in 'fat32', 'exfat') {
+            $vhd = Join-Path $env:RUNNER_TEMP "$fs.vhdx"
+            "select vdisk file=`"$vhd`"", "detach vdisk" | Set-Content (Join-Path $env:RUNNER_TEMP "off.txt")
+            diskpart /s (Join-Path $env:RUNNER_TEMP "off.txt") | Out-Null
+          }
+          exit $code
       - run: cargo clippy --workspace --all-targets --locked
 
       # The terminal app ships as a static musl binary (Homebrew, releases): whatever the

@@ -347,6 +347,7 @@ pub fn serve() -> io::Result<()> {
     if let Err(e) = &served {
         note(format_args!("helper stops: {e}"));
     }
+    crate::spill::at_exit();
     served
 }
 

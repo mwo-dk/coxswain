@@ -173,7 +173,7 @@ how many there are (*12 files only in the cloud count 0 bytes*).
 
 Settings → *Disk use* lists what Coxswain itself keeps, in three groups: *In Coxswain's cache
 folder* (its search store, the index, previews, work folders) with the built-in models, *Outside
-Coxswain's folder, caused by it* (container images, Tectonic's cache), and *Your own files, kept
+Coxswain's folder, caused by it* (container images, Tectonic's, Typst's and kicad-cli's caches), and *Your own files, kept
 aside by Coxswain* (the quarantine, find-and-replace undo copies, a sync's set-aside folder),
 and lets you clear the first two ([Disk use](../reference/disk-use.md)). Space shows any folder or drive you point it at, file
 by file.

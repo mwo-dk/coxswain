@@ -359,14 +359,14 @@ fn beside(target: &Path, bytes: &[u8], old: Option<&std::fs::Metadata>) -> Resul
     std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
     // Noted first: a crash before the rename leaves it for the next start to remove.
     crate::spill::staging_in(dir);
-    // A name of its own (process, count, time): one a crashed run with the same process id left
+    // A name of its own (run, count, time): one a crashed run with the same process id left
     // is never in the way, and a name taken meanwhile is tried again with another.
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let mut tries = 0;
     let (tmp, mut f) = loop {
         let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.subsec_nanos());
         let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let tmp = dir.join(format!(".{name}.coxswain-{}-{n}-{nanos:x}.tmp", std::process::id()));
+        let tmp = dir.join(format!(".{name}.coxswain-{}-{n}-{nanos:x}.tmp", crate::spill::run()));
         match o.open(&tmp) {
             Ok(f) => break (tmp, f),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && tries < 8 => tries += 1,

@@ -5268,7 +5268,6 @@ pub fn main() {
     }
     coxswain_core::fs::lock_down();
     // What a write of an archive cut short by a crash left beside it.
-    std::thread::spawn(coxswain_core::archive::clean_stale);
     std::thread::spawn(coxswain_core::spill::at_start);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
@@ -5315,6 +5314,7 @@ pub fn main() {
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
     ratatui::restore();
     coxswain_core::archive::clean_up();
+    coxswain_core::spill::at_exit();
     if let Err(e) = res {
         eprintln!("coxswain: {e}");
     }
