@@ -126,7 +126,10 @@ jobs:
             elif [ "$have" != "$v" ]; then
               echo "::error::$branch holds ${have//$'\n'/ } under $dir, not $old alone"; return 1
             fi
-            GH_TOKEN="$WINGET_TOKEN" packaging/retry.sh gh pr edit "$n" -R microsoft/winget-pkgs --title "New package: $id version $v" || return 1
+            # Through the REST API: `gh pr edit` also reads the pull request's projects, which a
+            # public_repo token may not.
+            GH_TOKEN="$WINGET_TOKEN" packaging/retry.sh gh api -X PATCH "repos/microsoft/winget-pkgs/pulls/$n" \
+              -f title="New package: $id version $v" --silent || return 1
             echo "$id $v: microsoft/winget-pkgs#$n, moved from $old in place"
           }
           update() {
