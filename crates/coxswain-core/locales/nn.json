@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Kva om ei fil med det namnet ligg der att?",
  "feature.bin.a2": "Ingenting vert skrive over. Coxswain spør, og gjenopprettar ho ved sida av under eit ledig namn som «rapport (2).pdf», eller lèt ho liggja i papirkorga.",
  "feature.bin.q3": "Kvifor kan eg ikkje gjenoppretta på ein Mac?",
- "feature.bin.a3": "macOS lèt ikkje appar leggja ei fil tilbake. Med full disktilgang viser Coxswain papirkorga og slettar for godt; bruk Legg tilbake i Finder for å gjenoppretta."
+ "feature.bin.a3": "macOS lèt ikkje appar leggja ei fil tilbake. Med full disktilgang viser Coxswain papirkorga og slettar for godt; bruk Legg tilbake i Finder for å gjenoppretta.",
+ "bin.finder_all_disks": "Finder tømmer papirkorga på alle diskar, ikkje berre den som er vist her."
 }

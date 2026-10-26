@@ -4731,5 +4731,6 @@
  "feature.bin.q2": "E se lì c’è di nuovo un file con quel nome?",
  "feature.bin.a2": "Non si sovrascrive nulla. Coxswain chiede e lo ripristina accanto con un nome libero come «relazione (2).pdf», oppure lo lascia nel cestino.",
  "feature.bin.q3": "Perché sul Mac non posso ripristinare?",
- "feature.bin.a3": "macOS non permette alle app di rimettere un file. Con l’accesso completo al disco Coxswain elenca il cestino ed elimina definitivamente; per ripristinare usa Ripristina nel Finder."
+ "feature.bin.a3": "macOS non permette alle app di rimettere un file. Con l’accesso completo al disco Coxswain elenca il cestino ed elimina definitivamente; per ripristinare usa Ripristina nel Finder.",
+ "bin.finder_all_disks": "Il Finder svuota il cestino di tutti i dischi, non solo quello elencato qui."
 }

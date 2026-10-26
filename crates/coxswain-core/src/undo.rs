@@ -689,6 +689,13 @@ fn run_items(
         Op::Mkdir => Kind::Mkdir,
         Op::Pack { .. } => Kind::Pack,
     });
+    // Nothing is copied, moved, extracted, packed or made into the bin's panel: a real `@bin`
+    // folder would hide the bin from then on.
+    if !matches!(op, Op::Trash | Op::Forever) && crate::bin::inside(dst) {
+        let no = || io::Error::new(io::ErrorKind::PermissionDenied, crate::t!("bin.read_only"));
+        let failed = if items.is_empty() { vec![(dst.to_path_buf(), no())] } else { items.iter().map(|i| (i.clone(), no())).collect() };
+        return Ran { failed, rec, stopped: None };
+    }
     let stopped = |done: usize| Some(stopped_line(op, done, items.len()));
     if let Op::Pack { hide_names } = op {
         at(0);

@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Entä jos samanniminen tiedosto on taas paikalla?",
  "feature.bin.a2": "Mitään ei kirjoiteta yli. Coxswain kysyy ja palauttaa sen viereen vapaalla nimellä, kuten ”raportti (2).pdf”, tai jättää sen roskakoriin.",
  "feature.bin.q3": "Miksi en voi palauttaa Macilla?",
- "feature.bin.a3": "macOS ei anna sovellusten palauttaa tiedostoa. Täydellä levyn käyttöoikeudella Coxswain näyttää roskakorin ja poistaa pysyvästi; palauta Finderin Palauta-toiminnolla."
+ "feature.bin.a3": "macOS ei anna sovellusten palauttaa tiedostoa. Täydellä levyn käyttöoikeudella Coxswain näyttää roskakorin ja poistaa pysyvästi; palauta Finderin Palauta-toiminnolla.",
+ "bin.finder_all_disks": "Finder tyhjentää kaikkien levyjen roskakorit, ei vain tässä näkyvää."
 }

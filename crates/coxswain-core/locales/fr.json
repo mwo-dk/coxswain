@@ -4731,5 +4731,6 @@
  "feature.bin.q2": "Et si un fichier du même nom est revenu à sa place ?",
  "feature.bin.a2": "Rien n’est écrasé. Coxswain demande et le restaure à côté sous un nom libre comme « rapport (2).pdf », ou le laisse dans la corbeille.",
  "feature.bin.q3": "Pourquoi ne puis-je pas restaurer sur un Mac ?",
- "feature.bin.a3": "macOS ne permet pas aux apps de remettre un fichier en place. Avec l’accès complet au disque, Coxswain liste la corbeille et supprime définitivement ; pour restaurer, utilisez Remettre en place dans le Finder."
+ "feature.bin.a3": "macOS ne permet pas aux apps de remettre un fichier en place. Avec l’accès complet au disque, Coxswain liste la corbeille et supprime définitivement ; pour restaurer, utilisez Remettre en place dans le Finder.",
+ "bin.finder_all_disks": "Le Finder vide la corbeille de tous les disques, pas seulement celle listée ici."
 }

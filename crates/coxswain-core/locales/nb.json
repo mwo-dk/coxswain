@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Hva om en fil med det navnet ligger der igjen?",
  "feature.bin.a2": "Ingenting overskrives. Coxswain spør, og gjenoppretter den ved siden av under et ledig navn som «rapport (2).pdf», eller lar den ligge i papirkurven.",
  "feature.bin.q3": "Hvorfor kan jeg ikke gjenopprette på en Mac?",
- "feature.bin.a3": "macOS lar ikke apper legge en fil tilbake. Med full disktilgang viser Coxswain papirkurven og sletter for godt; bruk Legg tilbake i Finder for å gjenopprette."
+ "feature.bin.a3": "macOS lar ikke apper legge en fil tilbake. Med full disktilgang viser Coxswain papirkurven og sletter for godt; bruk Legg tilbake i Finder for å gjenopprette.",
+ "bin.finder_all_disks": "Finder tømmer papirkurven på alle disker, ikke bare den som vises her."
 }

@@ -35,6 +35,12 @@ pub fn is_bin(dir: &Path) -> bool {
         && fs::symlink_metadata(dir).is_err()
 }
 
+/// Whether `path` is the bin's path or under it: nothing is put there, as a real `@bin` folder
+/// made by a copy would hide the bin from then on.
+pub fn inside(path: &Path) -> bool {
+    path.ancestors().any(is_bin)
+}
+
 /// Where `..` leads from `dir` when it is an item of a freedesktop bin (`<bin>/files/<item>`):
 /// back to the bin.
 pub fn up_from(dir: &Path) -> Option<PathBuf> {
@@ -247,6 +253,12 @@ pub fn question(op: Op, paths: &[PathBuf]) -> Option<String> {
     Some(match op {
         Op::Restore => crate::t!("bin.ask_restore", "what" => what, "size" => size),
         Op::Delete => crate::t!("bin.ask_delete", "what" => what, "size" => size),
+        // Finder empties every disk's bin, not only the one listed (`~/.Trash`).
+        Op::Empty if cfg!(target_os = "macos") => format!(
+            "{} {}",
+            crate::t!("bin.ask_empty", "what" => what, "size" => size),
+            crate::t!("bin.finder_all_disks")
+        ),
         Op::Empty => crate::t!("bin.ask_empty", "what" => what, "size" => size),
     })
 }
@@ -364,7 +376,24 @@ mod fd {
         ));
         dirs.sort();
         dirs.dedup();
-        dirs.into_iter().map(Bin::at).collect()
+        dirs.into_iter().map(Bin::at).filter(real).collect()
+    }
+
+    /// A bin that can be used: the bin folder, its `info` and its `files` (when there; none is
+    /// an empty bin) are real folders, never links, and so is `.Trash` above `.Trash/<uid>`. A
+    /// link there (a stick with `.Trash-1000/files -> /home/you`) would have Empty delete
+    /// whatever it points at.
+    pub fn real(b: &Bin) -> bool {
+        let folder = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir());
+        let files = b.dir.join("files");
+        let shared = match b.dir.parent() {
+            Some(p) if p.file_name().is_some_and(|n| n == ".Trash") => folder(p),
+            _ => true,
+        };
+        shared
+            && folder(&b.dir)
+            && folder(&b.dir.join("info"))
+            && (folder(&files) || fs::symlink_metadata(&files).is_err())
     }
 
     /// The bins on these disks' tops that are there: `.Trash/<uid>` (when `.Trash` is a sticky
@@ -392,7 +421,7 @@ mod fd {
             }
             out.push(top.join(format!(".Trash-{uid}")));
         }
-        out.retain(|d| d.join("info").is_dir());
+        out.retain(|d| real(&Bin::at(d.clone())));
         out
     }
 
@@ -408,13 +437,17 @@ mod fd {
     /// Everything in `bins`: each info file whose item is there.
     pub fn list_in(bins: &[Bin]) -> Vec<Item> {
         let mut out = vec![];
-        for b in bins {
+        for b in bins.iter().filter(|b| real(b)) {
             let Ok(rd) = fs::read_dir(b.dir.join("info")) else {
                 continue;
             };
             for e in rd.flatten() {
                 let file = e.file_name().to_string_lossy().into_owned();
-                let Some(name) = file.strip_suffix(".trashinfo") else {
+                // `.`, `..` or nothing would name `files` or the bin itself.
+                let Some(name) = file
+                    .strip_suffix(".trashinfo")
+                    .filter(|n| !["", ".", ".."].contains(n))
+                else {
                     continue;
                 };
                 let path = b.dir.join("files").join(name);
@@ -500,7 +533,7 @@ mod fd {
     fn find(bins: &[Bin], path: &Path) -> Option<Item> {
         let b = bins
             .iter()
-            .find(|b| path.parent() == Some(b.dir.join("files").as_path()))?;
+            .find(|b| path.parent() == Some(b.dir.join("files").as_path()) && real(b))?;
         list_in(std::slice::from_ref(b))
             .into_iter()
             .find(|i| i.path == path)
@@ -535,7 +568,7 @@ mod fd {
             let moved = to
                 .parent()
                 .map_or(Ok(()), fs::create_dir_all)
-                .and_then(|_| fs::rename(&item.path, &to));
+                .and_then(|_| move_new(&item.path, &to));
             match moved {
                 Ok(()) => {
                     let _ = fs::remove_file(info_of(&item.path));
@@ -545,6 +578,57 @@ mod fd {
             }
         }
         done
+    }
+
+    /// `from` to `to`, never over what is there by then: a file by a hard link, which fails when
+    /// `to` exists, then its name in the bin taken away; a folder by a rename, which cannot
+    /// replace a file or a folder with something in it. Across disks (the home bin holds what
+    /// was moved in from another) or where no hard link is made (FAT), the move F6 does.
+    // ponytail: that move checks, then moves: a file made in that instant at `to` is replaced.
+    // Windows restores through the shell, with the same check first.
+    pub fn move_new(from: &Path, to: &Path) -> io::Result<()> {
+        let across = |e: &io::Error| {
+            #[cfg(test)]
+            if crate::fs::ACROSS.get() {
+                return true;
+            }
+            matches!(
+                e.kind(),
+                io::ErrorKind::CrossesDevices
+                    | io::ErrorKind::PermissionDenied
+                    | io::ErrorKind::Unsupported
+            )
+        };
+        #[cfg(test)]
+        let simulated = || {
+            if crate::fs::ACROSS.get() {
+                Err(io::Error::from(io::ErrorKind::CrossesDevices))
+            } else {
+                Ok(())
+            }
+        };
+        #[cfg(not(test))]
+        let simulated = || Ok(());
+        let first = if fs::symlink_metadata(from)?.is_dir() {
+            if fs::symlink_metadata(to).is_ok() {
+                return Err(io::Error::new(
+                    io::ErrorKind::AlreadyExists,
+                    crate::t!("err.exists", "path" => to.display()),
+                ));
+            }
+            simulated().and_then(|_| fs::rename(from, to))
+        } else {
+            match simulated().and_then(|_| fs::hard_link(from, to)) {
+                Ok(()) => return fs::remove_file(from),
+                Err(e) => Err(e),
+            }
+        };
+        match first {
+            Err(e) if e.kind() != io::ErrorKind::AlreadyExists && across(&e) => {
+                crate::fs::rename(from, to).map(drop)
+            }
+            r => r,
+        }
     }
 
     fn remove(path: &Path) -> io::Result<()> {
@@ -578,7 +662,7 @@ mod fd {
         let all: Vec<PathBuf> = list_in(bins).into_iter().map(|i| i.path).collect();
         let mut done = delete_in(bins, &all);
         // What has no info file (left by a crash) goes too, and info files without their item.
-        for b in bins {
+        for b in bins.iter().filter(|b| real(b)) {
             for e in fs::read_dir(b.dir.join("files"))
                 .into_iter()
                 .flatten()
@@ -838,9 +922,12 @@ mod sys {
     }
     pub fn delete(paths: &[PathBuf]) -> Done {
         let mut done = Done::default();
-        let d = dir();
+        // Only what the bin lists: never a path elsewhere, nor `.DS_Store`.
+        let listed: Vec<PathBuf> = list()
+            .map(|l| l.into_iter().map(|i| i.path).collect())
+            .unwrap_or_default();
         for p in paths {
-            let r = if p.parent() != d.as_deref() {
+            let r = if !listed.contains(p) {
                 Err(io::Error::new(
                     io::ErrorKind::NotFound,
                     crate::t!("err.not_in_trash"),
@@ -1059,6 +1146,178 @@ mod tests {
             0
         );
         assert!(outside.exists());
+    }
+
+    /// A bin whose `files` is a link to a folder outside it (a stick with
+    /// `.Trash-1000/files -> /home/you`): nothing done in the bin reaches that folder.
+    #[cfg(unix)]
+    #[test]
+    fn bin_never_reaches_through_a_link() {
+        let d = crate::fs::Scratch::named("bin-link");
+        let outside = d.join("outside");
+        fs::create_dir_all(outside.join("docs")).unwrap();
+        fs::write(outside.join("docs/keep.txt"), "keep").unwrap();
+        fs::write(outside.join("a.txt"), "keep").unwrap();
+        let b = d.join(".Trash-1000");
+        fs::create_dir_all(b.join("info")).unwrap();
+        std::os::unix::fs::symlink(&outside, b.join("files")).unwrap();
+        fs::write(b.join("info/docs.trashinfo"), "[Trash Info]\nPath=docs\n").unwrap();
+        fs::write(
+            b.join("info/a.txt.trashinfo"),
+            "[Trash Info]\nPath=back/a.txt\n",
+        )
+        .unwrap();
+        let bins = [Bin::at(b.clone())];
+        assert!(list_in(&bins).is_empty());
+        restore_in(&bins, &[b.join("files/a.txt")], true);
+        delete_in(&bins, &[b.join("files/docs")]);
+        empty_in(&bins);
+        assert_eq!(
+            fs::read_to_string(outside.join("docs/keep.txt")).unwrap(),
+            "keep"
+        );
+        assert_eq!(fs::read_to_string(outside.join("a.txt")).unwrap(), "keep");
+        // `info` a link, the bin itself a link, `.Trash` above `<uid>` a link: none is a bin.
+        let kept = |dir: PathBuf| real(&Bin::at(dir));
+        assert!(!kept(b.clone()));
+        let c = d.join("c/.Trash-1000");
+        fs::create_dir_all(c.join("files")).unwrap();
+        std::os::unix::fs::symlink(&outside, c.join("info")).unwrap();
+        assert!(!kept(c));
+        std::os::unix::fs::symlink(d.join("real"), d.join("linked")).unwrap();
+        fs::create_dir_all(d.join("real/info")).unwrap();
+        assert!(!kept(d.join("linked")));
+        fs::create_dir_all(d.join("t/.Trash-target/1000/info")).unwrap();
+        fs::create_dir_all(d.join("t2")).unwrap();
+        std::os::unix::fs::symlink(d.join("t/.Trash-target"), d.join("t2/.Trash")).unwrap();
+        assert!(!kept(d.join("t2/.Trash/1000")));
+        // A bin with no `files` yet is a bin, and empty.
+        assert!(kept(d.join("real")));
+        assert!(disk_bins([d.join("c"), d.join("t2")].into_iter()).is_empty());
+    }
+
+    /// An info file named `..`, `.` or nothing names `files` or the bin itself: never an item.
+    #[cfg(unix)]
+    #[test]
+    fn bin_odd_names_are_no_items() {
+        let d = crate::fs::Scratch::named("bin-dots");
+        let b = bin(&d, &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        for n in ["", ".", ".."] {
+            fs::write(
+                b.dir.join(format!("info/{n}.trashinfo")),
+                "[Trash Info]\nPath=/x/y\n",
+            )
+            .unwrap();
+        }
+        let bins = [b.clone()];
+        assert_eq!(list_in(&bins).len(), 1);
+        empty_in(&bins);
+        assert!(
+            b.dir.join("files").is_dir() && b.dir.join("info").is_dir(),
+            "the bin stays"
+        );
+    }
+
+    /// Restore never replaces what is at the place by the time it moves.
+    #[test]
+    fn bin_move_never_replaces() {
+        let d = crate::fs::Scratch::named("bin-noreplace");
+        fs::write(d.join("from"), "bin").unwrap();
+        fs::write(d.join("to"), "new").unwrap();
+        assert_eq!(
+            move_new(&d.join("from"), &d.join("to")).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        assert_eq!(fs::read_to_string(d.join("to")).unwrap(), "new");
+        assert_eq!(fs::read_to_string(d.join("from")).unwrap(), "bin");
+        fs::create_dir_all(d.join("dir/x")).unwrap();
+        assert_eq!(
+            move_new(&d.join("dir"), &d.join("to")).unwrap_err().kind(),
+            io::ErrorKind::AlreadyExists
+        );
+        move_new(&d.join("from"), &d.join("back")).unwrap();
+        assert!(!d.join("from").exists() && fs::read_to_string(d.join("back")).unwrap() == "bin");
+    }
+
+    /// The home bin holds what was moved in from another disk: it goes back across.
+    #[cfg(unix)]
+    #[test]
+    fn bin_restores_across_disks() {
+        let d = crate::fs::Scratch::named("bin-across");
+        // Another file system when there is one here (Linux's /dev/shm), else as across.
+        let shm = Path::new("/dev/shm");
+        use std::os::unix::fs::MetadataExt;
+        let real = shm.is_dir()
+            && fs::metadata(shm).ok().map(|m| m.dev()) != fs::metadata(&*d).ok().map(|m| m.dev());
+        let home = if real {
+            shm.join(format!("coxswain-test-bin-{}", std::process::id()))
+        } else {
+            d.join("home")
+        };
+        fs::create_dir_all(&home).unwrap();
+        let b = bin(
+            &d,
+            &[
+                (
+                    "a.txt",
+                    &format!("{}/a.txt", home.display()),
+                    "2026-10-01T12:00:00",
+                ),
+                (
+                    "dir/",
+                    &format!("{}/dir", home.display()),
+                    "2026-10-01T12:00:00",
+                ),
+            ],
+        );
+        crate::fs::ACROSS.set(!real);
+        let r = restore_in(
+            &[b.clone()],
+            &[b.dir.join("files/a.txt"), b.dir.join("files/dir")],
+            false,
+        );
+        crate::fs::ACROSS.set(false);
+        let got = (
+            fs::read_to_string(home.join("a.txt")).ok(),
+            fs::read_to_string(home.join("dir/sub/x")).ok(),
+        );
+        if real {
+            let _ = fs::remove_dir_all(&home);
+        }
+        assert_eq!((r.done, r.failed), (2, Vec::<String>::new()));
+        assert_eq!(got, (Some("abc".into()), Some("12345".into())));
+        assert!(list_in(&[b]).is_empty());
+    }
+
+    /// Nothing is put into the bin's panel: a real `@bin` would hide the bin.
+    #[test]
+    fn bin_takes_no_copy_move_or_pack() {
+        let d = crate::fs::Scratch::named("bin-into");
+        fs::write(d.join("a.txt"), "a").unwrap();
+        let bin = path().unwrap();
+        assert!(inside(&bin) && inside(&bin.join("x.zip")) && !inside(&d));
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        for op in [
+            crate::undo::Op::Copy,
+            crate::undo::Op::Move,
+            crate::undo::Op::Pack { hide_names: false },
+        ] {
+            let to = if matches!(op, crate::undo::Op::Pack { .. }) {
+                bin.join("a.zip")
+            } else {
+                bin.clone()
+            };
+            let r = crate::undo::run(op, &[d.join("a.txt")], &to, None, &stop, |_| {});
+            assert_eq!(r.failed.len(), 1);
+        }
+        assert!(fs::symlink_metadata(&bin).is_err(), "no @bin made");
+        assert!(d.join("a.txt").exists());
+        assert!(
+            crate::fs::copy(&d.join("a.txt"), &bin).is_err()
+                && crate::fs::mkdir(&bin.join("n")).is_err()
+        );
+        assert!(fs::symlink_metadata(&bin).is_err());
+        assert_eq!(crate::drag::read_only(&bin), Some("bin.read_only"));
     }
 
     #[cfg(unix)]

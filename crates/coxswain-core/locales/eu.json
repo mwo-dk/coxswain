@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Eta izen bereko fitxategi bat berriro badago?",
  "feature.bin.a2": "Ez da ezer gainidazten. Coxswainek galdetu eta ondoan leheneratzen du izen libre batekin, «txostena (2).pdf» bezala, edo zakarrontzian uzten du.",
  "feature.bin.q3": "Zergatik ezin dut Mac batean leheneratu?",
- "feature.bin.a3": "macOSek ez die aplikazioei fitxategirik itzultzen uzten. Diskorako sarbide osoarekin, Coxswainek zakarrontzia zerrendatu eta betiko ezabatzen du; leheneratzeko, erabili Finderreko Itzuli."
+ "feature.bin.a3": "macOSek ez die aplikazioei fitxategirik itzultzen uzten. Diskorako sarbide osoarekin, Coxswainek zakarrontzia zerrendatu eta betiko ezabatzen du; leheneratzeko, erabili Finderreko Itzuli.",
+ "bin.finder_all_disks": "Finderrek disko guztietako zakarrontziak husten ditu, ez hemen zerrendatutakoa bakarrik."
 }

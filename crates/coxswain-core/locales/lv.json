@@ -4731,5 +4731,6 @@
  "feature.bin.q2": "Ja tur atkal ir fails ar tādu pašu nosaukumu?",
  "feature.bin.a2": "Nekas netiek pārrakstīts. Coxswain pajautā un atjauno to blakus ar brīvu nosaukumu, piem., “atskaite (2).pdf”, vai atstāj atkritnē.",
  "feature.bin.q3": "Kāpēc Mac nevaru atjaunot?",
- "feature.bin.a3": "macOS neļauj lietotnēm likt failu atpakaļ. Ar pilnu diska piekļuvi Coxswain uzskaita atkritni un dzēš neatgriezeniski; atjaunošanai izmantojiet Finder komandu Likt atpakaļ."
+ "feature.bin.a3": "macOS neļauj lietotnēm likt failu atpakaļ. Ar pilnu diska piekļuvi Coxswain uzskaita atkritni un dzēš neatgriezeniski; atjaunošanai izmantojiet Finder komandu Likt atpakaļ.",
+ "bin.finder_all_disks": "Finder iztukšo visu disku atkritnes, ne tikai šeit redzamo."
 }

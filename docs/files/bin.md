@@ -64,7 +64,7 @@ All three ask first, naming how many items and their size, and say that it canno
 
 | Action | Does |
 |---|---|
-| *Restore from the bin* | Puts the marked items (or the one under the cursor) back where they were; on the BSDs, illumos and Linux the folder is made again if it is gone. When another file has the place now, nothing is overwritten: Coxswain asks *Restore under a free name*, which puts it beside that file as `name (2)`; Esc leaves it in the bin |
+| *Restore from the bin* | Puts the marked items (or the one under the cursor) back where they were; on the BSDs, illumos and Linux the folder is made again if it is gone. When another file has the place now, nothing is overwritten: Coxswain asks *Restore under a free name*, which puts it beside that file as `name (2)`; Esc leaves it in the bin. A file that came into your home's bin from another disk goes back across, copied and then removed from the bin, as **F6** moves between disks |
 | *Delete from the bin for good* | Deletes the marked items, folders with all in them. Also **F8** and **Shift+F8** in the bin |
 | *Empty the bin* | Deletes everything in the bin for good. Also from the sidebar row's menu, from anywhere |
 
@@ -72,7 +72,7 @@ The status line then says *Restored 3 items*, *Deleted 2 items for good* or *The
 What could not be done (a file in use, no permission) is listed in a dialog with its name.
 
 In the bin nothing is moved, renamed or made: **F6**, **Shift+F6** and **F7** say *Nothing is
-moved, renamed or made in the bin: restore it, or copy it out*. **F5** copies files out of it.
+moved, renamed or made in the bin: restore it, or copy it out*. **F5** copies files out of it. Nothing goes in: **F5**, **F6**, *Extract*, *Pack* or a drop onto the bin's panel say the same, and nothing is made. To put files in the bin, delete them with **F8**.
 
 ## Which bin, on each system
 
@@ -80,8 +80,10 @@ moved, renamed or made in the bin: restore it, or copy it out*. **F5** copies fi
 |---|---|---|
 | FreeBSD, the other BSDs, illumos, Linux | The freedesktop.org bin: the one in your home (`~/.local/share/Trash`, or `$XDG_DATA_HOME/Trash`) and each disk's own (`.Trash/<uid>` or `.Trash-<uid>` at the disk's top) | Everything. In Termux only the home bin; on illumos the home bin and those at mounted disks' tops |
 | Linux, the Flatpak | The app's own bin only, not the system's | Everything, on what is in that bin; the notice *In the Flatpak, Coxswain sees only its own bin…* says so once. Files you delete in the Flatpak go to the system's bin, which the Flatpak cannot list |
-| macOS | `~/.Trash` | Listing it needs Full Disk Access (System Settings → Privacy & Security → Full Disk Access → Coxswain). Without it the row says *in Finder* and opens the bin in Finder. There is no restore: macOS gives apps no way to put a file back (use *Put Back* in Finder). Delete for good works; *Empty the bin* asks Finder, so macOS asks once whether Coxswain may control Finder. A notice says this once |
+| macOS | `~/.Trash` | Listing it needs Full Disk Access (System Settings → Privacy & Security → Full Disk Access → Coxswain). Without it the row says *in Finder* and opens the bin in Finder. There is no restore: macOS gives apps no way to put a file back (use *Put Back* in Finder). Delete for good works; *Empty the bin* asks Finder, so macOS asks once whether Coxswain may control Finder; Finder empties the bin of every disk, not only `~/.Trash`, and the question says so. A notice says this once |
 | Windows | The Recycle Bin of every drive | Everything |
+
+Only real folders count as a bin: a disk's `.Trash-1000` whose `files` or `info` is a link (to your home, say) is left out, so emptying can never reach through it.
 
 ## Settings and config.toml
 

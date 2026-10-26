@@ -580,6 +580,9 @@ fn writable(path: &Path) -> io::Result<()> {
     if crate::zfs::is_read_only(path) {
         return denied("zfs.read_only");
     }
+    if crate::bin::inside(path) {
+        return denied("bin.read_only");
+    }
     if path.ancestors().any(|a| crate::bsd::split(a).is_some()) {
         return denied("pkg.read_only");
     }

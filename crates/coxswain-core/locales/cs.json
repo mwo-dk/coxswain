@@ -4734,5 +4734,6 @@
  "feature.bin.q2": "Co když tam zase je soubor stejného jména?",
  "feature.bin.a2": "Nic se nepřepíše. Coxswain se zeptá a obnoví ho vedle pod volným názvem, třeba „zpráva (2).pdf“, nebo ho nechá v koši.",
  "feature.bin.q3": "Proč na Macu nemohu obnovovat?",
- "feature.bin.a3": "macOS aplikacím nedovolí soubor vrátit. S plným přístupem k disku Coxswain koš vypíše a maže trvale; k obnovení použijte Vrátit zpět ve Finderu."
+ "feature.bin.a3": "macOS aplikacím nedovolí soubor vrátit. S plným přístupem k disku Coxswain koš vypíše a maže trvale; k obnovení použijte Vrátit zpět ve Finderu.",
+ "bin.finder_all_disks": "Finder vysype koš na všech discích, nejen ten zde vypsaný."
 }

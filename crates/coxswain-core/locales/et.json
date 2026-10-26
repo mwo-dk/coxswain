@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Mis siis, kui seal on jälle sama nimega fail?",
  "feature.bin.a2": "Midagi ei kirjutata üle. Coxswain küsib ja taastab selle kõrvale vaba nimega, nt „aruanne (2).pdf”, või jätab prügikasti.",
  "feature.bin.q3": "Miks ma ei saa Macis taastada?",
- "feature.bin.a3": "macOS ei lase rakendustel faili tagasi panna. Täieliku kettajuurdepääsuga loetleb Coxswain prügikasti ja kustutab jäädavalt; taastamiseks kasuta Finderis Pane tagasi."
+ "feature.bin.a3": "macOS ei lase rakendustel faili tagasi panna. Täieliku kettajuurdepääsuga loetleb Coxswain prügikasti ja kustutab jäädavalt; taastamiseks kasuta Finderis Pane tagasi.",
+ "bin.finder_all_disks": "Finder tühjendab kõigi ketaste prügikastid, mitte ainult siin näidatud."
 }

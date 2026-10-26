@@ -4829,5 +4829,6 @@
  "feature.bin.q2": "A jeśli jest tam znowu plik o tej nazwie?",
  "feature.bin.a2": "Nic nie jest nadpisywane. Coxswain pyta i przywraca go obok pod wolną nazwą, np. „raport (2).pdf”, albo zostawia w Koszu.",
  "feature.bin.q3": "Dlaczego na Macu nie mogę przywracać?",
- "feature.bin.a3": "macOS nie pozwala aplikacjom odkładać plików. Z pełnym dostępem do dysku Coxswain pokazuje Kosz i usuwa na zawsze; do przywracania użyj Odłóż w Finderze."
+ "feature.bin.a3": "macOS nie pozwala aplikacjom odkładać plików. Z pełnym dostępem do dysku Coxswain pokazuje Kosz i usuwa na zawsze; do przywracania użyj Odłóż w Finderze.",
+ "bin.finder_all_disks": "Finder opróżnia Kosz na każdym dysku, nie tylko ten pokazany tutaj."
 }

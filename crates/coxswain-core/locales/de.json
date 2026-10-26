@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Was, wenn dort wieder eine Datei dieses Namens liegt?",
  "feature.bin.a2": "Nichts wird überschrieben. Coxswain fragt und legt sie unter einem freien Namen wie „Bericht (2).pdf“ daneben, oder lässt sie im Papierkorb.",
  "feature.bin.q3": "Warum kann ich auf dem Mac nicht wiederherstellen?",
- "feature.bin.a3": "macOS lässt Apps keine Datei zurücklegen. Mit Festplattenvollzugriff listet Coxswain den Papierkorb und löscht endgültig; zum Zurücklegen nehmen Sie im Finder „Zurücklegen“."
+ "feature.bin.a3": "macOS lässt Apps keine Datei zurücklegen. Mit Festplattenvollzugriff listet Coxswain den Papierkorb und löscht endgültig; zum Zurücklegen nehmen Sie im Finder „Zurücklegen“.",
+ "bin.finder_all_disks": "Der Finder leert den Papierkorb aller Laufwerke, nicht nur den hier gelisteten."
 }

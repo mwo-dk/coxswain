@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Wat als daar weer een bestand met die naam staat?",
  "feature.bin.a2": "Er wordt niets overschreven. Coxswain vraagt het en zet het ernaast terug onder een vrije naam zoals ‘verslag (2).pdf’, of laat het in de prullenbak.",
  "feature.bin.q3": "Waarom kan ik op een Mac niet terugzetten?",
- "feature.bin.a3": "macOS laat apps geen bestand terugzetten. Met volledige schijftoegang toont Coxswain de prullenbak en verwijdert het definitief; gebruik Zet terug in de Finder om terug te zetten."
+ "feature.bin.a3": "macOS laat apps geen bestand terugzetten. Met volledige schijftoegang toont Coxswain de prullenbak en verwijdert het definitief; gebruik Zet terug in de Finder om terug te zetten.",
+ "bin.finder_all_disks": "De Finder leegt de prullenbak van elke schijf, niet alleen die hier staat."
 }

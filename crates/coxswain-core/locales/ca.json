@@ -4731,5 +4731,6 @@
  "feature.bin.q2": "I si hi torna a haver un fitxer amb aquest nom?",
  "feature.bin.a2": "No se sobreescriu res. Coxswain pregunta i el restaura al costat amb un nom lliure com «informe (2).pdf», o el deixa a la paperera.",
  "feature.bin.q3": "Per què no puc restaurar en un Mac?",
- "feature.bin.a3": "macOS no deixa que les apps tornin un fitxer. Amb accés total al disc, Coxswain llista la paperera i suprimeix definitivament; per restaurar, fes servir Tornar al Finder."
+ "feature.bin.a3": "macOS no deixa que les apps tornin un fitxer. Amb accés total al disc, Coxswain llista la paperera i suprimeix definitivament; per restaurar, fes servir Tornar al Finder.",
+ "bin.finder_all_disks": "El Finder buida la paperera de tots els discs, no només la que es mostra aquí."
 }

@@ -4731,5 +4731,6 @@
  "feature.bin.q2": "O jei ten vėl yra tokio pat pavadinimo failas?",
  "feature.bin.a2": "Niekas neperrašoma. Coxswain paklausia ir atkuria jį šalia laisvu pavadinimu, pvz., „ataskaita (2).pdf“, arba palieka šiukšlinėje.",
  "feature.bin.q3": "Kodėl „Mac“ negaliu atkurti?",
- "feature.bin.a3": "macOS neleidžia programoms grąžinti failo. Turėdama visą disko prieigą, Coxswain išvardija šiukšlinę ir ištrina galutinai; atkurti naudokite „Finder“ komandą „Grąžinti“."
+ "feature.bin.a3": "macOS neleidžia programoms grąžinti failo. Turėdama visą disko prieigą, Coxswain išvardija šiukšlinę ir ištrina galutinai; atkurti naudokite „Finder“ komandą „Grąžinti“.",
+ "bin.finder_all_disks": "„Finder“ išvalo visų diskų šiukšlines, ne tik čia rodomą."
 }

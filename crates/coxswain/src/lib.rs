@@ -3530,6 +3530,11 @@ impl App {
         if let Some(j) = &self.job {
             return self.status = Some(j.shown());
         }
+        // Nothing goes into the bin's panel (a pack's archive neither): a real `@bin` folder
+        // would hide the bin. Said at once, before anything starts.
+        if !matches!(op, Some(Transfer::Delete(_))) && coxswain_core::bin::inside(&dst) {
+            return self.status = Some(t!("bin.read_only"));
+        }
         // Measured in `finish`: while it runs, a folder's size would be halfway.
         self.forget(&job_op(op).touches(&src, &dst));
         let (tx, rx) = mpsc::channel();

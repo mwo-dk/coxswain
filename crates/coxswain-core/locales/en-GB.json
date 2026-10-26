@@ -4644,5 +4644,6 @@
  "feature.bin.q2": "What if a file of that name is there again?",
  "feature.bin.a2": "Nothing is overwritten. Coxswain asks, and restores it beside the other under a free name such as “report (2).pdf”, or leaves it in the bin.",
  "feature.bin.q3": "Why can I not restore on a Mac?",
- "feature.bin.a3": "macOS gives apps no way to put a file back. With Full Disk Access Coxswain lists the bin and deletes for good; use Put Back in Finder to restore."
+ "feature.bin.a3": "macOS gives apps no way to put a file back. With Full Disk Access Coxswain lists the bin and deletes for good; use Put Back in Finder to restore.",
+ "bin.finder_all_disks": "Finder empties the bin of every disk, not only the one listed here."
 }

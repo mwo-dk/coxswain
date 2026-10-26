@@ -141,5 +141,6 @@
  "feature.bin.what": "{bin} shows the system's trash as a panel, each file with the folder it came from and when it was deleted. {bin_restore} puts files back; {bin_delete} and {bin_empty} delete for good.",
  "feature.bin.a1": "Open the trash from the sidebar (in the terminal app from {goto_left}) or with {bin}, mark the file and use {bin_restore}. It goes back to the folder it came from, made again if it is gone.",
  "feature.bin.a2": "Nothing is overwritten. Coxswain asks, and restores it beside the other under a free name such as “report (2).pdf”, or leaves it in the trash.",
- "feature.bin.a3": "macOS gives apps no way to put a file back. With Full Disk Access Coxswain lists the trash and deletes for good; use Put Back in Finder to restore."
+ "feature.bin.a3": "macOS gives apps no way to put a file back. With Full Disk Access Coxswain lists the trash and deletes for good; use Put Back in Finder to restore.",
+ "bin.finder_all_disks": "Finder empties the trash of every disk, not only the one listed here."
 }

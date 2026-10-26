@@ -246,7 +246,16 @@
   }
 
   /** Copy or move `paths` (named relative to `base`) to `dest`, with its status line and error. */
+  /** Whether `dest` is the bin's panel or under it: nothing goes there (a real `@bin` folder
+   *  would hide the bin), said on the status line. */
+  const intoBin = (dest) => {
+    const b = ui.bin?.path;
+    const no = !!b && (dest === b || dest.startsWith(b + ui.cfg.sep));
+    if (no) ui.status = t("bin.read_only");
+    return no;
+  };
   const transferTo = (paths, base, dest, isMove, what = describe(paths)) =>
+    intoBin(dest) ||
     op((password, only) => invoke(isMove ? "rename" : "copy", { paths: only ?? paths, base, dest, password }), t(isMove ? "status.moved" : "status.copied", { what }), what, failTitle(isMove ? "move" : "copy", paths, what));
 
   async function transfer(isMove, dest = otherTab().dir) {
@@ -582,7 +591,7 @@
       if (!paths.length) return void (ui.status = t("app.not_archive"));
       const what = describe(paths);
       prompt(t("app.extract", { what }), t("dialog.to"), otherTab().dir, t("verb.extract"), (d) => {
-        if (d.trim()) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, failTitle("extract", paths, what));
+        if (d.trim() && !intoBin(d)) op((password) => invoke("extract", { paths, base: tab().dir, dest: d, password }), t("app.extracted", { what }), what, failTitle("extract", paths, what));
       }, "pack_and_extract");
     },
     pack: async () => {
@@ -602,7 +611,7 @@
         run: (d, password, hideNames) => {
           const f = packFormat(ui.cfg.pack_formats, d);
           if (f) ui.packEnding = f.endings[0];
-          if (d.trim()) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, failTitle("pack", paths, what));
+          if (d.trim() && !intoBin(d)) op(invoke("pack", { paths, base: tab().dir, dest: d, password, hideNames }), t("archive.packed", { what }), what, failTitle("pack", paths, what));
         },
       };
       const m = ui.modal;

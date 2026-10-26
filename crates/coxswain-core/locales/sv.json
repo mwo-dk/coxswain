@@ -4633,5 +4633,6 @@
  "feature.bin.q2": "Vad händer om en fil med det namnet finns där igen?",
  "feature.bin.a2": "Inget skrivs över. Coxswain frågar och återställer den bredvid under ett ledigt namn som ”rapport (2).pdf”, eller låter den ligga kvar i papperskorgen.",
  "feature.bin.q3": "Varför kan jag inte återställa på en Mac?",
- "feature.bin.a3": "macOS låter inte appar lägga tillbaka en fil. Med full skivåtkomst visar Coxswain papperskorgen och raderar för gott; använd Lägg tillbaka i Finder för att återställa."
+ "feature.bin.a3": "macOS låter inte appar lägga tillbaka en fil. Med full skivåtkomst visar Coxswain papperskorgen och raderar för gott; använd Lägg tillbaka i Finder för att återställa.",
+ "bin.finder_all_disks": "Finder tömmer papperskorgen på alla skivor, inte bara den som visas här."
 }
