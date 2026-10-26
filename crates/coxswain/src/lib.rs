@@ -4543,8 +4543,11 @@ impl App {
                 }
             }
         }
-        if let Some(Dialog::Settings(s)) = &mut self.dialog {
-            s.poll();
+        if let Some(Dialog::Settings(s)) = &mut self.dialog
+            && let Some(changes) = s.poll()
+            && let Some(Dialog::Settings(s)) = self.dialog.take()
+        {
+            self.settings_save(s, changes);
         }
         if let Some(Dialog::Provenance(v)) = &mut self.dialog {
             v.poll();

@@ -168,6 +168,9 @@ pub enum Mode {
     Find { query: String, at: usize },
     /// Another model reads every file's meaning again: why, and the change that waits for a yes.
     Confirm(String, Map<String, Value>),
+    /// What the changes of commits cost is being worked out on a thread (git asked of every
+    /// repository): the change, and the notice on its way. `Confirm` follows, or the save.
+    Costing(Map<String, Value>, mpsc::Receiver<Option<String>>),
     /// A built-in model in use is to be deleted: its folder's name, waiting for a yes.
     ConfirmDelete(String),
     /// A row of Disk use is to be cleared (its id; `CLEAR_ALL` for everything that can be built
@@ -315,8 +318,21 @@ impl Settings {
         self.tools_rx = Some(rx);
     }
 
-    /// The answer to Ask's test question, when it has come.
-    pub fn poll(&mut self) {
+    /// The answer to Ask's test question, when it has come. A change whose cost came back with
+    /// nothing to say is given back, to be saved.
+    pub fn poll(&mut self) -> Option<Map<String, Value>> {
+        if let Mode::Costing(_, rx) = &self.mode {
+            let why = match rx.try_recv() {
+                Ok(why) => why,
+                Err(mpsc::TryRecvError::Empty) => return None,
+                Err(mpsc::TryRecvError::Disconnected) => Some(t!("changes.cost_unknown")),
+            };
+            let Mode::Costing(changes, _) = std::mem::replace(&mut self.mode, Mode::Browse) else { return None };
+            match why {
+                Some(why) => self.mode = Mode::Confirm(why, changes),
+                None => return Some(changes),
+            }
+        }
         if let Some(r) = self.engine_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.engine_rx = None;
             self.said = Some(match &r {
@@ -350,6 +366,7 @@ impl Settings {
                 Err(e) => (e, true),
             });
         }
+        None
     }
 }
 
@@ -1056,6 +1073,9 @@ impl App {
                 _ if esc => {}
                 _ => s.mode = Mode::Confirm(why, changes),
             },
+            // Esc leaves the change unsaved; what the thread works out is dropped.
+            Mode::Costing(..) if esc => {}
+            m @ Mode::Costing(..) => s.mode = m,
             Mode::ConfirmDelete(id) => match key.code {
                 KeyCode::Enter => return self.model_delete(s, &id),
                 _ if esc => {}
@@ -1313,9 +1333,17 @@ impl App {
         let index = &self.index;
         let why = coxswain_core::meaning::change_notice(&self.cfg.search, &new.search, st.meaning_done, st.meaning_passages)
             // What is kept of long files: what the change reads, adds or frees, first.
-            .or_else(|| coxswain_core::long_files::change_notice(&self.cfg.search, &new.search, st.meaning_ms_per_passage, |r| index.long_files_cost(r)))
-            // The changes of commits: their room and time said first, or what turning them off frees.
-            .or_else(|| coxswain_core::store::changes_notice(&self.cfg.search, &new.search));
+            .or_else(|| coxswain_core::long_files::change_notice(&self.cfg.search, &new.search, st.meaning_ms_per_passage, |r| index.long_files_cost(r)));
+        let (old, now) = (&self.cfg.search, &new.search);
+        if why.is_none() && (old.history, old.commit_changes, &old.commit_changes_in) != (now.history, now.commit_changes, &now.commit_changes_in) {
+            // The changes of commits: their room and time said first, or what turning them off
+            // frees. git counts them in every repository, which takes a while: on a thread.
+            let (old, now) = (old.clone(), now.clone());
+            let (tx, rx) = mpsc::channel();
+            std::thread::spawn(move || tx.send(coxswain_core::store::changes_notice(&old, &now)));
+            s.mode = Mode::Costing(changes, rx);
+            return self.dialog = Some(Dialog::Settings(s));
+        }
         if let Some(why) = why {
             s.mode = Mode::Confirm(why, changes);
             return self.dialog = Some(Dialog::Settings(s));
@@ -1414,7 +1442,7 @@ impl App {
         s.load_tools(self, None);
     }
 
-    fn settings_save(&mut self, mut s: Box<Settings>, changes: Map<String, Value>) {
+    pub(crate) fn settings_save(&mut self, mut s: Box<Settings>, changes: Map<String, Value>) {
         let Some(path) = s.path.clone() else {
             s.said = Some((t!("err.no_config_folder"), true));
             return self.dialog = Some(Dialog::Settings(s));
@@ -1496,6 +1524,7 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
     match &s.mode {
         // A change of what is kept of long files, or of the vectors' model.
         Mode::Confirm(why, changes) if changes.keys().any(|k| k.starts_with("long_files") || k.starts_with("search_commit_changes")) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("common.apply"), t!("common.cancel")), red)),
+        Mode::Costing(..) => text.push(Span::styled(format!("{} Esc: {}", t!("changes.costing"), t!("common.cancel")), red)),
         Mode::Confirm(why, _) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("settings.meaning_change_go"), t!("settings.meaning_change_keep")), red)),
         Mode::ConfirmDelete(id) => {
             let name = rows.iter().find_map(|r| match r {
@@ -1739,7 +1768,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     } else {
         for (i, row) in rows.iter().enumerate() {
             let here = i == s.cursor;
-            let st = if here && matches!(s.mode, Mode::Browse | Mode::Confirm(..)) { selected } else { base };
+            let st = if here && matches!(s.mode, Mode::Browse | Mode::Confirm(..) | Mode::Costing(..)) { selected } else { base };
             if here {
                 cursor_line = lines.len();
             }
@@ -2014,6 +2043,45 @@ mod tests {
     fn selected(app: &App) -> Option<&'static str> {
         let s = settings(app);
         rows(app, s).get(s.cursor).and_then(Row::id)
+    }
+
+    /// Ticking the changes of commits works out their cost on a thread: *Working out…* first,
+    /// then the confirm step, Enter saving it; turning them off with nothing to say is given
+    /// back by `poll`, to be saved.
+    #[test]
+    fn commit_changes_cost_is_worked_out_off_the_ui_thread() {
+        let d = crate::test_dir("changes-cost");
+        let mut app = app(&d);
+        let mut s = Settings::open(&app, "search_commit_changes");
+        s.path = Some(d.join("config.toml"));
+        let wait = |app: &mut App| {
+            let t = std::time::Instant::now();
+            loop {
+                let Some(Dialog::Settings(s)) = app.dialog.as_mut() else { panic!("settings closed") };
+                if !matches!(s.mode, Mode::Costing(..)) || t.elapsed() > coxswain_core::test_limit(std::time::Duration::from_secs(20)) {
+                    return None;
+                }
+                if let Some(changes) = s.poll() {
+                    return Some(changes);
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        };
+        app.settings_change(Box::new(s), Map::from_iter([("search_commit_changes".to_string(), Value::Bool(true))]));
+        assert!(matches!(settings(&app).mode, Mode::Costing(..)), "on a thread");
+        assert!(screen(&mut app, 140, 40).iter().any(|l| l.contains("Working out")));
+        assert!(wait(&mut app).is_none());
+        assert!(matches!(settings(&app).mode, Mode::Confirm(..)), "the confirm step stays");
+        assert!(!app.cfg.search.commit_changes);
+        key(&mut app, KeyCode::Enter);
+        assert!(app.cfg.search.commit_changes);
+
+        let Some(Dialog::Settings(s)) = app.dialog.take() else { panic!("settings closed") };
+        app.settings_change(s, Map::from_iter([("search_commit_changes".to_string(), Value::Bool(false))]));
+        let changes = wait(&mut app).expect("nothing to say: saved");
+        let Some(Dialog::Settings(s)) = app.dialog.take() else { panic!("settings closed") };
+        app.settings_save(s, changes);
+        assert!(!app.cfg.search.commit_changes);
     }
 
     /// Preview tools: a row per kind once read; Enter takes the next choice and writes it.

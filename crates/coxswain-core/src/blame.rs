@@ -221,7 +221,8 @@ fn hg_blame(base: &Path, name: &str, cut: bool, stop: &AtomicBool) -> io::Result
         "-T",
         r"{lines % '{node}\x1f{date|hgdate}\x1f{user|person}\x1f{line}'}",
         "--",
-        &format!("path:{name}"),
+        // `relpath:`, as hg runs in the file's folder (`path:` is from the root).
+        &format!("relpath:{name}"),
     ]);
     let (out, _) = run(c, 512 << 20, stop)?;
     let mut b = parse_hg(&String::from_utf8_lossy(&out));
@@ -310,10 +311,9 @@ impl History {
 /// again in the file as the last commit has it, the function by its name.
 pub fn line_history(path: &Path, text: &str, line: usize, to: usize, stop: &AtomicBool) -> io::Result<History> {
     let (base, name) = parts(path)?;
-    if system(base)? != "git" {
-        return Err(io::Error::new(io::ErrorKind::Unsupported, t!("blame.history_git_only")));
-    }
-    let (head, _) = crate::history::git_read(base, "HEAD", &name, MOST_BYTES as usize)
+    let hg = system(base)? == "hg";
+    let head = if hg { crate::vcs::of(base).read(base, ".", &name, MOST_BYTES as usize) } else { crate::history::git_read(base, "HEAD", &name, MOST_BYTES as usize) };
+    let (head, _) = head
         .map_err(|_| io::Error::new(io::ErrorKind::NotFound, t!("blame.not_committed_file")))?;
     let head = String::from_utf8_lossy(&head).into_owned();
     let p = path.to_string_lossy();
@@ -333,18 +333,36 @@ pub fn line_history(path: &Path, text: &str, line: usize, to: usize, stop: &Atom
     };
     let last = bytecount(head.as_bytes()).max(1);
     let (from, to) = (from.min(last - 1) + 1, to.min(last - 1) + 1);
-    let mut c = crate::history::git(base);
-    c.args([
-        "log",
-        "--no-color",
-        "--no-ext-diff",
-        "--no-textconv",
-        "--format=%x1e%H%x1f%at%x1f%an%x1f%s",
-        "-n",
-        &MOST_CHANGES.to_string(),
-        &format!("-L{from},{to}:./{name}"),
-        "HEAD",
-    ]);
+    let c = if hg {
+        // Mercurial's `log -L` (marked experimental): from the working copy's commit back.
+        let mut c = crate::vcs::hg_command(base)?;
+        c.args([
+            "log",
+            "--follow",
+            "-p",
+            "-T",
+            r"\x1e{node}\x1f{word(0, date|hgdate)}\x1f{author|person}\x1f{desc|firstline}\n",
+            "-l",
+            &MOST_CHANGES.to_string(),
+            "-L",
+            &format!("relpath:{name},{from}:{to}"),
+        ]);
+        c
+    } else {
+        let mut c = crate::history::git(base);
+        c.args([
+            "log",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--format=%x1e%H%x1f%at%x1f%an%x1f%s",
+            "-n",
+            &MOST_CHANGES.to_string(),
+            &format!("-L{from},{to}:./{name}"),
+            "HEAD",
+        ]);
+        c
+    };
     let (out, cut) = run(c, MOST_HISTORY, stop)?;
     let mut changes = parse_log(&String::from_utf8_lossy(&out));
     if cut {
@@ -432,6 +450,76 @@ mod tests {
         stop.store(true, Ordering::Relaxed);
         assert_eq!(blame(&f, &stop).unwrap_err().kind(), io::ErrorKind::Interrupted);
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A Mercurial repository made with the hg CLI: who changed each line of a file in a
+    /// folder (not the root's file of the same name), a function's history through `hg log -L`,
+    /// and for search the names of the functions each commit changed, its changes and their
+    /// cost. Nothing without hg.
+    #[test]
+    fn hg_blames_lines_and_follows_a_function() {
+        if !crate::user_menu::installed("hg") {
+            return;
+        }
+        let top = std::env::temp_dir().join(format!("coxswain-blame-hg-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&top);
+        let (home, d) = (top.join("home"), top.join("repo"));
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(d.join("sub")).unwrap();
+        let hg = |args: &[&str]| {
+            let ok = crate::tools::command("hg")
+                .current_dir(&d)
+                .args(args)
+                .env("HOME", &home)
+                .env("HGRCPATH", "")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .is_ok_and(|s| s.success());
+            assert!(ok, "hg {args:?}");
+        };
+        hg(&["init"]);
+        let f = d.join("sub/engine.rs");
+        std::fs::write(d.join("engine.rs"), "// the root's own\n").unwrap();
+        std::fs::write(&f, "fn start() {\n    ignite();\n}\n\nfn stop() {\n    cut();\n}\n").unwrap();
+        hg(&["add"]);
+        hg(&["commit", "-u", "Ada <ada@example.org>", "-d", "1700000000 0", "-m", "First engine"]);
+        std::fs::write(&f, "fn start() {\n    ignite();\n}\n\nfn stop() {\n    cut();\n    vent();\n}\n").unwrap();
+        hg(&["commit", "-u", "Bob <bob@example.org>", "-d", "1700000100 0", "-m", "Vent on stop"]);
+        std::fs::write(&f, "fn start() {\n    ignite();\n}\n\nfn stop() {\n    cut();\n    vent();\n}\n// later\n").unwrap();
+        assert_eq!(crate::vcs::of(&d).name(), "hg");
+        let stop = AtomicBool::new(false);
+        let b = blame(&f, &stop).unwrap();
+        assert_eq!(b.lines.len(), 9, "the folder's file, not the root's");
+        assert_eq!(b.of(0).unwrap().author, "Ada");
+        assert_eq!(b.of(0).unwrap().time, 1_700_000_000);
+        assert_eq!(b.of(6).unwrap().author, "Bob");
+        assert_eq!(b.of(6).unwrap().hash.len(), 7);
+        assert!(b.of(8).unwrap().hash.is_empty(), "not committed yet");
+
+        let text = std::fs::read_to_string(&f).unwrap();
+        let h = line_history(&f, &text, 5, 5, &stop).unwrap();
+        assert_eq!((h.name.as_str(), h.from, h.to), ("fn stop", 5, 8));
+        let subjects: Vec<&str> = h.changes.iter().map(|c| c.commit.subject.as_str()).collect();
+        assert_eq!(subjects, ["Vent on stop", "First engine"]);
+        assert_eq!((h.changes[0].commit.author.as_str(), h.changes[0].commit.time), ("Bob", 1_700_000_100));
+        assert!(h.changes[0].diff.contains("+    vent();"), "{}", h.changes[0].diff);
+        let h = line_history(&f, &text, 1, 1, &stop).unwrap();
+        assert_eq!((h.name.as_str(), h.changes.len()), ("fn start", 1));
+
+        let head = crate::vcs::of(&d).commit_id(&d, "HEAD").unwrap();
+        let commits = crate::history::for_search(&d, &head, None, 10).unwrap();
+        assert_eq!(commits.len(), 2);
+        assert!(commits[0].2.contains("Changed functions: fn stop"), "{}", commits[0].2);
+        let changes = crate::history::changes_for_search(&d, &head, None, 10).unwrap();
+        assert_eq!(changes.len(), 2);
+        assert_eq!((changes[0].0.as_str(), changes[0].1), (head.as_str(), 1_700_000_100));
+        assert!(changes[0].2.starts_with(&format!("commit {} · Bob · 2023-11-14 · changes\n", &head[..7])), "{}", changes[0].2);
+        assert!(changes[0].2.contains("+    vent();"));
+        let (n, bytes) = crate::history::changes_cost(&d, 10);
+        assert_eq!(n, 2);
+        assert!(bytes >= 700, "{bytes}");
+        let _ = std::fs::remove_dir_all(&top);
     }
 
     #[test]
