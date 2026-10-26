@@ -261,7 +261,8 @@ fn speed() -> Option<f64> {
                     .parse()
                     .ok()?,
             )
-        });
+        })
+        .filter(|ns: &f64| *ns > 0.0 && ns.is_finite());
     let ns = match (kept, probe()) {
         (Some(k), Some(n)) if k <= n => return Some(k),
         (k, None) => return k,
@@ -315,13 +316,23 @@ fn probe() -> Option<f64> {
         .ok()?;
     let x = Tensor::randn(0f32, 1.0, (ROWS, k), cpu).ok()?;
     w.forward(&x).ok()?;
+    // At least one round, however late this thread got to run (a loaded machine let the 0.2 s
+    // pass before the first one, and the probe said infinitely slow); each round runs until
+    // the clock has moved, so a coarse clock never measures a run as taking no time (which,
+    // kept as the quickest, would stand for ever).
     let (start, mut best) = (Instant::now(), f64::MAX);
-    while start.elapsed() < Duration::from_millis(200) {
-        let t = Instant::now();
-        w.forward(&x).ok()?;
-        best = best.min(t.elapsed().as_secs_f64());
+    loop {
+        let (t, mut runs) = (Instant::now(), 0u32);
+        while runs == 0 || t.elapsed().is_zero() {
+            w.forward(&x).ok()?;
+            runs += 1;
+        }
+        best = best.min(t.elapsed().as_secs_f64() / f64::from(runs));
+        if start.elapsed() >= Duration::from_millis(200) {
+            break;
+        }
     }
-    Some(best * 1e9 / (ROWS * n * k) as f64)
+    Some(best * 1e9 / (ROWS * n * k) as f64).filter(|ns| *ns > 0.0 && ns.is_finite())
 }
 
 /// How `ask_model` is shown: a built-in model by its name, a server's as it is.
