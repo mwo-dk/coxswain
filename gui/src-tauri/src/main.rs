@@ -780,9 +780,10 @@ fn read_disks() -> Vec<Disk> {
             continue;
         }
         d.label = if cfg!(windows) {
-            // Every drive is a root there: named as Explorer names it, `Windows (C:)`.
+            // Every drive is a root there: its letter and label, `C: Windows`, so that a long
+            // label cut short keeps the letter.
             let letter = d.mount.to_string_lossy().trim_end_matches('\\').to_string();
-            if d.device.is_empty() { letter } else { format!("{} ({letter})", d.device) }
+            if d.device.is_empty() { letter } else { format!("{letter} {}", d.device) }
         } else if d.mount.parent().is_none() {
             coxswain_core::t!("place.system")
         } else {

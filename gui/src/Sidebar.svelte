@@ -323,7 +323,7 @@
     justify-content: space-between;
     gap: 6px;
   }
-  /* A long name (`Windows (C:)`) gives way, never the free space. */
+  /* A long name (`C: Windows`) gives way, never the free space. */
   .drive-name > span {
     min-width: 0;
     overflow: hidden;
