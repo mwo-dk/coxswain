@@ -1706,7 +1706,7 @@
  "feature.notes.title": "文件夹笔记",
  "feature.notes.what": "为文件夹保存的自由文本，显示在桌面版预览窗格的底部。",
  "feature.notices.a1": "你尚未关闭或处理的提示，加上你还没看过的版本说明。点它：会打开“新功能”，数字会降到剩下的提示数。",
- "feature.notices.a2": "在任一版本中打开设置（{settings}）→ 概览 → 新功能；在桌面版中，⚙ 设置显示数字时也可直接点它。在命令行运行 coxswain --whats-new。",
+ "feature.notices.a2": "在任一版本中打开设置（{settings}）→ 概览 → 新功能；在桌面版中，⚙ 设置显示数字时也可直接点它。在命令行运行 coxswain --whats-new。在终端版中，在某个版本上按 Enter，会在查看器中显示它带来的全部内容。",
  "feature.notices.a3": "无法在程序内恢复：已关闭的提示记在状态文件中。但每个提示指向的功能仍在，例如“设置 → 查找文件 → 详细信息 → 语义”或 coxswain --meaning on。",
  "feature.notices.q1": "设置按钮上的数字代表什么？",
  "feature.notices.q2": "怎么查看升级带来了什么？",

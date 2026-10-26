@@ -1706,7 +1706,7 @@
  "feature.notes.title": "資料夾備註",
  "feature.notes.what": "為資料夾保存的自由文字，顯示在桌面版預覽窗格的底部。",
  "feature.notices.a1": "你尚未關閉或處理的提示，加上你還沒看過的版本說明。點它：會開啟「新功能」，數字會降到剩下的提示數。",
- "feature.notices.a2": "在任一版本中開啟設定（{settings}）→ 總覽 → 新功能；在桌面版中，⚙ 設定顯示數字時也可直接點它。在命令列執行 coxswain --whats-new。",
+ "feature.notices.a2": "在任一版本中開啟設定（{settings}）→ 總覽 → 新功能；在桌面版中，⚙ 設定顯示數字時也可直接點它。在命令列執行 coxswain --whats-new。在終端機版中，在某個版本上按 Enter，會在檢視器中顯示它帶來的全部內容。",
  "feature.notices.a3": "無法從程式內恢復：已關閉的提示記在狀態檔中。但每個提示指向的功能仍在，例如「設定 → 尋找檔案 → 詳細資料 → 語意」或 coxswain --meaning on。",
  "feature.notices.q1": "設定按鈕上的數字代表什麼？",
  "feature.notices.q2": "怎麼看升級帶來了什麼？",
