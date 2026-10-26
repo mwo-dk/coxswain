@@ -5554,22 +5554,31 @@ mod tests {
         }
         assert!(turns > 1, "found before the first turn: the file is too small to show anything");
         // Opening it reads nothing of the file on the UI thread (it once read all of it before
-        // the looking started): it costs about what opening a file of one game does.
-        let small = d.join("small.sgf");
-        std::fs::write(&small, format!("(;SZ[19]PB[Black0]PW[White0]RE[B+R];B[pd]C[{note}];W[dp])\n")).unwrap();
-        let mut other = self::app(d.clone(), d.clone());
-        let hit = format!("{o}Black{}{c} – White{}", n - 1, n - 1);
-        coxswain_core::assert_costs_at_most(
-            20,
-            || {
-                other.chess(&small, Some(hit.clone()));
-                other.dialog = None;
-            },
-            || {
-                app.chess(&p, Some(hit.clone()));
-                app.dialog = None;
-            },
-        );
+        // the looking started). No clock: the file is a pipe held open but never written, so
+        // any read of it waits; opening returns all the same and is still looking. Should it
+        // read (and wait), the pipe is closed after a long while, so it fails, not hangs.
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            let pipe = d.join("pipe.sgf");
+            let name = std::ffi::CString::new(pipe.as_os_str().as_bytes()).unwrap();
+            assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+            // Open for reading and writing: opening the pipe never waits, reading it does.
+            let held = std::fs::OpenOptions::new().read(true).write(true).open(&pipe).unwrap();
+            let (tx, rx) = mpsc::channel::<()>();
+            let wait = coxswain_core::test_limit(Duration::from_secs(10));
+            let closer = std::thread::spawn(move || {
+                let stuck = rx.recv_timeout(wait).is_err();
+                drop(held);
+                stuck
+            });
+            app.chess(&pipe, Some(format!("{o}Black{}{c} – White{}", n - 1, n - 1)));
+            let _ = tx.send(());
+            assert!(!closer.join().unwrap(), "opening read the file on the UI thread");
+            assert!(looking(&app), "nothing can be read, yet the game was found");
+            // Stopped; the threads reading the pipe see its end.
+            app.dialog = None;
+        }
         let _ = std::fs::remove_dir_all(&d);
     }
 
