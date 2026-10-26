@@ -674,6 +674,8 @@ fn files<R: Read>(
             })
         });
         let mut empty_i = 0;
+        // Room for all at once: growing by doubling would hold up to twice as much a while.
+        entries.reserve_exact(names.len());
         let mut names = names.into_iter().peekable();
         for i in 0..n {
             let has_stream = !empty_stream.as_ref().is_some_and(|e| e[i]);
