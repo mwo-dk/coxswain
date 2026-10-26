@@ -464,30 +464,6 @@ fn keep_dir() -> std::io::Result<PathBuf> {
     Err(last)
 }
 
-/// Every folder of undo copies in the temporary folder that is this user's own, a live run's
-/// too (Disk use shows them all; its Remove takes only those of runs that ended, by `sweep`).
-pub(crate) fn kept_dirs() -> Vec<PathBuf> {
-    let mut v: Vec<PathBuf> = std::fs::read_dir(std::env::temp_dir())
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|e| e.file_name().to_string_lossy().starts_with("coxswain-replace-"))
-        .filter(|e| {
-            std::fs::symlink_metadata(e.path()).is_ok_and(|m| {
-                #[cfg(unix)]
-                // SAFETY: geteuid has no preconditions.
-                let mine = std::os::unix::fs::MetadataExt::uid(&m) == unsafe { libc::geteuid() };
-                #[cfg(not(unix))]
-                let mine = true;
-                m.is_dir() && mine
-            })
-        })
-        .map(|e| e.path())
-        .collect();
-    v.sort();
-    v
-}
-
 /// Folders kept by runs of an app that has ended (it can undo them no more): removed, when they
 /// are this user's own and no running app holds their lock.
 pub(crate) fn sweep() {

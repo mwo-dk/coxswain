@@ -478,7 +478,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             // Disk use: Coxswain's own folder, the built-in models, then what it caused outside.
             use coxswain_core::disk::{self, Kind};
             v.push(Row::Head(t!("disk.title"), "disk"));
-            v.extend(s.disk.iter().filter(|i| matches!(i.kind, Kind::Own | Kind::Model)).cloned().map(Row::Disk));
+            v.extend(s.disk.iter().filter(|i| i.kind != Kind::Outside).cloned().map(Row::Disk));
             let models = disk::clearable_bytes(&s.disk, true, false) - disk::clearable_bytes(&s.disk, false, false);
             let out = disk::clearable_bytes(&s.disk, false, true) - disk::clearable_bytes(&s.disk, false, false);
             v.push(Row::ClearAll(disk::clearable_bytes(&s.disk, s.ticks.0, s.ticks.1)));
@@ -492,12 +492,6 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             if !outside.is_empty() {
                 v.push(Row::Head(t!("disk.head.outside"), "disk_outside"));
                 v.extend(outside.into_iter().cloned().map(Row::Disk));
-            }
-            // The user's own files Coxswain keeps aside: each removed on its own row only.
-            let yours: Vec<&disk::Item> = s.disk.iter().filter(|i| i.kind == Kind::Yours).collect();
-            if !yours.is_empty() {
-                v.push(Row::Head(t!("disk.head.yours"), "disk_yours"));
-                v.extend(yours.into_iter().cloned().map(Row::Disk));
             }
             v.push(Row::Head(t!("settings.paths"), "paths"));
             for (what, p) in Config::paths() {
@@ -793,7 +787,7 @@ impl App {
                     Some(Row::PreviewTool(r)) => self.tool_remove(&mut s, r),
                     Some(Row::EngineOpt(o)) => return self.engine_option(s, &o.option.name.clone(), None),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
-                    Some(Row::Disk(i)) if i.bytes > 0 && i.clear => s.mode = Mode::ConfirmClear(i.id.clone()),
+                    Some(Row::Disk(i)) if i.bytes > 0 => s.mode = Mode::ConfirmClear(i.id.clone()),
                     Some(Row::Status(l)) if l.also == Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
                     Some(Row::Server(server)) => {
                         let mut st = coxswain_core::state::AppState::load();
@@ -1923,8 +1917,6 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, _) if matches!(rows.get(s.cursor), Some(Row::EngineOpt(_))) => (t!("chess.option_keys_tui"), dim),
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
-        (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(i)) if !i.clear) => (t!("disk.keys_tui_show"), dim),
-        (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(i)) if i.kind == coxswain_core::disk::Kind::Yours) => (t!("disk.keys_tui_remove"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),

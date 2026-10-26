@@ -399,8 +399,6 @@ fn sweep_old_temp(tmp: &Path) {
 pub fn at_start() {
     register();
     sweep_ended();
-    // Before the lists go: a sync's folder aside is known as an ended run's by its list.
-    crate::compare::aside::sweep();
     sweep_staging();
     prune_previews();
 }

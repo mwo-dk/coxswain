@@ -6,7 +6,6 @@
 //! A `Session` reads the two files on a thread of its own, so the window opens at once and Stop
 //! (closing it) ends the reading: what the apps show is pulled from it a screen at a time.
 
-pub mod aside;
 pub mod bytes;
 pub mod folders;
 pub mod sync;

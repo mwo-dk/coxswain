@@ -422,9 +422,9 @@
     invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
     invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
   };
-  const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "own" ? d.kind === "own" || d.kind === "model" : d.kind === kind));
+  const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "outside" ? d.kind === "outside" : d.kind !== "outside"));
   /** What *Clear everything that can be built again* clears, with what is ticked. */
-  const going = $derived((disk ?? []).filter((d) => (d.kind === "own" ? d.rebuildable : d.kind === "model" ? also.models && !d.in_use : d.kind === "outside" && also.outside) && d.bytes));
+  const going = $derived((disk ?? []).filter((d) => (d.kind === "own" ? d.rebuildable : d.kind === "model" ? also.models && !d.in_use : also.outside) && d.bytes));
   const bytesOf = (list) => list.reduce((n, d) => n + d.bytes, 0);
   const unusedModels = $derived(bytesOf((disk ?? []).filter((d) => d.kind === "model" && !d.in_use)));
   const outsideBytes = $derived(bytesOf(diskOf("outside")));
@@ -1185,11 +1185,7 @@
               <span>{d.cost}{#if d.in_use}<span class="badge">{t("models.in_use")}</span>{/if}</span>
               <span class="disk-buttons">
                 {#if d.paths.length}<button class="link" title={d.paths[0]} onclick={() => showInPanel(d.paths[0], !(d.name.endsWith("/") || d.kind !== "own"))}>{t("settings.show_in_panel")}</button>{/if}
-                {#if d.clear && d.kind === "yours"}
-                  <button class="danger" disabled={!d.bytes} onclick={() => clearDisk(d)} onblur={() => (clearing = "")}>{clearing === d.id ? t("disk.confirm_remove", { what: d.paths[0] ?? d.name }) : t("disk.remove")}</button>
-                {:else if d.clear}
-                  <button class="danger" disabled={!d.bytes} onclick={() => clearDisk(d)} onblur={() => (clearing = "")}>{clearing === d.id ? t("disk.confirm_one", { what: d.paths[0] ?? d.name }) : t("disk.clear")}</button>
-                {/if}
+                <button class="danger" disabled={!d.bytes} onclick={() => clearDisk(d)} onblur={() => (clearing = "")}>{clearing === d.id ? t("disk.confirm_one", { what: d.paths[0] ?? d.name }) : t("disk.clear")}</button>
               </span>
               <small class="hint">{d.what}</small>
             </div>
@@ -1199,11 +1195,6 @@
             <p class="lab">{t("disk.head.outside")}</p>
             <p class="hint">{t("disk.outside_hint")}</p>
             {#each diskOf("outside") as d (d.id)}{@render diskRow(d)}{/each}
-          {/if}
-          {#if diskOf("yours").length}
-            <p class="lab">{t("disk.head.yours")}</p>
-            <p class="hint">{t("disk.yours_hint")}</p>
-            {#each diskOf("yours") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}
           <div class="danger-row">
             {#if unusedModels}<label class="check"><input type="checkbox" bind:checked={also.models} /> {t("disk.also_models", { size: size(unusedModels) })}</label>{/if}
