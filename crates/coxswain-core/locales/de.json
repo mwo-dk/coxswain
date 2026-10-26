@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, oder erneut {fetch}, solange die Statuszeile sagt, dass das Remote kontaktiert wird. Was vor dem Anhalten kam, bleibt; nichts wird gemergt.",
  "remote.ambiguous": "Nicht gefetcht: dieser Branch hat kein eigenes Remote, und das Repository hat mehrere, keines namens origin. Legen Sie den Upstream des Branches in Ihrem Git-Werkzeug fest.",
  "remote.bad_refspec": "Nicht gefetcht: das Remote {remote} ist so eingestellt, dass es in {dst} schreibt, außerhalb von refs/remotes/{remote}/, wo ein Fetch Ihre eigenen Branches und Tags überschreiben oder löschen könnte.",
- "remote.symlink": "Nicht aktualisiert: {name} ist ein symbolischer Link, dem cvs update aus der Arbeitskopie hinaus folgen könnte."
+ "remote.symlink": "Nicht aktualisiert: {name} ist ein symbolischer Link, dem cvs update aus der Arbeitskopie hinaus folgen könnte.",
+ "remote.worktree_elsewhere": "Nicht gepullt: die Konfiguration dieses Repositorys legt seine Dateien in {dir} ab, nicht in {root}, ein Pull würde also dorthin schreiben. Pullen Sie mit git selbst, wenn das gewollt ist."
 }

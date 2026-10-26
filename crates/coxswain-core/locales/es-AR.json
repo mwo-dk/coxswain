@@ -4689,5 +4689,6 @@
  "feature.fetch_pull.a3": "Esc, o {fetch} de nuevo, mientras la línea de estado dice que está contactando al remoto. Lo que llegó antes de detener se conserva; no se fusiona nada.",
  "remote.ambiguous": "No se hizo fetch: esta rama no tiene un remoto propio y el repositorio tiene varios, ninguno llamado origin. Configurá el upstream de la rama en tu herramienta de git.",
  "remote.bad_refspec": "No se hizo fetch: el remoto {remote} está configurado para escribir en {dst}, fuera de refs/remotes/{remote}/, donde un fetch podría sobrescribir o borrar tus propias ramas y etiquetas.",
- "remote.symlink": "No se actualizó: {name} es un enlace simbólico, que cvs update podría seguir fuera de la copia de trabajo."
+ "remote.symlink": "No se actualizó: {name} es un enlace simbólico, que cvs update podría seguir fuera de la copia de trabajo.",
+ "remote.worktree_elsewhere": "No se hizo pull: la configuración de este repositorio pone sus archivos en {dir}, no en {root}, así que un pull escribiría ahí. Hacé pull con git mismo si es lo que querés."
 }

@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, of opnieuw {fetch}, zolang de statusregel zegt dat er contact is met de remote. Wat vóór het stoppen binnenkwam, blijft; er wordt niets gemerged.",
  "remote.ambiguous": "Niet gefetcht: deze branch heeft geen eigen remote en de repository heeft er meerdere, geen ervan heet origin. Stel de upstream van de branch in met je git-tool.",
  "remote.bad_refspec": "Niet gefetcht: de remote {remote} is ingesteld om te schrijven in {dst}, buiten refs/remotes/{remote}/, waar een fetch je eigen branches en tags kan overschrijven of verwijderen.",
- "remote.symlink": "Niet bijgewerkt: {name} is een symbolische koppeling, die cvs update buiten de werkkopie zou kunnen volgen."
+ "remote.symlink": "Niet bijgewerkt: {name} is een symbolische koppeling, die cvs update buiten de werkkopie zou kunnen volgen.",
+ "remote.worktree_elsewhere": "Niet gepulld: de config van deze repository zet de bestanden in {dir}, niet in {root}, dus een pull zou daar schrijven. Pull met git zelf als dat de bedoeling is."
 }

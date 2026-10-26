@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc või uuesti {fetch}, kuni olekurida ütleb, et ühendus kaugvaramuga käib. Enne peatamist saabunu jääb alles; midagi ei liideta.",
  "remote.ambiguous": "Ei toodud: sellel harul pole oma kaugvaramut ja hoidlal on neid mitu, ükski nimega origin. Määra haru upstream oma git-tööriistas.",
  "remote.bad_refspec": "Ei toodud: kaugvaramu {remote} on seatud kirjutama asukohta {dst}, väljaspool refs/remotes/{remote}/, kus fetch võiks sinu enda harud ja sildid üle kirjutada või kustutada.",
- "remote.symlink": "Ei uuendatud: {name} on nimeviide, mida mööda cvs update võiks töökoopiast välja minna."
+ "remote.symlink": "Ei uuendatud: {name} on nimeviide, mida mööda cvs update võiks töökoopiast välja minna.",
+ "remote.worktree_elsewhere": "Pulli ei tehtud: selle hoidla config paneb selle failid kohta {dir}, mitte kohta {root}, seega pull kirjutaks sinna. Tee pull git-iga ise, kui see on nii mõeldud."
 }

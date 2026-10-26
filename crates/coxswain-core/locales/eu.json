@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, edo {fetch} berriro, egoera-lerroak urrunekoarekin harremanetan dagoela dioen bitartean. Gelditu aurretik iritsitakoa gordetzen da; ez da ezer bateratzen.",
  "remote.ambiguous": "Ez da fetch egin: adar honek ez du bere urrunekorik eta biltegiak hainbat ditu, bat ere ez origin izenekoa. Ezarri adarraren upstream-a zure git tresnan.",
  "remote.bad_refspec": "Ez da fetch egin: {remote} urrunekoa {dst}-n idazteko ezarrita dago, refs/remotes/{remote}/ kanpo, non fetch batek zure adar eta etiketa propioak gainidatzi edo ezabatu ditzakeen.",
- "remote.symlink": "Ez da eguneratu: {name} esteka sinbolikoa da, eta cvs update-k lan-kopiatik kanpora jarraitu lezake."
+ "remote.symlink": "Ez da eguneratu: {name} esteka sinbolikoa da, eta cvs update-k lan-kopiatik kanpora jarraitu lezake.",
+ "remote.worktree_elsewhere": "Ez da pull egin: biltegi honen konfigurazioak bere fitxategiak {dir} karpetan jartzen ditu, ez {root} karpetan, beraz pull batek han idatziko luke. Egin pull git bera erabiliz, hori nahi baduzu."
 }

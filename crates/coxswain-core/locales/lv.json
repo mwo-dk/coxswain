@@ -4689,5 +4689,6 @@
  "feature.fetch_pull.a3": "Esc vai vēlreiz {fetch}, kamēr statusa rinda saka, ka notiek savienošanās ar attālo krātuvi. Kas saņemts pirms apturēšanas, paliek; nekas netiek sapludināts.",
  "remote.ambiguous": "Fetch neveikts: šim zaram nav savas attālās krātuves, un repozitorijam to ir vairākas, neviena nav nosaukta origin. Iestatiet zara upstream savā git rīkā.",
  "remote.bad_refspec": "Fetch neveikts: attālā krātuve {remote} ir iestatīta rakstīt uz {dst}, ārpus refs/remotes/{remote}/, kur fetch varētu pārrakstīt vai izdzēst jūsu pašu zarus un tagus.",
- "remote.symlink": "Neatjaunināts: {name} ir simboliskā saite, pa kuru cvs update varētu iziet ārpus darba kopijas."
+ "remote.symlink": "Neatjaunināts: {name} ir simboliskā saite, pa kuru cvs update varētu iziet ārpus darba kopijas.",
+ "remote.worktree_elsewhere": "Pull neveikts: šī repozitorija konfigurācija tā failus novieto {dir}, nevis {root}, tāpēc pull rakstītu tur. Ja tā ir domāts, veiciet pull ar pašu git."
 }

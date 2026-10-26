@@ -4689,5 +4689,6 @@
  "feature.fetch_pull.a3": "Esc, o {fetch} de nou, mentre la línia d'estat diu que s'està contactant amb el remot. Es conserva el que havia arribat abans d'aturar; no es fusiona res.",
  "remote.ambiguous": "No s'ha fet fetch: aquesta branca no té cap remot propi i el repositori en té diversos, cap d'ells anomenat origin. Definiu l'upstream de la branca a la vostra eina de git.",
  "remote.bad_refspec": "No s'ha fet fetch: el remot {remote} està configurat per escriure a {dst}, fora de refs/remotes/{remote}/, on un fetch podria sobreescriure o esborrar les vostres pròpies branques i etiquetes.",
- "remote.symlink": "No s'ha actualitzat: {name} és un enllaç simbòlic, que cvs update podria seguir fora de la còpia de treball."
+ "remote.symlink": "No s'ha actualitzat: {name} és un enllaç simbòlic, que cvs update podria seguir fora de la còpia de treball.",
+ "remote.worktree_elsewhere": "No s'ha fet pull: la configuració d'aquest repositori posa els seus fitxers a {dir}, no a {root}, així que un pull hi escriuria. Feu pull amb git mateix si és el que voleu."
 }

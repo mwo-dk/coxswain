@@ -4689,5 +4689,6 @@
  "feature.fetch_pull.a3": "Esc arba vėl {fetch}, kol būsenos eilutėje rašoma, kad jungiamasi prie nutolusios saugyklos. Kas atėjo iki sustabdymo, lieka; niekas nesuliejama.",
  "remote.ambiguous": "Fetch neatliktas: ši šaka neturi savo nutolusios saugyklos, o saugykla jų turi kelias, nė viena nepavadinta origin. Nustatykite šakos upstream savo git įrankyje.",
  "remote.bad_refspec": "Fetch neatliktas: nutolusi saugykla {remote} nustatyta rašyti į {dst}, už refs/remotes/{remote}/ ribų, kur fetch galėtų perrašyti arba ištrinti jūsų pačių šakas ir žymes.",
- "remote.symlink": "Neatnaujinta: {name} yra simbolinė nuoroda, kuria cvs update galėtų išeiti už darbinės kopijos ribų."
+ "remote.symlink": "Neatnaujinta: {name} yra simbolinė nuoroda, kuria cvs update galėtų išeiti už darbinės kopijos ribų.",
+ "remote.worktree_elsewhere": "Pull neatliktas: šios saugyklos konfigūracija jos failus laiko {dir}, o ne {root}, todėl pull rašytų ten. Jei taip ir norite, atlikite pull pačiu git."
 }

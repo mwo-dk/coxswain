@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, eller {fetch} igjen, medan statuslinja seier at han kontaktar remote. Det som kom inn før stoppen, blir teke vare på; ingenting blir slått saman.",
  "remote.ambiguous": "Ikkje henta: denne greina har ingen eigen remote, og repoet har fleire, ingen av dei med namnet origin. Set upstream for greina i Git-verktøyet ditt.",
  "remote.bad_refspec": "Ikkje henta: remoten {remote} er sett til å skrive i {dst}, utanfor refs/remotes/{remote}/, der ein fetch kan skrive over eller slette dine eigne greiner og taggar.",
- "remote.symlink": "Ikkje oppdatert: {name} er ei symbolsk lenkje, som cvs update kan følgje ut av arbeidskopien."
+ "remote.symlink": "Ikkje oppdatert: {name} er ei symbolsk lenkje, som cvs update kan følgje ut av arbeidskopien.",
+ "remote.worktree_elsewhere": "Ikkje pulla: config-en til repositoriet legg filene i {dir}, ikkje i {root}, så ein pull ville skrive dit. Pull med git sjølv om det er meininga."
 }

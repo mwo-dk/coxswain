@@ -213,7 +213,7 @@ fn git_local(base: &Path, args: &[&str], stop: &AtomicBool) -> io::Result<String
 /// own `http.*` (a proxy, certificates: a man in the middle gets the credential helper's token)
 /// or proxy; and its filters, which a pull would have to run. `git_dir`: the git store to read
 /// (Jujutsu's), else the one git finds in `base`. Scope and key, lower case.
-const RISKY: &str = r"^(core\.(sshcommand|gitproxy|askpass|alternaterefscommand)|remote\..*\.(uploadpack|receivepack|proxy)|credential\.(.*\.)?helper|http\..*|gpg\..*|lfs\.customtransfer\..*\.(path|args)|lfs\.standalonetransferagent|lfs\.extension\..*\.(clean|smudge)|filter\..*)$";
+const RISKY: &str = r"^(core\.(sshcommand|gitproxy|askpass|alternaterefscommand)|remote\..*\.(uploadpack|receivepack|proxy)|credential\.(.*\.)?helper|http\..*|gpg\..*|hook\..*|fetch\.bundleuri|gc\.recentobjectshook|lfs\.customtransfer\..*\.(path|args)|lfs\.standalonetransferagent|lfs\.extension\..*\.(clean|smudge)|filter\..*)$";
 
 fn repo_config(base: &Path, git_dir: Option<&Path>, regex: &str, names_only: bool, stop: &AtomicBool) -> io::Result<Vec<(String, String)>> {
     let mut c = crate::tools::command("git");
@@ -278,6 +278,18 @@ pub fn refspec_outside(spec: &str, remote: &str) -> Option<String> {
     (!ok).then(|| dst.to_string())
 }
 
+/// The work tree is the folder that holds `.git` (a folder, or a file in a submodule or a linked
+/// worktree): a repository's `core.worktree` may put it elsewhere, and a pull would write there.
+fn work_tree_here(base: &Path, stop: &AtomicBool) -> io::Result<()> {
+    let here = std::fs::canonicalize(base)?;
+    let Some(root) = here.ancestors().find(|a| a.join(".git").exists()) else { return Ok(()) };
+    let top = git_local(base, &["rev-parse", "--show-toplevel"], stop)?;
+    if std::fs::canonicalize(&top).ok().as_deref() != Some(root) {
+        return Err(io::Error::other(t!("remote.worktree_elsewhere", "dir" => top, "root" => root.display().to_string())));
+    }
+    Ok(())
+}
+
 /// The remote to fetch: the branch's own, else `origin`, else the only one.
 fn fetch_remote(base: &Path, stop: &AtomicBool) -> io::Result<String> {
     let remotes: Vec<String> = git_local(base, &["remote"], stop)?.lines().map(String::from).collect();
@@ -320,7 +332,8 @@ fn git(base: &Path, op: Op, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::
         let (ahead, behind) = counts.split_once('\t').unwrap_or(("0", "0"));
         return Ok(t!("remote.fetched", "upstream" => u, "behind" => crate::i18n::digits(behind.trim().to_string()), "ahead" => crate::i18n::digits(ahead.trim().to_string())));
     }
-    // Pull: the upstream first, before anything is fetched.
+    // Pull: the upstream first, before anything is fetched, and the work tree where it is shown.
+    work_tree_here(base, stop)?;
     let upstream = upstream().map_err(|e| with_reason(t!("remote.no_upstream"), &e.to_string()))?;
     git_fetch(base, true, stop, at)?;
     let head = git_local(base, &["rev-parse", "HEAD"], stop)?;
@@ -338,7 +351,8 @@ fn git(base: &Path, op: Op, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::
     // The files the fast-forward writes, against the ones with changes not committed.
     let changing: std::collections::HashSet<String> =
         git_local(base, &["diff", "--name-only", "-z", &head, &up], stop)?.split('\0').filter(|s| !s.is_empty()).map(String::from).collect();
-    let dirty = git_local(base, &["status", "--porcelain=v1", "-z", "--untracked-files=all"], stop)?;
+    // A submodule's own changes are not looked into: that would run its filters.
+    let dirty = git_local(base, &["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignore-submodules=dirty"], stop)?;
     let mut hit = vec![];
     let mut parts = dirty.split('\0');
     while let Some(e) = parts.next() {
@@ -359,7 +373,7 @@ fn git(base: &Path, op: Op, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::
     let mut c = git_plain(base);
     // No signature check: `merge.verifySignatures`/`pull.verifySignatures` plus the repository's
     // own `gpg.*` (refused above too) would run a program it names. `--no-edit` means no editor.
-    c.args(["-c", "merge.verifySignatures=false", "-c", "log.showSignature=false"]);
+    c.args(["-c", "merge.verifySignatures=false", "-c", "log.showSignature=false", "-c", "maintenance.auto=false", "-c", "gc.auto=0"]);
     c.args(["merge", "--ff-only", "--no-verify-signatures", "--no-autostash", "--no-stat", "--no-edit", "@{u}"]);
     tool(c, stop, at)?.into_result().map_err(|e| with_reason(t!("remote.pull_failed"), &e.to_string()))?;
     Ok(t!("remote.pulled", "upstream" => upstream, "from" => &head[..7.min(head.len())], "to" => &up[..7.min(up.len())]))
@@ -830,6 +844,70 @@ mod tests {
         c.args(["merge", "--ff-only", "--no-verify-signatures", "--no-autostash", "--no-stat", "--no-edit", "@{u}"]);
         assert!(c.status().unwrap().success());
         assert!(!marker.exists(), "the merge ran gpg.program");
+    }
+
+    #[test]
+    fn hooks_set_in_config_and_bundle_uris_are_refused() {
+        let Some((t, here, _there)) = setup("cfghook") else { return };
+        let marker = t.join("PWNED");
+        git_in(&here, &["config", "hook.x.command", &format!("touch {}", marker.display())]);
+        git_in(&here, &["config", "--add", "hook.x.event", "reference-transaction"]);
+        let e = go(&here, Op::Fetch).unwrap_err().to_string();
+        assert!(e.contains("hook.x."), "{e}");
+        assert!(!marker.exists());
+        git_in(&here, &["config", "--remove-section", "hook.x"]);
+        git_in(&here, &["config", "fetch.bundleURI", &format!("file://{}", t.join("nowhere.bundle").display())]);
+        let e = go(&here, Op::Fetch).unwrap_err().to_string();
+        assert!(e.contains("fetch.bundleuri"), "{e}");
+    }
+
+    #[test]
+    fn a_pull_into_a_work_tree_elsewhere_is_refused() {
+        let Some((t, here, there)) = setup("worktree") else { return };
+        commit(&there, "b.txt", "two\n");
+        git_in(&there, &["push", "-q", "origin", "HEAD:main"]);
+        let outside = t.join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        git_in(&here, &["config", "core.worktree", &outside.display().to_string()]);
+        let e = go(&here, Op::Pull).unwrap_err().to_string();
+        assert!(e.contains(&std::fs::canonicalize(&outside).unwrap().display().to_string()), "{e}");
+        assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
+        git_in(&here, &["config", "--unset", "core.worktree"]);
+        go(&here, Op::Pull).unwrap();
+    }
+
+    #[test]
+    fn the_pull_runs_no_filter_of_a_submodule() {
+        let Some((t, here, there)) = setup("submodule") else { return };
+        // A submodule whose own config defines a filter for its files, with a changed file:
+        // looking into it for changes would run that filter.
+        let sub = t.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        git_in(&sub, &["init", "-q"]);
+        commit(&sub, "s.txt", "one\n");
+        git_in(&here, &["submodule", "add", "-q", sub.to_str().unwrap(), "sub"]);
+        git_in(&here, &["commit", "-q", "-m", "sub"]);
+        git_in(&here, &["push", "-q", "origin", "HEAD:main"]);
+        git_in(&there, &["pull", "-q", "--no-rebase", "origin", "main"]);
+        commit(&there, "b.txt", "two\n");
+        git_in(&there, &["push", "-q", "origin", "HEAD:main"]);
+        let marker = t.join("PWNED");
+        let inner = here.join("sub");
+        git_in(&inner, &["config", "filter.evil.clean", &format!("sh -c \"touch {}; cat\"", marker.display())]);
+        std::fs::write(inner.join(".gitattributes"), "* filter=evil\n").unwrap();
+        // The same size: git has to read it (through the filter) to know it changed.
+        std::fs::write(inner.join("s.txt"), "two\n").unwrap();
+        go(&here, Op::Pull).unwrap();
+        assert_eq!(head(&here), head(&there));
+        assert!(!marker.exists(), "a submodule's own filter ran");
+    }
+
+    #[test]
+    fn a_gc_hook_of_the_repository_is_refused() {
+        let Some((t, here, _there)) = setup("gchook") else { return };
+        git_in(&here, &["config", "gc.recentObjectsHook", &format!("touch {}", t.join("PWNED").display())]);
+        let e = go(&here, Op::Fetch).unwrap_err().to_string();
+        assert!(e.contains("gc.recentobjectshook"), "{e}");
     }
 
     #[test]

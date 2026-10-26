@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, eller {fetch} igen, medan statusraden säger att den kontaktar fjärren. Det som kom in före stoppet behålls; inget slås ihop.",
  "remote.ambiguous": "Inte hämtat: den här grenen har ingen egen fjärr och förrådet har flera, ingen med namnet origin. Ange grenens upstream i ditt git-verktyg.",
  "remote.bad_refspec": "Inte hämtat: fjärren {remote} är inställd på att skriva i {dst}, utanför refs/remotes/{remote}/, där en fetch kan skriva över eller ta bort dina egna grenar och taggar.",
- "remote.symlink": "Inte uppdaterat: {name} är en symbolisk länk, som cvs update kan följa ut ur arbetskopian."
+ "remote.symlink": "Inte uppdaterat: {name} är en symbolisk länk, som cvs update kan följa ut ur arbetskopian.",
+ "remote.worktree_elsewhere": "Inte pullat: förrådets config lägger dess filer i {dir}, inte i {root}, så en pull skulle skriva där. Pulla med git själv om det är meningen."
 }

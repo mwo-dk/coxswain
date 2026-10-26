@@ -77,10 +77,19 @@ Jujutsu has no fast-forward of the working copy: moving `@` onto new commits is 
 | *Fetched, not updated: the branch now has 2 heads, which needs a merge.* | Mercurial: the pull brought a second head. |
 | *This repository has no remote to fetch from.* | No remote in git, no `paths.default` in Mercurial (or an `.hg/hgrc` that is no plain file). |
 | *Not fetched: this branch has no remote of its own and the repository has several, none named origin.* | Coxswain fetches one remote, the branch's. Set the upstream in your git tool. |
-| *Not done: this repository's own config names a program to run (core.sshcommand).* | A repository from elsewhere (a download, an archive) could act through its own config when it is fetched, so these keys in the repository's own config (or Jujutsu's git store) refuse it: `core.sshCommand`, `core.gitProxy`, `core.askPass`, `core.alternateRefsCommand`, `remote.*.uploadpack`, `remote.*.receivepack`, `remote.*.proxy`, a credential helper, any `http.*` (a proxy or certificate settings would let someone in the middle take your login), any `gpg.*` (a signature check a repository asks for would run the program it names), and git-lfs's `lfs.customtransfer.*`, `lfs.standalonetransferagent` and `lfs.extension.*`. The fast-forward itself asks for no signature check (`--no-verify-signatures`). Your own and the system's config still hold. In CVS, a folder's `CVS/Update.prog`. |
+| *Not done: this repository's own config names a program to run (core.sshcommand).* | A repository from elsewhere (a download, an archive) could act through its own config when it is fetched, so these keys in the repository's own config (or Jujutsu's git store) refuse it: `core.sshCommand`, `core.gitProxy`, `core.askPass`, `core.alternateRefsCommand`, `remote.*.uploadpack`, `remote.*.receivepack`, `remote.*.proxy`, a credential helper, any `http.*` (a proxy or certificate settings would let someone in the middle take your login), any `gpg.*` (a signature check a repository asks for would run the program it names), any `hook.*` (a hook set in config, which newer git runs even with hooks turned off), `fetch.bundleURI` (a bundle fetched from wherever it says), `gc.recentObjectsHook`, and git-lfs's `lfs.customtransfer.*`, `lfs.standalonetransferagent` and `lfs.extension.*`. The fast-forward itself asks for no signature check (`--no-verify-signatures`). Your own and the system's config still hold. In CVS, a folder's `CVS/Update.prog`. |
 | *Not fetched: the remote origin is set to write into refs/heads/\*, outside refs/remotes/origin/…* | A fetch refspec that writes anywhere but `refs/remotes/<remote>/` could overwrite your branches or tags, and with `--prune` delete them. |
 | *Not updated: sub/evil is a symbolic link, which cvs update could follow out of the working copy.* | CVS: a link in a folder CVS keeps could lead the update anywhere (`~/.ssh`). |
+| *Not pulled: this repository's config puts its files in …, not in …* | The repository's `core.worktree` puts its work tree outside the folder you see, so the fast-forward would write there. A submodule's own `core.worktree` is fine. |
 | A repository with its own filters (git-crypt, Mercurial largefiles) | Pull would write files without them, so it is refused as a branch switch is ([Git branches](git-branches.md)). Fetch still works. |
+
+A pull looks for your uncommitted changes without looking into submodules' own changes
+(`--ignore-submodules=dirty`), so a submodule's filters never run, and it starts no
+maintenance or `gc` afterwards. git-lfs, when you have it set up, writes the large files of
+the fast-forward: the repository's own git-lfs agents, extensions, proxies and certificate
+settings are refused above, but an `lfs.url` in the repository's `.lfsconfig` is followed as
+git-lfs follows it, plain http included; check it when the repository comes from someone you
+do not know.
 
 **A refused pull has already fetched.** The checks that need the remote's commits (diverged,
 files touched, Mercurial's heads) come after the fetch, so the remote-tracking branches,

@@ -4602,5 +4602,6 @@
  "remote.busy_already": "A fetch or pull is under way already.",
  "remote.ambiguous": "Not fetched: this branch has no remote of its own and the repository has several, none named origin. Set the branch's upstream in your git tool.",
  "remote.bad_refspec": "Not fetched: the remote {remote} is set to write into {dst}, outside refs/remotes/{remote}/, where a fetch could overwrite or delete your own branches and tags.",
- "remote.symlink": "Not updated: {name} is a symbolic link, which cvs update could follow out of the working copy."
+ "remote.symlink": "Not updated: {name} is a symbolic link, which cvs update could follow out of the working copy.",
+ "remote.worktree_elsewhere": "Not pulled: this repository's config puts its files in {dir}, not in {root}, so a pull would write there. Pull with git itself if that is meant."
 }

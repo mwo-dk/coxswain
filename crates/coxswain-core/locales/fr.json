@@ -4689,5 +4689,6 @@
  "feature.fetch_pull.a3": "Esc, ou {fetch} de nouveau, tant que la ligne d’état dit qu’il contacte le dépôt distant. Ce qui est arrivé avant l’arrêt est conservé ; rien n’est fusionné.",
  "remote.ambiguous": "Pas de fetch : cette branche n’a pas de dépôt distant à elle et le dépôt en a plusieurs, dont aucun ne s’appelle origin. Définissez l’upstream de la branche dans votre outil git.",
  "remote.bad_refspec": "Pas de fetch : le dépôt distant {remote} est réglé pour écrire dans {dst}, hors de refs/remotes/{remote}/, où un fetch pourrait écraser ou supprimer vos propres branches et tags.",
- "remote.symlink": "Pas de mise à jour : {name} est un lien symbolique, que cvs update pourrait suivre hors de la copie de travail."
+ "remote.symlink": "Pas de mise à jour : {name} est un lien symbolique, que cvs update pourrait suivre hors de la copie de travail.",
+ "remote.worktree_elsewhere": "Pas de pull : la configuration de ce dépôt place ses fichiers dans {dir}, pas dans {root}, donc un pull écrirait là-bas. Faites le pull avec git lui-même si c’est voulu."
 }

@@ -4692,5 +4692,6 @@
  "feature.fetch_pull.a3": "Esc, nebo znovu {fetch}, dokud stavový řádek píše, že se spojuje se vzdáleným repozitářem. Co přišlo před zastavením, zůstává; nic se neslučuje.",
  "remote.ambiguous": "Fetch neproveden: tato větev nemá vlastní vzdálený repozitář a repozitář jich má několik, žádný s názvem origin. Nastavte upstream větve ve svém nástroji pro git.",
  "remote.bad_refspec": "Fetch neproveden: vzdálený repozitář {remote} má zapisovat do {dst}, mimo refs/remotes/{remote}/, kde by fetch mohl přepsat nebo smazat vaše vlastní větve a tagy.",
- "remote.symlink": "Neaktualizováno: {name} je symbolický odkaz, po kterém by cvs update mohl vyjít mimo pracovní kopii."
+ "remote.symlink": "Neaktualizováno: {name} je symbolický odkaz, po kterém by cvs update mohl vyjít mimo pracovní kopii.",
+ "remote.worktree_elsewhere": "Pull neproveden: konfigurace tohoto repozitáře ukládá jeho soubory do {dir}, ne do {root}, takže pull by zapisoval tam. Pokud je to záměr, udělejte pull přímo v git."
 }

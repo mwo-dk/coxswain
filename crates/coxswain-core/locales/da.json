@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, eller {fetch} igen, mens statuslinjen siger, at den kontakter remote. Det, der kom ind før stoppet, beholdes; intet flettes.",
  "remote.ambiguous": "Ikke hentet: denne gren har ingen remote for sig selv, og repositoryet har flere, ingen af dem med navnet origin. Angiv grenens upstream i dit git-værktøj.",
  "remote.bad_refspec": "Ikke hentet: remoten {remote} er sat til at skrive i {dst}, uden for refs/remotes/{remote}/, hvor en fetch kunne overskrive eller slette dine egne grene og tags.",
- "remote.symlink": "Ikke opdateret: {name} er et symbolsk link, som cvs update kunne følge ud af arbejdskopien."
+ "remote.symlink": "Ikke opdateret: {name} er et symbolsk link, som cvs update kunne følge ud af arbejdskopien.",
+ "remote.worktree_elsewhere": "Ikke pullet: repositoryets config lægger dets filer i {dir}, ikke i {root}, så et pull ville skrive der. Pull med git selv, hvis det er meningen."
 }

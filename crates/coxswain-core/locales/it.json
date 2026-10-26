@@ -4689,5 +4689,6 @@
  "feature.fetch_pull.a3": "Esc, o di nuovo {fetch}, mentre la riga di stato dice che sta contattando il remoto. Ciò che è arrivato prima dello stop resta; niente viene unito.",
  "remote.ambiguous": "Fetch non fatto: questo branch non ha un remoto suo e il repository ne ha diversi, nessuno chiamato origin. Imposta l'upstream del branch nel tuo strumento git.",
  "remote.bad_refspec": "Fetch non fatto: il remoto {remote} è impostato per scrivere in {dst}, fuori da refs/remotes/{remote}/, dove un fetch potrebbe sovrascrivere o cancellare i tuoi branch e tag.",
- "remote.symlink": "Non aggiornato: {name} è un link simbolico, che cvs update potrebbe seguire fuori dalla copia di lavoro."
+ "remote.symlink": "Non aggiornato: {name} è un link simbolico, che cvs update potrebbe seguire fuori dalla copia di lavoro.",
+ "remote.worktree_elsewhere": "Pull non fatto: la config di questo repository mette i suoi file in {dir}, non in {root}, quindi un pull scriverebbe lì. Fai il pull con git stesso se è voluto."
 }

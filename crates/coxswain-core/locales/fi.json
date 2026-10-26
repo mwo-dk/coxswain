@@ -4591,5 +4591,6 @@
  "feature.fetch_pull.a3": "Esc, tai {fetch} uudelleen, kun tilarivi kertoo yhteyden etävarastoon olevan käynnissä. Ennen pysäytystä saapunut säilyy; mitään ei yhdistetä.",
  "remote.ambiguous": "Ei haettu: tällä haaralla ei ole omaa etävarastoa, ja tietovarastolla on niitä useita, eikä yhdenkään nimi ole origin. Aseta haaran upstream git-työkalussasi.",
  "remote.bad_refspec": "Ei haettu: etävarasto {remote} on asetettu kirjoittamaan kohteeseen {dst}, refs/remotes/{remote}/ ulkopuolelle, jossa fetch voisi korvata tai poistaa omia haarojasi ja tagejasi.",
- "remote.symlink": "Ei päivitetty: {name} on symbolinen linkki, jota cvs update voisi seurata työkopion ulkopuolelle."
+ "remote.symlink": "Ei päivitetty: {name} on symbolinen linkki, jota cvs update voisi seurata työkopion ulkopuolelle.",
+ "remote.worktree_elsewhere": "Pullia ei tehty: tämän repositorion config sijoittaa sen tiedostot kohteeseen {dir} eikä kohteeseen {root}, joten pull kirjoittaisi sinne. Tee pull gitillä itse, jos se on tarkoitus."
 }
