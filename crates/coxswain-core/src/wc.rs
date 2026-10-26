@@ -651,7 +651,7 @@ fn from_server(c: std::process::Command, max: usize) -> io::Result<(Vec<u8>, boo
 }
 
 /// As `from_server`, but a run that fails is an error even after it printed part: a file's
-/// bytes, a listing of what is copied out.
+/// bytes, a listing of what is copied out, Subversion's XML (begun before svn fails).
 fn file_from_server(c: std::process::Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
     let mut buf = vec![];
     match run_server(c, &mut buf, max)? {
@@ -900,7 +900,8 @@ fn svn_log(base: &Path, spec: &str, max: usize) -> io::Result<(Vec<Commit>, bool
     c.current_dir(base).args(["log", "--xml", "--limit", &(max + 1).to_string(), "--"]);
     // A trailing `@`: a name with `@` in it is never taken for a revision.
     c.arg(format!("{spec}@"));
-    let (out, cut) = from_server(c, SERVER_MAX)?;
+    // svn starts its XML before it fails (a password it lacks, a server gone): a failure is one.
+    let (out, cut) = file_from_server(c, SERVER_MAX)?;
     let mut commits = parse_svn_log(&out);
     let more = cut || commits.len() > max;
     commits.truncate(max);
@@ -1014,7 +1015,7 @@ impl Vcs for Svn {
         let (repo, ..) = svn_here(base)?;
         let mut c = svn();
         c.args(["log", "--xml", "-r", &n.to_string(), "--limit", "1", "--", &format!("{repo}@{n}")]);
-        let found = parse_svn_log(&from_server(c, 1 << 20)?.0);
+        let found = parse_svn_log(&file_from_server(c, 1 << 20)?.0);
         seen(base, &found);
         found.into_iter().next().ok_or_else(|| no_commit(rev))
     }
@@ -1022,7 +1023,7 @@ impl Vcs for Svn {
         let n = svn_rev(rev)?;
         let mut c = svn();
         c.args(["list", "--xml", "--", &svn_url_at(base, n, inner)?]);
-        let (xml, _) = from_server(c, SERVER_MAX)?;
+        let (xml, _) = file_from_server(c, SERVER_MAX)?;
         Ok(parse_svn_list(&xml)
             .into_iter()
             .filter(|(name, ..)| name_ok(name))

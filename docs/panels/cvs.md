@@ -79,7 +79,7 @@ read; `-d`: the root of the folder asked about, for every folder below too, what
 - **A file's history** is the commits of its folder that touched it, so a commit has the same
   name in both.
 
-![The terminal app's kite/@history after the yes: 931c59a Spar a little longer, f5ba70a Longer spar, red sail, e2921d6 Initial revision and 927fee3 Start the kite, newest first](../screenshots/tui-cvs-history.png)
+![The terminal app's kite/@history after the yes: 1d6dd92 Spar a little longer, 672e4cb Longer spar, red sail, 2287482 Initial revision and 055056e Start the kite, newest first](../screenshots/tui-cvs-history.png)
 
 ## Inside a commit
 
