@@ -40,6 +40,36 @@ fn content_type(magic: &[u8], path: &Path) -> String {
     }
 }
 
+/// A component as JavaScript's `encodeURIComponent` writes it: the page (`preview.svelte`'s
+/// `pageUrl`) asks for its files so, and its policy has to name them alike.
+fn encode_component(s: &str) -> String {
+    s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
+}
+
+/// A request for an HTML file as the page it is (`?page`, the preview of an `.html`, `.htm`
+/// or `.xhtml`): served as HTML, where every other request for one is plain text.
+fn is_page(req: &Request<Vec<u8>>, path: &Path) -> bool {
+    req.uri().query().is_some_and(|q| q.split('&').any(|p| p == "page"))
+        && path.extension().and_then(|e| e.to_str()).is_some_and(|e| ["html", "htm", "xhtml"].iter().any(|x| e.eq_ignore_ascii_case(x)))
+}
+
+/// The policy a page is shown under: no script (a sandbox without `allow-scripts`; it keeps its
+/// origin, the file protocol's, which alone may load from it), nothing from the web, and
+/// pictures, stylesheets, fonts and media only from the page's own folder and below: named by
+/// the file's real folder, encoded one segment at a time as the page asks for them, so neither
+/// `../private/photo.jpg` nor `/home/me/keys.png` nor a page URL written another way reaches
+/// further.
+fn page_policy(req: &Request<Vec<u8>>, path: &Path) -> String {
+    let uri = req.uri();
+    let origin = format!("{}://{}", uri.scheme_str().unwrap_or("asset"), uri.authority().map_or("localhost", |a| a.as_str()));
+    let full = path.to_string_lossy();
+    let lead = if full.starts_with('/') { "%2F" } else { "" };
+    let parent = path.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+    let segments: Vec<String> = parent.split(['/', '\\']).filter(|s| !s.is_empty()).map(encode_component).collect();
+    let dir = format!("{origin}/{lead}{}/", segments.join("/"));
+    format!("sandbox allow-same-origin; default-src 'none'; img-src {dir} data:; style-src {dir} 'unsafe-inline'; font-src {dir} data:; media-src {dir}; form-action 'none'")
+}
+
 /// The file a request names: `asset://localhost/%2Fhome%2Fme%2Fa.pdf` (Windows:
 /// `http://asset.localhost/C%3A%2Fa.pdf`). Only an absolute path without `..`.
 fn path_of(req: &Request<Vec<u8>>) -> Option<PathBuf> {
@@ -76,11 +106,19 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
         let len = file.metadata()?.len();
         let mut magic = Vec::with_capacity(len.min(8192) as usize);
         (&mut file).take(8192).read_to_end(&mut magic)?;
-        let mime = content_type(&magic, &path);
+        let page = is_page(req, &path);
+        let xhtml = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("xhtml"));
+        let mime = match page {
+            true if xhtml => "application/xhtml+xml".to_string(),
+            true => "text/html".to_string(),
+            false => content_type(&magic, &path),
+        };
         let mut resp = answer().header(header::CONTENT_TYPE, &mime).header(header::X_CONTENT_TYPE_OPTIONS, "nosniff").header(header::ACCEPT_RANGES, "bytes");
         // Whatever is shown in a frame of its own runs no script and reaches no origin. Not on a
         // PDF: the browsers' PDF viewers do not open under a sandbox (WebView2 blocks them).
-        if mime != "application/pdf" {
+        if page {
+            resp = resp.header(header::CONTENT_SECURITY_POLICY, page_policy(req, &path));
+        } else if mime != "application/pdf" {
             resp = resp.header(header::CONTENT_SECURITY_POLICY, "sandbox");
         }
         let ranged = req.headers().get(header::RANGE).and_then(|r| r.to_str().ok());
@@ -210,6 +248,39 @@ mod tests {
         let r = respond(&get(&real, None), |_: &Path| false);
         assert_eq!(r.headers()[header::CONTENT_TYPE], "application/pdf");
         assert!(r.headers().get(header::CONTENT_SECURITY_POLICY).is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The preview of an HTML file asks for it as a page (`?page`): HTML, under a policy of its
+    /// own folder and no script; asked for any other way, or not an HTML file, it stays text.
+    #[test]
+    fn a_page_is_shown_under_its_own_folder_only() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-page-{} v2", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let html = dir.join("index.html");
+        std::fs::write(&html, "<!doctype html><link rel=stylesheet href=style.css><script>alert(1)</script>").unwrap();
+        std::fs::write(dir.join("notes.txt"), "plain").unwrap();
+        let ask = |p: &Path, query: &str, encode: &dyn Fn(&str) -> String| {
+            let req = Request::builder().uri(format!("asset://localhost/{}{query}", encode(&p.to_string_lossy()))).body(Vec::new()).unwrap();
+            respond(&req, |_: &Path| false)
+        };
+        let whole = |s: &str| encode_component(s);
+        let r = ask(&html, "?page", &whole);
+        assert_eq!(r.headers()[header::CONTENT_TYPE], "text/html");
+        let csp = r.headers()[header::CONTENT_SECURITY_POLICY].to_str().unwrap().to_string();
+        assert!(csp.starts_with("sandbox allow-same-origin;") && !csp.contains("allow-scripts"), "{csp}");
+        assert!(csp.contains("default-src 'none'") && csp.contains("form-action 'none'"), "{csp}");
+        // The folder by its real path, one segment at a time, however the page itself was asked for.
+        let parent = dir.to_string_lossy().into_owned();
+        let segs: Vec<String> = parent.split(['/', '\\']).filter(|s| !s.is_empty()).map(encode_component).collect();
+        let want = format!("style-src asset://localhost/{}{}/ 'unsafe-inline'", if parent.starts_with('/') { "%2F" } else { "" }, segs.join("/"));
+        assert!(csp.contains(&want), "{csp}\n{want}");
+        assert!(!csp.contains("asset://localhost/ ") && !csp.contains("asset://localhost/;"), "never the whole protocol");
+        // Without ?page, or a file that is no page: text under a plain sandbox, as before.
+        let r = ask(&html, "", &whole);
+        assert_eq!((r.headers()[header::CONTENT_TYPE].to_str().unwrap(), r.headers()[header::CONTENT_SECURITY_POLICY].to_str().unwrap()), ("text/plain", "sandbox"));
+        let r = ask(&dir.join("notes.txt"), "?page", &whole);
+        assert_eq!(r.headers()[header::CONTENT_SECURITY_POLICY], "sandbox");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -1,7 +1,7 @@
 <script>
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
-  import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
@@ -209,7 +209,7 @@
         if (!bin && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
         if (!bin && k === "calendar" && !src) return void (cards = { events: calendar(s) });
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
-        if (!bin && k === "html" && !src) return void (page = renderHtml(s, cur.path));
+        if (!bin && k === "html" && !src) return void (page = pageUrl(convertFileSrc(cur.path), cur.path));
         // Rendered markdown and diagrams come back sanitized from renderers.js.
         const render = { markdown: renderMarkdown, mermaid: renderMermaid, graphviz: renderGraphviz, asciidoc: renderAsciidoc }[k];
         const rendered = bin || src || !render ? "" : await render(s);
@@ -1041,9 +1041,10 @@
           </ul>
         {/if}
       {:else if kind === "html" && page && !source}
-        <!-- No allow-scripts, no allow-same-origin: the page runs nothing and reaches nothing. -->
-        <iframe class="page" sandbox="" srcdoc={page} title={e.name}></iframe>
-        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
+        <!-- No allow-scripts: the page runs nothing. It keeps its origin, the file protocol's, which
+             alone may load its stylesheets and pictures (WebKit refuses them to a frame of none);
+             the protocol's policy holds it to its own folder and away from the web. -->
+        <iframe class="page" sandbox="allow-same-origin" src={page} title={e.name}></iframe>
       {:else if ["markdown", "mermaid", "graphviz", "asciidoc"].includes(kind) && html && !source}
         {#if kind === "asciidoc"}
           <!-- Build PDF: Asciidoctor PDF writes it next to the document. -->
