@@ -768,6 +768,8 @@
     // The BOM tree, a game's board and its list of games have keys of their own; what they
     // leave (function keys, Tab) still works here, and Esc gives the keys back to the panels
     // (a game's list in the preview pane kept them all: the arrows seemed dead).
+    // Delete on a repository in the sidebar takes it out of the list there, never a file.
+    if (k === "Delete" && e.target.closest?.(".repo-row")) return;
     const owner = keyOwner(e.target, k);
     if (owner === "panels") return void (e.preventDefault(), e.target.blur?.());
     if (owner === "view") return;

@@ -17,7 +17,7 @@ the others' keys there say which app has them.
 | [Colour tags](tags.md) | Seven colours for files and folders with **Alt+T**, the dot after the name, and why a tag stays with a path |
 | [Folder notes](notes.md) | Free text for a folder with **Alt+N**, in the preview pane, and the note icon in the pane footer |
 | [Favourites](favourites.md) | Named groups of folders in the sidebar: add, go, remove, rename and delete groups |
-| [The sidebar](sidebar.md) | **Ctrl+B**: places, drives with their free space, clouds, favourites and the twelve most recent git repositories |
+| [The sidebar](sidebar.md) | **Ctrl+B**: places, drives with their free space, clouds, favourites and the last eight git repositories, by name, with pins |
 | [Clouds](clouds.md) | One entry per cloud account (OneDrive, Google Drive, Dropbox, Nextcloud, iCloud …) found on the machine, in the sidebar and under **Alt+F1** in the terminal app; no logins |
 
 ## Keys at a glance

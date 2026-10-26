@@ -640,8 +640,8 @@ struct GitInfo {
     /// The status of every entry not in `files`: the folder's own, when it is untracked or
     /// ignored (then so is everything in it).
     all: Option<git::FileStatus>,
-    /// The recent repositories, this one first (`AppState::touch_repo`).
-    recent: Vec<PathBuf>,
+    /// The sidebar's repositories, in the order of `[gui] repos_order` (`AppState::repos`).
+    recent: Vec<coxswain_core::state::Repo>,
 }
 
 #[tauri::command]
@@ -652,13 +652,14 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     let (files, all) = children(&s, &dir);
     // Every listing comes through here: the state file is written only when the repo moves up.
     let moved = ctx.state.lock().map_err(|e| e.to_string())?.recent_repos.first() != Some(&s.root);
+    let by_name = ctx.cfg().gui.repos_order != "used";
     let recent = if moved {
         ctx.edit_if(|st| {
             let changed = st.touch_repo(&s.root);
-            (st.recent_repos.clone(), changed)
+            (st.repos(by_name), changed)
         })?
     } else {
-        ctx.state.lock().map_err(|e| e.to_string())?.recent_repos.clone()
+        ctx.state.lock().map_err(|e| e.to_string())?.repos(by_name)
     };
     Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), root: s.root, files, all, recent }))
 }
@@ -885,6 +886,23 @@ fn history_forget(server: String, ctx: tauri::State<Ctx>) -> Res<()> {
 #[tauri::command(async)]
 fn get_state(ctx: tauri::State<Ctx>) -> Res<AppState> {
     ctx.state.lock().map(|s| s.clone()).map_err(|e| e.to_string())
+}
+
+/// The sidebar's repositories, in the order of `[gui] repos_order`.
+#[tauri::command(async)]
+fn repos(ctx: tauri::State<Ctx>) -> Res<Vec<coxswain_core::state::Repo>> {
+    let by_name = ctx.cfg().gui.repos_order != "used";
+    Ok(ctx.state.lock().map_err(|e| e.to_string())?.repos(by_name))
+}
+
+/// Pins or unpins a repository of the sidebar's list, or with `remove` takes it out: the list then.
+#[tauri::command(async)]
+fn repo_edit(path: PathBuf, pin: bool, remove: bool, ctx: tauri::State<Ctx>) -> Res<Vec<coxswain_core::state::Repo>> {
+    let by_name = ctx.cfg().gui.repos_order != "used";
+    ctx.edit_if(|st| {
+        let changed = if remove { st.remove_repo(&path) } else { st.pin_repo(&path, pin) };
+        (st.repos(by_name), changed)
+    })
 }
 
 #[tauri::command(async)]
@@ -2845,7 +2863,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, enter_on, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, enter_on, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, is_model, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,

@@ -1175,6 +1175,7 @@
           <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
           {@render check("folder_sizes")}
           {@render check("disk_images")}
+          {@render choice("repos_order", [["name", t("settings.repos_order_name")], ["used", t("settings.repos_order_used")]])}
         </details>
         <details class="group" id="opt-git" open>
           <summary>{t("settings.group.git")}</summary>

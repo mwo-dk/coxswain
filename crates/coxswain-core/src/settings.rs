@@ -245,6 +245,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("hints", &["hints"], Behaviour, &[]),
     opt("folder_sizes", &["folder_sizes"], Behaviour, &[Cpu]),
     opt("disk_images", &["archive", "disk_images"], Behaviour, &[]),
+    opt("repos_order", &["gui", "repos_order"], Behaviour, &[]),
     opt(
         "git_last_commit",
         &["git", "last_commit"],
@@ -304,7 +305,7 @@ pub const GROUPS: &[Group] = &[
     group(Looks, "looks_both", None, &["language", "glyphs"]),
     group(Looks, "looks_tui", Some("settings.theme_tui"), &["tui_theme"]),
     group(Looks, "looks_gui", Some("settings.theme_gui"), &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
-    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "hints", "folder_sizes", "disk_images"]),
+    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "hints", "folder_sizes", "disk_images", "repos_order"]),
     group(Behaviour, "git", Some("settings.group.git"), &["git_last_commit", "git_tool", "git_prefer_git"]),
     group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "bom_viewer", "provenance_viewer"]),
     group(Privacy, "updates", None, &["check_updates"]),

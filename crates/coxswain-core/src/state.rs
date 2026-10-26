@@ -22,8 +22,10 @@ pub struct AppState {
     pub tags: BTreeMap<PathBuf, String>,
     /// Folder -> note text.
     pub notes: BTreeMap<PathBuf, String>,
-    /// Most recent first.
+    /// Most recent first: the last `RECENT_MAX` visited, and every pinned one.
     pub recent_repos: Vec<PathBuf>,
+    /// Repositories pinned in the sidebar: they never drop out of `recent_repos`.
+    pub pinned_repos: Vec<PathBuf>,
     /// Unix time of the last update check, and the latest version it found.
     pub update_checked: u64,
     pub latest_version: String,
@@ -67,6 +69,7 @@ impl Default for AppState {
             tags: BTreeMap::new(),
             notes: BTreeMap::new(),
             recent_repos: vec![],
+            pinned_repos: vec![],
             update_checked: 0,
             latest_version: String::new(),
             notices_dismissed: vec![],
@@ -84,7 +87,15 @@ impl Default for AppState {
     }
 }
 
-const RECENT_MAX: usize = 12;
+/// How many repositories that are not pinned the sidebar keeps.
+const RECENT_MAX: usize = 8;
+
+/// A repository in the sidebar's list.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Repo {
+    pub path: PathBuf,
+    pub pinned: bool,
+}
 
 impl AppState {
     pub fn path() -> Option<PathBuf> {
@@ -187,8 +198,70 @@ impl AppState {
         }
         self.recent_repos.retain(|r| r != root);
         self.recent_repos.insert(0, root.to_path_buf());
-        self.recent_repos.truncate(RECENT_MAX);
+        self.trim_repos();
         true
+    }
+
+    /// Drops the oldest repositories that are not pinned beyond `RECENT_MAX`.
+    fn trim_repos(&mut self) {
+        let mut kept = 0;
+        let pinned = &self.pinned_repos;
+        self.recent_repos.retain(|r| {
+            pinned.contains(r) || {
+                kept += 1;
+                kept <= RECENT_MAX
+            }
+        });
+    }
+
+    /// Pins `root` (it never drops out) or unpins it (it keeps its place by its last visit, and
+    /// goes when that is older than the last `RECENT_MAX` others); false when nothing changed.
+    pub fn pin_repo(&mut self, root: &Path, pin: bool) -> bool {
+        if self.pinned_repos.iter().any(|r| r == root) == pin {
+            return false;
+        }
+        if pin {
+            self.pinned_repos.push(root.to_path_buf());
+            if !self.recent_repos.iter().any(|r| r == root) {
+                self.recent_repos.insert(0, root.to_path_buf());
+            }
+        } else {
+            self.pinned_repos.retain(|r| r != root);
+            self.trim_repos();
+        }
+        true
+    }
+
+    /// Takes `root` out of the list, pinned or not; false when it was not there.
+    pub fn remove_repo(&mut self, root: &Path) -> bool {
+        let n = self.recent_repos.len() + self.pinned_repos.len();
+        self.recent_repos.retain(|r| r != root);
+        self.pinned_repos.retain(|r| r != root);
+        n != self.recent_repos.len() + self.pinned_repos.len()
+    }
+
+    /// The sidebar's list: the pinned ones first, then the rest, each part by folder name
+    /// (case and accents aside, the whole path when two names are the same) or, with `by_name`
+    /// false, most recently visited first.
+    pub fn repos(&self, by_name: bool) -> Vec<Repo> {
+        let mut v: Vec<Repo> = self
+            .recent_repos
+            .iter()
+            .map(|p| Repo {
+                path: p.clone(),
+                pinned: self.pinned_repos.contains(p),
+            })
+            .collect();
+        let name = |p: &Path| {
+            let n = p.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+            (crate::features::fold(&n), crate::features::fold(&p.to_string_lossy()))
+        };
+        if by_name {
+            v.sort_by_cached_key(|r| (!r.pinned, name(&r.path)));
+        } else {
+            v.sort_by_key(|r| !r.pinned);
+        }
+        v
     }
 
     /// Empty color or text removes the entry.
@@ -212,6 +285,33 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repos_pin_remove_and_order() {
+        let mut s = AppState::default();
+        let p = |n: &str| PathBuf::from(format!("/src/{n}"));
+        for n in ["Zeta", "alpha", "Émile", "beta"] {
+            s.touch_repo(&p(n));
+        }
+        let names = |s: &AppState, by_name| s.repos(by_name).iter().map(|r| r.path.file_name().unwrap().to_string_lossy().into_owned()).collect::<Vec<_>>();
+        assert_eq!(names(&s, true), ["alpha", "beta", "Émile", "Zeta"], "case and accents aside");
+        assert_eq!(names(&s, false), ["beta", "Émile", "alpha", "Zeta"], "newest first");
+        assert!(s.pin_repo(&p("Zeta"), true));
+        assert!(!s.pin_repo(&p("Zeta"), true));
+        assert_eq!(names(&s, true)[0], "Zeta", "pinned first");
+        assert!(s.repos(true)[0].pinned);
+        // Twenty more visits: the pinned one stays, eight unpinned are kept.
+        for i in 0..20 {
+            s.touch_repo(&p(&format!("r{i}")));
+        }
+        assert_eq!(s.recent_repos.len(), RECENT_MAX + 1);
+        assert!(s.recent_repos.contains(&p("Zeta")));
+        assert!(s.pin_repo(&p("Zeta"), false));
+        assert_eq!(s.recent_repos.len(), RECENT_MAX, "unpinned: the oldest goes");
+        assert!(s.remove_repo(&p("r19")));
+        assert!(!s.remove_repo(&p("r19")));
+        assert!(!s.recent_repos.contains(&p("r19")));
+    }
 
     #[test]
     fn state_roundtrip_and_corrupt_file() {
