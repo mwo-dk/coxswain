@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
+  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -383,6 +383,8 @@
     worktrees: () => openGitView(true),
     switch_branch: () => switchBranch(),
     new_branch: () => newBranch(),
+    fetch: () => remoteRun("fetch"),
+    pull: () => remoteRun("pull"),
     git_tool: () => gitTool(),
     git_config: () => openGitConfig(),
     // The preview with who changed each line; a function's history is asked there or in the editor.
@@ -757,6 +759,11 @@
       if (dialogs.handleKey(e, k)) e.preventDefault();
       return;
     }
+    // Esc while a fetch or pull contacts the remote: its tool is ended.
+    if (k === "Esc" && ui.remote) {
+      e.preventDefault();
+      return stopRemote();
+    }
     // Esc on the progress bar (its Stop has the focus): the file operation stops.
     if (k === "Esc" && e.target.closest?.(".job")) {
       e.preventDefault();
@@ -914,6 +921,12 @@
         <!-- Checksums under way: which file of how many, how far. -->
         <span class="status">{s.line || actionLabel(s.action)}{s.stopping ? ` · ${t("media.stopping")}` : ""}</span>
         <button class="update" title={ui.cfg.actions[s.action]?.[1] ?? ""} disabled={s.stopping} onclick={stopWork}>{t("searchable.stop")}</button>
+      {/if}
+      {#if ui.remote}
+        {@const s = ui.remote}
+        <!-- Fetch or Pull under way: it contacts the remote; the tool's last line, and Stop (Esc). -->
+        <span class="status" title={s.line}>{t("remote.busy", { what: actionLabel(s.action) })}{s.line ? ` · ${s.line}` : ""}{s.stopping ? ` · ${t("media.stopping")}` : ""}</span>
+        <button class="update" title={t("searchable.stop_key", { key: "Esc" })} disabled={s.stopping} onclick={stopRemote}>{t("searchable.stop")}</button>
       {/if}
       {#if ui.exporting}
         {@const s = ui.exporting}

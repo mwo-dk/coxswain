@@ -8,7 +8,8 @@ gets a glyph for its own state, and the date and author of the last commit that 
 Both apps do this; the desktop app adds a diff in the preview pane and a list of the
 repositories you visited. **Ctrl+G** opens a file's or folder's history:
 [Git history as folders](git-history.md); **Alt+B** the branches and **Alt+W** the worktrees:
-[Git branches and worktrees](git-branches.md). Commit, push and pull are for your own git tool:
+[Git branches and worktrees](git-branches.md). **Alt+F** fetches and **Alt+L** pulls, fast-forward
+only: [Fetch and pull](fetch-and-pull.md). Commit, push and merges are for your own git tool:
 **Alt+G** opens it in the repository ([Open in your git tool](#open-in-your-git-tool)).
 **Alt+C** shows the git config as git uses it, read-only: [Git config](git-config.md).
 
@@ -43,7 +44,8 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 5. Press **Ctrl+G** for the history of the file or folder under the cursor
    ([Git history as folders](git-history.md)), **Alt+B** for the branches and **Alt+W** for the
    worktrees ([Git branches and worktrees](git-branches.md)).
-6. Press **Alt+G** to commit, push or pull in your own git tool
+6. Press **Alt+F** to fetch, **Alt+L** to pull when that is a fast-forward
+   ([Fetch and pull](fetch-and-pull.md)), and **Alt+G** to commit, push or merge in your own git tool
    ([Open in your git tool](#open-in-your-git-tool)).
 7. Press **Alt+C** to see the git config as git uses it here, secrets hidden
    ([Git config](git-config.md)).
@@ -52,8 +54,10 @@ repositories you visited. **Ctrl+G** opens a file's or folder's history:
 It needs `git` on your `PATH`. Coxswain reads: it runs `git status` (with
 `GIT_OPTIONAL_LOCKS=0`, so it never takes a lock that could get in the way of your own git
 commands), for the diff `git diff`, and for the last commits and the history `git log`,
-`git ls-tree` and `git cat-file`. The only things it changes are the ones you ask for in the
-list of branches: a switch to a branch and a new branch (`git switch`). It never commits or
+`git ls-tree` and `git cat-file`. The only things it changes are the ones you ask for: a switch
+to a branch and a new branch (`git switch`) in the list of branches, and a fetch (**Alt+F**,
+`git fetch --all --prune`) or a fast-forward pull (**Alt+L**, `git merge --ff-only`)
+([Fetch and pull](fetch-and-pull.md)). It never commits or
 stages: **Alt+G** hands that to your own git tool. The repository's own hooks, file system monitor and filter drivers never run.
 
 ```mermaid
@@ -69,8 +73,9 @@ flowchart LR
     subgraph writes["Coxswain writes, when you ask"]
         w1["Switch branch: Alt+S"]
         w2["New branch here"]
+        w3["Fetch: Alt+F<br/>Pull, fast-forward only: Alt+L"]
     end
-    tool["Your git tool: Alt+G<br/>commit, stage, push, pull, fetch, merge"]
+    tool["Your git tool: Alt+G<br/>commit, stage, push, merge, rebase"]
     repo --> reads
     writes --> repo
     tool --> repo
@@ -125,7 +130,8 @@ magenta in NC).
 ## Upstream, remote and last fetch
 
 How far behind is this branch, and how old is that number? The git line counts the commits
-ahead and behind, but only as of the last fetch: Coxswain never fetches. **Alt+Y** lists those
+ahead and behind, but only as of the last fetch: Coxswain fetches only when you press **Alt+F**
+(or **Alt+L**, which fetches first; [Fetch and pull](fetch-and-pull.md)). **Alt+Y** lists those
 commits themselves ([Against upstream](git-history.md#against-upstream)). These facts tell you
 where you stand:
 
@@ -234,10 +240,12 @@ remove it. A tab whose folder is in a repository shows the git icon instead of t
 ## Open in your git tool
 
 Coxswain shows version control and writes to a repository only to switch branch or make a new
-one (never to a [Jujutsu](jujutsu.md) repository, which it only reads; in a [Mercurial](mercurial.md)
-one with `hg update --check` and new bookmarks; never to a [Subversion](subversion.md) or
-[CVS](cvs.md) working copy, where **Alt+G** opens a terminal). Everything else (commit, stage, push, pull, fetch, merge, setting an upstream, editing the
-config) is a handoff. The config itself can be looked at: **Alt+C** shows it as git uses it,
+one, and to fetch (**Alt+F**) and pull when that is a fast-forward (**Alt+L**,
+[Fetch and pull](fetch-and-pull.md)). A [Jujutsu](jujutsu.md) repository it otherwise only reads;
+a [Mercurial](mercurial.md) one it switches with `hg update --check` and gives new bookmarks; a
+[Subversion](subversion.md) or [CVS](cvs.md) working copy it only updates (**Alt+L**), and there
+**Alt+G** opens a terminal. Everything else (commit, stage, push, merge, rebase, setting an
+upstream, editing the config) is a handoff. The config itself can be looked at: **Alt+C** shows it as git uses it,
 read-only ([Git config](git-config.md)). For the rest, **Alt+G** (*Open in your git tool*) opens the repository in your own git
 tool, in the repository's top folder, wherever in it the panel is.
 
@@ -388,15 +396,16 @@ Settings → *Behaviour* (`[git] last_commit`).
 #### How far behind is my branch, and is that up to date?
 
 Hover the git line (desktop app) or put the cursor on `..` (terminal app): *Upstream:
-origin/master, 1 ahead, 2 behind* counts the commits as of *Last fetch*. Coxswain never
-fetches, so a fetch you have not made is not counted. Run `git fetch` in a terminal (or from
-the [user menu](../commands/user-menu.md), **F2**), and the counts and the time follow within a
-moment, or on **Ctrl+R**.
+origin/master, 1 ahead, 2 behind* counts the commits as of *Last fetch*. Coxswain fetches
+only when you press **Alt+F** (or **Alt+L**, which fetches first; [Fetch and pull](fetch-and-pull.md)), so a
+fetch you have not made is not counted. Press **Alt+F**, or run `git fetch` anywhere, and the
+counts and the time follow within a moment, or on **Ctrl+R**.
 
 #### Why does it say "Never fetched"?
 
 The repository has no `FETCH_HEAD`: nothing has been fetched into it since it was cloned
-(`git clone` does not write one) or made. The first `git fetch` or `git pull` writes it.
+(`git clone` does not write one) or made. The first fetch writes it: **Alt+F** in Coxswain, or
+`git fetch` or `git pull` anywhere.
 
 #### Why does it say "No upstream"?
 
@@ -418,8 +427,9 @@ repository's facts: hover the git line, or go to `..`.
 
 #### Can Coxswain commit or stage?
 
-No. It switches branches and makes new ones when you ask ([Git branches and
-worktrees](git-branches.md)), and otherwise only reads; even the config (**Alt+C**) is shown
+No. It switches branches and makes new ones ([Git branches and
+worktrees](git-branches.md)), fetches (**Alt+F**) and pulls when that is a fast-forward
+(**Alt+L**, [Fetch and pull](fetch-and-pull.md)) when you ask, and otherwise only reads; even the config (**Alt+C**) is shown
 read-only ([Git config](git-config.md)). **Alt+G** opens your own git tool
 (lazygit, gitui, tig or a desktop client) in the repository for the rest
 ([Open in your git tool](#open-in-your-git-tool)). Single commands can also go in the
@@ -430,7 +440,8 @@ read-only ([Git config](git-config.md)). **Alt+G** opens your own git tool
 A file manager that does half a git client's job feels broken next to a real one, and every
 write brings conflicts, credentials, hooks and signing with it. So Coxswain shows where you
 stand (the branch, ahead and behind, what changed) and hands the writing to a tool made for it:
-**Alt+G**.
+**Alt+G**. A fetch and a fast-forward pull, which change none of your work, are the exceptions
+([Fetch and pull](fetch-and-pull.md)).
 
 #### Alt+G opened a terminal, not my git tool.
 

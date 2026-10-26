@@ -315,6 +315,7 @@ impl Panel {
             marked: self.marked.len(),
             place,
             git: self.git.is_some(),
+            fetches: self.git.as_ref().is_some_and(|g| coxswain_core::remote::fetches(g.summary.system)),
             zfs: self.zfs.is_some(),
             packages: coxswain_core::bsd::packages_here(&self.dir),
             big: place == Place::Disk && match cur.filter(|c| c.is_dir && list.len() == 1) {
@@ -746,6 +747,8 @@ pub struct App {
     ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
     /// Checksums being made or checked, on their thread.
     work: Option<Work>,
+    /// Fetch or Pull under way (`coxswain_core::remote`).
+    remote: Option<RemoteRun>,
     /// *Transcribe speech*'s question being worked out on a thread (the lengths of the
     /// recordings are read): the files and the dialog's text.
     transcribe_plan: Option<mpsc::Receiver<(Vec<PathBuf>, String)>>,
@@ -853,6 +856,21 @@ struct Work {
     shown: String,
     stop: Arc<std::sync::atomic::AtomicBool>,
     rx: mpsc::Receiver<WorkMsg>,
+}
+
+/// Fetch or Pull on its thread: the tool's last progress line, and the flag Esc sets.
+struct RemoteRun {
+    action: Action,
+    line: String,
+    /// The status line it showed last: another message is not written over.
+    shown: String,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    rx: mpsc::Receiver<RemoteMsg>,
+}
+
+enum RemoteMsg {
+    At(String),
+    Done(std::io::Result<String>),
 }
 
 enum WorkMsg {
@@ -1080,6 +1098,7 @@ impl App {
             ebook: None,
             ebook_plan: None,
             work: None,
+            remote: None,
             transcribe_plan: None,
             export: None,
             export_plan: None,
@@ -1423,6 +1442,14 @@ impl App {
             stop.store(true, std::sync::atomic::Ordering::Relaxed);
             return self.status = self.job.as_ref().map(Job::shown);
         }
+        // Esc while a fetch or pull contacts the remote: its tool is ended.
+        if key.code == KeyCode::Esc
+            && !(key.ctrl || key.alt || key.shift)
+            && let Some(r) = &self.remote
+        {
+            r.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
         match (action, plain_char) {
             (Some(a), _) => self.act(a),
             (None, Some(c)) => self.cmdline.push(c),
@@ -1451,8 +1478,8 @@ impl App {
         match a {
             // A second Quit while a job runs leaves anyway: a dead network mount must not
             // hold the app. The job's thread ends with the process, its file half done.
-            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some()) => {
-                (self.job, self.searchable, self.media, self.ebook, self.work, self.export, self.viruses) = (None, None, None, None, None, None, None)
+            Action::Quit if self.quit && (self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some() || self.remote.is_some()) => {
+                (self.job, self.searchable, self.media, self.ebook, self.work, self.export, self.viruses, self.remote) = (None, None, None, None, None, None, None, None)
             }
             Action::Quit => {
                 self.quit = true;
@@ -1486,7 +1513,11 @@ impl App {
                 if let Some(x) = &self.viruses {
                     x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
-                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some() {
+                // And a fetch or pull: its tool is ended.
+                if let Some(x) = &self.remote {
+                    x.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                if self.job.is_some() || self.searchable.is_some() || self.media.is_some() || self.ebook.is_some() || self.work.is_some() || self.export.is_some() || self.viruses.is_some() || self.remote.is_some() {
                     self.status = Some(t!("status.quit_job", "key" => self.key_label(Action::Quit)));
                 }
             }
@@ -1522,6 +1553,8 @@ impl App {
             Action::Worktrees => self.git_view(history::View::Worktrees),
             Action::SwitchBranch => self.switch_branch(),
             Action::NewBranch => self.new_branch(),
+            Action::Fetch => self.remote_start(Action::Fetch),
+            Action::Pull => self.remote_start(Action::Pull),
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
             // A file in the viewer with who changed each line; a function's history is asked there.
@@ -2148,6 +2181,79 @@ impl App {
         let repo = p.dir.parent().and_then(Path::file_name).unwrap_or_default().to_string_lossy().into_owned();
         let text = t!("branches.switch_text", "branch" => branch, "repo" => repo);
         self.dialog = Some(Dialog::Switch { title: t!("action.switch_branch"), text, dir: p.dir.clone(), entry: e.name.clone() });
+    }
+
+    /// Fetch or Pull the repository of the panel's folder (`coxswain_core::remote`), on a
+    /// thread: the status line says it contacts the remote, with the tool's progress, and Esc
+    /// (or the key again) stops it. The panels and the git line are read again after.
+    fn remote_start(&mut self, action: Action) {
+        use coxswain_core::remote::{self, Op};
+        if let Some(r) = &self.remote {
+            r.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            return self.status = Some(t!("media.stopping"));
+        }
+        let p = self.panel();
+        let in_list = history::split(&p.dir).is_some_and(|at| at.view == history::View::Branches && at.commit.is_none());
+        if !in_list && (p.git.is_none() || history::is_history(&p.dir)) {
+            return self.status = Some(t!("branches.no_repo"));
+        }
+        let op = if action == Action::Fetch { Op::Fetch } else { Op::Pull };
+        let dir = p.dir.clone();
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = stop.clone();
+        std::thread::spawn(move || {
+            let at = tx.clone();
+            let r = remote::run(&dir, op, &flag, &mut |l| drop(at.send(RemoteMsg::At(l.to_string()))));
+            let _ = tx.send(RemoteMsg::Done(r));
+        });
+        self.remote = Some(RemoteRun { action, line: String::new(), shown: String::new(), stop, rx });
+        self.poll_remote();
+    }
+
+    /// How far a fetch or pull is, on the status line; when done, what came of it.
+    fn poll_remote(&mut self) {
+        let Some(r) = &self.remote else { return };
+        let what = self.action_label(r.action);
+        let Some(r) = &mut self.remote else { return };
+        let mut done = None;
+        while let Ok(msg) = r.rx.try_recv() {
+            match msg {
+                RemoteMsg::At(l) => r.line = l,
+                RemoteMsg::Done(d) => done = Some(d),
+            }
+        }
+        let Some(done) = done else {
+            let tail = if r.stop.load(std::sync::atomic::Ordering::Relaxed) { t!("media.stopping") } else { t!("searchable.stop_key", "key" => "Esc") };
+            let mut new = t!("remote.busy", "what" => what);
+            if !r.line.is_empty() {
+                new = format!("{new} · {}", r.line);
+            }
+            new = format!("{new} · {tail}");
+            if self.status.is_none() || self.status.as_ref() == Some(&r.shown) {
+                self.status = Some(new.clone());
+            }
+            r.shown = new;
+            return;
+        };
+        self.remote = None;
+        self.reload();
+        match done {
+            Ok(said) => self.status = Some(said.lines().next().unwrap_or_default().to_string()),
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => self.status = Some(e.to_string()),
+            Err(e) => {
+                // The progress line goes: the dialog says what came of it.
+                // Our reason is the first line, whole (`failure` would keep only what follows
+                // its last colon); the tool's own words under it.
+                self.status = None;
+                let e = e.to_string();
+                let text = match e.split_once('\n') {
+                    Some((first, rest)) => format!("{first}\n\n{}:\n{}", t!("dialog.details"), rest.trim()),
+                    None => e,
+                };
+                self.dialog = Some(Dialog::Message { title: what, text });
+            }
+        }
     }
 
     /// A name for a new branch: from the branch under the cursor in the list of branches, or
@@ -4475,6 +4581,11 @@ impl App {
             p.facts = Some((at.clone(), None));
             // The panel's own repository has its status already.
             let st = p.current().filter(|e| e.is_parent()).and(p.git.clone());
+            // Where they apply, the keys that fetch and pull (both reach the remote).
+            let keys = st.as_ref().filter(|g| coxswain_core::remote::fetches(g.summary.system)).map(|_| {
+                let k = |a| self.cfg.tty_key(a).unwrap_or("").to_string();
+                t!("remote.keys", "fetch" => k(Action::Fetch), "pull" => k(Action::Pull))
+            });
             let (tx, g, dir) = (self.git_tx.clone(), self.glyphs.clone(), p.dir.clone());
             std::thread::spawn(move || {
                 // On `..` the git line on the border shows the first line already.
@@ -4482,7 +4593,7 @@ impl App {
                     Some(st) => (Some(st.facts(&g)), 1),
                     None => (git::facts(&at, &g), 0),
                 };
-                let line = f.map(|f| f.lines()[skip..].join(" · "));
+                let line = f.map(|f| f.lines()[skip..].iter().cloned().chain(keys).collect::<Vec<_>>().join(" · "));
                 let _ = tx.send((dir, Git::Facts(at, line)));
             });
         }
@@ -4619,6 +4730,7 @@ impl App {
         self.poll_ebook();
         self.poll_ebook_plan();
         self.poll_work();
+        self.poll_remote();
         self.poll_transcribe_plan();
         self.poll_viruses();
         self.poll_viruses_plan();
@@ -4775,7 +4887,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
     let mut ran = false;
     // A file operation still running when asked to quit finishes first: cut short, it
     // would leave half a file behind. A second Quit lets it go (`Action::Quit`).
-    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() || app.export.is_some() || app.viruses.is_some() {
+    while !app.quit || app.job.is_some() || app.searchable.is_some() || app.media.is_some() || app.ebook.is_some() || app.work.is_some() || app.export.is_some() || app.viruses.is_some() || app.remote.is_some() {
         // An error on the status line in plain words, its first line only; the whole of it
         // goes to helper.log.
         if let Some(s) = &app.status {

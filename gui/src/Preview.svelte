@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
+  import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -1154,6 +1154,8 @@
               <!-- Commit, push, pull: the handoff to the user's own git tool. -->
               · <button class="link" onclick={() => openGitConfig()}>{t("action.git_config")}</button> <kbd>{ui.cfg.actions.git_config?.[1] ?? ""}</kbd>
               · <button class="link" onclick={() => gitTool()}>{t("action.git_tool")}</button> <kbd>{ui.cfg.actions.git_tool?.[1] ?? ""}</kbd></dd>
+            <!-- The only two that contact the remote, and only when clicked. -->
+            <dd>{#if pane.git.fetches}<button class="link" onclick={() => remoteRun("fetch")}>{t("action.fetch")}</button> <kbd>{ui.cfg.actions.fetch?.[1] ?? ""}</kbd> · {/if}<button class="link" onclick={() => remoteRun("pull")}>{t("action.pull")}</button> <kbd>{ui.cfg.actions.pull?.[1] ?? ""}</kbd></dd>
           {/if}
           {#if pane.history?.view === "branches" && !pane.history.commit}
             <!-- A branch of the list: switched to, or a new one from it. -->

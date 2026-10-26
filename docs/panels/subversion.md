@@ -8,8 +8,9 @@ each changed file carries its glyph. It reads only the working copy's own record
 `.svn/wc.db`, so nothing is sent to the server and `svn` need not be installed for that. The
 history comes from the server, and only once you say yes to that server: **Ctrl+G** asks first,
 then lists the commits with `svn log`, and **Enter** on one shows its files as they were, with
-their changes, read-only. Branches, update and commit stay with Subversion: **Alt+G**
-opens a terminal in the working copy for them. Both apps do this.
+their changes, read-only. **Alt+L** updates the working copy (`svn update`), only when no file
+changed here was changed on the server too ([Fetch and pull](fetch-and-pull.md)). Branches and commit stay with
+Subversion: **Alt+G** opens a terminal in the working copy for them. Both apps do this.
 
 ![The desktop app (Cyber) in ~/projects/balloon, a Subversion working copy: src marked modified, TODO.txt unversioned, and at the right of the pane's footer the line svn r2 trunk with one modified and one unversioned file](../screenshots/svn-line.png)
 
@@ -119,13 +120,15 @@ when you look:
 - **Large revisions:** a diff stops at 2 MB; its first line then says *Cut short: this commit
   changed more than Coxswain shows in one diff.*
 - **Only reads:** nothing is committed, switched or updated; the working copy is not touched.
+  The one exception is **Alt+L** (*Pull*), which you press: `svn update`.
 
 ## Branches, update and commit
 
 **Alt+B** in a working copy says on the status line: *Subversion keeps its branches and old files
 on the server: Open in your git tool opens a terminal in the working copy for that.* **Alt+G**
 (*Open in your git tool*) opens a terminal there, in this terminal for the terminal app or a new
-window for the desktop app, where `svn switch`, `svn update` and `svn commit` run as usual. A git
+window for the desktop app, where `svn switch`, `svn commit` and an `svn update` that merges run
+as usual. A plain update is **Alt+L** ([Fetch and pull](fetch-and-pull.md)). A git
 tool is never opened for a working copy; a command of your own in *Settings → Behaviour → Git
 tool* is.
 
@@ -150,13 +153,22 @@ of that server.
 #### Does Coxswain need svn installed?
 
 Not for the line and the marks: they come from the working copy's own database, `.svn/wc.db`.
-The history needs `svn`, run against the server you said yes to; without it a notice says so.
+The history and **Alt+L** (`svn update`) need `svn`, run against the server; without it a notice
+says so.
 
 #### Can I see the files as they were at a revision?
 
 Yes: **Enter** on the revision in the history shows its folder as it was, read from the server
 you said yes to. **F3** shows a file, the desktop app's **Diff** what the revision changed in it,
 and **F5** copies it out.
+
+#### How do I update the working copy?
+
+Press **Alt+L** (*Pull (fast-forward only)*, also in **F9** and the action menu). Coxswain first
+asks the server which files are newer (`svn status --show-updates`); when one of them has
+changes here too, it refuses and names it, since `svn update` would merge into it. Otherwise
+it runs `svn update` and the status line shows its last line (*Updated to revision 12.*). There
+is no Fetch: Subversion has nothing to fetch into.
 
 #### Why is a file I only touched not shown as changed?
 

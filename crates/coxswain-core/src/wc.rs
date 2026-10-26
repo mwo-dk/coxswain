@@ -563,7 +563,7 @@ fn not_asked(server: &str) -> io::Error {
 pub static SVN_MISSING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 pub static CVS_MISSING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-fn need(program: &str, system: &str, flag: &std::sync::atomic::AtomicBool) -> io::Result<()> {
+pub(crate) fn need(program: &str, system: &str, flag: &std::sync::atomic::AtomicBool) -> io::Result<()> {
     if crate::user_menu::installed(program) {
         return Ok(());
     }
@@ -832,7 +832,7 @@ fn svn_here(base: &Path) -> io::Result<(String, String, u64)> {
 }
 
 /// svn, never asking anything on the terminal.
-fn svn() -> std::process::Command {
+pub(crate) fn svn() -> std::process::Command {
     let mut c = crate::tools::command("svn");
     c.arg("--non-interactive");
     c
@@ -1250,7 +1250,7 @@ pub fn cvs_status(root: &Path) -> Option<Status> {
 
 /// The folder whose `CVS/Root` names the server for `path`: the folder itself, or the one a
 /// file is in.
-fn cvs_dir(path: &Path) -> Option<PathBuf> {
+pub(crate) fn cvs_dir(path: &Path) -> Option<PathBuf> {
     let has = |d: &Path| d.join("CVS/Root").is_file();
     [path, path.parent()?].into_iter().find(|d| has(d)).map(Path::to_path_buf)
 }
