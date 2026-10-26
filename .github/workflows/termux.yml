@@ -150,8 +150,9 @@ jobs:
             cargo build --release --locked -p coxswain
             /target/release/coxswain --version
             sh packaging/target-cache.sh prune release
-            # What is in it, readable for the save on the runner (the mount point itself is not ours).
-            find /target -mindepth 1 -exec chmod a+rwX {} +
+            # What this run made in it, readable for the save on the runner (what was restored is
+            # the runner user files, opened up before the run).
+            find /target -mindepth 1 -user "$(id -u)" -exec chmod a+rwX {} +
           '
       - uses: ./.github/actions/target-cache
         with:
