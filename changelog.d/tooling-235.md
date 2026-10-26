@@ -1,1 +1,0 @@
-| **F1 → Features says how to read a whole version.** Under *Notices and what's new*, F1 now says that Enter on a version in Settings → Overview → What's new shows all it brought in the viewer (terminal app). | [Notices and what's new](panels/notices.md#how-do-i-see-what-an-upgrade-brought) |
