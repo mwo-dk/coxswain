@@ -961,7 +961,7 @@ impl App {
                         } else {
                             let base = self.panel().dir.clone();
                             let dir = coxswain_core::fs::resolve(&base, new.trim());
-                            std::fs::canonicalize(&dir).unwrap_or(dir).display().to_string()
+                            coxswain_core::fs::canonical(&dir).unwrap_or(dir).display().to_string()
                         };
                         if !item.is_empty() && !items.contains(&item) {
                             items.push(item);

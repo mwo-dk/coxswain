@@ -775,10 +775,19 @@ fn read_disks() -> Vec<Disk> {
     let mut sorted: Vec<Disk> = mounted_disks().into_iter().filter(|d| d.total > 0).collect();
     sorted.sort_by_key(|d| d.mount.as_os_str().len());
     for mut d in sorted {
-        if coxswain_core::machine::hidden_mount(&d.mount, &d.fstype) || out.iter().any(|o| o.device == d.device) {
+        // On Windows `device` is the volume's label, which two drives may share (or both lack).
+        if coxswain_core::machine::hidden_mount(&d.mount, &d.fstype) || (!cfg!(windows) && out.iter().any(|o| o.device == d.device)) {
             continue;
         }
-        d.label = if d.mount.parent().is_none() { coxswain_core::t!("place.system") } else { d.mount.file_name().map_or(d.device.clone(), |n| n.to_string_lossy().into_owned()) };
+        d.label = if cfg!(windows) {
+            // Every drive is a root there: named as Explorer names it, `Windows (C:)`.
+            let letter = d.mount.to_string_lossy().trim_end_matches('\\').to_string();
+            if d.device.is_empty() { letter } else { format!("{} ({letter})", d.device) }
+        } else if d.mount.parent().is_none() {
+            coxswain_core::t!("place.system")
+        } else {
+            d.mount.file_name().map_or(d.device.clone(), |n| n.to_string_lossy().into_owned())
+        };
         out.push(d);
     }
     out
@@ -1584,7 +1593,7 @@ fn ask_stop(ctx: tauri::State<Ctx>) {
 
 fn resolve(base: &Path, s: &str) -> PathBuf {
     let p = bfs::resolve(base, s);
-    std::fs::canonicalize(&p).unwrap_or(p)
+    coxswain_core::fs::canonical(&p).unwrap_or(p)
 }
 
 #[tauri::command(async)]

@@ -1690,6 +1690,13 @@ pub fn percent_decode(bytes: &[u8]) -> Vec<u8> {
     out
 }
 
+/// `p` with its links followed, as a path to show and to go to: on Windows without the `\\?\`
+/// that `std::fs::canonicalize` puts in front (`C:\Users`, not `\\?\C:\Users`), where the
+/// path does without it.
+pub fn canonical(p: &Path) -> io::Result<PathBuf> {
+    dunce::canonicalize(p)
+}
+
 /// `s` as a path: `~` is the home folder, and a relative path starts from `base`.
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
@@ -1909,6 +1916,15 @@ const KINDS: &[io::ErrorKind] = &[
 
 #[cfg(test)]
 mod tests {
+    /// A folder shows as `C:\…`, never as `\\?\C:\…`, and still names the same folder.
+    #[test]
+    fn canonical_paths_have_no_verbatim_prefix() {
+        let d = super::Scratch::named("canonical");
+        let c = super::canonical(&d).unwrap();
+        assert!(!c.to_string_lossy().starts_with(r"\\?\"), "{}", c.display());
+        assert_eq!(std::fs::canonicalize(&c).unwrap(), std::fs::canonicalize(&*d).unwrap());
+    }
+
     /// A disk's top folder the user cannot write (another disk mounted at a folder root
     /// owns) has no bin of the user's: what would go there is not copied to the home bin.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]

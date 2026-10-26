@@ -3253,7 +3253,7 @@ impl App {
             let arg = t[2..].trim().trim_matches(['"', '\'']);
             let target = if arg.is_empty() { coxswain_core::dirs::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
             if target.is_dir() {
-                self.cd(self.active, std::fs::canonicalize(&target).unwrap_or(target));
+                self.cd(self.active, coxswain_core::fs::canonical(&target).unwrap_or(target));
             } else {
                 self.status = Some(t!("status.no_dir", "dir" => arg));
             }
@@ -3522,7 +3522,7 @@ impl App {
             }
             Prompt::Goto(side) => {
                 let d = resolve(&self.panels[side].dir, &value);
-                let d = std::fs::canonicalize(&d).unwrap_or(d);
+                let d = coxswain_core::fs::canonical(&d).unwrap_or(d);
                 if d.is_dir() {
                     self.cd(side, d);
                 } else {
@@ -5283,7 +5283,7 @@ pub fn main() {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let dir = |i: usize| {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
-        std::fs::canonicalize(&d).unwrap_or(d)
+        coxswain_core::fs::canonical(&d).unwrap_or(d)
     };
     let mut app = App::new(cfg, dir(0), dir(1)).unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
