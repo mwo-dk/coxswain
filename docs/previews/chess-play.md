@@ -377,6 +377,15 @@ Coxswain uses an engine installed on this computer and never downloads one. Inst
 Previews → Chess engines*, which shows each known engine's install line. When it is installed
 outside your PATH, name its path in *Chess engine*.
 
+#### I downloaded Stockfish into my Downloads folder: why is it not used?
+
+Coxswain never looks for an engine in your Downloads folder, on any system: whatever lands there
+would run as the engine without you choosing it. Until one is found, the line under the board says
+*No chess engine found* and names *Settings → Previews → Chess engine*. Move the program to a
+folder on your PATH (on Windows it is then found under its long name too,
+`stockfish-windows-x86-64-avx2.exe`), or type its path in *Settings → Previews → Chess engine*
+(desktop app) or the *Chess engine* row of the terminal app's Settings (**F12**, then *Previews*).
+
 #### How do I play a move in the terminal app?
 
 **m** opens *Play a move* with every legal move of the position. Type the start of one (`Nf3`,
