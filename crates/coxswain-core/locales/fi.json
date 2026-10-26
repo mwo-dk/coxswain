@@ -4395,5 +4395,7 @@
  "disk.replace.cost": "päättyneiden sovellusten etsi ja korvaa -toimintoja ei voi enää kumota; käynnissä oleva sovellus pitää omansa",
  "disk.sync.what": "{n} tiedostoa, jotka kansioiden synkronointi korvasi tai poisti kansiossa {folder}, säilytetty täällä, koska roskakori ei voinut ottaa niitä.",
  "disk.sync.cost": "ne katoavat lopullisesti",
- "branches.lfs_risk": "Ei vaihdettu: tämän repositorion oma asetus määrittää {key}, jota git-lfs noudattaisi tiedostoja kirjoittaessaan: se voisi ajaa ohjelman tai lähettää kirjautumistietosi muualle. Vaihda haaraa gitillä itse, jos luotat repositorioon."
+ "branches.lfs_risk": "Ei vaihdettu: tämän repositorion oma asetus määrittää {key}, jota git-lfs noudattaisi tiedostoja kirjoittaessaan: se voisi ajaa ohjelman tai lähettää kirjautumistietosi muualle. Vaihda haaraa gitillä itse, jos luotat repositorioon.",
+ "branches.config_hook": "Ei vaihdettu: tämän repositorion oma asetus määrittää {key}, koukun (hook), jonka git ajaisi vaihdossa. Vaihda haaraa gitillä itse, jos luotat repositorioon.",
+ "branches.worktree_elsewhere": "Ei vaihdettu: tämän repositorion asetus sijoittaa sen tiedostot kansioon {dir}, ei kansioon {root}, joten vaihto kirjoittaisi sinne. Vaihda haaraa gitillä itse, jos se on tarkoitus."
 }

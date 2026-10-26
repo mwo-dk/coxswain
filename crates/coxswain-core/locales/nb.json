@@ -4395,5 +4395,7 @@
  "disk.replace.cost": "søk og erstatt i apper som er avsluttet, kan ikke lenger angres; en app som kjører, beholder sine",
  "disk.sync.what": "{n} filer som en mappesynkronisering erstattet eller slettet i {folder}, beholdt her fordi papirkurven ikke kunne ta dem.",
  "disk.sync.cost": "de er borte for godt",
- "branches.lfs_risk": "Ikke byttet: repoets egen konfigurasjon setter {key}, som git-lfs ville fulgt mens det skriver filene: det kunne kjøre et program eller sende innloggingen din et annet sted. Bytt gren med git selv hvis du stoler på repoet."
+ "branches.lfs_risk": "Ikke byttet: repoets egen konfigurasjon setter {key}, som git-lfs ville fulgt mens det skriver filene: det kunne kjøre et program eller sende innloggingen din et annet sted. Bytt gren med git selv hvis du stoler på repoet.",
+ "branches.config_hook": "Ikke byttet: repoets egen konfigurasjon setter {key}, en hook som git ville kjørt ved byttet. Bytt gren med git selv hvis du stoler på repoet.",
+ "branches.worktree_elsewhere": "Ikke byttet: repoets konfigurasjon legger filene i {dir}, ikke i {root}, så et bytte ville skrevet der. Bytt gren med git selv hvis det er meningen."
 }

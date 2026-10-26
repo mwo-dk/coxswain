@@ -4395,5 +4395,7 @@
  "disk.replace.cost": "søk og erstatt i appar som er avslutta, kan ikkje lenger angrast; ein app som køyrer, held på sine",
  "disk.sync.what": "{n} filer som ei mappesynkronisering erstatta eller sletta i {folder}, haldne her fordi papirkorga ikkje kunne ta dei.",
  "disk.sync.cost": "dei er borte for godt",
- "branches.lfs_risk": "Ikkje bytt: repoet sitt eige oppsett set {key}, som git-lfs ville følgt medan det skriv filene: det kunne køyre eit program eller sende innlogginga di ein annan stad. Byt grein med git sjølv dersom du stolar på repoet."
+ "branches.lfs_risk": "Ikkje bytt: repoet sitt eige oppsett set {key}, som git-lfs ville følgt medan det skriv filene: det kunne køyre eit program eller sende innlogginga di ein annan stad. Byt grein med git sjølv dersom du stolar på repoet.",
+ "branches.config_hook": "Ikkje bytt: repoet sitt eige oppsett set {key}, ein hook som git ville køyrt ved bytet. Byt grein med git sjølv dersom du stolar på repoet.",
+ "branches.worktree_elsewhere": "Ikkje bytt: oppsettet til repoet legg filene i {dir}, ikkje i {root}, så eit byte ville skrive der. Byt grein med git sjølv dersom det er meininga."
 }

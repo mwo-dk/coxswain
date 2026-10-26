@@ -133,6 +133,14 @@ is just a folder.
 - **Only switch and new branch change anything.** No delete, rename, push, pull, fetch or merge:
   **Alt+G** opens your own git tool for those ([Open in your git tool](git.md#open-in-your-git-tool)),
   or use git on the command line or the [user menu](../commands/user-menu.md).
+- **No hooks set in the repository's config, and no work tree elsewhere.** git also runs hooks
+  named in config (`hook.<name>.command` with `hook.<name>.event`), which turning hooks off does
+  not stop, so a switch or a new branch is refused when the repository's own config has any
+  `hook.*` key: *Not switched: this repository's own config sets hook.…, a hook git would run on
+  the switch*. It is refused too when the repository's config puts its files somewhere else
+  (`core.worktree`), so a switch would write outside the folder you see: *Not switched: this
+  repository's config puts its files in …, not in …*. A submodule's own `core.worktree`, which
+  points at its folder, is fine.
 - **No hooks and no filters of the repository run.** Coxswain runs git with the repository's own
   hooks, file system monitor and filter drivers turned off, as it does for the status. A
   repository that defines filters of its own (git-crypt, say) would have its files written
@@ -211,6 +219,13 @@ Not in this version. Use git on the command line, or put the command in the
 The repository sets up a filter driver in its own config (git-crypt, for one). Coxswain never
 runs programs a repository names, so it would write the files without the filter, and wrong.
 Switch with `git switch` on the command line there.
+
+#### Why is a switch refused because of a hook?
+
+The repository's own config sets a hook (`hook.<name>.command`): git would run that program
+when the branch changes, and a repository you downloaded could name anything there. If you
+trust it, switch with `git switch`, or remove the hook with `git config --remove-section
+hook.<name>`.
 
 #### Why is a switch refused because of git-lfs?
 

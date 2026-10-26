@@ -4493,5 +4493,7 @@
  "disk.replace.cost": "les cerques i substitucions d'aplicacions que han acabat ja no es poden desfer; una aplicació en marxa conserva les seves",
  "disk.sync.what": "{n} fitxers que una sincronització de carpetes va substituir o suprimir a {folder}, guardats aquí perquè la paperera no els va poder agafar.",
  "disk.sync.cost": "desapareixen per sempre",
- "branches.lfs_risk": "No s'ha canviat: la configuració pròpia d'aquest repositori defineix {key}, que git-lfs seguiria en escriure els fitxers: podria executar un programa o enviar el vostre inici de sessió a una altra banda. Canvieu de branca amb el mateix git si us fieu del repositori."
+ "branches.lfs_risk": "No s'ha canviat: la configuració pròpia d'aquest repositori defineix {key}, que git-lfs seguiria en escriure els fitxers: podria executar un programa o enviar el vostre inici de sessió a una altra banda. Canvieu de branca amb el mateix git si us fieu del repositori.",
+ "branches.config_hook": "No s'ha canviat: la configuració pròpia d'aquest repositori defineix {key}, un hook que git executaria en canviar de branca. Canvieu de branca amb el mateix git si us fieu del repositori.",
+ "branches.worktree_elsewhere": "No s'ha canviat: la configuració d'aquest repositori posa els seus fitxers a {dir}, no a {root}, de manera que un canvi hi escriuria. Canvieu de branca amb el mateix git si és el que voleu."
 }

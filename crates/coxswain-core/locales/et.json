@@ -4395,5 +4395,7 @@
  "disk.replace.cost": "lõppenud rakenduste otsimisi ja asendamisi ei saa enam tagasi võtta; töötav rakendus jätab enda omad alles",
  "disk.sync.what": "{n} faili, mille kaustade sünkroonimine asendas või kustutas kaustas {folder}, hoitud siin, sest prügikast ei saanud neid vastu võtta.",
  "disk.sync.cost": "need kaovad jäädavalt",
- "branches.lfs_risk": "Ei vahetatud: selle hoidla enda seadistus määrab {key}, mida git-lfs failide kirjutamisel järgiks: see võiks käivitada mõne programmi või saata sinu sisselogimisandmed mujale. Kui usaldad hoidlat, vaheta haru git'iga ise."
+ "branches.lfs_risk": "Ei vahetatud: selle hoidla enda seadistus määrab {key}, mida git-lfs failide kirjutamisel järgiks: see võiks käivitada mõne programmi või saata sinu sisselogimisandmed mujale. Kui usaldad hoidlat, vaheta haru git'iga ise.",
+ "branches.config_hook": "Ei vahetatud: selle hoidla enda seadistus määrab {key}, konksu (hook), mille git vahetamisel käivitaks. Kui usaldad hoidlat, vaheta haru git'iga ise.",
+ "branches.worktree_elsewhere": "Ei vahetatud: selle hoidla seadistus paneb selle failid kausta {dir}, mitte {root}, nii et vahetus kirjutaks sinna. Kui see on nii mõeldud, vaheta haru git'iga ise."
 }

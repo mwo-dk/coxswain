@@ -4591,5 +4591,7 @@
  "disk.replace.cost": "znajdź i zamień w aplikacjach, które się zakończyły, nie da się już cofnąć; działająca aplikacja zachowuje swoje",
  "disk.sync.what": "Pliki ({n}), które synchronizacja folderów zastąpiła lub usunęła w {folder}, trzymane tutaj, bo Kosz nie mógł ich przyjąć.",
  "disk.sync.cost": "znikają na zawsze",
- "branches.lfs_risk": "Nie przełączono: własna konfiguracja tego repozytorium ustawia {key}, za czym git-lfs podążałby przy zapisywaniu plików: mógłby uruchomić program albo wysłać twoje dane logowania gdzie indziej. Jeśli ufasz repozytorium, przełącz gałąź samym gitem."
+ "branches.lfs_risk": "Nie przełączono: własna konfiguracja tego repozytorium ustawia {key}, za czym git-lfs podążałby przy zapisywaniu plików: mógłby uruchomić program albo wysłać twoje dane logowania gdzie indziej. Jeśli ufasz repozytorium, przełącz gałąź samym gitem.",
+ "branches.config_hook": "Nie przełączono: własna konfiguracja tego repozytorium ustawia {key}, hook, który git uruchomiłby przy przełączaniu. Jeśli ufasz repozytorium, przełącz gałąź samym gitem.",
+ "branches.worktree_elsewhere": "Nie przełączono: konfiguracja tego repozytorium umieszcza jego pliki w {dir}, a nie w {root}, więc przełączenie zapisywałoby tam. Jeśli tak ma być, przełącz gałąź samym gitem."
 }

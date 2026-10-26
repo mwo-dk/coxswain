@@ -4395,5 +4395,7 @@
  "disk.replace.cost": "sök och ersätt i appar som har avslutats kan inte längre ångras; en app som körs behåller sina",
  "disk.sync.what": "{n} filer som en mappsynkronisering ersatte eller tog bort i {folder}, sparade här eftersom papperskorgen inte kunde ta emot dem.",
  "disk.sync.cost": "de är borta för gott",
- "branches.lfs_risk": "Inte bytt: förrådets egen konfiguration sätter {key}, som git-lfs skulle följa när det skriver filerna: det kunde köra ett program eller skicka din inloggning någon annanstans. Byt gren med git själv om du litar på förrådet."
+ "branches.lfs_risk": "Inte bytt: förrådets egen konfiguration sätter {key}, som git-lfs skulle följa när det skriver filerna: det kunde köra ett program eller skicka din inloggning någon annanstans. Byt gren med git själv om du litar på förrådet.",
+ "branches.config_hook": "Inte bytt: förrådets egen konfiguration sätter {key}, en hook som git skulle köra vid bytet. Byt gren med git själv om du litar på förrådet.",
+ "branches.worktree_elsewhere": "Inte bytt: förrådets konfiguration lägger dess filer i {dir}, inte i {root}, så ett byte skulle skriva där. Byt gren med git själv om det är meningen."
 }

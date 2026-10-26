@@ -4493,5 +4493,7 @@
  "disk.replace.cost": "beigušos lietotņu meklēšanas un aizstāšanas vairs nevarēs atsaukt; strādājoša lietotne savējās patur",
  "disk.sync.what": "{n} faili, ko mapju sinhronizācija aizstāja vai dzēsa mapē {folder}, glabāti šeit, jo atkritne tos nevarēja pieņemt.",
  "disk.sync.cost": "tie pazūd uz visiem laikiem",
- "branches.lfs_risk": "Nav pārslēgts: šīs krātuves pašas konfigurācija iestata {key}, kam git-lfs sekotu, rakstot failus: tas varētu palaist programmu vai nosūtīt jūsu pieteikšanās datus citur. Ja uzticaties krātuvei, pārslēdziet zaru ar pašu git."
+ "branches.lfs_risk": "Nav pārslēgts: šīs krātuves pašas konfigurācija iestata {key}, kam git-lfs sekotu, rakstot failus: tas varētu palaist programmu vai nosūtīt jūsu pieteikšanās datus citur. Ja uzticaties krātuvei, pārslēdziet zaru ar pašu git.",
+ "branches.config_hook": "Nav pārslēgts: šīs krātuves pašas konfigurācija iestata {key} – āķi (hook), ko git palaistu pārslēgšanas laikā. Ja uzticaties krātuvei, pārslēdziet zaru ar pašu git.",
+ "branches.worktree_elsewhere": "Nav pārslēgts: šīs krātuves konfigurācija novieto tās failus {dir}, nevis {root}, tāpēc pārslēgšana rakstītu tur. Ja tā ir domāts, pārslēdziet zaru ar pašu git."
 }

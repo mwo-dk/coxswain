@@ -4493,5 +4493,7 @@
  "disk.replace.cost": "les rechercher-remplacer des applications terminées ne peuvent plus être annulés ; une application ouverte garde les siens",
  "disk.sync.what": "{n} fichiers qu'une synchronisation de dossiers a remplacés ou supprimés dans {folder}, gardés ici parce que la corbeille n'a pas pu les prendre.",
  "disk.sync.cost": "ils disparaissent définitivement",
- "branches.lfs_risk": "Pas de changement : la configuration propre à ce dépôt définit {key}, que git-lfs suivrait en écrivant les fichiers : il pourrait lancer un programme ou envoyer vos identifiants ailleurs. Changez de branche avec git lui-même si vous faites confiance au dépôt."
+ "branches.lfs_risk": "Pas de changement : la configuration propre à ce dépôt définit {key}, que git-lfs suivrait en écrivant les fichiers : il pourrait lancer un programme ou envoyer vos identifiants ailleurs. Changez de branche avec git lui-même si vous faites confiance au dépôt.",
+ "branches.config_hook": "Pas de changement : la configuration propre à ce dépôt définit {key}, un hook que git lancerait au changement. Changez de branche avec git lui-même si vous faites confiance au dépôt.",
+ "branches.worktree_elsewhere": "Pas de changement : la configuration de ce dépôt place ses fichiers dans {dir}, pas dans {root}, donc un changement écrirait là. Changez de branche avec git lui-même si c'est voulu."
 }
