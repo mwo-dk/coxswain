@@ -213,7 +213,7 @@ fn git_local(base: &Path, args: &[&str], stop: &AtomicBool) -> io::Result<String
 /// own `http.*` (a proxy, certificates: a man in the middle gets the credential helper's token)
 /// or proxy; and its filters, which a pull would have to run. `git_dir`: the git store to read
 /// (Jujutsu's), else the one git finds in `base`. Scope and key, lower case.
-const RISKY: &str = r"^(core\.(sshcommand|gitproxy|askpass|alternaterefscommand)|remote\..*\.(uploadpack|receivepack|proxy)|credential\.(.*\.)?helper|http\..*|lfs\.customtransfer\..*\.(path|args)|lfs\.standalonetransferagent|lfs\.extension\..*\.(clean|smudge)|filter\..*)$";
+const RISKY: &str = r"^(core\.(sshcommand|gitproxy|askpass|alternaterefscommand)|remote\..*\.(uploadpack|receivepack|proxy)|credential\.(.*\.)?helper|http\..*|gpg\..*|lfs\.customtransfer\..*\.(path|args)|lfs\.standalonetransferagent|lfs\.extension\..*\.(clean|smudge)|filter\..*)$";
 
 fn repo_config(base: &Path, git_dir: Option<&Path>, regex: &str, names_only: bool, stop: &AtomicBool) -> io::Result<Vec<(String, String)>> {
     let mut c = crate::tools::command("git");
@@ -357,7 +357,10 @@ fn git(base: &Path, op: Op, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::
     touched(&hit)?;
     // No filters of the repository's own (`fetches_safely` refused them): none to turn off.
     let mut c = git_plain(base);
-    c.args(["merge", "--ff-only", "--no-autostash", "--no-stat", "--no-edit", "@{u}"]);
+    // No signature check: `merge.verifySignatures`/`pull.verifySignatures` plus the repository's
+    // own `gpg.*` (refused above too) would run a program it names. `--no-edit` means no editor.
+    c.args(["-c", "merge.verifySignatures=false", "-c", "log.showSignature=false"]);
+    c.args(["merge", "--ff-only", "--no-verify-signatures", "--no-autostash", "--no-stat", "--no-edit", "@{u}"]);
     tool(c, stop, at)?.into_result().map_err(|e| with_reason(t!("remote.pull_failed"), &e.to_string()))?;
     Ok(t!("remote.pulled", "upstream" => upstream, "from" => &head[..7.min(head.len())], "to" => &up[..7.min(up.len())]))
 }
@@ -801,6 +804,32 @@ mod tests {
         std::fs::remove_file(t.join(".hg/hgrc")).unwrap();
         std::fs::write(t.join(".hg/hgrc"), "[paths]\ndefault = https://example.org/r\n").unwrap();
         assert_eq!(hg_default(&t).as_deref(), Some("https://example.org/r"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_signature_check_the_repository_asks_for_never_runs_its_program() {
+        let Some((t, here, there)) = setup("gpg") else { return };
+        let marker = t.join("PWNED");
+        // The repository asks for signatures and names the program that would check them.
+        git_in(&here, &["config", "merge.verifySignatures", "true"]);
+        git_in(&here, &["config", "gpg.program", &format!("sh -c \"touch {} #\"", marker.display())]);
+        // A commit to fast-forward to.
+        commit(&there, "b.txt", "two\n");
+        git_in(&there, &["push", "-q", "origin", "HEAD:main"]);
+        // Refused at the config gate, before the merge.
+        let e = go(&here, Op::Pull).unwrap_err().to_string();
+        assert!(e.contains("gpg.program"), "{e}");
+        assert!(!marker.exists());
+        // Even past the gate, the merge itself asks for no signature: unset the gpg key, keep the
+        // request, and run the pull's own merge args by hand with a gpg.program that would fire.
+        git_in(&here, &["config", "--unset", "gpg.program"]);
+        let mut c = git_plain(&here);
+        c.args(["-c", &format!("gpg.program=sh -c \"touch {} #\"", marker.display())]);
+        c.args(["-c", "merge.verifySignatures=false", "-c", "log.showSignature=false"]);
+        c.args(["merge", "--ff-only", "--no-verify-signatures", "--no-autostash", "--no-stat", "--no-edit", "@{u}"]);
+        assert!(c.status().unwrap().success());
+        assert!(!marker.exists(), "the merge ran gpg.program");
     }
 
     #[test]
