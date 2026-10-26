@@ -2077,6 +2077,11 @@ impl App {
             Some(e) if !e.is_parent() => e.path.clone(),
             _ => p.dir.clone(),
         };
+        // Every branch and against the upstream are git's: other systems have one history.
+        let base = history::split(&p.dir).map_or_else(|| target.clone(), |at| at.base);
+        if scope != history::Scope::Branch && p.git.is_some() && !history::scoped(&base) {
+            return self.status = Some(t!("history.all_not_here"));
+        }
         if scope != history::Scope::Branch && history::is_history(&p.dir) {
             return match history::switch_scope(&p.dir, &target, scope) {
                 Some(to) => self.cd(self.active, to),

@@ -115,7 +115,7 @@
           <span class="archive-badge" title={c ? `${c.hash}\n${c.author} · ${date(c.time)}\n${c.subject}` : tr(`${t.history.view}.inside_tip`)}>
             {t.history.view === "history" ? "\u{f1da}" : "\u{e725}"} {c ? tr("history.badge_at", { commit: c.hash.slice(0, 7) }) : badgeOf(t.history)}
           </span>
-          {#if t.history.view === "history" && !c}
+          {#if t.history.view === "history" && !c && t.history.scoped}
             <!-- Which commits the list and its graph show: this branch's, or every branch's. -->
             {@const keyOf = (s) => ui.cfg.actions[s === "upstream" ? "history_upstream" : "history_all"]?.[1] ?? ""}
             <span class="scope" role="group">

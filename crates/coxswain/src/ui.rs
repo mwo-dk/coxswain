@@ -250,6 +250,8 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         }
         Place::History(at, _) => match (&at.commit, at.view) {
             (Some(c), _) => format!("{} [{}]", p.dir.to_string_lossy(), t!("history.badge_at", "commit" => &c[..c.len().min(7)])),
+            // Only git's history has scopes to switch between.
+            (None, coxswain_core::history::View::History) if !coxswain_core::history::scoped(&at.base) => p.dir.to_string_lossy().into_owned(),
             (None, coxswain_core::history::View::History) => {
                 // Which commits, and the key that lists the others.
                 let key = app.key_label(Action::HistoryAll);

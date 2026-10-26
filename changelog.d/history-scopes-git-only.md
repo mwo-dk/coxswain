@@ -1,0 +1,1 @@
+| **Subversion, CVS, Mercurial and Jujutsu histories no longer offer git's All branches and Against upstream.** Their list shows no such buttons (desktop app) or key in its title (terminal app), and **Alt+A** and **Alt+Y** say on the status line that those are git's. | [Subversion working copies](panels/subversion.md#history-from-the-server) |

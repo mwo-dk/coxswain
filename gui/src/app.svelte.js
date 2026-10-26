@@ -410,6 +410,9 @@ export function openHistory(tb = tab(), scope = "branch") {
   const e = item(tb);
   const s = ui.cfg.sep;
   const seg = (sc) => ({ all: s + ALL, upstream: s + UPSTREAM })[sc] ?? "";
+  // Every branch and against the upstream are git's: other systems have one history.
+  const one = tb.history ? tb.history.view === "history" && !tb.history.scoped : tb.git && tb.git.system !== "git";
+  if (scope !== "branch" && one) return void (ui.status = tr("history.all_not_here"));
   if (scope !== "branch" && tb.history) {
     const h = tb.history;
     if (h.view !== "history") return void (ui.status = tr("history.all_not_here"));

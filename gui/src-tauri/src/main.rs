@@ -496,6 +496,8 @@ struct HistoryInfo {
     view: history::View,
     /// HEAD's commits, every branch's, or those against the upstream.
     scope: history::Scope,
+    /// It has scopes to switch between (git's only).
+    scoped: bool,
     /// Against the upstream: which, how far ahead and behind, and the last fetch.
     upstream: Option<String>,
 }
@@ -520,7 +522,7 @@ async fn read_listing(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: b
         {
             history::sort_by_last(&mut entries, &lasts, reverse);
         }
-        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), upstream: (at.scope == history::Scope::Upstream && at.commit.is_none()).then(|| history::upstream_line(&at.base)).flatten(), target: at.target, base: at.base, view: at.view, scope: at.scope });
+        let in_history = history::split(&dir).filter(|_| !dir.is_dir()).map(|at| HistoryInfo { commit: at.commit.as_deref().and_then(|c| history::show(&at.base, c).ok()), upstream: (at.scope == history::Scope::Upstream && at.commit.is_none()).then(|| history::upstream_line(&at.base)).flatten(), scoped: history::scoped(&at.base), target: at.target, base: at.base, view: at.view, scope: at.scope });
         let snapshot = coxswain_core::zfs::at(&dir);
         let package = coxswain_core::bsd::split(&dir).and_then(|f| coxswain_core::bsd::package_of(&f));
         Ok::<_, String>((entries, inside, in_history, snapshot, package))
@@ -638,6 +640,8 @@ struct GitInfo {
     root: PathBuf,
     prompt: String,
     branch: String,
+    /// What keeps it: `git`, `jj`, `hg`, `svn`, `cvs`.
+    system: &'static str,
     /// File name (direct children of the directory) -> status.
     files: BTreeMap<String, git::FileStatus>,
     /// The status of every entry not in `files`: the folder's own, when it is untracked or
@@ -666,7 +670,7 @@ async fn git_status(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<Option<GitI
     } else {
         ctx.state.lock().map_err(|e| e.to_string())?.repos(by_name)
     };
-    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), fetches: coxswain_core::remote::fetches(s.summary.system), root: s.root, files, all, recent }))
+    Ok(Some(GitInfo { prompt: s.prompt(&ctx.cfg().glyphs()), branch: s.summary.branch.clone(), fetches: coxswain_core::remote::fetches(s.summary.system), system: s.summary.system, root: s.root, files, all, recent }))
 }
 
 /// What the git line's tooltip and a repository folder's tooltip show, one fact a line: read

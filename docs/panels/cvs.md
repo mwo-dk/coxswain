@@ -66,7 +66,8 @@ read; `-d`: the root of the folder asked about, for every folder below too, what
 - CVS keeps a history per file. Revisions with the same commit id (CVS 1.12), or else the same
   author and message within five minutes, are one entry: its date in *Modified*, its author in
   *Last commit* (desktop app) or on the info line (terminal app), and the first line of its
-  message as its name. At most 2000 are listed.
+  message as its name. At most 2000 are listed. The list has no *All branches* and *Against
+  upstream* buttons: those are git's, and **Alt+A** and **Alt+Y** say so on the status line.
 - **Which roots:** `:pserver:` and `:ext:` (through `CVS_RSH`, ssh by default) to a host name,
   and a repository on this machine (`/path`, `:local:`, `:fork:`). Any other method, options
   after the method (`:ext;CVS_RSH=…:`) or a user or host starting with `-` is never handed to
