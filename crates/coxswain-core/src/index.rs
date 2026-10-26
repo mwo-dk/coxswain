@@ -262,7 +262,13 @@ impl Index {
             s.is_dir || look && crate::archive::is_archive_in(dir, &s.name)
         };
         if depth >= crate::sizes::DEEP {
-            out.iter_mut().filter(wanted).for_each(one);
+            // A plain loop: each level of a very deep tree costs only this frame and `one`'s,
+            // not those of an iterator's adapters too (a debug build's stack, on Windows).
+            for s in out.iter_mut() {
+                if wanted(&s) {
+                    one(s);
+                }
+            }
         } else {
             out.par_iter_mut().filter(wanted).for_each(one);
         }
