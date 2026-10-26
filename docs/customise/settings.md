@@ -189,7 +189,7 @@ Opening this area asks the container runtime which images it has.
 
 ## Looks
 
-![Settings at Looks: the languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, a line, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the last languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, under them the button Suggest a better translation, a line, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
 
 | Option | Does | Key |
 |---|---|---|
@@ -358,7 +358,7 @@ needs and the rows above it scroll.
 | Keys | First the row *Change keys in config.toml, under [keys]*: **Enter** opens your editor there. Then every action the terminal app has, under its group, with its keys; read-only, as in the desktop app. No scripts folder line: **F2** → *Open the scripts folder* goes there ([Scripts](../commands/scripts.md)) |
 | Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to; *Disk use*, each place with its size (**Enter** shows it in the panel, **Delete** clears it, the search store and the preview cache among them; on a row under *Your own files* **Delete** removes it after you confirm, and on *quarantine/* it does nothing) and *Clear everything that can be built again*; where things are kept, the version |
 
-![The terminal app's Settings at Looks, Classic blue: Language (under the cursor) and Icons and git glyphs, then the heading Terminal app with Theme of the terminal app, then the heading Desktop app with its theme, Font, Monospaced font, Icon font, Text size and Row height](../screenshots/tui-settings-looks.png)
+![The terminal app's Settings at Looks, Classic blue: Language, [ Suggest a better translation ] under the cursor with what Enter does in the box below, and Icons and git glyphs, then the heading Terminal app with Theme of the terminal app, then the heading Desktop app with its theme, Font, Monospaced font, Icon font, Text size and Row height](../screenshots/tui-settings-looks.png)
 
 A level that needs a model starts the [setup guide](../search/setup.md) (`coxswain
 --setup-search`) on the plain terminal, as **Set up…** does; Settings is back when it ends,

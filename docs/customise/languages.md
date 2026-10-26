@@ -276,7 +276,8 @@ Settings pick it at once (**F12** → *Looks* → *Language*); a change made in 
 in the file is read when it starts. `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
 depends on the terminal (see
-[Right to left](#right-to-left)). The help (**F1**), the command list (**F9**), dialogs, the
+[Right to left](#right-to-left)). *Suggest a better translation* is the row right under
+*Language* in its Settings (**Enter** on it), or **F9** → *Suggest a better translation*. The help (**F1**), the command list (**F9**), dialogs, the
 F-key bar and status texts are all translated.
 
 ## Questions
