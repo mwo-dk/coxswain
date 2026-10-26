@@ -188,7 +188,7 @@ struct UiConfig {
     server_host: String,
     server_local: bool,
     /// The server the update check asks, whether or not it is on.
-    update_host: &'static str,
+    update_host: String,
     paths: Vec<(&'static str, Option<PathBuf>)>,
     /// The search level the settings make (none for a mix), and each level's costs.
     level: Option<coxswain_core::settings::Level>,
@@ -2785,7 +2785,8 @@ async fn check_update(ctx: tauri::State<'_, Ctx>) -> Res<Option<(String, Option<
         }
     }
     let v = update::available(&*ctx.state.lock().map_err(|e| e.to_string())?);
-    Ok(v.map(|v| (v, update::upgrade_hint())))
+    let hint = update::hint(&*ctx.state.lock().map_err(|e| e.to_string())?);
+    Ok(v.map(|v| (v, hint)))
 }
 
 /// Whether the webview may go to `url`: the app's own pages and files, never the web. A link

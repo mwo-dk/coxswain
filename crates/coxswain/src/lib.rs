@@ -709,7 +709,7 @@ pub struct App {
     /// Folders with a git status read on its way; `true` when it must be read once more as
     /// it ends, because something changed while it ran.
     git_busy: Arc<std::sync::Mutex<HashMap<PathBuf, bool>>>,
-    update_rx: mpsc::Receiver<String>,
+    update_rx: mpsc::Receiver<(String, Option<coxswain_core::update::Upgrade>)>,
     sizer: Arc<coxswain_core::sizes::Sizer>,
     /// Folder sizes arrive here: the panel's folder, the folder measured, its bytes.
     sizes_tx: mpsc::Sender<(PathBuf, PathBuf, u64)>,
@@ -1046,8 +1046,8 @@ impl App {
             std::thread::spawn(move || {
                 let mut told = String::new();
                 loop {
-                    if let Some(v) = coxswain_core::update::check().filter(|v| *v != told) {
-                        if update_tx.send(v.clone()).is_err() {
+                    if let Some((v, how)) = coxswain_core::update::check().filter(|(v, _)| *v != told) {
+                        if update_tx.send((v.clone(), how)).is_err() {
                             return;
                         }
                         told = v;
@@ -4730,10 +4730,10 @@ impl App {
         self.follow_hint();
         self.follow_enter();
         self.follow_facts();
-        if let Ok(v) = self.update_rx.try_recv() {
-            use coxswain_core::update::{upgrade_hint, Upgrade, RELEASES_URL};
-            self.status = Some(match upgrade_hint() {
-                Some(Upgrade { cmd, lags: Some(channel) }) => t!("status.update_lags", "version" => v, "how" => cmd, "channel" => channel),
+        if let Ok((v, how)) = self.update_rx.try_recv() {
+            use coxswain_core::update::{Upgrade, RELEASES_URL};
+            self.status = Some(match how {
+                Some(Upgrade { cmd, lags: Some(channel), .. }) => t!("status.update_lags", "version" => v, "how" => cmd, "channel" => channel),
                 up => t!("status.update", "version" => v, "how" => up.map_or(RELEASES_URL, |u| u.cmd)),
             });
         }

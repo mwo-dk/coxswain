@@ -42,8 +42,8 @@ For the terminal app, unpack the zip and put the folder with `coxswain.exe` and 
 app (`mwo-dk.Coxswain`) waits for Microsoft's review. Each release adds its ARM build beside the
 x64 one, and WinGet takes the ARM one on an ARM machine by itself. A new version reaches WinGet up
 to a week after GitHub, or later (it is filed once a week and waits for Microsoft's moderators), so
-`winget upgrade mwo-dk.Coxswain.Terminal` can find nothing new at first; the update notice says
-so and points to the release page too ([Update checks](../reference/updates.md#the-command-finds-no-new-version)).
+the update check asks WinGet's index itself and names a version once
+`winget upgrade mwo-dk.Coxswain.Terminal` can install it ([Update checks](../reference/updates.md#where-it-asks)).
 
 ## From the x64 build to the ARM one
 

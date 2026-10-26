@@ -44,6 +44,8 @@ let
       gst_all_1.gst-plugins-good
     ];
     env.RUSTONIG_SYSTEM_LIBONIG = true;
+    # Built from our tags: the update check asks GitHub, not nixpkgs (coxswain-core update.rs).
+    env.COXSWAIN_FROM_FLAKE = "1";
   };
   cargoArtifacts = craneLib.buildDepsOnly (
     removeAttrs common [ "src" ]

@@ -29,6 +29,9 @@ pub struct AppState {
     /// Unix time of the last update check, and the latest version it found.
     pub update_checked: u64,
     pub latest_version: String,
+    /// Who gave `latest_version`: the copy's channel, or GitHub when the channel could not say.
+    #[serde(default)]
+    pub latest_from: String,
     /// Notices (`notices`) dismissed, and the version last started, to tell of the next one.
     #[serde(default)]
     pub notices_dismissed: Vec<String>,
@@ -72,6 +75,7 @@ impl Default for AppState {
             pinned_repos: vec![],
             update_checked: 0,
             latest_version: String::new(),
+            latest_from: String::new(),
             notices_dismissed: vec![],
             seen_version: String::new(),
             pack_ending: String::new(),
