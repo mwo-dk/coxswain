@@ -176,8 +176,8 @@ tars) are never searched.
   (`[search] text_max_size`), and 128 MB read out of the image at most.
 - Only a `docker save` or `podman save` `.tar` and an OCI `.tar`: an OCI layout folder's
   `index.json` is not looked into.
-- An image already known to search before 2.35.0 is looked into once it changes, or
-  when the index is rebuilt; images are not read again by themselves.
+- An image already known to search before 2.35.0 is listed again once, after the update,
+  and the files of its layers read; nothing else in the store is read again.
 
 ## In the terminal app
 

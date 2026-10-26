@@ -195,8 +195,7 @@ the file watcher, at the next hourly rebuild (names) or within ten minutes (text
 One of these: the archive is larger than 256 MB (a compressed tar is listed by unpacking it,
 so larger ones are found by their own name only, until you have opened one once); the file is past the archive's first 50,000
 entries; the archive is not in a folder that is read, or is in a hidden one; it is a container image
-larger than 256 MB not opened yet, or one already known to search before 2.35.0 that has
-not changed since ([Container images](../files/container-images.md#in-search)); or, for its text,
+larger than 256 MB not opened yet ([Container images](../files/container-images.md#in-search)); or, for its text,
 the file is larger than 20 MB or comes after the first 128 MB read out of the archive.
 
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?
