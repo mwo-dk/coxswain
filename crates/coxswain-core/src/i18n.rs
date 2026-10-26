@@ -154,6 +154,26 @@ pub fn find(code: &str) -> Option<&'static Language> {
 /// Where to suggest a better word for a translation.
 pub const IMPROVE_URL: &str = "https://github.com/mwo-dk/coxswain/blob/master/docs/customise/languages.md#improving-a-translation";
 
+/// *Suggest a better translation*: a new GitHub issue in the browser, its title and body
+/// naming only the language `code` and this version. Coxswain sends nothing itself.
+pub fn suggest_url(code: &str) -> String {
+    let title = format!("Translation ({code}): ");
+    let body = format!(
+        "Language: {code}\nCoxswain {}\n\nWhere the text shows, and what it says now:\n\n\nWhat it should say:\n",
+        env!("CARGO_PKG_VERSION")
+    );
+    // Everything but the unreserved characters percent-encoded, byte by byte.
+    let enc = |s: &str| {
+        s.bytes()
+            .map(|b| match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => (b as char).to_string(),
+                _ => format!("%{b:02X}"),
+            })
+            .collect::<String>()
+    };
+    format!("https://github.com/mwo-dk/coxswain/issues/new?title={}&body={}", enc(&title), enc(&body))
+}
+
 /// Languages written right to left: the desktop app mirrors its layout for them.
 pub fn is_rtl(code: &str) -> bool {
     matches!(code, "he" | "fa")
@@ -540,6 +560,14 @@ macro_rules! tn {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn suggest_url_names_only_the_language_and_version() {
+        let url = suggest_url("de-CH");
+        assert!(url.starts_with("https://github.com/mwo-dk/coxswain/issues/new?title=Translation%20%28de-CH%29%3A%20&body=Language%3A%20de-CH%0ACoxswain%20"), "{url}");
+        assert!(url.contains(env!("CARGO_PKG_VERSION")));
+        assert!(!url.contains(' ') && !url.contains('\n'));
+    }
 
     #[test]
     fn i18n_new_marks_end_on_their_day() {

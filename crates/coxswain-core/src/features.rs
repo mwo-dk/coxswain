@@ -295,7 +295,7 @@ pub const FEATURES: &[Feature] = &[
     f("themes", "customise/themes.md", &[Settings]),
     f("looks", "customise/looks.md", &[]),
     f("own_theme", "customise/own-theme.md", &[]),
-    f("languages", "customise/languages.md", &[Settings]),
+    f("languages", "customise/languages.md", &[Settings, SuggestTranslation]),
     f("change_keys", "customise/keys.md", &[Help, Settings]),
     f(
         "glyphs_and_fonts",

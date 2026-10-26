@@ -72,6 +72,8 @@ pub enum Row {
     Guide,
     /// config.toml in the editor at `[keys]`.
     EditKeys,
+    /// *Suggest a better translation*: a new GitHub issue in the browser.
+    Translate,
     /// A program that reads more (tesseract …), whether it is there, and the line that installs it.
     Tool(String, bool, Option<String>),
     /// A model chosen that is a poor choice here, and the better one (Enter takes it).
@@ -120,6 +122,7 @@ impl Row {
             Row::Notice(n) => format!("notice:{}", n.id),
             Row::Guide => "guide".into(),
             Row::EditKeys => "keys".into(),
+            Row::Translate => "translate".into(),
             Row::Tool(name, ..) => format!("tool:{name}"),
             Row::Poor(p) => format!("poor:{}", p.ask),
             Row::Model(e) => format!("model:{}", e.id),
@@ -541,6 +544,10 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
                     v.push(Row::Head(t!(head), id));
                 }
                 v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
+                // Right under the language: where to say a word reads wrong.
+                if id == "looks_both" {
+                    v.insert(v.iter().position(|r| matches!(r, Row::Opt(o) if o.name == "language")).map_or(v.len(), |i| i + 1), Row::Translate);
+                }
             }
         }
         area => v.extend(opts(area)),
@@ -1123,6 +1130,7 @@ impl App {
             Some(Row::Level(l)) => return self.settings_level(s, *l),
             Some(Row::SetUp) => self.setup_guide(),
             Some(Row::Guide) => return self.dialog = Some(Dialog::Guide(Box::default())),
+            Some(Row::Translate) => s.said = Some((Self::suggest_translation(), false)),
             Some(Row::EditKeys) => match coxswain_core::config::Config::prepare_keys() {
                 Ok((path, line)) => self.edit_at(&path, line),
                 Err(e) => s.said = Some((e, true)),
@@ -1549,6 +1557,7 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
             Some(Row::SetUp) => text.push(Span::raw(t!("setup.open_hint"))),
             Some(Row::Guide) => text.push(Span::raw(t!("guide.show_again_hint"))),
             Some(Row::EditKeys) => text.push(Span::raw(t!("settings.keys_hint"))),
+            Some(Row::Translate) => text.push(Span::raw(t!("settings.suggest_translation_hint"))),
             Some(Row::Tool(_, false, Some(line))) => text.push(Span::raw(t!("install.copy_tui", "command" => line))),
             Some(Row::Tool(name, false, None)) => text.push(Span::raw(t!("install.get", "program" => name))),
             Some(Row::Tool(name, true, _)) => text.push(Span::raw(t!(&format!("settings.search_tool_{name}")))),
@@ -1757,6 +1766,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 Row::SetUp => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("setup.open")), w), st))),
                 Row::Guide => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("guide.show_again")), w), st))),
                 Row::EditKeys => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", t!("settings.keys_change")), w), st))),
+                Row::Translate => lines.push(Line::from(Span::styled(fit(&format!(" [ {} ]", Action::SuggestTranslation.label()), w), st))),
                 Row::Tool(name, there, line) => {
                     let value = if *there { String::new() } else { line.clone().unwrap_or_else(|| t!("settings.search_tool_missing")) };
                     lines.extend(pair(&format!(" {} {}", if *there { "✓" } else { "✗" }, t!(&format!("settings.search_tool_{name}"))), &value, st));

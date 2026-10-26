@@ -193,7 +193,7 @@ Opening this area asks the container runtime which images it has.
 
 | Option | Does | Key |
 |---|---|---|
-| *Language* | The language in use with its flag, a filter, then *Automatic* and every language by region, by its own name ([Languages](languages.md)) | `language` |
+| *Language* | The language in use with its flag, a filter, then *Automatic* and every language by region, by its own name; under it *Suggest a better translation*, which opens a new GitHub issue for the language in the browser ([Languages](languages.md#improving-a-translation)) | `language` |
 | *For: Desktop app / Terminal app* | Set off from the languages by a line. Which app's theme the swatches below choose. A terminal app already running takes a new one when it starts again; its own Settings change it at once ([Themes](themes.md)) | |
 | *Theme of the desktop app* / *Theme of the terminal app* | Every built-in theme as a swatch in its own colours, under the headings of its group (*Coxswain's own*, *File managers of the DOS years*, *Windows*, *Mac*, *Other desktops*, *Home computers*), then your own `[themes.<name>]` under *Your own* ([Themes](themes.md#what-you-see)) | `[gui] theme` / `theme` |
 | *Icons and git glyphs* | *Nerd Font* or *Plain characters (ASCII)* ([Glyphs and fonts](glyphs-and-fonts.md)) | `glyphs` |

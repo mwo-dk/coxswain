@@ -687,6 +687,7 @@
     duplicates: () => (ui.modal = { kind: "dupes" }),
     settings: () => (ui.modal = { kind: "settings" }),
     disk_use: () => (ui.modal = { kind: "settings", section: "disk" }),
+    suggest_translation: () => invoke("suggest_translation", { language: ui.cfg.language }).catch((err) => (ui.status = String(err))),
     disk_images: async () => {
       try {
         ui.cfg = await invoke("save_settings", { changes: { disk_images: true } });

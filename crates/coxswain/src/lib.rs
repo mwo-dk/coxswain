@@ -1853,6 +1853,7 @@ impl App {
             Action::Features => self.features(String::new(), None),
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             Action::DiskUse => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "disk")))),
+            Action::SuggestTranslation => self.status = Some(Self::suggest_translation()),
             Action::DiskImages => {
                 let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
                 let on = serde_json::json!({ "disk_images": true });
@@ -1909,6 +1910,12 @@ impl App {
             Ok(()) => t!("features.opened", "url" => url),
             Err(_) => t!("features.copied", "url" => url),
         }
+    }
+
+    /// *Suggest a better translation*: a new GitHub issue for the language in use, in the
+    /// browser (and on the clipboard); what to say about it.
+    pub(crate) fn suggest_translation() -> String {
+        Self::show_me(&coxswain_core::i18n::suggest_url(coxswain_core::i18n::language()))
     }
 
     /// A password that did not open the archive, asked for again: the box says so.

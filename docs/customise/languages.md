@@ -102,7 +102,8 @@ written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian Germ
 
 *Automatic* goes back to following the system; below it, small, is the language that picks now.
 Under the list, *Translations marked new are fresh…* opens [Improving a translation](#improving-a-translation)
-in the browser.
+in the browser, and the button *Suggest a better translation* opens a new issue on GitHub for
+the language in use ([Improving a translation](#improving-a-translation)).
 
 **Terminal app:**
 
@@ -111,13 +112,18 @@ in the browser.
    by its own name. **↑** **↓** and **Enter** take one.
 3. Every text changes at once, and the choice is saved to `config.toml`.
 
+Right under *Language* is *[ Suggest a better translation ]*: **Enter** on it opens a new issue
+on GitHub for the language in use ([Improving a translation](#improving-a-translation)).
+
 **By hand:**
 
 1. Open `config.toml` (`coxswain --config-path` prints where).
 2. Put `language = "da"` at the top, above the first `[table]`. `"auto"` follows the system.
 3. Start the app again (quit with **F10**): a hand edit is read when an app starts.
 
-There are no keys for the language.
+There are no keys for the language. *Suggest a better translation* has no key of its own either
+(its `[keys]` name is `suggest_translation`); it is also in the command list (**F9**) in both
+apps.
 
 ## Which language Automatic picks
 
@@ -367,6 +373,20 @@ that needs them. See [Japanese and Korean](#japanese-and-korean).
 The first Enter takes the word your input method was composing; it is not a key for Coxswain
 yet. Press Enter once more to run the dialog. Esc likewise drops the composed word first.
 
+#### A text reads wrong in my language. How do I say so?
+
+Settings → *Looks* → *Language* → *Suggest a better translation* (desktop app: the button under
+the language list; terminal app: **F12**, then **Enter** on the row under *Language*), or
+**F9** → *Suggest a better translation*. A new GitHub issue opens in the browser with the
+language code and the version filled in; nothing is sent until you submit it there. See
+[Improving a translation](#improving-a-translation).
+
+#### Does Suggest a better translation send anything about me?
+
+No. Coxswain only opens an address in your browser; the address holds the language code and
+the version of Coxswain, nothing else. What you then write and submit goes to GitHub from your
+browser, under your GitHub account, like any issue.
+
 #### Why are key names in English?
 
 Keys are written the same everywhere (Ctrl, Alt, F5), so a key in `config.toml` means the same
@@ -400,8 +420,15 @@ The translations were written with care but have not all been checked by native 
 The ones Settings marks *new* need a native reader most, then the newer ones: Polish, Czech,
 Ukrainian, Greek, Japanese, Korean, Persian, Armenian, Georgian, Basque, Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
 
-- **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the
-  language, the text as it is (or where it shows) and what it should say. No setup needed.
+- **Tell us:** press *Suggest a better translation* under Settings → *Looks* → *Language* (in
+  both apps; also **F9** → *Suggest a better translation*). It opens a new
+  [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) in your browser, titled
+  *Translation (da):* for the language in use, its text naming that language code and the
+  version of Coxswain, then two empty parts: where the text shows and what it says now, and
+  what it should say. Fill them in and submit it there; you need a GitHub account to submit.
+  Nothing else goes in it, and Coxswain sends nothing itself: it only opens the page in your
+  browser. The terminal app also copies the address, for when no browser opens (over ssh), and
+  the status line says *Opened in the browser, and copied: …*.
 - **Change it yourself,** in a pull request:
 
 1. Each language is one file in [`crates/coxswain-core/locales/`](../../crates/coxswain-core/locales/),

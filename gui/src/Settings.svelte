@@ -1067,6 +1067,7 @@
             {/each}
           </div>
           <p class="hint">{t("setting.language.hint")} <button class="link" onclick={() => invoke("open_path", { path: ui.cfg.improve_url })}>{t("settings.language_improve")}</button></p>
+          <p class="hint"><button onclick={() => invoke("suggest_translation", { language: ui.cfg.language }).catch((err) => (error = String(err)))} title={keysOf("suggest_translation").join(" · ")}>{t("action.suggest_translation")}</button> {t("settings.suggest_translation_hint_gui")}</p>
         </div>
 
         <!-- A line between: the themes are not part of the language list above. -->
