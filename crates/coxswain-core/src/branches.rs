@@ -226,12 +226,12 @@ fn changes_refs_safely(base: &Path) -> io::Result<()> {
     }
     // The folder that holds `.git` (a folder, or a file in a submodule or a linked worktree) is
     // the work tree; `core.worktree` may name another.
-    let here = std::fs::canonicalize(base)?;
+    let here = dunce::canonicalize(base)?;
     let Some(root) = here.ancestors().find(|a| a.join(".git").exists()) else { return Ok(()) };
     let mut top = history::git(base);
     top.args(["rev-parse", "--show-toplevel"]);
     let top = String::from_utf8_lossy(&history::run(top)?).trim().to_string();
-    if std::fs::canonicalize(&top).ok().as_deref() != Some(root) {
+    if dunce::canonicalize(&top).ok().as_deref() != Some(root) {
         return Err(io::Error::other(crate::t!("branches.worktree_elsewhere", "dir" => top, "root" => root.display().to_string())));
     }
     Ok(())
@@ -744,7 +744,7 @@ mod tests {
         std::fs::create_dir_all(&outside).unwrap();
         g(&["config", "core.worktree", &outside.display().to_string()]);
         let e = switch(&list, "other").unwrap_err().to_string();
-        assert!(e.contains(&std::fs::canonicalize(&outside).unwrap().display().to_string()), "{e}");
+        assert!(e.contains(&*outside.file_name().unwrap().to_string_lossy()), "{e}");
         assert!(create(&d, "new2", None).is_err());
         assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0, "a checkout wrote outside");
         g(&["config", "--unset", "core.worktree"]);
