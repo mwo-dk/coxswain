@@ -204,7 +204,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 
 - **How do I get one file out of a zip without unpacking all of it?** Press Enter on the zip, go to the file and press F5: only that file is copied out. [Answer](files/archives.md#how-do-i-get-one-file-out-of-a-zip-without-unpacking-all-of-it)
 - **Can the desktop app and the terminal app change one archive at once?** Yes: one waits for the other, so neither change is lost. [Answer](files/archives.md#can-i-change-one-archive-from-the-desktop-app-and-the-terminal-app-at-once)
-- **Is it safe to change an archive?** Yes: it is written anew into a `.coxswain-tmp` file next to it and only then renamed over the old one; a failure leaves it as it was. [Answer](files/archives.md#is-it-safe-to-change-an-archive-what-if-the-power-goes-off)
+- **Is it safe to change an archive?** Yes: it is written anew into a hidden `.….coxswain-tmp` file next to it and only then renamed over the old one; a failure leaves it as it was. [Answer](files/archives.md#is-it-safe-to-change-an-archive-what-if-the-power-goes-off)
 - **Can I pack into a zip or 7z with a password?** Yes: Alt+F5, then type it twice; AES-256, and a 7z can hide its file names too. [Answer](files/archive-passwords.md#locking-a-new-archive)
 - **Which encryption is used when packing with a password?** AES-256 for zip (AE-2) and 7z; ZipCrypto is never written. [Answer](files/archive-passwords.md#which-encryption-is-used)
 - **Does Coxswain save my archive passwords?** No: a password lives in the running app's memory until it closes and is never written to disk. [Answer](files/archive-passwords.md#does-coxswain-save-my-archive-passwords)

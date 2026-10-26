@@ -75,7 +75,8 @@ application could not open it. When you drag one, Coxswain first copies what you
 into a folder of its own in its cache (`coxswain/drag` in the cache folder, one folder per drag,
 names kept), as **F5** would, and hands those copies over. The copies stay for a day, after the app closes too, since the program
 you dropped them on may still be reading them; then they go, when the app next copies out for a
-drag or closes.
+drag or closes. One run keeps at most 1 GB of drag copies at once: past it, its earliest drags'
+copies go first.
 
 - More than 200 MB or 2,000 files is not copied out for a drag: the status line says
   `Too much to copy out for a drag (over 200 MB or 2,000 files) — F5 copies it out`.

@@ -126,10 +126,10 @@ the app's run, so two apps never write the same file). Only when it is complete 
 take the old one's place, with a rename in the same folder. If anything fails on the way, or
 you stop it ([Stopping it](copy.md#stopping-it)), the new file is removed and the archive is
 exactly as it was, byte for byte. One archive is written at a time, also across the apps and
-windows that run: a second change waits for the first. While it writes, Coxswain notes the
-file's name in its cache folder; if the app or the computer stops in the middle (a crash, the
-power), the next start removes that file, and only that: never another file ending in
-`.coxswain-tmp`.
+windows that run: a second change waits for the first. Before it writes, Coxswain notes the
+archive's folder in this run's list in its cache folder; if the app or the computer stops in the
+middle (a crash, the power), the next start removes the hidden files that run left there, and
+only those: never another file ending in `.coxswain-tmp`.
 
 The new archive is always dated after the old one: when the clock has not moved on since the
 old one was written (Windows dates files by a clock that moves in steps of several
