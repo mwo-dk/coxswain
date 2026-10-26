@@ -4,6 +4,8 @@
     packaging/release-pr.py --next    print the next version and change nothing
     --unreleased-ok                   (with either) go on although the current version has no
                                       published GitHub release (the owner's decision only)
+    --open-issues-ok                  (with either) go on although the new version's milestone
+                                      has open issues (the owner's decision only)
     packaging/release-pr.py           make the release: print the version, then
         bump [workspace.package] and coxswain-core's `=X.Y.Z` in Cargo.toml, Cargo.lock with them
         (cargo update --workspace), every changelog.d/ row moved into one row for the version in
@@ -13,9 +15,14 @@ A minor release when any row ends with `<!-- feature -->`, a patch release other
 is made by hand. Exits 2, changing nothing, when changelog.d/ has no rows. Exits 3, changing
 nothing, when the current version has no published GitHub release (`gh release view`): bumping
 past it would leave it unpublished for good (2.33.0 was), so its release run is finished first.
+Exits 4, changing nothing, while the new version's GitHub milestone (named X.Y.Z) has open issues:
+a release is done when its milestone is empty. Issues labelled `post-release` or titled "After the
+release…" (verifying the channels) are left open on purpose and do not count; a version with no
+milestone is not held.
 Run from the repository's root.
 """
 import datetime
+import json
 import re
 import subprocess
 import sys
@@ -40,10 +47,39 @@ def published(tag: str) -> bool:
     sys.exit(f"release-pr.py: gh release view {tag} failed: {r.stderr.strip()}")
 
 
+def gh_json(path: str) -> list:
+    """`gh api --paginate` of a list endpoint; exits on any gh fault."""
+    try:
+        r = subprocess.run(["gh", "api", "--paginate", path], capture_output=True, text=True)
+    except FileNotFoundError:
+        sys.exit("release-pr.py: gh is needed to read the milestone (or pass --open-issues-ok)")
+    if r.returncode != 0:
+        sys.exit(f"release-pr.py: gh api {path} failed: {r.stderr.strip()}")
+    # --paginate prints one JSON array per page.
+    return [x for page in re.split(r"(?<=\])\s*(?=\[)", r.stdout.strip()) if page for x in json.loads(page)]
+
+
+def post_release(issue: dict) -> bool:
+    """Left open on purpose until the release is out: checking every channel."""
+    return (any(l["name"] == "post-release" for l in issue.get("labels", []))
+            or issue["title"].lower().startswith("after the release"))
+
+
+def open_issues(version: str) -> list[dict]:
+    """The open issues (not pull requests) of milestone `version` that hold its release."""
+    stones = [m for m in gh_json("repos/{owner}/{repo}/milestones?state=all&per_page=100")
+              if m["title"] == version]
+    if not stones:
+        return []
+    issues = gh_json(f"repos/{{owner}}/{{repo}}/issues?milestone={stones[0]['number']}&state=open&per_page=100")
+    return [i for i in issues if "pull_request" not in i and not post_release(i)]
+
+
 def main() -> int:
     args = sys.argv[1:]
     unreleased_ok = "--unreleased-ok" in args
-    args = [a for a in args if a != "--unreleased-ok"]
+    open_ok = "--open-issues-ok" in args
+    args = [a for a in args if a not in ("--unreleased-ok", "--open-issues-ok")]
     frags = sorted(Path("changelog.d").glob("*.md"))
     if not frags:
         print("changelog.d/ has no rows: nothing to release.", file=sys.stderr)
@@ -61,6 +97,13 @@ def main() -> int:
               f"purpose, pass --unreleased-ok.", file=sys.stderr)
         return 3
     new = f"{major}.{minor + 1}.0" if features else f"{major}.{minor}.{patch + 1}"
+    if not open_ok and (held := open_issues(new)):
+        print(f"release-pr.py: milestone {new} has {len(held)} open issue(s); a release is done when "
+              f"its milestone is empty. Close them, or move them to a later milestone:", file=sys.stderr)
+        for i in held:
+            print(f"  #{i['number']} {i['title']}", file=sys.stderr)
+        print("To release anyway, pass --open-issues-ok (the owner's decision only).", file=sys.stderr)
+        return 4
     print(new)
     if args == ["--next"]:
         return 0
