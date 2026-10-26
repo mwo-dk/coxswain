@@ -598,17 +598,32 @@ fn run_server(mut c: std::process::Command, out: &mut dyn io::Write, max: usize)
         }
         e
     });
-    // Stopped when it takes too long: the read below then ends.
-    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    // Stopped when it takes too long (the read below then ends) or its output was cut. A run
+    // whose output ended is let exit by itself within the time left: CVS closes its output
+    // before it cleans up (its read locks among it), and stopped then its run read as failed
+    // (killed, seen on NetBSD) and could leave its locks behind.
+    let (tx, rx) = std::sync::mpsc::channel::<bool>();
     let watch = std::thread::spawn(move || {
-        let late = rx.recv_timeout(SERVER_TIME) == Err(std::sync::mpsc::RecvTimeoutError::Timeout);
+        let until = std::time::Instant::now() + SERVER_TIME;
+        let late = match rx.recv_timeout(SERVER_TIME) {
+            Ok(false) => loop {
+                match child.try_wait() {
+                    Ok(Some(status)) => return (false, Ok(status)),
+                    Err(e) => return (false, Err(e)),
+                    Ok(None) if std::time::Instant::now() >= until => break true,
+                    Ok(None) => std::thread::sleep(std::time::Duration::from_millis(5)),
+                }
+            },
+            Ok(true) => false,
+            Err(_) => true,
+        };
         let _ = child.kill();
         (late, child.wait())
     });
     let copied = io::copy(&mut (&mut stdout).take(max as u64), out);
     let cut = copied.is_ok() && stdout.read(&mut [0u8]).is_ok_and(|n| n > 0);
     drop(stdout);
-    drop(tx);
+    let _ = tx.send(cut || copied.is_err());
     let (late, status) = watch.join().map_err(|_| io::Error::other("watch"))?;
     let status = status?;
     let errs = errs.join().unwrap_or_default();
@@ -1996,6 +2011,9 @@ more</msg></logentry>
         assert!(file_from_server(sh("printf abc; echo half >&2; exit 1"), 100).unwrap_err().to_string().contains("half"));
         assert_eq!(file_from_server(sh("printf abcdef; exit 1"), 3).unwrap(), (b"abc".to_vec(), true));
         assert_eq!(file_from_server(sh("printf abc"), 3).unwrap(), (b"abc".to_vec(), false));
+        // A run that closes its output before it ends (CVS, cleaning up) is let
+        // finish: not stopped, so not failed.
+        assert_eq!(file_from_server(sh("printf abc; exec >&-; sleep 1; exit 0"), 100).unwrap(), (b"abc".to_vec(), false));
         let d = top("server-run");
         let mut f = std::fs::File::create(d.join("f")).unwrap();
         assert!(file_to(sh("printf abc; exit 1"), &mut f, "f", u64::MAX).is_err());
