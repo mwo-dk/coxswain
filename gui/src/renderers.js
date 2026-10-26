@@ -212,25 +212,6 @@ export async function parseData(src, ext) {
   throw new Error(t("render.no_tree", { ext }));
 }
 
-/** JSON Lines: up to 200 objects as rows, with the union of their keys as columns. */
-export function jsonLines(src) {
-  const objs = src
-    .split("\n")
-    .filter((l) => l.trim())
-    .slice(0, 200)
-    .map((l) => {
-      try {
-        return JSON.parse(l);
-      } catch {
-        return { [t("render.not_json")]: l };
-      }
-    });
-  const cols = [...new Set(objs.flatMap((o) => (o && typeof o === "object" && !Array.isArray(o) ? Object.keys(o) : [t("render.value")])))];
-  const cell = (v) => (v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
-  const rows = objs.map((o) => cols.map((c) => cell(o && typeof o === "object" && !Array.isArray(o) ? o[c] : o)));
-  return [cols, ...rows];
-}
-
 // ------------------------------------------------------------ calendar and contacts
 
 /** RFC 5545 / 6350 content lines, unfolded: [{ name, params, value }]. */
@@ -280,26 +261,6 @@ export function contacts(src) {
     else if (cur && name === "TEL") cur.tel.push(value);
   }
   return cards;
-}
-
-// ------------------------------------------------------------ logs
-
-const LEVELS = [
-  [/\b(FATAL|CRIT(ICAL)?|ERROR|ERR|PANIC)\b/, "lv-error"],
-  [/\b(WARN(ING)?)\b/, "lv-warn"],
-  [/\b(INFO|NOTICE)\b/, "lv-info"],
-  [/\b(DEBUG|TRACE|VERBOSE)\b/, "lv-debug"],
-];
-
-/** A log file with each line coloured by its level. */
-export function logLines(src) {
-  return src
-    .split("\n")
-    .map((l) => {
-      const cls = LEVELS.find(([re]) => re.test(l))?.[1];
-      return cls ? `<span class="${cls}">${escape(l)}</span>` : escape(l);
-    })
-    .join("\n");
 }
 
 // ------------------------------------------------------------ Graphviz, AsciiDoc, Parquet

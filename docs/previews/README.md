@@ -80,18 +80,18 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | **File / Diff** | Files git sees as changed | The file, or `git diff HEAD` for it ([Git](../panels/git.md)) |
 | **Rendered / Source** | Markdown, HTML, Mermaid, Graphviz, AsciiDoc, calendars, contacts | The rendered view, or the highlighted source |
 | **Tree / Source** | JSON, YAML, TOML | A collapsible tree, or the source |
-| **Table / Source** | JSON Lines | A table, or the source |
 | Sheet names | Workbooks with more than one sheet | One button per sheet |
 | **‹** *Page 1 of 4* **›** | TIFF pages, comics | The page before or after ([Old pictures and files](old-formats.md)) |
 | Engine buttons | Files made by a tool (LaTeX, Office, PlantUML, …) | The installed programs and the container, e.g. **latexmk · tectonic · podman texlive:latest** |
 
 | Page | What it covers |
 |---|---|
-| [Text and code](text-and-code.md) | Highlighted code, logs, hex dumps, the git diff, Markdown with Mermaid and math |
+| [Text and code](text-and-code.md) | Highlighted code, hex dumps, the git diff, Markdown with Mermaid and math |
+| [Logs: follow, filter, columns](logs.md) | Logs, JSON Lines and big text files of any size: coloured by level, followed, filtered by level, text or field, fields as columns, stack traces folded; both apps |
 | [Documents](documents.md) | PDF (with *Make PDF searchable* on a scan), Word `.docx`, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, Typst, PostScript, XPS, calendars and contacts |
 | [HTML pages, sandboxed](html.md) | `.html` files shown as a browser shows them, with no script and nothing from the web |
 | [PowerPoint and Office](office.md) | Slides drawn in the app at once, LibreOffice's exact view after, every other Office format, the old ones (Works, Write, WordPerfect, Lotus 1-2-3) and Windows clip art |
-| [Data](data.md) | JSON, YAML and TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
+| [Data](data.md) | JSON, YAML and TOML trees, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists |
 | [Cryptography bills of materials](bom.md) | CycloneDX CBOMs as a rated tree or sunburst, filters, Found in, comparing two scans; the terminal app's own viewer |
 | [Build provenance](provenance.md) | SLSA and in-toto provenance as inputs → build → outputs, the signer, outputs checked against the files here, the source commit in your checkout, two builds compared; the terminal app's own viewer |
 | [Chess games](chess.md) | PGN files, SCID databases and ChessBase databases (`.cbh`) as a table of games with a filter, each game on a board with its moves and variations; EPD and FEN positions; Polyglot opening books' moves; both apps, the terminal app full screen |
@@ -120,7 +120,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | Files | Shown as | Page |
 |---|---|---|
 | Code, config, plain text | Highlighted in the theme's colours | [Text and code](text-and-code.md#formats) |
-| `.log` | Lines coloured by level | [Text and code](text-and-code.md#formats) |
+| `.log`, `.jsonl` `.ndjson`, `syslog`, `app.log.1`, any text over 512 KB | Lines coloured by level, followed, filtered, fields as columns | [Logs](logs.md) |
 | Binary files | Hex dump | [Text and code](text-and-code.md#formats) |
 | .gguf .safetensors, Ollama's and Hugging Face's blobs; .pt .pth .ckpt | The model's facts, the memory it needs and whether it fits; a pickle named, never opened | [Your local models](../files/local-models.md#the-facts) |
 | `.md` `.markdown` | Rendered, with Mermaid and math | [Text and code](text-and-code.md#markdown) |
@@ -131,7 +131,7 @@ sticks: it applies to the next file of that kind too, and survives a restart.
 | `.docx`, `.epub`, `.ipynb`, `.eml`, `.adoc`, `.rst`, `.ics`, `.vcf` | Document, book, notebook, mail, cards | [Documents](documents.md#formats) |
 | `.pptx` `.pptm` `.ppsx` `.potx` | Slides at once, exact view after | [Office](office.md) |
 | `.doc` `.odt` `.rtf` `.ppt` `.odp` `.vsdx`, `.wps` `.wri` `.wpd` `.wk1` `.123`, `.wmf` `.emf` and more | PDF made by LibreOffice | [Office](office.md#formats) |
-| `.json` `.yaml` `.toml`, `.jsonl` | Tree, table | [Data](data.md#formats) |
+| `.json` `.yaml` `.toml` | Tree | [Data](data.md#formats) |
 | `.csv` `.tsv` `.xlsx` `.xlsm` `.xlsb` `.xls` `.ods` | Table, a button per sheet | [Data](data.md#formats) |
 | `.db` `.sqlite`, `.parquet`, `.duckdb` | Tables, rows, schema | [Data](data.md#formats) |
 | `.pem` `.crt` `.cer` `.der`, `.plist` | Certificate facts, XML | [Data](data.md#formats) |

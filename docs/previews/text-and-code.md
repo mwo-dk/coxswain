@@ -2,7 +2,7 @@
 
 # Text and code
 
-Source code, config files, logs and plain text show highlighted in the current theme's colours;
+Source code, config files and plain text show highlighted in the current theme's colours;
 Markdown shows rendered, with Mermaid diagrams and typeset math; a file git sees as changed can
 show its diff. Use it to read a file without opening an editor.
 
@@ -40,7 +40,7 @@ show its diff. Use it to read a file without opening an editor.
 | Files | Preview |
 |---|---|
 | Source code, config, plain text | Highlighted by [highlight.js](https://highlightjs.org/): all of its 190-odd languages, and five more grammars for what it lacks (COBOL, Zig, Svelte, Terraform/HCL, Solidity). See [Languages](#languages). Colours come from the theme, so every [theme](../customise/themes.md) matches |
-| `.log` | Each line coloured by its level: `ERROR`, `FATAL`, `CRITICAL`, `PANIC` red; `WARN` yellow; `INFO`, `NOTICE` green; `DEBUG`, `TRACE`, `VERBOSE` grey |
+| `.log`, JSON Lines, and any text over 512 KB | The log view: every line, read a screen at a time, a log coloured by level, followed, filtered, its fields as columns. See [Logs](logs.md) |
 | Binary files | A hex dump: offset, 16 bytes in hex, and the printable characters. A local model (`.gguf`, `.safetensors`, `.pt` …) shows its facts instead ([Your local models](../files/local-models.md#the-facts)) |
 | Encodings | UTF-8 (with or without a byte order mark), UTF-16 with its byte order mark, and anything else read as Windows-1252 (Latin-1 with Windows's curly quotes, dashes and €), so a file from an old Windows machine keeps its accented letters |
 | `.md`, `.markdown` | Rendered by [marked](https://marked.js.org/); ```` ```mermaid ```` blocks drawn as diagrams by [Mermaid](https://mermaid.js.org/); `$…$`, `$$…$$`, `\(…\)` and `\[…\]` typeset by [KaTeX](https://katex.org/) |
@@ -111,8 +111,9 @@ or conflicted, not for untracked or ignored ones. A file whose changes cancel ou
 ## What you see
 
 - The text, with the language's colours, in the pane's monospace font.
-- Under a file larger than 512 KB: *Showing the first 512 KB*.
 - Files under 200 KB are highlighted; larger ones stay plain, so scrolling stays smooth.
+- A text file larger than 512 KB opens in the [log view](logs.md): all of it, plain, read a
+  screen at a time.
 
 ![The desktop app in the Cyber theme previewing a COBOL program: keywords, the DISPLAY strings and the level numbers each in their own colour](../screenshots/gui-preview-cobol.png)
 - A hex dump in place of text for binary files: its first 64 KB (*Showing the first 64 KB*). A local model's file shows its facts, not hex ([Your local models](../files/local-models.md)).
@@ -154,9 +155,9 @@ use **F3**, which always toggles the pane.
 
 #### Why is a large file shown without colours?
 
-Highlighting a file over 200 KB would make scrolling slow, so it stays plain. Over 512 KB, only
-the first 512 KB is read at all (*Showing the first 512 KB*); a hex dump stops after 64 KB.
-Press **F4** to see all of it in your editor.
+Highlighting a file over 200 KB would make scrolling slow, so it stays plain. Over 512 KB it
+opens in the [log view](logs.md), which reads a screen at a time and shows all of it; a hex dump
+stops after 64 KB.
 
 #### Why is my text file shown as a hex dump?
 
@@ -195,7 +196,7 @@ It holds a zero byte in its first 8 KB, so it is binary: most likely a tracker m
 #### Can I choose Source by default?
 
 Yes: press **Source** once. The choice sticks for every Markdown, HTML, diagram and data file
-until you press **Rendered** (or **Tree**, **Table**) again, also after a restart.
+until you press **Rendered** (or **Tree**) again, also after a restart.
 
 ---
-[← Previous: The preview pane](README.md) · [Next: Documents →](documents.md)
+[← Previous: The preview pane](README.md) · [Next: Logs: follow, filter, columns →](logs.md)

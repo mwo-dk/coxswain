@@ -151,6 +151,7 @@ pub const FEATURES: &[Feature] = &[
         "previews/text-and-code.md",
         &[TogglePreview, View, Edit, Open],
     ),
+    f("logs", "previews/logs.md", &[View, FollowLog, ActionMenu]),
     f(
         "preview_documents",
         "previews/documents.md",
