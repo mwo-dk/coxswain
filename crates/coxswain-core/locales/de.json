@@ -4060,7 +4060,7 @@
  "action.scan_viruses": "Auf Viren prüfen",
  "disk.clamav.cost": "wird vor der nächsten Virenprüfung wieder von database.clamav.net geholt",
  "disk.clamav.what": "Die Virendatenbank von ClamAV, für die Virenprüfung.",
- "disk.work.what": "Die Arbeit von Umwandlungen, durchsuchbaren PDFs, Virenscans, Exporten und Ziehen, ein Ordner je Lauf; was ein beendeter Lauf hinterließ, geht beim nächsten Start.",
+ "disk.work.what": "Die Arbeit von Umwandlungen, durchsuchbaren PDFs, Virenscans, Exporten und Ziehen, ein Ordner je Lauf; was ein beendeter Lauf hinterließ, wird beim nächsten Start entfernt.",
  "disk.work.cost": "nichts; ein Lauf, der gerade arbeitet, behält seinen Ordner",
  "disk.chess.what": "Gespeicherte Schachanalysen und zum Lesen entpackte ChessBase-Archive.",
  "disk.chess.cost": "eine Partie wird neu analysiert, ein Archiv beim Öffnen neu entpackt",

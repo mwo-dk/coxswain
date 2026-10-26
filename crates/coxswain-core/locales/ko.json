@@ -3970,7 +3970,7 @@
  "disk.clamav.cost": "다음 바이러스 검사 전에 database.clamav.net에서 다시 받습니다",
  "disk.clamav.what": "바이러스 검사에 쓰는 ClamAV 바이러스 데이터베이스.",
  "disk.work.what": "변환, 검색 가능한 PDF, 바이러스 검사, 내보내기, 끌기 작업. 실행마다 폴더 하나. 끝난 실행이 남긴 것은 다음 시작 때 지워집니다.",
- "disk.work.cost": "없음. 지금 일하는 실행은 자기 폴더를 둡니다",
+ "disk.work.cost": "없음. 지금 진행 중인 실행은 자기 폴더를 유지합니다",
  "disk.chess.what": "저장된 체스 분석과 읽으려고 푼 ChessBase 압축 파일.",
  "disk.chess.cost": "대국은 다시 분석되고, 압축 파일은 열 때 다시 풀립니다",
  "feature.virus_scan.a1": "아니요. {scan_viruses}을(를) 누를 때만, 네트워크가 없는 컨테이너 안에서 파일을 읽기 전용으로 두고 검사합니다. 유일한 다운로드는 database.clamav.net의 ClamAV 바이러스 데이터베이스이며, 하루보다 오래되었을 때 검사 전에 받습니다.",

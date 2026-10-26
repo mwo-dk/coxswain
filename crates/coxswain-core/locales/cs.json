@@ -4154,7 +4154,7 @@
  "action.scan_viruses": "Prohledat na viry",
  "disk.clamav.cost": "stáhne se znovu z database.clamav.net před další kontrolou virů",
  "disk.clamav.what": "Virová databáze ClamAV pro kontrolu virů.",
- "disk.work.what": "Práce převodů, prohledávatelných PDF, kontrol virů, exportů a přetažení, jedna složka na běh; co zanechal skončený běh, zmizí při dalším spuštění.",
+ "disk.work.what": "Pracovní soubory převodů, prohledávatelných PDF, kontrol virů, exportů a přetažení, jedna složka na běh; co zanechal skončený běh, zmizí při dalším spuštění.",
  "disk.work.cost": "nic; běh, který právě pracuje, si složku ponechá",
  "disk.chess.what": "Uložené šachové analýzy a rozbalené archivy ChessBase ke čtení.",
  "disk.chess.cost": "partie se znovu analyzuje, archiv se při otevření znovu rozbalí",

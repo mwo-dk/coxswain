@@ -4242,7 +4242,7 @@
  "action.scan_viruses": "Skanuj w poszukiwaniu wirusów",
  "disk.clamav.cost": "pobierana ponownie z database.clamav.net przed następnym skanowaniem",
  "disk.clamav.what": "Baza wirusów ClamAV do skanowania w poszukiwaniu wirusów.",
- "disk.work.what": "Praca konwersji, przeszukiwalnych PDF, skanów antywirusowych, eksportów i przeciągania, jeden folder na uruchomienie; co zostawiło zakończone uruchomienie, znika przy następnym starcie.",
+ "disk.work.what": "Pliki robocze konwersji, przeszukiwalnych PDF, skanów antywirusowych, eksportów i przeciągania, jeden folder na uruchomienie; co zostawiło zakończone uruchomienie, znika przy następnym starcie.",
  "disk.work.cost": "nic; uruchomienie, które teraz pracuje, zachowuje swój folder",
  "disk.chess.what": "Zapisane analizy szachowe i rozpakowane do odczytu archiwa ChessBase.",
  "disk.chess.cost": "partia jest analizowana od nowa, archiwum rozpakowywane od nowa przy otwarciu",

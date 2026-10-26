@@ -1542,7 +1542,7 @@
  "feature.disk_use.what": "Montre chaque endroit où Coxswain garde des choses, et ce qu’il a causé hors de son dossier, avec les tailles et ce que coûte de les vider, et les vide.",
  "feature.drag_and_drop.a1": "Oui : déposez sur la ligne d’un dossier ou sur un emplacement de la barre latérale. Un contour en pointillés montre le dossier, et les fichiers y vont.",
  "feature.drag_and_drop.a2": "Maintenez Ctrl en lâchant pour copier, Maj pour déplacer (Option et Commande sur macOS). Aucune des deux, ou les deux, affiche le menu.",
- "feature.drag_and_drop.a3": "Oui : Coxswain les copie d’abord dans un dossier de son cache (drag/, gardé un jour) et transmet ces copies. Au-delà de 200 Mo ou 2 000 fichiers, ou s’ils sont verrouillés par un mot de passe, il vous demande d’utiliser {copy}.",
+ "feature.drag_and_drop.a3": "Oui : Coxswain les copie d’abord dans un dossier de son cache (drag/, gardé un jour) et transmet ces copies. Au-delà de 200 Mo ou 2 000 fichiers, ou s’ils sont verrouillés par un mot de passe, il vous demande d’utiliser plutôt {copy}.",
  "feature.drag_and_drop.q1": "Puis-je déposer sur un dossier à l’intérieur du panneau ?",
  "feature.drag_and_drop.q2": "Comment copier ou déplacer sans le menu ?",
  "feature.drag_and_drop.q3": "Puis-je faire glisser des fichiers d’une archive vers un autre programme ?",
