@@ -119,7 +119,9 @@
       cursor = index;
       error = v.note ?? "";
       await show(0);
-      setTimeout(() => boardEl?.focus(), 0);
+      // The board takes the keys in its window, or when they were in this view already: a
+      // file of one game opened in the preview pane leaves them with the panel.
+      if (full || document.activeElement?.closest?.(".go")) setTimeout(() => boardEl?.focus(), 0);
     } catch (e) {
       error = String(e);
     }
