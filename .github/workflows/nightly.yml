@@ -86,3 +86,36 @@ jobs:
     needs: changed
     if: needs.changed.outputs.run == 'true'
     uses: ./.github/workflows/nix.yml
+  # Files made by Excel and ChessBase, downloaded from where they are published (pinned by
+  # SHA-256, kept in target/): crates/coxswain-core/tests/README.md. Not on pull requests.
+  real-files:
+    name: Real files
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Read the real files
+        env:
+          COXSWAIN_REAL_FILES: "1"
+        run: cargo test --locked -p coxswain-core --test real_files -- --nocapture
+      # The desktop app's table preview (SheetJS) on the same .xlsb files, from target/.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - name: Show the real workbooks as the desktop app does
+        working-directory: gui
+        env:
+          COXSWAIN_REAL_FILES: "1"
+        run: |
+          npm ci --no-audit --no-fund
+          node --test src/real-files.test.js

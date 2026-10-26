@@ -314,7 +314,7 @@ fn touch(run: &Path) {
 type Unpacked = (PathBuf, u64, Option<std::time::SystemTime>, Vec<PathBuf>);
 static UNPACKED: Mutex<Vec<Unpacked>> = Mutex::new(Vec::new());
 
-/// The `.cbh` files of the databases archive `cbv` holds, in the archive's order, unpacked into
+/// The `.cbh` files (or, for an archive of PGN databases, the `.pgn` files) of the databases archive `cbv` holds, in the archive's order, unpacked into
 /// this run's folder in the cache (with the files beside each its games need) when they are not
 /// there yet as the archive is now. Pictures and the rest are left.
 pub fn unpacked(cbv: &Path) -> io::Result<Vec<PathBuf>> {
@@ -337,9 +337,16 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     let list = members(&mut f)?;
     // Members at the root only (`name.ext`), never a folder's (`name.ext\file`).
     let root = |m: &Member| !m.name.contains(['\\', '/']);
-    let stems: Vec<&str> = list.iter().filter(|m| root(m) && m.name.to_ascii_lowercase().ends_with(".cbh")).map(|m| &m.name[..m.name.len() - 4]).collect();
+    let stems_of = |ext: &str| -> Vec<&str> {
+        list.iter().filter(|m| root(m) && m.name.to_ascii_lowercase().ends_with(ext)).map(|m| &m.name[..m.name.len() - 4]).collect()
+    };
+    // A PGN database is backed up as an archive too: its `.pgn` file, read as one (`games`).
+    let (mut db, mut stems) = ("cbh", stems_of(".cbh"));
     if stems.is_empty() {
-        return Err(bad("no .cbh in it"));
+        (db, stems) = ("pgn", stems_of(".pgn"));
+    }
+    if stems.is_empty() {
+        return Err(bad("no .cbh or .pgn in it"));
     }
     let run = crate::archive::run_folder("cbv", false)?;
     let dir = run.join(format!("{:016x}", {
@@ -353,7 +360,7 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
     for m in list.iter().filter(|m| root(m)) {
         if let Some((s, ext)) = m.name.rsplit_once('.')
             && let Some(n) = stems.iter().position(|stem| s.eq_ignore_ascii_case(stem))
-            && NEEDED.contains(&ext.to_ascii_lowercase().as_str())
+            && (if db == "pgn" { ext.eq_ignore_ascii_case("pgn") } else { NEEDED.contains(&ext.to_ascii_lowercase().as_str()) })
         {
             wanted.insert(format!("db{n}.{}", ext.to_ascii_lowercase()), m);
         }
@@ -417,7 +424,7 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
             let _ = std::fs::remove_dir_all(d);
         }
     }
-    let out: Vec<PathBuf> = (0..stems.len()).map(|n| dir.join(format!("db{n}.cbh"))).collect();
+    let out: Vec<PathBuf> = (0..stems.len()).map(|n| dir.join(format!("db{n}.{db}"))).collect();
     done.push((cbv.to_path_buf(), size, time, out.clone()));
     touch(&run);
     Ok(out)
@@ -566,6 +573,10 @@ mod tests {
     }
 
     /// An archive of `files` (name, bytes), each in stored blocks of 1000 bytes.
+    /// Held by the tests that unpack archives: the archives kept (`KEPT`) are counted over all
+    /// of them, so one test's eviction must not meet another's archives.
+    static UNPACKING: Mutex<()> = Mutex::new(());
+
     fn archive(files: &[(String, Vec<u8>)]) -> Vec<u8> {
         let rec = 173usize;
         let mut out = vec![8u8, 0, files.len() as u8, 0, rec as u8, 0, 3, 0];
@@ -599,6 +610,7 @@ mod tests {
     /// and each opens from its own files.
     #[test]
     fn every_database_of_an_archive_is_read() {
+        let _one = UNPACKING.lock().unwrap_or_else(|e| e.into_inner());
         let d = std::env::temp_dir().join(format!("coxswain-cbv-two-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let mut long = super::super::cbh::tests::RUY.to_vec();
@@ -624,10 +636,40 @@ mod tests {
         std::fs::remove_dir_all(&d).unwrap();
     }
 
+    /// An archive of a PGN database (ChessBase backs those up as `.cbv` too: the `.pgn`, its
+    /// `.ini` and `.pgi`) opens as the PGN file: the table, a game, its positions, Find's line.
+    #[test]
+    fn an_archive_of_a_pgn_database_opens_as_it() {
+        let _one = UNPACKING.lock().unwrap_or_else(|e| e.into_inner());
+        let d = std::env::temp_dir().join(format!("coxswain-cbv-pgn-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let pgn = "[White \"Morphy, Paul\"]\n[Black \"Anderssen, Adolf\"]\n[Result \"1-0\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 1-0\n\n[White \"Tal, Mikhail\"]\n[Black \"Botvinnik, Mikhail\"]\n[Result \"0-1\"]\n\n1. d4 Nf6 0-1\n";
+        let files: Vec<(String, Vec<u8>)> =
+            vec![("Games.pgn".into(), pgn.into()), ("Games.ini".into(), b"[x]".to_vec()), ("Games.pgi".into(), vec![0; 40])];
+        let cbv = d.join("Games.cbv");
+        std::fs::write(&cbv, archive(&files)).unwrap();
+        let lib = super::super::Library::open(&cbv).unwrap();
+        while !lib.progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(lib.progress().error, None);
+        assert_eq!(lib.progress().games, 2);
+        assert_eq!(lib.row(1).unwrap().white, "Tal, Mikhail");
+        assert_eq!(lib.game(0).unwrap().main_line().len(), 5);
+        assert_eq!(lib.game(1).unwrap().main_line().len(), 2);
+        assert!(super::super::games::search_text(&cbv, 1 << 20).unwrap().contains("Botvinnik, Mikhail"));
+        let mut seen = vec![];
+        super::super::games::positions(&cbv, &|| false, |n, keys| seen.push((n, keys.len()))).unwrap();
+        assert_eq!(seen, [(0, 5), (1, 2)]);
+        drop(lib);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
     /// A database packed into an archive (stored blocks, a picture in a folder of its own beside
     /// it) opens as the database: the table, a game, Find's line; the archive is left as it was.
     #[test]
     fn an_archive_opens_as_its_database() {
+        let _one = UNPACKING.lock().unwrap_or_else(|e| e.into_inner());
         let d = std::env::temp_dir().join(format!("coxswain-cbv-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let mut moves = super::super::cbh::tests::RUY.to_vec();

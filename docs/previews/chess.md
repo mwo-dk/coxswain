@@ -316,13 +316,17 @@ own.
   own folder in the cache (`coxswain/cbv/` there, removed a day later; the last four archives
   are kept at a time, and one still open in the preview is never removed), and the archive is never changed. An archive
   holding several databases lists the games of all of them, one database after the other, in
-  one table; pictures and other files in it are left. An archive that says it unpacks to far more than its packed
+  one table; pictures and other files in it are left. ChessBase backs up a PGN database as
+  a `.cbv` too: such an archive holds a `.pgn` file, which is unpacked and opens as a PGN file
+  does. An archive that says it unpacks to far more than its packed
   bytes could hold, to more than 16 GB, or to more than the disk has free (keeping 1 GB) is
   refused with a message before anything is written; the bar shows the unpacking, then the
   reading, and closing the preview stops both. *Save as new PGN* writes next to the archive. Find reads a
-  `.cbv` file as it does a `.cbh` one; every database in it. A store made before
-  coxswain 2.35.0 reads each `.cbv` file once more, so the games of an archive's other databases
-  are found too; no other file is read again.
+  `.cbv` file as it does a `.cbh` one; every database in it, and an archived PGN file's games.
+  A store made before coxswain 2.35.0 reads each `.cbv` file once more, so the games of an
+  archive's other databases and of an archived PGN file are found too; no other file is read
+  again. These readers are tried on real archives made by ChessBase every night
+  (`crates/coxswain-core/tests/README.md`).
 - **Find** reads a `.cbh` file as a line per game and keeps the positions of its games, as it
   does a PGN file's ([Finding games](#finding-games)). A store made before this release reads
   each `.cbh` file once, for the first time; no other file is read again.

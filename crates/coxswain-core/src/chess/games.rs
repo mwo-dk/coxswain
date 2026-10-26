@@ -417,7 +417,7 @@ pub(crate) fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Re
 /// The games of the PGN file at `path`, one by one (the search store, and Find's hits).
 pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     if super::cbh::is_cbh(path) {
-        return scan_cbh(path, &AtomicBool::new(false), &AtomicU64::new(0), 0, each);
+        return scan_cbh(path, &AtomicBool::new(false), &AtomicU64::new(0), 0, false, each);
     }
     // The search store reads every PGN file: 1 GiB unpacked of each is plenty.
     if super::scid::is_scid(path) {
@@ -426,6 +426,19 @@ pub(crate) fn scan_file(path: &Path, each: impl FnMut(&Head) -> bool) -> io::Res
     let format = kind(path);
     let r = reader(path, Arc::default(), 1 << 30)?;
     scan(BufReader::with_capacity(1 << 16, r), &AtomicBool::new(false), format, false, false, each)
+}
+
+fn is_pgn(p: &Path) -> bool {
+    p.extension().is_some_and(|e| e == "pgn")
+}
+
+/// The PGN file a ChessBase archive (`.cbv`) of a PGN database unpacks to (`cbv::unpacked`,
+/// once per archive as it is); None for any other file.
+fn archived_pgn(path: &Path) -> Option<PathBuf> {
+    if !super::cbv::is_cbv(path) {
+        return None;
+    }
+    super::cbv::unpacked(path).ok()?.into_iter().next().filter(|p| is_pgn(p))
 }
 
 /// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
@@ -454,12 +467,23 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
 /// `offset` is its record in the `.cbh` file. `read` is told how far of `size` it is: an
 /// archive's (`.cbv`) `size` is twice its own, the first half its unpacking (stopped by `stop`
 /// too), the second its `.cbh` file read.
-fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, size: u64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
+/// `full` as `scan` takes it, for an archive of a PGN database (`archived_pgn`).
+fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, size: u64, full: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: vec![], format: super::Format::Pgn };
     let share = |n: u64, of: u64, base: u64| read.store(base + (n.min(of) as u128 * (size / 2) as u128 / of.max(1) as u128) as u64, Ordering::Relaxed);
     let cbh_len = if super::cbv::is_cbv(path) {
         let mut len = 0;
-        for p in super::cbv::unpacked_with(path, &|| stop.load(Ordering::Relaxed), &|n, of| share(n, of, 0))? {
+        let unpacked = super::cbv::unpacked_with(path, &|| stop.load(Ordering::Relaxed), &|n, of| share(n, of, 0))?;
+        if let Some(pgn) = unpacked.first().filter(|p| is_pgn(p)) {
+            let of = std::fs::metadata(pgn)?.len();
+            let counted = Arc::new(AtomicU64::new(0));
+            let r = BufReader::with_capacity(1 << 16, Counted { inner: File::open(pgn)?, read: counted.clone() });
+            return scan(r, stop, super::Format::Pgn, full, false, |h| {
+                share(counted.load(Ordering::Relaxed), of, size / 2);
+                each(h)
+            });
+        }
+        for p in unpacked {
             len += std::fs::metadata(&p)?.len();
         }
         Some(len)
@@ -754,7 +778,7 @@ impl Library {
             let (sh, st, rd, p) = (shared.clone(), stop.clone(), read.clone(), path.to_path_buf());
             std::thread::Builder::new()
                 .name("chess-games".into())
-                .spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, each), &sh, super::Format::Pgn, limits, || false))?;
+                .spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, super::Format::Pgn, limits, || false))?;
             let _held = super::cbv::is_cbv(path).then(|| super::cbv::hold(path));
             return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: None, _held });
         }
@@ -880,6 +904,9 @@ impl Library {
         };
         if let Some(base) = &self.scid {
             return base.pgn(offset as u32);
+        }
+        if let Some(pgn) = archived_pgn(&self.path) {
+            return Ok(text(&Source { path: pgn, open: None }.read(offset, len)?).into_owned());
         }
         if super::cbh::is_cbh(&self.path) {
             return super::cbh::pgn(&self.path, offset);
@@ -1139,6 +1166,9 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
         each(*n, &keys);
         *n += 1;
     };
+    if let Some(pgn) = archived_pgn(path) {
+        return positions(&pgn, stop, each);
+    }
     if super::cbh::is_cbh(path) {
         // The records first, then each game read as PGN: the game's index is its place in the list.
         let mut records = vec![];
