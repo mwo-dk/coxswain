@@ -75,7 +75,7 @@ is ever written over, and the game file itself stays as it is. The status line s
 games line.pgn, next to this file*. A line from an EPD position, or from a game that starts from
 a set-up position, gets the `SetUp` and `FEN` tags, so it opens from the same position.
 
-The new file is a normal PGN file: **Alt+K** on it shows it in the table, and any chess program
+The new file is a normal PGN file: **Enter** or **Alt+K** on it shows it in the table, and any chess program
 reads it. When the folder cannot be written to (a read-only disk, an archive), the status line
 says *Could not save the line:* and why.
 
