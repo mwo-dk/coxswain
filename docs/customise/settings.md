@@ -5,8 +5,10 @@
 Settings changes `config.toml` without opening the file, in both apps: a window over the panels
 in the desktop app, the full screen in the terminal app ([In the terminal app](#in-the-terminal-app)).
 It is sorted by what you come for: an **Overview** of how everything stands, **Finding files**, **Previews**,
-**Looks**, **Behaviour**, **Keys**, and **Privacy and updates**. Each option has a label in plain
-words, one line under it on what it does, and badges for what it costs. Every change applies at
+**Games**, **Looks**, **Behaviour**, **Keys**, and **Privacy and updates**; inside an area, the
+options stand in groups under headings (*General*, *Documents*, *Container images* …), the same in
+both apps. Each option has a label in plain words, one line under it on what it does, and badges
+for what it costs. *Find a setting* looks through every area at once. Every change applies at
 once and is written to the file, your comments kept.
 
 ```mermaid
@@ -31,6 +33,7 @@ flowchart LR
 - [Overview](#overview)
 - [Finding files](#finding-files)
 - [Previews](#previews)
+- [Games](#games)
 - [Looks](#looks)
 - [Behaviour](#behaviour)
 - [Keys](#keys)
@@ -53,9 +56,10 @@ flowchart LR
    | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language*, the 2.0 renaming notice *Keys* |
    | `coxswain-gui --settings` | Overview |
    | `coxswain-gui --settings=search` | Finding files |
-   | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
+   | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
    | `coxswain-gui --settings=models`, `--settings=disk` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded |
+   | `coxswain-gui --settings=preview_tools`, `--settings=chess_engines` | *Preview tools* under Previews, *Chess engines* under Games |
    | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 
    The terminal app opens its own Settings the same ways: [In the terminal app](#in-the-terminal-app).
@@ -70,9 +74,9 @@ flowchart LR
 
 A window over the panels, titled *Settings* with a gear:
 
-- **On the left**: *Find a setting…*, then the seven areas. The open one is outlined in the
+- **On the left**: *Find a setting…*, then the eight areas. The open one is outlined in the
   accent colour. *Overview* carries a count when tips or versions are waiting to be read.
-- **On the right**: the area. Each option is its label, its cost badges, the control, and a line
+- **On the right**: the area, its options in groups under headings. Each option is its label, its cost badges, the control, and a line
   in smaller grey text on what it does. Hovering an option shows its key in `config.toml` as a
   tooltip, such as `[search] text`.
 - **At the bottom**: *Settings are stored in /home/me/.config/coxswain/config.toml* until you
@@ -91,11 +95,28 @@ The badges say what an option costs:
 
 ## Find a setting
 
-Type in *Find a setting…*: the right side lists every option whose label, explanation or
-`config.toml` key holds what you typed, each with its area and key. Click one: its area opens,
-the groups around it unfold, and the option lights up for a moment. *No setting matches.* when
-none does. Typing `cloud` finds *Read files that are only online* and *Cloud folders read
-anyway*; typing `line_height` finds *Row height*.
+Type in *Find a setting…* at the top of the areas (desktop app), or press **/** in the terminal
+app's Settings. The right side lists every option, in every area, whose label, explanation or
+`config.toml` key, or the heading of its group, holds every word you typed, in the language Settings is in, with capitals and
+accents aside: `engine time`, `Engine Time` and `chess.engine_time` all find *Engine time (ms)*,
+and in German `grosse` finds *Textgröße*. Each hit shows its area and group, *Games › Chess
+engines*; the desktop app adds its key (`[chess] engine_time`). The lists that are not options
+(*Preview tools*, *Built-in models*, *Disk use*) are not searched; their group's options are,
+so `chess engines` lists the engine's options.
+
+| | Desktop app | Terminal app |
+|---|---|---|
+| Start | Click *Find a setting…*, or **Tab** to it | **/**; the prompt `/ ` stands at the top of the right side |
+| Pick a hit | **Enter** goes to the first; **↓** goes to the first hit and **Tab** to the next, then **Enter**; or click one | **↑** **↓**, then **Enter** |
+| What a hit does | Its area opens, the groups around it unfold, and the option lights up for a moment | Its area opens with the cursor on the option |
+| Clear | **Esc** empties the field (a second **Esc** closes Settings) | **Esc** leaves the search, back where you were |
+
+![Find a setting in the desktop app, Cyber: engine time typed in the field above the areas, and four hits on the right, each with its area and group and its key: Engine stops after and Engine time (ms) under Games › Chess engines, Whole-game analysis stops after and Analysis time a move (ms) under Games › Game review, each with its explanation](../screenshots/gui-settings-find.png)
+
+![The same in the terminal app at 80×24, Classic blue: / engine at the top of the right side, the hits each with its area and group (Made by · Finding files › Meaning, Chess engine on · Games › Chess engines …), the first under the cursor and its explanation at the bottom](../screenshots/tui-settings-find.png)
+
+*No setting matches.* shows when nothing does. Typing `cloud` finds *Read files that are only
+online* and *Cloud folders read anyway*; typing `line_height` finds *Row height*.
 
 ## How changes are saved
 
@@ -150,43 +171,99 @@ Every line, level and option, with what it shows, its key and its default:
 
 ## Previews
 
+![The desktop app's Settings at Previews, in the Cyber theme: Previews outlined among the areas on the left, then the group General with How previews are made, Timeout (seconds) 120 and Previews made so far with Clear, the group Documents with Build LaTeX by itself ticked, E-books with calibre and Export draw.io diagrams with their cost badges, and the start of Container images](../screenshots/settings-previews.png)
+
 ![The desktop app's Settings at Previews, in the Cyber theme: E-books with calibre and Export draw.io diagrams with their cost badges, Timeout (seconds) 120, Previews made so far (3.3 MB in the cache, those not shown for 30 days go by themselves) with Clear, and Preview tools: the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Not pulled (2.8 GB), Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB)](../screenshots/previews-tools-settings.png)
 
-For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like.
-Opening this area asks the container runtime which images it has.
+For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like,
+in four groups and then *Preview tools*. Opening this area asks the container runtime which images
+it has. The chess options are in [Games](#games) since coxswain 2.35.0.
+
+**General**
 
 | Option | Does | Key |
 |---|---|---|
-| A red line at the top | When neither podman nor docker answers | |
 | *How previews are made* | *An installed program, else a container* (`"auto"`; ImageMagick's container comes first once pulled), *Installed programs only* (`"local"`), *Containers, even when a program is installed* (`"container"`) | `[preview] prefer` |
-| *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
-| *LaTeX image* | `docker.io/texlive/texlive:latest` by default; about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB | `[preview] images.latex` |
+| *Timeout (seconds)* | 10 to 3600; pulling an image is not counted | `[preview] timeout` |
+| *Previews made so far* | *… in the cache; made again when a source changes; those not shown for 30 days go by themselves*, and **Clear** | |
+
+**Documents**
+
+| Option | Does | Key |
+|---|---|---|
 | *Build LaTeX by itself* | Off: LaTeX waits for **Build PDF** ([LaTeX projects](../previews/latex.md)) | `[preview] latex_auto` |
 | *E-books with calibre* | Off by default. On: previews, text for search and *Convert e-book* for MOBI, Kindle, FictionBook, LIT and Palm books, by calibre installed or its 1.3 GB image ([E-books](../previews/ebooks.md)) | `[preview] ebooks` |
 | *Export draw.io diagrams* | Off by default: PNG, SVG and PDF of a diagram and its grid thumbnail, by draw.io's container image (about 560 MB), with podman or docker ([Export draw.io diagram](../files/drawio-export.md)) | `[preview] drawio` |
-| *Timeout (seconds)* | 10 to 3600; pulling an image is not counted | `[preview] timeout` |
-| *Previews made so far* | *… in the cache; made again when a source changes; those not shown for 30 days go by themselves*, and **Clear** | |
-| *Preview tools* | A row per kind of file (LaTeX, Office documents, Diagrams, Video and sound …) with its file endings, *Installed: <program version>* (or *Installed: none* and the *Install it:* line with **Copy**), its image, *Pulled, 5.9 GB* or *Not pulled (2.8 GB)*, **Pull** (also updates; its progress shows in place) and **Remove** (hover for what the image gives and costs, [The images](../previews/containers.md#the-images)), *Used now: …*, the choice *Default*, *Installed program*, *Container* or *Off*, and **Try**, which shows a sample of that kind ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)). `coxswain-gui --settings=preview_tools` opens here | `[preview.tools]`, `[preview.images]` |
+
+**Container images**
+
+| Option | Does | Key |
+|---|---|---|
+| *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
+| *LaTeX image* | `docker.io/texlive/texlive:latest` by default; about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB | `[preview] images.latex` |
 | *Keep images up to date* | *Off*, *Weekly*, *Monthly*: the desktop app pulls the images already pulled again, in the background and never on battery, and removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
 | *Remove images not used for 90 days* | Off: images stay until you remove them ([Removing unused images](../previews/containers.md#removing-unused-images)) | `[preview] image_prune` |
+
+**Safety**
+
+| Option | Does | Key |
+|---|---|---|
 | *Scan for viruses with ClamAV* | Off: **Alt+I** says it is off. On: [Scan for viruses](../files/virus-scan.md) runs ClamAV's image when you ask, and fetches its virus database from `database.clamav.net` when it is more than a day old | `[preview] virus_scan` |
-| *Move notation* | *Figurines (♘f3)* or *Letters of the language* (`chess_notation`, [Chess games](../previews/chess.md#notation-and-the-board)) | `[chess] notation` |
+
+**Preview tools**
+
+| Option | Does | Key |
+|---|---|---|
+| *Neither podman nor docker is installed* | A line at the top of *Preview tools* when no container runtime answers | |
+| *Preview tools* | A row per kind of file (LaTeX, Office documents, Diagrams, Video and sound …) with its file endings, *Installed: <program version>* (or *Installed: none* and the *Install it:* line with **Copy**), its image, *Pulled, 5.9 GB* or *Not pulled (2.8 GB)*, **Pull** (also updates; its progress shows in place) and **Remove** (hover for what the image gives and costs, [The images](../previews/containers.md#the-images)), *Used now: …*, the choice *Default*, *Installed program*, *Container* or *Off*, and **Try**, which shows a sample of that kind ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)). `coxswain-gui --settings=preview_tools` opens here | `[preview.tools]`, `[preview.images]` |
+
+## Games
+
+![The desktop app's Settings at Games, in the Cyber theme: Games outlined between Previews and Looks on the left; the group Board with Chess board, Game pieces in the terminal and Move notation, then Chess engines with Chess engine on, Chess engine ~/engines/stockfish and the list of known engines with Stockfish chosen](../screenshots/gui-settings-games.png)
+
+![The terminal app's Settings at Games, Classic blue: the headings Board, Chess engines and Game review in yellow, the known engines with (•) Stockfish and the others not installed, [ Test engine ], then how long the engine thinks; the cursor on Chess board, its explanation and [chess] board at the bottom](../screenshots/tui-settings-games.png)
+
+The [chess](../previews/chess.md) options, in both apps, in four groups. The board's colours
+are Go's, draughts', xiangqi's and shogi's too; they have no options of their own yet. These
+were under *Previews* before coxswain 2.35.0; `--settings=chess_engines` and every option's
+name open them here now.
+
+**Board**
+
+| Option | Does | Key |
+|---|---|---|
 | *Chess board* | *From the theme*, *Tournament, green*, *Tournament, brown* (`chess_board`); Go, draughts, xiangqi and shogi boards too | `[chess] board` |
-| *Opening book* | A path to a Polyglot `.bin` book whose moves the chess board shows; empty: *The first book next to the game file* (`chess_book`, [Opening books](../previews/chess.md#opening-books)) | `[chess] book` |
 | *Game pieces in the terminal* | *As fine as the terminal draws*, *Pictures, where the terminal shows them*, *Octants*, *Sextants*, *Quadrants*, *Half blocks*, *Figurines*: how the terminal app draws the pieces (`chess_pieces`, [Game pieces in the terminal](../previews/game-pieces.md)) | `[chess] pieces` |
+| *Move notation* | *Figurines (♘f3)* or *Letters of the language* (`chess_notation`, [Chess games](../previews/chess.md#notation-and-the-board)) | `[chess] notation` |
+
+**Chess engines**
+
+| Option | Does | Key |
+|---|---|---|
 | *Chess engine on* | Off: the engine is asked only after *Engine* (**a**) in the view (`chess_analysis`, [The engine](../previews/chess-play.md#the-engine)) | `[chess] analysis` |
-| *Chess engines* | The UCI engines Coxswain knows, each found or *not installed* with its install line; choosing one sets *Chess engine* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) | `[chess] engine` |
 | *Chess engine* | A UCI engine's program or path; empty: *Stockfish, when installed* (`chess_engine`) | `[chess] engine` |
+| *Chess engines* | The UCI engines Coxswain knows, each found or *not installed* with its install line; choosing one sets *Chess engine* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) | `[chess] engine` |
 | *Engine options* | *Test engine* runs the chosen engine and lists its own options to set (threads, hash, strength, network file …); *Reset to engine defaults* ([The engine's own options](../previews/chess-play.md#the-engines-own-options)) | `[chess.engines."<engine>"]` |
 | *Engine stops after* | *Time*, *Depth* or *Positions searched* (`chess_engine_limit`, [How long the engine thinks](../previews/chess-play.md#how-long-the-engine-thinks)) | `[chess] engine_limit` |
 | *Engine time (ms)* | 100 to 60000: how long the engine thinks about a position (`chess_engine_time`) | `[chess] engine_time` |
 | *Engine depth* | 1 to 99 half-moves, when it stops by depth (`chess_engine_depth`) | `[chess] engine_depth` |
 | *Engine positions* | How many positions it searches, when it stops by positions searched (`chess_engine_nodes`) | `[chess] engine_nodes` |
 | *Engine lines* | 1 to 5: how many of its best lines are shown (`chess_engine_lines`) | `[chess] engine_lines` |
+
+**Game review**
+
+| Option | Does | Key |
+|---|---|---|
 | *Whole-game analysis stops after* | *Time*, *Depth* or *Positions searched*, for each position of a game analysed as a whole (`chess_review_limit`) | `[chess] review_limit` |
 | *Analysis time a move (ms)* | 100 to 10000: how long the engine thinks about each position of a game analysed as a whole (`chess_review_time`, [Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) | `[chess] review_time` |
 | *Whole-game depth* | 1 to 99 half-moves (`chess_review_depth`) | `[chess] review_depth` |
 | *Whole-game positions* | Positions searched for each position (`chess_review_nodes`) | `[chess] review_nodes` |
+
+**Opening book**
+
+| Option | Does | Key |
+|---|---|---|
+| *Opening book* | A path to a Polyglot `.bin` book whose moves the chess board shows; empty: *The first book next to the game file* (`chess_book`, [Opening books](../previews/chess.md#opening-books)) | `[chess] book` |
 
 ## Looks
 
@@ -205,6 +282,10 @@ Opening this area asks the container runtime which images it has.
 | *Row height* | 1.2 to 3 times the text size: 1.9 is roomy, 1.4 fits more rows | `[gui] line_height` |
 
 ## Behaviour
+
+In three groups: *Panels* (from *Show hidden files when Coxswain starts* to *Open disk images,
+CHM and CBR like folders*), *Version control* (*Last commit of each file*, *Git tool*, *Use git
+where Jujutsu is too*) and *Programs* (*Editor* and the viewers).
 
 | Option | Does | Key |
 |---|---|---|
@@ -281,11 +362,11 @@ explanations and costs: both apps read them from one description in `coxswain-co
 ║ Overview            │  Names     Files on this machine: 3                    ║
 ║ Finding files       │  Words     Files read: 1 · waiting: 0 · 80.0 KB on disk║
 ║ Previews            │  Meaning   Off                                [Set up…]║
-║ Looks               │  Ask       Off                                [Set up…]║
-║ Behaviour           │                                                        ║
-║ Keys                │ How far should Find look?                              ║
-║ Privacy and updates │  ( ) Names only                                        ║
-║                     │  (•) Names and text                                    ║
+║ Games               │  Ask       Off                                [Set up…]║
+║ Looks               │                                                        ║
+║ Behaviour           │ How far should Find look?                              ║
+║ Keys                │  ( ) Names only                                        ║
+║ Privacy and updates │  (•) Names and text                                    ║
 ║                     │  ( ) Names, text and meaning                           ║
 ║                     │  ( ) Names, text, meaning and Ask                      ║
 ║                     │  [ Set up… ]                                           ║
@@ -315,7 +396,7 @@ explanations and costs: both apps read them from one description in `coxswain-co
 | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
 | **Ctrl+,** (the `settings` action's other key), in terminals that pass it on | Overview |
 | `coxswain --settings` | Overview, with both panels in the current folder |
-| `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
+| `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
 | `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `search_meaning`, `ask_model`, `language`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
 | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 | **Enter** on a tip under *What's new* in Overview | The tip's area, as *Show me* in the desktop app; the tip is not shown again |
@@ -338,7 +419,7 @@ one.
 | **←** **→**, **Tab** / **Shift+Tab** | The area before or after (round the end) |
 | **Space** | A switch (`[x]` / `[ ]`) flips; a choice takes its next value; a level, a step or a button is taken |
 | **Enter** | A text or number field opens in place with its value selected (shown reversed): the first key typed replaces it, **Backspace** clears it, then **Enter** saves and **Esc** keeps the old value (**Ctrl+U** empties it). A value refused shows the stored value again in the field, selected, with the reason in red: type the value anew, or leave it with **Esc**. A choice opens its values under it: **↑** **↓** and **Enter** take one. A list opens its items: **Delete** removes the one under the cursor, typing goes into the *+ Add* field under them and **Enter** adds it, **Esc** closes the list. On anything else, as **Space** |
-| **/** | *Find a setting*: type, and the options whose label, explanation or config key hold the words are listed with their area; **Enter** goes there, **Esc** comes back |
+| **/** | *Find a setting*: type, and the options of every area whose label, explanation or config key hold the words (capitals and accents aside) are listed with their area and group; **↑** **↓** pick one, **Enter** goes there, **Esc** comes back ([Find a setting](#find-a-setting)) |
 | **Esc**, **F10** | Close Settings (a field, list or search open: close that first) |
 
 Every change is saved at once: the bottom line says *Saved to …/config.toml*, or in red why the
@@ -354,7 +435,9 @@ needs and the rows above it scroll.
 |---|---|
 | Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, *[ Show the guide again ]* (the [first-run guide](../panels/first-run.md)), the tips not dismissed yet, and what the versions you have not read brought |
 | Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*, and *Tika* and *Speech* while they are on), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*; *Programs that read more*, each `✓` or `✗` with the line that installs a missing one (**Space** copies it to the terminal's clipboard, see below); *Built-in models*, each with its size and state (**Enter** opens its folder in the panel, **Delete** deletes it, **U** unloads it) and *Delete all not in use*; and *Start with my session* under *Background reading* |
-| Previews, Behaviour | Their options. The desktop app's own (previews and the like) are there too, since both apps share `config.toml` |
+| Previews | Its options under *General*, *Documents*, *Container images* and *Safety*, the desktop app's own among them since both apps share `config.toml`; then *Preview tools*, a line per kind of file (**Enter** takes the next choice, **C** copies the install line, **P** pulls the image, **Delete** removes it) |
+| Games | *Board*; *Chess engines* with *Chess engine on*, *Chess engine*, the known engines (**Enter** chooses one, **C** copies its install line), *[ Test engine ]* and the engine's own options it read, then how long it thinks; *Game review*; *Opening book* |
+| Behaviour | Its options under *Panels*, *Version control* and *Programs* |
 | Looks | First what both apps use: *Language* and *Icons and git glyphs*. Then, under the heading *Terminal app*, *Theme of the terminal app*; and under *Desktop app* that app's own: its theme, *Font*, *Monospaced font*, *Icon font*, *Text size* and *Row height*, there since both apps share `config.toml`. **Enter** on *Language* or a theme opens its list right under the row; **Esc** closes it |
 | Keys | First the row *Change keys in config.toml, under [keys]*: **Enter** opens your editor there. Then every action the terminal app has, under its group, with its keys; read-only, as in the desktop app. No scripts folder line: **F2** → *Open the scripts folder* goes there ([Scripts](../commands/scripts.md)) |
 | Privacy and updates | *Check for a new version*, what can leave the machine with your settings as they are and where to; *Disk use*, each place with its size (**Enter** shows it in the panel, **Delete** clears it, the search store and the preview cache among them; on a row under *Your own files* **Delete** removes it after you confirm, and on *quarantine/* it does nothing) and *Clear everything that can be built again*; where things are kept, the version |
@@ -399,7 +482,7 @@ opens there, `--settings=search_text` and `--settings=search_meaning` at the swi
 
 #### Why does `--settings=meaning` open the Overview now?
 
-Since 2.0 `--settings=` takes only an area (`overview`, `search`, `previews`, `looks`,
+Since 2.0 `--settings=` takes only an area (`overview`, `search`, `previews`, `games`, `looks`,
 `behaviour`, `keys`, `privacy`) or an option's name. The section names of 1.x went; a name it
 does not know opens the Overview. Use the option's name instead:
 
@@ -410,6 +493,19 @@ does not know opens the Overview. Use the option's name instead:
 | `--settings=news` | `--settings=overview` (*What's new* is there) |
 | `--settings=cloud` | `--settings=search_cloud` |
 | `--settings=language` | the same: `language` is an option's name |
+
+#### How do I find a setting without knowing its area?
+
+Type a word into *Find a setting…* above the areas in the desktop app, or press **/** in the
+terminal app's Settings: it looks through every area, by each setting's name, its explanation and
+its `config.toml` key, capitals and accents aside. **Enter** goes to the hit in its area, **Esc**
+clears the words. See [Find a setting](#find-a-setting).
+
+#### Where did the chess settings go?
+
+To their own area, *Games*, after *Previews*: since coxswain 2.35.0 it holds *Board*, *Chess
+engines*, *Game review* and *Opening book*. `config.toml` did not change (`[chess]` as before), and
+`--settings=chess_engines` or an option's name such as `--settings=chess_book` opens there.
 
 #### How do I see the first-run guide again?
 

@@ -55,8 +55,8 @@ tools* (`[preview.tools] ebooks`), else *How previews are made* (`[preview] pref
 | Its container | podman or docker runs `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest, with no network and none of your folders ([How calibre runs](#how-calibre-runs)) | Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install calibre there instead. Linux, macOS and Windows with podman or docker |
 
 The image is about 1.3 GB to download and 3.6 GB on disk, so it is pulled only when you said so:
-by turning the option on with text search on, by **Pull** in *Settings → Previews → Container
-images*, or by a preview's or a conversion's first run after a click that names the size. It
+by turning the option on with text search on, by **Pull** in *Settings → Previews → Preview
+tools*, or by a preview's or a conversion's first run after a click that names the size. It
 is [LinuxServer.io's calibre image](https://docs.linuxserver.io/images/docker-calibre/), the one
 calibre build that an organisation rebuilds for every calibre release (weekly), for amd64 and
 arm64, GPL-3.0 like calibre. calibre publishes no image of its own; the smaller ones on Docker

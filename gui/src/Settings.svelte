@@ -18,7 +18,7 @@
   // Persian's banner is ours, kept with the docs' flags.
   const flag = (name) => (name === "derafsh" ? derafsh : flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`]);
 
-  const AREAS = ["overview", "search", "previews", "looks", "behaviour", "keys", "privacy"];
+  const AREAS = ["overview", "search", "previews", "games", "looks", "behaviour", "keys", "privacy"];
   const s = $derived(ui.cfg.settings);
   const optOf = (name) => ui.cfg.options.find((o) => o.name === name);
   /** An option's place in config.toml, as written there: `[search] text`. */
@@ -104,17 +104,26 @@
     untrack(() => go(section));
   });
   $effect(() => {
-    if (area === "previews") untrack(() => (loadTools(), loadPreviewCache(), loadEngines()));
+    if (area === "previews") untrack(() => (loadTools(), loadPreviewCache()));
+    if (area === "games") untrack(loadEngines);
     if (area === "privacy") untrack(() => (loadDisk(), loadServers()));
     if (area === "behaviour") invoke("git_tools").then((v) => (gitTools = v), () => {});
   });
 
-  /** "Find a setting": every option whose label, explanation or config key holds the words. */
-  const found = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return ui.cfg.options.filter((o) => [t(`setting.${o.name}`), t(`setting.${o.name}.hint`), o.name, keyOf(o.name)].some((x) => x.toLowerCase().includes(q)));
+  /** "Find a setting": every option whose label, explanation or config key holds the words,
+   *  case and accents aside, with its area and group (coxswain_core::settings::search, as in
+   *  the terminal app). Enter in the field goes to the first. */
+  let found = $state([]);
+  $effect(() => {
+    const q = query;
+    if (!q.trim()) return void (found = []);
+    invoke("settings_find", { query: q }).then((v) => query === q && (found = v), () => {});
   });
+  function findKey(e) {
+    if (e.key === "Escape" && query) (query = ""), e.stopPropagation();
+    else if (e.key === "Enter" && found[0]) e.preventDefault(), go(found[0].name);
+    else if (e.key === "ArrowDown" && found[0]) e.preventDefault(), document.querySelector(".settings .result")?.focus();
+  }
 
   // ------------------------------------------------------------ search: status and level
 
@@ -595,7 +604,7 @@
   <div class="main">
     <nav aria-label={t("settings.title")}>
       <!-- Esc empties it first; a second Esc closes Settings. -->
-      <input class="find" type="search" bind:value={query} placeholder={t("settings.find")} aria-label={t("settings.find")} onkeydown={(e) => e.key === "Escape" && query && ((query = ""), e.stopPropagation())} />
+      <input class="find" type="search" bind:value={query} placeholder={t("settings.find")} aria-label={t("settings.find")} onkeydown={findKey} />
       {#each AREAS as a (a)}
         <button class="area" class:on={!query && area === a} aria-current={!query && area === a ? "page" : undefined} onclick={() => ((area = a), (query = ""))}>
           {t(`settings.area.${a}`)}{#if a === "overview" && newsCount}<span class="new">{newsCount}</span>{/if}
@@ -608,7 +617,7 @@
         <!-- ------------------------------------------------ Find a setting -->
         {#each found as o (o.name)}
           <button class="result" onclick={() => go(o.name)}>
-            <span><strong>{t(`setting.${o.name}`)}</strong> <small class="hint">{t(`settings.area.${o.area}`)} · <span class="mono">{keyOf(o.name)}</span></small></span>
+            <span><strong>{t(`setting.${o.name}`)}</strong> <small class="hint">{t(`settings.area.${o.area}`)}{#if o.group} › {o.group}{/if} · <span class="mono">{keyOf(o.name)}</span></small></span>
             <small class="hint">{t(`setting.${o.name}.hint`)}</small>
           </button>
         {:else}
@@ -936,127 +945,157 @@
       {:else if area === "previews"}
         <!-- ------------------------------------------------ Previews (asks the container runtime) -->
         <h3>{t("settings.area.previews")}</h3>
-        {@render choice("preview_prefer", [["auto", t("settings.prefer_auto")], ["local", t("settings.prefer_local")], ["container", t("settings.prefer_container")]])}
-        {@render choice("preview_container", [["auto", t("settings.container_auto")], ["podman", "podman"], ["docker", "docker"], ["off", t("settings.container_off")]])}
-        {@render text("latex_image")}
-        {@render check("latex_auto")}
-        {@render check("ebooks")}
-        {@render check("drawio")}
-        {@render num("preview_timeout", 10, 3600)}
-        <div class="opt">
-          <span class="lab">{t("settings.preview_cache")}</span>
-          <div class="folder">
-            <span class="hint">{previewCache == null ? "" : t("settings.preview_cache_size", { size: size(previewCache) })}</span>
-            <button disabled={!previewCache} onclick={clearPreviewCache}>{t("settings.preview_cache_clear")}</button>
+        <details class="group" id="opt-previews_general" open>
+          <summary>{t("settings.group.general")}</summary>
+          {@render choice("preview_prefer", [["auto", t("settings.prefer_auto")], ["local", t("settings.prefer_local")], ["container", t("settings.prefer_container")]])}
+          {@render num("preview_timeout", 10, 3600)}
+          <div class="opt">
+            <span class="lab">{t("settings.preview_cache")}</span>
+            <div class="folder">
+              <span class="hint">{previewCache == null ? "" : t("settings.preview_cache_size", { size: size(previewCache) })}</span>
+              <button disabled={!previewCache} onclick={clearPreviewCache}>{t("settings.preview_cache_clear")}</button>
+            </div>
           </div>
-        </div>
-        <div class="opt" id="opt-preview_tools" class:flash={flash === "preview_tools"}>
-          <span class="lab">{t("ptools.title")}</span>
-          <div class="ptools">
-            <p class="hint">{t("ptools.hint")}</p>
-            {#if typeof tools === "string"}<p class="hint err">{tools}</p>{:else if !tools}<p class="hint">{t("common.loading")}</p>{/if}
-            {#if tools?.no_runtime}<p class="hint">{tools.no_runtime}</p>{/if}
-            {#each tools?.rows ?? [] as r (r.kind)}
-              <div class="ptool" id="ptool-{r.kind}" class:flash={flash === `ptool-${r.kind}`}>
-                <div class="ptool-head">
-                  <b>{r.title}</b>
-                  <small class="hint mono exts" title={r.exts}>{r.exts}</small>
+        </details>
+        <details class="group" id="opt-documents" open>
+          <summary>{t("settings.group.documents")}</summary>
+          {@render check("latex_auto")}
+          {@render check("ebooks")}
+          {@render check("drawio")}
+        </details>
+        <details class="group" id="opt-images" open>
+          <summary>{t("settings.group.images")}</summary>
+          {@render choice("preview_container", [["auto", t("settings.container_auto")], ["podman", "podman"], ["docker", "docker"], ["off", t("settings.container_off")]])}
+          {@render text("latex_image")}
+          {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
+          {@render check("image_prune")}
+          <p class="hint">{t("settings.previews_more")}</p>
+        </details>
+        <details class="group" id="opt-safety" open>
+          <summary>{t("settings.group.safety")}</summary>
+          {@render check("virus_scan")}
+        </details>
+        <details class="group" open>
+          <summary>{t("ptools.title")}</summary>
+          <div class="opt" id="opt-preview_tools" class:flash={flash === "preview_tools"}>
+            <div class="ptools">
+              <p class="hint">{t("ptools.hint")}</p>
+              {#if typeof tools === "string"}<p class="hint err">{tools}</p>{:else if !tools}<p class="hint">{t("common.loading")}</p>{/if}
+              {#if tools?.no_runtime}<p class="hint">{tools.no_runtime}</p>{/if}
+              {#each tools?.rows ?? [] as r (r.kind)}
+                <div class="ptool" id="ptool-{r.kind}" class:flash={flash === `ptool-${r.kind}`}>
+                  <div class="ptool-head">
+                    <b>{r.title}</b>
+                    <small class="hint mono exts" title={r.exts}>{r.exts}</small>
+                  </div>
+                  <small>{installed(r).length ? t("ptools.installed", { programs: installed(r).map((p) => (p.version ? `${p.name} ${p.version}` : p.name)).join(", ") }) : t("ptools.installed_none")}</small>
+                  {#if !installed(r).length && r.install}<small>{t("install.with")} <CopyLine line={r.install} /></small>{/if}
+                  {#each r.images as im (im.key)}
+                    <div class="ptool-image" title={im.about ?? ""}>
+                      <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none", { key: im.key })}</small>
+                      {#if !im.image}<button onclick={openConfig}>{t("settings.open_config")}</button>{/if}
+                      {#if im.image && !tools.no_runtime}
+                        <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t("settings.pull")}</button>
+                        <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
+                      {/if}
+                    </div>
+                  {/each}
+                  <div class="ptool-use">
+                    <small class:err={r.missing}>{t("ptools.uses", { engine: r.uses })}</small>
+                    {#if r.can_choose}<select aria-label={t("ptools.choice")} value={r.choice} onchange={(e) => setTool(r, e.currentTarget.value)}>
+                      <option value="">{t("ptools.choice.default", { value: preferLabel(s.preview_prefer) })}</option>
+                      <option value="local">{t("ptools.choice.local")}</option>
+                      <option value="container" disabled={!r.container}>{t(r.container ? "ptools.choice.container" : "ptools.choice.container_no_image")}</option>
+                      <option value="off">{t("ptools.choice.off")}</option>
+                    </select>{/if}
+                    {#if r.sample}<button title={t("ptools.try_hint")} onclick={() => tryTool(r)}>{t("ptools.try")}</button>{/if}
+                  </div>
                 </div>
-                <small>{installed(r).length ? t("ptools.installed", { programs: installed(r).map((p) => (p.version ? `${p.name} ${p.version}` : p.name)).join(", ") }) : t("ptools.installed_none")}</small>
-                {#if !installed(r).length && r.install}<small>{t("install.with")} <CopyLine line={r.install} /></small>{/if}
-                {#each r.images as im (im.key)}
-                  <div class="ptool-image" title={im.about ?? ""}>
-                    <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none", { key: im.key })}</small>
-                    {#if !im.image}<button onclick={openConfig}>{t("settings.open_config")}</button>{/if}
-                    {#if im.image && !tools.no_runtime}
-                      <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t("settings.pull")}</button>
-                      <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
-                    {/if}
+              {/each}
+            </div>
+          </div>
+        </details>
+      {:else if area === "games"}
+        <!-- ------------------------------------------------ Games: chess, and the boards of Go, draughts, shogi and xiangqi -->
+        <h3>{t("settings.area.games")}</h3>
+        <details class="group" id="opt-board" open>
+          <summary>{t("settings.group.board")}</summary>
+          {@render choice("chess_board", [["theme", t("settings.chess_board_theme")], ["green", t("settings.chess_board_green")], ["brown", t("settings.chess_board_brown")]])}
+          {@render choice("chess_pieces", [["auto", t("settings.chess_pieces_auto")], ["pictures", t("settings.chess_pieces_pictures")], ["octants", t("settings.chess_pieces_octants")], ["sextants", t("settings.chess_pieces_sextants")], ["quadrants", t("settings.chess_pieces_quadrants")], ["halves", t("settings.chess_pieces_halves")], ["figurines", t("settings.chess_pieces_figurines")]])}
+          {@render choice("chess_notation", [["figurines", t("settings.chess_figurines")], ["letters", t("settings.chess_letters")]])}
+        </details>
+        <details class="group" open>
+          <summary>{t("chess.engines_title")}</summary>
+          {@render check("chess_analysis")}
+          {@render text("chess_engine", t("settings.chess_engine_auto"))}
+          <div class="opt" id="opt-chess_engines" class:flash={flash === "chess_engines"}>
+            <span class="lab">{t("chess.engines_title")}</span>
+            <div class="ptools">
+              <p class="hint">{t("chess.engines_hint")}</p>
+              <div class="engines" role="radiogroup" aria-label={t("chess.engines_title")}>
+                {#each engines as e (e.program)}
+                  <div class="ptool">
+                    <label class="ptool-head"><input type="radio" name="chess-engine" checked={e.chosen} onchange={() => chooseEngine(e.program)} /> <b>{e.name}</b> <small class="hint mono">{e.program}</small></label>
+                    {#if e.path}<small class="mono">{e.path}</small>{:else}<small>{t("chess.engine_not_found")}{#if e.install} · {t("install.with")} <CopyLine line={e.install} />{/if}</small>{/if}
+                    {#if e.note}<small class="hint">{e.note}</small>{/if}
+                    {#if !e.path && e.site}<small><button class="link" onclick={() => invoke("open_path", { path: e.site })}>{e.site}</button></small>{/if}
                   </div>
                 {/each}
-                <div class="ptool-use">
-                  <small class:err={r.missing}>{t("ptools.uses", { engine: r.uses })}</small>
-                  {#if r.can_choose}<select aria-label={t("ptools.choice")} value={r.choice} onchange={(e) => setTool(r, e.currentTarget.value)}>
-                    <option value="">{t("ptools.choice.default", { value: preferLabel(s.preview_prefer) })}</option>
-                    <option value="local">{t("ptools.choice.local")}</option>
-                    <option value="container" disabled={!r.container}>{t(r.container ? "ptools.choice.container" : "ptools.choice.container_no_image")}</option>
-                    <option value="off">{t("ptools.choice.off")}</option>
-                  </select>{/if}
-                  {#if r.sample}<button title={t("ptools.try_hint")} onclick={() => tryTool(r)}>{t("ptools.try")}</button>{/if}
-                </div>
               </div>
-            {/each}
-          </div>
-        </div>
-        {@render choice("chess_notation", [["figurines", t("settings.chess_figurines")], ["letters", t("settings.chess_letters")]])}
-        {@render choice("chess_board", [["theme", t("settings.chess_board_theme")], ["green", t("settings.chess_board_green")], ["brown", t("settings.chess_board_brown")]])}
-        {@render text("chess_book", t("settings.chess_book_auto"))}
-        {@render choice("chess_pieces", [["auto", t("settings.chess_pieces_auto")], ["pictures", t("settings.chess_pieces_pictures")], ["octants", t("settings.chess_pieces_octants")], ["sextants", t("settings.chess_pieces_sextants")], ["quadrants", t("settings.chess_pieces_quadrants")], ["halves", t("settings.chess_pieces_halves")], ["figurines", t("settings.chess_pieces_figurines")]])}
-        {@render check("chess_analysis")}
-        <div class="opt" id="opt-chess_engines" class:flash={flash === "chess_engines"}>
-          <span class="lab">{t("chess.engines_title")}</span>
-          <div class="ptools">
-            <p class="hint">{t("chess.engines_hint")}</p>
-            <div class="engines" role="radiogroup" aria-label={t("chess.engines_title")}>
-              {#each engines as e (e.program)}
-                <div class="ptool">
-                  <label class="ptool-head"><input type="radio" name="chess-engine" checked={e.chosen} onchange={() => chooseEngine(e.program)} /> <b>{e.name}</b> <small class="hint mono">{e.program}</small></label>
-                  {#if e.path}<small class="mono">{e.path}</small>{:else}<small>{t("chess.engine_not_found")}{#if e.install} · {t("install.with")} <CopyLine line={e.install} />{/if}</small>{/if}
-                  {#if e.note}<small class="hint">{e.note}</small>{/if}
-                  {#if !e.path && e.site}<small><button class="link" onclick={() => invoke("open_path", { path: e.site })}>{e.site}</button></small>{/if}
-                </div>
-              {/each}
             </div>
           </div>
-        </div>
-        {@render text("chess_engine", t("settings.chess_engine_auto"))}
-        <div class="opt" id="opt-chess_engine_options">
-          <span class="lab">{t("chess.engine_options")}</span>
-          <div class="buttons">
-            <button disabled={engine === "testing"} title={t("chess.engine_test_hint")} onclick={testEngine}>{engine === "testing" ? t("chess.engine_testing") : t("chess.engine_test")}</button>
-            {#if engine?.options}<button title={t("chess.engine_reset_hint")} onclick={() => setEngineOption("", null, true)}>{t("chess.engine_reset")}</button>{/if}
-            <button onclick={engineConfig}>{t("settings.open_config")}</button>
-          </div>
-          {#if engine?.error}<p class="hint err">{engine.error}</p>{/if}
-          {#if engine?.options}
-            <p class="hint">{t("chess.engine_tested", { name: engine.name })} · {t("chess.engine_options_hint")}</p>
-            {#if !engine.options.length}<p class="hint">{t("chess.engine_options_none")}</p>{/if}
-            <div class="engine-opts">
-              {#each engine.options as o (o.name)}
-                <label class="field" for="eopt-{o.name}" title={optionAbout(o)}>{o.name}</label>
-                <div class="eopt">
-                  {#if o.kind === "check"}
-                    <input id="eopt-{o.name}" type="checkbox" checked={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.checked, false, ev.currentTarget)} />
-                  {:else if o.kind === "combo"}
-                    <select id="eopt-{o.name}" value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value, false, ev.currentTarget)}>
-                      {#each o.vars as v (v)}<option value={v}>{v}</option>{/each}
-                    </select>
-                  {:else if o.kind === "spin"}
-                    <input id="eopt-{o.name}" class="short" type="number" min={o.min} max={o.max} value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, Number(ev.currentTarget.value), false, ev.currentTarget)} />
-                  {:else}
-                    <input id="eopt-{o.name}" value={optionValue(o)} maxlength="1024" spellcheck="false" onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value, false, ev.currentTarget)} />
-                  {/if}
-                  {#if o.value != null}<button class="link" title={t("chess.engine_default", { value: o.default || "—" })} onclick={() => setEngineOption(o.name, null)}>{t("chess.option_default_button")}</button>{/if}
-                  <small class="hint">{optionAbout(o)}</small>
-                </div>
-              {/each}
+          <div class="opt" id="opt-chess_engine_options">
+            <span class="lab">{t("chess.engine_options")}</span>
+            <div class="buttons">
+              <button disabled={engine === "testing"} title={t("chess.engine_test_hint")} onclick={testEngine}>{engine === "testing" ? t("chess.engine_testing") : t("chess.engine_test")}</button>
+              {#if engine?.options}<button title={t("chess.engine_reset_hint")} onclick={() => setEngineOption("", null, true)}>{t("chess.engine_reset")}</button>{/if}
+              <button onclick={engineConfig}>{t("settings.open_config")}</button>
             </div>
-            {#each engine.ignored as [n, why] (n)}<p class="hint err">✗ {n}: {why}</p>{/each}
-          {/if}
-          <p class="hint">{t("chess.engine_options_more")}</p>
-        </div>
-        {@render choice("chess_engine_limit", limits)}
-        {@render num("chess_engine_time", 100, 60000, 100)}
-        {@render num("chess_engine_depth", 1, 99)}
-        {@render num("chess_engine_nodes", 1000, 10000000000, 1000)}
-        {@render num("chess_engine_lines", 1, 5)}
-        {@render choice("chess_review_limit", limits)}
-        {@render num("chess_review_time", 100, 10000, 100)}
-        {@render num("chess_review_depth", 1, 99)}
-        {@render num("chess_review_nodes", 1000, 10000000000, 1000)}
-        {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
-        {@render check("image_prune")}
-        <p class="hint">{t("settings.previews_more")}</p>
+            {#if engine?.error}<p class="hint err">{engine.error}</p>{/if}
+            {#if engine?.options}
+              <p class="hint">{t("chess.engine_tested", { name: engine.name })} · {t("chess.engine_options_hint")}</p>
+              {#if !engine.options.length}<p class="hint">{t("chess.engine_options_none")}</p>{/if}
+              <div class="engine-opts">
+                {#each engine.options as o (o.name)}
+                  <label class="field" for="eopt-{o.name}" title={optionAbout(o)}>{o.name}</label>
+                  <div class="eopt">
+                    {#if o.kind === "check"}
+                      <input id="eopt-{o.name}" type="checkbox" checked={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.checked, false, ev.currentTarget)} />
+                    {:else if o.kind === "combo"}
+                      <select id="eopt-{o.name}" value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value, false, ev.currentTarget)}>
+                        {#each o.vars as v (v)}<option value={v}>{v}</option>{/each}
+                      </select>
+                    {:else if o.kind === "spin"}
+                      <input id="eopt-{o.name}" class="short" type="number" min={o.min} max={o.max} value={optionValue(o)} onchange={(ev) => setEngineOption(o.name, Number(ev.currentTarget.value), false, ev.currentTarget)} />
+                    {:else}
+                      <input id="eopt-{o.name}" value={optionValue(o)} maxlength="1024" spellcheck="false" onchange={(ev) => setEngineOption(o.name, ev.currentTarget.value, false, ev.currentTarget)} />
+                    {/if}
+                    {#if o.value != null}<button class="link" title={t("chess.engine_default", { value: o.default || "—" })} onclick={() => setEngineOption(o.name, null)}>{t("chess.option_default_button")}</button>{/if}
+                    <small class="hint">{optionAbout(o)}</small>
+                  </div>
+                {/each}
+              </div>
+              {#each engine.ignored as [n, why] (n)}<p class="hint err">✗ {n}: {why}</p>{/each}
+            {/if}
+            <p class="hint">{t("chess.engine_options_more")}</p>
+          </div>
+          {@render choice("chess_engine_limit", limits)}
+          {@render num("chess_engine_time", 100, 60000, 100)}
+          {@render num("chess_engine_depth", 1, 99)}
+          {@render num("chess_engine_nodes", 1000, 10000000000, 1000)}
+          {@render num("chess_engine_lines", 1, 5)}
+        </details>
+        <details class="group" id="opt-review" open>
+          <summary>{t("settings.group.review")}</summary>
+          {@render choice("chess_review_limit", limits)}
+          {@render num("chess_review_time", 100, 10000, 100)}
+          {@render num("chess_review_depth", 1, 99)}
+          {@render num("chess_review_nodes", 1000, 10000000000, 1000)}
+        </details>
+        <details class="group" id="opt-book" open>
+          <summary>{t("settings.group.book")}</summary>
+          {@render text("chess_book", t("settings.chess_book_auto"))}
+        </details>
       {:else if area === "looks"}
         <!-- ------------------------------------------------ Looks -->
         <h3>{t("settings.area.looks")}</h3>
@@ -1127,25 +1166,34 @@
       {:else if area === "behaviour"}
         <!-- ------------------------------------------------ Behaviour -->
         <h3>{t("settings.area.behaviour")}</h3>
-        {@render check("show_hidden")}
-        {@render check("confirm_delete")}
-        {@render choice("right_click", [["mark", t("settings.right_click_mark")], ["menu", t("settings.right_click_menu")]])}
-        {@render check("hints")}
-        <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
-        {@render check("folder_sizes")}
-        {@render check("disk_images")}
-        {@render check("git_last_commit")}
-        <!-- A tool's name from the list of those installed, or a command of one's own. -->
-        {#snippet gitTool()}
-          <input id="in-git_tool" list="git-tools" value={s.git_tool} placeholder={t("settings.git_tool_auto", { name: gitTools[0] ?? t("settings.git_tool_terminal") })} spellcheck="false" onchange={(e) => set("git_tool", e.currentTarget.value.trim())} />
-          <datalist id="git-tools">{#each gitTools as n (n)}<option value={n}></option>{/each}</datalist>
-        {/snippet}
-        {@render field("git_tool", gitTool)}
-        {@render check("git_prefer_git")}
-        {@render text("editor", "$EDITOR")}
-        {@render text("viewer", t("setting.viewer.empty"))}
-        {@render check("bom_viewer")}
-        {@render check("provenance_viewer")}
+        <details class="group" id="opt-panels" open>
+          <summary>{t("settings.group.panels")}</summary>
+          {@render check("show_hidden")}
+          {@render check("confirm_delete")}
+          {@render choice("right_click", [["mark", t("settings.right_click_mark")], ["menu", t("settings.right_click_menu")]])}
+          {@render check("hints")}
+          <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
+          {@render check("folder_sizes")}
+          {@render check("disk_images")}
+        </details>
+        <details class="group" id="opt-git" open>
+          <summary>{t("settings.group.git")}</summary>
+          {@render check("git_last_commit")}
+          <!-- A tool's name from the list of those installed, or a command of one's own. -->
+          {#snippet gitTool()}
+            <input id="in-git_tool" list="git-tools" value={s.git_tool} placeholder={t("settings.git_tool_auto", { name: gitTools[0] ?? t("settings.git_tool_terminal") })} spellcheck="false" onchange={(e) => set("git_tool", e.currentTarget.value.trim())} />
+            <datalist id="git-tools">{#each gitTools as n (n)}<option value={n}></option>{/each}</datalist>
+          {/snippet}
+          {@render field("git_tool", gitTool)}
+          {@render check("git_prefer_git")}
+        </details>
+        <details class="group" id="opt-programs" open>
+          <summary>{t("settings.group.programs")}</summary>
+          {@render text("editor", "$EDITOR")}
+          {@render text("viewer", t("setting.viewer.empty"))}
+          {@render check("bom_viewer")}
+          {@render check("provenance_viewer")}
+        </details>
       {:else if area === "keys"}
         <!-- ------------------------------------------------ Keys -->
         <h3>{t("settings.area.keys")}</h3>

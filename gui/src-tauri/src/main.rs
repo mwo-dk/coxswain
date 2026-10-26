@@ -418,6 +418,17 @@ fn features(query: String, ctx: tauri::State<Ctx>) -> Vec<coxswain_core::feature
     coxswain_core::features::list(&ctx.cfg(), &query, true)
 }
 
+/// Settings → *Find a setting*: the options that hold every word of `query` (label,
+/// explanation, config.toml key; case and accents aside), with their area and group, as the
+/// terminal app finds them.
+#[tauri::command]
+fn settings_find(query: String) -> Vec<serde_json::Value> {
+    coxswain_core::settings::search(&query)
+        .into_iter()
+        .map(|o| serde_json::json!({ "name": o.name, "area": o.area, "group": o.group().map(|g| g.label()).unwrap_or_default() }))
+        .collect()
+}
+
 /// "Show me": the feature's docs page on GitHub, in the browser. Only on that click: nothing
 /// else in Features reaches the network.
 #[tauri::command]
@@ -2704,8 +2715,8 @@ fn local(url: &tauri::Url) -> bool {
 }
 
 const USAGE: &str = "coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cursor on it
-  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, looks,
-                            behaviour, keys, privacy, or an option such as show_hidden
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
+                            looks, behaviour, keys, privacy, or an option such as show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
   --version
   --help
@@ -2830,7 +2841,7 @@ fn main() {
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess_engines, chess_engine_test, chess_engine_set, chess_engine_config, chess::chess_save_line, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, logs::log_open, logs::log_close, logs::log_state, logs::log_rows, logs::log_shape, logs::log_row_of, logs::log_follow, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, long_files_change, long_files_choices, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
-            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts
+            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, settings_find, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts
         ])
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")

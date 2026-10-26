@@ -4825,7 +4825,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
-                  looks, behaviour, keys, privacy, or an option such as show_hidden
+                  games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, models

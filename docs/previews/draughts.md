@@ -143,7 +143,7 @@ played, and its line stops.
 
 ## Settings and config.toml
 
-*Settings → Previews → Chess board* sets the squares' colours in both apps: from the theme
+*Settings → Games → Board → Chess board* sets the squares' colours in both apps: from the theme
 (`theme`, the default) or a tournament board (`green`, `brown`), as for chess.
 
 | Setting | `config.toml` | Values |

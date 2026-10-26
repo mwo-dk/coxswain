@@ -147,7 +147,7 @@ from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
    **Turn on smart search** (meaning and Ask): *Settings → Finding files → Set up…*, or
    `coxswain --setup-search` ([the guide](docs/search/setup.md)).
 5. **Type** a command and press **Enter**: it runs in the panel's folder.
-6. **Settings**, sorted by task (Finding files, Previews, Looks, Behaviour, Keys, Privacy and
+6. **Settings**, sorted by task (Finding files, Previews, Games, Looks, Behaviour, Keys, Privacy and
    updates): **Ctrl+,** or the gear button in the desktop app, **F12** (*Settings* at the right end
    of the key bar), **Shift+F10** → *Settings* or **F9** → *Settings* in the terminal app. In the desktop app, **Space** shows the preview pane.
 7. Not sure what you can do with a file? **Shift+F10** (or the **Menu** key, or the **⋯** on the

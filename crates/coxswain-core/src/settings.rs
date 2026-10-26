@@ -21,6 +21,8 @@ pub enum Area {
     /// Finding files: names, words in files, meaning, Ask.
     Search,
     Previews,
+    /// Chess and the other board games: the board, the engine, analysing a game, the book.
+    Games,
     Looks,
     Behaviour,
     /// Every action and its keys.
@@ -30,10 +32,11 @@ pub enum Area {
 }
 
 impl Area {
-    pub const ALL: [Area; 7] = [
+    pub const ALL: [Area; 8] = [
         Area::Overview,
         Area::Search,
         Area::Previews,
+        Area::Games,
         Area::Looks,
         Area::Behaviour,
         Area::Keys,
@@ -46,6 +49,7 @@ impl Area {
             Area::Overview => "overview",
             Area::Search => "search",
             Area::Previews => "previews",
+            Area::Games => "games",
             Area::Looks => "looks",
             Area::Behaviour => "behaviour",
             Area::Keys => "keys",
@@ -211,21 +215,21 @@ pub const OPTIONS: &[Opt] = &[
     opt("ebooks", &["preview", "ebooks"], Previews, &[Disk, Cpu, Network]),
     opt("virus_scan", &["preview", "virus_scan"], Previews, &[Disk, Network]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
-    opt("chess_notation", &["chess", "notation"], Previews, &[]),
-    opt("chess_board", &["chess", "board"], Previews, &[]),
-    opt("chess_book", &["chess", "book"], Previews, &[]),
-    opt("chess_pieces", &["chess", "pieces"], Previews, &[]),
-    opt("chess_analysis", &["chess", "analysis"], Previews, &[Cpu]),
-    opt("chess_engine", &["chess", "engine"], Previews, &[]),
-    opt("chess_engine_limit", &["chess", "engine_limit"], Previews, &[]),
-    opt("chess_engine_time", &["chess", "engine_time"], Previews, &[]),
-    opt("chess_engine_depth", &["chess", "engine_depth"], Previews, &[]),
-    opt("chess_engine_nodes", &["chess", "engine_nodes"], Previews, &[]),
-    opt("chess_engine_lines", &["chess", "engine_lines"], Previews, &[]),
-    opt("chess_review_limit", &["chess", "review_limit"], Previews, &[]),
-    opt("chess_review_time", &["chess", "review_time"], Previews, &[]),
-    opt("chess_review_depth", &["chess", "review_depth"], Previews, &[]),
-    opt("chess_review_nodes", &["chess", "review_nodes"], Previews, &[]),
+    opt("chess_notation", &["chess", "notation"], Games, &[]),
+    opt("chess_board", &["chess", "board"], Games, &[]),
+    opt("chess_book", &["chess", "book"], Games, &[]),
+    opt("chess_pieces", &["chess", "pieces"], Games, &[]),
+    opt("chess_analysis", &["chess", "analysis"], Games, &[Cpu]),
+    opt("chess_engine", &["chess", "engine"], Games, &[]),
+    opt("chess_engine_limit", &["chess", "engine_limit"], Games, &[]),
+    opt("chess_engine_time", &["chess", "engine_time"], Games, &[]),
+    opt("chess_engine_depth", &["chess", "engine_depth"], Games, &[]),
+    opt("chess_engine_nodes", &["chess", "engine_nodes"], Games, &[]),
+    opt("chess_engine_lines", &["chess", "engine_lines"], Games, &[]),
+    opt("chess_review_limit", &["chess", "review_limit"], Games, &[]),
+    opt("chess_review_time", &["chess", "review_time"], Games, &[]),
+    opt("chess_review_depth", &["chess", "review_depth"], Games, &[]),
+    opt("chess_review_nodes", &["chess", "review_nodes"], Games, &[]),
     opt("language", &["language"], Looks, &[]),
     opt("theme", &["gui", "theme"], Looks, &[]),
     opt("tui_theme", &["theme"], Looks, &[]),
@@ -259,6 +263,92 @@ pub const OPTIONS: &[Opt] = &[
 /// The option called `name`.
 pub fn find(name: &str) -> Option<&'static Opt> {
     OPTIONS.iter().find(|o| o.name == name)
+}
+
+/// A group of an area's options under a heading, the same in both apps: its name (where
+/// `Row::Head` and the desktop app's block are found), its heading's text key (none: the
+/// area's first options, without a heading), its options in the order shown.
+#[derive(Debug, Serialize)]
+pub struct Group {
+    pub area: Area,
+    pub id: &'static str,
+    pub head: Option<&'static str>,
+    pub options: &'static [&'static str],
+}
+
+impl Group {
+    pub fn label(&self) -> String {
+        self.head.map(|h| crate::i18n::tr(h, &[])).unwrap_or_default()
+    }
+}
+
+const fn group(area: Area, id: &'static str, head: Option<&'static str>, options: &'static [&'static str]) -> Group {
+    Group { area, id, head, options }
+}
+
+/// Every option in exactly one group, by area (a test checks it). Go, draughts, shogi and
+/// xiangqi have no settings of their own: *Board* is theirs too.
+pub const GROUPS: &[Group] = &[
+    group(Search, "reads", Some("settings.group.reads"), &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_commit_changes", "search_commit_changes_in", "search_cloud", "cloud_read", "search_tika", "search_whisper", "whisper_model", "text_max_size", "max_results"]),
+    group(Search, "folders", Some("settings.group.folders"), &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
+    group(Search, "meaning", Some("settings.group.meaning"), &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device", "long_files", "long_files_everything", "long_files_sample"]),
+    group(Search, "ask", Some("settings.group.ask"), &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
+    group(Previews, "previews_general", Some("settings.group.general"), &["preview_prefer", "preview_timeout"]),
+    group(Previews, "documents", Some("settings.group.documents"), &["latex_auto", "ebooks", "drawio"]),
+    group(Previews, "images", Some("settings.group.images"), &["preview_container", "latex_image", "image_updates", "image_prune"]),
+    group(Previews, "safety", Some("settings.group.safety"), &["virus_scan"]),
+    group(Games, "board", Some("settings.group.board"), &["chess_board", "chess_pieces", "chess_notation"]),
+    group(Games, "chess_engines", Some("chess.engines_title"), &["chess_analysis", "chess_engine", "chess_engine_limit", "chess_engine_time", "chess_engine_depth", "chess_engine_nodes", "chess_engine_lines"]),
+    group(Games, "review", Some("settings.group.review"), &["chess_review_limit", "chess_review_time", "chess_review_depth", "chess_review_nodes"]),
+    group(Games, "book", Some("settings.group.book"), &["chess_book"]),
+    group(Looks, "looks_both", None, &["language", "glyphs"]),
+    group(Looks, "looks_tui", Some("settings.theme_tui"), &["tui_theme"]),
+    group(Looks, "looks_gui", Some("settings.theme_gui"), &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
+    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "hints", "folder_sizes", "disk_images"]),
+    group(Behaviour, "git", Some("settings.group.git"), &["git_last_commit", "git_tool", "git_prefer_git"]),
+    group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "bom_viewer", "provenance_viewer"]),
+    group(Privacy, "updates", None, &["check_updates"]),
+];
+
+/// The groups of `area`, in order.
+pub fn groups(area: Area) -> impl Iterator<Item = &'static Group> {
+    GROUPS.iter().filter(move |g| g.area == area)
+}
+
+impl Opt {
+    /// The group it is shown in.
+    pub fn group(&self) -> Option<&'static Group> {
+        GROUPS.iter().find(|g| g.options.contains(&self.name))
+    }
+
+    /// Its place in config.toml as written there: `[search] text`, or `language` at the top.
+    pub fn key(&self) -> String {
+        match self.path.split_last() {
+            Some((last, [])) => last.to_string(),
+            Some((last, table)) => format!("[{}] {last}", table.join(".")),
+            None => String::new(),
+        }
+    }
+}
+
+/// *Find a setting*: the options whose label, explanation, group heading (in the current
+/// language) or config.toml key hold every word of `query`, case and accents aside (`Größe` finds
+/// `grosse`, `[chess] engine`, `chess.engine` and `chess_engine` all find the engine), in
+/// the order Settings shows them.
+pub fn search(query: &str) -> Vec<&'static Opt> {
+    let words: Vec<String> = crate::features::fold(query).split_whitespace().map(String::from).collect();
+    if words.is_empty() {
+        return vec![];
+    }
+    GROUPS
+        .iter()
+        .flat_map(|g| g.options.iter().filter_map(|n| find(n)))
+        .filter(|o| {
+            let group = o.group().map(|g| g.label()).unwrap_or_default();
+            let hay = crate::features::fold(&[o.label(), o.hint(), o.name.to_string(), o.path.join("."), o.key(), group].join("\n"));
+            words.iter().all(|w| hay.contains(w.as_str()))
+        })
+        .collect()
 }
 
 /// The value of every option, by name, as config.toml holds it now (an unset optional one as
@@ -352,7 +442,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
     if let Some(a) = Area::ALL.into_iter().find(|a| a.id() == section) {
         return (a, None);
     }
-    if let Some((g, area)) = GROUPS.iter().find(|g| g.0 == section) {
+    if let Some((g, area)) = PLACES.iter().find(|g| g.0 == section) {
         return (*area, Some(g));
     }
     match find(section) {
@@ -363,7 +453,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
 
 /// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const GROUPS: [(&str, Area); 4] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews), ("chess_engines", Previews)];
+const PLACES: [(&str, Area); 4] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
@@ -371,7 +461,7 @@ pub fn sections() -> Vec<(&'static str, Area, Option<&'static str>)> {
     let names = Area::ALL
         .iter()
         .map(|a| a.id())
-        .chain(GROUPS.map(|g| g.0))
+        .chain(PLACES.map(|g| g.0))
         .chain(OPTIONS.iter().map(|o| o.name));
     names.map(|n| (n, open_at(n).0, open_at(n).1)).collect()
 }
@@ -961,6 +1051,7 @@ mod tests {
                         .iter()
                         .map(|a| format!("settings.area.{}", a.id())),
                 )
+                .chain(GROUPS.iter().filter_map(|g| g.head.map(String::from)))
                 .chain(Level::ALL.iter().flat_map(|v| {
                     [
                         format!("settings.level.{}", v.id()),
@@ -1129,6 +1220,11 @@ mod tests {
         assert_eq!(open_at("previews"), (Previews, None));
         assert_eq!(open_at("check_updates"), (Privacy, Some("check_updates")));
         assert_eq!(open_at("disk"), (Privacy, Some("disk")));
+        // Chess moved from Previews to Games: its old names open there.
+        assert_eq!(open_at("games"), (Games, None));
+        assert_eq!(open_at("chess_engines"), (Games, Some("chess_engines")));
+        assert_eq!(open_at("chess_book"), (Games, Some("chess_book")));
+        assert_eq!(open_at("chess_review_time"), (Games, Some("chess_review_time")));
         // The section names of 1.x are gone with 2.0.
         for old in ["meaning", "ask", "news", "cloud", "no-such"] {
             assert_eq!(open_at(old), (Overview, None), "{old}");
@@ -1170,6 +1266,38 @@ mod tests {
                 assert!(known.iter().any(|k| k.0 == s), "{}: {s}", n.id);
             }
         }
+    }
+
+    #[test]
+    fn settings_every_option_is_in_one_group_of_its_area() {
+        for o in OPTIONS {
+            let gs: Vec<&Group> = GROUPS.iter().filter(|g| g.options.contains(&o.name)).collect();
+            assert_eq!(gs.len(), 1, "{} is in {} groups", o.name, gs.len());
+            assert_eq!(gs[0].area, o.area, "{}: its group {} is of another area", o.name, gs[0].id);
+        }
+        for g in GROUPS {
+            assert!(g.options.iter().all(|n| find(n).is_some()), "{}: an unknown option", g.id);
+            assert!(OPTIONS.iter().all(|o| o.name != g.id) && Area::ALL.iter().all(|a| a.id() != g.id), "{}: also an option's or an area's name", g.id);
+        }
+        let ids: std::collections::HashSet<_> = GROUPS.iter().map(|g| g.id).collect();
+        assert_eq!(ids.len(), GROUPS.len(), "a group's name twice");
+    }
+
+    #[test]
+    fn settings_every_option_is_found_by_its_config_key() {
+        crate::i18n::set_language("en-GB");
+        for o in OPTIONS {
+            for q in [o.key(), o.path.join("."), o.name.to_string(), o.name.to_uppercase()] {
+                assert!(search(&q).iter().any(|x| x.name == o.name), "{q} does not find {}", o.name);
+            }
+        }
+        assert_eq!(find("search_text").unwrap().key(), "[search] text");
+        assert_eq!(find("language").unwrap().key(), "language");
+        assert!(search("").is_empty() && search("  ").is_empty());
+        assert!(search("no such setting at all").is_empty());
+        // Every word, in any order, case and accents aside.
+        assert!(search("ENGINE time").iter().any(|o| o.name == "chess_engine_time"));
+        assert!(search("bóok").iter().any(|o| o.name == "chess_book"));
     }
 
     #[test]
