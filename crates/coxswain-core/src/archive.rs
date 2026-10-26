@@ -1699,7 +1699,11 @@ fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<Items>> {
 /// The oldest go first past `LAST_KEPT` lists, or past `LAST_BYTES` with the new one: a list
 /// of millions is kept alone.
 fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
-    let mut last = LAST.lock().unwrap();
+    kept_with(&mut LAST.lock().unwrap(), archive, stamp, items);
+}
+
+/// `keep_items` into `last`.
+fn kept_with(last: &mut Vec<Looked>, archive: &Path, stamp: Stamp, items: Arc<Items>) {
     last.retain(|(p, ..)| p != archive);
     let mut bytes: usize = last.iter().map(|(.., i)| i.bytes()).sum::<usize>() + items.bytes();
     while !last.is_empty() && (last.len() >= LAST_KEPT || bytes > LAST_BYTES) {
@@ -3761,15 +3765,14 @@ mod tests {
             i.push(Item { name: "x".repeat(n), ..item("") });
             Arc::new(i.done())
         };
-        let stamp = (0, None);
-        let (one, two, small) = (Path::new("/kept/one.7z"), Path::new("/kept/two.7z"), Path::new("/kept/small.zip"));
-        keep_items(small, stamp, big(10));
-        keep_items(one, stamp, big(LAST_BYTES * 3 / 4));
-        assert!(cached(small, stamp).is_some() && cached(one, stamp).is_some());
-        keep_items(two, stamp, big(LAST_BYTES * 3 / 4));
-        assert!(cached(two, stamp).is_some(), "the newest is kept");
-        assert!(cached(one, stamp).is_none() && cached(small, stamp).is_none(), "the older went to make room");
-        LAST.lock().unwrap().retain(|(p, ..)| !p.starts_with("/kept"));
+        // A list of its own, not `LAST`: other tests keep theirs there meanwhile.
+        let (mut last, stamp) = (vec![], (0, None));
+        let names = |last: &Vec<Looked>| last.iter().map(|(p, ..)| p.to_string_lossy().into_owned()).collect::<Vec<_>>();
+        kept_with(&mut last, Path::new("small.zip"), stamp, big(10));
+        kept_with(&mut last, Path::new("one.7z"), stamp, big(LAST_BYTES * 3 / 4));
+        assert_eq!(names(&last), ["small.zip", "one.7z"]);
+        kept_with(&mut last, Path::new("two.7z"), stamp, big(LAST_BYTES * 3 / 4));
+        assert_eq!(names(&last), ["two.7z"], "the older went to make room for the newest");
     }
 
     fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
