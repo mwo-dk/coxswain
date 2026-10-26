@@ -260,10 +260,26 @@ pub fn log() -> Option<PathBuf> {
 
 /// A line in helper.log (the helper's stderr), with the time.
 pub(crate) fn note(what: std::fmt::Arguments) {
+    if SERVING.load(Ordering::Relaxed) {
+        keep_log_small();
+    }
     eprintln!(
         "{} coxswain {VERSION}: {what}",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
     );
+}
+
+/// The most helper.log holds: past it, it is emptied (at the helper's start, and before each
+/// line while a helper or an app writes to it), so a helper that runs for weeks or fails again
+/// and again never fills the disk.
+const LOG_MOST: u64 = 1 << 20;
+
+fn keep_log_small() {
+    if let Some(log) = log().and_then(|l| std::fs::OpenOptions::new().write(true).open(l).ok())
+        && log.metadata().is_ok_and(|m| m.len() > LOG_MOST)
+    {
+        let _ = log.set_len(0);
+    }
 }
 
 /// Why the search store could not be opened (one a newer Coxswain made): the apps' notice
@@ -319,11 +335,10 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 pub fn serve() -> io::Result<()> {
     SERVING.store(true, Ordering::Relaxed);
     // Not one that grows without end, when a helper fails again and again.
-    if let Some(log) = log().and_then(|l| std::fs::OpenOptions::new().write(true).open(l).ok())
-        && log.metadata().is_ok_and(|m| m.len() > 1 << 20)
-    {
-        let _ = log.set_len(0);
-    }
+    keep_log_small();
+    // Known as alive to the other runs' sweeps; what runs that ended left goes.
+    crate::spill::register();
+    std::thread::spawn(crate::spill::at_start);
     note(format_args!(
         "helper starts, process {}",
         std::process::id()
@@ -1338,6 +1353,7 @@ pub fn app_log(what: &str) {
 
 /// A line in helper.log from an app, which has its own stderr.
 fn app_note(dir: &Path, what: std::fmt::Arguments) {
+    keep_log_small();
     let mut o = std::fs::OpenOptions::new();
     o.create(true).append(true);
     #[cfg(unix)]
@@ -1383,14 +1399,36 @@ fn detached(exe: &Path) -> std::process::Command {
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut c, 0);
     #[cfg(windows)]
-    // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: no console, and Ctrl+C in the app's is not ours.
-    std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0000_0008 | 0x0000_0200);
+    {
+        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: no console, and Ctrl+C in the app's is not ours.
+        std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0000_0008 | 0x0000_0200);
+        // Windows hands a child every inheritable handle, and the app's own stdin, stdout and
+        // stderr are: the helper kept `coxswain --meaning | more` (or a script reading its
+        // output) waiting until it left, ten minutes later. Children that are to have them get
+        // copies of their own from std, so ours need not be inheritable.
+        use windows_sys::Win32::{Foundation::{HANDLE_FLAG_INHERIT, SetHandleInformation}, System::Console::{GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE}};
+        for std in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+            // SAFETY: a handle of this process, or null or invalid, which the call refuses.
+            unsafe { SetHandleInformation(GetStdHandle(std), HANDLE_FLAG_INHERIT, 0) };
+        }
+    }
     c
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A log past its most is emptied before the next line, not only at the helper's start.
+    #[test]
+    fn helper_log_is_kept_small_while_it_is_written() {
+        let log = log().unwrap();
+        std::fs::create_dir_all(log.parent().unwrap()).unwrap();
+        std::fs::write(&log, vec![b'x'; (LOG_MOST + 1) as usize]).unwrap();
+        app_log("one more line");
+        let len = std::fs::metadata(&log).unwrap().len();
+        assert!(len < 1000, "{len}");
+    }
 
     #[test]
     fn counts_are_kept_while_the_store_is_not_written() {

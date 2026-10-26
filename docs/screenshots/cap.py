@@ -28,7 +28,7 @@ passed to sandbox.sh; keep the network, the page is reached over 127.0.0.1. Run 
 Linux only; needs bwrap, broadwayd, chromium, tmux and ffmpeg.
 """
 
-import base64, json, os, shutil, signal, subprocess, tempfile, time, urllib.request
+import base64, json, os, shutil, signal, socket, subprocess, tempfile, time, urllib.request
 from pathlib import Path
 
 import websocket
@@ -52,6 +52,19 @@ def _env(**extra):
     # Its own process namespace: when the sandbox stops, so does all it started (the search helper too).
     env["SANDBOX_ARGS"] = "--unshare-pid --die-with-parent " + env.get("SANDBOX_ARGS", "")
     return env
+
+
+def _free_port():
+    """A port nothing listens on now: two runs at once never share one."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _answers(port):
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", port)) == 0
 
 
 def _stop(p):
@@ -92,8 +105,8 @@ def _dpi():
 
 
 class Desktop:
-    def __init__(self, args=(), lang="en_GB.UTF-8", size=(1440, 900), port=8123, display=":23", debug=9233, inspector=9312):
-        self.args, self.lang, self.size, self.port, self.display, self.debug, self.inspector = list(args), lang, size, port, display, debug, inspector
+    def __init__(self, args=(), lang="en_GB.UTF-8", size=(1440, 900), port=None, display=None, debug=None, inspector=None):
+        self.args, self.lang, self.size, self.asked = list(args), lang, size, (port, display, debug, inspector)
         self.procs, self.n, self.ws, self.wk, self.target = [], 0, None, None, None
 
     def __enter__(self):
@@ -109,15 +122,24 @@ class Desktop:
                 self.procs, self.wk, self.target = [], None, None
 
     def _start(self):
+        # Ports of its own for each start (Broadway, Chromium's DevTools, WebKit's inspector), and a
+        # display named after its port: a second run at the same time, or what is left of a start
+        # that failed, never reaches this one's app.
+        port, display, debug, inspector = self.asked
+        self.port, self.debug, self.inspector = port or _free_port(), debug or _free_port(), inspector or _free_port()
+        self.display = display or f":{self.port}"
+        busy = [p for p in (self.port, self.debug, self.inspector) if _answers(p)]
+        if busy:
+            raise RuntimeError(f"something already answers on 127.0.0.1:{busy}: another run? Not starting, so no key or picture goes to its app")
         env = _env()
         _dpi()
         # broadwayd in the sandbox too: GTK hands it the pictures through /dev/shm, which is the
         # sandbox's own. The app waits for the page, so the display has its size first.
-        go = Path(env["DEMO_HOME"]) / ".cap-go"
+        go = Path(env["DEMO_HOME"]) / f".cap-go-{self.port}"
         go.unlink(missing_ok=True)
-        run = (f"broadwayd --address 127.0.0.1 --port {self.port} {self.display} >/dev/null 2>&1 & until [ -e /home/demo/.cap-go ]; do sleep 0.2; done; rm /home/demo/.cap-go; "
+        run = (f"broadwayd --address 127.0.0.1 --port {self.port} {self.display} >/dev/null 2>&1 & until [ -e /home/demo/{go.name} ]; do sleep 0.2; done; rm /home/demo/{go.name}; "
                f'exec env LD_PRELOAD={RUNTIME}/dpi96.so GDK_BACKEND=broadway BROADWAY_DISPLAY={self.display} WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:{self.inspector} LANG={self.lang} coxswain-gui "$@"')
-        self.procs.append(subprocess.Popen([str(SANDBOX), "sh", "-c", run, "sh", *self.args], env=env, stdout=open(RUNTIME / "gui.log", "w"), stderr=subprocess.STDOUT, start_new_session=True))
+        self.procs.append(subprocess.Popen([str(SANDBOX), "sh", "-c", run, "sh", *self.args], env=env, stdout=open(RUNTIME / f"gui-{self.port}.log", "w"), stderr=subprocess.STDOUT, start_new_session=True))
         for _ in range(100):
             try:
                 urllib.request.urlopen(f"http://127.0.0.1:{self.port}/", timeout=1)
@@ -139,12 +161,14 @@ class Desktop:
         time.sleep(1.5)
         go.touch()
 
-    def __exit__(self, *_):
+    def __exit__(self, exc=None, *_):
         if self.wk:
             self.wk.close()
         for p in reversed(self.procs):
             _stop(p)
         shutil.rmtree(self.profile, ignore_errors=True)
+        if exc is None:  # kept only when something went wrong
+            (RUNTIME / f"gui-{self.port}.log").unlink(missing_ok=True)
 
     def call(self, method, **params):
         self.n += 1
@@ -175,7 +199,7 @@ class Desktop:
                 self.click(x + w * 0.3, y + 18)
             time.sleep(1)
         Path(RUNTIME / "not-drawn.png").write_bytes(self.png([0, 0, *self.size]))
-        raise TimeoutError(f"the window was not drawn: see {RUNTIME}/not-drawn.png and gui.log")
+        raise TimeoutError(f"the window was not drawn: see {RUNTIME}/not-drawn.png and gui-{self.port}.log")
 
     def app(self, expr, timeout=30):
         """Evaluate in the app's own page, through WebKit's inspector: for scrolling and clicking
@@ -283,7 +307,7 @@ class Terminal:
 
     def __init__(self, args=(), lang="en_GB.UTF-8", cols=140, rows=36):
         self.args, self.lang, self.cols, self.rows = list(args), lang, cols, rows
-        self.sock = str(RUNTIME / "tmux.sock")
+        self.sock = str(RUNTIME / f"tmux-{os.getpid()}-{id(self)}.sock")  # its own, also when two runs overlap
 
     def tmux(self, *a):
         return subprocess.run(["tmux", "-f", "/dev/null", "-S", self.sock, *a], capture_output=True, text=True, env=_env()).stdout
@@ -298,6 +322,7 @@ class Terminal:
 
     def __exit__(self, *_):
         self.tmux("kill-server")
+        Path(self.sock).unlink(missing_ok=True)
 
     def wait(self, secs):
         time.sleep(secs)

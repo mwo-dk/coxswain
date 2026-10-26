@@ -16,6 +16,8 @@ description = "The shared core of Coxswain, the two-panel file manager: file ope
 test-home = []
 
 [dependencies]
+# Paths with their links followed, without Windows' `\\?\` in front (`fs::canonical`).
+dunce = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
 toml_edit = "0.25.15"
@@ -101,7 +103,7 @@ trash = "5.2.9"
 kqueue = "1.2.1"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Wdk_Foundation", "Wdk_Storage_FileSystem", "Win32_Globalization", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Wdk_Foundation", "Win32_Foundation", "Wdk_Storage_FileSystem", "Win32_Globalization", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 # Search by meaning on Apple's GPU: the built-in model tries Metal first on a Mac (it falls back to
 # the CPU when Metal is missing or disagrees). Only on macOS: other builds and the musl terminal

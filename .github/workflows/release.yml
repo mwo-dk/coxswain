@@ -57,6 +57,9 @@ jobs:
   # Releases only from this repository's master.
   version:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: read # a rehearsal: release-pr.py reads the milestone's open issues
     outputs:
       tag: ${{ steps.v.outputs.tag }}
       sha: ${{ steps.v.outputs.sha }}
@@ -94,6 +97,7 @@ jobs:
           if [ "$REHEARSAL" = true ]; then
             # The version tomorrow's release pull request makes; exit 2: no rows, nothing to rehearse.
             # Exit 3: the current version has no published release, so tomorrow's would skip it.
+            # Exit 4: the new version's milestone still has open issues (listed).
             rc=0; next=$(python3 packaging/release-pr.py --next) || rc=$?
             if [ "$rc" = 2 ]; then
               echo "::notice title=No rehearsal::changelog.d/ has no rows: nothing to release tomorrow."
@@ -215,6 +219,7 @@ jobs:
     permissions:
       contents: write
       actions: write # sees whether another run still works on a draft, and stops a rehearsal
+      issues: read # a rehearsal: release-pr.py reads the milestone's open issues
     runs-on: ubuntu-24.04
     outputs:
       id: ${{ steps.create.outputs.id }}
@@ -306,6 +311,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: boms
+          save-if: false # the Dependencies workflow keeps it, from master
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -361,7 +367,8 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # No rust-cache here or in `terminal`: twelve caches written once a week would push the
+      # nightly systems' and CI's out of the repository's 10 GB (and were gone by the next week).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -453,9 +460,6 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          key: ${{ matrix.target }}
       # Static musl binaries on Linux run on any distribution.
       - env:
           TARGET: ${{ matrix.target }}
@@ -471,6 +475,10 @@ jobs:
           cp LICENSE README.md "$name/"
           bash packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md -D "$name" --clobber
           if [ "$RUNNER_OS" = Windows ]; then
+            # A Windows without the Visual C++ Redistributable has no vcruntime140.dll (build.rs).
+            # The import table names it in capitals; the changelog the app carries names it in
+            # lower case, so the match is case-sensitive.
+            if grep -aq 'VCRUNTIME140' "target/$TARGET/release/coxswain.exe"; then echo "::error::coxswain.exe needs vcruntime140.dll"; exit 1; fi
             cp target/$TARGET/release/coxswain.exe target/$TARGET/release/cox.exe "$name/"
             7z a -bso0 "$name.zip" "$name"
             file="$name.zip"
@@ -515,6 +523,7 @@ jobs:
           recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "14.5"
           usesh: true
           prepare: sh packaging/pkg-retry.sh pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
@@ -591,6 +600,7 @@ jobs:
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "10.1"
           usesh: true
           prepare: |
@@ -608,6 +618,7 @@ jobs:
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         if: matrix.sys == 'openbsd'
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "7.9"
           usesh: true
           prepare: |
@@ -621,6 +632,7 @@ jobs:
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         if: matrix.sys == 'illumos'
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "r151058"
           usesh: true
           mem: 12288
@@ -823,6 +835,7 @@ jobs:
         env:
           TAG: ${{ needs.draft.outputs.tag }}
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "14.5"
           usesh: true
           envs: TAG

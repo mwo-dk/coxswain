@@ -44,11 +44,15 @@ the title also said before 1.41.0, is now the first footer line of
 **What's new, in the terminal app:** after an upgrade the status line says once
 `Coxswain X.Y.Z is installed: coxswain --whats-new says what it brought`. Run
 `coxswain --whats-new` in a shell, or press **F12**: *Settings → Overview* lists what the
-versions you have not read brought.
+versions you have not read brought. Move the cursor onto a version: the box at the bottom says
+what it brought. A version with more than the box holds shows its start, ending in *…*, and the
+line *Enter shows all of it in the viewer.*; **Enter** opens the whole text, its links written
+out, in the built-in viewer with long lines wrapped, and **Esc** there goes back to Settings.
 
 | Key, click or command | Desktop app | Terminal app |
 |---|---|---|
 | See what is new | Click **⚙ Settings** while it shows a count | **F12** (*Settings → Overview*), or `coxswain --whats-new` |
+| A version whole | Shown whole; Settings scrolls | **Enter** on the version: the built-in viewer |
 | Every version | *Earlier versions: 54* under *What's new* folds them open | `coxswain --whats-new all` |
 | Act on a tip | **Show me**: opens the right Settings area | Run the command it names |
 | Dismiss a tip | **Dismiss** (tooltip *Not shown again*) | Nothing to do: shown once, it counts as seen |
@@ -162,7 +166,14 @@ it is in the list as well. The terminal app still shows one tip at a time in its
 
 Desktop app: click **⚙ Settings** while it shows a number, or *Settings → Overview → What's new*. The
 versions you have not read are at the top, marked *new*. Terminal app: **F12** → *Overview*, or
-`coxswain --whats-new` in a shell.
+`coxswain --whats-new` in a shell. In the terminal app, **Enter** on a version shows all it brought in the
+built-in viewer; **Esc** comes back.
+
+#### Why does a version end in "…" in the terminal app?
+
+Its changes are longer than the box at the bottom of Settings holds at this terminal size (a
+weekly release can bring a hundred). Press **Enter** on the version: the built-in viewer shows
+all of it, and **Esc** goes back to Settings. The desktop app shows every version whole.
 
 #### How do I read about older versions?
 

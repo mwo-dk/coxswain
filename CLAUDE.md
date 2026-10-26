@@ -76,6 +76,12 @@ These rules hold for every contributor and every Claude session in this reposito
   `winget.yml` run then takes the release at once. Between Sundays only a fix for a security
   hole, lost data or a crash gets a release of its own (a patch release PR, by hand, with just
   that fix's rows, made with `packaging/release-pr.py`).
+- **Done = milestone empty.** Every agreed piece of work is an issue in its version's milestone
+  (`X.Y.Z`); a PR says `Closes #n`, and every cut or deferral becomes an issue of its own.
+  `packaging/release-pr.py` (and so the Sunday release pull request and the Saturday rehearsal)
+  refuses (exit 4, listing them) while the new version's milestone has open issues, except those
+  labelled `post-release` or titled "After the release…". Close them or move them to a later
+  milestone; `--open-issues-ok` releases anyway, the owner's decision only.
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
   pass on Linux, macOS and Windows, squash merge only. Work on a branch, open the PR with
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
@@ -106,7 +112,9 @@ These rules hold for every contributor and every Claude session in this reposito
   embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features`
   for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
-  `cd gui && npx svelte-check && npm test && npm run build`. For preview changes, build the
+  `cd gui && npx svelte-check && npm test && npm run build`. For workflow changes
+  `python3 tools/workflow-shell-check.py` (`bash -n` and shellcheck on every `run:` script and
+  every `bash -c '…'` or `bash -c "…"` inside one; the docs job runs it). For preview changes, build the
   release and run `uv run tools/preview-check.py` (Linux, needs `broadwayd`): it opens a file of
   each kind in the real app, on a display of its own, and fails when one shows nothing.
 - **No clock in a test's proof.** The BSD and illumos VMs are 5-10 times slower than Linux. A

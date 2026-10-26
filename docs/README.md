@@ -147,11 +147,12 @@ mindmap
 | Page | What it covers |
 |---|---|
 | [The preview pane](previews/README.md) | Opening and closing it, what it shows, the switches, every format with its page, keys; desktop-only and why |
-| [Text and code](previews/text-and-code.md) | Highlighted code, logs, hex dumps, the git diff (File / Diff), Markdown with Mermaid and math |
+| [Text and code](previews/text-and-code.md) | Highlighted code, hex dumps, the git diff (File / Diff), Markdown with Mermaid and math |
+| [Logs: follow, filter, columns](previews/logs.md) | Logs, JSON Lines and big text files of any size in both apps: coloured by level, followed as written (stop at errors), filtered by level, text or `name=value`, fields as columns, stack traces folded; JSON Lines, logfmt, access logs, syslog, W3C |
 | [Documents: PDF, Word, EPUB, notebooks, mail, calendars](previews/documents.md) | PDF (and the line offering to make a scan searchable), Word .docx, EPUB, Jupyter notebooks, e-mail, AsciiDoc, reStructuredText, Typst, PostScript, XPS, calendars and contacts |
 | [HTML pages, sandboxed](previews/html.md) | HTML files shown as sandboxed pages: what is allowed and blocked, scripts, the network, Rendered / Source |
 | [PowerPoint and Office: quick view and LibreOffice's exact view](previews/office.md) | PowerPoint quick view drawn in the app, LibreOffice's exact view after it, every other Office format, old ones (Works, Write, WordPerfect, Lotus 1-2-3, StarOffice, AbiWord, iWork) and Windows clip art (WMF, EMF); LibreOffice installed or Gotenberg's image |
-| [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, JSON Lines, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists, Coxswain's own index.bin and search.db |
+| [Data: trees, spreadsheets, databases and certificates](previews/data.md) | JSON/YAML/TOML trees, spreadsheets and CSV, SQLite, Parquet, DuckDB, certificates, property lists, Coxswain's own index.bin and search.db |
 | [Cryptography bills of materials](previews/bom.md) | CycloneDX CBOMs as a rated tree or sunburst, with filters and a compare of two scans, in both apps |
 | [Build provenance](previews/provenance.md) | SLSA and in-toto provenance as inputs → build → outputs: who signed, do the files here match, is the commit in your checkout, two builds compared; in both apps |
 | [Chess games](previews/chess.md) | PGN files (also .pgn.gz, .pgn.zst), SCID databases (.si4, .si5) and ChessBase databases (.cbh, .cbv) as a table of games to filter and sort, a game on a board with its moves, variations, comments and their arrows (Alt+K, F3 in the terminal app), EPD and FEN positions, Polyglot opening books' moves for each position, figurines or letters, the board's colours, Find by player or opening, [chess] |

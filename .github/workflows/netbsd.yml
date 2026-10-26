@@ -49,12 +49,12 @@ jobs:
           npm run build
           rm -rf node_modules
 
-      # Cargo's downloads, kept between runs: the VM's CARGO_HOME is inside the checkout.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      # Cargo's downloads are not kept: a minute in the VM, against the room in the 10 GB.
+      - id: target
+        uses: ./.github/actions/target-cache
         with:
-          path: .cargo-vm
-          key: netbsd-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: netbsd-cargo-
+          name: netbsd-10.1-debug
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10
@@ -63,6 +63,7 @@ jobs:
           recommends: false
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "10.1"
           usesh: true
           custom-shell-name: vmsh
@@ -78,11 +79,18 @@ jobs:
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             uname -a
             rustc -V
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked --no-run
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
             cargo build -p coxswain -p coxswain-gui --locked
             mkdir -p out && cp target/debug/coxswain target/debug/coxswain-gui out/
-            # Only the cache and the program go back to the runner, not the build.
-            rm -rf target
+            # Back to the runner: the cache, the programs and target/'s dependencies.
+            sh packaging/target-cache.sh prune debug
+      - uses: ./.github/actions/target-cache
+        with:
+          name: netbsd-10.1-debug
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
 
       - name: The desktop app starts and draws its window
         shell: vmsh {0}

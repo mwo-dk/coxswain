@@ -133,12 +133,27 @@ is just a folder.
 - **Only switch and new branch change anything.** No delete, rename, push, pull, fetch or merge:
   **Alt+G** opens your own git tool for those ([Open in your git tool](git.md#open-in-your-git-tool)),
   or use git on the command line or the [user menu](../commands/user-menu.md).
+- **No hooks set in the repository's config, and no work tree elsewhere.** git also runs hooks
+  named in config (`hook.<name>.command` with `hook.<name>.event`), which turning hooks off does
+  not stop, so a switch or a new branch is refused when the repository's own config has any
+  `hook.*` key: *Not switched: this repository's own config sets hook.…, a hook git would run on
+  the switch*. It is refused too when the repository's config puts its files somewhere else
+  (`core.worktree`), so a switch would write outside the folder you see: *Not switched: this
+  repository's config puts its files in …, not in …*. A submodule's own `core.worktree`, which
+  points at its folder, is fine.
 - **No hooks and no filters of the repository run.** Coxswain runs git with the repository's own
   hooks, file system monitor and filter drivers turned off, as it does for the status. A
   repository that defines filters of its own (git-crypt, say) would have its files written
   wrong, so a switch there is refused: *This repository has filters of its own (git-crypt,
   say), which Coxswain never runs: switch branches with git itself*. Filters set up in your own
-  git config (git-lfs) run as usual.
+  git config (git-lfs) run as usual, but git-lfs reads the repository's own config: when you
+  have git-lfs set up and the repository's config names a transfer agent or an extension
+  (`lfs.customtransfer.*`, `lfs.standalonetransferagent`, `lfs.extension.*`), an ssh or askpass
+  program, a credential helper that is a command, a proxy or certificate setting, or its
+  `.lfsconfig` names an LFS server that is not https, the switch is refused too: *Not
+  switched: this repository's own config sets …, which git-lfs would follow while writing the
+  files*. A repository from elsewhere could otherwise run a program, or send your login to
+  someone else, as its files are written.
 - **The switch runs while you wait** in the terminal app; in a very big work tree the keys wait
   for git.
 - **Remote-tracking branches are as the last fetch left them:** Coxswain never fetches.
@@ -204,6 +219,22 @@ Not in this version. Use git on the command line, or put the command in the
 The repository sets up a filter driver in its own config (git-crypt, for one). Coxswain never
 runs programs a repository names, so it would write the files without the filter, and wrong.
 Switch with `git switch` on the command line there.
+
+#### Why is a switch refused because of a hook?
+
+The repository's own config sets a hook (`hook.<name>.command`): git would run that program
+when the branch changes, and a repository you downloaded could name anything there. If you
+trust it, switch with `git switch`, or remove the hook with `git config --remove-section
+hook.<name>`.
+
+#### Why is a switch refused because of git-lfs?
+
+You have git-lfs set up, so it writes the repository's large files during a switch, and it
+reads the repository's own config. That config names something git-lfs would run or send your
+login through (the key is in the message), or the branch's `.lfsconfig` names an LFS server
+that is not https. A repository you downloaded could set these to run a program. If you trust
+the repository, switch with git itself (`git switch`), or remove the key with
+`git config --unset`. A credential helper by name (`store`, `manager`) is fine.
 
 #### Why does Alt+B not jump to names with a "b" any more?
 

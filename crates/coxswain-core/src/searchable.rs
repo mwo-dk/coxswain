@@ -298,7 +298,8 @@ impl Scratch {
         let ocr = base.join("coxswain").join(kind);
         // What a run of an app that was killed left behind, a day on (a run may take hours).
         for e in std::fs::read_dir(&ocr).into_iter().flatten().flatten() {
-            if e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().is_ok_and(|a| a > Duration::from_secs(24 * 3600))) {
+            if crate::spill::alive_by_name(&e.file_name().to_string_lossy()) != Some(true)
+                && e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().is_ok_and(|a| a > Duration::from_secs(24 * 3600))) {
                 let _ = std::fs::remove_dir_all(e.path());
             }
         }

@@ -98,7 +98,9 @@ missing the preview says so and shows its install line
 | `coxswain-gui` | `bin/coxswain-gui` (wrapped), `share/applications/coxswain.desktop`, `share/icons/hicolor/128x128/apps/coxswain.png` |
 
 The terminal app's build runs the tests of `coxswain` and `coxswain-core`, with git at hand
-(the history and branch tests make small repositories) and a temporary home. The tokenizer for
+(the history and branch tests make small repositories) and a temporary home. The tests are
+compiled in Cargo's test profile, without optimising, which takes a third of the time; the
+programs themselves are built in release. The tokenizer for
 search by meaning links nixpkgs' oniguruma rather than building its own copy.
 
 ## Updating
@@ -144,8 +146,12 @@ from the release they name.
 
 There is no binary cache for the flake, so Nix compiles the app and all its crates: a few
 minutes for the terminal app, longer for the desktop app with its frontend. The result stays in
-your store, and the next `nix run` of the same commit starts at once. Once Coxswain is in
-nixpkgs, `nix run nixpkgs#coxswain` comes ready-built from cache.nixos.org.
+your store, and the next `nix run` of the same commit starts at once. The crates Coxswain
+depends on are built apart from its own (a store path of their own, made with
+[crane](https://crane.dev)): an update that keeps `Cargo.lock`, the `Cargo.toml` files and
+`flake.lock` as they were compiles only Coxswain's own crates, while the dependencies come from
+your store. Once Coxswain is in nixpkgs, `nix run nixpkgs#coxswain` comes ready-built from
+cache.nixos.org.
 
 #### Why is there no desktop app for macOS in the flake?
 

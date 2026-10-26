@@ -205,4 +205,4 @@ It is the webview's own viewer: WebKitGTK's on Linux, WebKit's on macOS, WebView
 Each has its own toolbar.
 
 ---
-[← Previous: Text and code](text-and-code.md) · [Next: HTML pages, sandboxed →](html.md)
+[← Previous: Logs: follow, filter, columns](logs.md) · [Next: HTML pages, sandboxed →](html.md)

@@ -15,6 +15,8 @@ export const ui = $state({
   showHidden: true,
   showSidebar: true,
   showPreview: false,
+  /** A log to follow once the preview pane shows it (the action Follow log). */
+  followLog: "",
   sidebarW: 230,
   previewW: 400,
   split: 50,

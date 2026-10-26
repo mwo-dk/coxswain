@@ -466,7 +466,7 @@ fn keep_dir() -> std::io::Result<PathBuf> {
 
 /// Folders kept by runs of an app that has ended (it can undo them no more): removed, when they
 /// are this user's own and no running app holds their lock.
-fn sweep() {
+pub(crate) fn sweep() {
     #[cfg(unix)]
     {
         use std::os::fd::AsRawFd;
@@ -504,6 +504,18 @@ fn sweep() {
             if free {
                 let _ = std::fs::remove_dir_all(e.path());
             }
+        }
+    }
+    // Windows: the temp folder is this user's own; a folder goes when its run ended
+    // (`spill::in_use`), and one a live run holds cannot be removed while its lock file is open.
+    #[cfg(not(unix))]
+    for e in std::fs::read_dir(std::env::temp_dir()).into_iter().flatten().flatten() {
+        let p = e.path();
+        if e.file_name().to_string_lossy().starts_with("coxswain-replace-")
+            && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+            && !crate::spill::in_use(&p)
+        {
+            let _ = std::fs::remove_dir_all(&p);
         }
     }
 }

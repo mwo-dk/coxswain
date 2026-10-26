@@ -1189,7 +1189,10 @@ pub fn clean_up() {
     let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
     kept.clear();
     if let Some(d) = crate::helper::folder() {
-        let _ = std::fs::remove_dir_all(d.join("nested").join(std::process::id().to_string()));
+        let me = std::process::id().to_string();
+        let _ = std::fs::remove_dir_all(d.join("nested").join(&me));
+        // ChessBase archives this run unpacked (up to 16 GB each): no other run reads them.
+        let _ = std::fs::remove_dir_all(d.join("cbv").join(&me));
     }
 }
 
@@ -1814,10 +1817,12 @@ pub(crate) fn sweep(base: &Path, age: std::time::Duration) {
     sweep_but(base, age, None);
 }
 
-/// `sweep`, leaving the folder named `keep` (this run's own) whatever its age.
+/// `sweep`, leaving the folder named `keep` (this run's own) whatever its age, and any a run
+/// still alive holds (`spill::in_use`: a desktop app open for days keeps what it opened).
 fn sweep_but(base: &Path, age: std::time::Duration, keep: Option<&str>) {
     for old in std::fs::read_dir(base).into_iter().flatten().flatten() {
         if keep.is_none_or(|k| old.file_name() != k)
+            && crate::spill::alive_by_name(&old.file_name().to_string_lossy()) != Some(true)
             && old
             .metadata()
             .and_then(|m| m.modified())

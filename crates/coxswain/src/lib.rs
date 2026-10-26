@@ -1543,6 +1543,14 @@ impl App {
             Action::DrawioExport => self.export_menu(false),
             Action::ScanViruses => self.scan_viruses(),
             Action::PreviewWith => self.preview_with(),
+            Action::FollowLog => {
+                if let Some(file) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
+                    self.view_in(&file, None);
+                    if let Some(Dialog::View { v, back }) = self.dialog.take() {
+                        self.dialog = Some(Dialog::View { v: Box::new(v.following()), back });
+                    }
+                }
+            }
             Action::LongFiles => self.long_files(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
@@ -3203,7 +3211,11 @@ impl App {
     fn view_in(&mut self, file: &Path, back: Option<Box<Dialog>>) {
         let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
         match viewer::Viewer::open(file, labels) {
-            Ok(v) => self.dialog = Some(Dialog::View { v: Box::new(v), back }),
+            Ok(v) => {
+                // What the log keys do is not guessed: said the first few times a log is viewed.
+                let v = if v.is_log() && coxswain_core::menu::once("viewer_log", &self.cfg) { v.saying(t!("viewer.log_hint")) } else { v };
+                self.dialog = Some(Dialog::View { v: Box::new(v), back })
+            }
             Err(e) => {
                 self.status = Some(format!("{}: {e}", file.display()));
                 self.dialog = back.map(|b| *b);
@@ -3253,7 +3265,7 @@ impl App {
             let arg = t[2..].trim().trim_matches(['"', '\'']);
             let target = if arg.is_empty() { coxswain_core::dirs::home_dir().unwrap_or_default() } else { resolve(&self.panel().dir, arg) };
             if target.is_dir() {
-                self.cd(self.active, std::fs::canonicalize(&target).unwrap_or(target));
+                self.cd(self.active, coxswain_core::fs::canonical(&target).unwrap_or(target));
             } else {
                 self.status = Some(t!("status.no_dir", "dir" => arg));
             }
@@ -3522,7 +3534,7 @@ impl App {
             }
             Prompt::Goto(side) => {
                 let d = resolve(&self.panels[side].dir, &value);
-                let d = std::fs::canonicalize(&d).unwrap_or(d);
+                let d = coxswain_core::fs::canonical(&d).unwrap_or(d);
                 if d.is_dir() {
                     self.cd(side, d);
                 } else {
@@ -4854,8 +4866,7 @@ fn whats_new(all: bool) {
         unread
     };
     for c in shown {
-        let text: String = c.parts.iter().map(|(t, url)| url.as_ref().map_or_else(|| t.clone(), |u| format!("{t} <{u}>"))).collect();
-        println!("{}  {}\n  {text}\n", c.version, c.date);
+        println!("{}  {}\n  {}\n", c.version, c.date, notices::text(&c));
     }
     notices::read(&mut st);
     let _ = st.save();
@@ -5284,7 +5295,7 @@ pub fn main() {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let dir = |i: usize| {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
-        std::fs::canonicalize(&d).unwrap_or(d)
+        coxswain_core::fs::canonical(&d).unwrap_or(d)
     };
     let mut app = App::new(cfg, dir(0), dir(1)).unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
@@ -5555,22 +5566,31 @@ mod tests {
         }
         assert!(turns > 1, "found before the first turn: the file is too small to show anything");
         // Opening it reads nothing of the file on the UI thread (it once read all of it before
-        // the looking started): it costs about what opening a file of one game does.
-        let small = d.join("small.sgf");
-        std::fs::write(&small, format!("(;SZ[19]PB[Black0]PW[White0]RE[B+R];B[pd]C[{note}];W[dp])\n")).unwrap();
-        let mut other = self::app(d.clone(), d.clone());
-        let hit = format!("{o}Black{}{c} – White{}", n - 1, n - 1);
-        coxswain_core::assert_costs_at_most(
-            20,
-            || {
-                other.chess(&small, Some(hit.clone()));
-                other.dialog = None;
-            },
-            || {
-                app.chess(&p, Some(hit.clone()));
-                app.dialog = None;
-            },
-        );
+        // the looking started). No clock: the file is a pipe held open but never written, so
+        // any read of it waits; opening returns all the same and is still looking. Should it
+        // read (and wait), the pipe is closed after a long while, so it fails, not hangs.
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStrExt;
+            let pipe = d.join("pipe.sgf");
+            let name = std::ffi::CString::new(pipe.as_os_str().as_bytes()).unwrap();
+            assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+            // Open for reading and writing: opening the pipe never waits, reading it does.
+            let held = std::fs::OpenOptions::new().read(true).write(true).open(&pipe).unwrap();
+            let (tx, rx) = mpsc::channel::<()>();
+            let wait = coxswain_core::test_limit(Duration::from_secs(10));
+            let closer = std::thread::spawn(move || {
+                let stuck = rx.recv_timeout(wait).is_err();
+                drop(held);
+                stuck
+            });
+            app.chess(&pipe, Some(format!("{o}Black{}{c} – White{}", n - 1, n - 1)));
+            let _ = tx.send(());
+            assert!(!closer.join().unwrap(), "opening read the file on the UI thread");
+            assert!(looking(&app), "nothing can be read, yet the game was found");
+            // Stopped; the threads reading the pipe see its end.
+            app.dialog = None;
+        }
         let _ = std::fs::remove_dir_all(&d);
     }
 

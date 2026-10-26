@@ -359,7 +359,8 @@ impl Viewer {
         // Scrolled so the cursor's row shows whole.
         let h = body.height as usize;
         self.top = self.top.min(self.cursor);
-        while self.rows[self.top..=self.cursor.min(self.rows.len().saturating_sub(1))].iter().map(|r| r.height()).sum::<usize>() > h && self.top < self.cursor {
+        // A plan that found nothing has no rows.
+        while !self.rows.is_empty() && self.rows[self.top..=self.cursor.min(self.rows.len() - 1)].iter().map(|r| r.height()).sum::<usize>() > h && self.top < self.cursor {
             self.top += 1;
         }
         let mut y = body.y;
@@ -462,6 +463,23 @@ mod tests {
         assert_eq!((done.replaced, done.files), (1, 1));
         assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "bar\nfoo\n");
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "foo\n");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_preview_that_finds_nothing_is_drawn() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-replace-none-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("a.txt"), "foo\n").unwrap();
+        let mut v = Viewer::new(vec![d.clone()], d.clone(), "goldfish".into());
+        v.key(key(KeyCode::Enter), None);
+        assert!(wait(&mut v).is_none());
+        let backend = ratatui::backend::TestBackend::new(100, 24);
+        let mut term = ratatui::Terminal::new(backend).unwrap();
+        term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("a.txt")).unwrap(), "foo\n");
         let _ = std::fs::remove_dir_all(&d);
     }
 }

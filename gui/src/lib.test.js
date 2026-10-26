@@ -166,3 +166,13 @@ test("keysToBoard: a button clicked in a game's view gives the arrows back to th
   assert.equal(keysToBoard(square, 1), false);
   assert.equal(keysToBoard(undefined, 1), false);
 });
+
+test("isLogName: logs by their name, as logs::is_log_name has them", async () => {
+  const { isLogName } = await pick("isLogName");
+  for (const name of ["app.log", "app.log.3", "syslog", "syslog.1", "events.jsonl", "ACCESS_LOG", "messages", "auth.log.2"]) assert.ok(isLogName(name), name);
+  for (const name of ["catalog.txt", "logbook.md", "blog", "messages.txt"]) assert.ok(!isLogName(name), name);
+  // The same names in the core (crates/coxswain-core/src/logs.rs), so both apps call the same files logs.
+  const core = readFileSync(new URL("../../crates/coxswain-core/src/logs.rs", import.meta.url), "utf8");
+  const rust = /Regex::new\(r"\(\?i\)(.*?)"\)\.unwrap\(\)/.exec(core.slice(core.indexOf("pub fn is_log_name")))[1];
+  assert.equal(isLogName.toString().match(/return \/(.*)\/i\.test/)[1], rust);
+});

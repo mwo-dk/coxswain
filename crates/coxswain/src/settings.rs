@@ -65,6 +65,8 @@ pub enum Row {
     Info(String, String, String),
     /// Overview: an area and how it stands.
     Go(Area, String),
+    /// What's new: a version and what it brought. Enter shows it whole in the viewer.
+    News(coxswain_core::notices::Change),
     Notice(Notice),
     /// The first-run guide.
     Guide,
@@ -114,6 +116,7 @@ impl Row {
             Row::Service => "service".into(),
             Row::Info(label, ..) => format!("info:{label}"),
             Row::Go(area, _) => format!("go:{}", area.id()),
+            Row::News(c) => format!("news:{}", c.version),
             Row::Notice(n) => format!("notice:{}", n.id),
             Row::Guide => "guide".into(),
             Row::EditKeys => "keys".into(),
@@ -193,7 +196,7 @@ pub struct Settings {
     service: bool,
     notices: Vec<Notice>,
     /// What's new: the versions not read yet (else this one), with what they brought.
-    news: Vec<(String, String)>,
+    news: Vec<coxswain_core::notices::Change>,
     /// The cursor's row when last drawn, by index and by `Row::key`: rows that come later (a
     /// poor choice found in the background) do not move the cursor off its row.
     anchor: (usize, String),
@@ -349,11 +352,36 @@ impl Settings {
 
 // ---------------------------------------------------------------- what an area holds
 
-/// The versions not read yet, else this one: (version, what it brought).
-fn news(st: &coxswain_core::state::AppState) -> Vec<(String, String)> {
+/// The versions not read yet, else this one.
+fn news(st: &coxswain_core::state::AppState) -> Vec<coxswain_core::notices::Change> {
     let unread = coxswain_core::notices::unread(st);
     let changes = if unread.is_empty() { coxswain_core::notices::changes().into_iter().take(1).collect() } else { unread };
-    changes.into_iter().take(5).map(|c| (c.version, c.parts.iter().map(|(t, _)| t.as_str()).collect())).collect()
+    changes.into_iter().take(5).collect()
+}
+
+/// What a version brought, without its links.
+fn plain(c: &coxswain_core::notices::Change) -> String {
+    c.parts.iter().map(|(t, _)| t.as_str()).collect()
+}
+
+/// The start of `text` that fits in `h` lines of `w`, cut at a word and ended with "…", and
+/// `more` (how to see it whole) on a line of its own below.
+fn cut(text: &str, more: &str, w: u16, h: u16, dim: Style) -> Paragraph<'static> {
+    let make = |n: usize| {
+        let head: String = text.chars().take(n).collect();
+        let head = head.rsplit_once(' ').map_or(head.as_str(), |(a, _)| a).trim_end().to_string();
+        Paragraph::new(vec![Line::from(format!("{head}…")), Line::from(Span::styled(more.to_string(), dim))]).wrap(Wrap { trim: true })
+    };
+    let (mut lo, mut hi) = (0, text.chars().count());
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if make(mid).line_count(w) <= h as usize {
+            lo = mid
+        } else {
+            hi = mid - 1
+        }
+    }
+    make(lo)
 }
 
 /// The rows of the area shown.
@@ -376,7 +404,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             v.push(Row::Guide);
             v.push(Row::Head(t!("news.title"), "news"));
             v.extend(s.notices.iter().cloned().map(Row::Notice));
-            v.extend(s.news.iter().map(|(version, text)| Row::Info(version.clone(), text.clone(), text.clone())));
+            v.extend(s.news.iter().cloned().map(Row::News));
         }
         Area::Search => {
             let poor = coxswain_core::setup::poor(&cfg.search, false);
@@ -845,6 +873,11 @@ impl App {
                         Kind::Switch | Kind::TextSwitch(..) => return self.settings_space(s, &rows, &value),
                     };
                 }
+                (KeyCode::Enter, _) if matches!(rows.get(s.cursor), Some(Row::News(_))) => {
+                    if let Some(Row::News(c)) = rows.get(s.cursor) {
+                        return self.news_whole(s, c);
+                    }
+                }
                 (KeyCode::Enter, _) | (_, Some(' ')) => return self.settings_space(s, &rows, &value),
                 _ => {}
             },
@@ -928,7 +961,7 @@ impl App {
                         } else {
                             let base = self.panel().dir.clone();
                             let dir = coxswain_core::fs::resolve(&base, new.trim());
-                            std::fs::canonicalize(&dir).unwrap_or(dir).display().to_string()
+                            coxswain_core::fs::canonical(&dir).unwrap_or(dir).display().to_string()
                         };
                         if !item.is_empty() && !items.contains(&item) {
                             items.push(item);
@@ -1022,6 +1055,19 @@ impl App {
             },
         }
         self.dialog = Some(Dialog::Settings(s));
+    }
+
+    /// Enter on a version under What's new: its whole text in the built-in viewer, Settings
+    /// again when it closes.
+    fn news_whole(&mut self, mut s: Box<Settings>, c: &coxswain_core::notices::Change) {
+        let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
+        match coxswain_core::notices::text_file(c).and_then(|f| crate::viewer::Viewer::open(&f, labels)) {
+            Ok(v) => self.dialog = Some(Dialog::View { v: Box::new(v.wrapped()), back: Some(Box::new(Dialog::Settings(s))) }),
+            Err(e) => {
+                s.said = Some((e.to_string(), true));
+                self.dialog = Some(Dialog::Settings(s));
+            }
+        }
     }
 
     /// Space (and Enter where there is nothing to type): a switch flips, a choice takes its next
@@ -1502,6 +1548,7 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
             Some(Row::Tool(name, true, _)) => text.push(Span::raw(t!(&format!("settings.search_tool_{name}")))),
             Some(Row::Service) => text.push(Span::raw(t!("setup.service_hint"))),
             Some(Row::Info(_, _, hint)) => text.push(Span::raw(hint.clone())),
+            Some(Row::News(c)) => text.push(Span::raw(plain(c))),
             Some(Row::Go(_, value)) => text.push(Span::raw(value.clone())),
             Some(Row::Notice(n)) => text.push(Span::raw(n.text.clone())),
             Some(Row::Poor(p)) => text.push(Span::raw(p.text.clone())),
@@ -1627,10 +1674,17 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // Areas on the left, a third of the width at most.
     let aw = AREAS.iter().map(|a| a.label().width()).max().unwrap_or(10).min(inner.width as usize / 3) + 2;
     // The explanation whole: its box grows to the lines it needs, the rows above giving way
-    // (they scroll); three rows are kept for them.
+    // (they scroll); three rows are kept for them. A version's changes can be longer than any
+    // screen: as much as fits, and Enter shows them whole.
     let explain_w = inner.width - 3;
-    let text = Paragraph::new(Line::from(explain(app, s, &rows))).wrap(Wrap { trim: true });
-    let explain_h = (text.line_count(explain_w) as u16).clamp(2, inner.height.saturating_sub(5).max(2));
+    let most = inner.height.saturating_sub(5).max(2);
+    let mut text = Paragraph::new(Line::from(explain(app, s, &rows))).wrap(Wrap { trim: true });
+    if let (Some(Row::News(c)), Mode::Browse) = (rows.get(s.cursor), &s.mode)
+        && text.line_count(explain_w) > most as usize
+    {
+        text = cut(&plain(c), &t!("news.whole_tui"), explain_w, most, dim);
+    }
+    let explain_h = (text.line_count(explain_w) as u16).clamp(2, most);
     let body_h = inner.height - 2 - explain_h;
     for (i, a) in AREAS.iter().enumerate().take(body_h as usize) {
         let st = if *a == s.area { selected } else { base };
@@ -1709,6 +1763,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 // keeps its start.
                 Row::Info(label, value, _) if Path::new(value).is_absolute() || value.starts_with('~') => lines.extend(pair(&format!(" {label}"), &fit_left(value, w.saturating_sub(lw)), st)),
                 Row::Info(label, value, _) => lines.extend(pair(&format!(" {label}"), value, st)),
+                Row::News(c) => lines.extend(pair(&format!(" {}", c.version), &plain(c), st)),
                 Row::Go(area, value) => lines.push(Line::from(vec![Span::styled(fit(&format!(" {}", area.label()), aw.max(14)), if here { selected } else { head }), Span::styled(fit(value, w.saturating_sub(aw.max(14))), st)])),
                 Row::Notice(n) => lines.push(Line::from(Span::styled(fit(&format!(" • {}", n.text), w), st))),
                 Row::Poor(p) => {
@@ -2251,7 +2306,7 @@ mod tests {
         key(&mut app, KeyCode::Enter);
         typed(&mut app, "mail");
         key(&mut app, KeyCode::Enter);
-        let mail = std::fs::canonicalize(d.join("mail")).unwrap();
+        let mail = coxswain_core::fs::canonical(&d.join("mail")).unwrap();
         assert_eq!(app.cfg.search.names_only, [mail]);
         let scr = screen(&mut app, 80, 24);
         assert!(scr.iter().any(|l| l.contains("− ") && l.contains("mail")), "{scr:#?}");
@@ -2346,13 +2401,28 @@ mod tests {
                 app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, area.id()))));
                 let mut last = None;
                 loop {
-                    let lines = screen(&mut app, 80, 24);
+                    // The file count goes on in the background: the screen and the text it is
+                    // held to are made from the same count, made again until it stood still.
+                    let count = |app: &App| serde_json::to_string(&app.index.status()).unwrap();
+                    let (lines, want) = loop {
+                        let before = count(&app);
+                        let lines = screen(&mut app, 80, 24);
+                        let s = settings(&app);
+                        let want: String = explain(&app, s, &rows(&app, s)).iter().map(|x| x.content.as_ref()).collect();
+                        if count(&app) == before {
+                            break (lines, want);
+                        }
+                    };
                     let s = settings(&app);
                     let rows = rows(&app, s);
-                    let want: String = explain(&app, s, &rows).iter().map(|x| x.content.as_ref()).collect();
                     let rule = lines.iter().position(|l| l.contains('┴')).unwrap();
                     let shown = lines[rule + 1..22].concat();
-                    assert_eq!(squeeze(&shown), squeeze(&want), "{lang}, {}, row {}", area.id(), s.cursor);
+                    // A version longer than the box: its start, "…" and how to see it whole.
+                    if matches!(rows.get(s.cursor), Some(Row::News(_))) && squeeze(&shown) != squeeze(&want) {
+                        assert!(cut_shown(&squeeze(&shown), &squeeze(&want), &squeeze(&t!("news.whole_tui"))), "{lang}, {}, row {}: {shown}", area.id(), s.cursor);
+                    } else {
+                        assert_eq!(squeeze(&shown), squeeze(&want), "{lang}, {}, row {}", area.id(), s.cursor);
+                    }
                     if last == Some(s.cursor) {
                         break;
                     }
@@ -2362,6 +2432,40 @@ mod tests {
             }
         }
         coxswain_core::i18n::set_language("en-GB");
+    }
+
+    /// A text cut to fit: a start of `whole` that is not all of it, then "…", then `more`.
+    fn cut_shown(shown: &str, whole: &str, more: &str) -> bool {
+        shown.strip_suffix(more).and_then(|s| s.strip_suffix('…')).is_some_and(|head| !head.is_empty() && head.len() < whole.len() && whole.starts_with(head))
+    }
+
+    /// A version whose changes are longer than any screen (2.33.0's were 66,000 letters): at
+    /// 80×24 the box shows their start, "…" and that Enter shows them whole, and Enter does,
+    /// in the viewer, back in Settings after it.
+    #[test]
+    fn a_long_version_shows_its_start_and_enter_shows_it_whole() {
+        let d = crate::test_dir("long-news");
+        let mut app = app(&d);
+        let long: String = (0..2000).map(|i| format!("word{:05} ", i)).collect::<String>() + "THE END";
+        assert!(long.chars().count() > 20_000);
+        let mut s = Settings::open(&app, "overview");
+        s.news = vec![coxswain_core::notices::Change { version: "9.9.9".into(), date: "2026-01-01".into(), parts: vec![(long.clone(), None)] }];
+        app.dialog = Some(Dialog::Settings(Box::new(s)));
+        while !matches!(rows(&app, settings(&app)).get(settings(&app).cursor), Some(Row::News(_))) {
+            key(&mut app, KeyCode::Down);
+            screen(&mut app, 80, 24);
+        }
+        let lines = screen(&mut app, 80, 24);
+        let squeeze = |t: &str| t.chars().filter(|c| !c.is_whitespace() && *c != '║').collect::<String>();
+        let rule = lines.iter().position(|l| l.contains('┴')).unwrap();
+        let shown = lines[rule + 1..22].concat();
+        assert!(cut_shown(&squeeze(&shown), &squeeze(&long), &squeeze(&t!("news.whole_tui"))), "{shown}");
+        key(&mut app, KeyCode::Enter);
+        let Some(Dialog::View { v, back }) = &app.dialog else { panic!("no viewer") };
+        assert!(matches!(back.as_deref(), Some(Dialog::Settings(_))), "Settings again after it");
+        assert!(std::fs::read_to_string(&v.path).unwrap().contains(&long), "the whole text");
+        let _ = std::fs::remove_file(&v.path);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// Every section can be walked to its last row by Down, drawn between keys as the app does,

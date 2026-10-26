@@ -403,7 +403,7 @@ export function viewEnd(layout, i) {
  *  list, the BOM tree): "theirs" when it is not in one or is a function key, "panels" for Esc,
  *  which gives the keys back to the panels (blurring the view), "view" for the rest. */
 export function keyOwner(el, k) {
-  if (!el?.closest?.(".bom-keys, .chess-keys") || /^F\d+$/.test(k)) return "theirs";
+  if (!el?.closest?.(".bom-keys, .chess-keys, .log-keys") || /^F\d+$/.test(k)) return "theirs";
   return k === "Esc" ? "panels" : "view";
 }
 
@@ -425,6 +425,12 @@ export function browseKey(b, key) {
   if (key === "ArrowLeft" || key === "Escape") return { browse: null, used: true };
   if (key === "Enter") return { browse: b, used: "play" };
   return { browse: ["f", "n", "1", "2", "3", "4", "5"].includes(key) ? b : null, used: false };
+}
+
+/** A log by its name: `.log`, a rotated one (`app.log.1`, `syslog.2`), and /var/log's usual
+ *  names without an extension (`logs::is_log_name`, which a test holds this to). */
+export function isLogName(name) {
+  return /(\.log|\.jsonl|\.ndjson)(\.\d+)?$|^(syslog|messages|kern\.log|auth\.log|daemon\.log|secure|maillog|access_log|error_log|dmesg)(\.\d+)?$/i.test(name);
 }
 
 /** A games file by its name: "pgn" (also packed, a SCID database's .si4 or .si5 and a ChessBase database's .cbh), "epd" (EPD and FEN), "sgf" (Go), "pdn"
@@ -485,6 +491,8 @@ export function previewKind(item) {
   if (ext === "ipynb") return "notebook";
   if (ext === "mmd" || ext === "mermaid") return "mermaid";
   if (ext === "html" || ext === "htm" || ext === "xhtml") return "html";
+  // A log by its name, rotated ones and /var/log's without an extension too (`logs::is_log_name`).
+  if (isLogName(item.name) && ext !== "jsonl" && ext !== "ndjson") return "log";
   const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", msg: "mail", dbf: "sqlite", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
   if (special[ext]) return special[ext];
   if (CONVERTED[ext]) return CONVERTED[ext];
