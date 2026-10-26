@@ -4487,6 +4487,8 @@
  "disk.keys_tui_show": "Enter: rādīt panelī",
  "disk.quarantine.what": "Faili, ko pēc vīrusu pārbaudes pārvietojāt karantīnā, kopā ar quarantine.log.",
  "disk.quarantine.cost": "šeit netiek noņemti: tie ir jūsu faili; izdzēsiet tos panelī, kad esat pārliecināts, vai nokopējiet kādu atpakaļ",
+ "disk.kicad_settings.what": "kicad-cli iestatījumi, izmantoti, kad priekšskatījums to palaida. Instalēts KiCad šeit glabā jūsu pašu iestatījumus, tāpēc Coxswain to nekad netīra.",
+ "disk.kicad_settings.cost": "šeit netiek noņemts: KiCad tur glabā jūsu pašu iestatījumus",
  "disk.replace.what": "Jūsu faili tādi, kādi tie bija pirms meklēšanas un aizstāšanas, lai to varētu atsaukt (ne vairāk kā 256 MB katrai aizstāšanai).",
  "disk.replace.cost": "beigušos lietotņu meklēšanas un aizstāšanas vairs nevarēs atsaukt; strādājoša lietotne savējās patur",
  "disk.sync.what": "{n} faili, ko mapju sinhronizācija aizstāja vai dzēsa mapē {folder}, glabāti šeit, jo atkritne tos nevarēja pieņemt.",

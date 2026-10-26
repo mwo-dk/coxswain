@@ -4487,6 +4487,8 @@
  "disk.keys_tui_show": "Enter: rodyti skydelyje",
  "disk.quarantine.what": "Failai, kuriuos po virusų patikros perkėlėte į karantiną, su quarantine.log.",
  "disk.quarantine.cost": "čia nešalinami: tai jūsų failai; ištrinkite juos skydelyje, kai būsite tikri, arba nukopijuokite kurį nors atgal",
+ "disk.kicad_settings.what": "kicad-cli nustatymai, naudoti, kai peržiūra jį paleido. Įdiegtas KiCad čia laiko jūsų pačių nustatymus, todėl Coxswain jo niekada neišvalo.",
+ "disk.kicad_settings.cost": "čia nešalinama: KiCad ten laiko jūsų pačių nustatymus",
  "disk.replace.what": "Jūsų failai tokie, kokie buvo prieš paiešką ir pakeitimą, kad jį būtų galima atšaukti (ne daugiau kaip 256 MB vienam pakeitimui).",
  "disk.replace.cost": "pasibaigusių programų paieškų ir pakeitimų nebebus galima atšaukti; veikianti programa savo pasilieka",
  "disk.sync.what": "{n} failų, kuriuos aplankų sinchronizavimas pakeitė ar ištrynė aplanke {folder}, laikomi čia, nes šiukšlinė negalėjo jų priimti.",

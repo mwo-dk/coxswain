@@ -4487,6 +4487,8 @@
  "disk.keys_tui_show": "Retorn: mostra al panell",
  "disk.quarantine.what": "Fitxers que vau posar en quarantena després d'una anàlisi de virus, amb quarantine.log.",
  "disk.quarantine.cost": "aquí no es treuen: són fitxers vostres; suprimiu-los en un panell quan n'estigueu segurs, o torneu-ne a copiar un",
+ "disk.kicad_settings.what": "La configuració del kicad-cli, usada quan una previsualització l'ha executat. Un KiCad instal·lat hi desa la vostra pròpia configuració, així que el Coxswain no la buida mai.",
+ "disk.kicad_settings.cost": "no s'elimina aquí: el KiCad hi desa la vostra pròpia configuració",
  "disk.replace.what": "Els vostres fitxers tal com eren abans d'una cerca i substitució, perquè es pugui desfer (256 MB com a màxim per substitució).",
  "disk.replace.cost": "les cerques i substitucions d'aplicacions que han acabat ja no es poden desfer; una aplicació en marxa conserva les seves",
  "disk.sync.what": "{n} fitxers que una sincronització de carpetes va substituir o suprimir a {folder}, guardats aquí perquè la paperera no els va poder agafar.",

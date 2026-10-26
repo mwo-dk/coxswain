@@ -4389,6 +4389,8 @@
  "disk.keys_tui_show": "Enter: vis i panelet",
  "disk.quarantine.what": "Filer du flytta til karantene etter ei virusskanning, med quarantine.log.",
  "disk.quarantine.cost": "blir ikkje fjerna her: dei er filene dine; slett dei i eit panel når du er sikker, eller kopier ei tilbake",
+ "disk.kicad_settings.what": "Innstillingane til kicad-cli, brukte då ei førehandsvising køyrde han. Ein installert KiCad har dine eigne innstillingar her, så Coxswain tømmer han aldri.",
+ "disk.kicad_settings.cost": "blir ikkje fjerna her: KiCad har dine eigne innstillingar der",
  "disk.replace.what": "Filene dine slik dei var før eit søk og erstatt, så det kan angrast (høgst 256 MB per erstatning).",
  "disk.replace.cost": "søk og erstatt i appar som er avslutta, kan ikkje lenger angrast; ein app som køyrer, held på sine",
  "disk.sync.what": "{n} filer som ei mappesynkronisering erstatta eller sletta i {folder}, haldne her fordi papirkorga ikkje kunne ta dei.",

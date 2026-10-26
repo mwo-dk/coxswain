@@ -4487,6 +4487,8 @@
  "disk.keys_tui_show": "Enter: mostrar en el panel",
  "disk.quarantine.what": "Archivos que pusiste en cuarentena después de un análisis de virus, con quarantine.log.",
  "disk.quarantine.cost": "no se quitan acá: son tus archivos; borralos en un panel cuando estés seguro, o copiá alguno de vuelta",
+ "disk.kicad_settings.what": "La configuración de kicad-cli, usada cuando una vista previa lo ejecutó. Un KiCad instalado guarda acá tu propia configuración, así que Coxswain nunca la borra.",
+ "disk.kicad_settings.cost": "no se quita acá: KiCad guarda ahí tu propia configuración",
  "disk.replace.what": "Tus archivos como eran antes de un buscar y reemplazar, para poder deshacerlo (256 MB como máximo por reemplazo).",
  "disk.replace.cost": "los buscar y reemplazar de apps que ya terminaron no se pueden deshacer más; una app abierta conserva los suyos",
  "disk.sync.what": "{n} archivos que una sincronización de carpetas reemplazó o eliminó en {folder}, guardados acá porque la papelera no pudo recibirlos.",

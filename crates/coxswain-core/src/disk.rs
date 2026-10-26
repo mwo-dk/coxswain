@@ -161,7 +161,7 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             in_use: e.in_use,
         });
     }
-    for (tool, p) in made_outside() {
+    for (tool, p) in made_outside().into_iter().filter(|(t, _)| t.id != KICAD_SETTINGS.id) {
         v.push(Item {
             id: tool.id.into(),
             name: tool.name.into(),
@@ -201,6 +201,10 @@ fn yours() -> Vec<Item> {
     };
     if let Some(q) = crate::viruses::quarantine_dir().filter(|q| std::fs::read_dir(q).is_ok_and(|mut r| r.next().is_some())) {
         v.push(row("quarantine".into(), "quarantine/".into(), t!("disk.quarantine.what"), t!("disk.quarantine.cost"), vec![q], false));
+    }
+    // kicad-cli's settings, which an installed KiCad shares: shown, never cleared.
+    for (_, p) in made_outside().into_iter().filter(|(t, _)| t.id == KICAD_SETTINGS.id) {
+        v.push(row(KICAD_SETTINGS.id.into(), "kicad/".into(), t!(KICAD_SETTINGS.what), t!(KICAD_SETTINGS.cost), vec![p], false));
     }
     let undo = crate::replace::kept_dirs();
     if !undo.is_empty() {
@@ -437,8 +441,9 @@ pub struct Tool {
     caches: fn() -> Vec<PathBuf>,
 }
 
-/// Tectonic's TeX packages, Typst's packages, kicad-cli's cache. Not kicad-cli's settings
-/// (`~/.config/kicad`): an installed KiCad keeps its own there, which no clearing may take.
+/// Tectonic's TeX packages, Typst's packages, kicad-cli's cache; and kicad-cli's settings
+/// (`~/.config/kicad`), listed with the user's own files and never cleared: an installed KiCad
+/// keeps the user's settings there.
 pub const TECTONIC: Tool = Tool {
     id: "tectonic",
     name: "Tectonic",
@@ -460,7 +465,14 @@ pub const KICAD: Tool = Tool {
     cost: "disk.kicad.cost",
     caches: kicad_caches,
 };
-const TOOLS: [&Tool; 3] = [&TECTONIC, &TYPST, &KICAD];
+pub const KICAD_SETTINGS: Tool = Tool {
+    id: "kicad-settings",
+    name: "kicad/",
+    what: "disk.kicad_settings.what",
+    cost: "disk.kicad_settings.cost",
+    caches: kicad_settings,
+};
+const TOOLS: [&Tool; 4] = [&TECTONIC, &TYPST, &KICAD, &KICAD_SETTINGS];
 
 /// The folders noted, those still there, with the tool whose they are.
 fn made_outside() -> Vec<(&'static Tool, PathBuf)> {
@@ -523,6 +535,18 @@ fn kicad_caches() -> Vec<PathBuf> {
     crate::dirs::cache_dir().map(|b| b.join("kicad")).into_iter().collect()
 }
 
+/// kicad-cli's settings: `kicad/` in the system's preferences folder (`~/.config/kicad`,
+/// `~/Library/Preferences/kicad`, `%APPDATA%\kicad`).
+fn kicad_settings() -> Vec<PathBuf> {
+    crate::dirs::preference_dir().map(|b| b.join("kicad")).into_iter().collect()
+}
+
+/// The folders of `tool` that are there now: for one listed when a preview used it, made by it
+/// or not (`note_made`).
+pub fn present(tool: &Tool) -> Vec<PathBuf> {
+    (tool.caches)().into_iter().filter(|p| p.is_dir()).collect()
+}
+
 /// Before Coxswain runs `tool`: the places of its cache that are not there yet. Give them to
 /// `note_made` afterwards, which notes those that came.
 pub fn absent(tool: &Tool) -> Vec<PathBuf> {
@@ -536,8 +560,15 @@ pub fn note_made(absent: &[PathBuf]) {
         return;
     };
     let mut text = std::fs::read_to_string(&f).unwrap_or_default();
+    let had = text.clone();
     for p in made {
-        text += &format!("{}\n", p.display());
+        // Once each, however often a preview runs.
+        if !had.lines().any(|l| Path::new(l) == p.as_path()) {
+            text += &format!("{}\n", p.display());
+        }
+    }
+    if text == had {
+        return;
     }
     let _ = std::fs::write(f, text);
 }
@@ -858,6 +889,23 @@ pub fn table(items: &[Item]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder noted again at each preview is listed once; KiCad's settings are shown under
+    /// your own files and never cleared.
+    #[test]
+    fn kicad_settings_are_noted_once_and_never_cleared() {
+        let d = kicad_settings().remove(0);
+        std::fs::create_dir_all(&d).unwrap();
+        note_made(&present(&KICAD_SETTINGS));
+        note_made(&present(&KICAD_SETTINGS));
+        let text = std::fs::read_to_string(made_file().unwrap()).unwrap();
+        assert_eq!(text.lines().filter(|l| Path::new(l) == d).count(), 1, "{text}");
+        let row = yours().into_iter().find(|i| i.id == KICAD_SETTINGS.id).expect("listed");
+        assert!(!row.clear && row.kind == Kind::Yours && !goes(&row, true, true));
+        assert!(made_outside().iter().any(|(t, p)| t.id == KICAD_SETTINGS.id && *p == d));
+        forget_made(std::slice::from_ref(&d));
+        let _ = std::fs::remove_dir(&d);
+    }
 
     /// A name index and a search store, in folders of the test's own: each is told apart from
     /// any other file by what it holds, and its preview says what it holds.

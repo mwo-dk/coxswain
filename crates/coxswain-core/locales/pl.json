@@ -4585,6 +4585,8 @@
  "disk.keys_tui_show": "Enter: pokaż w panelu",
  "disk.quarantine.what": "Pliki przeniesione do kwarantanny po skanowaniu antywirusowym, z quarantine.log.",
  "disk.quarantine.cost": "nie usuwa się ich tutaj: to Twoje pliki; usuń je w panelu, gdy będziesz pewien, albo skopiuj któryś z powrotem",
+ "disk.kicad_settings.what": "Ustawienia kicad-cli, użyte, gdy uruchomił go podgląd. Zainstalowany KiCad trzyma tu twoje własne ustawienia, więc Coxswain nigdy go nie czyści.",
+ "disk.kicad_settings.cost": "nie usuwane tutaj: KiCad trzyma tam twoje własne ustawienia",
  "disk.replace.what": "Twoje pliki takie, jakie były przed znajdź i zamień, aby dało się to cofnąć (najwyżej 256 MB na jedno zastąpienie).",
  "disk.replace.cost": "znajdź i zamień w aplikacjach, które się zakończyły, nie da się już cofnąć; działająca aplikacja zachowuje swoje",
  "disk.sync.what": "Pliki ({n}), które synchronizacja folderów zastąpiła lub usunęła w {folder}, trzymane tutaj, bo Kosz nie mógł ich przyjąć.",

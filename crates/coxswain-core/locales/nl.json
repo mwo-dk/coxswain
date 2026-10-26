@@ -4389,6 +4389,8 @@
  "disk.keys_tui_show": "Enter: toon in paneel",
  "disk.quarantine.what": "Bestanden die je na een virusscan in quarantaine hebt gezet, met quarantine.log.",
  "disk.quarantine.cost": "worden hier niet verwijderd: het zijn je eigen bestanden; verwijder ze in een paneel als je zeker bent, of kopieer er een terug",
+ "disk.kicad_settings.what": "De instellingen van kicad-cli, gebruikt toen een voorvertoning het draaide. Een geïnstalleerde KiCad bewaart hier je eigen instellingen, dus Coxswain maakt deze map nooit leeg.",
+ "disk.kicad_settings.cost": "hier niet verwijderd: KiCad bewaart daar je eigen instellingen",
  "disk.replace.what": "Je bestanden zoals ze waren vóór een zoeken en vervangen, zodat het ongedaan kan worden gemaakt (hoogstens 256 MB per vervanging).",
  "disk.replace.cost": "zoeken en vervangen van apps die gestopt zijn, kan niet meer ongedaan worden gemaakt; een draaiende app houdt de zijne",
  "disk.sync.what": "{n} bestanden die een mapsynchronisatie in {folder} verving of verwijderde, hier bewaard omdat de prullenbak ze niet kon opnemen.",

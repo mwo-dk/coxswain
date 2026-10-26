@@ -4400,6 +4400,8 @@
  "disk.keys_tui_show": "Enter: show in panel",
  "disk.quarantine.what": "Files you moved into quarantine after a virus scan, with quarantine.log.",
  "disk.quarantine.cost": "not removed here: they are your files; delete them in a panel once you are sure, or copy one back",
+ "disk.kicad_settings.what": "kicad-cli's settings, used when a preview ran it. An installed KiCad keeps your own settings here, so Coxswain never clears it.",
+ "disk.kicad_settings.cost": "not removed here: KiCad keeps your own settings there",
  "disk.replace.what": "Your files as they were before a find and replace, so it can be undone (256 MB at most per replace).",
  "disk.replace.cost": "finds and replaces of apps that have ended can no longer be undone; a running app keeps its own",
  "disk.sync.what": "{n} files a folder sync replaced or deleted in {folder}, kept here because the bin could not take them.",

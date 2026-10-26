@@ -4389,6 +4389,8 @@
  "disk.keys_tui_show": "Enter: visa i panelen",
  "disk.quarantine.what": "Filer du flyttade till karantän efter en virussökning, med quarantine.log.",
  "disk.quarantine.cost": "tas inte bort här: de är dina filer; radera dem i en panel när du är säker, eller kopiera tillbaka en",
+ "disk.kicad_settings.what": "kicad-clis inställningar, använda när en förhandsvisning körde den. Ett installerat KiCad har dina egna inställningar här, så Coxswain tömmer den aldrig.",
+ "disk.kicad_settings.cost": "tas inte bort här: KiCad har dina egna inställningar där",
  "disk.replace.what": "Dina filer som de var före en sök och ersätt, så att den kan ångras (högst 256 MB per ersättning).",
  "disk.replace.cost": "sök och ersätt i appar som har avslutats kan inte längre ångras; en app som körs behåller sina",
  "disk.sync.what": "{n} filer som en mappsynkronisering ersatte eller tog bort i {folder}, sparade här eftersom papperskorgen inte kunde ta emot dem.",

@@ -4389,6 +4389,8 @@
  "disk.keys_tui_show": "Enter: näytä paneelissa",
  "disk.quarantine.what": "Tiedostot, jotka siirsit karanteeniin virustarkistuksen jälkeen, sekä quarantine.log.",
  "disk.quarantine.cost": "ei poisteta täällä: ne ovat omia tiedostojasi; poista ne paneelissa, kun olet varma, tai kopioi jokin takaisin",
+ "disk.kicad_settings.what": "kicad-clin asetukset, joita käytettiin, kun esikatselu ajoi sen. Asennettu KiCad pitää tässä omia asetuksiasi, joten Coxswain ei koskaan tyhjennä sitä.",
+ "disk.kicad_settings.cost": "ei poisteta täällä: KiCad pitää siellä omia asetuksiasi",
  "disk.replace.what": "Tiedostosi sellaisina kuin ne olivat ennen etsi ja korvaa -toimintoa, jotta sen voi kumota (enintään 256 Mt korvausta kohden).",
  "disk.replace.cost": "päättyneiden sovellusten etsi ja korvaa -toimintoja ei voi enää kumota; käynnissä oleva sovellus pitää omansa",
  "disk.sync.what": "{n} tiedostoa, jotka kansioiden synkronointi korvasi tai poisti kansiossa {folder}, säilytetty täällä, koska roskakori ei voinut ottaa niitä.",

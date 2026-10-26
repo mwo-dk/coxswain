@@ -4389,6 +4389,8 @@
  "disk.keys_tui_show": "Enter: erakutsi panelean",
  "disk.quarantine.what": "Birus-azterketa baten ondoren berrogeialdira eraman zenituen fitxategiak, quarantine.log-ekin.",
  "disk.quarantine.cost": "hemen ez dira kentzen: zure fitxategiak dira; ezabatu panel batean ziur zaudenean, edo kopiatu bat atzera",
+ "disk.kicad_settings.what": "kicad-cli-ren ezarpenak, aurrebista batek exekutatu zuenean erabiliak. Instalatutako KiCad-ek zure ezarpenak gordetzen ditu hemen, beraz Coxswain-ek ez du inoiz husten.",
+ "disk.kicad_settings.cost": "ez da hemen kentzen: KiCad-ek zure ezarpenak gordetzen ditu bertan",
  "disk.replace.what": "Zure fitxategiak bilatu eta ordeztu baten aurretik ziren bezala, desegin ahal izateko (gehienez 256 MB ordezkapen bakoitzeko).",
  "disk.replace.cost": "amaitutako aplikazioen bilatu eta ordeztuak ezin dira desegin jada; martxan dagoen aplikazio batek bereak gordetzen ditu",
  "disk.sync.what": "Karpeta-sinkronizazio batek {folder}(e)n ordezkatu edo ezabatu zituen {n} fitxategi, hemen gordeak zakarrontziak ezin izan zituelako hartu.",

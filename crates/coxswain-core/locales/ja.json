@@ -4291,6 +4291,8 @@
  "disk.keys_tui_show": "Enter: パネルに表示",
  "disk.quarantine.what": "ウイルススキャンのあと隔離に移したファイルと quarantine.log。",
  "disk.quarantine.cost": "ここでは削除しません。あなたのファイルです。確かめてからパネルで削除するか、コピーして戻してください",
+ "disk.kicad_settings.what": "kicad-cli の設定。プレビューが kicad-cli を実行したときに使われました。インストールされた KiCad があなた自身の設定をここに置くので、Coxswain は決して消しません。",
+ "disk.kicad_settings.cost": "ここでは削除しません。KiCad があなた自身の設定をそこに置いています",
  "disk.replace.what": "検索と置換の前のあなたのファイル。元に戻すために残します（置換 1 回につき最大 256 MB）。",
  "disk.replace.cost": "終了したアプリの検索と置換は元に戻せなくなります。動いているアプリの分は残ります",
  "disk.sync.what": "フォルダーの同期が {folder} で置き換えた物や削除した物 {n} 個。ごみ箱に入れられなかったのでここに残しています。",

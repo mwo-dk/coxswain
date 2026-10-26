@@ -56,6 +56,7 @@ system; this page is about the room they take and getting it back.
 | *KiCad* | kicad-cli's cache, made by a KiCad preview or export | Made again the next time kicad-cli runs, yours too | Only when ticked |
 | A container image | The image of `[preview] images` for LaTeX, Typst, LibreOffice, PlantUML, Kroki's diagrams, pandoc, OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io …; its line says what it gives, its size to download and on disk, and what it costs ([The images](../previews/containers.md#the-images)) | Pulled again the next time a preview needs it | Only when ticked |
 | `quarantine/` (under *Your own files*) | Files you moved into quarantine after a [virus scan](../files/virus-scan.md#the-quarantine-folder), with `quarantine.log`; shown when it holds any | Not removed here: it has **Show in panel** only. They are yours: delete them in a panel once you are sure | No |
+| `kicad/` (under *Your own files*) | kicad-cli's settings (`~/.config/kicad` on the BSDs and Linux, `~/Library/Preferences/kicad` on macOS, `%APPDATA%\kicad` on Windows); shown once a KiCad preview or export has run an installed kicad-cli | Not removed here: it has **Show in panel** only. An installed KiCad keeps your own settings there, so Coxswain never clears it | No |
 | `coxswain-replace-…/` (under *Your own files*) | Your files as they were before a [find and replace](../files/find-and-replace.md), so it can be undone (256 MB at most per replace); shown when there are some | **Remove** takes only those of apps that have ended (their finds and replaces can no longer be undone); a running app keeps its own | No |
 | `.coxswain-sync-…/` (under *Your own files*) | What a [folder sync](../files/compare-folders.md#where-did-my-replaced-files-go) that has ended replaced or deleted, where the bin could not take it (Windows, a disk without a bin); one row per folder, its line naming the synced folder | **Remove** deletes it for good | No |
 
@@ -63,9 +64,10 @@ Each row shows its name, its size, what clearing costs, **Show in panel** (the a
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
 says what it holds. The total of all rows is beside the heading *Disk use*.
 
-Your own files come last, under *Your own files, kept aside by Coxswain*: the quarantine, the
-undo copies of find and replace, and what a folder sync set aside. They are never in *Clear
-everything*; each goes only by its own **Remove** (the quarantine has none), whose first click
+Your own files come last, under *Your own files, kept aside by Coxswain*: the quarantine,
+KiCad's settings, the undo copies of find and replace, and what a folder sync set aside. They are
+never in *Clear everything*; each goes only by its own **Remove** (the quarantine and KiCad's
+settings have none), whose first click
 turns into *Remove /path for good? Click again*.
 
 Sizes are measured when the area opens: the folders on disk at once, the container images a
@@ -114,7 +116,9 @@ Coxswain lists only what it caused, matched exactly:
   and Linux, `~/Library/Caches/typst` on macOS, `%LOCALAPPDATA%\typst` on Windows, or
   `TYPST_PACKAGE_CACHE_PATH`) and **kicad-cli's cache** (`kicad/` in the same folder), the same
   way: only when an installed typst or kicad-cli run by a preview or export made it. kicad-cli's
-  settings (`~/.config/kicad`) are never listed: an installed KiCad keeps your own settings there.
+  settings (`~/.config/kicad`) are listed under *Your own files* once a preview has run it,
+  whoever made them, with **Show in panel** and no Clear: an installed KiCad keeps your own
+  settings there.
 - **Container images** named in `[preview] images` (by default
   `docker.io/texlive/texlive:latest`, `docker.io/plantuml/plantuml:latest`,
   `docker.io/pandoc/core:latest`, `docker.io/gotenberg/gotenberg:8-libreoffice`,
@@ -176,7 +180,7 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
-| `coxswain --disk clear replace`, `coxswain --disk clear sync:.coxswain-sync-…` | Your own files: prints *This goes:* with the exact path and its size, then asks *[y/N]*. `quarantine` is refused: delete those files yourself |
+| `coxswain --disk clear replace`, `coxswain --disk clear sync:.coxswain-sync-…` | Your own files: prints *This goes:* with the exact path and its size, then asks *[y/N]*. `quarantine` and `kicad-settings` are refused: delete those files yourself |
 | `coxswain --disk clear rebuildable` | Every row that is built again on its own: *Cleared: 12.9 MB freed.* |
 
 A value it does not know is refused with the names it takes and exit status 2, like every other
@@ -225,7 +229,8 @@ Typst's and kicad-cli's caches are listed the same way.
 #### Why are the quarantine and a sync's folder listed, when nothing here is my work?
 
 Everything else in the list is Coxswain's and comes back by itself. The rows under *Your own
-files, kept aside by Coxswain* are yours: files you put in quarantine, your files as they were
+files, kept aside by Coxswain* are yours: files you put in quarantine, KiCad's settings (which a
+preview's kicad-cli uses, and an installed KiCad shares), your files as they were
 before a find and replace, and what a folder sync replaced or deleted where the bin could not
 take it. They are shown so the room they take is not hidden, and they go only when you remove
 each one; *Clear everything* never takes them.

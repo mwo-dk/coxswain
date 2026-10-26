@@ -4487,6 +4487,8 @@
  "disk.keys_tui_show": "Enter: mostra nel pannello",
  "disk.quarantine.what": "File che hai messo in quarantena dopo una scansione antivirus, con quarantine.log.",
  "disk.quarantine.cost": "non si rimuovono qui: sono file tuoi; eliminali in un pannello quando sei sicuro, o ricopiane uno",
+ "disk.kicad_settings.what": "Le impostazioni di kicad-cli, usate quando un’anteprima lo ha eseguito. Un KiCad installato vi tiene le tue impostazioni, quindi Coxswain non la svuota mai.",
+ "disk.kicad_settings.cost": "non rimossa qui: KiCad vi tiene le tue impostazioni",
  "disk.replace.what": "I tuoi file com'erano prima di un trova e sostituisci, per poterlo annullare (al massimo 256 MB per sostituzione).",
  "disk.replace.cost": "i trova e sostituisci di app chiuse non si possono più annullare; un'app aperta tiene i suoi",
  "disk.sync.what": "{n} file che una sincronizzazione di cartelle ha sostituito o eliminato in {folder}, tenuti qui perché il cestino non ha potuto accoglierli.",
