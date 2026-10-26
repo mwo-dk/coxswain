@@ -120,7 +120,7 @@ The terminal app needs no packages: it links only against the base system's libr
 | `xdg-utils` | `xdg-open`, which opens a file in its program (**Enter** on a file the app does not show itself) | Desktop app; the terminal app uses it for the same |
 | `gstreamer1-plugins-good` | Video and sound in the preview pane | Desktop app; without it a notice says what to install |
 | `nerd-fonts` | The file icons and git glyphs in both apps | Optional; or set `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
-| `noto-sans-jp`, `noto-sans-kr` | Japanese and Korean letters in the desktop app | Optional; a notice says so when the language is in use and no font is there |
+| `noto-sans-jp`, `noto-sans-kr`, `noto-sans-sc`, `noto-sans-tc` | Chinese, Japanese and Korean letters in the desktop app | Optional; a notice says so when the language is in use and no font is there |
 | `tesseract` | Search the words in scans, screenshots and pictures | Optional ([Scans and pictures](../search/scans.md)) |
 | `poppler-utils` | The same for scanned PDFs: `pdftoppm` makes pictures of their pages | Optional, with `tesseract` |
 | `libreoffice` | Search older Office files: `.doc`, `.ppt`, Visio and others | Optional |

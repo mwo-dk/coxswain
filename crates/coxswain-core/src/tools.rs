@@ -309,12 +309,12 @@ pub fn media_missing() -> Option<String> {
     })
 }
 
-/// Japanese, Korean, Persian, Armenian or Georgian in use on Linux or a BSD, and fontconfig has
+/// Chinese, Japanese, Korean, Persian, Armenian or Georgian in use on Linux or a BSD, and fontconfig has
 /// no font for it: the desktop app would show its letters as boxes. False elsewhere, or when
 /// `fc-list` cannot be asked.
 pub fn script_font_missing() -> bool {
     let lang = crate::i18n::language();
-    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko" | "fa" | "hy" | "ka")
+    if cfg!(any(windows, target_os = "macos")) || !matches!(lang, "ja" | "ko" | "zh-TW" | "zh-SG" | "fa" | "hy" | "ka")
     {
         return false;
     }
@@ -398,7 +398,7 @@ impl Manager {
 /// The line that installs `program` with `manager`, for the user to copy and run: Coxswain never
 /// runs it. `program` is what Coxswain looks for: `tesseract`, `pdftoppm`, `soffice`, `latex`,
 /// `plantuml`, `pandoc`, `ocrmypdf`, `gs` (Ghostscript), `typst`, `asciidoctor-pdf`, `nerd-font` (a font with the icons), or for the desktop app `gst-good`
-/// (video and sound) and `cjk-font` (Japanese and Korean letters). `None` when that manager has no
+/// (video and sound) and `cjk-font` (Chinese, Japanese and Korean letters). `None` when that manager has no
 /// package for it; the hint then says where to get it.
 pub fn install_line(program: &str, manager: Manager) -> Option<String> {
     use Manager::*;
@@ -550,7 +550,7 @@ pub fn install_line(program: &str, manager: Manager) -> Option<String> {
             "",
         ],
         "cjk-font" => [
-            "noto-sans-jp noto-sans-kr",
+            "noto-sans-jp noto-sans-kr noto-sans-sc noto-sans-tc",
             "noto-cjk-fonts",
             "noto-cjk",
             "",

@@ -81,11 +81,12 @@ The Windows and Mac themes, Cyber and NC bring their own interface font and put 
 its text in a font of its own: the font above applies to the other themes.*
 
 After any of these fonts come Persian, Armenian and Georgian fonts (Vazirmatn, Noto Sans Arabic,
-Noto Sans Armenian, Noto Sans Georgian, Sylfaen, …), then Japanese and Korean ones (Hiragino
-Sans, Yu Gothic, Noto Sans CJK, Malgun Gothic, …), so file names and texts in those letters are
+Noto Sans Armenian, Noto Sans Georgian, Sylfaen, …), then Chinese, Japanese and Korean ones
+(Hiragino Sans, Yu Gothic, Noto Sans CJK, Malgun Gothic, PingFang, Microsoft JhengHei, Microsoft
+YaHei, …), so file names and texts in those letters are
 drawn even when the chosen font lacks them; see
 [Persian, Armenian and Georgian](languages.md#persian-armenian-and-georgian) and
-[Japanese and Korean](languages.md#japanese-and-korean).
+[Chinese, Japanese and Korean](languages.md#chinese-japanese-and-korean).
 
 ## Your own glyph set
 

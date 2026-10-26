@@ -176,6 +176,9 @@ mod tests {
         // Japanese: kana by the gojūon, before kanji; Korean: Hangul by its letters.
         order("ja", &["あさ", "かき", "さくら", "大阪"]);
         order("ko", &["가방", "나무", "다리", "하늘"]);
+        // Chinese: Taiwan by strokes, Singapore by pinyin.
+        order("zh-TW", &["一", "人", "大", "中"]);
+        order("zh-SG", &["阿", "北", "中"]);
         order("he", &["אבא", "בית", "גשם", "תפוח"]);
         order("fa", &["آب", "باران", "پدر", "تهران"]);
     }

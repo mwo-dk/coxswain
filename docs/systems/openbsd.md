@@ -108,7 +108,7 @@ The terminal app needs no packages.
 | `xdg-utils` | `xdg-open`, which opens a file in its program | Desktop app; the terminal app uses it for the same |
 | `gst-plugins-good` | Video and sound in the preview pane | Desktop app; without it a notice says what to install |
 | `symbolsonly-nerd-fonts` (or another `*-nerd-fonts`) | The file icons and git glyphs | Optional; or `glyphs = "ascii"` ([Glyphs and fonts](../customise/glyphs-and-fonts.md)) |
-| `noto-cjk` | Japanese and Korean letters in the desktop app | Optional |
+| `noto-cjk` | Chinese, Japanese and Korean letters in the desktop app | Optional |
 | `tesseract` | Search the words in scans and pictures | Optional ([Scans and pictures](../search/scans.md)) |
 | `ffmpeg` | Videos and sound the player cannot play, video facts, [Convert video or audio](../files/convert-media.md) | Optional; containers do not run here, so this is the way |
 | `ImageMagick` | GIMP and RAW photos in the preview, [Convert or edit pictures](../files/edit-pictures.md) | Optional; the same |

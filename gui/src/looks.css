@@ -11,12 +11,23 @@
 /* Letters the chosen font may lack, after every font list: the first of these that is installed
    draws them. Persian (Vazirmatn, Noto Sans Arabic; Geeza Pro on macOS, Segoe UI and Tahoma on
    Windows), Armenian and Georgian (Noto Sans Armenian and Georgian; Sylfaen on Windows), then
-   Japanese and Korean: Korean first for Korean, Japanese first otherwise (the same Han letter is
-   drawn differently in each). */
+   Chinese, Japanese and Korean: Korean first for Korean, Traditional or Simplified Chinese first
+   for those, Japanese first otherwise (the same Han letter is drawn differently in each). */
 :root {
   --scripts: Vazirmatn, "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Noto Sans Armenian", "Noto Sans Georgian", Sylfaen,
     "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", "Noto Sans JP",
-    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", sans-serif;
+    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR",
+    "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+}
+:root:lang(zh-TW) {
+  --scripts: Vazirmatn, "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Noto Sans Armenian", "Noto Sans Georgian", Sylfaen,
+    "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", "Hiragino Sans", "Yu Gothic UI", "Noto Sans CJK JP",
+    sans-serif;
+}
+:root:lang(zh-SG) {
+  --scripts: Vazirmatn, "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Noto Sans Armenian", "Noto Sans Georgian", Sylfaen,
+    "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", "Noto Sans CJK JP",
+    sans-serif;
 }
 :root:lang(ko) {
   --scripts: Vazirmatn, "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Noto Sans Armenian", "Noto Sans Georgian", Sylfaen,

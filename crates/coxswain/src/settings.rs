@@ -2396,7 +2396,7 @@ mod tests {
         assert_eq!(names, all);
     }
 
-    /// At 80×24, in English and in the language whose texts are widest, every row's
+    /// At 80×24, in English, in the language whose texts are widest and in Chinese, every row's
     /// explanation shows whole in the box at the bottom. The language is the whole process's,
     /// so this runs in a process of its own.
     #[test]
@@ -2414,7 +2414,10 @@ mod tests {
         let widest = coxswain_core::i18n::LANGUAGES.iter().map(|l| l.code).max_by_key(|c| width(c)).unwrap();
         let d = crate::test_dir("panels");
         let squeeze = |t: &str| t.chars().filter(|c| !c.is_whitespace() && *c != '║').collect::<String>();
-        for lang in ["en-GB", widest] {
+        // Chinese too: its wide letters wrap anywhere, not at spaces.
+        let mut langs = vec!["en-GB", widest, "zh-TW"];
+        langs.dedup();
+        for lang in langs {
             coxswain_core::i18n::set_language(lang);
             for area in AREAS {
                 let mut app = app(&d);
