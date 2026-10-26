@@ -714,7 +714,12 @@ mod tests {
         assert!(lists.join("4247").exists(), "kept for the next start");
         // At the next start it answers: swept, and the list goes.
         *HANG.lock().unwrap() = None;
-        sweep_staging_in(&lists, SWEEP_WAIT);
+        // The first sweep's list thread may still be letting go of the list's lock.
+        let t = std::time::Instant::now();
+        while lists.join("4247").exists() && t.elapsed() < Duration::from_secs(30) {
+            sweep_staging_in(&lists, SWEEP_WAIT);
+            std::thread::sleep(Duration::from_millis(50));
+        }
         assert!(!hung.join(".a.txt.coxswain-tmp-4247-1").exists());
         assert!(!lists.join("4247").exists());
         let _ = std::fs::remove_dir_all(&d);
