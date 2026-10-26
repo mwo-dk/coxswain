@@ -338,6 +338,15 @@ terminal app outside it (each has its own cache folder); each still writes a new
 A compressed tar cannot be changed in place: Coxswain reads it all, writes it again and
 compresses it again. A zip is quicker, since its entries are copied over without unpacking.
 
+#### Why is a large .tar.zst slow to open near its end?
+
+A `.tar.zst` packed as one frame can only be unpacked from its start, so a file near its end
+(**F3**, the preview, **F5** of one file) waits until everything before it is unpacked. That is
+what `zstd` and `tar --zstd` make, with several threads (`zstd -T0`) too. One packed in several
+frames (`pzstd`, or parts packed one by one and joined) gets a place to unpack from at each frame
+the first time it is listed, and a file anywhere in it opens quickly after that. To make one
+that way: `tar -cf folder.tar folder && pzstd folder.tar` ([Limits](#limits)).
+
 #### Why did F8 not put the file in the trash?
 
 Inside an archive there is no trash: the file is an entry of the archive, and taking it out
