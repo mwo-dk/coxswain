@@ -1755,7 +1755,7 @@
  "feature.notes.title": "Folder notes",
  "feature.notes.what": "Free text kept for a folder, shown at the bottom of the preview pane, in the desktop app.",
  "feature.notices.a1": "The tips you have not dismissed or acted on, plus the versions you have not read about. Click it: What's new opens and the number drops to the tips left.",
- "feature.notices.a2": "In either app, open Settings ({settings}) → Overview → What's new; in the desktop app, also click ⚙ Settings while it shows a number. From the command line, run coxswain --whats-new.",
+ "feature.notices.a2": "In either app, open Settings ({settings}) → Overview → What's new; in the desktop app, also click ⚙ Settings while it shows a number. From the command line, run coxswain --whats-new. In the terminal app, Enter on a version shows all it brought in the viewer.",
  "feature.notices.a3": "Not from the app: dismissed tips are kept in the state file. What each led to is still there, such as Settings → Finding files → Details → Meaning, or coxswain --meaning on.",
  "feature.notices.q1": "What does the number on the Settings button count?",
  "feature.notices.q2": "How do I see what an upgrade brought?",

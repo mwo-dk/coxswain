@@ -1737,7 +1737,7 @@
  "feature.notes.title": "폴더 메모",
  "feature.notes.what": "폴더에 보관하는 자유 텍스트로, 데스크톱 앱에서 미리 보기 패널 아래쪽에 표시됩니다.",
  "feature.notices.a1": "닫지도 따르지도 않은 팁, 그리고 아직 읽지 않은 버전입니다. 클릭하면 새로운 기능이 열리고 숫자가 남은 팁 수로 줄어듭니다.",
- "feature.notices.a2": "두 앱 모두 설정({settings}) → 개요 → 새로운 기능을 여세요. 데스크톱 앱에서는 숫자가 보일 때 ⚙ 설정을 클릭해도 됩니다. 명령줄에서는 coxswain --whats-new를 실행하세요.",
+ "feature.notices.a2": "두 앱 모두 설정({settings}) → 개요 → 새로운 기능을 여세요. 데스크톱 앱에서는 숫자가 보일 때 ⚙ 설정을 클릭해도 됩니다. 명령줄에서는 coxswain --whats-new를 실행하세요. 터미널 앱에서는 버전에서 Enter를 누르면 그 버전이 가져온 모든 내용이 뷰어에 표시됩니다.",
  "feature.notices.a3": "앱에서는 안 됩니다: 닫은 팁은 상태 파일에 보관됩니다. 각 팁이 안내하던 곳은 그대로 있습니다. 예: 설정 → 파일 찾기 → 자세히 → 의미, 또는 coxswain --meaning on.",
  "feature.notices.q1": "설정 단추의 숫자는 무엇을 세나요?",
  "feature.notices.q2": "업그레이드로 무엇이 생겼는지 보려면?",

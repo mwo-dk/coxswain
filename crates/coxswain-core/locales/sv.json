@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Mappanteckningar",
  "feature.notes.what": "Fri text som sparas för en mapp och visas längst ned i förhandsvisningspanelen, i skrivbordsappen.",
  "feature.notices.a1": "Tipsen som du inte har avfärdat eller agerat på, plus versionerna du inte har läst om. Klicka på den: Nyheter öppnas och siffran sjunker till antalet tips som är kvar.",
- "feature.notices.a2": "I båda apparna öppnar du Inställningar ({settings}) → Översikt → Nyheter; i skrivbordsappen kan du också klicka på ⚙ Inställningar medan den visar en siffra. Från kommandoraden kör du coxswain --whats-new.",
+ "feature.notices.a2": "I båda apparna öppnar du Inställningar ({settings}) → Översikt → Nyheter; i skrivbordsappen kan du också klicka på ⚙ Inställningar medan den visar en siffra. Från kommandoraden kör du coxswain --whats-new. I terminalappen visar Enter på en version allt den förde med sig i visaren.",
  "feature.notices.a3": "Inte från appen: avfärdade tips sparas i tillståndsfilen. Det som varje tips ledde till finns kvar, till exempel Inställningar → Hitta filer → Detaljer → Betydelse, eller coxswain --meaning on.",
  "feature.notices.q1": "Vad räknar siffran på knappen Inställningar?",
  "feature.notices.q2": "Hur ser jag vad en uppgradering förde med sig?",

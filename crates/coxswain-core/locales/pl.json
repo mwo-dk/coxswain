@@ -1887,7 +1887,7 @@
  "feature.notes.title": "Notatki folderu",
  "feature.notes.what": "Dowolny tekst zapisany dla folderu, pokazywany na dole panelu podglądu, w aplikacji desktopowej.",
  "feature.notices.a1": "Wskazówki, których nie odrzuciłeś ani nie wykorzystałeś, oraz wersje, o których jeszcze nie czytałeś. Kliknij: otworzy się Co nowego, a liczba spadnie do pozostałych wskazówek.",
- "feature.notices.a2": "W obu aplikacjach otwórz Ustawienia ({settings}) → Przegląd → Co nowego; w aplikacji desktopowej możesz też kliknąć ⚙ Ustawienia, gdy pokazuje liczbę. Z wiersza poleceń uruchom coxswain --whats-new.",
+ "feature.notices.a2": "W obu aplikacjach otwórz Ustawienia ({settings}) → Przegląd → Co nowego; w aplikacji desktopowej możesz też kliknąć ⚙ Ustawienia, gdy pokazuje liczbę. Z wiersza poleceń uruchom coxswain --whats-new. W aplikacji terminalowej Enter na wersji pokazuje w przeglądarce wszystko, co przyniosła.",
  "feature.notices.a3": "Nie z aplikacji: odrzucone wskazówki są zapisane w pliku stanu. To, do czego prowadziła każda, nadal jest dostępne, np. Ustawienia → Znajdowanie plików → Szczegóły → Znaczenie albo coxswain --meaning on.",
  "feature.notices.q1": "Co liczy liczba na przycisku Ustawienia?",
  "feature.notices.q2": "Jak zobaczyć, co przyniosła aktualizacja?",

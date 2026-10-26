@@ -19,7 +19,11 @@
 # incremental, until the VM's free disk is less than that folder: then it starts afresh), streams
 # the output and exits with cargo's status. As in CI: debug info is line tables only, and the data
 # size limit is raised to the hard one (OpenBSD's 1.5 GB soft limit makes rustc abort on
-# coxswain-core).
+# coxswain-core). Files are copied with the time of the copy, not their own, and only when their
+# contents differ, so cargo rebuilds what another checkout left with an older date. One run per VM
+# at a time: a second one waits for the VM's .test-lock (a caller that holds it already on
+# descriptor 9 is not waited for). A VM the run started is stopped when the run ends, also when it
+# fails or is interrupted.
 # The VMs are in $COXSWAIN_VMS (default $XDG_DATA_HOME/coxswain-vms), made by tools/vms/rebuild/;
 # a VM is used only through its folder's start.sh, ssh.sh and stop.sh, so a folder made by hand
 # works too when it has them.
@@ -46,6 +50,13 @@ SRC=$(cd "$SRC" && pwd)
 vm() { "$DIR/ssh.sh" -o BatchMode=yes -o ConnectTimeout=5 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 "$@"; }
 up() { [ -e "$DIR/qemu.pid" ] && kill -0 "$(cat "$DIR/qemu.pid" 2>/dev/null)" 2>/dev/null; }
 
+# The lock is on descriptor 9, which the VM never gets (start.sh runs with it closed), so a VM
+# left running cannot keep it held after the run.
+if ! [ "/proc/$$/fd/9" -ef "$DIR/.test-lock" ]; then
+  exec 9>"$DIR/.test-lock"
+  flock -n 9 || { echo "== $(basename "$DIR") is busy with another run: waiting"; flock 9; }
+fi
+
 STARTED=0
 if ! up; then
   echo "== starting $(basename "$DIR") (headless)"
@@ -53,11 +64,13 @@ if ! up; then
   VM_DISPLAY=none nohup "$DIR/start.sh" >/dev/null 2>&1 9>&- &
   STARTED=1
 fi
+# A caller that went away (its ssh closed) shows as a broken pipe: the VM is stopped then too.
 finish() {
-  if [ "$STARTED" = 1 ]; then echo "== stopping $(basename "$DIR")"; "$DIR/stop.sh" >/dev/null 2>&1 || true; fi
+  trap '' PIPE
+  if [ "$STARTED" = 1 ]; then echo "== stopping $(basename "$DIR")" || true; "$DIR/stop.sh" >/dev/null 2>&1 || true; fi
 }
 trap finish EXIT
-trap 'exit 130' INT TERM
+trap 'exit 130' INT TERM HUP PIPE
 i=0; until vm true 2>/dev/null; do
   i=$((i + 1)); [ $i -gt 60 ] && { echo "No ssh after 5 minutes." >&2; exit 1; }; sleep 5
 done
@@ -65,13 +78,15 @@ done
 echo "== copying $SRC"
 if vm 'command -v rsync' >/dev/null 2>&1; then
   # rsync calls "<-e> <host> rsync --server ...": the wrapper drops the host and goes through ssh.sh.
-  rsync -az --timeout=120 --delete --exclude /target/ --exclude node_modules/ --exclude /.git/ \
+  # Not -a: its kept dates let cargo take another checkout's older files as built. -c sends only
+  # what differs, so unchanged files keep the date of their first copy and stay built.
+  rsync -rlpzc --timeout=120 --delete --exclude /target/ --exclude node_modules/ --exclude /.git/ \
     --exclude /.worktrees/ -e "sh -c 'shift; exec \"$DIR/ssh.sh\" -o BatchMode=yes \"\$@\"' ssh" \
     "$SRC/" vm:coxswain-src/
 else
   vm 'rm -rf coxswain-src && mkdir coxswain-src'
   (cd "$SRC" && tar -cf - --exclude ./target --exclude node_modules --exclude ./.git \
-    --exclude ./.worktrees .) | vm 'cd coxswain-src && tar -xf -'
+    --exclude ./.worktrees .) | vm 'cd coxswain-src && tar -xmf -'
 fi
 
 # The desktop app embeds gui/dist (cd gui && npm run build); without it an empty one lets it compile.

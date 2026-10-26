@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Karpeten oharrak",
  "feature.notes.what": "Karpeta baterako gordetako testu librea, aurrebista-panelaren behealdean erakutsia, mahaigaineko aplikazioan.",
  "feature.notices.a1": "Baztertu edo erabili ez dituzun aholkuak, gehi oraindik irakurri ez dituzun bertsioak. Egin klik: Berritasunak irekitzen da eta zenbakia geratzen diren aholkuetara jaisten da.",
- "feature.notices.a2": "Bi aplikazioetan, ireki Ezarpenak ({settings}) → Ikuspegi orokorra → Berritasunak; mahaigaineko aplikazioan, egin klik ⚙ Ezarpenak botoian ere zenbaki bat erakusten duen bitartean. Komando-lerrotik, exekutatu coxswain --whats-new.",
+ "feature.notices.a2": "Bi aplikazioetan, ireki Ezarpenak ({settings}) → Ikuspegi orokorra → Berritasunak; mahaigaineko aplikazioan, egin klik ⚙ Ezarpenak botoian ere zenbaki bat erakusten duen bitartean. Komando-lerrotik, exekutatu coxswain --whats-new. Terminal-aplikazioan, bertsio batean Enter sakatuta ekarri zuen guztia erakusten du ikustailean.",
  "feature.notices.a3": "Ez aplikaziotik: baztertutako aholkuak egoera-fitxategian gordetzen dira. Bakoitzak eramaten zuen lekua hor dago oraindik, adibidez Ezarpenak → Fitxategiak bilatzea → Xehetasunak → Esanahia, edo coxswain --meaning on.",
  "feature.notices.q1": "Zer zenbatzen du Ezarpenak botoiko zenbakiak?",
  "feature.notices.q2": "Nola ikusi bertsio-berritze batek zer ekarri duen?",

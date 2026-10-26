@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Kansion muistiinpanot",
  "feature.notes.what": "Vapaata tekstiä kansiolle, näytetään esikatseluruudun alareunassa työpöytäsovelluksessa.",
  "feature.notices.a1": "Vinkit, joita et ole ohittanut tai joiden mukaan et ole toiminut, sekä versiot, joista et ole lukenut. Napsauta sitä: Uutta avautuu ja luku laskee jäljellä oleviin vinkkeihin.",
- "feature.notices.a2": "Avaa kummassa tahansa sovelluksessa Asetukset ({settings}) → Yleiskatsaus → Uutta; työpöytäsovelluksessa voit myös napsauttaa ⚙ Asetukset, kun siinä näkyy luku. Komentoriviltä aja coxswain --whats-new.",
+ "feature.notices.a2": "Avaa kummassa tahansa sovelluksessa Asetukset ({settings}) → Yleiskatsaus → Uutta; työpöytäsovelluksessa voit myös napsauttaa ⚙ Asetukset, kun siinä näkyy luku. Komentoriviltä aja coxswain --whats-new. Päätesovelluksessa Enter version kohdalla näyttää katselimessa kaiken, mitä se toi.",
  "feature.notices.a3": "Ei sovelluksesta: ohitetut vinkit säilytetään tilatiedostossa. Se, mihin kukin johti, on yhä paikallaan, kuten Asetukset → Tiedostojen etsiminen → Tiedot → Merkitys tai coxswain --meaning on.",
  "feature.notices.q1": "Mitä Asetukset-painikkeen luku laskee?",
  "feature.notices.q2": "Miten näen, mitä päivitys toi?",

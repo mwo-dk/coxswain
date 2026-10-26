@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Mappenotater",
  "feature.notes.what": "Fritekst som lagres for en mappe og vises nederst i forhåndsvisningspanelet, i skrivebordsappen.",
  "feature.notices.a1": "Tipsene du ikke har avvist eller fulgt, pluss versjonene du ikke har lest om. Klikk på den: Nytt åpnes, og tallet synker til antallet tips som er igjen.",
- "feature.notices.a2": "I begge appene åpner du Innstillinger ({settings}) → Oversikt → Nytt; i skrivebordsappen kan du også klikke på ⚙ Innstillinger mens den viser et tall. Fra kommandolinjen kjører du coxswain --whats-new.",
+ "feature.notices.a2": "I begge appene åpner du Innstillinger ({settings}) → Oversikt → Nytt; i skrivebordsappen kan du også klikke på ⚙ Innstillinger mens den viser et tall. Fra kommandolinjen kjører du coxswain --whats-new. I terminalappen viser Enter på en versjon alt den brakte, i fremviseren.",
  "feature.notices.a3": "Ikke fra appen: avviste tips lagres i tilstandsfilen. Det hvert tips ledet til, finnes fortsatt, for eksempel Innstillinger → Finne filer → Detaljer → Mening, eller coxswain --meaning on.",
  "feature.notices.q1": "Hva teller tallet på Innstillinger-knappen?",
  "feature.notices.q2": "Hvordan ser jeg hva en oppgradering brakte med seg?",

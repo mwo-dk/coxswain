@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Notas de la carpeta",
  "feature.notes.what": "Texto libre guardado para una carpeta, que se muestra abajo del panel de vista previa, en la app de escritorio.",
  "feature.notices.a1": "Los consejos que no descartaste ni seguiste, más las versiones sobre las que no leíste. Hacé clic: se abre Novedades y el número baja a los consejos que quedan.",
- "feature.notices.a2": "En las dos apps, abrí Configuración ({settings}) → Resumen → Novedades; en la app de escritorio también podés hacer clic en ⚙ Configuración mientras muestra un número. Desde la línea de comandos, ejecutá coxswain --whats-new.",
+ "feature.notices.a2": "En las dos apps, abrí Configuración ({settings}) → Resumen → Novedades; en la app de escritorio también podés hacer clic en ⚙ Configuración mientras muestra un número. Desde la línea de comandos, ejecutá coxswain --whats-new. En la app de terminal, Enter sobre una versión muestra todo lo que trajo en el visor.",
  "feature.notices.a3": "Desde la app no: los consejos descartados se guardan en el archivo de estado. Aquello a lo que llevaba cada uno sigue ahí, como Configuración → Buscar archivos → Detalles → Significado, o coxswain --meaning on.",
  "feature.notices.q1": "¿Qué cuenta el número del botón Configuración?",
  "feature.notices.q2": "¿Cómo veo qué trajo una actualización?",

@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Poznámky ke složce",
  "feature.notes.what": "Volný text uložený ke složce, zobrazený dole v panelu náhledu, v desktopové aplikaci.",
  "feature.notices.a1": "Tipy, které jste nezavřeli ani nevyužili, a verze, o kterých jste nečetli. Klikněte na něj: otevře se Co je nového a číslo klesne na zbývající tipy.",
- "feature.notices.a2": "V obou aplikacích otevřete Nastavení ({settings}) → Přehled → Co je nového; v desktopové aplikaci můžete také kliknout na ⚙ Nastavení, když ukazuje číslo. Z příkazového řádku spusťte coxswain --whats-new.",
+ "feature.notices.a2": "V obou aplikacích otevřete Nastavení ({settings}) → Přehled → Co je nového; v desktopové aplikaci můžete také kliknout na ⚙ Nastavení, když ukazuje číslo. Z příkazového řádku spusťte coxswain --whats-new. V terminálové aplikaci zobrazí Enter na verzi vše, co přinesla, v prohlížeči.",
  "feature.notices.a3": "V aplikaci ne: zavřené tipy se pamatují v souboru stavu. To, k čemu každý vedl, tam pořád je, třeba Nastavení → Hledání souborů → Podrobnosti → Význam, nebo coxswain --meaning on.",
  "feature.notices.q1": "Co počítá číslo na tlačítku Nastavení?",
  "feature.notices.q2": "Jak uvidím, co přinesla nová verze?",
