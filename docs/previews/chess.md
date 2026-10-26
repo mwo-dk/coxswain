@@ -320,8 +320,9 @@ own.
   bytes could hold, to more than 16 GB, or to more than the disk has free (keeping 1 GB) is
   refused with a message before anything is written; the bar shows the unpacking, then the
   reading, and closing the preview stops both. *Save as new PGN* writes next to the archive. Find reads a
-  `.cbv` file as it does a `.cbh` one; a store made before this release reads each `.cbv` file
-  once, for the first time.
+  `.cbv` file as it does a `.cbh` one; every database in it. A store made before
+  coxswain 2.35.0 reads each `.cbv` file once more, so the games of an archive's other databases
+  are found too; no other file is read again.
 - **Find** reads a `.cbh` file as a line per game and keeps the positions of its games, as it
   does a PGN file's ([Finding games](#finding-games)). A store made before this release reads
   each `.cbh` file once, for the first time; no other file is read again.
