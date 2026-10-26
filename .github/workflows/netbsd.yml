@@ -49,13 +49,8 @@ jobs:
           npm run build
           rm -rf node_modules
 
-      # Cargo's downloads, kept between runs: the VM's CARGO_HOME is inside the checkout.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .cargo-vm
-          key: netbsd-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: netbsd-cargo-
       # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      # Cargo's downloads are not kept: a minute in the VM, against the room in the 10 GB.
       - id: target
         uses: ./.github/actions/target-cache
         with:
