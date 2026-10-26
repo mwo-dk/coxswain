@@ -2130,6 +2130,10 @@ mod tests {
         let d = crate::test_dir("panels");
         let mut app = app(&d);
         app.cfg.search.ask_model = String::new();
+        // The machine looked at first: a probe finishing between Enter and Space adds a row
+        // (a server's set-up line) above the model, and the two open one row apart. That took
+        // longer than the keys on a slow OpenBSD machine.
+        coxswain_core::setup::look(true);
         app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, "ask_model"))));
         let pick = |app: &App| match settings(app).mode {
             Mode::Pick(at) => at,
