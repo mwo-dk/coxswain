@@ -36,11 +36,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      # Cargo's downloads are not kept: a minute in the VM, against the room in the 10 GB.
+      - id: target
+        uses: ./.github/actions/target-cache
         with:
-          path: .cargo-vm
-          key: omnios-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: omnios-cargo-
+          name: omnios-r151058-debug
 
       # Linking the tests needs more memory than the default 6 GB: illumos reserves swap for all
       # of it.
@@ -51,6 +52,7 @@ jobs:
           recommends: false
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "r151058"
           usesh: true
           mem: 12288
@@ -61,13 +63,20 @@ jobs:
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1 PATH="/opt/ooce/bin:$PATH"
             uname -a
             rustc -V
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain --locked -j2 --no-run
             cargo test -p coxswain-core -p coxswain --locked -j2
             # ZFS from end to end on a pool in a file: snapshots as folders, the diff, a copy
             # restored, the refusals. The VM runs as root.
             COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked
             cargo build -p coxswain --locked
             mkdir -p out && cp target/debug/coxswain out/
-            rm -rf target
+            sh packaging/target-cache.sh prune debug
+      - uses: ./.github/actions/target-cache
+        with:
+          name: omnios-r151058-debug
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
 
       - name: Pack the archive as a release does
         run: sh packaging/pack-unix.sh v0.0.0 x86_64-unknown-illumos out dist packaging/illumos/coxswain-index.xml
@@ -128,6 +137,7 @@ jobs:
           recommends: false
       - uses: vmactions/openindiana-vm@74a06af3be38c265a2d99d1af520d66a057ff222 # v1.1.9
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "202604"
           usesh: true
           run: |

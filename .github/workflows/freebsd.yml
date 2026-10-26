@@ -55,13 +55,12 @@ jobs:
           npm run build
           rm -rf node_modules
 
-      # Cargo's downloads, kept between runs: the VM's CARGO_HOME is inside the checkout, and
-      # copied back from the VM after the run.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      # Cargo's downloads are not kept: a minute in the VM, against the room in the 10 GB.
+      - id: target
+        uses: ./.github/actions/target-cache
         with:
-          path: .cargo-freebsd
-          key: freebsd-${{ matrix.release }}-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: freebsd-${{ matrix.release }}-cargo-
+          name: freebsd-${{ matrix.release }}-debug
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10
@@ -70,6 +69,7 @@ jobs:
           recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: ${{ matrix.release }}
           usesh: true
           # Compiling coxswain-core's tests needs more than the default 6 GB (rustc was killed).
@@ -80,13 +80,20 @@ jobs:
             export CARGO_HOME="$PWD/.cargo-freebsd" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             freebsd-version
             rustc -V
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked --no-run
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
             # ZFS from end to end on a pool in a file: snapshots as folders, the diff, a copy
             # restored, the refusals, file flags. The VM runs as root.
             kldload zfs 2>/dev/null || true
             COXSWAIN_ZFS_E2E=1 cargo test -p coxswain-core --test zfs --locked
-            # Only the cache goes back to the runner, not the build.
-            rm -rf target
+            # Back to the runner: the cache and target/'s dependencies.
+            sh packaging/target-cache.sh prune debug
+      - uses: ./.github/actions/target-cache
+        with:
+          name: freebsd-${{ matrix.release }}-debug
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
 
   port:
     if: github.event_name == 'workflow_dispatch' && github.workflow == 'FreeBSD'
@@ -110,6 +117,7 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: ${{ matrix.release }}
           usesh: true
           envs: TAG

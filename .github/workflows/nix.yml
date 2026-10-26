@@ -39,7 +39,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The packages' compiled dependencies (crane's buildDepsOnly, packaging/nix/package.nix),
+      # kept between runs as a binary cache in a folder: a store path that changes only with
+      # Cargo.lock, a Cargo.toml, the Nix files or flake.lock, so only the workspace's own crates
+      # are compiled. Unsigned, so trusted by name; it comes only from this repository's caches
+      # (a pull request's from its own runs or master's). A new key is saved only when the paths
+      # change, holding only the current ones; GitHub's LRU eviction drops the older keys.
+      - id: deps
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: nix-deps
+          key: nix-deps-v1-${{ runner.os }}-${{ hashFiles('flake.lock', 'Cargo.lock', '**/Cargo.toml', 'packaging/nix/*.nix') }}
+          restore-keys: nix-deps-v1-${{ runner.os }}-
+      - run: mkdir -p nix-deps
       - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
+        with:
+          extra_nix_config: extra-substituters = file://${{ github.workspace }}/nix-deps?trusted=true
 
       - name: Terminal app
         run: |
@@ -59,6 +75,26 @@ jobs:
           ! ldd result-gui/bin/.coxswain-gui-wrapped | grep 'not found'
           export HOME=$(mktemp -d)
           timeout 5 result-gui/bin/coxswain-gui --index-helper || test $? = 124
+
+      - name: Dependencies, for the next run
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: |
+          deps=".#coxswain.cargoArtifacts"
+          [ "$RUNNER_OS" = Linux ] && deps="$deps .#coxswain-gui.cargoArtifacts"
+          # With their closure (the crates' sources), less what cache.nixos.org has. Made apart:
+          # the daemon (root) makes folders in nix-deps while it looks for paths there.
+          nix copy --to "file://$PWD/nix-deps.new?compression=zstd" $deps
+          nix path-info -r $deps | cut -c12-43 | xargs -P 16 -I{} sh -c \
+            'curl -sfI -o /dev/null https://cache.nixos.org/{}.narinfo || exit 0; rm -f "nix-deps.new/$(sed -n "s/^URL: //p" nix-deps.new/{}.narinfo)" nix-deps.new/{}.narinfo'
+          ls nix-deps.new/*.narinfo | wc -l
+          du -sh nix-deps.new
+          sudo rm -rf nix-deps
+          mv nix-deps.new nix-deps
+      - if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: nix-deps
+          key: ${{ steps.deps.outputs.cache-primary-key }}
 
   # The packages prepared for nixpkgs (packaging/nix/nixpkgs, see SUBMIT.md), built from the
   # release they name with the flake's nixpkgs, as nixpkgs would build them. They change only

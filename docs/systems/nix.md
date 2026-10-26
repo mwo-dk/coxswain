@@ -144,8 +144,12 @@ from the release they name.
 
 There is no binary cache for the flake, so Nix compiles the app and all its crates: a few
 minutes for the terminal app, longer for the desktop app with its frontend. The result stays in
-your store, and the next `nix run` of the same commit starts at once. Once Coxswain is in
-nixpkgs, `nix run nixpkgs#coxswain` comes ready-built from cache.nixos.org.
+your store, and the next `nix run` of the same commit starts at once. The crates Coxswain
+depends on are built apart from its own (a store path of their own, made with
+[crane](https://crane.dev)): an update that keeps `Cargo.lock`, the `Cargo.toml` files and
+`flake.lock` as they were compiles only Coxswain's own crates, while the dependencies come from
+your store. Once Coxswain is in nixpkgs, `nix run nixpkgs#coxswain` comes ready-built from
+cache.nixos.org.
 
 #### Why is there no desktop app for macOS in the flake?
 

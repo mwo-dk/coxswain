@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+# Line tables only, as in the virtual machines: a failing test still names its file and line, the
+# build is quicker and its cache (rust-cache, from master) smaller, which leaves room
+# in the repository's 10 GB for the systems' caches (.github/actions/target-cache).
+env:
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
 # A newer push to a pull request cancels its older run. Called from release.yml, the group is that
 # run's own (github.* is the caller's there), so nothing cancels it.
 concurrency:
@@ -75,7 +81,12 @@ jobs:
         with:
           toolchain: stable
           components: clippy
+      # Saved from master only, and not for the ARM Linux and Windows machines, which run only on
+      # master: a pull request's copy and those two (a gigabyte or two each) would push the
+      # nightly systems' caches (.github/actions/target-cache) out of the repository's 10 GB.
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/master' && (runner.arch == 'X64' || runner.os == 'macOS') }}
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -201,6 +212,7 @@ jobs:
         if: needs.changes.outputs.code == 'false'
         with:
           shared-key: docs
+          save-if: ${{ github.ref == 'refs/heads/master' }}
       - if: needs.changes.outputs.code == 'false'
         run: cargo test -p coxswain-core --locked --test docs
       - if: needs.changes.outputs.code == 'false'

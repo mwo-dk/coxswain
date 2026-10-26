@@ -311,6 +311,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: boms
+          save-if: false # the Dependencies workflow keeps it, from master
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -366,7 +367,8 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # No rust-cache here or in `terminal`: twelve caches written once a week would push the
+      # nightly systems' and CI's out of the repository's 10 GB (and were gone by the next week).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -458,9 +460,6 @@ jobs:
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          key: ${{ matrix.target }}
       # Static musl binaries on Linux run on any distribution.
       - env:
           TARGET: ${{ matrix.target }}
@@ -522,6 +521,7 @@ jobs:
           recommends: false
       - uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "14.5"
           usesh: true
           prepare: sh packaging/pkg-retry.sh pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
@@ -598,6 +598,7 @@ jobs:
       - uses: vmactions/netbsd-vm@c8a0d7ddb84619a7a8cc4e652efa7950b3fd9f92 # v1.5.2
         if: matrix.sys == 'netbsd'
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "10.1"
           usesh: true
           prepare: |
@@ -615,6 +616,7 @@ jobs:
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         if: matrix.sys == 'openbsd'
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "7.9"
           usesh: true
           prepare: |
@@ -628,6 +630,7 @@ jobs:
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         if: matrix.sys == 'illumos'
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "r151058"
           usesh: true
           mem: 12288
@@ -830,6 +833,7 @@ jobs:
         env:
           TAG: ${{ needs.draft.outputs.tag }}
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "14.5"
           usesh: true
           envs: TAG

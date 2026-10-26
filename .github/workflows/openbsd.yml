@@ -51,11 +51,12 @@ jobs:
           npm run build
           rm -rf node_modules
 
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # The compiled dependencies (target/), kept between runs: .github/actions/target-cache.
+      # Cargo's downloads are not kept: a minute in the VM, against the room in the 10 GB.
+      - id: target
+        uses: ./.github/actions/target-cache
         with:
-          path: .cargo-vm
-          key: openbsd-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: openbsd-cargo-
+          name: openbsd-7.9-debug
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10
@@ -64,6 +65,7 @@ jobs:
           recommends: false
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "7.9"
           usesh: true
           custom-shell-name: vmsh
@@ -75,10 +77,18 @@ jobs:
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             uname -a
             rustc -V
+            sh packaging/target-cache.sh check
+            sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked --no-run
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
             cargo build -p coxswain -p coxswain-gui --locked
             mkdir -p out && cp target/debug/coxswain target/debug/coxswain-gui out/
-            rm -rf target
+            # Back to the runner: the cache, the programs and target/'s dependencies.
+            sh packaging/target-cache.sh prune debug
+      - uses: ./.github/actions/target-cache
+        with:
+          name: openbsd-7.9-debug
+          save: true
+          matched: ${{ steps.target.outputs.matched-key }}
 
       - name: The desktop app starts and draws its window
         shell: vmsh {0}
@@ -154,6 +164,7 @@ jobs:
           recommends: false
       - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "7.9"
           usesh: true
           custom-shell-name: vmsh

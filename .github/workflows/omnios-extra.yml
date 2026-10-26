@@ -37,6 +37,7 @@ jobs:
           recommends: false
       - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
         with:
+          disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "r151058"
           usesh: true
           mem: 8192
