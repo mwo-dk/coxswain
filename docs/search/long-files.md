@@ -101,7 +101,9 @@ those files their vectors again, once: only the ones kept whole with fewer passa
 kept of them gives, which a file streamed to its end never has. Nothing is read again for search
 by words, and the vectors they have stay until the new ones are in. A file whose model got
 through more than its first 4 MB of text in those 20 seconds cannot be told from one read to its
-end, and keeps its passages until it changes.
+end, so every long Word and OpenDocument text kept whole with at least as many passages as its
+first 4 MB gives gets its vectors again too, once (books and web pages, which no released version
+read that way, are left as they are).
 
 Search by meaning finds such a file by its part read, as it finds any other. One that is not there when it is looked at (a disk
 unplugged) is tried again at the next scan. A file that changes or goes while it is read gets
