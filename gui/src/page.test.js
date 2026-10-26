@@ -1,30 +1,25 @@
-// An HTML file shown as a page: its frame's content security policy names the page's own
-// folder, never the whole file protocol, so a downloaded page cannot show what is elsewhere
-// on the disk.
+// An HTML file shown as a page: its frame loads it from the app's file protocol (`?page`), its
+// folder written one segment at a time, so its own stylesheets and pictures resolve beside it.
+// The protocol's policy (asset.rs) names the same folder and nothing more.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-// renderers.js pulls in the app's libraries; pageHead needs none of them.
+// renderers.js pulls in the app's libraries; pageUrl needs none of them.
 // A Windows checkout may have CRLF line ends.
 const src = readFileSync(new URL("./renderers.js", import.meta.url), "utf8").replaceAll("\r\n", "\n");
-const body = src.slice(src.indexOf("export function pageHead"), src.indexOf("\n}\n", src.indexOf("export function pageHead")) + 2);
-const { pageHead } = await import("data:text/javascript," + encodeURIComponent(body));
+const body = src.slice(src.indexOf("export function pageUrl"), src.indexOf("\n}\n", src.indexOf("export function pageUrl")) + 2);
+const { pageUrl } = await import("data:text/javascript," + encodeURIComponent(body));
 
-test("an HTML page may load from its own folder only", () => {
-  const head = pageHead("http://asset.localhost/%2Fhome%2Fme%2Fsite%20v2%2Findex.html", "/home/me/site v2/index.html");
-  const csp = head.match(/content="([^"]*)"/)[1];
-  const base = head.match(/<base href="([^"]*)"/)[1];
-  assert.equal(base, "http://asset.localhost/%2Fhome/me/site%20v2/");
-  // A stylesheet beside it is asked for by its absolute path (the protocol drops the first `/`).
-  assert.equal(decodeURIComponent(new URL("style.css", base).pathname.slice(1)), "/home/me/site v2/style.css");
-  for (const what of ["img-src", "style-src", "font-src", "media-src"]) {
-    assert.match(csp, new RegExp(`${what} http://asset.localhost/%2Fhome/me/site%20v2/( |$)`), what);
-  }
-  assert.doesNotMatch(csp, /asset\.localhost[ ;]/, "never the whole file protocol");
-  assert.match(csp, /default-src 'none'/);
+test("an HTML page is asked for as a page, its links resolving in its own folder", () => {
+  const url = pageUrl("http://asset.localhost/%2Fhome%2Fme%2Fsite%20v2%2Findex.html", "/home/me/site v2/index.html");
+  assert.equal(url, "http://asset.localhost/%2Fhome/me/site%20v2/index.html?page");
+  // A stylesheet beside it, or in a folder below, is asked for by its absolute path (the protocol drops the first `/`).
+  assert.equal(decodeURIComponent(new URL("assets/style.css", url).pathname.slice(1)), "/home/me/site v2/assets/style.css");
+  // `..` leaves the folder: the protocol's policy refuses it.
+  assert.equal(decodeURIComponent(new URL("../x.css", url).pathname.slice(1)), "/home/me/x.css");
   // Windows: the drive is a segment of its own.
-  assert.match(pageHead("http://asset.localhost/C%3A%5Cdocs%5Ca.html", "C:\\docs\\a.html"), /img-src http:\/\/asset\.localhost\/C%3A\/docs\/ /);
+  assert.equal(pageUrl("http://asset.localhost/C%3A%5Cdocs%5Ca.html", "C:\\docs\\a.html"), "http://asset.localhost/C%3A/docs/a.html?page");
 });
 
 // A file's <style> would restyle the whole window: clean() forbids it unless asked to keep it.

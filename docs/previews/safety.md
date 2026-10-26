@@ -41,9 +41,11 @@ open it outside the pane:
   its own), and what it draws stays inside the preview: nothing it places "fixed" can cover the
   window.
 - **Serve a file as a web page.** PDFs, pictures, video and fonts reach the page through the
-  app's own file protocol. It never answers as HTML or XML: a file that holds a page is served
-  as plain text whatever its name, so a `.pdf` that is really a web page shows its text and
-  runs nothing. Only a file that starts the way a PDF does (`%PDF-`) opens in the PDF viewer;
+  app's own file protocol. It answers as HTML only for the preview of an `.html`, `.htm` or
+  `.xhtml` file, asked for as a page: under a sandbox that runs no script and a policy that
+  allows only that page's folder and nothing from the web ([HTML pages](html.md)). Any other
+  file that holds a page is served as plain text whatever its name, so a `.pdf` that is really a
+  web page shows its text and runs nothing. Only a file that starts the way a PDF does (`%PDF-`) opens in the PDF viewer;
   every other answer carries a sandbox that lets nothing in it run.
 - **Write next to your files.** Tool results, LaTeX's auxiliary files and LibreOffice's profile
   go to the cache folder. Containers see your folders read-only. The only things that write are
@@ -109,7 +111,7 @@ the app, and previews of every kind are blocked from the web.
 
 | What | Limit | Then |
 |---|---|---|
-| HTML, Markdown, data files | First 512 KB | *Showing the first 512 KB* |
+| Markdown, data files, an HTML file's **Source** | First 512 KB | *Showing the first 512 KB* |
 | Text, code, logs, JSON Lines | None: over 512 KB, and logs of any size, in the [log view](logs.md), a screen at a time | The first 20,000,000 lines are found; a line is read to 1 MB |
 | Highlighting | Files under 200 KB | Larger ones stay plain |
 | Hex dump of a binary file | First 64 KB | – |
@@ -158,8 +160,8 @@ file in a program that fetches it.
 
 #### Why does the preview only show the start of a big file?
 
-Reading a whole large file would make the pane slow as you move through a folder. HTML,
-Markdown and data files show their first 512 KB, tables their first 200 rows. Press **F4** or
+Reading a whole large file would make the pane slow as you move through a folder. Markdown and
+data files show their first 512 KB, tables their first 200 rows. Press **F4** or
 **Enter** for the whole file. Plain text, code and logs over 512 KB are not cut: they open in the
 [log view](logs.md), which reads only the lines on screen.
 

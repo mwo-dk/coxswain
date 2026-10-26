@@ -312,30 +312,18 @@ async function mendPptx(JSZip, buffer) {
   return changed ? zip.generateAsync({ type: "arraybuffer" }) : buffer;
 }
 
-/** An HTML file as a page to show in a sandboxed frame: no script runs (the frame allows none)
- *  and nothing comes from the web (the page's content policy allows only the folder it is in),
- *  so a downloaded page cannot run code or report that it was opened. Its own pictures,
- *  styles and fonts, next to it, come through the app's file protocol. */
-export function renderHtml(src, path) {
-  return pageHead(convertFileSrc(path), path) + src;
-}
-
-/** What goes before an HTML file's own text in the frame: its content security policy and
- *  its base. `fileUrl` is the file through the app's file protocol, `path` the file on disk.
- *  The policy names the page's folder (and what is below it), not the whole file protocol,
- *  so `../private/photo.jpg` or `/home/me/keys.png` is not shown. */
-export function pageHead(fileUrl, path) {
+/** An HTML file as the page it is, for the preview's frame: its URL on the app's file protocol,
+ *  asked for as a page (`?page`; gui/src-tauri/src/asset.rs serves it as HTML under a policy of
+ *  its own folder and no script). `fileUrl` is the file through that protocol, `path` the file on
+ *  disk. The folder is written one segment at a time, so the page's relative links resolve beside
+ *  it, as the protocol's policy names them. A leading `/` is kept, encoded: the protocol takes the
+ *  path after the host's `/`. */
+export function pageUrl(fileUrl, path) {
   const u = new URL(fileUrl);
-  const origin = `${u.protocol}//${u.host}`;
-  // The folder, one segment at a time, so the page's relative links resolve beside it. A leading
-  // `/` is kept, encoded: the protocol takes the path after the host's `/`, and without it a
-  // stylesheet's path would be relative.
   const lead = path.startsWith("/") ? "%2F" : "";
-  const dir = lead + path.split(/[\\/]/).slice(0, -1).filter(Boolean).map(encodeURIComponent).join("/");
-  const base = `${origin}/${dir}/`;
-  const csp = `default-src 'none'; img-src ${base} data:; style-src ${base} 'unsafe-inline'; font-src ${base} data:; media-src ${base}`;
-  // Before the page's own head: the parser puts them in the head it makes, and the page cannot undo them.
-  return `<meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${base}">`;
+  const parts = path.split(/[\\/]/).filter(Boolean).map(encodeURIComponent);
+  const name = parts.pop();
+  return `${u.protocol}//${u.host}/${lead}${parts.join("/")}/${name}?page`;
 }
 
 let drawioReady;

@@ -21,8 +21,10 @@ A page you downloaded cannot run code or tell anyone that you opened it.
 
 ## What is allowed, and what is blocked
 
-The page is put in a frame with an empty `sandbox` attribute and a content security policy
-placed before the page's own head, where the page cannot undo it.
+The page is loaded into a frame from disk, through the app's file protocol. The frame's
+`sandbox` allows no scripts, and the file protocol sends the page with a content security policy
+of its own, which the page cannot undo. The page keeps the file protocol's origin, so it can load
+the files beside it, but never the app's.
 
 | | In the preview |
 |---|---|
@@ -34,7 +36,7 @@ placed before the page's own head, where the page cannot undo it.
 | `<script>`, `onclick=` and other scripts | Never run (the frame allows no scripts) |
 | Anything from the web: `https://` pictures, stylesheets, web fonts, trackers | Blocked (`default-src 'none'`) |
 | Frames inside the page, forms, pop-ups, plug-ins | Blocked |
-| Access to the app or to other pages | None (the frame has no origin of its own) |
+| Access to the app or to other pages | None: no script runs, and the page's origin is the file protocol's, not the app's |
 
 The frame has a white background whatever the theme, as a web page expects.
 
@@ -75,8 +77,9 @@ blocked: nothing leaves your machine when the preview shows a page.
 
 #### Are pictures next to the page shown?
 
-Yes. A `<base>` pointing at the page's folder is added, so `img/logo.png` and `../shared/site.css`
-load from disk as they would in a browser opening the file.
+Yes. Pictures, stylesheets and fonts in the page's folder or below it (`img/logo.png`,
+`assets/site.css`, the fonts a stylesheet names) load from disk, as in a browser opening the
+file. Files above its folder (`../shared/site.css`) do not.
 
 #### Can I click links in the preview?
 
@@ -87,10 +90,10 @@ The preview is for looking. Open the page with **Enter** to follow its links in 
 A web page sets its own colours and expects a white page under them; the frame gives it one, as
 a browser does.
 
-#### A very large HTML file is cut off.
+#### Is a very large HTML file cut off?
 
-The preview reads the first 512 KB of an HTML file, and says so under the page
-(*Showing the first 512 KB*). Open larger pages with **Enter**.
+No. The frame loads the whole page from disk, as a browser does. **Source** shows the first
+512 KB of its text (*Showing the first 512 KB*).
 
 ---
 [← Previous: Documents](documents.md) · [Next: PowerPoint and Office →](office.md)
