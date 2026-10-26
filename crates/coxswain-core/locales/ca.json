@@ -2023,7 +2023,7 @@
  "feature.search_folders.title": "Triar les carpetes",
  "feature.search_folders.what": "Trieu quines carpetes es llegeixen pel text i quines només es troben pel nom, amb llistes o amb un fitxer .nosearch.",
  "feature.search_history.a1": "Els repositoris es llegeixen a les anàlisis de l'assistent de cerca, com a màxim cada deu minuts, així que espereu una mica. Els commits d'un repositori de fora de les carpetes que es llegeixen no es guarden mai.",
- "feature.search_history.a2": "Conserva els noms de les funcions que va canviar cada commit, no el codi. Activeu Text dels canvis de cada commit a la configuració per cercar als canvis mateixos.",
+ "feature.search_history.a2": "Conserva els noms de les funcions que va canviar cada commit, no el codi. Activeu Text dels canvis de cada commit als Paràmetres per cercar en els canvis mateixos.",
  "feature.search_history.a3": "Poseu un fitxer .nosearch buit al repositori, o afegiu-lo a Només noms: llavors no se'n llegeixen ni els fitxers ni els commits.",
  "feature.search_history.q1": "Per què Cerca no troba el meu darrer commit?",
  "feature.search_history.q2": "Cerca el codi tal com era als commits antics?",
@@ -4600,7 +4600,7 @@
  "feature.git_line_history.q3": "On ho demano a la vista prèvia de l’aplicació d’escriptori?",
  "feature.git_line_history.a3": "Activeu Qui ha canviat a dalt de la vista prèvia i feu clic al commit d’una línia.",
  "setting.search_commit_changes": "Text dels canvis de cada commit",
- "setting.search_commit_changes.hint": "Desactivat per defecte. També cerca el que va canviar cada commit: el seu diff, fins a 64 KB per commit i 64 MB per repositori. Pot fer search.db molt més gran; la mida i el temps es diuen abans de començar.",
+ "setting.search_commit_changes.hint": "Desactivat per defecte. També cerca el que va canviar cada commit: el seu diff, fins a 64 KB per commit i 64 MB per repositori. Pot fer search.db molt més gran; la mida i el temps s'indiquen abans de començar.",
  "setting.search_commit_changes_in": "Canvis dels commits, per als repositoris d’aquestes carpetes",
  "setting.search_commit_changes_in.hint": "Amb l’opció de dalt desactivada: conserva només els canvis dels repositoris d’aquestes carpetes.",
  "changes.cost": "Llegir els canvis de {commits} commits en {repos} repositoris afegeix uns {size} a search.db i triga uns {secs} s en segon pla. Res no surt de la màquina.",
@@ -4609,7 +4609,7 @@
  "changes.reading": "Llegint els canvis de {n} commits…",
  "changes.freed": "Canvis dels commits trets a les {at}: {size} alliberats",
  "disk.changes.name": "search.db: canvis dels commits",
- "disk.changes.what": "El text del que va canviar cada commit, dins de search.db (Configuració → Trobar fitxers → Text dels canvis de cada commit).",
- "disk.changes.cost": "Desactiva aquesta opció: el text desapareix quan l’ajudant de cerca torna a començar, i search.db retorna l’espai. Els missatges dels commits es queden.",
+ "disk.changes.what": "El text del que va canviar cada commit, dins de search.db (Paràmetres → Trobar fitxers → Text dels canvis de cada commit).",
+ "disk.changes.cost": "Desactiva aquesta opció: el text desapareix quan l’assistent de cerca torna a començar, i search.db retorna l’espai. Els missatges dels commits es queden.",
  "disk.report.changes": "Canvis dels commits"
 }

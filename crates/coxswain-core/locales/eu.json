@@ -4511,7 +4511,7 @@
  "changes.reading": "{n} commit-en aldaketak irakurtzen…",
  "changes.freed": "Commit-en aldaketak kenduta {at}: {size} askatuta",
  "disk.changes.name": "search.db: commit-en aldaketak",
- "disk.changes.what": "Commit bakoitzak aldatu zuenaren testua, search.db barruan (Ezarpenak → Fitxategiak aurkitu → Commit bakoitzaren aldaketen testua).",
+ "disk.changes.what": "Commit bakoitzak aldatu zuenaren testua, search.db barruan (Ezarpenak → Fitxategiak bilatzea → Commit bakoitzaren aldaketen testua).",
  "disk.changes.cost": "Aukera hori itzaltzen du: testua bilaketa-laguntzailea berriz abiatzean joaten da, eta search.db-k lekua itzultzen du. Commit-en mezuak geratzen dira.",
  "disk.report.changes": "Commit-en aldaketak"
 }

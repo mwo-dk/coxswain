@@ -4409,7 +4409,7 @@
  "setting.search_commit_changes_in.hint": "위 옵션이 꺼져 있을 때: 이 폴더들에 있는 저장소의 변경 내용만 보관합니다.",
  "changes.cost": "저장소 {repos}개의 커밋 {commits}개의 변경 내용을 읽으면 search.db가 약 {size} 늘고 백그라운드에서 약 {secs}초 걸립니다. 아무것도 이 컴퓨터를 떠나지 않습니다.",
  "changes.off": "저장소 {repos}개의 커밋 변경 내용을 search.db에서 빼고 공간을 돌려줍니다.",
- "changes.cost_unknown": "커밋 변경 내용은 다음 저장소 검사 때 읽습니다. 그 크기는 디스크 사용에 나옵니다.",
+ "changes.cost_unknown": "커밋 변경 내용은 다음 저장소 검사 때 읽습니다. 그 크기는 디스크 사용량에 나옵니다.",
  "changes.reading": "커밋 {n}개의 변경 내용 읽는 중…",
  "changes.freed": "{at}에 커밋 변경 내용을 뺐습니다: {size} 확보",
  "disk.changes.name": "search.db: 커밋 변경 내용",

@@ -2023,7 +2023,7 @@
  "feature.search_folders.title": "Aplankų pasirinkimas",
  "feature.search_folders.what": "Pasirinkite, kurių aplankų tekstas skaitomas, o kurie randami tik pagal pavadinimą, sąrašais arba .nosearch failu.",
  "feature.search_history.a1": "Saugyklos skaitomos pagalbinės programos skenavimų metu, daugiausia kas dešimt minučių, tad šiek tiek palaukite. Commit saugykloje už skaitomų aplankų niekada nesaugomi.",
- "feature.search_history.a2": "Ji laiko funkcijų, kurias pakeitė kiekvienas commit'as, pavadinimus, o ne kodą. Įjunkite nustatymuose Kiekvieno commit'o pakeitimų tekstas, kad ieškotumėte pačiuose pakeitimuose.",
+ "feature.search_history.a2": "Ji laiko funkcijų, kurias pakeitė kiekvienas commit'as, pavadinimus, o ne kodą. Įjunkite parametruose Kiekvieno commit'o pakeitimų tekstas, kad ieškotumėte pačiuose pakeitimuose.",
  "feature.search_history.a3": "Įdėkite į saugyklą tuščią .nosearch failą arba pridėkite ją prie Tik pavadinimai: tada neskaitomi nei jos failai, nei jos commit.",
  "feature.search_history.q1": "Kodėl paieška neranda mano naujausio commit?",
  "feature.search_history.q2": "Ar ieškoma kodo, koks jis buvo senuose commit?",
@@ -4609,7 +4609,7 @@
  "changes.reading": "Skaitomi {n} commit'ų pakeitimai…",
  "changes.freed": "Commit'ų pakeitimai išimti {at}: atlaisvinta {size}",
  "disk.changes.name": "search.db: commit'ų pakeitimai",
- "disk.changes.what": "Tekstas apie tai, ką pakeitė kiekvienas commit'as, search.db (Nustatymai → Failų paieška → Kiekvieno commit'o pakeitimų tekstas).",
- "disk.changes.cost": "Išjungia tą parinktį: tekstas dingsta, kai paieškos pagalbininkas kitą kartą paleidžiamas, o search.db grąžina vietą. Commit'ų žinutės lieka.",
+ "disk.changes.what": "Tekstas apie tai, ką pakeitė kiekvienas commit'as, search.db (Parametrai → Failų paieška → Kiekvieno commit'o pakeitimų tekstas).",
+ "disk.changes.cost": "Išjungia tą parinktį: tekstas dingsta, kai paieškos pagalbinė programa kitą kartą paleidžiama, o search.db grąžina vietą. Commit'ų žinutės lieka.",
  "disk.report.changes": "Commit'ų pakeitimai"
 }

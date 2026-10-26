@@ -4609,7 +4609,7 @@
  "changes.reading": "Leyendo los cambios de {n} commits…",
  "changes.freed": "Cambios de commits sacados a las {at}: {size} liberados",
  "disk.changes.name": "search.db: cambios de commits",
- "disk.changes.what": "El texto de lo que cambió cada commit, dentro de search.db (Configuración → Encontrar archivos → Texto de los cambios de cada commit).",
- "disk.changes.cost": "Apaga esa opción: el texto se va cuando el ayudante de búsqueda vuelve a arrancar, y search.db devuelve el espacio. Los mensajes de commit quedan.",
+ "disk.changes.what": "El texto de lo que cambió cada commit, dentro de search.db (Configuración → Buscar archivos → Texto de los cambios de cada commit).",
+ "disk.changes.cost": "Apaga esa opción: el texto se va cuando el asistente de búsqueda vuelve a arrancar, y search.db devuelve el espacio. Los mensajes de commit quedan.",
  "disk.report.changes": "Cambios de commits"
 }

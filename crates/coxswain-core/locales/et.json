@@ -1973,7 +1973,7 @@
  "feature.search_folders.title": "Kaustade valimine",
  "feature.search_folders.what": "Vali, milliste kaustade tekst loetakse ja millised leitakse ainult nime järgi, loendite või .nosearch-faili abil.",
  "feature.search_history.a1": "Hoidlaid loetakse abilise skannimistel, kõige rohkem kümneminutiliste vahedega, seega oota veidi. Väljaspool loetavaid kaustu oleva hoidla commit'e ei hoita kunagi.",
- "feature.search_history.a2": "See hoiab alles funktsioonide nimed, mida iga commit muutis, mitte koodi. Lülita seadetes sisse Iga commit'i muudatuste tekst, et muudatustest endist otsida.",
+ "feature.search_history.a2": "See hoiab alles funktsioonide nimed, mida iga commit muutis, mitte koodi. Lülita sätetes sisse Iga commit'i muudatuste tekst, et muudatustest endist otsida.",
  "feature.search_history.a3": "Pane hoidlasse tühi .nosearch-fail või lisa see loendisse Ainult nimed: siis ei loeta ei selle faile ega commit'e.",
  "feature.search_history.q1": "Miks Otsing ei leia mu viimast commit'i?",
  "feature.search_history.q2": "Kas see otsib koodi nii, nagu see oli vanades commit'ides?",
@@ -4511,7 +4511,7 @@
  "changes.reading": "Loen {n} commit'i muudatusi…",
  "changes.freed": "Commit'ide muudatused eemaldatud {at}: {size} vabastatud",
  "disk.changes.name": "search.db: commit'ide muudatused",
- "disk.changes.what": "Tekst sellest, mida iga commit muutis, search.db-s (Seaded → Failide leidmine → Iga commit'i muudatuste tekst).",
+ "disk.changes.what": "Tekst sellest, mida iga commit muutis, search.db-s (Sätted → Failide leidmine → Iga commit'i muudatuste tekst).",
  "disk.changes.cost": "Lülitab selle valiku välja: tekst kaob, kui otsinguabiline järgmine kord käivitub, ja search.db annab ruumi tagasi. Commit'i sõnumid jäävad.",
  "disk.report.changes": "Commit'ide muudatused"
 }

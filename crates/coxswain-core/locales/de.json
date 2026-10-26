@@ -4508,10 +4508,10 @@
  "changes.cost": "Die Änderungen von {commits} Commits in {repos} Repositorys zu lesen, fügt search.db etwa {size} hinzu und dauert im Hintergrund etwa {secs} s. Nichts verlässt den Rechner.",
  "changes.off": "Die Änderungen der Commits von {repos} Repositorys werden aus search.db entfernt und der Platz wird freigegeben.",
  "changes.cost_unknown": "Die Änderungen von Commits werden beim nächsten Durchgang durch die Repositorys gelesen; Speicherbelegung zeigt dann ihre Größe.",
- "changes.reading": "Lese die Änderungen von {n} Commits…",
+ "changes.reading": "Änderungen von {n} Commits werden gelesen…",
  "changes.freed": "Änderungen von Commits um {at} entfernt: {size} frei",
  "disk.changes.name": "search.db: Änderungen von Commits",
  "disk.changes.what": "Der Text dessen, was jeder Commit geändert hat, in search.db (Einstellungen → Dateien finden → Text der Änderungen jedes Commits).",
- "disk.changes.cost": "Schaltet diese Option aus: Der Text geht beim nächsten Start des Such-Helfers, und search.db gibt den Platz frei. Commit-Nachrichten bleiben.",
+ "disk.changes.cost": "Schaltet diese Option aus: Der Text verschwindet beim nächsten Start des Suchhelfers, und search.db gibt den Platz frei. Commit-Nachrichten bleiben.",
  "disk.report.changes": "Änderungen von Commits"
 }

@@ -4502,7 +4502,7 @@
  "feature.git_line_history.q3": "Waar vraag ik het in het voorbeeld van de desktop-app?",
  "feature.git_line_history.a3": "Zet Wie veranderde aan bovenaan het voorbeeld en klik op de commit van een regel.",
  "setting.search_commit_changes": "Tekst van de wijzigingen van elke commit",
- "setting.search_commit_changes.hint": "Standaard uit. Doorzoekt ook wat elke commit veranderde: zijn diff, tot 64 KB per commit en 64 MB per repository. search.db kan veel groter worden; grootte en tijd worden vooraf gezegd.",
+ "setting.search_commit_changes.hint": "Standaard uit. Doorzoekt ook wat elke commit veranderde: zijn diff, tot 64 KB per commit en 64 MB per repository. search.db kan veel groter worden; grootte en tijd worden vooraf gemeld.",
  "setting.search_commit_changes_in": "Wijzigingen van commits, voor de repository's in deze mappen",
  "setting.search_commit_changes_in.hint": "Met de optie hierboven uit: alleen de wijzigingen van de repository's in deze mappen bewaren.",
  "changes.cost": "De wijzigingen van {commits} commits in {repos} repository's lezen voegt ongeveer {size} toe aan search.db en duurt ongeveer {secs} s op de achtergrond. Niets verlaat de computer.",
