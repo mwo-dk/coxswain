@@ -1492,7 +1492,7 @@
  "feature.disk_use.what": "Zeigt jeden Ort, an dem Coxswain etwas ablegt, und was es außerhalb seines Ordners verursacht hat, mit Größen und dem, was das Leeren kostet, und leert sie.",
  "feature.drag_and_drop.a1": "Ja: Lassen Sie sie auf der Zeile eines Ordners oder auf einem Ort in der Seitenleiste los. Ein gestrichelter Rahmen zeigt den Ordner, und die Dateien landen darin.",
  "feature.drag_and_drop.a2": "Halten Sie beim Loslassen Strg zum Kopieren, Umschalt zum Verschieben (unter macOS Wahl und Befehl). Keine oder beide zeigen das Menü.",
- "feature.drag_and_drop.a3": "Ja: Coxswain kopiert sie zuerst in einen temporären Ordner und übergibt diese Kopien. Über 200 MB oder 2.000 Dateien oder mit Passwort gesperrt bittet es Sie, stattdessen {copy} zu verwenden.",
+ "feature.drag_and_drop.a3": "Ja: Coxswain kopiert sie zuerst in einen Ordner in seinem Cache (drag/, einen Tag lang aufbewahrt) und übergibt diese Kopien. Über 200 MB oder 2.000 Dateien oder mit Passwort gesperrt bittet es Sie, stattdessen {copy} zu verwenden.",
  "feature.drag_and_drop.q1": "Kann ich auf einem Ordner im Fenster ablegen?",
  "feature.drag_and_drop.q2": "Wie kopiere oder verschiebe ich ohne das Menü?",
  "feature.drag_and_drop.q3": "Kann ich Dateien aus einem Archiv in ein anderes Programm ziehen?",

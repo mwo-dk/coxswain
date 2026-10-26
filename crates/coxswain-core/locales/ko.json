@@ -1442,7 +1442,7 @@
  "feature.disk_use.what": "Coxswain이 무언가를 두는 모든 곳과 폴더 밖에 만든 것을 크기와 지울 때 잃는 것과 함께 보여 주고, 지웁니다.",
  "feature.drag_and_drop.a1": "예: 폴더의 행이나 사이드바의 장소 위에 놓으세요. 점선 테두리가 그 폴더를 보여 주고, 파일은 그 안으로 들어갑니다.",
  "feature.drag_and_drop.a2": "놓을 때 Ctrl을 누르면 복사, Shift를 누르면 이동합니다(macOS에서는 Option과 Command). 둘 다 누르지 않거나 둘 다 누르면 메뉴가 나옵니다.",
- "feature.drag_and_drop.a3": "예: Coxswain이 먼저 임시 폴더로 복사한 뒤 그것을 넘깁니다. 200 MB 또는 파일 2,000개를 넘거나 암호로 잠겨 있으면 대신 {copy}를 쓰도록 안내합니다.",
+ "feature.drag_and_drop.a3": "예: Coxswain이 먼저 캐시의 폴더(drag/, 하루 동안 보관)로 복사한 뒤 그것을 넘깁니다. 200 MB 또는 파일 2,000개를 넘거나 암호로 잠겨 있으면 대신 {copy}를 쓰도록 안내합니다.",
  "feature.drag_and_drop.q1": "패널 안의 폴더 위에 놓을 수 있나요?",
  "feature.drag_and_drop.q2": "메뉴 없이 복사하거나 이동하려면?",
  "feature.drag_and_drop.q3": "압축 파일에서 다른 프로그램으로 파일을 끌어낼 수 있나요?",

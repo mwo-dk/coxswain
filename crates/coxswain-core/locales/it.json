@@ -1542,7 +1542,7 @@
  "feature.disk_use.what": "Mostra ogni posto in cui Coxswain tiene qualcosa, e cosa ha causato fuori dalla sua cartella, con le dimensioni e cosa costa svuotarli, e li svuota.",
  "feature.drag_and_drop.a1": "Sì: rilascia sulla riga di una cartella o su un luogo della barra laterale. Un contorno tratteggiato mostra la cartella, e i file finiscono lì dentro.",
  "feature.drag_and_drop.a2": "Tieni premuto Ctrl mentre rilasci per copiare, Maiusc per spostare (Opzione e Comando su macOS). Nessuno dei due, o entrambi, mostra il menu.",
- "feature.drag_and_drop.a3": "Sì: Coxswain prima li copia in una cartella temporanea e consegna quelle copie. Oltre 200 MB o 2.000 file, o se bloccati da password, ti chiede di usare {copy}.",
+ "feature.drag_and_drop.a3": "Sì: Coxswain prima li copia in una cartella della sua cache (drag/, tenuta per un giorno) e consegna quelle copie. Oltre 200 MB o 2.000 file, o se bloccati da password, ti chiede di usare {copy}.",
  "feature.drag_and_drop.q1": "Posso rilasciare su una cartella dentro il riquadro?",
  "feature.drag_and_drop.q2": "Come copio o sposto senza il menu?",
  "feature.drag_and_drop.q3": "Posso trascinare file da un archivio a un altro programma?",

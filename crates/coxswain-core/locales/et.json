@@ -1492,7 +1492,7 @@
  "feature.disk_use.what": "Näitab iga kohta, kus Coxswain asju hoiab, ja mida see väljaspool oma kausta põhjustas, koos suuruste ja tühjendamise hinnaga, ning tühjendab need.",
  "feature.drag_and_drop.a1": "Jah: lase need lahti kausta real või külgriba kohal. Katkendjoonega ääris näitab kausta ja failid lähevad sinna.",
  "feature.drag_and_drop.a2": "Hoia lahti laskmisel all Ctrl, et kopeerida, Shift, et teisaldada (macOS-is Option ja Command). Kumbki või mõlemad näitavad menüüd.",
- "feature.drag_and_drop.a3": "Jah: Coxswain kopeerib need kõigepealt ajutisse kausta ja annab need edasi. Üle 200 MB või 2000 faili või parooliga lukus olevate puhul palub see kasutada hoopis {copy}.",
+ "feature.drag_and_drop.a3": "Jah: Coxswain kopeerib need kõigepealt oma vahemälu kausta (drag/, hoitakse päev) ja annab need edasi. Üle 200 MB või 2000 faili või parooliga lukus olevate puhul palub see kasutada hoopis {copy}.",
  "feature.drag_and_drop.q1": "Kas saan asetada paanis oleva kausta peale?",
  "feature.drag_and_drop.q2": "Kuidas kopeerida või teisaldada ilma menüüta?",
  "feature.drag_and_drop.q3": "Kas saan faile arhiivist teise programmi lohistada?",

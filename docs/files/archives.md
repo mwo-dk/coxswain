@@ -312,8 +312,8 @@ back.
 
 #### Can I copy from one archive straight into another?
 
-Yes. Open one in each panel and press **F5**. The files pass through a temporary folder and are
-added to the other archive.
+Yes. Open one in each panel and press **F5**. The files pass through a work folder in Coxswain's
+cache (`scratch/`, removed when the copy ends) and are added to the other archive.
 
 #### Why does opening a .rar do something else?
 

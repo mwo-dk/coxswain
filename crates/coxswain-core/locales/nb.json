@@ -1492,7 +1492,7 @@
  "feature.disk_use.what": "Viser hvert sted der Coxswain lagrer ting, og hva den har laget utenfor mappen sin, med størrelser og hva tømming koster, og tømmer dem.",
  "feature.drag_and_drop.a1": "Ja: slipp på en mappes rad eller på et sted i sidepanelet. En stiplet ramme viser mappen, og filene havner i den.",
  "feature.drag_and_drop.a2": "Hold Ctrl når du slipper for å kopiere, Shift for å flytte (Option og Command på macOS). Ingen av dem, eller begge, viser menyen.",
- "feature.drag_and_drop.a3": "Ja: Coxswain kopierer dem først ut i en midlertidig mappe og gir dem videre derfra. Over 200 MB eller 2 000 filer, eller låst med passord, ber den deg bruke {copy} i stedet.",
+ "feature.drag_and_drop.a3": "Ja: Coxswain kopierer dem først ut i en mappe i hurtigbufferen sin (drag/, tatt vare på i en dag) og gir dem videre derfra. Over 200 MB eller 2 000 filer, eller låst med passord, ber den deg bruke {copy} i stedet.",
  "feature.drag_and_drop.q1": "Kan jeg slippe på en mappe inne i panelet?",
  "feature.drag_and_drop.q2": "Hvordan kopierer eller flytter jeg uten menyen?",
  "feature.drag_and_drop.q3": "Kan jeg dra filer ut av et arkiv til et annet program?",

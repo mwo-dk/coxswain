@@ -29,7 +29,7 @@ and a search finds those words too.
 |---|---|---|
 | `tesseract` (OCR) | The words in screenshots, scans and pictures: `.png` `.jpg` `.jpeg` `.jpe` `.tif` `.tiff` `.webp` `.bmp` | Photos from a camera (a JPEG whose EXIF names the camera maker) are skipped: they seldom have words and there are thousands. It reads English and your system's language, when tesseract has them |
 | `pdftoppm` (with tesseract) | Scanned PDFs, which hold pictures of pages instead of text | Up to 30 pages, at 200 dpi, in grey. Only a PDF with no text of its own |
-| LibreOffice (`soffice`) | Older Office files and others no reader here knows: `.doc` `.dot` `.wps` (Works) `.wpd` (WordPerfect) `.wri` (Windows Write) `.wk1` `.wks` `.123` (Lotus 1-2-3) `.lwp` (Lotus WordPro) `.pub` `.ppt` `.pps` `.pot` `.vsd` `.vsdx` `.odg` `.sxw` `.sxc` `.sxi` `.sxd` (StarOffice) `.abw` (AbiWord) `.cwk` (ClarisWorks) `.pages` `.key` `.numbers` | Made into a PDF in a temporary folder, read, and removed. It has its own profile, so a LibreOffice you have open is not disturbed |
+| LibreOffice (`soffice`) | Older Office files and others no reader here knows: `.doc` `.dot` `.wps` (Works) `.wpd` (WordPerfect) `.wri` (Windows Write) `.wk1` `.wks` `.123` (Lotus 1-2-3) `.lwp` (Lotus WordPro) `.pub` `.ppt` `.pps` `.pot` `.vsd` `.vsdx` `.odg` `.sxw` `.sxc` `.sxi` `.sxd` (StarOffice) `.abw` (AbiWord) `.cwk` (ClarisWorks) `.pages` `.key` `.numbers` | Made into a PDF in a work folder in Coxswain's cache (`scratch/`), read, and removed. It has its own profile, so a LibreOffice you have open is not disturbed |
 | Ghostscript (`gs`, on Windows `gswin64c`) | The text of PostScript files: `.ps` `.eps` | Run with `-dSAFER`, as PostScript is a programming language. Without Ghostscript a PostScript file is read as the plain text it is, program and all |
 
 Without LibreOffice, [Apache Tika](tika.md) reads the Word, PowerPoint, Publisher, Visio,
@@ -176,7 +176,8 @@ No. It runs with a profile of its own, so the LibreOffice you have open is not t
 
 #### Is anything sent anywhere to be read?
 
-No. The programs run on your machine, into a temporary folder that is removed afterwards.
+No. The programs run on your machine, into a work folder in Coxswain's cache (`scratch/`) that is
+removed afterwards.
 
 ---
 [← Previous: Documents it reads](documents.md) · [Next: Other formats with Apache Tika →](tika.md)

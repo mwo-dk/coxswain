@@ -1492,7 +1492,7 @@
  "feature.disk_use.what": "Toont elke plek waar Coxswain dingen bewaart, en wat het buiten zijn map veroorzaakte, met groottes en wat wissen kost, en wist ze.",
  "feature.drag_and_drop.a1": "Ja: zet ze neer op de regel van een map of op een plek in de zijbalk. Een gestippelde rand toont de map, en de bestanden gaan erin.",
  "feature.drag_and_drop.a2": "Houd Ctrl ingedrukt bij het loslaten om te kopiëren, Shift om te verplaatsen (Option en Command op macOS). Geen van beide, of beide, toont het menu.",
- "feature.drag_and_drop.a3": "Ja: Coxswain kopieert ze eerst naar een tijdelijke map en geeft die door. Boven 200 MB of 2.000 bestanden, of vergrendeld met een wachtwoord, vraagt het je in plaats daarvan {copy} te gebruiken.",
+ "feature.drag_and_drop.a3": "Ja: Coxswain kopieert ze eerst naar een map in zijn cache (drag/, een dag bewaard) en geeft die door. Boven 200 MB of 2.000 bestanden, of vergrendeld met een wachtwoord, vraagt het je in plaats daarvan {copy} te gebruiken.",
  "feature.drag_and_drop.q1": "Kan ik op een map in het paneel neerzetten?",
  "feature.drag_and_drop.q2": "Hoe kopieer of verplaats ik zonder het menu?",
  "feature.drag_and_drop.q3": "Kan ik bestanden uit een archief naar een ander programma slepen?",

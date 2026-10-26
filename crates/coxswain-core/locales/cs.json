@@ -1542,7 +1542,7 @@
  "feature.disk_use.what": "Ukáže každé místo, kde Coxswain něco uchovává, a co způsobil mimo svou složku, s velikostmi a tím, co stojí vymazání, a vymaže je.",
  "feature.drag_and_drop.a1": "Ano: pusťte je na řádek složky nebo na místo v postranním panelu. Složku označí přerušovaný obrys a soubory skončí v ní.",
  "feature.drag_and_drop.a2": "Při puštění držte Ctrl pro kopírování, Shift pro přesun (na macOS Option a Command). Žádná nebo obě ukážou nabídku.",
- "feature.drag_and_drop.a3": "Ano: Coxswain je nejprve zkopíruje do dočasné složky a předá ty kopie. Nad 200 MB nebo 2 000 souborů, nebo když jsou zamčené heslem, vás požádá o použití {copy}.",
+ "feature.drag_and_drop.a3": "Ano: Coxswain je nejprve zkopíruje do složky ve své mezipaměti (drag/, uchovává se den) a předá ty kopie. Nad 200 MB nebo 2 000 souborů, nebo když jsou zamčené heslem, vás požádá o použití {copy}.",
  "feature.drag_and_drop.q1": "Můžu pustit soubory na složku uvnitř panelu?",
  "feature.drag_and_drop.q2": "Jak kopírovat nebo přesouvat bez nabídky?",
  "feature.drag_and_drop.q3": "Můžu přetáhnout soubory z archivu do jiného programu?",

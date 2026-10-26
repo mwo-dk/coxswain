@@ -1460,7 +1460,7 @@
  "feature.disk_use.what": "Shows every place Coxswain keeps things, and what it caused outside its folder, with sizes and what clearing costs, and clears them.",
  "feature.drag_and_drop.a1": "Yes: drop on a folder's row or on a place in the sidebar. A dashed outline shows the folder, and the files go into it.",
  "feature.drag_and_drop.a2": "Hold Ctrl as you let go to copy, Shift to move (Option and Command on macOS). Neither, or both, shows the menu.",
- "feature.drag_and_drop.a3": "Yes: Coxswain first copies them out into a temporary folder and hands those over. Over 200 MB or 2,000 files, or locked with a password, it asks you to use {copy} instead.",
+ "feature.drag_and_drop.a3": "Yes: Coxswain first copies them out into a folder in its cache (drag/, kept for a day) and hands those over. Over 200 MB or 2,000 files, or locked with a password, it asks you to use {copy} instead.",
  "feature.drag_and_drop.q1": "Can I drop onto a folder inside the pane?",
  "feature.drag_and_drop.q2": "How do I copy or move without the menu?",
  "feature.drag_and_drop.q3": "Can I drag files out of an archive to another program?",

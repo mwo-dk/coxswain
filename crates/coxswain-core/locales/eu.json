@@ -1492,7 +1492,7 @@
  "feature.disk_use.what": "Coxswain-ek gauzak gordetzen dituen leku guztiak erakusten ditu, eta bere karpetatik kanpo eragin duena, tamainekin eta garbitzeak zer kostatzen duen, eta garbitu egiten ditu.",
  "feature.drag_and_drop.a1": "Bai: askatu karpeta baten errenkadan edo alboko barrako leku batean. Ertz etena karpeta erakusten du, eta fitxategiak hara joaten dira.",
  "feature.drag_and_drop.a2": "Eutsi Ctrl askatzean kopiatzeko, Shift mugitzeko (macOS-en Option eta Command). Bat ere ez edo biak, menua erakusten du.",
- "feature.drag_and_drop.a3": "Bai: Coxswain-ek lehenik aldi baterako karpeta batera kopiatzen ditu eta horiek ematen ditu. 200 MB edo 2.000 fitxategitik gora, edo pasahitzarekin blokeatuta badaude, {copy} erabiltzeko eskatzen dizu.",
+ "feature.drag_and_drop.a3": "Bai: Coxswain-ek lehenik bere cacheko karpeta batera (drag/, egun batez gordetzen da) kopiatzen ditu eta horiek ematen ditu. 200 MB edo 2.000 fitxategitik gora, edo pasahitzarekin blokeatuta badaude, {copy} erabiltzeko eskatzen dizu.",
  "feature.drag_and_drop.q1": "Jaregin dezaket panelaren barruko karpeta baten gainean?",
  "feature.drag_and_drop.q2": "Nola kopiatu edo mugitu menurik gabe?",
  "feature.drag_and_drop.q3": "Arrasta ditzaket fitxategiak artxibo batetik beste programa batera?",

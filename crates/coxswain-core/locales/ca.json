@@ -1542,7 +1542,7 @@
  "feature.disk_use.what": "Mostra cada lloc on el Coxswain desa coses, i el que ha causat fora de la seva carpeta, amb les mides i què costa buidar-los, i els buida.",
  "feature.drag_and_drop.a1": "Sí: deixeu anar sobre la fila d'una carpeta o sobre un lloc de la barra lateral. Un contorn discontinu marca la carpeta, i els fitxers hi van a parar.",
  "feature.drag_and_drop.a2": "Manteniu Ctrl en deixar anar per copiar, Maj per moure (Opció i Ordre al macOS). Cap o totes dues mostren el menú.",
- "feature.drag_and_drop.a3": "Sí: Coxswain primer els copia a una carpeta temporal i lliura aquests fitxers. Per sobre de 200 MB o 2.000 fitxers, o si estan bloquejats amb contrasenya, us demana que feu servir {copy}.",
+ "feature.drag_and_drop.a3": "Sí: Coxswain primer els copia a una carpeta de la seva memòria cau (drag/, es conserva un dia) i lliura aquests fitxers. Per sobre de 200 MB o 2.000 fitxers, o si estan bloquejats amb contrasenya, us demana que feu servir {copy}.",
  "feature.drag_and_drop.q1": "Puc deixar anar sobre una carpeta de dins del plafó?",
  "feature.drag_and_drop.q2": "Com copio o moc sense el menú?",
  "feature.drag_and_drop.q3": "Puc arrossegar fitxers des d'un arxiu cap a un altre programa?",
