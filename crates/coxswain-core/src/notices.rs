@@ -596,6 +596,8 @@ mod tests {
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
+        // Nor whether the bin, looked at by another test, is all of the system's here.
+        dismiss(&mut state, "bin-limited");
         // Nor whether the home folder is on ZFS (it is on illumos and many FreeBSD machines).
         dismiss(&mut state, "zfs");
         // On a Mac: the folder prompts explained, once.

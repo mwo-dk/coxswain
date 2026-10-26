@@ -798,7 +798,12 @@ mod sys {
         use std::os::unix::fs::MetadataExt;
         let d = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
         let mut out = vec![];
-        for e in fs::read_dir(&d)?.flatten() {
+        // None yet is an empty bin; one that cannot be read needs Full Disk Access.
+        let rd = match fs::read_dir(&d) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(vec![]),
+            r => r?,
+        };
+        for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             if name == ".DS_Store" {
                 continue;
