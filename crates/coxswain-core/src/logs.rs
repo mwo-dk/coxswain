@@ -364,21 +364,14 @@ impl Drop for Lines {
     }
 }
 
-/// Another file has `path`'s name now than the one open (a log rotated by renaming it): on
-/// Unix by its inode, elsewhere by its creation time, or by being shorter than the one open
-/// (the open one's length is asked first, so one written to meanwhile is never taken for
-/// another).
+/// Another file has `path`'s name now than the one open (a log rotated by renaming it): by
+/// their identity (device and inode; on Windows volume and file ID), asked of open handles. Not a
+/// creation time: Windows gives a file made under a name just freed the old one's (tunnelling).
 fn replaced(path: &Path, open: &File) -> bool {
-    let Ok(was) = open.metadata() else { return false };
-    let Ok(now) = std::fs::metadata(path) else { return false };
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        now.dev() != was.dev() || now.ino() != was.ino()
-    }
-    #[cfg(not(unix))]
-    {
-        now.len() < was.len() || matches!((now.created(), was.created()), (Ok(a), Ok(b)) if a != b)
+    let Ok(now) = open_file(path) else { return false };
+    match (crate::pinned::stat_of(open), crate::pinned::stat_of(&now)) {
+        (Ok(was), Ok(now)) => !was.id.same_file(&now.id),
+        _ => false,
     }
 }
 
