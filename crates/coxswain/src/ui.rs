@@ -192,6 +192,8 @@ pub enum Place {
     History(coxswain_core::history::At, Option<String>),
     /// A dataset's list of snapshots.
     Snapshots,
+    /// The system's bin: what it holds (`bin::summary_text`).
+    Bin(String),
     Plain,
 }
 
@@ -204,6 +206,8 @@ impl Place {
             Place::History(at, line)
         } else if coxswain_core::zfs::split(dir).is_some() {
             Place::Snapshots
+        } else if coxswain_core::bin::is_bin(dir) {
+            Place::Bin(coxswain_core::bin::summary_text(&coxswain_core::bin::summary()))
         } else {
             Place::Plain
         }
@@ -259,6 +263,8 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             (None, coxswain_core::history::View::Branches) => format!("{} [{}]", p.dir.to_string_lossy(), t!("branches.badge")),
             (None, coxswain_core::history::View::Worktrees) => format!("{} [{}]", p.dir.to_string_lossy(), t!("worktrees.badge")),
         },
+        // The bin: what it holds, and the key of its actions.
+        Place::Bin(what) => format!("{} [{what} · {}]", t!("sidebar.bin"), t!("bin.badge_keys", "key" => app.key_label(Action::ActionMenu))),
         // Among a dataset's snapshots: which, of which dataset.
         _ => match (coxswain_core::zfs::in_snapshot(&p.dir), matches!(place, Place::Snapshots).then_some(()), &p.package) {
             (Some(s), ..) => {
@@ -426,6 +432,8 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
             Some(m) => format!("{} {m} [{}]", coxswain_core::icons::entry(&e.name, e.is_dir, e.is_symlink, plain).glyph, e.name),
             None => name,
         };
+        // In the bin: the folder it was deleted from, after its name.
+        let name = if e.origin.as_os_str().is_empty() { name } else { format!("{name}  ← {}", e.origin.display()) };
         let name = &name;
         let sz = if let Some(n) = p.sizes.get(&e.path) {
             size(*n)
@@ -582,6 +590,8 @@ fn keybar(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .map(|&n| {
             fkey(n).map_or(String::new(), |a| match a {
+                // In the bin, F8 deletes for good.
+                Action::Delete | Action::DeleteForever if coxswain_core::bin::is_bin(&app.panel().dir) => t!("tui.keybar.bin_delete"),
                 Action::Move | Action::NewFolder | Action::Menu => t!(&format!("tui.keybar.{}", a.name())),
                 a => a.label(),
             })
@@ -685,8 +695,10 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(keys(&prompt.verb())).centered(), c);
         }
-        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } => {
+        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
             let verb = match app.dialog.as_ref() {
+                Some(Dialog::Bin { free_name: true, .. }) => t!("bin.free_name"),
+                Some(Dialog::Bin { op, .. }) => Action::from_bin(*op).label(),
                 Some(Dialog::Confirm { forever: false, .. }) => t!("app.move_to_trash"),
                 Some(Dialog::Confirm { .. }) => t!("common.delete"),
                 Some(Dialog::Server { .. }) => t!("history.ask_server_yes"),
@@ -811,7 +823,7 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
     let [q, chips, list, foot, keys] = Layout::vertical([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
     let dim = dstyle(&t).add_modifier(Modifier::DIM);
     let hit_style = sty(&t.search_hit);
-    let folder = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| dir.display().to_string());
+    let folder = if coxswain_core::bin::is_bin(&dir) { t!("sidebar.bin") } else { dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| dir.display().to_string()) };
 
     // The field, and the scope at the right.
     let prompt = if answer { t!("search.ask") } else { t!("find.prompt") };

@@ -99,7 +99,7 @@ mindmap
 | [Colour tags](organise/tags.md) | Alt+T, seven colours, the dot after the name, tags belong to a path |
 | [Folder notes](organise/notes.md) | Alt+N, the notes field in the preview pane, saved on leaving it, the footer icon |
 | [Favourites](organise/favourites.md) | Named groups in the sidebar, add with +, remove with ×, rename and delete groups |
-| [The sidebar](organise/sidebar.md) | Ctrl+B, places, drives with free space, clouds, favourites, the last eight git repositories (by name, pinned ones kept) |
+| [The sidebar](organise/sidebar.md) | Ctrl+B, places, drives with free space, clouds, the bin, favourites, the last eight git repositories (by name, pinned ones kept) |
 | [Clouds](organise/clouds.md) | One entry per cloud account found on the machine (OneDrive, Google Drive, Dropbox, Nextcloud, iCloud, rclone and gvfs mounts), sidebar and Alt+F1, per system, no logins |
 
 ## [Commands, the user menu and scripts](commands/README.md)
@@ -189,6 +189,7 @@ mindmap
 | [New folder (F7)](files/new-folder.md) | One folder or a whole path, also inside archives |
 | [Delete: trash (F8) or for good (Shift+F8)](files/delete.md) | Trash (F8), for good (Shift+F8), taking out of an archive, turning the question off |
 | [Undo (Ctrl+Z)](files/undo.md) | Ctrl+Z, both apps: the last 20 copies, moves, renames, new folders, trashings, packs, extracts, find-and-replaces and changes of permissions and dates; checked first, never overwrites; not Shift+F8 |
+| [The bin](files/bin.md) | The system's bin in a panel, both apps (desktop: the sidebar's Bin row; terminal: Alt+F1 / Alt+F2): name, original folder, deletion date; restore (a taken place asks: name (2)), delete for good, empty the bin, each asked with count and size; freedesktop bins, the Recycle Bin, macOS with Full Disk Access and no restore, the Flatpak's own |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](files/clipboard.md) | Ctrl+C / Ctrl+X / Ctrl+V shared with other file managers, name (2) |
 | [Drag and drop](files/drag-and-drop.md) | Out to other apps (out of archives too), between panes, onto folders, in; the copy/move menu, Ctrl and Shift |
 | [Batch rename (Ctrl+M)](files/batch-rename.md) | Batch rename (Ctrl+M, desktop): regex, groups, {n:3} counter, live preview, conflicts |

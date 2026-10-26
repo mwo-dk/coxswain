@@ -83,4 +83,4 @@ terminal; pressing one of these keys there says *Copy to clipboard is available 
 (coxswain-gui)*. Copy and move with **F5** and **F6** instead ([In the terminal app](#in-the-terminal-app)).
 
 ---
-[← Previous: Undo (Ctrl+Z)](undo.md) · [Next: Drag and drop →](drag-and-drop.md)
+[← Previous: The bin](bin.md) · [Next: Drag and drop →](drag-and-drop.md)

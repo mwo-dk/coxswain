@@ -309,6 +309,8 @@ impl Panel {
             Place::Snapshot
         } else if coxswain_core::bsd::split(&self.dir).is_some() {
             Place::Package
+        } else if coxswain_core::bin::is_bin(&self.dir) {
+            Place::Bin
         } else {
             Place::Disk
         };
@@ -420,6 +422,8 @@ pub enum MenuRun {
     AddUser,
     /// A panel to a folder (a boot environment, a jail); none: the line to type a path in.
     Goto(usize, Option<PathBuf>),
+    /// The bin in this panel (`App::open_bin`).
+    Bin(usize),
     /// Cannot be gone to: why, on the status line.
     Say(String),
     /// What *Convert video or audio* or *Convert or edit pictures* makes of these files.
@@ -476,6 +480,9 @@ pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
+    /// Restore, delete for good or empty the bin: `paths` (none to empty it), asked first;
+    /// `free_name`: a restore whose place is taken comes back beside it.
+    Bin { title: String, text: String, op: coxswain_core::bin::Op, paths: Vec<PathBuf>, free_name: bool },
     /// Switch to the branch `entry` of the list of branches `dir`.
     Switch { title: String, text: String, dir: PathBuf, entry: String },
     /// Read the history at `to` from the Subversion or CVS server `server`? Asked once per server.
@@ -564,6 +571,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::SplitSize(_) => "split_and_join",
         },
         Dialog::Confirm { .. } => "delete",
+        Dialog::Bin { .. } => "bin",
         Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Media { op, .. } => media_feature(op.program()),
         Dialog::Ebook { .. } => "ebooks",
@@ -1285,6 +1293,10 @@ impl App {
         self.hint_stale = true;
         let h = self.show_hidden;
         let p = &mut self.panels[side];
+        // The bin's title says what it holds: worked out again with the listing.
+        if coxswain_core::bin::is_bin(&p.dir) {
+            p.place = None;
+        }
         let keep = select.or_else(|| p.current().map(|e| e.name.clone()));
         let (dir, tx) = (p.dir.clone(), self.list_tx.clone());
         // The keys wait no longer than `list_wait` for a folder on disk: one of a million files
@@ -1552,6 +1564,10 @@ impl App {
             Action::HistoryAll => self.history(history::Scope::All),
             Action::HistoryUpstream => self.history(history::Scope::Upstream),
             Action::Snapshots => self.snapshots(),
+            Action::Bin => self.open_bin(self.active),
+            Action::BinRestore => self.ask_bin(coxswain_core::bin::Op::Restore),
+            Action::BinDelete => self.ask_bin(coxswain_core::bin::Op::Delete),
+            Action::BinEmpty => self.ask_bin(coxswain_core::bin::Op::Empty),
             Action::Package => self.package(),
             Action::Flags => self.flags(),
             Action::Properties => self.properties(),
@@ -1660,12 +1676,13 @@ impl App {
                     self.status = Some(t!("clouds.slow"));
                     vec![]
                 });
-                if places.is_empty() && phone.is_empty() && clouds.is_empty() {
-                    return self.goto_prompt(side);
-                }
                 let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None), group: None }];
                 items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)), group: None }));
                 items.extend(clouds.into_iter().map(|c| MenuItem { key: String::new(), label: t!("clouds.goto", "name" => c.name), run: MenuRun::Goto(side, c.path), group: None }));
+                // The system's bin, with what it holds; on a Mac without Full Disk Access, Finder.
+                let bin = coxswain_core::bin::summary();
+                let what = if bin.open { coxswain_core::bin::summary_text(&bin) } else { t!("bin.finder_row") };
+                items.push(MenuItem { key: self.key_label(Action::Bin).to_string(), label: format!("{}: {what}", t!("sidebar.bin")), run: MenuRun::Bin(side), group: None });
                 items.extend(places.into_iter().map(|p| {
                     let what = t!(if p.kind == "boot" { "bsd.boot_env" } else { "bsd.jail" });
                     let label = if p.note.is_empty() { format!("{what}: {}", p.name) } else { format!("{what}: {} ({})", p.name, p.note) };
@@ -1801,6 +1818,11 @@ impl App {
                     }
                     self.view_or_edit(a, &e);
                 }
+            }
+            // In the bin F8 deletes for good; nothing is moved, renamed or made in it.
+            Action::Delete | Action::DeleteForever if coxswain_core::bin::is_bin(&self.panel().dir) => self.ask_bin(coxswain_core::bin::Op::Delete),
+            Action::Move | Action::Rename | Action::NewFolder if coxswain_core::bin::is_bin(&self.panel().dir) => {
+                self.status = Some(t!("bin.read_only"));
             }
             // Nor in a git history: its commits and their files are as they were.
             Action::Move | Action::Rename | Action::NewFolder | Action::Delete | Action::DeleteForever if history::is_history(&self.panel().dir) => {
@@ -3419,6 +3441,62 @@ impl App {
         self.run = Some(Run::Shell { line: Line::from(cmd), typed: true, dir: self.panel().dir.clone(), wait: false });
     }
 
+    /// The bin in panel `side`; on a Mac without Full Disk Access, in Finder (the notice says
+    /// why).
+    fn open_bin(&mut self, side: usize) {
+        let s = coxswain_core::bin::summary();
+        if !s.open {
+            self.status = Some(match coxswain_core::bin::run_finder(false) {
+                Ok(()) => t!("bin.in_finder"),
+                Err(e) => e,
+            });
+            return;
+        }
+        self.cd(side, s.path);
+    }
+
+    /// Restore, delete for good or empty the bin, asked first: how many, their size, and that
+    /// it cannot be undone.
+    fn ask_bin(&mut self, op: coxswain_core::bin::Op) {
+        use coxswain_core::bin::Op;
+        if op != Op::Empty && !coxswain_core::bin::is_bin(&self.panel().dir) {
+            return self.status = Some(t!("bin.not_here"));
+        }
+        if op == Op::Restore && !coxswain_core::bin::restores() {
+            return self.status = Some(t!("bin.no_restore"));
+        }
+        let paths = if op == Op::Empty { vec![] } else { self.panel().targets() };
+        if op != Op::Empty && paths.is_empty() {
+            return;
+        }
+        let Some(text) = coxswain_core::bin::question(op, &paths) else { return self.status = Some(t!("bin.empty")) };
+        let title = Action::from_bin(op).label();
+        self.dialog = Some(Dialog::Bin { title, text, op, paths, free_name: false });
+    }
+
+    // ponytail: on the UI thread; a bin of many gigabytes deletes for seconds. On a job thread if
+    // that is felt.
+    fn bin_run(&mut self, op: coxswain_core::bin::Op, paths: Vec<PathBuf>, free_name: bool) {
+        use coxswain_core::bin::Op;
+        let r = match op {
+            Op::Restore => coxswain_core::bin::restore(&paths, free_name),
+            Op::Delete => coxswain_core::bin::delete(&paths),
+            Op::Empty => coxswain_core::bin::empty(),
+        };
+        self.status = Some(match op {
+            Op::Restore => t!("bin.restored", "what" => coxswain_core::tn!("items", r.done)),
+            Op::Delete => t!("bin.deleted", "what" => coxswain_core::tn!("items", r.done)),
+            Op::Empty => t!("bin.emptied"),
+        });
+        self.reload();
+        if !r.failed.is_empty() {
+            self.dialog = Some(failure(t!("bin.failed"), &r.failed.join("\n")));
+        } else if !r.taken.is_empty() {
+            let what = if r.taken.len() == 1 { r.taken[0].file_name().unwrap_or_default().to_string_lossy().into_owned() } else { coxswain_core::tn!("items", r.taken.len()) };
+            self.dialog = Some(Dialog::Bin { title: Action::BinRestore.label(), text: t!("bin.taken", "what" => what), op: Op::Restore, paths: r.taken, free_name: true });
+        }
+    }
+
     /// Delete `paths` (in the panel's folder, or Space's file), asking first as the settings say.
     fn ask_delete(&mut self, paths: Vec<PathBuf>, forever: bool) {
         if paths.is_empty() {
@@ -3907,6 +3985,11 @@ impl App {
                     self.dialog = Some(Dialog::Input { title, label, value, prompt });
                 }
             },
+            Dialog::Bin { title, text, op, paths, free_name } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.bin_run(op, paths, free_name),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Bin { title, text, op, paths, free_name }),
+            },
             Dialog::Confirm { title, text, paths, forever } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.delete(paths, forever),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -4173,6 +4256,7 @@ impl App {
                     Some(MenuRun::Goto(side, None)) => self.goto_prompt(*side),
                     Some(MenuRun::Goto(side, Some(dir))) => self.cd(*side, dir.clone()),
                     Some(MenuRun::Say(why)) => self.status = Some(why.clone()),
+                    Some(MenuRun::Bin(side)) => self.open_bin(*side),
                     Some(MenuRun::Export(op, files)) => self.export_ask(*op, files.clone()),
                     Some(MenuRun::Media(op, files)) => self.media_chose(op.clone(), files.clone()),
                     Some(MenuRun::Ebook(to, books)) => self.ebook_ask(Some(to), books.clone()),
@@ -4513,6 +4597,9 @@ impl App {
     /// (the cursor stays on its name), and git's line when anything did, its `.git` too.
     fn follow_disk(&mut self) {
         let mut want: Vec<PathBuf> = self.panels.iter().map(|p| p.dir.clone()).collect();
+        // A panel in the bin follows the bin's own folders.
+        let bin_dirs = if self.panels.iter().any(|p| coxswain_core::bin::is_bin(&p.dir)) { coxswain_core::bin::summary().watch } else { vec![] };
+        want.extend(bin_dirs.iter().cloned());
         // Jujutsu's operation heads change with every jj command.
         want.extend(self.panels.iter().filter_map(|p| p.git.as_ref()).flat_map(|g| [g.root.join(".git"), g.root.join(".hg/store"), g.root.join(".jj/repo/op_heads/heads")]).filter(|g| g.is_dir()));
         want.dedup();
@@ -4528,7 +4615,8 @@ impl App {
             let dir = &self.panels[side].dir;
             let real = std::fs::canonicalize(dir).ok();
             let here = |p: &Path| p == dir || real.as_deref() == Some(p);
-            let reread = paths.iter().any(|p| here(p) || p.parent().is_some_and(here));
+            let in_bin = coxswain_core::bin::is_bin(dir) && paths.iter().any(|p| bin_dirs.iter().any(|b| p == b || p.parent() == Some(b.as_path())));
+            let reread = in_bin || paths.iter().any(|p| here(p) || p.parent().is_some_and(here));
             if reread {
                 self.load(side, None);
             }

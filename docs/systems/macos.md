@@ -76,9 +76,11 @@ left-out folder below the one measured. Measuring `~/Library` gives the size wit
 
 ## Full Disk Access
 
-Coxswain does not need it and never asks for it. Without it, the folders macOS guards stay
-behind their prompts, and other apps' data stays out of reach, which is what Coxswain wants.
-Giving Coxswain Full Disk Access in System Settings makes no difference to what it reads: the
+Coxswain needs it for one thing only: to list the bin (`~/.Trash`). Without it, the sidebar's
+*Bin* row says *in Finder* and opens the bin there, and a notice says so once
+([The bin](../files/bin.md)). Coxswain never asks for it. The folders macOS guards stay behind
+their prompts, and other apps' data stays out of reach, which is what Coxswain wants. Giving
+Coxswain Full Disk Access in System Settings makes no other difference to what it reads: the
 list above is left out either way.
 
 ## Why a new version may ask again
@@ -214,7 +216,7 @@ does not come from the search helper any more.
 
 #### Does Coxswain need Full Disk Access?
 
-No, and it never asks. See [Full Disk Access](#full-disk-access).
+Only to list the bin, and it never asks. See [Full Disk Access](#full-disk-access).
 
 #### After an update macOS asked about my folders again. Why?
 

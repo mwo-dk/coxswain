@@ -1,5 +1,5 @@
 <script>
-  import { ui, tab, cd, openSpace } from "./app.svelte.js";
+  import { ui, tab, cd, openSpace, openBin, binAct, actionLabel } from "./app.svelte.js";
   import { invoke, basename, size } from "./lib.js";
   import { t } from "./i18n.svelte.js";
   import { untrack } from "svelte";
@@ -77,6 +77,25 @@
         { key: "", label: t("sidebar.open_drive"), run: () => go(r.path) },
         { key: "", label: t(r.pinned ? "sidebar.unpin_repo" : "sidebar.pin_repo"), run: () => editRepo(r, { pin: !r.pinned }) },
         { key: "Delete", label: t("sidebar.remove_repo"), run: () => editRepo(r, { remove: true }) },
+      ],
+    };
+  }
+
+  /** The bin's menu (a right-click on its row, or its ⋯): open it, or empty it. */
+  function binMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const key = (n) => ui.cfg.actions[n]?.[1] ?? "";
+    ui.modal = {
+      kind: "menu",
+      feature: "bin",
+      title: t("sidebar.bin"),
+      direct: false,
+      filter: "",
+      cursor: 0,
+      items: [
+        { key: key("bin"), label: actionLabel("bin"), run: () => openBin() },
+        ...(ui.bin?.open && ui.bin.count ? [{ key: key("bin_empty"), label: actionLabel("bin_empty"), run: () => binAct("empty") }] : []),
       ],
     };
   }
@@ -202,6 +221,20 @@
     {/if}
   {/each}
 
+  <!-- The system's bin: what is in it, and its size; it opens as a panel (in Finder on a Mac
+       without Full Disk Access). -->
+  {#if ui.bin}
+    <ul class="bin">
+      <li>
+        <button class="row drive" class:here={ui.bin.path === here} title={`${actionLabel("bin")}\n${t("sidebar.bin_tip")}`} onclick={() => openBin()} oncontextmenu={binMenu}>
+          <span class="icon" style:color="var(--directory-fg)">{"\u{f1f8}"}</span>
+          <span class="label"><span class="drive-name"><span>{t("sidebar.bin")}</span><small>{ui.bin.open ? ui.bin.text : t("bin.finder_row")}</small></span></span>
+          <span class="more" role="button" tabindex="-1" title={t("sidebar.bin_tip")} aria-label={t("sidebar.bin_tip")} onclick={binMenu} onkeydown={() => {}}>⋯</span>
+        </button>
+      </li>
+    </ul>
+  {/if}
+
   {#each ui.favorites as g, gi (gi)}
     {#snippet add()}
       <span class="add" role="button" tabindex="-1" title={t("sidebar.add_here")} onclick={(e) => { e.stopPropagation(); addHere(g); }} onkeydown={() => {}}>+</span>
@@ -251,6 +284,20 @@
     font-family: var(--icon-font);
     color: var(--hidden-fg);
     padding: 0 4px;
+  }
+  .bin {
+    margin-top: 8px;
+  }
+  /* "Bin" stays whole; what it holds gives way. */
+  .bin .drive-name > span {
+    flex-shrink: 0;
+  }
+  .bin .drive-name small {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .row.off {
     opacity: 0.55;

@@ -864,7 +864,7 @@
         {@const question = prefix(m.query).rest.trim()}
         {@const off = askOff(m)}
         {@const scopeKey = ui.cfg.find_key}
-        {@const folder = basename(tab().dir)}
+        {@const folder = tab().bin ? t("sidebar.bin") : basename(tab().dir)}
         <div class="search-bar">
           <span class="glyph">{"\u{f002}"}</span>
           <input bind:this={input} bind:value={m.query} oninput={runSearch} placeholder={answer ? t("dialogs.ask_placeholder") : t(m.here ? "find.placeholder_here" : "find.placeholder_everywhere", { folder, key: scopeKey })} spellcheck="false" />

@@ -4,10 +4,11 @@
 
 The sidebar is the column at the left of the desktop app's window (at the right in Hebrew and
 Arabic). It holds your usual folders, your disks with their free space, your
-[cloud accounts](clouds.md), your [favourites](favourites.md) and the git repositories you opened last (by name, with the ones you pinned), each one click away.
+[cloud accounts](clouds.md), the system's [bin](../files/bin.md), your [favourites](favourites.md) and the git repositories you opened last (by name, with the ones you pinned), each one click away.
 
 ![The sidebar of the desktop app: PLACES with Home; DRIVES with System, its free space and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with website (a pin at the end of its row), then paper, rocket and vision by name, each with a faint ⋯. rocket is highlighted in both lists; the status line says how to pin or remove a repository](../screenshots/gui-details.png)
 *The sidebar in the Cyber theme. The entries for the folder you are in are highlighted.*
+<!-- screenshot: gui-details.png: retake with the sidebar's Bin row (Bin, Empty or its count and size) between the drives and the favourites group WORK -->
 
 ![The same window in Hebrew: the sidebar is at the right, its headers and entries right-aligned](../screenshots/gui-lang-he.png)
 *In Hebrew the sidebar moves to the right, with the rest of the layout.*
@@ -48,6 +49,7 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 | *Clouds* | One entry per cloud account whose sync app or mount keeps a folder on this machine (*OneDrive – Personal*, *Google Drive – you@example.com*, *Nextcloud – me@cloud.example.com*), with a cloud icon. Only there when one is found; see [Clouds](clouds.md) |
 | *Boot environments* | FreeBSD with a ZFS root: each boot environment, with *running now*, *active on reboot* or *not mounted* after its name. A mounted one opens as a folder; one that is not mounted is greyed, and a click says how to mount it ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)) |
 | *Jails* | FreeBSD: each running jail, with its jid and host name; a click opens its root folder when you may read it |
+| *Bin* | The system's bin, with what is in it (*3 items · 1.2 MB*, or *Empty*); a click opens it as a panel, a right-click or its **⋯** offers *Empty the bin*. On a Mac without Full Disk Access it says *in Finder* and opens Finder. See [The bin](../files/bin.md) |
 | Your favourite groups | One section per group, its header with a **⋯** (Add current folder, Rename group, Delete group) and a `+` on hover; see [Favourites](favourites.md), then *+ New group* |
 | *Git repositories* | The last eight git repositories you visited, and every one you pinned, with a git icon; a pinned one has a pin at the end of its row. Only there once you have been in a repository. See [Git repositories](#git-repositories) below |
 
@@ -102,7 +104,7 @@ No sidebar. **Ctrl+B** says *Sidebar is available in the desktop app (coxswain-g
 terminal app shows the git branch and status of a repository in the panel frame
 ([Git in the panels](../panels/git.md)), but it has no list of repositories to go to, pin or
 remove: that list is the desktop app's. Its Settings shows *Git repositories in the sidebar*
-too, for the desktop app. Your [clouds](clouds.md) and FreeBSD's boot
+too, for the desktop app. Your [clouds](clouds.md), the [bin](../files/bin.md) and FreeBSD's boot
 environments and jails are under **Alt+F1** and **Alt+F2** there
 ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 

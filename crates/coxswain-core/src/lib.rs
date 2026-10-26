@@ -2,6 +2,7 @@
 
 pub mod archive;
 pub mod attrs;
+pub mod bin;
 pub mod ask;
 pub mod blame;
 pub mod bom;

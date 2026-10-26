@@ -359,7 +359,7 @@ mod tests {
         let dir = PathBuf::from("/d");
         let entries = names
             .iter()
-            .map(|&(name, is_dir)| Entry { name: name.into(), path: if name == ".." { "/".into() } else { dir.join(name) }, is_dir, is_symlink: false, is_exec: false, hidden: false, size: 10, modified: 0, created: 0, online: false, referenced: 0 })
+            .map(|&(name, is_dir)| Entry { name: name.into(), path: if name == ".." { "/".into() } else { dir.join(name) }, is_dir, is_symlink: false, is_exec: false, hidden: false, size: 10, modified: 0, created: 0, online: false, referenced: 0, origin: PathBuf::new() })
             .collect();
         List { generation: 1, dir, entries, marked: HashSet::new() }
     }

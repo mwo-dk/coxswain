@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote } from "./app.svelte.js";
+  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -98,12 +98,14 @@
   const gitDirs = (t) => (t.git ? [`${t.git.root}${ui.cfg.sep}.git`, [t.git.root, ".hg", "store"].join(ui.cfg.sep), [t.git.root, ".jj", "repo", "op_heads", "heads"].join(ui.cfg.sep)] : []);
   $effect(() => {
     if (!ready) return;
-    invoke("watch_dirs", { dirs: [...new Set(allTabs().flatMap((t) => [t.dir, ...gitDirs(t)]).filter(Boolean))] }).catch((e) => (ui.status = String(e)));
+    // The bin's own folders too, so its row and a tab showing it follow what goes in.
+    invoke("watch_dirs", { dirs: [...new Set([...allTabs().flatMap((t) => [t.dir, ...gitDirs(t)]), ...(ui.bin?.watch ?? [])].filter(Boolean))] }).catch((e) => (ui.status = String(e)));
   });
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => (ui.cfg = await invoke("get_config")));
   // A tab in the background is read again when it is shown.
   listen("dir-changed", (ev) => {
+    if (ui.bin?.watch?.some((d) => ev.payload.includes(d))) refreshBin();
     const shown = visibleTabs();
     for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? load(t) : (t.unread = true);
   });
@@ -360,7 +362,7 @@
     if (key) ui.status = t(key);
     return !!key;
   };
-  const readOnlyKey = (tb) => (tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : tb.nested ? "archive.nested_read_only" : null);
+  const readOnlyKey = (tb) => (tb.bin ? "bin.read_only" : tb.history ? "history.read_only" : tb.snapshot ? "zfs.read_only" : tb.package ? "pkg.read_only" : tb.diskImage ? "disk_image.read_only" : tb.nested ? "archive.nested_read_only" : null);
 
   const actions = {
     quit: () => getCurrentWindow().close(),
@@ -377,6 +379,10 @@
     history_upstream: () => openHistory(undefined, "upstream"),
     snapshots: () => openSnapshots(),
     package: () => openPackage(),
+    bin: () => openBin(),
+    bin_restore: () => binAct("restore"),
+    bin_delete: () => binAct("delete"),
+    bin_empty: () => binAct("empty"),
     // The flags are set in Properties.
     flags: () => actions.properties(),
     branches: () => openGitView(),
@@ -525,7 +531,8 @@
         await op((password) => invoke("mkdir", { base: tab().dir, name, password }), t("status.created", { what: name }), name, t("error.create", { what: name }));
         await load(tab(), tab().dir, name.split(/[\\/]/)[0]);
       }, "new_folder"),
-    delete: () => readOnly() || remove(false),
+    // In the bin, Delete deletes for good, asked as the bin asks.
+    delete: () => (tab().bin ? binAct("delete") : readOnly() || remove(false)),
     undo: async () => {
       if (!ui.undo) return void (ui.status = t("undo.nothing"));
       ui.status = t("status.busy", { what: ui.undo });
@@ -542,7 +549,7 @@
       // The cursor goes on what came back, where its folder is shown.
       await Promise.all(visibleTabs().map((v) => load(v, v.dir, back.find((p) => parent(p) === v.dir))));
     },
-    delete_forever: () => readOnly() || remove(true),
+    delete_forever: () => (tab().bin ? binAct("delete") : readOnly() || remove(true)),
     clip_copy: () => clip(false),
     clip_cut: () => readOnly() || clip(true),
     paste: async () => {

@@ -254,8 +254,7 @@ with its jid and host name; a click opens its root folder when you may read it.
 
 In the terminal app, **Alt+F1** (left panel) and **Alt+F2** (right panel) list the same, as
 Norton Commander's drive menu did, under a first line *Type a path…* that opens the usual
-go-to line. Type to filter, **Enter** to go. On a machine without boot environments or jails
-(and off FreeBSD) **Alt+F1** goes straight to the go-to line, as before.
+go-to line, with the [bin](../files/bin.md) above them. Type to filter, **Enter** to go.
 
 Coxswain never activates, mounts, destroys or starts anything: `bectl activate`, `bectl
 mount`, `service jail start` stay yours. Both lists are read when the app starts (the desktop

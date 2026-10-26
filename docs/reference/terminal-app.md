@@ -71,6 +71,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | ZFS snapshots as folders (**Alt+Z**), the diff of a file against now (**Enter**), copied back with **F5**; the dataset in the panel's bottom border | [ZFS snapshots as folders](../files/zfs-snapshots.md#in-the-terminal-app) |
 | Properties (**Alt+Enter**) as text, with ZFS, the FreeBSD package and file flags; *F9 → File flags* and *F9 → Files of this package* | [Properties](../files/properties.md#in-the-terminal-app) |
 | Your cloud accounts under **Alt+F1** / **Alt+F2**, as NC's drive menu | [Clouds](../organise/clouds.md#in-the-terminal-app) |
+| The system's bin under **Alt+F1** / **Alt+F2**: restore, delete for good, empty | [The bin](../files/bin.md) |
 | FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](../systems/freebsd.md#boot-environments-and-jails) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
 | All 55 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
@@ -114,7 +115,7 @@ action's name. The **F9** list and **F1** help leave them out.
 | Theme | `theme` (default `nc`), colours only; `look` is ignored | `[gui] theme` (default `cyber`), with its look |
 | Hidden files at start | Always from `show_hidden` | From the last session |
 | Properties (**Alt+Enter**) | The facts as text; your file flags with *F9 → File flags*, permissions with `chmod` | A dialog that also changes the permissions and your file flags |
-| Clouds, boot environments and jails | Under **Alt+F1** / **Alt+F2** | In the sidebar |
+| Clouds, the bin, boot environments and jails | Under **Alt+F1** / **Alt+F2** | In the sidebar |
 | Marked size | Files only: `4.2 MB in 3 marked` | Measured folders count too |
 | Find, **F3** | Views the hit in the built-in viewer | Does nothing (**F4** edits in both) |
 | Inside an archive | The panel title ends in `[archive]` | A badge and a tint on the pane |
