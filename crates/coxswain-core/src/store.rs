@@ -1527,6 +1527,36 @@ impl Store {
         tx.commit()
     }
 
+    /// The archive reader changed (`key` at `tag`; an older app leaves a newer tag be): every
+    /// file inside an archive is read again and gets its vectors again, once, its old text
+    /// found meanwhile, and every archive is listed again (the archives inside it are new to
+    /// its list). Nothing else in the store is redone. With search inside archives off there is
+    /// nothing inside them: only the tag is kept.
+    fn archive_reader_changed(&self, key: &str, tag: &str, on: bool) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let before: String = db
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .unwrap_or_default();
+        let newer = matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b);
+        if before == tag || newer {
+            return Ok(());
+        }
+        let tx = db.transaction()?;
+        if on {
+            tx.execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE inside IS NOT NULL", [])?;
+            let paths: Vec<String> = tx
+                .prepare("SELECT path FROM files WHERE inside IS NULL")?
+                .query_map([], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            for path in paths.into_iter().filter(|p| crate::archive::is_archive(Path::new(p))) {
+                // Not what is on disk: the next walk lists it again.
+                tx.execute("UPDATE files SET modified = -1 WHERE path = ?1", [path])?;
+            }
+        }
+        tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, tag])?;
+        tx.commit()
+    }
+
     /// `text_exclude` changed: files a new pattern leaves out lose their text and vectors, and
     /// files a pattern no longer leaves out are read again. Folders follow from the walk.
     fn exclude_changed(&self, now: &[String]) -> rusqlite::Result<()> {
@@ -3123,6 +3153,11 @@ fn scan_for(
     store.image_reader_changed("readers.image", "1", cfg.archives)?;
     // Archives too large to list until opened, once opened; images that were away, once back.
     store.waiting_ready(cfg.archives)?;
+    // Files inside archives (2.35): text, code, CSV and logs read as they are unpacked, whatever
+    // their size, kept whole in folders kept whole, and archives inside archives looked into:
+    // every file inside an archive is read again and gets its vectors again, once, and every
+    // archive is listed again. Nothing else.
+    store.archive_reader_changed("readers.archive", "1", cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
     let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
@@ -5275,6 +5310,60 @@ mod tests {
             in_cache(&cache.join("a.zip"), std::slice::from_ref(&cache)),
             "a folder read that is one"
         );
+    }
+
+    /// A store made with the archive reader before 2.35 reads every file inside its archives
+    /// once more, and lists its archives again (an archive inside one is new to the list), and
+    /// nothing else; a store a newer reader made is left as it is.
+    #[test]
+    fn store_made_with_the_old_archive_reader_reads_its_archives_again_and_nothing_else() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-archive-reader-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (home, src) = (d.join("home"), d.join("src"));
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("notes.txt"), "the launch window opens in march").unwrap();
+        let inner = d.join("inner.zip");
+        crate::archive::create(&inner, &[src.join("notes.txt")]).unwrap();
+        let outer = home.join("outer.zip");
+        crate::archive::create(&outer, &[src.join("notes.txt"), inner.clone()]).unwrap();
+        std::fs::write(home.join("plain.txt"), "a note on disk").unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let entry = outer.join("notes.txt").to_string_lossy().into_owned();
+        let nested = outer.join("inner.zip").join("notes.txt").to_string_lossy().into_owned();
+        let plain = home.join("plain.txt").to_string_lossy().into_owned();
+        let has_text = |p: &str| -> Option<i64> {
+            store.db.lock().unwrap().query_row("SELECT has_text FROM files WHERE path = ?1", [p], |r| r.get(0)).ok()
+        };
+        assert_eq!((has_text(&entry), has_text(&nested), has_text(&plain)), (Some(1), Some(1), Some(1)));
+        // As the old reader left it: no archive inside an archive, no tag; and a mark that
+        // shows whether a file was read again (no text, which only a reading puts right).
+        let as_before = |tag: Option<&str>| {
+            let db = store.db.lock().unwrap();
+            db.execute("DELETE FROM files WHERE path LIKE ?1", [format!("{}{}%", outer.join("inner.zip").to_string_lossy(), std::path::MAIN_SEPARATOR)]).unwrap();
+            db.execute("UPDATE files SET has_text = 0 WHERE path IN (?1, ?2)", [&entry, &plain]).unwrap();
+            match tag {
+                Some(t) => db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers.archive', ?1)", [t]).unwrap(),
+                None => db.execute("DELETE FROM meta WHERE key = 'readers.archive'", []).unwrap(),
+            };
+        };
+        as_before(None);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(has_text(&entry), Some(1), "the file inside the archive is read again");
+        assert_eq!(has_text(&nested), Some(1), "the archive is listed again: the one inside it is looked into");
+        assert_eq!(has_text(&plain), Some(0), "a file on disk is not read again");
+        // Once: the next scan reads nothing again.
+        as_before(Some("1"));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((has_text(&entry), has_text(&nested)), (Some(0), None), "read once, not every scan");
+        // A newer reader's store: an older one leaves it be.
+        as_before(Some("2"));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((has_text(&entry), has_text(&nested)), (Some(0), None), "a newer reader's work stays");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     /// Archives inside an archive are looked into, three deep: their files are known and their
