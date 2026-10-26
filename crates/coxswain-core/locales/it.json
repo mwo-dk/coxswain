@@ -4492,5 +4492,6 @@
  "disk.replace.what": "I tuoi file com'erano prima di un trova e sostituisci, per poterlo annullare (al massimo 256 MB per sostituzione).",
  "disk.replace.cost": "i trova e sostituisci di app chiuse non si possono più annullare; un'app aperta tiene i suoi",
  "disk.sync.what": "{n} file che una sincronizzazione di cartelle ha sostituito o eliminato in {folder}, tenuti qui perché il cestino non ha potuto accoglierli.",
- "disk.sync.cost": "spariscono per sempre"
+ "disk.sync.cost": "spariscono per sempre",
+ "branches.lfs_risk": "Non cambiato: la configurazione propria di questo repository imposta {key}, che git-lfs seguirebbe scrivendo i file: potrebbe eseguire un programma o inviare le tue credenziali altrove. Cambia branch con git stesso se ti fidi del repository."
 }

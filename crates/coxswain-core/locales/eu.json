@@ -4394,5 +4394,6 @@
  "disk.replace.what": "Zure fitxategiak bilatu eta ordeztu baten aurretik ziren bezala, desegin ahal izateko (gehienez 256 MB ordezkapen bakoitzeko).",
  "disk.replace.cost": "amaitutako aplikazioen bilatu eta ordeztuak ezin dira desegin jada; martxan dagoen aplikazio batek bereak gordetzen ditu",
  "disk.sync.what": "Karpeta-sinkronizazio batek {folder}(e)n ordezkatu edo ezabatu zituen {n} fitxategi, hemen gordeak zakarrontziak ezin izan zituelako hartu.",
- "disk.sync.cost": "betiko joaten dira"
+ "disk.sync.cost": "betiko joaten dira",
+ "branches.lfs_risk": "Ez da aldatu: biltegi honen beraren konfigurazioak {key} ezartzen du, eta git-lfs-ek hari jarraituko lioke fitxategiak idaztean: programa bat exekuta lezake edo zure saio-hasiera beste nonbaitera bidal lezake. Biltegiaz fidatzen bazara, aldatu adarra git bera erabiliz."
 }

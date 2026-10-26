@@ -193,12 +193,73 @@ fn said(mut c: std::process::Command) -> io::Result<String> {
 
 /// Files are written with the repository's own filters turned off (`git::command`): where it
 /// has some (git-crypt, say), the files would come out wrong, so git itself is asked to do it.
-fn writes_files_safely(dir: &Path) -> io::Result<()> {
-    if crate::git::repo_filters(dir).is_empty() {
-        Ok(())
-    } else {
-        Err(io::Error::other(crate::t!("branches.has_filters")))
+/// The user's own filters still run, git-lfs's among them, and git-lfs reads the repository's
+/// own config: a repository from elsewhere could have it run a program or send the user's login
+/// through a proxy while it writes the files of `target` (`lfs_risk`), so that is refused too.
+fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
+    if !crate::git::repo_filters(dir).is_empty() {
+        return Err(io::Error::other(crate::t!("branches.has_filters")));
     }
+    match lfs_risk(dir, target) {
+        Some(key) => Err(io::Error::other(crate::t!("branches.lfs_risk", "key" => key))),
+        None => Ok(()),
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test's own user config for `lfs_risk`, in place of the machine's.
+    static TEST_GLOBAL: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+/// What git-lfs would follow from the repository itself while it writes files, when the user
+/// has git-lfs set up (`filter.lfs`): in its own git config, a transfer agent or extension
+/// (each a program), the ssh or askpass program, a credential helper that is a command (`!…` or
+/// a path), a proxy, certificate or address override; in the `.lfsconfig` of the work tree or
+/// of `target`, an LFS server that is not https.
+fn lfs_risk(dir: &Path, target: &str) -> Option<String> {
+    let config = |args: &[&str]| -> String {
+        let mut c = crate::tools::command("git");
+        c.arg("-C").arg(dir).arg("config").args(args).env("GIT_CONFIG_COUNT", "0").stdin(std::process::Stdio::null());
+        #[cfg(test)]
+        if let Some(g) = TEST_GLOBAL.with(|g| g.borrow().clone()) {
+            c.env("GIT_CONFIG_GLOBAL", g).env("GIT_CONFIG_NOSYSTEM", "1");
+        }
+        c.output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default()
+    };
+    // Without git-lfs as a filter, nothing of it runs.
+    if config(&["--get-regexp", r"^filter\.lfs\.(smudge|process)$"]).trim().is_empty() {
+        return None;
+    }
+    let own = config(&[
+        "--show-scope",
+        "--get-regexp",
+        r"^(lfs\.customtransfer\..*|lfs\.standalonetransferagent|lfs\.extension\..*|core\.(sshcommand|askpass)|credential\.(.*\.)?helper|remote\..*\.proxy|http\.(.*\.)?(proxy.*|ssl.*|curloptresolve|pinnedpubkey))$",
+    ]);
+    let found = own.lines().find_map(|l| {
+        let (scope, rest) = l.split_once('\t')?;
+        let (key, value) = rest.split_once(' ').unwrap_or((rest, ""));
+        // A helper by name (`store`, `manager`) is git's own `git-credential-<name>`.
+        let named_helper = key.ends_with("helper") && !value.is_empty() && !value.starts_with('!') && !value.contains(['/', '\\']);
+        (matches!(scope, "local" | "worktree") && !named_helper).then(|| key.to_string())
+    });
+    if found.is_some() {
+        return found;
+    }
+    let lfs_url = r"^(lfs\.(.*\.)?url|remote\..*\.lfsurl)$";
+    let mut sources = vec![];
+    if std::fs::symlink_metadata(dir.join(".lfsconfig")).is_ok_and(|m| m.is_file()) {
+        sources.push("--file=.lfsconfig".to_string());
+    }
+    if !target.starts_with('-') {
+        sources.push(format!("--blob={target}:.lfsconfig"));
+    }
+    sources.iter().find_map(|src| {
+        config(&[src, "--get-regexp", lfs_url])
+            .lines()
+            .find(|l| l.split_once(' ').is_some_and(|(_, url)| !url.trim().starts_with("https://")))
+            .map(|_| "lfs.url (.lfsconfig)".to_string())
+    })
 }
 
 /// The folder git runs in for `dir`: the folder a list of branches is of, or `dir` itself.
@@ -232,7 +293,7 @@ pub(crate) fn git_switch(dir: &Path, entry: &str) -> io::Result<String> {
             crate::t!("branches.bad_name", "name" => b.name),
         ));
     }
-    writes_files_safely(&at.base)?;
+    writes_files_safely(&at.base, &b.name)?;
     let mut c = history::git(&at.base);
     c.arg("switch");
     if b.remote {
@@ -265,8 +326,9 @@ pub(crate) fn git_create(dir: &Path, name: &str, from: Option<&str>) -> io::Resu
                 .is_some_and(|at| at.view == View::Branches && at.commit.is_none())
     }) {
         Some(e) => {
-            writes_files_safely(&base)?;
-            Some(find(&base, e)?.name)
+            let b = find(&base, e)?;
+            writes_files_safely(&base, &b.name)?;
+            Some(b.name)
         }
         None => None,
     };
@@ -518,6 +580,90 @@ mod tests {
 
     /// Branches listed, browsed, created and switched to with the git CLI; a switch that would
     /// overwrite changes is refused with git's own message, and nothing is lost. Worktrees.
+    /// A repository from elsewhere with an LFS file on a branch, and the user's own git-lfs: a
+    /// stand-in for it, set up as `git lfs install` does, in a home of its own, that runs the
+    /// repository's transfer agent as git-lfs does when the file's object is missing. git as
+    /// Coxswain runs it does run the agent; a switch and a new branch from it are refused first.
+    #[cfg(unix)]
+    #[test]
+    fn a_switch_is_refused_where_git_lfs_would_run_the_repositorys_own_program() {
+        use std::os::unix::fs::PermissionsExt;
+        let Some(d) = repo("lfs-risk") else { return };
+        let home = d.with_file_name(format!("{}-home", d.file_name().unwrap().to_string_lossy()));
+        std::fs::create_dir_all(&home).unwrap();
+        let lfs = home.join("git-lfs-standin");
+        std::fs::write(&lfs, "#!/bin/sh\nagent=$(git config lfs.customtransfer.evil.path)\n[ -n \"$agent\" ] && sh -c \"$agent\"\ncat\n").unwrap();
+        std::fs::set_permissions(&lfs, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let global = home.join("gitconfig");
+        std::fs::write(&global, format!("[filter \"lfs\"]\n\tsmudge = {} smudge %f\n\tclean = cat\n\trequired = true\n[user]\n\tname = Ada\n\temail = ada@example.org\n", lfs.display())).unwrap();
+        // The setting up, with that home's config only (not the machine's own git-lfs).
+        let g = |args: &[&str]| {
+            let ok = crate::tools::command("git").arg("-C").arg(&d).args(args).env("GIT_CONFIG_GLOBAL", &global).env("GIT_CONFIG_NOSYSTEM", "1").status().unwrap().success();
+            assert!(ok, "git {args:?}");
+        };
+        let commit = |msg: &str| {
+            g(&["add", "-A"]);
+            g(&["commit", "-q", "-m", msg]);
+        };
+        std::fs::write(d.join("a.txt"), "one\n").unwrap();
+        commit("first");
+        g(&["switch", "-q", "-c", "assets"]);
+        std::fs::write(d.join(".gitattributes"), "*.bin filter=lfs\n").unwrap();
+        std::fs::write(d.join("big.bin"), "version https://git-lfs.github.com/spec/v1\n").unwrap();
+        commit("an LFS file");
+        g(&["switch", "-q", "main"]);
+        let marker = home.join("PWNED");
+        g(&["config", "lfs.customtransfer.evil.path", &format!("touch {}", marker.display())]);
+        g(&["config", "lfs.standalonetransferagent", "evil"]);
+
+        TEST_GLOBAL.with(|g| *g.borrow_mut() = Some(global.clone()));
+        // Refused before git runs.
+        let list = history::path_of(&d, View::Branches);
+        let e = switch(&list, "assets").unwrap_err().to_string();
+        assert_eq!(e, crate::t!("branches.lfs_risk", "key" => "lfs.customtransfer.evil.path"));
+        let e = create(&list, "copy", Some("assets")).unwrap_err().to_string();
+        assert!(e.contains("lfs.customtransfer"), "{e}");
+        assert!(!marker.exists());
+        // Without the refusal, git as Coxswain runs it, with that git-lfs, runs the program.
+        let mut c = history::git(&d);
+        c.env("GIT_CONFIG_GLOBAL", &global).env("GIT_CONFIG_NOSYSTEM", "1").args(["switch", "-q", "assets"]);
+        assert!(c.status().unwrap().success());
+        assert!(marker.exists(), "the stand-in did not run the agent: the test proves nothing");
+        g(&["switch", "-q", "main"]);
+
+        // A plain http LFS server in the branch's .lfsconfig is refused; https is not.
+        g(&["config", "--unset", "lfs.customtransfer.evil.path"]);
+        g(&["config", "--unset", "lfs.standalonetransferagent"]);
+        assert_eq!(lfs_risk(&d, "assets"), None);
+        // A credential helper by name is git's own; one that is a command is not.
+        g(&["config", "credential.helper", "store"]);
+        assert_eq!(lfs_risk(&d, "assets"), None);
+        g(&["config", "credential.helper", "!touch pwned"]);
+        assert_eq!(lfs_risk(&d, "assets").as_deref(), Some("credential.helper"));
+        g(&["config", "--unset", "credential.helper"]);
+        g(&["switch", "-q", "assets"]);
+        std::fs::write(d.join(".lfsconfig"), "[lfs]\n\turl = http://192.0.2.1/lfs\n").unwrap();
+        commit("lfsconfig");
+        g(&["switch", "-q", "main"]);
+        assert_eq!(switch(&list, "assets").unwrap_err().to_string(), crate::t!("branches.lfs_risk", "key" => "lfs.url (.lfsconfig)"));
+        // In the work tree too.
+        std::fs::write(d.join(".lfsconfig"), "[lfs]\n\turl = git@192.0.2.1:lfs\n").unwrap();
+        assert!(lfs_risk(&d, "main").is_some());
+        std::fs::remove_file(d.join(".lfsconfig")).unwrap();
+        g(&["switch", "-q", "assets"]);
+        std::fs::write(d.join(".lfsconfig"), "[lfs]\n\turl = https://example.org/lfs\n").unwrap();
+        commit("https");
+        g(&["switch", "-q", "main"]);
+        assert_eq!(lfs_risk(&d, "assets"), None);
+        // Without git-lfs as a filter, nothing of it runs: nothing to refuse.
+        std::fs::write(&global, "").unwrap();
+        g(&["config", "lfs.standalonetransferagent", "evil"]);
+        assert_eq!(lfs_risk(&d, "assets"), None);
+        TEST_GLOBAL.with(|g| *g.borrow_mut() = None);
+        let _ = std::fs::remove_dir_all(&home);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     #[test]
     fn branches_list_switch_create_and_worktrees() {
         let Some(d) = repo("branches") else { return };

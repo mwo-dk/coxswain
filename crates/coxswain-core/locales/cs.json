@@ -4495,5 +4495,6 @@
  "disk.kicad_settings.cost": "zde se neodstraňuje: KiCad tam má vaše vlastní nastavení",
  "disk.replace.cost": "hledání a nahrazení aplikací, které skončily, už nepůjde vrátit; běžící aplikace si svá ponechá",
  "disk.sync.what": "Soubory ({n}), které synchronizace složek nahradila nebo smazala v {folder}, ponechané zde, protože je koš nemohl převzít.",
- "disk.sync.cost": "zmizí natrvalo"
+ "disk.sync.cost": "zmizí natrvalo",
+ "branches.lfs_risk": "Nepřepnuto: vlastní konfigurace tohoto repozitáře nastavuje {key}, čímž by se git-lfs při zápisu souborů řídil: mohl by spustit program nebo poslat vaše přihlašovací údaje jinam. Pokud repozitáři důvěřujete, přepněte větev samotným gitem."
 }

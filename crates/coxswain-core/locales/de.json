@@ -4394,5 +4394,6 @@
  "disk.replace.what": "Ihre Dateien, wie sie vor einem Suchen und Ersetzen waren, damit es rückgängig gemacht werden kann (höchstens 256 MB je Ersetzen).",
  "disk.replace.cost": "Suchen und Ersetzen beendeter Apps lässt sich nicht mehr rückgängig machen; eine laufende App behält ihre",
  "disk.sync.what": "{n} Dateien, die ein Ordnerabgleich in {folder} ersetzt oder gelöscht hat, hier behalten, weil der Papierkorb sie nicht aufnehmen konnte.",
- "disk.sync.cost": "sie sind endgültig weg"
+ "disk.sync.cost": "sie sind endgültig weg",
+ "branches.lfs_risk": "Nicht gewechselt: die eigene Konfiguration dieses Repositorys setzt {key}, dem git-lfs beim Schreiben der Dateien folgen würde: es könnte ein Programm ausführen oder Ihre Anmeldedaten anderswohin senden. Wechseln Sie den Branch mit git selbst, wenn Sie dem Repository vertrauen."
 }

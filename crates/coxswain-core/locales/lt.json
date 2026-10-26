@@ -4492,5 +4492,6 @@
  "disk.replace.what": "Jūsų failai tokie, kokie buvo prieš paiešką ir pakeitimą, kad jį būtų galima atšaukti (ne daugiau kaip 256 MB vienam pakeitimui).",
  "disk.replace.cost": "pasibaigusių programų paieškų ir pakeitimų nebebus galima atšaukti; veikianti programa savo pasilieka",
  "disk.sync.what": "{n} failų, kuriuos aplankų sinchronizavimas pakeitė ar ištrynė aplanke {folder}, laikomi čia, nes šiukšlinė negalėjo jų priimti.",
- "disk.sync.cost": "jie dingsta visam laikui"
+ "disk.sync.cost": "jie dingsta visam laikui",
+ "branches.lfs_risk": "Neperjungta: pačios šios saugyklos konfigūracija nustato {key}, kuriuo git-lfs vadovautųsi rašydamas failus: jis galėtų paleisti programą arba nusiųsti jūsų prisijungimo duomenis kitur. Jei pasitikite saugykla, šaką perjunkite pačiu git."
 }

@@ -4394,5 +4394,6 @@
  "disk.replace.what": "Sinu failid sellisena, nagu need olid enne otsimist ja asendamist, et seda saaks tagasi võtta (kuni 256 MB asendamise kohta).",
  "disk.replace.cost": "lõppenud rakenduste otsimisi ja asendamisi ei saa enam tagasi võtta; töötav rakendus jätab enda omad alles",
  "disk.sync.what": "{n} faili, mille kaustade sünkroonimine asendas või kustutas kaustas {folder}, hoitud siin, sest prügikast ei saanud neid vastu võtta.",
- "disk.sync.cost": "need kaovad jäädavalt"
+ "disk.sync.cost": "need kaovad jäädavalt",
+ "branches.lfs_risk": "Ei vahetatud: selle hoidla enda seadistus määrab {key}, mida git-lfs failide kirjutamisel järgiks: see võiks käivitada mõne programmi või saata sinu sisselogimisandmed mujale. Kui usaldad hoidlat, vaheta haru git'iga ise."
 }

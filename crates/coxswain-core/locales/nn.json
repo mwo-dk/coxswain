@@ -4394,5 +4394,6 @@
  "disk.replace.what": "Filene dine slik dei var før eit søk og erstatt, så det kan angrast (høgst 256 MB per erstatning).",
  "disk.replace.cost": "søk og erstatt i appar som er avslutta, kan ikkje lenger angrast; ein app som køyrer, held på sine",
  "disk.sync.what": "{n} filer som ei mappesynkronisering erstatta eller sletta i {folder}, haldne her fordi papirkorga ikkje kunne ta dei.",
- "disk.sync.cost": "dei er borte for godt"
+ "disk.sync.cost": "dei er borte for godt",
+ "branches.lfs_risk": "Ikkje bytt: repoet sitt eige oppsett set {key}, som git-lfs ville følgt medan det skriv filene: det kunne køyre eit program eller sende innlogginga di ein annan stad. Byt grein med git sjølv dersom du stolar på repoet."
 }
