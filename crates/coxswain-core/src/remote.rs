@@ -281,10 +281,10 @@ pub fn refspec_outside(spec: &str, remote: &str) -> Option<String> {
 /// The work tree is the folder that holds `.git` (a folder, or a file in a submodule or a linked
 /// worktree): a repository's `core.worktree` may put it elsewhere, and a pull would write there.
 fn work_tree_here(base: &Path, stop: &AtomicBool) -> io::Result<()> {
-    let here = std::fs::canonicalize(base)?;
+    let here = dunce::canonicalize(base)?;
     let Some(root) = here.ancestors().find(|a| a.join(".git").exists()) else { return Ok(()) };
     let top = git_local(base, &["rev-parse", "--show-toplevel"], stop)?;
-    if std::fs::canonicalize(&top).ok().as_deref() != Some(root) {
+    if dunce::canonicalize(&top).ok().as_deref() != Some(root) {
         return Err(io::Error::other(t!("remote.worktree_elsewhere", "dir" => top, "root" => root.display().to_string())));
     }
     Ok(())
@@ -870,7 +870,7 @@ mod tests {
         std::fs::create_dir_all(&outside).unwrap();
         git_in(&here, &["config", "core.worktree", &outside.display().to_string()]);
         let e = go(&here, Op::Pull).unwrap_err().to_string();
-        assert!(e.contains(&std::fs::canonicalize(&outside).unwrap().display().to_string()), "{e}");
+        assert!(e.contains(&*outside.file_name().unwrap().to_string_lossy()), "{e}");
         assert_eq!(std::fs::read_dir(&outside).unwrap().count(), 0);
         git_in(&here, &["config", "--unset", "core.worktree"]);
         go(&here, Op::Pull).unwrap();
