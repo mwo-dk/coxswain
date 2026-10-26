@@ -50,7 +50,7 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **How do I see every change to one function?** Alt+J with the cursor in it, in the viewer or the editor; in the preview, click a line's commit. [Answer](panels/git-line-history.md)
 - **How do I get back an old version of a file?** Ctrl+G on it, Enter on the commit, F5 on the file. [Answer](panels/git-history.md#how-do-i-get-back-an-old-version-of-a-file)
 - **Why does a file say "older" in Last commit?** It has not changed in the newest 5000 commits of its folder, where the walk stops; Ctrl+G shows when. [Answer](panels/git.md#why-does-a-file-say-older-in-last-commit)
-- **How do I fetch or pull?** Alt+F fetches, Alt+L pulls when that is a fast-forward; nothing is merged or rebased. [Answer](panels/fetch-and-pull.md#why-was-my-pull-refused)
+- **How do I fetch or pull?** Alt+F fetches, Alt+D pulls when that is a fast-forward; nothing is merged or rebased. [Answer](panels/fetch-and-pull.md#why-was-my-pull-refused)
 - **How do I commit or push?** Alt+G opens the repository in your own git tool (lazygit, gitui, tig or a desktop client), or a terminal there when none is installed. [Answer](panels/git.md#open-in-your-git-tool)
 - **Where does a git setting come from?** Alt+C shows the git config as git uses it here: each value with its scope and file, values set earlier dimmed, passwords hidden. [Answer](panels/git-config.md#where-does-this-value-come-from)
 - **How do I switch to another branch?** Alt+B lists the branches; Alt+S on one, then Enter. [Answer](panels/git-branches.md#how-do-i-switch-to-another-branch)

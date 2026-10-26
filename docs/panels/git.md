@@ -8,7 +8,7 @@ gets a glyph for its own state, and the date and author of the last commit that 
 Both apps do this; the desktop app adds a diff in the preview pane and a list of the
 repositories you visited. **Ctrl+G** opens a file's or folder's history:
 [Git history as folders](git-history.md); **Alt+B** the branches and **Alt+W** the worktrees:
-[Git branches and worktrees](git-branches.md). **Alt+F** fetches and **Alt+L** pulls, fast-forward
+[Git branches and worktrees](git-branches.md). **Alt+F** fetches and **Alt+D** pulls, fast-forward
 only: [Fetch and pull](fetch-and-pull.md). Commit, push and merges are for your own git tool:
 **Alt+G** opens it in the repository ([Open in your git tool](#open-in-your-git-tool)).
 **Alt+C** shows the git config as git uses it, read-only: [Git config](git-config.md).
@@ -44,7 +44,7 @@ only: [Fetch and pull](fetch-and-pull.md). Commit, push and merges are for your 
 5. Press **Ctrl+G** for the history of the file or folder under the cursor
    ([Git history as folders](git-history.md)), **Alt+B** for the branches and **Alt+W** for the
    worktrees ([Git branches and worktrees](git-branches.md)).
-6. Press **Alt+F** to fetch, **Alt+L** to pull when that is a fast-forward
+6. Press **Alt+F** to fetch, **Alt+D** to pull when that is a fast-forward
    ([Fetch and pull](fetch-and-pull.md)), and **Alt+G** to commit, push or merge in your own git tool
    ([Open in your git tool](#open-in-your-git-tool)).
 7. Press **Alt+C** to see the git config as git uses it here, secrets hidden
@@ -56,7 +56,7 @@ It needs `git` on your `PATH`. Coxswain reads: it runs `git status` (with
 commands), for the diff `git diff`, and for the last commits and the history `git log`,
 `git ls-tree` and `git cat-file`. The only things it changes are the ones you ask for: a switch
 to a branch and a new branch (`git switch`) in the list of branches, and a fetch (**Alt+F**,
-`git fetch --all --prune`) or a fast-forward pull (**Alt+L**, `git merge --ff-only`)
+`git fetch --all --prune`) or a fast-forward pull (**Alt+D**, `git merge --ff-only`)
 ([Fetch and pull](fetch-and-pull.md)). It never commits or
 stages: **Alt+G** hands that to your own git tool. The repository's own hooks, file system monitor and filter drivers never run.
 
@@ -73,7 +73,7 @@ flowchart LR
     subgraph writes["Coxswain writes, when you ask"]
         w1["Switch branch: Alt+S"]
         w2["New branch here"]
-        w3["Fetch: Alt+F<br/>Pull, fast-forward only: Alt+L"]
+        w3["Fetch: Alt+F<br/>Pull, fast-forward only: Alt+D"]
     end
     tool["Your git tool: Alt+G<br/>commit, stage, push, merge, rebase"]
     repo --> reads
@@ -131,7 +131,7 @@ magenta in NC).
 
 How far behind is this branch, and how old is that number? The git line counts the commits
 ahead and behind, but only as of the last fetch: Coxswain fetches only when you press **Alt+F**
-(or **Alt+L**, which fetches first; [Fetch and pull](fetch-and-pull.md)). **Alt+Y** lists those
+(or **Alt+D**, which fetches first; [Fetch and pull](fetch-and-pull.md)). **Alt+Y** lists those
 commits themselves ([Against upstream](git-history.md#against-upstream)). These facts tell you
 where you stand:
 
@@ -240,10 +240,10 @@ remove it. A tab whose folder is in a repository shows the git icon instead of t
 ## Open in your git tool
 
 Coxswain shows version control and writes to a repository only to switch branch or make a new
-one, and to fetch (**Alt+F**) and pull when that is a fast-forward (**Alt+L**,
+one, and to fetch (**Alt+F**) and pull when that is a fast-forward (**Alt+D**,
 [Fetch and pull](fetch-and-pull.md)). A [Jujutsu](jujutsu.md) repository it otherwise only reads;
 a [Mercurial](mercurial.md) one it switches with `hg update --check` and gives new bookmarks; a
-[Subversion](subversion.md) or [CVS](cvs.md) working copy it only updates (**Alt+L**), and there
+[Subversion](subversion.md) or [CVS](cvs.md) working copy it only updates (**Alt+D**), and there
 **Alt+G** opens a terminal. Everything else (commit, stage, push, merge, rebase, setting an
 upstream, editing the config) is a handoff. The config itself can be looked at: **Alt+C** shows it as git uses it,
 read-only ([Git config](git-config.md)). For the rest, **Alt+G** (*Open in your git tool*) opens the repository in your own git
@@ -397,7 +397,7 @@ Settings → *Behaviour* (`[git] last_commit`).
 
 Hover the git line (desktop app) or put the cursor on `..` (terminal app): *Upstream:
 origin/master, 1 ahead, 2 behind* counts the commits as of *Last fetch*. Coxswain fetches
-only when you press **Alt+F** (or **Alt+L**, which fetches first; [Fetch and pull](fetch-and-pull.md)), so a
+only when you press **Alt+F** (or **Alt+D**, which fetches first; [Fetch and pull](fetch-and-pull.md)), so a
 fetch you have not made is not counted. Press **Alt+F**, or run `git fetch` anywhere, and the
 counts and the time follow within a moment, or on **Ctrl+R**.
 
@@ -429,7 +429,7 @@ repository's facts: hover the git line, or go to `..`.
 
 No. It switches branches and makes new ones ([Git branches and
 worktrees](git-branches.md)), fetches (**Alt+F**) and pulls when that is a fast-forward
-(**Alt+L**, [Fetch and pull](fetch-and-pull.md)) when you ask, and otherwise only reads; even the config (**Alt+C**) is shown
+(**Alt+D**, [Fetch and pull](fetch-and-pull.md)) when you ask, and otherwise only reads; even the config (**Alt+C**) is shown
 read-only ([Git config](git-config.md)). **Alt+G** opens your own git tool
 (lazygit, gitui, tig or a desktop client) in the repository for the rest
 ([Open in your git tool](#open-in-your-git-tool)). Single commands can also go in the

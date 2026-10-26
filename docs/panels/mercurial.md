@@ -6,7 +6,7 @@ In a [Mercurial](https://www.mercurial-scm.org/) repository, Coxswain shows what
 way it shows git: the line at the bottom of the pane names `hg` and the active bookmark (or the
 branch), each changed file carries its glyph, **Ctrl+G** lists the history of a file or folder
 and **Alt+B** the bookmarks and branches, as folders. **Alt+S** switches to a bookmark or
-branch and *New branch here* makes a bookmark, as for git, and **Alt+F** / **Alt+L** run `hg pull`
+branch and *New branch here* makes a bookmark, as for git, and **Alt+F** / **Alt+D** run `hg pull`
 (and `hg update --check` when the branch has one head; [Fetch and pull](fetch-and-pull.md)); nothing else is written. Both apps do
 this, through the `hg` program you have installed.
 
@@ -75,7 +75,7 @@ switches there first. A name with a space, a colon or only digits is refused. Co
 make named branches: `hg branch` does.
 
 **Alt+F** runs `hg pull` from the repository's `paths.default`, which brings the new changesets
-and changes no file; **Alt+L** pulls and then runs `hg update --check` when the branch has a
+and changes no file; **Alt+D** pulls and then runs `hg update --check` when the branch has a
 single head, so nothing is merged ([Fetch and pull](fetch-and-pull.md)).
 
 ## The repository's own config
@@ -130,7 +130,7 @@ when you want it.
 
 Someone committed on the same branch as you: after `hg pull` there are two heads, and joining
 them is a merge, which Coxswain never does. The changesets are in your repository now; merge or
-rebase with hg or your own tool (**Alt+G**). With uncommitted changes, **Alt+L** refuses before
+rebase with hg or your own tool (**Alt+G**). With uncommitted changes, **Alt+D** refuses before
 it pulls; **Alt+F** pulls without touching any file.
 
 #### Which tool does Alt+G open in a Mercurial repository?

@@ -32,7 +32,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [History of a function](git-line-history.md) | **Alt+J**: the commits that changed the function the cursor is in (or the lines selected), each with its change |
 | [Git branches and worktrees](git-branches.md) | **Alt+B**: the branches, a branch's files, switching (**Alt+S**) and new branches; **Alt+W**: the worktrees |
 | [Git config](git-config.md) | **Alt+C**: the git config as git uses it, each value with its scope and file, secrets hidden; read-only |
-| [Fetch and pull](fetch-and-pull.md) | **Alt+F** fetches the repository's remote, **Alt+L** pulls when that is a fast-forward; nothing is merged or rebased |
+| [Fetch and pull](fetch-and-pull.md) | **Alt+F** fetches the repository's remote, **Alt+D** pulls when that is a fast-forward; nothing is merged or rebased |
 | [Jujutsu in the panels](jujutsu.md) | A Jujutsu repository through `jj`: the line, the history (**Ctrl+G**) and the bookmarks (**Alt+B**), read-only |
 | [Mercurial in the panels](mercurial.md) | A Mercurial repository through `hg`: the line, the history (**Ctrl+G**), bookmarks and branches (**Alt+B**), switching (**Alt+S**) and new bookmarks |
 | [Subversion working copies](subversion.md) | The status of a Subversion working copy from `.svn/wc.db`, without the server; its history from the server on request |
@@ -88,7 +88,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | **Alt+K** | Yes | Yes | [Chess games](../previews/chess.md), [Go games](../previews/go.md), [Draughts games](../previews/draughts.md), [Xiangqi games](../previews/xiangqi.md) , [Shogi games](../previews/shogi.md) and [Bridge deals](../previews/bridge.md): a PGN (chess or xiangqi), a DhtmlXQ xiangqi game, SGF, PDN, KIF, CSA or PBN file's games, an EPD or FEN file's positions, a Polyglot book's moves |
 | **Alt+C** | Yes | Yes | [Git config](git-config.md): the config as git uses it here, read-only |
 | **Alt+U** | Yes | Yes | [Space](space.md): where the space goes, as a treemap |
-| **Alt+F** / **Alt+L** | Yes | Yes | [Fetch and pull](fetch-and-pull.md): fetch the repository's remote / pull, fast-forward only |
+| **Alt+F** / **Alt+D** | Yes | Yes | [Fetch and pull](fetch-and-pull.md): fetch the repository's remote / pull, fast-forward only |
 | **Alt+G** | Yes | Yes | [Open in your git tool](git.md#open-in-your-git-tool): commit, push or merge in lazygit, gitui, tig or your desktop client |
 | **Ctrl+,**, **F12** | Settings | Settings, full screen (most terminals pass only **F12** on: *12 Settings* on the F-key bar) | [Settings](../customise/settings.md) |
 | **Shift+F10**, **Menu** | Yes, also the **⋯** on a row and Ctrl+right-click | Yes | [What can I do with this?](action-menu.md): the actions that fit |

@@ -8,7 +8,7 @@ file carries its glyph. It reads only the `CVS/Entries` files in each folder, so
 to the server and `cvs` need not be installed for that. The history comes from the server, and
 only once you say yes to that server: **Ctrl+G** asks first, then lists the commits from
 `cvs log`, and **Enter** on one shows its files as they were, with their changes, read-only.
-**Alt+L** updates the working copy (`cvs update -d`) when no file has changes here
+**Alt+D** updates the working copy (`cvs update -d`) when no file has changes here
 ([Fetch and pull](fetch-and-pull.md)). Commit stays with CVS: **Alt+G** opens a terminal in the folder for it.
 Both apps do this.
 
@@ -117,7 +117,7 @@ files removed by then are left out. Only the file contents are asked of the serv
 
 **Alt+B** says on the status line: *CVS keeps its branches and old files on the server: Open in
 your git tool opens a terminal in the working copy for that.* **Alt+G** opens a terminal in the
-folder, where `cvs commit` and an update that merges run as usual. A plain update is **Alt+L**
+folder, where `cvs commit` and an update that merges run as usual. A plain update is **Alt+D**
 ([Fetch and pull](fetch-and-pull.md)).
 
 ## In the terminal app
@@ -151,7 +151,7 @@ changed until `cvs update` sets the time again.
 
 #### How do I update the working copy?
 
-Press **Alt+L** (*Pull (fast-forward only)*). Coxswain first runs `cvs -n update`, which
+Press **Alt+D** (*Pull (fast-forward only)*). Coxswain first runs `cvs -n update`, which
 changes nothing; when it lists a file changed here (`M` or `C`), the update is refused and the
 file named, since `cvs update` would merge into it. Otherwise `cvs update -d` runs and the status
 line says how many files came from the server. A folder with `CVS/Update.prog` (a program

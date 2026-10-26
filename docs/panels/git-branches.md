@@ -131,7 +131,7 @@ is just a folder.
 ## Limits
 
 - **Only switch, new branch, fetch and a fast-forward pull change anything here.** Fetch
-  (**Alt+F**) and pull (**Alt+L**) work in the list too ([Fetch and pull](fetch-and-pull.md)). No delete, rename, push or merge:
+  (**Alt+F**) and pull (**Alt+D**) work in the list too ([Fetch and pull](fetch-and-pull.md)). No delete, rename, push or merge:
   **Alt+G** opens your own git tool for those ([Open in your git tool](git.md#open-in-your-git-tool)),
   or use git on the command line or the [user menu](../commands/user-menu.md).
 - **No hooks set in the repository's config, and no work tree elsewhere.** git also runs hooks
@@ -158,7 +158,7 @@ is just a folder.
 - **The switch runs while you wait** in the terminal app; in a very big work tree the keys wait
   for git.
 - **Remote-tracking branches are as the last fetch left them:** Coxswain fetches only when you
-  press **Alt+F** (or **Alt+L**); the list is read again after.
+  press **Alt+F** (or **Alt+D**); the list is read again after.
 - It needs `git` on your `PATH` (2.36 or newer for the worktrees).
 
 ## Settings and config.toml

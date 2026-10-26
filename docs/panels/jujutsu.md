@@ -5,7 +5,7 @@
 In a [Jujutsu](https://jj-vcs.github.io/jj/) repository, Coxswain shows what `jj` knows the
 way it shows git: the line at the bottom of the pane names `jj`, the working-copy change and
 the nearest bookmark, each changed file carries its glyph, **Ctrl+G** lists the history of a
-file or folder and **Alt+B** the bookmarks, as folders. It only reads, apart from **Alt+F** and **Alt+L**, which run
+file or folder and **Alt+B** the bookmarks, as folders. It only reads, apart from **Alt+F** and **Alt+D**, which run
 `jj git fetch` ([Fetch and pull](fetch-and-pull.md)): nothing is committed, moved or snapshotted. Both apps do this, through the `jj` program you have installed.
 
 ![The desktop app (Cyber) in ~/projects/lander, a Jujutsu repository without .git, the sidebar hidden: docs and src marked, the Last commit column with 2026-10-15 Ada on docs and src and 2026-10-10 Ada on README.md, and at the right of the pane's footer the line jj xkpqlmnu main with one added and one modified file](../screenshots/jj-line.png)

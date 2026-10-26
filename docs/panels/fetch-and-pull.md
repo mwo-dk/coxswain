@@ -2,7 +2,7 @@
 
 # Fetch and pull
 
-**Alt+F** fetches the repository of the active panel from its remote, and **Alt+L** pulls it,
+**Alt+F** fetches the repository of the active panel from its remote, and **Alt+D** pulls it,
 but only when that is a fast-forward. Apart from reading a Subversion or CVS history (after
 your yes), they are the only things Coxswain asks of a remote, and only when you press them. Nothing is ever merged or rebased: a pull that would need
 that, or that would change a file you have not committed, is refused with the reason. Both apps
@@ -12,7 +12,7 @@ do this, for git, [Mercurial](mercurial.md) and [Jujutsu](jujutsu.md); a
 
 ![The desktop app in Cyber on the rocket repository, docs under the cursor and its preview open, the git line master ↑1 ↓1, and the status line after Alt+F: Fetched. Against origin/master: ↓1 to pull, ↑1 to push.](../screenshots/fetch-pull.png)
 
-![The terminal app in Classic blue on rocket after Alt+L: the dialog Pull (fast-forward only) says Not pulled: this branch and origin/master have both moved on, so it cannot fast-forward. Coxswain never merges or rebases: do that in your git tool. The right panel's info line on .. ends with Alt+F fetch · Alt+L pull](../screenshots/tui-fetch-pull.png)
+![The terminal app in Classic blue on rocket after Alt+D: the dialog Pull (fast-forward only) says Not pulled: this branch and origin/master have both moved on, so it cannot fast-forward. Coxswain never merges or rebases: do that in your git tool. The right panel's info line on .. ends with Alt+F fetch · Alt+D pull](../screenshots/tui-fetch-pull.png)
 
 ## Contents
 
@@ -27,11 +27,11 @@ do this, for git, [Mercurial](mercurial.md) and [Jujutsu](jujutsu.md); a
 ## How to use it
 
 1. Open a folder anywhere in a repository (or its list of branches, **Alt+B**).
-2. Press **Alt+F** (*Fetch from the remote*) or **Alt+L** (*Pull (fast-forward only)*). Both
+2. Press **Alt+F** (*Fetch from the remote*) or **Alt+D** (*Pull (fast-forward only)*). Both
    are also in **F9**, in the action menu (**Shift+F10**) in a repository, and in the desktop
    app in the git line's menu (a right-click on the git line) and in the preview pane's *Git*
    row, each with its key. The git line's tooltip names them, and in the terminal app the info
-   line on `..` ends with *Alt+F fetch · Alt+L pull*.
+   line on `..` ends with *Alt+F fetch · Alt+D pull*.
 3. The status line says *Fetch from the remote: contacting the remote*, then the tool's own
    progress (*Receiving objects: 45%*), and *Esc stops*. The desktop app shows a **Stop**
    button beside it.
@@ -44,7 +44,7 @@ the stop is kept; nothing is merged.
 
 ## What each system runs
 
-| System | Fetch (**Alt+F**) | Pull (**Alt+L**) |
+| System | Fetch (**Alt+F**) | Pull (**Alt+D**) |
 |---|---|---|
 | git | `git fetch --all --prune` | the same fetch, then `git merge --ff-only` to the upstream, only when the branch is behind and has nothing of its own |
 | Mercurial | `hg pull` from the repository's `paths.default` | `hg pull`, then `hg update --check` when the branch has one head |
@@ -92,14 +92,14 @@ words say so too (*Could not resolve host*).
 
 | | Terminal app | Desktop app |
 |---|---|---|
-| Keys | **Alt+F**, **Alt+L**; in F1, F9 and the action menu | The same; also the git line's menu and the preview pane's *Git* row |
+| Keys | **Alt+F**, **Alt+D**; in F1, F9 and the action menu | The same; also the git line's menu and the preview pane's *Git* row |
 | While it runs | The status line: *Fetch from the remote: contacting the remote · Receiving objects: 45% · Esc stops* | The same text in the status bar, with **Stop** |
 | Done | The status line, e.g. *Fetched. Against origin/main: ↓2 to pull, ↑0 to push.* or *Pulled origin/main: 1a2b3c4 → 5d6e7f8, fast-forward.* | The same |
 | Refused or failed | A dialog: the reason, the tool's words under *Details* | A dialog: the reason, the tool's words under *Details* |
 | After | The panels, the git line, the info line on `..` (*Last fetch*) read again | The panels, the git line and its tooltip read again |
 
 The first few times you are in a repository, a hint on the status line says *Alt+F fetches
-from the remote, Alt+L pulls (fast-forward only)* (in a Subversion or CVS working copy: *Alt+L
+from the remote, Alt+D pulls (fast-forward only)* (in a Subversion or CVS working copy: *Alt+D
 updates the working copy from the server*).
 
 ## Settings and config.toml
@@ -110,7 +110,7 @@ There is no setting: Fetch and Pull happen only when you press them, and that is
 ```toml
 [keys]
 fetch = ["Alt+F"]
-pull = ["Alt+L"]
+pull = ["Alt+D"]
 ```
 
 Set one to `[]` to give its letter back to quick search.
@@ -138,14 +138,14 @@ merged, and the status line says *Stopped*.
 
 #### Does Coxswain fetch by itself, in the background?
 
-No. Nothing reaches a remote unless you press **Alt+F** or **Alt+L** (or pick them from a menu).
+No. Nothing reaches a remote unless you press **Alt+F** or **Alt+D** (or pick them from a menu).
 The git line's ahead and behind and *Last fetch* are as your last fetch left them, from
 Coxswain or anywhere else.
 
 #### Why is there no Fetch in my Subversion working copy?
 
 Subversion and CVS keep no copy of the server's history to fetch into: their only step is
-`svn update` or `cvs update`, which is **Alt+L**. Subversion refuses it when a file changed here
+`svn update` or `cvs update`, which is **Alt+D**. Subversion refuses it when a file changed here
 also changed on the server, since the update would merge into it; CVS refuses it while any file
 has changes here.
 
@@ -157,7 +157,7 @@ run next.
 
 #### Which key does it use, and can I change it?
 
-**Alt+F** and **Alt+L**, both free before. Change them under `[keys]` in `config.toml` (`fetch`, `pull`);
+**Alt+F** and **Alt+D**, both free before. Change them under `[keys]` in `config.toml` (`fetch`, `pull`);
 Settings → Keys shows them, and its **Open config.toml** opens the file there. An empty list
 gives the letter back to quick search.
 
