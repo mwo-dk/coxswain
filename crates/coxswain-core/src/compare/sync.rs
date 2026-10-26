@@ -733,10 +733,13 @@ mod imp {
         let mut failed = vec![];
         let mut undo = Undo { to: to.clone(), dirs: plan.dirs[1].clone(), made: vec![], kept: vec![], aside: None, trashed: None };
         // What is replaced or deleted goes into a folder of the run's own at the target's top.
+        let mut note = None;
         let aside = if plan.steps.iter().any(|s| s.act != Act::Copy) {
             let name = aside_name();
             let a = root.make_dir(&name).map_err(|e| format!("{}: {e}", to.join(&name).display()))?;
             let st = a.stat().map_err(|e| e.to_string())?;
+            // Noted until it went to the bin: a run cut short leaves it for the next start.
+            note = super::super::aside::note(&to.join(&name));
             undo.aside = Some((name, st));
             Some(a)
         } else {
@@ -863,6 +866,7 @@ mod imp {
             if undo.kept.is_empty() {
                 let _ = root.remove(&name, &st);
                 undo.aside = None;
+                super::super::aside::done(note.as_deref());
             } else {
                 // Only while the target's path still leads to the very folder held, and the
                 // name in it to the very folder aside.
@@ -870,7 +874,10 @@ mod imp {
                     && root.stat_at(&name).is_ok_and(|now| now.id.same_file(&st.id));
                 match if same { trash(&path).ok() } else { None } {
                     // Gone from the target's top, and not to another place in it.
-                    Some(n) if root.stat_at(&name).is_err() && (a.parent_is_not(&root) || a.stat().is_ok_and(|s| s.nlink == 0)) => undo.trashed = Some(n.unwrap_or_default()),
+                    Some(n) if root.stat_at(&name).is_err() && (a.parent_is_not(&root) || a.stat().is_ok_and(|s| s.nlink == 0)) => {
+                        undo.trashed = Some(n.unwrap_or_default());
+                        super::super::aside::done(note.as_deref());
+                    }
                     Some(_) => failed.push(t!("sync.moved_away", "path" => path.display())),
                     None => kept_at = Some(path),
                 }

@@ -27,6 +27,9 @@ pub enum Kind {
     Model,
     /// Outside Coxswain's folder, caused by it: never cleared without being asked by name.
     Outside,
+    /// The user's own files Coxswain keeps aside (quarantine, undo copies, what a sync set
+    /// aside): never in *Clear everything*, each removed only on its own row.
+    Yours,
 }
 
 /// One place on the disk.
@@ -48,6 +51,8 @@ pub struct Item {
     pub rebuildable: bool,
     /// A built-in model the settings use: deleting it changes them.
     pub in_use: bool,
+    /// It has a Clear (or Remove) button; the quarantine has none, it is shown only.
+    pub clear: bool,
 }
 
 /// The rows of Coxswain's own folder: id, what they are in the cache folder, built again by
@@ -136,6 +141,7 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
                 paths,
                 kind: Kind::Own,
                 rebuildable: *rebuildable,
+                clear: true,
                 in_use: false,
             });
         }
@@ -150,6 +156,7 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             paths: vec![e.folder.clone()],
             kind: Kind::Model,
             rebuildable: false,
+            clear: true,
             in_use: e.in_use,
         });
     }
@@ -163,11 +170,49 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             paths: vec![p],
             kind: Kind::Outside,
             rebuildable: false,
+            clear: true,
             in_use: false,
         });
     }
     if images {
         v.extend(image_items(&cfg.preview));
+    }
+    v.extend(yours());
+    v
+}
+
+/// The user's own files Coxswain keeps aside: the quarantine (shown, never cleared here),
+/// find-and-replace's undo copies (only those of runs that ended go), and each folder a sync
+/// that ended set aside where the bin could not take it.
+fn yours() -> Vec<Item> {
+    let mut v = vec![];
+    let row = |id: String, name: String, what: String, cost: String, paths: Vec<PathBuf>, clear: bool| Item {
+        id,
+        name,
+        what,
+        cost,
+        bytes: size(&paths),
+        paths,
+        kind: Kind::Yours,
+        rebuildable: false,
+        in_use: false,
+        clear,
+    };
+    if let Some(q) = crate::viruses::quarantine_dir().filter(|q| std::fs::read_dir(q).is_ok_and(|mut r| r.next().is_some())) {
+        v.push(row("quarantine".into(), "quarantine/".into(), t!("disk.quarantine.what"), t!("disk.quarantine.cost"), vec![q], false));
+    }
+    let undo = crate::replace::kept_dirs();
+    if !undo.is_empty() {
+        v.push(row("replace".into(), "coxswain-replace-…/".into(), t!("disk.replace.what"), t!("disk.replace.cost"), undo, true));
+    }
+    for l in crate::compare::aside::left().into_iter().filter(|l| !l.binned) {
+        let p = l.path();
+        if !std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir()) {
+            continue;
+        }
+        let name = format!("{}/", p.file_name().unwrap_or_default().to_string_lossy());
+        let what = t!("disk.sync.what", "n" => count(l.files as usize), "folder" => l.folder().display());
+        v.push(row(format!("sync:{}", name.trim_end_matches('/')), name, what, t!("disk.sync.cost"), vec![p], true));
     }
     v
 }
@@ -202,6 +247,7 @@ fn images_in(cfg: &PreviewConfig, name: &str, rt: &std::path::Path) -> Vec<Item>
                 paths: vec![],
                 kind: Kind::Outside,
                 rebuildable: false,
+                clear: true,
                 in_use: false,
             })
         })
@@ -244,6 +290,7 @@ fn goes(i: &Item, models: bool, outside: bool) -> bool {
         Kind::Own => i.rebuildable,
         Kind::Model => models && !i.in_use,
         Kind::Outside => outside,
+        Kind::Yours => false,
     }
 }
 
@@ -324,6 +371,14 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
             }
             crate::models::delete(e, helper).map_err(|err| fail(&e.folder, err))?;
         }
+        (Kind::Yours, "replace") => crate::replace::sweep(),
+        (Kind::Yours, id) if id.starts_with("sync:") => {
+            for p in &item.paths {
+                crate::compare::aside::remove(p).map_err(|e| fail(p, e))?;
+            }
+        }
+        // Your own files: removed in a panel, never here.
+        (Kind::Yours, _) => return Err(item.cost.clone()),
         (Kind::Outside, "tectonic") => {
             gone(&item.paths)?;
             forget_made(&item.paths);
@@ -717,6 +772,7 @@ pub fn table(items: &[Item]) -> String {
         (Kind::Own, "disk.head.own"),
         (Kind::Model, "disk.head.models"),
         (Kind::Outside, "disk.head.outside"),
+        (Kind::Yours, "disk.head.yours"),
     ] {
         let rows: Vec<&Item> = items.iter().filter(|i| i.kind == kind).collect();
         if rows.is_empty() {
@@ -855,6 +911,7 @@ mod tests {
             kind,
             rebuildable,
             in_use,
+            clear: true,
         };
         let items = [
             item("store", Kind::Own, true, false, 10),

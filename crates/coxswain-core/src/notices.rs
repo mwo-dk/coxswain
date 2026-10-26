@@ -91,6 +91,18 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let names = cfg.unknown_actions.join(", ");
         all.push(Notice::new(format!("unknown-actions:{names}"), t!("notice.unknown_actions", "names" => names), Some("keys")));
     }
+    // A folder sync that ended left what it replaced or deleted: in the bin now, or still in
+    // its folder where the bin could not take it (Disk use removes it). Each once.
+    for l in crate::compare::aside::left() {
+        let undo = cfg.key_for(crate::config::Action::Undo).unwrap_or("Ctrl+Z");
+        let (n, size) = (crate::settings::count(l.files as usize), crate::settings::human(l.bytes));
+        let text = if l.binned {
+            t!("notice.sync_binned", "n" => n, "size" => size, "folder" => l.folder().display(), "undo" => undo)
+        } else {
+            t!("notice.sync_kept", "n" => n, "size" => size, "path" => l.path().display(), "undo" => undo)
+        };
+        all.push(Notice::new(l.id(), text, (!l.binned).then_some("disk")));
+    }
     // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
     if let Some(why) = &status.error {
         all.push(Notice::new(
