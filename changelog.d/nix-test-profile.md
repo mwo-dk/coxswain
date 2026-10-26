@@ -1,0 +1,1 @@
+| **Building Coxswain with Nix takes less time.** The tests that run in the build are compiled without optimising, in a third of the time; the programs are still built in release. | [Nix](systems/nix.md#what-the-packages-hold) |

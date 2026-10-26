@@ -98,7 +98,9 @@ missing the preview says so and shows its install line
 | `coxswain-gui` | `bin/coxswain-gui` (wrapped), `share/applications/coxswain.desktop`, `share/icons/hicolor/128x128/apps/coxswain.png` |
 
 The terminal app's build runs the tests of `coxswain` and `coxswain-core`, with git at hand
-(the history and branch tests make small repositories) and a temporary home. The tokenizer for
+(the history and branch tests make small repositories) and a temporary home. The tests are
+compiled in Cargo's test profile, without optimising, which takes a third of the time; the
+programs themselves are built in release. The tokenizer for
 search by meaning links nixpkgs' oniguruma rather than building its own copy.
 
 ## Updating
