@@ -2409,10 +2409,20 @@ mod tests {
                 app.dialog = Some(Dialog::Settings(Box::new(Settings::open(&app, area.id()))));
                 let mut last = None;
                 loop {
-                    let lines = screen(&mut app, 80, 24);
+                    // The file count goes on in the background: the screen and the text it is
+                    // held to are made from the same count, made again until it stood still.
+                    let count = |app: &App| serde_json::to_string(&app.index.status()).unwrap();
+                    let (lines, want) = loop {
+                        let before = count(&app);
+                        let lines = screen(&mut app, 80, 24);
+                        let s = settings(&app);
+                        let want: String = explain(&app, s, &rows(&app, s)).iter().map(|x| x.content.as_ref()).collect();
+                        if count(&app) == before {
+                            break (lines, want);
+                        }
+                    };
                     let s = settings(&app);
                     let rows = rows(&app, s);
-                    let want: String = explain(&app, s, &rows).iter().map(|x| x.content.as_ref()).collect();
                     let rule = lines.iter().position(|l| l.contains('┴')).unwrap();
                     let shown = lines[rule + 1..22].concat();
                     // A version longer than the box: its start, "…" and how to see it whole.
