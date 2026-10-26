@@ -1,1 +1,0 @@
-| **Find and replace in the terminal app no longer closes the app when nothing matches.** A preview that finds nothing says so, as in the desktop app. | [Find and replace](files/find-and-replace.md#in-the-terminal-app) |
