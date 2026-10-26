@@ -6,7 +6,7 @@ The sidebar is the column at the left of the desktop app's window (at the right 
 Arabic). It holds your usual folders, your disks with their free space, your
 [cloud accounts](clouds.md), your [favourites](favourites.md) and the git repositories you opened last (by name, with the ones you pinned), each one click away.
 
-![The sidebar of the desktop app: PLACES with Home; DRIVES with System, 250 GB free and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with rocket and website. rocket is highlighted in both lists](../screenshots/gui-details.png)
+![The sidebar of the desktop app: PLACES with Home; DRIVES with System, its free space and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with website (a pin at the end of its row), then paper, rocket and vision by name, each with a faint ⋯. rocket is highlighted in both lists; the status line says how to pin or remove a repository](../screenshots/gui-details.png)
 *The sidebar in the Cyber theme. The entries for the folder you are in are highlighted.*
 
 ![The same window in Hebrew: the sidebar is at the right, its headers and entries right-aligned](../screenshots/gui-lang-he.png)
@@ -79,6 +79,9 @@ the last eight you visited; an older one drops out when a ninth comes, unless it
 - **Remove.** *Remove from the list* in that menu, or **Delete** on the row when it has the
   focus, takes it out at once, pinned or not. Nothing on disk is touched. Going into the
   repository again brings it back.
+
+![The desktop app with the menu of the repository rocket open over the panes: ROCKET, a filter field, then Open, Pin: keep in the list, and Remove from the list with the key Delete beside it](../screenshots/gui-sidebar-repos-menu.png)
+*A right-click on* rocket *under Git repositories.*
 
 The first few times the list is there, the status line says *Right-click a git repository in
 the sidebar to pin or remove it; Delete removes the one with the focus*.
