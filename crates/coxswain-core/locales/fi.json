@@ -4378,7 +4378,7 @@
  "notice.sync_binned": "Kansioiden synkronointi, joka päättyi kesken, oli siirtänyt sivuun {n} tiedostoa ({size}), jotka se korvasi tai poisti kansiossa {folder}. Ne ovat nyt roskakorissa, josta voit palauttaa ne; {undo} ei enää kumoa sitä synkronointia.",
  "notice.sync_kept": "Päättynyt kansioiden synkronointi siirsi sivuun {n} tiedostoa ({size}), jotka se korvasi tai poisti, eikä roskakori voi ottaa niitä täällä, joten ne ovat yhä kansiossa {path}. {undo} ei enää kumoa sitä synkronointia. Poista ne kohdassa Asetukset → Yksityisyys ja päivitykset → Levyn käyttö, kun et enää tarvitse niitä.",
  "disk.head.yours": "Omat tiedostosi, Coxswainin sivuun siirtämät",
- "disk.yours_hint": "Omia tiedostojasi, joita ei koskaan tyhjennetä muiden mukana: kukin poistuu vain, kun poistat sen sen omalla rivillä.",
+ "disk.yours_hint": "Omia tiedostojasi, joita ei koskaan tyhjennetä muiden mukana: kukin poistuu vain, kun poistat sen omalta riviltään.",
  "disk.remove": "Poista",
  "disk.confirm_remove": "Poistetaanko {what} lopullisesti? Napsauta uudelleen",
  "disk.keys_tui_remove": "Enter: näytä paneelissa · Delete: poista",

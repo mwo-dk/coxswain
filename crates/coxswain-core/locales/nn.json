@@ -4383,7 +4383,7 @@
  "disk.confirm_remove": "Fjerne {what} for godt? Klikk igjen",
  "disk.keys_tui_remove": "Enter: vis i panelet · Delete: fjern",
  "disk.keys_tui_show": "Enter: vis i panelet",
- "disk.quarantine.what": "Filer du flytte i karantene etter ei virusskanning, med quarantine.log.",
+ "disk.quarantine.what": "Filer du flytta til karantene etter ei virusskanning, med quarantine.log.",
  "disk.quarantine.cost": "blir ikkje fjerna her: dei er filene dine; slett dei i eit panel når du er sikker, eller kopier ei tilbake",
  "disk.replace.what": "Filene dine slik dei var før eit søk og erstatt, så det kan angrast (høgst 256 MB per erstatning).",
  "disk.replace.cost": "søk og erstatt i appar som er avslutta, kan ikkje lenger angrast; ein app som køyrer, held på sine",
