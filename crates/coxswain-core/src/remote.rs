@@ -487,7 +487,8 @@ mod tests {
         assert!(here.join(".git/FETCH_HEAD").exists(), "Last fetch has a time");
         go(&here, Op::Pull).unwrap();
         assert_eq!(head(&here), head(&there));
-        assert_eq!(std::fs::read_to_string(here.join("b.txt")).unwrap(), "two\n");
+        // Windows runners check files out with CRLF (core.autocrlf in the system config).
+        assert_eq!(std::fs::read_to_string(here.join("b.txt")).unwrap().trim_end(), "two");
         // Again: nothing to pull.
         go(&here, Op::Pull).unwrap();
     }
