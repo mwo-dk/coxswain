@@ -4588,5 +4588,8 @@
  "feature.fetch_pull.q2": "Kvifor står det at remote ber om eit passord?",
  "feature.fetch_pull.a2": "Coxswain spør aldri i terminalen. Credential helper i Git og ssh-agent blir brukte; når ingen av dei har innlogginga, blir orda til verktøyet viste. Køyr fetch éin gong i ein terminal, eller legg nøkkelen til i ssh-agent, og trykk så {fetch} igjen.",
  "feature.fetch_pull.q3": "Korleis stoppar eg ein treg fetch?",
- "feature.fetch_pull.a3": "Esc, eller {fetch} igjen, medan statuslinja seier at han kontaktar remote. Det som kom inn før stoppen, blir teke vare på; ingenting blir slått saman."
+ "feature.fetch_pull.a3": "Esc, eller {fetch} igjen, medan statuslinja seier at han kontaktar remote. Det som kom inn før stoppen, blir teke vare på; ingenting blir slått saman.",
+ "remote.ambiguous": "Ikkje henta: denne greina har ingen eigen remote, og repoet har fleire, ingen av dei med namnet origin. Set upstream for greina i Git-verktøyet ditt.",
+ "remote.bad_refspec": "Ikkje henta: remoten {remote} er sett til å skrive i {dst}, utanfor refs/remotes/{remote}/, der ein fetch kan skrive over eller slette dine eigne greiner og taggar.",
+ "remote.symlink": "Ikkje oppdatert: {name} er ei symbolsk lenkje, som cvs update kan følgje ut av arbeidskopien."
 }

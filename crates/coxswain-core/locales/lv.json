@@ -4686,5 +4686,8 @@
  "feature.fetch_pull.q2": "Kāpēc rakstīts, ka attālā krātuve prasa paroli?",
  "feature.fetch_pull.a2": "Coxswain nekad nejautā terminālī. Tiek izmantots git credential helper un ssh-agent; ja nevienam nav pieteikšanās datu, redzami paša rīka vārdi. Vienreiz veiciet fetch terminālī vai pievienojiet atslēgu ssh-agent, tad vēlreiz nospiediet {fetch}.",
  "feature.fetch_pull.q3": "Kā apturēt lēnu fetch?",
- "feature.fetch_pull.a3": "Esc vai vēlreiz {fetch}, kamēr statusa rinda saka, ka notiek savienošanās ar attālo krātuvi. Kas saņemts pirms apturēšanas, paliek; nekas netiek sapludināts."
+ "feature.fetch_pull.a3": "Esc vai vēlreiz {fetch}, kamēr statusa rinda saka, ka notiek savienošanās ar attālo krātuvi. Kas saņemts pirms apturēšanas, paliek; nekas netiek sapludināts.",
+ "remote.ambiguous": "Fetch neveikts: šim zaram nav savas attālās krātuves, un repozitorijam to ir vairākas, neviena nav nosaukta origin. Iestatiet zara upstream savā git rīkā.",
+ "remote.bad_refspec": "Fetch neveikts: attālā krātuve {remote} ir iestatīta rakstīt uz {dst}, ārpus refs/remotes/{remote}/, kur fetch varētu pārrakstīt vai izdzēst jūsu pašu zarus un tagus.",
+ "remote.symlink": "Neatjaunināts: {name} ir simboliskā saite, pa kuru cvs update varētu iziet ārpus darba kopijas."
 }

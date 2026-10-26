@@ -4686,5 +4686,8 @@
  "feature.fetch_pull.q2": "Kodėl rašoma, kad nutolusi saugykla prašo slaptažodžio?",
  "feature.fetch_pull.a2": "Coxswain niekada neklausia terminale. Naudojami git credential helper ir ssh-agent; kai nė vienas neturi prisijungimo, rodomi paties įrankio žodžiai. Vieną kartą atlikite fetch terminale arba pridėkite raktą į ssh-agent, tada vėl paspauskite {fetch}.",
  "feature.fetch_pull.q3": "Kaip sustabdyti lėtą fetch?",
- "feature.fetch_pull.a3": "Esc arba vėl {fetch}, kol būsenos eilutėje rašoma, kad jungiamasi prie nutolusios saugyklos. Kas atėjo iki sustabdymo, lieka; niekas nesuliejama."
+ "feature.fetch_pull.a3": "Esc arba vėl {fetch}, kol būsenos eilutėje rašoma, kad jungiamasi prie nutolusios saugyklos. Kas atėjo iki sustabdymo, lieka; niekas nesuliejama.",
+ "remote.ambiguous": "Fetch neatliktas: ši šaka neturi savo nutolusios saugyklos, o saugykla jų turi kelias, nė viena nepavadinta origin. Nustatykite šakos upstream savo git įrankyje.",
+ "remote.bad_refspec": "Fetch neatliktas: nutolusi saugykla {remote} nustatyta rašyti į {dst}, už refs/remotes/{remote}/ ribų, kur fetch galėtų perrašyti arba ištrinti jūsų pačių šakas ir žymes.",
+ "remote.symlink": "Neatnaujinta: {name} yra simbolinė nuoroda, kuria cvs update galėtų išeiti už darbinės kopijos ribų."
 }

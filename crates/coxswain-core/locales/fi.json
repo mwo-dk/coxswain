@@ -4588,5 +4588,8 @@
  "feature.fetch_pull.q2": "Miksi siinä lukee, että etävarasto pyytää salasanaa?",
  "feature.fetch_pull.a2": "Coxswain ei koskaan kysy päätteessä. Gitin credential helperiä ja ssh-agentia käytetään; kun kummallakaan ei ole tunnuksia, näytetään työkalun omat sanat. Tee fetch kerran päätteessä tai lisää avain ssh-agentiin, ja paina sitten {fetch} uudelleen.",
  "feature.fetch_pull.q3": "Miten pysäytän hitaan fetchin?",
- "feature.fetch_pull.a3": "Esc, tai {fetch} uudelleen, kun tilarivi kertoo yhteyden etävarastoon olevan käynnissä. Ennen pysäytystä saapunut säilyy; mitään ei yhdistetä."
+ "feature.fetch_pull.a3": "Esc, tai {fetch} uudelleen, kun tilarivi kertoo yhteyden etävarastoon olevan käynnissä. Ennen pysäytystä saapunut säilyy; mitään ei yhdistetä.",
+ "remote.ambiguous": "Ei haettu: tällä haaralla ei ole omaa etävarastoa, ja tietovarastolla on niitä useita, eikä yhdenkään nimi ole origin. Aseta haaran upstream git-työkalussasi.",
+ "remote.bad_refspec": "Ei haettu: etävarasto {remote} on asetettu kirjoittamaan kohteeseen {dst}, refs/remotes/{remote}/ ulkopuolelle, jossa fetch voisi korvata tai poistaa omia haarojasi ja tagejasi.",
+ "remote.symlink": "Ei päivitetty: {name} on symbolinen linkki, jota cvs update voisi seurata työkopion ulkopuolelle."
 }

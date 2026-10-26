@@ -4588,5 +4588,8 @@
  "feature.fetch_pull.q2": "Waarom zegt het dat de remote om een wachtwoord vraagt?",
  "feature.fetch_pull.a2": "Coxswain vraagt nooit iets in de terminal. De credential helper van git en ssh-agent worden gebruikt; heeft geen van beide de login, dan verschijnen de woorden van de tool zelf. Fetch één keer in een terminal, of voeg de sleutel toe aan ssh-agent, en druk dan weer op {fetch}.",
  "feature.fetch_pull.q3": "Hoe stop ik een trage fetch?",
- "feature.fetch_pull.a3": "Esc, of opnieuw {fetch}, zolang de statusregel zegt dat er contact is met de remote. Wat vóór het stoppen binnenkwam, blijft; er wordt niets gemerged."
+ "feature.fetch_pull.a3": "Esc, of opnieuw {fetch}, zolang de statusregel zegt dat er contact is met de remote. Wat vóór het stoppen binnenkwam, blijft; er wordt niets gemerged.",
+ "remote.ambiguous": "Niet gefetcht: deze branch heeft geen eigen remote en de repository heeft er meerdere, geen ervan heet origin. Stel de upstream van de branch in met je git-tool.",
+ "remote.bad_refspec": "Niet gefetcht: de remote {remote} is ingesteld om te schrijven in {dst}, buiten refs/remotes/{remote}/, waar een fetch je eigen branches en tags kan overschrijven of verwijderen.",
+ "remote.symlink": "Niet bijgewerkt: {name} is een symbolische koppeling, die cvs update buiten de werkkopie zou kunnen volgen."
 }

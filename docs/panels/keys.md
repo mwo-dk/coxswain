@@ -154,7 +154,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Alt+W** | Git worktrees | `worktrees` | The repository's worktrees ([Worktrees](git-branches.md#worktrees)) | The same |
 | **Alt+G** | Open in your git tool | `git_tool` | The repository in your own git tool, for commit, push and merges: a terminal tool in a terminal window, a desktop client in its own ([Open in your git tool](git.md#open-in-your-git-tool)) | A terminal tool runs in this terminal, in place of the panels |
 | **Alt+C** | Git config | `git_config` | The git config as git uses it here: each value with its scope and file, secrets hidden ([Git config](git-config.md)) | The same, full screen |
-| **Alt+F** | Fetch from the remote | `fetch` | Fetch the repository's remote: git `fetch --all --prune`, `hg pull`, `jj git fetch`; contacts the remote, Esc stops it ([Fetch and pull](fetch-and-pull.md)) | The same |
+| **Alt+F** | Fetch from the remote | `fetch` | Fetch the repository's remote: git `fetch --prune` of the branch's remote, `hg pull`, `jj git fetch`; contacts the remote, Esc stops it ([Fetch and pull](fetch-and-pull.md)) | The same |
 | **Alt+D** | Pull (fast-forward only) | `pull` | Fetch, then move the branch only when that is a fast-forward; `svn update` or `cvs update` in their working copies; refused with the reason otherwise ([Fetch and pull](fetch-and-pull.md#what-is-refused)) | The same |
 | – | New branch here | `new_branch` | A new branch from the one under the cursor, or from the current commit, switched to ([A new branch](git-branches.md#a-new-branch)) | The same |
 

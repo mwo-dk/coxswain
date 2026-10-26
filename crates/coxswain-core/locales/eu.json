@@ -4588,5 +4588,8 @@
  "feature.fetch_pull.q2": "Zergatik dio urrunekoak pasahitza eskatzen duela?",
  "feature.fetch_pull.a2": "Coxswain-ek ez du inoiz terminalean galdetzen. git-en credential helper-a eta ssh-agent erabiltzen dira; bietako batek ere saioa ez badu, tresnaren beraren hitzak agertzen dira. Egin fetch behin terminal batean, edo gehitu gakoa ssh-agent-era, eta sakatu {fetch} berriro.",
  "feature.fetch_pull.q3": "Nola gelditu fetch motel bat?",
- "feature.fetch_pull.a3": "Esc, edo {fetch} berriro, egoera-lerroak urrunekoarekin harremanetan dagoela dioen bitartean. Gelditu aurretik iritsitakoa gordetzen da; ez da ezer bateratzen."
+ "feature.fetch_pull.a3": "Esc, edo {fetch} berriro, egoera-lerroak urrunekoarekin harremanetan dagoela dioen bitartean. Gelditu aurretik iritsitakoa gordetzen da; ez da ezer bateratzen.",
+ "remote.ambiguous": "Ez da fetch egin: adar honek ez du bere urrunekorik eta biltegiak hainbat ditu, bat ere ez origin izenekoa. Ezarri adarraren upstream-a zure git tresnan.",
+ "remote.bad_refspec": "Ez da fetch egin: {remote} urrunekoa {dst}-n idazteko ezarrita dago, refs/remotes/{remote}/ kanpo, non fetch batek zure adar eta etiketa propioak gainidatzi edo ezabatu ditzakeen.",
+ "remote.symlink": "Ez da eguneratu: {name} esteka sinbolikoa da, eta cvs update-k lan-kopiatik kanpora jarraitu lezake."
 }

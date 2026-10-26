@@ -4689,5 +4689,8 @@
  "feature.fetch_pull.q2": "Proč píše, že vzdálený repozitář chce heslo?",
  "feature.fetch_pull.a2": "Coxswain se nikdy neptá v terminálu. Použije se credential helper gitu a ssh-agent; když přihlášení nemá ani jeden, ukáže se hlášení samotného nástroje. Udělejte jednou fetch v terminálu, nebo přidejte klíč do ssh-agent, a stiskněte znovu {fetch}.",
  "feature.fetch_pull.q3": "Jak zastavím pomalý fetch?",
- "feature.fetch_pull.a3": "Esc, nebo znovu {fetch}, dokud stavový řádek píše, že se spojuje se vzdáleným repozitářem. Co přišlo před zastavením, zůstává; nic se neslučuje."
+ "feature.fetch_pull.a3": "Esc, nebo znovu {fetch}, dokud stavový řádek píše, že se spojuje se vzdáleným repozitářem. Co přišlo před zastavením, zůstává; nic se neslučuje.",
+ "remote.ambiguous": "Fetch neproveden: tato větev nemá vlastní vzdálený repozitář a repozitář jich má několik, žádný s názvem origin. Nastavte upstream větve ve svém nástroji pro git.",
+ "remote.bad_refspec": "Fetch neproveden: vzdálený repozitář {remote} má zapisovat do {dst}, mimo refs/remotes/{remote}/, kde by fetch mohl přepsat nebo smazat vaše vlastní větve a tagy.",
+ "remote.symlink": "Neaktualizováno: {name} je symbolický odkaz, po kterém by cvs update mohl vyjít mimo pracovní kopii."
 }

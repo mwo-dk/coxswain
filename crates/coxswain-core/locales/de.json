@@ -4588,5 +4588,8 @@
  "feature.fetch_pull.q2": "Warum heißt es, das Remote verlange ein Passwort?",
  "feature.fetch_pull.a2": "Coxswain fragt nie im Terminal. Der Credential-Helper von git und ssh-agent werden genutzt; hat keiner die Anmeldung, erscheinen die Worte des Werkzeugs selbst. Fetchen Sie einmal in einem Terminal oder fügen Sie den Schlüssel zu ssh-agent hinzu, dann drücken Sie erneut {fetch}.",
  "feature.fetch_pull.q3": "Wie halte ich einen langsamen Fetch an?",
- "feature.fetch_pull.a3": "Esc, oder erneut {fetch}, solange die Statuszeile sagt, dass das Remote kontaktiert wird. Was vor dem Anhalten kam, bleibt; nichts wird gemergt."
+ "feature.fetch_pull.a3": "Esc, oder erneut {fetch}, solange die Statuszeile sagt, dass das Remote kontaktiert wird. Was vor dem Anhalten kam, bleibt; nichts wird gemergt.",
+ "remote.ambiguous": "Nicht gefetcht: dieser Branch hat kein eigenes Remote, und das Repository hat mehrere, keines namens origin. Legen Sie den Upstream des Branches in Ihrem Git-Werkzeug fest.",
+ "remote.bad_refspec": "Nicht gefetcht: das Remote {remote} ist so eingestellt, dass es in {dst} schreibt, außerhalb von refs/remotes/{remote}/, wo ein Fetch Ihre eigenen Branches und Tags überschreiben oder löschen könnte.",
+ "remote.symlink": "Nicht aktualisiert: {name} ist ein symbolischer Link, dem cvs update aus der Arbeitskopie hinaus folgen könnte."
 }

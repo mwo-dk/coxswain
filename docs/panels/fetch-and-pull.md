@@ -39,22 +39,27 @@ do this, for git, [Mercurial](mercurial.md) and [Jujutsu](jujutsu.md); a
    its ahead and behind, and *Last fetch* are read again. A refusal or an error opens a dialog:
    our reason first, the tool's own words under it.
 
-**Esc**, or the same key again, stops it while it runs: the tool is ended. What came in before
-the stop is kept; nothing is merged.
+**Esc**, or the same key again, stops it while it runs: the tool is ended, and on FreeBSD, the
+other BSDs, illumos, Linux and macOS everything it started too (ssh, `git-remote-https`). On
+Windows the tool is ended and its helpers end when their pipes close. What came in before the
+stop is kept; nothing is merged.
 
 ## What each system runs
 
 | System | Fetch (**Alt+F**) | Pull (**Alt+D**) |
 |---|---|---|
-| git | `git fetch --all --prune` | the same fetch, then `git merge --ff-only` to the upstream, only when the branch is behind and has nothing of its own |
+| git | `git fetch --prune` of the branch's remote (else `origin`, else the only one) | the same fetch, then `git merge --ff-only` to the upstream, only when the branch is behind and has nothing of its own |
 | Mercurial | `hg pull` from the repository's `paths.default` | `hg pull`, then `hg update --check` when the branch has one head |
 | Jujutsu | `jj git fetch` | `jj git fetch`: jj moves the tracked bookmarks itself; your working copy stays where it is (see below) |
 | Subversion | not offered | `svn update`, after `svn status --show-updates` showed no file changed both here and on the server |
-| CVS | not offered | `cvs update -d`, after `cvs -n update` showed no file changed here |
+| CVS | not offered | `cvs update` (no new folders), after `cvs -n update` showed no file changed here |
 
 git runs with the same safety as everywhere in Coxswain: no hooks, none of the repository's
 own filters, and only the transports git knows by name (https, http, ssh, git and local
-folders; never `ext::`, which runs a command). Submodules are not fetched. Mercurial runs
+folders, set with `GIT_ALLOW_PROTOCOL`, which no config can widen; never `ext::`, which runs a
+command). Submodules are not fetched, and `--prune` never removes tags. Jujutsu's `jj git
+fetch` runs your git against the repository's git store: the same checks run on that store
+first. Mercurial runs
 without the repository's own `.hg/hgrc`, as always: its `[paths] default` is read from that
 file by Coxswain and handed to `hg pull`.
 
@@ -70,16 +75,25 @@ Jujutsu has no fast-forward of the working copy: moving `@` onto new commits is 
 | *Not pulled: the pull would change files with changes not committed: src/main.rs.* | A file the pull would write has changes of yours (or is untracked and would be overwritten). Changes to other files are left alone and do not stop a git pull; Mercurial refuses any uncommitted change, as `hg update --check` does. |
 | *Not pulled: this branch has no upstream.* | git's own reason follows. Set the upstream in your git tool. |
 | *Fetched, not updated: the branch now has 2 heads, which needs a merge.* | Mercurial: the pull brought a second head. |
-| *This repository has no remote to fetch from.* | No remote in git, no `paths.default` in Mercurial. |
-| *Not done: this repository's own config names a program to run (core.sshcommand).* | A repository from elsewhere (a download, an archive) could run anything by `core.sshCommand`, `core.gitProxy`, `core.askPass`, `remote.*.uploadpack` or a credential helper in its own config; your own and the system's config still hold. In CVS, a folder's `CVS/Update.prog`. |
+| *This repository has no remote to fetch from.* | No remote in git, no `paths.default` in Mercurial (or an `.hg/hgrc` that is no plain file). |
+| *Not fetched: this branch has no remote of its own and the repository has several, none named origin.* | Coxswain fetches one remote, the branch's. Set the upstream in your git tool. |
+| *Not done: this repository's own config names a program to run (core.sshcommand).* | A repository from elsewhere (a download, an archive) could act through its own config when it is fetched, so these keys in the repository's own config (or Jujutsu's git store) refuse it: `core.sshCommand`, `core.gitProxy`, `core.askPass`, `core.alternateRefsCommand`, `remote.*.uploadpack`, `remote.*.receivepack`, `remote.*.proxy`, a credential helper, any `http.*` (a proxy or certificate settings would let someone in the middle take your login), and git-lfs's `lfs.customtransfer.*`, `lfs.standalonetransferagent` and `lfs.extension.*`. Your own and the system's config still hold. In CVS, a folder's `CVS/Update.prog`. |
+| *Not fetched: the remote origin is set to write into refs/heads/\*, outside refs/remotes/origin/…* | A fetch refspec that writes anywhere but `refs/remotes/<remote>/` could overwrite your branches or tags, and with `--prune` delete them. |
+| *Not updated: sub/evil is a symbolic link, which cvs update could follow out of the working copy.* | CVS: a link in a folder CVS keeps could lead the update anywhere (`~/.ssh`). |
 | A repository with its own filters (git-crypt, Mercurial largefiles) | Pull would write files without them, so it is refused as a branch switch is ([Git branches](git-branches.md)). Fetch still works. |
+
+**A refused pull has already fetched.** The checks that need the remote's commits (diverged,
+files touched, Mercurial's heads) come after the fetch, so the remote-tracking branches,
+`FETCH_HEAD` and *Last fetch* have moved (in Mercurial the new changesets are in the
+repository); your branch, your files and the working copy have not.
 
 ## Logins: helpers, ssh-agent, never a prompt
 
 Coxswain never lets a tool ask on the terminal behind the app: git runs with
 `GIT_TERMINAL_PROMPT=0`, Mercurial with `--noninteractive`, Subversion with
-`--non-interactive`, and on FreeBSD, the other BSDs, illumos, Linux and macOS each runs in a
-session of its own, so ssh finds no terminal to ask a passphrase or a new host key on. What you
+`--non-interactive`; on FreeBSD, the other BSDs, illumos, Linux and macOS each runs in a
+session of its own, so ssh finds no terminal to ask a passphrase or a new host key on, and on
+Windows as a detached process, away from the terminal app's console. What you
 have set up still works: git's credential helper (the system keychain, Git Credential Manager,
 which may open a login window of its own), ssh-agent, an askpass program, a key without a
 passphrase. When none of them has the login, the dialog shows the

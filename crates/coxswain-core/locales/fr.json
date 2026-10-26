@@ -4686,5 +4686,8 @@
  "feature.fetch_pull.q2": "Pourquoi dit-il que le dépôt distant demande un mot de passe ?",
  "feature.fetch_pull.a2": "Coxswain ne demande jamais rien dans le terminal. Le credential helper de git et ssh-agent sont utilisés ; si aucun n’a l’identifiant, les mots de l’outil s’affichent. Faites un fetch une fois dans un terminal, ou ajoutez la clé à ssh-agent, puis appuyez de nouveau sur {fetch}.",
  "feature.fetch_pull.q3": "Comment arrêter un fetch lent ?",
- "feature.fetch_pull.a3": "Esc, ou {fetch} de nouveau, tant que la ligne d’état dit qu’il contacte le dépôt distant. Ce qui est arrivé avant l’arrêt est conservé ; rien n’est fusionné."
+ "feature.fetch_pull.a3": "Esc, ou {fetch} de nouveau, tant que la ligne d’état dit qu’il contacte le dépôt distant. Ce qui est arrivé avant l’arrêt est conservé ; rien n’est fusionné.",
+ "remote.ambiguous": "Pas de fetch : cette branche n’a pas de dépôt distant à elle et le dépôt en a plusieurs, dont aucun ne s’appelle origin. Définissez l’upstream de la branche dans votre outil git.",
+ "remote.bad_refspec": "Pas de fetch : le dépôt distant {remote} est réglé pour écrire dans {dst}, hors de refs/remotes/{remote}/, où un fetch pourrait écraser ou supprimer vos propres branches et tags.",
+ "remote.symlink": "Pas de mise à jour : {name} est un lien symbolique, que cvs update pourrait suivre hors de la copie de travail."
 }

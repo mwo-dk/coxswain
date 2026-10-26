@@ -4686,5 +4686,8 @@
  "feature.fetch_pull.q2": "Perché dice che il remoto chiede una password?",
  "feature.fetch_pull.a2": "Coxswain non chiede mai nulla nel terminale. Si usano il credential helper di git e ssh-agent; se nessuno dei due ha l'accesso, compaiono le parole dello strumento. Fai un fetch una volta in un terminale, o aggiungi la chiave a ssh-agent, poi premi di nuovo {fetch}.",
  "feature.fetch_pull.q3": "Come fermo un fetch lento?",
- "feature.fetch_pull.a3": "Esc, o di nuovo {fetch}, mentre la riga di stato dice che sta contattando il remoto. Ciò che è arrivato prima dello stop resta; niente viene unito."
+ "feature.fetch_pull.a3": "Esc, o di nuovo {fetch}, mentre la riga di stato dice che sta contattando il remoto. Ciò che è arrivato prima dello stop resta; niente viene unito.",
+ "remote.ambiguous": "Fetch non fatto: questo branch non ha un remoto suo e il repository ne ha diversi, nessuno chiamato origin. Imposta l'upstream del branch nel tuo strumento git.",
+ "remote.bad_refspec": "Fetch non fatto: il remoto {remote} è impostato per scrivere in {dst}, fuori da refs/remotes/{remote}/, dove un fetch potrebbe sovrascrivere o cancellare i tuoi branch e tag.",
+ "remote.symlink": "Non aggiornato: {name} è un link simbolico, che cvs update potrebbe seguire fuori dalla copia di lavoro."
 }

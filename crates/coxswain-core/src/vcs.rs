@@ -231,16 +231,18 @@ pub(crate) fn jj_here(dir: &Path) -> bool {
 }
 
 /// Whether the Jujutsu repository at `dir` keeps a config file of its own that jj would take
-/// in (a plain file, not jj's link to the moved one, with no `…-id` beside it).
-fn jj_config_inside(dir: &Path) -> bool {
+/// in: a file or a link with no `…-id` beside it (jj's own moved config has its id).
+pub(crate) fn jj_config_inside(dir: &Path) -> bool {
     let Some(root) = jj_root(dir) else { return false };
     let dot = root.join(".jj");
     let repo = match std::fs::read_to_string(dot.join("repo")) {
         Ok(to) => dot.join(to.trim()),
         Err(_) => dot.join("repo"),
     };
+    // A link counts too: it may lead to a config file anywhere (made by whoever made the
+    // repository), and jj would follow it.
     let inside = |file: PathBuf, id: PathBuf| {
-        std::fs::symlink_metadata(&file).is_ok_and(|m| m.is_file()) && !id.exists()
+        std::fs::symlink_metadata(&file).is_ok_and(|m| m.is_file() || m.is_symlink()) && !id.exists()
     };
     inside(repo.join("config.toml"), repo.join("config-id"))
         || inside(dot.join("workspace-config.toml"), dot.join("workspace-config-id"))

@@ -4588,5 +4588,8 @@
  "feature.fetch_pull.q2": "Varför står det att fjärren ber om ett lösenord?",
  "feature.fetch_pull.a2": "Coxswain frågar aldrig i terminalen. gits credential helper och ssh-agent används; när ingen av dem har inloggningen visas verktygets egna ord. Gör fetch en gång i en terminal, eller lägg till nyckeln i ssh-agent, och tryck sedan {fetch} igen.",
  "feature.fetch_pull.q3": "Hur stoppar jag en långsam fetch?",
- "feature.fetch_pull.a3": "Esc, eller {fetch} igen, medan statusraden säger att den kontaktar fjärren. Det som kom in före stoppet behålls; inget slås ihop."
+ "feature.fetch_pull.a3": "Esc, eller {fetch} igen, medan statusraden säger att den kontaktar fjärren. Det som kom in före stoppet behålls; inget slås ihop.",
+ "remote.ambiguous": "Inte hämtat: den här grenen har ingen egen fjärr och förrådet har flera, ingen med namnet origin. Ange grenens upstream i ditt git-verktyg.",
+ "remote.bad_refspec": "Inte hämtat: fjärren {remote} är inställd på att skriva i {dst}, utanför refs/remotes/{remote}/, där en fetch kan skriva över eller ta bort dina egna grenar och taggar.",
+ "remote.symlink": "Inte uppdaterat: {name} är en symbolisk länk, som cvs update kan följa ut ur arbetskopian."
 }

@@ -56,7 +56,7 @@ It needs `git` on your `PATH`. Coxswain reads: it runs `git status` (with
 commands), for the diff `git diff`, and for the last commits and the history `git log`,
 `git ls-tree` and `git cat-file`. The only things it changes are the ones you ask for: a switch
 to a branch and a new branch (`git switch`) in the list of branches, and a fetch (**Alt+F**,
-`git fetch --all --prune`) or a fast-forward pull (**Alt+D**, `git merge --ff-only`)
+`git fetch --prune` of the branch's remote) or a fast-forward pull (**Alt+D**, `git merge --ff-only`)
 ([Fetch and pull](fetch-and-pull.md)). It never commits or
 stages: **Alt+G** hands that to your own git tool. The repository's own hooks, file system monitor and filter drivers never run.
 

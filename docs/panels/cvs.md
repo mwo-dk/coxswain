@@ -8,7 +8,7 @@ file carries its glyph. It reads only the `CVS/Entries` files in each folder, so
 to the server and `cvs` need not be installed for that. The history comes from the server, and
 only once you say yes to that server: **Ctrl+G** asks first, then lists the commits from
 `cvs log`, and **Enter** on one shows its files as they were, with their changes, read-only.
-**Alt+D** updates the working copy (`cvs update -d`) when no file has changes here
+**Alt+D** updates the working copy (`cvs update`) when no file has changes here
 ([Fetch and pull](fetch-and-pull.md)). Commit stays with CVS: **Alt+G** opens a terminal in the folder for it.
 Both apps do this.
 
@@ -153,7 +153,7 @@ changed until `cvs update` sets the time again.
 
 Press **Alt+D** (*Pull (fast-forward only)*). Coxswain first runs `cvs -n update`, which
 changes nothing; when it lists a file changed here (`M` or `C`), the update is refused and the
-file named, since `cvs update` would merge into it. Otherwise `cvs update -d` runs and the status
+file named, since `cvs update` would merge into it. Otherwise `cvs update` runs and the status
 line says how many files came from the server. A folder with `CVS/Update.prog` (a program
 `cvs update` would run) is refused. There is no Fetch in CVS.
 

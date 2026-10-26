@@ -4784,5 +4784,8 @@
  "feature.fetch_pull.q2": "Dlaczego pisze, że zdalne repozytorium prosi o hasło?",
  "feature.fetch_pull.a2": "Coxswain nigdy nie pyta w terminalu. Używany jest credential helper gita i ssh-agent; gdy żaden nie ma danych logowania, widać komunikat samego narzędzia. Zrób raz fetch w terminalu albo dodaj klucz do ssh-agent, potem naciśnij znowu {fetch}.",
  "feature.fetch_pull.q3": "Jak zatrzymać wolny fetch?",
- "feature.fetch_pull.a3": "Esc albo ponownie {fetch}, gdy wiersz stanu pisze, że łączy się ze zdalnym repozytorium. To, co przyszło przed zatrzymaniem, zostaje; nic nie jest scalane."
+ "feature.fetch_pull.a3": "Esc albo ponownie {fetch}, gdy wiersz stanu pisze, że łączy się ze zdalnym repozytorium. To, co przyszło przed zatrzymaniem, zostaje; nic nie jest scalane.",
+ "remote.ambiguous": "Nie wykonano fetch: ta gałąź nie ma własnego zdalnego repozytorium, a repozytorium ma ich kilka, żadne o nazwie origin. Ustaw upstream gałęzi w swoim narzędziu git.",
+ "remote.bad_refspec": "Nie wykonano fetch: zdalne repozytorium {remote} ma zapisywać do {dst}, poza refs/remotes/{remote}/, gdzie fetch mógłby nadpisać lub usunąć twoje własne gałęzie i tagi.",
+ "remote.symlink": "Nie zaktualizowano: {name} to dowiązanie symboliczne, za którym cvs update mógłby wyjść poza kopię roboczą."
 }
