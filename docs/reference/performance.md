@@ -635,8 +635,9 @@ waits for the file it is on, so nothing is left half-copied
 #### Why does F3 show plain text for a big file?
 
 Syntax highlighting of more than 200,000
-characters would take longer than reading the file; the text shows at once instead, cut at
-512 KB.
+characters would take longer than reading the file; the text shows at once instead. Over
+512 KB the desktop app shows it in the [log view](../previews/logs.md), a screen at a time; the
+terminal app's viewer reads any size the same way and shows a file over 16 MB plain.
 
 #### Does the file watcher cost anything when nothing changes?
 

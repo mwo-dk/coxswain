@@ -109,11 +109,12 @@ the app, and previews of every kind are blocked from the web.
 
 | What | Limit | Then |
 |---|---|---|
-| Text, code, HTML, Markdown, data files | First 512 KB | *Showing the first 512 KB* under text and logs |
+| HTML, Markdown, data files | First 512 KB | *Showing the first 512 KB* |
+| Text, code, logs, JSON Lines | None: over 512 KB, and logs of any size, in the [log view](logs.md), a screen at a time | The first 20,000,000 lines are found; a line is read to 1 MB |
 | Highlighting | Files under 200 KB | Larger ones stay plain |
 | Hex dump of a binary file | First 64 KB | – |
 | Git diff | First 512 KB | – |
-| Tables (spreadsheets, CSV, JSON Lines, Parquet) | 200 rows | *Showing the first 200 rows* |
+| Tables (spreadsheets, CSV, Parquet) | 200 rows | *Showing the first 200 rows* |
 | Trees (JSON, YAML, TOML) | 500 entries per level | *… n more* |
 | Archives | 2,000 entries | *2000+ entries* |
 | Word, notebooks, spreadsheets, PowerPoint quick view | 25 MB | *Too large to preview* |
@@ -157,8 +158,10 @@ file in a program that fetches it.
 
 #### Why does the preview only show the start of a big file?
 
-Reading a whole large file would make the pane slow as you move through a folder. Text shows
-its first 512 KB, tables their first 200 rows. Press **F4** or **Enter** for the whole file.
+Reading a whole large file would make the pane slow as you move through a folder. HTML,
+Markdown and data files show their first 512 KB, tables their first 200 rows. Press **F4** or
+**Enter** for the whole file. Plain text, code and logs over 512 KB are not cut: they open in the
+[log view](logs.md), which reads only the lines on screen.
 
 #### A spreadsheet or document says "Too large to preview".
 

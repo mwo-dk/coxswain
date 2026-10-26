@@ -144,7 +144,15 @@ def files(d):
     # A KiCad board with nothing on it but its outline: a PDF by an installed kicad-cli, else the note.
     (d / "zb.kicad_pcb").write_text('(kicad_pcb (version 20241229) (generator "check") (general (thickness 1.6)) (paper "A5") (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user)) (net 0 "") (gr_rect (start 0 0) (end 20 10) (stroke (width 0.1) (type default)) (fill no) (layer "Edge.Cuts")))\n')
     media["kicad"] = ("zb.kicad_pcb", "iframe" if shutil.which("kicad-cli") else "p.more", "", 60)
+    # Logs: a log coloured by level with its trace folded, JSON Lines in columns, and a text too
+    # big to read whole, all in the log view a screen at a time.
+    (d / "zc.log").write_text("2026-10-26 10:00:00 INFO countdown\n2026-10-26 10:00:01 ERROR valve stuck\n\tat rocket.Valve.open(Valve.java:12)\n")
+    (d / "zd.jsonl").write_text('{"level":"info","msg":"start","user":"ada"}\n{"level":"error","msg":"lost","user":"bob"}\n')
+    (d / "ze.txt").write_text("".join(f"line {i} of the big text\n" for i in range(40_000)))
     return media | {
+        "log": ("zc.log", ".logview .row.lv-error", "valve stuck", 10),
+        "jsonl": ("zd.jsonl", ".logview .row .cell", "bob", 10),
+        "big_text": ("ze.txt", ".logview .row", "line 0 of the big text", 10),
         "md": ("a.md", "article h1", "Rocket", 10),
         "parquet": ("b.parquet", "table td", "Aalborg", 10),
         "db": ("c.db", "table.db", "launch", 10),

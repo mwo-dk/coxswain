@@ -158,7 +158,17 @@ open(os.path.join(docs, "launch.log"), "w").write("\n".join([
     "2026-09-27 08:10:01 DEBUG thrust 98.7 kN, chamber pressure 6.9 MPa",
     "2026-09-27 08:11:20 WARN  fuel pressure 8% below model",
     "2026-09-27 08:11:32 ERROR main engine cut-off at T+92 s (valve close command)",
+    "java.lang.IllegalStateException: valve 3 closed under pressure",
+    "\tat rocket.engine.Valve.close(Valve.java:88)",
+    "\tat rocket.engine.Engine.cutOff(Engine.java:214)",
     "2026-09-27 08:11:33 INFO  coasting, telemetry nominal", ""]))
+
+# Telemetry events as JSON Lines: the log view's columns (docs/previews/logs.md).
+events = [("08:10:00", "info", "ignition", "ada", 0), ("08:10:01", "debug", "thrust nominal", "grace", 98.7),
+          ("08:11:20", "warn", "fuel pressure low", "grace", 91.2), ("08:11:32", "error", "engine cut-off", "ada", 0),
+          ("08:11:33", "info", "coasting", "ada", 0)]
+open(os.path.join(docs, "telemetry.jsonl"), "w").write("".join(
+    json.dumps({"time": f"2026-09-27T{t}Z", "level": lv, "msg": m, "user": u, "thrust_kn": k}) + "\n" for t, lv, m, u, k in events))
 
 with open(os.path.join(docs, "Info.plist"), "wb") as f:
     plistlib.dump({"CFBundleName": "Rocket", "CFBundleVersion": "0.1.0", "LSMinimumSystemVersion": "13.0", "NSHighResolutionCapable": True}, f, fmt=plistlib.FMT_BINARY)

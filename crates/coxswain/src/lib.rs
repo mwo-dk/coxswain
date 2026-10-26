@@ -1543,6 +1543,14 @@ impl App {
             Action::DrawioExport => self.export_menu(false),
             Action::ScanViruses => self.scan_viruses(),
             Action::PreviewWith => self.preview_with(),
+            Action::FollowLog => {
+                if let Some(file) = self.panel().current().filter(|e| !e.is_dir).map(|e| e.path.clone()) {
+                    self.view_in(&file, None);
+                    if let Some(Dialog::View { v, back }) = self.dialog.take() {
+                        self.dialog = Some(Dialog::View { v: Box::new(v.following()), back });
+                    }
+                }
+            }
             Action::LongFiles => self.long_files(),
             Action::Chess => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
@@ -3203,7 +3211,11 @@ impl App {
     fn view_in(&mut self, file: &Path, back: Option<Box<Dialog>>) {
         let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
         match viewer::Viewer::open(file, labels) {
-            Ok(v) => self.dialog = Some(Dialog::View { v: Box::new(v), back }),
+            Ok(v) => {
+                // What the log keys do is not guessed: said the first few times a log is viewed.
+                let v = if v.is_log() && coxswain_core::menu::once("viewer_log", &self.cfg) { v.saying(t!("viewer.log_hint")) } else { v };
+                self.dialog = Some(Dialog::View { v: Box::new(v), back })
+            }
             Err(e) => {
                 self.status = Some(format!("{}: {e}", file.display()));
                 self.dialog = back.map(|b| *b);

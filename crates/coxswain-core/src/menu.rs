@@ -70,6 +70,8 @@ pub struct Subject {
     pub drawios: usize,
     /// Of the files, those a preview tool shows (`preview_tools::for_path`).
     pub previewed: usize,
+    /// Of the files, logs by their name (`logs::is_log_name`): *Follow log*.
+    pub logs: usize,
     /// The one entry is the one under the cursor (actions on a single entry take that one).
     pub one: bool,
     /// How many are marked.
@@ -121,6 +123,7 @@ impl Subject {
             adocs: count(&crate::export::is_adoc),
             drawios: count(&crate::export::is_drawio),
             previewed: count(&|p| crate::preview_tools::for_path(p).is_some()),
+            logs: count(&|p| p.file_name().is_some_and(|n| crate::logs::is_log_name(&n.to_string_lossy()))),
             ..Subject::default()
         }
     }
@@ -190,6 +193,7 @@ impl Action {
             DrawioExport => s.drawios > 0 && disk,
             ScanViruses => n > 0 && disk,
             PreviewWith => s.single() && s.previewed == 1 && disk,
+            FollowLog => s.single() && s.logs == 1 && disk,
             LongFiles => s.single() && s.folders == 1 && disk,
             History => s.git && disk && (n == 0 || s.single()),
             HistoryAll | HistoryUpstream => s.place == Place::History || s.git && disk && (n == 0 || s.single()),
@@ -293,6 +297,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     ("speech", &[("key", Action::ActionMenu)]),
     ("adoc", &[("menu", Action::ActionMenu)]),
     ("drawio", &[("menu", Action::ActionMenu)]),
+    // Before "file": what the viewer does with a log, and following one, are not guessed.
+    ("log", &[("view", Action::View), ("menu", Action::ActionMenu)]),
     (
         "folder",
         &[("pack", Action::Pack), ("rename", Action::Rename)],
@@ -339,6 +345,7 @@ fn fits(id: &str, s: &Subject) -> bool {
         "speech" => disk && s.single() && s.speech == 1,
         "adoc" => disk && s.single() && s.adocs == 1,
         "drawio" => disk && s.single() && s.drawios == 1,
+        "log" => disk && s.single() && s.logs == 1,
         "archive" => disk && s.single() && s.archives == 1,
         "chess" => disk && s.single() && s.chess == 1,
         "image" => disk && s.single() && s.images == 1,

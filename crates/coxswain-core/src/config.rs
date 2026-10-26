@@ -335,6 +335,9 @@ actions! {
     // Which program shows this kind of file (`preview_tools`): from the action menu, F9 and F1;
     // no key of its own.
     PreviewWith = "preview_with", "Preview with…", Viewing, [];
+    // A log followed as it is written (`logs`): the viewer's F in the terminal app, the log
+    // view's Follow in the desktop app. No key of its own: the action menu and F9 offer it.
+    FollowLog = "follow_log", "Follow log", Viewing, [];
     CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
     UserMenu = "user_menu", "Menu", Viewing, ["F2"];
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];

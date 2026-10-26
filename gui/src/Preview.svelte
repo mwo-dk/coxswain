@@ -1,7 +1,7 @@
 <script>
   import { untrack } from "svelte";
   import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
-  import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, jsonLines, calendar, contacts, logLines, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
+  import { renderHtml, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
@@ -10,6 +10,7 @@
   import GoView from "./GoView.svelte";
   import CopyLine from "./CopyLine.svelte";
   import DiskNext from "./DiskNext.svelte";
+  import LogView from "./LogView.svelte";
     import { t, tn, num } from "./i18n.svelte.js";
 
   /** Set by App when the command output should show here instead of the file. */
@@ -127,9 +128,11 @@
   /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
   const last = $derived(e && e.name !== ".." ? pane.last?.[e.name] : undefined);
   const diffing = $derived(hasDiff && showDiff && !online);
-  /** Parsed forms of textual files: a data tree, a table, calendar events or contact cards. */
+  /** Parsed forms of textual files: a data tree, calendar events or contact cards. */
   let tree = $state(undefined);
-  let table = $state(null);
+  /** A log, JSON Lines, or a text too big to read whole: shown by the log view, a screen at a
+   *  time (LogView.svelte). */
+  let logPath = $state("");
   let cards = $state(null);
   /** Kinds whose text is read here; the rest are drawn by a renderer or by the Rust side. */
   const TEXTUAL = ["text", "markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "log", "graphviz", "asciidoc", "html", "bom", "provenance"];
@@ -144,7 +147,7 @@
     html = "";
     page = "";
     tree = undefined;
-    table = null;
+    logPath = "";
     cards = null;
     const src = source;
     const diff = diffing;
@@ -170,6 +173,8 @@
           sniffed = { path: cur.path, kind: "chess" };
           return;
         }
+        // A log is read a screen at a time, whatever its size.
+        if (k === "log") return void (logPath = cur.path);
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
         if (e?.path !== cur.path) return;
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
@@ -200,10 +205,10 @@
             // Not parseable (or cut off at the size limit): show the source instead.
           }
         }
-        if (!bin && k === "jsonl" && !src) return void (table = jsonLines(s));
+        // JSON Lines, and a text larger than what is read here: in the log view, every line.
+        if (!bin && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
         if (!bin && k === "calendar" && !src) return void (cards = { events: calendar(s) });
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
-        if (!bin && k === "log") return void (html = logLines(s));
         if (!bin && k === "html" && !src) return void (page = renderHtml(s, cur.path));
         // Rendered markdown and diagrams come back sanitized from renderers.js.
         const render = { markdown: renderMarkdown, mermaid: renderMermaid, graphviz: renderGraphviz, asciidoc: renderAsciidoc }[k];
@@ -734,9 +739,9 @@
           <button class:on={!source} onclick={() => (ui.previewSource = false)}>{isScad(e.name) ? t("preview.rendered") : t("geo.map")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
-      {:else if !diffing && ["markdown", "mermaid", "data", "jsonl", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
+      {:else if !diffing && ["markdown", "mermaid", "data", "calendar", "contacts", "graphviz", "asciidoc", "html"].includes(kind)}
         <div class="modes" role="group" aria-label={t("preview.show")}>
-          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : kind === "jsonl" ? t("preview.table") : t("preview.rendered")}</button>
+          <button class:on={!source} onclick={() => (ui.previewSource = false)}>{kind === "data" ? t("preview.tree") : t("preview.rendered")}</button>
           <button class:on={source} onclick={() => (ui.previewSource = true)}>{t("preview.source")}</button>
         </div>
       {/if}
@@ -744,7 +749,7 @@
     </header>
 
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="body" class:flush={(kind === "bom" || kind === "chess" || kind === "go" || (kind === "provenance" && !statement)) && !source && !diffing} onclick={linkClick}>
+    <div class="body" class:flush={(kind === "bom" || kind === "chess" || kind === "go" || (kind === "provenance" && !statement)) && !source && !diffing} class:logs={!!logPath && logPath === e.path && !diffing} onclick={linkClick}>
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
@@ -794,8 +799,8 @@
         {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if tree !== undefined}
         <div class="tree">{@render node(null, tree, 0)}</div>
-      {:else if table}
-        {@render grid(table)}
+      {:else if logPath && logPath === e.path && !diffing}
+        <LogView path={logPath} />
       {:else if cards?.events}
         <ul class="cards">
           {#each cards.events as ev, i (i)}
@@ -809,9 +814,6 @@
               {#each c.email as m (m)}<p>{m}</p>{/each}{#each c.tel as n (n)}<p>{n}</p>{/each}</li>
           {:else}<li>{t("preview.no_contacts")}</li>{/each}
         </ul>
-      {:else if kind === "log" && html}
-        <pre class="mono log">{@html html}</pre>
-        {#if truncated}<p class="more">{t("preview.showing_first", { size: size(LIMIT) })}</p>{/if}
       {:else if backend?.error}
         <p class="more">{backend.error}</p>
       {:else if backend?.sqlite}
@@ -1294,6 +1296,12 @@
     min-height: 0;
     padding: 10px 14px;
   }
+  /* The log view scrolls its own rows: the body holds it to the pane's height. */
+  .body.logs {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .body.flush {
     display: flex;
     flex-direction: column;
@@ -1470,18 +1478,6 @@
     color: var(--search-hit-fg);
   }
   .tree .null {
-    color: var(--hidden-fg);
-  }
-  .log :global(.lv-error) {
-    color: var(--git-deleted-fg);
-  }
-  .log :global(.lv-warn) {
-    color: var(--git-modified-fg);
-  }
-  .log :global(.lv-info) {
-    color: var(--git-added-fg);
-  }
-  .log :global(.lv-debug) {
     color: var(--hidden-fg);
   }
   .cards {

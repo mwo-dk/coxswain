@@ -401,6 +401,13 @@
     drawio_export: () => makeExport(false),
     scan_viruses: () => scanViruses(),
     preview_with: () => previewWith(),
+    // The preview pane shows the log, following it (LogView reads `ui.followLog`).
+    follow_log: () => {
+      const e = item(tab());
+      if (!e || e.is_dir) return;
+      ui.followLog = e.path;
+      ui.showPreview = true;
+    },
     long_files: () => longFiles(),
     chess: async () => {
       const e = item(tab());

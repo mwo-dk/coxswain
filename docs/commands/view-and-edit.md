@@ -59,6 +59,9 @@ said; the key line at the bottom lists the keys.
 | **w** | Wrap long lines on and off |
 | **p** | Hand the file to your pager: `$PAGER`, else `less` (`more` on Windows) |
 | **h** | On a facts card (an old picture, a module, a [local model](../files/local-models.md#in-the-terminal-app), a neural network model): the file itself, a hex dump for a binary one; **Esc** comes back to the card |
+| **F** | Follow the file as it is written; **E** stops following at the next error ([Logs](../previews/logs.md#following-a-log)) |
+| **&** | Keep only the lines with a text, or in a log with fields `name=value` ([Filtering](../previews/logs.md#filtering)) |
+| **e**, **c**, **z** | In a log: warnings and errors, then errors only; fields as columns; stack traces folded ([Logs](../previews/logs.md)) |
 | **F4** | Edit the file; on a facts card or a text copy (a PDF's text, a table, a transcript), the file it was made of, never the copy |
 | **Esc**, **F3**, **F10** | Close; the panels come back. While a search is still going, **Esc** stops it instead |
 
@@ -82,7 +85,11 @@ What it reads:
 - **Only files.** A pipe or a device is not opened (it could block): the status line says
   *Not a regular file (a pipe or a device): the viewer reads files only.*
 - **A log that grows.** **End** looks again: lines written since it opened are found, and a log
-  that was rotated (shorter now) is read again from its start.
+  that was rotated (another file under its name, or shorter now) is read again from its start.
+  **F** follows it as it is written ([Following a log](../previews/logs.md#following-a-log)).
+- **Logs.** A log (by its name, or a format its first lines are in) is coloured by level
+  instead of by a grammar, its stack traces fold under their line, and the title names its
+  format. See [Logs: follow, filter, columns](../previews/logs.md).
 - **Binary files.** The desktop app's hex dump of the first 64 KB: offset, 16 bytes in hex, the
   printable characters.
 - **Languages.** The grammar comes from the table the desktop app uses
@@ -195,6 +202,12 @@ in the built-in viewer.
 The viewer shows the colour codes in a file as `·` rather than passing them to the terminal,
 which would let a file send commands to it. `less -R` shows them: press **p** (with
 `PAGER="less -R"`), or set `viewer = "less -R"`.
+
+#### How do I follow a log in the viewer?
+
+Press **F**: new lines show at the bottom as they are written, and the line under the text says
+*following*. **E** stops at the next error. *Follow log* in the action menu (**Shift+F10**)
+opens a log already following. See [Following a log](../previews/logs.md#following-a-log).
 
 #### Does the viewer read a huge log into memory?
 
