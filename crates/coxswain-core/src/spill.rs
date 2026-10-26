@@ -268,10 +268,11 @@ pub fn sweep_staging() {
 const SWEEP_WAIT: Duration = Duration::from_secs(60);
 
 /// Each ended run's list swept on a thread of its own, waited for up to `wait` in all.
+// ponytail: one thread per list, not per folder; a hung folder holds back only the rest of its
+// own list (that list stays and is tried again at the next start).
 fn sweep_staging_in(dir: &Path, wait: Duration) {
     let (done, all_done) = std::sync::mpsc::channel();
     let mut started = 0;
-    let end = std::time::Instant::now() + wait;
     for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let name = e.file_name().to_string_lossy().into_owned();
         if name == run() || run_of(&name) != Some(name.as_str()) {
@@ -280,10 +281,11 @@ fn sweep_staging_in(dir: &Path, wait: Duration) {
         let done = done.clone();
         started += 1;
         std::thread::spawn(move || {
-            sweep_list(&e.path(), &name, end);
+            sweep_list(&e.path(), &name);
             let _ = done.send(());
         });
     }
+    let end = std::time::Instant::now() + wait;
     for _ in 0..started {
         let left = end.saturating_duration_since(std::time::Instant::now());
         if all_done.recv_timeout(left).is_err() {
@@ -292,12 +294,8 @@ fn sweep_staging_in(dir: &Path, wait: Duration) {
     }
 }
 
-/// One ended run's list at `path`: each folder it names swept on a thread of its own, so a
-/// folder that does not answer (a network mount gone) holds back none of the others; when all
-/// were swept by `end`, the list is removed, else it stays for the next start.
-// ponytail: a thread per folder named; a hung one stays blocked until the run ends. Lists name
-// a few folders each (where files were written), so that is a few threads at most.
-fn sweep_list(path: &Path, run: &str, end: std::time::Instant) {
+/// One ended run's list at `path`: what it names swept, then the list removed.
+fn sweep_list(path: &Path, run: &str) {
     let Ok(mut list) = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
@@ -311,47 +309,21 @@ fn sweep_list(path: &Path, run: &str, end: std::time::Instant) {
     // Read through the handle that holds the lock: Windows refuses any other.
     let mut text = String::new();
     let _ = list.read_to_string(&mut text);
-    let (done, all_done) = std::sync::mpsc::channel();
-    let mut started = 0;
     for folder in text.lines().filter_map(folder_of) {
-        let (done, run) = (done.clone(), run.to_string());
-        started += 1;
-        std::thread::spawn(move || {
-            sweep_folder(&folder, &run);
-            let _ = done.send(());
-        });
+        for left in std::fs::read_dir(&folder).into_iter().flatten().flatten() {
+            if !ours(&left.file_name().to_string_lossy(), Some(run)) {
+                continue;
+            }
+            let _ = match std::fs::symlink_metadata(left.path()) {
+                Ok(m) if m.is_dir() => std::fs::remove_dir_all(left.path()),
+                Ok(m) if m.is_file() => std::fs::remove_file(left.path()),
+                _ => Ok(()),
+            };
+        }
     }
-    let whole = (0..started).all(|_| all_done.recv_timeout(end.saturating_duration_since(std::time::Instant::now())).is_ok());
-    if whole {
-        // Removed while still held, so no run takes it up between.
-        let _ = std::fs::remove_file(path);
-    }
+    // Removed while still held, so no run takes it up between.
+    let _ = std::fs::remove_file(path);
     drop(list);
-}
-
-/// A folder that hangs, for a test: its sweep sleeps this long first.
-#[cfg(test)]
-static HANG: std::sync::Mutex<Option<(PathBuf, Duration)>> = std::sync::Mutex::new(None);
-
-/// The run's passing names in `folder` removed: folders whole, files, links as links.
-fn sweep_folder(folder: &Path, run: &str) {
-    #[cfg(test)]
-    {
-        let hang = HANG.lock().unwrap().clone();
-        if let Some((_, d)) = hang.filter(|(f, _)| f == folder) {
-            std::thread::sleep(d);
-        }
-    }
-    for left in std::fs::read_dir(folder).into_iter().flatten().flatten() {
-        if !ours(&left.file_name().to_string_lossy(), Some(run)) {
-            continue;
-        }
-        let _ = match std::fs::symlink_metadata(left.path()) {
-            Ok(m) if m.is_dir() => std::fs::remove_dir_all(left.path()),
-            Ok(m) if m.is_file() => std::fs::remove_file(left.path()),
-            _ => Ok(()),
-        };
-    }
 }
 
 /// At a clean exit of either app or the search helper, as the last thing it does: this run's
@@ -689,39 +661,6 @@ mod tests {
         assert!(target.join("a.txt").exists());
         assert!(live.exists());
         drop(held);
-        let _ = std::fs::remove_dir_all(&d);
-    }
-
-    /// A folder that does not answer holds back none of the others named in the same list:
-    /// they are swept within the wait, and the list stays to be tried again at the next start.
-    #[test]
-    fn a_hung_folder_holds_back_none_of_its_list() {
-        let d = folder("hung");
-        let (hung, fine, lists) = (d.join("hung"), d.join("fine"), d.join("staging"));
-        for f in [&hung, &fine] {
-            std::fs::create_dir_all(f).unwrap();
-            std::fs::write(f.join(".a.txt.coxswain-tmp-4247-1"), "half").unwrap();
-        }
-        std::fs::create_dir(&lists).unwrap();
-        // The hung one first, as a list read one after another would be stuck on it.
-        std::fs::write(lists.join("4247"), format!("{}\n{}\n", line_of(&hung), line_of(&fine))).unwrap();
-        *HANG.lock().unwrap() = Some((hung.clone(), Duration::from_secs(60)));
-        let t = std::time::Instant::now();
-        sweep_staging_in(&lists, Duration::from_secs(5));
-        assert!(t.elapsed() < Duration::from_secs(40), "{:?}", t.elapsed());
-        assert!(!fine.join(".a.txt.coxswain-tmp-4247-1").exists());
-        assert!(hung.join(".a.txt.coxswain-tmp-4247-1").exists());
-        assert!(lists.join("4247").exists(), "kept for the next start");
-        // At the next start it answers: swept, and the list goes.
-        *HANG.lock().unwrap() = None;
-        // The first sweep's list thread may still be letting go of the list's lock.
-        let t = std::time::Instant::now();
-        while lists.join("4247").exists() && t.elapsed() < Duration::from_secs(30) {
-            sweep_staging_in(&lists, SWEEP_WAIT);
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        assert!(!hung.join(".a.txt.coxswain-tmp-4247-1").exists());
-        assert!(!lists.join("4247").exists());
         let _ = std::fs::remove_dir_all(&d);
     }
 

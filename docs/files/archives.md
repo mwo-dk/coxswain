@@ -290,9 +290,7 @@ The archive is written anew into a hidden `.….coxswain-tmp` file next to it an
 over the old one. Until that rename the old archive is untouched; if something fails, the new file
 is removed, also when you stop it. After a crash, or the power going, the next start of Coxswain
 removes the `.….coxswain-tmp` files that write left (the run notes the folder as it starts), and
-nothing else. A folder that does not answer then (a network share gone) is left for the start
-after: each folder is looked into on its own, so it holds back neither the others nor the start
-(which waits a minute at most).
+nothing else.
 
 #### Can I change one archive from the desktop app and the terminal app at once?
 
