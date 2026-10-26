@@ -193,9 +193,12 @@ Georgian has no capitals in running text, so in Georgian these headings are writ
 are, without capitals or wide spacing, in both apps, and the first letter of an error's cause
 is left as it is. Armenian has capitals and takes them as usual.
 
+<a id="japanese-and-korean"></a>
+
 ## Chinese, Japanese and Korean
 
-Both are written in letters that take two columns in a terminal and need a font that has them.
+All three are written in letters that take two columns in a terminal and need a font that has
+them.
 
 - **Fonts in the desktop app:** after every font list (*Font*, *Monospaced font*, the era fonts
   of the themes) come Hiragino Sans, Yu Gothic, Meiryo and Noto Sans CJK JP, then Apple SD

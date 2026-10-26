@@ -6434,7 +6434,7 @@ mod wide_letters {
     }
 
     #[test]
-    fn japanese_and_korean_line_up() {
+    fn chinese_japanese_and_korean_line_up() {
         // The language is the whole process's: the check runs in a process of its own, so
         // no other test reads Japanese.
         if std::env::var_os("COXSWAIN_WIDE_TEST").is_none() {
