@@ -1399,8 +1399,19 @@ fn detached(exe: &Path) -> std::process::Command {
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(&mut c, 0);
     #[cfg(windows)]
-    // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: no console, and Ctrl+C in the app's is not ours.
-    std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0000_0008 | 0x0000_0200);
+    {
+        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: no console, and Ctrl+C in the app's is not ours.
+        std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0000_0008 | 0x0000_0200);
+        // Windows hands a child every inheritable handle, and the app's own stdin, stdout and
+        // stderr are: the helper kept `coxswain --meaning | more` (or a script reading its
+        // output) waiting until it left, ten minutes later. Children that are to have them get
+        // copies of their own from std, so ours need not be inheritable.
+        use windows_sys::Win32::{Foundation::{HANDLE_FLAG_INHERIT, SetHandleInformation}, System::Console::{GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE}};
+        for std in [STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+            // SAFETY: a handle of this process, or null or invalid, which the call refuses.
+            unsafe { SetHandleInformation(GetStdHandle(std), HANDLE_FLAG_INHERIT, 0) };
+        }
+    }
     c
 }
 

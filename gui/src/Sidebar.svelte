@@ -323,7 +323,15 @@
     justify-content: space-between;
     gap: 6px;
   }
+  /* A long name (`C: Windows`) gives way, never the free space. */
+  .drive-name > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .drive-name small {
+    flex-shrink: 0;
     color: var(--hidden-fg);
   }
   .bar {

@@ -961,7 +961,7 @@ impl App {
                         } else {
                             let base = self.panel().dir.clone();
                             let dir = coxswain_core::fs::resolve(&base, new.trim());
-                            std::fs::canonicalize(&dir).unwrap_or(dir).display().to_string()
+                            coxswain_core::fs::canonical(&dir).unwrap_or(dir).display().to_string()
                         };
                         if !item.is_empty() && !items.contains(&item) {
                             items.push(item);
@@ -2306,7 +2306,7 @@ mod tests {
         key(&mut app, KeyCode::Enter);
         typed(&mut app, "mail");
         key(&mut app, KeyCode::Enter);
-        let mail = std::fs::canonicalize(d.join("mail")).unwrap();
+        let mail = coxswain_core::fs::canonical(&d.join("mail")).unwrap();
         assert_eq!(app.cfg.search.names_only, [mail]);
         let scr = screen(&mut app, 80, 24);
         assert!(scr.iter().any(|l| l.contains("− ") && l.contains("mail")), "{scr:#?}");
