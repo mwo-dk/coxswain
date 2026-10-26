@@ -83,6 +83,8 @@ repositories alone.
 In the terminal app the same, in **F12** → *Finding files* → *What is read*: the cost shows red
 at the bottom, **Enter** applies it, **Esc** keeps the setting as it was.
 
+![The terminal app's Settings in Classic blue at What is read: Text of each commit's changes under Git history, and at the bottom in red Reading the changes of 13 commits in 2 repositories adds about 11.7 KB to search.db and takes about 1 s in the background. Nothing leaves the machine. Enter: Apply · Esc: Cancel](../screenshots/changes-cost-tui.png)
+
 ## Settings and config.toml
 
 | Setting | config.toml | Default |

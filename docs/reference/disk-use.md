@@ -61,6 +61,8 @@ system; this page is about the room they take and getting it back.
 | `coxswain-replace-…/` (under *Your own files*) | Your files as they were before a [find and replace](../files/find-and-replace.md), so it can be undone (256 MB at most per replace); shown when there are some | **Remove** takes only those of apps that have ended (their finds and replaces can no longer be undone); a running app keeps its own | No |
 | `.coxswain-sync-…/` (under *Your own files*) | What a [folder sync](../files/compare-folders.md#where-did-my-replaced-files-go) that has ended replaced or deleted, where the bin could not take it (Windows, a disk without a bin); one row per folder, its line naming the synced folder | **Remove** deletes it for good | No |
 
+![Disk use in the desktop app, Cyber, with the row search.db: changes of commits, its size, what clearing it costs and Clear, under it what it holds](../screenshots/disk-use-changes-gui.png)
+
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it
 says what it holds. The total of all rows is beside the heading *Disk use*.
