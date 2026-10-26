@@ -28,7 +28,9 @@ let
     cargoExtraArgs = "--locked -p coxswain-gui";
     # The core's tests run in the terminal app's package.
     doCheck = false;
-    nativeBuildInputs = [ pkg-config ];
+    # wrapGAppsHook3 in both steps: it adds GTK's paths to PKG_CONFIG_PATH, and a change there
+    # would run the -sys crates' build scripts again, and all built on them.
+    nativeBuildInputs = [ pkg-config wrapGAppsHook3 ];
     buildInputs = [
       oniguruma
       openssl
@@ -76,7 +78,6 @@ craneLib.buildPackage (
     nativeBuildInputs = common.nativeBuildInputs ++ [
       nodejs
       importNpmLock.npmConfigHook
-      wrapGAppsHook3
       copyDesktopItems
     ];
 
