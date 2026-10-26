@@ -10,8 +10,6 @@ use std::time::{Duration, Instant};
 /// Most a drag unpacks by itself out of an archive or a git history; more is copied with F5.
 pub const MAX_BYTES: u64 = 200 * 1024 * 1024;
 pub const MAX_FILES: usize = 2000;
-/// Most the drags of one run keep at once: past it, its earliest drags' copies go first.
-pub const RUN_MOST: u64 = 1 << 30;
 
 /// The last drag's paths, what they were copied out to, and when, so dragging the same again
 /// soon takes it as it is.
@@ -51,12 +49,12 @@ pub fn out(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
         ));
     }
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let run = crate::archive::run_folder("drag", false)?;
-    room_for(&run, bytes, RUN_MOST);
-    let dir = run.join(
+    let dir = crate::archive::run_folder("drag", false)?.join(
         N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             .to_string(),
     );
+    // One a crashed run with the same process id may have left.
+    let _ = fs::remove_dir_all(&dir);
     crate::fs::private_dir(&dir)?;
     // CVS lists no sizes (measured as 0): what a history copy writes is counted against what
     // is left instead, and a drag that passes it is refused with nothing kept.
@@ -88,29 +86,6 @@ pub fn out(paths: &[PathBuf]) -> io::Result<Vec<PathBuf>> {
     };
     *last = Some((paths.to_vec(), to.clone(), Instant::now()));
     Ok(to)
-}
-
-/// This run's drag folders in `run` (named by their count) made to leave room for `bytes`
-/// within `most`: the earliest drags' copies go first.
-fn room_for(run: &Path, bytes: u64, most: u64) {
-    let mut drags: Vec<(usize, u64, PathBuf)> = fs::read_dir(run)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|e| {
-            let n = e.file_name().to_str()?.parse().ok()?;
-            Some((n, crate::fs::dir_size(&e.path()).0, e.path()))
-        })
-        .collect();
-    drags.sort();
-    let mut total: u64 = drags.iter().map(|d| d.1).sum::<u64>() + bytes;
-    for (_, size, path) in drags {
-        if total <= most {
-            break;
-        }
-        let _ = fs::remove_dir_all(&path);
-        total = total.saturating_sub(size);
-    }
 }
 
 /// What copying `p` (in a history or an archive) out takes: bytes and files.
@@ -250,28 +225,6 @@ mod tests {
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(&d).unwrap();
         d
-    }
-
-    /// Past what a run's drags may keep, the earliest go first and the latest stay.
-    #[test]
-    fn a_runs_drags_keep_at_most_their_room() {
-        let d = scratch("drag-room");
-        for n in [0, 1, 2, 10] {
-            fs::create_dir(d.join(n.to_string())).unwrap();
-            fs::write(d.join(format!("{n}/f")), vec![0u8; 100]).unwrap();
-        }
-        room_for(&d, 150, 400);
-        assert!(
-            !d.join("0").exists() && !d.join("1").exists(),
-            "earliest first"
-        );
-        assert!(
-            d.join("2/f").exists() && d.join("10/f").exists(),
-            "10 is after 2"
-        );
-        room_for(&d, 0, 400);
-        assert!(d.join("2/f").exists(), "within room: nothing goes");
-        let _ = fs::remove_dir_all(&d);
     }
 
     #[test]

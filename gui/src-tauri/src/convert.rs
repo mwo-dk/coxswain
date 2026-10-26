@@ -522,7 +522,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         // Its cache, when this run makes it, is Coxswain's doing: Disk use lists it.
         ("latex", "tectonic") => {
             c.arg("--outdir").arg(out).arg(&doc);
-            let absent = coxswain_core::disk::absent(&coxswain_core::disk::TECTONIC);
+            let absent = coxswain_core::disk::tectonic_absent();
             let done = wait(c, timeout, None);
             coxswain_core::disk::note_made(&absent);
             return done;
@@ -559,13 +559,8 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             let how = coxswain_core::ebook::How::Local { convert: program, meta: which("ebook-meta") };
             return coxswain_core::ebook::preview(&how, path, out, timeout, &mut |_| {}).map(drop);
         }
-        // Its package cache, when this run makes it, is Coxswain's doing: Disk use lists it.
         ("typst", _) => {
             c.arg("compile").arg("--root").arg(typst_root(path)).arg(path).arg(file);
-            let absent = coxswain_core::disk::absent(&coxswain_core::disk::TYPST);
-            let done = wait(c, timeout, None);
-            coxswain_core::disk::note_made(&absent);
-            return done;
         }
         ("ghostscript" | "gxps", _) => {
             c.args(ghostscript(path)).arg(format!("-sOutputFile={}", file.display())).arg(path);

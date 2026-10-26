@@ -135,7 +135,7 @@ with no archive ending gets one added (`my.notes` becomes `my.notes.zip`).
 
 **Packing** takes folders with everything in them, hidden files and empty folders included.
 Symbolic links are left out, since what they point at may be anywhere. Files keep their
-modification dates. The archive is written to a hidden `.….coxswain-tmp` file first and gets its name only
+modification dates. The archive is written to a `.coxswain-tmp` file first and gets its name only
 when it is complete, so a failure leaves no half archive. With a password, a zip's files are each
 locked with AES-256, and a 7z's contents too (and its names, with *Hide the file names too*).
 
@@ -223,7 +223,7 @@ another folder.
 Yes: **Esc** on the progress line in the terminal app, **Stop** (or **Esc** on it) in the
 desktop app, answered within a second also inside a large file
 ([Stopping it](copy.md#stopping-it)). A stopped pack leaves nothing: the archive is written
-into a hidden `.….coxswain-tmp` file beside it, which is removed, and an archive you were adding to is
+into a `.coxswain-tmp` file beside it, which is removed, and an archive you were adding to is
 exactly as it was ([What changes, and how safely](archives.md#what-changes-and-how-safely)). A
 stopped extract keeps the folder with what came out whole; the file it was on is removed. The
 status line says `Stopped: 0 of 3 packed` or `Stopped: 1 of 2 extracted`, and **Ctrl+Z** moves

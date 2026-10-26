@@ -695,16 +695,12 @@ pub fn copy_out_within(at: &At, dest: &Path, max: u64) -> io::Result<PathBuf> {
             crate::t!("err.exists", "path" => to.display()),
         ));
     }
-    // Under a passing name (noted, so a kill leaves nothing that looks whole), its own once whole.
-    let tmp = crate::fs::beside(&to);
-    let r = crate::vcs::of(&at.base)
-        .export(at, rev, &tmp, max)
-        .and_then(|()| crate::fs::put(&tmp, &to));
+    let r = crate::vcs::of(&at.base).export(at, rev, &to, max);
     if r.is_err() {
-        let _ = if tmp.is_dir() {
-            std::fs::remove_dir_all(&tmp)
+        let _ = if to.is_dir() {
+            std::fs::remove_dir_all(&to)
         } else {
-            std::fs::remove_file(&tmp)
+            std::fs::remove_file(&to)
         };
     }
     r.map(|_| to)

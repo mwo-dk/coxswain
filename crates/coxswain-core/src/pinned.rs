@@ -591,7 +591,7 @@ mod imp {
             // A name of its own (process, time), short whatever the file's name.
             let stem: String = String::from_utf8_lossy(self.name.as_bytes()).chars().take(40).collect();
             let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
-            let tmp = CString::new(format!(".{stem}.coxswain-{}-{nanos}.tmp", crate::spill::run())).map_err(std::io::Error::other)?;
+            let tmp = CString::new(format!(".{stem}.coxswain-{}-{nanos}.tmp", std::process::id())).map_err(std::io::Error::other)?;
             // SAFETY: an open folder and a NUL-terminated name; a new file only.
             let fd = unsafe { libc::openat(dir, tmp.as_ptr(), libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC, 0o600 as libc::c_uint) };
             if fd < 0 {
@@ -1226,7 +1226,7 @@ mod imp {
             // A name of its own (process, time), short whatever the file's name.
             let stem: String = String::from_utf16_lossy(&self.name).chars().filter(|c| !matches!(c, '\\' | '/' | ':')).take(40).collect();
             let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
-            let tmp: Vec<u16> = format!(".{stem}.coxswain-{}-{nanos}.tmp", crate::spill::run()).encode_utf16().collect();
+            let tmp: Vec<u16> = format!(".{stem}.coxswain-{}-{nanos}.tmp", std::process::id()).encode_utf16().collect();
             // A new file only, shared with no one while it is made.
             let mut f = open_in(dir, &tmp, GENERIC_WRITE | READ_ATTRIBUTES | DELETE | READ_CONTROL, FILE_CREATE, FILE_NON_DIRECTORY_FILE, 0)?;
             // The folder's inherited permissions would open it to others the old file was closed

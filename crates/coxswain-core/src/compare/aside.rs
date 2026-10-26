@@ -37,7 +37,7 @@ fn dec(s: &str) -> Option<PathBuf> {
     Some(PathBuf::from(String::from_utf8(b).ok()?))
 }
 
-/// The run made the folder aside `aside`: noted, named by the run (`spill::run()`) as its other folders are
+/// The run made the folder aside `aside`: noted, named by the run's id as its other folders are
 /// (`spill::in_use`), so the next start knows when the run has ended. The note, to give `done`.
 pub(crate) fn note(aside: &Path) -> Option<PathBuf> {
     note_in(&dir()?, aside)
@@ -48,7 +48,7 @@ fn note_in(d: &Path, aside: &Path) -> Option<PathBuf> {
     crate::fs::private_dir(d).ok()?;
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |t| t.subsec_nanos());
     let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let f = d.join(format!("{}-{n}-{nanos:x}", crate::spill::run()));
+    let f = d.join(format!("{}-{n}-{nanos:x}", std::process::id()));
     std::fs::write(&f, enc(aside)).ok()?;
     Some(f)
 }
@@ -95,7 +95,7 @@ fn load(d: &Path) -> Vec<Left> {
 }
 
 fn save(d: &Path, v: &[Left]) {
-    let tmp = d.join(format!("{RECORDS}.{}", crate::spill::run()));
+    let tmp = d.join(format!("{RECORDS}.{}", std::process::id()));
     if std::fs::write(&tmp, serde_json::to_vec(v).unwrap_or_default()).is_ok() {
         let _ = std::fs::rename(&tmp, d.join(RECORDS));
     }

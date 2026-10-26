@@ -864,9 +864,6 @@ pub(crate) fn in_folder<R>(
     };
     // One time limit for all the steps of a preview, not one for each.
     let deadline = timeout.map(|t| Instant::now() + t);
-    // kicad-cli's cache, when this run makes it, is Coxswain's doing: Disk use lists it.
-    let kicad = matches!(how, How::Local { program: Program::Kicad, .. });
-    let mut absent = if kicad { crate::disk::absent(&crate::disk::KICAD) } else { vec![] };
     let mut exec = |program: &str, args: &[String]| -> Result<Vec<u8>, String> {
         let left = deadline.map(|d| d.saturating_duration_since(Instant::now()));
         if left.is_some_and(|l| l.is_zero()) {
@@ -895,13 +892,7 @@ pub(crate) fn in_folder<R>(
         };
         watch(c, kill, stop, left, None, &mut *said, KEEP)
     };
-    let done = steps(&mut Run { exec: &mut exec, input, out, scratch });
-    if kicad {
-        // Its settings, made now or the user's: listed, never cleared.
-        absent.extend(crate::disk::present(&crate::disk::KICAD_SETTINGS));
-    }
-    crate::disk::note_made(&absent);
-    done
+    steps(&mut Run { exec: &mut exec, input, out, scratch })
 }
 
 /// A preview of `path` (`Op::Frame`, `Waveform` or `Picture`, a PNG; `Map`, an SVG) made with
