@@ -449,9 +449,9 @@ The table shows its games like a PGN file's.
 #### Can I open a database inside a zip?
 
 Yes. **Enter** on the zip opens it like a folder; on a games file inside (a `.pgn`, a ChessBase
-`.cbv` archive or `.cbh` database, a SCID `.si4` or `.si5` index, an `.sgf` …) press **F3** or
-**Enter** in the terminal app, or rest the cursor on it with the preview open in the desktop
-app. That file is copied out into Coxswain's cache folder, a database with the files beside it
+`.cbv` archive or `.cbh` database, a SCID `.si4` or `.si5` index, an `.sgf` …) press **Enter**
+in either app (the command line says *Enter: Open games*), **F3** in the terminal app, or rest
+the cursor on it with the preview open in the desktop app. That file is copied out into Coxswain's cache folder, a database with the files beside it
 under its name (`.cbg`, `.cbp`, `.sg4` …), and its games table opens as outside the archive.
 It works in an archive inside an archive too ([Archives as folders](../files/archives.md)).
 
