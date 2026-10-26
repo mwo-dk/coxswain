@@ -1200,11 +1200,16 @@ impl Store {
         archives: Option<&[PathBuf]>,
     ) -> rusqlite::Result<()> {
         // Archives are listed before the store is locked: searches go on meanwhile.
+        let mut waiting = vec![];
         let inside: Vec<(&str, Vec<Member>)> = changed
             .iter()
             .filter(|(path, ..)| crate::archive::is_archive(Path::new(path)))
             .map(|(path, size, ..)| {
                 let entries = if archives.is_some_and(|roots| !in_cache(Path::new(path), roots)) {
+                    // Too large to unpack for a listing: listed once it was opened (`waiting`).
+                    if crate::archive::waits_to_be_opened(Path::new(path), *size) {
+                        waiting.push(path.as_str());
+                    }
                     crate::archive::search_entries(Path::new(path), *size).unwrap_or_default()
                 } else {
                     vec![]
@@ -1318,6 +1323,13 @@ impl Store {
                 "INSERT OR REPLACE INTO skipped(path, bytes, files) VALUES (?1, ?2, ?3)",
                 params![path, *bytes as i64, *files as i64],
             )?;
+        }
+        // What was listed waits no more, unless it still must be opened first.
+        for (path, _) in &inside {
+            tx.prepare_cached("DELETE FROM meta WHERE key = ?1")?.execute([format!("waiting:{path}")])?;
+        }
+        for path in waiting {
+            tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, 'opened')", [format!("waiting:{path}")])?;
         }
         self.commit_signs(|| tx.commit(), SignsChange::Drop(stale))
     }
@@ -1447,14 +1459,70 @@ impl Store {
                 vec![]
             }
         };
-        let images: Vec<String> = tars.into_iter().filter(|p| crate::archive::is_image(Path::new(p))).collect();
+        // A tar that cannot be reached now (its disk unplugged) waits to be looked at
+        // (`waiting_ready`), so the tag can be written.
+        let (images, away): (Vec<String>, Vec<String>) = tars
+            .into_iter()
+            .filter(|p| std::fs::metadata(p).is_err() || crate::archive::is_image(Path::new(p)))
+            .partition(|p| std::fs::metadata(p).is_ok());
         let mut db = self.db.lock().unwrap();
         let tx = db.transaction()?;
         for path in images {
             // Not what is on disk: the next walk lists it again.
             tx.execute("UPDATE files SET modified = -1 WHERE path = ?1", [path])?;
         }
+        for path in away {
+            tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, 'image')", [format!("waiting:{path}")])?;
+        }
         tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, tag])?;
+        tx.commit()
+    }
+
+    /// Archives that wait (`waiting:<path>` in the meta table) and can now be listed are taken
+    /// as changed, so the next walk lists them: one too large to unpack for a listing
+    /// (`opened`) once its list or tree is kept, an image tar the image reader's redo could not
+    /// reach (`image`) once it is there again, if it is an image. One the store no longer has
+    /// stops waiting; one that is still away or not opened waits on. Looked at with the store
+    /// let go; nothing with search inside archives off.
+    fn waiting_ready(&self, on: bool) -> rusqlite::Result<()> {
+        if !on {
+            return Ok(());
+        }
+        let waiting: Vec<(String, String, Option<i64>)> = {
+            let db = self.db.lock().unwrap();
+            db.prepare(
+                "SELECT substr(m.key, 9), m.value, f.size FROM meta m
+                 LEFT JOIN files f ON f.path = substr(m.key, 9) AND f.inside IS NULL
+                 WHERE m.key LIKE 'waiting:%'",
+            )?
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?
+        };
+        let mut done = vec![];
+        for (path, why, size) in waiting {
+            let p = Path::new(&path);
+            let ready = match size {
+                None => Some(false),
+                Some(_) if std::fs::metadata(p).is_err() => None,
+                Some(_) if why == "image" => Some(crate::archive::is_image(p)),
+                Some(size) => (!crate::archive::waits_to_be_opened(p, size as u64)).then_some(true),
+            };
+            if let Some(ready) = ready {
+                done.push((path, ready));
+            }
+        }
+        if done.is_empty() {
+            return Ok(());
+        }
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        for (path, ready) in done {
+            if ready {
+                // Not what is on disk: the next walk lists it again.
+                tx.execute("UPDATE files SET modified = -1 WHERE path = ?1", [&path])?;
+            }
+            tx.execute("DELETE FROM meta WHERE key = ?1", [format!("waiting:{path}")])?;
+        }
         tx.commit()
     }
 
@@ -3046,6 +3114,8 @@ fn scan_for(
     // Container images (2.35): search knows the files of their merged layers. Every image tar
     // search knew before is listed again, once, so they are found; nothing else is redone.
     store.image_reader_changed("readers.image", "1", cfg.archives)?;
+    // Archives too large to list until opened, once opened; images that were away, once back.
+    store.waiting_ready(cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
     let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
@@ -3853,8 +3923,9 @@ fn read_inside(archive: &Path, files: Vec<(i64, String)>, max: u64) -> Vec<(i64,
         let wanted = |name: &str, size: u64| {
             size > 0 && size <= max.min(left.get()) && want.contains_key(name)
         };
-        let _ = crate::archive::search_read(archive, size, &wanted, &mut |name, from| {
+        let _ = crate::archive::search_read(archive, size, &wanted, &mut |names, from| {
             let limit = max.min(left.get());
+            let name = names[0];
             let file = dir.join(name.rsplit('/').next().unwrap_or(name));
             let copied = std::fs::File::create(&file).and_then(|mut to| {
                 std::io::copy(&mut std::io::Read::take(from, limit + 1), &mut to)
@@ -3862,7 +3933,11 @@ fn read_inside(archive: &Path, files: Vec<(i64, String)>, max: u64) -> Vec<(i64,
             if let Ok(n) = copied {
                 left.set(left.get().saturating_sub(n));
                 if n <= limit {
-                    texts.insert(want[name], crate::extract::text_of(&file, n, max));
+                    // The same bytes under several names (links in an image): each gets the text.
+                    let text = crate::extract::text_of(&file, n, max);
+                    for name in names {
+                        texts.insert(want[*name], text.clone());
+                    }
                 }
             }
             let _ = std::fs::remove_file(&file);
@@ -5141,7 +5216,8 @@ mod tests {
         let home = d.join("home");
         std::fs::create_dir_all(&home).unwrap();
         use crate::container_image::tests::{docker_tar, tar_of};
-        let low = tar_of(&[("app/", b""), ("app/readme.txt", b"the payload manifest"), ("app/old.txt", b"obsolete gizmo")]);
+        // A hard link: the same bytes under two names, each found by its text.
+        let low = tar_of(&[("app/", b""), ("app/readme.txt", b"the payload manifest"), ("app/old.txt", b"obsolete gizmo"), ("app/copy.txt => app/readme.txt", b"")]);
         // Gzip-packed: a whiteout takes the old file away.
         let high = tar_of(&[("app/.wh.old.txt", b""), ("app/new.txt", b"fresh widget")]);
         let img = home.join("demo-image.tar");
@@ -5150,10 +5226,75 @@ mod tests {
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         scan(&store, &cfg, &go).unwrap();
         let paths = |q: &str| store.search(q, None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
-        assert_eq!(paths("payload"), [img.join("app").join("readme.txt")]);
+        let mut both = paths("payload");
+        both.sort();
+        assert_eq!(both, [img.join("app").join("copy.txt"), img.join("app").join("readme.txt")]);
         assert_eq!(paths("widget"), [img.join("app").join("new.txt")]);
         assert_eq!(paths("gizmo"), Vec::<PathBuf>::new(), "taken away by a later layer");
         assert_eq!(paths("RepoTags"), Vec::<PathBuf>::new(), "never the image's own blobs");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// An OCI image layout folder is looked into from its `index.json`, as an image tar is.
+    #[test]
+    fn store_reads_the_files_of_an_oci_layout_folder() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-oci-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let layout = d.join("home").join("demo-oci");
+        use crate::container_image::tests::{oci_dir, tar_of};
+        oci_dir(&layout, &[tar_of(&[("srv/", b""), ("srv/motd.txt", b"welcome aboard the spaceship")])]);
+        let cfg = SearchConfig { text_roots: vec![d.join("home")], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let hits = store.search("spaceship", None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
+        assert_eq!(hits, [layout.join("index.json").join("srv").join("motd.txt")]);
+        drop(store);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// An image tar too large to unpack for a listing is listed once it was opened (its tree
+    /// kept), though the file did not change; one away when the image reader's redo ran is
+    /// listed again once it is back, and the redo's tag is written meanwhile.
+    #[test]
+    fn a_large_image_opened_later_and_one_that_was_away_are_listed() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-image-wait-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        use crate::container_image::tests::{docker_tar, tar_of};
+        let img = home.join("big-image.tar");
+        std::fs::write(&img, docker_tar(&[tar_of(&[("app/", b""), ("app/readme.txt", b"the hidden treasure map")])])).unwrap();
+        // Past the size listed without opening: zeros after a tar's end are no entries.
+        std::fs::OpenOptions::new().write(true).open(&img).unwrap().set_len(crate::archive::SEARCH_UNPACK + 1).unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let found = || store.search("treasure", None, 10).hits.len();
+        assert_eq!(found(), 0, "not listed before it was opened");
+        crate::container_image::tree(&img).unwrap();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(found(), 1, "listed once opened");
+        // The image reader's redo while the image is away (its disk unplugged).
+        let away = home.join("elsewhere.bin");
+        std::fs::rename(&img, &away).unwrap();
+        let path = img.to_string_lossy().into_owned();
+        let meta = |k: &str| -> Option<String> {
+            store.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = ?1", [k], |r| r.get(0)).ok()
+        };
+        let modified = || -> i64 {
+            store.db.lock().unwrap().query_row("SELECT modified FROM files WHERE path = ?1", [&path], |r| r.get(0)).unwrap()
+        };
+        store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = 'readers.image'", []).unwrap();
+        store.image_reader_changed("readers.image", "1", true).unwrap();
+        assert_eq!(meta("readers.image").as_deref(), Some("1"));
+        assert_eq!(meta(&format!("waiting:{path}")).as_deref(), Some("image"));
+        store.waiting_ready(true).unwrap();
+        assert_ne!(modified(), -1, "still away: waits on");
+        std::fs::rename(&away, &img).unwrap();
+        store.waiting_ready(true).unwrap();
+        assert_eq!(modified(), -1, "back: the next walk lists it again");
+        assert_eq!(meta(&format!("waiting:{path}")), None);
+        drop(store);
         let _ = std::fs::remove_dir_all(&d);
     }
 

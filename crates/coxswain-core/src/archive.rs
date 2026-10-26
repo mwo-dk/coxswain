@@ -104,9 +104,20 @@ fn ends_in(path: &Path, list: &[(&str, Kind)]) -> Option<Kind> {
         .map(|(_, k)| *k)
 }
 
-/// An archive by its ending: one search looks into. Never a disk image (`opens`).
+/// An archive by its ending, or an OCI layout's `index.json`: one search looks into. Never a
+/// disk image (`opens`).
 pub fn is_archive(path: &Path) -> bool {
-    ending_kind(path).is_some()
+    search_kind(path).is_some()
+}
+
+/// `is_archive` of the file `name` in `dir`, the folder looked at only for an `index.json`.
+pub(crate) fn is_archive_in(dir: &Path, name: &str) -> bool {
+    is_archive(Path::new(name)) || name == "index.json" && is_archive(&dir.join(name))
+}
+
+/// What search looks into `path` as: its ending's kind, or an image for an OCI layout.
+fn search_kind(path: &Path) -> Option<Kind> {
+    ending_kind(path).or_else(|| crate::container_image::layout_index(path).then_some(Kind::Image))
 }
 
 /// `path` opens like a folder: an archive, or a disk image when those open.
@@ -1459,24 +1470,8 @@ pub(crate) fn device(part: &str) -> bool {
 /// unpacked for a listing, unreadable, or only in the cloud (reading it would download it).
 pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEntry>> {
     // Never a disk image: they can be huge, and need 7-Zip.
-    let k = ending_kind(archive)?;
-    if crate::cloud::keep_out(archive) {
-        return None;
-    }
-    // A large one only once its list is kept (it was opened): then nothing is unpacked.
-    if matches!(k, Kind::Tar(p) if p != Pack::None)
-        && size > SEARCH_UNPACK
-        && crate::tar_index::load(archive).is_none()
-    {
-        return None;
-    }
-    // A container image: the files of its merged layers, a large one only once its tree is
-    // kept (it was opened), never its blobs.
-    if k == Kind::Tar(Pack::None)
-        && crate::container_image::is_image(archive)
-        && size > SEARCH_UNPACK
-        && !crate::container_image::tree_known(archive)
-    {
+    let k = search_kind(archive)?;
+    if crate::cloud::keep_out(archive) || waits_to_be_opened(archive, size) {
         return None;
     }
     if k == Kind::SevenZ && search_skips_seven(archive) {
@@ -1498,25 +1493,48 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     )
 }
 
+/// `archive` (`size` bytes) is one search lists only once it was opened, its list or tree then
+/// kept: a compressed tar or a container image too large to unpack for a listing, whose list
+/// or tree is not kept yet. Opening it later is no change of the file: the store asks again.
+pub(crate) fn waits_to_be_opened(archive: &Path, size: u64) -> bool {
+    match search_kind(archive) {
+        Some(Kind::Tar(p)) if p != Pack::None => {
+            size > SEARCH_UNPACK && crate::tar_index::load(archive).is_none()
+        }
+        // A container image: the files of its merged layers, never its blobs. An OCI layout's
+        // size is that of its layers, not of its `index.json`.
+        Some(Kind::Tar(Pack::None) | Kind::Image) if crate::container_image::is_image(archive) => {
+            let size = match crate::container_image::layout_index(archive) {
+                true => crate::container_image::image(archive)
+                    .map_or(0, |i| i.layers.iter().map(|l| l.1).sum()),
+                false => size,
+            };
+            size > SEARCH_UNPACK && !crate::container_image::tree_known(archive)
+        }
+        _ => false,
+    }
+}
+
 /// Read the files of `archive` (`size` bytes) that `wanted` picks by name and size, in the
-/// order they are in it: `read` gets each with its name, and says whether to go on. Locked
+/// order they are in it: `read` gets each with its names (more than one when the same bytes
+/// are there under several: links in a container image), and says whether to go on. Locked
 /// files are never read, and no password is ever used. Archives that would be unpacked past
 /// `SEARCH_UNPACK` are not read, nor archives only in the cloud.
 pub(crate) fn search_read(
     archive: &Path,
     size: u64,
     wanted: &dyn Fn(&str, u64) -> bool,
-    read: &mut dyn FnMut(&str, &mut dyn Read) -> bool,
+    read: &mut dyn FnMut(&[&str], &mut dyn Read) -> bool,
 ) -> io::Result<()> {
-    let k = ending_kind(archive).ok_or_else(|| not_archive(archive))?;
+    let k = search_kind(archive).ok_or_else(|| not_archive(archive))?;
     if crate::cloud::keep_out(archive) {
         return Err(crate::cloud::not_here(archive));
     }
     if streamed(archive) && size > SEARCH_UNPACK {
         return Ok(());
     }
-    if k == Kind::Tar(Pack::None) && crate::container_image::is_image(archive) {
-        if size > SEARCH_UNPACK && !crate::container_image::tree_known(archive) {
+    if matches!(k, Kind::Tar(Pack::None) | Kind::Image) && crate::container_image::is_image(archive) {
+        if waits_to_be_opened(archive, size) {
             return Ok(());
         }
         return crate::container_image::search_read(archive, &|name, n| sound(name) && wanted(name, n), read);
@@ -1538,7 +1556,7 @@ pub(crate) fn search_read(
                 };
                 if ok
                     && let Ok(mut f) = z.by_index(i)
-                    && !read(&name, &mut f)
+                    && !read(&[&name], &mut f)
                 {
                     break;
                 }
@@ -1560,7 +1578,7 @@ pub(crate) fn search_read(
                     || !e.has_stream
                     || !sound(&name)
                     || !wanted(&name, e.size)
-                    || read(&name, from);
+                    || read(&[&name], from);
                 if go {
                     io::copy(from, &mut io::sink())?;
                 }
@@ -1577,7 +1595,7 @@ pub(crate) fn search_read(
                     && !(e.header().entry_type().is_file()
                         && sound(&name)
                         && wanted(&name, e.size())
-                        && !read(&name, e)))
+                        && !read(&[&name], e)))
             })?;
         }
     }
@@ -4025,7 +4043,7 @@ mod tests {
         search_read(&zp, size, &|_, _| true, &mut |name, from| {
             let mut text = String::new();
             from.read_to_string(&mut text).unwrap();
-            read.push((name.to_string(), text));
+            read.push((name[0].to_string(), text));
             true
         })
         .unwrap();
@@ -4057,7 +4075,7 @@ mod tests {
         std::fs::write(&zp, &bytes).unwrap();
         let mut read = vec![];
         search_read(&zp, bytes.len() as u64, &|_, _| true, &mut |name, _| {
-            read.push(name.to_string());
+            read.push(name[0].to_string());
             true
         })
         .unwrap();
@@ -4375,7 +4393,7 @@ mod tests {
         search_read(&zp, 1, &|n, _| n != "a.txt", &mut |n, from| {
             let mut head = [0u8; 5];
             from.read_exact(&mut head).unwrap();
-            seen.push((n.to_string(), head));
+            seen.push((n[0].to_string(), head));
             true
         })
         .unwrap();

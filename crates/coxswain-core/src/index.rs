@@ -259,7 +259,7 @@ impl Index {
             }
         };
         let wanted = |s: &&mut Scanned| {
-            s.is_dir || look && crate::archive::is_archive(Path::new(&s.name))
+            s.is_dir || look && crate::archive::is_archive_in(dir, &s.name)
         };
         if depth >= crate::sizes::DEEP {
             out.iter_mut().filter(wanted).for_each(one);
@@ -509,7 +509,7 @@ impl Index {
                         let below = self.looks_below(&path, look);
                         s.children = self.scan(&path, None, below);
                         new_dirs.push(path);
-                    } else if !s.is_dir && look && crate::archive::is_archive(Path::new(&s.name)) {
+                    } else if !s.is_dir && look && crate::archive::is_archive_in(&dir, &s.name) {
                         // An archive that is new, or changed since it was looked into, is read again.
                         let path = dir.join(&s.name);
                         let had = known
