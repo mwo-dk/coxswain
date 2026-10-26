@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Ordnernotizen",
  "feature.notes.what": "Freier Text zu einem Ordner, unten in der Vorschau angezeigt, in der Desktop-App.",
  "feature.notices.a1": "Die Tipps, die Sie weder ausgeblendet noch befolgt haben, plus die Versionen, über die Sie noch nicht gelesen haben. Klicken Sie darauf: Neuigkeiten öffnet sich, und die Zahl sinkt auf die übrigen Tipps.",
- "feature.notices.a2": "In beiden Apps öffnen Sie Einstellungen ({settings}) → Übersicht → Neuigkeiten; in der Desktop-App können Sie auch auf ⚙ Einstellungen klicken, solange es eine Zahl zeigt. Auf der Befehlszeile führen Sie coxswain --whats-new aus.",
+ "feature.notices.a2": "In beiden Apps öffnen Sie Einstellungen ({settings}) → Übersicht → Neuigkeiten; in der Desktop-App können Sie auch auf ⚙ Einstellungen klicken, solange es eine Zahl zeigt. Auf der Befehlszeile führen Sie coxswain --whats-new aus. In der Terminal-App zeigt Enter auf einer Version alles, was sie brachte, im Betrachter.",
  "feature.notices.a3": "Nicht aus der App: Ausgeblendete Tipps werden in der Zustandsdatei vermerkt. Wohin jeder führte, gibt es weiterhin, etwa Einstellungen → Dateien finden → Details → Bedeutung, oder coxswain --meaning on.",
  "feature.notices.q1": "Was zählt die Zahl auf der Schaltfläche Einstellungen?",
  "feature.notices.q2": "Wie sehe ich, was ein Update gebracht hat?",

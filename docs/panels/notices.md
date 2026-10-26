@@ -166,7 +166,8 @@ it is in the list as well. The terminal app still shows one tip at a time in its
 
 Desktop app: click **⚙ Settings** while it shows a number, or *Settings → Overview → What's new*. The
 versions you have not read are at the top, marked *new*. Terminal app: **F12** → *Overview*, or
-`coxswain --whats-new` in a shell.
+`coxswain --whats-new` in a shell. In the terminal app, **Enter** on a version shows all it brought in the
+built-in viewer; **Esc** comes back.
 
 #### Why does a version end in "…" in the terminal app?
 

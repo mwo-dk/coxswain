@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Mapnotities",
  "feature.notes.what": "Vrije tekst bij een map, onderaan het voorvertoningspaneel getoond, in de desktop-app.",
  "feature.notices.a1": "De tips die je niet hebt weggeklikt of opgevolgd, plus de versies waarover je nog niet gelezen hebt. Klik erop: Wat is er nieuw opent en het getal zakt naar de overgebleven tips.",
- "feature.notices.a2": "Open in beide apps Instellingen ({settings}) → Overzicht → Wat is er nieuw; in de desktop-app kun je ook op ⚙ Instellingen klikken als er een getal op staat. Voer op de opdrachtregel coxswain --whats-new uit.",
+ "feature.notices.a2": "Open in beide apps Instellingen ({settings}) → Overzicht → Wat is er nieuw; in de desktop-app kun je ook op ⚙ Instellingen klikken als er een getal op staat. Voer op de opdrachtregel coxswain --whats-new uit. In de terminal-app toont Enter op een versie alles wat die bracht in de viewer.",
  "feature.notices.a3": "Niet vanuit de app: weggeklikte tips worden in het statusbestand bewaard. Waar elke tip heen leidde, is er nog, zoals Instellingen → Bestanden vinden → Details → Betekenis, of coxswain --meaning on.",
  "feature.notices.q1": "Wat telt het getal op de knop Instellingen?",
  "feature.notices.q2": "Hoe zie ik wat een upgrade bracht?",

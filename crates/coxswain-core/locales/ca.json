@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Notes de la carpeta",
  "feature.notes.what": "Text lliure desat per a una carpeta, mostrat a la part de baix del plafó de previsualització, a l'aplicació d'escriptori.",
  "feature.notices.a1": "Els consells que no heu descartat ni seguit, més les versions de què no heu llegit res. Feu-hi clic: s'obre Novetats i el número baixa als consells que queden.",
- "feature.notices.a2": "A les dues aplicacions, obriu Paràmetres ({settings}) → Resum → Novetats; a l'aplicació d'escriptori també podeu fer clic a ⚙ Paràmetres quan mostra un número. Des de la línia d'ordres, executeu coxswain --whats-new.",
+ "feature.notices.a2": "A les dues aplicacions, obriu Paràmetres ({settings}) → Resum → Novetats; a l'aplicació d'escriptori també podeu fer clic a ⚙ Paràmetres quan mostra un número. Des de la línia d'ordres, executeu coxswain --whats-new. A l'aplicació de terminal, Retorn sobre una versió mostra tot el que va portar al visor.",
  "feature.notices.a3": "No des de l'aplicació: els consells descartats es guarden al fitxer d'estat. Allò on portava cadascun continua allà, com ara Paràmetres → Cerca de fitxers → Detalls → Significat, o coxswain --meaning on.",
  "feature.notices.q1": "Què compta el número del botó de Paràmetres?",
  "feature.notices.q2": "Com veig què ha portat una actualització?",

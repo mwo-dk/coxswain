@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Notes du dossier",
  "feature.notes.what": "Un texte libre gardé pour un dossier, affiché en bas du volet d’aperçu, dans l’app de bureau.",
  "feature.notices.a1": "Les astuces que vous n’avez ni ignorées ni suivies, plus les versions dont vous n’avez pas lu les nouveautés. Cliquez dessus : Nouveautés s’ouvre et le nombre tombe aux astuces restantes.",
- "feature.notices.a2": "Dans les deux apps, ouvrez Réglages ({settings}) → Vue d’ensemble → Nouveautés ; dans l’app de bureau, vous pouvez aussi cliquer sur ⚙ Réglages quand il affiche un nombre. En ligne de commande, lancez coxswain --whats-new.",
+ "feature.notices.a2": "Dans les deux apps, ouvrez Réglages ({settings}) → Vue d’ensemble → Nouveautés ; dans l’app de bureau, vous pouvez aussi cliquer sur ⚙ Réglages quand il affiche un nombre. En ligne de commande, lancez coxswain --whats-new. Dans l’app de terminal, Entrée sur une version affiche dans la visionneuse tout ce qu’elle a apporté.",
  "feature.notices.a3": "Pas depuis l’app : les astuces ignorées sont gardées dans le fichier d’état. Ce vers quoi chacune menait est toujours là, comme Réglages → Trouver des fichiers → Détails → Sens, ou coxswain --meaning on.",
  "feature.notices.q1": "Que compte le nombre sur le bouton Réglages ?",
  "feature.notices.q2": "Comment voir ce qu’une mise à jour a apporté ?",

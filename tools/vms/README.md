@@ -69,14 +69,18 @@ tools/vms/test-in.sh <freebsd|openbsd|netbsd|omnios> [checkout] [-- cargo args]
 | `checkout` | the checkout to test, by default the current folder |
 | `cargo args` | by default what CI runs there: `test -p coxswain-core -p coxswain -p coxswain-gui --locked` on FreeBSD and OpenBSD, `test -p coxswain-core -p coxswain --locked -j2` on NetBSD and OmniOS (with more jobs in 4 GB, rustc runs out of memory) |
 
-It starts the VM when it is down (and stops it afterwards only then), copies the checkout to
+It starts the VM when it is down (and stops it when the run ends only then, also when the run
+fails, is interrupted or its caller goes away), copies the checkout to
 `~/coxswain-src` in the VM without `target/`, `node_modules/` and `.git` (rsync, or tar when the
 VM has none; `gui/dist` goes along when built, else an empty one lets the desktop app compile),
 runs cargo there with its target folder in the VM (`~/coxswain-target`, so the next run is
 incremental; cleared first when the VM's free disk is less than it), streams the output and exits
 with cargo's status. As in CI, debug info is line tables only and the data size limit is raised
-to the hard one (OpenBSD's soft limit makes rustc abort). Several VMs at once are fine;
-one `test-in.sh` per VM at a time.
+to the hard one (OpenBSD's soft limit makes rustc abort). Files arrive with the time they were
+copied, not their own, and only when their contents differ, so a file another checkout left with
+an older date is still rebuilt. Several VMs at once are fine; a second run in the same VM waits
+for the first (the VM folder's `.test-lock`, which the VM itself never holds; a caller that holds
+it already on descriptor 9, such as a script queueing runs, is not waited for).
 
 ```sh
 cd .worktrees/my-fix && ../../tools/vms/test-in.sh openbsd

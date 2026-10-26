@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Mapes piezīmes",
  "feature.notes.what": "Brīvs teksts, kas glabāts mapei un redzams priekšskatījuma rūts apakšā, darbvirsmas lietotnē.",
  "feature.notices.a1": "Padomus, ko neesat noraidījis vai izmantojis, un versijas, par kurām neesat lasījis. Noklikšķiniet: atveras Jaunumi, un skaitlis samazinās līdz atlikušajiem padomiem.",
- "feature.notices.a2": "Abās lietotnēs atveriet Iestatījumi ({settings}) → Pārskats → Jaunumi; darbvirsmas lietotnē varat arī noklikšķināt uz ⚙ Iestatījumi, kamēr tajā redzams skaitlis. Komandrindā palaidiet coxswain --whats-new.",
+ "feature.notices.a2": "Abās lietotnēs atveriet Iestatījumi ({settings}) → Pārskats → Jaunumi; darbvirsmas lietotnē varat arī noklikšķināt uz ⚙ Iestatījumi, kamēr tajā redzams skaitlis. Komandrindā palaidiet coxswain --whats-new. Termināļa lietotnē Enter uz versijas skatītājā parāda visu, ko tā atnesa.",
  "feature.notices.a3": "Ne no lietotnes: noraidītie padomi tiek glabāti stāvokļa failā. Tas, uz ko katrs veda, joprojām ir pieejams, piemēram, Iestatījumi → Failu meklēšana → Detaļas → Nozīme vai coxswain --meaning on.",
  "feature.notices.q1": "Ko skaita skaitlis uz pogas Iestatījumi?",
  "feature.notices.q2": "Kā redzēt, ko atnesa jauninājums?",

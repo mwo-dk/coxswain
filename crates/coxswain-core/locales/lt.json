@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Aplanko pastabos",
  "feature.notes.what": "Laisvas tekstas, saugomas aplankui, rodomas peržiūros srities apačioje, darbalaukio programoje.",
  "feature.notices.a1": "Patarimai, kurių neatmetėte ir pagal kuriuos nieko nedarėte, ir versijos, apie kurias neskaitėte. Spustelėkite: atsiveria Kas naujo, o skaičius sumažėja iki likusių patarimų.",
- "feature.notices.a2": "Abiejose programose atverkite Parametrai ({settings}) → Apžvalga → Kas naujo; darbalaukio programoje taip pat galite spustelėti ⚙ Parametrai, kai jame rodomas skaičius. Komandų eilutėje paleiskite coxswain --whats-new.",
+ "feature.notices.a2": "Abiejose programose atverkite Parametrai ({settings}) → Apžvalga → Kas naujo; darbalaukio programoje taip pat galite spustelėti ⚙ Parametrai, kai jame rodomas skaičius. Komandų eilutėje paleiskite coxswain --whats-new. Terminalo programoje Enter ant versijos peržiūros programoje parodo viską, ką ji atnešė.",
  "feature.notices.a3": "Ne iš programos: atmesti patarimai saugomi būsenos faile. Tai, į ką kiekvienas vedė, tebėra, pvz., Parametrai → Failų paieška → Išsamiau → Prasmė arba coxswain --meaning on.",
  "feature.notices.q1": "Ką skaičiuoja skaičius ant mygtuko Parametrai?",
  "feature.notices.q2": "Kaip pamatyti, ką atnešė atnaujinimas?",

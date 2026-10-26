@@ -1837,7 +1837,7 @@
  "feature.notes.title": "Note della cartella",
  "feature.notes.what": "Testo libero conservato per una cartella, mostrato in fondo al riquadro dell’anteprima, nell’app desktop.",
  "feature.notices.a1": "I consigli che non hai chiuso né seguito, più le versioni di cui non hai letto. Fai clic: si apre Novità e il numero scende ai consigli rimasti.",
- "feature.notices.a2": "In entrambe le app apri Impostazioni ({settings}) → Panoramica → Novità; nell’app desktop puoi anche fare clic su ⚙ Impostazioni mentre mostra un numero. Dalla riga di comando, esegui coxswain --whats-new.",
+ "feature.notices.a2": "In entrambe le app apri Impostazioni ({settings}) → Panoramica → Novità; nell’app desktop puoi anche fare clic su ⚙ Impostazioni mentre mostra un numero. Dalla riga di comando, esegui coxswain --whats-new. Nell’app da terminale, Invio su una versione mostra nel visualizzatore tutto ciò che ha portato.",
  "feature.notices.a3": "Non dall’app: i consigli chiusi sono conservati nel file di stato. Ciò a cui ciascuno portava è ancora lì, come Impostazioni → Trovare file → Dettagli → Significato, o coxswain --meaning on.",
  "feature.notices.q1": "Cosa conta il numero sul pulsante Impostazioni?",
  "feature.notices.q2": "Come vedo cosa ha portato un aggiornamento?",

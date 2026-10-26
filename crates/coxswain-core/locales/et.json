@@ -1787,7 +1787,7 @@
  "feature.notes.title": "Kausta märkmed",
  "feature.notes.what": "Kaustale hoitud vaba tekst, mida näidatakse töölauarakenduses eelvaatepaani allosas.",
  "feature.notices.a1": "Vihjed, mida pole peitnud ega järginud, pluss versioonid, mille kohta pole lugenud. Klõpsa sellel: avaneb Mis on uut ja number langeb järelejäänud vihjete arvuni.",
- "feature.notices.a2": "Mõlemas rakenduses ava Sätted ({settings}) → Ülevaade → Mis on uut; töölauarakenduses võid ka klõpsata ⚙ Sätted, kui see näitab numbrit. Käsurealt käivita coxswain --whats-new.",
+ "feature.notices.a2": "Mõlemas rakenduses ava Sätted ({settings}) → Ülevaade → Mis on uut; töölauarakenduses võid ka klõpsata ⚙ Sätted, kui see näitab numbrit. Käsurealt käivita coxswain --whats-new. Terminalirakenduses näitab Enter versioonil kõike, mida see tõi, vaaturis.",
  "feature.notices.a3": "Rakendusest mitte: peidetud vihjed hoitakse olekufailis. See, kuhu iga vihje viis, on ikka olemas, näiteks Sätted → Failide leidmine → Üksikasjad → Tähendus või coxswain --meaning on.",
  "feature.notices.q1": "Mida loeb number Sätete nupul?",
  "feature.notices.q2": "Kuidas näha, mida uuendus tõi?",
