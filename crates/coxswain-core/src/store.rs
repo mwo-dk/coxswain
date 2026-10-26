@@ -721,7 +721,10 @@ impl Store {
     /// is looked at once with the PDF reader alone, never OCR (under `key`, at `tag`; where it
     /// got to under `key.after`, so a long run goes on at the next scan after `until`): one
     /// whose own text is now longer than the text kept is read again and gets its vectors again.
-    /// Real scans, and PDFs whose text is the same, keep what they have.
+    /// Real scans, and PDFs whose text is the same, keep what they have. A PDF on a disk that
+    /// is not plugged in is kept under `key.away` and looked at in a later scan that finds it,
+    /// alone (the pass is done but for those); one gone from the store, changed or left out
+    /// since is not looked for any more.
     #[allow(clippy::too_many_arguments)]
     fn pdf_layers(
         &self,
@@ -736,44 +739,73 @@ impl Store {
         if self.tag_reached(key, tag) {
             return Ok(());
         }
-        let at = format!("{key}.after");
-        let mut after: i64 = self
-            .db
-            .lock()
-            .unwrap()
-            .query_row("SELECT value FROM meta WHERE key = ?1", [&at], |r| r.get::<_, String>(0))
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
-        loop {
-            let part: Vec<(i64, String, i64, i64, usize)> = {
-                let db = self.db.lock().unwrap();
-                let rows: Vec<(i64, String, i64, i64)> = db
-                    .prepare_cached("SELECT id, path, size, modified FROM files WHERE id > ?1 AND has_text IS NOT NULL AND inside IS NULL AND cloud IS NULL AND size >= ?2 AND size <= ?3 AND path LIKE '%.pdf' ORDER BY id LIMIT 100")?
-                    .query_map(params![after, min_size as i64, max.min(i64::MAX as u64) as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-                    .collect::<rusqlite::Result<_>>()?;
-                rows.into_iter().map(|(id, p, s, m)| (id, p, s, m, text_len(&db, id))).collect()
+        let (at, away_at) = (format!("{key}.after"), format!("{key}.away"));
+        let kept = |k: &str| self.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = ?1", [k], |r| r.get::<_, String>(0)).unwrap_or_default();
+        let mut after: i64 = kept(&at).parse().unwrap_or(0);
+        let mut away: Vec<i64> = kept(&away_at).split_whitespace().filter_map(|v| v.parse().ok()).collect();
+        let save = |after: i64, away: &[i64]| -> rusqlite::Result<()> {
+            self.set_tag(&at, &after.to_string())?;
+            self.set_tag(&away_at, &away.iter().map(i64::to_string).collect::<Vec<_>>().join(" "))
+        };
+        const PICK: &str = "SELECT id, path, size, modified FROM files WHERE has_text IS NOT NULL AND inside IS NULL AND cloud IS NULL AND size >= ?2 AND size <= ?3 AND path LIKE '%.pdf'";
+        let pick = |sql: &str, n: i64| -> rusqlite::Result<Vec<(i64, String, i64, i64, usize)>> {
+            let db = self.db.lock().unwrap();
+            let rows: Vec<(i64, String, i64, i64)> = db
+                .prepare_cached(sql)?
+                .query_map(params![n, min_size as i64, max.min(i64::MAX as u64) as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            Ok(rows.into_iter().map(|(id, p, s, m)| (id, p, s, m, text_len(&db, id))).collect())
+        };
+        // Looked at: whether it was there to look at.
+        let look = |(id, path, size, modified, had): &(i64, String, i64, i64, usize)| -> rusqlite::Result<bool> {
+            if !Path::new(path).is_file() {
+                return Ok(false);
+            }
+            let now = crate::extract::pdf_layer(Path::new(path), *size as u64, max).map_or(0, |t| t.len());
+            if now > *had {
+                self.db.lock().unwrap().execute(
+                    "UPDATE files SET has_text = NULL, embedded = NULL WHERE id = ?1 AND size = ?2 AND modified = ?3",
+                    params![id, size, modified],
+                )?;
+            }
+            Ok(true)
+        };
+        // `after` is i64::MAX once every PDF has had its turn.
+        while after < i64::MAX {
+            let part = pick(&format!("{PICK} AND id > ?1 ORDER BY id LIMIT 100"), after)?;
+            let Some(last) = part.last().map(|p| p.0) else {
+                after = i64::MAX;
+                break;
             };
-            let Some(last) = part.last().map(|p| p.0) else { break };
-            for (id, path, size, modified, had) in part {
+            for f in &part {
                 if stop() || Instant::now() >= until {
-                    return Ok(());
+                    return save(after, &away);
                 }
-                if left_out(&path) || !Path::new(&path).is_file() {
-                    continue;
-                }
-                let now = crate::extract::pdf_layer(Path::new(&path), size as u64, max).map_or(0, |t| t.len());
-                if now > had {
-                    self.db.lock().unwrap().execute(
-                        "UPDATE files SET has_text = NULL, embedded = NULL WHERE id = ?1 AND size = ?2 AND modified = ?3",
-                        params![id, size, modified],
-                    )?;
+                if !left_out(&f.1) && !look(f)? && !away.contains(&f.0) {
+                    away.push(f.0);
                 }
             }
             after = last;
-            self.set_tag(&at, &after.to_string())?;
+            save(after, &away)?;
         }
-        self.db.lock().unwrap().execute("DELETE FROM meta WHERE key = ?1", [&at])?;
+        // Those that were away: looked at once they are back.
+        let mut still = vec![];
+        for (i, id) in away.iter().enumerate() {
+            if stop() || Instant::now() >= until {
+                still.extend_from_slice(&away[i..]);
+                return save(after, &still);
+            }
+            if let Some(f) = pick(&format!("{PICK} AND id = ?1"), *id)?.first()
+                && !left_out(&f.1)
+                && !look(f)?
+            {
+                still.push(*id);
+            }
+        }
+        if !still.is_empty() {
+            return save(after, &still);
+        }
+        self.db.lock().unwrap().execute("DELETE FROM meta WHERE key IN (?1, ?2)", [&at, &away_at])?;
         self.set_tag(key, tag)
     }
 
@@ -6444,20 +6476,24 @@ mod tests {
         assert!(layer.contains("harbour"), "{layer}");
         assert!(crate::extract::pdf_layer(&{ let p = d.join("probe-scan.pdf"); std::fs::write(&p, &scan).unwrap(); p }, scan.len() as u64, u64::MAX).is_none());
         // (id, name, file, stored text, size in the store)
-        let rows: [(i64, &str, &[u8], Option<&str>, usize); 6] = [
+        let rows: [(i64, &str, &[u8], Option<&str>, usize); 7] = [
             (1, "cut.pdf", &text, Some("The crew checks"), text.len()),
             (2, "ocr.pdf", &text, Some("Tho crow chocks"), text.len()),
             (3, "none.pdf", &text, None, text.len()),
             (4, "whole.pdf", &text, Some(&layer), text.len()),
             (5, "scan.pdf", &scan, Some("words a scan shows, by OCR"), scan.len()),
             (6, "small.pdf", &text, Some("The crew"), 10),
+            (7, "away/cut.pdf", &text, Some("The crew"), text.len()),
         ];
         {
             let mut db = store.db.lock().unwrap();
             let tx = db.transaction().unwrap();
             for (id, name, bytes, body, size) in rows {
                 let p = d.join(name);
-                std::fs::write(&p, bytes).unwrap();
+                // A disk not plugged in: its file is not there yet.
+                if id != 7 {
+                    std::fs::write(&p, bytes).unwrap();
+                }
                 tx.execute(
                     "INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, ?3, 7, ?4, 1)",
                     params![id, p.to_string_lossy(), size as i64, body.is_some()],
@@ -6479,10 +6515,21 @@ mod tests {
         assert!(!store.tag_reached("readers.pdf-pages", "1"));
         run(Instant::now() + Duration::from_secs(3600));
         assert_eq!(again(), [1, 2, 3]);
+        // The one on the disk that is away waits for it, alone: the others are not looked at again.
+        assert!(!store.tag_reached("readers.pdf-pages", "1"));
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = 1, embedded = 1 WHERE id = 1", []).unwrap();
+        run(Instant::now() + Duration::from_secs(3600));
+        assert_eq!(again(), [2, 3]);
+        assert!(!store.tag_reached("readers.pdf-pages", "1"));
+        std::fs::create_dir_all(d.join("away")).unwrap();
+        std::fs::write(d.join("away/cut.pdf"), &text).unwrap();
+        run(Instant::now() + Duration::from_secs(3600));
+        assert_eq!(again(), [2, 3, 7]);
         assert!(store.tag_reached("readers.pdf-pages", "1"));
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE id = 1", []).unwrap();
         // The store's own reading then gives them the text layer, not OCR.
         assert!(!read(&store, &SearchConfig::default(), &AtomicBool::new(false)).unwrap());
-        for id in [1, 2, 3] {
+        for id in [1, 2, 3, 7] {
             let body: String = store.db.lock().unwrap().query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0)).unwrap();
             assert_eq!(body, layer);
         }

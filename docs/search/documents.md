@@ -180,8 +180,8 @@ minute of each scan at most until all are done. Only a PDF whose own text is now
 text kept is read again and gets its vectors again: one cut short by the old three seconds, one
 read by OCR though it has text, one left without text for want of OCR. Real scans keep their OCR
 text and are not read by tesseract again; smaller PDFs, which the old reader read whole, are not
-looked at. A PDF on a disk that is not plugged in when its turn comes keeps its text until it
-changes.
+looked at. A PDF on a disk that is not plugged in when its turn comes is looked at in a later
+scan, once the disk is back; until then it keeps its text.
 
 #### Does opening a document for search change it, or start Word?
 
