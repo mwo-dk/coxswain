@@ -1394,31 +1394,42 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
     if in_parts(Path::new(name)) {
         names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| size_of(n).is_some()));
     }
-    // A zip split into parts: its earlier parts (`x.z01` …) beside it too; one alone, stored
-    // as it is in a zip or a plain tar: read in place, however large, never copied.
-    let zparts = zip_parts(name, |n| size_of(n).is_some());
-    if zparts.is_empty() {
-        if let Some((file, start, len)) = in_place(archive, name)? {
-            let base = run_folder("nested", false)?;
-            let dir = base.join(NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
-            let _ = std::fs::remove_dir_all(&dir);
-            crate::fs::private_dir(&dir)?;
-            let marker = dir.join(name.rsplit('/').next().unwrap_or("archive"));
-            File::create_new(&marker)?;
-            WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).push(Window { marker: marker.clone(), file, start, len });
-            let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
-            let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
-            // The oldest not in use go; while all are, there are more for a while.
-            while kept.len() >= NESTED_KEPT {
-                let Some(i) = kept.iter().position(|k| !held.contains(&k.copy)) else { break };
-                evict(&mut kept, i);
-            }
-            kept.push(Spilled { outer: archive.to_path_buf(), id, name: name.to_string(), copy: marker.clone(), size: 0 });
-            held.push(marker.clone());
-            return Ok(Held(vec![marker]));
+    // A zip split into parts: its earlier parts (`x.z01` …) beside it too.
+    names.extend(zip_parts(name, |n| size_of(n).is_some()));
+    // A zip or 7z (all its parts) stored as it is in a zip or a plain tar: read in place,
+    // however large, never copied.
+    let places = if matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ)) {
+        let mut all = vec![];
+        for n in &names {
+            all.push(in_place(archive, n)?);
         }
+        all.into_iter().collect::<Option<Vec<_>>>()
+    } else {
+        None
+    };
+    if let Some(places) = places {
+        let base = run_folder("nested", false)?;
+        let dir = base.join(NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
+        let _ = std::fs::remove_dir_all(&dir);
+        crate::fs::private_dir(&dir)?;
+        let marker_of = |n: &str| dir.join(n.rsplit('/').next().unwrap_or("archive"));
+        let marker = marker_of(name);
+        for (n, (file, start, len)) in names.iter().zip(places) {
+            let m = marker_of(n);
+            File::create_new(&m)?;
+            WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).push(Window { marker: m, file, start, len });
+        }
+        let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
+        let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
+        // The oldest not in use go; while all are, there are more for a while.
+        while kept.len() >= NESTED_KEPT {
+            let Some(i) = kept.iter().position(|k| !held.contains(&k.copy)) else { break };
+            evict(&mut kept, i);
+        }
+        kept.push(Spilled { outer: archive.to_path_buf(), id, name: name.to_string(), copy: marker.clone(), size: 0 });
+        held.push(marker.clone());
+        return Ok(Held(vec![marker]));
     }
-    names.extend(zparts);
     let claimed: u64 = names.iter().map(|n| size_of(n).unwrap_or(0)).sum();
     if claimed > NESTED_MAX {
         return Err(too_large(name));
@@ -1473,14 +1484,10 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
     Ok(Held(vec![copy]))
 }
 
-/// Where `name`, a zip or 7z inside `archive`, is stored as it is: the file its bytes are in,
-/// and their start and length there (through `archive`'s own range when it is read in place
-/// too). `None` when it is packed, locked, a 7z in parts, or another kind: it is copied.
+/// Where the file `name` inside `archive` is stored as it is: the file its bytes are in, and
+/// their start and length there (through `archive`'s own range when it is read in place too).
+/// `None` when it is packed or locked, or `archive` is no zip or plain tar.
 fn in_place(archive: &Path, name: &str) -> io::Result<Option<(PathBuf, u64, u64)>> {
-    let n = Path::new(name);
-    if !matches!(ending_kind(n), Some(Kind::Zip | Kind::SevenZ)) || in_parts(n) {
-        return Ok(None);
-    }
     let range = match kind(archive) {
         Some(Kind::Zip) => {
             let mut f = BufReader::new(open_raw(archive)?);
@@ -1514,7 +1521,7 @@ fn in_place(archive: &Path, name: &str) -> io::Result<Option<(PathBuf, u64, u64)
 /// Takes the copy `kept[i]` away, and every copy made out of it, as deep as they go.
 fn evict(kept: &mut Vec<Spilled>, i: usize) {
     let gone = kept.remove(i);
-    WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).retain(|w| w.marker != gone.copy);
+    WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).retain(|w| w.marker.parent() != gone.copy.parent());
     uncache(&gone.copy);
     forget(&gone.copy);
     if let Some(d) = gone.copy.parent() {
@@ -1903,7 +1910,7 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
 // read as it streams by; read tars in place if the copies show.
 fn copied_for_search(archive: &Path, name: &str, size: u64, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let place = in_place(archive, name).ok().flatten();
+    let place = in_place(archive, name).ok().flatten().filter(|_| matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ)));
     if place.is_none() && size > SEARCH_UNPACK {
         return false;
     }
@@ -3837,6 +3844,19 @@ mod tests {
         .unwrap();
         assert_eq!(read, [("ranks.7z/games/note.txt".to_string(), "a game of go, black wins".to_string())]);
         assert_eq!(nested_bytes(), before, "nothing was copied into the cache");
+        // Split into parts, each stored: its parts read in place, one after another.
+        let bytes = std::fs::read(&seven).unwrap();
+        let half = bytes.len() / 2;
+        let split = d.join("split.zip");
+        let mut z = zip::ZipWriter::new(File::create(&split).unwrap());
+        for (n, part) in [("2d/2d.7z.001", &bytes[..half]), ("2d/2d.7z.002", &bytes[half..])] {
+            z.start_file(n, zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored)).unwrap();
+            z.write_all(part).unwrap();
+        }
+        z.finish().unwrap();
+        let note = split.join("2d").join("2d.7z.001").join("games").join("note.txt");
+        assert_eq!(std::fs::read(peek(&note).unwrap()).unwrap(), b"a game of go, black wins");
+        assert_eq!(nested_bytes(), before, "nothing was copied into the cache for the parts either");
         // Packed, it is still copied, and over the limit refused as before.
         let err = listing(&packed, "ranks.7z").unwrap_err();
         assert!(err.to_string().contains("ranks.7z"), "{err}");

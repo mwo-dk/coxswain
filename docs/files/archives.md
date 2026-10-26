@@ -177,7 +177,7 @@ through an installed 7-Zip instead, read-only, like a disk image
   `outer.zip` shows its files, and so on, eight archives deep. A zip or 7z stored in a zip or a
   plain tar as it is (not packed again, as zips of 7z files usually are) is read in place, from
   the outer file's own bytes: nothing is copied and there is no size limit, so a 3 GB 7z in a zip
-  opens at once. Any other inner archive is copied once
+  opens at once; a 7z split into parts (`2d.7z.001`, `2d.7z.002`, …) stored so is read in place too, its parts one after another. Any other inner archive is copied once
   into the cache folder (`coxswain/nested/`, readable by you alone) and looked into there, so it
   takes disk space as large as it unpacks to (512 MB at most, counted as it comes out, and 2 GB
   for all the copies kept), never memory; a larger one says to copy it out with **F5**. It is **read-only**: the badge (desktop app) and the panel title (terminal app) say
