@@ -2901,6 +2901,7 @@ fn long_text(path: &str, body: &str) -> bool {
 }
 
 /// How a file kept whole got its vectors (`embed_streamed`).
+#[derive(Debug)]
 enum Streamed {
     /// With this many passages.
     Done(usize),
@@ -6288,7 +6289,11 @@ mod tests {
             }
         };
         let embed = |reader: &mut dyn FnMut(&mut dyn FnMut(&str)) -> Option<bool>| embed_streamed(&store, &engine, id, path, reader, &AtomicBool::new(false)).unwrap();
-        let Streamed::Part(first) = embed(&mut late(3000)) else { panic!("a part") };
+        // Each says what came back instead: a request that failed on a slow machine shows as such.
+        let first = match embed(&mut late(3000)) {
+            Streamed::Part(n) => n,
+            other => panic!("a part, not {other:?}"),
+        };
         assert!(first > 64, "{first}");
         assert_eq!((rows(id), rows(-id), state()), (first as i64, 0, (Some(3), true)));
         // Not before a day has gone by.
@@ -6297,7 +6302,10 @@ mod tests {
         store.again(now() + PART_AGAIN + 60).unwrap();
         assert_eq!(state(), (None, true));
         // Out of time again, further: the larger part, and no more tries until it changes.
-        let Streamed::Part(second) = embed(&mut late(6000)) else { panic!("a part") };
+        let second = match embed(&mut late(6000)) {
+            Streamed::Part(n) => n,
+            other => panic!("a part, not {other:?}"),
+        };
         assert!(second > first, "{second} {first}");
         assert_eq!((rows(id), rows(-id), state()), (second as i64, 0, (Some(2), true)));
         store.again(now() + 3 * PART_AGAIN).unwrap();
@@ -6312,7 +6320,10 @@ mod tests {
             (0..6000).for_each(|i| f(&line(i)));
             Some(true)
         };
-        let Streamed::Done(all) = embed(&mut whole) else { panic!("read to its end") };
+        let all = match embed(&mut whole) {
+            Streamed::Done(n) => n,
+            other => panic!("read to its end, not {other:?}"),
+        };
         assert!(all >= second);
         assert_eq!((rows(id), rows(-id), state()), (all as i64, 0, (Some(1), false)));
         drop(store);
