@@ -7,7 +7,8 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Never a partial release: complete on every system and every channel, or not at all.** Every
   installer and archive, each with its `.sha256` (the bills of materials and
   `THIRD-PARTY-NOTICES.md` have none: `SHA256SUMS` covers them), one `SHA256SUMS` over all of
-  them, and every channel (crates.io, Homebrew, the FreeBSD port; WinGet within its week), or the
+  them, and every channel (crates.io, Homebrew, the FreeBSD port; WinGet within its week; the
+  FreeBSD ports tree gets a Bugzilla update for minor releases and security fixes only), or the
   release does not go out. No `continue-on-error` on anything that makes a release file.
 - **Releases are automatic, in one run.** The version lives only in `Cargo.toml`
   (`[workspace.package]`). Every push to `master` starts one *Release* run (`release.yml`). It

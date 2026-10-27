@@ -69,8 +69,12 @@ Then `file-bugzilla.py` files *sysutils/coxswain: Update to X.Y.Z* (product *Por
 component *Individual Port(s)*) with the diff attached, *maintainer-approval* set to `+`, and the
 release's changelog row as the description. It does so only when both hold:
 
-- the port is in the ports tree (until then the job leaves a notice), and
-- the repository secret `FREEBSD_BUGZILLA_KEY` is set (until then, a notice too).
+- the port is in the ports tree (until then the job leaves a notice),
+- the repository secret `FREEBSD_BUGZILLA_KEY` is set (until then, a notice too), and
+- the release is a minor one (X.Y.0). A patch release is filed only when it fixes a security
+  hole: `gh variable set FREEBSD_FILE_PATCH --body vX.Y.Z`, then rerun the release run's
+  *freebsd-port* job. Weekly patch updates would mostly reach users of the ports' quarterly
+  branch only at the next quarter anyway, and would give the committer a PR a week.
 
 The key: log in at <https://bugs.freebsd.org/bugzilla/> with the maintainer's account (the
 `MAINTAINER` address), *Preferences → API Keys*, generate one with a description such as
