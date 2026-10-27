@@ -857,11 +857,16 @@ jobs:
         env:
           FREEBSD_BUGZILLA_KEY: ${{ secrets.FREEBSD_BUGZILLA_KEY }}
           VERSION: ${{ needs.draft.outputs.tag }}
+          FREEBSD_FILE_PATCH: ${{ vars.FREEBSD_FILE_PATCH }}
         run: |
           if [ -z "$FREEBSD_BUGZILLA_KEY" ]; then
             echo "::notice::FREEBSD_BUGZILLA_KEY is not set, so no Bugzilla PR is filed. The port is in this run's artifacts. See packaging/freebsd/README.md."
           elif [ "$(cat packaging/freebsd/out/in-tree)" != yes ]; then
             echo "::notice::sysutils/coxswain is not in the ports tree yet: submit it by hand first (packaging/freebsd/README.md). The port is in this run's artifacts."
+          elif [[ ! "$VERSION" =~ \.0$ ]] && [ "$FREEBSD_FILE_PATCH" != "$VERSION" ]; then
+            # Minor releases are filed; a patch release only when it fixes a security hole: set
+            # the repository variable FREEBSD_FILE_PATCH to its tag and rerun this job.
+            echo "::notice::$VERSION is a patch release, so no Bugzilla PR is filed. For a security fix: gh variable set FREEBSD_FILE_PATCH --body $VERSION, then rerun this job."
           else
             python3 packaging/freebsd/file-bugzilla.py packaging/freebsd/out/port.diff
           fi
