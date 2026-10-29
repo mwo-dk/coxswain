@@ -1117,6 +1117,17 @@ pub fn item_at(text: &str, path: &str, at: usize) -> Option<(usize, usize, Strin
         .min_by_key(|(a, b, _)| b - a)
 }
 
+/// The name of the item a line starts ("fn parse_config", "class Cart", "parse()"), if any.
+pub(crate) fn item_name(line: &str) -> Option<String> {
+    Some(item(line).0).filter(|n| !n.is_empty())
+}
+
+/// The name of the item a line starts, when a keyword says it is one ("fn parse_config").
+pub(crate) fn keyword_item(line: &str) -> Option<String> {
+    let (name, keyword) = item(line);
+    (keyword && !name.is_empty()).then_some(name)
+}
+
 // ---------------------------------------------------------------- the map of a project
 
 /// Folders a project's map does not go into: what is built or fetched, not written.

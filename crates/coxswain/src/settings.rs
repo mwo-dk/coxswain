@@ -26,7 +26,7 @@ pub const AREAS: [Area; 7] = Area::ALL;
 /// Finding files' details, by group: its heading, the name `--settings=<name>` opens it at, and
 /// its options. A test checks that every option of the area is in one.
 const GROUPS: &[(&str, &str, &[&str])] = &[
-    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_cloud", "cloud_read", "search_tika", "search_whisper", "whisper_model", "text_max_size", "max_results"]),
+    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_commit_changes", "search_commit_changes_in", "search_cloud", "cloud_read", "search_tika", "search_whisper", "whisper_model", "text_max_size", "max_results"]),
     ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
     ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device", "long_files", "long_files_everything", "long_files_sample"]),
     ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
@@ -1305,7 +1305,9 @@ impl App {
         let index = &self.index;
         let why = coxswain_core::meaning::change_notice(&self.cfg.search, &new.search, st.meaning_done, st.meaning_passages)
             // What is kept of long files: what the change reads, adds or frees, first.
-            .or_else(|| coxswain_core::long_files::change_notice(&self.cfg.search, &new.search, st.meaning_ms_per_passage, |r| index.long_files_cost(r)));
+            .or_else(|| coxswain_core::long_files::change_notice(&self.cfg.search, &new.search, st.meaning_ms_per_passage, |r| index.long_files_cost(r)))
+            // The changes of commits: their room and time said first, or what turning them off frees.
+            .or_else(|| coxswain_core::store::changes_notice(&self.cfg.search, &new.search));
         if let Some(why) = why {
             s.mode = Mode::Confirm(why, changes);
             return self.dialog = Some(Dialog::Settings(s));
@@ -1485,7 +1487,7 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
     let mut text: Vec<Span> = vec![];
     match &s.mode {
         // A change of what is kept of long files, or of the vectors' model.
-        Mode::Confirm(why, changes) if changes.keys().any(|k| k.starts_with("long_files")) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("common.apply"), t!("common.cancel")), red)),
+        Mode::Confirm(why, changes) if changes.keys().any(|k| k.starts_with("long_files") || k.starts_with("search_commit_changes")) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("common.apply"), t!("common.cancel")), red)),
         Mode::Confirm(why, _) => text.push(Span::styled(format!("{why} Enter: {} · Esc: {}", t!("settings.meaning_change_go"), t!("settings.meaning_change_keep")), red)),
         Mode::ConfirmDelete(id) => {
             let name = rows.iter().find_map(|r| match r {

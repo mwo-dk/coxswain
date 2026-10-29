@@ -53,7 +53,7 @@ active panel's folder, **Ctrl+F** inside Find) limits every group and Ask; it sh
 | [Other formats with Apache Tika](tika.md) | OneNote, XPS, CHM, Outlook data files and more, read by Apache Tika in a container without network, when you turn it on |
 | [Transcripts of speech](transcripts.md) | Recordings and videos you choose, transcribed with Whisper in the background, found by Find and shown in the preview |
 | [Diagrams read as sentences](diagrams.md) | draw.io, Mermaid, Graphviz and PlantUML: a sentence per arrow |
-| [Git history in search](history.md) | Commit messages, authors and changed paths, found like text; Enter opens the commit |
+| [Git history in search](history.md) | Commit messages, authors, changed paths and changed functions, found like text; the changes themselves when turned on; Enter opens the commit |
 | [Inside archives](archives.md) | Files in zip, 7z and tar archives, found by name, text and meaning; changes followed |
 | [Choosing the folders](folders.md) | Folders read, names only, `.nosearch`, `text_exclude` |
 | [Cloud files](cloud-files.md) | OneDrive, Dropbox, Google Drive, Proton Drive, iCloud: files only online are found by name, never downloaded |

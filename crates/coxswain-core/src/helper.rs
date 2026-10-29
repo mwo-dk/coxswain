@@ -238,6 +238,12 @@ pub struct Status {
     /// until it is restarted. Never sent by a helper.
     #[serde(default)]
     pub outdated: Option<String>,
+    /// Commits whose changes are being read now (`commit_changes`), and the bytes the last
+    /// time they were taken out freed, with when (seconds since 1970).
+    #[serde(default)]
+    pub changes_left: usize,
+    #[serde(default)]
+    pub changes_freed: Option<(u64, u64)>,
 }
 
 /// Where the helper's address and lock live: the cache folder, which is the user's own.
@@ -840,6 +846,8 @@ fn answer(
                     tika: store.and(crate::extract::tika::state()),
                     transcripts: store.and_then(crate::transcribe::status),
                     outdated: None,
+                    changes_left: store.map_or(0, |s| s.changes_left.load(Ordering::Relaxed)),
+                    changes_freed: store.and_then(Store::changes_freed),
                 }
             }),
         };

@@ -128,7 +128,7 @@ mindmap
 | [Other formats with Apache Tika](search/tika.md) | OneNote, XPS, CHM, Outlook .pst, MHTML, Hangul and Access files read by Apache Tika in a container (opt-in, no network); what it costs, what is read again |
 | [Transcripts of speech](search/transcripts.md) | Whisper on request: a file or a folder (hours and time asked first), background, pausable, never on battery; the model by hardware from Hugging Face, whisper.cpp installed or its container |
 | [Diagrams read as sentences](search/diagrams.md) | Draw.io, Mermaid, Graphviz, PlantUML, with examples and limits |
-| [Git history in search](search/history.md) | Commit messages, authors and changed paths of your repositories, found by text and meaning, opened at the commit |
+| [Git history in search](search/history.md) | Commit messages, authors, changed paths and changed functions of your repositories, found by text and meaning, opened at the commit; the text of each commit's changes too, opt-in |
 | [Inside archives](search/archives.md) | Files in zip, 7z and tar found by name, text, meaning and Ask; which archives, changes, locked ones, limits |
 | [Choosing the folders: folders read, names only, .nosearch](search/folders.md) | Folders read, Names only, .nosearch, text_exclude |
 | [Cloud files: OneDrive, Dropbox, Google Drive, Proton Drive, iCloud](search/cloud-files.md) | Online-only files found by name and never downloaded, the cloud glyph, Download and preview, `cloud` and `cloud_read`, per system |

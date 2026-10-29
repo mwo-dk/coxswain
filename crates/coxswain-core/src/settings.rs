@@ -149,6 +149,8 @@ pub const OPTIONS: &[Opt] = &[
         &[Disk, Cpu],
     ),
     opt("search_history", &["search", "history"], Search, &[Disk]),
+    opt("search_commit_changes", &["search", "commit_changes"], Search, &[Disk, Cpu]),
+    opt("search_commit_changes_in", &["search", "commit_changes_in"], Search, &[Disk, Cpu]),
     opt("search_cloud", &["search", "cloud"], Search, &[Network]),
     opt("cloud_read", &["search", "cloud_read"], Search, &[Network]),
     opt("search_tika", &["search", "tika"], Search, &[Disk, Cpu, Network]),
@@ -689,6 +691,12 @@ pub fn status(
         if st.pending > 0 {
             text.step = Some(Step::ReadNow);
         }
+        // The changes of commits being read, or what taking them out freed (for ten minutes).
+        if text.note.is_none() && st.changes_left > 0 {
+            text.note = Some(t!("changes.reading", "n" => count(st.changes_left)));
+        } else if let Some((freed, at)) = st.changes_freed.filter(|(_, at)| crate::store::now().saturating_sub(*at) < 600) {
+            text.note = text.note.take().or_else(|| Some(t!("changes.freed", "size" => human(freed), "at" => crate::i18n::date_time(at))));
+        }
     }
     let url = server_url(s);
     let mut meaning = line(
@@ -1152,6 +1160,8 @@ mod tests {
             tika: None,
             transcripts: None,
             outdated: None,
+            changes_left: 0,
+            changes_freed: None,
         };
         let mut state = crate::state::AppState::default();
         state.migrated = vec!["[keys] mkdir → new_folder".into()];
@@ -1228,6 +1238,8 @@ mod tests {
             tika: None,
             transcripts: None,
             outdated: None,
+            changes_left: 0,
+            changes_freed: None,
         };
         s.text = true;
         s.meaning = false;

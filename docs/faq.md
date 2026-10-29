@@ -148,6 +148,8 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why are the archives in ~/.m2 or ~/.cache not looked into?** They are programs' archives; tick *Archives everywhere* to find their entries by name. [Answer](search/archives.md#why-are-the-jars-in-m2-or-the-archives-in-cache-not-looked-into)
 - **Why is a file in my .tar.xz not found?** A compressed tar over 256 MB is found by its own name only; there are limits per archive too. [Answer](search/archives.md#why-is-a-file-in-my-tarxz-not-found)
 - **Can Find search commit messages?** Yes: commits of the repositories in the folders read are found under *History* in Find, and Enter opens the commit. [Answer](search/history.md)
+- **Who last changed a function?** Type its name in Find: commits keep the names of the functions they changed, under *History*, newest first. [Answer](search/history.md#who-last-changed-parse_config)
+- **Can Find search the code commits changed?** Yes, opt-in: *Text of each commit's changes* in Settings, its size said first. [Answer](search/history.md#the-text-of-the-changes)
 - **Why does Find miss my latest commit?** Repositories are read at the helper's scans, at most ten minutes apart. [Answer](search/history.md#why-does-find-miss-my-latest-commit)
 - **Why does a search for "browser entra" find my diagram?** Every arrow becomes a sentence such as "Browser to Entra ID: sign in.". [Answer](search/diagrams.md#why-does-a-search-for-browser-entra-find-my-diagram-when-no-box-says-both)
 

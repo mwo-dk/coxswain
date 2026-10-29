@@ -1286,6 +1286,8 @@ async fn long_files_change(changes: serde_json::Map<String, serde_json::Value>, 
     tauri::async_runtime::spawn_blocking(move || {
         let measured = index.status().meaning_ms_per_passage;
         coxswain_core::long_files::change_notice(&cfg.search, &new.search, measured, |r| index.long_files_cost(r))
+            // The changes of commits: their room and time said first, or what turning them off frees.
+            .or_else(|| coxswain_core::store::changes_notice(&cfg.search, &new.search))
     })
     .await
     .map_err(|e| e.to_string())

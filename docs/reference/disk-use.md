@@ -41,6 +41,7 @@ system; this page is about the room they take and getting it back.
 | Row | What it holds | Clearing it costs | In *Clear everything* |
 |---|---|---|---|
 | `search.db` (with `-wal`, `-shm`) | The search store: the text of your files, every file's size and date, folder totals, duplicate hashes, meaning vectors, and the transcripts of speech, which stay when it is cleared | It is read again on its own, at half speed; until then Find finds fewer words in files, and search by meaning has to make its vectors again | Yes |
+| *search.db: changes of commits* | The text of what each commit changed, inside `search.db`, when [Text of each commit's changes](../search/history.md#the-text-of-the-changes) is on; shown only then | The option is turned off: the text goes when the search helper next starts, `search.db` gives the room back, and Settings says how much was freed. Commit messages stay | No |
 | `index.bin` | The name index, saved so Find has every name at once when the helper starts | Built again on its own: Find by name waits a few minutes on a large disk | Yes |
 | `previews/` | PDFs, SVGs and pages made by LaTeX, LibreOffice, PlantUML and pandoc, and the EPUBs and covers calibre made of e-books; those not shown for 30 days go by themselves, and past 4 GB the ones shown longest ago | Made again the next time each file is shown | Yes |
 | `peek/` | Files copied out of archives to be previewed or viewed, and archives inside archives you opened (`nested/`), and what compressed tars hold and the places they can be unpacked from (`archive-index/`) | Copied again the next time | Yes |
@@ -59,6 +60,8 @@ system; this page is about the room they take and getting it back.
 | `kicad/` (under *Your own files*) | kicad-cli's settings (`~/.config/kicad` on the BSDs and Linux, `~/Library/Preferences/kicad` on macOS, `%APPDATA%\kicad` on Windows); shown once a KiCad preview or export has run an installed kicad-cli | Not removed here: it has **Show in panel** only. An installed KiCad keeps your own settings there, so Coxswain never clears it | No |
 | `coxswain-replace-…/` (under *Your own files*) | Your files as they were before a [find and replace](../files/find-and-replace.md), so it can be undone (256 MB at most per replace); shown when there are some | **Remove** takes only those of apps that have ended (their finds and replaces can no longer be undone); a running app keeps its own | No |
 | `.coxswain-sync-…/` (under *Your own files*) | What a [folder sync](../files/compare-folders.md#where-did-my-replaced-files-go) that has ended replaced or deleted, where the bin could not take it (Windows, a disk without a bin); one row per folder, its line naming the synced folder | **Remove** deletes it for good | No |
+
+![Disk use in the desktop app, Cyber, with the row search.db: changes of commits, its size, what clearing it costs and Clear, under it what it holds](../screenshots/disk-use-changes-gui.png)
 
 Each row shows its name, its size, what clearing costs, **Show in panel** (the active pane opens
 its folder, the cursor on the file; hover it for the path) and **Clear**. The small line under it

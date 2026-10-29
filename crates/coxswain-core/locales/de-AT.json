@@ -47,5 +47,21 @@
  "feature.git_line_history.q2": "Warum heißt es, die Funktion sei nicht im letzten Commit?",
  "feature.git_line_history.a2": "Sie ist seitdem neu oder umbenannt und hat noch keinen Verlauf. Committen Sie sie zuerst.",
  "feature.git_line_history.q3": "Wo frage ich das in der Vorschau der Desktop-App?",
- "feature.git_line_history.a3": "Schalten Sie oben in der Vorschau Wer änderte ein und klicken Sie auf den Commit einer Zeile."
+ "feature.git_line_history.a3": "Schalten Sie oben in der Vorschau Wer änderte ein und klicken Sie auf den Commit einer Zeile.",
+ "setting.search_commit_changes": "Text der Änderungen jedes Commits",
+ "setting.search_commit_changes.hint": "Standardmäßig aus. Durchsucht auch, was jeder Commit geändert hat: seinen Diff, bis 64 KB je Commit und 64 MB je Repository. search.db kann dadurch viel größer werden; Größe und Dauer werden vorher genannt.",
+ "setting.search_commit_changes_in": "Änderungen von Commits, für die Repositorys dieser Ordner",
+ "setting.search_commit_changes_in.hint": "Mit der Option oben aus: nur die Änderungen der Repositorys in diesen Ordnern behalten.",
+ "changes.cost": "Die Änderungen von {commits} Commits in {repos} Repositorys zu lesen, fügt search.db etwa {size} hinzu und dauert im Hintergrund etwa {secs} s. Nichts verlässt den Rechner.",
+ "changes.off": "Die Änderungen der Commits von {repos} Repositorys werden aus search.db entfernt und der Platz wird freigegeben.",
+ "changes.cost_unknown": "Die Änderungen von Commits werden beim nächsten Durchgang durch die Repositorys gelesen; Speicherbelegung zeigt dann ihre Größe.",
+ "changes.reading": "Lese die Änderungen von {n} Commits…",
+ "changes.freed": "Änderungen von Commits um {at} entfernt: {size} frei",
+ "disk.changes.name": "search.db: Änderungen von Commits",
+ "disk.changes.what": "Der Text dessen, was jeder Commit geändert hat, in search.db (Einstellungen → Dateien finden → Text der Änderungen jedes Commits).",
+ "disk.changes.cost": "Schaltet diese Option aus: Der Text geht beim nächsten Start des Such-Helfers, und search.db gibt den Platz frei. Commit-Nachrichten bleiben.",
+ "disk.report.changes": "Änderungen von Commits",
+ "feature.search_history.what": "Suchen durchsucht Commit-Nachrichten, Autoren, geänderte Pfade und geänderte Funktionen Ihrer git-, Mercurial- und Jujutsu-Repositorys, unter Verlauf; eingeschaltet auch den Text der Änderungen.",
+ "feature.search_history.a2": "Es behält die Namen der Funktionen, die jeder Commit geändert hat, nicht den Code. Schalten Sie in den Einstellungen Text der Änderungen jedes Commits ein, um die Änderungen selbst zu durchsuchen.",
+ "setting.search_history.hint": "Commit-Nachrichten, Autoren, geänderte Pfade und geänderte Funktionen der git-, Mercurial- und Jujutsu-Repositorys in den gelesenen Ordnern."
 }

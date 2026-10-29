@@ -47,5 +47,21 @@
  "feature.git_line_history.q2": "Why does it say the function is not in the last commit?",
  "feature.git_line_history.a2": "It is new or renamed since then, so it has no history yet. Commit it first.",
  "feature.git_line_history.q3": "Where do I ask it in the desktop app's preview?",
- "feature.git_line_history.a3": "Turn on Who changed at the top of the preview, then click a line's commit."
+ "feature.git_line_history.a3": "Turn on Who changed at the top of the preview, then click a line's commit.",
+ "setting.search_commit_changes": "Text of each commit's changes",
+ "setting.search_commit_changes.hint": "Off by default. Also searches what each commit changed: its diff, up to 64 KB a commit and 64 MB a repository. It can make search.db much larger; the size and time are said before it starts.",
+ "setting.search_commit_changes_in": "Changes of commits, for these folders' repositories",
+ "setting.search_commit_changes_in.hint": "With the option above off: keep the changes of the repositories in these folders alone.",
+ "changes.cost": "Reading the changes of {commits} commits in {repos} repositories adds about {size} to search.db and takes about {secs} s in the background. Nothing leaves the machine.",
+ "changes.off": "The changes of the commits of {repos} repositories are taken out of search.db, and the room is given back.",
+ "changes.cost_unknown": "The changes of commits are read at the next scan of the repositories; Disk use then shows their size.",
+ "changes.reading": "Reading the changes of {n} commits…",
+ "changes.freed": "Changes of commits taken out at {at}: {size} freed",
+ "disk.changes.name": "search.db: changes of commits",
+ "disk.changes.what": "The text of what each commit changed, inside search.db (Settings → Finding files → Text of each commit's changes).",
+ "disk.changes.cost": "Turns that option off: the text goes when the search helper next starts, and search.db gives the room back. Commit messages stay.",
+ "disk.report.changes": "Changes of commits",
+ "feature.search_history.what": "Find searches the commit messages, authors, changed paths and changed functions of your git, Mercurial and Jujutsu repositories, under History; the text of the changes too, when turned on.",
+ "feature.search_history.a2": "It keeps the names of the functions each commit changed, not the code. Turn on Text of each commit's changes in Settings to search the changes themselves.",
+ "setting.search_history.hint": "Commit messages, authors, changed paths and changed functions of the git, Mercurial and Jujutsu repositories in the folders read."
 }
