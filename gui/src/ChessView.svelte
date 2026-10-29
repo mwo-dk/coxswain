@@ -510,7 +510,8 @@
     if (Math.abs(v) > CAP) return `#${v < 0 ? "−" : ""}${CAP + 100 - Math.abs(v)}`;
     return `${v < 0 ? "−" : "+"}${(Math.abs(v) / 100).toFixed(2)}`;
   }
-  // The position's evaluation from White's side: the game's analysis, else the engine's.
+  // The position's evaluation from White's side: the game's analysis, else the engine's, else
+  // the game's comment's.
   const evalNow = $derived.by(() => {
     const cp = (l) => (l.mate != null ? (l.mate > 0 ? CAP + 100 - Math.min(l.mate, 99) : -(CAP + 100 + Math.max(l.mate, -99))) : (l.cp ?? null));
     // An engine line stepped through: its own evaluation.
@@ -523,7 +524,9 @@
       if (v != null) return v;
     }
     const l = engine?.fen === fen ? engine.a?.lines?.[0] : null;
-    return l ? cp(l) : null;
+    if (l && cp(l) != null) return cp(l);
+    // Else the game's own, from its comment ([%eval], a ChessBase evaluation).
+    return !inLine && at != null ? (nodes[at]?.eval ?? null) : null;
   });
   const marks = $derived(new Map((review?.plies ?? []).filter((p) => p.mark).map((p) => [p.node, p.mark])));
   const MARK = { 2: "?", 4: "??", 5: "!?", 6: "?!" };

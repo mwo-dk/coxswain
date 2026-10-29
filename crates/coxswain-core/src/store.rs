@@ -2996,6 +2996,10 @@ pub fn scan(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::R
 
 /// `scan`, with hashes and vectors for no longer than `slice` (when given): `true` when there
 /// are more of them to do, for `backlog`.
+/// The version of the ChessBase archive reader (`readers.cbv`): 2 reads every database in a
+/// `.cbv` (2.35), 1 only its first.
+const CBV_READER: &str = "2";
+
 fn scan_for(
     store: &Store,
     cfg: &SearchConfig,
@@ -3037,8 +3041,10 @@ fn scan_for(
     store.reader_changed("readers.scid5", "2", &[".si5"])?;
     // ChessBase databases (2.33): a line per game and their positions, as PGN files; read once.
     store.reader_changed("readers.cbh", "1", &[".cbh"])?;
-    // ChessBase archives (2.34): read for the first time, as the database they hold.
-    store.reader_changed("readers.cbv", "1", &[".cbv"])?;
+    // ChessBase archives (2.34): read for the first time, as the database they hold. At 2
+    // (2.35), every database an archive holds, not only its first: the `.cbv` files are read
+    // once again, nothing else.
+    store.reader_changed("readers.cbv", CBV_READER, &[".cbv"])?;
     // The other files of SCID and ChessBase databases (`.sn5`, `.cbg`, …) have no text of
     // their own (2.34): what was read of them goes at once, and they are passed over once
     // more, to stay without. Only files with those endings.
@@ -5655,6 +5661,41 @@ mod tests {
         assert!(!store.too_long(id), "read again once it changed");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A store made with the first `.cbv` reader (only an archive's first database) reads its
+    /// `.cbv` files once again with the reader that reads them all, and nothing else; a newer
+    /// reader's work is left as it is.
+    #[test]
+    fn a_new_cbv_reader_reads_only_cbv_files_again() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-cbv-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let files = ["/h/Games.cbv", "/h/Old.CBV", "/h/Games.cbh", "/h/club.pgn", "/h/a.txt"];
+        let rows: Vec<_> = files.iter().map(|f| (f.to_string(), 1, 1, false)).collect();
+        store.apply(&[], &rows, &[], false, None).unwrap();
+        let read_all = |store: &Store| {
+            let unread = store.unread_disk(0, 1000).unwrap();
+            store.read(&unread.iter().map(|r| (r.0, Some(format!("words of {}", r.1)))).collect::<Vec<_>>()).unwrap();
+        };
+        read_all(&store);
+        // As the first reader left it.
+        store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers.cbv', '1')", []).unwrap();
+        store.reader_changed("readers.cbv", CBV_READER, &[".cbv"]).unwrap();
+        let mut again: Vec<String> = store.unread_disk(0, 1000).unwrap().into_iter().map(|r| r.1).collect();
+        again.sort();
+        assert_eq!(again, ["/h/Games.cbv", "/h/Old.CBV"], "the .cbv files, and nothing else");
+        read_all(&store);
+        store.reader_changed("readers.cbv", CBV_READER, &[".cbv"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "once");
+        // A newer reader's work: this one leaves it, and its tag.
+        store.db.lock().unwrap().execute("UPDATE meta SET value = '3' WHERE key = 'readers.cbv'", []).unwrap();
+        store.reader_changed("readers.cbv", CBV_READER, &[".cbv"]).unwrap();
+        assert!(store.unread_disk(0, 1000).unwrap().is_empty(), "an older reader leaves a newer one's work");
+        let tag: String = store.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = 'readers.cbv'", [], |r| r.get(0)).unwrap();
+        assert_eq!(tag, "3");
+        drop(store);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

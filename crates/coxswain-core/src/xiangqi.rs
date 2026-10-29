@@ -677,14 +677,16 @@ mod tests {
         assert_eq!((r.white.as_str(), r.black.as_str(), r.moves), ("布局圣手", "兰帝", 2));
         assert_eq!(lib.game(0).unwrap().error, None);
         // A name with a dot that is no file type's ending is sniffed too; a real ending is not.
-        for name in ["001-1.古谱的启示", "002.Opening game", "003.a-b"] {
+        for name in ["001-1.古谱的启示", "002.Opening game", "003.a-b", "game.abc", "004.xq2009"] {
             let q = d.join(name);
             std::fs::write(&q, DHTML).unwrap();
             assert_eq!(crate::chess::sniff(&q), Some(crate::chess::Format::Pgn), "{name}");
         }
-        let rs = d.join("game.rs");
-        std::fs::write(&rs, DHTML).unwrap();
-        assert_eq!(crate::chess::sniff(&rs), None);
+        for name in ["game.rs", "game.PNG", "game.json"] {
+            let q = d.join(name);
+            std::fs::write(&q, DHTML).unwrap();
+            assert_eq!(crate::chess::sniff(&q), None, "{name}");
+        }
         assert!(crate::chess::games::dhtml_name(".hidden") && crate::chess::games::dhtml_name("G.CHE") && !crate::chess::games::dhtml_name("x.json"));
         // Any other file with no ending is no game, and a PGN file stays one.
         let other = d.join("README");

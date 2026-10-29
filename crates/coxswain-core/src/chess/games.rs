@@ -357,12 +357,14 @@ fn pack(path: &Path) -> Pack {
 }
 
 /// Whether a file of this name may be a DhtmlXQ game: no ending, `.che`, `.txt`, `.dhtmlxq`, or
-/// an "ending" that is no file type's but part of the name (`001-1.古谱的启示`): not 1 to 8
-/// ASCII letters and digits.
+/// an "ending" that is no file type Coxswain knows (`001-1.古谱的启示`, `game.abc`): one that
+/// `space::family` puts in no family.
 pub fn dhtml_name(name: &str) -> bool {
     match name.rsplit_once('.') {
         None | Some(("", _)) => true,
-        Some((_, e)) => ["che", "txt", "dhtmlxq"].iter().any(|x| e.eq_ignore_ascii_case(x)) || !(1..=8).contains(&e.len()) || !e.bytes().all(|b| b.is_ascii_alphanumeric()),
+        Some((_, e)) => {
+            ["che", "txt", "dhtmlxq"].iter().any(|x| e.eq_ignore_ascii_case(x)) || crate::space::family(&e.to_ascii_lowercase()) == crate::space::Family::Other
+        }
     }
 }
 
@@ -455,18 +457,20 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
 fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, size: u64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let mut head = Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: vec![], format: super::Format::Pgn };
     let share = |n: u64, of: u64, base: u64| read.store(base + (n.min(of) as u128 * (size / 2) as u128 / of.max(1) as u128) as u64, Ordering::Relaxed);
-    let (path, cbh_len) = if super::cbv::is_cbv(path) {
-        let p = super::cbv::unpacked_with(path, &|| stop.load(Ordering::Relaxed), &|n, of| share(n, of, 0))?;
-        let len = std::fs::metadata(&p)?.len();
-        (p, Some(len))
+    let cbh_len = if super::cbv::is_cbv(path) {
+        let mut len = 0;
+        for p in super::cbv::unpacked_with(path, &|| stop.load(Ordering::Relaxed), &|n, of| share(n, of, 0))? {
+            len += std::fs::metadata(&p)?.len();
+        }
+        Some(len)
     } else {
-        (path.to_path_buf(), None)
+        None
     };
     let progress = |n: u64| match cbh_len {
         Some(len) => share(n, len, size / 2),
         None => read.store(n, Ordering::Relaxed),
     };
-    super::cbh::scan(&path, &|| stop.load(Ordering::Relaxed), &progress, |g| {
+    super::cbh::scan(path, &|| stop.load(Ordering::Relaxed), &progress, |g| {
         for t in &mut head.tags {
             t.clear();
         }
@@ -475,7 +479,7 @@ fn scan_cbh(path: &Path, stop: &AtomicBool, read: &AtomicU64, size: u64, mut eac
                 head.tags[i].clone_from(v);
             }
         }
-        head.offset = g.record as u64;
+        head.offset = g.record;
         head.plies = g.moves * 2;
         each(&head)
     })
@@ -878,7 +882,7 @@ impl Library {
             return base.pgn(offset as u32);
         }
         if super::cbh::is_cbh(&self.path) {
-            return super::cbh::pgn(&self.path, offset as u32);
+            return super::cbh::pgn(&self.path, offset);
         }
         let bytes = self.source.lock().unwrap_or_else(|e| e.into_inner()).read(offset, len)?;
         // KIF and CSA files are often in Shift_JIS.

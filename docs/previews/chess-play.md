@@ -110,7 +110,7 @@ Stockfish here:
 | OpenBSD | `pkg_add stockfish` |
 | Linux | `sudo apt install stockfish`, `sudo dnf install stockfish`, `sudo zypper install stockfish`; on Arch Linux it is only in the AUR |
 | macOS | `brew install stockfish` |
-| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org and name `stockfish.exe` in *Settings → Previews → Chess engine* |
+| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org into a folder on your PATH (its long name, `stockfish-windows-x86-64-avx2.exe`, is found as it is), or name its path in *Settings → Previews → Chess engine* |
 
 **Without an installed engine.** When no Stockfish is installed and podman or docker is,
 Coxswain runs Stockfish from its own container image, `ghcr.io/mwo-dk/coxswain-stockfish`
@@ -132,7 +132,7 @@ set and no engine found, a notice says so once, with the line that installs Stoc
 *Settings → Previews → Chess engines* lists the UCI engines Coxswain knows, in both apps. For each
 it shows where it is installed, or *not installed* with the line that installs it on this system
 (only from official packages) and its official site. Settings only looks whether the program is
-there, on your PATH or in `/usr/games`; it never runs an engine until you press **Test engine**.
+there, on your PATH or in `/usr/games` (on Windows also in WinGet's package folders); it never runs an engine until you press **Test engine**.
 
 - Desktop app: click the round button before an engine to choose it.
 - Terminal app: **↑** **↓** to an engine, **Enter** chooses it, **C** copies its install line (or its
@@ -157,8 +157,11 @@ Settings here.
 | Fruit | `fruit` | NetBSD `pkgin install fruit`; Fedora `sudo dnf install fruit` | Fruit 2.1 from 2005; it has no official site any more. FreeBSD's and Homebrew's `fruit` are another program |
 | Fairy-Stockfish | `fairy-stockfish` | Debian and Ubuntu `sudo apt install fairy-stockfish`; macOS `brew install fairy-stockfish`; elsewhere [its releases](https://github.com/fairy-stockfish/Fairy-Stockfish/releases) | Plays chess variants too (xiangqi, shogi and more); Coxswain asks it about chess |
 
-A downloaded engine whose program has another name (`stockfish-windows-x86-64-avx2.exe`) is found
-by its path in *Chess engine*. Crafty is not listed: it speaks the xboard protocol, not UCI.
+On Windows a downloaded engine that kept its long name (`stockfish-windows-x86-64-avx2.exe`,
+`RubiChess-…-x86-64-avx2.exe`) is found by the start of its name in a folder on your PATH or in
+WinGet's package folders. Your Downloads folder is never searched, since whatever lands there would
+run as the engine: move the file to a folder on your PATH, or name its path in *Chess engine*.
+Elsewhere, a program with another name is found by its path in *Chess engine*. Crafty is not listed: it speaks the xboard protocol, not UCI.
 Komodo Dragon is not listed either: its site has closed.
 
 ## How long the engine thinks
@@ -253,6 +256,8 @@ where a line leads without playing it, as you would step through a variation of 
 | Play the line up to the move shown | **Enter**, or *Play this line* | **Enter** |
 | Another line | Its number | The same |
 
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/gui-chess-engine-line.png"><img src="../screenshots/gui-chess-engine-line.gif" alt="The Opera Game in the desktop app at 15...Nxd7 with Stockfish's three lines: 1 shows the first line's first move on the board, the right arrow steps on to the mate, Esc goes back to the game; then 2 shows the second line and the right arrow steps through three of its moves, the line's moves lit as they are shown, and Esc goes back"></picture>
+
 What you see: the board shows the line's position with its last move tinted, and the line's
 evaluation stands beside the board. In the list of lines, the line's moves up to the one shown
 are lit, that move is marked as the game's move shown is, the rest stays grey, and under the
@@ -286,6 +291,11 @@ What it shows:
 | The game | A graph under the board: White's share after each move, the move on the board marked by a line, a tick under each marked move. A click on the graph goes to that move | A row of `▁▂▃▅▇` under the board, one a move, the one on the board highlighted |
 | The marks | `?!`, `?`, `??` and `!?` after the moves, in yellow, orange, red and blue | The same marks after the moves |
 | When it is done | *Stockfish 17.1: the game analysed, 5 moves marked* | The same |
+
+The bar and the `+0.35` show the game's analysis when there is one; else the engine's evaluation
+of the position on the board, when it has one; else the evaluation the game itself gives after
+the move, in a `[%eval 1.50]` comment (a ChessBase database's annotations, a lichess export). So
+a game that comes with its evaluations shows them as you step through it, with no engine.
 
 **How a move is marked.** By how much it lowers the engine's evaluation for the side that played
 it, from the position before to the position after, each counted up to ten pawns either way (so
@@ -366,6 +376,15 @@ Coxswain uses an engine installed on this computer and never downloads one. Inst
 (the line under the board names the command for your system), or choose another in *Settings →
 Previews → Chess engines*, which shows each known engine's install line. When it is installed
 outside your PATH, name its path in *Chess engine*.
+
+#### I downloaded Stockfish into my Downloads folder: why is it not used?
+
+Coxswain never looks for an engine in your Downloads folder, on any system: whatever lands there
+would run as the engine without you choosing it. Until one is found, the line under the board says
+*No chess engine found* and names *Settings → Previews → Chess engine*. Move the program to a
+folder on your PATH (on Windows it is then found under its long name too,
+`stockfish-windows-x86-64-avx2.exe`), or type its path in *Settings → Previews → Chess engine*
+(desktop app) or the *Chess engine* row of the terminal app's Settings (**F12**, then *Previews*).
 
 #### How do I play a move in the terminal app?
 

@@ -37,9 +37,10 @@ pub fn is_cbh(path: &Path) -> bool {
     path.extension().is_some_and(|e| e.eq_ignore_ascii_case("cbh")) || super::cbv::is_cbv(path)
 }
 
-/// The `.cbh` file to read for `path`: itself, or an archive's unpacked one.
-fn header(path: &Path) -> io::Result<PathBuf> {
-    if super::cbv::is_cbv(path) { super::cbv::unpacked(path) } else { Ok(path.to_path_buf()) }
+/// The `.cbh` files to read for `path`: itself, or an archive's unpacked ones (one a database
+/// it holds). A game's record names its database in its high 32 bits (`scan`).
+fn headers(path: &Path) -> io::Result<Vec<PathBuf>> {
+    if super::cbv::is_cbv(path) { super::cbv::unpacked(path) } else { Ok(vec![path.to_path_buf()]) }
 }
 
 /// The file beside `cbh` with the ending `ext`: the same case first, else any case.
@@ -139,7 +140,8 @@ impl Entities {
 
 /// A game as the `.cbh` file lists it: its record, its tags, and its length in moves.
 pub(crate) struct Listed {
-    pub record: u32,
+    /// Its database (an archive's place among them, else 0) above, its `.cbh` record below.
+    pub record: u64,
     pub tags: Vec<(&'static str, String)>,
     pub moves: u32,
 }
@@ -225,37 +227,43 @@ fn open_cbh(path: &Path) -> io::Result<(File, u64)> {
     Ok((f, len / RECORD))
 }
 
-/// The games of the database at `path`, in order, each handed to `each` until it says to stop;
-/// `read` is told the bytes of the `.cbh` file read so far.
+/// The games of the database at `path` (an archive's databases one after the other), in order,
+/// each handed to `each` until it says to stop; `read` is told the bytes of the `.cbh` files
+/// read so far.
 pub(crate) fn scan(path: &Path, stop: &dyn Fn() -> bool, read: &dyn Fn(u64), mut each: impl FnMut(&Listed) -> bool) -> io::Result<()> {
-    let path = &header(path)?;
-    let (f, records) = open_cbh(path)?;
-    let mut names = Names::open(path);
-    let mut r = io::BufReader::with_capacity(1 << 16, f);
-    let mut rec = [0u8; RECORD as usize];
-    for n in 1..records.min(u32::MAX as u64) {
-        if stop() {
-            break;
+    let mut base = 0u64;
+    for (db, path) in headers(path)?.iter().enumerate() {
+        let (f, records) = open_cbh(path)?;
+        let mut names = Names::open(path);
+        let mut r = io::BufReader::with_capacity(1 << 16, f);
+        let mut rec = [0u8; RECORD as usize];
+        for n in 1..records.min(u32::MAX as u64) {
+            if stop() {
+                return Ok(());
+            }
+            r.read_exact(&mut rec)?;
+            if n % 4096 == 0 {
+                read(base + (n + 1) * RECORD);
+            }
+            if !is_game(&rec) {
+                continue;
+            }
+            let listed = Listed { record: (db as u64) << 32 | n, tags: tags(&rec, &mut names), moves: rec[0x2d] as u32 };
+            if !each(&listed) {
+                return Ok(());
+            }
         }
-        r.read_exact(&mut rec)?;
-        if n % 4096 == 0 {
-            read((n + 1) * RECORD);
-        }
-        if !is_game(&rec) {
-            continue;
-        }
-        let listed = Listed { record: n as u32, tags: tags(&rec, &mut names), moves: rec[0x2d] as u32 };
-        if !each(&listed) {
-            break;
-        }
+        base += records * RECORD;
+        read(base);
     }
-    read(records * RECORD);
     Ok(())
 }
 
-/// Game `record` of the database at `path` as PGN: its tags, then its moves and variations.
-pub fn pgn(path: &Path, record: u32) -> io::Result<String> {
-    let path = &header(path)?;
+/// Game `record` (as `scan` lists it) of the database at `path` as PGN: its tags, then its
+/// moves and variations.
+pub fn pgn(path: &Path, record: u64) -> io::Result<String> {
+    let path = &headers(path)?.into_iter().nth((record >> 32) as usize).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
+    let record = record as u32;
     let (mut f, records) = open_cbh(path)?;
     if record == 0 || record as u64 >= records {
         return Err(io::Error::new(io::ErrorKind::NotFound, "no such game"));

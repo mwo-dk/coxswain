@@ -220,11 +220,48 @@ fn eval_text(cp: Option<i32>, mate: Option<i32>) -> String {
 }
 
 /// A program called `name` on PATH or in its usual folder, and on Debian and its kin in
-/// `/usr/games`, where their chess engines go: only looked for, never run.
+/// `/usr/games`, where their chess engines go; on Windows also a download that kept its long
+/// name (`stockfish-windows-x86-64-avx2.exe`) in a PATH folder or WinGet's package folders.
+/// Only looked for, never run.
 fn find(name: &str) -> Option<PathBuf> {
-    crate::tools::which(name).or_else(|| {
-        let p = Path::new("/usr/games").join(name);
-        (cfg!(unix) && p.is_file()).then_some(p)
+    crate::tools::which(name)
+        .or_else(|| {
+            let p = Path::new("/usr/games").join(name);
+            (cfg!(unix) && p.is_file()).then_some(p)
+        })
+        .or_else(|| if cfg!(windows) { long_named(name, ".exe", windows_dirs()) } else { None })
+}
+
+/// PATH's folders, then WinGet's package folders and the one level inside each (its zips
+/// unpack into a folder of their own). Never the Downloads folder: whatever lands there
+/// would run as the engine.
+fn windows_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH").map(|p| std::env::split_paths(&p).filter(|d| d.is_absolute()).collect()).unwrap_or_default();
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        let packages = Path::new(&local).join(r"Microsoft\WinGet\Packages");
+        for pkg in std::fs::read_dir(packages).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
+            dirs.extend(std::fs::read_dir(&pkg).into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir()));
+            dirs.push(pkg);
+        }
+    }
+    dirs
+}
+
+/// The first file (by name) in the first of `dirs` that has one named `<name>-…` or `<name>_…`
+/// and ending in `ext`, letter case aside: an engine downloaded under its long name.
+fn long_named(name: &str, ext: &str, dirs: impl IntoIterator<Item = PathBuf>) -> Option<PathBuf> {
+    let name = name.to_ascii_lowercase();
+    dirs.into_iter().filter_map(|d| std::fs::read_dir(d).ok()).find_map(|rd| {
+        let mut hits: Vec<PathBuf> = rd
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| {
+                let f = p.file_name().and_then(|f| f.to_str()).unwrap_or_default().to_ascii_lowercase();
+                f.strip_prefix(&name).is_some_and(|r| r.starts_with(['-', '_'])) && f.ends_with(ext) && p.is_file()
+            })
+            .collect();
+        hits.sort();
+        hits.into_iter().next()
     })
 }
 
@@ -922,6 +959,24 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn long_named_downloads_are_found() {
+        let root = std::env::temp_dir().join(format!("coxswain-engine-names-{}", std::process::id()));
+        let (d, e) = (root.join("a"), root.join("b"));
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::create_dir_all(&e).unwrap();
+        for f in ["stockfishbook.exe", "fairy-stockfish-largeboard.exe", "stockfish-notes.txt"] {
+            std::fs::write(d.join(f), b"").unwrap();
+        }
+        std::fs::write(e.join("Stockfish-windows-x86-64-avx2.exe"), b"").unwrap();
+        std::fs::write(e.join("stockfish_17_x64.exe"), b"").unwrap();
+        let dirs = || vec![d.clone(), e.clone()];
+        assert_eq!(super::long_named("stockfish", ".exe", dirs()), Some(e.join("Stockfish-windows-x86-64-avx2.exe")));
+        assert_eq!(super::long_named("lc0", ".exe", dirs()), None);
+        assert_eq!(super::long_named("fairy-stockfish", ".exe", dirs()), Some(d.join("fairy-stockfish-largeboard.exe")));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
     use super::*;
 
     #[test]
