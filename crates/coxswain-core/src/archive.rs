@@ -1139,6 +1139,10 @@ static NESTED: std::sync::Mutex<Vec<Spilled>> = std::sync::Mutex::new(Vec::new()
 /// The copies being made now, by archive and name: a second look waits for the first.
 static MAKING: std::sync::Mutex<Vec<(PathBuf, String, Arc<std::sync::Mutex<()>>)>> =
     std::sync::Mutex::new(Vec::new());
+/// The copy the last preview of an archive inside an archive returned (`peek`), held until
+/// the next: the preview opens it after `peek` returns, and copies made meanwhile must not
+/// take it away.
+static PEEKED: std::sync::Mutex<Option<Held>> = std::sync::Mutex::new(None);
 /// The copies an operation goes through now (`Held`): never evicted while it runs.
 static HELD: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
 
@@ -1359,6 +1363,7 @@ fn evict(kept: &mut Vec<Spilled>, i: usize) {
 /// Removes this run's copies of archives inside archives: the apps call it as they end.
 /// Copies a run left behind (it crashed) go after a day.
 pub fn clean_up() {
+    PEEKED.lock().unwrap_or_else(|e| e.into_inner()).take();
     let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
     kept.clear();
     if let Some(d) = crate::helper::folder() {
@@ -1961,8 +1966,11 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
         !zip_parts(&inner, |n| all.iter().any(|it| it.name == n && !it.dir)).is_empty()
     };
     if in_parts(Path::new(&inner)) || zipped() {
-        // Held no longer once returned: it is the newest, the last to go.
-        return spilled(&archive, &inner).map(|h| h.0[0].clone());
+        // Held until the next such preview (`PEEKED`).
+        let held = spilled(&archive, &inner)?;
+        let copy = held.0[0].clone();
+        *PEEKED.lock().unwrap_or_else(|e| e.into_inner()) = Some(held);
+        return Ok(copy);
     }
     if it.size > PEEK_MAX {
         return Err(too_large(&inner));
@@ -4831,8 +4839,16 @@ mod tests {
         let inside = outer.join("parts").join("go.7z.001");
         assert!(opens_inside(&inside));
         assert_eq!(listed(&inside), ["..", "a.sgf", "b.sgf", "c.sgf"]);
-        // Its preview lists it, all its parts there.
-        assert_eq!(list(&peek(&inside).unwrap(), 10).unwrap().0.len(), 3);
+        // Its preview lists it, all its parts there; the copy held until the next such preview.
+        let copy = peek(&inside).unwrap();
+        assert!(HELD.lock().unwrap().contains(&copy), "held after peek returns");
+        assert_eq!(list(&copy, 10).unwrap().0.len(), 3);
+        let other = d.join("other.zip");
+        create(&other, std::slice::from_ref(&parts)).unwrap();
+        let next = peek(&other.join("parts").join("go.7z.001")).unwrap();
+        let held = HELD.lock().unwrap().clone();
+        assert!(held.contains(&next) && !held.contains(&copy), "the next preview's instead");
+        PEEKED.lock().unwrap().take();
         assert_eq!(std::fs::read_to_string(peek(&inside.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
         assert_eq!(missing_part(&first), None, "all its parts there");
         // A part missing: it fails, never reads past it, and names the part.
