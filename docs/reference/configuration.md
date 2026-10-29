@@ -316,6 +316,7 @@ The desktop app's own settings.
 | `mono_font` | string | `"'JetBrains Mono', 'Cascadia Code', 'MesloLGS Nerd Font', Menlo, Consolas, monospace"` | Code, the command line, and everything in Cyber and NC |
 | `font_size` | number | `13` | Text size in pixels (Settings allows 9 to 28) |
 | `line_height` | number | `1.9` | Row height, as a multiple of the font size (Settings allows 1.2 to 3) |
+| `repos_order` | string | `"name"` | The sidebar's *Git repositories*: `"name"` by folder name, case and accents aside, so a row stays put when you visit it; `"used"` most recently visited first. Pinned ones come first either way ([The sidebar](../organise/sidebar.md#git-repositories)) |
 
 ## `[git]`
 
@@ -457,6 +458,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | | *Show hints*, *Show the hints again* | `hints` | `hints` |
 | | *Measure folder sizes* | `folder_sizes` | `folder_sizes` |
 | | *Open disk images, CHM and CBR like folders* | `disk_images` | `[archive] disk_images` |
+| | *Git repositories in the sidebar* | `repos_order` | `[gui] repos_order` |
 | | *Last commit of each file* | `git_last_commit` | `[git] last_commit` |
 | | *Git tool* | `git_tool` | `[git] tool` |
 | | *Use git where Jujutsu is too* | `git_prefer_git` | `[git] prefer_git` |

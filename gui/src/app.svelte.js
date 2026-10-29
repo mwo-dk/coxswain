@@ -1251,7 +1251,6 @@ export async function init() {
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
-  ui.recent = st.recent_repos;
   if (ui.cfg.pack_formats.some((f) => f.endings[0] === st.pack_ending)) ui.packEnding = st.pack_ending;
   for (const k of ["dual", "showHidden", "showSidebar", "showPreview", "sidebarW", "previewW", "split", "previewSource", "previewDiff", "previewEngine"]) if (k in s) ui[k] = s[k];
   if (s.columns) ui.columns = { ...ui.columns, ...s.columns };

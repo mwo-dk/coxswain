@@ -283,8 +283,8 @@ name open them here now.
 
 ## Behaviour
 
-In three groups: *Panels* (from *Show hidden files when Coxswain starts* to *Open disk images,
-CHM and CBR like folders*), *Version control* (*Last commit of each file*, *Git tool*, *Use git
+In three groups: *Panels* (from *Show hidden files when Coxswain starts* to *Git repositories
+in the sidebar*), *Version control* (*Last commit of each file*, *Git tool*, *Use git
 where Jujutsu is too*) and *Programs* (*Editor* and the viewers).
 
 | Option | Does | Key |
@@ -295,6 +295,7 @@ where Jujutsu is too*) and *Programs* (*Editor* and the viewers).
 | *Show hints* | One short hint on the status line that fits what is under the cursor, each three times. *Show the hints again* (desktop app; `coxswain --hints reset` in a terminal) brings them back ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | `hints` |
 | *Measure folder sizes* | Folders show their whole size, measured in the background. The desktop app's columns menu switches it too ([Folder sizes](../panels/folder-sizes.md)) | `folder_sizes` |
 | *Open disk images, CHM and CBR like folders* | **Enter** opens .iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim and raw .img images, .chm help files and .cbr comics like folders, read-only, with an installed 7-Zip; never mounted. Off by default ([Disk images](../files/disk-images.md)) | `[archive] disk_images` |
+| *Git repositories in the sidebar* | *By name* (the default: rows stay put when you visit one) or *Last used first*, for the desktop app's sidebar; pinned ones come first either way ([The sidebar](../organise/sidebar.md#git-repositories)) | `[gui] repos_order` |
 | *Last commit of each file* | The *Last commit* column and the preview's *Last commit* ([Last commit per file](../panels/git.md#last-commit-per-file)) | `[git] last_commit` |
 | *Git tool* | Where **Alt+G** (*Open in your git tool*) goes, for commit, push and pull. *Automatic* (empty) takes the first installed of lazygit, gitui, tig and the desktop clients, else a terminal; the list shows the tools installed here, and a command of your own goes in too, `%d` being the repository ([Open in your git tool](../panels/git.md#open-in-your-git-tool)) | `[git] tool` |
 | *Use git where Jujutsu is too* | Where a folder has both `.jj` and `.git`, git's line, history and branches instead of Jujutsu's ([Jujutsu and git in one folder](../panels/jujutsu.md#jujutsu-and-git-in-one-folder)) | `[git] prefer_git` |

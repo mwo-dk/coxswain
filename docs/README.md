@@ -98,7 +98,7 @@ mindmap
 | [Colour tags](organise/tags.md) | Alt+T, seven colours, the dot after the name, tags belong to a path |
 | [Folder notes](organise/notes.md) | Alt+N, the notes field in the preview pane, saved on leaving it, the footer icon |
 | [Favourites](organise/favourites.md) | Named groups in the sidebar, add with +, remove with ×, rename and delete groups |
-| [The sidebar](organise/sidebar.md) | Ctrl+B, places, drives with free space, clouds, favourites, twelve recent git repositories |
+| [The sidebar](organise/sidebar.md) | Ctrl+B, places, drives with free space, clouds, favourites, the last eight git repositories (by name, pinned ones kept) |
 | [Clouds](organise/clouds.md) | One entry per cloud account found on the machine (OneDrive, Google Drive, Dropbox, Nextcloud, iCloud, rclone and gvfs mounts), sidebar and Alt+F1, per system, no logins |
 
 ## [Commands, the user menu and scripts](commands/README.md)

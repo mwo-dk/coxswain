@@ -9,7 +9,7 @@ Coxswain's own state file, `state.json` ([Where things are kept](../reference/wh
 The terminal app has none of them but the clouds, which it lists under **Alt+F1** and **Alt+F2**:
 the others' keys there say which app has them.
 
-![The desktop app with the sidebar at the left: Places with Home, Drives with System and 250 GB free, a favourites group named WORK with rocket, website and Documents, and Git repositories with rocket and website. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)
+![The desktop app with the sidebar at the left: Places with Home, Drives with System and its free space, a favourites group named WORK with rocket, website and Documents, and Git repositories with website pinned, then paper, rocket and vision. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)
 *The sidebar, a favourites group and colour tags in the details view (Cyber theme).*
 
 | Page | What it covers |
@@ -17,7 +17,7 @@ the others' keys there say which app has them.
 | [Colour tags](tags.md) | Seven colours for files and folders with **Alt+T**, the dot after the name, and why a tag stays with a path |
 | [Folder notes](notes.md) | Free text for a folder with **Alt+N**, in the preview pane, and the note icon in the pane footer |
 | [Favourites](favourites.md) | Named groups of folders in the sidebar: add, go, remove, rename and delete groups |
-| [The sidebar](sidebar.md) | **Ctrl+B**: places, drives with their free space, clouds, favourites and the twelve most recent git repositories |
+| [The sidebar](sidebar.md) | **Ctrl+B**: places, drives with their free space, clouds, favourites and the last eight git repositories, by name, with pins |
 | [Clouds](clouds.md) | One entry per cloud account (OneDrive, Google Drive, Dropbox, Nextcloud, iCloud …) found on the machine, in the sidebar and under **Alt+F1** in the terminal app; no logins |
 
 ## Keys at a glance

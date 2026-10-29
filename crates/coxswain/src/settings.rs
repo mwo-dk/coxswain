@@ -605,6 +605,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         "image_updates" => pairs(&[("off", "settings.image_updates_off"), ("weekly", "settings.image_updates_weekly"), ("monthly", "settings.image_updates_monthly")]),
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
         "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
+        "repos_order" => pairs(&[("name", "settings.repos_order_name"), ("used", "settings.repos_order_used")]),
         "long_files" => pairs(&[("sample", "settings.long_files.sample"), ("everything", "settings.long_files.everything")]),
         "chess_notation" => pairs(&[("figurines", "settings.chess_figurines"), ("letters", "settings.chess_letters")]),
         "chess_pieces" => pairs(&[

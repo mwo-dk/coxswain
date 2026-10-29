@@ -226,9 +226,10 @@ sticks for the next changed file and across restarts. A file with nothing agains
 
 ## Recent repositories (desktop app)
 
-Every repository you open a folder of is remembered, most recent first, up to twelve. They are
-listed under **Git repositories** in the [sidebar](../organise/sidebar.md); click one to go
-there. A tab whose folder is in a repository shows the git icon instead of the folder icon.
+Every repository you open a folder of is remembered: the last eight, and every one you pinned.
+They are listed under **Git repositories** in the [sidebar](../organise/sidebar.md#git-repositories),
+by name unless Settings says *Last used first*; click one to go there, right-click it to pin or
+remove it. A tab whose folder is in a repository shows the git icon instead of the folder icon.
 
 ## Open in your git tool
 

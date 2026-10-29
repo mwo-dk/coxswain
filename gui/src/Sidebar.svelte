@@ -2,6 +2,7 @@
   import { ui, tab, cd, openSpace } from "./app.svelte.js";
   import { invoke, basename, size } from "./lib.js";
   import { t } from "./i18n.svelte.js";
+  import { untrack } from "svelte";
 
   let collapsed = $state({});
   const here = $derived(tab()?.dir);
@@ -56,6 +57,42 @@
       ],
     };
   }
+
+  /** Pin, unpin or remove a repository of the list; the list comes back in its order. */
+  const editRepo = (r, { pin = false, remove = false }) =>
+    invoke("repo_edit", { path: r.path, pin, remove }).then((list) => (ui.recent = list), (e) => (ui.status = String(e)));
+
+  /** A repository's menu (a right-click on it, or its ⋯): pin or unpin it, take it out. */
+  function repoMenu(e, r) {
+    e.preventDefault();
+    e.stopPropagation();
+    ui.modal = {
+      kind: "menu",
+      feature: "sidebar",
+      title: basename(r.path),
+      direct: false,
+      filter: "",
+      cursor: 0,
+      items: [
+        { key: "", label: t("sidebar.open_drive"), run: () => go(r.path) },
+        { key: "", label: t(r.pinned ? "sidebar.unpin_repo" : "sidebar.pin_repo"), run: () => editRepo(r, { pin: !r.pinned }) },
+        { key: "Delete", label: t("sidebar.remove_repo"), run: () => editRepo(r, { remove: true }) },
+      ],
+    };
+  }
+
+  // The order follows Settings at once.
+  $effect(() => {
+    ui.cfg.settings?.repos_order;
+    untrack(() => invoke("repos").then((list) => (ui.recent = list), () => {}));
+  });
+  // What a right-click and Delete do on the list: said the first few times it is there.
+  let hinted = false;
+  $effect(() => {
+    if (!ui.recent.length || hinted) return;
+    hinted = true;
+    invoke("hint_once", { id: "repos" }).then((due) => due && !ui.status && (ui.status = t("hint.repos")), () => {});
+  });
 
   function groupMenu(e, g, i) {
     e.preventDefault();
@@ -192,8 +229,17 @@
     {@render section("repos", t("sidebar.repos"))}
     {#if !collapsed.repos}
       <ul>
-        {#each ui.recent as r (r)}
-          {@render row(r, basename(r), "\u{e702}", "var(--git-branch-fg)")}
+        {#each ui.recent as r (r.path)}
+          <li>
+            <button class="row repo-row" class:here={r.path === here} class:drop={ui.dropDir === r.path} data-drop={r.path} title={r.pinned ? `${r.path}\n${t("sidebar.repo_pinned")}` : r.path}
+              onclick={() => go(r.path)} oncontextmenu={(e) => repoMenu(e, r)}
+              onkeydown={(e) => e.key === "Delete" && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && (e.preventDefault(), e.stopPropagation(), editRepo(r, { remove: true }))}>
+              <span class="icon" style:color="var(--git-branch-fg)">{"\u{e702}"}</span>
+              <span class="label">{basename(r.path)}</span>
+              {#if r.pinned}<span class="pin" aria-label={t("sidebar.repo_pinned")}>{"\u{f0403}"}</span>{/if}
+              <span class="more" role="button" tabindex="-1" title={t("sidebar.repo_actions")} aria-label={t("sidebar.repo_actions")} onclick={(e) => { e.stopPropagation(); repoMenu(e, r); }} onkeydown={() => {}}>⋯</span>
+            </button>
+          </li>
         {/each}
       </ul>
     {/if}
@@ -201,6 +247,11 @@
 </nav>
 
 <style>
+  .pin {
+    font-family: var(--icon-font);
+    color: var(--hidden-fg);
+    padding: 0 4px;
+  }
   .row.off {
     opacity: 0.55;
   }

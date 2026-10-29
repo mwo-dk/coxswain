@@ -1734,6 +1734,9 @@ pub struct GuiConfig {
     pub font_size: f32,
     /// Row height as a multiple of the font size.
     pub line_height: f32,
+    /// The sidebar's git repositories: `name` (by folder name, so rows stay put) or `used`
+    /// (most recently visited first).
+    pub repos_order: String,
 }
 
 impl Default for GuiConfig {
@@ -1745,6 +1748,7 @@ impl Default for GuiConfig {
             mono_font: "'JetBrains Mono', 'Cascadia Code', 'MesloLGS Nerd Font', Menlo, Consolas, monospace".into(),
             font_size: 13.0,
             line_height: 1.9,
+            repos_order: "name".into(),
         }
     }
 }

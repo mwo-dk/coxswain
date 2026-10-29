@@ -4,13 +4,22 @@
 
 The sidebar is the column at the left of the desktop app's window (at the right in Hebrew and
 Arabic). It holds your usual folders, your disks with their free space, your
-[cloud accounts](clouds.md), your [favourites](favourites.md) and the git repositories you opened last, each one click away.
+[cloud accounts](clouds.md), your [favourites](favourites.md) and the git repositories you opened last (by name, with the ones you pinned), each one click away.
 
-![The sidebar of the desktop app: PLACES with Home; DRIVES with System, 250 GB free and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with rocket and website. rocket is highlighted in both lists](../screenshots/gui-details.png)
+![The sidebar of the desktop app: PLACES with Home; DRIVES with System, its free space and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with website (a pin at the end of its row), then paper, rocket and vision by name, each with a faint ⋯. rocket is highlighted in both lists; the status line says how to pin or remove a repository](../screenshots/gui-details.png)
 *The sidebar in the Cyber theme. The entries for the folder you are in are highlighted.*
 
 ![The same window in Hebrew: the sidebar is at the right, its headers and entries right-aligned](../screenshots/gui-lang-he.png)
 *In Hebrew the sidebar moves to the right, with the rest of the layout.*
+
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Git repositories](#git-repositories)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
 
 ## How to use it
 
@@ -20,8 +29,9 @@ Arabic). It holds your usual folders, your disks with their free space, your
 | Make it wider or narrower | Drag its inner edge (the splitter between it and the panes) |
 | Go somewhere | Click an entry: the active tab of the active pane goes there |
 | Fold a section away | Click its header (*Places*, *Drives*, *Clouds*, a group's name, *Git repositories*); click again to open it |
+| Pin a repository, or take it out | Right-click it under *Git repositories*, or click its **⋯**: *Pin: keep in the list*, *Unpin*, *Remove from the list*. **Delete** on a repository row that has the focus (**Tab** to it) removes it at once |
 
-The sidebar has no keyboard cursor: it is for the mouse. From the keyboard, **Ctrl+L** (*Edit
+The sidebar has no keyboard cursor: it is for the mouse (**Tab** reaches its rows, and **Enter** opens one). From the keyboard, **Ctrl+L** (*Edit
 path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; see
 [Moving around](../panels/moving.md).
 
@@ -39,7 +49,7 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
 | *Boot environments* | FreeBSD with a ZFS root: each boot environment, with *running now*, *active on reboot* or *not mounted* after its name. A mounted one opens as a folder; one that is not mounted is greyed, and a click says how to mount it ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)) |
 | *Jails* | FreeBSD: each running jail, with its jid and host name; a click opens its root folder when you may read it |
 | Your favourite groups | One section per group, its header with a **⋯** (Add current folder, Rename group, Delete group) and a `+` on hover; see [Favourites](favourites.md), then *+ New group* |
-| *Git repositories* | The twelve git repositories you visited most recently, newest first, with a git icon. Only there once you have been in a repository |
+| *Git repositories* | The last eight git repositories you visited, and every one you pinned, with a git icon; a pinned one has a pin at the end of its row. Only there once you have been in a repository. See [Git repositories](#git-repositories) below |
 
 - The entry for the folder the active tab is in is highlighted in the cursor colour, in every
   section at once (a folder can be a favourite and a repository).
@@ -51,20 +61,48 @@ path*) and **Alt+F1** / **Alt+F2** take you to any folder by typing its path; se
   snapshots, and disks of size zero. Removable disks, network shares and ZFS datasets stay. A disk mounted more than once (btrfs
   subvolumes, bind mounts) is listed once, at its shortest mount point.
 
+## Git repositories
+
+Going into a repository, or any folder in it, puts its top folder in the list. The list keeps
+the last eight you visited; an older one drops out when a ninth comes, unless it is pinned.
+
+- **Order.** By name (the default): the folder names in alphabetical order, case and accents
+  aside (*alpha*, *Beta*, *Émile*, *zeta*), so a row never moves when you visit it. With
+  Settings (**Ctrl+,**) → *Behaviour* → *Panels* → *Git repositories in the sidebar* set to
+  *Last used first*, the newest visit is at the top. Either way the pinned ones come first, in
+  the same order among themselves.
+- **Pin.** Right-click a repository (or click its **⋯**, which is always shown, a little faint)
+  and choose *Pin: keep in the list*. A pin shows at the end of its row, its tooltip says
+  *Pinned: stays in the list*, and it never drops out, however many others you visit. *Unpin*
+  in the same menu makes it an ordinary entry again: it stays while it is among the last eight
+  visited.
+- **Remove.** *Remove from the list* in that menu, or **Delete** on the row when it has the
+  focus, takes it out at once, pinned or not. Nothing on disk is touched. Going into the
+  repository again brings it back.
+
+![The desktop app with the menu of the repository rocket open over the panes: ROCKET, a filter field, then Open, Pin: keep in the list, and Remove from the list with the key Delete beside it](../screenshots/gui-sidebar-repos-menu.png)
+*A right-click on* rocket *under Git repositories.*
+
+The first few times the list is there, the status line says *Right-click a git repository in
+the sidebar to pin or remove it; Delete removes the one with the focus*.
+
 ## Settings and config.toml
 
-No Settings item. The key is `toggle_sidebar` under `[keys]`, default `["Ctrl+B"]`. Whether the
+The sidebar's own Settings item is *Git repositories in the sidebar* (Settings → *Behaviour* →
+*Panels*), `repos_order` under `[gui]`: `"name"` (the default) or `"used"`. The key is
+`toggle_sidebar` under `[keys]`, default `["Ctrl+B"]`. Whether the
 sidebar is shown and its width are part of the session, kept in `state.json`; the width can be
 dragged between 150 and 480 pixels, and the sidebar never takes more than a quarter of the
-window. The recent repositories are kept in `state.json` as `recent_repos`. See
+window. The repositories are kept in `state.json`: `recent_repos` (the last visited, newest first, and the pinned ones) and `pinned_repos`. See
 [What the apps remember](../panels/session.md).
 
 ## In the terminal app
 
 No sidebar. **Ctrl+B** says *Sidebar is available in the desktop app (coxswain-gui)*. The
 terminal app shows the git branch and status of a repository in the panel frame
-([Git in the panels](../panels/git.md)), but it does not keep a list of recent repositories: the
-list is filled only by the desktop app. Your [clouds](clouds.md) and FreeBSD's boot
+([Git in the panels](../panels/git.md)), but it has no list of repositories to go to, pin or
+remove: that list is the desktop app's. Its Settings shows *Git repositories in the sidebar*
+too, for the desktop app. Your [clouds](clouds.md) and FreeBSD's boot
 environments and jails are under **Alt+F1** and **Alt+F2** there
 ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 
@@ -97,14 +135,33 @@ it is then listed once, as *Home*. Add the folder to a [favourites group](favour
 
 #### How does a repository get into Git repositories?
 
-By going into it, or into any folder inside it, in the desktop app. The repository's top folder
-is put first in the list; the list keeps twelve and drops the oldest. Clicking it goes to that
+By going into it, or into any folder inside it, in the desktop app (the terminal app adds the
+repositories its panels are in when it starts). The repository's top folder goes into the list;
+the list keeps the last eight and drops the oldest that is not pinned. Clicking it goes to that
 top folder. See [Git in the panels](../panels/git.md).
+
+#### Why do the rows not move when I visit a repository?
+
+They are sorted by name, so a row stays where your eye left it. For the most recent first,
+set Settings → *Behaviour* → *Panels* → *Git repositories in the sidebar* to *Last used first*
+(`repos_order = "used"` under `[gui]`).
+
+#### How do I keep a repository in the list for good?
+
+Right-click it under *Git repositories* (or click its **⋯**) and choose *Pin: keep in the
+list*. It gets a pin at the end of its row, comes first, and never drops out. *Unpin* in the
+same menu lets it go again.
 
 #### Can I remove a repository from the list?
 
-Not from the sidebar. It falls off when twelve newer ones have been visited. To clear it by hand,
-close the app and remove the entries from `recent_repos` in `state.json`.
+Yes: right-click it and choose *Remove from the list*, or **Tab** to its row and press
+**Delete**. Only the entry goes; the repository on disk is not touched, and going into it again
+puts it back.
+
+#### Is Delete on a sidebar row dangerous?
+
+No. On a repository row in the sidebar **Delete** only takes the entry out of the list; it never
+deletes files. **Delete** deletes files only when the focus is in a pane.
 
 #### Why is a drive's bar red?
 
