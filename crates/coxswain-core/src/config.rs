@@ -355,6 +355,8 @@ actions! {
     Settings = "settings", "Settings", App, ["Ctrl+,", "F12"];
     // Settings at Disk use: from F9 and the action menu, no key of its own.
     DiskUse = "disk_use", "Disk use", App, [];
+    // Settings → Looks → Language: a new GitHub issue in the browser, no key of its own.
+    SuggestTranslation = "suggest_translation", "Suggest a better translation", App, [];
     Quit = "quit", "Quit", App, ["F10"];
 }
 
