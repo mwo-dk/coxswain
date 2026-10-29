@@ -127,7 +127,6 @@
  "feature.configuration.a2": "Un nombre de opción mal escrito se ignora y queda el valor predeterminado; compáralo con coxswain --dump-config. Un valor que no se puede usar (TOML no válido, un tipo equivocado) queda con su predeterminado, y un aviso nombra su línea.",
  "feature.configuration.what": "Las dos apps leen un solo config.toml; pon solo lo que cambias. Cada clave, su valor predeterminado y su opción en Configuración.",
  "feature.container_images.a2": "Entra en la carpeta y presiona {open} sobre su index.json: la imagen se abre como una carpeta, con su etiqueta en el título del panel.",
- "feature.container_images.a3": "No, solo imágenes guardadas como archivos: guarda una con docker save o podman save y después abre el tar.",
  "feature.containers.a2": "Su imagen todavía no se descargó, y una descarga de 2,8 GB nunca empieza sin un clic. Presiona Generar PDF, o antes Descargar en Configuración → Vistas previas.",
  "feature.containers.a3": "Solo si lo activas: Mantener las imágenes al día en Configuración → Vistas previas hace que la app de escritorio las descargue cada semana o cada mes y borre la copia vieja. Descargar actualiza una en el momento. Cada versión de Coxswain fija cada imagen a una compilación.",
  "feature.convert_media.a3": "Un fragmento se copia tal cual, sin volver a codificarlo, así que empieza en el fotograma clave justo antes del tiempo que escribiste. Convierte el fragmento a MP4 para un inicio exacto.",

@@ -202,7 +202,7 @@
  "feature.configuration.what": "Les deux apps lisent un seul config.toml; ne réglez que ce que vous changez. Chaque clé, sa valeur par défaut et son réglage.",
  "feature.container_images.q1": "Quels fichiers des couches vois-je?",
  "feature.container_images.q2": "Comment ouvrir un dossier de disposition OCI?",
- "feature.container_images.q3": "Lit-il le magasin d’images de Docker ou de Podman?",
+ "feature.container_images.q3": "La recherche trouve-t-elle les fichiers d'une image?",
  "feature.container_images.what": "{open} ouvre un tar de docker save ou podman save, ou l’index.json d’une disposition OCI, comme un seul dossier en lecture seule aux couches fusionnées; l’aperçu et les Propriétés montrent ses étiquettes, plateformes et couches.",
  "feature.containers.q1": "Est-il sûr de compiler le document LaTeX de quelqu’un d’autre dans un conteneur?",
  "feature.containers.q3": "Coxswain met-il les images à jour?",
