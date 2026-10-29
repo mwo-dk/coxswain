@@ -1,6 +1,7 @@
 //! Disk use, in both apps (Settings → Privacy and updates → Disk use) and `coxswain --disk`:
 //! every place Coxswain keeps things in its cache folder, the built-in models, and what it
-//! caused outside its folder (Tectonic's cache, container images pulled for previews), each with
+//! caused outside its folder (Tectonic's, Typst's and kicad-cli's caches, container images
+//! pulled for previews), each with
 //! its size, where it is, what clearing it costs, and a way to clear it. Clearing the search
 //! store or the name index while the search helper runs goes through the helper, so a store in
 //! use is never cut from under it.
@@ -27,13 +28,16 @@ pub enum Kind {
     Model,
     /// Outside Coxswain's folder, caused by it: never cleared without being asked by name.
     Outside,
+    /// The user's own files Coxswain keeps aside (quarantine, undo copies, what a sync set
+    /// aside): never in *Clear everything*, each removed only on its own row.
+    Yours,
 }
 
 /// One place on the disk.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Item {
     /// What `--disk clear` takes: `store`, `index`, …, a model's folder name, `tectonic`,
-    /// `image:<name>`.
+    /// `typst`, `kicad`, `image:<name>`.
     pub id: String,
     /// As the user sees it: `search.db`, `previews/`, `Qwen3 4B`, the image's name.
     pub name: String,
@@ -48,6 +52,8 @@ pub struct Item {
     pub rebuildable: bool,
     /// A built-in model the settings use: deleting it changes them.
     pub in_use: bool,
+    /// It has a Clear (or Remove) button; the quarantine has none, it is shown only.
+    pub clear: bool,
 }
 
 /// The rows of Coxswain's own folder: id, what they are in the cache folder, built again by
@@ -136,6 +142,7 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
                 paths,
                 kind: Kind::Own,
                 rebuildable: *rebuildable,
+                clear: true,
                 in_use: false,
             });
         }
@@ -150,24 +157,67 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             paths: vec![e.folder.clone()],
             kind: Kind::Model,
             rebuildable: false,
+            clear: true,
             in_use: e.in_use,
         });
     }
-    for p in made_outside() {
+    for (tool, p) in made_outside().into_iter().filter(|(t, _)| t.id != KICAD_SETTINGS.id) {
         v.push(Item {
-            id: "tectonic".into(),
-            name: "Tectonic".into(),
-            what: t!("disk.tectonic.what"),
-            cost: t!("disk.tectonic.cost"),
+            id: tool.id.into(),
+            name: tool.name.into(),
+            what: t!(tool.what),
+            cost: t!(tool.cost),
             bytes: size(std::slice::from_ref(&p)),
             paths: vec![p],
             kind: Kind::Outside,
             rebuildable: false,
+            clear: true,
             in_use: false,
         });
     }
     if images {
         v.extend(image_items(&cfg.preview));
+    }
+    v.extend(yours());
+    v
+}
+
+/// The user's own files Coxswain keeps aside: the quarantine (shown, never cleared here),
+/// find-and-replace's undo copies (only those of runs that ended go), and each folder a sync
+/// that ended set aside where the bin could not take it.
+fn yours() -> Vec<Item> {
+    let mut v = vec![];
+    let row = |id: String, name: String, what: String, cost: String, paths: Vec<PathBuf>, clear: bool| Item {
+        id,
+        name,
+        what,
+        cost,
+        bytes: size(&paths),
+        paths,
+        kind: Kind::Yours,
+        rebuildable: false,
+        in_use: false,
+        clear,
+    };
+    if let Some(q) = crate::viruses::quarantine_dir().filter(|q| std::fs::read_dir(q).is_ok_and(|mut r| r.next().is_some())) {
+        v.push(row("quarantine".into(), "quarantine/".into(), t!("disk.quarantine.what"), t!("disk.quarantine.cost"), vec![q], false));
+    }
+    // kicad-cli's settings, which an installed KiCad shares: shown, never cleared.
+    for (_, p) in made_outside().into_iter().filter(|(t, _)| t.id == KICAD_SETTINGS.id) {
+        v.push(row(KICAD_SETTINGS.id.into(), "kicad/".into(), t!(KICAD_SETTINGS.what), t!(KICAD_SETTINGS.cost), vec![p], false));
+    }
+    let undo = crate::replace::kept_dirs();
+    if !undo.is_empty() {
+        v.push(row("replace".into(), "coxswain-replace-…/".into(), t!("disk.replace.what"), t!("disk.replace.cost"), undo, true));
+    }
+    for l in crate::compare::aside::left().into_iter().filter(|l| !l.binned) {
+        let p = l.path();
+        if !std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir()) {
+            continue;
+        }
+        let name = format!("{}/", p.file_name().unwrap_or_default().to_string_lossy());
+        let what = t!("disk.sync.what", "n" => count(l.files as usize), "folder" => l.folder().display());
+        v.push(row(format!("sync:{}", name.trim_end_matches('/')), name, what, t!("disk.sync.cost"), vec![p], true));
     }
     v
 }
@@ -202,6 +252,7 @@ fn images_in(cfg: &PreviewConfig, name: &str, rt: &std::path::Path) -> Vec<Item>
                 paths: vec![],
                 kind: Kind::Outside,
                 rebuildable: false,
+                clear: true,
                 in_use: false,
             })
         })
@@ -244,6 +295,7 @@ fn goes(i: &Item, models: bool, outside: bool) -> bool {
         Kind::Own => i.rebuildable,
         Kind::Model => models && !i.in_use,
         Kind::Outside => outside,
+        Kind::Yours => false,
     }
 }
 
@@ -324,7 +376,15 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
             }
             crate::models::delete(e, helper).map_err(|err| fail(&e.folder, err))?;
         }
-        (Kind::Outside, "tectonic") => {
+        (Kind::Yours, "replace") => crate::replace::sweep(),
+        (Kind::Yours, id) if id.starts_with("sync:") => {
+            for p in &item.paths {
+                crate::compare::aside::remove(p).map_err(|e| fail(p, e))?;
+            }
+        }
+        // Your own files: removed in a panel, never here.
+        (Kind::Yours, _) => return Err(item.cost.clone()),
+        (Kind::Outside, id) if !id.starts_with("image:") => {
             gone(&item.paths)?;
             forget_made(&item.paths);
         }
@@ -370,14 +430,62 @@ fn made_file() -> Option<PathBuf> {
     Some(crate::helper::folder()?.join("made-outside.txt"))
 }
 
-/// The folders noted, those still there.
-fn made_outside() -> Vec<PathBuf> {
+/// A tool whose cache Coxswain may cause outside its folder, by running it for a preview.
+pub struct Tool {
+    /// The row's id for `--disk clear`.
+    pub id: &'static str,
+    name: &'static str,
+    /// The keys of its texts.
+    what: &'static str,
+    cost: &'static str,
+    caches: fn() -> Vec<PathBuf>,
+}
+
+/// Tectonic's TeX packages, Typst's packages, kicad-cli's cache; and kicad-cli's settings
+/// (`~/.config/kicad`), listed with the user's own files and never cleared: an installed KiCad
+/// keeps the user's settings there.
+pub const TECTONIC: Tool = Tool {
+    id: "tectonic",
+    name: "Tectonic",
+    what: "disk.tectonic.what",
+    cost: "disk.tectonic.cost",
+    caches: tectonic_caches,
+};
+pub const TYPST: Tool = Tool {
+    id: "typst",
+    name: "Typst",
+    what: "disk.typst.what",
+    cost: "disk.typst.cost",
+    caches: typst_caches,
+};
+pub const KICAD: Tool = Tool {
+    id: "kicad",
+    name: "KiCad",
+    what: "disk.kicad.what",
+    cost: "disk.kicad.cost",
+    caches: kicad_caches,
+};
+pub const KICAD_SETTINGS: Tool = Tool {
+    id: "kicad-settings",
+    name: "kicad/",
+    what: "disk.kicad_settings.what",
+    cost: "disk.kicad_settings.cost",
+    caches: kicad_settings,
+};
+const TOOLS: [&Tool; 4] = [&TECTONIC, &TYPST, &KICAD, &KICAD_SETTINGS];
+
+/// The folders noted, those still there, with the tool whose they are.
+fn made_outside() -> Vec<(&'static Tool, PathBuf)> {
     let text = made_file()
         .and_then(|f| std::fs::read_to_string(f).ok())
         .unwrap_or_default();
     text.lines()
         .map(PathBuf::from)
         .filter(|p| p.is_dir())
+        .filter_map(|p| {
+            let tool = TOOLS.into_iter().find(|t| (t.caches)().contains(&p))?;
+            Some((tool, p))
+        })
         .collect()
 }
 
@@ -413,13 +521,36 @@ fn tectonic_caches() -> Vec<PathBuf> {
     ]
 }
 
-/// Before Coxswain runs Tectonic: the places of its cache that are not there yet. Give them to
+/// Typst's package cache: `TYPST_PACKAGE_CACHE_PATH`, else `typst/` in the system's cache
+/// folder.
+fn typst_caches() -> Vec<PathBuf> {
+    if let Some(d) = std::env::var_os("TYPST_PACKAGE_CACHE_PATH").filter(|d| !d.is_empty()) {
+        return vec![d.into()];
+    }
+    crate::dirs::cache_dir().map(|b| b.join("typst")).into_iter().collect()
+}
+
+/// kicad-cli's cache: `kicad/` in the system's cache folder.
+fn kicad_caches() -> Vec<PathBuf> {
+    crate::dirs::cache_dir().map(|b| b.join("kicad")).into_iter().collect()
+}
+
+/// kicad-cli's settings: `kicad/` in the system's preferences folder (`~/.config/kicad`,
+/// `~/Library/Preferences/kicad`, `%APPDATA%\kicad`).
+fn kicad_settings() -> Vec<PathBuf> {
+    crate::dirs::preference_dir().map(|b| b.join("kicad")).into_iter().collect()
+}
+
+/// The folders of `tool` that are there now: for one listed when a preview used it, made by it
+/// or not (`note_made`).
+pub fn present(tool: &Tool) -> Vec<PathBuf> {
+    (tool.caches)().into_iter().filter(|p| p.is_dir()).collect()
+}
+
+/// Before Coxswain runs `tool`: the places of its cache that are not there yet. Give them to
 /// `note_made` afterwards, which notes those that came.
-pub fn tectonic_absent() -> Vec<PathBuf> {
-    tectonic_caches()
-        .into_iter()
-        .filter(|p| !p.exists())
-        .collect()
+pub fn absent(tool: &Tool) -> Vec<PathBuf> {
+    (tool.caches)().into_iter().filter(|p| !p.exists()).collect()
 }
 
 /// Note the folders of `absent` that are there now: Coxswain made them.
@@ -429,8 +560,15 @@ pub fn note_made(absent: &[PathBuf]) {
         return;
     };
     let mut text = std::fs::read_to_string(&f).unwrap_or_default();
+    let had = text.clone();
     for p in made {
-        text += &format!("{}\n", p.display());
+        // Once each, however often a preview runs.
+        if !had.lines().any(|l| Path::new(l) == p.as_path()) {
+            text += &format!("{}\n", p.display());
+        }
+    }
+    if text == had {
+        return;
     }
     let _ = std::fs::write(f, text);
 }
@@ -717,6 +855,7 @@ pub fn table(items: &[Item]) -> String {
         (Kind::Own, "disk.head.own"),
         (Kind::Model, "disk.head.models"),
         (Kind::Outside, "disk.head.outside"),
+        (Kind::Yours, "disk.head.yours"),
     ] {
         let rows: Vec<&Item> = items.iter().filter(|i| i.kind == kind).collect();
         if rows.is_empty() {
@@ -750,6 +889,23 @@ pub fn table(items: &[Item]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder noted again at each preview is listed once; KiCad's settings are shown under
+    /// your own files and never cleared.
+    #[test]
+    fn kicad_settings_are_noted_once_and_never_cleared() {
+        let d = kicad_settings().remove(0);
+        std::fs::create_dir_all(&d).unwrap();
+        note_made(&present(&KICAD_SETTINGS));
+        note_made(&present(&KICAD_SETTINGS));
+        let text = std::fs::read_to_string(made_file().unwrap()).unwrap();
+        assert_eq!(text.lines().filter(|l| Path::new(l) == d).count(), 1, "{text}");
+        let row = yours().into_iter().find(|i| i.id == KICAD_SETTINGS.id).expect("listed");
+        assert!(!row.clear && row.kind == Kind::Yours && !goes(&row, true, true));
+        assert!(made_outside().iter().any(|(t, p)| t.id == KICAD_SETTINGS.id && *p == d));
+        forget_made(std::slice::from_ref(&d));
+        let _ = std::fs::remove_dir(&d);
+    }
 
     /// A name index and a search store, in folders of the test's own: each is told apart from
     /// any other file by what it holds, and its preview says what it holds.
@@ -855,6 +1011,7 @@ mod tests {
             kind,
             rebuildable,
             in_use,
+            clear: true,
         };
         let items = [
             item("store", Kind::Own, true, false, 10),

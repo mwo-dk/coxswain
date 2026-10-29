@@ -236,13 +236,15 @@ fn heard(bytes: u64) -> u64 {
 /// `heard` seconds came (when known): how far it is done, whether it is finished, and its
 /// length. A part shorter than asked is the end of the sound, whatever its header claims: the
 /// length is cut to it, so a file that claims ten hours and has five seconds is not gone
-/// through ten minutes at a time on nothing.
+/// through ten minutes at a time on nothing. A sound of no known length goes on part by part
+/// until one comes short (its sound cut whole would take gigabytes of WAV at once); when not
+/// even that is known, it ends after its first part.
 fn after_part(from: u64, length: Option<u64>, heard: Option<u64>) -> (u64, bool, Option<u64>) {
     let done = length.map_or(from + CHUNK, |l| (from + CHUNK).min(l));
     match heard {
         // Two seconds spare: ffmpeg may cut a hair short.
         Some(h) if h + 2 < done - from => (from + h, true, Some(from + h)),
-        _ => (done, length.is_none_or(|l| done >= l), length),
+        _ => (done, length.map_or(heard.is_none(), |l| done >= l), length),
     }
 }
 
@@ -705,9 +707,9 @@ fn one_part(store: &Store, engine: &Engine, model: &Path, next: crate::store::Wa
         let _ = store.transcript_gone(&next.path);
         return;
     };
-    // The length, the first time: chunks only when it is known.
+    // The length, the first time; parts whether it is known or not, where ffmpeg cuts them.
     let length = next.length.or_else(|| duration(&path));
-    let whole = matches!(engine, Engine::Local { ffmpeg: None, .. }) || length.is_none();
+    let whole = matches!(engine, Engine::Local { ffmpeg: None, .. });
     let secs = (!whole).then_some(CHUNK);
     let pct = |done: u64| length.map_or(0, |l| ((done * 100) / l.max(1)).min(99) as u8);
     *CURRENT.lock().unwrap() = Some((path.clone(), pct(next.done)));
@@ -760,6 +762,10 @@ mod tests {
         assert_eq!(after_part(CHUNK, ten_hours, Some(heard(44))), (CHUNK, true, Some(CHUNK)));
         // Not known how much came: as the length says.
         assert_eq!(after_part(0, ten_hours, None), (CHUNK, false, ten_hours));
+        // No length known: part after part until one comes short, never all at once.
+        assert_eq!(after_part(0, None, Some(CHUNK)), (CHUNK, false, None));
+        assert_eq!(after_part(CHUNK, None, Some(7)), (CHUNK + 7, true, Some(CHUNK + 7)));
+        assert_eq!(after_part(0, None, None), (CHUNK, true, None));
         // The container says it first, before whisper-cli's lines.
         assert!(SCRIPT.contains(&format!("echo \"{HEARD}$n\"")) && SCRIPT.contains("-ge 32044 ] || exit 0"));
     }

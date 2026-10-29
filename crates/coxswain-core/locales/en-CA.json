@@ -50,6 +50,9 @@
  "sync.act_delete": "to the trash",
  "sync.done": "Copied {copied}, replaced {replaced}, to the trash {deleted}",
  "sync.kept": "The trash could not take what was replaced or deleted: it is in {path}",
- "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the trash, and {undo} undoes it. Or mark the differences and press {copy}. On Windows, and on a disk the bin could only copy to, it stays in a .coxswain-sync-… folder at the target's top instead.",
- "sync.moved_away": "The folder holding what was replaced or deleted was moved during the run, so it is not in the trash: {path}"
+ "feature.compare_folders.a2": "From its menu: Make right like left or Make left like right plans every copy, replacement and deletion first, sends what it replaces or deletes to the trash, and {undo} undoes it. Or mark the differences and press {copy}. On Windows, and on a disk the trash could only copy to, it stays in a .coxswain-sync-… folder at the target's top instead. If the app was closed during a run, its next start sends that folder to the trash and says so; where the trash cannot take it, Disk use in Settings lists it with Remove.",
+ "sync.moved_away": "The folder holding what was replaced or deleted was moved during the run, so it is not in the trash: {path}",
+ "notice.sync_binned": "A folder sync that ended before it was finished had set aside {n} files ({size}) it replaced or deleted in {folder}. They are in the trash now, where you can restore them; {undo} no longer undoes that sync.",
+ "notice.sync_kept": "A folder sync that has ended set aside {n} files ({size}) it replaced or deleted, and the trash cannot take them here, so they are still in {path}. {undo} no longer undoes that sync. Remove them in Settings → Privacy and updates → Disk use once you no longer need them.",
+ "disk.sync.what": "{n} files a folder sync replaced or deleted in {folder}, kept here because the trash could not take them."
 }
