@@ -2668,7 +2668,6 @@ fn main() {
     }
     coxswain_core::fs::lock_down();
     // What a write of an archive cut short by a crash left beside it.
-    std::thread::spawn(coxswain_core::archive::clean_stale);
     std::thread::spawn(coxswain_core::spill::at_start);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
@@ -2799,6 +2798,7 @@ fn main() {
                 work::work_end();
                 convert::export_end();
                 viruses::viruses_end();
+                coxswain_core::spill::at_exit();
             }
         });
 }

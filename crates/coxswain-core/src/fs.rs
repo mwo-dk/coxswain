@@ -126,10 +126,13 @@ pub fn replace(path: &Path, bytes: &[u8], own: bool) -> io::Result<()> {
     // into one file beside it.
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let tmp = path.with_extension(match path.extension() {
-        Some(e) => format!("{}.{}-{n}.tmp", e.to_string_lossy(), std::process::id()),
-        None => format!("{}-{n}.tmp", std::process::id()),
-    });
+    // A passing name, noted: a crash before the rename leaves it for the next start to remove.
+    crate::spill::staging_in(dir);
+    let tmp = path.with_file_name(format!(
+        ".{}.coxswain-{}-{n}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        crate::spill::run()
+    ));
     let done = (|| {
         if own {
             private(dir, None)?;
@@ -491,7 +494,7 @@ fn out_of_archive(src: &Path) -> Option<(PathBuf, String)> {
     }
 }
 
-/// A folder of its own in the cache's `scratch/` (`<pid>-<n>`), removed when dropped; what a
+/// A folder of its own in the cache's `scratch/` (`<run>-<n>`), removed when dropped; what a
 /// run that ended without dropping it left goes at the next start (`spill::sweep_ended`), and
 /// Disk use shows it. On disk, not in a temp folder that may be memory.
 pub(crate) struct Scratch(PathBuf);
@@ -505,7 +508,7 @@ impl Scratch {
         private_dir(&base)?;
         let dir = base.join(format!(
             "{}-{}",
-            std::process::id(),
+            crate::spill::run(),
             N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         // Made here, never one that is there.
@@ -680,8 +683,8 @@ fn copy_tree(src: &Path, to: &Path) -> io::Result<()> {
             .map_or(0, |d| d.subsec_nanos());
         let tmp = to.with_file_name(format!(
             ".{}.coxswain-tmp-{}-{}-{nanos:x}",
-            to.file_name().unwrap_or_default().to_string_lossy(),
-            std::process::id(),
+            short(to),
+            crate::spill::run(),
             N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         match fs::create_dir(&tmp) {
@@ -864,29 +867,40 @@ fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::
 }
 
 /// A passing name beside `to` for its copy while it is written: `.name.coxswain-tmp-…`.
-fn beside(to: &Path) -> PathBuf {
+pub(crate) fn beside(to: &Path) -> PathBuf {
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     crate::spill::staging_in(to.parent().unwrap_or(Path::new(".")));
     to.with_file_name(format!(
         ".{}.coxswain-tmp-{}-{}",
-        to.file_name().unwrap_or_default().to_string_lossy(),
-        std::process::id(),
+        short(to),
+        crate::spill::run(),
         N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ))
+}
+
+/// `to`'s name, cut to 180 bytes (whole characters), so a passing name made of it stays within
+/// the 255 bytes a name may have.
+fn short(to: &Path) -> String {
+    let name = to.file_name().unwrap_or_default().to_string_lossy();
+    let mut end = name.len().min(180);
+    while !name.is_char_boundary(end) {
+        end -= 1;
+    }
+    name[..end].to_string()
 }
 
 /// The whole copy `tmp` under its name `to`; never onto one that came meanwhile: rename would
 /// replace it.
 // ponytail: a `to` made between the look and the rename is still replaced; renameat2's
 // RENAME_NOREPLACE (Linux) would close that.
-fn put(tmp: &Path, to: &Path) -> io::Result<()> {
+pub(crate) fn put(tmp: &Path, to: &Path) -> io::Result<()> {
     if fs::symlink_metadata(to).is_ok() {
         return Err(exists(to));
     }
     fs::rename(tmp, to)
 }
 
-fn exists(to: &Path) -> io::Error {
+pub(crate) fn exists(to: &Path) -> io::Error {
     io::Error::new(io::ErrorKind::AlreadyExists, crate::t!("err.exists", "path" => to.display()))
 }
 
@@ -1923,6 +1937,17 @@ mod tests {
         let c = super::canonical(&d).unwrap();
         assert!(!c.to_string_lossy().starts_with(r"\\?\"), "{}", c.display());
         assert_eq!(std::fs::canonicalize(&c).unwrap(), std::fs::canonicalize(&*d).unwrap());
+    }
+
+    /// A passing name for a file whose name is as long as names may be stays within 255
+    /// bytes, cut at a whole character.
+    #[test]
+    fn a_passing_name_of_a_long_name_fits() {
+        let long = "é".repeat(127);
+        let tmp = super::beside(&std::path::Path::new("x").join(&long));
+        let name = tmp.file_name().unwrap().to_str().unwrap();
+        assert!(name.len() <= 255, "{}", name.len());
+        assert!(name.starts_with(&format!(".{}", "é".repeat(90))));
     }
 
     /// A disk's top folder the user cannot write (another disk mounted at a folder root

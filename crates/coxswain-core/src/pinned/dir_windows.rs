@@ -66,7 +66,7 @@ fn temp_name(name: &OsStr) -> Vec<u16> {
     let stem: String = name.to_string_lossy().chars().filter(|c| !matches!(c, '\\' | '/' | ':' | '\0')).take(40).collect();
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
-    format!(".{stem}.coxswain-{}-{nanos}-{n}.tmp", std::process::id()).encode_utf16().collect()
+    format!(".{stem}.coxswain-{}-{nanos}-{n}.tmp", crate::spill::run()).encode_utf16().collect()
 }
 
 /// A time as Windows keeps it: 100 ns steps since 1601.

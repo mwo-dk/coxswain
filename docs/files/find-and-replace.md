@@ -116,7 +116,10 @@ writes, Coxswain keeps each file as it was in a folder of its own in the system'
 folder, readable only by you; undo writes it back, in the same folder and only to the very file
 the replace wrote, and removes it. A file changed again since the replace (saved, replaced,
 moved) is left as it is, with a line saying why; the others go back. Like every undo, it lasts
-for the app run.
+for the app run. The copies of a run that has ended go at the next start of either app or the
+search helper; until then [Disk use](../reference/disk-use.md#the-rows) lists them as
+*coxswain-replace-…/* under *Your own files, kept aside by Coxswain*, whose **Remove** takes only
+those of runs that have ended.
 
 ## In the terminal app
 

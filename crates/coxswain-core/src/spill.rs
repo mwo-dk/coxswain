@@ -1,7 +1,7 @@
 //! What Coxswain leaves on the disk by itself, kept in bounds: the previews no one looked at for
 //! a month go, and the passing names a copy writes beside its destination
-//! (`.name.coxswain-tmp-…`, a disk image's `.name.<pid>.coxswain-tmp`, the editor's
-//! `.name.coxswain-<pid>-….tmp`) are noted, so the next start removes what a run that was killed
+//! (`.name.coxswain-tmp-…`, a disk image's `.name.<run>.coxswain-tmp`, the editor's
+//! `.name.coxswain-<run>-….tmp`) are noted, so the next start removes what a run that was killed
 //! or crashed left in the user's folders.
 
 use std::io::{Read, Write};
@@ -120,7 +120,25 @@ fn gone(path: &Path) {
 
 // ---------------------------------------------------------------- passing names beside copies
 
-/// This run's list of the folders it wrote passing names in, `staging/<pid>` in the cache, held
+/// This run's name in the names of its lists, folders and passing names: `<pid>_<8 hex>`, its
+/// process id and a random part, so runs that share a process id (each launch in a Flatpak
+/// sandbox is the same process there) never take each other's for their own.
+pub fn run() -> &'static str {
+    static RUN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    RUN.get_or_init(|| {
+        use std::hash::{BuildHasher, Hasher};
+        // Seeded at random for each process.
+        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+        h.write_u128(
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos()),
+        );
+        format!("{}_{:08x}", std::process::id(), h.finish() as u32)
+    })
+}
+
+/// This run's list of the folders it wrote passing names in, `staging/<run>` in the cache, held
 /// locked while the run lives: a list no one holds is a run that ended.
 struct Journal {
     file: std::fs::File,
@@ -157,8 +175,48 @@ pub(crate) fn staging_in(dir: &Path) {
     }
     let Some(j) = j.as_mut() else { return };
     if j.seen.insert(dir.to_path_buf()) {
-        let line = serde_json::to_string(&dir.to_string_lossy()).unwrap_or_default();
-        let _ = writeln!(j.file, "{line}");
+        let _ = writeln!(j.file, "{}", line_of(dir));
+    }
+}
+
+/// A folder as a line of a run's list: a JSON string, or where the name is not UTF-8 (possible
+/// on the BSDs, illumos and Linux, and Windows' unpaired surrogates) its raw bytes (unix) or
+/// UTF-16 units (Windows) as a JSON array, so the sweep finds the very folder.
+fn line_of(dir: &Path) -> String {
+    if let Some(s) = dir.to_str() {
+        return serde_json::to_string(s).unwrap_or_default();
+    }
+    #[cfg(unix)]
+    let raw: Vec<u16> = std::os::unix::ffi::OsStrExt::as_bytes(dir.as_os_str())
+        .iter()
+        .map(|&b| u16::from(b))
+        .collect();
+    #[cfg(windows)]
+    let raw: Vec<u16> = std::os::windows::ffi::OsStrExt::encode_wide(dir.as_os_str()).collect();
+    serde_json::to_string(&raw).unwrap_or_default()
+}
+
+/// `line_of` read back; `None` for a line it does not give.
+fn folder_of(line: &str) -> Option<PathBuf> {
+    match serde_json::from_str::<serde_json::Value>(line).ok()? {
+        serde_json::Value::String(s) => Some(PathBuf::from(s)),
+        serde_json::Value::Array(units) => {
+            let units: Vec<u16> = units
+                .iter()
+                .map(|u| u.as_u64().and_then(|u| u16::try_from(u).ok()))
+                .collect::<Option<_>>()?;
+            #[cfg(unix)]
+            let os = <std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(
+                units
+                    .iter()
+                    .map(|&u| u8::try_from(u).ok())
+                    .collect::<Option<Vec<u8>>>()?,
+            );
+            #[cfg(windows)]
+            let os = <std::ffi::OsString as std::os::windows::ffi::OsStringExt>::from_wide(&units);
+            Some(PathBuf::from(os))
+        }
+        _ => None,
     }
 }
 
@@ -170,7 +228,7 @@ fn open_journal() -> Option<Journal> {
         .create(true)
         .read(true)
         .append(true)
-        .open(dir.join(std::process::id().to_string()))
+        .open(dir.join(run()))
         .ok()?;
     file.try_lock().ok()?;
     Some(Journal {
@@ -179,69 +237,137 @@ fn open_journal() -> Option<Journal> {
     })
 }
 
-/// A passing name: a copy's `.name.coxswain-tmp-<pid>-…` (a file or a folder), a disk image's
-/// `.name.<pid>.coxswain-tmp`, a save's `.name.coxswain-<pid>-….tmp`; with `pid`, only that run's.
-fn ours(name: &str, pid: Option<&str>) -> bool {
+/// A passing name: a copy's `.name.coxswain-tmp-<run>-…` (a file or a folder), a disk image's
+/// `.name.<run>.coxswain-tmp`, a save's `.name.coxswain-<run>-….tmp`; with `run`, only that
+/// run's (`run()`, or a bare process id from an older version).
+fn ours(name: &str, run: Option<&str>) -> bool {
     if !name.starts_with('.') {
         return false;
     }
-    match pid {
-        Some(pid) => {
-            name.contains(&format!(".coxswain-tmp-{pid}-"))
-                || name.ends_with(&format!(".{pid}.coxswain-tmp"))
-                || (name.contains(&format!(".coxswain-{pid}-")) && name.ends_with(".tmp"))
+    match run {
+        Some(run) => {
+            name.contains(&format!(".coxswain-tmp-{run}-"))
+                || name.ends_with(&format!(".{run}.coxswain-tmp"))
+                || (name.contains(&format!(".coxswain-{run}-")) && name.ends_with(".tmp"))
         }
         None => name.contains(".coxswain-tmp-") || name.ends_with(".coxswain-tmp"),
     }
 }
 
 /// At start: what runs that ended without tidying (a crash, a kill, the power gone) left beside
-/// their copies, removed: only names of `ours` with that run's id, in the folders its list names,
-/// never through a link. A list a running app holds is left.
+/// their copies, removed: only names of `ours` with that run's name, in the folders its list
+/// names, never through a link. A list a running app holds is left.
 pub fn sweep_staging() {
     if let Some(dir) = staging_dir() {
-        sweep_staging_in(&dir);
+        sweep_staging_in(&dir, SWEEP_WAIT);
     }
 }
 
-fn sweep_staging_in(dir: &Path) {
-    let me = std::process::id().to_string();
+/// How long the start waits for the lists' sweeps; one still going on (a network folder that
+/// does not answer) goes on by itself, and the others are not held behind it.
+const SWEEP_WAIT: Duration = Duration::from_secs(60);
+
+/// Each ended run's list swept on a thread of its own, waited for up to `wait` in all.
+fn sweep_staging_in(dir: &Path, wait: Duration) {
+    let (done, all_done) = std::sync::mpsc::channel();
+    let mut started = 0;
+    let end = std::time::Instant::now() + wait;
     for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let pid = e.file_name().to_string_lossy().into_owned();
-        if pid == me || pid.parse::<u32>().is_err() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name == run() || run_of(&name) != Some(name.as_str()) {
             continue;
         }
-        let Ok(mut list) = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(e.path())
-        else {
-            continue;
-        };
-        if list.try_lock().is_err() {
-            continue;
+        let done = done.clone();
+        started += 1;
+        std::thread::spawn(move || {
+            sweep_list(&e.path(), &name, end);
+            let _ = done.send(());
+        });
+    }
+    for _ in 0..started {
+        let left = end.saturating_duration_since(std::time::Instant::now());
+        if all_done.recv_timeout(left).is_err() {
+            break;
         }
-        // Read through the handle that holds the lock: Windows refuses any other.
-        let mut text = String::new();
-        let _ = list.read_to_string(&mut text);
-        for folder in text
-            .lines()
-            .filter_map(|l| serde_json::from_str::<String>(l).ok())
-        {
-            for left in std::fs::read_dir(&folder).into_iter().flatten().flatten() {
-                if !ours(&left.file_name().to_string_lossy(), Some(&pid)) {
-                    continue;
-                }
-                let _ = match std::fs::symlink_metadata(left.path()) {
-                    Ok(m) if m.is_dir() => std::fs::remove_dir_all(left.path()),
-                    Ok(m) if m.is_file() => std::fs::remove_file(left.path()),
-                    _ => Ok(()),
-                };
-            }
-        }
+    }
+}
+
+/// One ended run's list at `path`: each folder it names swept on a thread of its own, so a
+/// folder that does not answer (a network mount gone) holds back none of the others; when all
+/// were swept by `end`, the list is removed, else it stays for the next start.
+// ponytail: a thread per folder named; a hung one stays blocked until the run ends. Lists name
+// a few folders each (where files were written), so that is a few threads at most.
+fn sweep_list(path: &Path, run: &str, end: std::time::Instant) {
+    let Ok(mut list) = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+    else {
+        return;
+    };
+    if list.try_lock().is_err() {
+        return;
+    }
+    // Read through the handle that holds the lock: Windows refuses any other.
+    let mut text = String::new();
+    let _ = list.read_to_string(&mut text);
+    let (done, all_done) = std::sync::mpsc::channel();
+    let mut started = 0;
+    for folder in text.lines().filter_map(folder_of) {
+        let (done, run) = (done.clone(), run.to_string());
+        started += 1;
+        std::thread::spawn(move || {
+            sweep_folder(&folder, &run);
+            let _ = done.send(());
+        });
+    }
+    let whole = (0..started).all(|_| all_done.recv_timeout(end.saturating_duration_since(std::time::Instant::now())).is_ok());
+    if whole {
         // Removed while still held, so no run takes it up between.
-        let _ = std::fs::remove_file(e.path());
-        drop(list);
+        let _ = std::fs::remove_file(path);
+    }
+    drop(list);
+}
+
+/// A folder that hangs, for a test: its sweep sleeps this long first.
+#[cfg(test)]
+static HANG: std::sync::Mutex<Option<(PathBuf, Duration)>> = std::sync::Mutex::new(None);
+
+/// The run's passing names in `folder` removed: folders whole, files, links as links.
+fn sweep_folder(folder: &Path, run: &str) {
+    #[cfg(test)]
+    {
+        let hang = HANG.lock().unwrap().clone();
+        if let Some((_, d)) = hang.filter(|(f, _)| f == folder) {
+            std::thread::sleep(d);
+        }
+    }
+    for left in std::fs::read_dir(folder).into_iter().flatten().flatten() {
+        if !ours(&left.file_name().to_string_lossy(), Some(run)) {
+            continue;
+        }
+        let _ = match std::fs::symlink_metadata(left.path()) {
+            Ok(m) if m.is_dir() => std::fs::remove_dir_all(left.path()),
+            Ok(m) if m.is_file() => std::fs::remove_file(left.path()),
+            _ => Ok(()),
+        };
+    }
+}
+
+/// At a clean exit of either app or the search helper, as the last thing it does: this run's
+/// work folders in the cache and its list go, and nothing more is noted.
+pub fn at_exit() {
+    if let Some(cache) = crate::helper::folder() {
+        remove_own_in(&cache, run());
+    }
+    let mut j = JOURNAL.lock().unwrap_or_else(|e| e.into_inner());
+    NO_JOURNAL.store(true, std::sync::atomic::Ordering::Relaxed);
+    if let Some(held) = j.take() {
+        if let Some(dir) = staging_dir() {
+            // Removed while still held, as the sweep does.
+            let _ = std::fs::remove_file(dir.join(run()));
+        }
+        drop(held);
     }
 }
 
@@ -259,14 +385,14 @@ pub fn register() {
     }
 }
 
-/// Whether the run with process id `pid` lives: `Some(true)` while it holds its list,
-/// `Some(false)` when its list is there and free (it ended), `None` when it has none (it ran
-/// before lists were kept, or its list was swept).
-pub fn alive(pid: u32) -> Option<bool> {
-    if pid == std::process::id() {
+/// Whether the run named `run` (`run()`, or an older version's process id) lives: `Some(true)`
+/// while it holds its list, `Some(false)` when its list is there and free (it ended), `None`
+/// when it has none (it ran before lists were kept, or its list was swept).
+pub fn alive(run: &str) -> Option<bool> {
+    if run == self::run() {
         return Some(true);
     }
-    let list = staging_dir()?.join(pid.to_string());
+    let list = staging_dir()?.join(run);
     let f = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
@@ -275,20 +401,27 @@ pub fn alive(pid: u32) -> Option<bool> {
     Some(f.try_lock().is_err())
 }
 
-/// The process id a run's folder is named by: `<pid>`, `<pid>-<n>`, `inside-<pid>`,
-/// `coxswain-archive-<pid>-<n>`.
-fn pid_of(name: &str) -> Option<u32> {
+/// The run a run's folder is named by: `<run>`, `<run>-<n>`, `inside-<run>`,
+/// `coxswain-archive-<run>-<n>`, `coxswain-replace-<run>-…`; `<run>` is `run()`'s
+/// `<pid>_<hex>`, or an older version's bare process id.
+fn run_of(name: &str) -> Option<&str> {
     let rest = name
         .strip_prefix("inside-")
         .or_else(|| name.strip_prefix("coxswain-archive-"))
         .or_else(|| name.strip_prefix("coxswain-replace-"))
         .unwrap_or(name);
-    rest.split('-').next()?.parse().ok()
+    let run = rest.split('-').next()?;
+    let (pid, part) = run.split_once('_').unwrap_or((run, "0"));
+    let ok = !pid.is_empty()
+        && pid.bytes().all(|b| b.is_ascii_digit())
+        && !part.is_empty()
+        && part.bytes().all(|b| b.is_ascii_hexdigit());
+    ok.then_some(run)
 }
 
-/// `alive` for a run's folder named `name`; `None` for a name no run's id gives.
+/// `alive` for a run's folder named `name`; `None` for a name no run gives.
 pub(crate) fn alive_by_name(name: &str) -> Option<bool> {
-    alive(pid_of(name)?)
+    alive(run_of(name)?)
 }
 
 /// A day: how long the folder of a run that keeps no list (an older version) is left alone.
@@ -297,10 +430,13 @@ const DAY: Duration = Duration::from_secs(24 * 3600);
 /// A run's folder at `path` that a live run may be using: its run holds its list, or it keeps
 /// none and the folder changed within a day. Names no run's id gives are never in use.
 pub(crate) fn in_use(path: &Path) -> bool {
-    let Some(pid) = path.file_name().and_then(|n| pid_of(&n.to_string_lossy())) else {
+    let Some(name) = path.file_name().map(|n| n.to_string_lossy()) else {
         return false;
     };
-    match alive(pid) {
+    let Some(run) = run_of(&name) else {
+        return false;
+    };
+    match alive(run) {
         Some(live) => live,
         None => std::fs::metadata(path)
             .and_then(|m| m.modified())
@@ -339,13 +475,29 @@ pub(crate) fn clear_ended_in(dir: &Path) -> std::io::Result<()> {
     last
 }
 
+/// The work folders of the run `run` in the cache folder `cache` (`RUN_FOLDERS`, `inside-<run>`)
+/// removed, never through a link.
+fn remove_own_in(cache: &Path, run: &str) {
+    let subs = RUN_FOLDERS.iter().map(|s| cache.join(s));
+    for dir in subs.chain([cache.to_path_buf()]) {
+        for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let p = e.path();
+            if run_of(&e.file_name().to_string_lossy()) == Some(run)
+                && std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_dir())
+            {
+                let _ = std::fs::remove_dir_all(&p);
+            }
+        }
+    }
+}
+
 /// Whether `name` in the cache folder is one of `RUN_FOLDERS`: cleared run by run.
 pub(crate) fn by_run(name: &str) -> bool {
     RUN_FOLDERS.contains(&name)
 }
 
 /// At start: the work folders of runs that ended (a crash, a kill, the power gone) removed: in
-/// the cache, `RUN_FOLDERS` and the search helper's `inside-<pid>`; in the temp folder, the
+/// the cache, `RUN_FOLDERS` and the search helper's `inside-<run>`; in the temp folder, the
 /// `coxswain-archive-…` an older version kept there, and find-and-replace's undo copies of
 /// runs that ended. A folder a live run uses stays (`in_use`).
 pub fn sweep_ended() {
@@ -399,6 +551,8 @@ fn sweep_old_temp(tmp: &Path) {
 pub fn at_start() {
     register();
     sweep_ended();
+    // Before the lists go: a sync's folder aside is known as an ended run's by its list.
+    crate::compare::aside::sweep();
     sweep_staging();
     prune_previews();
 }
@@ -526,7 +680,7 @@ mod tests {
             .open(&live)
             .unwrap();
         held.lock().unwrap();
-        sweep_staging_in(&lists);
+        sweep_staging_in(&lists, SWEEP_WAIT);
         assert!(!target.join(".photos.coxswain-tmp-4242-0-a").exists());
         assert!(!target.join(".a.txt.coxswain-tmp-4242-1").exists());
         assert!(!target.join(".disk.4242.coxswain-tmp").exists());
@@ -535,6 +689,39 @@ mod tests {
         assert!(target.join("a.txt").exists());
         assert!(live.exists());
         drop(held);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A folder that does not answer holds back none of the others named in the same list:
+    /// they are swept within the wait, and the list stays to be tried again at the next start.
+    #[test]
+    fn a_hung_folder_holds_back_none_of_its_list() {
+        let d = folder("hung");
+        let (hung, fine, lists) = (d.join("hung"), d.join("fine"), d.join("staging"));
+        for f in [&hung, &fine] {
+            std::fs::create_dir_all(f).unwrap();
+            std::fs::write(f.join(".a.txt.coxswain-tmp-4247-1"), "half").unwrap();
+        }
+        std::fs::create_dir(&lists).unwrap();
+        // The hung one first, as a list read one after another would be stuck on it.
+        std::fs::write(lists.join("4247"), format!("{}\n{}\n", line_of(&hung), line_of(&fine))).unwrap();
+        *HANG.lock().unwrap() = Some((hung.clone(), Duration::from_secs(60)));
+        let t = std::time::Instant::now();
+        sweep_staging_in(&lists, Duration::from_secs(5));
+        assert!(t.elapsed() < Duration::from_secs(40), "{:?}", t.elapsed());
+        assert!(!fine.join(".a.txt.coxswain-tmp-4247-1").exists());
+        assert!(hung.join(".a.txt.coxswain-tmp-4247-1").exists());
+        assert!(lists.join("4247").exists(), "kept for the next start");
+        // At the next start it answers: swept, and the list goes.
+        *HANG.lock().unwrap() = None;
+        // The first sweep's list thread may still be letting go of the list's lock.
+        let t = std::time::Instant::now();
+        while lists.join("4247").exists() && t.elapsed() < Duration::from_secs(30) {
+            sweep_staging_in(&lists, SWEEP_WAIT);
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(!hung.join(".a.txt.coxswain-tmp-4247-1").exists());
+        assert!(!lists.join("4247").exists());
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -559,24 +746,96 @@ mod tests {
             f.seek(std::io::SeekFrom::Start(0)).unwrap();
             f.read_to_string(&mut text).unwrap();
         }
-        let ours: Vec<String> = text
+        let ours: Vec<PathBuf> = text
             .lines()
-            .filter_map(|l| serde_json::from_str(l).ok())
-            .filter(|l: &String| l.contains("coxswain-spill-noted"))
+            .filter_map(folder_of)
+            .filter(|l| l.to_string_lossy().contains("coxswain-spill-noted"))
             .collect();
-        assert_eq!(ours, vec![d.to_string_lossy().into_owned()], "{text}");
+        assert_eq!(ours, vec![d.clone()], "{text}");
         let _ = std::fs::remove_dir_all(d.parent().unwrap());
     }
 
+    /// A folder whose name is not UTF-8 is listed as it is, so the sweep finds it.
     #[test]
-    fn a_runs_folders_are_known_by_their_id() {
-        assert_eq!(pid_of("4242"), Some(4242));
-        assert_eq!(pid_of("4242-7"), Some(4242));
-        assert_eq!(pid_of("inside-4242"), Some(4242));
-        assert_eq!(pid_of("coxswain-archive-4242-0"), Some(4242));
-        assert_eq!(pid_of("coxswain-replace-4242-0123abcd"), Some(4242));
-        assert_eq!(pid_of("part-3"), None);
-        assert_eq!(pid_of("0123abcd.json"), None);
+    #[cfg(unix)]
+    fn a_folder_not_named_in_utf8_is_swept_too() {
+        use std::os::unix::ffi::OsStrExt;
+        let d = folder("bytes");
+        let target = d.join(std::ffi::OsStr::from_bytes(b"caf\xe9"));
+        let lists = d.join("staging");
+        // Some file systems (macOS's) take only UTF-8 names.
+        if std::fs::create_dir(&target).is_err() {
+            return;
+        }
+        assert_eq!(folder_of(&line_of(&target)), Some(target.clone()));
+        assert_eq!(
+            folder_of(&line_of(Path::new("/a/ok"))),
+            Some(PathBuf::from("/a/ok"))
+        );
+        std::fs::write(target.join(".a.txt.coxswain-tmp-4245-1"), "half").unwrap();
+        std::fs::create_dir(&lists).unwrap();
+        std::fs::write(lists.join("4245"), format!("{}\n", line_of(&target))).unwrap();
+        sweep_staging_in(&lists, SWEEP_WAIT);
+        assert!(!target.join(".a.txt.coxswain-tmp-4245-1").exists());
+        assert!(!lists.join("4245").exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A clean exit takes this run's own work folders with it, and no other run's.
+    #[test]
+    fn a_clean_exit_leaves_none_of_its_own_work() {
+        let d = folder("exit");
+        let me = "4246_0a0b0c0d";
+        for p in [
+            format!("scratch/{me}-0/x"),
+            format!("peek/{me}/x"),
+            format!("inside-{me}/x"),
+            "scratch/4246_ffffffff-0/x".into(),
+            "peek/4247/x".into(),
+        ] {
+            std::fs::create_dir_all(d.join(p)).unwrap();
+        }
+        remove_own_in(&d, me);
+        assert!(!d.join(format!("scratch/{me}-0")).exists());
+        assert!(!d.join(format!("peek/{me}")).exists());
+        assert!(!d.join(format!("inside-{me}")).exists());
+        assert!(
+            d.join("scratch/4246_ffffffff-0/x").exists(),
+            "same pid, another run"
+        );
+        assert!(d.join("peek/4247/x").exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_runs_folders_are_known_by_their_run() {
+        assert_eq!(run_of("4242"), Some("4242"));
+        assert_eq!(run_of("4242-7"), Some("4242"));
+        assert_eq!(run_of("4242_0a1b2c3d-7"), Some("4242_0a1b2c3d"));
+        assert_eq!(run_of("inside-4242_0a1b2c3d"), Some("4242_0a1b2c3d"));
+        assert_eq!(run_of("coxswain-archive-4242-0"), Some("4242"));
+        assert_eq!(run_of("coxswain-replace-4242_ff-0123abcd"), Some("4242_ff"));
+        assert_eq!(run_of("part-3"), None);
+        assert_eq!(run_of("0123abcd.json"), None);
+        assert_eq!(run_of("4242_"), None);
+        assert_eq!(run_of("4242_xyz"), None);
+        assert_eq!(run_of(run()), Some(run()));
+    }
+
+    /// Two launches with the same process id (a Flatpak sandbox) are two runs.
+    #[test]
+    fn a_run_is_more_than_its_process_id() {
+        let me = run();
+        let (pid, part) = me.split_once('_').unwrap();
+        assert_eq!(pid, std::process::id().to_string());
+        assert_eq!(part.len(), 8);
+        let other = format!("{pid}_{:08x}", u32::from_str_radix(part, 16).unwrap() ^ 1);
+        let lists = staging_dir().unwrap();
+        crate::fs::private_dir(&lists).unwrap();
+        std::fs::write(lists.join(&other), "").unwrap();
+        assert_eq!(alive(&other), Some(false), "same pid, another run: ended");
+        assert_eq!(alive(me), Some(true));
+        let _ = std::fs::remove_file(lists.join(&other));
     }
 
     /// The crash case for work folders: a run that ended (its list free) loses its folder at
@@ -659,7 +918,7 @@ mod tests {
         std::fs::create_dir(&lists).unwrap();
         let line = serde_json::to_string(&target.to_string_lossy()).unwrap();
         std::fs::write(lists.join("4244"), format!("{line}\n")).unwrap();
-        sweep_staging_in(&lists);
+        sweep_staging_in(&lists, SWEEP_WAIT);
         assert!(outside.join("keep/f").exists());
         let _ = std::fs::remove_dir_all(&d);
     }

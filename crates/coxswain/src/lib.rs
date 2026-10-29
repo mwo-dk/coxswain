@@ -5208,8 +5208,8 @@ fn disk(rest: &[String]) {
     if found[0].kind == Kind::Model {
         return models(&["delete".to_string(), found[0].id.clone()]);
     }
-    // Outside its folder: the exact list first, and a yes.
-    if found.iter().any(|i| i.kind == Kind::Outside) {
+    // Outside its folder, or the user's own files: the exact list first, and a yes.
+    if found.iter().any(|i| matches!(i.kind, Kind::Outside | Kind::Yours) && i.clear) {
         println!("{}", t!("disk.confirm"));
         for i in &found {
             println!("  {}  {}", i.paths.first().map(|p| p.display().to_string()).unwrap_or_else(|| i.name.clone()), coxswain_core::settings::human(i.bytes));
@@ -5280,7 +5280,6 @@ pub fn main() {
     }
     coxswain_core::fs::lock_down();
     // What a write of an archive cut short by a crash left beside it.
-    std::thread::spawn(coxswain_core::archive::clean_stale);
     std::thread::spawn(coxswain_core::spill::at_start);
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
@@ -5327,6 +5326,7 @@ pub fn main() {
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);
     ratatui::restore();
     coxswain_core::archive::clean_up();
+    coxswain_core::spill::at_exit();
     if let Err(e) = res {
         eprintln!("coxswain: {e}");
     }
