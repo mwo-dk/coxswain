@@ -98,8 +98,8 @@ check, and a file already checked is not read again until it changes.
 **Sources.** A git source (`git+https://github.com/owner/repo@refs/tags/v1.4.0` with a commit)
 is looked for in a checkout of that repository: the provenance's folder or one above it, or
 the other pane's folder, whose `origin` (or any remote) points to the same host and path. Then
-git says whether the commit is there and how far from HEAD. **Coxswain never fetches**: a commit
-you have not fetched reads *not in your checkout*.
+git says whether the commit is there and how far from HEAD. **The provenance never fetches**: a
+commit you have not fetched reads *not in your checkout*.
 
 **Not verified.** Coxswain reads the signature, the certificate and the transparency-log entry,
 but checks none of them. A ✓ says that the file here is the file the provenance names, not
@@ -208,8 +208,9 @@ in the terminal app, close the viewer and press **F3** again.
 
 #### Why is my commit "not in your checkout"?
 
-Coxswain never fetches. A tag or branch built on GitHub but not yet pulled is not in your
-checkout; run `git fetch` there, and move off the provenance and back on. *No checkout of it
+The provenance never fetches. A tag or branch built on GitHub but not yet pulled is not in your
+checkout; press **Alt+F** there ([Fetch and pull](../panels/fetch-and-pull.md)) or run
+`git fetch`, and move off the provenance and back on. *No checkout of it
 here* means no repository with a matching remote was found in the provenance's folder, above
 it, or in the other pane: open the other pane in your checkout.
 

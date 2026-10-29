@@ -116,7 +116,9 @@ program, the line says what it does, for as long as the cursor is there: *Enter:
 | A file | *F3 views it · F4 edits it · Shift+F6 renames it* |
 | A branch in the list of branches | *Alt+S switches to the branch under the cursor* |
 | In a git repository | *Alt+B shows the branches · Ctrl+G the history* |
-| In a git repository | *Commit, push or pull: Alt+G opens your git tool here* ([Open in your git tool](git.md#open-in-your-git-tool)) |
+| In a git repository | *Commit or push: Alt+G opens your git tool here* ([Open in your git tool](git.md#open-in-your-git-tool)) |
+| In a git, Mercurial or Jujutsu repository | *Alt+F fetches from the remote, Alt+D pulls (fast-forward only)* ([Fetch and pull](fetch-and-pull.md)) |
+| In a Subversion or CVS working copy | *Alt+D updates the working copy from the server* ([Fetch and pull](fetch-and-pull.md)) |
 | On ZFS | *Alt+Z shows the ZFS snapshots of this folder* |
 
 The rules:

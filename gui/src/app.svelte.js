@@ -31,6 +31,8 @@ export const ui = $state({
   ebook: null,
   /** Checksums being made or checked (`checksum`): the action, the status line, Stop asked. */
   work: null,
+  /** Fetch or Pull under way (`remote`): the action, the tool's last line, Stop asked. */
+  remote: null,
   /** The file operation under way (copy, move, delete, extract, pack), for its progress bar:
    *  the item it is on of how many, its name, how many wait behind it, and whether Stop was
    *  pressed. */
@@ -507,6 +509,41 @@ export async function newBranch(tb = tab()) {
     ok: tr("verb.create"),
     run: (name) => name.trim() && gitSaid(tr("error.new_branch", { name }), invoke("git_new_branch", { dir, name, from })),
   };
+}
+
+/** Fetch (`op` "fetch") or Pull ("pull", fast-forward only) the repository the tab's folder is
+ *  in (`coxswain_core::remote`): the status line says it contacts the remote, with the tool's
+ *  progress and a Stop button (Esc, or the action again, stops it); then what came of it, or a
+ *  dialog with the reason, and the panels and the git line read again. */
+export async function remoteRun(op, tb = tab()) {
+  if (ui.remote) return stopRemote();
+  if (!inBranches(tb) && (!tb.git || tb.history)) return void (ui.status = tr("branches.no_repo"));
+  ui.remote = { action: op, line: "", stopping: false };
+  const poll = setInterval(async () => {
+    const line = await invoke("remote_progress").catch(() => null);
+    if (line && ui.remote) ui.remote.line = line;
+  }, 300);
+  try {
+    ui.status = (await invoke("remote_run", { dir: tb.dir, op })).split("\n")[0];
+  } catch (err) {
+    if (ui.remote?.stopping) ui.status = String(err);
+    else {
+      // Our reason is the first line, whole; the tool's own words under Details.
+      const [text, ...rest] = String(err).trim().split("\n");
+      ui.modal = { kind: "message", feature: "fetch_pull", title: actionLabel(op), text, details: rest.join("\n").trim() };
+    }
+  } finally {
+    clearInterval(poll);
+    ui.remote = null;
+    await reloadAll();
+  }
+}
+
+/** Stop the fetch or pull under way: its tool is ended. */
+export function stopRemote() {
+  if (!ui.remote) return;
+  ui.remote.stopping = true;
+  invoke("remote_stop");
 }
 
 /** Commit, push, pull and the rest: the repository the tab's folder is in, in the user's own
@@ -1082,7 +1119,7 @@ export function gitMenu(tb = tab()) {
     direct: false,
     filter: "",
     cursor: 0,
-    items: [entry("branches", () => openGitView(false, tb)), entry("worktrees", () => openGitView(true, tb)), entry("git_config", () => openGitConfig(tb)), entry("git_tool", () => gitTool(tb))],
+    items: [entry("branches", () => openGitView(false, tb)), entry("worktrees", () => openGitView(true, tb)), ...(tb.git?.fetches ? [entry("fetch", () => remoteRun("fetch", tb))] : []), entry("pull", () => remoteRun("pull", tb)), entry("git_config", () => openGitConfig(tb)), entry("git_tool", () => gitTool(tb))],
   };
 }
 
@@ -1407,6 +1444,7 @@ export function subject(tb = tab()) {
     marked: tb.marks.count,
     place,
     git: !!tb.git,
+    fetches: !!tb.git?.fetches,
     zfs: !!tb.zfs,
     packages: !!tb.packages,
     // A drive's top, or a folder measured at 1 GB or more: where Space is worth a hint.

@@ -325,6 +325,10 @@ actions! {
     Blame = "blame", "Who changed each line", Git, ["Alt+L"];
     LineHistory = "line_history", "History of this function", Git, ["Alt+J"];
     NewBranch = "new_branch", "New branch here", Git, [];
+    // The only actions that reach a repository's remote (`remote`), and only when picked: F for
+    // fetch, D for pull (down from the remote; P is taken). Both were free.
+    Fetch = "fetch", "Fetch from the remote", Git, ["Alt+F"];
+    Pull = "pull", "Pull (fast-forward only)", Git, ["Alt+D"];
     // Commit, push, pull and the rest: in the user's own tool (`handoff`).
     GitTool = "git_tool", "Open in your git tool", Git, ["Alt+G"];
     // The config as git uses it, read-only (`git_config`): changed in the user's own tool.

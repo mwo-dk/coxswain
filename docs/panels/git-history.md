@@ -116,9 +116,9 @@ where they last met.
 
 ![The terminal app's panel titled …cket/@history/@upstream [against upstream · Alt+Y: this branch]: the commit ↑ (HEAD -> master) 9682143 Document the build, and in the bottom border Upstream: origin/master, 1 ahead, 0 behind · Last fetch: …](../screenshots/tui-git-history-upstream.png)
 
-**It never fetches.** The upstream's commits are those git kept at your last fetch (or pull),
-and the last fetch's time says how old they are. To see newer ones, fetch in your own git tool
-(**Alt+G**) and press **Ctrl+R**. **Alt+Y** again, or *This branch*, goes back to the branch's
+**It never fetches by itself.** The upstream's commits are those git kept at your last fetch (or
+pull), and the last fetch's time says how old they are. To see newer ones, press **Alt+F**
+([Fetch and pull](fetch-and-pull.md)); the list is read again after. **Alt+Y** again, or *This branch*, goes back to the branch's
 history. On a file or folder on disk, **Alt+Y** opens its history against the upstream at once:
 only the commits that changed it. The path is `<file or folder>/@history/@upstream`.
 
@@ -225,8 +225,8 @@ pushed (`↑`) and not merged (`↓`), as of the last fetch, whose time the badg
 
 #### Why does Against upstream not show the newest commits on the server?
 
-Coxswain never fetches: it shows what git kept at your last fetch. Fetch in your git tool
-(**Alt+G**), then **Ctrl+R**.
+It shows what git kept at your last fetch, and Coxswain fetches only when you ask. Press
+**Alt+F** ([Fetch and pull](fetch-and-pull.md)); the history is read again when it is done.
 
 #### Why does the graph not show in Columns or Thumbnails?
 

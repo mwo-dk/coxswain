@@ -126,14 +126,14 @@ fn top(dir: &Path) -> Option<&Path> {
 }
 
 /// The root of the Mercurial repository `dir` is in (one with no `.git` or `.jj` of its own).
-fn hg_root(dir: &Path) -> Option<PathBuf> {
+pub(crate) fn hg_root(dir: &Path) -> Option<PathBuf> {
     let root = top(dir)?;
     (root.join(".hg").is_dir() && !root.join(".git").exists() && !root.join(".jj").is_dir())
         .then(|| root.to_path_buf())
 }
 
 /// The root of the Jujutsu repository `dir` is in, when it is one Jujutsu is asked about.
-fn jj_root(dir: &Path) -> Option<PathBuf> {
+pub(crate) fn jj_root(dir: &Path) -> Option<PathBuf> {
     let root = top(dir)?;
     let both = root.join(".git").exists();
     (root.join(".jj").is_dir() && !(both && PREFER_GIT.load(Ordering::Relaxed)))
@@ -202,9 +202,17 @@ struct Jj;
 /// repository's own config may name the program that checks them (and alias a template's words
 /// to `signature`), which would run it; an empty one runs nothing.
 fn jj(dir: &Path) -> Command {
+    let mut c = jj_writing(dir);
+    c.arg("--ignore-working-copy");
+    c
+}
+
+/// `jj` as `jj` runs it, but taking its snapshot of the working copy: for what the user asked
+/// to change (Fetch, `remote`).
+pub(crate) fn jj_writing(dir: &Path) -> Command {
     let mut c = crate::tools::command("jj");
     c.current_dir(dir)
-        .args(["--ignore-working-copy", "--no-pager", "--color=never"])
+        .args(["--no-pager", "--color=never"])
         .args(["gpg", "gpgsm", "ssh"].map(|b| format!("--config=signing.backends.{b}.program=\"\"")))
         .stdin(Stdio::null());
     c
@@ -214,7 +222,7 @@ fn jj(dir: &Path) -> Command {
 /// is missing, its notice is due). A repository whose own config file is still inside it, not
 /// yet moved out by the user's own jj (`config-id` missing), may have come from anywhere: jj
 /// would move it into the user's config and follow it, so jj is not run there.
-fn jj_here(dir: &Path) -> bool {
+pub(crate) fn jj_here(dir: &Path) -> bool {
     let here = crate::user_menu::installed("jj");
     if !here {
         JJ_MISSING.store(true, Ordering::Relaxed);
@@ -223,16 +231,18 @@ fn jj_here(dir: &Path) -> bool {
 }
 
 /// Whether the Jujutsu repository at `dir` keeps a config file of its own that jj would take
-/// in (a plain file, not jj's link to the moved one, with no `…-id` beside it).
-fn jj_config_inside(dir: &Path) -> bool {
+/// in: a file or a link with no `…-id` beside it (jj's own moved config has its id).
+pub(crate) fn jj_config_inside(dir: &Path) -> bool {
     let Some(root) = jj_root(dir) else { return false };
     let dot = root.join(".jj");
     let repo = match std::fs::read_to_string(dot.join("repo")) {
         Ok(to) => dot.join(to.trim()),
         Err(_) => dot.join("repo"),
     };
+    // A link counts too: it may lead to a config file anywhere (made by whoever made the
+    // repository), and jj would follow it.
     let inside = |file: PathBuf, id: PathBuf| {
-        std::fs::symlink_metadata(&file).is_ok_and(|m| m.is_file()) && !id.exists()
+        std::fs::symlink_metadata(&file).is_ok_and(|m| m.is_file() || m.is_symlink()) && !id.exists()
     };
     inside(repo.join("config.toml"), repo.join("config-id"))
         || inside(dot.join("workspace-config.toml"), dot.join("workspace-config-id"))
@@ -460,7 +470,7 @@ struct Hg;
 /// `hg` in `dir`: plain output (`HGPLAIN`: no aliases, colours, pager or localised words) and
 /// never the repository's own `.hg/hgrc` (`HGRCSKIPREPO`), whose hooks and extensions would
 /// run; the user's and the system's config still hold.
-fn hg(dir: &Path) -> Command {
+pub(crate) fn hg(dir: &Path) -> Command {
     let mut c = crate::tools::command("hg");
     c.current_dir(dir)
         .env("HGPLAIN", "1")
@@ -510,7 +520,7 @@ thread_local! {
 
 /// hg is here, or the notice's reason why not: everything but the line needs it, and nothing
 /// is ever asked of git instead (git's branch names must never reach `hg update`).
-fn need_hg() -> io::Result<()> {
+pub(crate) fn need_hg() -> io::Result<()> {
     if hg_here() {
         Ok(())
     } else {
@@ -630,7 +640,7 @@ fn hg_operation(dot: &Path) -> Option<&'static str> {
 /// Whether the repository's own config asks for what changes files as they are written
 /// (`[extensions]` such as largefiles, `[encode]`, `[decode]`): Coxswain never reads that
 /// config, so it leaves writing files to hg itself.
-fn hg_writes_files_safely(root: &Path) -> io::Result<()> {
+pub(crate) fn hg_writes_files_safely(root: &Path) -> io::Result<()> {
     let cfg = std::fs::read_to_string(root.join(".hg/hgrc")).unwrap_or_default();
     let requires = std::fs::read_to_string(root.join(".hg/requires")).unwrap_or_default();
     let own = cfg.lines().any(|l| l.trim_start().starts_with("%include"))

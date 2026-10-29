@@ -70,7 +70,7 @@ A `/` in a branch's name shows as `∕`, since a name in a listing is one path s
 **Alt+S** (*Switch to branch*) works in the list of branches, with the cursor on a branch. The
 desktop app also has *Switch to branch* under *Git* in the preview pane. In a
 [Jujutsu](jujutsu.md) repository **Alt+S** and *New branch here* are refused: the status line says
-*Coxswain only reads Jujutsu repositories: move to a bookmark with jj new or jj edit.* In a
+*Coxswain does not move bookmarks in Jujutsu repositories: move to one with jj new or jj edit.* In a
 [Mercurial](mercurial.md) repository **Alt+S** runs `hg update --check` and *New branch here* makes
 a bookmark. In a [Subversion](subversion.md) or [CVS](cvs.md) working copy the branches are on the
 server: **Alt+B** and **Alt+S** say so.
@@ -130,7 +130,8 @@ is just a folder.
 
 ## Limits
 
-- **Only switch and new branch change anything.** No delete, rename, push, pull, fetch or merge:
+- **Only switch, new branch, fetch and a fast-forward pull change anything here.** Fetch
+  (**Alt+F**) and pull (**Alt+D**) work in the list too ([Fetch and pull](fetch-and-pull.md)). No delete, rename, push or merge:
   **Alt+G** opens your own git tool for those ([Open in your git tool](git.md#open-in-your-git-tool)),
   or use git on the command line or the [user menu](../commands/user-menu.md).
 - **No hooks set in the repository's config, and no work tree elsewhere.** git also runs hooks
@@ -156,7 +157,8 @@ is just a folder.
   someone else, as its files are written.
 - **The switch runs while you wait** in the terminal app; in a very big work tree the keys wait
   for git.
-- **Remote-tracking branches are as the last fetch left them:** Coxswain never fetches.
+- **Remote-tracking branches are as the last fetch left them:** Coxswain fetches only when you
+  press **Alt+F** (or **Alt+D**); the list is read again after.
 - It needs `git` on your `PATH` (2.36 or newer for the worktrees).
 
 ## Settings and config.toml
@@ -195,7 +197,8 @@ git refuses, and so does Coxswain. Commit or stash your change first (the
 
 #### How do I get a branch that is only on the server?
 
-Fetch it first (`git fetch` on the command line); it then shows as `origin∕name` in the list.
+Fetch it first: **Alt+F** in the list ([Fetch and pull](fetch-and-pull.md)), or `git fetch` on the command line;
+it then shows as `origin∕name` in the list.
 **Alt+S** on it makes a local branch that tracks it and switches to it.
 
 #### How do I look at another branch's files without switching?

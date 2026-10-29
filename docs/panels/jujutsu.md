@@ -5,8 +5,8 @@
 In a [Jujutsu](https://jj-vcs.github.io/jj/) repository, Coxswain shows what `jj` knows the
 way it shows git: the line at the bottom of the pane names `jj`, the working-copy change and
 the nearest bookmark, each changed file carries its glyph, **Ctrl+G** lists the history of a
-file or folder and **Alt+B** the bookmarks, as folders. It only reads: nothing is committed,
-moved or snapshotted. Both apps do this, through the `jj` program you have installed.
+file or folder and **Alt+B** the bookmarks, as folders. It only reads, apart from **Alt+F** and **Alt+D**, which run
+`jj git fetch` ([Fetch and pull](fetch-and-pull.md)): nothing is committed, moved or snapshotted. Both apps do this, through the `jj` program you have installed.
 
 ![The desktop app (Cyber) in ~/projects/lander, a Jujutsu repository without .git, the sidebar hidden: docs and src marked, the Last commit column with 2026-10-15 Ada on docs and src and 2026-10-10 Ada on README.md, and at the right of the pane's footer the line jj xkpqlmnu main with one added and one modified file](../screenshots/jj-line.png)
 
@@ -71,7 +71,7 @@ Jujutsu is too* (`prefer_git` under `[git]`). The line then reads `git:` and sho
 Coxswain never makes jj take a snapshot of the working copy (every jj command it runs has
 `--ignore-working-copy`), so it writes no operation of its own to the operation log and imports
 no git refs. It does not switch bookmarks or make new ones: **Alt+S** and *New branch here* say
-*Coxswain only reads Jujutsu repositories: move to a bookmark with jj new or jj edit.* **Alt+G**
+*Coxswain does not move bookmarks in Jujutsu repositories: move to one with jj new or jj edit.* **Alt+G**
 opens your own tool in the repository ([Open in your git tool](git.md#open-in-your-git-tool)):
 the one named in *Settings → Behaviour → Git tool* (a jj tool such as `jjui` can be named there
 as a command, `%d` being the repository), else the first git tool installed, else a terminal.
@@ -120,7 +120,8 @@ with **Ctrl+R**. Next to git, the files come from git and show at once.
 
 #### Can I switch bookmarks here?
 
-No: Coxswain only reads a Jujutsu repository. **Alt+B** lists the bookmarks and their files; move
+No: Coxswain only reads a Jujutsu repository, apart from **Alt+F**, which runs `jj git fetch`
+([Fetch and pull](fetch-and-pull.md)). **Alt+B** lists the bookmarks and their files; move
 with `jj new` or `jj edit` in a terminal, or open your own tool with **Alt+G**.
 
 #### I ran jj commit in a terminal. Does the line follow?
@@ -138,4 +139,4 @@ in the list, named by its commit id alone until you give it a description (`jj d
 Git, Jujutsu and [Mercurial](mercurial.md) in full, and the status of [Subversion](subversion.md) and [CVS](cvs.md) working copies, with their history from the server on request. TFVC and Fossil are not supported; a TFS server's git repositories work as git.
 
 ---
-[← Previous: Git config](git-config.md) · [Next: Mercurial in the panels →](mercurial.md)
+[← Previous: Fetch and pull](fetch-and-pull.md) · [Next: Mercurial in the panels →](mercurial.md)

@@ -40,6 +40,9 @@ pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     .arg(dir)
     .env("GIT_OPTIONAL_LOCKS", "0")
     .env("GIT_NO_LAZY_FETCH", "1")
+    // No transport at all, whatever the repository's own `protocol.*` says: these commands
+    // only read here (Fetch and Pull, `remote`, allow the named ones).
+    .env("GIT_ALLOW_PROTOCOL", "")
     .stdin(Stdio::null());
     // As environment, not `-c`: a driver's name may hold `=`, which `-c` would split at.
     c.env("GIT_CONFIG_COUNT", keys.len().to_string());

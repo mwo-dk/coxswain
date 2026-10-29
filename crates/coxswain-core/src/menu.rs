@@ -80,6 +80,9 @@ pub struct Subject {
     /// The folder is in a git repository, on a ZFS dataset.
     pub git: bool,
     pub zfs: bool,
+    /// The repository's system fetches without updating (git, Mercurial, Jujutsu:
+    /// `remote::fetches`): Fetch is offered; Subversion and CVS get Pull only.
+    pub fetches: bool,
     /// The folder may hold files of installed packages (`bsd::packages_here`).
     pub packages: bool,
     /// The panel shows a drive's top folder, or the cursor is on a folder measured at 1 GB or
@@ -200,6 +203,8 @@ impl Action {
             Branches => s.git && disk,
             SwitchBranch => s.place == Place::Branches && s.single(),
             NewBranch => s.place == Place::Branches,
+            Fetch => s.fetches && matches!(s.place, Place::Disk | Place::Branches),
+            Pull => s.git && matches!(s.place, Place::Disk | Place::Branches),
             Snapshots => {
                 s.zfs && (disk && (n == 0 || s.folders == 1 && s.one) || s.place == Place::Snapshot)
             }
@@ -324,6 +329,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
         &[("branches", Action::Branches), ("history", Action::History)],
     ),
     ("git_tool", &[("key", Action::GitTool)]),
+    ("fetch", &[("fetch", Action::Fetch), ("pull", Action::Pull)]),
+    ("pull", &[("key", Action::Pull)]),
     ("zfs", &[("snapshots", Action::Snapshots)]),
 ];
 
@@ -359,6 +366,8 @@ fn fits(id: &str, s: &Subject) -> bool {
         "history" | "upstream" => s.place == Place::History,
         "git" | "git_tool" => disk && s.git,
         "blame" => disk && s.git && s.single() && s.files == 1 && s.archives == 0,
+        "fetch" => disk && s.fetches,
+        "pull" => disk && s.git && !s.fetches,
         "zfs" => disk && s.zfs,
         "space" => disk && s.big,
         _ => false,
