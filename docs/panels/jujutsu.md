@@ -30,7 +30,8 @@ file or folder and **Alt+B** the bookmarks, as folders. It only reads, apart fro
 2. **Ctrl+G** on a file or folder lists the commits that changed it, newest first, from the
    working-copy commit down (`::@` in jj's words). **Enter** on a commit shows the folder as
    that commit had it; **F3** views a file, **F5** copies it out. All as in
-   [Git history as folders](git-history.md).
+   [Git history as folders](git-history.md), but for *All branches* and *Against upstream*,
+   which are git's: **Alt+A** and **Alt+Y** say so on the status line.
 
    ![The desktop app's lander/@history: the commits 14deafe Softer thrust (the working-copy commit), 4df1a7b Add the engine and the descent notes and 26df36a Start the lander, newest first](../screenshots/jj-history.png)
 3. **Alt+B** lists the bookmarks: the local ones first, then the remote ones as `main@origin`.

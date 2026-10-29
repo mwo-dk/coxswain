@@ -68,7 +68,9 @@ a folder or `..` in a working copy first asks, once per server:
 With yes, the pane shows the history as for git: one entry per revision, named `r1234` and the
 first line of its message, newest first, with its date in *Modified* and its author in *Last
 commit* (desktop app) or on the info line (terminal app). A file's history follows its copies
-and renames, as `svn log` does. At most 2000 revisions are listed.
+and renames, as `svn log` does. At most 2000 revisions are listed. The list has no *All
+branches* and *Against upstream* buttons: those are git's, and **Alt+A** and **Alt+Y** say so on
+the status line.
 
 ![The desktop app's balloon/@history after the yes: r4 Bigger envelope, r3 Add the burner, r2 Start the balloon and r1 Make the layout, newest first, and the line svn r4 trunk in the footer](../screenshots/svn-history.png)
 

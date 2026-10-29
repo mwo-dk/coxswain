@@ -31,7 +31,8 @@ this, through the `hg` program you have installed.
 2. **Ctrl+G** on a file or folder lists the commits that changed it, newest first, from the
    working folder's parent down. **Enter** on a commit shows the folder as that commit had it;
    **F3** views a file, **F5** copies it out, and the preview's *Diff* shows what the commit
-   changed. All as in [Git history as folders](git-history.md).
+   changed. All as in [Git history as folders](git-history.md), but for *All branches* and
+   *Against upstream*, which are git's: **Alt+A** and **Alt+Y** say so on the status line.
 3. **Alt+B** lists the bookmarks, then the named branches that no bookmark shares a name with.
    The active bookmark (or, with none active, the working folder's branch) has `*` before it.
    **Enter** on one shows its files.

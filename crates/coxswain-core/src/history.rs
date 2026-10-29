@@ -185,6 +185,12 @@ pub fn path_in(target: &Path, scope: Scope, commit: Option<&str>) -> PathBuf {
     }
 }
 
+/// Whether a history in `dir` has scopes (this branch, every branch, against the upstream):
+/// git's only. Mercurial, Jujutsu, Subversion and CVS list the one history they have.
+pub fn scoped(dir: &Path) -> bool {
+    crate::vcs::of(dir).name() == "git"
+}
+
 /// Where *History of all branches* (`scope` all) or *Against upstream* (`scope` upstream)
 /// leads from `dir`, with `target` under the cursor (`dir` itself on `..`): from a history's
 /// list, or a commit in it, to its list of `scope`, or back to HEAD's when it is that already;
@@ -2095,4 +2101,19 @@ fn history_timings() {
     time("for the search store, 2000", &|| {
         for_search(&root, "HEAD", None, 2000).unwrap().len()
     });
+}
+
+/// Only git's history has scopes: a Subversion or CVS working copy's has one.
+#[cfg(test)]
+#[test]
+fn history_scopes_are_gits_only() {
+    let d = std::env::temp_dir().join(format!("coxswain-history-scoped-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&d);
+    for (dir, file) in [("svn/.svn", "wc.db"), ("cvs/CVS", "Entries"), ("git/.git", "HEAD")] {
+        std::fs::create_dir_all(d.join(dir)).unwrap();
+        std::fs::write(d.join(dir).join(file), "").unwrap();
+    }
+    assert!(!scoped(&d.join("svn")) && !scoped(&d.join("cvs")));
+    assert!(scoped(&d.join("git")));
+    let _ = std::fs::remove_dir_all(&d);
 }
