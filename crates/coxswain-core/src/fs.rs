@@ -438,9 +438,19 @@ pub(crate) fn sort_keyed(
         .collect();
     let mut order: Vec<usize> = (0..entries.len()).collect();
     order.sort_by(|&i, &j| cmp(&entries[i], &keys[i], &entries[j], &keys[j]));
-    let mut taken: Vec<Entry> = entries.iter_mut().map(std::mem::take).collect();
-    for (slot, i) in entries.iter_mut().zip(order) {
-        *slot = std::mem::take(&mut taken[i]);
+    drop(keys);
+    // Where each entry goes, then each swapped there in place: no second list of a folder of
+    // millions.
+    let mut to = vec![0; order.len()];
+    for (slot, i) in order.into_iter().enumerate() {
+        to[i] = slot;
+    }
+    for i in 0..entries.len() {
+        while to[i] != i {
+            let j = to[i];
+            entries.swap(i, j);
+            to.swap(i, j);
+        }
     }
 }
 

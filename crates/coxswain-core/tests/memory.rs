@@ -10,7 +10,9 @@
 //! another's, and prints a Markdown table. That process gets a home of its own in the same
 //! folder: a peek is made in its cache, never the user's. The 2 GB compressed tars and the 7z
 //! need `gzip`, `xz`, `zstd` and `7z` installed; a case whose tool is missing is left out.
-//! `COXSWAIN_BENCH_ONLY=pdf,tar` measures only the cases whose names hold one of those words.
+//! `COXSWAIN_BENCH_ONLY=pdf,tar` measures only the cases whose names hold one of those words;
+//! `COXSWAIN_BENCH_INPUTS=games-2m-flat.7z` makes only the inputs named (the others' cases are
+//! left out unless made before).
 //!
 //! Readers are given no size limit (`max` = `u64::MAX`): what is measured is the reader, not
 //! `[search] text_max_size`, which today keeps files over 20 MB out.
@@ -167,6 +169,10 @@ fn input(name: &str, make: impl FnOnce(&Path) -> io::Result<()>) -> Option<PathB
     let at = dir().join(name);
     if at.exists() {
         return Some(at);
+    }
+    // `COXSWAIN_BENCH_INPUTS=games-2m-flat.7z,…`: only those are made.
+    if std::env::var("COXSWAIN_BENCH_INPUTS").is_ok_and(|only| !only.split(',').any(|o| o == name)) {
+        return None;
     }
     let part = dir().join(format!("{name}.part"));
     let _ = std::fs::remove_file(&part);
@@ -747,6 +753,29 @@ fn seven_many(to: &Path, n: usize) -> io::Result<()> {
     Ok(())
 }
 
+/// A 7z of `n` small Go games all in one folder, `3d`, in solid blocks of 10,000: as the
+/// largest folders of a public Go dataset are (two million games in one).
+fn seven_flat(to: &Path, n: usize) -> io::Result<()> {
+    let mut w = sevenz_rust2::ArchiveWriter::create(to).map_err(io::Error::other)?;
+    let mut words = Words::new(67);
+    for start in (0..n).step_by(10_000) {
+        let (mut entries, mut readers) = (vec![], vec![]);
+        for i in start..(start + 10_000).min(n) {
+            let name = if i + 1 == n {
+                "3d/last.sgf".to_string()
+            } else {
+                format!("3d/2019-{:02}-{:02}-{i:07}.sgf", i % 12 + 1, i % 28 + 1)
+            };
+            entries.push(sevenz_rust2::ArchiveEntry::new_file(&name));
+            let game = format!("(;GM[1]FF[4]SZ[19]PB[{}]PW[{}];B[pd];W[dp])\n", words.word().to_string(), words.word().to_string());
+            readers.push(sevenz_rust2::SourceReader::from(io::Cursor::new(game.into_bytes())));
+        }
+        w.push_archive_entries(entries, readers).map_err(io::Error::other)?;
+    }
+    w.finish().map_err(io::Error::other)?;
+    Ok(())
+}
+
 /// A folder for search to read: a zip of 200 text files of 1 MB, a tar.gz of the same, and a
 /// zip of one 100 MB text file.
 fn search_folder(to: &Path) -> io::Result<()> {
@@ -787,6 +816,10 @@ enum Do {
     Whole,
     /// `archive::list`, the whole archive.
     List,
+    /// `archive::listing` of a folder inside, as a panel shows it, then of the archive's top
+    /// and that folder again (as browsing goes in, up and in); with what stays in memory once
+    /// the listings are dropped (the archive's list kept for the next look).
+    Folder(&'static str),
     /// `archive::copy_out` of an entry into a fresh folder.
     CopyOut(&'static str),
     /// `archive::peek` of an entry: the copy the preview pane and F3 show.
@@ -1013,6 +1046,9 @@ fn cases() -> Vec<Case> {
         many,
         Do::Peek("d199/f199999.txt"),
     );
+    let flat = input("games-2m-flat.7z", |p| seven_flat(p, 2_000_000));
+    add("7z, 2,000,000 games in one folder: list the folder", flat.clone(), Do::Folder("3d"));
+    add("7z, 2,000,000 games in one folder: peek the last entry", flat, Do::Peek("3d/last.sgf"));
     let games = input("games-900k.7z", |p| seven_many(p, 900_000));
     add("7z, 900,000 games, a 90 MB list: list", games.clone(), Do::List);
     add(
@@ -1193,6 +1229,26 @@ fn memory_case() {
         }
         Do::List => match archive::list(&case.input, usize::MAX) {
             Ok((entries, _)) => format!("{} entries", entries.len()),
+            Err(e) => format!("error: {e}"),
+        },
+        Do::Folder(inner) => match archive::listing(&case.input, inner) {
+            Ok((entries, _)) => {
+                let n = entries.len();
+                let first = t.elapsed().as_secs_f64();
+                drop(entries);
+                let again = Instant::now();
+                let top = archive::listing(&case.input, "").map_or(0, |(e, _)| e.len());
+                let back = archive::listing(&case.input, inner).map_or(0, |(e, _)| e.len());
+                let again = again.elapsed().as_secs_f64();
+                // What is still held once the panels let go: freed memory handed back first.
+                #[cfg(all(target_os = "linux", target_env = "gnu"))]
+                // SAFETY: only hands freed memory back to the system.
+                unsafe {
+                    libc::malloc_trim(0);
+                }
+                let kept = (status("VmRSS:") - base).max(0.0);
+                format!("{n} entries ({first:.2} s; top {top} and back {back} in {again:.2} s), {kept:.0} MB kept after")
+            }
             Err(e) => format!("error: {e}"),
         },
         Do::CopyOut(inner) => {

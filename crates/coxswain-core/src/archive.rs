@@ -448,8 +448,8 @@ pub fn is_comic(path: &Path) -> bool {
 pub fn pages(comic: &Path) -> io::Result<Vec<String>> {
     let mut v: Vec<String> = items(comic)?
         .iter()
-        .filter(|it| !it.dir && crate::pictures::is_page(Path::new(&it.name)))
-        .map(|it| it.name.clone())
+        .filter(|it| !it.dir && crate::pictures::is_page(Path::new(it.name)))
+        .map(|it| it.name.to_string())
         .collect();
     v.sort_by_cached_key(|n| crate::collate::key(n));
     Ok(v)
@@ -760,8 +760,10 @@ fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
 /// time: browsing an archive lists it once per folder, and a compressed tar is read in full
 /// each time. A few, so the preview of another archive does not push out the one browsed.
 static LAST: std::sync::Mutex<Vec<Looked>> = std::sync::Mutex::new(Vec::new());
-type Looked = (PathBuf, Stamp, Arc<[Item]>);
+type Looked = (PathBuf, Stamp, Arc<Items>);
 const LAST_KEPT: usize = 4;
+/// The most the lists kept take together (`Items::bytes`), the newest always kept.
+const LAST_BYTES: usize = if cfg!(test) { 4 << 20 } else { 128 << 20 };
 
 type Stamp = (u64, Option<std::time::SystemTime>);
 
@@ -1028,14 +1030,13 @@ pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
             (all, more)
         }
         None => {
-            let mut raw = read_raw_items(
+            let raw = read_raw_items(
                 path,
                 password_for(path, None).as_deref(),
                 max.saturating_add(1),
             )?;
-            let more = raw.len() > max;
-            raw.retain(|it| sound(&it.name));
-            let all: Arc<[Item]> = raw.into();
+            let more = raw.seen > max;
+            let all = Arc::new(raw.done());
             if !more {
                 keep_items(path, st, all.clone());
             }
@@ -1046,7 +1047,7 @@ pub fn list(path: &Path, max: usize) -> io::Result<(Vec<ArchiveEntry>, bool)> {
         all.iter()
             .take(max)
             .map(|it| ArchiveEntry {
-                name: it.name.clone(),
+                name: it.name.to_string(),
                 size: it.size,
                 is_dir: it.dir,
                 modified: it.modified,
@@ -1283,7 +1284,7 @@ fn nested_cut(archive: &Path, inner: &str, into: bool) -> io::Result<Option<usiz
     let all = items(archive)?;
     Ok(ends
         .into_iter()
-        .find(|&i| all.iter().any(|it| !it.dir && it.name == inner[..i])))
+        .find(|&i| all.iter().any(|it| !it.dir && it.name == &inner[..i])))
 }
 
 /// The archive file `inner` of `archive` is in, and its path inside that one: `archive` itself,
@@ -1574,19 +1575,119 @@ struct Item {
     locked: bool,
 }
 
+/// An archive's entries as they are kept: their names one after another in one string, the
+/// rest in rows of 32 bytes, so a list of millions takes about the bytes of its names and 32
+/// a file, not an allocation of its own for every name. Names that could not be a path
+/// through the archive (`sound`) are left out as they come; `seen` counts them too.
+#[derive(Default)]
+struct Items {
+    names: String,
+    rows: Vec<Row>,
+    seen: usize,
+}
+
+/// An entry of `Items`: where its name ends in `names`, and the rest of an `Item`.
+struct Row {
+    end: usize,
+    size: u64,
+    modified: u64,
+    dir: bool,
+    locked: bool,
+}
+
+/// An entry of `Items` as it is read: its name borrowed from them.
+#[derive(Clone, Copy)]
+struct ItemRef<'a> {
+    name: &'a str,
+    size: u64,
+    dir: bool,
+    modified: u64,
+    locked: bool,
+}
+
+impl ItemRef<'_> {
+    fn owned(self) -> Item {
+        Item {
+            name: self.name.to_string(),
+            size: self.size,
+            dir: self.dir,
+            modified: self.modified,
+            locked: self.locked,
+        }
+    }
+}
+
+impl Items {
+    fn push(&mut self, it: Item) {
+        self.seen += 1;
+        if !sound(&it.name) {
+            return;
+        }
+        self.names.push_str(&it.name);
+        self.rows.push(Row {
+            end: self.names.len(),
+            size: it.size,
+            modified: it.modified,
+            dir: it.dir,
+            locked: it.locked,
+        });
+    }
+
+    fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    fn iter(&self) -> impl Iterator<Item = ItemRef<'_>> + '_ {
+        let mut start = 0;
+        self.rows.iter().map(move |r| {
+            let name = &self.names[start..r.end];
+            start = r.end;
+            ItemRef {
+                name,
+                size: r.size,
+                dir: r.dir,
+                modified: r.modified,
+                locked: r.locked,
+            }
+        })
+    }
+
+    /// The memory they take.
+    fn bytes(&self) -> usize {
+        self.names.capacity() + self.rows.capacity() * std::mem::size_of::<Row>()
+    }
+
+    /// Done growing: the room kept for more is handed back.
+    fn done(mut self) -> Self {
+        self.names.shrink_to_fit();
+        self.rows.shrink_to_fit();
+        self
+    }
+}
+
+impl FromIterator<Item> for Items {
+    fn from_iter<I: IntoIterator<Item = Item>>(iter: I) -> Self {
+        let iter = iter.into_iter();
+        let mut out = Items::default();
+        out.rows.reserve(iter.size_hint().0);
+        iter.for_each(|it| out.push(it));
+        out
+    }
+}
+
 /// The archive's entries, from the last look at it when it has not changed since.
-fn items(archive: &Path) -> io::Result<Arc<[Item]>> {
+fn items(archive: &Path) -> io::Result<Arc<Items>> {
     let stamp = stamp(archive)?;
     if let Some(items) = cached(archive, stamp) {
         return Ok(items);
     }
-    let out: Arc<[Item]> = read_items(archive)?.into();
+    let out = Arc::new(read_items(archive)?.done());
     keep_items(archive, stamp, out.clone());
     Ok(out)
 }
 
 /// The entries of `archive` from the last look, if it has not changed since.
-fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<[Item]>> {
+fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<Items>> {
     LAST.lock()
         .unwrap()
         .iter()
@@ -1595,31 +1696,37 @@ fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<[Item]>> {
 }
 
 /// Keep all the entries of `archive`, read when it was as `stamp` says, for the next look.
-fn keep_items(archive: &Path, stamp: Stamp, items: Arc<[Item]>) {
-    let mut last = LAST.lock().unwrap();
+/// The oldest go first past `LAST_KEPT` lists, or past `LAST_BYTES` with the new one: a list
+/// of millions is kept alone.
+fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
+    kept_with(&mut LAST.lock().unwrap(), archive, stamp, items);
+}
+
+/// `keep_items` into `last`.
+fn kept_with(last: &mut Vec<Looked>, archive: &Path, stamp: Stamp, items: Arc<Items>) {
     last.retain(|(p, ..)| p != archive);
-    if last.len() >= LAST_KEPT {
-        last.remove(0);
+    let mut bytes: usize = last.iter().map(|(.., i)| i.bytes()).sum::<usize>() + items.bytes();
+    while !last.is_empty() && (last.len() >= LAST_KEPT || bytes > LAST_BYTES) {
+        bytes -= last.remove(0).2.bytes();
     }
     last.push((archive.to_path_buf(), stamp, items));
 }
 
-fn read_items(archive: &Path) -> io::Result<Vec<Item>> {
+fn read_items(archive: &Path) -> io::Result<Items> {
     read_items_with(archive, password_for(archive, None).as_deref(), usize::MAX)
 }
 
 /// The first `max` entries, a locked 7z's names read with `password`; those whose names
-/// could not be a path through it (`..`, an empty part, on Windows a drive or `\\`) left out,
-/// so nothing that acts on an entry is led outside the archive.
-fn read_items_with(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Vec<Item>> {
-    let mut out = read_raw_items(archive, password, max)?;
-    out.retain(|it| sound(&it.name));
-    Ok(out)
+/// could not be a path through it (`..`, an empty part, on Windows a drive or `\\`) left out
+/// (`Items::push`), so nothing that acts on an entry is led outside the archive.
+fn read_items_with(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Items> {
+    read_raw_items(archive, password, max)
 }
 
-fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Vec<Item>> {
+/// The first `max` entries, as `Items` keeps them: `seen` counts those left out too.
+fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Result<Items> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    let mut out = vec![];
+    let mut out = Items::default();
     if k == Kind::Disk {
         // An entry without a time (a partition) has the image's.
         let own = modified(archive);
@@ -1669,7 +1776,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
     }
     if k == Kind::Zip {
         // Its directory gone through an entry at a time, never built whole (`zip_dir`).
-        let mut walked = vec![];
+        let mut walked = Items::default();
         match crate::zip_dir::entries(&mut BufReader::new(Joined::open(archive)?), &mut |c| {
             walked.push(Item {
                 name: c.name.trim_end_matches('/').to_string(),
@@ -1678,7 +1785,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: c.modified().map_or(0, unix),
                 locked: c.encrypted(),
             });
-            walked.len() < max
+            walked.seen < max
         }) {
             Ok(()) => return Ok(walked),
             Err(e) if !crate::zip_dir::is_unsure(&e) => return Err(e),
@@ -1742,7 +1849,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             modified: h.mtime().unwrap_or(0),
             locked: false,
         });
-        Ok(out.len() < max)
+        Ok(out.seen < max)
     };
     if k == Kind::Tar(Pack::None) {
         // A plain tar's headers are read by seeking past what lies between them.
@@ -1869,10 +1976,10 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
     // Never a password given in this run: what search knows is what anyone sees.
     let items = read_items_with(archive, None, SEARCH_ENTRIES).ok()?;
     let mut out: Vec<ArchiveEntry> = items
-        .into_iter()
+        .iter()
         .take(SEARCH_ENTRIES)
         .map(|it| ArchiveEntry {
-            name: it.name,
+            name: it.name.to_string(),
             size: it.size,
             is_dir: it.dir,
             modified: it.modified,
@@ -2176,41 +2283,8 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
     } else {
         format!("{inside}/")
     };
-    let mut seen = std::collections::BTreeMap::new();
-    let mut locked = false;
-    for it in items(&real)?.iter() {
-        let Some(rest) = it.name.strip_prefix(&prefix).filter(|r| !r.is_empty()) else {
-            continue;
-        };
-        locked |= it.locked;
-        let (first, deeper) = match rest.split_once('/') {
-            Some((first, _)) => (first.to_string(), true),
-            None => (rest.to_string(), it.dir),
-        };
-        let e = seen
-            .entry(first.clone())
-            .or_insert_with(|| crate::fs::Entry {
-                path: at.join(&first),
-                hidden: first.starts_with('.'),
-                name: first,
-                is_dir: deeper,
-                is_symlink: false,
-                is_exec: false,
-                size: 0,
-                modified: it.modified,
-                created: 0,
-                online: false,
-                referenced: 0,
-            });
-        if deeper {
-            e.is_dir = true;
-            e.size += it.size;
-        } else if it.dir {
-            e.modified = it.modified;
-        } else {
-            (e.size, e.modified) = (it.size, it.modified);
-        }
-    }
+    // Each name once, borrowed from the kept list: its place in `out`.
+    let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     let up = at.parent().unwrap_or(archive).to_path_buf();
     let mut out = vec![crate::fs::Entry {
         name: "..".into(),
@@ -2225,7 +2299,45 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         online: false,
         referenced: 0,
     }];
-    out.extend(seen.into_values());
+    let mut locked = false;
+    let all = items(&real)?;
+    for it in all.iter() {
+        let Some(rest) = it.name.strip_prefix(&prefix).filter(|r| !r.is_empty()) else {
+            continue;
+        };
+        locked |= it.locked;
+        let (first, deeper) = match rest.split_once('/') {
+            Some((first, _)) => (first, true),
+            None => (rest, it.dir),
+        };
+        let i = *seen.entry(first).or_insert_with(|| {
+            out.push(crate::fs::Entry {
+                path: at.join(first),
+                hidden: first.starts_with('.'),
+                name: first.to_string(),
+                is_dir: deeper,
+                is_symlink: false,
+                is_exec: false,
+                size: 0,
+                modified: it.modified,
+                created: 0,
+                online: false,
+                referenced: 0,
+            });
+            out.len() - 1
+        });
+        let e = &mut out[i];
+        if deeper {
+            e.is_dir = true;
+            e.size += it.size;
+        } else if it.dir {
+            e.modified = it.modified;
+        } else {
+            (e.size, e.modified) = (it.size, it.modified);
+        }
+    }
+    drop(seen);
+    out[1..].sort_unstable_by(|a, b| a.name.cmp(&b.name));
     Ok((out, locked))
 }
 
@@ -2333,7 +2445,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     let it = items(&archive)?
         .iter()
         .find(|it| it.name == inner)
-        .cloned()
+        .map(ItemRef::owned)
         .ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::NotFound,
@@ -2401,7 +2513,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
         };
         let stem = stem.rsplit_once('.').map_or(stem, |(s, _)| s);
         let all = items(&archive)?;
-        let beside: Vec<&Item> = all
+        let beside: Vec<ItemRef> = all
             .iter()
             .filter(|i| {
                 !i.dir
@@ -2679,7 +2791,7 @@ fn copy_entries(
         let file = all.iter().find(|it| it.name == inner && !it.dir);
         if let Some(it) = file {
             *any = true;
-            let path = place(&it.name).ok_or_else(|| io::Error::other(crate::t!("disk_image.read_only")))?;
+            let path = place(it.name).ok_or_else(|| io::Error::other(crate::t!("disk_image.read_only")))?;
             return crate::disk_image::read_file(archive, inner, it.size, &mut |r| write(&path, r, it.modified));
         }
         if !inner.is_empty() && !all.iter().any(|it| it.name.starts_with(&prefix)) {
@@ -2693,9 +2805,9 @@ fn copy_entries(
         // p7zip takes them one by one, from what is listed (no links: they are left out).
         let entries: Vec<crate::disk_image::Entry> = all
             .iter()
-            .filter(|it| below(&it.name))
+            .filter(|it| below(it.name))
             .map(|it| crate::disk_image::Entry {
-                name: it.name.clone(),
+                name: it.name.to_string(),
                 size: it.size,
                 dir: it.dir,
                 modified: it.modified,
@@ -3394,7 +3506,7 @@ pub fn add(archive: &Path, into: &[(String, PathBuf)], password: Option<&str>) -
     }
     let new = entries_of(into)?;
     let have: std::collections::HashSet<String> =
-        items(archive)?.iter().map(|it| it.name.clone()).collect();
+        items(archive)?.iter().map(|it| it.name.to_string()).collect();
     if let Some((name, _)) = new
         .iter()
         .find(|(name, n)| !matches!(n, New::Dir) && have.contains(name))
@@ -3449,7 +3561,7 @@ pub fn rename_in(archive: &Path, from: &str, to: &str, password: Option<&str>) -
             crate::t!("err.move_into_itself"),
         ));
     }
-    let names: Vec<String> = items(archive)?.iter().map(|it| it.name.clone()).collect();
+    let names: Vec<String> = items(archive)?.iter().map(|it| it.name.to_string()).collect();
     if names
         .iter()
         .any(|n| n == to || n.starts_with(&format!("{to}/")))
@@ -3639,6 +3751,30 @@ mod tests {
 
     /// Held by every test that makes copies of archives inside archives: they share `NESTED`
     /// and its folder, which `clean_up` empties, so they run one at a time.
+    /// A list kept compact: names one after another, unsound ones left out but counted; and
+    /// a large one pushes the others out, so one list of millions is all that is kept.
+    #[test]
+    fn kept_lists_are_compact_and_one_large_one_is_kept_alone() {
+        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false };
+        let items: Items = [item("a/b.txt"), item("../out"), item("c")].into_iter().collect();
+        assert_eq!((items.len(), items.seen), (2, 3));
+        let names: Vec<&str> = items.iter().map(|it| it.name).collect();
+        assert_eq!(names, ["a/b.txt", "c"]);
+        let big = |n: usize| {
+            let mut i = Items::default();
+            i.push(Item { name: "x".repeat(n), ..item("") });
+            Arc::new(i.done())
+        };
+        // A list of its own, not `LAST`: other tests keep theirs there meanwhile.
+        let (mut last, stamp) = (vec![], (0, None));
+        let names = |last: &Vec<Looked>| last.iter().map(|(p, ..)| p.to_string_lossy().into_owned()).collect::<Vec<_>>();
+        kept_with(&mut last, Path::new("small.zip"), stamp, big(10));
+        kept_with(&mut last, Path::new("one.7z"), stamp, big(LAST_BYTES * 3 / 4));
+        assert_eq!(names(&last), ["small.zip", "one.7z"]);
+        kept_with(&mut last, Path::new("two.7z"), stamp, big(LAST_BYTES * 3 / 4));
+        assert_eq!(names(&last), ["two.7z"], "the older went to make room for the newest");
+    }
+
     fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
         static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
         ONE.lock().unwrap_or_else(|e| e.into_inner())
@@ -4762,7 +4898,7 @@ mod tests {
                 rename_in(&zp, name, to, None).unwrap();
                 name = to;
                 assert_ne!(stamp(&zp).unwrap(), before, "{pack}");
-                let listed: Vec<_> = items(&zp).unwrap().iter().map(|i| i.name.clone()).collect();
+                let listed: Vec<_> = items(&zp).unwrap().iter().map(|i| i.name.to_string()).collect();
                 assert_eq!(listed, [name], "{pack}");
             }
         }

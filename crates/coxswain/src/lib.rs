@@ -181,8 +181,10 @@ impl Panel {
         if coxswain_core::archive::split(&self.dir).is_some() || coxswain_core::zfs::split(&self.dir).is_some() {
             self.sizes.extend(self.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| (e.path.clone(), e.size)));
         }
-        let names: HashSet<&Path> = self.entries.iter().map(|e| e.path.as_path()).collect();
-        self.marked.retain(|p| names.contains(p.as_path()));
+        if !self.marked.is_empty() {
+            let names: HashSet<&Path> = self.entries.iter().map(|e| e.path.as_path()).collect();
+            self.marked.retain(|p| names.contains(p.as_path()));
+        }
         self.recount_marks();
         self.cursor = self.cursor.min(self.entries.len().saturating_sub(1));
         if let Some(n) = keep {
@@ -1332,8 +1334,11 @@ impl App {
 
     /// A listing from the thread, for the panels still showing its folder. One that failed
     /// walks up, as `Panel::load` does, and the status line says why.
-    fn listed(&mut self, dir: PathBuf, keep: Option<String>, r: std::io::Result<Vec<Entry>>) {
+    fn listed(&mut self, dir: PathBuf, keep: Option<String>, mut r: std::io::Result<Vec<Entry>>) {
         self.hint_stale = true;
+        // The last panel showing the folder takes the listing itself: a copy of a folder of
+        // millions is as large again.
+        let last = (0..2).rev().find(|&s| self.panels[s].dir == dir);
         let busy = t!("status.busy", "what" => Self::describe(std::slice::from_ref(&dir)));
         if self.status.as_deref() == Some(busy.as_str()) {
             self.status = None;
@@ -1343,9 +1348,10 @@ impl App {
             if p.dir != dir {
                 continue;
             }
-            match &r {
+            match &mut r {
                 Ok(v) => {
-                    (p.entries, p.link) = (v.clone(), None);
+                    let v = if Some(side) == last { std::mem::take(v) } else { v.clone() };
+                    (p.entries, p.link) = (v, None);
                     p.error = None;
                     p.fill(keep.clone());
                     // Listed after its key had gone on: its folders measured now.
