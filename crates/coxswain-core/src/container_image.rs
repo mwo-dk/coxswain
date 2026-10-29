@@ -10,6 +10,11 @@
 //! the entries read, the layers, the JSON and what a layer may unpack to are all capped.
 //! Nothing is ever written into an image, and the live stores of Docker and Podman are not
 //! read.
+//!
+//! The merged tree is made once, every layer read through, and kept in the cache
+//! (`tar_index`, by the image's identity and its layers'), with where each file's bytes start
+//! in its layer and, for a gzip or zstd layer, the places it can be unpacked from again: a
+//! file is then read from the last such place before it, a plain layer's where it is.
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs::File;
@@ -17,6 +22,7 @@ use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::t;
@@ -79,21 +85,41 @@ impl Store {
 
     /// The bytes of `name`: an entry of the tar, or a file of the folder (never a link).
     fn open(&self, name: &str) -> io::Result<Box<dyn Read>> {
+        self.open_at(name, 0)
+    }
+
+    /// The bytes of `name` from `skip` on.
+    fn open_at(&self, name: &str, skip: u64) -> io::Result<Box<dyn Read>> {
         let missing = || bad(format!("{name} is missing"));
         match self {
             Store::Tar(p, m) => {
                 let &(at, n) = m.get(name).ok_or_else(missing)?;
+                let skip = skip.min(n);
                 let mut f = File::open(p)?;
-                f.seek(SeekFrom::Start(at))?;
-                Ok(Box::new(BufReader::new(f.take(n))))
+                f.seek(SeekFrom::Start(at + skip))?;
+                Ok(Box::new(BufReader::new(f.take(n - skip))))
             }
             Store::Dir(d) => {
                 let p = d.join(name);
                 if !std::fs::symlink_metadata(&p).is_ok_and(|m| m.is_file()) {
                     return Err(missing());
                 }
-                Ok(Box::new(BufReader::new(File::open(p)?)))
+                let mut f = File::open(p)?;
+                f.seek(SeekFrom::Start(skip))?;
+                Ok(Box::new(BufReader::new(f)))
             }
+        }
+    }
+
+    /// What tells a blob changed, past the image file's own identity: in a layout folder the
+    /// blob is a file of its own (its size and time); in a tar the tar's identity says it all.
+    fn blob_stamp(&self, name: &str) -> String {
+        match self {
+            Store::Tar(..) => String::new(),
+            Store::Dir(d) => match stamp(&d.join(name)) {
+                Ok((n, t)) => format!("{n}:{:?}", t.and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())),
+                Err(_) => "missing".into(),
+            },
         }
     }
 
@@ -143,7 +169,7 @@ struct Opened {
 }
 
 /// The images last looked at, and the merged trees of the last few: browsing lists one per
-/// folder, and a tree means unpacking every layer.
+/// folder, and a tree not kept means unpacking every layer.
 type Seen = (PathBuf, Stamp, Option<Arc<Opened>>);
 static SEEN: Mutex<Vec<Seen>> = Mutex::new(Vec::new());
 const SEEN_KEPT: usize = 32;
@@ -412,38 +438,127 @@ pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
 
 // ---------------------------------------------------------------- the merged tree
 
-/// A file or folder of the merged tree. `src`: the layer and entry its bytes are, for a file.
-#[derive(Clone, Debug)]
+/// Where a file's bytes are: its layer, the entry's number in the layer's tar, and, for a
+/// plain file, where its bytes start in the unpacked tar and how many (a sparse file's are
+/// read through its entry: `at` is none).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub(crate) struct Src {
+    pub layer: usize,
+    pub entry: usize,
+    pub at: Option<u64>,
+    pub size: u64,
+}
+
+/// A file or folder of the merged tree. `src`: where its bytes are, for a file.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Node {
     pub size: u64,
     pub dir: bool,
     pub modified: u64,
     pub mode: u32,
-    pub src: Option<(usize, usize)>,
+    pub src: Option<Src>,
     /// A symbolic link's target until links are resolved.
+    #[serde(skip)]
     link: Option<String>,
     /// The layer that made it: a whiteout takes away only what lower layers made.
+    #[serde(skip)]
     layer: usize,
 }
 
+#[derive(Serialize, Deserialize)]
 pub(crate) struct Tree {
     pub files: BTreeMap<String, Node>,
 }
 
-/// A layer's tar, its compression (gzip, zstd, none) found from its first bytes, and what it
-/// unpacks to capped.
-fn layer(store: &Store, name: &str, packed: u64) -> io::Result<Box<dyn Read>> {
-    let mut r = BufReader::new(store.open(name)?);
-    let head = r.fill_buf()?.to_vec();
-    let un: Box<dyn Read> = if head.starts_with(&[0x1f, 0x8b]) {
-        Box::new(flate2::read::MultiGzDecoder::new(r))
+/// How a layer is packed, told by its first bytes.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Pack {
+    Plain,
+    Gz,
+    Zst,
+}
+
+fn pack_of(head: &[u8]) -> Pack {
+    if head.starts_with(&[0x1f, 0x8b]) {
+        Pack::Gz
     } else if head.starts_with(&[0x28, 0xb5, 0x2f, 0xfd]) {
-        Box::new(ruzstd::decoding::StreamingDecoder::new(r).map_err(io::Error::other)?)
+        Pack::Zst
     } else {
-        Box::new(r)
+        Pack::Plain
+    }
+}
+
+fn cap(packed: u64) -> u64 {
+    packed.saturating_mul(UNPACK_RATIO).clamp(UNPACK_FLOOR, UNPACK_MAX)
+}
+
+/// A layer's tar from its start, its compression (gzip, zstd, none) found from its first
+/// bytes, and what it unpacks to capped. With `note`, the places it can be unpacked from again
+/// (`tar_index`) are noted on the way.
+fn layer(store: &Store, name: &str, packed: u64, note: Option<crate::tar_index::Points>) -> io::Result<(Box<dyn Read>, Pack)> {
+    let mut r = BufReader::new(store.open(name)?);
+    let pack = pack_of(r.fill_buf()?);
+    let un: Box<dyn Read> = match pack {
+        Pack::Gz => Box::new(crate::tar_index::Gz::new(r, note)),
+        Pack::Zst => Box::new(crate::tar_index::Zst::new(r, note)),
+        Pack::Plain => Box::new(r),
     };
-    let cap = packed.saturating_mul(UNPACK_RATIO).clamp(UNPACK_FLOOR, UNPACK_MAX);
-    Ok(Box::new(Capped { inner: un, left: cap }))
+    Ok((Box::new(Capped { inner: un, left: cap(packed) }), pack))
+}
+
+/// A layer's tar from a noted place on (`p.out` bytes into it).
+fn layer_from(store: &Store, name: &str, packed: u64, pack: Pack, p: &crate::tar_index::Point) -> io::Result<Box<dyn Read>> {
+    let src = BufReader::new(store.open_at(name, p.file)?);
+    let un: Box<dyn Read> = match pack {
+        Pack::Gz => Box::new(crate::tar_index::Gz::from(src, p)),
+        Pack::Zst => Box::new(crate::tar_index::Zst::from(src, p)),
+        Pack::Plain => Box::new(src),
+    };
+    Ok(Box::new(Capped { inner: un, left: cap(packed) }))
+}
+
+/// Where the places a layer of the image at `path` can be unpacked from are kept.
+fn points_file(path: &Path, store: &Store, name: &str) -> Option<PathBuf> {
+    let part = format!("image-layer-1\0{name}\0{}", store.blob_stamp(name));
+    Some(crate::tar_index::kept_file(path, &part)?.with_extension("seek"))
+}
+
+/// Where the merged tree of the image at `path` is kept: it changes with any of its layers.
+fn tree_file(path: &Path, o: &Opened) -> Option<PathBuf> {
+    let mut part = String::from("image-tree-1");
+    for (name, packed) in &o.image.layers {
+        part.push_str(&format!("\0{name}\0{packed}\0{}", o.store.blob_stamp(name)));
+    }
+    crate::tar_index::kept_file(path, &part)
+}
+
+/// A reader of exactly `left` bytes: one that ends before is a damaged layer, told.
+struct Exact<R> {
+    inner: R,
+    left: u64,
+}
+
+impl<R: Read> Read for Exact<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.left == 0 || buf.is_empty() {
+            return Ok(0);
+        }
+        let n = buf.len().min(self.left.min(usize::MAX as u64) as usize);
+        let got = self.inner.read(&mut buf[..n])?;
+        if got == 0 {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+        self.left -= got as u64;
+        Ok(got)
+    }
+}
+
+/// `n` bytes of `r` passed over; fewer is a damaged layer.
+fn pass(r: &mut dyn Read, n: u64) -> io::Result<()> {
+    if io::copy(&mut r.take(n), &mut io::sink())? != n {
+        return Err(io::ErrorKind::UnexpectedEof.into());
+    }
+    Ok(())
 }
 
 /// A reader that fails past `left` bytes: a layer that unpacks to far more than it could hold
@@ -500,7 +615,21 @@ pub(crate) fn tree(path: &Path) -> io::Result<Arc<Tree>> {
         return Ok(t.clone());
     }
     let o = opened(path)?.ok_or_else(|| bad("no manifest"))?;
-    let t = Arc::new(merge(&o)?);
+    let file = tree_file(path, &o);
+    let t = match file.as_deref().and_then(|f| kept_tree(f, &o)) {
+        Some(t) => t,
+        None => {
+            let t = merge(&o, path)?;
+            // Kept between runs, unless its names alone are too many to keep (`tar_index`).
+            if let Some(f) = &file
+                && t.files.keys().map(String::len).sum::<usize>() <= crate::tar_index::KEPT_NAMES
+            {
+                crate::tar_index::save_json(f, &t);
+            }
+            t
+        }
+    };
+    let t = Arc::new(t);
     let mut trees = TREES.lock().unwrap();
     trees.retain(|(p, ..)| p != path);
     if trees.len() >= TREES_KEPT {
@@ -510,16 +639,37 @@ pub(crate) fn tree(path: &Path) -> io::Result<Arc<Tree>> {
     Ok(t)
 }
 
-fn merge(o: &Opened) -> io::Result<Tree> {
+/// The tree kept at `file` by an earlier run, when it fits the image as it is now.
+fn kept_tree(file: &Path, o: &Opened) -> Option<Tree> {
+    let t: Tree = crate::tar_index::load_json(file)?;
+    let fits = t.files.len() <= FILES_MAX
+        && t.files.values().all(|n| n.src.is_none_or(|s| s.layer < o.image.layers.len() && s.size == n.size));
+    fits.then_some(t)
+}
+
+/// Whether the merged tree of the image at `path` is known without unpacking its layers: in
+/// memory, or kept by an earlier run.
+pub(crate) fn tree_known(path: &Path) -> bool {
+    let Ok(st) = stamp(path) else { return false };
+    if TREES.lock().unwrap().iter().any(|(p, s, _)| p == path && *s == st) {
+        return true;
+    }
+    let Ok(Some(o)) = opened(path) else { return false };
+    tree_file(path, &o).is_some_and(|f| f.is_file())
+}
+
+fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
     let mut files: BTreeMap<String, Node> = BTreeMap::new();
     let mut read = 0usize;
     for (l, (name, packed)) in o.image.layers.iter().enumerate() {
         let mut ordinal = 0usize;
+        let points = crate::tar_index::Points::default();
+        let (r, pack) = layer(&o.store, name, *packed, Some(points.clone()))?;
         // What this layer's whiteouts take away from lower layers: a path and all below it
         // (`.wh.<name>`), or only what is below (an opaque folder). Applied when the layer is
         // read, once each.
         let mut gone: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
-        crate::archive::tar_named(tar::Archive::new(layer(&o.store, name, *packed)?).entries()?, |raw, link, e| {
+        crate::archive::tar_named(tar::Archive::new(r).entries()?, |raw, link, e| {
             let at = ordinal;
             ordinal += 1;
             read += 1;
@@ -553,7 +703,9 @@ fn merge(o: &Opened) -> io::Result<Tree> {
                 layer: l,
             };
             if ty.is_file() || ty.is_gnu_sparse() {
-                (node.size, node.src) = (e.size(), Some((l, at)));
+                let start = (!ty.is_gnu_sparse()).then(|| e.raw_file_position());
+                node.size = e.size();
+                node.src = Some(Src { layer: l, entry: at, at: start, size: node.size });
             } else if ty.is_hard_link() {
                 // Only a file already in the merged tree.
                 let Some(target) = link.as_deref().and_then(clean) else { return Ok(true) };
@@ -598,6 +750,12 @@ fn merge(o: &Opened) -> io::Result<Tree> {
             }
             false
         };
+        // Where it can be unpacked from again, for the files read out of it later.
+        if pack != Pack::Plain
+            && let Some(f) = points_file(path, &o.store, name)
+        {
+            crate::tar_index::save_points_to(&f, &points.borrow());
+        }
         let roots: Vec<(String, bool)> =
             gone.iter().filter(|(p, _)| !covered(p)).map(|(p, s)| (p.clone(), *s)).collect();
         for (path, with_itself) in roots {
@@ -718,34 +876,142 @@ fn resolve(files: &BTreeMap<String, Node>, at: &str, work: &mut usize) -> Option
 }
 
 /// The files `wanted` (a source in the tree, where it goes, its modified time) out of the
-/// image's layers, each layer read once: `write` makes each file from its bytes.
+/// image's layers: `write` makes each file from its bytes.
 pub(crate) fn read_out(
     path: &Path,
-    wanted: &[((usize, usize), PathBuf, u64)],
+    wanted: &[(Src, PathBuf, u64)],
     write: &dyn Fn(&Path, &mut dyn Read, u64) -> io::Result<()>,
 ) -> io::Result<()> {
+    let picked = wanted.iter().map(|(src, to, secs)| (*src, (to.as_path(), *secs))).collect();
+    each(path, picked, &mut |to: &[(&Path, u64)], r| {
+        write(to[0].0, r, to[0].1)?;
+        // The same bytes under other names (hard links, links to it): from the first.
+        for (more, secs) in &to[1..] {
+            write(more, &mut File::open(to[0].0)?, *secs)?;
+        }
+        Ok(true)
+    })
+}
+
+/// The files of the image at `path` that `wanted` picks by name and size (folders never),
+/// for search: `read` gets each with its name, and says whether to go on.
+pub(crate) fn search_read(
+    path: &Path,
+    wanted: &dyn Fn(&str, u64) -> bool,
+    read: &mut dyn FnMut(&str, &mut dyn Read) -> bool,
+) -> io::Result<()> {
+    let t = tree(path)?;
+    let picked = t
+        .files
+        .iter()
+        .filter_map(|(name, n)| Some((n.src?, name.as_str())))
+        .filter(|(s, name)| wanted(name, s.size))
+        .collect();
+    // The same bytes under several names (links) are read once, for the first name.
+    each(path, picked, &mut |names: &[&str], r| Ok(read(names[0], r)))
+}
+
+/// What is done with each file's bytes, given what it was wanted with: whether to go on.
+type Take<'a, T> = dyn FnMut(&[T], &mut dyn Read) -> io::Result<bool> + 'a;
+
+/// Each of `wanted` (a source, and what `f` is given with its bytes) out of the image's
+/// layers, in the order they are in them. A file whose place in its layer is known is reached
+/// from the nearest place before it the layer can be unpacked from (`tar_index`'s points, kept
+/// when the tree was made; a plain layer: at once); others are found by reading their layer
+/// through, once. `f` says whether to go on.
+fn each<T>(
+    path: &Path,
+    wanted: Vec<(Src, T)>,
+    f: &mut Take<'_, T>,
+) -> io::Result<()> {
     let o = opened(path)?.ok_or_else(|| bad("no manifest"))?;
-    let mut by_layer: BTreeMap<usize, HashMap<usize, Vec<(&Path, u64)>>> = BTreeMap::new();
-    for ((l, at), to, secs) in wanted {
-        by_layer.entry(*l).or_default().entry(*at).or_default().push((to, *secs));
+    let mut by_layer: BTreeMap<usize, BTreeMap<Src, Vec<T>>> = BTreeMap::new();
+    for (src, t) in wanted {
+        by_layer.entry(src.layer).or_default().entry(src).or_default().push(t);
     }
-    for (l, mut want) in by_layer {
+    for (l, want) in by_layer {
         let (name, packed) = o.image.layers.get(l).ok_or_else(|| bad("layer"))?;
-        let mut ordinal = 0usize;
-        crate::archive::tar_named(tar::Archive::new(layer(&o.store, name, *packed)?).entries()?, |_, _, e| {
-            let at = ordinal;
-            ordinal += 1;
-            if let Some(to) = want.remove(&at) {
-                write(to[0].0, e, to[0].1)?;
-                // The same bytes under other names (hard links, links to it): from the first.
-                for (more, secs) in &to[1..] {
-                    write(more, &mut File::open(to[0].0)?, *secs)?;
-                }
-            }
-            Ok(!want.is_empty())
-        })?;
+        let go = if want.keys().all(|s| s.at.is_some()) {
+            by_place(path, &o, name, *packed, want, f)?
+        } else {
+            by_entry(&o, name, *packed, want, f)?
+        };
+        if !go {
+            break;
+        }
     }
     Ok(())
+}
+
+/// `each` in one layer whose files' places are known.
+fn by_place<T>(
+    path: &Path,
+    o: &Opened,
+    name: &str,
+    packed: u64,
+    want: BTreeMap<Src, Vec<T>>,
+    f: &mut Take<'_, T>,
+) -> io::Result<bool> {
+    let pack = pack_of(BufReader::new(o.store.open(name)?).fill_buf()?);
+    let points = match pack {
+        Pack::Plain => vec![],
+        _ => points_file(path, &o.store, name)
+            .and_then(|p| crate::tar_index::load_points_from(&p))
+            .unwrap_or_default(),
+    };
+    // The layer unpacked so far, and how far.
+    let mut cur: Option<(Box<dyn Read>, u64)> = None;
+    for (s, ts) in want {
+        let at = s.at.expect("known places only");
+        if pack == Pack::Plain {
+            // A plain layer is read where the file is.
+            cur = Some((Box::new(o.store.open_at(name, at)?), at));
+        } else {
+            let p = points.iter().rev().find(|p| p.out > 0 && p.out <= at);
+            let behind = cur.as_ref().is_none_or(|(_, pos)| p.is_some_and(|p| p.out > *pos));
+            if behind {
+                cur = Some(match p {
+                    Some(p) => (layer_from(&o.store, name, packed, pack, p)?, p.out),
+                    None => (layer(&o.store, name, packed, None)?.0, 0),
+                });
+            }
+        }
+        let (r, pos) = cur.as_mut().expect("opened above");
+        pass(r, at - *pos)?;
+        let mut e = Exact { inner: &mut *r, left: s.size };
+        let go = f(&ts, &mut e)?;
+        // What `f` left of it, so the next file is where it is said to be.
+        io::copy(&mut e, &mut io::sink())?;
+        *pos = at + s.size;
+        if !go {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// `each` in one layer, read through from its start once, its files found by their entry.
+fn by_entry<T>(
+    o: &Opened,
+    name: &str,
+    packed: u64,
+    mut want: BTreeMap<Src, Vec<T>>,
+    f: &mut Take<'_, T>,
+) -> io::Result<bool> {
+    let mut by_entry: HashMap<usize, Src> = want.keys().map(|s| (s.entry, *s)).collect();
+    let mut ordinal = 0usize;
+    let mut go = true;
+    crate::archive::tar_named(tar::Archive::new(layer(&o.store, name, packed, None)?.0).entries()?, |_, _, e| {
+        let at = ordinal;
+        ordinal += 1;
+        if let Some(s) = by_entry.remove(&at)
+            && let Some(ts) = want.remove(&s)
+        {
+            go = f(&ts, e)?;
+        }
+        Ok(go && !want.is_empty())
+    })?;
+    Ok(go)
 }
 
 #[cfg(test)]
@@ -811,14 +1077,24 @@ pub(crate) mod tests {
 
     /// A `docker save` tar of `layers` (plain, gzip, zstd in turn), tagged demo:1.
     pub(crate) fn docker_tar(layers: &[Vec<u8>]) -> Vec<u8> {
-        let mut files: Vec<(String, Vec<u8>)> = vec![];
-        let mut names = vec![];
-        for (i, l) in layers.iter().enumerate() {
-            let l = match i % 3 {
+        let packed: Vec<Vec<u8>> = layers
+            .iter()
+            .enumerate()
+            .map(|(i, l)| match i % 3 {
                 1 => gz(l),
                 2 => zst(l),
                 _ => l.clone(),
-            };
+            })
+            .collect();
+        docker_tar_of(&packed)
+    }
+
+    /// A `docker save` tar of `layers` as they are given, packed or not.
+    fn docker_tar_of(layers: &[Vec<u8>]) -> Vec<u8> {
+        let mut files: Vec<(String, Vec<u8>)> = vec![];
+        let mut names = vec![];
+        for l in layers {
+            let l = l.clone();
             let n = format!("blobs/sha256/{}", digest(&l));
             names.push(n.clone());
             files.push((n, l));
@@ -1041,6 +1317,108 @@ pub(crate) mod tests {
         // A digest that is no digest is never a path.
         assert_eq!(blob("sha256:../../etc/passwd"), None);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Text that packs as text does, different for each `seed`.
+    fn text(n: usize, seed: u32) -> Vec<u8> {
+        let mut x = seed.wrapping_mul(2_654_435_761) | 1;
+        (0..n)
+            .map(|i| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                if i % 7 < 4 { b"the quick brown fox "[i % 20] } else { (x % 40) as u8 + b'0' }
+            })
+            .collect()
+    }
+
+    fn forget(img: &Path) {
+        TREES.lock().unwrap().retain(|(p, ..)| p != img);
+    }
+
+    #[test]
+    fn files_are_read_from_a_place_near_them_and_the_tree_is_kept() {
+        let dir = crate::pictures::tests::folder("image-seek");
+        // 12 MB of files in a gzip layer and in a zstd layer of 1 MB frames: far apart enough
+        // for places to unpack from between them.
+        let files: Vec<(String, Vec<u8>)> = (0..8).map(|i| (format!("big/f{i}.txt"), text(1_500_000, i))).collect();
+        let refs: Vec<(&str, &[u8])> = files.iter().map(|(n, b)| (n.as_str(), b.as_slice())).collect();
+        let plain = tar_of(&refs);
+        let frames: Vec<u8> = plain.chunks(1 << 20).flat_map(zst).collect();
+        let low = tar_of(&[("etc/", b""), ("etc/os", b"alpine")]);
+        let img = dir.join("seek.tar");
+        let mut packed = flate2::write::GzEncoder::new(vec![], flate2::Compression::default());
+        io::Write::write_all(&mut packed, &plain).unwrap();
+        std::fs::write(&img, docker_tar_of(&[low, packed.finish().unwrap(), frames])).unwrap();
+        let t = tree(&img).unwrap();
+        let o = opened(&img).unwrap().unwrap();
+        assert!(tree_file(&img, &o).unwrap().is_file(), "the tree is kept");
+        for (name, _) in &o.image.layers[1..] {
+            let p = crate::tar_index::load_points_from(&points_file(&img, &o.store, name).unwrap()).expect("points kept");
+            assert!(p.iter().filter(|p| p.out > 0).count() >= 2, "{name}: {}", p.len());
+        }
+        assert!(t.files["big/f7.txt"].src.unwrap().at.is_some());
+        // Each file comes out whole, from the place before it, in either layer.
+        let check = |what: &str| {
+            for (i, (name, body)) in files.iter().enumerate() {
+                let out = dir.join(format!("out-{what}-{i}"));
+                std::fs::create_dir_all(&out).unwrap();
+                let got = crate::archive::copy_out(&img, name, &out, None, false).unwrap();
+                assert!(std::fs::read(got).unwrap() == *body, "{what}: {name}");
+            }
+        };
+        check("points");
+        // All of them in one go, the lower layer's too: each layer read on from where it is.
+        let all = dir.join("all");
+        std::fs::create_dir(&all).unwrap();
+        crate::archive::extract(&img, &all).unwrap();
+        assert_eq!(std::fs::read(all.join("seek/etc/os")).unwrap(), b"alpine");
+        assert!(std::fs::read(all.join("seek/big/f5.txt")).unwrap() == files[5].1);
+        // Damaged points are not followed: the layer is unpacked from its start.
+        for (name, _) in &o.image.layers[1..] {
+            std::fs::write(points_file(&img, &o.store, name).unwrap(), b"CXSEEK1\nrubbish").unwrap();
+        }
+        check("damaged");
+        // A later run reads the kept tree, not the layers.
+        let kept = tree_file(&img, &o).unwrap();
+        let mut saved: Tree = crate::tar_index::load_json(&kept).unwrap();
+        let node = saved.files["etc/os"].clone();
+        saved.files.insert("etc/kept".into(), node);
+        crate::tar_index::save_json(&kept, &saved);
+        forget(&img);
+        assert!(tree_known(&img));
+        assert!(tree(&img).unwrap().files.contains_key("etc/kept"));
+        // One naming a layer the image does not have is no tree of it.
+        let mut wrong = saved;
+        wrong.files.get_mut("etc/kept").unwrap().src.as_mut().unwrap().layer = 9;
+        crate::tar_index::save_json(&kept, &wrong);
+        forget(&img);
+        assert!(!tree(&img).unwrap().files.contains_key("etc/kept"));
+        // Search: the merged files by name, and their bytes.
+        let size = std::fs::metadata(&img).unwrap().len();
+        let names: Vec<String> = crate::archive::search_entries(&img, size).unwrap().into_iter().map(|e| e.name).collect();
+        assert!(names.contains(&"big/f3.txt".to_string()) && names.contains(&"etc/os".to_string()));
+        assert!(!names.iter().any(|n| n.starts_with("blobs/")), "never the blobs");
+        let mut got = vec![];
+        crate::archive::search_read(&img, size, &|n, _| n.ends_with("f2.txt") || n == "etc/os", &mut |n, r| {
+            let mut b = vec![];
+            r.read_to_end(&mut b).unwrap();
+            got.push((n.to_string(), b));
+            true
+        })
+        .unwrap();
+        assert_eq!(got.len(), 2);
+        assert!(got.iter().any(|(n, b)| n == "big/f2.txt" && *b == files[2].1));
+        assert!(got.iter().any(|(n, b)| n == "etc/os" && b == b"alpine"));
+        // Changed: neither its tree nor its points are taken for the new one.
+        std::fs::write(&img, docker_tar_of(&[tar_of(&[("new.txt", b"new")])])).unwrap();
+        assert!(!tree_known(&img));
+        assert_eq!(names_of(&tree(&img).unwrap()), ["new.txt"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn names_of(t: &Tree) -> Vec<String> {
+        t.files.keys().cloned().collect()
     }
 
     #[test]

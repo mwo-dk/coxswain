@@ -1412,7 +1412,8 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
 /// The most entries of one archive that search knows.
 pub(crate) const SEARCH_ENTRIES: usize = 50_000;
 /// A compressed tar or a 7z is unpacked from its start to be read, a compressed tar even to be
-/// listed: larger ones are found by their own name only.
+/// listed, a container image's layers all to know its files: larger ones are found by their
+/// own name only, until they were opened once.
 pub(crate) const SEARCH_UNPACK: u64 = 256 << 20;
 /// The most a 7z's list of contents unpacks to for search to look into it: what it reads stays
 /// small in memory. A 7z split into parts is found by its own name only.
@@ -1469,8 +1470,13 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     {
         return None;
     }
-    // A container image is found by its own name: its blobs are no files of its own.
-    if k == Kind::Tar(Pack::None) && crate::container_image::is_image(archive) {
+    // A container image: the files of its merged layers, a large one only once its tree is
+    // kept (it was opened), never its blobs.
+    if k == Kind::Tar(Pack::None)
+        && crate::container_image::is_image(archive)
+        && size > SEARCH_UNPACK
+        && !crate::container_image::tree_known(archive)
+    {
         return None;
     }
     if k == Kind::SevenZ && search_skips_seven(archive) {
@@ -1481,6 +1487,7 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     Some(
         items
             .into_iter()
+            .take(SEARCH_ENTRIES)
             .map(|it| ArchiveEntry {
                 name: it.name,
                 size: it.size,
@@ -1507,6 +1514,12 @@ pub(crate) fn search_read(
     }
     if streamed(archive) && size > SEARCH_UNPACK {
         return Ok(());
+    }
+    if k == Kind::Tar(Pack::None) && crate::container_image::is_image(archive) {
+        if size > SEARCH_UNPACK && !crate::container_image::tree_known(archive) {
+            return Ok(());
+        }
+        return crate::container_image::search_read(archive, &|name, n| sound(name) && wanted(name, n), read);
     }
     match k {
         Kind::Zip => {
@@ -1975,7 +1988,7 @@ fn copy_entries(
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     if k == Kind::Image {
-        // Folders made here, files read out of their layers, each layer once.
+        // Folders made here, files read out of their layers, each layer once at most.
         let tree = crate::container_image::tree(archive)?;
         let mut files = vec![];
         for (name, n) in tree.files.iter().filter(|(name, _)| below(name)) {

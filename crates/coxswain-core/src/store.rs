@@ -1425,6 +1425,39 @@ impl Store {
         self.commit_signs(|| tx.commit(), SignsChange::Reset)
     }
 
+    /// The container image reader changed (`key` at `tag`; an older app leaves a newer tag be):
+    /// every image tar the store knows is listed again, so the files of its merged layers are
+    /// known and read, once. Nothing else is redone. With search inside archives off there is
+    /// nothing inside them: only the tag is kept. The tars are looked at with the store let go.
+    fn image_reader_changed(&self, key: &str, tag: &str, on: bool) -> rusqlite::Result<()> {
+        let tars: Vec<String> = {
+            let db = self.db.lock().unwrap();
+            let before: String = db
+                .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+                .unwrap_or_default();
+            let newer = matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b);
+            if before == tag || newer {
+                return Ok(());
+            }
+            if on {
+                db.prepare("SELECT path FROM files WHERE inside IS NULL AND path LIKE '%.tar'")?
+                    .query_map([], |r| r.get(0))?
+                    .collect::<rusqlite::Result<_>>()?
+            } else {
+                vec![]
+            }
+        };
+        let images: Vec<String> = tars.into_iter().filter(|p| crate::archive::is_image(Path::new(p))).collect();
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        for path in images {
+            // Not what is on disk: the next walk lists it again.
+            tx.execute("UPDATE files SET modified = -1 WHERE path = ?1", [path])?;
+        }
+        tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, tag])?;
+        tx.commit()
+    }
+
     /// `text_exclude` changed: files a new pattern leaves out lose their text and vectors, and
     /// files a pattern no longer leaves out are read again. Folders follow from the walk.
     fn exclude_changed(&self, now: &[String]) -> rusqlite::Result<()> {
@@ -3010,6 +3043,9 @@ fn scan_for(
         store.reader_changed("readers.ebooks", crate::ebook::READER, &ends)?;
     }
     store.archives_changed(cfg.archives)?;
+    // Container images (2.35): search knows the files of their merged layers. Every image tar
+    // search knew before is listed again, once, so they are found; nothing else is redone.
+    store.image_reader_changed("readers.image", "1", cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
     let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
@@ -5096,6 +5132,84 @@ mod tests {
             in_cache(&cache.join("a.zip"), std::slice::from_ref(&cache)),
             "a folder read that is one"
         );
+    }
+
+    #[test]
+    fn store_reads_the_files_of_a_container_image() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-image-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let home = d.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        use crate::container_image::tests::{docker_tar, tar_of};
+        let low = tar_of(&[("app/", b""), ("app/readme.txt", b"the payload manifest"), ("app/old.txt", b"obsolete gizmo")]);
+        // Gzip-packed: a whiteout takes the old file away.
+        let high = tar_of(&[("app/.wh.old.txt", b""), ("app/new.txt", b"fresh widget")]);
+        let img = home.join("demo-image.tar");
+        std::fs::write(&img, docker_tar(&[low, high])).unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let paths = |q: &str| store.search(q, None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
+        assert_eq!(paths("payload"), [img.join("app").join("readme.txt")]);
+        assert_eq!(paths("widget"), [img.join("app").join("new.txt")]);
+        assert_eq!(paths("gizmo"), Vec::<PathBuf>::new(), "taken away by a later layer");
+        assert_eq!(paths("RepoTags"), Vec::<PathBuf>::new(), "never the image's own blobs");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// A store made before search looked into container images lists its image tars once
+    /// more, so the files of their layers are found, and redoes nothing else; a store a newer
+    /// reader made is left as it is.
+    #[test]
+    fn store_made_with_the_old_image_reader_lists_its_images_again_and_nothing_else() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-image-reader-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (home, src) = (d.join("home"), d.join("src"));
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(&src).unwrap();
+        use crate::container_image::tests::{docker_tar, tar_of};
+        let img = home.join("demo-image.tar");
+        std::fs::write(&img, docker_tar(&[tar_of(&[("app/", b""), ("app/readme.txt", b"the payload manifest")])])).unwrap();
+        std::fs::write(src.join("notes.txt"), "the launch window opens in march").unwrap();
+        let tar = home.join("plain.tar");
+        crate::archive::create(&tar, &[src.join("notes.txt")]).unwrap();
+        std::fs::write(home.join("plain.txt"), "a note on disk").unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let s = |p: PathBuf| p.to_string_lossy().into_owned();
+        let (inner, member, plain) = (s(img.join("app").join("readme.txt")), s(tar.join("notes.txt")), s(home.join("plain.txt")));
+        let has_text = |p: &str| -> Option<i64> {
+            store.db.lock().unwrap().query_row("SELECT has_text FROM files WHERE path = ?1", [p], |r| r.get(0)).ok()
+        };
+        assert_eq!((has_text(&inner), has_text(&member), has_text(&plain)), (Some(1), Some(1), Some(1)));
+        // As the old reader left it: nothing known inside the image, no tag; and marks that show
+        // whether the plain tar was listed again (its member gone) or a file read again (no text).
+        let as_before = |tag: Option<&str>| {
+            let db = store.db.lock().unwrap();
+            db.execute("DELETE FROM files WHERE path LIKE ?1", [format!("{}{}%", img.to_string_lossy(), std::path::MAIN_SEPARATOR)]).unwrap();
+            db.execute("DELETE FROM files WHERE path = ?1", [&member]).unwrap();
+            db.execute("UPDATE files SET has_text = 0 WHERE path = ?1", [&plain]).unwrap();
+            match tag {
+                Some(t) => db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers.image', ?1)", [t]).unwrap(),
+                None => db.execute("DELETE FROM meta WHERE key = 'readers.image'", []).unwrap(),
+            };
+        };
+        as_before(None);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(has_text(&inner), Some(1), "the image is listed again: its files are read");
+        assert_eq!(has_text(&member), None, "a plain tar is not listed again");
+        assert_eq!(has_text(&plain), Some(0), "a file on disk is not read again");
+        // Once: the next scan lists nothing again.
+        as_before(Some("1"));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(has_text(&inner), None, "listed once, not every scan");
+        // A newer reader's store: an older one leaves it be.
+        as_before(Some("2"));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(has_text(&inner), None, "a newer reader's work stays");
+        drop(store);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

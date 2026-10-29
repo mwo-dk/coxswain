@@ -266,8 +266,14 @@ release build, under other load.
 | tar.xz 2 GB: peek the last entry | 722 | 53.30 | 2 | 0 MB copy |
 | tar.zst 2 GB: list | 721 | 6.19 | 3 | 21 entries |
 | tar.zst 2 GB: peek the last entry | 721 | 10.38 | 6 | 0 MB copy |
-| container image, 10 layers of 50 MB: list | 524 | 0.01 | 1 | 12 entries |
-| container image: peek the last layer | 524 | 0.23 | 1 | 52 MB copy |
+| container image, 10 layers of 50 MB: list | 524 | 0.26 | 2 | 11 entries |
+| container image, layers: peek a file at the end of the last layer | 524 | 0.00 | 2 | 0 MB copy; 0.07 s before 2.35 |
+| container image, layers: copy out the last layer's 50 MB file | 524 | 0.04 | 2 | 52 MB out; 0.10 s before 2.35 |
+| container image, layers: list again, in a new run | 524 | 0.00 | 2 | 11 entries |
+| container image, 10 gzip layers of 50 MB: list | 303 | 2.95 | 3 | 11 entries |
+| container image, gzip layers: peek a file at the end of the last layer | 303 | 0.28 | 3 | 0 MB copy; 2.69 s before 2.35 |
+| container image, gzip layers: copy out the last layer's 50 MB file | 303 | 0.45 | 2 | 52 MB out; 1.65 s before 2.35 |
+| container image, gzip layers: list again, in a new run | 303 | 0.00 | 2 | 11 entries; 1.95 s before 2.35 |
 | 7z solid, 300 MB in 31 files: list | 108 | 0.00 | 1 | 31 entries |
 | 7z solid: peek the last entry | 108 | 2.93 | 4 | 0 MB copy |
 | pgn 2 GB, 7 million games: games table | 1982 | 19.86 | 332 | 7000000 games (first 1,000 after 0.20 s) |
@@ -287,6 +293,10 @@ What the numbers say:
   there is one (an `.xz` in blocks, any `.gz` or `.bz2`, a `.zst` of several frames): the last
   file of a 1.3 GB `.tar.gz` comes out in 0.05 s instead of 2 s, of a 1.3 GB `.tar.bz2` in
   0.05 s instead of 19 s; out of a `.tar.zst` of one frame it is unpacked from the start.
+- **A container image** is read through once, every layer, the first time it opens; its merged
+  tree is then kept, so a later run opens it at once, and a file in a gzip layer is unpacked
+  from the last place before it (one every 4 MB) instead of from its layer's start: the end of
+  the last of ten 50 MB gzip layers in 0.28 s instead of 2.69 s.
 - **An archive inside an archive** is not opened; its peek is a copy on disk, flat in memory.
 - **A PGN collection's table** costs 48 bytes a game (7 million games, 332 MB) and shows its
   first games within 0.2 s; its search text stops after 4 MB. An SGF collection is read game by game

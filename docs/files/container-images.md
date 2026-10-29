@@ -20,6 +20,8 @@ or Podman need not run.
 - [How the layers are merged](#how-the-layers-are-merged)
 - [Formats](#formats)
 - [Safe with any image](#safe-with-any-image)
+- [Kept between runs](#kept-between-runs)
+- [In search](#in-search)
 - [In the terminal app](#in-the-terminal-app)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
@@ -135,11 +137,47 @@ An image from elsewhere may be made to do harm, so Coxswain trusts nothing in it
   a disk image, a CHM help file, a CBR comic, a mailbox or a container image. Copy its files out
   instead.*
 
-Opening an image reads every layer once, to know its files; the list is kept while the image
-does not change, so browsing it reads nothing again. Copying out reads only the layers the
-files are in, each once. A file previewed or viewed with **F3** is copied to Coxswain's cache
-folder first (256 MiB at most), as for [archives](archives.md#limits). Search finds the image
-by its name, not the files inside it.
+## Kept between runs
+
+The first time an image is opened, every layer is read once, to know its files. What that
+reading found is kept in the cache folder (`coxswain/archive-index/`, as for
+[compressed tars](archives.md#limits)), by the image's path, size, date and, on Unix, its inode:
+
+- **The merged tree**: every file and folder, and where each file's bytes start in its layer.
+  The next time the image opens, in this run or a later one, it opens at once, no layer read.
+- **For each gzip or zstd layer, the places it can be unpacked from**: in a gzip layer one
+  every 4 MB unpacked, with the 32 KB before each; in a zstd layer of several frames the start
+  of each frame (one frame: none).
+
+A file previewed, viewed with **F3** or copied out with **F5** is then unpacked from the last
+such place before it, not from the start of its layer; in a plain (uncompressed) layer it is
+read where it is. The last file of a 50 MB gzip layer comes out in a moment. Copying out many
+files reads each layer at most once, in order. A file previewed or viewed is copied to
+Coxswain's cache folder first (256 MiB at most), as for [archives](archives.md#limits).
+
+An image that changed (another size or date) is read again, and what was kept of it before
+is not used. Kept lists, trees and places count together: 256 at most, the oldest go first;
+*Settings → Disk use* clears them with the copies to look at
+([Where things are kept](../reference/where-things-are-kept.md)). A tree whose names alone are
+more than 64 MB is not kept: that image is read again each run.
+
+## In search
+
+Search looks into a container image as it does into an [archive](../search/archives.md): by
+the names of the files of its merged layers (what **Enter** shows, whiteouts honoured), and by
+their text, read with the same readers as files on disk. A hit shows the path through the
+image (`readme.txt   /home/demo/Downloads/rocket-image.tar/app`), and **Enter** on it opens the
+image at that folder, the cursor on the file. The image's own blobs (`manifest.json`, the layer
+tars) are never searched.
+
+- An image of 256 MB or less is read when search finds it; a larger one only once you have
+  opened it (its tree kept), as for a large compressed tar.
+- The first 50,000 files of an image are known by name; for their text, files up to 20 MB
+  (`[search] text_max_size`), and 128 MB read out of the image at most.
+- Only a `docker save` or `podman save` `.tar` and an OCI `.tar`: an OCI layout folder's
+  `index.json` is not looked into.
+- An image already known to search before 2.35.0 is listed again once, after the update,
+  and the files of its layers read; nothing else in the store is read again.
 
 ## In the terminal app
 
@@ -191,6 +229,18 @@ It is no image Coxswain reads: it has no `manifest.json` or `oci-layout` at its 
 manifest names layers the tar does not hold, or it is broken or past the
 [limits](#safe-with-any-image). A compressed tar (`.tar.gz`) is never taken for an
 image.
+
+#### Does search find the files inside an image?
+
+Yes, by name and by their text, as inside an archive: the files of its merged layers, not its
+blobs. An image larger than 256 MB is looked into once you have opened it with **Enter**
+([In search](#in-search)).
+
+#### Why does an image open faster the second time?
+
+Its merged tree is kept in the cache folder after the first opening, and each packed layer's
+places to unpack from: the next opening reads no layer, and a file comes out from near where
+it is ([Kept between runs](#kept-between-runs)).
 
 #### Can I change files inside an image?
 
