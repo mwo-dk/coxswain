@@ -1,6 +1,6 @@
 <script>
   import { untrack } from "svelte";
-  import { ui, tab, item, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
+  import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
   import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
@@ -128,6 +128,28 @@
   /** The last commit of the entry, `null` when older than the walk, undefined when untracked. */
   const last = $derived(e && e.name !== ".." ? pane.last?.[e.name] : undefined);
   const diffing = $derived(hasDiff && showDiff && !online);
+  /** Who changed each line (`blame`): for a text file of a repository on disk. */
+  const canBlame = $derived(!!e && !e.is_dir && e.name !== ".." && !!pane?.git && !inside && !inSnapshot && !online && TEXTUAL.includes(kind));
+  const blaming = $derived(canBlame && ui.previewBlame && !diffing);
+  /** The file's lines, each with its commit: `{ path, rows, cut }`, or `{ path, error }`. */
+  let blamed = $state(null);
+  $effect(() => {
+    const cur = e;
+    if (!blaming) return void (blamed = null);
+    blamed = { path: cur.path };
+    const timer = setTimeout(async () => {
+      try {
+        const [b, [s, trunc]] = await Promise.all([invoke("git_blame", { path: cur.path }), invoke("read_text", { path: cur.path, max: LIMIT })]);
+        if (e?.path !== cur.path) return;
+        const lines = s.split("\n");
+        if (lines.at(-1) === "") lines.pop();
+        blamed = { path: cur.path, cut: b.cut || trunc, rows: lines.map((text, i) => ({ text, who: b.commits[b.lines[i]] })) };
+      } catch (err) {
+        if (e?.path === cur.path) blamed = { path: cur.path, error: String(err) };
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  });
   /** Parsed forms of textual files: a data tree, calendar events or contact cards. */
   let tree = $state(undefined);
   /** A log, JSON Lines, or a text too big to read whole: shown by the log view, a screen at a
@@ -718,7 +740,12 @@
       {#if hasDiff}
         <div class="modes" role="group" aria-label={t("preview.git")}>
           <button class:on={!showDiff} onclick={() => (ui.previewDiff = false)}>{t("preview.file")}</button>
-          <button class:on={showDiff} onclick={() => (ui.previewDiff = true)} title={t(inSnapshot ? "zfs.diff_tip" : inHistory ? "history.diff_tip" : "preview.changes_against_head")}>{t("preview.diff")}</button>
+          <button class:on={showDiff} onclick={() => ((ui.previewDiff = true), (ui.previewBlame = false))} title={t(inSnapshot ? "zfs.diff_tip" : inHistory ? "history.diff_tip" : "preview.changes_against_head")}>{t("preview.diff")}</button>
+        </div>
+      {/if}
+      {#if canBlame}
+        <div class="modes">
+          <button class:on={blaming} title={t("blame.tip", { key: keyOf("blame") })} onclick={() => ((ui.previewBlame = !blaming), (ui.previewDiff = false))}>{t("blame.button")}</button>
         </div>
       {/if}
       {#if !diffing && kind === "bom"}
@@ -762,6 +789,20 @@
           <p class="more">{t("history.preview_opening")}</p>
         {:else}
           <p class="more">{t("archive.preview_opening", { archive: basename(pane.archive) })}</p>
+        {/if}
+      {:else if blaming}
+        {#if blamed?.error}
+          <p class="more">{blamed.error}</p>
+        {:else if !blamed?.rows}
+          <p class="more">{t("blame.reading")} <button class="link" onclick={() => invoke("git_lines_cancel")}>{t("blame.stop")}</button></p>
+        {:else}
+          <p class="more">{t("blame.click_hint", { key: keyOf("line_history") })}</p>
+          <div class="blamed mono">
+            {#each blamed.rows as r, i (i)}
+              <button class="who" class:new={!r.who?.hash} title={r.who?.hash ? `${r.who.subject}\n${t("blame.history_tip")}` : t("blame.not_committed")} onclick={() => lineHistory(blamed.path, null, i, i)}>{r.who?.margin ?? ""}</button><span class="ln">{r.text}</span>
+            {/each}
+          </div>
+          {#if blamed.cut}<p class="more">{t("blame.cut_gui")}</p>{/if}
         {/if}
       {:else if own && !diffing}
         <h2 class="book">{own.title}</h2>
@@ -1361,6 +1402,29 @@
   }
   .sz {
     color: var(--hidden-fg);
+  }
+  .blamed {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 10px;
+    white-space: pre;
+    font-size: 0.9em;
+  }
+  .blamed .who {
+    font: inherit;
+    text-align: left;
+    color: var(--hidden-fg);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .blamed .who:hover {
+    color: var(--cursor-fg);
+    background: var(--cursor-bg);
+  }
+  .blamed .who.new {
+    color: var(--git-modified-fg);
   }
   .modes {
     display: flex;

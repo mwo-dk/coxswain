@@ -60,6 +60,8 @@ export const ui = $state({
    *  A BOM also has "sunburst", which other kinds show as rendered. */
   previewSource: false,
   previewDiff: false,
+  /** The preview shows who changed each line of the file (`blame`). */
+  previewBlame: false,
   /** Tool -> the engine id picked in the preview (local program or container). */
   previewEngine: {},
   /** Counts each change of a preview tool's choice (`[preview.tools]`): previews made by a tool
@@ -516,6 +518,23 @@ export async function gitTool(tb = tab()) {
     ui.status = String(err);
   }
   reloadAll();
+}
+
+/** The key of action `name`, as menus show it ("" when it has none). */
+export const keyOf = (name) => ui.cfg.actions[name]?.[1] ?? "";
+
+/** The commits that changed the function at `line` (from 0) of `path`, or lines `line..=to`,
+ *  in a window over what is open (the editor comes back as it was). `text` is the editor's. */
+export async function lineHistory(path, text, line, to) {
+  ui.status = t("blame.tracing");
+  try {
+    const h = await invoke("git_line_history", { path, text, line, to });
+    if (!h.changes.length) return void (ui.status = t("blame.no_changes"));
+    ui.status = "";
+    ui.modal = { kind: "linehistory", feature: "git_line_history", path, h, back: ui.modal };
+  } catch (err) {
+    ui.status = String(err);
+  }
 }
 
 /** The git config as git uses it in the tab's folder (outside a repository: system and global),

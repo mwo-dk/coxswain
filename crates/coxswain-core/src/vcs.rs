@@ -471,6 +471,12 @@ fn hg(dir: &Path) -> Command {
     c
 }
 
+/// `hg` in `dir` as `hg` makes it, or the notice's reason why there is none.
+pub(crate) fn hg_command(dir: &Path) -> io::Result<Command> {
+    need_hg()?;
+    Ok(hg(dir))
+}
+
 /// Whether `hg` runs here and is new enough to leave a repository's own config unread
 /// (`HGRCSKIPREPO`, Mercurial 5.4): an older one is as good as missing.
 fn hg_here() -> bool {

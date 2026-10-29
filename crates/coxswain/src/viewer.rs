@@ -247,6 +247,10 @@ pub struct Viewer {
     /// Rows of text on the screen, as last drawn: what PgUp and PgDn move.
     page: usize,
     key_line: String,
+    /// Who changed each line, and a function's history (**b**, **f**), for a file in a repository.
+    git: Option<crate::blame::Git>,
+    /// A function's history, shown over this file until Esc.
+    sub: Option<Box<Viewer>>,
 }
 
 impl Viewer {
@@ -285,6 +289,7 @@ impl Viewer {
         };
         let log = matches!(&body, Body::File(v) if v.log);
         let syntax = (!log && encoding != Encoding::Binary && len <= PLAIN_OVER).then(|| syntax_for(path, &text_head)).flatten();
+        let git = matches!(body, Body::File(_)) && path.parent().is_some_and(coxswain_core::blame::in_repository);
         let [edit, view] = labels;
         let mut v = Viewer {
             title: path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()),
@@ -319,6 +324,8 @@ impl Viewer {
             },
             page: 20,
             key_line: t!("viewer.keys", "edit" => edit, "view" => view),
+            git: git.then(Default::default),
+            sub: None,
         };
         if matches!(v.body, Body::File(_)) {
             let keys = if log { t!("viewer.keys_log") } else { t!("viewer.keys_follow") };
@@ -333,11 +340,67 @@ impl Viewer {
         self
     }
 
+    /// The keys of blame and a function's history on the key line, for a file in a repository.
+    pub fn git_keys(mut self, blame: &str, history: &str) -> Viewer {
+        if self.git.is_some() {
+            self.key_line = format!("{} · {}", self.key_line, t!("viewer.keys_git", "blame" => blame, "history" => history));
+        }
+        self
+    }
+
+    /// Who changed each line shown, or put away.
+    pub fn blame(&mut self) {
+        let path = self.path.clone();
+        if let Some(g) = &mut self.git {
+            self.said = Some(g.toggle_blame(&path));
+        }
+    }
+
+    /// Text held whole (a function's history), coloured as a diff.
+    pub fn text(title: String, text: &str) -> Viewer {
+        let ss = syntaxes();
+        let syntax = ss.find_syntax_by_extension("diff");
+        Viewer {
+            title,
+            kind: None,
+            original: None,
+            path: PathBuf::new(),
+            body: Body::Whole(text.lines().map(str::to_owned).collect()),
+            encoding: Encoding::Utf8,
+            points: syntax.map(|s| vec![Point::new(s)]).unwrap_or_default(),
+            syntax,
+            columns: true,
+            follow: false,
+            pause_on_error: false,
+            grown: Instant::now(),
+            followed_to: 0,
+            keep_line: None,
+            slots: HashMap::new(),
+            era: 0,
+            shown: None,
+            top: 0,
+            left: 0,
+            numbers: false,
+            wrap: false,
+            typing: None,
+            query: String::new(),
+            found: None,
+            seek: None,
+            said: None,
+            page: 20,
+            key_line: t!("viewer.keys_history"),
+            git: None,
+            sub: None,
+        }
+    }
+
     /// A text copy shown as the file it was made of: its name and format in the title.
     pub fn made_of(mut self, of: &Path, kind: String) -> Viewer {
         self.title = of.file_name().map_or_else(|| of.display().to_string(), |n| n.to_string_lossy().into_owned());
         self.kind = Some(kind);
         self.original = Some(of.to_path_buf());
+        // Its lines are not the file's: no blame.
+        self.git = None;
         self.key_line = format!("{} · {}", t!("viewer.keys_original"), self.key_line);
         self
     }
@@ -610,7 +673,11 @@ impl Viewer {
     /// Whether a search is still going on, so the screen is drawn again soon; or the rows a
     /// filter keeps are still being found, or the file is followed.
     pub fn busy(&self) -> bool {
-        self.seek.is_some() || self.follow || matches!(&self.body, Body::File(v) if v.filtered() && !v.count().1)
+        self.seek.is_some()
+            || self.follow
+            || matches!(&self.body, Body::File(v) if v.filtered() && !v.count().1)
+            || self.git.as_ref().is_some_and(crate::blame::Git::busy)
+            || self.sub.as_ref().is_some_and(|v| v.busy())
     }
 
     /// The search going on, for a few dozen milliseconds: rows in batches of at most a few
@@ -622,6 +689,17 @@ impl Viewer {
         {
             self.top = row;
             self.keep_line = None;
+        }
+        if let Some(v) = &mut self.sub {
+            v.poll();
+        }
+        match self.git.as_mut().map(crate::blame::Git::poll) {
+            Some(crate::blame::Came::Said(s)) => self.said = Some(s),
+            Some(crate::blame::Came::History(h)) => {
+                let title = crate::blame::title(&h, &self.path);
+                self.sub = Some(Box::new(Viewer::text(title, &h.text())));
+            }
+            _ => {}
         }
         if self.follow {
             self.follow_on();
@@ -687,6 +765,13 @@ impl Viewer {
 
     /// A key, and the action the keymap binds it to.
     pub fn key(&mut self, key: Key, action: Option<Action>) -> Outcome {
+        // A function's history over the file: its keys are its own, Esc comes back here.
+        if let Some(v) = &mut self.sub {
+            if let Outcome::Close = v.key(key, action) {
+                self.sub = None;
+            }
+            return Outcome::Stay;
+        }
         if let Some(typing) = &mut self.typing {
             let field = match typing {
                 Typing::Search(s) | Typing::Line(s) | Typing::Filter(s) => s,
@@ -740,6 +825,11 @@ impl Viewer {
         // Esc stops a search going on, rather than close the file.
         if key.code == KeyCode::Esc && self.seek.take().is_some() {
             self.said = None;
+            return Outcome::Stay;
+        }
+        // And blame or a history being read.
+        if key.code == KeyCode::Esc && self.git.as_mut().is_some_and(crate::blame::Git::stop) {
+            self.said = Some(t!("blame.stopped"));
             return Outcome::Stay;
         }
         self.seek = None;
@@ -807,12 +897,27 @@ impl Viewer {
                 self.left = 0;
                 self.era += 1;
             }
+            _ if action == Some(Action::Blame) && self.git.is_some() => self.blame(),
+            // The function at the line found or gone to, else at the top of the screen.
+            _ if action == Some(Action::LineHistory) && self.git.is_some() => {
+                let row = self.found.unwrap_or(self.top);
+                let line = self.rows_at(row, row + 1).first().map_or(row, |r| r.0);
+                // A file too big to blame is followed by its lines alone.
+                let small = std::fs::metadata(&self.path).is_ok_and(|m| m.len() <= 32 << 20);
+                let text = small.then(|| std::fs::read(&self.path).ok()).flatten().map(|b| String::from_utf8_lossy(&b).into_owned()).unwrap_or_default();
+                let path = self.path.clone();
+                self.said = self.git.as_mut().map(|g| g.trace(&path, text, line, line));
+            }
+            _ if matches!(action, Some(Action::Blame | Action::LineHistory)) => self.said = Some(t!("blame.not_here")),
             _ => {}
         }
         Outcome::Stay
     }
 
     pub fn draw(&mut self, f: &mut Frame, theme: &Theme) {
+        if let Some(v) = &mut self.sub {
+            return v.draw(f, theme);
+        }
         let area = f.area();
         let base = sty(&theme.panel);
         let bg = base.bg.unwrap_or(Color::Reset);
@@ -867,7 +972,9 @@ impl Viewer {
         let h = body.height as usize;
         self.page = h;
         let gutter = if self.numbers { lines_known.max(1).to_string().len() + 1 } else { 0 };
-        let w = (body.width as usize).saturating_sub(gutter).max(1);
+        let blamed = self.git.as_ref().is_some_and(|g| g.blame.is_some());
+        let margin = if blamed { crate::blame::WIDTH } else { 0 };
+        let w = (body.width as usize).saturating_sub(gutter + margin).max(1);
         let rows = self.highlighted(self.top, h);
         let slots: HashMap<&str, Style> = theme.slots().into_iter().map(|(n, s)| (n, sty(s))).collect();
         let token = |slot: Option<&str>| match slot.and_then(|s| slots.get(s)).and_then(|s| s.fg) {
@@ -908,7 +1015,7 @@ impl Viewer {
         {
             let names: String = log.columns.iter().map(|(c, w)| format!("{}  ", fit(c, *w))).collect();
             let cells: Vec<(char, Style)> = names.chars().map(|c| (c, dim.add_modifier(Modifier::BOLD))).collect();
-            let mut spans = vec![Span::styled(" ".repeat(gutter), dim)];
+            let mut spans = vec![Span::styled(" ".repeat(gutter + margin), dim)];
             spans.extend(clip(&cells, self.left, w).iter().map(|(c, s)| Span::styled(c.to_string(), *s)));
             f.render_widget(Paragraph::new(Line::from(spans)).style(base), header);
         }
@@ -919,6 +1026,9 @@ impl Viewer {
             let chunks: Vec<&[(char, Style)]> = if self.wrap { wrapped(&cells, w) } else { vec![clip(&cells, self.left, w)] };
             for (j, chunk) in chunks.into_iter().enumerate() {
                 let mut spans = vec![];
+                if let Some(m) = self.git.as_ref().and_then(|g| g.margin(no - 1)) {
+                    spans.push(Span::styled(if j == 0 { m } else { " ".repeat(margin) }, dim));
+                }
                 if self.numbers {
                     let n = if j == 0 { format!("{no:>width$} ", width = gutter - 1) } else { " ".repeat(gutter) };
                     spans.push(Span::styled(n, if self.found == Some(self.top + k) { hit } else { dim }));

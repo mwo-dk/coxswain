@@ -76,6 +76,10 @@ pub struct Editor {
     /// Rows of text on the screen, as last drawn.
     page: usize,
     key_line: String,
+    /// Who changed each line, and a function's history (`Blame`, `LineHistory`), in a repository.
+    git: Option<crate::blame::Git>,
+    /// A function's history, shown over the text until Esc.
+    sub: Option<Box<crate::viewer::Viewer>>,
 }
 
 impl Editor {
@@ -83,6 +87,7 @@ impl Editor {
         let Doc { text, encoding, crlf, stamp } = coxswain_core::edit::open(path)?;
         let head: String = text.chars().take(8192).collect();
         let syntax = syntax_for(path, &head);
+        let git = path.parent().is_some_and(coxswain_core::blame::in_repository);
         Ok(Editor {
             title: path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()),
             path: path.to_path_buf(),
@@ -102,7 +107,17 @@ impl Editor {
             clip: String::new(),
             page: 20,
             key_line: t!("editor.keys"),
+            git: git.then(Default::default),
+            sub: None,
         })
+    }
+
+    /// The keys of blame and a function's history on the key line, for a file in a repository.
+    pub fn git_keys(mut self, blame: &str, history: &str) -> Editor {
+        if self.git.is_some() {
+            self.key_line = format!("{} · {}", self.key_line, t!("viewer.keys_git", "blame" => blame, "history" => history));
+        }
+        self
     }
 
     /// Text the terminal pasted: put in as it is, with no indent added.
@@ -130,6 +145,31 @@ impl Editor {
     fn touched(&mut self) {
         if let Some(line) = self.buf.take_touched() {
             self.points.truncate(line / STEP + 1);
+            // The lines moved: who changed them is no longer known.
+            if let Some(g) = self.git.as_mut().filter(|g| g.blame.is_some()) {
+                g.blame = None;
+                self.said = Some(t!("blame.edited"));
+            }
+        }
+    }
+
+    /// Whether blame or a history is being read, so the screen is drawn again soon.
+    pub fn busy(&self) -> bool {
+        self.git.as_ref().is_some_and(crate::blame::Git::busy) || self.sub.as_ref().is_some_and(|v| v.busy())
+    }
+
+    /// What came of blame or a history.
+    pub fn poll(&mut self) {
+        if let Some(v) = &mut self.sub {
+            v.poll();
+        }
+        match self.git.as_mut().map(crate::blame::Git::poll) {
+            Some(crate::blame::Came::Said(s)) => self.said = Some(s),
+            Some(crate::blame::Came::History(h)) => {
+                let title = crate::blame::title(&h, &self.path);
+                self.sub = Some(Box::new(crate::viewer::Viewer::text(title, &h.text())));
+            }
+            _ => {}
         }
     }
 
@@ -176,6 +216,12 @@ impl Editor {
     }
 
     fn key_inner(&mut self, key: Key, action: Option<Action>) -> Outcome {
+        if let Some(v) = &mut self.sub {
+            if let crate::viewer::Outcome::Close = v.key(key, action) {
+                self.sub = None;
+            }
+            return Outcome::Stay;
+        }
         // A letter as typed: Shift made ASCII letters lower case with `shift` (`Key::new`).
         let ch = match key.code {
             KeyCode::Char(c) if !key.ctrl && !key.alt || key.ctrl && key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
@@ -232,9 +278,25 @@ impl Editor {
             return Outcome::Stay;
         }
         self.said = None;
+        if key.code == KeyCode::Esc && self.git.as_mut().is_some_and(crate::blame::Git::stop) {
+            self.said = Some(t!("blame.stopped"));
+            return Outcome::Stay;
+        }
         let page = self.page.max(1) as isize;
         let sel = key.shift;
         match key.code {
+            _ if matches!(action, Some(Action::Blame | Action::LineHistory)) && self.git.is_none() => self.said = Some(t!("blame.not_here")),
+            _ if action == Some(Action::Blame) && self.buf.dirty() && self.git.as_ref().is_none_or(|g| g.blame.is_none()) => self.said = Some(t!("blame.save_first")),
+            _ if action == Some(Action::Blame) => {
+                let path = self.path.clone();
+                self.said = self.git.as_mut().map(|g| g.toggle_blame(&path));
+            }
+            // The function the cursor is in, or the lines picked.
+            _ if action == Some(Action::LineHistory) => {
+                let (a, b) = self.buf.selection().map_or((self.buf.cursor.line, self.buf.cursor.line), |(a, b)| (a.line, if b.col == 0 && b.line > a.line { b.line - 1 } else { b.line }));
+                let (path, text) = (self.path.clone(), self.buf.text());
+                self.said = self.git.as_mut().map(|g| g.trace(&path, text, a, b));
+            }
             _ if key.code == KeyCode::Esc || action == Some(Action::Quit) => {
                 if !self.buf.dirty() {
                     return Outcome::Close;
@@ -352,6 +414,9 @@ impl Editor {
     }
 
     pub fn draw(&mut self, f: &mut Frame, theme: &Theme) {
+        if let Some(v) = &mut self.sub {
+            return v.draw(f, theme);
+        }
         let area = f.area();
         let base = sty(&theme.panel);
         let bg = base.bg.unwrap_or(Color::Reset);
@@ -375,7 +440,8 @@ impl Editor {
         let h = (body.height as usize).max(1);
         self.page = h;
         // A space either side of the line numbers, so they never touch the frame.
-        let gutter = count.to_string().len() + 2;
+        let margin = if self.git.as_ref().is_some_and(|g| g.blame.is_some()) { crate::blame::WIDTH } else { 0 };
+        let gutter = count.to_string().len() + 2 + margin;
         let w = (body.width as usize).saturating_sub(gutter).max(1);
         // The cursor on the screen: the text scrolled to it.
         let cur = self.buf.cursor;
@@ -432,7 +498,11 @@ impl Editor {
                 cells.push((' ', marked));
             }
             let shown = cells.iter().skip(self.left).take(w).filter(|(c, _)| *c != '\0');
-            let mut spans = vec![Span::styled(format!(" {:>width$} ", no + 1, width = gutter - 2), if no == cur.line { base } else { dim })];
+            let mut spans = vec![];
+            if let Some(m) = self.git.as_ref().and_then(|g| g.margin(no)) {
+                spans.push(Span::styled(m, dim));
+            }
+            spans.push(Span::styled(format!(" {:>width$} ", no + 1, width = gutter - 2 - margin), if no == cur.line { base } else { dim }));
             spans.extend(shown.map(|(c, s)| Span::styled(c.to_string(), *s)));
             rows.push(Line::from(spans));
         }

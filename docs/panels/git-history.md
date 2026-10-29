@@ -203,7 +203,8 @@ is there, and the keys keep working meanwhile.
 #### How do I see who changed a file, and when?
 
 The *Last commit* column (desktop app) or the line under the panel (terminal app) shows the
-last one. **Ctrl+G** lists them all, each with its date and author.
+last one. **Ctrl+G** lists them all, each with its date and author. For each line of a file,
+**Alt+L** ([Who changed each line](git-blame.md)).
 
 #### What do the lines at the start of each commit mean?
 
@@ -277,4 +278,4 @@ The desktop app tints the pane and shows *commit a1b2c3d* at the end of the path
 app ends the title in `[commit a1b2c3d]`. The path holds `@history`.
 
 ---
-[← Previous: Git in the panels](git.md) · [Next: Git branches and worktrees →](git-branches.md)
+[← Previous: Git in the panels](git.md) · [Next: Who changed each line →](git-blame.md)

@@ -321,6 +321,9 @@ actions! {
     Branches = "branches", "Git branches", Git, ["Alt+B"];
     SwitchBranch = "switch_branch", "Switch to branch", Git, ["Alt+S"];
     Worktrees = "worktrees", "Git worktrees", Git, ["Alt+W"];
+    // On a file in a repository, and in the viewer and the editor. L for lines; J beside it.
+    Blame = "blame", "Who changed each line", Git, ["Alt+L"];
+    LineHistory = "line_history", "History of this function", Git, ["Alt+J"];
     NewBranch = "new_branch", "New branch here", Git, [];
     // Commit, push, pull and the rest: in the user's own tool (`handoff`).
     GitTool = "git_tool", "Open in your git tool", Git, ["Alt+G"];

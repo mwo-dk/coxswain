@@ -16,6 +16,7 @@ mod settings;
 mod setup;
 mod space;
 mod ui;
+mod blame;
 mod viewer;
 mod editor;
 mod split_escape;
@@ -1519,6 +1520,16 @@ impl App {
             Action::NewBranch => self.new_branch(),
             Action::GitTool => self.git_tool(),
             Action::GitConfig => self.git_config(),
+            // A file in the viewer with who changed each line; a function's history is asked there.
+            Action::Blame | Action::LineHistory => match self.panel().current().filter(|e| !e.is_dir && !e.is_parent()).map(|e| e.path.clone()) {
+                Some(file) if a == Action::Blame => {
+                    self.view_in(&file, None);
+                    if let Some(Dialog::View { v, .. }) = &mut self.dialog {
+                        v.blame();
+                    }
+                }
+                _ => self.status = Some(t!("blame.history_where", "view" => self.key_label(Action::View), "edit" => self.key_label(Action::EditHere), "key" => self.key_label(Action::LineHistory))),
+            },
             Action::Replace => self.replace(None),
             Action::Attrs => self.attrs(),
             Action::SearchablePdf => self.searchable_pdf(),
@@ -3181,7 +3192,8 @@ impl App {
     /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
         match editor::Editor::open(file) {
-            Ok(mut e) => {
+            Ok(e) => {
+                let mut e = e.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
                 if let Some(n) = line {
                     e.buf.go_to(n);
                 }
@@ -3214,7 +3226,8 @@ impl App {
             Ok(v) => {
                 // What the log keys do is not guessed: said the first few times a log is viewed.
                 let v = if v.is_log() && coxswain_core::menu::once("viewer_log", &self.cfg) { v.saying(t!("viewer.log_hint")) } else { v };
-                self.dialog = Some(Dialog::View { v: Box::new(v), back })
+                let v = v.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
+                self.dialog = Some(Dialog::View { v: Box::new(v), back });
             }
             Err(e) => {
                 self.status = Some(format!("{}: {e}", file.display()));
@@ -4538,6 +4551,9 @@ impl App {
         if let Some(Dialog::View { v, .. }) = &mut self.dialog {
             v.poll();
         }
+        if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
+            e.poll();
+        }
         // The editor is put aside while the jobs below report: a box one opens waits for it.
         let editing = if matches!(self.dialog, Some(Dialog::Edit { .. })) { self.dialog.take() } else { None };
         if let Some(r) = self.props_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
@@ -4773,6 +4789,7 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
             || app.ask_rx.is_some()
             || app.ask_check_rx.is_some()
             || matches!(&app.dialog, Some(Dialog::View { v, .. }) if v.busy())
+            || matches!(&app.dialog, Some(Dialog::Edit { e, .. }) if e.busy())
             || matches!(&app.dialog, Some(Dialog::Compare(v)) if v.busy());
         if event::poll(Duration::from_millis(if waiting { 30 } else { 200 }))? {
             let first = event::read()?;
