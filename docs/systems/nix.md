@@ -109,8 +109,9 @@ search by meaning links nixpkgs' oniguruma rather than building its own copy.
 - `nix flake update coxswain` and a rebuild for NixOS and Home Manager.
 
 The once-a-day update check sees that the program runs from `/nix/store/` and names
-`nix profile upgrade coxswain`, adding that nixpkgs can have it a few days later (the flake has
-it at once). For NixOS or Home Manager, update the flake input and rebuild instead. To turn the
+`nix profile upgrade coxswain`. A copy built by the flake asks GitHub, since the flake builds our
+tags; one from nixpkgs asks nixpkgs' package file, so it names a version once nixpkgs has it (and
+while it cannot, adds that nixpkgs can have it a few days later). For NixOS or Home Manager, update the flake input and rebuild instead. To turn the
 check off: `check_updates = false` in `config.toml` (Settings → *Privacy and updates* → *Check
 for a new version*); see [Update checks](../reference/updates.md).
 
@@ -161,10 +162,11 @@ Metal for search by meaning; Nix would give a bare binary without those. Use the
 
 #### The update notice says a new version is out, but `nix profile upgrade` changes nothing.
 
-The notice comes from GitHub's latest release; a profile installed from the flake follows
-`master`, which has the release as soon as it is tagged, so `nix profile upgrade coxswain`
-fetches it. With nixpkgs the new version arrives only after the update has been merged and has
-reached your channel, which can take days. Turn the notice off with `check_updates = false`
+A copy built by the flake asks GitHub's latest release, and the flake follows `master`, which has
+the release as soon as it is tagged, so `nix profile upgrade coxswain` fetches it. A copy from
+nixpkgs asks nixpkgs' package file on `master`; your channel (`nixos-unstable`, a release branch)
+can follow master a few days later, and while nixpkgs' file cannot be read the notice comes from
+GitHub and says nixpkgs can have it later. Turn the notice off with `check_updates = false`
 if it gets ahead of your channel.
 
 #### Can Settings save when my `config.toml` comes from Home Manager?

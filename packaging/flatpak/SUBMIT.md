@@ -87,6 +87,10 @@ them and names `flatpak update` in the update notice.
 
 ## How updates flow once it is listed
 
+- The apps' update check reads `io.github.mwo_dk.Coxswain.yml` on that repository's `master`
+  for the version it names (`crates/coxswain-core/src/update.rs`): Coxswain's source as a git
+  URL with `tag: vX.Y.Z` below it, or an archive URL ending in `vX.Y.Z.tar.gz`. A manifest named
+  otherwise or written as JSON makes the check fall back to GitHub.
 - Flathub's **External Data Checker** runs every two hours on the app's repository and opens a
   pull request when a source with `x-checker-data` has a new version (a git source can follow
   tags matching `^v([\d.]+)$`). Merging a pull request there makes the official build, which

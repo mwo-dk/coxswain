@@ -167,7 +167,7 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Certificates for HTTPS | The system's store | Termux's own, `$PREFIX/etc/tls/cert.pem` (`pkg install ca-certificates`) |
 | The go-to list (Alt+F1) | Type a path, the bin | Type a path, the phone's folders, the bin |
 | F8 (Delete) | To the desktop's trash | To Coxswain's own trash in `~/.local/share/Trash`; on the phone's storage F8 asks to delete for good instead ([Deleting](#deleting-termuxs-trash)) |
-| Update hint | By where it is installed | `cargo install --locked coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg`, adding that Termux's repository can have it a few days later |
+| Update hint | By where it is installed | `cargo install --locked coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg`, once termux-packages' recipe has the version (while that cannot be read, GitHub answers and the notice adds that Termux's repository can have it a few days later) |
 
 Everything else, keys, config and the search index included, is the same. The config is in
 `~/.config/coxswain` inside Termux's home ([Where things are kept](../reference/where-things-are-kept.md)).
@@ -276,7 +276,7 @@ stopping it while the screen is off.
 
 #### Why does the update check never say anything?
 
-With the static musl binary it cannot look up `api.github.com` on Android. Built with
+With the static musl binary it cannot look up GitHub's servers (`api.github.com`, `raw.githubusercontent.com`) on Android. Built with
 `cargo install --locked coxswain` it can. With either, `coxswain --version` says which version you have.
 
 #### Where does F8 put my files in Termux?

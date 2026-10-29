@@ -30,6 +30,8 @@ let
     # The tokenizer for search by meaning links oniguruma: the system's, not a copy built from C.
     buildInputs = [ oniguruma ];
     env.RUSTONIG_SYSTEM_LIBONIG = true;
+    # Built from our tags: the update check asks GitHub, not nixpkgs (coxswain-core update.rs).
+    env.COXSWAIN_FROM_FLAKE = "1";
   };
   # What the build and the tests compile of the dependencies, nothing checked.
   cargoArtifacts = craneLib.buildDepsOnly (
