@@ -2513,7 +2513,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
         };
         let stem = stem.rsplit_once('.').map_or(stem, |(s, _)| s);
         let all = items(&archive)?;
-        let beside: Vec<&Item> = all
+        let beside: Vec<ItemRef> = all
             .iter()
             .filter(|i| {
                 !i.dir
