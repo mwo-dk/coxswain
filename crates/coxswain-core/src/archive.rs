@@ -3306,7 +3306,7 @@ mod tests {
 
     #[test]
     fn a_zip_split_into_parts_opens_as_one_read_only() {
-        let d = crate::pictures::tests::folder("zip-parts");
+        let d = crate::pictures::tests::folder("zip-cut-parts");
         let src = d.join("src");
         std::fs::create_dir_all(&src).unwrap();
         // Bytes that do not pack, so the parts hold the entries' data too.
