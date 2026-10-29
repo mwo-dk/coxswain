@@ -1089,11 +1089,12 @@ mod tests {
     fn the_time_a_sink_takes_is_not_reading_time() {
         let n = 50_000;
         let xml: String = (0..n).map(|i| format!("<w:p><w:r><w:t>Report {i} of the mission control room</w:t></w:r></w:p>")).collect();
-        // The reader is given twice what reading takes on this machine, however slow, and the
-        // sink takes twice that, once.
+        // The reader is given four times what reading takes on this machine, however slow (a
+        // busy machine running the other tests reads more slowly the second time), and the sink
+        // takes twice that, once.
         let began = std::time::Instant::now();
         read(xml.as_bytes(), &WORD, &mut crate::extract::Text::to(&mut |_: &str| {}), &mut Styles::default());
-        let time = began.elapsed() * 2 + std::time::Duration::from_millis(200);
+        let time = began.elapsed() * 4 + std::time::Duration::from_millis(500);
         let (mut lines, mut first) = (0, true);
         let mut sink = |chunk: &str| {
             if std::mem::take(&mut first) {

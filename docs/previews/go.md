@@ -125,7 +125,7 @@ text_max_size`) is not read for Find; of a smaller one the store keeps up to 4 M
 
 | Ending | What |
 |---|---|
-| `.sgf` | Go games in SGF (FF[1] to FF[4]): one game or a collection of many, variations, comments, set-up stones, passes (`[]`, and `[tt]` on boards up to 19×19), move numbers (`MN`), whose turn (`PL`), boards from 1×1 to 52×52, square or not (`SZ[19:13]`). Text in UTF-8, or in the charset the file names (`CA[GB2312]`, `CA[Shift_JIS]`, `CA[ISO-8859-1]` …), else Windows-1252 |
+| `.sgf` | Go games in SGF (FF[1] to FF[4]): one game or a collection of many, variations, comments, set-up stones, passes (`[]`, and `[tt]` on boards up to 19×19), move numbers (`MN`), whose turn (`PL`), boards from 1×1 to 52×52, square or not (`SZ[19:13]`). Text in UTF-8, or in the charset the file names (`CA[GB2312]`, `CA[Shift_JIS]`, `CA[ISO-8859-1]` …), else Windows-1252 (a value in UTF-8 with a broken character stays UTF-8) |
 
 Games of other kinds in SGF (`GM` other than 1) are shown on the same board. Marks drawn on the
 board in a file (triangles, labels, territory) are not shown.
@@ -186,7 +186,9 @@ first part. In an archive of 400,000 games, a game shows in under half a second
 
 The file is in another charset than it says: Coxswain reads UTF-8 first, then the charset the
 `CA` property names, then Windows-1252. A file without `CA` in GB2312 or Shift_JIS comes out
-as Latin letters; add `CA[GB2312]` (or the right one) to its first node.
+as Latin letters; add `CA[GB2312]` (or the right one) to its first node. A name in UTF-8 with
+one broken character (some servers cut names in the middle of a character) stays readable: the
+broken character shows as �, the rest as written.
 
 #### Can I play a game against a program?
 

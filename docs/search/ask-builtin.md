@@ -11,7 +11,7 @@ It answers like a server's model: from the passages of your files closest to the
 citing them as **[1]**, **[2]**, word by word. Everything in [Ask](ask.md) (the keys, follow-ups,
 the scope, the sources) works the same.
 
-![Settings → Finding files → Details → Ask on a PC with an RTX 4070 and Ollama: Chat model set to Qwen3 14B · 8.4 GB · about 691 s to the first word, with the red line Qwen3 14B runs on the processor here: about 691 s to the first word. qwen3:8b on Ollama runs on your graphics card (NVIDIA GeForce RTX 4070 Laptop GPU) and answers far sooner, and the Use qwen3:8b button](../screenshots/settings-ask-builtin.png)
+![Settings → Finding files → Details → Ask on a PC with an RTX 4070 and Ollama: Chat model set to Qwen3 14B · 8.4 GB · about 584 s to the first word, with the red line Qwen3 14B runs on the processor here: about 584 s to the first word. qwen3:8b on Ollama runs on your graphics card (NVIDIA GeForce RTX 4070 Laptop GPU) and answers far sooner, and the Use qwen3:8b button](../screenshots/settings-ask-builtin.png)
 
 ## Contents
 

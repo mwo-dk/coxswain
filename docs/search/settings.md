@@ -7,7 +7,7 @@ its top, how each part of search stands and its next step; then how far Find loo
 levels; then **Details**, with every switch on its own. Every option is also a key under
 `[search]` in `config.toml`.
 
-![Settings at Finding files with Details → What is read open: Words inside files, Look inside archives and Git history ticked, Cloud folders read anyway, Programs that read more, Largest file read and Most hits](../screenshots/gui-settings-search.png)
+![Settings at Finding files with Details → What is read open: Words inside files, Look inside archives and Git history ticked, Text of each commit's changes, Changes of commits for these folders' repositories, Read files that are only online, Cloud folders read anyway, Read other formats with Apache Tika and Transcribe speech with Whisper](../screenshots/gui-settings-search.png)
 *Settings → Finding files.*
 
 ## Contents

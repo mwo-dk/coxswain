@@ -173,7 +173,7 @@ Every line, level and option, with what it shows, its key and its default:
 
 ![The desktop app's Settings at Previews, in the Cyber theme: Previews outlined among the areas on the left, then the group General with How previews are made, Timeout (seconds) 120 and Previews made so far with Clear, the group Documents with Build LaTeX by itself ticked, E-books with calibre and Export draw.io diagrams with their cost badges, and the start of Container images](../screenshots/settings-previews.png)
 
-![The desktop app's Settings at Previews, in the Cyber theme: E-books with calibre and Export draw.io diagrams with their cost badges, Timeout (seconds) 120, Previews made so far (3.3 MB in the cache, those not shown for 30 days go by themselves) with Clear, and Preview tools: the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Not pulled (2.8 GB), Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB)](../screenshots/previews-tools-settings.png)
+![The desktop app's Settings at Previews, in the Cyber theme, scrolled to Preview tools: the line Neither podman nor docker is installed, then the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Not pulled (2.8 GB), Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB); then Office documents, PostScript and XPS, and Diagrams](../screenshots/previews-tools-settings.png)
 
 For the previews that [tools](../previews/tools.md) make: LaTeX, PlantUML, Word and the like,
 in four groups and then *Preview tools*. Opening this area asks the container runtime which images
@@ -323,7 +323,7 @@ active pane, made first when it is not there yet ([Scripts](../commands/scripts.
 
 ## Privacy and updates
 
-![Settings at Privacy and updates: Check for a new version, What can leave this machine, History from servers with file:///home/demo/repos/balloon and its Forget link, the closed heading Disk use 2.0 MB, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
+![Settings at Privacy and updates: Check for a new version, What can leave this machine, History from servers with file:///home/demo/repos/balloon and its Forget link, the closed heading Disk use with its total, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
 
 | Part | Does | Key |
 |---|---|---|
