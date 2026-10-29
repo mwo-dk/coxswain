@@ -40,9 +40,9 @@ and **F5** from another panel copies into it. Copies between two archives work t
 | **F6** | Moves out: copies out, then takes them out of the archive. With a new name, or a folder in the same archive, it **renames** or moves within the archive | Adds the files, then deletes the originals |
 | **F7** | Makes a folder inside the archive | |
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
-| **Enter** on a file | Says on the status line that it must be copied out first; a games file (in the terminal app) opens in the games view, as **F3** does | |
+| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window from a copy; an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
 | **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
-| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a ChessBase archive `.cbv`, a ChessBase or SCID database with the files beside it under its name) opens in the games view, as outside the archive | |
+| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a SCID or ChessBase database with the files beside it, a `.cbv`) opens in the games view, as outside the archive | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
 | **Alt+F5** | [Packs](pack-and-extract.md) files on disk into a new archive | |
 
@@ -68,8 +68,10 @@ program is needed.
 | Tar with zstd | `.tar.zst`, `.tzst` | yes | yes | none |
 | 7z | `.7z` | yes | yes (LZMA2) | AES to read and when packing; also locked file names |
 | 7z split into parts | `.7z.001`, with `.002`, `.003` … beside it | yes: the parts read as one | no: read-only | as a 7z |
+| Zip split into parts | `.zip.001`, with `.002`, `.003` … beside it (7-Zip's *Split to volumes*, or `split`) | yes: the parts read as one | no: read-only | as a zip |
 | Zip split into parts | `.zip`, with `.z01`, `.z02` … beside it (Info-ZIP's `zip -s`, WinZip) | yes: the parts read as one | no: read-only | as a zip |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
+| cpio, `.deb`, `.rpm`, `.cab` | | no: opened in their own program | no | |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 | Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
 | Mailbox | `.mbox`: one `.eml` file a message | yes | no: read-only | none |

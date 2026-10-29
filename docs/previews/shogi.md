@@ -24,15 +24,15 @@ it. Coxswain only reads: it does not play or check a game.
 ## Using it
 
 **Desktop app.** Put the cursor on a `.kif`, `.kifu` or `.csa` file and the preview pane
-(**Space**) shows its table of games. **⤢** at the top right, **Alt+K** or *Open games* in the
+(**Space**) shows its table of games. **Enter**, a double-click, **⤢** at the top right, **Alt+K** or *Open games* in the
 action menu (**Shift+F10**) and the command list (**F9**) open it in a window of its own;
 **Esc** closes that window.
 
-**Terminal app.** **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
+**Terminal app.** **Enter**, **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
 the action menu (**Shift+F10**) and **F9**. **Esc** closes it.
 
 It is the same action as for chess, [Go](go.md), [draughts](draughts.md) and
-[xiangqi](xiangqi.md): the first few times the cursor rests on a shogi file, the status line
+[xiangqi](xiangqi.md): while the cursor is on it the command line (the status bar in the desktop app) says *Enter: Open games*, and the first few times the cursor rests on a shogi file, the status line
 says *Alt+K opens its games: a table, then a board with every move*. **F1** → *Features* →
 *Shogi games* has the keys and the questions below.
 

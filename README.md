@@ -138,7 +138,7 @@ from source: [install/INSTALL.md](install/INSTALL.md). Git glyphs want a
 
 1. **Start it** in a folder: `coxswain` (or `cox`) in a terminal, or `coxswain-gui`. Two folders
    open the two panels: `coxswain ~/src ~/Downloads`.
-2. **Move** with the arrows, **Enter** opens (a folder, or an archive), **Backspace** goes up,
+2. **Move** with the arrows, **Enter** opens (a folder, an archive, games on their board), **Backspace** goes up,
    **Tab** switches panels.
 3. **Mark** with **Insert**, then **F5** copies or **F6** moves to the other panel. **F8** moves
    to the trash, **F7** makes a folder, and **Ctrl+Z** undoes the last of them.

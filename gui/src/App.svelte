@@ -3,9 +3,9 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
+  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, quote, isArchive, chessFormat, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
+  import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -419,10 +419,7 @@
     long_files: () => longFiles(),
     chess: async () => {
       const e = item(tab());
-      // Known by its bytes: a Polyglot book, a DhtmlXQ xiangqi game (`chess::sniff`).
-      const book = e && !e.is_dir && !chessFormat(e.name) && (await invoke("chess_sniffed", { path: e.path }).catch(() => false));
-      if (e && !e.is_dir && (chessFormat(e.name) || book)) ui.modal = { kind: chessFormat(e.name) === "sgf" ? "go" : "chess", path: e.path, feature: { pdn: "draughts", shogi: "shogi", pbn: "bridge" }[chessFormat(e.name)] };
-      else ui.status = t("chess.not_chess");
+      if (!(e && !e.is_dir && (await gamesOf(e)))) ui.status = t("chess.not_chess");
     },
     space_view: () => openSpace(),
     switch_panel: () => ui.dual && (ui.activePane ^= 1),
@@ -733,6 +730,19 @@
     invoke("hint", { subject: s, last }).then((h) => (hint = h), () => {});
   });
 
+  // What Enter does on the entry under the cursor (`enter::label`): "Enter: Open games".
+  let enterLabel = $state("");
+  $effect(() => {
+    const tb = tab();
+    const e = item(tb);
+    if (!ready || !e || e.name === "..") return void (enterLabel = "");
+    const path = e.path;
+    invoke("enter_on", { path, isDir: !!e.is_dir, inside: !!tb.archive }).then(
+      (on) => item(tab())?.path === path && (enterLabel = on.label ?? ""),
+      () => (enterLabel = ""),
+    );
+  });
+
   // ------------------------------------------------------------ keys
 
   /** When the action menu was opened by a key: the context menu the web view sends after
@@ -915,7 +925,7 @@
         <span class="status" title={v.line}>{v.line}, {Math.round((v.now - v.started) / 1000)} s</span>
         <button class="update" title={ui.cfg.actions.scan_viruses?.[1] ?? ""} disabled={v.stopping} onclick={stopViruses}>{v.stopping ? t("searchable.stopping") : t("searchable.stop")}</button>
       {/if}
-      {#if ui.status}<span class="status">{ui.status}</span>{:else if hint && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{hint[1]}</span>{/if}
+      {#if ui.status}<span class="status">{ui.status}</span>{:else if (enterLabel || hint) && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{[enterLabel, hint?.[1]].filter(Boolean).join(" · ")}</span>{/if}
       {#if problem && !update}
         <span class="notice">
           <button class="update" title={problem.config_line ? t("config.open_at", { line: problem.config_line }) : undefined} onclick={() => actOn(problem)}>{problem.text}</button>

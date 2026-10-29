@@ -183,10 +183,16 @@
       rows = r.rows;
       first = from;
       error = r.progress.error ?? "";
+      // A file of one game opens on its board, once it is read to its end (`enter`).
+      if (lonePath !== p && r.progress.done) {
+        lonePath = p;
+        if (r.progress.games === 1 && !game && !ui.chessAt) openGame(0);
+      }
     } catch (e) {
       if (seq === rowsSeq) error = String(e);
     }
   }
+  let lonePath = null;
 
   // The table, again when the filter changes, and twice a second while the file is read.
   $effect(() => {
@@ -221,7 +227,9 @@
       review = null;
       said = "";
       error = v.error ?? "";
-      setTimeout(() => boardEl?.focus(), 0);
+      // The board takes the keys in its window, or when they were in this view already: a
+      // file of one game opened in the preview pane leaves them with the panel.
+      if (full || document.activeElement?.closest?.(".chess")) setTimeout(() => boardEl?.focus(), 0);
     } catch (e) {
       error = String(e);
     }

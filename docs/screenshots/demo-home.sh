@@ -392,6 +392,9 @@ printf '%s' 'AAAAAAAAAAAAAAAAAGgpR/wqdxkrt9MstRkttVouvUovfMUwvIExvdIyf8YzZ9M0sIY
 printf '%s' 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAA4OAAASAAABgf///wIATgAqUGFyaXMsIGF0IHRoZSBvcGVyYTogTW9ycGh5IHBsYXlzIHRoZSBEdWtlIGFuZCB0aGUgQ291bnQgaW4gdGhlaXIgYm94LgAABQIAPgAqQSB3ZWFrIG1vdmUgYWxyZWFkeTogdGhlIGJpc2hvcCBpcyBnaXZlbiBmb3IgYSBrbmlnaHQuAAAFAwAJBgAAAAAFBQAJBDQrAAAMAgA9ACpNb3JwaHkgZGV2ZWxvcHMgd2l0aCB0ZW1wbzsgdGhlIHF1ZWVuIGV5ZXMgZjcgYW5kIGI3LgAADAQACgQvBA8AAAwFAAkCCy8AAAwhAAyWAAAAFgAAABEDAAkCAAAAABIDAAkBAAAAABIFAAkCEw0AAB4DAAkDAAAAAB4CAC4AKlRoZSBxdWVlbiBpcyBnaXZlbiB0byBvcGVuIHRoZSBkLWZpbGUuAAAeBQAJAgsQAAAeBQAJBBkgAAAgBAAIBCgAACACAA0AKk1hdGUu' | base64 -d > "$d/Documents/Chess/Opera.cba"
 printf '%s' 'AAAAAAAAAAAAAAAAOgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE1vcnBoeQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBhdWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEdWtlIEthcmwgLyBDb3VudCBJc291YXJkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' | base64 -d > "$d/Documents/Chess/Opera.cbp"
 printf '%s' 'AAAAAAAAAAAAAAAAWgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFBhcmlzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQYXJpcyBPcGVyYQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==' | base64 -d > "$d/Documents/Chess/Opera.cbt"
+# The chess folder packed, for What Enter and F3 do (docs/commands/opening-files.md): a database
+# inside a zip opens with Enter as on the disk.
+(cd "$d/Documents" && python3 -m zipfile -c "$d/Backups/old-laptop-2019/chess-club.zip" Chess)
 # Go: the ear-reddening game of 1846 (public domain; its moves as sgf-render's tests have them,
 # MIT), a 9×9 study in variations and a life-and-death problem from the same tests, for Go
 # games (docs/previews/go.md).

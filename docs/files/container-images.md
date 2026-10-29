@@ -10,7 +10,7 @@ a folder (`--format oci-dir`, `skopeo copy … oci:folder`), whose `index.json` 
 layers, entrypoint and the rest of its configuration. Nothing needs to be installed, and Docker
 or Podman need not run.
 
-![The desktop app with rocket-image.tar under the cursor; the preview pane says Enter opens it like a folder, read-only, lists the files of its merged layers, and under them its facts: Format docker-archive container image, Tags localhost/rocket:1.0, Platform linux/amd64, Created, Layers 2 with their sizes, Total size, Entrypoint, Command, Environment, Exposed ports 8080/tcp and Labels](../screenshots/gui-container-image.png)
+![The desktop app with rocket-image.tar under the cursor; the preview pane says Enter opens it like a folder, read-only, lists the files of its merged layers, and under them its facts: Format docker-archive container image, Tags localhost/rocket:1.0, Platform linux/amd64, Created, Layers 2 with their sizes, Total size, Entrypoint, Command, Environment, Exposed ports 8080/tcp and Labels; the status bar starts Enter: Open container image](../screenshots/gui-container-image.png)
 *An image saved with podman save: its facts, and the files of its merged layers.*
 
 ## Contents

@@ -680,6 +680,9 @@ pub struct App {
     /// worked out for.
     pub hint: Option<(&'static str, String)>,
     hint_for: Option<coxswain_core::menu::Subject>,
+    /// What Enter does on the entry under the cursor (`enter::label`), for the entry it was
+    /// worked out for: the command line says it while it is empty.
+    pub enter_on: Option<(PathBuf, Option<String>)>,
     /// What is under the cursor may have changed (a key, a click, a listing, git): the hint
     /// is worked out again only then.
     hint_stale: bool,
@@ -1040,6 +1043,7 @@ impl App {
             status: None,
             hint: None,
             hint_for: None,
+            enter_on: None,
             hint_stale: true,
             find_hint: false,
             quick: None,
@@ -1928,9 +1932,9 @@ impl App {
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
     fn peek(&mut self, path: PathBuf) {
         match coxswain_core::archive::peek(&path) {
-            // Games of every kind (a database's other files come along): on their board, as
-            // outside.
-            Ok(copy) if coxswain_core::chess::sniff(&copy).is_some() => self.chess(&copy, None),
+            // Games (a PGN file, a ChessBase or SCID database with the files beside it, a DhtmlXQ
+            // xiangqi game): on their board, as outside (`enter::view`).
+            Ok(copy) if coxswain_core::enter::view(&copy, coxswain_core::enter::Place::Disk) == coxswain_core::enter::View::Games => self.chess(&copy, None),
             Ok(copy) => self.view_or_edit(Action::View, &copy),
             Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
                 self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
@@ -1941,17 +1945,24 @@ impl App {
 
     fn open(&mut self) {
         let Some(e) = self.panel().current().cloned() else { return };
-        // An archive opens like a folder, an archive inside one too (from a copy in the cache);
-        // its files are copied out with F5.
+        // Enter goes into anything that holds things, and opens games on their board (`enter`).
+        use coxswain_core::enter::{self, Enter};
         let inside = coxswain_core::archive::split(&self.panel().dir);
-        let opens = if inside.is_none() { coxswain_core::archive::opens(&e.path) } else { coxswain_core::archive::opens_inside(&e.path) };
-        if e.is_dir || opens {
-            return self.cd(self.active, e.path);
+        let place = if inside.is_some() { enter::Place::Archive } else { enter::Place::Disk };
+        let what = enter::enter(&e.path, e.is_dir, place);
+        match what {
+            Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox => return self.cd(self.active, e.path),
+            // From a copy, as F3 (a locked archive's password asked for).
+            Enter::Games | Enter::Positions | Enter::Book if inside.is_some() => return self.peek(e.path),
+            _ => {}
         }
         if let Some((archive, _)) = inside {
-            // Games open on their board, as F3 shows them.
-            if coxswain_core::chess::format(&e.path).is_some() {
-                return self.peek(e.path);
+            // A `.bin` that may be an opening book: told by a copy's bytes.
+            if enter::may_be_games(&e.path)
+                && let Ok(copy) = coxswain_core::archive::peek(&e.path)
+                && enter::view(&copy, enter::Place::Disk) == enter::View::Games
+            {
+                return self.chess(&copy, None);
             }
             let key = if coxswain_core::archive::read_only(&archive) { "disk_image.copy_out_hint" } else { "archive.copy_out_hint" };
             return self.status = Some(t!(key, "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
@@ -1962,6 +1973,10 @@ impl App {
         // A file of a package: to its folder, the cursor on it.
         if coxswain_core::bsd::split(&self.panel().dir).is_some() {
             return self.reveal(&e.path.clone());
+        }
+        // Games on their board, positions, an opening book; in a snapshot too.
+        if matches!(what, Enter::Games | Enter::Positions | Enter::Book) {
+            return self.chess(&e.path, None);
         }
         // The first part of a split file: Join is offered.
         if coxswain_core::split::joins_into(&e.path).is_some() && coxswain_core::zfs::in_snapshot(&e.path).is_none() {
@@ -4433,6 +4448,18 @@ impl App {
         self.hint_for = Some(s);
     }
 
+    /// What Enter does on the entry under the cursor, worked out again when it is another one.
+    fn follow_enter(&mut self) {
+        let Some(e) = self.panel().current().filter(|e| !e.is_parent()) else { return self.enter_on = None };
+        if self.enter_on.as_ref().is_some_and(|(p, _)| *p == e.path) {
+            return;
+        }
+        use coxswain_core::enter;
+        let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { enter::Place::Archive } else { enter::Place::Disk };
+        let label = enter::label(enter::enter(&e.path, e.is_dir, place));
+        self.enter_on = Some((e.path.clone(), label));
+    }
+
     /// The git facts of the repository under each panel's cursor (`Panel::facts_dir`), read on
     /// a thread when the cursor comes to it: never for a whole listing.
     fn follow_facts(&mut self) {
@@ -4486,6 +4513,7 @@ impl App {
             self.slow = (Some(Instant::now()), poor);
         }
         self.follow_hint();
+        self.follow_enter();
         self.follow_facts();
         if let Ok(v) = self.update_rx.try_recv() {
             use coxswain_core::update::{upgrade_hint, Upgrade, RELEASES_URL};

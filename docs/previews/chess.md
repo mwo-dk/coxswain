@@ -36,15 +36,23 @@ deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draught
 
 **Desktop app.** Put the cursor on a `.pgn`, `.pgn.gz`, `.pgn.zst`, `.si4`, `.si5`, `.cbh`, `.cbv`, `.epd` or `.fen` file, or
 a `.bin` file that is a Polyglot book, and the preview pane (**Space**) shows its games,
-positions or book moves. **⤢** at the top right, **Alt+K**
+positions or book moves. **Enter**, a double-click, **⤢** at the top right, **Alt+K**
 or *Open games* in the action menu (**Shift+F10**) and the command list (**F9**) open it in a
 window of its own; **Esc** closes that window.
 
-**Terminal app.** **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
+**Terminal app.** **Enter**, **F3** or **Alt+K** on the file opens it full screen; so does *Open games* in
 the action menu (**Shift+F10**) and **F9**. **Esc** closes it.
 
-The first few times the cursor rests on a chess file, the status line says *Alt+K opens its
-games: a table, then a board with every move*. **F1** → *Features* → *Chess games* has the
+**Inside an archive.** A games file inside a zip, 7z, tar or another archive opened as a folder,
+nested ones too, opens the same way from a copy Coxswain takes out of the archive: **Enter** in
+both apps, **F3** in the terminal app, the preview pane in the desktop app. A SCID or ChessBase
+database comes out with the files beside it under the same name; a `.cbv` holds its own
+([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)).
+
+While the cursor is on a chess file the command line (the status bar in the desktop app) says
+*Enter: Open games* (*Enter: Open positions* on an EPD or FEN file, *Enter: Open opening book*
+on a book), and the first few times also *Alt+K opens its games: a table, then a board with
+every move*. A file of one game opens on its board; **Esc** there closes it in the terminal app. **F1** → *Features* → *Chess games* has the
 keys and the questions below.
 
 ## The table of games
@@ -156,7 +164,7 @@ A `.bin` file of a cloud folder that is online only is skipped, so looking for a
 downloads it. Without either, no line is shown.
 
 **A book on its own.** The preview of a `.bin` file that is a Polyglot book (desktop), and
-**F3** or **Alt+K** on it (both apps, *Open games* in the action menu), show the board at the
+**Enter**, **F3** or **Alt+K** on it (both apps, *Open games* in the action menu), show the board at the
 start position and the book's moves for it: each with its share in per cent, its weight, and
 its *learn* value when the book has one. *Polyglot opening book · 182443 entries* says how big
 it is. Play a move to see the book's moves after it:
@@ -171,7 +179,7 @@ it is. Play a move to see the book's moves after it:
 | **f**, **n** | Flip, notation | The same |
 | **Esc** | Closes the window | Closes the view |
 
-![The desktop app in the Cyber theme: openings.bin under the cursor in Documents/Chess, and in the preview pane the start position on the board, White to move, and under it Polyglot opening book · 12 entries with the moves e4 45.0 % 45, d4 35.0 % 35, ♘f3 12.0 % 12 and c4 8.0 % 8](../screenshots/gui-chess-book.png)
+![The desktop app in the Cyber theme: openings.bin under the cursor in Documents/Chess, and in the preview pane the start position on the board, White to move, and under it Polyglot opening book · 12 entries with the moves e4 45.0 % 45, d4 35.0 % 35, ♘f3 12.0 % 12 and c4 8.0 % 8; the status bar starts Enter: Open opening book](../screenshots/gui-chess-book.png)
 
 ![The terminal app with a Polyglot book open (F3 on openings.bin) after 1.e4: the board with its pieces drawn from block characters, Polyglot opening book · 12 entries, the book's four replies c5, e5, e6 and c6 with their shares and weights, c5 chosen, and the key line](../screenshots/tui-chess-book.png)
 
@@ -205,9 +213,9 @@ SCID (and Scid vs. PC) keeps a database as three files side by side: `club.si4` 
 a few bytes a game with its players, event, date, result, ratings and ECO code), `club.sg4`
 (the games' moves) and `club.sn4` (the names). SCID 5 writes its newer format the same way, as
 `club.si5`, `club.sg5` and `club.sn5`. Put the cursor on the **`.si4`** or **`.si5`** file and
-open it as any PGN file: the preview pane (**Space**) or **Alt+K** in the desktop app, **F3** or
+open it as any PGN file: **Enter** in both apps, the preview pane (**Space**) or **Alt+K** in the desktop app, **F3** or
 **Alt+K** in the terminal app, *Open games* in the action menu (**Shift+F10**) and **F9**. The
-two files beside it are read with it; on their own they show as other files do.
+two files beside it are read with it, inside an archive too (they are copied out with it); on their own they show as other files do.
 
 ![A SCID database, club.si4, open in the desktop app's chess window: the table of its three games with Morphy, Paul – Duke Karl / Count Isouard first, their results, dates, events, ECO codes and openings, the filter fields above](../screenshots/gui-chess-scid.png)
 
@@ -275,7 +283,7 @@ always has them all.
 A ChessBase database is a `.cbh` file and the files beside it under the same name: `.cbg` holds
 the moves, `.cbp` the players, `.cbt` the tournaments, `.cba` the annotations, and more for
 ChessBase's own use. Put the cursor on the `.cbh` file: it opens as a PGN file does, with the
-same keys in both apps (**Space** for the preview pane in the desktop app, **F3** or **Alt+K**,
+same keys in both apps (**Enter**, **Space** for the preview pane in the desktop app, **F3** or **Alt+K**,
 *Open games* in **Shift+F10** and **F9**). The other files of the database are not opened on their
 own.
 
@@ -435,15 +443,15 @@ encoding, or when the `.cbg` file is missing. ChessBase itself may still show su
 
 Put the cursor on its `.si4` file (the index; the `.sg4` and `.sn4` files must sit beside it
 under the same name), or for a SCID 5 database its `.si5` file (with `.sg5` and `.sn5`), and
-press **Alt+K**, or **Space** for the preview in the desktop app and **F3** in the terminal app.
+press **Enter** or **Alt+K**, or **Space** for the preview in the desktop app and **F3** in the terminal app.
 The table shows its games like a PGN file's.
 
 #### Can I open a database inside a zip?
 
 Yes. **Enter** on the zip opens it like a folder; on a games file inside (a `.pgn`, a ChessBase
-`.cbv` archive or `.cbh` database, a SCID `.si4` or `.si5` index, an `.sgf` …) press **F3** or
-**Enter** in the terminal app, or rest the cursor on it with the preview open in the desktop
-app. That file is copied out into Coxswain's cache folder, a database with the files beside it
+`.cbv` archive or `.cbh` database, a SCID `.si4` or `.si5` index, an `.sgf` …) press **Enter**
+in either app (the command line says *Enter: Open games*), **F3** in the terminal app, or rest
+the cursor on it with the preview open in the desktop app. That file is copied out into Coxswain's cache folder, a database with the files beside it
 under its name (`.cbg`, `.cbp`, `.sg4` …), and its games table opens as outside the archive.
 It works in an archive inside an archive too ([Archives as folders](../files/archives.md)).
 
