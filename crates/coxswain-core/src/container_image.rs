@@ -894,11 +894,11 @@ pub(crate) fn read_out(
 }
 
 /// The files of the image at `path` that `wanted` picks by name and size (folders never),
-/// for search: `read` gets each with its name, and says whether to go on.
+/// for search: `read` gets each with its names, and says whether to go on.
 pub(crate) fn search_read(
     path: &Path,
     wanted: &dyn Fn(&str, u64) -> bool,
-    read: &mut dyn FnMut(&str, &mut dyn Read) -> bool,
+    read: &mut dyn FnMut(&[&str], &mut dyn Read) -> bool,
 ) -> io::Result<()> {
     let t = tree(path)?;
     let picked = t
@@ -907,8 +907,8 @@ pub(crate) fn search_read(
         .filter_map(|(name, n)| Some((n.src?, name.as_str())))
         .filter(|(s, name)| wanted(name, s.size))
         .collect();
-    // The same bytes under several names (links) are read once, for the first name.
-    each(path, picked, &mut |names: &[&str], r| Ok(read(names[0], r)))
+    // The same bytes under several names (links) are read once, for all of them.
+    each(path, picked, &mut |names: &[&str], r| Ok(read(names, r)))
 }
 
 /// What is done with each file's bytes, given what it was wanted with: whether to go on.
@@ -1107,7 +1107,7 @@ pub(crate) mod tests {
     }
 
     /// An OCI layout folder at `dir` of `layers`, an index of two platforms.
-    fn oci_dir(dir: &Path, layers: &[Vec<u8>]) {
+    pub(crate) fn oci_dir(dir: &Path, layers: &[Vec<u8>]) {
         let put = |b: &[u8]| {
             let d = digest(b);
             std::fs::create_dir_all(dir.join("blobs/sha256")).unwrap();
@@ -1403,7 +1403,7 @@ pub(crate) mod tests {
         crate::archive::search_read(&img, size, &|n, _| n.ends_with("f2.txt") || n == "etc/os", &mut |n, r| {
             let mut b = vec![];
             r.read_to_end(&mut b).unwrap();
-            got.push((n.to_string(), b));
+            got.push((n[0].to_string(), b));
             true
         })
         .unwrap();

@@ -171,13 +171,19 @@ image at that folder, the cursor on the file. The image's own blobs (`manifest.j
 tars) are never searched.
 
 - An image of 256 MB or less is read when search finds it; a larger one only once you have
-  opened it (its tree kept), as for a large compressed tar.
+  opened it (its tree kept), as for a large compressed tar. It is read at the next scan after
+  you opened it, though the file itself did not change.
+- A file under several names in the image (a hard link, or a symbolic link to a file) is found
+  under each of them, by name and by its text; its bytes are read once.
 - The first 50,000 files of an image are known by name; for their text, files up to 20 MB
   (`[search] text_max_size`), and 128 MB read out of the image at most.
-- Only a `docker save` or `podman save` `.tar` and an OCI `.tar`: an OCI layout folder's
-  `index.json` is not looked into.
-- An image already known to search before 2.35.0 is listed again once, after the update,
-  and the files of its layers read; nothing else in the store is read again.
+- An OCI layout folder is looked into from its `index.json`, as it opens: a hit shows the path
+  through it (`motd.txt   /home/demo/images/rocket-oci/index.json/srv`). An image over
+  256 MB counts the sizes of its layers, not of `index.json`. The files in its `blobs` folder
+  are still files on disk to search, as before.
+- An image (a tar, or an OCI layout folder) already known to search before 2.35.0 is listed
+  again once, after the update, and the files of its layers read; nothing else in the store is read again. An image on a
+  disk that is not plugged in at that moment is listed once the disk is back.
 
 ## In the terminal app
 
@@ -234,7 +240,7 @@ image.
 
 Yes, by name and by their text, as inside an archive: the files of its merged layers, not its
 blobs. An image larger than 256 MB is looked into once you have opened it with **Enter**
-([In search](#in-search)).
+([In search](#in-search)). An OCI layout folder is looked into from its `index.json`.
 
 #### Why does an image open faster the second time?
 
