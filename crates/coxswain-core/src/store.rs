@@ -640,15 +640,16 @@ impl Store {
     /// passages as its text kept gives, for that text is the start of what was streamed: only
     /// the files with fewer are touched. Nothing is read for search by words; the vectors they
     /// have stay until the new ones are in (`embed_streamed`).
-    fn whole_cut_short(&self, key: &str, tag: &str) -> rusqlite::Result<()> {
+    ///
+    /// `past_kept` (#564): instead the Word and OpenDocument texts with at least as many
+    /// passages as their text kept gives, which cannot be told from one streamed to its end:
+    /// every one of those gets its vectors again, once.
+    fn whole_cut_short(&self, key: &str, tag: &str, past_kept: bool) -> rusqlite::Result<()> {
         if self.tag_reached(key, tag) {
             return Ok(());
         }
-        let kind = |p: &str| {
-            Path::new(p).extension().and_then(|e| e.to_str()).is_some_and(|e| {
-                ["docx", "docm", "dotx", "odt", "ott", "epub", "html", "htm", "xhtml"].iter().any(|k| e.eq_ignore_ascii_case(k))
-            })
-        };
+        let kinds: &[&str] = if past_kept { &["docx", "docm", "dotx", "odt", "ott"] } else { &["docx", "docm", "dotx", "odt", "ott", "epub", "html", "htm", "xhtml"] };
+        let kind = |p: &str| Path::new(p).extension().and_then(|e| e.to_str()).is_some_and(|e| kinds.iter().any(|k| e.eq_ignore_ascii_case(k)));
         let rows: Vec<(i64, String, i64)> = self
             .db
             .lock()
@@ -663,7 +664,8 @@ impl Store {
                 .unwrap()
                 .query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0))
                 .unwrap_or_default();
-            if long_text(&path, &body) && crate::meaning::every_passage(&body, &path).len() > had as usize {
+            let kept = || crate::meaning::every_passage(&body, &path).len();
+            if long_text(&path, &body) && (if past_kept { had as usize >= kept() } else { kept() > had as usize }) {
                 self.db.lock().unwrap().execute("UPDATE files SET embedded = NULL WHERE id = ?1 AND embedded = 1", [id])?;
             }
         }
@@ -721,7 +723,11 @@ impl Store {
     /// is looked at once with the PDF reader alone, never OCR (under `key`, at `tag`; where it
     /// got to under `key.after`, so a long run goes on at the next scan after `until`): one
     /// whose own text is now longer than the text kept is read again and gets its vectors again.
-    /// Real scans, and PDFs whose text is the same, keep what they have.
+    /// Real scans, and PDFs whose text is the same, keep what they have. Smaller PDFs whose
+    /// stored text is empty are read again, once, OCR and all; no other small one. A PDF on a disk that
+    /// is not plugged in is kept under `key.away` and looked at in a later scan that finds it,
+    /// alone (the pass is done but for those); one gone from the store, changed or left out
+    /// since is not looked for any more.
     #[allow(clippy::too_many_arguments)]
     fn pdf_layers(
         &self,
@@ -736,44 +742,77 @@ impl Store {
         if self.tag_reached(key, tag) {
             return Ok(());
         }
-        let at = format!("{key}.after");
-        let mut after: i64 = self
-            .db
-            .lock()
-            .unwrap()
-            .query_row("SELECT value FROM meta WHERE key = ?1", [&at], |r| r.get::<_, String>(0))
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0);
-        loop {
-            let part: Vec<(i64, String, i64, i64, usize)> = {
-                let db = self.db.lock().unwrap();
-                let rows: Vec<(i64, String, i64, i64)> = db
-                    .prepare_cached("SELECT id, path, size, modified FROM files WHERE id > ?1 AND has_text IS NOT NULL AND inside IS NULL AND cloud IS NULL AND size >= ?2 AND size <= ?3 AND path LIKE '%.pdf' ORDER BY id LIMIT 100")?
-                    .query_map(params![after, min_size as i64, max.min(i64::MAX as u64) as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
-                    .collect::<rusqlite::Result<_>>()?;
-                rows.into_iter().map(|(id, p, s, m)| (id, p, s, m, text_len(&db, id))).collect()
+        let (at, away_at) = (format!("{key}.after"), format!("{key}.away"));
+        let kept = |k: &str| self.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = ?1", [k], |r| r.get::<_, String>(0)).unwrap_or_default();
+        let mut after: i64 = kept(&at).parse().unwrap_or(0);
+        let mut away: Vec<i64> = kept(&away_at).split_whitespace().filter_map(|v| v.parse().ok()).collect();
+        let save = |after: i64, away: &[i64]| -> rusqlite::Result<()> {
+            self.set_tag(&at, &after.to_string())?;
+            self.set_tag(&away_at, &away.iter().map(i64::to_string).collect::<Vec<_>>().join(" "))
+        };
+        // Smaller ones only when their stored text is empty (#563).
+        const PICK: &str = "SELECT id, path, size, modified FROM files WHERE has_text IS NOT NULL AND inside IS NULL AND cloud IS NULL AND size <= ?3 AND path LIKE '%.pdf' AND (size >= ?2 OR coalesce((SELECT length(CAST(body AS BLOB)) FROM text WHERE rowid = files.id), 0) = 0)";
+        // id, path, size, modified, length of the text kept.
+        type Pdf = (i64, String, i64, i64, usize);
+        let pick = |sql: &str, n: i64| -> rusqlite::Result<Vec<Pdf>> {
+            let db = self.db.lock().unwrap();
+            let rows: Vec<(i64, String, i64, i64)> = db
+                .prepare_cached(sql)?
+                .query_map(params![n, min_size as i64, max.min(i64::MAX as u64) as i64], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+                .collect::<rusqlite::Result<_>>()?;
+            Ok(rows.into_iter().map(|(id, p, s, m)| (id, p, s, m, text_len(&db, id))).collect())
+        };
+        // Looked at: whether it was there to look at.
+        let look = |(id, path, size, modified, had): &Pdf| -> rusqlite::Result<bool> {
+            if !Path::new(path).is_file() {
+                return Ok(false);
+            }
+            // A small one with no text is read again as any PDF is, by OCR where it needs it.
+            let again = (*size as u64) < min_size || crate::extract::pdf_layer(Path::new(path), *size as u64, max).map_or(0, |t| t.len()) > *had;
+            if again {
+                self.db.lock().unwrap().execute(
+                    "UPDATE files SET has_text = NULL, embedded = NULL WHERE id = ?1 AND size = ?2 AND modified = ?3",
+                    params![id, size, modified],
+                )?;
+            }
+            Ok(true)
+        };
+        // `after` is i64::MAX once every PDF has had its turn.
+        while after < i64::MAX {
+            let part = pick(&format!("{PICK} AND id > ?1 ORDER BY id LIMIT 100"), after)?;
+            let Some(last) = part.last().map(|p| p.0) else {
+                after = i64::MAX;
+                break;
             };
-            let Some(last) = part.last().map(|p| p.0) else { break };
-            for (id, path, size, modified, had) in part {
+            for f in &part {
                 if stop() || Instant::now() >= until {
-                    return Ok(());
+                    return save(after, &away);
                 }
-                if left_out(&path) || !Path::new(&path).is_file() {
-                    continue;
-                }
-                let now = crate::extract::pdf_layer(Path::new(&path), size as u64, max).map_or(0, |t| t.len());
-                if now > had {
-                    self.db.lock().unwrap().execute(
-                        "UPDATE files SET has_text = NULL, embedded = NULL WHERE id = ?1 AND size = ?2 AND modified = ?3",
-                        params![id, size, modified],
-                    )?;
+                if !left_out(&f.1) && !look(f)? && !away.contains(&f.0) {
+                    away.push(f.0);
                 }
             }
             after = last;
-            self.set_tag(&at, &after.to_string())?;
+            save(after, &away)?;
         }
-        self.db.lock().unwrap().execute("DELETE FROM meta WHERE key = ?1", [&at])?;
+        // Those that were away: looked at once they are back.
+        let mut still = vec![];
+        for (i, id) in away.iter().enumerate() {
+            if stop() || Instant::now() >= until {
+                still.extend_from_slice(&away[i..]);
+                return save(after, &still);
+            }
+            if let Some(f) = pick(&format!("{PICK} AND id = ?1"), *id)?.first()
+                && !left_out(&f.1)
+                && !look(f)?
+            {
+                still.push(*id);
+            }
+        }
+        if !still.is_empty() {
+            return save(after, &still);
+        }
+        self.db.lock().unwrap().execute("DELETE FROM meta WHERE key IN (?1, ?2)", [&at, &away_at])?;
         self.set_tag(key, tag)
     }
 
@@ -2896,7 +2935,10 @@ fn scan_for(
     // Long Word and OpenDocument texts, books and web pages kept whole that coxswain 2.33.0
     // left with only their first passages (the model's time counted as reading time): only
     // those with fewer passages than their text has get their vectors again, once (2.35).
-    store.whole_cut_short("passages.whole-cut", "1")?;
+    store.whole_cut_short("passages.whole-cut", "1", false)?;
+    // And those whose model got past the text kept (4 MB) and may still have stopped: every
+    // long Word and OpenDocument text kept whole with that many passages, once (2.35, #564).
+    store.whole_cut_short("passages.whole-past", "1", true)?;
     // At 3, PGN files whose Find this position numbers drift from the table's rows (an
     // unclosed comment, a lone `[Event]` tag) get their positions again, once (2.35): only
     // those, and nothing but their positions.
@@ -6288,13 +6330,16 @@ mod tests {
         }
         let n = crate::meaning::every_passage(&body, "/r/a.docx").len();
         // (id, path, chunks, whole, partial)
-        let rows: [(i64, &str, usize, bool, bool); 6] = [
+        let rows: [(i64, &str, usize, bool, bool); 8] = [
             (1, "/r/cut.docx", n / 5, true, false),
             (2, "/r/all.odt", n, true, false),
             (3, "/r/cut.xlsx", n / 5, true, false),
             (4, "/r/part.docx", n / 5, true, true),
             (5, "/r/sampled.docx", n / 5, false, false),
             (6, "/r/cut.epub", n - 1, true, false),
+            // #564: past what its text kept gives; and a short text with many passages.
+            (7, "/r/past.docx", n + 3, true, false),
+            (8, "/r/short.docx", n, true, false),
         ];
         {
             let mut db = store.db.lock().unwrap();
@@ -6304,7 +6349,7 @@ mod tests {
                     "INSERT INTO files(id, path, size, modified, has_text, embedded, whole, partial) VALUES (?1, ?2, 1, 7, 1, 1, ?3, ?4)",
                     params![id, path, whole.then_some(7), partial.then_some(7)],
                 ).unwrap();
-                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, body]).unwrap();
+                tx.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, if id == 8 { "A short text." } else { body.as_str() }]).unwrap();
                 for k in 0..chunks {
                     tx.execute("INSERT INTO chunks(file, n, vector) VALUES (?1, ?2, x'00')", params![id, k as i64]).unwrap();
                 }
@@ -6316,18 +6361,29 @@ mod tests {
         };
         // A newer version's tag: left be.
         store.set_tag("passages.whole-cut", "2").unwrap();
-        store.whole_cut_short("passages.whole-cut", "1").unwrap();
+        store.whole_cut_short("passages.whole-cut", "1", false).unwrap();
         assert!(renewed().is_empty());
         store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = 'passages.whole-cut'", []).unwrap();
-        store.whole_cut_short("passages.whole-cut", "1").unwrap();
+        store.whole_cut_short("passages.whole-cut", "1", false).unwrap();
         assert_eq!(renewed(), [1, 6], "only the Word text and the book cut short");
         // Their old vectors stay until the new ones are in.
         let kept: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM chunks WHERE file = 1", [], |r| r.get(0)).unwrap();
         assert_eq!(kept as usize, n / 5);
         // Once: done again as it was, nothing more.
         store.db.lock().unwrap().execute("UPDATE files SET embedded = 1", []).unwrap();
-        store.whole_cut_short("passages.whole-cut", "1").unwrap();
+        store.whole_cut_short("passages.whole-cut", "1", false).unwrap();
         assert!(renewed().is_empty());
+        // #564: every long Word or OpenDocument text kept whole with as many passages as its
+        // text kept gives, or more, once, under a tag of its own; not a short one, not a book.
+        store.set_tag("passages.whole-past", "2").unwrap();
+        store.whole_cut_short("passages.whole-past", "1", true).unwrap();
+        assert!(renewed().is_empty(), "a newer version's tag: left be");
+        store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = 'passages.whole-past'", []).unwrap();
+        store.whole_cut_short("passages.whole-past", "1", true).unwrap();
+        assert_eq!(renewed(), [2, 7]);
+        store.db.lock().unwrap().execute("UPDATE files SET embedded = 1", []).unwrap();
+        store.whole_cut_short("passages.whole-past", "1", true).unwrap();
+        assert!(renewed().is_empty(), "once");
         // What the rule rests on, on a real file: streamed to its end, a Word text cut at what is
         // kept has at least as many passages as that text gives, so a whole one is never taken
         // for one cut short.
@@ -6444,20 +6500,26 @@ mod tests {
         assert!(layer.contains("harbour"), "{layer}");
         assert!(crate::extract::pdf_layer(&{ let p = d.join("probe-scan.pdf"); std::fs::write(&p, &scan).unwrap(); p }, scan.len() as u64, u64::MAX).is_none());
         // (id, name, file, stored text, size in the store)
-        let rows: [(i64, &str, &[u8], Option<&str>, usize); 6] = [
+        let rows: [(i64, &str, &[u8], Option<&str>, usize); 8] = [
             (1, "cut.pdf", &text, Some("The crew checks"), text.len()),
             (2, "ocr.pdf", &text, Some("Tho crow chocks"), text.len()),
             (3, "none.pdf", &text, None, text.len()),
             (4, "whole.pdf", &text, Some(&layer), text.len()),
             (5, "scan.pdf", &scan, Some("words a scan shows, by OCR"), scan.len()),
             (6, "small.pdf", &text, Some("The crew"), 10),
+            (7, "away/cut.pdf", &text, Some("The crew"), text.len()),
+            // Small, with no text kept (#563): read again, by OCR where it needs it.
+            (8, "small-empty.pdf", &text, None, 10),
         ];
         {
             let mut db = store.db.lock().unwrap();
             let tx = db.transaction().unwrap();
             for (id, name, bytes, body, size) in rows {
                 let p = d.join(name);
-                std::fs::write(&p, bytes).unwrap();
+                // A disk not plugged in: its file is not there yet.
+                if id != 7 {
+                    std::fs::write(&p, bytes).unwrap();
+                }
                 tx.execute(
                     "INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, ?3, 7, ?4, 1)",
                     params![id, p.to_string_lossy(), size as i64, body.is_some()],
@@ -6478,18 +6540,31 @@ mod tests {
         assert!(again().is_empty());
         assert!(!store.tag_reached("readers.pdf-pages", "1"));
         run(Instant::now() + Duration::from_secs(3600));
-        assert_eq!(again(), [1, 2, 3]);
+        assert_eq!(again(), [1, 2, 3, 8]);
+        // The one on the disk that is away waits for it, alone: the others are not looked at again.
+        assert!(!store.tag_reached("readers.pdf-pages", "1"));
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = 1, embedded = 1 WHERE id = 1", []).unwrap();
+        run(Instant::now() + Duration::from_secs(3600));
+        assert_eq!(again(), [2, 3, 8]);
+        assert!(!store.tag_reached("readers.pdf-pages", "1"));
+        std::fs::create_dir_all(d.join("away")).unwrap();
+        std::fs::write(d.join("away/cut.pdf"), &text).unwrap();
+        run(Instant::now() + Duration::from_secs(3600));
+        assert_eq!(again(), [2, 3, 7, 8]);
         assert!(store.tag_reached("readers.pdf-pages", "1"));
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE id = 1", []).unwrap();
         // The store's own reading then gives them the text layer, not OCR.
         assert!(!read(&store, &SearchConfig::default(), &AtomicBool::new(false)).unwrap());
-        for id in [1, 2, 3] {
+        for id in [1, 2, 3, 7, 8] {
             let body: String = store.db.lock().unwrap().query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0)).unwrap();
             assert_eq!(body, layer);
         }
         let scan_text: String = store.db.lock().unwrap().query_row("SELECT body FROM text WHERE rowid = 5", [], |r| r.get(0)).unwrap();
         assert_eq!(scan_text, "words a scan shows, by OCR");
-        // Once.
+        // Once: a small PDF with text never, and the small empty one not twice.
         store.db.lock().unwrap().execute("UPDATE files SET has_text = 1, embedded = 1 WHERE id = 6", []).unwrap();
+        store.db.lock().unwrap().execute("DELETE FROM text WHERE rowid = 8", []).unwrap();
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = 0, embedded = 1 WHERE id = 8", []).unwrap();
         run(Instant::now() + Duration::from_secs(3600));
         assert!(again().is_empty());
         drop(store);
