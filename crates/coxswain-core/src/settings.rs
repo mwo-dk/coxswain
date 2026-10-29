@@ -115,7 +115,7 @@ impl Opt {
 
     /// Optional in config.toml: empty means the key is taken out (the default applies).
     fn optional(&self) -> bool {
-        matches!(self.name, "editor" | "viewer" | "git_tool" | "chess_book" | "chess_engine")
+        matches!(self.name, "editor" | "viewer" | "terminal" | "git_tool" | "chess_book" | "chess_engine")
     }
 }
 
@@ -256,6 +256,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("git_prefer_git", &["git", "prefer_git"], Behaviour, &[]),
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
+    opt("terminal", &["terminal"], Behaviour, &[]),
     opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),
     opt("provenance_viewer", &["provenance_viewer"], Behaviour, &[]),
     opt("check_updates", &["check_updates"], Privacy, &[Network]),
@@ -307,7 +308,7 @@ pub const GROUPS: &[Group] = &[
     group(Looks, "looks_gui", Some("settings.theme_gui"), &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
     group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "hints", "folder_sizes", "disk_images", "repos_order"]),
     group(Behaviour, "git", Some("settings.group.git"), &["git_last_commit", "git_tool", "git_prefer_git"]),
-    group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "bom_viewer", "provenance_viewer"]),
+    group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "terminal", "bom_viewer", "provenance_viewer"]),
     group(Privacy, "updates", None, &["check_updates"]),
 ];
 

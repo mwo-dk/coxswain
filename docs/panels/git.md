@@ -245,7 +245,7 @@ tool, in the repository's top folder, wherever in it the panel is.
 |---|---|---|
 | Key | **Alt+G** | **Alt+G** |
 | Menus | **Shift+F10** (the [action menu](action-menu.md), under *Git*), **F9** | **Shift+F10**, **F9**, a right-click on the git line, and *Open in your git tool* under *Git* in the preview pane |
-| A terminal tool (lazygit, gitui, tig) | Runs in this terminal, as **F4**'s editor does: the panels go, the tool takes the screen, and when you quit it the panels come back with the git line read again | Opens in a new terminal window: `$TERMINAL`, else the first terminal installed (Terminal on a Mac; Windows Terminal, else a console, on Windows) |
+| A terminal tool (lazygit, gitui, tig) | Runs in this terminal, as **F4**'s editor does: the panels go, the tool takes the screen, and when you quit it the panels come back with the git line read again | Opens in a new terminal window: the one chosen under Settings → Behaviour → Programs → *Terminal*, else `$TERMINAL` or the first terminal installed (Terminal on a Mac; Windows' default terminal application on Windows); see [Choosing the terminal](../commands/user-menu.md#choosing-the-terminal) |
 | A desktop client | Starts in a window of its own; the panels stay | The same |
 | No tool installed | Your shell, in this terminal, in the repository; `exit` brings the panels back | A terminal window in the repository |
 

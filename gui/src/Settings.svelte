@@ -31,6 +31,11 @@
   let hintsReset = $state(false);
   /** The git tools installed here, looked for when Behaviour opens. */
   let gitTools = $state([]);
+  // Open a terminal here: what opens unset, the terminals installed, and whether a command of
+  // one's own is being typed (Another command…).
+  let terms = $state([null, []]);
+  let termOther = $state(false);
+  const termListed = $derived(!termOther && (!s.terminal || terms[1].some(([n]) => n === s.terminal)));
   let saved = $state(false);
   const close = () => (ui.modal = null);
 
@@ -108,6 +113,7 @@
     if (area === "games") untrack(loadEngines);
     if (area === "privacy") untrack(() => (loadDisk(), loadServers()));
     if (area === "behaviour") invoke("git_tools").then((v) => (gitTools = v), () => {});
+    if (area === "behaviour") invoke("terminals").then((v) => (terms = v), () => {});
   });
 
   /** "Find a setting": every option whose label, explanation or config key holds the words,
@@ -1192,6 +1198,16 @@
           <summary>{t("settings.group.programs")}</summary>
           {@render text("editor", "$EDITOR")}
           {@render text("viewer", t("setting.viewer.empty"))}
+          <!-- A terminal from those installed, or a command of one's own ({dir} the folder). -->
+          {#snippet terminal()}
+            <select id="in-terminal" value={termListed ? s.terminal : OTHER} onchange={(e) => ((termOther = e.currentTarget.value === OTHER), termOther || set("terminal", e.currentTarget.value))}>
+              <option value="">{t("settings.git_tool_auto", { name: terms[0] ?? t("settings.terminal_none") })}</option>
+              {#each terms[1] as [name, label] (name)}<option value={name}>{label}</option>{/each}
+              <option value={OTHER}>{t("settings.git_tool_other")}</option>
+            </select>
+            {#if !termListed}<input id="in-terminal_other" value={s.terminal} spellcheck="false" placeholder="footclient -D {"{dir}"}" onchange={(e) => set("terminal", e.currentTarget.value.trim())} />{/if}
+          {/snippet}
+          {@render field("terminal", terminal)}
           {@render check("bom_viewer")}
           {@render check("provenance_viewer")}
         </details>
