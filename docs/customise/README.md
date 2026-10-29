@@ -8,7 +8,7 @@ change the most used parts at once; everything else is set in one file, `config.
 both apps read. These pages walk
 through each part, with the keys and the exact `config.toml` lines.
 
-![Settings at Looks: the last languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, under them the button Suggest a better translation, a line, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the last languages under their regions: The Middle East with עברית and فارسی, The Caucasus with Հայերեն and ქართული, The Americas with English (Canada), Español for eighteen countries and Français (Canada), the fresh ones marked new, and Asia and the Pacific with 中文（台灣） and 中文（新加坡） marked new, then the button Suggest a better translation](../screenshots/settings-looks.png)
 *The Settings window at Looks: the language, the theme, glyphs and fonts.*
 
 | Page | What it covers |

@@ -6,7 +6,7 @@ Both apps read one TOML file, `config.toml`. Set only what you want to change; e
 keeps its default. This page lists every key, with its type, its default, what it does, which
 app reads it and which Settings item writes it.
 
-![Settings at Looks: the last languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, under them the button Suggest a better translation, a line, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the last languages under their regions: The Middle East with עברית and فارسی, The Caucasus with Հայերեն and ქართული, The Americas with English (Canada), Español for eighteen countries and Français (Canada), the fresh ones marked new, and Asia and the Pacific with 中文（台灣） and 中文（新加坡） marked new, then the button Suggest a better translation](../screenshots/settings-looks.png)
 *Settings (**Ctrl+,** or **F12**, in either app) write single values into `config.toml`. The path is shown at the bottom: "Settings are stored in /home/demo/.config/coxswain/config.toml".*
 
 ## Contents
