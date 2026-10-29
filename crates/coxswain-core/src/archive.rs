@@ -1786,7 +1786,8 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     // still being looked at, and peeks piling up while the cursor moves each unpack.
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-    let to = peek_folder()?.join(inner.rsplit('/').next().unwrap_or("file"));
+    let folder = peek_folder()?;
+    let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
         &archive,
@@ -1811,7 +1812,59 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
             .open(&to)
             .and_then(|f| f.set_modified(when));
     }
+    // A ChessBase or SCID database is read with the files beside it under its name (`.cbg`,
+    // `.sg4` …): those come along, so its games show as outside.
+    if (crate::chess::cbh::is_cbh(&to) && !crate::chess::cbv::is_cbv(&to)) || crate::chess::scid::is_scid(&to) {
+        let (within, stem) = match inner.rsplit_once('/') {
+            Some((f, n)) => (format!("{f}/"), n),
+            None => (String::new(), inner.as_str()),
+        };
+        let stem = stem.rsplit_once('.').map_or(stem, |(s, _)| s);
+        let all = items(&archive)?;
+        let beside: Vec<&Item> = all
+            .iter()
+            .filter(|i| {
+                !i.dir
+                    && i.name != inner
+                    && i.name.strip_prefix(&within).is_some_and(|n| {
+                        one_name(n)
+                            && n.rsplit_once('.').is_some_and(|(s, _)| s.eq_ignore_ascii_case(stem))
+                    })
+            })
+            .collect();
+        if beside.iter().map(|i| i.size).sum::<u64>() > PEEK_MAX {
+            return Err(too_large(&inner));
+        }
+        for i in beside {
+            let at = folder.join(&i.name[within.len()..]);
+            // Never outside the peek folder, whatever the name says.
+            if at.parent() != Some(folder.as_path()) {
+                continue;
+            }
+            copy_out_with(
+                &archive,
+                &i.name,
+                &at,
+                password_for(&archive, None).as_deref(),
+                Copy {
+                    limit: PEEK_MAX,
+                    ..Copy::default()
+                },
+            )?;
+        }
+    }
     Ok(to)
+}
+
+/// A name that is one file's in a folder: no `/` or `..`, and on Windows no `\\`, `:` (a drive
+/// or a stream) or device name, which are only characters elsewhere.
+fn one_name(n: &str) -> bool {
+    !n.contains('/')
+        && !(cfg!(windows) && (n.contains(['\\', ':']) || device(n)))
+        && matches!(
+            Path::new(n).components().collect::<Vec<_>>()[..],
+            [std::path::Component::Normal(_)]
+        )
 }
 
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
@@ -3672,6 +3725,58 @@ mod tests {
         );
         assert!(peek(&zp.join("sub")).is_err(), "a folder is not looked at");
         assert!(peek(&zp.join("nothing.txt")).is_err());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A database's files beside it come along with a look at it, only those under its name in
+    /// its folder, and nothing lands outside the folder of the copy whatever an entry is named.
+    #[test]
+    fn a_database_comes_with_its_files_and_no_name_escapes() {
+        use zip::write::SimpleFileOptions;
+        let d = std::env::temp_dir().join(format!("coxswain-test-peek-db-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let zp = d.join("db.zip");
+        let mut w = zip::ZipWriter::new(File::create(&zp).unwrap());
+        for name in [
+            "x/evil.cbh",
+            "x/evil.cbg",
+            "x/EVIL.cbp",
+            "x/other.cbg",
+            "evil.cbt",
+            "x/..\\..\\evil.cbg",
+            "x/C:evil.cbg",
+            "x/../evil.cbg",
+            "x/evil.cbg/..",
+            "x/..\\..\\evil.cbh",
+            "x/C:evil.cbh",
+        ] {
+            w.start_file(name, SimpleFileOptions::default()).unwrap();
+            io::Write::write_all(&mut w, name.as_bytes()).unwrap();
+        }
+        w.finish().unwrap();
+        let copy = peek(&zp.join("x/evil.cbh")).unwrap();
+        let folder = copy.parent().unwrap();
+        let mut got: Vec<String> = std::fs::read_dir(folder)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        got.sort();
+        assert_eq!(got, ["EVIL.cbp", "evil.cbg", "evil.cbh"]);
+        assert_eq!(std::fs::read(folder.join("evil.cbg")).unwrap(), b"x/evil.cbg");
+        // Crafted names looked at themselves stay in the folder too (or are not listed).
+        for name in ["x/..\\..\\evil.cbh", "x/C:evil.cbh"] {
+            if let Ok(c) = peek(&zp.join(name)) {
+                assert_eq!(c.parent(), Some(folder), "{name}");
+            }
+        }
+        for up in [folder.parent().unwrap(), folder.parent().unwrap().parent().unwrap()] {
+            let names: Vec<String> = std::fs::read_dir(up).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+            assert!(!names.iter().any(|n| n.contains("evil")), "{names:?}");
+        }
+        assert!(one_name("a.cbg") && !one_name("../a.cbg") && !one_name("..") && !one_name("a/b"));
+        assert_eq!(one_name("..\\a.cbg"), !cfg!(windows));
+        assert_eq!(one_name("C:a.cbg"), !cfg!(windows));
         std::fs::remove_dir_all(d).unwrap();
     }
 

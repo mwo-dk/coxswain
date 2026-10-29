@@ -1928,15 +1928,9 @@ impl App {
     /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
     fn peek(&mut self, path: PathBuf) {
         match coxswain_core::archive::peek(&path) {
-            // Games (a PGN file, a DhtmlXQ xiangqi game): on their board, as outside. Not a SCID
-            // or ChessBase database: its other files stay in the archive.
-            Ok(copy)
-                if coxswain_core::chess::sniff(&copy).is_some()
-                    && !coxswain_core::chess::scid::is_scid(&copy)
-                    && !coxswain_core::chess::cbh::is_cbh(&copy) =>
-            {
-                self.chess(&copy, None)
-            }
+            // Games of every kind (a database's other files come along): on their board, as
+            // outside.
+            Ok(copy) if coxswain_core::chess::sniff(&copy).is_some() => self.chess(&copy, None),
             Ok(copy) => self.view_or_edit(Action::View, &copy),
             Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
                 self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
@@ -1955,6 +1949,10 @@ impl App {
             return self.cd(self.active, e.path);
         }
         if let Some((archive, _)) = inside {
+            // Games open on their board, as F3 shows them.
+            if coxswain_core::chess::format(&e.path).is_some() {
+                return self.peek(e.path);
+            }
             let key = if coxswain_core::archive::read_only(&archive) { "disk_image.copy_out_hint" } else { "archive.copy_out_hint" };
             return self.status = Some(t!(key, "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
         }
@@ -6147,6 +6145,60 @@ mod tests {
         app.cd(0, z.clone());
         assert_eq!(app.panels[0].dir, d, "nothing to list without it: back in its folder");
         assert!(matches!(&app.dialog, Some(Dialog::Input { prompt: Prompt::Unlock(0, dir), .. }) if *dir == z), "asked for the password");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Games inside a zip (and a zip in it) open on their board with F3 and Enter, as outside:
+    /// a ChessBase archive, a ChessBase and a SCID database with the files beside them, PGN, SGF.
+    #[test]
+    fn games_in_an_archive_open_as_games() {
+        use coxswain_core::archive;
+        let d = std::env::temp_dir().join(format!("coxswain-test-archive-games-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let files = d.join("files");
+        std::fs::create_dir_all(&files).unwrap();
+        let chess = Path::new(env!("CARGO_MANIFEST_DIR")).join("../coxswain-core/src/chess");
+        let mut sources = vec![];
+        for name in ["Games.cbv", "Games.cbh", "Games.cbg", "Games.cba", "Games.cbp", "Games.cbt", "test.si4", "test.sg4", "test.sn4", "hand.pgn"] {
+            let dir = if name.starts_with("Games") { "cbh-test" } else { "scid-test" };
+            std::fs::copy(chess.join(dir).join(name), files.join(name)).unwrap();
+            sources.push(files.join(name));
+        }
+        std::fs::write(files.join("go.sgf"), "(;GM[1]SZ[9];B[ee];W[cc])").unwrap();
+        sources.push(files.join("go.sgf"));
+        archive::create(&files.join("inner.zip"), &[files.join("Games.cbv")]).unwrap();
+        sources.push(files.join("inner.zip"));
+        let zip = d.join("games.zip");
+        archive::create(&zip, &sources).unwrap();
+        let mut app = app(d.clone(), d.clone());
+        let opens = |app: &mut App, dir: PathBuf, name: &str, a: Action| -> PathBuf {
+            app.cd(0, dir);
+            let at = app.panels[0].entries.iter().position(|e| e.name == name).unwrap_or_else(|| panic!("{name} listed"));
+            app.panels[0].cursor = at;
+            app.dialog = None;
+            app.act(a);
+            match app.dialog.take() {
+                Some(Dialog::Chess(v)) => v.path.clone(),
+                Some(Dialog::Go(v)) => v.path.clone(),
+                _ => panic!("{name} ({a:?}): not on its board; said {:?}", app.status),
+            }
+        };
+        let first = |p: &Path| {
+            let lib = coxswain_core::chess::Library::open(p).unwrap();
+            let end = Instant::now() + coxswain_core::test_limit(Duration::from_secs(20));
+            while !lib.progress().done && Instant::now() < end {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            lib.row(0).map(|r| r.white).unwrap_or_default()
+        };
+        for a in [Action::View, Action::Open] {
+            assert_eq!(first(&opens(&mut app, zip.clone(), "Games.cbv", a)), "Morphy, Paul");
+            assert_eq!(first(&opens(&mut app, zip.clone(), "Games.cbh", a)), "Morphy, Paul", "its other files came along");
+            assert!(!first(&opens(&mut app, zip.clone(), "test.si4", a)).is_empty(), "its other files came along");
+            assert!(!first(&opens(&mut app, zip.clone(), "hand.pgn", a)).is_empty());
+            opens(&mut app, zip.clone(), "go.sgf", a);
+            assert_eq!(first(&opens(&mut app, zip.join("inner.zip"), "Games.cbv", a)), "Morphy, Paul");
+        }
         let _ = std::fs::remove_dir_all(d);
     }
 

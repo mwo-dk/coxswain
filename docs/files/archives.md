@@ -40,9 +40,9 @@ and **F5** from another panel copies into it. Copies between two archives work t
 | **F6** | Moves out: copies out, then takes them out of the archive. With a new name, or a folder in the same archive, it **renames** or moves within the archive | Adds the files, then deletes the originals |
 | **F7** | Makes a folder inside the archive | |
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
-| **Enter** on a file | Says on the status line that it must be copied out first | |
+| **Enter** on a file | Says on the status line that it must be copied out first; a games file (in the terminal app) opens in the games view, as **F3** does | |
 | **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
-| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game; not a SCID or ChessBase database, whose other files stay in the archive) opens in the games view, as outside the archive | |
+| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a ChessBase archive `.cbv`, a ChessBase or SCID database with the files beside it under its name) opens in the games view, as outside the archive | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
 | **Alt+F5** | [Packs](pack-and-extract.md) files on disk into a new archive | |
 
