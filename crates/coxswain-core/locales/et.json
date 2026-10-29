@@ -309,6 +309,8 @@
  },
  "archive.nested_read_only": "Kirjutuskaitstud: see on arhiiv arhiivi sees, avatud koopiast. Selle muutmiseks kopeerige sisemine arhiiv F5-ga välja",
  "archive.part_missing": "{name} puudub: osadeks jagatud 7z avaneb ainult kõigi osadega, mis on nummerdatud vahedeta",
+ "archive.zip_part_missing": "{name} puudub: osadeks jagatud zip avaneb ainult kõigi osadega, mis on nummerdatud vahedeta",
+ "archive.zip_parts_zip64": "Nii suurt osadeks jagatud zip-faili (zip64) ei loeta: ühenda enne selle osad (zip -s 0)",
  "archive.nested_too_deep": "Arhiivid arhiivides avanevad kuni {depth} taseme sügavuseni: kopeerige see F5-ga välja, et seda avada",
  "archive.overlapping": "Selle zipi failid jagavad oma pakitud baite, nii et see pakiks lahti palju rohkem, kui sisaldab: see võib olla tehtud ketta täitmiseks. Ühe faili saab sellest siiski välja kopeerida",
  "archive.pack_confirm": "Parool uuesti:",
@@ -1210,11 +1212,14 @@
  "facts.macos_universal": "macOS universal",
  "facts.made_with": "Loodud programmiga",
  "facts.messages": "Kirjad",
+ "facts.games": "Partiid",
+ "facts.games_in": "{n} faili {total}-st on partiid: ava see ja iga partii näidatakse laual",
  "facts.mono": "mono",
  "facts.other_cpu": "muu protsessor",
  "facts.pages": "Lehed",
  "facts.part": "Osa",
  "facts.part_of": "{n} osadeks jagatud 7z-failist: see avaneb failist {first}",
+ "facts.zip_part_of": "{n} osadeks jagatud zip-failist: see avaneb failist {last}",
  "facts.palette": {
   "one": "{n} värv paletist",
   "other": "{n} värvi paletist"

@@ -277,6 +277,8 @@
  },
  "archive.nested_read_only": "Read-only: this is an archive inside an archive, opened from a copy. Copy the inner archive out with F5 to change it",
  "archive.part_missing": "{name} is missing: a 7z split into parts opens only with all its parts, numbered without a gap",
+ "archive.zip_part_missing": "{name} is missing: a zip split into parts opens only with all its parts, numbered without a gap",
+ "archive.zip_parts_zip64": "A zip split into parts this large (zip64) is not read: join its parts first (zip -s 0)",
  "archive.nested_too_deep": "Archives inside archives open no deeper than {depth} levels: copy this one out with F5 to open it",
  "archive.overlapping": "The files of this zip share their packed bytes, so it would unpack to far more than it holds: it may be made to fill the disk. One file of it can still be copied out",
  "archive.pack_confirm": "The password again:",
@@ -1178,11 +1180,14 @@
  "facts.macos_universal": "macOS universal",
  "facts.made_with": "Made with",
  "facts.messages": "Messages",
+ "facts.games": "Games",
+ "facts.games_in": "{n} of {total} files are games: open it, and each shows on the board",
  "facts.mono": "mono",
  "facts.other_cpu": "other CPU",
  "facts.pages": "Pages",
  "facts.part": "Part",
  "facts.part_of": "{n} of a 7z split into parts: it opens from {first}",
+ "facts.zip_part_of": "{n} of a zip split into parts: it opens from {last}",
  "facts.palette": {
   "one": "{n} colour from a palette",
   "other": "{n} colours from a palette"

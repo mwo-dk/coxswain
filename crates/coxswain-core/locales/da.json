@@ -309,6 +309,8 @@
  },
  "archive.nested_read_only": "Skrivebeskyttet: dette er et arkiv i et arkiv, åbnet fra en kopi. Kopiér det indre arkiv ud med F5 for at ændre det",
  "archive.part_missing": "{name} mangler: en 7z delt i dele kan kun åbnes med alle sine dele, nummereret uden huller",
+ "archive.zip_part_missing": "{name} mangler: en zip delt i dele kan kun åbnes med alle sine dele, nummereret uden huller",
+ "archive.zip_parts_zip64": "En så stor zip delt i dele (zip64) læses ikke: saml først dens dele (zip -s 0)",
  "archive.nested_too_deep": "Arkiver i arkiver åbnes højst {depth} niveauer ned: kopiér dette ud med F5 for at åbne det",
  "archive.overlapping": "Filerne i denne zip deler deres pakkede bytes, så den ville pakkes ud til langt mere, end den fylder: den kan være lavet til at fylde disken. En enkelt fil fra den kan stadig kopieres ud",
  "archive.pack_confirm": "Adgangskoden igen:",
@@ -1210,11 +1212,14 @@
  "facts.macos_universal": "macOS universal",
  "facts.made_with": "Lavet med",
  "facts.messages": "Beskeder",
+ "facts.games": "Partier",
+ "facts.games_in": "{n} af {total} filer er partier: åbn den, så vises hvert på brættet",
  "facts.mono": "mono",
  "facts.other_cpu": "anden CPU",
  "facts.pages": "Sider",
  "facts.part": "Del",
  "facts.part_of": "{n} af en 7z delt i dele: den åbnes fra {first}",
+ "facts.zip_part_of": "{n} af en zip delt i dele: den åbnes fra {last}",
  "facts.palette": {
   "one": "{n} farve fra en palet",
   "other": "{n} farver fra en palet"

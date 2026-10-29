@@ -68,6 +68,7 @@ program is needed.
 | Tar with zstd | `.tar.zst`, `.tzst` | yes | yes | none |
 | 7z | `.7z` | yes | yes (LZMA2) | AES to read and when packing; also locked file names |
 | 7z split into parts | `.7z.001`, with `.002`, `.003` … beside it | yes: the parts read as one | no: read-only | as a 7z |
+| Zip split into parts | `.zip`, with `.z01`, `.z02` … beside it (Info-ZIP's `zip -s`, WinZip) | yes: the parts read as one | no: read-only | as a zip |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 | Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
@@ -206,8 +207,8 @@ through an installed 7-Zip instead, read-only, like a disk image
   the same password (its names too, when they were), the key made as 7-Zip makes it.
 - **A 7z split into parts** by 7-Zip (`games.7z.001`, `games.7z.002`, …) opens from its first
   part: **Enter** on `games.7z.001` shows what the whole archive holds, its parts read one after
-  the other, as one file. The other parts stay ordinary files in the list; their facts (under the
-  desktop app's preview; **Alt+Enter** in the terminal app, on the status line inside an
+  the other, as one file. The other parts stay ordinary files in the list; their facts (in the
+  desktop app's preview, above the part's bytes; **Alt+Enter** in the terminal app, on the status line inside an
   archive) say *Part: 2 of a 7z split into
   parts: it opens from games.7z.001*. It is read-only, as a disk image is: the badge and the
   panel title say *Read-only*. All its parts must be there, numbered without a gap; with one
@@ -216,6 +217,24 @@ through an installed 7-Zip instead, read-only, like a disk image
   says so on the status line, whole (in the terminal app over two rows at 80 columns), rather
   than showing its bytes. Inside another archive it opens too, its parts copied together into
   the cache folder (the limits above count them together). Search finds it by its own name only.
+- **A zip split into parts** by Info-ZIP (`zip -s`) or WinZip (`games.z01`, `games.z02`, …,
+  `games.zip`) opens from its **last** part, the `.zip`: **Enter** on `games.zip` shows what the
+  whole archive holds, its parts read one after the other. The `.z01`, `.z02` … parts stay
+  ordinary files; their facts say *Part: 1 of a zip split into parts: it opens from games.zip*.
+  It is read-only, its parts must all be there (*games.z02 is missing: a zip split into parts
+  opens only with all its parts, numbered without a gap*), and inside another archive it opens
+  too, its parts copied together. Search looks into it as into a zip. One so large that it needs
+  zip64 (over 4 GB, or more than 65,535 files) is not read: join its parts first with
+  `zip -s 0 games.zip --out whole.zip`. A zip cut into equal pieces by 7-Zip (`games.zip.001`)
+  is not a split zip: join those with `cat` or `copy /b` first.
+- **A part's facts above its bytes:** in the desktop app's preview, a file shown as a hex dump
+  (a later part of a split archive, any other binary file with facts) has its facts above the
+  dump, not under it, so *Part: …* is the first thing you read.
+- **An archive of games:** when more than half of the files it lists are games (chess, Go,
+  draughts, shogi, xiangqi, bridge: `.pgn`, `.sgf`, `.pdn`, `.kif`, `.csa`, `.pbn` …), its facts
+  say so: *Games: 412 of 430 files are games: open it, and each shows on the board* (under the
+  desktop app's preview, in the terminal app's **Alt+Enter**). **Enter** opens it like a folder,
+  and the preview (**F3** and **Alt+K** in the terminal app) shows each game on the board.
 - **A 7z's list of contents** is read whole, into memory, when it is opened: one with a list over
   64 MB unpacked (about 900,000 files) is not opened, with a message that says how large it
   is. A 7z of 900,000 small files (a 61 MB list) takes about 600 MB of memory while it is open
@@ -333,6 +352,12 @@ badge; the terminal app adds `[archive]` to the panel title.
 
 Yes: **Enter** on the `.001` file, beside the others or inside another archive. It shows the
 whole archive, read-only. The `.002` and later parts are the same archive: open the first
+([Limits](#limits)).
+
+#### Can I open a zip split into parts (.z01, .z02, .zip)?
+
+Yes: **Enter** on the `.zip` file, the last part, with the `.z01`, `.z02` … beside it. It shows
+the whole archive, read-only. A `.z01` part says on its facts which `.zip` it opens from
 ([Limits](#limits)).
 
 #### Why does a 7z say its list of contents is too large?

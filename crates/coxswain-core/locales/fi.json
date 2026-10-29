@@ -309,6 +309,8 @@
  },
  "archive.nested_read_only": "Vain luku: tämä on arkisto arkiston sisällä, avattu kopiosta. Kopioi sisempi arkisto ulos F5:llä muuttaaksesi sitä",
  "archive.part_missing": "{name} puuttuu: osiin jaettu 7z aukeaa vain, kun kaikki sen osat ovat mukana aukottomasti numeroituina",
+ "archive.zip_part_missing": "{name} puuttuu: osiin jaettu zip aukeaa vain, kun kaikki sen osat ovat mukana aukottomasti numeroituina",
+ "archive.zip_parts_zip64": "Näin suurta osiin jaettua zipiä (zip64) ei lueta: yhdistä ensin sen osat (zip -s 0)",
  "archive.nested_too_deep": "Arkistojen sisällä olevat arkistot avautuvat enintään {depth} tason syvyyteen: kopioi tämä ulos F5:llä avataksesi sen",
  "archive.overlapping": "Tämän zipin tiedostot jakavat pakatut tavunsa, joten se purkautuisi paljon suuremmaksi kuin mitä se sisältää: se voi olla tehty täyttämään levy. Yhden sen tiedoston voi silti kopioida ulos",
  "archive.pack_confirm": "Salasana uudelleen:",
@@ -1210,11 +1212,14 @@
  "facts.macos_universal": "macOS universal",
  "facts.made_with": "Tehty ohjelmalla",
  "facts.messages": "Viestit",
+ "facts.games": "Pelit",
+ "facts.games_in": "{n}/{total} tiedostoa on pelejä: avaa se, niin jokainen näkyy laudalla",
  "facts.mono": "mono",
  "facts.other_cpu": "muu suoritin",
  "facts.pages": "Sivut",
  "facts.part": "Osa",
  "facts.part_of": "osa {n} osiin jaetusta 7z-tiedostosta: se avataan tiedostosta {first}",
+ "facts.zip_part_of": "osa {n} osiin jaetusta zip-tiedostosta: se avataan tiedostosta {last}",
  "facts.palette": {
   "one": "{n} väri paletista",
   "other": "{n} väriä paletista"

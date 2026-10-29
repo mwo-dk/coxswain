@@ -304,6 +304,8 @@
  },
  "archive.nested_read_only": "読み取り専用: アーカイブの中のアーカイブで、コピーから開いています。変更するには F5 で内側のアーカイブをコピーして取り出してください",
  "archive.part_missing": "{name} がありません: 分割された 7z は、欠番のないすべての部分がそろったときだけ開きます",
+ "archive.zip_part_missing": "{name} がありません: 分割された zip は、欠番のないすべての部分がそろったときだけ開きます",
+ "archive.zip_parts_zip64": "これほど大きい分割 zip (zip64) は読みません: 先に部分を結合してください (zip -s 0)",
  "archive.nested_too_deep": "アーカイブの中のアーカイブは {depth} 階層まで開けます: これは F5 でコピーして取り出してから開いてください",
  "archive.overlapping": "この zip のファイルは圧縮されたバイトを共有しているため、中身よりはるかに大きく展開されます。ディスクを埋めるために作られたものかもしれません。ファイルを 1 つずつならコピーできます",
  "archive.pack_confirm": "パスワードをもう一度:",
@@ -1162,11 +1164,14 @@
  "facts.macos_universal": "macOS ユニバーサル",
  "facts.made_with": "作成ソフト",
  "facts.messages": "メッセージ",
+ "facts.games": "棋譜",
+ "facts.games_in": "{total} 個のファイルのうち {n} 個が棋譜です: 開くと、それぞれが盤に表示されます",
  "facts.mono": "モノラル",
  "facts.other_cpu": "その他の CPU",
  "facts.pages": "ページ",
  "facts.part": "分割",
  "facts.part_of": "分割された 7z の {n} 番目: {first} から開きます",
+ "facts.zip_part_of": "分割された zip の {n} 番目: {last} から開きます",
  "facts.palette": {
   "other": "パレットの {n} 色"
  },

@@ -309,6 +309,8 @@
  },
  "archive.nested_read_only": "Alleen-lezen: dit is een archief in een archief, geopend vanuit een kopie. Kopieer het binnenste archief eruit met F5 om het te wijzigen",
  "archive.part_missing": "{name} ontbreekt: een in delen gesplitste 7z opent alleen met al zijn delen, zonder gat genummerd",
+ "archive.zip_part_missing": "{name} ontbreekt: een in delen gesplitste zip opent alleen met al zijn delen, zonder gat genummerd",
+ "archive.zip_parts_zip64": "Een zo grote in delen gesplitste zip (zip64) wordt niet gelezen: voeg eerst de delen samen (zip -s 0)",
  "archive.nested_too_deep": "Archieven in archieven openen tot {depth} niveaus diep: kopieer dit eruit met F5 om het te openen",
  "archive.overlapping": "De bestanden in deze zip delen hun ingepakte bytes, dus hij zou uitpakken tot veel meer dan hij bevat: hij kan gemaakt zijn om de schijf te vullen. Eén bestand eruit kan nog wel gekopieerd worden",
  "archive.pack_confirm": "Het wachtwoord nogmaals:",
@@ -1210,11 +1212,14 @@
  "facts.macos_universal": "macOS universal",
  "facts.made_with": "Gemaakt met",
  "facts.messages": "Berichten",
+ "facts.games": "Partijen",
+ "facts.games_in": "{n} van {total} bestanden zijn partijen: open hem en elke partij staat op het bord",
  "facts.mono": "mono",
  "facts.other_cpu": "andere CPU",
  "facts.pages": "Pagina's",
  "facts.part": "Deel",
  "facts.part_of": "{n} van een in delen gesplitste 7z: die opent vanaf {first}",
+ "facts.zip_part_of": "{n} van een in delen gesplitste zip: die opent vanaf {last}",
  "facts.palette": {
   "one": "{n} kleur uit een palet",
   "other": "{n} kleuren uit een palet"
