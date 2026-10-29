@@ -433,7 +433,11 @@ pub fn save_to(
         let cfg = Config::parse_saved(text, &new_text)?;
         Ok((Some(new_text), cfg))
     })?;
-    crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
+    // Only a save of the language changes it: the language is the whole process's, and a save
+    // of another option must not swap it (a test saving one, on a Mac set to US English).
+    if changes.contains_key("language") {
+        crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
+    }
     crate::disk_image::set_open(cfg.archive.disk_images);
     Ok(cfg)
 }
