@@ -1495,6 +1495,22 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             .collect());
     }
     if k == Kind::Zip {
+        // Its directory gone through an entry at a time, never built whole (`zip_dir`).
+        let mut walked = vec![];
+        match crate::zip_dir::entries(&mut BufReader::new(Joined::open(archive)?), &mut |c| {
+            walked.push(Item {
+                name: c.name.trim_end_matches('/').to_string(),
+                size: c.size,
+                dir: c.dir(),
+                modified: c.modified().map_or(0, unix),
+                locked: c.encrypted(),
+            });
+            walked.len() < max
+        }) {
+            Ok(()) => return Ok(walked),
+            Err(e) if !crate::zip_dir::is_unsure(&e) => return Err(e),
+            Err(_) => {}
+        }
         let mut z =
             zip::ZipArchive::new(BufReader::new(Joined::open(archive)?)).map_err(io::Error::other)?;
         for i in 0..z.len().min(max) {
@@ -1514,6 +1530,23 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
         return Ok(out);
     }
     if k == Kind::SevenZ {
+        // Its list read as it is unpacked (`seven_list`), so a list too large to unpack whole
+        // is listed too; one with its names locked, or one it does not read, by the crate.
+        if let Ok(l) = crate::seven_list::read(&mut BufReader::new(Joined::open(archive)?), max) {
+            let locked = l.locked();
+            return Ok(l
+                .entries
+                .into_iter()
+                .map(|e| Item {
+                    name: e.name.replace('\\', "/").trim_end_matches('/').to_string(),
+                    size: e.size,
+                    dir: e.dir,
+                    modified: e.modified,
+                    locked: locked && e.has_stream(),
+                })
+                .collect());
+        }
+        // Not read there (or found broken there): the crate's say.
         let r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
         for f in r.archive().files.iter().take(max) {
@@ -1636,6 +1669,22 @@ pub(crate) fn device(part: &str) -> bool {
 /// through it left out. `None` for one it does not look into: not an archive, too large to be
 /// unpacked for a listing, unreadable, or only in the cloud (reading it would download it).
 pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEntry>> {
+    entries_at(archive, size, 0)
+}
+
+/// How deep search looks into archives inside archives, the outer one not counted.
+const SEARCH_DEPTH: usize = 3;
+
+/// Whether an entry named `name` is an archive search looks into when it is inside another.
+fn nests(name: &str) -> bool {
+    let p = Path::new(name);
+    ending_kind(p).is_some() && !in_parts(p)
+}
+
+/// `search_entries` of an archive `depth` archives deep. The archives inside it, up to
+/// `SEARCH_UNPACK` each, are each copied into this run's own folder, listed there as one on disk
+/// is, and the copy goes; their entries follow under their names, `SEARCH_ENTRIES` in all.
+fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntry>> {
     // Never a disk image: they can be huge, and need 7-Zip.
     let k = search_kind(archive)?;
     if crate::cloud::keep_out(archive) || waits_to_be_opened(archive, size) {
@@ -1646,18 +1695,60 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
     }
     // Never a password given in this run: what search knows is what anyone sees.
     let items = read_items_with(archive, None, SEARCH_ENTRIES).ok()?;
-    Some(
-        items
-            .into_iter()
-            .take(SEARCH_ENTRIES)
-            .map(|it| ArchiveEntry {
-                name: it.name,
-                size: it.size,
-                is_dir: it.dir,
-                modified: it.modified,
-            })
-            .collect(),
-    )
+    let mut out: Vec<ArchiveEntry> = items
+        .into_iter()
+        .take(SEARCH_ENTRIES)
+        .map(|it| ArchiveEntry {
+            name: it.name,
+            size: it.size,
+            is_dir: it.dir,
+            modified: it.modified,
+        })
+        .collect();
+    let inner: std::collections::HashSet<String> = out
+        .iter()
+        .filter(|e| depth < SEARCH_DEPTH && !e.is_dir && e.size <= SEARCH_UNPACK && nests(&e.name))
+        .map(|e| e.name.clone())
+        .collect();
+    if !inner.is_empty() {
+        let mut more = vec![];
+        let room = SEARCH_ENTRIES - out.len().min(SEARCH_ENTRIES);
+        let _ = search_read_at(archive, size, depth, &|n, _| inner.contains(n), &|_| false, &mut |names, from| {
+            let name = names[0];
+            let _ = copied_for_search(name, from, &mut |copy, len| {
+                for e in entries_at(copy, len, depth + 1).unwrap_or_default() {
+                    more.push(ArchiveEntry { name: format!("{name}/{}", e.name), ..e });
+                }
+            });
+            more.len() < room
+        });
+        more.truncate(room);
+        out.extend(more);
+    }
+    Some(out)
+}
+
+/// `from`, an archive inside an archive (named `name` there), copied into a folder of its own in
+/// this run's own folder of the cache, no more than `SEARCH_UNPACK` bytes, for `f` to look into
+/// (with its size); the copy goes after. `false` when it was larger or could not be copied.
+// ponytail: an archive inside one is copied to be looked into, even a tar that could be read as
+// it streams by; read tars in place if the copies show.
+fn copied_for_search(name: &str, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let Ok(base) = run_folder("search-nested", false) else { return false };
+    let dir = base.join(N.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
+    let _ = std::fs::remove_dir_all(&dir);
+    if crate::fs::private_dir(&dir).is_err() {
+        return false;
+    }
+    let copy = dir.join(name.rsplit('/').next().unwrap_or("archive"));
+    let made = File::create_new(&copy).and_then(|mut to| io::copy(&mut from.take(SEARCH_UNPACK + 1), &mut to));
+    let ok = matches!(made, Ok(n) if n <= SEARCH_UNPACK);
+    if let (true, Ok(n)) = (ok, made) {
+        f(&copy, n);
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    ok
 }
 
 /// `archive` (`size` bytes) is one search lists only once it was opened, its list or tree then
@@ -1686,13 +1777,54 @@ pub(crate) fn waits_to_be_opened(archive: &Path, size: u64) -> bool {
 /// order they are in it: `read` gets each with its names (more than one when the same bytes
 /// are there under several: links in a container image), and says whether to go on. Locked
 /// files are never read, and no password is ever used. Archives that would be unpacked past
-/// `SEARCH_UNPACK` are not read, nor archives only in the cloud.
+/// `SEARCH_UNPACK` are not read, nor archives only in the cloud. An archive inside it that
+/// `inside` picks by name (up to `SEARCH_DEPTH` deep, `SEARCH_UNPACK` each) is copied out and
+/// read so too, its files named through it (`inner.zip/notes.txt`).
 pub(crate) fn search_read(
     archive: &Path,
     size: u64,
     wanted: &dyn Fn(&str, u64) -> bool,
+    inside: &dyn Fn(&str) -> bool,
     read: &mut dyn FnMut(&[&str], &mut dyn Read) -> bool,
 ) -> io::Result<()> {
+    search_read_at(archive, size, 0, wanted, inside, read)
+}
+
+/// `search_read` of an archive `depth` archives deep.
+fn search_read_at(
+    archive: &Path,
+    size: u64,
+    depth: usize,
+    wanted: &dyn Fn(&str, u64) -> bool,
+    inside: &dyn Fn(&str) -> bool,
+    read: &mut dyn FnMut(&[&str], &mut dyn Read) -> bool,
+) -> io::Result<()> {
+    // An archive inside picked: read through a copy, its files named through it.
+    let looked = |name: &str, size: u64| depth < SEARCH_DEPTH && size <= SEARCH_UNPACK && nests(name) && inside(name);
+    let mut read = |names: &[&str], from: &mut dyn Read| -> bool {
+        let name = names[0];
+        if !(depth < SEARCH_DEPTH && nests(name) && inside(name)) {
+            return read(names, from);
+        }
+        let mut go = true;
+        copied_for_search(name, from, &mut |copy, len| {
+            let _ = search_read_at(
+                copy,
+                len,
+                depth + 1,
+                &|n, s| wanted(&format!("{name}/{n}"), s),
+                &|n| inside(&format!("{name}/{n}")),
+                &mut |n, r| {
+                    let full: Vec<String> = n.iter().map(|n| format!("{name}/{n}")).collect();
+                    go = read(&full.iter().map(String::as_str).collect::<Vec<_>>(), r);
+                    go
+                },
+            );
+        });
+        go
+    };
+    let read = &mut read;
+    let wanted = &|name: &str, size: u64| wanted(name, size) || looked(name, size);
     let k = search_kind(archive).ok_or_else(|| not_archive(archive))?;
     if crate::cloud::keep_out(archive) {
         return Err(crate::cloud::not_here(archive));
@@ -1708,8 +1840,34 @@ pub(crate) fn search_read(
     }
     match k {
         Kind::Zip => {
-            let mut z = zip::ZipArchive::new(BufReader::new(Joined::open(archive)?))
-                .map_err(io::Error::other)?;
+            // Its directory gone through an entry at a time (`zip_dir`), each wanted file
+            // unpacked from its place; the directory names where they are first, so they are
+            // read from it in that order.
+            let mut file = BufReader::new(Joined::open(archive)?);
+            let mut picked = vec![];
+            let mut seen = 0;
+            let walked = crate::zip_dir::entries(&mut file, &mut |c| {
+                seen += 1;
+                if !c.dir() && !c.link() && !c.encrypted() && sound(&c.name) && wanted(&c.name, c.size) {
+                    picked.push(c);
+                }
+                seen < SEARCH_ENTRIES
+            });
+            match walked {
+                Ok(()) => {
+                    for c in picked {
+                        // An entry that cannot be opened is passed over, not the rest.
+                        let Ok(mut f) = c.open(&mut file) else { continue };
+                        if !read(&[&c.name], &mut f) {
+                            break;
+                        }
+                    }
+                    return Ok(());
+                }
+                Err(e) if !crate::zip_dir::is_unsure(&e) => return Err(e),
+                Err(_) => {}
+            }
+            let mut z = zip::ZipArchive::new(file).map_err(io::Error::other)?;
             for i in 0..z.len().min(SEARCH_ENTRIES) {
                 // An entry that cannot be opened is passed over, not the rest of the archive.
                 let (name, ok) = {
@@ -1767,6 +1925,41 @@ pub(crate) fn search_read(
         }
     }
     Ok(())
+}
+
+/// Each line of the whole text of `path`, a file inside an archive (not inside one in it), as
+/// `extract::whole_lines` or `extract::plain::each_line` gives a file's on disk: text, code,
+/// CSV and logs as they are unpacked; a document (`extract::whole_document`) from a copy of
+/// it, no larger than `SEARCH_UNPACK`, in this run's own folder, gone once read. `None` when
+/// it cannot be read now, as `search_read` would not read it.
+pub(crate) fn whole_lines_inside(path: &Path, f: &mut dyn FnMut(&str)) -> Option<bool> {
+    let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty())?;
+    let size = std::fs::metadata(&archive).ok()?.len();
+    let name = Path::new(&inner);
+    let document = crate::extract::whole_document(name);
+    let mut out = None;
+    let wanted = |n: &str, size: u64| n == inner && (!document || size <= SEARCH_UNPACK);
+    let inside = |n: &str| inner.strip_prefix(n).is_some_and(|rest| rest.starts_with('/'));
+    search_read(&archive, size, &wanted, &inside, &mut |_, from| {
+        out = if document {
+            run_folder("whole", true).ok().and_then(|dir| {
+                let copy = dir.join(inner.rsplit('/').next().unwrap_or("file"));
+                let made = File::create(&copy)
+                    .and_then(|mut to| io::copy(&mut from.take(SEARCH_UNPACK + 1), &mut to));
+                let lines = made
+                    .ok()
+                    .filter(|&n| n <= SEARCH_UNPACK)
+                    .and_then(|_| crate::extract::whole_lines(&copy, f));
+                let _ = std::fs::remove_file(&copy);
+                lines
+            })
+        } else {
+            crate::extract::plain::each_line_from(from, crate::code::is_code(&inner), f).map(|()| true)
+        };
+        false
+    })
+    .ok()?;
+    out
 }
 
 /// What is inside `archive` at `inner`, as a folder listing: its files, and the folders in it,
@@ -2318,8 +2511,38 @@ fn copy_entries(
         return crate::disk_image::copy_tree(archive, inner, &entries, to);
     }
     if k == Kind::Zip {
-        let mut z =
-            zip::ZipArchive::new(BufReader::new(Joined::open(archive)?)).map_err(io::Error::other)?;
+        // One file, not locked: found in the directory as it is gone through, and unpacked from
+        // its place, without building the whole directory (`zip_dir`).
+        let mut file = BufReader::new(Joined::open(archive)?);
+        let one = match (!inner.is_empty()).then(|| crate::zip_dir::find(&mut file, inner)) {
+            Some(Ok(c)) => c.filter(|c| !c.encrypted()),
+            Some(Err(e)) if !crate::zip_dir::is_unsure(&e) => return Err(e),
+            _ => None,
+        };
+        if let Some(c) = one {
+            let Some(path) = place(&c.name) else {
+                return skip(&c.name);
+            };
+            *any = true;
+            let mut e = c.open(&mut file)?;
+            let mut from = Noting {
+                from: &mut e,
+                left: c.size,
+                failed: false,
+            };
+            if let Err(err) = write(&path, &mut from, c.modified().map_or(0, unix)) {
+                return Err(copy_error(err, &from, false));
+            }
+            #[cfg(unix)]
+            if let Some(m) = c.unix_mode().filter(|m| m & 0o111 != 0) {
+                std::fs::set_permissions(
+                    &path,
+                    std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
+                )?;
+            }
+            return Ok(());
+        }
+        let mut z = zip::ZipArchive::new(file).map_err(io::Error::other)?;
         // One file asked for: that entry alone, never the entries below a folder of its name.
         let one = (!inner.is_empty())
             .then(|| z.index_for_name(inner))
@@ -2390,6 +2613,30 @@ fn copy_entries(
             }
         }
     } else if k == Kind::SevenZ {
+        // One file, not locked: through the list read as it is unpacked, its block unpacked
+        // up to it (`seven_list`), however long the list; else by the crate.
+        if !inner.is_empty() {
+            let mut file = BufReader::new(Joined::open(archive)?);
+            match crate::seven_list::find(&mut file, inner) {
+                Ok(Some((l, i))) if !l.locked() => {
+                    let e = &l.entries[i];
+                    if let Ok(mut from) = l.open(&mut file, e) {
+                        let Some(path) = place(inner) else {
+                            return skip(inner);
+                        };
+                        *any = true;
+                        let mut from = Noting {
+                            from: &mut from,
+                            left: e.size,
+                            failed: false,
+                        };
+                        return write(&path, &mut from, e.modified).map_err(|err| copy_error(err, &from, false));
+                    }
+                }
+                // Not read there (or found broken there): the crate's say.
+                _ => {}
+            }
+        }
         let mut r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
         let mut failed = None;
@@ -4328,7 +4575,7 @@ mod tests {
             .collect();
         assert_eq!(names, ["fine/name.txt", "locked.txt"]);
         let mut read = vec![];
-        search_read(&zp, size, &|_, _| true, &mut |name, from| {
+        search_read(&zp, size, &|_, _| true, &|_| false, &mut |name, from| {
             let mut text = String::new();
             from.read_to_string(&mut text).unwrap();
             read.push((name[0].to_string(), text));
@@ -4362,7 +4609,7 @@ mod tests {
         bytes[central + 10] = 7;
         std::fs::write(&zp, &bytes).unwrap();
         let mut read = vec![];
-        search_read(&zp, bytes.len() as u64, &|_, _| true, &mut |name, _| {
+        search_read(&zp, bytes.len() as u64, &|_, _| true, &|_| false, &mut |name, _| {
             read.push(name[0].to_string());
             true
         })
@@ -4678,7 +4925,7 @@ mod tests {
             "the last, past two not wanted"
         );
         let mut seen = vec![];
-        search_read(&zp, 1, &|n, _| n != "a.txt", &mut |n, from| {
+        search_read(&zp, 1, &|n, _| n != "a.txt", &|_| false, &mut |n, from| {
             let mut head = [0u8; 5];
             from.read_exact(&mut head).unwrap();
             seen.push((n[0].to_string(), head));

@@ -1400,7 +1400,7 @@ pub(crate) mod tests {
         assert!(names.contains(&"big/f3.txt".to_string()) && names.contains(&"etc/os".to_string()));
         assert!(!names.iter().any(|n| n.starts_with("blobs/")), "never the blobs");
         let mut got = vec![];
-        crate::archive::search_read(&img, size, &|n, _| n.ends_with("f2.txt") || n == "etc/os", &mut |n, r| {
+        crate::archive::search_read(&img, size, &|n, _| n.ends_with("f2.txt") || n == "etc/os", &|_| false, &mut |n, r| {
             let mut b = vec![];
             r.read_to_end(&mut b).unwrap();
             got.push((n[0].to_string(), b));

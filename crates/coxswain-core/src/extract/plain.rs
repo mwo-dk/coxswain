@@ -71,7 +71,28 @@ pub fn each_line(path: &Path, code: bool, f: &mut dyn FnMut(&str)) -> Option<()>
 /// until it says to stop, of its first `most` bytes. `None` when the file has no text (a zero
 /// byte in its first 8 KB).
 fn raw_lines(path: &Path, most: u64, f: &mut dyn FnMut(&str) -> bool) -> Option<()> {
-    let mut file = std::io::BufReader::with_capacity(1 << 16, std::fs::File::open(path).ok()?);
+    raw_lines_from(&mut std::fs::File::open(path).ok()?, most, f)
+}
+
+/// `tidied_up_to` of the text read from `from` (a file inside an archive, as it is unpacked).
+pub(crate) fn tidied_from(from: &mut dyn Read, code: bool, cap: usize) -> Option<String> {
+    let mut t = super::Tidy::with_cap(code, cap);
+    raw_lines_from(from, MAX_READ, &mut |l| t.push(l))?;
+    Some(t.out)
+}
+
+/// `each_line` of the text read from `from`.
+pub(crate) fn each_line_from(from: &mut dyn Read, code: bool, f: &mut dyn FnMut(&str)) -> Option<()> {
+    let mut lines = super::TidyLines::new(code, f);
+    raw_lines_from(from, MAX_WHOLE, &mut |l| {
+        lines.line(l);
+        true
+    })
+}
+
+/// `raw_lines` of what `from` gives.
+fn raw_lines_from(from: &mut dyn Read, most: u64, f: &mut dyn FnMut(&str) -> bool) -> Option<()> {
+    let mut file = std::io::BufReader::with_capacity(1 << 16, from);
     let mut head = Vec::with_capacity(1 << 16);
     (&mut file).take(1 << 16).read_to_end(&mut head).ok()?;
     if head[..head.len().min(8192)].contains(&0) {

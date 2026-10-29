@@ -875,11 +875,11 @@ impl Store {
         Ok(())
     }
 
-    /// The files on disk (not inside archives, not commits) as `long_files_changed` and
+    /// The files on disk and inside archives (not commits) as `long_files_changed` and
     /// `long_files_cost` go through them.
     fn long_rows(&self) -> rusqlite::Result<Vec<LongRow>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare("SELECT id, path, modified, whole, size, coalesce(has_text, 0) FROM files WHERE inside IS NULL AND path NOT LIKE 'git:%'")?;
+        let mut q = db.prepare("SELECT id, path, modified, whole, size, coalesce(has_text, 0) FROM files WHERE path NOT LIKE 'git:%'")?;
         q.query_map([], |r| {
             Ok(LongRow {
                 id: r.get(0)?,
@@ -1524,6 +1524,36 @@ impl Store {
             }
             tx.execute("DELETE FROM meta WHERE key = ?1", [format!("waiting:{path}")])?;
         }
+        tx.commit()
+    }
+
+    /// The archive reader changed (`key` at `tag`; an older app leaves a newer tag be): every
+    /// file inside an archive is read again and gets its vectors again, once, its old text
+    /// found meanwhile, and every archive is listed again (the archives inside it are new to
+    /// its list). Nothing else in the store is redone. With search inside archives off there is
+    /// nothing inside them: only the tag is kept.
+    fn archive_reader_changed(&self, key: &str, tag: &str, on: bool) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let before: String = db
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .unwrap_or_default();
+        let newer = matches!((before.parse::<u32>(), tag.parse::<u32>()), (Ok(a), Ok(b)) if a > b);
+        if before == tag || newer {
+            return Ok(());
+        }
+        let tx = db.transaction()?;
+        if on {
+            tx.execute("UPDATE files SET has_text = NULL, embedded = NULL WHERE inside IS NOT NULL", [])?;
+            let paths: Vec<String> = tx
+                .prepare("SELECT path FROM files WHERE inside IS NULL")?
+                .query_map([], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            for path in paths.into_iter().filter(|p| crate::archive::is_archive(Path::new(p))) {
+                // Not what is on disk: the next walk lists it again.
+                tx.execute("UPDATE files SET modified = -1 WHERE path = ?1", [path])?;
+            }
+        }
+        tx.execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [key, tag])?;
         tx.commit()
     }
 
@@ -3123,6 +3153,11 @@ fn scan_for(
     store.image_reader_changed("readers.image", "1", cfg.archives)?;
     // Archives too large to list until opened, once opened; images that were away, once back.
     store.waiting_ready(cfg.archives)?;
+    // Files inside archives (2.35): text, code, CSV and logs read as they are unpacked, whatever
+    // their size, kept whole in folders kept whole, and archives inside archives looked into:
+    // every file inside an archive is read again and gets its vectors again, once, and every
+    // archive is listed again. Nothing else.
+    store.archive_reader_changed("readers.archive", "1", cfg.archives)?;
     store.exclude_changed(&cfg.text_exclude)?;
     let mut known = store.known()?;
     let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
@@ -3266,6 +3301,10 @@ fn whole_lines(path: &str, f: &mut dyn FnMut(&str)) -> bool {
 /// reader's time ran out part way, `None` when the file cannot be read now.
 fn whole_read(path: &str, f: &mut dyn FnMut(&str)) -> Option<bool> {
     let p = Path::new(path);
+    // A file inside an archive: read out of it as it is unpacked.
+    if std::fs::symlink_metadata(p).is_err() && crate::archive::split(p).is_some() {
+        return crate::archive::whole_lines_inside(p, f);
+    }
     if crate::extract::whole_document(p) {
         crate::extract::whole_lines(p, f)
     } else {
@@ -3587,11 +3626,8 @@ struct Prepared {
 
 fn prepare(id: i64, path: String, body: String, everything: bool) -> Prepared {
     // Kept whole, longer than what is kept of most files: read line by line again and
-    // a passage for every part of it, a batch at a time, never held whole. Never a file inside
-    // an archive: those are not marked kept whole (`mark_whole`, `long_rows`), for their path
-    // opens nothing to read again (test `long_files_everything_leaves_a_long_text_inside_an_archive_sampled`).
-    // ponytail: such an entry keeps its first 4 MB; streaming it from the archive into
-    // `whole_lines` is planned for 2.35.
+    // a passage for every part of it, a batch at a time, never held whole. A file inside an
+    // archive is read out of it again as it is unpacked (`archive::whole_lines_inside`).
     if everything && long_text(&path, &body) {
         return Prepared { id, path, streamed: true, texts: vec![], whole: None, starts: None };
     }
@@ -3901,7 +3937,7 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         }
         let start = Instant::now();
         let n = files.len();
-        store.read(&read_inside(&archive, files, cfg.text_max_size))?;
+        read_inside(store, &archive, files, cfg.text_max_size, &rule)?;
         if done(n) {
             return Ok(true);
         }
@@ -3912,47 +3948,107 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
     Ok(false)
 }
 
-/// The text of `files` (id, path inside) of `archive`, as `text_of` reads them from disk, each
-/// no larger than `max`, and no more than `archive::SEARCH_READ` bytes from the archive. Each
-/// is unpacked into a folder of the cache only the user can read, and is gone once read.
-fn read_inside(archive: &Path, files: Vec<(i64, String)>, max: u64) -> Vec<(i64, Option<String>)> {
+/// Reads the text of `files` (id, path inside) of `archive` into the store, as `text_up_to`
+/// reads them from disk, each marked kept whole when it is in a folder kept whole
+/// (`long_files`). Text, code, CSV and logs (`extract::streams`) are read as they are unpacked,
+/// of any size, as on disk. Every other file no larger than `max`, and no more than
+/// `archive::SEARCH_READ` bytes of them from the archive, is unpacked into a folder of the cache
+/// only the user can read, and is gone once read: its reader needs a file. No more than
+/// `HELD_TEXT` of text is held before it is written.
+fn read_inside(
+    store: &Store,
+    archive: &Path,
+    files: Vec<(i64, String)>,
+    max: u64,
+    rule: &crate::long_files::Rule,
+) -> rusqlite::Result<()> {
     let want: HashMap<String, i64> = files
         .iter()
         .map(|(id, inner)| (inner.clone(), *id))
         .collect();
-    let mut texts: HashMap<i64, Option<String>> = files.iter().map(|(id, _)| (*id, None)).collect();
+    let keep = |inner: &str| rule.whole(&inner.split('/').fold(archive.to_path_buf(), |p, part| p.join(part)));
     let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}", crate::spill::run())));
-    if let Some(dir) = dir.as_ref().filter(|d| std::fs::create_dir_all(d).is_ok()) {
-        #[cfg(unix)]
+    let made = dir.as_ref().filter(|d| std::fs::create_dir_all(d).is_ok());
+    #[cfg(unix)]
+    if let Some(dir) = made {
         let _ = std::fs::set_permissions(dir, std::os::unix::fs::PermissionsExt::from_mode(0o700));
-        let left = std::cell::Cell::new(crate::archive::SEARCH_READ);
-        let size = std::fs::metadata(archive).map_or(0, |m| m.len());
-        let wanted = |name: &str, size: u64| {
-            size > 0 && size <= max.min(left.get()) && want.contains_key(name)
-        };
-        let _ = crate::archive::search_read(archive, size, &wanted, &mut |names, from| {
+    }
+    let streams = |name: &str| crate::extract::streams(Path::new(name));
+    let left = std::cell::Cell::new(crate::archive::SEARCH_READ);
+    let size = std::fs::metadata(archive).map_or(0, |m| m.len());
+    let wanted = |name: &str, size: u64| {
+        size > 0
+            && want.contains_key(name)
+            && (streams(name) || (made.is_some() && size <= max.min(left.get())))
+    };
+    // Read and not yet written; the ids of all read.
+    let (mut rows, mut whole, mut held) = (vec![], vec![], 0);
+    let mut read: HashSet<i64> = HashSet::new();
+    let mut failed = None;
+    let put = |rows: &mut Vec<(i64, Option<String>)>, whole: &mut Vec<(i64, bool, bool)>| -> rusqlite::Result<()> {
+        store.read(rows)?;
+        store.mark_whole(whole)?;
+        rows.clear();
+        whole.clear();
+        Ok(())
+    };
+    // The archives inside it that hold files wanted: each folder a name of them passes through.
+    let nested: HashSet<&str> = want
+        .keys()
+        .flat_map(|k| k.match_indices('/').map(move |(i, _)| &k[..i]))
+        .collect();
+    let inside = |name: &str| nested.contains(name);
+    let _ = crate::archive::search_read(archive, size, &wanted, &inside, &mut |names, from| {
+        let name = names[0];
+        let kept = keep(name);
+        let cap = if kept { crate::extract::EVERYTHING_TEXT } else { crate::extract::MAX_TEXT };
+        let text = if streams(name) {
+            crate::extract::text_from(Path::new(name), from, cap)
+        } else {
+            let Some(dir) = made else { return true };
             let limit = max.min(left.get());
-            let name = names[0];
             let file = dir.join(name.rsplit('/').next().unwrap_or(name));
             let copied = std::fs::File::create(&file).and_then(|mut to| {
                 std::io::copy(&mut std::io::Read::take(from, limit + 1), &mut to)
             });
-            if let Ok(n) = copied {
+            let text = copied.ok().and_then(|n| {
                 left.set(left.get().saturating_sub(n));
-                if n <= limit {
-                    // The same bytes under several names (links in an image): each gets the text.
-                    let text = crate::extract::text_of(&file, n, max);
-                    for name in names {
-                        texts.insert(want[*name], text.clone());
-                    }
-                }
-            }
+                (n <= limit).then(|| crate::extract::text_up_to(&file, n, max, cap)).flatten()
+            });
             let _ = std::fs::remove_file(&file);
-            left.get() > 0
-        });
+            text
+        };
+        held += text.as_ref().map_or(0, String::len);
+        // The same bytes under several names (links in an image): each gets the text.
+        for n in names {
+            let Some(&id) = want.get(*n) else { continue };
+            read.insert(id);
+            whole.push((id, keep(n), text.is_some()));
+            rows.push((id, text.clone()));
+        }
+        if held > HELD_TEXT {
+            held = 0;
+            if let Err(e) = put(&mut rows, &mut whole) {
+                failed = Some(e);
+                return false;
+            }
+        }
+        true
+    });
+    if let Some(dir) = made {
         let _ = std::fs::remove_dir(dir);
     }
-    texts.into_iter().collect()
+    if let Some(e) = failed {
+        return Err(e);
+    }
+    // Those not read have no text.
+    for (id, inner) in &files {
+        if !read.contains(id) {
+            rows.push((*id, None));
+            whole.push((*id, keep(inner), false));
+        }
+    }
+    put(&mut rows, &mut whole)
 }
 
 /// Commits a repository keeps in the store at most, newest first.
@@ -5216,6 +5312,105 @@ mod tests {
         );
     }
 
+    /// A store made with the archive reader before 2.35 reads every file inside its archives
+    /// once more, and lists its archives again (an archive inside one is new to the list), and
+    /// nothing else; a store a newer reader made is left as it is.
+    #[test]
+    fn store_made_with_the_old_archive_reader_reads_its_archives_again_and_nothing_else() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-archive-reader-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (home, src) = (d.join("home"), d.join("src"));
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::write(src.join("notes.txt"), "the launch window opens in march").unwrap();
+        let inner = d.join("inner.zip");
+        crate::archive::create(&inner, &[src.join("notes.txt")]).unwrap();
+        let outer = home.join("outer.zip");
+        crate::archive::create(&outer, &[src.join("notes.txt"), inner.clone()]).unwrap();
+        std::fs::write(home.join("plain.txt"), "a note on disk").unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let entry = outer.join("notes.txt").to_string_lossy().into_owned();
+        let nested = outer.join("inner.zip").join("notes.txt").to_string_lossy().into_owned();
+        let plain = home.join("plain.txt").to_string_lossy().into_owned();
+        let has_text = |p: &str| -> Option<i64> {
+            store.db.lock().unwrap().query_row("SELECT has_text FROM files WHERE path = ?1", [p], |r| r.get(0)).ok()
+        };
+        assert_eq!((has_text(&entry), has_text(&nested), has_text(&plain)), (Some(1), Some(1), Some(1)));
+        // As the old reader left it: no archive inside an archive, no tag; and a mark that
+        // shows whether a file was read again (no text, which only a reading puts right).
+        let as_before = |tag: Option<&str>| {
+            let db = store.db.lock().unwrap();
+            db.execute("DELETE FROM files WHERE path LIKE ?1", [format!("{}{}%", outer.join("inner.zip").to_string_lossy(), std::path::MAIN_SEPARATOR)]).unwrap();
+            db.execute("UPDATE files SET has_text = 0 WHERE path IN (?1, ?2)", [&entry, &plain]).unwrap();
+            match tag {
+                Some(t) => db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers.archive', ?1)", [t]).unwrap(),
+                None => db.execute("DELETE FROM meta WHERE key = 'readers.archive'", []).unwrap(),
+            };
+        };
+        as_before(None);
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(has_text(&entry), Some(1), "the file inside the archive is read again");
+        assert_eq!(has_text(&nested), Some(1), "the archive is listed again: the one inside it is looked into");
+        assert_eq!(has_text(&plain), Some(0), "a file on disk is not read again");
+        // Once: the next scan reads nothing again.
+        as_before(Some("1"));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((has_text(&entry), has_text(&nested)), (Some(0), None), "read once, not every scan");
+        // A newer reader's store: an older one leaves it be.
+        as_before(Some("2"));
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((has_text(&entry), has_text(&nested)), (Some(0), None), "a newer reader's work stays");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Archives inside an archive are looked into, three deep: their files are known and their
+    /// text found, named through them; one deeper is found by its own name only.
+    #[test]
+    fn store_reads_archives_inside_archives() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-nested-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (home, src) = (d.join("home"), d.join("src"));
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(src.join("notes")).unwrap();
+        std::fs::write(src.join("notes/deep.log"), "a stratospheric balloon rose over the lake").unwrap();
+        std::fs::write(src.join("doc.txt"), "the subterranean river ran cold").unwrap();
+        std::fs::write(src.join("bottom.txt"), "an abyssal note no one reads").unwrap();
+        let tgz = d.join("inner.tar.gz");
+        crate::archive::create(&tgz, &[src.join("notes")]).unwrap();
+        // Four deep: outer.zip / inner.zip / l2.zip / l3.zip / l4.zip / bottom.txt.
+        let l4 = d.join("l4.zip");
+        crate::archive::create(&l4, &[src.join("bottom.txt")]).unwrap();
+        let l3 = d.join("l3.zip");
+        crate::archive::create(&l3, std::slice::from_ref(&l4)).unwrap();
+        let l2 = d.join("l2.zip");
+        crate::archive::create(&l2, std::slice::from_ref(&l3)).unwrap();
+        let inner = d.join("inner.zip");
+        crate::archive::create(&inner, &[src.join("doc.txt"), l2.clone()]).unwrap();
+        let outer = home.join("outer.zip");
+        crate::archive::create(&outer, &[tgz.clone(), inner.clone()]).unwrap();
+        let cfg = SearchConfig { text_roots: vec![home.clone()], ..SearchConfig::default() };
+        let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
+        scan(&store, &cfg, &go).unwrap();
+        let paths = |q: &str| store.search(q, None, 10).hits.into_iter().map(|h| h.path).collect::<Vec<_>>();
+        assert_eq!(paths("stratospheric"), [outer.join("inner.tar.gz").join("notes").join("deep.log")]);
+        assert_eq!(paths("subterranean"), [outer.join("inner.zip").join("doc.txt")]);
+        assert_eq!(paths("abyssal"), Vec::<PathBuf>::new(), "four deep: not looked into");
+        let known = |p: &Path| {
+            store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE path = ?1", [p.to_string_lossy()], |r| r.get::<_, i64>(0)).unwrap()
+        };
+        let deep = outer.join("inner.zip").join("l2.zip").join("l3.zip");
+        assert_eq!(known(&deep.join("l4.zip")), 1, "in the third: found by name");
+        assert_eq!(known(&deep.join("l4.zip").join("bottom.txt")), 0, "the fourth is not looked into");
+        // No copy is left behind.
+        let left = crate::helper::folder().map(|f| f.join("search-nested")).and_then(|f| std::fs::read_dir(f).ok());
+        assert!(left.into_iter().flatten().flatten().all(|run| std::fs::read_dir(run.path()).is_ok_and(|mut d| d.next().is_none())));
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn store_reads_the_files_of_a_container_image() {
         let d = std::env::temp_dir().join(format!("coxswain-store-image-{}", std::process::id()));
@@ -5378,14 +5573,15 @@ mod tests {
             ("docs/plan.txt", "launch window in march"),
             ("docs/notes.md", "# Fuel\n\nTanks refilled twice."),
             ("budget.txt", "the orbit budget"),
-            ("big.txt", "colossal words that go on and on and on"),
+            ("big.html", "<p>colossal words that go on and on and on</p>"),
+            ("long.log", "voluminous lines of a log that go on and on"),
         ] {
             std::fs::create_dir_all(src.join(f).parent().unwrap()).unwrap();
             std::fs::write(src.join(f), text).unwrap();
         }
         let (zip, tgz) = (home.join("website.zip"), home.join("site.tar.gz"));
         crate::archive::create(&zip, &[src.join("docs")]).unwrap();
-        crate::archive::create(&tgz, &[src.join("big.txt")]).unwrap();
+        crate::archive::create(&tgz, &[src.join("big.html"), src.join("long.log")]).unwrap();
         // A zip whose file is locked: its name is seen, its text is never read.
         let locked = home.join("locked.zip");
         let mut w = zip::ZipWriter::new(std::fs::File::create(&locked).unwrap());
@@ -5422,6 +5618,11 @@ mod tests {
             "larger than text_max_size"
         );
         assert_eq!(
+            paths("voluminous"),
+            [tgz.join("long.log")],
+            "a log is read line by line as it is unpacked, whatever its size, as on disk"
+        );
+        assert_eq!(
             store
                 .db
                 .lock()
@@ -5429,7 +5630,7 @@ mod tests {
                 .query_row("SELECT count(*) FROM files WHERE inside", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            4,
+            5,
             "but known"
         );
         assert_eq!(paths("launch"), [zip.join("docs").join("plan.txt")]);
@@ -7514,24 +7715,30 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
-    /// A long text inside an archive in a folder kept whole keeps the text read from it (4 MB)
-    /// and its passages, as any file inside an archive: it is not read again line by line
-    /// through its path, which no file has, so no error is noted and nothing is tried again.
+    /// A long text inside an archive in a folder kept whole keeps all its text and gets a
+    /// passage for every part of it, read out of the archive as it is unpacked (never copied),
+    /// as a file on disk does; in a folder sampled, its passages still come from all of it. No
+    /// error is noted and nothing is tried again.
     #[test]
-    fn long_files_everything_leaves_a_long_text_inside_an_archive_sampled() {
+    fn long_files_everything_reads_a_long_text_inside_an_archive_whole() {
         let d = std::env::temp_dir().join(format!("coxswain-long-inside-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
-        let home = d.join("home");
+        let (home, sampled) = (d.join("home"), d.join("sampled"));
         std::fs::create_dir_all(&home).unwrap();
+        std::fs::create_dir_all(&sampled).unwrap();
         let mut log = String::new();
         let mut i = 0;
         while log.len() < crate::extract::MAX_TEXT + (1 << 20) {
             log.push_str(&format!("line {i} of the engine log, pressure nominal and valves closed\n"));
             i += 1;
         }
+        log.push_str("finally the rocket landed safely in the harbour after its long flight\n");
         crate::extract::tests::zip_file(&home.join("logs.zip"), &[("big.log", log.as_bytes())]);
+        // The other ends otherwise: passages near the same as one taken fold into it.
+        let other = log.replace("finally the rocket landed safely in the harbour after its long flight", "at last the balloon drifted gently over the mountain lake at sunset");
+        crate::extract::tests::zip_file(&sampled.join("logs.zip"), &[("big.log", other.as_bytes())]);
         let cfg = SearchConfig {
-            text_roots: vec![home.clone()],
+            text_roots: vec![home.clone(), sampled.clone()],
             long_files_everything: vec![home.clone()],
             meaning: true,
             meaning_engine: "ollama".into(),
@@ -7542,24 +7749,34 @@ mod tests {
         let (store, go) = (Store::open(&d.join("search.db")).unwrap(), AtomicBool::new(false));
         store.set_engine(crate::meaning::Engine::from_config(&cfg));
         store.hurry.store(true, Ordering::Relaxed);
-        let entry = home.join("logs.zip").join("big.log").to_string_lossy().into_owned();
-        let row = || -> (i64, Option<i64>, Option<i64>, i64, i64) {
+        let row = |at: &Path| -> (i64, Option<i64>, Option<i64>, i64, i64, usize) {
+            let entry = at.join("logs.zip").join("big.log").to_string_lossy().into_owned();
             let db = store.db.lock().unwrap();
             let (id, embedded, whole): (i64, Option<i64>, Option<i64>) =
                 db.query_row("SELECT id, embedded, whole FROM files WHERE path = ?1", [&entry], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
             let chunks = db.query_row("SELECT count(*) FROM chunks WHERE file = ?1", [id], |r| r.get(0)).unwrap();
             let errors = db.query_row("SELECT count(*) FROM errors WHERE path = ?1", [&entry], |r| r.get(0)).unwrap();
-            (id, embedded, whole, chunks, errors)
+            let body: String = db.query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0)).unwrap();
+            (id, embedded, whole, chunks, errors, body.len())
         };
         for round in 0..2 {
             scan(&store, &cfg, &go).unwrap();
-            let (id, embedded, whole, chunks, errors) = row();
-            let body: String = store.db.lock().unwrap().query_row("SELECT body FROM text WHERE rowid = ?1", [id], |r| r.get(0)).unwrap();
-            assert!(body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && body.len() <= crate::extract::MAX_TEXT, "round {round}: {}", body.len());
-            assert_eq!((embedded, whole), (Some(1), None), "round {round}: given its vectors, not kept whole");
-            assert_eq!(chunks, crate::meaning::PASSAGES as i64, "round {round}: the passages of the text kept");
+            let (_, embedded, whole, chunks, errors, len) = row(&home);
+            assert!(len > crate::extract::MAX_TEXT, "round {round}: all its text: {len}");
+            assert!(whole.is_some(), "round {round}: kept whole");
+            assert_ne!(embedded, Some(0), "round {round}: given its vectors");
+            assert!(chunks > crate::meaning::PASSAGES as i64 * 4, "round {round}: a passage for every part: {chunks}");
             assert_eq!(errors, 0, "round {round}: no error noted");
+            let (_, _, whole, chunks, errors, len) = row(&sampled);
+            assert!(len <= crate::extract::MAX_TEXT && whole.is_none(), "round {round}: sampled, {len}");
+            assert_eq!((chunks, errors), (crate::meaning::PASSAGES as i64, 0), "round {round}");
         }
+        assert!(store.meaning_counts().0 == 0, "every file has its vectors");
+        let reached = |at: &Path, question: &str, word: &str| {
+            store.passages(question, None, 20_000).iter().any(|(p, text, _)| p.starts_with(at) && text.contains(word))
+        };
+        assert!(reached(&home, "finally the rocket landed safely in the harbour", "harbour"), "kept whole: a passage of its end");
+        assert!(reached(&sampled, "the balloon drifted gently over the mountain lake", "balloon"), "sampled: its passages are taken from all of it");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }

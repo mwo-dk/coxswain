@@ -67,8 +67,9 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
     match ext.as_str() {
         "mbox" => {
-            let (list, more) = crate::archive::list(path, usize::MAX >> 1).ok()?;
-            let n = if more { format!("{}+", list.len()) } else { list.len().to_string() };
+            // Counted, not listed: no message is read.
+            let (n, more) = crate::extract::mail::count(path).ok()?;
+            let n = if more { format!("{n}+") } else { n.to_string() };
             Some(vec![(t!("facts.messages"), n)])
         }
         "cbz" => Some(vec![(t!("facts.pages"), crate::archive::pages(path).ok()?.len().to_string())]),

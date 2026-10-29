@@ -105,6 +105,8 @@ pub mod viruses;
 mod xdg_trash;
 pub mod xiangqi;
 pub mod zfs;
+mod seven_list;
+mod zip_dir;
 
 /// The time limit for a test that guards against a hang or a blow-up (a crafted input that must
 /// not take minutes), and for a test's wait for what a thread does: `normal` in a release build,
