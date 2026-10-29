@@ -21,24 +21,7 @@ use crate::ui::Cols;
 use coxswain_core::chess::play;
 
 /// The areas, in the order of the list on the left.
-pub const AREAS: [Area; 7] = Area::ALL;
-
-/// Finding files' details, by group: its heading, the name `--settings=<name>` opens it at, and
-/// its options. A test checks that every option of the area is in one.
-const GROUPS: &[(&str, &str, &[&str])] = &[
-    ("settings.group.reads", "reads", &["search_text", "search_archives", "search_archives_everywhere", "search_history", "search_commit_changes", "search_commit_changes_in", "search_cloud", "cloud_read", "search_tika", "search_whisper", "whisper_model", "text_max_size", "max_results"]),
-    ("settings.group.folders", "folders", &["text_roots", "names_only", "text_exclude", "name_roots", "name_exclude", "watch"]),
-    ("settings.group.meaning", "meaning", &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device", "long_files", "long_files_everything", "long_files_sample"]),
-    ("settings.group.ask", "ask", &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
-];
-
-/// Looks, by group: its heading (none for what both apps use), its name, its options. A test
-/// checks that every option of the area is in one.
-const LOOKS: [(Option<&str>, &str, &[&str]); 3] = [
-    (None, "looks_both", &["language", "glyphs"]),
-    (Some("settings.theme_tui"), "looks_tui", &["tui_theme"]),
-    (Some("settings.theme_gui"), "looks_gui", &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
-];
+pub const AREAS: [Area; 8] = Area::ALL;
 
 /// Text options that are a switch: (name, value when on, value when off).
 const SWITCHES: &[(&str, &str, &str)] = &[("search_cloud", "all", "local-only"), ("meaning_device", "cpu", "auto")];
@@ -286,6 +269,8 @@ impl Settings {
         }
         if area == Area::Previews {
             self.load_tools(app, None);
+        }
+        if area == Area::Games {
             self.engines = play::listed(&app.cfg);
         }
         let rows = rows(app, self);
@@ -407,7 +392,6 @@ fn cut(text: &str, more: &str, w: u16, h: u16, dim: Style) -> Paragraph<'static>
 /// The rows of the area shown.
 pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
     let cfg = &app.cfg;
-    let opts = |area: Area| cs::OPTIONS.iter().filter(move |o| o.area == area).map(Row::Opt);
     let level_name = || cs::level(&cfg.search).map_or_else(|| t!("settings.level.custom"), |l| t!(&format!("settings.level.{}", l.id())));
     let mut v = vec![];
     match s.area {
@@ -432,14 +416,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             v.push(Row::Head(t!("settings.level"), "level"));
             v.extend(Level::ALL.into_iter().map(Row::Level));
             v.push(Row::SetUp);
-            for (head, id, names) in GROUPS {
-                v.push(Row::Head(t!(head), id));
-                v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
-                // A poor choice of model is said in its group for as long as it stands.
-                if matches!(*id, "ask" | "meaning") {
-                    v.extend(poor.iter().filter(|p| p.ask == (*id == "ask")).cloned().map(Row::Poor));
-                }
-            }
+            groups(&mut v, s, Area::Search, &poor);
             // The built-in models on the disk: what each is, its folder, whether it is loaded.
             v.push(Row::Head(t!("models.title"), "models"));
             let models = match &s.models {
@@ -480,7 +457,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             }
         }
         Area::Privacy => {
-            v.extend(opts(Area::Privacy));
+            groups(&mut v, s, Area::Privacy, &[]);
             v.push(Row::Head(t!("settings.privacy_out"), "out"));
             let out = cs::outbound(cfg);
             if out.is_empty() {
@@ -530,46 +507,62 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             v.push(Row::Info(version.clone(), String::new(), t!("settings.stored_in", "path" => s.path.as_ref().map(|p| p.display().to_string()).unwrap_or_default())));
         }
         Area::Previews => {
-            v.extend(opts(Area::Previews));
-            v.push(Row::Head(t!("chess.engines_title"), "chess_engines"));
-            v.extend(s.engines.iter().cloned().map(Row::Engine));
-            v.push(Row::EngineTest);
-            match &s.engine {
-                Some(Ok(info)) => {
-                    v.push(Row::Info(t!("chess.engine_tested", "name" => &info.name), String::new(), t!("chess.engine_options_hint")));
-                    if info.options.is_empty() {
-                        v.push(Row::Info(t!("chess.engine_options_none"), String::new(), t!("chess.engine_options_hint")));
-                    }
-                    v.extend(info.options.iter().cloned().map(Row::EngineOpt));
-                    v.extend(info.ignored.iter().map(|(n, why)| Row::Info(format!("✗ {n}"), why.clone(), t!("chess.option_ignored_hint"))));
-                    v.push(Row::EngineReset);
-                }
-                Some(Err(e)) => v.push(Row::Info(t!("chess.engine_test_failed"), e.clone(), e.clone())),
-                None => {}
-            }
+            groups(&mut v, s, Area::Previews, &[]);
             v.push(Row::Head(t!("ptools.title"), "preview_tools"));
             match &s.tools {
                 Some(tools) => v.extend(tools.iter().cloned().map(Row::PreviewTool)),
                 None => v.push(Row::Info(t!("common.loading"), String::new(), t!("ptools.hint"))),
             }
         }
-        // What both apps share first; then each app's own under its name, so a desktop app's
-        // setting never reads as part of the row above it.
-        Area::Looks => {
-            for (head, id, names) in LOOKS {
-                if let Some(head) = head {
-                    v.push(Row::Head(t!(head), id));
-                }
-                v.extend(names.iter().filter_map(|n| cs::find(n)).map(Row::Opt));
-                // Right under the language: where to say a word reads wrong.
-                if id == "looks_both" {
-                    v.insert(v.iter().position(|r| matches!(r, Row::Opt(o) if o.name == "language")).map_or(v.len(), |i| i + 1), Row::Translate);
-                }
-            }
-        }
-        area => v.extend(opts(area)),
+        // Looks: what both apps share first; then each app's own under its name, so a desktop
+        // app's setting never reads as part of the row above it.
+        area => groups(&mut v, s, area, &[]),
     }
     v
+}
+
+/// The groups of `area` (`coxswain_core::settings::GROUPS`, as the desktop app shows them),
+/// each under its heading. Games' engine block follows *Chess engine*: the known engines,
+/// *Test engine* and the engine's own options; a poor choice of model is said in its group
+/// for as long as it stands.
+fn groups(v: &mut Vec<Row>, s: &Settings, area: Area, poor: &[coxswain_core::setup::Poor]) {
+    for g in cs::groups(area) {
+        if g.head.is_some() {
+            v.push(Row::Head(g.label(), g.id));
+        }
+        for n in g.options {
+            v.extend(cs::find(n).map(Row::Opt));
+            if *n == "chess_engine" {
+                engine_rows(v, s);
+            }
+            // Right under the language: where to say a word reads wrong.
+            if *n == "language" {
+                v.push(Row::Translate);
+            }
+        }
+        if matches!(g.id, "ask" | "meaning") {
+            v.extend(poor.iter().filter(|p| p.ask == (g.id == "ask")).cloned().map(Row::Poor));
+        }
+    }
+}
+
+/// The known chess engines, *Test engine*, and what it read: the engine's own options.
+fn engine_rows(v: &mut Vec<Row>, s: &Settings) {
+    v.extend(s.engines.iter().cloned().map(Row::Engine));
+    v.push(Row::EngineTest);
+    match &s.engine {
+        Some(Ok(info)) => {
+            v.push(Row::Info(t!("chess.engine_tested", "name" => &info.name), String::new(), t!("chess.engine_options_hint")));
+            if info.options.is_empty() {
+                v.push(Row::Info(t!("chess.engine_options_none"), String::new(), t!("chess.engine_options_hint")));
+            }
+            v.extend(info.options.iter().cloned().map(Row::EngineOpt));
+            v.extend(info.ignored.iter().map(|(n, why)| Row::Info(format!("✗ {n}"), why.clone(), t!("chess.option_ignored_hint"))));
+            v.push(Row::EngineReset);
+        }
+        Some(Err(e)) => v.push(Row::Info(t!("chess.engine_test_failed"), e.clone(), e.clone())),
+        None => {}
+    }
 }
 
 // ---------------------------------------------------------------- values
@@ -1511,13 +1504,9 @@ fn step(rows: &[Row], at: usize, delta: isize) -> usize {
     ok[(now + delta).clamp(0, ok.len() as isize - 1) as usize]
 }
 
-/// The options whose label, explanation or config key hold `query`.
+/// *Find a setting*: the options that hold the words, in every area.
 fn find(query: &str) -> Vec<&'static Opt> {
-    let q = query.trim().to_lowercase();
-    if q.is_empty() {
-        return vec![];
-    }
-    cs::OPTIONS.iter().filter(|o| [o.label(), o.hint(), o.name.to_string(), o.path.join(".")].iter().any(|x| x.to_lowercase().contains(&q))).collect()
+    cs::search(query)
 }
 
 // ---------------------------------------------------------------- drawing
@@ -1768,7 +1757,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             lines.push(Line::from(Span::styled(t!("settings.find_none"), dim)));
         }
         for (i, o) in found.iter().enumerate() {
-            let text = format!(" {} · {}", o.label(), o.area.label());
+            let group = o.group().map(|g| g.label()).filter(|g| !g.is_empty());
+            let text = format!(" {} · {}", o.label(), std::iter::once(o.area.label()).chain(group).collect::<Vec<_>>().join(" › "));
             if i == *at {
                 cursor_line = lines.len();
             }
@@ -2325,15 +2315,6 @@ mod tests {
         key(&mut app, KeyCode::Down);
         key(&mut app, KeyCode::Up);
         assert!(settings(&app).models.is_some(), "kept by a key that changes nothing");
-    }
-
-    #[test]
-    fn every_option_of_finding_files_is_in_a_group() {
-        let grouped: Vec<&str> = GROUPS.iter().flat_map(|g| g.2.iter().copied()).collect();
-        for o in cs::OPTIONS.iter().filter(|o| o.area == Area::Search) {
-            assert_eq!(grouped.iter().filter(|n| **n == o.name).count(), 1, "{}", o.name);
-        }
-        assert!(grouped.iter().all(|n| cs::find(n).is_some()));
     }
 
     #[test]

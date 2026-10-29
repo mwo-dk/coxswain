@@ -109,7 +109,7 @@ Kroki diagrams stay as their source.
 
 A diagram whose program is not here, or whose image is not pulled yet, shows its source, with
 why under it in the preview (*First run pulls docker.io/yuzutech/kroki:latest*); drawing the
-others never pulls an image. Pull it in *Settings → Previews → Container images*, or let a
+others never pulls an image. Pull it in *Settings → Previews → Preview tools*, or let a
 [diagram file's preview](../previews/diagrams.md) pull it.
 
 ## What a document may do

@@ -28,7 +28,7 @@ the desktop app's own pieces ([below](#pictures-where-the-terminal-shows-them)).
 A piece is drawn in three tones: the light and dark of its picture, and the square's colour
 around it. A white piece keeps the dark outline of its picture, so it stands out on a light
 square; a black piece gets a light outline on a square almost as dark as itself. The squares are the theme's (or
-the tournament board's: *Settings → Previews → Chess board*, `[chess] board`), the same as
+the tournament board's: *Settings → Games → Board → Chess board*, `[chess] board`), the same as
 the desktop app's; the squares of the last move are tinted yellow, as before.
 
 Each character cell has two colours only, the terminal's foreground and background: where a
@@ -113,7 +113,7 @@ outside). It reads `TERM` and `TERM_PROGRAM`, nothing else.
 
 ## The setting
 
-*Settings → Previews → Game pieces in the terminal*, in both apps (the desktop app keeps it
+*Settings → Games → Board → Game pieces in the terminal*, in both apps (the desktop app keeps it
 for the terminal app):
 
 | Setting | `config.toml` | Values |
@@ -144,7 +144,7 @@ characters.
 #### The pieces show as boxes or gaps.
 
 The terminal's font lacks those block characters, and the terminal does not draw them itself.
-Choose *Quadrants* or *Half blocks* in *Settings → Previews → Game pieces in the terminal*
+Choose *Quadrants* or *Half blocks* in *Settings → Games → Board → Game pieces in the terminal*
 (`[chess] pieces = "quadrants"`): nearly every font has them.
 
 #### Why do I see figurines instead?

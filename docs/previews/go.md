@@ -139,7 +139,7 @@ board says *Only the first … moves and variations: the game has more than Coxs
 
 ## Settings and config.toml
 
-*Settings → Previews → Chess board* sets the board's colour in both apps: from the theme
+*Settings → Games → Board → Chess board* sets the board's colour in both apps: from the theme
 (`theme`, the default) or the wood of a tournament board (`green`, `brown`), as for chess.
 *Game pieces in the terminal* sets how the terminal app draws the stones, as the other games'
 pieces ([Game pieces in the terminal](game-pieces.md#the-setting)).

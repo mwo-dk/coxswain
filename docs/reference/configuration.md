@@ -382,7 +382,7 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 Each Settings item, the name `--settings=` opens it at (in both apps: `coxswain --settings=…`,
 `coxswain-gui --settings=…`) and the key it writes, area by area ([The Settings window](../customise/settings.md)).
-An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`,
+An area's own name opens it too: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`,
 `privacy`; `models` and `disk` open *Built-in models* and *Disk use*:
 
 | Settings area | Item | `--settings=` | Key |
@@ -401,7 +401,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Whisper model* | `whisper_model` | `[search] whisper_model` |
 | | *Largest file read (MB)* | `text_max_size` | `[search] text_max_size` |
 | | *Most hits* | `max_results` | `[search] max_results` |
-| | *Programs that read more* |  | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |
+| | *Programs that read more* | | none: each missing program with the line that installs it and **Copy** ([Scans and pictures](../search/scans.md#installing-what-is-missing)) |
 | *Finding files → Details → Folders* | *Folders read* | `text_roots` | `[search] text_roots` |
 | | *Names only* | `names_only` | `[search] names_only` |
 | | *Left out everywhere* | `text_exclude` | `[search] text_exclude` |
@@ -419,30 +419,31 @@ An area's own name opens it too: `overview`, `search`, `previews`, `looks`, `beh
 | | *Let the model think first* | `ask_think` | `[search] ask_think` |
 | | *Context for a server's model (tokens)* | `ask_context` | `[search] ask_context` |
 | *Finding files → Details → Background reading* | *Start with my session* | | none: the session registration |
-| *Previews* | *How previews are made* | `preview_prefer` | `[preview] prefer` |
-| | *Container runtime* | `preview_container` | `[preview] container` |
-| | *LaTeX image* | `latex_image` | `[preview] images.latex` |
-| | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
+| *Previews → General* | *How previews are made* | `preview_prefer` | `[preview] prefer` |
+| | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
+| *Previews → Documents* | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
 | | *E-books with calibre* | `ebooks` | `[preview] ebooks` |
 | | *Export draw.io diagrams* | `drawio` | `[preview] drawio` |
+| *Previews → Container images* | *Container runtime* | `preview_container` | `[preview] container` |
+| | *LaTeX image* | `latex_image` | `[preview] images.latex` |
 | | *Keep images up to date* | `image_updates` | `[preview] image_updates` |
 | | *Remove images not used for 90 days* | `image_prune` | `[preview] image_prune` |
-| | *Scan for viruses with ClamAV* | `virus_scan` | `[preview] virus_scan` |
-| | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
+| *Previews → Safety* | *Scan for viruses with ClamAV* | `virus_scan` | `[preview] virus_scan` |
+| *Games → Board* | *Chess board* | `chess_board` | `[chess] board` |
+| | *Game pieces in the terminal* | `chess_pieces` | `[chess] pieces` |
 | | *Move notation* | `chess_notation` | `[chess] notation` |
-| | *Chess board* | `chess_board` | `[chess] board` |
-| | *Opening book* | `chess_book` | `[chess] book` |
-| | *Chess engine on* | `chess_analysis` | `[chess] analysis` |
+| *Games → Chess engines* | *Chess engine on* | `chess_analysis` | `[chess] analysis` |
 | | *Chess engine* | `chess_engine` | `[chess] engine` |
 | | *Engine stops after* | `chess_engine_limit` | `[chess] engine_limit` |
 | | *Engine time (ms)* | `chess_engine_time` | `[chess] engine_time` |
 | | *Engine depth* | `chess_engine_depth` | `[chess] engine_depth` |
 | | *Engine positions* | `chess_engine_nodes` | `[chess] engine_nodes` |
 | | *Engine lines* | `chess_engine_lines` | `[chess] engine_lines` |
-| | *Whole-game analysis stops after* | `chess_review_limit` | `[chess] review_limit` |
+| *Games → Game review* | *Whole-game analysis stops after* | `chess_review_limit` | `[chess] review_limit` |
 | | *Analysis time a move (ms)* | `chess_review_time` | `[chess] review_time` |
 | | *Whole-game depth* | `chess_review_depth` | `[chess] review_depth` |
 | | *Whole-game positions* | `chess_review_nodes` | `[chess] review_nodes` |
+| *Games → Opening book* | *Opening book* | `chess_book` | `[chess] book` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

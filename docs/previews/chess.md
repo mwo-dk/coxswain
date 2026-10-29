@@ -149,7 +149,7 @@ gm2600.bin: e4 45 % · d4 35 % · ♘f3 12 % · c4 8 %*. A position the book doe
 *Book gm2600.bin: no moves for this position*. The moves follow the notation (figurines or
 letters). It works on EPD and FEN positions too.
 
-**Which book.** The one *Settings → Previews → Opening book* names (`[chess] book`, a path; `~`
+**Which book.** The one *Settings → Games → Opening book* names (`[chess] book`, a path; `~`
 is your home folder, a relative path starts from the game file's folder); when that is empty or
 no book, the first `.bin` file in the game file's own folder that is a Polyglot book, by name.
 A `.bin` file of a cloud folder that is online only is skipped, so looking for a book never
@@ -365,7 +365,7 @@ ChessBase's password-protected archives (`.cbz`), its newer `.2cbh` format and o
 
 ## Settings and config.toml
 
-*Settings → Previews*, in both apps:
+*Settings → Games*, in both apps:
 
 | Setting | `config.toml` | Values |
 |---|---|---|
@@ -469,7 +469,7 @@ do not stand there, the game stops at that castling with the usual note.
 
 #### How do I see moves in my own language's letters?
 
-*Settings → Previews → Move notation* → *Letters of the language*, or **n** in the view. The
+*Settings → Games → Board → Move notation* → *Letters of the language*, or **n** in the view. The
 letters follow the app's language (*Settings → Looks → Language*).
 
 #### Why does a game stop showing positions halfway?
@@ -485,7 +485,7 @@ games takes a fraction of a second.
 
 #### Why does the book line not show?
 
-Coxswain found no book: *Settings → Previews → Opening book* is empty or names a file that is
+Coxswain found no book: *Settings → Games → Opening book* is empty or names a file that is
 no Polyglot book, and the game file's folder has no `.bin` book. Name the book there, or put
 it next to your PGN files.
 

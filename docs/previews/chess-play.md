@@ -110,11 +110,11 @@ Stockfish here:
 | OpenBSD | `pkg_add stockfish` |
 | Linux | `sudo apt install stockfish`, `sudo dnf install stockfish`, `sudo zypper install stockfish`; on Arch Linux it is only in the AUR |
 | macOS | `brew install stockfish` |
-| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org into a folder on your PATH (its long name, `stockfish-windows-x86-64-avx2.exe`, is found as it is), or name its path in *Settings → Previews → Chess engine* |
+| Windows | `winget install --id Stockfish.Stockfish -e`, or download it from stockfishchess.org into a folder on your PATH (its long name, `stockfish-windows-x86-64-avx2.exe`, is found as it is), or name its path in *Settings → Games → Chess engine* |
 
 **Without an installed engine.** When no Stockfish is installed and podman or docker is,
 Coxswain runs Stockfish from its own container image, `ghcr.io/mwo-dk/coxswain-stockfish`
-(about 70 MB): pull it once in the desktop app's *Settings → Previews → Container images* (the
+(about 70 MB): pull it once in the desktop app's *Settings → Previews → Preview tools*, the *Chess engine (Stockfish)* row (the
 terminal app uses it once pulled, or after `podman pull ghcr.io/mwo-dk/coxswain-stockfish:latest`).
 It then runs without network, with a read-only root, no capabilities, bounded memory and no
 folder of yours ([What a container may do](containers.md#what-a-container-may-do)). Until it is
@@ -127,9 +127,9 @@ set and no engine found, a notice says so once, with the line that installs Stoc
 
 ## Choosing an engine
 
-![Settings → Previews in the desktop app at Chess engines: Stockfish chosen, found at /home/demo/engines/stockfish; Leela Chess Zero, Berserk, Ethereal, RubiChess, Koivisto, Igel, Arasan, Fruit and Fairy-Stockfish not installed, each with its site, Leela's note about its network file, Fruit's and Fairy-Stockfish's notes](../screenshots/gui-chess-engines.png)
+![Settings → Games in the desktop app at Chess engines: Stockfish chosen, found at /home/demo/engines/stockfish; Leela Chess Zero, Berserk, Ethereal, RubiChess, Koivisto, Igel, Arasan, Fruit and Fairy-Stockfish not installed, each with its site, Leela's note about its network file, Fruit's and Fairy-Stockfish's notes](../screenshots/gui-chess-engines.png)
 
-*Settings → Previews → Chess engines* lists the UCI engines Coxswain knows, in both apps. For each
+*Settings → Games → Chess engines* lists the UCI engines Coxswain knows, in both apps. For each
 it shows where it is installed, or *not installed* with the line that installs it on this system
 (only from official packages) and its official site. Settings only looks whether the program is
 there, on your PATH or in `/usr/games` (on Windows also in WinGet's package folders); it never runs an engine until you press **Test engine**.
@@ -328,7 +328,7 @@ show the evaluations and marks from it.
 
 ## Settings and config.toml
 
-*Settings → Previews*, in both apps:
+*Settings → Games*, in both apps (*Chess engines* and *Game review*):
 
 | Setting | `config.toml` | Values |
 |---|---|---|
@@ -374,17 +374,17 @@ game file; the game file is never written to.
 
 Coxswain uses an engine installed on this computer and never downloads one. Install Stockfish
 (the line under the board names the command for your system), or choose another in *Settings →
-Previews → Chess engines*, which shows each known engine's install line. When it is installed
+Games → Chess engines*, which shows each known engine's install line. When it is installed
 outside your PATH, name its path in *Chess engine*.
 
 #### I downloaded Stockfish into my Downloads folder: why is it not used?
 
 Coxswain never looks for an engine in your Downloads folder, on any system: whatever lands there
 would run as the engine without you choosing it. Until one is found, the line under the board says
-*No chess engine found* and names *Settings → Previews → Chess engine*. Move the program to a
+*No chess engine found* and names *Settings → Games → Chess engine*. Move the program to a
 folder on your PATH (on Windows it is then found under its long name too,
-`stockfish-windows-x86-64-avx2.exe`), or type its path in *Settings → Previews → Chess engine*
-(desktop app) or the *Chess engine* row of the terminal app's Settings (**F12**, then *Previews*).
+`stockfish-windows-x86-64-avx2.exe`), or type its path in *Settings → Games → Chess engine*
+(desktop app) or the *Chess engine* row of the terminal app's Settings (**F12**, then *Games*).
 
 #### How do I play a move in the terminal app?
 

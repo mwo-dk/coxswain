@@ -51,7 +51,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 ```
 coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
-                  looks, behaviour, keys, privacy, or an option such as show_hidden
+                  games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, models
@@ -89,7 +89,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | Flag | Does |
 |---|---|
 | `LEFT`, `RIGHT` | The folders of the left and right panel. A relative path is from the current folder, `~` is home. A file opens its folder with the cursor on it. Without them: the current folder in both |
-| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy`) or with the cursor on an option (`show_hidden`, `search_meaning`, `ask_model`, `language`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know, such as 1.x's `meaning`, `ask`, `news` or `cloud`, opens Overview |
+| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy`) or with the cursor on an option (`show_hidden`, `search_meaning`, `ask_model`, `language`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know, such as 1.x's `meaning`, `ask`, `news` or `cloud`, opens Overview |
 | `--help`, `-h` | Prints the text above |
 | `--version`, `-V` | Prints `coxswain X.Y.Z` |
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |
@@ -187,8 +187,8 @@ See [The search helper](../search/helper.md).
 
 ```
 coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cursor on it
-  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, looks,
-                            behaviour, keys, privacy, or an option such as show_hidden
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
+                            looks, behaviour, keys, privacy, or an option such as show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
   --version
   --help
@@ -207,8 +207,8 @@ The terminal app, coxswain, has the rest: coxswain --help
 | `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
 | `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../panels/notices.md)) |
 | `--settings=preview_tools` | …at *Previews*, scrolled to *Preview tools* ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)) |
-| `--settings=chess_engines` | …at *Previews*, scrolled to *Chess engines* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) |
-| `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `looks`, `behaviour`, `keys`, `privacy` |
+| `--settings=chess_engines` | …at *Games*, scrolled to *Chess engines* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) |
+| `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
 | `--version`, `-V` | Prints `coxswain-gui X.Y.Z` and exits. No window opens, so it works over ssh too |
