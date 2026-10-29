@@ -929,8 +929,11 @@ impl App {
                                 if matches!(o.name, "font_size" | "line_height") && n.fract() != 0.0 { Value::from((n * 100.0).round() / 100.0) } else { Value::from(n.round() as i64) }
                             }
                             _ => {
+                                // Refused: the stored value again, selected, as the desktop app
+                                // shows it; the reason in red.
                                 s.said = Some((t!("tui.settings.range", "name" => o.label(), "min" => number_text(lo), "max" => number_text(hi)), true));
-                                s.mode = Mode::Edit(text);
+                                s.mode = Mode::Edit(number_text(value.as_f64().unwrap_or(0.0) / scale));
+                                s.selected = true;
                                 return self.dialog = Some(Dialog::Settings(s));
                             }
                         },
@@ -1407,7 +1410,8 @@ impl App {
     }
 
     /// The chess engine's option `name` set to `value` (None: the engine's default) in
-    /// config.toml, after `play::set_option` checked it; a value refused is typed again.
+    /// config.toml, after `play::set_option` checked it; a value refused opens again with the
+    /// stored one (or the engine's default) selected, as the desktop app shows it.
     fn engine_option(&mut self, mut s: Box<Settings>, name: &str, value: Option<Value>) {
         let (Some(Ok(info)), Some(path)) = (&s.engine, s.path.clone()) else { return self.dialog = Some(Dialog::Settings(s)) };
         match play::set_option(&path, info, name, value.as_ref()) {
@@ -1419,9 +1423,14 @@ impl App {
                 }
             }
             Err(e) => {
+                let now = matches!(value, Some(Value::String(_))).then(|| {
+                    let o = info.options.iter().find(|o| o.option.name == name);
+                    o.map(|o| o.value.as_ref().map_or_else(|| o.option.default.clone(), |v| v.as_str().map_or_else(|| v.to_string(), String::from))).unwrap_or_default()
+                });
                 s.said = Some((e, true));
-                if let Some(Value::String(text)) = value {
-                    s.mode = Mode::EngineEdit(text);
+                if let Some(now) = now {
+                    s.mode = Mode::EngineEdit(now);
+                    s.selected = true;
                 }
             }
         }
@@ -2153,7 +2162,8 @@ mod tests {
         assert!(settings(&app).selected);
         typed(&mut app, "100000");
         key(&mut app, KeyCode::Enter);
-        assert!(matches!(&settings(&app).mode, Mode::EngineEdit(t) if t == "100000"), "a number out of range is typed again");
+        assert!(matches!(&settings(&app).mode, Mode::EngineEdit(t) if t != "100000"), "refused: the stored value again");
+        assert!(settings(&app).selected, "selected, so typing replaces it");
         for _ in 0..6 {
             key(&mut app, KeyCode::Backspace);
         }
@@ -2376,7 +2386,8 @@ mod tests {
         typed(&mut app, "5");
         key(&mut app, KeyCode::Enter);
         assert!(settings(&app).said.as_ref().is_some_and(|(_, bad)| *bad), "5 is below 10");
-        typed(&mut app, "00");
+        assert!(matches!(&settings(&app).mode, Mode::Edit(t) if t != "5") && settings(&app).selected, "the stored value again, selected");
+        typed(&mut app, "500");
         key(&mut app, KeyCode::Enter);
         assert_eq!(Config::parse(&std::fs::read_to_string(&path).unwrap()).unwrap().search.max_results, 500);
         // Enter again: the value opens selected, shown reversed, and the first key replaces it.

@@ -207,8 +207,8 @@ so each engine keeps its own options when you switch, and an engine upgraded kee
 set is not sent: the engine's own default applies. *Default* beside an option (desktop) or
 **Delete** on it (terminal) takes it out again, and the engine's table with its last option;
 **Reset to engine defaults** takes out all of this engine's. A value the engine does not take is
-refused with the reason: the desktop app shows the stored value again, the terminal app keeps
-what you typed to be mended. In the terminal app **Enter** opens the field with the value (or
+refused with the reason, and both apps show the stored value (or the engine's default) again; in
+the terminal app it is selected, so typing replaces it. In the terminal app **Enter** opens the field with the value (or
 the engine's default) selected, so typing replaces it. *Open config.toml* (desktop) or **O** on an option (terminal) opens config.toml at the
 engine's table, for options typed there by hand.
 

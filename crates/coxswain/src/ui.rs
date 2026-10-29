@@ -326,7 +326,20 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     };
     f.render_widget(Paragraph::new(header), Rect { height: 1, ..inner });
 
-    let rows = inner.height as usize - 3;
+    // An error wider than the panel wraps onto up to four rows, taken from the list: it is
+    // read whole where it happened, not only on the status line.
+    let errs: Vec<String> = app.panels[side].error.as_ref().map_or_else(Vec::new, |e| {
+        let mut l = wrap(&coxswain_core::fs::plain_words(e), w);
+        let most = (inner.height as usize).saturating_sub(4).div_ceil(2).clamp(1, 4);
+        if l.len() > most {
+            l.truncate(most);
+            if let Some(last) = l.last_mut() {
+                *last = format!("{}…", fit(last, w.saturating_sub(1)).trim_end());
+            }
+        }
+        l
+    });
+    let rows = (inner.height as usize).saturating_sub(2 + errs.len().max(1));
     let p = &mut app.panels[side];
     p.page = rows;
     if p.cursor < p.offset {
@@ -470,9 +483,12 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // Separator and info line.
     let sep_y = inner.y + 1 + rows as u16;
     f.render_widget(Paragraph::new(Span::styled("─".repeat(w), border)), Rect { y: sep_y, height: 1, ..inner });
-    let info = if let Some(err) = &p.error {
-        Line::from(Span::styled(fit(&coxswain_core::fs::plain_words(err), w), sty(&t.git_conflict)))
-    } else if !p.marked.is_empty() {
+    if !errs.is_empty() {
+        let lines: Vec<Line> = errs.iter().map(|l| Line::from(Span::styled(fit(l, w), sty(&t.git_conflict)))).collect();
+        f.render_widget(Paragraph::new(lines), Rect { y: sep_y + 1, height: errs.len() as u16, ..inner });
+        return;
+    }
+    let info = if !p.marked.is_empty() {
         Line::from(Span::styled(fit(&center(&tn!("tui.selected", p.marked.len(), "size" => size(p.marked_bytes)), w), w), sty(&t.marked)))
     } else if let Some(e) = p.current() {
         let mut right = if e.is_dir { String::new() } else { format!(" {}", size(e.size)) };
@@ -1226,6 +1242,32 @@ mod tests {
                 }
             }
         }
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A panel's error wider than the panel wraps under the list, whole, its end there too; a
+    /// very long one stops at four rows with `…`, and the list keeps the rest of the panel.
+    #[test]
+    fn a_long_panel_error_is_read_whole() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-panel-error-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cfg = coxswain_core::config::Config { check_updates: false, ..Default::default() };
+        let index = crate::test_index(&cfg);
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let screen = |app: &mut App| -> String {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+            term.draw(|f| draw(f, app)).unwrap();
+            let buf = term.backend().buffer();
+            (0..buf.area.height).map(|y| (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect::<String>() + "\n").collect()
+        };
+        app.panels[0].error = Some("games.7z.002 is missing: a 7z split into parts opens only with all its parts, numbered without a gap".into());
+        let s = screen(&mut app);
+        assert!(s.contains("games.7z.002 is") && s.contains("without a gap"), "{s}");
+        let page = app.panels[0].page;
+        app.panels[0].error = Some("word ".repeat(200));
+        let s = screen(&mut app);
+        assert!(s.contains('…'), "{s}");
+        assert!(app.panels[0].page <= page && app.panels[0].page >= 5, "the list keeps its rows: {}", app.panels[0].page);
         let _ = std::fs::remove_dir_all(d);
     }
 

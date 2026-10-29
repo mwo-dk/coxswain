@@ -46,12 +46,14 @@
       loadIndex();
     } catch (e) {
       error = String(e);
-      // A refused value does not stay in its field: the stored one is shown again.
+      // A refused value does not stay in its control: the stored one is shown again, in a
+      // field, a switch or a choice alike. A list shows the stored items already (its field
+      // was emptied when the item was added).
       for (const name of Object.keys(changes)) {
-        const el = document.getElementById(`in-${name}`);
-        // A list's field adds an item, a choice holds only its values: neither keeps a refused one.
-        if (el?.tagName !== "INPUT" || Array.isArray(s[name])) continue;
+        const el = document.getElementById(`in-${name}`) ?? document.querySelector(`#opt-${name} input[type=checkbox]`);
+        if (!el || Array.isArray(s[name])) continue;
         if (el.type === "checkbox") el.checked = !!s[name];
+        else if (el.tagName === "SELECT") el.value = s[name] ?? "";
         else el.value = el.type === "number" ? s[name] / (Number(el.dataset.scale) || 1) : (s[name] ?? "");
       }
     }
