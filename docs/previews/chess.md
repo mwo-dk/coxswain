@@ -252,9 +252,11 @@ board says so, and *No game in the search store reaches this position* when none
 
 *game 3* is the table's third row: the positions are read from the games as the table cuts the
 file apart, by the same reader, so a comment left open or an `Event` tag with no game after it
-counts the same in both. A file the store read with Coxswain 2.33.0 or earlier keeps its
-positions until it changes; when it held such a game, a hit after it could open the game next
-to the right one.
+counts the same in both. Earlier versions counted such files differently, so a hit after such a
+game could open the game next to the right one. A store from before gets the positions of those
+files made again, once: only the PGN files whose last numbered game is not their last row (the
+store tells this from what it keeps, without reading any file), and only their positions: their
+text and vectors stay, and no other file is read.
 
 ![The Opera Game at 2…d6 in the desktop app with Find this position pressed: Games that reach this position: 1, and below it classics.pgn · game 1 with Morphy, Paul – Duke Karl / Count Isouard 1-0 1858.11.02; Find this position beside Engine under the board](../screenshots/gui-chess-position.png)
 

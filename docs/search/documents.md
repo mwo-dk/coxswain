@@ -173,8 +173,15 @@ there ([Long files](long-files.md#does-everything-keep-all-the-text-of-a-big-pdf
 Earlier versions went through a long PDF whole before its first page was read. When that
 took the three seconds, no page was read, the PDF counted as a scan and, with [OCR](scans.md) on,
 its first 30 pages were read by tesseract, which took a minute or more. Now its pages are read from
-the first, and a PDF with text is never taken for a scan for being long. A PDF read before keeps the
-text it got until the file changes.
+the first, and a PDF with text is never taken for a scan for being long.
+
+A store from before has each PDF of 1 MB or more looked at once by the new reader, never by OCR, a
+minute of each scan at most until all are done. Only a PDF whose own text is now longer than the
+text kept is read again and gets its vectors again: one cut short by the old three seconds, one
+read by OCR though it has text, one left without text for want of OCR. Real scans keep their OCR
+text and are not read by tesseract again; smaller PDFs, which the old reader read whole, are not
+looked at. A PDF on a disk that is not plugged in when its turn comes keeps its text until it
+changes.
 
 #### Does opening a document for search change it, or start Word?
 

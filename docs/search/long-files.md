@@ -95,6 +95,14 @@ takes on its passages not counted. One that needs longer:
 - **with the vectors of all of it** from before keeps them, and is not read again until it
   changes.
 
+Earlier versions counted the model's time as reading time, so a long Word or OpenDocument text
+kept whole was taken as done after its first 20 seconds of passages. A store from before gives
+those files their vectors again, once: only the ones kept whole with fewer passages than the text
+kept of them gives, which a file streamed to its end never has. Nothing is read again for search
+by words, and the vectors they have stay until the new ones are in. A file whose model got
+through more than its first 4 MB of text in those 20 seconds cannot be told from one read to its
+end, and keeps its passages until it changes.
+
 Search by meaning finds such a file by its part read, as it finds any other. One that is not there when it is looked at (a disk
 unplugged) is tried again at the next scan. A file that changes or goes while it is read gets
 nothing of what was read: it is read again as it is now.
