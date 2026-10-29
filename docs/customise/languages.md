@@ -131,7 +131,6 @@ English counts); otherwise the nearest relative of the first one:
 | German in Austria (`de-AT`) | Austrian German |
 | German in Switzerland or Liechtenstein (`de-CH`, `de-LI`), Swiss German (`gsw`) | Swiss German |
 | German anywhere else (`de-DE`, `de-LU`, `de-BE`, …) | German |
-| US English, or English without a region | Canadian English |
 | Australian, Canadian, New Zealand English | That English |
 | Any other English (Britain, Ireland, South Africa, India, …) | British English |
 | Any Spanish (Spain, Mexico, …), Galician and Aragonese | Argentinian Spanish |
@@ -276,11 +275,6 @@ F-key bar and status texts are all translated.
 
 ## Questions
 
-#### My system is in US English. Why does Coxswain say "colour" but "trash"?
-
-US English, and English without a region, get Canadian English: British spelling, North
-American words. Pick *English (United Kingdom)* in Settings for "bin", or keep it.
-
 #### I changed the language in Settings and the terminal app still speaks the old one.
 
 You changed it in the desktop app's Settings: a terminal app already running reads `language`
@@ -403,9 +397,8 @@ and "Commands". A better short word is welcome; see
 ## Improving a translation
 
 The translations were written with care but have not all been checked by native speakers yet.
-The ones marked *new* (Polish, Czech, Ukrainian, Greek, Japanese, Korean, Persian, Armenian,
-Georgian, Norwegian Bokmål and Nynorsk) need a native reader most, then Basque,
-Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
+The ones Settings marks *new* need a native reader most, then the newer ones: Polish, Czech,
+Ukrainian, Greek, Japanese, Korean, Persian, Armenian, Georgian, Basque, Latvian and Lithuanian. Corrections are very welcome, in either of two ways:
 
 - **Tell us:** open an [issue on GitHub](https://github.com/mwo-dk/coxswain/issues/new) with the
   language, the text as it is (or where it shows) and what it should say. No setup needed.
