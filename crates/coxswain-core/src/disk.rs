@@ -158,6 +158,7 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             paths: vec![],
             kind: Kind::Own,
             rebuildable: false,
+            clear: true,
             in_use: false,
         });
     }
