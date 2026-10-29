@@ -142,6 +142,20 @@ pub const LANGUAGES: &[Language] = &[
         "language.group.asia",
         None,
     ),
+    lang(
+        "zh-TW",
+        "中文（台灣）",
+        "tw",
+        "language.group.asia",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "zh-SG",
+        "中文（新加坡）",
+        "sg",
+        "language.group.asia",
+        Some("2026-11-29"),
+    ),
     lang("ja", "日本語", "jp", "language.group.asia", None),
     lang("ko", "한국어", "kr", "language.group.asia", None),
 ];
@@ -265,6 +279,8 @@ fn source(code: &str) -> &'static str {
         "el" => include_str!("../locales/el.json"),
         "ja" => include_str!("../locales/ja.json"),
         "ko" => include_str!("../locales/ko.json"),
+        "zh-TW" => include_str!("../locales/zh-TW.json"),
+        "zh-SG" => include_str!("../locales/zh-SG.json"),
         "fa" => include_str!("../locales/fa.json"),
         "ka" => include_str!("../locales/ka.json"),
         "hy" => include_str!("../locales/hy.json"),
@@ -327,6 +343,18 @@ pub fn nearest(tag: &str) -> &'static str {
         "el" => "el",
         "ja" => "ja",
         "ko" => "ko",
+        // Chinese by its script.
+        "zh" => {
+            let parts: Vec<&str> = lower.split(['-', '.', '@']).collect();
+            if parts.contains(&"hant")
+                || (!parts.contains(&"hans")
+                    && parts.iter().any(|p| matches!(*p, "tw" | "hk" | "mo")))
+            {
+                "zh-TW"
+            } else {
+                "zh-SG"
+            }
+        }
         // Dari (Afghan Persian) has its own code; Tajik is Persian in Cyrillic, so not here.
         "fa" | "prs" => "fa",
         "ka" => "ka",
@@ -517,7 +545,7 @@ pub fn plural(lang: &str, n: u64) -> &'static str {
             2..=4 => "few",
             _ => "other",
         },
-        "ja" | "ko" => "other",
+        "ja" | "ko" | "zh" => "other",
         // Persian and Armenian: 0 and 1 are singular (CLDR: i = 0 or n = 1).
         "fa" | "hy" => {
             if n < 2 {
@@ -628,6 +656,18 @@ mod tests {
             ("el-CY", "el"),
             ("ja_JP.UTF-8", "ja"),
             ("ko_KR", "ko"),
+            ("zh-TW", "zh-TW"),
+            ("zh_TW.UTF-8", "zh-TW"),
+            ("zh-HK", "zh-TW"),
+            ("zh_MO", "zh-TW"),
+            ("zh-Hant", "zh-TW"),
+            ("zh-Hant-CN", "zh-TW"),
+            ("zh-SG", "zh-SG"),
+            ("zh_CN.UTF-8", "zh-SG"),
+            ("zh-MY", "zh-SG"),
+            ("zh", "zh-SG"),
+            ("zh-Hans", "zh-SG"),
+            ("zh-Hans-HK", "zh-SG"),
             ("fa_IR.UTF-8", "fa"),
             ("fa-AF", "fa"),
             ("prs", "fa"),
@@ -644,7 +684,8 @@ mod tests {
         assert_eq!(pick(&langs(&["en-GB", "da"])), "en-GB");
         assert_eq!(pick(&langs(&["en_IE.UTF-8", "da"])), "en-GB");
         assert_eq!(pick(&langs(&["ru", "da"])), "da");
-        assert_eq!(pick(&langs(&["ru", "zh"])), "en-GB");
+        assert_eq!(pick(&langs(&["ru", "tr"])), "en-GB");
+        assert_eq!(pick(&langs(&["ru", "zh-Hant-TW"])), "zh-TW");
         assert_eq!(pick(&[]), "en-GB");
     }
 
@@ -761,6 +802,9 @@ mod tests {
             [0, 1, 2].map(|n| plural("ko", n)),
             ["other", "other", "other"]
         );
+        for zh in ["zh-TW", "zh-SG"] {
+            assert_eq!([0, 1, 2].map(|n| plural(zh, n)), ["other", "other", "other"]);
+        }
         assert_eq!([0, 1, 2].map(|n| plural("fa", n)), ["one", "one", "other"]);
         assert_eq!([0, 1, 2].map(|n| plural("hy", n)), ["one", "one", "other"]);
         assert_eq!(

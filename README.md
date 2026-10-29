@@ -17,7 +17,7 @@ folders, shows git (and Jujutsu and Mercurial) in every panel, and keeps everyth
 - **Finds by name, by the words inside files and by what they are about,** offline, with a small model on your machine or your own Ollama or LM Studio.
 - **Ask your files** a question in your own words, and get an answer with numbered sources, from a model on your machine.
 - **Archives, git history, branches and ZFS snapshots open like folders:** go in, look, copy out.
-- **Runs where you work:** FreeBSD first, then NetBSD, OpenBSD, illumos, Linux (ARM too), Android (Termux), macOS and Windows; 31 languages.
+- **Runs where you work:** FreeBSD first, then NetBSD, OpenBSD, illumos, Linux (ARM too), Android (Termux), macOS and Windows; 33 languages.
 - **Nothing leaves your machine** unless you ask, and online-only cloud files are never downloaded behind your back.
 
 ## Highlights
@@ -43,7 +43,7 @@ folders, shows git (and Jujutsu and Mercurial) in every panel, and keeps everyth
 - **Jujutsu and Mercurial too:** in a jj repository the line names the change and its bookmark, and **Ctrl+G** and **Alt+B** show jj's history and bookmarks, read-only; in a Mercurial one the same through hg, with **Alt+S** to switch; Subversion and CVS working copies show their status, read from their own records. [Jujutsu](docs/panels/jujutsu.md) · [Mercurial](docs/panels/mercurial.md) · [Subversion](docs/panels/subversion.md) · [CVS](docs/panels/cvs.md)
 - **Folder sizes without asking,** instant in your home folder. [Folder sizes](docs/panels/folder-sizes.md)
 - **Finds duplicates** by content across folders and disks, and marks the extra copies by rule. [Duplicates](docs/files/duplicates.md)
-- **Thirty-three themes with the looks of their era, from the Amiga and the home computers to Windows and Mac,** and 31 languages, listed by region: Hebrew and Persian right to left, Greek capitals without accents, Japanese and Korean lined up in the terminal. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
+- **Thirty-three themes with the looks of their era, from the Amiga and the home computers to Windows and Mac,** and 33 languages, listed by region: Hebrew and Persian right to left, Greek capitals without accents, Chinese, Japanese and Korean lined up in the terminal. [Themes](docs/customise/themes.md) · [Languages](docs/customise/languages.md)
 - **Nothing leaves your machine** unless you ask for it. [Privacy](docs/reference/privacy.md)
 
 | | |

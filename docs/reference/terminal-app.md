@@ -73,7 +73,7 @@ Every flag: [Command-line flags](command-line-flags.md#the-terminal-app-coxswain
 | Your cloud accounts under **Alt+F1** / **Alt+F2**, as NC's drive menu | [Clouds](../organise/clouds.md#in-the-terminal-app) |
 | FreeBSD's boot environments and jails under **Alt+F1** / **Alt+F2**, as NC's drive menu | [FreeBSD](../systems/freebsd.md#boot-environments-and-jails) |
 | Every theme's colours, Nerd Font or ASCII glyphs, your own themes | [Themes](../customise/themes.md), [Glyphs and fonts](../customise/glyphs-and-fonts.md) |
-| All 31 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
+| All 33 languages (`coxswain --languages` lists them) | [Languages](../customise/languages.md) |
 | Your own keys from `[keys]` | [Changing keys](../customise/keys.md) |
 | The command list (**F9**) and help (**F1**) | [The command list](../panels/command-list.md) |
 | Settings (**F12**, *12 Settings* on the F-key bar; also **Shift+F10** or **F9** → *Settings*, `coxswain --settings`): the desktop app's areas and options, full screen, saved at once; the install line of a missing program, copied with **Space** | [Settings in the terminal app](../customise/settings.md#in-the-terminal-app) |

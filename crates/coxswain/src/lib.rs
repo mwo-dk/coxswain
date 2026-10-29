@@ -6430,7 +6430,7 @@ mod panel_tests {
     }
 }
 
-/// Japanese and Korean letters take two columns: panels, the key bar, Find and a dialog must
+/// Chinese, Japanese and Korean letters take two columns: panels, the key bar, Find and a dialog must
 /// still line up.
 #[cfg(test)]
 mod wide_letters {
@@ -6489,7 +6489,7 @@ mod wide_letters {
     }
 
     #[test]
-    fn japanese_and_korean_line_up() {
+    fn chinese_japanese_and_korean_line_up() {
         // The language is the whole process's: the check runs in a process of its own, so
         // no other test reads Japanese.
         if std::env::var_os("COXSWAIN_WIDE_TEST").is_none() {
@@ -6507,7 +6507,7 @@ mod wide_letters {
         for f in ["日本語のとても長いファイルの名前です.txt", "보고서.txt", "a.txt"] {
             std::fs::write(d.join(f), "x").unwrap();
         }
-        for lang in ["ja", "ko"] {
+        for lang in ["ja", "ko", "zh-TW", "zh-SG"] {
             coxswain_core::i18n::set_language(lang);
             let cfg = Config { check_updates: false, ..Config::default() };
             let index = crate::test_index(&cfg);

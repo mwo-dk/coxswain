@@ -10,7 +10,7 @@
   import CopyLine from "./CopyLine.svelte";
   import derafsh from "../../docs/flags/derafsh.svg?url";
 
-  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,jp,kr,am,ge,no}.svg", {
+  const flags = import.meta.glob("../node_modules/flag-icons/flags/4x3/{gb,au,ca,nz,dk,se,fi,ee,lv,lt,de,at,ch,fr,it,nl,ar,es-ct,es-pv,il,pl,cz,ua,gr,tw,sg,jp,kr,am,ge,no}.svg", {
     query: "?url",
     import: "default",
     eager: true,

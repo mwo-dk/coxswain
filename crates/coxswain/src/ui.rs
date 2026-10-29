@@ -1074,7 +1074,7 @@ pub(crate) fn wrap(s: &str, width: usize) -> Vec<String> {
     let (mut out, mut line, mut w) = (vec![], String::new(), 0);
     for word in s.split_inclusive(' ') {
         let ww = word.trim_end().width();
-        // Japanese and Korean break between any two letters, so a word with wide letters
+        // Chinese, Japanese and Korean break between any two letters, so a word with wide letters
         // flows on from where the line is rather than starting a line of its own.
         let wide = word.chars().any(|c| c.width() == Some(2));
         if w + ww > width && w > 0 && !wide {

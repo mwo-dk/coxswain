@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 31 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 33 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -16,7 +16,7 @@ language.
 - [Which language Automatic picks](#which-language-automatic-picks)
 - [What you see](#what-you-see)
 - [Capitals in Greek](#capitals-in-greek)
-- [Japanese and Korean](#japanese-and-korean)
+- [Chinese, Japanese and Korean](#chinese-japanese-and-korean)
 - [Persian, Armenian and Georgian](#persian-armenian-and-georgian)
 - [Right to left](#right-to-left)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -67,6 +67,8 @@ Both apps list them by region, and by their own name within a region:
 | | **Asia and the Pacific** | |
 | <img src="../flags/au.svg" width="24" alt=""> | English (Australia) | `en-AU` |
 | <img src="../flags/nz.svg" width="24" alt=""> | English (New Zealand) | `en-NZ` |
+| <img src="../flags/tw.svg" width="24" alt=""> | 中文（台灣） (Chinese, Taiwan) *(new)* | `zh-TW` |
+| <img src="../flags/sg.svg" width="24" alt=""> | 中文（新加坡） (Chinese, Singapore) *(new)* | `zh-SG` |
 | <img src="../flags/jp.svg" width="24" alt=""> | 日本語 (Japanese) | `ja` |
 | <img src="../flags/kr.svg" width="24" alt=""> | 한국어 (Korean) | `ko` |
 
@@ -148,6 +150,8 @@ English counts); otherwise the nearest relative of the first one:
 | Polish, Czech, Ukrainian, Greek (`pl_PL`, `cs_CZ`, `uk_UA`, `el_GR`, `el_CY`, …) | That language |
 | Slovak | Czech, which Slovak readers read |
 | Japanese, Korean (`ja_JP`, `ko_KR`, …) | That language |
+| Chinese (Traditional script) | 中文（台灣） |
+| Chinese (Simplified script) | 中文（新加坡） |
 | Persian in Iran or Afghanistan (`fa_IR`, `fa_AF`), Dari (`prs`) | Persian |
 | Armenian, Georgian (`hy_AM`, `ka_GE`) | That language |
 | Hebrew (also the old code `iw`) | Hebrew |
@@ -189,20 +193,26 @@ Georgian has no capitals in running text, so in Georgian these headings are writ
 are, without capitals or wide spacing, in both apps, and the first letter of an error's cause
 is left as it is. Armenian has capitals and takes them as usual.
 
-## Japanese and Korean
+<a id="japanese-and-korean"></a>
 
-Both are written in letters that take two columns in a terminal and need a font that has them.
+## Chinese, Japanese and Korean
+
+All three are written in letters that take two columns in a terminal and need a font that has
+them.
 
 - **Fonts in the desktop app:** after every font list (*Font*, *Monospaced font*, the era fonts
   of the themes) come Hiragino Sans, Yu Gothic, Meiryo and Noto Sans CJK JP, then Apple SD
-  Gothic Neo, Malgun Gothic and Noto Sans CJK KR (Korean first when Coxswain speaks Korean, as
-  the same Han letter is drawn differently in each). The first installed one draws them: on
+  Gothic Neo, Malgun Gothic and Noto Sans CJK KR, then PingFang SC, Microsoft YaHei and Noto
+  Sans CJK SC. Korean ones come first when Coxswain speaks Korean; PingFang TC, Microsoft
+  JhengHei and Noto Sans CJK TC first in 中文（台灣）; PingFang SC, Microsoft YaHei and Noto Sans
+  CJK SC first in 中文（新加坡）, as the same Han letter is drawn differently in each. The first installed one draws them: on
   macOS and Windows one always is. This holds for file names in any language too.
-- **No font on Linux:** when Coxswain speaks Japanese or Korean and `fc-list` knows no font
-  for it, *Settings → Overview → What's new* says once *No Japanese or Korean font is installed…* and
-  names the package: `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian, Ubuntu),
+- **No font on the BSDs and Linux:** when Coxswain speaks Chinese, Japanese or Korean and
+  `fc-list` knows no font for it, *Settings → Overview → What's new* says once *No Chinese,
+  Japanese or Korean font is installed…* and names the package: `noto-sans-jp`, `noto-sans-kr`,
+  `noto-sans-sc` and `noto-sans-tc` (FreeBSD), `noto-cjk-fonts` (NetBSD), `noto-cjk` (OpenBSD), `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian, Ubuntu),
   `google-noto-sans-cjk-fonts` (Fedora). Until then the letters show as boxes.
-- **Typing with an input method** (IME: Mozc, Kotoeri, the Microsoft IME, a Hangul keyboard):
+- **Typing with an input method** (IME: Mozc, Kotoeri, the Microsoft IME, a Hangul keyboard, Zhuyin, Pinyin, Cangjie):
   works in every text field of the desktop app (Find, the path bar, rename, notes, the
   dialogs). While a word is being composed, Enter, Esc and the arrows belong to the input
   method: Enter takes the word and does not run the dialog, Esc drops the word and does not
@@ -210,7 +220,7 @@ Both are written in letters that take two columns in a terminal and need a font 
 - **Quick search** (**Alt+letter**, then letters) jumps to a name that starts with what you
   type; a name kept decomposed (as macOS does with Hangul, or か + ゙ for が) is found by the
   composed letters. An input method composes only in a text field, so in the desktop app quick
-  search takes the letters typed straight from the keyboard; for a Japanese or Korean name use
+  search takes the letters typed straight from the keyboard; for a Chinese, Japanese or Korean name use
   *Find* (**Alt+F7**), where the input method works. In the terminal app, letters an input
   method commits go to quick search once it is started.
 - **The terminal app** measures every text by the columns it takes, not by its letters: the
@@ -271,7 +281,7 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 31 languages and the same translations, chosen by the same `language` key. Its own
+The same 33 languages and the same translations, chosen by the same `language` key. Its own
 Settings pick it at once (**F12** → *Looks* → *Language*); a change made in the desktop app or
 in the file is read when it starts. `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
@@ -312,7 +322,7 @@ Swiss Standard German has no *ß*: a system locale `de_CH` (or `de_LI`, or Swiss
 picks *Deutsch (Schweiz)*, which writes *ss* and «guillemets». For *ß* and „quotes“ pick
 *Deutsch* in Settings → *Looks* → *Language*, or set `language = "de"`.
 
-#### Polish, Czech, Ukrainian, Greek, Persian, Armenian, Georgian, Japanese or Korean reads oddly in places. Why?
+#### Polish, Czech, Ukrainian, Greek, Persian, Armenian, Georgian, Chinese, Japanese or Korean reads oddly in places. Why?
 
 These translations have not been read by a native speaker yet. While a translation is new (about
 a month, four weekly releases), Settings marks it *new* and Coxswain shows the notice
@@ -362,14 +372,16 @@ on OpenBSD `pkg_add noto-fonts`; on Linux install `noto-fonts` (Arch), `fonts-no
 `google-noto-sans-georgian-fonts` (Fedora). Then start the desktop app again. The desktop app says so once under *Settings → Overview → What's new*. See
 [Persian, Armenian and Georgian](#persian-armenian-and-georgian).
 
-#### Japanese or Korean shows as boxes. What is missing?
+#### Chinese, Japanese or Korean shows as boxes. What is missing?
 
-A font with those letters. On Linux install `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian,
+A font with those letters. On FreeBSD `pkg install noto-sans-tc noto-sans-sc noto-sans-jp
+noto-sans-kr` (the ones you need), on NetBSD `pkgin install noto-cjk-fonts`, on OpenBSD
+`pkg_add noto-cjk`; on Linux install `noto-fonts-cjk` (Arch), `fonts-noto-cjk` (Debian,
 Ubuntu) or `google-noto-sans-cjk-fonts` (Fedora) and start the desktop app again; the desktop
 app says so once under *Settings → Overview → What's new*. In the terminal app, it is the terminal's font
-that needs them. See [Japanese and Korean](#japanese-and-korean).
+that needs them. See [Chinese, Japanese and Korean](#chinese-japanese-and-korean).
 
-#### I type Japanese and press Enter, and the dialog does nothing. Why?
+#### I type Chinese or Japanese and press Enter, and the dialog does nothing. Why?
 
 The first Enter takes the word your input method was composing; it is not a key for Coxswain
 yet. Press Enter once more to run the dialog. Esc likewise drops the composed word first.
@@ -443,7 +455,7 @@ Ukrainian, Greek, Japanese, Korean, Persian, Armenian, Georgian, Basque, Latvian
    Lithuanian, `zero`/`one`/`other` for Latvian, `one`/`two`/`other` for Hebrew, and
    `one`/`many`/`other` for French, Italian, Spanish and Catalan, `one`/`few`/`many`/`other`
    for Polish and Ukrainian, `one`/`few`/`other` for Czech, `one`/`other` for Persian and
-   Armenian (where 0 is `one` too) and for Georgian, and only `other` for Japanese and Korean,
+   Armenian (where 0 is `one` too) and for Georgian, and only `other` for Chinese, Japanese and Korean,
    which do not change a word for a count.
 3. Run `cargo test -p coxswain-core i18n`: it checks that every file parses, has no unknown
    keys, keeps the placeholders and has an `other` form.
