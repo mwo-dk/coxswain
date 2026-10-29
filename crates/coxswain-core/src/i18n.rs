@@ -104,8 +104,36 @@ pub const LANGUAGES: &[Language] = &[
     ),
     lang("eu", "Euskara", "es-pv", "language.group.western", None),
     lang("fr", "Français", "fr", "language.group.western", None),
+    lang(
+        "fr-BE",
+        "Français (Belgique)",
+        "be",
+        "language.group.western",
+        None,
+    ),
+    lang(
+        "fr-CH",
+        "Français (Suisse)",
+        "ch",
+        "language.group.western",
+        None,
+    ),
     lang("it", "Italiano", "it", "language.group.western", None),
+    lang(
+        "it-CH",
+        "Italiano (Svizzera)",
+        "ch",
+        "language.group.western",
+        None,
+    ),
     lang("nl", "Nederlands", "nl", "language.group.western", None),
+    lang(
+        "nl-BE",
+        "Nederlands (België)",
+        "be",
+        "language.group.western",
+        None,
+    ),
     lang("cs", "Čeština", "cz", "language.group.central", None),
     lang("pl", "Polski", "pl", "language.group.central", None),
     lang("uk", "Українська", "ua", "language.group.central", None),
@@ -127,6 +155,132 @@ pub const LANGUAGES: &[Language] = &[
         "ar",
         "language.group.americas",
         None,
+    ),
+    lang(
+        "es-BO",
+        "Español (Bolivia)",
+        "bo",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-CL",
+        "Español (Chile)",
+        "cl",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-CO",
+        "Español (Colombia)",
+        "co",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-CR",
+        "Español (Costa Rica)",
+        "cr",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-CU",
+        "Español (Cuba)",
+        "cu",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-EC",
+        "Español (Ecuador)",
+        "ec",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-SV",
+        "Español (El Salvador)",
+        "sv",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-GT",
+        "Español (Guatemala)",
+        "gt",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-HN",
+        "Español (Honduras)",
+        "hn",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-MX",
+        "Español (México)",
+        "mx",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-NI",
+        "Español (Nicaragua)",
+        "ni",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-PA",
+        "Español (Panamá)",
+        "pa",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-PE",
+        "Español (Perú)",
+        "pe",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-PR",
+        "Español (Puerto Rico)",
+        "pr",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-DO",
+        "Español (República Dominicana)",
+        "do",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "es-UY",
+        "Español (Uruguay)",
+        "uy",
+        "language.group.americas",
+        None,
+    ),
+    lang(
+        "es-VE",
+        "Español (Venezuela)",
+        "ve",
+        "language.group.americas",
+        Some("2026-11-29"),
+    ),
+    lang(
+        "fr-CA",
+        "Français (Canada)",
+        "ca",
+        "language.group.americas",
+        Some("2026-11-29"),
     ),
     lang(
         "en-AU",
@@ -267,9 +421,31 @@ fn source(code: &str) -> &'static str {
         "de-AT" => include_str!("../locales/de-AT.json"),
         "de-CH" => include_str!("../locales/de-CH.json"),
         "fr" => include_str!("../locales/fr.json"),
+        "fr-BE" => include_str!("../locales/fr-BE.json"),
+        "fr-CA" => include_str!("../locales/fr-CA.json"),
+        "fr-CH" => include_str!("../locales/fr-CH.json"),
         "it" => include_str!("../locales/it.json"),
+        "it-CH" => include_str!("../locales/it-CH.json"),
         "nl" => include_str!("../locales/nl.json"),
+        "nl-BE" => include_str!("../locales/nl-BE.json"),
         "es-AR" => include_str!("../locales/es-AR.json"),
+        "es-BO" => include_str!("../locales/es-BO.json"),
+        "es-CL" => include_str!("../locales/es-CL.json"),
+        "es-CO" => include_str!("../locales/es-CO.json"),
+        "es-CR" => include_str!("../locales/es-CR.json"),
+        "es-CU" => include_str!("../locales/es-CU.json"),
+        "es-EC" => include_str!("../locales/es-EC.json"),
+        "es-SV" => include_str!("../locales/es-SV.json"),
+        "es-GT" => include_str!("../locales/es-GT.json"),
+        "es-HN" => include_str!("../locales/es-HN.json"),
+        "es-MX" => include_str!("../locales/es-MX.json"),
+        "es-NI" => include_str!("../locales/es-NI.json"),
+        "es-PA" => include_str!("../locales/es-PA.json"),
+        "es-PE" => include_str!("../locales/es-PE.json"),
+        "es-PR" => include_str!("../locales/es-PR.json"),
+        "es-DO" => include_str!("../locales/es-DO.json"),
+        "es-UY" => include_str!("../locales/es-UY.json"),
+        "es-VE" => include_str!("../locales/es-VE.json"),
         "ca" => include_str!("../locales/ca.json"),
         "eu" => include_str!("../locales/eu.json"),
         "he" => include_str!("../locales/he.json"),
@@ -323,17 +499,52 @@ pub fn nearest(tag: &str) -> &'static str {
         "lv" => "lv",
         "lt" => "lt",
         // Liechtenstein writes Swiss Standard German, as does Swiss German (gsw).
+        // South Tyrol (de-IT) writes Austrian German.
         "de" => match region {
-            "at" => "de-AT",
+            "at" | "it" => "de-AT",
             "ch" | "li" => "de-CH",
             _ => "de",
         },
         "gsw" => "de-CH",
         "lb" => "de",
-        "fr" => "fr",
-        "it" => "it",
+        "fr" => match region {
+            "ca" => "fr-CA",
+            "be" => "fr-BE",
+            "ch" | "li" => "fr-CH",
+            _ => "fr",
+        },
+        "it" => match region {
+            "ch" => "it-CH",
+            _ => "it",
+        },
+        // Flemish is Dutch as Belgium writes it; West Flemish (vls) readers read it.
+        "nl" if region == "be" => "nl-BE",
+        "vls" => "nl-BE",
         "nl" | "fy" | "af" => "nl",
-        "es" | "gl" | "an" => "es-AR",
+        // Latin America writes tú, except the vos of Argentina, Uruguay and Paraguay: its own
+        // entry where it has one, else Chilean Spanish (vos: Argentinian). Spain, Galician and Aragonese stay on
+        // Argentinian Spanish.
+        "es" => match region {
+            "cl" | "419" | "us" => "es-CL",
+            "bo" => "es-BO",
+            "ec" => "es-EC",
+            "co" => "es-CO",
+            "cr" => "es-CR",
+            "cu" => "es-CU",
+            "sv" => "es-SV",
+            "gt" => "es-GT",
+            "hn" => "es-HN",
+            "mx" => "es-MX",
+            "ni" => "es-NI",
+            "pa" => "es-PA",
+            "pe" => "es-PE",
+            "pr" => "es-PR",
+            "do" => "es-DO",
+            "ve" => "es-VE",
+            "uy" => "es-UY",
+            _ => "es-AR",
+        },
+        "gl" | "an" => "es-AR",
         "ca" | "oc" => "ca",
         "eu" => "eu",
         "he" | "iw" => "he",
@@ -411,13 +622,27 @@ fn cat(code: &str) -> Option<&'static Map> {
     }))
 }
 
-/// The fallback chain for a language: itself, its base language for a regional variant that
-/// has one (`de-AT` → `de`), then British English.
-fn chain(code: &str) -> Vec<&str> {
-    let base = code.split('-').next().unwrap_or(code);
+/// The language a variant takes what it lacks from: its base language (`de-AT` → `de`); for
+/// Spanish, Argentinian (Coxswain's first), and the Spanish that writes tú takes Chilean first.
+fn parent(code: &str) -> Option<&'static str> {
+    match code {
+        "es-AR" => None,
+        // Uruguay writes vos, as Argentina does.
+        "es-CL" | "es-UY" => Some("es-AR"),
+        _ if code.starts_with("es-") => Some("es-CL"),
+        _ => find(code.split('-').next().unwrap_or(code))
+            .filter(|l| l.code != code)
+            .map(|l| l.code),
+    }
+}
+
+/// The fallback chain for a language: itself, its parents (`parent`), then British English.
+pub(crate) fn chain(code: &str) -> Vec<&str> {
     let mut v = vec![code];
-    if base != code && find(base).is_some() {
-        v.push(base);
+    let mut c = code;
+    while let Some(p) = parent(c) {
+        v.push(p);
+        c = p;
     }
     v.push(REFERENCE);
     v
@@ -636,14 +861,63 @@ mod tests {
             ("de-LI", "de-CH"),
             ("de_AT.UTF-8", "de-AT"),
             ("de-AT", "de-AT"),
+            ("de-IT", "de-AT"),
+            ("de_IT.UTF-8", "de-AT"),
             ("de-DE", "de"),
             ("de-LU", "de"),
             ("de", "de"),
             ("gsw", "de-CH"),
             ("lb", "de"),
-            ("fr-CA", "fr"),
+            ("fr-CA", "fr-CA"),
+            ("fr_CA.UTF-8", "fr-CA"),
+            ("fr-BE", "fr-BE"),
+            ("fr_BE.UTF-8", "fr-BE"),
+            ("fr-CH", "fr-CH"),
+            ("fr-LI", "fr-CH"),
+            ("fr_CH.UTF-8", "fr-CH"),
+            ("fr-FR", "fr"),
+            ("fr-LU", "fr"),
+            ("fr", "fr"),
+            ("it-CH", "it-CH"),
+            ("it_CH.UTF-8", "it-CH"),
+            ("it-IT", "it"),
+            ("it-SM", "it"),
+            ("nl-BE", "nl-BE"),
+            ("nl_BE.UTF-8", "nl-BE"),
+            ("vls", "nl-BE"),
+            ("vls-BE", "nl-BE"),
+            ("nl-NL", "nl"),
+            ("nl-SR", "nl"),
             ("es-ES", "es-AR"),
-            ("es-MX", "es-AR"),
+            ("es-MX", "es-MX"),
+            ("es_MX.UTF-8", "es-MX"),
+            ("es-CL", "es-CL"),
+            ("es_CL.UTF-8", "es-CL"),
+            ("es-CO", "es-CO"),
+            ("es-PE", "es-PE"),
+            ("es-VE", "es-VE"),
+            ("es-EC", "es-EC"),
+            ("es_EC.UTF-8", "es-EC"),
+            ("es-BO", "es-BO"),
+            ("es-CU", "es-CU"),
+            ("es-DO", "es-DO"),
+            ("es-PR", "es-PR"),
+            ("es-GT", "es-GT"),
+            ("es-HN", "es-HN"),
+            ("es-SV", "es-SV"),
+            ("es-NI", "es-NI"),
+            ("es-CR", "es-CR"),
+            ("es-PA", "es-PA"),
+            ("es-419", "es-CL"),
+            ("es-US", "es-CL"),
+            ("es-AR", "es-AR"),
+            ("es_AR.UTF-8", "es-AR"),
+            ("es-UY", "es-UY"),
+            ("es_UY.UTF-8", "es-UY"),
+            ("es-PY", "es-AR"),
+            ("es", "es-AR"),
+            ("gl-ES", "es-AR"),
+            ("an", "es-AR"),
             ("ca-ES-valencia", "ca"),
             ("eu-ES", "eu"),
             ("sv-FI", "sv"),
@@ -724,8 +998,48 @@ mod tests {
         assert_eq!(at["common.close"], de["common.close"]);
         assert_eq!(chain("de-AT"), ["de-AT", "de", REFERENCE]);
         assert_eq!(chain("en-AU"), ["en-AU", REFERENCE]);
+        for (variant, base) in [
+            ("fr-CA", "fr"),
+            ("es-CL", "es-AR"),
+            ("fr-BE", "fr"),
+            ("fr-CH", "fr"),
+            ("it-CH", "it"),
+            ("nl-BE", "nl"),
+        ] {
+            assert_eq!(chain(variant), [variant, base, REFERENCE]);
+            assert_eq!(catalogue(variant).len(), catalogue(REFERENCE).len());
+        }
+        assert_eq!(catalogue("fr-BE")["common.close"], catalogue("fr")["common.close"]);
+        assert_eq!(chain("es-MX"), ["es-MX", "es-CL", "es-AR", REFERENCE]);
+        assert_eq!(chain("es-AR"), ["es-AR", REFERENCE]);
+        assert_eq!(chain("es-UY"), ["es-UY", "es-AR", REFERENCE]);
+        assert_eq!(chain("fr"), ["fr", REFERENCE]);
+        // Tú from Chile, computadora of its own.
+        let mx = catalogue("es-MX");
+        assert_eq!(mx.len(), catalogue(REFERENCE).len());
+        assert!(mx["sync.not_here"].as_str().unwrap().contains("esta computadora"));
+        assert!(catalogue("es-CO")["sync.not_here"].as_str().unwrap().contains("este computador"));
+        assert_eq!(mx["app.cmd_placeholder"], catalogue("es-CL")["app.cmd_placeholder"]);
         assert_eq!(chain("de"), ["de", REFERENCE]);
         assert_eq!(ch["common.close"], "Schliessen");
+    }
+
+    #[test]
+    fn i18n_spanish_with_tu_has_no_vos() {
+        // A text added to es-AR with vos needs its tú form in es-CL, or Chile and the countries
+        // after it read vos. Only forms that are never anything else are looked for.
+        let vos = regex::Regex::new(
+            r"(?i)\b(vos|podés|tenés|querés|apretá|instalá|usá|hacé|poné|mantené|volvé|elegís|pedís)\b",
+        )
+        .unwrap();
+        assert!(vos.is_match(catalogue("es-AR")["feature.privacy.a2"].as_str().unwrap()));
+        for code in ["es-CL", "es-MX", "es-CO"] {
+            for (key, v) in catalogue(code) {
+                assert!(!vos.is_match(&v.to_string()), "{code}: {key}: {v}");
+            }
+        }
+        let fr_ca = catalogue("fr-CA");
+        assert_eq!(fr_ca["action.action_menu"], "Que puis-je faire avec ceci?");
     }
 
     #[test]
@@ -759,6 +1073,16 @@ mod tests {
             [0, 1, 2, 1_000_000].map(|n| plural("fr", n)),
             ["one", "one", "other", "many"]
         );
+        assert_eq!(
+            [1, 2, 1_000_000].map(|n| plural("es-CL", n)),
+            ["one", "other", "many"]
+        );
+        for fr in ["fr-CA", "fr-BE", "fr-CH"] {
+            assert_eq!(
+                [0, 1, 2, 1_000_000].map(|n| plural(fr, n)),
+                ["one", "one", "other", "many"]
+            );
+        }
         assert_eq!(
             [1, 2, 5, 11, 21, 22, 25].map(|n| plural("lt", n)),
             ["one", "few", "few", "other", "one", "few", "few"]

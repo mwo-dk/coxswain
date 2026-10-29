@@ -1621,7 +1621,7 @@
  "feature.languages.q2": "How do I go back to following the system?",
  "feature.languages.q3": "A text reads wrong in my language. How do I say so?",
  "feature.languages.title": "Languages",
- "feature.languages.what": "Both apps speak 33 languages from one setting; by default Coxswain follows your system's language.",
+ "feature.languages.what": "Both apps speak 55 languages from one setting; by default Coxswain follows your system's language.",
  "feature.latex.a1": "A file without \\documentclass builds the document that includes it, as a LaTeX editor would: the one its % !TEX root line names, or one nearby that names it.",
  "feature.latex.a2": "latexmk could not make the PDF (here a missing package), so the next ready engine was tried and succeeded. Install the package, or pick tectonic's button.",
  "feature.latex.a3": "It needs -shell-escape, which lets a document run programs on your machine. Coxswain never passes it, so no document can run a command.",

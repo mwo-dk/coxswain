@@ -1572,7 +1572,7 @@
  "feature.languages.q2": "怎麼改回跟隨系統？",
  "feature.languages.q3": "我的語言中有段文字讀起來不對。要怎麼反映？",
  "feature.languages.title": "語言",
- "feature.languages.what": "兩個版本用同一個設定支援 33 種語言；預設跟隨系統語言。",
+ "feature.languages.what": "兩個版本用同一個設定支援 55 種語言；預設跟隨系統語言。",
  "feature.latex.a1": "沒有 \\documentclass 的檔案會建置包含它的文件，就像 LaTeX 編輯器一樣：即它的 % !TEX root 行指定的文件，或附近指定它的文件。",
  "feature.latex.a2": "latexmk 無法產生 PDF（這裡是缺少套件），於是改用下一個可用的引擎並成功了。請安裝該套件，或選 tectonic 的按鈕。",
  "feature.latex.a3": "它需要 -shell-escape，這會讓文件在你的電腦上執行程式。Coxswain 絕不傳入它，所以任何文件都無法執行指令。",

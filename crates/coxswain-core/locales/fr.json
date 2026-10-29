@@ -1703,7 +1703,7 @@
  "feature.languages.q2": "Comment revenir à la langue du système ?",
  "feature.languages.q3": "Un texte sonne faux dans ma langue. Comment le signaler ?",
  "feature.languages.title": "Langues",
- "feature.languages.what": "Les deux apps parlent 33 langues à partir d’un seul réglage ; par défaut, Coxswain suit la langue de votre système.",
+ "feature.languages.what": "Les deux apps parlent 55 langues à partir d’un seul réglage ; par défaut, Coxswain suit la langue de votre système.",
  "feature.latex.a1": "Un fichier sans \\documentclass compile le document qui l’inclut, comme le ferait un éditeur LaTeX : celui que nomme sa ligne % !TEX root, ou un fichier voisin qui le nomme.",
  "feature.latex.a2": "latexmk n’a pas pu produire le PDF (ici, un paquet manquant), alors le moteur prêt suivant a été essayé et a réussi. Installez le paquet, ou choisissez le bouton de tectonic.",
  "feature.latex.a3": "Il a besoin de -shell-escape, qui permet à un document d’exécuter des programmes sur votre machine. Coxswain ne le passe jamais, donc aucun document ne peut lancer de commande.",

@@ -1653,7 +1653,7 @@
  "feature.languages.q2": "Nola itzuli sistemari jarraitzera?",
  "feature.languages.q3": "Testu bat gaizki dago nire hizkuntzan. Nola esan?",
  "feature.languages.title": "Hizkuntzak",
- "feature.languages.what": "Bi aplikazioek 33 hizkuntza hitz egiten dituzte ezarpen bakar batetik; lehenespenez Coxswain-ek zure sistemaren hizkuntzari jarraitzen dio.",
+ "feature.languages.what": "Bi aplikazioek 55 hizkuntza hitz egiten dituzte ezarpen bakar batetik; lehenespenez Coxswain-ek zure sistemaren hizkuntzari jarraitzen dio.",
  "feature.latex.a1": "\\documentclass ez duen fitxategi batek bera sartzen duen dokumentua sortzen du, LaTeX editore batek bezala: haren % !TEX root lerroak izendatzen duena, edo hura izendatzen duen hurbileko bat.",
  "feature.latex.a2": "latexmk-ek ezin izan du PDFa egin (hemen pakete bat falta da), beraz prest zegoen hurrengo motorra probatu da eta ondo atera da. Instalatu paketea, edo aukeratu tectonic-en botoia.",
  "feature.latex.a3": "-shell-escape behar du, eta horrek dokumentu bati zure makinan programak exekutatzen uzten dio. Coxswain-ek ez du inoiz pasatzen, beraz ezein dokumentuk ezin du komandorik exekutatu.",

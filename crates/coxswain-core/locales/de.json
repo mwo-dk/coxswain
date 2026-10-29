@@ -1653,7 +1653,7 @@
  "feature.languages.q2": "Wie folge ich wieder dem System?",
  "feature.languages.q3": "Ein Text klingt in meiner Sprache falsch. Wie sage ich das?",
  "feature.languages.title": "Sprachen",
- "feature.languages.what": "Beide Apps sprechen 33 Sprachen über eine Einstellung; standardmäßig folgt Coxswain der Sprache Ihres Systems.",
+ "feature.languages.what": "Beide Apps sprechen 55 Sprachen über eine Einstellung; standardmäßig folgt Coxswain der Sprache Ihres Systems.",
  "feature.latex.a1": "Eine Datei ohne \\documentclass erstellt das Dokument, das sie einbindet, wie ein LaTeX-Editor: das, das ihre Zeile % !TEX root nennt, oder eines in der Nähe, das sie nennt.",
  "feature.latex.a2": "latexmk konnte das PDF nicht erstellen (hier fehlt ein Paket), also wurde die nächste bereite Engine versucht, und sie hatte Erfolg. Installieren Sie das Paket, oder wählen Sie die Schaltfläche von tectonic.",
  "feature.latex.a3": "Es braucht -shell-escape, womit ein Dokument Programme auf Ihrem Rechner ausführen kann. Coxswain übergibt das nie, also kann kein Dokument einen Befehl ausführen.",

@@ -6,7 +6,7 @@ Both apps read one TOML file, `config.toml`. Set only what you want to change; e
 keeps its default. This page lists every key, with its type, its default, what it does, which
 app reads it and which Settings item writes it.
 
-![Settings at Looks: the last languages under their regions, among them The Middle East with עברית and فارسی and The Caucasus with Հայերեն and ქართული, under them the button Suggest a better translation, a line, then the For switch on Desktop app and the theme swatches under their first group, Coxswain's own, with Cyber chosen](../screenshots/settings-looks.png)
+![Settings at Looks: the last languages under their regions: The Middle East with עברית and فارسی, The Caucasus with Հայերեն and ქართული, The Americas with English (Canada), Español for eighteen countries and Français (Canada), the fresh ones marked new, and Asia and the Pacific with 中文（台灣） and 中文（新加坡） marked new, then the button Suggest a better translation](../screenshots/settings-looks.png)
 *Settings (**Ctrl+,** or **F12**, in either app) write single values into `config.toml`. The path is shown at the bottom: "Settings are stored in /home/demo/.config/coxswain/config.toml".*
 
 ## Contents
@@ -105,7 +105,7 @@ yourself: [keys] mkdir → new_folder.` The old names are not read any more: an 
 
 | Key | Type | Default | Does | Read by |
 |---|---|---|---|---|
-| `language` | string | `"auto"` | `"auto"` follows the system; or a code: `en-GB`, `en-AU`, `en-CA`, `en-NZ`, `da`, `sv`, `fi`, `et`, `lv`, `lt`, `de`, `de-AT`, `de-CH`, `fr`, `it`, `nl`, `es-AR`, `ca`, `eu`, `he`, `pl`, `cs`, `uk`, `el`, `fa`, `hy`, `ka`, `ja`, `ko` ([Languages](../customise/languages.md)) | Both |
+| `language` | string | `"auto"` | `"auto"` follows the system; or a code: `en-GB`, `en-AU`, `en-CA`, `en-NZ`, `da`, `nb`, `nn`, `sv`, `fi`, `et`, `lv`, `lt`, `de`, `de-AT`, `de-CH`, `fr`, `fr-BE`, `fr-CA`, `fr-CH`, `it`, `it-CH`, `nl`, `nl-BE`, `es-AR`, `es-BO`, `es-CL`, `es-CO`, `es-CR`, `es-CU`, `es-EC`, `es-SV`, `es-GT`, `es-HN`, `es-MX`, `es-NI`, `es-PA`, `es-PE`, `es-PR`, `es-DO`, `es-UY`, `es-VE`, `ca`, `eu`, `he`, `pl`, `cs`, `uk`, `el`, `fa`, `hy`, `ka`, `ja`, `ko` ([Languages](../customise/languages.md)) | Both |
 | `theme` | string | `"nc"` | The terminal app's theme: a built-in name or one of your `[themes.<name>]` ([Themes](../customise/themes.md)). The desktop app's is `[gui] theme` | Terminal |
 | `glyphs` | string | `"nerd"` | `"nerd"` for Nerd Font glyphs, `"ascii"` for plain characters | Both |
 | `glyph_set` | table | none | Your own glyphs; see [Glyphs](#glyphs). When set, it wins over `glyphs` | Both |

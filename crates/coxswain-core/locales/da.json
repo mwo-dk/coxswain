@@ -1653,7 +1653,7 @@
  "feature.languages.q2": "Hvordan går jeg tilbage til at følge systemet?",
  "feature.languages.q3": "En tekst lyder forkert på mit sprog. Hvordan siger jeg det?",
  "feature.languages.title": "Sprog",
- "feature.languages.what": "Begge programmer taler 33 sprog fra én indstilling; som standard følger Coxswain dit systems sprog.",
+ "feature.languages.what": "Begge programmer taler 55 sprog fra én indstilling; som standard følger Coxswain dit systems sprog.",
  "feature.latex.a1": "En fil uden \\documentclass bygger det dokument, der inkluderer den, som en LaTeX-editor ville: det, dens linje % !TEX root nævner, eller et i nærheden, der nævner den.",
  "feature.latex.a2": "latexmk kunne ikke lave PDF'en (her en manglende pakke), så den næste klare motor blev prøvet og lykkedes. Installér pakken, eller vælg knappen til tectonic.",
  "feature.latex.a3": "Den kræver -shell-escape, som lader et dokument køre programmer på din maskine. Coxswain angiver det aldrig, så intet dokument kan køre en kommando.",

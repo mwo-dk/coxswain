@@ -149,8 +149,10 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Keys:** never take over an existing default key for a new action; pick a free one.
 - **Texts in every language.** User-facing strings go through `t!` / `t()` with keys in
   `crates/coxswain-core/locales/*.json`, translated into all of them (`en-AU`, `en-CA`, `en-NZ`,
-  `de-AT` and `de-CH` only differ where they must; `de-CH` gets `de` with ss for ß by itself);
-  the i18n test fails on a missing key. A new language is marked new in `i18n::LANGUAGES`
+  `de-AT` and `de-CH` only differ where they must; `de-CH` gets `de` with ss for ß by itself;
+  `fr-CA`, `es-CL` and the tú countries' files are made by rules from `fr` and `es-AR`: after
+  changing those, run `COXSWAIN_WRITE_VARIANTS=1 cargo test -p coxswain-core --test
+  locale_variants`, which fails until then); the i18n test fails on a missing key. A new language is marked new in `i18n::LANGUAGES`
   (`Some("YYYY-MM-DD")`): the Sunday of the fourth weekly release after the one that brings it,
   when the mark goes by itself.
 - **Nothing hidden.** Every capability can be found without reading the docs, in both apps:
