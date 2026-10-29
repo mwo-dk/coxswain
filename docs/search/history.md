@@ -55,7 +55,7 @@ Find's footer, *text of 31,208 files*, counts the commits kept as well.
 |---|---|
 | Which repositories | Every git work tree (a folder holding `.git`), Mercurial repository (`.hg`) and Jujutsu repository (`.jj`; with `.git` next to it, git's) inside the [folders read](folders.md), outside the folders left out (`node_modules`, hidden folders, `.nosearch`) |
 | Which commits | The newest 2000 reachable from HEAD of each repository: in Mercurial from the working folder's commit (`.`), in Jujutsu from the parent of the working-copy commit (`@-`) |
-| What of each | Its short id, author, date, the whole message, up to 200 paths it changed, and (git, Jujutsu) up to 40 names of the functions it changed, as *Changed functions: fn parse_config, impl Store* at the end: the name in each hunk's header and each item a changed line starts. Not the changes themselves, unless [the text of the changes](#the-text-of-the-changes) is on |
+| What of each | Its short id, author, date, the whole message, up to 200 paths it changed, and up to 40 names of the functions it changed, as *Changed functions: fn parse_config, impl Store* at the end: the name in each hunk's header and each item a changed line starts. Not the changes themselves, unless [the text of the changes](#the-text-of-the-changes) is on |
 | When | At each scan of the helper (at its start and every ten minutes). A repository whose HEAD moved on gets only the new commits; one whose history was rewritten (rebase, reset) is read again; one that is gone loses its commits |
 | How fast | 2000 commits of a big repository take git well under a second; the helper rests after each repository as it does after reading files |
 | Where | In the [search store](text.md), `search.db`, with the text of your files. **Delete what was read** in Settings empties it too |
@@ -73,7 +73,7 @@ repositories alone.
 | | |
 |---|---|
 | What is kept | Each commit's diff (the same 2000 commits as above), at most 64 KB a commit and 64 MB a repository; found by Find's words, under *History* with the passage starting `commit a1b2c3d · Ada · 2026-09-30 · changes`. No vectors are made of it: search by meaning and Ask use the message and the function names |
-| Before it starts | Ticking it says what it costs first, from git's count of the lines changed: *Reading the changes of 1,950 commits in 3 repositories adds about 48 MB to search.db and takes about 5 s in the background. Nothing leaves the machine.* **Apply** saves it, **Cancel** leaves it off |
+| Before it starts | Ticking it says what it costs first, from git's (or hg's) count of the lines changed: *Reading the changes of 1,950 commits in 3 repositories adds about 48 MB to search.db and takes about 5 s in the background. Nothing leaves the machine.* **Apply** saves it, **Cancel** leaves it off. While git (or hg) counts, which takes a few seconds with many large repositories, the terminal app says *Working out what the changes of commits cost…* at the bottom of Settings and the screen keeps answering; **Esc** leaves the setting as it was |
 | While it reads | The search helper starts again and reads them at its next scan of the repositories; the status of *Words in files* says *Reading the changes of 1,950 commits…* |
 | Turning it off | Says first that the changes go and the room comes back. The helper takes them out when it starts, before anything else, gives the room back to the disk (`search.db` is made smaller), and the status says *Changes of commits taken out at 14:05: 48 MB freed* |
 | Disk use | Its own row, *search.db: changes of commits*, with its size ([Disk use](../reference/disk-use.md)); clearing it turns the option off |
@@ -127,12 +127,13 @@ changes](#the-text-of-the-changes)). To read a file as it was, open the commit a
 
 Type `parse_config` in Find: the commits whose *Changed functions* name it are under
 *History*, newest first, each with its author and date. In Ask, ask it in words: the commits are
-among its sources.
+among its sources. For every change of one function in a file, open the file and press **Alt+J**
+([History of a function](../panels/git-line-history.md)).
 
 #### Why did my commits get read again after updating?
 
-Commits kept before this version had no function names: each repository's newest 2000 are
-read once again, with their vectors when search by meaning is on. It happens once.
+Commits kept before this version had no function names: each repository's newest 2000 (git,
+Jujutsu and Mercurial) are read once again, with their vectors when search by meaning is on. It happens once.
 
 #### How much room do the changes take, and how do I get it back?
 

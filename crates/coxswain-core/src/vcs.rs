@@ -993,24 +993,27 @@ impl Vcs for Hg {
     }
 
     fn for_search(&self, root: &Path, head: &str, since: Option<&str>, max: usize) -> io::Result<Vec<(String, u64, String)>> {
-        need_hg()?;
-        let root = hg_root(root).ok_or_else(|| io::Error::other("no repository"))?;
-        let revs = match since {
-            Some(s) => format!("reverse(only({}, {}))", hg_rev(head), hg_rev(s)),
-            None => format!("reverse(::{})", hg_rev(head)),
-        };
-        let mut c = hg(&root);
+        let mut c = hg_log(root, head, since, max)?;
         c.args([
-            "log",
-            "-r",
-            &revs,
-            "-l",
-            &max.to_string(),
             "-T",
             r"\x1e{node}\x1f{date|hgdate}\x1f{author|person}\x1f{date|shortdate}\x1f{desc}\0{files % '{file}\0'}",
         ]);
         crate::history::search_records(c)
     }
+}
+
+/// `hg log` at the root of the Mercurial repository `root` is in, of the commits from `head`
+/// back (to `since`), newest first, at most `max`; the template and the rest are the caller's.
+pub(crate) fn hg_log(root: &Path, head: &str, since: Option<&str>, max: usize) -> io::Result<Command> {
+    need_hg()?;
+    let root = hg_root(root).ok_or_else(|| io::Error::other("no repository"))?;
+    let revs = match since {
+        Some(s) => format!("reverse(only({}, {}))", hg_rev(head), hg_rev(s)),
+        None => format!("reverse(::{})", hg_rev(head)),
+    };
+    let mut c = hg(&root);
+    c.args(["log", "-r", &revs, "-l", &max.to_string()]);
+    Ok(c)
 }
 
 /// hg's message, or its complaint as the error.

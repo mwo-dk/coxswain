@@ -55,7 +55,10 @@ There is no upstream, ahead or behind: Mercurial keeps no record of a remote bra
 The *Last commit* column (the info line in the terminal app) comes from `hg log` too: one walk of
 the newest 5000 commits for the folder, kept until the working folder's commit moves. Find's
 [commit search](../search/history.md) keeps the newest 2000 commits of each Mercurial repository
-in the folders read. **F5** out of a commit keeps each file's executable bit and links,
+in the folders read, with the names of the functions each changed (and, when that option is on,
+its changes). [Who changed each line](git-blame.md) (**Alt+L**) and the
+[history of a function](git-line-history.md) (**Alt+J**) work here too.
+**F5** out of a commit keeps each file's executable bit and links,
 and gives everything the commit's time.
 
 ## Switching and new bookmarks

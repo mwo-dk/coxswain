@@ -1165,7 +1165,47 @@ pub fn for_search(
     since: Option<&str>,
     max: usize,
 ) -> io::Result<Vec<(String, u64, String)>> {
-    crate::vcs::of(root).for_search(root, head, since, max)
+    let mut commits = crate::vcs::of(root).for_search(root, head, since, max)?;
+    // The names of the functions each changed, from its diff's hunk headers and the items it
+    // added or took out: "who last changed parse_config?" is then answered from the store.
+    let names = changed_names(root, head, since, max);
+    for (hash, _, text) in &mut commits {
+        if let Some(n) = names.get(hash).filter(|n| !n.is_empty()) {
+            text.push_str("\nChanged functions: ");
+            text.push_str(&n.join(", "));
+        }
+    }
+    Ok(commits)
+}
+
+/// Whether the repository at `root` is asked through Mercurial.
+fn is_hg(root: &Path) -> bool {
+    crate::vcs::of(root).name() == "hg"
+}
+
+/// The log of the commits from `head` back (to `since`, at most `max`) with each one's changes
+/// after its line: `\x1e` and `template` (git's `--format`, hg's `-T`, the same fields), then
+/// the diff, `unified` lines of context.
+fn changes_log(root: &Path, head: &str, since: Option<&str>, max: usize, git_format: &str, hg_template: &str, unified: Option<u32>) -> io::Result<Command> {
+    if is_hg(root) {
+        let mut c = crate::vcs::hg_log(root, head, since, max)?;
+        // `showfunc`: the function's line in each hunk's header, as git has by itself.
+        c.args(["-p", "--config", "diff.showfunc=1", "--config", "diff.nobinary=1", "-T", hg_template]);
+        if let Some(u) = unified {
+            c.args(["--config", &format!("diff.unified={u}")]);
+        }
+        return Ok(c);
+    }
+    let mut c = git(root);
+    c.args(["log", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--date=short", git_format, "-n", &max.to_string(), head]);
+    if let Some(u) = unified {
+        c.arg(format!("-U{u}"));
+    }
+    if let Some(s) = since {
+        c.arg(format!("^{s}"));
+    }
+    c.arg("--");
+    Ok(c)
 }
 
 /// `for_search` from git.
@@ -1191,17 +1231,7 @@ pub(crate) fn git_for_search(
         c.arg(format!("^{s}"));
     }
     c.arg("--");
-    let mut commits = search_records(c)?;
-    // The names of the functions each changed, from its diff's hunk headers and the items it
-    // added or took out: "who last changed parse_config?" is then answered from the store.
-    let names = changed_names(root, head, since, max);
-    for (hash, _, text) in &mut commits {
-        if let Some(n) = names.get(hash).filter(|n| !n.is_empty()) {
-            text.push_str("\nChanged functions: ");
-            text.push_str(&n.join(", "));
-        }
-    }
-    Ok(commits)
+    search_records(c)
 }
 
 /// Names a commit keeps for search at most.
@@ -1213,12 +1243,7 @@ const NAMES_BUDGET: Duration = Duration::from_secs(30);
 /// name in each hunk's header (`@@ -1,2 +1,3 @@ fn parse_config(…)`), and each item a line it
 /// added or took out starts. At most `NAMES` a commit; what git shows in `NAMES_BUDGET`.
 fn changed_names(root: &Path, head: &str, since: Option<&str>, max: usize) -> HashMap<String, Vec<String>> {
-    let mut c = git(root);
-    c.args(["log", "-p", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--format=%x1e%H", "-n", &max.to_string(), head]);
-    if let Some(s) = since {
-        c.arg(format!("^{s}"));
-    }
-    c.arg("--");
+    let Ok(c) = changes_log(root, head, since, max, "--format=%x1e%H", r"\x1e{node}\n", Some(0)) else { return HashMap::new() };
     let mut out: HashMap<String, Vec<String>> = HashMap::new();
     let mut cur: Option<String> = None;
     let _ = records_within(c, b'\n', NAMES_BUDGET, |line| {
@@ -1330,17 +1355,17 @@ pub const CHANGES_MOST: usize = 64 << 20;
 
 /// What the commits of `root` after `since` (all when `None`, at most `max`) changed, for the
 /// store: (id, time, text), the text starting with which commit it is, then its diff, at most
-/// `CHANGE_MOST` of each and `CHANGES_MOST` in all. git only (Jujutsu through its git).
+/// `CHANGE_MOST` of each and `CHANGES_MOST` in all. git (Jujutsu through its git) and Mercurial.
 pub fn changes_for_search(root: &Path, head: &str, since: Option<&str>, max: usize) -> io::Result<Vec<(String, u64, String)>> {
-    if crate::vcs::of(root).name() == "hg" {
-        return Ok(vec![]);
-    }
-    let mut c = git(root);
-    c.args(["log", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--date=short", "--format=%x1e%H%x1f%at%x1f%an%x1f%ad", "-n", &max.to_string(), head]);
-    if let Some(s) = since {
-        c.arg(format!("^{s}"));
-    }
-    c.arg("--");
+    let c = changes_log(
+        root,
+        head,
+        since,
+        max,
+        "--format=%x1e%H%x1f%at%x1f%an%x1f%ad",
+        r"\x1e{node}\x1f{word(0, date|hgdate)}\x1f{author|person}\x1f{date|shortdate}\n",
+        None,
+    )?;
     let (mut out, mut total): (Vec<(String, u64, String)>, usize) = (vec![], 0);
     records_within(c, b'\n', NAMES_BUDGET * 4, |line| {
         if let Some(head) = line.strip_prefix(b"\x1e") {
@@ -1366,10 +1391,18 @@ pub fn changes_for_search(root: &Path, head: &str, since: Option<&str>, max: usi
 }
 
 /// What `changes_for_search` would keep of the commits of `root`, said before it is turned on:
-/// (commits, bytes), from git's count of the lines each changed.
+/// (commits, bytes), from git's (or hg's) count of the lines each changed.
 pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
-    let mut c = git(root);
-    c.args(["log", "--shortstat", "--no-renames", "--format=%x1e", "-n", &max.to_string(), "HEAD", "--"]);
+    let c = if is_hg(root) {
+        // `{diffstat}`: `3: +10/-2`, read below as git's line is.
+        let Ok(mut c) = crate::vcs::hg_log(root, ".", None, max) else { return (0, 0) };
+        c.args(["-T", r"\x1e\n{diffstat}\n"]);
+        c
+    } else {
+        let mut c = git(root);
+        c.args(["log", "--shortstat", "--no-renames", "--format=%x1e", "-n", &max.to_string(), "HEAD", "--"]);
+        c
+    };
     let (mut commits, mut bytes, mut this) = (0usize, 0u64, 0u64);
     let _ = records_within(c, b'\n', NAMES_BUDGET, |line| {
         if line.starts_with(b"\x1e") {
@@ -1380,7 +1413,10 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
         }
         // ` 3 files changed, 10 insertions(+), 2 deletions(-)`: some 40 bytes a line.
         let s = String::from_utf8_lossy(line);
-        let lines: u64 = s.split(',').skip(1).filter_map(|p| p.split_whitespace().next()?.parse::<u64>().ok()).sum();
+        let lines: u64 = match s.split_once(": ") {
+            Some((_, hg)) => hg.split('/').filter_map(|p| p.trim_start_matches(['+', '-']).trim().parse::<u64>().ok()).sum(),
+            None => s.split(',').skip(1).filter_map(|p| p.split_whitespace().next()?.parse::<u64>().ok()).sum(),
+        };
         this += lines * 40;
         true
     });

@@ -4,7 +4,7 @@
 
 **Alt+J** lists the commits that changed the function the cursor is in, newest first, each
 with its author, date and subject and what it changed there. With lines selected, it follows
-those lines instead. It is `git log -L`, in both apps: in the viewer, the built-in editor and
+those lines instead. It is `git log -L` (in Mercurial `hg log -L`), in both apps: in the viewer, the built-in editor and
 the desktop app's [who changed each line](git-blame.md) view.
 
 ![The desktop app in Cyber: the window engine.rs › impl Engine › fn burn with Commits: 2, the newest, 6596a7d by Ada, Fix the fuel valve, open with its diff of the function, and the older one, Add the engine, closed](../screenshots/line-history-gui.png)
@@ -30,7 +30,7 @@ the desktop app's [who changed each line](git-blame.md) view.
 | The preview pane, with *Who changed* on | – | Click a line's commit |
 | A file in the panel | **Alt+J** says where to ask it | Same |
 
-*Reading the history…* shows while git reads; **Esc** stops it.
+*Reading the history…* shows while git (or hg) reads; **Esc** stops it.
 
 ## What you see
 
@@ -59,8 +59,8 @@ function, or a file that is no code: those lines alone, as numbered in the last 
 |---|---|
 | Commits | The newest 200; a line at the end says when there were more |
 | Size | 4 MB of history at most |
-| Time | git gets a minute |
-| Repositories | git, and [Jujutsu](jujutsu.md) through git; not Mercurial, Subversion or CVS |
+| Time | git (or hg) gets a minute |
+| Repositories | git, [Jujutsu](jujutsu.md) through git, and [Mercurial](mercurial.md) through `hg log -L` (marked experimental in Mercurial; `hg` 5.4 or later); not Subversion or CVS |
 
 The key is `line_history` under `[keys]` (default **Alt+J**).
 
@@ -78,6 +78,12 @@ It is new, or renamed, since the last commit: there is no history of it yet. Com
 #### Does it follow a function moved to another file?
 
 No: `git log -L` follows lines within the file, and the file through renames.
+
+#### Does it work in a Mercurial repository?
+
+Yes, in both apps, through `hg log --follow -L` from the working folder's commit (`.`). Mercurial
+marks that option experimental; the function is found the same way, in the file as `.` has it.
+Without `hg` 5.4 or later, a notice says so once.
 
 #### Why only 200 commits?
 
