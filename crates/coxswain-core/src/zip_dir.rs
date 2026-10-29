@@ -17,6 +17,7 @@ pub(crate) struct Central {
     pub crc: u32,
     /// Where its local header is, in the file.
     pub at: u64,
+    method: u16,
     flags: u16,
     made_by: u16,
     external: u32,
@@ -40,6 +41,23 @@ impl Central {
     /// Its Unix permission bits, when a Unix tool wrote it (as `zip`'s `unix_mode` has them).
     pub fn unix_mode(&self) -> Option<u32> {
         (self.made_by >> 8 == 3 && self.external != 0).then_some((self.external >> 16) & 0o777)
+    }
+
+    /// Where its bytes are in `file` when they are stored as they are (not packed, not locked):
+    /// its start and length, past its local header. `None` for one packed or locked.
+    pub fn stored<R: Read + Seek>(&self, file: &mut R) -> io::Result<Option<(u64, u64)>> {
+        if self.method != 0 || self.encrypted() || self.size != self.packed {
+            return Ok(None);
+        }
+        let mut local = [0u8; 30];
+        file.seek(SeekFrom::Start(self.at))?;
+        file.read_exact(&mut local)?;
+        if local[..4] != *b"PK\x03\x04" {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "no file at its place in the zip"));
+        }
+        let start = self.at + 30 + u16_at(&local, 26) as u64 + u16_at(&local, 28) as u64;
+        let end = file.seek(SeekFrom::End(0))?;
+        Ok((start.checked_add(self.size).is_some_and(|e| e <= end)).then_some((start, self.size)))
     }
 
     /// Whether a Unix tool wrote it as a symbolic link.
@@ -172,6 +190,7 @@ pub(crate) fn entries<R: Read + Seek>(
             packed: u32_at(&head, 20) as u64,
             crc: u32_at(&head, 16),
             at: u32_at(&head, 42) as u64,
+            method: u16_at(&head, 10),
             flags: u16_at(&head, 8),
             made_by: u16_at(&head, 4),
             external: u32_at(&head, 38),

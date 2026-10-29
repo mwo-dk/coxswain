@@ -174,7 +174,10 @@ through an installed 7-Zip instead, read-only, like a disk image
 ## Limits
 
 - **An archive inside an archive** opens like the outer one: **Enter** on `mid.zip` inside
-  `outer.zip` shows its files, and so on, eight archives deep. Each inner archive is copied once
+  `outer.zip` shows its files, and so on, eight archives deep. A zip or 7z stored in a zip or a
+  plain tar as it is (not packed again, as zips of 7z files usually are) is read in place, from
+  the outer file's own bytes: nothing is copied and there is no size limit, so a 3 GB 7z in a zip
+  opens at once; a 7z split into parts (`2d.7z.001`, `2d.7z.002`, …) stored so is read in place too, its parts one after another. Any other inner archive is copied once
   into the cache folder (`coxswain/nested/`, readable by you alone) and looked into there, so it
   takes disk space as large as it unpacks to (512 MB at most, counted as it comes out, and 2 GB
   for all the copies kept), never memory; a larger one says to copy it out with **F5**. It is **read-only**: the badge (desktop app) and the panel title (terminal app) say
@@ -375,8 +378,16 @@ Copy single files out of it, or unpack it with 7-Zip (`7z x`) ([Limits](#limits)
 
 #### Can I open an archive inside an archive?
 
-Yes: **Enter** on it, as on any archive, up to eight inside each other. It is copied once into the
-cache folder and opened from there, read-only: copy it out with **F5** to change it
+Yes: **Enter** on it, as on any archive, up to eight inside each other, read-only: copy it out with
+**F5** to change it. A zip or 7z stored in the outer zip or tar as it is, unpacked, is read in
+place, whatever its size; any other is copied once into the cache folder and opened from there
+([Limits](#limits)).
+
+#### Why does a 7z inside a zip open at once, but another say it is too large?
+
+The one that opens at once is stored in the zip as it is, so Coxswain reads it where it lies in the
+zip, copying nothing. The other is packed inside the zip (deflated), so it must be unpacked into
+the cache to be read, and one over 512 MB says to copy it out with **F5** first
 ([Limits](#limits)).
 
 ---

@@ -147,7 +147,8 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | A zip split into parts (`.zip` with `.z01` …) | | Looked into as a zip, its parts read as one; one needing zip64 is found by its own name only ([Archives as folders](../files/archives.md#limits)) |
 
 - **An archive inside an archive** (a zip, tar or 7z inside another) is looked into too, three
-  deep, up to 256 MB each: its files are found by name and by their text, named through it
+  deep, up to 256 MB each (any size when it is a zip or 7z stored as it is in a zip or tar, read
+  in place): its files are found by name and by their text, named through it
   (`bundle.zip/site.tar.gz/notes.txt`), and **Enter** on a hit opens it as any archive inside
   an archive opens. To be read it is copied into Coxswain's cache folder (`coxswain/search-nested/`,
   readable by you alone) and the copy is deleted at once. A deeper one, or a larger one, is found
