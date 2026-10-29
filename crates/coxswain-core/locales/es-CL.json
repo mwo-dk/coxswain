@@ -85,6 +85,7 @@
  "error.job_stopped_detail": "Algo falló mientras se ejecutaba. Revisa lo que se hizo hasta ahora.",
  "export.drawio_off": "La exportación de diagramas de draw.io está desactivada. Activa Exportar diagramas de draw.io en Configuración → Vistas previas: ejecuta draw.io en su imagen de contenedor (unos 560 MB para descargar), que necesita podman o docker.",
  "export.install_adoc": "Instálalo (gem install asciidoctor-pdf) o ejecútalo en un contenedor:",
+ "facts.games_in": "{n} de {total} archivos son partidas: ábrelo y cada una se muestra en el tablero",
  "feature.archive_passwords.a1": "No. La contraseña vive en la memoria de la app abierta y desaparece cuando la cierras. Nunca se escribe en el disco.",
  "feature.archive_passwords.a2": "En un zip solo se bloquea el contenido de cada archivo, no los nombres ni los tamaños. Para ocultar también los nombres, empaqueta en un 7z con Ocultar también los nombres de los archivos.",
  "feature.archives.a1": "Presiona {open} sobre el zip, ve al archivo y presiona {copy}. Se copia a la carpeta del otro panel; no se descomprime nada más.",
