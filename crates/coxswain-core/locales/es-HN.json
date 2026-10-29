@@ -1,0 +1,7 @@
+{
+ "chess.engine_tip": "Pedir al motor de ajedrez instalado (Stockfish) sus mejores jugadas y la evaluación acá (a); corre en esta computadora",
+ "feature.linux_arm.a3": "El modelo incluido corre en el procesador de la Pi. Usa un servidor de modelos en otra computadora, o déjalo correr durante la noche; las palabras dentro de archivos no necesitan modelo.",
+ "setting.chess_analysis.hint": "Consultar al motor de ajedrez por cada posición apenas se abre una partida. Desactivado: Motor (a) en la vista lo activa. Corre en esta computadora.",
+ "sync.not_here": "Solo se pueden igualar dos carpetas de esta computadora, no un archivo comprimido, imagen, instantánea ni historial.",
+ "theme.group.home": "Computadoras hogareñas"
+}

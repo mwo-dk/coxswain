@@ -939,11 +939,11 @@ mod tests {
 
     #[test]
     fn settings_every_option_is_explained_in_every_language() {
-        // Texts of their own: every language but the English and German variants, which take
-        // the rest from British English and German.
+        // Texts of their own: every language but the variants (English, German, French, …),
+        // which take the rest from British English or their own language.
         for l in crate::i18n::LANGUAGES
             .iter()
-            .filter(|l| !l.code.starts_with("en-") && !l.code.starts_with("de-"))
+            .filter(|l| !l.code.starts_with("en-") && crate::i18n::chain(l.code).len() == 2)
             .map(|l| l.code)
             .chain(["en-GB"])
         {

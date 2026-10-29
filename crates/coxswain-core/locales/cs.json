@@ -1703,7 +1703,7 @@
  "feature.languages.q2": "Jak se vrátím k jazyku systému?",
  "feature.languages.q3": "Nějaký text zní v mém jazyce špatně. Jak to nahlásit?",
  "feature.languages.title": "Jazyky",
- "feature.languages.what": "Obě aplikace mluví 33 jazyky podle jednoho nastavení; ve výchozím stavu se Coxswain řídí jazykem systému.",
+ "feature.languages.what": "Obě aplikace mluví 55 jazyky podle jednoho nastavení; ve výchozím stavu se Coxswain řídí jazykem systému.",
  "feature.latex.a1": "Soubor bez \\documentclass sestaví dokument, který ho vkládá, jako to dělá editor LaTeXu: ten, který jmenuje jeho řádek % !TEX root, nebo jiný poblíž, který jmenuje jej.",
  "feature.latex.a2": "latexmk nedokázal vytvořit PDF (tady chyběl balíček), proto se zkusil další připravený nástroj a uspěl. Nainstalujte balíček, nebo zvolte tlačítko tectonic.",
  "feature.latex.a3": "Potřebuje -shell-escape, které dokumentu dovolí spouštět programy na vašem počítači. Coxswain ho nikdy nepředává, takže žádný dokument nemůže spustit příkaz.",

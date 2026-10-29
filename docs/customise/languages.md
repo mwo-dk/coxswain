@@ -2,7 +2,7 @@
 
 # Languages
 
-Both apps, the terminal app and the desktop app, speak 33 languages. They share one set of
+Both apps, the terminal app and the desktop app, speak 55 languages. They share one set of
 translations and one setting, so they always agree. By default Coxswain follows your system's
 language.
 
@@ -47,8 +47,12 @@ Both apps list them by region, and by their own name within a region:
 | <img src="../flags/gb.svg" width="24" alt=""> | English (United Kingdom) | `en-GB` |
 | <img src="../flags/es-pv.svg" width="24" alt=""> | Euskara | `eu` |
 | <img src="../flags/fr.svg" width="24" alt=""> | Français | `fr` |
+| <img src="../flags/be.svg" width="24" alt=""> | Français (Belgique), Belgian French | `fr-BE` |
+| <img src="../flags/ch.svg" width="24" alt=""> | Français (Suisse), Swiss French | `fr-CH` |
 | <img src="../flags/it.svg" width="24" alt=""> | Italiano | `it` |
+| <img src="../flags/ch.svg" width="24" alt=""> | Italiano (Svizzera), Swiss Italian | `it-CH` |
 | <img src="../flags/nl.svg" width="24" alt=""> | Nederlands | `nl` |
+| <img src="../flags/be.svg" width="24" alt=""> | Nederlands (België), Flemish | `nl-BE` |
 | | **Central and Eastern Europe** | |
 | <img src="../flags/cz.svg" width="24" alt=""> | Čeština (Czech) | `cs` |
 | <img src="../flags/pl.svg" width="24" alt=""> | Polski (Polish) | `pl` |
@@ -64,6 +68,24 @@ Both apps list them by region, and by their own name within a region:
 | | **The Americas** | |
 | <img src="../flags/ca.svg" width="24" alt=""> | English (Canada) | `en-CA` |
 | <img src="../flags/ar.svg" width="24" alt=""> | Español (Argentina) | `es-AR` |
+| <img src="../flags/bo.svg" width="24" alt=""> | Español (Bolivia) *(new)* | `es-BO` |
+| <img src="../flags/cl.svg" width="24" alt=""> | Español (Chile), Chilean Spanish *(new)* | `es-CL` |
+| <img src="../flags/co.svg" width="24" alt=""> | Español (Colombia) *(new)* | `es-CO` |
+| <img src="../flags/cr.svg" width="24" alt=""> | Español (Costa Rica) *(new)* | `es-CR` |
+| <img src="../flags/cu.svg" width="24" alt=""> | Español (Cuba) *(new)* | `es-CU` |
+| <img src="../flags/ec.svg" width="24" alt=""> | Español (Ecuador) *(new)* | `es-EC` |
+| <img src="../flags/sv.svg" width="24" alt=""> | Español (El Salvador) *(new)* | `es-SV` |
+| <img src="../flags/gt.svg" width="24" alt=""> | Español (Guatemala) *(new)* | `es-GT` |
+| <img src="../flags/hn.svg" width="24" alt=""> | Español (Honduras) *(new)* | `es-HN` |
+| <img src="../flags/mx.svg" width="24" alt=""> | Español (México) *(new)* | `es-MX` |
+| <img src="../flags/ni.svg" width="24" alt=""> | Español (Nicaragua) *(new)* | `es-NI` |
+| <img src="../flags/pa.svg" width="24" alt=""> | Español (Panamá) *(new)* | `es-PA` |
+| <img src="../flags/pe.svg" width="24" alt=""> | Español (Perú) *(new)* | `es-PE` |
+| <img src="../flags/pr.svg" width="24" alt=""> | Español (Puerto Rico) *(new)* | `es-PR` |
+| <img src="../flags/do.svg" width="24" alt=""> | Español (República Dominicana) *(new)* | `es-DO` |
+| <img src="../flags/uy.svg" width="24" alt=""> | Español (Uruguay) | `es-UY` |
+| <img src="../flags/ve.svg" width="24" alt=""> | Español (Venezuela) *(new)* | `es-VE` |
+| <img src="../flags/ca.svg" width="24" alt=""> | Français (Canada), Canadian French *(new)* | `fr-CA` |
 | | **Asia and the Pacific** | |
 | <img src="../flags/au.svg" width="24" alt=""> | English (Australia) | `en-AU` |
 | <img src="../flags/nz.svg" width="24" alt=""> | English (New Zealand) | `en-NZ` |
@@ -82,13 +104,31 @@ spread wings on crimson), drawn for Coxswain.
 
 British English is the reference: every text is written in it first. Australian and New Zealand
 English use British spelling and say "bin"; Canadian English keeps British spelling but says
-"trash" and uses -ize where British uses -ise. Argentinian Spanish uses *vos*.
+"trash" and uses -ize where British uses -ise. Argentinian Spanish uses *vos* ("Escribí un
+comando…"); Chilean Spanish is Argentinian Spanish with *tú* in its place ("Escribe un
+comando…") and *computador* for *computadora*, and any text it does not change is the
+Argentinian one. The other Spanish of Latin America that writes *tú* (Bolivia, Colombia, Costa Rica,
+Cuba, Ecuador, El Salvador, Guatemala, Honduras, Mexico, Nicaragua, Panama, Peru, Puerto Rico,
+the Dominican Republic, Venezuela) has an entry each, with its own flag: it is Chilean Spanish,
+except that all but Colombia say *computadora*, as Argentina does. Uruguayan Spanish has no texts of its own: it writes *vos* and reads as
+Argentinian Spanish, under its own flag.
 
 Austrian and Swiss German are German with their own differences on top; any text they do not
 change is the German one. Swiss German writes *ss* for every *ß* ("Schliessen", "Grösse") and
 «guillemets» for „quotes“, as Swiss Standard German does; in the desktop app its numbers are
 written 1'234.5. Coxswain writes dates as numbers (2026-01-05), so Austrian German has no
 *Jänner* to show and, for now, no text of its own: it reads as German.
+
+Canadian French is French with Quebec's usage on top. It writes no space before *;*, *!* and
+*?* ("Que puis-je faire avec ceci?"), and keeps the one before *:*, as the Office québécois de la langue française
+(OQLF) advises; and it uses Quebec's words where French in France takes the English one:
+*courriel* for *e-mail*, *nuage* and *infonuagique* for *cloud*. Any text it does not change is
+the French one.
+
+Belgian and Swiss French, Swiss Italian and Flemish have no texts of their own yet: they show
+your own variant and flag in the list, and read as French, Italian and Dutch. Flemish is listed
+as *Nederlands (België)*, the name Belgians give it in their own language list: Flemish writes
+standard Dutch, and *Vlaams* names the spoken dialects.
 
 ## How to use it
 
@@ -135,16 +175,28 @@ English counts); otherwise the nearest relative of the first one:
 
 | Your system | Coxswain uses |
 |---|---|
-| One of the languages above, in any region (`fr-CA`, `sv-FI`, `ca-ES-valencia`, …) | That language |
+| One of the languages above, in any region (`sv-FI`, `ca-ES-valencia`, `el-CY`, …) | That language |
 | German in Austria (`de-AT`) | Austrian German |
+| German in Italy (South Tyrol, `de-IT`) | Austrian German |
 | German in Switzerland or Liechtenstein (`de-CH`, `de-LI`), Swiss German (`gsw`) | Swiss German |
 | German anywhere else (`de-DE`, `de-LU`, `de-BE`, …) | German |
+| French in Canada (`fr-CA`) | Canadian French |
+| French in Belgium (`fr-BE`) | Belgian French |
+| French in Switzerland or Liechtenstein (`fr-CH`, `fr-LI`) | Swiss French |
+| French anywhere else (`fr-FR`, `fr-LU`, …) | French |
+| Italian in Switzerland (`it-CH`) | Swiss Italian |
+| Italian anywhere else (`it-IT`, `it-SM`, …) | Italian |
+| Dutch in Belgium (`nl-BE`), West Flemish (`vls`) | Flemish, *Nederlands (België)* |
 | Australian, Canadian, New Zealand English | That English |
 | Any other English (Britain, Ireland, South Africa, India, …) | British English |
-| Any Spanish (Spain, Mexico, …), Galician and Aragonese | Argentinian Spanish |
+| Spanish in Uruguay (`es-UY`) | Uruguayan Spanish |
+| Spanish that writes *vos* in Argentina and Paraguay (`es-AR`, `es-PY`) | Argentinian Spanish |
+| Spanish in Mexico, Colombia, Peru, Venezuela, Ecuador, Bolivia, Central America (Guatemala, Honduras, El Salvador, Nicaragua, Costa Rica, Panama) and the Caribbean (Cuba, the Dominican Republic, Puerto Rico) (`es-MX`, `es-CO`, `es-PE`, `es-VE`, `es-EC`, `es-BO`, `es-GT`, `es-HN`, `es-SV`, `es-NI`, `es-CR`, `es-PA`, `es-CU`, `es-DO`, `es-PR`) | That Spanish |
+| Spanish in Chile (`es-CL`), Latin American Spanish (`es-419`) and US Spanish (`es-US`) | Chilean Spanish |
+| Spanish in Spain, or without a region (`es-ES`, `es`), Galician and Aragonese | Argentinian Spanish |
 | Norwegian Bokmål (`nb_NO`, `nb`), and Norwegian with no written standard named (`no`, `no_NO`) | Norsk (bokmål) |
 | Norwegian Nynorsk (`nn_NO`, `nn`) | Norsk (nynorsk) |
-| Frisian, Afrikaans | Dutch |
+| Dutch anywhere else (`nl-NL`, `nl-SR`, …), Frisian, Afrikaans | Dutch |
 | Luxembourgish | German |
 | Occitan | Catalan |
 | Polish, Czech, Ukrainian, Greek (`pl_PL`, `cs_CZ`, `uk_UA`, `el_GR`, `el_CY`, …) | That language |
@@ -281,7 +333,7 @@ One key for both apps.
 
 ## In the terminal app
 
-The same 33 languages and the same translations, chosen by the same `language` key. Its own
+The same 55 languages and the same translations, chosen by the same `language` key. Its own
 Settings pick it at once (**F12** → *Looks* → *Language*); a change made in the desktop app or
 in the file is read when it starts. `coxswain --languages` prints the list by region,
 the one in use and the new ones marked, and where to suggest a better word. Right to left
