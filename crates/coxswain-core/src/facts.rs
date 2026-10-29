@@ -10,6 +10,28 @@ use std::path::{Path, PathBuf};
 
 use crate::t;
 
+/// Which part a file named `name` is of an archive split into parts, as a facts line: a later
+/// part of a 7z (`x.7z.002`) or an earlier one of a zip (`x.z01`).
+pub fn part(name: &str) -> Option<(String, String)> {
+    if let Some((n, first)) = crate::archive::part_of(name) {
+        return Some((t!("facts.part"), t!("facts.part_of", "n" => n, "first" => first)));
+    }
+    let (n, last) = crate::archive::zip_part_of(name)?;
+    Some((t!("facts.part"), t!("facts.zip_part_of", "n" => n, "last" => last)))
+}
+
+/// An archive whose files are mostly games (chess, Go, draughts, shogi, xiangqi, bridge): how
+/// many of the first 2000 it lists, as a facts line, so the preview says to open it.
+fn games(path: &Path) -> Option<(String, String)> {
+    let (list, more) = crate::archive::list(path, 2000).ok()?;
+    let files: Vec<_> = list.iter().filter(|e| !e.is_dir).collect();
+    let n = files.iter().filter(|e| crate::chess::format(Path::new(&e.name)).is_some()).count();
+    (n > 0 && n * 2 > files.len()).then(|| {
+        let total = if more { format!("{}+", files.len()) } else { files.len().to_string() };
+        (t!("facts.games"), t!("facts.games_in", "n" => n, "total" => total))
+    })
+}
+
 /// The facts of `path` as (label, value) lines; `None` for a file of none of these kinds, and
 /// for one only in the cloud (reading it would download it).
 pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
@@ -20,9 +42,9 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     if crate::neural::named(path) {
         return crate::neural::read(path).map(|m| crate::neural::facts(&m));
     }
-    // A later part of a 7z split into parts: by its name, nothing read (inside an archive too).
-    if let Some((n, first)) = crate::archive::part_of(&path.file_name()?.to_string_lossy()) {
-        return Some(vec![(t!("facts.part"), t!("facts.part_of", "n" => n, "first" => first))]);
+    // A part of an archive split into parts: by its name, nothing read (inside an archive too).
+    if let Some(line) = part(&path.file_name()?.to_string_lossy()) {
+        return Some(vec![line]);
     }
     if !path.is_file() {
         return None;
@@ -35,6 +57,9 @@ pub fn of(path: &Path) -> Option<Vec<(String, String)>> {
     }
     if crate::archive::is_image(path) {
         return crate::container_image::facts(path);
+    }
+    if crate::archive::is_archive(path) {
+        return games(path).map(|g| vec![g]);
     }
     if let Some(f) = crate::local_models::facts(path) {
         return Some(f);

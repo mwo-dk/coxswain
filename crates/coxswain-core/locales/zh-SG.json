@@ -273,6 +273,8 @@
  },
  "archive.nested_read_only": "只读：这是压缩包里的压缩包，从副本打开。要修改请用 F5 把内层压缩包复制出来",
  "archive.part_missing": "缺少 {name}：分卷的 7z 需要所有分卷齐全、编号连续才能打开",
+ "archive.zip_part_missing": "缺少 {name}：分卷的 zip 需要所有分卷齐全、编号连续才能打开",
+ "archive.zip_parts_zip64": "不读取这么大的分卷 zip（zip64）：请先合并其分卷（zip -s 0）",
  "archive.nested_too_deep": "压缩包中的压缩包最多只打开 {depth} 层：请用 F5 把这个复制出来再打开",
  "archive.overlapping": "这个 zip 的文件共用压缩后的字节，解开会远大于它的内容：它可能是故意做来占满磁盘的。仍可从中复制出单个文件",
  "archive.pack_confirm": "再输入一次密码：",
@@ -1131,11 +1133,14 @@
  "facts.macos_universal": "macOS 通用",
  "facts.made_with": "制作工具",
  "facts.messages": "邮件",
+ "facts.games": "对局",
+ "facts.games_in": "{total} 个文件中有 {n} 个是对局：打开它，每一局都会显示在棋盘上",
  "facts.mono": "单声道",
  "facts.other_cpu": "其他 CPU",
  "facts.pages": "页数",
  "facts.part": "分卷",
  "facts.part_of": "分卷 7z 的第 {n} 部分：从 {first} 打开",
+ "facts.zip_part_of": "分卷 zip 的第 {n} 部分：从 {last} 打开",
  "facts.palette": {
   "other": "调色板中的 {n} 种颜色"
  },

@@ -125,9 +125,10 @@ pub fn opens(path: &Path) -> bool {
     named_kind(path).is_some()
 }
 
-/// `archive` is opened like a folder read-only: a disk image, a mailbox or a container image.
+/// `archive` is opened like a folder read-only: a disk image, a mailbox, a container image, or
+/// an archive split into parts.
 pub fn read_only(archive: &Path) -> bool {
-    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image)) || in_parts(archive)
+    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image)) || in_parts(archive) || split_zip(archive)
 }
 
 /// `name` is the first part of a 7z split into parts by 7-Zip (`x.7z.001`; `.002` … next to it).
@@ -146,22 +147,60 @@ pub fn part_of(name: &str) -> Option<(u32, String)> {
     (n > 1).then(|| (n, format!("{first}.{:0w$}", 1, w = 3)))
 }
 
+/// The parts before `name`, the last part of a zip split into parts (`x.zip`, with `x.z01`,
+/// `x.z02` … beside it, as Info-ZIP and WinZip split one): their names in order, as long as
+/// `exists` says each is there. Empty for any other name.
+fn zip_parts(name: &str, exists: impl Fn(&str) -> bool) -> Vec<String> {
+    let Some(stem) = name.len().checked_sub(4).filter(|&i| name.is_char_boundary(i) && name[i..].eq_ignore_ascii_case(".zip")).map(|i| &name[..i]) else {
+        return vec![];
+    };
+    let z = if name.ends_with(".ZIP") { 'Z' } else { 'z' };
+    (1..=99).map(|n| format!("{stem}.{z}{n:02}")).take_while(|p| exists(p)).collect()
+}
+
+/// `path` is a zip split into parts on disk: `x.z01` is beside it.
+fn split_zip(path: &Path) -> bool {
+    !zip_parts(&path.to_string_lossy(), |p| Path::new(p).is_file()).is_empty()
+}
+
+/// The number of an earlier part of a zip split into parts (`x.z02`: 2), and the name of the
+/// part it opens from (`x.zip`); `None` for any other name.
+pub fn zip_part_of(name: &str) -> Option<(u32, String)> {
+    let (stem, e) = name.rsplit_once('.')?;
+    let n = e.strip_prefix(['z', 'Z']).filter(|d| d.len() == 2 && d.bytes().all(|b| b.is_ascii_digit()))?;
+    let n: u32 = n.parse().ok().filter(|&n| n > 0)?;
+    Some((n, format!("{stem}.{}", if e.starts_with('Z') { "ZIP" } else { "zip" })))
+}
+
 /// The name of part `n` of the 7z split into parts whose first part is `first` (`x.7z.001`).
 fn part_name(first: &str, n: u32) -> String {
     format!("{}{n:03}", &first[..first.len() - 3])
 }
 
-/// The files of a 7z read as one: `x.7z` alone, or every part of one split into parts, from
-/// its first, `x.7z.001`, to the last of `x.7z.002` … that is there.
+/// The files of an archive read as one: `x.7z` alone, every part of one split into parts, from
+/// its first, `x.7z.001`, to the last of `x.7z.002` … that is there, or a zip split into parts
+/// (`spanned`).
 struct Joined {
     /// Each part, and where in the whole it starts.
     parts: Vec<(File, u64)>,
+    /// What stands in for the parts from `tail_at` on: a split zip's list of contents, rewritten.
+    tail: Vec<u8>,
+    tail_at: u64,
     len: u64,
     at: u64,
 }
 
+/// The most a split zip's list of contents may be: it is held in memory, rewritten.
+const ZIP_PARTS_LIST_MAX: u64 = 64 << 20;
+
 impl Joined {
     fn open(path: &Path) -> io::Result<Joined> {
+        let zipped = zip_parts(&path.to_string_lossy(), |p| Path::new(p).is_file());
+        if !zipped.is_empty() {
+            let mut all: Vec<PathBuf> = zipped.into_iter().map(PathBuf::from).collect();
+            all.push(path.to_path_buf());
+            return Joined::spanned(&all);
+        }
         let mut paths = vec![path.to_path_buf()];
         if in_parts(path) {
             let first = path.to_string_lossy().into_owned();
@@ -180,14 +219,96 @@ impl Joined {
             parts.push((f, len));
             len += size;
         }
-        Ok(Joined { parts, len, at: 0 })
+        Ok(Joined { parts, tail: vec![], tail_at: len, len, at: 0 })
+    }
+
+    /// A zip split into parts (`x.z01` … then `x.zip`, the last), as the one zip the zip
+    /// reader takes: the parts joined, and the list of contents (from the last part) rewritten
+    /// so that each entry's place counts from the start of the first part and every part
+    /// number is 0. A part missing is named; a zip64 one is refused.
+    fn spanned(paths: &[PathBuf]) -> io::Result<Joined> {
+        let mut j = Joined { parts: vec![], tail: vec![], tail_at: 0, len: 0, at: 0 };
+        for p in paths {
+            let f = File::open(p)?;
+            let size = f.metadata()?.len();
+            j.parts.push((f, j.len));
+            j.len += size;
+        }
+        j.tail_at = j.len;
+        let bad = |what: &str| io::Error::new(io::ErrorKind::InvalidData, format!("not a zip split into parts: {what}"));
+        let last_start = j.parts.last().map_or(0, |p| p.1);
+        let back = (j.len - last_start).min(22 + 65_535);
+        let mut end = vec![0u8; back as usize];
+        j.seek(io::SeekFrom::Start(j.len - back))?;
+        j.read_exact(&mut end)?;
+        let e = end.windows(4).rposition(|w| w == b"PK\x05\x06").filter(|&e| end.len() - e >= 22).ok_or_else(|| bad("no end record"))?;
+        let u16_at = |b: &[u8], i: usize| u16::from_le_bytes([b[i], b[i + 1]]);
+        let u32_at = |b: &[u8], i: usize| u32::from_le_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
+        let record = end[e..].to_vec();
+        let (disk, cd_disk, entries, cd_size, cd_off) = (u16_at(&record, 4), u16_at(&record, 6), u16_at(&record, 10), u32_at(&record, 12), u32_at(&record, 16));
+        if disk as usize + 1 > paths.len() {
+            let name = paths[0].file_name().unwrap_or_default().to_string_lossy().into_owned();
+            let missing = format!("{}{:02}", &name[..name.len() - 2], paths.len());
+            return Err(io::Error::new(io::ErrorKind::NotFound, crate::t!("archive.zip_part_missing", "name" => missing)));
+        }
+        if disk as usize + 1 != paths.len() || cd_disk > disk {
+            return Err(bad("its parts do not match"));
+        }
+        if entries == u16::MAX || cd_off == u32::MAX || cd_size == u32::MAX {
+            return Err(io::Error::other(crate::t!("archive.zip_parts_zip64")));
+        }
+        if cd_size as u64 > ZIP_PARTS_LIST_MAX {
+            return Err(io::Error::other(crate::t!("archive.header_too_big", "mb" => cd_size >> 20, "max" => ZIP_PARTS_LIST_MAX >> 20)));
+        }
+        let starts: Vec<u64> = j.parts.iter().map(|p| p.1).collect();
+        let start = |d: u16| starts.get(d as usize).copied().ok_or_else(|| bad("a part number past the parts"));
+        let cd_at = start(cd_disk)? + cd_off as u64;
+        if cd_at + cd_size as u64 > j.len {
+            return Err(bad("its list of contents is past the end"));
+        }
+        let mut cd = vec![0u8; cd_size as usize];
+        j.seek(io::SeekFrom::Start(cd_at))?;
+        j.read_exact(&mut cd)?;
+        let mut i = 0usize;
+        for _ in 0..entries {
+            if i + 46 > cd.len() || cd[i..i + 4] != *b"PK\x01\x02" {
+                return Err(bad("an entry of its list of contents"));
+            }
+            let (d, off) = (u16_at(&cd, i + 34), u32_at(&cd, i + 42));
+            if d == u16::MAX || off == u32::MAX {
+                return Err(io::Error::other(crate::t!("archive.zip_parts_zip64")));
+            }
+            let at = u32::try_from(start(d)? + off as u64).map_err(|_| io::Error::other(crate::t!("archive.zip_parts_zip64")))?;
+            cd[i + 34..i + 36].copy_from_slice(&0u16.to_le_bytes());
+            cd[i + 42..i + 46].copy_from_slice(&at.to_le_bytes());
+            i += 46 + u16_at(&cd, i + 28) as usize + u16_at(&cd, i + 30) as usize + u16_at(&cd, i + 32) as usize;
+        }
+        let cd_at32 = u32::try_from(cd_at).map_err(|_| io::Error::other(crate::t!("archive.zip_parts_zip64")))?;
+        let mut tail = cd;
+        let mut rec = record;
+        rec[4..8].copy_from_slice(&[0, 0, 0, 0]);
+        rec[8..10].copy_from_slice(&entries.to_le_bytes());
+        rec[16..20].copy_from_slice(&cd_at32.to_le_bytes());
+        tail.extend(rec);
+        j.len = cd_at + tail.len() as u64;
+        j.tail_at = cd_at;
+        j.tail = tail;
+        j.at = 0;
+        Ok(j)
     }
 }
 
 impl Read for Joined {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.at >= self.tail_at {
+            let from = usize::try_from(self.at - self.tail_at).unwrap_or(usize::MAX).min(self.tail.len());
+            let n = buf.len().min(self.tail.len() - from);
+            buf[..n].copy_from_slice(&self.tail[from..from + n]);
+            self.at += n as u64;
+            return Ok(n);
+        }
         let i = self.parts.partition_point(|(_, start)| *start <= self.at).saturating_sub(1);
-        let end = self.parts.get(i + 1).map_or(self.len, |(_, s)| *s);
+        let end = self.parts.get(i + 1).map_or(self.tail_at, |(_, s)| *s).min(self.tail_at);
         if self.at >= end || buf.is_empty() {
             return Ok(0);
         }
@@ -543,9 +664,22 @@ const LAST_KEPT: usize = 4;
 
 type Stamp = (u64, Option<std::time::SystemTime>);
 
+/// A file's size and time; for an archive split into parts, of all its parts together, so a
+/// part changed, added or taken away is noticed.
 fn stamp(path: &Path) -> io::Result<Stamp> {
     let m = std::fs::metadata(path)?;
-    Ok((m.len(), m.modified().ok()))
+    let (mut len, mut time) = (m.len(), m.modified().ok());
+    let name = path.to_string_lossy();
+    let mut others = zip_parts(&name, |p| Path::new(p).is_file());
+    if in_parts(path) {
+        others.extend((2..=999).map(|n| part_name(&name, n)).take_while(|p| Path::new(p).is_file()));
+    }
+    for p in others {
+        let m = std::fs::metadata(p)?;
+        len = len.wrapping_add(m.len()).wrapping_add(1);
+        time = time.max(m.modified().ok());
+    }
+    Ok((len, time))
 }
 
 fn uncache(archive: &Path) {
@@ -1005,6 +1139,25 @@ static NESTED: std::sync::Mutex<Vec<Spilled>> = std::sync::Mutex::new(Vec::new()
 /// The copies being made now, by archive and name: a second look waits for the first.
 static MAKING: std::sync::Mutex<Vec<(PathBuf, String, Arc<std::sync::Mutex<()>>)>> =
     std::sync::Mutex::new(Vec::new());
+/// The copies an operation goes through now (`Held`): never evicted while it runs.
+static HELD: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+/// Copies of archives inside archives held for as long as this lives: those `resolve` went
+/// through, so a copy is never taken away while it is read, however many come meanwhile.
+#[derive(Default)]
+pub(crate) struct Held(Vec<PathBuf>);
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
+        for p in &self.0 {
+            if let Some(i) = held.iter().position(|h| h == p) {
+                held.swap_remove(i);
+            }
+        }
+    }
+}
+
 /// The number of the next copy's folder: never one used before in this run.
 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
@@ -1030,9 +1183,10 @@ fn nested_cut(archive: &Path, inner: &str, into: bool) -> io::Result<Option<usiz
 
 /// The archive file `inner` of `archive` is in, and its path inside that one: `archive` itself,
 /// or the copy in the cache of the archive inside it that `inner` goes through (`nested_cut`),
-/// as deep as they go. Each such archive is unpacked to the cache once, never into memory.
-fn resolve(archive: &Path, inner: &str, into: bool) -> io::Result<(PathBuf, String)> {
-    let (mut at, mut rest) = (archive.to_path_buf(), inner.to_string());
+/// as deep as they go. Each such archive is unpacked to the cache once, never into memory. The
+/// copies gone through are held until the `Held` is dropped.
+fn resolve(archive: &Path, inner: &str, into: bool) -> io::Result<(PathBuf, String, Held)> {
+    let (mut at, mut rest, mut held) = (archive.to_path_buf(), inner.to_string(), Held::default());
     for depth in 0.. {
         let Some(cut) = nested_cut(&at, &rest, into)? else {
             break;
@@ -1043,10 +1197,12 @@ fn resolve(archive: &Path, inner: &str, into: bool) -> io::Result<(PathBuf, Stri
                 crate::t!("archive.nested_too_deep", "depth" => NESTED_DEPTH),
             ));
         }
-        at = spilled(&at, &rest[..cut])?;
+        let mut copy = spilled(&at, &rest[..cut])?;
+        at = copy.0[0].clone();
+        held.0.append(&mut copy.0);
         rest = rest[cut..].trim_start_matches('/').to_string();
     }
-    Ok((at, rest))
+    Ok((at, rest, held))
 }
 
 /// Whether the file `path` inside an archive opens like a folder too: by its name alone, an
@@ -1077,17 +1233,19 @@ fn nested_read_only() -> io::Error {
 /// it as `archive` is now. In this run's own folder, readable by this user alone, in a fresh
 /// folder of its own (never a number used before in this run) under the name it has in the
 /// archive (`sound` names only: no `..`, no separators). At most `NESTED_MAX` bytes a copy and
-/// `NESTED_ALL` for all, `NESTED_KEPT` copies; the oldest go first, and all when the app ends.
-fn spilled(archive: &Path, name: &str) -> io::Result<PathBuf> {
+/// `NESTED_ALL` for all, `NESTED_KEPT` copies; the oldest not held go first, and all when the
+/// app ends. The copy is held (`Held`, taken while the list is locked) until that is dropped.
+fn spilled(archive: &Path, name: &str) -> io::Result<Held> {
     let id = identity(archive)?;
-    let find = |kept: &mut Vec<Spilled>| -> Option<PathBuf> {
+    let find = |kept: &mut Vec<Spilled>| -> Option<Held> {
         let i = kept.iter().position(|k| {
             k.outer == archive && k.id == id && k.name == name && k.copy.is_file()
         })?;
         let it = kept.remove(i);
         let copy = it.copy.clone();
         kept.push(it);
-        Some(copy)
+        HELD.lock().unwrap_or_else(|e| e.into_inner()).push(copy.clone());
+        Some(Held(vec![copy]))
     };
     if let Some(copy) = find(&mut NESTED.lock().unwrap_or_else(|e| e.into_inner())) {
         return Ok(copy);
@@ -1121,7 +1279,7 @@ fn spilled(archive: &Path, name: &str) -> io::Result<PathBuf> {
 }
 
 /// `spilled`'s copy, made: what the archive claims is looked at first.
-fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
+fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
     let all = items(archive)?;
     let size_of = |n: &str| all.iter().find(|it| it.name == n && !it.dir).map(|it| it.size);
     // A 7z split into parts is copied with all its parts there, next to each other.
@@ -1129,6 +1287,8 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
     if in_parts(Path::new(name)) {
         names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| size_of(n).is_some()));
     }
+    // A zip split into parts: its earlier parts (`x.z01` …) beside it too.
+    names.extend(zip_parts(name, |n| size_of(n).is_some()));
     let claimed: u64 = names.iter().map(|n| size_of(n).unwrap_or(0)).sum();
     if claimed > NESTED_MAX {
         return Err(too_large(name));
@@ -1166,10 +1326,11 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
         }
     };
     let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
-    while !kept.is_empty()
-        && (kept.len() >= NESTED_KEPT || kept.iter().map(|k| k.size).sum::<u64>() + size > NESTED_ALL)
-    {
-        evict(&mut kept, 0);
+    let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
+    // The oldest not in use go; while all are, there are more for a while.
+    while kept.len() >= NESTED_KEPT || kept.iter().map(|k| k.size).sum::<u64>() + size > NESTED_ALL {
+        let Some(i) = kept.iter().position(|k| !held.contains(&k.copy)) else { break };
+        evict(&mut kept, i);
     }
     kept.push(Spilled {
         outer: archive.to_path_buf(),
@@ -1178,7 +1339,8 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<PathBuf> {
         copy: copy.clone(),
         size,
     });
-    Ok(copy)
+    held.push(copy.clone());
+    Ok(Held(vec![copy]))
 }
 
 /// Takes the copy `kept[i]` away, and every copy made out of it, as deep as they go.
@@ -1329,7 +1491,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
     }
     if k == Kind::Zip {
         let mut z =
-            zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
+            zip::ZipArchive::new(BufReader::new(Joined::open(archive)?)).map_err(io::Error::other)?;
         for i in 0..z.len().min(max) {
             let e = z.by_index_raw(i).map_err(io::Error::other)?;
             out.push(Item {
@@ -1541,7 +1703,7 @@ pub(crate) fn search_read(
     }
     match k {
         Kind::Zip => {
-            let mut z = zip::ZipArchive::new(BufReader::new(File::open(archive)?))
+            let mut z = zip::ZipArchive::new(BufReader::new(Joined::open(archive)?))
                 .map_err(io::Error::other)?;
             for i in 0..z.len().min(SEARCH_ENTRIES) {
                 // An entry that cannot be opened is passed over, not the rest of the archive.
@@ -1611,7 +1773,7 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
 /// `list_in`, and whether anything in that folder or below it is locked. A folder's size is
 /// that of the files in it.
 pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
-    let (real, inside) = resolve(archive, inner, true)?;
+    let (real, inside, _held) = resolve(archive, inner, true)?;
     // Part by part, so the paths have the system's separator throughout, as the search's do.
     let at = inner
         .split('/')
@@ -1678,7 +1840,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
 /// Whether `inner` is a folder in the archive (its top, a folder entry, or a folder only named
 /// in the paths of its files).
 pub fn is_folder(archive: &Path, inner: &str) -> io::Result<bool> {
-    let (archive, inner) = resolve(archive, inner, true)?;
+    let (archive, inner, _held) = resolve(archive, inner, true)?;
     let prefix = format!("{inner}/");
     Ok(inner.is_empty()
         || items(&archive)?
@@ -1688,7 +1850,7 @@ pub fn is_folder(archive: &Path, inner: &str) -> io::Result<bool> {
 
 /// Whether anything at or below `inner` is locked with a password ("" for the whole archive).
 pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
-    let (archive, inner) = resolve(archive, inner, true)?;
+    let (archive, inner, _held) = resolve(archive, inner, true)?;
     let inner = inner.as_str();
     let prefix = format!("{inner}/");
     Ok(items(&archive)?.iter().any(|it| {
@@ -1742,7 +1904,7 @@ pub fn copy_out(
             format!("{} exists", to.display()),
         ));
     }
-    let (archive, inner) = resolve(archive, inner, false)?;
+    let (archive, inner, _held) = resolve(archive, inner, false)?;
     copy_out_with(
         &archive,
         &inner,
@@ -1775,7 +1937,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
-    let (archive, inner) = resolve(&archive, &inner, false)?;
+    let (archive, inner, _held) = resolve(&archive, &inner, false)?;
     let it = items(&archive)?
         .iter()
         .find(|it| it.name == inner)
@@ -1794,8 +1956,13 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     }
     // The first part of a 7z split into parts: looked at with all its parts beside it, from
     // the copy opening it makes (`spilled`).
-    if in_parts(Path::new(&inner)) {
-        return spilled(&archive, &inner);
+    let zipped = || {
+        let all = items(&archive).unwrap_or_default();
+        !zip_parts(&inner, |n| all.iter().any(|it| it.name == n && !it.dir)).is_empty()
+    };
+    if in_parts(Path::new(&inner)) || zipped() {
+        // Held no longer once returned: it is the newest, the last to go.
+        return spilled(&archive, &inner).map(|h| h.0[0].clone());
     }
     if it.size > PEEK_MAX {
         return Err(too_large(&inner));
@@ -2144,7 +2311,7 @@ fn copy_entries(
     }
     if k == Kind::Zip {
         let mut z =
-            zip::ZipArchive::new(BufReader::new(File::open(archive)?)).map_err(io::Error::other)?;
+            zip::ZipArchive::new(BufReader::new(Joined::open(archive)?)).map_err(io::Error::other)?;
         // One file asked for: that entry alone, never the entries below a folder of its name.
         let one = (!inner.is_empty())
             .then(|| z.index_for_name(inner))
@@ -2440,7 +2607,7 @@ fn rewrite(
     hide_names: bool,
 ) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    if matches!(k, Kind::Disk | Kind::Mbox) || in_parts(archive) {
+    if matches!(k, Kind::Disk | Kind::Mbox) || in_parts(archive) || split_zip(archive) {
         return Err(crate::disk_image::read_only());
     }
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
@@ -3219,6 +3386,14 @@ mod tests {
             assert!(kept.iter().map(|k| k.size).sum::<u64>() <= NESTED_ALL);
         }
         assert!(copies("part0.bin.zip") == 0 && copies("part3.bin.zip") == 1, "the oldest went");
+        // Held while an operation goes through it: part0's copy stays, however many come.
+        let (_, _, held) = resolve(&many, "part0.bin.zip/part0.bin", false).unwrap();
+        for i in [1, 2, 3, 1, 2] {
+            listing(&many, &format!("part{i}.bin.zip")).unwrap();
+        }
+        assert_eq!(copies("part0.bin.zip"), 1, "held, kept");
+        drop(held);
+        assert!(HELD.lock().unwrap().is_empty());
         clean_up();
         // Another file at the same path, the same size and time: never taken for the first.
         let same = |text: &[u8], to: &Path| {
@@ -4521,6 +4696,86 @@ mod tests {
             ["b.txt", "c.txt"]
         );
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A zip as Info-ZIP's `zip -s` splits it: the spanning mark, then the bytes cut at `cuts`
+    /// into `x.z01` … and the last part `x.zip`, each entry's place and the list's counted from
+    /// the start of its own part.
+    fn span(whole: &[u8], cuts: &[usize], dir: &Path, stem: &str) -> PathBuf {
+        let mut bytes = b"PK\x07\x08".to_vec();
+        bytes.extend(whole);
+        let starts: Vec<usize> = std::iter::once(0).chain(cuts.iter().map(|c| c + 4)).collect();
+        let disk_of = |at: usize| starts.iter().rposition(|&s| s <= at).unwrap();
+        let u16_at = |b: &[u8], i: usize| u16::from_le_bytes([b[i], b[i + 1]]) as usize;
+        let u32_at = |b: &[u8], i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap()) as usize;
+        let e = bytes.windows(4).rposition(|w| w == b"PK\x05\x06").unwrap();
+        let (count, cd) = (u16_at(&bytes, e + 10), u32_at(&bytes, e + 16) + 4);
+        let mut i = cd;
+        for _ in 0..count {
+            let at = u32_at(&bytes, i + 42) + 4;
+            let d = disk_of(at);
+            bytes[i + 34..i + 36].copy_from_slice(&(d as u16).to_le_bytes());
+            bytes[i + 42..i + 46].copy_from_slice(&((at - starts[d]) as u32).to_le_bytes());
+            i += 46 + u16_at(&bytes, i + 28) + u16_at(&bytes, i + 30) + u16_at(&bytes, i + 32);
+        }
+        let last = starts.len() - 1;
+        assert!(disk_of(cd) == last, "the list stays in the last part");
+        bytes[e + 4..e + 6].copy_from_slice(&(last as u16).to_le_bytes());
+        bytes[e + 6..e + 8].copy_from_slice(&(last as u16).to_le_bytes());
+        bytes[e + 16..e + 20].copy_from_slice(&((cd - starts[last]) as u32).to_le_bytes());
+        for (n, w) in starts.iter().enumerate() {
+            let end = starts.get(n + 1).copied().unwrap_or(bytes.len());
+            let name = if n == last { format!("{stem}.zip") } else { format!("{stem}.z{:02}", n + 1) };
+            std::fs::write(dir.join(name), &bytes[*w..end]).unwrap();
+        }
+        dir.join(format!("{stem}.zip"))
+    }
+
+    #[test]
+    fn a_zip_split_into_parts_opens_from_its_last_part_read_only() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("zip-parts");
+        let text = |n: &str| format!("(;GM[1]SZ[19]C[{n}]{})", ";B[pd];W[dp]".repeat(300));
+        let mut w = zip::ZipWriter::new(io::Cursor::new(vec![]));
+        for n in ["a.sgf", "b.sgf", "c.sgf"] {
+            w.start_file(n, zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored)).unwrap();
+            io::Write::write_all(&mut w, text(n).as_bytes()).unwrap();
+        }
+        let whole = w.finish().unwrap().into_inner();
+        // Cut inside the first file and inside the third: an entry across two parts.
+        let one = text("a.sgf").len();
+        let last = span(&whole, &[one / 2, one * 2 + one / 2], &d, "go");
+        assert!(opens(&last) && read_only(&last));
+        let listed: Vec<String> = crate::fs::list(&last, true).unwrap().into_iter().map(|e| e.name).collect();
+        assert_eq!(listed, ["..", "a.sgf", "b.sgf", "c.sgf"]);
+        for n in ["a.sgf", "c.sgf"] {
+            assert_eq!(std::fs::read_to_string(peek(&last.join(n)).unwrap()).unwrap(), text(n));
+        }
+        assert!(add(&last, &[("x.sgf".into(), d.join("go.z01"))], None).is_err());
+        // The earlier parts say what they are; the games are counted.
+        assert_eq!(zip_part_of("go.z02"), Some((2, "go.zip".into())));
+        assert_eq!((zip_part_of("go.zip"), zip_part_of("go.z1"), zip_part_of("go.z00")), (None, None, None));
+        let facts = crate::facts::of(&d.join("go.z01")).unwrap();
+        assert!(facts[0].1.contains("go.zip") && facts[0].1.starts_with('1'), "{facts:?}");
+        let games = crate::facts::of(&last).unwrap();
+        assert!(games[0].1.starts_with("3 ") && games[0].1.contains(" 3 "), "{games:?}");
+        // Inside another archive: copied out with its parts, then opened.
+        let outer = d.join("outer.zip");
+        let mut w = zip::ZipWriter::new(File::create(&outer).unwrap());
+        for n in ["go.z01", "go.z02", "go.zip"] {
+            w.start_file(format!("set/{n}"), zip::write::SimpleFileOptions::default()).unwrap();
+            io::Write::write_all(&mut w, &std::fs::read(d.join(n)).unwrap()).unwrap();
+        }
+        w.finish().unwrap();
+        let inner = outer.join("set").join("go.zip");
+        let listed: Vec<String> = crate::fs::list(&inner, true).unwrap().into_iter().map(|e| e.name).collect();
+        assert_eq!(listed, ["..", "a.sgf", "b.sgf", "c.sgf"]);
+        assert_eq!(std::fs::read_to_string(peek(&inner.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
+        // A part missing: named.
+        std::fs::remove_file(d.join("go.z02")).unwrap();
+        let err = list(&last, 10).unwrap_err().to_string();
+        assert!(err.contains("go.z02"), "{err}");
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

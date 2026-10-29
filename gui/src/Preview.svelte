@@ -1119,6 +1119,8 @@
         {#if html}
           <pre class="mono code"><code class="hljs">{@html html}</code></pre>
         {:else}
+          <!-- A binary file's facts (a part of a split archive) above its hex dump, not under it. -->
+          {#if binary && facts.length}<dl class="facts">{#each facts as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
           <pre class="mono" class:hex={binary}>{text}</pre>
         {/if}
         {#if truncated}<p class="more">{t("preview.showing_first", { size: size(binary ? HEX_LIMIT : LIMIT) })}</p>{/if}
@@ -1183,7 +1185,7 @@
           {/if}
         </section>
       {/if}
-      {#if facts.length && kind !== "netron"}
+      {#if facts.length && kind !== "netron" && !(kind === "text" && !html && binary)}
         <dl class="facts extra">
           {#each facts as [k, v], i (i)}<dt>{k}</dt><dd>{v}</dd>{/each}
         </dl>

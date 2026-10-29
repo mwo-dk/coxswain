@@ -273,6 +273,8 @@
  },
  "archive.nested_read_only": "唯讀：這是壓縮檔裡的壓縮檔，從副本開啟。要修改請用 F5 把內層壓縮檔複製出來",
  "archive.part_missing": "缺少 {name}：分割的 7z 需要所有分割檔齊全、編號連續才能開啟",
+ "archive.zip_part_missing": "缺少 {name}：分割的 zip 需要所有分割檔齊全、編號連續才能開啟",
+ "archive.zip_parts_zip64": "不讀取這麼大的分割 zip（zip64）：請先合併其分割檔（zip -s 0）",
  "archive.nested_too_deep": "壓縮檔中的壓縮檔最多只開到 {depth} 層：請用 F5 把這個複製出來再開啟",
  "archive.overlapping": "這個 zip 的檔案共用壓縮後的位元組，解開會遠大於它的內容：它可能是故意做來塞滿磁碟的。仍可從中複製出單一檔案",
  "archive.pack_confirm": "再輸入一次密碼：",
@@ -1131,11 +1133,14 @@
  "facts.macos_universal": "macOS 通用",
  "facts.made_with": "製作工具",
  "facts.messages": "郵件",
+ "facts.games": "對局",
+ "facts.games_in": "{total} 個檔案中有 {n} 個是對局：開啟它，每一局都會顯示在棋盤上",
  "facts.mono": "單聲道",
  "facts.other_cpu": "其他 CPU",
  "facts.pages": "頁數",
  "facts.part": "分割檔",
  "facts.part_of": "分割 7z 的第 {n} 部分：從 {first} 開啟",
+ "facts.zip_part_of": "分割 zip 的第 {n} 部分：從 {last} 開啟",
  "facts.palette": {
   "other": "調色盤中的 {n} 種顏色"
  },
