@@ -860,3 +860,18 @@ open(f"{d}/the-rocket-garden.fb2", "w").write(f"""<?xml version="1.0" encoding="
 """)
 PY
 rm "$d/Documents/Books/cover.png"
+
+# Two cloud accounts the sidebar and the Left/Right panel lists find (docs/organise/clouds.md):
+# Dropbox's info.json and the Nextcloud client's settings, each naming a sync folder.
+mkdir -p "$d/.dropbox" "$d/Dropbox/Camera Uploads" "$d/.config/Nextcloud" "$d/Nextcloud/Receipts" "$d/Nextcloud/Shared"
+printf '{"personal": {"path": "/home/demo/Dropbox"}}\n' > "$d/.dropbox/info.json"
+printf '[Accounts]\n0\\url=https://cloud.example.com\n0\\dav_user=demo@cloud.example.com\n0\\Folders\\1\\localPath=/home/demo/Nextcloud/\n0\\Folders\\1\\targetPath=/\n' > "$d/.config/Nextcloud/nextcloud.cfg"
+printf '# Holiday plan\n\n- Ferry on the 3rd\n- Two nights in Skagen\n' > "$d/Nextcloud/Holiday plan.md"
+
+# Two files in the bin (the freedesktop.org trash), for the sidebar's Bin row (docs/files/bin.md).
+mkdir -p "$d/.local/share/Trash/files" "$d/.local/share/Trash/info"
+printf 'Old notes\n' > "$d/.local/share/Trash/files/old-notes.txt"
+cp "$d/Pictures/glow.jpg" "$d/.local/share/Trash/files/draft-poster.jpg"
+for f in old-notes.txt:Documents draft-poster.jpg:Pictures; do
+  printf '[Trash Info]\nPath=/home/demo/%s/%s\nDeletionDate=%s\n' "${f#*:}" "${f%%:*}" "$(date -d '2 days ago' +%Y-%m-%dT%H:%M:%S)" > "$d/.local/share/Trash/info/${f%%:*}.trashinfo"
+done

@@ -7,7 +7,7 @@ to remember a key. **F1** shows the keys as your config has them, under group he
 the search syntax and where the config file is.
 
 ![The desktop app's F9 Commands list filtered by theme: Theme: Cyber marked current, then Dark, Light, Tokyo Night, Nord, Amber and the other themes](../screenshots/panels-command-list.png)
-![The terminal app's F1 Help at 140 columns: the tagline Coxswain X.Y.Z, the one at the helm who gets the work done, then the groups in two columns, Moving and Panels and tabs on the left, Files, Archives, Search and Git on the right; the F-key bar ends with 12 Settings](../screenshots/panels-help.png)
+![The terminal app's F1 Help at 140 columns, scrolled down to Archives, Search and Git: Git history Ctrl+G, History of all branches Alt+A, Against upstream Alt+Y, Git branches Alt+B, Switch to branch Alt+S, Git worktrees Alt+W, Who changed each line Alt+L, History of this function Alt+J, New branch here, Fetch from the remote Alt+F, Pull (fast-forward only) Alt+D, Open in your git tool Alt+G and Git config Alt+C; at the bottom, Tab: every feature, with its keys and the questions people ask; the F-key bar ends with 12 Settings](../screenshots/panels-help.png)
 
 ## Contents
 

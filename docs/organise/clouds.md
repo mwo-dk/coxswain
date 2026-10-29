@@ -70,9 +70,8 @@ keys are those of the sidebar (`toggle_sidebar`) and of going to a folder (`goto
 The terminal app has no sidebar: its clouds are under **Alt+F1** and **Alt+F2**, as NC's drive
 menu, with *Cloud:* before each name. Everything else is the same.
 
-![The terminal app in Classic blue with the Left panel list open over the panels: Type a path… highlighted at the top, then Cloud: Dropbox – Personal and Cloud: Nextcloud – demo@cloud.example.com](../screenshots/tui-clouds.png)
+![The terminal app in Classic blue with the Left panel list open over the panels: Type a path… highlighted at the top, then Cloud: Dropbox – Personal, Cloud: Nextcloud – demo@cloud.example.com and Bin: 2 items · 43.4 KB](../screenshots/tui-clouds.png)
 *Alt+F1 in the terminal app: the clouds under the line that types a path.*
-<!-- screenshot: tui-clouds.png: retake with the line Bin: … under the clouds in the Left panel list -->
 
 ## Questions
 

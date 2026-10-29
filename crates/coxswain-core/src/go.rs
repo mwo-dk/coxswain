@@ -65,8 +65,15 @@ fn text(raw: &[u8], charset: &str, simple: bool) -> String {
         Ok(s) => s,
         Err(e) => {
             let b = e.into_bytes();
-            let enc = encoding_rs::Encoding::for_label(charset.trim().as_bytes()).unwrap_or(encoding_rs::WINDOWS_1252);
-            enc.decode_without_bom_handling(&b).0.into_owned()
+            // No CA, yet whole UTF-8 characters around a broken one (servers cut names mid-character):
+            // UTF-8 with the broken one marked, not every character as Windows-1252.
+            let lossy = String::from_utf8_lossy(&b);
+            if charset.trim().is_empty() && lossy.chars().any(|c| c > '\u{7f}' && c != char::REPLACEMENT_CHARACTER) {
+                lossy.into_owned()
+            } else {
+                let enc = encoding_rs::Encoding::for_label(charset.trim().as_bytes()).unwrap_or(encoding_rs::WINDOWS_1252);
+                enc.decode_without_bom_handling(&b).0.into_owned()
+            }
         }
     };
     if simple { s.split_whitespace().collect::<Vec<_>>().join(" ") } else { s.trim().to_string() }
@@ -869,6 +876,9 @@ mod tests {
         assert_eq!(g[0].black, "Björn");
         let (g, _) = scan(b"(;CA[GB2312]PB[\xb9\xc5\xc1\xa6])");
         assert_eq!(g[0].black, "古力");
+        // No CA: Latin-1 bytes stay Windows-1252, UTF-8 with one broken character stays UTF-8.
+        let (g, _) = scan(b"(;PB[Bj\xf6rn]PW[\xe5\xad?\xe6\x9b\xbe\xe7\x89\x9b])");
+        assert_eq!((g[0].black.as_str(), g[0].white.as_str()), ("Björn", "\u{fffd}?曾牛"));
     }
 
     /// A million variations in each other, and a line of a million moves: no stack used, and no

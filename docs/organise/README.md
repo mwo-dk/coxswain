@@ -9,7 +9,7 @@ Coxswain's own state file, `state.json` ([Where things are kept](../reference/wh
 The terminal app has none of them but the clouds, which it lists under **Alt+F1** and **Alt+F2**:
 the others' keys there say which app has them.
 
-![The desktop app with the sidebar at the left: Places with Home, Drives with System and its free space, a favourites group named WORK with rocket, website and Documents, and Git repositories with website pinned, then paper, rocket and vision. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)
+![The desktop app with the sidebar at the left: Places with Home, Drives with System and its free space, Clouds with Dropbox – Personal and Nextcloud, the Bin with 2 items, a favourites group named WORK with rocket, website and Documents, and Git repositories with website pinned, then paper, rocket and vision. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)
 *The sidebar, a favourites group and colour tags in the details view (Cyber theme).*
 
 | Page | What it covers |

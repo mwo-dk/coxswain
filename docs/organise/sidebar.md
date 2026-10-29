@@ -6,9 +6,8 @@ The sidebar is the column at the left of the desktop app's window (at the right 
 Arabic). It holds your usual folders, your disks with their free space, your
 [cloud accounts](clouds.md), the system's [bin](../files/bin.md), your [favourites](favourites.md) and the git repositories you opened last (by name, with the ones you pinned), each one click away.
 
-![The sidebar of the desktop app: PLACES with Home; DRIVES with System, its free space and a green bar of the space used; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with website (a pin at the end of its row), then paper, rocket and vision by name, each with a faint ⋯. rocket is highlighted in both lists; the status line says how to pin or remove a repository](../screenshots/gui-details.png)
+![The sidebar of the desktop app: PLACES with Home; DRIVES with System, its free space and a green bar of the space used; CLOUDS with Dropbox – Personal and Nextcloud – demo@cloud.example.com; the Bin row with 2 items and its size; a favourites group WORK with rocket, website and Documents; + New group; GIT REPOSITORIES with website (a pin at the end of its row), then paper, rocket and vision by name, each with a faint ⋯. rocket is highlighted in both lists; the status line says how to pin or remove a repository](../screenshots/gui-details.png)
 *The sidebar in the Cyber theme. The entries for the folder you are in are highlighted.*
-<!-- screenshot: gui-details.png: retake with the sidebar's Bin row (Bin, Empty or its count and size) between the drives and the favourites group WORK -->
 
 ![The same window in Hebrew: the sidebar is at the right, its headers and entries right-aligned](../screenshots/gui-lang-he.png)
 *In Hebrew the sidebar moves to the right, with the rest of the layout.*
