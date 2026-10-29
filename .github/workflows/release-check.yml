@@ -269,7 +269,7 @@ jobs:
             /usr/local/bin/coxswain --help >/dev/null
             man -w coxswain
             test -x /etc/rc.d/coxswain_index
-      - uses: vmactions/openbsd-vm@5f7b2c933b8846a138361d6843c52af4bef5d945 # v1.4.8
+      - uses: vmactions/openbsd-vm@f1ca8bc8ecc5b6ef7218e5b914836e067e1546d3 # v1.4.9
         if: matrix.sys == 'openbsd'
         with:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
