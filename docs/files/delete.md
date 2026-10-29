@@ -52,7 +52,7 @@ out first (**F5**) if you may want them back. A 7z with locked contents asks for
 
 **Ctrl+Z** puts back what **F8** moved to the trash, on FreeBSD and the other BSDs, illumos,
 Linux, in Termux and on Windows ([Undo](undo.md)). On a Mac and in the Flatpak it cannot: the status line says so,
-and you restore from the system's trash. **Shift+F8** is never undone.
+and you restore from the system's trash. Everywhere but a Mac, [the bin](bin.md) also puts files back (*Restore from the bin*), after a restart too. **Shift+F8** is never undone.
 
 ## Settings and config.toml
 
@@ -67,7 +67,7 @@ the phone's storage) still asks. The keys are `delete` and `delete_forever` in `
 ## In the terminal app
 
 The same keys, questions and trash. The terminal app uses the same trash as the desktop app, so
-files it moves there show in your file manager's trash.
+files it moves there show in your file manager's trash, and in Coxswain's [bin](bin.md).
 
 ## Questions
 
@@ -84,7 +84,7 @@ Not every file system has a trash the system can use. The error names the file. 
 #### Where do deleted files go on Linux?
 
 To the freedesktop trash your desktop uses (`~/.local/share/Trash`, or a `.Trash-1000` folder at
-the top of other disks), the same one your file manager shows.
+the top of other disks), the same one your file manager shows, and Coxswain's [bin](bin.md).
 
 #### Where do deleted files go in Termux on Android?
 

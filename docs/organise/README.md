@@ -4,7 +4,7 @@
 
 Four ways to keep your bearings in the desktop app: colour tags on files, notes on folders,
 named groups of favourite folders, and the sidebar that holds the favourites next to your
-places, drives, clouds and recent git repositories. None of them change your files. They live in
+places, drives, clouds, the bin and recent git repositories. None of them change your files. They live in
 Coxswain's own state file, `state.json` ([Where things are kept](../reference/where-things-are-kept.md)).
 The terminal app has none of them but the clouds, which it lists under **Alt+F1** and **Alt+F2**:
 the others' keys there say which app has them.
@@ -17,7 +17,7 @@ the others' keys there say which app has them.
 | [Colour tags](tags.md) | Seven colours for files and folders with **Alt+T**, the dot after the name, and why a tag stays with a path |
 | [Folder notes](notes.md) | Free text for a folder with **Alt+N**, in the preview pane, and the note icon in the pane footer |
 | [Favourites](favourites.md) | Named groups of folders in the sidebar: add, go, remove, rename and delete groups |
-| [The sidebar](sidebar.md) | **Ctrl+B**: places, drives with their free space, clouds, favourites and the last eight git repositories, by name, with pins |
+| [The sidebar](sidebar.md) | **Ctrl+B**: places, drives with their free space, clouds, the bin, favourites and the last eight git repositories, by name, with pins |
 | [Clouds](clouds.md) | One entry per cloud account (OneDrive, Google Drive, Dropbox, Nextcloud, iCloud …) found on the machine, in the sidebar and under **Alt+F1** in the terminal app; no logins |
 
 ## Keys at a glance

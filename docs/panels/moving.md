@@ -52,8 +52,8 @@ More on this: [Opening files](../commands/opening-files.md).
 
 | Key | Terminal app | Desktop app |
 |---|---|---|
-| **Alt+F1** | Dialog *Left panel*, *Go to folder:*, filled in with the left panel's folder. With [clouds](../organise/clouds.md), FreeBSD's boot environments or Termux's phone folders, first a list of them with *Type a path…* at the top | The left pane's path bar turns into a text field with its path selected |
-| **Alt+F2** | Dialog *Right panel*, the same for the right panel | The same for the right pane |
+| **Alt+F1** | A list *Left panel*: *Type a path…* at the top, then Termux's phone folders, your [clouds](../organise/clouds.md), the [bin](../files/bin.md) and FreeBSD's boot environments and jails. **Enter** on *Type a path…* opens the dialog *Go to folder:*, filled in with the left panel's folder | The left pane's path bar turns into a text field with its path selected |
+| **Alt+F2** | A list *Right panel*, the same for the right panel | The same for the right pane |
 | **Ctrl+L** | – | The active pane's path bar turns into a text field |
 
 1. Press the key.
@@ -105,7 +105,7 @@ See [Changing keys](../customise/keys.md).
 ## In the terminal app
 
 The same keys, with three differences: **Enter** runs programs itself; **Alt+F1** and
-**Alt+F2** open a small dialog instead of a path bar; and there is no **Ctrl+L**, no path bar
+**Alt+F2** open a list (*Type a path…* first) instead of a path bar; and there is no **Ctrl+L**, no path bar
 to click, no history (**Alt+Left**) and no sidebar, because the terminal app has one folder
 per panel and no tabs. Like the desktop app it follows changes on disk by itself: a file another
 program writes, copies in or deletes shows or goes within a second (see the questions); it also

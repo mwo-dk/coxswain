@@ -86,7 +86,7 @@ and `movies` lead to their folders, and `external-1` to a memory card when there
 
 | Key | What you see |
 |---|---|
-| **Alt+F1** / **Alt+F2** | A list for the left / right panel: *Type a path…* first, then *Phone: shared*, *Phone: dcim*, *Phone: downloads* … **Enter** opens one |
+| **Alt+F1** / **Alt+F2** | A list for the left / right panel: *Type a path…* first, then *Phone: shared*, *Phone: dcim*, *Phone: downloads* …, then the [bin](../files/bin.md) (Coxswain's own, in `~/.local/share/Trash`). **Enter** opens one |
 
 Until `termux-setup-storage` has been run, the status line says once: *In Termux: run
 termux-setup-storage once, and Alt+F1 lists your phone's folders (shared storage, Downloads,
@@ -165,7 +165,7 @@ files takes long on a phone and warms it. A model server on another computer doe
 | Battery | `/sys/class/power_supply` | `termux-battery-status`, else `/sys/class/power_supply` |
 | Start with my session | A systemd user service | Not available; the helper stays ten minutes after the app |
 | Certificates for HTTPS | The system's store | Termux's own, `$PREFIX/etc/tls/cert.pem` (`pkg install ca-certificates`) |
-| The go-to list (Alt+F1) | Type a path | Type a path, and the phone's folders |
+| The go-to list (Alt+F1) | Type a path, the bin | Type a path, the phone's folders, the bin |
 | F8 (Delete) | To the desktop's trash | To Coxswain's own trash in `~/.local/share/Trash`; on the phone's storage F8 asks to delete for good instead ([Deleting](#deleting-termuxs-trash)) |
 | Update hint | By where it is installed | `cargo install --locked coxswain` for a cargo build; `pkg upgrade coxswain` for one installed with `pkg`, adding that Termux's repository can have it a few days later |
 

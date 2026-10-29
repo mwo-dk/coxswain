@@ -220,6 +220,12 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     if crate::vcs::JJ_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
         all.push(Notice::new("jj-missing", t!("notice.jj_missing"), None));
     }
+    // The bin was looked at where Coxswain sees only part of it: a Flatpak's own, a Mac's
+    // without a way back (or, without Full Disk Access, not at all).
+    if crate::bin::LIMITED.load(std::sync::atomic::Ordering::Relaxed) {
+        let text = if crate::tools::flatpak().is_some() { t!("notice.bin_flatpak") } else { t!("notice.bin_mac") };
+        all.push(Notice::new("bin-limited", text, None));
+    }
     // A Mercurial repository was opened and hg is not installed.
     if crate::vcs::HG_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
         all.push(Notice::new("hg-missing", t!("notice.hg_missing"), None));
@@ -590,6 +596,8 @@ mod tests {
         let mut state = AppState::default();
         // Whether this machine's GStreamer can play video is not what is tested here.
         dismiss(&mut state, "media");
+        // Nor whether the bin, looked at by another test, is all of the system's here.
+        dismiss(&mut state, "bin-limited");
         // Nor whether the home folder is on ZFS (it is on illumos and many FreeBSD machines).
         dismiss(&mut state, "zfs");
         // On a Mac: the folder prompts explained, once.

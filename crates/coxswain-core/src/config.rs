@@ -265,6 +265,12 @@ actions! {
     Snapshots = "snapshots", "ZFS snapshots", Files, ["Alt+Z"];
     Flags = "flags", "File flags", Files, [];
     Package = "package", "Files of this package", Files, [];
+    // The system's bin as a panel (`bin`): from the sidebar, the go-to list and F9. In it, F8
+    // deletes for good; restoring and emptying are in the action menu, no key of their own.
+    Bin = "bin", "The bin", Files, [];
+    BinRestore = "bin_restore", "Restore from the bin", Files, [];
+    BinDelete = "bin_delete", "Delete from the bin for good", Files, [];
+    BinEmpty = "bin_empty", "Empty the bin", Files, [];
     // Archives, the most used first.
     Extract = "extract", "Extract archive", Archives, ["Ctrl+E"];
     Pack = "pack", "Pack into an archive", Archives, ["Alt+F5"];
@@ -365,6 +371,15 @@ actions! {
 }
 
 impl Action {
+    /// The bin's action that does `op`.
+    pub fn from_bin(op: crate::bin::Op) -> Action {
+        match op {
+            crate::bin::Op::Restore => Action::BinRestore,
+            crate::bin::Op::Delete => Action::BinDelete,
+            crate::bin::Op::Empty => Action::BinEmpty,
+        }
+    }
+
     /// Actions only the GUI implements.
     pub fn gui_only(self) -> bool {
         use Action::*;

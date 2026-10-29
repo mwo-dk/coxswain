@@ -96,7 +96,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} class:drop={e.is_dir && ui.dropDir === e.path} data-drop={e.is_dir ? e.path : undefined} draggable={!!drag} ondragstart={drag && ((ev) => (ev.preventDefault(), drag()))} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
-    <span class="label" dir="auto">{t.models?.[e.name] ?? e.name}</span>
+    <span class="label" dir="auto" title={e.origin ? tr("bin.from", { folder: e.origin }) : null}>{t.models?.[e.name] ?? e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}
     {#if e.online}<span class="cloud" title={tr("details.online")}>{ui.cfg.glyphs.cloud}</span>{/if}
     {#if e.is_dir}<span class="chev flip">{"\u{f054}"}</span>{/if}

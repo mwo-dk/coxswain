@@ -239,6 +239,7 @@ pub const FEATURES: &[Feature] = &[
     f("new_folder", "files/new-folder.md", &[NewFolder]),
     f("delete", "files/delete.md", &[Delete, DeleteForever]),
     f("undo", "files/undo.md", &[Undo]),
+    f("bin", "files/bin.md", &[Bin, BinRestore, BinDelete, BinEmpty]),
     f(
         "clipboard",
         "files/clipboard.md",

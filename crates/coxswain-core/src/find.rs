@@ -371,6 +371,13 @@ pub fn run(
         return found;
     }
     let syntax = shape(q) == Shape::Syntax;
+    // In the bin: its names, from its listing; nothing in it is indexed or read.
+    if scope.is_some_and(crate::bin::is_bin) {
+        if kind != Kind::About {
+            found.names = crate::bin::find(q, rows);
+        }
+        return found;
+    }
     if matches!(kind, Kind::All | Kind::Names) {
         let r = names(q, rows);
         // Local models by the model they are: a blob's own name is a hash (`local_models`).

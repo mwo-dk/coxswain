@@ -118,6 +118,8 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `worktrees` | **Alt+W** | `switch_branch` | **Alt+S** |
 | `new_branch` | none | `snapshots` | **Alt+Z** |
 | `flags` | none | `package` | none |
+| `bin` | none | `bin_restore` | none |
+| `bin_delete` | none | `bin_empty` | none |
 | `features` | none | `mark_all` | **Ctrl+A** |
 | `undo` | **Ctrl+Z** | `action_menu` | **Shift+F10**, **Menu** |
 | `rename` | **Shift+F6** | `disk_use` | none |

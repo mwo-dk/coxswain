@@ -27,6 +27,8 @@ pub enum Place {
     Snapshot,
     /// A FreeBSD package's list of files: read-only.
     Package,
+    /// The system's bin (`bin`): restored, deleted for good, copied out.
+    Bin,
 }
 
 /// What the menu and the hints are about: the marked entries, or the one under the cursor
@@ -209,6 +211,9 @@ impl Action {
                 s.zfs && (disk && (n == 0 || s.folders == 1 && s.one) || s.place == Place::Snapshot)
             }
             Package => s.packages && disk && s.single() && s.files == 1,
+            BinRestore => s.place == Place::Bin && n > 0 && crate::bin::restores(),
+            BinDelete => s.place == Place::Bin && n > 0,
+            BinEmpty => s.place == Place::Bin,
             Tag => n > 0 && disk,
             Notes => disk,
             Chess => s.single() && s.chess == 1 && matches!(s.place, Place::Disk | Place::Archive),
@@ -272,6 +277,8 @@ const HINTS: &[(&str, &[(&str, Action)])] = &[
     // Before the general ones: a chess file is rare, and what to press on it is not guessed.
     ("chess", &[("key", Action::Chess)]),
     ("image", &[("key", Action::Open)]),
+    // In the bin: what puts a file back is not guessed.
+    ("bin", &[("key", Action::ActionMenu)]),
     ("local_model", &[("key", Action::Properties)]),
     ("menu", &[("key", Action::ActionMenu)]),
     ("space", &[("key", Action::SpaceView)]),
@@ -338,6 +345,7 @@ fn fits(id: &str, s: &Subject) -> bool {
     let disk = s.place == Place::Disk;
     match id {
         "menu" => s.count() > 0,
+        "bin" => s.place == Place::Bin,
         "find" | "features" | "settings" => true,
         "quick" => disk && s.count() > 0,
         "panels" => disk && s.count() == 0,

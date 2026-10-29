@@ -1,6 +1,6 @@
 <script>
   import { tick } from "svelte";
-  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, openHistory, gitFacts, gitMenu } from "./app.svelte.js";
+  import { ui, addTab, closeTab, cd, up, goBack, goForward, focusPane, openFind, nextView, openGitView, openSnapshots, openHistory, gitFacts, gitMenu, binAct, actionLabel } from "./app.svelte.js";
   import { invoke, basename, crumbs, size, MARKERS, SNAPSHOTS, PACKAGE, date, composing } from "./lib.js";
   import { t as tr, tn } from "./i18n.svelte.js"; // `t` is the tab here
   import DetailsView from "./DetailsView.svelte";
@@ -13,6 +13,7 @@
   /** A tab's name: its folder's, but a history's list and a commit's top (and the branches',
    *  the worktrees') are named after what they are of, not "@history" or a commit id. */
   const tabName = (tb) => {
+    if (tb.bin || basename(tb.dir) === "@bin") return tr("sidebar.bin");
     const name = basename(tb.dir) || tb.dir;
     const top = tb.history && MARKERS.some((m) => name === m || tb.dir.endsWith(`${m}/${name}`) || tb.dir.endsWith(`${m}\\${name}`));
     if (name === SNAPSHOTS || name === PACKAGE) return basename(tb.dir.slice(0, -name.length - 1)) || name;
@@ -133,6 +134,17 @@
         {#if t.package}
           <span class="archive-badge" title={tr("pkg.list_tip")}>{"\u{f487}"} {tr("pkg.badge", { name: t.package })}</span>
         {/if}
+        {#if t.bin}
+          <!-- The bin: what it holds, and its actions as buttons (the action menu has them too). -->
+          <span class="archive-badge" title={tr("bin.inside_tip")}>{"\u{f1f8}"} {ui.bin?.text ?? tr("sidebar.bin")}</span>
+          <span class="scope" role="group">
+            <!-- As icons, the action's name and key in its tooltip: the path bar leaves little room. -->
+            {#each ui.bin && !ui.bin.restores ? ["bin_delete", "bin_empty"] : ["bin_restore", "bin_delete", "bin_empty"] as a (a)}
+              {@const key = ui.cfg.actions[a]?.[1]}
+              <button class="bin-act" title={key ? `${actionLabel(a)} (${key})` : actionLabel(a)} aria-label={actionLabel(a)} onclick={() => binAct(a.slice(4))}>{{ bin_restore: "\u{f0e2}", bin_delete: "\u{f1f8}", bin_empty: "\u{f12d}" }[a]}</button>
+            {/each}
+          </span>
+        {/if}
       </div>
     {/if}
     <!-- Find: names, words in files, meaning and Ask, from here (Ctrl+F). -->
@@ -167,6 +179,9 @@
 </section>
 
 <style>
+  .bin-act {
+    font-family: var(--icon-font);
+  }
   /* Right to left, "back" points right and the path chevrons point left. */
   :global([dir="rtl"]) .flip {
     transform: scaleX(-1);

@@ -175,7 +175,7 @@ to what the operation left. Move or delete it yourself if you still want to.
 #### Can I undo after restarting Coxswain?
 
 No. The history lives in memory, for the app run. After a restart, a move to the trash can still
-be restored from the system's trash.
+be restored from [the bin](bin.md) with *Restore from the bin* (on a Mac with *Put Back* in Finder).
 
 #### Why is there no redo (Ctrl+Y)?
 
@@ -200,4 +200,4 @@ Press **Ctrl+Z** again for each. One press undoes one whole operation, however m
 had.
 
 ---
-[← Previous: Delete](delete.md) · [Next: Clipboard →](clipboard.md)
+[← Previous: Delete](delete.md) · [Next: The bin →](bin.md)

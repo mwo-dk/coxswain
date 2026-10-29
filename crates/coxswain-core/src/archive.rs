@@ -2298,6 +2298,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         created: 0,
         online: false,
         referenced: 0,
+        origin: PathBuf::new(),
     }];
     let mut locked = false;
     let all = items(&real)?;
@@ -2323,6 +2324,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
                 created: 0,
                 online: false,
                 referenced: 0,
+                origin: PathBuf::new(),
             });
             out.len() - 1
         });

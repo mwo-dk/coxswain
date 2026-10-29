@@ -22,6 +22,7 @@ folder; **Ctrl+E** extracts it.*
 | [New folder (F7)](new-folder.md) | Making a folder, or a whole path of folders at once |
 | [Delete: trash (F8) or for good (Shift+F8)](delete.md) | The trash, deleting for good, the question and how to skip it |
 | [Undo (Ctrl+Z)](undo.md) | Undoing the last copies, moves, renames, new folders, trashings, packs, extracts, find-and-replaces and changes of permissions and dates; what is refused and why |
+| [The bin](bin.md) | The system's bin as a panel: each file with the folder it came from and when it was deleted; restore, delete for good, empty the bin; per system |
 | [Clipboard: Ctrl+C, Ctrl+X, Ctrl+V](clipboard.md) | Copy and cut through the system clipboard, shared with other file managers |
 | [Drag and drop](drag-and-drop.md) | Dragging files out to other applications (out of archives too), between panes, onto folders and in |
 | [Batch rename (Ctrl+M)](batch-rename.md) | Renaming many files with a regular expression and a counter, previewed |
@@ -59,6 +60,7 @@ folder; **Ctrl+E** extracts it.*
 | **F8**, **Delete** | yes | yes | [Move to the trash](delete.md); inside an archive, take out of it |
 | **Shift+F8**, **Shift+Delete** | yes | yes | [Delete for good](delete.md) |
 | **Ctrl+Z** | yes | yes | [Undo](undo.md) the last file operation |
+| *Sidebar → Bin*, *Alt+F1 → Bin*, *F9 → The bin* | yes | yes (go-to list) | [The bin](bin.md): restore, delete for good, empty |
 | **Enter** on an archive | yes | yes | [Open it like a folder](archives.md) |
 | **Backspace** | yes | yes | Go up, also out of an archive |
 | **Ctrl+E** | yes | yes | [Extract](pack-and-extract.md) the archive into a new folder |

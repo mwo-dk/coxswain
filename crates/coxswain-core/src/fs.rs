@@ -32,6 +32,9 @@ pub struct Entry {
     /// A ZFS snapshot in a list of snapshots: the data it refers to (its size is its own space).
     #[serde(skip_serializing_if = "is_zero")]
     pub referenced: u64,
+    /// In the bin: the folder it was deleted from (`bin`).
+    #[serde(skip_serializing_if = "crate::fs::no_path")]
+    pub origin: PathBuf,
 }
 
 /// `path` opened for reading only when it is a regular file: a FIFO or a device would block
@@ -193,6 +196,7 @@ impl Entry {
             created: secs(meta.created()).unwrap_or(0),
             online: !meta.is_dir() && crate::cloud::online_meta(&meta, &path),
             referenced: 0,
+            origin: PathBuf::new(),
             name,
             path,
         })
@@ -250,6 +254,10 @@ pub fn list_with_archive(
     if let Some(of) = crate::zfs::split(dir) {
         return Ok((crate::zfs::list(&of)?, None));
     }
+    // The system's bin: its items where they are inside it.
+    if crate::bin::is_bin(dir) {
+        return Ok((crate::bin::entries(show_hidden)?, None));
+    }
     if let Some(file) = crate::bsd::split(dir) {
         let mut all = crate::bsd::list(&file)?;
         all.retain(|e| show_hidden || !e.hidden || e.is_parent());
@@ -267,6 +275,8 @@ pub fn list_with_archive(
     let up = crate::zfs::in_snapshot(dir)
         .filter(|s| s.rel.as_os_str().is_empty())
         .map(|s| crate::zfs::path(&s.mountpoint));
+    // In a folder that is in the bin, `..` leads back to the bin.
+    let up = up.or_else(|| crate::bin::up_from(dir));
     if let Some(parent) = up.or_else(|| dir.parent().map(Path::to_path_buf)) {
         out.push(Entry {
             name: "..".into(),
@@ -569,6 +579,9 @@ fn writable(path: &Path) -> io::Result<()> {
     };
     if crate::zfs::is_read_only(path) {
         return denied("zfs.read_only");
+    }
+    if crate::bin::inside(path) {
+        return denied("bin.read_only");
     }
     if path.ancestors().any(|a| crate::bsd::split(a).is_some()) {
         return denied("pkg.read_only");

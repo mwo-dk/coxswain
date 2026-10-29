@@ -109,7 +109,7 @@
     {#if shown.has("type")}<button onclick={() => sortBy("ext")}>{tr("details.col.type")} <i>{arrow("ext")}</i></button>{/if}
     {#if shown.has("size")}<button class="r" onclick={() => sortBy("size")}>{tr("details.col.size")} <i>{arrow("size")}</i></button>{/if}
     {#if shown.has("files")}<span class="r" title={tr("details.files_tip")}>{tr("details.col.files")}</span>{/if}
-    {#if shown.has("modified")}<button onclick={() => sortBy("time")}>{tr("details.col.modified")} <i>{arrow("time")}</i></button>{/if}
+    {#if shown.has("modified")}<button onclick={() => sortBy("time")}>{tr(t.bin ? "bin.col_deleted" : "details.col.modified")} <i>{arrow("time")}</i></button>{/if}
     {#if shown.has("commit")}<button onclick={() => sortBy("commit")} title={tr("details.commit_tip")}>{tr("details.col.commit")} <i>{arrow("commit")}</i></button>{/if}
     {#if shown.has("created")}<span>{tr("details.col.created")}</span>{/if}
   </div>
@@ -163,7 +163,7 @@
           <span class="icon" style:color={e.icon.color || null}>{e.name === ".." ? "\u{f062}" : e.icon.glyph}</span>
           {/if}
           <!-- In a model store: the model it is, then its hashed name (`local_models::names`). -->
-          <span class="label" dir="auto">{#if t.models?.[e.name]}{t.models[e.name]} <span class="hash">{e.name}</span>{:else}{e.name}{/if}</span>
+          <span class="label" dir="auto">{#if t.models?.[e.name]}{t.models[e.name]} <span class="hash">{e.name}</span>{:else}{e.name}{/if}{#if e.origin}&ensp;<span class="hash" title={tr("bin.from", { folder: e.origin })}>{e.origin}</span>{/if}</span>
           {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]} title={tagName(e.tag)}></span>{/if}
           {#if st}<span class="git git-{st.kind}" title={gitTip(st)}>{gitGlyph(st.kind)}</span>{/if}
           {#if e.name !== ".." && t.cmp?.[e.name]}<span class="cmp cmp-{cmpClass(t, t.cmp[e.name])}" title={cmpLabel(t.cmp[e.name])}>{cmpGlyph(t, t.cmp[e.name])}</span>{/if}

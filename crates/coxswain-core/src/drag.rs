@@ -155,7 +155,9 @@ pub fn by_keys(copy: bool, mv: bool) -> Option<bool> {
 /// Why nothing can be dropped into `dir` (the key of the message), if it is read-only: a git
 /// history, a ZFS snapshot, a package's list of files, a disk image.
 pub fn read_only(dir: &Path) -> Option<&'static str> {
-    if crate::history::is_history(dir) {
+    if crate::bin::inside(dir) {
+        Some("bin.read_only")
+    } else if crate::history::is_history(dir) {
         Some("history.read_only")
     } else if crate::zfs::is_read_only(dir) {
         Some("zfs.read_only")

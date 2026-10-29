@@ -88,6 +88,8 @@ export const ui = $state({
   /** FreeBSD's boot environments and jails, for the sidebar. */
   bsdPlaces: [],
   clouds: [],
+  /** The system's bin (`bin_summary`): count, bytes, its path, whether it can be listed here. */
+  bin: null,
   disks: [],
   /** What Ctrl+Z would undo ("" for nothing), and how many operations the history has kept. */
   undo: "",
@@ -321,6 +323,7 @@ export async function load(t, dir = t.dir, focus) {
     t.history = r.history;
     t.snapshot = r.snapshot;
     t.package = r.package;
+    t.bin = r.bin;
     t.packages = r.packages;
     // In a model store's folder: the model each entry is, shown beside its name.
     t.models = r.models ?? null;
@@ -1331,11 +1334,58 @@ export function refreshDisks() {
     .then((d) => {
       if (JSON.stringify(d) !== JSON.stringify($state.snapshot(ui.disks))) ui.disks = d;
     }, () => {})
+    .then(refreshBin)
     .then(() => invoke("clouds"))
     .then((c) => {
       if (c && JSON.stringify(c) !== JSON.stringify($state.snapshot(ui.clouds))) ui.clouds = c;
     }, () => {})
     .finally(() => (disksBusy = false));
+}
+
+/** The bin's row again (`bin::summary`), and a tab showing the bin read again when it changed. */
+export async function refreshBin() {
+  const b = await invoke("bin_summary").catch(() => null);
+  if (!b || JSON.stringify(b) === JSON.stringify($state.snapshot(ui.bin))) return;
+  const changed = ui.bin && (ui.bin.count !== b.count || ui.bin.bytes !== b.bytes);
+  ui.bin = b;
+  if (changed) for (const v of visibleTabs()) if (v.bin) load(v);
+}
+
+/** The bin in the active tab; on a Mac without Full Disk Access, in Finder. */
+export function openBin(tb = tab()) {
+  if (ui.bin && !ui.bin.open) return invoke("bin_finder").then(() => (ui.status = t("bin.in_finder")), (err) => (ui.status = String(err)));
+  if (ui.bin?.path) return cd(tb, ui.bin.path);
+  return invoke("bin_summary").then((b) => ((ui.bin = b), b.open ? cd(tb, b.path) : openBin(tb)));
+}
+
+/** Restore (`restore`), delete for good (`delete`) or empty (`empty`) the bin: asked first,
+ *  with the count, the size and that it cannot be undone. A restore whose place is taken asks
+ *  again: under a free name, or left in the bin. */
+export async function binAct(op, tb = tab()) {
+  if (op !== "empty" && !tb.bin) return void (ui.status = t("bin.not_here"));
+  const paths = op === "empty" ? [] : await targets(tb);
+  if (op !== "empty" && !paths.length) return;
+  const text = await invoke("bin_question", { op, paths }).catch((e) => void (ui.status = String(e)));
+  if (!text) return;
+  const done = async (r, label) => {
+    ui.status = r.done ? label : "";
+    if (r.failed.length) ui.modal = failure(t("bin.failed"), r.failed.join("\n"));
+    await refreshBin();
+    await reloadAll();
+  };
+  const restore = async (list, free) => {
+    const r = await invoke("bin_restore", { paths: list, freeName: free });
+    await done(r, t("bin.restored", { what: tn("items", r.done) }));
+    if (!r.taken.length || ui.modal) return;
+    ui.modal = { kind: "confirm", feature: "bin", title: t("action.bin_restore"), text: t("bin.taken", { what: r.taken.length === 1 ? basename(r.taken[0]) : tn("items", r.taken.length) }), ok: t("bin.free_name"), safe: true, run: () => restore(r.taken, true) };
+  };
+  const run = {
+    restore: () => restore(paths, false),
+    delete: async () => { const r = await invoke("bin_delete", { paths }); await done(r, t("bin.deleted", { what: tn("items", r.done) })); },
+    empty: async () => done(await invoke("bin_empty"), t("bin.emptied")),
+  }[op];
+  const ok = t({ restore: "action.bin_restore", delete: "action.bin_delete", empty: "action.bin_empty" }[op]);
+  ui.modal = { kind: "confirm", feature: "bin", title: ok, text, ok, safe: op === "restore", run };
 }
 
 /** An OCI image layout's index.json in `tb`: it opens as the image (`container_image::layout_index`). */
@@ -1412,7 +1462,7 @@ export function subject(tb = tab()) {
   // Marked: what they are, as the backend counted them (`Subject::of`).
   const list = tb.marks.count ? [] : cur ? [cur] : [];
   const h = tb.history;
-  const place = tb.archive ? (tb.diskImage || tb.nested ? "disk_image" : "archive") : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : "disk";
+  const place = tb.archive ? (tb.diskImage || tb.nested ? "disk_image" : "archive") : h ? (h.view === "branches" && !h.commit ? "branches" : "history") : tb.snapshot ? "snapshot" : tb.package ? "package" : tb.bin ? "bin" : "disk";
   const files = list.filter((x) => !x.is_dir);
   return {
     files: files.length,

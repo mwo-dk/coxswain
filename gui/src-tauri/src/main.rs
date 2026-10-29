@@ -476,6 +476,8 @@ struct Meta {
     snapshot: Option<coxswain_core::zfs::At>,
     /// The package whose files the folder lists.
     package: Option<String>,
+    /// The folder is the system's bin (`bin`).
+    bin: bool,
     /// Files in it may belong to an installed package (`bsd::packages_here`).
     packages: bool,
     /// In a model store's folder: the model each entry is (`local_models::names`).
@@ -530,7 +532,7 @@ async fn read_listing(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: b
     let disk_image = archive.as_deref().is_some_and(coxswain_core::archive::read_only);
     let nested = archive.is_some() && coxswain_core::archive::nested_dir(&dir);
     let image = archive.as_deref().filter(|a| coxswain_core::archive::is_image(a)).and_then(coxswain_core::container_image::title);
-    Ok((entries, Meta { nested, image, has_notes, packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), dir, archive, locked, disk_image, history: in_history, snapshot, package }))
+    Ok((entries, Meta { nested, image, has_notes, packages: coxswain_core::bsd::packages_here(&dir), models: coxswain_core::local_models::names(&dir).map(|n| (*n).clone()), bin: coxswain_core::bin::is_bin(&dir), dir, archive, locked, disk_image, history: in_history, snapshot, package }))
 }
 
 /// The stop of the blame or function history being read: a new one stops the one before.
@@ -773,6 +775,50 @@ async fn bsd_places() -> Res<Vec<coxswain_core::bsd::Place>> {
 #[tauri::command]
 async fn clouds() -> Res<Vec<coxswain_core::bsd::Place>> {
     blocking(|| Ok(coxswain_core::clouds::places_within(std::time::Duration::from_secs(5)).unwrap_or_default())).await
+}
+
+/// The bin's row in the sidebar: its count and size (`bin::Summary`), and its text.
+#[derive(Serialize)]
+struct BinRow {
+    #[serde(flatten)]
+    summary: coxswain_core::bin::Summary,
+    text: String,
+}
+
+#[tauri::command]
+async fn bin_summary() -> Res<BinRow> {
+    blocking(|| {
+        let summary = coxswain_core::bin::summary();
+        Ok(BinRow { text: coxswain_core::bin::summary_text(&summary), summary })
+    })
+    .await
+}
+
+/// The question before restoring, deleting for good or emptying: count, size, no undo.
+#[tauri::command]
+async fn bin_question(op: coxswain_core::bin::Op, paths: Vec<PathBuf>) -> Res<Option<String>> {
+    blocking(move || Ok(coxswain_core::bin::question(op, &paths))).await
+}
+
+#[tauri::command]
+async fn bin_restore(paths: Vec<PathBuf>, free_name: bool) -> Res<coxswain_core::bin::Done> {
+    blocking(move || Ok(coxswain_core::bin::restore(&paths, free_name))).await
+}
+
+#[tauri::command]
+async fn bin_delete(paths: Vec<PathBuf>) -> Res<coxswain_core::bin::Done> {
+    blocking(move || Ok(coxswain_core::bin::delete(&paths))).await
+}
+
+#[tauri::command]
+async fn bin_empty() -> Res<coxswain_core::bin::Done> {
+    blocking(|| Ok(coxswain_core::bin::empty())).await
+}
+
+/// The bin in a Finder window: a Mac without Full Disk Access.
+#[tauri::command]
+async fn bin_finder() -> Res<()> {
+    blocking(|| coxswain_core::bin::run_finder(false)).await
 }
 
 // ---------------------------------------------------------------- sidebar
@@ -2873,7 +2919,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, enter_on, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note,
+            get_config, action_menu, hint, enter_on, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, is_model, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,
@@ -2929,7 +2975,7 @@ mod tests {
 
     #[test]
     fn a_listing_sends_a_path_only_where_the_page_cannot_join_it() {
-        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false, referenced: 0 };
+        let e = |name: &str, path: PathBuf| Entry { name: name.into(), path, is_dir: false, is_symlink: false, is_exec: false, hidden: false, size: 0, modified: 0, created: 0, online: false, referenced: 0, origin: PathBuf::new() };
         let dir = Path::new("/srv/box");
         let (prefix, items) = to_page(dir, vec![e("..", "/srv".into()), e("a.txt", dir.join("a.txt")), e("x", dir.join("x")), e("b", Path::new("/elsewhere").join("b"))], |_| None, None);
         assert_eq!(prefix, format!("/srv/box{}", std::path::MAIN_SEPARATOR));
