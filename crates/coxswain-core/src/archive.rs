@@ -132,6 +132,11 @@ pub(crate) fn opens_as(path: &Path) -> Option<crate::enter::Enter> {
     kind(path).map(enter_of)
 }
 
+/// `opens_as` by the name alone, nothing read: a container image's tar is an archive here.
+pub(crate) fn named_opens_as(path: &Path) -> Option<crate::enter::Enter> {
+    named_kind(path).map(enter_of)
+}
+
 /// What Enter does on the file `path` inside an archive when it opens like a folder there.
 pub(crate) fn opens_inside_as(path: &Path) -> Option<crate::enter::Enter> {
     opens_inside(path).then(|| ending_kind(path).or_else(|| ends_in(path, OPEN_ONLY)).map_or(crate::enter::Enter::DiskImage, enter_of))

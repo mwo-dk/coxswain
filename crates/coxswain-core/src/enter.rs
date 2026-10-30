@@ -49,21 +49,22 @@ pub enum View {
 
 /// What Enter does on the entry at `path` in `place`. On the disk a plain tar is read once to
 /// tell a container image, and a `.bin` to tell an opening book; inside an archive, names only.
+/// A file only in the cloud is told by its name too: the apps ask this of every file the cursor
+/// comes to, and reading it would download it.
 pub fn enter(path: &Path, is_dir: bool, place: Place) -> Enter {
     if is_dir {
         return Enter::Folder;
     }
+    let read = place == Place::Disk && !crate::cloud::unasked(path);
     let opens = match place {
-        Place::Disk => crate::archive::opens_as(path),
+        Place::Disk if read => crate::archive::opens_as(path),
+        Place::Disk => crate::archive::named_opens_as(path),
         Place::Archive => crate::archive::opens_inside_as(path),
     };
     if let Some(k) = opens {
         return k;
     }
-    let games = match place {
-        Place::Disk => crate::chess::sniff(path),
-        Place::Archive => crate::chess::format(path),
-    };
+    let games = if read { crate::chess::sniff(path) } else { crate::chess::format(path) };
     use crate::chess::Format as F;
     match games {
         Some(F::Epd) => Enter::Positions,
@@ -177,6 +178,27 @@ mod tests {
         assert_eq!(enter(Path::new("/x/all.zip/openings.bin"), false, Place::Archive), Other);
         assert!(may_be_games(Path::new("/x/all.zip/openings.bin")));
         assert!(!may_be_games(Path::new("/x/all.zip/notes.txt")));
+    }
+
+    /// A file only in the cloud is told by its name: nothing is read (which would download it)
+    /// to tell a container image from a tar or a book from a `.bin`, until the user asks for it.
+    #[test]
+    fn a_file_only_in_the_cloud_is_not_read_to_tell_what_enter_does() {
+        let d = crate::fs::Scratch::named("enter-cloud");
+        let image = d.join("demo.tar");
+        std::fs::write(&image, crate::container_image::tests::docker_tar_of(&[crate::container_image::tests::tar_of(&[("a.txt", b"a")])])).unwrap();
+        let book = d.join("openings.bin");
+        std::fs::write(&book, [0x46, 0x3b, 0x96, 0x18, 0x16, 0x91, 0xfc, 0x9c, 0x01, 0x95, 0x00, 0x0c, 0, 0, 0, 0]).unwrap();
+        for p in [&image, &book] {
+            crate::cloud::pretend(p, true);
+        }
+        assert_eq!(enter(&image, false, Place::Disk), Enter::Archive, "a tar by its name, not read");
+        assert_eq!(enter(&book, false, Place::Disk), Enter::Other, "a .bin by its name, not read");
+        for p in [&image, &book] {
+            crate::cloud::pretend(p, false);
+        }
+        assert_eq!(enter(&image, false, Place::Disk), Enter::Image);
+        assert_eq!(enter(&book, false, Place::Disk), Enter::Book);
     }
 
     #[test]
