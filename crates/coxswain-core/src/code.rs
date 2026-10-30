@@ -1073,11 +1073,18 @@ pub fn items(text: &str, path: &str) -> Vec<(usize, usize, String)> {
     let Some(l) = lang(path) else { return vec![] };
     let ls = lines(text, l);
     let mut out = vec![];
-    nest(&ls, 0, ls.len(), "", &mut out);
+    nest(&ls, 0, ls.len(), "", 0, &mut out);
     out
 }
 
-fn nest(ls: &[Line], a: usize, b: usize, outer: &str, out: &mut Vec<(usize, usize, String)>) {
+/// Levels of items inside items followed at most: code goes nowhere near; a crafted file nested
+/// one deeper on every line would otherwise recurse as deep as it is long and overflow the stack.
+const DEEPEST: usize = 64;
+
+fn nest(ls: &[Line], a: usize, b: usize, outer: &str, depth: usize, out: &mut Vec<(usize, usize, String)>) {
+    if depth > DEEPEST {
+        return;
+    }
     let Some(level) = ls[a..b]
         .iter()
         .filter(|l| !l.blank() && !is_note(l.text) && !is_closer(l.text))
@@ -1102,7 +1109,7 @@ fn nest(ls: &[Line], a: usize, b: usize, outer: &str, out: &mut Vec<(usize, usiz
         let Some(head) = (s..e).find(|&j| !ls[j].blank() && !is_note(ls[j].text)) else { continue };
         let first = (head + 1..e).find(|&j| !ls[j].blank() && !is_note(ls[j].text) && !is_closer(ls[j].text) && ls[j].level() > ls[head].level());
         if let Some(first) = first {
-            nest(ls, first, e, &name, out);
+            nest(ls, first, e, &name, depth + 1, out);
         }
     }
 }
@@ -1718,6 +1725,21 @@ mod tests {
         assert_eq!(item_at(text, "e.rs", 2), Some((1, 5, "impl Engine › fn burn".into())));
         assert_eq!(item_at(text, "e.rs", 0).map(|i| i.2), Some("impl Engine".into()));
         assert_eq!(item_at("just words\n", "notes.txt", 0), None);
+    }
+
+    /// A crafted file whose every line opens a block the last one is still in nests as deep as
+    /// it is long: the items are still found, on a thread's usual stack, the outer ones named.
+    #[test]
+    fn items_of_a_file_nested_as_deep_as_it_is_long_are_found_without_overflowing() {
+        let text: String = (0..20_000).map(|i| format!("fn f{i}() {{\n")).collect();
+        let found = std::thread::Builder::new()
+            .stack_size(2 << 20)
+            .spawn(move || (items(&text, "deep.rs").len(), item_at(&text, "deep.rs", 19_999).map(|i| i.0)))
+            .unwrap()
+            .join()
+            .expect("no stack overflow");
+        assert!(found.0 >= 64, "{}", found.0);
+        assert_eq!(found.1, Some(found.0 - 1));
     }
 
     fn cut_up(text: &str, path: &str) -> Vec<(String, String)> {
