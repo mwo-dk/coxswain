@@ -1219,7 +1219,9 @@ impl View {
     /// rows found again (another filter) do not bring back the errors before it.
     pub fn first_error(&self, line: usize) -> Option<usize> {
         let (n, _) = self.count();
-        let from = n.saturating_sub(ERRORS_LOOKED_AT);
+        // From `line`'s row on: the rows before it are not read (each may be a megabyte) to be
+        // dropped.
+        let from = n.saturating_sub(ERRORS_LOOKED_AT).max(self.row_of(line)?);
         self.rows(from, n).into_iter().position(|(l, lv, _)| l >= line && lv == Some(Level::Error)).map(|k| from + k)
     }
 

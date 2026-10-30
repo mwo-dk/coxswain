@@ -60,6 +60,7 @@ function, or a file that is no code: those lines alone, as numbered in the last 
 | Commits | The newest 200; a line at the end says when there were more |
 | Size | 4 MB of history at most |
 | Time | git (or hg) gets a minute |
+| Nesting | Items are found 64 levels deep; a file nested deeper (a crafted one) is followed to there |
 | Repositories | git, [Jujutsu](jujutsu.md) through git, and [Mercurial](mercurial.md) through `hg log -L` (marked experimental in Mercurial; `hg` 5.4 or later); not Subversion or CVS |
 
 The key is `line_history` under `[keys]` (default **Alt+J**).
