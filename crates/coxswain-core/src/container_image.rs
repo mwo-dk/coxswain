@@ -673,7 +673,7 @@ fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
             let at = ordinal;
             ordinal += 1;
             read += 1;
-            if read > READ_MAX || files.len() > FILES_MAX {
+            if read > READ_MAX || files.len() + gone.len() > FILES_MAX {
                 return Err(io::Error::new(
                     io::ErrorKind::FileTooLarge,
                     t!("container_image.too_many", "n" => FILES_MAX.to_string()),

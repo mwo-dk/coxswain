@@ -15,6 +15,8 @@ pub(crate) const MAX_FILES: u64 = 4_000_000;
 /// The most a list of contents may unpack to: it is read as it is unpacked, so this bounds the
 /// time it takes, not the memory.
 const MAX_HEADER: u64 = 1 << 30;
+/// The most UTF-16 units of one name.
+const MAX_NAME: usize = 1 << 15;
 /// The largest dictionary a stream is unpacked with here (7-Zip's own most is 1.5 GB; its
 /// "ultra" takes 64 MB): the dictionary is memory.
 const MAX_DICT: u32 = 256 << 20;
@@ -180,10 +182,12 @@ impl<R: Read> Hdr<R> {
         Ok(value)
     }
 
-    /// A count of things that each take a byte or more of the header: never more than `most`.
+    /// A count of things that each take a byte or more of the header: never more than `most`,
+    /// nor than `MAX_FILES` (a header may claim any length: the count is believed before it is
+    /// read, and what it sizes is allocated).
     fn count(&mut self, most: u64) -> io::Result<usize> {
         let n = self.number()?;
-        if n > most {
+        if n > most.min(MAX_FILES) {
             return Err(unsure());
         }
         Ok(n as usize)
@@ -366,6 +370,10 @@ fn streams<R: Read>(h: &mut Hdr<R>, most: u64) -> io::Result<Streams> {
                 0x0D => {
                     for p in per.iter_mut() {
                         *p = h.count(most)?;
+                    }
+                    // Together too: their sum sizes what comes next.
+                    if per.iter().try_fold(0u64, |a, &p| a.checked_add(p as u64)).is_none_or(|t| t > MAX_FILES) {
+                        return Err(unsure());
                     }
                 }
                 0x09 => {
@@ -628,6 +636,10 @@ fn files<R: Read>(
                         let u = u16::from_le_bytes(h.bytes()?);
                         left -= 2;
                         if u != 0 {
+                            // A name that never ends would be the whole header.
+                            if name.len() >= MAX_NAME {
+                                return Err(unsure());
+                            }
                             name.push(u);
                             continue;
                         }
@@ -769,6 +781,25 @@ mod tests {
             assert_eq!(super::read(&mut f, 5).unwrap().entries.len(), 5);
         }
         let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A header that claims 2^61 pack streams (in a header said to be 2^62 bytes long) is an
+    /// error, not an allocation of that many flags: a count is never believed past
+    /// `MAX_FILES`.
+    #[test]
+    fn a_count_past_any_file_is_refused_before_it_is_allocated() {
+        let mut bytes = b"7z\xBC\xAF\x27\x1C\x00\x04".to_vec();
+        bytes.extend([0u8; 4]);
+        bytes.extend(0u64.to_le_bytes());
+        bytes.extend((1u64 << 62).to_le_bytes());
+        bytes.extend([0u8; 4]);
+        assert_eq!(bytes.len(), 32);
+        // Header, main streams, pack info, pack pos 0, count 2^61, CRCs all defined.
+        bytes.extend([0x01, 0x04, 0x06, 0x00, 0xFF]);
+        bytes.extend((1u64 << 61).to_le_bytes());
+        bytes.extend([0x0A, 0x01]);
+        let e = super::read(&mut std::io::Cursor::new(bytes), usize::MAX).err().expect("refused");
+        assert_eq!(e.kind(), std::io::ErrorKind::Unsupported, "{e}");
     }
 
     /// A file whose bytes do not check out is an error at its end, not wrong bytes.

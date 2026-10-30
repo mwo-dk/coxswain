@@ -136,7 +136,7 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     let (mut r, mut buf, mut cut) = (BufReader::new(out), vec![], false);
     loop {
         buf.clear();
-        if r.read_until(sep, &mut buf)? == 0 {
+        if record(&mut r, sep, &mut buf)? == 0 {
             break;
         }
         if buf.last() == Some(&sep) {
@@ -149,6 +149,29 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     }
     drop(done);
     Ok(watch.join().unwrap_or(false) || cut)
+}
+
+/// The most of one record (a line of a diff) that is kept: a line of a 400 MB file with no
+/// line breaks is passed over, not held.
+const RECORD_MOST: usize = 1 << 20;
+
+/// `read_until`, keeping the first `RECORD_MOST` bytes of the record in `buf` and passing the
+/// rest over; how many bytes were read, 0 at the end.
+fn record(r: &mut impl BufRead, sep: u8, buf: &mut Vec<u8>) -> io::Result<usize> {
+    let mut read = 0;
+    loop {
+        let got = r.fill_buf()?;
+        if got.is_empty() {
+            return Ok(read);
+        }
+        let (used, done) = got.iter().position(|&b| b == sep).map_or((got.len(), false), |i| (i + 1, true));
+        buf.extend_from_slice(&got[..used.min(RECORD_MOST.saturating_sub(buf.len()))]);
+        r.consume(used);
+        read += used;
+        if done {
+            return Ok(read);
+        }
+    }
 }
 
 /// Where a path goes through a history: `target` is the file or folder on disk, `base` the
@@ -1433,6 +1456,25 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    /// A record longer than any line worth keeping (a diff line of a file without line
+    /// breaks) is cut at `RECORD_MOST`, the rest passed over, and the records after it read.
+    #[cfg(unix)]
+    #[test]
+    fn a_giant_record_is_cut_not_held() {
+        let mut c = Command::new("sh");
+        c.args(["-c", "head -c 3000000 /dev/zero | tr '\\0' a; echo; echo b"]);
+        let mut got = vec![];
+        let cut = records_within(c, b'\n', Duration::from_secs(30), |r| {
+            got.push(r.to_vec());
+            true
+        })
+        .unwrap();
+        assert!(!cut);
+        assert_eq!(got.len(), 2);
+        assert!(got[0].len() == RECORD_MOST && got[0].iter().all(|&b| b == b'a'));
+        assert_eq!(got[1], b"b");
+    }
 
     /// A repository made with the git CLI, or `None` when there is no git.
     pub(crate) fn repo(name: &str) -> Option<PathBuf> {
