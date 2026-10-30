@@ -262,9 +262,12 @@ board says so, and *No game in the search store reaches this position* when none
 file apart, by the same reader, so a comment left open or an `Event` tag with no game after it
 counts the same in both. Earlier versions counted such files differently, so a hit after such a
 game could open the game next to the right one. A store from before gets the positions of those
-files made again, once: only the PGN files whose last numbered game is not their last row (the
-store tells this from what it keeps, without reading any file), and only their positions: their
-text and vectors stay, and no other file is read.
+files made again, once: only the PGN files whose last numbered game comes before their last row
+(the store tells this from what it keeps, without reading any file; a file whose last game has
+no moves, or with more games than positions are kept for, is among them), and only their
+positions: their text and vectors stay, and no other file is read. The pass goes on where it got
+to when the app was closed, and a file on a disk that is not plugged in is made again once the
+disk is back, by itself.
 
 ![The Opera Game at 2…d6 in the desktop app with Find this position pressed: Games that reach this position: 1, and below it classics.pgn · game 1 with Morphy, Paul – Duke Karl / Count Isouard 1-0 1858.11.02; Find this position beside Engine under the board](../screenshots/gui-chess-position.png)
 

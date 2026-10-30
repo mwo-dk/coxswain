@@ -370,7 +370,7 @@ pub(crate) fn unpacked_with(cbv: &Path, stop: &dyn Fn() -> bool, progress: &dyn 
         return Err(bad("a member says it is far larger than its packed bytes can hold"));
     }
     let (total, packed) = wanted.values().fold((0, 0), |(t, p), m| (t + m.size, p + m.packed));
-    if total > MAX_TOTAL {
+    if total > MAX_TOTAL || total > SMALL.max(packed.saturating_mul(MAX_RATIO)) {
         return Err(bad("larger unpacked than any real database"));
     }
     if crate::fs::free_space(&run).is_some_and(|free| free < total.saturating_add(SPARE)) {
@@ -558,6 +558,22 @@ mod tests {
         let cbv = d.join("Bomb.cbv");
         std::fs::write(&cbv, &file).unwrap();
         assert!(unpacked(&cbv).unwrap_err().to_string().contains("far larger"));
+        // Three members each claiming 60 MB from 65 KB, under what one member alone may claim:
+        // together far past what their packed bytes can hold, refused all the same.
+        let mut file = vec![8u8, 0, 3, 0, rec as u8, 0, 3, 0];
+        for (i, name) in ["Games.cbh", "Games.cbg", "Games.cba"].iter().enumerate() {
+            let mut r = vec![0u8; rec];
+            r[..9].copy_from_slice(name.as_bytes());
+            r[128..132].copy_from_slice(&((8 + 3 * rec + i * block.len()) as u32).to_le_bytes());
+            r[132..136].copy_from_slice(&(block.len() as u32).to_le_bytes());
+            r[136..140].copy_from_slice(&(60u32 << 20).to_le_bytes());
+            file.extend(r);
+        }
+        file.extend(block.repeat(3));
+        let cbv = d.join("Three.cbv");
+        std::fs::write(&cbv, &file).unwrap();
+        let e = unpacked(&cbv).unwrap_err().to_string();
+        assert!(e.contains("larger unpacked"), "{e}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 

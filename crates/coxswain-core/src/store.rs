@@ -681,44 +681,79 @@ impl Store {
     /// before coxswain 2.34.0 (#458), which ran an unclosed comment into the games after it and
     /// folded a lone `[Event]` game into the next: their positions are made again, once (under
     /// `key`, at `tag`), from the games as the table cuts them. Found from the store: such a
-    /// file's last numbered game is not its last line of text (a line per game, the lines
-    /// between them its line breaks; a capped or moveless last game counts too). Their text and
-    /// vectors stay; the other PGN files are not read. Stopped, the rest wait for the next scan.
+    /// file's last numbered game comes before its last line of text (a line per game, the lines
+    /// between them its line breaks), as does that of a file whose last game has no moves or
+    /// with more games than positions are kept for: those are made again too, once. A file
+    /// whose numbers reach past its text (more games than its text keeps) is left be. Their
+    /// text and vectors stay; the other PGN files are not read. Where the pass got to is kept
+    /// under `key.after`, so a run that is stopped goes on from there, and a file on a disk
+    /// that is not plugged in under `key.away`, looked at in a later scan that finds it, alone.
     fn pgn_positions_renumbered(&self, key: &str, tag: &str, stop: &dyn Fn() -> bool) -> rusqlite::Result<()> {
         if self.tag_reached(key, tag) {
             return Ok(());
         }
-        let rows: Vec<(i64, String)> = self
-            .db
-            .lock()
-            .unwrap()
-            .prepare(
-                "SELECT f.id, f.path FROM files f JOIN text t ON t.rowid = f.id
-                 WHERE f.has_text = 1 AND f.inside IS NULL AND (f.path LIKE '%.pgn' OR f.path LIKE '%.pgn.gz' OR f.path LIKE '%.pgn.zst')
-                 AND (length(t.body) - length(replace(t.body, char(10), ''))) IS NOT (SELECT max(game) FROM positions p WHERE p.file = f.id)",
-            )?
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut away = false;
-        for (id, path) in rows {
-            let p = Path::new(&path);
+        let (at, away_at) = (format!("{key}.after"), format!("{key}.away"));
+        let kept = |k: &str| self.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = ?1", [k], |r| r.get::<_, String>(0)).unwrap_or_default();
+        let mut after: i64 = kept(&at).parse().unwrap_or(0);
+        let mut away: Vec<i64> = kept(&away_at).split_whitespace().filter_map(|v| v.parse().ok()).collect();
+        let save = |after: i64, away: &[i64]| -> rusqlite::Result<()> {
+            self.set_tag(&at, &after.to_string())?;
+            self.set_tag(&away_at, &away.iter().map(i64::to_string).collect::<Vec<_>>().join(" "))
+        };
+        const PICK: &str = "SELECT f.id, f.path FROM files f JOIN text t ON t.rowid = f.id
+             WHERE f.has_text = 1 AND f.inside IS NULL AND (f.path LIKE '%.pgn' OR f.path LIKE '%.pgn.gz' OR f.path LIKE '%.pgn.zst')
+             AND coalesce((SELECT max(game) FROM positions p WHERE p.file = f.id), -1) < (length(t.body) - length(replace(t.body, char(10), '')))";
+        let pick = |sql: &str, n: i64| -> rusqlite::Result<Vec<(i64, String)>> {
+            self.db.lock().unwrap().prepare_cached(sql)?.query_map([n], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
+        };
+        // Made again (or passed over): whether the file was there to read.
+        let look = |(id, path): &(i64, String)| -> rusqlite::Result<bool> {
+            let p = Path::new(path);
             if crate::chess::format(p) != Some(crate::chess::Format::Pgn) || crate::cloud::keep_out(p) {
-                continue;
+                return Ok(true);
             }
-            // Not there now (a disk unplugged): it keeps its positions, and is looked at again
-            // at the next scan.
             if !p.is_file() {
-                away = true;
-                continue;
+                return Ok(false);
             }
-            self.put_positions(id, p, stop)?;
+            self.put_positions(*id, p, stop)?;
+            Ok(true)
+        };
+        // `after` is i64::MAX once every file has had its turn.
+        while after < i64::MAX {
+            let part = pick(&format!("{PICK} AND f.id > ?1 ORDER BY f.id LIMIT 100"), after)?;
+            if part.is_empty() {
+                after = i64::MAX;
+                break;
+            }
+            for f in &part {
+                if stop() {
+                    return save(after, &away);
+                }
+                if !look(f)? && !away.contains(&f.0) {
+                    away.push(f.0);
+                }
+                // A file at a time: one stopped part way is read again whole (`put_positions`).
+                after = f.0;
+                save(after, &away)?;
+            }
+        }
+        // Those that were away: made again once they are back.
+        let mut still = vec![];
+        for (i, id) in away.iter().enumerate() {
             if stop() {
-                return Ok(());
+                still.extend_from_slice(&away[i..]);
+                return save(after, &still);
+            }
+            if let Some(f) = pick(&format!("{PICK} AND f.id = ?1"), *id)?.first()
+                && !look(f)?
+            {
+                still.push(*id);
             }
         }
-        if away {
-            return Ok(());
+        if !still.is_empty() {
+            return save(after, &still);
         }
+        self.db.lock().unwrap().execute("DELETE FROM meta WHERE key IN (?1, ?2)", [&at, &away_at])?;
         self.set_tag(key, tag)
     }
 
@@ -4235,7 +4270,11 @@ fn changes(store: &Store, cfg: &SearchConfig, repo: &Path, root: &str, head: &st
     let (from, to) = below(crate::history::key(repo, "").trim_end_matches(std::path::MAIN_SEPARATOR));
     let wanted: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM files WHERE path > ?1 AND path < ?2 AND has_text = 1", [&from, &to], |r| r.get(0))?;
     store.changes_left.store(wanted as usize, Ordering::Relaxed);
-    let rows = crate::history::changes_for_search(repo, head, since.as_deref(), HISTORY_MAX).unwrap_or_default();
+    // Not read (no hg, git failing): nothing is written as read; tried again next scan.
+    let Ok(rows) = crate::history::changes_for_search(repo, head, since.as_deref(), HISTORY_MAX) else {
+        store.changes_left.store(0, Ordering::Relaxed);
+        return Ok(());
+    };
     store.put_changes(repo, &rows)?;
     store.changes_left.store(0, Ordering::Relaxed);
     store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)", [&k, head])?;
@@ -7183,6 +7222,66 @@ mod tests {
         store.reader_changed("readers.pgn", "2", &crate::chess::PGN_ENDINGS).unwrap();
         let tag: String = store.db.lock().unwrap().query_row("SELECT value FROM meta WHERE key = 'readers.pgn'", [], |r| r.get(0)).unwrap();
         assert_eq!(tag, "3");
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// The positions redo goes on where it got to: a file whose last game has no moves is picked
+    /// (its last numbered game comes before its last line) and stays so once made again, yet
+    /// is made again once, not at every scan while another file waits for its disk; the one
+    /// away is made again once it is back, and the tag written then; a file whose numbers reach
+    /// past its text (more games than its text keeps) is left be.
+    #[test]
+    fn pgn_positions_redo_goes_on_where_it_got_to_and_never_repeats() {
+        let d = std::env::temp_dir().join(format!("coxswain-pgn-redo-on-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let tail = d.join("tail.pgn");
+        std::fs::write(&tail, "[Event \"a\"]\n\n1.e4 e5 1-0\n\n[Event \"b\"]\n\n1.d4 d5 1-0\n\n[Event \"stub\"]\n[Result \"*\"]\n\n*\n").unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let file = |p: &Path| (p.to_string_lossy().into_owned(), std::fs::metadata(p).unwrap().len(), 1, false);
+        store.apply(&[], &[file(&tail)], &[], false, None).unwrap();
+        assert!(!read(&store, &SearchConfig::default(), &AtomicBool::new(false)).unwrap());
+        let gone = d.join("gone").join("x.pgn");
+        let big = d.join("big.pgn");
+        let (tail_id, gone_id, big_id) = {
+            let db = store.db.lock().unwrap();
+            let tail_id: i64 = db.query_row("SELECT id FROM files WHERE path = ?1", [tail.to_string_lossy()], |r| r.get(0)).unwrap();
+            // On a disk not plugged in: a line of text, no game numbered past 0.
+            db.execute("INSERT INTO files(id, path, size, modified, has_text) VALUES (?1, ?2, 1, 1, 1)", params![tail_id + 1, gone.to_string_lossy()]).unwrap();
+            db.execute("INSERT INTO text(rowid, body) VALUES (?1, 'a\nb')", [tail_id + 1]).unwrap();
+            db.execute("INSERT INTO positions(hash, file, game) VALUES (1, ?1, 0)", [tail_id + 1]).unwrap();
+            // Its text keeps fewer games than its positions number.
+            db.execute("INSERT INTO files(id, path, size, modified, has_text) VALUES (?1, ?2, 1, 1, 1)", params![tail_id + 2, big.to_string_lossy()]).unwrap();
+            db.execute("INSERT INTO text(rowid, body) VALUES (?1, 'one line')", [tail_id + 2]).unwrap();
+            db.execute("INSERT INTO positions(hash, file, game) VALUES (1, ?1, 5)", [tail_id + 2]).unwrap();
+            db.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('readers.pgn', '2')", []).unwrap();
+            (tail_id, tail_id + 1, tail_id + 2)
+        };
+        let games = |f: i64| -> Vec<i64> {
+            store.db.lock().unwrap().prepare("SELECT DISTINCT game FROM positions WHERE file = ?1 ORDER BY game").unwrap().query_map([f], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+        };
+        assert_eq!(games(tail_id), [0, 1], "the stub has no moves");
+        let mark = || store.db.lock().unwrap().execute("INSERT OR IGNORE INTO positions(hash, file, game) VALUES (999, ?1, 0)", [tail_id]).unwrap();
+        let marked = || -> i64 { store.db.lock().unwrap().query_row("SELECT count(*) FROM positions WHERE file = ?1 AND hash = 999", [tail_id], |r| r.get(0)).unwrap() };
+        mark();
+        store.pgn_positions_renumbered("readers.pgn", "3", &|| false).unwrap();
+        assert_eq!((marked(), games(tail_id)), (0, vec![0, 1]), "made again");
+        assert!(!store.tag_reached("readers.pgn", "3"), "one waits for its disk");
+        assert_eq!(games(big_id), [5], "left be");
+        // The next scan, the disk still away: not made again.
+        mark();
+        store.pgn_positions_renumbered("readers.pgn", "3", &|| false).unwrap();
+        assert_eq!(marked(), 1, "made again once, not at every scan");
+        assert!(!store.tag_reached("readers.pgn", "3"));
+        // Back: made again, and the pass is done.
+        std::fs::create_dir_all(gone.parent().unwrap()).unwrap();
+        std::fs::write(&gone, "[Event \"p\"]\n\n1.e4 e5 1-0\n\n[Event \"q\"]\n\n1.d4 d5 1-0\n").unwrap();
+        store.pgn_positions_renumbered("readers.pgn", "3", &|| false).unwrap();
+        assert_eq!((games(gone_id), marked()), (vec![0, 1], 1));
+        assert!(store.tag_reached("readers.pgn", "3"));
+        let left: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM meta WHERE key LIKE 'readers.pgn.%'", [], |r| r.get(0)).unwrap();
+        assert_eq!(left, 0);
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
