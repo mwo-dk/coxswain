@@ -1090,7 +1090,7 @@ pub(crate) mod tests {
     }
 
     /// A `docker save` tar of `layers` as they are given, packed or not.
-    fn docker_tar_of(layers: &[Vec<u8>]) -> Vec<u8> {
+    pub(crate) fn docker_tar_of(layers: &[Vec<u8>]) -> Vec<u8> {
         let mut files: Vec<(String, Vec<u8>)> = vec![];
         let mut names = vec![];
         for l in layers {
