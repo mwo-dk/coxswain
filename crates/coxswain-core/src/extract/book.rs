@@ -68,7 +68,7 @@ pub(super) fn read_into(path: &Path, out: &mut Text) -> Option<()> {
     // All of it is read for `TIME` at most, the sink's time not counted; one read no further
     // than that is `late`, and not read to its end.
     if out.whole() {
-        out.until = Some(std::time::Instant::now() + TIME);
+        out.until = Some(super::now() + TIME);
     }
     if path
         .extension()
@@ -1669,30 +1669,30 @@ mod tests {
         let book = |out: &mut Text| {
             book(&epub, out).unwrap();
         };
-        // The lines read, and whether the reader ran out of its `time`; the sink takes `slow`
-        // the first time.
+        // The lines read, and whether the reader ran out of its `time`. The reader's clock
+        // stands still but for the sink, which takes `slow` the first time: no real time counts.
         let read = |reader: &dyn Fn(&mut Text), time: Option<std::time::Duration>, slow: std::time::Duration| {
+            let start = std::time::Instant::now();
+            super::super::CLOCK.set(Some(start));
             let (mut lines, mut first) = (0, true);
             let mut sink = |chunk: &str| {
                 if std::mem::take(&mut first) {
-                    std::thread::sleep(slow);
+                    super::super::CLOCK.set(Some(start + slow));
                 }
                 lines += chunk.lines().filter(|l| l.starts_with("Report")).count();
             };
             let mut out = Text::to(&mut sink);
-            out.until = time.map(|t| std::time::Instant::now() + t);
+            out.until = time.map(|t| start + t);
             reader(&mut out);
             let late = out.late;
             out.end();
             (lines, late)
         };
+        let (minute, hour) = (std::time::Duration::from_secs(60), std::time::Duration::from_secs(3600));
         for reader in [&page as &dyn Fn(&mut Text), &book] {
-            // The reader is given four times what reading takes on this machine, however slow
-            // (a busy VM's second read can take twice its first), and the sink takes twice that, once.
-            let began = std::time::Instant::now();
             assert_eq!(read(reader, None, std::time::Duration::ZERO), (n, false));
-            let time = began.elapsed() * 4 + std::time::Duration::from_secs(1);
-            assert_eq!(read(reader, Some(time), time * 2), (n, false));
+            // A minute to read, and the sink takes an hour: none of it is reading.
+            assert_eq!(read(reader, Some(minute), hour), (n, false));
             // Out of time: stopped, and said to be.
             let (lines, late) = read(reader, Some(std::time::Duration::ZERO), std::time::Duration::ZERO);
             assert!(lines < n && late, "{lines}");
