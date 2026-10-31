@@ -22,7 +22,7 @@ and bars to resize.
 | Ctrl-click (Cmd-click on a Mac) | – | Marks or unmarks, in every view |
 | Shift-click | – | Marks the range from the cursor to the click (details view) |
 | Drag | – | Copies or moves to the other pane, onto a folder's row or a sidebar entry, or to another application; **Ctrl** at the drop copies, **Shift** moves. See [Drag and drop](../files/drag-and-drop.md) |
-| Column header | – | Sorts; a second click reverses. Right-click opens the [columns menu](views.md#the-columns-menu) |
+| Column header (Name, Size, Modified) | Sorts by it; a second click reverses; `▼` or `▲` marks the sorted column | Sorts; a second click reverses. Right-click opens the [columns menu](views.md#the-columns-menu) |
 | Path bar | – | A part goes to that folder; empty space turns it into a text field. The `←`, `→` and `↑` buttons go back, forward and up |
 | Tabs | – | A click shows the tab, a middle click or the `×` closes it, the `+` opens a new one. The tab's tooltip is its folder and *Middle-click or Ctrl+W closes the tab* |
 | Sidebar group header | – | A click folds it; the **⋯** opens *Add current folder*, *Rename group*, *Delete group* ([Favourites](../organise/favourites.md)); right-click does the same |

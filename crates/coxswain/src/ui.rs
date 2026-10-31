@@ -214,6 +214,37 @@ impl Place {
     }
 }
 
+/// Widths of the git glyph, name, size and date columns in a panel `w` wide (date 0 when narrow).
+pub fn header_cols(w: usize) -> (usize, usize, usize, usize) {
+    let (gw, sw, dw) = (2, 9, if w >= 44 { 16 } else { 0 });
+    (gw, w - gw - sw - 1 - if dw > 0 { dw + 1 } else { 0 }, sw, dw)
+}
+
+/// The key a click at column `x` (from the panel's left inner edge) of the header sorts by.
+pub fn header_key(w: usize, x: usize) -> Option<coxswain_core::fs::SortKey> {
+    let (gw, nw, sw, dw) = header_cols(w);
+    if x < gw {
+        None
+    } else if x < gw + nw {
+        Some(coxswain_core::fs::SortKey::Name)
+    } else if x == gw + nw {
+        None
+    } else if x < gw + nw + 1 + sw {
+        Some(coxswain_core::fs::SortKey::Size)
+    } else {
+        (dw > 0 && x > gw + nw + sw + 1).then_some(coxswain_core::fs::SortKey::Time)
+    }
+}
+
+impl crate::Panel {
+    /// Sort by `key`; the same key again reverses.
+    pub fn sort_by(&mut self, key: coxswain_core::fs::SortKey) {
+        self.reverse = self.sort == key && !self.reverse;
+        self.sort = key;
+        self.resort();
+    }
+}
+
 fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // What drawing needs from the disk, read when the folder or the symlink under the cursor
     // is new, not at every frame.
@@ -319,16 +350,16 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // Columns: git glyph | name | size | date
     let w = inner.width as usize;
     let show_date = w >= 44;
-    let (gw, sw, dw) = (2, 9, if show_date { 16 } else { 0 });
-    let nw = w - gw - sw - 1 - if show_date { dw + 1 } else { 0 };
+    let (gw, nw, sw, dw) = header_cols(w);
     let bar = Span::styled("│", border);
 
     let header = {
         let hs = sty(&t.header).bg(base.bg.unwrap_or(Color::Reset));
-        let mut v = vec![Span::styled(" ".repeat(gw), hs), Span::styled(fit(&center(&t!("tui.col.name"), nw), nw), hs), bar.clone(), Span::styled(fit(&center(&t!("tui.col.size"), sw), sw), hs)];
+        let mark = |key: coxswain_core::fs::SortKey, label: String| if p.sort == key { format!("{label} {}", if p.reverse { '\u{25B2}' } else { '\u{25BC}' }) } else { label };
+        let mut v = vec![Span::styled(" ".repeat(gw), hs), Span::styled(fit(&center(&mark(coxswain_core::fs::SortKey::Name, t!("tui.col.name")), nw), nw), hs), bar.clone(), Span::styled(fit(&center(&mark(coxswain_core::fs::SortKey::Size, t!("tui.col.size")), sw), sw), hs)];
         if show_date {
             v.push(bar.clone());
-            v.push(Span::styled(fit(&center(&t!("tui.col.modified"), dw), dw), hs));
+            v.push(Span::styled(fit(&center(&mark(coxswain_core::fs::SortKey::Time, t!("tui.col.modified")), dw), dw), hs));
         }
         Line::from(v)
     };
@@ -1437,5 +1468,14 @@ mod sty_tests {
             let s = config::Style { fg: c.into(), ..Default::default() };
             assert_eq!(sty(&s).fg, (!c.is_empty()).then(|| Color::from_str(c).ok()).flatten(), "{c}");
         }
+    }
+
+    #[test]
+    fn header_click_picks_the_column() {
+        use coxswain_core::fs::SortKey::*;
+        // w = 60: glyph 0..2, name 2..33, bar 33, size 34..43, bar 43, date 44..60
+        let k = |x| header_key(60, x);
+        assert_eq!((k(0), k(2), k(32), k(33), k(34), k(42), k(43), k(44), k(59)), (None, Some(Name), Some(Name), None, Some(Size), Some(Size), None, Some(Time), Some(Time)));
+        assert_eq!(header_key(30, 29), Some(Size));
     }
 }
