@@ -8,6 +8,10 @@ clicking a column header. **Alt+.** shows or hides hidden files.
 ![The desktop app's details view of ~/projects: the Name header carries the sort arrow, folders come before files](../screenshots/gui-folder-sizes.png)
 *Sorted by name: the arrow next to* Name *marks the column and the direction.*
 
+![The terminal app after a click on the Size header: Size ▼ in the left panel's header, files and folders in order of size](../screenshots/tui-sort-size.png)
+![The terminal app after a second click on Size: the header reads Size ▲ and the order is reversed](../screenshots/tui-sort-reversed.png)
+*Terminal app: a click on* Size *sorts by it, a second click reverses it.*
+
 ## Contents
 
 - [How to use it](#how-to-use-it)
