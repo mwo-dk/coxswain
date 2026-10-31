@@ -116,9 +116,18 @@ stays on: nothing is mounted, so nothing needs relabelling.
 
 - The status block of *Settings → Finding files*, in both apps, gets a line *Tika* while
   the option is on: *Downloading docker.io/apache/tika:4.1.0…* with the progress line, *Reads
-  OneNote, XPS, CHM, Outlook files and more*, or *Off* with why in red: *Needs podman or docker, which run its Linux image;
-  on FreeBSD, the other BSDs and illumos it cannot run*, or *It stopped: …* with the runtime's
-  error.
+  OneNote, XPS, CHM, Outlook files and more*, *Waiting to download* with *Tika couldn't be
+  downloaded: no network. Trying again at 15:10.* when a pull failed for a passing fault, or
+  *Off* with why in red: *Needs podman or docker, which run its Linux image; on FreeBSD, the
+  other BSDs and illumos it cannot run*, *Tika couldn't be downloaded: …* with a plain reason
+  and what to do, or *It stopped: …* when the server would not start. The runtime's own error is
+  in `helper.log` in the cache folder.
+- A pull that fails for no network (no name lookup, no connection, a timeout, the registry busy)
+  or an error the runtime does not explain is tried again by itself: 5 minutes later, then 10,
+  20, 40, and then every hour. A full disk or an image the registry does not have is not tried
+  again: free some space and untick and tick the option, or update Coxswain. Either way the
+  helper looks every minute whether the image has come another way (`podman pull` by hand), and
+  starts reading at once when it has, with no restart.
 - When neither podman nor docker is installed, a [notice](../panels/notices.md) says so once:
   *Read other formats with Apache Tika is on, but neither podman nor docker is installed: install
   one to read OneNote, XPS, CHM and Outlook files.*
@@ -186,7 +195,18 @@ No. Only the files of Tika's kinds are read, once; everything else, and its vect
 
 Look at the *Tika* line at the top of *Settings → Finding files*. *Downloading …*: the
 image is on its way. *Needs podman or docker …*: install one; on the BSDs and illumos it cannot
-run. *It stopped: …*: the runtime's error, such as no space for the image.
+run. *Waiting to download*: the download failed for a passing fault, such as no network, and
+is tried again by itself at the time the line names. *Tika couldn't be downloaded: …*: what
+went wrong in plain words, such as no space left on the disk, and what to do. *It stopped: …*:
+the server would not start, with why.
+
+#### The download failed. Do I have to turn it on again?
+
+No, not for a passing fault. With no network, a timeout or a busy registry, the helper keeps
+Tika waiting and tries again after 5 minutes, then 10, 20, 40 and every hour after, as the *Tika*
+line says (*Trying again at 15:10*). If you pull the image yourself (`podman pull
+docker.io/apache/tika:4.1.0`), the helper notices within a minute and starts reading. Only a full
+disk or an image the registry does not have stays *Off* until you act.
 
 #### Why not run Tika for every file?
 

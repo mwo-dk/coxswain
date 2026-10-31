@@ -879,6 +879,15 @@ pub fn status(
                 tika.note = Some(t!("settings.status.tika_no_runtime"));
                 tika.bad = true;
             }
+            Some(State::Waiting { fault, at }) => {
+                tika.text = t!("settings.status.tika_waiting");
+                tika.note = Some(t!("settings.status.tika_again", "fault" => fault.text(), "time" => crate::i18n::time(*at)));
+            }
+            Some(State::Unpulled(fault)) => {
+                tika.text = t!("settings.status.off");
+                tika.note = Some(t!("settings.status.tika_unpulled", "fault" => fault.text()));
+                tika.bad = true;
+            }
             Some(State::Failed(why)) => {
                 tika.text = t!("settings.status.off");
                 tika.note = Some(t!("settings.status.failed", "why" => why));

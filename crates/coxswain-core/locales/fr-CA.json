@@ -727,6 +727,8 @@
  "settings.out.cloud_where": "vos services infonuagiques",
  "settings.preview_cache_size": "{size} dans le cache; refaits quand une source change; ceux non affichés depuis 30 jours partent d’eux-mêmes",
  "settings.status.down": "Le serveur sur {host} ne répond pas. Est-il démarré?",
+ "settings.status.tika_fault_gone": "le registre n'a pas l'image; un Coxswain plus récent en indique une qu'il a",
+ "settings.status.tika_fault_space": "plus de place sur le disque; libérez-en, puis décochez et recochez l'option",
  "settings.status.tika_no_runtime": "Il faut podman ou docker, qui exécutent son image Linux; sous FreeBSD, les autres BSD et illumos, il ne peut pas tourner.",
  "setup.ask_builtin": "{model}, intégré ({size} à télécharger, {where}; rien ne quitte la machine)",
  "setup.builtin": "Le modèle intégré ({size} à télécharger, tourne {where}; rien ne quitte la machine)",
