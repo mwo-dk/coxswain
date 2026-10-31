@@ -132,12 +132,15 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The three promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item. |
 
-**Sync commit: `2bd2293a6`** (`bin.rs` and `xdg_trash.rs` as on master at that commit). To see
-whether the covered code changed since:
+**Sync commit: the merge of pull request #725** (the fix of #720 and #721; `bin.rs` and
+`xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
 
 ```
-git diff 2bd2293a6 HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
+sync=$(git log -1 --format=%h --grep='(#725)$' origin/master)
+git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
+
+When you move it, write the new commit's hash here.
 
 An empty diff: the model still describes the code; run the check and read the table. A diff
 that touches a function in the table: compare the function with its model action step by step
