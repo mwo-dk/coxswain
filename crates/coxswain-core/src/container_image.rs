@@ -460,6 +460,10 @@ pub(crate) struct Node {
     /// A symbolic link's target until links are resolved.
     #[serde(skip)]
     link: Option<String>,
+    /// A symbolic link resolved to its file, or a file in a folder a link copies: shown as
+    /// that file, not counted again in folder sizes.
+    #[serde(default)]
+    pub linked: bool,
     /// The layer that made it: a whiteout takes away only what lower layers made.
     #[serde(skip)]
     layer: usize,
@@ -525,7 +529,8 @@ fn points_file(path: &Path, store: &Store, name: &str) -> Option<PathBuf> {
 
 /// Where the merged tree of the image at `path` is kept: it changes with any of its layers.
 fn tree_file(path: &Path, o: &Opened) -> Option<PathBuf> {
-    let mut part = String::from("image-tree-1");
+    // 2: links marked, so folder sizes count each file once.
+    let mut part = String::from("image-tree-2");
     for (name, packed) in &o.image.layers {
         part.push_str(&format!("\0{name}\0{packed}\0{}", o.store.blob_stamp(name)));
     }
@@ -700,6 +705,7 @@ fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
                 mode: h.mode().unwrap_or(0o644),
                 src: None,
                 link: None,
+                linked: false,
                 layer: l,
             };
             if ty.is_file() || ty.is_gnu_sparse() {
@@ -784,7 +790,7 @@ fn resolve_links(files: &mut BTreeMap<String, Node>) {
         let Some(to) = to else { continue };
         match files.get(&to) {
             Some(n) if !n.dir && n.link.is_none() => {
-                let n = Node { layer: link.layer, modified: link.modified, ..n.clone() };
+                let n = Node { layer: link.layer, modified: link.modified, linked: true, ..n.clone() };
                 files.insert(at.clone(), n);
             }
             Some(n) if n.link.is_some() => {}
@@ -807,7 +813,7 @@ fn resolve_links(files: &mut BTreeMap<String, Node>) {
         copies.push((at.clone(), Node { dir: true, size: 0, src: None, link: None, ..link }));
         for (k, n) in files.range(prefix.clone()..).take_while(|(k, _)| k.starts_with(&prefix)) {
             if n.link.is_none() {
-                copies.push((format!("{at}/{}", &k[prefix.len()..]), n.clone()));
+                copies.push((format!("{at}/{}", &k[prefix.len()..]), Node { linked: true, ..n.clone() }));
             }
             if files.len() + copies.len() > FILES_MAX {
                 return;
@@ -1175,6 +1181,27 @@ pub(crate) mod tests {
         assert_eq!(v("container_image.ports").as_deref(), Some("80/tcp"));
         assert_eq!(title(&img).as_deref(), Some("demo:1"));
         assert!(crate::archive::read_only(&img));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Links show as their files, but a folder's size counts each file once: alpine's bin/ of
+    /// busybox applets is busybox's size, not busybox's times the links to it.
+    #[test]
+    fn folder_sizes_count_a_linked_file_once() {
+        let dir = crate::pictures::tests::folder("image-link-sizes");
+        let layer = tar_of(&[
+            ("bin/", b""), ("bin/busybox", b"0123456789"), ("bin/ls -> busybox", b""), ("bin/cat -> /bin/busybox", b""),
+            ("usr/", b""), ("usr/bin -> /bin", b""), ("etc/", b""), ("etc/os", b"alpine"),
+        ]);
+        let img = dir.join("alpine.tar");
+        std::fs::write(&img, docker_tar(&[layer])).unwrap();
+        let size = |inner: &str, name: &str| {
+            crate::archive::list_in(&img, inner).unwrap().into_iter().find(|e| e.name == name).map(|e| e.size)
+        };
+        assert_eq!(size("bin", "ls"), Some(10), "a link shows as its file");
+        assert_eq!(size("", "bin"), Some(10));
+        assert_eq!(size("", "usr"), Some(0), "a link to a folder adds nothing");
+        assert_eq!(size("", "etc"), Some(6));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

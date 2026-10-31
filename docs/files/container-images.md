@@ -88,7 +88,9 @@ does:
 - A symbolic link shows as what it leads to inside the image: a link to a file as that file,
   a link to a folder (`/bin -> usr/bin`) as a folder with the same contents. An absolute target
   starts at the image's top, and `..` never leads above it. Links to nothing, round in circles
-  (more than 40 steps) or to a folder they are in are left out.
+  (more than 40 steps) or to a folder they are in are left out. A folder's size counts a link
+  as nothing, as `du` does: alpine's `bin/`, where most programs are links to `busybox`, is about
+  busybox's size, not busybox's size once per link; the link itself still shows its file's size.
 - A hard link is the file it names, when that file comes before it in the image.
 - Devices and pipes are left out.
 
@@ -159,7 +161,9 @@ An image that changed (another size or date) is read again, and what was kept of
 is not used. Kept lists, trees and places count together: 256 at most, the oldest go first;
 *Settings → Disk use* clears them with the copies to look at
 ([Where things are kept](../reference/where-things-are-kept.md)). A tree whose names alone are
-more than 64 MB is not kept: that image is read again each run.
+more than 64 MB is not kept: that image is read again each run. Trees kept before 2.36.0 are
+made again once, each the first time its image is opened, so their folder sizes count links as
+above.
 
 ## In search
 
