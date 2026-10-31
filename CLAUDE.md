@@ -299,3 +299,7 @@ an archive opened as a folder, git branches. Record them in the same sandbox wit
   `<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/<name>.png"><img src="../screenshots/<name>.gif" alt="…"></picture>`,
   with an alt text that says what happens.
 - The README carries two at most (Find and Ask); the rest go on their feature's docs page.
+
+## Workers
+
+Claude Code orchestrates. Mechanical steps may go to other workers: local models, OpenCode, Codex. They are routed through the user's `harness` skill, which keeps the routing, the caps and the statistics outside this repository. `AGENTS.md` is this file, so every worker reads the same rules. A worker's change is checked like any other: by tests, then by Claude reading the diff.
