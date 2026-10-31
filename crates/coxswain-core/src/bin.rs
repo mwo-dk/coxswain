@@ -1383,7 +1383,9 @@ mod tests {
     }
 
     /// A stray (no info file, or one that does not parse) goes with Empty, but not a file that
-    /// took its name after the listing.
+    /// took its name after the listing. Unix: the freedesktop.org bin's systems, where a file
+    /// is told by its inode.
+    #[cfg(unix)]
     #[test]
     fn bin_empty_takes_strays_it_saw_only() {
         let d = crate::fs::Scratch::named("bin-strays");
