@@ -1,0 +1,1 @@
+| **Disk use's Remove on `coxswain-replace-…/` works at once.** The undo copies of a find and replace whose app has ended went only once they were ten minutes old, and Remove did nothing until then, without a word; now a run locks its folder before giving it its name, so one nobody holds goes at once. | [Find and replace](files/find-and-replace.md#undo) |
