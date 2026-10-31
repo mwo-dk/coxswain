@@ -83,10 +83,22 @@ These rules hold for every contributor and every Claude session in this reposito
   refuses (exit 4, listing them) while the new version's milestone has open issues, except those
   labelled `post-release` or titled "After the release…". Close them or move them to a later
   milestone; `--open-issues-ok` releases anyway, the owner's decision only.
+- **Take an issue before starting it.** Several people and sessions work on one milestone at
+  once. Start only on an issue that has no assignee and no open pull request naming it
+  (`gh pr list --search "<n>"`), and assign it to yourself first
+  (`gh issue edit <n> --add-assignee @me`; without the rights for that, comment "Taking this").
+  An assigned issue belongs to its assignee. A pull request is finished on its own (`Closes #n`,
+  its changelog row, its docs), so someone else can take it over if you stop.
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
   pass on Linux, macOS and Windows, squash merge only. Work on a branch, open the PR with
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
   The squash commit title is what lands on `master`, so make the PR title a good commit title.
+- **Every pull request is reviewed before it merges.** A reviewer agent that did not write it
+  reads the diff and the code it touches and hunts for bugs; its findings are fixed or answered
+  before auto-merge goes on. A small change gets a mid-tier model (Sonnet); a risky one gets the
+  strongest (Fable): the bin, archives, the search helper, the store, and anything that deletes,
+  moves or overwrites files. Before a release, one short review pass covers the release as a
+  whole.
 - **Watch every PR you open until it has merged.** Auto-merge hides failures: follow the checks
   (`gh pr checks <n> --watch`), and when one fails read `gh run view <id> --log-failed`, fix,
   push, and watch again. Windows is the usual one (path separators, `;` in path lists, files
