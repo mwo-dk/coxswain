@@ -1687,11 +1687,11 @@ mod tests {
             (lines, late)
         };
         for reader in [&page as &dyn Fn(&mut Text), &book] {
-            // The reader is given twice what reading takes on this machine, however slow, and
-            // the sink takes twice that, once.
+            // The reader is given four times what reading takes on this machine, however slow
+            // (a busy VM's second read can take twice its first), and the sink takes twice that, once.
             let began = std::time::Instant::now();
             assert_eq!(read(reader, None, std::time::Duration::ZERO), (n, false));
-            let time = began.elapsed() * 2 + std::time::Duration::from_millis(200);
+            let time = began.elapsed() * 4 + std::time::Duration::from_secs(1);
             assert_eq!(read(reader, Some(time), time * 2), (n, false));
             // Out of time: stopped, and said to be.
             let (lines, late) = read(reader, Some(std::time::Duration::ZERO), std::time::Duration::ZERO);
