@@ -36,7 +36,7 @@ With the mouse ([The mouse](mouse.md)):
 
 | Mouse | Desktop app | Terminal app |
 |---|---|---|
-| Right-click | Marks or unmarks (details and thumbnails views) | Marks or unmarks |
+| Right-click | Marks or unmarks when *Settings → Behaviour → Right-click* says *Marks it* (details and thumbnails views); by default it opens the [action menu](action-menu.md), and **Ctrl+right-click** marks | Marks or unmarks |
 | Ctrl-click (Cmd-click on a Mac) | Marks or unmarks, in every view | – |
 | Shift-click | Marks the range from the cursor to the click (details view) | – |
 
@@ -80,7 +80,7 @@ desktop app's, adds a marked folder's size once it is measured, and nothing for 
 
 #### Why did `+` not mark any folders?
 
-Groups mark files only, as in NC. Mark folders one by one with **Insert** or a right-click.
+Groups mark files only, as in NC. Mark folders one by one with **Insert** or **Ctrl+click** (a right-click in the terminal app).
 
 #### Why does typing `+` go to the command line?
 
@@ -115,8 +115,9 @@ tabs in the desktop app keeps each tab's marks.
 
 #### Right-click does not mark in the columns view. Why?
 
-The columns view marks with Ctrl-click (Cmd-click on a Mac) only. Right-click marks in the
-details and thumbnails views, and in the terminal app.
+The columns view marks with Ctrl-click (Cmd-click on a Mac) only. When *Right-click* is set to
+marking, a right-click marks in the details and thumbnails views, and in the terminal app, which
+marks by default. The desktop app opens the [action menu](action-menu.md) by default.
 
 #### Does `?` match a letter like "æ"?
 

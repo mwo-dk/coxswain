@@ -700,6 +700,8 @@ pub struct App {
     /// Find shows how to limit it to the panel's folder: the first few times it opens.
     pub find_hint: bool,
     pub quick: Option<String>,
+    /// The command line was opened on its key (typing jumps to names): letters go to it.
+    pub cmd_open: bool,
     pub show_hidden: bool,
     pub index: Arc<Client>,
     /// Panel rectangles from the last draw, for mouse hits.
@@ -1075,6 +1077,7 @@ impl App {
             hint_stale: true,
             find_hint: false,
             quick: None,
+            cmd_open: false,
             show_hidden,
             index: index.clone(),
             areas: [Rect::default(); 2],
@@ -1443,9 +1446,16 @@ impl App {
             self.quick = Some(c.to_string());
             return self.quick_jump();
         }
-        if let Some(what) = (!self.cmdline.is_empty()).then(|| line_key(key, plain_char)).flatten() {
+        // Esc on an empty command line that was opened on its key closes it.
+        if self.cmd_open && key.code == KeyCode::Esc && self.cmdline.is_empty() {
+            return self.cmd_open = false;
+        }
+        if let Some(what) = (self.cmd_open || !self.cmdline.is_empty()).then(|| line_key(key, plain_char)).flatten() {
             return match what {
-                LineKey::Run => self.run_cmdline(),
+                LineKey::Run => {
+                    self.cmd_open = false;
+                    self.run_cmdline()
+                }
                 LineKey::Erase => drop(self.cmdline.pop()),
                 LineKey::Clear => self.cmdline.clear(),
                 LineKey::Type(c) => self.cmdline.push(c),
@@ -1469,7 +1479,15 @@ impl App {
             return self.status = Some(t!("media.stopping"));
         }
         match (action, plain_char) {
-            (Some(a), _) => self.act(a),
+            (Some(a), _) => {
+                self.cmd_open &= a == Action::CommandLine;
+                self.act(a)
+            }
+            // Typing jumps to a name: the first letter starts a quick search.
+            (None, Some(c)) if self.cfg.type_to_jump(false) => {
+                self.quick = Some(c.to_string());
+                self.quick_jump()
+            }
             (None, Some(c)) => self.cmdline.push(c),
             _ => {}
         }
@@ -1711,6 +1729,7 @@ impl App {
                 p.sort = key;
                 p.resort();
             }
+            Action::CommandLine => self.cmd_open = true,
             Action::CopyPath => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_parent()) {
                     // For the shell that runs the line: fish quotes otherwise.
@@ -4593,7 +4612,7 @@ impl App {
             MouseEventKind::Down(MouseButton::Right) => {
                 self.active = side;
                 let Some(i) = i else { return };
-                if self.cfg.right_click != "menu" {
+                if !self.cfg.right_click_menu(false) {
                     return self.panels[side].toggle_mark(i);
                 }
                 self.panels[side].cursor = i;
@@ -6557,6 +6576,34 @@ mod panel_tests {
         app.cmdline.clear();
         app.on_paste(&format!("'{}' ", f.display()));
         assert!(matches!(&app.dialog, Some(Dialog::Menu { feature: "drag_and_drop", items, .. }) if matches!(&items[0].run, MenuRun::Drop(p, false) if p == &[f.clone()])));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// With typing set to jump, a letter starts a quick search and the command line is on its own key.
+    #[test]
+    fn typing_letters_jumps_and_the_command_line_has_its_key() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-typing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for n in ["alpha", "beta"] {
+            std::fs::write(d.join(n), "x").unwrap();
+        }
+        let cfg = Config { typing: "find".into(), ..Config::default() };
+        let mut app = App::new(cfg, d.clone(), d.clone()).unwrap();
+        let ch = |app: &mut App, c: char| app.key_typed(Key::new(KeyCode::Char(c), false, false, false));
+        ch(&mut app, 'b');
+        assert!(app.cmdline.is_empty() && app.quick.as_deref() == Some("b"));
+        assert_eq!(app.panel().entries[app.panel().cursor].name, "beta");
+        app.key_typed(Key::new(KeyCode::Esc, false, false, false));
+        app.key_typed(Key::new(KeyCode::Char('k'), true, false, false));
+        assert!(app.cmd_open);
+        ch(&mut app, 'l');
+        ch(&mut app, 's');
+        assert_eq!(app.cmdline, "ls");
+        // The default of the terminal app: letters go to the command line.
+        let mut app = App::new(Config::default(), d.clone(), d.clone()).unwrap();
+        ch(&mut app, 'l');
+        assert_eq!(app.cmdline, "l");
         let _ = std::fs::remove_dir_all(&d);
     }
 

@@ -273,7 +273,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         rtl: coxswain_core::i18n::is_rtl(coxswain_core::i18n::language()),
         languages: coxswain_core::i18n::LANGUAGES,
         improve_url: coxswain_core::i18n::IMPROVE_URL,
-        settings: coxswain_core::settings::values(&cfg),
+        settings: coxswain_core::settings::values(&cfg, true),
         options: coxswain_core::settings::OPTIONS,
         sections: coxswain_core::settings::sections(),
         outbound: coxswain_core::settings::outbound(&cfg),

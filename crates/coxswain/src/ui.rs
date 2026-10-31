@@ -568,7 +568,12 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
         // While the line is empty: what Enter does here, and a hint that fits what is under the
         // cursor, dimmed.
         let enter = app.enter_on.as_ref().and_then(|(_, l)| l.as_deref());
-        let said: Vec<&str> = enter.into_iter().chain(app.hint.as_ref().map(|(_, h)| h.as_str())).collect();
+        let mut said: Vec<&str> = enter.into_iter().chain(app.hint.as_ref().map(|(_, h)| h.as_str())).collect();
+        // Typing jumps to names: where the command line is.
+        let open_it = t!("tui.command_line_key", "key" => app.key_label(Action::CommandLine));
+        if said.is_empty() && app.cfg.type_to_jump(false) && !app.cmd_open {
+            said.push(&open_it);
+        }
         if let (false, true, None) = (said.is_empty(), app.cmdline.is_empty(), &app.dialog) {
             let room = (area.width as usize).saturating_sub(prompt.width());
             line.push_span(Span::styled(fit(&said.join(" · "), room), st.add_modifier(Modifier::DIM)));

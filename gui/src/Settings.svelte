@@ -1177,6 +1177,7 @@
           {@render check("show_hidden")}
           {@render check("confirm_delete")}
           {@render choice("right_click", [["mark", t("settings.right_click_mark")], ["menu", t("settings.right_click_menu")]])}
+          {@render choice("typing", [["find", t("settings.typing_find")], ["command", t("settings.typing_command")]])}
           {@render check("hints")}
           <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
           {@render check("folder_sizes")}

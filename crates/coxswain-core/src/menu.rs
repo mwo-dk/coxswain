@@ -230,7 +230,7 @@ impl Action {
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
             // What Coxswain can do, and Settings, from any menu.
-            Features | Settings => true,
+            Features | Settings | CommandLine => true,
             _ => false,
         }
     }

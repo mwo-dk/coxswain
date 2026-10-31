@@ -19,7 +19,7 @@ Every key here is a default. Each one can be changed in `config.toml` under `[ke
 | [The screen](the-screen.md) | The panels, the active panel, the title bar with the version, the status line, the F-key bar (in the terminal app with *12 Settings*), starting in a folder |
 | [Notices and what's new](notices.md) | Tips of what to turn on, what each version brought (*Settings → Overview → What's new*, `coxswain --whats-new`), and the version in the title |
 | [Moving around and going to a folder](moving.md) | Cursor keys, opening, the parent folder, the other panel, refreshing, typing a path |
-| [Quick search](quick-search.md) | **Alt+letter** jumps to a name in the panel |
+| [Quick search](quick-search.md) | Typing letters (desktop app) or **Alt+letter** jumps to a name in the panel; **Ctrl+K** is the command line |
 | [Marking files](marking.md) | **Insert**, `+`, `-`, `*`, marking with the mouse, what works on the marks |
 | [Sorting and hidden files](sorting.md) | **Ctrl+F3** to **Ctrl+F6**, sorting by column header, **Alt+.** |
 | [Tabs, back and forward, one pane or two](tabs-and-panes.md) | Tabs, history, **Ctrl+O**, the splitter |

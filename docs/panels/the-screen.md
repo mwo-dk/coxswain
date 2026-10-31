@@ -30,8 +30,9 @@ bar and the status line tell you, and how to start the apps in the folders you w
 1. Press **Tab** to make the other panel active. The keys act on the active panel, and
    **F5** (copy) and **F6** (move) offer the other panel's folder as the target.
 2. Click in a panel to make it active (both apps).
-3. Type anywhere: characters that are not a key of their own go to the command line
-   ([The command line](../commands/command-line.md)).
+3. Type anywhere: characters that are not a key of their own jump to a name in the active panel
+   ([Quick search](quick-search.md); the desktop app's default) or go to the command line (the
+   terminal app's; **Ctrl+K** in the desktop app, [The command line](../commands/command-line.md)).
 4. Click an F-key in the bottom row (desktop app) to run it, or press the key.
 5. **Ctrl+O** switches the desktop app between one pane and two
    ([Tabs, back and forward, one pane or two](tabs-and-panes.md)); in the terminal app it

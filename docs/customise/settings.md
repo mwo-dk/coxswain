@@ -291,7 +291,8 @@ where Jujutsu is too*) and *Programs* (*Editor*, the viewers and *Terminal*).
 |---|---|---|
 | *Show hidden files when Coxswain starts* | **Alt+.** still switches them at any time ([Sorting and hidden files](../panels/sorting.md)) | `show_hidden` |
 | *Ask before deleting* | Off: **F8** and **Delete** act at once ([Delete](../files/delete.md)) | `confirm_delete` |
-| *Right-click* | *Marks it (Norton Commander)* or *Opens the action menu (a file explorer)*; Ctrl+right-click does the other in the desktop app ([The action menu](../panels/action-menu.md)) | `right_click` |
+| *Right-click* | *Marks it (Norton Commander)* or *Opens the action menu (a file explorer)*; Ctrl+right-click does the other in the desktop app. Unset: the menu in the desktop app, marking in the terminal app ([The action menu](../panels/action-menu.md)) | `right_click` |
+| *Typing letters* | *Jump to a name (a file explorer)* or *Go to the command line (Norton Commander)*. Unset: jumping in the desktop app, the command line in the terminal app; with jumping, the command line is on **Ctrl+K** ([Quick search](../panels/quick-search.md)) | `typing` |
 | *Show hints* | One short hint on the status line that fits what is under the cursor, each three times. *Show the hints again* (desktop app; `coxswain --hints reset` in a terminal) brings them back ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | `hints` |
 | *Measure folder sizes* | Folders show their whole size, measured in the background. The desktop app's columns menu switches it too ([Folder sizes](../panels/folder-sizes.md)) | `folder_sizes` |
 | *Open disk images, CHM and CBR like folders* | **Enter** opens .iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim and raw .img images, .chm help files and .cbr comics like folders, read-only, with an installed 7-Zip; never mounted. Off by default ([Disk images](../files/disk-images.md)) | `[archive] disk_images` |

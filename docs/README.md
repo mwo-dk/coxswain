@@ -66,7 +66,7 @@ mindmap
 | [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar (*12 Settings* at its right end in the terminal app), archives shown in the pane, starting in a folder |
 | [Notices and what's new](panels/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
-| [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
+| [Quick search](panels/quick-search.md) | Type letters (desktop app) or Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
 | [Sorting and hidden files](panels/sorting.md) | Ctrl+F3 to Ctrl+F6, headers, the rules, Alt+. and show_hidden |
 | [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O; in the terminal app the last output, with *Panels hidden · any key brings them back*), the splitter |

@@ -3,7 +3,7 @@
 # The mouse
 
 Coxswain is made for the keyboard, but the mouse works in both apps: click to move, double-click
-to open, right-click to mark. The desktop app adds dragging, the path bar, the F-key buttons
+to open, right-click for the action menu (desktop app) or to mark (terminal app). The desktop app adds dragging, the path bar, the F-key buttons
 and bars to resize.
 
 ![The desktop app: panes, sidebar, path bars, F-key buttons and the bars between them](../screenshots/gui-details.png)
@@ -15,8 +15,8 @@ and bars to resize.
 |---|---|---|
 | Click | Moves the cursor there and makes the panel active | The same |
 | Double-click | Opens (a folder or archive in the panel, a file in its program) | The same |
-| Right-click | Marks or unmarks, and makes the panel active; with *Right-click* set to the menu, opens the [action menu](action-menu.md) | Marks or unmarks, in the details and thumbnails views; with *Right-click* set to the menu, opens the [action menu](action-menu.md) |
-| Ctrl+right-click | – | The other of the two: the action menu, or marking when right-click opens the menu |
+| Right-click | Marks or unmarks, and makes the panel active; with *Right-click* set to the menu, opens the [action menu](action-menu.md) | Puts the cursor on the row and opens the [action menu](action-menu.md); with *Right-click* set to marking, marks or unmarks (details and thumbnails views) |
+| Ctrl+right-click | – | The other of the two: marking, or the action menu when *Right-click* is set to marking |
 | **⋯** at the end of a row (the corner of a thumbnail) | – | Opens the [action menu](action-menu.md) on that row; shown on the row under the mouse and the cursor's |
 | Wheel | Moves the cursor of the panel under the mouse by three | Scrolls the list |
 | Ctrl-click (Cmd-click on a Mac) | – | Marks or unmarks, in every view |
@@ -36,7 +36,7 @@ In the desktop app's columns view, a click in a parent column or in the peek col
 that folder with the cursor on the entry you clicked ([Views](views.md)).
 
 Help (**F1**) in the desktop app has the mouse in one line: *Mouse: double-click opens ·
-Ctrl-click marks · right-click marks or opens the action menu (Settings → Behaviour →
+Ctrl-click marks · right-click opens the action menu or marks (Settings → Behaviour →
 Right-click), Ctrl+right-click does the other · Shift-click marks a range · middle-click on a
 tab closes it · drag to a pane or another app to copy or move · click the path bar to type a
 path.* The terminal app's F1 has *mouse: click, double-click, right-click marks, wheel
@@ -68,12 +68,15 @@ to select text anyway.
 
 ## Questions
 
-#### Why does right-click mark instead of opening a menu?
+#### Why does right-click mark in the terminal app but open a menu in the desktop app?
 
-That is Norton Commander's way, and it makes marking with the mouse quick. The menu is there
-too: **Shift+F10**, the **⋯** on the row, or **Ctrl+right-click** in the desktop app
-([The action menu](action-menu.md)). To make right-click open it, set *Settings → Behaviour →
-Right-click* to *Opens the action menu* (`right_click = "menu"`); both apps follow it.
+The desktop app opens the action menu, as other file managers do; the terminal app keeps
+Norton Commander's way, where a right-click marks. Marking in the desktop app is **Ctrl+click**
+(Cmd-click on a Mac), **Insert** or **Ctrl+right-click**. To change either, set *Settings →
+Behaviour → Right-click* to *Marks it (Norton Commander)* or *Opens the action menu*
+(`right_click = "mark"` or `"menu"`); each app follows it. Until you set it, the desktop app
+opens the menu and the terminal app marks. Before 2.36.0 the desktop app marked too; a notice
+said so once ([Notices](notices.md)).
 
 #### How do I mark a range with the mouse?
 

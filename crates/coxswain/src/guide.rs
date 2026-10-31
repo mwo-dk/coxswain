@@ -28,6 +28,7 @@ pub struct Guide {
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Row {
     Level(Level),
+    Typing,
     Theme,
     Language,
     Icons,
@@ -41,6 +42,7 @@ fn rows(step: usize) -> Vec<Row> {
         1 => Level::ALL.into_iter().map(Row::Level).collect(),
         2 => [Row::Theme, Row::Language, Row::Icons].into_iter().chain(crate::settings::install_line("nerd-font").map(|_| Row::Font)).collect(),
         3 => vec![Row::Updates],
+        0 => vec![Row::Typing],
         _ => vec![],
     }
 }
@@ -108,6 +110,7 @@ impl App {
                     return self.dialog = Some(Dialog::Guide(g));
                 }
             },
+            Row::Typing => set("typing", if self.cfg.type_to_jump(false) { "command" } else { "find" }.into()),
             Row::Theme => set("tui_theme", next(&THEMES, &self.cfg.theme, back).into()),
             Row::Language => {
                 let all: Vec<&str> = std::iter::once("auto").chain(coxswain_core::i18n::LANGUAGES.iter().map(|l| l.code)).collect();
@@ -159,6 +162,9 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             lines.push(Line::from(Span::styled(t!("guide.panels_more"), dim)));
             lines.push(Line::from(Span::styled(coxswain_core::guide::menu_line(&app.cfg), dim)));
             lines.push(Line::from(Span::styled(coxswain_core::guide::features_line(&app.cfg), dim)));
+            lines.push(Line::from(""));
+            let typing = if cfg.type_to_jump(false) { t!("settings.typing_find") } else { t!("settings.typing_command") };
+            lines.push(row(0, format!("{}: ‹ {typing} ›", t!("setting.typing"))));
         }
         1 => {
             lines.push(para(t!("guide.find_intro", "key" => app.key_label(coxswain_core::config::Action::Search))));
