@@ -97,7 +97,11 @@
     // One block shows both themes: the one asked for.
     if (at === "theme" || at === "tui_theme") themeFor = at;
     await tick();
-    const el = document.getElementById(`opt-${at}`);
+    // Disk use's rows come when they are read: the user's own files are shown once they are.
+    if (at === "disk_yours") await diskRead;
+    await tick();
+    // With none of the user's own files kept, Disk use itself.
+    const el = document.getElementById(`opt-${at}`) ?? (at === "disk_yours" ? document.getElementById("opt-disk") : null);
     if (!el) return;
     for (let d = el.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
     el.scrollIntoView({ block: "center" });
@@ -438,8 +442,9 @@
   let diskSaid = $state("");
   let clearing = $state("");
   let also = $state({ models: false, outside: false });
+  let diskRead = Promise.resolve();
   const loadDisk = () => {
-    invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
+    diskRead = invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
     invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
   };
   const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "own" ? d.kind === "own" || d.kind === "model" : d.kind === kind));
@@ -1284,7 +1289,7 @@
             {#each diskOf("outside") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}
           {#if diskOf("yours").length}
-            <p class="lab">{t("disk.head.yours")}</p>
+            <p class="lab" id="opt-disk_yours" class:flash={flash === "disk_yours"}>{t("disk.head.yours")}</p>
             <p class="hint">{t("disk.yours_hint")}</p>
             {#each diskOf("yours") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}

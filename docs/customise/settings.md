@@ -58,7 +58,7 @@ flowchart LR
    | `coxswain-gui --settings=search` | Finding files |
    | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
-   | `coxswain-gui --settings=models`, `--settings=disk` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded |
+   | `coxswain-gui --settings=models`, `--settings=disk`, `--settings=disk_yours` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded; `disk_yours` scrolled to its *Your own files* |
    | `coxswain-gui --settings=preview_tools`, `--settings=chess_engines` | *Preview tools* under Previews, *Chess engines* under Games |
    | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 
