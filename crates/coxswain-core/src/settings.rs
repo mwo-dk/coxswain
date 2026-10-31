@@ -5,6 +5,8 @@
 //! the terminal app's. Here too: reading and writing the values, where `--settings=<name>`
 //! opens, the search level, the status lines of search, and what can leave the machine.
 
+use std::path::{Path, PathBuf};
+
 use serde::Serialize;
 use serde_json::Value;
 
@@ -1029,9 +1031,37 @@ pub(crate) fn registry(image: &str) -> &str {
     }
 }
 
+/// What an Add box under *Finding files → Folders* adds, in both apps: the folder typed, a
+/// relative one taken from the panel's folder, or from the nearest real folder above it when
+/// the panel is inside an archive or another view; nothing when the box is empty.
+pub fn folder_to_add(panel: &Path, input: &str) -> Option<PathBuf> {
+    let input = input.trim();
+    if input.is_empty() {
+        return None;
+    }
+    let base = panel.ancestors().find(|p| p.is_dir()).unwrap_or(panel);
+    let p = crate::fs::resolve(base, input);
+    Some(crate::fs::canonical(&p).unwrap_or(p))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder typed in an Add box is taken from the panel's folder, or from the real folder
+    /// the archive the panel is in sits in; an empty box adds nothing, not the panel's folder.
+    #[test]
+    fn a_folder_added_is_never_inside_an_archive() {
+        let d = crate::fs::Scratch::named("settings-add-folder");
+        std::fs::create_dir_all(d.join("docs")).unwrap();
+        std::fs::write(d.join("a.zip"), b"PK").unwrap();
+        let real = crate::fs::canonical(&d).unwrap();
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), ""), None);
+        assert_eq!(folder_to_add(&d, "  "), None);
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), "docs"), Some(real.join("docs")));
+        assert_eq!(folder_to_add(&d, "docs"), Some(real.join("docs")));
+        assert_eq!(folder_to_add(&d.join("a.zip"), &real.join("docs").display().to_string()), Some(real.join("docs")));
+    }
 
     #[test]
     fn settings_every_option_is_explained_in_every_language() {

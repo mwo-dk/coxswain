@@ -22,9 +22,10 @@ to add a data disk, or to keep a mail store or other people's papers out of the 
 **Desktop app.** Open Settings (**Ctrl+,**, or start with `coxswain-gui --settings=search`) and go
 to *Finding files → Details → Folders*. It has these lists, each with a field and **Add**:
 
-1. Type or paste a folder in the field under *Folders read* or *Names only*. A relative path is
-   taken from the active panel's folder; an empty field adds the active panel's folder itself
-   (it is shown as the placeholder).
+1. Type or paste a folder in the field under *Folders read* or *Names only* (its grey example
+   is `~/Documents`; `~` is your home folder). A relative path is taken from the active panel's
+   folder, or, when the panel is inside an archive, from the folder the archive is in. An empty
+   field adds nothing.
 2. Press **Add** (or **Enter** in the field).
 3. **Remove** next to a folder takes it off the list.
 4. Under *Left out everywhere*, type a folder name (`Mail`) or a file pattern (`*.log`, `secret*`,
@@ -104,7 +105,8 @@ text_max_size = 52428800   # 50 MB
 ## In the terminal app
 
 The same lists in its Settings: **F12** → *Finding files* → *Folders*. **Enter** on a list opens
-it: each entry with `−`, **Delete** removes one, and the `+ Add` line takes a path you type. The
+it: each entry with `−`, **Delete** removes one, and the `+ Add` line takes a path you type, relative ones as in the desktop app; **Enter** on
+it empty adds nothing. The
 helper starts again with the change. Or edit `config.toml` (its path: `coxswain --config-path`):
 the helper reads the config when it starts, so a change made by hand takes effect at its next
 start (see the questions). `.nosearch` works the same from any app.

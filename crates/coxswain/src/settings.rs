@@ -994,9 +994,7 @@ impl App {
                         let item = if WORDS.contains(&o.name) {
                             new.trim().to_string()
                         } else {
-                            let base = self.panel().dir.clone();
-                            let dir = coxswain_core::fs::resolve(&base, new.trim());
-                            coxswain_core::fs::canonical(&dir).unwrap_or(dir).display().to_string()
+                            cs::folder_to_add(&self.panel().dir, &new).map(|d| d.display().to_string()).unwrap_or_default()
                         };
                         if !item.is_empty() && !items.contains(&item) {
                             items.push(item);
