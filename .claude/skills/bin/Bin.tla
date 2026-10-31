@@ -29,18 +29,26 @@ VARIABLES
   info,    \* info[n]: the place info/<n>.trashinfo's Path names, Claimed (empty file), or None
   wanted,  \* the files the user has not deleted for good or emptied: they must still exist
   pc,      \* pc[a]: the step program a is between
-  loc      \* loc[a]: what program a holds in its variables
+  loc,     \* loc[a]: what program a holds in its variables
+  lock     \* the program holding the bin's .coxswain-lock (fd::hold), or None
 
-vars == <<origin, files, info, wanted, pc, loc>>
+vars == <<origin, files, info, wanted, pc, loc, lock>>
 
 Nowhere(c) == (\A s \in Ss : origin[s] # c) /\ (\A n \in Ns : files[n] # c)
 \* list_in: an info file whose Path parses, and the item it names, both there
 Listed(n) == info[n] \in Ss /\ files[n] # None
 Idle(a) == pc[a] = "idle"
-Fresh == [n |-> 0, s |-> 0, to |-> 0, free |-> FALSE, todo |-> {}]
-Go(a, p, l) == pc' = [pc EXCEPT ![a] = p] /\ loc' = [loc EXCEPT ![a] = l]
-Done(a) == Go(a, "idle", Fresh)
-Emptying(a) == pc[a] \in {"e_file", "e_info", "e_sweep_files", "e_sweep_info"}
+Fresh == [n |-> 0, s |-> 0, to |-> 0, free |-> FALSE, todo |-> {}, strays |-> {}]
+Go(a, p, l) == pc' = [pc EXCEPT ![a] = p] /\ loc' = [loc EXCEPT ![a] = l] /\ UNCHANGED lock
+\* The step ends the operation: the lock, when held, is let go (fd::hold's files dropped).
+Done(a) == /\ pc' = [pc EXCEPT ![a] = "idle"] /\ loc' = [loc EXCEPT ![a] = Fresh]
+           /\ lock' = IF lock = a THEN None ELSE lock
+(* restore_in, delete_in and empty_in begin with fd::hold: flock(2) on the bin's lock file,
+   waiting while another program holds it. The "unlocked" variant is the code before #720. *)
+Free == Variant = "unlocked" \/ lock = None
+Take(a, p, l) == /\ pc' = [pc EXCEPT ![a] = p] /\ loc' = [loc EXCEPT ![a] = l]
+                 /\ lock' = IF Variant = "unlocked" THEN lock ELSE a
+Emptying(a) == pc[a] \in {"e_file", "e_info", "e_sweep_check", "e_sweep_rm", "e_sweep_files", "e_sweep_info"}
 Putting(a) == pc[a] \in {"put_check", "put_claim", "put_write", "put_move", "put_fail"}
 
 Init ==
@@ -50,6 +58,7 @@ Init ==
   /\ wanted = {1}
   /\ pc = [a \in As |-> "idle"]
   /\ loc = [a \in As |-> Fresh]
+  /\ lock = None
 
 (* The user (or any program) saves a new file at a free place: what makes a restore find its
    place taken. A file deleted for good is reused as the new one, so the world stays finite. *)
@@ -59,7 +68,7 @@ Make(s) ==
   /\ LET c == CHOOSE c \in Cs : c \notin wanted /\ Nowhere(c) IN
        /\ origin' = [origin EXCEPT ![s] = c]
        /\ wanted' = wanted \cup {c}
-  /\ UNCHANGED <<files, info, pc, loc>>
+  /\ UNCHANGED <<files, info, pc, loc, lock>>
 
 (* Put: F8 on a file. xdg_trash::put_in (Termux, illumos); the trash crate's move_to_trash
    (everywhere else) takes the same steps in the same order, with a placeholder at files/<n>
@@ -117,8 +126,8 @@ PutFail(a) ==
    (r_check); move_new: hard_link(files/<n>, to), which fails when `to` exists by then or the
    item is gone (r_link); remove_file(files/<n>) (r_unlink); remove_file(info) (r_info). *)
 RestoreStart(a, n, free) ==
-  /\ Idle(a) /\ Listed(n)
-  /\ Go(a, "r_check", [Fresh EXCEPT !.n = n, !.s = info[n], !.free = free])
+  /\ Idle(a) /\ Free /\ Listed(n)
+  /\ Take(a, "r_check", [Fresh EXCEPT !.n = n, !.s = info[n], !.free = free])
   /\ UNCHANGED <<origin, files, info, wanted>>
 
 FirstFree == CHOOSE t \in Ss : origin[t] = None /\ \A u \in Ss : origin[u] = None => t <= u
@@ -164,9 +173,9 @@ RInfo(a) ==
    confirmed by name and size (d_start: from then on it need not exist); remove(p) (d_remove);
    remove_file(info) (d_info). *)
 DeleteStart(a, n) ==
-  /\ Idle(a) /\ Listed(n)
+  /\ Idle(a) /\ Free /\ Listed(n)
   /\ wanted' = wanted \ {files[n]}
-  /\ Go(a, "d_remove", [Fresh EXCEPT !.n = n])
+  /\ Take(a, "d_remove", [Fresh EXCEPT !.n = n])
   /\ UNCHANGED <<origin, files, info>>
 
 DRemove(a) ==
@@ -183,21 +192,27 @@ DInfo(a) ==
   /\ UNCHANGED <<origin, files, wanted>>
 
 (* Empty: bin::empty -> fd::empty_in. list_in lists what is in the bin, which the user confirmed
-   by count and size (e_start); delete_in on that list, item then info (e_file, e_info); then
-   read_dir(files) and remove each entry (e_sweep_files); read_dir(info) and remove_file each
+   by count and size, and read_dir(files) keeps each entry without an info file then, a stray
+   left by a crash (e_start); delete_in on the list, item then info (e_file, e_info); then for
+   each stray symlink_metadata(info) must still fail (e_sweep_check) before remove (e_sweep_rm).
+   Info files without their item stay. The "sweep_all" variant is the code before #720:
+   read_dir(files) and remove each entry (e_sweep_files), read_dir(info) and remove_file each
    (e_sweep_info). *)
 EmptyStart(a) ==
-  /\ Idle(a)
+  /\ Idle(a) /\ Free
   /\ PutDuringEmpty \/ \A b \in As : ~Putting(b)
   /\ LET S == {n \in Ns : Listed(n)} IN
        /\ wanted' = wanted \ {files[n] : n \in S}
-       /\ Go(a, "e_file", [Fresh EXCEPT !.todo = S])
+       /\ Take(a, "e_file", [Fresh EXCEPT !.todo = S,
+                                          !.strays = {n \in Ns : files[n] # None /\ info[n] = None}])
   /\ UNCHANGED <<origin, files, info>>
 
 EFile(a) ==
   /\ pc[a] = "e_file"
   /\ IF loc[a].todo = {}
-       THEN Go(a, "e_sweep_files", [Fresh EXCEPT !.todo = {n \in Ns : files[n] # None}])
+       THEN /\ IF Variant = "sweep_all"
+                 THEN Go(a, "e_sweep_files", [Fresh EXCEPT !.todo = {n \in Ns : files[n] # None}])
+                 ELSE Go(a, "e_sweep_check", [Fresh EXCEPT !.todo = loc[a].strays])
             /\ UNCHANGED files
        ELSE \E n \in loc[a].todo :
             IF files[n] = None
@@ -210,6 +225,20 @@ EInfo(a) ==
   /\ info' = [info EXCEPT ![loc[a].n] = None]
   /\ Go(a, "e_file", [loc[a] EXCEPT !.todo = @ \ {loc[a].n}])
   /\ UNCHANGED <<origin, files, wanted>>
+
+ESweepCheck(a) ==
+  /\ pc[a] = "e_sweep_check"
+  /\ IF loc[a].todo = {} THEN Done(a)
+     ELSE \E n \in loc[a].todo :
+          IF info[n] = None THEN Go(a, "e_sweep_rm", [loc[a] EXCEPT !.n = n])
+          ELSE Go(a, "e_sweep_check", [loc[a] EXCEPT !.todo = @ \ {n}])
+  /\ UNCHANGED <<origin, files, info, wanted>>
+
+ESweepRm(a) ==
+  /\ pc[a] = "e_sweep_rm"
+  /\ files' = [files EXCEPT ![loc[a].n] = None]
+  /\ Go(a, "e_sweep_check", [loc[a] EXCEPT !.todo = @ \ {loc[a].n}])
+  /\ UNCHANGED <<origin, info, wanted>>
 
 ESweepFiles(a) ==
   /\ pc[a] = "e_sweep_files"
@@ -229,6 +258,7 @@ ESweepInfo(a) ==
   /\ UNCHANGED <<origin, files, wanted>>
 
 \* The program dies (or the machine) between two steps: what it held is gone, the disk stays.
+\* flock(2) is let go with the process.
 Crash(a) == ~Idle(a) /\ Done(a) /\ UNCHANGED <<origin, files, info, wanted>>
 
 Next ==
@@ -240,7 +270,8 @@ Next ==
        \/ RCheck(a) \/ RLink(a) \/ RUnlink(a) \/ RInfo(a)
        \/ \E n \in Ns : DeleteStart(a, n)
        \/ DRemove(a) \/ DInfo(a)
-       \/ EmptyStart(a) \/ EFile(a) \/ EInfo(a) \/ ESweepFiles(a) \/ ESweepInfo(a)
+       \/ EmptyStart(a) \/ EFile(a) \/ EInfo(a) \/ ESweepCheck(a) \/ ESweepRm(a)
+       \/ ESweepFiles(a) \/ ESweepInfo(a)
        \/ Crash(a)
 
 Spec == Init /\ [][Next]_vars
@@ -265,4 +296,5 @@ TypeOK ==
   /\ files \in [Ns -> Cs \cup {None}]
   /\ info \in [Ns -> Ss \cup {None, Claimed}]
   /\ wanted \subseteq Cs
+  /\ lock \in As \cup {None}
 ================================================================================

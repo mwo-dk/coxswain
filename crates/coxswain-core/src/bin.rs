@@ -743,7 +743,12 @@ pub(crate) mod fd {
         let strays: Vec<PathBuf> = bins
             .iter()
             .filter(|b| real(b))
-            .flat_map(|b| fs::read_dir(b.dir.join("files")).into_iter().flatten().flatten())
+            .flat_map(|b| {
+                fs::read_dir(b.dir.join("files"))
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+            })
             .map(|e| e.path())
             .filter(|p| fs::symlink_metadata(info_of(p)).is_err())
             .collect();

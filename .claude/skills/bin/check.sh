@@ -2,7 +2,7 @@
 # Model-checks the bin (Bin.tla) with TLC: each promise on its own, the code as it is, and a
 # failing one again under the assumption that nothing is put in the bin while it is emptied.
 # Needs java. The checker (tla2tools 1.8.0) is fetched once into .worktrees/tlaplus/, which git
-# ignores. Usage: .claude/skills/bin/check.sh [--variant code|restore_renames|put_moves_first]
+# ignores. Usage: .claude/skills/bin/check.sh [--variant code|restore_renames|put_moves_first|unlocked|sweep_all]
 # Exit 0 when every promise holds, 1 when one fails (the trace is in the log it names), 2 on a
 # tool error.
 set -euo pipefail
@@ -13,7 +13,7 @@ variant=code
 while [ $# -gt 0 ]; do
     case $1 in
         --variant) variant=$2; shift 2 ;;
-        *) echo "usage: $0 [--variant code|restore_renames|put_moves_first]" >&2; exit 2 ;;
+        *) echo "usage: $0 [--variant code|restore_renames|put_moves_first|unlocked|sweep_all]" >&2; exit 2 ;;
     esac
 done
 
