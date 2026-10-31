@@ -13,6 +13,7 @@
  "attrs.bad_mode": "No es un permiso que tome chmod: {mode}. Escribe 644, u+x,go-w o a+X.",
  "attrs.nothing": "Escribe permisos, una fecha o ambos.",
  "attrs.nothing_marked": "Marca los archivos a cambiar o pon el cursor sobre uno.",
+ "bin.busy": "Otro Coxswain está trabajando en la papelera. Prueba de nuevo cuando termine.",
  "bin.no_restore": "macOS no deja que las apps devuelvan archivos de la papelera: cópialos afuera o usa Devolver en el Finder",
  "bin.read_only": "En la papelera no se mueve, renombra ni crea nada: restáuralo o cópialo afuera",
  "blame.click_hint": "Haz clic en el commit de una línea para el historial de su función",

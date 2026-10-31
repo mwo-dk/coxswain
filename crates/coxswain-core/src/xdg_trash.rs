@@ -100,7 +100,7 @@ pub fn restore(name: &str, path: &Path) -> io::Result<()> {
 
 fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let path = std::path::absolute(path)?;
-    let _held = crate::bin::fd::hold(&[crate::bin::fd::Bin::at(trash.to_path_buf())]);
+    let _held = crate::bin::fd::hold(&[crate::bin::fd::Bin::at(trash.to_path_buf())])?;
     let info = trash.join("info").join(format!("{name}.trashinfo"));
     let body = fs::read_to_string(&info)
         .map_err(|_| io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")))?;

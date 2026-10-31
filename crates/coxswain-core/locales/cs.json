@@ -4713,6 +4713,7 @@
  "bin.deleted": "Trvale smazáno: {what}",
  "bin.emptied": "Koš je prázdný",
  "bin.failed": "V koši se nepodařilo vše",
+ "bin.busy": "V koši právě pracuje jiný Coxswain. Zkuste to znovu, až skončí.",
  "bin.no_restore": "macOS aplikacím nedovolí vracet soubory z koše: zkopírujte je ven, nebo použijte Vrátit zpět ve Finderu",
  "bin.not_here": "Funguje jen v koši",
  "bin.read_only": "V koši se nic nepřesouvá, nepřejmenovává ani nevytváří: obnovte nebo zkopírujte ven",

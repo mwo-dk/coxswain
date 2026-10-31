@@ -4623,6 +4623,7 @@
  "bin.deleted": "Deleted {what} for good",
  "bin.emptied": "The bin is empty",
  "bin.failed": "Not everything in the bin could be done",
+ "bin.busy": "Another Coxswain is working in the bin. Try again when it has finished.",
  "bin.no_restore": "macOS gives apps no way to put files back from the bin: copy them out, or use Put Back in Finder",
  "bin.not_here": "This works only in the bin",
  "bin.read_only": "Nothing is moved, renamed or made in the bin: restore it, or copy it out",

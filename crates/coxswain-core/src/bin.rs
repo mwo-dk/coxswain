@@ -334,26 +334,86 @@ pub(crate) mod fd {
         });
     }
 
-    /// The lock file in a bin that a restore, a delete for good or an Empty holds.
+    /// The lock file in a bin that a put, a restore, a delete for good or an Empty holds.
     pub const LOCK: &str = ".coxswain-lock";
 
     /// Held while this program restores, deletes for good or empties `bins`, so no other
     /// Coxswain takes an item away between this one's look at it and its removal, after which
-    /// the item's name may hold a file put in since. Let go when dropped or when the program
-    /// dies. A bin where no lock file can be made goes unlocked.
-    pub fn hold(bins: &[Bin]) -> Vec<fs::File> {
-        bins.iter()
-            .filter(|b| real(b))
-            .filter_map(|b| {
-                let mut o = fs::OpenOptions::new();
-                o.write(true).create(true).truncate(false);
-                #[cfg(unix)]
-                std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW);
-                let f = o.open(b.dir.join(LOCK)).ok()?;
-                f.lock().ok()?;
-                Some(f)
-            })
-            .collect()
+    /// the item's name may hold a file put in since, and no Coxswain's put copies an item in
+    /// meanwhile. Let go when dropped or when the program dies. A bin where no lock file can be
+    /// made goes unlocked. When another Coxswain holds it: `bin.busy`, at once (the terminal
+    /// app runs these on its UI thread).
+    pub fn hold(bins: &[Bin]) -> io::Result<Vec<fs::File>> {
+        lock_all(bins, false)
+    }
+
+    /// `hold` on the home bin, waiting while another Coxswain holds it: for a put, which runs
+    /// as a job. The home bin is the one a put may copy into (from another disk), and a copy
+    /// half made is listed: an Empty then would delete it, and the put the original.
+    pub fn wait_home() -> Vec<fs::File> {
+        let home: Vec<Bin> = crate::dirs::data_dir()
+            .map(|d| Bin::at(d.join("Trash")))
+            .into_iter()
+            .collect();
+        lock_all(&home, true).unwrap_or_default()
+    }
+
+    fn lock_all(bins: &[Bin], wait: bool) -> io::Result<Vec<fs::File>> {
+        let mut held = vec![];
+        for b in bins.iter().filter(|b| real(b)) {
+            let mut o = fs::OpenOptions::new();
+            o.write(true).create(true).truncate(false);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW);
+            let Ok(f) = o.open(b.dir.join(LOCK)) else {
+                continue;
+            };
+            let locked = if wait {
+                f.lock().is_ok()
+            } else {
+                match f.try_lock() {
+                    Ok(()) => true,
+                    Err(fs::TryLockError::WouldBlock) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::WouldBlock,
+                            crate::t!("bin.busy"),
+                        ));
+                    }
+                    Err(_) => false,
+                }
+            };
+            if locked {
+                held.push(f);
+            }
+        }
+        Ok(held)
+    }
+
+    fn busy(e: io::Error) -> Done {
+        Done {
+            failed: vec![e.to_string()],
+            ..Done::default()
+        }
+    }
+
+    /// The item in `files/` at `path` has no item's info file: none, or one that does not parse.
+    fn unlisted(path: &Path) -> bool {
+        fs::read_to_string(info_of(path))
+            .ok()
+            .and_then(|t| parse(&t, None))
+            .is_none()
+    }
+
+    /// What tells one file from another that took its name since.
+    fn id(path: &Path) -> Option<(u64, u64)> {
+        let m = fs::symlink_metadata(path).ok()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            Some((m.dev(), m.ino()))
+        }
+        #[cfg(not(unix))]
+        Some((0, m.len()))
     }
 
     /// A bin folder and the top of the disk it is on, which the paths in its info files are
@@ -591,7 +651,10 @@ pub(crate) mod fd {
     }
 
     pub fn restore_in(bins: &[Bin], paths: &[PathBuf], free_name: bool) -> Done {
-        let _held = hold(bins);
+        let _held = match hold(bins) {
+            Ok(h) => h,
+            Err(e) => return busy(e),
+        };
         let mut done = Done::default();
         for p in paths {
             let Some(item) = find(bins, p) else {
@@ -679,7 +742,8 @@ pub(crate) mod fd {
                         io::ErrorKind::PermissionDenied | io::ErrorKind::Unsupported
                     ) =>
                 {
-                    // The empty file claims `to`: the rename replaces only that.
+                    // No hard link here (Termux, FAT, or Linux's fs.protected_hardlinks on a file
+                    // not ours): the empty file claims `to`, and the rename replaces only that.
                     fs::OpenOptions::new()
                         .write(true)
                         .create_new(true)
@@ -710,7 +774,10 @@ pub(crate) mod fd {
     }
 
     pub fn delete_in(bins: &[Bin], paths: &[PathBuf]) -> Done {
-        let _held = hold(bins);
+        let _held = match hold(bins) {
+            Ok(h) => h,
+            Err(e) => return busy(e),
+        };
         delete_held(bins, paths)
     }
 
@@ -734,13 +801,18 @@ pub(crate) mod fd {
         done
     }
 
-    /// What was listed, and what had no info file then (left by a crash) and still has none.
-    /// Nothing put in while it runs goes: a put writes its info file before it moves the file
-    /// in. Info files without their item stay, as one may be such a put under way.
+    /// What was listed, and the strays: an item with no info file, or one that does not parse
+    /// (left by a crash), then and still, and still the same file. Nothing put in while it runs
+    /// goes: a put, by a move or by a copy, writes its info file before the item is in `files/`,
+    /// and Coxswain's own put waits for the lock. Info files without their item stay, as one may
+    /// be such a put under way.
     pub fn empty_in(bins: &[Bin]) -> Done {
-        let _held = hold(bins);
+        let _held = match hold(bins) {
+            Ok(h) => h,
+            Err(e) => return busy(e),
+        };
         let all: Vec<PathBuf> = list_in(bins).into_iter().map(|i| i.path).collect();
-        let strays: Vec<PathBuf> = bins
+        let strays: Vec<(PathBuf, Option<(u64, u64)>)> = bins
             .iter()
             .filter(|b| real(b))
             .flat_map(|b| {
@@ -750,12 +822,16 @@ pub(crate) mod fd {
                     .flatten()
             })
             .map(|e| e.path())
-            .filter(|p| fs::symlink_metadata(info_of(p)).is_err())
+            .filter(|p| unlisted(p))
+            .map(|p| {
+                let id = id(&p);
+                (p, id)
+            })
             .collect();
         let mut done = delete_held(bins, &all);
         midway();
-        for p in strays {
-            if fs::symlink_metadata(info_of(&p)).is_err() && remove(&p).is_ok() {
+        for (p, was) in strays {
+            if unlisted(&p) && id(&p) == was && remove(&p).is_ok() {
                 done.done += 1;
             }
         }
@@ -1283,6 +1359,53 @@ mod tests {
         empty_in(&bins);
         MIDWAY.set(None);
         assert_eq!(*seen.borrow(), [true, true]);
+    }
+
+    /// While another Coxswain holds the bin, restore, delete for good and Empty say so at once
+    /// and touch nothing: the terminal app runs them on its UI thread.
+    #[test]
+    fn bin_busy_says_so_and_waits_for_nothing() {
+        let d = crate::fs::Scratch::named("bin-busy");
+        let b = bin(&d, &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        let bins = [b.clone()];
+        let other = hold(&bins).unwrap();
+        let a = b.dir.join("files/a.txt");
+        let busy = vec![crate::t!("bin.busy").to_string()];
+        assert_eq!(delete_in(&bins, std::slice::from_ref(&a)).failed, busy);
+        assert_eq!(
+            restore_in(&bins, std::slice::from_ref(&a), true).failed,
+            busy
+        );
+        assert_eq!(empty_in(&bins).failed, busy);
+        assert_eq!(list_in(&bins).len(), 1);
+        drop(other);
+        assert_eq!(empty_in(&bins).done, 1);
+    }
+
+    /// A stray (no info file, or one that does not parse) goes with Empty, but not a file that
+    /// took its name after the listing.
+    #[test]
+    fn bin_empty_takes_strays_it_saw_only() {
+        let d = crate::fs::Scratch::named("bin-strays");
+        let b = bin(&d, &[]);
+        let bins = [b.clone()];
+        fs::write(b.dir.join("files/broken"), "x").unwrap();
+        fs::write(b.dir.join("info/broken.trashinfo"), "not an info file").unwrap();
+        fs::write(b.dir.join("files/swapped"), "old").unwrap();
+        let dir = b.dir.clone();
+        MIDWAY.set(Some(Box::new(move || {
+            // Another program's file takes the stray's name: made first, so a new file.
+            fs::write(dir.join("new"), "new").unwrap();
+            fs::rename(dir.join("new"), dir.join("files/swapped")).unwrap();
+        })));
+        let r = empty_in(&bins);
+        MIDWAY.set(None);
+        assert_eq!(r.done, 1);
+        assert!(!b.dir.join("files/broken").exists());
+        assert_eq!(
+            fs::read_to_string(b.dir.join("files/swapped")).unwrap(),
+            "new"
+        );
     }
 
     /// A bin whose `files` is a link to a folder outside it (a stick with

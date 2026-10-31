@@ -118,6 +118,10 @@ pub fn trash_restores() -> bool {
 ))]
 fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
+    // No other Coxswain deletes or empties between the listing and the move, after which the
+    // name may hold another file.
+    #[cfg(unix)]
+    let _held = crate::bin::fd::hold(&crate::bin::fd::bins())?;
     let want = comparable(path);
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
     // listed wins.

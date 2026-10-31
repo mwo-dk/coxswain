@@ -4525,6 +4525,7 @@
  "bin.deleted": "已永久删除 {what}",
  "bin.emptied": "回收站已清空",
  "bin.failed": "回收站中的操作未能全部完成",
+ "bin.busy": "另一个 Coxswain 正在回收站中工作。请在它完成后重试。",
  "bin.no_restore": "macOS 不让应用从回收站放回文件：请把它们复制出来，或在访达中使用“放回原处”",
  "bin.not_here": "这只能在回收站中使用",
  "bin.read_only": "在回收站中不会移动、重命名或新建任何内容：请还原它，或把它复制出来",

@@ -192,9 +192,10 @@ DInfo(a) ==
   /\ UNCHANGED <<origin, files, wanted>>
 
 (* Empty: bin::empty -> fd::empty_in. list_in lists what is in the bin, which the user confirmed
-   by count and size, and read_dir(files) keeps each entry without an info file then, a stray
-   left by a crash (e_start); delete_in on the list, item then info (e_file, e_info); then for
-   each stray symlink_metadata(info) must still fail (e_sweep_check) before remove (e_sweep_rm).
+   by count and size, and read_dir(files) keeps each entry whose info file is missing or does not
+   parse, a stray left by a crash, with its (dev, ino) (e_start); delete_in on the list, item
+   then info (e_file, e_info); then for each stray its info must still be missing or not parse
+   and its (dev, ino) the same (e_sweep_check) before remove (e_sweep_rm).
    Info files without their item stay. The "sweep_all" variant is the code before #720:
    read_dir(files) and remove each entry (e_sweep_files), read_dir(info) and remove_file each
    (e_sweep_info). *)
@@ -204,7 +205,7 @@ EmptyStart(a) ==
   /\ LET S == {n \in Ns : Listed(n)} IN
        /\ wanted' = wanted \ {files[n] : n \in S}
        /\ Take(a, "e_file", [Fresh EXCEPT !.todo = S,
-                                          !.strays = {n \in Ns : files[n] # None /\ info[n] = None}])
+                                          !.strays = {<<n, files[n]>> : n \in {m \in Ns : files[m] # None /\ info[m] \notin Ss}}])
   /\ UNCHANGED <<origin, files, info>>
 
 EFile(a) ==
@@ -229,15 +230,16 @@ EInfo(a) ==
 ESweepCheck(a) ==
   /\ pc[a] = "e_sweep_check"
   /\ IF loc[a].todo = {} THEN Done(a)
-     ELSE \E n \in loc[a].todo :
-          IF info[n] = None THEN Go(a, "e_sweep_rm", [loc[a] EXCEPT !.n = n])
-          ELSE Go(a, "e_sweep_check", [loc[a] EXCEPT !.todo = @ \ {n}])
+     ELSE \E p \in loc[a].todo :
+          IF info[p[1]] \notin Ss /\ files[p[1]] = p[2]
+            THEN Go(a, "e_sweep_rm", [loc[a] EXCEPT !.n = p[1], !.todo = @ \ {p}])
+            ELSE Go(a, "e_sweep_check", [loc[a] EXCEPT !.todo = @ \ {p}])
   /\ UNCHANGED <<origin, files, info, wanted>>
 
 ESweepRm(a) ==
   /\ pc[a] = "e_sweep_rm"
   /\ files' = [files EXCEPT ![loc[a].n] = None]
-  /\ Go(a, "e_sweep_check", [loc[a] EXCEPT !.todo = @ \ {loc[a].n}])
+  /\ Go(a, "e_sweep_check", loc[a])
   /\ UNCHANGED <<origin, info, wanted>>
 
 ESweepFiles(a) ==

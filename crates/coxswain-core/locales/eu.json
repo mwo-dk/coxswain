@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} betiko ezabatuta",
  "bin.emptied": "Zakarrontzia hutsik dago",
  "bin.failed": "Ezin izan da dena egin zakarrontzian",
+ "bin.busy": "Beste Coxswain bat zakarrontzian ari da lanean. Saiatu berriro amaitzen duenean.",
  "bin.no_restore": "macOSek ez die aplikazioei fitxategiak zakarrontzitik itzultzen uzten: kopiatu kanpora, edo erabili Finderreko Itzuli",
  "bin.not_here": "Zakarrontzian bakarrik dabil",
  "bin.read_only": "Zakarrontzian ez da ezer mugitzen, berrizendatzen edo sortzen: leheneratu edo kopiatu kanpora",

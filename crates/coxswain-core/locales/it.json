@@ -4710,6 +4710,7 @@
  "bin.deleted": "{what} eliminato definitivamente",
  "bin.emptied": "Il cestino è vuoto",
  "bin.failed": "Non tutto nel cestino è riuscito",
+ "bin.busy": "Un altro Coxswain sta lavorando nel cestino. Riprova quando ha finito.",
  "bin.no_restore": "macOS non permette alle app di rimettere i file dal cestino: copiali fuori o usa Ripristina nel Finder",
  "bin.not_here": "Funziona solo nel cestino",
  "bin.read_only": "Nel cestino non si sposta, rinomina o crea nulla: ripristinalo o copialo fuori",
