@@ -1462,14 +1462,20 @@ pub(crate) mod tests {
     #[cfg(unix)]
     #[test]
     fn a_giant_record_is_cut_not_held() {
-        let mut c = Command::new("sh");
-        c.args(["-c", "head -c 3000000 /dev/zero | tr '\\0' a; echo; echo b"]);
+        // A file read by `cat`, not a shell pipeline: OpenBSD's tools made it differently.
+        let f = std::env::temp_dir().join(format!("coxswain-giant-record-{}", std::process::id()));
+        let mut data = vec![b'a'; 3_000_000];
+        data.extend_from_slice(b"\nb\n");
+        std::fs::write(&f, data).unwrap();
+        let mut c = Command::new("cat");
+        c.arg(&f);
         let mut got = vec![];
         let cut = records_within(c, b'\n', Duration::from_secs(30), |r| {
             got.push(r.to_vec());
             true
         })
         .unwrap();
+        let _ = std::fs::remove_file(&f);
         assert!(!cut);
         assert_eq!(got.len(), 2);
         assert!(got[0].len() == RECORD_MOST && got[0].iter().all(|&b| b == b'a'));
