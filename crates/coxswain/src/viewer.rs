@@ -817,7 +817,7 @@ impl Viewer {
                     }
                     None => {}
                 },
-                KeyCode::Char(c) if !key.ctrl && !key.alt => field.push(c),
+                _ if crate::typed(&key).is_some() => field.extend(crate::typed(&key)),
                 _ => {}
             }
             return Outcome::Stay;
@@ -834,10 +834,7 @@ impl Viewer {
         }
         self.seek = None;
         self.said = None;
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(c),
-            _ => None,
-        };
+        let ch = crate::typed(&key);
         let page = self.page.max(1) as isize;
         let file = matches!(self.body, Body::File(_));
         let log = self.is_log();
@@ -1147,6 +1144,20 @@ mod tests {
         while v.busy() {
             v.poll();
         }
+    }
+
+    /// Terminals report Shift+A as `a` with Shift: every text field types the capital.
+    #[test]
+    fn a_search_field_types_capitals_with_shift() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-shift-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("s.txt");
+        std::fs::write(&p, "a\n").unwrap();
+        let mut v = Viewer::open(&p, ["F4", "F3"]).unwrap();
+        v.key(key(KeyCode::Char('/')), None);
+        v.key(Key { code: KeyCode::Char('d'), ctrl: false, alt: false, shift: true }, None);
+        let Some(Typing::Search(s)) = &v.typing else { panic!("no search field") };
+        assert_eq!(s, "D");
     }
 
     #[test]

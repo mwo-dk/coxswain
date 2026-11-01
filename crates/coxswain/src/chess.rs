@@ -670,8 +670,8 @@ impl Viewer {
                 text.pop();
                 sel = 0;
             }
-            KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                text.push(c);
+            _ if crate::typed(&key).is_some() => {
+                text.extend(crate::typed(&key));
                 sel = 0;
             }
             _ => {}
@@ -744,8 +744,8 @@ impl Viewer {
                     text.pop();
                     self.typing = Some((field, text));
                 }
-                KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                    text.push(c);
+                _ if crate::typed(&key).is_some() => {
+                    text.extend(crate::typed(&key));
                     self.typing = Some((field, text));
                 }
                 _ => self.typing = Some((field, text)),
@@ -2081,6 +2081,20 @@ mod tests {
         assert_eq!(at(4, Some(39))[0], "w04 w05 w06 w07");
         // Near the start: nothing scrolls.
         assert_eq!(at(1, Some(6))[0], "w00 w01 w02 w03");
+    }
+
+    /// Terminals report Shift+A as `a` with Shift: the player field types the capital.
+    #[test]
+    fn a_chess_field_types_capitals_with_shift() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-chess-shift-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "[White \"A\"]\n\n1.e4 *\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        v.key(key(KeyCode::Char('/')), None);
+        v.key(Key { code: KeyCode::Char('m'), ctrl: false, alt: false, shift: true }, None);
+        assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
     }
 
     #[test]

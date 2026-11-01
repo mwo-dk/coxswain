@@ -1,0 +1,1 @@
+| **The terminal app keeps capital letters typed with Shift in every text field.** The viewer's search, line and filter fields, the editor's find and replace fields and the chess pickers turned `D` into `d` on terminals that report Shift as a modifier. | [Viewer](previews/README.md) |
