@@ -126,8 +126,10 @@ stays on: nothing is mounted, so nothing needs relabelling.
   or an error the runtime does not explain is tried again by itself: 5 minutes later, then 10,
   20, 40, and then every hour. A full disk or an image the registry does not have is not tried
   again: free some space and untick and tick the option, or update Coxswain. Either way the
-  helper looks every minute whether the image has come another way (`podman pull` by hand), and
-  starts reading at once when it has, with no restart.
+  helper looks whether the image has come another way (`podman pull` by hand): after a minute,
+  then less and less often, every 10 minutes at most. It starts reading at once when it has,
+  with no restart. An app older than 2.36.0 still talking to this helper shows the same words
+  after *It stopped:*.
 - When neither podman nor docker is installed, a [notice](../panels/notices.md) says so once:
   *Read other formats with Apache Tika is on, but neither podman nor docker is installed: install
   one to read OneNote, XPS, CHM and Outlook files.*
@@ -205,7 +207,7 @@ the server would not start, with why.
 No, not for a passing fault. With no network, a timeout or a busy registry, the helper keeps
 Tika waiting and tries again after 5 minutes, then 10, 20, 40 and every hour after, as the *Tika*
 line says (*Trying again at 15:10*). If you pull the image yourself (`podman pull
-docker.io/apache/tika:4.1.0`), the helper notices within a minute and starts reading. Only a full
+docker.io/apache/tika:4.1.0`), the helper notices within 10 minutes at most (a minute, if you do it at once) and starts reading. Only a full
 disk or an image the registry does not have stays *Off* until you act.
 
 #### Why not run Tika for every file?

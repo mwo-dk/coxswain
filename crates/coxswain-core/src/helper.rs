@@ -562,6 +562,11 @@ fn greet(ours: Ours, version: &str, protocol: u32) -> Greet {
     }
 }
 
+/// Whether version `a` comes before `b`.
+pub(crate) fn older(a: &str, b: &str) -> bool {
+    newer(b, a)
+}
+
 /// Whether version `a` comes after `b`: 2.10.0 after 2.9.1.
 fn newer(a: &str, b: &str) -> bool {
     let parts = |v: &str| {
@@ -650,6 +655,8 @@ fn answer(
     let mut out = stream.try_clone()?;
     let mut from = BufReader::new(stream);
     let mut said_hello = false;
+    // The app's version: a reply it could not read is sent in the form it knows.
+    let mut app_version = String::new();
     let mut line = String::new();
     loop {
         line.clear();
@@ -666,6 +673,7 @@ fn answer(
                     return Ok(());
                 }
                 said_hello = true;
+                app_version.clone_from(&version);
                 // An app keeps its line open for as long as it runs.
                 out.set_read_timeout(None)?;
                 match greet(ours, &version, protocol) {
@@ -843,7 +851,7 @@ fn answer(
                     roots,
                     tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
-                    tika: store.and(crate::extract::tika::state()),
+                    tika: store.and(crate::extract::tika::state()).map(|s| s.for_app(&app_version)),
                     transcripts: store.and_then(crate::transcribe::status),
                     outdated: None,
                     changes_left: store.map_or(0, |s| s.changes_left.load(Ordering::Relaxed)),
