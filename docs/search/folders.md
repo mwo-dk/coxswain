@@ -24,8 +24,8 @@ to *Finding files → Details → Folders*. It has these lists, each with a fiel
 
 1. Type or paste a folder in the field under *Folders read* or *Names only* (its grey example
    is `~/Documents`; `~` is your home folder). A relative path is taken from the active panel's
-   folder, or, when the panel is inside an archive, from the folder the archive is in. An empty
-   field adds nothing.
+   folder, or, when the panel is inside an archive, from the folder the archive is in: `.` adds
+   that folder itself. An empty field adds nothing.
 2. Press **Add** (or **Enter** in the field).
 3. **Remove** next to a folder takes it off the list.
 4. Under *Left out everywhere*, type a folder name (`Mail`) or a file pattern (`*.log`, `secret*`,
@@ -116,7 +116,7 @@ start (see the questions). `.nosearch` works the same from any app.
 #### How do I make a folder names-only?
 
 Desktop app: *Settings → Finding files → Details → Folders → Names only*, type or paste the folder and press
-**Add** (or open the folder in the active panel and press **Add** with the field empty). From
+**Add** (or open the folder in the active panel, type `.` and press **Add**). From
 anywhere: put an empty file named `.nosearch` in it. In `config.toml`:
 `names_only = ["/home/me/Mail"]` under `[search]`.
 

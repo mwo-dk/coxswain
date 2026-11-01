@@ -560,8 +560,9 @@ opens with the cursor on that option. See [In the terminal app](#in-the-terminal
 #### How do I add a folder to a list in the terminal app?
 
 The cursor on the list (*Names only*, *Folders read* …), **Enter**: its items open under it, the
-cursor in the *+ Add* field. Type the folder (relative to the active panel's folder, or empty for
-that folder itself) and **Enter**. **↑** to an item and **Delete** removes it. For *Left out
+cursor in the *+ Add* field. Type the folder (relative to the active panel's folder; `.` for that
+folder itself, or for the folder an archive sits in when the panel is inside one) and **Enter**;
+an empty field adds nothing. **↑** to an item and **Delete** removes it. For *Left out
 everywhere* and *Never indexed* you type a name or a pattern (`*.log`) instead.
 
 #### Will Settings mess up my hand-written config?

@@ -1033,13 +1033,15 @@ pub(crate) fn registry(image: &str) -> &str {
 
 /// What an Add box under *Finding files → Folders* adds, in both apps: the folder typed, a
 /// relative one taken from the panel's folder, or from the nearest real folder above it when
-/// the panel is inside an archive or another view; nothing when the box is empty.
+/// the panel is inside an archive or another view (the home folder when none is); nothing when
+/// the box is empty.
 pub fn folder_to_add(panel: &Path, input: &str) -> Option<PathBuf> {
     let input = input.trim();
     if input.is_empty() {
         return None;
     }
-    let base = panel.ancestors().find(|p| p.is_dir()).unwrap_or(panel);
+    let home = crate::dirs::home_dir().unwrap_or_default();
+    let base = panel.ancestors().find(|p| p.is_dir()).unwrap_or(&home);
     let p = crate::fs::resolve(base, input);
     Some(crate::fs::canonical(&p).unwrap_or(p))
 }
@@ -1061,6 +1063,14 @@ mod tests {
         assert_eq!(folder_to_add(&d.join("a.zip/inner"), "docs"), Some(real.join("docs")));
         assert_eq!(folder_to_add(&d, "docs"), Some(real.join("docs")));
         assert_eq!(folder_to_add(&d.join("a.zip"), &real.join("docs").display().to_string()), Some(real.join("docs")));
+        // `.` is the panel's folder, or the one its archive sits in; `~` the home folder.
+        assert_eq!(folder_to_add(&d, "."), Some(real.clone()));
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), "."), Some(real.clone()));
+        let home = crate::dirs::home_dir().unwrap();
+        let home = crate::fs::canonical(&home).unwrap_or(home);
+        assert_eq!(folder_to_add(&d, "~"), Some(home.clone()));
+        // A panel with no real folder above it (a view of its own): relative to home.
+        assert_eq!(folder_to_add(Path::new("no-such-view/x"), "."), Some(home));
     }
 
     #[test]
