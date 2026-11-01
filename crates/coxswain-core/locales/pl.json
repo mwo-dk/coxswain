@@ -682,6 +682,7 @@
  "cloud.online_only": "tylko online, nie pobrano",
  "clouds.goto": "Chmura: {name}",
  "clouds.slow": "Foldery w chmurze nie odpowiedziały na czas, więc nie ma ich na liście: być może zawiesił się montaż chmury",
+ "drives.slow": "Dyski nie odpowiedziały na czas, więc nie ma ich na liście: być może zawiesił się dysk sieciowy",
  "columns.empty": "Pusty folder",
  "common.apply": "Zastosuj",
  "common.cancel": "Anuluj",

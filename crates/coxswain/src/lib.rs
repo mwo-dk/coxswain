@@ -1695,7 +1695,12 @@ impl App {
                     vec![]
                 });
                 // The drives, as the desktop app's sidebar lists them: `C: Windows · 8.6 GB free`.
-                let drives = coxswain_core::machine::drives_within(Duration::from_millis(300)).unwrap_or_default();
+                // A second at most: sysinfo's first look on Windows is slow, and a dead network
+                // drive must not hang the app.
+                let drives = coxswain_core::machine::drives_within(Duration::from_secs(1)).unwrap_or_else(|| {
+                    self.status = Some(t!("drives.slow"));
+                    vec![]
+                });
                 let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None), group: None }];
                 items.extend(drives.into_iter().map(|d| MenuItem { key: String::new(), label: format!("{} · {}", d.label, t!("sidebar.free", "size" => coxswain_core::settings::human(d.free))), run: MenuRun::Goto(side, Some(d.mount)), group: None }));
                 items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)), group: None }));

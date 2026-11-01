@@ -642,6 +642,7 @@
  "cloud.online_only": "bara online, inte hämtad",
  "clouds.goto": "Moln: {name}",
  "clouds.slow": "Molnmapparna svarade inte i tid och finns därför inte i listan: en molnmontering kanske hänger",
+ "drives.slow": "Enheterna svarade inte i tid, så de visas inte: en nätverksenhet kanske har hängt sig",
  "columns.empty": "Tom mapp",
  "common.apply": "Verkställ",
  "common.cancel": "Avbryt",

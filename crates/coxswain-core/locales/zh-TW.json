@@ -591,6 +591,7 @@
  "cloud.online_only": "僅限線上，未下載",
  "clouds.goto": "雲端：{name}",
  "clouds.slow": "雲端資料夾沒有及時回應，因此未列出：可能有雲端掛載停止回應",
+ "drives.slow": "磁碟機沒有及時回應，因此未列出：可能有網路磁碟機停止回應",
  "columns.empty": "空資料夾",
  "common.apply": "套用",
  "common.cancel": "取消",

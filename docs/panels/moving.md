@@ -52,7 +52,7 @@ More on this: [Opening files](../commands/opening-files.md).
 
 | Key | Terminal app | Desktop app |
 |---|---|---|
-| **Alt+F1** | A list *Left panel*: *Type a path…* at the top, then the drives, each with its free space (*System · 339 GB free*; on Windows *C: Windows · 8.6 GB free*, *D:*, a USB stick, a mapped network drive), Termux's phone folders, your [clouds](../organise/clouds.md), the [bin](../files/bin.md) and FreeBSD's boot environments and jails. **Enter** on *Type a path…* opens the dialog *Go to folder:*, filled in with the left panel's folder | The left pane's path bar turns into a text field with its path selected |
+| **Alt+F1** | A list *Left panel*: *Type a path…* at the top, then the drives, each with its free space (*System · 339 GB free*; on Windows *C: Windows · 8.6 GB free*: every drive, USB sticks and mapped network drives too, by letter and label), Termux's phone folders, your [clouds](../organise/clouds.md), the [bin](../files/bin.md) and FreeBSD's boot environments and jails. **Enter** on *Type a path…* opens the dialog *Go to folder:*, filled in with the left panel's folder | The left pane's path bar turns into a text field with its path selected |
 | **Alt+F2** | A list *Right panel*, the same for the right panel | The same for the right pane |
 | **Ctrl+L** | – | The active pane's path bar turns into a text field |
 
@@ -119,8 +119,9 @@ Under **Alt+F1** (left panel) and **Alt+F2** (right panel), right after *Type a 
 drive with its name and free space, as the desktop app's sidebar lists them under *Drives*
 ([Sidebar](../organise/sidebar.md)). On Windows that is the letter and label, *C: Windows · 8.6 GB
 free*; elsewhere *System* for `/`, the others named after their mount point. **Enter** opens the
-drive's top folder in that panel. A drive whose free space does not come back within a moment (a
-network share whose server has gone) leaves the drives out of the list that time.
+drive's top folder in that panel. When the drives do not answer within a second (a network
+share whose server has gone), the list opens without them and the status line says *Drives did
+not answer in time, so they are not listed: a network drive may be hanging*.
 
 #### Why do Left and Right page instead of moving into folders?
 

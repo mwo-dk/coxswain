@@ -662,6 +662,7 @@
  "cloud.online_only": "en ligne uniquement, non téléchargé",
  "clouds.goto": "Cloud : {name}",
  "clouds.slow": "Les dossiers cloud n'ont pas répondu à temps, ils ne sont donc pas dans la liste : un montage cloud est peut-être bloqué",
+ "drives.slow": "Les lecteurs n’ont pas répondu à temps et ne sont pas listés : un lecteur réseau est peut-être bloqué",
  "columns.empty": "Dossier vide",
  "common.apply": "Appliquer",
  "common.cancel": "Annuler",

@@ -642,6 +642,7 @@
  "cloud.online_only": "linean soilik, deskargatu gabe",
  "clouds.goto": "Hodeia: {name}",
  "clouds.slow": "Hodeiko karpetek ez dute garaiz erantzun, eta ez daude zerrendan: baliteke hodei-muntaketa bat zintzilik egotea",
+ "drives.slow": "Unitateek ez dute garaiz erantzun, eta ez daude zerrendan: agian sareko unitate bat blokeatuta dago",
  "columns.empty": "Karpeta hutsa",
  "common.apply": "Aplikatu",
  "common.cancel": "Utzi",
