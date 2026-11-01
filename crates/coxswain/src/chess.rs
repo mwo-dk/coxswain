@@ -717,6 +717,7 @@ impl Viewer {
     fn pick_key(&mut self, key: Key) -> Outcome {
         let Some((mut text, mut sel)) = self.picking.take() else { return Outcome::Stay };
         let list = self.pick_list(&text);
+        let typed = crate::typed(&key);
         match key.code {
             KeyCode::Esc => return Outcome::Stay,
             KeyCode::Enter => {
@@ -731,8 +732,8 @@ impl Viewer {
                 text.pop();
                 sel = 0;
             }
-            KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                text.push(c);
+            _ if typed.is_some() => {
+                text.extend(typed);
                 sel = 0;
             }
             _ => {}
@@ -790,6 +791,7 @@ impl Viewer {
             return Outcome::Stay;
         }
         if let Some((field, mut text)) = self.typing.take() {
+            let typed = crate::typed(&key);
             match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter => {
@@ -809,8 +811,8 @@ impl Viewer {
                     text.pop();
                     self.typing = Some((field, text));
                 }
-                KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                    text.push(c);
+                _ if typed.is_some() => {
+                    text.extend(typed);
                     self.typing = Some((field, text));
                 }
                 _ => self.typing = Some((field, text)),
@@ -2154,6 +2156,23 @@ mod tests {
         assert_eq!(at(4, Some(39))[0], "w04 w05 w06 w07");
         // Near the start: nothing scrolls.
         assert_eq!(at(1, Some(6))[0], "w00 w01 w02 w03");
+    }
+
+    /// Terminals report Shift+A as `a` with Shift: the player field types the capital.
+    #[test]
+    fn a_chess_field_types_capitals_with_shift() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-chess-shift-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "[White \"A\"]\n\n1.e4 *\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        v.key(key(KeyCode::Char('/')), None);
+        v.key(Key { code: KeyCode::Char('m'), ctrl: false, alt: false, shift: true }, None);
+        assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
+        // Ctrl+letter is no text.
+        v.key(Key { code: KeyCode::Char('x'), ctrl: true, alt: false, shift: false }, None);
+        assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
     }
 
     #[test]

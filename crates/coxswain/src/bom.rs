@@ -347,10 +347,7 @@ impl Viewer {
 
     /// Handles a key. `quit` is whether the key is bound to Quit.
     pub fn key(&mut self, key: Key, quit: bool) -> Outcome {
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let ch = crate::typed(&key);
         if self.typing {
             match (key.code, ch) {
                 (KeyCode::Enter | KeyCode::Esc | KeyCode::Down | KeyCode::Tab, _) => self.typing = false,
