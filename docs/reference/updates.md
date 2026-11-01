@@ -87,7 +87,9 @@ It is worked out from where the program is installed:
 The Windows desktop installer lands where a download would, so its folder does not show who ran
 it. WinGet keeps a record of each package it installs (`installed.db` under its own folder in
 `%LOCALAPPDATA%`); when that lists `mwo-dk.Coxswain`, the desktop app names `winget upgrade
-mwo-dk.Coxswain`. Coxswain reads that file once when it starts; it does not run `winget`. Its WinGet
+mwo-dk.Coxswain`. WinGet keeps that record after `winget uninstall`, so if you uninstalled it
+with WinGet and then ran the installer yourself, the hint still names `winget upgrade`. Coxswain
+reads that file once when it starts; it does not run `winget`. Its WinGet
 package, `mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
 `mwo-dk.Coxswain.Terminal` is on WinGet. There is no Arch (AUR) package yet.
 
