@@ -1,0 +1,1 @@
+| **Emptying a full bin takes seconds, not minutes.** Empty, delete for good and restore read the whole bin again for each item: 3400 items took 42 seconds on Linux, and on a phone in Termux minutes and gigabytes of memory, until Android stopped Termux. Each item is now read alone. | [The bin](files/bin.md#restore-delete-for-good-empty) |

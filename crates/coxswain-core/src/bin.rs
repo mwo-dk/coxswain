@@ -563,40 +563,38 @@ pub(crate) mod fd {
             };
             for e in rd.flatten() {
                 let file = e.file_name().to_string_lossy().into_owned();
-                // `.`, `..` or nothing would name `files` or the bin itself.
-                let Some(name) = file
-                    .strip_suffix(".trashinfo")
-                    .filter(|n| !["", ".", ".."].contains(n))
-                else {
-                    continue;
-                };
-                let path = b.dir.join("files").join(name);
-                if fs::symlink_metadata(&path).is_err() {
-                    continue;
+                if let Some(name) = file.strip_suffix(".trashinfo") {
+                    out.extend(item(b, name));
                 }
-                // Read whole even when not UTF-8 (an older program's raw `Path=`): listed, so
-                // counted and seen before an Empty.
-                let Some((origin, deleted)) = fs::read(e.path())
-                    .ok()
-                    .and_then(|t| parse(&String::from_utf8_lossy(&t), b.top.as_deref()))
-                else {
-                    continue;
-                };
-                let (is_dir, is_symlink, size) = sized(&path, deleted);
-                out.push(Item {
-                    name: origin
-                        .file_name()
-                        .map_or_else(|| name.to_string(), |n| n.to_string_lossy().into_owned()),
-                    path,
-                    origin,
-                    deleted,
-                    is_dir,
-                    is_symlink,
-                    size,
-                });
             }
         }
         out
+    }
+
+    /// The item `name` of bin `b`: its info file, read, and its item in `files/`.
+    fn item(b: &Bin, name: &str) -> Option<Item> {
+        // `.`, `..` or nothing would name `files` or the bin itself.
+        if ["", ".", ".."].contains(&name) {
+            return None;
+        }
+        let path = b.dir.join("files").join(name);
+        fs::symlink_metadata(&path).ok()?;
+        // Read whole even when not UTF-8 (an older program's raw `Path=`): listed, so
+        // counted and seen before an Empty.
+        let text = fs::read(b.dir.join("info").join(format!("{name}.trashinfo"))).ok()?;
+        let (origin, deleted) = parse(&String::from_utf8_lossy(&text), b.top.as_deref())?;
+        let (is_dir, is_symlink, size) = sized(&path, deleted);
+        Some(Item {
+            name: origin
+                .file_name()
+                .map_or_else(|| name.to_string(), |n| n.to_string_lossy().into_owned()),
+            path,
+            origin,
+            deleted,
+            is_dir,
+            is_symlink,
+            size,
+        })
     }
 
     /// An info file's `Path` (whole: joined to `top` when relative) and `DeletionDate` (the
@@ -656,9 +654,9 @@ pub(crate) mod fd {
         let b = bins
             .iter()
             .find(|b| path.parent() == Some(b.dir.join("files").as_path()) && real(b))?;
-        list_in(std::slice::from_ref(b))
-            .into_iter()
-            .find(|i| i.path == path)
+        // That item alone: listing the whole bin for each one made Empty and a restore of
+        // many items quadratic.
+        item(b, path.file_name()?.to_str()?).filter(|i| i.path == path)
     }
 
     fn info_of(path: &Path) -> PathBuf {
@@ -1353,6 +1351,21 @@ mod tests {
         assert_eq!(l.len(), 1);
         assert_eq!(l[0].origin, Path::new("/y/a.txt"));
         assert_eq!(fs::read_to_string(&l[0].path).unwrap(), "new");
+    }
+
+    /// Empty looks at each item alone, not by listing the whole bin again for each: 8 times
+    /// the items cost about 8 times the work, not 64 (3400 items took minutes on a phone).
+    #[test]
+    fn bin_empty_is_linear() {
+        let d = crate::fs::Scratch::named("bin-empty-linear");
+        let empty = |n: usize| {
+            let names: Vec<String> = (0..n).map(|i| format!("f{i}")).collect();
+            let items: Vec<(&str, &str, &str)> =
+                names.iter().map(|n| (n.as_str(), "/x/f", "2026-10-01T12:00:00")).collect();
+            let b = bin(&d, &items);
+            assert_eq!(empty_in(std::slice::from_ref(&b)).done, n);
+        };
+        crate::assert_costs_at_most(20, || empty(150), || empty(1200));
     }
 
     /// Between its look at an item and its removal, a delete for good or an Empty holds the
