@@ -37,7 +37,7 @@ sys-locale = "0.3.2"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 rusqlite = { version = "0.40.2", features = ["bundled", "hooks"] }
 quick-xml = "0.42.0"
-mail-parser = "0.11.9"
+mail-parser = "1.0.0"
 encoding_rs = "0.8.42"
 pdf-extract = "0.12.1"
 # The length of a song or a recording, for the hours Transcribe asks about (pure Rust).
