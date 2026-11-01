@@ -1,0 +1,1 @@
+| **A container image's name no longer loses its start in a narrow path bar.** The badge in the path bar cuts the image name with an ellipsis when the bar is short, for instance with the preview pane open, and always shows *Read-only*. | [Container images](files/container-images.md#questions) |
