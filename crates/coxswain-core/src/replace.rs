@@ -449,22 +449,7 @@ fn keep_dir() -> std::io::Result<PathBuf> {
         let making = dir.clone();
         match private_dir(&making) {
             Ok(()) => {
-                let mut o = std::fs::OpenOptions::new();
-                o.write(true).create_new(true);
-                #[cfg(unix)]
-                std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
-                let f = o.open(making.join(".lock"))?;
-                #[cfg(unix)]
-                {
-                    use std::os::fd::AsRawFd;
-                    // SAFETY: the file just made.
-                    if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-                        return Err(std::io::Error::last_os_error());
-                    }
-                    // shortcut: a crash between these lines leaves an empty `.making-…` folder;
-                    // name it in `sweep` if one is ever seen.
-                    std::fs::rename(&making, &dir)?;
-                }
+                let f = locked_in(&making, &dir)?;
                 HELD.lock().map_err(|_| std::io::Error::other("lock"))?.push((dir.clone(), f));
                 return Ok(dir);
             }
@@ -474,6 +459,41 @@ fn keep_dir() -> std::io::Result<PathBuf> {
     Err(last)
 }
 
+/// The folder `making`, just made, given its lock (held from now on) and then, on unix, the name
+/// `dir`. On any fault it goes again, so nothing is left under its passing name; a crash in
+/// between leaves it to `sweep`.
+fn locked_in(making: &Path, dir: &Path) -> std::io::Result<std::fs::File> {
+    let locked = (|| {
+        let mut o = std::fs::OpenOptions::new();
+        o.write(true).create_new(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+        let f = o.open(making.join(".lock"))?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            // SAFETY: the file just made.
+            if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            std::fs::rename(making, dir)?;
+        }
+        #[cfg(not(unix))]
+        let _ = dir;
+        Ok(f)
+    })();
+    if locked.is_err() {
+        let _ = std::fs::remove_dir_all(making);
+    }
+    locked
+}
+
+/// Whether `name` is a folder of undo copies: `coxswain-replace-…`, or one a crash left under its
+/// passing name `.making-coxswain-replace-…`.
+fn kept_name(name: &str) -> bool {
+    name.strip_prefix(".making-").unwrap_or(name).starts_with("coxswain-replace-")
+}
+
 /// Every folder of undo copies in the temporary folder that is this user's own, a live run's
 /// too (Disk use shows them all; its Remove takes only those of runs that ended, by `sweep`).
 pub(crate) fn kept_dirs() -> Vec<PathBuf> {
@@ -481,7 +501,7 @@ pub(crate) fn kept_dirs() -> Vec<PathBuf> {
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|e| e.file_name().to_string_lossy().starts_with("coxswain-replace-"))
+        .filter(|e| kept_name(&e.file_name().to_string_lossy()))
         .filter(|e| {
             std::fs::symlink_metadata(e.path()).is_ok_and(|m| {
                 #[cfg(unix)]
@@ -518,7 +538,8 @@ pub(crate) fn sweep() {
         for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             // This app's own folders are never swept, whatever its locks say (NFS, Solaris).
-            if !name.starts_with("coxswain-replace-") || name.starts_with(&own) {
+            let making = name.starts_with(".making-");
+            if !kept_name(&name) || name.trim_start_matches(".making-").starts_with(&own) {
                 continue;
             }
             let Ok(m) = std::fs::symlink_metadata(e.path()) else { continue };
@@ -528,9 +549,13 @@ pub(crate) fn sweep() {
             let lock = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(e.path().join(".lock"));
             let free = match &lock {
                 // A lock no one holds: its run has ended (`keep_dir` locks a folder before it
-                // gives it this name).
+                // gives it this name). Under its passing name, a run may be between making the
+                // lock and taking it: only one ten minutes old goes.
                 // SAFETY: an open file; the lock, if got, goes with the handle.
-                Ok(f) => (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }) == 0,
+                Ok(f) => {
+                    (!making || f.metadata().is_ok_and(|l| l.mtime() < crate::fs::now() as i64 - 600))
+                        && (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }) == 0
+                }
                 // No lock at all: an older version's folder it was making this moment is left
                 // (it named the folder before locking it); an old one goes.
                 Err(_) => m.mtime() < crate::fs::now() as i64 - 600,
@@ -993,6 +1018,36 @@ mod tests {
                 assert_eq!(plan.skipped.first().map(|s| s.why.clone()), Some(t!("pinned.extra")));
             }
         }
+    }
+
+    /// A folder that could not be locked or named leaves nothing under its passing name; one a
+    /// crash left there is listed in Disk use and swept once it is old and nobody holds it.
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_left_half_made_goes() {
+        let name = format!("coxswain-replace-test-half-{}", std::process::id());
+        let making = std::env::temp_dir().join(format!(".making-{name}"));
+        private_dir(&making).unwrap();
+        // The rename fails: no such folder to put it in.
+        assert!(locked_in(&making, &std::env::temp_dir().join("no-such-folder").join(&name)).is_err());
+        assert!(!making.exists(), "removed again on the fault");
+        // A crash left one: fresh, it is left (a run may be locking it); old, it goes.
+        private_dir(&making).unwrap();
+        std::fs::write(making.join(".lock"), "").unwrap();
+        assert!(kept_dirs().contains(&making));
+        sweep();
+        assert!(making.exists());
+        let lock = std::fs::OpenOptions::new().write(true).open(making.join(".lock")).unwrap();
+        lock.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600)).unwrap();
+        drop(lock);
+        for _ in 0..250 {
+            sweep();
+            if !making.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(!making.exists());
     }
 
     #[cfg(unix)]
