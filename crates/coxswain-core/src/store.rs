@@ -4002,7 +4002,12 @@ fn read_inside(
         .map(|(id, inner)| (inner.clone(), *id))
         .collect();
     let keep = |inner: &str| rule.whole(&inner.split('/').fold(archive.to_path_buf(), |p, part| p.join(part)));
-    let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}", crate::spill::run())));
+    // A folder of its own for each archive read: two read at once (scans of two stores in one
+    // process) would otherwise unpack into one folder, take each other's same-named files and
+    // remove the folder under each other, leaving files read as having no text.
+    static READS: AtomicU64 = AtomicU64::new(0);
+    let n = READS.fetch_add(1, Ordering::Relaxed);
+    let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}-{n}", crate::spill::run())));
     let made = dir.as_ref().filter(|d| std::fs::create_dir_all(d).is_ok());
     #[cfg(unix)]
     if let Some(dir) = made {
@@ -6279,49 +6284,58 @@ mod tests {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
+        // Each connection on a thread of its own, so one that stalls holds up no other; one that
+        // ends or fails before its request is whole is dropped unanswered. Once ended that way,
+        // the old loop read it again and again, and answered no request after it.
         std::thread::spawn(move || {
             for mut c in listener.incoming().flatten() {
-                let (mut got, mut buf) = (Vec::new(), [0u8; 65536]);
-                loop {
-                    let n = c.read(&mut buf).unwrap_or(0);
-                    got.extend_from_slice(&buf[..n]);
-                    let text = String::from_utf8_lossy(&got);
-                    let Some(h) = text.find("\r\n\r\n") else {
-                        continue;
-                    };
-                    let len: usize = text[..h]
-                        .lines()
-                        .find_map(|l| {
-                            l.to_ascii_lowercase()
-                                .strip_prefix("content-length:")?
-                                .trim()
-                                .parse()
-                                .ok()
-                        })
-                        .unwrap_or(0);
-                    if n == 0 || got.len() >= h + 4 + len {
-                        break;
+                std::thread::spawn(move || {
+                    let (mut got, mut buf) = (Vec::new(), [0u8; 65536]);
+                    loop {
+                        let n = match c.read(&mut buf) {
+                            Ok(0) => return,
+                            Ok(n) => n,
+                            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                            Err(_) => return,
+                        };
+                        got.extend_from_slice(&buf[..n]);
+                        let text = String::from_utf8_lossy(&got);
+                        let Some(h) = text.find("\r\n\r\n") else {
+                            continue;
+                        };
+                        let len: usize = text[..h]
+                            .lines()
+                            .find_map(|l| {
+                                l.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")?
+                                    .trim()
+                                    .parse()
+                                    .ok()
+                            })
+                            .unwrap_or(0);
+                        if got.len() >= h + 4 + len {
+                            break;
+                        }
                     }
-                }
-                let text = String::from_utf8_lossy(&got);
-                let v: serde_json::Value =
-                    serde_json::from_str(text.split_once("\r\n\r\n").map_or("", |x| x.1))
-                        .unwrap_or_default();
-                let vectors: Vec<Vec<f32>> = v["input"].as_array().map_or(vec![], |a| {
-                    a.iter()
-                        .map(|t| {
-                            let mut v = vec![0.0f32; 26];
-                            for b in t
-                                .as_str()
-                                .unwrap_or("")
-                                .bytes()
-                                .filter(u8::is_ascii_alphabetic)
-                            {
-                                v[(b.to_ascii_lowercase() - b'a') as usize] += 1.0;
-                            }
-                            v
-                        })
-                        .collect()
+                    let text = String::from_utf8_lossy(&got);
+                    let v: serde_json::Value =
+                        serde_json::from_str(text.split_once("\r\n\r\n").map_or("", |x| x.1))
+                            .unwrap_or_default();
+                    let vectors: Vec<Vec<f32>> = v["input"].as_array().map_or(vec![], |a| {
+                        a.iter()
+                            .map(|t| {
+                                let mut v = vec![0.0f32; 26];
+                                for b in t
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .bytes()
+                                    .filter(u8::is_ascii_alphabetic)
+                                {
+                                    v[(b.to_ascii_lowercase() - b'a') as usize] += 1.0;
+                                }
+                                v
+                            })
+                            .collect()
                 });
                 let openai = text
                     .lines()
@@ -6332,13 +6346,14 @@ mod tests {
                 if v["input"].as_array().is_some_and(|a| a.iter().any(|t| t.as_str().is_some_and(|t| t.contains("REFUSE ME")))) {
                     let reply = r#"{"error":"input refused"}"#;
                     let _ = write!(c, "HTTP/1.1 400 Bad Request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}", reply.len());
-                    continue;
+                    return;
                 }
                 let _ = write!(
                     c,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}",
                     reply.len()
                 );
+                });
             }
         });
         url
