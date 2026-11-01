@@ -115,6 +115,99 @@ def mk_logs():
     return run
 
 
+def mk_big():
+    """Big: a folder of small files and a 16 GB disk image (sparse: it takes no room, and a copy
+    of it skips its zeros), so a copy of both runs long enough to be seen. What the copy puts into
+    Backups goes again."""
+    def run():
+        d = demo("Big")
+        shutil.rmtree(d, ignore_errors=True)          # a run stopped before its undo
+        backups = keep("Backups")()
+        try:
+            (d / "tree").mkdir(parents=True)
+            for i in range(40):
+                (d / "tree" / f"leaf-{i:02}.txt").write_bytes(b"leaf\n" * 2800)
+            with (d / "disk.img").open("wb") as f:
+                f.truncate(16 << 30)
+        except BaseException:
+            shutil.rmtree(d, ignore_errors=True)
+            raise
+        return lambda: (shutil.rmtree(d, ignore_errors=True), backups())
+    return run
+
+
+# The EICAR test file: no virus, but every scanner reports it as one (in two parts, so this
+# file is not taken for it).
+EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR" + "-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+# Containers never run in the sandbox: for the virus scan a stand-in podman, bound over the
+# real one for that scene only, runs the clamscan installed here instead, on a database of
+# EICAR alone that it makes itself, and answers the questions the app asks podman first.
+PODMAN = r'''#!/usr/bin/python3
+import hashlib, os, subprocess, sys, tempfile
+a = sys.argv[1:]
+if a[:2] == ["image", "inspect"]:
+    sys.exit(print(312000000))
+if a[:1] == ["info"]:
+    sys.exit(print("true"))
+if a[:1] != ["run"] or "clamscan" not in a:
+    sys.exit(0)
+at = {}
+for i, x in enumerate(a[:-1]):
+    if x == "--mount":
+        m = dict(kv.split("=", 1) for kv in a[i + 1].replace('"', "").split(",") if "=" in kv)
+        at[m["target"]] = m["source"]
+eicar = "EICAR_TEXT".encode()
+tmp = tempfile.mkdtemp()
+open(f"{tmp}/eicar.hdb", "w").write(f"{hashlib.md5(eicar).hexdigest()}:{len(eicar)}:Eicar-Test-Signature\n")
+src = at["/src"].rstrip("/") + "/"
+names = open(at["/list"] + "/files").read().splitlines()
+open(f"{tmp}/files", "w").write("".join(src + n[5:] + "\n" for n in names if n.startswith("/src/")))
+r = subprocess.run(["clamscan", f"--database={tmp}/eicar.hdb", f"--file-list={tmp}/files", "--no-summary", "--stdout"], capture_output=True, text=True)
+sys.stderr.write(r.stderr)
+for line in r.stdout.splitlines():
+    print("/src/" + line[len(src):].replace(".UNOFFICIAL", "") if line.startswith(src) else line, flush=True)
+sys.exit(r.returncode)
+'''.replace("EICAR_TEXT", EICAR.replace("\\", "\\\\"))
+
+
+def mk_viruses():
+    """The EICAR file and a zip holding it in Downloads, a virus database said to be fresh, and
+    the stand-in podman."""
+    import time, zipfile
+    def run():
+        dl, db = demo("Downloads"), demo(".cache", "coxswain", "clamav")
+        shim = cap.RUNTIME / "podman-stand-in"
+        old_args = os.environ.get("SANDBOX_ARGS")
+        def undo():
+            for f in ("eicar.com", "test-files.zip"):
+                (dl / f).unlink(missing_ok=True)
+            shutil.rmtree(db, ignore_errors=True)
+            shim.unlink(missing_ok=True)
+            if old_args is None:
+                os.environ.pop("SANDBOX_ARGS", None)
+            else:
+                os.environ["SANDBOX_ARGS"] = old_args
+        try:
+            assert shutil.which("clamscan") and shutil.which("podman"), "needs clamscan and podman installed here"
+            (dl / "eicar.com").write_text(EICAR)
+            with zipfile.ZipFile(dl / "test-files.zip", "w") as z:
+                z.writestr("test-files/eicar.com", EICAR)
+                z.writestr("test-files/readme.txt", "Test files for the virus scanner.\n")
+            db.mkdir(parents=True, exist_ok=True)
+            (db / "main.cvd").write_bytes(b"")
+            (db / "updated").write_bytes(b"")
+            os.utime(db / "updated", (time.time() - 3 * 3600,) * 2)
+            shim.write_text(PODMAN)
+            shim.chmod(0o755)
+            real = os.path.realpath(shutil.which("podman") or "/usr/bin/podman")
+            os.environ["SANDBOX_ARGS"] = f"{old_args or ''} --ro-bind {shim} {real}"
+        except BaseException:
+            undo()
+            raise
+        return undo
+    return run
+
+
 START = []                         # the first-run guide is closed before the keys (guide=False: not)
 ROCKET_README = START + ["Down"] * 8
 
@@ -150,6 +243,20 @@ scene("tui-git-facts.png", args=["/home/demo/projects", "/home/demo/projects/roc
 scene("tui-fetch-pull.png", args=["/home/demo/projects/rocket", "/home/demo/projects/website"], keys=["M-d", "wait:2"], setup=mk_diverged())
 scene("tui-long-files-menu.png", args=["/home/demo", "/home/demo/logs"], setup=mk_logs(),
       keys=["Down*13", "S-F10", "Down*60", "Up*2", "Enter"])
+
+# ---- other version controls (demo-home.sh makes kite, glider and lander when cvs, hg and jj are installed)
+scene("cvs-line.png", args=["/home/demo/projects/kite", "/home/demo/projects/rocket"], keys=START + ["Down*2"])
+scene("tui-cvs-ask.png", args=["/home/demo/projects/kite", "/home/demo/projects/rocket"], keys=START + ["C-g"])
+scene("tui-cvs-history.png", args=["/home/demo/projects/kite", "/home/demo/projects/rocket"], keys=START + ["C-g", "Enter", "wait:3"])
+scene("tui-cvs-commit.png", args=["/home/demo/projects/kite", "/home/demo"], keys=START + ["C-g", "Enter", "wait:3", "Down*2", "Enter", "wait:2"])
+scene("tui-hg-line.png", args=["/home/demo/projects/glider", "/home/demo/projects/rocket"], keys=START + ["Down*3", "wait:2"])
+scene("tui-jj-line.png", args=["/home/demo/projects/lander", "/home/demo/projects/rocket"], keys=START + ["Down*3", "wait:2"])
+
+# ---- files
+scene("tui-virus-scan.png", args=["/home/demo/Downloads", "/home/demo/Documents"], setup=mk_viruses(),
+      config="preview.virus_scan = true\npreview.container = \"podman\"\n", keys=START + ["Home", "M-i", "wait:2", "Enter", "wait:4", "q"])
+scene("tui-copy-stop.png", args=["/home/demo/Big", "/home/demo/Backups"], setup=mk_big(),
+      keys=START + ["Down", "IC", "IC", "F5", "Enter", "wait:2"])
 
 # ---- GIFs: the first frame is saved beside as <name>.png
 scene("copy.gif", args=["/home/demo/Documents", "/home/demo/Backups"], record=5.5, setup=keep("Backups"),

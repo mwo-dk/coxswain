@@ -10,7 +10,7 @@ file or folder and **Alt+B** the bookmarks, as folders. It only reads, apart fro
 
 ![The desktop app (Cyber) in ~/projects/lander, a Jujutsu repository without .git, the sidebar hidden: docs and src marked, the Last commit column with 2026-10-15 Ada on docs and src and 2026-10-10 Ada on README.md, and at the right of the pane's footer the line jj xkpqlmnu main with one added and one modified file](../screenshots/jj-line.png)
 
-<!-- screenshot: tui-jj-line.png: The terminal app in Classic blue: lander on the left with the cursor on src, its last commit d337448 2026-10-15 16:20 Ada on the info line and the line jj xkpqlmnu main with its counts in the panel's bottom border, rocket on the right with its git line -->
+![The terminal app in Classic blue: lander on the left with the cursor on src, docs marked added and src modified, src's last commit 147acdc with its date and Ada on the info line and the line jj vsvurszs main with one added and one modified file in the panel's bottom border; rocket on the right with its git line](../screenshots/tui-jj-line.png)
 
 ## Contents
 
