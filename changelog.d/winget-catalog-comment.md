@@ -1,0 +1,1 @@
+| **The update check's docs say what WinGet really keeps.** WinGet keeps its record of a package after `winget uninstall`, so a later hand install of the desktop app can still be told to use `winget upgrade`. | [Updates](reference/updates.md) |
