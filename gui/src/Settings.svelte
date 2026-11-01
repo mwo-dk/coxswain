@@ -70,6 +70,8 @@
   async function set(name, value) {
     const changes = { [name]: value };
     if (!name.startsWith("long_files") && !name.startsWith("search_commit_changes")) return save(changes);
+    // A newer ask on another option: the one waiting goes back to its stored value.
+    if (longChange && longChange.name !== name) keepLong();
     const ask = ++asks;
     // Counting the changes of commits takes seconds with many large repositories: said meanwhile.
     if (name.startsWith("search_commit_changes")) longChange = { why: t("changes.costing"), name, busy: true };
