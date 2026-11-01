@@ -2464,6 +2464,44 @@ pub(crate) fn too_large(name: &str) -> io::Error {
 /// it goes, and copies left by earlier runs go after a day. A locked file needs its password
 /// remembered: `LOCKED` without it.
 pub fn peek(path: &Path) -> io::Result<PathBuf> {
+    let copy = peek_copy(path)?;
+    let mut from = PEEKED_FROM.lock().unwrap_or_else(|e| e.into_inner());
+    from.retain(|(c, _)| *c != copy);
+    from.push((copy.clone(), path.to_path_buf()));
+    // The last few are enough: a view keeps its copy only until the next previews.
+    if from.len() > 32 {
+        from.remove(0);
+    }
+    Ok(copy)
+}
+
+/// Each copy `peek` made, and the path through the archive it came from.
+static PEEKED_FROM: std::sync::Mutex<Vec<(PathBuf, PathBuf)>> = std::sync::Mutex::new(Vec::new());
+
+/// The path through an archive that `copy` (made by `peek`) came from.
+pub fn peeked_from(copy: &Path) -> Option<PathBuf> {
+    let from = PEEKED_FROM.lock().unwrap_or_else(|e| e.into_inner());
+    from.iter().find(|(c, _)| c == copy).map(|(_, p)| p.clone())
+}
+
+/// A new file with `text` in the folder `folder` ("" for the top) of `archive`, under the first
+/// of `name(1)`, `name(2)` … that is free there: never over a file. The name it got.
+pub fn add_text(archive: &Path, folder: &str, name: &dyn Fn(u32) -> String, text: &str) -> io::Result<String> {
+    let have: std::collections::HashSet<String> = items(archive)?.iter().map(|it| it.name.to_string()).collect();
+    let at = |n: &str| if folder.is_empty() { n.to_string() } else { format!("{folder}/{n}") };
+    let n = (1..10_000).find(|&n| !have.contains(&at(&name(n)))).ok_or_else(|| io::Error::other("no free name"))?;
+    let (short, full) = (name(n), at(&name(n)));
+    if !one_name(&short) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, short));
+    }
+    let tmp = run_folder("save-pgn", false)?.join(&short);
+    std::fs::write(&tmp, text)?;
+    let done = add(archive, &[(full, tmp.clone())], password_for(archive, None).as_deref());
+    let _ = std::fs::remove_file(&tmp);
+    done.map(|()| short)
+}
+
+fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
