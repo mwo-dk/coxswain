@@ -32,11 +32,6 @@ toml_edit = "0.25.15"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
-# The disks in the sidebar, where sysinfo knows the system and says which are removable;
-# elsewhere the core reads them (`machine::mounted`): sysinfo's FreeBSD free space is wrong.
-[target.'cfg(any(target_os = "linux", target_os = "macos", windows))'.dependencies]
-sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
-
 # Dragging files out of the window; on Linux and the BSDs GTK's own (`native_drag`).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
 drag = "2.1.1"

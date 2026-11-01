@@ -103,7 +103,8 @@ No sidebar. **Ctrl+B** says *Sidebar is available in the desktop app (coxswain-g
 terminal app shows the git branch and status of a repository in the panel frame
 ([Git in the panels](../panels/git.md)), but it has no list of repositories to go to, pin or
 remove: that list is the desktop app's. Its Settings shows *Git repositories in the sidebar*
-too, for the desktop app. Your [clouds](clouds.md), the [bin](../files/bin.md) and FreeBSD's boot
+too, for the desktop app. Your drives (with their free space, as under *Drives*), your
+[clouds](clouds.md), the [bin](../files/bin.md) and FreeBSD's boot
 environments and jails are under **Alt+F1** and **Alt+F2** there
 ([FreeBSD](../systems/freebsd.md#boot-environments-and-jails)).
 

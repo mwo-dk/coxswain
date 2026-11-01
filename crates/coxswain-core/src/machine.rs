@@ -343,6 +343,124 @@ pub(crate) fn parse_mnttab(text: &str) -> Vec<Mounted> {
         .collect()
 }
 
+/// A drive to go to, as the desktop app's sidebar lists it under *Drives* and the terminal
+/// app's go-to list (Alt+F1, Alt+F2) after *Type a path…*: its name (`C: Windows`, `System`,
+/// `USB`), its mount point, size and free space in bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Drive {
+    pub label: String,
+    pub device: String,
+    pub mount: PathBuf,
+    pub total: u64,
+    pub free: u64,
+    pub removable: bool,
+    pub fstype: String,
+}
+
+/// The mounted drives, named, the system's own mounts left out.
+pub fn drives() -> Vec<Drive> {
+    named(mounted_drives(), cfg!(windows))
+}
+
+/// `drives`, or none when it takes longer than `wait`: a dead network mount can hang the look
+/// at its free space, and the terminal app's go-to list must not hang with it.
+pub fn drives_within(wait: Duration) -> Option<Vec<Drive>> {
+    static LOOKING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    crate::clouds::within(&LOOKING, wait, drives)
+}
+
+/// The mounted file systems as unlabelled drives: from sysinfo on Linux, macOS and Windows,
+/// which also says which are removable.
+#[cfg(any(target_os = "linux", target_os = "macos", windows))]
+fn mounted_drives() -> Vec<Drive> {
+    let list = sysinfo::Disks::new_with_refreshed_list();
+    list.list()
+        .iter()
+        .map(|d| Drive {
+            label: String::new(),
+            device: d.name().to_string_lossy().into_owned(),
+            mount: d.mount_point().to_path_buf(),
+            total: d.total_space(),
+            free: d.available_space(),
+            removable: d.is_removable(),
+            fstype: d.file_system().to_string_lossy().into_owned(),
+        })
+        .collect()
+}
+
+/// The mounted file systems as unlabelled drives: from `mounted` on the BSDs and illumos, which
+/// sysinfo does not know or, on FreeBSD, counts free inodes as free space.
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+fn mounted_drives() -> Vec<Drive> {
+    mounted()
+        .into_iter()
+        .map(|m| Drive {
+            label: String::new(),
+            device: m.device,
+            mount: m.mount,
+            total: m.total,
+            free: m.free,
+            removable: false,
+            fstype: m.fstype,
+        })
+        .collect()
+}
+
+/// None elsewhere (Android: Termux lists the phone's folders instead).
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    windows,
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "illumos",
+    target_os = "solaris"
+)))]
+fn mounted_drives() -> Vec<Drive> {
+    vec![]
+}
+
+/// `list` without empty and system mounts, each device once at its shortest mount point
+/// (subvolumes and bind mounts repeat it), and named: on Windows its letter and label.
+fn named(list: Vec<Drive>, windows: bool) -> Vec<Drive> {
+    let mut out: Vec<Drive> = vec![];
+    let mut sorted: Vec<Drive> = list.into_iter().filter(|d| d.total > 0).collect();
+    sorted.sort_by_key(|d| d.mount.as_os_str().len());
+    for mut d in sorted {
+        // On Windows `device` is the volume's label, which two drives may share (or both lack).
+        if hidden_mount(&d.mount, &d.fstype)
+            || (!windows && out.iter().any(|o| o.device == d.device))
+        {
+            continue;
+        }
+        d.label = if windows {
+            // Every drive is a root there: its letter and label, `C: Windows`, so that a long
+            // label cut short keeps the letter.
+            let letter = d.mount.to_string_lossy().trim_end_matches('\\').to_string();
+            if d.device.is_empty() {
+                letter
+            } else {
+                format!("{letter} {}", d.device)
+            }
+        } else if d.mount.parent().is_none() {
+            crate::t!("place.system")
+        } else {
+            d.mount
+                .file_name()
+                .map_or(d.device.clone(), |n| n.to_string_lossy().into_owned())
+        };
+        out.push(d);
+    }
+    out
+}
+
 /// The disk `path` is on, and where `path` is inside that disk's file system: its UUID (Linux,
 /// macOS) or volume serial (Windows), and the path from the file system's top. `None` when it
 /// cannot be told (tmpfs, network shares).
@@ -562,6 +680,51 @@ mod tests {
                 "/dev/sda2"
             )
         );
+    }
+
+    #[test]
+    fn drives_are_named_once_each_without_system_mounts() {
+        let d = |device: &str, mount: &str, total: u64| Drive {
+            label: String::new(),
+            device: device.into(),
+            mount: PathBuf::from(mount),
+            total,
+            free: 1,
+            removable: false,
+            fstype: "ext4".into(),
+        };
+        let unix = named(
+            vec![
+                d("/dev/sda2", "/home", 9),
+                d("/dev/sda2", "/", 9),
+                d("/dev/sda1", "/boot/efi", 9),
+                d("/dev/sdb1", "/run/media/me/USB", 9),
+                d("none", "/mnt/empty", 0),
+            ],
+            false,
+        );
+        let names: Vec<(&str, &Path)> = unix
+            .iter()
+            .map(|d| (d.label.as_str(), d.mount.as_path()))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                (crate::t!("place.system").as_str(), Path::new("/")),
+                ("USB", Path::new("/run/media/me/USB"))
+            ]
+        );
+        // On Windows each drive is its letter and label, and two may share a label.
+        let win = named(
+            vec![
+                d("Windows", "C:\\", 9),
+                d("", "D:\\", 9),
+                d("Windows", "E:\\", 9),
+            ],
+            true,
+        );
+        let names: Vec<&str> = win.iter().map(|d| d.label.as_str()).collect();
+        assert_eq!(names, ["C: Windows", "D:", "E: Windows"]);
     }
 
     #[test]

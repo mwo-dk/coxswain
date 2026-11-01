@@ -866,8 +866,6 @@ struct Disk {
     total: u64,
     free: u64,
     removable: bool,
-    #[serde(skip)]
-    fstype: String,
 }
 
 /// The mounted disks and their free space. The window asks again every so often, so the
@@ -877,44 +875,8 @@ async fn disks() -> Res<Vec<Disk>> {
     tauri::async_runtime::spawn_blocking(read_disks).await.map_err(|e| e.to_string())
 }
 
-/// The mounted file systems as unlabelled disks: from sysinfo on Linux, macOS and Windows, which
-/// also says which are removable.
-#[cfg(any(target_os = "linux", target_os = "macos", windows))]
-fn mounted_disks() -> Vec<Disk> {
-    let list = sysinfo::Disks::new_with_refreshed_list();
-    list.list().iter().map(|d| Disk { label: String::new(), device: d.name().to_string_lossy().into_owned(), mount: d.mount_point().to_path_buf(), total: d.total_space(), free: d.available_space(), removable: d.is_removable(), fstype: d.file_system().to_string_lossy().into_owned() }).collect()
-}
-
-/// The mounted file systems as unlabelled disks: from the core on the BSDs and illumos, which
-/// sysinfo does not know or, on FreeBSD, counts free inodes as free space.
-#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
-fn mounted_disks() -> Vec<Disk> {
-    coxswain_core::machine::mounted().into_iter().map(|m| Disk { label: String::new(), device: m.device, mount: m.mount, total: m.total, free: m.free, removable: false, fstype: m.fstype }).collect()
-}
-
 fn read_disks() -> Vec<Disk> {
-    let mut out: Vec<Disk> = vec![];
-    // Subvolumes and bind mounts repeat the same device; keep its shortest mount point.
-    let mut sorted: Vec<Disk> = mounted_disks().into_iter().filter(|d| d.total > 0).collect();
-    sorted.sort_by_key(|d| d.mount.as_os_str().len());
-    for mut d in sorted {
-        // On Windows `device` is the volume's label, which two drives may share (or both lack).
-        if coxswain_core::machine::hidden_mount(&d.mount, &d.fstype) || (!cfg!(windows) && out.iter().any(|o| o.device == d.device)) {
-            continue;
-        }
-        d.label = if cfg!(windows) {
-            // Every drive is a root there: its letter and label, `C: Windows`, so that a long
-            // label cut short keeps the letter.
-            let letter = d.mount.to_string_lossy().trim_end_matches('\\').to_string();
-            if d.device.is_empty() { letter } else { format!("{letter} {}", d.device) }
-        } else if d.mount.parent().is_none() {
-            coxswain_core::t!("place.system")
-        } else {
-            d.mount.file_name().map_or(d.device.clone(), |n| n.to_string_lossy().into_owned())
-        };
-        out.push(d);
-    }
-    out
+    coxswain_core::machine::drives().into_iter().map(|d| Disk { label: d.label, device: d.device, mount: d.mount, total: d.total, free: d.free, removable: d.removable }).collect()
 }
 
 /// Before a history opens: the Subversion or CVS server it would be read from, when the user

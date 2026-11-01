@@ -22,7 +22,7 @@ preview, **F3**, **F5** (copy out) and Find work on the files in it as on any ot
 | Where | Desktop app | Terminal app |
 |---|---|---|
 | The sidebar | The *Bin* row, under *Clouds* (and FreeBSD's *Jails*), above the favourites, with what is in it (*3 items · 1.2 MB*). A click opens it in the active tab; a right-click or its **⋯** offers *The bin* and, when it holds something, *Empty the bin* | No sidebar |
-| The go-to list | – | **Alt+F1** (left panel) or **Alt+F2** (right panel): *Bin: 3 items · 1.2 MB*, under *Type a path…* and the clouds |
+| The go-to list | – | **Alt+F1** (left panel) or **Alt+F2** (right panel): *Bin: 3 items · 1.2 MB*, under *Type a path…*, the drives and the clouds |
 | The command list | **F9** → *The bin* | **F9** → *The bin* |
 | A path | `~/@bin` in the path bar (**Ctrl+L**) | `cd ~/@bin` does not work (it is no folder); use the go-to list |
 

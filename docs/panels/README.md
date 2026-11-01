@@ -74,7 +74,7 @@ Show the hints again* (desktop app) or `coxswain --hints reset`.
 | `+` / `-` / `*` | Yes | Yes | Mark group / unmark group / invert marks |
 | **Ctrl+F3** … **Ctrl+F6** | Yes | Yes | Sort by name, extension, time, size |
 | **Alt+.** | Yes | Yes | Hidden files on or off |
-| **Alt+F1** / **Alt+F2** | Types a path in the left / right pane | A list *Left panel* / *Right panel*: *Type a path…*, the clouds, the [bin](../files/bin.md) … | Go to a folder |
+| **Alt+F1** / **Alt+F2** | Types a path in the left / right pane | A list *Left panel* / *Right panel*: *Type a path…*, the drives, the clouds, the [bin](../files/bin.md) … | Go to a folder |
 | **Ctrl+O** | One pane or two | Hides the panels and shows the last command's output; any key brings them back ([more](../commands/command-line.md#the-output-flashed-by-in-the-terminal-app-where-is-it)) | Panels |
 | **Ctrl+T**, **Ctrl+W**, **Ctrl+Tab** | Yes | – | New, close, next tab |
 | **Alt+Left** / **Alt+Right** | Yes | – | Back / forward |

@@ -1684,9 +1684,9 @@ impl App {
             Action::GotoLeft | Action::GotoRight => {
                 let side = (a == Action::GotoRight) as usize;
                 let title = if side == 0 { t!("tui.left_panel") } else { t!("tui.right_panel") };
-                // The cloud accounts, on FreeBSD the boot environments and jails, in Termux the
-                // phone's folders: those to pick, as NC's drive list, under the line that types a
-                // path.
+                // The drives, the cloud accounts, on FreeBSD the boot environments and jails, in
+                // Termux the phone's folders: those to pick, as NC's drive list, under the line
+                // that types a path.
                 let places = coxswain_core::bsd::places();
                 let phone = coxswain_core::termux::storage();
                 // A hung cloud mount must not hang the app: the list comes without them.
@@ -1694,7 +1694,10 @@ impl App {
                     self.status = Some(t!("clouds.slow"));
                     vec![]
                 });
+                // The drives, as the desktop app's sidebar lists them: `C: Windows · 8.6 GB free`.
+                let drives = coxswain_core::machine::drives_within(Duration::from_millis(300)).unwrap_or_default();
                 let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None), group: None }];
+                items.extend(drives.into_iter().map(|d| MenuItem { key: String::new(), label: format!("{} · {}", d.label, t!("sidebar.free", "size" => coxswain_core::settings::human(d.free))), run: MenuRun::Goto(side, Some(d.mount)), group: None }));
                 items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)), group: None }));
                 items.extend(clouds.into_iter().map(|c| MenuItem { key: String::new(), label: t!("clouds.goto", "name" => c.name), run: MenuRun::Goto(side, c.path), group: None }));
                 // The system's bin, with what it holds; on a Mac without Full Disk Access, Finder.

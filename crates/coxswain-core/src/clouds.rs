@@ -16,7 +16,7 @@ pub fn places_within(wait: Duration) -> Option<Vec<Place>> {
     within(&LOOKING, wait, places)
 }
 
-fn within<T: Send + 'static>(
+pub(crate) fn within<T: Send + 'static>(
     busy: &'static AtomicBool,
     wait: Duration,
     look: fn() -> T,
