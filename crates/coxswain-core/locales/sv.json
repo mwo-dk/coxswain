@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "I {archive}",
  "chess.save_ask_go": "Spara",
  "chess.save_archive_gone": "Arkivet partiet kom från är borta: inget sparades.",
+ "chess.save_archive_changed": "Arkivet partiet kom från har ändrats: öppna det igen.",
  "chess.save_folder_bad": "Skriv en fullständig mappsökväg (eller en som börjar med ~).",
  "chess.cbh_cut": "Resten av det här partiet kunde inte läsas från ChessBase-databasen.",
  "chess.cbh_castling": "Utgångsställningen saknade rockadrätter som dess drag använder; de har lagts till.",

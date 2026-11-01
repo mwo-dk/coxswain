@@ -538,6 +538,7 @@
  "chess.save_ask_inside": "{archive} 里面",
  "chess.save_ask_go": "保存",
  "chess.save_archive_gone": "这盘棋所在的压缩包不见了：没有保存任何东西。",
+ "chess.save_archive_changed": "这盘棋所在的压缩包已更改：请重新打开。",
  "chess.save_folder_bad": "请输入完整的文件夹路径（或以 ~ 开头）。",
  "chess.cbh_cut": "无法从 ChessBase 数据库读取这局棋的其余部分。",
  "chess.cbh_castling": "设定的局面缺少其着法用到的王车易位权，已自动补上。",

@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "Pakettiin {archive}",
  "chess.save_ask_go": "Tallenna",
  "chess.save_archive_gone": "Paketti, josta peli tuli, on poissa: mitään ei tallennettu.",
+ "chess.save_archive_changed": "Paketti, josta peli tuli, on muuttunut: avaa se uudelleen.",
  "chess.save_folder_bad": "Kirjoita kansion koko polku (tai ~:lla alkava).",
  "chess.cbh_cut": "Tämän pelin loppua ei voitu lukea ChessBase-tietokannasta.",
  "chess.cbh_castling": "Alkuasemasta puuttui linnoitusoikeuksia, joita sen siirrot käyttävät; ne lisättiin.",

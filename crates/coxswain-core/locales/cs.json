@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Do {archive}",
  "chess.save_ask_go": "Uložit",
  "chess.save_archive_gone": "Archiv, z něhož tato hra pochází, je pryč: nic se neuložilo.",
+ "chess.save_archive_changed": "Archiv, z něhož tato hra pochází, se změnil: otevřete jej znovu.",
  "chess.save_folder_bad": "Zadejte úplnou cestu ke složce (nebo začínající ~).",
  "chess.cbh_cut": "Zbytek této partie se z databáze ChessBase nepodařilo přečíst.",
  "chess.cbh_castling": "Výchozí pozice neměla práva na rošádu, která její tahy používají; byla doplněna.",

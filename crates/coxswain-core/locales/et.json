@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "Faili {archive} sisse",
  "chess.save_ask_go": "Salvesta",
  "chess.save_archive_gone": "Arhiiv, kust see partii tuli, on kadunud: midagi ei salvestatud.",
+ "chess.save_archive_changed": "Arhiiv, kust see partii tuli, on muutunud: ava see uuesti.",
  "chess.save_folder_bad": "Sisesta kausta täielik tee (või ~-ga algav).",
  "chess.cbh_cut": "Selle partii ülejäänud osa ei õnnestunud ChessBase'i andmebaasist lugeda.",
  "chess.cbh_castling": "Algseisul puudusid vangerdusõigused, mida selle käigud kasutavad; need lisati.",

@@ -538,6 +538,7 @@
  "chess.save_ask_inside": "{archive} 裡面",
  "chess.save_ask_go": "儲存",
  "chess.save_archive_gone": "這盤棋所在的壓縮檔不見了：沒有儲存任何東西。",
+ "chess.save_archive_changed": "這盤棋所在的壓縮檔已變更：請重新開啟。",
  "chess.save_folder_bad": "請輸入完整的資料夾路徑（或以 ~ 開頭）。",
  "chess.cbh_cut": "無法從 ChessBase 資料庫讀取這局棋的其餘部分。",
  "chess.cbh_castling": "設定的局面缺少其著法用到的易位權，已自動補上。",

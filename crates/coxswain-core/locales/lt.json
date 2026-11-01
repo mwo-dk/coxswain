@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Į {archive}",
  "chess.save_ask_go": "Įrašyti",
  "chess.save_archive_gone": "Archyvo, iš kurio atkeliavo ši partija, nebėra: nieko neišsaugota.",
+ "chess.save_archive_changed": "Archyvas, iš kurio atkeliavo ši partija, pasikeitė: atidarykite jį iš naujo.",
  "chess.save_folder_bad": "Įveskite visą aplanko kelią (arba prasidedantį ~).",
  "chess.cbh_cut": "Likusios šios partijos dalies nepavyko perskaityti iš ChessBase duomenų bazės.",
  "chess.cbh_castling": "Pradinei pozicijai trūko rokiruotės teisių, kurias naudoja jos ėjimai; jos pridėtos.",

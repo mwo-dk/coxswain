@@ -227,6 +227,11 @@ pub fn save_where(source: &Path, origin: Option<&Origin>, at: &Where, word: &str
         let p = save_beside(source, word, text).map_err(failed)?;
         return Ok(crate::t!("chess.line_saved", "name" => file_name(&p)));
     };
+    // What the caller says is checked against what this copy came from: a forged archive is refused.
+    match self::origin(source)? {
+        Some(real) if real.archive == o.archive && real.inner == o.inner => {}
+        _ => return Err(crate::t!("chess.save_archive_changed")),
+    }
     if !o.archive.is_file() {
         return Err(crate::t!("chess.save_archive_gone"));
     }
@@ -1161,6 +1166,16 @@ mod tests {
         for bad in ["", "  ", "rel/dir"] {
             assert!(save_where(&copy, Some(&o), &Where::Folder(bad.into()), "line", "g").is_err(), "{bad:?}");
         }
+        // A forged origin (another archive, another game) is refused, nothing written.
+        let other = d.join("other/evil.zip");
+        std::fs::copy(&zip, &other).unwrap();
+        let before = archive::list(&other, 100).unwrap().0.len();
+        let forged = Origin { archive: other.clone(), ..o.clone() };
+        assert!(save_where(&copy, Some(&forged), &Where::Inside, "line", "x").is_err());
+        assert!(save_where(&copy, Some(&forged), &Where::Beside, "line", "x").is_err());
+        assert!(save_where(&copy, Some(&Origin { inner: "Other/x.pgn".into(), ..o.clone() }), &Where::Beside, "line", "x").is_err());
+        assert!(save_where(&plain, Some(&o), &Where::Beside, "line", "x").is_err(), "not a peek copy");
+        assert_eq!(archive::list(&other, 100).unwrap().0.len(), before, "nothing written into the forged archive");
         // The archive gone: an error, and nothing in the cache or beside it.
         std::fs::remove_file(&zip).unwrap();
         assert!(origin(&copy).is_err());

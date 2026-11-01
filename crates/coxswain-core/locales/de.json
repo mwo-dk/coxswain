@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "In {archive}",
  "chess.save_ask_go": "Speichern",
  "chess.save_archive_gone": "Das Archiv, aus dem diese Partie stammt, ist weg: nichts wurde gespeichert.",
+ "chess.save_archive_changed": "Das Archiv, aus dem diese Partie stammt, hat sich geändert: öffnen Sie es erneut.",
  "chess.save_folder_bad": "Geben Sie einen vollständigen Ordnerpfad ein (oder einen mit ~).",
  "chess.cbh_cut": "Der Rest dieser Partie konnte aus der ChessBase-Datenbank nicht gelesen werden.",
  "chess.cbh_castling": "Der Ausgangsstellung fehlten Rochaderechte, die ihre Züge nutzen; sie wurden ergänzt.",

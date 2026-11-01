@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Dentro de {archive}",
  "chess.save_ask_go": "Guardar",
  "chess.save_archive_gone": "El archivo del que salió esta partida ya no está: no se guardó nada.",
+ "chess.save_archive_changed": "El archivo del que salió esta partida cambió: abrilo de nuevo.",
  "chess.save_folder_bad": "Escribí la ruta completa de una carpeta (o una que empiece con ~).",
  "chess.cbh_cut": "No se pudo leer el resto de esta partida de la base de datos de ChessBase.",
  "chess.cbh_castling": "La posición inicial no tenía derechos de enroque que usan sus jugadas; se agregaron.",

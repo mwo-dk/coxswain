@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "I {archive}",
  "chess.save_ask_go": "Lagre",
  "chess.save_archive_gone": "Arkivet partiet kom fra, er borte: ingenting ble lagret.",
+ "chess.save_archive_changed": "Arkivet partiet kom fra, er endret: åpne det på nytt.",
  "chess.save_folder_bad": "Skriv en full mappesti (eller en som begynner med ~).",
  "chess.cbh_cut": "Resten av dette partiet kunne ikke leses fra ChessBase-databasen.",
  "chess.cbh_castling": "Utgangsstillingen manglet rokaderettigheter som trekkene bruker; de er lagt til.",

@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Dentro {archive}",
  "chess.save_ask_go": "Salva",
  "chess.save_archive_gone": "L'archivio da cui viene questa partita non c'è più: non è stato salvato nulla.",
+ "chess.save_archive_changed": "L'archivio da cui viene questa partita è cambiato: aprilo di nuovo.",
  "chess.save_folder_bad": "Scrivi il percorso completo di una cartella (o uno che inizia con ~).",
  "chess.cbh_cut": "Il resto di questa partita non è stato letto dal database ChessBase.",
  "chess.cbh_castling": "La posizione iniziale non aveva diritti di arrocco usati dalle sue mosse; sono stati aggiunti.",

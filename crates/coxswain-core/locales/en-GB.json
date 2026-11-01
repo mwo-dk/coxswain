@@ -557,6 +557,7 @@
  "chess.save_ask_inside": "Inside {archive}",
  "chess.save_ask_go": "Save",
  "chess.save_archive_gone": "The archive this game came from is gone: nothing was saved.",
+ "chess.save_archive_changed": "The archive this game came from changed: open it again.",
  "chess.save_folder_bad": "Type a full folder path (or one starting with ~).",
  "chess.cbh_cut": "The rest of this game could not be read from the ChessBase database.",
  "chess.cbh_castling": "The set-up position did not hold castling rights its moves use; they were added.",

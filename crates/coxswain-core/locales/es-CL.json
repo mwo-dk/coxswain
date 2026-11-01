@@ -48,6 +48,7 @@
  "chess.note_lc0": "Necesita un archivo de red (pesos): descarga uno de lczero.org y pon su ruta en la opción WeightsFile después de Probar el motor.",
  "chess.option_ignored_hint": "Definida en config.toml pero no enviada al motor: cámbiala acá o en config.toml.",
  "chess.review_first": "Primero analiza la partida (g)",
+ "chess.save_archive_changed": "El archivo del que salió esta partida cambió: ábrelo de nuevo.",
  "chess.save_folder_bad": "Escribe la ruta completa de una carpeta (o una que empiece con ~).",
  "chess.save_inside_no": "No se puede escribir en {archive}: elige junto a ella u otra carpeta",
  "cli.no_display": "no hay pantalla donde abrir la ventana: DISPLAY y WAYLAND_DISPLAY no están definidas. Iníciala en una sesión de escritorio o usa la app de terminal, coxswain.",

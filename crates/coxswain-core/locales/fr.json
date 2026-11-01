@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Dans {archive}",
  "chess.save_ask_go": "Enregistrer",
  "chess.save_archive_gone": "L'archive d'où vient cette partie a disparu : rien n'a été enregistré.",
+ "chess.save_archive_changed": "L'archive d'où vient cette partie a changé : ouvrez-la de nouveau.",
  "chess.save_folder_bad": "Saisissez un chemin de dossier complet (ou commençant par ~).",
  "chess.cbh_cut": "La suite de cette partie n’a pas pu être lue dans la base ChessBase.",
  "chess.cbh_castling": "La position de départ n’avait pas les droits de roque qu’utilisent ses coups ; ils ont été ajoutés.",

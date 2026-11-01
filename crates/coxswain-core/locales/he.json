@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "בתוך {archive}",
  "chess.save_ask_go": "שמירה",
  "chess.save_archive_gone": "הארכיון שממנו הגיע המשחק איננו עוד: דבר לא נשמר.",
+ "chess.save_archive_changed": "הארכיון שממנו הגיע המשחק השתנה: פתחו אותו מחדש.",
  "chess.save_folder_bad": "הקלידו נתיב מלא של תיקייה (או כזה שמתחיל ב-~).",
  "chess.cbh_cut": "לא ניתן היה לקרוא את המשך המשחק ממסד הנתונים של ChessBase.",
  "chess.cbh_castling": "בעמדת הפתיחה חסרו זכויות הצרחה שהמהלכים שלה משתמשים בהן; הן נוספו.",

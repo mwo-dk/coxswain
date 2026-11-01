@@ -569,6 +569,7 @@
  "chess.save_ask_inside": "{archive} の中",
  "chess.save_ask_go": "保存",
  "chess.save_archive_gone": "この対局があったアーカイブが見つかりません。何も保存していません。",
+ "chess.save_archive_changed": "この対局があったアーカイブが変わりました。開き直してください。",
  "chess.save_folder_bad": "フォルダーのフルパス (または ~ で始まるパス) を入力してください。",
  "chess.cbh_cut": "この対局の残りは ChessBase データベースから読み取れませんでした。",
  "chess.cbh_castling": "初期局面に、その指し手が使うキャスリングの権利がありませんでした。追加しました。",

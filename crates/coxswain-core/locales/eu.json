@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "{archive} barruan",
  "chess.save_ask_go": "Gorde",
  "chess.save_archive_gone": "Partida honen artxiboa desagertu da: ez da ezer gorde.",
+ "chess.save_archive_changed": "Partida honen artxiboa aldatu da: ireki berriro.",
  "chess.save_folder_bad": "Idatzi karpetaren bide osoa (edo ~-rekin hasten dena).",
  "chess.cbh_cut": "Partida honen gainerakoa ezin izan da ChessBase datu-basetik irakurri.",
  "chess.cbh_castling": "Hasierako posizioak ez zituen bere jokaldiek erabiltzen dituzten enroke-eskubideak; gehitu egin dira.",

@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Dins de {archive}",
  "chess.save_ask_go": "Desa",
  "chess.save_archive_gone": "L'arxiu d'on ve aquesta partida ja no hi és: no s'ha desat res.",
+ "chess.save_archive_changed": "L'arxiu d'on ve aquesta partida ha canviat: torneu-lo a obrir.",
  "chess.save_folder_bad": "Escriviu la ruta completa d'una carpeta (o una que comenci per ~).",
  "chess.cbh_cut": "La resta d’aquesta partida no s’ha pogut llegir de la base de dades de ChessBase.",
  "chess.cbh_castling": "La posició inicial no tenia drets d’enroc que les seves jugades fan servir; s’hi han afegit.",

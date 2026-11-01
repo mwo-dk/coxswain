@@ -589,6 +589,7 @@
  "chess.save_ask_inside": "In {archive}",
  "chess.save_ask_go": "Opslaan",
  "chess.save_archive_gone": "Het archief waar deze partij uit kwam is weg: er is niets opgeslagen.",
+ "chess.save_archive_changed": "Het archief waar deze partij uit kwam is veranderd: open het opnieuw.",
  "chess.save_folder_bad": "Typ een volledig mappad (of een dat met ~ begint).",
  "chess.cbh_cut": "De rest van deze partij kon niet uit de ChessBase-database worden gelezen.",
  "chess.cbh_castling": "De beginstelling miste rokaderechten die haar zetten gebruiken; die zijn toegevoegd.",

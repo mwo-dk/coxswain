@@ -569,6 +569,7 @@
  "chess.save_ask_inside": "{archive} 안",
  "chess.save_ask_go": "저장",
  "chess.save_archive_gone": "이 대국이 들어 있던 아카이브가 없어졌습니다. 아무것도 저장하지 않았습니다.",
+ "chess.save_archive_changed": "이 대국이 들어 있던 아카이브가 바뀌었습니다. 다시 여세요.",
  "chess.save_folder_bad": "폴더의 전체 경로(또는 ~로 시작하는 경로)를 입력하세요.",
  "chess.cbh_cut": "이 대국의 나머지는 ChessBase 데이터베이스에서 읽을 수 없었습니다.",
  "chess.cbh_castling": "설정된 시작 국면에 수가 사용하는 캐슬링 권리가 없어 추가했습니다.",

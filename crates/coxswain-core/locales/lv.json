@@ -609,6 +609,7 @@
  "chess.save_ask_inside": "Iekšā {archive}",
  "chess.save_ask_go": "Saglabāt",
  "chess.save_archive_gone": "Arhīva, no kura nāk šī partija, vairs nav: nekas netika saglabāts.",
+ "chess.save_archive_changed": "Arhīvs, no kura nāk šī partija, ir mainījies: atveriet to vēlreiz.",
  "chess.save_folder_bad": "Ievadiet pilnu mapes ceļu (vai tādu, kas sākas ar ~).",
  "chess.cbh_cut": "Šīs partijas atlikušo daļu neizdevās nolasīt no ChessBase datubāzes.",
  "chess.cbh_castling": "Sākuma pozīcijai trūka rokādes tiesību, ko izmanto tās gājieni; tās tika pievienotas.",
