@@ -744,17 +744,17 @@
             {@render check("search_archives")}
             {#if s.search_archives}{@render check("search_archives_everywhere", undefined, undefined, true)}{/if}
             {@render check("search_history")}
+            {#if longChange && commitChanges(longChange.name)}
+              <!-- Outside the history block: s still holds the stored value until saved. The room and time it takes, or what turning it off frees, said before it is saved. -->
+              <p><strong>{longChange.why}</strong></p>
+              <div class="buttons">
+                {#if !longChange.busy}<button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>{/if}
+                <button onclick={keepLong}>{t("common.cancel")}</button>
+              </div>
+            {/if}
             {#if s.search_history}
               {@render check("search_commit_changes", undefined, undefined, true)}
               {#if !s.search_commit_changes}{@render list("search_commit_changes_in", t("settings.search_names_only_none"))}{/if}
-              {#if longChange && commitChanges(longChange.name)}
-                <!-- The room and time it takes, or what turning it off frees, said before it is saved. -->
-                <p><strong>{longChange.why}</strong></p>
-                <div class="buttons">
-                  {#if !longChange.busy}<button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>{/if}
-                  <button onclick={keepLong}>{t("common.cancel")}</button>
-                </div>
-              {/if}
             {/if}
             {@render check("search_cloud", s.search_cloud === "all", (v) => set("search_cloud", v ? "all" : "local-only"))}
             {#if s.search_cloud !== "all"}
