@@ -459,7 +459,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
 
 /// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const PLACES: [(&str, Area); 4] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
+const PLACES: [(&str, Area); 5] = [("models", Search), ("disk", Privacy), ("disk_yours", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
@@ -1226,6 +1226,8 @@ mod tests {
         assert_eq!(open_at("previews"), (Previews, None));
         assert_eq!(open_at("check_updates"), (Privacy, Some("check_updates")));
         assert_eq!(open_at("disk"), (Privacy, Some("disk")));
+        // A kept sync folder's notice opens Disk use at the user's own files, not at its top.
+        assert_eq!(open_at("disk_yours"), (Privacy, Some("disk_yours")));
         // Chess moved from Previews to Games: its old names open there.
         assert_eq!(open_at("games"), (Games, None));
         assert_eq!(open_at("chess_engines"), (Games, Some("chess_engines")));

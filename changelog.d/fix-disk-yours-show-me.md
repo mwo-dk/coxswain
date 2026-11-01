@@ -1,0 +1,1 @@
+| **Show me on a kept folder sync's notice goes to the folder.** It opened Disk use at its top, with the *.coxswain-sync-…* row about ten rows below; it now scrolls to *Your own files, kept aside by Coxswain*, in both apps, and `--settings=disk_yours` opens there too. | [Folder sync](files/compare-folders.md#where-did-my-replaced-files-go) |

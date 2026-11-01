@@ -265,7 +265,8 @@ where you can restore them; Ctrl+Z no longer undoes that sync.* The desktop app 
 
 Where the bin cannot take the folder (on Windows, where a sync never uses the bin, and on a
 disk without a bin of its own), it stays where it is. The notice then names the folder and says
-to remove it in *Settings → Privacy and updates → Disk use* once you no longer need it; there it
+to remove it in *Settings → Privacy and updates → Disk use* once you no longer need it; its
+**Show me** (in the desktop app's *What's new*) opens Disk use scrolled to that part, where it
 is listed under *Your own files, kept aside by Coxswain* with its folder, size, **Show in panel**
 and **Remove** (**Delete** in the terminal app, `coxswain --disk clear sync:<name>` on the command
 line, which asks first). Nothing in it is removed without that click.
