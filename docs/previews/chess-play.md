@@ -72,7 +72,8 @@ click on a book move is, and **←** takes it back.
 result made `*`), the game's moves up to the move your line starts from, then your line. The name
 is the game file's with ` line` added, `games line.pgn`, then `games line 2.pgn` and on; no file
 is ever written over, and the game file itself stays as it is. The status line says *Saved as
-games line.pgn, next to this file*. A line from an EPD position, or from a game that starts from
+games line.pgn, next to this file*; for a game inside an archive it asks where instead
+([below](#a-game-from-inside-an-archive)). A line from an EPD position, or from a game that starts from
 a set-up position, gets the `SetUp` and `FEN` tags, so it opens from the same position.
 
 The new file is a normal PGN file: **Enter** or **Alt+K** on it shows it in the table, and any chess program
@@ -94,7 +95,9 @@ annotated PGN* (**w**) ask where the file goes instead:
 *Inside the archive* is offered only for an archive Coxswain can write: a zip, 7z or tar, not a
 disk image, a mailbox, an archive split into parts, or an archive inside another. Without it the
 terminal app's question and the desktop app's choices leave it out, and nothing is rewritten.
-**Esc** (terminal) or *Cancel* (desktop) saves nothing. The status line names where the file
+A typed folder may start with `~`; an empty or relative one is refused with a message and
+the question stays open. If the archive has gone (deleted or renamed) since the game was opened,
+nothing is saved and the status line says so; a file is never saved into the cache. **Esc** (terminal) or *Cancel* (desktop) saves nothing. The status line names where the file
 went: *Saved as games line.pgn, beside games.zip*, *… in /home/you/chess*, or *… inside
 games.zip*.
 

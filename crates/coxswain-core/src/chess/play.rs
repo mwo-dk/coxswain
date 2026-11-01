@@ -199,42 +199,55 @@ pub enum Where {
 
 /// A game file that was opened from inside an archive: the archive, the game file's path in it,
 /// and whether the archive can be written (not a disk image, mailbox, split archive or one inside
-/// another).
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// another). What the user is shown is passed back to `save_where`, not looked up again.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Origin {
     pub archive: PathBuf,
     pub inner: String,
+    #[serde(default)]
     pub writable: bool,
 }
 
 /// The archive that the game file `source` (a copy `archive::peek` made) came from; `None` for a
-/// file that is not such a copy.
-pub fn origin(source: &Path) -> Option<Origin> {
-    let (archive, inner) = crate::archive::split(&crate::archive::peeked_from(source)?)?;
+/// file that is not such a copy; an error when the archive it came from is gone, so nothing is
+/// ever saved into the cache instead.
+pub fn origin(source: &Path) -> Result<Option<Origin>, String> {
+    let Some(from) = crate::archive::peeked_from(source) else { return Ok(None) };
+    let (archive, inner) = crate::archive::split(&from).ok_or_else(|| crate::t!("chess.save_archive_gone"))?;
     let writable = !crate::archive::read_only(&archive) && !crate::archive::nested(&archive, &inner, false);
-    Some(Origin { archive, inner, writable })
+    Ok(Some(Origin { archive, inner, writable }))
 }
 
-/// Saves `text` as a new PGN made from the game file `source` where `at` says (`Beside` for a
-/// file that is not from an archive too), and returns the status line that names where it went.
-pub fn save_where(source: &Path, at: &Where, word: &str, text: &str) -> Result<String, String> {
+/// Saves `text` as a new PGN made from the game file `source` where `at` says, and returns the
+/// status line that names where it went. `origin` is the archive the user was asked about (`None`
+/// for a file not from an archive: saved next to it).
+pub fn save_where(source: &Path, origin: Option<&Origin>, at: &Where, word: &str, text: &str) -> Result<String, String> {
     let failed = |e: std::io::Error| crate::t!("chess.line_not_saved", "error" => e);
-    let Some(o) = origin(source) else {
+    let Some(o) = origin else {
         let p = save_beside(source, word, text).map_err(failed)?;
         return Ok(crate::t!("chess.line_saved", "name" => file_name(&p)));
     };
+    if !o.archive.is_file() {
+        return Err(crate::t!("chess.save_archive_gone"));
+    }
+    // Writability is the archive's today, whatever the caller was told.
+    let writable = !crate::archive::read_only(&o.archive) && !crate::archive::nested(&o.archive, &o.inner, false);
     let archive = o.archive.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     match at {
         Where::Beside => {
             let p = save_in(o.archive.parent().unwrap_or(Path::new(".")), source, word, text).map_err(failed)?;
             Ok(crate::t!("chess.saved_beside", "name" => file_name(&p), "archive" => archive))
         }
-        Where::Folder(dir) => {
-            let p = save_in(dir, source, word, text).map_err(failed)?;
+        Where::Folder(typed) => {
+            let dir = crate::fs::resolve(Path::new(""), &typed.to_string_lossy());
+            if typed.to_string_lossy().trim().is_empty() || !dir.is_absolute() {
+                return Err(crate::t!("chess.save_folder_bad"));
+            }
+            let p = save_in(&dir, source, word, text).map_err(failed)?;
             Ok(crate::t!("chess.saved_folder", "name" => file_name(&p), "folder" => dir.display()))
         }
         Where::Inside => {
-            if !o.writable {
+            if !writable {
                 return Err(crate::t!("chess.save_inside_no", "archive" => archive));
             }
             let folder = o.inner.rsplit_once('/').map_or("", |(f, _)| f);
@@ -1111,26 +1124,27 @@ mod tests {
         archive::create(&zip, &[games.clone()]).unwrap();
         std::fs::remove_file(&games).unwrap();
         let copy = archive::peek(&zip.join("games.pgn")).unwrap();
-        assert!(origin(&copy).unwrap().writable);
+        let o = origin(&copy).unwrap().unwrap();
+        assert!(o.writable);
 
         // Beside the archive, never over a file: the next free name.
-        let said = save_where(&copy, &Where::Beside, "line", "a").unwrap();
+        let said = save_where(&copy, Some(&o), &Where::Beside, "line", "a").unwrap();
         assert!(said.contains("games line.pgn") && said.contains("games.zip"), "{said}");
-        save_where(&copy, &Where::Beside, "line", "b").unwrap();
+        save_where(&copy, Some(&o), &Where::Beside, "line", "b").unwrap();
         assert_eq!(std::fs::read_to_string(d.join("games line.pgn")).unwrap(), "a");
         assert_eq!(std::fs::read_to_string(d.join("games line 2.pgn")).unwrap(), "b");
         // Not beside the cache copy.
         assert!(!copy.with_file_name("games line.pgn").exists());
 
         // Another folder.
-        let said = save_where(&copy, &Where::Folder(d.join("other")), "line", "c").unwrap();
+        let said = save_where(&copy, Some(&o), &Where::Folder(d.join("other")), "line", "c").unwrap();
         assert!(said.contains("games line.pgn"), "{said}");
         assert_eq!(std::fs::read_to_string(d.join("other/games line.pgn")).unwrap(), "c");
 
         // Into the archive: a new entry beside the game, a second time under the next name.
-        let said = save_where(&copy, &Where::Inside, "line", "d").unwrap();
+        let said = save_where(&copy, Some(&o), &Where::Inside, "line", "d").unwrap();
         assert!(said.contains("games line.pgn") && said.contains("inside") || said.contains("games.zip"), "{said}");
-        save_where(&copy, &Where::Inside, "line", "e").unwrap();
+        save_where(&copy, Some(&o), &Where::Inside, "line", "e").unwrap();
         let names: Vec<String> = archive::list(&zip, 100).unwrap().0.into_iter().map(|e| e.name).collect();
         assert!(names.contains(&"games line.pgn".to_string()) && names.contains(&"games line 2.pgn".to_string()), "{names:?}");
         let inside = archive::peek(&zip.join("games line 2.pgn")).unwrap();
@@ -1139,9 +1153,21 @@ mod tests {
         // A file that is not from an archive: next to itself, as before.
         let plain = d.join("other/x.pgn");
         std::fs::write(&plain, "").unwrap();
-        assert!(origin(&plain).is_none());
-        save_where(&plain, &Where::Inside, "line", "f").unwrap();
+        assert!(origin(&plain).unwrap().is_none());
+        save_where(&plain, None, &Where::Inside, "line", "f").unwrap();
         assert!(d.join("other/x line.pgn").exists());
+
+        // A typed folder that is empty or relative is refused, never turned into Beside.
+        for bad in ["", "  ", "rel/dir"] {
+            assert!(save_where(&copy, Some(&o), &Where::Folder(bad.into()), "line", "g").is_err(), "{bad:?}");
+        }
+        // The archive gone: an error, and nothing in the cache or beside it.
+        std::fs::remove_file(&zip).unwrap();
+        assert!(origin(&copy).is_err());
+        for at in [Where::Beside, Where::Inside] {
+            assert!(save_where(&copy, Some(&o), &at, "line", "h").is_err());
+        }
+        assert!(!copy.with_file_name("games line.pgn").exists() && !d.join("games line 3.pgn").exists());
         std::fs::remove_dir_all(&d).unwrap();
     }
 
@@ -1154,9 +1180,10 @@ mod tests {
         std::fs::write(&mbox, "From a@example.com Mon Sep 28 10:00:00 2026\nFrom: a@example.com\nSubject: x\n\nbody\n\n").unwrap();
         let (list, _) = crate::archive::list(&mbox, 10).unwrap();
         let copy = crate::archive::peek(&mbox.join(&list[0].name)).unwrap();
-        assert!(!origin(&copy).unwrap().writable);
-        assert!(save_where(&copy, &Where::Inside, "line", "x").is_err());
-        assert!(save_where(&copy, &Where::Beside, "line", "x").is_ok());
+        let o = origin(&copy).unwrap().unwrap();
+        assert!(!o.writable);
+        assert!(save_where(&copy, Some(&o), &Where::Inside, "line", "x").is_err());
+        assert!(save_where(&copy, Some(&o), &Where::Beside, "line", "x").is_ok());
         std::fs::remove_dir_all(&d).unwrap();
     }
 

@@ -551,8 +551,9 @@ impl Viewer {
     /// user says (`Saving`).
     fn save(&mut self, word: &'static str, text: String) {
         match play::origin(&self.path) {
-            Some(origin) => self.saving = Some(Saving { word, text, origin, folder: None }),
-            None => self.said = Some(play::save_where(&self.path, &play::Where::Beside, word, &text).unwrap_or_else(|e| e)),
+            Ok(Some(origin)) => self.saving = Some(Saving { word, text, origin, folder: None }),
+            Ok(None) => self.said = Some(play::save_where(&self.path, None, &play::Where::Beside, word, &text).unwrap_or_else(|e| e)),
+            Err(e) => self.said = Some(e),
         }
     }
 
@@ -560,6 +561,7 @@ impl Viewer {
     /// folder (typed, the archive's folder first), `i` into the archive, Esc to cancel.
     fn saving_key(&mut self, key: Key) {
         let Some(mut s) = self.saving.take() else { return };
+        self.said = None;
         let at = if let Some(text) = s.folder.as_mut() {
             match key.code {
                 KeyCode::Esc => return,
@@ -587,7 +589,14 @@ impl Viewer {
             }
         };
         match at {
-            Some(at) => self.said = Some(play::save_where(&self.path, &at, s.word, &s.text).unwrap_or_else(|e| e)),
+            Some(at) => {
+                let said = play::save_where(&self.path, Some(&s.origin), &at, s.word, &s.text);
+                // A folder refused is typed again; anything else ends the question.
+                if said.is_err() && matches!(at, play::Where::Folder(_)) && s.folder.is_some() {
+                    self.saving = Some(s);
+                }
+                self.said = Some(said.unwrap_or_else(|e| e));
+            }
             None => self.saving = Some(s),
         }
     }
@@ -1144,7 +1153,7 @@ impl Viewer {
         let line = if let Some(s) = &self.saving {
             let archive = s.origin.archive.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let text = match &s.folder {
-                Some(dir) => format!("{}: {dir}▏", t!("chess.save_folder")),
+                Some(dir) => format!("{}{}: {dir}▏", self.said.as_ref().map(|s| format!("{s} · ")).unwrap_or_default(), t!("chess.save_folder")),
                 None if s.origin.writable => t!("chess.save_where_in", "archive" => archive),
                 None => t!("chess.save_where", "archive" => archive),
             };

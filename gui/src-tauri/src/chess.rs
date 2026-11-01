@@ -203,14 +203,14 @@ pub async fn chess_analyse(fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Re
 /// The archive that the game file `path` was copied out of, for the choice of where a new PGN
 /// goes; `None` for a file that is not such a copy.
 #[tauri::command]
-pub fn chess_save_origin(path: PathBuf) -> Option<chess::play::Origin> {
+pub fn chess_save_origin(path: PathBuf) -> Res<Option<chess::play::Origin>> {
     chess::play::origin(&path)
 }
 
 /// Where a new PGN goes: `beside` the archive, in a `folder`, or `inside` the archive.
 fn save_at(at: &str, folder: Option<PathBuf>) -> Res<chess::play::Where> {
     match (at, folder) {
-        ("folder", Some(dir)) if !dir.as_os_str().is_empty() => Ok(chess::play::Where::Folder(dir)),
+        ("folder", dir) => Ok(chess::play::Where::Folder(dir.unwrap_or_default())),
         ("inside", _) => Ok(chess::play::Where::Inside),
         _ => Ok(chess::play::Where::Beside),
     }
@@ -220,12 +220,12 @@ fn save_at(at: &str, folder: Option<PathBuf>) -> Res<chess::play::Where> {
 /// (or where `at` and `folder` say, for a game from an archive): the game's `tags`, `sans`
 /// played from `start`. The status line: what it is called and where it went.
 #[tauri::command]
-pub async fn chess_save_line(path: PathBuf, tags: Vec<(String, String)>, start: String, sans: Vec<String>, at: String, folder: Option<PathBuf>) -> Res<String> {
+pub async fn chess_save_line(path: PathBuf, tags: Vec<(String, String)>, start: String, sans: Vec<String>, origin: Option<chess::play::Origin>, at: String, folder: Option<PathBuf>) -> Res<String> {
     crate::here(&path)?;
     let at = save_at(&at, folder)?;
     tauri::async_runtime::spawn_blocking(move || {
         let text = chess::play::line_pgn(&tags, &start, &sans);
-        chess::play::save_where(&path, &at, "line", &text)
+        chess::play::save_where(&path, origin.as_ref(), &at, "line", &text)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -265,7 +265,7 @@ pub async fn chess_review(path: PathBuf, index: u32, act: String, ctx: tauri::St
 
 /// Game `index` of `path` with its analysis in it, as a new PGN file next to `path` (or where `at` says).
 #[tauri::command]
-pub async fn chess_review_save(path: PathBuf, index: u32, at: String, folder: Option<PathBuf>) -> Res<String> {
+pub async fn chess_review_save(path: PathBuf, index: u32, origin: Option<chess::play::Origin>, at: String, folder: Option<PathBuf>) -> Res<String> {
     let at = save_at(&at, folder)?;
     tauri::async_runtime::spawn_blocking(move || {
         let r = REVIEW
@@ -278,7 +278,7 @@ pub async fn chess_review_save(path: PathBuf, index: u32, at: String, folder: Op
             .ok_or_else(|| coxswain_core::t!("chess.review_first"))?;
         let game = library(&path)?.game(index).map_err(|e| e.to_string())?;
         let text = chess::review::annotated_pgn(&game, &r);
-        chess::play::save_where(&path, &at, "annotated", &text)
+        chess::play::save_where(&path, origin.as_ref(), &at, "annotated", &text)
     })
     .await
     .map_err(|e| e.to_string())?

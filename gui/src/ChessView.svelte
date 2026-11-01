@@ -482,31 +482,42 @@
     const sans = [];
     for (let n = played.base; n != null; n = nodes[n].parent) sans.unshift(nodes[n].san);
     const sansAll = [...sans, ...played.moves.map((m) => m.san)];
-    save((at, folder) => invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: sansAll, at, folder }));
+    save((at, folder, origin) => invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: sansAll, origin, at, folder }));
   }
 
   /** A game from inside an archive (chess_save_origin): its copy is in the cache, so a new PGN
    * asks where it goes. The archive, its folder, and whether it can be written. */
   let origin = $state(null);
+  /** Why the archive the game came from cannot be saved to (it is gone). */
+  let originErr = $state("");
+  let asking = $state(null);
   $effect(() => {
     const p = path;
     origin = null;
-    invoke("chess_save_origin", { path: p }).then((o) => p === path && (origin = o), () => {});
+    originErr = "";
+    asking = null;
+    invoke("chess_save_origin", { path: p }).then(
+      (o) => p === path && (origin = o),
+      (e) => p === path && (originErr = String(e)),
+    );
   });
-  /** The question of where a new PGN goes: how to save, the place chosen, the folder typed. */
-  let asking = $state(null);
-  const archiveName = $derived(origin ? basename(origin.archive) : "");
+  // `asking`: the question of where a new PGN goes: how to save, the place chosen, the folder typed.
+  const archiveName = $derived(basename((asking?.origin ?? origin)?.archive ?? ""));
   /** Saves with `write(at, folder)` now, or after asking where when the game is from an archive. */
   function save(write) {
+    if (originErr) return void (said = originErr);
     if (!origin) return void run(write, "beside");
-    asking = { write, at: "beside", folder: parent(origin.archive) };
+    // The archive shown in the question is the one passed back, not looked up again.
+    asking = { write, origin: $state.snapshot(origin), at: "beside", folder: parent(origin.archive) };
   }
-  async function run(write, at, folder) {
-    asking = null;
+  async function run(write, at, folder, o = null) {
     try {
-      said = await write(at, folder);
+      said = await write(at, folder, o);
+      asking = null;
     } catch (e) {
+      // The question stays open for a folder that was refused.
       said = String(e);
+      if (at !== "folder") asking = null;
     }
   }
 
@@ -528,7 +539,7 @@
   });
   function saveReview() {
     const index = game.index;
-    save((at, folder) => invoke("chess_review_save", { path, index, at, folder }));
+    save((at, folder, origin) => invoke("chess_review_save", { path, index, origin, at, folder }));
   }
   const CAP = 1000;
   const share = (v) => 1 / (1 + Math.exp(-Math.max(-CAP, Math.min(CAP, v)) / 250));
@@ -1035,9 +1046,9 @@
             <label><input type="radio" bind:group={asking.at} value="beside" /> {t("chess.save_ask_beside", { archive: archiveName })}</label>
             <label><input type="radio" bind:group={asking.at} value="folder" /> {t("chess.save_ask_folder")}</label>
             {#if asking.at === "folder"}<input type="text" aria-label={t("chess.save_ask_folder")} bind:value={asking.folder} />{/if}
-            {#if origin.writable}<label><input type="radio" bind:group={asking.at} value="inside" /> {t("chess.save_ask_inside", { archive: archiveName })}</label>{/if}
+            {#if asking.origin.writable}<label><input type="radio" bind:group={asking.at} value="inside" /> {t("chess.save_ask_inside", { archive: archiveName })}</label>{/if}
             <div class="bar">
-              <button onclick={() => run(asking.write, asking.at, asking.folder)}>{t("chess.save_ask_go")}</button>
+              <button onclick={() => run(asking.write, asking.at, asking.folder, asking.origin)}>{t("chess.save_ask_go")}</button>
               <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
             </div>
           </div>
