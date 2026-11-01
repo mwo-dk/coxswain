@@ -342,7 +342,7 @@
  "guide.icons_unknown": "¿Ves una carpeta y un archivo? Si ves cuadros o signos de pregunta, usa caracteres simples.",
  "guide.menu_line": "{key}: lo que puedes hacer con lo que está bajo el cursor. Un clic derecho abre ese menú o marca; Configuración → Comportamiento elige cuál.",
  "guide.panels_intro": "Dos carpetas lado a lado. La iluminada es la activa; lo que copias o mueves va a la otra.",
- "help.also1": "Además: Alt+letra búsqueda rápida · lo que escribes va a la línea de comandos ·",
+ "help.also1": "Además: Alt+letra búsqueda rápida · lo que escribes va a la línea de comandos (Configuración: Escribir letras) ·",
  "help.dump": "Ejecuta `coxswain --dump-config` para ver todas las opciones con su valor predeterminado.",
  "help.scan_viruses": "{key}: analiza los archivos o carpetas marcados en busca de virus con ClamAV en un contenedor, una vez activado en Configuración; para cada archivo encontrado eliges: dejarlo, la papelera o la cuarentena.",
  "hint.drop_keys": "Mantén {copy} al soltar para copiar directamente, {move} para mover",

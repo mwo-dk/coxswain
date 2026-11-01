@@ -402,7 +402,7 @@
  "feature.models.q2": "Comment libérer la place sur le disque?",
  "feature.models.q3": "Que se passe-t-il si je supprime le modèle utilisé?",
  "feature.mouse.a1": "C’est la façon de Norton Commander. Réglez Réglages → Comportement → Clic droit sur Ouvre le menu d’actions; le menu est aussi sur {action_menu} et, dans l’app de bureau, sur Ctrl+clic droit.",
- "feature.mouse.q1": "Pourquoi le clic droit marque-t-il au lieu d’ouvrir un menu?",
+ "feature.mouse.q1": "Pourquoi le clic droit marque-t-il au lieu d’ouvrir un menu (dans l’app de terminal)?",
  "feature.mouse.q2": "Comment marquer une plage à la souris?",
  "feature.mouse.q3": "Les clics dans l’app de terminal sélectionnent du texte à la place. Pourquoi?",
  "feature.mouse.what": "Cliquez pour vous déplacer, double-cliquez pour ouvrir, clic droit pour le menu d’actions ou pour marquer; l’app de bureau ajoute le glisser et le redimensionnement.",

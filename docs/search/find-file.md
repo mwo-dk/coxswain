@@ -287,7 +287,7 @@ says what Ask needs, and **Set up…** in *Settings → Finding files* or `coxsw
 
 #### Is there a quicker search for the panel I am in?
 
-[Quick search](../panels/quick-search.md): **Alt+letter** jumps to names starting with what you
+[Quick search](../panels/quick-search.md): typing letters (desktop app) or **Alt+letter** jumps to names starting with what you
 type, in the current panel only.
 
 ---

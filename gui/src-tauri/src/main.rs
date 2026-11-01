@@ -394,7 +394,8 @@ fn search_level(level: coxswain_core::settings::Level, ctx: tauri::State<Ctx>) -
 
 /// The action menu for what is under the cursor: each heading with its actions' names.
 #[tauri::command]
-fn action_menu(subject: coxswain_core::menu::Subject) -> Vec<(String, Vec<&'static str>)> {
+fn action_menu(mut subject: coxswain_core::menu::Subject, ctx: tauri::State<Ctx>) -> Vec<(String, Vec<&'static str>)> {
+    subject.jump = ctx.cfg().type_to_jump(true);
     coxswain_core::menu::actions(&subject, true).into_iter().map(|(g, v)| (g.label(), v.into_iter().map(Action::name).collect())).collect()
 }
 

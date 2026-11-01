@@ -1928,7 +1928,7 @@ impl App {
             Action::Menu => {
                 let items = Action::ALL
                     .iter()
-                    .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
+                    .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down) && (x != Action::CommandLine || self.cfg.type_to_jump(false)))
                     .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: self.action_label(x), run: MenuRun::Action(x), group: None })
                     .collect();
                 self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false, feature: "command_list" });
@@ -1966,7 +1966,7 @@ impl App {
     /// The actions that fit the marked entries (or the one under the cursor), under their
     /// headings, each with its key: Enter runs one, Esc closes.
     fn action_menu(&mut self) {
-        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, ..self.panel().subject() };
+        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, jump: self.cfg.type_to_jump(false), ..self.panel().subject() };
         let mut items = vec![];
         for (g, acts) in coxswain_core::menu::actions(&s, false) {
             let group = g.label();

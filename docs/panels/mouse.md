@@ -81,7 +81,7 @@ said so once ([Notices](notices.md)).
 #### How do I mark a range with the mouse?
 
 In the desktop app's details view: click the first entry, then Shift-click the last. In the
-other views and in the terminal app, right-click (or Ctrl-click) each one, or use `+` with a
+other views, Ctrl-click (Cmd-click on a Mac) each one, in the terminal app right-click it, or use `+` with a
 pattern ([Marking files](marking.md)).
 
 #### Can I copy by dragging in the terminal app?

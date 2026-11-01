@@ -84,7 +84,7 @@ Groups mark files only, as in NC. Mark folders one by one with **Insert** or **C
 
 #### Why does typing `+` go to the command line?
 
-The command line has text, and plain characters go to it. Press **Esc** to clear it first.
+The command line has text (or, in the desktop app, you opened it with **Ctrl+K**), and plain characters go to it. Press **Esc** to clear it first. Where *Typing letters* jumps to names, a bare `+` with the command line closed marks, as it does when the line is empty.
 
 #### How do I mark every file?
 

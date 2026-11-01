@@ -158,7 +158,7 @@ These belong to where they are, not to an action:
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
 | Find | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
-| Quick search | **Alt+letter** starts it, letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
+| Quick search | **Alt+letter** starts it (plain letters too where *Typing letters* jumps, the desktop app's default), letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
 | The command line, with text in it | **Enter** runs, **Esc** clears, **Backspace**, and in the desktop app **Left**/**Right**/**Home**/**End**/**Delete** edit | Yes | **Enter**, **Esc**, **Backspace** |
 | The preview pane | **Esc** closes it | Yes | (no preview) |
 | Thumbnails view | Arrows move in two dimensions | Yes | (no thumbnails) |

@@ -7,9 +7,9 @@ panels and their keys, ask how far Find should look, let you choose how it looks
 can leave the machine. Every step can be skipped. Each choice is written to `config.toml` at once,
 as in Settings, so closing the guide halfway keeps what you chose.
 
-![The desktop app's first-run guide at step 1, Two panels · 1 of 4: a picture of two folders side by side, the keys Tab, Enter, F5, F6, Alt+F7, F9 and F1, and Skip and Next](../screenshots/guide-panels.png)
+![The desktop app's first-run guide at step 1, Two panels · 1 of 4: a picture of two folders side by side, the keys Tab, Enter, F5, F6, Alt+F7, Alt+U, F9 and F1, the Typing letters choice (Jump to a name), and Skip and Next](../screenshots/guide-panels.png)
 
-![The terminal app's first-run guide, Two panels · 1 of 4, full screen in Classic blue: the keys and what they do, and the key line ↑↓ choose · Space change · Enter next · Backspace back · Esc skip](../screenshots/guide-panels-tui.png)
+![The terminal app's first-run guide, Two panels · 1 of 4, full screen in Classic blue: the keys and what they do, the row Typing letters: Go to the command line (Norton Commander), and the key line ↑↓ choose · Space change · Enter next · Backspace back · Esc skip](../screenshots/guide-panels-tui.png)
 
 ## Contents
 

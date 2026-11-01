@@ -11,9 +11,8 @@ changes it in either app). **Enter** runs the line with the shell in the active 
 ![The terminal app: under the two panels, the command line shows the prompt /home/demo/projects/rocket> with the cursor after it; below it the F-key bar](../screenshots/tui-panels.png)
 *The terminal app's command line: the prompt is the active panel's folder.*
 
-![The desktop app: at the bottom of the window, left of Settings, the command line reads /home/demo/projects/rocket ❯ followed by the grey placeholder Type a command…](../screenshots/gui-details.png)
+![The desktop app: at the bottom of the window, left of Settings, the command line reads /home/demo/projects/rocket ❯ followed by the grey placeholder Ctrl+K: command line](../screenshots/gui-details.png)
 *The desktop app's command line, above the F-key bar.*
-<!-- screenshot: gui-details.png: retake in the sandbox: the empty command line's placeholder now reads Ctrl+K: command line (the desktop app's typing letters jump to names) -->
 
 ![The desktop app in ~/projects/rocket after typing git log --oneline and Enter: the preview pane, headed by a terminal icon, "git log --oneline" and "Command output" with a × at the right, lists the eight commits in a monospace font](../screenshots/commands-output.png)
 

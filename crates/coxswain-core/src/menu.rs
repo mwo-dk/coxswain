@@ -94,6 +94,8 @@ pub struct Subject {
     /// (`transcribe::is_speech`); and whether transcribing is on, so a folder offers it too.
     pub speech: usize,
     pub whisper: bool,
+    /// Typing letters jumps to a name (`Config::type_to_jump`): the command line is on its own key.
+    pub jump: bool,
 }
 
 impl Subject {
@@ -230,7 +232,9 @@ impl Action {
             // On `..` with nothing marked: the panels themselves.
             SwapPanels | SameDir | TogglePanels => n == 0,
             // What Coxswain can do, and Settings, from any menu.
-            Features | Settings | CommandLine => true,
+            Features | Settings => true,
+            // Where letters jump to names, the command line is a key away.
+            CommandLine => s.jump,
             _ => false,
         }
     }

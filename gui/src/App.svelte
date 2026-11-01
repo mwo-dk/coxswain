@@ -651,7 +651,7 @@
           // Under the group headings of F1; the themes close the last group (App).
           ...ui.cfg.groups.flatMap(([group, names]) =>
             names
-              .filter((n) => !["menu", "up", "down"].includes(n))
+              .filter((n) => !["menu", "up", "down"].includes(n) && (n !== "command_line" || ui.cfg.settings.typing === "find"))
               .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => actions[n]?.() })),
           ),
           ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
