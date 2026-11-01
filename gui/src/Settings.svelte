@@ -65,14 +65,23 @@
   }
   // What is kept of long files: what the change reads again, adds or frees, said first.
   let longChange = $state(null);
+  // Which ask is the last: an answer to an older one, or to one cancelled, is dropped.
+  let asks = 0;
   async function set(name, value) {
     const changes = { [name]: value };
     if (!name.startsWith("long_files") && !name.startsWith("search_commit_changes")) return save(changes);
+    // A newer ask on another option: the one waiting goes back to its stored value.
+    if (longChange && longChange.name !== name) keepLong();
+    const ask = ++asks;
+    // Counting the changes of commits takes seconds with many large repositories: said meanwhile.
+    if (name.startsWith("search_commit_changes")) longChange = { why: t("changes.costing"), name, busy: true };
     const why = await invoke("long_files_change", { changes }).catch(() => null);
-    if (!why) return save(changes);
+    if (ask !== asks) return;
+    if (!why) return void ((longChange = null), save(changes));
     longChange = { why, name, go: () => save(changes) };
   }
   function keepLong() {
+    asks++;
     const name = longChange?.name;
     longChange = null;
     const el = document.getElementById("in-long_files");
@@ -740,7 +749,7 @@
                 <!-- The room and time it takes, or what turning it off frees, said before it is saved. -->
                 <p><strong>{longChange.why}</strong></p>
                 <div class="buttons">
-                  <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>
+                  {#if !longChange.busy}<button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>{/if}
                   <button onclick={keepLong}>{t("common.cancel")}</button>
                 </div>
               {/if}

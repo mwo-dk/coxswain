@@ -1440,13 +1440,14 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
             commits += 1;
             return true;
         }
-        // ` 3 files changed, 10 insertions(+), 2 deletions(-)`: some 40 bytes a line.
+        // ` 3 files changed, 10 insertions(+), 2 deletions(-)`: some 80 bytes a line with its
+        // context and headers (57 to 124 measured in real repositories).
         let s = String::from_utf8_lossy(line);
         let lines: u64 = match s.split_once(": ") {
             Some((_, hg)) => hg.split('/').filter_map(|p| p.trim_start_matches(['+', '-']).trim().parse::<u64>().ok()).sum(),
             None => s.split(',').skip(1).filter_map(|p| p.split_whitespace().next()?.parse::<u64>().ok()).sum(),
         };
-        this += lines * 40;
+        this += lines * 80;
         true
     });
     bytes += this.min(CHANGE_MOST as u64);
