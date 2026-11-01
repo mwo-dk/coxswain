@@ -1,0 +1,1 @@
+| **Click a column header in the terminal app to sort by it.** A second click reverses; `▼` or `▲` marks the sorted column. The sort keys stay. | [Sorting](panels/sorting.md#how-to-use-it) | <!-- feature -->

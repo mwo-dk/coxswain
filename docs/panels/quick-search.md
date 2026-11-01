@@ -7,15 +7,15 @@ with it. It is the fastest way to a file you can see, without the mouse. **Alt+l
 does it; plain letters do it in the desktop app (and in the terminal app when you ask for it,
 see [Typing letters](#typing-letters-or-the-command-line)).
 
-![The terminal app in Classic blue (NC): the command line row reads Quick search: lau and the cursor is on launch-report.pdf, the first name starting with lau, in the right panel](../screenshots/panels-quick-search.png)
+![The terminal app in Classic blue (NC): the command line row reads Quick search: ele and the cursor is on the folder Electronics, the first name starting with ele, in the right panel](../screenshots/panels-quick-search.png)
 
 ## How to use it
 
-1. Press the first letter of the name, for example **L** (where typing letters jumps, see
-   below), or **Alt** with it, **Alt+L**, which works everywhere. The cursor jumps to the first
-   name starting with `l`.
-2. Keep typing, plain letters now (Alt is no longer needed; with Alt works too): `a`, `u`.
-   The cursor moves to the first name starting with `lau`.
+1. Press the first letter of the name, for example **E** (where typing letters jumps, see
+   below), or **Alt** with it, **Alt+E**, which works everywhere. The cursor jumps to the first
+   name starting with `e`.
+2. Keep typing, plain letters now (Alt is no longer needed; with Alt works too): `l`, `e`.
+   The cursor moves to the first name starting with `ele`.
 3. End it:
 
 | Key | Does |
@@ -30,7 +30,7 @@ the cursor where it was.
 
 ## What you see
 
-The command line row shows `Quick search: lau` while it lasts, in place of the folder and the
+The command line row shows `Quick search: ele` while it lasts, in place of the folder and the
 prompt. The cursor moves in the panel; nothing is marked or filtered.
 
 ## Typing letters or the command line

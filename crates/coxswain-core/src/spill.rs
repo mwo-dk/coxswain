@@ -705,10 +705,12 @@ mod tests {
         std::fs::create_dir(&lists).unwrap();
         // The hung one first, as a list read one after another would be stuck on it.
         std::fs::write(lists.join("4247"), format!("{}\n{}\n", line_of(&hung), line_of(&fine))).unwrap();
-        *HANG.lock().unwrap() = Some((hung.clone(), Duration::from_secs(60)));
+        // Hung for an hour: a sweep held back by it would take that long. The limit only
+        // guards against that, however slow the machine.
+        *HANG.lock().unwrap() = Some((hung.clone(), Duration::from_secs(3600)));
         let t = std::time::Instant::now();
         sweep_staging_in(&lists, Duration::from_secs(5));
-        assert!(t.elapsed() < Duration::from_secs(40), "{:?}", t.elapsed());
+        assert!(t.elapsed() < crate::test_limit(Duration::from_secs(40)), "{:?}", t.elapsed());
         assert!(!fine.join(".a.txt.coxswain-tmp-4247-1").exists());
         assert!(hung.join(".a.txt.coxswain-tmp-4247-1").exists());
         assert!(lists.join("4247").exists(), "kept for the next start");
@@ -716,7 +718,7 @@ mod tests {
         *HANG.lock().unwrap() = None;
         // The first sweep's list thread may still be letting go of the list's lock.
         let t = std::time::Instant::now();
-        while lists.join("4247").exists() && t.elapsed() < Duration::from_secs(30) {
+        while lists.join("4247").exists() && t.elapsed() < crate::test_limit(Duration::from_secs(30)) {
             sweep_staging_in(&lists, SWEEP_WAIT);
             std::thread::sleep(Duration::from_millis(50));
         }

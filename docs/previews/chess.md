@@ -332,7 +332,7 @@ own.
   does. An archive that says it unpacks to far more than its packed
   bytes could hold, to more than 16 GB, or to more than the disk has free (keeping 1 GB) is
   refused with a message before anything is written; the bar shows the unpacking, then the
-  reading, and closing the preview stops both. *Save as new PGN* writes next to the archive. Find reads a
+  reading, and closing the preview stops both. *Save as new PGN* asks where: beside the archive, in another folder, or inside it ([the choices](chess-play.md#a-game-from-inside-an-archive)). Find reads a
   `.cbv` file as it does a `.cbh` one; every database in it, and an archived PGN file's games.
   A store made before coxswain 2.35.0 reads each `.cbv` file once more, so the games of an
   archive's other databases and of an archived PGN file are found too; no other file is read

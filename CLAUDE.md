@@ -83,10 +83,22 @@ These rules hold for every contributor and every Claude session in this reposito
   refuses (exit 4, listing them) while the new version's milestone has open issues, except those
   labelled `post-release` or titled "After the release…". Close them or move them to a later
   milestone; `--open-issues-ok` releases anyway, the owner's decision only.
+- **Take an issue before starting it.** Several people and sessions work on one milestone at
+  once. Start only on an issue that has no assignee and no open pull request naming it
+  (`gh pr list --search "<n>"`), and assign it to yourself first
+  (`gh issue edit <n> --add-assignee @me`; without the rights for that, comment "Taking this").
+  An assigned issue belongs to its assignee. A pull request is finished on its own (`Closes #n`,
+  its changelog row, its docs), so someone else can take it over if you stop.
 - **All changes go through pull requests.** `master` is protected: no direct pushes, CI must
   pass on Linux, macOS and Windows, squash merge only. Work on a branch, open the PR with
   `gh pr create`, then `gh pr merge --auto --squash` so it merges itself once CI is green.
   The squash commit title is what lands on `master`, so make the PR title a good commit title.
+- **Every pull request is reviewed before it merges.** A reviewer agent that did not write it
+  reads the diff and the code it touches and hunts for bugs; its findings are fixed or answered
+  before auto-merge goes on. A small change gets a mid-tier model (Sonnet); a risky one gets the
+  strongest (Fable): the bin, archives, the search helper, the store, and anything that deletes,
+  moves or overwrites files. Before a release, one short review pass covers the release as a
+  whole.
 - **Watch every PR you open until it has merged.** Auto-merge hides failures: follow the checks
   (`gh pr checks <n> --watch`), and when one fails read `gh run view <id> --log-failed`, fix,
   push, and watch again. Windows is the usual one (path separators, `;` in path lists, files
@@ -273,6 +285,10 @@ terminal app runs in a tmux of its own, drawn in MesloLGM Nerd Font Mono. Each r
 process namespace: stopping it stops all it started, the search helper too. See the top of
 `cap.py` for the calls.
 
+- **The terminal app's pictures are scenes** in `docs/screenshots/scenes.py` (a start, the keys,
+  the picture): after a change to that screen, a release build and
+  `uv run docs/screenshots/scenes.py --write` retakes them all; name some to retake only those.
+  A new terminal picture gets a scene there.
 - Never run podman or docker inside the sandbox.
 - Keys may be sent (`wtype`) only to the sandbox window, and only after checking that it has
   the focus. Never type into other windows, and never stop Coxswain processes by name: stop the

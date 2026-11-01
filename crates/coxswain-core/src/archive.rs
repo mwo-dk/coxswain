@@ -1578,6 +1578,8 @@ struct Item {
     dir: bool,
     modified: u64,
     locked: bool,
+    /// A link, shown as what it leads to: not counted again in its folder's size.
+    link: bool,
 }
 
 /// An archive's entries as they are kept: their names one after another in one string, the
@@ -1598,6 +1600,7 @@ struct Row {
     modified: u64,
     dir: bool,
     locked: bool,
+    link: bool,
 }
 
 /// An entry of `Items` as it is read: its name borrowed from them.
@@ -1608,6 +1611,7 @@ struct ItemRef<'a> {
     dir: bool,
     modified: u64,
     locked: bool,
+    link: bool,
 }
 
 impl ItemRef<'_> {
@@ -1618,6 +1622,7 @@ impl ItemRef<'_> {
             dir: self.dir,
             modified: self.modified,
             locked: self.locked,
+            link: self.link,
         }
     }
 }
@@ -1635,6 +1640,7 @@ impl Items {
             modified: it.modified,
             dir: it.dir,
             locked: it.locked,
+            link: it.link,
         });
     }
 
@@ -1653,6 +1659,7 @@ impl Items {
                 dir: r.dir,
                 modified: r.modified,
                 locked: r.locked,
+                link: r.link,
             }
         })
     }
@@ -1746,6 +1753,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: e.dir,
                 modified: if e.modified == 0 { own } else { e.modified },
                 locked: false,
+                link: false,
             })
             .collect());
     }
@@ -1760,6 +1768,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: n.dir,
                 modified: n.modified,
                 locked: false,
+                link: n.linked,
             })
             .collect());
     }
@@ -1776,6 +1785,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: false,
                 modified: m.secs.max(0) as u64,
                 locked: false,
+                link: false,
             })
             .collect());
     }
@@ -1789,6 +1799,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: c.dir(),
                 modified: c.modified().map_or(0, unix),
                 locked: c.encrypted(),
+                link: false,
             });
             walked.seen < max
         }) {
@@ -1810,6 +1821,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: e.is_dir(),
                 modified: e.last_modified().map_or(0, unix),
                 locked: e.encrypted(),
+                link: false,
             });
         }
         return Ok(out);
@@ -1828,6 +1840,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                     dir: e.dir,
                     modified: e.modified,
                     locked: locked && e.has_stream(),
+                    link: false,
                 })
                 .collect());
         }
@@ -1842,6 +1855,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: f.is_directory,
                 modified,
                 locked: locked && f.has_stream,
+                link: false,
             });
         }
         return Ok(out);
@@ -1853,6 +1867,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             dir: h.entry_type().is_dir(),
             modified: h.mtime().unwrap_or(0),
             locked: false,
+            link: false,
         });
         Ok(out.seen < max)
     };
@@ -1871,6 +1886,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: l.dir,
                 modified: l.modified,
                 locked: false,
+                link: false,
             });
         }
     } else {
@@ -2336,7 +2352,10 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         let e = &mut out[i];
         if deeper {
             e.is_dir = true;
-            e.size += it.size;
+            // A link shows as its target, which is counted where it is.
+            if !it.link {
+                e.size += it.size;
+            }
         } else if it.dir {
             e.modified = it.modified;
         } else {
@@ -2445,6 +2464,44 @@ pub(crate) fn too_large(name: &str) -> io::Error {
 /// it goes, and copies left by earlier runs go after a day. A locked file needs its password
 /// remembered: `LOCKED` without it.
 pub fn peek(path: &Path) -> io::Result<PathBuf> {
+    let copy = peek_copy(path)?;
+    let mut from = PEEKED_FROM.lock().unwrap_or_else(|e| e.into_inner());
+    from.retain(|(c, _)| *c != copy);
+    from.push((copy.clone(), path.to_path_buf()));
+    // The last few are enough: a view keeps its copy only until the next previews.
+    if from.len() > 32 {
+        from.remove(0);
+    }
+    Ok(copy)
+}
+
+/// Each copy `peek` made, and the path through the archive it came from.
+static PEEKED_FROM: std::sync::Mutex<Vec<(PathBuf, PathBuf)>> = std::sync::Mutex::new(Vec::new());
+
+/// The path through an archive that `copy` (made by `peek`) came from.
+pub fn peeked_from(copy: &Path) -> Option<PathBuf> {
+    let from = PEEKED_FROM.lock().unwrap_or_else(|e| e.into_inner());
+    from.iter().find(|(c, _)| c == copy).map(|(_, p)| p.clone())
+}
+
+/// A new file with `text` in the folder `folder` ("" for the top) of `archive`, under the first
+/// of `name(1)`, `name(2)` … that is free there: never over a file. The name it got.
+pub fn add_text(archive: &Path, folder: &str, name: &dyn Fn(u32) -> String, text: &str) -> io::Result<String> {
+    let have: std::collections::HashSet<String> = items(archive)?.iter().map(|it| it.name.to_string()).collect();
+    let at = |n: &str| if folder.is_empty() { n.to_string() } else { format!("{folder}/{n}") };
+    let n = (1..10_000).find(|&n| !have.contains(&at(&name(n)))).ok_or_else(|| io::Error::other("no free name"))?;
+    let (short, full) = (name(n), at(&name(n)));
+    if !one_name(&short) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, short));
+    }
+    let tmp = run_folder("save-pgn", false)?.join(&short);
+    std::fs::write(&tmp, text)?;
+    let done = add(archive, &[(full, tmp.clone())], password_for(archive, None).as_deref());
+    let _ = std::fs::remove_file(&tmp);
+    done.map(|()| short)
+}
+
+fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
@@ -3762,7 +3819,7 @@ mod tests {
     /// a large one pushes the others out, so one list of millions is all that is kept.
     #[test]
     fn kept_lists_are_compact_and_one_large_one_is_kept_alone() {
-        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false };
+        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false, link: false };
         let items: Items = [item("a/b.txt"), item("../out"), item("c")].into_iter().collect();
         assert_eq!((items.len(), items.seen), (2, 3));
         let names: Vec<&str> = items.iter().map(|it| it.name).collect();

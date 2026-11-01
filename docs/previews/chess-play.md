@@ -72,12 +72,42 @@ click on a book move is, and **←** takes it back.
 result made `*`), the game's moves up to the move your line starts from, then your line. The name
 is the game file's with ` line` added, `games line.pgn`, then `games line 2.pgn` and on; no file
 is ever written over, and the game file itself stays as it is. The status line says *Saved as
-games line.pgn, next to this file*. A line from an EPD position, or from a game that starts from
+games line.pgn, next to this file*; for a game inside an archive it asks where instead
+([below](#a-game-from-inside-an-archive)). A line from an EPD position, or from a game that starts from
 a set-up position, gets the `SetUp` and `FEN` tags, so it opens from the same position.
 
 The new file is a normal PGN file: **Enter** or **Alt+K** on it shows it in the table, and any chess program
-reads it. When the folder cannot be written to (a read-only disk, an archive), the status line
+reads it. When the folder cannot be written to (a read-only disk), the status line
 says *Could not save the line:* and why.
+
+### A game from inside an archive
+
+A game opened from inside an archive is read from a copy in the cache, so saving next to the
+copy would leave the new file where it can be swept. *Save as new PGN* (**s**) and *Save as
+annotated PGN* (**w**) ask where the file goes instead:
+
+| Choice | Terminal app | Desktop app | Result |
+| --- | --- | --- | --- |
+| Beside the archive (default) | **b** or **Enter** | *Beside games.zip*, then *Save* | `games line.pgn` in the archive's folder, then `games line 2.pgn` and on; never over a file |
+| Another folder | **f**, type the folder (the archive's folder is filled in), **Enter** | *Another folder*, type the folder (the archive's folder is filled in), then *Save* | The same name in that folder |
+| Inside the archive | **i** | *Inside games.zip*, then *Save* | A new entry in the archive's folder that holds the game, under the same names; the archive is rewritten |
+
+![The terminal app after s on a game from chess-club.zip: the status line asks Save where? with b beside chess-club.zip, f another folder, i inside chess-club.zip](../screenshots/tui-chess-save-where.png)
+
+![The terminal app asking for the folder: Folder (Enter saves, Esc cancels) with the archive's folder filled in](../screenshots/tui-chess-save-folder.png)
+
+![The desktop app under the board: Where should the new PGN go? with Beside chess-club.zip, Another folder, Inside chess-club.zip, Save and Cancel](../screenshots/gui-chess-save-where.png)
+
+![The desktop app with Another folder chosen and a relative path typed: Type a full folder path (or one starting with ~), the question still open](../screenshots/gui-chess-save-folder.png)
+
+*Inside the archive* is offered only for an archive Coxswain can write: a zip, 7z or tar, not a
+disk image, a mailbox, an archive split into parts, or an archive inside another. Without it the
+terminal app's question and the desktop app's choices leave it out, and nothing is rewritten.
+A typed folder may start with `~`; an empty or relative one is refused with a message and
+the question stays open. If the archive has gone (deleted or renamed) since the game was opened,
+nothing is saved and the status line says so; a file is never saved into the cache. **Esc** (terminal) or *Cancel* (desktop) saves nothing. The status line names where the file
+went: *Saved as games line.pgn, beside games.zip*, *… in /home/you/chess*, or *… inside
+games.zip*.
 
 ## The engine
 
@@ -363,6 +393,13 @@ Threads = 2
 with.
 
 ## Questions
+
+#### Where does Save as new PGN put a game from an archive?
+
+It asks. In the terminal app press **b** (or **Enter**) for beside the archive, **f** for another folder, **i** for inside
+the archive; in the desktop app pick one of the choices that appear and press *Save*. Beside the
+archive is the default, and no file is ever written over. Inside the archive is offered only
+when the archive can be written ([the choices](#a-game-from-inside-an-archive)).
 
 #### Does playing a move change my PGN file?
 

@@ -23,6 +23,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
+use crate::t;
 
 /// Formats only Tika reads here: OneNote, XPS and OpenXPS, compiled HTML help, Outlook data
 /// files, MHTML web archives, Hangul word processor files, Access databases.
@@ -68,8 +69,84 @@ pub enum State {
     Ready,
     /// Neither podman nor docker is installed (or `[preview] container` is off).
     NoRuntime,
-    /// The image could not be pulled, or the server would not start: why.
+    /// The image could not be pulled for a passing fault: it is tried again at `at` (seconds
+    /// since 1970).
+    Waiting { fault: Fault, at: u64 },
+    /// The image could not be pulled, and trying again would not help: why.
+    Unpulled(Fault),
+    /// The server would not start: why.
     Failed(String),
+}
+
+/// The first version whose apps know `State::Waiting` and `State::Unpulled`.
+const STATES_SINCE: &str = "2.36.0";
+
+impl State {
+    /// The state as an app of `version` can read it: before `STATES_SINCE`, a pull that failed
+    /// is a `Failed` with its words, as that app knew it.
+    pub fn for_app(self, version: &str) -> State {
+        if !crate::helper::older(version, STATES_SINCE) {
+            return self;
+        }
+        match self {
+            State::Waiting { fault, at } => State::Failed(t!("settings.status.tika_again", "fault" => fault.text(), "time" => crate::i18n::time(at))),
+            State::Unpulled(fault) => State::Failed(t!("settings.status.tika_unpulled", "fault" => fault.text())),
+            s => s,
+        }
+    }
+}
+
+/// Why a pull failed, in words a user knows; the runtime's own error goes to helper.log.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Fault {
+    /// No name lookup, no connection, a timeout, the registry busy or failing for a while.
+    Network,
+    /// No room for the image.
+    Space,
+    /// The registry has no such image, or will not give it.
+    Gone,
+    /// Anything else the runtime said.
+    Other,
+}
+
+impl Fault {
+    /// The fault a runtime's error tells, by its words (podman's and docker's are English).
+    pub fn of(error: &str) -> Fault {
+        let e = error.to_lowercase();
+        let has = |words: &[&str]| words.iter().any(|w| e.contains(w));
+        if has(&["no space left", "disk quota"]) {
+            Fault::Space
+        // The registry's refusal only: a plain "permission denied" (rootless podman's own storage
+        // or socket) is the machine's, and tried again.
+        } else if has(&["manifest unknown", "name unknown", "not found", "unauthorized", "denied: requested access", "access denied"]) {
+            Fault::Gone
+        } else if has(&[
+            "name resolution", "no such host", "lookup ", "dial tcp", "connection refused", "connection reset",
+            "network is unreachable", "timeout", "timed out", "tls handshake", "toomanyrequests",
+            "too many requests", "service unavailable", "bad gateway", "internal server error", "unexpected eof",
+            "cannot connect", "daemon",
+        ]) {
+            Fault::Network
+        } else {
+            Fault::Other
+        }
+    }
+
+    /// Whether trying again later may help: not for a full disk or an image the registry lacks.
+    pub fn passing(self) -> bool {
+        matches!(self, Fault::Network | Fault::Other)
+    }
+
+    /// Its words, for the status line.
+    pub fn text(self) -> String {
+        t!(match self {
+            Fault::Network => "settings.status.tika_fault_network",
+            Fault::Space => "settings.status.tika_fault_space",
+            Fault::Gone => "settings.status.tika_fault_gone",
+            Fault::Other => "settings.status.tika_fault_other",
+        })
+    }
 }
 
 /// Tika as the settings set it.
@@ -113,6 +190,8 @@ fn name() -> String {
 /// The image is pulled: set once it is known, so the status costs no runtime call.
 static PULLED: AtomicBool = AtomicBool::new(false);
 static FAILED: Mutex<Option<String>> = Mutex::new(None);
+/// The last pull failed: why, and when (seconds since 1970) it is tried again, if it is.
+static UNPULLED: Mutex<Option<(Fault, Option<u64>)>> = Mutex::new(None);
 /// When the server last failed to start: no start is tried for `BACK_OFF` after it.
 static FAILED_AT: Mutex<Option<Instant>> = Mutex::new(None);
 
@@ -138,6 +217,12 @@ pub fn state() -> Option<State> {
     if let Some(line) = crate::images::pulling().get(&t.image) {
         return Some(State::Pulling(line.clone()));
     }
+    if let Some((fault, again)) = *UNPULLED.lock().unwrap() {
+        return Some(match again {
+            Some(at) => State::Waiting { fault, at },
+            None => State::Unpulled(fault),
+        });
+    }
     if let Some(why) = FAILED.lock().unwrap().clone() {
         return Some(State::Failed(why));
     }
@@ -150,24 +235,71 @@ pub fn state() -> Option<State> {
 
 /// When the helper starts: with Tika on and its image not pulled yet, pull it in the
 /// background (turning the option on, under its size and cost, is the click that asks for
-/// it), then `pulled` to read the files it can now read. Nothing when Tika is off.
+/// it), then `pulled` to read the files it can now read. Nothing when Tika is off. A pull that
+/// fails is tried again by itself (`pull_until_there`), and an image pulled another way (by
+/// hand) is noticed within `LOOK`, later within 10 minutes.
 pub fn prepare(pulled: impl FnOnce() + Send + 'static) {
     let Some(Ok(t)) = tika() else { return };
     if crate::tools::image_size(&t.rt, &t.image).is_some() {
         PULLED.store(true, Ordering::Relaxed);
         return;
     }
-    std::thread::spawn(move || match crate::images::pull(&t.rt, &t.image) {
-        Ok(()) => {
-            PULLED.store(true, Ordering::Relaxed);
-            used(&t.image);
-            pulled();
-        }
-        Err(e) => {
-            crate::helper::note(format_args!("Apache Tika: {e}"));
-            *FAILED.lock().unwrap() = Some(e);
-        }
+    std::thread::spawn(move || {
+        pull_until_there(
+            || crate::images::pull(&t.rt, &t.image),
+            || crate::tools::image_size(&t.rt, &t.image).is_some(),
+            std::thread::sleep,
+        );
+        PULLED.store(true, Ordering::Relaxed);
+        used(&t.image);
+        pulled();
     });
+}
+
+/// While a pull waits to be tried again, how often the runtime is asked whether the image is
+/// there by now: at first, then twice as long each time, `LOOK_MOST` at most.
+const LOOK: Duration = Duration::from_secs(60);
+const LOOK_MOST: Duration = Duration::from_secs(600);
+
+/// How long after the `tries`-th failed pull (from 0) the next is made: 5 minutes, then twice
+/// as long each time, an hour at most.
+fn pull_wait(tries: u32) -> Duration {
+    Duration::from_secs((300u64 << tries.min(4)).min(3600))
+}
+
+/// `pull` until the image is `there`: after a passing fault again after `pull_wait`, after a
+/// lasting one never; between, `there` is asked after `LOOK`, then less often (`sleep` waits). What failed and
+/// when it is tried again is in `UNPULLED`, for `state`, until it is there.
+fn pull_until_there(mut pull: impl FnMut() -> Result<(), String>, mut there: impl FnMut() -> bool, mut sleep: impl FnMut(Duration)) {
+    let mut tries = 0;
+    loop {
+        let e = match pull() {
+            Ok(()) => break,
+            Err(e) => e,
+        };
+        crate::helper::note(format_args!("Apache Tika: {e}"));
+        let fault = Fault::of(&e);
+        let wait = fault.passing().then(|| pull_wait(tries));
+        tries += 1;
+        *UNPULLED.lock().unwrap() = Some((fault, wait.map(|w| crate::fs::now() + w.as_secs())));
+        let (mut waited, mut look) = (Duration::ZERO, LOOK);
+        let found = loop {
+            let step = wait.map_or(look, |w| look.min(w.saturating_sub(waited)));
+            sleep(step);
+            waited += step;
+            look = (look * 2).min(LOOK_MOST);
+            if there() {
+                break true;
+            }
+            if wait.is_some_and(|w| waited >= w) {
+                break false;
+            }
+        };
+        if found {
+            break;
+        }
+    }
+    *UNPULLED.lock().unwrap() = None;
 }
 
 /// The extensions Tika reads now: none until its image is there, and the older Office ones
@@ -552,6 +684,73 @@ mod tests {
         assert!(backing_off());
         *FAILED.lock().unwrap() = None;
         *FAILED_AT.lock().unwrap() = None;
+    }
+
+    /// A pull that fails for no network is tried again after 5, then 10 minutes, and waits
+    /// meanwhile; one the registry refuses is not, and the image pulled by hand ends the wait.
+    #[test]
+    fn tika_pulls_again_after_a_passing_fault_and_notices_an_image_pulled_by_hand() {
+        let dns = "Pulling docker.io/apache/tika:4.1.0 failed: Error: initializing source docker://apache/tika:4.1.0: pinging container registry registry-1.docker.io: Get \"https://registry-1.docker.io/v2/\": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution";
+        assert_eq!(Fault::of(dns), Fault::Network);
+        assert_eq!(Fault::of("Error: writing blob: no space left on device"), Fault::Space);
+        assert_eq!(Fault::of("reading manifest 4.1.0 in docker.io/apache/tika: manifest unknown"), Fault::Gone);
+        assert_eq!(Fault::of("exit status 125"), Fault::Other);
+        assert_eq!(Fault::of("Error: creating container storage: open /home/x/.local/share/containers/storage/overlay: permission denied"), Fault::Other, "the machine's, not the registry's");
+        assert_eq!(Fault::of("denied: requested access to the resource is denied"), Fault::Gone);
+        assert_eq!(Fault::of("Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?"), Fault::Network);
+        // Two pulls fail for no network, the third works: slept until each was due, the state
+        // waiting in between.
+        let (mut pulls, slept, mut seen) = (0, std::cell::Cell::new(Duration::ZERO), vec![]);
+        let mut waits = vec![];
+        pull_until_there(
+            || {
+                pulls += 1;
+                waits.push(slept.get());
+                if pulls < 3 { Err(dns.to_string()) } else { Ok(()) }
+            },
+            || false,
+            |d| {
+                slept.set(slept.get() + d);
+                seen.push(*UNPULLED.lock().unwrap());
+            },
+        );
+        assert_eq!(waits, [Duration::ZERO, pull_wait(0), pull_wait(0) + pull_wait(1)]);
+        assert_eq!((pull_wait(0).as_secs(), pull_wait(1).as_secs(), pull_wait(9).as_secs()), (300, 600, 3600));
+        assert!(seen.iter().all(|s| matches!(s, Some((Fault::Network, Some(_))))), "{seen:?}");
+        assert_eq!(*UNPULLED.lock().unwrap(), None, "pulled: no fault left");
+        // The registry lacks the image: never pulled again, until it is there another way; the
+        // runtime asked less and less often, every 10 minutes at most.
+        let (mut pulls, mut looks, mut steps) = (0, 0, vec![]);
+        pull_until_there(
+            || {
+                pulls += 1;
+                Err("manifest unknown".to_string())
+            },
+            || {
+                looks += 1;
+                assert_eq!(*UNPULLED.lock().unwrap(), Some((Fault::Gone, None)));
+                looks == 100
+            },
+            |d| steps.push(d.as_secs()),
+        );
+        assert_eq!((pulls, looks), (1, 100));
+        assert_eq!(steps[..6], [60, 120, 240, 480, 600, 600]);
+        assert_eq!(*UNPULLED.lock().unwrap(), None);
+    }
+
+    /// An app older than `STATES_SINCE` gets a failed pull as the `Failed` it knows; a newer
+    /// one, or another state, as it is.
+    #[test]
+    fn tika_states_reach_an_older_app_in_its_own_form() {
+        let w = State::Waiting { fault: Fault::Network, at: 0 };
+        assert!(matches!(w.clone().for_app("2.35.0"), State::Failed(t) if t.contains(&Fault::Network.text())));
+        assert!(matches!(State::Unpulled(Fault::Gone).for_app("2.34.2"), State::Failed(_)));
+        assert_eq!(w.clone().for_app(STATES_SINCE), w);
+        assert_eq!(w.clone().for_app("3.0.0"), w);
+        assert_eq!(State::Ready.for_app("2.0.0"), State::Ready);
+        // What an older app reads: a variant it knows.
+        let old = serde_json::to_string(&w.for_app("2.35.0")).unwrap();
+        assert!(old.starts_with("{\"failed\":"), "{old}");
     }
 
     /// Needs podman and the image pulled (`podman pull` the image of `[preview.images] tika`):

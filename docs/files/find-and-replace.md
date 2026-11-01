@@ -119,7 +119,7 @@ moved) is left as it is, with a line saying why; the others go back. Like every 
 for the app run. The copies of a run that has ended go at the next start of either app or the
 search helper; until then [Disk use](../reference/disk-use.md#the-rows) lists them as
 *coxswain-replace-…/* under *Your own files, kept aside by Coxswain*, whose **Remove** takes only
-those of runs that have ended.
+those of runs that have ended, at once (before 2.36.0, only once they were ten minutes old).
 
 ## In the terminal app
 

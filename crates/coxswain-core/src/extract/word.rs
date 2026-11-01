@@ -144,7 +144,7 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
     let mut room = if whole { WHOLE_XML } else { MAX_XML };
     // The styles first, to know which of them hide their text.
     // Read for `TIME` at most, the sink's time not counted (`Text::late`).
-    out.until = Some(std::time::Instant::now() + TIME);
+    out.until = Some(super::now() + TIME);
     let mut styles = Styles::default();
     for (name, format) in [("word/styles.xml", &WORD), ("styles.xml", &OPEN)] {
         // What a broken part defined is forgotten, as if it had not been read.
@@ -1089,23 +1089,21 @@ mod tests {
     fn the_time_a_sink_takes_is_not_reading_time() {
         let n = 50_000;
         let xml: String = (0..n).map(|i| format!("<w:p><w:r><w:t>Report {i} of the mission control room</w:t></w:r></w:p>")).collect();
-        // The reader is given four times what reading takes on this machine, however slow (a
-        // busy machine running the other tests reads more slowly the second time), and the sink
-        // takes twice that, once.
-        let began = std::time::Instant::now();
-        read(xml.as_bytes(), &WORD, &mut crate::extract::Text::to(&mut |_: &str| {}), &mut Styles::default());
-        let time = began.elapsed() * 4 + std::time::Duration::from_millis(500);
+        // The reader's clock stands still but for the sink, which takes an hour the first time:
+        // a minute's reading time is long gone by the clock, and none of it was reading.
+        let start = std::time::Instant::now();
+        super::super::CLOCK.set(Some(start));
         let (mut lines, mut first) = (0, true);
         let mut sink = |chunk: &str| {
             if std::mem::take(&mut first) {
-                std::thread::sleep(time * 2);
+                super::super::CLOCK.set(Some(start + std::time::Duration::from_secs(3600)));
             }
             lines += chunk.lines().filter(|l| l.starts_with("Report")).count();
         };
         let mut out = crate::extract::Text::to(&mut sink);
-        out.until = Some(std::time::Instant::now() + time);
+        out.until = Some(start + std::time::Duration::from_secs(60));
         read(xml.as_bytes(), &WORD, &mut out, &mut Styles::default());
-        assert!(!out.late);
+        assert_eq!((out.late, out.waited), (false, std::time::Duration::from_secs(3600)), "the sink's hour was waited, not read");
         out.end();
         assert_eq!(lines, n);
     }

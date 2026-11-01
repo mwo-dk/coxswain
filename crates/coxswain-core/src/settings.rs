@@ -5,6 +5,8 @@
 //! the terminal app's. Here too: reading and writing the values, where `--settings=<name>`
 //! opens, the search level, the status lines of search, and what can leave the machine.
 
+use std::path::{Path, PathBuf};
+
 use serde::Serialize;
 use serde_json::Value;
 
@@ -464,7 +466,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
 
 /// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const PLACES: [(&str, Area); 4] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
+const PLACES: [(&str, Area); 5] = [("models", Search), ("disk", Privacy), ("disk_yours", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
@@ -884,6 +886,15 @@ pub fn status(
                 tika.note = Some(t!("settings.status.tika_no_runtime"));
                 tika.bad = true;
             }
+            Some(State::Waiting { fault, at }) => {
+                tika.text = t!("settings.status.tika_waiting");
+                tika.note = Some(t!("settings.status.tika_again", "fault" => fault.text(), "time" => crate::i18n::time(*at)));
+            }
+            Some(State::Unpulled(fault)) => {
+                tika.text = t!("settings.status.off");
+                tika.note = Some(t!("settings.status.tika_unpulled", "fault" => fault.text()));
+                tika.bad = true;
+            }
             Some(State::Failed(why)) => {
                 tika.text = t!("settings.status.off");
                 tika.note = Some(t!("settings.status.failed", "why" => why));
@@ -1034,9 +1045,47 @@ pub(crate) fn registry(image: &str) -> &str {
     }
 }
 
+/// What an Add box under *Finding files → Folders* adds, in both apps: the folder typed, a
+/// relative one taken from the panel's folder, or from the nearest real folder above it when
+/// the panel is inside an archive or another view (the home folder when none is); nothing when
+/// the box is empty.
+pub fn folder_to_add(panel: &Path, input: &str) -> Option<PathBuf> {
+    let input = input.trim();
+    if input.is_empty() {
+        return None;
+    }
+    let home = crate::dirs::home_dir().unwrap_or_default();
+    let base = panel.ancestors().find(|p| p.is_dir()).unwrap_or(&home);
+    let p = crate::fs::resolve(base, input);
+    Some(crate::fs::canonical(&p).unwrap_or(p))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder typed in an Add box is taken from the panel's folder, or from the real folder
+    /// the archive the panel is in sits in; an empty box adds nothing, not the panel's folder.
+    #[test]
+    fn a_folder_added_is_never_inside_an_archive() {
+        let d = crate::fs::Scratch::named("settings-add-folder");
+        std::fs::create_dir_all(d.join("docs")).unwrap();
+        std::fs::write(d.join("a.zip"), b"PK").unwrap();
+        let real = crate::fs::canonical(&d).unwrap();
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), ""), None);
+        assert_eq!(folder_to_add(&d, "  "), None);
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), "docs"), Some(real.join("docs")));
+        assert_eq!(folder_to_add(&d, "docs"), Some(real.join("docs")));
+        assert_eq!(folder_to_add(&d.join("a.zip"), &real.join("docs").display().to_string()), Some(real.join("docs")));
+        // `.` is the panel's folder, or the one its archive sits in; `~` the home folder.
+        assert_eq!(folder_to_add(&d, "."), Some(real.clone()));
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), "."), Some(real.clone()));
+        let home = crate::dirs::home_dir().unwrap();
+        let home = crate::fs::canonical(&home).unwrap_or(home);
+        assert_eq!(folder_to_add(&d, "~"), Some(home.clone()));
+        // A panel with no real folder above it (a view of its own): relative to home.
+        assert_eq!(folder_to_add(Path::new("no-such-view/x"), "."), Some(home));
+    }
 
     #[test]
     fn settings_every_option_is_explained_in_every_language() {
@@ -1231,6 +1280,8 @@ mod tests {
         assert_eq!(open_at("previews"), (Previews, None));
         assert_eq!(open_at("check_updates"), (Privacy, Some("check_updates")));
         assert_eq!(open_at("disk"), (Privacy, Some("disk")));
+        // A kept sync folder's notice opens Disk use at the user's own files, not at its top.
+        assert_eq!(open_at("disk_yours"), (Privacy, Some("disk_yours")));
         // Chess moved from Previews to Games: its old names open there.
         assert_eq!(open_at("games"), (Games, None));
         assert_eq!(open_at("chess_engines"), (Games, Some("chess_engines")));

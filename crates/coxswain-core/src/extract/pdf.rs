@@ -147,13 +147,20 @@ pub fn pages(path: &Path, max: u64, f: &mut (dyn FnMut(&str) -> bool + Send)) ->
     // The virtual machines the tests run in are slow and busy: the tests' files get four times
     // as long there.
     let slow = cfg!(test) && crate::slow_test_machine();
-    let until = Instant::now() + if slow { TIME * 4 } else { TIME };
+    let until = super::now() + if slow { TIME * 4 } else { TIME };
     let reader = std::thread::Builder::new()
         .name(THREAD.into())
         .stack_size(STACK);
+    // A test's clock that stands still (`extract::CLOCK`) stands still for the reader too.
+    #[cfg(test)]
+    let clock = super::CLOCK.get();
     std::thread::scope(|scope| {
         reader
-            .spawn_scoped(scope, || read(bytes, until, f))
+            .spawn_scoped(scope, || {
+                #[cfg(test)]
+                super::CLOCK.set(clock);
+                read(bytes, until, f)
+            })
             .ok()?
             .join()
             .ok()?
@@ -207,7 +214,7 @@ fn read(mut bytes: Vec<u8>, until: Instant, f: &mut dyn FnMut(&str) -> bool) -> 
     'pages: for page in pages {
         // The page, then what lies on top of it, each as a page of its own.
         for on_top in std::iter::once(None).chain(on_top(&doc, page).into_iter().map(Some)) {
-            if Instant::now() > until || given > MAX_TEXT {
+            if super::now() > until || given > MAX_TEXT {
                 break 'pages;
             }
             let look = on_top.is_some();
@@ -749,7 +756,7 @@ fn at_load(id: (u32, u16), object: &mut Object) -> Option<((u32, u16), Object)> 
     let size = object
         .as_stream()
         .map_or(0, |stream| stream.content.len() as u64);
-    if Instant::now() > load.until || size > load.left {
+    if super::now() > load.until || size > load.left {
         // Out of lopdf, back to `read`, and without a word: this is no fault of the program's.
         std::panic::resume_unwind(Box::new(()));
     }
@@ -1079,7 +1086,7 @@ impl Calm {
             }
             None => {}
         }
-        let content = if Instant::now() < self.until {
+        let content = if super::now() < self.until {
             unpacked(stream, MAX_ENTRY)
         } else {
             None
@@ -1152,7 +1159,7 @@ fn reach(
     let mut steps = 0usize;
     while let Some(object) = todo.pop() {
         steps += 1;
-        if steps.is_multiple_of(4096) && Instant::now() > until {
+        if steps.is_multiple_of(4096) && super::now() > until {
             return None;
         }
         match object {
@@ -1345,7 +1352,7 @@ fn may_hide(
     };
     // Too deep, or out of time (forms that share resources of many forms are each gone
     // through): taken to hide, so the page is walked, and the walk stops at `until` itself.
-    if depth == 0 || Instant::now() >= until {
+    if depth == 0 || super::now() >= until {
         return true;
     }
     let clear = dict_at(doc, resources, b"ExtGState").is_some_and(|states| {
@@ -1541,7 +1548,7 @@ impl Walk<'_> {
             page.painted = true;
             return;
         }
-        if depth == 0 || Instant::now() >= self.until {
+        if depth == 0 || super::now() >= self.until {
             // Not gone through: whatever it draws may be under what comes after.
             page.painted = true;
             self.found(id, vec![]);
@@ -1922,7 +1929,7 @@ fn mend_font(dict: &mut Dictionary, doc: &Document, mending: &mut Mending) {
                 let (as_what, content) = plain.entry(id).or_insert_with(|| {
                     (
                         used,
-                        if Instant::now() < until {
+                        if super::now() < until {
                             in_place_of(stream, used)
                         } else {
                             vec![]
@@ -2532,7 +2539,7 @@ impl<'a> Words<'a> {
     fn go_on(&mut self) -> Result<(), OutputError> {
         self.seen += 1;
         if self.given + self.text.len() + self.line.len() > MAX_TEXT
-            || (self.seen.is_multiple_of(64) && Instant::now() > self.until)
+            || (self.seen.is_multiple_of(64) && super::now() > self.until)
         {
             return Err(OutputError::FormatError(std::fmt::Error));
         }
@@ -3373,7 +3380,21 @@ mod tests {
             start.elapsed()
         );
 
-        // A list of numbers heavier than the file allows, and one that is not.
+        // A list of numbers heavier than the file allows, and one that is not. The reader's
+        // clock stands still: what is left out is left out for its weight, never for the time
+        // a busy machine took.
+        // Read on a thread of its own with the same clock: a weight guard that let a file
+        // through would then never end, and the limit only guards against that.
+        let clock = Some(Instant::now());
+        let read = |name: &'static str, file: &[u8]| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let file = file.to_vec();
+            std::thread::spawn(move || {
+                super::super::CLOCK.set(clock);
+                let _ = tx.send(read(name, &file));
+            });
+            rx.recv_timeout(crate::test_limit(Duration::from_secs(60))).unwrap_or_else(|_| panic!("{name}: never ended"))
+        };
         let listed = |count: usize| {
             document(
                 FONT,

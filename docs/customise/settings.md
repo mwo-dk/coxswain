@@ -58,7 +58,7 @@ flowchart LR
    | `coxswain-gui --settings=search` | Finding files |
    | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
-   | `coxswain-gui --settings=models`, `--settings=disk` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded |
+   | `coxswain-gui --settings=models`, `--settings=disk`, `--settings=disk_yours` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded; `disk_yours` scrolled to its *Your own files* |
    | `coxswain-gui --settings=preview_tools`, `--settings=chess_engines` | *Preview tools* under Previews, *Chess engines* under Games |
    | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 
@@ -561,8 +561,9 @@ opens with the cursor on that option. See [In the terminal app](#in-the-terminal
 #### How do I add a folder to a list in the terminal app?
 
 The cursor on the list (*Names only*, *Folders read* …), **Enter**: its items open under it, the
-cursor in the *+ Add* field. Type the folder (relative to the active panel's folder, or empty for
-that folder itself) and **Enter**. **↑** to an item and **Delete** removes it. For *Left out
+cursor in the *+ Add* field. Type the folder (relative to the active panel's folder; `.` for that
+folder itself, or for the folder an archive sits in when the panel is inside one) and **Enter**;
+an empty field adds nothing. **↑** to an item and **Delete** removes it. For *Left out
 everywhere* and *Never indexed* you type a name or a pattern (`*.log`) instead.
 
 #### Will Settings mess up my hand-written config?

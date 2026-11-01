@@ -90,7 +90,7 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
     unreachable!("some name is free")
 }
 
-/// Put back what `put` moved in under `name` to `path`, where it was: renamed back, never over
+/// Put back what `put` moved in under `name` to `path`, where it was: moved back, never over
 /// what is there now. The name, not the date, says which: two trashings of one path within a
 /// second have the same date.
 pub fn restore(name: &str, path: &Path) -> io::Result<()> {
@@ -119,7 +119,9 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
             crate::t!("err.exists", "path" => path.display()),
         ));
     }
-    fs::rename(trash.join("files").join(name), &path)?;
+    crate::bin::fd::midway();
+    // Never over a file made at `path` since the look above.
+    crate::bin::fd::move_new(&trash.join("files").join(name), &path)?;
     let _ = fs::remove_file(info);
     Ok(())
 }
@@ -219,6 +221,36 @@ mod tests {
         restore_in(&trash, &old, &f).unwrap();
         assert_eq!(fs::read_to_string(&f).unwrap(), "old");
         assert_eq!(fs::read_dir(trash.join("info")).unwrap().count(), 0);
+    }
+
+    /// A file saved at the place between restore's look and its move stays (#721), with hard
+    /// links and without (Termux).
+    #[test]
+    fn restore_never_replaces_a_file_made_meanwhile() {
+        use crate::bin::fd::{MIDWAY, NO_LINK};
+        for no_link in [false, true] {
+            let d = tmp(&format!("meanwhile-{no_link}"));
+            let trash = d.join("Trash");
+            let f = d.join("report.txt");
+            fs::write(&f, "binned").unwrap();
+            let n = put_in(&trash, &f, same_fs).unwrap();
+            NO_LINK.set(no_link);
+            let saved = f.clone();
+            MIDWAY.set(Some(Box::new(move || fs::write(&saved, "saved").unwrap())));
+            let r = restore_in(&trash, &n, &f);
+            MIDWAY.set(None);
+            assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+            assert_eq!(fs::read_to_string(&f).unwrap(), "saved");
+            assert_eq!(
+                fs::read_to_string(trash.join("files").join(&n)).unwrap(),
+                "binned"
+            );
+            fs::remove_file(&f).unwrap();
+            restore_in(&trash, &n, &f).unwrap();
+            NO_LINK.set(false);
+            assert_eq!(fs::read_to_string(&f).unwrap(), "binned");
+            assert!(!trash.join("files").join(&n).exists());
+        }
     }
 
     #[test]

@@ -74,8 +74,24 @@ jobs:
         uses: ./.github/actions/apt-install
         timeout-minutes: 10
         with:
-          # mercurial: the tests of Mercurial repositories (vcs) run with it.
-          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev mercurial
+          # mercurial, subversion, cvs: the tests of their repositories (vcs, remote) run with them.
+          packages: libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev mercurial subversion cvs
+
+      # Jujutsu, for Fetch and Pull against a jj repository (tests/vcs_remote.rs): not in apt.
+      - name: Jujutsu
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          brew=/home/linuxbrew/.linuxbrew/bin/brew
+          if [ ! -x "$brew" ]; then echo "::notice title=No Homebrew::the Jujutsu part of tests/vcs_remote.rs is skipped here"; exit 0; fi
+          "$brew" install jj
+          # jj alone on the PATH: Homebrew's other programs would come before the system's.
+          mkdir -p "$RUNNER_TEMP/jj"
+          ln -s /home/linuxbrew/.linuxbrew/bin/jj "$RUNNER_TEMP/jj/jj"
+          echo "$RUNNER_TEMP/jj" >> "$GITHUB_PATH"
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
@@ -201,6 +217,8 @@ jobs:
       # The workflows' own shell scripts, and those inside `bash -c '…'` or `"…"` in them: bash -n and
       # shellcheck, so a quoting slip fails here in seconds, not after a VM has started.
       - run: python3 tools/workflow-shell-check.py
+      # Which GHCR versions the image cleanup keeps (ghcr-cleanup.yml).
+      - run: python3 -m unittest tools/test_ghcr_cleanup.py
       # Every theme, action, config.toml key, flag and feature has its mention in docs/. `test`
       # runs these on code changes (and every push to master); a docs-only pull request skips
       # `test`, so it runs them here.

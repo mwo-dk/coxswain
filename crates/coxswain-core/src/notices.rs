@@ -101,7 +101,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         } else {
             t!("notice.sync_kept", "n" => n, "size" => size, "path" => l.path().display(), "undo" => undo)
         };
-        all.push(Notice::new(l.id(), text, (!l.binned).then_some("disk")));
+        all.push(Notice::new(l.id(), text, (!l.binned).then_some("disk_yours")));
     }
     // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
     if let Some(why) = &status.error {

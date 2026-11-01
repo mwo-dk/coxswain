@@ -112,10 +112,22 @@ cask "coxswain-gui" do
     end
   end
 
-  # Config and state in the coxswain config folder stay: the terminal app shares them.
-  zap trash: [
-    "~/Library/Caches/coxswain",
-    "~/Library/WebKit/dk.mwo.coxswain",
-  ]
+  # The search helper runs from inside the bundle: stopped before an upgrade or uninstall
+  # replaces it, or macOS kills it and reports a crash. A launchctl remove, not the uninstall
+  # stanza's launchctl, which would delete the LaunchAgent and so turn off Start with my session; launchd loads it
+  # again at login, and the next app start hands it back at once.
+  uninstall_preflight_steps do
+    on_macos do
+      run "/bin/launchctl", args: ["remove", "dk.mwo.coxswain.index"], must_succeed: false
+    end
+  end
+
+  # Config and state in the coxswain config folder stay: the terminal app shares them. The
+  # LaunchAgent goes with --zap only.
+  zap launchctl: "dk.mwo.coxswain.index",
+      trash:     [
+        "~/Library/Caches/coxswain",
+        "~/Library/WebKit/dk.mwo.coxswain",
+      ]
 end
 RUBY

@@ -21,14 +21,17 @@ of steps of two programs plus a crash anywhere.
 
 Needs `java` (any JRE 11 or newer) and the network once: the first run fetches tla2tools 1.8.0
 (4.5 MB, SHA-256 pinned in the script) into `.worktrees/tlaplus/` of the main checkout, which
-git ignores. A run takes about 30 seconds on a laptop and prints one line per promise:
+git ignores. A run takes about 10 seconds on a laptop and prints one line per promise:
 
 ```
 promise          result put during empty allowed / assumed not
-NoLoss           FAIL   with a put during empty: FAIL (…/NoLoss-TRUE.log); without: FAIL (…/NoLoss-FALSE.log)
-Restorable       FAIL   with a put during empty: FAIL (…); without: FAIL (…)
+NoLoss           PASS
+Restorable       PASS
 NeverOverwrite   PASS
 ```
+
+A promise that fails prints `FAIL` with the log of its counterexample, and runs again assuming no
+put overlaps an Empty: `FAIL   with a put during empty: FAIL (…/NoLoss-TRUE.log); without: …`.
 
 Exit 0: every promise holds. Exit 1: a log named on the line holds the counterexample (the
 `State n:` blocks, each headed by the model action that made it). Exit 2: the tool itself failed
@@ -39,12 +42,9 @@ the run folder: it tells each violation as its shortest path in plain words, and
 holds it draws how the bin moves between states. Do not read the raw `State n:` dumps to the
 user.
 
-**What to expect at the sync commit (below):** exactly the table above. `NoLoss` and
-`Restorable` fail on the code as it is, through the findings in issues #720 and #721 (told
-below); `NeverOverwrite` holds. Anything else is news: a `PASS` where a `FAIL` is expected
-means a fix landed (close the issue and update this file); a `FAIL` where `PASS` is expected, or
-a trace that is not one of those told below, is a new bug or a model that no longer matches the
-code. Decide which with the coverage table.
+**What to expect at the sync commit (below):** exactly the table above: every promise holds.
+Any `FAIL` is news: a new bug or a model that no longer matches the code. Decide which with the
+coverage table. The variants (*Able to fail*, below) must still fail as told there.
 
 ## The promises, in one sentence each
 
@@ -64,7 +64,8 @@ Checked: 2 programs, 2 files that share one name (`report.txt`, so names collide
 at the origin), 2 bin names (`report.txt`, `report.txt (2)`), 2 places (`~/Documents/report.txt`
 and `report.txt (2)` beside it), a crash of either program between any two steps, the user
 saving a new file at a free place at any time, restores with and without *Restore under a free
-name*, every order of Empty's deletions. 7.4 million distinct states; TLC visits all of them.
+name*, every order of Empty's deletions. 0.4 million distinct states (the lock serialises restore,
+delete and Empty; the unlocked variant has 3 million); TLC visits all of them.
 
 Not modelled, so not proven:
 
@@ -78,6 +79,31 @@ Not modelled, so not proven:
   rename would; no trace found depends on that.
 - `fd::real` (a bin whose `files` or `info` is a link is refused) and `bin::inside` (nothing is
   made in `@bin`): checked at the start of each operation, not raced here.
+- A put that copies (the `trash` crate's fall-back when the file is on another disk than the
+  home bin: copy into `files/`, then delete the original). A half-made copy is listed, so an
+  Empty then would delete it, and the put the original. Coxswain's own put (`fs::trash_named`)
+  waits for the lock of the home bin and its own disk's bin (`fd::bins_for`; `fd::wait`, Stop
+  ends the wait), so no Coxswain Empty runs during it; another
+  program's copying put is not covered.
+- A busy bin: `fd::hold` takes the lock with `try_lock`, and when another Coxswain holds it the
+  operation does nothing and says `bin.busy`. The model's `Free` waits instead; refusing is a
+  step not taken, which no promise can break.
+- Undo after F8 (`undo::Record::undo` for a delete or a sync: the `trash` crate's
+  `restore_all`, or `xdg_trash::restore_in` on Termux and illumos) waits for the lock once for
+  the whole undo (Esc or Stop ends the wait, and the undo then does nothing); its steps are not
+  modelled.
+- An info file that is not UTF-8 or does not parse: `list_in` reads it lossily, so a raw
+  `Path=` still lists the item; one that does not parse at all is never a stray, and its item
+  stays through Empty. The model's info files are written whole or empty.
+- Other programs' restore, delete for good and Empty (the desktop's own trash): they do not take
+  Coxswain's lock, so a race between one of them and Coxswain is the unlocked variant's, and not
+  prevented. The model's restore, delete and Empty are Coxswain's.
+- `move_new` without hard links (Termux, FAT): an empty file made with `create_new` at the place,
+  then a rename over it. The model's `RLink` is the hard-link way; the two refuse a taken place
+  alike, and a program that replaces the empty file in between (an editor's save by rename) is
+  not modelled.
+- Info files without their item: Empty leaves them (one may be a put under way). Not modelled
+  as a cost: they hold no data, and a put of that name takes the next name.
 - Disk full, permissions, a bin on a disk that is unplugged mid-step: a failed system call is
   modelled only where the code reads its result (`hard_link`, `remove_file`, `rename` of a
   missing source).
@@ -86,30 +112,23 @@ Not modelled, so not proven:
 
 ## What it found
 
-**#720, `NoLoss` and `Restorable`: `empty_in`'s sweep deletes what was put in while Empty
-ran, and `delete_in` removes by a name that may be reused.** The shortest trace, in the code's
-words:
+Both findings are fixed; the variants keep them as proof the model sees them.
 
-1. The user confirms *Empty the bin*; `empty_in` calls `list_in` and begins deleting the list.
-2. Another program (or the desktop app's own panel, F8 while Empty runs on its blocking thread)
-   trashes `~/Documents/report.txt`: `create_new(info/report.txt.trashinfo)`, `write_all`,
-   `rename` into `files/`.
-3. `empty_in`'s sweep over `read_dir(files)` removes `files/report.txt`; its sweep over
-   `read_dir(info)` removes the info file.
+**#720, `NoLoss` and `Restorable`** (variants `sweep_all` and `unlocked`): `empty_in`'s sweep
+deleted whatever was in `files/` and `info/` at the end, so a file put in while Empty ran went
+too (or lost its info file and was hidden); and `delete_in` removed by a name that another
+program could free, and a new put take, between its `find` and its `remove`. Now Empty removes
+only what it listed and the strays (no info file, or an empty one) it saw at the
+listing that still are strays and still the same file (dev, ino), and restore, delete for good,
+Empty hold the bin's lock (`fd::hold`, `flock` on
+`<bin>/.coxswain-lock`) from their `find` to their last step, so no other Coxswain frees a name
+in between. Both undos and Coxswain's own put wait for it (`fd::wait`).
 
-`report.txt` is gone for good. A put that lands between the two sweeps leaves `files/report.txt`
-without its info file: `Restorable` breaks, the panel does not show it, the next Empty deletes it.
-The second trace (`NoLoss-FALSE.log`, the run that assumes no put overlaps an Empty): two
-programs both `find` `report.txt` for delete for good; the first removes it and its info file; a
-new `report.txt` is trashed and gets the free name; the second program's `remove(p)` deletes it.
+**#721, `NeverOverwrite`** (variant `restore_renames`): `xdg_trash::restore_in` (undo after F8
+on Termux and illumos) restored by `symlink_metadata` then `rename`, replacing a file made at the
+place in between. It now moves with `fd::move_new`, as `fd::restore_in` does, under the undo's lock.
 
-**#721, `NeverOverwrite`, shown by the `restore_renames` variant:** `xdg_trash::restore_in`
-(undo after F8 on Termux and illumos) restores by `symlink_metadata` then `rename`, so a file
-made at the place between the two calls is replaced. `fd::restore_in` takes the hard-link way
-and passes; the model's `r_link` is that way, which is why the code-as-is run says PASS here.
-
-Do not weaken `Bin.tla` to make these pass. A fix is in the code; the check then says PASS and
-this section shrinks.
+Do not weaken `Bin.tla` to make a promise pass. A fix is in the code.
 
 ## Does my change touch the verified code?
 
@@ -118,23 +137,27 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 
 | Model action(s) | Code (at the sync commit) |
 |---|---|
-| `PutStart`, `PutCheck`, `PutClaim`, `PutWrite`, `PutMove`, `PutFail` | `xdg_trash::put_in` (`crates/coxswain-core/src/xdg_trash.rs`, lines 47–94): the `name_candidates` loop, `symlink_metadata(files/n)`, `create_new`, `write_all`, `rename`, the `remove_file(&i)` on failure. Also the `trash` crate's `move_to_trash`, same order. |
-| `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart` | `fd::list_in` (`bin.rs` 438–478: an info file whose `parse` succeeds and whose item exists) and `fd::find` (533–540). |
-| `RCheck` | `fd::restore_in` (553–581): `symlink_metadata(&to)`, `taken`, `free_in` with `name_candidates`. |
-| `RLink`, `RUnlink` | `fd::move_new` (589–632), the file branch: `hard_link(from, to)`, then `remove_file(from)`. |
+| `PutStart`, `PutCheck`, `PutClaim`, `PutWrite`, `PutMove`, `PutFail` | `xdg_trash::put_in` (`crates/coxswain-core/src/xdg_trash.rs`, lines 47–91): the `name_candidates` loop, `symlink_metadata(files/n)`, `create_new`, `write_all`, `rename`, the `remove_file(&i)` on failure. Also the `trash` crate's `move_to_trash`, same order. |
+| `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 346–390, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return or the program dies. |
+| `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart` | `fd::list_in` (`bin.rs` 538–578: an info file whose `parse` succeeds and whose item exists) and `fd::find` (633–640). |
+| `RCheck` | `fd::restore_in` (653–685): `symlink_metadata(&to)`, `taken`, `free_in` with `name_candidates`. |
+| `RLink`, `RUnlink` | `fd::move_new` (695–766), the file branch: `hard_link(from, to)`, then `remove_file(from)`; also `xdg_trash::restore_in` (101–128). |
 | `RInfo` | `fd::restore_in`: `remove_file(info_of(&item.path))` after a successful move. |
-| `DRemove`, `DInfo` | `fd::delete_in` (642–659): `remove(p)`, then `remove_file(info_of(p))`. |
-| `EFile`, `EInfo`, `ESweepFiles`, `ESweepInfo` | `fd::empty_in` (661–685): `delete_in` on `list_in`'s list, then `read_dir(files)` and `remove` each, then `read_dir(info)` and `remove_file` each. |
+| `DRemove`, `DInfo` | `fd::delete_held` (784–802): `remove(p)`, then `remove_file(info_of(p))`. |
+| `EFile`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (809–842): `list_in` and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id` (dev, ino), `delete_held` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
 | `Make` | Not Coxswain: the user or any program saving a file at a free place. |
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The three promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item. |
 
-**Sync commit: `2bd2293a6`** (`bin.rs` and `xdg_trash.rs` as on master at that commit). To see
-whether the covered code changed since:
+**Sync commit: the merge of pull request #725** (the fix of #720 and #721; `bin.rs` and
+`xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
 
 ```
-git diff 2bd2293a6 HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
+sync=$(git log -1 --format=%h --grep='(#725)$' origin/master)
+git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
+
+When you move it, write the new commit's hash here.
 
 An empty diff: the model still describes the code; run the check and read the table. A diff
 that touches a function in the table: compare the function with its model action step by step
@@ -162,12 +185,11 @@ Each promise has been seen failing on a broken variant, run with `--variant`:
 
 | Variant | Breaks in the code | Fails |
 |---|---|---|
-| `restore_renames` | `fd::restore_in` moves with `fs::rename` instead of `move_new` (what `xdg_trash::restore_in` does today, #721) | `NeverOverwrite` in 10 states: the restore finds the place free, the user saves a new `report.txt` there, the rename replaces it. `NoLoss` too. |
+| `restore_renames` | `fd::restore_in` moves with `fs::rename` instead of `move_new` (what `xdg_trash::restore_in` did before #721) | `NeverOverwrite` in 10 states: the restore finds the place free, the user saves a new `report.txt` there, the rename replaces it. `NoLoss` too. |
+| `sweep_all` | `empty_in` sweeps every entry of `files/` and `info/` at the end (before #720) | `NoLoss` and `Restorable` with a put during Empty: the put lands after the listing, the sweep deletes it. Both pass assuming no put overlaps an Empty. |
+| `unlocked` | restore, delete and Empty take no lock (before #720) | `NoLoss` and `Restorable` even with no put during Empty: two programs `find` `report.txt` for delete for good, the first removes it, a new `report.txt` is put under the freed name, the second removes that. |
 | `put_moves_first` | `put_in` renames the file into `files/` before writing its info file | `Restorable` in 5 states: the file is in the bin with an empty info file, which `parse` rejects; a crash there leaves it invisible. |
 
-The known findings (#720) are the shortest `NoLoss` and `Restorable` traces on the code as it is;
-a different break of those two promises shows as a different trace, not a different word in the
-table. Compare the trace with the ones told above.
 
 ## When this skill is stale
 

@@ -204,6 +204,7 @@ The terminal app, coxswain, has the rest: coxswain --help
 | `--settings=ask_model` | …at *Finding files*, with *Details → Ask* open and scrolled to |
 | `--settings=models` | …at *Finding files*, with *Built-in models* open ([Built-in models](../search/models.md)) |
 | `--settings=disk` | …at *Privacy and updates*, with *Disk use* open ([Disk use](disk-use.md)) |
+| `--settings=disk_yours` | …at *Privacy and updates*, with *Disk use* open and scrolled to *Your own files, kept aside by Coxswain* (the cursor on its first row in the terminal app); at *Disk use* when nothing is kept there |
 | `--settings=language` | …at *Looks*, scrolled to *Language* ([Languages](../customise/languages.md)) |
 | `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../panels/notices.md)) |
 | `--settings=preview_tools` | …at *Previews*, scrolled to *Preview tools* ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)) |

@@ -97,7 +97,12 @@
     // One block shows both themes: the one asked for.
     if (at === "theme" || at === "tui_theme") themeFor = at;
     await tick();
-    const el = document.getElementById(`opt-${at}`);
+    // Disk use's rows come when they are read: the user's own files are shown once they are.
+    // Both reads: the second (with the container images) adds rows above Your own files.
+    if (at === "disk_yours") await Promise.all([diskRead, diskFull]);
+    await tick();
+    // With none of the user's own files kept, Disk use itself.
+    const el = document.getElementById(`opt-${at}`) ?? (at === "disk_yours" ? document.getElementById("opt-disk") : null);
     if (!el) return;
     for (let d = el.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
     el.scrollIntoView({ block: "center" });
@@ -205,9 +210,9 @@
     return at ? t("settings.search_root_size", { size: size(bytes) }) : t("settings.search_root_away", { size: size(bytes) });
   };
   async function addFolder(name, input) {
-    const dir = await invoke("resolve_path", { base: tab()?.dir ?? ui.cfg.home, input: input || tab()?.dir || "" });
+    const dir = await invoke("folder_to_add", { panel: tab()?.dir ?? ui.cfg.home, input: input ?? "" });
     adding[name] = "";
-    if (!s[name].includes(dir)) set(name, [...s[name], dir]);
+    if (dir && !s[name].includes(dir)) set(name, [...s[name], dir]);
   }
   function addWord(name) {
     const word = (adding[name] ?? "").trim();
@@ -438,9 +443,11 @@
   let diskSaid = $state("");
   let clearing = $state("");
   let also = $state({ models: false, outside: false });
+  let diskRead = Promise.resolve();
+  let diskFull = Promise.resolve();
   const loadDisk = () => {
-    invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
-    invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
+    diskRead = invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
+    diskFull = invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
   };
   const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "own" ? d.kind === "own" || d.kind === "model" : d.kind === kind));
   /** What *Clear everything that can be built again* clears, with what is ticked. */
@@ -593,7 +600,7 @@
         {/each}
       {/if}
       <form class="folder" onsubmit={(e) => (e.preventDefault(), words ? addWord(name) : addFolder(name, adding[name]))}>
-        <input id="in-{name}" bind:value={adding[name]} spellcheck="false" placeholder={words ? "*.log" : tab()?.dir} />
+        <input id="in-{name}" bind:value={adding[name]} spellcheck="false" placeholder={words ? "*.log" : "~/Documents"} />
         <button type="submit">{t("settings.search_add")}</button>
       </form>
     </div>
@@ -1285,7 +1292,7 @@
             {#each diskOf("outside") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}
           {#if diskOf("yours").length}
-            <p class="lab">{t("disk.head.yours")}</p>
+            <p class="lab" id="opt-disk_yours" class:flash={flash === "disk_yours"}>{t("disk.head.yours")}</p>
             <p class="hint">{t("disk.yours_hint")}</p>
             {#each diskOf("yours") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}

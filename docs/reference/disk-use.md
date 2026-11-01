@@ -30,7 +30,7 @@ system; this page is about the room they take and getting it back.
 |---|---|---|
 | The command list | **F9** → *Disk use* | **F9** → *Disk use* |
 | Settings | **Ctrl+,** or **F12** → *Privacy and updates* → *Disk use* (click the heading to open it; it shows the total beside it) | **F12** → *Privacy and updates*, rows under *Disk use* |
-| Starting at it | `coxswain-gui --settings=disk` | `coxswain --settings=disk` |
+| Starting at it | `coxswain-gui --settings=disk`; `--settings=disk_yours` scrolls to *Your own files* | `coxswain --settings=disk`; `--settings=disk_yours` puts the cursor on *Your own files* |
 | From the file itself | The preview of `index.bin` or `search.db` → **Settings at Disk use** ([Data previews](../previews/data.md#coxswains-own-index-and-store)) | **F3** on either file names the way there |
 | Command line | | `coxswain --disk`, `coxswain --disk clear …` |
 

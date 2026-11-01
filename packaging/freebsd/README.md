@@ -80,3 +80,8 @@ The key: log in at <https://bugs.freebsd.org/bugzilla/> with the maintainer's ac
 `MAINTAINER` address), *Preferences → API Keys*, generate one with a description such as
 "coxswain releases", and store it: `gh secret set FREEBSD_BUGZILLA_KEY`. Revoke it there when
 it is no longer needed.
+
+When the filing step failed on a fault of ours and the fix is merged, rerunning the job would run
+the release's own script. File it with master's script instead:
+`gh workflow run freebsd-bugzilla.yml -f tag=vX.Y.Z -f run=<id of the Release run>`, which takes
+that run's *freebsd-port* artifact. Nothing is filed twice.

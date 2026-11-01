@@ -274,7 +274,9 @@ impl Settings {
             self.engines = play::listed(&app.cfg);
         }
         let rows = rows(app, self);
-        let start = at.and_then(|at| rows.iter().position(|r| r.id() == Some(at))).unwrap_or(0);
+        // With none of the user's own files kept, Disk use itself.
+        let place = |at: &str| rows.iter().position(|r| r.id() == Some(at));
+        let start = at.and_then(|at| place(at).or_else(|| (at == "disk_yours").then(|| place("disk")).flatten())).unwrap_or(0);
         self.cursor = (start..rows.len()).find(|&i| rows[i].selectable()).unwrap_or(0);
     }
 
@@ -995,9 +997,7 @@ impl App {
                         let item = if WORDS.contains(&o.name) {
                             new.trim().to_string()
                         } else {
-                            let base = self.panel().dir.clone();
-                            let dir = coxswain_core::fs::resolve(&base, new.trim());
-                            coxswain_core::fs::canonical(&dir).unwrap_or(dir).display().to_string()
+                            cs::folder_to_add(&self.panel().dir, &new).map(|d| d.display().to_string()).unwrap_or_default()
                         };
                         if !item.is_empty() && !items.contains(&item) {
                             items.push(item);
@@ -2109,6 +2109,21 @@ mod tests {
         typed(&mut app, "footclient -D {dir}");
         key(&mut app, KeyCode::Enter);
         assert_eq!(app.cfg.terminal.as_deref(), Some("footclient -D {dir}"));
+    }
+
+    /// A kept sync folder's notice opens Disk use with the cursor on the user's own files, or on
+    /// Disk use itself when none are kept.
+    #[test]
+    fn disk_yours_opens_at_the_users_own_files() {
+        let d = crate::test_dir("panels");
+        let app = app(&d);
+        let s = Settings::open(&app, "disk_yours");
+        assert_eq!(s.area, Area::Privacy);
+        let rows = rows(&app, &s);
+        match rows.iter().position(|r| r.id() == Some("disk_yours")) {
+            Some(head) => assert!(s.cursor > head && matches!(&rows[s.cursor], Row::Disk(i) if i.kind == coxswain_core::disk::Kind::Yours)),
+            None => assert_eq!(s.cursor, Settings::open(&app, "disk").cursor),
+        }
     }
 
     /// Preview tools: a row per kind once read; Enter takes the next choice and writes it.

@@ -223,10 +223,7 @@ impl Editor {
             return Outcome::Stay;
         }
         // A letter as typed: Shift made ASCII letters lower case with `shift` (`Key::new`).
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt || key.ctrl && key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let ch = crate::typed(&key);
         let ctrl = |c: char| key.ctrl && !key.alt && key.code == KeyCode::Char(c);
         if let Some(asking) = self.asking {
             self.asking = None;
@@ -547,6 +544,18 @@ mod tests {
         let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).unwrap();
         term.draw(|f| e.draw(f, &Theme::default())).unwrap();
         term.backend().buffer().content.iter().map(|c| c.symbol()).collect()
+    }
+
+    #[test]
+    fn a_find_field_types_capitals_with_shift() {
+        let d = std::env::temp_dir().join(format!("coxswain-editor-shift-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("a.txt");
+        std::fs::write(&p, "x\n").unwrap();
+        let mut e = Editor::open(&p).unwrap();
+        e.key(ctrl('f'), None);
+        e.key(Key::new(KeyCode::Char('d'), false, false, true), None);
+        assert!(matches!(&e.typing, Some(Typing::Find(s)) if s == "D"));
     }
 
     #[test]

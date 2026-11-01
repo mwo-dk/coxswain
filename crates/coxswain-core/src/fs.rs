@@ -1208,6 +1208,9 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
             ))
         };
     }
+    // No other Coxswain empties the home bin while this put may be copying into it.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
+    let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
     #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
     return trash::delete(path).map(|_| None).map_err(io::Error::other);
     #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]

@@ -507,6 +507,10 @@ fn cvs(base: &Path, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::Result<S
         .filter_map(|l| l.strip_prefix("M ").or_else(|| l.strip_prefix("C ")).map(String::from))
         .collect();
     touched(&dirty)?;
+    // A look that failed (the server refused, or did not answer) found nothing: no update after it.
+    if !plan.ok {
+        return Err(io::Error::other(plan.why()));
+    }
     let mut c = cvs();
     // No `-d`: no folder is made from what the server lists.
     c.args(["update"]);
