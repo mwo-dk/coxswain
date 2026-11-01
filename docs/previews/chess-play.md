@@ -76,8 +76,27 @@ games line.pgn, next to this file*. A line from an EPD position, or from a game 
 a set-up position, gets the `SetUp` and `FEN` tags, so it opens from the same position.
 
 The new file is a normal PGN file: **Enter** or **Alt+K** on it shows it in the table, and any chess program
-reads it. When the folder cannot be written to (a read-only disk, an archive), the status line
+reads it. When the folder cannot be written to (a read-only disk), the status line
 says *Could not save the line:* and why.
+
+### A game from inside an archive
+
+A game opened from inside an archive is read from a copy in the cache, so saving next to the
+copy would leave the new file where it can be swept. *Save as new PGN* (**s**) and *Save as
+annotated PGN* (**w**) ask where the file goes instead:
+
+| Choice | Terminal app | Desktop app | Result |
+| --- | --- | --- | --- |
+| Beside the archive (default) | **b** or **Enter** | *Beside games.zip*, then *Save* | `games line.pgn` in the archive's folder, then `games line 2.pgn` and on; never over a file |
+| Another folder | **f**, type the folder (the archive's folder is filled in), **Enter** | *Another folder*, type the folder (the archive's folder is filled in), then *Save* | The same name in that folder |
+| Inside the archive | **i** | *Inside games.zip*, then *Save* | A new entry in the archive's folder that holds the game, under the same names; the archive is rewritten |
+
+*Inside the archive* is offered only for an archive Coxswain can write: a zip, 7z or tar, not a
+disk image, a mailbox, an archive split into parts, or an archive inside another. Without it the
+terminal app's question and the desktop app's choices leave it out, and nothing is rewritten.
+**Esc** (terminal) or *Cancel* (desktop) saves nothing. The status line names where the file
+went: *Saved as games line.pgn, beside games.zip*, *… in /home/you/chess*, or *… inside
+games.zip*.
 
 ## The engine
 
@@ -363,6 +382,13 @@ Threads = 2
 with.
 
 ## Questions
+
+#### Where does Save as new PGN put a game from an archive?
+
+It asks. In the terminal app press **b** (or **Enter**) for beside the archive, **f** for another folder, **i** for inside
+the archive; in the desktop app pick one of the choices that appear and press *Save*. Beside the
+archive is the default, and no file is ever written over. Inside the archive is offered only
+when the archive can be written ([the choices](#a-game-from-inside-an-archive)).
 
 #### Does playing a move change my PGN file?
 

@@ -11,7 +11,7 @@
   // is shown as text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, basename, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
+  import { invoke, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
   let { path, full = false } = $props();
@@ -477,12 +477,34 @@
   }
 
   /** The played line as a new PGN file next to this one: the game's moves to its base, then it. */
-  async function saveLine() {
+  function saveLine() {
     if (!played) return void (said = t("chess.line_none"));
     const sans = [];
     for (let n = played.base; n != null; n = nodes[n].parent) sans.unshift(nodes[n].san);
+    const sansAll = [...sans, ...played.moves.map((m) => m.san)];
+    save((at, folder) => invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: sansAll, at, folder }));
+  }
+
+  /** A game from inside an archive (chess_save_origin): its copy is in the cache, so a new PGN
+   * asks where it goes. The archive, its folder, and whether it can be written. */
+  let origin = $state(null);
+  $effect(() => {
+    const p = path;
+    origin = null;
+    invoke("chess_save_origin", { path: p }).then((o) => p === path && (origin = o), () => {});
+  });
+  /** The question of where a new PGN goes: how to save, the place chosen, the folder typed. */
+  let asking = $state(null);
+  const archiveName = $derived(origin ? basename(origin.archive) : "");
+  /** Saves with `write(at, folder)` now, or after asking where when the game is from an archive. */
+  function save(write) {
+    if (!origin) return void run(write, "beside");
+    asking = { write, at: "beside", folder: parent(origin.archive) };
+  }
+  async function run(write, at, folder) {
+    asking = null;
     try {
-      said = await invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: [...sans, ...played.moves.map((m) => m.san)] });
+      said = await write(at, folder);
     } catch (e) {
       said = String(e);
     }
@@ -504,12 +526,9 @@
     const timer = setInterval(() => reviewAct("state"), 700);
     return () => clearInterval(timer);
   });
-  async function saveReview() {
-    try {
-      said = await invoke("chess_review_save", { path, index: game.index });
-    } catch (e) {
-      said = String(e);
-    }
+  function saveReview() {
+    const index = game.index;
+    save((at, folder) => invoke("chess_review_save", { path, index, at, folder }));
   }
   const CAP = 1000;
   const share = (v) => 1 / (1 + Math.exp(-Math.max(-CAP, Math.min(CAP, v)) / 250));
@@ -1010,6 +1029,19 @@
             <button title={t("chess.line_clear_tip")} onclick={() => (played = null)}>{t("chess.line_clear")}</button>
           </div>
         {/if}
+        {#if asking}
+          <div class="save-ask" role="group" aria-label={t("chess.save_ask")}>
+            <p><b>{t("chess.save_ask")}</b></p>
+            <label><input type="radio" bind:group={asking.at} value="beside" /> {t("chess.save_ask_beside", { archive: archiveName })}</label>
+            <label><input type="radio" bind:group={asking.at} value="folder" /> {t("chess.save_ask_folder")}</label>
+            {#if asking.at === "folder"}<input type="text" aria-label={t("chess.save_ask_folder")} bind:value={asking.folder} />{/if}
+            {#if origin.writable}<label><input type="radio" bind:group={asking.at} value="inside" /> {t("chess.save_ask_inside", { archive: archiveName })}</label>{/if}
+            <div class="bar">
+              <button onclick={() => run(asking.write, asking.at, asking.folder)}>{t("chess.save_ask_go")}</button>
+              <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
+            </div>
+          </div>
+        {/if}
         {#if said}<p class="meta">{said}</p>{/if}
         {#if posGames}
           <p class="players"><b>{t("chess.position_title", { n: posGames.length })}</b> <button class="mv" title={t("chess.close")} onclick={() => (posGames = null)}>×</button></p>
@@ -1119,6 +1151,11 @@
   .note {
     margin: 0;
     color: var(--git-conflict-fg, #e53935);
+  }
+  .save-ask {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .meta {
     margin: 0;
