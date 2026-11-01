@@ -86,6 +86,18 @@ Nothing of its own while it works. Signs of it:
   when there is one (`coxswain-gui` or `coxswain`, as Homebrew puts in its `bin` folder), not by
   the versioned file it points to. After `brew upgrade` the link leads to the new version, so the
   helper that starts with your next login is already the new one, before you open the app.
+- **An update that replaces the program.** A helper whose own program file is replaced by an
+  update (a new app bundle, a package, a new binary in place) notices within about 5 seconds and
+  leaves by itself, so systemd or launchd starts the new one in its place (it leaves with a
+  failure code for that; a helper an app started is started again by the next app). On a Mac the
+  Homebrew cask also stops it with `launchctl remove dk.mwo.coxswain.index` before an upgrade
+  replaces `Coxswain.app`: before, macOS killed the old helper whose signed program had changed
+  under it and showed a crash dialog for Coxswain. The LaunchAgent stays, so *Start with my
+  session* stays ticked, and the next app you open starts the helper again. In the Flatpak and
+  the AppImage the helper cannot see its program replaced (it runs from the sandbox or the
+  mounted image, which stay as they were): the old helper stays until no app has asked it for a
+  while, or a newer app says hello. An Ask answer being written when the helper leaves stops
+  there; ask again.
 - **When the system does not start it.** With *Start with my session* on, an app that finds no
   helper asks systemd or launchd to start it (`systemctl --user start coxswain-index`, `launchctl
   kickstart`), and again three seconds later. If none answers eight seconds on, the app starts one
@@ -206,10 +218,19 @@ then `on`). Before 2.1.2 the LaunchAgent ran the helper as a background job, whi
 the efficiency cores with its disk reads throttled: it ran, but the backlog barely moved. The first
 app of 2.1.2 you open rewrites the LaunchAgent without that.
 
+#### After updating on a Mac, macOS said Coxswain crashed. Why?
+
+It was the search helper of the old version, still running from inside the app the update
+replaced: macOS stops a program whose signed file changed under it and reports that as a crash.
+Nothing was lost, and launchd started the new helper at once. Since 2.36.0 the Homebrew cask stops
+the helper before it replaces the app, and a helper whose program was replaced leaves by itself
+within about 5 seconds. A cask installed before 2.36.0 still upgrades once without the stop, as
+Homebrew runs the old cask's steps for that upgrade.
+
 #### What is in helper.log?
 
 One line per start (`helper starts, process 70973`), why it left (*no app asked for a while*, *an
-app asked it to*, *another helper runs*, *an app of the newer version 2.7.3 came*), an older app it
+app asked it to*, *another helper runs*, *an update replaced its program*, *an app of the newer version 2.7.3 came*), an older app it
 serves or cannot serve, an app that found a newer helper it cannot talk to, and errors, such as a search store that could not be
 opened, each with the time. Nothing about your files, except the whole text of an error an app's
 status line said in short (*Could not open: No permission*), which can name the file it was about.

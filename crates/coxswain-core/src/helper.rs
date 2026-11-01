@@ -340,6 +340,7 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 /// helper already runs.
 pub fn serve() -> io::Result<()> {
     SERVING.store(true, Ordering::Relaxed);
+    PROGRAM.get_or_init(|| std::env::current_exe().ok().and_then(|p| Some((program(&p)?, p))));
     // Not one that grows without end, when a helper fails again and again.
     keep_log_small();
     // Known as alive to the other runs' sweeps; what runs that ended left goes.
@@ -354,7 +355,44 @@ pub fn serve() -> io::Result<()> {
         note(format_args!("helper stops: {e}"));
     }
     crate::spill::at_exit();
+    // Not a success, so launchd (`SuccessfulExit` false) and systemd (`on-failure`) start the
+    // new program in its place.
+    if REPLACED.load(Ordering::Relaxed) {
+        std::process::exit(75);
+    }
     served
+}
+
+/// The helper's own program when it started, and where: an update that replaces it (a new
+/// app bundle, a package) is noticed, and the helper leaves by itself before the system stops
+/// it (macOS kills a program whose signed file changed under it, and says it crashed).
+static PROGRAM: OnceLock<Option<(Program, PathBuf)>> = OnceLock::new();
+/// The helper left because its program was replaced.
+static REPLACED: AtomicBool = AtomicBool::new(false);
+
+/// What tells one program file from the next at the same path.
+#[derive(Debug, PartialEq)]
+struct Program {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+    /// Device and inode: a file put in its place is another one.
+    #[cfg(unix)]
+    id: (u64, u64),
+}
+
+fn program(path: &Path) -> Option<Program> {
+    let m = std::fs::metadata(path).ok()?;
+    Some(Program {
+        len: m.len(),
+        modified: m.modified().ok(),
+        #[cfg(unix)]
+        id: (std::os::unix::fs::MetadataExt::dev(&m), std::os::unix::fs::MetadataExt::ino(&m)),
+    })
+}
+
+/// Whether the program at `path` is no longer `was`: changed, replaced or gone.
+fn replaced(was: &Program, path: &Path) -> bool {
+    program(path).as_ref() != Some(was)
 }
 
 fn serve_here() -> io::Result<()> {
@@ -522,16 +560,25 @@ fn serve_in(
             }
         });
     }
+    let mut turns = 0u32;
     while !quit.load(Ordering::SeqCst)
         && (clients.load(Ordering::SeqCst) > 0 || last.lock().unwrap().elapsed() < linger)
     {
         std::thread::sleep(linger.min(Duration::from_millis(200)));
+        turns = turns.wrapping_add(1);
+        // About every 5 seconds: an update replaced the program it runs.
+        if turns % 25 == 0 && PROGRAM.get().and_then(Option::as_ref).is_some_and(|(was, at)| replaced(was, at)) {
+            REPLACED.store(true, Ordering::SeqCst);
+            break;
+        }
     }
     stop.store(true, Ordering::SeqCst);
     let _ = std::fs::remove_file(addr);
     note(format_args!(
         "helper leaves: {}",
-        if quit.load(Ordering::SeqCst) {
+        if REPLACED.load(Ordering::SeqCst) {
+            "an update replaced its program; the new one takes over"
+        } else if quit.load(Ordering::SeqCst) {
             "an app asked it to, for new settings or its own version"
         } else {
             "no app asked for a while"
@@ -1586,6 +1633,24 @@ mod tests {
         .unwrap();
         eprintln!("{answer}\n-- {pieces} pieces in {:.1?}", start.elapsed());
         assert!(answer.contains("40") && pieces > 3, "{answer}");
+    }
+
+    /// The program the helper runs, written again or put in its place by an update, or gone, is
+    /// noticed; the same file untouched is not.
+    #[test]
+    fn helper_notices_its_program_replaced() {
+        let d = crate::fs::Scratch::named("helper-program");
+        let exe = d.join("coxswain");
+        std::fs::write(&exe, "one").unwrap();
+        let was = program(&exe).unwrap();
+        assert!(!replaced(&was, &exe));
+        // An update writes the new program beside it and moves it into its place.
+        std::fs::write(d.join("new"), "two, longer").unwrap();
+        std::fs::rename(d.join("new"), &exe).unwrap();
+        assert!(replaced(&was, &exe));
+        let was = program(&exe).unwrap();
+        std::fs::remove_file(&exe).unwrap();
+        assert!(replaced(&was, &exe));
     }
 
     #[test]
