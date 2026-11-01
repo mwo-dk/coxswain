@@ -2684,7 +2684,7 @@
  "notice.helper_unstarted": "Mit meiner Sitzung starten ist an, aber systemd hat den Suchhelfer nicht gestartet, also hat Coxswain ihn bis zum Abmelden gestartet. Warum er nicht startete: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Mit meiner Sitzung starten ist an, aber macOS hat den Suchhelfer nicht gestartet, also hat Coxswain ihn bis zum Abmelden gestartet. Damit macOS ihn bei der Anmeldung startet: Systemeinstellungen → Allgemein → Anmeldeobjekte & Erweiterungen → Coxswain → Im Hintergrund erlauben. Warum er nicht startete: helper.log in ~/Library/Caches/coxswain und launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Neu: {key} auf einer Datei oder einem Ordner in einem Git-Repository zeigt den Verlauf, Commit für Commit",
- "notice.right_click_menu": "Ein Rechtsklick öffnet jetzt das Aktionsmenü; Strg+Klick oder Einfg markiert. Um wieder mit Rechtsklick zu markieren: Einstellungen → Verhalten → Rechtsklick.",
+ "notice.right_click_menu": "Ein Rechtsklick öffnet jetzt das Aktionsmenü; Strg+Klick oder {mark} markiert. Um wieder mit Rechtsklick zu markieren: Einstellungen → Verhalten → Rechtsklick.",
  "notice.typing_jumps": "Buchstaben tippen springt jetzt zum ersten Namen, der damit beginnt; die Befehlszeile liegt auf {key}. Um wieder in die Befehlszeile zu tippen: Einstellungen → Verhalten → Buchstaben tippen.",
  "notice.hg_missing": "Dieses Repository wird von Mercurial verwaltet, aber hg ist nicht installiert: Installieren Sie Mercurial, um seine Änderungen, seinen Verlauf und seine Bookmarks zu sehen.",
  "notice.language_new": "{language} ist eine neue Übersetzung. Klingt ein Wort falsch oder holprig, hilf mit, sie zu verbessern: Einstellungen → Sprache.",

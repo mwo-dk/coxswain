@@ -914,7 +914,7 @@
 
     <label class="cmdline">
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
-      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={ui.cfg.settings.typing === "find" ? t("tui.command_line_key", { key: ui.cfg.actions.command_line?.[1] ?? "" }) : t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
+      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={ui.cfg.settings.typing === "find" && ui.cfg.actions.command_line?.[1] ? t("tui.command_line_key", { key: ui.cfg.actions.command_line?.[1] ?? "" }) : t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.searchable}
         {@const s = ui.searchable}
         <!-- Make PDF searchable under way: which one, for how long, what OCRmyPDF said last. -->

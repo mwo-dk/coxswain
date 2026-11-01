@@ -2684,7 +2684,7 @@
  "notice.helper_unstarted": "Start med min session er slået til, men systemd startede ikke søgehjælperen, så Coxswain startede den indtil du logger ud. Hvorfor den ikke startede: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Start med min session er slået til, men macOS startede ikke søgehjælperen, så Coxswain startede den indtil du logger ud. Lad macOS starte den ved login: Systemindstillinger → Generelt → Login-emner og udvidelser → Coxswain → Tillad i baggrunden. Hvorfor den ikke startede: helper.log i ~/Library/Caches/coxswain og launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nyt: {key} på en fil eller mappe i et git-repository viser dens historik, commit for commit",
- "notice.right_click_menu": "Højreklik åbner nu handlingsmenuen; Ctrl+klik eller Insert markerer. For at markere med højreklik igen: Indstillinger → Adfærd → Højreklik.",
+ "notice.right_click_menu": "Højreklik åbner nu handlingsmenuen; Ctrl+klik eller {mark} markerer. For at markere med højreklik igen: Indstillinger → Adfærd → Højreklik.",
  "notice.typing_jumps": "Tastede bogstaver hopper nu til det første navn, der begynder med dem; kommandolinjen er på {key}. For at skrive på kommandolinjen igen: Indstillinger → Adfærd → Tastede bogstaver.",
  "notice.hg_missing": "Dette repository holdes af Mercurial, men hg er ikke installeret: installér Mercurial for at se dets ændringer, historik og bogmærker.",
  "notice.language_new": "{language} er en ny oversættelse. Læser et ord forkert eller klodset, så hjælp med at forbedre den: Indstillinger → Sprog.",

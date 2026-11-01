@@ -2676,7 +2676,7 @@
  "notice.helper_unstarted": "«آغاز با نشست من» روشن است، اما systemd دستیار جست‌وجو را آغاز نکرد، پس Coxswain آن را تا خروج شما از نشست آغاز کرد. چرا آغاز نشد: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "«آغاز با نشست من» روشن است، اما macOS دستیار جست‌وجو را آغاز نکرد، پس Coxswain آن را تا خروج شما از نشست آغاز کرد. برای اینکه macOS آن را هنگام ورود آغاز کند: System Settings ← General ← Login Items & Extensions ← Coxswain ← Allow in the Background. چرا آغاز نشد: helper.log در ~/Library/Caches/coxswain، و launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "تازه: {key} روی یک فایل یا پوشه در مخزن git تاریخچه‌ی آن را کامیت به کامیت نشان می‌دهد",
- "notice.right_click_menu": "راست‌کلیک اکنون منوی کارها را باز می‌کند؛ Ctrl+کلیک یا Insert علامت می‌زند. برای علامت‌گذاری دوباره با راست‌کلیک: تنظیمات ← رفتار ← راست‌کلیک.",
+ "notice.right_click_menu": "راست‌کلیک اکنون منوی کارها را باز می‌کند؛ Ctrl+کلیک یا {mark} علامت می‌زند. برای علامت‌گذاری دوباره با راست‌کلیک: تنظیمات ← رفتار ← راست‌کلیک.",
  "notice.typing_jumps": "تایپ حروف اکنون به اولین نامی می‌پرد که با آن‌ها شروع می‌شود؛ خط فرمان روی {key} است. برای تایپ دوباره در خط فرمان: تنظیمات ← رفتار ← تایپ حروف.",
  "notice.hg_missing": "این مخزن را Mercurial نگه می‌دارد، ولی hg نصب نیست: Mercurial را نصب کنید تا تغییرات، تاریخچه و نشانک‌های آن را ببینید.",
  "notice.language_new": "{language} ترجمه‌ای تازه است. اگر واژه‌ای نادرست یا ناهموار به نظر می‌رسد، به بهتر شدنش کمک کنید: تنظیمات ← زبان.",

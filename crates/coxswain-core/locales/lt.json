@@ -2736,7 +2736,7 @@
  "notice.helper_unstarted": "„Paleisti kartu su mano seansu“ įjungta, bet systemd nepaleido paieškos pagalbininko, todėl Coxswain jį paleido iki atsijungimo. Kodėl jis nepasileido: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "„Paleisti kartu su mano seansu“ įjungta, bet macOS nepaleido paieškos pagalbininko, todėl Coxswain jį paleido iki atsijungimo. Kad macOS jį paleistų prisijungiant: Sistemos nustatymai → Bendra → Prisijungimo elementai ir plėtiniai → Coxswain → Leisti fone. Kodėl jis nepasileido: helper.log aplanke ~/Library/Caches/coxswain ir launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nauja: {key} ant failo ar aplanko git saugykloje parodo jo istoriją, commit po commit",
- "notice.right_click_menu": "Dešinysis spustelėjimas dabar atveria veiksmų meniu; Ctrl+spustelėjimas arba Insert pažymi. Norint vėl žymėti dešiniuoju spustelėjimu: Parametrai → Veikimas → Dešinysis spustelėjimas.",
+ "notice.right_click_menu": "Dešinysis spustelėjimas dabar atveria veiksmų meniu; Ctrl+spustelėjimas arba {mark} pažymi. Norint vėl žymėti dešiniuoju spustelėjimu: Parametrai → Veikimas → Dešinysis spustelėjimas.",
  "notice.typing_jumps": "Raidžių rašymas dabar peršoka prie pirmo pavadinimo, kuris jomis prasideda; komandų eilutė yra ant {key}. Norint vėl rašyti komandų eilutėje: Parametrai → Veikimas → Raidžių rašymas.",
  "notice.hg_missing": "Šią saugyklą tvarko Mercurial, bet hg neįdiegta: įdiekite Mercurial, kad matytumėte jos pakeitimus, istoriją ir žymes.",
  "notice.language_new": "{language} – naujas vertimas. Jei žodis skamba klaidingai ar nerangiai, padėkite jį pagerinti: Parametrai → Kalba.",

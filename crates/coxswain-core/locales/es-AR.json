@@ -2736,7 +2736,7 @@
  "notice.helper_unstarted": "«Iniciar el asistente de búsqueda con mi sesión» está activado, pero systemd no inició el asistente de búsqueda, así que Coxswain lo inició hasta que cierres la sesión. Por qué no arrancó: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "«Iniciar el asistente de búsqueda con mi sesión» está activado, pero macOS no inició el asistente de búsqueda, así que Coxswain lo inició hasta que cierres la sesión. Para que macOS lo inicie al entrar: Configuración del Sistema → General → Ítems de inicio y extensiones → Coxswain → Permitir en segundo plano. Por qué no arrancó: helper.log en ~/Library/Caches/coxswain y launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nuevo: {key} sobre un archivo o carpeta de un repositorio git muestra su historial, commit por commit",
- "notice.right_click_menu": "El clic derecho ahora abre el menú de acciones; Ctrl+clic o Insert marca. Para volver a marcar con el clic derecho: Configuración → Comportamiento → Clic derecho.",
+ "notice.right_click_menu": "El clic derecho ahora abre el menú de acciones; Ctrl+clic o {mark} marca. Para volver a marcar con el clic derecho: Configuración → Comportamiento → Clic derecho.",
  "notice.typing_jumps": "Escribir letras ahora salta al primer nombre que empieza con ellas; la línea de comandos está en {key}. Para volver a escribir en la línea de comandos: Configuración → Comportamiento → Escribir letras.",
  "notice.hg_missing": "Este repositorio lo lleva Mercurial, pero hg no está instalado: instalá Mercurial para ver sus cambios, su historial y sus marcadores.",
  "notice.language_new": "{language} es una traducción nueva. Si una palabra suena mal o torpe, ayudá a mejorarla: Configuración → Idioma.",

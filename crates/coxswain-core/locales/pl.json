@@ -2788,7 +2788,7 @@
  "notice.helper_unstarted": "Uruchamiaj z moją sesją jest włączone, ale systemd nie uruchomił pomocnika wyszukiwania, więc Coxswain uruchomił go do wylogowania. Dlaczego się nie uruchomił: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Uruchamiaj z moją sesją jest włączone, ale macOS nie uruchomił pomocnika wyszukiwania, więc Coxswain uruchomił go do wylogowania. Aby macOS uruchamiał go przy logowaniu: Ustawienia systemowe → Ogólne → Rzeczy otwierane podczas logowania i rozszerzenia → Coxswain → Zezwalaj w tle. Dlaczego się nie uruchomił: helper.log w ~/Library/Caches/coxswain oraz launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nowość: {key} na pliku lub folderze w repozytorium git pokazuje jego historię, commit po commicie",
- "notice.right_click_menu": "Prawy przycisk otwiera teraz menu działań; Ctrl+kliknięcie lub Insert zaznacza. Aby znów zaznaczać prawym przyciskiem: Ustawienia → Działanie → Prawy przycisk.",
+ "notice.right_click_menu": "Prawy przycisk otwiera teraz menu działań; Ctrl+kliknięcie lub {mark} zaznacza. Aby znów zaznaczać prawym przyciskiem: Ustawienia → Działanie → Prawy przycisk.",
  "notice.typing_jumps": "Wpisywanie liter przeskakuje teraz do pierwszej nazwy, która się nimi zaczyna; wiersz poleceń jest pod {key}. Aby znów pisać w wierszu poleceń: Ustawienia → Działanie → Wpisywanie liter.",
  "notice.hg_missing": "To repozytorium prowadzi Mercurial, ale hg nie jest zainstalowany: zainstaluj Mercurial, aby zobaczyć jego zmiany, historię i zakładki.",
  "notice.language_new": "{language} to nowe tłumaczenie. Jeśli jakieś słowo brzmi źle lub niezręcznie, pomóż je poprawić: Ustawienia → Język.",

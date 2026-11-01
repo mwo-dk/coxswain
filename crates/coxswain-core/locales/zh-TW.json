@@ -2632,7 +2632,7 @@
  "notice.helper_unstarted": "已開啟「隨工作階段啟動」，但 systemd 沒有啟動搜尋輔助程式，因此 Coxswain 自行啟動它，直到你登出。未啟動的原因：systemctl --user status coxswain-index。",
  "notice.helper_unstarted_macos": "已開啟「隨工作階段啟動」，但 macOS 沒有啟動搜尋輔助程式，因此 Coxswain 自行啟動它，直到你登出。若要讓 macOS 在登入時啟動它：系統設定 → 一般 → 登入項目與延伸功能 → Coxswain → 允許在背景執行。未啟動的原因：~/Library/Caches/coxswain 中的 helper.log，以及 launchctl print gui/$(id -u)/dk.mwo.coxswain.index。",
  "notice.history": "新功能：在 Git 儲存庫中的檔案或資料夾上按 {key}，可逐一提交查看其歷史",
- "notice.right_click_menu": "按右鍵現在會開啟動作選單；Ctrl+按一下或 Insert 標記。要再用右鍵標記：設定 → 行為 → 按右鍵。",
+ "notice.right_click_menu": "按右鍵現在會開啟動作選單；Ctrl+按一下或 {mark} 標記。要再用右鍵標記：設定 → 行為 → 按右鍵。",
  "notice.typing_jumps": "輸入字母現在會跳到第一個以它們開頭的名稱；命令列在 {key}。要再往命令列輸入：設定 → 行為 → 輸入字母。",
  "notice.hg_missing": "此儲存庫由 Mercurial 管理，但未安裝 hg：請安裝 Mercurial 以查看其變更、歷史和書籤。",
  "notice.language_new": "{language} 是新的翻譯。若有字詞讀來不對或彆扭，歡迎協助改進：設定 → 語言。",

@@ -2632,7 +2632,7 @@
  "notice.helper_unstarted": "已开启“随会话启动”，但 systemd 没有启动搜索辅助程序，因此 Coxswain 自行启动了它，直到你注销。未启动的原因：systemctl --user status coxswain-index。",
  "notice.helper_unstarted_macos": "已开启“随会话启动”，但 macOS 没有启动搜索辅助程序，因此 Coxswain 自行启动了它，直到你注销。若要让 macOS 在登录时启动它：系统设置 → 通用 → 登录项与扩展 → Coxswain → 允许在后台运行。未启动的原因：~/Library/Caches/coxswain 中的 helper.log，以及 launchctl print gui/$(id -u)/dk.mwo.coxswain.index。",
  "notice.history": "新功能：在 Git 仓库中的文件或文件夹上按 {key}，可逐个提交查看其历史",
- "notice.right_click_menu": "右键单击现在打开操作菜单；Ctrl+单击或 Insert 标记。要再用右键标记：设置 → 行为 → 右键单击。",
+ "notice.right_click_menu": "右键单击现在打开操作菜单；Ctrl+单击或 {mark} 标记。要再用右键标记：设置 → 行为 → 右键单击。",
  "notice.typing_jumps": "输入字母现在会跳到第一个以它们开头的名称；命令行在 {key}。要再往命令行里输入：设置 → 行为 → 输入字母。",
  "notice.hg_missing": "此仓库由 Mercurial 管理，但未安装 hg：请安装 Mercurial 以查看其更改、历史和书签。",
  "notice.language_new": "{language} 是新的翻译。如有词语读来不对或别扭，欢迎帮助改进：设置 → 语言。",

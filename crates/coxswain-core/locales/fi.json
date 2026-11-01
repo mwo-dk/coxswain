@@ -2684,7 +2684,7 @@
  "notice.helper_unstarted": "Käynnistä istunnon mukana on päällä, mutta systemd ei käynnistänyt hakuapuria, joten Coxswain käynnisti sen uloskirjautumiseen asti. Miksi se ei käynnistynyt: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Käynnistä istunnon mukana on päällä, mutta macOS ei käynnistänyt hakuapuria, joten Coxswain käynnisti sen uloskirjautumiseen asti. Salli macOS:n käynnistää se kirjautuessa: Järjestelmäasetukset → Yleiset → Kirjautumiskohteet ja laajennukset → Coxswain → Salli taustalla. Miksi se ei käynnistynyt: helper.log kansiossa ~/Library/Caches/coxswain ja launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Uutta: {key} git-repositorion tiedoston tai kansion kohdalla näyttää sen historian commit kerrallaan",
- "notice.right_click_menu": "Hiiren kakkospainike avaa nyt toimintovalikon; Ctrl+napsautus tai Insert merkitsee. Jos haluat taas merkitä kakkospainikkeella: Asetukset → Toiminta → Hiiren kakkospainike.",
+ "notice.right_click_menu": "Hiiren kakkospainike avaa nyt toimintovalikon; Ctrl+napsautus tai {mark} merkitsee. Jos haluat taas merkitä kakkospainikkeella: Asetukset → Toiminta → Hiiren kakkospainike.",
  "notice.typing_jumps": "Kirjainten kirjoittaminen hyppää nyt ensimmäiseen nimeen, joka alkaa niillä; komentorivi on näppäimellä {key}. Jos haluat taas kirjoittaa komentoriville: Asetukset → Toiminta → Kirjainten kirjoittaminen.",
  "notice.hg_missing": "Tätä repositoriota ylläpitää Mercurial, mutta hg ei ole asennettuna: asenna Mercurial nähdäksesi sen muutokset, historian ja kirjanmerkit.",
  "notice.language_new": "{language} on uusi käännös. Jos sana kuulostaa väärältä tai kömpelöltä, auta parantamaan sitä: Asetukset → Kieli.",

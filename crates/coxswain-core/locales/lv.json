@@ -2736,7 +2736,7 @@
  "notice.helper_unstarted": "“Palaist kopā ar manu sesiju” ir ieslēgts, bet systemd nepalaida meklēšanas palīgu, tāpēc Coxswain to palaida līdz izrakstīšanās brīdim. Kāpēc tas nepalaidās: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "“Palaist kopā ar manu sesiju” ir ieslēgts, bet macOS nepalaida meklēšanas palīgu, tāpēc Coxswain to palaida līdz izrakstīšanās brīdim. Lai macOS to palaistu pieteikšanās laikā: Sistēmas iestatījumi → Vispārīgi → Pieteikšanās vienumi un paplašinājumi → Coxswain → Atļaut fonā. Kāpēc tas nepalaidās: helper.log mapē ~/Library/Caches/coxswain un launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Jaunums: {key} uz faila vai mapes git repozitorijā parāda tā vēsturi, commit pa commit",
- "notice.right_click_menu": "Labais klikšķis tagad atver darbību izvēlni; Ctrl+klikšķis vai Insert atzīmē. Lai atkal atzīmētu ar labo klikšķi: Iestatījumi → Darbība → Labais klikšķis.",
+ "notice.right_click_menu": "Labais klikšķis tagad atver darbību izvēlni; Ctrl+klikšķis vai {mark} atzīmē. Lai atkal atzīmētu ar labo klikšķi: Iestatījumi → Darbība → Labais klikšķis.",
  "notice.typing_jumps": "Burtu rakstīšana tagad pārlec uz pirmo nosaukumu, kas ar tiem sākas; komandrinda ir uz {key}. Lai atkal rakstītu komandrindā: Iestatījumi → Darbība → Burtu rakstīšana.",
  "notice.hg_missing": "Šo repozitoriju uztur Mercurial, bet hg nav instalēts: instalējiet Mercurial, lai redzētu tā izmaiņas, vēsturi un grāmatzīmes.",
  "notice.language_new": "{language} ir jauns tulkojums. Ja kāds vārds izklausās nepareizi vai neveikli, palīdzi to uzlabot: Iestatījumi → Valoda.",

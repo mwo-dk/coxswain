@@ -2684,7 +2684,7 @@
  "notice.helper_unstarted": "De zoekhulp met mijn sessie starten staat aan, maar systemd heeft de zoekhulp niet gestart, dus Coxswain heeft hem gestart tot je uitlogt. Waarom hij niet startte: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "De zoekhulp met mijn sessie starten staat aan, maar macOS heeft de zoekhulp niet gestart, dus Coxswain heeft hem gestart tot je uitlogt. Laat macOS hem bij het inloggen starten: Systeeminstellingen → Algemeen → Inlogonderdelen en extensies → Coxswain → Sta toe op achtergrond. Waarom hij niet startte: helper.log in ~/Library/Caches/coxswain, en launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Nieuw: {key} op een bestand of map in een git-repository toont de geschiedenis, commit voor commit",
- "notice.right_click_menu": "Rechtsklikken opent nu het actiemenu; Ctrl+klik of Insert markeert. Om weer met rechtsklik te markeren: Instellingen → Gedrag → Rechtsklik.",
+ "notice.right_click_menu": "Rechtsklikken opent nu het actiemenu; Ctrl+klik of {mark} markeert. Om weer met rechtsklik te markeren: Instellingen → Gedrag → Rechtsklik.",
  "notice.typing_jumps": "Letters typen springt nu naar de eerste naam die ermee begint; de opdrachtregel zit op {key}. Om weer in de opdrachtregel te typen: Instellingen → Gedrag → Letters typen.",
  "notice.hg_missing": "Deze repository wordt door Mercurial bijgehouden, maar hg is niet geïnstalleerd: installeer Mercurial om de wijzigingen, geschiedenis en bookmarks te zien.",
  "notice.language_new": "{language} is een nieuwe vertaling. Klinkt een woord verkeerd of onhandig, help haar dan verbeteren: Instellingen → Taal.",

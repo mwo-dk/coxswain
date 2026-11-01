@@ -2684,7 +2684,7 @@
  "notice.helper_unstarted": "„Käivita koos minu seansiga“ on sees, kuid systemd ei käivitanud otsinguabilist, seega käivitas Coxswain selle väljalogimiseni. Miks see ei käivitunud: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "„Käivita koos minu seansiga“ on sees, kuid macOS ei käivitanud otsinguabilist, seega käivitas Coxswain selle väljalogimiseni. Et macOS käivitaks selle sisselogimisel: Süsteemiseaded → Üldine → Sisselogimisüksused ja laiendused → Coxswain → Luba taustal. Miks see ei käivitunud: helper.log kaustas ~/Library/Caches/coxswain ja launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Uus: {key} giti hoidla faili või kausta peal näitab selle ajalugu commiti kaupa",
- "notice.right_click_menu": "Paremklõps avab nüüd toimingute menüü; Ctrl+klõps või Insert märgib. Et märkida jälle paremklõpsuga: Sätted → Käitumine → Paremklõps.",
+ "notice.right_click_menu": "Paremklõps avab nüüd toimingute menüü; Ctrl+klõps või {mark} märgib. Et märkida jälle paremklõpsuga: Sätted → Käitumine → Paremklõps.",
  "notice.typing_jumps": "Tähtede tippimine hüppab nüüd esimesele nimele, mis nendega algab; käsurida on klahvil {key}. Et tippida jälle käsureale: Sätted → Käitumine → Tähtede tippimine.",
  "notice.hg_missing": "Seda hoidlat haldab Mercurial, kuid hg pole paigaldatud: paigalda Mercurial, et näha selle muudatusi, ajalugu ja järjehoidjaid.",
  "notice.language_new": "{language} on uus tõlge. Kui mõni sõna kõlab valesti või kohmakalt, aita seda parandada: Sätted → Keel.",

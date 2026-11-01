@@ -2736,7 +2736,7 @@
  "notice.helper_unstarted": "«Avvia l'assistente di ricerca con la mia sessione» è attivo, ma systemd non ha avviato l'assistente di ricerca, quindi l'ha avviato Coxswain fino alla disconnessione. Perché non è partito: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "«Avvia l'assistente di ricerca con la mia sessione» è attivo, ma macOS non ha avviato l'assistente di ricerca, quindi l'ha avviato Coxswain fino alla disconnessione. Perché macOS lo avvii al login: Impostazioni di Sistema → Generali → Elementi di login ed estensioni → Coxswain → Consenti in background. Perché non è partito: helper.log in ~/Library/Caches/coxswain e launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "Novità: {key} su un file o una cartella di un repository git ne mostra la cronologia, commit per commit",
- "notice.right_click_menu": "Il clic destro ora apre il menu delle azioni; Ctrl+clic o Ins contrassegna. Per contrassegnare di nuovo con il clic destro: Impostazioni → Comportamento → Clic destro.",
+ "notice.right_click_menu": "Il clic destro ora apre il menu delle azioni; Ctrl+clic o {mark} contrassegna. Per contrassegnare di nuovo con il clic destro: Impostazioni → Comportamento → Clic destro.",
  "notice.typing_jumps": "Digitare lettere ora salta al primo nome che inizia con esse; la riga di comando è su {key}. Per digitare di nuovo nella riga di comando: Impostazioni → Comportamento → Digitare lettere.",
  "notice.hg_missing": "Questo repository è gestito da Mercurial, ma hg non è installato: installa Mercurial per vederne modifiche, cronologia e segnalibri.",
  "notice.language_new": "{language} è una nuova traduzione. Se una parola suona sbagliata o goffa, aiuta a migliorarla: Impostazioni → Lingua.",

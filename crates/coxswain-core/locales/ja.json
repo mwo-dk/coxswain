@@ -2632,7 +2632,7 @@
  "notice.helper_unstarted": "「ログイン時に起動」がオンですが、systemd が検索ヘルパーを起動しなかったため、ログアウトまで Coxswain が起動しました。起動しなかった理由:systemctl --user status coxswain-index。",
  "notice.helper_unstarted_macos": "「ログイン時に起動」がオンですが、macOS が検索ヘルパーを起動しなかったため、ログアウトまで Coxswain が起動しました。ログイン時に macOS が起動できるようにするには:システム設定 → 一般 → ログイン項目と機能拡張 → Coxswain → バックグラウンドでの実行を許可。起動しなかった理由:~/Library/Caches/coxswain の helper.log と launchctl print gui/$(id -u)/dk.mwo.coxswain.index。",
  "notice.history": "新機能: git リポジトリ内のファイルやフォルダーで {key} を押すと、コミットごとの履歴を表示します",
- "notice.right_click_menu": "右クリックは操作メニューを開くようになりました。Ctrl+クリックか Insert でマークします。右クリックでマークするには: 設定 → 動作 → 右クリック。",
+ "notice.right_click_menu": "右クリックは操作メニューを開くようになりました。Ctrl+クリックか {mark} でマークします。右クリックでマークするには: 設定 → 動作 → 右クリック。",
  "notice.typing_jumps": "文字を入力すると、その文字で始まる最初の名前へ移動するようになりました。コマンドラインは {key} です。コマンドラインに入力するには: 設定 → 動作 → 文字の入力。",
  "notice.hg_missing": "このリポジトリは Mercurial で管理されていますが、hg がインストールされていません。変更・履歴・ブックマークを見るには Mercurial をインストールしてください。",
  "notice.language_new": "{language}は新しい翻訳です。おかしな言葉やぎこちない表現があれば、改善にご協力ください: 設定 → 言語。",

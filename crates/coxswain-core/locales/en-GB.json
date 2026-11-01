@@ -2684,7 +2684,7 @@
  "notice.helper_unstarted": "Start with my session is on, but systemd did not start the search helper, so Coxswain started it until you log out. Why it did not start: systemctl --user status coxswain-index.",
  "notice.helper_unstarted_macos": "Start with my session is on, but macOS did not start the search helper, so Coxswain started it until you log out. To let macOS start it at login: System Settings → General → Login Items & Extensions → Coxswain → Allow in the Background. Why it did not start: helper.log in ~/Library/Caches/coxswain, and launchctl print gui/$(id -u)/dk.mwo.coxswain.index.",
  "notice.history": "New: {key} on a file or folder in a git repository shows its history, commit by commit",
- "notice.right_click_menu": "Right-click now opens the action menu; Ctrl+click or Insert marks. To mark with a right-click again: Settings → Behaviour → Right-click.",
+ "notice.right_click_menu": "Right-click now opens the action menu; Ctrl+click or {mark} marks. To mark with a right-click again: Settings → Behaviour → Right-click.",
  "notice.typing_jumps": "Typing letters now jumps to the first name that starts with them; the command line is on {key}. To type on the command line again: Settings → Behaviour → Typing letters.",
  "notice.hg_missing": "This repository is kept by Mercurial, but hg is not installed: install Mercurial to see its changes, history and bookmarks.",
  "notice.language_new": "{language} is a new translation. If a word reads wrong or clumsy, help improve it: Settings → Language.",
