@@ -1,5 +1,6 @@
 """Which GHCR versions tools/ghcr-cleanup.py keeps and deletes. Run: python3 -m unittest tools/test_ghcr_cleanup.py"""
 
+import datetime
 import importlib.util
 import os
 import unittest
@@ -31,8 +32,11 @@ def history(n, latest_tags=("latest",)):
     return versions, manifests
 
 
-def deleted(versions, manifests, pinned=()):
-    return {v["id"] for v in cleanup.select(versions, manifests, set(pinned))[1]}
+LATER = datetime.datetime(2027, 1, 1, tzinfo=datetime.timezone.utc)
+
+
+def deleted(versions, manifests, pinned=(), now=LATER):
+    return {v["id"] for v in cleanup.select(versions, manifests, set(pinned), now)[1]}
 
 
 class Select(unittest.TestCase):
@@ -73,6 +77,30 @@ class Select(unittest.TestCase):
         versions, manifests = history(8)
         manifests["sha256:i1"]["manifests"].append({"digest": "sha256:a8"})
         self.assertNotIn("8a", deleted(versions, manifests))
+
+    def test_young_versions_are_kept_and_do_not_count_toward_the_five(self):
+        versions, manifests = history(8)
+        # Days 7 and 8 are within 90 days; the five older ones beyond them are 2-6, so 1 goes.
+        now = datetime.datetime(2026, 4, 6, tzinfo=datetime.timezone.utc)
+        self.assertEqual(deleted(versions, manifests, now=now), {"1i", "1a", "1r"})
+
+    def test_a_push_under_way_pushes_no_image_out(self):
+        # Image 9's manifests have arrived, its index not yet: they look like two images, but
+        # they are young, so they neither go nor push images 4 and 5 out of the newest five.
+        versions, manifests = history(8)
+        for arch in "ar":
+            versions.append({"id": f"9{arch}", "name": f"sha256:{arch}9", "created_at": "2026-12-31T23:00:00Z", "tags": []})
+            manifests[f"sha256:{arch}9"] = {}
+        self.assertEqual(deleted(versions, manifests), {"1i", "1a", "1r", "2i", "2a", "2r", "3i", "3a", "3r"})
+
+
+class Newest(unittest.TestCase):
+    def test_every_patch_of_the_last_three_minors(self):
+        tags = ["v2.8.0", "v2.9.0", "v2.9.1", "v2.10.0", "v2.10.1", "v2.10.2", "v2.11.0", "v2.11.0-rc1", "v1.40.0", "vX"]
+        self.assertEqual(cleanup.newest(tags), ["v2.9.0", "v2.9.1", "v2.10.0", "v2.10.1", "v2.10.2", "v2.11.0"])
+
+    def test_a_major_counts_by_its_minor(self):
+        self.assertEqual(cleanup.newest(["v2.34.2", "v3.0.0", "v2.33.0", "v2.32.5"]), ["v2.33.0", "v2.34.2", "v3.0.0"])
 
 
 if __name__ == "__main__":

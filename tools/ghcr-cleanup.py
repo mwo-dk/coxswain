@@ -5,9 +5,12 @@ Each weekly rebuild of `ghcr.io/mwo-dk/coxswain-*` that changes leaves the build
 GHCR untagged. This deletes those, keeping:
 
 - every tagged version;
-- every digest pinned on this checkout (`master`) and in the last three releases (their tags),
-  read through `tools/images-pin.py`, so older installs can still pull what they pin;
-- the newest five images;
+- every digest pinned on this checkout (`master`) and by every release tag of the last three
+  minor versions (all their patch releases), read through `tools/images-pin.py`, so older
+  installs can still pull what they pin;
+- every version younger than 90 days (a push under way, whose per-processor manifests arrive
+  before their index, and late rebuilds among them);
+- the newest five images older than that;
 - everything a kept version holds or that refers to it: an index's per-processor manifests and
   attestations, and signatures or attestations whose `subject` is a kept version.
 
@@ -22,6 +25,7 @@ the version list or a manifest it cannot read stops it before any deletion.
 """
 
 import importlib.util
+import datetime
 import json
 import os
 import re
@@ -30,7 +34,8 @@ import sys
 
 REGISTRY = "ghcr.io/mwo-dk/"
 NEWEST = 5
-RELEASES = 3
+MINORS = 3
+DAYS = 90
 
 _spec = importlib.util.spec_from_file_location("images_pin", os.path.join(os.path.dirname(__file__), "images-pin.py"))
 images_pin = importlib.util.module_from_spec(_spec)
@@ -41,14 +46,21 @@ def git(*args):
     return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
 
 
+def newest(tags, minors=MINORS):
+    """The release tags (vX.Y.Z, no pre-releases) of the last `minors` minor versions, oldest first."""
+    found = sorted((tuple(map(int, m.groups())), t) for t in tags if (m := re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", t)))
+    keep = sorted({v[:2] for v, _ in found})[-minors:]
+    return [t for v, t in found if v[:2] in keep]
+
+
 def release_tags():
-    """The last RELEASES release tags, fetched (shallow) so their files can be read."""
-    tags = re.findall(r"refs/tags/(v\d+\.\d+\.\d+)$", git("ls-remote", "--tags", "--refs", "origin", "v*"), re.M)
-    tags = sorted(tags, key=lambda t: tuple(map(int, t[1:].split("."))))[-RELEASES:]
-    if len(tags) < RELEASES:
-        raise RuntimeError(f"found {len(tags)} release tags, expected at least {RELEASES}")
+    """Every release tag of the last MINORS minor versions, fetched so their files can be read."""
+    tags = newest(re.findall(r"refs/tags/(\S+)$", git("ls-remote", "--tags", "--refs", "origin", "v*"), re.M))
+    if len({t.rsplit(".", 1)[0] for t in tags}) < MINORS:
+        raise RuntimeError(f"found release tags of fewer than {MINORS} minor versions: {tags}")
+    shallow = git("rev-parse", "--is-shallow-repository").strip() == "true"
     for t in tags:
-        git("fetch", "--quiet", "--no-tags", "--depth=1", "origin", f"+refs/tags/{t}:refs/tags/{t}")
+        git("fetch", "--quiet", "--no-tags", *(["--depth=1"] if shallow else []), "origin", f"+refs/tags/{t}:refs/tags/{t}")
     return tags
 
 
@@ -56,23 +68,35 @@ def gh_api(*args):
     return subprocess.run(["gh", "api", *args], check=True, capture_output=True, text=True).stdout
 
 
-def select(versions, manifests, pinned, newest=NEWEST):
+def created(v):
+    return datetime.datetime.fromisoformat(v["created_at"].replace("Z", "+00:00"))
+
+
+def select(versions, manifests, pinned, now, newest=NEWEST, days=DAYS):
     """Split the versions into kept {id: reason} and a list to delete.
 
     versions: [{"id", "name" (the digest), "created_at", "tags"}]; manifests: {digest: manifest};
-    pinned: a set of digests. A pure function: the tests call it.
+    pinned: a set of digests; now: an aware datetime. A pure function: the tests call it.
     """
     by_digest = {v["name"]: v for v in versions}
     held = {d: [m["digest"] for m in man.get("manifests", [])] for d, man in manifests.items()}
     children = {c for cs in held.values() for c in cs}
     keep = {}
+    young = now - datetime.timedelta(days=days)
     for v in versions:
         if v["tags"]:
             keep[v["name"]] = "tagged " + ",".join(v["tags"])
         elif v["name"] in pinned:
             keep[v["name"]] = "pinned"
-    # Images: not held by an index, and no signature or attestation of another version.
-    roots = [v for v in versions if v["name"] not in children and not manifests[v["name"]].get("subject")]
+        elif created(v) > young:
+            keep[v["name"]] = f"younger than {days} days"
+    # Images: not held by an index, no signature or attestation of another version, and older
+    # than the floor (a young one is kept anyway and does not count toward the five).
+    roots = [
+        v
+        for v in versions
+        if v["name"] not in children and not manifests[v["name"]].get("subject") and created(v) <= young
+    ]
     roots.sort(key=lambda v: v["created_at"], reverse=True)
     for v in roots[:newest]:
         keep.setdefault(v["name"], "newest")
@@ -101,7 +125,7 @@ def clean(package, pinned, delete_now):
         for v in versions
     ]
     manifests = {v["name"]: images_pin.manifest(image, v["name"]) for v in versions}
-    kept, delete = select(versions, manifests, pinned)
+    kept, delete = select(versions, manifests, pinned, datetime.datetime.now(datetime.timezone.utc))
     print(f"## {package}: {len(versions)} versions, {len(kept)} kept, {len(delete)} to delete")
     for v in sorted(versions, key=lambda v: v["created_at"], reverse=True):
         what = f"keep ({kept[v['id']]})" if v["id"] in kept else "DELETE"
