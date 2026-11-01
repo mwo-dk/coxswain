@@ -505,15 +505,23 @@ fn changelog(readme: &str, base: &str) -> Vec<Change> {
 }
 
 /// Markdown made plain: emphasis and code marks go, `[label](target)` becomes a link, a page
-/// of the docs one on GitHub.
+/// of the docs one on GitHub. Each change of a version (a bold lead after the previous one's
+/// link) starts a paragraph of its own. A `[` that opens no link (`[%eval]`) stays text.
 fn parts(text: &str, base: &str) -> Vec<(String, Option<String>)> {
     let plain = |s: &str| s.replace(['*', '`'], "");
+    let text = text.replace(") **", ")\n\n**");
     let mut out = vec![];
-    let mut rest = text;
-    while let Some(open) = rest.find('[') {
-        let Some((label, after)) = rest[open + 1..].split_once("](") else {
+    let mut rest = text.as_str();
+    let mut from = 0;
+    while let Some(open) = rest[from..].find('[').map(|i| from + i) {
+        let Some(close) = rest[open + 1..].find(['[', ']']).map(|i| open + 1 + i) else {
             break;
         };
+        let Some(after) = rest[close..].strip_prefix("](") else {
+            from = close; // `[` with no link: text
+            continue;
+        };
+        let label = &rest[open + 1..close];
         let Some((target, tail)) = after.split_once(')') else {
             break;
         };
@@ -527,6 +535,7 @@ fn parts(text: &str, base: &str) -> Vec<(String, Option<String>)> {
         };
         out.push((plain(label), Some(url)));
         rest = tail;
+        from = 0;
     }
     out.push((plain(rest), None));
     out.retain(|(t, _)| !t.is_empty());
@@ -571,6 +580,18 @@ pub fn started(state: &mut AppState) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bracket_that_opens_no_link_stays_text_and_each_change_is_a_paragraph() {
+        let got = parts(
+            "**One.** A `[%eval]` shows. [Chess](chess.md) **Two.** More [x] [Bin](files/bin.md)",
+            "docs/",
+        );
+        let links: Vec<_> = got.iter().filter(|(_, u)| u.is_some()).map(|(t, _)| t.as_str()).collect();
+        assert_eq!(links, ["Chess", "Bin"]);
+        assert_eq!(got[0].0, "One. A [%eval] shows. ");
+        assert_eq!(got[2].0, "\n\nTwo. More [x] ");
+    }
 
     #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {

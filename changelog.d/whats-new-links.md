@@ -1,0 +1,1 @@
+| **What's new reads right: a `[` in a change's text no longer turns the rest of the version into one link, and each change starts a paragraph of its own.** | [Notices and what's new](panels/notices.md#how-to-use-it) |
