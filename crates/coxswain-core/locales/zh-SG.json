@@ -591,6 +591,7 @@
  "cloud.online_only": "仅在线，未下载",
  "clouds.goto": "云端：{name}",
  "clouds.slow": "云文件夹未及时响应，因此未列出：可能有云挂载卡住了",
+ "drives.slow": "磁盘未及时响应，因此未列出：可能有网络驱动器卡住了",
  "columns.empty": "空文件夹",
  "common.apply": "应用",
  "common.cancel": "取消",

@@ -642,6 +642,7 @@
  "cloud.online_only": "alleen online, niet gedownload",
  "clouds.goto": "Cloud: {name}",
  "clouds.slow": "De cloudmappen antwoordden niet op tijd en staan dus niet in de lijst: misschien hangt een cloudkoppeling",
+ "drives.slow": "De schijven antwoordden niet op tijd en staan niet in de lijst: misschien hangt een netwerkschijf",
  "columns.empty": "Lege map",
  "common.apply": "Toepassen",
  "common.cancel": "Annuleren",

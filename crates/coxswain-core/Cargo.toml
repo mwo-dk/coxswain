@@ -102,6 +102,11 @@ trash = "5.2.9"
 [target.'cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
 kqueue = "1.2.1"
 
+# The drives (`machine::drives`), where sysinfo knows the system and says which are removable;
+# elsewhere `machine::mounted` reads them: sysinfo's FreeBSD free space is wrong.
+[target.'cfg(any(target_os = "linux", target_os = "macos", windows))'.dependencies]
+sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Wdk_Foundation", "Win32_Foundation", "Wdk_Storage_FileSystem", "Win32_Globalization", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 

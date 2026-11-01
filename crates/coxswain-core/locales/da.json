@@ -642,6 +642,7 @@
  "cloud.online_only": "kun online, ikke hentet",
  "clouds.goto": "Sky: {name}",
  "clouds.slow": "Skymapperne svarede ikke i tide, så de er ikke med: en skymontering hænger måske",
+ "drives.slow": "Drevene svarede ikke i tide, så de er ikke med: et netværksdrev hænger måske",
  "columns.empty": "Tom mappe",
  "common.apply": "Anvend",
  "common.cancel": "Annuller",

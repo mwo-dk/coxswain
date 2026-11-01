@@ -642,6 +642,7 @@
  "cloud.online_only": "nur online, nicht heruntergeladen",
  "clouds.goto": "Cloud: {name}",
  "clouds.slow": "Die Cloud-Ordner haben nicht rechtzeitig geantwortet und fehlen in der Liste: vielleicht hängt ein Cloud-Mount",
+ "drives.slow": "Die Laufwerke haben nicht rechtzeitig geantwortet und fehlen in der Liste: vielleicht hängt ein Netzlaufwerk",
  "columns.empty": "Leerer Ordner",
  "common.apply": "Anwenden",
  "common.cancel": "Abbrechen",

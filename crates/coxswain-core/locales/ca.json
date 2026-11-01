@@ -662,6 +662,7 @@
  "cloud.online_only": "només en línia, no baixat",
  "clouds.goto": "Núvol: {name}",
  "clouds.slow": "Les carpetes del núvol no han respost a temps i no surten a la llista: potser un muntatge del núvol s'ha penjat",
+ "drives.slow": "Les unitats no han respost a temps i no surten a la llista: potser una unitat de xarxa s'ha penjat",
  "columns.empty": "Carpeta buida",
  "common.apply": "Aplica",
  "common.cancel": "Cancel·la",

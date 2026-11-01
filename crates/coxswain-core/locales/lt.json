@@ -662,6 +662,7 @@
  "cloud.online_only": "tik internete, neatsisiųsta",
  "clouds.goto": "Debesis: {name}",
  "clouds.slow": "Debesies aplankai neatsakė laiku, todėl jų sąraše nėra: galbūt pakibo debesies prijungimas",
+ "drives.slow": "Diskai neatsakė laiku, todėl jų sąraše nėra: galbūt užstrigo tinklo diskas",
  "columns.empty": "Tuščias aplankas",
  "common.apply": "Taikyti",
  "common.cancel": "Atšaukti",

@@ -662,6 +662,7 @@
  "cloud.online_only": "jen online, nestaženo",
  "clouds.goto": "Cloud: {name}",
  "clouds.slow": "Cloudové složky neodpověděly včas, proto nejsou v seznamu: některé připojení cloudu možná visí",
+ "drives.slow": "Jednotky neodpověděly včas, a proto nejsou v seznamu: možná se zasekla síťová jednotka",
  "columns.empty": "Prázdná složka",
  "common.apply": "Použít",
  "common.cancel": "Zrušit",

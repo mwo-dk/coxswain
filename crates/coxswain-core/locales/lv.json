@@ -662,6 +662,7 @@
  "cloud.online_only": "tikai tiešsaistē, nav lejupielādēts",
  "clouds.goto": "Mākonis: {name}",
  "clouds.slow": "Mākoņa mapes neatbildēja laikā, tāpēc to nav sarakstā: iespējams, kāds mākoņa montējums ir iestrēdzis",
+ "drives.slow": "Diski neatbildēja laikā, tāpēc tie nav sarakstā: iespējams, tīkla disks ir iestrēdzis",
  "columns.empty": "Tukša mape",
  "common.apply": "Lietot",
  "common.cancel": "Atcelt",

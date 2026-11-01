@@ -642,6 +642,7 @@
  "cloud.online_only": "berre på nett, ikkje lasta ned",
  "clouds.goto": "Sky: {name}",
  "clouds.slow": "Skymappene svara ikkje i tide og er difor ikkje med i lista: ei skymontering heng kanskje",
+ "drives.slow": "Stasjonane svara ikkje i tide, så dei er ikkje med: ein nettverksstasjon heng kanskje",
  "columns.empty": "Tom mappe",
  "common.apply": "Bruk",
  "common.cancel": "Avbryt",

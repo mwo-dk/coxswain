@@ -610,6 +610,7 @@
  "cloud.online_only": "only online, not downloaded",
  "clouds.goto": "Cloud: {name}",
  "clouds.slow": "Cloud folders did not answer in time, so they are not listed: a cloud mount may be hanging",
+ "drives.slow": "Drives did not answer in time, so they are not listed: a network drive may be hanging",
  "columns.empty": "Empty folder",
  "common.apply": "Apply",
  "common.cancel": "Cancel",
