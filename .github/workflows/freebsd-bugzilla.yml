@@ -1,0 +1,39 @@
+name: FreeBSD Bugzilla
+
+# By hand: file "sysutils/coxswain: Update to X.Y.Z" in FreeBSD's Bugzilla from a Release run's
+# freebsd-port artifact, with master's packaging/freebsd/file-bugzilla.py. For a release whose
+# filing step failed on a fault of ours: rerunning that job would run the release's own, old
+# script. The script files nothing twice (an update already filed with its diff is left alone).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag, as v2.35.0
+        required: true
+        type: string
+      run:
+        description: The id of the Release run whose freebsd-port artifact holds port.diff
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read # the Release run's artifact
+
+jobs:
+  file:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The release's port diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.run }}
+        run: gh run download "$RUN" -R "$GITHUB_REPOSITORY" -n freebsd-port -D port
+      - name: File the update in Bugzilla
+        env:
+          FREEBSD_BUGZILLA_KEY: ${{ secrets.FREEBSD_BUGZILLA_KEY }}
+          VERSION: ${{ inputs.tag }}
+        run: python3 packaging/freebsd/file-bugzilla.py port/out/port.diff
