@@ -84,7 +84,7 @@ jobs:
       # Saved from master only, and not for the ARM Linux and Windows machines, which run only on
       # master: a pull request's copy and those two (a gigabyte or two each) would push the
       # nightly systems' caches (.github/actions/target-cache) out of the repository's 10 GB.
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           save-if: ${{ github.ref == 'refs/heads/master' && (runner.arch == 'X64' || runner.os == 'macOS') }}
 
@@ -210,7 +210,7 @@ jobs:
         if: needs.changes.outputs.code == 'false'
         with:
           toolchain: stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         if: needs.changes.outputs.code == 'false'
         with:
           shared-key: docs
