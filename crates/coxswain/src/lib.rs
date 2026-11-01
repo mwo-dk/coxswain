@@ -4571,8 +4571,9 @@ impl App {
         let i = m.row.checked_sub(area.y + 2).map(usize::from).filter(|&r| r < p.page).map(|r| p.offset + r).filter(|&i| i < p.entries.len());
         if m.kind == MouseEventKind::Down(MouseButton::Left) && m.row == area.y + 1 {
             self.active = side;
+            self.last_click = None;
             let w = usize::from(area.width.saturating_sub(2));
-            if let Some(key) = m.column.checked_sub(area.x + 1).and_then(|x| ui::header_key(w, usize::from(x))) {
+            if let Some(key) = m.column.checked_sub(area.x + 1).and_then(|x| ui::header_key(w, usize::from(x)).filter(|_| area.height >= 6)) {
                 self.panels[side].sort_by(key);
             }
             return;
