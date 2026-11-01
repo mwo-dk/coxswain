@@ -916,7 +916,7 @@ fi
 # and changes one.
 if command -v jj >/dev/null; then
   jc="$(mktemp)" && printf '[user]\nname = "Ada"\nemail = "ada@example.com"\n' > "$jc"
-  j() { JJ_CONFIG="$jc" JJ_TIMESTAMP="$(ago "$1" '%Y-%m-%dT%H:%M:%S+00:00')" jj "${@:2}"; }
+  j() { JJ_CONFIG="$jc" JJ_OP_HOSTNAME=demo JJ_OP_USERNAME=demo JJ_TIMESTAMP="$(ago "$1" '%Y-%m-%dT%H:%M:%S+00:00')" jj "${@:2}"; }
   mkdir -p "$d/projects/lander/src" "$d/projects/lander/docs" && cd "$d/projects/lander"
   j 300 git init --no-colocate --quiet
   printf '# lander\n' > README.md && printf 'fn main() {}\n' > src/main.rs

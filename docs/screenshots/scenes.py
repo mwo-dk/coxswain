@@ -121,6 +121,7 @@ def mk_big():
     Backups goes again."""
     def run():
         d = demo("Big")
+        shutil.rmtree(d, ignore_errors=True)          # a run stopped before its undo
         backups = keep("Backups")()
         try:
             (d / "tree").mkdir(parents=True)
@@ -160,8 +161,9 @@ tmp = tempfile.mkdtemp()
 open(f"{tmp}/eicar.hdb", "w").write(f"{hashlib.md5(eicar).hexdigest()}:{len(eicar)}:Eicar-Test-Signature\n")
 src = at["/src"].rstrip("/") + "/"
 names = open(at["/list"] + "/files").read().splitlines()
-open(f"{tmp}/files", "w").write("".join(src + n[5:] + "\n" for n in names))
+open(f"{tmp}/files", "w").write("".join(src + n[5:] + "\n" for n in names if n.startswith("/src/")))
 r = subprocess.run(["clamscan", f"--database={tmp}/eicar.hdb", f"--file-list={tmp}/files", "--no-summary", "--stdout"], capture_output=True, text=True)
+sys.stderr.write(r.stderr)
 for line in r.stdout.splitlines():
     print("/src/" + line[len(src):].replace(".UNOFFICIAL", "") if line.startswith(src) else line, flush=True)
 sys.exit(r.returncode)
@@ -186,6 +188,7 @@ def mk_viruses():
             else:
                 os.environ["SANDBOX_ARGS"] = old_args
         try:
+            assert shutil.which("clamscan") and shutil.which("podman"), "needs clamscan and podman installed here"
             (dl / "eicar.com").write_text(EICAR)
             with zipfile.ZipFile(dl / "test-files.zip", "w") as z:
                 z.writestr("test-files/eicar.com", EICAR)
