@@ -69,17 +69,19 @@
   let asks = 0;
   async function set(name, value) {
     const changes = { [name]: value };
-    if (!name.startsWith("long_files") && !name.startsWith("search_commit_changes")) return save(changes);
+    if (!name.startsWith("long_files") && !commitChanges(name)) return save(changes);
     // A newer ask on another option: the one waiting goes back to its stored value.
     if (longChange && longChange.name !== name) keepLong();
     const ask = ++asks;
     // Counting the changes of commits takes seconds with many large repositories: said meanwhile.
-    if (name.startsWith("search_commit_changes")) longChange = { why: t("changes.costing"), name, busy: true };
+    if (commitChanges(name)) longChange = { why: t("changes.costing"), name, busy: true };
     const why = await invoke("long_files_change", { changes }).catch(() => null);
     if (ask !== asks) return;
     if (!why) return void ((longChange = null), save(changes));
     longChange = { why, name, go: () => save(changes) };
   }
+  // Git history on or off keeps or drops the changes of commits too.
+  const commitChanges = (name) => name === "search_history" || name.startsWith("search_commit_changes");
   function keepLong() {
     asks++;
     const name = longChange?.name;
@@ -745,7 +747,7 @@
             {#if s.search_history}
               {@render check("search_commit_changes", undefined, undefined, true)}
               {#if !s.search_commit_changes}{@render list("search_commit_changes_in", t("settings.search_names_only_none"))}{/if}
-              {#if longChange?.name.startsWith("search_commit_changes")}
+              {#if longChange && commitChanges(longChange.name)}
                 <!-- The room and time it takes, or what turning it off frees, said before it is saved. -->
                 <p><strong>{longChange.why}</strong></p>
                 <div class="buttons">
@@ -861,7 +863,7 @@
             {@render choice("long_files", [["sample", t("settings.long_files.sample")], ["everything", t("settings.long_files.everything")]])}
             {@render list("long_files_everything", t("settings.search_names_only_none"))}
             {@render list("long_files_sample", t("settings.search_names_only_none"))}
-            {#if longChange && !longChange.name.startsWith("search_commit_changes")}
+            {#if longChange && !commitChanges(longChange.name)}
               <p><strong>{longChange.why}</strong></p>
               <div class="buttons">
                 <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>
