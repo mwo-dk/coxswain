@@ -210,9 +210,9 @@
     return at ? t("settings.search_root_size", { size: size(bytes) }) : t("settings.search_root_away", { size: size(bytes) });
   };
   async function addFolder(name, input) {
-    const dir = await invoke("resolve_path", { base: tab()?.dir ?? ui.cfg.home, input: input || tab()?.dir || "" });
+    const dir = await invoke("folder_to_add", { panel: tab()?.dir ?? ui.cfg.home, input: input ?? "" });
     adding[name] = "";
-    if (!s[name].includes(dir)) set(name, [...s[name], dir]);
+    if (dir && !s[name].includes(dir)) set(name, [...s[name], dir]);
   }
   function addWord(name) {
     const word = (adding[name] ?? "").trim();
@@ -600,7 +600,7 @@
         {/each}
       {/if}
       <form class="folder" onsubmit={(e) => (e.preventDefault(), words ? addWord(name) : addFolder(name, adding[name]))}>
-        <input id="in-{name}" bind:value={adding[name]} spellcheck="false" placeholder={words ? "*.log" : tab()?.dir} />
+        <input id="in-{name}" bind:value={adding[name]} spellcheck="false" placeholder={words ? "*.log" : "~/Documents"} />
         <button type="submit">{t("settings.search_add")}</button>
       </form>
     </div>
