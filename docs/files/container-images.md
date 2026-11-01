@@ -91,7 +91,8 @@ does:
   (more than 40 steps) or to a folder they are in are left out. A folder's size counts a link
   as nothing, as `du` does: alpine's `bin/`, where most programs are links to `busybox`, is about
   busybox's size, not busybox's size once per link; the link itself still shows its file's size.
-- A hard link is the file it names, when that file comes before it in the image.
+- A hard link is the file it names, when that file comes before it in the image; like a
+  symbolic link it adds nothing to its folder's size.
 - Devices and pipes are left out.
 
 Each layer may be plain, gzip or zstd: Coxswain tells by its first bytes.

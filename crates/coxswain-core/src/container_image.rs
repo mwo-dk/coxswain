@@ -716,7 +716,8 @@ fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
                 // Only a file already in the merged tree.
                 let Some(target) = link.as_deref().and_then(clean) else { return Ok(true) };
                 let Some(t) = files.get(&target).filter(|t| !t.dir) else { return Ok(true) };
-                node = Node { layer: l, ..t.clone() };
+                // Its bytes are the target's: counted once, as `du` does (busybox's applets).
+                node = Node { layer: l, linked: true, ..t.clone() };
             } else if ty.is_symlink() {
                 let Some(target) = link.filter(|t| !t.contains('\0') && t.len() <= 4096) else { return Ok(true) };
                 node.link = Some(target);
@@ -1190,7 +1191,7 @@ pub(crate) mod tests {
     fn folder_sizes_count_a_linked_file_once() {
         let dir = crate::pictures::tests::folder("image-link-sizes");
         let layer = tar_of(&[
-            ("bin/", b""), ("bin/busybox", b"0123456789"), ("bin/ls -> busybox", b""), ("bin/cat -> /bin/busybox", b""),
+            ("bin/", b""), ("bin/busybox", b"0123456789"), ("bin/ls -> busybox", b""), ("bin/cat -> /bin/busybox", b""), ("bin/sh => bin/busybox", b""),
             ("usr/", b""), ("usr/bin -> /bin", b""), ("etc/", b""), ("etc/os", b"alpine"),
         ]);
         let img = dir.join("alpine.tar");
@@ -1199,6 +1200,7 @@ pub(crate) mod tests {
             crate::archive::list_in(&img, inner).unwrap().into_iter().find(|e| e.name == name).map(|e| e.size)
         };
         assert_eq!(size("bin", "ls"), Some(10), "a link shows as its file");
+        assert_eq!(size("bin", "sh"), Some(10), "a hard link too");
         assert_eq!(size("", "bin"), Some(10));
         assert_eq!(size("", "usr"), Some(0), "a link to a folder adds nothing");
         assert_eq!(size("", "etc"), Some(6));
