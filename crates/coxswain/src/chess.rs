@@ -570,11 +570,12 @@ impl Viewer {
                     text.pop();
                     None
                 }
-                KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                    text.push(c);
+                _ => {
+                    if let Some(c) = crate::typed(&key) {
+                        text.push(c);
+                    }
                     None
                 }
-                _ => None,
             }
         } else {
             match key.code {

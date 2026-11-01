@@ -92,6 +92,14 @@ annotated PGN* (**w**) ask where the file goes instead:
 | Another folder | **f**, type the folder (the archive's folder is filled in), **Enter** | *Another folder*, type the folder (the archive's folder is filled in), then *Save* | The same name in that folder |
 | Inside the archive | **i** | *Inside games.zip*, then *Save* | A new entry in the archive's folder that holds the game, under the same names; the archive is rewritten |
 
+![The terminal app after s on a game from chess-club.zip: the status line asks Save where? with b beside chess-club.zip, f another folder, i inside chess-club.zip](../screenshots/tui-chess-save-where.png)
+
+![The terminal app asking for the folder: Folder (Enter saves, Esc cancels) with the archive's folder filled in](../screenshots/tui-chess-save-folder.png)
+
+![The desktop app under the board: Where should the new PGN go? with Beside chess-club.zip, Another folder, Inside chess-club.zip, Save and Cancel](../screenshots/gui-chess-save-where.png)
+
+![The desktop app with Another folder chosen and a relative path typed: Type a full folder path (or one starting with ~), the question still open](../screenshots/gui-chess-save-folder.png)
+
 *Inside the archive* is offered only for an archive Coxswain can write: a zip, 7z or tar, not a
 disk image, a mailbox, an archive split into parts, or an archive inside another. Without it the
 terminal app's question and the desktop app's choices leave it out, and nothing is rewritten.
