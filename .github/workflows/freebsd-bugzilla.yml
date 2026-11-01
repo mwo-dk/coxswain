@@ -20,6 +20,10 @@ permissions:
   contents: read
   actions: read # the Release run's artifact
 
+concurrency:
+  group: freebsd-bugzilla # two at once could both miss the other's bug and file it twice
+  cancel-in-progress: false
+
 jobs:
   file:
     runs-on: ubuntu-24.04

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """File "sysutils/coxswain: Update to X.Y.Z" in FreeBSD's Bugzilla, with port.diff attached and
 maintainer-approval set. Reads FREEBSD_BUGZILLA_KEY, VERSION and the changelog row from README.md.
-Run by release.yml only when the key is set and the port is in the ports tree."""
+Run by release.yml only when the key is set and the port is in the ports tree, and by hand by
+freebsd-bugzilla.yml."""
 
 import base64
 import json
