@@ -54,7 +54,7 @@ skips it. **F1** → *Show the guide again* (desktop app), **F1** then **G** (te
 | Git line | Bottom left of the border, in the `git_branch` colour | Right side of the pane's footer ([Git in the panels](git.md)) |
 | ZFS line | Bottom middle of the border, on ZFS: `tank/home · 1.52x · 12G used · 88G free`: dataset, compression ratio and space | In the pane's footer, after the item count; a click lists the snapshots ([ZFS snapshots](../files/zfs-snapshots.md#the-dataset-in-the-footer)) |
 | Info line | Under the list: the name under the cursor and its size (`name -> target` for a link), or `4.2 MB in 3 marked` | The footer: `17 items`, and `· 3 marked (1.2 MB)` when files are marked |
-| Sort order | A letter bottom right: `n` name, `x` extension, `t` time, `s` size; upper case when reversed | An arrow next to the column header that sorts ([Sorting](sorting.md)) |
+| Sort order | A letter bottom right: `n` name, `x` extension, `t` time, `s` size; upper case when reversed; and `▼` or `▲` next to the column header that sorts | An arrow next to the column header that sorts ([Sorting](sorting.md)) |
 | Command line | The row under the panels: `/home/demo/projects/rocket> ` | The row under the panes: the folder, `❯`, and *Type a command…* |
 | Status | In the command line row, until the next key | Right of the command line, until the next key |
 | Settings | *12 Settings* at the right end of the F-key bar (**F12**) | *Settings* with a cog, at the right of the command line row. Its tooltip: *Settings · Ctrl+, · What's new: 2, under Overview*; a click opens Settings at *Overview* |
