@@ -285,6 +285,10 @@ terminal app runs in a tmux of its own, drawn in MesloLGM Nerd Font Mono. Each r
 process namespace: stopping it stops all it started, the search helper too. See the top of
 `cap.py` for the calls.
 
+- **The terminal app's pictures are scenes** in `docs/screenshots/scenes.py` (a start, the keys,
+  the picture): after a change to that screen, a release build and
+  `uv run docs/screenshots/scenes.py --write` retakes them all; name some to retake only those.
+  A new terminal picture gets a scene there.
 - Never run podman or docker inside the sandbox.
 - Keys may be sent (`wtype`) only to the sandbox window, and only after checking that it has
   the focus. Never type into other windows, and never stop Coxswain processes by name: stop the
