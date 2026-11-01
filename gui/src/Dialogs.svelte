@@ -803,7 +803,7 @@
             </tbody>
           </table>
           <p>{t("dialogs.help_mouse", { where: `${t("settings.title")} → ${t("settings.area.behaviour")} → ${t("setting.right_click")}` })}</p>
-          <p>{t("dialogs.help_quick")}</p>
+          <p>{t("dialogs.help_quick", { key: ui.cfg.actions.command_line?.[1] || `${ui.cfg.actions.menu?.[1] ?? ""} → ${ui.cfg.actions.command_line?.[0] ?? ""}` })}</p>
           <p>{t("dialogs.help_views")}</p>
           <p>{#each parts(t("dialogs.help_syntax")) as s, i (i)}{#if i % 2}<b>{t("search.title")}</b>{:else}{s}{/if}{/each} <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
           <p>

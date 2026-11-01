@@ -2,14 +2,16 @@
 
 # The command line and its output
 
-Under the panels is a command line, as in Norton Commander. Start typing and your text lands
-there; **Enter** runs it with the shell in the active panel's folder. Use it for the quick
+Under the panels is a command line, as in Norton Commander. In the terminal app start typing and
+your text lands there; in the desktop app press **Ctrl+K** first (typing letters there jumps to a
+name, see [Quick search](../panels/quick-search.md); *Settings → Behaviour → Typing letters*
+changes it in either app). **Enter** runs the line with the shell in the active panel's folder. Use it for the quick
 `git pull`, `make` or `mv *.jpg photos/` without leaving Coxswain.
 
 ![The terminal app: under the two panels, the command line shows the prompt /home/demo/projects/rocket> with the cursor after it; below it the F-key bar](../screenshots/tui-panels.png)
 *The terminal app's command line: the prompt is the active panel's folder.*
 
-![The desktop app: at the bottom of the window, left of Settings, the command line reads /home/demo/projects/rocket ❯ followed by the grey placeholder Type a command…](../screenshots/gui-details.png)
+![The desktop app: at the bottom of the window, left of Settings, the command line reads /home/demo/projects/rocket ❯ followed by the grey placeholder Ctrl+K: command line](../screenshots/gui-details.png)
 *The desktop app's command line, above the F-key bar.*
 
 ![The desktop app in ~/projects/rocket after typing git log --oneline and Enter: the preview pane, headed by a terminal icon, "git log --oneline" and "Command output" with a × at the right, lists the eight commits in a monospace font](../screenshots/commands-output.png)
@@ -26,8 +28,12 @@ there; **Enter** runs it with the shell in the active panel's folder. Use it for
 
 ## How to use it
 
-1. Type. A plain character that is not bound to a key goes to the command line; in the desktop
-   app the line takes the focus.
+1. Type. Where *Typing letters* is *Go to the command line* (the terminal app's default), a plain
+   character that is not bound to a key goes to the command line; in the desktop app the line
+   takes the focus. Where it is *Jump to a name* (the desktop app's default), press **Ctrl+K**
+   (*Command line*, also in **F9** and the action menu) first: the line takes the focus, and
+   **Esc** or **Enter** gives it back to the panels. The empty line says *Ctrl+K: command line*
+   while the setting is on jumping.
 2. To put the name under the cursor into the line, press **Ctrl+Enter** or **Ctrl+J** (*Path to
    command line*). The name is quoted for the shell when it needs it (`'My Files'`) and a space
    is added after it, so you can add several in a row.
@@ -94,7 +100,7 @@ without the AppImage's own libraries in their environment.
 
 ## Settings and config.toml
 
-No Settings item. The key *Path to command line* is `copy_path` under `[keys]`, default
+*Settings → Behaviour → Typing letters* (`typing = "find"` or `"command"`, unset: `"find"` in the desktop app, `"command"` in the terminal app) says whether letters go to the line. The key *Command line* is `command_line` under `[keys]`, default `["Ctrl+K"]`; *Path to command line* is `copy_path` under `[keys]`, default
 `["Ctrl+Enter", "Ctrl+J"]`; *Panels on/off* is `toggle_panels`, default `["Ctrl+O"]`. The
 theme slots `cmdline` colour the line ([Your own theme](../customise/own-theme.md)). The shell
 cannot be set: it is `$SHELL` in the terminal app, `sh` in the desktop app and `cmd` on Windows.

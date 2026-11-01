@@ -30,8 +30,9 @@ bar and the status line tell you, and how to start the apps in the folders you w
 1. Press **Tab** to make the other panel active. The keys act on the active panel, and
    **F5** (copy) and **F6** (move) offer the other panel's folder as the target.
 2. Click in a panel to make it active (both apps).
-3. Type anywhere: characters that are not a key of their own go to the command line
-   ([The command line](../commands/command-line.md)).
+3. Type anywhere: characters that are not a key of their own jump to a name in the active panel
+   ([Quick search](quick-search.md); the desktop app's default) or go to the command line (the
+   terminal app's; **Ctrl+K** in the desktop app, [The command line](../commands/command-line.md)).
 4. Click an F-key in the bottom row (desktop app) to run it, or press the key.
 5. **Ctrl+O** switches the desktop app between one pane and two
    ([Tabs, back and forward, one pane or two](tabs-and-panes.md)); in the terminal app it
@@ -55,7 +56,7 @@ skips it. **F1** → *Show the guide again* (desktop app), **F1** then **G** (te
 | ZFS line | Bottom middle of the border, on ZFS: `tank/home · 1.52x · 12G used · 88G free`: dataset, compression ratio and space | In the pane's footer, after the item count; a click lists the snapshots ([ZFS snapshots](../files/zfs-snapshots.md#the-dataset-in-the-footer)) |
 | Info line | Under the list: the name under the cursor and its size (`name -> target` for a link), or `4.2 MB in 3 marked` | The footer: `17 items`, and `· 3 marked (1.2 MB)` when files are marked |
 | Sort order | A letter bottom right: `n` name, `x` extension, `t` time, `s` size; upper case when reversed; and `▼` or `▲` next to the column header that sorts | An arrow next to the column header that sorts ([Sorting](sorting.md)) |
-| Command line | The row under the panels: `/home/demo/projects/rocket> ` | The row under the panes: the folder, `❯`, and *Type a command…* |
+| Command line | The row under the panels: `/home/demo/projects/rocket> ` | The row under the panes: the folder, `❯`, and *Ctrl+K: command line* (*Type a command…* where Typing letters goes to the command line) |
 | Status | In the command line row, until the next key | Right of the command line, until the next key |
 | Settings | *12 Settings* at the right end of the F-key bar (**F12**) | *Settings* with a cog, at the right of the command line row. Its tooltip: *Settings · Ctrl+, · What's new: 2, under Overview*; a click opens Settings at *Overview* |
 | F-key bar | The bottom row: the number and label of **F1** to **F10**, then **F11** and **F12** when they have an action (**F12**: *Settings*) | The bottom row of buttons; a key with no action is greyed |

@@ -651,7 +651,7 @@
           // Under the group headings of F1; the themes close the last group (App).
           ...ui.cfg.groups.flatMap(([group, names]) =>
             names
-              .filter((n) => !["menu", "up", "down"].includes(n))
+              .filter((n) => !["menu", "up", "down"].includes(n) && (n !== "command_line" || ui.cfg.settings.typing === "find"))
               .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => actions[n]?.() })),
           ),
           ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
@@ -670,6 +670,7 @@
     toggle_view: () => (tab().view = nextView(tab().view)),
     toggle_sidebar: () => (ui.showSidebar = !ui.showSidebar),
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
+    command_line: () => cmdInput?.focus(),
     folder_sizes: async () => {
       const tb = tab();
       const dirs = tb.marks.count ? await targets(tb) : (await pick(tb, "dirs")).map((e) => e.path);
@@ -818,6 +819,11 @@
       if (esc) return e.preventDefault();
     }
     const act = ui.cfg.keymap[k];
+    // Typing jumps to names: the command line is open while it has the focus (its own key).
+    const jump = ui.cfg.settings.typing === "find";
+    const inCmd = !!e.target.closest?.(".cmd");
+    if (jump && inCmd && !ui.cmd && act !== "command_line" && (k === "Esc" || act)) cmdInput.blur();
+    if (k === "Esc" && jump && inCmd && !ui.cmd) return e.preventDefault();
     if (k === "Esc" && !ui.cmd && ui.showPreview) {
       e.preventDefault();
       output = null;
@@ -833,6 +839,7 @@
       if (k === "Enter") runCmdline();
       else if (k === "Esc") ui.cmd = "";
       else return cmdInput.focus();
+      if (jump) cmdInput.blur();
       return e.preventDefault();
     }
     // Thumbnails: arrows move in two dimensions.
@@ -852,6 +859,9 @@
       e.preventDefault();
       if (act === "action_menu") menuKeyAt = Date.now();
       actions[act]?.();
+    } else if (plain && jump && !inCmd) {
+      ui.quick = e.key;
+      quickJump(e);
     } else if (plain) {
       cmdInput.focus(); // the character lands in the command line
     }
@@ -904,7 +914,7 @@
 
     <label class="cmdline">
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
-      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
+      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={ui.cfg.settings.typing === "find" && ui.cfg.actions.command_line?.[1] ? t("tui.command_line_key", { key: ui.cfg.actions.command_line?.[1] ?? "" }) : t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.searchable}
         {@const s = ui.searchable}
         <!-- Make PDF searchable under way: which one, for how long, what OCRmyPDF said last. -->

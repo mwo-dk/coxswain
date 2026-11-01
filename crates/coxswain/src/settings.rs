@@ -607,6 +607,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         "image_updates" => pairs(&[("off", "settings.image_updates_off"), ("weekly", "settings.image_updates_weekly"), ("monthly", "settings.image_updates_monthly")]),
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
         "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
+        "typing" => pairs(&[("find", "settings.typing_find"), ("command", "settings.typing_command")]),
         "repos_order" => pairs(&[("name", "settings.repos_order_name"), ("used", "settings.repos_order_used")]),
         "long_files" => pairs(&[("sample", "settings.long_files.sample"), ("everything", "settings.long_files.everything")]),
         "chess_notation" => pairs(&[("figurines", "settings.chess_figurines"), ("letters", "settings.chess_letters")]),
@@ -791,7 +792,7 @@ impl App {
         let esc = key.code == KeyCode::Esc;
         s.said = None;
         let rows = rows(self, &s);
-        let values = cs::values(&self.cfg);
+        let values = cs::values(&self.cfg, false);
         let opt = match rows.get(s.cursor) {
             Some(Row::Opt(o)) => Some(*o),
             _ => None,
@@ -1749,7 +1750,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let right = Rect { x: inner.x + aw as u16 + 2, y: inner.y, width: inner.width.saturating_sub(aw as u16 + 2), height: body_h };
     let w = right.width as usize;
     let cfg = &app.cfg;
-    let values = cs::values(cfg);
+    let values = cs::values(cfg, false);
     let level = cs::level(&cfg.search);
     let mut cursor_at: Option<Position> = None;
 

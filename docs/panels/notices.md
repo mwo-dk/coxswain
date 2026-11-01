@@ -58,6 +58,11 @@ out, in the built-in viewer with long lines wrapped, and **Esc** there goes back
 | Dismiss a tip | **Dismiss** (tooltip *Not shown again*) | Nothing to do: shown once, it counts as seen |
 | A problem with search | Click it in the status line: it opens the Settings area; **×** dismisses it | Shown once in the status line |
 
+Two notices say once that a default changed in the desktop app, for a setting you never set:
+*Right-click now opens the action menu* and *Typing letters now jumps to the first name that starts
+with them* (with the key of the command line). Each has **Show me**, which opens the setting, and
+**Dismiss**.
+
 ## What you see
 
 ![Settings at Overview, scrolled to What's new: For you with the meaning tip (Show me, Dismiss) and the tesseract install line (Copy, Show me, Dismiss), then the 2.0.0 notes](../screenshots/whats-new.png)

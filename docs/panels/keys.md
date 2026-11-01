@@ -167,6 +167,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Shift+F4** | Edit here | `edit_here` | The file in the [built-in editor](../commands/editor.md), in a window | The same, full screen |
 | **Space** | Preview | `toggle_preview` | The preview pane on or off ([The preview pane](../previews/README.md)) | – |
 | – | Preview with… | `preview_with` | The choices for the kind of the file under the cursor: Installed program, Container or Off, from the action menu and F9 ([Preview with…](../previews/tools.md#preview-with)) | The same; it sets what the terminal app runs and the desktop app's previews |
+| **Ctrl+K** | Command line | `command_line` | Puts the cursor on the command line where typing letters jumps to names; **Esc** or **Enter** leaves it ([The command line](../commands/command-line.md)) | The same |
 | **Ctrl+Enter**, **Ctrl+J** | Path to command line | `copy_path` | The name under the cursor to the command line | The same |
 | **F2** | Menu | `user_menu` | Scripts and the user menu | The user menu ([The user menu](../commands/user-menu.md)) |
 | **Alt+N** | Folder notes | `notes` | The folder's notes in the preview pane ([Folder notes](../organise/notes.md)) | – |
@@ -191,7 +192,7 @@ These are fixed; `[keys]` does not change them.
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Alt+letter** | [Quick search](quick-search.md) (letters and digits not bound to an action) | Quick search (any character not bound) |
-| Other characters | Go to the command line | The same |
+| Other characters | Start a quick search (*Typing letters* set to *Jump to a name*, the default); with *Go to the command line* they go to the command line | Go to the command line (*Typing letters* set to *Go to the command line*, the default); with *Jump to a name* they start a quick search |
 | **Enter** with text in the command line | Runs it; output in the preview pane ([The command line](../commands/command-line.md)) | Runs it with the panels hidden |
 | **Esc** | Clears the command line; with it empty, closes the preview pane; closes a dialog | Clears the command line; closes a dialog |
 | **Backspace** with text in the command line | Edits it | The same |

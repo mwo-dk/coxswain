@@ -53,7 +53,7 @@ pub const FEATURES: &[Feature] = &[
         "panels/moving.md",
         &[Open, Parent, GotoLeft, GotoRight, EditPath, Refresh, SameDir, SwapPanels],
     ),
-    f("quick_search", "panels/quick-search.md", &[]),
+    f("quick_search", "panels/quick-search.md", &[CommandLine]),
     f(
         "marking",
         "panels/marking.md",

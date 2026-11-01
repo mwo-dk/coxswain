@@ -117,7 +117,8 @@ yourself: [keys] mkdir → new_folder.` The old names are not read any more: an 
 | `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the built-in viewer ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
 | `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the built-in viewer ([Build provenance](../previews/provenance.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
-| `right_click` | string | `"mark"` | A right-click on a row: `"mark"` marks it (Norton Commander), `"menu"` opens the [action menu](../panels/action-menu.md); Ctrl+right-click does the other in the desktop app | Both |
+| `right_click` | string | unset | A right-click on a row: `"mark"` marks it (Norton Commander), `"menu"` opens the [action menu](../panels/action-menu.md); Ctrl+right-click does the other in the desktop app. Unset: the menu in the desktop app, marking in the terminal app | Both |
+| `typing` | string | unset | Letters typed in a panel: `"find"` jumps to the first name that starts with them ([Quick search](../panels/quick-search.md)) and the command line is on **Ctrl+K**; `"command"` types them on the command line (Norton Commander). Unset: `"find"` in the desktop app, `"command"` in the terminal app | Both |
 | `hints` | bool | `true` | One short hint on the status line that fits what is under the cursor, each shown three times ([Hints](../panels/action-menu.md#hints-on-the-status-line)) | Both |
 | `check_updates` | bool | `true` | Look for a newer release when the app starts, then once a day while it is open ([Update checks](updates.md)) | Both |
 
@@ -456,6 +457,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | *Behaviour* | *Show hidden files when Coxswain starts* | `show_hidden` | `show_hidden` |
 | | *Ask before deleting* | `confirm_delete` | `confirm_delete` |
 | | *Right-click* | `right_click` | `right_click` |
+| | *Typing letters* | `typing` | `typing` |
 | | *Show hints*, *Show the hints again* | `hints` | `hints` |
 | | *Measure folder sizes* | `folder_sizes` | `folder_sizes` |
 | | *Open disk images, CHM and CBR like folders* | `disk_images` | `[archive] disk_images` |

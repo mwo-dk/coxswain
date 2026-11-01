@@ -244,6 +244,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("show_hidden", &["show_hidden"], Behaviour, &[]),
     opt("confirm_delete", &["confirm_delete"], Behaviour, &[]),
     opt("right_click", &["right_click"], Behaviour, &[]),
+    opt("typing", &["typing"], Behaviour, &[]),
     opt("hints", &["hints"], Behaviour, &[]),
     opt("folder_sizes", &["folder_sizes"], Behaviour, &[Cpu]),
     opt("disk_images", &["archive", "disk_images"], Behaviour, &[]),
@@ -308,7 +309,7 @@ pub const GROUPS: &[Group] = &[
     group(Looks, "looks_both", None, &["language", "glyphs"]),
     group(Looks, "looks_tui", Some("settings.theme_tui"), &["tui_theme"]),
     group(Looks, "looks_gui", Some("settings.theme_gui"), &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
-    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "hints", "folder_sizes", "disk_images", "repos_order"]),
+    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "typing", "hints", "folder_sizes", "disk_images", "repos_order"]),
     group(Behaviour, "git", Some("settings.group.git"), &["git_last_commit", "git_tool", "git_prefer_git"]),
     group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "terminal", "bom_viewer", "provenance_viewer"]),
     group(Privacy, "updates", None, &["check_updates"]),
@@ -357,9 +358,9 @@ pub fn search(query: &str) -> Vec<&'static Opt> {
 
 /// The value of every option, by name, as config.toml holds it now (an unset optional one as
 /// an empty text).
-pub fn values(cfg: &Config) -> serde_json::Map<String, Value> {
+pub fn values(cfg: &Config, gui: bool) -> serde_json::Map<String, Value> {
     let all = serde_json::to_value(cfg).unwrap_or_default();
-    OPTIONS
+    let mut map: serde_json::Map<String, Value> = OPTIONS
         .iter()
         .map(|o| {
             let v = o
@@ -377,7 +378,11 @@ pub fn values(cfg: &Config) -> serde_json::Map<String, Value> {
                 },
             )
         })
-        .collect()
+        .collect();
+    // The two that differ by app, as the app that asks has them.
+    map.insert("right_click".into(), if cfg.right_click_menu(gui) { "menu" } else { "mark" }.into());
+    map.insert("typing".into(), if cfg.type_to_jump(gui) { "find" } else { "command" }.into());
+    map
 }
 
 /// `text` (a config.toml) with the options in `changes` set, its comments and layout kept.
@@ -1126,7 +1131,7 @@ mod tests {
     #[test]
     fn settings_values_follow_the_description() {
         let cfg = Config::default();
-        let v = values(&cfg);
+        let v = values(&cfg, false);
         assert_eq!(v.len(), OPTIONS.len());
         // Each one is found where the description says, unset optional ones as empty text.
         assert_eq!(v["search_text"], Value::Bool(cfg.search.text));

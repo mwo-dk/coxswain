@@ -352,6 +352,9 @@ actions! {
     // view's Follow in the desktop app. No key of its own: the action menu and F9 offer it.
     FollowLog = "follow_log", "Follow log", Viewing, [];
     CopyPath = "copy_path", "Path to command line", Viewing, ["Ctrl+Enter", "Ctrl+J"];
+    // The command line where typing letters jumps to a name (`typing`): in the other mode the
+    // letters already go there.
+    CommandLine = "command_line", "Command line", Viewing, ["Ctrl+K"];
     UserMenu = "user_menu", "Menu", Viewing, ["F2"];
     Notes = "notes", "Folder notes", Viewing, ["Alt+N"];
     // A PGN file's games, an EPD or FEN file's positions (`chess`): K for the king.
@@ -368,6 +371,26 @@ actions! {
     // Settings → Looks → Language: a new GitHub issue in the browser, no key of its own.
     SuggestTranslation = "suggest_translation", "Suggest a better translation", App, [];
     Quit = "quit", "Quit", App, ["F10"];
+}
+
+impl Config {
+    /// A right-click opens the action menu (and Ctrl+right-click marks). `gui`: the desktop app.
+    pub fn right_click_menu(&self, gui: bool) -> bool {
+        match self.right_click.as_str() {
+            "menu" => true,
+            "mark" => false,
+            _ => gui,
+        }
+    }
+
+    /// Typing letters jumps to a name; the command line is on its own key. `gui`: the desktop app.
+    pub fn type_to_jump(&self, gui: bool) -> bool {
+        match self.typing.as_str() {
+            "find" => true,
+            "command" => false,
+            _ => gui,
+        }
+    }
 }
 
 impl Action {
@@ -1803,7 +1826,12 @@ pub struct Config {
     pub confirm_delete: bool,
     /// What a right-click on a row does: `mark` it (Norton Commander) or open the action
     /// `menu` (a file explorer). Ctrl+right-click does the other one in the desktop app.
+    /// Unset: the menu in the desktop app, marking in the terminal app (`right_click_menu`).
     pub right_click: String,
+    /// What typing letters in a panel does: `find` jumps to the first name that starts with
+    /// them (a file explorer), `command` types them on the command line (Norton Commander).
+    /// Unset: `find` in the desktop app, `command` in the terminal app (`type_to_jump`).
+    pub typing: String,
     /// A short hint on the status line that fits what is under the cursor, each a few times.
     pub hints: bool,
     /// Look for a newer release on GitHub at startup (at most once a day).
@@ -1930,7 +1958,8 @@ impl Default for Config {
             bom_viewer: true,
             provenance_viewer: true,
             confirm_delete: true,
-            right_click: "mark".into(),
+            right_click: String::new(),
+            typing: String::new(),
             hints: true,
             check_updates: true,
             keys: BTreeMap::new(),
@@ -2463,6 +2492,17 @@ pub fn edit_command(editor: &str, file: &std::path::Path, line: usize) -> crate:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn defaults_that_differ_by_app_follow_the_setting_once_set() {
+        let mut c = Config::default();
+        assert!(c.right_click_menu(true) && !c.right_click_menu(false));
+        assert!(c.type_to_jump(true) && !c.type_to_jump(false));
+        (c.right_click, c.typing) = ("mark".into(), "command".into());
+        assert!(!c.right_click_menu(true) && !c.type_to_jump(true));
+        (c.right_click, c.typing) = ("menu".into(), "find".into());
+        assert!(c.right_click_menu(false) && c.type_to_jump(false));
+    }
 
     #[test]
     fn config_keys_given_twice_and_as_written() {

@@ -183,6 +183,16 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             None,
         ));
     }
+    // 2.36: the desktop app's defaults changed for whoever never set them: said once.
+    // Not on a first run: someone who never knew the old defaults has nothing to be told.
+    let earlier = !state.seen_version.is_empty() || state.guide_seen;
+    if !terminal && earlier && cfg.right_click.is_empty() {
+        all.push(Notice::new("right-click-menu", t!("notice.right_click_menu", "mark" => cfg.keys_shown(crate::config::Action::Mark)), Some("right_click")));
+    }
+    if !terminal && earlier && cfg.typing.is_empty() {
+        let key = cfg.key_for(crate::config::Action::CommandLine).unwrap_or("F9");
+        all.push(Notice::new("typing-jumps", t!("notice.typing_jumps", "key" => key), Some("typing")));
+    }
     // A repository was opened: its history is a key away.
     if !state.recent_repos.is_empty() {
         let key = cfg.key_for(crate::config::Action::History).unwrap_or("F9");
@@ -600,6 +610,12 @@ mod tests {
         dismiss(&mut state, "bin-limited");
         // Nor whether the home folder is on ZFS (it is on illumos and many FreeBSD machines).
         dismiss(&mut state, "zfs");
+        // The desktop app's changed defaults are told to whoever never set them.
+        let earlier = AppState { guide_seen: true, ..state.clone() };
+        assert!(all(&cfg, &status, &earlier, false).iter().any(|n| n.id == "right-click-menu") && !all(&cfg, &status, &earlier, true).iter().any(|n| n.id == "right-click-menu"));
+        assert!(!all(&cfg, &status, &state, false).iter().any(|n| n.id == "right-click-menu"), "a first run is told nothing about old defaults");
+        dismiss(&mut state, "right-click-menu");
+        dismiss(&mut state, "typing-jumps");
         // On a Mac: the folder prompts explained, once.
         let first = next(&cfg, &status, &state, false).map(|n| n.id);
         assert_eq!(

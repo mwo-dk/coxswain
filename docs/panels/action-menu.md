@@ -27,8 +27,8 @@ it*.
 | **Shift+F10** | Yes | Yes |
 | The **Menu** key (beside the right Ctrl) | Yes | Only where the terminal passes the key on (kitty, foot, WezTerm with the kitty keyboard protocol); Shift+F10 works everywhere |
 | The **⋯** button at the end of the row under the mouse or the cursor (the corner of a thumbnail) | Yes | – |
-| **Ctrl+right-click** on a row | Yes | – |
-| Right-click on a row | When *Right-click* is set to *Opens the action menu* | The same |
+| Right-click on a row | Yes, by default (*Right-click* is *Opens the action menu*) | When *Right-click* is set to *Opens the action menu* |
+| **Ctrl+right-click** on a row | Yes, when *Right-click* is set to marking | – |
 | **F9**, *What can I do with this?* | Yes | Yes |
 
 The menu opens in the middle of the window. Its title says what it is about: *What to do with
@@ -149,7 +149,7 @@ turn them off: *Settings → Behaviour → Show hints*.
 
 | Setting (Settings → Behaviour) | `config.toml` | Default | Does |
 |---|---|---|---|
-| *Right-click* | `right_click = "mark"` or `"menu"` | `"mark"` | `mark`: a right-click marks the row, as in Norton Commander. `menu`: it puts the cursor on the row and opens the action menu, as in a file explorer. In the desktop app **Ctrl+right-click** does the other one |
+| *Right-click* | `right_click = "mark"` or `"menu"` | unset: `"menu"` in the desktop app, `"mark"` in the terminal app | `mark`: a right-click marks the row, as in Norton Commander. `menu`: it puts the cursor on the row and opens the action menu, as in a file explorer. In the desktop app **Ctrl+right-click** does the other one |
 | *Show hints* | `hints = true` | `true` | The hint on the status line |
 | *Show the hints again* (button, desktop app) | – | – | Every hint shows three times again; `coxswain --hints reset` does the same |
 
@@ -198,8 +198,9 @@ terminal passes on, or bind another key to `action_menu` in `[keys]`.
 
 #### Can right-click open the menu instead of marking?
 
-Yes: *Settings → Behaviour → Right-click → Opens the action menu*, or `right_click = "menu"` in
-`config.toml`. Both apps follow it. In the desktop app **Ctrl+right-click** then marks.
+In the desktop app it does by default, and **Ctrl+right-click** marks. In the terminal app: *Settings →
+Behaviour → Right-click → Opens the action menu*, or `right_click = "menu"` in `config.toml`. Both
+apps follow the setting once you have set it.
 
 #### Why is an action I expected missing from the menu?
 

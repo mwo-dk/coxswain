@@ -3,7 +3,7 @@
 # Commands, the user menu and scripts
 
 Under the panels is a command line, as in Norton Commander: whatever you type that is not a key
-goes there, and **Enter** runs it in the active panel's folder. **F2** runs commands you keep in
+goes there (in the desktop app after **Ctrl+K**, since typing letters jumps to names there), and **Enter** runs it in the active panel's folder. **F2** runs commands you keep in
 `config.toml` and, in the desktop app, scripts you keep in a folder. **F3** and **F4** view and
 edit, **Shift+F4** edits in Coxswain's own editor, and **Enter** opens a file in its default
 application. The two apps differ most here: the terminal app hands the terminal to the program,
@@ -25,7 +25,8 @@ the desktop app collects its output.
 
 | Key | Desktop app | Terminal app | Does |
 |---|---|---|---|
-| Any plain character | Goes into the command line | Goes into the command line | Starts a command |
+| Any plain character | Jumps to a name ([Quick search](../panels/quick-search.md)); *Typing letters* can send it to the command line | Goes into the command line; *Typing letters* can make it jump | Starts a command |
+| **Ctrl+K** | Opens the command line (focus) | Opens the command line | *Command line* |
 | **Enter** | Runs the line (when it has text), else opens | Runs the line (when it has text), else opens | [Command line](command-line.md), [Opening files](opening-files.md) |
 | **Esc** | Clears the line | Clears the line | |
 | **Ctrl+Enter**, **Ctrl+J** | Adds the name under the cursor to the line | Same | *Path to command line* |

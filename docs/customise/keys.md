@@ -63,7 +63,9 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
   `quit = ["F10", "Ctrl+Q"]` keeps F10.
 - **`[]` unbinds an action.** It stays in **F9**'s command list, without a key.
 - **A plain character** bound to an action (`+`, `-`, `*`, a letter) only works while the
-  command line is empty; once you have typed something, it goes into the command line.
+  command line is empty; once you have typed something, it goes into the command line. Where
+  *Typing letters* jumps to names, a plain letter starts a quick search instead, and the command
+  line is on **Ctrl+K** (`command_line`).
 - **A key you bind leaves the action it was a default of.** `pack = ["F5"]` makes **F5** Pack,
   and Copy, whose only default it was, is left without a key (still in **F9**'s command list).
 - **A key you bind to two actions is refused** for the second one, like an unknown key name:
@@ -123,7 +125,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `features` | none | `mark_all` | **Ctrl+A** |
 | `undo` | **Ctrl+Z** | `action_menu` | **Shift+F10**, **Menu** |
 | `rename` | **Shift+F6** | `disk_use` | none |
-| `suggest_translation` | none | | |
+| `suggest_translation` | none | `command_line` | **Ctrl+K** |
 | `git_tool` | **Alt+G** | `git_config` | **Alt+C** |
 | `searchable_pdf` | **Alt+P** | `convert_media` | none |
 | `edit_pictures` | none | `convert_geodata` | none |
@@ -156,7 +158,7 @@ These belong to where they are, not to an action:
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
 | Find | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
-| Quick search | **Alt+letter** starts it, letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
+| Quick search | **Alt+letter** starts it (plain letters too where *Typing letters* jumps, the desktop app's default), letters extend it, **Backspace** shortens, **Esc** ends | Yes | Yes |
 | The command line, with text in it | **Enter** runs, **Esc** clears, **Backspace**, and in the desktop app **Left**/**Right**/**Home**/**End**/**Delete** edit | Yes | **Enter**, **Esc**, **Backspace** |
 | The preview pane | **Esc** closes it | Yes | (no preview) |
 | Thumbnails view | Arrows move in two dimensions | Yes | (no thumbnails) |
