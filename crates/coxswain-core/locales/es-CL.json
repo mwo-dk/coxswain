@@ -445,6 +445,7 @@
  "settings.out.whisper": "El modelo Whisper, descargado una vez cuando activas Transcribir el habla",
  "settings.out.whisper_image": "La imagen de contenedor de whisper.cpp, una vez, cuando activas Transcribir el habla y whisper.cpp no está instalado",
  "settings.search_forget_confirm": "Haz clic de nuevo para borrar",
+ "settings.status.tika_fault_space": "no queda espacio en el disco; borra algo y después desmarca y vuelve a marcar la opción",
  "setup.builtin_hint": "multilingual-e5-small: 100 idiomas, corre en cualquier máquina. Cada archivo se vuelve a leer cuando cambias a este modelo.",
  "setup.cpu_lemonade": "Lemonade corre {model} en el procesador, pero esta máquina tiene {gpu}. En el administrador de modelos de Lemonade, elige un modelo Hybrid o NPU, o un modelo GGUF con el backend Vulkan o ROCm.",
  "setup.cpu_lmstudio": "LM Studio no dice dónde corre un modelo. Para usar {gpu}, pon el GPU offload al máximo en la configuración del modelo en LM Studio.",

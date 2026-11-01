@@ -1,0 +1,1 @@
+| **A Tika download that fails for no network is tried again by itself.** After 5 minutes, then 10, 20, 40 and every hour, and an image pulled by hand is noticed within 10 minutes at most; the *Tika* line says what went wrong in plain words and when it tries again, not the runtime's raw error. | [Apache Tika](search/tika.md#what-you-see) |
