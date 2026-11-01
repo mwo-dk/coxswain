@@ -153,7 +153,7 @@ change a pinned image; the database is what keeps the scan current.
 
 ## In the terminal app
 
-<!-- screenshot: tui-virus-scan.png: The terminal app's box Found by ClamAV over the Downloads panel: Quarantine for eicar.com and Leave it for test-files.zip, each with Eicar-Test-Signature, the quarantine folder above and the key line Up/Down a file · N leave it · B bin · Q quarantine · Enter Do it · Esc Close; both files marked in the panel -->
+![The terminal app's box Found by ClamAV over the Downloads panel: Quarantine for eicar.com and Leave it for test-files.zip, each with Eicar-Test-Signature, the quarantine folder above and the key line Up/Down a file · N leave it · B bin · Q quarantine · Enter Do it · Esc Close; both files marked in the panel](../screenshots/tui-virus-scan.png)
 
 The same action, key, question and list, as dialogs; the status line shows how far it is, and
 **Alt+I** again stops it. Quitting while it runs stops the scan first, so its container goes
