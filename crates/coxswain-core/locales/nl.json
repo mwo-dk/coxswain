@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} definitief verwijderd",
  "bin.emptied": "De prullenbak is leeg",
  "bin.failed": "Niet alles in de prullenbak lukte",
+ "bin.busy": "Een andere Coxswain is bezig in de prullenbak. Probeer het opnieuw als die klaar is.",
  "bin.no_restore": "macOS laat apps geen bestanden uit de prullenbak terugzetten: kopieer ze eruit, of gebruik Zet terug in de Finder",
  "bin.not_here": "Dit werkt alleen in de prullenbak",
  "bin.read_only": "In de prullenbak wordt niets verplaatst, hernoemd of gemaakt: zet het terug of kopieer het eruit",

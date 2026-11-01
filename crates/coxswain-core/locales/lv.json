@@ -4710,6 +4710,7 @@
  "bin.deleted": "Neatgriezeniski izdzēsts: {what}",
  "bin.emptied": "Atkritne ir tukša",
  "bin.failed": "Atkritnē neizdevās viss",
+ "bin.busy": "Atkritnē strādā cits Coxswain. Mēģiniet vēlreiz, kad tas būs beidzis.",
  "bin.no_restore": "macOS neļauj lietotnēm likt failus atpakaļ no atkritnes: nokopējiet tos ārā vai izmantojiet Finder komandu Likt atpakaļ",
  "bin.not_here": "Tas darbojas tikai atkritnē",
  "bin.read_only": "Atkritnē nekas netiek pārvietots, pārdēvēts vai izveidots: atjaunojiet vai nokopējiet ārā",

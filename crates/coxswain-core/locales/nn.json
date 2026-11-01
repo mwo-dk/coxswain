@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} sletta for godt",
  "bin.emptied": "Papirkorga er tom",
  "bin.failed": "Ikkje alt i papirkorga kunne gjerast",
+ "bin.busy": "Ein annan Coxswain arbeider i papirkorga. Prøv igjen når arbeidet er ferdig.",
  "bin.no_restore": "macOS lèt ikkje appar leggja filer tilbake frå papirkorga: kopier dei ut, eller bruk Legg tilbake i Finder",
  "bin.not_here": "Dette verkar berre i papirkorga",
  "bin.read_only": "Ingenting vert flytt, får nytt namn eller vert laga i papirkorga: gjenopprett, eller kopier ut",

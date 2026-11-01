@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} endgültig gelöscht",
  "bin.emptied": "Der Papierkorb ist leer",
  "bin.failed": "Im Papierkorb ging nicht alles",
+ "bin.busy": "Ein anderes Coxswain arbeitet gerade im Papierkorb. Versuchen Sie es erneut, wenn es fertig ist.",
  "bin.no_restore": "macOS lässt Apps nichts aus dem Papierkorb zurücklegen: herauskopieren oder im Finder „Zurücklegen“ wählen",
  "bin.not_here": "Das geht nur im Papierkorb",
  "bin.read_only": "Im Papierkorb wird nichts verschoben, umbenannt oder angelegt: wiederherstellen oder herauskopieren",

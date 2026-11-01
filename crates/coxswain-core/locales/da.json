@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} slettet endeligt",
  "bin.emptied": "Papirkurven er tom",
  "bin.failed": "Ikke alt i papirkurven kunne gøres",
+ "bin.busy": "En anden Coxswain arbejder i papirkurven. Prøv igen, når den er færdig.",
  "bin.no_restore": "macOS lader ikke apps lægge filer tilbage fra papirkurven: kopiér dem ud, eller brug Læg tilbage i Finder",
  "bin.not_here": "Det virker kun i papirkurven",
  "bin.read_only": "Intet flyttes, omdøbes eller oprettes i papirkurven: gendan det, eller kopiér det ud",

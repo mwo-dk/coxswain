@@ -4808,6 +4808,7 @@
  "bin.deleted": "Usunięto na zawsze: {what}",
  "bin.emptied": "Kosz jest pusty",
  "bin.failed": "Nie wszystko w Koszu się udało",
+ "bin.busy": "Inny Coxswain pracuje w Koszu. Spróbuj ponownie, gdy skończy.",
  "bin.no_restore": "macOS nie pozwala aplikacjom odkładać plików z Kosza: skopiuj je na zewnątrz albo użyj Odłóż w Finderze",
  "bin.not_here": "To działa tylko w Koszu",
  "bin.read_only": "W Koszu nic się nie przenosi, nie zmienia nazwy ani nie tworzy: przywróć albo skopiuj na zewnątrz",

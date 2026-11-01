@@ -4710,6 +4710,7 @@
  "bin.deleted": "Galutinai ištrinta: {what}",
  "bin.emptied": "Šiukšlinė tuščia",
  "bin.failed": "Šiukšlinėje pavyko ne viskas",
+ "bin.busy": "Šiukšlinėje dirba kitas Coxswain. Bandykite dar kartą, kai jis baigs.",
  "bin.no_restore": "macOS neleidžia programoms grąžinti failų iš šiukšlinės: nukopijuokite juos lauk arba naudokite „Finder“ komandą „Grąžinti“",
  "bin.not_here": "Tai veikia tik šiukšlinėje",
  "bin.read_only": "Šiukšlinėje niekas neperkeliama, nepervadinama ir nekuriama: atkurkite arba nukopijuokite lauk",

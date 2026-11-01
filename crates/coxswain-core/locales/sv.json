@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} raderat för gott",
  "bin.emptied": "Papperskorgen är tom",
  "bin.failed": "Allt i papperskorgen gick inte att göra",
+ "bin.busy": "En annan Coxswain arbetar i papperskorgen. Försök igen när den är klar.",
  "bin.no_restore": "macOS låter inte appar lägga tillbaka filer från papperskorgen: kopiera ut dem, eller använd Lägg tillbaka i Finder",
  "bin.not_here": "Det fungerar bara i papperskorgen",
  "bin.read_only": "Inget flyttas, byter namn eller skapas i papperskorgen: återställ det, eller kopiera ut det",

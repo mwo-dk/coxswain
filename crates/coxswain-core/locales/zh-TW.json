@@ -4525,6 +4525,7 @@
  "bin.deleted": "已永久刪除 {what}",
  "bin.emptied": "垃圾桶已清空",
  "bin.failed": "垃圾桶中的動作未能全部完成",
+ "bin.busy": "另一個 Coxswain 正在垃圾桶中工作。請在它完成後再試。",
  "bin.no_restore": "macOS 不讓 App 從垃圾桶放回檔案：請把它們複製出來，或在 Finder 中使用「放回原位」",
  "bin.not_here": "這只能在垃圾桶中使用",
  "bin.read_only": "在垃圾桶中不會移動、重新命名或新增任何內容：請還原它，或把它複製出來",

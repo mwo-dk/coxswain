@@ -4612,6 +4612,7 @@
  "bin.deleted": "{what} poistettu pysyvästi",
  "bin.emptied": "Roskakori on tyhjä",
  "bin.failed": "Kaikkea roskakorissa ei voitu tehdä",
+ "bin.busy": "Toinen Coxswain työskentelee roskakorissa. Yritä uudelleen, kun se on valmis.",
  "bin.no_restore": "macOS ei anna sovellusten palauttaa tiedostoja roskakorista: kopioi ne ulos tai käytä Finderin Palauta-toimintoa",
  "bin.not_here": "Tämä toimii vain roskakorissa",
  "bin.read_only": "Roskakorissa mitään ei siirretä, nimetä uudelleen tai luoda: palauta tai kopioi ulos",

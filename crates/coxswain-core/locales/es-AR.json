@@ -4710,6 +4710,7 @@
  "bin.deleted": "{what} eliminado definitivamente",
  "bin.emptied": "La papelera está vacía",
  "bin.failed": "No se pudo hacer todo en la papelera",
+ "bin.busy": "Otro Coxswain está trabajando en la papelera. Probá de nuevo cuando termine.",
  "bin.no_restore": "macOS no deja que las apps devuelvan archivos de la papelera: copialos afuera o usá Devolver en el Finder",
  "bin.not_here": "Esto funciona solo en la papelera",
  "bin.read_only": "En la papelera no se mueve, renombra ni crea nada: restauralo o copialo afuera",

@@ -4612,6 +4612,7 @@
  "bin.deleted": "Jäädavalt kustutatud: {what}",
  "bin.emptied": "Prügikast on tühi",
  "bin.failed": "Kõike prügikastis ei õnnestunud teha",
+ "bin.busy": "Teine Coxswain töötab prügikastis. Proovi uuesti, kui see on lõpetanud.",
  "bin.no_restore": "macOS ei lase rakendustel faile prügikastist tagasi panna: kopeeri need välja või kasuta Finderis Pane tagasi",
  "bin.not_here": "See töötab ainult prügikastis",
  "bin.read_only": "Prügikastis ei liigutata, nimetata ümber ega looda midagi: taasta või kopeeri välja",

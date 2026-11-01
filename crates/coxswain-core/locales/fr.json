@@ -4710,6 +4710,7 @@
  "bin.deleted": "{what} supprimé définitivement",
  "bin.emptied": "La corbeille est vide",
  "bin.failed": "Tout n’a pas pu être fait dans la corbeille",
+ "bin.busy": "Un autre Coxswain travaille dans la corbeille. Réessayez quand il aura terminé.",
  "bin.no_restore": "macOS ne permet pas aux apps de remettre des fichiers depuis la corbeille : copiez-les ailleurs, ou utilisez Remettre en place dans le Finder",
  "bin.not_here": "Ceci ne fonctionne que dans la corbeille",
  "bin.read_only": "Rien n’est déplacé, renommé ni créé dans la corbeille : restaurez-le ou copiez-le ailleurs",

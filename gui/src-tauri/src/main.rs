@@ -1943,7 +1943,12 @@ async fn undo(ctx: tauri::State<'_, Ctx>) -> Res<coxswain_core::undo::Undone> {
     let rec = ctx.undo.lock().map_err(|e| e.to_string())?.pop().ok_or_else(|| coxswain_core::t!("undo.nothing"))?;
     // In turn with the file operations: never under a copy or a move that runs.
     let _turn = ctx.job_turn.lock().await;
-    let u = blocking(move || Ok(rec.undo(|_| {}))).await?;
+    // Stop stops it, a wait for a bin another Coxswain is busy in too.
+    let stop = ctx.job_stop.lock().map_err(|e| e.to_string())?.clone();
+    *JOB.lock().map_err(|e| e.to_string())? = Some(JobProgress { all: 1, name: rec.label(), stop: stop.clone(), ..Default::default() });
+    let u = blocking(move || Ok(rec.undo_until(&stop, |_| {}))).await;
+    *JOB.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    let u = u?;
     ctx.changed(&u.touched);
     Ok(u)
 }

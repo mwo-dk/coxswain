@@ -66,7 +66,7 @@ All three ask first, naming how many items and their size, and say that it canno
 |---|---|
 | *Restore from the bin* | Puts the marked items (or the one under the cursor) back where they were; on the BSDs, illumos and Linux the folder is made again if it is gone. When another file has the place now, nothing is overwritten: Coxswain asks *Restore under a free name*, which puts it beside that file as `name (2)`; Esc leaves it in the bin. A file that came into your home's bin from another disk goes back across, copied and then removed from the bin, as **F6** moves between disks |
 | *Delete from the bin for good* | Deletes the marked items, folders with all in them. Also **F8** and **Shift+F8** in the bin |
-| *Empty the bin* | Deletes everything in the bin for good. Also from the sidebar row's menu, from anywhere |
+| *Empty the bin* | Deletes everything in the bin for good: what it held when it started. On the BSDs, illumos and Linux a file put in the bin while it empties (from the other app, a browser, the desktop) stays there. Also from the sidebar row's menu, from anywhere |
 
 The status line then says *Restored 3 items*, *Deleted 2 items for good* or *The bin is empty*.
 What could not be done (a file in use, no permission) is listed in a dialog with its name.
