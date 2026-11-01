@@ -61,7 +61,7 @@ x509-parser = "0.18.1"
 getrandom = "0.4"
 # More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
 bzip2 = "0.6.1"
-lzma-rust2 = "0.23"
+lzma-rust2 = "0.24"
 ruzstd = "0.9.0"
 # A gzip unpacked from a block boundary in its middle (a compressed tar's restart points).
 miniz_oxide = { version = "0.9.1", features = ["block-boundary"] }
