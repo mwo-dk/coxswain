@@ -89,8 +89,8 @@ it. WinGet keeps a record of each package it installs (`installed.db` under its 
 `%LOCALAPPDATA%`); when that lists `mwo-dk.Coxswain`, the desktop app names `winget upgrade
 mwo-dk.Coxswain`. WinGet keeps that record after `winget uninstall`, so if you uninstalled it
 with WinGet and then ran the installer yourself, the hint still names `winget upgrade`. Coxswain
-reads that file once when it starts; it does not run `winget`. Its WinGet
-package, `mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
+reads that file once when it starts; it does not run `winget`. Its WinGet package,
+`mwo-dk.Coxswain`, is waiting for WinGet's review; until it is listed, only
 `mwo-dk.Coxswain.Terminal` is on WinGet. There is no Arch (AUR) package yet.
 
 ## Where it asks
@@ -142,7 +142,7 @@ stays in charge.
 #### Why does it show a URL instead of a command?
 
 It could not tell a package manager from where the program runs: a download, a `.deb`, an
-AppImage, or the Windows desktop installer you ran yourself (one WinGet ran is in WinGet's record,
+AppImage, or the Windows desktop installer you ran yourself (one WinGet ever installed is in WinGet's record, even after `winget uninstall`,
 and gets `winget upgrade mwo-dk.Coxswain`). Update it the way you installed it:
 download the new release, or run your package manager's upgrade.
 
