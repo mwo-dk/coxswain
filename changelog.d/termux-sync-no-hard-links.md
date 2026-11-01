@@ -1,0 +1,1 @@
+| **Making one folder like the other works in Termux.** Android refuses hard links, and every new or changed file failed with *Permission denied*; each is now renamed into place, still never over a file that is there. | [Folder sync](files/compare-folders.md#making-one-side-like-the-other) |
